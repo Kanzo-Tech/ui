@@ -44,7 +44,7 @@
   --size-field: 0.25rem;
   --size-selector: 0.25rem;
   --stroke: 1px;
-  --depth: 0;
+  --relief: 0;
 
   /* daisyUI has no categorical channel, so this theme authors no `--chart-*` and takes the eight
      `tokens.css` publishes as its fallback. It does NOT declare `--chart-capacity: 0`: zero means

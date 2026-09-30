@@ -174,6 +174,7 @@ const RUNTIME: Record<string, "zag" | "tailwind" | "knob"> = {
   "--available-height": "zag",
   "--collapsed-height": "zag",
   "--color": "zag",
+  "--depth": "zag",
   "--height": "zag",
   "--layer-index": "zag",
   "--left": "zag",

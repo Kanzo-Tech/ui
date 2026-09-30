@@ -153,12 +153,12 @@ disagree with the output about a token either of them carries.**
 
 ### Drag `depth` first
 
-It is the knob that shows what the shape half buys. `--depth` is a plain **number** multiplied into
+It is the knob that shows what the shape half buys. `--relief` is a plain **number** multiplied into
 a `calc()` that is already written into the recipes:
 
 ```css
---btn-lift: color-mix(in oklab, var(--btn-bg) calc(var(--depth) * 30%), transparent);
---btn-edge: color-mix(in oklab, var(--btn-bd), var(--foreground) calc(var(--depth) * 8%));
+--btn-lift: color-mix(in oklab, var(--btn-bg) calc(var(--relief) * 30%), transparent);
+--btn-edge: color-mix(in oklab, var(--btn-bd), var(--foreground) calc(var(--relief) * 8%));
 ```
 
 At `0` the shadow is transparent and the edge is the fill; at `1` the control has relief. **One

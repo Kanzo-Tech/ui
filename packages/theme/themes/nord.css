@@ -41,7 +41,7 @@
   --size-field: 0.25rem;
   --size-selector: 0.25rem;
   --stroke: 1px;
-  --depth: 0;
+  --relief: 0;
 
   /* Optional: categorical set and syntax */
   --chart-capacity: 8;

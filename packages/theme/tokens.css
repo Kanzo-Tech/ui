@@ -279,7 +279,7 @@
      utilities now answer to `--radius-field` — `rounded-lg` sits on a button far more often than
      on a card. */
   --stroke: 1px;
-  --depth: 0;
+  --relief: 0;
   --size-field: 0.25rem;
   --size-selector: 0.25rem;
 

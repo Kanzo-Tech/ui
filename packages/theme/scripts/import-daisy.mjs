@@ -228,7 +228,7 @@ function translate(file) {
       "--size-selector": declared["--size-selector"],
       // Theirs is `--border`, which in this vocabulary is the border's *colour*.
       "--stroke": declared["--border"],
-      "--depth": declared["--depth"],
+      "--relief": declared["--depth"],
     },
   };
 }
