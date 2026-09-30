@@ -21,6 +21,29 @@ function subscribed() {
 }
 
 describe("the graph store", () => {
+  it("holds a failure found while it is built, and reports it to the first subscriber", () => {
+    // `useGraph` builds the store inside `useState`, so a failure found here is found during a
+    // render, and a host's `onFailure` is usually a `setState` — React refuses it there.
+    const fake = fakeCorpus();
+    const onFailure = vi.fn();
+    const corpus = {
+      ...fake.corpus,
+      tileMatrix: () => {
+        throw new Error("no such type");
+      },
+    };
+    const store = createGraph({ corpus, onFailure });
+
+    expect(onFailure).not.toHaveBeenCalled();
+
+    const unsubscribe = store.subscribe(() => {});
+    expect(onFailure).toHaveBeenCalledExactlyOnceWith("no such type");
+
+    unsubscribe();
+    store.subscribe(() => {});
+    expect(onFailure).toHaveBeenCalledTimes(1);
+  });
+
   it("notifies subscribers once when a tile loads", async () => {
     const { fake, heard, store } = subscribed();
     store.setViewport(near);
