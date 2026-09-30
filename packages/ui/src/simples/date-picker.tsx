@@ -1,7 +1,10 @@
+"use client";
+
 import {
   DatePicker as ArkDatePicker,
   useDatePickerContext,
 } from "@ark-ui/react/date-picker";
+import { type UseFieldContext, useFieldContext } from "@ark-ui/react/field";
 import { Portal } from "@ark-ui/react/portal";
 import { CalendarIcon, ClockIcon } from "lucide-react";
 import type React from "react";
@@ -21,13 +24,23 @@ import {
 
 export const useDatePicker = useDatePickerContext;
 
+// Ark's `useDatePicker` reads no `useFieldContext` (it takes environment and locale only), so a
+// `Field disabled` greyed the input while the popover still opened and a click still wrote a value.
+// Bridged here the way `RadioGroup` does it: state flags only, explicit props win, and with no
+// `Field` ancestor every flag is `undefined`, which Ark strips before the machine sees it.
 export const DatePicker = (props: React.ComponentProps<typeof Calendar>) => {
   const { positioning = { placement: "top" }, slot, ...rest } = props;
 
+  const field: UseFieldContext | undefined = useFieldContext();
+
   return (
     <Calendar
+      disabled={field?.disabled}
       inline={false}
+      invalid={field?.invalid}
       positioning={positioning}
+      readOnly={field?.readOnly}
+      required={field?.required}
       {...rest}
       slot={slot ?? "date-picker"}
     />

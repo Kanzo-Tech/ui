@@ -14,6 +14,10 @@ The grid is a real `role="grid"` with roving tabindex, arrow-key navigation and 
 quick-nav, and `CalendarTableDays` / `CalendarWeekDays` read the weeks and weekday names off the
 machine, so a locale change reflows it with no work on your side.
 
+Inside a [`Field`](/docs/forms/field), `DatePicker` reads `disabled`, `invalid`, `readOnly` and
+`required` from it, so a disabled field keeps its popover shut as well as its input grey; an explicit
+prop on the picker still wins.
+
 ## Usage
 
 ```tsx
