@@ -57,6 +57,16 @@ enough — the switch is a container query, so a field in a narrow panel stays s
 
 <ComponentPreview componentName="field" fileName="example-invalid" />
 
+## Helper tone
+
+`FieldHelper` is the text wired into the control's `aria-describedby`, and it takes a `tone`:
+`muted` (the default), `info` or `warning`. Use one for a message the value survives — a warning
+that a P.O. box cannot be delivered to, a note about what the field will do — and keep
+`FieldError` for what blocks. Ark gives every helper the same id, so a field has one; put a second
+line in `FieldDescription`.
+
+<ComponentPreview componentName="field" fileName="example-helper-tone" />
+
 ## Required
 
 <ComponentPreview componentName="field" fileName="example-required" />
@@ -116,6 +126,14 @@ and field-level validity are separate claims, so set both if you mean both.
 
 Extends `Field.Root` from Ark, so `invalid`, `disabled`, `required`, `readOnly` and `id` pass
 through.
+
+### FieldHelper
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `tone` | `"muted" \| "info" \| "warning"` | `"muted"` |
+
+Extends `Field.HelperText` from Ark.
 
 ### FieldSet
 

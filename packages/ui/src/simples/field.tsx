@@ -281,14 +281,37 @@ export const FieldSeparator = (props: React.ComponentProps<typeof ark.div>) => {
   );
 };
 
-export const FieldHelper = (
-  props: React.ComponentProps<typeof ArkField.HelperText>
-) => {
-  const { className, slot, ...rest } = props;
+const fieldHelperVariants = tv({
+  base: "text-sm",
+  variants: {
+    // `muted` is what a helper always was. The two others are for a message that is neither
+    // guidance nor an error: a warning the value survives, or a note about what it will do. They
+    // are text colours and nothing else — a message that must block belongs in `FieldError`.
+    tone: {
+      muted: "text-muted-foreground",
+      info: "text-info-foreground",
+      warning: "text-warning-foreground",
+    },
+  },
+  defaultVariants: { tone: "muted" },
+});
+
+interface FieldHelperProps
+  extends React.ComponentProps<typeof ArkField.HelperText>,
+    VariantProps<typeof fieldHelperVariants> {}
+
+/**
+ * The one message wired into the control's `aria-describedby`, and there is one per `Field`: Ark
+ * gives every `HelperText` the same id, so a second would collide. A warning beside a description
+ * is therefore this part with a `tone` for the warning and `FieldDescription` for the description.
+ */
+export const FieldHelper = (props: FieldHelperProps) => {
+  const { tone = "muted", className, slot, ...rest } = props;
 
   return (
     <ArkField.HelperText
-      className={cn("text-muted-foreground text-sm", className)}
+      className={cn(fieldHelperVariants({ tone }), className)}
+      data-tone={tone}
       {...rest}
       data-slot={slot ?? "field-helper"}
     />

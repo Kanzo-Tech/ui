@@ -110,6 +110,41 @@ describe("field-scoped messages", () => {
   });
 });
 
+describe("FieldHelper tone", () => {
+  it("is muted by default and takes the tone's colour otherwise", () => {
+    const { rerender } = render(
+      <Field>
+        <Input />
+        <FieldHelper>Street and number.</FieldHelper>
+      </Field>,
+    );
+    expect(slot("field-helper")?.getAttribute("data-tone")).toBe("muted");
+    expect(slot("field-helper")?.className).toContain("text-muted-foreground");
+
+    rerender(
+      <Field>
+        <Input />
+        <FieldHelper tone="warning">Looks like a P.O. box.</FieldHelper>
+      </Field>,
+    );
+    expect(slot("field-helper")?.className).toContain("text-warning-foreground");
+    expect(slot("field-helper")?.className).not.toContain("text-muted-foreground");
+  });
+
+  it("stays the control's description whatever its tone", () => {
+    render(
+      <Field>
+        <Input />
+        <FieldHelper tone="info">Shown on invoices.</FieldHelper>
+      </Field>,
+    );
+
+    expect(screen.getByRole("textbox").getAttribute("aria-describedby")).toBe(
+      slot("field-helper")?.id,
+    );
+  });
+});
+
 describe("fieldset-scoped messages", () => {
   it("describe the group, not the control", () => {
     render(
