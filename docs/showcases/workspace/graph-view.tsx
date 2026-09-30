@@ -2,6 +2,7 @@
 
 import {
   Fragment,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -9,8 +10,8 @@ import {
   type ReactNode,
 } from "react";
 import { parseDate, type DateValue } from "@internationalized/date";
-import { clausePoints } from "@uwdata/mosaic-core";
-import { desc, sql } from "@uwdata/mosaic-sql";
+import { desc, sql, verbatim, type VerbatimNode } from "@uwdata/mosaic-sql";
+import { open, type Corpus } from "@fossil-lang/corpus";
 import {
   Badge,
   Button,
@@ -28,7 +29,6 @@ import {
   ComboboxEmpty,
   ComboboxInput,
   ComboboxItem,
-  DataList,
   DataListItem,
   DataListItemLabel,
   DataListItemValue,
@@ -57,7 +57,6 @@ import {
   Show,
   Status,
   Skeleton,
-  Swatch,
   TagsInput,
   TagsInputContext,
   TagsInputControl,
@@ -67,9 +66,10 @@ import {
   TagsInputItemInput,
   TagsInputItemPreview,
   TagsInputItemText,
+  toast,
   useFilter,
+  useKanzoTheme,
   useListCollection,
-  useChartCapacity,
 } from "@kanzo-tech/ui";
 import {
   CompleteHint,
@@ -96,16 +96,16 @@ import {
   type InlineCompletionRequest,
 } from "@kanzo-tech/ai";
 import {
+  Coordinator,
+  MosaicProvider,
   Query,
-  chartSeriesColor,
+  Selection as MosaicSelection,
   count,
   useChartQuery,
   useMosaic,
 } from "@kanzo-tech/ui/analytics";
 import {
-  CrosshairIcon,
   MaximizeIcon,
-  RotateCcwIcon,
   SearchIcon,
   SparklesIcon,
   PlusIcon,
@@ -113,6 +113,20 @@ import {
   XIcon,
 } from "lucide-react";
 import { cn } from "@kanzo-tech/ui";
+import {
+  GraphInspector,
+  GraphRoot,
+  ShapeGlyph,
+  lookFrom,
+  scaleOf,
+  useGraphContext,
+  useGraphPrefs,
+  useGraphState,
+  vertexId,
+  type Channels,
+  type Look,
+  type VertexDetail,
+} from "@kanzo-tech/graph";
 import {
   compileOrders,
   DEFAULT_ORDERS,
@@ -133,47 +147,193 @@ import {
   toOrders,
 } from "./order-builder";
 import { numbers } from "@/lib/arrow";
+import { ARCHIVE_KINDS as KINDS } from "@/example/archive";
 import { HALLS, isoDay } from "@/example/world";
-import {
-  KINDS,
-  type GraphSpec,
-  CLUSTER,
-  FORCES,
-  PAIRINGS,
-  useGraphView,
-  type Motion,
-  LOOKS,
-  LOOK_ORDER,
-  LOOK_LABEL,
-  LOOK_BLURB,
-} from "./graph-state";
-import {
-  denseOf,
-  ShapeGlyph,
-  scaleOf,
-  vertexId,
-  type Channels,
-  type Look,
-} from "@kanzo-tech/graph";
-import type { NodeKind } from "./graph-data";
-import { text } from "./graph-canvas";
+import { ensure } from "./duck";
 import { Finding } from "./graph-finding";
 
 /**
- * The panels around the canvas.
+ * The archive's graph, and the product panels around it.
  *
- * Every number any of them shows is a query against the same two relations, and every selection any
- * of them makes is a clause in the same crossfilter — which is why none of them imports the canvas,
- * or needs to know that a graph is what the selection is being drawn on.
+ * **The graph is one `GraphRoot` composition** — `ArchiveGraph` below, and the parts `default.tsx`
+ * places. Everything else in this file is the product's: the named pairings of look and channels,
+ * the hall's name in the inspector, the archive search, the standing orders, the ask box and the
+ * two preferences panels. Every number a panel shows is a query against the node relation, and
+ * every selection a panel makes goes through the root's `select` — so none of them reads the
+ * canvas, or needs to know a graph is what the selection is drawn on.
  */
 
-export { GraphMosaic, KINDS } from "./graph-state";
-export {
-  GraphCanvas,
-  GraphSelection,
-  GraphToolbar,
-  GraphZoom,
-} from "./graph-canvas";
+/**
+ * Where the compiled archive is served from, written by `corpus/build-corpus.mjs`. Prefixed, because
+ * a string handed to DuckDB is not rewritten under `basePath` the way `Link` is: under `/ui` a bare
+ * `/corpus/…` is a 404 with no error anywhere. `NEXT_PUBLIC_BASE_PATH` is the variable
+ * `next.config.ts` reads, so the two cannot disagree.
+ */
+const CORPUS = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/corpus/archive`;
+
+/** The vertex type the canvas draws — the archive's one. */
+const TYPE = "Node";
+
+/** The address column a panel's `SELECT` names, so a picked row becomes a vertex. */
+const ID = "dense_id";
+
+/**
+ * An opened archive: the coordinator and crossfilter every panel queries through, the corpus the
+ * canvas draws, and the node relation as the orders and the ask box name it — a node rather than a
+ * string, because `Query.from("x")` quotes a string again and `"catalog"."Node"` is no table.
+ */
+export interface Archive {
+  coordinator: Coordinator;
+  crossfilter: MosaicSelection;
+  corpus: Corpus;
+  nodes: VerbatimNode;
+  typeIndex: number;
+}
+
+function openArchive(): Promise<Archive> {
+  return ensure(CORPUS, async (engine) => {
+    // Origin-qualified: DuckDB-WASM resolves a root-relative path in its own filesystem.
+    const corpus = await open(`${window.location.origin}${CORPUS}`, { engine });
+    const relations = await corpus.relations();
+    const nodes = relations.find((relation) => relation.kind === "vertex" && relation.name === TYPE);
+    if (!nodes) throw new Error(`corpus: ${CORPUS} declares no ${TYPE} vertices`);
+    return {
+      coordinator: engine.coordinator,
+      crossfilter: MosaicSelection.crossfilter(),
+      corpus,
+      nodes: verbatim(nodes.sql),
+      typeIndex: corpus.types.vertices.findIndex((type) => type.type === TYPE),
+    };
+  });
+}
+
+/** The archive once it is open, or `null` while it opens or when it would not. */
+export function useArchive(): Archive | null {
+  const [archive, setArchive] = useState<Archive | null>(null);
+  useEffect(() => {
+    let live = true;
+    openArchive().then(
+      (opened) => live && setArchive(opened),
+      () => {},
+    );
+    return () => {
+      live = false;
+    };
+  }, []);
+  return archive;
+}
+
+/**
+ * The three arrangements this product offers — a **form**, and the bindings bundled with it. A name
+ * for a composition is a product's word, not a library's, so the table is here. Each writes every
+ * axis any of them names, so wearing one leaves nothing behind from the last.
+ */
+export type LookId = "nebula" | "atlas" | "ink";
+
+const ARRANGEMENTS: Record<LookId, Record<string, string>> = {
+  nebula: { marks: "dense", "additive-links": "true", "bowed-links": "false", labels: "14", vignette: "true" },
+  atlas: { marks: "dense", "additive-links": "false", "bowed-links": "true", labels: "26", vignette: "false" },
+  ink: { marks: "legible", "additive-links": "false", "bowed-links": "false", labels: "40", vignette: "false" },
+};
+
+const LOOKS: Record<LookId, Look> = {
+  nebula: lookFrom(ARRANGEMENTS.nebula),
+  atlas: lookFrom(ARRANGEMENTS.atlas),
+  ink: lookFrom(ARRANGEMENTS.ink),
+};
+
+const LOOK_ORDER: LookId[] = ["nebula", "atlas", "ink"];
+
+const LOOK_LABEL: Record<LookId, string> = { nebula: "Nebula", atlas: "Atlas", ink: "Ink" };
+
+const LOOK_BLURB: Record<LookId, string> = {
+  nebula: "Dense and dim points, for a picture that reads as flow.",
+  atlas: "Map-steady points, links that just bow, generous labels.",
+  ink: "Large, legible marks — the print-and-projector register.",
+};
+
+/** Ink paints every point one ink — `fill` as a constant — and spends identity on shape. */
+const PAIRINGS: Record<LookId, Channels> = {
+  nebula: { fill: "kind" },
+  atlas: { fill: "kind", stroke: "var(--muted-foreground)" },
+  ink: { fill: "var(--foreground)", symbol: "kind", stroke: "var(--muted-foreground)" },
+};
+
+/** The arrangement worn, and wearing one: its bindings, and one write of the axes that name it. */
+export function useArrangement(): [LookId, (id: LookId) => void] {
+  // Atlas out of the box: it is built from the theme tokens, so it arrives in the app's mode.
+  const [arrangement, setArrangement] = useState<LookId>("atlas");
+  const { setSectionPref } = useKanzoTheme();
+  const wear = useCallback(
+    (id: LookId) => {
+      setArrangement(id);
+      setSectionPref("graph", ARRANGEMENTS[id]);
+    },
+    [setSectionPref],
+  );
+  return [arrangement, wear];
+}
+
+/**
+ * A failure, as a toast — once per message, and after the commit that reported it: the renderer
+ * reports from an effect, where a toast's synchronous flush is refused.
+ */
+function announce(title: string): void {
+  queueMicrotask(() => {
+    if (!toast.isVisible(title)) toast.create({ id: title, title, type: "error" });
+  });
+}
+
+/**
+ * **The graph, whole.** The root takes the opening rather than waiting for it, so the canvas says
+ * it is opening; the Mosaic provider arrives with the engine, and the panels under it query the
+ * node relation the orders and the ask box are written against.
+ */
+export function ArchiveGraph({ arrangement, children }: { arrangement: LookId; children: ReactNode }) {
+  const archive = useArchive();
+  const opening = useMemo(() => openArchive().then((opened) => opened.corpus), []);
+  const { look, sim } = useGraphPrefs();
+  return (
+    <GraphRoot
+      categories={KINDS}
+      corpus={opening}
+      filterBy={archive?.crossfilter}
+      look={look}
+      onFailure={announce}
+      r="degree"
+      sim={sim}
+      title="label"
+      type={TYPE}
+      {...PAIRINGS[arrangement]}
+    >
+      <Show fallback={children} when={archive !== null}>
+        {archive && (
+          <MosaicProvider coordinator={archive.coordinator} crossfilter={archive.crossfilter}>
+            {children}
+          </MosaicProvider>
+        )}
+      </Show>
+    </GraphRoot>
+  );
+}
+
+/** The footer: what the corpus holds, and whether what is in view has been drawn. */
+export function ArchiveCounts() {
+  const corpus = useGraphState((s) => s.corpus);
+  const status = useGraphState((s) => s.status);
+  const edges = corpus?.types.edges.reduce((sum, edge) => sum + Number(edge.count ?? 0), 0);
+  return (
+    <span className="flex items-center gap-2 px-1 text-muted-foreground text-xs tabular-nums">
+      <Show fallback="Opening the archive…" when={corpus !== null}>
+        {Number(corpus?.types.vertices[0]?.count ?? 0).toLocaleString()} nodes · {edges?.toLocaleString()} edges
+      </Show>
+      <Badge className="gap-1.5" size="xs" variant="outline">
+        <Status className="ring-0" size="sm" variant={status === "idle" ? "success" : status === "failed" ? "destructive" : "info"} />
+        {status}
+      </Badge>
+    </span>
+  );
+}
 
 // A SHACL bound is a plain ISO string — that is what compiles to SQL and what a Turtle document
 // carries — while `DatePicker` speaks `DateValue`. These two are the whole seam.
@@ -225,413 +385,46 @@ function IsoDateInput({
   );
 }
 
-// ── Legend and counts ────────────────────────────────────────────────────────
+// ── Info ─────────────────────────────────────────────────────────────────────
 
-/** The legend draws the glyph the canvas draws, so a look that encodes kind as shape stays legible. */
 /**
- * The domain the swatches are drawn against — **sorted**, and that is not a tidy-up.
- *
- * A slice carries category *ordinals*, not names, and the ordinal is whatever the source ranked the
- * column into: `dense_rank() OVER (ORDER BY kind)`, which is alphabetical. `KINDS` is the fixture's
- * declared order, and the two are not the same list — this corpus has six kinds and `member` sits
- * fifth here and third alphabetically. Left unsorted this legend would name colours the canvas gives
- * to different kinds.
- *
- * The gap the old comment called hypothetical — the cross-panel binding problem, Vega-Lite's
- * `resolve: {scale: {color: shared}}` — is now load-bearing, because the binding is a number crossing
- * a query boundary rather than a string both sides happen to agree on. Sorting is the whole of the
- * agreement: the source ranks by value, so the domain is the distinct values in that same order.
+ * The hall a vertex belongs to, by the name a reader knows it by — the one field this product adds
+ * to the inspector, because the relation stores the id. Everything the halls share belongs to none.
  */
-const LEGEND_DOMAIN = Object.keys(KINDS).sort();
-
-/** A category name to the ordinal the canvas knows it by. `-1` for a kind the corpus does not hold. */
-const ordinalOf = (kind: string): number => LEGEND_DOMAIN.indexOf(kind);
-
-function LegendSwatch({ kind }: { kind: string }) {
-  const { arrangement } = useGraphView();
-  const capacity = useChartCapacity();
-  const scale = scaleOf(PAIRINGS[arrangement], capacity);
+function HallName({ detail }: { detail: VertexDetail }) {
+  const id = detail.fields.find((field) => field.name === "hall")?.value;
+  const name = HALLS.find((entry) => entry.id === id)?.short;
   return (
-    <ShapeGlyph
-      className="size-2.5 shrink-0"
-      color={scale.color(ordinalOf(kind))}
-      shape={scale.shape(ordinalOf(kind))}
-    />
-  );
-}
-
-function LegendRows() {
-  const { spec } = useGraphView();
-  const { rows } = useChartQuery({
-    deps: [spec],
-    query: (filter) =>
-      spec === null
-        ? null
-        : Query.from(spec.table)
-            .select({ kind: spec.categoryField, n: count() })
-            .where(filter)
-            .groupby(spec.categoryField),
-  });
-  const tally = new Map(
-    (rows ?? []).map((row) => [String(row.kind), Number(row.n)])
-  );
-
-  return (
-    <ul className="space-y-1">
-      {Object.entries(KINDS).map(([kind, series]) => (
-        <li className="flex items-center gap-2 text-xs" key={kind}>
-          <LegendSwatch kind={kind} />
-          <span>{series.label}</span>
-          <span className="ms-auto ps-4 text-muted-foreground tabular-nums">
-            {rows === null ? "—" : tally.get(kind) ?? 0}
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-export function GraphLegend() {
-  const { ready } = useGraphView();
-  // Solid, like the rest of the canvas chrome: `bg-card/80` measured a ΔE 12.6–14.0 spread across
-  // the plane and the eight slots, so the legend's own surface changed colour with whatever the
-  // layout parked behind it.
-  return (
-    <div className="absolute bottom-2 start-2 z-10 rounded-md border bg-card px-2.5 py-1.5">
-      {ready ? (
-        <LegendRows />
-      ) : (
-        <ul className="space-y-1">
-          {Object.entries(KINDS).map(([kind, series]) => (
-            <li className="flex items-center gap-2 text-xs" key={kind}>
-              <LegendSwatch kind={kind} />
-              <span>{series.label}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-/** Live totals against the whole corpus — "of" is the crossfilter, not a guess. */
-function CountRow() {
-  const { spec } = useGraphView();
-  const nodes = useChartQuery({
-    deps: [spec],
-    query: (filter) =>
-      spec === null
-        ? null
-        : Query.from(spec.table).select({ n: count() }).where(filter),
-  });
-  const total = useChartQuery({
-    filterBy: null,
-    deps: [spec],
-    query: () =>
-      spec === null ? null : Query.from(spec.table).select({ n: count() }),
-  });
-  const edges = useChartQuery({
-    deps: [spec],
-    query: (filter) =>
-      spec === null
-        ? null
-        : Query.from(spec.edges).select({ n: count() }).where(filter),
-  });
-
-  const shown = Number(nodes.row?.n ?? 0);
-  const all = Number(total.row?.n ?? 0);
-  const links = Number(edges.row?.n ?? 0);
-  if (total.rows === null) return <>Loading the corpus…</>;
-
-  return (
-    <>
-      {shown === all
-        ? all.toLocaleString()
-        : `${shown.toLocaleString()} of ${all.toLocaleString()}`}{" "}
-      nodes · {links.toLocaleString()} edges
-    </>
+    <DataListItem className="gap-0.5 py-0">
+      <DataListItemLabel className="text-xs">hall name</DataListItemLabel>
+      <DataListItemValue>{name ?? "shared across the halls"}</DataListItemValue>
+    </DataListItem>
   );
 }
 
 /**
- * The layout's state, as one badge.
+ * Find one thing in the archive and go to it.
  *
- * All three states are named. A converged layout and a paused one are the same still picture, so
- * leaving either unlabelled — or only ever showing "settling…" — makes the canvas ambiguous exactly
- * when the reader is wondering whether it is stuck.
- */
-const MOTION: Record<
-  Motion,
-  { dot: "info" | "success" | "warning"; label: string }
-> = {
-  running: { dot: "info", label: "Settling" },
-  settled: { dot: "success", label: "Settled" },
-  paused: { dot: "warning", label: "Paused" },
-};
-
-export function MotionBadge({ className }: { className?: string }) {
-  const { motion, progress, ready } = useGraphView();
-  if (!ready) return null;
-  const state = MOTION[motion];
-  return (
-    <Badge className={cn("gap-1.5", className)} size="xs" variant="outline">
-      <Status
-        className={cn("ring-0", motion === "running" && "animate-pulse")}
-        size="sm"
-        variant={state.dot}
-      />
-      {state.label}
-      {/* Determinate, because cosmos.gl already computes it: `graph.progress` is
-          `√(ALPHA_MIN / alpha)`, so this is the layout's own account of how far it has cooled and
-          not a guess from elapsed time. Only while running — a settled or paused graph is at a
-          state, not a fraction. */}
-      <Show when={motion === "running"}>
-        <span className="tabular-nums">{Math.round(progress * 100)}%</span>
-      </Show>
-    </Badge>
-  );
-}
-
-export function GraphCounts() {
-  const { ready } = useGraphView();
-  return (
-    <span className="flex items-center gap-2 px-1 text-muted-foreground text-xs tabular-nums">
-      <span>{ready ? <CountRow /> : "Loading the corpus…"}</span>
-      <MotionBadge />
-    </span>
-  );
-}
-
-// ── Inspector ────────────────────────────────────────────────────────────────
-
-interface NodeRow {
-  id: number;
-  label: string;
-  kind: string;
-  hall: string;
-  region: string;
-  signed: string;
-  degree: number;
-  closed: string;
-  tags: string;
-}
-
-/** What the inspector reads, aliased to the names its row type uses. */
-const columnsOf = (spec: GraphSpec) => ({
-  id: spec.idField,
-  label: spec.labelField,
-  kind: spec.categoryField,
-  hall: "hall",
-  region: "region",
-  signed: "signed",
-  degree: spec.sizeField,
-  closed: "closed",
-  tags: "tags",
-});
-
-/**
- * A cell, as text. Never as whatever DuckDB happened to hand back: `closed` is a CSV column DuckDB
- * infers as DATE, so Arrow returns a `Date` object, and rendering one crashes React with "Objects
- * are not valid as a React child". Anything coming out of a query is formatted before it is shown.
- */
-/**
- * What a node carries, named the way the standing orders name it.
- *
- * These are the property names in `ARCHIVE_BINDING`, not prettier ones invented for the panel: a
- * reader who sees `signed` here and writes `require signed at least 1` in the orders is talking
- * about the same thing, and that is the entire reason the inspector is worth reading beside the
- * Orders tab.
- */
-function properties(node: NodeRow): { predicate: string; value: string }[] {
-  const rows = [{ predicate: "kind", value: text(node.kind) }];
-  if (node.hall)
-    rows.push({ predicate: "hall", value: hallName(text(node.hall)) });
-  if (node.region) rows.push({ predicate: "region", value: text(node.region) });
-  if (node.signed) rows.push({ predicate: "signed", value: text(node.signed) });
-  if (node.closed) rows.push({ predicate: "closed", value: text(node.closed) });
-  if (node.tags)
-    rows.push({
-      predicate: "tags",
-      value: text(node.tags).split("|").join(", "),
-    });
-  rows.push({ predicate: "links", value: text(node.degree) });
-  return rows;
-}
-
-/** A hall id is what the relation stores; a hall's short name is what a reader knows it by. */
-function hallName(id: string): string {
-  return HALLS.find((entry) => entry.id === id)?.short ?? id;
-}
-
-function InspectorBody() {
-  const { commands, focused, spec } = useGraphView();
-
-  const selection = useChartQuery({
-    deps: [spec],
-    query: (filter) =>
-      spec === null
-        ? null
-        : Query.from(spec.table)
-            .select(columnsOf(spec))
-            .where(filter)
-            .orderby(desc(spec.sizeField), spec.labelField)
-            .limit(12),
-  });
-  // A clicked node outranks the selection's head. Clicking publishes the node *and its
-  // neighbours*, and among those the reader's node is rarely the one with the highest degree — so
-  // ordering alone would answer a different question than the one the click asked.
-  const clicked = useChartQuery({
-    filterBy: null,
-    deps: [focused, spec],
-    query: () =>
-      focused === null || spec === null
-        ? null
-        : Query.from(spec.table)
-            .select(columnsOf(spec))
-            .where(`${spec.idField} = ${denseOf(focused)}`),
-  });
-
-  const rows = selection.rows;
-  if (spec === null || rows === null)
-    return <Skeleton className="h-24 w-full" />;
-  if (rows.length === 0) {
-    return (
-      <p className="text-muted-foreground text-xs">
-        Nothing in the current selection.
-      </p>
-    );
-  }
-
-  const all = rows as unknown as NodeRow[];
-  const pinned = (clicked.row as unknown as NodeRow | undefined) ?? null;
-  const head = pinned ?? all[0];
-  if (!head) return null;
-  const rest = all.filter((node) => node.id !== head.id);
-
-  return (
-    <div className="space-y-3">
-      <div>
-        <p className="truncate font-medium text-sm">{head.label}</p>
-        {/* Where it sits, which is the one thing the badge below cannot say: a contract and the
-            reports hanging off it belong to a hall's arc, and everything the halls share belongs to
-            none — which is why those drift between the arcs they join. */}
-        <p className="mt-0.5 text-muted-foreground text-xs">
-          {head.hall ? hallName(head.hall) : "shared across the halls"}
-        </p>
-        <div className="mt-1 flex items-center gap-1.5">
-          <Badge className="text-[10px]" size="xs" variant="outline">
-            {KINDS[head.kind]?.label ?? head.kind}
-          </Badge>
-          {/* "Reveal" said nothing about what it reveals or where. It moves the CAMERA: the node
-              is already on screen somewhere, and this brings it into view. */}
-          <Button
-            className="h-5 gap-1 text-[10px]"
-            onClick={() => commands.reveal(vertexId(spec.typeIndex, head.id))}
-            size="sm"
-            title="Bring this node into view on the canvas"
-            variant="ghost"
-          >
-            <CrosshairIcon className="size-3" />
-            Find on canvas
-          </Button>
-        </div>
-      </div>
-      {/* `DataList`, vertical: a 6rem label column would leave a URI nothing to sit in at this
-          width. It was this exact `dl` written by hand until the library adopted Shark's. */}
-      <DataList orientation="vertical">
-        {properties(head).map((p) => (
-          <DataListItem className="gap-0.5 py-0" key={p.predicate}>
-            <DataListItemLabel className="text-xs">
-              {p.predicate}
-            </DataListItemLabel>
-            <DataListItemValue className="break-all">
-              {p.value}
-            </DataListItemValue>
-          </DataListItem>
-        ))}
-      </DataList>
-      <Show when={rest.length > 0}>
-        <div className="border-t pt-2">
-          <p className="mb-1 font-medium text-muted-foreground text-xs">
-            {pinned ? "Connected to it" : "Also in this selection"}
-          </p>
-          <ul className="space-y-0.5">
-            {rest.map((node) => (
-              <li key={node.id}>
-                <button
-                  // `hover:bg-accent/60` composited to `--secondary` exactly (ΔE 0.00, both
-                  // modes): the row hover was the hover surface written as a coincidence.
-                  //
-                  // `min-h-[24px]` is in PIXELS on purpose, and it is the whole fix. WCAG 2.5.8
-                  // states its 24×24 bar in CSS px, while every size in this library is `rem` and
-                  // therefore multiplied by the density axis — so a floor written `min-h-6` would
-                  // be 24px at the default root and 21px at compact, which is the failure rather
-                  // than the fix. Measured before: 20.0px tall at default and 17.5 at compact,
-                  // centres 22.0 and 19.3 apart, failing 2.5.8 AA at two of the three densities.
-                  // A px floor is the one size in this file that must NOT scale, because the bar
-                  // it answers to does not.
-                  className="flex min-h-[24px] w-full items-center gap-2 rounded-sm px-1 py-0.5 text-start text-xs hover:bg-accent"
-                  onClick={() =>
-                    commands.reveal(vertexId(spec.typeIndex, node.id))
-                  }
-                  type="button"
-                >
-                  <Swatch
-                    className="size-1.5"
-                    color={chartSeriesColor(KINDS, node.kind) ?? "transparent"}
-                    shape="round"
-                  />
-                  <span className="truncate">{node.label}</span>
-                  <span className="ms-auto ps-2 text-muted-foreground tabular-nums">
-                    {node.degree}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </Show>
-    </div>
-  );
-}
-
-/** The Info tab: a real search over `label`, and the current selection ranked by degree. */
-/**
- * Find one thing in the archive and select it.
- *
- * Not `ChartSearch`, and the difference is what the control MEANS. `ChartSearch` publishes a
- * `clauseMatch` — a substring filter over a column — and offers completions through a native
- * `<datalist>`. That is the right instrument for "narrow this to everything mentioning the weir",
- * and the wrong one for "take me to this node": a datalist cannot be styled, differs in every
- * browser, has no empty state, shows no context beside a value, and silently stops at its limit.
- *
- * Picking is a value, so this is a `Combobox`, and what it publishes is that node's id — the
- * canvas lights it up, the panel below describes it, and the footer retallies. The list is capped
- * and SAYS it is capped, which is the part the datalist could not do.
+ * Not `ChartSearch`, and the difference is what the control MEANS: `ChartSearch` publishes a
+ * substring filter, the right instrument for "narrow this", and a datalist that cannot be styled.
+ * Picking is a value, so this is a `Combobox`, and picking reveals that vertex — the canvas frames
+ * it and selects it with its neighbours, and the inspector below reads it. The list is capped and
+ * says so.
  */
 const SEARCH_LIMIT = 50;
 
-function ArchiveSearch() {
-  const { crossfilter } = useMosaic();
-  const { spec } = useGraphView();
-  const source = useRef({ shape: "archive-search" });
+function ArchiveSearch({ archive }: { archive: Archive }) {
+  const { reveal } = useGraphContext();
 
   // The whole corpus, once, against no filter: a search that only finds what is already on screen
-  // cannot take you anywhere. 1,543 rows is small enough to filter in the browser; a real archive
-  // would query per keystroke instead.
+  // cannot take you anywhere. 1,543 rows is small enough to filter in the browser.
   const { rows } = useChartQuery({
     filterBy: null,
-    deps: [spec],
+    deps: [archive],
     query: () =>
-      spec === null
-        ? null
-        : Query.from(spec.table)
-            .select({
-              id: spec.idField,
-              label: spec.labelField,
-              kind: spec.categoryField,
-            })
-            .orderby(desc(spec.sizeField)),
+      Query.from(archive.nodes)
+        .select({ id: ID, label: "label", kind: "kind" })
+        .orderby(desc("degree")),
   });
 
   const items = useMemo(
@@ -663,19 +456,8 @@ function ArchiveSearch() {
       collection={collection}
       onInputValueChange={(details) => filter(details.inputValue)}
       onValueChange={(details) => {
-        if (spec === null) return;
         const picked = details.value[0];
-        // `spec.idField` and not `"id"`. The query above aliases it — `select({ id: … })` — and the
-        // canvas' slice does the same, so a clause over `id` binds there against the alias in the
-        // very SELECT whose WHERE it lands in. Every OTHER client of this crossfilter reads the
-        // relation directly: `SELECT count(*) FROM "…"."Node" WHERE id = …` has no alias to bind
-        // to and DuckDB refuses it, so picking a node used to break the legend tally and both
-        // footer counts. The clause names the column, never the alias.
-        crossfilter.update(
-          clausePoints([spec.idField], picked ? [[Number(picked)]] : undefined, {
-            source: source.current,
-          })
-        );
+        if (picked !== undefined) reveal(vertexId(archive.typeIndex, Number(picked)));
       }}
     >
       <ComboboxInput placeholder="Find anything in the archive…" size="sm" />
@@ -685,7 +467,7 @@ function ArchiveSearch() {
           <ComboboxItem item={item} key={item.value}>
             <span className="min-w-0 truncate">{item.label}</span>
             <span className="ms-auto ps-2 text-muted-foreground text-xs">
-              {KINDS[item.kind as NodeKind]?.label ?? item.kind}
+              {KINDS[item.kind as keyof typeof KINDS] ?? item.kind}
             </span>
           </ComboboxItem>
         ))}
@@ -699,28 +481,28 @@ function ArchiveSearch() {
   );
 }
 
-export function GraphInspector() {
-  const { ready } = useGraphView();
+/** The Info panel: the archive search, and the package's inspector with the hall's name added. */
+export function GraphInfo() {
+  const archive = useArchive();
   return (
     <div className="flex h-full flex-col">
       <div className="shrink-0 border-b border-border p-2">
-        {ready ? (
-          <ArchiveSearch />
-        ) : (
-          <InputGroup data-disabled size="sm">
-            <InputGroupAddon align="inline-start">
-              <SearchIcon className="size-3.5" />
-            </InputGroupAddon>
-            <InputGroupInput
-              disabled
-              placeholder="Search the archive…"
-              size="sm"
-            />
-          </InputGroup>
-        )}
+        <Show
+          fallback={
+            <InputGroup data-disabled size="sm">
+              <InputGroupAddon align="inline-start">
+                <SearchIcon className="size-3.5" />
+              </InputGroupAddon>
+              <InputGroupInput disabled placeholder="Search the archive…" size="sm" />
+            </InputGroup>
+          }
+          when={archive !== null}
+        >
+          {archive && <ArchiveSearch archive={archive} />}
+        </Show>
       </div>
       <ScrollArea className="min-h-0 flex-1 p-3">
-        {ready ? <InspectorBody /> : <Skeleton className="h-24 w-full" />}
+        <GraphInspector>{(detail) => <HallName detail={detail} />}</GraphInspector>
       </ScrollArea>
     </div>
   );
@@ -1003,21 +785,20 @@ function OrderBuilder({
  * that changed as you browsed would be a different question every time you looked.
  */
 export function GraphOrders() {
-  const { ready } = useGraphView();
-  if (!ready) {
+  const archive = useArchive();
+  if (!archive) {
     return (
       <div className="p-3">
         <Skeleton className="h-32 w-full" />
       </div>
     );
   }
-  return <OrdersBody />;
+  return <OrdersBody archive={archive} />;
 }
 
-function OrdersBody() {
-  const { select } = useGraphView();
+function OrdersBody({ archive }: { archive: Archive }) {
+  const { select } = useGraphContext();
   const { coordinator } = useMosaic();
-  const { spec } = useGraphView();
   const [source, setSource] = useState(DEFAULT_ORDERS);
   const [fileName, setFileName] = useState("amber-hall.orders");
   const [showSource, setShowSource] = useState(false);
@@ -1048,13 +829,13 @@ function OrdersBody() {
   // Every order's failing count, in one pass over the relation.
   const { row } = useChartQuery({
     filterBy: null,
-    deps: [orders.map((s) => s.id).join("|"), spec],
+    deps: [orders.map((s) => s.id).join("|"), archive],
     query: () =>
-      orders.length === 0 || spec === null
+      orders.length === 0
         ? null
         : // `sql` nests the compiler's predicate as a node rather than pasting its text: the
           // aggregate is the only SQL written here, and `s.failing` arrives already built.
-          Query.from(spec.table).select(
+          Query.from(archive.nodes).select(
             Object.fromEntries(
               orders.map((s, i) => [
                 `c${i}`,
@@ -1084,9 +865,8 @@ function OrdersBody() {
    * selection the page then moves by, so following the page would make it a function of itself.
    */
   const failingIds = async (order: Order) => {
-    if (spec === null) return [];
     const data = await coordinator.query(
-      Query.from(spec.table).select({ id: spec.idField }).where(order.failing)
+      Query.from(archive.nodes).select({ id: ID }).where(order.failing)
     );
     return numbers(data, "id");
   };
@@ -1197,6 +977,7 @@ function OrdersBody() {
                   label={`${order.target} ${order.constraint}`}
                   load={() => failingIds(order)}
                   source="order"
+                  typeIndex={archive.typeIndex}
                 >
                   <span className="flex items-center gap-2">
                     <span
@@ -1489,8 +1270,7 @@ function LookPreview({
  * The comment this replaces put "a look, a node size and a friction coefficient" in one list. Two
  * of those three answer to a bar and the third does not.
  */
-export function GraphAppearance() {
-  const { arrangement, wear } = useGraphView();
+export function GraphAppearance({ arrangement, wear }: { arrangement: LookId; wear: (id: LookId) => void }) {
 
   return (
     <div className="flex flex-col gap-4">
@@ -1528,7 +1308,8 @@ export function GraphAppearance() {
           two ranges are gone entirely: `Node size` and `Edge opacity` multiplied numbers `lookFrom`
           computes from `marks`, so the panel offered two ways to say one thing.
 
-          `only` is what lets one section have two homes: the picture here, the forces in the dock. */}
+          `only` draws the picture's half of the section; the forces are a live layout's, and this
+          archive draws the corpus's own. */}
       <PreferencesSections
         namespace="graph"
         only={[
@@ -1546,52 +1327,19 @@ export function GraphAppearance() {
 }
 
 /**
- * The Settings panel — what is left once appearance moved out, and it is one thing.
- *
- * **Layout** changes the forces the GPU integrates, so nudging one re-heats the simulation and the
- * graph reorganises under you. That is why it is here and not in Preferences, and why its reset is
- * separate from the appearance one: they cost different things to press.
+ * The Settings panel — the camera and the gestures. There are no forces here: the archive's
+ * positions are the corpus's own layout, read as the index every tile is asked against, and a live
+ * simulation would move them out from under it.
  */
 export function GraphSettings() {
-  const { commands, layoutStored, resetLayout, spec } = useGraphView();
+  const { fit } = useGraphContext();
 
   return (
     <ScrollArea className="h-full p-3">
       <div className="space-y-4">
-        <div className="space-y-3 border-t pt-3">
-          <div className="flex items-center justify-between">
-            <p className="font-medium text-muted-foreground text-xs">Layout</p>
-            <MotionBadge />
-          </div>
-
-          {/* Five sliders that were five hand-rolled `Range`s over a React store. What each one is
-              called, what it defaults to and what it will honour is declared in the graph package —
-              `GRAPH_SECTION` — and this names which of the section it draws. */}
-          <PreferencesSections namespace="graph" only={FORCES} />
-
-          {/* The control is named by the spec, not by this corpus. A canvas told which column
-              groups its nodes can say so; one that hardcodes "Hall" only ever had one archive. */}
-          <Show when={spec?.groupField !== undefined}>
-            <PreferencesSections namespace="graph" only={[CLUSTER]} />
-            <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Pulls each node toward its{" "}
-              <code className="font-mono">
-                {spec?.groupLabel ?? spec?.groupField}
-              </code>
-              . A node with no value there belongs to no cluster, so anything
-              shared drifts between the groups it joins.
-            </p>
-          </Show>
-        </div>
-
-        <div className="space-y-2 border-t pt-3">
+        <div className="space-y-2">
           <p className="font-medium text-muted-foreground text-xs">Camera</p>
-          <Button
-            className="w-full"
-            onClick={() => commands.fit()}
-            size="sm"
-            variant="outline"
-          >
+          <Button className="w-full" onClick={() => fit()} size="sm" variant="outline">
             <MaximizeIcon />
             Fit to view
           </Button>
@@ -1609,23 +1357,6 @@ export function GraphSettings() {
               </div>
             ))}
           </dl>
-        </div>
-
-        {/* Layout only, and it UNSETS rather than restoring: where the forces land is the chain's
-            answer — this package's numbers when nobody said otherwise, a client's starting point
-            when they did. It is lit by `via`, so a tenant who moved everybody's starting point does
-            not leave every reader with a button that does nothing. */}
-        <div className="border-t pt-3">
-          <Button
-            className="w-full"
-            disabled={!layoutStored}
-            onClick={resetLayout}
-            size="sm"
-            variant="ghost"
-          >
-            <RotateCcwIcon />
-            Reset layout
-          </Button>
         </div>
       </div>
     </ScrollArea>
@@ -1755,15 +1486,15 @@ function match(question: string): Intent | null {
 }
 
 export function GraphAsk() {
-  const { ready } = useGraphView();
-  if (!ready) {
+  const archive = useArchive();
+  if (!archive) {
     return (
       <div className="p-3">
         <Skeleton className="h-24 w-full" />
       </div>
     );
   }
-  return <AskBody />;
+  return <AskBody archive={archive} />;
 }
 
 /** One question and the answer it produced. `count` stays null while the query is in flight. */
@@ -1782,10 +1513,9 @@ interface Exchange {
  * truncated `<code>` line, which put the machinery and the offer in the same box — the predicate is
  * how the number was reached, and a reader wants it once, not under every answer forever.
  */
-function AskAnswer(props: { turn: Exchange }) {
+function AskAnswer(props: { archive: Archive; turn: Exchange }) {
   const { intent, count: found } = props.turn;
   const { coordinator } = useMosaic();
-  const { spec } = useGraphView();
 
   if (!intent) {
     return (
@@ -1798,9 +1528,8 @@ function AskAnswer(props: { turn: Exchange }) {
   // Unfiltered for the same reason `failingIds` is: an answer that produces a selection cannot be a
   // function of the selection.
   const matchingIds = async () => {
-    if (spec === null) return [];
     const data = await coordinator.query(
-      Query.from(spec.table).select({ id: spec.idField }).where(intent.failing)
+      Query.from(props.archive.nodes).select({ id: ID }).where(intent.failing)
     );
     return numbers(data, "id");
   };
@@ -1823,6 +1552,7 @@ function AskAnswer(props: { turn: Exchange }) {
           label={intent.question}
           load={matchingIds}
           source="ask"
+          typeIndex={props.archive.typeIndex}
         >
           <span className="flex items-baseline gap-2">
             <span className="flex-1 text-xs leading-relaxed">
@@ -1838,9 +1568,8 @@ function AskAnswer(props: { turn: Exchange }) {
   );
 }
 
-function AskBody() {
+function AskBody({ archive }: { archive: Archive }) {
   const { coordinator } = useMosaic();
-  const { spec } = useGraphView();
   const [question, setQuestion] = useState("");
   const [turns, setTurns] = useState<Exchange[]>([]);
   const [busy, setBusy] = useState(false);
@@ -1853,11 +1582,11 @@ function AskBody() {
     const intent = match(text);
     setQuestion("");
     setTurns((prev) => [...prev, { id, question: text, intent, count: null }]);
-    if (!intent || spec === null) return;
+    if (!intent) return;
     setBusy(true);
     try {
       const data = await coordinator.query(
-        Query.from(spec.table).select({ n: count() }).where(intent.failing)
+        Query.from(archive.nodes).select({ n: count() }).where(intent.failing)
       );
       const rows = Array.from(data as Iterable<Record<string, unknown>>);
       const found = Number(rows[0]?.n ?? 0);
@@ -1893,7 +1622,7 @@ function AskBody() {
                 </Message>
                 <Message role="assistant">
                   <MessageContent>
-                    <AskAnswer turn={turn} />
+                    <AskAnswer archive={archive} turn={turn} />
                   </MessageContent>
                 </Message>
               </Fragment>

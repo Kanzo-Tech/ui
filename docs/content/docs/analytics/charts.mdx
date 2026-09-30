@@ -138,8 +138,10 @@ export default function Analytics({ children }: { children: React.ReactNode }) {
 The engine also owns what DuckDB reads by name. `lend({ name: url })` registers a URL under a
 name — the same URL again is a no-op, a different one replaces the lease, so a re-signed URL never
 meets DuckDB's `File already registered` — `hold(name, bytes)` registers a copy of a buffer, and
-`drop(names)` forgets them. `query(sql)` answers rows as objects, uncached. That is the shape
-fossil's `Engine` asks for, so the engine you chart through is the one a corpus opens into.
+`drop(names)` forgets them. `query(sql, { signal })` answers in columns — the Arrow table
+DuckDB-WASM produced, uncached — and an abort interrupts the running statement and rejects with
+`signal.reason`. That is the shape fossil's `Engine` asks for, so the engine you chart through is the
+one a corpus opens into.
 
 It boots with DuckDB's `httpfs` loaded, so object storage is SQL rather than another method: a
 reader holding a credential scoped to a prefix runs `CREATE OR REPLACE SECRET … (TYPE s3, …, SCOPE

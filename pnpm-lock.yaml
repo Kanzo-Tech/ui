@@ -82,8 +82,8 @@ importers:
         specifier: ^3.4.0
         version: 3.4.0
       '@fossil-lang/corpus':
-        specifier: ^0.3.0-alpha.10
-        version: 0.3.0-alpha.10
+        specifier: ^0.3.0-alpha.13
+        version: 0.3.0-alpha.13
       '@internationalized/date':
         specifier: ^3.12.2
         version: 3.12.2
@@ -289,8 +289,8 @@ importers:
         specifier: ^3.4.0
         version: 3.4.0
       '@fossil-lang/corpus':
-        specifier: ^0.3.0-alpha.10
-        version: 0.3.0-alpha.10
+        specifier: ^0.3.0-alpha.13
+        version: 0.3.0-alpha.13
       '@kanzo-tech/mosaic':
         specifier: workspace:*
         version: link:../mosaic
@@ -315,6 +315,9 @@ importers:
       jsdom:
         specifier: ^25.0.0
         version: 25.0.1
+      lucide-react:
+        specifier: ^1.23.0
+        version: 1.23.0(react@19.2.7)
       react:
         specifier: ^19.0.0
         version: 19.2.7
@@ -1110,11 +1113,14 @@ packages:
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
 
-  '@fossil-lang/corpus@0.3.0-alpha.10':
-    resolution: {integrity: sha512-bB3gwsffkhFqUEg8/lnjtP47AvPbe0YIIL0gat2tndB70nd7oF+L5McIyU/D9VVpAe1E69Axa12dunVPmxRqHQ==}
+  '@fossil-lang/corpus@0.3.0-alpha.13':
+    resolution: {integrity: sha512-vaO9AwPkYlPblOewli59QqqG/dgnMp6yEYCviiVUeLi53zINo5qHKbGaMd2xC3PZTU4A9DP6Gfzxqb0HOEPETQ==}
 
-  '@fossil-lang/types@0.3.0-alpha.10':
-    resolution: {integrity: sha512-/7zKU8pre80ZStxp9GiN0gz7DjK2wpHMnLvSfI4h6UveoV4/5Qm/Uo2eH5jg6Q0aWOnAiyXqyK7JxfpgXZW8XQ==}
+  '@fossil-lang/storage@0.3.0-alpha.13':
+    resolution: {integrity: sha512-gmLAVqarQFUdbX6qUDSwKWERJwuYdQOV2YsRIQ2EpnwmQpG38La3Mn+3uQENvhnicOvEvwXA/yT8hM4uK2bsdw==}
+
+  '@fossil-lang/types@0.3.0-alpha.13':
+    resolution: {integrity: sha512-hawY8BMzrVPW5y4VAyDwMz6RAZP9Hda3+JIugcFcTO3du6xTN0YEpTZUZRidv7CIyt0M4cVB9MDuYYldUq8U+A==}
 
   '@fumadocs/tailwind@0.0.5':
     resolution: {integrity: sha512-ENKPWUDRmriccsrUDE4bDBq3FNr/ms3BP2rWlsAEMV1yP23pcCaan+ceGfeBUsAQjw7sj9Q3R4Kl3g/TCStPzQ==}
@@ -6179,11 +6185,16 @@ snapshots:
 
   '@floating-ui/utils@0.2.12': {}
 
-  '@fossil-lang/corpus@0.3.0-alpha.10':
+  '@fossil-lang/corpus@0.3.0-alpha.13':
     dependencies:
-      '@fossil-lang/types': 0.3.0-alpha.10
+      '@fossil-lang/storage': 0.3.0-alpha.13
+      '@fossil-lang/types': 0.3.0-alpha.13
 
-  '@fossil-lang/types@0.3.0-alpha.10': {}
+  '@fossil-lang/storage@0.3.0-alpha.13':
+    dependencies:
+      '@fossil-lang/types': 0.3.0-alpha.13
+
+  '@fossil-lang/types@0.3.0-alpha.13': {}
 
   '@fumadocs/tailwind@0.0.5(@tailwindcss/oxide@4.3.3)(tailwindcss@4.3.2)':
     optionalDependencies:

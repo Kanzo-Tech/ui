@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_LOOK, lookFrom, type Look } from "./graph-looks";
-import { DEFAULT_SIM, simFrom } from "./graph-sim";
+import { DEFAULT_LOOK, lookFrom, type Look } from "./render/graph-looks";
+import { DEFAULT_SIM, simFrom } from "./render/graph-sim";
 import { GRAPH_SECTION } from "./section";
 
 /**

@@ -177,16 +177,16 @@ The analytics layer stops at `ChartRoot` and `useChartContext()`. There is no `u
 and no `ChartRootProvider`, and the `as` prop stays the way a caller owns the selection a root would
 otherwise mint.
 
-`@kanzo-tech/graph` grew Ark's four pieces the same week — `useGraph`, `GraphRootProvider`,
-`GraphCanvas`, `useGraphContext` — and the obvious next move was to do it again here for symmetry.
+`@kanzo-tech/graph` has Ark's four pieces — `useGraph`, `GraphRoot`, `GraphRootProvider`,
+`useGraphContext` — and the obvious next move was to do it again here for symmetry.
 The question that stopped it: **what would `useChart(props)` actually return**, given how much of a
 chart's state lives in Mosaic's coordinator rather than in an object of ours? The answer is
 `ChartContextValue`, which already exists and is already published. That is not a factory; it is the
 context with a second way to reach it.
 
-What forced the factory in the graph was measured and specific: two consumers there take `getGraph`
-and `getResident` as arguments to hooks called *above* the canvas element, where no context is
-readable yet. Nothing in analytics has that shape — `useChartQuery`, `useCrossfilter`, `useSelected`
+What forces the factory in the graph is specific: its state lives outside React — tiles arrive and
+the camera moves at frame rate — so a store of ours owns it, and `useGraph` is what creates that store
+and subscribes to it ([the graph view](/docs/design/graph)). Nothing in analytics has that shape — `useChartQuery`, `useCrossfilter`, `useSelected`
 and `useChartCapacity` each read `useMosaic()`, which is the provider *above* the root rather than the
 root itself, so there is no circularity to break.
 

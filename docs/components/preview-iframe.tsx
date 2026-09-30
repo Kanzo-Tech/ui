@@ -45,7 +45,7 @@ export const PreviewIframe = ({
   // ORG's root, outside this site entirely, and every showcase on every page is a 404 inside a box.
   // The slash matches `trailingSlash: true`: the export writes `…/x/index.html`, and a static host
   // has no redirect to offer the version without it. Same variable as the corpus path in
-  // `showcases/workspace/graph-state.tsx`; empty in development.
+  // `showcases/workspace/graph-view.tsx`; empty in development.
   const href = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/view/showcases/${name}/`;
 
   const iframe = (

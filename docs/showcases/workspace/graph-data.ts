@@ -20,7 +20,7 @@
 // Every column here is a column the view actually queries: the legend groups by `kind`, the footer
 // counts rows, the inspector reads a node's own attributes, and the search matches `label`.
 
-import { ARCHIVE } from "@/example/archive";
+import { ARCHIVE, ARCHIVE_KINDS } from "@/example/archive";
 import { MEMBERS, member } from "@/example/people";
 import {
   BEASTS,
@@ -44,7 +44,7 @@ import { rng } from "@/lib/rng";
  */
 const EXTENT = 4096;
 
-export type NodeKind = "contract" | "report" | "member" | "beast" | "tag" | "region";
+export type NodeKind = keyof typeof ARCHIVE_KINDS;
 
 export interface GraphNodeRow {
   id: number;

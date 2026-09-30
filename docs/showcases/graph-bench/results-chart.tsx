@@ -94,7 +94,7 @@ export function ResultsChart(props: {
       const rows: Point[] = [];
       for (const s of bounded) {
         if (s.failure) continue;
-        rows.push({ nodes: s.pointCount, ms: s.totalMs + s.firstSliceMs + s.uploadMs, series: "paint" });
+        rows.push({ nodes: s.pointCount, ms: s.firstPaintMs, series: "paint" });
         rows.push({ nodes: s.pointCount, ms: s.panMs, series: "pan" });
       }
       return { config: BOUNDED_SERIES, data: rows };

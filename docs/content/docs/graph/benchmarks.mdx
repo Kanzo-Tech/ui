@@ -28,21 +28,22 @@ sweep against a size nobody wrote is a row of 404s, which is the honest failure.
 
 ## What the sweep asks
 
-Two layers, and they are not variants of each other. **Bounded** is the path a product uses: a
-window asked of a corpus, capped at twenty thousand marks, holding nothing. **cosmos.gl alone** is
-the control — the same renderer fed typed arrays with nothing of ours in the way.
+Two layers, and they are not variants of each other. **Bounded** is the path a product uses: the
+corpus opened with fossil's `open` and drawn by `<GraphRoot><GraphCanvas/></GraphRoot>`, a tileset
+that reads only the tiles in view. **cosmos.gl alone** is the control — the same renderer fed typed
+arrays with nothing of ours in the way.
 
-Four numbers matter and they pull in different directions:
+The bounded half counts what it reads rather than inferring it: the corpus handed to the root is the
+real one with `scan(…).read` and `edges` wrapped, and bytes come from DuckDB's own HTTP log, because
+`httpfs` fetches inside the DuckDB-WASM worker where the page's Resource Timing cannot see.
 
 - **First paint** should follow the window rather than the corpus. It is the claim the page exists
   to make.
-- **Pan** is the cost that did not exist before. Holding a graph pans on the GPU for free; this asks
-  the database every time the camera stops. A bounded path that pans slowly is not an improvement,
-  it is a different kind of unusable.
-- **Redraw** is the renderer's own ceiling, and it is here to be *ruled out*: the slice never exceeds
-  the limit, so the frame rate cannot follow N, and "make it smoother" has to be answered at `Pan`.
-- **Shown / matched** is the honesty column. When they differ the view is not showing everything in
-  the rectangle, and a reader is owed that.
+- **Pan**, **reads per pan** and **bytes per pan** are the cost that did not exist before. A tile
+  already read is never asked again, so most pans at one zoom read nothing.
+- **Frames** is counted idle and while the camera moves every frame, and only in a visible tab.
+- **Marks** is marks drawn over the vertices they stand for: a far view is a coarser zoom of the
+  cell pyramid, and a mark there is a cell.
 
 ## Read the two rates together, never one of them
 
@@ -201,6 +202,77 @@ in `Per step` forces the queue to drain, which is why it is the honest one. Wher
 | 50k | 331.6k | 65 ms | 192 ms | 10.03 ms | 100 fps | 80 fps |
 | 200k | 1.4M | 454 ms | 751 ms | 61.00 ms | 16 fps | 61 fps |
 
+
+### The data path, before and after the tileset
+
+Measured 2026-09-29 on an M4 Pro, in a **hidden** tab with **no WebGL context** — Chrome refused one
+to every page that day — so these are reads, bytes and the time the reads took, and nothing about
+paint or frames. The same probe ran against both: open the corpus, look at the whole extent, zoom into
+a window holding about 5,000 vertices, pan six half-windows. *Before* is `openCorpus`'s sampled
+window over the corpora the previous writer produced; *after* is the tiles the tileset selects, with
+its cache, over corpora rebuilt by the writer that publishes `tile-manifest.json`. The corpora are
+the same graphs in two formats, so bytes compare the two paths, not one file. Mosaic's coordinator
+stalls in a hidden tab, so *before* ran with `requestAnimationFrame` replaced by a timeout.
+
+| | open | whole extent | per pan (6) |
+|---|---|---|---|
+| archive, 1,543 — before | 1,069 ms · 5 req · 42 kB | 233 ms · 2 req · 8 kB | 0–116 ms, a query every pan |
+| archive, 1,543 — after | 987 ms · 5 req · 29 kB | 166 ms · 1 tile · 4 req · 39 kB | 0 ms, 0 reads |
+| 200k — before | 1,238 ms · 6 req · 85 kB | 2,475 ms · 194 req · 7.25 MB | 1,020–1,333 ms, a query every pan |
+| 200k — after | 1,031 ms · 6 req · 110 kB | 703 ms · 4 tiles (z 7) · 12 req · 0.94 MB | 5 of 6 read nothing; one read 4 tiles in 792 ms, 26 req, 0.98 MB |
+| 1M — before | the tab was reloaded before the first window answered, three runs of three | | |
+| 1M — after | 1,171 ms · 6 req · 451 kB | 1,030 ms · 4 tiles (z 7) · 14 req · 1.57 MB | 5 of 6 read nothing; one read 4 tiles in 915 ms, 18 req, 1.27 MB |
+
+Two findings the table carries. **A zoom into 5,000 vertices still draws cells**: a payload tile is a
+range of `dense_id`, and its published box is wide, so a small window meets enough payload tiles that
+their rows pass the 20,000 limit and a rung is chosen instead. **A payload tile costs about 230 ms**
+— one `scan.read` and two `edges` reads, each a statement of its own on the one connection — which is
+what a pan that crosses into new tiles pays.
+
+### The data path, a batch per camera move
+
+Measured 2026-09-30 on the same M4 Pro, after fossil made `dense_id` a Hilbert rank and made
+`scan(…).read` and `edges` take a list of addresses. Both corpora were rebuilt with that writer. The
+probe is the one above — the tileset's selection, over the real reader, without a renderer — run in
+headless Chromium through Playwright against the docs dev server, medians of five fresh pages. Three
+shapes of the same reads, each over the same corpus and engine:
+
+- **per tile, uncached** — a call per tile and per half, three a payload tile, with
+  `parquet_metadata_cache` off: what the tileset did before either change.
+- **per tile** — the same calls with the engine's footer cache on, which `engine()` now sets.
+- **batched** — what the tileset does now: the tiles one camera move wants are one `read`, one
+  `edges` source half and one target half.
+
+| | tiles · runs | calls | requests · bytes | per tile, uncached | per tile | batched |
+|---|---|---|---|---|---|---|
+| 200k, whole extent | 4 at z 7 · 1 | 8 → 2 | 12 → **6** · 0.93 MB | 75 ms | 74 ms | **59 ms** |
+| 200k, zoom to ~5,000 | 4 at z 8 · 3 | 12 → 3 | 26 · 0.98 MB | 93 ms | 83 ms | 83 ms |
+| 200k, pan into 2 new tiles | 2 · 2 | 6 → 3 | 12 · 0.46 MB | 41 ms | 35 ms | 38 ms |
+| 200k, pan into 3 new tiles | 3 · 1 | 9 → 3 | 18 · 0.75 MB | 67 ms | 55 ms | **45 ms** |
+| 1M, whole extent | 4 at z 7 · 1 | 8 → 2 | 14 → **8** · 1.57 MB | 106 ms | 105 ms | **91 ms** |
+| 1M, zoom to ~5,000 | 3 at z 9 · 3 | 9 → 3 | 22 · 0.94 MB | 138 ms | 104 ms | 101 ms |
+| 1M, pan into 2 new tiles | 2 · 2 | 4 → 2 | 10 · 0.67 MB | 44 ms | 43 ms | 48 ms |
+
+Four of the six pans at each size read nothing, as before. Opening costs 6 requests, 110 kB at 200k
+and 451 kB at 1M.
+
+**Bytes do not move, and requests move only where tiles are consecutive.** A batch reads exactly the
+bytes its tiles read one by one. Where the tiles are one run — the whole extent, or a pan that
+crosses into a strip of the curve — the requests halve, because the run is one statement and one
+footer; where they fall in as many runs as tiles, as the ~5,000-vertex zoom does, the batch is the
+same statements and the same requests, and the gain is the cache's alone. **The time follows the
+runs**: 15–20% where a batch is one run, and within noise where it is not. The two-run pans read a
+few milliseconds slower batched; that is inside the spread of five runs and it is the case the
+design page names as the one to watch.
+
+**What this cannot show is latency.** The origin is a dev server on the same machine, so a request
+costs almost nothing and the halved requests show as milliseconds rather than round trips. fossil's
+own measurement at 10 ms a request is where they show (*The backend*, *a read does not cost the
+corpus*). And these times are not comparable with the table above: the requests and bytes of the
+whole extent at both sizes and of the zoom at 200k are identical to it, request for request, and the
+times are a tenth of it,
+because that table was taken in a hidden tab and this one in a headless browser. The environment moved,
+not the reader.
 
 ### Bounded, over a compiled corpus — superseded
 

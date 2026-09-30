@@ -43,7 +43,7 @@ while listing six; a count in a heading is a fact nobody updates, so there is no
 
   Three things it costs, each answered where it lives rather than switched off:
   - **`basePath` reaches the client through one variable**, read by `next.config.ts` *and* by
-    `showcases/workspace/graph-state.tsx`. `Link` and `next/image` prefix themselves; a string
+    `showcases/workspace/graph-view.tsx`. `Link` and `next/image` prefix themselves; a string
     handed to DuckDB does not, and a bare `/corpus/…` under `/ui` is a 404 with no error anywhere.
   - **Search is a file, not a server** — `staticGET` in `app/api/search/route.ts` and
     `search={{ options: { type: "static" } }}` on `RootProvider`. Both halves or neither: one alone

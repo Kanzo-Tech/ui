@@ -1,7 +1,7 @@
 {
   "name": "@kanzo-tech/graph",
   "version": "0.1.0",
-  "description": "Kanzo graph rendering — a GPU force layout over cosmos.gl, the DuckDB relation that feeds it, and the Mosaic client that keeps it inside a crossfilter. Sibling of @kanzo-tech/ui, not part of it: the admission rules exclude graphs from the generic vocabulary by name.",
+  "description": "Kanzo graph view — a tileset over a fossil corpus's scan, drawn with cosmos.gl, inside the page's Mosaic crossfilter. Sibling of @kanzo-tech/ui, not part of it: the admission rules exclude graphs from the generic vocabulary by name.",
   "type": "module",
   "license": "MIT",
   "sideEffects": false,
@@ -16,10 +16,6 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./duckdb": {
-      "types": "./dist/duck-source.d.ts",
-      "import": "./dist/duck-source.js"
-    },
     "./section": {
       "types": "./dist/section.d.ts",
       "import": "./dist/section.js"
@@ -31,26 +27,19 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
-  "//peers": "cosmos.gl is a real, required peer — this package is a renderer and there is nothing left of it without one. The Mosaic half is optional and lives entirely on `./duckdb`, and the reason moved when the second source left: it used to be `a consumer drawing a graph from arrays it already has should not pay for a database`, which stopped being true the day `memorySource` was deleted — there is no arrays-in-hand consumer to protect any more. What the split protects now is the ROOT BARREL, which is a rendering surface: hooks, looks, identity, the buffers a slice implies, and no source at all. A host embedding a canvas whose slices arrive from somewhere else — its own `BoundedSource`, a worker, a test — installs cosmos.gl and nothing else, and `openCorpus` is what costs a database. That half is now ONE entry, `@kanzo-tech/mosaic`, and the list is shorter than the thing it replaced for a reason worth keeping: this package used to reach the coordinator through `@kanzo-tech/ui/analytics`, whose barrel re-exports the React charts and `@uwdata/vgplot` with them. The import is static, so a host that installed the two peers we documented — mosaic-core and mosaic-sql — still could not open `./duckdb`, and vgplot had to be declared here to paper over a dependency this package never names. It names none of the three now: they are `@kanzo-tech/mosaic`'s peers, declared once, which is also why their version ranges can no longer disagree. @duckdb/duckdb-wasm is absent too: it is `@kanzo-tech/mosaic`'s dependency, pinned to the release `engine()` boots.",
-  "//fossil": "The reader is on npm, so the range is a range. This entry said LOCAL LINK, NOT A RELEASE STATE while `@fossil-lang/corpus` existed only in a checkout beside this one; it was published as `0.3.0-alpha.5` and the `link:` and the `*` went with the reason for them. The peer itself is not temporary: fossil's reader sits beside `@kanzo-tech/mosaic` on `./duckdb` and is wanted for the same reason — a host reading a corpus brings its own, and a host that only renders pays for neither. The residual cost this entry used to name is GONE rather than mitigated: `duckBoundedSource` shared the subpath and did not need this peer, so a host on it either installed the reader or the entry had to be split. There is nothing on `./duckdb` now that does not want fossil, so the subpath and the peer are the same decision and there is no entry to split. The floor is `0.3.0-alpha.10` because `openCorpus` takes the corpus the host opened and hands on the names fossil's verbs query it by — `CorpusRelation.sql`, qualified by the corpus's own catalog — and that release is the one that answers with them.",
+  "//peers": "All required. cosmos.gl draws; `lucide-react` is the icon set the parts draw their buttons with, `@kanzo-tech/ui`'s own peer; `@fossil-lang/corpus` is the backend — the host opens a corpus with its `open` on `@kanzo-tech/mosaic`'s `engine()` and this package draws it through `tileMatrix`, `scan` and `edges`, writing no SQL of its own; `@kanzo-tech/mosaic` carries the crossfilter the graph listens to and publishes into. They were optional while a root barrel with no source and a `./duckdb` entry with one existed side by side; there is one path now and nothing on it is optional (`/docs/design/graph`, *the one host path*). The Mosaic stack itself — mosaic-core, mosaic-sql — is `@kanzo-tech/mosaic`'s peer, declared once there.",
+  "//fossil": "The floor is `0.3.0-alpha.13`, the release whose `scan(…).read` and `edges` take a list of addresses and answer one batch per tile, and an `Engine.query` that answers in columns and interrupts on abort, over corpora whose `dense_id` is the Hilbert rank. Only types and the writer's role table (`PAYLOAD_*`) are imported; `src/layers.test.ts` holds that.",
   "peerDependencies": {
     "@cosmos.gl/graph": "^3.4.0",
-    "@fossil-lang/corpus": "^0.3.0-alpha.10",
+    "@fossil-lang/corpus": "^0.3.0-alpha.13",
     "@kanzo-tech/mosaic": "workspace:*",
     "@kanzo-tech/ui": "workspace:*",
+    "lucide-react": ">=1",
     "react": "^19.0.0"
-  },
-  "peerDependenciesMeta": {
-    "@fossil-lang/corpus": {
-      "optional": true
-    },
-    "@kanzo-tech/mosaic": {
-      "optional": true
-    }
   },
   "devDependencies": {
     "@cosmos.gl/graph": "^3.4.0",
-    "@fossil-lang/corpus": "^0.3.0-alpha.10",
+    "@fossil-lang/corpus": "^0.3.0-alpha.13",
     "@kanzo-tech/mosaic": "workspace:*",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
@@ -59,6 +48,7 @@
     "@uwdata/mosaic-core": "^0.29.2",
     "@uwdata/mosaic-sql": "^0.29.0",
     "jsdom": "^25.0.0",
+    "lucide-react": "^1.23.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "rollup-plugin-preserve-directives": "^0.4.0"

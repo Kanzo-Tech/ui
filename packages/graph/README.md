@@ -1,116 +1,81 @@
 # @kanzo-tech/graph
 
-A GPU graph view over [cosmos.gl](https://cosmosgl.github.io/graph): the DuckDB relation that feeds
-it, the buffers that colour it from the page's own theme, and the hooks that own the renderer's
-lifetime.
-
-## What it is not
-
-**There is no `<GraphCanvas>`.** That is the shape of the package rather than a gap in it. A graph
-canvas is a toolbar, a legend, an inspector, a hover card and a search box wired to one renderer,
-and every one of those answers differently per product. What is genuinely shared sits underneath —
-reading a relation into typed arrays, turning a look and the live theme into GPU buffers, owning the
-renderer across React's lifecycle, and keeping a lasso inside a Mosaic crossfilter. Those are here.
-The arrangement belongs at the call site; `docs/showcases/workspace/graph-canvas.tsx` is one, and it
-is not the only possible one.
-
-## Why a package, and not part of `@kanzo-tech/ui`
-
-The [first admission rule](/docs/philosophy#admission) is *domain-free — nothing about RDF / SHACL / fossil / **graphs**
-/ auth*. Graphs are excluded by name, deliberately: `ui` is the generic vocabulary every product
-shares. A sibling package is also the only honest home for a **required** WebGL peer — as an
-optional peer of `ui` it would have been a lie about what the package is.
+The graph view over a [fossil](https://github.com/kanzo-tech/fossil) corpus, drawn with
+[cosmos.gl](https://cosmosgl.github.io/graph). fossil is the backend and this package is the view:
+the host opens the corpus, and `GraphRoot` draws it by tile — no SQL is written here.
 
 ## Install
 
 ```sh
-pnpm add @kanzo-tech/graph @cosmos.gl/graph
+pnpm add @kanzo-tech/graph @cosmos.gl/graph @fossil-lang/corpus @kanzo-tech/mosaic @kanzo-tech/ui lucide-react @uwdata/mosaic-core @uwdata/mosaic-sql
 ```
 
-`@cosmos.gl/graph` is a required peer: this is a renderer, and there is nothing left of it without
-one. The Mosaic peers and fossil's corpus reader are **optional** — `openCorpus()` needs them and
-the rendering hooks do not.
+Every peer is required. `@fossil-lang/corpus` reads the corpus, `@kanzo-tech/mosaic` is the page's one
+DuckDB-WASM engine and its crossfilter, cosmos.gl draws, and the parts are built from
+`@kanzo-tech/ui` and its icons.
 
-**So the root barrel draws nothing, and that is the shape rather than an oversight.** The reason for
-the split used to be *a host drawing arrays it already has should not pay for a database*, and that
-host no longer exists here: `memorySource` is deleted and this package sends **one** source, the
-corpus'. What the split protects now is a barrel that is a rendering surface — hooks, looks,
-identity, the buffers a slice implies — for a host whose slices arrive from somewhere else, its own
-`BoundedSource` included. A picture costs `@kanzo-tech/graph/duckdb`.
+## The one path
 
-## The two halves
-
-**Data.** A **source** answers one question — *what should I draw* — and `useQueryLoop` asks it.
-The answer is a `Slice`: at most `limit` points as parallel typed arrays, whose size follows the
-question rather than the corpus. Moving the camera re-asks, and a window holding more than `limit`
-is **sampled** rather than truncated — one row every `ceil(matched / limit)` over the corpus'
-Morton-ordered `dense_id`, which spreads the marks over the window instead of drawing a corner of
-it. So a view of everything is still a few thousand marks, and they are still everywhere.
-
-`openCorpus` — on `@kanzo-tech/graph/duckdb`, because that is the half that needs Mosaic and
-fossil's reader — takes the corpus the host opened with fossil's `open` and the page's `engine()`,
-and hands back both halves: the source the canvas draws from, and the names fossil's verbs query
-the relations by, for the charts and the crossfilter.
-
-```ts
+```tsx
 import { open } from "@fossil-lang/corpus";
 import { engine } from "@kanzo-tech/mosaic";
-import { openCorpus } from "@kanzo-tech/graph/duckdb";
+import { GraphCanvas, GraphInspector, GraphLegend, GraphRoot, GraphToolbar } from "@kanzo-tech/graph";
 
-const e = await engine();
-const corpus = await open("/corpus/people", { query: e.query });
-const { source, nodes, edges } = await openCorpus({ corpus, engine: e });
+const corpus = engine().then((e) => open(url, { engine: e }));
+
+<GraphRoot corpus={corpus} fill="kind" r="degree" title="label" filterBy={crossfilter} onFailure={setFailure}>
+  <GraphCanvas>
+    <GraphToolbar />
+    <GraphLegend />
+  </GraphCanvas>
+  <GraphInspector />
+</GraphRoot>;
 ```
 
-Opening is the host's: a host whose files sit behind a signature opens the corpus under a name,
-`` open(`jobs/${id}`, { engine: e, host }) ``, and hands over the same `corpus`. Closing it is the
-host's too. It takes no column names and no type index; those come off the manifest or they do not come.
-Under `limit` it is asked once for everything and never again, so a corpus that fits pays for
-nothing.
+**Opening is the host's.** Where the corpus is and what signs it are the host's to say — a private
+corpus opens as `` open(`jobs/${id}`, { engine, host }) `` — and `GraphRoot` takes what came back,
+or the promise of it, which is what lets it say it is opening. Closing it is the host's too.
 
-**A point is addressed by index and identified by pair.** cosmos.gl numbers points by their position
-in the arrays it was last handed, so index 7 is whatever the current answer put seventh. A vertex is
-therefore `vertexId(type, dense)` — a `bigint`, and `Slice.vertices` a `BigUint64Array`, because the
-pair is 64 bits and a `number` holds 53. Anything that outlives one answer is held as a `VertexId`
-and resolved through the `Resident` that `useQueryLoop` rebuilds per answer. Do not build a second
-map: a copy assembled beside it is the same value one render later, with no way to notice it has
-fallen behind the buffers on screen.
+**The channels are Plot's**: `fill`, `symbol`, `r`, `stroke` and `title`, where a CSS colour is a
+constant and anything else is a column. A column binding is a projection: changing one builds a new
+scan and reloads the tiles while keeping the picture.
 
-**Appearance.** `buffers(slice, look, host)` turns a look and the *live theme* into per-point
-colours, sizes and shapes. A `Look` carries **geometry only** — colour comes from the page's
-categorical scale (`categoricalColor`, on the **root** barrel of `@kanzo-tech/ui` — not
-`/analytics`, so reaching it costs nobody the DuckDB peer set), because a scale a graph invents is a
-scale that disagrees with the legend explaining it.
+**The camera is addressed.** A tileset in deck.gl's `Tileset2D` shape culls the tile matrix fossil
+published, picks the finest zoom whose tiles in view hold at most `limit` rows (20,000 by default),
+reads one tile at a time nearest the centre first, cancels what the camera has left, and keeps five
+times what it selected. A far view is a coarser rung of fossil's cell pyramid; an edge is drawn when
+both of its ends are in tiles already read.
 
-`appearance()` is the other side of that line and it matters for performance: everything that is
-*one number for the whole canvas* is a cosmos.gl **uniform**, read fresh on every draw. Multiply a
-slider into 500,000 sizes and every tick re-uploads the array; put it in a uniform and it costs
-nothing.
+**`filterBy` is the page's crossfilter.** Its clauses are translated into scan's filter, so the
+canvas draws what survives; a clause that cannot be translated reaches `onFailure` rather than being
+dropped. A lasso or a click publishes the reader's pick back into it, exempting the graph itself.
 
-## Scale
+## The pieces
 
-Measured, not asserted — see the [benchmarks page](https://kanzo-tech.github.io/ui/docs/graph/benchmarks), and
-`/view/showcases/graph-bench` to re-run it.
+- `GraphRoot` — `useGraph` plus the context. `GraphRootProvider` takes an api a host built with
+  `useGraph`; `useGraphContext` reads it — Ark's four, one for one. The api is the commands and
+  never changes; `useGraphState(selector)` reads a slice of the state.
+- `GraphCanvas` — the element, the grid, the vignette, the labels, the hover card and the marquee
+  and lasso gesture. Children are chrome positioned over it.
+- `GraphLegend`, `GraphToolbar`, `GraphInspector` — the categorical scale with its tally, the
+  commands drawn, and the focused vertex's row with a render prop for a product's own fields. No
+  part takes a callback: what a click means is `onSelect`, `onFocus` and `onFailure` on the root.
+- `lookFrom`, `simFrom`, `useGraphPrefs` — the form and the forces from a preferences panel's
+  answers; `scaleOf` — what colour and shape a category wears; `adaptive` — simulation tuning by size.
+- `vertexId`, `typeOf`, `denseOf` — a vertex is `(type_idx, dense_id)` packed into a `bigint`, and
+  everything that outlives one composition is held as one.
 
-A live simulation is comfortable to about **50,000** points and finished by **200,000** (a step
-costs 62 ms there). A million points render, upload and simulate without failing, but at 440 ms a
-step. **Past 200,000 the honest design is positions computed once and stored as a column** — which
-is why a source names `xField` / `yField`, and why a simulation is off by default: the coordinates a
-source hands back are the index the next spatial question is asked against, and a force that moves
-them moves the picture out from under its own index.
+## Why a package, and not part of `@kanzo-tech/ui`
 
-Bounded, over a corpus compiled once, first paint is **253 ms at a million** against the 1,225 ms it
-used to cost to hold two hundred thousand. What is drawn and transferred follows the window — the
-upload is flat at 23–30 ms and the redraw ceiling stays in the thousands of frames per second. What
-is *scanned* does not: the pan grows from 77 ms at a million to 256 ms at five, and the term that
-grows is the edge join, over one file on a DuckDB-WASM that gets a single thread. That is the next
-thing to fix, and it is the corpus layout, not the renderer.
+The [first admission rule](https://kanzo-tech.github.io/ui/docs/philosophy#admission) is
+*domain-free — nothing about RDF / SHACL / fossil / **graphs** / auth*. Graphs are excluded by name,
+and a sibling package is the only honest home for a required WebGL peer.
 
 ## Gotchas the source will not tell you twice
 
 - **`setConfig` resets everything.** cosmos.gl 3.x resets the whole configuration to defaults and
   then applies the argument. Use `setConfigPartial`. This typechecks either way.
 - **`getConnectedLinkIndices` is not a neighbourhood.** It returns only links whose *other* endpoint
-  is also in the argument — an induced subgraph. Use `neighboursOf(graph, index)`.
-- **`requestAnimationFrame` never fires in a hidden tab**, and cosmos.gl drives its simulation from
-  rendered frames. A backgrounded graph is stopped, not slow.
+  is also in the argument. `getNeighboringPointIndices` is the neighbourhood.
+- **`requestAnimationFrame` never fires in a hidden tab**, and the renderer draws on animation
+  frames. A backgrounded graph is stopped, not slow.

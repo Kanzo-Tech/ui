@@ -8,32 +8,31 @@ why — and every rule here was decided by a number or by a reference we can fet
 size taste is not available.
 
 <Callout type="info">
-**This page leads the code.** It was rewritten as the reference the package is rebuilt to, before
-the rebuild. Where a rule describes a module that does not exist yet, its closing line says so and
-names what will hold it; a *Held by* line on this page cites only tests that run today. When the
-code catches up, the *will hold it* sentence becomes a *Held by* line and nothing else changes.
+**This page led the code, and the code has caught up with it.** The core, the renderer, the adapter
+and the four parts exist and are held by the tests each rule cites. What still leads is the second
+half of the acceptance test: the same composition drawing in keasy's discover screen.
 </Callout>
 
 ## One path: fossil is the backend, this package is the view
 
 fossil reads the corpus and this package draws it, and nothing crosses between them except the
 corpus contract as fossil wrote it — the contract section of fossil's own design page, *The
-backend*: `open`, `tileMatrix`, `scan(…).plan()`, `scan(…).read(address)`, `edges`, `node`
+backend*: `open`, `tileMatrix`, `scan(…).plan()`, `scan(…).read(addresses)`, `edges`, `node`
 and `types`. **No SQL is written in `@kanzo-tech/graph`.** Every question the view asks is a call on the
 corpus, and a second way to reach the same bytes is deleted rather than kept beside the first.
 
 ```text
 fossil (backend)                               @kanzo-tech/graph (view)
 open(url, { engine })  → Corpus                    parts     GraphCanvas · GraphLegend · GraphToolbar · GraphInspector
-tileMatrix(type) → matrices, tiles, boxes          adapter   useGraph · GraphRoot · GraphRootProvider · useGraphContext
+tileMatrix(type) → matrices, tiles, boxes          adapter   useGraph · GraphRoot · GraphRootProvider · useGraphContext · useGraphState
 scan({ type, filter, select }).plan() → tasks      render    batches → cosmos.gl buffers, one render per frame
-scan.read({ type, z, tile }, { signal }) → Batch   core      tileset: cull · select · refine · cache · cancel
-edges({ from, direction, signal }) → batches, gaps filter    the page's crossfilter → scan's typed filter
+scan.read([{ type, z, tile }, …]) → Batch[]    core      tileset: cull · select · refine · cache · cancel
+edges({ from: […], direction }) → answers      filter    the page's crossfilter → scan's typed filter
 ```
 
-What that deletes is not a style. `duck-source.ts` is 1,096 lines, and it is this package writing
-fossil's half a second time: it composes tile URLs from fossil's addressing, reads Parquet footers
-for boxes, builds the visible, anchor and stride CTEs, joins every edge relation and counts the
+What that deleted was not a style. `duck-source.ts` was 1,096 lines, and it was this package writing
+fossil's half a second time: it composed tile URLs from fossil's addressing, read Parquet footers
+for boxes, built the visible, anchor and stride CTEs, joined every edge relation and counted the
 window — and fossil's own reader answers the same questions from the manifest it wrote. Of the ten
 costs measured against it on 2026-09-29 (the table is under
 [*What it closes*](#what-it-closes-and-who-closes-it)), six are that duplication and four are this
@@ -43,12 +42,13 @@ side not keeping what it had already read.
 and fossil declines to add. That is a gap in the contract, raised on fossil's side — never a licence
 to write the query here, because the query written here is how there came to be two readers.
 
-*Held by* nothing yet, and the code still contradicts it.
+**The one value the view takes from fossil is its role table.** `PAYLOAD_ADDRESS` and
+`PAYLOAD_COORDINATES` are what `@fossil-lang/corpus` exports so that a reader asks for the column it
+means rather than spelling the writer's names again; they are the only values imported from it.
 
-What will hold it is a scan in the manner
-of `coordinate-box.test.ts`: every module in the package, failing on a SQL keyword in a string, on an
-import of `@uwdata/mosaic-sql`'s query builders, and on a value import of `@fossil-lang/corpus`
-beyond its types.
+*Held by* `packages/graph/src/layers.test.ts`, "writes no SQL, and reaches fossil only through its
+types and its role table"; `packages/graph/src/index.test.ts`, "keeps the second reader deleted: no
+opener, no source, no slice", `!openCorpus`, `!DuckSource`, `!BoundedSource`.
 
 ## ADR 0001 — the canvas stops holding the graph, and asks instead
 
@@ -96,9 +96,9 @@ but it is a different answer.
 than the machinery of asking. The measurement says the crossover is below the smallest corpus fossil
 writes for this canvas.
 
-*Held by* `packages/graph/src/resident.test.ts`, "re-resolves a vertex that left the answer and came
-back at a different position"; `packages/graph/src/index.test.ts`, "ships a canvas that owns the
-renderer, and neither load nor Loaded".
+*Held by* `packages/graph/src/core/resident.test.ts`, "re-resolves a vertex that left the answer and
+came back at a different position"; `packages/graph/src/index.test.ts`, "ships a canvas that owns
+the renderer, and neither load nor Loaded".
 
 ## The layers, and the reference each one copies
 
@@ -124,37 +124,43 @@ packages/graph/src/
 │   ├── tile.ts               one tile: load, abort, content, byteLength, parent/children (Tile2DHeader)
 │   ├── tileset.ts            update(viewport) → selected; tree; cache; prune          (Tileset2D)
 │   ├── refine.ts             best-available, and only it                              (STRATEGY_DEFAULT)
-│   ├── scheduler.ts          priority queue, maxRequests, debounce, cancel by priority (RequestScheduler)
+│   ├── scheduler.ts          priority queue, one batch in flight, debounce, prune     (RequestScheduler)
 │   ├── filter.ts             a Mosaic predicate → scan's filter; the clause the graph publishes
+│   ├── channels.ts           Plot's bindings, and the projection they imply
 │   ├── store.ts              createGraph(options): subscribe · getSnapshot · setOptions (QueryObserver)
-│   └── resident.ts           identity ↔ buffer index — unchanged
+│   ├── state.ts              the options, the state a host selects from, and the store's shape
+│   ├── categories.ts         the categorical domain, fixed before a tile arrives
+│   ├── detail.ts             one vertex's row, read when it is focused
+│   └── resident.ts           identity ↔ buffer index
 ├── render/
 │   ├── encode.ts             one tile's Batch → its typed arrays, once per tile per channel binding
-│   ├── compose.ts            visible tiles → one buffer set; dirty flags by kind; the link join
-│   ├── renderer.ts           cosmos.gl's lifetime, and the frame that renders once
-│   └── graph-looks · graph-model · graph-sim · obligations · css-color · cluster-ring · adaptive · when-ready
+│   ├── compose.ts            visible tiles → one buffer set; the link join
+│   ├── renderer.ts           cosmos.gl's lifetime, dirty flags by kind, and the frame that renders once
+│   └── graph-looks · graph-model · graph-sim · obligations · css-color · adaptive · when-ready · webgl
 ├── react/
-│   ├── use-graph.ts          the store once, setOptions per render, useSyncExternalStore
-│   └── graph-root.tsx        GraphRoot · GraphRootProvider · useGraphContext
+│   ├── use-graph.ts          the store once, setOptions per changed prop; the stable api
+│   ├── use-graph-state.ts    a slice of the state, over useSyncExternalStore
+│   ├── graph-root.tsx        GraphRoot · GraphRootProvider · useGraphContext
+│   └── use-graph-prefs.ts
 ├── parts/
 │   ├── graph-canvas.tsx      the element; grid, vignette, labels, hover card; the drag gesture
-│   ├── graph-legend.tsx      the scale over fill and symbol, its domain from the manifest
-│   ├── graph-toolbar.tsx     tools, zoom, fit, pause — the commands
-│   ├── graph-inspector.tsx   the focused vertex: corpus.node, laid out by corpus.types
+│   ├── graph-legend.tsx · graph-toolbar.tsx · graph-inspector.tsx
+│   ├── overlays.ts · gesture.ts   what the canvas draws over the surface, and the marquee and lasso
 │   └── shape-glyph.tsx
 ├── index.ts
 └── section.ts                the ./section entry — unchanged
 ```
 
+`cluster-ring.ts` is gone
+with the `clusters` prop it served: one group per buffer position means nothing once the buffers are
+a composition of tiles, and no host passed one.
+
 **What would reverse it:** a layer whose reference stops describing what it does — the tileset
 growing a behaviour `Tileset2D` has no counterpart for, say — at which point either the reference is
 wrong for us and the page names a better one, or the behaviour is in the wrong layer.
 
-*Held by* nothing yet.
-
-What will hold it is a size guard over `packages/graph/src` in the manner of
-the coordinate-box scan — a module past four hundred lines fails, and says which reference it was
-meant to be the shape of.
+*Held by* `packages/graph/src/layers.test.ts`, "keeps every module under four hundred lines", "keeps
+the core free of React and of cosmos.gl".
 
 ## The core is a tileset, shaped as deck.gl's `Tileset2D`
 
@@ -166,11 +172,13 @@ who does not can read deck.gl's.
 
 **Taken verbatim:**
 
-- **The load.** Loading a tile is deck.gl's `getTileData({ index, id, bbox, signal })` — here,
-  `scan.read(address, { signal })` and the tile's edges, with the `AbortSignal` owned by the tile's
-  own `AbortController` exactly as `Tile2DHeader._loadData` owns it. A result whose loader id is no
-  longer the tile's is discarded as stale. The signal reaches the running statement: fossil's
-  `Engine.query` takes it and interrupts the query, not only the queue in front of it.
+- **The load.** Loading a tile is deck.gl's `getTileData({ index, id, bbox, signal })` — here, a
+  batch: `scan.read(addresses, { signal })` and the batch's edges, answering one content per tile,
+  with the `AbortSignal` owned by the batch rather than by the tile (see
+  [*one batch in flight*](#one-batch-in-flight)). A result whose loader id is no longer the tile's
+  is discarded as stale, as `Tile2DHeader._loadData` discards it. The signal reaches the running
+  statement: fossil's `Engine.query` takes it and interrupts the query, not only the queue in front
+  of it.
 - **The tile's states.** `isLoaded`, `isLoading`, `needsReload`, `isSelected`, `isVisible`, `parent`,
   `children`, `content`, `byteLength` — the same flags, meaning the same things.
 - **`update(viewport)`.** Selection is recomputed when the viewport changed; then tile states, then
@@ -182,8 +190,9 @@ who does not can read deck.gl's.
   2026-09-29, and it is what `'best-available'` already does, since a tile at rest has no unloaded
   selected descendant to stand in for.
 - **Scheduling.** A queued request whose tile is neither selected nor visible gets priority `-1` and
-  is cancelled before it is issued; the rest are issued nearest-the-centre first. That is
-  `Tileset2D._getRequestPriority` over loaders.gl's `RequestScheduler`.
+  is cancelled before it is issued; the rest are ranked nearest-the-centre first. That is
+  `Tileset2D._getRequestPriority` over loaders.gl's `RequestScheduler` — which issues a batch where
+  loaders.gl issues a request.
 - **The cache.** `maxCacheSize` defaults to five times the selected count (`DEFAULT_CACHE_SCALE`),
   `maxCacheByteSize` is optional, and eviction removes tiles that are neither visible nor selected, in
   insertion order. That order is deck.gl's, and it is not LRU; it is copied knowingly.
@@ -195,15 +204,16 @@ who does not can read deck.gl's.
 
 | deck.gl | here | why |
 |---|---|---|
-| a tile is `{ x, y, z }`, id `` `${x}-${y}-${z}` `` | a tile is fossil's `TileAddress`, `{ type, z, tile }`, id `` `${type}-${z}-${tile}` `` | `dense_id` is a vertex's **rank** in the Morton order, so a matrix is one-dimensional: a tile is a contiguous id range, not a cell of a grid |
-| `getParentIndex`: `{ x/2, y/2, z − 1 }` | the parent of `(z, t)` is `(z − 1, t >> (shift(z − 1) − shift(z)))` | the same quad tree — four children per tile — expressed on the rank axis, from the `shift` each matrix publishes |
+| a tile is `{ x, y, z }`, id `` `${x}-${y}-${z}` `` | a tile is fossil's `TileAddress`, `{ type, z, tile }`, id `` `${type}-${z}-${tile}` `` | `dense_id` is a vertex's **rank** along a Hilbert curve, so a matrix is one-dimensional: a tile is a contiguous id range, not a cell of a grid |
+| `getParentIndex`: `{ x/2, y/2, z − 1 }` | the parent of `(z, t)` is `(z − 1, t >> (shift(z − 1) − shift(z)))` | a tree on the rank axis, from the `shift` each matrix publishes: four children per tile between rungs, and `2^B` — sixteen at sixteen vertices a cell — between the payload and the first rung |
 | `getOSMTileIndices` or `getIdentityTileIndices`: indices from the viewport by arithmetic | **a cull**: a tile is in view when its published `bbox` meets the viewport | where a rank falls on the plane depends on the positions, so no arithmetic over the matrix can locate it; `tileMatrix(type)` lists every tile with its box, synchronously, and no tile is empty |
 | `z` from the viewport's zoom plus `zoomOffset`, tiles of `tileSize` pixels | `z` is the **finest level whose tiles in view hold, by their published `rows`, at most `limit` marks** | the budget is marks rather than pixels, and the counts are the manifest's — see the next rule |
-| `maxRequests: 6` | **one** read in flight, the queue ordered by priority | six is the browser's connections per HTTP/1.1 origin; our reader is DuckDB-WASM, one worker behind one port, where a second concurrent request queues rather than overlaps — measured, see [the filter rule](#a-filter-is-a-predicate-not-a-mask) |
-| in-flight tiles aborted only while `ongoingRequestCount > maxRequests` | an in-flight tile that stops being selected or visible is **always** aborted | deck.gl keeps a finished request because a parallel slot costs nothing; here the one slot is the only one, and a superseded read holds it |
+| `maxRequests: 6`, a request per tile | **one batch** in flight: every tile queued when the slot frees is one `read` and one `edges` call per half | six is the browser's connections per HTTP/1.1 origin; our reader is DuckDB-WASM, one worker behind one port, where a second concurrent request queues rather than overlaps — measured, see [the filter rule](#a-filter-is-a-predicate-not-a-mask) — and fossil reads a run of consecutive tiles as one statement only when it is handed them together |
+| in-flight tiles aborted only while `ongoingRequestCount > maxRequests` | an in-flight batch is aborted **as soon as none of its tiles** is selected or visible, and not before | see [*one batch in flight*](#one-batch-in-flight) |
 | `refinementStrategy`: three values and a function | `'best-available'`, fixed | a coarse tile is a stand-in while its children load, never a resting state |
 | `renderSubLayers` per tile, a layer per tile | tiles are **composed into one buffer set** for one cosmos.gl instance | cosmos.gl has one set of buffers per graph, not layers; see [the renderer rule](#the-renderer-uploads-what-changed-and-renders-once-a-frame) |
 | `zRange`, `modelMatrix` | none | a laid-out graph is flat and unrotated; nothing asks for either |
+| a cancelled reload sets `content` to what it read, which is nothing | content outlives a cancelled or failed reload | a change of question keeps the old picture until the new answer arrives, and a pan that supersedes the reload must not blank it |
 
 **The loop's defects that this closes.** Every pan re-asked the full rectangle and replaced the whole
 answer, so a pan of one pixel re-read every tile under the window (inefficiency 6). A superseded
@@ -214,13 +224,50 @@ issued yet had nothing to abort (7). A tile is now the unit of asking, of keepin
 measured as first paint and as the median pan over the same corpus and the same camera path. That is
 not expected: the window read is the sum of the tile reads plus the join that combined them.
 
-*Held by* `packages/graph/src/use-query-loop.test.tsx`, "re-asks through the camera when the graph is
-sliced" — which holds the loop this replaces, and goes with it.
+*Held by* `packages/graph/src/core/tileset.test.ts`, against a stub corpus: "reads a selected tile
+once, and never asks a loaded tile again", "never issues a queued tile nobody wants any more", "never
+evicts a visible tile, and evicts the rest in insertion order", "draws a parent only while a selected
+child is loading", "keeps the old content when the question changes, until the new answer arrives".
 
-What will hold the tileset is a test beside it driven by a stub corpus: a selected tile is read once, a
-tile that leaves both selected and visible has its signal aborted, a queued one is never issued, the
-cache never evicts a visible tile, a parent is visible only while a selected child is loading, and a
-new filter keeps the old content until the new arrives.
+### One batch in flight
+
+**The tiles the tileset wants in one tick are one call.** When the debounce settles, or the batch in
+flight lands, everything queued is ranked, the unwanted dropped, and the rest issued together:
+`scan.read(addresses)`, `edges({ from: addresses, direction: "src" })`, and `direction: "dst"` over
+the payload tiles among them. fossil answers one batch per address, so the tileset still caches,
+refines and reloads **per tile** — a batch is how tiles are asked, never what is kept. How the batch
+becomes statements is fossil's: it sorts the addresses and reads each run of consecutive tiles as one
+conjunctive range (*The backend*, *a read does not cost the corpus*). The view does not know which of
+its tiles are consecutive, and must not: that is arithmetic over the matrix, and the reader's.
+
+**A batch is aborted when none of its tiles is wanted, and never while one is.** deck.gl aborts a
+tile's request when the tile stops being selected or visible and too many are in flight; with one
+`AbortSignal` per batch, aborting for one tile would throw away the others' answers, which the next
+batch would then ask again. So a tile nobody wants any more **rides out** a batch that is still
+answering somebody, and keeps what it read — the bytes are paid, and a pan back finds it in the
+cache. A tile *explicitly* dropped — evicted, or marked for reload because the question changed —
+resolves `null` at once and discards its answer, and when every tile in a batch is dropped or
+unwanted, the batch's signal aborts the running statement. A queued tile nobody wants is never
+issued, as before.
+
+The price is that a batch is all or nothing: one tile's failure fails the batch, and the nearest
+tile's answer waits for the farthest one's. Measured over the rebuilt bench corpora
+([Benchmarks](/docs/graph/benchmarks), *the data path*), a batch costs the same bytes as its tiles
+read one by one, three calls where there were three a tile, and half the requests when its tiles are
+one run — 59 ms against 74 for the whole extent at 200k, 91 against 105 at a million. Where its
+tiles fall in as many runs as there are tiles it saves nothing, and costs nothing measurable.
+
+**What would reverse it:** a camera move whose batch is slower to its **first** drawn tile than the
+same tiles read one by one nearest-first — measured as time to the first composition over the same
+camera path — which would happen if a window's tiles stopped falling in runs, or if one batch grew
+large enough that the far tiles dominate. Then the batch is capped — by count, never by run, which
+stays the reader's arithmetic. And the abort rule reverses on a measurement of a batch finishing for one wanted tile while
+a superseding batch waited long enough to show: the waste would then be the slot, not the bytes.
+
+*Held by* `packages/graph/src/core/tileset.test.ts`: "reads the tiles wanted in one tick as one
+batch", "keeps one batch in flight, and asks what queued behind it as the next one", "lets a batch
+finish while any tile in it is wanted, and keeps what it read", "aborts a batch once none of its tiles
+is selected or visible".
 
 ## A far view is a coarser level of the pyramid
 
@@ -293,8 +340,10 @@ budget is a coarser mipmap than the ceiling row.
 0.167, 0.240, 0.269 — measured the same way. That would mean the writer's cells are the wrong summary,
 not that sampling was right.
 
-*Held by* `packages/graph/src/index.test.ts`, "keeps the aggregate far view deleted, names and all" —
-the column-grouped summary and its zoom threshold stay deleted.
+*Held by* `packages/graph/src/core/tileset.test.ts`, "chooses the finest zoom whose tiles in view fit
+the limit"; `packages/graph/src/core/store.test.ts`, "reads the payload at a close camera and a rung
+at a far one"; `packages/graph/src/index.test.ts`, "keeps the aggregate far view deleted, names and
+all" — the column-grouped summary and its zoom threshold stay deleted.
 
 A cell is not a super-node: it has no vertex identity, takes no reserved vertex type, and fossil's
 `node` never returns one. What a click on a cell reaches is the tiles under it at `Z`, one shift away.
@@ -315,7 +364,7 @@ under another name.
 **The architecture is three lines, and the seam draws the first:**
 
 ```text
-draw    camera → cull over published boxes → scan.read(address)    memory, then a read per tile
+draw    camera → cull over published boxes → scan.read(addresses)  memory, then a read per batch
 ask     verb → rows → ids                                          the verbs, or SQL, on fossil's side
 join    ids → what the canvas draws                                the predicate, below
 ```
@@ -346,8 +395,9 @@ for the camera moving.
 if choosing among levels, or among tiles, ever needs an answer from the corpus rather than a number
 from the manifest, the camera has become a question and this is wrong.
 
-*Held by* `packages/graph/src/index.test.ts`, "keeps the neighbourhood question deleted, and says what
-it was for" — the verb that tempted a neighbourhood query onto the drawing path stays gone.
+*Held by* `packages/graph/src/core/store.test.ts`, "plans once per question, never per camera move";
+`packages/graph/src/index.test.ts`, "keeps the neighbourhood question deleted, and says what it was
+for" — the verb that tempted a neighbourhood query onto the drawing path stays gone.
 
 ## An edge is drawn from bytes in hand
 
@@ -356,8 +406,8 @@ cache, not only the tiles in view — and it is keyed by its pair of `VertexId`s
 its source's tile and the copy read from its target's tile are one edge. An edge shorter than **three
 screen pixels** is not composed.
 
-**Edges are read per tile, in both directions.** `corpus.edges({ from: address, direction })` answers
-a tile's relations out of the half aligned on `direction` — `src` for the source-aligned adjacency,
+**Edges are read per tile, in both directions.** `corpus.edges({ from: addresses, direction })` answers
+each tile's relations out of the half aligned on `direction` — `src` for the source-aligned adjacency,
 `dst` for the target-aligned one — as batches of `src` and `dst` ids. The `dst` half is what the old
 reader could not ask: an edge whose source was outside the window lived in a tile the window did not
 read, and was never drawn (inefficiency 10). Reading both is also what retires the anchor query — the
@@ -389,12 +439,14 @@ cache keeps — measured as the share of a window's edges whose far end the cach
 which point the view reads far-end tiles by address. Or a canvas at a resolution where the median
 drawn edge clears three pixels.
 
-*Held by* nothing in this package yet.
+The two halves ran as SQL in `anchorCte` and `longEnough`, and left with it. A far end the cache
+holds but the view does not is placed past the marks at radius zero, so the edge has an end and the
+vertex draws nothing.
 
-The two halves ran as SQL in `anchorCte` and `longEnough`, which leave with the SQL; what will hold
-them is the composition test — an edge read from both ends is composed once, an edge with an end
-outside the cache is not composed, a stub is discarded, and a coarse zoom composes quotient lines and
-nothing else.
+*Held by* `packages/graph/src/render/compose.test.ts`, "composes an edge read from both of its ends
+once", "does not compose an edge whose far end is not in the cache", "draws an edge to a far end the
+cache holds, from a slot past the marks", "discards an edge shorter than three screen pixels",
+"composes quotient lines at a coarse zoom, and cells after every vertex".
 
 ## A filter is a predicate, not a mask
 
@@ -444,7 +496,7 @@ restored 1,543 and 4,280.
 the reasoning that three queries on separate connections would collapse to the slowest. Across four
 runs, a trivial query on a second connection answered at 511.8, 462.9, 454.8 and 449.5 ms against
 sorts of 511.7, 462.8, 454.7 and 449.4. DuckDB-WASM is one worker behind one message port. That is why
-the tileset keeps one read in flight and spends its effort on the order of the queue.
+the tileset keeps one batch in flight and spends its effort on what goes into it.
 </Callout>
 
 **What this does not touch:** the reads about the corpus rather than about the page — the tile matrix,
@@ -457,12 +509,14 @@ from a fixed URL, with no scan behind it — where the surviving ids really are 
 halves can exchange. Or a crossfilter clause whose predicate is not translatable into scan's
 expression shape and is common enough that failing loudly is the wrong answer.
 
-*Held by* `packages/graph/src/slice-client.test.ts`, "is exempt from a clause that names it" and "is
-re-queried by the coordinator when the page filters something" — the exemption and the re-ask, held
-today by the client this rule replaces.
+Mosaic queues a `value` event behind one whose listeners have not settled, so a second change of the
+crossfilter reaches the graph a microtask after the first; nothing here depends on the two arriving
+together.
 
-What will hold them after is the bridge's own test: the same
-two assertions against a `Selection`, plus a node that does not translate reaching `onFailure`.
+*Held by* `packages/graph/src/core/filter.test.ts`, against a real `Selection`: "translates the clauses
+a chart publishes", "is re-asked when the page filters something", "is exempt from a clause that
+names it", "reports a node it cannot translate, and never draws the unfiltered picture as
+filtered".
 
 ## The renderer uploads what changed, and renders once a frame
 
@@ -493,10 +547,13 @@ already was per answer. Everything that outlives one composition is still held a
 becomes a tile's range and composition stops copying. Or a measurement where concatenating cached
 arrays costs more than re-encoding from rows — which would mean the cache is holding the wrong thing.
 
-*Held by* `packages/graph/src/when-ready.test.ts`, "has no module calling a setter on an instance it
-has not waited for", and `packages/graph/src/use-renderer.test.tsx`, "does not rebuild the renderer
-because a callback changed identity" — the two properties of the renderer's lifetime that survive the
-rewrite unchanged.
+*Held by* `packages/graph/src/render/renderer.test.ts`, "uploads each buffer once for a change of
+tiles, and renders once", "repaints colours, sizes and shapes on a look change, and uploads no
+geometry", "uploads nothing when an update selects the same visible set";
+`packages/graph/src/render/compose.test.ts`, "composes nothing new when the visible set has not
+changed"; `packages/graph/src/render/when-ready.test.ts`, "has no module calling a setter on an
+instance it has not waited for"; `packages/graph/src/react/graph-root.test.tsx`, "does not rebuild
+the renderer because a callback changed identity".
 
 ## The React API is a store and an adapter
 
@@ -514,6 +571,14 @@ rate. So the core owns it as a **store** with TanStack Query's observer shape, a
   context, `GraphRootProvider` takes an api a host built itself, and `useGraphContext` **reads** it —
   `useDialog`, `DialogRoot`, `DialogRootProvider` and `useDialogContext` in `@ark-ui/react`, one for
   one.
+- **The api is the commands, and the state is a selector.** Zag separates a machine's `api` from its
+  `state`; TanStack Store reads a store through `useStore(store, selector)`. Here the api is stable
+  for the root's life — the commands, `subscribe`, `getState` — and `useGraphState(selector)` reads a
+  slice and re-renders only when it moves. The api used to carry the state, and its identity moved
+  on every hover: both showcases re-rendered their chrome, and destructured field by field to stop
+  it. `getGraph()` left with it — a host moves the camera with `frameBox`, `fit`, `zoomBy`,
+  `reveal` or `frameSelection`, and the parts reach the renderer through a door that is on neither
+  the barrel nor the api's type.
 
 **Where it departs.** Zag's React adapter keeps a machine's state in React state through `useBindable`
 and does not use `useSyncExternalStore`; TanStack Table v8 does the same through `useState` and
@@ -527,11 +592,27 @@ there are parts now, but each renders one element the context fully describes, s
 it buys — measured as renders per camera move with and without `useSyncExternalStore`. The core/adapter
 split is paid for by the frame-rate state even with one adapter.
 
-*Held by* nothing yet.
+**Where it departs from `useBaseQuery`, in one line.** TanStack calls `setOptions` on every render and
+compares inside; here the effect's dependencies are the props themselves, and the callbacks —
+`onFailure`, `onSelect`, `onFocus` — are read through a ref, so a host's inline callback is never a
+change of options. The store also starts listening to the crossfilter on its first subscriber and
+lets the tiles go on its last, `QueryObserver`'s `onSubscribe` and `onUnsubscribe`, which is what
+survives StrictMode mounting everything twice.
 
-What will hold it is a test beside the store with no React in it — a tile load
-notifies subscribers once, `getSnapshot` is stable between notifications — and one beside the adapter
-asserting that a render which changed no prop does not reach `setOptions`.
+**Status is a word, not three fields to agree.** `status` is `none` without a corpus, `opening` while
+the promise of one settles — `corpus` takes the promise, which is the only way *opening* and *no
+corpus* can be told apart — `reading` while a tile in view is unread or undrawn, `idle` once
+everything in view is drawn, and `failed` when the corpus would not open or the canvas could not
+start a renderer. The bench used to decide it had settled by reading `drawn`, `pending` and its own
+count of reads; it waits for `idle` now.
+
+*Held by* `packages/graph/src/core/store.test.ts`, "notifies subscribers once when a tile loads",
+"keeps getSnapshot stable between notifications", "lets the tiles go when the last subscriber
+leaves", "says it is opening while a promised corpus opens, and has none without one", "is idle
+only once everything in view is drawn"; `packages/graph/src/react/graph-root.test.tsx`, "does not
+reach setOptions on a render that changed no prop", "keeps the api's identity across hovers, and
+re-renders a part only on the slice it selects"; `packages/graph/src/index.test.ts`, "is Ark's four: useGraph creates, GraphRoot
+provides, GraphRootProvider takes, useGraphContext reads".
 
 ## The parts own the vocabulary; the host owns the policy
 
@@ -549,13 +630,26 @@ The parts, each reading `useGraphContext()`:
 
 - **`GraphCanvas`** — the element, and what the look declares over it: the grid, the vignette, the
   labels and the hover card are fields of `Look` already, so drawing them is the canvas's job. The
-  drag gesture — marquee and lasso, modifiers read at release — belongs to it too.
-- **`GraphLegend`** — the categorical scale over `fill` and `symbol`, its domain the manifest's
-  `channels:` — ordinals `0` to `domain − 1` — rather than a table the host keeps. The contract
-  publishes no names for those ordinals; see the last section.
-- **`GraphToolbar`** — the tools, zoom, fit, pause and resume: the commands, drawn.
-- **`GraphInspector`** — the focused vertex, asked of `corpus.node(id)` and laid out by
-  `corpus.types`.
+  drag gesture — marquee and lasso, modifiers read at release — belongs to it too. **A label needs
+  text, and a tile carries none**: so the text is a fifth channel, `title` — Plot's name for a mark's
+  text — projected into the scan like `fill`, and read with the tile. Unbound, there are no labels
+  and the card shows the address. This part exists.
+- **`GraphLegend`** — the categorical scale over `fill` and `symbol`, with what each category's
+  marks stand for in view. **Its domain is fixed before a tile arrives**: a column the manifest's
+  `channels:` declares ranks by its own ordinal, `0` to `domain − 1`, and any other ranks by the keys
+  of the root's `categories`. Ranked as seen, a category's colour changed hands whenever a tile
+  brought a value that sorted before it — which is what both showcases' legends did.
+- **`GraphToolbar`** — the tools, the selection, zoom and fit, and a live layout's transport: the
+  commands, drawn, each cluster a `ButtonGroup`.
+- **`GraphInspector`** — the focused vertex's row, laid out by `corpus.types`, and a render prop for
+  the fields a product adds. `corpus.node` takes an identity and a tile carries an address, so the
+  row is read as a scan of the one payload tile its `dense_id` falls in, filtered to it.
+
+**Names are data on the root, not a prop of the legend.** The contract publishes no names for a
+channel's values, so the host passes them as `categories` — on the root, because the hover card and
+the inspector name a category too, and three parts with three tables would disagree. A `labels` prop
+on the legend alone would have been the reversal below firing on day one: *a legend that has to
+rename a category*.
 
 **Policy stays out, through the root's callbacks.** What a click means, what a lasso commits to and
 what a failure shows are `onSelect`, `onFocus` and `onFailure` on `GraphRoot`; when `filterBy` is
@@ -564,8 +658,9 @@ what `filterBy` means. `onFailure` stays the one required prop: unhandled, a bro
 context shows an empty box.
 
 **What stays at the call site** is what is genuinely the product's: in the workspace, the orders
-builder, the ask box, and the appearance and settings panels — about 1,220 lines — and the three pieces
-named above.
+builder, the ask box, and the appearance and settings panels, and the three pieces named above — the
+pairings table, the hall's name as an inspector field through the render prop, and the archive
+search, which reveals what it finds.
 
 **The case that does not fit.** Admission rule 2 asks for two call sites and there is one; keasy's
 discover screen is the migration target that should become the second, and until it has, these parts
@@ -576,23 +671,25 @@ policy — an inspector that has to format a field by a product's rule, a legend
 category. That part goes back to the call site and is deleted from the package, rather than growing
 the prop.
 
-*Held by* nothing yet.
-
-What will hold it is the acceptance test below, and a guard in the package's
-barrel test that no part's props type carries a callback other than the root's.
+*Held by* `packages/graph/src/index.test.ts`, "carry no callback but the root's" — read with the type
+checker, so a DOM element's inherited `onClick` is told apart from one a part declared;
+`packages/graph/src/parts/parts.test.tsx`, "draws the manifest's domain before a tile has arrived,
+named by the root", "reads the focused vertex's row, and draws a host's extra fields after the
+corpus's own"; `packages/graph/src/render/compose.test.ts`, "keeps a category's rank however the
+tiles arrive, once the domain is fixed". And the acceptance test below.
 
 ## The one host path
 
 ```tsx
 // @fossil-lang/corpus: open · @kanzo-tech/mosaic: engine
 // @kanzo-tech/graph: GraphRoot, GraphCanvas, GraphLegend, GraphToolbar, GraphInspector
-const corpus = await open(url, { engine: await engine() });
+const corpus = engine().then((e) => open(url, { engine: e }));
 <GraphRoot corpus={corpus} type="Person" fill="kind" r="degree" filterBy={crossfilter} onFailure={setFailure}>
   <GraphCanvas>
     <GraphToolbar />
     <GraphLegend />
-    <GraphInspector />
   </GraphCanvas>
+  <GraphInspector />
 </GraphRoot>
 ```
 
@@ -620,7 +717,9 @@ the root barrel — because nothing on this package's path is optional any more.
 rows over the wire, say. Then the bridge to Mosaic goes back behind an entry of its own, and only the
 bridge.
 
-*Held by* nothing yet; the acceptance test below is what will.
+*Held by* `packages/graph/src/index.test.ts`, "keeps the second reader deleted: no opener, no source,
+no slice", `!openCorpus`, `!shouldSlice` — the opener and the entry are gone. The acceptance test
+below is what holds the rest.
 
 ## The acceptance test
 
@@ -631,8 +730,13 @@ bridge.
 settings panels with the named pairings they offer, and the archive search — and nothing that reads
 the canvas's internals.
 
-And the same composition draws in keasy's discover screen without a prop added for it. Until that has
-happened, the first half is the test and the second is the open question.
+**The first half is met, measured 2026-09-29.** 3,792 lines on main, 2,852 once the tileset replaced
+the reader, 1,685 now — all of it `graph-view.tsx`, the other two files deleted. The composition is
+`ArchiveGraph` (27 lines) and the parts placed in `default.tsx`'s `ArchiveCanvas` (17); the rest is
+the product's panels, and nothing in them reads a renderer, a resident map or a tile.
+
+And the same composition draws in keasy's discover screen without a prop added for it. That half has
+not happened, and it is the open question.
 
 **What would reverse it:** the composition needing a prop only the workspace passes. That is the parts
 rule's reversal firing, and the part it names goes back to the call site.
@@ -645,31 +749,41 @@ the shape that lets them.
 
 | # | the cost | closed by | how |
 |---|---|---|---|
-| 1 | under `rowgroups`, each slice read the whole vertex file and the whole `by_source` file | backend | `scan.read(address)` reads one row group; the view asks per tile |
+| 1 | under `rowgroups`, each slice read the whole vertex file and the whole `by_source` file | backend | `scan.read(addresses)` reads one row group a tile, a run of them in one statement; the view asks per batch |
 | 2 | the anchor CTE's `NOT (bbox)` scanned every vertex outside the window | view | far ends come from the tile cache; there is no anchor query |
-| 3 | the edge join was `O(E)` per slice | backend | `edges({ from: address })` reads one tile's adjacency by its `dense_id` range |
+| 3 | the edge join was `O(E)` per slice | backend | `edges({ from: addresses })` reads each tile's adjacency by its `dense_id` range |
 | 4 | the same CTEs ran twice per slice, for points and for links | view | SQL leaves the package; a tile is read once and its edges once |
 | 5 | `count(*) OVER ()` materialised the whole match before sampling | view, writer | counts are the manifest's; the level is chosen from them and nothing is sampled |
 | 6 | no cache; every pan re-asked the full rectangle | view | the tileset's cache: a loaded tile is never asked again |
-| 7 | superseded questions were not cancelled | view, backend | priority `-1` drops a queued read; an in-flight read's signal is aborted, and `Engine.query` interrupts the running statement |
+| 7 | superseded questions were not cancelled | view, backend | priority `-1` drops a queued read; an in-flight batch's signal is aborted once none of its tiles is wanted, and `Engine.query` interrupts the running statement |
 | 8 | opening read a footer over every payload file — 4,892 requests, 40 MB at 10M | writer | every tile's box and rows in the manifest, 2,654 entries at 10M; `tileMatrix` lists them |
 | 9 | every slice re-uploaded every buffer and rendered twice | view | encode once per tile, dirty flags by kind, one render per frame |
 | 10 | no `by_target` read, so an edge whose source was off-screen was never drawn | backend, view | `edges({ direction: "dst" })`, and the view reads both directions |
 
+**What the rebuilt package measured**, 2026-09-29, reads and bytes only — the browser offered no WebGL
+context that day, so rows 4 and 9 are unmeasured ([Benchmarks](/docs/graph/benchmarks), *the data
+path*). At two hundred thousand the whole extent cost 194 requests and 7.25 MB through the old
+reader and 12 requests and 0.94 MB as four tiles of a rung (rows 1, 5, 8); five of six pans read
+nothing, where every pan used to be a query of a second or more (row 6). At a million the old reader
+never answered the first window in a hidden tab; the tileset read 1.57 MB for it. Row 7 was
+measured against the live engine: a sort that runs 11.2 s uninterrupted, aborted after 100 ms, let
+the next statement answer in 14 ms.
+
 **What would reverse the table:** a row closed here reappearing in a measurement of the rebuilt
-package, over the same corpus. The table is a claim about the design until then.
+package, over the same corpus.
 
 ## The public surface after the change
 
 The root barrel after the rebuild, and nothing else:
 
 ```text
-the adapter        GraphRoot · GraphRootProvider · useGraph · useGraphContext
+the adapter        GraphRoot · GraphRootProvider · useGraph · useGraphContext · useGraphState
 the parts          GraphCanvas · GraphLegend · GraphToolbar · GraphInspector · ShapeGlyph
 the picture        lookFrom · simFrom · useGraphPrefs · adaptive · scaleOf
 identity           vertexId · typeOf · denseOf
 types              GraphRootProps · GraphRootProviderProps · UseGraphProps · GraphApi · GraphCanvasProps
                    GraphLegendProps · GraphToolbarProps · GraphInspectorProps · ShapeGlyphProps
+                   GraphState · GraphStatus · Drawn · VertexDetail
                    Channels · Look · LookPatch · Shape · Sim · Motion · Selection · SelectionSource
                    Tool · GraphCommands · VertexId · Resident
 ./section          GRAPH_SECTION — unchanged
@@ -679,9 +793,8 @@ What leaves the barrel and stays in the package:
 
 ```text
 residentOf                     the api hands a Resident; a host never builds one
-neighboursOf                   the hover highlight is the canvas's now
 useGraphOverlays · GraphOverlays · useGraphSelection · cursorChip
-                               the overlays and the gesture are GraphCanvas's
+                               the overlays and the gesture are GraphCanvas's — parts/overlays.ts, parts/gesture.ts
 resolveToken · toHex · Rgba    the renderer's colour path; the parts draw through it
 Viewport                       the tileset's box type
 ```
@@ -698,6 +811,8 @@ BoundedSource · Slice · SliceRequest · shouldSlice
 slice-client.ts (SliceRead) · use-query-loop.ts · bounded.ts
                                replaced by core/filter.ts and the tileset
 docs/lib/archive-corpus.ts     the docs open the archive with fossil's open and hand GraphRoot the corpus
+neighboursOf                   cosmos.gl's getNeighboringPointIndices is the neighbourhood; the click is the canvas's
+clusterRing · clusters         one group per buffer position means nothing over a composition of tiles
 ```
 
 `BoundedSource` and its three siblings were going to become internal. They are deleted instead:
@@ -709,7 +824,8 @@ the resident map or the overlay painter to do something the parts cannot. Then t
 and the part that failed it is the thing to look at first.
 
 *Held by* `packages/graph/src/index.test.ts`, "is exactly this list, and grows only by somebody writing
-a name into it" — which pins today's list, and is the file the new one is written into.
+a name into it", "keeps the canvas's own steps internal", `!residentOf`, `!neighboursOf`,
+`!useGraphOverlays`.
 
 ## The coordinate box is the corpus's extent, and this side declares no default
 
@@ -740,8 +856,10 @@ init-only, or a render path where the box stops being a translation — a live s
 gravity centre, and no measurement of that exists yet.
 
 *Held by* `packages/graph/src/coordinate-box.test.ts`, "declares no coordinate-space constant of its
-own"; `packages/graph/src/use-query-loop.test.tsx`, "frames the corpus before it asks anything, and
-only once".
+own"; `packages/graph/src/render/renderer.test.ts`, "frames the corpus's extent before it reads
+anything, and only once". The renderer is built with `rescalePositions: false`: cosmos.gl otherwise
+rescales positions whose span fits inside `spaceSize` when no simulation runs, and a composition of a
+few tiles always does.
 
 ## A dense id is thirty-two bits
 
@@ -768,22 +886,23 @@ crossing into JavaScript is the failure that recurs across every multi-language 
 **What would reverse it:** a corpus whose manifest declares a `dense_id` wider than the packing holds, or
 a vertex type count past the same bound.
 
-*Held by* `packages/graph/src/resident.ts`, `TYPE_SHIFT` / `DENSE_MASK`;
-`packages/graph/src/resident.test.ts`, "round-trips the far corner of the whole 64-bit range, which a
-float64 could not".
+*Held by* `packages/graph/src/core/resident.ts`, `TYPE_SHIFT` / `DENSE_MASK`;
+`packages/graph/src/core/resident.test.ts`, "round-trips the far corner of the whole 64-bit range,
+which a float64 could not".
 
 ## A look is form, and a channel is a binding
 
 `Look` is `form`, and carries no encoding. What a channel carries is said by **binding it on the
 root**, under Plot's names and Plot's rule that a CSS colour is a **constant** and a column name is a
-**channel**: `fill`, `symbol`, `r`, `stroke`. `symbol` is a channel in its own right beside `fill`, so
+**channel**: `fill`, `symbol`, `r`, `stroke` and `title`. `symbol` is a channel in its own right beside `fill`, so
 identity may be drawn as colour, as shape, or as both. `stroke` absent leaves each link tinted by the
 vertex it leaves; a constant makes links plain structure.
 
-**A binding is a projection.** `fill` and `r` as columns become the scan's `select`, so changing one
-makes a new scan over the same tiles — which reloads them while keeping the picture, and restarts
-nothing. `fill` as a constant, `symbol` and `stroke` never reach a scan: shape reads the categorical
-column the tile already carries, and a link's tint is a decision about drawing. `isColour` is the
+**A binding is a projection.** `fill`, `r` and `title` as columns become the scan's `select`, so
+changing one makes a new scan over the same tiles — which reloads them while keeping the picture, and
+restarts nothing. `fill` as a constant and `stroke` never reach a scan, and `symbol` reaches it only as
+the one categorical column when `fill` is a constant: otherwise shape reads the column `fill` already
+projected, and a link's tint is a decision about drawing. `isColour` is the
 constant-versus-column test, narrowed to `var(…)`, a hex and the colour functions, so **a bare word is
 always a column**.
 
@@ -806,8 +925,9 @@ author a colour.
 **What would reverse it:** the composition check never firing. If every host that binds `symbol` also
 asks for the form that was bundled with it, the pairing was the abstraction.
 
-*Held by* `packages/graph/src/graph-looks.ts`, `Look`; `packages/graph/src/graph-model.ts`, `Channels`;
-`packages/graph/src/obligations.ts`, `gradeComposition`.
+*Held by* `packages/graph/src/render/graph-looks.ts`, `Look`; `packages/graph/src/core/channels.ts`,
+`Channels`, `projectionOf`; `packages/graph/src/render/obligations.ts`, `gradeComposition`;
+`packages/graph/src/core/store.test.ts`, "projects the bound columns and nothing a constant names".
 
 ## A look declares what it changes
 
@@ -842,7 +962,7 @@ invisible, which is the point of the claim.**
 telling them apart on those six fields ends it.**
 
 *Held by* `packages/graph/src/section.test.ts`, "still draws the three pictures the three names drew";
-`packages/graph/src/graph-looks.ts`, `lookFrom`.
+`packages/graph/src/render/graph-looks.ts`, `lookFrom`.
 
 ## What the view takes from the corpus contract, and what is still open
 
@@ -855,13 +975,19 @@ an `Engine.query` that interrupts the running statement on the signal.
 
 What is still open, each fossil's to answer or the owner's to rule on:
 
-- **Names for a channel's ordinals.** `channels:` gives a domain, `0` to `domain − 1`, and no labels,
-  so a legend over the one host's `kind` can say *3* but not what 3 is. Either the manifest carries the
-  labels, or the host passes them, and passing them is data rather than policy.
+- **Names for a channel's ordinals.** `channels:` gives a domain, `0` to `domain − 1`, and no labels.
+  The host passes them as the root's `categories`, which is data rather than policy; if the manifest
+  ever carries them, the manifest's win and the prop names only what it leaves unnamed. And a string
+  column the manifest declares no channel for — the archive's `kind` — has no domain at all, so its
+  order is the host's keys.
 - **The in-edges of a cell.** The quotient is source-aligned only, so a coarse tile's lines are the
   ones leaving it; a line arriving from a cell whose tile is not cached is not drawn. That is the same
   bytes-in-hand rule the finest level follows, and it is named here because at a coarse zoom the cache
   is most of the picture.
+- **The cell columns by role.** fossil's barrel exports the payload's role table and not the cells':
+  `cell_id`, `count` and `mode` are spelled in `render/encode.ts`, the one place this package writes a
+  writer's column name down. `CELL_ADDRESS`, `CELL_TALLY` and `CELL_MODE` exist in fossil's generated
+  vocabulary; exporting them is fossil's call.
 - **The cost of a filtered coarse view.** Rows at every zoom means a whole-extent camera over a
   filtered corpus reads every finest tile the statistics cannot prune — 245 at a million, 2,442 at ten
   million. That is accepted, and not yet measured.

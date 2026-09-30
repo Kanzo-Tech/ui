@@ -1,9 +1,9 @@
 // The benchmark's corpus, compiled rather than generated in the browser.
 //
 // Two CSVs in, a GraphAr tree out: `fossil run` writes the vertex and edge Parquet and then runs the
-// W3 layout pass over it, which fills `x` / `y` / `cluster_id` and rewrites each vertex file
-// Morton-sorted. That last part is the whole reason this exists — a bbox query against a
-// Morton-sorted Parquet prunes on row-group statistics, which is the larger-than-RAM half ADR-0001
+// W3 layout pass over it, which fills `x` / `y` / `cluster_id` and rewrites each vertex file in
+// Hilbert order. That last part is the whole reason this exists — a bbox query against a
+// Hilbert-sorted Parquet prunes on row-group statistics, which is the larger-than-RAM half ADR-0001
 // records as unmeasured.
 //
 // **Two mappings, and their projections must match column for column.** Only a subject map mints a
