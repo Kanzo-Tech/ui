@@ -119,7 +119,7 @@ does the opposite because it has no region layer; we do.
 | Presentational (root) | Connected (subpath) | Engine |
 |---|---|---|
 | [`Table`](/docs/data-display/table) — semantic markup, tokenised chrome, no data layer | [`DataTableRoot`](/docs/data-display/data-table) — sorting, filtering, pagination | TanStack Table, on `/table` |
-| [`StatTile`](/docs/data-display/stat-tile) — label, figure, delta, sparkline; takes a number | [`ChartStat`](/docs/analytics/charts) — queries a relation, reacts to the crossfilter | Mosaic, on `/analytics` |
+| [`StatValue`](/docs/data-display/stat) — the figure of a stat; takes a number | [`ChartStat`](/docs/analytics/charts) — the same figure, queried from a relation, reacting to the crossfilter | Mosaic, on `/analytics` |
 
 **Why two and not one.** A subpath entry statically re-exports its engine, so *any* import from it
 resolves that optional peer. Put the presentational half there and showing a number that came from
@@ -131,7 +131,7 @@ yourself reimplementing the markup on the subpath, you have built two components
 and a half.
 
 The corollary is a placement test: **a part belongs on a subpath only if it imports that subpath's
-engine.** Thematic neighbourhood is not a reason — `StatTile` sat under the chart subpath for a
+engine.** Thematic neighbourhood is not a reason — the stat tile sat under the chart subpath for a
 while without importing a line of Mosaic, and cost every consumer of a number a database.
 
 ## The naming rule

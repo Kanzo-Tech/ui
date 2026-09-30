@@ -19,7 +19,7 @@
 // heavy fixtures import it, never the other way round, so a page that needs one hall's name does
 // not pull a 300 kB CSV into its bundle.
 
-/** The five status families `Badge`, `Status`, `Alert` and `StatTile` all share. */
+/** The five status families `Badge`, `Status`, `Alert` and `StatRoot` all share. */
 export type Tone = "default" | "success" | "info" | "warning" | "destructive";
 
 /* -------------------------------------------------------------------------------------------- */

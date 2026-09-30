@@ -1,0 +1,144 @@
+---
+title: Stat
+description: One dashboard number — a label, the figure, a signed delta, a sparkline and a status, as a card you can make a link.
+---
+
+<ComponentPreview componentName="stat" />
+
+## Usage
+
+```tsx
+import {
+  StatDelta,
+  StatDescription,
+  StatIndicator,
+  StatLabel,
+  StatRoot,
+  StatTrend,
+  StatValue,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<StatRoot>
+  <StatIndicator>
+    <ScrollTextIcon />
+  </StatIndicator>
+  <StatLabel>Open contracts</StatLabel>
+  <StatValue>41</StatValue>
+  <StatTrend values={postedByMonth} />
+  <StatDelta value={3}>vs last month</StatDelta>
+</StatRoot>
+```
+
+The form for when a single number, not a plot, is the answer. Every part is optional except the
+root, and each renders only what you give it. The indicator and the label share the first row, the
+figure and the trend the second, and the delta and the description run full width beneath.
+
+It is in the **root barrel**, not on `/analytics`. A stat takes a number, so making it cost
+DuckDB-WASM would be absurd — that split is [the engine rule](/docs/philosophy#the-engine-rule),
+the same one behind `Table` and `DataTableRoot`. When the number should come from a query instead,
+[`ChartStat`](/docs/analytics/charts#dashboards) is a `StatValue` that asks the relation.
+
+## The value
+
+`StatValue` renders what you give it, and formatting is yours: a dashboard usually wants
+[`FormatNumber`](/docs/data-display/format) with `notation="compact"`, which reads `12,400,000` as
+`12.4M` in the page's locale. Whether a four-digit count should compact too is a question about your
+reader, so the part does not answer it. Pass a string when the figure carries a unit or a precision
+— `"284 ms"`, `"98.2%"`.
+
+The figure uses proportional digits on purpose: a lone headline number is not a column to align.
+
+## Delta
+
+<ComponentPreview componentName="stat" fileName="example-delta" />
+
+`StatDelta` shows the **signed magnitude** of `value`; the sign draws the direction icon, and
+`goodWhenUp` says which direction deserves which colour. Two more failed runs is red, two more
+members ready is green, and both are `+2` — the part cannot infer that from the number, which is why
+the flag exists. Zero is neither, and reads muted with a flat mark. The children are the comparison
+period.
+
+`unit` sits against the magnitude and before the comparison, because "+8.2 vs last week" and "+8.2%
+vs last week" are different claims. Use `"pp"` for a change in a percentage: a figure going from
+99.6% to 98.2% moved 1.4 **points**, not 1.4 percent.
+
+<Callout>
+Colour is never the only carrier. The direction icon and the sign both say which way the figure
+moved, so the claim survives a monochrome print and a red/green colour deficiency alike.
+</Callout>
+
+## Trend
+
+`StatTrend` takes about a dozen `values` and draws them as a sparkline with its last point marked. It
+is deliberately unlabelled and unaxised, and hidden from assistive technology — the shape is the
+message, and a reader who needs the values needs a chart, not a tile. Fewer than two points draws
+nothing.
+
+## Status
+
+<ComponentPreview componentName="stat" fileName="example-status" />
+
+`variant` on the root takes the five status families `Badge`, `Alert` and `Status` share, and writes
+it to `data-variant`, where `StatIndicator` reads it. It is state, not content, so it lives on the
+root rather than in a context — no client boundary — and a theme change re-skins a whole row without
+touching a call site.
+
+## Loading
+
+<ComponentPreview componentName="stat" fileName="example-loading" />
+
+Loading belongs on the part that actually swaps. The label, the indicator and the description are
+known before the figure is, so they keep rendering; `StatValue loading` becomes a skeleton sized to
+the figure and marks itself `aria-busy`, so the tile does not jump when the number arrives.
+
+## A linked stat
+
+<ComponentPreview componentName="stat" fileName="example-link" />
+
+`StatRoot` is a [`Card`](/docs/data-display/card), so `asChild` makes the anchor **be** the tile: one
+link, one tab stop, wrapping the whole thing. That is also the router seam — put your framework's
+link there instead of an `<a>`; see [Link](/docs/navigation/link#a-router-link). The hover edge
+keys on the element being an anchor, so a tile that is not a link never pretends to be one.
+
+## API Reference
+
+### StatRoot
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `variant` | `"default" \| "success" \| "info" \| "warning" \| "destructive"` | `"default"` |
+
+Extends `Card`'s props — it renders `<article>`, and `asChild` swaps that for your element.
+
+### StatValue
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `loading` | `boolean` | `false` |
+
+### StatDelta
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `value` | `number` | — |
+| `unit` | `string` | — |
+| `goodWhenUp` | `boolean` | `true` |
+
+Writes `data-direction` — `up`, `down` or `flat`.
+
+### StatTrend
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `values` | `readonly number[]` | — |
+
+### Other parts
+
+`StatIndicator` is a `div` for an icon, tinted by the root's `variant` and hidden from assistive
+technology. `StatLabel` is a `span` — sentence case, no trailing colon. `StatDescription` is a `p`.
+Every part takes `asChild`.
+
+`StatRootProps`, `StatValueProps`, `StatDeltaProps` and `StatTrendProps` are exported, so a wrapper
+can take the same props without restating them.

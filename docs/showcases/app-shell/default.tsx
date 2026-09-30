@@ -80,7 +80,11 @@ import {
   SidebarTrigger,
   Show,
   Status,
-  StatTile,
+  StatDelta,
+  StatLabel,
+  StatRoot,
+  StatTrend,
+  StatValue,
   Steps,
   StepsDescription,
   StepsIndicator,
@@ -563,7 +567,14 @@ function Shell() {
             <SectionBody scale="page">
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" id="tour-kpis">
                 {KPIS.map((kpi) => (
-                  <StatTile key={kpi.label} {...kpi} />
+                  <StatRoot key={kpi.label}>
+                    <StatLabel>{kpi.label}</StatLabel>
+                    <StatValue>{kpi.value.toLocaleString("en-US")}</StatValue>
+                    <StatTrend values={kpi.trend} />
+                    <StatDelta goodWhenUp={kpi.delta.goodWhenUp} value={kpi.delta.value}>
+                      {kpi.delta.label}
+                    </StatDelta>
+                  </StatRoot>
                 ))}
               </div>
 

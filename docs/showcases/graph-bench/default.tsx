@@ -33,7 +33,11 @@ import {
   Show,
   Slider,
   Spinner,
-  StatTile,
+  StatDelta,
+  StatLabel,
+  StatRoot,
+  StatTrend,
+  StatValue,
   Status,
   Table,
   Tabs,
@@ -184,26 +188,29 @@ function Headline(props: {
     if (!last) {
       return (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <StatTile
-            label={`First paint at ${compact(RECORDED.atNodes)} · recorded`}
-            value={`${RECORDED.firstPaintMs} ms`}
-            delta={{
-              value: Math.round(
+          <StatRoot>
+            <StatLabel>First paint at {compact(RECORDED.atNodes)} · recorded</StatLabel>
+            <StatValue>{RECORDED.firstPaintMs} ms</StatValue>
+            <StatDelta
+              goodWhenUp={false}
+              unit="%"
+              value={Math.round(
                 ((RECORDED.firstPaintMs - HELD_FIRST_PAINT_MS) / HELD_FIRST_PAINT_MS) * 100,
-              ),
-              goodWhenUp: false,
-              unit: "%",
-              label: ` vs held at ${compact(RECORDED.atNodes)}`,
-            }}
-          />
-          <StatTile
-            label="Updates per second · recorded"
-            value={`${format(1000 / RECORDED.panMs, 1)} /s`}
-          />
-          <StatTile
-            label="Shown of matched · recorded"
-            value={`${compact(RECORDED.shown)} / ${compact(RECORDED.matched)}`}
-          />
+              )}
+            >
+              vs held at {compact(RECORDED.atNodes)}
+            </StatDelta>
+          </StatRoot>
+          <StatRoot>
+            <StatLabel>Updates per second · recorded</StatLabel>
+            <StatValue>{format(1000 / RECORDED.panMs, 1)} /s</StatValue>
+          </StatRoot>
+          <StatRoot>
+            <StatLabel>Shown of matched · recorded</StatLabel>
+            <StatValue>
+              {compact(RECORDED.shown)} / {compact(RECORDED.matched)}
+            </StatValue>
+          </StatRoot>
         </div>
       );
     }
@@ -211,32 +218,43 @@ function Headline(props: {
     const first = paint.at(-1) ?? 0;
     return (
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatTile
-          label={`First paint at ${compact(last.pointCount)}`}
-          value={`${format(first, 0)} ms`}
-          delta={{
-            value: Math.round(((first - HELD_FIRST_PAINT_MS) / HELD_FIRST_PAINT_MS) * 100),
-            goodWhenUp: false,
-            unit: "%",
-            label: ` vs held at ${compact(RECORDED.atNodes)}`,
-          }}
-          trend={paint}
-        />
-        <StatTile
-          label="Pan"
-          value={`${format(last.panMs, 0)} ms`}
-          trend={done.map((s) => s.panMs)}
-        />
-        <StatTile
-          label="Per pan"
-          value={`${format(last.readsPerPan, 1)} reads · ${bytes(last.bytesPerPan)}`}
-          trend={done.map((s) => s.bytesPerPan ?? 0)}
-        />
-        <StatTile
-          label="Frames while panning"
-          value={last.fpsPanning === null ? "tab hidden" : `${format(last.fpsPanning, 0)} fps`}
-          trend={done.map((s) => s.fpsPanning ?? 0)}
-        />
+        <StatRoot>
+          <StatLabel>First paint at {compact(last.pointCount)}</StatLabel>
+          <StatValue>{format(first, 0)} ms</StatValue>
+          <StatTrend values={paint} />
+          {/* Down is the good direction here, which is not the delta's default — a first paint that
+              grew would be the whole argument failing.
+
+              The comparison names its own basis, because the compiled sweep ends at a million while
+              the held figure is a 200,000 one. An unlabelled percentage there would read as
+              like-for-like and be understating itself by a factor of five. */}
+          <StatDelta
+            goodWhenUp={false}
+            unit="%"
+            value={Math.round(((first - HELD_FIRST_PAINT_MS) / HELD_FIRST_PAINT_MS) * 100)}
+          >
+            vs held at {compact(RECORDED.atNodes)}
+          </StatDelta>
+        </StatRoot>
+        <StatRoot>
+          <StatLabel>Pan</StatLabel>
+          <StatValue>{format(last.panMs, 0)} ms</StatValue>
+          <StatTrend values={done.map((s) => s.panMs)} />
+        </StatRoot>
+        <StatRoot>
+          <StatLabel>Per pan</StatLabel>
+          <StatValue>
+            {format(last.readsPerPan, 1)} reads · {bytes(last.bytesPerPan)}
+          </StatValue>
+          <StatTrend values={done.map((s) => s.bytesPerPan ?? 0)} />
+        </StatRoot>
+        <StatRoot>
+          <StatLabel>Frames while panning</StatLabel>
+          <StatValue>
+            {last.fpsPanning === null ? "tab hidden" : `${format(last.fpsPanning, 0)} fps`}
+          </StatValue>
+          <StatTrend values={done.map((s) => s.fpsPanning ?? 0)} />
+        </StatRoot>
       </div>
     );
   }
@@ -246,34 +264,40 @@ function Headline(props: {
   if (!last) {
     return (
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        <StatTile
-          label={`Per step at ${compact(RECORDED_ENGINE.atNodes)} · recorded`}
-          value={`${format(RECORDED_ENGINE.stepMs, 2)} ms`}
-        />
-        <StatTile label="Step ceiling · recorded" value={`${RECORDED_ENGINE.ceilingFps} fps`} />
-        <StatTile label="Upload · recorded" value={`${RECORDED_ENGINE.uploadMs} ms`} />
+        <StatRoot>
+          <StatLabel>Per step at {compact(RECORDED_ENGINE.atNodes)} · recorded</StatLabel>
+          <StatValue>{format(RECORDED_ENGINE.stepMs, 2)} ms</StatValue>
+        </StatRoot>
+        <StatRoot>
+          <StatLabel>Step ceiling · recorded</StatLabel>
+          <StatValue>{RECORDED_ENGINE.ceilingFps} fps</StatValue>
+        </StatRoot>
+        <StatRoot>
+          <StatLabel>Upload · recorded</StatLabel>
+          <StatValue>{RECORDED_ENGINE.uploadMs} ms</StatValue>
+        </StatRoot>
       </div>
     );
   }
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-      <StatTile
-        label={`Per step at ${compact(last.pointCount)}`}
-        value={`${format(last.stepMs, 2)} ms`}
-        trend={done.map((s) => s.stepMs)}
-      />
-      <StatTile
-        label="Step ceiling"
-        value={`${format(1000 / last.stepMs, 0)} fps`}
-        // Read this rather than `Frames`: WebGL queues without the CPU waiting, so the loop keeps
-        // presenting at vsync while the GPU falls behind — smooth and stale at once.
-        trend={done.map((s) => 1000 / s.stepMs)}
-      />
-      <StatTile
-        label="Upload"
-        value={`${format(last.uploadMs, 0)} ms`}
-        trend={done.map((s) => s.uploadMs)}
-      />
+      <StatRoot>
+        <StatLabel>Per step at {compact(last.pointCount)}</StatLabel>
+        <StatValue>{format(last.stepMs, 2)} ms</StatValue>
+        <StatTrend values={done.map((s) => s.stepMs)} />
+      </StatRoot>
+      <StatRoot>
+        <StatLabel>Step ceiling</StatLabel>
+        <StatValue>{format(1000 / last.stepMs, 0)} fps</StatValue>
+        {/* Read this rather than `Frames`: WebGL queues without the CPU waiting, so the loop keeps
+            presenting at vsync while the GPU falls behind — smooth and stale at once. */}
+        <StatTrend values={done.map((s) => 1000 / s.stepMs)} />
+      </StatRoot>
+      <StatRoot>
+        <StatLabel>Upload</StatLabel>
+        <StatValue>{format(last.uploadMs, 0)} ms</StatValue>
+        <StatTrend values={done.map((s) => s.uploadMs)} />
+      </StatRoot>
     </div>
   );
 }

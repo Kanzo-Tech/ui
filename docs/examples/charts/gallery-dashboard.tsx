@@ -1,6 +1,6 @@
 "use client";
 
-import { StatTile } from "@kanzo-tech/ui";
+import { StatDelta, StatLabel, StatRoot, StatTrend, StatValue } from "@kanzo-tech/ui";
 
 import { useEffect, useState } from "react";
 import {
@@ -26,7 +26,7 @@ import { DashboardGrid } from "@/lib/dashboard-grid";
 import { MosaicDemo } from "./mosaic-demo";
 
 // The composition pieces, wired to the same crossfilter as the plots: `ChartFilter`, `ChartSearch`
-// and `ChartSlider` publish clauses without being charts, `StatTile` carries a headline figure,
+// and `ChartSlider` publish clauses without being charts, the `Stat` parts carry a headline figure,
 // `ChartCard` frames a plot and `DashboardGrid` auto-fits the columns.
 
 const config = {
@@ -93,18 +93,23 @@ function Dashboard() {
       </div>
 
       <DashboardGrid minColumnWidth={200}>
-        <StatTile
-          delta={{ value: 4.2, label: "vs last week" }}
-          label="Sightings"
-          trend={TREND}
-          value={totals?.sightings ?? "—"}
-        />
-        <StatTile label="Mean bounty" value={totals ? `${totals.bounty} gold` : "—"} />
-        <StatTile
-          delta={{ value: -0.8, goodWhenUp: false, label: "vs last week" }}
-          label="Hoax rate"
-          value={totals ? `${totals.hoaxes}%` : "—"}
-        />
+        <StatRoot>
+          <StatLabel>Sightings</StatLabel>
+          <StatValue loading={!totals}>{totals?.sightings}</StatValue>
+          <StatTrend values={TREND} />
+          <StatDelta value={4.2}>vs last week</StatDelta>
+        </StatRoot>
+        <StatRoot>
+          <StatLabel>Mean bounty</StatLabel>
+          <StatValue loading={!totals}>{totals?.bounty} gold</StatValue>
+        </StatRoot>
+        <StatRoot>
+          <StatLabel>Hoax rate</StatLabel>
+          <StatValue loading={!totals}>{totals?.hoaxes}%</StatValue>
+          <StatDelta goodWhenUp={false} value={-0.8}>
+            vs last week
+          </StatDelta>
+        </StatRoot>
       </DashboardGrid>
 
       <DashboardGrid minColumnWidth={280}>

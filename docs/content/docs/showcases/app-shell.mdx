@@ -7,7 +7,7 @@ full: true
 <PreviewIframe name="app-shell" title="App shell showcase" className="h-[820px]" />
 
 A product's first screen, not a component catalogue: something that summarises state (four
-`StatTile`s), something actionable (the board table, with selection driving an `ActionBar`) and
+`StatRoot`s), something actionable (the board table, with selection driving an `ActionBar`) and
 something navigable (the rail: a `Steps` checklist, an activity list of `Item`s, and an
 `inert`-gated preview of a feature that is not shipped yet).
 
@@ -22,7 +22,7 @@ and a full-width header are mutually exclusive: `SidebarProvider` is the viewpor
 the rail — never spanning it. `SidebarInset` carries no landmark; `ShellMain` owns the page's
 single `<main>`, and every block nested under it is a `<section>`.
 
-It exists because the pieces only prove themselves together. A `StatTile` looks fine in a 384px
+It exists because the pieces only prove themselves together. A stat looks fine in a 384px
 box; whether four of them sit correctly under a page header, beside a table whose toolbar has to
 survive the rail collapsing to icons, is a different question — and the one a consumer has.
 
@@ -46,7 +46,7 @@ docs/showcases/app-shell/
 └── data.tsx             — one hall's instances, nav, KPIs, board and activity, all derived
 ```
 
-Three entry points: `@kanzo-tech/ui` for the shell and composites, `@kanzo-tech/ui/table` for the
-data table (a subpath, so the base bundle never carries TanStack Table) and `@kanzo-tech/ui/analytics`
-for `StatTile` — the one tile form that needs no Mosaic coordinator, which is why this screen
-carries no chart: four headline numbers are a KPI row, not a plot.
+Two entry points: `@kanzo-tech/ui` for the shell, the composites and the `Stat` parts, and
+`@kanzo-tech/ui/table` for the data table (a subpath, so the base bundle never carries TanStack
+Table). `@kanzo-tech/ui/analytics` is never imported, because this screen carries no chart: four
+headline numbers are a KPI row, not a plot, and a stat needs no Mosaic coordinator.

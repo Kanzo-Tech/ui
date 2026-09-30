@@ -98,7 +98,7 @@ export const OURS_ALONE: Readonly<Record<string, string>> = {
   "floating-panel": "Ours, and it collides with a Shark name. See the UNADOPTED entry, which is the other half of this one.",
   "pin-input": "Ours over Ark's pin-input machine. Shark's answer to the same problem is `input-otp`, under names that do not correspond.",
   suggestions: "Ours. A row of values on offer, each committing a string and leaving no selection — which by the menu/listbox rule makes it a command surface and not a value one. It is in `ui` and not `@kanzo-tech/ai` because it does not know a model exists, which is the line `/docs/design/admission` draws; the ✨ beside it does, and stays there. Shark has no file for it. **Admission rule 2 is not met yet**: `@kanzo-tech/ai`'s `SuggestList` is the one real consumer, and the second is expected to be a non-model one (recent values, saved filters).",
-  "stat-tile": "Ours. A composite by the test in `/docs/design/admission`, which names this component as the worked example.",
+  stat: "Ours. One dashboard number as a compound over `Card` — `/docs/design/admission`, *One dashboard number, one compound*. Shark has no file for it.",
   swatch: "Ours. A strip that only depicts; Ark's picker swatch parts all require a picker context and compute `checked` against its single value, so a sixteen-slot palette strip cannot be built from them (`index.test.ts`, `exposes the core surface`).",
 };
 
