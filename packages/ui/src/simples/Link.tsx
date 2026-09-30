@@ -1,11 +1,11 @@
-import * as React from "react";
+import { ark } from "@ark-ui/react/factory";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn.js";
 
 /**
  * Link — a token-styled anchor, and the only component in the library emitting
- * `data-slot="link"`. `variant` picks the treatment. It takes no `asChild`, so a router's link
- * cannot wear it yet. (Generic layout stays in the product via Tailwind — the DS
+ * `data-slot="link"`. `variant` picks the treatment, and `asChild` hands it to a router's link.
+ * (Generic layout stays in the product via Tailwind — the DS
  * ships no `Flex`/`Box`/`Grid`.)
  *
  * `linkVariants` is module-level and deliberately not on the barrel, which is where every other
@@ -24,9 +24,9 @@ export const linkVariants = tv({
   defaultVariants: { variant: "default" },
 });
 
-export interface LinkProps extends React.ComponentProps<"a">, VariantProps<typeof linkVariants> {}
+export interface LinkProps extends React.ComponentProps<typeof ark.a>, VariantProps<typeof linkVariants> {}
 
-export function Link({ variant, className, ref, slot, ...rest }: LinkProps) {
-  return <a ref={ref} className={cn(linkVariants({ variant }), className)} {...rest} data-slot={slot ?? "link"} />;
+export function Link({ variant, className, slot, ...rest }: LinkProps) {
+  return <ark.a className={cn(linkVariants({ variant }), className)} {...rest} data-slot={slot ?? "link"} />;
 }
 Link.displayName = "Link";

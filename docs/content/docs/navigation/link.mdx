@@ -30,6 +30,7 @@ sentence that should not be four blue words.
 | Prop | Type | Default |
 | --- | --- | --- |
 | `variant` | `"default" \| "subtle" \| "plain"` | `"default"` |
+| `asChild` | `boolean` | `false` |
 
 Extends `React.ComponentProps<"a">`, so `href`, `target`, `rel` and `ref` pass through.
 
@@ -37,8 +38,18 @@ Extends `React.ComponentProps<"a">`, so `href`, `target`, `rel` and `ref` pass t
 
 ## A router link
 
-`Link` takes no `asChild`, and its recipe is not exported, so a framework's link component cannot
-wear this treatment today. There is no `linkComponent` prop on any component and nothing imports a
-router; a plain `href` is a full navigation. A link treatment applied to arbitrary markup would be a
-second spelling of what `asChild` does, so the missing piece is `asChild` on `Link`, not an
-exported recipe.
+`Link` renders an `ark.a`, so it takes `asChild` and puts its treatment on your router's link
+instead of rendering an anchor of its own:
+
+```tsx
+import { Link } from "@kanzo-tech/ui";
+import { Link as RouterLink } from "@kanzo-tech/navigation/next";
+
+<Link asChild variant="subtle">
+  <RouterLink href="/board/Q-1058">A basilisk, and it knows the route</RouterLink>
+</Link>
+```
+
+One anchor comes out: `Link`'s classes and `data-slot="link"` merged onto the child, and the
+child's `href` and handlers kept. The library never imports a router, and its recipe stays off the
+barrel — `asChild` is the one spelling of "this treatment on someone else's element".
