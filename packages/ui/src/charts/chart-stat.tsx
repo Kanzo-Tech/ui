@@ -1,10 +1,12 @@
 "use client";
 
+import type { TableExpr } from "@kanzo-tech/mosaic";
 import { FormatNumber } from "@ark-ui/react/format";
 import type { ExprValue } from "@uwdata/mosaic-sql";
 import { Query } from "@uwdata/mosaic-sql";
 import { StatValue, type StatValueProps } from "../simples/stat.js";
 import { useChartContextOptional } from "./chart-root.js";
+import { chartTableKey } from "./chart-spec.js";
 import { useChartQuery } from "./use-chart-query.js";
 
 /**
@@ -15,8 +17,8 @@ import { useChartQuery } from "./use-chart-query.js";
  */
 
 export interface ChartStatProps extends Omit<StatValueProps, "children" | "loading"> {
-  /** The relation. Defaults to the enclosing `ChartRoot`'s table. */
-  table?: string;
+  /** The relation, as `ChartRoot` takes it. Defaults to the enclosing `ChartRoot`'s table. */
+  table?: TableExpr;
   /** The aggregate to show — `count()`, `avg("latency")`, any `mosaic-sql` expression. */
   value: ExprValue;
   /**
@@ -35,7 +37,7 @@ export function ChartStat(props: ChartStatProps) {
   const { row } = useChartQuery({
     query: (filter) =>
       relation ? Query.from(relation).select({ value }).where(filter) : null,
-    deps: [relation, value],
+    deps: [chartTableKey(relation), value],
   });
 
   if (!relation) {

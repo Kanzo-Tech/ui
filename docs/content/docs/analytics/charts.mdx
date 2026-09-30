@@ -171,6 +171,41 @@ routes. Several `MosaicProvider`s over the *same* coordinator are fine; each sti
 crossfilter `Selection`.
 </Callout>
 
+## A relation in another catalog
+
+Every `table` — on `ChartRoot`, a mark, `ChartStat`, `ChartFilter`, `ChartSearch`, `ChartSlider`,
+`IdSetClient` — is a `TableExpr`, and it reads the way Mosaic reads one. A **string is one
+identifier** in the default catalog: `"sightings"` is `FROM "sightings"`, and a dot inside it is
+part of the name, not a path. A relation anywhere else is a **mosaic-sql node**, which goes into
+the SQL as written: `asTableRef(["guild", "sightings"])` for a path you hold in parts, `verbatim(sql)`
+for a name a backend hands you already quoted.
+
+A fossil corpus is the second case. Its relations live in the corpus's own catalog, and
+`corpus.relations()` names each one as SQL — `relation.sql` is `"jobs/7"."Sighting"`, catalog and
+all. Pass it on as it came; never rebuild the bare type name, which no longer exists:
+
+```tsx
+"use client";
+
+import { verbatim } from "@uwdata/mosaic-sql";
+import { ChartAxisX, ChartBarY, ChartRoot, ChartToggleX, count } from "@kanzo-tech/ui/analytics";
+
+function SightingsByRegion({ relation }: { relation: string }) {
+  return (
+    <ChartRoot table={verbatim(relation)} height={160}>
+      <ChartBarY x="region" y={count()} fill="var(--chart-1)" />
+      <ChartToggleX />
+      <ChartAxisX label={null} />
+    </ChartRoot>
+  );
+}
+
+// relation: (await corpus.relations()).find((r) => r.name === "Sighting")!.sql
+```
+
+A node is keyed by its SQL, not by its identity, so writing `verbatim(relation)` inline does not
+rebuild the plot on every render.
+
 ## The five charts
 
 The five shapes a chart library is expected to ship, written in the grammar. Each is the same: a
@@ -551,7 +586,7 @@ expected, and `NumericArray` is the union of typed arrays a column may arrive in
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `table` | `string` | — (omit it when every mark carries its own `data`) |
+| `table` | `TableExpr` — a string, or a mosaic-sql node ([another catalog](#a-relation-in-another-catalog)) | — (omit it when every mark carries its own `data`) |
 | `filterBy` | `Selection \| null` | the provider's `crossfilter`; `null` = unfiltered |
 | `as` | `Selection` | the provider's `selected`, relayed into that crossfilter |
 | `config` | `ChartConfig` | `{}` |

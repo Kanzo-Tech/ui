@@ -1,6 +1,7 @@
 import { Fragment, isValidElement, type ReactNode } from "react";
 import type { Selection } from "@uwdata/mosaic-core";
-import { isAggregateExpression } from "@uwdata/mosaic-sql";
+import type { TableExpr } from "@kanzo-tech/mosaic";
+import { asTableRef, isAggregateExpression } from "@uwdata/mosaic-sql";
 import { chartColorScale, isColorToken, type ChartConfig } from "./chart-config.js";
 
 /**
@@ -8,12 +9,21 @@ import { chartColorScale, isColorToken, type ChartConfig } from "./chart-config.
  *
  * `ChartRoot` compiles its descriptor children to this list and only then maps it onto `vg.*`.
  * The indirection is what makes the compiler pure: no coordinator, no DOM, no vgplot — so the
- * grammar is unit-testable and the vgplot binding is a single switch. (`isAggregateExpression` is
- * the one import, a pure AST predicate mosaic-sql exports for exactly this question.)
+ * grammar is unit-testable and the vgplot binding is a single switch. (mosaic-sql is the one
+ * engine import: `isAggregateExpression` and `asTableRef`, both pure AST.)
  */
 
+/**
+ * A relation's SQL, which is also its identity. A host that writes `verbatim(sql)` inline builds a
+ * new node every render and still names the same relation, so the plot and every query key on this
+ * and not on the node.
+ */
+export function chartTableKey(table: TableExpr | undefined): string | undefined {
+  return table === undefined ? undefined : String(typeof table === "string" ? asTableRef(table) : table);
+}
+
 export type ChartMarkSource =
-  | { readonly kind: "table"; readonly table: string; readonly filterBy: Selection | null }
+  | { readonly kind: "table"; readonly table: TableExpr; readonly filterBy: Selection | null }
   | { readonly kind: "values"; readonly values: readonly unknown[] }
   /** A decorator mark (`frame`, `gridX`, `gridY`) — takes options only, never data. */
   | null;
@@ -51,7 +61,7 @@ export type ChartDirective =
 
 export interface ChartSpecContext {
   /** The relation every table-backed mark reads from. */
-  readonly table?: string;
+  readonly table?: TableExpr;
   /** What marks filter by; `null` means "the full relation". */
   readonly filterBy: Selection | null;
   /** Where interactors publish. */

@@ -51,6 +51,9 @@ export {
 /** Ours: turning an Arrow answer into values, which the client protocol does not do for you. */
 export { column, fillColumn, numbers, type NumericArray } from "./arrow.js";
 
+/** Ours: what every `table` here and in the charts takes — one identifier, or a relation named in SQL. */
+export { type TableExpr } from "./table.js";
+
 /** Ours: the crossfilter adapter for a view whose positions are not in the database. */
 export { IdSetClient, type IdSetClientOptions } from "./id-set-client.js";
 

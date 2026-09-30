@@ -1,5 +1,6 @@
 "use client";
 
+import type { TableExpr } from "@kanzo-tech/mosaic";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
@@ -11,6 +12,7 @@ import {
   buildChartSpec,
   chartSpecSignature,
   chartSpecWarnings,
+  chartTableKey,
   compileChartSpec,
   type ChartDirective,
   type ChartFacetOptions,
@@ -51,7 +53,7 @@ export interface ChartContextValue {
   /** The active Mosaic coordinator, for a consumer that queries alongside the plot. */
   coordinator: Coordinator;
   config: ChartConfig;
-  table?: string;
+  table?: TableExpr;
   /** What the marks filter by; `null` = the full relation. */
   filterBy: Selection | null;
   /** Where the interactors publish. */
@@ -96,8 +98,12 @@ export function useChartContextOptional(): ChartContextValue | null {
 export interface ChartRootProps
   extends Omit<React.ComponentProps<typeof ark.div>, "children">,
     ChartFacetOptions {
-  /** The relation registered in the coordinator. Omit it when every mark carries its own `data`. */
-  table?: string;
+  /**
+   * The relation the marks read. A string is one identifier in the default catalog; a relation in
+   * another catalog is a mosaic-sql node — `verbatim(relation.sql)`, `asTableRef([catalog, name])`.
+   * Omit it when every mark carries its own `data`.
+   */
+  table?: TableExpr;
   /** What the marks filter by. Defaults to the `<MosaicProvider>` crossfilter; `null` = unfiltered. */
   filterBy?: Selection | null;
   /**
@@ -184,6 +190,7 @@ export function ChartRoot(props: ChartRootProps) {
   );
 
   const numberKey = JSON.stringify(numberFormat ?? null);
+  const tableKey = chartTableKey(table);
   const context = useMemo<ChartContextValue>(
     () => ({
       coordinator,
@@ -200,9 +207,9 @@ export function ChartRoot(props: ChartRootProps) {
       formatNumber: (value, options) =>
         new Intl.NumberFormat(locale, options ?? numberFormat).format(value),
     }),
-    // `numberKey` stands in for the options object's identity; `numberFormat` itself is read fresh.
+    // `numberKey` and `tableKey` stand in for their objects' identities; both are read fresh.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [coordinator, config, table, source, target, locale, numberKey],
+    [coordinator, config, tableKey, source, target, locale, numberKey],
   );
 
   // Compiled twice on purpose: once here with an identity colour resolver, purely to fingerprint
@@ -238,7 +245,7 @@ export function ChartRoot(props: ChartRootProps) {
           deps={[
             signature,
             colorKey,
-            table,
+            tableKey,
             source,
             target,
             height,

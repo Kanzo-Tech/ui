@@ -1,6 +1,7 @@
 import { MosaicClient, clausePoints, type Selection } from "@uwdata/mosaic-core";
 import { Query, type FilterExpr } from "@uwdata/mosaic-sql";
 import { column } from "./arrow.js";
+import type { TableExpr } from "./table.js";
 
 /**
  * The crossfilter adapter for a view whose positions are not in the database.
@@ -25,7 +26,7 @@ import { column } from "./arrow.js";
 
 export interface IdSetClientOptions {
   /** The relation. Its `idField` column is what gets published and matched. */
-  table: string;
+  table: TableExpr;
   idField: string;
   /** What the view fades by. */
   filterBy: Selection;
@@ -36,7 +37,7 @@ export interface IdSetClientOptions {
 }
 
 export class IdSetClient extends MosaicClient {
-  #table: string;
+  #table: TableExpr;
   #idField: string;
   #as: Selection;
   #emit: (ids: readonly unknown[]) => void;

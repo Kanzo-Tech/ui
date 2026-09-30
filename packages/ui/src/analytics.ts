@@ -155,6 +155,9 @@ export {
 // keeps the marks in `chart-marks.tsx` that no example draws.
 export { count, sum, avg, min, max, median, quantile, stddev, mode, bin, sql } from "@uwdata/vgplot";
 export type { ExprValue } from "@kanzo-tech/mosaic";
+// What every `table` prop takes: a string is one identifier, a mosaic-sql node is a relation named
+// in SQL — a catalog-qualified one, as a fossil corpus hands it over.
+export type { TableExpr } from "@kanzo-tech/mosaic";
 
 // Ordering, for the builder that is already on this barrel. `Query…orderby(col)` takes a bare
 // column and sorts ascending; there is no second argument, so any other direction is `desc(col)`

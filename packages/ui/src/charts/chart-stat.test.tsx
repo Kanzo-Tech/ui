@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { clausePoint, Selection, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
+import { verbatim } from "@uwdata/mosaic-sql";
 import { count } from "@uwdata/vgplot";
 import { describe, expect, it } from "vitest";
 import { ChartStat } from "./chart-stat.js";
@@ -64,6 +65,15 @@ describe("ChartStat", () => {
 
     expect(await screen.findByText("12.9K")).toBeTruthy();
     expect(queries[0]).toContain('FROM "telemetry"');
+  });
+
+  it("reads a relation in another catalog, qualified as the SQL names it", async () => {
+    const { coordinator, queries } = stubCoordinator(() => [{ value: 3 }]);
+
+    wrap(coordinator, Selection.crossfilter(), <ChartStat table={verbatim('"jobs/7"."Person"')} value={count()} />);
+
+    expect(await screen.findByText("3")).toBeTruthy();
+    expect(queries[0]).toContain('FROM "jobs/7"."Person"');
   });
 
   it("re-asks when the crossfilter moves — the whole reason it is not a plain query", async () => {
