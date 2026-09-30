@@ -1,32 +1,34 @@
 "use client";
 
+import { FormatNumber } from "@ark-ui/react/format";
 import type { ExprValue } from "@uwdata/mosaic-sql";
 import { Query } from "@uwdata/mosaic-sql";
-import type { ReactNode } from "react";
-import { Skeleton } from "../simples/skeleton.js";
-import { StatTile, type StatTileProps } from "../simples/stat-tile.js";
+import { StatValue, type StatValueProps } from "../simples/stat.js";
 import { useChartContextOptional } from "./chart-root.js";
 import { useChartQuery } from "./use-chart-query.js";
 
 /**
- * `StatTile` with the figure it shows read from the relation, under the same crossfilter as the
- * plots. The connected half of the pair, which is the engine rule: `StatTile` takes a number and
- * lives in the root barrel, this one queries for it and lives here.
+ * `StatValue` with the figure read from the relation, under the same crossfilter as the plots. The
+ * connected half of the pair, which is the engine rule: the `Stat*` parts take a number and live in
+ * the root barrel, this one queries for it and lives here. It sits inside a `StatRoot` like the
+ * value it replaces, so the label, the delta and the link stay the host's.
  */
 
-export interface ChartStatProps extends Omit<StatTileProps, "value" | "trend"> {
+export interface ChartStatProps extends Omit<StatValueProps, "children" | "loading"> {
   /** The relation. Defaults to the enclosing `ChartRoot`'s table. */
   table?: string;
   /** The aggregate to show — `count()`, `avg("latency")`, any `mosaic-sql` expression. */
   value: ExprValue;
-  /** Formats the number for display. Defaults to the chart's `formatNumber`. */
+  /**
+   * Formats the number for display. By default a count under ten thousand reads in full and
+   * anything larger compacts — `4,233`, `12.9K` — so a four-digit figure is never abbreviated
+   * into ambiguity.
+   */
   format?: (value: number) => string;
-  /** Shown while the first query is in flight. */
-  fallback?: ReactNode;
 }
 
 export function ChartStat(props: ChartStatProps) {
-  const { table, value, format, fallback, ...tile } = props;
+  const { table, value, format, ...rest } = props;
   const chart = useChartContextOptional();
   const relation = table ?? chart?.table;
 
@@ -39,12 +41,21 @@ export function ChartStat(props: ChartStatProps) {
   if (!relation) {
     throw new Error("ChartStat needs a `table`, or a <ChartRoot table> around it.");
   }
-  if (row === undefined) {
-    return fallback ?? <Skeleton className="h-24 w-full" />;
-  }
 
-  const raw = Number(row.value ?? 0);
-  return <StatTile {...tile} value={format ? format(raw) : raw} />;
+  const raw = Number(row?.value ?? 0);
+  return (
+    <StatValue loading={row === undefined} {...rest}>
+      {format ? (
+        format(raw)
+      ) : (
+        <FormatNumber
+          maximumFractionDigits={1}
+          notation={Math.abs(raw) >= 10_000 ? "compact" : "standard"}
+          value={raw}
+        />
+      )}
+    </StatValue>
+  );
 }
 
 // The chart context is optional: a tile sits in a dashboard grid, outside any plot.

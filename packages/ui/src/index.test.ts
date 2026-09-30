@@ -146,10 +146,17 @@ describe("@kanzo-tech/ui public surface", () => {
   });
 
   it("drops components superseded by composition or a merge", () => {
-    // MetricCard → a Card+Skeleton showcase composition; SecretField → folded into password-input
-    // (an API key is a password). Neither is a library export any more.
+    // `StatTile` (a closed props form) and the showcase's `MetricCard` (a Card with a status tint,
+    // a link and a skeleton) were one idea drawn twice, and hosts copied the one we did not export.
+    // Both are the `Stat*` compound now — `/docs/design/admission`, *One dashboard number, one
+    // compound*. SecretField → folded into password-input (an API key is a password).
     const surface = UI as Record<string, unknown>;
-    expect(surface.MetricCard).toBeUndefined();
+    for (const name of ["StatTile", "StatTileProps", "StatTileDelta", "MetricCard"]) {
+      expect(surface[name], name).toBeUndefined();
+    }
+    for (const name of ["StatRoot", "StatIndicator", "StatLabel", "StatValue", "StatDelta", "StatTrend", "StatDescription"]) {
+      expect(surface[name], name).toBeTypeOf("function");
+    }
     expect(surface.SecretField).toBeUndefined();
     // SuggestMenu dissolved into a Popover + useSuggestions composition.
     expect(surface.SuggestMenu).toBeUndefined();

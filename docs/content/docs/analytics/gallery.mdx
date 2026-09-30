@@ -190,7 +190,7 @@ pre-aggregator — see [the limitation](/docs/analytics/charts#limitations).
 
 The composition pieces, wired to one crossfilter. `ChartFilter`, `ChartSearch` and `ChartSlider` are
 real DOM controls that publish Mosaic clauses without being charts — they connect as clients, ask
-the coordinator for their own values, and filter every plot below. `StatTile`, `ChartCard` and
+the coordinator for their own values, and filter every plot below. The `Stat` parts, `ChartCard` and
 `DashboardGrid` are the frame around them.
 
 The tiles show how a DOM part queries alongside the plots: `useMosaic()` hands you the coordinator,

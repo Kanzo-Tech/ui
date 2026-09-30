@@ -86,8 +86,8 @@ export type { MosaicInputOptions, MosaicInputState } from "./charts/chart-inputs
 export { ChartLegend, ChartColorLegend } from "./charts/chart-legend.js";
 export type { ChartLegendProps, ChartColorLegendProps } from "./charts/chart-legend.js";
 
-// The connected half of the tile pair, which is the engine rule: `StatTile` (root barrel) takes a
-// number, this one queries for it under the crossfilter.
+// The connected half of the stat pair, which is the engine rule: `StatValue` (root barrel) takes
+// a number, this one queries for it under the crossfilter.
 export { ChartStat } from "./charts/chart-stat.js";
 export type { ChartStatProps } from "./charts/chart-stat.js";
 

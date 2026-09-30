@@ -104,6 +104,38 @@ the brand as children — which is this rule being followed, not waived);
 `packages/ui/src/simples/FieldArray.tsx`, `children`, which is the sanctioned alternative when you
 want the ergonomics of a list.
 
+## One dashboard number, one compound
+
+A headline figure is the [`Stat`](/docs/data-display/stat) family — `StatRoot`, a `Card` carrying a
+status family, and `StatIndicator`, `StatLabel`, `StatValue`, `StatDelta`, `StatTrend` and
+`StatDescription` inside it. There is no second form for the plain case and no props convenience
+over the parts.
+
+There were two, and they were one idea drawn twice. `StatTile` took `label`, `value`, `delta` and
+`trend` as props and shipped in the barrel; `MetricCard` was a `Card` with a status tint, a whole-card link, a
+skeleton and an icon disc, and lived in a showcase. The first was closed, so the first host that
+wanted a link or a status on a dashboard (keasy's) copied the second. Every part either had was
+already the other's missing piece: the link was `Card`'s `asChild`, the tint a data attribute, the
+delta and the sparkline were `StatTile`'s own. The collapse invented nothing, which is how you tell
+two components that were one.
+
+**The parts own the vocabulary; the host owns the policy.** `StatValue` renders what it is given —
+[`FormatNumber`](/docs/data-display/format) with `notation="compact"` is the dashboard reading, and
+the threshold at which a count should compact is a decision about the reader, not about the tile.
+`StatDelta` is the exception that proves it: its sign *is* its meaning, so it formats its own
+magnitude, and the one policy it cannot infer — whether a rise is good — is `goodWhenUp`. The status
+vocabulary is the five families `Badge`, `Alert` and `Status` already spell as `variant`, not a
+sixth.
+
+**What would reverse it:** a stat whose arrangement a caller cannot reach through the parts — a
+region that must render and that no host ever reorders — which is the condition
+[a layout tree](#a-layout-tree-is-children-never-an-attribute) sets for a props form, and which
+`StatTile` never met: its one host outside the repo needed exactly the arrangement it withheld.
+
+*Held by* `packages/ui/src/simples/stat.test.tsx`, "becomes the anchor under asChild, so a linked
+tile is one link and not a link around a card"; `packages/ui/src/index.test.ts`, `!StatTile` and
+`!MetricCard`.
+
 ## A compound keeps its root, even when the root is an alias
 
 `Sheet` stays, as `(props) => <Dialog {...props} />`, and `MenuSub` stays as the same over `Menu`. A

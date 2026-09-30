@@ -3,7 +3,7 @@
   "pages": [
     "table",
     "data-table",
-    "stat-tile",
+    "stat",
     "tree-view",
     "json-tree-view",
     "card",

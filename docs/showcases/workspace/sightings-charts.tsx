@@ -3,7 +3,17 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { makeClient } from "@uwdata/mosaic-core";
 import { loadCSV, Query } from "@uwdata/mosaic-sql";
-import { Button, ScrollArea, Skeleton, StatTile } from "@kanzo-tech/ui";
+import {
+  Button,
+  ScrollArea,
+  Show,
+  Skeleton,
+  StatDelta,
+  StatLabel,
+  StatRoot,
+  StatTrend,
+  StatValue,
+} from "@kanzo-tech/ui";
 import {
   ChartAreaY,
   ChartAxisX,
@@ -71,7 +81,7 @@ import { ensure } from "./duck";
  * a stretch of the clock rather than of the year, and the tiles' deltas say so rather than borrowing
  * a "vs prior quarter" from a relation that has no quarters.
  *
- * Nothing here is a component the library ships. `ChartCard`, `StatTile` and `DashboardGrid` are
+ * Nothing here is a component the library ships but the `Stat` parts. `ChartCard` and `DashboardGrid` are
  * frames; every plot is a `ChartRoot` and a handful of marks written at this call site, which is
  * exactly the trade the grammar makes — a preset is four lines of JSX you own.
  *
@@ -229,13 +239,16 @@ function periods(rows: HourRow[]): { recent: HourRow[]; prior: HourRow[]; label:
 
 function Tiles() {
   const rows = useHourly();
-  const dash = "—";
+  const labels = ["Sightings", "Mean distance", "Bounty paid", "Hoaxes"];
 
   if (!rows || rows.length === 0) {
     return (
       <DashboardGrid minColumnWidth={200}>
-        {["Sightings", "Mean distance", "Bounty paid", "Hoaxes"].map((label) => (
-          <StatTile key={label} label={label} value={dash} />
+        {labels.map((label) => (
+          <StatRoot key={label}>
+            <StatLabel>{label}</StatLabel>
+            <StatValue loading />
+          </StatRoot>
         ))}
       </DashboardGrid>
     );
@@ -250,63 +263,47 @@ function Tiles() {
       ? (100 * sumOf(part, (r) => r.hoaxes)) / sumOf(part, (r) => r.sightings)
       : 0;
 
+  const tiles = [
+    {
+      value: sightings.toLocaleString("en-US"),
+      trend: rows.map((r) => r.sightings),
+      delta: sumOf(recent, (r) => r.sightings) - sumOf(prior, (r) => r.sightings),
+    },
+    {
+      value: `${meanOf(rows, (r) => r.leagues).toFixed(1)} leagues`,
+      trend: rows.map((r) => r.leagues),
+      delta: meanOf(recent, (r) => r.leagues) - meanOf(prior, (r) => r.leagues),
+      unit: " leagues",
+    },
+    {
+      value: `${sumOf(rows, (r) => r.bounty).toLocaleString("en-US")} gold`,
+      trend: rows.map((r) => r.bounty),
+      delta: Math.round(sumOf(recent, (r) => r.bounty) - sumOf(prior, (r) => r.bounty)),
+      unit: " gold",
+    },
+    {
+      value: `${((100 * hoaxes) / (sightings || 1)).toFixed(1)}%`,
+      trend: rows.map((r) => (r.sightings ? (100 * r.hoaxes) / r.sightings : 0)),
+      delta: share(recent) - share(prior),
+      unit: "pp",
+      goodWhenUp: false,
+    },
+  ];
+
   return (
     <DashboardGrid minColumnWidth={200}>
-      <StatTile
-        delta={
-          comparable
-            ? {
-                label: `vs ${label}`,
-                value: sumOf(recent, (r) => r.sightings) - sumOf(prior, (r) => r.sightings),
-              }
-            : undefined
-        }
-        label="Sightings"
-        trend={rows.map((r) => r.sightings)}
-        value={sightings}
-      />
-      <StatTile
-        delta={
-          comparable
-            ? {
-                label: `leagues vs ${label}`,
-                value: Number(
-                  (meanOf(recent, (r) => r.leagues) - meanOf(prior, (r) => r.leagues)).toFixed(1),
-                ),
-              }
-            : undefined
-        }
-        label="Mean distance"
-        trend={rows.map((r) => r.leagues)}
-        value={`${meanOf(rows, (r) => r.leagues).toFixed(1)} leagues`}
-      />
-      <StatTile
-        delta={
-          comparable
-            ? {
-                label: `gold vs ${label}`,
-                value: Math.round(sumOf(recent, (r) => r.bounty) - sumOf(prior, (r) => r.bounty)),
-              }
-            : undefined
-        }
-        label="Bounty paid"
-        trend={rows.map((r) => r.bounty)}
-        value={`${sumOf(rows, (r) => r.bounty).toLocaleString()} gold`}
-      />
-      <StatTile
-        delta={
-          comparable
-            ? {
-                goodWhenUp: false,
-                label: `pp vs ${label}`,
-                value: Number((share(recent) - share(prior)).toFixed(1)),
-              }
-            : undefined
-        }
-        label="Hoaxes"
-        trend={rows.map((r) => (r.sightings ? (100 * r.hoaxes) / r.sightings : 0))}
-        value={`${((100 * hoaxes) / (sightings || 1)).toFixed(1)}%`}
-      />
+      {tiles.map((tile, index) => (
+        <StatRoot key={labels[index]}>
+          <StatLabel>{labels[index]}</StatLabel>
+          <StatValue>{tile.value}</StatValue>
+          <StatTrend values={tile.trend} />
+          <Show when={comparable}>
+            <StatDelta goodWhenUp={tile.goodWhenUp} unit={tile.unit} value={tile.delta}>
+              vs {label}
+            </StatDelta>
+          </Show>
+        </StatRoot>
+      ))}
     </DashboardGrid>
   );
 }

@@ -463,7 +463,7 @@ referentially stable.
 A dashboard is not only plots, and the pieces divide by whether they need the engine.
 
 `ChartFilter`, `ChartSearch` and `ChartSlider` are real DOM controls that publish Mosaic clauses
-without being charts, so they filter every plot below them. `ChartStat` is a headline figure read
+without being charts, so they filter every plot below them. `ChartStat` is a `StatValue` read
 from the relation under the same crossfilter, and `useChartQuery` is what it is built on — reach
 for it whenever something that is not a plot has to move with the brush. A widget that runs a plain
 `coordinator.query()` in an effect will sit there reporting unfiltered totals next to filtered
@@ -482,7 +482,7 @@ values it offers are completions. It asks for the `autocompleteLimit` distinct v
 picking one publishes exactly the clause typing it would have. Set `autocompleteLimit={0}` for a
 plain search field with no lookup at all.
 
-Its presentational half, **[`StatTile`](/docs/data-display/stat-tile), is in the root barrel** — it
+Its presentational half, **[`Stat`](/docs/data-display/stat), is in the root barrel** — it
 takes a number, so making it cost DuckDB-WASM would be absurd. That split is
 [the engine rule](/docs/philosophy#the-engine-rule), the same one behind `Table` and
 `DataTableRoot`.

@@ -101,7 +101,7 @@ export function FloatingPanel({
         "flex overflow-hidden",
         // `Popover`'s surface, at `Popover`'s radius and its shadow token. This was `rounded-lg`
         // and a flat `shadow-lg` — a step below every panel here and a different lift from the one
-        // the floating surfaces share. Same cause as `StatTile`: no Shark file, so no guard, and
+        // the floating surfaces share. No Shark file, so no guard, and
         // `shark-parity.test.ts` reads names rather than classes.
         //
         // The `/95` and the blur stay: this panel floats over content a reader is still looking at,

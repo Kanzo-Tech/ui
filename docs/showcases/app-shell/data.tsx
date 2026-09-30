@@ -10,7 +10,6 @@ import {
   UsersIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import type { StatTileProps } from "@kanzo-tech/ui";
 import { INSTANCES as HALL_INSTANCES, NAV as WORLD_NAV } from "@/example/nav";
 import { initialsOf, membersOf, member, VIEWER } from "@/example/people";
 import {
@@ -111,8 +110,13 @@ function goldByMonth(): number[] {
 const READY_TREND = [21, 20, 22, 19, 20, 18, 19, 17, 19, 20, 18, availableNow().length];
 const OVERDUE_TREND = [1, 0, 2, 1, 3, 2, 1, 2, 4, 3, 2, overdueQuests().length];
 
-/** Four headline numbers — the dataviz answer to "a handful of KPIs" is a stat-tile row. */
-export const KPIS: StatTileProps[] = [
+/** Four headline numbers — the dataviz answer to "a handful of KPIs" is a row of stats. */
+export const KPIS: {
+  label: string;
+  value: number;
+  delta: { value: number; label: string; goodWhenUp?: boolean };
+  trend: number[];
+}[] = [
   {
     label: "Open contracts",
     value: openQuests().length,

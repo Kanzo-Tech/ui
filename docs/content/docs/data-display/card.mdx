@@ -44,38 +44,11 @@ is *for*.
 
 <ComponentPreview componentName="card" fileName="example-actions" />
 
-## A metric tile, composed
+## A dashboard number
 
-<Callout type="info">
-**Reach for [`StatTile`](/docs/data-display/stat-tile) first.** A dashboard KPI — a figure, a delta
-with its comparison period, a sparkline — is a shipped component in the root barrel, and
-re-composing one from `Card` to get it back is work the library already did.
-
-This section is the other case: a tile `StatTile` does not cover, here one with a status tint and a
-whole-card link. It is a composition, not an import, and the point is the three decisions it takes
-rather than the parts themselves.
-</Callout>
-
-<ComponentPreview componentName="card" fileName="example-metric-default" />
-
-**Status belongs on the root, as a data attribute.** It is state, not content, and the icon disc
-has to read it — off `data-status` rather than through context, so the part needs no client
-boundary. A theme change then re-skins a whole dashboard row without touching a call site.
-
-<ComponentPreview componentName="card" fileName="example-metric-status" />
-
-**Loading belongs on the two parts that actually swap.** The label and the icon are known before
-the figure is, so they keep rendering; only the value and the description become skeletons, sized
-to the text they replace so the tile does not jump when the number arrives.
-
-<ComponentPreview componentName="card" fileName="example-metric-loading" />
-
-**A linked tile is one tab stop, not four.** `Card` takes `asChild`, so the anchor *is* the
-card: one link target wrapping the whole tile, which is what a tile should be. That is also the
-router seam — put your framework's link in there instead of an `<a>`. See
-[Link](/docs/navigation/link#a-router-link).
-
-<ComponentPreview componentName="card" fileName="example-metric-link" />
+A card that holds one figure — a label, a delta, a sparkline, a status tint, a whole-card link — is
+[`Stat`](/docs/data-display/stat). `StatRoot` is this `Card`, so everything here, `asChild`
+included, holds there too.
 
 ## API Reference
 

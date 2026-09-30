@@ -1,6 +1,6 @@
 "use client";
 
-import { StatTile } from "@kanzo-tech/ui";
+import { FormatNumber, StatLabel, StatRoot, StatValue } from "@kanzo-tech/ui";
 import {
   ChartAxisX,
   ChartAxisY,
@@ -45,8 +45,18 @@ function Panel() {
   return (
     <div className="flex w-full max-w-2xl flex-col gap-4">
       <div className="grid grid-cols-2 gap-4">
-        <StatTile label="Under the brush" value={Number(brushed.row?.rows ?? 0)} />
-        <StatTile label="In the relation" value={Number(everything.row?.rows ?? 0)} />
+        <StatRoot>
+          <StatLabel>Under the brush</StatLabel>
+          <StatValue>
+            <FormatNumber value={Number(brushed.row?.rows ?? 0)} />
+          </StatValue>
+        </StatRoot>
+        <StatRoot>
+          <StatLabel>In the relation</StatLabel>
+          <StatValue>
+            <FormatNumber value={Number(everything.row?.rows ?? 0)} />
+          </StatValue>
+        </StatRoot>
       </div>
 
       <ChartRoot height={170} table="telemetry">

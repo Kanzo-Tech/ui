@@ -207,7 +207,7 @@ export * from "./simples/skeleton.js";
 export * from "./simples/skip-nav.js";
 export * from "./simples/slider.js";
 export * from "./simples/spinner.js";
-export * from "./simples/stat-tile.js";
+export * from "./simples/stat.js";
 export * from "./simples/suggestions.js";
 export * from "./simples/swatch.js";
 export * from "./simples/status.js";

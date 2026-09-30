@@ -60,7 +60,7 @@ describe("ChartStat", () => {
     const crossfilter = Selection.crossfilter();
     const { coordinator, queries } = stubCoordinator(() => [{ value: 12_900 }]);
 
-    wrap(coordinator, crossfilter, <ChartStat label="Rows" table="telemetry" value={count()} />);
+    wrap(coordinator, crossfilter, <ChartStat table="telemetry" value={count()} />);
 
     expect(await screen.findByText("12.9K")).toBeTruthy();
     expect(queries[0]).toContain('FROM "telemetry"');
@@ -72,7 +72,7 @@ describe("ChartStat", () => {
       sql.includes("region") ? [{ value: 42 }] : [{ value: 4233 }],
     );
 
-    wrap(coordinator, crossfilter, <ChartStat label="Rows" table="telemetry" value={count()} />);
+    wrap(coordinator, crossfilter, <ChartStat table="telemetry" value={count()} />);
     expect(await screen.findByText("4,233")).toBeTruthy();
 
     // Via a variable: `ClauseSource` is `object & { reset?() }`, so an inline literal trips
@@ -92,7 +92,6 @@ describe("ChartStat", () => {
       crossfilter,
       <ChartStat
         format={(v) => `${(v * 100).toFixed(1)}%`}
-        label="Flagged"
         table="telemetry"
         value={count()}
       />,
