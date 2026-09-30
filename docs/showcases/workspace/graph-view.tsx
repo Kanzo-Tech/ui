@@ -35,6 +35,10 @@ import {
   DatePicker,
   DatePickerContent,
   DatePickerInput,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyIndicator,
+  EmptyRoot,
   FileUpload,
   FileUploadDropzone,
   FileUploadHiddenInput,
@@ -77,7 +81,6 @@ import {
   CompleteTextarea,
   Conversation,
   ConversationContent,
-  ConversationEmpty,
   ConversationScrollButton,
   Message,
   MessageContent,
@@ -1603,13 +1606,17 @@ function AskBody({ archive }: { archive: Archive }) {
       <Conversation>
         <ConversationContent className="p-3">
           <Show when={turns.length === 0}>
-            <ConversationEmpty>
-              <SparklesIcon />
-              <p className="text-xs">
-                Ask about the graph. Every answer is a query — the phrasing is
-                canned, the numbers are not.
-              </p>
-            </ConversationEmpty>
+            <EmptyRoot>
+              <EmptyHeader>
+                <EmptyIndicator>
+                  <SparklesIcon />
+                </EmptyIndicator>
+                <EmptyDescription className="text-xs">
+                  Ask about the graph. Every answer is a query — the phrasing is
+                  canned, the numbers are not.
+                </EmptyDescription>
+              </EmptyHeader>
+            </EmptyRoot>
           </Show>
 
           <MessageList>

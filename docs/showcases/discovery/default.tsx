@@ -5,6 +5,10 @@ import {
   Badge,
   Clipboard,
   ClipboardTrigger,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyIndicator,
+  EmptyRoot,
   Separator,
   ShellAside,
   ShellBody,
@@ -21,7 +25,6 @@ import {
   CompleteTextarea,
   Conversation,
   ConversationContent,
-  ConversationEmpty,
   ConversationScrollButton,
   Message,
   MessageContent,
@@ -349,14 +352,18 @@ export function DiscoveryShowcase() {
           <Conversation>
             <ConversationContent className="mx-auto w-full max-w-3xl">
               <Show when={turns.length === 0}>
-                <ConversationEmpty>
-                  <SparklesIcon />
-                  <p className="max-w-sm">
-                    Ask about the contracts or the roster. The ✨ button lists
-                    the questions this agent can answer; anything else it
-                    refuses rather than guesses.
-                  </p>
-                </ConversationEmpty>
+                <EmptyRoot>
+                  <EmptyHeader>
+                    <EmptyIndicator>
+                      <SparklesIcon />
+                    </EmptyIndicator>
+                    <EmptyDescription>
+                      Ask about the contracts or the roster. The ✨ button lists
+                      the questions this agent can answer; anything else it
+                      refuses rather than guesses.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </EmptyRoot>
               </Show>
 
               <MessageList>

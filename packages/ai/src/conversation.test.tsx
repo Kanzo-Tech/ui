@@ -1,12 +1,13 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { EmptyDescription, EmptyRoot } from "@kanzo-tech/ui";
 import {
   Conversation,
   ConversationContent,
-  ConversationEmpty,
   ConversationScrollButton,
 } from "./conversation.js";
+import * as AI from "./index.js";
 
 // jsdom reports zero for every layout measurement and never fires a ResizeObserver, so both halves
 // of the pin have to be driven by hand: the box is defined onto the element, and the observer is
@@ -108,11 +109,13 @@ describe("Conversation", () => {
     expect(viewport.scrollTop).toBe(1800);
   });
 
-  it("names its parts, and the empty state is a part like any other", () => {
+  it("names its parts, and the zero state is ui's EmptyRoot rather than a part of its own", () => {
     render(
       <Conversation>
         <ConversationContent>
-          <ConversationEmpty>Ask about your data</ConversationEmpty>
+          <EmptyRoot>
+            <EmptyDescription>Ask about your data</EmptyDescription>
+          </EmptyRoot>
         </ConversationContent>
       </Conversation>,
     );
@@ -120,8 +123,11 @@ describe("Conversation", () => {
     const root = document.querySelector("[data-slot=conversation]");
     expect(root?.getAttribute("data-slot")).toBe("conversation");
     expect(screen.getByRole("log").getAttribute("data-slot")).toBe("conversation-content");
-    expect(
-      document.querySelector("[data-slot=conversation-empty]")?.textContent,
-    ).toBe("Ask about your data");
+    expect(screen.getByRole("log").querySelector("[data-slot=empty]")?.textContent).toBe(
+      "Ask about your data",
+    );
+    // `ConversationEmpty` was a centred `flex-1` column with a measure: `EmptyRoot` and
+    // `EmptyHeader` exactly, under a second name.
+    expect((AI as Record<string, unknown>).ConversationEmpty).toBeUndefined();
   });
 });

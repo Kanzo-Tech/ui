@@ -25,27 +25,27 @@ name: Release
 # The release tag carries the version: `v0.1.0`, or `v0.2.0-rc.1`, whose
 # prerelease identifier becomes the dist-tag so `latest` stays where it was.
 #
-# AUTH. OIDC is the destination, NPM_TOKEN is the ramp, and both are here on
-# purpose right now.
+# AUTH. OIDC only. Every @kanzo-tech package has a Trusted Publisher configured
+# on npmjs.com pointing at this file, so the publish step carries no token and
+# every tarball it ships is signed.
 #
-# A trusted publisher is configured per package on npmjs.com, and a package exists
-# only once it has been published — so a package's FIRST publish can never be the
-# OIDC one, and `pnpm publish -r` aborts on the first package the registry
-# refuses, which takes the whole release down however well the others went.
-#
-# Every package that existed before 2026-09-30 is on the registry, so the ramp
-# has done its job for them; what it is carrying now is
-# **@kanzo-tech/navigation**, added that day and never published.
-# NODE_AUTH_TOKEN is the fallback for exactly that package, for exactly one
-# release — and the next package added after it will need the same, which is
-# why the block is not deleted on a schedule but whenever no unpublished package
-# remains.
-#
-# After its first release, configure a Trusted Publisher for it (npmjs.com →
-# package → Settings → GitHub Actions: owner Kanzo-Tech, repo ui, workflow
-# release.yml), and for any other package that lacks one — a token that
-# publishes is not a publisher that is configured — and only then DELETE the
-# `env:` block below.
+# A NEW PACKAGE cannot ship that way the first time. A trusted publisher is
+# configured per package, and a package exists only once it has been published,
+# so its first publish can never be the OIDC one — and `pnpm publish -r` aborts on
+# the first package the registry refuses, which takes the whole release down
+# however well the others went. So a package added under packages/ needs, in
+# this order:
+#   1. one token publish: create an npm automation token as the repo secret
+#      NPM_TOKEN and give the Publish step
+#        env:
+#          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+#      for that one release. Packages that already have a publisher still go
+#      through OIDC beside it.
+#   2. its trusted publisher: npmjs.com → package → Settings → GitHub Actions,
+#      owner Kanzo-Tech, repo ui, workflow release.yml.
+#   3. then delete the `env:` block and the secret again. A token that publishes
+#      is not a publisher that is configured, and a token left here is how the
+#      next package would ship unsigned without anyone deciding it should.
 #
 # Provenance is not decoration: npm verifies the signed statement against the
 # manifest and REJECTS the publish with a 422 when `repository.url` does not match
@@ -76,7 +76,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
         with:
-          # Only here. This is what makes ~/.npmrc reference NODE_AUTH_TOKEN below.
+          # Only here: the registry the OIDC exchange and the publish address.
           registry-url: "https://registry.npmjs.org"
       # npm >= 11.5.1 for Trusted Publishing.
       - name: Upgrade npm
@@ -152,11 +152,7 @@ jobs:
       # --no-git-checks because the stamp above leaves the tree dirty by design.
       - name: Publish
         if: ${{ github.event_name == 'release' || !inputs.dry-run }}
-        # Temporary — see AUTH above. Whatever has a trusted publisher authenticates
-        # by OIDC and is signed; @kanzo-tech/navigation falls back to this until it
-        # exists on the registry and can have a publisher of its own.
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # No token — see AUTH above.
         run: |
           pnpm -r --filter "./packages/*" publish \
             --access public --tag "${{ steps.ver.outputs.tag }}" --no-git-checks
