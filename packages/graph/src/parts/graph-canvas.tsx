@@ -20,7 +20,7 @@ export interface GraphCanvasProps extends React.ComponentProps<"div"> {
   children?: ReactNode;
 }
 
-const WASH = "var(--brand-a5)";
+const WASH = "color-mix(in oklab, var(--primary) 17%, transparent)";
 
 interface Label {
   vertex: VertexId;
