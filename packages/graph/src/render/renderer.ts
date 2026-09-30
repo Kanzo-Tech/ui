@@ -9,7 +9,6 @@ import { createComposer, type Composition } from "./compose";
 import { resolveLook, type Look } from "./graph-looks";
 import { appearance, forces, paint } from "./graph-model";
 import { resolveSim, type Sim } from "./graph-sim";
-import { isReady, whenReady } from "./when-ready";
 import { hasWebGL, releaseContext } from "./webgl";
 
 export interface RendererEvents {
@@ -83,6 +82,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   let lookPatch = store.getOptions().look;
   const dirty = { compose: true, paint: true, state: true, pinned: true };
   let frame = 0;
+  let destroyed = false;
   let framed: GraphSnapshot["matrix"] = null;
   let pendingReveal: VertexId | null = null;
   let last = store.getSnapshot();
@@ -92,7 +92,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
 
   const viewport = (): { view: Viewport; perPixel: number } | null => {
     const { height, width } = host.getBoundingClientRect();
-    if (!isReady(graph) || width === 0 || height === 0) return null;
+    if (!graph.isReady || width === 0 || height === 0) return null;
     const [ax, ay] = graph.screenToSpacePosition([0, 0]);
     const [bx, by] = graph.screenToSpacePosition([width, height]);
     const view = { xMin: Math.min(ax, bx), yMin: Math.min(ay, by), xMax: Math.max(ax, bx), yMax: Math.max(ay, by) };
@@ -174,11 +174,11 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     if (frame) return;
     frame = requestAnimationFrame(() => {
       frame = 0;
-      whenReady(graph, draw);
+      draw();
     });
   };
 
-  function draw(ready: Graph): void {
+  function draw(): void {
     const snapshot = store.getSnapshot();
     const options = store.getOptions();
     let changed = false;
@@ -196,8 +196,8 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       });
       if (next) {
         composition = next;
-        ready.setPointPositions(next.positions, true);
-        ready.setLinks(next.links);
+        graph.setPointPositions(next.positions, true);
+        graph.setLinks(next.links);
         dirty.paint = true;
         dirty.state = true;
         dirty.pinned = true;
@@ -215,18 +215,18 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     if (dirty.paint && composition) {
       dirty.paint = false;
       const buffers = paint(composition, look, host, options);
-      ready.setPointColors(buffers.colors);
-      ready.setPointSizes(buffers.sizes);
-      ready.setPointShapes(buffers.shapes);
-      ready.setLinkColors(buffers.linkColors);
-      ready.setLinkWidths(buffers.linkWidths);
-      ready.setConfigPartial(appearance(look, host));
+      graph.setPointColors(buffers.colors);
+      graph.setPointSizes(buffers.sizes);
+      graph.setPointShapes(buffers.shapes);
+      graph.setLinkColors(buffers.linkColors);
+      graph.setLinkWidths(buffers.linkWidths);
+      graph.setConfigPartial(appearance(look, host));
       changed = true;
     }
     if (dirty.state && composition) {
       dirty.state = false;
       const drawn = composition.resident;
-      ready.setConfigPartial({
+      graph.setConfigPartial({
         highlightedPointIndices: snapshot.selection ? drawn.indicesOf(snapshot.selection.vertices) : undefined,
         focusedPointIndex: snapshot.focus === null ? undefined : drawn.indexOf(snapshot.focus),
       });
@@ -234,9 +234,9 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     if (dirty.pinned && composition) {
       dirty.pinned = false;
       const pinned = composition.resident.indicesOf(snapshot.pinned);
-      ready.setPinnedPoints(pinned.length > 0 ? pinned : null);
+      graph.setPinnedPoints(pinned.length > 0 ? pinned : null);
     }
-    if (changed) ready.render();
+    if (changed) graph.render();
     events.onFrame?.();
   }
 
@@ -244,10 +244,10 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     const extent = snapshot.matrix?.extent;
     if (!extent || snapshot.matrix === framed) return;
     framed = snapshot.matrix;
-    whenReady(graph, (ready) => {
-      ready.setConfigPartial({ spaceSize: Math.max(extent.w, extent.h) });
-      ready.fitViewByPointPositions(corners(extent), 0, FIT_PADDING);
-      observe();
+    graph.setConfigPartial({ spaceSize: Math.max(extent.w, extent.h) });
+    graph.fitViewByPointPositions(corners(extent), 0, FIT_PADDING);
+    void graph.ready.then(() => {
+      if (!destroyed) observe();
     });
   };
 
@@ -278,15 +278,13 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     const next = resolveSim(patch);
     const moved = Object.keys(next).some((key) => next[key as keyof Sim] !== sim[key as keyof Sim]);
     sim = next;
-    whenReady(graph, (ready) => {
-      ready.setConfigPartial({ enableSimulation: simulate, ...forces(next) });
-      if (simulate && moved) ready.start(REHEAT);
-    });
+    graph.setConfigPartial({ enableSimulation: simulate, ...forces(next) });
+    if (simulate && moved) graph.start(REHEAT);
   }
 
   function focusOn(vertex: VertexId, index: number): void {
     const drawn = resident();
-    const around = isReady(graph) ? drawn.verticesAt(graph.getNeighboringPointIndices(index)) : [];
+    const around = drawn.verticesAt(graph.getNeighboringPointIndices(index));
     store.select([vertex, ...around], "node", "Node");
     store.focus(vertex);
   }
@@ -301,7 +299,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     const index = resident().indexOf(vertex);
     if (index !== undefined) {
       focusOn(vertex, index);
-      whenReady(graph, (ready) => ready.zoomToPointByIndex(index, 500, 5, true));
+      graph.zoomToPointByIndex(index, 500, 5, true);
       return;
     }
     const matrix = store.getSnapshot().matrix;
@@ -309,22 +307,19 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     const box = address && matrix?.tileMatrices[address.z]?.tiles[address.tile]?.bbox;
     if (!box) return;
     pendingReveal = vertex;
-    whenReady(graph, (ready) => ready.fitViewByPointPositions(corners(box), FIT_DURATION, FIT_PADDING));
+    graph.fitViewByPointPositions(corners(box), FIT_DURATION, FIT_PADDING);
   }
 
-  // Primed first, so every `whenReady` below runs with `isReady` already answering true.
-  isReady(graph);
-  const painted = whenReady(graph, (ready) => {
-    ready.setConfigPartial(appearance(look, host));
-    ready.render();
-  });
+  // cosmos.gl 3.4 queues every setter and command until its device exists (`ensureDevice`), and its
+  // two synchronous hit tests answer `[]` until then; only the canvas element has to wait for `ready`.
+  graph.setConfigPartial(appearance(look, host));
+  graph.render();
   const onLost = (event: Event) => {
     event.preventDefault();
     fail("The graph's WebGL context was lost. A browser keeps a limited number of them and drops the oldest; reload the page to get one back.");
   };
-  // Inside `whenReady`: cosmos.gl makes its canvas with the device, which is asynchronous.
-  const listening = whenReady(graph, () => {
-    host.querySelector("canvas")?.addEventListener("webglcontextlost", onLost);
+  void graph.ready.then(() => {
+    if (!destroyed) host.querySelector("canvas")?.addEventListener("webglcontextlost", onLost);
   });
   store.report(store.getOptions().simulate && graph.isSimulationRunning ? "running" : "settled");
   frameExtent(last);
@@ -339,47 +334,45 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       schedule();
     },
     hit(shape) {
-      if (!isReady(graph)) return [];
       const found = "rect" in shape ? graph.findPointsInRect(shape.rect) : graph.findPointsInPolygon(shape.polygon);
       return Array.from(found);
     },
     zoomBy(factor) {
-      whenReady(graph, (ready) => ready.setZoomLevel(ready.getZoomLevel() * factor, 220));
+      graph.setZoomLevel(graph.getZoomLevel() * factor, 220);
     },
     fit() {
       const extent = store.getSnapshot().matrix?.extent;
-      whenReady(graph, (ready) =>
-        extent ? ready.fitViewByPointPositions(corners(extent), FIT_DURATION, FIT_PADDING) : ready.fitView(FIT_DURATION, FIT_PADDING),
-      );
+      if (extent) graph.fitViewByPointPositions(corners(extent), FIT_DURATION, FIT_PADDING);
+      else graph.fitView(FIT_DURATION, FIT_PADDING);
     },
-    pause: () => whenReady(graph, (ready) => ready.pause()),
+    pause: () => graph.pause(),
     resume() {
       const settled = store.getSnapshot().motion === "settled";
-      whenReady(graph, (ready) => (settled ? ready.start(REHEAT) : ready.unpause()));
+      if (settled) graph.start(REHEAT);
+      else graph.unpause();
     },
     restart() {
       store.pin([]);
-      whenReady(graph, (ready) => ready.start(1));
+      graph.start(1);
     },
     unpin() {
       if (store.getSnapshot().pinned.length === 0) return;
       store.pin([]);
-      whenReady(graph, (ready) => ready.start(REHEAT));
+      graph.start(REHEAT);
     },
     reveal,
     frameBox(box, { duration = FIT_DURATION, padding = FIT_PADDING } = {}) {
-      whenReady(graph, (ready) => ready.fitViewByPointPositions(corners(box), duration, padding));
+      graph.fitViewByPointPositions(corners(box), duration, padding);
     },
     frameSelection() {
       const indices = resident().indicesOf(store.getSnapshot().selection?.vertices ?? []);
-      if (indices.length > 0) whenReady(graph, (ready) => ready.fitViewByPointIndices(indices, FIT_DURATION, 0.25));
+      if (indices.length > 0) graph.fitViewByPointIndices(indices, FIT_DURATION, 0.25);
     },
     clear,
     destroy() {
       unsubscribe();
       if (frame) cancelAnimationFrame(frame);
-      painted();
-      listening();
+      destroyed = true;
       // Read here rather than remembered from construction: the element exists only with the device.
       const canvas = host.querySelector("canvas");
       canvas?.removeEventListener("webglcontextlost", onLost);

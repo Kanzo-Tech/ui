@@ -5,7 +5,6 @@ import type React from "react";
 import type { Graph } from "@cosmos.gl/graph";
 import type { Resident, VertexId } from "../core/resident";
 import type { Selection, SelectionSource, Tool } from "../core/types";
-import { isReady } from "../render/when-ready";
 
 /**
  * Drawing a selection on the canvas: the marquee, the lasso, and the keys that modify them.
@@ -85,11 +84,8 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
     (shape: Drag): number[] => {
       const graph = getGraph();
       if (!graph) return [];
-      // **Upstream's own words, on these two and on nothing else in its `.d.ts`:** *this method is
-      // synchronous and must only be called when the graph is ready*. There is nothing to await in
-      // a pointer handler, so the answer for a device that is not there is the honest one — a
-      // gesture over a graph that has not drawn selects nothing, which is what it looks like.
-      if (!isReady(graph)) return [];
+      // Before its device cosmos.gl answers `[]` here: a gesture over a graph that has not drawn
+      // selects nothing, which is what it looks like.
       if (shape.tool === "rect") {
         const [[ax, ay], [bx, by]] = [shape.from, shape.to];
         if (Math.abs(bx - ax) < MIN_RECT || Math.abs(by - ay) < MIN_RECT) return [];

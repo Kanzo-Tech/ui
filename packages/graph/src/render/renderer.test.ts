@@ -18,6 +18,7 @@ vi.mock("@cosmos.gl/graph", () => ({
       constructed.push(config);
     }
     ready = Promise.resolve();
+    isReady = true;
     progress = 1;
     isSimulationRunning = false;
     graph = {};
@@ -139,7 +140,7 @@ describe("the renderer's lifetime", () => {
   });
 
   it("hears a lost context and asks for a restore", () => {
-    expect(SOURCE).toMatch(/whenReady\(graph, \(\) => \{\n\s+host\.querySelector\("canvas"\)\?\.addEventListener/);
+    expect(SOURCE).toMatch(/graph\.ready\.then\(\(\) => \{\n\s+if \(!destroyed\) host\.querySelector\("canvas"\)\?\.addEventListener/);
     expect(SOURCE).toContain("event.preventDefault()");
     expect(SOURCE).toContain('removeEventListener("webglcontextlost"');
   });
