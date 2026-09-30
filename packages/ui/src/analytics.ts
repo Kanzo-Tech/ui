@@ -168,9 +168,9 @@ export type { TableExpr } from "@kanzo-tech/mosaic";
 //
 // No type comes with them. `ExprValue` is what they take and it is on the line above; what they
 // return goes straight into `.orderby()`, so nothing makes a consumer spell its name — `FilterExpr`
-// and `NumericArray` are here because `useChartQuery`'s `query` signature and `numbers`' result
-// do. What would reverse that: a consumer who has to name it, a helper handing a sort spec back to
-// its caller, at which point `OrderByNode` follows the same rule in the other direction.
+// is here because `useChartQuery`'s `query` signature does. What would reverse that: a consumer
+// who has to name it, a helper handing a sort spec back to its caller, at which point `OrderByNode`
+// follows the same rule in the other direction.
 export { asc, desc } from "@kanzo-tech/mosaic";
 
 // The six marks the layer withholds on purpose, because axes here compile to plot *attributes* — an
@@ -195,7 +195,7 @@ export type { SelectionClause, FilterExpr } from "@kanzo-tech/mosaic";
 // independently writes `as { getChild(name: string): … }` — a cast asserting Arrow's shape rather
 // than checking it, and wrong the first time the query selects a string. Arrow only offers a typed
 // column when the type allows one, so the fallback is not a nicety.
-export { column, fillColumn, numbers, type NumericArray } from "@kanzo-tech/mosaic";
+export { column, numbers } from "@kanzo-tech/mosaic";
 
 // The five preset charts (Histogram, BarChart, LineChart, ScatterPlot, BarSeriesChart) are gone —
 // they were five parallel hardcoded `vg.plot(...)` calls that could not be composed. Each one is

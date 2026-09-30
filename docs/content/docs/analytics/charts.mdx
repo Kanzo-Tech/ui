@@ -467,7 +467,7 @@ Three, because wrapping vgplot must stay a convenience:
   Turning the answer back into values is the half the protocol does not give you, and it is where
   every client independently writes `as { getChild(name: string): … }` — a cast that asserts
   Arrow's shape rather than checking it, and is wrong the first time a query selects a string.
-  `column`, `fillColumn` and `numbers` are exported for that: Arrow only offers a typed column when
+  `column` and `numbers` are exported for that: Arrow only offers a typed column when
   the type allows one, so the fallback is not a nicety.
 
 Neither hatch needs a source builder: `ChartRoot` already owns the `plot(…)` call, and a mark's
@@ -564,8 +564,7 @@ is configured with `ChartSeriesConfig` and read back as a `ChartSeriesEntry`, a 
 Two of these are not about charts at all and are exported because the inputs are. `MosaicInputOptions<T>`
 and `MosaicInputState<T>` are what a control needs to be a Mosaic client — the shape behind every
 filter input on this page. `ExprValue` is anything Mosaic will accept where an expression is
-expected, and `NumericArray` is the union of typed arrays a column may arrive in:
-`Float32Array | Float64Array | Uint32Array | Uint16Array | Int32Array`.
+expected.
 
 ## API Reference
 

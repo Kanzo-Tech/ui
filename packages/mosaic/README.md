@@ -14,7 +14,7 @@ Mosaic are two coordinators, and two coordinators are two crossfilters that neve
 
 ```ts
 import { Coordinator, Selection, MosaicClient, clausePoints } from "@kanzo-tech/mosaic";
-import { column, fillColumn, numbers } from "@kanzo-tech/mosaic";
+import { column, numbers } from "@kanzo-tech/mosaic";
 import { engine } from "@kanzo-tech/mosaic";
 ```
 
@@ -47,7 +47,7 @@ import { engine } from "@kanzo-tech/mosaic";
 - **Re-exports** of the coordinator, the clients, the five clause builders and the loaders — so a
   consumer never needs a direct `@uwdata` import. The DuckDB-WASM connector is not among them:
   `engine()` is the only boot.
-- **`column` / `fillColumn` / `numbers`** — the half of the client protocol the protocol does not
+- **`column` / `numbers`** — the half of the client protocol the protocol does not
   give you. The coordinator answers with an Arrow table, and Arrow offers a typed column only when
   the type allows one: an integer id gives an array, a dictionary-encoded label gives nothing
   usable. Every call site was writing `as { getChild(name: string): … }`, which asserts Arrow's
