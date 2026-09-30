@@ -68,8 +68,16 @@ export function createGraph(initial: GraphOptions): GraphStore {
   let active = false;
   let lastFrame = -1;
 
+  // A failure found while the store is being built is found while React is still rendering —
+  // `useGraph` builds it in `useState` — and a host's `onFailure` is usually a `setState`. It is held
+  // and reported to the first subscriber, which arrives in the commit phase. Anything later is
+  // asynchronous or effect-driven and is reported as it happens.
+  let building = true;
+  let held: string | null = null;
   const fail = (error: unknown) => {
-    options.onFailure(error instanceof Error ? error.message : String(error));
+    const message = error instanceof Error ? error.message : String(error);
+    if (building) held = message;
+    else options.onFailure(message);
   };
 
   const tileset = new Tileset2D({
@@ -283,6 +291,11 @@ export function createGraph(initial: GraphOptions): GraphStore {
       if (!active) {
         active = true;
         listen();
+        if (held !== null) {
+          const message = held;
+          held = null;
+          options.onFailure(message);
+        }
       }
       return () => {
         listeners.delete(listener);
@@ -362,5 +375,6 @@ export function createGraph(initial: GraphOptions): GraphStore {
 
   binding = bindingOf(initial);
   adopt(initial.corpus);
+  building = false;
   return store;
 }
