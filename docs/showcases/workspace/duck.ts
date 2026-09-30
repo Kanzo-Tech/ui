@@ -9,7 +9,7 @@ import { engine, type Engine } from "@kanzo-tech/ui/analytics";
  * The engine is `engine()`'s, so the graph and the charts query the same database and vgplot's
  * single active coordinator is the one both mean. The two views also swap rather than coexist — a
  * chart in a hidden box measures zero width and never recovers — so this cache is what keeps
- * toggling between Graph and Analysis from reloading every relation.
+ * toggling between Graph and Sightings from reloading every relation.
  */
 
 const relations = new Map<string, Promise<unknown>>();

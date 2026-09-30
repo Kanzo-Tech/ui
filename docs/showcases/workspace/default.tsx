@@ -126,15 +126,11 @@ import {
  * Orders · Settings) and collapses it when you click the active icon again — a state Tabs cannot
  * express.
  *
- * Both regions are live and both read the same DuckDB: **Graph** is cosmos.gl rendering a force
- * layout over 1,543 archived contracts, reports, members, beasts, tags and regions while a
- * `MosaicClient` keeps it inside the page's crossfilter, and **Sightings** is a full crossfilter
- * dashboard built from the `@kanzo-tech/ui/analytics` subpath. Both load client-only, because
- * evaluating vgplot during the RSC prerender is a TDZ.
- *
- * What the showcase is demonstrating there is the reach of the vocabulary rather than a graph
- * widget: the library ships no renderer, and the canvas joins the crossfilter by declaring a query
- * and publishing a clause — the same contract a brushed histogram honours.
+ * Both regions are live and both read the same DuckDB: **Graph** is `@kanzo-tech/graph` drawing the
+ * archive's 1,543 contracts, reports, members, beasts, tags and regions at the corpus's own layout,
+ * listening to the page's crossfilter and publishing the reader's pick into it, and **Sightings** is
+ * a full crossfilter dashboard built from the `@kanzo-tech/ui/analytics` subpath. The dashboard loads
+ * client-only, because evaluating vgplot during the RSC prerender is a TDZ.
  *
  * The rail is the same argument in miniature. A workspace switcher, a nav column and a user
  * footer are three arrangements of `Menu*`, `SidebarMenu*` and `SidebarIdentity*`, and an
@@ -570,7 +566,7 @@ function ArchiveShell({ arrangement, wear }: { arrangement: LookId; wear: (id: L
 					    children to `PreferencesPanel` keeps its header toggle and pinned footer while
 					    leading with a section this view owns.
 
-					    The dock keeps Layout and Camera. The line is the one
+					    The dock's Settings keeps the camera and the gestures. The line is the one
 					    `a-section-brings-measurable-obligations` draws: a look and a display have
 					    obligations that return a measured claim, a friction coefficient has none. */}
 					<PreferencesRoot hotkey="p">
