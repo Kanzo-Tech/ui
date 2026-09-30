@@ -44,8 +44,12 @@ const corners = (box: Box) => [box.x, box.y, box.x + box.w, box.y + box.h];
  *
  * - a change of visible tiles recomposes, and dirties positions, links and the per-point arrays;
  * - a look or a theme change dirties colours, sizes and shapes and nothing else;
- * - a selection, a focus or a pin sets two config fields and uploads nothing;
+ * - a selection, a focus or a pin sets config and uploads nothing, and never calls `render()`:
+ *   `render()` walks every point and link in JS, and `setConfigPartial` asks for its own frame;
  * - a snapshot that changed none of those schedules nothing.
+ *
+ * `transitionDuration` is 0: cosmos.gl's default animates every upload for 800 ms, and while it runs
+ * the loop never idles.
  *
  * Every callback reads the store's latest options, so a host's inline `onFailure` never rebuilds it.
  */
@@ -71,7 +75,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   let composition: Composition | null = null;
   let look: Look = resolveLook(store.getOptions().look);
   let lookPatch = store.getOptions().look;
-  const dirty = { compose: true, paint: true, state: true };
+  const dirty = { compose: true, paint: true, state: true, pinned: true };
   let frame = 0;
   let framed: GraphSnapshot["matrix"] = null;
   let pendingReveal: VertexId | null = null;
@@ -100,6 +104,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       // `rescalePositions: false` because the corpus's coordinates are the camera's — a rescale
       // between them means the cull and the viewport describe different places.
       rescalePositions: false,
+      transitionDuration: 0,
       enableSimulation: store.getOptions().simulate ?? false,
       ...forces(sim),
       // Frames to convergence: alpha reaches its floor after exactly this many rendered frames.
@@ -182,6 +187,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
         ready.setLinks(next.links);
         dirty.paint = true;
         dirty.state = true;
+        dirty.pinned = true;
         changed = true;
         events.onComposed?.(next);
         if (pendingReveal !== null && next.resident.indexOf(pendingReveal) !== undefined) {
@@ -211,9 +217,11 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
         highlightedPointIndices: snapshot.selection ? drawn.indicesOf(snapshot.selection.vertices) : undefined,
         focusedPointIndex: snapshot.focus === null ? undefined : drawn.indexOf(snapshot.focus),
       });
-      const pinned = drawn.indicesOf(snapshot.pinned);
+    }
+    if (dirty.pinned && composition) {
+      dirty.pinned = false;
+      const pinned = composition.resident.indicesOf(snapshot.pinned);
       ready.setPinnedPoints(pinned.length > 0 ? pinned : null);
-      changed = true;
     }
     if (changed) ready.render();
     events.onFrame?.();
@@ -245,13 +253,12 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     if (options.fill !== lastOptions.fill || options.symbol !== lastOptions.symbol || options.stroke !== lastOptions.stroke) {
       dirty.paint = true;
     }
-    if (snapshot.selection !== last.selection || snapshot.focus !== last.focus || snapshot.pinned !== last.pinned) {
-      dirty.state = true;
-    }
+    if (snapshot.selection !== last.selection || snapshot.focus !== last.focus) dirty.state = true;
+    if (snapshot.pinned !== last.pinned) dirty.pinned = true;
     if (options.sim !== lastOptions.sim || options.simulate !== lastOptions.simulate) applyForces(options.sim, options.simulate);
     last = snapshot;
     lastOptions = options;
-    if (dirty.compose || dirty.paint || dirty.state) schedule();
+    if (dirty.compose || dirty.paint || dirty.state || dirty.pinned) schedule();
   });
 
   function applyForces(patch: Partial<Sim> | undefined, simulate = false): void {

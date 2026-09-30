@@ -10,9 +10,13 @@ import { createGraph } from "../core/store";
  */
 
 const calls: string[] = [];
+const constructed: Record<string, unknown>[] = [];
 
 vi.mock("@cosmos.gl/graph", () => ({
   Graph: class {
+    constructor(_host: HTMLElement, config: Record<string, unknown>) {
+      constructed.push(config);
+    }
     ready = Promise.resolve();
     progress = 1;
     isSimulationRunning = false;
@@ -44,6 +48,7 @@ const count = (name: string) => calls.filter((call) => call === name).length;
 
 beforeEach(() => {
   calls.length = 0;
+  constructed.length = 0;
   vi.stubGlobal("requestAnimationFrame", (run: () => void) => setTimeout(run, 0));
   vi.stubGlobal("cancelAnimationFrame", (id: number) => clearTimeout(id));
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({} as RenderingContext);
@@ -105,14 +110,22 @@ describe("the renderer's frame", () => {
     expect(calls.filter((call) => call === "config:spaceSize")).toHaveLength(1);
   });
 
-  it("sets the selection as config and uploads no buffer", async () => {
-    const { store } = await drawing();
+  it("constructs cosmos.gl with no simulation and no transition", async () => {
+    await drawing();
+    expect(constructed).toHaveLength(1);
+    expect(constructed[0]).toMatchObject({ enableSimulation: false, transitionDuration: 0 });
+  });
+
+  it("a selection sets config and calls no render and no setter", async () => {
+    const { renderer, store } = await drawing();
+    const vertex = renderer?.resident().at(0);
+    if (vertex === undefined) throw new Error("nothing was drawn");
     calls.length = 0;
-    store.select(null);
-    store.focus(null);
+    store.select([vertex]);
+    store.focus(vertex);
     await frame();
-    expect(calls).not.toContain("positions");
-    expect(calls).not.toContain("colors");
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls.filter((call) => !call.startsWith("config:"))).toEqual([]);
   });
 });
 
