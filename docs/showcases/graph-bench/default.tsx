@@ -1004,7 +1004,7 @@ export function GraphBenchShowcase() {
                 </TabsContent>
 
                 <TabsContent className="min-h-0 flex-1 overflow-auto" value="results">
-              <section className="min-w-0 space-y-3">
+              <SectionRoot fill={false} className="min-w-0 gap-3">
                 {/* The summary, the shape, and the rows are one answer, so they share a tab —
                     read in that order, because each is the previous one at more resolution. */}
                 <Headline bounded={boundedSamples} layer={layer} samples={samples} />
@@ -1107,7 +1107,7 @@ export function GraphBenchShowcase() {
           </Table>
         </Show>
                 </div>
-              </section>
+              </SectionRoot>
                 </TabsContent>
               </Tabs>
             </SectionBody>

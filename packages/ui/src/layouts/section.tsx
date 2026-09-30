@@ -25,15 +25,29 @@ import { cn } from "../lib/cn.js";
  */
 
 export const sectionVariants = tv({
-  base: "flex min-h-0 flex-1 flex-col",
+  base: "group/section flex min-h-0 flex-col",
+  variants: {
+    /** `true` fills the region it sits in and scrolls its body — one section per region.
+     *  `false` takes its content's height, so several stack in one scrolling pane: the body
+     *  reads it off `data-fill` and stops scrolling on its own. */
+    fill: { true: "flex-1", false: "flex-none" },
+  },
+  defaultVariants: { fill: true },
 });
 
 /** The container. Presentational — the scale lives on the parts that render text. */
-export type SectionRootProps = ComponentProps<typeof ark.div>;
+export interface SectionRootProps
+  extends ComponentProps<typeof ark.div>,
+    VariantProps<typeof sectionVariants> {}
 
-export function SectionRoot({ className, slot, ...rest }: SectionRootProps) {
+export function SectionRoot({ className, fill = true, slot, ...rest }: SectionRootProps) {
   return (
-    <ark.div className={cn(sectionVariants(), className)} {...rest} data-slot={slot ?? "section"} />
+    <ark.div
+      className={cn(sectionVariants({ fill }), className)}
+      {...rest}
+      data-fill={fill}
+      data-slot={slot ?? "section"}
+    />
   );
 }
 SectionRoot.displayName = "SectionRoot";
@@ -159,7 +173,10 @@ export function SectionActions({ className, slot, ...rest }: ComponentProps<type
 SectionActions.displayName = "SectionActions";
 
 const sectionBodyVariants = tv({
-  base: "flex min-h-0 flex-1 flex-col gap-4 overflow-auto",
+  base: [
+    "flex min-h-0 flex-1 flex-col gap-4 overflow-auto",
+    "group-data-[fill=false]/section:flex-none group-data-[fill=false]/section:overflow-visible",
+  ],
   variants: {
     scale: { page: "p-4", section: "" },
   },

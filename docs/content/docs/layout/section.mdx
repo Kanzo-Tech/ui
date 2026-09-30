@@ -96,7 +96,24 @@ owns the page's single `<main>` landmark.
 `SectionFooter` carries a surface and a top border, unlike the header: it sits against the
 bottom of a scrolling body and has to separate itself from the content sliding under it.
 
+## Stacked sections
+
+A section fills the region it sits in, and its body scrolls — one section per region. Several in
+one scrolling pane take `fill={false}`: each takes its content's height, and its body stops
+scrolling on its own, because it reads the root's `data-fill` rather than a prop of its own. The
+pane scrolls, not the sections.
+
+<ComponentPreview componentName="section" fileName="example-stacked" />
+
 ## API Reference
+
+### SectionRoot
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `fill` | `boolean` | `true` |
+
+Extends `ComponentProps<typeof ark.div>`.
 
 ### SectionHeader
 
