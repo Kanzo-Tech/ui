@@ -33,21 +33,24 @@ name: Release
 # OIDC one, and `pnpm publish -r` aborts on the first package the registry
 # refuses, which takes the whole release down however well the others went.
 #
-# theme, ui, graph, ai and mosaic are all on the registry at 0.1.0 now, so the
-# ramp has done its job for them; what it is still carrying is
-# **@kanzo-tech/auth**, which has never been published. NODE_AUTH_TOKEN is the
-# fallback for exactly that package, for exactly one release.
+# Every package that existed before 2026-09-30 is on the registry, so the ramp
+# has done its job for them; what it is carrying now is
+# **@kanzo-tech/navigation**, added that day and never published.
+# NODE_AUTH_TOKEN is the fallback for exactly that package, for exactly one
+# release — and the next package added after it will need the same, which is
+# why the block is not deleted on a schedule but whenever no unpublished package
+# remains.
 #
-# Afterwards, configure a Trusted Publisher for every package that lacks one
-# (npmjs.com → package → Settings → GitHub Actions: owner Kanzo-Tech, repo ui,
-# workflow release.yml) and DELETE the `env:` block below. Check graph, ai and
-# mosaic while you are there: they were published under this token too, and a
-# token that publishes is not a publisher that is configured.
+# After its first release, configure a Trusted Publisher for it (npmjs.com →
+# package → Settings → GitHub Actions: owner Kanzo-Tech, repo ui, workflow
+# release.yml), and for any other package that lacks one — a token that
+# publishes is not a publisher that is configured — and only then DELETE the
+# `env:` block below.
 #
 # Provenance is not decoration: npm verifies the signed statement against the
 # manifest and REJECTS the publish with a 422 when `repository.url` does not match
 # the building repo. No local lint catches that — publint passes a package with no
-# `repository` at all — it is enforced at the registry. All four declare it now.
+# `repository` at all — it is enforced at the registry. Every package declares it.
 
 on:
   release:
@@ -150,8 +153,8 @@ jobs:
       - name: Publish
         if: ${{ github.event_name == 'release' || !inputs.dry-run }}
         # Temporary — see AUTH above. Whatever has a trusted publisher authenticates
-        # by OIDC and is signed; @kanzo-tech/auth falls back to this until it exists
-        # on the registry and can have a publisher of its own.
+        # by OIDC and is signed; @kanzo-tech/navigation falls back to this until it
+        # exists on the registry and can have a publisher of its own.
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |

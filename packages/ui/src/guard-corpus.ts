@@ -39,6 +39,9 @@ import { fileURLToPath } from "node:url";
  *   not; there is no element in the package that could carry a class. `tailwind-variants` is
  *   deliberately absent from its manifest and its `//peers` note says so, so the day somebody gives
  *   it a screen the dependency arrives with the screen and the package joins this corpus by itself.
+ * · `@kanzo-tech/navigation` (added 2026-09-30, after the measurement above) draws nothing either:
+ *   a hook, two listeners and `next/link` passed through. Its confirm dialog is the product's, and
+ *   its `//peers` note carries the same sentence as auth's.
  *
  * The alternative — "every publishable package's `src`" — reads better and is wrong: it takes
  * `theme` with it, and the first thing it would do is fail on the package whose job is the thing

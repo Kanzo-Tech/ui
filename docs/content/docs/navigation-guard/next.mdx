@@ -1,0 +1,61 @@
+---
+title: Next.js
+description: Link and useRouter — next/link and next/navigation's router, wired to the blockers, and the lint rule that stops a raw import walking past them.
+---
+
+```ts
+import { Link, useRouter } from "@kanzo-tech/navigation/next";
+```
+
+Two names, each a drop-in for the one Next ships, and `next >=15.3` as an optional peer — the
+release in which `Link` gained `onNavigate`.
+
+**Why a door at all.** The App Router writes the URL of a client navigation *after* the new route
+has rendered, so by the time the browser reports it there is nothing left to cancel. What Next
+offers instead is public and early: `Link`'s `onNavigate`, and the router a component asks for.
+[The navigation layer](/docs/design/navigation#a-next-door-because-next-commits-before-it-reports)
+has the source it was read from.
+
+## `Link`
+
+`next/link`, with `onNavigate` consulting the blockers. Every prop is `next/link`'s, and your own
+`onNavigate` still runs first — if it prevents the navigation, the blockers are not asked.
+
+A blocker that answers `false` synchronously costs nothing: the link navigates as it would have.
+Anything else cancels the click there and then, and `proceed` re-issues the navigation through
+`router.push` or `router.replace` with the same `scroll`. The re-issued navigation does not carry
+`useLinkStatus`'s pending state.
+
+It works as the `asChild` child of `SidebarMenuButton`, `BreadcrumbLink` and `MenuItem` exactly as
+`next/link` does, because those parts never navigate — they hand navigation to their child.
+
+## `useRouter`
+
+`next/navigation`'s `useRouter`, with `push` and `replace` asking the blockers first and calling
+Next's own on `proceed`. `back`, `forward`, `refresh` and `prefetch` are Next's, untouched: `back`
+and `forward` are traversals, which the root's `navigate` listener already sees before they commit.
+
+## Close the door behind you
+
+A raw `next/link` or `useRouter` from `next/navigation` walks straight past both, and nothing at
+runtime can notice — there is no event to listen for. Forbid them in the product:
+
+```js title="eslint.config.js"
+{
+  rules: {
+    "no-restricted-imports": ["error", {
+      paths: [
+        { name: "next/link", message: "Use Link from @kanzo-tech/navigation/next." },
+        {
+          name: "next/navigation",
+          importNames: ["useRouter"],
+          message: "Use useRouter from @kanzo-tech/navigation/next.",
+        },
+      ],
+    }],
+  },
+}
+```
+
+`usePathname`, `useSearchParams` and the rest of `next/navigation` stay importable; only the router
+is closed.

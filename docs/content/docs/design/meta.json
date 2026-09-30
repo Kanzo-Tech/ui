@@ -8,6 +8,7 @@
     "naming",
     "colour",
     "graph",
-    "auth"
+    "auth",
+    "navigation"
   ]
 }
