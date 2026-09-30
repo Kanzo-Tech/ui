@@ -39,6 +39,9 @@ export type { DataTablePaginationProps } from "./table/data-table-pagination.js"
 export { selectColumn } from "./table/select-column.js";
 export type { SelectColumnOptions } from "./table/select-column.js";
 
+export { actionsColumn } from "./table/actions-column.js";
+export type { ActionsColumnOptions } from "./table/actions-column.js";
+
 // Split from DataTable's module so React Fast Refresh sees a component-only file (a mixed
 // component + factory export makes it bail, corrupting the hot module).
 export { sortableHeader } from "./table/sortableHeader.js";

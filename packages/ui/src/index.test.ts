@@ -515,5 +515,6 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(surface.useDataTable).toBeUndefined();
     expect(surface.DataTableRoot).toBeUndefined();
     expect(surface.selectColumn).toBeUndefined();
+    expect(surface.actionsColumn).toBeUndefined();
   });
 });

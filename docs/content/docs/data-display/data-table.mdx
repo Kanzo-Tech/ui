@@ -140,6 +140,23 @@ that survive the current filters, which is what a bulk action should operate on.
 `DataTablePagination` reports the selection count on its own, which is why it appears here even
 though a single page fits.
 
+## Actions column
+
+`actionsColumn()` returns a trailing row-menu column: an icon trigger at the end of each row, and a
+[`Menu`](/docs/overlays/menu) whose items you compose per row. `menu(row)` returns the items —
+`MenuItem`, `MenuSeparator`, `MenuGroup` — and returning `null` renders no trigger at all, so a row
+with nothing permitted shows nothing rather than an empty menu. `label(row)` is the trigger's
+`aria-label`, and it should name the row: every trigger in the column looks the same, and "More"
+thirty times over tells a screen-reader user nothing.
+
+Neither the trigger nor the menu fires `onRowClick`. The menu matters as much as the trigger: it is
+portalled, but React bubbles a portal's events through the component tree, so a click on an item
+would otherwise reach the row. The header is visually empty and carries a hidden "Actions", so the
+column is not a nameless `<th>`; the column is narrow, end-aligned, and excluded from sorting and
+the View menu.
+
+<ComponentPreview componentName="data-table" fileName="example-actions" />
+
 ## Column visibility
 
 <ComponentPreview componentName="data-table" fileName="example-column-visibility" />
@@ -359,6 +376,21 @@ Extends `ark.div`. Renders nothing when there is one page, no selection and no `
 | `headerLabel` | `string` | `"Select all rows on this page"` |
 | `rowLabel` | `(row: Row<TData>) => string` | `` `Select row ${n}` `` |
 
+### actionsColumn
+
+`actionsColumn<TData>(options): ColumnDef<TData, unknown>`
+
+| Option | Type | Default |
+| --- | --- | --- |
+| `label` | `(row: Row<TData>) => string` | — |
+| `menu` | `(row: Row<TData>) => ReactNode` | — (`null` renders no trigger) |
+| `id` | `string` | `"actions"` |
+| `headerLabel` | `string` | `"Actions"` |
+
+The column declares `size`, `minSize` and `maxSize` of 44, and `DataTableContent` gives a header a
+width only when its column declares a `size` of its own — the other columns keep sizing to their
+content.
+
 ### sortableHeader
 
 `sortableHeader(label: ReactNode)` returns a TanStack header renderer — use it as a column's
@@ -377,3 +409,4 @@ without restating them.
 `SelectColumnOptions` is exported — the third argument to the checkbox column, carrying `id`,
 `headerLabel` and a `rowLabel(row)` for the per-row accessible name. It is generic in the row type,
 so a column built for your data keeps it.
+`ActionsColumnOptions` is exported beside it, for the same reason.
