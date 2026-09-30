@@ -47,13 +47,13 @@ import { Switch } from "../simples/switch.js";
  * `<html>` and toggles `.dark`, so every component re-skins with no changes. The default panel is
  * the canonical product set:
  *
- *   <Preferences.Root>
- *     <Preferences.Trigger />
- *     <Preferences.Panel>
- *       <Preferences.Colour /> <Preferences.Density /> <Preferences.Radius />
- *       <Preferences.Font /> <Preferences.MonoFont />
- *     </Preferences.Panel>
- *   </Preferences.Root>
+ *   <PreferencesRoot>
+ *     <PreferencesTrigger />
+ *     <PreferencesPanel>
+ *       <PreferencesColor /> <PreferencesDensity /> <PreferencesRadius />
+ *       <PreferencesFont /> <PreferencesMonoFont />
+ *     </PreferencesPanel>
+ *   </PreferencesRoot>
  *
  * or the all-in-one <Preferences />. Those five sections ARE the default panel body, plus a footer
  * of Reset · Done. Open with `t`, close with Escape.

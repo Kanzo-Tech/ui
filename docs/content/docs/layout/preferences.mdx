@@ -93,12 +93,11 @@ without being asked.
   of what you would get, and a depiction you cannot enter is worse than a card plus a button
   elsewhere saying the same thing.
 
-  An `AppearanceToggle` — a sun/moon button beside the close X — used to say it anyway. It is
-  **deleted**, not moved: it flipped light ⇄ dark and so does a card, and "follow the OS" was never
-  on it (that is `""`, and `Reset` is the way back).
+  There is no sun/moon toggle beside the close X: it would flip light ⇄ dark, which a card already
+  does, and "follow the OS" would not be on it either (that is `""`, and `Reset` is the way back).
 
   What that costs is worth knowing before you rely on it: `Colour` hides itself below two published
-  choices, so **a tenant shipping one theme now has no appearance control in this panel.** Their users follow the OS, or the host mounts its own control against
+  choices, so **a tenant shipping one theme has no appearance control in this panel.** Their users follow the OS, or the host mounts its own control against
   `useKanzoTheme().setAppearance`.
 
   There is no third state on that flip: following the OS is `null`, the absence of a pinned side, and
@@ -110,28 +109,22 @@ without being asked.
 ## Anatomy
 
 ```text
-Preferences.Root
-├── Preferences.Trigger
-└── Preferences.Panel
-    ├── Preferences.Colour     — only when the tenant published two choices
-    ├── Preferences.Density
-    ├── Preferences.Radius
-    ├── Preferences.Font
-    └── Preferences.MonoFont
+PreferencesRoot
+├── PreferencesTrigger
+└── PreferencesPanel
+    ├── PreferencesColor      — only when the tenant published two choices
+    ├── PreferencesDensity
+    ├── PreferencesRadius
+    ├── PreferencesFont
+    └── PreferencesMonoFont
 ```
 
 `Panel` renders that whole set when given no children, plus a pinned Reset · Done footer that
 stays whatever the children are. Pass children to choose your own set.
 
-Colour comes first, and it is **one** section and one list. It used to be one section over a *tree*:
-a palette contained identities, so an entry was a document or a brand inside one, and the panel
-flattened two levels into composed entries like `Bank · Retail` — prefixed only when there was more
-than one palette to disambiguate against.
-
-**A brand is a theme now, so there is no tree left to flatten.** `bank` and `bank-private` are two
-entries beside `dracula`, and the containment that used to guarantee a tenant's brands share a
-neutral is the author's job instead: two themes share a neutral because whoever wrote them wrote the
-same one.
+Colour comes first, and it is **one** section over a flat list. A brand is a theme: `bank` and
+`bank-private` are two entries beside `dracula`, and two themes share a neutral because whoever
+wrote them wrote the same one.
 
 It guards itself rather than being guarded at the call site — every section is exported flat for a
 host's own settings page, where a call-site guard would be invisible.
@@ -144,18 +137,16 @@ live. GitHub's Appearance page is the shape, minus its verbs — it has no `Use`
 either, because a control the size of the thing it selects does not need one, and a settings panel
 that keeps removing second controls should not have added one here.
 
-**The semantics are GitHub's now, and that is new.** They pair a day theme with a night theme
-because their themes are single-mode; ours used to each carry both, so a card meant *which document
-this user wears on the light side*. A theme is one mode, so a card is the light theme.
+**The semantics are GitHub's.** They pair a day theme with a night theme because their themes are
+single-mode, and so are ours: a card is the theme this user wears on that side.
 
 An entry is a **miniature of the interface**, not a strip of hexes: a page, a brand fill, two lines
 of ink and the categorical set. None of it is data. Every theme a tenant publishes is already in the
 page under its own `[data-theme]`, so the cell sets that attribute and the utilities inside it
 resolve against that theme — `bg-primary` is *that* tenant's brand.
 
-A strip of four role colours was what this did, and it could not depict a theme. On the default's
-own, `--primary` and `--foreground` are the same value, so two of the four chips were one colour and
-the control said nothing about what it was offering. The categorical strip draws all eight slots on
+A strip of role colours cannot depict a theme: on the default, `--primary` and `--foreground` are
+the same value, so two chips would be one colour. The categorical strip draws all eight slots on
 purpose: past a theme's `--chart-capacity` the author writes `var(--muted-foreground)` into the
 remaining slots, so a set holding seven says so by going grey at the end.
 
@@ -305,7 +296,7 @@ separation; a line between two of them says one is a different *kind* of thing.
 | `defaultOpen` | `boolean` | `false` |
 | `triggerClassName` | `string` | — |
 
-### Preferences.Root
+### PreferencesRoot
 
 | Prop | Type | Default |
 | --- | --- | --- |
@@ -313,7 +304,7 @@ separation; a line between two of them says one is a different *kind* of thing.
 | `hotkey` | `string` | — |
 | `defaultOpen` | `boolean` | `false` |
 
-### Preferences.Panel
+### PreferencesPanel
 
 | Prop | Type | Default |
 | --- | --- | --- |
@@ -321,7 +312,7 @@ separation; a line between two of them says one is a different *kind* of thing.
 | `title` | `string` | `"Preferences"` |
 | `hint` | `string` | `"Applied live · saved to this browser."` |
 
-### Preferences.Trigger
+### PreferencesTrigger
 
 | Prop | Type | Default |
 | --- | --- | --- |
@@ -333,11 +324,7 @@ Each reads and writes `useKanzoTheme()` directly. The four axis sections take no
 a `label` for its legend and two strings for the retirement notice, which are its only
 library-authored copy — a theme's own name was written by the client and passes through verbatim.
 
-`Colour` writes **one value**, keyed by the side it applies to. That sentence used to read "both
-halves in one patch, because it is one choice", and separately was not a style preference: writing
-the palette and the brand apart let the palette change file and restore a remembered brand over the
-top of the one being clicked, so the memory won against the user. There is one field now, and the
-memory it needed went with the containment.
+`Colour` writes **one value**, keyed by the side it applies to.
 
 | Export | Axis | Attribute |
 | --- | --- | --- |
@@ -347,8 +334,8 @@ memory it needed went with the containment.
 | `PreferencesFont` | `font` | `data-font` |
 | `PreferencesMonoFont` | `monoFont` | `data-mono-font` |
 
-There is no `Preferences.Colour` static to pair these with. The namespace was built with
-`Object.assign` and does not survive the RSC boundary, so the flat name is the only name.
+There is no `Preferences.X` namespace: statics built with `Object.assign` do not survive the RSC
+boundary, so the flat name is the only name.
 
 ### Containers
 

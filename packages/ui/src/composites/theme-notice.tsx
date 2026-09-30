@@ -7,7 +7,7 @@ import { useKanzoTheme } from "../theme/KanzoThemeProvider.js";
 
 /**
  * The copy for "the theme you chose is no longer published", shared by the two surfaces that
- * say it: this toast, and the `Alert` inside `Preferences.Colour`. One state, said once.
+ * say it: this toast, and the `Alert` inside `PreferencesColor`. One state, said once.
  *
  * Both strings are **library-authored English**, which is exactly the distinction `PreferencesColor`'s `formatSide`
  * draws with its `formatName`: the library wrote "Light" and "Dark", so a caller who translates the
@@ -59,7 +59,7 @@ export interface ThemeNoticeProps extends ThemeRetiredCopy {
  * identity. What is left is that somebody chose gold and is looking at blue, and silence makes that
  * read as a bug in our product rather than a change in their client's.
  *
- * The panel says the same thing in `Preferences.Colour`, from the same state — and cannot always
+ * The panel says the same thing in `PreferencesColor`, from the same state — and cannot always
  * say it: that section hides itself below two published themes, so a tenant who retired their way
  * down to one has this as the only surface left.
  */
