@@ -12,10 +12,7 @@
 // plain UNION before the dedup by subject, so a column on one and not the other fails the run.
 //
 // **The layout is fossil's, not the generator's.** `buildArchiveGraph` has `x`/`y` and they are not
-// projected. The layout pass writes coordinates, `cluster_id` and `community`, rewrites each vertex
-// file in Hilbert order, and that ordering is the whole point: it is what lets a window select tiles
-// on their bounding boxes instead of scanning. A hand-made layout carried through would be a picture
-// the reader could not address.
+// projected: the executor's layout pass writes the coordinates and `cluster_id`.
 
 type { Node } := io.shex("archive.shex")
 

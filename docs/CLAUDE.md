@@ -55,11 +55,13 @@ while listing six; a count in a heading is a fact nobody updates, so there is no
     something else. `generateStaticParams` appends `.mdx` to the last segment and `GET` strips it
     back off; the index page has its own route for the same reason.
 
-- **The workspace showcase's corpus is not in the repository**, so the published site has no
-  archive to read unless that changes. It is 276 kB under `public/corpus/`, `.gitignore`d as
-  compiler output, and regenerating it needs the `fossil` binary, which CI does not have — through
-  `showcases/workspace/corpus/build-corpus.mjs`, which is NOT the benchmark's generator beside it
-  and has to be run under `--import ./register.mjs` for the one TypeScript path alias it crosses.
-  Locally it is there and the showcase draws 1,543 nodes; on Pages it will not be. (It was 108 kB
-  and the writer's output grew: a corpus now carries an identity index and a holon pyramid beside
-  the payload, which is most of the difference.)
+- **The corpora are not in the repository; fossil's writer builds them.** Each is `fossil/1` — a
+  `fossil.json` written last, one Parquet per vertex type and per relation — `.gitignore`d as
+  compiler output under `public/corpus/` (the workspace archive) and `public/bench/` (the
+  benchmark's). `@fossil-lang/executor`, a dev dependency, runs the `.fossil` programs in Node
+  through `scripts/write-corpus.mjs`; there is no `fossil` CLI in the loop and no second writer.
+  `pnpm --filter @kanzo-tech/docs corpus` writes the archive (1,543 vertices, 4,280 edges, about
+  45 kB) — `build:static` runs it first, so Pages serves the corpus it built. The benchmark's are
+  `node showcases/graph-bench/corpus/build-corpus.mjs [--sizes …]`, never built on CI; the million
+  fails inside the executor (a DataFusion memory-pool panic in the WASM), so 200,000 is the largest
+  there is until fossil fixes it.

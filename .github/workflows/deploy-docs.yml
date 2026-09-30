@@ -43,6 +43,8 @@ jobs:
       - name: Build the packages the docs consume
         run: pnpm -r --filter "./packages/*" build
 
+      # `build:static` writes the workspace archive first (`corpus`, fossil's executor in Node):
+      # `public/corpus/` is gitignored, and the export can only serve what `public/` holds.
       - name: Static export
         run: pnpm --filter @kanzo-tech/docs build:static
 

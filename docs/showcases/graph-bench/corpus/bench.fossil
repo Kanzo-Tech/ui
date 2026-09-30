@@ -1,10 +1,8 @@
 // The benchmark's corpus, compiled rather than generated in the browser.
 //
-// Two CSVs in, a GraphAr tree out: `fossil run` writes the vertex and edge Parquet and then runs the
-// W3 layout pass over it, which fills `x` / `y` / `cluster_id` and rewrites each vertex file in
-// Hilbert order. That last part is the whole reason this exists — a bbox query against a
-// Hilbert-sorted Parquet prunes on row-group statistics, which is the larger-than-RAM half ADR-0001
-// records as unmeasured.
+// Two CSVs in, a `fossil/1` corpus out: `@fossil-lang/executor` (run by `build-corpus.mjs`) writes one
+// Parquet for the vertex type and one for the relation, with the layout pass's `x` / `y` /
+// `cluster_id`, and `fossil.json` last.
 //
 // **Two mappings, and their projections must match column for column.** Only a subject map mints a
 // vertex; an object IRI merges into one that already exists, but never creates it. So an edge list

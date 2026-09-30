@@ -13,20 +13,19 @@ renderer and a real DuckDB, and parks its results where a headless runner can re
 ## Build the corpora first
 
 The fixture is **compiled, not generated**. The page used to build its own graph in the tab, which
-capped the sweep at what a tab can generate and spent the main thread doing it; now `fossil` writes a
-corpus once, offline, and the browser only reads it. **The graph reads `fossil/1` now, and the script
-below still writes the tiled tree fossil wrote before it** — it has to be re-run with a fossil whose
-writer emits `fossil/1` before the viewer layer can measure anything.
+capped the sweep at what a tab can generate and spent the main thread doing it; now fossil's writer,
+`@fossil-lang/executor`, runs `bench.fossil` in Node and writes each `fossil/1` corpus once, offline,
+and the browser only reads it.
 
 ```bash
 node docs/showcases/graph-bench/corpus/build-corpus.mjs
 ```
 
-They land in `docs/public/bench/<size>/` and are gitignored — **213 MB at a million and 1.10 GiB at
-five**, measured with `du -sh` on 2026-09-18. The million used to be 93 MB, and what moved is the
-corpus rather than the machine: the format now carries an identity index, a five-rung pyramid with
-quotients, `coordinates`, `channels`, `privacy`, and `cardinality`/`scale` on the projections. A
-sweep against a size nobody wrote is a row of 404s, which is the honest failure.
+They land in `docs/public/bench/<size>/` and are gitignored — **4.7 MB at 200,000**, measured with
+`du -sh` on 2026-09-30, one Parquet per table and `fossil.json`. **The million is not written**:
+`0.3.0-alpha.15`'s executor panics in DataFusion's memory pool inside its WASM at that size, so the
+script fails there and the sweep's million is a 404 until fossil fixes it. A sweep against a size
+nobody wrote is a row of 404s, which is the honest failure.
 
 ## What the sweep asks
 

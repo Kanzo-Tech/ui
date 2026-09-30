@@ -285,8 +285,8 @@ function ViewerTable(props: { samples: ViewerSample[]; running: boolean; stage: 
         <p className="px-4 py-6 text-sm text-muted-foreground">
           Run the sweep to open {VIEWER_SIZES.map(compact).join(" · ")} and draw each with cosmos.gl alone
           and with <code>GraphRoot</code>, over the same wheel trajectory. The corpora under{" "}
-          <code>/bench</code> have to be <code>fossil/1</code>, which they are once fossil&apos;s writer
-          emits it and <code>corpus/build-corpus.mjs</code> is re-run.
+          <code>/bench</code> are written by <code>corpus/build-corpus.mjs</code>; a size it has not
+          written is a 404.
         </p>
       }
     >

@@ -8,7 +8,9 @@
     "dev": "next dev --webpack --port 3100",
     "build": "next build --webpack",
     "//build:static": "What GitHub Pages gets: `output: \"export\"` plus the project-page prefix, then the post-build pass that puts the `.mdx` source files back at the URLs the rewrite used to serve. Separate from `build` because `output: \"export\"` removes `next start`, and `check:previews` drives a running server. Override NEXT_PUBLIC_BASE_PATH and NEXT_PUBLIC_SITE_URL to serve it from anywhere else; the site URL is what `llms.txt` advertises, and a static export cannot read it from request headers.",
-    "build:static": "DOCS_STATIC_EXPORT=1 NEXT_PUBLIC_BASE_PATH=\"${NEXT_PUBLIC_BASE_PATH-/ui}\" NEXT_PUBLIC_SITE_URL=\"${NEXT_PUBLIC_SITE_URL-https://kanzo-tech.github.io/ui}\" next build --webpack && node scripts/materialise-mdx.mjs",
+    "//corpus": "The workspace archive the showcase and the graph pages open, written by fossil's writer (`@fossil-lang/executor`) into `public/corpus/archive`, which is gitignored. `build:static` runs it first, because the export serves what `public/` holds and a corpus that was never written is a 404 on the published site.",
+    "corpus": "node --import ./showcases/workspace/corpus/register.mjs showcases/workspace/corpus/build-corpus.mjs",
+    "build:static": "pnpm run corpus && DOCS_STATIC_EXPORT=1 NEXT_PUBLIC_BASE_PATH=\"${NEXT_PUBLIC_BASE_PATH-/ui}\" NEXT_PUBLIC_SITE_URL=\"${NEXT_PUBLIC_SITE_URL-https://kanzo-tech.github.io/ui}\" next build --webpack && node scripts/materialise-mdx.mjs",
     "start": "next start --port 3100",
     "typecheck": "tsc --noEmit",
     "postinstall": "fumadocs-mdx",
@@ -16,9 +18,8 @@
     "measure:previews": "node scripts/measure-previews.mjs",
     "check:previews": "node scripts/measure-previews.mjs --check"
   },
-  "//fossil": "The reader, a required peer of `@kanzo-tech/graph`: the docs open every corpus with its `open` on the page's `engine()` and hand `GraphRoot` the result. Nothing here imports its `.wasm`: the module resolves its own through `new URL(…, import.meta.url)` and webpack emits it as an asset.",
+  "//fossil": "The reader, a required peer of `@kanzo-tech/graph`: the docs open every corpus with its `open` on the page's `engine()` and hand `GraphRoot` the result. `@fossil-lang/executor` is the writer, a dev dependency: `corpus` and the benchmark's `build-corpus.mjs` run it in Node, and nothing on a page imports it.",
   "dependencies": {
-    "@fossil-lang/corpus": "^0.3.0-alpha.14",
     "@anthropic-ai/sdk": "^0.117.1",
     "@codemirror/autocomplete": "^6.18.6",
     "@codemirror/lang-json": "^6.0.2",
@@ -28,6 +29,7 @@
     "@codemirror/state": "^6.6.0",
     "@codemirror/view": "^6.43.1",
     "@cosmos.gl/graph": "^3.4.0",
+    "@fossil-lang/corpus": "^0.3.0-alpha.15",
     "@internationalized/date": "^3.12.2",
     "@kanzo-tech/ai": "workspace:*",
     "@kanzo-tech/auth": "workspace:*",
@@ -59,6 +61,7 @@
   "//deps": "@kanzo-tech/{ui,theme,graph,ai,auth,navigation} are workspace deps. There is no colour-derivation package any more: a theme is a flat CSS file that ships with @kanzo-tech/theme.",
   "devDependencies": {
     "@codemirror/legacy-modes": "^6.5.3",
+    "@fossil-lang/executor": "^0.3.0-alpha.15",
     "@tailwindcss/postcss": "4",
     "@types/mdx": "^2.0.14",
     "@types/node": "^20",

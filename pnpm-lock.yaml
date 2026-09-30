@@ -85,8 +85,8 @@ importers:
         specifier: ^3.4.0
         version: 3.4.0
       '@fossil-lang/corpus':
-        specifier: ^0.3.0-alpha.14
-        version: 0.3.0-alpha.14
+        specifier: ^0.3.0-alpha.15
+        version: 0.3.0-alpha.15
       '@internationalized/date':
         specifier: ^3.12.2
         version: 3.12.2
@@ -172,6 +172,9 @@ importers:
       '@codemirror/legacy-modes':
         specifier: ^6.5.3
         version: 6.5.3
+      '@fossil-lang/executor':
+        specifier: ^0.3.0-alpha.15
+        version: 0.3.0-alpha.15
       '@tailwindcss/postcss':
         specifier: '4'
         version: 4.3.3
@@ -295,8 +298,8 @@ importers:
         specifier: ^3.4.0
         version: 3.4.0
       '@fossil-lang/corpus':
-        specifier: ^0.3.0-alpha.14
-        version: 0.3.0-alpha.14
+        specifier: ^0.3.0-alpha.15
+        version: 0.3.0-alpha.15
       '@kanzo-tech/mosaic':
         specifier: workspace:*
         version: link:../mosaic
@@ -1149,14 +1152,17 @@ packages:
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
 
-  '@fossil-lang/corpus@0.3.0-alpha.14':
-    resolution: {integrity: sha512-mw/UAM8so+IBqVt8g8ELfT+TNCw201zjsvnxwXDtOvMJPgVmNjyzL4Cry0TOX/34QmfkfZg1q6oMBKpZjqslVA==}
+  '@fossil-lang/corpus@0.3.0-alpha.15':
+    resolution: {integrity: sha512-v472ppjeTyi7w8RuPNCtyLq6FvapKrP9QYQvW5QHbuNWI0Arzpf6/2r8fVZJnR5Hf1wIAFAWDumwwxOgepvsPA==}
 
-  '@fossil-lang/storage@0.3.0-alpha.14':
-    resolution: {integrity: sha512-pNpuBBfoaLKRO7n5eiuZUI5f0Jy5OUjNg4p7HR8g89FaQ2wwefa+DxKXCGo6krb5447bLuqBZ5aqnM2L8xcHsA==}
+  '@fossil-lang/executor@0.3.0-alpha.15':
+    resolution: {integrity: sha512-BsRWwLGzHNDvFHSHqUwYaqmMHDV1f2Dv+IoTfWjMjf4afjTm+z1ChNJHAyZD4vr+LPqL1OSrCSuBZ019l/NTcw==}
 
-  '@fossil-lang/types@0.3.0-alpha.14':
-    resolution: {integrity: sha512-+SPTojW9vEYLDUAiEm5t4T8L7Z/eIICPLwwn1i3/i06h2e67TFEKwK0doKnlpm2Q3BM4N3Jcn4DGFbAlGwGVQw==}
+  '@fossil-lang/storage@0.3.0-alpha.15':
+    resolution: {integrity: sha512-72jQf0GEoGStVvnLCBsFo3JFRKysGC2tfYQBQuBkHT3RG7TdN3i0hyUtpqWdDH8DROP1Sub2vxfUV/wJFAl7zQ==}
+
+  '@fossil-lang/types@0.3.0-alpha.15':
+    resolution: {integrity: sha512-tqbiUxIGu9oJuIXc+CIk5Xw2NMWhY8WLMxJ7iUmw9j/5fktQIogoHSXL9U3USlPNlL64bZedg/wkGhQzRGq4tQ==}
 
   '@fumadocs/tailwind@0.0.5':
     resolution: {integrity: sha512-ENKPWUDRmriccsrUDE4bDBq3FNr/ms3BP2rWlsAEMV1yP23pcCaan+ceGfeBUsAQjw7sj9Q3R4Kl3g/TCStPzQ==}
@@ -6211,16 +6217,21 @@ snapshots:
 
   '@floating-ui/utils@0.2.12': {}
 
-  '@fossil-lang/corpus@0.3.0-alpha.14':
+  '@fossil-lang/corpus@0.3.0-alpha.15':
     dependencies:
-      '@fossil-lang/storage': 0.3.0-alpha.14
-      '@fossil-lang/types': 0.3.0-alpha.14
+      '@fossil-lang/storage': 0.3.0-alpha.15
+      '@fossil-lang/types': 0.3.0-alpha.15
 
-  '@fossil-lang/storage@0.3.0-alpha.14':
+  '@fossil-lang/executor@0.3.0-alpha.15':
     dependencies:
-      '@fossil-lang/types': 0.3.0-alpha.14
+      '@fossil-lang/storage': 0.3.0-alpha.15
+      '@fossil-lang/types': 0.3.0-alpha.15
 
-  '@fossil-lang/types@0.3.0-alpha.14': {}
+  '@fossil-lang/storage@0.3.0-alpha.15':
+    dependencies:
+      '@fossil-lang/types': 0.3.0-alpha.15
+
+  '@fossil-lang/types@0.3.0-alpha.15': {}
 
   '@fumadocs/tailwind@0.0.5(@tailwindcss/oxide@4.3.3)(tailwindcss@4.3.2)':
     optionalDependencies:

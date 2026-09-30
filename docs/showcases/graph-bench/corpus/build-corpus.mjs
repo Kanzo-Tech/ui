@@ -9,22 +9,20 @@
  * A corpus is a compiler's output. ADR-0001 rests on that premise and this is it applied to the
  * benchmark itself: write once with the real writer, read many with the real reader.
  *
- * **`fossil run` is the writer, and the only one.** It emits the GraphAr tree and then runs the W3
- * layout pass — weakly-connected components for `cluster_id`, phyllotaxis placement for `x`/`y`,
- * and a rewrite of each vertex Parquet in Hilbert order. That ordering is the point: a bbox query
- * against it prunes whole row groups on their statistics, which is the larger-than-RAM half
- * ADR-0001 records as unmeasured. Computing the curve here instead would be a second implementation of
- * something fossil owns, and two writers is how they come to disagree.
+ * **`@fossil-lang/executor` is the writer, and the only one.** It runs `bench.fossil` in Node and
+ * writes `fossil/1` — one Parquet per vertex type and per relation, `fossil.json` last — with its
+ * layout pass: `cluster_id`, `x`/`y`, and a `dense_id` that follows the position. Computing any of
+ * that here would be a second implementation of something fossil owns, and two writers is how they
+ * come to disagree.
  *
- * Usage:  node build-corpus.mjs [--sizes 2000,10000] [--fossil <path>]
+ * Usage:  node build-corpus.mjs [--sizes 2000,10000]
  * Output: docs/public/bench/<size>/  — gitignored; tens of megabytes at the top sizes.
  */
 
-import { execFileSync } from "node:child_process";
-import { closeSync, mkdirSync, openSync, rmSync, writeSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { csv, writeCorpus } from "../../../scripts/write-corpus.mjs";
 import { hyperbolic } from "../generate.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -53,24 +51,6 @@ const DEFAULT_SIZES = [2_000, 10_000, 50_000, 200_000, 1_000_000];
  */
 const EXTENT = 4096;
 
-/** Flush the CSV buffer at roughly eight megabytes — well under any string limit, few enough syscalls. */
-const CHUNK = 8_000_000;
-
-/** Append lines to `file`, flushing every `CHUNK` characters so nothing large is ever held whole. */
-function writeCsv(file, header, rows) {
-  const fd = openSync(file, "w");
-  let buffer = `${header}\n`;
-  rows((line) => {
-    buffer += `${line}\n`;
-    if (buffer.length > CHUNK) {
-      writeSync(fd, buffer);
-      buffer = "";
-    }
-  });
-  if (buffer) writeSync(fd, buffer);
-  closeSync(fd);
-}
-
 /**
  * A node list and an edge list — the second denormalised onto the first, both written in chunks.
  *
@@ -86,74 +66,32 @@ function writeCsv(file, header, rows) {
  * compiler output precisely so the expensive part happens once, offline, and the part that broke
  * was the offline one.
  */
-function csvFor(size) {
+async function build(size) {
   const data = hyperbolic({ pointCount: size, spaceSize: EXTENT });
-
-  writeCsv(join(HERE, "nodes.csv"), "id,community", (line) => {
-    for (let n = 0; n < size; n += 1) line(`${n},${data.community[n]}`);
-  });
-
-  writeCsv(join(HERE, "edges.csv"), "id,community,target", (line) => {
-    for (let e = 0; e < data.links.length; e += 2) {
-      const source = data.links[e];
-      line(`${source},${data.community[source]},${data.links[e + 1]}`);
-    }
-  });
-}
-
-function build(size, fossil) {
   const dest = join(PUBLIC, String(size));
-  rmSync(dest, { force: true, recursive: true });
-  mkdirSync(dest, { recursive: true });
-
-  csvFor(size);
-
   const started = Date.now();
-  // `io.csv` resolves against the process's working directory, not the program's own — so run from
-  // beside the mapping and its bare filenames mean what they read as. `--dest` stays absolute.
-  execFileSync(fossil, ["run", join(HERE, "bench.fossil"), "--dest", `file://${dest}`], {
-    cwd: HERE,
-    stdio: "inherit",
-  });
+  await writeCorpus(
+    join(HERE, "bench.fossil"),
+    {
+      "nodes.csv": csv("id,community", (line) => {
+        for (let n = 0; n < size; n += 1) line(`${n},${data.community[n]}`);
+      }),
+      "edges.csv": csv("id,community,target", (line) => {
+        for (let e = 0; e < data.links.length; e += 2) {
+          const source = data.links[e];
+          line(`${source},${data.community[source]},${data.links[e + 1]}`);
+        }
+      }),
+    },
+    dest,
+  );
   console.log(`  ${size}: written in ${((Date.now() - started) / 1000).toFixed(1)}s → ${dest}`);
 }
 
-/**
- * Row groups stopped being the unit, so the knob that tuned them is gone.
- *
- * fossil emits GraphAr chunks now — `vertex/<Type>/chunk{k}.parquet`, `chunk_size` rows each, which
- * at the declared 4,096 means a chunk holds a single row group. There is nothing left for a
- * row-group size to be smaller than, and the `--row-group` flag that used to rewrite the one big
- * vertex file has no file to rewrite.
- *
- * That number is fossil's `DEFAULT_CHUNK_SIZE` and it has moved twice — 1,024, then 122,880, now
- * `1 << 12`. Nothing here reads the manifest, so a number written down on this side is a number
- * that can fall behind; `measure-bounded.ts` says what that costs and now asserts against it.
- *
- * The measurement it existed for is kept in the benchmark record (`git show 441257a:BENCHMARKS.md`) and its answer was no, twice: at a
- * million the slice went 219 ms → 229/244 ms, and at five million — the size the first result was
- * excused with — 611 groups took the slice from 974 ms to 1,072 ms. Per-group metadata cost more
- * than the pruning saved. What chunks change is not that, it is that a chunk is a URL a browser and
- * a CDN can cache, where row groups inside one file share a footer and one HTTP resource.
- */
-
 const args = process.argv.slice(2);
-const flag = (name) => {
-  const at = args.indexOf(`--${name}`);
-  return at >= 0 ? args[at + 1] : undefined;
-};
+const at = args.indexOf("--sizes");
+const sizes = (at >= 0 ? args[at + 1] : undefined)?.split(",").map(Number) ?? DEFAULT_SIZES;
 
-const sizes = flag("sizes")?.split(",").map(Number) ?? DEFAULT_SIZES;
-/**
- * The writer, named rather than guessed.
- *
- * An earlier draft resolved a relative path to the sibling fossil checkout and miscounted the
- * levels — and would have broken anyway the moment anyone's layout differed. `fossil` on `PATH` is
- * the normal case; `--fossil <path>` or `FOSSIL_BIN` covers a local `cargo build` without pinning
- * this script to one machine's directory tree.
- */
-const fossil = flag("fossil") ?? process.env.FOSSIL_BIN ?? "fossil";
-
-console.log(`building ${sizes.length} corpora with ${fossil}`);
-for (const size of sizes) build(size, fossil);
+console.log(`building ${sizes.length} corpora with @fossil-lang/executor`);
+for (const size of sizes) await build(size);
 console.log("done — these are gitignored; re-run this script to rebuild them");
