@@ -116,6 +116,16 @@ describe("the graph store", () => {
     expect(store.getSnapshot().drawn?.vertices).toBe(9);
   });
 
+  it("loads again after StrictMode's unsubscribe, and never reports the cancelled read", async () => {
+    const { fake, onFailure, store, unsubscribe } = subscribed();
+    unsubscribe();
+    store.subscribe(() => {});
+    await fake.settle();
+    expect(onFailure).not.toHaveBeenCalled();
+    expect(store.getSnapshot().status).not.toBe("failed");
+    expect(store.getSnapshot().drawn?.vertices).toBeGreaterThan(0);
+  });
+
   it("lets the graph go when the last subscriber leaves", async () => {
     const { fake, unsubscribe } = subscribed();
     await new Promise((resolve) => setTimeout(resolve, 0));

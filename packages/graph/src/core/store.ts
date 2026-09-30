@@ -155,7 +155,8 @@ export function createGraph(initial: GraphOptions): GraphStore {
         notify();
       },
       (error: unknown) => {
-        if (current() !== aborter) return;
+        // An aborted read is one this store cancelled, not a failure of the corpus.
+        if (current() !== aborter || aborter.signal.aborted) return;
         set(null);
         failed ||= fatal;
         fail(error);
@@ -287,6 +288,11 @@ export function createGraph(initial: GraphOptions): GraphStore {
       if (!active) {
         active = true;
         listen();
+        // StrictMode unsubscribes and subscribes again: what the unsubscribe cancelled starts over.
+        if (corpus && !failed && tables.length > 0) {
+          if (!loading && (!geometry || !encoding)) load();
+          if (!filtering && filter !== undefined && !kept) refilter();
+        }
         if (held !== null) {
           const message = held;
           held = null;
@@ -325,6 +331,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
       unlisten = null;
       loading?.abort();
       filtering?.abort();
+      loading = filtering = null;
       listeners.clear();
     },
     select(vertices, source = "node", label = "") {
