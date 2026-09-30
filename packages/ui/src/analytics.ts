@@ -197,13 +197,6 @@ export type { SelectionClause, FilterExpr } from "@kanzo-tech/mosaic";
 // column when the type allows one, so the fallback is not a nicety.
 export { column, fillColumn, numbers, type NumericArray } from "@kanzo-tech/mosaic";
 
-// And the client that protocol is usually reached for. A view whose positions are not in the
-// database — a GPU canvas, a map, an imperative widget — cannot publish `weight BETWEEN …`, because
-// there is no column to write the predicate over. It can only enumerate what was hit. That shape is
-// the same every time: fade by the surviving ids, publish a points clause, and decline the
-// self-exemption so the fade reads as the brush.
-export { IdSetClient, type IdSetClientOptions } from "@kanzo-tech/mosaic";
-
 // The five preset charts (Histogram, BarChart, LineChart, ScatterPlot, BarSeriesChart) are gone —
 // they were five parallel hardcoded `vg.plot(...)` calls that could not be composed. Each one is
 // now a ten-line example in the docs, written with the grammar above.
