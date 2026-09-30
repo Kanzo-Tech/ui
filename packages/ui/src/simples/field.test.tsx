@@ -6,6 +6,7 @@ import {
   FieldHelper,
   FieldLabel,
   FieldLegend,
+  FieldRequiredIndicator,
   FieldSet,
   FieldSetError,
   FieldSetHelper,
@@ -143,5 +144,50 @@ describe("fieldset-scoped messages", () => {
 
     expect(slot("field-set-helper")?.textContent).toBe("Used for invoicing only.");
     expect(slot("field-set-error")).toBe(null);
+  });
+});
+
+describe("FieldRequiredIndicator", () => {
+  const phone = (required: boolean) =>
+    render(
+      <Field required={required}>
+        <FieldLabel>
+          Phone
+          <FieldRequiredIndicator fallback="(optional)" />
+        </FieldLabel>
+        <Input />
+      </Field>,
+    );
+
+  it("marks a required field with the asterisk, hidden from assistive tech, and not the fallback", () => {
+    phone(true);
+
+    expect(slot("field-required-indicator")?.textContent).toBe("*");
+    expect(slot("field-required-indicator")?.getAttribute("aria-hidden")).toBe("true");
+    expect(slot("field-optional-indicator")).toBeNull();
+  });
+
+  it("marks an optional field with the host's fallback, read as part of the label", () => {
+    phone(false);
+
+    expect(slot("field-required-indicator")).toBeNull();
+    expect(slot("field-optional-indicator")?.textContent).toBe("(optional)");
+    // The label is a flex row, so a browser blockifies the fallback and puts a space in the name;
+    // jsdom has no layout and concatenates, hence the optional space.
+    expect(screen.getByRole("textbox", { name: /^Phone ?\(optional\)$/ })).toBeTruthy();
+  });
+
+  it("renders nothing on an optional field when the host gives no fallback", () => {
+    render(
+      <Field>
+        <FieldLabel>
+          Phone
+          <FieldRequiredIndicator />
+        </FieldLabel>
+      </Field>,
+    );
+
+    expect(slot("field-required-indicator")).toBeNull();
+    expect(slot("field-optional-indicator")).toBeNull();
   });
 });

@@ -171,10 +171,16 @@ export const FieldLabel = (
   );
 };
 
+/**
+ * The `*` of a required field and, through Ark's `fallback`, what an optional one says instead —
+ * one part, so a form marks one of the two and never both. The asterisk is hidden from assistive
+ * tech because the control's `required` already announces it; the fallback is not, because nothing
+ * else says a field is optional. Its text is the host's: this library ships no product copy.
+ */
 export const FieldRequiredIndicator = (
-  props: React.ComponentProps<typeof ark.span>
+  props: React.ComponentProps<typeof ArkField.RequiredIndicator>
 ) => {
-  const { className, children, slot, ...rest } = props;
+  const { className, children, slot, fallback, ...rest } = props;
 
   return (
     <ArkField.RequiredIndicator
@@ -183,6 +189,16 @@ export const FieldRequiredIndicator = (
         "select-none text-destructive-foreground text-sm",
         className
       )}
+      fallback={
+        fallback == null ? null : (
+          <span
+            className="select-none font-normal text-muted-foreground text-sm"
+            data-slot="field-optional-indicator"
+          >
+            {fallback}
+          </span>
+        )
+      }
       {...rest}
       data-slot={slot ?? "field-required-indicator"}
     >
