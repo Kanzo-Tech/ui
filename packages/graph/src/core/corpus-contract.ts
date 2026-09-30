@@ -1,20 +1,30 @@
 /**
- * **`@fossil-lang/corpus`'s `fossil/1` surface, as this package reads it — a stand-in.** Replace every
- * import of this file with `import type { … } from "@fossil-lang/corpus"` and delete it once
- * `0.3.0-alpha.15` is published; nothing here is ours to change, and a name that differs from
- * fossil's is a bug in this file.
+ * **`@fossil-lang/corpus`'s `fossil/1` types, copied from its `src/{manifest,filter,scan,corpus}.ts`
+ * — a stand-in.** Replace every import of this file with `import type { … } from
+ * "@fossil-lang/corpus"` and delete it once `0.3.0-alpha.15` is published; nothing here is ours to
+ * change, and a name or a shape that differs from fossil's is a bug in this file.
  *
  * Types only: `src/layers.test.ts` holds the file to fossil's rule, that the view imports no value
  * from the reader.
  */
 
-export type FieldType = string;
-
 export interface Property {
   readonly name: string;
-  readonly type: FieldType;
+  /** The writer's type word: `uint32`, `string`, `float`, `double`, `int32`, … */
+  readonly type: string;
   readonly iri?: string;
   readonly nullable?: boolean;
+}
+
+export interface Position {
+  readonly by: "layout" | "program";
+  readonly x: string;
+  readonly y: string;
+}
+
+export interface Endpoint {
+  readonly key: string;
+  readonly references: string;
 }
 
 export interface VertexTable {
@@ -26,7 +36,7 @@ export interface VertexTable {
   readonly record_count: number;
   readonly properties: readonly Property[];
   /** Absent: the type is not drawn. */
-  readonly position?: { readonly by: "layout" | "program"; readonly x: string; readonly y: string };
+  readonly position?: Position;
 }
 
 export interface EdgeTable {
@@ -34,8 +44,8 @@ export interface EdgeTable {
   readonly label: string;
   readonly iri?: string;
   readonly path: string;
-  readonly source: { readonly key: string; readonly references: string };
-  readonly destination: { readonly key: string; readonly references: string };
+  readonly source: Endpoint;
+  readonly destination: Endpoint;
   readonly record_count: number;
   readonly properties: readonly Property[];
 }
@@ -71,6 +81,8 @@ export interface ScanParams {
 
 export interface ScanTask {
   readonly table: string;
+  readonly path: string;
+  readonly rows: number;
 }
 
 export interface Scan {
@@ -80,6 +92,7 @@ export interface Scan {
 }
 
 export interface Corpus {
+  /** The DuckDB catalog its views live in: the job or the URL `open` was given, as given. */
   readonly url: string;
   readonly manifest: Manifest;
   scan(params: ScanParams): Scan;

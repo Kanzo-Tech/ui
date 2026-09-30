@@ -83,8 +83,8 @@ export const MANIFEST: Manifest = {
       properties: [
         prop("dense_id", "uint32"),
         prop("subject", "string"),
-        prop("x", "float32"),
-        prop("y", "float32"),
+        prop("x", "float"),
+        prop("y", "float"),
         prop("cluster_id", "uint32"),
         prop("degree", "int32"),
       ],
@@ -100,8 +100,8 @@ export const MANIFEST: Manifest = {
         prop("dense_id", "uint32"),
         prop("subject", "string"),
         prop("name", "string"),
-        prop("lon", "float64"),
-        prop("lat", "float64"),
+        prop("lon", "double"),
+        prop("lat", "double"),
         prop("degree", "int32"),
       ],
       position: { by: "program", x: "lon", y: "lat" },
@@ -184,10 +184,15 @@ export function fakeCorpus(manifest: Manifest = MANIFEST): FakeCorpus {
     manifest,
     scan(params) {
       const rows = ROWS[params.table];
-      if (!rows) throw new Error(`no table ${params.table}`);
+      const table = [...manifest.vertex_tables, ...manifest.edge_tables].find((t) => t.name === params.table);
+      if (!rows || !table) throw new Error(`${params.table} is not a table of this corpus`);
+      // fossil refuses a column the manifest does not declare, before any statement runs.
+      for (const column of params.select ?? []) {
+        if (!table.properties.some((p) => p.name === column)) throw new Error(`select names ${column}, which ${table.name} does not declare`);
+      }
       scans.push(params);
       const columns = params.select ?? Object.keys(rows[0] ?? {});
-      const plan = (): ScanTask[] => [{ table: params.table }];
+      const plan = (): ScanTask[] => [{ table: params.table, path: `${params.table}.parquet`, rows: rows.length }];
       const read = (_tasks: readonly ScanTask[], options: { signal?: AbortSignal } = {}) =>
         held({ params, signal: options.signal }, () => {
           const kept = rows.filter((row) => params.filter === undefined || matches(row, params.filter));
