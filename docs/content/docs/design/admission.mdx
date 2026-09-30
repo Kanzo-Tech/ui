@@ -129,6 +129,33 @@ survived as `MenuContextTrigger`.
 `MenuSubContent` and `MenuSubTrigger`; `packages/ui/src/index.test.ts`, the `ContextMenu*` tombstones,
 which are the contrast.
 
+## The zero state is a compound of parts, and `EmptyState` stays dead
+
+[`Empty`](/docs/layout/empty) ships as six parts, `EmptyRoot` through `EmptyContent`. `EmptyState`
+is still a tombstone: it was four `ReactNode` props over a raw `div`, and a layout tree written as
+props is still refused. What was wrong was the replacement. A vertical `Item` carried
+`role="listitem"` outside any list, and centring its media needed
+`group-has-data-[slot=item-description]/item:self-center`, an override keyed on another part's
+internal slot that breaks when that slot is renamed. The showcases wrote it that way, and keasy
+repeats the arrangement on six pages. An arrangement that needs an override to look right is not a
+composition of the parts it borrows.
+
+Ark ships no empty state, so the anatomy is shadcn v4's `Empty`, and the names follow the house rule
+and Ark. `EmptyRoot`, not `Empty`, because it is a compound of ours. `EmptyIndicator`, not
+`EmptyMedia`, because Ark calls the glyph a part shows an indicator. `EmptyContent` stays shadcn's
+name because it holds more than actions: a link or a search field as often as a button.
+`EmptyHeader` stays a part. The root's `gap-6` separates the text from what follows it, the title and
+its sentence need `gap-2`, and both blocks need the `max-w-sm` measure. Without the part, one flex
+column would need two gaps, which is margins on the children.
+
+**What would reverse it:** the keasy call sites turning out to be one arrangement that a single
+showcase could hold, or a real empty state that needs something the parts cannot express and gets
+it only from a prop. Either one sends it back to being an example.
+
+*Held by* `packages/ui/src/layouts/empty.test.tsx`, "declares no list semantics and no role on any
+part"; `packages/ui/src/index.test.ts`, "drops the pre-arrangements over parts that already ship",
+`!EmptyState`.
+
 ## A grammar ships its whole vocabulary
 
 The chart mark and interactor wrappers stay, and stay **complete**, even where no example draws one.

@@ -22,6 +22,12 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyIndicator,
+  EmptyRoot,
+  EmptyTitle,
   Float,
   isActivePath,
   Item,
@@ -588,31 +594,24 @@ function Shell() {
                     </TabsContent>
 
                     <TabsContent value="archived">
-                      <div className="rounded-lg border border-border">
-                        {/* An empty state is one `Item` turned on its side: the media over the
-                            text instead of beside it, centred, and capped so the sentence stays
-                            readable. */}
-                        <Item className="mx-auto max-w-[420px] flex-col gap-2 py-8 text-center">
-                          {/* `ItemMedia` self-aligns to the start whenever the row has a
-                              description — right for a row, wrong once the row is a column, and
-                              the override has to carry the same variant to win the cascade. */}
-                          <ItemMedia
-                            className="group-has-data-[slot=item-description]/item:self-center text-muted-foreground [&_svg:not([class*='size-'])]:size-8"
-                            variant="icon"
-                          >
+                      <EmptyRoot className="border">
+                        <EmptyHeader>
+                          <EmptyIndicator variant="icon">
                             <ArchiveIcon />
-                          </ItemMedia>
-                          <ItemTitle className="text-base">Nothing archived yet</ItemTitle>
-                          <ItemDescription>
+                          </EmptyIndicator>
+                          <EmptyTitle asChild>
+                            <h3>Nothing archived yet</h3>
+                          </EmptyTitle>
+                          <EmptyDescription>
                             Runs you archive are kept for 90 days and stay searchable from here.
-                          </ItemDescription>
-                          <ItemActions>
-                            <Button size="sm" variant="outline">
-                              Browse runs
-                            </Button>
-                          </ItemActions>
-                        </Item>
-                      </div>
+                          </EmptyDescription>
+                        </EmptyHeader>
+                        <EmptyContent>
+                          <Button size="sm" variant="outline">
+                            Browse runs
+                          </Button>
+                        </EmptyContent>
+                      </EmptyRoot>
                     </TabsContent>
                   </Tabs>
 
