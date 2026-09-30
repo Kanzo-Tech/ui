@@ -1,7 +1,6 @@
 # docs/ — rules local to this app
 
-The repository rules are in `../CLAUDE.md`. What follows is true only here. (It said "these five"
-while listing six; a count in a heading is a fact nobody updates, so there is no count now.)
+The repository rules are in `../CLAUDE.md`. What follows is true only here.
 
 - **`--webpack`, always.** Both `dev` and `build` pass it. vgplot trips a temporal-dead-zone error
   under Turbopack, so charts do not mount without it. Do not "modernise" the scripts.
@@ -43,7 +42,8 @@ while listing six; a count in a heading is a fact nobody updates, so there is no
 
   Three things it costs, each answered where it lives rather than switched off:
   - **`basePath` reaches the client through one variable**, read by `next.config.ts` *and* by
-    `showcases/workspace/graph-view.tsx`. `Link` and `next/image` prefix themselves; a string
+    every URL handed to DuckDB (`showcases/workspace/graph-view.tsx`, the benchmark's
+    `measure-viewer.ts`). `Link` and `next/image` prefix themselves; a string
     handed to DuckDB does not, and a bare `/corpus/…` under `/ui` is a 404 with no error anywhere.
   - **Search is a file, not a server** — `staticGET` in `app/api/search/route.ts` and
     `search={{ options: { type: "static" } }}` on `RootProvider`. Both halves or neither: one alone

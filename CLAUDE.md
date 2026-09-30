@@ -4,12 +4,11 @@
 
 1. **No legacy, no backwards compatibility, no deprecation shims.** Rename and delete outright — an
    alias is permanent and a clean rename is free. A document that hedges on compatibility is wrong.
-   **This survived the first publish, which is when a rule like it usually dies.** Two releases are
-   out — `v0.1.0` on 2026-08-27 and `v0.2.0` on 2026-09-17 — so a rename is now a breaking change a
-   changeset has to state in the consumer's words rather than a free edit. It is still taken. What
-   would reverse it is a consumer we cannot ask to edit an import: an installed base large enough
-   that the cost of the edit lands on people who did not choose it. There is none at `0.x`, and the
-   day there is, this paragraph is the thing that changes.
+   **It holds after publishing.** Releases have gone out since `v0.1.0` on 2026-08-27 (`git tag`
+   has the rest), so a rename is a breaking change a changeset states in the consumer's words. It
+   is still taken. What would reverse it is a consumer we cannot ask to edit an import: an installed
+   base large enough that the cost of the edit lands on people who did not choose it. There is none
+   at `0.x`, and the day there is, this paragraph is the thing that changes.
 2. **Minimal and generic.** The fundamental pieces to grow from, not a catalogue of conveniences.
    **Before adding a way to express something, grep for the ways it is already expressed.**
    Collapsing two or three implementations of one idea is among the most common commits here —
@@ -30,7 +29,7 @@
   also needs is on the pages beside it — the recipe and the recipe/inline line on `styling.mdx`,
   the token vocabulary on `theming.mdx`.
 - `docs/content/docs/design/` — why the library is like this: what earns a name, the references and
-  who wins, names and slots, the colour document, and the graph view. Six pages behind a
+  who wins, names and slots, colour, navigation, auth and the graph view. Pages behind a
   maintainers' divider on the site (`/docs/design`), and the only copy: there is no `decisions/`. A
   rule that has been reversed is replaced by the sentence that replaced it, never kept beside the
   tree with a header saying so.
@@ -41,16 +40,14 @@
     absence — the outward-reaching sentence is the only kind that has ever rotted here.
 - The repo-wide guard tests are the rules nobody should have to remember. **Read the file, not a
   summary of it** — each carries its own reasoning, and each says what it cannot prove.
-  `packages/ui/src/guard-corpus.ts` is what "repo-wide" means: the six appearance and boundary
+  `packages/ui/src/guard-corpus.ts` is what "repo-wide" means: the appearance and boundary
   guards scan every package that declares `tailwind-variants` (`ui` and `ai` today) and report
   `<package>/<path under src>`. A second population, `READERS` (every published package's `src/`
   plus `docs/`), is what `theme-tokens.test.ts` checks: every token read resolves in every theme.
   Widen that corpus; never copy a guard into a second package.
   **They are the `*.test.ts` files beside the source they scan** — `packages/ui/src` and
-  `packages/theme/src` — and there is deliberately no list of them here. The one that used to be
-  here rotted: it named `alpha-steps.test.ts` and `packages/theme/src/{boundary,palettes}.test.ts`,
-  all three deleted in the theme refoundation, and missed five guards that do exist. `ls` is
-  current and a transcription is not. The three things a guard owes are on `/docs/conventions`.
+  `packages/theme/src` — and there is deliberately no list of them here: `ls` is current and a
+  transcription is not. The three things a guard owes are on `/docs/conventions`.
 
 ## Four one-way doors
 
@@ -59,7 +56,9 @@
   everyone who did not install it.
 - **Theme attributes go on `<html>`.** Ark's overlays portal to `document.body`, outside any
   wrapper, and density sets the root font-size the whole `rem` scale resolves against.
-- **A theme is source, not output.** `packages/theme/themes/*.css` and `tokens.css` are hand-written; only `themes.css` and `theme-data.json` are generated. There is no colour derivation — see `/docs/design/colour`.
+- **A theme is source, not output.** `packages/theme/themes/*.css` and `tokens.css` are
+  hand-written; only `themes.css` and `theme-data.json` are generated. There is no colour
+  derivation — see `/docs/design/colour`.
 - **Exactly one `<main>` per page**, owned by `ShellMain`. `SidebarInset` is a neutral `<div>`.
 
 ## Working here
@@ -70,17 +69,14 @@
 - Before calling work done, in this order: `pnpm build`, `typecheck`, `lint`, `check:generated`,
   `test`, `size`, then `pnpm --filter @kanzo-tech/docs build` and `publint` — `pnpm verify` runs
   exactly that list. The docs build is the RSC fixture, and the only thing that *evaluates* the
-  client boundary — Vite ignores the directive entirely. Nothing installs the packed tarballs any
-  more: the install smoke test was deleted on 2026-09-29, so a defect that lives only in `dist/`
-  (a lost `"use client"`, an optional peer reached from a root barrel) is caught by no gate.
-  - **`size` is green, and was red for a long time before it was.** The analytics subpath sat over
-    the 60 kB limit set in `5a0c880`; `eb63d16` rebaselined it to 68 kB once the theme context left
-    the provider, and it measures 66.24 kB. Every step now passes on a clean tree, so treat any
-    failure as yours. What you owe on this one is that your change did not make it worse — note the
-    figure before and after, and raise the limit only as a decision, never quietly.
-- Do not hand-edit generated files. `check:generated` regenerates `palette-data.json`,
-  `themes.css`, `theme-data.json`, `palettes/` and the colour half of `tokens.css`, and fails on a
-  diff.
+  client boundary — Vite ignores the directive entirely. Nothing installs the packed tarballs, so
+  a defect that lives only in `dist/` (a lost `"use client"`, an optional peer reached from a root
+  barrel) is caught by no gate.
+  - **Every step passes on a clean tree, so treat any failure as yours.** On `size` what you owe is
+    that your change did not make it worse — note the figure before and after, and raise a limit
+    only as a decision, never quietly.
+- Do not hand-edit generated files. `check:generated` regenerates `themes.css` and
+  `theme-data.json` and fails on a diff.
 - **One changeset per change a consumer can see**, in the consumer's words. The tag decides the
   version, so a changeset is only release notes: it is copied onto the GitHub Release and deleted
   when that release ships (`.changeset/README.md`). There is no `CHANGELOG.md`. The *reason* goes
