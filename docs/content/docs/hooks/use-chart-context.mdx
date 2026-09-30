@@ -72,7 +72,7 @@ Takes no arguments. Throws `useChartContext must be used within a <ChartRoot>.` 
 | `color` | `(key: string) => string \| undefined` | the series colour, resolved to `rgb(...)`. `undefined` for a key the config does not name |
 | `formatNumber` | `(value: number, options?: Intl.NumberFormatOptions) => string` | the chart's `Intl.NumberFormat`, from the root's `locale` / `numberFormat` |
 | `config` | `ChartConfig` | series key → `{ label, color, icon }`, as the root was given it |
-| `table` | `string \| undefined` | the relation the root reads |
+| `table` | `TableExpr \| undefined` | the relation the root reads |
 | `filterBy` | `Selection \| null` | what the marks filter by; `null` = the full relation |
 | `as` | `Selection` | where the interactors publish |
 | `coordinator` | `Coordinator` | for a part that queries alongside the plot — usually via [`useChartQuery`](/docs/hooks/use-chart-context-query) |

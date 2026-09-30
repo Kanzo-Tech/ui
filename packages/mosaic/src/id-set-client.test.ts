@@ -1,15 +1,17 @@
 import { Selection } from "@uwdata/mosaic-core";
+import { verbatim } from "@uwdata/mosaic-sql";
 import { describe, expect, it, vi } from "vitest";
 import { IdSetClient } from "./id-set-client.js";
+import type { TableExpr } from "./table.js";
 
-const make = (as: Selection = Selection.crossfilter()) => {
+const make = (as: Selection = Selection.crossfilter(), table: TableExpr = "nodes") => {
   const survivors = vi.fn();
   const client = new IdSetClient({
     as,
     filterBy: Selection.crossfilter(),
     idField: "id",
     onSurvivors: survivors,
-    table: "nodes",
+    table,
   });
   return { as, client, survivors };
 };
@@ -19,6 +21,11 @@ describe("IdSetClient", () => {
     const { client } = make();
     expect(String(client.query())).toContain('"id"');
     expect(String(client.query())).toContain("nodes");
+  });
+
+  it("reads a relation in another catalog, qualified as the SQL names it", () => {
+    const { client } = make(undefined, verbatim('"jobs/7"."Person"'));
+    expect(String(client.query())).toContain('FROM "jobs/7"."Person"');
   });
 
   it("hands the surviving ids on, through Arrow's typed path", () => {

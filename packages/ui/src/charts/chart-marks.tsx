@@ -1,4 +1,5 @@
 import type { Selection } from "@uwdata/mosaic-core";
+import type { TableExpr } from "@kanzo-tech/mosaic";
 import { isColorToken, isColorValue } from "./chart-config.js";
 import {
   chartDescriptor,
@@ -44,7 +45,7 @@ export interface ChartMarkProps {
    * until a plot needs two — a node-link view draws nodes from one relation and edges from
    * another, and both still filter by the same selection.
    */
-  table?: string;
+  table?: TableExpr;
   /** Literal rows instead of the root's table. */
   data?: readonly unknown[];
   /** Positions a rule/tick without a table: `at={0}` is the zero line. */

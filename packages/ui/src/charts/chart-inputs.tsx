@@ -1,5 +1,6 @@
 "use client";
 
+import type { TableExpr } from "@kanzo-tech/mosaic";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
@@ -35,6 +36,7 @@ import { Field, FieldLabel } from "../simples/field.js";
 import { Input } from "../simples/input.js";
 import { Skeleton } from "../simples/skeleton.js";
 import { Slider, SliderLabel, SliderValue } from "../simples/slider.js";
+import { chartTableKey } from "./chart-spec.js";
 import { useMosaic } from "./mosaic-provider.js";
 import { ChartQueryClient, type ChartQueryRow as QueryRow } from "./query-client.js";
 
@@ -190,8 +192,8 @@ export interface ChartFilterOption {
 export interface ChartFilterProps
   extends Omit<React.ComponentProps<typeof ark.div>, "defaultValue">,
     SelectionProps {
-  /** The relation the values and their counts come from. */
-  table?: string;
+  /** The relation the values and their counts come from, as `ChartRoot` takes it. */
+  table?: TableExpr;
   /** The column grouped by. */
   column?: string;
   /** The column named in the published clause. Defaults to `column`. */
@@ -327,11 +329,11 @@ export function ChartFilter(props: ChartFilterProps) {
   const { rows, selected, publish, activate } = useMosaicInput<readonly unknown[]>({
     as: target,
     filterBy: source,
-    deps: [table, column, lookup, limit],
+    deps: [chartTableKey(table), column, lookup, limit],
     activateValue: [0],
     build: (filter) =>
       lookup
-        ? Query.from(table as string)
+        ? Query.from(table as TableExpr)
             .select({ value: column as string, count: sqlCount() })
             .where(filter)
             .groupby(column as string)
@@ -407,8 +409,8 @@ export function ChartFilter(props: ChartFilterProps) {
 export interface ChartSearchProps
   extends Omit<React.ComponentProps<typeof ark.div>, "defaultValue">,
     SelectionProps {
-  /** The relation the autocomplete values come from. */
-  table?: string;
+  /** The relation the autocomplete values come from, as `ChartRoot` takes it. */
+  table?: TableExpr;
   /** The column to search. */
   column?: string;
   /** The column named in the published clause. Defaults to `column`. */
@@ -466,11 +468,11 @@ export function ChartSearch(props: ChartSearchProps) {
   const { rows, selected, publish, activate } = useMosaicInput<string>({
     as: target,
     filterBy: source,
-    deps: [table, column, lookup, autocompleteLimit],
+    deps: [chartTableKey(table), column, lookup, autocompleteLimit],
     activateValue: "",
     build: (filter) =>
       lookup
-        ? Query.from(table as string)
+        ? Query.from(table as TableExpr)
             .select({ value: column as string })
             .distinct()
             .where(filter)
@@ -605,7 +607,7 @@ export interface ChartSliderProps
   extends Omit<React.ComponentProps<typeof ark.div>, "defaultValue">,
     SelectionProps {
   /** The relation the extent comes from, when `min`/`max` are not both given. */
-  table?: string;
+  table?: TableExpr;
   /** The numeric column. */
   column?: string;
   /** The column named in the published clause. Defaults to `column`. */
@@ -677,12 +679,12 @@ export function ChartSlider(props: ChartSliderProps) {
   const { rows, selected, publish, activate } = useMosaicInput<SliderValueType>({
     as: target,
     filterBy: source,
-    deps: [table, column, lookup],
+    deps: [chartTableKey(table), column, lookup],
     activateValue: select === "interval" ? ([0, 0] as const) : 0,
     build: (filter) =>
       lookup
         ? Query.select({ min: sqlMin(column as string), max: sqlMax(column as string) })
-            .from(table as string)
+            .from(table as TableExpr)
             .where(filter)
         : null,
     clause: (client, value) => {

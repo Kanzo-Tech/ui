@@ -52,6 +52,9 @@ import { engine } from "@kanzo-tech/mosaic";
   the type allows one: an integer id gives an array, a dictionary-encoded label gives nothing
   usable. Every call site was writing `as { getChild(name: string): … }`, which asserts Arrow's
   shape rather than checking it, and is wrong on the first query that selects a string.
+- **`TableExpr`** — what a `table` takes, here and in the charts: a string is one identifier in the
+  default catalog, a mosaic-sql node is a relation named in SQL — `verbatim(relation.sql)` for a
+  fossil corpus's catalog-qualified relation.
 - **`IdSetClient`** — the crossfilter adapter for a view whose positions are not in the database.
   A GPU canvas or a map cannot publish `weight BETWEEN …`; there is no column to write the
   predicate over. It can only enumerate what was hit.

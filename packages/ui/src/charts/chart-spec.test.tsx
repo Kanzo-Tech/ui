@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Selection } from "@uwdata/mosaic-core";
+import { asTableRef, verbatim } from "@uwdata/mosaic-sql";
 import { ChartAxisX, ChartAxisY, ChartFacetX, ChartFacetY } from "./chart-axes.js";
 import { ChartColorLegend } from "./chart-legend.js";
 import { ChartHighlight, ChartIntervalX, ChartPanZoom, ChartToggleX } from "./chart-interactors.js";
@@ -7,6 +8,7 @@ import { ChartBarY, ChartFrame, ChartGridY, ChartLineY, ChartRaw, ChartRuleY } f
 import {
   buildChartSpec,
   chartSpecSignature,
+  chartTableKey,
   compileChartSpec,
   type ChartAttributeDirective,
   type ChartDirective,
@@ -99,6 +101,12 @@ describe("compileChartSpec", () => {
       { kind: "table", table: "telemetry", filterBy: other },
       { kind: "table", table: "telemetry", filterBy: null },
     ]);
+  });
+
+  it("carries a relation named in SQL to the mark as the node itself", () => {
+    const person = verbatim('"jobs/7"."Person"');
+    const spec = compileChartSpec(<ChartBarY x="country" />, context({ table: person }));
+    expect(marks(spec)[0]?.source).toEqual({ kind: "table", table: person, filterBy: shared });
   });
 
   it("takes literal rows over the table, and `at` as a one-value data array", () => {
@@ -319,6 +327,13 @@ describe("chartSpecSignature", () => {
     expect(chartSpecSignature(spec(new Agg()))).toBe(chartSpecSignature(spec(new Agg())));
   });
 
+  it("fingerprints a relation by its SQL, so `verbatim(sql)` written inline does not rebuild the plot", () => {
+    const spec = () =>
+      compileChartSpec(<ChartBarY x="country" />, context({ table: verbatim('"jobs/7"."Person"') }));
+    expect(chartSpecSignature(spec())).toContain('\\"jobs/7\\".\\"Person\\"');
+    expect(chartSpecSignature(spec())).toBe(chartSpecSignature(spec()));
+  });
+
   it("keeps a selection stable by identity", () => {
     expect(chartSpecSignature(build("a"))).toBe(chartSpecSignature(build("a")));
     const withOther = compileChartSpec(<ChartBarY x="a" filterBy={other} />, context());
@@ -338,5 +353,18 @@ describe("chartSpecSignature", () => {
     // ordinary vgplot directives. The channel now lives in the mark name.
     const legends = spec.filter((d) => d.kind === "mark" && d.source === null);
     expect(legends.map((d) => (d as { mark: string }).mark)).toEqual(["colorLegend", "symbolLegend"]);
+  });
+});
+
+describe("chartTableKey", () => {
+  it("reads a string as ONE identifier, dots and all, the way mosaic-sql's Query.from does", () => {
+    expect(chartTableKey("Person")).toBe('"Person"');
+    expect(chartTableKey("jobs/7.Person")).toBe('"jobs/7.Person"');
+  });
+
+  it("reads a node as the SQL it writes, qualified names included", () => {
+    expect(chartTableKey(verbatim('"jobs/7"."Person"'))).toBe('"jobs/7"."Person"');
+    expect(chartTableKey(asTableRef(["jobs/7", "Person"]))).toBe('"jobs/7"."Person"');
+    expect(chartTableKey(undefined)).toBeUndefined();
   });
 });

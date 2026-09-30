@@ -2,6 +2,7 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { clausePoint, Selection, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
+import { asTableRef } from "@uwdata/mosaic-sql";
 import { ChartFilter, ChartSearch, ChartSlider } from "./chart-inputs.js";
 import { MosaicProvider } from "./mosaic-provider.js";
 
@@ -101,6 +102,20 @@ describe("ChartFilter", () => {
     expect(crossfilter.clauses[0]?.value).toEqual([["alpha"], ["gamma"]]);
     // The trigger badges how many are ticked, exactly as the table's facet filter does.
     expect(screen.getByRole("button", { name: /Host/ }).textContent).toBe("Host2");
+  });
+
+  it("groups a relation in another catalog, qualified as the SQL names it", async () => {
+    const { coordinator, queries } = stubCoordinator(() => HOST_COUNTS);
+    const user = userEvent.setup();
+
+    render(
+      <MosaicProvider coordinator={coordinator} crossfilter={Selection.crossfilter()}>
+        <ChartFilter column="host" label="Host" table={asTableRef(["jobs/7", "telemetry"])} />
+      </MosaicProvider>,
+    );
+
+    await open(user);
+    expect(queries[0]).toContain('FROM "jobs/7"."telemetry"');
   });
 
   it("retracts the filter when the last value is unticked", async () => {
