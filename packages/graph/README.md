@@ -1,6 +1,6 @@
 # @kanzo-tech/graph
 
-The graph view over a [fossil](https://github.com/kanzo-tech/fossil) corpus, drawn with
+The graph view over a [fossil](https://github.com/Kanzo-Tech/fossil-lang) corpus, drawn with
 [cosmos.gl](https://cosmosgl.github.io/graph). fossil is the backend and this package is the view:
 the host opens the corpus, and `GraphRoot` draws the whole of it — no SQL is written here.
 
@@ -47,6 +47,13 @@ constant and anything else is a column. Unbound, colour is the vertex type and a
 **`filterBy` is the page's crossfilter.** Its clauses are translated into scan's filter, and what
 does not survive is hidden; a clause that cannot be translated reaches `onFailure` rather than being
 dropped. A lasso or a click publishes the reader's pick back into it, exempting the graph itself.
+
+**The layout is off at load.** The corpus's positions are drawn as they are; `GraphToolbar` runs and
+stops a force layout from where the points are, and dragging a node pins it either way. At 200,000
+vertices the viewer's p95 frame interval is 9.0 ms against 9.3 ms for cosmos.gl alone.
+
+The reference composition is the docs' workspace showcase: one `GraphRoot` around a shell with the
+graph, a second main view and a dock of panels.
 
 ## The pieces
 

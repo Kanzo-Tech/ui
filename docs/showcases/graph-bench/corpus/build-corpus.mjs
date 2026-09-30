@@ -31,9 +31,7 @@ const PUBLIC = resolve(HERE, "../../../public/bench");
 /**
  * The sizes worth having on disk.
  *
- * A million is in the list precisely because it is the one the browser could not build. Reading it
- * back should cost what two thousand costs — the working set is the window, not the corpus — and if
- * it does not, that is the finding.
+ * A million is in the list precisely because it is the one the browser could not build.
  */
 const DEFAULT_SIZES = [2_000, 10_000, 50_000, 200_000, 1_000_000];
 

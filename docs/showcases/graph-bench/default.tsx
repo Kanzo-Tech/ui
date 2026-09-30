@@ -770,7 +770,7 @@ export function GraphBenchShowcase() {
               <SectionDescription>
                 {layer === "engine"
                   ? "The renderer fed typed arrays straight from a generator: the most the GPU can do with nothing of ours in the way."
-                  : "GraphRoot drawing the whole corpus against cosmos.gl alone on the same positions and camera path; the gate is a p95 frame interval within 15%. The /bench corpora must be fossil/1, which fossil's writer does not emit yet."}
+                  : "GraphRoot drawing the whole corpus against cosmos.gl alone on the same positions and camera path; the gate is a p95 frame interval within 15%. Build the /bench corpora with corpus/build-corpus.mjs first."}
               </SectionDescription>
             </SectionTitleGroup>
           </SectionHeader>

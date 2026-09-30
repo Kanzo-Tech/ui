@@ -1,212 +1,64 @@
 ---
 title: Benchmarks
-description: Our viewer against cosmos.gl alone on the same positions, how far the renderer goes, and the measurements of the tiled path it replaced.
+description: Our viewer against cosmos.gl alone on the same positions, and how far cosmos.gl's live layout goes.
 ---
 
-The harness is a showcase you can run: it sweeps five corpus sizes through the real reader, the real
-renderer and a real DuckDB, and parks its results where a headless runner can read them.
+The harness is a showcase you can run. It has two layers, and they are not variants of each other:
+**GraphRoot** is the path a product uses — a corpus opened with fossil's `open` and drawn whole by
+`<GraphRoot><GraphCanvas/></GraphRoot>` — and **cosmos.gl alone** is the control, the same renderer
+fed typed arrays with nothing of ours in the way.
 
 <Cards>
-  <Card title="Run the sweep" href="/view/showcases/graph-bench" description="Five sizes, from two thousand to a million, measured in your tab on your machine." />
+  <Card title="Run the sweep" href="/view/showcases/graph-bench" description="Measured in your tab on your machine, in a foreground window." />
 </Cards>
 
 ## Build the corpora first
 
-The fixture is **compiled, not generated**. The page used to build its own graph in the tab, which
-capped the sweep at what a tab can generate and spent the main thread doing it; now fossil's writer,
-`@fossil-lang/executor`, runs `bench.fossil` in Node and writes each `fossil/1` corpus once, offline,
-and the browser only reads it.
+The viewer layer reads `fossil/1` corpora written by fossil's writer, `@fossil-lang/executor`, which
+runs `bench.fossil` in Node once, offline; the browser only reads them.
 
 ```bash
 node docs/showcases/graph-bench/corpus/build-corpus.mjs
 ```
 
-They land in `docs/public/bench/<size>/` and are gitignored — **4.7 MB at 200,000**, measured with
+They land in `docs/public/bench/<size>/` and are gitignored — 4.7 MB at 200,000, measured with
 `du -sh` on 2026-09-30, one Parquet per table and `fossil.json`. **The million is not written**:
 `0.3.0-alpha.15`'s executor panics in DataFusion's memory pool inside its WASM at that size, so the
-script fails there and the sweep's million is a 404 until fossil fixes it. A sweep against a size
-nobody wrote is a row of 404s, which is the honest failure.
-
-## What the sweep asks
-
-Two layers, and they are not variants of each other. **GraphRoot** is the path a product uses: the
-corpus opened with fossil's `open` and drawn whole by `<GraphRoot><GraphCanvas/></GraphRoot>`.
-**cosmos.gl alone** is the control — the same renderer fed typed arrays with nothing of ours in the
-way.
+script fails there and the viewer's million is a 404 until fossil fixes it.
 
 ## Our viewer against cosmos.gl alone
 
-On the same positions, how much of a frame is ours? `measureViewer(pointCount)` — the GraphRoot
-layer, and registered on `window` by the showcase — reads every drawn table of a built corpus once
-and draws it twice, with cosmos.gl alone and with `<GraphRoot><GraphCanvas/></GraphRoot>`,
-alternating the two three times. Each run follows one camera path — the same wheel events on each
-canvas, a change every frame, zooming into a quarter of the extent and then in and out at a point
-that sweeps across it — and records the interval between frames; each also counts the
-`requestAnimationFrame` calls made during a second of nothing, which is zero for a loop that idles.
+`measureViewer(pointCount)`, registered on `window` by the showcase, reads every drawn table of a
+built corpus once and draws it twice — with cosmos.gl alone and with
+`<GraphRoot><GraphCanvas/></GraphRoot>` — alternating the two three times. Each run follows one
+camera path: the same wheel events on each canvas, a change every frame, zooming into a quarter of
+the extent and then in and out at a point that sweeps across it. It records the interval between
+frames, and counts the `requestAnimationFrame` calls made during a second of nothing, which is zero
+for a loop that idles.
 
 ```js
 await measureViewer(200000); // in the showcase's console, in a foreground window
 ```
 
-**The gate is the viewer's p95 frame interval within 15 % of cosmos.gl's**, the median over the
-three runs. It has not been run yet — it needs the `fossil/1` corpora above — and the table goes here
-when it has.
+**The gate is the viewer's p95 frame interval within 15% of cosmos.gl's**, the median over the three
+runs.
 
-<Callout type="info">
-Past the engine's two rates, the sections below measured the reader and the tileset the graph used
-until 2026-09-30, when it started reading the whole corpus once. They are kept as the record they
-are: dated, on the machine named, over corpora in the format of the day.
-</Callout>
+| Nodes | cosmos.gl alone, p95 | GraphRoot, p95 |
+|---|---|---|
+| 200,000 | 9.3 ms | 9.0 ms |
 
-## Read the two rates together, never one of them
+The viewer is inside the gate: at 200,000 the frame is cosmos.gl's, not ours.
 
-A benchmark that published a single "fps" here would be publishing whichever one flattered it. The
-renderer's ceiling is in the hundreds of frames a second and never follows N; what a reader feels at
-a million is a picture that moves at the display's rate and becomes *correct* about twice a second.
-The canvas never waits — geometry is pushed when a slice lands and the last one keeps being drawn —
-so the pair measures the gap between moving and being right.
+## The engine: how far a live layout goes
 
-## Neither half is flat, and they fail for opposite reasons
+The engine layer generates a graph in the tab and runs cosmos.gl's simulation over it. `Per step` is
+the mean of batched `graph.step()` calls flushed by a `getPointPositions()` readback, so it is real
+GPU work, and `Step ceiling` is what that cost implies on its own. `Frames` counts cosmos.gl's own
+`onSimulationTick` over a wall-clock window.
 
-Writing is bounded by the machine and reading is supposed to be bounded by the window. Measured
-2026-08-25 against corpora from two thousand to ten million, **only one of those two sentences is
-about a curve that behaves**, and it is not the one anybody would guess.
-
-<WriteScaling />
-
-**Reading was not bounded by the window, and the answer was never why.** The same rectangle — one
-percent of the extent — answers 812 vertices at a million and 771 at five, both out of a single
-tile, and it took 75.6 ms and 1,000.8 ms. At ten million, 4.7 seconds for 3,152 vertices.
-
-The cause was one query. `openCorpus` handed DuckDB **every tile URL in the corpus** for the vertex
-half and pruned with a `WHERE` — 245 paths at a million, 2,442 at ten, a statement 245,649
-characters long — so a window opened `ceil(N / 4096)` Parquet footers however few rows it wanted.
-The edge queries in the same window opened two, because they are addressed from the tiles the vertex
-answer reported. **The addressing worked; one query did not use it.**
-
-**It is fixed, and the shape of the fix is the point.** The arithmetic says which tiles exist and
-only the footers say which ones a rectangle intersects, so the boxes are read once per corpus and
-kept — a few thousand rows of metadata, no column data — and every window after that opens the tiles
-it names: 13.6 ms at a million, 15.2 at five, 64.7 at ten, one file each and two at ten million.
-Same answers, `complete` still true, fossil's eighty-eight tests green. It is `010451a` in the
-fossil checkout, and the reasoning now lives on [the cost model](https://github.com/kanzo-tech/fossil)
-page beside the streaming one.
-
-**What is still unbounded is the first window.** The boxes have to come from somewhere, so opening a
-corpus and asking once costs 112 ms at a million, 1,117 at five and 5,327 at ten. Locally that is a
-footer read; over HTTP it is range requests before anything is drawn, and the last chart prices them
-over a plain origin: **4,892 requests and 40 MB to open a ten-million corpus, against 71 requests and
-0.97 MB for a window of it** — two ranges and about 16 kB of footer per tile, so `2·tiles + 8`
-reproduces the curve to the request. The writer knows every tile's box when it cuts it, and
-publishing them — `tile, min_x, max_x, min_y, max_y`, about 100 kB at ten million — is what would
-make a cold window bounded too.
-
-**And how a tile is stored is now a manifest field rather than an assumption.** fossil writes a tile
-as its own file or as a row group inside one file, and both readers read both. On the same corpus,
-answering identically: a window opens **15 files one way and 3 the other**, and priced in ranges at
-five million, **5.6 requests per window against 22.3** with the footer in one 496 kB piece instead of
-1,221 totalling 1.15 MB. Same bytes stored to within one percent. The charts above are the
-one-file-per-tile container throughout.
-
-**None of this page would have caught it.** A window returning the right answer looks exactly like a
-window returning it cheaply, and it took timing the same rectangle against two corpus sizes from
-outside the repository. The assertion that does catch it is a shape rather than a number: *files
-opened per window does not grow with N*. A pinned number was always correct.
-
-**Nor would the conventions suite, and the reason is worth the line.** fossil checks seventeen corpus
-conventions, and both corpora it checks them against are written by JavaScript — the harness that
-asks `fossil` itself to write one runs in no CI job. Two implementations of one convention were
-diffed against each other and agreed, because they made the same mistake. The guard that does bear on
-this, `spatial-tiles`, is exercised on a **300-vertex** corpus in five tiles; measured here on
-`bench/1000000` its number is 0.89% against a bound of 50%, which is a property the published fixture
-is far too small to have.
-
-**Writing is bounded by the machine, and that part is structural.** The whole build peaks at 20.72
-GiB at ten million — 404.4 seconds, for 1.5 GB of corpus — and the curve has no ceiling in it:
-extrapolated, it meets this machine's memory somewhere between twenty and thirty million vertices.
-There is no spill path anywhere in the layout pass, so exceeding the machine is a dead run rather
-than a slow one — the opposite of the guarantee.
-
-**And every figure in that chart is the writer as it was on 2026-08-25, which the corpora on disk no
-longer are.** Only `bench/10000000` is still the tree those numbers were taken against; two thousand
-through five million were rewritten on 2026-09-18, which is where 93 MB at a million became 213 MB.
-The ten-million row is the one that cannot be retaken cheaply — an hour of build, for a corpus
-nothing in this repository loads — so it is left standing and said to be old rather than re-stated
-from the sizes beside it. The shape of the claim survives either way: the curve has no ceiling, and
-a format that writes more per vertex moves it towards the machine rather than away.
-
-The peak is a peak because stages hold a whole value instead of passing batches through:
-`community_hierarchy` keeps a community array per vertex plus a contracted graph per level,
-`read vertices` materialises the vertex file to permute it into Morton order, and `GraphArData`
-collects every batch before a byte is written. A stage that streams has a flat working set; a stage
-that accumulates makes the high-water mark follow the corpus.
-
-**The largest of them is the one that was not on that list, and it is the only one already bounded.**
-Run level by level with each level in its own process, the vertex plan at ten million peaks at 13.72
-GiB in the merge over a 13.85 GiB aggregate — the dedup that holds every distinct subject. Deleting
-the `collect()` beneath it leaves about 13.9 GiB, so the collect is not the term; it is 1.64 GiB
-sitting on top of one. And that dedup honours `--memory-gib`: **4.84 GiB under an 8 GiB pool, 3.67
-under 4, 2.30 under 2**, for roughly 2.5× the wall clock. What the pool does not reach is everything
-after `execute_graph`, which is where the other stages are and where the 20.72 GiB stays.
-
-**And the writer's half is not intrinsic.** Louvain's levels collapse at the first one — ten million
-vertices become 22,171 communities, then 2,736, then 1,365 — so every level above zero fits
-anywhere. The whole cost is level zero, and level zero is the graph whose CSR is already on disk in
-the artefact, already sorted. A pass that scanned it and kept only `community[u]` would hold O(V) of
-`u32` — 40 MB at ten million — instead of 0.41 GiB per million.
-
-<Callout type="warn" title="Two harnesses, two graphs — do not read across the charts">
-The memory charts come from two processes: the whole build at the generator's own degree, and
-fossil's `enrich_memory` at mean degree 10. Louvain's state follows degree as well as N, so the
-series are comparable *within* a chart and not *between* them.
-</Callout>
-
-## The claim is not flat, and the reason is the edge join
-
-The one thing worth knowing before you read a table: first paint **does** grow with the corpus, and the growing term is the slice rather
-than the upload — the upload is flat, around thirty milliseconds at every size.
-
-Which part of the slice is a live question and the obvious answer is measured wrong. The edge join
-was the suspect — it is the one part that touches something proportional to the corpus — and reading
-the edges of a window from their own tiles instead of the whole relation is **1.3×**, which is not
-where the time goes. What does scale with N is reading the *vertex* side: the first slice asks for
-the whole extent, so every tile intersects and every one is opened.
-
-There is a second, sharper cost measured the same way: this reader hands DuckDB every chunk URL and
-prunes with a `WHERE`, so it skips no row group — and a corpus tiled finely for a reader that *does*
-skip costs it several times over. That is the strongest argument for an addressed reader.
-
-<Callout type="warn" title="A flat line is a cache until proven otherwise">
-Run twice on one page, this sweep once reported a beautiful flat 60–71 ms at every size including a
-million. Mosaic caches by SQL text and a second sweep asks identical questions. Each measurement now
-clears that cache — but it is the third time this benchmark has measured its own scaffolding, after
-a frame counter that counted its own `await` and a layer that ran the small graph at every size.
-
-Two more things that are the harness and not the product: `total()` is asked once per size and the
-first size also pays for DuckDB-WASM booting and fetching its httpfs extension, which is seconds; and
-`threads` rides along in every row because a page that is not cross-origin isolated gets a
-single-threaded DuckDB however many cores the machine has.
-</Callout>
-
-## Recorded runs
-
-Two tables survive from the long record this page used to point at. The rest of it — forty sections
-of runs, levers that turned out not to exist and their isolation — was deleted on 2026-09-29 because
-nothing read it any more; `git show 441257a:BENCHMARKS.md` is where it is kept.
-
-### The engine
-
-`Per step` is the mean of batched `graph.step()` calls flushed by a `getPointPositions()`
-readback, so it is real GPU work. `Step ceiling` is what that cost implies on its own.
-`Frames` counts cosmos.gl's own `onSimulationTick` over a wall-clock window — not our waits:
-counting `requestAnimationFrame` published a flat 60 fps at every size, which is the monitor's
-number, not the graph's.
-
-**Read `Step ceiling`, not `Frames`, to judge whether a layout keeps up.** The two disagree on
-purpose. WebGL commands queue without the CPU waiting, so the loop keeps presenting frames at
-vsync while the GPU falls behind — the picture is smooth and stale at once. Only the readback
-in `Per step` forces the queue to drain, which is why it is the honest one. Where they converge
-(1M) the queue has stopped absorbing the difference.
+**Read `Step ceiling`, not `Frames`, to judge whether a layout keeps up.** WebGL commands queue
+without the CPU waiting, so the loop keeps presenting frames at vsync while the GPU falls behind —
+the picture is smooth and stale at once. Only the readback in `Per step` forces the queue to drain.
 
 | Nodes | Links | Generate | Upload | Per step | Step ceiling | Frames |
 |---|---|---|---|---|---|---|
@@ -215,88 +67,5 @@ in `Per step` forces the queue to drain, which is why it is the honest one. Wher
 | 50k | 331.6k | 65 ms | 192 ms | 10.03 ms | 100 fps | 80 fps |
 | 200k | 1.4M | 454 ms | 751 ms | 61.00 ms | 16 fps | 61 fps |
 
-
-### The data path, before and after the tileset
-
-Measured 2026-09-29 on an M4 Pro, in a **hidden** tab with **no WebGL context** — Chrome refused one
-to every page that day — so these are reads, bytes and the time the reads took, and nothing about
-paint or frames. The same probe ran against both: open the corpus, look at the whole extent, zoom into
-a window holding about 5,000 vertices, pan six half-windows. *Before* is `openCorpus`'s sampled
-window over the corpora the previous writer produced; *after* is the tiles the tileset selects, with
-its cache, over corpora rebuilt by the writer that publishes `tile-manifest.json`. The corpora are
-the same graphs in two formats, so bytes compare the two paths, not one file. Mosaic's coordinator
-stalls in a hidden tab, so *before* ran with `requestAnimationFrame` replaced by a timeout.
-
-| | open | whole extent | per pan (6) |
-|---|---|---|---|
-| archive, 1,543 — before | 1,069 ms · 5 req · 42 kB | 233 ms · 2 req · 8 kB | 0–116 ms, a query every pan |
-| archive, 1,543 — after | 987 ms · 5 req · 29 kB | 166 ms · 1 tile · 4 req · 39 kB | 0 ms, 0 reads |
-| 200k — before | 1,238 ms · 6 req · 85 kB | 2,475 ms · 194 req · 7.25 MB | 1,020–1,333 ms, a query every pan |
-| 200k — after | 1,031 ms · 6 req · 110 kB | 703 ms · 4 tiles (z 7) · 12 req · 0.94 MB | 5 of 6 read nothing; one read 4 tiles in 792 ms, 26 req, 0.98 MB |
-| 1M — before | the tab was reloaded before the first window answered, three runs of three | | |
-| 1M — after | 1,171 ms · 6 req · 451 kB | 1,030 ms · 4 tiles (z 7) · 14 req · 1.57 MB | 5 of 6 read nothing; one read 4 tiles in 915 ms, 18 req, 1.27 MB |
-
-Two findings the table carries. **A zoom into 5,000 vertices still draws cells**: a payload tile is a
-range of `dense_id`, and its published box is wide, so a small window meets enough payload tiles that
-their rows pass the 20,000 limit and a rung is chosen instead. **A payload tile costs about 230 ms**
-— one `scan.read` and two `edges` reads, each a statement of its own on the one connection — which is
-what a pan that crosses into new tiles pays.
-
-### The data path, a batch per camera move
-
-Measured 2026-09-30 on the same M4 Pro, after fossil made `dense_id` a Hilbert rank and made
-`scan(…).read` and `edges` take a list of addresses. Both corpora were rebuilt with that writer. The
-probe is the one above — the tileset's selection, over the real reader, without a renderer — run in
-headless Chromium through Playwright against the docs dev server, medians of five fresh pages. Three
-shapes of the same reads, each over the same corpus and engine:
-
-- **per tile, uncached** — a call per tile and per half, three a payload tile, with
-  `parquet_metadata_cache` off: what the tileset did before either change.
-- **per tile** — the same calls with the engine's footer cache on, which `engine()` now sets.
-- **batched** — what the tileset does now: the tiles one camera move wants are one `read`, one
-  `edges` source half and one target half.
-
-| | tiles · runs | calls | requests · bytes | per tile, uncached | per tile | batched |
-|---|---|---|---|---|---|---|
-| 200k, whole extent | 4 at z 7 · 1 | 8 → 2 | 12 → **6** · 0.93 MB | 75 ms | 74 ms | **59 ms** |
-| 200k, zoom to ~5,000 | 4 at z 8 · 3 | 12 → 3 | 26 · 0.98 MB | 93 ms | 83 ms | 83 ms |
-| 200k, pan into 2 new tiles | 2 · 2 | 6 → 3 | 12 · 0.46 MB | 41 ms | 35 ms | 38 ms |
-| 200k, pan into 3 new tiles | 3 · 1 | 9 → 3 | 18 · 0.75 MB | 67 ms | 55 ms | **45 ms** |
-| 1M, whole extent | 4 at z 7 · 1 | 8 → 2 | 14 → **8** · 1.57 MB | 106 ms | 105 ms | **91 ms** |
-| 1M, zoom to ~5,000 | 3 at z 9 · 3 | 9 → 3 | 22 · 0.94 MB | 138 ms | 104 ms | 101 ms |
-| 1M, pan into 2 new tiles | 2 · 2 | 4 → 2 | 10 · 0.67 MB | 44 ms | 43 ms | 48 ms |
-
-Four of the six pans at each size read nothing, as before. Opening costs 6 requests, 110 kB at 200k
-and 451 kB at 1M.
-
-**Bytes do not move, and requests move only where tiles are consecutive.** A batch reads exactly the
-bytes its tiles read one by one. Where the tiles are one run — the whole extent, or a pan that
-crosses into a strip of the curve — the requests halve, because the run is one statement and one
-footer; where they fall in as many runs as tiles, as the ~5,000-vertex zoom does, the batch is the
-same statements and the same requests, and the gain is the cache's alone. **The time follows the
-runs**: 15–20% where a batch is one run, and within noise where it is not. The two-run pans read a
-few milliseconds slower batched; that is inside the spread of five runs and it is the case the
-design page names as the one to watch.
-
-**What this cannot show is latency.** The origin is a dev server on the same machine, so a request
-costs almost nothing and the halved requests show as milliseconds rather than round trips. fossil's
-own measurement at 10 ms a request is where they show (*The backend*, *a read does not cost the
-corpus*). And these times are not comparable with the table above: the requests and bytes of the
-whole extent at both sizes and of the zoom at 200k are identical to it, request for request, and the
-times are a tenth of it,
-because that table was taken in a hidden tab and this one in a headless browser. The environment moved,
-not the reader.
-
-### Bounded, over a compiled corpus — superseded
-
-Measured cold on 2026-08-01, M4 Pro, at a tile size fossil has since retired and through a reader that
-handed DuckDB every chunk URL. It is the source of the "five hundred times the corpus for 2.6× the
-first paint" figure, and it is history, not a current number.
-
-
-| Nodes | Links | Attach | `total()` | First slice | Upload | **First paint** | Pan | Redraw | Shown / matched |
-|---|---|---|---|---|---|---|---|---|---|
-| 2k | 12.5k | 130 ms | 14 ms | 61 ms | 25 ms | **100 ms** | 21 ms | 0.47 ms | 2k / 2k |
-| 10k | 69k | 36 ms | 18 ms | 35 ms | 30 ms | **86 ms** | 24 ms | 2.98 ms | 10k / 10k |
-| 50k | 332k | 37 ms | 17 ms | 43 ms | 30 ms | **90 ms** | 33 ms | 2.83 ms | 20k / 50k |
-| 200k | 1.37M | 37 ms | 16 ms | 74 ms | 41 ms | **132 ms** | 48 ms | 1.41 ms | 20k / 200k |
+A live layout is comfortable to about 50,000 points and finished by 200,000. That is why the graph
+loads at the corpus's own positions with no simulation, and the toolbar runs one only when asked.

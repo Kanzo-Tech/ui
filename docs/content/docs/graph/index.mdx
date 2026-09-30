@@ -51,7 +51,8 @@ does not; `null` is no corpus at all. The canvas is mounted either way and waits
 surface, because a canvas gated on its first answer has no camera to ask with.
 
 It is the archive the [workspace showcase](/docs/showcases/workspace) draws, opened the same way —
-one world, not a second one written for the docs.
+one world, not a second one written for the docs. That showcase is the reference composition: the
+graph beside a second main view, with a dock of panels around one `GraphRoot`.
 
 ## What the root and the parts own
 
@@ -199,6 +200,9 @@ cosmos.gl's buffers. An id from SQL — `SELECT dense_id FROM …` — is a vert
 
 Measured on an Apple M4 Pro, not quoted. The recorded tables are on [Benchmarks](/docs/graph/benchmarks),
 and `/view/showcases/graph-bench` re-runs them.
+
+**The viewer costs what cosmos.gl costs.** At 200,000 vertices, on the same positions and camera
+path, `GraphRoot`'s p95 frame interval is 9.0 ms and cosmos.gl's alone is 9.3 ms.
 
 | Nodes | Links | Per simulation step | Ceiling |
 |---|---|---|---|

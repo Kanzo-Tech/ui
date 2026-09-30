@@ -15,7 +15,7 @@
 // `subject, <props…>, x, y, cluster_id`, and an IRI-valued property is an edge rather than a prop —
 // so `linksTo` costs no column and `community` must appear on *both* sides. That is why
 // `edges.csv` carries the source's community: not redundancy for its own sake, but the price of the
-// union. `fossil check` accepts a mismatched pair; only `fossil run` rejects it, with
+// union. `fossil check` accepts a mismatched pair; only the executor rejects it, with
 //
 //   UNION queries have different number of columns: left has 5 columns whereas right has 4
 //

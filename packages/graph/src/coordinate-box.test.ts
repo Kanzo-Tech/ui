@@ -18,12 +18,13 @@ import { describe, expect, it } from "vitest";
  * a false statement, silently.
  *
  * So: no numeric `spaceSize` anywhere in the package, and no `SPACE` on the barrel. What replaces it
- * is the renderer's framing, which sets the box from `tileMatrix(type).extent` before a tile is read.
+ * is the renderer's framing, which sets the box from the loaded positions' extent before they are
+ * first uploaded.
  *
  * **What this cannot prove.** Three things, and they are the reason it is a small guard:
  * - It cannot prove the box that *is* set is right. `spaceSize` is a translation in every render
  *   path, so a wrong one is invisible to a screenshot as much as to a test; only comparing
- *   `graph.config.spaceSize` against the tile matrix's extent in a live tab does that.
+ *   `graph.config.spaceSize` against the corpus's extent in a live tab does that.
  * - It sees this package only. The bench generators under `docs/showcases/graph-bench/corpus/` still
  *   pick a square to write into, correctly — it is theirs — and nothing here can tell a generator's
  *   own number from a copy of ours. Deleting the export is what makes a copy impossible.
@@ -81,7 +82,7 @@ describe("the coordinate box is the corpus's, not a constant of this package's",
       };
       visit(source);
     }
-    expect(offenders, "the box comes from the tile matrix's extent; see the renderer's framing").toEqual([]);
+    expect(offenders, "the box comes from the corpus's extent; see the renderer's framing").toEqual([]);
   });
 
   it("declares no coordinate-space constant of its own", () => {

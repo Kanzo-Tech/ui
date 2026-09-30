@@ -1,8 +1,7 @@
 // The knowledge-graph corpus: four vertex types, five edge types, three of them cross-type.
 //
-// Everything this benchmark has measured so far — the flat 135–145k edges per window, the 1.0000×
-// vertex over-read, the 4,096-row tile — comes from `bench.fossil`, which has **one** vertex type
-// and **one** edge type. Two things in the writer have therefore never been exercised: `place_after`
+// Everything this benchmark measures comes from `bench.fossil`, which has **one** vertex type and
+// **one** edge type. Two things in the writer have therefore never been exercised: `place_after`
 // (`fossil-runtime/src/layout.rs`), which slides each type clear of the ones already placed, and the
 // exclusion of cross-type edges from the layout — `VertexLayoutTarget::self_edge_csr` takes only the
 // adjacencies whose `src_type` and `dst_type` are the same, so an edge between two types pulls on
@@ -29,7 +28,7 @@
 // so **every mapping of a type must project the same columns**. A vertex projection is
 // `subject, <props…>, x, y, cluster_id` and an IRI-valued property is an edge rather than a prop, so
 // each `Paper` block below carries `kg:community` and costs one column whatever edge it mints.
-// `fossil check` accepts a mismatched pair; only `fossil run` rejects it.
+// `fossil check` accepts a mismatched pair; only the executor rejects it.
 
 prefix kg: <https://kanzo.tech/kg/>
 
