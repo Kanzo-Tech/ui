@@ -5,8 +5,8 @@
  * binary. That binary writes the old tile tree until fossil ships `fossil/1`, and the graph reads
  * only `fossil/1` now, so until then this script writes the same archive in the agreed layout — one
  * Parquet per vertex type and per relation, `dense_id` as the Hilbert rank of the position, and
- * `fossil.json` last. **Delete it the day fossil's writer emits `fossil/1`, and run
- * `build-corpus.mjs` instead.**
+ * `fossil.json` last — the recipe of fossil's own `packages/corpus/guards/fixture.mjs`. **Delete it
+ * the day fossil's writer emits `fossil/1`, and run `build-corpus.mjs` instead.**
  *
  * The positions are the generator's own layout, and `cluster_id` is its weakly-connected
  * components: fossil's layout pass would write both.
@@ -26,23 +26,22 @@ import { buildArchiveGraph } from "../graph-data.ts";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DEST = resolve(HERE, "../../../public/corpus/archive");
 const ROW_GROUP = 122_880;
-const ORDER = 16;
 
 const args = process.argv.slice(2);
 const at = args.indexOf("--duckdb");
 const duckdb = (at >= 0 ? args[at + 1] : undefined) ?? process.env.DUCKDB_BIN ?? "duckdb";
 
-/** `hilbert2` at order 16: the distance along the curve of a quantised `(x, y)`. */
+/** `xy2d` on the order-16 Hilbert curve — `ST_Hilbert`'s, as fossil's `guards/fixture.mjs` writes it. */
 function hilbert(x, y) {
   let d = 0;
-  for (let s = 1 << (ORDER - 1); s > 0; s >>= 1) {
-    const rx = (x & s) > 0 ? 1 : 0;
-    const ry = (y & s) > 0 ? 1 : 0;
+  for (let s = 1 << 15; s > 0; s >>= 1) {
+    const rx = (x & s) !== 0 ? 1 : 0;
+    const ry = (y & s) !== 0 ? 1 : 0;
     d += s * s * ((3 * rx) ^ ry);
     if (ry === 0) {
       if (rx === 1) {
-        x = s - 1 - x;
-        y = s - 1 - y;
+        x ^= 0xffff;
+        y ^= 0xffff;
       }
       [x, y] = [y, x];
     }
@@ -64,14 +63,15 @@ function components(n, edges) {
 
 const graph = buildArchiveGraph();
 const { nodes, edges } = graph;
-const xs = nodes.map((n) => n.x);
-const ys = nodes.map((n) => n.y);
+// Ranked in binary32, the width the Parquet stores them in.
+const xs = nodes.map((n) => Math.fround(n.x));
+const ys = nodes.map((n) => Math.fround(n.y));
 const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
-const cell = (v, lo, hi) => Math.floor(((v - lo) / (hi - lo || 1)) * ((1 << ORDER) - 1));
+const cell = (v, lo, hi) => (hi <= lo ? 0 : Math.min(Math.max(Math.floor(((v - lo) / (hi - lo)) * 65535), 0), 65535));
 const cluster = components(nodes.length, edges);
 
 const order = nodes
-  .map((n, i) => ({ i, h: hilbert(cell(n.x, x0, x1), cell(n.y, y0, y1)) }))
+  .map((_, i) => ({ i, h: hilbert(cell(xs[i], x0, x1), cell(ys[i], y0, y1)) }))
   .sort((a, b) => a.h - b.h || a.i - b.i);
 const dense = new Int32Array(nodes.length);
 order.forEach(({ i }, rank) => {
@@ -138,8 +138,8 @@ const manifest = {
       properties: [
         { name: "dense_id", type: "uint32" },
         { name: "subject", type: "string" },
-        { name: "x", type: "float32" },
-        { name: "y", type: "float32" },
+        { name: "x", type: "float" },
+        { name: "y", type: "float" },
         { name: "cluster_id", type: "uint32" },
         ...PROPERTIES.map(([name, type]) => ({ name, type, iri: `${IRI}${name}`, nullable: true })),
       ],

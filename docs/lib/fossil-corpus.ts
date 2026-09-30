@@ -2,11 +2,12 @@ import type { GraphRootProps } from "@kanzo-tech/graph";
 import type { Engine } from "@kanzo-tech/ui/analytics";
 
 /**
- * **A stand-in for `@fossil-lang/corpus`'s `open`, as `fossil/1` specifies it.** fossil publishes the
- * real one in `0.3.0-alpha.15`; until then the docs open their corpora with this, and the day it
- * ships every import of this file becomes `import { open } from "@fossil-lang/corpus"` and the file
- * is deleted. It is the contract's steps and nothing more: fetch `fossil.json`, check its format,
- * attach a catalogue, one view per table, and a scan is one `SELECT` the engine prunes.
+ * **A stand-in for `@fossil-lang/corpus`'s `open`, as `fossil/1` specifies it** — the steps of
+ * fossil's `src/open.ts` for a corpus at a URL, and nothing more: read `fossil.json` through the
+ * engine, check its format, attach a catalogue named as `source` was given, one view per table, and a
+ * scan is one `SELECT` the engine prunes. fossil publishes the real one in `0.3.0-alpha.15`; the day
+ * it ships every import of this file becomes `import { open } from "@fossil-lang/corpus"` and the
+ * file is deleted.
  */
 
 export type Corpus = Extract<NonNullable<GraphRootProps["corpus"]>, { readonly manifest: unknown }>;
@@ -38,22 +39,21 @@ function where(filter: Filter): string {
   return `${column} ${filter.op === "!=" ? "<>" : filter.op} ${literal(filter.value)}`;
 }
 
-/** `source` is the corpus's URL; its catalogue in the engine is named after it. */
+/** `source` is the corpus's URL; its catalogue in the engine is named `source`, as given. */
 export async function open(source: string, { engine }: { engine: Engine }): Promise<Corpus> {
-  const url = source.replace(/\/+$/, "");
-  const response = await fetch(`${url}/fossil.json`);
-  if (!response.ok) throw new Error(`${url}/fossil.json: ${response.status} ${response.statusText}`);
-  const manifest = (await response.json()) as Corpus["manifest"];
-  if (manifest.format !== "fossil/1") throw new Error(`${url} is ${String(manifest.format)}, and this reads fossil/1`);
-  const catalogue = name(url);
+  const base = source.endsWith("/") ? source : `${source}/`;
+  const answer = await engine.query(`SELECT content FROM read_text(${text(`${base}fossil.json`)})`);
+  const manifest = JSON.parse(String(answer.getChild("content")?.toArray()[0])) as Corpus["manifest"];
+  if (manifest.format !== "fossil/1") throw new Error(`${base}fossil.json is ${String(manifest.format)}, and this reads fossil/1`);
+  const catalogue = name(source);
   await engine.query(`ATTACH IF NOT EXISTS ':memory:' AS ${catalogue}`);
   for (const table of [...manifest.vertex_tables, ...manifest.edge_tables]) {
     await engine.query(
-      `CREATE OR REPLACE VIEW ${catalogue}.${name(table.name)} AS SELECT * FROM read_parquet(${text(`${url}/${table.path}`)})`,
+      `CREATE OR REPLACE VIEW ${catalogue}.${name(table.name)} AS SELECT * FROM read_parquet(${text(`${base}${table.path}`)})`,
     );
   }
   return {
-    url,
+    url: source,
     manifest,
     scan(params) {
       const statement = [
@@ -63,7 +63,10 @@ export async function open(source: string, { engine }: { engine: Engine }): Prom
       ].join(" ");
       return {
         params,
-        plan: () => [{ table: params.table }],
+        plan: () => {
+          const table = [...manifest.vertex_tables, ...manifest.edge_tables].find((t) => t.name === params.table);
+          return [{ table: params.table, path: table?.path ?? "", rows: table?.record_count ?? 0 }];
+        },
         read: async (tasks, options) => (tasks.length === 0 ? [] : [await engine.query(statement, options)]),
       };
     },
