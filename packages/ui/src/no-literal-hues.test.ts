@@ -35,7 +35,7 @@ import { CHROMA_FLOOR, label, oklch, sourceFiles, subtrees, unreadable } from ".
  *   that is *data* cannot be tokenised, and this guard cannot tell that case from a mistake.
  * - **It does not resolve indirection.** `var(--token)`, `color-mix(…)` and relative-colour syntax
  *   (`oklch(from … )`) are not evaluated — a chromatic result reached through any of them passes.
- *   The tokens themselves are guarded on the other side, by `packages/theme/src/palettes.test.ts`.
+ *   That every token read resolves in every theme is `theme-tokens.test.ts`'s job.
  * - **It does not police achromatic literals, and two live ones are worth knowing about**:
  *   `simples/slider.tsx` paints its thumb `bg-white` and `simples/color-picker.tsx` uses
  *   `border-white` / `text-white`. `white` and `black` are unnumbered and carry no chroma, so they
@@ -54,8 +54,8 @@ import { CHROMA_FLOOR, label, oklch, sourceFiles, subtrees, unreadable } from ".
  *   white on a dark track is high contrast, not low. The dark-mode worry was about the metaphor, a
  *   knob that does not follow the theme, and that is a design choice Shark took and we follow.
  * - **It measures chroma, not contrast.** A tokenised colour can still fail AA. That is
- *   `@kanzo-tech/palette`'s job, and the reason tokenising is worth insisting on: an untokenised
- *   colour is a colour no test can measure.
+ *   the theme author's job, checked in part by `simples/status.test.ts`, and the reason tokenising
+ *   is worth insisting on: an untokenised colour is a colour no test can measure.
  * - **`color()` is only understood in the sRGB spaces.** `color(display-p3 …)` and the other
  *   predefined spaces are not parsed; nothing in the repo emits one, and adding a reader for a
  *   space we do not produce would be a claim with no corpus behind it.
@@ -70,8 +70,8 @@ import { CHROMA_FLOOR, label, oklch, sourceFiles, subtrees, unreadable } from ".
  *   tomorrow would still pass. `logical-properties.test.ts` declares the same limit, from the same
  *   walk.
  * - **The corpus is `ui` and `ai`, derived** — see `guard-corpus.ts` for how, and for why
- *   `@kanzo-tech/palette` is deliberately not in it: a package whose subject is deriving hues would
- *   read as one long violation of a rule that is about hues written *by hand*.
+ *   `theme` is not in it: the package that declares the colours would read as one long violation
+ *   of a rule about hues written *by hand* elsewhere.
  */
 
 /**
