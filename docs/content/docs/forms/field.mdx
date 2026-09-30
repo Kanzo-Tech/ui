@@ -61,6 +61,17 @@ enough — the switch is a container query, so a field in a narrow panel stays s
 
 <ComponentPreview componentName="field" fileName="example-required" />
 
+## Optional
+
+`FieldRequiredIndicator` is the one part that marks either kind of field. On a required field it
+renders the asterisk; on any other it renders its `fallback`, so a form that wants optional fields
+called out passes the words once and never writes "(optional)" into a label. The asterisk is hidden
+from assistive technology, because the control's `required` already announces it; the fallback is
+read as part of the label, because nothing else says a field is optional. The words are yours —
+the library ships no copy.
+
+<ComponentPreview componentName="field" fileName="example-optional" />
+
 ## Disabled
 
 <ComponentPreview componentName="field" fileName="example-disabled" />
