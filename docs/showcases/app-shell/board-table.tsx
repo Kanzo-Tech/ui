@@ -9,14 +9,12 @@ import {
   ActionBarValue,
   Badge,
   Button,
-  Menu,
-  MenuContent,
   MenuItem,
   MenuSeparator,
-  MenuTrigger,
   toast,
 } from "@kanzo-tech/ui";
 import {
+  actionsColumn,
   type ColumnDef,
   DataTableContent,
   DataTableFacetFilter,
@@ -36,7 +34,6 @@ import {
   CircleDotIcon,
   CircleXIcon,
   DownloadIcon,
-  EllipsisIcon,
   FootprintsIcon,
   RotateCwIcon,
   Trash2Icon,
@@ -143,47 +140,32 @@ const COLUMNS: ColumnDef<Quest>[] = [
       <span className="whitespace-nowrap text-muted-foreground text-sm">{getValue<string>()}</span>
     ),
   },
-  {
-    id: "actions",
-    enableHiding: false,
-    cell: ({ row }) => (
-      <div className="text-end">
-        <Menu>
-          <MenuTrigger asChild>
-            <Button
-              aria-label={`Actions for ${row.original.title}`}
-              onClick={(event) => event.stopPropagation()}
-              size="icon-sm"
-              variant="ghost"
-            >
-              <EllipsisIcon />
-            </Button>
-          </MenuTrigger>
-          <MenuContent>
-            <MenuItem
-              onSelect={() => toast.create({ title: `Re-posting ${row.original.id}`, type: "info" })}
-              value="repost"
-            >
-              <RotateCwIcon />
-              Re-post
-            </MenuItem>
-            <MenuItem onSelect={() => toast.create({ title: "Writ copied", type: "success" })} value="writ">
-              <DownloadIcon />
-              Copy the writ
-            </MenuItem>
-            <MenuSeparator />
-            <MenuItem
-              onSelect={() => toast.create({ title: `Withdraw ${row.original.id}?`, type: "warning" })}
-              value="withdraw"
-            >
-              <Trash2Icon />
-              Withdraw
-            </MenuItem>
-          </MenuContent>
-        </Menu>
-      </div>
+  actionsColumn<Quest>({
+    label: (row) => `Actions for ${row.original.title}`,
+    menu: (row) => (
+      <>
+        <MenuItem
+          onSelect={() => toast.create({ title: `Re-posting ${row.original.id}`, type: "info" })}
+          value="repost"
+        >
+          <RotateCwIcon />
+          Re-post
+        </MenuItem>
+        <MenuItem onSelect={() => toast.create({ title: "Writ copied", type: "success" })} value="writ">
+          <DownloadIcon />
+          Copy the writ
+        </MenuItem>
+        <MenuSeparator />
+        <MenuItem
+          onSelect={() => toast.create({ title: `Withdraw ${row.original.id}?`, type: "warning" })}
+          value="withdraw"
+        >
+          <Trash2Icon />
+          Withdraw
+        </MenuItem>
+      </>
     ),
-  },
+  }),
 ];
 
 const STATUS_OPTIONS = QUEST_STATUSES.map((state) => ({

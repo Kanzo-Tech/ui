@@ -53,6 +53,7 @@ export function DataTableContent<TData = unknown>(props: DataTableContentProps<T
   const regionScrolled = stickyHeader && maxHeight === undefined;
 
   const rows = table.getRowModel().rows;
+  const defaultSize = table._getDefaultColumnDef().size;
   const colSpan = table.getVisibleLeafColumns().length || 1;
   const hasFooter = table
     .getFooterGroups()
@@ -68,7 +69,16 @@ export function DataTableContent<TData = unknown>(props: DataTableContentProps<T
           {table.getHeaderGroups().map((group) => (
             <TableRow key={group.id}>
               {group.headers.map((header) => (
-                <TableHead key={header.id}>
+                // Only a column that declares its own `size` gets a width. TanStack merges a
+                // default of 150 into every column, and applying that would fix the whole table.
+                <TableHead
+                  key={header.id}
+                  style={
+                    header.column.columnDef.size === defaultSize
+                      ? undefined
+                      : { width: header.getSize() }
+                  }
+                >
                   {header.isPlaceholder
                     ? null
                     : flexRender(header.column.columnDef.header, header.getContext())}
