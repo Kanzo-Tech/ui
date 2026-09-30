@@ -1,38 +1,26 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import type { Corpus } from "@fossil-lang/corpus";
-import { GraphCanvas, GraphRoot, adaptive, lookFrom, simFrom } from "@kanzo-tech/graph";
+import { useMemo, useState } from "react";
+import { GraphCanvas, GraphRoot, lookFrom, simFrom } from "@kanzo-tech/graph";
 import { Alert, AlertDescription, Badge, Show, Switch, ToggleGroup, ToggleGroupItem } from "@kanzo-tech/ui";
 import { useArchive } from "./archive";
 
 /**
  * The picture as **declared axes** rather than as props. `lookFrom` and `simFrom` read the same
  * `Record<string, string>` a preferences section produces; the switches stand in for that panel.
- *
- * `adaptive(total)` is the number a person should not be asked: what a corpus of this size wants,
- * from the manifest's vertex count. **Simulate is off by default**, because the positions are the
- * corpus' own layout and the index every tile is culled against: turn the forces on and the points
- * move while the tiles do not.
+ * **Simulate is off by default**, because the positions are the corpus's own layout: turn the forces
+ * on and the layout runs from where the points are.
  */
 export default function Example() {
   const corpus = useArchive();
-  const [opened, setOpened] = useState<Corpus | null>(null);
-  useEffect(() => void corpus?.then(setOpened, () => {}), [corpus]);
   const [failure, setFailure] = useState<string | null>(null);
   const [marks, setMarks] = useState("dense");
   const [bowed, setBowed] = useState(true);
   const [simulate, setSimulate] = useState(false);
-  const [fitted, setFitted] = useState(false);
 
-  const total = opened ? Number(opened.types.vertices[0]?.count ?? 0) : 0;
-  const fit = useMemo(() => adaptive(total), [total]);
-  const values = useMemo(
-    () => ({ marks, "bowed-links": String(bowed), links: String(fit.links), labels: "0", grid: "false" }),
-    [marks, bowed, fit.links],
-  );
+  const values = useMemo(() => ({ marks, "bowed-links": String(bowed), labels: "0", grid: "false" }), [marks, bowed]);
   const look = useMemo(() => lookFrom(values), [values]);
-  const sim = useMemo(() => (fitted ? fit.sim : simFrom(values)), [fitted, fit.sim, values]);
+  const sim = useMemo(() => simFrom(values), [values]);
 
   return (
     <div className="flex h-96 w-full flex-col gap-3">
@@ -54,11 +42,8 @@ export default function Example() {
         <Switch checked={simulate} onCheckedChange={(d) => setSimulate(d.checked)}>
           Simulate
         </Switch>
-        <Switch checked={fitted} onCheckedChange={(d) => setFitted(d.checked)}>
-          Fit to size
-        </Switch>
         <Badge variant="secondary">
-          {total || "…"} nodes · repulsion {sim.repulsion.toFixed(2)} · friction {sim.friction.toFixed(2)}
+          repulsion {sim.repulsion.toFixed(2)} · friction {sim.friction.toFixed(2)}
         </Badge>
       </div>
       <Show

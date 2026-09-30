@@ -6,6 +6,9 @@
  * `@kanzo-tech/graph` ships one source and it reads a corpus, so a showcase that hands it relations
  * was demonstrating a path no product takes.
  *
+ * **Not runnable for the graph until fossil's writer emits `fossil/1`**, which is the only format the
+ * graph reads now; until then `build-fossil1.mjs` writes the archive. Re-run this the day it ships.
+ *
  * Usage:  node build-corpus.mjs [--fossil <path>]
  * Output: docs/public/corpus/archive/ — gitignored, a couple of megabytes.
  *

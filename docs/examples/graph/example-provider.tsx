@@ -10,12 +10,10 @@ function Tally() {
   const drawn = useGraphState((s) => s.drawn);
   const total = useGraphState((s) => s.total);
   const status = useGraphState((s) => s.status);
-  const z = useGraphState((s) => s.z);
   return (
     <Badge className="absolute top-2 left-2 tabular-nums" variant="secondary">
       <Show fallback={status} when={drawn !== null}>
-        {drawn?.marks.toLocaleString()} marks for {drawn?.represented.toLocaleString()} of {total?.toLocaleString()} · z {z} ·{" "}
-        {status}
+        {drawn?.vertices.toLocaleString()} of {total?.toLocaleString()} · {status}
       </Show>
     </Badge>
   );

@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { cn } from "@kanzo-tech/ui";
-import { useGraphContext, useGraphState, vertexId, type SelectionSource } from "@kanzo-tech/graph";
+import { useGraphContext, useGraphState, type SelectionSource } from "@kanzo-tech/graph";
 
 /**
  * A finding you can point the canvas at.
@@ -20,23 +20,17 @@ import { useGraphContext, useGraphState, vertexId, type SelectionSource } from "
 export interface FindingProps {
   children: ReactNode;
   /**
-   * The dense ids this finding covers. Nothing is queried until the reader asks — a panel should not
-   * fetch ids it may never show.
-   *
-   * Dense ids rather than identities because a panel's answer *is* a query: `SELECT id FROM …` over
-   * one relation, and a row has no type column. Completing the pair is this component's job, once,
-   * from `typeIndex`, which says which relation it was.
+   * The dense ids this finding covers — a vertex's id, as the canvas holds it. Nothing is queried
+   * until the reader asks: a panel should not fetch ids it may never show.
    */
   load: () => Promise<number[]>;
-  /** The drawn type's place in the corpus — the type half of every vertex this finding names. */
-  typeIndex: number;
   /** Shown in the corner and used as this finding's identity, so keep it distinct within a panel. */
   label: string;
   source: SelectionSource;
   disabled?: boolean;
 }
 
-export function Finding({ children, disabled, label, load, source, typeIndex }: FindingProps) {
+export function Finding({ children, disabled, label, load, source }: FindingProps) {
   const { select } = useGraphContext();
   const selection = useGraphState((s) => s.selection);
   const [busy, setBusy] = useState(false);
@@ -49,8 +43,7 @@ export function Finding({ children, disabled, label, load, source, typeIndex }: 
     }
     setBusy(true);
     try {
-      const dense = await load();
-      select(dense.map((id) => vertexId(typeIndex, id)), source, label);
+      select(await load(), source, label);
     } finally {
       setBusy(false);
     }

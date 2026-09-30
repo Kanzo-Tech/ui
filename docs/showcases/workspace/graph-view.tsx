@@ -11,7 +11,6 @@ import {
 } from "react";
 import { parseDate, type DateValue } from "@internationalized/date";
 import { desc, sql, verbatim, type VerbatimNode } from "@uwdata/mosaic-sql";
-import { open, type Corpus } from "@fossil-lang/corpus";
 import {
   Badge,
   Button,
@@ -125,7 +124,6 @@ import {
   useGraphContext,
   useGraphPrefs,
   useGraphState,
-  vertexId,
   type Channels,
   type Look,
   type VertexDetail,
@@ -150,6 +148,7 @@ import {
   toOrders,
 } from "./order-builder";
 import { numbers } from "@/lib/arrow";
+import { open, type Corpus } from "@/lib/fossil-corpus";
 import { ARCHIVE_KINDS as KINDS } from "@/example/archive";
 import { HALLS, isoDay } from "@/example/world";
 import { ensure } from "./duck";
@@ -167,14 +166,15 @@ import { Finding } from "./graph-finding";
  */
 
 /**
- * Where the compiled archive is served from, written by `corpus/build-corpus.mjs`. Prefixed, because
+ * Where the compiled archive is served from, written by `corpus/build-fossil1.mjs` until fossil's
+ * writer emits `fossil/1` and `corpus/build-corpus.mjs` takes over again. Prefixed, because
  * a string handed to DuckDB is not rewritten under `basePath` the way `Link` is: under `/ui` a bare
  * `/corpus/…` is a 404 with no error anywhere. `NEXT_PUBLIC_BASE_PATH` is the variable
  * `next.config.ts` reads, so the two cannot disagree.
  */
 const CORPUS = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/corpus/archive`;
 
-/** The vertex type the canvas draws — the archive's one. */
+/** The archive's one vertex type, which the orders and the ask box query. */
 const TYPE = "Node";
 
 /** The address column a panel's `SELECT` names, so a picked row becomes a vertex. */
@@ -190,22 +190,20 @@ export interface Archive {
   crossfilter: MosaicSelection;
   corpus: Corpus;
   nodes: VerbatimNode;
-  typeIndex: number;
 }
 
 function openArchive(): Promise<Archive> {
   return ensure(CORPUS, async (engine) => {
     // Origin-qualified: DuckDB-WASM resolves a root-relative path in its own filesystem.
     const corpus = await open(`${window.location.origin}${CORPUS}`, { engine });
-    const relations = await corpus.relations();
-    const nodes = relations.find((relation) => relation.kind === "vertex" && relation.name === TYPE);
-    if (!nodes) throw new Error(`corpus: ${CORPUS} declares no ${TYPE} vertices`);
+    if (!corpus.manifest.vertex_tables.some((table) => table.name === TYPE)) {
+      throw new Error(`corpus: ${CORPUS} declares no ${TYPE} vertices`);
+    }
     return {
       coordinator: engine.coordinator,
       crossfilter: MosaicSelection.crossfilter(),
       corpus,
-      nodes: verbatim(nodes.sql),
-      typeIndex: corpus.types.vertices.findIndex((type) => type.type === TYPE),
+      nodes: verbatim(`"${corpus.url.replaceAll('"', '""')}"."${TYPE}"`),
     };
   });
 }
@@ -306,7 +304,6 @@ export function ArchiveGraph({ arrangement, children }: { arrangement: LookId; c
       r="degree"
       sim={sim}
       title="label"
-      type={TYPE}
       {...PAIRINGS[arrangement]}
     >
       <Show fallback={children} when={archive !== null}>
@@ -320,15 +317,15 @@ export function ArchiveGraph({ arrangement, children }: { arrangement: LookId; c
   );
 }
 
-/** The footer: what the corpus holds, and whether what is in view has been drawn. */
+/** The footer: what the corpus holds, and whether all of it has been drawn. */
 export function ArchiveCounts() {
   const corpus = useGraphState((s) => s.corpus);
   const status = useGraphState((s) => s.status);
-  const edges = corpus?.types.edges.reduce((sum, edge) => sum + Number(edge.count ?? 0), 0);
+  const count = (tables: readonly { record_count: number }[] = []) => tables.reduce((sum, table) => sum + table.record_count, 0);
   return (
     <span className="flex items-center gap-2 px-1 text-muted-foreground text-xs tabular-nums">
       <Show fallback="Opening the archive…" when={corpus !== null}>
-        {Number(corpus?.types.vertices[0]?.count ?? 0).toLocaleString()} nodes · {edges?.toLocaleString()} edges
+        {count(corpus?.manifest.vertex_tables).toLocaleString()} nodes · {count(corpus?.manifest.edge_tables).toLocaleString()} edges
       </Show>
       <Badge className="gap-1.5" size="xs" variant="outline">
         <Status className="ring-0" size="sm" variant={status === "idle" ? "success" : status === "failed" ? "destructive" : "info"} />
@@ -460,7 +457,7 @@ function ArchiveSearch({ archive }: { archive: Archive }) {
       onInputValueChange={(details) => filter(details.inputValue)}
       onValueChange={(details) => {
         const picked = details.value[0];
-        if (picked !== undefined) reveal(vertexId(archive.typeIndex, Number(picked)));
+        if (picked !== undefined) reveal(Number(picked));
       }}
     >
       <ComboboxInput placeholder="Find anything in the archive…" size="sm" />
@@ -980,7 +977,6 @@ function OrdersBody({ archive }: { archive: Archive }) {
                   label={`${order.target} ${order.constraint}`}
                   load={() => failingIds(order)}
                   source="order"
-                  typeIndex={archive.typeIndex}
                 >
                   <span className="flex items-center gap-2">
                     <span
@@ -1331,8 +1327,7 @@ export function GraphAppearance({ arrangement, wear }: { arrangement: LookId; we
 
 /**
  * The Settings panel — the camera and the gestures. There are no forces here: the archive's
- * positions are the corpus's own layout, read as the index every tile is asked against, and a live
- * simulation would move them out from under it.
+ * positions are the corpus's own layout, and the toolbar is where a reader runs one.
  */
 export function GraphSettings() {
   const { fit } = useGraphContext();
@@ -1555,7 +1550,6 @@ function AskAnswer(props: { archive: Archive; turn: Exchange }) {
           label={intent.question}
           load={matchingIds}
           source="ask"
-          typeIndex={props.archive.typeIndex}
         >
           <span className="flex items-baseline gap-2">
             <span className="flex-1 text-xs leading-relaxed">

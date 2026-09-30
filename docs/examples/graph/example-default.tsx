@@ -7,7 +7,7 @@ import { useArchive } from "./archive";
 
 /**
  * The whole of it: the opening of the corpus fossil reads, handed to `GraphRoot`, drawn by
- * `GraphCanvas`. The canvas says it is opening, then reading, until the tiles in view are drawn.
+ * `GraphCanvas`. The canvas says it is opening, then loading, until the whole graph is drawn.
  */
 export default function Example() {
   const corpus = useArchive();

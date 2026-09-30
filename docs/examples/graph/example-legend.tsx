@@ -6,10 +6,10 @@ import { Show, ToggleGroup, ToggleGroupItem } from "@kanzo-tech/ui";
 import { ARCHIVE_KINDS, useArchive } from "./archive";
 
 /**
- * The legend draws the scale the canvas draws. `categories` on the root names `kind`'s values and,
- * because the corpus declares no domain for the column, its order is the rank — so a colour is
- * decided before the first tile arrives and never changes hands. Bound to `cluster_id`, which the
- * manifest declares, the ordinals rank themselves and past the palette's capacity they are Other.
+ * The legend draws the scale the canvas draws. `categories` on the root names `kind`'s values, and
+ * their order is the rank — so a colour is decided before the graph loads and never changes hands.
+ * Bound to `cluster_id`, which nothing names, the values rank as they sort, and past the palette's
+ * capacity they are Other.
  */
 export default function Example() {
   const corpus = useArchive();

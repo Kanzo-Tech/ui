@@ -23,8 +23,8 @@ function HallName({ detail }: { detail: VertexDetail }) {
 }
 
 /**
- * Click a vertex. The inspector reads its row — one payload tile, filtered to it — and lays it out by
- * the corpus's own fields; its `children` is a render prop for a field the product adds. It sits
+ * Click a vertex. The inspector reads its row — a scan of its table, filtered to its key — and lays it
+ * out by the table's own properties; its `children` is a render prop for a field the product adds. It sits
  * outside the canvas because it is a part of the root, not of the canvas.
  */
 export default function Example() {
