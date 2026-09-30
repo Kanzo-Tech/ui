@@ -2,6 +2,7 @@ import { Toggle as ArkToggle, useToggleContext } from "@ark-ui/react/toggle";
 import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
+import { controlSizes } from "../lib/control-size";
 import { buttonVariants } from "./button";
 
 export const useToggle = useToggleContext;
@@ -17,9 +18,9 @@ export const toggleVariants = tv({
   ],
   variants: {
     size: {
-      sm: "h-7 min-w-7 px-1.5",
-      md: "h-8 min-w-8 px-2",
-      lg: "h-9 min-w-9 px-2.5",
+      sm: [controlSizes.sm, "min-w-(--size) px-1.5"],
+      md: [controlSizes.md, "min-w-(--size) px-2"],
+      lg: [controlSizes.lg, "min-w-(--size) px-2.5"],
     },
   },
   defaultVariants: {

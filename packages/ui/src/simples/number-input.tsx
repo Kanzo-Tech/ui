@@ -6,6 +6,7 @@ import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
+import { controlHeight, controlSizes } from "../lib/control-size";
 import { FieldLabel } from "./field";
 
 export const useNumberInput = useNumberInputContext;
@@ -15,6 +16,7 @@ export const useNumberInput = useNumberInputContext;
 const numberInputControlVariants = tv({
   base: [
     "group/number-input",
+    controlHeight,
     "relative flex w-full min-w-0 items-stretch",
     "bg-field",
     "rounded-field border border-input shadow-xs/5",
@@ -26,9 +28,7 @@ const numberInputControlVariants = tv({
   ],
   variants: {
     size: {
-      sm: "h-7",
-      md: "h-8",
-      lg: "h-9",
+      ...controlSizes,
     },
   },
   defaultVariants: {

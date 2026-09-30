@@ -16,6 +16,45 @@ drop to the primitive when you need to rearrange the parts. The rule in full is 
 [Philosophy](/docs/philosophy#the-naming-rule).
 </Callout>
 
+## One height per size
+
+**A single-line control is exactly as tall as its size token, and every one of them is.** `sm`,
+`md` and `lg` are `7`, `8` and `9` times `--size-field`, so 28, 32 and 36px at the default density
+and 24.5, 28 and 31.5px at compact — a text input, a number input, a native select, a select, a
+combobox, a tags input, a date picker and its time field, a language picker, a password input, a
+pin cell, a segment group, a toggle and a button all share it. Put any of them beside any other, in a
+row or a column, and their edges line up.
+
+The height is written **once**, in `packages/ui/src/lib/control-size.ts`: a `controlSizes` fragment
+that assigns `--size` per token and a `controlHeight` that reads it. Every recipe spreads the first
+into its `size` variant and puts the second on its `base`, and `control-height.test.ts` fails when
+one stops, or when a size variant names a fixed height of its own. A new control gets the height by
+importing the fragment; it cannot drift by writing `h-8`.
+
+- **A control that grows takes the height as its minimum.** `TagsInput` and `InputGroup` are
+  `min-h-(--size)`: empty, or holding one tag, they are one input tall, and a second row of tags or a
+  `Textarea` inside a group grows them. A `Textarea` on its own keeps a four-line minimum, which is
+  above the height on purpose.
+- **A control inside a group follows the group.** The `<input>` in an `InputGroup` has no height of
+  its own — it stretches to the group's — and a button in an addon is 24px, which leaves a 32px group
+  4px of inset around it.
+- **Not a box, not the height.** A `Switch`, a `Checkbox` and a `RadioGroupItem` are indicators, 16 to
+  20px, and centre on their row; a `Badge` is a status chip whose 20 to 26px is a smaller scale on
+  purpose; a `Slider` is a track. None of them is asked to be an input.
+- **One measured exception.** A button is 24 CSS pixels, not `1.5rem`, because WCAG 2.5.8 states
+  pixels and a rem is 21px at compact density. An `sm` group holding one — a `Combobox`, a
+  `DatePicker` — is therefore 26px at compact, not 24.5. Every other cell of the table is exact.
+
+<ComponentPreview componentName="controls" fileName="example-heights" />
+
+Each size is stacked as a column and again as a row with `items-start`, so a control that is not the
+height of its neighbour shows. Measured 2026-09-30 in Chromium, `md`, every row of the example: 32px
+at default density, 28px at compact and 36px at comfortable.
+
+**What would reverse it:** a control that needs a different height per *part* rather than per size —
+which a custom property on the base cannot say — or a design that wants an `xl` field. `Button` has
+an `xl` that the shared scale lacks, and it is the one size a field does not offer.
+
 ## Text
 
 | Control | What it is | Reach for it when |

@@ -98,6 +98,13 @@ export interface LanguagePickerProps {
    * input — rather than a bordered control of its own.
    */
   inline?: boolean;
+  /**
+   * The control height, one of the shared sizes. Ignored with `inline`, which takes the height of
+   * the field it sits in.
+   *
+   * @default "md"
+   */
+  size?: "sm" | "md" | "lg";
   disabled?: boolean;
   readOnly?: boolean;
   invalid?: boolean;
@@ -126,6 +133,7 @@ export const LanguagePicker = (props: LanguagePickerProps) => {
     onValueChange,
     languages,
     inline = false,
+    size,
     disabled,
     readOnly,
     invalid,
@@ -206,6 +214,7 @@ export const LanguagePicker = (props: LanguagePickerProps) => {
           onBlur={commitTyped}
           placeholder={placeholder}
           showTrigger={constrained}
+          size={size}
         />
       )}
       <ComboboxContent>

@@ -2,12 +2,13 @@ import { FieldInput } from "@ark-ui/react/field";
 import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
+import { controlHeight, controlSizes } from "../lib/control-size";
 
 export const inputVariants = tv({
   base: [
     "peer",
     // On the base, not on the size — see `button.tsx`.
-    "h-(--size)",
+    controlHeight,
     "w-full min-w-0",
     "px-3",
     "bg-field",
@@ -33,9 +34,7 @@ export const inputVariants = tv({
   ],
   variants: {
     size: {
-      sm: ["[--size:calc(var(--size-field)*7)]"],
-      md: ["[--size:calc(var(--size-field)*8)]"],
-      lg: ["[--size:calc(var(--size-field)*9)]"],
+      ...controlSizes,
     },
   },
   defaultVariants: {

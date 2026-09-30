@@ -66,6 +66,11 @@ the group into a column, which is how a send button sits under a textarea.
 | --- | --- | --- |
 | `size` | `"sm" \| "md" \| "lg"` | `"md"` |
 
+The group is the [shared control height](/docs/forms/controls#one-height-per-size) at its size — 32px
+at `md`, the same as an `Input` beside it — and grows only when it holds more than one line. The
+`<input>` inside takes the group's height rather than having its own, and a button in an addon is
+24px.
+
 ### InputGroupAddon
 
 | Prop | Type | Default |

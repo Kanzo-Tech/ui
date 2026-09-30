@@ -5,6 +5,7 @@ import {
 import { EyeIcon, EyeOffIcon } from "lucide-react";
 import type React from "react";
 import { cn } from "../lib/cn";
+import { controlSizes } from "../lib/control-size";
 import {
   InputGroup,
   InputGroupAddon,
@@ -28,6 +29,7 @@ export const PasswordInput = (props: PasswordInputProps) => {
         "group/password-input",
         "w-full",
         "flex flex-col items-start gap-2",
+        controlSizes[size],
         className
       )}
       data-size={size}
@@ -46,7 +48,9 @@ export const PasswordInputGroup = (
     <ArkPasswordInput.Control asChild>
       <InputGroup
         className={cn(
-          "in-data-[size=lg]:h-9 in-data-[size=sm]:h-7",
+          // The size is the root's, read through the custom property: a group would otherwise
+          // assign its own default and the root's `size` would move nothing.
+          "[--size:inherit]",
           "data-disabled:pointer-events-none data-disabled:opacity-64",
           className
         )}

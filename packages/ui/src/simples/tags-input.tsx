@@ -7,6 +7,7 @@ import { XIcon } from "lucide-react";
 import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
+import { controlMinHeight, controlSizes } from "../lib/control-size";
 import { FieldLabel } from "./field";
 
 /**
@@ -95,6 +96,7 @@ const tagsInputControlVariants = tv({
   base: [
     "group/tags-input-control",
     "relative",
+    controlMinHeight,
     "w-full min-w-0",
     "flex flex-wrap items-center gap-1.5",
     "bg-background bg-field",
@@ -109,9 +111,12 @@ const tagsInputControlVariants = tv({
   ],
   variants: {
     size: {
-      sm: ["min-h-7", "p-1"],
-      md: ["min-h-8", "p-1.5"],
-      lg: ["min-h-9", "p-1.5"],
+      // The vertical padding is what is left of the shared height around a 24px tag, so one tag
+      // in an otherwise empty control is exactly the height of an `Input` at the same size, and a
+      // second row grows it. `p-1.5` here made the one-tag control 38px against an input's 32.
+      sm: [controlSizes.sm, "px-1 py-0"],
+      md: [controlSizes.md, "px-1 py-0.5"],
+      lg: [controlSizes.lg, "px-1 py-1"],
     },
   },
   defaultVariants: {

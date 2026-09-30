@@ -2,11 +2,14 @@ import { PinInput as ArkPinInput } from "@ark-ui/react/pin-input";
 import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
+import { controlHeight, controlSizes } from "../lib/control-size";
 import { FieldLabel } from "./field";
 
 const pinInputInputVariants = tv({
   base: [
     "shrink-0",
+    controlHeight,
+    "w-(--size)",
     "text-center tabular-nums",
     "bg-field",
     "text-base md:text-sm",
@@ -21,9 +24,7 @@ const pinInputInputVariants = tv({
   ],
   variants: {
     size: {
-      sm: ["size-7"],
-      md: ["size-8"],
-      lg: ["size-9"],
+      ...controlSizes,
     },
   },
   defaultVariants: {

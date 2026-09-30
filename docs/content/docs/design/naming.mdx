@@ -62,7 +62,9 @@ values.
 
 **Nothing a component needs in order to be itself may be keyed on `data-slot`** — not its size and
 not its look. Control heights live on each recipe's `base` as `h-(--size)`, where the size variants
-only move a custom property: `[--size:calc(var(--size-field)*7)]`. `Button`'s fill, ink, edge, lift,
+only move a custom property: `[--size:calc(var(--size-field)*7)]`. Both are written once, in
+`packages/ui/src/lib/control-size.ts`, and every recipe imports them — [Controls](/docs/forms/controls#one-height-per-size)
+has the rule and the exceptions. `Button`'s fill, ink, edge, lift,
 grain and both state washes live there too, and the variants only assign `--btn-bg`, `--btn-fg` and
 `--btn-bd`. The density knob is untouched and still `--size-field`.
 
