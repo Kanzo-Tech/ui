@@ -104,6 +104,7 @@
   "data-table/example-server": 351,
   "data-table/example-sortable": 462,
   "date-picker/example-default": 220,
+  "date-picker/example-iso-datetime": 320,
   "date-picker/example-iso-value": 220,
   "date-picker/example-range": 220,
   "date-picker/example-with-trigger": 220,
