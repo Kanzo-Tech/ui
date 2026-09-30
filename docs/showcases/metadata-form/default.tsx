@@ -1350,7 +1350,7 @@ export function MetadataFormShowcase() {
         <span
           className={cn(
             "block rounded px-1",
-            sent?.line === i + 1 && "bg-warning-a3 text-warning-foreground"
+            sent?.line === i + 1 && "bg-warning/7 text-warning-foreground"
           )}
           data-line={i + 1}
           key={i}
