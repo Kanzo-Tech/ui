@@ -67,6 +67,19 @@ line in `FieldDescription`.
 
 <ComponentPreview componentName="field" fileName="example-helper-tone" />
 
+## Columns
+
+`FieldGroup` stacks its fields. Give it `columns` and it lays them out in a grid instead: one to
+four equal columns, or `"auto"` to fit as many as the width allows. A responsive count is a class of
+your own — `columns={1}` with `sm:grid-cols-2` is one column on a phone and two beyond it — and a
+field that should take the whole row takes `col-span-full`. It is a prop on a part that already
+existed, not a `Grid` component.
+
+<ComponentPreview componentName="field" fileName="example-columns" />
+
+A `Field` with `orientation="responsive"` switches on the width of the **group**, not of its cell,
+so inside a narrow column it will still go horizontal; use `vertical` in a grid.
+
 ## Required
 
 <ComponentPreview componentName="field" fileName="example-required" />
@@ -134,6 +147,12 @@ through.
 | `tone` | `"muted" \| "info" \| "warning"` | `"muted"` |
 
 Extends `Field.HelperText` from Ark.
+
+### FieldGroup
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `columns` | `1 \| 2 \| 3 \| 4 \| "auto"` | stacked |
 
 ### FieldSet
 

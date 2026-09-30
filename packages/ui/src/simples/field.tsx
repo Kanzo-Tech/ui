@@ -113,18 +113,44 @@ export const FieldLegend = (props: FieldLegendProps) => {
   );
 };
 
-export const FieldGroup = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, slot, ...rest } = props;
+const fieldGroupVariants = tv({
+  base: [
+    "group/field-group @container/field-group",
+    "w-full gap-4",
+    "data-[data-slot=checkbox-group]:gap-3",
+    "*:data-[slot=field-group]:gap-4",
+  ],
+  variants: {
+    // A closed set of counts, each a whole class, so a caller overrides one per breakpoint with a
+    // class of its own — `columns={1} className="sm:grid-cols-2"`. It was a `--columns` custom
+    // property written to `style`, as `RadioGroup` does, and an inline property beats every class,
+    // so that override was the one thing it could not express.
+    columns: {
+      stack: "flex flex-col",
+      1: "grid grid-cols-1",
+      2: "grid grid-cols-2",
+      3: "grid grid-cols-3",
+      4: "grid grid-cols-4",
+      auto: "grid grid-cols-[repeat(auto-fit,minmax(14rem,1fr))]",
+    },
+  },
+  defaultVariants: { columns: "stack" },
+});
+
+interface FieldGroupProps extends React.ComponentProps<typeof ark.div> {
+  /**
+   * Lay the fields out in a grid: one to four equal columns, or `"auto"` to fit as many as the
+   * width allows. Omitted, they stack. A field that should span the row takes `col-span-full`.
+   */
+  columns?: 1 | 2 | 3 | 4 | "auto";
+}
+
+export const FieldGroup = (props: FieldGroupProps) => {
+  const { columns = "stack", className, slot, ...rest } = props;
 
   return (
     <ark.div
-      className={cn(
-        "group/field-group @container/field-group",
-        "flex w-full flex-col gap-4",
-        "data-[data-slot=checkbox-group]:gap-3",
-        "*:data-[slot=field-group]:gap-4",
-        className
-      )}
+      className={cn(fieldGroupVariants({ columns }), className)}
       {...rest}
       data-slot={slot ?? "field-group"}
     />
