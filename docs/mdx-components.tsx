@@ -22,7 +22,6 @@ import {
 import { PreviewIframe } from "@/components/preview-iframe";
 import { GalleryList } from "@/components/gallery-list";
 import { ThemeCatalogue } from "@/components/theme-catalogue";
-import { WriteScaling } from "@/components/write-scaling";
 
 /**
  * The single MDX component map, per fumadocs convention — pages get these without importing
@@ -51,7 +50,6 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     GalleryList,
     // The theme catalogue, live rather than in an iframe — `/docs/themes` is its only page.
     ThemeCatalogue,
-    WriteScaling,
     // The example world's own tables — `/docs/the-guild` is the one page made of them.
     ArchiveFacts,
     BestiaryTable,
