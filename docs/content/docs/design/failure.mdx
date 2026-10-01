@@ -49,6 +49,6 @@ table yet. Work inside the process — a query, a layout — has a signal and no
 
 **What would reverse it:** a device that legitimately takes longer than 10 s to come up, measured.
 
-*Held by* `packages/mosaic/src/engine-boot.test.ts`, "rejects with { after } when the worker never
+*Held by* `packages/mosaic/src/engine-boot.test.ts`, "rejects with data.after when the worker never
 answers within the 60 s deadline"; `packages/ai/src/use-ai.test.ts`, "ends a stream that sends
 nothing for 30 s as ai/silent, and not a millisecond before".

@@ -68,7 +68,7 @@ describe("a boot that fails", () => {
     expect(workers.at(-1)!.terminated).toBe(true);
   });
 
-  it("rejects with { after } when the worker never answers within the 60 s deadline", async () => {
+  it("rejects with data.after when the worker never answers within the 60 s deadline", async () => {
     vi.useFakeTimers();
     mode = "silent";
     const booting = engine().catch((error: unknown) => error);
