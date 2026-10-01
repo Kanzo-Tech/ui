@@ -122,7 +122,7 @@ import {
   PaneHeader,
   PanelRail,
   WorkspaceColumns,
-} from "../shared";
+} from "./panes";
 import {
   BEAST_OPTIONS,
   BLANK,
@@ -1521,9 +1521,7 @@ export function MetadataFormShowcase() {
               <Share2Icon />
               Share
             </Button>
-            {/* The tally, and it is `field-notes`' badge — hover lists every failing field,
-                press marks them on the form. Both screens ship the same component now; the two
-                had drifted into a `HoverCard` here and a plain `Badge` there. */}
+            {/* The tally: hover lists every failing field, press marks them on the form. */}
             <FindingsBadge
               active={gate.revealAll}
               findings={report.map((iss) => ({

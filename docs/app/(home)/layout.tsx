@@ -16,7 +16,6 @@ export default function Layout({ children }: { children: ReactNode }) {
       links={[
         { text: "Docs", url: "/docs" },
         { text: "Components", url: "/docs/components" },
-        { text: "Blocks", url: "/docs/blocks" },
         THEMES_LINK,
         { text: "Showcases", url: "/docs/showcases" },
       ]}

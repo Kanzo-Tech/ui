@@ -36,9 +36,6 @@ import {
  * answers — and this stayed with the job it is right for. A tile is a *thumbnail*: at 0.6 zoom it
  * has to read as a product in one glance, and a parts bin at that size reads as noise.
  *
- * It lived in `showcases/shared/` while both consumers were showcases. Neither is now, and that
- * file admits a part on the rule that it has two call sites *in `showcases/`*.
- *
  * The first draft laid the components out in a row — five buttons, an input, a checkbox — and it
  * read as a test page, because that is what it was. **The reference does not do that.** Its preview
  * is realistic fragments in cards: a filter list with counts, a week strip with today filled in the

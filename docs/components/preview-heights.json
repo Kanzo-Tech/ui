@@ -136,7 +136,6 @@
   "field/example-orientation": 220,
   "field/example-required": 220,
   "file-upload/example-default": 262,
-  "findings-badge/example-default": 220,
   "float/example-card": 220,
   "float/example-default": 220,
   "float/example-placements": 304,
@@ -207,8 +206,6 @@
   "number-input/example-scrubber": 220,
   "number-input/example-sizes": 220,
   "pagination/example-default": 220,
-  "pane-header/example-default": 278,
-  "panel-rail/example-default": 336,
   "password-input/example-controlled": 220,
   "password-input/example-default": 220,
   "password-input/example-default-visible": 220,
@@ -350,6 +347,5 @@
   "use-suggestions/example-states": 220,
   "use-theme-tick/example-default": 244,
   "use-tour-context/example-default": 220,
-  "use-tour-context/example-resume": 220,
-  "workspace-columns/example-default": 312
+  "use-tour-context/example-resume": 220
 }

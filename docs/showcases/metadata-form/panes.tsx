@@ -1,21 +1,5 @@
 "use client";
 
-// The furniture two showcases were building twice.
-//
-// `field-notes` and `metadata-form` are the same arrangement seen from two sides: a workspace with
-// a header, an activity rail, one `<main>` and panels that open beside it. Everything specific to
-// either one stays in its own directory — this file holds only the parts that were being written
-// twice and drifting apart while they were, which is exactly the drift `docs/CLAUDE.md` warns a
-// showcase's specificity is allowed to produce and nobody had noticed:
-//
-//   · the panel headers were `h-9` in one showcase and `h-12` in the other;
-//   · the tally badge was a `HoverCard` with a reveal in one and a plain `Badge` in the other;
-//   · the activity rail existed in one of them, as a `ToggleGroup` standing in for a region.
-//
-// It is NOT a component library. A part here earns its place by having two call sites in
-// `showcases/`, which is admission rule 2 applied one layer down;
-// anything with one call site belongs in that showcase's own directory.
-
 import {
   Badge,
   Button,
@@ -35,41 +19,26 @@ import {
 import { XIcon } from "lucide-react";
 import { Fragment, type ComponentType, type ReactNode } from "react";
 
-/** One switch on the rail: which panel it opens, and how it is drawn and named. */
 export interface RailPanel {
   icon: ComponentType<{ className?: string }>;
   label: string;
   value: string;
 }
 
-/**
- * The activity rail — which panels are open, drawn as icons on the edge they open on.
- *
- * It is a `ShellAside` with a `ToggleGroup` inside, and it was a bare `ToggleGroup` standing in for
- * the region. That is not a detail of taste: a `ToggleGroup` is a CONTROL, so its recipe carries
- * `w-fit` and `rounded-lg`, and a control used as a region brought its 8 px radius with it — the
- * rail's top corner curled away from the header's border and left a step that reads as a second
- * border. Hand-setting `rounded-none` on it would have hidden that; giving the region to the
- * component whose job it is fixes it, and `ShellAside`'s own docblock names a dock as the case.
- *
- * `multiple`, because the panels are independent: the workspace's dock is the same machine with
- * `multiple={false}`, where exactly one panel shows at a time.
- */
+/** The activity rail: a `ShellAside` region, not a bare `ToggleGroup` (a control carries a radius). */
 export function PanelRail({
   label,
   onValueChange,
   panels,
-  side = "start",
   value,
 }: {
   label: string;
   onValueChange: (value: string[]) => void;
   panels: RailPanel[];
-  side?: "start" | "end";
   value: string[];
 }) {
   return (
-    <ShellAside aria-label={label} className="shrink-0 bg-card" side={side}>
+    <ShellAside aria-label={label} className="shrink-0 bg-card" side="start">
       <ToggleGroup
         className="rounded-none px-1.5 py-2"
         multiple
@@ -94,14 +63,6 @@ export function PanelRail({
   );
 }
 
-/**
- * A panel's own header: what the panel is, a control that governs its document, and how it is
- * doing. `h-9` — the same height as the page header's own row, and as every strip on either screen.
- *
- * `actions` is for a control over THIS panel's document (the shape switcher, the standing-orders
- * switcher). A control that acts on the whole page belongs in the page header; one that replaces
- * the document a panel is showing belongs here, against the document.
- */
 export function PaneHeader({
   actions,
   detail,
@@ -113,7 +74,7 @@ export function PaneHeader({
   actions?: ReactNode;
   detail?: string;
   icon: ComponentType<{ "aria-hidden"?: boolean; className?: string }>;
-  onClose?: () => void;
+  onClose: () => void;
   title: string;
   tone?: "destructive" | "info" | "success" | "warning";
 }) {
@@ -129,40 +90,29 @@ export function PaneHeader({
             {detail}
           </span>
         ) : null}
-        {onClose ? (
-          <Button
-            aria-label={`Close ${title}`}
-            className="size-6 shrink-0 text-muted-foreground"
-            onClick={onClose}
-            size="icon-sm"
-            variant="ghost"
-          >
-            <XIcon />
-          </Button>
-        ) : null}
+        <Button
+          aria-label={`Close ${title}`}
+          className="size-6 shrink-0 text-muted-foreground"
+          onClick={onClose}
+          size="icon-sm"
+          variant="ghost"
+        >
+          <XIcon />
+        </Button>
       </span>
     </div>
   );
 }
 
-/** One thing that is wrong somewhere, in the words of whoever noticed. */
-export interface Finding {
-  /** Where it is, in the reader's terms — a column, a field, a row and a column. */
+interface Finding {
   where: string;
   message: string;
 }
 
 /**
- * A tally that can be interrogated, and it is the same one on both screens.
- *
- * A count on its own asks the reader to go and find what it counted. Hovering lists every one of
- * them; pressing it shows them **where they are** — the fields on a form, the rows in a ledger. It
- * does not hide anything, and that is the change: this used to filter the ledger down to the
- * flagged rows, which answers "which ones" by removing the answer to "out of what".
- *
- * The reveal lives on the badge and not inside the card, because a hover card closes as soon as the
- * pointer leaves its trigger — a control in there is one you cannot reliably click. Hovering reads;
- * pressing acts; the same element owns both.
+ * A tally that can be interrogated: hovering lists every finding, pressing marks them where they
+ * are. The reveal lives on the badge because a hover card closes when the pointer leaves its
+ * trigger, so a control inside it could not be reliably clicked.
  */
 export function FindingsBadge({
   active,
@@ -192,9 +142,7 @@ export function FindingsBadge({
         >
           <Badge className="tabular-nums" pill size="xs" variant={active ? tone : "outline"}>
             <Status className={cn("size-1.5", !active && "opacity-64")} variant={tone} />
-            {/* The number is right-aligned in a fixed cell, so 9 → 10 does not move the label (2ch, because a run of this size counts in tens) and
-                the label does not move whatever is beside it. A tally watched while it fills is a
-                tally that must not shuffle its neighbours on every event. */}
+            {/* A fixed cell, so 9 → 10 does not shuffle the badges beside it while a run fills. */}
             <span className="inline-block min-w-[2ch] text-end">{findings.length}</span> {label}
           </Badge>
         </button>
@@ -226,7 +174,6 @@ export function FindingsBadge({
   );
 }
 
-/** One column of the workspace: what it is, what it renders, and how far it may be squeezed. */
 export interface WorkspaceColumn {
   id: string;
   /** Percent of the row this column may not go below. */
@@ -235,17 +182,8 @@ export interface WorkspaceColumn {
 }
 
 /**
- * The workspace row: panels beside one `<main>`, every seam draggable.
- *
- * This was written out twice, identically, once in each showcase — the same `Resizable`, the same
- * `Fragment` loop, the same `key` on the open set, the same `ResizableResizeTrigger` between every
- * pair. Only the column ids and the default split differed, and both are arguments.
- *
- * Two things it decides rather than the caller. **One column is not a workspace**: with nothing to
- * resize against, the splitter is dead chrome and the single column is returned bare. And the
- * **`key` is the open set**, because Ark's splitter builds its panel model once — a column
- * appearing or leaving without a new key leaves the model describing a row that is no longer
- * there, and the drag ends up resizing the wrong seam.
+ * Panels beside one `<main>`, every seam draggable. The `key` is the open set because Ark's
+ * splitter builds its panel model once; a single column needs no splitter at all.
  */
 export function WorkspaceColumns({
   columns,

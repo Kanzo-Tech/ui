@@ -27,7 +27,7 @@ export interface ComponentEntry {
  * more layer. Written once here and read by `ComponentsList`; two of these strings in two files is
  * the second list this module exists to prevent.
  */
-export const OWN_GALLERY = ["showcases", "blocks"];
+export const OWN_GALLERY = ["showcases"];
 
 export interface ComponentGroup {
   slug: string;
