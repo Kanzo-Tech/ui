@@ -96,7 +96,9 @@ shrinks — `total`, the manifest's vertex count, which it does not, and `status
 
 The commands, drawn: the selection tools, the selection and what to do with it, zoom and fit, and the
 layout's transport. The graph loads at the corpus's positions with no layout running; play runs the
-force layout from where the points are, and pause leaves them there. Each cluster is a `ButtonGroup`, because a cluster is
+force layout from where the points are, and pause leaves them there. Dragging a node while a layout
+runs pins it where it is dropped, and the toolbar then offers to release the pins, which reheats the
+layout so the released nodes flow back; with no layout running a drag only moves the node. Each cluster is a `ButtonGroup`, because a cluster is
 a claim that its buttons do one job. Pick a tool and drag a box; Shift borrows the marquee whichever
 tool is armed, and at release `Alt` removes what was drawn while `⌘`/`Ctrl` adds. The toolbar
 declares no `toolbar` role: that role promises roving focus, and each button here is its own tab
@@ -107,13 +109,24 @@ stop. `orientation="vertical"` stacks the clusters.
 <ComponentPreview componentName="graph" fileName="example-legend" hasMaxHeight />
 
 The categorical scale the canvas draws, as rows: the glyph, the name, and how many vertices of that
-category are drawn — then what is drawn of the whole. With nothing bound to `fill`, the categories
-are the vertex types. **A row never moves.** The domain is fixed before the graph loads: the drawn
+category are drawn. With nothing bound to `fill`, the categories are the vertex types; with colour a
+constant and nothing on `symbol` there is no category to key, and the legend draws nothing. **A row never moves.** The domain is fixed before the graph loads: the drawn
 types in the manifest's order, or the keys of the root's `categories`, which is also what names the
 values. A category past the palette's capacity is Other, on the legend as on the canvas.
 
 The names are the root's, never the legend's, so the hover card and the inspector say the same
 thing. A legend that renamed a category would be a part encoding one product's policy.
+
+### `GraphCounts`
+
+<ComponentPreview componentName="graph" fileName="example-counts" hasMaxHeight />
+
+What is drawn of the whole, in one sentence: **"1.2K of 5K nodes drawn · 8K edges"**. The first
+figure shrinks with the page's filter and the second is the manifest's, so the sentence is the
+filter's effect; an edge counts when both its ends are drawn. A figure not yet known is "—", and the
+numbers are compact in the nearest `LocaleProvider`'s locale. `spinner` draws progress beside it
+while the corpus opens or the graph loads, for a host with no status of its own; `aria-busy` is set
+either way. It is the legend's old last line, a part of its own so a footer can carry it.
 
 ### `GraphInspector`
 
@@ -125,6 +138,21 @@ its table, filtered to its `dense_id`, cancelled when the focus moves on. The fi
 in the order the manifest declares them. **`children` is a render prop** that receives the row and draws
 fields of the product's own, a `DataListItem` each — the hall's name above, where the relation
 stores its id.
+
+### `GraphSearch`
+
+<ComponentPreview componentName="graph" fileName="example-search" hasMaxHeight />
+
+Find a vertex by its text and go to it. Every drawn vertex's `title` — or its table's `identity` —
+is read **once**, one two-column scan per table, and then filtered in the browser as the reader
+types: no query per keystroke. The list is ordered by the `r` ramp, so with `r="degree"` the hubs
+come first, and each match carries its category's name from the root's `categories`. Picking one is
+`reveal`, so the canvas frames it and selects it with its neighbours and `GraphInspector` reads it.
+A vertex the page's filter hides is not offered: there is nothing on the canvas to go to. `limit`
+caps the list (50) and says so; `placeholder` and `size` are the input's.
+
+It is a `Combobox` and not `ChartSearch` because of what the control means: `ChartSearch` publishes
+a substring filter, which narrows the picture; picking is a value, which goes somewhere.
 
 **A label is the `title` column, read for the vertices that carry one.** The canvas labels the
 biggest vertices by the `r` ramp, up to the look's label budget, and reads their text — the column
@@ -239,6 +267,20 @@ const { look, sim } = useGraphPrefs();
 A host that knows its corpus is large starts its users at other forces through the tenant policy,
 over the same declared axes.
 
+### `GraphLooks`
+
+<ComponentPreview componentName="graph" fileName="example-looks" hasMaxHeight />
+
+The picture's preferences, drawn: three **looks** on top — Nebula, Atlas and Ink, each a card with a
+miniature drawn through the canvas's own glyphs and scale — and the axes themselves folded under
+**Customize**, with Marks as a segmented control and the rest as `GRAPH_SECTION` declares them.
+Wearing a look writes every axis it names; a look is checked exactly when the resolved axes are its
+own, so no name is stored beside them, and a picture customised past all three checks none and opens
+Customize. `useGraphPrefs()` answers `preset` — `"nebula"`, `"atlas"`, `"ink"` or `null` — for a host
+that pairs channels with a look: Ink's register spends identity on shape, and a binding is the host's
+to make. A look whose axes a tenant pinned is disabled. It needs `GRAPH_SECTION` on the provider and
+no `GraphRoot`, so it sits in a preferences drawer as well as in a dock.
+
 ## Things the source will not tell you twice
 
 These are cosmos.gl behaviours that typecheck perfectly while being wrong.
@@ -270,9 +312,11 @@ writes it in.
 | `useGraphContext` | **Reads** it, from any part under a root: the commands, stable for the root's life. |
 | `useGraphState` | A slice of the state, and a render only when it moves. |
 | `GraphCanvas` | The element, the grid, the vignette, the labels, the hover card and the gesture. |
-| `GraphLegend` | The categorical scale the canvas draws, with the tally in view. |
+| `GraphLegend` | The categorical scale the canvas draws, one row per category with its tally. |
+| `GraphCounts` | What is drawn of the whole: nodes drawn of the total, and edges drawn. |
 | `GraphToolbar` | The tools, the selection, zoom and fit, and a live layout's transport. |
 | `GraphInspector` | The focused vertex's row, with a render prop for fields a product adds. |
+| `GraphSearch` | Every drawn vertex's text, read once and filtered as you type; picking reveals it. |
 | `ShapeGlyph` | The glyph the canvas draws for a category, in the DOM — for a legend key or a card. |
 
 ### The picture
@@ -281,7 +325,8 @@ writes it in.
 | --- | --- |
 | `lookFrom` | The axes a person chose, as a `Look`. |
 | `simFrom` | The same axes, read as forces. |
-| `useGraphPrefs` | Both, joined to the provider's resolved `sectionPrefs` for `GRAPH_SECTION`. |
+| `useGraphPrefs` | Both, joined to the provider's resolved `sectionPrefs` for `GRAPH_SECTION`, and the `preset` they are. |
+| `GraphLooks` | The three looks as cards over the section's axes, with the axes under Customize. |
 | `scaleOf` | The categorical scale the channels imply: what colour and what shape a category wears. |
 
 ### The types
@@ -291,9 +336,9 @@ writes it in.
 `GraphApi` is the commands — the `GraphCommands` (`zoomBy`, `fit`, `pause`, `resume`, `restart`,
 `unpin`, `reveal`, `frameSelection`, `clear`), `select`, `setFocus`, `setTool` — with `subscribe` and
 `getState`. `GraphState` is what `useGraphState` selects from: `status` (a `GraphStatus`), `total`,
-`drawn` (a `Drawn`: `vertices`, `domain`, `tally`), `domain`, `selection`, `focus`, `hovered`,
-`pinned`, `tool`, `motion`, `progress`, `options` and `corpus`. `GraphCanvasProps`, `GraphLegendProps`,
-`GraphToolbarProps`, `GraphInspectorProps`, `GraphRootProviderProps` and `ShapeGlyphProps` are the
+`drawn` (a `Drawn`: `vertices`, `edges`, `domain`, `tally`), `domain`, `selection`, `focus`, `hovered`,
+`pinned`, `tool`, `motion`, `progress`, `options` and `corpus`. `GraphCanvasProps`, `GraphLegendProps`, `GraphCountsProps`,
+`GraphToolbarProps`, `GraphInspectorProps`, `GraphSearchProps`, `GraphLooksProps`, `GraphRootProviderProps` and `ShapeGlyphProps` are the
 parts' props, and `VertexDetail` is what the inspector's render prop receives; `Channels`, `Look`,
-`LookPatch`, `Shape`, `Sim`, `Motion`, `Selection`, `SelectionSource`, `Tool` and `VertexId` are the
+`LookPatch`, `LookPreset`, `Shape`, `Sim`, `Motion`, `Selection`, `SelectionSource`, `Tool` and `VertexId` are the
 vocabulary.

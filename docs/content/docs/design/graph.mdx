@@ -24,7 +24,7 @@ way to reach the same bytes.
 
 ```text
 fossil (backend)                               @kanzo-tech/graph (view)
-open(url, { engine })  → Corpus                parts     GraphCanvas · GraphLegend · GraphToolbar · GraphInspector
+open(url, { engine })  → Corpus                parts     GraphCanvas · GraphLegend · GraphCounts · GraphToolbar · GraphInspector · GraphSearch · GraphLooks
 manifest → vertex_tables · edge_tables         adapter   useGraph · GraphRoot · GraphRootProvider · useGraphContext · useGraphState
 scan({ table, filter, select })                render    typed arrays → cosmos.gl, uploaded once per corpus
 scan.read(scan.plan()) → Batch[]               core      load: one scan per table · store · filter
@@ -116,7 +116,7 @@ packages/graph/src/
 │   ├── store.ts              createGraph(options): subscribe · getSnapshot · setOptions
 │   ├── state.ts              the options, the state a host selects from, and the store's shape
 │   ├── categories.ts         the categorical domain, fixed before the graph loads
-│   └── detail.ts             one vertex's row, and a few vertices' titles, read when asked
+│   └── detail.ts             one vertex's row, and vertices' titles, read when asked
 ├── render/
 │   ├── renderer.ts           cosmos.gl's lifetime, dirty flags by kind, one render per frame
 │   └── graph-looks · graph-model · graph-sim · obligations · css-color · webgl
@@ -127,7 +127,9 @@ packages/graph/src/
 │   └── use-graph-prefs.ts
 ├── parts/
 │   ├── graph-canvas.tsx      the element; grid, vignette, labels, hover card; the drag gesture
-│   ├── graph-legend.tsx · graph-toolbar.tsx · graph-inspector.tsx
+│   ├── graph-legend.tsx · graph-counts.tsx · graph-toolbar.tsx · graph-inspector.tsx
+│   ├── graph-search.tsx      every drawn vertex's text, read once, filtered as the reader types
+│   ├── graph-looks.tsx       the three looks as cards over the axes, and the axes under Customize
 │   ├── overlays.ts · gesture.ts   what the canvas draws over the surface; marquee and lasso
 │   └── shape-glyph.tsx
 ├── index.ts
@@ -219,8 +221,11 @@ buffer:
   `requestAnimationFrame`.
 - **Nothing animates.** `transitionDuration` is 0.
 - **The layout runs only when asked.** cosmos.gl is built with its simulation off; `simulate` or the
-  toolbar starts it from the current positions and pauses it where they are. Dragging a node pins it
-  with or without a running layout.
+  toolbar starts it from the current positions and pauses it where they are. Dragging a node moves
+  it; it is pinned only while a layout is running or paused, because a pin nothing pulls against
+  means nothing — d3-force's drag-to-fix. Releasing the pins reheats the layout, so the released
+  points visibly flow back: a running layout takes the heat, a settled one cools to settled on its
+  own, and a paused one gets a bounded burst and is paused again.
 - **The camera is cosmos.gl's.** A zoom repaints the overlays and reaches no store.
 
 **What would reverse it:** cosmos.gl gaining a sub-range upload, so a filter could upload only what
@@ -229,7 +234,8 @@ it hid; or a picture that needs a transition to be read, measured against the fr
 *Held by* `packages/graph/src/render/renderer.test.ts`, "uploads positions and links once per corpus,
 and renders once", "repaints colours, sizes and shapes on a look change, and uploads no geometry",
 "uploads positions alone for a filter", "starts and stops with the simulate prop, after the first
-load"; `packages/graph/src/react/graph-root.test.tsx`, "does not rebuild the renderer because a
+load", "moves a dragged node and pins nothing while no layout runs", "releases a paused layout with a
+bounded burst, then pauses it again"; `packages/graph/src/react/graph-root.test.tsx`, "does not rebuild the renderer because a
 callback changed identity".
 
 ## The React API is a store and an adapter
@@ -274,9 +280,13 @@ the root.
   the hover card, plus the marquee and lasso gesture.
 - **`GraphLegend`** — the categorical scale, or the vertex types when nothing is bound, with how many
   of each are drawn. Its domain is fixed before the graph loads, so a row never moves.
+- **`GraphCounts`** — what is drawn of the whole, in one sentence: nodes drawn of the manifest's
+  total, and edges drawn. A footer carries it, which is why it is not the legend's last line.
 - **`GraphToolbar`** — the tools, the selection, zoom and fit, and the layout's run and stop.
 - **`GraphInspector`** — the focused vertex's row, in its table's `properties` order, with a render
   prop for fields a product adds.
+- **`GraphSearch`** — every drawn vertex's text, read once and filtered in the browser, ordered by
+  the `r` ramp and named by `categories`; picking one is `reveal`.
 
 **Names are data on the root.** The manifest names no category values, so the host passes
 `categories` on the root, where the legend, the hover card and the inspector all read it.
@@ -314,7 +324,7 @@ is one path and nothing on it is optional.
 [The workspace showcase](/docs/showcases/workspace) is the reference composition: one `GraphRoot`
 around a shell whose main region switches between **Graph** and **Sightings**, with a dock of Info,
 Ask, Orders and Settings. What it writes itself is the product's — the named pairings of look and
-channels, the hall's name in the inspector, the archive search and the panels — and nothing in it
+channels, the hall's name in the inspector and the panels — and nothing in it
 reads a renderer or a buffer. keasy is migrating to copy it; the composition drawing there without a
 prop added for it is the test that admits these parts.
 
@@ -328,12 +338,14 @@ Mosaic goes behind an entry of its own.
 
 ```text
 the adapter        GraphRoot · GraphRootProvider · useGraph · useGraphContext · useGraphState
-the parts          GraphCanvas · GraphLegend · GraphToolbar · GraphInspector · ShapeGlyph
-the picture        lookFrom · simFrom · useGraphPrefs · scaleOf
+the parts          GraphCanvas · GraphLegend · GraphCounts · GraphToolbar · GraphInspector · GraphSearch
+                   ShapeGlyph
+the picture        lookFrom · simFrom · useGraphPrefs · scaleOf · GraphLooks
 types              GraphRootProps · GraphRootProviderProps · UseGraphProps · GraphApi · GraphCanvasProps
-                   GraphLegendProps · GraphToolbarProps · GraphInspectorProps · ShapeGlyphProps
+                   GraphLegendProps · GraphCountsProps · GraphToolbarProps · GraphInspectorProps
+                   GraphSearchProps · GraphLooksProps · ShapeGlyphProps
                    GraphState · GraphStatus · Drawn · VertexDetail
-                   Channels · Look · LookPatch · Shape · Sim · Motion · Selection · SelectionSource
+                   Channels · Look · LookPatch · LookPreset · Shape · Sim · Motion · Selection · SelectionSource
                    Tool · GraphCommands · VertexId
 ./section          GRAPH_SECTION
 ```
@@ -430,12 +442,19 @@ recover the three shipped looks and combine into others.
 | **vignette** | **yes** | no | no | on → off |
 
 Six of the ten fields separate Nebula from Atlas by 7–17%, below a luminance JND of 6.5–11.3 ΔL\*.
-**Ink is a real form.** The three names live on in the host as recommended pairings, and an empty
-look is Atlas.
+**Ink is a real form.** An empty look is Atlas.
+
+**The three names live on as presets over the axes, not as a fourth axis.** `PRESETS` writes each
+look as axis values and `GraphLooks` offers them as cards, GitHub's appearance settings: pick by
+looking, then customise. A look is worn exactly when the resolved axes equal its own, so there is no
+stored name to disagree with them, and `useGraphPrefs` answers `preset` for a host that pairs
+channels with a look — the pairing stays the host's, because a look is form. A `preset` preference
+was the alternative and is refused: it would be a key no reader reads, which the axes guard forbids.
 
 **What would reverse it:** a reader telling Nebula from Atlas in a blind pairing on those six fields.
 
-*Held by* `packages/graph/src/section.test.ts`, "still draws the three pictures the three names drew";
+*Held by* `packages/graph/src/section.test.ts`, "still draws the three pictures the three names drew",
+"wears the three pictures as presets, and knows one when the axes are it";
 `packages/graph/src/render/graph-looks.ts`, `lookFrom`.
 
 ## What is still open

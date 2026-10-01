@@ -50,6 +50,8 @@ export type GraphStatus = "none" | "opening" | "loading" | "idle" | "failed";
 export interface Drawn {
   /** Vertices drawn: every one with a position that survives the filter. */
   readonly vertices: number;
+  /** Links drawn: every loaded relation whose two ends are drawn. */
+  readonly edges: number;
   /** What each category rank is: the seed first, then any other value seen, in rank order. */
   readonly domain: readonly unknown[];
   /** Per rank, the vertices drawn. */

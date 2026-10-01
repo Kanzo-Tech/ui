@@ -1,11 +1,13 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeCorpus } from "../../test/corpus";
 import { GraphRoot, useGraphContext } from "../react/graph-root";
 import { internalsOf, type GraphApi } from "../react/use-graph";
 import { GraphCanvas } from "./graph-canvas";
+import { GraphCounts } from "./graph-counts";
 import { GraphInspector } from "./graph-inspector";
 import { GraphLegend } from "./graph-legend";
+import { GraphSearch } from "./graph-search";
 import { GraphToolbar } from "./graph-toolbar";
 import { useOverlays } from "./overlays";
 
@@ -34,7 +36,6 @@ describe("GraphLegend", () => {
     );
     const rows = screen.getAllByRole("listitem").map((row) => row.textContent);
     expect(rows).toEqual(["Amber—", "Salt—"]);
-    expect(screen.getByText("— of 16 drawn")).toBeTruthy();
   });
 
   it("draws the vertex types when nothing is bound, with what each has drawn", async () => {
@@ -46,17 +47,43 @@ describe("GraphLegend", () => {
     );
     await act(() => fake.settle());
     expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Person10", "Place6"]);
-    expect(screen.getByText("16 of 16 drawn")).toBeTruthy();
   });
 
-  it("draws no rows when colour is a constant and nothing carries a category", () => {
+  it("draws nothing when colour is a constant and nothing carries a category", () => {
     const { corpus } = fakeCorpus();
-    render(
+    const { container } = render(
       <GraphRoot corpus={corpus} fill="var(--foreground)" onFailure={() => {}}>
         <GraphLegend />
       </GraphRoot>,
     );
-    expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+    expect(container.innerHTML).toBe("");
+  });
+});
+
+describe("GraphCounts", () => {
+  it("says what it does not know yet as a dash, and is busy while it loads", () => {
+    const { corpus } = fakeCorpus();
+    render(
+      <GraphRoot corpus={corpus} onFailure={() => {}}>
+        <GraphCounts spinner />
+      </GraphRoot>,
+    );
+    const counts = document.querySelector('[data-slot="graph-counts"]');
+    expect(counts?.textContent).toBe("— of 16 nodes drawn · — edges");
+    expect(counts?.getAttribute("aria-busy")).toBe("true");
+    expect(screen.getByRole("status")).toBeTruthy();
+  });
+
+  it("counts what is drawn of the whole, and the edges whose two ends are drawn", async () => {
+    const fake = fakeCorpus();
+    render(
+      <GraphRoot corpus={fake.corpus} onFailure={() => {}}>
+        <GraphCounts />
+      </GraphRoot>,
+    );
+    await act(() => fake.settle());
+    expect(document.querySelector('[data-slot="graph-counts"]')?.textContent).toBe("16 of 16 nodes drawn · 19 edges");
+    expect(screen.queryByRole("status")).toBeNull();
   });
 });
 
@@ -124,6 +151,70 @@ describe("GraphInspector", () => {
     const labels = [...document.querySelectorAll("dt")].map((dt) => dt.textContent);
     expect(labels).toEqual(["subject", "cluster_id", "degree"]);
     expect(fake.scans.at(-1)).toMatchObject({ table: "Person", filter: { column: "dense_id", op: "=", value: 6 } });
+  });
+});
+
+describe("GraphSearch", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  async function searching() {
+    const fake = fakeCorpus();
+    const held: { api: GraphApi | null } = { api: null };
+    render(
+      <GraphRoot categories={{ Person: "People", Place: "Places" }} corpus={fake.corpus} onFailure={() => {}} r="degree" title="name">
+        <GraphSearch limit={3} />
+        <Hold into={held} />
+      </GraphRoot>,
+    );
+    await act(() => fake.settle());
+    await act(() => fake.settle());
+    const input = screen.getByRole("combobox");
+    return { fake, held, input };
+  }
+  const options = () => screen.getAllByRole("option").map((option) => option.textContent);
+
+  it("reads every drawn vertex's text once, by its title or its table's identity", async () => {
+    const { fake } = await searching();
+    const reads = fake.scans.filter((scan) => scan.select?.length === 2 && scan.select[0] === "dense_id");
+    expect(reads.map((scan) => [scan.table, scan.select])).toEqual([
+      ["Person", ["dense_id", "subject"]],
+      ["Place", ["dense_id", "name"]],
+    ]);
+  });
+
+  it("offers the biggest on the ramp first, named by the root, and says when it stopped", async () => {
+    const { input } = await searching();
+    expect((input as HTMLInputElement).disabled).toBe(false);
+    fireEvent.click(input);
+    await waitFor(() => expect(options()).toHaveLength(3));
+    expect(options()).toEqual([
+      "https://example.org/person/9People",
+      "https://example.org/person/8People",
+      "https://example.org/person/7People",
+    ]);
+    expect(screen.getByText("First 3. Keep typing to narrow it.")).toBeTruthy();
+  });
+
+  it("filters in the browser as the reader types, and picking reveals the vertex", async () => {
+    const { fake, held, input } = await searching();
+    const before = fake.scans.length;
+    fireEvent.click(input);
+    fireEvent.change(input, { target: { value: "place 3" } });
+    await waitFor(() => expect(options()).toEqual(["Place 3Places"]));
+    expect(fake.scans.length).toBe(before);
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(held.api?.getState().focus).toBe(13));
   });
 });
 
