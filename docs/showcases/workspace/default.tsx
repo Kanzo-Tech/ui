@@ -93,17 +93,14 @@ import {
 } from "./data";
 import { hall, HOME_HALL, type HallId } from "@/example/world";
 import { initialsOf } from "@/example/people";
-import { GraphCanvas, GraphLegend, GraphToolbar, useGraphState } from "@kanzo-tech/graph";
+import { GraphCanvas, GraphLegend, GraphLooks, GraphToolbar, useGraphState } from "@kanzo-tech/graph";
 import {
 	ArchiveCounts,
 	ArchiveGraph,
-	GraphAppearance,
 	GraphAsk,
 	GraphInfo,
 	GraphOrders,
 	GraphSettings,
-	type LookId,
-	useArrangement,
 } from "./graph-view";
 
 /**
@@ -473,7 +470,7 @@ function HallNav() {
 	);
 }
 
-function ArchiveShell({ arrangement, wear }: { arrangement: LookId; wear: (id: LookId) => void }) {
+function ArchiveShell() {
 	const [active, setActive] = useState<PanelId>("info");
 	const [panelOpen, setPanelOpen] = useState(true);
 	const [view, setView] = useState<ViewId>("graph");
@@ -562,11 +559,11 @@ function ArchiveShell({ arrangement, wear }: { arrangement: LookId; wear: (id: L
 						))}
 					</ToggleGroup>
 
-					{/* The library's own theme drawer, EXTENDED with the graph's appearance. Passing
+					{/* The library's own theme drawer, EXTENDED with the graph's looks. Passing
 					    children to `PreferencesPanel` keeps its header toggle and pinned footer while
 					    leading with a section this view owns.
 
-					    The dock's Settings keeps the camera and the gestures. The line is the one
+					    The dock's Settings keeps the gestures. The line is the one
 					    `a-section-brings-measurable-obligations` draws: a look and a display have
 					    obligations that return a measured claim, a friction coefficient has none. */}
 					<PreferencesRoot hotkey="p">
@@ -575,7 +572,7 @@ function ArchiveShell({ arrangement, wear }: { arrangement: LookId; wear: (id: L
 						    them in the header it read as one. The `P` hotkey is unchanged. */}
 						<PreferencesTrigger />
 						<PreferencesPanel>
-							<GraphAppearance arrangement={arrangement} wear={wear} />
+							<GraphLooks />
 							<PreferencesColor />
 							<PreferencesDensity />
 							<PreferencesRadius />
@@ -678,13 +675,12 @@ export default WorkspaceShowcase;
 /**
  * The graph's root sits outside the shell so the canvas, the inspector and the panels all read one
  * graph and one crossfilter: lasso the canvas and the Info panel follows, with nothing wired between
- * them but the selection. The arrangement is the product's, so it is held here and handed down.
+ * them but the selection.
  */
 export function WorkspaceShowcase() {
-	const [arrangement, wear] = useArrangement();
 	return (
-		<ArchiveGraph arrangement={arrangement}>
-			<ArchiveShell arrangement={arrangement} wear={wear} />
+		<ArchiveGraph>
+			<ArchiveShell />
 		</ArchiveGraph>
 	);
 }

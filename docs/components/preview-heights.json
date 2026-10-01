@@ -152,6 +152,7 @@
   "graph/example-default": 400,
   "graph/example-inspector": 464,
   "graph/example-legend": 464,
+  "graph/example-looks": 560,
   "graph/example-memory": 464,
   "graph/example-overlays": 464,
   "graph/example-provider": 464,

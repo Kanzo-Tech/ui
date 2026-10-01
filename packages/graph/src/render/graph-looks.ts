@@ -13,9 +13,11 @@
 // in Observable Plot colour is a property of the **scale**, never of the mark, and the mark carries
 // the channels. A look is the mark's geometry.
 //
-// The three names survive as **recommended pairings** — a form plus the bindings that were bundled
-// with it — offered by the host that draws the graph. A host offering three arrangements it authored
-// is not the same act as a preference silently discarding the caller's binding.
+// The three names survive as **presets over the axes** — `PRESETS`, worn through `GraphLooks` — and
+// the bindings once bundled with them stay the host's: `useGraphPrefs` says which preset the axes
+// are, and a host that wants Ink's shape-for-identity binds it. A preset never discards a binding.
+
+import { GRAPH_SECTION } from "../section";
 
 /**
  * The glyphs this canvas draws — **by name**, because a name is what the concept is.
@@ -225,6 +227,29 @@ export function lookFrom(values: Readonly<Record<string, string | undefined>> = 
     vignette: on("vignette", false),
     grid: on("grid", true),
   };
+}
+
+/** The three named looks. */
+export type LookPreset = "nebula" | "atlas" | "ink";
+
+/**
+ * **The three looks as values of the section's axes**, in the order a picker offers them. Each writes
+ * every axis any of them names, so wearing one leaves nothing of the last, and a look is worn exactly
+ * when the resolved axes equal its own — no name is stored beside them. Atlas is every default.
+ */
+export const PRESETS: Record<LookPreset, Readonly<Record<string, string>>> = {
+  nebula: { marks: "dense", "additive-links": "true", "bowed-links": "false", labels: "14", vignette: "true" },
+  atlas: { marks: "dense", "additive-links": "false", "bowed-links": "true", labels: "26", vignette: "false" },
+  ink: { marks: "legible", "additive-links": "false", "bowed-links": "false", labels: "40", vignette: "false" },
+};
+
+/** The look the axes are — a missing one is the section's default — or `null` once customised past all three. */
+export function presetOf(values: Readonly<Record<string, string | undefined>>): LookPreset | null {
+  const value = (key: string) => values[key] ?? GRAPH_SECTION.prefs?.[key]?.default;
+  const found = (Object.keys(PRESETS) as LookPreset[]).find((id) =>
+    Object.entries(PRESETS[id]).every(([key, wanted]) => value(key) === wanted),
+  );
+  return found ?? null;
 }
 
 /**

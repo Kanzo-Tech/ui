@@ -4,6 +4,10 @@ import type { ReactNode } from "react";
 import { useServerInsertedHTML } from "next/navigation";
 import type { ThemeOption } from "@kanzo-tech/theme";
 import { KanzoThemeProvider, cookieStorageAdapter, themeScript } from "@kanzo-tech/ui";
+import { GRAPH_SECTION } from "@kanzo-tech/graph/section";
+
+/** The sections the site's pages contribute — the workspace's graph looks — hoisted, so they never change identity. */
+const SECTIONS = [GRAPH_SECTION];
 
 /**
  * The design system owns the theme, appearance included.
@@ -61,6 +65,7 @@ export const KanzoProvider = ({
   return (
     <KanzoThemeProvider
       defaultTheme={defaultTheme}
+      sections={SECTIONS}
       themes={themes}
       storage={cookieStorageAdapter()}
     >

@@ -267,6 +267,20 @@ const { look, sim } = useGraphPrefs();
 A host that knows its corpus is large starts its users at other forces through the tenant policy,
 over the same declared axes.
 
+### `GraphLooks`
+
+<ComponentPreview componentName="graph" fileName="example-looks" hasMaxHeight />
+
+The picture's preferences, drawn: three **looks** on top — Nebula, Atlas and Ink, each a card with a
+miniature drawn through the canvas's own glyphs and scale — and the axes themselves folded under
+**Customize**, with Marks as a segmented control and the rest as `GRAPH_SECTION` declares them.
+Wearing a look writes every axis it names; a look is checked exactly when the resolved axes are its
+own, so no name is stored beside them, and a picture customised past all three checks none and opens
+Customize. `useGraphPrefs()` answers `preset` — `"nebula"`, `"atlas"`, `"ink"` or `null` — for a host
+that pairs channels with a look: Ink's register spends identity on shape, and a binding is the host's
+to make. A look whose axes a tenant pinned is disabled. It needs `GRAPH_SECTION` on the provider and
+no `GraphRoot`, so it sits in a preferences drawer as well as in a dock.
+
 ## Things the source will not tell you twice
 
 These are cosmos.gl behaviours that typecheck perfectly while being wrong.
@@ -311,7 +325,8 @@ writes it in.
 | --- | --- |
 | `lookFrom` | The axes a person chose, as a `Look`. |
 | `simFrom` | The same axes, read as forces. |
-| `useGraphPrefs` | Both, joined to the provider's resolved `sectionPrefs` for `GRAPH_SECTION`. |
+| `useGraphPrefs` | Both, joined to the provider's resolved `sectionPrefs` for `GRAPH_SECTION`, and the `preset` they are. |
+| `GraphLooks` | The three looks as cards over the section's axes, with the axes under Customize. |
 | `scaleOf` | The categorical scale the channels imply: what colour and what shape a category wears. |
 
 ### The types
@@ -323,7 +338,7 @@ writes it in.
 `getState`. `GraphState` is what `useGraphState` selects from: `status` (a `GraphStatus`), `total`,
 `drawn` (a `Drawn`: `vertices`, `edges`, `domain`, `tally`), `domain`, `selection`, `focus`, `hovered`,
 `pinned`, `tool`, `motion`, `progress`, `options` and `corpus`. `GraphCanvasProps`, `GraphLegendProps`, `GraphCountsProps`,
-`GraphToolbarProps`, `GraphInspectorProps`, `GraphSearchProps`, `GraphRootProviderProps` and `ShapeGlyphProps` are the
+`GraphToolbarProps`, `GraphInspectorProps`, `GraphSearchProps`, `GraphLooksProps`, `GraphRootProviderProps` and `ShapeGlyphProps` are the
 parts' props, and `VertexDetail` is what the inspector's render prop receives; `Channels`, `Look`,
-`LookPatch`, `Shape`, `Sim`, `Motion`, `Selection`, `SelectionSource`, `Tool` and `VertexId` are the
+`LookPatch`, `LookPreset`, `Shape`, `Sim`, `Motion`, `Selection`, `SelectionSource`, `Tool` and `VertexId` are the
 vocabulary.

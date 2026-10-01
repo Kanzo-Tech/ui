@@ -25,7 +25,7 @@ canvas, the toolbar, the legend, the counts in the footer, the search and the in
 [`@kanzo-tech/graph`](/docs/graph)'s parts, and the showcase writes none of them. What it writes is
 the product's: the channels each look is paired with, the hall's name in the inspector, and the
 dock's panels — **Info** (the search and the inspector), **Ask**, **Orders** and **Settings**
-(`GraphSettings`: the camera and the gestures). fossil opens the corpus and the graph draws the whole of it; the
+(`GraphSettings`: the gestures). The looks are `GraphLooks`, at the head of the Preferences drawer. fossil opens the corpus and the graph draws the whole of it; the
 [analytics subpath](/docs/analytics/charts) asks the panels' questions over the same engine.
 
 The graph is drawn at the corpus's own layout, with no simulation running; the toolbar runs one
@@ -72,7 +72,7 @@ docs/showcases/workspace/
 ├── duck.ts               — each view's relations, registered once in the page's one engine
 ├── graph-data.ts         — the archive as rows; what the corpus is compiled FROM, not read from
 ├── corpus/               — the mapping, the shape and the script that compile it with fossil
-├── graph-view.tsx        — the GraphRoot composition, the named arrangements, and the dock panels
+├── graph-view.tsx        — the GraphRoot composition, each look's channels, and the dock panels
 ├── graph-finding.tsx     — a finding a panel can point the canvas at
 ├── orders.ts             — the standing-orders language, compiled to SQL predicates
 ├── order-builder.ts      — the same document, written back out

@@ -13,7 +13,8 @@
  *   `useGraphState`, TanStack Store's selector, because the api is commands and the state moves at
  *   frame rate.
  * - `parts/` — `GraphCanvas`, `GraphLegend`, `GraphCounts`, `GraphToolbar`, `GraphInspector`,
- *   `GraphSearch`: flat parts over the one context. They own the vocabulary; the root's callbacks are the host's policy.
+ *   `GraphSearch`: flat parts over the one context; and `GraphLooks`, the picture's preferences,
+ *   which needs only the theme provider. They own the vocabulary; the root's callbacks are the host's policy.
  *
  * **Why a package and not `@kanzo-tech/ui`.** The first admission rule is *domain-free — nothing
  * about RDF / SHACL / fossil / graphs / auth*. Graphs are excluded by name, and a sibling package is
@@ -37,11 +38,12 @@ export { GraphCounts, type GraphCountsProps } from "./parts/graph-counts";
 export { GraphToolbar, type GraphToolbarProps } from "./parts/graph-toolbar";
 export { GraphInspector, type GraphInspectorProps } from "./parts/graph-inspector";
 export { GraphSearch, type GraphSearchProps } from "./parts/graph-search";
+export { GraphLooks, type GraphLooksProps } from "./parts/graph-looks";
 export { ShapeGlyph, type ShapeGlyphProps } from "./parts/shape-glyph";
 
 // The picture: form, forces and the scale a legend asks what a category wears. `lookFrom` and
 // `simFrom` parse what `@kanzo-tech/graph/section` declares and a preferences panel writes.
-export { lookFrom, type Look, type LookPatch, type Shape } from "./render/graph-looks";
+export { lookFrom, type Look, type LookPatch, type LookPreset, type Shape } from "./render/graph-looks";
 export { simFrom, type Sim } from "./render/graph-sim";
 export { scaleOf } from "./render/graph-model";
 export type { Channels } from "./core/channels";
