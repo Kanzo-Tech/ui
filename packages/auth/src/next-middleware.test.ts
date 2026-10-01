@@ -50,6 +50,17 @@ describe("authMiddleware", () => {
     expect(passedThrough(middleware(request("/api/auth/callback?code=x")))).toBe(true);
   });
 
+  it("lets through the problem page authRoutes sends a failed sign-in to, or the failure loops", async () => {
+    const routes = authRoutes({ issuer: ISSUER, clientId: CLIENT_ID, clientSecret: "s", secret: "x" });
+    const failed = await routes.GET(new Request(`${ORIGIN}/api/auth/callback?code=x&state=y`));
+    const page = new URL(failed.headers.get("location") ?? "");
+
+    expect(passedThrough(middleware(request(`${page.pathname}${page.search}`)))).toBe(true);
+    expect(
+      passedThrough(authMiddleware({ problemPage: "/sign-in/failed" })(request("/sign-in/failed?code=x"))),
+    ).toBe(true);
+  });
+
   /** The path exemption `isFile` makes, and the incident `next-middleware.ts`'s header records. */
   it("never redirects a static file, whatever the matcher lets in", () => {
     expect(passedThrough(middleware(request("/fossil/fossil_wasm_bg.wasm")))).toBe(true);

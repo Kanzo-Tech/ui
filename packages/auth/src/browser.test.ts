@@ -1,6 +1,7 @@
-import type { UserManagerSettings } from "oidc-client-ts";
+import { ErrorResponse, ErrorTimeout, UserManager, type UserManagerSettings } from "oidc-client-ts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { browserAuth, type OidcUser, type OidcUserManager } from "./browser";
+import { AuthError } from "./types";
 
 /**
  * Everything here runs against a fake `UserManager`, which is what the `createManager` seam is for.
@@ -76,6 +77,7 @@ function fake(initial: OidcUser | null, renewed: OidcUser | null = user({ access
 }
 
 afterEach(() => {
+  globalThis.history.replaceState(null, "", "/");
   vi.restoreAllMocks();
   globalThis.sessionStorage.clear();
   globalThis.localStorage.clear();
@@ -224,5 +226,104 @@ describe("browserAuth", () => {
     // A callback that stops being called but stays in the set is a leak, not an unsubscribe: a
     // provider that mounts and unmounts a hundred times would hold a hundred dead closures.
     expect(Object.values(listeners).every((set) => set.size === 0)).toBe(true);
+  });
+
+  it("bounds every request the library makes to the IdP at 30 s", () => {
+    expect(fake(user()).settings.requestTimeoutInSeconds).toBe(30);
+  });
+});
+
+describe("browserAuth tells no session apart from a failing IdP", () => {
+  it("reads a silent renewal the IdP answers with login_required as no session", async () => {
+    const { auth, manager } = fake(null);
+    manager.signinSilent.mockRejectedValueOnce(new ErrorResponse({ error: "login_required" }));
+
+    expect(await auth.getSession()).toBeNull();
+  });
+
+  it("reads a refresh token the IdP no longer honours as no session", async () => {
+    const { auth, manager } = fake(user({ expires_at: 1 }));
+    manager.signinSilent.mockRejectedValueOnce(new ErrorResponse({ error: "invalid_grant" }));
+
+    expect(await auth.getSession()).toBeNull();
+  });
+
+  it("throws an IdP that refuses the client, with the refusal as the cause", async () => {
+    const { auth, manager } = fake(null);
+    const refusal = new ErrorResponse({ error: "unauthorized_client" });
+    manager.signinSilent.mockRejectedValueOnce(refusal);
+
+    const failed = await auth.getSession().catch((error: unknown) => error);
+
+    expect(failed).toBeInstanceOf(AuthError);
+    expect(failed).toMatchObject({ code: "token/exchange-failed" });
+    expect((failed as AuthError).cause).toBe(refusal);
+  });
+
+  it("throws an IdP that cannot be reached as idp/unreachable", async () => {
+    const { auth, manager } = fake(null);
+    const offline = new TypeError("Failed to fetch");
+    manager.signinSilent.mockRejectedValueOnce(offline);
+
+    const failed = await auth.getSession().catch((error: unknown) => error);
+
+    expect(failed).toMatchObject({ code: "idp/unreachable" });
+    expect((failed as AuthError).cause).toBe(offline);
+  });
+
+  it("throws an IdP that does not answer as idp/silent, after the 30 s it was given", async () => {
+    const { auth, manager } = fake(null);
+    manager.signinSilent.mockRejectedValueOnce(new ErrorTimeout("IFrame timed out without a response"));
+
+    await expect(auth.getSession()).rejects.toMatchObject({ code: "idp/silent", data: { after: 30_000 } });
+  });
+
+  it("renews again on the next call after a renewal failed", async () => {
+    const { auth, manager } = fake(null);
+    manager.signinSilent.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+    await expect(auth.getSession()).rejects.toMatchObject({ code: "idp/unreachable" });
+    expect((await auth.getSession())?.user.id).toBe("u-1");
+    expect(manager.signinSilent).toHaveBeenCalledTimes(2);
+  });
+
+  it("reads a callback whose state this tab does not hold as no session, in the library's own words", async () => {
+    // The real `UserManager` reads the state store before any request, so its message is pinned
+    // here rather than transcribed: if the library rewords it, this fails instead of a stale
+    // callback URL becoming an error on every reload.
+    globalThis.history.replaceState(null, "", "/?code=c&state=nobody-sent-this");
+    const { auth, manager, settings } = fake(null, null);
+    const real = new UserManager(settings);
+    manager.signinCallback.mockImplementation(((url?: string) => real.signinCallback(url)) as never);
+
+    expect(await auth.getSession()).toBeNull();
+    expect(globalThis.location.search).toBe("");
+  });
+
+  it("throws a callback the IdP refused, cleans the URL, and does not keep the failure", async () => {
+    globalThis.history.replaceState(null, "", "/?code=c&state=s");
+    const { auth, manager } = fake(user());
+    const refusal = new ErrorResponse({ error: "invalid_grant" });
+    manager.signinCallback.mockRejectedValueOnce(refusal);
+
+    const failed = await auth.getSession().catch((error: unknown) => error);
+
+    expect(failed).toMatchObject({ code: "token/exchange-failed" });
+    expect((failed as AuthError).cause).toBe(refusal);
+    expect(globalThis.location.search).toBe("");
+    expect((await auth.getSession())?.user.id).toBe("u-1");
+    expect(manager.signinCallback).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads the manager after the callback, rather than the callback's user forever", async () => {
+    globalThis.history.replaceState(null, "", "/?code=c&state=s");
+    const { auth, manager } = fake(user({ access_token: "from-store" }));
+    manager.signinCallback.mockResolvedValueOnce(user({ access_token: "from-callback" }) as never);
+
+    await auth.getSession();
+    await auth.getSession();
+
+    expect(manager.signinCallback).toHaveBeenCalledTimes(1);
+    expect(manager.getUser).toHaveBeenCalledTimes(1);
   });
 });

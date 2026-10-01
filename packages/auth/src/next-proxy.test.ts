@@ -301,6 +301,25 @@ describe("authProxy", () => {
     expect(reissued[0]?.startsWith("__Host-kanzo-session=")).toBe(true);
   });
 
+  it("answers 502, not 401, when the IdP cannot be reached to renew", async () => {
+    realm.state.expiresIn = 20;
+    const cookie = await signIn();
+    const down = authProxy({
+      ...config,
+      fetch: (async (input: RequestInfo | URL) => {
+        if (String(input).endsWith("/token")) throw new TypeError("fetch failed");
+        return realm.fetchImpl(input);
+      }) as typeof globalThis.fetch,
+      basePath: "/api/data",
+      target: TARGET,
+    });
+
+    const response = await down.GET(new Request(`${ORIGIN}/api/data/reports`, { headers: { cookie } }));
+
+    expect(response.status).toBe(502);
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
   /**
    * The URL parser resolves every dot segment before this handler reads a path — `..` and its
    * percent-encoded spellings alike — so a path that tried to climb has already fallen out of the

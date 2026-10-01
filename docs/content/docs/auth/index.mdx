@@ -124,7 +124,9 @@ provider. *Relying party* is the term the specification already uses for it.
 
 `useSession` is the hook, and `status` is the field to branch on — not `session === null`, which is
 the same answer for *anonymous* and *we have not looked yet*. Drawing a sign-in prompt during the
-second is the flicker every application with a session has shipped at least once.
+second is the flicker every application with a session has shipped at least once. A session that
+could not be read is a fourth answer, `"failed"`, with what was thrown on `error` — never
+*anonymous*, which would send the person to sign in over an outage.
 
 Every example on these pages runs against a fabricated session rather than a realm, from one file —
 `docs/lib/guild-auth.ts`, which builds a **claim set** and runs the package's own reader over it, so

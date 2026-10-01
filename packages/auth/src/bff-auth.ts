@@ -1,6 +1,7 @@
 import { isReplayable } from "./auth-fetch";
+import { deadline } from "./deadline";
 import { singleFlight } from "./single-flight";
-import type { Auth, Organization, Session, SignInOptions } from "./types";
+import { AuthError, type Auth, type Organization, type Session, type SignInOptions } from "./types";
 
 /**
  * The Backend-For-Frontend pattern: the token never reaches the browser.
@@ -44,7 +45,8 @@ function readOrganization(value: unknown): Organization | null {
  * It is our own server on the other end, and it is still **data off the wire**: a cast here would
  * make a deploy skew or a proxy's error page arrive as a `Session` whose `user` is undefined, and
  * the failure would surface three components away as a property read on nothing. `null` for
- * anything unrecognisable is the same answer as "not signed in", which is the safe reading.
+ * anything unrecognisable; `bffAuth` reads a 200 it cannot read as `session/unavailable`, because
+ * the endpoint answers "nobody is signed in" with a 401 and never with a body.
  */
 export function readSession(value: unknown): Session | null {
   if (typeof value !== "object" || value === null) return null;
@@ -86,18 +88,46 @@ export function bffAuth(config: BffAuthConfig = {}): Auth {
   let cached: Session | null = null;
   let known = false;
 
+  const unavailable = (url: string, status: number | undefined, cause?: unknown) =>
+    new AuthError(
+      "session/unavailable",
+      status === undefined ? `${url} could not be reached` : `${url} answered ${status}`,
+      status === undefined ? {} : { status },
+      cause === undefined ? undefined : { cause },
+    );
+
+  const send = async (url: string, init: RequestInit): Promise<Response> => {
+    try {
+      return await doFetch(url, init);
+    } catch (error) {
+      if (init.signal?.aborted) throw init.signal.reason;
+      throw unavailable(url, undefined, error);
+    }
+  };
+
   // Single-flight for the same reason the token path needs it: a page that mounts six components
   // asks six times in one tick, and one answer serves them all. Here it costs a request rather
   // than a revoked token chain, which is a smaller bill for the same mistake.
-  const read = singleFlight(async (): Promise<Session | null> => {
-    const response = await doFetch(`${base}/session`, {
-      headers: { Accept: "application/json" },
-    });
-    // 401 is the documented answer for "nobody is signed in", not a failure to report.
-    if (response.status === 401) return null;
-    if (!response.ok) return null;
-    return readSession(await response.json().catch(() => null));
-  });
+  //
+  // A 401 is the documented answer for "nobody is signed in". Anything else that is not a session
+  // — a 5xx, a proxy's page, no answer at all — is a failure, and reading it as "signed out" would
+  // send the person to sign in over an outage that will still be there when they get back.
+  const read = singleFlight(() =>
+    deadline("session/silent", async (signal): Promise<Session | null> => {
+      const response = await send(`${base}/session`, { headers: { Accept: "application/json" }, signal });
+      if (response.status === 401) return null;
+      if (!response.ok) throw unavailable(`${base}/session`, response.status);
+      let body: unknown;
+      try {
+        body = await response.json();
+      } catch (error) {
+        throw unavailable(`${base}/session`, response.status, error);
+      }
+      const session = readSession(body);
+      if (session === null) throw unavailable(`${base}/session`, response.status);
+      return session;
+    }),
+  );
 
   /**
    * Ask the BFF to spend the refresh token, once for however many requests noticed at the moment.
@@ -110,13 +140,18 @@ export function bffAuth(config: BffAuthConfig = {}): Auth {
    * `POST`, because the route only answers `POST` — it spends something, and a `GET` that spends
    * something is one prefetch away from spending it unasked.
    */
-  const renew = singleFlight(async (): Promise<boolean> => {
-    const response = await doFetch(`${base}/refresh`, {
-      method: "POST",
-      headers: { Accept: "application/json" },
-    });
-    return response.ok;
-  });
+  const renew = singleFlight(() =>
+    deadline("session/silent", async (signal): Promise<boolean> => {
+      const response = await send(`${base}/refresh`, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+        signal,
+      });
+      // A refusal (401, 400) is the end of the session; a 5xx is an outage, not a refusal.
+      if (response.status >= 500) throw unavailable(`${base}/refresh`, response.status);
+      return response.ok;
+    }),
+  );
 
   const refresh = async (): Promise<Session | null> => {
     const next = cached;
@@ -176,7 +211,9 @@ export function bffAuth(config: BffAuthConfig = {}): Auth {
       }
 
       known = false;
-      await refresh();
+      // The caller is owed its own response; a session that cannot be re-read is the provider's to
+      // show, and announcing makes it read again and see the failure itself.
+      await refresh().catch(announce);
       return response;
     },
   };

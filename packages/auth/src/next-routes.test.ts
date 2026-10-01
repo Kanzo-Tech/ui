@@ -3,6 +3,8 @@ import { SignJWT, exportJWK, generateKeyPair } from "jose";
 import { beforeEach, describe, expect, it } from "vitest";
 import { bffAuth } from "./bff-auth";
 import { authRoutes, type AuthRoutesConfig } from "./next-routes";
+import { ticketStore } from "./store";
+import { AuthError } from "./types";
 
 const ORIGIN = "https://app.example.test";
 const ISSUER = "https://id.example.test/realms/kanzo";
@@ -171,14 +173,28 @@ describe("authRoutes", () => {
      * the browser session. The refusal is `begin`'s; what this asserts is that it arrives as a
      * code rather than as a 500 on a mistyped link.
      */
-    it("refuses an organization that would inject a scope, as a code rather than a 500", async () => {
+    it("refuses an organization that would inject a scope, on the problem page rather than a 500", async () => {
       const response = await get(
         routes,
         `/api/auth/signin?organization=${encodeURIComponent("acme offline_access")}`,
       );
 
-      expect(response.status).toBe(400);
-      expect(await response.json()).toMatchObject({ error: "organization.invalid" });
+      expect(response.status).toBe(302);
+      expect(response.headers.get("location")).toBe(`${ORIGIN}/auth/problem?code=organization%2Finvalid`);
+    });
+
+    it("sends the browser to the problem page when the IdP cannot be reached", async () => {
+      const down = authRoutes({
+        ...config,
+        fetch: (async () => {
+          throw new TypeError("fetch failed");
+        }) as unknown as typeof globalThis.fetch,
+      });
+
+      const response = await get(down, "/api/auth/signin");
+
+      expect(response.status).toBe(302);
+      expect(response.headers.get("location")).toBe(`${ORIGIN}/auth/problem?code=idp%2Funreachable`);
     });
 
     it("lets a cross-site link start a sign-in, because that is what a sign-in link is", async () => {
@@ -217,11 +233,30 @@ describe("authRoutes", () => {
       expect(transaction).toContain("Max-Age=0");
     });
 
-    it("refuses a callback with no transaction, as a code rather than a 500", async () => {
+    it("sends a callback with no transaction to the problem page, with its code", async () => {
       const response = await get(routes, "/api/auth/callback?code=x&state=y");
 
-      expect(response.status).toBe(400);
-      expect(await response.json()).toMatchObject({ error: "callback.state-mismatch" });
+      expect(response.status).toBe(302);
+      expect(response.headers.get("location")).toBe(
+        `${ORIGIN}/auth/problem?code=callback%2Fstate-mismatch`,
+      );
+      expect(response.body).toBeNull();
+    });
+
+    it("sends a callback whose state is not this browser's to the product's own problem page", async () => {
+      const own = authRoutes({ ...config, problemPage: "/sign-in/failed" });
+      const started = await get(own, "/api/auth/signin");
+
+      const response = await get(
+        own,
+        "/api/auth/callback?code=the-code&state=someone-elses",
+        asRequestHeader(started.headers.getSetCookie()),
+      );
+
+      expect(response.status).toBe(302);
+      expect(response.headers.get("location")).toBe(
+        `${ORIGIN}/sign-in/failed?code=callback%2Fstate-mismatch`,
+      );
     });
 
     /**
@@ -280,6 +315,30 @@ describe("authRoutes", () => {
       expect(await response.text()).toBe("");
     });
 
+    it("answers 503 with a code, not a bare 500, when the session store does not answer", async () => {
+      let up = true;
+      const rows = new Map<string, string>();
+      const flaky = authRoutes({
+        ...config,
+        store: ticketStore({
+          read: async (key) => {
+            if (!up) throw new Error("ECONNREFUSED");
+            return rows.get(key) ?? null;
+          },
+          write: async (key, value) => void rows.set(key, value),
+          delete: async (key) => void rows.delete(key),
+        }),
+      });
+      routes = flaky;
+      const { cookie } = await signIn();
+      up = false;
+
+      const response = await get(flaky, "/api/auth/session", cookie);
+
+      expect(response.status).toBe(503);
+      expect(await response.json()).toMatchObject({ error: "session/unavailable" });
+    });
+
     it("is never cached, signed in or not", async () => {
       const { cookie } = await signIn();
 
@@ -314,6 +373,20 @@ describe("authRoutes", () => {
       expect(
         new URL(response.headers.get("location") ?? "").searchParams.get("post_logout_redirect_uri"),
       ).toBeNull();
+    });
+
+    it("sends a sign-out the IdP cannot answer to the problem page, rather than a bare 500", async () => {
+      const down = authRoutes({
+        ...config,
+        fetch: (async () => {
+          throw new TypeError("fetch failed");
+        }) as unknown as typeof globalThis.fetch,
+      });
+
+      const response = await get(down, "/api/auth/signout");
+
+      expect(response.status).toBe(302);
+      expect(response.headers.get("location")).toBe(`${ORIGIN}/auth/problem?code=idp%2Funreachable`);
     });
 
     it("signs out a browser that was not signed in, without failing", async () => {
@@ -366,7 +439,7 @@ describe("authRoutes", () => {
       const response = await send(routes, "POST", "/api/auth/refresh");
 
       expect(response.status).toBe(401);
-      expect(await response.json()).toMatchObject({ error: "session.absent" });
+      expect(await response.json()).toMatchObject({ error: "session/absent" });
     });
 
     /**
@@ -464,6 +537,30 @@ describe("authRoutes", () => {
       const auth = bffAuth({ fetch: through(routes, ""), navigate: () => {} });
 
       expect(await auth.getSession()).toBeNull();
+    });
+
+    it("reads a store that does not answer as a failure, not as nobody being signed in", async () => {
+      let up = true;
+      const rows = new Map<string, string>();
+      routes = authRoutes({
+        ...config,
+        store: ticketStore({
+          read: async (key) => {
+            if (!up) throw new Error("ECONNREFUSED");
+            return rows.get(key) ?? null;
+          },
+          write: async (key, value) => void rows.set(key, value),
+          delete: async (key) => void rows.delete(key),
+        }),
+      });
+      const { cookie } = await signIn();
+      up = false;
+      const auth = bffAuth({ fetch: through(routes, cookie), navigate: () => {} });
+
+      const failed = await auth.getSession().catch((error: unknown) => error);
+
+      expect(failed).toBeInstanceOf(AuthError);
+      expect(failed).toMatchObject({ code: "session/unavailable", data: { status: 503 } });
     });
 
     it("navigates to paths these handlers serve", async () => {

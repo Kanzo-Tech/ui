@@ -107,4 +107,23 @@ describe("Gate draws one side or the other, and neither before it knows", () => 
     );
     await waitFor(() => expect(screen.getByText("no")).toBeDefined());
   });
+
+  it("draws neither side when the session could not be read", async () => {
+    let failed = false;
+    gate(
+      <Gate role="auditor" fallback={<span>no</span>}>
+        <button type="button">Delete everything</button>
+      </Gate>,
+      authOf({
+        getSession: async () => {
+          failed = true;
+          throw new Error("offline");
+        },
+      }),
+    );
+    await waitFor(() => expect(failed).toBe(true));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByText("no")).toBeNull();
+    expect(screen.queryByRole("button")).toBeNull();
+  });
 });

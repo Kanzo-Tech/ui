@@ -28,7 +28,7 @@ describe("who the session names", () => {
     try {
       claims({}, KEASY);
     } catch (error) {
-      expect((error as AuthError).code).toBe("claims.no-subject");
+      expect((error as AuthError).code).toBe("claims/no-subject");
     }
   });
 

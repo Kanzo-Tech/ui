@@ -11,6 +11,7 @@ import {
 } from "openid-client";
 import { claims } from "./claims";
 import { sealedCookie, type SealedCookie } from "./cookie-session";
+import { DEADLINE } from "./deadline";
 import { issuer, type IssuerConfig } from "./issuer";
 import { keyedSingleFlight } from "./single-flight";
 import { statelessStore, type SessionRecord, type SessionStore } from "./store";
@@ -58,9 +59,7 @@ const TRANSACTION_MAX_AGE = 10 * 60;
 const DEFAULT_RENEW_WITHIN = 60;
 
 function refuse(code: AuthErrorCode, message: string, cause?: unknown): never {
-  const error = new AuthError(code, message);
-  if (cause !== undefined) error.cause = cause;
-  throw error;
+  throw new AuthError(code, message, {}, cause === undefined ? undefined : { cause });
 }
 
 function codeOf(error: unknown): string | undefined {
@@ -121,6 +120,19 @@ function isStaleKeyMaterial(error: unknown): boolean {
 }
 
 /**
+ * Who did not answer, when it was the IdP: `openid-client` reports its own deadline as
+ * `OAUTH_TIMEOUT`, a status that is not OAuth's (a 502 from a proxy) as `OAUTH_RESPONSE_IS_NOT_CONFORM`,
+ * and a connection that never opened as the platform's uncoded `TypeError`.
+ */
+function unanswered(error: unknown): "idp/silent" | "idp/unreachable" | undefined {
+  const code = codeOf(error);
+  if (code === "OAUTH_TIMEOUT") return "idp/silent";
+  if (code === "OAUTH_RESPONSE_IS_NOT_CONFORM") return "idp/unreachable";
+  if (error instanceof TypeError && code === undefined) return "idp/unreachable";
+  return undefined;
+}
+
+/**
  * A Keycloak organization alias, or `*`. Anything else is not put into a scope string.
  *
  * `scope` is a **space-delimited list**, so a value with a space in it does not become one scope
@@ -150,6 +162,35 @@ const ORGANIZATION = /^(\*|[A-Za-z0-9](?:[A-Za-z0-9._-]{0,62}[A-Za-z0-9])?)$/;
  * which would be a distributed one pretending to be a `Map`.
  */
 const renewals = keyedSingleFlight<Adopted>();
+
+/** The deployment's store, failing as `session/unavailable` rather than as whatever its driver throws. */
+function reachable(store: SessionStore): SessionStore {
+  const fail = (error: unknown): never =>
+    refuse("session/unavailable", "the session store did not answer", error);
+  return {
+    async put(record) {
+      try {
+        return await store.put(record);
+      } catch (error) {
+        return fail(error);
+      }
+    },
+    async get(ticket) {
+      try {
+        return await store.get(ticket);
+      } catch (error) {
+        return fail(error);
+      }
+    },
+    async drop(ticket) {
+      try {
+        await store.drop(ticket);
+      } catch (error) {
+        fail(error);
+      }
+    },
+  };
+}
 
 /** What `begin` and `end` answer: where to send the browser, and what to set on the way. */
 export interface Redirect {
@@ -263,7 +304,23 @@ interface Transaction {
 
 export function relyingParty(config: RelyingPartyConfig): RelyingParty {
   const provider = issuer(config);
-  const store = config.store ?? statelessStore();
+  const store = reachable(config.store ?? statelessStore());
+  const after = DEADLINE;
+
+  /** A failure to reach the IdP, coded by who did not answer; anything else as `fallback`. */
+  const fromIdp = (error: unknown, fallback: AuthErrorCode, message: string): AuthError => {
+    const code = unanswered(error) ?? fallback;
+    return new AuthError(code, message, code === "idp/silent" ? { after } : {}, { cause: error });
+  };
+
+  /** Discovery, failing as the IdP's outage rather than as an uncoded error. */
+  const configuration = async (): Promise<Configuration> => {
+    try {
+      return await provider.configuration();
+    } catch (error) {
+      throw fromIdp(error, "idp/unreachable", "the IdP's discovery document could not be read");
+    }
+  };
 
   const session: SealedCookie<SessionTicket> = sealedCookie({
     name: "kanzo-session",
@@ -291,7 +348,7 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
     const idClaims = tokens.claims();
     const next = idClaims === undefined ? previous?.session : claims(idClaims, config);
     if (next === undefined) {
-      refuse("token.exchange-failed", "the token response carried no ID token, so it names nobody");
+      refuse("token/exchange-failed", "the token response carried no ID token, so it names nobody");
     }
 
     // `expiresIn()` counts down from the moment the response was parsed, which is the only honest
@@ -319,11 +376,11 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
     const sealed = await session.read(cookie);
     const record = sealed === null ? null : await store.get(sealed.ticket);
     if (sealed === null || record === null) {
-      refuse("session.absent", "there is no session cookie to refresh");
+      refuse("session/absent", "there is no session cookie to refresh");
     }
     const spent = record.refreshToken;
     if (spent === undefined) {
-      refuse("session.absent", "the session holds no refresh token, so it cannot be renewed");
+      refuse("session/absent", "the session holds no refresh token, so it cannot be renewed");
     }
 
     // Everything above is a read and may run concurrently; everything below spends a token that can
@@ -332,12 +389,14 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
     return renewals(sealed.ticket, async () => {
       let tokens: Tokens;
       try {
-        tokens = await refreshTokenGrant(await provider.configuration(), spent);
+        tokens = await refreshTokenGrant(await configuration(), spent);
       } catch (error) {
+        if (error instanceof AuthError) throw error;
         // Under rotation a refused refresh is often a *replayed* token rather than an expired one,
         // and the authorization server may have revoked the whole chain. Either way the session is
-        // over; the slot above exists to keep us from causing it.
-        refuse("token.exchange-failed", "the refresh token was refused", error);
+        // over; the slot above exists to keep us from causing it. An IdP that did not answer has
+        // refused nothing, and says so.
+        throw fromIdp(error, "token/exchange-failed", "the refresh token was refused");
       }
 
       // The superseded ticket goes first: a store that enforces one live session per person must
@@ -349,7 +408,7 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
 
   return {
     async begin(options = {}) {
-      const configuration = await provider.configuration();
+      const discovered = await configuration();
 
       const verifier = randomPKCECodeVerifier();
       const state = randomState();
@@ -357,7 +416,7 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
 
       if (options.organization !== undefined && !ORGANIZATION.test(options.organization)) {
         refuse(
-          "organization.invalid",
+          "organization/invalid",
           `\`${options.organization}\` is not an organization alias, and a scope is a space-delimited list: see ORGANIZATION`,
         );
       }
@@ -377,7 +436,7 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
       };
 
       return {
-        url: buildAuthorizationUrl(configuration, parameters).href,
+        url: buildAuthorizationUrl(discovered, parameters).href,
         cookies: [
           await transaction.seal({ state, nonce, verifier, returnTo: options.returnTo ?? "/" }),
         ],
@@ -388,7 +447,7 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
       const pending = await transaction.read(request.cookie);
       if (pending === null) {
         refuse(
-          "callback.state-mismatch",
+          "callback/state-mismatch",
           "the callback arrived with no transaction cookie, so there is nothing to match its `state` against",
         );
       }
@@ -396,7 +455,7 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
       const current = new URL(request.url);
       if (current.searchParams.get("state") !== pending.state) {
         refuse(
-          "callback.state-mismatch",
+          "callback/state-mismatch",
           "the callback's `state` is not the one this browser was sent with",
         );
       }
@@ -412,17 +471,18 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
 
       let tokens: Tokens;
       try {
-        tokens = await grant(await provider.configuration());
+        tokens = await grant(await configuration());
       } catch (error) {
+        if (error instanceof AuthError) throw error;
         if (isNonceMismatch(error)) {
           refuse(
-            "callback.nonce-mismatch",
+            "callback/nonce-mismatch",
             "the ID token's `nonce` is not the one this transaction sent",
             error,
           );
         }
         if (!isStaleKeyMaterial(error)) {
-          refuse("token.exchange-failed", "the authorization code could not be exchanged", error);
+          throw fromIdp(error, "token/exchange-failed", "the authorization code could not be exchanged");
         }
         // Keycloak rotated its signing key. One re-discovery, one retry, then give up — a loop
         // here is a self-inflicted denial of service against the identity provider.
@@ -431,15 +491,15 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
         } catch (retried) {
           if (isNonceMismatch(retried)) {
             refuse(
-              "callback.nonce-mismatch",
+              "callback/nonce-mismatch",
               "the ID token's `nonce` is not the one this transaction sent",
               retried,
             );
           }
-          refuse(
-            "token.exchange-failed",
-            "the ID token did not verify, and did not verify against freshly discovered keys either",
+          throw fromIdp(
             retried,
+            "token/exchange-failed",
+            "the ID token did not verify, and did not verify against freshly discovered keys either",
           );
         }
       }
@@ -479,7 +539,7 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
 
       const { renewed, record: fresh } = await renew(cookie);
       if (fresh.accessToken === undefined) {
-        refuse("token.exchange-failed", "the token response carried no access token");
+        refuse("token/exchange-failed", "the token response carried no access token");
       }
       return { accessToken: fresh.accessToken, session: renewed.session, cookies: renewed.cookies };
     },
@@ -503,7 +563,7 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
       // `buildEndSessionUrl` rather than a hand-built URL: the endpoint comes from discovery, and
       // the parameter names are the specification's rather than ours to remember.
       return {
-        url: buildEndSessionUrl(await provider.configuration(), parameters).href,
+        url: buildEndSessionUrl(await configuration(), parameters).href,
         cookies: [session.clear()],
       };
     },

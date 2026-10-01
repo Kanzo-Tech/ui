@@ -1,6 +1,7 @@
 import { authToken } from "./next-token";
 import type { AuthSessionConfig } from "./next-session";
 import { isSameSite } from "./same-site";
+import { outage } from "./next-routes";
 import { AuthError } from "./types";
 
 /**
@@ -151,11 +152,12 @@ export function authProxy(config: AuthProxyConfig): AuthProxyHandlers {
     try {
       held = await token(request.headers.get("cookie"), { renewWithin: config.renewWithin });
     } catch (error) {
-      // A refused renewal is the end of the session and not an upstream failure. Anything else is
-      // a fault this module has no reading of, and hiding it behind a 401 would send a person to
-      // sign in again over a misconfiguration that will still be there when they get back.
+      // A refused renewal is the end of the session and not an upstream failure. An IdP or a store
+      // that did not answer is an outage, and anything else is a fault this module has no reading
+      // of: hiding either behind a 401 would send a person to sign in again over something that
+      // will still be there when they get back.
       if (!(error instanceof AuthError)) throw error;
-      return refuse(401);
+      return refuse(outage(error.code) ?? 401);
     }
     if (held === null) return refuse(401);
 

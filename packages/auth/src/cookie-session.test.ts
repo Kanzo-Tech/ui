@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { cookieValue, sealedCookie } from "./cookie-session";
 
 const SECRET = "a-secret-nobody-chose-by-hand";
@@ -157,5 +157,20 @@ describe("cookieValue", () => {
     // `session` and `session-old` are different cookies, and an `indexOf`-shaped reader confuses
     // them — which would hand the reader a value sealed for something else.
     expect(cookieValue("session-old=stale; session=fresh", "session")).toBe("fresh");
+  });
+});
+
+describe("sealedCookie's key", () => {
+  it("is derived again after a derivation that failed, rather than failing forever", async () => {
+    const digest = vi
+      .spyOn(crypto.subtle, "digest")
+      .mockRejectedValueOnce(new Error("the platform refused"));
+    const cookie = sealedCookie<Payload>({ name: "kanzo-session", secret: SECRET, maxAge: 60 });
+
+    await expect(cookie.seal({ who: "ada", roles: [] })).rejects.toThrow("the platform refused");
+    const sealed = await cookie.seal({ who: "ada", roles: [] });
+
+    expect(await cookie.read(asRequestHeader(sealed))).toEqual({ who: "ada", roles: [] });
+    digest.mockRestore();
   });
 });
