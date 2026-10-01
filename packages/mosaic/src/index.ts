@@ -48,4 +48,4 @@ export { type TableExpr } from "./table.js";
  * the only door to `wasmConnector`, which is why that is no longer re-exported: a second boot is a
  * second database, and every host that wrote its own boot also wrote its own registry policy.
  */
-export { engine, type Engine } from "./engine.js";
+export { engine, EngineError, type Engine } from "./engine.js";
