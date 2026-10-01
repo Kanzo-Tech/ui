@@ -9,10 +9,10 @@ description: A conversation with a model, whole — the transcript, markdown tha
 
 ```tsx
 import { Chat, useChat } from "@kanzo-tech/ai";
-import { createKanzo, DirectChatTransport, ToolLoopAgent } from "@kanzo-tech/llm";
+import { createGateway, DirectChatTransport, ToolLoopAgent } from "@kanzo-tech/llm";
 
-const kanzo = createKanzo({ baseURL: "/api/ai" });
-const agent = new ToolLoopAgent({ model: kanzo("kanzo-chat"), tools: { query } });
+const gateway = createGateway({ baseURL: "/api/ai" });
+const agent = new ToolLoopAgent({ model: gateway("chat"), tools: { query } });
 const transport = new DirectChatTransport({ agent });
 ```
 

@@ -13,11 +13,11 @@ installs it once so that its own agent and `@kanzo-tech/ai`'s components share o
 ## What it holds
 
 ```ts
-import { createKanzo } from "@kanzo-tech/llm";
+import { createGateway } from "@kanzo-tech/llm";
 import { ToolLoopAgent, DirectChatTransport, tool, Output, streamText } from "@kanzo-tech/llm";
 ```
 
-- **`createKanzo({ baseURL })`** — the one door to a model. `kanzo("kanzo-chat")` is a model by
+- **`createGateway({ baseURL })`** — the one door to a model. `gateway("chat")` is a model by
   **alias**: which upstream answers it is the gateway's configuration, so a host's code is the same
   in development (a local model) and in production. The gateway speaks OpenAI chat completions; its
   key belongs to a server, so `baseURL` is normally the host's own authenticated proxy — keasy's is
@@ -27,7 +27,7 @@ import { ToolLoopAgent, DirectChatTransport, tool, Output, streamText } from "@k
   asks the gateway for a JSON schema rather than prose to parse.
 - **Re-exports** of the AI SDK surface a host needs — the agent, the transport, `tool`, `Output`,
   `streamText`, and the message and part types — so a host never imports `ai` itself.
-  `@ai-sdk/openai-compatible` is not among them: `createKanzo` is the only way to a model.
+  `@ai-sdk/openai-compatible` is not among them: `createGateway` is the only way to a model.
 
 ## Why it is not part of `@kanzo-tech/ai`
 

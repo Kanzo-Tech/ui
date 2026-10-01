@@ -17,7 +17,7 @@ import { Assist, AssistProvider } from "@kanzo-tech/ai";
 import { useState } from "react";
 import { elements, mockModel } from "@/lib/mock-model";
 
-// Stands in for `kanzo("kanzo-complete")`. It offers `livestock` too, and Assist drops it: a
+// Stands in for `gateway("complete")`. It offers `livestock` too, and Assist drops it: a
 // value the field already holds is never offered.
 const model = mockModel(() =>
   elements([

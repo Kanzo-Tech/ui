@@ -71,7 +71,7 @@ not carry, and a consumer who wants a `Button` must not pay for a transcript.
 pnpm add @kanzo-tech/ai @kanzo-tech/llm ai @ai-sdk/react
 ```
 
-The model is reached through [`@kanzo-tech/llm`](/docs/ai/llm), which has no React: `createKanzo`
+The model is reached through [`@kanzo-tech/llm`](/docs/ai/llm), which has no React: `createGateway`
 names a model behind a gateway, and the AI SDK is re-exported from it so a host never imports `ai`
 itself. `ai` and `@ai-sdk/react` are **required** peers, installed once, because the host's agent and
 these components must share one copy of the SDK's types. Neither package has an optional peer or a

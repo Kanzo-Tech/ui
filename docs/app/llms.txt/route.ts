@@ -66,7 +66,7 @@ export function GET(request: Request) {
     "- `@kanzo-tech/theme` — tokens, the theme files, the axis table, the value types. No React. Installed with the library.",
     "- `@kanzo-tech/mosaic` — the Mosaic coordinator, clauses and the page's one DuckDB-WASM `engine()`, without React. Installed with the library; `/analytics` re-exports what a chart needs.",
     "- `@kanzo-tech/ai` — `AssistProvider` + `Assist` (a model proposes a field's value: ghost text in a `Textarea`, chips under an `Input` or `TagsInput`) and `Chat` + `useChat` (a whole conversation: markdown, reasoning, tool calls, composer). Needs `ai` and `@ai-sdk/react`. Add `@import \"@kanzo-tech/ai/tailwind.css\";`.",
-    "- `@kanzo-tech/llm` — no React: `createKanzo({ baseURL })` returns `kanzo(alias)`, a model behind a Kanzo AI gateway, and the AI SDK (`ToolLoopAgent`, `tool`, `DirectChatTransport`, …) is re-exported from it. Import the SDK from here, never from `ai`.",
+    "- `@kanzo-tech/llm` — no React: `createGateway({ baseURL })` returns `gateway(alias)`, a model behind a AI gateway, and the AI SDK (`ToolLoopAgent`, `tool`, `DirectChatTransport`, …) is re-exported from it. Import the SDK from here, never from `ai`.",
     "- `@kanzo-tech/graph` — a whole fossil corpus (`@fossil-lang/corpus`) drawn with cosmos.gl inside the page's Mosaic crossfilter; `GraphRoot` is the facade. Every peer is required.",
     "- `@kanzo-tech/auth` — Keycloak sessions and role evaluation; `/browser`, `/server`, `/next`.",
     "- `@kanzo-tech/navigation` — the unsaved-changes guard; `/next` adapts the App Router.",

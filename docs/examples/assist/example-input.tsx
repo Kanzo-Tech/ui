@@ -18,7 +18,7 @@ const TITLES = [
   ],
 ];
 
-// Stands in for `kanzo("kanzo-complete")`; each press of the ✨ asks for a different set.
+// Stands in for `gateway("complete")`; each press of the ✨ asks for a different set.
 const model = mockModel((_, i) => elements(TITLES[i % TITLES.length] ?? []));
 
 export default function Example() {

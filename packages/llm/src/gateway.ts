@@ -1,7 +1,7 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { extractReasoningMiddleware, type LanguageModel, wrapLanguageModel } from "ai";
 
-export interface KanzoSettings {
+export interface GatewaySettings {
   /**
    * Where the gateway's OpenAI-compatible API is, as the browser reaches it. Behind a BFF that is
    * the host's own proxy — keasy's is `/api/v1/ai` — because the key that opens the gateway must
@@ -15,10 +15,10 @@ export interface KanzoSettings {
 }
 
 /** A model behind the gateway, by alias. */
-export type Kanzo = (alias: string) => LanguageModel;
+export type Gateway = (alias: string) => LanguageModel;
 
 /**
- * The one door to a model: name an **alias** (`kanzo-chat`, `kanzo-complete`), never a provider.
+ * The one door to a model: name an **alias** (`chat`, `complete`), never a provider.
  * Which upstream answers it is the gateway's configuration, so a host's code is the same in dev,
  * where a local model answers, and in prod.
  *
@@ -32,9 +32,9 @@ export type Kanzo = (alias: string) => LanguageModel;
  *   schema rather than prose the caller would parse — the "return ONLY JSON, no fences" prompt and
  *   its fence-stripping is what this ends.
  */
-export function createKanzo(settings: KanzoSettings): Kanzo {
+export function createGateway(settings: GatewaySettings): Gateway {
   const provider = createOpenAICompatible({
-    name: "kanzo",
+    name: "gateway",
     baseURL: absolute(settings.baseURL),
     headers: settings.headers,
     fetch: settings.fetch,

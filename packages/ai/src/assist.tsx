@@ -69,7 +69,7 @@ interface AssistSettings {
 const Settings = React.createContext<AssistSettings | null>(null);
 
 export interface AssistProviderProps {
-  /** The model every assisted field below asks — `kanzo("kanzo-complete")`. */
+  /** The model every assisted field below asks — `gateway("complete")`. */
   model: LanguageModel;
   /**
    * What the rest of the form says, for every field below: read at the moment a field asks, so it

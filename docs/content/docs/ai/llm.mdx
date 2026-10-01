@@ -1,6 +1,6 @@
 ---
 title: "@kanzo-tech/llm"
-description: The model conversation, without React — the AI SDK re-exported as one surface, plus createKanzo, the one door to a model behind a Kanzo AI gateway.
+description: The model conversation, without React — the AI SDK re-exported as one surface, plus createGateway, the one door to a model behind a AI gateway.
 ---
 
 `@kanzo-tech/llm` is what `@kanzo-tech/ai` talks to a model through, and what a host builds its
@@ -11,10 +11,10 @@ pnpm add @kanzo-tech/llm ai
 ```
 
 ```ts
-import { createKanzo, ToolLoopAgent, tool, jsonSchema } from "@kanzo-tech/llm";
+import { createGateway, ToolLoopAgent, tool, jsonSchema } from "@kanzo-tech/llm";
 
-const kanzo = createKanzo({ baseURL: "/api/ai" });
-const model = kanzo("kanzo-chat");
+const gateway = createGateway({ baseURL: "/api/ai" });
+const model = gateway("chat");
 ```
 
 ## One copy of the SDK
@@ -43,21 +43,21 @@ what is ours is the door it does not have.
 The list is what the house's own code reaches for, not the SDK's whole surface. A name missing from
 it is added here when a host needs it, so the one-import rule holds.
 
-## `createKanzo`
+## `createGateway`
 
 ```ts
-createKanzo(settings: KanzoSettings): Kanzo
+createGateway(settings: GatewaySettings): Gateway
 
-interface KanzoSettings {
+interface GatewaySettings {
   baseURL: string;                    // the gateway's OpenAI-compatible API, as the browser reaches it
   headers?: Record<string, string>;   // sent with every request — a CSRF header a BFF asks for
   fetch?: typeof globalThis.fetch;    // for a host that routes through its own client
 }
 
-type Kanzo = (alias: string) => LanguageModel;
+type Gateway = (alias: string) => LanguageModel;
 ```
 
-**A host names an alias, never a provider.** `kanzo("kanzo-chat")`, `kanzo("kanzo-complete")`: which
+**A host names an alias, never a provider.** `gateway("chat")`, `gateway("complete")`: which
 upstream answers is the gateway's configuration, so the host's code is the same in development, where
 a local model answers, and in production. Changing models is an edit to the gateway, not a release of
 every app that talks to it.
@@ -109,10 +109,10 @@ time through the BFF, not after it.
 
 ## Connecting a model
 
-Three set-ups, and the page's code is the same in all of them — `createKanzo({ baseURL })` and an
+Three set-ups, and the page's code is the same in all of them — `createGateway({ baseURL })` and an
 alias.
 
-### A Kanzo AI gateway
+### An AI gateway (LiteLLM)
 
 The production shape: [LiteLLM](https://docs.litellm.ai) as the platform's one door to models. It
 holds the providers' keys, maps each alias to an upstream, and speaks OpenAI's protocol whatever the
@@ -121,17 +121,17 @@ upstream speaks. The aliases are its `model_list`:
 ```yaml
 # litellm config.yaml
 model_list:
-  - model_name: kanzo-chat
+  - model_name: chat
     litellm_params:
       model: <provider>/<model>
       api_key: os.environ/PROVIDER_API_KEY
-  - model_name: kanzo-complete
+  - model_name: complete
     litellm_params:
       model: <provider>/<a smaller model>
       api_key: os.environ/PROVIDER_API_KEY
 ```
 
-The BFF above forwards to it, with a key LiteLLM issued for that host. `kanzo-complete` is a separate
+The BFF above forwards to it, with a key LiteLLM issued for that host. `complete` is a separate
 alias because a field's continuation is asked on every pause in typing: it wants a small, fast model,
 and a chat wants a good one.
 
@@ -141,16 +141,16 @@ and a chat wants a good one.
 provider key: point an alias at it in the gateway's `model_list` —
 `model: ollama_chat/<model>` with `api_base: http://localhost:11434` — and nothing else changes.
 
-Without a gateway at all, `createKanzo` can point at Ollama directly, since Ollama serves the same
+Without a gateway at all, `createGateway` can point at Ollama directly, since Ollama serves the same
 protocol under `/v1`. The alias is then an Ollama model name, and `ollama cp` gives a model the alias
 as its name:
 
 ```bash
-ollama cp <model> kanzo-chat
+ollama cp <model> chat
 ```
 
 ```ts
-const kanzo = createKanzo({ baseURL: "http://localhost:11434/v1" });
+const gateway = createGateway({ baseURL: "http://localhost:11434/v1" });
 ```
 
 That is a browser talking to a model with no session and no key in between, so it is for a laptop and
