@@ -19,40 +19,47 @@ export const themeData = themeDataJson;
 export type ThemeData = typeof themeDataJson;
 
 /**
- * The themes this package ships, as data a picker can render.
+ * The themes this package ships, as data a picker can render — daisyUI's `themeOrder`, one entry per
+ * theme and nothing a page needs to *paint* one, which is the theme's own stylesheet's job.
  *
- * daisyUI keeps two registries — `themeOrder` (the ordered names) and `theme/object` (name → the
- * variable map) — precisely so a switcher can draw a theme without parsing its CSS. This is the
- * first: an entry carries what a control needs to *offer* a theme and nothing a page needs to
- * *paint* one, which is the theme's own stylesheet's job.
- *
- * **It replaces `paletteIndex`, and it is a flat list where that was a tree.** A palette used to
- * contain identities, so an entry had `children` and a picker had two levels. A brand is a theme
- * now, so `bank` and `bank-private` sit side by side and the second level is gone.
- *
- * Generated from the directory, not listed: `scripts/gen-theme.mjs` reads `themes/` and records
- * each file's own `color-scheme`. Adding a theme is adding a file.
+ * Generated from the directory, not listed: `scripts/gen-theme.mjs` reads `themes/`, each file's
+ * `color-scheme` and its `@family`/`@label` header. The default family comes first, light before dark,
+ * so the first entry and its partner are the pair a document wears when nobody has chosen.
  *
  * Read through this export rather than importing `@kanzo-tech/theme/theme-data.json`, for the
- * reason given on {@link themeData}: a raw JSON subpath import is an ESM JSON import at runtime, and
- * Rollup strips the attribute that would make it legal.
+ * reason given on {@link themeData}.
  */
-export const themeIndex = themeDataJson.themes as ThemeIndexEntry[];
+export const themeIndex = themeDataJson.themes as ThemeOption[];
+
+/** A family: one light theme and one dark one, the pair a day/night choice moves between. */
+export interface ThemeFamily {
+  family: string;
+  light?: ThemeOption;
+  dark?: ThemeOption;
+}
+
+/** Group a theme list by family, in the order the families first appear. */
+export function themeFamilies(themes: readonly ThemeOption[]): ThemeFamily[] {
+  const out = new Map<string, ThemeFamily>();
+  for (const theme of themes) {
+    const key = theme.family ?? theme.value;
+    const entry = out.get(key) ?? out.set(key, { family: key }).get(key)!;
+    entry[theme.dark ? "dark" : "light"] ??= theme;
+  }
+  return [...out.values()];
+}
 
 /**
- * One theme, as a control sees it.
- *
- * **It carries no colours.** A theme travels in the page under its own `[data-theme]`, so a control
- * depicts one by *setting the attribute* and letting the cascade answer — which is also why a
- * preview is a `div` and not a strip of swatches. A handful of hexes could not depict a theme
- * anyway; on the default's own, two of the four a picker used to publish were the same value.
- *
- * `dark` is the theme's own `color-scheme`, and it is the whole of what "a theme is one mode"
- * means at this layer: it is a property of the theme, not a second axis crossed with it.
+ * The pair a document wears when nobody has chosen: the first light theme listed and its family's
+ * dark one. A list with no partner for it falls back to the first dark theme, and a list with no
+ * theme of a side answers `""` for that side — the attribute-absent default.
  */
-export interface ThemeIndexEntry {
-  name: string;
-  dark: boolean;
+export function defaultThemePair(themes: readonly ThemeOption[]): Record<Appearance, string> {
+  const light = themes.find((t) => !t.dark);
+  const dark =
+    themes.find((t) => t.dark && light?.family !== undefined && t.family === light.family) ??
+    themes.find((t) => t.dark);
+  return { light: light?.value ?? "", dark: dark?.value ?? "" };
 }
 
 /**
@@ -155,10 +162,10 @@ export type KanzoRadius = "none" | "xs" | "sm" | "md" | "lg";
 /** Density (root font-size rem-scale); `default` omits the attribute. */
 export type KanzoDensity = "default" | "compact" | "comfortable";
 
-/** Sans font key — host-extensible; the DS ships `system`/`geist`/`inter` stacks. */
+/** Sans font key — host-extensible; the DS ships `system`/`geist`/`inter` stacks, `geist` the default. */
 export type KanzoFont = "system" | "geist" | "inter" | (string & {});
 
-/** Mono font key — host-extensible; the DS ships `system`/`geist-mono`/`jetbrains-mono`. */
+/** Mono font key — host-extensible; the DS ships `system`/`geist-mono`/`jetbrains-mono`, `geist-mono` the default. */
 export type KanzoMonoFont = "system" | "geist-mono" | "jetbrains-mono" | (string & {});
 
 /**
@@ -181,17 +188,18 @@ export type KanzoThemeName = string;
 /**
  * One published theme, as the runtime sees it — the contract between the catalogue and the panel.
  *
- * It carries no colours, and it has no `children`. A control depicts a theme by setting
- * `data-theme` on an element and letting the cascade paint it: the theme is already in the page, so
- * a depiction copied out of it is a second spelling that can only ever be the same colours or the
- * wrong ones.
+ * It carries no colours. A control depicts a theme by setting `data-theme` on an element and letting
+ * the cascade paint it: the theme is already in the page, so a depiction copied out of it is a second
+ * spelling that can only ever be the same colours or the wrong ones.
  *
- * **`children` went with the containment it modelled.** A palette used to hold brands, so an option
- * held options and the panel flattened a tree into one list. There is no tree: a brand is a theme.
+ * `dark` is the theme's own `color-scheme` — a theme IS a side, so the picker files it under day or
+ * night by this flag. `family` pairs it with its other side; a tenant theme with no partner omits it.
  */
 export interface ThemeOption {
   value: string;
   label: string;
+  dark: boolean;
+  family?: string;
 }
 
 // ── The axis table — the single source of truth for how a preference reaches the DOM ────────
@@ -261,8 +269,8 @@ export const DEFAULT_PREFS: ThemePrefs = {
   // defers to the OS. One spelling is what lets it be declared, and therefore resolved, like the rest.
   appearance: "",
   radius: "md",
-  font: "system",
-  monoFont: "system",
+  font: "geist",
+  monoFont: "geist-mono",
   density: "default",
   // Empty, and both sides fall through to the tenant's default — so a tenant shipping one theme per
   // side stores nothing and gets the `<html>` it always had. `""` per side means the same thing:
@@ -407,6 +415,13 @@ export {
 // Authoring-time colour, and the only derivation in the package. It runs in a form while somebody
 // picks a fill, never in a page painting one: what ships is still a flat block of hex, and this is
 // how the boring half of it stops being typed by hand. See `ink.ts` for the measurements.
+export {
+  auditContrast,
+  CONTRAST_PAIRS,
+  type ContrastFinding,
+  type ContrastPair,
+} from "./contrast.js";
+
 export {
   AA,
   contrast,

@@ -1,61 +1,69 @@
-/* catppuccin-mocha — a theme is one mode, one flat block, written by hand. */
+/* @family catppuccin
+   @label Catppuccin Mocha
+
+   Catppuccin's Mocha flavour: Base #1e1e2e, Text #cdd6f4, Mauve for the brand.
+   One mode, one flat block, written by hand. */
 [data-theme="catppuccin-mocha"] {
-  color-scheme: light;
+  color-scheme: dark;
 
-  /* The twenty-one */
-  --background: #fafafb;
-  --foreground: #0d0e16;
-  --card: #fafafb;
-  --muted: #eeeff4;
-  --muted-foreground: #3f4354;
-  --primary: #a681d0;
-  --primary-foreground: #130620;
-  --secondary: #e4e5ed;
-  --accent: #d6d8e2;
-  --destructive: #e7000b;
-  --destructive-content: #fef9f8;
-  --info: #155dfc;
-  --info-content: #f8fafe;
-  --success: #009966;
-  --success-content: #001309;
-  --warning: #e17100;
-  --warning-content: #1b0700;
-  --border: #c5c7d3;
-  --ring: #a681d0;
+  /* Surfaces, ink, brand, lines */
+  --background: #1e1e2e;
+  --foreground: #cdd6f4;
+  --card: #232334;
+  --popover: #181825;
+  --muted: #313244;
+  --muted-foreground: #bac2de;
+  --primary: #cba6f7;
+  --primary-foreground: #11111b;
+  --secondary: #45475a;
+  --accent: #3a3b50;
+  --border: #45475a;
+  --input: #7f849c;
+  --ring: #cba6f7;
+  --field: #1e1e2e;
+  --faint: #a6adc8;
 
-  /* Optional: each falls back to a bridge default in tokens.css when left out */
-  --input: #6c7086;
-  --field: #00001c08;
-  --faint: #64677d;
-  --destructive-foreground: #8d0003;
-  --info-foreground: #0032a7;
-  --success-foreground: #005b3b;
-  --warning-foreground: #844000;
+  /* Status: the fill, the ink on it, and the same family read on the page */
+  --destructive: #f38ba8;
+  --destructive-content: #14070a;
+  --destructive-foreground: #e8abc6;
+  --info: #89b4fa;
+  --info-content: #070c15;
+  --info-foreground: #a4c2f8;
+  --success: #a6e3a1;
+  --success-content: #0a1209;
+  --success-foreground: #b6dfc4;
+  --warning: #f9e2af;
+  --warning-content: #15120b;
+  --warning-foreground: #e7decd;
 
   /* Shape */
   --radius-box: 0.75rem;
   --radius-field: 0.5rem;
-  --radius-selector: 0.25rem;
+  --radius-selector: 0.375rem;
   --size-field: 0.25rem;
   --size-selector: 0.25rem;
   --stroke: 1px;
   --relief: 0;
 
-  /* Optional: categorical set and syntax */
+  /* Categorical set */
   --chart-capacity: 8;
-  --chart-1: #9810fa;
-  --chart-2: #00a63e;
-  --chart-3: #432dd7;
-  --chart-4: #e17100;
-  --chart-5: #e12afb;
-  --chart-6: #a65f00;
-  --chart-7: #2b7fff;
-  --chart-8: #c6005c;
-  --syntax-keyword: #805da8;
-  --syntax-string: #3b7438;
-  --syntax-number: #9a5b30;
-  --syntax-function: #466dae;
-  --syntax-identifier: #ad4d6b;
-  --syntax-property: #207368;
-  --syntax-type: #675323;
+  --chart-1: #cba6f7;
+  --chart-2: #fab387;
+  --chart-3: #9390dc;
+  --chart-4: #68cda9;
+  --chart-5: #f5c2e7;
+  --chart-6: #abfdf4;
+  --chart-7: #89dae4;
+  --chart-8: #d08b75;
+
+  /* Syntax */
+  --syntax-keyword: #cba6f7;
+  --syntax-string: #a6e3a1;
+  --syntax-number: #fab387;
+  --syntax-function: #89b4fa;
+  --syntax-variable: #f2cdcd;
+  --syntax-property: #b4befe;
+  --syntax-type: #f9e2af;
+  --syntax-annotation: #f5c2e7;
 }

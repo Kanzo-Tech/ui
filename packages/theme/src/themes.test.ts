@@ -1,7 +1,8 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { AA, contrast } from "./ink";
+import { auditContrast, CONTRAST_PAIRS } from "./contrast";
+import { themeIndex } from "./index";
 
 /**
  * What a theme resolves to, rather than what it writes down.
@@ -15,9 +16,9 @@ import { AA, contrast } from "./ink";
  * improvement in coverage it had actually just lost.
  *
  * Absence is not the corpus-wide answer, which is the other half of why resolution is the only way
- * to read this: of the twenty-nine published, the thirteen imported from daisyUI *do* author
- * `--secondary-foreground`, and in all thirteen it differs from `--foreground`. Both spellings ship
- * side by side and only a resolved value sees them the same way.
+ * to read this: `lofi` authors `--secondary-foreground` because its secondary is a dark fill, while
+ * the others defer it. Both spellings ship side by side and only a resolved value sees them the
+ * same way.
  *
  * So this one resolves the chain first, and the chain is **read out of `tokens.css`** rather than
  * restated here. That matters more than it looks: a hand-copied table of "what falls back to what"
@@ -81,56 +82,13 @@ function resolved(theme: (typeof THEMES)[number], token: string, seen = new Set<
   return null;
 }
 
-/**
- * Fill and the ink the vocabulary says sits on it.
- *
- * A card and a popover take `--foreground` itself, not a token of their own: the bridge binds
- * `--color-card-foreground` straight to `var(--foreground)` with no comma, and a `var()` with no
- * fallback is not an override point. Writing `--card-foreground` here instead would have named a
- * token no theme can set and no bridge defers to, which the resolution test reports as dangling —
- * it did, thirty-two times, which is the whole reason that test comes first.
- */
-const PAIRS: ReadonlyArray<readonly [string, string]> = [
-  ["--background", "--foreground"],
-  ["--card", "--foreground"],
-  ["--popover", "--foreground"],
-  ["--muted", "--muted-foreground"],
-  ["--primary", "--primary-foreground"],
-  ["--secondary", "--secondary-foreground"],
-  ["--accent", "--accent-foreground"],
-  // **The pair that says `--accent` is a SURFACE and not a fill**, and it is here because the
-  // distinction was lost in an import and nothing noticed. `--accent` is the ground a row wears
-  // when it is hovered or selected — `bg-accent` at twenty-four call sites — so it carries both
-  // weights of ink, exactly as `--card` and `--muted` do. daisyUI's `accent` is the third brand
-  // colour, which carries only its own; mapped straight across, eleven themes put a brand fill
-  // under every hover in the library and `--muted-foreground` on `dim`'s measured **1.2:1**.
-  //
-  // A fill needs one ink and a surface needs two, so asking for the second is the whole test. It
-  // also constrains the import upstream: the searched `--muted-foreground` answers to three
-  // surfaces now rather than two, because this is the furthest of them from the page.
-  ["--accent", "--muted-foreground"],
-  ["--destructive", "--destructive-content"],
-  ["--info", "--info-content"],
-  ["--success", "--success-content"],
-  ["--warning", "--warning-content"],
-  ["--sidebar", "--sidebar-foreground"],
-  // The status families' OTHER ink, and the pair its name promises. `--destructive-content` sits on
-  // the fill; `--destructive-foreground` is destructive text on the page — an error line under an
-  // input, where the fill never appears — so the surface it answers to is `--background`.
-  //
-  // Unmeasured until an import made it matter: a theme that leaves these to the bridge gets
-  // `var(--destructive-foreground, var(--destructive))`, which paints the fill at full strength on
-  // the page. On a pale theme that is 1.26:1, and nothing here could see it.
-  ["--background", "--destructive-foreground"],
-  ["--background", "--info-foreground"],
-  ["--background", "--success-foreground"],
-  ["--background", "--warning-foreground"],
-] as const;
+/** Every token a contrast pair names — `contrast.ts` owns the list and the floors. */
+const PAIRED = [...new Set(CONTRAST_PAIRS.flatMap((p) => [p.ground, p.ink]))];
 
 describe("a theme resolves through the bridge", () => {
   it("has a corpus, and it is every shipped theme on both sides", () => {
     // A guard whose corpus is empty is indistinguishable from one that passes.
-    expect(THEMES.length).toBeGreaterThan(8);
+    expect(THEMES.length).toBe(8);
     expect(THEMES.some((t) => t.dark)).toBe(true);
     expect(THEMES.some((t) => !t.dark)).toBe(true);
     // And a bridge that stopped parsing would silently make every chain empty, which reads as
@@ -141,7 +99,7 @@ describe("a theme resolves through the bridge", () => {
   it("lands every paired token on a colour, authored or deferred", () => {
     const dangling: string[] = [];
     for (const theme of THEMES) {
-      for (const token of PAIRS.flat()) {
+      for (const token of PAIRED) {
         if (resolved(theme, token) === null) dangling.push(`${theme.name}: ${token}`);
       }
     }
@@ -175,17 +133,22 @@ describe("a theme resolves through the bridge", () => {
     expect(dangling).toEqual([]);
   });
 
-  it("keeps every pair at AA once resolved", () => {
+  it("keeps every pair at its WCAG floor once resolved — text at AA, marks and boundaries at 3:1", () => {
     const short: string[] = [];
     for (const theme of THEMES) {
-      for (const [fill, ink] of PAIRS) {
-        const [a, b] = [resolved(theme, fill), resolved(theme, ink)];
-        if (!a || !b) continue; // the previous test owns that
-        const ratio = contrast(a, b);
-        if (ratio < AA) short.push(`${theme.name} ${ink} ${b} on ${fill} ${a} = ${ratio.toFixed(2)}`);
+      for (const f of auditContrast((token) => resolved(theme, token))) {
+        short.push(`${theme.name} ${f.ink} on ${f.ground} = ${f.ratio.toFixed(2)} (needs ${f.min})`);
       }
     }
     expect(short).toEqual([]);
+  });
+
+  it("ships families of exactly one light and one dark theme, the default family first", () => {
+    const families = new Map<string, boolean[]>();
+    for (const t of themeIndex) families.set(t.family ?? t.value, [...(families.get(t.family ?? t.value) ?? []), t.dark]);
+    expect([...families.keys()]).toEqual(["kanzo", "catppuccin", "lofi", "nord"]);
+    for (const sides of families.values()) expect(sides).toEqual([false, true]);
+    expect(themeIndex.map((t) => t.value).sort()).toEqual(THEMES.map((t) => t.name).sort());
   });
 
   it("binds the default theme so it cannot outrank a chosen one", () => {
@@ -253,8 +216,8 @@ describe("a theme resolves through the bridge", () => {
   it("keeps a deleted declaration honest — the fallback lands where the token used to", () => {
     // The four that came out, and what each was in the sixteen hand-written themes before they did.
     // If a bridge edit re-points one of these, this says so in the language of the change that made
-    // it safe. A theme that declares one for itself is skipped below, which is how the thirteen
-    // imported themes' own `--secondary-foreground` stays out of a claim it was never part of.
+    // it safe. A theme that declares one for itself is skipped below, which is how `lofi`'s own
+    // `--secondary-foreground` stays out of a claim it was never part of.
     const WAS: ReadonlyArray<readonly [string, string]> = [
       ["--secondary-foreground", "--foreground"],
       ["--accent-foreground", "--foreground"],

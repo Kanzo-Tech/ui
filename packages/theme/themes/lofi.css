@@ -1,15 +1,13 @@
-/* lofi — imported from daisyUI 5.7.20 (MIT), converted from OKLCh to hex.
-   Copyright (c) 2020 Pouya Saadeghi. https://github.com/saadeghi/daisyui
+/* @family lofi
+   @label Lo-fi
 
-   Their twenty colours mapped onto our twenty-one; the mapping and what it decides are in
-   `scripts/import-daisy.mjs`. Not one value was corrected — a theme whose own colours failed the
-   contrast guard was skipped rather than nudged, because a nudged `pastel` is not `pastel`.
-
-   SOURCE from here on. Edit it by hand; nothing regenerates it. */
+   daisyUI's lofi, by day: black on white, greys for every surface, colour only where state needs
+   it.
+   One mode, one flat block, written by hand. */
 [data-theme="lofi"] {
   color-scheme: light;
 
-  /* The twenty-one */
+  /* Surfaces, ink, brand, lines */
   --background: #ffffff;
   --foreground: #000000;
   --card: #ffffff;
@@ -20,21 +18,24 @@
   --secondary: #1a1919;
   --secondary-foreground: #ffffff;
   --accent: #efefef;
+  --border: #e5e5e5;
+  --input: #8a8a8a;
+  --ring: #0d0d0d;
+  --field: #ffffff;
+  --faint: #5e5e5e;
+
+  /* Status: the fill, the ink on it, and the same family read on the page */
   --destructive: #ff9181;
-  --destructive-content: #180706;
+  --destructive-content: #160706;
+  --destructive-foreground: #80463e;
   --info: #5fcfdd;
   --info-content: #031011;
+  --info-foreground: #2c676e;
   --success: #69fec3;
   --success-content: #04160e;
-  --warning: #ffce69;
-  --warning-content: #170f04;
-  --border: #ebebeb;
-  --ring: #0d0d0d;
-
-  /* The same families, read on the page rather than on their fill */
-  --destructive-foreground: #80463e;
-  --info-foreground: #2c676e;
   --success-foreground: #318060;
+  --warning: #ffce69;
+  --warning-content: #160f04;
   --warning-foreground: #806631;
 
   /* Shape */
@@ -46,9 +47,24 @@
   --stroke: 1px;
   --relief: 0;
 
-  /* daisyUI has no categorical channel, so this theme authors no `--chart-*` and takes the eight
-     `tokens.css` publishes as its fallback. It does NOT declare `--chart-capacity: 0`: zero means
-     *this theme declines the channel*, which is `monochrome`'s answer and not this one — an absent
-     capacity reads as the full count, which is now true because there is a full set behind it.
-     Author eight of your own here and they win, slot by slot. */
+  /* Categorical set */
+  --chart-capacity: 8;
+  --chart-1: #3b3b3b;
+  --chart-2: #7a4b3e;
+  --chart-3: #2c676e;
+  --chart-4: #388c71;
+  --chart-5: #89733b;
+  --chart-6: #5b4a80;
+  --chart-7: #80315b;
+  --chart-8: #5b78a6;
+
+  /* Syntax */
+  --syntax-keyword: #000000;
+  --syntax-string: #3d5c4a;
+  --syntax-number: #6b4a3a;
+  --syntax-function: #2f4a66;
+  --syntax-variable: #262626;
+  --syntax-property: #3a5560;
+  --syntax-type: #5c5030;
+  --syntax-annotation: #6a3a5c;
 }
