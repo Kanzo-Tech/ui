@@ -524,9 +524,10 @@ takes a number, so making it cost DuckDB-WASM would be absurd. That split is
 [the engine rule](/docs/philosophy#the-engine-rule), the same one behind `Table` and
 `DataTableRoot`.
 
-The frame and the grid are **not** library components: a titled card and an auto-fitting grid add
-no behaviour, so they are arrangements you copy. The ones these docs use are in `docs/lib/`. The
-[gallery](/docs/analytics/gallery#dashboard) wires the whole thing together.
+A titled frame is [`Card`](/docs/data-display/card) and a grid is a class list, so neither is a
+component here. What *is* one is the whole arrangement, when it is chosen from the data rather than
+written: [`Dashboard`](/docs/analytics/dashboard) draws a filter row, tiles, chart cards and the
+rows from a relation's stats and a serializable spec.
 
 Both halves of the pair, side by side, because that is the only way to see why there are two of
 them. Click a region bar and watch which numbers move — and which one does not:
@@ -575,7 +576,9 @@ expected.
 | `coordinator` | `Coordinator` | — |
 | `crossfilter` | `Selection` | a fresh `Selection.crossfilter({ include: selected })` |
 
-`useMosaic()` returns `{ coordinator, crossfilter, selected }`; `useCrossfilter()` and
+`useMosaic()` returns `{ coordinator, crossfilter, selected, reset, retract }` — `retract(clauses)`
+clears those clauses on the selection each was published into, which is what a chip's remove button
+wants; `useCrossfilter()` and
 `useSelected()` return one half each. All three throw outside a `MosaicProvider`. Passing your own
 `crossfilter` collapses `selected` onto it —
 [what that costs](#feedback-on-the-chart-that-filters).
