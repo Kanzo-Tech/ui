@@ -44,8 +44,8 @@ const seed = (prefs: Partial<ThemePrefs>) =>
 // A tenant with two brands: the case the Identity section exists for. The swatch arrays are the
 // document's categorical set for each mode, which is why they differ.
 const THEMES: ThemeOption[] = [
-  { value: "retail-blue", label: "Retail" },
-  { value: "private-gold", label: "Private" },
+  { value: "retail-blue", label: "Retail", dark: false },
+  { value: "private-gold", label: "Private", dark: false },
 ];
 
 type ProviderProps = Partial<ComponentProps<typeof KanzoThemeProvider>>;
@@ -78,42 +78,13 @@ describe("Preferences", () => {
     cleanHtml();
   });
 
-  describe("Appearance is one control, and it is a Colour card", () => {
-    // This block used to assert the opposite — a header toggle present, no section in the body —
-    // and its comment recorded why: a three-card section had been removed once and took the toggle
-    // with it, leaving no way to change appearance and nothing failing. The toggle is now gone on
-    // purpose, so what the test has to hold is the OTHER end of that story: pressing a side card
-    // still wears that side, and no second control has grown back beside it.
-    // Two published choices, because that is what makes `Colour` — and therefore the appearance
-    // control — draw at all. The second test below is the other side of that condition.
-    const TWO: ThemeOption[] = [
-      { value: "kanzo", label: "Kanzo" },
-      { value: "dracula", label: "Dracula" },
-    ];
-
-    it("wears a side by pressing its Colour card, with no toggle in the header", async () => {
-      const user = userEvent.setup();
-      setup(undefined, { themes: TWO });
-
+  describe("the theme comes first, and it is the appearance control too", () => {
+    it("draws ThemePicker first in the body, with no appearance toggle in the header", () => {
+      setup();
       expect(screen.queryByRole("button", { name: /^Appearance/ })).toBeNull();
-      expect(screen.queryByRole("radiogroup", { name: "Appearance" })).toBeNull();
-
-      // The card headers are the control: two toggles, each reporting its own side.
-      await user.click(screen.getByRole("button", { name: "Dark", pressed: false }));
-
-      expect(html().classList.contains("dark")).toBe(true);
-      expect(stored().appearance).toBe("dark");
-    });
-
-    // The hole the deletion left, asserted rather than remembered: below two published choices
-    // `ColorSection` returns null, and then the panel has no appearance control anywhere. A test
-    // that says so is what makes it a decision instead of a regression nobody wrote down.
-    it("has no appearance control at all where the tenant published one choice", () => {
-      setup(undefined, { themes: [{ value: "kanzo", label: "Kanzo" }] });
-
-      expect(screen.queryByRole("button", { name: /^Appearance/ })).toBeNull();
-      expect(screen.queryByRole("button", { name: "Dark" })).toBeNull();
-      expect(screen.queryByRole("button", { name: "Light" })).toBeNull();
+      const body = document.querySelector("[data-slot=preferences-panel] form");
+      expect(body?.firstElementChild?.querySelector("[data-slot=theme-picker]")).toBeTruthy();
+      expect(screen.getByRole("radiogroup", { name: "Theme mode" })).toBeTruthy();
     });
 
     it("still reaches the preference through Reset, which unsets it", async () => {
@@ -125,8 +96,7 @@ describe("Preferences", () => {
       await user.click(screen.getByRole("button", { name: "Reset" }));
 
       // Unset, not set to the default: storage holds what the user chose, and Reset is them
-      // unchoosing. Where that lands is the chain's answer — here, nothing pinned and no tenant
-      // policy, so the matchMedia stub reports light and no `.dark` survives.
+      // unchoosing — here nothing is pinned and the matchMedia stub reports light.
       expect(stored().appearance).toBeUndefined();
       expect(html().classList.contains("dark")).toBe(false);
     });
@@ -273,15 +243,12 @@ describe("Preferences", () => {
     });
 
 
-    it("hides the colour section entirely when neither half is offered", () => {
+    it("hides the theme section entirely when neither the theme nor the appearance is offered", () => {
       setup(undefined, {
-        themes: [
-          { value: "bank", label: "Bank" },
-          { value: "other", label: "Other" },
-        ],
-        policy: { theme: { themeByAppearance: { pinned: "bank" } } },
+        policy: { theme: { themeByAppearance: { pinned: "nord" }, appearance: { pinned: "light" } } },
       });
-      expect(screen.queryByRole("radiogroup", { name: "Light" })).toBeNull();
+      expect(document.querySelector("[data-slot=theme-picker]")).toBeNull();
+      expect(screen.queryByRole("radiogroup", { name: "Day theme" })).toBeNull();
     });
   });
 
@@ -307,118 +274,6 @@ describe("Preferences", () => {
       expect(screen.queryByRole("button", { name: "Copy CSS" })).toBeNull();
     });
   });
-
-  describe("Colour", () => {
-    // One section and one list. A tenant's brands are THEMES beside every other theme, so what used
-    // to be a document containing two brands is two entries — and the user makes one choice, which
-    // is what they were always doing.
-    const BANK = { value: "bank", label: "Bank · Retail" };
-    const BANK_PRIVATE = { value: "bank-private", label: "Bank · Private" };
-    const DRACULA = { value: "dracula", label: "Dracula" };
-    // Two groups now, one per side — `Light` is the applied one under these stubs. Naming the side
-    // is what makes them addressable at all: inside one fieldset they would both be "Colour".
-    const colour = () => within(screen.getByRole("radiogroup", { name: "Light" }));
-    /** The other side's group — the one a reader edits without repainting what they are looking at. */
-    const darkSide = () => within(screen.getByRole("radiogroup", { name: "Dark" }));
-
-    it.each([
-      ["nothing wired", undefined],
-      ["one palette with one brand", [DRACULA]],
-      ["one palette with one brand, spelled as a child", [{ ...DRACULA, children: [{ value: "d", label: "D" }] }]],
-    ])("offers no group when the tenant published %s", (_name, list) => {
-      setup(undefined, list ? { themes: list } : {});
-
-      expect(screen.queryByRole("radiogroup", { name: "Light" })).toBeNull();
-    });
-
-
-
-    // The labels are the client's, verbatim. The colours only PICTURE the choice, so the strip is
-    // `aria-hidden` and contributes nothing to the name: a brand named by its hex is one a
-    // screen-reader user cannot pick.
-    it("names each card from labels, never from colours", () => {
-      setup(undefined, { themes: [BANK, DRACULA] });
-
-      for (const strip of document.querySelectorAll("[data-slot=swatch-group]")) {
-        expect(strip.getAttribute("aria-hidden")).toBe("true");
-      }
-    });
-
-    it("checks the RESOLVED theme, which with no preference is the tenant's default", () => {
-      setup(undefined, { themes: [BANK, BANK_PRIVATE, DRACULA] });
-
-      expect(stored().themeByAppearance ?? {}).toEqual({});
-      expect((colour().getByRole("radio", { name: "Bank · Retail" }) as HTMLInputElement).checked).toBe(true);
-    });
-
-    it("writes one value, because a brand is a theme and not a half of one", async () => {
-      // This used to assert that two fields were written in ONE patch, because writing them
-      // separately let the palette change file and restore a remembered brand over the top of the
-      // one being asked for — the memory won against the click. There is one field now.
-      setup(undefined, { themes: [BANK, BANK_PRIVATE, DRACULA] });
-
-      await userEvent.setup().click(colour().getByRole("radio", { name: "Bank · Private" }));
-
-      // Keyed by the side being worn: a theme is chosen per appearance, and these tests run light.
-      expect(stored().themeByAppearance).toEqual({ light: "bank-private" });
-      expect(html().getAttribute("data-theme")).toBe("bank-private");
-    });
-
-    it("writes the choice to <html>", async () => {
-      // One click is one choice at two grains — a palette and a brand inside it — and both now reach
-      // the cascade. This test used to assert the opposite for the palette half: "a document is
-      // served, never selected in the cascade", which was true while a document was a whole
-      // stylesheet the server picked from a cookie. All six ship together now (8.6 kB gzipped) and
-      // `compile(doc, { scope })` puts each under its own attribute, so the control finally applies
-      // what it stores instead of only recording it for the next request.
-      setup(undefined, { themes: [BANK, DRACULA] });
-
-      await userEvent.setup().click(colour().getByRole("radio", { name: "Dracula" }));
-
-      expect(stored().themeByAppearance).toEqual({ light: "dracula" });
-      expect(html().getAttribute("data-theme")).toBe("dracula");
-    });
-
-    it("writes the other side without repainting the one being read", async () => {
-      // The whole point of two cards. Choosing a night palette in daylight has to reach the dark
-      // key and leave `<html>` alone — a control that repainted the page to show you what you were
-      // configuring would be changing the thing you did not ask it to change.
-      setup(undefined, { themes: [BANK, DRACULA] });
-
-      await userEvent.setup().click(darkSide().getByRole("radio", { name: "Dracula" }));
-
-      expect(stored().themeByAppearance).toEqual({ dark: "dracula" });
-      expect(html().hasAttribute("data-theme"), "the applied side is untouched").toBe(false);
-    });
-
-    it("comes first in the panel body", () => {
-      setup(undefined, { themes: [BANK, DRACULA] });
-
-      // Colour is no longer a `<legend>`: two radio groups live in it, and an ambient fieldset
-      // makes both answer to its legend — so the section keeps a heading and each card names
-      // itself. Ordering is asserted against the panel's first child rather than the first legend.
-      const body = document.querySelector("[data-slot=preferences-panel] form");
-      expect(body?.firstElementChild?.textContent?.startsWith("Colour")).toBe(true);
-      const legends = [...document.querySelectorAll("[data-slot=preferences-panel] legend")];
-      expect(legends[0]?.textContent, "Density is the first fieldset now").toBe("Density");
-    });
-
-    it("says so when the tenant withdrew what this user had chosen", () => {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ themeByAppearance: { light: "withdrawn" } }));
-      setup(undefined, { themes: [BANK, DRACULA] });
-
-      expect(screen.getByText("Colours updated")).toBeTruthy();
-      expect(screen.getByText(/no longer published/)).toBeTruthy();
-    });
-
-    it("says nothing when the stored choice is still published", () => {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ themeByAppearance: { light: "dracula" } }));
-      setup(undefined, { themes: [BANK, DRACULA] });
-
-      expect(screen.queryByText("Colours updated")).toBeNull();
-    });
-  });
-
 
   describe("ThemeNotice", () => {
     // `toast` is a module-level instance shared by every test in this worker, so a spy on it has
@@ -483,7 +338,7 @@ describe("Preferences", () => {
     it("unsets every axis, including the ones added after it was written", async () => {
       const user = userEvent.setup();
       seed({ appearance: "dark", radius: "none", density: "compact", font: "geist", monoFont: "geist-mono", themeByAppearance: { dark: "t" } });
-      setup(undefined, { themes: [{ value: "t", label: "T" }, { value: "u", label: "U" }] });
+      setup(undefined, { themes: [{ value: "t", label: "T", dark: false }, { value: "u", label: "U", dark: true }] });
 
       await user.click(screen.getByRole("button", { name: "Reset" }));
 
@@ -491,13 +346,14 @@ describe("Preferences", () => {
       // wrote every axis explicitly, which is the one act that would pin a user against their
       // tenant's starting point — reset being the thing that makes a policy stop applying.
       expect(stored()).toEqual({});
-      // …and the DOM agrees: every axis at its default removes its attribute. For identity that
-      // default is `""`, which is not "no identity" but "the one the document already paints".
-      for (const a of MANAGED_ATTRS) expect(html().hasAttribute(a)).toBe(false);
+      // …and the DOM agrees: every axis at its default removes its attribute, except the theme,
+      // which writes the tenant's default for the side.
+      for (const a of MANAGED_ATTRS.filter((a) => a !== "data-theme")) expect(html().hasAttribute(a)).toBe(false);
+      expect(html().getAttribute("data-theme")).toBe("t");
       // Reset put the choice back on the theme the tenant makes default rather than leaving nothing
-      // checked.
-      const colour = within(screen.getByRole("radiogroup", { name: "Light" }));
-      expect((colour.getByRole("radio", { name: "T" }) as HTMLInputElement).checked).toBe(true);
+      // checked — the default pair's day theme, worn and written.
+      const day = within(screen.getByRole("radiogroup", { name: "Day theme" }));
+      expect((day.getByRole("radio", { name: "T" }) as HTMLInputElement).checked).toBe(true);
     });
   });
 });

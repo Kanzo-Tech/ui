@@ -21,7 +21,7 @@ import {
 	MenuItem,
 	MenuSeparator,
 	MenuTrigger,
-	PreferencesColor,
+	ThemePicker,
 	PreferencesDensity,
 	PreferencesFont,
 	PreferencesMonoFont,
@@ -573,7 +573,7 @@ function ArchiveShell() {
 						<PreferencesTrigger />
 						<PreferencesPanel>
 							<GraphLooks />
-							<PreferencesColor />
+							<ThemePicker />
 							<PreferencesDensity />
 							<PreferencesRadius />
 							<PreferencesFont />

@@ -20,7 +20,7 @@
 // off the axis table like any other: choosing among the blocks that document already contains.
 //
 // MANDATORY under SSR, not an optimisation. Skipping it costs more than a flash: any control
-// whose markup depends on the resolved theme (`PreferencesColor`'s side cards) renders one value on the
+// whose markup depends on the resolved theme (`ThemePicker`'s cards) renders one value on the
 // server and another on hydration, which React reports as a mismatch and does not patch.
 //
 // This script must reach the SAME `class` + `data-*` as the provider from the same inputs —
@@ -34,8 +34,11 @@ import {
   AXES,
   CORE_NAMESPACE,
   CORE_PREFS,
+  defaultThemePair,
   prefOptions,
   STORAGE_KEY,
+  themeIndex,
+  type Appearance,
   type SectionPolicy,
 } from "@kanzo-tech/theme";
 
@@ -51,12 +54,18 @@ export interface ThemeScriptOptions {
    * Only the core's namespace is read here: a section's attribute is written after hydration.
    */
   policy?: Record<string, SectionPolicy>;
+  /**
+   * The day and night themes worn while the user has chosen neither — the provider's `defaultTheme`,
+   * and the same default: the first family of the shipped catalogue. Pass it if you pass it there.
+   */
+  defaultTheme?: Partial<Record<Appearance, string>>;
 }
 
 /** Returns the IIFE source (a string) to inline before hydration. Safe to embed in HTML. */
 export function themeScript({
   storageKey = STORAGE_KEY,
   policy = {},
+  defaultTheme = defaultThemePair(themeIndex),
 }: ThemeScriptOptions = {}): string {
   // Only the serialisable part of each declaration is needed at runtime: key, attribute, default,
   // whether it is keyed by appearance, and the options to gate a stored value against.
@@ -76,6 +85,7 @@ export function themeScript({
   const appearance = JSON.stringify(row("appearance"));
   const pol = JSON.stringify(policy[CORE_NAMESPACE] ?? {});
   const sk = JSON.stringify(storageKey);
+  const df = JSON.stringify(defaultTheme);
   return (
     "(function(){try{" +
     "var d=document.documentElement,P={};" +
@@ -99,7 +109,10 @@ export function themeScript({
     // selector with no matching rule is inert and the cascade falls through to `:root`, which is the
     // default. Validating here would mean knowing the document, and the two sides would stop
     // agreeing the moment they disagreed about it.
-    "var A=" + axes + ";for(var i=0;i<A.length;i++){var r=A[i],k=r[0],s=r[3]?((P[k]||{})[W]):P[k],v=pick(PO[k]||{},s,r[2],r[4]);if(v===r[2]){d.removeAttribute(r[1]);}else{d.setAttribute(r[1],v);}}" +
+    // A keyed axis (the theme) with nothing chosen writes the tenant's default for the side, as
+    // the provider does: only the attribute can say which family the default is.
+    "var DF=" + df + ";" +
+    "var A=" + axes + ";for(var i=0;i<A.length;i++){var r=A[i],k=r[0],s=r[3]?((P[k]||{})[W]):P[k],v=pick(PO[k]||{},s,r[2],r[4]);if(r[3]&&v===r[2])v=DF[W]||r[2];if(v===r[2]){d.removeAttribute(r[1]);}else{d.setAttribute(r[1],v);}}" +
     // `style.colorScheme` is never written: an inline declaration outranks every rule permanently,
     // and each theme file carries its own `color-scheme`.
     "d.classList.toggle('dark',W==='dark');" +

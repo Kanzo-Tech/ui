@@ -23,120 +23,52 @@
   },
   "themes": [
     {
-      "name": "acid",
-      "dark": false
+      "value": "kanzo",
+      "label": "Kanzo",
+      "dark": false,
+      "family": "kanzo"
     },
     {
-      "name": "bank-dark",
-      "dark": true
+      "value": "kanzo-dark",
+      "label": "Kanzo Dark",
+      "dark": true,
+      "family": "kanzo"
     },
     {
-      "name": "bank-private-dark",
-      "dark": true
+      "value": "catppuccin-latte",
+      "label": "Catppuccin Latte",
+      "dark": false,
+      "family": "catppuccin"
     },
     {
-      "name": "bank-private",
-      "dark": false
+      "value": "catppuccin-mocha",
+      "label": "Catppuccin Mocha",
+      "dark": true,
+      "family": "catppuccin"
     },
     {
-      "name": "bank",
-      "dark": false
+      "value": "lofi",
+      "label": "Lo-fi",
+      "dark": false,
+      "family": "lofi"
     },
     {
-      "name": "catppuccin-latte-dark",
-      "dark": true
+      "value": "lofi-dark",
+      "label": "Lo-fi Dark",
+      "dark": true,
+      "family": "lofi"
     },
     {
-      "name": "catppuccin-latte",
-      "dark": false
+      "value": "nord",
+      "label": "Nord",
+      "dark": false,
+      "family": "nord"
     },
     {
-      "name": "catppuccin-mocha-dark",
-      "dark": true
-    },
-    {
-      "name": "catppuccin-mocha",
-      "dark": false
-    },
-    {
-      "name": "cmyk",
-      "dark": false
-    },
-    {
-      "name": "coffee",
-      "dark": true
-    },
-    {
-      "name": "cyberpunk",
-      "dark": false
-    },
-    {
-      "name": "dim",
-      "dark": true
-    },
-    {
-      "name": "dracula-dark",
-      "dark": true
-    },
-    {
-      "name": "dracula",
-      "dark": false
-    },
-    {
-      "name": "forest",
-      "dark": true
-    },
-    {
-      "name": "kanzo-dark",
-      "dark": true
-    },
-    {
-      "name": "kanzo",
-      "dark": false
-    },
-    {
-      "name": "lemonade",
-      "dark": false
-    },
-    {
-      "name": "lofi",
-      "dark": false
-    },
-    {
-      "name": "luxury",
-      "dark": true
-    },
-    {
-      "name": "monochrome-dark",
-      "dark": true
-    },
-    {
-      "name": "monochrome",
-      "dark": false
-    },
-    {
-      "name": "night",
-      "dark": true
-    },
-    {
-      "name": "nord-dark",
-      "dark": true
-    },
-    {
-      "name": "nord",
-      "dark": false
-    },
-    {
-      "name": "sunset",
-      "dark": true
-    },
-    {
-      "name": "synthwave",
-      "dark": true
-    },
-    {
-      "name": "wireframe",
-      "dark": false
+      "value": "nord-dark",
+      "label": "Nord Dark",
+      "dark": true,
+      "family": "nord"
     }
   ],
   "prefs": {
@@ -206,7 +138,7 @@
           "label": "Inter"
         }
       ],
-      "default": "system",
+      "default": "geist",
       "attr": "data-font",
       "source": "themes",
       "label": "Font",
@@ -228,7 +160,7 @@
           "label": "JetBrains"
         }
       ],
-      "default": "system",
+      "default": "geist-mono",
       "attr": "data-mono-font",
       "source": "themes",
       "label": "Mono font",

@@ -46,13 +46,8 @@ export {
   PreferencesField,
   // Every section is exported flat; `index.test.ts` keeps the list honest.
   PreferencesFieldSet,
-  // First, and the only section that can vanish: it draws itself only where a tenant published more
-  // than one identity. Colour is still not authored here — an identity is a block the client wrote.
-  PreferencesColor,
-  // No `PreferencesAppearance`, and no `AppearanceToggle` beside it either. Appearance has ONE
-  // control and it is inside `PreferencesColor`: each side is a card, and pressing a card wears
-  // that side. A section of its own — and, latterly, a sun/moon button in the panel's own header —
-  // was the same preference wearing a second control.
+  // No `PreferencesColor`, `PreferencesAppearance` or `AppearanceToggle`: the theme and the
+  // appearance are one control, `ThemePicker`, exported below and drawn first in the panel.
   PreferencesRadius,
   PreferencesFont,
   PreferencesMonoFont,
@@ -65,12 +60,15 @@ export {
 export type {
   PreferencesProps,
   PreferencesRootProps,
-  PreferencesColorProps,
   PreferencesSectionsProps,
 } from "./composites/Preferences.js";
 // The panel may never be opened, and a retired identity is somebody looking at a brand they did not
 // choose. Opt-in rather than provider-rendered: the provider has no DOM, and two deleted themers say
 // it stays that way.
+export { ThemePicker } from "./composites/ThemePicker.js";
+export type { ThemePickerCopy, ThemePickerProps } from "./composites/ThemePicker.js";
+export { ThemePreview } from "./composites/ThemePreview.js";
+export type { ThemePreviewProps } from "./composites/ThemePreview.js";
 export { ThemeNotice } from "./composites/theme-notice.js";
 export type { ThemeNoticeProps, ThemeRetiredCopy } from "./composites/theme-notice.js";
 export { MadeWith } from "./composites/MadeWith.js";

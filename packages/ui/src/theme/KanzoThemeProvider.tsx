@@ -21,7 +21,9 @@ import {
   prefOptions,
   resolvePref,
   STORAGE_KEY,
+  defaultThemePair,
   themeData,
+  themeIndex,
   type ThemePrefs,
 } from "@kanzo-tech/theme";
 import { ThemeContext, type FontOption, type ThemeContextValue } from "./theme-context.js";
@@ -174,7 +176,6 @@ const DEFAULT_MONO_FONTS = stacked("monoFont", themeData.monoFonts);
  * A host that never wires `identities` gets this one, not a fresh `[]` per render — the context is
  * memoised on it, and a new array every render re-renders every consumer of the theme.
  */
-const NO_THEMES: ThemeOption[] = [];
 // Same reason as the two above: a fresh literal per render is a new dependency every render, and
 // these feed a memo the whole context hangs off.
 const NO_SECTIONS: SectionManifest[] = [];
@@ -244,8 +245,8 @@ export interface KanzoThemeProviderProps {
   fonts?: FontOption[];
   monoFonts?: FontOption[];
   /**
-   * The themes the TENANT published. Usually `themeIndex` from `@kanzo-tech/theme`, or a tenant's
-   * own list mapped on the server.
+   * The themes the TENANT published. Defaults to `themeIndex` — the catalogue `themes.css` ships —
+   * so a host that imports the whole sheet passes nothing; a tenant narrows it or adds its own.
    *
    * **Wiring this applies it.** A theme is a flat block of CSS that travels in the page under its
    * own `[data-theme]`, so this provider writes the attribute like any other axis. A host still has
@@ -258,14 +259,13 @@ export interface KanzoThemeProviderProps {
    */
   themes?: ThemeOption[];
   /**
-   * The name applied when the preference is empty. Defaults to the first published one.
+   * The day theme and the night theme worn while the user has chosen neither — GitHub's default
+   * pair. Defaults to the first light theme in `themes` and its family's dark one.
    *
-   * **A pair, when the two sides differ.** A theme carries its own light or dark palette, so one
-   * name cannot answer for both sides: naming a night theme here paints it in daylight too, with
-   * `.dark` off. Pass `{ light, dark }` to say which theme each side defers to — the same shape the
-   * preference already stores, and the same reason it is a map there.
+   * A pair and never one name: a theme IS a side, so one name would paint a night theme in daylight.
+   * Pass the same value to `themeScript`, or the first paint and the hydrated page disagree.
    */
-  defaultTheme?: string | Partial<Record<Appearance, string>>;
+  defaultTheme?: Partial<Record<Appearance, string>>;
   /** Called once, at most, when the stored theme is no longer published — somebody chose gold and is
    *  about to be looking at blue, and silence makes that read as a bug in our product rather than a
    *  change in their client's. The provider renders no notice itself; say it where the app says
@@ -315,11 +315,8 @@ export function KanzoThemeProvider({
   storageKey = STORAGE_KEY,
   fonts = DEFAULT_FONTS,
   monoFonts = DEFAULT_MONO_FONTS,
-  themes = NO_THEMES,
-  // The first published one. `themeIndex` carries no `isDefault`
-  // flag, but it belongs to the host's mapper: a `ThemeOption` is what a CONTROL needs, and a
-  // control has no use for which one the server would have served anyway.
-  defaultTheme = themes[0]?.value ?? "",
+  themes = themeIndex,
+  defaultTheme,
   onThemeRetired,
   sections = NO_SECTIONS,
   policy = NO_POLICY,
@@ -498,12 +495,10 @@ export function KanzoThemeProvider({
   //
   // No `sources` are passed: see the identity block below for why the two axes a tenant publishes
   // are deliberately not gated against what they published.
-  // The tenant's default for ONE side. A string answers for both; a map answers per side and falls
-  // back to nothing, which is inert — an unknown `data-theme` matches no rule.
-  const defaultThemeFor = React.useCallback(
-    (side: Appearance) => (typeof defaultTheme === "string" ? defaultTheme : (defaultTheme[side] ?? "")),
-    [defaultTheme],
-  );
+  // The tenant's default for ONE side; a side the pair leaves out falls back to nothing, which is
+  // inert — an unknown or absent `data-theme` matches no rule but the default binding.
+  const pair = React.useMemo(() => defaultTheme ?? defaultThemePair(themes), [defaultTheme, themes]);
+  const defaultThemeFor = React.useCallback((side: Appearance) => pair[side] ?? "", [pair]);
   type Entry = ResolvedPref & { decl: SectionPrefDecl };
   const corePrefs = React.useMemo(() => {
     const out: Record<string, Entry> = { appearance: { ...appearanceResolved, decl: CORE_PREFS.appearance } };
@@ -594,16 +589,18 @@ export function KanzoThemeProvider({
   // rule permanently, and each block of the compiled document carries its own `color-scheme`.
   React.useEffect(() => {
     const el = document.documentElement;
-    for (const { attr, def, key } of AXES) {
+    for (const { attr, byAppearance, def, key } of AXES) {
       // What the chain answered, never the stored value — which is what makes a tenant's policy
-      // reach the DOM. Removed at the default, so a host that changed nothing has the `<html>` it
-      // had before any of this existed; the corrupt-blob case is refused upstream, in `resolvePref`.
-      const v = corePrefs[key]?.value;
+      // reach the DOM. Removed at the default; the corrupt-blob case is refused upstream, in
+      // `resolvePref`. The theme is the exception, and it writes the RESOLVED theme: an empty choice
+      // defers to the tenant's pair, and only the attribute can say which pair that is — the CSS
+      // default binding knows one family. `themeScript` runs the same rule.
+      const v = byAppearance ? resolvedTheme : corePrefs[key]?.value;
       if (v === undefined || v === def) el.removeAttribute(attr);
       else el.setAttribute(attr, v);
     }
     el.classList.toggle("dark", resolvedAppearance === "dark");
-  }, [corePrefs, resolvedAppearance]);
+  }, [corePrefs, resolvedAppearance, resolvedTheme]);
 
   // Clean the managed attributes off <html> only when the provider unmounts.
   // `.dark` is deliberately left alone: a host may own the class after we go, and removing it

@@ -1,204 +1,122 @@
 "use client";
 
-import { themeIndex } from "@kanzo-tech/theme";
-import { Button, useKanzoTheme } from "@kanzo-tech/ui";
+import { themeFamilies, type ThemeFamily } from "@kanzo-tech/theme";
+import { Button, ThemePreview, useKanzoTheme } from "@kanzo-tech/ui";
 import { CheckIcon, MoonIcon, PencilIcon, SunIcon } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
-import { ThemeScreen } from "./theme-screen";
 
 /**
- * One screen, every theme, at once — the catalogue seen rather than listed.
+ * The catalogue as families — daisyUI's theme page, one card per family rather than per theme.
  *
- * The thing a list of theme names cannot tell you is what any of them are *like*. A row of swatches
- * is barely better: it is a claim about colours that says nothing about whether an interface built
- * from them holds together. So this draws the same arrangement the
- * [generator](/theme-generator) previews — imported rather than rebuilt — once per shipped theme,
- * and lets the comparison happen where comparisons actually happen, which is between two screens
- * and not between two palettes.
+ * A family is the pair a user wears by day and by night, so a card shows one side at a time and a
+ * toggle inside it flips to the other: the question a reader is asking is "do I want this", and the
+ * two halves of one answer belong on one card. Each preview is `ThemePreview` — the same scoped
+ * miniature `ThemePicker` draws — so a card is the theme, not a picture of it.
  *
- * **It was a showcase in an iframe and it is a documentation page now**, which is where daisyUI
- * keeps the same thing. A showcase claims the viewport because a shell judged inside a centred box
- * proves nothing; a catalogue is a grid of thumbnails and has no such claim, so the iframe was
- * buying nothing and costing the page's own scrolling, its search index and its links.
- *
- * ## Nothing here paints a theme; each tile *is* one
- *
- * A tile is a `[data-theme]` attribute on a `div`. That selector is an ordinary attribute selector
- * — it matches an element, not a document — so the theme's custom properties land on the tile and
- * inherit into everything inside it, and the bridge in `tokens.css` resolves each utility on the
- * element that uses it. Twenty-nine themes therefore cost twenty-nine attributes and no JavaScript:
- * no iframe per tile, no stylesheet swapping, no state. `color-scheme` rides along inside each
- * theme's own block, so a dark tile renders its scrollbars dark without being told.
- *
- * That is the same property the generator leans on, and it is worth stating twice because it is the
- * one thing that would break it. If the theme layer ever declared its colours on `:root` alone, a
- * custom property would resolve once on `<html>` and every tile here would paint the same theme.
- *
- * ## What it deliberately does not do
- *
- * **It does not let you edit.** Editing is the generator, and each tile links to it carrying its own
- * theme, so the two surfaces meet rather than overlap.
- *
- * **It does not rank them.** The order is the catalogue's, with light and dark separated only
- * because putting a light tile beside a dark one at this size reads as a rendering fault rather
- * than as a choice.
+ * **Wear it** files the family under both sides at once (one tick, two writes — the provider
+ * composes them) and leaves the appearance alone, so a reader following the OS keeps following it.
+ * **Edit** opens the generator on the pair.
  */
 export function ThemeCatalogue() {
-  const { resolvedTheme, setAppearance, setTheme } = useKanzoTheme();
-  const [side, setSide] = React.useState<"light" | "dark">("light");
-  const themes = themeIndex.filter((t) => t.dark === (side === "dark"));
+  const { themes, themeByAppearance, resolvedAppearance, defaultThemeFor, setTheme } = useKanzoTheme();
+  const families = themeFamilies(themes);
+  const wornOn = (side: "light" | "dark") => themeByAppearance[side] || defaultThemeFor(side);
+  const worn = (f: ThemeFamily) => wornOn("light") === f.light?.value && wornOn("dark") === f.dark?.value;
 
-  // Two calls, for the reason `ThemeMenu`'s `choose` sets out at length: `setTheme` files a theme
-  // under a side and does not move you to it, so wearing a dark tile from the light side stored a
-  // preference and repainted nothing.
-  const wear = (name: string, appearance: "light" | "dark") => {
-    setTheme(name, { appearance });
-    setAppearance(appearance);
+  const wear = (f: ThemeFamily) => {
+    if (f.light) setTheme(f.light.value, { appearance: "light" });
+    if (f.dark) setTheme(f.dark.value, { appearance: "dark" });
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* A theme is a mode, so the two sides are two sets of themes rather than a switch over one.
-          This picks which set you are looking at; it does not convert anything. */}
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1 rounded-field border border-border p-0.5">
-          {(["light", "dark"] as const).map((option) => (
-            <Button
-              aria-pressed={side === option}
-              key={option}
-              onClick={() => setSide(option)}
-              size="sm"
-              variant={side === option ? "secondary" : "ghost"}
-            >
-              {option === "light" ? <SunIcon /> : <MoonIcon />}
-              {option}
-            </Button>
-          ))}
-        </div>
-        <span className="text-muted-foreground text-sm">
-          {themes.length} {side} · {themeIndex.length} in the catalogue
-        </span>
-      </div>
-
-      {/* Three across on a wide screen, not two. The reference's catalogue page is a grid of small
-          cards — theme name, four glyphs — and it fits a dozen on a screen, because the job of a
-          catalogue is *browsing*. Ours keeps the screen instead of the glyphs, which is the whole
-          argument of this page, so the way to get closer to that job is a smaller tile rather than
-          a poorer one: twenty-nine themes two per row is fifteen rows of scrolling.
-
-          **The track is `rem`, and that is the whole of why the caption survives Cozy.** It was
-          `grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3` — a column *count*, chosen against viewport
-          widths — while everything inside a tile is sized in `rem` and grows with the density. At
-          `comfortable` the two pull opposite ways: the content grows 12.5% and the tile *shrinks*
-          to 350px, because the container is rem-sized too. Measured, `catppuccin-latte-dark` wanted
-          171px in 142 and lost its `-dark`, which the `gap-1.5` below was supposed to have fixed
-          and had only fixed at one density. A track measured in the same unit as its contents
-          cannot go out of step with them: this drops to two columns at Cozy and stays at three
-          everywhere the old rule was already right — 354.7px at default and 333 at compact, to the
-          tenth of a pixel.
-
-          `min(22rem, 100%)` and not a bare `22rem`: below the track's own width `auto-fill` still
-          lays a 22rem track and the tile overflows its container — 352px inside 320, measured. */}
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(min(22rem,100%),1fr))] gap-5">
-        {themes.map((theme) => (
-          <Tile
-            key={theme.name}
-            name={theme.name}
-            onWear={() => wear(theme.name, side)}
-            worn={resolvedTheme === theme.name}
-          />
-        ))}
-      </div>
+    <div className="not-prose grid grid-cols-[repeat(auto-fill,minmax(min(16rem,100%),1fr))] gap-5">
+      {families.map((family) => (
+        <FamilyCard
+          family={family}
+          initialSide={resolvedAppearance}
+          key={family.family}
+          onWear={() => wear(family)}
+          worn={worn(family)}
+        />
+      ))}
     </div>
   );
 }
 
-/**
- * One theme, wearing the screen.
- *
- * The caption sits **outside** the themed element on purpose. A label painted in the theme it
- * describes is unreadable exactly when you most need it — when the theme is broken — and this page
- * is one of the few places where reading a theme's name while doubting its colours is the point.
- *
- * "Wear it" is new, and it is what a catalogue inside the documentation can do that one inside an
- * iframe could not: the site itself is themed by the same attribute, so pressing it puts the tile's
- * theme on `<html>` and the page you are reading becomes the specimen. The side comes with it, and
- * that takes two calls — `wear` above says why.
- */
-function Tile({ name, onWear, worn }: { name: string; onWear: () => void; worn: boolean }) {
-  return (
-    <figure className="flex min-w-0 flex-col gap-2">
-      {/* `gap-1.5` and not `gap-2`, measured at the tile width this grid actually produces. Three
-          across is 355px, and the row is name · dots · rule · Wear it · Edit with four gaps between
-          them: at 8px each, `catppuccin-latte-dark` wanted 152px and had 149, so the two longest
-          names in the catalogue lost their `-dark` to an ellipsis — the one word on the tile that
-          says which side you are looking at. Six gives the name 157.
+function FamilyCard({
+  family,
+  initialSide,
+  onWear,
+  worn,
+}: {
+  family: ThemeFamily;
+  initialSide: "light" | "dark";
+  onWear: () => void;
+  worn: boolean;
+}) {
+  const [side, setSide] = React.useState<"light" | "dark">(
+    family[initialSide] ? initialSide : family.light ? "light" : "dark",
+  );
+  const theme = family[side];
+  if (!theme) return null;
 
-          Six is 4.5px of headroom, and that is not a lot — but the headroom is no longer what
-          holds this up. Two pixels of gap were never going to answer a density that moves the
-          content 19px; the rem track above is what does, and this stays because a tighter caption
-          is right on its own. */}
-      <figcaption className="flex items-center gap-1.5">
-        <span className="truncate font-mono text-muted-foreground text-xs">{name}</span>
-        {/* The three brand fills, so a name can be scanned as a colour without reading the tile
-            below it — the reference puts four glyphs on its card for exactly this. Outside the
-            themed element, so each dot wears its own `data-theme`. */}
-        <span aria-hidden className="flex shrink-0 items-center gap-1">
-          {(["primary", "secondary", "accent"] as const).map((token) => (
-            <span
-              className="size-2.5 rounded-full ring-1 ring-border"
-              data-theme={name}
-              key={token}
-              style={{ background: `var(--${token})` }}
-            />
-          ))}
-        </span>
-        <span aria-hidden className="h-px flex-1 bg-border" />
-        <Button
-          aria-pressed={worn}
-          disabled={worn}
-          onClick={onWear}
-          size="sm"
-          variant={worn ? "secondary" : "ghost"}
-        >
-          {worn ? <CheckIcon /> : null}
-          {worn ? "Worn" : "Wear it"}
-        </Button>
-        <Button asChild size="sm" variant="ghost">
-          <Link href={`/theme-generator?from=${encodeURIComponent(name)}`}>
-            <PencilIcon />
-            Edit
-          </Link>
-        </Button>
-      </figcaption>
-      {/* A window onto a product, not a region of this page that changed colour — hence the border
-          and the crop. And a *thumbnail*: at full size one tile is 960px tall, so a catalogue of
-          them shows one theme at a time, which is the opposite of what a catalogue is for. `zoom`
-          shrinks layout rather than painting a smaller picture of it, so the borders, the type and
-          the control heights all stay in proportion; a `transform: scale` would leave the box the
-          size it was and the grid would still be reserving 960px per theme. */}
-      <div className="h-[26rem] overflow-hidden rounded-box border border-border" data-theme={name}>
-        {/* **No `zoom`, and losing it is the point.** It shrank the layout to 52%, so a tile showed
-            54% of the screen with its type at half size — the real thing, made small, which is
-            exactly what reads as a bad picture. At full size the screen responds to the tile
-            instead: `ThemeScreen` is a container, so the fragments reflow for 355px and every
-            control is at the size a reader would actually meet it. What it costs is how much you
-            see — 38% of the screen rather than 54% — and that is the right thing to spend, because
-            a tile is asking "does this theme work", not "what does this product do". */}
-        <div className="h-full bg-background">
-          <div className="p-4">
-            <ThemeScreen />
+  return (
+    <figure className="flex min-w-0 flex-col gap-3 rounded-box border border-border bg-card p-3">
+      <ThemePreview theme={theme.value} />
+      <figcaption className="flex flex-col gap-2.5">
+        <div className="flex items-center gap-2">
+          <span className="truncate font-medium text-sm">{theme.label}</span>
+          {/* The brand fills, so a family scans as a colour before it is read. Outside the preview,
+              so the row wears its theme by attribute. */}
+          <span aria-hidden className="flex shrink-0 items-center gap-1" data-theme={theme.value}>
+            {(["primary", "secondary", "accent"] as const).map((token) => (
+              <span
+                className="size-2.5 rounded-full ring-1 ring-border"
+                key={token}
+                style={{ background: `var(--${token})` }}
+              />
+            ))}
+          </span>
+          <div className="ms-auto flex items-center gap-0.5 rounded-field border border-border p-0.5">
+            {(["light", "dark"] as const).map((option) => {
+              const Icon = option === "light" ? SunIcon : MoonIcon;
+              return (
+                <Button
+                  aria-label={family[option]?.label ?? option}
+                  aria-pressed={side === option}
+                  disabled={!family[option]}
+                  key={option}
+                  onClick={() => setSide(option)}
+                  size="icon-sm"
+                  variant={side === option ? "secondary" : "ghost"}
+                >
+                  <Icon />
+                </Button>
+              );
+            })}
           </div>
-          {/* The crop ends wherever it ends, and a hard edge mid-card reads as a rendering fault.
-              This says "there is more", in the tile's own background so it works on either side. */}
-          <div
-            aria-hidden
-            className="pointer-events-none sticky bottom-0 h-16 w-full"
-            style={{ background: "linear-gradient(to top, var(--background), transparent)" }}
-          />
         </div>
-      </div>
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-muted-foreground text-xs">{family.family}</span>
+          <Button
+            className="ms-auto"
+            disabled={worn}
+            onClick={onWear}
+            size="sm"
+            variant={worn ? "secondary" : "outline"}
+          >
+            {worn ? <CheckIcon /> : null}
+            {worn ? "Worn" : "Wear it"}
+          </Button>
+          <Button asChild size="sm" variant="ghost">
+            <Link href={`/theme-generator?from=${encodeURIComponent(family.family)}`}>
+              <PencilIcon />
+              Edit
+            </Link>
+          </Button>
+        </div>
+      </figcaption>
     </figure>
   );
 }

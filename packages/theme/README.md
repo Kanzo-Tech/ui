@@ -3,9 +3,10 @@
 The themes and the axes a user layers over them. **A theme is one flat block of CSS, and it carries
 one mode.**
 
-The themes in `themes/` are **provisional test themes** — sixteen written here to exercise the
-vocabulary and thirteen imported from daisyUI — that the guards measure. They are not a curated set;
-names, values and the count will change, and a product ships its own.
+Four families ship, each a light theme and a dark one: `kanzo` / `kanzo-dark` (the brand at
+kanzo.tech, and the default), `nord` / `nord-dark`, `catppuccin-latte` / `catppuccin-mocha` and
+`lofi` / `lofi-dark`. A user picks a day theme and a night theme — GitHub's model — and a product
+ships its own families beside or instead of these.
 
 - **Theme** — `packages/theme/themes/<name>.css`, hand-written source. Its colours, the shape knobs,
   optionally its font stacks, and its own `color-scheme`. Selected with `data-theme`.
@@ -22,6 +23,8 @@ types.
 
 ```css
 /* packages/theme/themes/acme.css */
+/* @family acme
+   @label Acme */
 [data-theme="acme"] {
   color-scheme: light;
   --background: #fbfcfd;  --foreground: #10151c;
@@ -33,7 +36,9 @@ types.
 ```
 
 That is the whole mechanism: a block somebody writes, an `@import` in `themes.css`, and an attribute
-on `<html>`. Adding a client touches no code and needs no deploy.
+on `<html>`. The header names the family the theme belongs to and the label a picker shows;
+`scripts/gen-theme.mjs` refuses a family without exactly one light and one dark theme, and
+`themes.test.ts` holds every theme to WCAG AA on the pairs `CONTRAST_PAIRS` lists — syntax included. Adding a client touches no code and needs no deploy.
 
 **Twenty-one carry a value; everything else uses one.** `--card-foreground`, the sidebar tokens and
 `--popover` are *uses*, bridged once in `tokens.css` through `@theme inline` and never re-declared —

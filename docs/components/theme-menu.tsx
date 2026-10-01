@@ -1,7 +1,7 @@
 "use client";
 
 import type { AppearancePref } from "@kanzo-tech/theme";
-import { CORE_PREFS, prefOptions, themeIndex } from "@kanzo-tech/theme";
+import { CORE_PREFS, prefOptions } from "@kanzo-tech/theme";
 import {
   Button,
   cn,
@@ -30,10 +30,10 @@ import { ChevronDownIcon, MonitorIcon, MoonIcon, PaletteIcon, SunIcon } from "lu
  * Every row carries `data-theme` and paints itself with `bg-background text-foreground` and three
  * dots of `bg-primary` / `bg-secondary` / `bg-accent`. `[data-theme="x"]` is an ordinary attribute
  * selector — it matches an *element* — so the theme's custom properties land on the row and inherit
- * inward, and the dots resolve on the element that wears them. Twenty-nine themes cost twenty-nine
+ * inward, and the dots resolve on the element that wears them. Eight themes cost eight
  * attributes: no swatch table, no colours in JS, and nothing that can disagree with the stylesheet.
  * It is the same mechanism as the catalogue's tiles and the studio's preview pane, one grain
- * smaller, and the same one `PreferencesColor`'s chips already use.
+ * smaller, and the same one `ThemePreview` uses.
  *
  * The rows keep their own `color-scheme` too — it is declared inside each theme's block — so a dark
  * row renders its scrollbar and its form controls dark while sitting in a light menu.
@@ -62,22 +62,19 @@ import { ChevronDownIcon, MonitorIcon, MoonIcon, PaletteIcon, SunIcon } from "lu
 export function ThemeMenu({ className }: { className?: string }) {
   const { appearance, resolvedTheme, setAppearance, setTheme, themes } = useKanzoTheme();
 
-  // What the tenant publishes decides what is offered; `themeIndex` only says which side each one
-  // is. Reading the offer from the catalogue instead would make this menu the one control in the
-  // site that ignores a tenant's policy.
-  const sides = { light: [] as ThemeRow[], dark: [] as ThemeRow[] };
-  for (const theme of themes) {
-    const dark = themeIndex.find((entry) => entry.name === theme.value)?.dark ?? false;
-    sides[dark ? "dark" : "light"].push({ dark, label: theme.label, value: theme.value });
-  }
+  // What the tenant publishes decides what is offered, and each option says its own side.
+  const sides = {
+    light: themes.filter((theme) => !theme.dark),
+    dark: themes.filter((theme) => theme.dark),
+  };
 
   const choose = (value: string, dark: boolean) => {
     if (!value) return;
     const side = dark ? "dark" : "light";
     // **Both calls, and the browser is what showed why.** `setTheme(value, { appearance })` files a
     // theme UNDER a side; it does not move you to that side — the preference is one theme per side,
-    // so `PreferencesColor` writes the theme with its radio and wears the side with its
-    // header button, two acts. From a menu there is only one act. Choosing `forest` while the
+    // so `ThemePicker`'s day and night groups file a theme without moving you. From a menu there
+    // is only one act. Choosing a dark theme while the
     // light side was worn stored it and changed not one pixel, which reads as a control that does
     // nothing. Picking a theme here means "show me this", so the side comes with it.
     setTheme(value, { appearance: side });
@@ -201,11 +198,5 @@ const APPEARANCE_ICON: Record<string, typeof SunIcon> = {
   dark: MoonIcon,
 };
 const APPEARANCES = prefOptions(CORE_PREFS.appearance) ?? [];
-
-interface ThemeRow {
-  dark: boolean;
-  label: string;
-  value: string;
-}
 
 export default ThemeMenu;

@@ -1,42 +1,42 @@
-/* kanzo — a theme is one mode, one flat block, written by hand.
+/* @family kanzo
+   @label Kanzo
 
-   `:root:not([data-theme])` and NOT a bare `:root`: this is the default theme, so it binds to the
-   document that has not chosen one. A bare `:root` has the same specificity as `[data-theme="x"]`,
-   which makes source order the tie-breaker, and `themes.css` imports alphabetically, so a bare
-   `:root` here would repaint every theme sorting before "kanzo.css" with kanzo's colours. See
-   `themes.test.ts`, "binds the default theme so it cannot outrank a chosen one". */
+   The brand at kanzo.tech, by day: deep green on white, mist for the quiet surfaces, the neon
+   kept for success.
+   The default: `:root:not([data-theme])` binds the document that chose nothing without tying a
+   chosen `[data-theme]` on specificity (themes.test.ts, "binds the default theme…"). */
 :root:not([data-theme]), [data-theme="kanzo"] {
   color-scheme: light;
 
-  /* The twenty-one */
-  --background: #fafafa;
-  --foreground: #0f0f0f;
-  --card: #fafafa;
-  --muted: #efefef;
-  --muted-foreground: #454545;
-  --primary: #0f0f0f;
-  --primary-foreground: #fafafa;
-  --secondary: #e6e6e6;
-  --accent: #d9d9d9;
-  --destructive: #e7000b;
-  --destructive-content: #fef9f8;
-  --info: #155dfc;
-  --info-content: #f8fafe;
-  --success: #009966;
-  --success-content: #001309;
-  --warning: #e17100;
-  --warning-content: #1b0700;
-  --border: #c9c9c9;
-  --ring: #737373;
+  /* Surfaces, ink, brand, lines */
+  --background: #fbfcfb;
+  --foreground: #09110b;
+  --card: #ffffff;
+  --muted: #eef2ed;
+  --muted-foreground: #46534a;
+  --primary: #004011;
+  --primary-foreground: #f2fff6;
+  --secondary: #e0e7df;
+  --accent: #e3eae2;
+  --border: #cfd9ce;
+  --input: #7d8b80;
+  --ring: #0f8c42;
+  --field: #ffffff;
+  --faint: #56635a;
 
-  /* Optional: each falls back to a bridge default in tokens.css when left out */
-  --input: #737373;
-  --field: #00000008;
-  --faint: #6a6a6a;
-  --destructive-foreground: #8d0003;
-  --info-foreground: #0032a7;
-  --success-foreground: #005b3b;
-  --warning-foreground: #844000;
+  /* Status: the fill, the ink on it, and the same family read on the page */
+  --destructive: #d92d20;
+  --destructive-content: #fff6f1;
+  --destructive-foreground: #802a1b;
+  --info: #175cd3;
+  --info-content: #e0f0ff;
+  --info-foreground: #113e7c;
+  --success: #1ae973;
+  --success-content: #003d10;
+  --success-foreground: #208544;
+  --warning: #f5a524;
+  --warning-content: #150a00;
+  --warning-foreground: #8d6522;
 
   /* Shape */
   --radius-box: 0.75rem;
@@ -47,21 +47,24 @@
   --stroke: 1px;
   --relief: 0;
 
-  /* Optional: categorical set and syntax */
+  /* Categorical set */
   --chart-capacity: 8;
-  --chart-1: #9810fa;
-  --chart-2: #d08700;
-  --chart-3: #2b7fff;
-  --chart-4: #ca3500;
-  --chart-5: #e12afb;
-  --chart-6: #fb2c36;
-  --chart-7: #7008e7;
-  --chart-8: #009966;
-  --syntax-keyword: #8200db;
-  --syntax-string: #007a55;
-  --syntax-number: #ca3500;
-  --syntax-function: #1447e6;
-  --syntax-identifier: #c10007;
-  --syntax-property: #007595;
-  --syntax-type: #a15c00;
+  --chart-1: #0b7a3b;
+  --chart-2: #6941c6;
+  --chart-3: #a71200;
+  --chart-4: #4079fe;
+  --chart-5: #c11574;
+  --chart-6: #a15c07;
+  --chart-7: #0e7490;
+  --chart-8: #4a4d98;
+
+  /* Syntax */
+  --syntax-keyword: #6d28d9;
+  --syntax-string: #08743a;
+  --syntax-number: #b54708;
+  --syntax-function: #1d4ed8;
+  --syntax-variable: #004011;
+  --syntax-property: #0e7490;
+  --syntax-type: #9a5b00;
+  --syntax-annotation: #c11574;
 }

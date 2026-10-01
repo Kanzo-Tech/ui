@@ -22,7 +22,7 @@
  * authored them, `--card-foreground` and `--popover-foreground` were byte-identical to
  * `--foreground`, and six of the eight sidebar tokens were byte-identical to the core token they
  * shadow — ninety-six declarations writing a value that was already written. Nothing authors any of
- * the eight today, in any of the twenty-nine. The NAMES stay, because Shark's recipes paste them
+ * the eight today. The NAMES stay, because Shark's recipes paste them
  * verbatim and that clause is what keeps a Shark name alive. What stopped is authoring them per
  * theme. `themes.test.ts` resolves each deleted name through this bridge in every shipped theme and
  * fails if a fallback lands somewhere other than the token it replaced, so this is checked rather
@@ -34,9 +34,9 @@
  *
  * `:root { --sidebar-primary: var(--primary) }` looks equivalent and is not. A custom property
  * inherits its **computed** value: `--sidebar-primary` resolves once, on `<html>`, against that
- * element's `--primary`. A scoped preview — `<div data-theme="dracula">` — sets a new `--primary`
+ * element's `--primary`. A scoped preview — `<div data-theme="catppuccin-mocha">` — sets a new `--primary`
  * on the div, but `--sidebar-primary` was already substituted on the ancestor and inherits that
- * old value. The div renders Dracula's brand with Nord's sidebar, silently.
+ * old value. The div renders Catppuccin's brand with Nord's sidebar, silently.
  *
  * `@theme inline` has no such problem: Tailwind inlines the value into the *utility*, so
  * `bg-sidebar-primary` compiles to `background-color: var(--primary)` and the `var()` is resolved
@@ -97,8 +97,7 @@
      `--sidebar` was `--popover` in all sixteen hand-written themes and `--sidebar-foreground` was
      `--muted-foreground` in all sixteen, so the fallbacks point there and the themes stopped
      writing them. The chain for `--sidebar` runs on to `--card`, which is where `--popover` itself
-     defers. A theme that wants a sidebar of its own still says so; none of the twenty-nine does
-     today, and the thirteen imported from daisyUI never had a sidebar channel to carry. */
+     defers. A theme that wants a sidebar of its own still says so; none does today. */
   --color-sidebar: var(--sidebar, var(--popover, var(--card)));
   --color-sidebar-foreground: var(--sidebar-foreground, var(--muted-foreground));
   --color-sidebar-border: var(--border);
@@ -150,14 +149,6 @@
   --radius-3xl: calc(var(--radius-field, 0.5rem) * 3);
   --radius-4xl: calc(var(--radius-field, 0.5rem) * 4);
 
-  /* Fonts — a theme may carry them now, so a tenant ships a typeface with their colours. These
-     are the fallbacks, and the shape is Shark's. daisyUI has no font in its theme at all; keeping
-     `--font-heading` separate from `--font-sans` is the single most identity-carrying typographic
-     choice a white-label document can make. */
-  --font-sans: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
-  --font-heading: var(--font-heading, ui-sans-serif, system-ui, sans-serif);
-  --font-mono: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-
   /* Height-based expand/collapse for Ark Collapsible / TreeView. Ark supplies `--height`
      at runtime (tw-animate-css can't measure it), so we ship the `expand`/`collapse` pair
      its components reference, beside the `--animate-*` names that emit `animate-expand` /
@@ -176,6 +167,20 @@
      reads as a page loading. `both`, so a word scheduled behind the cascade holds at `opacity: 0`
      until its delay elapses. */
   --animate-arrive: arrive 150ms ease both;
+}
+
+/* Fonts. Declared as values in a plain `@theme`, never as `var(--font-x, …)` of themselves inside
+   the inline bridge: that spelling made `--font-mono` refer to its own name, which is a cycle, so the
+   property computed to nothing and a host that set it without a fallback lost the face entirely.
+   `font-mono` compiles to `var(--font-mono)`, read on the element, so `[data-mono-font]` and a theme
+   that carries a face still win. The stacks are Geist's — the defaults `themes.css` declares as
+   `data-font="geist"` / `data-mono-font="geist-mono"` — each falling back to the system face when the
+   host has not loaded the webfont. `static`, so the variables are emitted even where no utility asks
+   for them: `CodeEditor` reads `--font-mono` from a style object. */
+@theme static {
+  --font-sans: var(--font-geist-sans, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+  --font-heading: var(--font-geist-sans, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+  --font-mono: var(--font-geist-mono, ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace);
 }
 
 @keyframes expand {
@@ -228,8 +233,7 @@
 
 :root {
   /* ── The categorical set a theme gets by saying nothing ───────────────────────
-     Sixteen themes author their own; thirteen do not, because daisyUI has no such channel to
-     import, and their slots resolved to nothing.
+     Every shipped theme authors its own eight; this is what a tenant's theme gets when it does not.
 
      **Declared here, not bridged, and it is the one fallback in this file that is a literal.**
      Every other name above defers to another token, so it must resolve on the element that uses
@@ -241,27 +245,14 @@
      `[data-theme]` block overrides it slot by slot on the element that carries it, and both paths
      get the same answer.
 
-     Chosen by search under the bars a chart is actually read against, all of them re-run by
-     `categorical.test.ts` over the shipped files rather than trusted here:
+     `categorical.test.ts` re-runs the bars over the shipped file rather than trusting this note:
+     every slot inside OKLCH L 0.48–0.67 (the intersection of the light and dark bands), adjacent
+     slots apart to normal vision and to all three dichromacies, and clear of every status fill
+     the catalogue publishes so a series does not read as a state. Contrast against a ground is
+     checked per theme, on the set that theme actually resolves to.
 
-       · every slot inside OKLCH L 0.48–0.67, the INTERSECTION of the light band (0.43–0.77) and
-         the dark one — the only way one set is in band on `#ffffff` and on `#09002f`;
-       · ≥ 3:1 against **all twenty-nine** backgrounds, not against the two ends. The ends are not
-         the hard case: `dim` (#2a303c) and `cyberpunk` (#fff248) between them leave a window of
-         relative luminance 0.188–0.251, and a set validated only at the extremes failed on six
-         themes in the middle;
-       · worst adjacent pair 17.6 ΔE under protan/deutan simulation, 14.4 under tritan and 21.4 to
-         normal vision. The old per-document bar was 15;
-       · ≥ 8 ΔE from all fifty-two distinct status fills the twenty-nine publish, so a series does
-         not read as a state.
-
-     There is no deriving these from `--primary`: `--chart-6` takes twelve distinct values across
-     the sixteen authored sets. A set answers to *separation*, which is a property of the eight
-     together.
-
-     A theme that declines the channel outright still says so with `--chart-capacity: 0`, and these
-     colours simply go unread — `monochrome` is the one, and `monochrome-is-a-palette-not-a-look`
-     is the record. */
+     A theme that declines the channel outright says so with `--chart-capacity: 0`, and these
+     colours simply go unread. */
   --chart-1: #aa5aee;
   --chart-2: #dc356d;
   --chart-3: #737fee;

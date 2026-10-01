@@ -17,10 +17,13 @@ checks you.
 
 ## Write the theme
 
-One file, one block, one mode. Copy the nearest shipped theme out of
-`@kanzo-tech/theme/themes/` and change the colours.
+A family is two files, one block and one mode each — or one family edited together in the
+[theme generator](/theme-generator), which hands you both blocks. By hand: copy the nearest shipped
+pair out of `@kanzo-tech/theme/themes/` and change the colours.
 
 ```css title="themes/acme.css"
+/* @family acme
+   @label Acme */
 [data-theme="acme"] {
   color-scheme: light;
 
@@ -42,8 +45,16 @@ One file, one block, one mode. Copy the nearest shipped theme out of
   --size-field: 0.25rem;   --size-selector: 0.25rem;
   --stroke: 1px;           --relief: 0;
 
-  /* Optional. Omit them and the theme inherits; a theme that DECLINES the categorical
-     channel says so, which is what a monochrome theme is. */
+  /* Read with no fallback by the components, so every theme writes them. */
+  --input: #7a8496;        --field: #ffffff;         --faint: #586274;
+
+  /* The editor's inks — AA on --background and on --muted. */
+  --syntax-keyword: #7c3aed;  --syntax-string: #0b7a4b;   --syntax-number: #b54708;
+  --syntax-function: #1d4ed8; --syntax-variable: #10151c; --syntax-property: #0e7490;
+  --syntax-type: #9a5b00;     --syntax-annotation: #c11574;
+
+  /* Optional: the categorical set. Omit it and the theme inherits the default eight; a theme
+     that DECLINES the channel says so with --chart-capacity: 0. */
   --chart-1: #1f6feb;      /* … through --chart-8 */
 }
 ```
@@ -51,6 +62,8 @@ One file, one block, one mode. Copy the nearest shipped theme out of
 Dark is a **second theme**, not a second block:
 
 ```css title="themes/acme-dark.css"
+/* @family acme
+   @label Acme Dark */
 [data-theme="acme-dark"] {
   color-scheme: dark;
   /* …the same twenty-one, chosen for a dark ground. */
@@ -66,8 +79,7 @@ Dark is a **second theme**, not a second block:
   `--secondary-foreground` and `--accent-foreground` are in the vocabulary, not expected: a theme
   that leaves them out wears `--foreground` on those fills, and only a theme whose secondary and
   accent are strong fills needs an ink of its own. `--popover` is the same, and in practice only a
-  dark theme wants it. The themes in `@kanzo-tech/theme/themes/` are test themes that exercise the
-  vocabulary, not a curated set to ship a client on — start from one, do not depend on one.
+  dark theme wants it.
 </Callout>
 
 ## Ship the file
@@ -79,8 +91,13 @@ pnpm --filter @kanzo-tech/theme gen
 ```
 
 That reads the `themes/` directory, writes the `@import` list into `themes.css` and records each
-theme's own `color-scheme` in `theme-data.json`. **Adding a theme is adding a file** — nothing lists
-them twice.
+theme's `color-scheme`, `@family` and `@label` in `theme-data.json`. **Adding a theme is adding a
+file** — nothing lists them twice — and a family without exactly one light and one dark theme is
+refused.
+
+An instance that is not this repository ships the same CSS as configuration instead: the
+generator's *Instance config* tab is a `branding: { theme_css, families, default, lock }` snippet,
+which the host inlines and maps onto the provider's `themes`, `defaultTheme` and `policy`.
 
 ## Decide what this client's users may change
 
@@ -88,35 +105,43 @@ A tenant policy is keyed by namespace, and the core answers to `theme` like any 
 what the client insists on and withhold the control:
 
 ```tsx
-<KanzoThemeProvider
-  policy={{ theme: { themeByAppearance: { pinned: "acme" }, radius: { pinned: "sm" } } }}
-  themes={themeIndex}
->
+const ACME: ThemeOption[] = [
+  { value: "acme", label: "Acme", dark: false, family: "acme" },
+  { value: "acme-dark", label: "Acme Dark", dark: true, family: "acme" },
+];
+const policy = { theme: { themeByAppearance: { hidden: true }, radius: { pinned: "sm" } } };
+
+<KanzoThemeProvider defaultTheme={{ light: "acme", dark: "acme-dark" }} policy={policy} themes={ACME}>
+// …and the same `defaultTheme` and `policy` to `themeScript`, or the first paint disagrees.
 ```
 
-A pinned theme leaves one to offer, so the colour section hides itself. That is the white-label case
-working, not a control failing.
+A withheld theme leaves the pair to the tenant, so `ThemePicker` offers the theme mode and nothing
+else. That is the white-label case working, not a control failing.
 
 ## Offer the choice, if there is one
 
 ```tsx
-import { themeIndex } from "@kanzo-tech/theme";
-
-<KanzoThemeProvider themes={themeIndex} onThemeRetired={(name) => notify(name)}>
+<KanzoThemeProvider themes={[...themeIndex, ...ACME]} onThemeRetired={(name) => notify(name)}>
+  <ThemePicker />
+</KanzoThemeProvider>
 ```
 
-The panel draws two grids — the theme worn on the light side and the theme worn on the dark one —
-because a theme *is* a side. Each cell paints itself by setting `data-theme` on a `div`, so the
-preview is the real thing rather than a strip of swatches.
+[`ThemePicker`](/docs/layout/theme-picker) draws a day group and a night group — because a theme *is*
+a side — and each card is a `ThemePreview`, the theme painting a miniature screen, so the preview is
+the real thing rather than a strip of swatches.
 
 ## Verify
 
-**Contrast is yours now, and one guard still checks the artefact.** `status.test.ts` reads every
-shipped theme and measures each status fill against the ink meant to sit on it, in all of them. It
-does not check every pair in the vocabulary — nothing does — so the ones to read yourself are:
+**Contrast is checked against one list.** `CONTRAST_PAIRS` in `@kanzo-tech/theme` names every pair a
+theme owes and its WCAG floor — inks at 4.5:1, the syntax inks on the page and the active line, the
+brand fill, ring, field border and chart slots at 3:1 — and `auditContrast` returns what a theme
+fails. `themes.test.ts` holds every shipped theme to it; the generator shows the same findings live.
+A theme of your own runs through the same function:
 
-- `--foreground` on `--background`, and on `--card` and `--muted` (4.5:1 for body text);
-- each `--*-content` on its own fill, which is what the guard covers;
-- `--border` against `--background`, which WCAG 1.4.11 asks 3:1 of where it identifies a control.
+```ts
+import { auditContrast } from "@kanzo-tech/theme";
+
+auditContrast((token) => acme[token]); // [] when every pair clears its floor
+```
 
 Then look at it. Set `data-theme` on `<html>` in the docs and read a real screen.

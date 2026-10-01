@@ -1,5 +1,5 @@
 /**
- * A theme in a URL.
+ * A theme family — its light and dark sides — in a URL.
  *
  * The reference's best idea after the swatch pair, and the one that makes the studio worth opening
  * twice: a theme you cannot send to anybody is a theme that lives in one tab. daisyUI's generator
@@ -25,11 +25,14 @@
  * correct: seed from a shipped theme instead.
  */
 
-/** What a link carries: the name, the side it declares, and every value. */
+/**
+ * What a link carries: a family — its name and every value of each side. A side is `null` when the
+ * link did not carry it, which is what a link made before pairs decodes to for its other side.
+ */
 export interface Shared {
-  name: string;
-  dark: boolean;
-  tokens: Record<string, string>;
+  family: string;
+  light: Record<string, string> | null;
+  dark: Record<string, string> | null;
 }
 
 const PREFIX = "theme=";
@@ -69,9 +72,9 @@ async function through(bytes: Uint8Array<ArrayBuffer>, kind: "in" | "out"): Prom
   return new Uint8Array(await new Response(transform.readable).arrayBuffer());
 }
 
-/** The fragment for a theme — `theme=…`, without the `#`. */
+/** The fragment for a family — `theme=…`, without the `#`. `v: 2` is the paired format. */
 export async function encode(shared: Shared): Promise<string> {
-  const payload = JSON.stringify({ n: shared.name, d: shared.dark, t: shared.tokens });
+  const payload = JSON.stringify({ v: 2, f: shared.family, l: shared.light, d: shared.dark });
   return PREFIX + toBase64Url(await through(new TextEncoder().encode(payload), "in"));
 }
 
@@ -88,18 +91,34 @@ export async function decode(fragment: string): Promise<Shared | null> {
     const bytes = await through(fromBase64Url(body.slice(PREFIX.length)), "out");
     const parsed: unknown = JSON.parse(new TextDecoder().decode(bytes));
     if (typeof parsed !== "object" || parsed === null) return null;
-    const { n, d, t } = parsed as { n?: unknown; d?: unknown; t?: unknown };
-    if (typeof t !== "object" || t === null) return null;
-    // Values only — a fragment is a string from a stranger, and the studio writes whatever is in
-    // here into a `style` attribute. Anything that is not a plain string is dropped rather than
-    // carried, which also covers the nested-object and array shapes `JSON.parse` will happily make.
-    const tokens: Record<string, string> = {};
-    for (const [key, value] of Object.entries(t as Record<string, unknown>)) {
-      if (key.startsWith("--") && typeof value === "string") tokens[key] = value;
+    const p = parsed as { v?: unknown; f?: unknown; l?: unknown; d?: unknown; n?: unknown; t?: unknown };
+    if (p.v === 2) {
+      const [light, dark] = [tokensOf(p.l), tokensOf(p.d)];
+      if (!light && !dark) return null;
+      return { family: typeof p.f === "string" ? p.f : "untitled", light, dark };
     }
-    if (Object.keys(tokens).length === 0) return null;
-    return { name: typeof n === "string" ? n : "untitled", dark: d === true, tokens };
+    // The single-theme format: `{ n: name, d: dark, t: tokens }`. Its theme becomes the side it
+    // declared, and the family is its name without the `-dark` a night theme carries.
+    const tokens = tokensOf(p.t);
+    if (!tokens) return null;
+    const name = typeof p.n === "string" ? p.n : "untitled";
+    const dark = p.d === true;
+    return { family: name.replace(/-dark$/, ""), light: dark ? null : tokens, dark: dark ? tokens : null };
   } catch {
     return null;
   }
+}
+
+/**
+ * Values only — a fragment is a string from a stranger, and the studio writes whatever is in here
+ * into a `style` attribute. Anything that is not a custom property holding a plain string is
+ * dropped, which also covers the nested-object and array shapes `JSON.parse` will happily make.
+ */
+function tokensOf(value: unknown): Record<string, string> | null {
+  if (typeof value !== "object" || value === null) return null;
+  const tokens: Record<string, string> = {};
+  for (const [key, v] of Object.entries(value as Record<string, unknown>)) {
+    if (key.startsWith("--") && typeof v === "string") tokens[key] = v;
+  }
+  return Object.keys(tokens).length > 0 ? tokens : null;
 }

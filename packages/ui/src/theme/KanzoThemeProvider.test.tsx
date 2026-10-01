@@ -457,13 +457,13 @@ describe("KanzoThemeProvider under a tenant's policy", () => {
   });
 
   it("withholds an axis without discarding what the user chose", () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ font: "geist" }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ font: "inter" }));
     const { ctx } = mount({ policy: { theme: { font: { hidden: true } } } });
 
-    expect(ctx.font).toBe("system");
+    expect(ctx.font).toBe("geist");
     expect(ctx.corePrefs.font).toMatchObject({ via: "default", offered: false });
     expect(html().hasAttribute("data-font")).toBe(false);
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}").font).toBe("geist");
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}").font).toBe("inter");
   });
 
   it("pins the appearance, which is the axis that decides `.dark` and every keyed one", () => {
@@ -515,8 +515,8 @@ describe("KanzoThemeProvider under a tenant's policy", () => {
  */
 describe("KanzoThemeProvider palette", () => {
   const PALETTES: ThemeOption[] = [
-    { value: "kanzo", label: "Kanzo" },
-    { value: "dracula", label: "Dracula" },
+    { value: "kanzo", label: "Kanzo", dark: false },
+    { value: "dracula", label: "Dracula", dark: false },
   ];
 
   beforeEach(() => {
@@ -577,7 +577,7 @@ describe("KanzoThemeProvider palette", () => {
     expect(t.ctx.resolvedTheme).toBe("kanzo");
   });
 
-  it("writes `data-theme` for a chosen palette, and nothing at the default", () => {
+  it("writes `data-theme` for a chosen palette, and the default pair's otherwise", () => {
     // This asserted the exact opposite — "an attribute here would match nothing in any compiled
     // sheet" — and it was right about the model it was written for: a palette WAS the whole
     // document, served by the server, with no block to select. `compile(doc, { scope })` emits one
@@ -592,11 +592,11 @@ describe("KanzoThemeProvider palette", () => {
     expect(t.ctx.resolvedTheme).toBe("dracula");
     expect(html().getAttribute("data-theme")).toBe("dracula");
 
-    // …and nothing at the default, which is what keeps a single-palette tenant's `<html>` clean:
-    // `def: ""` means the write rule removes the attribute rather than spelling out the fallback.
+    // …and the tenant's default once the choice is cleared: the CSS default binding knows one
+    // family, so only the attribute can say which pair this tenant defaults to.
     act(() => t.ctx.set({ themeByAppearance: { light: "" } }));
-    expect(html().hasAttribute("data-theme")).toBe(false);
-    expect([...html().attributes].map((a) => a.name).filter((n) => n.startsWith("data-"))).toEqual([]);
+    expect(html().getAttribute("data-theme")).toBe("kanzo");
+    expect([...html().attributes].map((a) => a.name).filter((n) => n.startsWith("data-"))).toEqual(["data-theme"]);
   });
 
   it("clears a palette the tenant no longer publishes, and says so once", () => {
@@ -618,7 +618,7 @@ describe("KanzoThemeProvider palette", () => {
     const onThemeRetired = vi.fn();
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ themeByAppearance: { light: "dracula" } }));
 
-    const t = mount({ onThemeRetired });
+    const t = mount({ themes: [], onThemeRetired });
 
     expect(t.ctx.resolvedTheme).toBe("dracula");
     expect(onThemeRetired).not.toHaveBeenCalled();
