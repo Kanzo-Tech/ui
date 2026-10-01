@@ -9,6 +9,7 @@
     "colour",
     "graph",
     "auth",
-    "navigation"
+    "navigation",
+    "failure"
   ]
 }
