@@ -181,6 +181,19 @@ interface AssistEvent {
 }
 ```
 
+## When asking fails
+
+A refused call, a broken stream or a model that sends nothing for 30 s does not read as "Nothing to
+suggest." The field says it failed under itself — the error's own message, or the `failed`
+translation when it has none — and `onFailure` on the provider receives what was thrown, whole. A
+model that goes silent arrives as an `AiError` whose `code` is `"ai/silent"` and whose `data.after`
+is `30000`; anything else arrives as the AI SDK or your gateway threw it, so a host branches on
+`error.code`.
+
+*Held by* `packages/ai/src/assist.test.tsx`, "says so under the field and hands the provider's
+onFailure the thrown value"; `packages/ai/src/engine.test.ts`, "ends a stream that sends nothing for
+30 s as ai/silent, and not a millisecond before".
+
 ## API
 
 ### AssistProvider
@@ -190,6 +203,7 @@ interface AssistEvent {
 | `model` | `LanguageModel` | What every field below asks — `gateway("complete")` |
 | `context` | `string \| () => string \| undefined` | What the rest of the form says; a function is read when a field asks |
 | `onEvent` | `(event: AssistEvent) => void` | Each proposal's life |
+| `onFailure` | `(error: unknown) => void` | What a field's ask threw, whole |
 | `translations` | `Partial<AssistTranslations>` | Every word the fields below draw or announce |
 
 ### Assist

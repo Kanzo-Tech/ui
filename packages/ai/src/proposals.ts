@@ -31,8 +31,23 @@ const CONTINUE = `You complete text inside a form field, like an editor's inline
 Reply with ONLY the text to insert at <caret/>: no quotes, no commentary, never repeat text that is already there.
 Keep the language, tone and format of the existing text. Stop at a natural point: the end of the sentence for an automatic suggestion; up to a short paragraph when explicitly asked.`;
 
+/**
+ * The AI SDK reports a failed stream to `onError` and then ends the stream as if it had finished, so
+ * a refused or broken call would read as a model with nothing to say. This keeps what was reported
+ * and throws it, whole, once the stream ends.
+ */
+function failures() {
+  let failed: { error: unknown } | undefined;
+  return {
+    onError: ({ error }: { error: unknown }) => void (failed ??= { error }),
+    rethrow: () => {
+      if (failed) throw failed.error;
+    },
+  };
+}
+
 /** One continuation at the caret, streamed. */
-export function continuation(
+export async function* continuation(
   model: LanguageModel,
   field: FieldBrief,
   { value, position, trigger, avoid, signal }: ContinuationRequest,
@@ -41,12 +56,15 @@ export function continuation(
   const differ = avoid.length
     ? `\nOffer something different from these earlier suggestions:\n${avoid.map((a) => `- ${a.trim()}`).join("\n")}`
     : "";
-  return streamText({
+  const reported = failures();
+  yield* streamText({
     model,
     system: CONTINUE,
     prompt: `${brief(field)}\nRequest: ${trigger}${differ}\n\nText:\n${text}`,
     abortSignal: signal,
+    onError: reported.onError,
   }).textStream;
+  reported.rethrow();
 }
 
 const CANDIDATE = jsonSchema<{ value: string; rationale: string }>({
@@ -80,8 +98,10 @@ export async function* candidates(
   const holds = list
     ? `Current items: ${existing.length ? existing.join(", ") : "(none)"}\nSuggest NEW items, not already present.`
     : `Current value: ${value || "(empty)"}\nSuggest alternatives to replace it${value ? ", different from it" : ""}.`;
+  const reported = failures();
   const result = streamText({
     model,
+    onError: reported.onError,
     system: CANDIDATES,
     prompt: `${brief(field)}\n${holds}\nGive ${count}.`,
     output: Output.array({ element: CANDIDATE }),
@@ -92,4 +112,5 @@ export async function* candidates(
       ? { text: item.value, rationale: item.rationale }
       : { text: item.value, rationale: item.rationale, range: [0, value.length] };
   }
+  reported.rethrow();
 }

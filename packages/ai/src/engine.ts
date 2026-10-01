@@ -35,8 +35,54 @@ export interface AssistEvent {
 /** Where a request has got to. Internal: no surface exposes it, they draw from it. */
 export type Status = "idle" | "loading" | "ready" | "error";
 
-const message = (e: unknown, fallback: string) =>
-  e instanceof Error && e.message ? e.message : fallback;
+/** How long a stream may go without sending anything, the first chunk included. */
+const SILENT_AFTER = 30_000;
+
+/** The one failure this package names: the model stopped sending without closing the stream. */
+export class AiError extends Error {
+  override readonly name = "AiError";
+  constructor(
+    readonly code: "ai/silent",
+    message: string,
+    readonly data: { readonly after?: number } = {},
+    options?: ErrorOptions,
+  ) {
+    super(message, options);
+  }
+}
+
+/**
+ * `pending`, unless `c` aborts first or nothing arrives within {@link SILENT_AFTER} — then `c` is
+ * aborted with an `ai/silent` `AiError`, which this rejects with.
+ */
+function heard<T>(pending: Promise<T>, c: AbortController): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const settle = () => {
+      clearTimeout(timer);
+      c.signal.removeEventListener("abort", aborted);
+    };
+    const aborted = () => {
+      settle();
+      reject(c.signal.reason);
+    };
+    const timer = setTimeout(
+      () => c.abort(new AiError("ai/silent", `The model sent nothing for ${SILENT_AFTER} ms`, { after: SILENT_AFTER })),
+      SILENT_AFTER,
+    );
+    if (c.signal.aborted) return aborted();
+    c.signal.addEventListener("abort", aborted);
+    pending.then(
+      (value) => {
+        settle();
+        resolve(value);
+      },
+      (e: unknown) => {
+        settle();
+        reject(e);
+      },
+    );
+  });
+}
 
 // ── The engine ───────────────────────────────────────────────────────────────
 
@@ -45,13 +91,14 @@ const message = (e: unknown, fallback: string) =>
  * A new run supersedes the one in flight, and resolves to what happened to **this** run, so a loop
  * that outlives its render never reads a stale status.
  */
-export function useStream<T>(errorText: string) {
+export function useStream<T>() {
   const [status, setStatus] = useState<Status>("idle");
-  const [error, setError] = useState<string | null>(null);
+  /** What the source threw, as thrown, while `status` is `"error"`. */
+  const [error, setError] = useState<unknown>(undefined);
   const statusRef = useRef<Status>("idle");
   const ctrl = useRef<AbortController>(undefined);
 
-  const set = useCallback((s: Status, e: string | null = null) => {
+  const set = useCallback((s: Status, e?: unknown) => {
     statusRef.current = s;
     setStatus(s);
     setError(e);
@@ -68,23 +115,28 @@ export function useStream<T>(errorText: string) {
 
       return (async (): Promise<Status> => {
         try {
-          for await (const value of src(c.signal)) {
+          const it = src(c.signal)[Symbol.asyncIterator]();
+          for (;;) {
+            const res = await heard(it.next(), c);
             if (c.signal.aborted) return "idle";
-            if (each(value) === false) {
+            if (res.done) break;
+            if (each(res.value) === false) {
               c.abort();
               break;
             }
           }
         } catch (e) {
-          if (c.signal.aborted) return "idle";
-          set("error", message(e, errorText));
+          // A cancellation is not a failure to report — the caller asked for it. Silence is.
+          if (c.signal.aborted && !(c.signal.reason instanceof AiError)) return "idle";
+          if (!c.signal.aborted) c.abort();
+          set("error", e);
           return "error";
         }
         if (ctrl.current === c) set("ready");
         return "ready";
       })();
     },
-    [errorText, set],
+    [set],
   );
 
   const cancel = useCallback(() => {
@@ -179,7 +231,7 @@ export function useContinuation(options: {
   onEvent: (kind: AssistEvent["kind"], proposal: Proposal) => void;
   debounceMs?: number;
 }) {
-  const { run, cancel, status, error } = useStream<string>("Couldn’t complete");
+  const { run, cancel, status, error } = useStream<string>();
   const [ghost, setGhost] = useState("");
   const opts = useRef(options);
   opts.current = options;
@@ -259,8 +311,13 @@ export function useContinuation(options: {
       ).then((outcome) => {
         mine.done = true;
         if (current() !== mine) return;
-        if (outcome === "ready") painter.current?.flush();
-        else painter.current?.cancel();
+        if (outcome === "ready") return painter.current?.flush();
+        painter.current?.cancel();
+        // A failed stream's half a continuation is not an offer; the failure is `error`.
+        if (outcome === "error") {
+          mine.text = "";
+          setGhost("");
+        }
       });
     },
     [run],
@@ -358,7 +415,7 @@ export function useCandidates(options: {
   onEvent: (kind: AssistEvent["kind"], proposal: Proposal) => void;
   limit?: number;
 }) {
-  const { run, cancel: abort, reset, status, error } = useStream<Proposal>("Couldn’t load suggestions");
+  const { run, cancel: abort, reset, status, error } = useStream<Proposal>();
   const [items, setItems] = useState<Proposal[]>([]);
   const shown = useRef<Proposal[]>([]);
   const opts = useRef(options);
