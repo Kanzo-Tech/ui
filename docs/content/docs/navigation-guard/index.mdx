@@ -26,11 +26,12 @@ const blocker = useBlocker({
   enableBeforeUnload, // boolean | (() => boolean), true by default
   disabled,           // boolean
   withResolver,       // boolean
+  onFailure,          // (error: unknown) => void
 });
 // with withResolver: { status: "idle" | "blocked", current, next, action, proceed, reset }
 ```
 
-TanStack Router's `useBlocker`, option for option, so a call site reads the same on either router.
+TanStack Router's `useBlocker`, option for option (plus `onFailure`), so a call site reads the same on either router.
 `current` and `next` are `{ href, pathname, search, hash }`; `action` is `"PUSH"`, `"REPLACE"`,
 `"BACK"`, `"FORWARD"` or `"GO"`. The types carry TanStack's names too: `UseBlockerOpts`,
 `ShouldBlockFn`, `ShouldBlockFnArgs`, `ShouldBlockFnLocation`, `HistoryAction` and
@@ -45,6 +46,9 @@ TanStack Router's `useBlocker`, option for option, so a call site reads the same
   **not** derived from `shouldBlockFn` — the browser asks synchronously, and `shouldBlockFn` is
   allowed not to answer that way. So it is on for as long as the hook is.
 - **`disabled`** removes the blocker entirely, listeners included.
+- **`onFailure`** receives what `shouldBlockFn` threw or rejected with, whole. A guard that fails
+  does **not** block: the navigation goes ahead, because a broken check must never trap the person
+  on the page. This one is ours, not TanStack's.
 
 <Callout type="warn">
 **`disabled: !dirty` is the idiom, not `shouldBlockFn: () => dirty`.** With only the second, a

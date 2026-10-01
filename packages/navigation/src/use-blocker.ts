@@ -33,13 +33,14 @@ export function useBlocker({
   enableBeforeUnload = true,
   disabled = false,
   withResolver = false,
+  onFailure,
 }: UseBlockerOpts): BlockerResolver | void {
   const [resolver, setResolver] = useState<BlockerResolver>(IDLE);
 
   // The latest options, read at navigation time. Registering again whenever an inline function
   // changed identity would move this blocker to the end of the order on every render.
-  const latest = useRef({ shouldBlockFn, enableBeforeUnload });
-  latest.current = { shouldBlockFn, enableBeforeUnload };
+  const latest = useRef({ shouldBlockFn, enableBeforeUnload, onFailure });
+  latest.current = { shouldBlockFn, enableBeforeUnload, onFailure };
 
   useEffect(() => {
     if (disabled) return;
@@ -69,10 +70,19 @@ export function useBlocker({
 
     const unregister = register({
       fn: (args) => {
-        const verdict = latest.current.shouldBlockFn(args);
-        if (!withResolver || verdict === false) return verdict;
-        if (verdict === true) return ask(args);
-        return verdict.then((block) => (block ? ask(args) : false));
+        const failed = (error: unknown) => {
+          latest.current.onFailure?.(error);
+          return false;
+        };
+        let verdict: boolean | Promise<boolean>;
+        try {
+          verdict = latest.current.shouldBlockFn(args);
+        } catch (error) {
+          return failed(error);
+        }
+        if (verdict === false) return false;
+        if (verdict === true) return withResolver ? ask(args) : true;
+        return verdict.then((block) => (block && withResolver ? ask(args) : block), failed);
       },
       enableBeforeUnload: () => {
         const enabled = latest.current.enableBeforeUnload;

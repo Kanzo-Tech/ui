@@ -9,7 +9,11 @@ import type { ShouldBlockFnArgs, ShouldBlockFnLocation } from "./types";
  */
 
 export interface Blocker {
-  /** `true` blocks, `false` lets it through; a promise is a decision still being made. */
+  /**
+   * `true` blocks, `false` lets it through; a promise is a decision still being made. It never
+   * throws or rejects: `useBlocker` turns a failing guard into `false` and its `onFailure`, which is
+   * why the three doors may `void` the verdict they wait on.
+   */
   fn: (args: ShouldBlockFnArgs) => boolean | Promise<boolean>;
   enableBeforeUnload: () => boolean;
 }

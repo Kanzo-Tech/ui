@@ -27,6 +27,11 @@ export interface UseBlockerOpts {
   enableBeforeUnload?: boolean | (() => boolean);
   disabled?: boolean;
   withResolver?: boolean;
+  /**
+   * Called with what `shouldBlockFn` threw or rejected with, whole. A guard that fails does not
+   * block: the navigation goes ahead, so a broken check never traps the person on the page.
+   */
+  onFailure?: (error: unknown) => void;
 }
 
 export type BlockerResolver =

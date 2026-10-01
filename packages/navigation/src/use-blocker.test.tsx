@@ -236,3 +236,31 @@ describe("more than one blocker", () => {
     expect(calls).toEqual(["first", "second"]);
   });
 });
+
+describe("a guard that fails", () => {
+  it("lets the navigation through and hands onFailure the rejection, whole", async () => {
+    const thrown = { code: "form/unreadable" };
+    const onFailure = vi.fn();
+    renderHook(() => useBlocker({ shouldBlockFn: () => Promise.reject(thrown), withResolver: true, onFailure }));
+    expect(nav.back()).toBe(false);
+    await flush();
+    expect(nav.committed).toEqual(["traverse http://localhost/a"]);
+    expect(onFailure).toHaveBeenCalledTimes(1);
+    expect(onFailure.mock.calls[0]![0]).toBe(thrown);
+  });
+
+  it("lets the navigation through when shouldBlockFn throws, and hands onFailure the throw", () => {
+    const thrown = new Error("the form is gone");
+    const onFailure = vi.fn();
+    renderHook(() =>
+      useBlocker({
+        shouldBlockFn: () => {
+          throw thrown;
+        },
+        onFailure,
+      }),
+    );
+    expect(nav.back()).toBe(true);
+    expect(onFailure).toHaveBeenCalledWith(thrown);
+  });
+});
