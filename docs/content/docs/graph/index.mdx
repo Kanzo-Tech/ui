@@ -139,6 +139,21 @@ in the order the manifest declares them. **`children` is a render prop** that re
 fields of the product's own, a `DataListItem` each — the hall's name above, where the relation
 stores its id.
 
+### `GraphSearch`
+
+<ComponentPreview componentName="graph" fileName="example-search" hasMaxHeight />
+
+Find a vertex by its text and go to it. Every drawn vertex's `title` — or its table's `identity` —
+is read **once**, one two-column scan per table, and then filtered in the browser as the reader
+types: no query per keystroke. The list is ordered by the `r` ramp, so with `r="degree"` the hubs
+come first, and each match carries its category's name from the root's `categories`. Picking one is
+`reveal`, so the canvas frames it and selects it with its neighbours and `GraphInspector` reads it.
+A vertex the page's filter hides is not offered: there is nothing on the canvas to go to. `limit`
+caps the list (50) and says so; `placeholder` and `size` are the input's.
+
+It is a `Combobox` and not `ChartSearch` because of what the control means: `ChartSearch` publishes
+a substring filter, which narrows the picture; picking is a value, which goes somewhere.
+
 **A label is the `title` column, read for the vertices that carry one.** The canvas labels the
 biggest vertices by the `r` ramp, up to the look's label budget, and reads their text — the column
 `title` binds, or each table's declared `identity` where it is unbound. The hover card reads the one
@@ -287,6 +302,7 @@ writes it in.
 | `GraphCounts` | What is drawn of the whole: nodes drawn of the total, and edges drawn. |
 | `GraphToolbar` | The tools, the selection, zoom and fit, and a live layout's transport. |
 | `GraphInspector` | The focused vertex's row, with a render prop for fields a product adds. |
+| `GraphSearch` | Every drawn vertex's text, read once and filtered as you type; picking reveals it. |
 | `ShapeGlyph` | The glyph the canvas draws for a category, in the DOM — for a legend key or a card. |
 
 ### The picture
@@ -307,7 +323,7 @@ writes it in.
 `getState`. `GraphState` is what `useGraphState` selects from: `status` (a `GraphStatus`), `total`,
 `drawn` (a `Drawn`: `vertices`, `edges`, `domain`, `tally`), `domain`, `selection`, `focus`, `hovered`,
 `pinned`, `tool`, `motion`, `progress`, `options` and `corpus`. `GraphCanvasProps`, `GraphLegendProps`, `GraphCountsProps`,
-`GraphToolbarProps`, `GraphInspectorProps`, `GraphRootProviderProps` and `ShapeGlyphProps` are the
+`GraphToolbarProps`, `GraphInspectorProps`, `GraphSearchProps`, `GraphRootProviderProps` and `ShapeGlyphProps` are the
 parts' props, and `VertexDetail` is what the inspector's render prop receives; `Channels`, `Look`,
 `LookPatch`, `Shape`, `Sim`, `Motion`, `Selection`, `SelectionSource`, `Tool` and `VertexId` are the
 vocabulary.

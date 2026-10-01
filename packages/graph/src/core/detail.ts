@@ -37,6 +37,10 @@ export async function readVertex(
   };
 }
 
+/** The column a vertex's text is read from: `title` where its table has it, else the table's `identity`. */
+const titleColumn = (table: VertexTable, title: string | undefined): string =>
+  title !== undefined && table.properties.some((p) => p.name === title) ? title : table.identity;
+
 /**
  * **A label's text, for the few vertices that carry one** — `title` where the vertex's table has the
  * column, and the table's declared `identity` where it does not. One scan per table they fall in.
@@ -56,7 +60,7 @@ export async function readTitles(
   const found = new Map<VertexId, string>();
   await Promise.all(
     [...byTable].map(async ([table, ids]) => {
-      const column = title !== undefined && table.properties.some((p) => p.name === title) ? title : table.identity;
+      const column = titleColumn(table, title);
       const scan = corpus.scan({ table: table.name, filter: { column: table.key, op: "in", values: ids }, select: [table.key, column] });
       for (const batch of await scan.read(scan.plan(), { signal })) {
         const keys = batch.getChild(table.key)?.toArray() ?? [];
@@ -66,4 +70,29 @@ export async function readTitles(
     }),
   );
   return found;
+}
+
+/** **Every drawn vertex's text, by id** — what a search filters. One scan per drawn table, two columns. */
+export async function readEveryTitle(
+  corpus: Corpus,
+  geometry: Geometry,
+  title: string | undefined,
+  signal?: AbortSignal,
+): Promise<string[]> {
+  const titles = new Array<string>(geometry.size).fill("");
+  await Promise.all(
+    geometry.tables.map(async (table) => {
+      const column = titleColumn(table, title);
+      const scan = corpus.scan({ table: table.name, select: [table.key, column] });
+      for (const batch of await scan.read(scan.plan(), { signal })) {
+        const keys = batch.getChild(table.key)?.toArray() ?? [];
+        const texts = batch.getChild(column)?.toArray() ?? [];
+        for (let i = 0; i < batch.numRows; i++) {
+          const id = Number(keys[i]);
+          if (id < geometry.size) titles[id] = String(texts[i] ?? "");
+        }
+      }
+    }),
+  );
+  return titles;
 }

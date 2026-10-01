@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { parseDate, type DateValue } from "@internationalized/date";
-import { desc, sql, verbatim, type VerbatimNode } from "@uwdata/mosaic-sql";
+import { sql, verbatim, type VerbatimNode } from "@uwdata/mosaic-sql";
 import {
   Badge,
   Button,
@@ -23,11 +23,6 @@ import {
   CalendarViewControl,
   CalendarWeekDays,
   CalendarYearSelect,
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
   DataListItem,
   DataListItemLabel,
   DataListItemValue,
@@ -43,9 +38,6 @@ import {
   FileUploadHiddenInput,
   FileUploadTrigger,
   Input,
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
   Select,
   SelectContent,
   SelectItem,
@@ -70,9 +62,7 @@ import {
   TagsInputItemPreview,
   TagsInputItemText,
   toast,
-  useFilter,
   useKanzoTheme,
-  useListCollection,
 } from "@kanzo-tech/ui";
 import {
   CompleteHint,
@@ -109,7 +99,6 @@ import {
 } from "@kanzo-tech/ui/analytics";
 import {
   MaximizeIcon,
-  SearchIcon,
   SparklesIcon,
   PlusIcon,
   UploadCloudIcon,
@@ -120,6 +109,7 @@ import {
   GraphCounts,
   GraphInspector,
   GraphRoot,
+  GraphSearch,
   ShapeGlyph,
   lookFrom,
   scaleOf,
@@ -398,104 +388,12 @@ function HallName({ detail }: { detail: VertexDetail }) {
   );
 }
 
-/**
- * Find one thing in the archive and go to it.
- *
- * Not `ChartSearch`, and the difference is what the control MEANS: `ChartSearch` publishes a
- * substring filter, the right instrument for "narrow this", and a datalist that cannot be styled.
- * Picking is a value, so this is a `Combobox`, and picking reveals that vertex — the canvas frames
- * it and selects it with its neighbours, and the inspector below reads it. The list is capped and
- * says so.
- */
-const SEARCH_LIMIT = 50;
-
-function ArchiveSearch({ archive }: { archive: Archive }) {
-  const { reveal } = useGraphContext();
-
-  // The whole corpus, once, against no filter: a search that only finds what is already on screen
-  // cannot take you anywhere. 1,543 rows is small enough to filter in the browser.
-  const { rows } = useChartQuery({
-    filterBy: null,
-    deps: [archive],
-    query: () =>
-      Query.from(archive.nodes)
-        .select({ id: ID, label: "label", kind: "kind" })
-        .orderby(desc("degree")),
-  });
-
-  const items = useMemo(
-    () =>
-      (rows ?? []).map((row) => ({
-        label: String(row.label),
-        value: String(row.id),
-        kind: String(row.kind),
-      })),
-    [rows]
-  );
-
-  const { contains } = useFilter({ sensitivity: "base" });
-  const { collection, filter, set } = useListCollection({
-    filter: contains,
-    initialItems: items,
-    limit: SEARCH_LIMIT,
-  });
-
-  const loaded = useRef(false);
-  useEffect(() => {
-    if (loaded.current || items.length === 0) return;
-    loaded.current = true;
-    set(items);
-  }, [items, set]);
-
-  return (
-    <Combobox
-      collection={collection}
-      onInputValueChange={(details) => filter(details.inputValue)}
-      onValueChange={(details) => {
-        const picked = details.value[0];
-        if (picked !== undefined) reveal(Number(picked));
-      }}
-    >
-      <ComboboxInput placeholder="Find anything in the archive…" size="sm" />
-      <ComboboxContent>
-        <ComboboxEmpty>Nothing by that name.</ComboboxEmpty>
-        {collection.items.map((item) => (
-          <ComboboxItem item={item} key={item.value}>
-            <span className="min-w-0 truncate">{item.label}</span>
-            <span className="ms-auto ps-2 text-muted-foreground text-xs">
-              {KINDS[item.kind as keyof typeof KINDS] ?? item.kind}
-            </span>
-          </ComboboxItem>
-        ))}
-        <Show when={collection.items.length >= SEARCH_LIMIT}>
-          <p className="border-t px-2 py-1.5 text-muted-foreground text-xs">
-            First {SEARCH_LIMIT}. Keep typing to narrow it.
-          </p>
-        </Show>
-      </ComboboxContent>
-    </Combobox>
-  );
-}
-
-/** The Info panel: the archive search, and the package's inspector with the hall's name added. */
+/** The Info panel: the package's search and inspector, with the hall's name added. */
 export function GraphInfo() {
-  const archive = useArchive();
   return (
     <div className="flex h-full flex-col">
       <div className="shrink-0 border-b border-border p-2">
-        <Show
-          fallback={
-            <InputGroup data-disabled size="sm">
-              <InputGroupAddon align="inline-start">
-                <SearchIcon className="size-3.5" />
-              </InputGroupAddon>
-              <InputGroupInput disabled placeholder="Search the archive…" size="sm" />
-            </InputGroup>
-          }
-          when={archive !== null}
-        >
-          {archive && <ArchiveSearch archive={archive} />}
-        </Show>
+        <GraphSearch placeholder="Find anything in the archive…" />
       </div>
       <ScrollArea className="min-h-0 flex-1 p-3">
         <GraphInspector>{(detail) => <HallName detail={detail} />}</GraphInspector>

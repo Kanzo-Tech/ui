@@ -21,6 +21,7 @@ const VALUES = [
   "GraphLegend",
   "GraphRoot",
   "GraphRootProvider",
+  "GraphSearch",
   "GraphToolbar",
   "ShapeGlyph",
   "lookFrom",
@@ -105,7 +106,7 @@ describe("@kanzo-tech/graph public surface", () => {
   });
 
   it("ships the parts flat, each reading the one context", () => {
-    for (const part of ["GraphCanvas", "GraphLegend", "GraphCounts", "GraphToolbar", "GraphInspector"]) {
+    for (const part of ["GraphCanvas", "GraphLegend", "GraphCounts", "GraphToolbar", "GraphInspector", "GraphSearch"]) {
       expect(surface[part], part).toBeTypeOf("function");
     }
     expect(surface.GraphSelection).toBeUndefined();
@@ -179,6 +180,7 @@ describe("the parts' props", () => {
       "GraphCountsProps",
       "GraphInspectorProps",
       "GraphLegendProps",
+      "GraphSearchProps",
       "GraphToolbarProps",
       "ShapeGlyphProps",
     ]);
