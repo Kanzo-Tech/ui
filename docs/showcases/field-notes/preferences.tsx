@@ -20,7 +20,7 @@ import {
   PasswordInputGroup,
   PasswordInputInput,
   PasswordInputTrigger,
-  PreferencesColor,
+  ThemePicker,
   PreferencesDensity,
   PreferencesField,
   PreferencesFont,
@@ -45,7 +45,7 @@ export function FieldNotesPreferences({
           not one of this screen's verbs, and in the header it read as one. */}
       <PreferencesTrigger />
       <PreferencesPanel>
-        <PreferencesColor />
+        <ThemePicker />
         <PreferencesDensity />
         <PreferencesRadius />
         <PreferencesFont />

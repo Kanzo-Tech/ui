@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 import { useServerInsertedHTML } from "next/navigation";
-import type { ThemeOption } from "@kanzo-tech/theme";
 import { KanzoThemeProvider, cookieStorageAdapter, themeScript } from "@kanzo-tech/ui";
 
 /**
@@ -39,32 +38,12 @@ import { KanzoThemeProvider, cookieStorageAdapter, themeScript } from "@kanzo-te
  * provider produces. Colour is not in it, and cannot be: a document is a whole stylesheet, so the
  * script has nothing to write — `app/layout.tsx` serves the chosen one, already compiled.
  */
-export const KanzoProvider = ({
-  children,
-  themes,
-  defaultTheme,
-}: {
-  children: ReactNode;
-  /**
-   * What this tenant publishes — a flat list, because a brand is a theme. The docs site publishes
-   * the whole catalogue, twenty-nine of them; a client usually publishes two (one per side) and
-   * sees neither the theme menu in the chrome nor a colour section in the panel.
-   */
-  themes: ThemeOption[];
-  defaultTheme: string;
-}) => {
+export const KanzoProvider = ({ children }: { children: ReactNode }) => {
+  // The shipped catalogue and its default pair are the provider's and the script's defaults, so
+  // neither is passed: the two sides agree by construction.
   useServerInsertedHTML(() => (
-    // biome-ignore lint/security/noDangerouslySetInnerHtml: the anti-FOUC script must be inline.
     <script dangerouslySetInnerHTML={{ __html: themeScript() }} key="kanzo-theme-script" />
   ));
 
-  return (
-    <KanzoThemeProvider
-      defaultTheme={defaultTheme}
-      themes={themes}
-      storage={cookieStorageAdapter()}
-    >
-      {children}
-    </KanzoThemeProvider>
-  );
+  return <KanzoThemeProvider storage={cookieStorageAdapter()}>{children}</KanzoThemeProvider>;
 };

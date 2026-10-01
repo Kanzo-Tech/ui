@@ -21,7 +21,7 @@ import {
 	MenuItem,
 	MenuSeparator,
 	MenuTrigger,
-	PreferencesColor,
+	ThemePicker,
 	PreferencesDensity,
 	PreferencesFont,
 	PreferencesMonoFont,
@@ -576,7 +576,7 @@ function ArchiveShell({ arrangement, wear }: { arrangement: LookId; wear: (id: L
 						<PreferencesTrigger />
 						<PreferencesPanel>
 							<GraphAppearance arrangement={arrangement} wear={wear} />
-							<PreferencesColor />
+							<ThemePicker />
 							<PreferencesDensity />
 							<PreferencesRadius />
 							<PreferencesFont />

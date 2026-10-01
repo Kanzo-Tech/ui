@@ -8,7 +8,7 @@ full: true
 
 One claim, and it is the one the whole [section mechanism](/docs/sections) rests on: **a section is
 independent of the surface that hosts it.** Every control on that page is the identical export the
-[floating panel](/docs/layout/preferences) renders — `PreferencesColor`, `PreferencesDensity`,
+[floating panel](/docs/layout/preferences) renders — `ThemePicker`, `PreferencesDensity`,
 `PreferencesRadius`, the two font axes, and `PreferencesSections` for whatever the packages a host
 installed contribute. Not one is a settings-page variant of anything, and if one ever needs to be,
 the mechanism has failed.
@@ -19,9 +19,8 @@ are one registry and one resolution, and the library favours neither.
 
 ## The layout adapts itself, and the page does not tell it to
 
-The colour section draws its two side cards under a **container query**, so it is one column inside
-the 384px drawer and two in this pane. Measured on this arrangement: the cards sit on one row at
-319px each here, and stack in the panel, with nothing passed down to say so.
+The theme section lays its cards on an **auto-fill grid**, so it fits two to a row inside the 384px
+drawer and more in this pane, with nothing passed down to say so.
 
 That is deliberate rather than convenient. The question a section asks is how much room *it* was
 given, never how big the window is — a page handing it a layout prop would be the surface deciding
@@ -50,7 +49,7 @@ were already yours:
 
 | What | Which parts | Whose decision it is |
 | --- | --- | --- |
-| The preferences themselves | `PreferencesColor`, `PreferencesDensity`, `PreferencesRadius`, `PreferencesFont`, `PreferencesMonoFont` | The library's. Identical exports to the ones the [drawer](/docs/showcases/metadata-form) renders — not one is a settings-page variant. |
+| The preferences themselves | `ThemePicker`, `PreferencesDensity`, `PreferencesRadius`, `PreferencesFont`, `PreferencesMonoFont` | The library's. Identical exports to the ones the [drawer](/docs/showcases/metadata-form) renders — not one is a settings-page variant. |
 | What the installed packages add | `PreferencesSections` | The host's, at registration time. It draws nothing until a package contributes, so a product that installed none sees no empty group. |
 | The page | `SidebarProvider`, `Sidebar`, `SidebarInset`, `ShellMain`, `SectionRoot`, `SectionHeader` | Yours. A settings area is layout, and layout is where a product differs most. |
 | The settings menu | `ItemGroup`, `Item` with a `Button` inside each row | Yours. Shark ships no settings-nav component and this needs none — a compact list of rows with a media slot and a title is `Item`, and a **pressable row is a button inside the item**, never the item merged with one, or `role="listitem"` lands on the control and it stops being announced as one. |

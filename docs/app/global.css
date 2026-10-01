@@ -55,7 +55,7 @@
  * ── The docs chrome wears the chosen theme ────────────────────────────────────────────────────
  *
  * Every `--color-fd-*` fumadocs paints its chrome with, assigned from the theme's own tokens. Pick
- * `dracula` in the theme menu and the sidebar, the nav, the search dialog and the table of contents
+ * `catppuccin-mocha` in the theme menu and the sidebar, the nav, the search dialog and the table of contents
  * go with it — which is the whole claim a theme makes, and the site was not making it: the chrome
  * was fumadocs' greys and only the examples changed colour.
  *
