@@ -11,7 +11,7 @@ names itself.
 ## The thrown value, whole, by one path
 
 Every surface that hands a host a failure hands it the `unknown` that was thrown: `GraphRoot`'s
-`onFailure`, `MosaicProvider`'s `onFailure`, `useAiStream`'s `error` and the hooks over it,
+`onFailure`, `MosaicProvider`'s `onFailure`, `AssistProvider`'s `onFailure`, `useBlocker`'s `onFailure`,
 `useSession()`'s `error` beside `status: "failed"`, `engine()`'s rejection. A `FossilError` arrives as
 a `FossilError`. The library never reduces a failure to its message, never depends on fossil's types
 to pass one, and never turns one into another state — an empty chart, `"anonymous"`, a spinner.
@@ -32,7 +32,7 @@ so one host registry keys all three. One class per package, named for it.
 | `engine/unavailable` | `EngineError` | DuckDB-WASM would not boot | `after` when the 60 s deadline fired |
 | `graph/no-webgl` | `GraphError` | no WebGL, a renderer that would not start, or no device within 10 s | `after` when the deadline fired |
 | `graph/context-lost` | `GraphError` | the browser took the WebGL context back | — |
-| `graph/unreadable-corpus` | `GraphError` | a corpus that is not `fossil/1`, or has nothing positioned | — |
+| `graph/nothing-to-draw` | `GraphError` | a corpus with no vertex type that has a position | — |
 | `graph/untranslatable-filter` | `GraphError` | a crossfilter clause the corpus cannot be asked | — |
 | `ai/silent` | `AiError` | a stream sent nothing for 30 s | `after` |
 | `session/*`, `idp/*`, `callback/*`, `token/*`, `organization/*`, `claims/*` | `AuthError` | see [the auth layer](/docs/design/auth) | `after`, `status` where named |
@@ -50,5 +50,5 @@ table yet. Work inside the process — a query, a layout — has a signal and no
 **What would reverse it:** a device that legitimately takes longer than 10 s to come up, measured.
 
 *Held by* `packages/mosaic/src/engine-boot.test.ts`, "rejects with data.after when the worker never
-answers within the 60 s deadline"; `packages/ai/src/use-ai.test.ts`, "ends a stream that sends
+answers within the 60 s deadline"; `packages/ai/src/engine.test.ts`, "ends a stream that sends
 nothing for 30 s as ai/silent, and not a millisecond before".

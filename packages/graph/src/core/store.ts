@@ -213,9 +213,8 @@ export function createGraph(initial: GraphOptions): GraphStore {
     const cleared = { selection: null, focus: null, hovered: null, pinned: [] };
     if (!corpus) return notify(cleared);
     try {
-      if (corpus.manifest.format !== "fossil/1") throw new GraphError("graph/unreadable-corpus", `the graph reads fossil/1, and this corpus is ${corpus.manifest.format}`);
       tables = drawnTables(corpus);
-      if (tables.length === 0) throw new GraphError("graph/unreadable-corpus", "the corpus has no vertex type with a position to draw");
+      if (tables.length === 0) throw new GraphError("graph/nothing-to-draw", "the corpus has no vertex type with a position to draw");
     } catch (error) {
       failed = true;
       fail(error);

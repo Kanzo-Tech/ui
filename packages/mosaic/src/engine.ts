@@ -37,9 +37,11 @@ export interface Engine {
    * **An abort interrupts the running statement**, not only the queue in front of it: the engine's
    * connection runs one statement at a time, so a stale one left to finish holds the next reader
    * back. It is `send` then `cancelSent()`, and the promise rejects with `signal.reason` at once.
-   * Statements run one after another on a connection of their own, beside the coordinator's.
+   * Statements run one after another on a connection of their own, beside the coordinator's. The
+   * signal is required, as fossil's `Engine` requires it: a reader that cannot stop is one that holds
+   * the next back.
    */
-  query(sql: string, options?: { readonly signal?: AbortSignal }): Promise<Columns>;
+  query(sql: string, options: { readonly signal: AbortSignal }): Promise<Columns>;
   /**
    * name → URL. The same URL is a no-op; a different one replaces the lease. The name has no scheme:
    * with `httpfs` loaded, `https://…` or `s3://…` in SQL is read by `httpfs` before the registry is
@@ -214,11 +216,10 @@ async function start(made: (duckdb: AsyncDuckDB) => void): Promise<Engine> {
 
   const connection = duckdb.connect();
   let queue: Promise<unknown> = Promise.resolve();
-  const query = (sql: string, options: { readonly signal?: AbortSignal } = {}) => {
-    const { signal } = options;
+  const query = (sql: string, { signal }: { readonly signal: AbortSignal }) => {
     const run = queue.then(() => answer(connection, sql, signal));
     queue = run.catch(() => {}); // the caller holds `run`; the chain only orders the next statement
-    return signal ? abandon(run, signal) : run;
+    return abandon(run, signal);
   };
 
   return {
@@ -263,29 +264,29 @@ interface Batch {
   getChildAt(index: number): (Column & { concat(...others: Column[]): Column }) | null;
 }
 
-async function answer(pending: Promise<Sent>, sql: string, signal?: AbortSignal): Promise<Columns> {
-  signal?.throwIfAborted();
+async function answer(pending: Promise<Sent>, sql: string, signal: AbortSignal): Promise<Columns> {
+  signal.throwIfAborted();
   const connection = await pending;
   let interrupted: Promise<boolean> | undefined;
   const interrupt = () => (interrupted = connection.cancelSent());
-  signal?.addEventListener("abort", interrupt, { once: true });
+  signal.addEventListener("abort", interrupt, { once: true });
   try {
     const reader = await connection.send(sql);
     await reader.open();
     const fields = reader.schema?.fields ?? [];
     const batches: Batch[] = [];
     for await (const batch of reader) batches.push(batch);
-    signal?.throwIfAborted();
+    signal.throwIfAborted();
     return columnsOf(fields, batches);
   } catch (error) {
     // A cancel that fails rejects this statement in place of the abort, so the queue owns it.
-    if (signal?.aborted) {
+    if (signal.aborted) {
       await interrupted;
       throw signal.reason;
     }
     throw error;
   } finally {
-    signal?.removeEventListener("abort", interrupt);
+    signal.removeEventListener("abort", interrupt);
   }
 }
 

@@ -35,7 +35,7 @@ describe("the graph store", () => {
     expect(onFailure).not.toHaveBeenCalled();
 
     const unsubscribe = store.subscribe(() => {});
-    expect(onFailure).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ code: "graph/unreadable-corpus" }));
+    expect(onFailure).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ code: "graph/nothing-to-draw" }));
 
     unsubscribe();
     store.subscribe(() => {});
