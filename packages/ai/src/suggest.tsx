@@ -14,7 +14,7 @@ import { type AiStatus, useSuggestions } from "./use-ai.js";
 interface SuggestCtx {
   candidates: Candidate[];
   status: AiStatus;
-  error: string | null;
+  error: unknown;
   /** The field, or something inside it, holds focus. */
   active: boolean;
   ask: () => void;
@@ -193,6 +193,8 @@ export interface SuggestListProps extends React.ComponentProps<typeof Suggestion
   pending?: React.ReactNode;
   /** Shown when the source finished with nothing to offer. */
   empty?: React.ReactNode;
+  /** What to say for the value the source threw. Defaults to its message. */
+  failure?: (error: unknown) => React.ReactNode;
 }
 
 /**
@@ -207,15 +209,19 @@ export interface SuggestListProps extends React.ComponentProps<typeof Suggestion
  * keyboard through focus, and costs no box.
  */
 export function SuggestList(props: SuggestListProps) {
-  const { className, empty, pending, slot, ...rest } = props;
+  const { className, empty, failure, pending, slot, ...rest } = props;
   const ctx = useCtx("SuggestList");
 
   if (!ctx.active) return null;
 
   const body =
-    ctx.error !== null ? (
+    ctx.status === "error" ? (
       <ark.p className="text-destructive-foreground text-sm" data-slot="suggest-error">
-        {ctx.error}
+        {failure
+          ? failure(ctx.error)
+          : ctx.error instanceof Error && ctx.error.message
+            ? ctx.error.message
+            : "Couldn’t load suggestions"}
       </ark.p>
     ) : ctx.candidates.length > 0 ? (
       ctx.candidates.map((candidate) => {

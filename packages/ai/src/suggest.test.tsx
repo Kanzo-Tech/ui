@@ -15,13 +15,14 @@ function Harness(props: {
   onPick?: (v: string) => void;
   src?: (signal?: AbortSignal) => AsyncIterable<Candidate>;
   trigger?: "press" | "focus";
+  failure?: (error: unknown) => string;
 }) {
-  const { existing, onPick = vi.fn(), src = suggest, trigger } = props;
+  const { existing, failure, onPick = vi.fn(), src = suggest, trigger } = props;
   return (
     <SuggestRoot existing={existing} onPick={onPick} suggest={src} trigger={trigger}>
       <Input aria-label="Tag" />
       <SuggestMark label="Suggest" />
-      <SuggestList />
+      <SuggestList failure={failure} />
     </SuggestRoot>
   );
 }
@@ -176,5 +177,26 @@ describe("Suggest, in the host's language", () => {
 
     await user.click(screen.getByRole("button", { name: "Sugerir" }));
     expect(await screen.findByRole("button", { name: "Sugerir otros valores" })).toBeTruthy();
+  });
+});
+
+describe("a source that fails", () => {
+  const thrown = new Error("The model is unreachable.");
+  const src = (): AsyncIterable<Candidate> => ({
+    [Symbol.asyncIterator]: () => ({ next: () => Promise.reject(thrown) }),
+  });
+
+  it("says the thrown error's message", async () => {
+    const user = userEvent.setup();
+    render(<Harness src={src} />);
+    await user.click(mark());
+    expect(await screen.findByText("The model is unreachable.")).not.toBeNull();
+  });
+
+  it("hands the host the thrown value, so the words can follow it", async () => {
+    const user = userEvent.setup();
+    render(<Harness failure={(error) => (error === thrown ? "Sin conexión." : "?")} src={src} />);
+    await user.click(mark());
+    expect(await screen.findByText("Sin conexión.")).not.toBeNull();
   });
 });

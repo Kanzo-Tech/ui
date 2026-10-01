@@ -164,7 +164,7 @@ example above keeps it so the accept buttons stay reachable.
 | --- | --- | --- |
 | `ghost` | `string` | The continuation on offer; empty when there is none |
 | `status` | `AiStatus` | `"idle" \| "loading" \| "ready" \| "error"`, shared with [`useAiStream`](/docs/ai/use-ai-stream) and [`useSuggestions`](/docs/ai/use-suggestions) |
-| `error` | `string \| null` | Message when the source threw |
+| `error` | `unknown` | What the source threw, as thrown, while `status` is `"error"` |
 | `setValue` | `(value: string, position?: number) => void` | The field changed. Asks after the debounce **unless the offer on the table survives** |
 | `ask` | `(value: string, position?: number) => void` | Ask now, as `"invoked"` — the ✨ path |
 | `dismiss` | `() => void` | Forget the offer and stop anything in flight |

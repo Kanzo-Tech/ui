@@ -77,7 +77,22 @@ const outcome = await engine.run(source, append);
 if (outcome === "ready") finish();
 ```
 
-An abort is not a failure, so it is not reported as one: only a source that throws sets `error`.
+An abort is not a failure, so it is not reported as one: only a source that throws sets `error`, and
+it sets it to **the value thrown**, whole — an error with a `code` arrives with its `code`, so a host
+chooses what to say by it.
+
+```tsx
+<Show when={engine.status === "error"}>
+  {engine.error instanceof Error ? engine.error.message : "Something went wrong"}
+</Show>
+```
+
+## A stream that goes quiet
+
+A source that stops sending without closing does not leave the run `loading` forever. Thirty
+seconds without a chunk — the wait for the first one included — aborts the request and ends the run
+with an `AiError` whose `code` is `"ai/silent"` and whose `data.after` is the `30000` ms waited.
+Every chunk restarts the thirty seconds, so a long answer that keeps talking is never cut off.
 
 ## `cancel` vs `reset`
 
@@ -90,14 +105,6 @@ An abort is not a failure, so it is not reported as one: only a source that thro
 
 ## API Reference
 
-### Parameters
-
-| Parameter | Type | Default |
-| --- | --- | --- |
-| `errorText` | `string` | `"Something went wrong"` |
-
-The fallback message written to `error` when the source throws without a message of its own.
-
 ### Returns
 
 `AiStream<T>`:
@@ -108,7 +115,7 @@ The fallback message written to `error` when the source throws without a message
 | `cancel` | `() => void` | Abort, back to `idle`, error cleared |
 | `reset` | `() => void` | Forget a finished answer; a live stream is untouched |
 | `status` | `AiStatus` | `"idle" \| "loading" \| "ready" \| "error"` |
-| `error` | `string \| null` | Message when `status` is `"error"` |
+| `error` | `unknown` | What the source threw, as thrown, while `status` is `"error"` — or an `AiError` with `code: "ai/silent"` |
 
 `source` is `(signal: AbortSignal) => AsyncIterable<T>` and `each` is
 `(value: T) => boolean | void`.

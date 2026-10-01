@@ -65,8 +65,10 @@ export default function Example() {
         <Badge variant={engine.status === "error" ? "destructive" : "secondary"}>
           {engine.status}
         </Badge>
-        <Show when={engine.error !== null}>
-          <span className="text-destructive text-xs">{engine.error}</span>
+        <Show when={engine.status === "error"}>
+          <span className="text-destructive text-xs">
+            {engine.error instanceof Error ? engine.error.message : "Something went wrong"}
+          </span>
         </Show>
         <Show when={words > 0}>
           <span className="text-muted-foreground text-xs">{words} pulled</span>

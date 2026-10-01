@@ -62,7 +62,7 @@ export { SuggestRoot, SuggestMark, SuggestList } from "./suggest.js";
 export type { SuggestRootProps, SuggestListProps, SuggestTrigger } from "./suggest.js";
 export type { CompleteRootProps } from "./complete.js";
 
-export { useAiStream, useInlineCompletion, useSuggestions, cleanGhost } from "./use-ai.js";
+export { AiError, useAiStream, useInlineCompletion, useSuggestions, cleanGhost } from "./use-ai.js";
 export type {
   AiStatus,
   AiStream,

@@ -96,8 +96,10 @@ export default function Example() {
         <p className="text-muted-foreground text-sm">Nothing to suggest.</p>
       </Show>
 
-      <Show when={suggestions.error !== null}>
-        <p className="text-destructive text-sm">{suggestions.error}</p>
+      <Show when={suggestions.status === "error"}>
+        <p className="text-destructive text-sm">
+          {suggestions.error instanceof Error ? suggestions.error.message : "Couldn’t load suggestions"}
+        </p>
       </Show>
 
       <ul className="flex flex-wrap gap-1.5">

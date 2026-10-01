@@ -113,8 +113,10 @@ export default function Example() {
         </span>
       </Show>
 
-      <Show when={suggestions.error !== null}>
-        <p className="text-destructive text-xs">{suggestions.error}</p>
+      <Show when={suggestions.status === "error"}>
+        <p className="text-destructive text-xs">
+          {suggestions.error instanceof Error ? suggestions.error.message : "Couldn’t load suggestions"}
+        </p>
       </Show>
     </div>
   );

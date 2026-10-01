@@ -68,7 +68,7 @@ as an answer with nothing in it. Two consequences, and both are the point:
 | `idle` | nobody has asked, or the answer has been cancelled or spent |
 | `loading` | a run is pulling |
 | `ready` | a run finished — **`ready` with no items means the source had nothing** |
-| `error` | the source threw; `error` carries the message |
+| `error` | the source threw; `error` is what it threw |
 
 An empty `ready` is an answer a surface should say out loud rather than sitting blank. It is also
 the state a `status` plus a `loading` boolean could never express, which is why the boolean is
@@ -111,7 +111,7 @@ is not an answer with nothing in it.
 | --- | --- | --- |
 | `items` | `Candidate[]` | What is on offer, deduped |
 | `status` | `AiStatus` | `"idle" \| "loading" \| "ready" \| "error"`, shared with [`useAiStream`](/docs/ai/use-ai-stream) and [`useInlineCompletion`](/docs/ai/use-inline-completion) |
-| `error` | `string \| null` | Message when the source threw |
+| `error` | `unknown` | What the source threw, as thrown, while `status` is `"error"` |
 | `ask` | `() => void` | Ask the source; a no-op unless idle |
 | `refresh` | `() => void` | Ask again from scratch, and the retry after an error |
 | `cancel` | `() => void` | Abort in flight, and forget |

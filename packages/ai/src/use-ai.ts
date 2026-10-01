@@ -35,8 +35,59 @@ export function cleanGhost(base: string, cont: string): string {
   return cont;
 }
 
-const message = (e: unknown, fallback: string) =>
-  e instanceof Error && e.message ? e.message : fallback;
+/** How long a stream may go without sending anything, the first chunk included. */
+const SILENT_AFTER = 30_000;
+
+/** The one failure this package names: the model stopped sending without closing the stream. */
+export class AiError extends Error {
+  override readonly name = "AiError";
+  constructor(
+    readonly code: "ai/silent",
+    message: string,
+    readonly data: { readonly after?: number } = {},
+    options?: ErrorOptions,
+  ) {
+    super(message, options);
+  }
+}
+
+/**
+ * `pending`, unless `c` is aborted first or nothing arrives within {@link SILENT_AFTER} — then `c` is
+ * aborted with an `ai/silent` `AiError`, which this rejects with.
+ */
+function heard<T>(pending: Promise<T>, c: AbortController): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const aborted = () => {
+      settle();
+      reject(c.signal.reason);
+    };
+    const timer = setTimeout(
+      () =>
+        c.abort(
+          new AiError("ai/silent", `The model sent nothing for ${SILENT_AFTER} ms`, {
+            after: SILENT_AFTER,
+          }),
+        ),
+      SILENT_AFTER,
+    );
+    const settle = () => {
+      clearTimeout(timer);
+      c.signal.removeEventListener("abort", aborted);
+    };
+    if (c.signal.aborted) return aborted();
+    c.signal.addEventListener("abort", aborted);
+    pending.then(
+      (value) => {
+        settle();
+        resolve(value);
+      },
+      (e: unknown) => {
+        settle();
+        reject(e);
+      },
+    );
+  });
+}
 
 /**
  * Where a request has got to. **One union for the engine and both hooks**, because a status plus a
@@ -73,23 +124,22 @@ export interface AiStream<T> {
   /** Forget a finished answer. A live stream is untouched — there is nothing to forget yet. */
   reset: () => void;
   status: AiStatus;
-  error: string | null;
+  /** What the source threw, as it was thrown, while `status` is `"error"`. */
+  error: unknown;
 }
 
 /** The shared engine: one iterator, one controller, one status. */
-export function useAiStream<T>(errorText = "Something went wrong"): AiStream<T> {
+export function useAiStream<T>(): AiStream<T> {
   const [status, setStatus] = useState<AiStatus>("idle");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(undefined);
 
   // Beside the state, and read only where a decision is synchronous (`reset`). Anything a surface
   // renders has to be state: this was a ref first, and the strip stayed on whatever status it
   // happened to paint with.
   const statusRef = useRef<AiStatus>("idle");
   const ctrl = useRef<AbortController>(undefined);
-  const errRef = useRef(errorText);
-  errRef.current = errorText;
 
-  const set = useCallback((s: AiStatus, e: string | null = null) => {
+  const set = useCallback((s: AiStatus, e?: unknown) => {
     statusRef.current = s;
     setStatus(s);
     setError(e);
@@ -109,22 +159,30 @@ export function useAiStream<T>(errorText = "Something went wrong"): AiStream<T> 
         try {
           it = src(c.signal)[Symbol.asyncIterator]();
         } catch (e) {
-          set("error", message(e, errRef.current));
+          set("error", e);
           return "error";
         }
         for (;;) {
           let res: IteratorResult<T>;
           try {
-            res = await it.next();
+            res = await heard(it.next(), c);
           } catch (e) {
-            // A throw on the way out is not a failure to report — the caller asked for it.
-            if (c.signal.aborted) return "idle";
-            set("error", message(e, errRef.current));
+            // A cancellation is not a failure to report — the caller asked for it. Silence is.
+            if (c.signal.aborted && !(c.signal.reason instanceof AiError)) return "idle";
+            set("error", e);
             return "error";
           }
           if (c.signal.aborted) return "idle";
           if (res.done) break;
-          if (each(res.value) === false) {
+          let more: boolean | void;
+          try {
+            more = each(res.value);
+          } catch (e) {
+            c.abort();
+            set("error", e);
+            return "error";
+          }
+          if (more === false) {
             // Enough. The source is told, because it is the one holding the socket.
             c.abort();
             break;
@@ -246,7 +304,8 @@ export interface InlineCompletion {
   ghost: string;
   /** `ready` with an empty `ghost` is "asked, and the model had nothing to add". */
   status: AiStatus;
-  error: string | null;
+  /** What the source threw, as it was thrown, while `status` is `"error"`. */
+  error: unknown;
   /**
    * The field changed. Ask after a debounce — **unless the offer already on the table survives**,
    * which is the whole reason this takes a caret.
@@ -291,7 +350,7 @@ interface Offer {
  * text") and Monaco spells it `inlineSuggest.mode: "prefix"`.
  */
 export function useInlineCompletion(options: UseInlineCompletionOptions): InlineCompletion {
-  const { run, cancel, status, error } = useAiStream<string>("Couldn’t complete");
+  const { run, cancel, status, error } = useAiStream<string>();
   const [ghost, setGhost] = useState("");
 
   const opts = useRef(options);
@@ -356,8 +415,13 @@ export function useInlineCompletion(options: UseInlineCompletionOptions): Inline
       ).then((outcome) => {
         if (offer.current !== mine) return;
         mine.done = true;
-        if (outcome === "ready") painter.current?.flush();
-        else painter.current?.cancel();
+        if (outcome === "ready") return painter.current?.flush();
+        painter.current?.cancel();
+        // A failed stream's half a continuation is not an offer; the failure is `error`.
+        if (outcome === "error") {
+          offer.current = null;
+          setGhost("");
+        }
       });
     },
     [run],
@@ -430,7 +494,8 @@ export interface SuggestionsController {
   items: Candidate[];
   /** `ready` with no items means the source had nothing — not that its answer was consumed. */
   status: AiStatus;
-  error: string | null;
+  /** What the source threw, as it was thrown, while `status` is `"error"`. */
+  error: unknown;
   /** Ask the source. A no-op unless idle: in flight, already answered, or failed, it does nothing
    *  and `refresh` is the way through. */
   ask: () => void;
@@ -455,9 +520,7 @@ export interface SuggestionsController {
  * — those existed to keep exactly three rows alive inside a popover, and the popover is gone.
  */
 export function useSuggestions(options: UseSuggestionsOptions): SuggestionsController {
-  const { run, cancel: abort, reset, status, error } = useAiStream<Candidate>(
-    "Couldn’t load suggestions",
-  );
+  const { run, cancel: abort, reset, status, error } = useAiStream<Candidate>();
   const [items, setItems] = useState<Candidate[]>([]);
   // A ref beside the state so `dismiss` can filter what is on screen *now* without taking `items`
   // as a dependency — which would hand every consumer a new callback on every render.

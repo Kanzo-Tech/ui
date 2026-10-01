@@ -32,7 +32,7 @@ interface CompleteCtx {
   caret: number;
   rtl: boolean;
   status: AiStatus;
-  error: string | null;
+  error: unknown;
   /** The value is long enough for `complete` to be asked at all. */
   askable: boolean;
   metrics: React.CSSProperties;
@@ -541,16 +541,23 @@ export function CompleteHint({
  * `CompleteHint` because the ghost surface is usually `CompleteGhost`, an overlay with no room
  * under it, and a failure has to be readable in both.
  */
-export function CompleteError({ className }: { className?: string }) {
+export function CompleteError({
+  className,
+  children = (error) => (error instanceof Error && error.message ? error.message : "Couldn’t complete"),
+}: {
+  className?: string;
+  /** What to say for the value the source threw. Defaults to its message. */
+  children?: (error: unknown) => React.ReactNode;
+}) {
   const ctx = useCtx("CompleteError");
-  if (ctx.error === null) return null;
+  if (ctx.status !== "error") return null;
   return (
     <ark.p
       className={cn("mt-1.5 text-destructive-foreground text-sm", className)}
       data-slot="complete-error"
       role="alert"
     >
-      {ctx.error}
+      {children(ctx.error)}
     </ark.p>
   );
 }

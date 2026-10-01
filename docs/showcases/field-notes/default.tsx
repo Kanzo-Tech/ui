@@ -534,7 +534,7 @@ export function FieldNotesShowcase() {
   const [shapeText, setShapeText] = useState(SLIP_SHAPE);
   const [shapeError, setShapeError] = useState<string | null>(null);
 
-  const engine = useAiStream<ExtractEvent>("Could not read the photo");
+  const engine = useAiStream<ExtractEvent>();
   /**
    * The boxes the reader drew, and the reason a second run does not take them back.
    *
@@ -1316,9 +1316,11 @@ export function FieldNotesShowcase() {
             {shots.length} {shots.length === 1 ? "photo" : "photos"}
           </span>
         </Show>
-        <Show when={Boolean(engine.error)}>
+        <Show when={engine.status === "error"}>
           <Separator className="h-3" orientation="vertical" />
-          <span className="text-destructive">{engine.error}</span>
+          <span className="text-destructive">
+            {engine.error instanceof Error ? engine.error.message : "Could not read the photo"}
+          </span>
         </Show>
         {/* The watermark. It was a `Badge` in the header, in the row where `Extract` and the
             downloads live, and a fact does not belong among verbs — a pill up there reads as

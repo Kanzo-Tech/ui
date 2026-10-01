@@ -91,8 +91,10 @@ export default function Example() {
         </p>
       </Show>
 
-      <Show when={completion.error !== null}>
-        <p className="text-destructive text-xs">{completion.error}</p>
+      <Show when={completion.status === "error"}>
+        <p className="text-destructive text-xs">
+          {completion.error instanceof Error ? completion.error.message : "Couldn’t complete"}
+        </p>
       </Show>
 
       <ButtonGroup aria-label="Completion actions">

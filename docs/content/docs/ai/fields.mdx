@@ -221,7 +221,10 @@ puts a toolbar under the pointer, which is a gesture a keyboard cannot make.
 `CompleteError` prints what went wrong under the field, and renders nothing when nothing did. It is
 a part rather than a line inside `CompleteHint` because the usual presenter is `CompleteGhost`, an
 overlay with no room under it. Without it a failed completion says nothing at all: the ✨ stops
-spinning and `error` sits on the hook with no part reading it. `SuggestList` prints its own.
+spinning and `error` sits on the hook with no part reading it. `SuggestList` prints its own. Both
+print the thrown error's message by default; to say something else — in another language, or by the
+error's `code` — pass a function of the thrown value: `CompleteError`'s children, `SuggestList`'s
+`failure`.
 
 `CompleteHint` is the alternative presenter, for a field that cannot take the height — a composer
 docked in a pane, whose box is fixed by the layout and whose bottom edge belongs to its own toolbar.

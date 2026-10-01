@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import type { Candidate } from "./types.js";
 import {
+  AiError,
   cleanGhost,
   type InlineCompletionRequest,
   useAiStream,
@@ -132,6 +133,27 @@ describe("useAiStream", () => {
     expect(result.current.status).toBe("ready");
   });
 
+  it("ends as an error, not loading forever, when the caller's `each` throws", async () => {
+    const s = subject<number>();
+    const { result } = renderHook(() => useAiStream<number>());
+    const thrown = new Error("each broke");
+    let outcome: string | undefined;
+    act(() => {
+      void result.current
+        .run(s.source, () => {
+          throw thrown;
+        })
+        .then((o) => {
+          outcome = o;
+        });
+    });
+    s.emit(1);
+    await flush();
+    expect(outcome).toBe("error");
+    expect(result.current.status).toBe("error");
+    expect(result.current.error).toBe(thrown);
+  });
+
   it("stops where `each` says stop, and tells the source", async () => {
     const s = subject<number>();
     const { result } = renderHook(() => useAiStream<number>());
@@ -193,13 +215,14 @@ describe("useAiStream", () => {
         outcome = o;
       });
     });
-    s.fail(new Error("boom"));
+    const thrown = new Error("boom");
+    s.fail(thrown);
     await flush();
     // The outcome is why there is no `peek()`: a loop that outlives its render used to read the
     // status field from a stale closure — the value from before the failure.
     expect(outcome).toBe("error");
     expect(result.current.status).toBe("error");
-    expect(result.current.error).toBe("boom");
+    expect(result.current.error).toBe(thrown);
   });
 
   it("stays silent when the source throws after a cancel", async () => {
@@ -216,7 +239,7 @@ describe("useAiStream", () => {
     await flush();
     expect(outcome).toBe("idle");
     expect(result.current.status).toBe("idle");
-    expect(result.current.error).toBeNull();
+    expect(result.current.error).toBeUndefined();
   });
 
   it("cancel clears the failure it is cancelling", async () => {
@@ -232,7 +255,7 @@ describe("useAiStream", () => {
     expect(result.current.status).toBe("error");
     act(() => result.current.cancel());
     expect(result.current.status).toBe("idle");
-    expect(result.current.error).toBeNull();
+    expect(result.current.error).toBeUndefined();
   });
 
   it("reset forgets a finished answer and leaves a live one alone", async () => {
@@ -314,7 +337,7 @@ describe("useSuggestions", () => {
     act(() => result.current.ask());
     await flush();
     expect(result.current.status).toBe("error");
-    expect(result.current.error).toBe("the source fell over");
+    expect(result.current.error).toEqual(new Error("the source fell over"));
   });
 
   it("asks once, and `refresh` is how you ask again", async () => {
@@ -518,10 +541,10 @@ describe("useInlineCompletion", () => {
     act(() => result.current.ask("abcd"));
     await flush();
     expect(result.current.status).toBe("error");
-    expect(result.current.error).toBe("no model");
+    expect(result.current.error).toEqual(new Error("no model"));
     act(() => result.current.dismiss());
     expect(result.current.status).toBe("idle");
-    expect(result.current.error).toBeNull();
+    expect(result.current.error).toBeUndefined();
   });
 
   it("debounces and enforces minLength", async () => {
@@ -551,5 +574,104 @@ describe("useInlineCompletion", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+// ── a stream that fails, or stops talking ─────────────────────────────────────
+
+describe("a stream that fails or goes silent", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const advance = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
+
+  function started<T>(s: ReturnType<typeof subject<T>>) {
+    const hook = renderHook(() => useAiStream<T>());
+    const run = { outcome: undefined as string | undefined };
+    act(() => {
+      void hook.result.current.run(s.source, () => {}).then((o) => {
+        run.outcome = o;
+      });
+    });
+    return { ...hook, run };
+  }
+
+  it("hands the host the value thrown mid-way, not its message", async () => {
+    const s = subject<number>();
+    const { result } = started(s);
+    s.emit(1);
+    const thrown = { code: "llm/refused", data: { model: "m" } };
+    s.fail(thrown);
+    await advance(0);
+    expect(result.current.status).toBe("error");
+    expect(result.current.error).toBe(thrown);
+  });
+
+  it("ends a stream that sends nothing for 30 s as ai/silent, and not a millisecond before", async () => {
+    const s = subject<number>();
+    const { result, run } = started(s);
+    await advance(29_999);
+    expect(result.current.status).toBe("loading");
+    expect(s.aborted()).toBe(false);
+    await advance(1);
+    expect(run.outcome).toBe("error");
+    expect(result.current.status).toBe("error");
+    expect(result.current.error).toBeInstanceOf(AiError);
+    expect(result.current.error).toMatchObject({ code: "ai/silent", data: { after: 30_000 } });
+    expect(s.aborted()).toBe(true);
+  });
+
+  it("restarts the 30 s on every chunk", async () => {
+    const s = subject<number>();
+    const { result } = started(s);
+    await advance(20_000);
+    s.emit(1);
+    await advance(20_000);
+    expect(result.current.status).toBe("loading");
+    await advance(10_000);
+    expect(result.current.error).toMatchObject({ code: "ai/silent" });
+  });
+
+  it("does not report a cancellation, even from a source that throws the abort", async () => {
+    const s = subject<number>();
+    const { result, run } = started(s);
+    act(() => result.current.cancel());
+    s.fail(new DOMException("aborted", "AbortError"));
+    await advance(30_000);
+    expect(run.outcome).toBe("idle");
+    expect(result.current.status).toBe("idle");
+    expect(result.current.error).toBeUndefined();
+  });
+
+  it("surfaces an inline completion that fails, rather than cancelling it", async () => {
+    const s = subject<string>();
+    const { result } = renderHook(() =>
+      useInlineCompletion({ complete: ({ signal }) => s.source(signal) }),
+    );
+    act(() => result.current.ask("hello"));
+    s.emit(" wor");
+    await advance(50);
+    expect(result.current.ghost).toBe(" wor");
+    const thrown = new Error("no model");
+    s.fail(thrown);
+    await advance(50);
+    expect(result.current.status).toBe("error");
+    expect(result.current.error).toBe(thrown);
+    expect(result.current.ghost).toBe("");
+  });
+
+  it("ends an inline completion whose model goes silent", async () => {
+    const s = subject<string>();
+    const { result } = renderHook(() =>
+      useInlineCompletion({ complete: ({ signal }) => s.source(signal) }),
+    );
+    act(() => result.current.ask("hello"));
+    await advance(30_000);
+    expect(result.current.status).toBe("error");
+    expect(result.current.error).toMatchObject({ code: "ai/silent", data: { after: 30_000 } });
   });
 });

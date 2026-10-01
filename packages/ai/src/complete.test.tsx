@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { describe, expect, it } from "vitest";
 import {
   CompleteError,
@@ -198,11 +198,17 @@ const completeFails = (): AsyncIterable<string> => ({
   }),
 });
 
-function ErrorHarness() {
+function ErrorHarness({
+  complete = completeFails,
+  say,
+}: {
+  complete?: () => AsyncIterable<string>;
+  say?: (error: unknown) => ReactNode;
+}) {
   // Long enough to be askable: the ✨ is disabled below `MIN_COMPLETE_LENGTH`.
   const [value, setValue] = useState("Hello");
   return (
-    <CompleteRoot complete={completeFails} onValueChange={setValue} value={value}>
+    <CompleteRoot complete={complete} onValueChange={setValue} value={value}>
       <InputGroup>
         <CompleteTextarea>
           <InputGroupTextarea />
@@ -212,7 +218,7 @@ function ErrorHarness() {
         </InputGroupAddon>
       </InputGroup>
       <CompleteGhost />
-      <CompleteError />
+      <CompleteError>{say}</CompleteError>
     </CompleteRoot>
   );
 }
@@ -225,6 +231,21 @@ describe("CompleteError", () => {
     await user.click(screen.getByRole("button", { name: "AI assist" }));
     await waitFor(() =>
       expect(screen.getByRole("alert").textContent).toBe("The model is unreachable."),
+    );
+  });
+
+  it("hands the host the thrown value, so the words can follow its code", async () => {
+    const user = userEvent.setup();
+    const refused = Object.assign(new Error("403"), { code: "llm/refused" });
+    const complete = (): AsyncIterable<string> => ({
+      [Symbol.asyncIterator]: () => ({ next: () => Promise.reject(refused) }),
+    });
+    const say = (error: unknown) =>
+      error === refused ? "No tienes acceso al modelo." : "Error desconocido.";
+    render(<ErrorHarness complete={complete} say={say} />);
+    await user.click(screen.getByRole("button", { name: "AI assist" }));
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toBe("No tienes acceso al modelo."),
     );
   });
 });
