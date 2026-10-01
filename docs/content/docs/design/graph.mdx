@@ -219,8 +219,11 @@ buffer:
   `requestAnimationFrame`.
 - **Nothing animates.** `transitionDuration` is 0.
 - **The layout runs only when asked.** cosmos.gl is built with its simulation off; `simulate` or the
-  toolbar starts it from the current positions and pauses it where they are. Dragging a node pins it
-  with or without a running layout.
+  toolbar starts it from the current positions and pauses it where they are. Dragging a node moves
+  it; it is pinned only while a layout is running or paused, because a pin nothing pulls against
+  means nothing — d3-force's drag-to-fix. Releasing the pins reheats the layout, so the released
+  points visibly flow back: a running layout takes the heat, a settled one cools to settled on its
+  own, and a paused one gets a bounded burst and is paused again.
 - **The camera is cosmos.gl's.** A zoom repaints the overlays and reaches no store.
 
 **What would reverse it:** cosmos.gl gaining a sub-range upload, so a filter could upload only what
@@ -229,7 +232,8 @@ it hid; or a picture that needs a transition to be read, measured against the fr
 *Held by* `packages/graph/src/render/renderer.test.ts`, "uploads positions and links once per corpus,
 and renders once", "repaints colours, sizes and shapes on a look change, and uploads no geometry",
 "uploads positions alone for a filter", "starts and stops with the simulate prop, after the first
-load"; `packages/graph/src/react/graph-root.test.tsx`, "does not rebuild the renderer because a
+load", "moves a dragged node and pins nothing while no layout runs", "releases a paused layout with a
+bounded burst, then pauses it again"; `packages/graph/src/react/graph-root.test.tsx`, "does not rebuild the renderer because a
 callback changed identity".
 
 ## The React API is a store and an adapter

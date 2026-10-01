@@ -16,8 +16,10 @@ const constructed: Record<string, unknown>[] = [];
 
 vi.mock("@cosmos.gl/graph", () => ({
   Graph: class {
+    config: Record<string, (() => void) | undefined>;
     constructor(_host: HTMLElement, config: Record<string, unknown>) {
       constructed.push(config);
+      this.config = config as never;
     }
     ready = Promise.resolve();
     isReady = true;
@@ -41,8 +43,14 @@ vi.mock("@cosmos.gl/graph", () => ({
     setPinnedPoints = () => calls.push("pinned");
     setConfigPartial = (config: Record<string, unknown>) => calls.push(`config:${Object.keys(config).join(",")}`);
     fitViewByPointPositions = () => calls.push("fit");
-    start = () => calls.push("start");
-    pause = () => calls.push("pause");
+    start = () => {
+      calls.push("start");
+      this.config.onSimulationStart?.();
+    };
+    pause = () => {
+      calls.push("pause");
+      this.config.onSimulationPause?.();
+    };
     unpause = () => calls.push("unpause");
   },
 }));
@@ -165,6 +173,103 @@ describe("the live layout", () => {
     expect(calls).toContain("start");
     store.setOptions({ ...store.getOptions(), simulate: false });
     expect(calls.at(-1)).toBe("pause");
+  });
+});
+
+describe("pinning", () => {
+  type Hook = (...args: unknown[]) => void;
+  const hook = (name: string) => constructed[0]?.[name] as Hook;
+  const drag = (vertex: number) => {
+    hook("onPointMouseOver")(vertex, [0, 0]);
+    hook("onDragStart")({});
+    hook("onDragEnd")({});
+  };
+
+  it("moves a dragged node and pins nothing while no layout runs", async () => {
+    const { store } = await drawing();
+    drag(3);
+    expect(store.getSnapshot().motion).toBe("settled");
+    expect(store.getSnapshot().pinned).toEqual([]);
+  });
+
+  it("pins a dragged node while the layout runs, and once", async () => {
+    const { renderer, store } = await drawing();
+    renderer?.resume();
+    drag(3);
+    drag(3);
+    drag(5);
+    expect(store.getSnapshot().pinned).toEqual([3, 5]);
+    await frame();
+    expect(count("pinned")).toBeGreaterThan(0);
+  });
+
+  it("releases into a running layout by reheating it", async () => {
+    const { renderer, store } = await drawing();
+    renderer?.resume();
+    drag(3);
+    calls.length = 0;
+    renderer?.unpin();
+    expect(store.getSnapshot().pinned).toEqual([]);
+    expect(calls).toEqual(["start"]);
+    expect(store.getSnapshot().motion).toBe("running");
+  });
+
+  it("releases a settled layout by reheating it, and lets it cool on its own", async () => {
+    const { renderer, store } = await drawing();
+    renderer?.resume();
+    drag(3);
+    hook("onSimulationEnd")();
+    expect(store.getSnapshot().motion).toBe("settled");
+    calls.length = 0;
+    renderer?.unpin();
+    expect(calls).toEqual(["start"]);
+    expect(store.getSnapshot().motion).toBe("running");
+    await frame();
+    expect(calls).toContain("pinned");
+    expect(calls).not.toContain("pause");
+  });
+
+  it("releases a paused layout with a bounded burst, then pauses it again", async () => {
+    const { renderer, store } = await drawing();
+    renderer?.resume();
+    drag(3);
+    renderer?.pause();
+    expect(store.getSnapshot().motion).toBe("paused");
+    vi.useFakeTimers();
+    try {
+      renderer?.unpin();
+      expect(store.getSnapshot().motion).toBe("running");
+      vi.advanceTimersByTime(2000);
+      expect(store.getSnapshot().motion).toBe("paused");
+      expect(calls.at(-1)).toBe("pause");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a command during the burst cancels it", async () => {
+    const { renderer, store } = await drawing();
+    renderer?.resume();
+    drag(3);
+    renderer?.pause();
+    vi.useFakeTimers();
+    try {
+      renderer?.unpin();
+      renderer?.resume();
+      calls.length = 0;
+      vi.advanceTimersByTime(2000);
+      expect(calls).not.toContain("pause");
+      expect(store.getSnapshot().motion).toBe("running");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("releases nothing when nothing is pinned", async () => {
+    const { renderer } = await drawing();
+    calls.length = 0;
+    renderer?.unpin();
+    expect(calls).toEqual([]);
   });
 });
 

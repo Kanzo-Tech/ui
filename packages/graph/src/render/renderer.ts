@@ -26,6 +26,8 @@ export interface Renderer extends GraphCommands {
 const FIT_DURATION = 420;
 const FIT_PADDING = 0.18;
 const REHEAT = 0.35;
+/** How long a release wakes a paused layout before pausing it again. */
+const RELEASE_BURST = 1200;
 /** Twentieths: a settle costs twenty reports rather than one per frame. */
 const PROGRESS_STEPS = 20;
 
@@ -68,6 +70,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   let live = store.getOptions().simulate ?? false;
   let hovering: number | null = null;
   let dragging: number | null = null;
+  let burst = 0;
   let reported = -1;
   const progress = (value: number) => {
     const bucket = Math.round(value * PROGRESS_STEPS);
@@ -135,10 +138,13 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
         events.onHover?.(graph.screenToSpacePosition([event.x, event.y]));
         events.onFrame?.();
       },
+      // d3-force's drag-to-fix, and only while a layout can move the point back: cosmos.gl moves a
+      // dragged point with the simulation off too, and a pin nothing pulls against means nothing.
       onDragEnd: () => {
         const vertex = dragging;
         dragging = null;
-        if (vertex !== null) store.pin([...store.getSnapshot().pinned, vertex]);
+        const { motion, pinned } = store.getSnapshot();
+        if (vertex !== null && motion !== "settled" && !pinned.includes(vertex)) store.pin([...pinned, vertex]);
       },
       onPointClick: (index) => focusOn(index),
       onBackgroundClick: () => clear(),
@@ -222,6 +228,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     if (snapshot.pinned !== last.pinned) dirty.pinned = true;
     if (options.sim !== lastOptions.sim) applyForces(options.sim);
     if ((options.simulate ?? false) !== (lastOptions.simulate ?? false)) {
+      endBurst();
       if (options.simulate) run(REHEAT);
       else graph.pause();
     }
@@ -246,6 +253,11 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       graph.setConfigPartial({ enableSimulation: true, ...forces(sim) });
     }
     graph.start(alpha);
+  }
+
+  function endBurst(): void {
+    clearTimeout(burst);
+    burst = 0;
   }
 
   function focusOn(vertex: VertexId): void {
@@ -291,20 +303,38 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       if (extent) graph.fitViewByPointPositions(corners(extent), FIT_DURATION, FIT_PADDING);
       else graph.fitView(FIT_DURATION, FIT_PADDING);
     },
-    pause: () => graph.pause(),
+    pause() {
+      endBurst();
+      graph.pause();
+    },
     resume() {
+      endBurst();
       const settled = store.getSnapshot().motion === "settled";
       if (settled || !live) run(REHEAT);
       else graph.unpause();
     },
     restart() {
+      endBurst();
       store.pin([]);
       run(1);
     },
+    /**
+     * d3's release: unfix, then reheat, so the released points visibly flow back. A running layout
+     * takes the heat and goes on; a settled one cools to settled on its own; a paused one gets a
+     * bounded burst and is paused again, because the reader paused it.
+     */
     unpin() {
-      if (store.getSnapshot().pinned.length === 0) return;
+      const { motion, pinned } = store.getSnapshot();
+      if (pinned.length === 0) return;
+      endBurst();
       store.pin([]);
-      if (store.getSnapshot().motion === "running") graph.start(REHEAT);
+      run(REHEAT);
+      if (motion === "paused") {
+        burst = window.setTimeout(() => {
+          burst = 0;
+          graph.pause();
+        }, RELEASE_BURST);
+      }
     },
     reveal(vertex) {
       if (vertex >= size()) return;
@@ -318,6 +348,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     clear,
     destroy() {
       unsubscribe();
+      endBurst();
       if (frame) cancelAnimationFrame(frame);
       destroyed = true;
       // Read here rather than remembered from construction: the element exists only with the device.
