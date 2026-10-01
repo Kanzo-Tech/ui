@@ -1,7 +1,12 @@
 "use client";
 
 import { createContext, useContext, useMemo, useRef, type ReactNode } from "react";
-import { Selection, coordinator as setActiveCoordinator, type Coordinator } from "@uwdata/mosaic-core";
+import {
+  Selection,
+  coordinator as setActiveCoordinator,
+  type Coordinator,
+  type SelectionClause,
+} from "@uwdata/mosaic-core";
 
 /**
  * MosaicProvider — the crossfilter context every chart on this subpath reads from.
@@ -42,6 +47,13 @@ export interface MosaicContextValue {
    * each chart holding its own pick; this is the call a "Clear filters" button wants.
    */
   reset: () => void;
+  /**
+   * Clears these clauses only — Mosaic's own `Selection.reset(clauses)`, issued on the selection
+   * each clause was published into, so it relays down to the crossfilter instead of being removed
+   * there and left standing upstream, still highlighting the chart that made it. That is what a
+   * filter chip's remove button wants.
+   */
+  retract: (clauses: readonly SelectionClause[]) => void;
 }
 
 const MosaicContext = createContext<MosaicContextValue | null>(null);
@@ -118,6 +130,14 @@ export function MosaicProvider({ coordinator, crossfilter, children }: MosaicPro
           selection.reset();
           stop();
         };
+      },
+      retract(clauses) {
+        // Upstream first: a chart's own selection relays the removal on, so by the time the shared
+        // two are asked the clause is usually gone from them already.
+        for (const selection of [...owned, selected, shared]) {
+          const held = clauses.filter((clause) => selection.clauses.includes(clause));
+          if (held.length) selection.reset(held);
+        }
       },
       reset() {
         // Children first: each relays its own removal downstream into `selected` and the
