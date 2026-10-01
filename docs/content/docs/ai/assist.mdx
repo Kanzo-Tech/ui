@@ -1,0 +1,215 @@
+---
+title: Assist
+description: A field the model helps fill. One proposal for the field's value, drawn the way the control calls for — ghost text at the caret of a Textarea, whole values under an Input, items for a TagsInput.
+---
+
+<ComponentPreview componentName="assist" fileName="example-textarea" />
+
+## Usage
+
+```tsx
+import { Field, FieldHelper, FieldLabel, Textarea } from "@kanzo-tech/ui";
+import { Assist, AssistProvider } from "@kanzo-tech/ai";
+import { createKanzo } from "@kanzo-tech/llm";
+
+const kanzo = createKanzo({ baseURL: "/api/ai" });
+```
+
+```tsx
+<AssistProvider model={kanzo("kanzo-complete")} context="A notice board for a village hall.">
+  <Field>
+    <FieldLabel>Notice</FieldLabel>
+    <Assist value={notice} onValueChange={setNotice}>
+      <Textarea rows={4} />
+    </Assist>
+    <FieldHelper>What the party is walking into.</FieldHelper>
+  </Field>
+</AssistProvider>
+```
+
+`AssistProvider` goes once, around the app or the form: it is the one place a product decides which
+model its fields ask, what the form as a whole is about, where the telemetry goes and in what words.
+It renders no element. `Assist` wraps one control and wires it — the value, the keys, the ✨ — so the
+control is the plain `@kanzo-tech/ui` primitive and stays one.
+
+## One proposal, three presentations
+
+What `Assist` offers is one thing: a **proposal** for the field's value — LSP 3.18's
+`InlineCompletionItem`, as a field needs it: `text`, and the `range` taking it replaces. An empty
+range at the caret is a continuation; the whole value is a replacement; no range at all is an item
+added to a list. How it is drawn is decided by the control, not by a prop:
+
+| Control | `value` | The proposal | Asked |
+| --- | --- | --- | --- |
+| `Textarea` | `string` | a continuation, as ghost text at the caret | after a pause in typing, or from the ✨ |
+| `Input` | `string` | whole values, as chips under the field; one replaces the value | from the ✨ |
+| `TagsInput` | `string[]` | items, as chips; one is added, and one already there is never offered | from the ✨ |
+
+This used to be two components — `Complete` for the ghost and `Suggest` for the strip — with two
+engines, two contracts and two pages. They were one concept presented twice, and a host choosing
+between them was making a decision the control had already made.
+
+<Callout type="info">
+**A line takes candidates, a paragraph takes a continuation.** There is no ghost over an `Input`. A
+continuation drawn over an `<input>` can only show what fits in the width that is left — the field
+cannot scroll to text that is not in its value — so a long offer is unreadable by any gesture and
+taking it means taking it blind. No reference does it either: Gmail continues a body, Copilot an
+editor, and every one-line field in the wild offers a list.
+
+**What would reverse it:** a single-line field whose offers are reliably short enough to fit, measured
+rather than assumed — or a browser giving an `<input>` a way to scroll text it does not contain.
+
+*Held by* `packages/ai/src/assist.test.tsx`, "offers ghost text after a pause, and Tab takes it" and
+"offers candidates under the field from the ✨, and a chip replaces the value".
+</Callout>
+
+### A continuation — `Textarea`
+
+| Key | Takes |
+| --- | --- |
+| `Tab` | the whole continuation |
+| `Ctrl` / `⌘` + → | one word; the rest stays on offer |
+| `Alt` + `]` / `Alt` + `[` | the next alternative, or back to the previous one |
+| `Esc` | nothing — and the ✨ asks again |
+
+**The offer is made at the caret**, and drawn there, with the value holding its own space on both
+sides. Appended at the end instead, the whole suggestion would vanish the moment the caret moved one
+character left.
+
+**It survives typing that agrees with it.** While what the reader types is a prefix of the offer, the
+ghost is what is left and nothing new is asked — LSP's `filterText` rule, and the only way to a
+continuation that feels instant: not asking. Typing anything else lets it go.
+
+**Alternatives are the invoked case.** `Alt` + `]` asks for an offer different from the ones already
+made at that point, and keeps them, so `Alt` + `[` goes back without asking again.
+
+**An offer that does not fit makes the field taller**, and is not cut. The field takes the height the
+offer needs while it is on the table and gives it back when it goes, so `rows` is a floor — which is
+what `rows` already meant. A live region announces *that* an offer is ready, once; the ghost itself
+is `aria-hidden`, because a polite region re-reading a sentence that arrives a word per frame
+announces nothing.
+
+### Whole values — `Input`
+
+<ComponentPreview componentName="assist" fileName="example-input" />
+
+The ✨ asks; the candidates stream into a strip under the field, each arriving as soon as it is
+complete, so the first is on screen while the model writes the rest. Pressing a chip replaces the
+value; its ✕ drops it; pressing the ✨ again asks for a different set. The strip shows while the field
+has focus, so a form of eleven assisted fields is not a wall of chips.
+
+**The chips are buttons in the flow, not options in a popover.** Pressing one leaves a value in a
+field and a selection nowhere, which by [the menu/listbox
+rule](/docs/philosophy#a-menu-is-a-command-a-listbox-is-a-value) makes it a command surface. They
+are `@kanzo-tech/ui`'s `Suggestions`, in document order, so `Tab` reaches every one. Each chip is a
+`Suggestion` — a `Button` under the pills' treatment that takes a `value` and reports `onSelect`, its
+props `SuggestionProps` — and neither knows a model exists, which is why they are `ui`'s and a host
+can draw a strip of its own with them.
+
+**Candidates are structured output, never prose to parse.** They are asked for as a JSON schema —
+a value and a one-sentence rationale each, the rationale shown as the chip's tooltip — so there is no
+"reply with only the list, no fences" prompt and no fence-stripping after it.
+
+### Items — `TagsInput`
+
+<ComponentPreview componentName="assist" fileName="example-tags" />
+
+The same strip, and a chip adds rather than replaces. A value the list already holds — or that
+another chip already offers, case-insensitively — is dropped before it is shown.
+
+## The ✨ is a mark, not a door
+
+A field the model can help with must **look** like one before anybody touches it. So the ✨ sits
+**inside** the control's box — at the end of a one-line field, in the bottom corner of a paragraph —
+and is a statement of capability first and a button second: quiet at rest, lit while something is on
+offer, busy while a request is out.
+
+**Once a value has been taken and nothing else is on offer it becomes *Undo AI suggestion*** — right
+after a continuation is accepted, or once the strip has run out — and puts the old value back, until
+the reader edits. While chips are still up it stays *Suggest different values*, because asking for
+another set is the press a reader with a strip in front of them is likelier to want. That is the revert state of IBM Carbon's AI label: what the model wrote into a field
+is one press from being unwritten, without the reader having to remember what was there.
+
+- **Nothing keys off `:hover`.** A mark revealed on hover does not exist for touch or the keyboard, and
+  a request fired on hover bills a model for a pointer crossing the field. Focus and a press are the
+  gestures.
+- **The name carries the state, not the colour.** It is *AI assist* at rest, *Accept suggestion*
+  while a continuation is on offer, *Suggest different values* while chips are up, and *Undo AI
+  suggestion* after a take — so a reader who cannot see it light up is told the same thing.
+
+*Held by* `packages/ai/src/assist.test.tsx`, "marks the field at rest, busy while asking, and lit
+while offering" and "puts the old value back from the ✨ right after a suggestion was taken".
+
+## What the model is told
+
+The field describes itself the way it describes itself to a person: its **accessible name** and
+**accessible description** — the label and helper text Ark's `Field` wires to the control with
+`aria-labelledby` and `aria-describedby`. On top of that, the `instructions` a host gives this field,
+and the `context` the provider gives the form, read at the moment a field asks so it is never stale.
+
+So an accessible field needs nothing more, and a field without a name is one a screen reader cannot
+fill either.
+
+<Callout type="warn">
+**Use `FieldHelper`, not `FieldDescription`.** `FieldHelper` is Ark's helper text and is wired into
+the control's `aria-describedby`; `FieldDescription` is a plain paragraph for a group and is wired to
+nothing. Written under a field with `FieldDescription`, the description is on screen and the model is
+never told it.
+</Callout>
+
+*Held by* `packages/ai/src/assist.test.tsx`, "tells the model what the field is: its label, its
+description and the form".
+
+## What happened to a proposal
+
+`onEvent` on the provider reports each proposal's life — the lifecycle VS Code's inline completions
+report, in one callback, for a host that learns from it:
+
+| `kind` | When |
+| --- | --- |
+| `shown` | it is on screen |
+| `accepted` | taken whole: `Tab`, the ✨, or a chip |
+| `partial` | taken a word at a time |
+| `rejected` | turned down: `Esc`, or a chip's ✕ |
+| `ignored` | left to die — the reader typed something else, or selected text |
+
+```ts
+interface AssistEvent {
+  kind: "shown" | "accepted" | "partial" | "rejected" | "ignored";
+  proposal: Proposal; // { text, range?, rationale? }
+  field: string;      // the field's accessible name
+}
+```
+
+## API
+
+### AssistProvider
+
+| Prop | Type | |
+| --- | --- | --- |
+| `model` | `LanguageModel` | What every field below asks — `kanzo("kanzo-complete")` |
+| `context` | `string \| () => string \| undefined` | What the rest of the form says; a function is read when a field asks |
+| `onEvent` | `(event: AssistEvent) => void` | Each proposal's life |
+| `translations` | `Partial<AssistTranslations>` | Every word the fields below draw or announce |
+
+### Assist
+
+| Prop | Type | |
+| --- | --- | --- |
+| `value` | `string \| string[]` | The field's value. A list makes it a tags field |
+| `onValueChange` | `(value) => void` | Called with the same type |
+| `instructions` | `string` | One sentence for the model about this field, beyond its label and description |
+| `children` | `ReactElement` | The control: `Textarea`, `Input` or `TagsInput` |
+
+The types are exported as `AssistProviderProps`, `AssistProps`, `AssistTranslations`, `AssistEvent`
+and `Proposal`. The words are on [Internationalisation](/docs/i18n): every one `Assist` draws or
+announces is a key of `AssistTranslations`, set once on the provider.
+
+## What it does not do
+
+- **It does not validate.** A taken proposal is a value like any other; the field's own validation
+  applies. See [Validation](/docs/forms/validation).
+- **It does not hold the value.** `value` and `onValueChange` are the host's, so a form library's
+  field state is the source of truth and `Assist` writes through it.
+- **It does not correct.** A continuation inserts at the caret. LSP's range could replace the word
+  under it; a field of prose has not needed that.

@@ -12,7 +12,7 @@ import {
   InputGroupTextarea,
   Spinner,
 } from "@kanzo-tech/ui";
-import type { AiStatus } from "./use-ai.js";
+import type { ChatStatus } from "@kanzo-tech/llm";
 
 /**
  * The composer: the library's `InputGroup` as a form, so Enter and the button are one path.
@@ -90,30 +90,34 @@ export const PromptInputToolbar = (props: React.ComponentProps<typeof InputGroup
 
 const SEND = { icon: <SendIcon />, label: "Send" };
 
-const SUBMIT: Record<AiStatus, { icon: React.ReactNode; label: string }> = {
-  idle: SEND,
-  // An answer that has arrived leaves the composer ready for the next question, so `ready` and
-  // `idle` are one button. They are two states of the *stream*, not two states of this control.
+const STOP = {
+  // The stop block inside the spinner it is stopping. A bare square changes only the glyph, and
+  // at a glance across a panel that reads as the same idle button; the motion is what says the
+  // answer is still arriving. `aria-hidden` on both — the accessible name already changed to
+  // "Stop", and a `role="status"` inside a named button announces the state twice.
+  icon: (
+    <span className="relative flex size-4 items-center justify-center">
+      <Spinner aria-hidden className="absolute size-4" />
+      <SquareIcon aria-hidden className="size-2.5" />
+    </span>
+  ),
+  label: "Stop",
+};
+
+/**
+ * The AI SDK's `ChatStatus`, drawn. `submitted` (asked, nothing back yet) and `streaming` are one
+ * button: both are an answer that can be stopped.
+ */
+const SUBMIT: Record<ChatStatus, { icon: React.ReactNode; label: string }> = {
   ready: SEND,
-  loading: {
-    // The stop block inside the spinner it is stopping. A bare square changes only the glyph, and
-    // at a glance across a panel that reads as the same idle button; the motion is what says the
-    // answer is still arriving. `aria-hidden` on both — the accessible name already changed to
-    // "Stop", and a `role="status"` inside a named button announces the state twice.
-    icon: (
-      <span className="relative flex size-4 items-center justify-center">
-        <Spinner aria-hidden className="absolute size-4" />
-        <SquareIcon aria-hidden className="size-2.5" />
-      </span>
-    ),
-    label: "Stop",
-  },
+  submitted: STOP,
+  streaming: STOP,
   error: { icon: <RefreshCcwIcon />, label: "Retry" },
 };
 
 /**
  * One control in three looks, so the fill is what carries the state and the box never moves: same
- * slot, same size, same corner in all of them. `idle`, `ready` and `loading` share `Button`'s
+ * slot, same size, same corner in all of them. `ready`, `submitted` and `streaming` share `Button`'s
  * `default` variant outright — the glyph is the whole difference — and `error` takes the wash
  * `Alert` uses for the same family, which is a button you can still press, not a disabled one.
  */
@@ -123,9 +127,9 @@ const promptInputSubmitVariants = tv({
   base: ["ms-auto"],
   variants: {
     status: {
-      idle: "",
       ready: "",
-      loading: "",
+      submitted: "",
+      streaming: "",
       error: [
         "bg-destructive/7 hover:bg-destructive/14",
         "border-destructive/30",
@@ -135,18 +139,18 @@ const promptInputSubmitVariants = tv({
     },
   },
   defaultVariants: {
-    status: "idle",
+    status: "ready",
   },
 });
 
 export interface PromptInputSubmitProps
   extends React.ComponentProps<typeof InputGroupButton> {
-  status?: AiStatus;
+  status?: ChatStatus;
 }
 
 export const PromptInputSubmit = (props: PromptInputSubmitProps) => {
   const {
-    status = "idle",
+    status = "ready",
     className,
     children,
     type = "submit",

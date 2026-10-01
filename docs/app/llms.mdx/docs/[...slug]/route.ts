@@ -8,7 +8,7 @@ import { source } from "@/lib/source";
  *
  * A static export writes one file per route, so two routes may not want the same name — and in a
  * documentation tree they constantly do. `/docs/ai` is a page *and* the parent of
- * `/docs/ai/use-suggestions`, so the export asks for `out/…/docs/ai` to be a file and a directory
+ * `/docs/ai/assist`, so the export asks for `out/…/docs/ai` to be a file and a directory
  * at once and dies with `EISDIR`. It is not a corner case: every section index in the site is one.
  *
  * Appending the extension to the last segment of the static params settles it by construction —
