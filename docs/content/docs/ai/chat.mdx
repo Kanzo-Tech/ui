@@ -1,0 +1,125 @@
+---
+title: Chat
+description: A conversation with a model, whole — the transcript, markdown that streams, the model's reasoning and tool calls as they happen, and a composer that sends, stops and retries. The host brings useChat and draws its own tools' results.
+---
+
+<ComponentPreview componentName="chat" autoplay />
+
+## Usage
+
+```tsx
+import { Chat, useChat } from "@kanzo-tech/ai";
+import { createKanzo, DirectChatTransport, ToolLoopAgent } from "@kanzo-tech/llm";
+
+const kanzo = createKanzo({ baseURL: "/api/ai" });
+const agent = new ToolLoopAgent({ model: kanzo("kanzo-chat"), tools: { query } });
+const transport = new DirectChatTransport({ agent });
+```
+
+```tsx
+function Ask() {
+  const chat = useChat({ transport });
+  return <Chat chat={chat} suggestions={["How many contracts are late?"]} />;
+}
+```
+
+`Chat` takes `useChat(...)`'s return and nothing about where it came from. `DirectChatTransport`
+runs the agent in the page, against a model behind the host's own route — the set-up
+[`@kanzo-tech/llm`](/docs/ai/llm#connecting-a-model) describes. `useChat()` with no transport posts
+to the host's `/api/chat` instead, for an agent that runs on a server. `Chat` draws either the same,
+because both stream the AI SDK's `UIMessage`.
+
+`useChat` is `@ai-sdk/react`'s, re-exported, so a host imports the hook and the component from one
+place. `Chat` reads only the helpers — `messages`, `status`, `error`, `sendMessage`, `stop`,
+`regenerate` — so any chat state of that shape drives it.
+
+`Chat` is `flex-1` inside a column, so it wants a **bounded** parent: a panel with a height, or a
+flex column that has one. Given an unbounded one it grows with its content and there is nothing
+left to scroll.
+
+## What it draws
+
+Each part is drawn from the AI SDK's own message parts, so nothing is translated on the way in:
+
+| Part | Drawn as |
+| --- | --- |
+| `text`, from the person | the words as typed |
+| `text`, from the model | markdown, streamed: an emphasis or a fence still open mid-stream is closed until it arrives |
+| `reasoning` | folded away — it opens while the model thinks, lingers a second, and folds to *Thought for N seconds* |
+| a tool call | a frame with the tool's name and the SDK's state, its input as a JSON tree, its output under it |
+
+**A reader's own toggle ends the automatic behaviour.** A reasoning fold opens itself while it streams
+and a tool frame opens itself when the call settles — a result is what a reader came for — unless the
+reader has already opened or closed it, in which case their choice stands. A panel that reopens what
+somebody just closed is the version of this everyone has met.
+
+**The tool's state is the SDK's, drawn — not mapped onto a vocabulary of ours.** Four tones are all a
+reader needs to tell apart (waiting, working, done, failed), and the label says which of the SDK's
+seven states it is: *Preparing*, *Running*, *Awaiting approval*, *Done*, *Failed*, *Denied*. A
+denied or failed call shows why, from the part's own `errorText`.
+
+**The transcript follows a stream only while the reader is at the tail.** An effect that scrolls to
+the bottom on every message follows *unconditionally*, so a reader who scrolled up to re-read
+something is dragged back down by every token. Here, scrolling up releases the pin and a button
+takes it back. It needs two observers: a stream produces growth, not scrolling, and the browser
+fires no scroll event for content getting taller under a still `scrollTop`.
+
+**The composer is one button that says what pressing it does.** <kbd>Enter</kbd> sends and
+<kbd>Shift</kbd>+<kbd>Enter</kbd> is a newline. While an answer streams the button is *Stop*; after
+an error, with nothing typed, it is *Retry* and asks again. The error itself is announced under the
+transcript with `role="alert"`.
+
+*Held by* `packages/ai/src/chat.test.tsx`, "asks, shows the tool call the model made, and streams the
+answer as markdown"; `packages/ai/src/conversation.test.tsx`, "releases the pin the moment the reader
+scrolls up, and stays released while it grows"; `packages/ai/src/reasoning.test.tsx`, "stops opening
+itself once the reader has said otherwise".
+
+## Drawing a tool's result
+
+A tool's output is drawn as a JSON tree unless the host says what it is. `tools` maps a tool's name
+to a function of the call's part, and what it returns is drawn inside the frame, under the input,
+once the call has a result:
+
+<ComponentPreview componentName="chat" fileName="example-tools" />
+
+```tsx
+<Chat
+  chat={chat}
+  tools={{ query: (part) => <ResultTable result={part.output as ResultSet} /> }}
+/>
+```
+
+JSON is right for a chatbot that cannot know what its tool was. A host always knows: a query's
+result is a table, and rendering it as a blob of JSON discards that. The part is a `ToolPart` — the
+SDK's `ToolUIPart` or `DynamicToolUIPart`, whole — so the renderer has the call's input and state
+too. Its `output` is `unknown` there: the map is keyed by a string, so the host, which wrote the
+tool, says what it returns.
+
+*Held by* `packages/ai/src/chat.test.tsx`, "lets the host draw its own tool's result".
+
+## Before the first question
+
+`empty` is what the panel says before anything is asked, and `suggestions` are questions to start
+from, drawn as `@kanzo-tech/ui`'s `Suggestions` under it. Pressing one asks it. Both go once the
+conversation starts.
+
+## API
+
+| Prop | Type | |
+| --- | --- | --- |
+| `chat` | `useChat(...)`'s return | The conversation |
+| `tools` | `ChatToolRenderers` | `Record<string, (part: ToolPart) => ReactNode>` — how the host draws its tools' results |
+| `empty` | `ReactNode` | What the panel says before the first question |
+| `suggestions` | `string[]` | Questions to start from |
+| `translations` | `Partial<ChatTranslations>` | `placeholder` for the composer, and `failed`, read before an error |
+| `className` | `string` | On the root |
+
+The types are exported as `ChatProps`, `ChatToolRenderers`, `ChatTranslations` and `ToolPart`.
+
+## AI Elements is a source, not a reference
+
+The behaviours above — the pin, the fold that opens while it streams, the tool frame that opens when
+it settles — come from Vercel's AI Elements; the names, and the decision to ship one door rather than
+the parts, are this house's. AI Elements is not installable here, so nothing goes red when this
+drifts from it. [The references](/docs/design/references#ai-elements-is-a-source-not-a-reference) has
+what was taken, what was re-pointed and what was refused.

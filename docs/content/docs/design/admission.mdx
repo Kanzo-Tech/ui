@@ -192,12 +192,12 @@ part"; `packages/ui/src/index.test.ts`, "drops the pre-arrangements over parts t
 `flex-1` column with a `max-w-md` measure, muted small text and a bare `svg` sized to 6×6: `EmptyRoot`,
 `EmptyHeader`, `EmptyDescription` and `EmptyIndicator` under a second name, and nothing a transcript
 knows that a panel does not. Composing it from the parts would have kept the name and added nothing
-to it, so it was deleted rather than rebuilt, and the zero state of a conversation is the `Empty`
-parts inside `ConversationContent`. A sibling package does not get its own copy of a ui idea because
-the idea happens to appear inside one of its components.
+to it, so it was deleted rather than rebuilt. The zero state of a conversation is whatever the host
+hands `Chat` as `empty`, and the `Empty` parts are what it reaches for. A sibling package does not get
+its own copy of a ui idea because the idea happens to appear inside one of its components.
 
 **What would reverse it:** a conversation's zero state needing something only the transcript knows —
-the pin, the stream, the turns — that an `Empty` placed inside the content cannot be told.
+the pin, the stream, the turns — that a node handed in from outside cannot be told.
 
 *Held by* `packages/ai/src/conversation.test.tsx`, "names its parts, and the zero state is ui's
 EmptyRoot rather than a part of its own".
@@ -309,21 +309,21 @@ provider's shared pair".
 
 ## The AI surfaces are their own package
 
-`@kanzo-tech/ai` ships the transcript, the composer, a model's reasoning, the calls it makes, and the
-two field affordances. It depends on `@kanzo-tech/ui`; **nothing in `ui` may import it.** The root
-barrel is a one-way door, and a consumer who wants a `Button` must not pay for a transcript.
+`@kanzo-tech/ai` ships two capabilities — a field the model helps fill (`Assist`) and a conversation
+with one (`Chat`). It depends on `@kanzo-tech/ui`; **nothing in `ui` may import it.** The root barrel
+is a one-way door, and a consumer who wants a `Button` must not pay for a transcript.
 
-The line is not *is it AI*. It is **does the component know a model exists** — and by that test the two
-field affordances should have stayed behind. `Suggest` takes candidates and a callback, and a human
-typing would be indistinguishable; `useInlineCompletion` takes a function returning an async iterable
-and never makes a request. They moved anyway, on the owner's call, and the reason is not the code: the
-✨ marks a field as model-assisted *to the reader*, and that mark is the thing being bought. A package
-that ships the transcript and leaves the mark behind splits one purchase across two installs.
+The line is not *is it AI*. It is **does the component know a model exists**. It used to have an
+exception: the two field affordances took a function returning an async iterable, never made a
+request, and by that test should have stayed in `ui`; they moved on the owner's call, because the ✨
+marks a field as model-assisted *to the reader* and that mark was the thing being bought. The
+exception is gone. `Assist` takes a `LanguageModel` and writes the prompt itself, so it knows a model
+exists by the plainest reading, and the line holds without a carve-out.
 
-`@kanzo-tech/ui/editor`'s `CodeEditor` was checked before the move and imports nothing from the engine
-— the only completion in that file is CodeMirror's own `autocompletion` and `completionKeymap`. That
-is what makes the split produce no cycle; had it imported `useInlineCompletion`, `ui/editor` would
-have depended on `ai`, and `ai` already depends on `ui`.
+`@kanzo-tech/ui/editor`'s `CodeEditor` was checked before the first move and imports nothing from the
+assist engine — the only completion in that file is CodeMirror's own `autocompletion` and
+`completionKeymap`. That is what makes the split produce no cycle; had it imported the engine,
+`ui/editor` would have depended on `ai`, and `ai` already depends on `ui`.
 
 <Callout type="warn">
 An earlier draft of that paragraph said `CodeEditor` "takes a `complete` prop", and it does not:
@@ -333,58 +333,62 @@ never shipped. The conclusion survived its premise — which is the shape
 [a citation that reaches outward](/docs/design) always takes.
 </Callout>
 
-**What would reverse it:** a second package needing the engine hooks without the surfaces, which would
-make the hooks a third package rather than move them back.
+**What would reverse it:** a second package needing the proposal engine without the surfaces, which
+would make the engine public in a third package rather than move it back.
 
 *Held by* `packages/ui/src/index.test.ts`, "drops components superseded by composition or a merge",
 `!SuggestRoot`, `!CompleteRoot`, `!useAiStream`; `packages/ui/src/documented-exports.test.ts`,
 "resolves every entry point and every declared peer".
 
-## AI assist composes over the pure inputs
+## AI assist wraps the pure inputs
 
-Two compounds — `Complete` over `Input` / `Textarea` via `asChild`, and `Suggest`, a candidate popover
-— with the engine in two headless hooks. **No `complete` prop on the primitives, no `AiAssist`
-provider, no field context.**
+`Assist` wraps a `Textarea`, an `Input` or a `TagsInput` and wires it from outside — the value, the
+keys, the ✨ — with one `AssistProvider` above the form. **No `complete` prop on the primitives**, and
+no field context inside `ui`: the control `Assist` wraps is byte-identical to the one a form without a
+model uses.
 
 A prop on `Input` welds the model into the primitive: the core stops being Shark-verbatim and imports
-the engine. A provider would only earn its place by unifying state across consumers, and there is
-nothing to unify. This is the ladder's rungs three and four chosen over rung one deliberately, and the
-extra rung buys core purity. It is also the third design of this feature; the first two were the prop
-and the provider.
+the engine. That half of the rule has held through four designs — a prop, a provider inside `ui`, two
+compounds over `asChild` with two headless hooks, and this one.
 
-The three modules moved to `@kanzo-tech/ai` in August 2026 and nothing this rule decided moved with
-them: still no `complete` prop on a primitive, still no provider, still two headless hooks. Only the
-address changed.
+The other half was *no provider*, gated on "a real second consumer with shared AI state", and the
+gate opened. Every assisted field in a form asks the same model, is told the same thing about the form,
+reports to the same telemetry and speaks the same language. The metadata form has three such fields,
+and every form with a second assisted field is the same case; the two compounds made each field
+restate all four.
+So the provider holds exactly those four and nothing per field; it renders no element. The engine is
+internal: the headless hooks had one caller each, both in this package.
 
-**What would reverse it:** a real second consumer with shared AI state. Gate any provider on that, not
-on a hypothesis.
+**What would reverse it:** a field that needs a different model, context or language from the form
+around it often enough that nesting a second provider is the usual case rather than the exception.
 
-*Held by* `packages/ai/src/complete.tsx`, `packages/ai/src/suggest.tsx`, `packages/ai/src/use-ai.ts`;
-`packages/ui/src/index.test.ts`, the `AiAssist` / `FieldSuggest` / `useAiField` tombstones.
+*Held by* `packages/ai/src/assist.tsx`, `AssistProvider`; `packages/ui/src/index.test.ts`, the
+`AiAssist` / `FieldSuggest` / `useAiField` tombstones.
 
 ## A tool panel composes its snippet; the house ships no third code chrome
 
-`@kanzo-tech/ai` ships no code-snippet component and imports nothing from `@codemirror/*`. A caller
-who wants a tool's input highlighted composes `CodeEditor` from `@kanzo-tech/ui/editor` as a
-`readOnly` child; a caller who wants only the chrome wraps the block in `Prose`, which already carries
+`@kanzo-tech/ai` ships no code-snippet component and imports nothing from `@codemirror/*`. A host
+that wants a tool's statement highlighted draws it in its own renderer for that tool —
+`<Chat tools={{ query: (part) => … }}>` — composing `CodeEditor` from `@kanzo-tech/ui/editor` as a
+`readOnly` child; a host that wants only the chrome wraps the block in `Prose`, which already carries
 it.
 
 The house has code chrome twice already, and a third would be a third spelling: the typography
 plugin's `--tw-prose-pre-bg` / `--tw-prose-pre-code` under `.kanzo-prose`, and the whole tokenised
-CodeMirror theme on `/editor`. And `ToolInput` was designed for exactly this — *the payload is
-composition, and JSON is only the default for when the caller has nothing better* — so a snippet
-component in `ai` would answer a question the compound already answers.
+CodeMirror theme on `/editor`. And the per-tool renderer exists for exactly this — *the payload is
+the host's to draw, and JSON is only the default for when it has nothing better* — so a snippet
+component in `ai` would answer a question `Chat` already answers.
 
 Two of the three premises behind the original request did not survive being checked. **The blocked
-import is only blocked for `ai`, not for a caller**: `ToolInput` takes children, so a host composes
-`<CodeEditor readOnly extensions={[sql()]} />` inside it and `ai` imports nothing — the optional-peer
-door stays shut because the *host* opened it, which is what a subpath is for. And **there is no
-highlighting gap**: `/editor` carries `kanzoHighlightStyle`, and a `readOnly` `CodeEditor` is a legal
-way to draw a snippet. Nobody had tried it.
+import is only blocked for `ai`, not for a host**: the renderer is the host's code, so it composes
+`<CodeEditor readOnly extensions={[sql()]} />` and `ai` imports nothing — the optional-peer door stays
+shut because the *host* opened it, which is what a subpath is for. And **there is no highlighting
+gap**: `/editor` carries `kanzoHighlightStyle`, and a `readOnly` `CodeEditor` is a legal way to draw a
+snippet. Nobody had tried it.
 
 There is a chrome gap and it is smaller than it looks. Exactly **one** site invented chrome — a
-hand-written `<pre>` in `docs/examples/tool/` — and by the rule above an examples directory is not a
-call site at all. A `Snippet` in the root barrel would enter on zero proven demand, against a barrel
+hand-written `<pre>` in what was the tool example — and by the rule above an examples directory is not
+a call site at all. A `Snippet` in the root barrel would enter on zero proven demand, against a barrel
 with barely half a kilobyte of headroom.
 
 **What this cannot settle:** whether `Prose` is the right wrapper. It is only *not yet needed* — the
@@ -397,7 +401,8 @@ cannot reach `Prose`, or a measurement showing that composing `CodeEditor` for a
 statement costs a consumer more than a purpose-built block would. keasy's Ask panel is the one outside
 consumer; if it lands on inventing its own `<pre>` too, that is the second call site.
 
-*Held by* `packages/ai/src/tool.tsx`, `ToolInput`; `packages/ui/src/tailwind.css`, `.kanzo-prose`.
+*Held by* `packages/ai/src/chat.tsx`, `ChatToolRenderers`; `packages/ai/src/tool.tsx`, `JsonTreeView`;
+`packages/ui/src/tailwind.css`, `.kanzo-prose`.
 
 ## The structure view is `TreeView` until the data nests
 

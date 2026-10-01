@@ -20,6 +20,7 @@
   },
   "//fossil": "The reader, a required peer of `@kanzo-tech/graph`: the docs open every corpus with its `open` on the page's `engine()` and hand `GraphRoot` the result. `@fossil-lang/executor` is the writer, a dev dependency: `corpus` and the benchmark's `build-corpus.mjs` run it in Node, and nothing on a page imports it.",
   "dependencies": {
+    "@ai-sdk/react": "^4.0.129",
     "@anthropic-ai/sdk": "^0.117.1",
     "@codemirror/autocomplete": "^6.18.6",
     "@codemirror/lang-json": "^6.0.2",
@@ -34,6 +35,7 @@
     "@kanzo-tech/ai": "workspace:*",
     "@kanzo-tech/auth": "workspace:*",
     "@kanzo-tech/graph": "workspace:*",
+    "@kanzo-tech/llm": "workspace:*",
     "@kanzo-tech/navigation": "workspace:*",
     "@kanzo-tech/rudof-wasm": "^0.3.4",
     "@kanzo-tech/theme": "workspace:*",
@@ -45,6 +47,7 @@
     "@uwdata/mosaic-core": "^0.29.2",
     "@uwdata/mosaic-sql": "^0.29.0",
     "@uwdata/vgplot": "^0.29.2",
+    "ai": "^7.0.126",
     "fumadocs-core": "16.9.3",
     "fumadocs-mdx": "15.0.11",
     "fumadocs-ui": "16.9.3",
@@ -55,10 +58,9 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "shiki": "^4.2.0",
-    "streamdown": "^2.5.0",
     "zod": "^4.4.3"
   },
-  "//deps": "@kanzo-tech/{ui,theme,graph,ai,auth,navigation} are workspace deps. There is no colour-derivation package any more: a theme is a flat CSS file that ships with @kanzo-tech/theme.",
+  "//deps": "@kanzo-tech/{ui,theme,graph,ai,llm,auth,navigation} are workspace deps. `ai` and `@ai-sdk/react` are @kanzo-tech/ai's required peers, installed once here as a host would; the examples and showcases build their models with `ai/test`'s mock, so nothing on the site calls a provider. There is no colour-derivation package any more: a theme is a flat CSS file that ships with @kanzo-tech/theme.",
   "devDependencies": {
     "@codemirror/legacy-modes": "^6.5.3",
     "@fossil-lang/executor": "^0.3.0-alpha.15",

@@ -57,6 +57,9 @@ importers:
 
   docs:
     dependencies:
+      '@ai-sdk/react':
+        specifier: ^4.0.129
+        version: 4.0.129(react@19.2.7)(zod@4.4.3)
       '@anthropic-ai/sdk':
         specifier: ^0.117.1
         version: 0.117.1(zod@4.4.3)
@@ -99,6 +102,9 @@ importers:
       '@kanzo-tech/graph':
         specifier: workspace:*
         version: link:../packages/graph
+      '@kanzo-tech/llm':
+        specifier: workspace:*
+        version: link:../packages/llm
       '@kanzo-tech/navigation':
         specifier: workspace:*
         version: link:../packages/navigation
@@ -132,6 +138,9 @@ importers:
       '@uwdata/vgplot':
         specifier: ^0.29.2
         version: 0.29.2
+      ai:
+        specifier: ^7.0.126
+        version: 7.0.126(zod@4.4.3)
       fumadocs-core:
         specifier: 16.9.3
         version: 16.9.3(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.2.17)(lucide-react@1.23.0(react@19.2.7))(next@16.3.7(@babel/core@7.29.7)(@types/node@20.19.43)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(zod@4.4.3)
@@ -162,9 +171,6 @@ importers:
       shiki:
         specifier: ^4.2.0
         version: 4.3.1
-      streamdown:
-        specifier: ^2.5.0
-        version: 2.5.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       zod:
         specifier: ^4.4.3
         version: 4.4.3

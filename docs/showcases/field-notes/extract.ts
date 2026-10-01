@@ -2,9 +2,8 @@
 
 // The extraction seam, and one recorded run through it.
 //
-// An `Extractor` is a function returning an async iterable and honouring an `AbortSignal` —
-// the same contract `useAiStream` takes, for the same reason: the showcase does not care whether
-// the events came from a model, a fixture or a queue. `recorded` replays a real run over the
+// An `Extractor` is a function returning an async iterable and honouring an `AbortSignal`, so
+// the showcase does not care whether the events came from a model, a fixture or a queue. `recorded` replays a real run over the
 // photograph in `public/example/`; `live` (./live.ts) calls the model from the browser with the
 // visitor's own key. Nothing below imports either.
 //
