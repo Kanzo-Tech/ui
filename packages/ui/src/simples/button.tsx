@@ -99,7 +99,7 @@ export const buttonVariants = tv({
       outline: [
         "[--btn-bg:transparent]",
         "[--btn-fg:var(--foreground)]",
-        "[--btn-bd:var(--input,var(--border))]",
+        "[--btn-bd:var(--input)]",
         "focus-visible:border-primary",
       ],
       destructive: [

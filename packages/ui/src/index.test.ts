@@ -185,13 +185,12 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(surface.SecretField).toBeUndefined();
     // SuggestMenu dissolved into a Popover + useSuggestions composition.
     expect(surface.SuggestMenu).toBeUndefined();
-    // `AppearanceToggle` was a second control for a preference `PreferencesColor` already offers:
-    // that section draws one card per side and pressing a card wears it, so the sun/moon button in
-    // the panel header asked the same question a second time, twelve pixels away. It cycled nothing
-    // — "follow the OS" is `""` and its way back is Reset — so what went with it is the button, not
-    // a state. What went with it that this file cannot see: where the tenant published fewer than
-    // two choices `PreferencesColor` returns null, and that panel now has no appearance control.
+    // The theme and the appearance are ONE control, `ThemePicker` (GitHub's Appearance settings):
+    // its Theme mode is the appearance. `AppearanceToggle` and `PreferencesColor` were second doors.
     expect(surface.AppearanceToggle).toBeUndefined();
+    expect(surface.PreferencesColor).toBeUndefined();
+    expect(surface.ThemePicker).toBeTypeOf("function");
+    expect(surface.ThemePreview).toBeTypeOf("function");
     // The AiAssist provider was over-engineered for one consumer, and a `complete` prop plus the
     // monolithic FieldSuggest violated core purity. AI-assist became two composed compounds —
     // `Complete` (over a pure Input/Textarea) and `Suggest` — with the engine hooks headless.
