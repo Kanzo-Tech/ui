@@ -188,16 +188,9 @@ pre-aggregator — see [the limitation](/docs/analytics/charts#limitations).
 
 ## Dashboard
 
-The composition pieces, wired to one crossfilter. `ChartFilter`, `ChartSearch` and `ChartSlider` are
-real DOM controls that publish Mosaic clauses without being charts — they connect as clients, ask
-the coordinator for their own values, and filter every plot below. The `Stat` parts, `ChartCard` and
-`DashboardGrid` are the frame around them.
-
-The tiles show how a DOM part queries alongside the plots: `useMosaic()` hands you the coordinator,
-and one `SELECT` fills all three. They report the **unfiltered** totals — a widget only follows the
-crossfilter if it is a `MosaicClient`, which the inputs are and a plain `useEffect` is not.
-
-<ComponentPreview componentName="charts" fileName="gallery-dashboard" hasMaxHeight={false} />
+Every chart above composed for a relation you have not seen — filters, tiles, cards and the rows,
+chosen from the relation's stats and kept as a JSON spec. That is not a sixteenth shape; it is
+[`Dashboard`](/docs/analytics/dashboard), which has its own page.
 
 ## What the grammar cannot draw
 

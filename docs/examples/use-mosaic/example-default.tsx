@@ -12,9 +12,9 @@ import {
   ChartToggleX,
   bin,
   count,
+  useClauses,
   useMosaic,
 } from "@kanzo-tech/ui/analytics";
-import { useClauses } from "@/lib/filter-chips";
 import { MosaicDemo } from "../charts/mosaic-demo";
 
 // One call for the whole context: the two shared selections, the coordinator, and the `reset()` a

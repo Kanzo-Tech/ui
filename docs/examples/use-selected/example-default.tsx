@@ -10,11 +10,13 @@ import {
   ChartRectY,
   ChartRoot,
   ChartToggleX,
+  FilterChips,
   bin,
   count,
+  useClauses,
   useSelected,
 } from "@kanzo-tech/ui/analytics";
-import { FilterChips } from "@/lib/filter-chips";
+import { Show } from "@kanzo-tech/ui";
 import { MosaicDemo } from "../charts/mosaic-demo";
 
 // `selected` is the page's read model: every clause any chart published, flattened into one plain
@@ -22,8 +24,8 @@ import { MosaicDemo } from "../charts/mosaic-demo";
 // knows nothing about, because reading the union costs nothing and subscribing to three charts
 // would cost a wiring diagram.
 //
-// Read model, not publish target. A chip's ✕ retracts the clause through its own source (see
-// `docs/lib/filter-chips.tsx`), which is why removing one here also clears the brush that made it.
+// Read model, not publish target. A chip's ✕ retracts the clause on the selection it was published
+// into (`useMosaic().retract`), which is why removing one here also clears the pick that made it.
 
 const MARGIN = { top: 4, right: 8, bottom: 34, left: 34 };
 
@@ -37,14 +39,16 @@ export default function Example() {
 
 function Panel() {
   const selected = useSelected();
+  const clauses = useClauses(selected);
 
   return (
     <div className="flex w-full max-w-2xl flex-col gap-4">
-      <FilterChips
-        className="flex min-h-6 flex-wrap items-center gap-1.5"
-        empty="Nothing filtered yet — brush a chart or click a region."
-        selection={selected}
-      />
+      <div className="flex min-h-6 items-center">
+        <Show when={clauses.length === 0}>
+          <p className="text-muted-foreground text-xs">Nothing filtered yet — brush a chart or click a region.</p>
+        </Show>
+        <FilterChips className="gap-1.5" selection={selected} />
+      </div>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <ChartRoot height={140} margin={MARGIN} table="telemetry">
