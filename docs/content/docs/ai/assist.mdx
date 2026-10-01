@@ -10,13 +10,13 @@ description: A field the model helps fill. One proposal for the field's value, d
 ```tsx
 import { Field, FieldHelper, FieldLabel, Textarea } from "@kanzo-tech/ui";
 import { Assist, AssistProvider } from "@kanzo-tech/ai";
-import { createKanzo } from "@kanzo-tech/llm";
+import { createGateway } from "@kanzo-tech/llm";
 
-const kanzo = createKanzo({ baseURL: "/api/ai" });
+const gateway = createGateway({ baseURL: "/api/ai" });
 ```
 
 ```tsx
-<AssistProvider model={kanzo("kanzo-complete")} context="A notice board for a village hall.">
+<AssistProvider model={gateway("complete")} context="A notice board for a village hall.">
   <Field>
     <FieldLabel>Notice</FieldLabel>
     <Assist value={notice} onValueChange={setNotice}>
@@ -187,7 +187,7 @@ interface AssistEvent {
 
 | Prop | Type | |
 | --- | --- | --- |
-| `model` | `LanguageModel` | What every field below asks — `kanzo("kanzo-complete")` |
+| `model` | `LanguageModel` | What every field below asks — `gateway("complete")` |
 | `context` | `string \| () => string \| undefined` | What the rest of the form says; a function is read when a field asks |
 | `onEvent` | `(event: AssistEvent) => void` | Each proposal's life |
 | `translations` | `Partial<AssistTranslations>` | Every word the fields below draw or announce |

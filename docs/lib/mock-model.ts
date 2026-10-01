@@ -4,7 +4,7 @@
  * network. The same shape as `packages/ai/src/testing/model.ts`, plus a pause between words: a test
  * wants the answer at once, and a reader has to see it arrive to see that it streams.
  *
- * Swap it for `createKanzo({ baseURL })("kanzo-chat")` and nothing else on the page changes; that is
+ * Swap it for `createGateway({ baseURL })("chat")` and nothing else on the page changes; that is
  * the claim the examples make, so they must not be built on anything a real model would not do.
  */
 import { MockLanguageModelV4 } from "ai/test";

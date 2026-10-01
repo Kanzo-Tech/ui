@@ -3,7 +3,7 @@
  *
  * Same standing as `@kanzo-tech/mosaic`: the third party — here the AI SDK — is a required peer, its
  * surface is re-exported so a host never imports `ai` itself, and what is ours is the one door it
- * does not have. A host reaches a model only through `createKanzo`, an agent through
+ * does not have. A host reaches a model only through `createGateway`, an agent through
  * `ToolLoopAgent`, and a conversation through `@kanzo-tech/ai`'s `useChat`, so one copy of the SDK
  * is the easy outcome.
  */
@@ -28,4 +28,4 @@ export {
 } from "ai";
 
 /** Ours: the one door to a model. */
-export { createKanzo, type Kanzo, type KanzoSettings } from "./kanzo.js";
+export { createGateway, type Gateway, type GatewaySettings } from "./gateway.js";
