@@ -14,7 +14,8 @@ const shallow = (a: readonly unknown[], b: readonly unknown[]) => a.length === b
 
 /**
  * **The categorical scale the canvas draws, as rows** — glyph, name and how many vertices of that
- * category are drawn, then what is drawn of the whole. Unbound, the categories are the vertex types.
+ * category are drawn; what is drawn of the whole is `GraphCounts`. Unbound, the categories are the
+ * vertex types, and with no category at all there is nothing to key, so nothing is drawn.
  * The rows are the domain fixed before the graph loaded, so a row never moves and a colour never
  * changes hands; a category past the palette's capacity is Other, as it is on the canvas.
  *
@@ -25,46 +26,37 @@ export function GraphLegend({ className, slot, ...rest }: GraphLegendProps) {
   const options = useGraphState((s) => s.options);
   const domain = useGraphState((s) => s.drawn?.domain ?? s.domain, shallow);
   const tally = useGraphState((s) => s.drawn?.tally ?? null);
-  const vertices = useGraphState((s) => s.drawn?.vertices ?? null);
-  const total = useGraphState((s) => s.total);
   const capacity = useChartCapacity();
   const scale = useMemo(() => scaleOf(options, capacity), [options, capacity]);
   const binding = bindingOf(options);
   const bound = binding.byTable || binding.category !== undefined;
   const shown = domain.slice(0, capacity);
   const other = tally ? tally.slice(capacity).reduce((sum, n) => sum + n, 0) : null;
-  const count = (n: number | null | undefined) => (n === null || n === undefined ? "—" : n.toLocaleString());
+  const count = (n: number | null) => (n === null ? "—" : n.toLocaleString());
+  if (!bound || shown.length === 0) return null;
 
   return (
     <div
       {...rest}
-      className={cn("rounded-lg border bg-card px-2.5 py-1.5 text-xs", className)}
+      className={cn("rounded-lg border bg-card px-2.5 py-2 text-xs", className)}
       data-slot={slot ?? "graph-legend"}
     >
-      <Show when={bound && shown.length > 0}>
-        <ul className="space-y-1" data-slot="graph-legend-items">
-          {shown.map((value, rank) => (
-            <li className="flex items-center gap-2" data-slot="graph-legend-item" key={String(value)}>
-              <ShapeGlyph className="size-2.5 shrink-0" color={scale.color(rank)} shape={scale.shape(rank)} />
-              <span className="truncate">{nameOf(value, options.categories)}</span>
-              <span className="ms-auto ps-4 text-muted-foreground tabular-nums">{count(tally ? (tally[rank] ?? 0) : null)}</span>
-            </li>
-          ))}
-          <Show when={domain.length > capacity}>
-            <li className="flex items-center gap-2" data-slot="graph-legend-item">
-              <ShapeGlyph className="size-2.5 shrink-0" color={scale.color(capacity)} shape={scale.shape(capacity)} />
-              <span>Other</span>
-              <span className="ms-auto ps-4 text-muted-foreground tabular-nums">{count(other)}</span>
-            </li>
-          </Show>
-        </ul>
-      </Show>
-      <p
-        className={cn("text-muted-foreground tabular-nums", bound && shown.length > 0 && "mt-1 border-t pt-1")}
-        data-slot="graph-legend-count"
-      >
-        {count(vertices)} of {count(total)} drawn
-      </p>
+      <ul className="space-y-1.5" data-slot="graph-legend-items">
+        {shown.map((value, rank) => (
+          <li className="flex items-center gap-2" data-slot="graph-legend-item" key={String(value)}>
+            <ShapeGlyph className="size-2.5 shrink-0" color={scale.color(rank)} shape={scale.shape(rank)} />
+            <span className="truncate">{nameOf(value, options.categories)}</span>
+            <span className="ms-auto ps-4 text-muted-foreground tabular-nums">{count(tally ? (tally[rank] ?? 0) : null)}</span>
+          </li>
+        ))}
+        <Show when={domain.length > capacity}>
+          <li className="flex items-center gap-2 border-t pt-1.5" data-slot="graph-legend-item">
+            <ShapeGlyph className="size-2.5 shrink-0" color={scale.color(capacity)} shape={scale.shape(capacity)} />
+            <span>Other</span>
+            <span className="ms-auto ps-4 text-muted-foreground tabular-nums">{count(other)}</span>
+          </li>
+        </Show>
+      </ul>
     </div>
   );
 }

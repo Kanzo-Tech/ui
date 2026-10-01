@@ -117,6 +117,7 @@ import {
 } from "lucide-react";
 import { cn } from "@kanzo-tech/ui";
 import {
+  GraphCounts,
   GraphInspector,
   GraphRoot,
   ShapeGlyph,
@@ -316,16 +317,12 @@ export function ArchiveGraph({ arrangement, children }: { arrangement: LookId; c
   );
 }
 
-/** The footer: what the corpus holds, and whether all of it has been drawn. */
+/** The footer: whether all of it has been drawn, and how much of it is. */
 export function ArchiveCounts() {
-  const corpus = useGraphState((s) => s.corpus);
   const status = useGraphState((s) => s.status);
-  const count = (tables: readonly { record_count: number }[] = []) => tables.reduce((sum, table) => sum + table.record_count, 0);
   return (
-    <span className="flex items-center gap-2 px-1 text-muted-foreground text-xs tabular-nums">
-      <Show fallback="Opening the archive…" when={corpus !== null}>
-        {count(corpus?.manifest.vertex_tables).toLocaleString()} nodes · {count(corpus?.manifest.edge_tables).toLocaleString()} edges
-      </Show>
+    <span className="flex items-center gap-2 px-1 text-xs">
+      <GraphCounts />
       <Badge className="gap-1.5" size="xs" variant="outline">
         <Status className="ring-0" size="sm" variant={status === "idle" ? "success" : status === "failed" ? "destructive" : "info"} />
         {status}

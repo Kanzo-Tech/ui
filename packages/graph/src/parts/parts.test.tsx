@@ -4,6 +4,7 @@ import { fakeCorpus } from "../../test/corpus";
 import { GraphRoot, useGraphContext } from "../react/graph-root";
 import { internalsOf, type GraphApi } from "../react/use-graph";
 import { GraphCanvas } from "./graph-canvas";
+import { GraphCounts } from "./graph-counts";
 import { GraphInspector } from "./graph-inspector";
 import { GraphLegend } from "./graph-legend";
 import { GraphToolbar } from "./graph-toolbar";
@@ -34,7 +35,6 @@ describe("GraphLegend", () => {
     );
     const rows = screen.getAllByRole("listitem").map((row) => row.textContent);
     expect(rows).toEqual(["Amber—", "Salt—"]);
-    expect(screen.getByText("— of 16 drawn")).toBeTruthy();
   });
 
   it("draws the vertex types when nothing is bound, with what each has drawn", async () => {
@@ -46,17 +46,43 @@ describe("GraphLegend", () => {
     );
     await act(() => fake.settle());
     expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Person10", "Place6"]);
-    expect(screen.getByText("16 of 16 drawn")).toBeTruthy();
   });
 
-  it("draws no rows when colour is a constant and nothing carries a category", () => {
+  it("draws nothing when colour is a constant and nothing carries a category", () => {
     const { corpus } = fakeCorpus();
-    render(
+    const { container } = render(
       <GraphRoot corpus={corpus} fill="var(--foreground)" onFailure={() => {}}>
         <GraphLegend />
       </GraphRoot>,
     );
-    expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+    expect(container.innerHTML).toBe("");
+  });
+});
+
+describe("GraphCounts", () => {
+  it("says what it does not know yet as a dash, and is busy while it loads", () => {
+    const { corpus } = fakeCorpus();
+    render(
+      <GraphRoot corpus={corpus} onFailure={() => {}}>
+        <GraphCounts spinner />
+      </GraphRoot>,
+    );
+    const counts = document.querySelector('[data-slot="graph-counts"]');
+    expect(counts?.textContent).toBe("— of 16 nodes drawn · — edges");
+    expect(counts?.getAttribute("aria-busy")).toBe("true");
+    expect(screen.getByRole("status")).toBeTruthy();
+  });
+
+  it("counts what is drawn of the whole, and the edges whose two ends are drawn", async () => {
+    const fake = fakeCorpus();
+    render(
+      <GraphRoot corpus={fake.corpus} onFailure={() => {}}>
+        <GraphCounts />
+      </GraphRoot>,
+    );
+    await act(() => fake.settle());
+    expect(document.querySelector('[data-slot="graph-counts"]')?.textContent).toBe("16 of 16 nodes drawn · 19 edges");
+    expect(screen.queryByRole("status")).toBeNull();
   });
 });
 

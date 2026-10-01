@@ -16,6 +16,7 @@ import * as GRAPH from "./index";
  */
 const VALUES = [
   "GraphCanvas",
+  "GraphCounts",
   "GraphInspector",
   "GraphLegend",
   "GraphRoot",
@@ -104,12 +105,11 @@ describe("@kanzo-tech/graph public surface", () => {
   });
 
   it("ships the parts flat, each reading the one context", () => {
-    for (const part of ["GraphCanvas", "GraphLegend", "GraphToolbar", "GraphInspector"]) {
+    for (const part of ["GraphCanvas", "GraphLegend", "GraphCounts", "GraphToolbar", "GraphInspector"]) {
       expect(surface[part], part).toBeTypeOf("function");
     }
     expect(surface.GraphSelection).toBeUndefined();
     expect(surface.GraphZoom).toBeUndefined();
-    expect(surface.GraphCounts).toBeUndefined();
   });
 
   it("ships a canvas that owns the renderer, and neither load nor Loaded", () => {
@@ -176,6 +176,7 @@ describe("the parts' props", () => {
     const props = exports.filter((symbol) => symbol.name.endsWith("Props") && !ROOT_PROPS.has(symbol.name));
     expect(props.map((symbol) => symbol.name).sort()).toEqual([
       "GraphCanvasProps",
+      "GraphCountsProps",
       "GraphInspectorProps",
       "GraphLegendProps",
       "GraphToolbarProps",

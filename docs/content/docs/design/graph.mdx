@@ -24,7 +24,7 @@ way to reach the same bytes.
 
 ```text
 fossil (backend)                               @kanzo-tech/graph (view)
-open(url, { engine })  → Corpus                parts     GraphCanvas · GraphLegend · GraphToolbar · GraphInspector
+open(url, { engine })  → Corpus                parts     GraphCanvas · GraphLegend · GraphCounts · GraphToolbar · GraphInspector
 manifest → vertex_tables · edge_tables         adapter   useGraph · GraphRoot · GraphRootProvider · useGraphContext · useGraphState
 scan({ table, filter, select })                render    typed arrays → cosmos.gl, uploaded once per corpus
 scan.read(scan.plan()) → Batch[]               core      load: one scan per table · store · filter
@@ -127,7 +127,7 @@ packages/graph/src/
 │   └── use-graph-prefs.ts
 ├── parts/
 │   ├── graph-canvas.tsx      the element; grid, vignette, labels, hover card; the drag gesture
-│   ├── graph-legend.tsx · graph-toolbar.tsx · graph-inspector.tsx
+│   ├── graph-legend.tsx · graph-counts.tsx · graph-toolbar.tsx · graph-inspector.tsx
 │   ├── overlays.ts · gesture.ts   what the canvas draws over the surface; marquee and lasso
 │   └── shape-glyph.tsx
 ├── index.ts
@@ -278,6 +278,8 @@ the root.
   the hover card, plus the marquee and lasso gesture.
 - **`GraphLegend`** — the categorical scale, or the vertex types when nothing is bound, with how many
   of each are drawn. Its domain is fixed before the graph loads, so a row never moves.
+- **`GraphCounts`** — what is drawn of the whole, in one sentence: nodes drawn of the manifest's
+  total, and edges drawn. A footer carries it, which is why it is not the legend's last line.
 - **`GraphToolbar`** — the tools, the selection, zoom and fit, and the layout's run and stop.
 - **`GraphInspector`** — the focused vertex's row, in its table's `properties` order, with a render
   prop for fields a product adds.
@@ -332,10 +334,11 @@ Mosaic goes behind an entry of its own.
 
 ```text
 the adapter        GraphRoot · GraphRootProvider · useGraph · useGraphContext · useGraphState
-the parts          GraphCanvas · GraphLegend · GraphToolbar · GraphInspector · ShapeGlyph
+the parts          GraphCanvas · GraphLegend · GraphCounts · GraphToolbar · GraphInspector · ShapeGlyph
 the picture        lookFrom · simFrom · useGraphPrefs · scaleOf
 types              GraphRootProps · GraphRootProviderProps · UseGraphProps · GraphApi · GraphCanvasProps
-                   GraphLegendProps · GraphToolbarProps · GraphInspectorProps · ShapeGlyphProps
+                   GraphLegendProps · GraphCountsProps · GraphToolbarProps · GraphInspectorProps
+                   ShapeGlyphProps
                    GraphState · GraphStatus · Drawn · VertexDetail
                    Channels · Look · LookPatch · Shape · Sim · Motion · Selection · SelectionSource
                    Tool · GraphCommands · VertexId

@@ -109,13 +109,24 @@ stop. `orientation="vertical"` stacks the clusters.
 <ComponentPreview componentName="graph" fileName="example-legend" hasMaxHeight />
 
 The categorical scale the canvas draws, as rows: the glyph, the name, and how many vertices of that
-category are drawn — then what is drawn of the whole. With nothing bound to `fill`, the categories
-are the vertex types. **A row never moves.** The domain is fixed before the graph loads: the drawn
+category are drawn. With nothing bound to `fill`, the categories are the vertex types; with colour a
+constant and nothing on `symbol` there is no category to key, and the legend draws nothing. **A row never moves.** The domain is fixed before the graph loads: the drawn
 types in the manifest's order, or the keys of the root's `categories`, which is also what names the
 values. A category past the palette's capacity is Other, on the legend as on the canvas.
 
 The names are the root's, never the legend's, so the hover card and the inspector say the same
 thing. A legend that renamed a category would be a part encoding one product's policy.
+
+### `GraphCounts`
+
+<ComponentPreview componentName="graph" fileName="example-counts" hasMaxHeight />
+
+What is drawn of the whole, in one sentence: **"1.2K of 5K nodes drawn · 8K edges"**. The first
+figure shrinks with the page's filter and the second is the manifest's, so the sentence is the
+filter's effect; an edge counts when both its ends are drawn. A figure not yet known is "—", and the
+numbers are compact in the nearest `LocaleProvider`'s locale. `spinner` draws progress beside it
+while the corpus opens or the graph loads, for a host with no status of its own; `aria-busy` is set
+either way. It is the legend's old last line, a part of its own so a footer can carry it.
 
 ### `GraphInspector`
 
@@ -272,7 +283,8 @@ writes it in.
 | `useGraphContext` | **Reads** it, from any part under a root: the commands, stable for the root's life. |
 | `useGraphState` | A slice of the state, and a render only when it moves. |
 | `GraphCanvas` | The element, the grid, the vignette, the labels, the hover card and the gesture. |
-| `GraphLegend` | The categorical scale the canvas draws, with the tally in view. |
+| `GraphLegend` | The categorical scale the canvas draws, one row per category with its tally. |
+| `GraphCounts` | What is drawn of the whole: nodes drawn of the total, and edges drawn. |
 | `GraphToolbar` | The tools, the selection, zoom and fit, and a live layout's transport. |
 | `GraphInspector` | The focused vertex's row, with a render prop for fields a product adds. |
 | `ShapeGlyph` | The glyph the canvas draws for a category, in the DOM — for a legend key or a card. |
@@ -293,8 +305,8 @@ writes it in.
 `GraphApi` is the commands — the `GraphCommands` (`zoomBy`, `fit`, `pause`, `resume`, `restart`,
 `unpin`, `reveal`, `frameSelection`, `clear`), `select`, `setFocus`, `setTool` — with `subscribe` and
 `getState`. `GraphState` is what `useGraphState` selects from: `status` (a `GraphStatus`), `total`,
-`drawn` (a `Drawn`: `vertices`, `domain`, `tally`), `domain`, `selection`, `focus`, `hovered`,
-`pinned`, `tool`, `motion`, `progress`, `options` and `corpus`. `GraphCanvasProps`, `GraphLegendProps`,
+`drawn` (a `Drawn`: `vertices`, `edges`, `domain`, `tally`), `domain`, `selection`, `focus`, `hovered`,
+`pinned`, `tool`, `motion`, `progress`, `options` and `corpus`. `GraphCanvasProps`, `GraphLegendProps`, `GraphCountsProps`,
 `GraphToolbarProps`, `GraphInspectorProps`, `GraphRootProviderProps` and `ShapeGlyphProps` are the
 parts' props, and `VertexDetail` is what the inspector's render prop receives; `Channels`, `Look`,
 `LookPatch`, `Shape`, `Sim`, `Motion`, `Selection`, `SelectionSource`, `Tool` and `VertexId` are the
