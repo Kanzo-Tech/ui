@@ -4,9 +4,15 @@ import { describe, expect, it } from "vitest";
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning.js";
 
 const Thinking = (props: { streaming?: boolean }) => (
-  <Reasoning streaming={props.streaming}>
+  <Reasoning
+    part={{
+      type: "reasoning",
+      text: "Counting the contracts before ranking them.",
+      state: props.streaming ? "streaming" : "done",
+    }}
+  >
     <ReasoningTrigger />
-    <ReasoningContent>Counting the contracts before ranking them.</ReasoningContent>
+    <ReasoningContent />
   </Reasoning>
 );
 

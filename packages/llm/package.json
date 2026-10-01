@@ -1,0 +1,46 @@
+{
+  "name": "@kanzo-tech/llm",
+  "version": "0.1.0",
+  "description": "The model conversation, without React — the AI SDK re-exported as one surface, plus `createKanzo`, the one door to models behind a Kanzo AI gateway.",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "//dependencies": "@ai-sdk/openai-compatible is a dependency, not a peer: it is how `createKanzo` speaks to the gateway, and nothing outside this package names it — the same standing @duckdb/duckdb-wasm has in @kanzo-tech/mosaic, behind `engine()`.",
+  "//peers": "`ai` is REQUIRED, not optional, and that is the point of this package: there is nothing here without it, and a host installs it once so @kanzo-tech/ai's components and the host's own agent see the same UIMessage, the same ToolLoopAgent and the same transport. Two copies would be two type universes that do not assign to each other.",
+  "dependencies": {
+    "@ai-sdk/openai-compatible": "^3.0.62"
+  },
+  "peerDependencies": {
+    "ai": "^7.0.0"
+  },
+  "devDependencies": {
+    "ai": "^7.0.126"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kanzo-Tech/ui.git",
+    "directory": "packages/llm"
+  },
+  "homepage": "https://kanzo-tech.github.io/ui",
+  "bugs": {
+    "url": "https://github.com/Kanzo-Tech/ui/issues"
+  }
+}

@@ -11,10 +11,12 @@ import {
   CollapsibleTrigger,
   Spinner,
 } from "@kanzo-tech/ui";
+import type { ReasoningUIPart } from "@kanzo-tech/llm";
 
-const Ctx = React.createContext<{ streaming: boolean; seconds: number | null }>({
+const Ctx = React.createContext<{ streaming: boolean; seconds: number | null; text: string }>({
   seconds: null,
   streaming: false,
+  text: "",
 });
 
 /**
@@ -25,9 +27,9 @@ const Ctx = React.createContext<{ streaming: boolean; seconds: number | null }>(
 const LINGER = 1000;
 const MS_IN_S = 1000;
 
-export interface ReasoningProps extends React.ComponentProps<typeof Collapsible> {
-  /** The model is still thinking. */
-  streaming?: boolean;
+export interface ReasoningProps extends Omit<React.ComponentProps<typeof Collapsible>, "part"> {
+  /** The reasoning as the AI SDK streams it: its text, and whether it is still arriving. */
+  part: ReasoningUIPart;
 }
 
 /**
@@ -44,7 +46,7 @@ export interface ReasoningProps extends React.ComponentProps<typeof Collapsible>
  */
 export const Reasoning = (props: ReasoningProps) => {
   const {
-    streaming = false,
+    part,
     open,
     defaultOpen = false,
     onOpenChange,
@@ -53,6 +55,7 @@ export const Reasoning = (props: ReasoningProps) => {
     slot,
     ...rest
   } = props;
+  const streaming = part.state === "streaming";
   const [selfOpen, setSelfOpen] = React.useState(defaultOpen);
   const [seconds, setSeconds] = React.useState<number | null>(null);
   const touched = React.useRef(false);
@@ -92,7 +95,7 @@ export const Reasoning = (props: ReasoningProps) => {
   }, [streaming]);
 
   return (
-    <Ctx.Provider value={{ seconds, streaming }}>
+    <Ctx.Provider value={{ seconds, streaming, text: part.text }}>
       <Collapsible
         className={cn("group/reasoning w-full", className)}
         data-streaming={streaming ? "" : undefined}
@@ -105,7 +108,12 @@ export const Reasoning = (props: ReasoningProps) => {
         {...rest}
         slot={slot ?? "reasoning"}
       >
-        {children}
+        {children ?? (
+          <>
+            <ReasoningTrigger />
+            <ReasoningContent />
+          </>
+        )}
       </Collapsible>
     </Ctx.Provider>
   );
@@ -164,7 +172,8 @@ export const ReasoningTrigger = (props: React.ComponentProps<typeof CollapsibleT
  * growing says so at the edge, where it does not move the words.
  */
 export const ReasoningContent = (props: React.ComponentProps<typeof CollapsibleContent>) => {
-  const { className, slot, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
+  const { text } = React.useContext(Ctx);
 
   return (
     <CollapsibleContent
@@ -178,6 +187,8 @@ export const ReasoningContent = (props: React.ComponentProps<typeof CollapsibleC
       )}
       {...rest}
       slot={slot ?? "reasoning-content"}
-    />
+    >
+      {children ?? text}
+    </CollapsibleContent>
   );
 };
