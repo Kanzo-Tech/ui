@@ -50,7 +50,7 @@ The repository rules are in `../CLAUDE.md`. What follows is true only here.
     is a search box that finds nothing and never errors. The index is 8 MB, 1.5 MB over the wire,
     fetched when a reader opens search.
   - **A `.mdx` source route emits the extension in its PATH.** `/docs/ai` is a page *and* the parent
-    of `/docs/ai/use-suggestions`, so a static export asks for one name to be a file and a directory
+    of `/docs/ai/assist`, so a static export asks for one name to be a file and a directory
     and dies on `EISDIR` — after prerendering all 434 pages, so it reads as a late failure of
     something else. `generateStaticParams` appends `.mdx` to the last segment and `GET` strips it
     back off; the index page has its own route for the same reason.
@@ -65,3 +65,13 @@ The repository rules are in `../CLAUDE.md`. What follows is true only here.
   `node showcases/graph-bench/corpus/build-corpus.mjs [--sizes …]`, never built on CI; the million
   fails inside the executor (a DataFusion memory-pool panic in the WASM), so 200,000 is the largest
   there is until fossil fixes it.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

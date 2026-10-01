@@ -152,7 +152,10 @@ jobs:
       # --no-git-checks because the stamp above leaves the tree dirty by design.
       - name: Publish
         if: ${{ github.event_name == 'release' || !inputs.dry-run }}
-        # No token — see AUTH above.
+        # TEMPORARY — @kanzo-tech/llm's first publish (see A NEW PACKAGE above).
+        # Delete this env block, and the NPM_TOKEN secret, once its trusted publisher is set.
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           pnpm -r --filter "./packages/*" publish \
             --access public --tag "${{ steps.ver.outputs.tag }}" --no-git-checks

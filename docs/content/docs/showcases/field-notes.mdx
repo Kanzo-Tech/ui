@@ -135,8 +135,10 @@ Existing parts, arranged — nothing here is new:
 
 - **`ShellRoot` / `ShellHeader` / `ShellBody` / `ShellMain` / `ShellAside`** — the frame. Exactly
   one `<main>`; the slip panel is an `<aside>` landmark.
-- **`useAiStream`** — the streaming engine, and its second consumer. It is domain-free by
-  construction: a run of vision events uses it unchanged, alongside `Complete` and `Suggest`.
+- **No AI component.** A run of vision events is an async iterable cancelled by an `AbortSignal`,
+  pulled by a loop and one `AbortController` in the showcase itself. `@kanzo-tech/ai` draws a field
+  a model helps fill and a conversation with one; a stream of cells into a table is neither, so
+  nothing from it is here.
 - **`FileUpload` + `FileUploadDropzone`** — the empty state. One photograph may hold several slips.
 - **`@kanzo-tech/ui/table`** — the editable ledger, and the one call site here whose `ColumnDef[]`
   is built at **runtime**: the columns come out of a shape the reader is editing in the next pane,

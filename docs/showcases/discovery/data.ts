@@ -1,4 +1,3 @@
-import type { InlineCompletionRequest } from "@kanzo-tech/ai";
 // The archive this panel answers over, and the five answers it knows.
 //
 // The split is the same one the workspace's Ask panel makes: the **language** is canned, the
@@ -9,8 +8,6 @@ import type { InlineCompletionRequest } from "@kanzo-tech/ai";
 import { QUESTS, board, daysOverdue, dueOn, hallOf, overdueQuests, type Quest } from "@/example/quests";
 import { ROSTER } from "@/example/roster";
 import { beast, hall, role, type BeastId, type HallId } from "@/example/world";
-
-export type Phase = "generating" | "executing" | "explaining" | "done";
 
 /** A column of a result set. `numeric` is alignment, not a type. */
 export interface ResultColumn {
@@ -272,91 +269,19 @@ export function recipeFor(question: string): Recipe | null {
   return RECIPES.find((recipe) => recipe.match.some((word) => asked.includes(word))) ?? null;
 }
 
-export type AskEvent =
-  | { kind: "phase"; phase: Phase }
-  | { kind: "reasoning"; text: string }
-  | { kind: "plan"; recipe: Recipe }
-  | { kind: "explain"; text: string }
-  | { kind: "failed"; message: string };
-
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-/** Word-at-a-time, the way a token stream arrives. The lookbehind keeps the spaces. */
-const chunks = (text: string) => text.split(/(?<=\s)/);
-
-const NOTHING =
-  "That is outside what this fake agent knows. The ✨ button lists the questions it can answer.";
-
-/**
- * The model, faked: phases, a reasoning stream, a plan, then an explanation stream.
- *
- * It is an async generator taking an `AbortSignal`, which is exactly the shape a real endpoint
- * has — so the swap is this function and nothing else.
- */
-export async function* askStream(question: string, signal?: AbortSignal): AsyncIterable<AskEvent> {
-  yield { kind: "phase", phase: "generating" };
-  const recipe = recipeFor(question);
-
-  if (!recipe) {
-    await wait(300);
-    if (signal?.aborted) return;
-    yield { kind: "failed", message: NOTHING };
-    yield { kind: "phase", phase: "done" };
-    return;
-  }
-
-  for (const chunk of chunks(recipe.reasoning)) {
-    await wait(18);
-    if (signal?.aborted) return;
-    yield { kind: "reasoning", text: chunk };
-  }
-
-  await wait(200);
-  if (signal?.aborted) return;
-  yield { kind: "plan", recipe };
-  yield { kind: "phase", phase: "executing" };
-
-  await wait(420);
-  if (signal?.aborted) return;
-
-  if (recipe.failure) {
-    yield { kind: "failed", message: recipe.failure };
-    yield { kind: "phase", phase: "done" };
-    return;
-  }
-
-  yield { kind: "phase", phase: "explaining" };
-  for (const chunk of chunks(recipe.explain(recipe.run()))) {
-    await wait(22);
-    if (signal?.aborted) return;
-    yield { kind: "explain", text: chunk };
-  }
-
-  yield { kind: "phase", phase: "done" };
+/** What the `query` tool hands back: the result set, with the columns its statement selected. */
+export interface ResultSet {
+  columns: ResultColumn[];
+  rows: ResultRow[];
 }
 
-/** Candidate questions, streamed the way a model would hand them over. */
-export async function* askSuggestions(signal?: AbortSignal): AsyncIterable<{
-  value: string;
-  rationale?: string;
-}> {
-  for (const recipe of RECIPES) {
-    await wait(160);
-    if (signal?.aborted) return;
-    yield { value: recipe.question, rationale: `One statement over \`${recipe.relation}\`.` };
-  }
+/** The tool's body: the statement the model wrote, run. A statement no recipe knows fails, as SQL would. */
+export function runStatement(sql: string): ResultSet {
+  const recipe = RECIPES.find((r) => r.sql === sql);
+  if (!recipe) throw new Error("The statement does not parse against this archive.");
+  if (recipe.failure) throw new Error(recipe.failure);
+  return { columns: recipe.columns, rows: recipe.run() };
 }
 
-/** The ghost continuation. Canned, and only ever offered for a prefix it recognises. */
-export async function* completeQuestion({ value, position, signal }: InlineCompletionRequest) {
-  // What is being continued is what comes BEFORE the caret, not the whole value.
-  const typed = value.slice(0, position).trim().toLowerCase();
-  if (typed.length < 3) return;
-  const hit = RECIPES.find((recipe) => recipe.question.toLowerCase().startsWith(typed));
-  if (!hit) return;
-  for (const chunk of chunks(hit.question.slice(position))) {
-    await wait(40);
-    if (signal?.aborted) return;
-    yield chunk;
-  }
-}
+export const NOTHING =
+  "That is outside what this fake agent knows. The questions under the empty transcript are the ones it can answer.";

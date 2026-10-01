@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Fragment,
   useEffect,
   useMemo,
   useRef,
@@ -60,29 +59,9 @@ import {
   TagsInputItemText,
   toast,
 } from "@kanzo-tech/ui";
-import {
-  CompleteHint,
-  CompleteRoot,
-  CompleteTextarea,
-  Conversation,
-  ConversationContent,
-  ConversationScrollButton,
-  Message,
-  MessageContent,
-  MessageList,
-  PromptInput,
-  PromptInputSubmit,
-  PromptInputTextarea,
-  PromptInputToolbar,
-  Reasoning,
-  ReasoningContent,
-  ReasoningTrigger,
-  SuggestList,
-  SuggestMark,
-  SuggestRoot,
-  type Candidate,
-  type InlineCompletionRequest,
-} from "@kanzo-tech/ai";
+import { Chat, useChat } from "@kanzo-tech/ai";
+import { DirectChatTransport, ToolLoopAgent, jsonSchema, tool } from "@kanzo-tech/llm";
+import { afterTool, askOf, mockModel } from "@/lib/mock-model";
 import {
   Coordinator,
   MosaicProvider,
@@ -986,21 +965,18 @@ export function GraphSettings() {
 // ── Ask ──────────────────────────────────────────────────────────────────────
 
 /**
- * The Ask panel — the library's AI surface over a faked stream, and answers that are queried.
+ * The Ask panel — `@kanzo-tech/ai`'s `Chat` over an agent whose model is a recording, and whose one
+ * tool queries the corpus for real.
  *
  * The split is deliberate and it is the only honest way to show this without a model: the
- * **language** is canned, the **answer** is not. A question is matched to an intent, and the intent
- * carries a SQL predicate — so the number in the reply is a `count(*)` against the corpus, and
- * "Focus" publishes the matching ids into the crossfilter and the canvas lights them up. Nothing
- * here pretends to have understood anything it did not.
+ * **language** is canned, the **answer** is not. The mock model matches a question to an intent and
+ * calls `count` with it; `count` runs the intent's SQL predicate against the corpus, so the number
+ * in the reply is a `count(*)`, and the tool's frame draws it as a `Finding` that publishes the
+ * matching ids into the crossfilter. Nothing here pretends to have understood anything it did not.
  *
- * What it does demonstrate for real is `@kanzo-tech/ai`: a `Conversation` that keeps the pin only
- * while the reader is at the tail, `Message` per turn, `Reasoning` for how the count was reached,
- * and `PromptInput` for the composer — Enter submits, Shift+Enter is the newline. Around them,
- * `SuggestRoot` streams candidate questions with their rationale and `CompleteRoot` ghosts a
- * continuation that Tab accepts. Both take an async generator, which is exactly what a real model
- * gives you — swapping the fake for a stream from the API means changing these two functions and
- * nothing else.
+ * Everything around the model is the real path: `ToolLoopAgent`, `DirectChatTransport`, `useChat`,
+ * and `Chat` drawing the reasoning, the call in its AI SDK state, and the streamed answer. Swapping
+ * the recording for `createKanzo(…)("kanzo-chat")` changes one line.
  */
 interface Intent {
   id: string;
@@ -1058,36 +1034,6 @@ const INTENTS: Intent[] = [
   },
 ];
 
-/** Candidate questions, streamed the way a model would hand them over. */
-async function* askSuggestions(
-  signal?: AbortSignal
-): AsyncIterable<Candidate> {
-  for (const intent of INTENTS) {
-    await new Promise((resolve) => setTimeout(resolve, 180));
-    if (signal?.aborted) return;
-    yield {
-      value: intent.question,
-      rationale: `Answered by one count over the node relation.`,
-    };
-  }
-}
-
-/** The ghost continuation. Canned, and only ever offered for a prefix it recognises. */
-async function* completeQuestion({ value, position, signal }: InlineCompletionRequest) {
-  // What is being continued is what comes BEFORE the caret, not the whole value.
-  const typed = value.slice(0, position).trim().toLowerCase();
-  if (typed.length < 3) return;
-  const hit = INTENTS.find((intent) =>
-    intent.question.toLowerCase().startsWith(typed)
-  );
-  if (!hit) return;
-  for (const chunk of hit.question.slice(position).split(/(?<=\s)/)) {
-    await new Promise((resolve) => setTimeout(resolve, 40));
-    if (signal?.aborted) return;
-    yield chunk;
-  }
-}
-
 /**
  * The intent's own question wins before any keyword does — a suggestion the panel just offered must
  * always resolve to the intent that produced it, and none of them contains its own keywords.
@@ -1117,192 +1063,106 @@ export function GraphAsk() {
   return <AskBody archive={archive} />;
 }
 
-/** One question and the answer it produced. `count` stays null while the query is in flight. */
-interface Exchange {
-  id: number;
-  question: string;
-  /** Null when nothing matched — the panel says so rather than inventing an answer. */
-  intent: Intent | null;
-  count: number | null;
+/** What `count` got back, read out of the tool message the agent hands the model next. */
+function countIn(message: { content: unknown } | undefined): number {
+  const parts = Array.isArray(message?.content) ? (message.content as { type: string; output?: { value?: unknown } }[]) : [];
+  const result = parts.find((part) => part.type === "tool-result");
+  return Number((result?.output?.value as { count?: number } | undefined)?.count ?? 0);
 }
 
 /**
- * The assistant half of one exchange: why this intent, then the count as something to press.
- *
- * `Reasoning` carries the match and the predicate. They used to sit in the answer card as a
- * truncated `<code>` line, which put the machinery and the offer in the same box — the predicate is
- * how the number was reached, and a reader wants it once, not under every answer forever.
+ * The recording: a question it recognises becomes one `count` call, with its reading of the
+ * question as reasoning; the count that comes back becomes the sentence. Anything else is said to
+ * be outside what it knows rather than answered.
  */
-function AskAnswer(props: { archive: Archive; turn: Exchange }) {
-  const { intent, count: found } = props.turn;
+const askModel = mockModel((call) => {
+  const intent = match(askOf(call));
+  if (!intent) return "That one is outside what this recording knows. Try one of the questions it starts with.";
+  if (afterTool(call)) return intent.answer(countIn(call.prompt.at(-1)));
+  return {
+    reasoning: `Read as “${intent.question}”, which one count over the node relation answers: ${intent.failing}`,
+    tool: "count",
+    input: { intent: intent.id },
+  };
+});
+
+/**
+ * The count as the control, the same way a rule is: a number you can act on should not need a
+ * second widget to say so. Drawn inside the tool's frame, in place of its JSON.
+ */
+function CountFinding(props: { archive: Archive; intent: Intent; found: number }) {
+  const { archive, intent, found } = props;
   const { coordinator } = useMosaic();
-
-  if (!intent) {
-    return (
-      <p className="text-warning text-xs">
-        That one is outside what this fake stream knows. Try the ✨ suggestions.
-      </p>
-    );
-  }
-
   // Unfiltered for the same reason `failingIds` is: an answer that produces a selection cannot be a
   // function of the selection.
   const matchingIds = async () => {
-    const data = await coordinator.query(
-      Query.from(props.archive.nodes).select({ id: ID }).where(intent.failing)
-    );
+    const data = await coordinator.query(Query.from(archive.nodes).select({ id: ID }).where(intent.failing));
     return numbers(data, "id");
   };
-
   return (
-    <>
-      <Reasoning streaming={found === null}>
-        <ReasoningTrigger />
-        <ReasoningContent className="text-xs">
-          {`Read as “${intent.question}”, which one count over the node relation answers:\n${intent.failing}`}
-        </ReasoningContent>
-      </Reasoning>
-
-      {/* `&&` and not `Show`: the branch dereferences a count that may not be there yet. */}
-      {found !== null && (
-        // The answer IS the control, the same way a rule is. A count you can act on should not
-        // need a second widget to say so.
-        <Finding
-          disabled={found === 0}
-          label={intent.question}
-          load={matchingIds}
-          source="ask"
-        >
-          <span className="flex items-baseline gap-2">
-            <span className="flex-1 text-xs leading-relaxed">
-              {intent.answer(found)}
-            </span>
-            <span className="shrink-0 font-medium text-xs tabular-nums">
-              {found}
-            </span>
-          </span>
-        </Finding>
-      )}
-    </>
+    <Finding disabled={found === 0} label={intent.question} load={matchingIds} source="ask">
+      <span className="flex items-baseline gap-2">
+        <span className="flex-1 text-xs leading-relaxed">{intent.answer(found)}</span>
+        <span className="shrink-0 font-medium text-xs tabular-nums">{found}</span>
+      </span>
+    </Finding>
   );
 }
 
 function AskBody({ archive }: { archive: Archive }) {
   const { coordinator } = useMosaic();
-  const [question, setQuestion] = useState("");
-  const [turns, setTurns] = useState<Exchange[]>([]);
-  const [busy, setBusy] = useState(false);
-  const nextTurn = useRef(0);
-
-  const submit = async (asked: string) => {
-    const text = asked.trim();
-    if (text.length === 0 || busy) return;
-    const id = nextTurn.current++;
-    const intent = match(text);
-    setQuestion("");
-    setTurns((prev) => [...prev, { id, question: text, intent, count: null }]);
-    if (!intent) return;
-    setBusy(true);
-    try {
-      const data = await coordinator.query(
-        Query.from(archive.nodes).select({ n: count() }).where(intent.failing)
-      );
-      const rows = Array.from(data as Iterable<Record<string, unknown>>);
-      const found = Number(rows[0]?.n ?? 0);
-      setTurns((prev) =>
-        prev.map((turn) => (turn.id === id ? { ...turn, count: found } : turn))
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
+  const transport = useMemo(() => {
+    const agent = new ToolLoopAgent({
+      model: askModel,
+      tools: {
+        count: tool({
+          description: "Count the nodes an intent's predicate selects",
+          inputSchema: jsonSchema<{ intent: string }>({
+            type: "object",
+            properties: { intent: { type: "string" } },
+            required: ["intent"],
+          }),
+          execute: async ({ intent }) => {
+            const failing = INTENTS.find((i) => i.id === intent)?.failing ?? "false";
+            const data = await coordinator.query(Query.from(archive.nodes).select({ n: count() }).where(failing));
+            const rows = Array.from(data as Iterable<Record<string, unknown>>);
+            return { count: Number(rows[0]?.n ?? 0) };
+          },
+        }),
+      },
+    });
+    return new DirectChatTransport({ agent });
+  }, [archive, coordinator]);
+  const chat = useChat({ transport });
 
   return (
-    <div className="flex h-full flex-col">
-      <Conversation>
-        <ConversationContent className="p-3">
-          <Show when={turns.length === 0}>
-            <EmptyRoot>
-              <EmptyHeader>
-                <EmptyIndicator>
-                  <SparklesIcon />
-                </EmptyIndicator>
-                <EmptyDescription className="text-xs">
-                  Ask about the graph. Every answer is a query — the phrasing is
-                  canned, the numbers are not.
-                </EmptyDescription>
-              </EmptyHeader>
-            </EmptyRoot>
-          </Show>
-
-          <MessageList>
-            {turns.map((turn) => (
-              <Fragment key={turn.id}>
-                <Message role="user">
-                  <MessageContent className="text-xs">
-                    {turn.question}
-                  </MessageContent>
-                </Message>
-                <Message role="assistant">
-                  <MessageContent>
-                    <AskAnswer archive={archive} turn={turn} />
-                  </MessageContent>
-                </Message>
-              </Fragment>
-            ))}
-          </MessageList>
-        </ConversationContent>
-        <ConversationScrollButton />
-      </Conversation>
-
-      {/* `CompleteRoot` wraps the composer rather than sitting inside it: `PromptInput` IS the
-          `InputGroup`, whose recipe selects its own direct children, and the root's `<div>` between
-          the two silently unsets half of it.
-
-          A question is prose, which is the only shape `Complete` composes over: a line takes
-          candidates, and that is what `SuggestRoot` outside is for. */}
-      <div className="shrink-0 border-t border-border p-2">
-        {/* `SuggestRoot` outside and `CompleteRoot` inside, for the reason the comment above gives
-            about `PromptInput`: the strip belongs under the whole composer. */}
-        <SuggestRoot
-          onPick={(value) => {
-            setQuestion(value);
-            void submit(value);
-          }}
-          suggest={askSuggestions}
-        >
-          <CompleteRoot
-            complete={completeQuestion}
-            onValueChange={setQuestion}
-            value={question}
-          >
-            <PromptInput
-              onSubmit={(event) => {
-                event.preventDefault();
-                void submit(question);
-              }}
-            >
-              <CompleteTextarea>
-                <PromptInputTextarea
-                  className="resize-none text-sm"
-                  placeholder="Ask about your data…"
-                />
-              </CompleteTextarea>
-              <PromptInputToolbar>
-                <SuggestMark label="Suggest a question" />
-                {/* Disabled while it runs: the count is a local query with nothing to abort, and a
-                  live Stop that only resubmits is worse than one that is plainly unavailable. */}
-                <PromptInputSubmit
-                  disabled={busy || question.trim().length === 0}
-                  status={busy ? "loading" : "idle"}
-                />
-              </PromptInputToolbar>
-            </PromptInput>
-            <CompleteHint />
-          </CompleteRoot>
-          <SuggestList />
-        </SuggestRoot>
-      </div>
+    <div className="flex h-full flex-col p-2">
+      <Chat
+        chat={chat}
+        empty={
+          <EmptyRoot>
+            <EmptyHeader>
+              <EmptyIndicator>
+                <SparklesIcon />
+              </EmptyIndicator>
+              <EmptyDescription className="text-xs">
+                Ask about the graph. Every answer is a query — the phrasing is canned, the numbers are
+                not.
+              </EmptyDescription>
+            </EmptyHeader>
+          </EmptyRoot>
+        }
+        suggestions={INTENTS.map((intent) => intent.question)}
+        tools={{
+          count: (part) => {
+            const intent = INTENTS.find((i) => i.id === (part.input as { intent?: string } | undefined)?.intent);
+            const found = (part.output as { count?: number } | undefined)?.count;
+            if (!intent || found === undefined) return null;
+            return <CountFinding archive={archive} found={found} intent={intent} />;
+          },
+        }}
+        translations={{ placeholder: "Ask about your data…" }}
+      />
     </div>
   );
 }

@@ -39,10 +39,14 @@ Every word a component draws is a prop on it, with an English default and no cat
 | [`FieldArray`](/docs/forms/field-array) | `addLabel`, `removeLabel` |
 | [`ComboboxEmpty`](/docs/forms/combobox) | its children |
 | [`LanguagePicker`](/docs/forms/language-picker) | `translations` |
-| `SuggestMark`, `CompleteMark` ([`@kanzo-tech/ai`](/docs/ai)) | `label`, `offeringLabel` |
-| `CompleteRoot`, `CompleteKeys` (`@kanzo-tech/ai`) | `announcement`; `acceptLabel`, `dismissLabel` |
+| [`AssistProvider`](/docs/ai/assist) (`@kanzo-tech/ai`) | `translations` — every word an assisted field draws or announces |
+| [`Chat`](/docs/ai/chat) (`@kanzo-tech/ai`) | `translations` — the composer's placeholder and the error's announcement |
 | [`FieldRequiredIndicator`](/docs/forms/field) | `fallback` |
 | [`Questionnaire`](/docs/forms/questionnaire) buttons | their children |
+
+`Chat` is short of that today, and it is a defect rather than a decision: the composer's button names
+(*Send*, *Stop*, *Retry*), the reasoning fold's *Thinking…* and the tool frame's state labels are
+English, and `ChatTranslations` does not reach them yet.
 
 The host owns the words because it is the only place that knows the language, the register and the
 product's own vocabulary — and because a catalogue inside a library is one more thing a product has

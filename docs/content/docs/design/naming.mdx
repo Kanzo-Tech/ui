@@ -131,67 +131,50 @@ into its `base`.
 
 ## A type and a component may not share a name across two barrels
 
-`@kanzo-tech/ai`'s `Suggestion` type is `Candidate`. `@kanzo-tech/ui`'s `Suggestion` **component**
-keeps the name, because it is the one Shark ships. No alias, no deprecation — nothing has been
-published.
+What `@kanzo-tech/ai` offers a field is a `Proposal`. `@kanzo-tech/ui`'s `Suggestion` **component**
+keeps its name, because it is the one Shark ships, and the chips `Assist` draws are that component.
 
-The two were in scope in the same file and one of them could not be written.
-`packages/ai/src/suggest.tsx` draws the component while typing its data with the type, and it was
-importing its **own package's** type under an alias to do it. An import that has to rename a symbol to
-be usable is the collision announcing itself, and the alias was the workaround rather than the answer.
-A consumer hits the same wall the first time they write both imports, with no file of ours to look at
-for the local name that got chosen here. Asked which of two colliding names the reference governs:
-Shark ships `Suggestion` as a component, so that half is not ours to move, and the type is.
+The rule was learned on the type's previous name. It had been `Suggestion` too, and the file that drew
+the chips was importing its **own package's** type under an alias to do it —
+`import type { Suggestion as Candidate } from "./types.js"`, three lines under
+`import { …, Suggestion, Suggestions } from "@kanzo-tech/ui"`. An import that has to rename a symbol to
+be usable is the collision announcing itself, and a consumer hits the same wall the first time they
+write both imports. Asked which of two colliding names the reference governs: Shark ships `Suggestion`
+as a component, so that half is not ours to move, and the type is. It became `Candidate`, which is
+what the alias had already been saying in private, and then `Proposal` when the ghost and the chips
+turned out to be one concept — below.
 
-The alias was hiding a better name. `import type { Suggestion as Candidate } from "./types.js"` sat
-three lines under `import { …, Suggestion, Suggestions } from "@kanzo-tech/ui"`. It compiled, it was
-correct, and it had already chosen the word the rest of that file uses. The rename does not invent
-anything; it promotes what the code was already saying in private. The type appeared in seven source
-files, seven documentation files and two showcases — none of it difficult, and all of it invisible
-until somebody writes both imports at once.
-
-**What would reverse it:** Shark shipping a `Suggestion` type of its own, which would make `Candidate`
-a divergence from the reference rather than a way of keeping it — or the component leaving `ui`, at
+**What would reverse it:** Shark shipping a `Suggestion` type of its own, which would make ours a
+divergence from the reference rather than a way of keeping it — or the component leaving `ui`, at
 which point the collision is gone and the shorter name is free again.
 
-*Held by* `packages/ai/src/types.ts`, `Candidate`; `packages/ai/src/suggest.tsx`, the import that no
-longer aliases.
+*Held by* `packages/ai/src/engine.ts`, `Proposal`; `packages/ai/src/assist.tsx`, the import of
+`Suggestions` that no longer aliases.
 
-## A hook takes the name of the request it makes
+## A name takes the request it models
 
-The ghost-text hook is [`useInlineCompletion`](/docs/ai/use-inline-completion), and its surface types
-are `InlineCompletion`, `InlineCompletionRequest`, `InlineCompletionTrigger` and
-`UseInlineCompletionOptions`. We had taken the **semantics** of `textDocument/inlineCompletion` and the
-**identifier** of `textDocument/completion`.
+The thing a field is offered is a `Proposal`, and it is LSP 3.18's `InlineCompletionItem` as a field
+needs it: `text`, and the `range` taking it replaces. We had once taken the **semantics** of
+`textDocument/inlineCompletion` and the **identifier** of `textDocument/completion`, and the rename
+that fixed it — `useCompletion` to `useInlineCompletion` — is what led here.
 
-LSP 3.18 ships the two as separate requests and the split is not cosmetic: the first returns a list the
-editor presents and the user picks from, the second returns text drawn where the caret is and accepted
-whole. Ours is the second, and the hook's own doc comments already said so — they cite
-`InlineCompletionTriggerKind` for the trigger union, `filterText` for the rule that keeps an offer alive
-while what has been typed agrees with it, and Monaco's `inlineSuggest.mode: "prefix"` for the same rule
-under another name. Three citations to the inline request, under the identifier of the other one.
+LSP ships the two as separate requests: the first returns a list the editor presents and the user
+picks from, the second returns text drawn at the caret and accepted whole. Reading the second one
+properly is what collapsed our two components. An `InlineCompletionItem` carries a **range**, and a
+range is enough to say both things we had built twice: an empty range at the caret is a continuation,
+drawn as ghost text; a range over the whole value is a replacement, drawn as a chip. So `Complete` and
+`Suggest` were one item under two presentations, and the presentation is the control's to choose — a
+`Textarea` can draw ghost text, an `Input` cannot. One name for the item, one component for the field,
+`Assist`, and the engine behind it is internal.
 
 The AI SDK's `useCompletion` is a different hook with the same old name — it owns an HTTP endpoint and
-the field's value, ours owns neither — and that collision is real, but it is **not the argument**. A
-name is wrong because it names the wrong thing, not because somebody else took it. The collision note
-belongs where a consumer is choosing between two imports, not on a page that would then be teaching the
-wrong subject.
+the field's value — and that collision was real, but it was **not the argument**. A name is wrong
+because it names the wrong thing, not because somebody else took it.
 
-**`Complete` did not move, and that is the case that does not fit.** By the same argument it should be
-`InlineComplete`. It collides with nothing — neither the AI SDK nor Shark ships a `Complete` — and the
-rename is three times the diff for zero collisions solved and no clarity gained: a compound named
-`Complete` over an `Input`, drawing a ghost, is not mistakable for a picker.
+**What would reverse it:** a field whose proposals need something an `InlineCompletionItem` cannot
+carry — a command to run on accept, a snippet with tab stops — at which point LSP's own extension of
+the item is the place to look first.
 
-**`Complete` / `useInlineCompletion` is deliberately not a pair, and the old spelling was not one
-either.** The house pattern is `X` / `useX` where the hook reads the compound's context —
-`useDataTableContext` beside `DataTable`. This hook reads no context and is usable with any input;
-`Complete` is one of its callers. The old `Complete` / `useCompletion` looked like the house pair and
-never was, which is its own reason to break the resemblance.
-
-**What would reverse it:** LSP collapsing the two requests into one, or a second hook here whose
-semantics are the plain request's — a list of candidates the caller picks from — which would then own
-the short name.
-
-*Held by* `packages/ai/src/index.ts`, `useInlineCompletion`; `packages/ui/src/index.test.ts`, "drops
+*Held by* `packages/ai/src/engine.ts`, `Proposal`; `packages/ui/src/index.test.ts`, "drops
 components superseded by composition or a merge", `!useInlineCompletion`;
 `packages/ui/src/documented-exports.test.ts`, "documents no symbol the library does not export".

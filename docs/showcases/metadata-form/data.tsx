@@ -1,4 +1,3 @@
-import type { InlineCompletionRequest } from "@kanzo-tech/ai";
 // Fixtures for the metadata-form showcase — posting a contract to the Guild board.
 //
 // The design system owns error PRESENTATION, never error PRODUCTION
@@ -13,9 +12,7 @@ import type { InlineCompletionRequest } from "@kanzo-tech/ai";
 // READ OUT OF IT rather than copied, so the panel on the left and the errors on the form cannot
 // drift apart.
 
-import type {
-  Candidate,
-} from "@kanzo-tech/ai";
+import { elements, mockModel, promptOf } from "@/lib/mock-model";
 import { MEMBERS, member, membersOf } from "@/example/people";
 import { FEATURED, type Quest, dueOn, postedOn, questLabel } from "@/example/quests";
 import { ROSTER, availableNow } from "@/example/roster";
@@ -587,9 +584,7 @@ export function writLines(v: FormValues): number {
   return toWrit(v).split("\n").filter((entry) => entry.trim().length > 0).length;
 }
 
-// ── Faked AI streams (✨ Suggest `suggest` + Complete `complete`) ────
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// ── The faked model (✨ on the title, the notice and the tags) ───────────────
 
 /**
  * Eight of the board's own tags, with the reason a clerk would give.
@@ -608,50 +603,27 @@ const TAG_NOTES: Partial<Record<Tag, string>> = {
   "hall-honours": "Settles between halls rather than in gold",
 };
 
-const TAG_POOL: Candidate[] = Object.entries(TAG_NOTES).map(([value, rationale]) => ({
-  value,
-  rationale,
-}));
+const TITLES = [
+  { value: "Something in the millrace at Greenhollow", rationale: "Where it was seen." },
+  { value: "Greenhollow: the millrace, and it is not rats", rationale: "Rules out the cheap answer." },
+  { value: "Night work at the Greenhollow millrace", rationale: "Leads with when." },
+  { value: "The mill has stopped twice this week", rationale: "Leads with the cost." },
+];
 
-/** `useSuggestions`' `suggest` — streams candidate tags one at a time. */
-export async function* suggestTags(signal?: AbortSignal): AsyncIterable<Candidate> {
-  for (const s of TAG_POOL) {
-    await sleep(180);
-    if (signal?.aborted) return;
-    yield s;
-  }
-}
+const NOTICE =
+  " Two nights' work at most. The hall pays for rope and lamp-oil, the ferryman has been told to expect a party, and anyone who sees it first walks back and says so.";
 
 /**
- * The title's candidate source — whole titles, not a continuation.
- *
- * A one-line field takes candidates: a ghost over an `<input>` can only ever show what fits in the
- * width that is left, and the field cannot scroll to reveal text that is not in its value.
+ * The model every assisted field asks. A real one reads the field's accessible name off the prompt
+ * (`Field: Title`) and decides from it; this one does the same with a lookup. `Assist` asks for
+ * structured output when it wants candidates, so a JSON response format is the tell between the
+ * one-line fields and the notice's continuation.
  */
-export async function* suggestTitle(signal?: AbortSignal): AsyncIterable<Candidate> {
-  const pool: Candidate[] = [
-    { value: "Something in the millrace at Greenhollow", rationale: "Where it was seen." },
-    { value: "Greenhollow: the millrace, and it is not rats", rationale: "Rules out the cheap answer." },
-    { value: "Night work at the Greenhollow millrace", rationale: "Leads with when." },
-    { value: "The mill has stopped twice this week", rationale: "Leads with the cost." },
-  ];
-  for (const item of pool) {
-    await sleep(180);
-    if (signal?.aborted) return;
-    yield item;
+export const MODEL = mockModel((call) => {
+  if (call.responseFormat?.type !== "json") return NOTICE;
+  const field = /^Field: (.*)$/m.exec(promptOf(call))?.[1];
+  if (field?.startsWith("Tags")) {
+    return elements(Object.entries(TAG_NOTES).map(([value, rationale]) => ({ value, rationale })));
   }
-}
-
-/** The `Textarea` `complete` source — streams a canned continuation for the notice. */
-export async function* completeDescription({
-  signal,
-}: InlineCompletionRequest): AsyncIterable<string> {
-  const continuation =
-    " Two nights' work at most. The hall pays for rope and lamp-oil, the ferryman has been told to expect a party, and anyone who sees it first walks back and says so.";
-  const words = continuation.split(/(?<=\s)/);
-  for (const w of words) {
-    await sleep(45);
-    if (signal?.aborted) return;
-    yield w;
-  }
-}
+  return elements(TITLES);
+});

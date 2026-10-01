@@ -44,14 +44,11 @@ import {
   DiagnosticTrigger,
   Field,
   FieldArray,
-  FieldDescription,
   FieldError,
+  FieldHelper,
   FieldLabel,
   FieldRequiredIndicator,
   Input,
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
   NativeSelect,
   NativeSelectOption,
   PreferencesDensity,
@@ -96,14 +93,7 @@ import {
   TagsInputItemText,
   Textarea,
 } from "@kanzo-tech/ui";
-import {
-  CompleteHint,
-  CompleteRoot,
-  CompleteTextarea,
-  SuggestList,
-  SuggestMark,
-  SuggestRoot,
-} from "@kanzo-tech/ai";
+import { Assist, AssistProvider } from "@kanzo-tech/ai";
 import { JsonTreeView } from "@kanzo-tech/ui";
 import {
   CheckIcon,
@@ -136,16 +126,14 @@ import {
   HALL_OPTIONS,
   type Issue,
   LEDGER_KEYS,
+  MODEL,
   ORDER_COUNT,
   ORDERS_LABEL,
   PARTY_OPTIONS,
   REGION_OPTIONS,
   type Severity,
-  completeDescription,
-  suggestTitle,
   dutyOf,
   orderLine,
-  suggestTags,
   toRecord,
   toWrit,
   uid,
@@ -286,7 +274,6 @@ function FieldFrame({
   description,
   name,
   required,
-  action,
   children,
 }: {
   label: string;
@@ -297,8 +284,6 @@ function FieldFrame({
    */
   name: keyof FormValues;
   required?: boolean;
-  /** A trailing control on the label row (e.g. the ✨ `SuggestMark`). */
-  action?: ReactNode;
   children: (invalid: boolean) => ReactNode;
 }) {
   const { showDescriptions, showKeys } = useContext(FormPrefsContext);
@@ -341,12 +326,11 @@ function FieldFrame({
             </code>
           </Show>
         </FieldLabel>
-        <Show when={!!action}>
-          <div className="ms-auto">{action}</div>
-        </Show>
       </div>
+      {/* `FieldHelper`, not `FieldDescription`: Ark wires the helper to the control with
+          `aria-describedby`, and that is how `Assist` tells the model what the field is for. */}
       <Show when={showDescriptions && !!description}>
-        <FieldDescription>{description}</FieldDescription>
+        <FieldHelper>{description}</FieldHelper>
       </Show>
       {children(invalid)}
       <Show when={reveal}>
@@ -489,9 +473,8 @@ function PanelShell({
  * toggles independently from its header button and is drag-resizable; validation stays in the
  * header badge.
  *
- * It is MOSTLY COMPOSITION — `Field`, `FieldArray`, `DatePicker`, the ✨ `Suggest` compound
- * (`Root`/`Trigger`/`Content`, given its own `suggest` / `existing` / `onPick`), inline ghost
- * completion via the `Complete` compound composed over a pure `Input`/`Textarea`, `Steps`, `Tabs`,
+ * It is MOSTLY COMPOSITION — `Field`, `FieldArray`, `DatePicker`, `Assist` wrapped around the
+ * title `Input`, the notice `Textarea` and the tags `TagsInput` under one `AssistProvider`, `Steps`, `Tabs`,
  * `NativeSelect`, `Resizable` — over a FAKED rule engine in `data.tsx`. The form's layout
  * (Sequential / Tabs / Steps) and display prefs are chosen live in the library's own `Preferences`
  * drawer, extended here with a custom Layout section.
@@ -674,26 +657,11 @@ export function MetadataFormShowcase() {
         required
       >
         {(invalid) => (
-          /* One line, so candidates rather than a continuation — the ✨ offers whole titles and
-             the field keeps its own value. */
-          <SuggestRoot
-            existing={[values.title]}
-            onPick={(v) => setScalar("title", v)}
-            suggest={suggestTitle}
-          >
-            <InputGroup>
-              <InputGroupInput
-                aria-invalid={invalid || undefined}
-                onChange={(e) => setScalar("title", e.target.value)}
-                placeholder="e.g. A wyrm under the granary"
-                value={values.title}
-              />
-              <InputGroupAddon align="inline-end">
-                <SuggestMark label="Suggest a title" />
-              </InputGroupAddon>
-            </InputGroup>
-            <SuggestList />
-          </SuggestRoot>
+          /* One line, so candidates rather than a continuation: the ✨ offers whole titles as
+             chips under the field, and a chip replaces the value. */
+          <Assist onValueChange={(v) => setScalar("title", v)} value={values.title}>
+            <Input aria-invalid={invalid || undefined} placeholder="e.g. A wyrm under the granary" />
+          </Assist>
         )}
       </FieldFrame>
 
@@ -704,16 +672,9 @@ export function MetadataFormShowcase() {
         required
       >
         {() => (
-          <CompleteRoot
-            complete={completeDescription}
-            onValueChange={setNotice}
-            value={values.notices[0]?.value ?? ""}
-          >
-            <CompleteTextarea>
-              <Textarea placeholder="Say what is happening — press Tab to accept the suggestion…" />
-            </CompleteTextarea>
-            <CompleteHint />
-          </CompleteRoot>
+          <Assist onValueChange={setNotice} value={values.notices[0]?.value ?? ""}>
+            <Textarea placeholder="Say what is happening — press Tab to accept the suggestion…" />
+          </Assist>
         )}
       </FieldFrame>
 
@@ -723,42 +684,20 @@ export function MetadataFormShowcase() {
         name="tags"
       >
         {(invalid) => (
-          // TagsInput owns the chips + add; the ✨ writes into the same `tags` state, so the ✨ and
-          // typing feed one list. No hand-rolled FieldArray.
-          //
-          // The ✨ used to sit on the label row, in `FieldFrame`'s `action` slot, because its
-          // candidates arrived in a popover and the popover needed an anchor. They arrive under the
-          // control now, so the mark moved into the control with them — which is also where the
-          // other assisted field on this form has always kept it.
-          <SuggestRoot
-            existing={values.tags.map((t) => t.value)}
-            onPick={(value) =>
-              setValues((p) => ({
-                ...p,
-                tags: [...p.tags, { id: uid("t"), value }],
-              }))
+          // TagsInput owns the chips and the add; `Assist` owns the value, so the ✨'s chips and
+          // typing write one list, and a tag already on it is never offered.
+          <Assist
+            onValueChange={(tags) =>
+              setValues((p) => ({ ...p, tags: tags.map((value) => ({ id: uid("t"), value })) }))
             }
-            suggest={suggestTags}
+            value={values.tags.map((t) => t.value)}
           >
-            <TagsInput
-              invalid={invalid}
-              onValueChange={(d) =>
-                setValues((p) => ({
-                  ...p,
-                  tags: d.value.map((v) => ({ id: uid("t"), value: v })),
-                }))
-              }
-              value={values.tags.map((t) => t.value)}
-            >
+            <TagsInput invalid={invalid}>
               <TagsInputControl>
                 <TagsInputContext>
                   {(api) =>
                     api.value.map((value, index) => (
-                      <TagsInputItem
-                        index={index}
-                        key={`${value}-${index}`}
-                        value={value}
-                      >
+                      <TagsInputItem index={index} key={`${value}-${index}`} value={value}>
                         <TagsInputItemPreview>
                           <TagsInputItemText>{value}</TagsInputItemText>
                           <TagsInputItemDeleteTrigger />
@@ -769,11 +708,9 @@ export function MetadataFormShowcase() {
                   }
                 </TagsInputContext>
                 <TagsInputInput placeholder="Add tag…" />
-                <SuggestMark label="Suggest tags" />
               </TagsInputControl>
             </TagsInput>
-            <SuggestList />
-          </SuggestRoot>
+          </Assist>
         )}
       </FieldFrame>
 
@@ -1481,7 +1418,13 @@ export function MetadataFormShowcase() {
 
   // ── Chrome ───────────────────────────────────────────────────────────────────
 
+  // One provider for the form: which model, and what the rest of the posting says — read when a
+  // field asks, so the ✨ on the title knows the notice the poster has written since.
   return (
+    <AssistProvider
+      context={() => `A contract posted to the Guild board. What it says so far:\n${toWrit(values)}`}
+      model={MODEL}
+    >
     <ShellRoot>
       {/*
         ONE row, and it was two: a `h-9` utility strip under a `scale="page"` title, 103 px of
@@ -1799,6 +1742,7 @@ export function MetadataFormShowcase() {
         })()}
       </ShellBody>
     </ShellRoot>
+    </AssistProvider>
   );
 }
 

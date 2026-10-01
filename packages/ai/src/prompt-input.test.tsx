@@ -8,9 +8,9 @@ import {
   PromptInputTextarea,
   PromptInputToolbar,
 } from "./prompt-input.js";
-import type { AiStatus } from "./use-ai.js";
+import type { ChatStatus } from "@kanzo-tech/llm";
 
-const Composer = (props: { onSubmit: (e: React.FormEvent) => void; status?: AiStatus }) => (
+const Composer = (props: { onSubmit: (e: React.FormEvent) => void; status?: ChatStatus }) => (
   <PromptInput onSubmit={props.onSubmit}>
     <PromptInputTextarea placeholder="Ask about your data…" />
     <PromptInputToolbar>
@@ -48,10 +48,13 @@ describe("PromptInput", () => {
     const { rerender } = render(<Composer onSubmit={submitHandler()} />);
     expect(screen.getByRole("button", { name: "Send" }).getAttribute("type")).toBe("submit");
 
-    rerender(<Composer onSubmit={submitHandler()} status="loading" />);
+    rerender(<Composer onSubmit={submitHandler()} status="streaming" />);
     expect(screen.getByRole("button", { name: "Stop" }).getAttribute("data-status")).toBe(
-      "loading",
+      "streaming",
     );
+
+    rerender(<Composer onSubmit={submitHandler()} status="submitted" />);
+    expect(screen.getByRole("button", { name: "Stop" })).not.toBeNull();
 
     rerender(<Composer onSubmit={submitHandler()} status="error" />);
     expect(screen.getByRole("button", { name: "Retry" })).not.toBeNull();

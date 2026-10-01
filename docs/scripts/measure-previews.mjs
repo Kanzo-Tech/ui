@@ -59,11 +59,10 @@ const CEILING = 900;
  * Per-example floors, for the case this script structurally cannot measure: **an example that only
  * grows when somebody interacts with it.**
  *
- * The probe loads a resting page. `Suggest`'s strip is not on it — the candidates arrive on a press
+ * The probe loads a resting page. `Assist`'s chips are not on it — the candidates arrive on a press
  * and the strip only renders while the field has focus — so the measurement is of a field with
- * nothing under it, and the frame it derives clips the pills the moment they land. Measured live on
- * `/docs/ai/fields`: 186px at rest, 296px with four candidates open, and the tag field wraps to
- * more.
+ * nothing under it, and the frame it derives clips the chips the moment they land. Measured live on
+ * the old fields page, whose strip `Assist` kept: 186px at rest, 296px with four candidates open.
  *
  * A floor rather than a fixed height, so the probe still wins when the resting layout grows past
  * it. Add an entry only with the number that was measured with the thing open, and say what opened
@@ -78,30 +77,10 @@ const CEILING = 900;
  * ever shrinking again. They were corrected in `preview-heights.json` alone.
  */
 const FLOORS = {
-  // Four title candidates open, plus the tag strip, which wraps further at `w-72`.
-  "ai/example-suggestions": 380,
-  // The thinking, open. This one is not waiting for a press — it streams on load and folds itself a
-  // second after it stops — so the probe catches it mid-thought and derives a frame that clips the
-  // block the reader then opens. Measured on `/docs/ai/reasoning` with the stream finished and the
-  // trigger pressed: 231px, of which 163 is `ReasoningContent`. The floor is set above it because
-  // the thought is generated from the example world and its length is not fixed.
-  "reasoning/example-default": 280,
+  // Three candidates open under one field, from the figure above; not yet re-measured on these.
+  "assist/example-input": 300,
+  "assist/example-tags": 300,
 
-  // Not an interaction at all: this one overflows its 720px frame by a hair — four pixels when it
-  // was found, eight measured on 2026-08-23. Nothing visible is lost, which is why it survived —
-  // but a few pixels are enough to make the preview a scroll container, and it then eats the wheel:
-  // a reader scrolling the page with the cursor over the example scrolls the example instead. A
-  // frame that clips by a hair is worse than one that is plainly too small, because only the second
-  // one looks wrong.
-  //
-  // **This entry was inert for a day, and the key in `preview-heights.json` with it.**
-  // `content/docs/ai/tool.mdx` wrote `<ComponentPreview componentName="tool" height={720} />`, and
-  // an explicit `height` beats the measured number *and* stops the pane carrying a `data-example`
-  // at all — so this script never saw the example and nothing it wrote could reach it. A number
-  // published here was a number nobody applied. The prop is gone and the 780 lands; an example that
-  // wants a height taller than its resting content states it here, where the sweep can see it, and
-  // never on the tag.
-  "tool/example-default": 780,
   // Walked with the frame unconstrained: 434 on arrival, 718 at the second question and 774 from
   // the third on, because a later question is a taller card and the last one prints a summary. The
   // probe loads question one, so the floor is the tallest state and question one pays for it in
