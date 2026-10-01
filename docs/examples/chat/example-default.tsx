@@ -28,7 +28,7 @@ const ANSWERS: Record<string, { reasoning: string; text: string }> = {
 };
 
 export default function Example() {
-  // In a product the model is `kanzo("kanzo-chat")`; here it is a mock, so the page needs no
+  // In a product the model is `gateway("chat")`; here it is a mock, so the page needs no
   // network. Everything after it — the agent, the transport, useChat, Chat — is what a product runs.
   const pace = useRef(40);
   const [transport] = useState(

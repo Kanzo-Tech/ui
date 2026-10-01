@@ -1353,7 +1353,7 @@ export function GraphSettings() {
  *
  * Everything around the model is the real path: `ToolLoopAgent`, `DirectChatTransport`, `useChat`,
  * and `Chat` drawing the reasoning, the call in its AI SDK state, and the streamed answer. Swapping
- * the recording for `createKanzo(…)("kanzo-chat")` changes one line.
+ * the recording for `createGateway(…)("chat")` changes one line.
  */
 interface Intent {
   id: string;

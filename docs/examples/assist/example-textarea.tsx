@@ -5,7 +5,7 @@ import { Assist, AssistProvider } from "@kanzo-tech/ai";
 import { useState } from "react";
 import { mockModel, promptOf } from "@/lib/mock-model";
 
-// Stands in for `kanzo("kanzo-complete")`. Each earlier offer the reader skipped with Alt+] comes
+// Stands in for `gateway("complete")`. Each earlier offer the reader skipped with Alt+] comes
 // back in the prompt as a "- " line, so the count of them picks the next continuation.
 const CONTINUATIONS = [
   " — the ground is standing water from the ford to the lane.",

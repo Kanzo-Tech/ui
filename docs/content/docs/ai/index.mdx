@@ -55,25 +55,25 @@ carries sources only: the tokens and variants are `ui`'s.
 
 `@kanzo-tech/llm` stands to the AI SDK as `@kanzo-tech/mosaic` stands to Mosaic: the third party is
 a required peer, its surface is re-exported, and what is ours is the one door it does not have —
-`createKanzo`, which names a model by alias behind a gateway. Three layers:
+`createGateway`, which names a model by alias behind a gateway. Three layers:
 
 ```text
 @kanzo-tech/ai      Assist, Chat, useChat    React; draws
-@kanzo-tech/llm     createKanzo + the SDK    no React; models, agents, tools
+@kanzo-tech/llm     createGateway + the SDK    no React; models, agents, tools
 ai, @ai-sdk/react   the AI SDK               installed once, imported by neither
 ```
 
 So a host's AI imports are two lines, and neither names `ai`:
 
 ```tsx
-import { createKanzo, DirectChatTransport, ToolLoopAgent, tool } from "@kanzo-tech/llm";
+import { createGateway, DirectChatTransport, ToolLoopAgent, tool } from "@kanzo-tech/llm";
 import { Assist, AssistProvider, Chat, useChat } from "@kanzo-tech/ai";
 ```
 
 ## What it does not do
 
 - **It does not hold a key.** A model is a `LanguageModel` the host passes in. In the browser that is
-  `createKanzo` pointed at the host's own route, and the key stays on the server —
+  `createGateway` pointed at the host's own route, and the key stays on the server —
   [Connecting a model](/docs/ai/llm#connecting-a-model) has the set-ups.
 - **It does not choose a model.** `Assist` asks whatever `AssistProvider` is given; `Chat` draws
   whatever `useChat` streams. Which upstream answers an alias is the gateway's configuration.
@@ -83,5 +83,5 @@ import { Assist, AssistProvider, Chat, useChat } from "@kanzo-tech/ai";
 <Cards>
   <Card title="Assist" href="/docs/ai/assist" description="One proposal for a field, drawn as ghost text or as chips." />
   <Card title="Chat" href="/docs/ai/chat" description="A conversation with a model, whole, with the host's tools drawn inside it." />
-  <Card title="@kanzo-tech/llm" href="/docs/ai/llm" description="createKanzo, the AI SDK re-exported, and where the key lives." />
+  <Card title="@kanzo-tech/llm" href="/docs/ai/llm" description="createGateway, the AI SDK re-exported, and where the key lives." />
 </Cards>
