@@ -30,7 +30,7 @@ export function ThemeCatalogue() {
   };
 
   return (
-    <div className="not-prose grid grid-cols-[repeat(auto-fill,minmax(min(20rem,100%),1fr))] gap-5">
+    <div className="not-prose grid grid-cols-[repeat(auto-fill,minmax(min(16rem,100%),1fr))] gap-5">
       {families.map((family) => (
         <FamilyCard
           family={family}

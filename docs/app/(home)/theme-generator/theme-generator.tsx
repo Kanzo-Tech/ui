@@ -692,9 +692,9 @@ function OklchPicker({
       step={step}
       value={[lch[key]]}
     >
-      <SliderLabel className="flex w-full justify-between font-mono text-[11px]">
+      <SliderLabel className="flex w-full gap-2 font-mono text-[11px]">
         <span>{text}</span>
-        <span className="text-muted-foreground">{lch[key].toFixed(key === "h" ? 0 : 3)}</span>
+        <span className="ms-auto text-muted-foreground">{lch[key].toFixed(key === "h" ? 0 : 3)}</span>
       </SliderLabel>
     </Slider>
   );
