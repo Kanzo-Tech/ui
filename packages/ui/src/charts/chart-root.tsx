@@ -7,6 +7,7 @@ import { ark } from "@ark-ui/react/factory";
 import { Selection, type Coordinator } from "@uwdata/mosaic-core";
 import * as vg from "@uwdata/vgplot";
 import { cn } from "../lib/cn.js";
+import { Show } from "../simples/show.js";
 import { chartColorScale, chartSeriesColor, colorTokenName, isColorToken, type ChartConfig } from "./chart-config.js";
 import {
   buildChartSpec,
@@ -22,6 +23,13 @@ import {
 import { useMosaic } from "./mosaic-provider.js";
 import { resolveTokenColor } from "../lib/token-color.js";
 import { TokenizedPlot } from "./tokenized-plot.js";
+
+/**
+ * What `vg.plot` returns: its element, carrying the `Plot` as `value`. vgplot's marks are Mosaic
+ * clients this library does not define, and their `queryError` does nothing — a failed mark leaves
+ * the plot on its last render — so `ChartRoot` answers it for them.
+ */
+type PlotElement = HTMLElement & { value: { marks: { queryError(error: Error): unknown }[] } };
 
 /** vgplot ships `any` for every directive; this is the one place we pin a shape to it. */
 type VgDirective = (plot: unknown) => void;
@@ -174,7 +182,8 @@ export function ChartRoot(props: ChartRootProps) {
     slot,
     ...rest
   } = props;
-  const { coordinator, crossfilter, selected, registerSelection } = useMosaic();
+  const { coordinator, crossfilter, selected, registerSelection, onFailure } = useMosaic();
+  const [failure, setFailure] = useState<unknown>(undefined);
   // A plain union, so it hides nothing from its own publisher — a crossfilter would, and
   // `ChartHighlight` would read an empty predicate and dim nothing.
   const [own] = useState(() => Selection.union());
@@ -241,7 +250,7 @@ export function ChartRoot(props: ChartRootProps) {
         data-slot={slot ?? "chart-root"}
       >
         <TokenizedPlot
-          className={plotClassName}
+          className={cn(plotClassName, failure !== undefined && "hidden")}
           deps={[
             signature,
             colorKey,
@@ -276,9 +285,28 @@ export function ChartRoot(props: ChartRootProps) {
               { children, width, height, margin, aspectRatio, facetMargin, facetGrid, facetLabel, attributes },
               ctx,
             );
-            return vg.plot(...spec.map(toVgDirective).filter((d): d is VgDirective => d !== null));
+            setFailure(undefined);
+            const element = vg.plot(...spec.map(toVgDirective).filter((d): d is VgDirective => d !== null));
+            for (const mark of (element as PlotElement).value.marks) {
+              const own = mark.queryError.bind(mark);
+              mark.queryError = (error) => {
+                setFailure(() => error);
+                onFailure(error);
+                return own(error);
+              };
+            }
+            return element;
           }}
         />
+        <Show when={failure !== undefined}>
+          <p
+            className="grid place-items-center text-muted-foreground text-xs"
+            data-slot="chart-failure"
+            style={{ height }}
+          >
+            This chart could not be drawn.
+          </p>
+        </Show>
         {children}
       </ark.div>
     </ChartContext.Provider>

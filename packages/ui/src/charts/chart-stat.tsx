@@ -34,7 +34,7 @@ export function ChartStat(props: ChartStatProps) {
   const chart = useChartContextOptional();
   const relation = table ?? chart?.table;
 
-  const { row } = useChartQuery({
+  const { row, error } = useChartQuery({
     query: (filter) =>
       relation ? Query.from(relation).select({ value }).where(filter) : null,
     deps: [chartTableKey(relation), value],
@@ -45,6 +45,14 @@ export function ChartStat(props: ChartStatProps) {
   }
 
   const raw = Number(row?.value ?? 0);
+  if (error !== undefined) {
+    return (
+      <StatValue {...rest} data-failed="">
+        <span aria-hidden="true">—</span>
+        <span className="sr-only">Could not be read</span>
+      </StatValue>
+    );
+  }
   return (
     <StatValue loading={row === undefined} {...rest}>
       {format ? (

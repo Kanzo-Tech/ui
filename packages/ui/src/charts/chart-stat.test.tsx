@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { clausePoint, Selection, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
 import { verbatim } from "@uwdata/mosaic-sql";
 import { count } from "@uwdata/vgplot";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ChartStat } from "./chart-stat.js";
 import { MosaicProvider } from "./mosaic-provider.js";
 
@@ -39,19 +39,27 @@ function stubCoordinator(answer: (sql: string) => Row[]) {
     requestQuery(client: MosaicClient, query: unknown) {
       if (query == null) return Promise.resolve();
       queries.push(String(query));
-      return Promise.resolve().then(() => {
-        client.queryResult(answer(String(query)));
-        client.update();
-      });
+      // As `Coordinator.updateClient` does: a rejected query goes to the client's `queryError`.
+      return Promise.resolve()
+        .then(() => answer(String(query)))
+        .then(
+          (rows) => client.queryResult(rows).update(),
+          (error: Error) => client.queryError(error),
+        );
     },
     clear() {},
   };
   return { connected: listeners, coordinator: coordinator as unknown as Coordinator, queries };
 }
 
-const wrap = (coordinator: Coordinator, crossfilter: Selection, node: React.ReactNode) =>
+const wrap = (
+  coordinator: Coordinator,
+  crossfilter: Selection,
+  node: React.ReactNode,
+  onFailure?: (error: unknown) => void,
+) =>
   render(
-    <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
+    <MosaicProvider coordinator={coordinator} crossfilter={crossfilter} onFailure={onFailure}>
       {node}
     </MosaicProvider>,
   );
@@ -110,5 +118,20 @@ describe("ChartStat", () => {
     expect(await screen.findByText("42.0%")).toBeTruthy();
     view.unmount();
     expect(connected.size).toBe(0);
+  });
+
+  it("shows a failed read as a failure, not as a figure or a skeleton, and hands the host the thrown value", async () => {
+    const failure = Object.assign(new Error("Catalog Error: Table telemetry does not exist"), { code: "x/y" });
+    const onFailure = vi.fn();
+    const { coordinator } = stubCoordinator(() => {
+      throw failure;
+    });
+
+    const view = wrap(coordinator, Selection.crossfilter(), <ChartStat table="telemetry" value={count()} />, onFailure);
+
+    expect(await screen.findByText("Could not be read")).toBeTruthy();
+    expect(view.container.querySelector("[data-slot=stat-value]")?.getAttribute("aria-busy")).toBeNull();
+    expect(onFailure).toHaveBeenCalledTimes(1);
+    expect(onFailure.mock.calls[0]![0]).toBe(failure);
   });
 });

@@ -31,27 +31,42 @@ export interface ChartQueryResult {
   rows: readonly ChartQueryRow[] | null;
   /** The first row, for the common single-aggregate case. */
   row: ChartQueryRow | undefined;
+  /** What the last query threw, as thrown; `undefined` while it has not failed. */
+  error: unknown;
 }
 
 export function useChartQuery(options: ChartQueryOptions): ChartQueryResult {
   const { filterBy, deps = [] } = options;
-  const { coordinator, crossfilter } = useMosaic();
+  const { coordinator, crossfilter, onFailure } = useMosaic();
   const source = filterBy === undefined ? crossfilter : filterBy;
   // Read the latest builder without making it a dependency: an inline arrow would reconnect the
   // client on every render, and reconnecting re-runs the query.
   const latest = useRef(options.query);
   latest.current = options.query;
   const [rows, setRows] = useState<readonly ChartQueryRow[] | null>(null);
+  const [error, setError] = useState<unknown>(undefined);
 
   useEffect(() => {
-    const client = new ChartQueryClient(source ?? undefined, (filter) => latest.current(filter), setRows);
+    const client = new ChartQueryClient(
+      source ?? undefined,
+      (filter) => latest.current(filter),
+      (answer) => {
+        setError(undefined);
+        setRows(answer);
+      },
+      (failure) => {
+        setError(() => failure);
+        onFailure(failure);
+      },
+    );
     setRows(null);
+    setError(undefined);
     coordinator.connect(client);
     return () => coordinator.disconnect(client);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coordinator, source, ...deps]);
+  }, [coordinator, source, onFailure, ...deps]);
 
-  return { rows, row: rows?.[0] };
+  return { rows, row: rows?.[0], error };
 }
 
 /** Re-exported so a caller builds a query without a direct `@uwdata/mosaic-sql` import. */

@@ -75,6 +75,8 @@ export interface MosaicInputOptions<T> {
 export interface MosaicInputState<T> {
   /** Lookup rows, or `null` while the query is in flight (or when there is no query). */
   rows: readonly QueryRow[] | null;
+  /** What the lookup threw, as thrown; `undefined` while it has not failed. */
+  error: unknown;
   /** The value this widget currently holds in the selection — its observable half. */
   selected: T | undefined;
   publish: (value: T | undefined) => void;
@@ -94,23 +96,32 @@ export function useMosaicInput<T>(
   options: MosaicInputOptions<T>
 ): MosaicInputState<T> {
   const { filterBy, as, deps } = options;
-  const { coordinator } = useMosaic();
+  const { coordinator, onFailure } = useMosaic();
   const latest = useRef(options);
   latest.current = options;
 
   const clientRef = useRef<ChartQueryClient | null>(null);
   const [client, setClient] = useState<ChartQueryClient | null>(null);
   const [rows, setRows] = useState<readonly QueryRow[] | null>(null);
+  const [error, setError] = useState<unknown>(undefined);
   const [selected, setSelected] = useState<T | undefined>(undefined);
 
   useEffect(() => {
     const instance = new ChartQueryClient(
       filterBy ?? undefined,
       (filter) => latest.current.build(filter),
-      setRows,
+      (answer) => {
+        setError(undefined);
+        setRows(answer);
+      },
+      (failure) => {
+        setError(() => failure);
+        onFailure(failure);
+      },
     );
     clientRef.current = instance;
     setRows(null);
+    setError(undefined);
     setClient(instance);
     coordinator.connect(instance);
     return () => {
@@ -118,7 +129,7 @@ export function useMosaicInput<T>(
       coordinator.disconnect(instance);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coordinator, filterBy, ...deps]);
+  }, [coordinator, filterBy, onFailure, ...deps]);
 
   useEffect(() => {
     if (!as || !client) return;
@@ -151,7 +162,7 @@ export function useMosaicInput<T>(
     if (as && instance) as.activate(latest.current.clause(instance, latest.current.activateValue));
   }, [as]);
 
-  return { rows, selected, publish, activate };
+  return { rows, error, selected, publish, activate };
 }
 
 /** vgplot's inputs warm the selection on hover/focus; ours do it on the wrapper, and compose. */
@@ -326,7 +337,7 @@ export function ChartFilter(props: ChartFilterProps) {
   const source = filterBy === undefined ? crossfilter : filterBy;
   const lookup = options === undefined && Boolean(table && column);
 
-  const { rows, selected, publish, activate } = useMosaicInput<readonly unknown[]>({
+  const { rows, error, selected, publish, activate } = useMosaicInput<readonly unknown[]>({
     as: target,
     filterBy: source,
     deps: [chartTableKey(table), column, lookup, limit],
@@ -385,7 +396,7 @@ export function ChartFilter(props: ChartFilterProps) {
         className={controlClassName}
         slot="chart-filter-trigger"
         disabled={disabled}
-        empty={lookup && rows === null ? "Loading…" : "No values."}
+        empty={error !== undefined ? "The values could not be read." : lookup && rows === null ? "Loading…" : "No values."}
         items={items}
         label={label}
         multiple={multiple}
