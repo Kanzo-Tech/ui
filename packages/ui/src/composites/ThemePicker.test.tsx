@@ -1,5 +1,5 @@
 import { STORAGE_KEY, type ThemeOption, type ThemePrefs } from "@kanzo-tech/theme";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -86,14 +86,14 @@ describe("ThemePicker", () => {
     setup();
     await userEvent.setup().click(radio("Day theme", "Nord"));
     expect(stored().themeByAppearance).toEqual({ light: "nord" });
-    expect(html().getAttribute("data-theme")).toBe("nord");
+    await waitFor(() => expect(html().getAttribute("data-theme")).toBe("nord"));
   });
 
   it("files the night theme without repainting the day", async () => {
     setup();
     await userEvent.setup().click(radio("Night theme", "Nord Dark"));
     expect(stored().themeByAppearance).toEqual({ dark: "nord-dark" });
-    expect(html().getAttribute("data-theme")).toBe("acme");
+    await waitFor(() => expect(html().getAttribute("data-theme")).toBe("acme"));
   });
 
   it("in single-theme mode offers one group of every theme, and choosing one wears its side", async () => {
@@ -107,8 +107,8 @@ describe("ThemePicker", () => {
     await user.click(radio("Theme", "Nord Dark"));
     expect(stored().appearance).toBe("dark");
     expect(stored().themeByAppearance).toEqual({ dark: "nord-dark" });
-    expect(html().classList.contains("dark")).toBe(true);
-    expect(html().getAttribute("data-theme")).toBe("nord-dark");
+    await waitFor(() => expect(html().classList.contains("dark")).toBe(true));
+    await waitFor(() => expect(html().getAttribute("data-theme")).toBe("nord-dark"));
   });
 
   it("goes back to the system by unsetting the side", async () => {
