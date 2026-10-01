@@ -3,9 +3,23 @@ title: Editable
 description: An edit-in-place text field that swaps a preview for an input.
 links:
   doc: https://ark-ui.com/docs/components/editable
+  api: https://ark-ui.com/docs/components/editable#api-reference
 ---
 
 <ComponentPreview componentName="editable" />
+
+## Anatomy
+
+```text
+Editable
+├── EditableArea
+│   ├── EditablePreview
+│   └── EditableInput
+└── EditableControl
+    ├── EditableEditTrigger
+    ├── EditableCancelTrigger
+    └── EditableSubmitTrigger
+```
 
 ## Usage
 
@@ -22,74 +36,154 @@ import {
 } from "@kanzo-tech/ui";
 ```
 
-`EditableInput` and the triggers render bare — compose them over a styled
-`Input` (or `Textarea`) and `Button` with `asChild`, and wrap the field in a
-`Field` for its label.
-
-## Anatomy
-
 ```tsx
 <Field>
   <FieldLabel>Contract title</FieldLabel>
   <Editable defaultValue="A wyrm under the granary">
     <EditableArea>
       <EditableInput asChild>
-        <Input className="w-full" />
+        <Input />
       </EditableInput>
       <EditablePreview />
     </EditableArea>
     <EditableControl>
-      <EditableEditTrigger asChild>
-        <Button size="icon-md" variant="ghost">
-          <PencilIcon />
-        </Button>
-      </EditableEditTrigger>
-      <EditableSubmitTrigger asChild>
-        <Button size="icon-md" variant="outline">
-          <CheckIcon />
-        </Button>
-      </EditableSubmitTrigger>
       <EditableCancelTrigger asChild>
-        <Button size="icon-md" variant="ghost">
+        <Button aria-label="Cancel" size="icon-md" variant="outline">
           <XIcon />
         </Button>
       </EditableCancelTrigger>
+      <EditableSubmitTrigger asChild>
+        <Button aria-label="Save" size="icon-md" variant="outline">
+          <CheckIcon />
+        </Button>
+      </EditableSubmitTrigger>
     </EditableControl>
   </Editable>
 </Field>
 ```
 
-Ark shows the edit trigger while idle and the submit/cancel pair while editing —
-no conditional needed.
+`EditableInput` and the triggers render bare: compose them over a styled `Input` (or `Textarea`)
+and `Button` with `asChild`. Inside a `Field`, the label points at the input and the field's
+`disabled`, `invalid`, `readOnly` and `required` reach the editable. Ark shows the edit trigger at
+rest and the submit/cancel pair while editing, so neither needs a conditional.
+
+## Controlled
+
+`edit` puts a whole form into edit mode at once; `value` and `onValueChange` control the value.
+
+<ComponentPreview componentName="editable" fileName="example-controlled" />
+
+## Modes
+
+`activationMode` decides what starts editing.
+
+#### Focus
+
+The default: editing starts when the preview takes focus, by click or by Tab.
+
+<ComponentPreview componentName="editable" fileName="example-activation-focus" />
+
+#### Click
+
+<ComponentPreview componentName="editable" fileName="example-activation-click" />
+
+#### Double-click
+
+<ComponentPreview componentName="editable" fileName="example-dblclick" />
+
+#### None
+
+Nothing on the preview starts editing; `EditableEditTrigger` does.
+
+<ComponentPreview componentName="editable" fileName="example-activation-none" />
+
+## Submit modes
+
+`submitMode` decides what saves: `"both"` (the default) saves on Enter and on clicking away,
+`"enter"` reverts on clicking away, `"blur"` ignores Enter, and `"none"` leaves it to
+`EditableSubmitTrigger`. Escape always cancels.
+
+<ComponentPreview componentName="editable" fileName="example-submit-mode" />
+
+## Sizes
+
+`size` on `EditablePreview` is the height of the control it stands in for — `sm`, `md`, `lg` or
+`xl`. Give the `Input` the same size, so nothing moves when the two swap.
+
+### Small
+
+<ComponentPreview componentName="editable" fileName="example-size-sm" />
+
+### Large
+
+<ComponentPreview componentName="editable" fileName="example-size-lg" />
+
+## Truncation
+
+Over an `Input` the preview is one line: a value wider than its box ends in an ellipsis and carries
+the whole value as its `title`, which appears only once it is cut off. Bound the width on the root
+— the preview needs no classes of its own. This is a name inline in a header strip:
+
+<ComponentPreview componentName="editable" fileName="example-truncation" />
+
+## Orientation
+
+`orientation` lays out `EditableControl`: its triggers in a row, or stacked and aligned to the end
+of the area — the arrangement a textarea wants.
+
+#### Horizontal
+
+<ComponentPreview componentName="editable" fileName="example-orientation-horizontal" />
+
+#### Vertical
+
+<ComponentPreview componentName="editable" fileName="example-orientation-vertical" />
+
+## Examples
+
+### With Textarea
+
+Over a `Textarea` the preview wraps and grows instead of truncating.
+
+<ComponentPreview componentName="editable" fileName="example-with-textarea" />
+
+### Without Controls
+
+No triggers: Enter saves, Escape cancels.
+
+<ComponentPreview componentName="editable" fileName="example-without-controls" />
 
 ## API Reference
 
 ### Editable
 
+Root. Manages edit mode and the value.
+
 | Prop | Type | Default |
 | --- | --- | --- |
+| `activationMode` | `"focus" \| "click" \| "dblclick" \| "none"` | `"focus"` |
+| `submitMode` | `"both" \| "enter" \| "blur" \| "none"` | `"both"` |
 | `orientation` | `"horizontal" \| "vertical"` | `"horizontal"` |
-| `activationMode` | `"focus" \| "dblclick" \| "click"` | `"focus"` |
-| `submitMode` | `"blur" \| "enter" \| "both" \| "none"` | `"both"` |
 | `selectOnFocus` | `boolean` | `true` |
 
-`orientation` is ours — it is mirrored to `data-orientation`, which is what stacks
-`EditableControl` under the area instead of beside it. The rest is Ark's.
-
-Extends `React.ComponentProps<typeof ArkEditable.Root>`, so `value` / `defaultValue`,
+`orientation` is ours, mirrored to `data-orientation`. The rest is Ark's, and so is everything
+`React.ComponentProps<typeof ArkEditable.Root>` carries: `value` / `defaultValue`,
 `onValueChange` / `onValueCommit` / `onValueRevert`, `edit` / `defaultEdit` / `onEditChange`,
 `placeholder`, `maxLength`, `autoResize`, `disabled`, `invalid`, `readOnly`, `required`, `name`,
-`form` and `ref` pass through.
+`form` and `ref`.
 
 ### EditablePreview
 
+The value at rest.
+
 | Prop | Type | Default |
 | --- | --- | --- |
+| `size` | `"sm" \| "md" \| "lg" \| "xl"` | `"md"` |
 | `variant` | `ButtonProps["variant"]` | `"outline"` |
-| `size` | `ButtonProps["size"]` | `"md"` |
+| `title` | `string` | the value, when truncated |
 
-The idle state is styled with `buttonVariants` at `clickEffect: false`, so it already looks like
-the control it is about to become.
+It is styled with `buttonVariants` at `clickEffect: false`, so it already looks like the control it
+is about to become. There is no `xs`, for the reason [`Button`](/docs/actions/button) has none.
 
 ### Other parts
 
@@ -98,5 +192,5 @@ triggers render bare — pass a styled `Input` / `Textarea` or `Button` with `as
 `EditableInput` omits the native `size` attribute, the way [`Input`](/docs/forms/input) does.
 `useEditable` re-exports Ark's `useEditableContext`.
 
-Every part's props are exported as an interface — `EditableInputProps` and `EditableProps` — so a
-wrapper can take the same props without restating them.
+`EditableProps`, `EditablePreviewProps` and `EditableInputProps` are exported, so a wrapper can
+take the same props without restating them.

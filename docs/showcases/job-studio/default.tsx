@@ -640,40 +640,20 @@ export function JobStudioShowcase() {
               <SidebarTrigger />
               <Separator className="h-4" orientation="vertical" />
 
-            {/* Composed the way the component's own example composes it. The first pass had
-                `activationMode="dblclick"` and NO trigger, so a single click did nothing and
-                nothing on screen said the name could be edited — it read as broken rather than
-                as a control. `EditableControl` is where Ark puts the pencil, and it swaps itself
-                for submit/cancel while editing. `EditablePreview` also ships `w-full px-3
-                text-base` for a field-width preview, which has to be undone for a name inline in
-                a strip. */}
+            {/* A pencil beside a double-click target, so the name reads as a control. The width
+                is bounded on the root; the preview truncates and titles itself. */}
             <Editable
               activationMode="dblclick"
-              className="w-auto shrink-0"
+              className="w-auto max-w-[10rem] @3xl:max-w-[18rem]"
               onValueChange={(d) => setName(d.value)}
               placeholder="Unnamed job"
               value={name}
             >
               <EditableArea className="w-auto">
                 <EditableInput asChild>
-                  <Input className="h-8 w-56" />
+                  <Input className="w-56" size="sm" />
                 </EditableInput>
-                {/* `block` is what makes `truncate` work at all here. `EditablePreview` bakes in
-                    `whitespace-pre-wrap` and inherits `inline-flex` from the button variants, and
-                    `text-overflow: ellipsis` does nothing on a flex container — so the name wrapped
-                    onto a second line and the header's height clipped it mid-word. Both defaults
-                    are right for the multi-line preview the part was built for; a name in a strip
-                    is the other case.
-
-                    `whitespace-nowrap` is spelled out beside `truncate` on purpose: tailwind-merge
-                    files them under DIFFERENT groups, so `truncate` alone never displaces the
-                    baked-in `whitespace-pre-wrap` and stylesheet order decides — which it lost.
-                    Naming the same group is what actually overrides it. */}
-                <EditablePreview
-                  className="block w-auto max-w-[8rem] truncate whitespace-nowrap px-2 py-1 font-medium @3xl:max-w-[16rem]"
-                  size="sm"
-                  variant="ghost"
-                />
+                <EditablePreview className="font-medium" size="sm" variant="ghost" />
               </EditableArea>
               <EditableControl>
                 <EditableEditTrigger asChild>

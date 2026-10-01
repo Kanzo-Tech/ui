@@ -9,6 +9,7 @@ import {
   EditableArea,
   EditableCancelTrigger,
   EditableControl,
+  EditableEditTrigger,
   EditableInput,
   EditablePreview,
   EditableSubmitTrigger,
@@ -17,20 +18,20 @@ import {
   FieldLabel,
   Input,
 } from "@kanzo-tech/ui";
-import { CheckIcon, XIcon } from "lucide-react";
+import { CheckIcon, PencilIcon, XIcon } from "lucide-react";
 
 export default function Example() {
   return (
     <Card className="w-full max-w-sm">
       <CardHeader
-        description="Focus a field to start editing."
-        title="Edit contract"
+        description="Only the pencil starts editing."
+        title="Edit with a trigger"
       />
       <CardContent>
         <FieldGroup>
           <Field>
             <FieldLabel>Contract title</FieldLabel>
-            <Editable defaultValue="A wyrm under the granary">
+            <Editable activationMode="none" defaultValue="A wyrm under the granary">
               <EditableArea>
                 <EditableInput asChild>
                   <Input />
@@ -38,6 +39,11 @@ export default function Example() {
                 <EditablePreview />
               </EditableArea>
               <EditableControl>
+                <EditableEditTrigger asChild>
+                  <Button aria-label="Edit" size="icon-md" variant="outline">
+                    <PencilIcon />
+                  </Button>
+                </EditableEditTrigger>
                 <EditableCancelTrigger asChild>
                   <Button aria-label="Cancel" size="icon-md" variant="outline">
                     <XIcon />
@@ -53,7 +59,7 @@ export default function Example() {
           </Field>
           <Field>
             <FieldLabel>Posted by</FieldLabel>
-            <Editable defaultValue="Hearthward Mill">
+            <Editable activationMode="none" defaultValue="Hearthward Mill">
               <EditableArea>
                 <EditableInput asChild>
                   <Input />
@@ -61,6 +67,11 @@ export default function Example() {
                 <EditablePreview />
               </EditableArea>
               <EditableControl>
+                <EditableEditTrigger asChild>
+                  <Button aria-label="Edit" size="icon-md" variant="outline">
+                    <PencilIcon />
+                  </Button>
+                </EditableEditTrigger>
                 <EditableCancelTrigger asChild>
                   <Button aria-label="Cancel" size="icon-md" variant="outline">
                     <XIcon />

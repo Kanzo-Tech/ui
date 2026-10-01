@@ -23,14 +23,14 @@ export default function Example() {
   return (
     <Card className="w-full max-w-sm">
       <CardHeader
-        description="Focus a field to start editing."
-        title="Edit contract"
+        description="Double-click the text to start editing."
+        title="Edit with double-click"
       />
       <CardContent>
         <FieldGroup>
           <Field>
             <FieldLabel>Contract title</FieldLabel>
-            <Editable defaultValue="A wyrm under the granary">
+            <Editable activationMode="dblclick" defaultValue="A wyrm under the granary">
               <EditableArea>
                 <EditableInput asChild>
                   <Input />
@@ -53,7 +53,7 @@ export default function Example() {
           </Field>
           <Field>
             <FieldLabel>Posted by</FieldLabel>
-            <Editable defaultValue="Hearthward Mill">
+            <Editable activationMode="dblclick" defaultValue="Hearthward Mill">
               <EditableArea>
                 <EditableInput asChild>
                   <Input />

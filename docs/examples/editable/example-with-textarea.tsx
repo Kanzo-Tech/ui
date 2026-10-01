@@ -15,50 +15,27 @@ import {
   Field,
   FieldGroup,
   FieldLabel,
-  Input,
+  Textarea,
 } from "@kanzo-tech/ui";
 import { CheckIcon, XIcon } from "lucide-react";
 
 export default function Example() {
   return (
     <Card className="w-full max-w-sm">
-      <CardHeader
-        description="Focus a field to start editing."
-        title="Edit contract"
-      />
+      <CardHeader description="Over a textarea the preview wraps instead of truncating." title="Edit briefing" />
       <CardContent>
         <FieldGroup>
           <Field>
-            <FieldLabel>Contract title</FieldLabel>
-            <Editable defaultValue="A wyrm under the granary">
+            <FieldLabel>Briefing</FieldLabel>
+            <Editable
+              defaultValue="Something has been taking a sack a night from the Hearthward granary. The miller heard wings. Bring salt."
+              orientation="vertical"
+            >
               <EditableArea>
                 <EditableInput asChild>
-                  <Input />
+                  <Textarea className="min-h-24" />
                 </EditableInput>
-                <EditablePreview />
-              </EditableArea>
-              <EditableControl>
-                <EditableCancelTrigger asChild>
-                  <Button aria-label="Cancel" size="icon-md" variant="outline">
-                    <XIcon />
-                  </Button>
-                </EditableCancelTrigger>
-                <EditableSubmitTrigger asChild>
-                  <Button aria-label="Save" size="icon-md" variant="outline">
-                    <CheckIcon />
-                  </Button>
-                </EditableSubmitTrigger>
-              </EditableControl>
-            </Editable>
-          </Field>
-          <Field>
-            <FieldLabel>Posted by</FieldLabel>
-            <Editable defaultValue="Hearthward Mill">
-              <EditableArea>
-                <EditableInput asChild>
-                  <Input />
-                </EditableInput>
-                <EditablePreview />
+                <EditablePreview className="min-h-24" />
               </EditableArea>
               <EditableControl>
                 <EditableCancelTrigger asChild>
