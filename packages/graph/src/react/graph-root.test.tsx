@@ -1,6 +1,7 @@
 import { act, render, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { fakeCorpus } from "../../test/corpus";
+import { GraphError } from "../core/error";
 import { GraphCanvas } from "../parts/graph-canvas";
 import { GraphRoot, useGraphContext } from "./graph-root";
 import { internalsOf, useGraph } from "./use-graph";
@@ -21,7 +22,7 @@ vi.stubGlobal(
 );
 
 describe("GraphRoot and GraphCanvas", () => {
-  it("declines in an environment with no WebGL, says so once, and says it failed", () => {
+  it("declines in an environment with no WebGL, says so once as graph/no-webgl, and says it failed", () => {
     const onFailure = vi.fn();
     const statuses: string[] = [];
     function Status() {
@@ -37,13 +38,14 @@ describe("GraphRoot and GraphCanvas", () => {
     );
     expect(statuses.at(-1)).toBe("failed");
     expect(onFailure).toHaveBeenCalledTimes(1);
-    expect(String(onFailure.mock.calls[0]?.[0])).toMatch(/WebGL/i);
+    expect(onFailure.mock.calls[0]?.[0]).toBeInstanceOf(GraphError);
+    expect(onFailure.mock.calls[0]?.[0]).toMatchObject({ code: "graph/no-webgl" });
   });
 
   it("does not rebuild the renderer because a callback changed identity", () => {
     const calls: string[] = [];
     const tree = (tag: string) => (
-      <GraphRoot corpus={null} onFailure={(message) => calls.push(`${tag}:${message}`)}>
+      <GraphRoot corpus={null} onFailure={(error) => calls.push(`${tag}:${String(error)}`)}>
         <GraphCanvas />
       </GraphRoot>
     );

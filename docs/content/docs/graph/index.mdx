@@ -47,7 +47,8 @@ a URL opens as `open(url, { engine })`, and a private one under a name with a `h
 files, `` open(`jobs/${id}`, { engine, host }) ``. `GraphRoot` takes what came back and never opens
 a second copy; closing it is the host's too. **`corpus` takes the opening itself** — the promise
 `open` returns — and the root reports `status: "opening"` until it settles and `onFailure` if it
-does not; `null` is no corpus at all. The canvas is mounted either way and waits over an empty
+does not; `null` is no corpus at all. The promise must settle: the root sets no deadline on it,
+because the waits inside `open` are fossil's to bound. The canvas is mounted either way and waits over an empty
 surface, because a canvas gated on its first answer has no camera to ask with.
 
 It is the archive the [workspace showcase](/docs/showcases/workspace) draws, opened the same way —
@@ -75,7 +76,9 @@ callback, `api.getState()` reads it without subscribing.
 neighbours and focuses it; a lasso selects what it encloses; a failure is reported. What the host
 does with each is `onSelect`, `onFocus` and `onFailure`, and **no part takes a callback of its
 own** — the package's barrel test holds that. `onFailure` is the one required prop: unhandled, a
-browser with no WebGL context shows an empty box.
+browser with no WebGL context shows an empty box. It receives what was thrown, whole: fossil's
+errors keep their `code`, and the graph's own are a `GraphError` coded `graph/no-webgl` or
+`graph/context-lost`.
 
 ### Ark's four: `useGraph` and `GraphRootProvider`
 

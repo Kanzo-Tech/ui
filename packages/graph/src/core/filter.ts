@@ -1,5 +1,6 @@
 import type { Filter, Literal } from "@fossil-lang/corpus";
 import { MosaicClient, clausePoints, type Selection } from "@kanzo-tech/mosaic";
+import { GraphError } from "./error";
 
 /**
  * **The page's crossfilter, as scan's typed filter.** The graph listens to the `Selection` rather
@@ -10,11 +11,6 @@ import { MosaicClient, clausePoints, type Selection } from "@kanzo-tech/mosaic";
  * The nodes are read by their `type`, never by importing mosaic-sql's classes: what arrives is
  * whatever the page's copy of mosaic-sql built.
  */
-
-/** A predicate this cannot express as a `Filter` — reported, never dropped. */
-export class UntranslatableFilter extends Error {
-  override readonly name = "UntranslatableFilter";
-}
 
 interface Node {
   readonly type?: string;
@@ -35,8 +31,10 @@ const COMPARISONS: Record<string, "=" | "!=" | "<" | "<=" | ">" | ">="> = {
 };
 const MIRRORED = { "=": "=", "!=": "!=", "<": ">", "<=": ">=", ">": "<", ">=": "<=" } as const;
 
+/** A predicate this cannot express as a `Filter` — reported, never dropped. */
 const fail = (what: unknown): never => {
-  throw new UntranslatableFilter(
+  throw new GraphError(
+    "graph/untranslatable-filter",
     `the graph cannot express this crossfilter clause as a filter on the corpus: ${String(what)}`,
   );
 };

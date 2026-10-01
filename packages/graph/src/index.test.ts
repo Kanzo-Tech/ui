@@ -16,6 +16,7 @@ import * as GRAPH from "./index";
  */
 const VALUES = [
   "GraphCanvas",
+  "GraphError",
   "GraphInspector",
   "GraphLegend",
   "GraphRoot",

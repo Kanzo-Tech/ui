@@ -76,7 +76,7 @@ describe("a Mosaic predicate as scan's filter", () => {
     const before = fake.scans.length;
     crossfilter.update(clauseMatch("label", "grey", { source: chart, method: "contains" }));
     expect(onFailure).toHaveBeenCalledTimes(1);
-    expect(String(onFailure.mock.calls[0]?.[0])).toMatch(/cannot express/);
+    expect(onFailure.mock.calls[0]?.[0]).toMatchObject({ code: "graph/untranslatable-filter" });
     expect(fake.scans).toHaveLength(before);
   });
 });

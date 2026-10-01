@@ -127,7 +127,74 @@ describe("GraphInspector", () => {
   });
 });
 
+describe("GraphInspector's two answers", () => {
+  async function inspecting() {
+    const fake = fakeCorpus();
+    const held: { api: GraphApi | null } = { api: null };
+    const onFailure = vi.fn();
+    render(
+      <GraphRoot corpus={fake.corpus} onFailure={onFailure}>
+        <GraphInspector />
+        <Hold into={held} />
+      </GraphRoot>,
+    );
+    await act(() => fake.settle());
+    return { fake, held, onFailure };
+  }
+
+  it("says a vertex is not in the corpus, and reports nothing", async () => {
+    const { held, onFailure } = await inspecting();
+    act(() => held.api?.setFocus(99));
+    await waitFor(() => expect(screen.getByText("This vertex is not in the corpus.")).toBeTruthy());
+    expect(screen.queryByText("This vertex could not be read.")).toBeNull();
+    expect(onFailure).not.toHaveBeenCalled();
+  });
+
+  it("says a vertex could not be read, and hands onFailure the thrown value", async () => {
+    const { fake, held, onFailure } = await inspecting();
+    act(() => held.api?.setFocus(6));
+    const refused = Object.assign(new Error("the bucket did not answer"), { code: "storage/unreachable" });
+    await act(async () => fake.reads.at(-1)?.reject(refused));
+    await waitFor(() => expect(screen.getByText("This vertex could not be read.")).toBeTruthy());
+    expect(screen.queryByText("This vertex is not in the corpus.")).toBeNull();
+    expect(onFailure).toHaveBeenCalledOnce();
+    expect(onFailure.mock.calls[0]?.[0]).toBe(refused);
+  });
+});
+
 describe("GraphCanvas", () => {
+  it("hands onFailure the thrown value when a label's read rejects", async () => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        disconnect() {}
+      },
+    );
+    const fake = fakeCorpus();
+    const onFailure = vi.fn();
+    render(
+      <GraphRoot corpus={fake.corpus} onFailure={onFailure} r="degree">
+        <GraphCanvas />
+      </GraphRoot>,
+    );
+    const refused = Object.assign(new Error("the bucket did not answer"), { code: "storage/unreachable" });
+    const isTitles = (read: (typeof fake.reads)[number]) => read.params.filter !== undefined && "values" in read.params.filter;
+    await act(async () => {
+      for (let round = 0; round < 20; round++) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        for (const read of fake.reads.filter((r) => !r.released && !r.signal?.aborted)) {
+          if (isTitles(read)) read.reject(refused);
+          else read.release();
+        }
+      }
+    });
+    expect(fake.reads.some(isTitles)).toBe(true);
+    expect(onFailure.mock.calls.map(([error]) => error)).toContain(refused);
+    vi.unstubAllGlobals();
+  });
+
+
   it("re-renders the card on a hover, and not the canvas", () => {
     vi.stubGlobal(
       "ResizeObserver",

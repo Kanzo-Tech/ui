@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { GraphCanvas, GraphRoot, lookFrom, simFrom } from "@kanzo-tech/graph";
 import { Alert, AlertDescription, Badge, Show, Switch, ToggleGroup, ToggleGroupItem } from "@kanzo-tech/ui";
-import { useArchive } from "./archive";
+import { said, useArchive } from "./archive";
 
 /**
  * The picture as **declared axes** rather than as props. `lookFrom` and `simFrom` read the same
@@ -13,7 +13,7 @@ import { useArchive } from "./archive";
  */
 export default function Example() {
   const corpus = useArchive();
-  const [failure, setFailure] = useState<string | null>(null);
+  const [failure, setFailure] = useState<unknown>(null);
   const [marks, setMarks] = useState("dense");
   const [bowed, setBowed] = useState(true);
   const [simulate, setSimulate] = useState(false);
@@ -49,7 +49,7 @@ export default function Example() {
       <Show
         fallback={
           <Alert variant="destructive">
-            <AlertDescription>{failure}</AlertDescription>
+            <AlertDescription>{said(failure)}</AlertDescription>
           </Alert>
         }
         when={failure === null}

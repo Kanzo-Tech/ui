@@ -252,7 +252,8 @@ TanStack Query's observer shape, and React subscribes:
 
 **`status` is one word:** `none` without a corpus, `opening` while the promised corpus settles,
 `loading` while the graph, a binding or a filter is unread or undrawn, `idle` once all of it is
-drawn, `failed` when the corpus would not open or read or no renderer could start.
+drawn, `failed` when the corpus would not open or read, or the canvas has no GPU device — none came
+up, or its context was lost.
 
 **What would reverse it:** the store costing more than it buys — measured as renders per hover with
 and without `useSyncExternalStore`.
@@ -283,7 +284,9 @@ the root.
 
 **Policy stays out, through the root's callbacks** — `onSelect`, `onFocus` and `onFailure`. No part
 takes a callback of its own. `onFailure` is the one required prop: unhandled, a browser with no WebGL
-context shows an empty box.
+context shows an empty box. It receives what was thrown, whole — fossil's errors keep their `code`,
+and the graph's own are a `GraphError`, `graph/no-webgl` or `graph/context-lost` — so a host chooses
+what to show by code.
 
 **What would reverse it:** a part a second host cannot use without a prop that encodes that host's
 policy. That part goes back to the call site and is deleted from the package.
@@ -310,6 +313,18 @@ const corpus = engine().then((e) => open(url, { engine: e }));
 **Opening is the host's**, and so is closing. `GraphRoot` takes the corpus or the promise of it and
 never opens a second copy. `@kanzo-tech/mosaic` and `@fossil-lang/corpus` are required peers: there
 is one path and nothing on it is optional.
+
+**The graph bounds the one wait it owns.** A `corpus` promise that never settles leaves the root
+`opening`, because the waits inside `open` are fossil's and fossil bounds them; the reads after it
+have a signal, not a deadline. The graph's own outside wait is cosmos.gl's device: `ready` never
+settles when none can be made, so after 10 s the root fails with `graph/no-webgl` and `data.after`.
+
+**What would reverse it:** an opening that can hang where fossil cannot bound it. Then `corpus`
+takes a signal, or the deadline moves into the root.
+
+*Held by* `packages/graph/src/core/store.test.ts`, "waits on a corpus promise that never settles,
+with no deadline of its own, and lets it go when replaced"; `packages/graph/src/render/renderer.test.ts`,
+"fails with graph/no-webgl and when the deadline fired, if WebGL exists but no device ever comes up".
 
 [The workspace showcase](/docs/showcases/workspace) is the reference composition: one `GraphRoot`
 around a shell whose main region switches between **Graph** and **Sightings**, with a dock of Info,

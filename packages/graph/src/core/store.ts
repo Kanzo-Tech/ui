@@ -1,3 +1,4 @@
+import { GraphError } from "./error";
 import type { MosaicClient } from "@kanzo-tech/mosaic";
 import { domainOf } from "./categories";
 import { bindingOf } from "./channels";
@@ -53,11 +54,10 @@ export function createGraph(initial: GraphOptions): GraphStore {
   // `useGraph` builds it in `useState` — and a host's `onFailure` is usually a `setState`. It is held
   // and reported to the first subscriber, which arrives in the commit phase.
   let building = true;
-  let held: string | null = null;
+  let held: { error: unknown } | null = null;
   const fail = (error: unknown) => {
-    const message = error instanceof Error ? error.message : String(error);
-    if (building) held = message;
-    else options.onFailure(message);
+    if (building) held = { error };
+    else options.onFailure(error);
   };
 
   let snapshot: GraphSnapshot = {
@@ -213,9 +213,9 @@ export function createGraph(initial: GraphOptions): GraphStore {
     const cleared = { selection: null, focus: null, hovered: null, pinned: [] };
     if (!corpus) return notify(cleared);
     try {
-      if (corpus.manifest.format !== "fossil/1") throw new Error(`the graph reads fossil/1, and this corpus is ${corpus.manifest.format}`);
+      if (corpus.manifest.format !== "fossil/1") throw new GraphError("graph/unreadable-corpus", `the graph reads fossil/1, and this corpus is ${corpus.manifest.format}`);
       tables = drawnTables(corpus);
-      if (tables.length === 0) throw new Error("the corpus has no vertex type with a position to draw");
+      if (tables.length === 0) throw new GraphError("graph/unreadable-corpus", "the corpus has no vertex type with a position to draw");
     } catch (error) {
       failed = true;
       fail(error);
@@ -294,9 +294,9 @@ export function createGraph(initial: GraphOptions): GraphStore {
           if (!filtering && filter !== undefined && !kept) refilter();
         }
         if (held !== null) {
-          const message = held;
+          const { error } = held;
           held = null;
-          options.onFailure(message);
+          options.onFailure(error);
         }
       }
       return () => {
@@ -361,9 +361,14 @@ export function createGraph(initial: GraphOptions): GraphStore {
     reportProgress(value) {
       if (value !== snapshot.progress) patch({ progress: value });
     },
-    setRenderable(renderable) {
-      if (unrenderable === !renderable) return;
-      unrenderable = !renderable;
+    renderable() {
+      if (!unrenderable) return;
+      unrenderable = false;
+      notify();
+    },
+    unrenderable(error) {
+      unrenderable = true;
+      fail(error);
       notify();
     },
     reportDrawn(drawnSnapshot) {

@@ -210,19 +210,20 @@ async function viewerRun(corpus: Corpus): Promise<Run> {
   const element = host();
   const root = createRoot(element);
   let api: GraphApi | null = null;
-  let failure: string | null = null;
+  let failure: { error: unknown } | null = null;
   try {
     const started = performance.now();
     root.render(
       createElement(
         GraphRoot,
-        { corpus, onFailure: (message: string) => void (failure ??= message) },
+        { corpus, onFailure: (error: unknown) => void (failure ??= { error }) },
         createElement(GraphCanvas),
         createElement(Hold, { into: (held: GraphApi) => void (api = held) }),
       ),
     );
     for (;;) {
-      if (failure) throw new Error(failure);
+      const failed = failure as { error: unknown } | null;
+      if (failed) throw failed.error;
       if ((api as GraphApi | null)?.getState().status === "idle") break;
       if (performance.now() - started > SETTLE_TIMEOUT) throw new Error("the viewer never went idle");
       await sleep(4);

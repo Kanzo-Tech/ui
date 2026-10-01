@@ -9,7 +9,7 @@ import {
 } from "@kanzo-tech/graph";
 import { DataListItem, DataListItemLabel, DataListItemValue, Show } from "@kanzo-tech/ui";
 import { HALLS } from "@/example/world";
-import { ARCHIVE_KINDS, useArchive } from "./archive";
+import { ARCHIVE_KINDS, said, useArchive } from "./archive";
 
 /** A field the corpus does not carry: the hall's name, where the relation stores its id. */
 function HallName({ detail }: { detail: VertexDetail }) {
@@ -29,13 +29,13 @@ function HallName({ detail }: { detail: VertexDetail }) {
  */
 export default function Example() {
   const corpus = useArchive();
-  const [failure, setFailure] = useState<string | null>(null);
+  const [failure, setFailure] = useState<unknown>(null);
   return (
     <div className="flex h-96 w-full gap-3">
       <GraphRoot categories={ARCHIVE_KINDS} corpus={corpus} fill="kind" onFailure={setFailure} r="degree" title="label">
         <GraphCanvas className="flex-1 rounded-lg border">
           <Show when={failure !== null}>
-            <p className="absolute inset-0 grid place-items-center p-6 text-center text-muted-foreground text-sm">{failure}</p>
+            <p className="absolute inset-0 grid place-items-center p-6 text-center text-muted-foreground text-sm">{said(failure)}</p>
           </Show>
         </GraphCanvas>
         <GraphInspector className="w-56 shrink-0 overflow-y-auto rounded-lg border p-3">

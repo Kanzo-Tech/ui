@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { GraphCanvas, GraphLegend, GraphRoot } from "@kanzo-tech/graph";
 import { Show, ToggleGroup, ToggleGroupItem } from "@kanzo-tech/ui";
-import { ARCHIVE_KINDS, useArchive } from "./archive";
+import { ARCHIVE_KINDS, said, useArchive } from "./archive";
 
 /**
  * The legend draws the scale the canvas draws. `categories` on the root names `kind`'s values, and
@@ -13,7 +13,7 @@ import { ARCHIVE_KINDS, useArchive } from "./archive";
  */
 export default function Example() {
   const corpus = useArchive();
-  const [failure, setFailure] = useState<string | null>(null);
+  const [failure, setFailure] = useState<unknown>(null);
   const [fill, setFill] = useState("kind");
   return (
     <div className="flex h-96 w-full flex-col gap-3">
@@ -33,7 +33,7 @@ export default function Example() {
         <GraphCanvas className="flex-1 rounded-lg border">
           <GraphLegend className="absolute start-2 bottom-2" />
           <Show when={failure !== null}>
-            <p className="absolute inset-0 grid place-items-center p-6 text-center text-muted-foreground text-sm">{failure}</p>
+            <p className="absolute inset-0 grid place-items-center p-6 text-center text-muted-foreground text-sm">{said(failure)}</p>
           </Show>
         </GraphCanvas>
       </GraphRoot>

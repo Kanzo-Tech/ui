@@ -278,7 +278,8 @@ export function useArrangement(): [LookId, (id: LookId) => void] {
  * A failure, as a toast — once per message, and after the commit that reported it: the renderer
  * reports from an effect, where a toast's synchronous flush is refused.
  */
-function announce(title: string): void {
+function announce(error: unknown): void {
+  const title = error instanceof Error ? error.message : String(error);
   queueMicrotask(() => {
     if (!toast.isVisible(title)) toast.create({ id: title, title, type: "error" });
   });

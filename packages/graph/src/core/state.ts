@@ -10,6 +10,9 @@ export interface GraphOptions extends Channels {
   /**
    * The corpus the host opened with fossil's `open`, or the promise of it. A promise is what makes
    * *opening* a state the graph can report; `null` is no corpus at all.
+   *
+   * The promise must settle. The graph shows *opening* until it does and sets no deadline of its
+   * own: the waits inside an open are fossil's to bound, and a rejection reaches `onFailure`.
    */
   corpus: Corpus | PromiseLike<Corpus> | null;
   /** Which column the size ramp is spent on — Plot's `r`. */
@@ -32,8 +35,11 @@ export interface GraphOptions extends Channels {
    * positions are drawn as they are. `GraphToolbar` starts and stops the layout whatever this says.
    */
   simulate?: boolean;
-  /** Required: unhandled, a browser with no WebGL context shows an empty box. */
-  onFailure: (message: string) => void;
+  /**
+   * Every failure, as it was thrown: fossil's own errors arrive whole, with their `code`, and the
+   * graph's are `GraphError`s. Required: unhandled, a browser with no WebGL context shows an empty box.
+   */
+  onFailure: (error: unknown) => void;
   onSelect?: (selection: Selection | null) => void;
   onFocus?: (vertex: VertexId | null) => void;
 }
@@ -41,8 +47,8 @@ export interface GraphOptions extends Channels {
 /**
  * Where the graph is in its life. `none` is no corpus; `opening` is a corpus promised and not yet
  * open; `loading` is the graph, a binding or a filter not yet read or not yet drawn; `idle` is all of
- * it drawn; `failed` is a corpus that would not open or read, or a canvas that could not start a
- * renderer.
+ * it drawn; `failed` is a corpus that would not open or read, or a canvas with no GPU device to draw
+ * with — none came up, or the one it had was lost.
  */
 export type GraphStatus = "none" | "opening" | "loading" | "idle" | "failed";
 
@@ -105,8 +111,10 @@ export interface GraphStore {
   setTool(tool: Tool): void;
   report(motion: Motion): void;
   reportProgress(value: number): void;
-  /** Whether the canvas has a renderer: without one nothing will ever be drawn. */
-  setRenderable(renderable: boolean): void;
+  /** The canvas has a renderer again. */
+  renderable(): void;
+  /** The canvas cannot draw: the graph is `failed`, and `error` goes to `onFailure`. */
+  unrenderable(error: unknown): void;
   /** The renderer uploaded this snapshot's geometry, encoding and mask. */
   reportDrawn(snapshot: GraphSnapshot): void;
 }
