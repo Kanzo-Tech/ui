@@ -33,7 +33,7 @@ const source = (pace: number) =>
   };
 
 export default function Example() {
-  const engine = useAiStream<string>("Couldn’t reach the stub");
+  const engine = useAiStream<string>();
   const [text, setText] = useState("");
   const [words, setWords] = useState(0);
 
@@ -67,7 +67,7 @@ export default function Example() {
         </Badge>
         <Show when={engine.status === "error"}>
           <span className="text-destructive text-xs">
-            {engine.error instanceof Error ? engine.error.message : "Something went wrong"}
+            {engine.error instanceof Error ? engine.error.message : "Couldn’t reach the stub"}
           </span>
         </Show>
         <Show when={words > 0}>

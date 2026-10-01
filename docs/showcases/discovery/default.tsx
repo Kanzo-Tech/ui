@@ -290,7 +290,7 @@ function Schema() {
 }
 
 export function DiscoveryShowcase() {
-  const engine = useAiStream<AskEvent>("The agent stopped answering");
+  const engine = useAiStream<AskEvent>();
   const [question, setQuestion] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
   const nextTurn = useRef(0);
