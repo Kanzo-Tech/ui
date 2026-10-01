@@ -93,9 +93,10 @@ function entryPoints(pkgDir: string): Entry[] {
 
 /**
  * `graph` is here for the reason the comment above predicted: `docs/content/docs/graph/` documents
- * `@kanzo-tech/graph`, and until this line the page could name anything at all.
+ * `@kanzo-tech/graph`, and until this line the page could name anything at all. `llm` for the same
+ * reason: `docs/content/docs/ai/` imports `createGateway` and the agent from it.
  */
-const ENTRIES = ["ui", "theme", "graph", "ai", "auth", "navigation"].flatMap((name) =>
+const ENTRIES = ["ui", "theme", "graph", "ai", "llm", "auth", "navigation"].flatMap((name) =>
   entryPoints(join(REPO, "packages", name)),
 );
 
@@ -464,7 +465,8 @@ describe("the documented surface", () => {
       ["@kanzo-tech/ui/editor", "CodeEditor"],
       ["@kanzo-tech/theme", "AXES"],
       ["@kanzo-tech/graph", "GraphCanvas"],
-      ["@kanzo-tech/ai", "SuggestRoot"],
+      ["@kanzo-tech/ai", "Assist"],
+      ["@kanzo-tech/llm", "createGateway"],
       ["@kanzo-tech/navigation/next", "Link"],
     ] as const) {
       expect(bySpec.get(spec)?.has(canary), `${spec} should export ${canary}`).toBe(true);

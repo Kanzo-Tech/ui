@@ -277,17 +277,21 @@ from this house. There is no second parity snapshot and no second divergences fi
 the only *reference*, and it governs `@kanzo-tech/ui` alone. A reference is a thing you can be held to,
 and holding a package to a registry we cannot install would buy a check nobody can run.
 
-**Taken whole:** the four tool states, collapsed to `pending | running | done | failed`, and the rule
-that a finished call opens by default. The transcript's pin-to-bottom behaviour, which is the only part
-of a conversation that is not markup. Reasoning opening while it streams and closing when it stops.
+**Taken whole:** the rule that a finished call opens by default. The transcript's pin-to-bottom
+behaviour, which is the only part of a conversation that is not markup. Reasoning opening while it
+streams and closing when it stops. And, since `Chat` draws the AI SDK's message parts directly, the
+SDK's own tool states rather than a vocabulary of ours: four tones, and the label says which of the
+seven it is.
 
 **Taken and re-pointed:** their `StackTrace` became [`Diagnostic`](/docs/data-display/diagnostic) in
 `@kanzo-tech/ui`, because a severity, a message and a list of source positions is a SHACL violation and
 an LSP diagnostic, and neither is AI. Their `SchemaDisplay` loses its REST half.
 
-**Refused:** `ToolInput` and `ToolOutput` taking `input`/`output` props rendered as JSON. That is right
-for a chatbot that cannot know what the tool was; we always know, and rendering a SQL statement as a
-JSON blob discards it. Ours take children and fall back to a JSON rendering.
+**Refused:** the parts as the surface. AI Elements hands a host a dozen compounds to assemble a
+conversation from; every product here assembled them the same way, so `@kanzo-tech/ai` ships the
+assembly — `Chat` — and keeps the parts internal. And a tool's result rendered *only* as JSON: right
+for a chatbot that cannot know what the tool was, wrong for a host that always does. JSON is the
+default, and `Chat`'s `tools` map lets the host draw a result as what it is.
 
 **Not built:** the Voice family, Artifact, Web Preview and Sandbox — no call site, present or planned —
 and Canvas / Node / Edge, which was wanted for a fossil program summary that turns out to be a list of

@@ -45,11 +45,11 @@ const SHOWCASES = {
   // catalogue — and an iframe was costing them a URL, a title and their place in the nav.
   // Photos of fuel tickets in, a spreadsheet out. The only showcase whose columns are not written
   // here at all: rudof parses one SHACL document in wasm and the table, the validation and the CSV
-  // are three readings of it. Also `useAiStream`'s second consumer.
+  // are three readings of it.
   "field-notes": FieldNotesShowcase,
-  // A question over the archive, answered by a statement somebody can read: `Task` for the phases,
-  // `Tool` for the call, and `ToolOutput` holding a real `DataTableRoot` rather than JSON. The
-  // second consumer of `@kanzo-tech/ai`, and the one that pays for the io parts taking children.
+  // A question over the archive, answered by a statement somebody can read: an agent with one
+  // `query` tool behind `Chat`, and the tool's result drawn by the host as a real `DataTableRoot`
+  // rather than JSON — the case `Chat`'s `tools` renderers exist for.
   discovery: DiscoveryShowcase,
 } as const;
 

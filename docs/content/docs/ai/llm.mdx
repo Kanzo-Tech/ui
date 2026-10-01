@@ -1,0 +1,165 @@
+---
+title: "@kanzo-tech/llm"
+description: The model conversation, without React — the AI SDK re-exported as one surface, plus createGateway, the one door to a model behind a AI gateway.
+---
+
+`@kanzo-tech/llm` is what `@kanzo-tech/ai` talks to a model through, and what a host builds its
+agents with. It has no React in it.
+
+```bash
+pnpm add @kanzo-tech/llm ai
+```
+
+```ts
+import { createGateway, ToolLoopAgent, tool, jsonSchema } from "@kanzo-tech/llm";
+
+const gateway = createGateway({ baseURL: "/api/ai" });
+const model = gateway("chat");
+```
+
+## One copy of the SDK
+
+`ai` is a **required** peer, not an optional one and not a dependency. There is nothing here without
+it — that is what this package is — and installing it once is the point: `@kanzo-tech/ai`'s
+components and the host's own agent must see the same `UIMessage`, the same `ToolLoopAgent` and the
+same transport. Two copies of the SDK are two type universes whose messages do not assign to each
+other, and the error that reports it names neither copy.
+
+So the SDK's surface is re-exported here, and a host never imports `ai` itself. It is the standing
+`@kanzo-tech/mosaic` has with Mosaic: the third party is a peer, its surface is passed through, and
+what is ours is the door it does not have.
+
+| Re-exported from `ai` | For |
+| --- | --- |
+| `ToolLoopAgent`, `stepCountIs` | An agent: a model, its tools, and when to stop calling them |
+| `tool`, `jsonSchema` | A tool the model may call, and its input's schema |
+| `DirectChatTransport` | Run an agent in the page, behind `useChat` |
+| `streamText`, `Output` | One request, streamed; `Output.object` / `Output.array` for structured output |
+| `getToolName`, `isToolUIPart` | Reading a message's tool parts |
+| `UIMessage`, `InferAgentUIMessage` | A message as `useChat` holds it, and its type for a given agent |
+| `ToolUIPart`, `DynamicToolUIPart`, `ReasoningUIPart` | Its parts |
+| `LanguageModel`, `ChatStatus` | A model, and where a chat has got to |
+
+The list is what the house's own code reaches for, not the SDK's whole surface. A name missing from
+it is added here when a host needs it, so the one-import rule holds.
+
+## `createGateway`
+
+```ts
+createGateway(settings: GatewaySettings): Gateway
+
+interface GatewaySettings {
+  baseURL: string;                    // the gateway's OpenAI-compatible API, as the browser reaches it
+  headers?: Record<string, string>;   // sent with every request — a CSRF header a BFF asks for
+  fetch?: typeof globalThis.fetch;    // for a host that routes through its own client
+}
+
+type Gateway = (alias: string) => LanguageModel;
+```
+
+**A host names an alias, never a provider.** `gateway("chat")`, `gateway("complete")`: which
+upstream answers is the gateway's configuration, so the host's code is the same in development, where
+a local model answers, and in production. Changing models is an edit to the gateway, not a release of
+every app that talks to it.
+
+Three things a host would otherwise repeat are done once, here:
+
+- **A relative `baseURL` is resolved against the page.** `/api/ai` is what a host behind a BFF is told
+  to pass, and the provider underneath builds `new URL(baseURL + path)` with no base, which throws
+  `Invalid URL` in the browser.
+- **A model that reasons in tags gets its reasoning back as reasoning.** Open-weight models write it
+  inline as `<think>…</think>`, because the chat-completions protocol has no field for it. It is
+  lifted into the SDK's reasoning part, which is what [`Chat`](/docs/ai/chat) folds away. A model that
+  never writes the tag is untouched.
+- **Structured output is on.** `Output.array` asks the gateway for a JSON schema rather than prose
+  the caller parses — the "return only JSON, no fences" prompt and its fence-stripping is what this
+  ends. [`Assist`](/docs/ai/assist)'s candidates depend on it.
+
+The gateway speaks the OpenAI chat-completions protocol, through `@ai-sdk/openai-compatible` — a
+dependency nobody outside this package names, the standing `@duckdb/duckdb-wasm` has behind
+`engine()`.
+
+## Why the key is never in the page
+
+The key that opens a gateway is a bill and a quota. In the page, it is everyone's: anybody who opens
+the network tab has it, and nothing can take it back but rotating it for every user. So the browser
+talks to the **host's own route** — a backend-for-frontend — which checks the session, adds the key,
+and forwards. `baseURL` is that route; keasy's is `/api/v1/ai`. `headers` is there for what the BFF
+asks of the page, a CSRF token, and never for the key.
+
+```ts
+// app/api/ai/[...path]/route.ts — the BFF, in Next
+export async function POST(request: Request, { params }: { params: Promise<{ path: string[] }> }) {
+  const session = await auth();
+  if (!session) return new Response(null, { status: 401 });
+  const { path } = await params;
+  return fetch(`${process.env.AI_GATEWAY_URL}/${path.join("/")}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${process.env.AI_GATEWAY_KEY}`,
+    },
+    body: await request.text(),
+  });
+}
+```
+
+Returning the gateway's response as it is keeps it a stream: the answer reaches the page a token at a
+time through the BFF, not after it.
+
+## Connecting a model
+
+Three set-ups, and the page's code is the same in all of them — `createGateway({ baseURL })` and an
+alias.
+
+### An AI gateway (LiteLLM)
+
+The production shape: [LiteLLM](https://docs.litellm.ai) as the platform's one door to models. It
+holds the providers' keys, maps each alias to an upstream, and speaks OpenAI's protocol whatever the
+upstream speaks. The aliases are its `model_list`:
+
+```yaml
+# litellm config.yaml
+model_list:
+  - model_name: chat
+    litellm_params:
+      model: <provider>/<model>
+      api_key: os.environ/PROVIDER_API_KEY
+  - model_name: complete
+    litellm_params:
+      model: <provider>/<a smaller model>
+      api_key: os.environ/PROVIDER_API_KEY
+```
+
+The BFF above forwards to it, with a key LiteLLM issued for that host. `complete` is a separate
+alias because a field's continuation is asked on every pause in typing: it wants a small, fast model,
+and a chat wants a good one.
+
+### A local model, for development
+
+[Ollama](https://ollama.com) behind the same gateway, so development runs the whole loop without a
+provider key: point an alias at it in the gateway's `model_list` —
+`model: ollama_chat/<model>` with `api_base: http://localhost:11434` — and nothing else changes.
+
+Without a gateway at all, `createGateway` can point at Ollama directly, since Ollama serves the same
+protocol under `/v1`. The alias is then an Ollama model name, and `ollama cp` gives a model the alias
+as its name:
+
+```bash
+ollama cp <model> chat
+```
+
+```ts
+const gateway = createGateway({ baseURL: "http://localhost:11434/v1" });
+```
+
+That is a browser talking to a model with no session and no key in between, so it is for a laptop and
+nowhere else. If Ollama refuses the page's origin, its `OLLAMA_ORIGINS` setting is the allowlist.
+
+### A mock, for tests and these pages
+
+Every example and showcase on this site runs with no network: the model is the AI SDK's own
+`MockLanguageModelV4`, from `ai/test`, answering with canned text a word at a time. It is a
+`LanguageModel` like any other, so `Assist`, `ToolLoopAgent` and `Chat` run unchanged over it — which
+is the claim the examples make. `ai/test` is the one import of `ai` a host's tests may write directly:
+it is test tooling rather than runtime surface, and nothing here passes it through.

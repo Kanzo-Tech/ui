@@ -32,18 +32,26 @@ Almost nothing here is new — it is existing parts, arranged:
   the Workspace frame. Exactly one `<main>`; the Source and Output columns are `<aside>` landmarks
   (`ShellAside side="start"` / `side="end"`, logical and RTL-safe) rendered only when open, sized
   by a drag-resizable `Resizable` splitter keyed on the open-set.
-- **`Field` · `FieldLabel` · `FieldError`** — every row. A required field shows a red `*`
+- **`Field` · `FieldLabel` · `FieldHelper` · `FieldError`** — every row. A required field shows a red `*`
   (`FieldRequiredIndicator`); an invalid one gets `Field`'s own error channel.
 - **`FieldArray`** — the repeatable fields (what to expect, who to ask, the party), each row keyed
   by a stable id so editing never steals focus.
 - **`DatePicker`** — the posting and due dates. The ISO-string adapter the form wants is written
   out locally in the showcase, which is
   [where that seam belongs](/docs/forms/dates#an-iso-string-in-and-out).
-- **`SuggestRoot` / `SuggestMark` / `SuggestList`** — the ✨ in the title and beside Tags, streaming
-  deduped candidates into a strip under the field while it has focus.
-- **`CompleteRoot` + `CompleteTextarea` + `CompleteHint`** — the notice, with Tab-to-accept inline
-  completion over a plain `Textarea`. The continuation is a compound composed *over* a pure
-  primitive, not a prop on it.
+- **`AssistProvider` + `Assist`** — one provider around the form, and `Assist` around three
+  controls: the title's `Input` (whole titles as chips under it), the notice's `Textarea` (a
+  continuation at the caret, Tab to take it) and the Tags `TagsInput` (tags to add, never one
+  already there). The control decides how the proposal is drawn; the showcase writes nothing per
+  field but the value. The provider's `context` is the writ as it stands, read when a field asks,
+  so a title is proposed against the notice the poster has written since.
+
+  The model is told which field it is filling by the field itself — its label, and its
+  description through `aria-describedby`. That is why every row's description is a `FieldHelper`
+  rather than a `FieldDescription`: Ark wires the helper to the control and leaves a plain
+  paragraph out, so a `FieldDescription` would be text the reader sees and the model does not.
+  The model is `ai/test`'s mock (`docs/lib/mock-model.ts`) answering by field name, so the ✨
+  works with no key and no network; `createGateway` in its place changes nothing else.
 - **`Steps` / `Tabs`** — the form re-lays-out live as sequential Cards, Tabs, or a Steps wizard.
 - **`Preferences` (extended)** — the library's own `PreferencesRoot` + `PreferencesPanel`
   (its "Preferences [P]" drawer) is reused as-is and given custom `children`: a **Layout**
@@ -69,9 +77,8 @@ docs/showcases/metadata-form/
 ├── default.tsx   — the Workspace: Shell chrome, the resizable Source/form/Output columns, the
 │                   four groups, and the three live layouts driven by the Preferences drawer
 └── data.tsx      — the rule engine, three seeded postings, the world's vocabularies,
-                    the writ / record serialisers, and the faked AI streams
+                    the writ / record serialisers, and the faked model
 ```
 
-Imports come from two entry points: `@kanzo-tech/ui` for the form and chrome, and
-`@kanzo-tech/ui/editor` for `CodeEditor` — a subpath, so the base bundle never carries
-CodeMirror for consumers who do not use it.
+Imports come from two packages: `@kanzo-tech/ui` for the form and chrome, and `@kanzo-tech/ai`
+for `Assist` — a sibling package, so a form with no ✨ installs no model SDK.

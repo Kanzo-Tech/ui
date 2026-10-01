@@ -176,13 +176,14 @@ value is first saved, React remounts the input and the user loses focus mid-typi
 
 ## AI-assisted
 
-These take suggestions from a model, and the library never calls one — you pass a stream. See
-[AI-assisted fields](/docs/ai/fields) for the shared contract.
+Not a control of their own: [`Assist`](/docs/ai/assist), from `@kanzo-tech/ai`, wraps one of the
+controls above and lets a model propose its value. What it offers is decided by the control.
 
-| Control | What it is | Reach for it when |
+| Wrapped control | What the model offers | Reach for it when |
 |---|---|---|
-| [`SuggestRoot`](/docs/ai/fields) + `SuggestMark` + `SuggestList` | A ✨ inside a field that streams candidates into a strip underneath it. | The user is choosing a value and needs options they did not think of. |
-| [`CompleteRoot`](/docs/ai/fields) + `CompleteGhost` | A field that completes inline as you type, Tab to accept. | The user is writing prose and a streamed continuation helps. |
+| `Textarea` | A continuation at the caret, as ghost text — Tab to accept. | The user is writing prose and a streamed continuation helps. |
+| `Input` | Whole values, as chips under the field; one replaces the value. | The user is choosing a value and needs options they did not think of. |
+| `TagsInput` | Items, as chips; one is added. | The user is filing something and the model can see what fits. |
 
 ---
 

@@ -48,7 +48,7 @@ const aiMarkVariants = tv({
 });
 
 export interface AiMarkProps
-  extends Omit<React.ComponentProps<typeof InputGroupButton>, "children" | "size"> {
+  extends Omit<React.ComponentProps<typeof InputGroupButton>, "size"> {
   /** Something is on offer right now — paints only; see {@link AiMarkProps.label}. */
   offering?: boolean;
   /** A request is in flight. */
@@ -100,7 +100,7 @@ export interface AiMarkProps
  * nothing writes that attribute and the rule matched nothing.
  */
 export function AiMark(props: AiMarkProps) {
-  const { busy = false, className, label = "AI assist", offering = false, slot, title, ...rest } = props;
+  const { busy = false, children, className, label = "AI assist", offering = false, slot, title, ...rest } = props;
 
   return (
     <InputGroupButton
@@ -122,7 +122,7 @@ export function AiMark(props: AiMarkProps) {
       {...rest}
       slot={slot ?? "ai-mark"}
     >
-      <SparklesIcon />
+      {children ?? <SparklesIcon />}
     </InputGroupButton>
   );
 }

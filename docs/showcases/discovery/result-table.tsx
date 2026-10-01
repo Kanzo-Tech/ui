@@ -14,7 +14,7 @@ import type { ResultColumn, ResultRow } from "./data";
  * A result set as the real table, not a `<pre>` of JSON.
  *
  * The columns are not known until the agent has written its statement, so they are built from the
- * result's own shape — which is the case `ToolOutput` taking children exists for.
+ * result's own shape — which is the case `Chat`'s per-tool renderers exist for.
  */
 export function ResultTable(props: { columns: ResultColumn[]; rows: ResultRow[] }) {
   const { columns, rows } = props;

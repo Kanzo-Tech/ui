@@ -18,9 +18,9 @@ import { describe, expect, it } from "vitest";
  * thing that catches it and it catches it unreadably, which is what this test is for.
  *
  * The rule is one line: if a package is transpiled, every `@kanzo-tech/*` it depends on is too.
- * Deliberately NOT "every workspace package must be listed" — `@kanzo-tech/graph` and
- * `@kanzo-tech/ai` are dependencies of this app and are correctly absent, because this app consumes
- * their published build rather than their source.
+ * Deliberately NOT "every workspace package must be listed" — `@kanzo-tech/graph`, `@kanzo-tech/ai`
+ * and `@kanzo-tech/llm` are dependencies of this app and are correctly absent, because this app
+ * consumes their published build rather than their source.
  */
 const repoRoot = join(import.meta.dirname, "..", "..");
 

@@ -7,9 +7,9 @@
 // wrong, and the only version of this screen that is honest about that puts the paper next to the
 // number.
 //
-// The engine behind the stream is `useAiStream` from the library — the same hook `Complete` and
-// `Suggest` run on. It is domain-free by construction, so a run of vision events uses it
-// unchanged, and this is its second consumer.
+// The stream is driven here, by hand: an extractor is an async iterable cancelled by an
+// `AbortSignal`, and pulling one to the end is a loop and a controller. No model library is in the
+// loop — the live extractor calls the vision model itself, with the visitor's key.
 //
 // The ledger is `@kanzo-tech/ui/table`, and it is the one call site in this repository whose
 // `ColumnDef[]` is built at RUNTIME: the columns come out of a SHACL shape the reader is editing in
@@ -59,9 +59,6 @@ import {
   Spinner,
   Status,
 } from "@kanzo-tech/ui";
-import {
-  useAiStream,
-} from "@kanzo-tech/ai";
 // TanStack-backed: the `/table` subpath, never the root barrel.
 import {
   type ColumnDef,
@@ -534,7 +531,10 @@ export function FieldNotesShowcase() {
   const [shapeText, setShapeText] = useState(SLIP_SHAPE);
   const [shapeError, setShapeError] = useState<string | null>(null);
 
-  const engine = useAiStream<ExtractEvent>();
+  const [streaming, setStreaming] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+  /** The run in flight. A new run aborts it, so a slow photograph never writes into the next. */
+  const inflight = useRef<AbortController | null>(null);
   /**
    * The boxes the reader drew, and the reason a second run does not take them back.
    *
@@ -738,8 +738,36 @@ export function FieldNotesShowcase() {
       Object.fromEntries(Object.entries(prev).filter(([id]) => handDrawn.current.has(id))),
     );
     table.resetRowSelection();
-    void engine.run((signal) => extractor(shots, signal), apply);
-  }, [apply, engine, extractor, shots, table]);
+    inflight.current?.abort();
+    const controller = new AbortController();
+    inflight.current = controller;
+    setFailure(null);
+    setStreaming(true);
+    void (async () => {
+      try {
+        for await (const event of extractor(shots, controller.signal)) {
+          if (controller.signal.aborted) return;
+          apply(event);
+        }
+      } catch (e) {
+        if (!controller.signal.aborted)
+          setFailure(e instanceof Error && e.message ? e.message : "Could not read the photo");
+      } finally {
+        if (inflight.current === controller) {
+          inflight.current = null;
+          setStreaming(false);
+        }
+      }
+    })();
+  }, [apply, extractor, shots, table]);
+
+  const stop = useCallback(() => {
+    inflight.current?.abort();
+    inflight.current = null;
+    setStreaming(false);
+  }, []);
+
+  useEffect(() => () => inflight.current?.abort(), []);
 
   const onFiles = useCallback((files: File[]) => {
     setShots(
@@ -761,7 +789,6 @@ export function FieldNotesShowcase() {
   // The same rows, serialised the other way. Not a second model of the data — `validate` already
   // builds this graph on every keystroke; this is the button that admits it exists.
   const turtle = useMemo(() => (ledger && rows.length ? ledger.turtle(rows) : ""), [ledger, rows]);
-  const streaming = engine.status === "loading";
   const blanks = unread.length;
 
   return (
@@ -876,7 +903,7 @@ export function FieldNotesShowcase() {
               }
               when={streaming}
             >
-              <Button className="gap-1.5" onClick={() => engine.cancel()} size="sm" variant="outline">
+              <Button className="gap-1.5" onClick={stop} size="sm" variant="outline">
                 <SquareIcon />
                 Stop
               </Button>
@@ -1316,11 +1343,9 @@ export function FieldNotesShowcase() {
             {shots.length} {shots.length === 1 ? "photo" : "photos"}
           </span>
         </Show>
-        <Show when={engine.status === "error"}>
+        <Show when={Boolean(failure)}>
           <Separator className="h-3" orientation="vertical" />
-          <span className="text-destructive">
-            {engine.error instanceof Error ? engine.error.message : "Could not read the photo"}
-          </span>
+          <span className="text-destructive">{failure}</span>
         </Show>
         {/* The watermark. It was a `Badge` in the header, in the row where `Extract` and the
             downloads live, and a fact does not belong among verbs — a pill up there reads as

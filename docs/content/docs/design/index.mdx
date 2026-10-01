@@ -141,8 +141,8 @@ docs ran one build over `packages/*/src`, so the tested path was not the shipped
 `docs/app/global.css` is the three lines a consumer writes, and the entries' `@source` reads `dist/`
 in this workspace exactly as it does in a tarball.
 
-streamdown is `ai`'s optional peer, so its `@source` is written for the two places a peer of the
-package can be installed — its own `node_modules` (a nested install, and this workspace) and the
+streamdown is a dependency of `ai`'s, so its `@source` is written for the two places a dependency of
+the package can be installed — its own `node_modules` (a nested install, and this workspace) and the
 `node_modules` it is installed in (npm's hoisted tree and pnpm's virtual store alike). `@source` takes a path, not a specifier, so
 this is the resolution Tailwind leaves to the package; absent, neither path exists and nothing is
 emitted.
