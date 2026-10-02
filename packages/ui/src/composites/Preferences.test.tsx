@@ -353,7 +353,7 @@ describe("Preferences", () => {
       // Reset put the choice back on the theme the tenant makes default rather than leaving nothing
       // checked — the default pair's day theme, worn and written.
       const day = within(screen.getByRole("radiogroup", { name: "Light theme" }));
-      expect((day.getByRole("radio", { name: "T" }) as HTMLInputElement).checked).toBe(true);
+      expect(day.getByRole("radio", { name: "T" }).getAttribute("aria-checked")).toBe("true");
     });
   });
 });

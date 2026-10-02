@@ -26,11 +26,18 @@ function setup(provider: Partial<ComponentProps<typeof KanzoThemeProvider>> = {}
 }
 
 const group = (name: string) => within(screen.getByRole("radiogroup", { name }));
-const radio = (groupName: string, name: string) =>
-  group(groupName).getByRole("radio", { name }) as HTMLInputElement;
+const radio = (groupName: string, name: string) => group(groupName).getByRole("radio", { name }) as HTMLInputElement;
+const checked = (groupName: string, name: string) => {
+  const r = radio(groupName, name);
+  return r.tagName === "INPUT" ? r.checked : r.getAttribute("aria-checked") === "true";
+};
 const values = (groupName: string) => group(groupName).getAllByRole("radio").map((r) => r.getAttribute("value"));
-const card = (title: string) => screen.getByRole("region", { name: title });
+const sides = () => [...document.querySelectorAll("[data-slot=theme-picker-card-radio] input")].map((r) => r.getAttribute("value"));
+const card = (title: string) =>
+  [...document.querySelectorAll<HTMLElement>("[data-slot=theme-picker-card]")].find((c) => c.textContent?.includes(title))!;
 const nameOf = (title: string) => card(title).querySelector("[data-slot=theme-picker-name]")?.textContent;
+const previewOf = (title: string) =>
+  card(title).querySelector("[data-slot=kanzo-theme]:has([data-slot=theme-preview])")?.getAttribute("data-theme");
 
 describe("ThemePicker", () => {
   beforeEach(() => localStorage.clear());
@@ -40,23 +47,24 @@ describe("ThemePicker", () => {
     html().classList.remove("dark");
   });
 
-  it("offers Light · Dark, light by default, and always both cards with their own side's swatches", () => {
+  it("makes the two cards the Appearance choice, light by default, each with only its side's swatches", () => {
     setup();
-    expect(radio("Appearance", "Light").checked).toBe(true);
+    expect(sides()).toEqual(["light", "dark"]);
+    expect(checked("Appearance", "Light theme")).toBe(true);
     expect(values("Light theme")).toEqual(["acme", "nord"]);
     expect(values("Dark theme")).toEqual(["acme-dark", "nord-dark"]);
   });
 
   it("starts on the side the host makes default", () => {
     setup({ policy: { theme: { appearance: { default: "dark" } } } });
-    expect(radio("Appearance", "Dark").checked).toBe(true);
+    expect(checked("Appearance", "Dark theme")).toBe(true);
     expect(html().classList.contains("dark")).toBe(true);
   });
 
-  it("checks the default pair, names it under each preview, and marks the selected side Active", () => {
+  it("checks the default pair, names it under each preview, and marks the worn card Active", () => {
     setup();
-    expect(radio("Light theme", "Acme").checked).toBe(true);
-    expect(radio("Dark theme", "Acme Dark").checked).toBe(true);
+    expect(checked("Light theme", "Acme")).toBe(true);
+    expect(checked("Dark theme", "Acme Dark")).toBe(true);
     expect(within(card("Light theme")).getByText("Active")).toBeTruthy();
     expect(within(card("Dark theme")).queryByText("Active")).toBeNull();
     expect(card("Light theme").getAttribute("data-active")).toBe("true");
@@ -73,15 +81,29 @@ describe("ThemePicker", () => {
     expect(swatches.every((s) => s.getAttribute("aria-hidden") === "true")).toBe(true);
   });
 
-  it("switches the appearance from the control, and the Active card follows", async () => {
+  it("wears a side when its card is clicked anywhere but a swatch, and Active follows", async () => {
     setup();
-    await userEvent.setup().click(radio("Appearance", "Dark"));
+    await userEvent.setup().click(card("Dark theme").querySelector("[data-slot=theme-picker-card-radio]")!);
     expect(stored().appearance).toBe("dark");
     await waitFor(() => expect(html().classList.contains("dark")).toBe(true));
     expect(within(card("Dark theme")).getByText("Active")).toBeTruthy();
+    expect(stored().themeByAppearance).toBeUndefined();
   });
 
-  it("writes the light theme and wears it, since light is the side on screen", async () => {
+  it("previews a hovered swatch inside its card only, and restores it on leave", async () => {
+    const user = userEvent.setup();
+    setup();
+    await user.hover(radio("Dark theme", "Nord Dark"));
+    expect(previewOf("Dark theme")).toBe("nord-dark");
+    expect(nameOf("Dark theme")).toBe("Nord Dark");
+    expect(html().getAttribute("data-theme")).toBe("acme");
+    expect(html().classList.contains("dark")).toBe(false);
+    expect(stored().themeByAppearance).toBeUndefined();
+    await user.unhover(radio("Dark theme", "Nord Dark"));
+    expect(previewOf("Dark theme")).toBe("acme-dark");
+  });
+
+  it("commits a clicked swatch of the worn side", async () => {
     setup();
     await userEvent.setup().click(radio("Light theme", "Nord"));
     expect(stored().themeByAppearance).toEqual({ light: "nord" });
@@ -89,36 +111,50 @@ describe("ThemePicker", () => {
     expect(nameOf("Light theme")).toBe("Nord");
   });
 
-  it("files a dark theme without flipping the appearance or repainting the light", async () => {
+  it("commits a clicked swatch of the other side and wears that side", async () => {
     setup();
     await userEvent.setup().click(radio("Dark theme", "Nord Dark"));
     expect(stored().themeByAppearance).toEqual({ dark: "nord-dark" });
-    expect(stored().appearance).toBeUndefined();
-    await waitFor(() => expect(html().getAttribute("data-theme")).toBe("acme"));
-    expect(html().classList.contains("dark")).toBe(false);
-    expect(nameOf("Dark theme")).toBe("Nord Dark");
+    expect(stored().appearance).toBe("dark");
+    await waitFor(() => expect(html().getAttribute("data-theme")).toBe("nord-dark"));
+    expect(html().classList.contains("dark")).toBe(true);
+    expect(within(card("Dark theme")).getByText("Active")).toBeTruthy();
   });
 
-  it("moves between swatches with the arrow keys", async () => {
+  it("moves along the swatches with the arrows, previewing; Enter commits and Escape restores", async () => {
     const user = userEvent.setup();
     setup();
-    radio("Light theme", "Acme").focus();
+    const acme = radio("Light theme", "Acme");
+    expect(acme.tabIndex).toBe(0);
+    expect(radio("Light theme", "Nord").tabIndex).toBe(-1);
+    acme.focus();
     await user.keyboard("{ArrowRight}");
-    expect(radio("Light theme", "Nord").checked).toBe(true);
+    expect(document.activeElement).toBe(radio("Light theme", "Nord"));
+    expect(previewOf("Light theme")).toBe("nord");
+    expect(checked("Light theme", "Acme")).toBe(true);
+    expect(stored().themeByAppearance).toBeUndefined();
+    await user.keyboard("{Escape}");
+    expect(previewOf("Light theme")).toBe("acme");
+    await user.keyboard("{ArrowRight}");
+    expect(document.activeElement).toBe(acme);
+    await user.keyboard("{ArrowLeft}{Enter}");
     expect(stored().themeByAppearance).toEqual({ light: "nord" });
+    expect(checked("Light theme", "Nord")).toBe(true);
   });
 
-  it("draws no appearance control where the tenant pinned it, and still both cards", () => {
+  it("draws only the worn card, not as a radio, where the tenant pinned the appearance", () => {
     setup({ policy: { theme: { appearance: { pinned: "dark" } } } });
     expect(screen.queryByRole("radiogroup", { name: "Appearance" })).toBeNull();
+    expect(document.querySelectorAll("[data-slot=theme-picker-card]")).toHaveLength(1);
     expect(values("Dark theme")).toEqual(["acme-dark", "nord-dark"]);
     expect(within(card("Dark theme")).getByText("Active")).toBeTruthy();
   });
 
-  it("draws no cards where the tenant locked the theme, and nothing at all when both are locked", () => {
+  it("draws cards without swatches where the tenant locked the theme, and nothing at all when both are locked", () => {
     const { unmount } = setup({ policy: { theme: { themeByAppearance: { hidden: true } } } });
-    expect(screen.getByRole("radiogroup", { name: "Appearance" })).toBeTruthy();
+    expect(sides()).toEqual(["light", "dark"]);
     expect(screen.queryByRole("radiogroup", { name: "Light theme" })).toBeNull();
+    expect(document.querySelector("[data-slot=theme-picker-swatch]")).toBeNull();
     unmount();
 
     setup({ policy: { theme: { themeByAppearance: { hidden: true }, appearance: { hidden: true } } } });
@@ -135,10 +171,10 @@ describe("ThemePicker", () => {
   it("takes its strings from `copy`, never the theme labels", () => {
     render(
       <KanzoThemeProvider themes={THEMES}>
-        <ThemePicker copy={{ appearance: "Apariencia", light: "Claro", day: "Tema claro", dayDescription: "Con apariencia clara." }} />
+        <ThemePicker copy={{ appearance: "Apariencia", day: "Tema claro", dayDescription: "Con apariencia clara." }} />
       </KanzoThemeProvider>,
     );
-    expect(radio("Apariencia", "Claro")).toBeTruthy();
+    expect(radio("Apariencia", "Tema claro")).toBeTruthy();
     expect(radio("Tema claro", "Acme")).toBeTruthy();
     expect(screen.getByText("Con apariencia clara.")).toBeTruthy();
   });

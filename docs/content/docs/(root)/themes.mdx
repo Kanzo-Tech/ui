@@ -80,9 +80,10 @@ const pair = { light: "nord", dark: "nord-dark" };
 
 ## Letting people choose
 
-[`ThemePicker`](/docs/layout/theme-picker) is the control: a *Light · Dark* segment, then a
-**Light theme** card and a **Dark theme** card, each a large preview of its
-choice over a row of round swatches, one per theme. It is what
+[`ThemePicker`](/docs/layout/theme-picker) is the control: a
+**Light theme** card and a **Dark theme** card — choosing a card wears its side — each a large
+preview of its choice over a row of round swatches, one per theme. Pointing at a swatch previews it
+in its card; clicking it chooses it and wears that side. It is what
 [`Preferences`](/docs/layout/preferences) draws first, and it offers exactly what `themes` lists.
 
 ```tsx
