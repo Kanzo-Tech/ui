@@ -124,4 +124,16 @@ describe("LanguagePicker", () => {
     expect(document.querySelector("[data-slot=input-group]")).toBeNull();
     expect(input().id).not.toBe("title");
   });
+
+  it("is named by its aria-label when inline, where the field's label names the other control", () => {
+    render(
+      <Field>
+        <FieldLabel>Title</FieldLabel>
+        <input id="title" />
+        <LanguagePicker aria-label="Language" inline onValueChange={() => {}} value="" />
+      </Field>,
+    );
+
+    expect(screen.getByRole("combobox", { name: "Language" })).toBe(input());
+  });
 });

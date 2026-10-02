@@ -1,3 +1,6 @@
+"use client";
+
+import { useFieldContext } from "@ark-ui/react/field";
 import {
   TagsInput as ArkTagsInput,
   useTagsInput as useArkTagsInput,
@@ -36,10 +39,15 @@ export const TagsInputContext = ArkTagsInput.Context;
 export const TagsInput = (
   props: React.ComponentProps<typeof ArkTagsInput.Root>
 ) => {
-  const { className, children, slot, ...rest } = props;
+  const { className, children, slot, ids, ...rest } = props;
+  // Ark hands a `Field`'s control id to the machine's hidden input — the one a form submits, which
+  // nobody sees — so the field's `<label for>` named that, and the input a person types in had no
+  // name at all. The control id goes to the visible input instead; the hidden one keeps its own.
+  const field = useFieldContext();
 
   return (
     <ArkTagsInput.Root
+      ids={field ? { label: field.ids.label, input: field.ids.control, ...ids } : ids}
       className={cn(
         "flex flex-col gap-2",
         "data-invalid:text-destructive dark:data-invalid:text-destructive-foreground",
