@@ -8,7 +8,6 @@ import { PreferencesShowcase } from "@/showcases/preferences/default";
 import { FieldNotesShowcase } from "@/showcases/field-notes/default";
 import { SettingsShowcase } from "@/showcases/settings/default";
 import { PreferencesExtendedShowcase } from "@/showcases/preferences/extended";
-import { PreferencesFontsShowcase } from "@/showcases/preferences/fonts";
 import { WorkspaceShowcase } from "@/showcases/workspace/default";
 
 /**
@@ -30,10 +29,9 @@ const SHOWCASES = {
   "job-studio": JobStudioShowcase,
   // Not a shell like the other two, but it needs the same treatment: the Preferences panel is
   // Portal-ed and `position: fixed`, so it can only be shown honestly in its own viewport. The
-  // -fonts and -extended variants are the doc's other two examples, each a real panel with a
-  // custom `PreferencesPanel` child set rather than loose sections in a box.
+  // -extended variant is the doc's other example, a real panel with a custom `PreferencesPanel`
+  // child set rather than loose sections in a box.
   preferences: PreferencesShowcase,
-  "preferences-fonts": PreferencesFontsShowcase,
   "preferences-extended": PreferencesExtendedShowcase,
   // The same sections as `preferences`, rendered as a PAGE rather than a drawer — a sub-sidebar and
   // one scrolling pane, GitHub's Appearance shape. It exists to demonstrate that a section is

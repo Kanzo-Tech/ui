@@ -7,8 +7,8 @@
 // a contributed preference section exists to remove. A host composes the
 // panel from the flat part exports and adds its own field — `PreferencesField` is exported for
 // exactly this, and `PreferencesSections` is listed explicitly because `children` REPLACES the
-// canonical body, so a composed panel that forgot it would silently drop every choice an
-// installed package contributes.
+// canonical body, so a composed panel that forgot it would drop every preference — the theme,
+// density and every choice an installed package contributes.
 //
 // The key is not a contributed preference and could not be one. A section's values are strings in
 // the theme's prefs blob, and in these docs that blob is a COOKIE — a secret there would travel to
@@ -20,13 +20,8 @@ import {
   PasswordInputGroup,
   PasswordInputInput,
   PasswordInputTrigger,
-  ThemePicker,
-  PreferencesDensity,
   PreferencesField,
-  PreferencesFont,
-  PreferencesMonoFont,
   PreferencesPanel,
-  PreferencesRadius,
   PreferencesRoot,
   PreferencesSections,
   PreferencesTrigger,
@@ -45,11 +40,6 @@ export function FieldNotesPreferences({
           not one of this screen's verbs, and in the header it read as one. */}
       <PreferencesTrigger />
       <PreferencesPanel>
-        <ThemePicker />
-        <PreferencesDensity />
-        <PreferencesRadius />
-        <PreferencesFont />
-        <PreferencesMonoFont />
         <PreferencesSections />
         <PreferencesField label="Anthropic API key">
           <PasswordInput size="sm">

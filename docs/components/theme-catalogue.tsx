@@ -12,7 +12,7 @@ import * as React from "react";
  * A family is the pair a user wears by day and by night, so a card shows one side at a time and a
  * toggle inside it flips to the other: the question a reader is asking is "do I want this", and the
  * two halves of one answer belong on one card. Each preview is `ThemePreview` — the same scoped
- * miniature `ThemePicker` draws — so a card is the theme, not a picture of it.
+ * miniature the theme picker in `Preferences` draws — so a card is the theme, not a picture of it.
  *
  * **Wear it** files the family under both sides at once (one tick, two writes — the provider
  * composes them) and leaves the appearance alone, so the side a reader picked stays picked.

@@ -20,11 +20,6 @@ import {
   ItemGroup,
   ItemMedia,
   ItemTitle,
-  ThemePicker,
-  PreferencesDensity,
-  PreferencesFont,
-  PreferencesMonoFont,
-  PreferencesRadius,
   PreferencesSections,
   SectionDescription,
   SectionHeader,
@@ -60,14 +55,14 @@ import { HOME_HALL, hall } from "@/example/world";
  *
  * This showcase exists to demonstrate one claim and it is the claim the whole section mechanism
  * rests on: **a section is independent of the surface that hosts it.** Every control below is the
- * identical export the floating drawer renders — `ThemePicker`, `PreferencesDensity`,
- * `PreferencesRadius`, the fonts, and whatever the packages a host installed contribute. Nothing
+ * identical export the floating drawer renders — `PreferencesSections`: the theme, density, and
+ * whatever the packages a host installed contribute. Nothing
  * here is a settings-page variant of anything, and if it ever needs to be, the mechanism has failed.
  *
  * A product picks the surface rather than the components: `metadata-form` is light and wants the
  * drawer; a product with a real settings area wants this. Both are one registry and one resolution.
  *
- * **Why the theme section lays itself out and this page does not tell it to.** `ThemePicker`
+ * **Why the theme section lays itself out and this page does not tell it to.** The theme picker
  * lays its cards out on an auto-fill grid, so it fits as many as the drawer or this pane allows —
  * the question it asks is how much room *it* was given, never how big the window is.
  *
@@ -242,16 +237,9 @@ export function SettingsShowcase() {
                     heading is what separates them — a line drawn between two of the six said the
                     colour section was a different KIND of thing, which is the claim this page
                     exists to deny. */}
-                <ThemePicker />
-                <div className="grid gap-6 @container md:grid-cols-2">
-                  <PreferencesDensity />
-                  <PreferencesRadius />
-                  <PreferencesFont />
-                  <PreferencesMonoFont />
-                </div>
-              {/* Whatever the packages this host installed contribute. It draws nothing until one
-                  registers a manifest, which is why a product that installs no optional package
-                  sees exactly the sections above and no empty space where a group would be. */}
+                {/* Every preference this host offers: the theme, density, then whatever the
+                    packages it installed contribute. Radius and the faces are the theme's and
+                    have no control. */}
                 <PreferencesSections />
               </div>
             </div>

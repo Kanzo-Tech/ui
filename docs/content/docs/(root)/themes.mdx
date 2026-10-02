@@ -18,8 +18,8 @@ together, the pair a person wears by day and by night. Four families ship — ei
 `kanzo` is drawn from the brand: deep green `#004011` by day, neon `#1AE973` by night, mist
 `#E0E7DF` for the quiet surfaces, and Geist standing in for the commercial Neue Haas Grotesk.
 
-Each card is the family painting a miniature app screen — [`ThemePreview`](/docs/layout/theme-picker#themepreview),
-the same one `ThemePicker` draws — with a day/night toggle inside it. **Wear it** puts the family on
+Each card is the family painting a miniature app screen — [`ThemePreview`](/docs/layout/preferences#themepreview),
+the same one the theme cards in `Preferences` draw — with a day/night toggle inside it. **Wear it** puts the family on
 both sides of this site; **Edit** opens the [generator](/theme-generator) on the pair.
 
 <ThemeCatalogue />
@@ -32,7 +32,7 @@ Three facts, and everything on this page follows from them:
   `color-scheme`. `nord-dark` is not a mode of `nord`; it is another theme.
 - **A person chooses one theme per side**, plus which side is worn — GitHub's
   Appearance model. The preference is `themeByAppearance: { light?, dark? }` beside
-  `appearance: "light" | "dark"`, picked by the user; the OS is never asked.
+  `appearance: "light" | "dark"`, which starts at the OS's `prefers-color-scheme` until the person picks.
 - **The provider writes the result to `<html>`.** `data-theme` gets the theme for the side being
   worn, and `.dark` the side. Every component reads the tokens, so nothing re-renders to re-skin.
 
@@ -80,15 +80,14 @@ const pair = { light: "nord", dark: "nord-dark" };
 
 ## Letting people choose
 
-[`ThemePicker`](/docs/layout/theme-picker) is the control: a
+[`Preferences`](/docs/layout/preferences#the-theme-cards) draws the control first: a
 **Light theme** card and a **Dark theme** card — choosing a card wears its side — each a large
 preview of its choice over a row of round swatches, one per theme. Pointing at a swatch previews it
-in its card; clicking it chooses it and wears that side. It is what
-[`Preferences`](/docs/layout/preferences) draws first, and it offers exactly what `themes` lists.
+in its card; clicking it chooses it and wears that side. It offers exactly what `themes` lists.
 
 ```tsx
 <KanzoThemeProvider>
-  <ThemePicker />
+  <PreferencesSections namespace="theme" />
 </KanzoThemeProvider>
 ```
 

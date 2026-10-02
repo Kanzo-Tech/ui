@@ -10,9 +10,9 @@ carrying its colours, the shape knobs and, if it wants them, its font stacks —
 *decisions*, because the [theme generator](/theme-generator) fills in the ink that follows from a
 fill. Adding a client is adding a file.
 
-**What a user chooses** is which theme they wear on each side, plus four axes layered over it: how
-round, how dense, which typefaces, light or dark. All of them are `data-*` attributes on `<html>`
-whose values live in static CSS.
+**What a user chooses** is which theme they wear on each side, which side is worn, and how dense
+everything is. How round the corners are and which typefaces are used are the theme's, never the
+user's. All of it reaches `<html>` as an attribute or a class whose values live in static CSS.
 
 The rule about colour is not "the user touches no colour" — `appearance` is colour, and always was.
 It is: *the user never **authors** a colour value; they choose among themes someone already wrote.*
@@ -41,11 +41,15 @@ A person therefore chooses the way GitHub's *Settings → Appearance* lets them:
 | Preference | Values | Writes |
 | --- | --- | --- |
 | `themeByAppearance` | `{ light?: string; dark?: string }` — `{}` until they choose | `data-theme`, the theme for the side being worn |
-| `appearance` | `"light"` · `"dark"` — `"light"` unless the tenant's policy says otherwise | **no attribute**: it writes `.dark` |
+| `appearance` | `"light"` · `"dark"` — the OS's `prefers-color-scheme` until they choose | **no attribute**: it writes `.dark` |
 
 The two compose rather than compete: appearance picks the side, and the theme axis is keyed by that
-side. The user picks the side; the OS is never asked. Move the starting side with
-`policy={{ theme: { appearance: { default: "dark" } } }}`.
+side. While nothing is stored the side is the OS's; once the person picks, the pick is stored and
+wins. A tenant moves the starting side with `policy={{ theme: { appearance: { default: "dark" } } }}`,
+which outranks the OS.
+
+Radius and typography are not preferences: each theme authors its own three radii and may name its
+faces. See [Preference or theme](/docs/design/preferences).
 
 <Callout title="Why one mode per theme">
   It is what lets a tint be written as a percentage on the role (`bg-destructive/7`) with one meaning
@@ -103,7 +107,6 @@ import { KanzoThemeProvider, cookieStorageAdapter } from "@kanzo-tech/ui";
 | `storageKey` | `string` | `"kanzo_theme_prefs"` |
 | `value` / `onChange` | `Partial<ThemePrefs>` / `(next) => void` | uncontrolled |
 | `defaults` | `Partial<ThemePrefs>` | — |
-| `fonts` / `monoFonts` | `FontOption[]` | the generated stacks |
 | `sections` | `SectionManifest[]` | `[]` |
 | `onThemeRetired` | `(theme: string) => void` | — |
 
@@ -118,8 +121,7 @@ import { KanzoThemeProvider, cookieStorageAdapter } from "@kanzo-tech/ui";
   `themeScript` read.
 - **`value` / `onChange`** — controlled mode: the host owns persistence (a user profile on the
   server, say).
-- **`defaults`** — the app's starting point for the non-theme axes, one rank below the tenant's
-  policy.
+- **`defaults`** — the app's starting point for a preference, one rank below the tenant's policy.
 - **`sections`** — the preference sections of the packages this host installed; see
   [Contributing a section](/docs/sections).
 - **`onThemeRetired`** — called at most once when the stored theme is no longer in `themes`; see
@@ -167,21 +169,21 @@ into the other; a pinned axis the script does not know about flashes the user's 
 `theme-script.test.ts` runs the script and the provider under one set of stubs and diffs `<html>`,
 so the two cannot drift.
 
-The script owns `<html>` and nothing else. What the provider renders — `ThemePicker`'s cards, the
-`Preferences` panel — starts from the defaults on the server and on the hydrating client alike, and
+The script owns `<html>` and nothing else. What the provider renders — the `Preferences` sections —
+starts from the defaults on the server and on the hydrating client alike, and
 the stored choice arrives in a layout effect before the first paint, so hydration never meets a
 stored dark side over markup the server drew light.
 
 Pair it with `cookieStorageAdapter()` on the provider so the user's writes land where the script
 (and a server rendering the request) can read them.
 
-### ThemePicker and ThemePreview
+### The theme cards and ThemePreview
 
-[`ThemePicker`](/docs/layout/theme-picker) is the one control for both preferences — a light card and a
-dark card, which are the appearance choice themselves, each a large preview over a row of theme
-swatches — and
-`ThemePreview` is the miniature screen on each card, a scoped `KanzoTheme` painted by the real tokens. The picker offers what `themes` lists
-and obeys `policy`; its page has the full behaviour table.
+[`PreferencesSections`](/docs/layout/preferences#the-theme-cards) draws the one control for both
+preferences: a light card and a dark card, which are the appearance choice themselves, each a large
+preview over a row of theme swatches. `ThemePreview` is the miniature screen on each card, a scoped
+`KanzoTheme` painted by the real tokens. The cards offer what `themes` lists and obey `policy`; the
+preferences page has the full behaviour table.
 
 ### Retired themes
 
@@ -196,14 +198,14 @@ So the provider, on finding that the theme worn on the current side is not in `t
 3. holds the name in `retiredTheme` for the rest of the session, because the place that says so may
    mount later.
 
-`ThemePicker` then shows an *info* alert under its cards, and [`ThemeNotice`](/docs/hooks/use-kanzo-theme)
+The theme cards then show an *info* alert, and [`ThemeNotice`](/docs/hooks/use-kanzo-theme)
 — mounted beside your `<Toaster />` — toasts the same words once. Both take `ThemeRetiredCopy`
 (`title`, `formatDescription`) for translation.
 
 ### Two themers, and only one of them owns the root
 
 `KanzoThemeProvider` writes the axes to `document.documentElement` and is **the app's themer**.
-`KanzoTheme` writes the same attributes to a `<div>` and is **for previews** — a gallery of themes on
+`KanzoTheme` writes the theme and the side to a `<div>` and is **for previews** — a gallery of themes on
 one page, a branded panel, `ThemePreview` itself.
 
 ```tsx
@@ -216,7 +218,6 @@ one page, a branded panel, `ThemePreview` itself.
 | --- | --- | --- |
 | `theme` | `string` | inherits |
 | `appearance` | `"light" \| "dark"` | the page's resolved side |
-| `radius` / `font` / `monoFont` / `density` | `string` | inherit |
 
 It always writes the side as a class, so a scope never wears the light block on a dark page by
 accident; and it re-points the theme context, so a chart inside resolves its colours against the
@@ -227,7 +228,7 @@ preferences.
 **Never reach for `KanzoTheme` as the app's provider.** Ark's overlays — Dialog, Popover, Menu,
 Select, Tooltip, Toast, HoverCard, Command — portal into `document.body`, outside any wrapper, so a
 wrapper cannot theme them; and density sets the root font-size that the whole `rem` scale resolves
-against, so on a wrapper it is broken outright.
+against, so a scope does not take it at all.
 </Callout>
 
 **What would reverse it:** a scope that could theme Ark's portalled overlays. It cannot, and that is a
@@ -255,7 +256,7 @@ const policy = { theme: { themeByAppearance: { hidden: true } } };
 ```
 
 `hidden` means *do not offer this, and ignore what was stored*: the provider applies the pair, and
-`ThemePicker` draws its two cards without swatches, so a member still chooses the side — inside
+the theme cards draw without swatches, so a member still chooses the side — inside
 the brand. Withhold `appearance` too and the picker draws nothing.
 
 | `policy.theme` | Effect |
@@ -263,7 +264,8 @@ the brand. Withhold `appearance` too and the picker draws nothing.
 | `themeByAppearance: { hidden: true }` | the brand is locked; the mode is still a choice |
 | `appearance: { pinned: "dark" }` | always the night side; the picker offers that side's themes only |
 | `appearance: { hidden: true }` | the tenant's default side; the control goes, the light and dark cards remain |
-| both `hidden` | nothing to choose; the picker renders nothing |
+| both `hidden` | nothing to choose; the theme section renders nothing |
+| `density: { default: "compact" }` | the product starts dense; density cannot be pinned or withheld, it is always the person's |
 
 Prefer `hidden` plus `defaultTheme` over `pinned` for the theme: a pinned name is one theme for
 *both* sides, which paints a light theme at night.
@@ -450,8 +452,8 @@ fossil-specific token.
 
 | Token | Default | Set by |
 | --- | --- | --- |
-| `--font-sans`, `--font-heading` | Geist (`--font-geist-sans`), falling back to the system face | `data-font`, or a theme |
-| `--font-mono` | Geist Mono (`--font-geist-mono`), falling back to the system mono | `data-mono-font`, or a theme |
+| `--font-sans`, `--font-heading` | Geist (`--font-geist-sans`), falling back to the system face | the theme |
+| `--font-mono` | Geist Mono (`--font-geist-mono`), falling back to the system mono | the theme |
 
 The stacks are declared as plain values in a static `@theme`, so they are emitted even where no
 utility asks for them — `CodeEditor` reads `--font-mono` from a style object. They used to be
@@ -543,18 +545,17 @@ const acme = { "--background": "#fbfcfd", "--foreground": "#10151c" /* … */ };
 auditContrast((token) => acme[token]); // [] when every pair clears its floor
 ```
 
-## The user axes
+## The user's preferences
 
-| Axis | Attribute | Sets |
+| Preference | Writes | Sets |
 | --- | --- | --- |
-| radius | `data-radius` | `--radius-box` / `--radius-field` / `--radius-selector`; the size-named `rounded-*` scale hangs off the field one |
-| font | `data-font` | `--font-sans` — Geist by default, falling back to the system face |
-| monoFont | `data-mono-font` | `--font-mono` — Geist Mono by default, falling back to the system mono |
-| density | `data-font-size` | the root font-size, which every `rem` in the system scales from |
+| `appearance` | `.dark` | which side is worn; the OS's `prefers-color-scheme` until the person picks |
+| `themeByAppearance` | `data-theme` | the theme worn on that side |
+| `density` | `data-font-size` | the root font-size as a percentage of the browser's (`87.5%` · `100%` · `112.5%`), which every `rem` scales from |
 
-Every one of them is **declared**, not hand-wired: `CORE_PREFS` is generated beside the CSS by
-`packages/theme/scripts/gen-theme.mjs`, so the options a control offers are the table the selectors
-were emitted from. `AXES` is a projection of it. Adding a font is one line in the generator.
+That is the whole list. Every one is **declared**, not hand-wired: `CORE_PREFS` is generated beside
+the CSS by `packages/theme/scripts/gen-theme.mjs`, so the options a control offers are the table the
+selectors were emitted from. `AXES` is a projection of it.
 
 ```ts
 import { CORE_PREFS, prefOptions } from "@kanzo-tech/theme";
@@ -564,9 +565,10 @@ prefOptions(CORE_PREFS.density); // [{ value: "default", label: "Default" }, …
 CORE_PREFS.themeByAppearance.options; // { from: "themes" } — the list is the TENANT's
 ```
 
-A tenant may pin, withhold or restart any of them through one `policy` prop, under the namespace
-`theme`; see [contributing a section](/docs/sections#tenant-policy-selection-never-authorship),
-which is the same mechanism.
+A tenant may pin, withhold or restart them through one `policy` prop, under the namespace `theme`;
+see [contributing a section](/docs/sections#tenant-policy-selection-never-authorship), which is the
+same mechanism. Density is declared `personal`: a tenant may start it elsewhere and may not pin or
+withhold it.
 
 <Callout type="warn" title="They must be on <html>, not a wrapper">
   Ark's overlays — Dialog, Popover, Menu, Select, Tooltip, Toast, HoverCard, Command — portal
@@ -581,15 +583,15 @@ which is the same mechanism.
 ### Setting them
 
 ```tsx
-<KanzoThemeProvider defaults={{ radius: "md", density: "compact" }}>{children}</KanzoThemeProvider>
+<KanzoThemeProvider defaults={{ density: "compact" }}>{children}</KanzoThemeProvider>
 ```
 
 ```tsx
-const { radius, set } = useKanzoTheme();
-set({ radius: "none" }); // square corners everywhere
+const { density, set } = useKanzoTheme();
+set({ density: "comfortable" }); // everything a step larger
 ```
 
-Or drop in the ready-made panel, which draws `ThemePicker` first and the four axes after it:
+Or drop in the ready-made panel, which draws the theme cards first and density after them:
 
 ```tsx
 import { Preferences } from "@kanzo-tech/ui";
@@ -605,8 +607,8 @@ import { Preferences } from "@kanzo-tech/ui";
 ## Dark mode
 
 `.dark` on `<html>` is the only mode selector, and `KanzoThemeProvider` writes it from the side
-the user picked — `"light" | "dark"`, nothing else. The OS is never asked: there is no
-`prefers-color-scheme` in the provider or in `themeScript`. A host already running a theme manager
+the resolved side — `"light" | "dark"`, nothing else. While nothing is stored, both the provider and
+`themeScript` start from `prefers-color-scheme`; a stored pick wins, and the OS is never stored. A host already running a theme manager
 that writes the class (next-themes with `attribute: "class"`) turns that writer off.
 
 <Callout type="info" title="Why a class and not light-dark()">
@@ -644,9 +646,9 @@ its own storage, or its own section. None of them is required to use a theme.
 **The catalogue.** `themeIndex`, `ThemeOption`, `themeFamilies`, `ThemeFamily` and
 `defaultThemePair` — see [the catalogue as data](#the-catalogue-as-data). `themeData` is the generated
 tables as a JS module — read it rather than importing `theme-data.json`, which Node rejects as a bare
-JSON import — and `ThemeData` is its type. The axis keys are `KanzoThemeName`, `KanzoDensity`,
-`KanzoFont`, `KanzoMonoFont` and `KanzoRadius`; all of them are host-extensible, and `""` on a theme
-name means *defer to the tenant's default* rather than *no theme*.
+JSON import — and `ThemeData` is its type. The preference types are `Appearance`, `KanzoThemeName`
+and `KanzoDensity`. A theme name is host-extensible, and `""` means *defer to the tenant's default*
+rather than *no theme*.
 
 **Storage.** `STORAGE_KEY` is where a preference document is kept, and `CORE_NAMESPACE` is the
 namespace the core's own preferences answer to inside a tenant's policy.

@@ -51,13 +51,10 @@ import {
   Input,
   NativeSelect,
   NativeSelectOption,
-  PreferencesDensity,
-  PreferencesFont,
-  PreferencesMonoFont,
   PreferencesField,
   PreferencesPanel,
-  PreferencesRadius,
   PreferencesRoot,
+  PreferencesSections,
   PreferencesTrigger,
   RadioGroup,
   RadioGroupCard,
@@ -1549,12 +1546,9 @@ export function MetadataFormShowcase() {
                   </Field>
                 </div>
 
-                {/* The library's own preference axes, flat — the canonical four, in panel order.
-                    Appearance is not among them: it has one control, the toggle in the header. */}
-                <PreferencesDensity />
-                <PreferencesRadius />
-                <PreferencesFont />
-                <PreferencesMonoFont />
+                {/* The library's own preferences, after the product's: the theme, density and
+                    whatever an installed package contributes. */}
+                <PreferencesSections />
               </PreferencesPanel>
             </PreferencesRoot>
           </div>

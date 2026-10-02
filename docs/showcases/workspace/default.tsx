@@ -21,13 +21,9 @@ import {
 	MenuItem,
 	MenuSeparator,
 	MenuTrigger,
-	ThemePicker,
-	PreferencesDensity,
-	PreferencesFont,
-	PreferencesMonoFont,
 	PreferencesPanel,
-	PreferencesRadius,
 	PreferencesRoot,
+	PreferencesSections,
 	PreferencesTrigger,
 	Resizable,
 	ResizablePanel,
@@ -567,11 +563,7 @@ function ArchiveShell() {
 						    them in the header it read as one. The `P` hotkey is unchanged. */}
 						<PreferencesTrigger />
 						<PreferencesPanel>
-							<ThemePicker />
-							<PreferencesDensity />
-							<PreferencesRadius />
-							<PreferencesFont />
-							<PreferencesMonoFont />
+							<PreferencesSections namespace="theme" />
 						</PreferencesPanel>
 					</PreferencesRoot>
 				</ShellHeader>

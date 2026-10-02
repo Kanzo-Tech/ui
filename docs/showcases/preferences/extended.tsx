@@ -1,11 +1,10 @@
 "use client";
 
 import {
-  PreferencesDensity,
   PreferencesField,
   PreferencesPanel,
-  PreferencesRadius,
   PreferencesRoot,
+  PreferencesSections,
   PreferencesTrigger,
   SegmentGroup,
 } from "@kanzo-tech/ui";
@@ -46,8 +45,7 @@ export function PreferencesExtendedShowcase() {
               />
             </PreferencesField>
 
-            <PreferencesRadius />
-            <PreferencesDensity />
+            <PreferencesSections />
           </PreferencesPanel>
         </PreferencesRoot>
       }

@@ -59,8 +59,8 @@ none at all, in every theme"; `packages/theme/scripts/gen-theme.mjs`.
 ## Themes ship as families, and a user picks a day one and a night one
 
 A theme is one mode, so what a user chooses is a pair: the theme worn by day and the theme worn by
-night, plus which side is worn — GitHub's Appearance model, and `ThemePicker` is its
-layout. The library ships four families (`kanzo`, `nord`, `catppuccin`, `lofi`), each exactly one
+night, plus which side is worn — GitHub's Appearance model, and the theme cards in `Preferences` are
+its layout. The library ships four families (`kanzo`, `nord`, `catppuccin`, `lofi`), each exactly one
 light and one dark theme, named in the file header; `gen-theme.mjs` refuses a family that is not a
 pair. Twenty-nine single themes, half of them without a partner, made the night choice a guess.
 
@@ -228,7 +228,8 @@ the site the other recipes point at.
 An appearance vocabulary is a **section** only if it publishes obligations returning at least one
 measurable claim — a number, the bar it must clear, and what the bar came from. **A section is admitted
 for HAVING a bar, never for passing it.** On that test there are **three**: colour, graph geometry, and
-density. Radius, font and mono font remain a preference table.
+density. Radius and the faces are not preferences at all: they are the theme's (see
+[Preference or theme](/docs/design/preferences)).
 
 **The clause that will decide future cases, stated on its own.** Density's target-size obligation is
 **red today** — the smallest control measures 21 CSS px at compact against WCAG 2.5.8's 24 — and that is
@@ -297,8 +298,9 @@ target-size bar **fails today** and is pinned by id rather than hidden. The x-he
 ungradeable, with what would close it. **No height and no density step is changed**: the measurement says
 the fix does not go where it first appeared to.
 
-`themes.css` sets the root font-size per `data-font-size` — compact 14 px, default 16, comfortable 18 —
-and every size in the library is `rem`, so compact scales everything by 0.875.
+`themes.css` sets the root font-size per `data-font-size` as a percentage of the browser's — compact
+87.5%, default 100%, comfortable 112.5%, so 14, 16 and 18 px at the browser default — and every size in
+the library is `rem`, so compact scales everything by 0.875.
 
 | thing | default (16 px root) | **compact (14 px root)** | bar |
 |---|---:|---:|---|
@@ -376,8 +378,10 @@ Four things that were settled while building it, because each was a live alterna
   wherever it is mounted — the panel, a settings page, a dock inside a canvas — and what a surface renders
   it with is one control per `kind`. A mechanism whose only surface was the panel would have failed the
   first consumer that had a canvas.
-- **The four generated axes stay the core's.** Radius, font, mono font and density are not re-expressed as
-  sections; a mechanism that swallowed its own host's table would be generalising in the wrong direction.
+- **The core's preferences stay the core's.** Appearance, the theme per side and density are not
+  re-expressed as a contributed section; a mechanism that swallowed its own host's table would be
+  generalising in the wrong direction. They are drawn by the same `PreferencesSections`, as the
+  namespace `theme`.
   Colour is not contributed by anyone either, because a document is a stylesheet and the attribute selects
   between compiled blocks.
 

@@ -1,12 +1,13 @@
 "use client";
 
-import { ThemePicker } from "@kanzo-tech/ui";
+import { PreferencesSections } from "@kanzo-tech/ui";
 
 export default function Example() {
   return (
-    <div className="w-full max-w-2xl">
-      <ThemePicker
+    <div className="flex w-full max-w-2xl flex-col gap-6">
+      <PreferencesSections
         copy={{
+          theme: "Tema",
           appearance: "Apariencia",
           day: "Tema claro",
           dayDescription: "Se usa con la apariencia clara.",
@@ -14,6 +15,8 @@ export default function Example() {
           nightDescription: "Se usa con la apariencia oscura.",
           active: "Activo",
         }}
+        namespace="theme"
+        only={["appearance"]}
       />
     </div>
   );

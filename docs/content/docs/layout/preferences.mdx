@@ -1,6 +1,6 @@
 ---
 title: Preferences
-description: The parts a preference menu is built from — the sections, a surface to put them on, and the containers for your own.
+description: Every preference a person may change — the theme for each side, the side, density, and what installed packages contribute — and nothing a theme owns.
 ---
 
 {/* An iframe, not a ComponentPreview. The panel is Portal-ed and `position: fixed`, so in a
@@ -13,42 +13,27 @@ The panel opens on arrival so there is something to look at. Toggle the trigger 
 to see the rest of it: the drawer is **non-modal**, so the form behind it stays usable while
 the theme changes live.
 
+## What is a preference, and what is not
+
+A preference answers *how this person reads*: the side they wear, the theme they wear on each side,
+and how big everything is. Corner radius and typography answer *what the product looks like*, so they
+belong to the theme and have no control here. A tenant that wants square corners or its own face
+publishes a theme. The rule and the reasons are on [Preference or theme](/docs/design/preferences).
+
+Motion and contrast are the platform's questions. The library honours `prefers-reduced-motion`, and a
+tenant that wants more contrast than AA publishes a high-contrast theme for people to pick.
+
 ## One preference, four places it appears
 
-A preference is **declared** once — where its values live, which for the core's axes is the
-generator that emits the CSS — and everything else follows from that declaration:
+A preference is **declared** once, where its values live. For the core that is the generator that
+emits the CSS. Everything else follows from the declaration:
 
 | | |
 | --- | --- |
-| **Declaration** | `kind`, options (or the name of whoever owns them), default, attribute, doc. `CORE_PREFS` for the library's axes, a `SectionManifest` for an optional package's. |
-| **Resolution** | one chain, most specific first: what a tenant PINNED, what the user stored, where the tenant said to start, the declaration's default. `useKanzoTheme().corePrefs` / `.sectionPrefs` carry the answer, `via` says which link gave it, and `offered` says whether to draw a control at all. |
-| **Renderer** | one control per `kind` — a radio list, a `Switch`, a `Slider` — so a surface never re-decides what a `range` looks like. The specimens are a lookup keyed by axis. |
-| **Surfaces** | the drawer below, a settings page, a dock inside a canvas. All of them mount the same sections. |
-
-Two controls are not the generic one, and both because the *control* differs rather than the data:
-radius is a slider over an ordered scale, and the theme is [`ThemePicker`](/docs/layout/theme-picker),
-which draws each theme as a live miniature.
-
-## Four abstractions, and a surface is not one of them
-
-What this page documents is a **kit for building a preference menu**, and the drawer above is one
-assembly of it rather than the thing itself. A product with a couple of screens wants the floating
-drawer — [metadata form](/docs/showcases/metadata-form) opens it with a key and never leaves the
-page it was on. A product with a real settings area wants a page with a menu down the side —
-[settings](/docs/showcases/settings). **Both are first-class, and neither is the default one.** The
-same exports build both, and no part of either takes a prop naming the other.
-
-| The parts | What they are |
-| --- | --- |
-| **The sections** — `ThemePicker`, `PreferencesDensity`, `PreferencesRadius`, `PreferencesFont`, `PreferencesMonoFont` | One preference each, wired to `useKanzoTheme()` directly. They take no surface, no layout prop and no context of yours: mount one in a drawer, a page, a tab or a dialog and it edits the same live theme. |
-| **A surface** — `PreferencesRoot`, `PreferencesTrigger`, `PreferencesPanel` (or the all-in-one `Preferences`) | The drawer, assembled: a non-modal dialog, an optional hotkey, a floating trigger and a pinned Reset · Done. It is the only *surface* the library ships, because it is the only one that is the same in every product. A settings page is layout — `Sidebar`, `ShellMain`, `Section` — and you already have those. |
-| **The containers** — `PreferencesField`, `PreferencesFieldSet` | Your own preference, titled the way the library's are, so a product's section and a library section are indistinguishable in either surface. |
-| **The registry** — `PreferencesSections` | Whatever the packages this host installed contribute, drawn in the same language. It is what stops an installed package from growing a settings surface beside yours. |
-
-The one thing a section will not do is ask how big the window is. `ThemePicker` lays its cards out on a
-**container query** — side by side in a settings pane, stacked in a 384px drawer — with nothing passed
-down to say so — the question a section may ask is how much room *it* was given. A layout prop would be the surface deciding for the section again, which is the whole thing
-this split exists to prevent.
+| **Declaration** | `kind`, options (or the name of whoever owns them), default, attribute, doc. `CORE_PREFS` for the core's three, a `SectionManifest` for an optional package's. |
+| **Resolution** | one chain, most specific first: what a tenant pinned, what the person stored, where the tenant said to start, the declaration's default. `useKanzoTheme().corePrefs` / `.sectionPrefs` carry the answer, `via` says which link gave it, and `offered` says whether to draw a control at all. |
+| **Renderer** | one control per `kind`, such as a radio list, a `Switch` or a `Slider`, so a surface never re-decides what a `range` looks like. The specimens are a lookup keyed by preference. |
+| **Surfaces** | the drawer below, a settings page, a dock inside a canvas. All of them mount `PreferencesSections`. |
 
 ## Usage
 
@@ -61,104 +46,111 @@ import { Preferences } from "@kanzo-tech/ui";
 ```
 
 The all-in-one renders a floating trigger plus the drawer. It writes through `useKanzoTheme`,
-which sets `data-*` attributes on `<html>` — that is why every component re-skins, including
-Ark's portaled overlays, which render into `document.body` and would miss a wrapper element.
+which sets attributes on `<html>`. That is why every component re-skins, including Ark's portaled
+overlays, which render into `document.body` and would miss a wrapper element.
 
-The panel is deliberately **non-modal**: you keep using the app while it re-skins live behind
-the drawer, which is the only way to judge a theme. It still closes on an outside click, because
-that is what a panel is expected to do — every change applies on selection, not on close, and the
-hotkey reopens it where you left off.
+The panel is deliberately **non-modal**: you keep using the app while it re-skins live behind the
+drawer, which is the only way to judge a theme. It still closes on an outside click. Every change
+applies on selection, not on close, and the hotkey reopens it where you left off.
 
-There is no default hotkey. `hotkey` registers a bare, unmodified key on `window` (ignored
-while you are typing in a field), and a design system must not claim one in its host's keymap
-without being asked.
+There is no default hotkey. `hotkey` registers a bare, unmodified key on `window` (ignored while you
+are typing in a field), and a design system must not claim one in its host's keymap without being
+asked.
 
-<Callout type="info" title="The theme is a preference — a hue is not">
-  The rule is not "the user touches no colour", which was never true: `appearance` is colour. It is
-  that the user never **authors** a colour value — they choose among themes someone already
-  validated. Authoring one is a different surface, the [theme generator](/theme-generator), aimed at
-  whoever writes a theme rather than whoever wears it.
+## The sections
 
-  `ThemePicker` is also the only appearance control: its two cards are the choice — the
-  card you pick is the side you wear. There is no sun/moon toggle in the header. **Reset** unsets
-  every preference, appearance included, and the page lands on whatever the tenant's policy starts a
-  user with.
-</Callout>
+`PreferencesSections` draws every preference this host offers, in this order:
 
-## Anatomy
+1. **The theme.** A light card and a dark card, described below. It is the control for both
+   `appearance` and `themeByAppearance`.
+2. **Density.** Compact, default and cozy, each a percentage of the browser's own font size.
+3. **What installed packages contribute.** For example, the graph contributes which look the canvas
+   draws. See [Contributing a section](/docs/sections).
 
-```text
-PreferencesRoot
-├── PreferencesTrigger
-└── PreferencesPanel
-    ├── ThemePicker           — unless the tenant withheld both the theme and the appearance
-    ├── PreferencesDensity
-    ├── PreferencesRadius
-    ├── PreferencesFont
-    └── PreferencesMonoFont
-```
-
-`Panel` renders that whole set when given no children, plus a pinned Reset · Done footer that
-stays whatever the children are. Pass children to choose your own set.
-
-The theme comes first. `ThemePicker` guards itself rather than being guarded at the call site —
-every section is exported flat for a host's own settings page, where a call-site guard would be
-invisible. Its cards, its policy handling and its copy are on [its own page](/docs/layout/theme-picker).
-
-
-## What the installed packages add
-
-The five sections above are the core's. A package a host installed may contribute its own choice —
-the graph contributes which look the canvas draws — and it appears in this panel, in this visual
-language, rather than in a settings surface of its own. That is the whole difference between one
-product and several sharing a window.
-
-`PreferencesSections` draws all of them, in registration order, and draws nothing when the host
-registered none. It is exported flat like every other section **because `children` replaces the
-canonical set**: a host composing its own panel must place it, or every contributed choice silently
-disappears.
+It is the one way to mount a preference control. There is no per-axis export and no standalone theme
+picker, so a host cannot mount a control that overrides its theme.
 
 ```tsx
-<PreferencesPanel>
-  <ThemePicker />
-  <PreferencesDensity />
-  <PreferencesSections />
-</PreferencesPanel>
+<PreferencesSections />                          // everything, as the panel draws it
+<PreferencesSections namespace="theme" />        // the core's alone: the theme, then density
+<PreferencesSections namespace="graph" />        // one package's
+<PreferencesSections namespace="theme" only={["density"]} />
 ```
 
-A choice the tenant pinned or withheld is not drawn at all. How a package declares one, how the host
-registers it and how a tenant fixes it: [Contributing a section](/docs/sections).
+`namespace` picks one namespace, and the core's is `theme`. `only` picks preferences by name, in your
+order. For the core, `"appearance"` and `"themeByAppearance"` both name the theme cards, because the
+cards are one control for the two of them. A name nothing declares draws nothing. A choice the tenant
+pinned or withheld is not drawn at all.
 
-## Choosing the sections
+<ComponentPreview componentName="preferences" />
 
-`Panel` renders the canonical set when given no children. Pass children to choose your own —
-and the pinned footer stays. A typography-only panel, for instance. Same real drawer, floating
-over the page, in its own viewport.
+## The theme cards
 
-<PreviewIframe className="h-[42rem]" name="preferences-fonts" source="preferences/fonts" title="Typography preferences" />
+A theme is one mode, so a person does not choose "a theme". They choose one for light and one for
+dark, and which side to wear. The cards draw exactly that, and **the card is the selector**:
 
-```tsx
-<PreferencesRoot hotkey="t">
-  <PreferencesTrigger />
-  <PreferencesPanel title="Typography">
-    <PreferencesFont />
-    <PreferencesMonoFont />
-  </PreferencesPanel>
-</PreferencesRoot>
-```
+- **Light theme** and **Dark theme** are two cards, side by side, and together they form one radio
+  group, *Appearance*. Clicking a card anywhere but on a swatch wears its side: it writes
+  `appearance`, and with it `.dark`.
+- **Active** marks the worn card, which is the checked one: a primary border and the badge in its
+  header.
+- **Swatches.** Each card offers only its own side's themes, as a row of round swatches. Pointing at
+  one (or focusing it) **previews** it in that card's `ThemePreview` and name, and nowhere else. The
+  page does not change, and moving away puts the card's own theme back. **Clicking** a swatch commits
+  it: the theme is filed under the card's side and that side is worn.
 
-<Callout type="warn">
-Use the **flat** parts (`PreferencesFont`), not the `Preferences.Font` statics. The namespace is
-built with `Object.assign`, and statics are lost when a module becomes a client reference under
-RSC — `Preferences.Font` reads back as `undefined` there. We hit this for real.
-</Callout>
+While nothing is stored, the side is the OS's `prefers-color-scheme`. Once the person picks a side,
+the pick is stored and wins. A tenant's `policy.theme.appearance.default` outranks the OS.
 
-## Extending the panel
+Each side remembers its own theme (`themeByAppearance`), so wearing the other card brings back what
+was chosen for it. With no choice stored, each card shows the default pair. The swatch row offers
+exactly what the provider's `themes` lists, so narrowing the offer is a prop on the provider.
 
-The children are yours, so a product can lead with its **own** preferences and then fall back to
-the library's axes — one drawer, product prefs and theme prefs together, all live. Here a
-product `Sidebar side` control sits above the theme sections. This is the move the
-[metadata-form showcase](/docs/showcases/metadata-form) uses for its Layout picker.
+### What the tenant's policy draws
+
+| `policy.theme` | What draws |
+| --- | --- |
+| nothing | both cards, as the *Appearance* choice, each with its swatches |
+| `appearance: { pinned: "dark" }` or `{ hidden: true }` | only the worn side's card, with its swatches and no radio |
+| `appearance: { default: "dark" }` | both cards, the dark one checked while nothing is stored |
+| `themeByAppearance: { hidden: true }` or `{ pinned }` | both cards without swatches: the tenant's default pair, previewed. Choosing a card still picks the side |
+| both withheld | no theme section; density and the rest still draw |
+| `density: { pinned }` or `{ hidden: true }` | ignored. Density is always the person's; only `{ default }` applies |
+
+### The retired-theme notice
+
+When the stored theme is no longer in `themes`, because a tenant dropped a family or the library
+retired the theme, the provider clears the choice and the cards show an *info* alert: "Brand updated —
+“dracula” is no longer offered here. You are seeing the default." It is the same state, and the same
+words, that [`ThemeNotice`](/docs/theming#retired-themes) shows as a toast. Translate both through
+`copy.retired`.
+
+### Accessibility
+
+- The two cards are an Ark radio group named *Appearance* (`copy.appearance`). Each card's radio is
+  its header, stretched over the card, so the whole card is the click target while no control is
+  nested in another.
+- Each card's swatches are a radio group named by the card's title, with **manual activation**: Tab
+  enters the row on the chosen swatch, arrow keys (and Home / End) move focus and preview, Enter or
+  Space chooses, and Escape puts the preview back. Choosing on every arrow would repaint the page on
+  every key press.
+- A swatch's accessible name is the theme's label, also shown as its tooltip. The swatch circles and
+  the preview are decorative (`aria-hidden`).
+- The cards sit on a container query, not a viewport one: side by side from a 36rem container,
+  stacked in a 384px drawer, with nothing passed down.
+
+### Translating
+
+Every word the core's sections author is in `copy`. A theme's own label was written by the tenant and
+passes through verbatim.
+
+<ComponentPreview componentName="preferences" fileName="example-copy" />
+
+## Choosing your own set
+
+`PreferencesPanel` renders `PreferencesSections` when given no children. Pass children to compose
+your own, and the pinned Reset · Done footer stays. A product can lead with its **own** preferences
+and then place the library's:
 
 <PreviewIframe className="h-[42rem]" name="preferences-extended" source="preferences/extended" title="Extended preferences" />
 
@@ -166,7 +158,7 @@ product `Sidebar side` control sits above the theme sections. This is the move t
 <PreferencesRoot hotkey="t">
   <PreferencesTrigger />
   <PreferencesPanel>
-    {/* the product's own section, on top — the extension point */}
+    {/* the product's own section, on top */}
     <PreferencesField label="Sidebar side">
       <SegmentGroup value={side} onValueChange={(d) => d.value && setSide(d.value)}>
         <SegmentGroupItem value="start">
@@ -177,40 +169,33 @@ product `Sidebar side` control sits above the theme sections. This is the move t
         </SegmentGroupItem>
       </SegmentGroup>
     </PreferencesField>
-
-    {/* the library's own axes, flat, below the product's */}
-    <PreferencesRadius />
-    <PreferencesDensity />
+    {/* every preference the library offers, below the product's */}
+    <PreferencesSections />
   </PreferencesPanel>
 </PreferencesRoot>
 ```
 
-`PreferencesField` titles a single control; `PreferencesFieldSet` titles a **group** of them.
-That split is a semantics call, not a styling one. `Field` addresses one control by id, and a
-radio group has one hidden input per item, so there is no id for its label to point at —
-`FieldSet` + `FieldLegend` is the answer, and Ark's `useRadioGroup` reads the legend's id
-straight out of the fieldset context as the group's accessible name.
+**`children` replaces the default body**, so a composed panel must place `PreferencesSections` or it
+drops every preference.
+
+`PreferencesField` titles a single control; `PreferencesFieldSet` titles a **group** of them. That
+split is about semantics, not styling. `Field` addresses one control by id, and a radio group has one
+hidden input per item, so there is no id for its label to point at. `FieldSet` + `FieldLegend` is the
+answer, and Ark's `useRadioGroup` reads the legend's id straight out of the fieldset context as the
+group's accessible name.
 
 ## The other surface: a settings page
 
-Every section is exported flat, so the same controls live **inline** on a product's own settings
-page with no drawer anywhere. This is the whole of it — there is no page component to import,
-because a settings page is your layout and your navigation with the sections dropped in:
+The same sections live **inline** on a product's own settings page, with no drawer anywhere. There
+is no page component to import, because a settings page is your layout and your navigation with the
+sections dropped in:
 
 ```tsx
 <ShellMain>
   <SectionRoot className="mx-auto w-full max-w-5xl px-6 py-8">
     <div className="grid gap-8 md:grid-cols-[13rem_1fr]">
       <nav aria-label="Settings">{/* your own menu — ItemGroup / Item */}</nav>
-
       <div className="flex min-w-0 flex-col gap-8">
-        <ThemePicker />
-        <div className="grid gap-6 @container md:grid-cols-2">
-          <PreferencesDensity />
-          <PreferencesRadius />
-          <PreferencesFont />
-          <PreferencesMonoFont />
-        </div>
         <PreferencesSections />
       </div>
     </div>
@@ -218,18 +203,24 @@ because a settings page is your layout and your navigation with the sections dro
 </ShellMain>
 ```
 
-The [settings showcase](/docs/showcases/settings) is that page finished — a product rail beside it,
-a settings menu of `ItemGroup` / `Item` rows, and the identical sections. Three things it gets from
-the split and does not have to arrange:
+The [settings showcase](/docs/showcases/settings) is that page finished. A section is never separated
+from the next by a rule, in either surface: the heading is the separation.
 
-- **The theme section fills the width it is given** on its own grid. The page passes nothing.
-- **Its cards are the appearance control**, so a page with no panel chrome still has one.
-- **Every heading is one spelling** — small, upper, muted — because each section titles itself. Your
-  own sections get the same by going through `PreferencesField` / `PreferencesFieldSet` rather than
-  writing a heading beside a control.
+## ThemePreview
 
-A section is never separated from the next by a rule, in either surface. The heading is the
-separation; a line between two of them says one is a different *kind* of thing.
+<ComponentPreview componentName="preferences" fileName="example-preview" />
+
+```tsx
+import { ThemePreview } from "@kanzo-tech/ui";
+
+<ThemePreview theme="nord-dark" />
+```
+
+A miniature app screen — a header with the brand mark and a primary button, a sidebar with its active
+row, both inks, and two lines of code in the `--syntax-*` colours — rendered inside a scoped
+`KanzoTheme`, so every part reads the theme's real tokens rather than a copy of its colours. The theme
+cards, the [themes catalogue](/docs/themes) and the [generator](/theme-generator) all draw it. It is
+decorative (`aria-hidden`): whatever offers the theme names it.
 
 ## API Reference
 
@@ -240,6 +231,7 @@ separation; a line between two of them says one is a different *kind* of thing.
 | `hotkey` | `string` | — |
 | `defaultOpen` | `boolean` | `false` |
 | `triggerClassName` | `string` | — |
+| `copy` | `Partial<PreferencesCopy>` | English, below |
 
 ### PreferencesRoot
 
@@ -249,36 +241,44 @@ separation; a line between two of them says one is a different *kind* of thing.
 | `hotkey` | `string` | — |
 | `defaultOpen` | `boolean` | `false` |
 
-### PreferencesPanel
-
-| Prop | Type | Default |
-| --- | --- | --- |
-| `children` | `ReactNode` | the canonical sections |
-| `title` | `string` | `"Preferences"` |
-| `hint` | `string` | `"Applied live · saved to this browser."` |
-
 ### PreferencesTrigger
 
 | Prop | Type | Default |
 | --- | --- | --- |
 | `className` | `string` | — |
 
-### Sections
+### PreferencesPanel
 
-Each reads and writes `useKanzoTheme()` directly. The four axis sections take no props;
-`ThemePicker` takes `copy`, its only library-authored strings — a theme's own label was written by
-the client and passes through verbatim.
-
-| Export | Axis | Attribute |
+| Prop | Type | Default |
 | --- | --- | --- |
-| `ThemePicker` | `themeByAppearance` + `appearance` | `data-theme` and `.dark` |
-| `PreferencesDensity` | `density` | `data-font-size` |
-| `PreferencesRadius` | `radius` | `data-radius` |
-| `PreferencesFont` | `font` | `data-font` |
-| `PreferencesMonoFont` | `monoFont` | `data-mono-font` |
+| `children` | `ReactNode` | `<PreferencesSections copy={copy} />` |
+| `title` | `string` | `"Preferences"` |
+| `hint` | `string` | `"Applied live · saved to this browser."` |
+| `copy` | `Partial<PreferencesCopy>` | English, below |
 
-There is no `Preferences.X` namespace: statics built with `Object.assign` do not survive the RSC
-boundary, so the flat name is the only name.
+### PreferencesSections
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `namespace` | `string` | every namespace, the core's (`"theme"`) first |
+| `only` | `readonly string[]` | every offered preference, in declaration order |
+| `copy` | `Partial<PreferencesCopy>` | English, below |
+
+### PreferencesCopy
+
+| Key | Default |
+| --- | --- |
+| `theme` | `"Theme"` — the heading over the cards |
+| `appearance` | `"Appearance"` — the accessible name of the two cards' radio group |
+| `day` | `"Light theme"` |
+| `dayDescription` | `"Worn while the appearance is light."` |
+| `night` | `"Dark theme"` |
+| `nightDescription` | `"Worn while the appearance is dark."` |
+| `active` | `"Active"` |
+| `retired` | `ThemeRetiredCopy` — `{ title?, formatDescription?({ theme }) }`, shared with `ThemeNotice` |
+
+Density's label and its options come from the declaration. A contributed section's words are its
+manifest's.
 
 ### Containers
 
@@ -289,6 +289,17 @@ For sections of your own, so a product's controls are indistinguishable from the
 | `PreferencesField` | `label`, `children` | one control (`Field` + `FieldLabel`) |
 | `PreferencesFieldSet` | `label`, `children` | a group of controls (`FieldSet` + `FieldLegend`) |
 
-Every part's props are exported as an interface — `ThemePickerProps`, `PreferencesProps`,
-`PreferencesRootProps` and `PreferencesSectionsProps` — so a wrapper can take the same props without
-restating them.
+### ThemePreview
+
+`ThemePreviewProps` extends a `div`'s props.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `theme` | `string` | inherits the surrounding cascade |
+| `appearance` | `"light" \| "dark"` | the theme's own side |
+| `className` | `string` | — |
+
+There is no `Preferences.X` namespace: statics built with `Object.assign` do not survive the RSC
+boundary, so the flat name is the only name. Every part's props are exported as an interface —
+`PreferencesProps`, `PreferencesRootProps`, `PreferencesPanelProps`, `PreferencesSectionsProps` and
+`PreferencesCopy`.

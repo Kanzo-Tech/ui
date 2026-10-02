@@ -12,7 +12,7 @@ import { useKanzoTheme } from "@kanzo-tech/ui";
 ```
 
 ```tsx
-const { radius, appearance, set } = useKanzoTheme();
+const { density, appearance, set } = useKanzoTheme();
 ```
 
 It throws outside a [`KanzoThemeProvider`](/docs/theming) — there is no silent default,
@@ -25,8 +25,8 @@ hook is how you **read** that state and **request** a change; it never touches t
 
 ## Preference and resolution
 
-`appearance` is always `light` or `dark` — the side the user picked, or the tenant's default, or
-`light`. The OS is never asked.
+`appearance` is always `light` or `dark`: the side the person picked, or else the tenant's starting
+side, or else the OS's `prefers-color-scheme`. The OS is a starting point and is never stored.
 
 <ComponentPreview componentName="use-kanzo-theme" fileName="example-appearance" />
 
@@ -41,8 +41,8 @@ side — "which theme" without "on which side" does not name a choice.
 ```tsx
 const { set } = useKanzoTheme();
 
-set({ radius: "lg" });
-set({ density: "compact", font: "geist" });
+set({ density: "compact" });
+set({ appearance: "dark", density: "comfortable" });
 ```
 
 Appearance has its own setter, `setAppearance`, because a host theme manager (next-themes) may own
@@ -65,14 +65,9 @@ provider is above it.
 | --- | --- | --- |
 | `appearance` | `"light" \| "dark"` | The side being worn |
 | `setAppearance` | `(next: Appearance) => void` | Wears that side |
-| `radius` | `"none" \| "xs" \| "sm" \| "md" \| "lg"` | Corner radius axis |
-| `density` | `"default" \| "compact" \| "comfortable"` | Root font-size axis |
-| `font` | `string` | Sans typeface axis |
-| `monoFont` | `string` | Mono typeface axis |
+| `density` | `"default" \| "compact" \| "comfortable"` | How big everything is, relative to the browser's font size |
 | `themeByAppearance` | `Partial<Record<Appearance, string>>` | Which theme this user wears on each side; `{}` defers to the tenant's default |
 | `set` | `(patch: Partial<ThemePrefs>) => void` | Merges a partial patch into the preferences and persists it |
-| `fonts` | `FontOption[]` | The sans options the host wired, for a selector |
-| `monoFonts` | `FontOption[]` | The mono options the host wired |
 | `themes` | `ThemeOption[]` | The themes the tenant published — `[]`, never `undefined`. A **flat** list: a brand is a theme, so there is no second level |
 | `defaultTheme` | `string` | The name the applied side falls back to when the preference is empty |
 | `defaultThemeFor` | `(side: Appearance) => string` | The same answer for either side — a tenant may publish `{ light, dark }`, since a theme carries its own palette |

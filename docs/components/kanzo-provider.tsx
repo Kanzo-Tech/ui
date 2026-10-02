@@ -20,7 +20,7 @@ const SECTIONS = [GRAPH_SECTION];
  * requirement.** It was a requirement while the SERVER chose which document to inline: a choice
  * already made upstream cannot be corrected in the browser without a flash. Every document travels
  * now — the stylesheet carries the whole catalogue, each theme under its own `[data-theme]` — so colour is an
- * attribute like radius and density, and the pre-paint script applies it before anything is drawn.
+ * attribute like density, and the pre-paint script applies it before anything is drawn.
  * What the cookie still buys is a server render whose `<html>` already carries the same attributes,
  * which costs nothing here and keeps the markup identical across the boundary.
  *
@@ -30,8 +30,8 @@ const SECTIONS = [GRAPH_SECTION];
  * and every switch away from the default spent a request that answered 404 into a `.catch` that
  * ignored it. It looked like it worked because the attribute was doing the painting all along.
  *
- * `themeScript` is NOT optional for an SSR host. Everything the provider applies (`data-radius`,
- * `data-font`, `data-mono-font`, `data-font-size` and `.dark`) lives in browser storage, so without
+ * `themeScript` is NOT optional for an SSR host. Everything the provider applies (`data-theme`,
+ * `data-font-size` and `.dark`) lives in browser storage, so without
  * the script the server paints the defaults and the client re-skins on hydration — a flash, plus a
  * hydration mismatch in every control whose markup depends on the resolved appearance. It runs in
  * `<head>` before the first paint, and `theme-script.test.ts` holds it to the same `<html>` the

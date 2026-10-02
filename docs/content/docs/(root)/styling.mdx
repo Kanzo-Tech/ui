@@ -132,7 +132,7 @@ would they expect this to change?*
   transparent and lands wherever the thing underneath puts it.
 - A pressable target owes its 24×24 floor in **pixels**, not in `rem`. WCAG 2.5.8 states CSS
   pixels, and every `rem` here resolves against a root font-size the density axis moves — 16px
-  default, **14px compact**, 18px comfortable. So `min-h-6` is 24px at default and 21px at compact:
+  default, **14px compact**, 18px comfortable at the browser's default size. So `min-h-6` is 24px at default and 21px at compact:
   the failure dressed as the fix. Write `min-h-[24px]`. It is the one size in a recipe that must not
   scale, because the bar it answers to does not — and it applies just as much to a `className` that
   overrides one.

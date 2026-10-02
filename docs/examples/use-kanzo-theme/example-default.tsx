@@ -1,5 +1,6 @@
 "use client";
 
+import { CORE_PREFS, prefOptions } from "@kanzo-tech/theme";
 import {
   Badge,
   Button,
@@ -7,40 +8,39 @@ import {
   ClientOnly,
   Skeleton,
   useKanzoTheme,
-  type KanzoRadius,
+  type KanzoDensity,
 } from "@kanzo-tech/ui";
 
-const RADII: KanzoRadius[] = ["none", "xs", "sm", "md", "lg"];
+const DENSITIES = prefOptions(CORE_PREFS.density) ?? [];
 
 // The preferences are browser state, so the readout is held back until mount — rendered on the
 // server it would print the defaults and then swap to whatever this browser stored.
 function ThemeReadout() {
-  const { radius, density, font, appearance, set } = useKanzoTheme();
+  const { appearance, density, resolvedTheme, set } = useKanzoTheme();
 
   return (
     <div className="flex flex-col items-center gap-4">
       <div className="flex flex-wrap justify-center gap-2">
         <Badge variant="secondary">appearance: {appearance}</Badge>
-        <Badge variant="secondary">radius: {radius}</Badge>
+        <Badge variant="secondary">theme: {resolvedTheme}</Badge>
         <Badge variant="secondary">density: {density}</Badge>
-        <Badge variant="secondary">font: {font}</Badge>
       </div>
 
-      <ButtonGroup aria-label="Corner radius">
-        {RADII.map((value) => (
+      <ButtonGroup aria-label="Density">
+        {DENSITIES.map(({ label, value }) => (
           <Button
             key={value}
-            onClick={() => set({ radius: value })}
+            onClick={() => set({ density: value as KanzoDensity })}
             size="sm"
-            variant={value === radius ? "default" : "outline"}
+            variant={value === density ? "default" : "outline"}
           >
-            {value}
+            {label}
           </Button>
         ))}
       </ButtonGroup>
 
       <p className="max-w-xs text-center text-muted-foreground text-sm">
-        There is one provider per app, so this really does re-round the whole
+        There is one provider per app, so this really does rescale the whole
         page — and persists.
       </p>
     </div>

@@ -170,10 +170,14 @@ may not pin or withhold it".
 | `themeScript` | the same rows |
 | `PreferencesSections` | every offered preference |
 
-The theme owns radius and the faces in exactly two places. One is `themes/*.css`, where each theme
-authors its three radii and may author `--font-sans`, `--font-heading` and `--font-mono`. The other is
-the theme generator. `tokens.css` keeps Geist and Geist Mono as the stacks a theme that names none falls
-back to. A theme ships no font files: the host loads the faces its published themes name.
+The theme owns radius and the faces, and they are authored in `themes/*.css`: each theme declares its
+three radii and may declare `--font-sans`, `--font-heading` and `--font-mono`. The theme generator
+edits the radii. It has no face field yet, so a face is written into the generated file by hand.
+`tokens.css` keeps Geist and Geist Mono as the stacks a theme that names none falls back to. A theme
+ships no font files: the host loads the faces its published themes name.
+
+**What would reverse it:** the first tenant who wants their face set in the generator rather than
+in the file. That tenant is the second call site a face field needs.
 
 ### One way to mount a preference control
 

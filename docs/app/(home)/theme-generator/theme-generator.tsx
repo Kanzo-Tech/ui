@@ -57,7 +57,7 @@ import { ThemeSampler } from "./theme-sampler";
  *
  * daisyUI's generator is the reference: a rail of colour controls grouped by role, a preview that
  * wears the values, and the CSS. Ours edits a PAIR because a user wears a day theme and a night
- * theme (GitHub's model, and `ThemePicker`'s), so a family that is only half written is not one a
+ * theme (GitHub's model, and the theme picker's), so a family that is only half written is not one a
  * tenant can ship.
  *
  * **Nothing in the pane is a preview OF a theme; it IS one.** Each side's values are inline custom

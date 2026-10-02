@@ -117,7 +117,7 @@ its manifest and pays nothing for it. Registration by import into the core would
 mechanism with the dependency inverted, and neither core package declares a dependency on a
 section's package, so under pnpm such an import does not resolve.
 
-The panel then draws the section's preferences in the same list as radius and density. Nothing else
+The panel then draws the section's preferences in the same list as the theme and density. Nothing else
 is wired: that is the difference between one product and several sharing a window.
 
 <Callout type="warn" title="If you compose the panel yourself, place PreferencesSections">
@@ -186,14 +186,16 @@ their users never see the control, another exposes it, and it is the same panel 
 ```tsx
 <KanzoThemeProvider
   policy={{
-    theme: { density: { default: "compact" }, radius: { pinned: "sm" } },
+    theme: { density: { default: "compact" }, appearance: { pinned: "dark" } },
     graph: { marks: { pinned: "legible" } },
   }}
 >
 ```
 
-So a client ships *our product is compact and square* as the point their users start from, colour
-and geometry alike, and a user preference is an override on top of it.
+So a client ships *our product is dark and compact* as the point their users start from, and a user
+preference is an override on top of it. Two limits: density is declared `personal`, so a tenant may
+start it and may not pin or withhold it; and the brand's shape — radius, typography — is never a
+policy, because it is authored in the client's theme.
 
 <Callout type="warn" title="Pass the same policy to `themeScript`">
   The pre-hydration script resolves the identical chain, and it can only resolve what it is given:
