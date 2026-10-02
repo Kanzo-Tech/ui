@@ -14,7 +14,15 @@ import { Skeleton } from "../simples/skeleton.js";
 import { ChartCard } from "./chart-card.js";
 import type { ChartConfig } from "./chart-config.js";
 import { DashboardFilters } from "./dashboard-filters.js";
-import { autoDashboard, cardFor, type DashboardCardSpec, type DashboardSpec } from "./dashboard-spec.js";
+import { chartTableKey } from "./chart-spec.js";
+import {
+  autoDashboard,
+  cardFor,
+  plotRelation,
+  PLOT_CHANNELS,
+  type DashboardCardSpec,
+  type DashboardSpec,
+} from "./dashboard-spec.js";
 import { DashboardStat } from "./dashboard-stat.js";
 import { DetailTable } from "./detail-table.js";
 import { useFieldStats, type FieldStat } from "./field-stats.js";
@@ -45,7 +53,17 @@ export interface DashboardProps extends Omit<React.ComponentProps<typeof ark.div
  */
 export function Dashboard(props: DashboardProps) {
   const { table, value, onChange, exclude, config, rowNoun, className, slot, ...rest } = props;
-  const { fields, error } = useFieldStats(table, { exclude });
+  const { fields, columns, error } = useFieldStats(table, { exclude });
+  // Everything below reads the relation the plots can: see `plotRelation`.
+  const readable = useMemo(
+    () =>
+      fields && columns
+        ? { table: plotRelation(table, columns), fields: fields.filter((f) => !PLOT_CHANNELS.has(f.name)) }
+        : null,
+    // `chartTableKey` stands in for the identity of `table`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [fields, columns, chartTableKey(table)],
+  );
 
   return (
     <ark.div className={cn("flex flex-col gap-4", className)} {...rest} data-slot={slot ?? "dashboard"}>
@@ -54,10 +72,17 @@ export function Dashboard(props: DashboardProps) {
           <AlertTitle>The relation could not be summarized</AlertTitle>
           <AlertDescription>{error.message}</AlertDescription>
         </Alert>
-      ) : fields === null ? (
+      ) : readable === null ? (
         <DashboardSkeleton />
       ) : (
-        <Board config={config} fields={fields} onChange={onChange} rowNoun={rowNoun} table={table} value={value} />
+        <Board
+          config={config}
+          fields={readable.fields}
+          onChange={onChange}
+          rowNoun={rowNoun}
+          table={readable.table}
+          value={value}
+        />
       )}
     </ark.div>
   );

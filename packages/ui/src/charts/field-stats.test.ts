@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { fieldStats, type SummarizeRow } from "./field-stats.js";
+import type { Coordinator } from "@uwdata/mosaic-core";
+import { fieldStats, queryFieldStats, type SummarizeRow } from "./field-stats.js";
 
 const row = (column_name: string, column_type: string, approx_unique: number, min?: string, max?: string): SummarizeRow => ({
   column_name,
@@ -40,5 +41,16 @@ describe("fieldStats", () => {
       { exclude: ["x"] },
     );
     expect(fields.map((f) => f.name)).toEqual(["name"]);
+  });
+});
+
+describe("queryFieldStats", () => {
+  it("keeps every column beside the fields, so a consumer can project the relation", async () => {
+    const coordinator = {
+      query: async () => [row("x", "FLOAT", 990), row("tags", "VARCHAR[]", 10), row("name", "VARCHAR", 10)],
+    } as unknown as Coordinator;
+    const stats = await queryFieldStats(coordinator, "t", { exclude: ["x"] });
+    expect(stats.fields.map((f) => f.name)).toEqual(["name"]);
+    expect(stats.columns).toEqual(["x", "tags", "name"]);
   });
 });

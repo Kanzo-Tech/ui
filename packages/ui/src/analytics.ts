@@ -118,7 +118,9 @@ export type {
   DashboardChartType, DashboardAggregate,
 } from "./charts/dashboard-spec.js";
 export { useFieldStats, queryFieldStats } from "./charts/field-stats.js";
-export type { FieldStat, FieldKind, FieldRole, FieldStatsOptions, FieldStatsState } from "./charts/field-stats.js";
+export type {
+  FieldStat, FieldStats, FieldKind, FieldRole, FieldStatsOptions, FieldStatsState,
+} from "./charts/field-stats.js";
 
 // For a descriptor of your own: `chartDescriptor` mints one, and the types below are the contract
 // it compiles into. `compileChartSpec` / `buildChartSpec` / `chartSpecSignature` are NOT here —

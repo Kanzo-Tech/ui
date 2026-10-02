@@ -124,7 +124,7 @@ function useTopValues(table: TableExpr, field: string | undefined, by: ExprValue
     query: () =>
       field === undefined || skip
         ? null
-        : Query.from(table).select({ value: field, by }).groupby(field).orderby(desc("by")).limit(limit),
+        : Query.from(table).select({ value: field, by }).groupby(field).orderby(desc(by)).limit(limit),
   });
   if (field === undefined || skip) return [];
   return rows === null ? null : rows.map((row) => String(row.value));

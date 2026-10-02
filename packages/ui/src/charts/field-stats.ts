@@ -110,31 +110,40 @@ export async function queryFieldStats(
   coordinator: Coordinator,
   table: TableExpr,
   options?: FieldStatsOptions,
-): Promise<FieldStat[]> {
-  const result = await coordinator.query(`SUMMARIZE ${chartTableKey(table)}`);
-  return fieldStats(Array.from(result as Iterable<SummarizeRow>), options);
+): Promise<FieldStats> {
+  const rows = Array.from((await coordinator.query(`SUMMARIZE ${chartTableKey(table)}`)) as Iterable<SummarizeRow>);
+  return { fields: fieldStats(rows, options), columns: rows.map((row) => String(row.column_name)) };
+}
+
+export interface FieldStats {
+  fields: FieldStat[];
+  /** Every column of the relation, fields or not, in its own order. */
+  columns: string[];
 }
 
 export interface FieldStatsState {
   /** The fields, or `null` until the summary lands. */
   fields: FieldStat[] | null;
+  /** Every column of the relation, or `null` until the summary lands. */
+  columns: string[] | null;
   error: Error | null;
 }
 
 /** `queryFieldStats` on the provider's coordinator, re-asked when the relation changes. */
 export function useFieldStats(table: TableExpr, options?: FieldStatsOptions): FieldStatsState {
   const { coordinator } = useMosaic();
-  const [state, setState] = useState<FieldStatsState>({ fields: null, error: null });
+  const [state, setState] = useState<FieldStatsState>({ fields: null, columns: null, error: null });
   const key = chartTableKey(table);
   const exclude = (options?.exclude ?? []).join("\u0000");
 
   useEffect(() => {
     let live = true;
-    setState({ fields: null, error: null });
+    setState({ fields: null, columns: null, error: null });
     queryFieldStats(coordinator, table, { exclude: exclude ? exclude.split("\u0000") : [] }).then(
-      (fields) => live && setState({ fields, error: null }),
+      (stats) => live && setState({ ...stats, error: null }),
       (error: unknown) =>
-        live && setState({ fields: null, error: error instanceof Error ? error : new Error(String(error)) }),
+        live &&
+        setState({ fields: null, columns: null, error: error instanceof Error ? error : new Error(String(error)) }),
     );
     return () => {
       live = false;

@@ -11,9 +11,12 @@ import {
   median,
   min,
   mul,
+  Query,
   sum,
+  type ExprNode,
   type ExprValue,
 } from "@uwdata/mosaic-sql";
+import type { TableExpr } from "@kanzo-tech/mosaic";
 import type { FieldStat } from "./field-stats.js";
 
 /**
@@ -82,6 +85,30 @@ export interface DashboardSpec {
   detail: { columns: string[] } | null;
 }
 
+// ── The relation the plots read ──────────────────────────────────────────────
+
+/**
+ * The names a mark gives its output columns. Mosaic aliases every channel by its own name and
+ * groups an aggregating mark by those aliases — `SELECT time_bucket(…) AS "x", count(*) AS "y" …
+ * GROUP BY "x"` — and its M4 and pre-aggregation rewrites group by the same names. DuckDB binds a
+ * `GROUP BY` name to a column of the relation before an alias of the select list, so on a relation
+ * that has a column `x` (a layout's coordinates, say) the group key silently becomes that column and
+ * the query is a binder error.
+ */
+export const PLOT_CHANNELS: ReadonlySet<string> = new Set([
+  "x", "y", "x1", "x2", "y1", "y2", "fx", "fy", "z", "fill", "stroke",
+]);
+
+/**
+ * The relation as the plots read it: itself, or — when it has a column named like a channel — a
+ * projection without those columns, so an alias can only ever mean the alias. A clause naming one
+ * of them cannot apply to the plots, which is why `Dashboard` never offers them as fields.
+ */
+export function plotRelation(table: TableExpr, columns: readonly string[]): TableExpr {
+  const kept = columns.filter((column) => !PLOT_CHANNELS.has(column));
+  return kept.length === columns.length ? table : Query.from(table).select(...kept);
+}
+
 // ── Measures ─────────────────────────────────────────────────────────────────
 
 /** The SQL a measure compiles to — what a mark's channel or a `ChartStat`'s `value` takes. */
@@ -146,7 +173,7 @@ const TREND_STEPS = 24;
  * The step a trend groups by. A number with few values is its own step — the hours of a day are
  * twenty-four already — and anything else is binned over its extent, the way Mosaic bins a mark.
  */
-export function bucketExpr(field: FieldStat): ExprValue | null {
+export function bucketExpr(field: FieldStat): string | ExprNode | null {
   if (field.min === undefined || field.max === undefined) return field.kind === "numeric" ? field.name : null;
   if (field.kind === "temporal") {
     return binDate(field.name, [new Date(field.min), new Date(field.max)], { steps: TREND_STEPS });

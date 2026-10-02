@@ -78,7 +78,9 @@ function Trend({
         : Query.from(table)
             .select({ step: bucket, value: measureExpr(stat.measure) })
             .where(filter)
-            .groupby("step")
+            // Grouped by the expression, since a relation may have a column called `step`; ordered by
+            // the alias, which ORDER BY prefers and Mosaic's pre-aggregation keeps resolvable.
+            .groupby(bucket)
             .orderby("step"),
   });
   const values = (rows ?? []).map((row) => Number(row.value ?? 0));

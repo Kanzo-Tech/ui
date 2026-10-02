@@ -32,6 +32,13 @@ approximate distinct count:
 | A category (≤ 50 values, or fewer than half the rows) | a facet filter with counts | bars; series (≤ 8 values); panels (≤ 6) |
 | A key (`id`, `*_id`, `uri`, or nearly unique text) | a search box | — |
 
+**A column named like a plot channel — `x`, `y`, `x1`, `x2`, `y1`, `y2`, `fx`, `fy`, `z`, `fill`,
+`stroke` — is never a field, and the plots read the relation without it.** Mosaic names a mark's
+output columns after its channels and groups by those names, and DuckDB binds a `GROUP BY` name to
+a column of the relation before an alias: on a relation with a layout's `x`, a line over time would
+group by the layout instead of the time and fail as a binder error. A clause on one of those
+columns, published from elsewhere on the page, therefore cannot reach the plots.
+
 The limits are the dataviz ones: past eight series a chart wants to be a table, not more hues, and
 past six panels small multiples stop being comparable. A type no chart can draw — a list, a struct,
 a blob — is not a field at all.
@@ -124,7 +131,7 @@ and here DuckDB does both, so a relation of any size costs one page of DOM.
 The spec's types are exported under the names above: `DashboardSpec`, `DashboardCardSpec`,
 `DashboardStatSpec`, `DashboardFilterSpec`, `DashboardMeasure`, `DashboardChartType` and
 `DashboardAggregate`; the fields' are `FieldStat`, `FieldKind`, `FieldRole`, `FieldStatsOptions` and
-`FieldStatsState`. The props types are `DashboardProps`,
+`FieldStatsState` and `FieldStats`. The props types are `DashboardProps`,
 `DashboardFiltersProps`, `DashboardStatProps`, `ChartCardProps`, `DetailTableProps`,
 `FilterChipsProps`.
 
@@ -149,6 +156,7 @@ The spec's types are exported under the names above: `DashboardSpec`, `Dashboard
 | `DetailTable` | `table`, `fields`, `columns`, `onChange?`, `pageSize?` (25) |
 | `FilterChips` | `selection?` (the crossfilter) |
 
-`useFieldStats(table, options?)` returns `{ fields, error }`, `fields` being `null` until the
-summary lands; `queryFieldStats(coordinator, table, options?)` is the same as a promise.
+`useFieldStats(table, options?)` returns `{ fields, columns, error }` — `columns` is every column
+of the relation, fields or not — both `null` until the summary lands;
+`queryFieldStats(coordinator, table, options?)` resolves to the same pair as a `FieldStats`.
 `autoDashboard(fields)` is the spec drawn when `value` is `undefined`.

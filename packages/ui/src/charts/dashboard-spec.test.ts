@@ -7,8 +7,10 @@ import {
   filterControl,
   measureExpr,
   normalizeCard,
+  plotRelation,
   type DashboardCardSpec,
 } from "./dashboard-spec.js";
+import { Query, count, verbatim } from "@uwdata/mosaic-sql";
 import type { FieldStat } from "./field-stats.js";
 
 const F = (name: string, kind: FieldStat["kind"], role: FieldStat["role"], distinct: number, extent?: [number, number]): FieldStat => ({
@@ -119,5 +121,23 @@ describe("autoDashboard", () => {
     for (const c of spec.cards) used = (used + (c.span ?? 1)) % 3;
     expect(used).toBe(0);
     expect(JSON.parse(JSON.stringify(spec))).toEqual(spec);
+  });
+});
+
+describe("plotRelation", () => {
+  // The LDBC case: a vertex relation with a TIMESTAMP and a layout's `x`/`y`. A temporal line is
+  // `SELECT time_bucket(…, "creationDate") AS "x", count(*) AS "y" … GROUP BY "x"`, and DuckDB binds
+  // that `"x"` to the column, not the alias — "creationDate must appear in the GROUP BY clause".
+  const columns = ["dense_id", "creationDate", "x", "y", "browser"];
+
+  it("reads the relation itself when no column is named like a channel", () => {
+    expect(plotRelation("comments", ["creationDate", "browser"])).toBe("comments");
+  });
+
+  it("projects the channel-named columns away, so a mark's alias can only mean the alias", () => {
+    const relation = plotRelation(verbatim('"jobs/7"."Comment"'), columns);
+    expect(String(relation)).toBe('SELECT "dense_id", "creationDate", "browser" FROM "jobs/7"."Comment"');
+    const mark = Query.from({ source: relation }).select({ x: "creationDate", y: count() }).groupby("x");
+    expect(String(mark)).toContain('FROM (SELECT "dense_id", "creationDate", "browser" FROM "jobs/7"."Comment") AS "source"');
   });
 });
