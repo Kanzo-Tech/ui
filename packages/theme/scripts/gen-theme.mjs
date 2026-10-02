@@ -1,18 +1,13 @@
 /*
  * gen-theme.mjs — emits `packages/theme/themes.css` and `packages/theme/theme-data.json`.
  *
- * MECHANISM: the four NON-COLOUR axes, and nothing else. Theming is driven by `data-*` attributes
- * on <html>: `data-radius` sets --radius, `data-font`/`data-mono-font` set the font stacks, and
- * `data-font-size` sets the density (root font-size). The default value of every axis = attribute
- * ABSENT, so a product only sets what it changes.
+ * Two things: the catalogue of themes, read off `themes/*.css`, and the declaration of the user's
+ * preferences — appearance, the theme worn on each side, and density. Nothing a theme owns is here:
+ * radius, the faces and every other shape knob are authored in the theme, and a value with no
+ * control cannot be overridden by one. See `/docs/design/preferences` for the rule.
  *
- * **Colour is not an axis** — see the header of `tokens.css`, which carries that argument in full.
- * There is no colour here and no colour generator beside it: a theme is `themes/<name>.css`,
+ * **Colour is not an axis** — see the header of `tokens.css`. A theme is `themes/<name>.css`,
  * hand-written source, and this file only enumerates the catalogue.
- *
- * The tables the derivation READS moved out with it, to
- * (the derivation this used to sit beside is gone — a browser that
- * loads this package's `themeData` has no use for a single one of them.
  *
  * Run: node packages/theme/scripts/gen-theme.mjs
  */
@@ -22,62 +17,19 @@ import { fileURLToPath } from "node:url";
 
 const OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "themes.css");
 
-// Every table below is `[value, css, label]`. The label is here rather than in the panel because
-// this file is the one place a value is authored: an option list typed beside the control is a
-// hand-copy of this data, and `Preferences.tsx` held two of them — `RADII` and `DENSITIES` — sitting
-// next to the generated tables they duplicated. Adding a font is one line here, and the panel, the
-// declaration and the docs table follow.
-
-// ── Radius (Shark's BORDER_RADIUS) ───────────────────────────────────────────
-// The label IS the key, and deliberately: these are steps on a slider whose markers are the names
-// people use for them ("md"), not prose. A "Medium" here would be a second word for one step.
-// The value is the FIELD radius — a button, an input, a tab. The other two are derived from it by
-// the ratios below rather than authored five more times: a preference is one step on one slider,
-// and a user who wants a rounder card and a squarer button is asking for a THEME, not a preference.
-// A theme declares all three independently, which is the capacity the single `--radius` never had.
-const RADII = [
-  ["none", "0rem", "none"],
-  ["xs", "0.125rem", "xs"],
-  ["sm", "0.25rem", "sm"],
-  ["md", "0.5rem", "md"],
-  ["lg", "0.625rem", "lg"],
-];
-
-/** box : field : selector. At `md` this is 0.75 / 0.5 / 0.25rem, which is what `tokens.css` falls
-    back to — so the attribute-absent case and `data-radius="md"` agree by construction. */
-const RADIUS_RATIO = { box: 1.5, field: 1, selector: 0.5 };
-
-const rem = (base, mul) => `${Number((parseFloat(base) * mul).toFixed(4))}rem`;
-
-// ── Fonts — the DS ships NO font files. `data-font`/`data-mono-font` point --font-sans/--font-mono
-//    at a stack; `var(--font-*)` keys let a host inject its own webfont var (next/font sets
-//    --font-geist-sans) with a system fallback. Geist and Geist Mono are the defaults — the closest
-//    free grotesque to the brand's Neue Haas Grotesk — and `tokens.css` declares the same two stacks
-//    for the attribute-absent case; `index.test.ts` holds them equal. ──
-const SYSTEM_SANS = 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
-const SYSTEM_MONO = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace';
-const FONTS = [
-  ["system", SYSTEM_SANS, "System"],
-  ["geist", `var(--font-geist-sans, ${SYSTEM_SANS})`, "Geist"],
-  ["inter", `var(--font-inter, ${SYSTEM_SANS})`, "Inter"],
-];
-const MONO_FONTS = [
-  ["system", SYSTEM_MONO, "System"],
-  ["geist-mono", `var(--font-geist-mono, ${SYSTEM_MONO})`, "Geist Mono"],
-  ["jetbrains-mono", `var(--font-jetbrains-mono, ${SYSTEM_MONO})`, "JetBrains"],
-];
-
-// ── Density (matches keasy's data-font-size → root font-size rem-scale). `default`
-//    = attribute absent (16px). ──
-const DENSITIES = [["compact", "14px", "Compact"], ["comfortable", "18px", "Cozy"]];
-const ALL_DENSITIES = [["default", "16px", "Default"], ...DENSITIES];
+// ── Density — `[value, css, label]`, authored once: the declaration, the panel and the docs table
+//    all read this. Relative to the BROWSER's font size, never a pixel value: a person who set their
+//    browser to 20px and picked compact gets 17.5px, not 14. `default` = attribute absent, which
+//    leaves the browser's own size in place. ──
+const DENSITIES = [["compact", "87.5%", "Compact"], ["comfortable", "112.5%", "Cozy"]];
+const ALL_DENSITIES = [["default", "100%", "Default"], ...DENSITIES];
 
 const block = (sel, vars) =>
   `${sel} {\n${Object.entries(vars).map(([k, v]) => `  ${k}: ${v};`).join("\n")}\n}\n`;
 
 let out = `/* GENERATED by scripts/gen-theme.mjs. Do not edit by hand.
-   Two things: the catalogue of themes, and the user's non-colour preferences layered over
-   whatever theme is on. A theme is \`themes/<name>.css\` and is SOURCE — hand-written, one flat
+   Two things: the catalogue of themes, and the density preference layered over whatever theme
+   is on. A theme is \`themes/<name>.css\` and is SOURCE — hand-written, one flat
    block. This file never contains a colour. */\n\n`;
 
 // ── The catalogue ────────────────────────────────────────────────────────────
@@ -112,25 +64,7 @@ for (const family of new Set(THEMES.map((t) => t.family))) {
 }
 out += THEMES.map((t) => `@import "./themes/${t.file}";`).join("\n") + "\n\n";
 
-out += "/* ── Radius (data-radius) ───────────────────────────────────────────────── */\n";
-for (const [r, val] of RADII)
-  out += block(`[data-radius="${r}"]`, {
-    "--radius-box": rem(val, RADIUS_RATIO.box),
-    "--radius-field": rem(val, RADIUS_RATIO.field),
-    "--radius-selector": rem(val, RADIUS_RATIO.selector),
-  });
-
-out += "\n/* ── Fonts (data-font / data-mono-font) ─────────────────────────────────── */\n";
-// `--font-heading` moves with `--font-sans`, because there is ONE font axis. It used to be set
-// nowhere at all, so `card.tsx`, `alert.tsx`, `dialog.tsx` and `Preferences.tsx` — every title in
-// the library — sat on the `tokens.css` fallback while body text followed the preference. A
-// product that wants a distinct display face still overrides `--font-heading` on its own, which is
-// what `tokens.css` promises; a second axis is not something anything here has asked for.
-for (const [f, stack] of FONTS)
-  out += block(`[data-font="${f}"]`, { "--font-sans": stack, "--font-heading": stack });
-for (const [f, stack] of MONO_FONTS) out += block(`[data-mono-font="${f}"]`, { "--font-mono": stack });
-
-out += "\n/* ── Density (data-font-size → root font-size rem-scale) ────────────────── */\n";
+out += "/* ── Density (data-font-size → root font-size rem-scale) ────────────────── */\n";
 for (const [d, size] of DENSITIES) out += block(`[data-font-size="${d}"]`, { "font-size": size });
 
 writeFileSync(OUT, out);
@@ -146,9 +80,10 @@ writeFileSync(OUT, out);
 // build-order dependency for no gain — so the guard is `index.test.ts` reading this back through
 // `CORE_PREFS`, and `check:generated`, which regenerates and fails on a diff.
 //
-// `appearance` is declared and has no `attr`: it writes a class, not an attribute. It is in this
-// table anyway because the table is what the panel draws from, and appearance is a choice a user
-// makes: light or dark, and nothing else. The OS is never asked.
+// Three entries, because three things are the person's: which side, which theme on it, and how big
+// everything is. `appearance` has no `attr`: it writes a class, not an attribute. It is in this
+// table anyway because the table is what the panel draws from. While nothing is stored, its starting
+// value is the OS's `prefers-color-scheme`; a stored choice wins.
 const choice = (options, rest) => ({ kind: "choice", options, ...rest });
 const corePrefs = () => ({
   appearance: choice(
@@ -158,30 +93,13 @@ const corePrefs = () => ({
     ],
     { default: "light", label: "Appearance", doc: "which side of the document is worn" },
   ),
-  radius: choice(
-    RADII.map(([value, , label]) => ({ value, label })),
-    { default: "md", attr: "data-radius", source: "themes", label: "Radius", doc: "how round a corner is" },
-  ),
-  font: choice(
-    FONTS.map(([value, , label]) => ({ value, label })),
-    { default: "geist", attr: "data-font", source: "themes", label: "Font", doc: "the face body text is set in" },
-  ),
-  monoFont: choice(
-    MONO_FONTS.map(([value, , label]) => ({ value, label })),
-    {
-      default: "geist-mono",
-      attr: "data-mono-font",
-      source: "themes",
-      label: "Mono font",
-      doc: "the face code is set in",
-    },
-  ),
   density: choice(
     ALL_DENSITIES.map(([value, , label]) => ({ value, label })),
     {
       default: "default",
       attr: "data-font-size",
       source: "themes",
+      personal: true,
       label: "Density",
       doc: "the root size everything scales from",
     },
@@ -228,9 +146,6 @@ const corePrefs = () => ({
 // Consumers read it through the package's JS entry, never this `.json` subpath — see `themeData` in
 // `src/index.ts` for why the direct import cannot be made to survive a build.
 const data = {
-  radii: Object.fromEntries(RADII.map(([r, v]) => [r, v])),
-  fonts: Object.fromEntries(FONTS.map(([f, v]) => [f, v])),
-  monoFonts: Object.fromEntries(MONO_FONTS.map(([f, v]) => [f, v])),
   densities: Object.fromEntries(ALL_DENSITIES.map(([d, v]) => [d, v])),
   // The catalogue, read off disk — so the panel lists what actually ships and no second list can
   // drift from it. `dark` is the theme's own `color-scheme`, which is what "one mode" means.

@@ -73,6 +73,14 @@ interface PrefCommon {
    */
   byAppearance?: true;
   /**
+   * Always the person's: a tenant's policy may move where it starts, and may not pin or withhold it.
+   *
+   * For a preference that answers how someone reads — density sets the size of everything — a pin is
+   * a client deciding somebody's eyesight. The chain ignores `pinned` and `hidden` for it rather than
+   * refusing the policy, so one policy object stays valid across every declaration.
+   */
+  personal?: true;
+  /**
    * The attribute to write on `<html>` — **only where CSS has to react.**
    *
    * Most contributed preferences have none. The graph's look is read by JS and pushed into a
@@ -267,8 +275,9 @@ export function resolvePref(
     return Number.isFinite(n) && n >= decl.min && n <= decl.max;
   };
 
-  if (legal(policy?.pinned)) return { value: policy.pinned, via: "pinned", offered: false };
-  const offered = !policy?.hidden;
+  const binding = decl.personal ? undefined : policy;
+  if (legal(binding?.pinned)) return { value: binding.pinned, via: "pinned", offered: false };
+  const offered = !binding?.hidden;
   if (offered && legal(stored)) return { value: stored, via: "stored", offered };
   if (legal(policy?.default)) return { value: policy.default, via: "policy", offered };
   return { value: decl.default, via: "default", offered };

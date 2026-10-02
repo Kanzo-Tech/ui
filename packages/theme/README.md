@@ -1,6 +1,6 @@
 # @kanzo-tech/theme
 
-The themes and the axes a user layers over them. **A theme is one flat block of CSS, and it carries
+The themes, and the preferences a person layers over them. **A theme is one flat block of CSS, and it carries
 one mode.**
 
 Four families ship, each a light theme and a dark one — eight themes:
@@ -13,18 +13,19 @@ Four families ship, each a light theme and a dark one — eight themes:
 | `nord` | `nord` | `nord-dark` |
 
 A user picks a light theme and a dark theme, and which side to wear — GitHub's
-Appearance model, drawn by `ThemePicker` in `@kanzo-tech/ui`. A product ships its own families beside
+Appearance model, drawn by `<Preferences />` in `@kanzo-tech/ui`. A product ships its own families beside
 or instead of these.
 
-- **Theme** — `packages/theme/themes/<name>.css`, hand-written source. Its colours, the shape knobs,
-  optionally its font stacks, and its own `color-scheme`. Selected with `data-theme`.
-- **Radius** — `none` · `xs` · `sm` · `md` · `lg`, a user preference over the theme's own three
-  radius knobs.
-- **Font** / **Mono font** — `--font-sans` / `--font-heading` / `--font-mono`; Geist and Geist Mono by
-  default, falling back to the system faces.
-- **Density** — the root font-size the whole `rem` scale resolves against.
-- **Appearance** — `light` / `dark`, picked by the user (the OS is never asked), and it chooses *which theme* is worn,
-  because a theme is a side.
+- **Theme** — `packages/theme/themes/<name>.css`, hand-written source. Its colours, its three radii
+  and the other shape knobs, optionally its faces (`--font-sans`, `--font-heading`, `--font-mono`;
+  Geist and Geist Mono when it names none), and its own `color-scheme`. Selected with `data-theme`.
+  Radius and typography are the theme's: no preference overrides them.
+- **Appearance** — `light` / `dark`. It starts at the OS's `prefers-color-scheme` while nothing is
+  stored; once the person picks, the pick wins. It chooses *which theme* is worn, because a theme is
+  a side.
+- **Density** — the root font-size the whole `rem` scale resolves against, as a percentage of the
+  browser's own (`87.5%` · `100%` · `112.5%`). Always the person's: a tenant may start it elsewhere
+  and may not pin it.
 
 This package ships **no components**. It is CSS, the catalogue and the declared axes as data, the
 contrast floors, and the authoring-time colour helpers the theme generator uses.
@@ -89,17 +90,11 @@ computed where it is used — `bg-destructive/7`, or `color-mix(in oklab, var(--
 transparent)` where no utility reaches. The author answers for AA, and guards over the shipped themes
 are what catch a mistake.
 
-## How the other axes work
+## How the preferences work
 
-Every axis is a `data-*` attribute **on `<html>`**, and the token values behind it live in
-`themes.css`. Change an attribute and every component re-skins, with no per-component work.
-
-| Axis | Attribute | Sets |
-|---|---|---|
-| radius | `data-radius` | `--radius-box` / `--radius-field` / `--radius-selector` |
-| font | `data-font` | `--font-sans` |
-| monoFont | `data-mono-font` | `--font-mono` |
-| density | `data-font-size` | the root font-size |
+Each is an attribute **on `<html>`**: `data-theme` for the theme worn on the current side, `.dark` for
+the side, and `data-font-size` for density. Change one and every component re-skins, with no
+per-component work. `CORE_PREFS` declares the three, and it is the only list.
 
 **The attributes must be on `<html>`, not a wrapper element.** Ark UI's overlays — Dialog,
 Popover, Menu, Select, Tooltip, Toast, HoverCard, Command — portal into `document.body`, outside
@@ -111,7 +106,7 @@ Writing them is `<KanzoThemeProvider>`'s job, from `@kanzo-tech/ui`:
 ```tsx
 import { KanzoThemeProvider } from "@kanzo-tech/ui";
 
-<KanzoThemeProvider defaults={{ radius: "md", density: "compact" }}>
+<KanzoThemeProvider defaults={{ density: "compact" }}>
   {children}
 </KanzoThemeProvider>;
 ```

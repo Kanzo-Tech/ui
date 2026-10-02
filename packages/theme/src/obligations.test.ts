@@ -31,8 +31,8 @@ describe("the density section's obligations", () => {
   it("derives its numbers from the generated table, never from a hand-typed copy", () => {
     const target = check().find((c) => c.id === "target-size");
     const minRoot = Math.min(
-      ...Object.values(themeDataJson.densities as Record<string, string>).map((v) =>
-        Number.parseFloat(v),
+      ...Object.values(themeDataJson.densities as Record<string, string>).map(
+        (v) => (Number.parseFloat(v) / 100) * 16,
       ),
     );
     expect(minRoot).toBe(14);

@@ -2,7 +2,8 @@ import themeDataJson from "../theme-data.json";
 import type { SectionPrefDecl } from "./sections.js";
 
 /**
- * The generated theme tables — the four non-colour axes — as a JS module.
+ * The generated theme tables — the theme catalogue, the density steps and the preference
+ * declaration — as a JS module.
  *
  * Consumers must read them through this export rather than importing
  * `@kanzo-tech/theme/theme-data.json` directly. A raw JSON subpath import is an ESM JSON
@@ -87,15 +88,15 @@ export const CHART_SLOTS = 8;
  *
  * **Colour IS an axis now, and it is the same kind of axis as the rest.** A theme is one flat block
  * of CSS under `[data-theme="<name>"]` — about fifty-five declarations somebody writes, pastes and
- * diffs — so applying one is writing an attribute, exactly like radius or density. It stopped being
+ * diffs — so applying one is writing an attribute, exactly like density. It stopped being
  * special when it stopped being the output of a thirteen-stage derivation.
  *
  * Everything is driven by `data-*` attributes on `<html>`, and the values live in `themes.css`:
- * · `data-theme`      — selects a whole theme: its colours, its shape knobs and its fonts.
- * · `data-radius`     — the three radius knobs, as a user preference over the theme's own.
- * · `data-font`       — sets `--font-sans` / `--font-heading`.
- * · `data-mono-font`  — sets `--font-mono`.
- * · `data-font-size`  — sets the root font-size (the rem density scale).
+ * · `data-theme`      — selects a whole theme: its colours, its radii, its shape knobs and its fonts.
+ * · `data-font-size`  — sets the root font-size relative to the browser's (the rem density scale).
+ *
+ * Radius and typography are the theme's and have no attribute of their own: a person's preference
+ * cannot override what the brand authored, because there is no preference for it.
  *
  * **`data-theme` is `data-palette` and `data-identity` collapsed, and the authority question they
  * modelled has dissolved rather than been decided.** `data-palette` selected from a catalogue the
@@ -116,30 +117,20 @@ export const CHART_SLOTS = 8;
  */
 
 /**
- * A side of the compiled document — and the appearance preference itself. The user picks one; the
- * OS is never asked, so there is no third value and no `prefers-color-scheme` anywhere.
+ * A side of the compiled document — and the appearance preference itself. Two values and no
+ * `"system"`: while nothing is stored the OS's `prefers-color-scheme` is where it starts, and once
+ * the person picks a side the pick is what is stored.
  */
 export type Appearance = "light" | "dark";
-
-/** Radius steps (`md` = 0.5rem default). */
-export type KanzoRadius = "none" | "xs" | "sm" | "md" | "lg";
 
 /** Density (root font-size rem-scale); `default` omits the attribute. */
 export type KanzoDensity = "default" | "compact" | "comfortable";
 
-/** Sans font key — host-extensible; the DS ships `system`/`geist`/`inter` stacks, `geist` the default. */
-export type KanzoFont = "system" | "geist" | "inter" | (string & {});
-
-/** Mono font key — host-extensible; the DS ships `system`/`geist-mono`/`jetbrains-mono`, `geist-mono` the default. */
-export type KanzoMonoFont = "system" | "geist-mono" | "jetbrains-mono" | (string & {});
-
 /**
  * Theme key — host-extensible; `""` means "defer to the tenant's default".
  *
- * This is `KanzoFont`'s case, not `KanzoRadius`': a value is a *host's* string, unknown when this
- * package is built. Where `KanzoFont` still names the three stacks the DS happens to ship, there is
- * nothing to union here — a tenant authors their own themes, so a literal union would be a list
- * that is wrong for every client.
+ * A value is a *host's* string, unknown when this package is built — a tenant authors their own
+ * themes, so a literal union would be a list that is wrong for every client.
  *
  * **It replaces `KanzoPalette`, `KanzoIdentity` and `KanzoIdentityMemory`, and the collapse is the
  * point.** Those were three types because a palette CONTAINED identities: a document was a two-mode
@@ -177,7 +168,11 @@ export interface ThemeOption {
 // the script and the FOUC it exists to prevent comes back.
 
 /**
- * The user's preferences. Six, and only one of them is a colour.
+ * The user's preferences: which side, which theme on it, and how big everything is.
+ *
+ * Radius and the faces left this table for the theme: they answer what the product looks like, not
+ * how a person reads it, and a control for them overrode what every theme authored. See
+ * `/docs/design/preferences`.
  *
  * *Free* colour left this table entirely: `palette`, `base`, `accent`, `primary`, `baseTint`,
  * `scheme` and `schemeColors` were seven ways to express *part* of a palette at runtime, and a
@@ -188,9 +183,6 @@ export interface ThemeOption {
  */
 export interface ThemePrefs {
   appearance: Appearance;
-  radius: KanzoRadius;
-  font: KanzoFont;
-  monoFont: KanzoMonoFont;
   density: KanzoDensity;
   /**
    * Which theme this user wears on each side — `{}` while they have chosen neither.
@@ -229,11 +221,9 @@ export interface ThemePrefs {
  * turned on a live field.
  */
 export const DEFAULT_PREFS: ThemePrefs = {
-  // A host moves the starting side with `policy.theme.appearance.default`.
+  // While nothing is stored the OS's `prefers-color-scheme` answers before this does; a host moves
+  // the fallback with `policy.theme.appearance.default`.
   appearance: "light",
-  radius: "md",
-  font: "geist",
-  monoFont: "geist-mono",
   density: "default",
   // Empty, and both sides fall through to the tenant's default — so a tenant shipping one theme per
   // side stores nothing and gets the `<html>` it always had. `""` per side means the same thing:
@@ -253,10 +243,10 @@ export const STORAGE_KEY = "kanzo_theme_prefs";
  *
  * **Generated, and that is the point.** `scripts/gen-theme.mjs` authors the values *and* the
  * declaration, so the option list a control offers is the table the CSS was emitted from rather than
- * a hand-copy beside it. `Preferences.tsx` held two such copies — `RADII` and `DENSITIES` — sitting
- * next to the generated tables they duplicated, and `KanzoThemeProvider` held a third of the font
- * stacks with a fallback string that had already drifted from the sheet's. Adding a font is now one
- * line in the generator: the panel grows a card and the docs table grows a row.
+ * a hand-copy beside it.
+ *
+ * **It lists only preferences.** A value the theme owns — a radius, a face — has no entry, so no
+ * provider stores it, no script paints it and no panel draws a control that could override a theme.
  *
  * The rule this installs, and it is the same one the colour half follows: **a configuration is
  * authored once, where its values live.** The declaration, the control, the default and the
@@ -293,15 +283,12 @@ export type CorePrefKey = Exclude<keyof ThemePrefs, "sections">;
  * The namespace the core's own preferences answer to in a tenant's policy.
  *
  * **The core is a section like any other, and this is the whole of what that costs.** A policy is
- * keyed by namespace — `{ theme: { radius: { pinned: "sm" } }, graph: { look: { hidden: true } } }`
- * — so a client shipping *compact and square* uses the mechanism an optional package already uses,
- * and one chain answers for colour, geometry and a contributed choice alike.
+ * keyed by namespace — `{ theme: { appearance: { pinned: "dark" } }, graph: { look: { hidden: true } } }`
+ * — and one chain answers for the core and a contributed choice alike.
  *
- * That is daisyUI's insight, in the mechanism this repo already had: their theme carries the
- * geometry (`--radius-box`, `--size-field`, `--relief`) in the same document as the colours, so a
- * tenant ships a coherent whole rather than a panel of unrelated knobs. Ours went half-way there
- * when a palette became a document; the half not taken was that radius, density and the fonts had no
- * document-level default at all — only a user could move them.
+ * What a policy cannot reach is the brand's shape: radius and the faces are authored in the theme,
+ * daisyUI's model, so a client shipping *compact and square* publishes a square theme. Density is
+ * declared `personal` — a policy may move where it starts and may not pin or withhold it.
  */
 export const CORE_NAMESPACE = "theme";
 

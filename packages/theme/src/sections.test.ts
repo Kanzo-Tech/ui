@@ -203,6 +203,20 @@ describe("resolving a contributed preference", () => {
     expect(resolvePref(LOOK, "ink")).toEqual({ value: "ink", via: "stored", offered: true });
   });
 
+  it("never lets a policy pin or withhold a personal preference, only start it", () => {
+    // Density is declared `personal`: it answers how someone reads, so a tenant deciding it would be
+    // a tenant deciding somebody's eyesight. The policy object stays valid; the chain skips the two
+    // fields that would take the choice away.
+    const personal = { ...LOOK, personal: true as const };
+    expect(resolvePref(personal, "ink", { pinned: "nebula" })).toEqual({
+      value: "ink",
+      via: "stored",
+      offered: true,
+    });
+    expect(resolvePref(personal, "ink", { hidden: true }).offered).toBe(true);
+    expect(resolvePref(personal, undefined, { default: "nebula" }).via).toBe("policy");
+  });
+
   it("declines a stored value the section no longer offers", () => {
     // The version-skew case, and the reason `options` is a closed list. A value from a release that
     // shipped a fourth look is not honoured just because storage still holds it.

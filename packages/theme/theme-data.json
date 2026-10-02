@@ -1,25 +1,8 @@
 {
-  "radii": {
-    "none": "0rem",
-    "xs": "0.125rem",
-    "sm": "0.25rem",
-    "md": "0.5rem",
-    "lg": "0.625rem"
-  },
-  "fonts": {
-    "system": "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
-    "geist": "var(--font-geist-sans, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif)",
-    "inter": "var(--font-inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif)"
-  },
-  "monoFonts": {
-    "system": "ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"Liberation Mono\", monospace",
-    "geist-mono": "var(--font-geist-mono, ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"Liberation Mono\", monospace)",
-    "jetbrains-mono": "var(--font-jetbrains-mono, ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"Liberation Mono\", monospace)"
-  },
   "densities": {
-    "default": "16px",
-    "compact": "14px",
-    "comfortable": "18px"
+    "default": "100%",
+    "compact": "87.5%",
+    "comfortable": "112.5%"
   },
   "themes": [
     {
@@ -88,80 +71,6 @@
       "label": "Appearance",
       "doc": "which side of the document is worn"
     },
-    "radius": {
-      "kind": "choice",
-      "options": [
-        {
-          "value": "none",
-          "label": "none"
-        },
-        {
-          "value": "xs",
-          "label": "xs"
-        },
-        {
-          "value": "sm",
-          "label": "sm"
-        },
-        {
-          "value": "md",
-          "label": "md"
-        },
-        {
-          "value": "lg",
-          "label": "lg"
-        }
-      ],
-      "default": "md",
-      "attr": "data-radius",
-      "source": "themes",
-      "label": "Radius",
-      "doc": "how round a corner is"
-    },
-    "font": {
-      "kind": "choice",
-      "options": [
-        {
-          "value": "system",
-          "label": "System"
-        },
-        {
-          "value": "geist",
-          "label": "Geist"
-        },
-        {
-          "value": "inter",
-          "label": "Inter"
-        }
-      ],
-      "default": "geist",
-      "attr": "data-font",
-      "source": "themes",
-      "label": "Font",
-      "doc": "the face body text is set in"
-    },
-    "monoFont": {
-      "kind": "choice",
-      "options": [
-        {
-          "value": "system",
-          "label": "System"
-        },
-        {
-          "value": "geist-mono",
-          "label": "Geist Mono"
-        },
-        {
-          "value": "jetbrains-mono",
-          "label": "JetBrains"
-        }
-      ],
-      "default": "geist-mono",
-      "attr": "data-mono-font",
-      "source": "themes",
-      "label": "Mono font",
-      "doc": "the face code is set in"
-    },
     "density": {
       "kind": "choice",
       "options": [
@@ -181,6 +90,7 @@
       "default": "default",
       "attr": "data-font-size",
       "source": "themes",
+      "personal": true,
       "label": "Density",
       "doc": "the root size everything scales from"
     },

@@ -47,7 +47,7 @@ describe("@kanzo-tech/theme", () => {
   it("exports the generated theme tables from the JS entry", () => {
     // Not via the raw `.json` subpath — see `themeData` in `./index` for why that cannot be made
     // to survive a build.
-    expect(Object.keys(themeData.radii).length).toBeGreaterThan(0);
+    expect(themeData.themes.length).toBeGreaterThan(0);
     expect(Object.keys(themeData.densities).length).toBeGreaterThan(0);
   });
 
@@ -94,11 +94,30 @@ describe("@kanzo-tech/theme", () => {
     // declaration. `resolvePref` is where that is refused, and `sections.test.ts` is where the
     // refusal is asserted.
     expect(Object.keys(DEFAULT_PREFS).sort()).toEqual([
-      "appearance", "density", "font", "monoFont", "radius", "sections", "themeByAppearance",
+      "appearance", "density", "sections", "themeByAppearance",
     ]);
     // And it starts empty rather than seeded from any manifest: a default that has been *stored*
     // can no longer move when the section, or a tenant's policy, changes it.
     expect(DEFAULT_PREFS.sections).toEqual({});
+  });
+
+  it("declares no value a theme owns, so nothing can override one", () => {
+    // Radius and the faces are authored in `themes/*.css`. They were preferences, written as
+    // `[data-radius]` / `[data-font]` / `[data-mono-font]` AFTER the theme imports at the same
+    // specificity, so a user's slider silently beat every theme's own radii. See
+    // `/docs/design/preferences`.
+    const themes = read("themes.css");
+    for (const attr of ["data-radius", "data-font", "data-mono-font"]) {
+      expect(AXES.map((a) => a.attr), attr).not.toContain(attr);
+      expect(themes, `themes.css still emits [${attr}]`).not.toContain(`[${attr}=`);
+    }
+    for (const table of ["radii", "fonts", "monoFonts"]) expect(themeData).not.toHaveProperty(table);
+  });
+
+  it("keeps density the person's: a policy may start it and may not pin or withhold it", () => {
+    expect(CORE_PREFS.density.personal).toBe(true);
+    // Relative to the browser's size, so a person who enlarged their browser keeps the enlargement.
+    for (const value of Object.values(themeData.densities)) expect(value).toMatch(/%$/);
   });
 
   // ── The declaration ─────────────────────────────────────────────────────────
@@ -112,7 +131,7 @@ describe("@kanzo-tech/theme", () => {
     // axis appearing in `DEFAULT_PREFS` without an entry here fails, which is the drift this file
     // exists to catch — one that produces no type error, because the generated block is data.
     expect(Object.keys(CORE_PREFS).sort()).toEqual([
-      "appearance", "density", "font", "monoFont", "radius", "themeByAppearance",
+      "appearance", "density", "themeByAppearance",
     ]);
     const undeclared = Object.keys(DEFAULT_PREFS).filter((key) => !(key in CORE_PREFS));
     expect(undeclared.sort()).toEqual(["sections"]);
@@ -178,9 +197,6 @@ describe("@kanzo-tech/theme", () => {
   const authored = AXES.filter((a) => a.source === "document");
 
   const tables: Record<string, Record<string, unknown> | undefined> = {
-    radius: themeData.radii,
-    font: themeData.fonts,
-    monoFont: themeData.monoFonts,
     density: themeData.densities,
   };
 

@@ -34,7 +34,12 @@ export interface Obligation {
 /** Root font-size per density, read from the generated table rather than re-typed. */
 const DENSITIES: Record<string, string> = themeDataJson.densities;
 
-const px = (v: string) => Number.parseFloat(v);
+/**
+ * The steps are percentages of the BROWSER's font size, so they are graded at the browser default
+ * of 16px. A person who enlarged their browser has larger targets than these figures, never smaller.
+ */
+const BROWSER_ROOT_PX = 16;
+const px = (v: string) => (Number.parseFloat(v) / 100) * BROWSER_ROOT_PX;
 
 /** The smallest root font-size the axis offers. Derived, so a new density step is graded too. */
 const minRoot = Math.min(...Object.values(DENSITIES).map(px));

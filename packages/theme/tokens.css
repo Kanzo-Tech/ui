@@ -172,10 +172,9 @@
 /* Fonts. Declared as values in a plain `@theme`, never as `var(--font-x, …)` of themselves inside
    the inline bridge: that spelling made `--font-mono` refer to its own name, which is a cycle, so the
    property computed to nothing and a host that set it without a fallback lost the face entirely.
-   `font-mono` compiles to `var(--font-mono)`, read on the element, so `[data-mono-font]` and a theme
-   that carries a face still win. The stacks are Geist's — the defaults `themes.css` declares as
-   `data-font="geist"` / `data-mono-font="geist-mono"` — each falling back to the system face when the
-   host has not loaded the webfont. `static`, so the variables are emitted even where no utility asks
+   `font-mono` compiles to `var(--font-mono)`, read on the element, so a theme that carries a face
+   still wins. The faces are the theme's: these are what a theme that names none falls back to —
+   Geist's stacks, each falling back to the system face when the host has not loaded the webfont. `static`, so the variables are emitted even where no utility asks
    for them: `CodeEditor` reads `--font-mono` from a style object. */
 @theme static {
   --font-sans: var(--font-geist-sans, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
@@ -286,8 +285,8 @@
   --chart-8: #6a8a2a;
 
   /* The shape knobs with no theme applied. Plain values, never `var()` of one another — see the
-     inheritance note on the radius scale. `themes.css` re-points them per `data-radius`, which is
-     the user's preference layered over the theme's own declaration.
+     inheritance note on the radius scale. A theme declares its own; there is no user preference
+     layered over them.
 
      There is no `--radius` any more. It was one knob standing for three, and the size-named
      utilities now answer to `--radius-field` — `rounded-lg` sits on a button far more often than
