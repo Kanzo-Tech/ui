@@ -294,6 +294,9 @@ the root.
   prop for fields a product adds.
 - **`GraphSearch`** — every drawn vertex's text, read once and filtered in the browser, ordered by
   the `r` ramp and named by `categories`; picking one is `reveal`.
+- **`GraphLooks`** — the three looks as presets over `GRAPH_SECTION`'s axes, with the axes under
+  Customize. It writes preferences rather than reading the root, so it needs the theme provider and
+  no `GraphRoot`.
 
 **Names are data on the root.** The manifest names no category values, so the host passes
 `categories` on the root, where the legend, the hover card and the inspector all read it.
@@ -301,7 +304,8 @@ the root.
 **Policy stays out, through the root's callbacks** — `onSelect`, `onFocus` and `onFailure`. No part
 takes a callback of its own. `onFailure` is the one required prop: unhandled, a browser with no WebGL
 context shows an empty box. It receives what was thrown, whole — fossil's errors keep their `code`,
-and the graph's own are a `GraphError`, `graph/no-webgl` or `graph/context-lost` — so a host chooses
+and the graph's own are a `GraphError` — `graph/no-webgl`, `graph/context-lost`,
+`graph/nothing-to-draw` or `graph/untranslatable-filter` — so a host chooses
 what to show by code.
 
 **What would reverse it:** a part a second host cannot use without a prop that encodes that host's

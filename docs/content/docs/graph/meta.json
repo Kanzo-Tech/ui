@@ -2,6 +2,9 @@
   "title": "Graph",
   "pages": [
     "index",
-    "benchmarks"
+    "layout",
+    "workspace",
+    "benchmarks",
+    "migration"
   ]
 }
