@@ -1,0 +1,301 @@
+---
+title: Preference or theme
+description: "PROPOSAL, awaiting the owner. One rule decides whether a value is the person's or the brand's, it is applied to every axis, and the declaration lists only preferences, so a theme-owned value never gets a control."
+---
+
+<Callout type="warn" title="Proposal, not yet decided">
+**Nothing on this page is implemented, and none of it has been accepted.** It is written as the rules
+would read once accepted, so that accepting it means deleting this callout and nothing else. The
+owner has already ruled on four things. **Corner radius and typography belong to the theme. Density,
+appearance and which theme is worn on each side are preferences.** Everything else here is proposed.
+Open questions are collected at the end. The code this page describes as current is `main` at
+`b954251`.
+</Callout>
+
+## The defect this removes
+
+A host chooses which preference controls to mount, from a list that includes controls for values the
+theme already owns. keasy's preferences page mounts `PreferencesRadius` next to `ThemePicker`. Every
+shipped theme declares `--radius-box`, `--radius-field` and `--radius-selector` in
+`packages/theme/themes/*.css`, so the slider overrides the brand. Nothing reports this, because it is
+an ordinary cascade:
+
+- `[data-theme="…"]` and `[data-radius="…"]` both sit on `<html>`, at the same specificity.
+  `themes.css` emits the radius blocks after the theme `@import`s, so the preference wins.
+- The radius slider's `md` step is written as *no attribute*, so at `md` the theme's own three radii
+  show. Each of the other four steps derives all three radii from one number, by a fixed ratio. One
+  step on the slider means "whatever the brand said" and the other four mean "ignore the brand". The
+  control is not even a scale.
+- Fonts have the same shape and have not broken yet only because no theme declares a face. The
+  moment a tenant's theme names its typeface, `data-font` would override it the same way.
+
+None of this is a bug in the slider. It is a **missing rule**: nothing says which values a person
+may change. So the library exported a control for every axis it could emit, and each host
+re-decided the split by choosing what to mount.
+
+## The rule: the person's reading, or the product's identity
+
+A value is a **preference** when it answers *how this person reads*. It is right or wrong because
+of the person: their eyes, their screen, the light in the room, how long they stay. It would be the
+same value in any product they used.
+
+A value belongs to the **theme** when it answers *what this product looks like*. It is right or
+wrong because of the brand, and it is the same for every person looking at that tenant's product.
+
+Two tests, asked in this order:
+
+1. **Would two people in the same tenant want different values, for reasons about themselves?**
+   If yes, it is a candidate preference. A dim room, low vision and a small laptop are reasons about
+   oneself. "I like rounder buttons" is a taste, not a reason, and taste is the brand's job.
+2. **Does the platform already ask this question?** If the OS or the browser carries the setting
+   (`prefers-reduced-motion`, `prefers-contrast`, `forced-colors`, the browser's default font size,
+   zoom), kanzo-ui **honours the media query and adds no axis.** A second switch for a question the
+   platform already answers is a second place for the answer to disagree.
+
+A value that fails test 1 belongs to the theme: it is authored in `themes/*.css` or by the theme
+generator, and nowhere else. A value that passes test 1 and is caught by test 2 belongs to the
+platform. Only a value that passes test 1 and gets past test 2 enters the declaration.
+
+**The references converge on this split**, which is the reason to believe it. See
+[References](#references) below.
+
+**What would reverse it.** A value that both tests misfile, where people really need it to differ
+for reasons about themselves and yet it changes what the brand is. A legibility typeface is the one
+candidate in sight, and the next section answers it without reversing the rule.
+
+*Held by* nothing yet, because this is a proposal. Once implemented, it would be held by
+`packages/theme/src/index.test.ts`, which already holds the declaration against the sheet.
+
+## Every axis, judged
+
+| axis | today | verdict | reason |
+| --- | --- | --- | --- |
+| `appearance` | preference, `.dark` | **preference** | Ambient light and eyes. GitHub, VS Code and Radix all keep it as the person's choice. |
+| `themeByAppearance` | preference, `data-theme` | **preference, over the tenant's set** | The *values* are identities the tenant published. The *choice* among them is the person's. The tenant controls the set (`themes`) and may withdraw the choice (`hidden`). |
+| `density` | preference, `data-font-size` | **preference** | Screen size and eyesight. It is the one axis with a measured bar: WCAG 2.5.8, in `OBLIGATIONS`. |
+| `radius` | preference, `data-radius` | **theme** (owner's ruling) | It fails test 1. Every theme already authors all three radii, and the generator edits them. |
+| `font` | preference, `data-font` | **theme** (owner's ruling) | It fails test 1. The face is the most recognisable part of a brand after its colour. |
+| `monoFont` | preference, `data-mono-font` | **theme** (owner's ruling) | Same as `font`. Code is set in the product's mono face. |
+| heading face | no axis, it follows `font` | **theme** | A theme may set `--font-heading` separately. That is already a promise in `tokens.css`. |
+| shape knobs (`--size-*`, `--stroke`, `--relief`, `--noise`) | theme only | **theme** | Never were preferences. They stay where they are. |
+| chart categorical set | no axis, part of colour | **theme** | It is part of colour (see [colour](/docs/design/colour)). No axis is added. |
+| motion | no axis, `motion-reduce:` variants | **platform** | `prefers-reduced-motion` already asks. The library honours it in its animated recipes and adds no switch. |
+| contrast | no axis, AA floors per theme | **platform, plus the theme's floor** | Every theme clears AA by construction (`auditContrast`). `prefers-contrast: more` and `forced-colors: active` are the platform's question. See below. |
+| contributed sections (`sections`) | preference, per package | **the same rule, applied by the owner of each section** | The graph's marks, labels and link layer pass test 1. Two of its preferences do not obviously pass it. See the open questions. |
+
+### Typography is the brand's, and legibility is a different axis
+
+A typeface picker is taste. A *legibility* face, such as Atkinson Hyperlegible or a dyslexia face,
+is a reason about oneself, so it passes test 1. It is not the font picker coming back. It would be a
+preference with **its own bar**, and the library could grade it, the way density's obligation is
+graded. Until someone asks for it, the browser's user font settings and user stylesheets are the
+platform's answer.
+
+**What would reverse it:** a product whose users need a legibility face that the platform cannot
+give them. That would add one axis with one measured option. It would not bring back a list of faces.
+
+### Motion and contrast: honour the query, add no axis
+
+**Motion.** The animated recipes already carry `motion-reduce:transition-none!` or
+`motion-reduce:animate-none!` (tabs, popover, slider, steps, tour, listbox, tree view, input group,
+the preferences panel). That is the whole of the policy: honour `prefers-reduced-motion` everywhere
+something moves. There is no in-product switch. A recipe that animates without the variant is the
+defect to fix, and the natural guard is a test beside the recipes, in the shape of
+`no-literal-hues.test.ts`.
+
+**Contrast.** Every theme already clears WCAG AA, so "enough contrast" is a theme obligation and not
+a preference. Wanting *more* than AA is a reason about oneself, and the platform asks it through
+`prefers-contrast: more` and `forced-colors: active`. Nothing in the library reads either query
+today. The proposal stays minimal:
+
+- `forced-colors: active` is **correctness, not an axis**. Focus rings, borders and selected states
+  must survive system colours. The work is an audit of the recipes, and it adds no new token.
+- `prefers-contrast: more` is answered by a **theme**, not by a modifier on every theme. A tenant
+  that cares publishes a high-contrast family, and people choose it through `themeByAppearance`.
+  Whether the provider should pick that family automatically when the query matches is an open
+  question.
+
+**What would reverse it:** a person who wants reduced motion or more contrast in this product only,
+and not across their OS. No such request exists. GitHub ships high-contrast *themes* rather than a
+contrast switch, which is the same answer.
+
+## One declaration, and it lists only preferences
+
+`CORE_PREFS` is the single source. It lists **appearance, themeByAppearance and density, and
+nothing else.** Everything that touches a preference is a projection of it:
+
+| consumer | derives from the declaration | what changes |
+| --- | --- | --- |
+| `ThemePrefs` / `DEFAULT_PREFS` | the keys | lose `radius`, `font`, `monoFont` |
+| `AXES` | rows with an `attr` | `data-radius`, `data-font`, `data-mono-font` disappear |
+| `themes.css` (generated) | the density table | loses the radius and font blocks, keeps the catalogue `@import`s and density |
+| `KanzoThemeProvider` | the keys, through `PREF_KEYS` | loses `fonts` / `monoFonts`; `defaults` and `value` narrow |
+| storage | the read-time whitelist | a stored `radius` / `font` / `monoFont` is dropped on read, like every retired key, with no shim |
+| `policy.theme` | the declared keys | a `radius` or `font` entry has nothing to resolve against |
+| `themeScript` | the rows | the same code, fewer rows |
+| `Preferences` | every **offered** declared preference | draws all of them; a host cannot draw a value the declaration does not hold |
+
+Theme-owned values live in exactly two places. One is `themes/*.css`, where each theme authors its
+radii and, from now on, may author `--font-sans`, `--font-heading` and `--font-mono`. The other is
+the theme generator, which already edits the three radii and gains the three font stacks for an
+imported or tenant theme. `tokens.css` keeps Geist and Geist Mono as the values a quiet theme falls
+back to, just as it keeps the radius fallbacks.
+
+A theme names a stack such as `var(--font-inter, …system)` and **ships no font files**, which is
+the rule the package already follows. The host loads the faces its published themes name. This is
+the one new obligation on a tenant. It is the same obligation a host has today when it offers Inter
+in the picker.
+
+### The panel renders every offered preference, so there is nothing left to pick
+
+The per-axis exports go away. `PreferencesSections` already draws the contributed namespaces, and it
+draws the core too, because the core is already "a namespace like any other". The theme picker
+comes first, then density, then each installed package's section. `PreferencesPanel` with no
+children is exactly that. `<PreferencesSections namespace="theme" />` is the core alone, and
+`namespace` and `only` are the props it already takes. A settings page mounts
+`<PreferencesSections />` inline. A drawer mounts `<Preferences />`. Neither can mount a radius
+control, because no declaration holds one.
+
+`ThemePicker` stays exported as the control for `themeByAppearance`, the one control the generic
+renderer cannot draw. `PreferencesField` and `PreferencesFieldSet` stay for a product's own
+preferences.
+
+**What would reverse it:** a host that needs one core preference *without* the others on a surface,
+for reasons that `only` cannot express. The single-axis exports were that escape hatch. keasy's page
+is the only consumer, and it mounted exactly the axes it should not have.
+
+*Held by* `packages/theme/scripts/gen-theme.mjs`, `corePrefs`, the declaration that would shrink
+to three entries; `packages/ui/src/composites/Preferences.tsx`, `ContributedSections`, the renderer
+that would gain the core namespace.
+
+## Tenant policy: selection over preferences, authorship through themes
+
+White-label splits along the same line as the rule:
+
+- **What the brand looks like** is authored as a theme, including radius and typography. A tenant
+  that wants square corners and its own face publishes a family from the generator. It does not pin
+  a preference. `policy={{ theme: { radius: { pinned: "sm" } } }}` stops meaning anything, because
+  the shape was never a person's to change.
+- **What people may change** is `policy.theme`, over the three preferences, with the same chain as
+  today: pinned, stored, the tenant's starting point, the declaration's default.
+  - `themes`: the tenant chooses which themes are offered.
+  - `themeByAppearance: { hidden: true }`: one brand, no choice. This is keasy's `lock`.
+  - `appearance: { pinned: "dark" }`: a dark-only product.
+  - `density: { default: "compact" }`: a dense product as a starting point.
+
+**May a tenant pin density?** Proposed: **yes, through the same chain, with no exception for one
+axis.** A policy mechanism that refuses some keys of its own declaration is the kind of patch this
+page exists to remove. The cost of a pin lands on density's obligation and not on the mechanism:
+every density step is graded against WCAG 2.5.8, so a tenant can only pin a step that has been
+measured. The honest caveat is that `compact` is the step the target-size bar currently fails at.
+
+**What would reverse it:** a tenant pinning `compact` while the target-size bar is red there. Then
+the obligation should gate the pin, and that would be a rule about the bar, not a per-axis switch
+in the policy.
+
+## Density is the person's, so it must not override the browser
+
+This is a consequence of the verdict, and it is recorded here because the rule forces it. Density
+writes `font-size: 14px` / `18px` on `<html>`. An absolute pixel value replaces the browser's default
+font size, which is the platform's own reading preference. So choosing *compact* on a browser set to
+20px makes the text smaller than the person asked their browser for. The default step is already
+correct, because no attribute leaves the browser's value in place. Proposed: emit the steps
+relative to the browser's size (`87.5%`, `112.5%`). Then density multiplies the platform's answer
+instead of replacing it, which is test 2 applied to an axis that passes test 1. The density
+obligation's figures are computed at a 16px root and do not change.
+
+**What would reverse it:** a measurement that the relative steps break a layout the absolute ones
+held. Nothing suggests one, because every size in the system is `rem`.
+
+## What gets deleted
+
+**`@kanzo-tech/ui`**: `PreferencesRadius`, `PreferencesFont`, `PreferencesMonoFont`,
+`PreferencesDensity` (drawn by `PreferencesSections`), the `FontOption` type, and the provider's
+`fonts` and `monoFonts` props. From `useKanzoTheme()`: `radius`, `font`, `monoFont`, `fonts`,
+`monoFonts`. From `KanzoTheme`: the `radius`, `font` and `monoFont` props, because a region that
+wants a different shape wears a different theme. Its `density` prop should be checked as well: a
+wrapper's `font-size` does not move a `rem`, so a scoped density may already do nothing.
+
+**`@kanzo-tech/theme`**: the `KanzoRadius`, `KanzoFont` and `KanzoMonoFont` types; those three keys
+of `ThemePrefs`, `DEFAULT_PREFS` and `CORE_PREFS`; and `themeData.radii`, `.fonts` and `.monoFonts`.
+In the generator: `RADII`, `RADIUS_RATIO`, `FONTS`, `MONO_FONTS`. In `themes.css`: every
+`[data-radius]`, `[data-font]` and `[data-mono-font]` block.
+
+**Docs**: the radius, font and monoFont rows of *The user axes* and the radius examples under
+*Setting them* on [theming](/docs/theming), plus the "or a theme" column of its fonts table, which
+becomes "a theme". The section tables, the typography-panel example and its showcase
+(`showcases/preferences/fonts.tsx`) on [preferences](/docs/layout/preferences). The radius controls
+in the `extended`, `settings`, `field-notes`, `metadata-form` and `workspace` showcases. The radius
+policy examples on [sections](/docs/sections). On [colour](/docs/design/colour): the bullet "the four
+generated axes stay the core's" and the sentence "Radius, font and mono font remain a preference
+table". The hook page and its example. The Inter and JetBrains Mono loads in `docs/app/layout.tsx`,
+which exist only for the picker. Both READMEs.
+
+**Tests**: the radius and font cases in `Preferences.test.tsx`, `KanzoThemeProvider.test.tsx`,
+`KanzoTheme.test.tsx`, `theme-script.test.ts` and `packages/theme/src/index.test.ts`, each replaced
+by the assertion that the declaration holds exactly the three preferences.
+
+### Breaking changes, in the consumer's words
+
+- *Corner radius and fonts are no longer user preferences. They come from the theme.* Remove any
+  `PreferencesRadius`, `PreferencesFont` or `PreferencesMonoFont` from your settings. To change
+  shape or typography for your product, edit or generate a theme. To set density, use
+  `<PreferencesSections />` or `<Preferences />`, which draw every preference your users may change.
+- *`PreferencesDensity` is gone.* `<PreferencesSections namespace="theme" />` draws the theme picker
+  and density together.
+- *`KanzoThemeProvider` no longer takes `fonts` or `monoFonts`, and `policy.theme` no longer
+  accepts `radius`, `font` or `monoFont`.* Put the face in your theme as `--font-sans` and
+  `--font-mono`, and load the font files yourself.
+- *A radius or font your users stored earlier is ignored.* They see the theme's own.
+
+### keasy's migration
+
+- `settings/preferences/page.tsx`: drop the *Shape and density* and *Typography* sections. What is
+  left is *Appearance* (`ThemePicker`) and *Density*, which is
+  `<PreferencesSections namespace="theme" />` under one heading, or two `only` calls if the page
+  keeps two headings.
+- `providers.tsx`: no change in shape. `themes`, `defaultTheme` and `policy` (`lock` →
+  `themeByAppearance: { hidden: true }`) are exactly the three preferences' business. If keasy's
+  branding later wants a tenant face or shape, it is a field on the theme the operator publishes,
+  not a field on `Branding`.
+
+## References
+
+- **GitHub Appearance settings.** Theme mode (single, or sync with system), a day theme and a night
+  theme, and high-contrast and colour-blind variants shipped as *themes*. No radius control and no
+  interface-font control. This is the model `themeByAppearance` already copies.
+- **VS Code.** `workbench.colorTheme` is a contributed theme, and
+  `window.autoDetectColorScheme` with `preferredLightColorTheme` / `preferredDarkColorTheme` is
+  `themeByAppearance`. **The counter-example:** `editor.fontFamily` and `editor.fontSize` are
+  *settings*, not theme. It is a tool whose users read code all day, so the editor face passes test
+  1 there. A kanzo product that becomes an editor first is the case that would reopen `monoFont`.
+- **daisyUI.** The theme carries `--radius-box`, `--radius-field`, `--radius-selector`, `--size-*`,
+  `--border`, `--depth` and `--noise` beside the colours. Geometry is identity. Fonts are left to
+  the host.
+- **Radix Themes.** `<Theme radius scaling appearance>`: radius and scaling are props the
+  *product* sets, not end-user controls. Appearance is the only one Radix expects to follow the
+  person.
+- **shadcn/ui.** `--radius` sits in the theme's CSS beside the colours, and the theme gallery ships
+  it per theme. The font is the app's.
+- **Material 3.** Shape and type scales are part of the brand theme (Material Theme Builder). What
+  the person controls comes from the platform: dark theme, font scale and the contrast level
+  (standard, medium or high). The app honours the platform rather than adding its own switch.
+
+## Open questions for the owner
+
+1. **Appearance and the OS.** Test 2 says honour `prefers-color-scheme` when nothing is stored, as
+   GitHub's "sync with system" does. The existing rule says "the OS is never asked". Should the
+   default follow the media query? `themeScript` can read it before paint. Or does "never asked"
+   stand?
+2. **Pinning density.** This page proposes yes, uniformly. The alternative is that the density
+   obligation forbids pinning a step that fails its bar, which today means `compact`.
+3. **`prefers-contrast: more`.** Should the provider pick a published high-contrast family
+   automatically, or only offer it in the picker?
+4. **`ThemePicker` on the barrel.** Keep it exported as a control, or draw it only through
+   `PreferencesSections`, so there is exactly one way to mount it?
+5. **The graph's section.** `vignette` describes itself as "mood rather than a reading aid", and the
+   simulation coefficients are not appearance. Under this rule both look like the tenant's or the
+   product's, not the person's. Should the same audit run on contributed sections now, or later by
+   their owners?
+6. **Relative density steps.** Accept `87.5%` / `112.5%` as part of this change, or take it
+   separately?
