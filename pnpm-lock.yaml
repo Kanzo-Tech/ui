@@ -422,9 +422,6 @@ importers:
       '@internationalized/date':
         specifier: ^3.12.2
         version: 3.12.2
-      '@kanzo-tech/mosaic':
-        specifier: workspace:*
-        version: link:../mosaic
       '@kanzo-tech/theme':
         specifier: workspace:*
         version: link:../theme
@@ -462,6 +459,9 @@ importers:
       '@codemirror/view':
         specifier: ^6.43.1
         version: 6.43.4
+      '@kanzo-tech/mosaic':
+        specifier: workspace:*
+        version: link:../mosaic
       '@lezer/highlight':
         specifier: ^1.2.3
         version: 1.2.3

@@ -48,6 +48,7 @@
     "@codemirror/search": ">=6",
     "@codemirror/state": ">=6",
     "@codemirror/view": ">=6",
+    "@kanzo-tech/mosaic": "workspace:^",
     "@lezer/highlight": ">=1",
     "@tanstack/react-table": ">=8",
     "@uwdata/mosaic-core": "^0.29.2",
@@ -95,12 +96,14 @@
     },
     "@lezer/highlight": {
       "optional": true
+    },
+    "@kanzo-tech/mosaic": {
+      "optional": true
     }
   },
   "dependencies": {
     "@ark-ui/react": "^5.37.2",
     "@internationalized/date": "^3.12.2",
-    "@kanzo-tech/mosaic": "workspace:*",
     "@kanzo-tech/theme": "workspace:*",
     "@tailwindcss/typography": "^0.5.20",
     "clsx": "^2.1.1",
@@ -115,6 +118,7 @@
     "@codemirror/search": "^6.5.11",
     "@codemirror/state": "^6.6.0",
     "@codemirror/view": "^6.43.1",
+    "@kanzo-tech/mosaic": "workspace:*",
     "@lezer/highlight": "^1.2.3",
     "@tanstack/react-table": "^8.21.3",
     "@testing-library/dom": "^10.4.1",
