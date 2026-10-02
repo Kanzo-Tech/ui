@@ -144,7 +144,8 @@ renders empty and says nothing — is what `onFailure` and the in-frame failure 
 the supported way to read a relation without drawing it. A widget that runs a plain
 `coordinator.query()` in an effect reports unfiltered totals next to filtered charts, which reads as
 a bug in the crossfilter. `useFieldStats` is the other read the kit is built on: a relation's
-columns, classified.
+columns, classified. And what a page reads once and draws as it is — a schema, a catalog — is
+[`useQueryRows`](/docs/hooks/use-query-rows), which suspends on the statement.
 
 <Cards>
   <Card title="Charts" href="/docs/analytics/charts" description="The grammar: roots, marks, interactors, selections, and what fails silently." />

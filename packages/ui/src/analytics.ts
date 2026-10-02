@@ -93,6 +93,8 @@ export type { ChartStatProps } from "./charts/chart-stat.js";
 
 // For anything that is not a plot but must still follow the brush — a KPI, a readout, a table.
 export { useChartQuery, Query } from "./charts/use-chart-query.js";
+// A statement read once and suspended on — a catalog, a schema — outside the crossfilter.
+export { useQueryRows } from "./charts/use-query-rows.js";
 export type { ChartQueryOptions, ChartQueryResult, ChartQueryRow } from "./charts/use-chart-query.js";
 // What a selection holds, as chips that retract a clause where it was published.
 export { FilterChips, useClauses } from "./charts/filter-chips.js";

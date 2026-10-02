@@ -1,0 +1,56 @@
+---
+title: useQueryRows
+description: A statement's rows on the page's coordinator, suspending until they land — for what a page reads once, outside the crossfilter.
+---
+
+<ComponentPreview componentName="use-query-rows" />
+
+The schema above is read once and stays still while the histogram moves: no brush changes what
+columns a relation has.
+
+## Usage
+
+```tsx
+import { useQueryRows } from "@kanzo-tech/ui/analytics";
+```
+
+```tsx
+function Schema() {
+  const columns = useQueryRows<{ column_name: string }>("DESCRIBE telemetry");
+  return columns.map((c) => <Badge key={c.column_name}>{c.column_name}</Badge>);
+}
+
+<Suspense fallback={<Skeleton />}>
+  <Schema />
+</Suspense>
+```
+
+It needs a [`MosaicProvider`](/docs/analytics/charts#the-pages-one-engine) above it, a `Suspense`
+for the wait and an error boundary for a failure. The rows are objects keyed by column — the Arrow
+answer's `toArray()` — typed by the parameter you give it.
+
+## One answer per statement
+
+It is React's `use` over **one promise per coordinator and SQL text**: every component asking the
+same statement shares one answer, and asking it again later is answered without a query. So the
+statement *is* the key — a read that should change names what changed in its SQL, a catalog, a table,
+a filter value — and nothing else invalidates it. The last 256 statements a coordinator answered are
+kept; a component reading one that was dropped asks again.
+
+## Failures
+
+A failure is thrown **as it was thrown** to the nearest error boundary — its `code`, its message —
+and not to the provider's `onFailure`, which would say it twice. It is not kept: the boundary's retry
+asks again.
+
+## Not for anything that follows the brush
+
+It reads the relation as it is. A number beside filtered charts is
+[`useChartQuery`](/docs/hooks/use-chart-query), which connects a Mosaic client and is re-asked when
+the crossfilter moves; a read through this one would report unfiltered totals beside them.
+
+## API Reference
+
+```ts
+function useQueryRows<Row = Record<string, unknown>>(query: Query | string): readonly Row[];
+```

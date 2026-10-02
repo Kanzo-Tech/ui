@@ -16,6 +16,7 @@
     "use-chart-context-optional",
     "use-chart-capacity",
     "use-chart-query",
+    "use-query-rows",
     "use-theme-tick",
     "use-mosaic",
     "use-crossfilter",
