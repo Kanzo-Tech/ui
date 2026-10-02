@@ -1,0 +1,87 @@
+---
+title: Problem
+description: Anything a catch holds, shown as a Diagnostic — its code, its title, its causes as a tree, and the host's words over the library's.
+---
+
+<ComponentPreview componentName="problem" fileName="example-default" />
+
+## Usage
+
+```tsx
+import { DiagnosticList, Problem } from "@kanzo-tech/ui";
+```
+
+```tsx
+<DiagnosticList>
+  <Problem copy={copyOf} error={error}>
+    <Button onClick={retry} size="sm" variant="outline">Try again</Button>
+  </Problem>
+</DiagnosticList>
+```
+
+Every library here fails with the same shape: an `Error` with a `code` in `area/kind`, a `title`, a
+`message` for a person and the `data` the code carries, with what caused it as `cause`. `Problem`
+reads that shape off **whatever was thrown** — it imports none of those classes, so an error from a
+library it has never heard of, a server's problem body or an object a stream handed over reads the
+same way. A value that is no object is drawn as its own `String`.
+
+## What it reads
+
+| Field | Drawn as |
+| --- | --- |
+| `code` | The source, in monospace, and `data-code` on the row — what an end-to-end test asserts on. Only a string in `area/kind` counts. |
+| `title` | The header's title. Without one, the `message` is the title. |
+| `message` | The detail, once the row is open. `detail` is read where there is no `message`. |
+| `data` | Nothing — it is handed to `copy`. |
+| `cause` | A row nested below, read the same way, and so on down. A coded cause is open; an uncoded one is folded. |
+| `severity` | `"warning"` or `"info"` pick the variant; anything else is `"error"`, drawn `destructive`. |
+| `help` | A second paragraph under the detail. |
+| `related` | Rows beside the cause — the diagnostics a failure carries, such as the ones a program did not compile with. |
+
+The tree stops at a cause it has already drawn, and eight levels down, so a cycle in `cause` draws
+once rather than forever.
+
+## The host's words
+
+A code is written for whoever raised it: `archive/silent` says *the archive did not answer*, and the
+clerk at the desk wants *the archive is closed*. **`copy(code, data)` is the host's registry**,
+called for the problem and every coded cause under it. Return `undefined` to keep the error's own
+words, or any of:
+
+- `title` — replaces the title.
+- `detail` — replaces the detail, and **the author's row is kept one level down**, so what the
+  library said is never lost to what the host prefers to say. `data` is what a detail that names a
+  figure is written from.
+- `link` — `{ label, href }`, a button beside the details: *Sign in again*.
+- `page` — the page that explains the code; the code in the header links to it.
+
+The words `Problem` draws itself — the severity badge and the details trigger's name — are
+`translations`, in English by default.
+
+## Accessibility
+
+Each row's details trigger is named by its row — **`Details: <title>`** — because a tree of six
+causes is otherwise six buttons all announced as *Details*, with nothing to tell a screen-reader user
+which one they are on. `translations.details` takes the title and returns the name.
+
+`Problem` is a list item, as `Diagnostic` is: put it in a `DiagnosticList`, alone or beside other
+rows. It is open at rest, because a failure on screen is there to be read; `defaultOpen` and `open`
+pass through.
+
+## API Reference
+
+### Problem
+
+`ProblemProps` extends `DiagnosticProps` without `variant`, which the error's severity decides.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `error` | `unknown` — what was thrown | required |
+| `copy` | `(code: string, data: unknown) => ProblemCopy \| undefined` | — |
+| `children` | `ReactNode` — beside the problem's own link and details trigger | — |
+| `translations` | `Partial<ProblemTranslations>` | English |
+| `defaultOpen` | `boolean` | `true` |
+
+`ProblemCopy` is `{ title?, detail?, link?: { label, href }, page? }`. `ProblemTranslations` is
+`{ destructive, warning, info }` — the severity badge's word per variant — and
+`details: (title) => string`.

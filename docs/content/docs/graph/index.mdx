@@ -306,7 +306,8 @@ index in cosmos.gl's buffers. An id from SQL — `SELECT dense_id FROM …` — 
 It receives every failure **as it was thrown**, and the graph's own are a `GraphError`. The root
 reports `status: "failed"` beside it, so a part can render the failed state without holding the
 error. A failed `open` is the host's own — above, fossil's coded `corpus/unreadable`, routed to the
-same handler.
+same handler and drawn by [`Problem`](/docs/data-display/problem), which reads the code off whatever
+was thrown and takes the host's words for it.
 
 | `GraphError` code | When |
 | --- | --- |
