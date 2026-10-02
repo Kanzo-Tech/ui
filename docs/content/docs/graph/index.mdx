@@ -313,6 +313,7 @@ was thrown and takes the host's words for it.
 | --- | --- |
 | `graph/no-webgl` | No WebGL context, or no GPU device came up. `data.after` is set when the 10 s device deadline fired. |
 | `graph/context-lost` | The browser took the WebGL context back. |
+| `graph/no-positions` | The device came up but holds no positions for the points it was given, found when the camera read them back. `cause` is what the read threw. |
 | `graph/nothing-to-draw` | The attached corpus has no vertex. |
 | `graph/unfilterable` | A crossfilter clause naming columns no vertex table has. A table lacking a predicate's columns just stays unfiltered. |
 

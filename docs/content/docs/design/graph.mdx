@@ -297,7 +297,7 @@ What would reverse it: a part of this package that must tell two host sources ap
 takes a callback of its own, and `GraphSelect`'s `load` is not one: it answers *which vertices*, data
 the part reads when pressed, and a failure of it reaches `onFailure` like any other read's. `onFailure` is the one required prop: unhandled, a browser with no WebGL
 context shows an empty box. It receives what was thrown, whole — a read's own error with its `code`,
-or a `GraphError`: `graph/no-webgl`, `graph/context-lost`, `graph/nothing-to-draw` or
+or a `GraphError`: `graph/no-webgl`, `graph/context-lost`, `graph/no-positions`, `graph/nothing-to-draw` or
 `graph/unfilterable` — so a host chooses what to show by code.
 
 **What would reverse it:** a part a second host cannot use without a prop that encodes that host's

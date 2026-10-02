@@ -32,6 +32,7 @@ so one host registry keys all three. One class per package, named for it.
 | `engine/unavailable` | `EngineError` | DuckDB-WASM would not boot | `after` when the 60 s deadline fired |
 | `graph/no-webgl` | `GraphError` | no WebGL, a renderer that would not start, or no device within 10 s | `after` when the deadline fired |
 | `graph/context-lost` | `GraphError` | the browser took the WebGL context back | — |
+| `graph/no-positions` | `GraphError` | a device that came up holds no positions for the points it was given: a frame's read-back failed | — |
 | `graph/nothing-to-draw` | `GraphError` | an attached corpus with no vertex | — |
 | `graph/unfilterable` | `GraphError` | a crossfilter clause naming columns no vertex table has | — |
 | `ai/silent` | `AiError`, from `@kanzo-tech/llm` | a model behind `createGateway` sent nothing for 30 s — no headers, or no chunk since the last | `after` |

@@ -156,6 +156,13 @@ layout has moved the points the extent is history, so Fit frames where the point
 zooms to one vertex and `frameSelection` frames what is selected; neither changes who holds the
 camera.
 
+**A frame of the points waits for the points.** Framing where the points are reads them back from
+the GPU, so it waits for cosmos.gl's device and for the render that uploaded them — and the layout
+starts only after that render, because cosmos.gl 3.4 turning its simulation on discards an upload
+that has not been rendered yet. If the read fails anyway, the device holds no positions: the graph
+fails once with `graph/no-positions` and the camera stops reading, rather than leaving a blank canvas
+that throws on every tick.
+
 ## Large corpora
 
 The camera that follows a layout is not free. **Every re-frame after a layout has run reads every

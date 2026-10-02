@@ -77,8 +77,8 @@ graph, a second main view and a dock of panels.
 
 No part takes a callback: what a click means is `onSelect`, `onFocus` and `onFailure` on the root.
 `onFailure` is required and receives every failure as thrown — fossil's coded errors, and the graph's
-own `GraphError` (`graph/no-webgl`, `graph/context-lost`, `graph/nothing-to-draw`,
-`graph/untranslatable-filter`).
+own `GraphError` (`graph/no-webgl`, `graph/context-lost`, `graph/no-positions`,
+`graph/nothing-to-draw`, `graph/unfilterable`).
 
 - `lookFrom`, `simFrom`, `useGraphPrefs` — the form and the forces from a preferences panel's
   answers, and the look `preset` they are; `scaleOf` — what colour and shape a category wears.
