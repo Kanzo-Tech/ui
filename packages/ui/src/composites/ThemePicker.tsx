@@ -137,18 +137,18 @@ export function ThemePicker({ copy, className, slot, ...rest }: ThemePickerProps
             >
               <RadioGroupLabel className="col-span-full font-medium text-sm">{group.label}</RadioGroupLabel>
               {group.options.map((theme) => (
-                <RadioGroupCard className="flex-col gap-2 p-2" key={theme.value} value={theme.value}>
+                // The badge rides on the preview, GitHub's placement, so the name keeps the whole row
+                // and wraps rather than truncating beside it in a narrow column.
+                <RadioGroupCard className="relative flex-col gap-2 p-2" key={theme.value} value={theme.value}>
                   <ThemePreview appearance={sideOf(theme)} theme={theme.value} />
-                  <span className="flex min-w-0 items-center gap-2">
-                    <ArkRadioGroup.ItemText className="truncate font-medium text-sm">
-                      {theme.label}
-                    </ArkRadioGroup.ItemText>
-                    {theme.value === resolvedTheme ? (
-                      <Badge aria-hidden className="ms-auto shrink-0" size="sm" variant="info">
-                        {c.active}
-                      </Badge>
-                    ) : null}
-                  </span>
+                  {theme.value === resolvedTheme ? (
+                    <Badge aria-hidden className="absolute end-3 top-3 shadow-sm" size="sm" variant="info">
+                      {c.active}
+                    </Badge>
+                  ) : null}
+                  <ArkRadioGroup.ItemText className="min-w-0 text-pretty break-words font-medium text-sm">
+                    {theme.label}
+                  </ArkRadioGroup.ItemText>
                 </RadioGroupCard>
               ))}
             </RadioGroup>
