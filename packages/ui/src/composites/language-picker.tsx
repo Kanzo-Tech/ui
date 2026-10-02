@@ -184,7 +184,6 @@ export const LanguagePicker = (props: LanguagePickerProps) => {
 
   return (
     <Combobox
-      aria-label={ariaLabel}
       // A tag the host did not list is only admissible when the host listed none.
       allowCustomValue={!constrained}
       collection={collection}
@@ -203,6 +202,10 @@ export const LanguagePicker = (props: LanguagePickerProps) => {
         // `ComboboxControl` stays because the popover positions against it.
         <ComboboxControl>
           <ComboboxFieldInput
+            // On the input, which is the combobox: on the root it named a `div` with no role, so an
+            // inline picker — the one beside a field's own control, never named by its label —
+            // was announced as an unnamed combobox.
+            aria-label={ariaLabel}
             className={cn(languagePickerInputVariants({ inline }), className)}
             onBlur={commitTyped}
             placeholder={placeholder}
@@ -210,6 +213,7 @@ export const LanguagePicker = (props: LanguagePickerProps) => {
         </ComboboxControl>
       ) : (
         <ComboboxInput
+          aria-label={ariaLabel}
           className={className}
           onBlur={commitTyped}
           placeholder={placeholder}
