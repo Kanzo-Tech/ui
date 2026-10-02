@@ -67,7 +67,6 @@ const COMPILER: ts.CompilerOptions = {
   module: ts.ModuleKind.ESNext,
   target: ts.ScriptTarget.ESNext,
   moduleResolution: ts.ModuleResolutionKind.Bundler,
-  jsx: ts.JsxEmit.Preserve,
 };
 
 /**
@@ -100,31 +99,6 @@ const ENTRIES = ["ui", "theme", "graph", "ai", "llm", "auth", "navigation"].flat
   entryPoints(join(REPO, "packages", name)),
 );
 
-/**
- * **The blocks surface, and why it is an entry point rather than an exception.**
- *
- * `docs/content/docs/blocks/` documents the furniture two showcases share — `PanelRail`,
- * `PaneHeader`, `WorkspaceColumns`, `FindingsBadge` — and those pages exist *to say* those names
- * are not exports. Under the union check every one of them is a miss, and the mechanism reached
- * for first was `DELIBERATE`: four entries, growing by one per block, hand-kept. That is the second
- * list this whole module argues against.
- *
- * They are not undefined names, though. They are exported from a module a reader of those pages
- * can genuinely import — the pages say so, in a fenced `import … from "@/showcases/shared"`. So the
- * question the guard asks is unchanged ("can a reader of this page import this name?") and only the
- * surface it asks against widens, for the pages that document that surface. A blocks page naming a
- * block that does not exist now fails, which `DELIBERATE` would have made impossible.
- *
- * It is source, not `dist/` — the one place here that reads a `.tsx` — because this module is never
- * built. Hence `jsx: Preserve` below; nothing is emitted and no diagnostic is read, so an
- * unresolved `lucide-react` inside it costs nothing.
- */
-const BLOCKS_SPEC = "@/showcases/shared";
-const BLOCKS_FILE = join(REPO, "docs/showcases/shared/index.tsx");
-/** Pages allowed to name a block: the group's own pages and the gallery that introduces them. */
-const documentsBlocks = (page: string) =>
-  page.startsWith("blocks/") || page === join("(root)", "blocks.mdx");
-
 const UNBUILT = ENTRIES.filter((e) => !existsSync(e.types)).map((e) => e.spec);
 const BUILD_FIRST =
   "run `pnpm build` first: this guard reads dist/, the way docs/ does, and there is no dist/ here";
@@ -153,8 +127,6 @@ type Surface = {
   ours: Set<string>;
   /** Every name a declared dependency or peer exports. */
   peers: Set<string>;
-  /** Every name `docs/showcases/shared` exports — see {@link BLOCKS_SPEC}. */
-  blocks: Set<string>;
   /** The peer specifiers that resolved to types, so a silent drop is visible to the assertions. */
   resolved: string[];
 };
@@ -171,7 +143,7 @@ function surface(): Surface {
     if (file?.endsWith(".d.ts")) peerTypes.push({ spec, file });
   }
 
-  const files = [...ENTRIES.map((e) => e.types), ...peerTypes.map((p) => p.file), BLOCKS_FILE];
+  const files = [...ENTRIES.map((e) => e.types), ...peerTypes.map((p) => p.file)];
   const program = ts.createProgram(files, COMPILER);
   const checker = program.getTypeChecker();
 
@@ -189,7 +161,6 @@ function surface(): Surface {
     bySpec,
     ours: new Set([...bySpec.values()].flatMap((set) => [...set])),
     peers: new Set(peerTypes.flatMap((p) => [...namesIn(p.file)])),
-    blocks: namesIn(BLOCKS_FILE),
     resolved: peerTypes.map((p) => p.spec),
   };
   return cached;
@@ -257,7 +228,7 @@ const EXPORT_SHAPED = (name: string) =>
 /** `[^{}]` spans newlines but not a brace, so a multi-line block matches and two adjacent ones do not merge. */
 /** `[^{}]` spans newlines but not a brace, so a multi-line block matches and two adjacent ones do not merge. */
 const NAMED_IMPORT =
-  /import\s+(?:type\s+)?\{([^{}]*)\}\s*from\s*["'](@kanzo-tech\/[^"']+|@\/showcases\/shared)["']/g;
+  /import\s+(?:type\s+)?\{([^{}]*)\}\s*from\s*["'](@kanzo-tech\/[^"']+)["']/g;
 const CLAIMS_EXPORT = /\b(?:re-)?export(?:s|ed)?\b/i;
 const BACKTICKED = /`([^`\n]+)`/g;
 
@@ -414,7 +385,7 @@ const excused = (page: string, name: string) =>
 
 /** Every claim that does not resolve, before the exceptions are applied. Keyed by page. */
 function unresolved(): Map<string, Claim[]> {
-  const { blocks, bySpec, ours, peers } = surface();
+  const { bySpec, ours, peers } = surface();
   const misses = new Map<string, Claim[]>();
   for (const [page, found] of CLAIMS) {
     for (const claim of found) {
@@ -422,12 +393,9 @@ function unresolved(): Map<string, Claim[]> {
       // importing it from `@kanzo-tech/ui` is wrong however many other packages export the name.
       // Anatomy and prose name no package, so the union is the honest question there — can a
       // reader of this page import this name at all?
-      const here = documentsBlocks(page);
       const resolves = claim.spec
-        ? claim.spec === BLOCKS_SPEC
-          ? blocks.has(claim.name)
-          : (bySpec.get(claim.spec)?.has(claim.name) ?? false)
-        : ours.has(claim.name) || peers.has(claim.name) || (here && blocks.has(claim.name));
+        ? (bySpec.get(claim.spec)?.has(claim.name) ?? false)
+        : ours.has(claim.name) || peers.has(claim.name);
       if (resolves) continue;
       misses.set(page, [...(misses.get(page) ?? []), claim]);
     }

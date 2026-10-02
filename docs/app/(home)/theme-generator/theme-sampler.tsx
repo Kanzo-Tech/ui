@@ -298,7 +298,7 @@ export function ThemeSampler() {
           </code>
         </Group>
 
-        <Group title="Categorical" doc="the eight chart slots — most themes inherit them">
+        <Group title="Categorical" doc="the eight chart slots, carried from the family you started from — each at 3:1 on the page">
           <div className="flex flex-wrap gap-1.5">
             {SLOTS.map((slot) => (
               <span

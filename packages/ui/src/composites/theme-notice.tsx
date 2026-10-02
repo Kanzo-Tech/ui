@@ -7,11 +7,11 @@ import { useKanzoTheme } from "../theme/KanzoThemeProvider.js";
 
 /**
  * The copy for "the theme you chose is no longer published", shared by the two surfaces that
- * say it: this toast, and the `Alert` inside `PreferencesColor`. One state, said once.
+ * say it: this toast, and the `Alert` inside `ThemePicker`. One state, said once.
  *
- * Both strings are **library-authored English**, which is exactly the distinction `PreferencesColor`'s `formatSide`
- * draws with its `formatName`: the library wrote "Light" and "Dark", so a caller who translates the
- * app has to be able to translate them. A theme's `label` is the opposite case — the client
+ * Both strings are **library-authored English**, which is exactly the distinction `ThemePicker`'s
+ * `copy` draws: the library wrote "Day theme" and "Night theme", so a caller who translates the app
+ * has to be able to translate them. A theme's `label` is the opposite case — the client
  * authored it, at runtime — and takes no formatter, because a formatter over it would only let a
  * host decorate someone else's brand name.
  */
@@ -59,9 +59,8 @@ export interface ThemeNoticeProps extends ThemeRetiredCopy {
  * identity. What is left is that somebody chose gold and is looking at blue, and silence makes that
  * read as a bug in our product rather than a change in their client's.
  *
- * The panel says the same thing in `PreferencesColor`, from the same state — and cannot always
- * say it: that section hides itself below two published themes, so a tenant who retired their way
- * down to one has this as the only surface left.
+ * The panel says the same thing in `ThemePicker`, from the same state — and cannot always say
+ * it: a tenant that withholds the theme axis draws no theme groups, so this is the surface left.
  */
 export const ThemeNotice = ({ toaster = sharedToaster, ...copy }: ThemeNoticeProps = {}) => {
   const { retiredTheme } = useKanzoTheme();

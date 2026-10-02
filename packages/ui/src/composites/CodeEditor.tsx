@@ -60,37 +60,35 @@ const External = Annotation.define<boolean>();
  * bring-your-own editor can wire the same palette. Inert until the caller injects a language
  * (there is no tree to tag).
  *
- * **Seven of these are `--syntax-*` and the rest are tokens that already existed**, which is the
- * shape the palette layer settled on: `comment` is `--faint` (the quietest legible ink — a gutter
- * number, a field's placeholder and a code comment are one decision), `punctuation` is
- * `--muted-foreground`, `operator` is `--foreground`, and `invalid` is the destructive family.
- * There were thirteen `--syntax-*` tokens; six of them were duplicating a tint the ramp
- * already publishes.
+ * **Eight of these are `--syntax-*` and the rest are tokens that already existed**: `comment` is
+ * `--faint` (the quietest legible ink — a gutter number, a field's placeholder and a code comment
+ * are one decision), `punctuation` is `--muted-foreground`, `operator` is `--foreground`, and
+ * `invalid` is the destructive family.
  *
- * The seven that remain are authored per theme and graded against the active line (`--muted`), so a
- * palette finally repaints keywords: Dracula's pink, Nord's purple, Catppuccin's mauve. Every
- * document used to declare Kanzo's.
+ * The eight are authored by every theme and `themes.test.ts` holds each at AA on the paper
+ * (`--background`) and on the active line (`--muted`). `--syntax-variable` is a binding — a name a
+ * program defines and uses; `--syntax-annotation` is a reference to something outside the program —
+ * a decorator, a namespace, fossil's `@connection` — and is NOT `--faint`: it carries meaning.
  */
 export const kanzoHighlightStyle = HighlightStyle.define([
-  { tag: [t.keyword, t.operatorKeyword, t.controlKeyword, t.definitionKeyword, t.moduleKeyword, t.self], color: "var(--syntax-keyword)" },
-  { tag: [t.atom, t.bool, t.constant(t.name), t.standard(t.name)], color: "var(--syntax-number)" },
+  { tag: [t.keyword, t.logicOperator, t.operatorKeyword, t.controlKeyword, t.definitionKeyword, t.moduleKeyword, t.self], color: "var(--syntax-keyword)" },
+  { tag: [t.atom, t.bool, t.null, t.constant(t.name), t.standard(t.name)], color: "var(--syntax-number)" },
   { tag: [t.string, t.special(t.string), t.docString, t.character, t.regexp], color: "var(--syntax-string)" },
   // An escape sequence inside a string used to fall through to --foreground, so `\n` rendered
   // as plain text mid-string. `t.escape`'s parent is `literal`, which was unmapped.
   { tag: [t.escape, t.special(t.brace)], color: "var(--syntax-number)" },
   { tag: [t.number, t.integer, t.float, t.unit], color: "var(--syntax-number)" },
-  { tag: [t.comment, t.lineComment, t.blockComment, t.docComment], color: "var(--faint, var(--muted-foreground))", fontStyle: "italic" },
-  // Object keys and attribute names. These used to be grouped with `variableName`, which
-  // resolved to a token byte-identical to --foreground — so every key in a JSON document
-  // rendered as unstyled text and the whole sample looked near-monochrome.
-  { tag: [t.propertyName, t.attributeName], color: "var(--syntax-property)" },
+  { tag: [t.comment, t.lineComment, t.blockComment, t.docComment], color: "var(--faint)", fontStyle: "italic" },
+  { tag: [t.propertyName, t.attributeName, t.definition(t.propertyName)], color: "var(--syntax-property)" },
   { tag: [t.function(t.variableName), t.function(t.propertyName), t.macroName], color: "var(--syntax-function)" },
-  // Declarations are coloured; plain variable USES inherit --foreground, as in most themes.
-  { tag: [t.definition(t.variableName), t.definition(t.propertyName)], color: "var(--syntax-identifier)" },
-  { tag: [t.operator, t.derefOperator, t.arithmeticOperator, t.logicOperator, t.bitwiseOperator, t.compareOperator, t.updateOperator], color: "var(--foreground)" },
+  { tag: t.variableName, color: "var(--syntax-variable)" },
+  // A binding's declaration, a step heavier than its uses.
+  { tag: t.definition(t.variableName), color: "var(--syntax-variable)", fontWeight: "500" },
+  { tag: [t.special(t.variableName), t.annotation, t.namespace], color: "var(--syntax-annotation)" },
+  { tag: [t.operator, t.derefOperator, t.arithmeticOperator, t.bitwiseOperator, t.compareOperator, t.updateOperator], color: "var(--foreground)" },
   { tag: [t.punctuation, t.separator, t.bracket, t.angleBracket, t.squareBracket, t.paren, t.brace], color: "var(--muted-foreground)" },
-  { tag: [t.typeName, t.className, t.namespace, t.tagName, t.labelName], color: "var(--syntax-type)" },
-  { tag: [t.meta, t.annotation, t.processingInstruction, t.documentMeta], color: "var(--faint, var(--muted-foreground))" },
+  { tag: [t.typeName, t.definition(t.typeName), t.className, t.tagName, t.labelName], color: "var(--syntax-type)" },
+  { tag: [t.meta, t.processingInstruction, t.documentMeta], color: "var(--faint)" },
   { tag: [t.url, t.link], color: "var(--syntax-function)", textDecoration: "underline" },
   // Markdown: only `heading` was mapped, so prose rendered flat.
   { tag: t.heading, color: "var(--syntax-keyword)", fontWeight: "bold" },
@@ -98,7 +96,7 @@ export const kanzoHighlightStyle = HighlightStyle.define([
   { tag: t.strong, fontWeight: "bold" },
   { tag: t.strikethrough, textDecoration: "line-through" },
   { tag: [t.monospace, t.list], color: "var(--syntax-string)" },
-  { tag: t.quote, color: "var(--faint, var(--muted-foreground))" },
+  { tag: t.quote, color: "var(--faint)" },
   // Diff.
   { tag: t.inserted, color: "var(--success)" },
   { tag: t.deleted, color: "var(--destructive)" },
@@ -223,7 +221,7 @@ const baseTheme = EditorView.theme({
     // between the field's border and the first line, and a first line that does not start where
     // every other box on the screen starts. A pane docked under its own header showed it worst.
     // A caller who wants an inset has `className` and the surface it owns.
-    fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)",
+    fontFamily: "var(--font-mono)",
     lineHeight: "1.5",
     overflow: "auto",
     // Fill the editor so clicking the empty area below the last line still lands the caret,
@@ -248,7 +246,7 @@ const baseTheme = EditorView.theme({
     // low — verified back when the padding was on `.cm-content`: a constant 9px below its line.
     background: "var(--muted)",
     border: "none",
-    color: "var(--faint, var(--muted-foreground))",
+    color: "var(--faint)",
   },
   // Line numbers: tabular figures (no jitter across 9→10→100), right-aligned with breathing
   // room from the border edge, and a comfortable minimum width.
@@ -297,7 +295,7 @@ const baseTheme = EditorView.theme({
   ".cm-tooltip .cm-tooltip-arrow:before": { borderTopColor: "var(--border)" },
   ".cm-tooltip .cm-tooltip-arrow:after": { borderTopColor: "var(--popover, var(--card))" },
   ".cm-tooltip-autocomplete > ul": {
-    fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)",
+    fontFamily: "var(--font-mono)",
     maxHeight: "16rem",
   },
   ".cm-tooltip-autocomplete > ul > li": {
@@ -352,7 +350,7 @@ const baseTheme = EditorView.theme({
   ".cm-textfield": {
     background: "var(--background)",
     color: "var(--foreground)",
-    border: "1px solid var(--input, var(--border))",
+    border: "1px solid var(--input)",
     borderRadius: "var(--radius-sm)",
     padding: "0.125rem 0.375rem",
     outline: "none",
@@ -394,7 +392,7 @@ const baseTheme = EditorView.theme({
     padding: "0.25rem 0.5rem",
     borderInlineStartWidth: "3px",
     borderInlineStartStyle: "solid",
-    fontFamily: "var(--font-sans, ui-sans-serif, system-ui, sans-serif)",
+    fontFamily: "var(--font-sans)",
   },
   ".cm-diagnostic-error": { borderInlineStartColor: "var(--destructive)" },
   ".cm-diagnostic-warning": { borderInlineStartColor: "var(--warning)" },
@@ -467,7 +465,7 @@ const baseTheme = EditorView.theme({
   // (`bg-foreground/17`, a selected table row). It also takes the collision off `bg-warning/17`,
   // which `Highlight` uses for a search-term mark in prose.
   ".cm-selectionMatch": { backgroundColor: "color-mix(in oklab, var(--foreground) 17%, transparent)" },
-  ".cm-foldGutter .cm-gutterElement": { cursor: "pointer", color: "var(--faint, var(--muted-foreground))" },
+  ".cm-foldGutter .cm-gutterElement": { cursor: "pointer", color: "var(--faint)" },
   ".cm-foldPlaceholder": { background: "var(--muted)", border: "1px solid var(--border)", color: "var(--muted-foreground)", borderRadius: "var(--radius-sm)", padding: "0 4px" },
 });
 
@@ -476,7 +474,7 @@ const baseTheme = EditorView.theme({
  *
  * `EditorView.theme(spec, { dark })` bakes the answer into the theme, and ours cannot: it is ONE
  * theme for both appearances, because the tokens flip underneath it. So the facet is set beside the
- * theme instead of by it, from `resolvedAppearance`, and `codemirror-dark-parity.test.ts` widened to
+ * theme instead of by it, from `appearance`, and `codemirror-dark-parity.test.ts` widened to
  * both halves the day this landed — until now only `&light` could ever apply, and now either can.
  *
  * `false` is spelled as *nothing*, not as `of(false)`: the facet combines with
@@ -540,7 +538,7 @@ export function CodeEditor(p: CodeEditorProps) {
   // Optional, like every other reader of the cascade in this package: without a provider the facet
   // stays false, which is where it sat before this existed, and the guard proves the `&light`
   // defaults that then apply are all overridden anyway.
-  const dark = useKanzoThemeOptional()?.resolvedAppearance === "dark";
+  const dark = useKanzoThemeOptional()?.appearance === "dark";
   const darkNow = useRef(dark);
   darkNow.current = dark;
 

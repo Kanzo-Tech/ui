@@ -8,11 +8,6 @@ import { getComponentGroups } from "@/lib/component-groups";
  * Same contract as `ComponentsList` and for the same reason: generated from `source.pageTree`, so
  * a page appears here exactly when it exists on disk, and there is no second list to keep in sync.
  *
- * It takes the group rather than naming one, because there are two of these now and there was very
- * nearly a second copy of this file. `ShowcasesList` was this component with `"showcases"` written
- * into it; Blocks needed the identical grid over a different folder, and a hard-coded slug is how
- * one idea becomes two implementations that drift.
- *
  * That derivation also settles a distinction the source directory blurs.
  * `docs/showcases/preferences` uses the standalone-viewport MECHANISM without being a showcase —
  * Preferences is a component whose panel is `Portal`ed and `position: fixed`, so it cannot be

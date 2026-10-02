@@ -15,8 +15,8 @@ import { useThemeTick } from "./theme-tick.js";
  */
 describe("useThemeTick", () => {
   const PALETTES: ThemeOption[] = [
-    { value: "kanzo", label: "Kanzo" },
-    { value: "dracula", label: "Dracula" },
+    { value: "kanzo", label: "Kanzo", dark: false },
+    { value: "dracula", label: "Dracula", dark: false },
   ];
 
   function mount() {

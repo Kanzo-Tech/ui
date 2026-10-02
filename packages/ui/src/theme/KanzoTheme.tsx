@@ -68,8 +68,7 @@ export interface KanzoThemeProps extends React.ComponentPropsWithoutRef<"div"> {
   /**
    * Which side paints here — a *side*, never `null`.
    *
-   * There is no "ask the OS" at this level and its absence is deliberate: the OS question is answered
-   * once, by the provider, and a scope either pins a side or follows the answer.
+   * A scope either pins a side or follows the page's.
    */
   appearance?: Appearance;
   radius?: string;
@@ -99,7 +98,7 @@ export function KanzoTheme({
   ...rest
 }: KanzoThemeProps) {
   const parent = useKanzoThemeOptional();
-  const resolvedAppearance = appearance ?? parent?.resolvedAppearance;
+  const side = appearance ?? parent?.appearance;
 
   const overrides = React.useMemo(
     () =>
@@ -126,11 +125,11 @@ export function KanzoTheme({
     // A keyed axis holds a map, indexed by the side this scope is about to paint — the same
     // expression the provider and the pre-hydration script run, off the same row.
     const stored = overrides[key];
-    // `resolvedAppearance` is undefined outside a provider with no `appearance` prop — the scope
+    // `side` is undefined outside a provider with no `appearance` prop — the scope
     // paints, inherits the page's side and writes no class. Either key answers the same here,
     // because a scope writes both, so the fallback picks one rather than inventing a side.
     const value = byAppearance
-      ? (stored as Record<string, string> | undefined)?.[resolvedAppearance ?? "light"]
+      ? (stored as Record<string, string> | undefined)?.[side ?? "light"]
       : stored;
     if (typeof value === "string" && value !== "") attributes[attr] = value;
   }
@@ -140,21 +139,20 @@ export function KanzoTheme({
     return {
       ...parent,
       ...overrides,
-      appearance: appearance ?? parent.appearance,
-      resolvedAppearance: resolvedAppearance ?? parent.resolvedAppearance,
+      appearance: side ?? parent.appearance,
       // A scope reports what it PAINTS, and this is the line that matters most: `useThemeTick` reads
       // `resolvedTheme` during render, so a chart inside a scoped preview re-resolves its colours
       // against the scope. Without it the chart would hold the page's theme in its buffers and
       // quietly paint the wrong brand — the same defect a swapped stylesheet caused before.
       resolvedTheme: theme || parent.resolvedTheme,
     };
-  }, [parent, overrides, theme, appearance, resolvedAppearance]);
+  }, [parent, overrides, theme, side]);
 
   const scoped = (
     <div
       {...rest}
       {...attributes}
-      className={[className, resolvedAppearance].filter(Boolean).join(" ") || undefined}
+      className={[className, side].filter(Boolean).join(" ") || undefined}
       data-slot="kanzo-theme"
     >
       {children}

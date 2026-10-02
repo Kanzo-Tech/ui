@@ -11,21 +11,31 @@ import { type Shared, decode, encode } from "./link";
  * attribute.
  */
 
-const THEME: Shared = {
-  name: "acme",
-  dark: false,
-  tokens: {
-    "--background": "#fafafa",
-    "--foreground": "#0f0f0f",
-    "--primary": "#0f0f0f",
-    "--primary-foreground": "#fafafa",
-    "--radius-box": "0.75rem",
-    "--font-sans": "ui-sans-serif, system-ui, sans-serif",
-  },
+const LIGHT = {
+  "--background": "#fafafa",
+  "--foreground": "#0f0f0f",
+  "--primary": "#0f0f0f",
+  "--primary-foreground": "#fafafa",
+  "--radius-box": "0.75rem",
+  "--font-sans": "ui-sans-serif, system-ui, sans-serif",
 };
+const DARK = { ...LIGHT, "--background": "#0a0a0a", "--foreground": "#efefef" };
+const THEME: Shared = { family: "acme", light: LIGHT, dark: DARK };
 
-describe("a theme in a fragment", () => {
-  it("comes back the same", async () => {
+/** The single-theme format links were made in before pairs, written the way that encoder wrote it. */
+async function legacy(payload: unknown): Promise<string> {
+  const stream = new CompressionStream("deflate-raw");
+  const writer = stream.writable.getWriter();
+  void writer.write(new TextEncoder().encode(JSON.stringify(payload)));
+  void writer.close();
+  const bytes = new Uint8Array(await new Response(stream.readable).arrayBuffer());
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return `theme=${btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")}`;
+}
+
+describe("a theme family in a fragment", () => {
+  it("comes back the same, both sides", async () => {
     expect(await decode(await encode(THEME))).toEqual(THEME);
   });
 
@@ -35,18 +45,33 @@ describe("a theme in a fragment", () => {
   });
 
   it("stays shorter than the document it carries", async () => {
-    // The reason compression is here at all. Not a tight bound — a guard on the mechanism, not on
-    // the ratio: if `CompressionStream` silently stopped compressing, the link would still work and
-    // nothing else would notice.
+    // A guard on the mechanism, not on the ratio: if `CompressionStream` silently stopped
+    // compressing, the link would still work and nothing else would notice.
     const fragment = await encode(THEME);
     expect(fragment.length).toBeLessThan(JSON.stringify(THEME).length);
   });
 
+  it("carries one side alone, and says the other is missing", async () => {
+    const half = await decode(await encode({ family: "acme", light: LIGHT, dark: null }));
+    expect(half).toEqual({ family: "acme", light: LIGHT, dark: null });
+  });
+
+  it("still opens a link made in the single-theme format, as the side it declared", async () => {
+    expect(await decode(await legacy({ n: "midnight-dark", d: true, t: DARK }))).toEqual({
+      family: "midnight",
+      light: null,
+      dark: DARK,
+    });
+    expect(await decode(await legacy({ n: "acme", d: false, t: LIGHT }))).toEqual({
+      family: "acme",
+      light: LIGHT,
+      dark: null,
+    });
+  });
+
   it("survives every shape of nonsense", async () => {
-    // This also guards something it does not assert, and the distinction is worth knowing: feeding
-    // a decompressor garbage rejects on *both* ends of the stream, and the one nobody awaits is an
-    // unhandled rejection. Vitest fails a run on those even when every expectation passed — which
-    // is how it was found, with seven green tests and a red process.
+    // Feeding a decompressor garbage rejects on *both* ends of the stream, and the one nobody awaits
+    // is an unhandled rejection — Vitest fails a run on those even when every expectation passed.
     const rubbish = [
       "",
       "#",
@@ -61,31 +86,22 @@ describe("a theme in a fragment", () => {
   });
 
   it("drops anything in the payload that is not a token holding a string", async () => {
-    // `JSON.parse` will hand back nested objects, arrays and numbers, and each of those would reach
-    // a `style` attribute as `[object Object]` or worse. Keys that are not custom properties go the
-    // same way: nothing else has any business being written onto the pane.
     const smuggled = await encode({
-      name: "x",
-      dark: false,
-      tokens: {
+      family: "x",
+      light: {
         "--good": "#ffffff",
         "--nested": { toString: "no" } as unknown as string,
         "--number": 7 as unknown as string,
         onclick: "alert(1)",
         "background: red": "x",
       },
+      dark: null,
     });
-    expect((await decode(smuggled))?.tokens).toEqual({ "--good": "#ffffff" });
+    expect((await decode(smuggled))?.light).toEqual({ "--good": "#ffffff" });
   });
 
   it("answers null when nothing survives the filter", async () => {
-    const empty = await encode({ name: "x", dark: false, tokens: { nope: "1" } });
-    expect(await decode(empty)).toBeNull();
-  });
-
-  it("keeps the name and the side it was given", async () => {
-    const dark = await decode(await encode({ ...THEME, name: "midnight", dark: true }));
-    expect(dark?.name).toBe("midnight");
-    expect(dark?.dark).toBe(true);
+    expect(await decode(await encode({ family: "x", light: { nope: "1" }, dark: { nope: "2" } }))).toBeNull();
+    expect(await decode(await legacy({ n: "x", d: false, t: { nope: "1" } }))).toBeNull();
   });
 });

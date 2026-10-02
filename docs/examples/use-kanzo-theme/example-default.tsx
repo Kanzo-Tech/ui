@@ -15,12 +15,12 @@ const RADII: KanzoRadius[] = ["none", "xs", "sm", "md", "lg"];
 // The preferences are browser state, so the readout is held back until mount — rendered on the
 // server it would print the defaults and then swap to whatever this browser stored.
 function ThemeReadout() {
-  const { radius, density, font, resolvedAppearance, set } = useKanzoTheme();
+  const { radius, density, font, appearance, set } = useKanzoTheme();
 
   return (
     <div className="flex flex-col items-center gap-4">
       <div className="flex flex-wrap justify-center gap-2">
-        <Badge variant="secondary">appearance: {resolvedAppearance}</Badge>
+        <Badge variant="secondary">appearance: {appearance}</Badge>
         <Badge variant="secondary">radius: {radius}</Badge>
         <Badge variant="secondary">density: {density}</Badge>
         <Badge variant="secondary">font: {font}</Badge>

@@ -6,7 +6,9 @@ import type { GraphCommands, VertexId } from "../core/types";
 import { resolveLook, type Look } from "./graph-looks";
 import { appearance, forces, paint } from "./graph-model";
 import { resolveSim, type Sim } from "./graph-sim";
-import { hasWebGL, releaseContext } from "./webgl";
+import { createCamera, FIT_DURATION } from "./camera";
+import { cornersOf, placed, placementOf, UNPLACED, type Placement } from "./placement";
+import { releaseContext, webglBox } from "./webgl";
 
 export interface RendererEvents {
   /** After every frame and every camera move — where the overlays repaint. */
@@ -24,9 +26,9 @@ export interface Renderer extends GraphCommands {
   destroy(): void;
 }
 
-const FIT_DURATION = 420;
-const FIT_PADDING = 0.18;
 const REHEAT = 0.35;
+/** How long a release wakes a paused layout before pausing it again. */
+const RELEASE_BURST = 1200;
 /** Twentieths: a settle costs twenty reports rather than one per frame. */
 const PROGRESS_STEPS = 20;
 /**
@@ -34,19 +36,6 @@ const PROGRESS_STEPS = 20;
  * all, so ten seconds is a device that will not come, not one that is slow.
  */
 const READY_DEADLINE = 10_000;
-
-type Extent = NonNullable<Geometry["extent"]>;
-const corners = (box: Extent) => [box.x, box.y, box.x + box.w, box.y + box.h];
-
-/** The loaded positions, with `NaN` where the page's filter hides a vertex — cosmos.gl draws no such point. */
-function shown(geometry: Geometry, mask: Uint8Array | null): Float32Array {
-  if (!mask) return geometry.positions;
-  const positions = geometry.positions.slice();
-  for (let id = 0; id < geometry.size; id++) {
-    if (!mask[id]) positions[id * 2] = positions[id * 2 + 1] = Number.NaN;
-  }
-  return positions;
-}
 
 /**
  * **cosmos.gl's lifetime, and the frame that renders once.** Built once per element; it subscribes to
@@ -69,7 +58,8 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   const fail = (error: unknown) => {
     if (!destroyed) store.unrenderable(error);
   };
-  if (!hasWebGL()) {
+  const box = webglBox();
+  if (box === null) {
     fail(new GraphError("graph/no-webgl", "This browser offers no WebGL context to draw with."));
     return null;
   }
@@ -78,6 +68,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   let live = store.getOptions().simulate ?? false;
   let hovering: number | null = null;
   let dragging: number | null = null;
+  let burst = 0;
   let reported = -1;
   const progress = (value: number) => {
     const bucket = Math.round(value * PROGRESS_STEPS);
@@ -91,6 +82,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   const dirty = { positions: true, paint: true, state: true, pinned: true };
   let frame = 0;
   let framed: Geometry | null = null;
+  let placement: Placement | null = null;
   let links: Float32Array | null = null;
   let last = store.getSnapshot();
   let lastOptions = store.getOptions();
@@ -101,7 +93,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   try {
     graph = new Graph(host, {
       // No `spaceSize` here: the box is the corpus's extent, set when the graph has loaded.
-      // `rescalePositions: false` because the corpus's coordinates are the camera's.
+      // `rescalePositions: false` because the placement below is ours, and the corpus's own scale.
       rescalePositions: false,
       transitionDuration: 0,
       enableSimulation: live,
@@ -117,15 +109,18 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       onSimulationEnd: () => {
         store.report("settled");
         progress(1);
+        camera.settle();
         events.onFrame?.();
       },
       onSimulationPause: () => store.report("paused"),
       onSimulationUnpause: () => store.report("running"),
       onSimulationTick: (_alpha, index, position) => {
         progress(graph.progress);
+        camera.tick();
         if (index !== undefined && position) events.onHover?.(position);
         events.onFrame?.();
       },
+      onZoomStart: (_event, userDriven) => taken(userDriven),
       onZoom: () => events.onFrame?.(),
       onPointMouseOver: (index, position) => {
         hovering = index;
@@ -144,10 +139,13 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
         events.onHover?.(graph.screenToSpacePosition([event.x, event.y]));
         events.onFrame?.();
       },
+      // d3-force's drag-to-fix, and only while a layout can move the point back: cosmos.gl moves a
+      // dragged point with the simulation off too, and a pin nothing pulls against means nothing.
       onDragEnd: () => {
         const vertex = dragging;
         dragging = null;
-        if (vertex !== null) store.pin([...store.getSnapshot().pinned, vertex]);
+        const { motion, pinned } = store.getSnapshot();
+        if (vertex !== null && motion !== "settled" && !pinned.includes(vertex)) store.pin([...pinned, vertex]);
       },
       onPointClick: (index) => focusOn(index),
       onBackgroundClick: () => clear(),
@@ -156,6 +154,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     fail(new GraphError("graph/no-webgl", "The renderer failed to start.", {}, { cause: error }));
     return null;
   }
+  const { camera, taken } = createCamera(graph, host);
 
   const schedule = () => {
     if (frame) return;
@@ -172,8 +171,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     let changed = false;
     if (dirty.positions && geometry) {
       dirty.positions = false;
-      frameExtent(geometry);
-      graph.setPointPositions(shown(geometry, snapshot.mask), true);
+      graph.setPointPositions(placed(geometry, frameExtent(geometry), snapshot.mask), true);
       if (geometry.links !== links) {
         links = geometry.links;
         graph.setLinks(links);
@@ -207,11 +205,14 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     events.onFrame?.();
   }
 
-  function frameExtent(geometry: Geometry): void {
-    if (geometry === framed || !geometry.extent) return;
+  function frameExtent(geometry: Geometry): Placement {
+    if (geometry === framed) return placement ?? UNPLACED;
+    if (!geometry.extent) return UNPLACED;
     framed = geometry;
-    graph.setConfigPartial({ spaceSize: Math.max(geometry.extent.w, geometry.extent.h) });
-    graph.fitViewByPointPositions(corners(geometry.extent), 0, FIT_PADDING);
+    placement = placementOf(geometry.extent, box as number);
+    graph.setConfigPartial({ spaceSize: placement.side });
+    camera.frame(cornersOf(geometry.extent, placement));
+    return placement;
   }
 
   function applyForces(patch: Partial<Sim> | undefined): void {
@@ -229,7 +230,13 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       live = true;
       graph.setConfigPartial({ enableSimulation: true, ...forces(sim) });
     }
+    camera.run();
     graph.start(alpha);
+  }
+
+  function endBurst(): void {
+    clearTimeout(burst);
+    burst = 0;
   }
 
   function focusOn(vertex: VertexId): void {
@@ -285,6 +292,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     if (snapshot.pinned !== last.pinned) dirty.pinned = true;
     if (options.sim !== lastOptions.sim) applyForces(options.sim);
     if ((options.simulate ?? false) !== (lastOptions.simulate ?? false)) {
+      endBurst();
       if (options.simulate) run(REHEAT);
       else graph.pause();
     }
@@ -306,25 +314,39 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     zoomBy(factor) {
       graph.setZoomLevel(graph.getZoomLevel() * factor, 220);
     },
-    fit() {
-      const extent = store.getSnapshot().geometry?.extent;
-      if (extent) graph.fitViewByPointPositions(corners(extent), FIT_DURATION, FIT_PADDING);
-      else graph.fitView(FIT_DURATION, FIT_PADDING);
+    fit: () => camera.fit(),
+    pause() {
+      endBurst();
+      graph.pause();
     },
-    pause: () => graph.pause(),
     resume() {
+      endBurst();
       const settled = store.getSnapshot().motion === "settled";
       if (settled || !live) run(REHEAT);
       else graph.unpause();
     },
     restart() {
+      endBurst();
       store.pin([]);
       run(1);
     },
+    /**
+     * d3's release: unfix, then reheat, so the released points visibly flow back. A running layout
+     * takes the heat and goes on; a settled one cools to settled on its own; a paused one gets a
+     * bounded burst and is paused again, because the reader paused it.
+     */
     unpin() {
-      if (store.getSnapshot().pinned.length === 0) return;
+      const { motion, pinned } = store.getSnapshot();
+      if (pinned.length === 0) return;
+      endBurst();
       store.pin([]);
-      if (store.getSnapshot().motion === "running") graph.start(REHEAT);
+      run(REHEAT);
+      if (motion === "paused") {
+        burst = window.setTimeout(() => {
+          burst = 0;
+          graph.pause();
+        }, RELEASE_BURST);
+      }
     },
     reveal(vertex) {
       if (vertex >= size()) return;
@@ -338,8 +360,10 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     clear,
     destroy() {
       unsubscribe();
+      endBurst();
       if (frame) cancelAnimationFrame(frame);
       clearTimeout(deadline);
+      camera.destroy();
       destroyed = true;
       // Read here rather than remembered from construction: the element exists only with the device.
       const canvas = host.querySelector("canvas");

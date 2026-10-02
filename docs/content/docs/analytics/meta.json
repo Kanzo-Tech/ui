@@ -3,6 +3,10 @@
   "pages": [
     "index",
     "charts",
-    "gallery"
+    "gallery",
+    "dashboard",
+    "dashboard-spec",
+    "dashboard-host",
+    "pitfalls"
   ]
 }

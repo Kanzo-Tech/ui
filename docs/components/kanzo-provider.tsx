@@ -2,8 +2,11 @@
 
 import type { ReactNode } from "react";
 import { useServerInsertedHTML } from "next/navigation";
-import type { ThemeOption } from "@kanzo-tech/theme";
 import { KanzoThemeProvider, cookieStorageAdapter, themeScript } from "@kanzo-tech/ui";
+import { GRAPH_SECTION } from "@kanzo-tech/graph/section";
+
+/** The sections the site's pages contribute — the workspace's graph looks — hoisted, so they never change identity. */
+const SECTIONS = [GRAPH_SECTION];
 
 /**
  * The design system owns the theme, appearance included.
@@ -12,10 +15,6 @@ import { KanzoThemeProvider, cookieStorageAdapter, themeScript } from "@kanzo-te
  * theme, and the provider is what writes it — while next-themes was mounted
  * (`RootProvider`, `attribute: "class"`) there were two writers of the class on `<html>`. It is
  * disabled in `app/layout.tsx`; that and this file are one change.
- *
- * The one thing lost: docs visitors' appearance preference used to live under next-themes' `theme`
- * key. It now lives on the prefs blob (`kanzo_theme_prefs.appearance`), so an existing visitor is
- * unpinned once — following their OS — and re-picks if they want a side held.
  *
  * **Storage is the cookie, and for a theme that is now an optimisation rather than a
  * requirement.** It was a requirement while the SERVER chose which document to inline: a choice
@@ -39,31 +38,15 @@ import { KanzoThemeProvider, cookieStorageAdapter, themeScript } from "@kanzo-te
  * provider produces. Colour is not in it, and cannot be: a document is a whole stylesheet, so the
  * script has nothing to write — `app/layout.tsx` serves the chosen one, already compiled.
  */
-export const KanzoProvider = ({
-  children,
-  themes,
-  defaultTheme,
-}: {
-  children: ReactNode;
-  /**
-   * What this tenant publishes — a flat list, because a brand is a theme. The docs site publishes
-   * the whole catalogue, twenty-nine of them; a client usually publishes two (one per side) and
-   * sees neither the theme menu in the chrome nor a colour section in the panel.
-   */
-  themes: ThemeOption[];
-  defaultTheme: string;
-}) => {
+export const KanzoProvider = ({ children }: { children: ReactNode }) => {
+  // The shipped catalogue and its default pair are the provider's and the script's defaults, so
+  // neither is passed: the two sides agree by construction.
   useServerInsertedHTML(() => (
-    // biome-ignore lint/security/noDangerouslySetInnerHtml: the anti-FOUC script must be inline.
     <script dangerouslySetInnerHTML={{ __html: themeScript() }} key="kanzo-theme-script" />
   ));
 
   return (
-    <KanzoThemeProvider
-      defaultTheme={defaultTheme}
-      themes={themes}
-      storage={cookieStorageAdapter()}
-    >
+    <KanzoThemeProvider sections={SECTIONS} storage={cookieStorageAdapter()}>
       {children}
     </KanzoThemeProvider>
   );

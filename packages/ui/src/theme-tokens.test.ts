@@ -118,9 +118,10 @@ const THEMES = readdirSync(join(THEME, "themes"))
   .filter((f) => f.endsWith(".css"))
   .map((f) => ({ name: f, names: declared(readFileSync(join(THEME, "themes", f), "utf8")) }));
 
-/** What `tokens.css` declares outside the bridge — the categorical default, the shape knobs, the type sizes. */
+/** What `tokens.css` declares outside the bridge — the categorical default, the shape knobs, the
+ *  type sizes, and the font stacks its `@theme static` block emits into `:root`. */
 const ROOT = new Set(
-  [...TOKENS.matchAll(/^:root\s*\{/gm)].flatMap((m) => [...declared(block(TOKENS, m.index ?? 0))]),
+  [...TOKENS.matchAll(/^(?::root|@theme static)\s*\{/gm)].flatMap((m) => [...declared(block(TOKENS, m.index ?? 0))]),
 );
 
 const BRIDGE_BODY = block(TOKENS, TOKENS.search(/^@theme inline\s*\{/m));
@@ -195,25 +196,6 @@ const RUNTIME: Record<string, "zag" | "tailwind" | "knob"> = {
   "--color-white": "tailwind",
   "--noise": "knob",
 };
-
-/**
- * The one gap this guard pins rather than passes: the seven `--syntax-*` inks.
- *
- * The sixteen hand-written themes author them; the thirteen imported from daisyUI do not, because
- * daisyUI has no syntax channel, and nothing defaults them — so `CodeEditor` draws keywords, strings
- * and numbers in the inherited ink under those thirteen. Choosing that default (a `:root` set, as
- * the categorical one is, or a chain to existing roles) is a colour decision and is the owner's.
- * The list is asserted EXACTLY, so fixing it fails here until the pin is deleted.
- */
-const PARTIAL_PINNED = [
-  "--syntax-function",
-  "--syntax-identifier",
-  "--syntax-keyword",
-  "--syntax-number",
-  "--syntax-property",
-  "--syntax-string",
-  "--syntax-type",
-];
 
 /** Blank out comments, keeping offsets and newlines, so a line number still points at the line. */
 function uncommented(source: string, css: boolean): string {
@@ -321,20 +303,19 @@ function verdict(read: Read): string | null {
 describe("every custom property that is read exists", () => {
   it("resolves every `var()` in the corpus", () => {
     const failures = reads()
-      .filter((read) => !PARTIAL_PINNED.includes(read.name))
       .map(verdict)
       .filter((v): v is string => v !== null);
     expect(failures).toEqual([]);
   });
 
-  it("pins exactly the partial names it knows about", () => {
+  it("finds no name only some themes declare", () => {
     const partial = new Set(
       reads()
         .map((read) => read.name)
         .filter((name) => !always(name) && !USES.has(name) && !setAnywhere(name) && !(name in RUNTIME))
         .filter((name) => THEMES.some((t) => t.names.has(name))),
     );
-    expect([...partial].sort()).toEqual(PARTIAL_PINNED);
+    expect([...partial].sort()).toEqual([]);
   });
 
   it("names no deleted alpha step in a utility", () => {
@@ -385,7 +366,7 @@ describe("every custom property that is read exists", () => {
 
   it("finds the corpus, the themes and the bridge at all", () => {
     // Every assertion above is an assertion of absence, so an empty read of any side passes them.
-    expect(THEMES.length).toBeGreaterThan(8);
+    expect(THEMES.length).toBe(8);
     expect(USES.size).toBeGreaterThan(8);
     expect(ROOT.has("--chart-1") && ROOT.has("--kanzo-font-size-xs")).toBe(true);
     const where = new Set(FILES.map((f) => label(f).split("/")[0]));

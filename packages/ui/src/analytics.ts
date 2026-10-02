@@ -5,7 +5,7 @@
 // read the same relation. The components stay `Chart*`: those are charts.
 //
 // Kept off the root barrel so the base bundle never carries the DuckDB/Mosaic analytics stack.
-// `@uwdata/vgplot`, `@uwdata/mosaic-core` and `@uwdata/mosaic-sql` are **optional peer
+// `@uwdata/vgplot`, `@uwdata/mosaic-plot`, `@uwdata/mosaic-core` and `@uwdata/mosaic-sql` are **optional peer
 // dependencies**; DuckDB-WASM arrives with `@kanzo-tech/mosaic`, whose `engine()` is re-exported here.
 // No chart instantiates a Coordinator: the consumer takes one (in a `"use client"` island) and passes
 // it to `MosaicProvider`, which is what keeps DuckDB-WASM out of every Server Component.
@@ -94,9 +94,33 @@ export type { ChartStatProps } from "./charts/chart-stat.js";
 // For anything that is not a plot but must still follow the brush — a KPI, a readout, a table.
 export { useChartQuery, Query } from "./charts/use-chart-query.js";
 export type { ChartQueryOptions, ChartQueryResult, ChartQueryRow } from "./charts/use-chart-query.js";
-// `ChartCard` and `DashboardGrid` are gone: a titled frame and a responsive grid are arrangements
-// with no behaviour, so they are copied, not imported. They live in
-// `docs/lib/` for the showcases that use them.
+// What a selection holds, as chips that retract a clause where it was published.
+export { FilterChips, useClauses } from "./charts/filter-chips.js";
+export type { FilterChipsProps } from "./charts/filter-chips.js";
+
+// The mini BI kit: a relation's fields from one `SUMMARIZE`, and a dashboard as serializable data —
+// a filter row, tiles, chart cards and a rows table, each chosen and edited from those fields.
+// `Dashboard` is the whole thing; the four parts are what it is made of, for a host arranging its
+// own. A titled frame is `Card` and a grid is a class list, so neither is a name of its own.
+export { Dashboard } from "./charts/dashboard.js";
+export type { DashboardProps } from "./charts/dashboard.js";
+export { DashboardFilters } from "./charts/dashboard-filters.js";
+export type { DashboardFiltersProps } from "./charts/dashboard-filters.js";
+export { DashboardStat } from "./charts/dashboard-stat.js";
+export type { DashboardStatProps } from "./charts/dashboard-stat.js";
+export { ChartCard } from "./charts/chart-card.js";
+export type { ChartCardProps } from "./charts/chart-card.js";
+export { DetailTable } from "./charts/detail-table.js";
+export type { DetailTableProps } from "./charts/detail-table.js";
+export { autoDashboard, plotRelation } from "./charts/dashboard-spec.js";
+export type {
+  DashboardSpec, DashboardCardSpec, DashboardStatSpec, DashboardFilterSpec, DashboardMeasure,
+  DashboardChartType, DashboardAggregate,
+} from "./charts/dashboard-spec.js";
+export { useFieldStats, queryFieldStats } from "./charts/field-stats.js";
+export type {
+  FieldStat, FieldStats, FieldKind, FieldRole, FieldStatsOptions, FieldStatsState,
+} from "./charts/field-stats.js";
 
 // For a descriptor of your own: `chartDescriptor` mints one, and the types below are the contract
 // it compiles into. `compileChartSpec` / `buildChartSpec` / `chartSpecSignature` are NOT here —

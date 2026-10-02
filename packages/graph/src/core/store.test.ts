@@ -118,6 +118,8 @@ describe("the graph store", () => {
     const mask = store.getSnapshot().mask;
     expect([...Array(16).keys()].filter((id) => mask?.[id])).toEqual([1, 5, 9, 10, 11, 12, 13, 14, 15]);
     expect(store.getSnapshot().drawn?.vertices).toBe(9);
+    // Only `i → 10 + i % 6` from 1, 5 and 9 keeps both ends.
+    expect(store.getSnapshot().drawn?.edges).toBe(3);
   });
 
   it("loads again after StrictMode's unsubscribe, and never reports the cancelled read", async () => {
@@ -247,6 +249,6 @@ describe("the graph store", () => {
     const store = createGraph({ corpus: fake.corpus, onFailure: () => {} });
     store.subscribe(() => {});
     await fake.settle();
-    expect(store.getSnapshot().drawn).toEqual({ vertices: 16, domain: ["Person", "Place"], tally: [10, 6] });
+    expect(store.getSnapshot().drawn).toEqual({ vertices: 16, edges: 19, domain: ["Person", "Place"], tally: [10, 6] });
   });
 });

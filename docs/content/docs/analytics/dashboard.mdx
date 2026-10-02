@@ -1,0 +1,359 @@
+---
+title: Dashboard
+description: A mini BI over any relation — a filter row, tiles, chart cards and the rows, chosen from the relation's stats, edited in place, and kept as a JSON spec the host saves.
+---
+
+`Dashboard` is the charts grammar composed for a relation you have not seen. It reads the
+relation's fields from one DuckDB `SUMMARIZE`, draws a dashboard from them — or from a spec you
+saved — and lets the reader edit every part of it. The host brings three things: a
+`MosaicProvider`, the relation, and somewhere to keep the spec.
+
+<ComponentPreview componentName="dashboard" fileName="example-default" hasMaxHeight={false} />
+
+The references are Metabase and Superset for the dashboard model — cards in an ordered layout, a
+filter row scoping all of them, a spec that is plain JSON — and Metabase's X-ray for the dashboard a
+relation gets before anybody has edited one. What it leaves out is their query layer: every card
+reads the one relation the `Dashboard` is given, under one crossfilter.
+
+## Usage
+
+```tsx
+import { Dashboard, MosaicProvider, type DashboardSpec } from "@kanzo-tech/ui/analytics";
+
+function Sightings({ coordinator, saved, save }: Props) {
+  return (
+    <MosaicProvider coordinator={coordinator}>
+      <Dashboard table="sightings" value={saved} onChange={save} rowNoun="sightings" />
+    </MosaicProvider>
+  );
+}
+```
+
+- **`value` is `undefined`** until somebody edits: the automatic dashboard is drawn, and a host
+  persists nothing for a relation nobody has touched.
+- **`onChange` makes it editable.** It is called with the *whole* next spec — the automatic parts
+  included, the first time — so the host stores what it is handed and never merges.
+- **Without `onChange` it is read-only**: no editors, no menu, no remove buttons. Filters, picks
+  and brushes still work; reading is not editing.
+
+Wiring that to a backend — a debounced save, a read-only role, your own labels and colours — is the
+[host recipe](/docs/analytics/dashboard-host).
+
+## Anatomy
+
+```text
+Dashboard                 — reads the fields, draws the spec or the automatic one
+├── DashboardFilters      — the filter row, its readout and the "Edit dashboard" menu
+│   └── FilterChips       — every clause on the page, removable
+├── DashboardStat         — one tile per `stats` entry
+├── ChartCard             — one card per `cards` entry, in a three-column grid
+└── DetailTable           — the rows under the selection, paged by DuckDB
+```
+
+Every part is exported and works on its own inside a `MosaicProvider`; `Dashboard` is what they make
+when the spec decides the arrangement. [Arranging the parts yourself](#arranging-the-parts-yourself)
+is the other way.
+
+## How a relation is read
+
+`useFieldStats(table)` runs one `SUMMARIZE` and classifies every column twice — by **kind**, from
+its DuckDB type through Mosaic's own `jsType` (so a column is numeric here exactly when it is numeric
+to every mark), and by **role**, from its name and its approximate distinct count.
+
+| Kind | DuckDB types |
+| --- | --- |
+| `numeric` | every integer width, signed or not; `DOUBLE`, `FLOAT`, `REAL`, `DECIMAL` |
+| `temporal` | `DATE`, `TIME`, `TIMESTAMP` in every precision, with or without a time zone |
+| `categorical` | `VARCHAR`, `ENUM`, `UUID`, `JSON`, `BOOLEAN` |
+| — not a field | lists, arrays, structs, maps, blobs, `GEOMETRY`, and types Mosaic does not know (`INTERVAL`, `BIT`) |
+
+| Role | When | Used as |
+| --- | --- | --- |
+| `identifier` | named `id`, `*_id`, `*Id`, `uri` or `iri`; or text with more than 50 values *and* at least half as many values as rows | searched, never grouped |
+| `measure` | every other number | aggregated, binned, either side of a scatter |
+| `dimension` | every time; text with ≤ 50 values, or fewer values than half the rows | grouped, filtered, a series, a panel |
+
+The filter control and the charts a field can be follow from those two words alone:
+
+| Field | Filter control | Charts it can be |
+| --- | --- | --- |
+| A time | `timeline` — a brushable histogram over time, first in the row | the axis of a line, an area or a histogram; a tile's trend |
+| A number (measure) | `ChartSlider`, a range | an axis, a measure, either side of a scatter; a tile's trend |
+| A category (dimension) | `ChartFilter`, a facet filter with counts | bars; series (2–8 values); panels (2–6 values) |
+| A key (identifier text) | `ChartSearch`, a match over what you type | — |
+| A numeric key (`dense_id`) | none | — |
+
+Past eight series a chart wants to be a table, not more hues; past six panels small multiples stop
+being comparable. Those are the dataviz limits, and the editors enforce them.
+
+A relation with a time, and one control of every kind — the timeline over `closed`, facet filters,
+a search over `id` and a slider over `reward`:
+
+<ComponentPreview componentName="dashboard" fileName="example-temporal" hasMaxHeight={false} />
+
+<Callout type="warn">
+A column named like a plot channel — `x`, `y`, `x1`, `x2`, `y1`, `y2`, `fx`, `fy`, `z`, `fill`,
+`stroke` — is never a field, and the plots read the relation without it. A layout's coordinates on a
+graph corpus are the usual case. [Why, and what it costs](/docs/analytics/pitfalls#columns-named-like-a-channel).
+</Callout>
+
+## The automatic dashboard
+
+`autoDashboard(fields)` is the spec drawn while `value` is `undefined` — Metabase's X-ray, from the
+stats alone and nothing else:
+
+- **Filters** (at most six): the first time, up to three categories, the first text key, up to two
+  measures.
+- **Tiles**: a row count, and the mean of up to three measures — each trending along the first time,
+  when there is one.
+- **Cards** (at most six): a line over the first time, two thirds wide; bars for up to three
+  categories; histograms of up to two measures; and, given two measures, a fit of one against the
+  other. The last card of a row is widened so no row ends in a hole.
+- **Rows**: the first eight fields — categories, then times, measures and keys.
+
+It is exported for a host that wants the automatic spec without the component — to seed a saved
+dashboard, or to diff against one.
+
+## The parts
+
+### DashboardFilters
+
+One filter row above everything it scopes — dataviz's rule, and Metabase's. Each `filters` entry
+names a field; the control is chosen from that field's stats, never written in the spec. A time is a
+timeline that takes its own full-width row, the rest share a four-column grid, and a field that has
+no control (a numeric key) or no longer exists is skipped.
+
+Under the controls, the **readout**: *12 of 40 sightings* (`rowNoun` is the plural), every clause on
+the page as a chip, and **Clear filters**, which is `useMosaic().reset()`. Children trail that row —
+it is where `Dashboard` puts its *Edit dashboard* menu. With `onChange`, each control gets a remove
+button and an *Add filter* menu lists the fields that have a control and no filter yet.
+
+### DashboardStat
+
+A `Stat` tile whose figure is `ChartStat` — the measure, re-queried under the crossfilter. With a
+`trend` it adds the same measure along that field as a `StatTrend` sparkline, and a `StatDelta`
+comparing the last step with the one before.
+
+- A time trend is binned into about two dozen steps; a number with at most 60 values is its own step
+  (the hours of a day are 24 already), and a longer one is binned like a histogram.
+- The delta is in the step's own unit — *vs previous closed*, *vs previous hour* — because a relation
+  without dates has no "last quarter" to compare with. A `share` measure's delta is in `pp`.
+- `goodWhenUp: false` paints a rise as bad news: a hoax rate, an error count.
+
+Figures format by measure: a `share` as `12.5%`, everything else to at most one decimal, compact
+past 10,000.
+
+### ChartCard
+
+One `DashboardCardSpec`, drawn and, with `onChange`, editable. The chart is a `ChartRoot` with the
+marks the type calls for and the interactor its scale allows — **pick on a band, brush on a range**,
+the rule that keeps a brush off a band scale.
+
+| `type` | Label | Draws | `x` | `y` | Interaction |
+| --- | --- | --- | --- | --- | --- |
+| `bar` | Bar | horizontal bars, the 12 largest groups | a category | a measure | click a bar |
+| `line` | Line | a line; a time or a number with > 60 values is binned | a time or a number | a measure | drag a range |
+| `area` | Area | an area, stacked by series | a time or a number | a measure | drag a range |
+| `histogram` | Histogram | binned columns | a time or a number | a measure | drag a range |
+| `dot` | Scatter | one dot per row | a number | a number (`op: "value"`) | drag a box |
+| `regression` | Fit | the dots, a least-squares line and its 95% band | a number | a number (`op: "value"`) | drag a box |
+
+**Series** (`color`) is a category of 2–8 values, on every type but `regression`. **Panels**
+(`facet`) is a category of 2–6 values, on every type but `bar`: a facet is an encoding, not a chart
+type — any line, area, histogram or scatter splits into small multiples sharing one pair of scales,
+which is how Vega-Lite models it too. The domains are chosen over the **whole** relation — the top
+bars by the measure, the top series and panels by count — so a filter never reorders a bar or
+repaints a survivor.
+
+Without a series, the whole relation stays drawn behind the selection in grey: the context a
+filtered chart otherwise loses. A card that names a field the relation no longer has draws *The
+relation has no `hall` any more.* in place of the chart.
+
+The editor (the card's `⋯`) sets the type — a type the relation cannot draw is disabled — `x`, the
+measure, series, panels, title, width and position. Every change goes through the same
+normalisation: an encoding the new type can keep is kept, one it cannot is replaced by the first
+field that fits, and an optional one that fits nothing is dropped. A written title describes the
+encodings it was written for, so changing them retires it.
+
+### DetailTable
+
+The rows behind the charts: one page at a time, sorted and counted by DuckDB, so a relation of any
+size costs one page of DOM. A header click cycles ascending, descending, unsorted; a new selection
+returns to page one. With `onChange`, a *Columns* menu adds and removes columns.
+
+It is the root barrel's `Table`, not `/table`'s: TanStack's row models sort and page in the browser,
+and here the browser never holds more than the page.
+
+### FilterChips and useClauses
+
+`useClauses(selection)` is a selection's live clause list. `FilterChips` draws it as removable
+badges — the crossfilter by default — and renders nothing while it is empty. A chip's label is read
+from the clause: *hour 2 – 5* for a range, *region Saltmere* for one value, *beast · 3 selected* for
+more. Removing one calls `retract`, so the pick that made it un-highlights too.
+
+Because they read `Selection.clauses`, they report filters they did not publish: a brush, a bar
+someone clicked, a lasso on a graph canvas.
+
+### useFieldStats and queryFieldStats
+
+`useFieldStats(table, { exclude })` returns `{ fields, columns, error }`: `fields` are the
+classified `FieldStat`s, `columns` every column of the relation in its own order, fields or not.
+Both are `null` until the summary lands, and it re-asks when the relation or `exclude` changes —
+compared by value, so an inline array is fine. `error` is the thrown value, whole and typed
+`unknown`, and it is also handed to the provider's `onFailure`; narrow it before reading `.message`.
+
+`queryFieldStats(coordinator, table, options)` is the same read as a promise resolving to
+`{ fields, columns }`, for a host outside React or one that needs the fields before it renders.
+
+### plotRelation
+
+`plotRelation(table, { fields, columns })` returns `{ table, fields }` as the plots can read them:
+the relation itself, or a projection without the columns named like a plot channel, and the fields
+without those. `Dashboard` calls it on its own summary; a host placing the parts over a relation
+with a layout's `x`/`y` calls it on `useFieldStats`' answer and hands the parts both halves —
+[why](/docs/analytics/pitfalls#columns-named-like-a-channel).
+
+`exclude` is for the host's bookkeeping — a key, an internal identity, a layout's coordinates under
+names that are not channels. An excluded column is still in the relation (a clause on it still
+applies); it is just never offered as a field.
+
+## Arranging the parts yourself
+
+The parts take the same `table` and `fields`, and each is editable only if it is given an
+`onChange`. Here a host arranges its own board — a filter row, two tiles, two cards and the rows —
+and lets the reader edit only the bar card:
+
+<ComponentPreview componentName="dashboard" fileName="example-parts" hasMaxHeight={false} />
+
+`Dashboard` does two things the parts do not: it drops the channel-named columns from the relation
+and from the fields, and it owns the spec. A host composing parts over a relation with an `x` column
+does the first itself — [how](/docs/analytics/pitfalls#columns-named-like-a-channel).
+
+## Interaction
+
+Every part is on the provider's crossfilter. A pick on a bar card filters every other card, tile and
+the rows, and dims the rest of its own bars instead of filtering itself away. A brush on a line,
+histogram or the timeline filters by a range. The readout counts what survives and holds every
+clause on the page as a chip. A clause published by something else on the page — a `ChartFilter`
+you placed above the dashboard, a lasso on a graph — is applied and shown the same way.
+
+## Series vocabulary
+
+`config` maps a field to a `ChartConfig`, for a field drawn as `color` that has meanings of its own —
+a status column wearing the status colours and their icons:
+
+```tsx
+<Dashboard
+  table="sightings"
+  config={{
+    verdict: {
+      confirmed: { label: "Confirmed", color: "var(--success)", icon: CheckCircle2Icon },
+      hoax: { label: "Hoax", color: "var(--destructive)", icon: TriangleAlertIcon },
+    },
+  }}
+/>
+```
+
+A configured field is drawn in the config's order and colours, with its labels in the legend. A
+field without one takes the categorical scheme in order of frequency over the whole relation, so a
+filter never repaints a survivor.
+
+## When the relation cannot be read
+
+A failed `SUMMARIZE` — a relation that does not exist, a catalog that is not attached — draws an
+alert, *The relation could not be summarized*, with DuckDB's message, and reports the error to the
+provider's `onFailure`. A failed card, tile or input says so in its own frame and reports the same
+way. Nothing fails blank.
+
+## API Reference
+
+### Dashboard
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `table` | `TableExpr` — a name, or a mosaic-sql node for a relation in [another catalog](/docs/analytics/charts#a-relation-in-another-catalog) | — |
+| `value` | `DashboardSpec` | the automatic dashboard |
+| `onChange` | `(spec: DashboardSpec) => void` | — (read-only without it) |
+| `exclude` | `readonly string[]` | — |
+| `config` | `Readonly<Record<string, ChartConfig>>` | — |
+| `rowNoun` | `string` | `"rows"` |
+
+Every other prop goes to the root `div` (`data-slot="dashboard"`).
+
+### DashboardFilters
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `table` | `TableExpr` | — |
+| `fields` | `readonly FieldStat[]` | — |
+| `filters` | `readonly DashboardFilterSpec[]` | — |
+| `onChange` | `(filters: DashboardFilterSpec[]) => void` | — (no remove, no *Add filter*) |
+| `rowNoun` | `string` | `"rows"` |
+| `children` | `ReactNode` | — trailing controls on the readout row |
+
+### DashboardStat
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `table` | `TableExpr` | — |
+| `fields` | `readonly FieldStat[]` | — |
+| `stat` | `DashboardStatSpec` | — |
+| `onChange` | `(stat: DashboardStatSpec) => void` | — (no editor) |
+| `onRemove` | `() => void` | — |
+
+### ChartCard
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `table` | `TableExpr` | — |
+| `fields` | `readonly FieldStat[]` | — |
+| `card` | `DashboardCardSpec` | — |
+| `config` | `Readonly<Record<string, ChartConfig>>` | — |
+| `onChange` | `(card: DashboardCardSpec) => void` | — (no editor) |
+| `onRemove` | `() => void` | — |
+| `onMove` | `(offset: -1 \| 1) => void` | — (no move buttons) |
+
+### DetailTable
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `table` | `TableExpr` | — |
+| `fields` | `readonly FieldStat[]` | — |
+| `columns` | `readonly string[]` | — in order; a name that is not a field is skipped |
+| `onChange` | `(columns: string[]) => void` | — (no *Columns* menu) |
+| `pageSize` | `number` | `25` |
+
+### FilterChips
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `selection` | `Selection` | the provider's crossfilter |
+
+`useClauses(selection: Selection): readonly SelectionClause[]`.
+
+### Field stats
+
+```ts
+function useFieldStats(table: TableExpr, options?: FieldStatsOptions): FieldStatsState;
+function queryFieldStats(coordinator: Coordinator, table: TableExpr, options?: FieldStatsOptions): Promise<FieldStats>;
+function autoDashboard(fields: readonly FieldStat[]): DashboardSpec;
+
+interface FieldStat {
+  name: string;
+  type: string;        // DuckDB's type, as SUMMARIZE reports it
+  kind: FieldKind;     // "numeric" | "temporal" | "categorical"
+  role: FieldRole;     // "dimension" | "measure" | "identifier"
+  distinct: number;    // approx_unique: an estimate
+  min?: number;        // the extent of a numeric or temporal field —
+  max?: number;        //   a temporal one in epoch milliseconds
+}
+interface FieldStatsOptions { exclude?: readonly string[] }
+interface FieldStats { fields: FieldStat[]; columns: string[] }
+interface FieldStatsState { fields: FieldStat[] | null; columns: string[] | null; error: unknown }
+```
+
+The spec's types — `DashboardSpec`, `DashboardCardSpec`, `DashboardStatSpec`, `DashboardFilterSpec`,
+`DashboardMeasure`, `DashboardChartType` and `DashboardAggregate` — are exported and documented field
+by field on [Dashboard spec](/docs/analytics/dashboard-spec). The props types are exported as
+`DashboardProps`, `DashboardFiltersProps`, `DashboardStatProps`, `ChartCardProps`, `DetailTableProps`
+and `FilterChipsProps`.

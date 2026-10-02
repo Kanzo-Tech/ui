@@ -16,13 +16,16 @@ import { internalsOf, useGraph } from "../react/use-graph";
 
 const calls: string[] = [];
 const constructed: Record<string, unknown>[] = [];
+const uploaded: { positions: Float32Array | null; config: Record<string, unknown> } = { positions: null, config: {} };
 /** What the next graph's `ready` is, and whether its first `render()` throws. */
 const device: { ready: () => Promise<void>; broken: unknown } = { ready: () => Promise.resolve(), broken: undefined };
 
 vi.mock("@cosmos.gl/graph", () => ({
   Graph: class {
+    config: Record<string, (() => void) | undefined>;
     constructor(host: HTMLElement, config: Record<string, unknown>) {
       constructed.push(config);
+      this.config = config as never;
       host.append(document.createElement("canvas"));
       this.ready = device.ready();
     }
@@ -41,7 +44,11 @@ vi.mock("@cosmos.gl/graph", () => ({
       if (device.broken !== undefined) throw device.broken;
       calls.push("render");
     };
-    setPointPositions = () => calls.push("positions");
+    setPointPositions = (positions: Float32Array) => {
+      uploaded.positions = positions;
+      calls.push("positions");
+    };
+    fitView = () => calls.push("fitView");
     setLinks = () => calls.push("links");
     setPointColors = () => calls.push("colors");
     setPointSizes = () => calls.push("sizes");
@@ -49,10 +56,19 @@ vi.mock("@cosmos.gl/graph", () => ({
     setLinkColors = () => calls.push("linkColors");
     setLinkWidths = () => calls.push("linkWidths");
     setPinnedPoints = () => calls.push("pinned");
-    setConfigPartial = (config: Record<string, unknown>) => calls.push(`config:${Object.keys(config).join(",")}`);
+    setConfigPartial = (config: Record<string, unknown>) => {
+      Object.assign(uploaded.config, config);
+      calls.push(`config:${Object.keys(config).join(",")}`);
+    };
     fitViewByPointPositions = () => calls.push("fit");
-    start = () => calls.push("start");
-    pause = () => calls.push("pause");
+    start = () => {
+      calls.push("start");
+      this.config.onSimulationStart?.();
+    };
+    pause = () => {
+      calls.push("pause");
+      this.config.onSimulationPause?.();
+    };
     unpause = () => calls.push("unpause");
   },
 }));
@@ -65,6 +81,8 @@ const count = (name: string) => calls.filter((call) => call === name).length;
 beforeEach(() => {
   calls.length = 0;
   constructed.length = 0;
+  uploaded.positions = null;
+  uploaded.config = {};
   device.ready = () => Promise.resolve();
   device.broken = undefined;
   vi.stubGlobal("requestAnimationFrame", (run: () => void) => setTimeout(run, 0));
@@ -155,6 +173,122 @@ describe("the renderer's frame", () => {
   });
 });
 
+describe("the square the layout runs in", () => {
+  it("centres the corpus's extent in it, at the corpus's own scale", async () => {
+    await drawing();
+    // Person at (i, 0) for i < 10, Place at (i, 1) for i < 6: a 9 × 1 extent in a square of 9.
+    expect(uploaded.config.spaceSize).toBe(9);
+    const ys = new Set(Array.from(uploaded.positions ?? [], (v, i) => (i % 2 ? v : null)).filter((v) => v !== null));
+    expect([...ys].sort()).toEqual([4, 5]);
+    expect(uploaded.positions?.[2 * 9]).toBe(9);
+  });
+
+  it("scales the extent down only past the box the device simulates in", async () => {
+    const getContext = HTMLCanvasElement.prototype.getContext as unknown as { mockReturnValue(v: unknown): void };
+    getContext.mockReturnValue({ MAX_TEXTURE_SIZE: 3379, getParameter: () => 6 });
+    await drawing();
+    expect(uploaded.config.spaceSize).toBe(3);
+    expect(uploaded.positions?.[2 * 9]).toBe(3);
+  });
+});
+
+describe("the camera at load", () => {
+  const observed: (() => void)[] = [];
+  beforeEach(() => {
+    observed.length = 0;
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: () => void) {
+          observed.push(callback);
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+  });
+  const resize = async () => {
+    for (const callback of observed) callback();
+    await frame();
+  };
+
+  it("frames the corpus again when the canvas settles its size, as a split panel does after mount", async () => {
+    await drawing();
+    calls.length = 0;
+    await resize();
+    expect(calls).toEqual(["fit"]);
+  });
+
+  it("frames the corpus once the device is up, since a frame taken before it is taken at no size", async () => {
+    let up: () => void = () => {};
+    device.ready = () => new Promise<void>((resolve) => (up = resolve));
+    await drawing();
+    calls.length = 0;
+    up();
+    await frame();
+    expect(calls).toEqual(["fit"]);
+  });
+
+  it("stops re-framing when the reader takes the camera, and starts again with Fit", async () => {
+    const { renderer } = await drawing();
+    (constructed[0]?.onZoomStart as (event: unknown, user: boolean) => void)({}, true);
+    calls.length = 0;
+    await resize();
+    expect(calls).toEqual([]);
+    renderer?.fit();
+    calls.length = 0;
+    await resize();
+    expect(calls).toEqual(["fit"]);
+  });
+
+  it("is not moved by its own fits", async () => {
+    await drawing();
+    (constructed[0]?.onZoomStart as (event: unknown, user: boolean) => void)({}, false);
+    calls.length = 0;
+    await resize();
+    expect(calls).toEqual(["fit"]);
+  });
+});
+
+describe("the camera while a layout runs", () => {
+  const tick = () => (constructed[0]?.onSimulationTick as (...args: unknown[]) => void)(0.5);
+  const later = (ms: number) => vi.spyOn(performance, "now").mockReturnValue(performance.now() + ms);
+
+  it("re-frames the moving points as the layout runs, and once more when it settles", async () => {
+    const { renderer } = await drawing();
+    renderer?.resume();
+    calls.length = 0;
+    tick();
+    expect(calls).not.toContain("fitView");
+    later(2000);
+    tick();
+    expect(calls).toContain("fitView");
+    calls.length = 0;
+    (constructed[0]?.onSimulationEnd as () => void)();
+    expect(calls).toEqual(["fitView"]);
+  });
+
+  it("leaves the camera to a reader who took it", async () => {
+    const { renderer } = await drawing();
+    renderer?.resume();
+    (constructed[0]?.onZoomStart as (event: unknown, user: boolean) => void)({}, true);
+    calls.length = 0;
+    later(2000);
+    tick();
+    (constructed[0]?.onSimulationEnd as () => void)();
+    expect(calls).not.toContain("fitView");
+  });
+
+  it("fits the points where they are once a layout has moved them", async () => {
+    const { renderer } = await drawing();
+    renderer?.fit();
+    expect(calls.at(-1)).toBe("fit");
+    renderer?.resume();
+    renderer?.fit();
+    expect(calls.at(-1)).toBe("fitView");
+  });
+});
+
 describe("the live layout", () => {
   it("runs only when asked, from the positions it has, and stops where they are", async () => {
     const { renderer, store } = await drawing();
@@ -177,6 +311,103 @@ describe("the live layout", () => {
     expect(calls).toContain("start");
     store.setOptions({ ...store.getOptions(), simulate: false });
     expect(calls.at(-1)).toBe("pause");
+  });
+});
+
+describe("pinning", () => {
+  type Hook = (...args: unknown[]) => void;
+  const hook = (name: string) => constructed[0]?.[name] as Hook;
+  const drag = (vertex: number) => {
+    hook("onPointMouseOver")(vertex, [0, 0]);
+    hook("onDragStart")({});
+    hook("onDragEnd")({});
+  };
+
+  it("moves a dragged node and pins nothing while no layout runs", async () => {
+    const { store } = await drawing();
+    drag(3);
+    expect(store.getSnapshot().motion).toBe("settled");
+    expect(store.getSnapshot().pinned).toEqual([]);
+  });
+
+  it("pins a dragged node while the layout runs, and once", async () => {
+    const { renderer, store } = await drawing();
+    renderer?.resume();
+    drag(3);
+    drag(3);
+    drag(5);
+    expect(store.getSnapshot().pinned).toEqual([3, 5]);
+    await frame();
+    expect(count("pinned")).toBeGreaterThan(0);
+  });
+
+  it("releases into a running layout by reheating it", async () => {
+    const { renderer, store } = await drawing();
+    renderer?.resume();
+    drag(3);
+    calls.length = 0;
+    renderer?.unpin();
+    expect(store.getSnapshot().pinned).toEqual([]);
+    expect(calls).toEqual(["start"]);
+    expect(store.getSnapshot().motion).toBe("running");
+  });
+
+  it("releases a settled layout by reheating it, and lets it cool on its own", async () => {
+    const { renderer, store } = await drawing();
+    renderer?.resume();
+    drag(3);
+    hook("onSimulationEnd")();
+    expect(store.getSnapshot().motion).toBe("settled");
+    calls.length = 0;
+    renderer?.unpin();
+    expect(calls).toEqual(["start"]);
+    expect(store.getSnapshot().motion).toBe("running");
+    await frame();
+    expect(calls).toContain("pinned");
+    expect(calls).not.toContain("pause");
+  });
+
+  it("releases a paused layout with a bounded burst, then pauses it again", async () => {
+    const { renderer, store } = await drawing();
+    renderer?.resume();
+    drag(3);
+    renderer?.pause();
+    expect(store.getSnapshot().motion).toBe("paused");
+    vi.useFakeTimers();
+    try {
+      renderer?.unpin();
+      expect(store.getSnapshot().motion).toBe("running");
+      vi.advanceTimersByTime(2000);
+      expect(store.getSnapshot().motion).toBe("paused");
+      expect(calls.at(-1)).toBe("pause");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a command during the burst cancels it", async () => {
+    const { renderer, store } = await drawing();
+    renderer?.resume();
+    drag(3);
+    renderer?.pause();
+    vi.useFakeTimers();
+    try {
+      renderer?.unpin();
+      renderer?.resume();
+      calls.length = 0;
+      vi.advanceTimersByTime(2000);
+      expect(calls).not.toContain("pause");
+      expect(store.getSnapshot().motion).toBe("running");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("releases nothing when nothing is pinned", async () => {
+    const { renderer } = await drawing();
+    calls.length = 0;
+    renderer?.unpin();
+    expect(calls).toEqual([]);
   });
 });
 

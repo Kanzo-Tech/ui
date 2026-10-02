@@ -1,62 +1,70 @@
-/* nord-dark — a theme is one mode, one flat block, written by hand. */
+/* @family nord
+   @label Nord Dark
+
+   Nord's Polar Night: #2e3440 ground, Snow Storm ink, Frost #88c0d0 for the brand, Aurora for
+   state.
+   One mode, one flat block, written by hand. */
 [data-theme="nord-dark"] {
   color-scheme: dark;
 
-  /* The twenty-one */
-  --background: #090a0c;
-  --foreground: #edf1fb;
-  --card: #0b0c0e;
-  --muted: #101217;
-  --muted-foreground: #959fb2;
-  --primary: #679eae;
-  --primary-foreground: #070b0c;
-  --secondary: #161921;
-  --accent: #1e222b;
-  --destructive: #e7000b;
-  --destructive-content: #ffffff;
-  --info: #155dfc;
-  --info-content: #e8f0ff;
-  --success: #009966;
-  --success-content: #060c08;
-  --warning: #e17100;
-  --warning-content: #100805;
-  --border: #282d36;
-  --ring: #567a84;
+  /* Surfaces, ink, brand, lines */
+  --background: #2e3440;
+  --foreground: #eceff4;
+  --card: #323846;
+  --popover: #3b4252;
+  --muted: #3b4252;
+  --muted-foreground: #d8dee9;
+  --primary: #88c0d0;
+  --primary-foreground: #2e3440;
+  --secondary: #434c5e;
+  --accent: #434c5e;
+  --border: #4c566a;
+  --input: #7b88a1;
+  --ring: #88c0d0;
+  --field: #2e3440;
+  --faint: #c0c8d6;
 
-  /* Optional: each falls back to a bridge default in tokens.css when left out */
-  --popover: #101217;
-  --input: #545e73;
-  --field: #090a0c;
-  --faint: #959fb2;
-  --destructive-foreground: #ff8677;
-  --info-foreground: #7aa7ff;
-  --success-foreground: #66c999;
-  --warning-foreground: #ffa264;
+  /* Status: the fill, the ink on it, and the same family read on the page */
+  --destructive: #d0707a;
+  --destructive-content: #100405;
+  --destructive-foreground: #dfa3a9;
+  --info: #81a1c1;
+  --info-content: #06090e;
+  --info-foreground: #abc0d6;
+  --success: #a3be8c;
+  --success-content: #0a0d07;
+  --success-foreground: #c0d2b5;
+  --warning: #ebcb8b;
+  --warning-content: #130f07;
+  --warning-foreground: #ecdab7;
 
   /* Shape */
-  --radius-box: 0.75rem;
-  --radius-field: 0.5rem;
+  --radius-box: 0.5rem;
+  --radius-field: 0.375rem;
   --radius-selector: 0.25rem;
   --size-field: 0.25rem;
   --size-selector: 0.25rem;
   --stroke: 1px;
   --relief: 0;
 
-  /* Optional: categorical set and syntax */
+  /* Categorical set */
   --chart-capacity: 8;
-  --chart-1: #e12afb;
-  --chart-2: #a65f00;
-  --chart-3: #0092b8;
-  --chart-4: #f54900;
-  --chart-5: #2b7fff;
-  --chart-6: #ff2056;
-  --chart-7: #7f22fe;
-  --chart-8: #008236;
-  --syntax-keyword: #b48ead;
+  --chart-1: #87cee8;
+  --chart-2: #bd7137;
+  --chart-3: #68ab8f;
+  --chart-4: #ca95ba;
+  --chart-5: #dc9577;
+  --chart-6: #cac3fd;
+  --chart-7: #e8f1ac;
+  --chart-8: #7a80b5;
+
+  /* Syntax */
+  --syntax-keyword: #93b4d4;
   --syntax-string: #a3be8c;
-  --syntax-number: #d08770;
-  --syntax-function: #81a1c1;
-  --syntax-identifier: #bf616a;
-  --syntax-property: #88c0d0;
+  --syntax-number: #caa4c3;
+  --syntax-function: #88c0d0;
+  --syntax-variable: #d8dee9;
+  --syntax-property: #8fbcbb;
   --syntax-type: #ebcb8b;
+  --syntax-annotation: #e99e87;
 }

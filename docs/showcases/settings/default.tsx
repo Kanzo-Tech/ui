@@ -20,7 +20,7 @@ import {
   ItemGroup,
   ItemMedia,
   ItemTitle,
-  PreferencesColor,
+  ThemePicker,
   PreferencesDensity,
   PreferencesFont,
   PreferencesMonoFont,
@@ -60,22 +60,20 @@ import { HOME_HALL, hall } from "@/example/world";
  *
  * This showcase exists to demonstrate one claim and it is the claim the whole section mechanism
  * rests on: **a section is independent of the surface that hosts it.** Every control below is the
- * identical export the floating drawer renders — `PreferencesColor`, `PreferencesDensity`,
+ * identical export the floating drawer renders — `ThemePicker`, `PreferencesDensity`,
  * `PreferencesRadius`, the fonts, and whatever the packages a host installed contribute. Nothing
  * here is a settings-page variant of anything, and if it ever needs to be, the mechanism has failed.
  *
  * A product picks the surface rather than the components: `metadata-form` is light and wants the
  * drawer; a product with a real settings area wants this. Both are one registry and one resolution.
  *
- * **Why the colour section lays itself out and this page does not tell it to.** `PreferencesColor`
- * draws its two side cards under a container query, so it is one column inside a 384px drawer and
- * two here — the question it asks is how much room *it* was given, never how big the window is. A
- * page that passed a layout prop down would be the surface deciding for the section again.
+ * **Why the theme section lays itself out and this page does not tell it to.** `ThemePicker`
+ * lays its cards out on an auto-fill grid, so it fits as many as the drawer or this pane allows —
+ * the question it asks is how much room *it* was given, never how big the window is.
  *
- * The reference is GitHub's Appearance page, down to the sub-sidebar: grouped nav on the inline
- * start, one scrolling pane, the appearance controls first and the rest of the account's settings
- * around them. What is deliberately NOT copied is their theme pairing — see the cards themselves
- * for what ours can do that a drawn card cannot.
+ * The reference is GitHub's Appearance page, down to the sub-sidebar and the day/night pairing:
+ * grouped nav on the inline start, one scrolling pane, the appearance controls first. Where GitHub
+ * draws its tiles as assets, ours are the themes themselves, scoped.
  */
 /** The product's own places. A settings screen is somewhere you go, not somewhere you live. */
 const PLACES = [
@@ -244,7 +242,7 @@ export function SettingsShowcase() {
                     heading is what separates them — a line drawn between two of the six said the
                     colour section was a different KIND of thing, which is the claim this page
                     exists to deny. */}
-                <PreferencesColor />
+                <ThemePicker />
                 <div className="grid gap-6 @container md:grid-cols-2">
                   <PreferencesDensity />
                   <PreferencesRadius />

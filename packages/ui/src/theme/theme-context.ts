@@ -3,7 +3,6 @@
 import * as React from "react";
 import type {
   Appearance,
-  AppearancePref,
   ThemeOption,
   PrefSources,
   ResolvedPref,
@@ -55,16 +54,9 @@ export interface ThemeContextValue extends ThemePrefs {
   reset: () => void;
   fonts: FontOption[];
   monoFonts: FontOption[];
-  /** The appearance PREFERENCE — a pinned side, or `""` while the OS decides. */
-  appearance: AppearancePref;
-  /**
-   * The APPLIED side. Always one of the two.
-   *
-   * Read this to draw anything; read `appearance` only to say whether the user pinned it. The pair
-   * is the same split as `theme` / `resolvedTheme`: a preference can be the absence of one.
-   */
-  resolvedAppearance: Appearance;
-  setAppearance: (appearance: AppearancePref) => void;
+  /** The side the user picked — light or dark. The OS is never asked. */
+  appearance: Appearance;
+  setAppearance: (appearance: Appearance) => void;
   /** The themes the tenant published. `[]` — never `undefined` — when the host wired nothing. */
   themes: ThemeOption[];
   /** The name the APPLIED side falls back to when the preference is empty; the panel needs it to
@@ -77,15 +69,13 @@ export interface ThemeContextValue extends ThemePrefs {
   /**
    * The APPLIED theme — this side's preference, or `defaultTheme`.
    *
-   * Mirrors `appearance` / `resolvedAppearance`: the preference is what the user asked for, and an
-   * empty one is not a value but a deferral to the tenant.
+   * An empty preference is not a value but a deferral to the tenant.
    */
   resolvedTheme: string;
   /**
    * Choose a theme for one side — the applied one unless `appearance` names the other.
    *
-   * The keying lives here rather than at every call site, the way `setAppearance` owns translating a
-   * host's `"system"`. **It no longer carries anything across.** While a palette contained brands
+   * The keying lives here rather than at every call site, rather than spread by each caller. **It no longer carries anything across.** While a palette contained brands
    * this function also filed the outgoing brand and restored the remembered one, so writing
    * `paletteByAppearance` through `set` got the attribute and lost the memory. A brand is a theme;
    * there is nothing to file.

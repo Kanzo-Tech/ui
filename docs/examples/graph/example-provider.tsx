@@ -27,7 +27,7 @@ function Tally() {
 export default function Example() {
   const corpus = useArchive();
   const [failure, setFailure] = useState<unknown>(null);
-  const api = useGraph({ corpus, fill: "kind", r: "degree", onFailure: setFailure });
+  const api = useGraph({ corpus, fill: "kind", r: "degree", title: "label", onFailure: setFailure });
   return (
     <div className="flex h-96 w-full flex-col gap-2">
       <Button className="self-start" onClick={() => api.fit()} size="sm" variant="outline">

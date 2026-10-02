@@ -1,0 +1,301 @@
+---
+title: Dashboard spec
+description: The JSON a Dashboard is drawn from and hands back on every edit — every field, what it accepts, how an invalid one is treated, and how a host persists it.
+---
+
+A dashboard is data. `Dashboard` draws a `DashboardSpec`, its editors produce the next one, and the
+host keeps whatever it was last handed. Nothing in it is a function, a component or a query, so it
+survives `JSON.stringify`, a database column and a version-control diff.
+
+It is shaped after Metabase's and Superset's dashboard JSON — cards in an ordered layout, each a
+chart type plus encodings that name fields, and a filter row scoping every card — without their query
+layer. Every field name in a spec is a column of the **one relation** the `Dashboard` is given;
+the spec does not say which relation that is, and the host keeps that association
+([below](#persisting-it)).
+
+## A whole spec
+
+The one the Sightings showcase draws, abridged:
+
+```json
+{
+  "version": 1,
+  "filters": [{ "field": "region" }, { "field": "hall" }, { "field": "leagues" }],
+  "stats": [
+    { "id": "sightings", "label": "Sightings", "measure": { "op": "count" }, "trend": "hour" },
+    {
+      "id": "hoaxes",
+      "label": "Hoaxes",
+      "measure": { "op": "share", "field": "verdict", "equals": "hoax" },
+      "trend": "hour",
+      "goodWhenUp": false
+    }
+  ],
+  "cards": [
+    { "id": "hour", "type": "line", "x": "hour", "y": { "op": "count" }, "span": 2, "title": "Sightings by hour" },
+    { "id": "hall", "type": "bar", "x": "hall", "y": { "op": "count" }, "color": "verdict" },
+    { "id": "bounty", "type": "area", "x": "hour", "y": { "op": "sum", "field": "bounty" }, "facet": "region", "span": 3 },
+    { "id": "fit", "type": "regression", "x": "leagues", "y": { "op": "value", "field": "bounty" }, "span": 2 }
+  ],
+  "detail": { "columns": ["beast", "region", "hall", "hour", "leagues", "bounty", "verdict"] }
+}
+```
+
+## DashboardSpec
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `version` | `1` | The shape's version. Always `1` today; a host that migrates stored specs keys on it. |
+| `filters` | `DashboardFilterSpec[]` | The filter row, in order. A time is always drawn first, on its own row. |
+| `stats` | `DashboardStatSpec[]` | The tiles, in order. `[]` for none. |
+| `cards` | `DashboardCardSpec[]` | The chart cards. **Order is layout**: they flow left to right through a three-column grid. `[]` for none. |
+| `detail` | `{ columns: string[] } \| null` | The rows table and its columns, in order; `null` for no table. |
+
+## DashboardFilterSpec
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `field` | `string` | The column to filter by. The control is chosen from the field's stats when the dashboard draws — a timeline, a facet filter, a search or a slider ([the table](/docs/analytics/dashboard#how-a-relation-is-read)) — and is never stored. |
+
+A filter on a field that has no control, or that the relation no longer has, is skipped.
+
+## DashboardStatSpec
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `id` | `string` | Stable identity, used as the React key. Unique within `stats`. |
+| `label` | `string?` | The tile's label. Default: derived from the measure — *Mean bounty*, *% verdict = hoax*. |
+| `measure` | `DashboardMeasure` | The figure. |
+| `trend` | `string?` | An ordered field — a time, or a number with an extent. Adds the measure along it as a sparkline and the last step's change as a delta. |
+| `goodWhenUp` | `boolean?` | Whether a rise is good news. Default `true`. |
+
+## DashboardCardSpec
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `id` | `string` | Stable identity, used as the React key. Unique within `cards`. |
+| `type` | `DashboardChartType` | `"bar"`, `"line"`, `"area"`, `"histogram"`, `"dot"` (scatter) or `"regression"` (scatter with a fit). |
+| `x` | `string` | The field along the axis: a category for `bar`; a time or a number for `line`, `area`, `histogram`; a number for `dot` and `regression`. |
+| `y` | `DashboardMeasure` | What is measured per group — or, for `dot` and `regression`, `{ "op": "value", "field": … }`: the raw column, one point per row. |
+| `color` | `string?` | A category of 2–8 values drawn as series. Not on `regression`. |
+| `facet` | `string?` | A category of 2–6 values drawn as small multiples sharing one pair of scales. Not on `bar`. |
+| `span` | `1 \| 2 \| 3` | Columns of the three-column row. Default `1`. The grid is one column on a phone, two from `md` and three from `xl`, and a span never exceeds the columns there are. |
+| `title` | `string?` | Overrides the title derived from the encodings (*Count by hall and verdict*, *leagues × bounty*). |
+
+## DashboardMeasure
+
+A number per group, or the raw column for the two charts that plot rows.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `op` | `DashboardAggregate \| "value"` | The aggregate — see below. |
+| `field` | `string?` | What the aggregate reads. None for `count`. |
+| `equals` | `string \| number \| boolean` | For `share` only: the value whose share is measured. |
+
+| `op` | SQL | `field` | Notes |
+| --- | --- | --- | --- |
+| `count` | `count(*)` | — | |
+| `distinct` | `count(DISTINCT field)` | any field | |
+| `sum` · `avg` · `min` · `max` · `median` | the aggregate of `field` | a number | `avg` is labelled *Mean*, `sum` *Total* |
+| `share` | `100 * count(*) FILTER (WHERE field = equals) / count(*)` | a category | a percentage; a tile's delta is in `pp`. Written in the spec, not offered by the editor, because it needs a value |
+| `value` | `field` | a number | `dot` and `regression` only |
+
+`DashboardAggregate` is the eight aggregates above without `value`.
+
+## How an invalid spec is treated
+
+A spec is stored for months while the relation under it changes, so nothing in it is trusted to be
+valid when it draws:
+
+- **A card that names a field the relation no longer has** draws *The relation has no `hall` any
+  more.* in place of its chart. The rest of the dashboard draws.
+- **A filter or a rows column** on a missing field is skipped.
+- **The editors never write an invalid card.** Every edit is normalised for the card's type: an
+  encoding the type can keep is kept, one it cannot is replaced by the first field that fits, an
+  optional one (`color`, `facet`) that fits nothing is dropped, and a measure the type cannot use
+  becomes `count`. A type the relation has nothing to draw with is disabled in the picker.
+
+A host that writes specs by hand — a template, an import — gets no such normalisation on the way in:
+the fields it names are drawn as named. Validate against the [schema](#json-schema) and the
+relation's `useFieldStats` before saving one, or let a reader open it and make one edit.
+
+## The automatic spec
+
+`autoDashboard(fields)` returns the spec drawn while `value` is `undefined` — the rules are on
+[Dashboard](/docs/analytics/dashboard#the-automatic-dashboard). Its ids are positional (`card-0`,
+`stat-count`, `stat-bounty`); ids the editors mint for a new card or tile are
+`crypto.randomUUID()`s. Neither is meaningful beyond the spec it is in.
+
+The first `onChange` hands the host the automatic parts as a real spec, so from that edit on the
+dashboard is what was saved, not what the stats would choose today. *Reset to automatic*, in the
+*Edit dashboard* menu, replaces it with `autoDashboard` again.
+
+## Persisting it
+
+A spec names columns, so it belongs to a relation. The host stores **one spec per relation**, keyed
+however it already identifies that relation, and hands it back as `value` with the same `table`.
+
+- **Store what `onChange` hands you, whole.** Never merge a patch into a stored spec: the editors
+  already produced the complete next state, and a merge resurrects what the reader removed.
+- **Store nothing until the first edit.** `value={undefined}` draws the automatic dashboard; storing
+  it eagerly freezes today's stats into a spec nobody chose.
+- **Debounce the write.** Dragging a card through the layout or adjusting a title is many edits and
+  one decision — the [host recipe](/docs/analytics/dashboard-host) has the pattern.
+- **Treat it as opaque on the server.** The server needs no knowledge of the shape: a JSON column and
+  a size cap are enough. A layout and its encodings are a few kilobytes; data never is.
+
+### The shape keasy stores
+
+keasy's discovery view draws one `Dashboard` per vertex type of a job's corpus — a crossfilter
+predicate names columns, and another type's table lacks them — and keeps every type's spec in one
+document per job:
+
+```ts
+type SavedDashboards = {
+  version: 1;
+  byType: Record<string, DashboardSpec>; // vertex type → its dashboard
+};
+```
+
+`GET /v1/jobs/{id}/dashboard` reads it (or `null`), and `PUT /v1/jobs/{id}/dashboard` with
+`{ "spec": SavedDashboards }` replaces it whole, 800 ms after the last edit. The server stores the
+spec as opaque JSON in a `dashboards` table — one row per job, deleted with the job — and refuses
+anything over 256 KB. A type nobody has edited has no entry, and draws its automatic dashboard.
+
+## JSON schema
+
+For a host that validates specs on the server or before an import. Draft 2020-12; it checks shape,
+not that the fields exist in a relation.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kanzo.tech/schemas/dashboard-spec/1",
+  "title": "DashboardSpec",
+  "type": "object",
+  "required": ["version", "filters", "stats", "cards", "detail"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": 1 },
+    "filters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["field"],
+        "additionalProperties": false,
+        "properties": { "field": { "type": "string" } }
+      }
+    },
+    "stats": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "measure"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "label": { "type": "string" },
+          "measure": { "$ref": "#/$defs/measure" },
+          "trend": { "type": "string" },
+          "goodWhenUp": { "type": "boolean" }
+        }
+      }
+    },
+    "cards": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "x", "y"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "enum": ["bar", "line", "area", "histogram", "dot", "regression"] },
+          "x": { "type": "string" },
+          "y": { "$ref": "#/$defs/measure" },
+          "color": { "type": "string" },
+          "facet": { "type": "string" },
+          "span": { "enum": [1, 2, 3] },
+          "title": { "type": "string" }
+        }
+      }
+    },
+    "detail": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["columns"],
+          "additionalProperties": false,
+          "properties": { "columns": { "type": "array", "items": { "type": "string" } } }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "measure": {
+      "type": "object",
+      "required": ["op"],
+      "additionalProperties": false,
+      "properties": {
+        "op": { "enum": ["count", "distinct", "sum", "avg", "min", "max", "median", "share", "value"] },
+        "field": { "type": "string" },
+        "equals": { "type": ["string", "number", "boolean"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "op": { "not": { "const": "count" } } } },
+          "then": { "required": ["field"] }
+        },
+        {
+          "if": { "properties": { "op": { "const": "share" } } },
+          "then": { "required": ["field", "equals"] }
+        }
+      ]
+    }
+  }
+}
+```
+
+## Types
+
+```ts
+interface DashboardSpec {
+  version: 1;
+  filters: DashboardFilterSpec[];
+  stats: DashboardStatSpec[];
+  cards: DashboardCardSpec[];
+  detail: { columns: string[] } | null;
+}
+
+interface DashboardFilterSpec {
+  field: string;
+}
+
+interface DashboardStatSpec {
+  id: string;
+  label?: string;
+  measure: DashboardMeasure;
+  trend?: string;
+  goodWhenUp?: boolean;
+}
+
+interface DashboardCardSpec {
+  id: string;
+  type: DashboardChartType;
+  x: string;
+  y: DashboardMeasure;
+  color?: string;
+  facet?: string;
+  span?: 1 | 2 | 3;
+  title?: string;
+}
+
+interface DashboardMeasure {
+  op: DashboardAggregate | "value";
+  field?: string;
+  equals?: string | number | boolean;
+}
+
+type DashboardChartType = "bar" | "line" | "area" | "histogram" | "dot" | "regression";
+type DashboardAggregate = "count" | "distinct" | "sum" | "avg" | "min" | "max" | "median" | "share";
+```

@@ -26,8 +26,8 @@ generator that emits the CSS — and everything else follows from that declarati
 | **Surfaces** | the drawer below, a settings page, a dock inside a canvas. All of them mount the same sections. |
 
 Two controls are not the generic one, and both because the *control* differs rather than the data:
-radius is a slider over an ordered scale, and `PreferencesColor` draws whole documents with a live
-cascade preview.
+radius is a slider over an ordered scale, and the theme is [`ThemePicker`](/docs/layout/theme-picker),
+which draws each theme as a live miniature.
 
 ## Four abstractions, and a surface is not one of them
 
@@ -40,15 +40,14 @@ same exports build both, and no part of either takes a prop naming the other.
 
 | The parts | What they are |
 | --- | --- |
-| **The sections** — `PreferencesColor`, `PreferencesDensity`, `PreferencesRadius`, `PreferencesFont`, `PreferencesMonoFont` | One preference each, wired to `useKanzoTheme()` directly. They take no surface, no layout prop and no context of yours: mount one in a drawer, a page, a tab or a dialog and it edits the same live theme. |
+| **The sections** — `ThemePicker`, `PreferencesDensity`, `PreferencesRadius`, `PreferencesFont`, `PreferencesMonoFont` | One preference each, wired to `useKanzoTheme()` directly. They take no surface, no layout prop and no context of yours: mount one in a drawer, a page, a tab or a dialog and it edits the same live theme. |
 | **A surface** — `PreferencesRoot`, `PreferencesTrigger`, `PreferencesPanel` (or the all-in-one `Preferences`) | The drawer, assembled: a non-modal dialog, an optional hotkey, a floating trigger and a pinned Reset · Done. It is the only *surface* the library ships, because it is the only one that is the same in every product. A settings page is layout — `Sidebar`, `ShellMain`, `Section` — and you already have those. |
 | **The containers** — `PreferencesField`, `PreferencesFieldSet` | Your own preference, titled the way the library's are, so a product's section and a library section are indistinguishable in either surface. |
 | **The registry** — `PreferencesSections` | Whatever the packages this host installed contribute, drawn in the same language. It is what stops an installed package from growing a settings surface beside yours. |
 
-The one thing a section will not do is ask how big the window is. `PreferencesColor` draws its two
-side cards under a **container query**, so it is one column in a 384px drawer and two in a settings
-pane, with nothing passed down to say so — the question a section may ask is how much room *it* was
-given. A layout prop would be the surface deciding for the section again, which is the whole thing
+The one thing a section will not do is ask how big the window is. `ThemePicker` lays its cards out on a
+**container query** — side by side in a settings pane, stacked in a 384px drawer — with nothing passed
+down to say so — the question a section may ask is how much room *it* was given. A layout prop would be the surface deciding for the section again, which is the whole thing
 this split exists to prevent.
 
 ## Usage
@@ -74,36 +73,16 @@ There is no default hotkey. `hotkey` registers a bare, unmodified key on `window
 while you are typing in a field), and a design system must not claim one in its host's keymap
 without being asked.
 
-<Callout type="info" title="Colour is a preference — a hue is not">
-  Six sections at most, two of them conditional. The rule is not "the user touches no colour", which
-  was never true: `appearance` is colour. It is that the user never **authors** a colour value —
-  they choose among colours someone already validated.
+<Callout type="info" title="The theme is a preference — a hue is not">
+  The rule is not "the user touches no colour", which was never true: `appearance` is colour. It is
+  that the user never **authors** a colour value — they choose among themes someone already
+  validated. Authoring one is a different surface, the [theme generator](/theme-generator), aimed at
+  whoever writes a theme rather than whoever wears it.
 
-  So `PreferencesColor` is here, and base, accent and chart scheme are not. Those let a user compose
-  *part* of a palette a hue at a time; a theme is written once and chosen whole. **Authoring one is a
-  real surface, and it is a different one** — see the [theme
-  generator](/theme-generator), which is where the "copy the CSS" half lives, aimed at
-  whoever writes a theme rather than at whoever wears it. The section hides itself below two
-  published themes, so a tenant shipping one sees the four axis sections and nothing else.
-</Callout>
-
-<Callout type="info" title="Appearance has no section, and no control of its own">
-  `appearance` is a preference, but it is not a *section*. **Pressing a side card in `Colour` wears
-  that side**, and that is the whole appearance control: the card is already a full-size depiction
-  of what you would get, and a depiction you cannot enter is worse than a card plus a button
-  elsewhere saying the same thing.
-
-  There is no sun/moon toggle beside the close X: it would flip light ⇄ dark, which a card already
-  does, and "follow the OS" would not be on it either (that is `""`, and `Reset` is the way back).
-
-  What that costs is worth knowing before you rely on it: `Colour` hides itself below two published
-  choices, so **a tenant shipping one theme has no appearance control in this panel.** Their users follow the OS, or the host mounts its own control against
-  `useKanzoTheme().setAppearance`.
-
-  There is no third state on that flip: following the OS is `null`, the absence of a pinned side, and
-  `DEFAULT_PREFS.appearance` is `""` — so an app with nothing stored follows the OS until the first
-  click. **Reset**, below, is the way back: it unsets every preference, appearance included, and the
-  page lands on whatever the tenant's policy starts a user with.
+  `ThemePicker` is also the only appearance control: its *Light · Dark* segment picks the
+  side. There is no sun/moon toggle in the header. **Reset** unsets
+  every preference, appearance included, and the page lands on whatever the tenant's policy starts a
+  user with.
 </Callout>
 
 ## Anatomy
@@ -112,7 +91,7 @@ without being asked.
 PreferencesRoot
 ├── PreferencesTrigger
 └── PreferencesPanel
-    ├── PreferencesColor      — only when the tenant published two choices
+    ├── ThemePicker           — unless the tenant withheld both the theme and the appearance
     ├── PreferencesDensity
     ├── PreferencesRadius
     ├── PreferencesFont
@@ -122,43 +101,10 @@ PreferencesRoot
 `Panel` renders that whole set when given no children, plus a pinned Reset · Done footer that
 stays whatever the children are. Pass children to choose your own set.
 
-Colour comes first, and it is **one** section over a flat list. A brand is a theme: `bank` and
-`bank-private` are two entries beside `dracula`, and two themes share a neutral because whoever
-wrote them wrote the same one.
+The theme comes first. `ThemePicker` guards itself rather than being guarded at the call site —
+every section is exported flat for a host's own settings page, where a call-site guard would be
+invisible. Its cards, its policy handling and its copy are on [its own page](/docs/layout/theme-picker).
 
-It guards itself rather than being guarded at the call site — every section is exported flat for a
-host's own settings page, where a call-site guard would be invisible.
-
-### Each theme draws itself
-
-There are two cards, one per side, and each is a **tile you press**: the tile wears that side, the
-chips beneath choose which theme that side wears, and the pill in the corner says which side is
-live. GitHub's Appearance page is the shape, minus its verbs — it has no `Use` button on a card
-either, because a control the size of the thing it selects does not need one, and a settings panel
-that keeps removing second controls should not have added one here.
-
-**The semantics are GitHub's.** They pair a day theme with a night theme because their themes are
-single-mode, and so are ours: a card is the theme this user wears on that side.
-
-An entry is a **miniature of the interface**, not a strip of hexes: a page, a brand fill, two lines
-of ink and the categorical set. None of it is data. Every theme a tenant publishes is already in the
-page under its own `[data-theme]`, so the cell sets that attribute and the utilities inside it
-resolve against that theme — `bg-primary` is *that* tenant's brand.
-
-A strip of role colours cannot depict a theme: on the default, `--primary` and `--foreground` are
-the same value, so two chips would be one colour. The categorical strip draws all eight slots on
-purpose: past a theme's `--chart-capacity` the author writes `var(--muted-foreground)` into the
-remaining slots, so a set holding seven says so by going grey at the end.
-
-<Callout type="info" title="Hovering previews, leaving puts it back">
-  The reference behaviour is VS Code's and Zed's — a theme applies as you arrow through the list and
-  reverts when you leave — and it is affordable here because a theme is an attribute rather than a
-  stylesheet to fetch. Pointer or keyboard focus writes it on `<html>`; leaving restores the exact
-  attributes that were there on the way in, rather than recomputing what they should be.
-</Callout>
-
-The grid is the other half. Stacked at full width, the themes this site publishes took over
-half the panel's scroll height and pushed density, radius and both font axes below the fold.
 
 ## What the installed packages add
 
@@ -174,7 +120,7 @@ disappears.
 
 ```tsx
 <PreferencesPanel>
-  <PreferencesColor />
+  <ThemePicker />
   <PreferencesDensity />
   <PreferencesSections />
 </PreferencesPanel>
@@ -258,7 +204,7 @@ because a settings page is your layout and your navigation with the sections dro
       <nav aria-label="Settings">{/* your own menu — ItemGroup / Item */}</nav>
 
       <div className="flex min-w-0 flex-col gap-8">
-        <PreferencesColor />
+        <ThemePicker />
         <div className="grid gap-6 @container md:grid-cols-2">
           <PreferencesDensity />
           <PreferencesRadius />
@@ -276,9 +222,8 @@ The [settings showcase](/docs/showcases/settings) is that page finished — a pr
 a settings menu of `ItemGroup` / `Item` rows, and the identical sections. Three things it gets from
 the split and does not have to arrange:
 
-- **The colour section becomes two columns** on its own, under its container query. The page passes
-  nothing.
-- **The side cards are the appearance control**, so a page with no panel chrome still has one.
+- **The theme section fills the width it is given** on its own grid. The page passes nothing.
+- **Its Light · Dark segment is the appearance control**, so a page with no panel chrome still has one.
 - **Every heading is one spelling** — small, upper, muted — because each section titles itself. Your
   own sections get the same by going through `PreferencesField` / `PreferencesFieldSet` rather than
   writing a heading beside a control.
@@ -320,15 +265,13 @@ separation; a line between two of them says one is a different *kind* of thing.
 
 ### Sections
 
-Each reads and writes `useKanzoTheme()` directly. The four axis sections take no props; `Colour` takes
-a `label` for its legend and two strings for the retirement notice, which are its only
-library-authored copy — a theme's own name was written by the client and passes through verbatim.
-
-`Colour` writes **one value**, keyed by the side it applies to.
+Each reads and writes `useKanzoTheme()` directly. The four axis sections take no props;
+`ThemePicker` takes `copy`, its only library-authored strings — a theme's own label was written by
+the client and passes through verbatim.
 
 | Export | Axis | Attribute |
 | --- | --- | --- |
-| `PreferencesColor` | `themeByAppearance` + `appearance` | `data-theme`; the side cards write `appearance` |
+| `ThemePicker` | `themeByAppearance` + `appearance` | `data-theme` and `.dark` |
 | `PreferencesDensity` | `density` | `data-font-size` |
 | `PreferencesRadius` | `radius` | `data-radius` |
 | `PreferencesFont` | `font` | `data-font` |
@@ -346,6 +289,6 @@ For sections of your own, so a product's controls are indistinguishable from the
 | `PreferencesField` | `label`, `children` | one control (`Field` + `FieldLabel`) |
 | `PreferencesFieldSet` | `label`, `children` | a group of controls (`FieldSet` + `FieldLegend`) |
 
-Every part's props are exported as an interface — `PreferencesColorProps`, `PreferencesProps`,
+Every part's props are exported as an interface — `ThemePickerProps`, `PreferencesProps`,
 `PreferencesRootProps` and `PreferencesSectionsProps` — so a wrapper can take the same props without
 restating them.

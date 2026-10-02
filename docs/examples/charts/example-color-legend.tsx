@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@kanzo-tech/ui";
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@kanzo-tech/ui";
 import {
   ChartAxisX,
   ChartAxisY,
@@ -12,8 +12,6 @@ import {
   count,
   useMosaic,
 } from "@kanzo-tech/ui/analytics";
-import { ChartCard } from "@/lib/chart-card";
-import { DashboardGrid } from "@/lib/dashboard-grid";
 import { MosaicDemo } from "./mosaic-demo";
 
 // Two legends over one series vocabulary. The left one is a key; the right one is a control.
@@ -61,20 +59,28 @@ function Legends() {
 
   return (
     <div className="flex w-full max-w-3xl flex-col gap-3">
-      <DashboardGrid minColumnWidth={260}>
-        <ChartCard
-          description="our DOM, under the plot"
-          legend={<ChartLegend />}
-          title="ChartLegend"
-        >
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(260px,100%),1fr))] gap-4">
+        <Card className="[--space:--spacing(4)] gap-3">
+          <CardHeader className="gap-0.5">
+            <CardTitle className="font-medium text-sm">ChartLegend</CardTitle>
+            <CardDescription className="text-xs">our DOM, under the plot</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
           <ChartRoot config={config} height={150} table="sightings">
             <ChartBarY fill="verdict" order={ORDER} tip x="region" y={count()} />
             <ChartAxisX label={null} />
             <ChartAxisY grid label={null} />
+            <ChartLegend />
           </ChartRoot>
-        </ChartCard>
+          </CardContent>
+        </Card>
 
-        <ChartCard description="vgplot's, inside the plot — click a swatch" title="ChartColorLegend">
+        <Card className="[--space:--spacing(4)] gap-3">
+          <CardHeader className="gap-0.5">
+            <CardTitle className="font-medium text-sm">ChartColorLegend</CardTitle>
+            <CardDescription className="text-xs">vgplot's, inside the plot — click a swatch</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
           <ChartRoot config={config} height={150} table="sightings">
             <ChartBarY fill="verdict" order={ORDER} tip x="region" y={count()} />
             {/* The field is inferred from the `fill` channel; name it with `field` when the colour
@@ -83,8 +89,9 @@ function Legends() {
             <ChartAxisX label={null} />
             <ChartAxisY grid label={null} />
           </ChartRoot>
-        </ChartCard>
-      </DashboardGrid>
+          </CardContent>
+        </Card>
+      </div>
 
       <div>
         {/* Both plots read the provider's crossfilter, so the swatch on the right filters the plot

@@ -29,8 +29,8 @@ document.
 <Callout type="warn">
 **The trap, and it is not a compile error.** `:root { --sidebar-primary: var(--primary) }` and the
 same line in `@theme inline` are **not** equivalent. A custom property inherits its *computed* value,
-so the first resolves once on `<html>` and a scoped `<div data-theme="dracula">` inherits the
-already-substituted answer — Dracula's brand with the page's sidebar, silently. `@theme inline` puts
+so the first resolves once on `<html>` and a scoped `<div data-theme="catppuccin-mocha">` inherits the
+already-substituted answer — Catppuccin's brand with the page's sidebar, silently. `@theme inline` puts
 the value in the *utility*, so it resolves on the element wearing the class. That is why the whole
 vocabulary is bridged and none of it re-declared, and why the radius scale hangs off `--radius-field`
 directly rather than an intermediate.
@@ -56,11 +56,31 @@ than written down. Authoring cost is not that evidence: a theme is the thing you
 alpha step in a utility"; `packages/ui/src/lib/token-color.test.ts`, "declares a full set of slots, or
 none at all, in every theme"; `packages/theme/scripts/gen-theme.mjs`.
 
+## Themes ship as families, and a user picks a day one and a night one
+
+A theme is one mode, so what a user chooses is a pair: the theme worn by day and the theme worn by
+night, plus which side is worn — GitHub's Appearance model, and `ThemePicker` is its
+layout. The library ships four families (`kanzo`, `nord`, `catppuccin`, `lofi`), each exactly one
+light and one dark theme, named in the file header; `gen-theme.mjs` refuses a family that is not a
+pair. Twenty-nine single themes, half of them without a partner, made the night choice a guess.
+
+The provider always writes the **resolved** theme to `data-theme`, including the tenant's default:
+the CSS default binding (`:root:not([data-theme])`) can name one family, and a tenant whose default
+is its own family must not depend on it.
+
+**What would reverse it:** a product whose users want a theme that has no other side — a high-contrast
+or print theme worn regardless of the OS. Then a family of one is a real case and the pair rule in the
+generator becomes a warning.
+
+*Held by* `packages/theme/src/themes.test.ts`, "ships families of exactly one light and one dark
+theme, the default family first"; `packages/ui/src/theme/theme-script.test.ts`, "writes the resolved
+theme: the one chosen for the side, or the default pair's".
+
 ## The obvious ink is computed in the form, not in the page
 
 `@kanzo-tech/theme` exports `inkFor`, which answers *you picked this fill, what text goes on it?* — the
 rule daisyUI's generator uses, recovered from its output, with WCAG AA as a floor rather than a hope.
-It runs in the [theme studio](/theme-generator) while somebody authors, on one colour at a time, and
+It runs in the [theme generator](/theme-generator) while somebody authors, on one colour at a time, and
 what it returns is written into the document as a **literal hex**. Themes stay flat blocks: nothing
 computes a colour in a page painting one, and `tokens.css` gains no `color-mix`.
 
@@ -83,7 +103,7 @@ own formula, so they are pairs a person adjusted after generating.
 
 **What this does not decide.** Anything about the categorical channel: `--chart-1..8` are not a
 function of `--primary`, and measuring says so plainly — `--chart-6` takes twelve distinct values
-across sixteen themes, which a rotation of one brand colour cannot produce, and a theme whose brand is
+across the sets themes have authored, which a rotation of one brand colour cannot produce, and a theme whose brand is
 achromatic has no hue to rotate at all.
 
 **What would reverse it:** a fill whose ink is not a function of it — a role where two themes with the
@@ -105,9 +125,9 @@ spellings.
 Without the default, a theme with no categorical set has charts that paint nothing, and there is no
 colour in a theme a categorical set can be derived from.
 
-The sixteen authored sets are not re-judged here: each was chosen against its own theme's background,
-and failing them against surfaces they never claimed to sit on would be marking them down for a
-promise they did not make.
+Every shipped theme authors its own eight, and each is judged on its own theme: every slot at 3:1
+against that theme's background (`CONTRAST_PAIRS`), and clear of that theme's status fills. Failing a
+set against surfaces it never claimed to sit on would be marking it down for a promise it did not make.
 
 **How many series a chart may draw is not this rule's question.** These floors are over *adjacent*
 pairs, which is what a stack, a bar group and a line chart put side by side. Over all twenty-eight
@@ -117,18 +137,18 @@ the chart, not to the theme.
 
 **What would reverse it:** a set that reads as a **state** on a client's theme — a series in a colour
 close enough to that tenant's `--success` or `--destructive` that a reader takes a category for a
-status. The floor here is measured against the themes *we* ship; a tenant authors their own.
+status. The floor is measured per theme, on the set it resolves to; a tenant authors their own.
 
-*Held by* `packages/theme/src/categorical.test.ts`, "stays clear of every status fill the catalogue
-publishes, so a series cannot read as a state" and "lets a theme decline the channel, and only by
+*Held by* `packages/theme/src/categorical.test.ts`, "stays clear of each theme's own status fills, so a
+series cannot read as a state" and "lets a theme decline the channel, and only by
 saying so"; `packages/ui/src/lib/token-color.ts`, `categoricalCapacity`.
 
 ## Monochrome is a palette, not a look
 
-Monochrome ships as one more **theme**, chosen in the theme selector like any other, and the graph
-keeps carrying identity because the host binds `symbol` alongside `fill` — the same binding survives a
-colourful document and this one. Colour belongs to the colour layer, and the user already has one
-control for choosing it.
+A monochrome theme is one more **theme**, chosen in the theme selector like any other — none ships
+today — and the graph keeps carrying identity because the host binds `symbol` alongside `fill`, so the
+same binding survives a colourful document and a monochrome one. Colour belongs to the colour layer,
+and the user already has one control for choosing it.
 
 A document that declines the categorical channel must **declare** that it declines it, distinguishably
 from a document whose set is merely missing. `--chart-capacity: 0` is that declaration, and it is read
@@ -144,33 +164,29 @@ stacked bar, a multi-series line, a pie. If readers lose the encoding there, mon
 document-level state and belongs to whatever draws a graph.
 
 *Held by* `packages/ui/src/lib/token-color.test.ts`, "honours a declared zero, because a document may
-decline the channel"; `packages/theme/themes/monochrome.css`, `--chart-capacity`.
+decline the channel"; `packages/theme/src/categorical.test.ts`, "lets a theme decline the channel, and
+only by saying so".
 
 ## `--accent` is a surface, not a third brand colour
 
 `--accent` is the quiet ground a row wears when it is hovered or selected, in every shipped theme.
-An imported theme does **not** take daisyUI's `accent`, which is that system's third brand colour; it
-derives one from their base scale instead — `base-300` mixed 60% toward `base-200`.
-`--accent-foreground` goes with it and is authored by nobody, falling through the bridge to
-`--foreground`. One word names two roles in the two systems, and the recipes that read it are Shark's.
+A theme ported from daisyUI does **not** take daisyUI's `accent`, which is that system's third brand
+colour; it takes a step of the base scale. `--accent-foreground` is authored by nobody, falling through
+the bridge to `--foreground`. One word names two roles in the two systems, and the recipes that read it
+are Shark's.
 
-**`--secondary` looks like the same bug and is not.** Ten of the thirteen imported themes carry a
-saturated daisyUI `secondary`, but all six `bg-secondary` call sites pair it with `text-secondary-foreground`, and that
-ink is authored and passes. The two systems disagree about what a secondary *button* looks like — grey
-here, coloured there — and that is a difference of taste inside one agreed role, not two roles under one
-name. Measured before deciding, and left alone.
-
-Whether an imported theme is still that theme: it is. No colour was corrected, which is the importer's
-standing rule. A token was mapped from a different source, which is what the other four mapping
-decisions in that file already do.
+**`--secondary` looks like the same bug and is not.** `lofi`'s secondary is a dark fill, but every
+`bg-secondary` call site pairs it with `text-secondary-foreground`, and that ink is authored and passes.
+The two systems disagree about what a secondary *button* looks like — grey here, coloured there — and
+that is a difference of taste inside one agreed role, not two roles under one name.
 
 **What would reverse it:** a theme that needs a third brand fill with a name of its own — a component
 that renders one, or a client whose identity is three colours and cannot say so. Nothing renders one
 today.
 
-*Held by* `packages/theme/src/themes.test.ts`, "keeps every pair at AA once resolved" — the pair that
-carries this is `--accent` against `--muted-foreground`; `packages/theme/scripts/import-daisy.mjs`,
-`blend`.
+*Held by* `packages/theme/src/themes.test.ts`, "keeps every pair at its WCAG floor once resolved — text
+at AA, marks and boundaries at 3:1" — the pair that carries this is `--accent` against
+`--muted-foreground`, listed in `packages/theme/src/contrast.ts`.
 
 ## An invalid boundary needs no dark branch
 
@@ -178,15 +194,15 @@ An **invalid control's border and ring** read `--destructive` on both sides; the
 override repainting them with `--destructive-foreground`. The `text-` half of the same override
 **stays**. This is a deliberate divergence from Shark UI, which writes all three.
 
-**The measurement.** `--destructive` against the theme's own `--background`, over the fifteen dark
-themes in `packages/theme/themes/` (measured 2026-09-30): **4.15:1** at worst. WCAG 1.4.11 asks
+**The measurement.** `--destructive` against the theme's own `--background`, over the dark themes in
+`packages/theme/themes/` (measured 2026-10-01): **3.74:1** at worst, `nord-dark`. WCAG 1.4.11 asks
 **3:1** of "the visual information required to identify a control or its state", so the border and
 the ring clear it on the dark side with the base token alone. The override bought no contrast; it
 bought a different hue in one mode only, at the cost of every one of those recipes carrying a mode
 branch the token layer exists to make unnecessary.
 
 **The `text-` half is not the same question, and the same measurement is why it stays.** Text owes
-AA's **4.5** and 4.15 misses it. So `dark:data-invalid:text-destructive-foreground` is doing real
+AA's **4.5** and 3.74 misses it. So `dark:data-invalid:text-destructive-foreground` is doing real
 work on every one of those recipes. [A measurement licenses exactly the divergence it
 measures](/docs/design/references), and here it splits one Shark line into a part that was earning
 its place and a part that was not.
@@ -201,8 +217,8 @@ declared here rather than in `shark-parity.divergences.ts`.
 
 **What would reverse it:** a dark theme whose `--destructive` falls below 3:1 against its own
 `--background`. None does. The light side is a different question the override never answered —
-it was `dark:` only — and three imported light themes do fall below 3:1 there (`lemonade` 1.50,
-`lofi` 2.18, `cyberpunk` 2.65); that is a defect in those themes, not an argument for a mode branch.
+it was `dark:` only — and `lofi`'s pastel fill does fall below 3:1 there; that is a property of that
+theme, not an argument for a mode branch.
 
 *Held by* `packages/ui/src/simples/input.tsx`, `inputVariants`, which carries the measurement and is
 the site the other recipes point at.
@@ -253,7 +269,7 @@ marquee is `color-mix(in oklab, var(--primary) 17%, transparent)` where it is dr
 the core's vocabulary for one consumer is what this refuses; a section token lives in the owner's
 namespace and costs nothing to whoever never installs the package.
 
-**Chart and editor are not sections.** The eight categorical slots with their capacity, and the seven
+**Chart and editor are not sections.** The eight categorical slots with their capacity, and the eight
 syntax hues, are parts of colour rather than peers of it — which is why the count is three rather than
 five.
 

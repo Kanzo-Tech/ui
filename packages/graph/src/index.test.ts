@@ -16,11 +16,14 @@ import * as GRAPH from "./index";
  */
 const VALUES = [
   "GraphCanvas",
+  "GraphCounts",
   "GraphError",
   "GraphInspector",
   "GraphLegend",
+  "GraphLooks",
   "GraphRoot",
   "GraphRootProvider",
+  "GraphSearch",
   "GraphToolbar",
   "ShapeGlyph",
   "lookFrom",
@@ -97,6 +100,9 @@ describe("@kanzo-tech/graph public surface", () => {
     expect(surface.DEFAULT_LOOK).toBeUndefined();
     expect(surface.DEFAULT_SIM).toBeUndefined();
     expect(surface.DEFAULT_LIMIT).toBeUndefined();
+    // The looks are worn through `GraphLooks` and read back through `useGraphPrefs`'s `preset`.
+    expect(surface.PRESETS).toBeUndefined();
+    expect(surface.presetOf).toBeUndefined();
     expect(surface.REHEAT).toBeUndefined();
     expect(surface.GRID).toBeUndefined();
     expect(surface.SPACE).toBeUndefined();
@@ -105,12 +111,11 @@ describe("@kanzo-tech/graph public surface", () => {
   });
 
   it("ships the parts flat, each reading the one context", () => {
-    for (const part of ["GraphCanvas", "GraphLegend", "GraphToolbar", "GraphInspector"]) {
+    for (const part of ["GraphCanvas", "GraphLegend", "GraphCounts", "GraphToolbar", "GraphInspector", "GraphSearch"]) {
       expect(surface[part], part).toBeTypeOf("function");
     }
     expect(surface.GraphSelection).toBeUndefined();
     expect(surface.GraphZoom).toBeUndefined();
-    expect(surface.GraphCounts).toBeUndefined();
   });
 
   it("ships a canvas that owns the renderer, and neither load nor Loaded", () => {
@@ -177,8 +182,11 @@ describe("the parts' props", () => {
     const props = exports.filter((symbol) => symbol.name.endsWith("Props") && !ROOT_PROPS.has(symbol.name));
     expect(props.map((symbol) => symbol.name).sort()).toEqual([
       "GraphCanvasProps",
+      "GraphCountsProps",
       "GraphInspectorProps",
       "GraphLegendProps",
+      "GraphLooksProps",
+      "GraphSearchProps",
       "GraphToolbarProps",
       "ShapeGlyphProps",
     ]);

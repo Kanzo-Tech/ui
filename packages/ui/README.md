@@ -42,6 +42,23 @@ entry:
 | `@kanzo-tech/ui/table` | `@tanstack/react-table` |
 | `@kanzo-tech/ui/analytics` | `@uwdata/vgplot`, `@uwdata/mosaic-*` |
 
+`/analytics` holds two layers over one Mosaic coordinator and one crossfilter: the charts grammar
+(`MosaicProvider`, `ChartRoot`, marks, interactors, inputs, `ChartStat`) and the mini BI kit built
+from it — `Dashboard` with `DashboardFilters`, `DashboardStat`, `ChartCard`, `DetailTable` and
+`FilterChips`, drawn from a relation's `useFieldStats` and a JSON `DashboardSpec` the host saves.
+
+```tsx
+import { Dashboard, MosaicProvider, engine } from "@kanzo-tech/ui/analytics";
+
+const { coordinator } = await engine();
+<MosaicProvider coordinator={coordinator}>
+  <Dashboard table="sightings" value={saved} onChange={save} />
+</MosaicProvider>;
+```
+
+The docs site's Analytics section has the mental model, the spec field by field, a host recipe
+(debounced saves, read-only, custom labels and colours) and the pitfalls.
+
 ## Theming
 
 `KanzoThemeProvider` writes the theme axes as `data-*` attributes on `<html>` — required, because
@@ -50,12 +67,12 @@ SSR flash. Tokens and axes come from `@kanzo-tech/theme`.
 
 ### Preference menus
 
-The editor is a **kit**, not one screen. `PreferencesColor`, `PreferencesDensity`,
+The editor is a **kit**, not one screen. `ThemePicker`, `PreferencesDensity`,
 `PreferencesRadius` and the two font axes are one preference each, wired straight to
 `useKanzoTheme()`; `PreferencesField` / `PreferencesFieldSet` title a section of your own the same
 way; `PreferencesSections` draws whatever the packages a host installed contribute. None of them
-knows what it is mounted on — `PreferencesColor` lays its two cards out under a container query,
-never a window width.
+knows what it is mounted on — `ThemePicker` lays its cards out on a container query, never a
+window width.
 
 `Preferences` (and its `PreferencesRoot` / `Trigger` / `Panel` parts) is one **surface** over that
 kit: a non-modal drawer with a hotkey. A product with a real settings area drops the same sections

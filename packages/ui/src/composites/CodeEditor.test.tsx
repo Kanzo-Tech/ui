@@ -2,7 +2,8 @@ import { EditorView } from "@codemirror/view";
 import { render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { KanzoThemeProvider } from "../theme/KanzoThemeProvider.js";
-import { CodeEditor } from "./CodeEditor.js";
+import { type Tag, tags as t } from "@lezer/highlight";
+import { CodeEditor, kanzoHighlightStyle } from "./CodeEditor.js";
 
 /**
  * **The `darkTheme` facet follows the page, and nothing else in this repository can see that.**
@@ -105,5 +106,41 @@ describe("the editor's dark facet", () => {
     // The compartment is the point: a rebuilt view would lose undo history, scroll and selection on
     // every appearance flip, and the assertion above cannot tell the two apart.
     expect(seen).toHaveLength(1);
+  });
+});
+
+describe("kanzoHighlightStyle", () => {
+  // The tags `@fossil-lang/codemirror-fossil` emits, lexical and semantic. Each must land on a
+  // `--syntax-*` ink: a connection or a binding painted `--faint` reads as disabled.
+  const rule = (tag: Tag) => {
+    const cls = kanzoHighlightStyle.style([tag]) ?? "";
+    return kanzoHighlightStyle.module?.getRules().split("\n").find((r) => cls && r.includes(`.${cls.split(" ")[0]}`)) ?? "";
+  };
+
+  it.each([
+    ["typeName", t.typeName, "--syntax-type"],
+    ["definition(typeName)", t.definition(t.typeName), "--syntax-type"],
+    ["function(variableName)", t.function(t.variableName), "--syntax-function"],
+    ["propertyName", t.propertyName, "--syntax-property"],
+    ["definition(propertyName)", t.definition(t.propertyName), "--syntax-property"],
+    ["attributeName", t.attributeName, "--syntax-property"],
+    ["variableName", t.variableName, "--syntax-variable"],
+    ["definition(variableName)", t.definition(t.variableName), "--syntax-variable"],
+    ["namespace", t.namespace, "--syntax-annotation"],
+    ["special(variableName)", t.special(t.variableName), "--syntax-annotation"],
+    ["keyword", t.keyword, "--syntax-keyword"],
+    ["logicOperator", t.logicOperator, "--syntax-keyword"],
+    ["bool", t.bool, "--syntax-number"],
+    ["null", t.null, "--syntax-number"],
+    ["integer", t.integer, "--syntax-number"],
+    ["float", t.float, "--syntax-number"],
+    ["string", t.string, "--syntax-string"],
+  ] as const)("paints %s with %s", (_name, tag, token) => {
+    expect(rule(tag)).toContain(`var(${token})`);
+  });
+
+  it("weights a binding's declaration above its uses", () => {
+    expect(rule(t.definition(t.variableName))).toContain("font-weight: 500");
+    expect(rule(t.variableName)).not.toContain("font-weight");
   });
 });

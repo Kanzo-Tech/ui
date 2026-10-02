@@ -17,12 +17,14 @@ import {
   compileChartSpec,
   type ChartDirective,
   type ChartFacetOptions,
+  type ChartMarkDirective,
   type ChartMargin,
   type ChartSpecContext,
 } from "./chart-spec.js";
 import { useMosaic } from "./mosaic-provider.js";
 import { resolveTokenColor } from "../lib/token-color.js";
 import { TokenizedPlot } from "./tokenized-plot.js";
+import { DenseStackMark } from "./dense-stack.js";
 
 /**
  * What `vg.plot` returns: its element, carrying the `Plot` as `value`. vgplot's marks are Mosaic
@@ -30,6 +32,11 @@ import { TokenizedPlot } from "./tokenized-plot.js";
  * the plot on its last render — so `ChartRoot` answers it for them.
  */
 type PlotElement = HTMLElement & { value: { marks: { queryError(error: Error): unknown }[] } };
+
+/** An area stacked by a series column (the `z` `chart-marks` derives), which `denseStack` completes. */
+function isStackedArea(directive: ChartMarkDirective): boolean {
+  return (directive.mark === "areaY" || directive.mark === "areaX") && typeof directive.options.z === "string";
+}
 
 /** vgplot ships `any` for every directive; this is the one place we pin a shape to it. */
 type VgDirective = (plot: unknown) => void;
@@ -46,6 +53,11 @@ function toVgDirective(directive: ChartDirective): VgDirective | null {
         directive.source.kind === "values"
           ? [...directive.source.values]
           : vg.from(directive.source.table, directive.source.filterBy ? { filterBy: directive.source.filterBy } : undefined);
+      if (directive.source.kind === "table" && isStackedArea(directive)) {
+        return (plot) => (plot as { addMark: (mark: unknown) => void }).addMark(
+          new DenseStackMark(directive.mark, data, directive.options),
+        );
+      }
       return fn(data, directive.options);
     }
     case "interactor":
