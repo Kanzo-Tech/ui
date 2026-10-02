@@ -54,12 +54,12 @@
     "react-dom": "^19.0.0",
     "rollup-plugin-preserve-directives": "^0.4.0"
   },
-  "//size-limit": "Budgets our code only: `ignore` mirrors the peers the build externalises in vite.config.ts, cosmos.gl included (about 190 kB gzipped on its own, and the consumer pays it once whatever this package does). First measured 2026-09-30 at 19.07 kB, before the lag work of `perf/phase1-lag`; 19.13 kB before the whole-corpus store deleted the tileset, 15.29 kB after it, and the budget follows it down so real growth trips the gate. Raised to 18 kB on 2026-10-01 as a decision: 17.71 kB after GraphCounts, GraphSearch and GraphLooks moved in from the workspace showcase (their code left the host, it did not appear from nowhere) and the drag-to-fix release. Raised to 18.5 kB on 2026-10-02 as a decision (Ángel): 18.01 kB once the layout's square placement and the camera that follows a running layout landed.",
+  "//size-limit": "Budgets our code only: `ignore` mirrors the peers the build externalises in vite.config.ts, cosmos.gl included (about 190 kB gzipped on its own, and the consumer pays it once whatever this package does). First measured 2026-09-30 at 19.07 kB, before the lag work of `perf/phase1-lag`; 19.13 kB before the whole-corpus store deleted the tileset, 15.29 kB after it, and the budget follows it down so real growth trips the gate. Raised to 18 kB on 2026-10-01 as a decision: 17.71 kB after GraphCounts, GraphSearch and GraphLooks moved in from the workspace showcase (their code left the host, it did not appear from nowhere) and the drag-to-fix release. Raised to 18.5 kB on 2026-10-02 as a decision (Ángel): 18.01 kB once the layout's square placement and the camera that follows a running layout landed. Raised to 19 kB on 2026-10-03 as a decision (Ángel): 18.58 kB once GraphSelect moved in from the host (keasy and the workspace showcase drop their copies) and the camera stopped reading positions cosmos.gl had not uploaded.",
   "size-limit": [
     {
       "name": "root barrel (JS)",
       "path": "dist/index.js",
-      "limit": "18.5 kB",
+      "limit": "19 kB",
       "ignore": [
         "react",
         "react-dom",
