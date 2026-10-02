@@ -43,6 +43,11 @@ export interface GraphOptions extends Channels {
  * open; `loading` is the graph, a binding or a filter not yet read or not yet drawn; `idle` is all of
  * it drawn; `failed` is a corpus that would not open or read, or a canvas that could not start a
  * renderer.
+ *
+ * **It is the data's life, not the layout's.** A layout running over a drawn graph is `idle` here and
+ * `running` in `motion`: two axes, because each can move without the other — a filter loads under a
+ * paused layout, and a layout runs over a graph with nothing left to read. A host that shows one word
+ * reads both, `motion === "running"` as "laying out" and `progress` for how far.
  */
 export type GraphStatus = "none" | "opening" | "loading" | "idle" | "failed";
 

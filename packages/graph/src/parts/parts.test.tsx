@@ -85,6 +85,24 @@ describe("GraphCounts", () => {
     expect(document.querySelector('[data-slot="graph-counts"]')?.textContent).toBe("16 of 16 nodes drawn · 19 edges");
     expect(screen.queryByRole("status")).toBeNull();
   });
+
+  it("spins for a running layout without calling the figures busy", async () => {
+    const fake = fakeCorpus();
+    const held: { api: GraphApi | null } = { api: null };
+    render(
+      <GraphRoot corpus={fake.corpus} onFailure={() => {}}>
+        <GraphCounts spinner />
+        <Hold into={held} />
+      </GraphRoot>,
+    );
+    await act(() => fake.settle());
+    if (!held.api) throw new Error("no api");
+    const { store } = internalsOf(held.api);
+    act(() => store.reportDrawn(store.getSnapshot()));
+    act(() => store.report("running"));
+    expect(screen.getByRole("status", { name: "Laying out" })).toBeTruthy();
+    expect(document.querySelector('[data-slot="graph-counts"]')?.getAttribute("aria-busy")).toBeNull();
+  });
 });
 
 describe("GraphToolbar", () => {

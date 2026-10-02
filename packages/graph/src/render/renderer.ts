@@ -5,7 +5,8 @@ import type { GraphCommands, VertexId } from "../core/types";
 import { resolveLook, type Look } from "./graph-looks";
 import { appearance, forces, paint } from "./graph-model";
 import { resolveSim, type Sim } from "./graph-sim";
-import { hasWebGL, releaseContext } from "./webgl";
+import { cornersOf, placed, placementOf, UNPLACED, type Placement } from "./placement";
+import { releaseContext, webglBox } from "./webgl";
 
 export interface RendererEvents {
   /** After every frame and every camera move — where the overlays repaint. */
@@ -30,19 +31,9 @@ const REHEAT = 0.35;
 const RELEASE_BURST = 1200;
 /** Twentieths: a settle costs twenty reports rather than one per frame. */
 const PROGRESS_STEPS = 20;
-
-type Extent = NonNullable<Geometry["extent"]>;
-const corners = (box: Extent) => [box.x, box.y, box.x + box.w, box.y + box.h];
-
-/** The loaded positions, with `NaN` where the page's filter hides a vertex — cosmos.gl draws no such point. */
-function shown(geometry: Geometry, mask: Uint8Array | null): Float32Array {
-  if (!mask) return geometry.positions;
-  const positions = geometry.positions.slice();
-  for (let id = 0; id < geometry.size; id++) {
-    if (!mask[id]) positions[id * 2] = positions[id * 2 + 1] = Number.NaN;
-  }
-  return positions;
-}
+/** How often a running layout re-frames the camera, and how long each re-frame glides. */
+const FOLLOW_EVERY = 900;
+const FOLLOW_DURATION = 700;
 
 /**
  * **cosmos.gl's lifetime, and the frame that renders once.** Built once per element; it subscribes to
@@ -61,7 +52,8 @@ function shown(geometry: Geometry, mask: Uint8Array | null): Float32Array {
  */
 export function createRenderer(host: HTMLDivElement, store: GraphStore, events: RendererEvents = {}): Renderer | null {
   const fail = (message: string) => store.getOptions().onFailure(message);
-  if (!hasWebGL()) {
+  const box = webglBox();
+  if (box === null) {
     fail("This canvas renders on the GPU, and this browser offers no WebGL context.");
     return null;
   }
@@ -85,6 +77,9 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   let frame = 0;
   let destroyed = false;
   let framed: Geometry | null = null;
+  let placement: Placement | null = null;
+  let following = false;
+  let followed = 0;
   let links: Float32Array | null = null;
   let last = store.getSnapshot();
   let lastOptions = store.getOptions();
@@ -95,7 +90,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   try {
     graph = new Graph(host, {
       // No `spaceSize` here: the box is the corpus's extent, set when the graph has loaded.
-      // `rescalePositions: false` because the corpus's coordinates are the camera's.
+      // `rescalePositions: false` because the placement below is ours, and the corpus's own scale.
       rescalePositions: false,
       transitionDuration: 0,
       enableSimulation: live,
@@ -111,14 +106,21 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       onSimulationEnd: () => {
         store.report("settled");
         progress(1);
+        if (following) graph.fitView(FIT_DURATION, FIT_PADDING);
+        following = false;
         events.onFrame?.();
       },
       onSimulationPause: () => store.report("paused"),
       onSimulationUnpause: () => store.report("running"),
       onSimulationTick: (_alpha, index, position) => {
         progress(graph.progress);
+        follow();
         if (index !== undefined && position) events.onHover?.(position);
         events.onFrame?.();
+      },
+      // The reader took the camera: a running layout stops re-framing it until it runs again.
+      onZoomStart: (_event, userDriven) => {
+        if (userDriven) following = false;
       },
       onZoom: () => events.onFrame?.(),
       onPointMouseOver: (index, position) => {
@@ -169,8 +171,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     let changed = false;
     if (dirty.positions && geometry) {
       dirty.positions = false;
-      frameExtent(geometry);
-      graph.setPointPositions(shown(geometry, snapshot.mask), true);
+      graph.setPointPositions(placed(geometry, frameExtent(geometry), snapshot.mask), true);
       if (geometry.links !== links) {
         links = geometry.links;
         graph.setLinks(links);
@@ -204,11 +205,22 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     events.onFrame?.();
   }
 
-  function frameExtent(geometry: Geometry): void {
-    if (geometry === framed || !geometry.extent) return;
+  function frameExtent(geometry: Geometry): Placement {
+    if (geometry === framed) return placement ?? UNPLACED;
+    if (!geometry.extent) return UNPLACED;
     framed = geometry;
-    graph.setConfigPartial({ spaceSize: Math.max(geometry.extent.w, geometry.extent.h) });
-    graph.fitViewByPointPositions(corners(geometry.extent), 0, FIT_PADDING);
+    placement = placementOf(geometry.extent, box as number);
+    graph.setConfigPartial({ spaceSize: placement.side });
+    graph.fitViewByPointPositions(cornersOf(geometry.extent, placement), 0, FIT_PADDING);
+    return placement;
+  }
+
+  /** Cosmograph's fit-on-settle, kept up while the layout runs, so a contracting graph stays in view. */
+  function follow(): void {
+    const now = performance.now();
+    if (!following || now - followed < FOLLOW_EVERY) return;
+    followed = now;
+    graph.fitView(FOLLOW_DURATION, FIT_PADDING);
   }
 
   const unsubscribe = store.subscribe(() => {
@@ -252,6 +264,8 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       live = true;
       graph.setConfigPartial({ enableSimulation: true, ...forces(sim) });
     }
+    following = true;
+    followed = performance.now();
     graph.start(alpha);
   }
 
@@ -298,9 +312,10 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     zoomBy(factor) {
       graph.setZoomLevel(graph.getZoomLevel() * factor, 220);
     },
+    // Once a layout has moved the points the extent is history, so the fit reads where they are.
     fit() {
       const extent = store.getSnapshot().geometry?.extent;
-      if (extent) graph.fitViewByPointPositions(corners(extent), FIT_DURATION, FIT_PADDING);
+      if (extent && placement && !live) graph.fitViewByPointPositions(cornersOf(extent, placement), FIT_DURATION, FIT_PADDING);
       else graph.fitView(FIT_DURATION, FIT_PADDING);
     },
     pause() {

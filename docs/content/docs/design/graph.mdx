@@ -226,7 +226,13 @@ buffer:
   means nothing — d3-force's drag-to-fix. Releasing the pins reheats the layout, so the released
   points visibly flow back: a running layout takes the heat, a settled one cools to settled on its
   own, and a paused one gets a bounded burst and is paused again.
-- **The camera is cosmos.gl's.** A zoom repaints the overlays and reaches no store.
+- **The camera is cosmos.gl's.** A zoom repaints the overlays and reaches no store. While a layout
+  runs, the renderer re-frames the moving points every 900 ms and once more when it settles —
+  Cosmograph's fit-on-settle, kept up so a contracting graph never leaves the screen — until the
+  reader zooms or pans, which hands the camera back until the next run. Once a layout has moved the
+  points, Fit frames where they are rather than the extent they came from.
+- **`status` is the data's life and `motion` the layout's.** A running layout over a drawn graph is
+  `idle` and `running`: each moves without the other, so neither word absorbs the other.
 
 **What would reverse it:** cosmos.gl gaining a sub-range upload, so a filter could upload only what
 it hid; or a picture that needs a transition to be read, measured against the frames it costs.
@@ -365,19 +371,26 @@ The package declares no coordinate-space constant. The renderer is built with no
 `rescalePositions: false`, and the first upload sets `spaceSize` from the larger side of the loaded
 positions' extent, which the loader computes in the pass that reads them. The box belongs to
 whatever wrote the positions; a number here would be this side stating a fact the other side owns.
-In every cosmos.gl 3.4 render path `spaceSize` is a translation, so a wrong one is invisible, which
-is why it is a guard and not a screenshot.
 
-**Two cases do not fit.** cosmos.gl's zoom floor is `1e-3`, and framing a five-million-vertex extent
-at 800×600 wants 0.000151, so only part of it fits on screen. And cosmos.gl reduces the box to half the
-device's `maxTextureDimension2D` when it meets that limit, with a console warning that is left
-visible rather than clamped on this side.
+**The extent is centred in that square on upload, at its own scale.** Drawing is
+translation-invariant, but the layout is not: cosmos.gl's gravity pulls toward `spaceSize / 2` and
+its many-body force bins points on a grid over `[0, spaceSize]²`. An extent uploaded where it was —
+a fossil layout starts near the origin, so its centre is nowhere near the square's — contracted
+toward a corner the moment a layout ran, and lost its far side off the grid. The placement is a
+translation, plus a scale only past half the device's `MAX_TEXTURE_SIZE`, where cosmos.gl would shrink
+the square under the positions anyway; `render/placement.ts` owns it, and the camera frames the
+placed corners.
 
-**What would reverse it:** cosmos.gl making `spaceSize` init-only, or a render path where the box
-stops being a translation.
+**One case does not fit.** cosmos.gl's zoom floor is `1e-3`, and framing a five-million-vertex extent
+at 800×600 wants 0.000151, so only part of it fits on screen.
+
+**What would reverse it:** cosmos.gl making `spaceSize` init-only, or a simulation whose centre is a
+parameter rather than the square's middle — then the placement is a config value and not an upload.
 
 *Held by* `packages/graph/src/coordinate-box.test.ts`, "declares no coordinate-space constant of its
 own", "never writes a number where cosmos.gl asks what the space is";
+`packages/graph/src/render/renderer.test.ts`, "centres the corpus's extent in it, at the corpus's own
+scale", "scales the extent down only past the box the device simulates in";
 `packages/graph/src/render/renderer.test.ts`, "frames the corpus's extent before it draws anything,
 and only once".
 

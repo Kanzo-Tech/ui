@@ -4,7 +4,7 @@ import { cn, FormatNumber, Show, Spinner } from "@kanzo-tech/ui";
 import { useGraphState } from "../react/use-graph-state";
 
 export interface GraphCountsProps extends React.ComponentProps<"p"> {
-  /** Draws a spinner while the corpus opens or the graph loads — for a host with no status of its own beside it. */
+  /** Draws a spinner while the corpus opens, the graph loads or a layout runs — for a host with no status of its own beside it. */
   spinner?: boolean;
 }
 
@@ -19,12 +19,16 @@ function Count({ value }: { value: number | null | undefined }) {
  * shrinks with the page's filter and `total` is the manifest's, so the sentence is the filter's
  * effect; an edge counts when both its ends are drawn. A figure not yet known is "—", and the
  * numbers are compact in the nearest `LocaleProvider`'s locale.
+ *
+ * `aria-busy` follows `status`, because only a load changes these figures; a running layout moves
+ * the points and not the counts, so it reaches the spinner alone, named "Laying out".
  */
 export function GraphCounts({ className, slot, spinner = false, ...rest }: GraphCountsProps) {
   const vertices = useGraphState((s) => s.drawn?.vertices);
   const edges = useGraphState((s) => s.drawn?.edges);
   const total = useGraphState((s) => s.total);
   const busy = useGraphState((s) => s.status === "opening" || s.status === "loading");
+  const laying = useGraphState((s) => s.motion === "running");
 
   return (
     <p
@@ -33,8 +37,8 @@ export function GraphCounts({ className, slot, spinner = false, ...rest }: Graph
       className={cn("flex items-center gap-1.5 text-muted-foreground text-xs tabular-nums", className)}
       data-slot={slot ?? "graph-counts"}
     >
-      <Show when={spinner && busy}>
-        <Spinner className="size-3" />
+      <Show when={spinner && (busy || laying)}>
+        <Spinner aria-label={busy ? "Loading" : "Laying out"} className="size-3" />
       </Show>
       <span>
         <Count value={vertices} /> of <Count value={total} /> nodes drawn · <Count value={edges} /> edges

@@ -88,7 +88,9 @@ api above the parts:
 
 The count in the corner is a part: it selects `drawn` — the vertices on the canvas, which a filter
 shrinks — `total`, the manifest's vertex count, which it does not, and `status`, which is `opening`,
-`loading` or `idle` once the whole graph is drawn.
+`loading` or `idle` once the whole graph is drawn. **`status` is the data's, not the layout's**: a
+layout running over a drawn graph is `idle` with `motion: "running"` and `progress` climbing, so a
+footer that says "laying out" reads `motion`.
 
 ### `GraphToolbar`
 
@@ -96,7 +98,8 @@ shrinks — `total`, the manifest's vertex count, which it does not, and `status
 
 The commands, drawn: the selection tools, the selection and what to do with it, zoom and fit, and the
 layout's transport. The graph loads at the corpus's positions with no layout running; play runs the
-force layout from where the points are, and pause leaves them there. Dragging a node while a layout
+force layout from where the points are, and pause leaves them there. While it runs the camera
+follows the points and frames them when they settle, until you zoom or pan yourself. Dragging a node while a layout
 runs pins it where it is dropped, and the toolbar then offers to release the pins, which reheats the
 layout so the released nodes flow back; with no layout running a drag only moves the node. Each cluster is a `ButtonGroup`, because a cluster is
 a claim that its buttons do one job. Pick a tool and drag a box; Shift borrows the marquee whichever
@@ -125,8 +128,8 @@ What is drawn of the whole, in one sentence: **"1.2K of 5K nodes drawn · 8K edg
 figure shrinks with the page's filter and the second is the manifest's, so the sentence is the
 filter's effect; an edge counts when both its ends are drawn. A figure not yet known is "—", and the
 numbers are compact in the nearest `LocaleProvider`'s locale. `spinner` draws progress beside it
-while the corpus opens or the graph loads, for a host with no status of its own; `aria-busy` is set
-either way. It is the legend's old last line, a part of its own so a footer can carry it.
+while the corpus opens, the graph loads or a layout runs, for a host with no status of its own;
+`aria-busy` follows the load alone, since a layout moves the points and not the figures. It is the legend's old last line, a part of its own so a footer can carry it.
 
 ### `GraphInspector`
 
