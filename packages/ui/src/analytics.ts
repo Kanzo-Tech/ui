@@ -5,7 +5,7 @@
 // read the same relation. The components stay `Chart*`: those are charts.
 //
 // Kept off the root barrel so the base bundle never carries the DuckDB/Mosaic analytics stack.
-// `@uwdata/vgplot`, `@uwdata/mosaic-core` and `@uwdata/mosaic-sql` are **optional peer
+// `@uwdata/vgplot`, `@uwdata/mosaic-plot`, `@uwdata/mosaic-core` and `@uwdata/mosaic-sql` are **optional peer
 // dependencies**; DuckDB-WASM arrives with `@kanzo-tech/mosaic`, whose `engine()` is re-exported here.
 // No chart instantiates a Coordinator: the consumer takes one (in a `"use client"` island) and passes
 // it to `MosaicProvider`, which is what keeps DuckDB-WASM out of every Server Component.
@@ -112,7 +112,7 @@ export { ChartCard } from "./charts/chart-card.js";
 export type { ChartCardProps } from "./charts/chart-card.js";
 export { DetailTable } from "./charts/detail-table.js";
 export type { DetailTableProps } from "./charts/detail-table.js";
-export { autoDashboard } from "./charts/dashboard-spec.js";
+export { autoDashboard, plotRelation } from "./charts/dashboard-spec.js";
 export type {
   DashboardSpec, DashboardCardSpec, DashboardStatSpec, DashboardFilterSpec, DashboardMeasure,
   DashboardChartType, DashboardAggregate,

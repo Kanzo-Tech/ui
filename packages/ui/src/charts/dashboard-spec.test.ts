@@ -131,11 +131,13 @@ describe("plotRelation", () => {
   const columns = ["dense_id", "creationDate", "x", "y", "browser"];
 
   it("reads the relation itself when no column is named like a channel", () => {
-    expect(plotRelation("comments", ["creationDate", "browser"])).toBe("comments");
+    expect(plotRelation("comments", { fields: [], columns: ["creationDate", "browser"] }).table).toBe("comments");
   });
 
   it("projects the channel-named columns away, so a mark's alias can only mean the alias", () => {
-    const relation = plotRelation(verbatim('"jobs/7"."Comment"'), columns);
+    const fields = [F("x", "numeric", "measure", 900), F("creationDate", "temporal", "dimension", 900)];
+    const { table: relation, fields: kept } = plotRelation(verbatim('"jobs/7"."Comment"'), { fields, columns });
+    expect(kept.map((f) => f.name)).toEqual(["creationDate"]);
     expect(String(relation)).toBe('SELECT "dense_id", "creationDate", "browser" FROM "jobs/7"."Comment"');
     const mark = Query.from({ source: relation }).select({ x: "creationDate", y: count() }).groupby("x");
     expect(String(mark)).toContain('FROM (SELECT "dense_id", "creationDate", "browser" FROM "jobs/7"."Comment") AS "source"');

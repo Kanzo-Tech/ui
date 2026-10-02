@@ -51,6 +51,7 @@
     "@lezer/highlight": ">=1",
     "@tanstack/react-table": ">=8",
     "@uwdata/mosaic-core": "^0.29.2",
+    "@uwdata/mosaic-plot": "^0.29.2",
     "@uwdata/mosaic-sql": "^0.29.0",
     "@uwdata/vgplot": "^0.29.2",
     "lucide-react": ">=1",
@@ -69,6 +70,9 @@
       "optional": true
     },
     "@uwdata/mosaic-sql": {
+      "optional": true
+    },
+    "@uwdata/mosaic-plot": {
       "optional": true
     },
     "@codemirror/autocomplete": {
@@ -119,6 +123,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@uwdata/mosaic-core": "^0.29.2",
+    "@uwdata/mosaic-plot": "^0.29.2",
     "@uwdata/mosaic-sql": "^0.29.0",
     "@uwdata/vgplot": "^0.29.2",
     "jsdom": "^29.1.1",
@@ -169,6 +174,7 @@
         "@uwdata/vgplot",
         "@uwdata/mosaic-core",
         "@uwdata/mosaic-sql",
+        "@uwdata/mosaic-plot",
         "@duckdb/duckdb-wasm"
       ]
     },

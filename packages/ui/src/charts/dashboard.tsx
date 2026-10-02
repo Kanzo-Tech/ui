@@ -19,7 +19,6 @@ import {
   autoDashboard,
   cardFor,
   plotRelation,
-  PLOT_CHANNELS,
   type DashboardCardSpec,
   type DashboardSpec,
 } from "./dashboard-spec.js";
@@ -58,7 +57,7 @@ export function Dashboard(props: DashboardProps) {
   const readable = useMemo(
     () =>
       fields && columns
-        ? { table: plotRelation(table, columns), fields: fields.filter((f) => !PLOT_CHANNELS.has(f.name)) }
+        ? plotRelation(table, { fields, columns })
         : null,
     // `chartTableKey` stands in for the identity of `table`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -66,7 +65,7 @@ export function Dashboard(props: DashboardProps) {
   );
 
   return (
-    <ark.div className={cn("flex flex-col gap-4", className)} {...rest} data-slot={slot ?? "dashboard"}>
+    <ark.div className={cn("@container/dashboard flex flex-col gap-4", className)} {...rest} data-slot={slot ?? "dashboard"}>
       {error !== null ? (
         <Alert variant="destructive">
           <AlertTitle>The relation could not be summarized</AlertTitle>
@@ -186,7 +185,7 @@ function Board({
       ) : null}
 
       {spec.cards.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" data-slot="dashboard-cards">
+        <div className="grid gap-4 @3xl/dashboard:grid-cols-2 @6xl/dashboard:grid-cols-3" data-slot="dashboard-cards">
           {spec.cards.map((card, index) => (
             <ChartCard
               card={card}
@@ -230,8 +229,8 @@ function DashboardSkeleton() {
           <Skeleton className="h-24 w-full rounded-lg" key={i} />
         ))}
       </div>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <Skeleton className="h-72 w-full rounded-lg md:col-span-2" />
+      <div className="grid gap-4 @3xl/dashboard:grid-cols-2 @6xl/dashboard:grid-cols-3">
+        <Skeleton className="h-72 w-full rounded-lg @3xl/dashboard:col-span-2" />
         <Skeleton className="h-72 w-full rounded-lg" />
       </div>
     </>

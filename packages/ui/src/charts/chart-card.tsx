@@ -58,7 +58,13 @@ export interface ChartCardProps extends Omit<React.ComponentProps<typeof Card>, 
   onMove?: (offset: -1 | 1) => void;
 }
 
-const SPAN = { 1: "", 2: "md:col-span-2", 3: "md:col-span-2 xl:col-span-3" } as const;
+// Container queries on `Dashboard`'s own width, not the viewport's: beside a dock or in a pane the
+// grid is narrower than the screen, and the screen is the wrong thing to measure.
+const SPAN = {
+  1: "",
+  2: "@3xl/dashboard:col-span-2",
+  3: "@3xl/dashboard:col-span-2 @6xl/dashboard:col-span-3",
+} as const;
 
 const TYPE: Record<DashboardChartType, { label: string; icon: typeof ChartLineIcon; hint: string }> = {
   bar: { label: "Bar", icon: ChartBarBigIcon, hint: "click a bar to filter" },

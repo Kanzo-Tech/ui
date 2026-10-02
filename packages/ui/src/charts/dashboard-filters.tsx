@@ -57,7 +57,7 @@ export function DashboardFilters(props: DashboardFiltersProps) {
   return (
     <ark.section
       aria-label="Filters"
-      className={cn("rounded-lg border bg-card", className)}
+      className={cn("@container/dashboard-filters rounded-lg border bg-card", className)}
       {...rest}
       data-slot={slot ?? "dashboard-filters"}
     >
@@ -67,7 +67,7 @@ export function DashboardFilters(props: DashboardFiltersProps) {
         </FilterCell>
       ))}
       {controls.length > 0 || (onChange && addable.length > 0) ? (
-        <div className="grid items-end gap-x-4 gap-y-3 border-b p-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid items-end gap-x-4 gap-y-3 border-b p-3 @xl/dashboard-filters:grid-cols-2 @4xl/dashboard-filters:grid-cols-4">
           {controls.map(({ field, control }) => (
             <FilterCell key={field.name} label={field.name} onRemove={remove}>
               <Control control={control} field={field} table={table} />
@@ -148,7 +148,17 @@ function Control({
   // The controls' own labels are off: the cell carries them, and a repeat reads as a stutter.
   if (control === "filter") return <ChartFilter column={field.name} label="Any" size="sm" table={table} />;
   if (control === "search") {
-    return <ChartSearch className="w-full" column={field.name} placeholder="Search…" size="sm" table={table} />;
+    return (
+      // `min-w-0` on both: the search's own `min-w-48` would hold a narrow cell open past its edge.
+      <ChartSearch
+        className="w-full min-w-0"
+        column={field.name}
+        controlClassName="w-full min-w-0"
+        placeholder="Search…"
+        size="sm"
+        table={table}
+      />
+    );
   }
   // `h-7` is the `sm` control height; without it the 8px track sits lower than its neighbours.
   return (

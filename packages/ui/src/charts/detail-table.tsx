@@ -62,7 +62,7 @@ export function DetailTable(props: DetailTableProps) {
     },
   });
   const n = Number(total.row?.n ?? 0);
-  const kinds = new Map(fields.map((f) => [f.name, f.kind]));
+  const byName = new Map(fields.map((f) => [f.name, f]));
 
   const cycle = (column: string) =>
     setSort((current) =>
@@ -75,7 +75,7 @@ export function DetailTable(props: DetailTableProps) {
         <TableHeader>
           <TableRow>
             {shown.map((column) => {
-              const numeric = kinds.get(column) === "numeric";
+              const numeric = byName.get(column)?.kind === "numeric";
               const Icon = sort?.column !== column ? ChevronsUpDownIcon : sort.desc ? ArrowDownIcon : ArrowUpIcon;
               return (
                 <TableHead
@@ -115,10 +115,10 @@ export function DetailTable(props: DetailTableProps) {
               <TableRow key={page * pageSize + i}>
                 {shown.map((column) => (
                   <TableCell
-                    className={cn(kinds.get(column) === "numeric" && "text-end tabular-nums", "max-w-64 truncate")}
+                    className={cn(byName.get(column)?.kind === "numeric" && "text-end tabular-nums", "max-w-64 truncate")}
                     key={column}
                   >
-                    <Cell kind={kinds.get(column)} value={row[column]} />
+                    <Cell field={byName.get(column)} value={row[column]} />
                   </TableCell>
                 ))}
               </TableRow>
@@ -173,12 +173,25 @@ export function DetailTable(props: DetailTableProps) {
   );
 }
 
-function Cell({ kind, value }: { kind: FieldStat["kind"] | undefined; value: unknown }) {
+/**
+ * A time as its column's type says: a `DATE` is a day, a `TIME` a time of day, a `TIMESTAMP` a wall
+ * clock reading and a `TIMESTAMPTZ` an instant. Arrow carries the first and third as milliseconds
+ * from the epoch in UTC with no zone, so they are read in UTC — a `DATE` read in the viewer's zone
+ * is the day before for everyone west of Greenwich. Only an instant is shown in the viewer's zone.
+ */
+export function formatTemporal(type: string, value: unknown): string {
+  const upper = type.toUpperCase();
+  if (upper.startsWith("TIME") && !upper.startsWith("TIMESTAMP")) return String(value);
+  const date = value instanceof Date ? value : new Date(typeof value === "bigint" ? Number(value) : (value as number));
+  if (Number.isNaN(date.getTime())) return String(value);
+  if (upper === "DATE") return date.toLocaleDateString(undefined, { timeZone: "UTC" });
+  const instant = upper === "TIMESTAMPTZ" || upper.includes("WITH TIME ZONE");
+  return date.toLocaleString(undefined, instant ? undefined : { timeZone: "UTC" });
+}
+
+function Cell({ field, value }: { field: FieldStat | undefined; value: unknown }) {
   if (value == null) return <span className="text-muted-foreground">—</span>;
-  if (kind === "numeric") return <>{Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}</>;
-  if (kind === "temporal") {
-    const date = value instanceof Date ? value : new Date(typeof value === "bigint" ? Number(value) : (value as number));
-    return <>{Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString()}</>;
-  }
+  if (field?.kind === "numeric") return <>{Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}</>;
+  if (field?.kind === "temporal") return <>{formatTemporal(field.type, value)}</>;
   return <>{String(value)}</>;
 }

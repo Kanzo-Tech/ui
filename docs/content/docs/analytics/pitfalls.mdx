@@ -57,18 +57,17 @@ keeps (`dense_id`), never on a coordinate; and if a channel-named column is *dat
 rename it in the relation you hand over (`SELECT x AS x_position, …`).
 
 **Composing the parts yourself.** The projection is `Dashboard`'s, not the parts'. A host that places
-`ChartCard` or `DashboardStat` directly over such a relation does the same thing with the builder this
-subpath exports, and leaves those columns out of `fields`:
+`ChartCard` or `DashboardStat` directly over such a relation asks `plotRelation` for the same pair —
+the relation without the channel-named columns, and the fields without them — and hands the parts
+those:
 
 ```tsx
-const CHANNELS = new Set(["x", "y", "x1", "x2", "y1", "y2", "fx", "fy", "z", "fill", "stroke"]);
-
-const { fields, columns } = useFieldStats(table);
+const stats = useFieldStats(table);
 const readable = useMemo(
-  () => columns && Query.from(table).select(...columns.filter((c) => !CHANNELS.has(c))),
-  [columns, table],
+  () => (stats.fields && stats.columns ? plotRelation(table, { fields: stats.fields, columns: stats.columns }) : null),
+  [stats.fields, stats.columns, table],
 );
-const usable = fields?.filter((f) => !CHANNELS.has(f.name));
+// <ChartCard table={readable.table} fields={readable.fields} card={card} />
 ```
 
 ## A tip on picking bars swallows the pick

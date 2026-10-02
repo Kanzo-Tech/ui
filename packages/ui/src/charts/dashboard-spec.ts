@@ -95,18 +95,26 @@ export interface DashboardSpec {
  * that has a column `x` (a layout's coordinates, say) the group key silently becomes that column and
  * the query is a binder error.
  */
-export const PLOT_CHANNELS: ReadonlySet<string> = new Set([
+const PLOT_CHANNELS: ReadonlySet<string> = new Set([
   "x", "y", "x1", "x2", "y1", "y2", "fx", "fy", "z", "fill", "stroke",
 ]);
 
 /**
- * The relation as the plots read it: itself, or — when it has a column named like a channel — a
- * projection without those columns, so an alias can only ever mean the alias. A clause naming one
- * of them cannot apply to the plots, which is why `Dashboard` never offers them as fields.
+ * The relation and fields as the plots can read them: the relation itself, or — when it has a column
+ * named like a channel — a projection without those columns, so an alias can only ever mean the
+ * alias; and the fields without them. A clause naming one of those columns cannot apply to the
+ * plots. `Dashboard` does this itself; a host composing the parts over its own relation calls it with
+ * `useFieldStats`' answer and hands the parts what it returns.
  */
-export function plotRelation(table: TableExpr, columns: readonly string[]): TableExpr {
-  const kept = columns.filter((column) => !PLOT_CHANNELS.has(column));
-  return kept.length === columns.length ? table : Query.from(table).select(...kept);
+export function plotRelation(
+  table: TableExpr,
+  stats: { readonly fields: readonly FieldStat[]; readonly columns: readonly string[] },
+): { table: TableExpr; fields: FieldStat[] } {
+  const kept = stats.columns.filter((column) => !PLOT_CHANNELS.has(column));
+  return {
+    table: kept.length === stats.columns.length ? table : Query.from(table).select(...kept),
+    fields: stats.fields.filter((field) => !PLOT_CHANNELS.has(field.name)),
+  };
 }
 
 // ── Measures ─────────────────────────────────────────────────────────────────

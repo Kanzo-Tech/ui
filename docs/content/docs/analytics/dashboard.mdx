@@ -205,6 +205,14 @@ compared by value, so an inline array is fine. `error` is the thrown value, whol
 `queryFieldStats(coordinator, table, options)` is the same read as a promise resolving to
 `{ fields, columns }`, for a host outside React or one that needs the fields before it renders.
 
+### plotRelation
+
+`plotRelation(table, { fields, columns })` returns `{ table, fields }` as the plots can read them:
+the relation itself, or a projection without the columns named like a plot channel, and the fields
+without those. `Dashboard` calls it on its own summary; a host placing the parts over a relation
+with a layout's `x`/`y` calls it on `useFieldStats`' answer and hands the parts both halves —
+[why](/docs/analytics/pitfalls#columns-named-like-a-channel).
+
 `exclude` is for the host's bookkeeping — a key, an internal identity, a layout's coordinates under
 names that are not channels. An excluded column is still in the relation (a clause on it still
 applies); it is just never offered as a field.

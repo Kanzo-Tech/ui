@@ -15,10 +15,10 @@ axis (`hour`) and a series (`verdict`).
 
 <Callout type="warn">
 Everything here imports from `@kanzo-tech/ui/analytics`, not the root barrel, and that subpath
-needs three **optional peers** installed alongside the library:
+needs four **optional peers** installed alongside the library:
 
 ```bash
-pnpm add @uwdata/vgplot @uwdata/mosaic-core @uwdata/mosaic-sql
+pnpm add @uwdata/vgplot @uwdata/mosaic-plot @uwdata/mosaic-core @uwdata/mosaic-sql
 ```
 
 You also bring the coordinator, usually `engine()`'s — see [Charts](/docs/analytics/charts#the-pages-one-engine).
@@ -35,6 +35,10 @@ its scale, which is the difference between hiding the ticks and losing the layou
 
 Map `fill` to a column and the areas stack by it — the same rule that stacks bars. `curve` is one
 of the mark options that passes through untouched, so the shape is Observable Plot's.
+
+A stacked `ChartAreaY` / `ChartAreaX` read from a table also completes its grid: a series with no
+row at some step is drawn there as zero rather than dropped, because Plot stacks what it is given
+and a missing group would lower every layer above it at that step, leaving the area jagged.
 
 <ComponentPreview componentName="charts" fileName="gallery-area-stacked" />
 
