@@ -129,6 +129,38 @@ describe("engine", () => {
     expect(sql.slice(before)).toEqual(["SELECT 1 AS one", "SELECT 1 AS one"]);
   });
 
+  // A hidden tab never fires `requestAnimationFrame`, and the coordinator batches every Arrow request
+  // behind one: fossil's attach hung there with no error. The host's door must not wait for a frame,
+  // and the charts' batching must stay as it is.
+  it("answers in a tab that paints no frames, while the charts' queries still wait for one", async () => {
+    const frames: FrameRequestCallback[] = [];
+    const scope = globalThis as { requestAnimationFrame?: (callback: FrameRequestCallback) => number };
+    scope.requestAnimationFrame = (callback) => frames.push(callback);
+    try {
+      const e = await engine();
+      const answered = await e.query("SELECT 1 AS one", { signal: new AbortController().signal });
+      expect(answered.getChild("one")?.toArray()).toEqual(Int32Array.of(1));
+
+      const settled = vi.fn();
+      const chart = e.coordinator.query("SELECT 2 AS one").then(settled);
+      await new Promise((next) => setTimeout(next, 10));
+      expect(settled).not.toHaveBeenCalled();
+      expect(frames.length).toBeGreaterThan(0);
+      for (const frame of frames.splice(0)) frame(0);
+      await chart;
+      expect(settled).toHaveBeenCalledOnce();
+    } finally {
+      delete scope.requestAnimationFrame;
+    }
+  });
+
+  it("hands a refused statement's own error back, not a wrapper", async () => {
+    const e = await engine();
+    const refused = new Error("Catalog Error: Table with name nowhere does not exist");
+    connector.query.mockRejectedValueOnce(refused);
+    await expect(e.query("SELECT * FROM nowhere", { signal: new AbortController().signal })).rejects.toBe(refused);
+  });
+
   it("rejects an aborted wait with the signal's reason, and the queue goes on", async () => {
     const e = await engine();
     const controller = new AbortController();
