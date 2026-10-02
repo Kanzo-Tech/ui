@@ -34,7 +34,7 @@ so one host registry keys all three. One class per package, named for it.
 | `graph/context-lost` | `GraphError` | the browser took the WebGL context back | — |
 | `graph/nothing-to-draw` | `GraphError` | a corpus with no vertex type that has a position | — |
 | `graph/untranslatable-filter` | `GraphError` | a crossfilter clause the corpus cannot be asked | — |
-| `ai/silent` | `AiError` | a stream sent nothing for 30 s | `after` |
+| `ai/silent` | `AiError`, from `@kanzo-tech/llm` | a model behind `createGateway` sent nothing for 30 s — no headers, or no chunk since the last | `after` |
 | `session/*`, `idp/*`, `callback/*`, `token/*`, `organization/*`, `claims/*` | `AuthError` | see [the auth layer](/docs/design/auth) | `after`, `status` where named |
 
 **What would reverse it:** a code a host never branches on. Then it folds into its neighbour; the
@@ -50,5 +50,38 @@ table yet. Work inside the process — a query, a layout — has a signal and no
 **What would reverse it:** a device that legitimately takes longer than 10 s to come up, measured.
 
 *Held by* `packages/mosaic/src/engine-boot.test.ts`, "rejects with data.after when the worker never
-answers within the 60 s deadline"; `packages/ai/src/engine.test.ts`, "ends a stream that sends
-nothing for 30 s as ai/silent, and not a millisecond before".
+answers within the 60 s deadline".
+
+## A model's silence is bounded once, by the door that makes the request
+
+`createGateway` owns the request to the model, so it owns the wait: a streaming request's headers are
+due within 30 s and each chunk of its body within 30 s of the last, and past that the request is
+aborted and the caller sees `ai/silent`. Nothing above it bounds the same wait again — not `Assist`,
+not `Chat`, not a host. A second bound on one wait is two parties racing to name one failure, and the
+one that wins is whichever timer was armed first.
+
+The figure is fossil's for a stream's next chunk. Three things follow from where it sits:
+
+- **Silence is the network's, not the model's thinking.** A model reasoning inside `<think>` is still
+  sending chunks; only a stream that sends nothing is cut. A bound above the SDK would count only
+  the text it yields and cut a model mid-thought.
+- **A request that does not stream is not bounded.** Its headers wait on the whole answer, which is
+  work on the far side: there is no silence to tell apart from it. The caller's signal is its end.
+- **The library's own asks are made once.** `Assist` passes `maxRetries: 0`, so a gateway's 504 is
+  the failure it shows, with the gateway's code, on the first attempt. The SDK's default is two
+  retries with backoff: a gateway that gives up after its own 30 s was asked three times and
+  surfaced some 96 s later, as a `RetryError` with the 504 inside it.
+
+A model that does not come from `createGateway` — a mock, a host's own provider — has no bound here.
+That is the price of one layer, and it is paid by whoever skips the door.
+
+**What would reverse it:** a host that must bound a model stream differently from every other — a
+longer idle for a model measured to pause past 30 s mid-answer. Then the figure becomes a
+`GatewaySettings` field, still on the one door. A silence the fetch cannot see — a stream that keeps
+sending bytes and never a token — would put a second bound above the SDK, and it has not been seen.
+
+*Held by* `packages/llm/src/gateway.test.ts`, "ends a stream whose headers do not come within 30 s
+as ai/silent, and not a millisecond before", "ends a stream that stops sending mid-way, 30 s after
+its last chunk", "does not cut a request that does not stream, whose headers wait on the whole
+answer"; `packages/ai/src/assist.test.tsx`, "asks once: a gateway's 504 is the failure, not a retry
+after it".

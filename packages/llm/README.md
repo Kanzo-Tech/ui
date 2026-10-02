@@ -24,7 +24,9 @@ import { ToolLoopAgent, DirectChatTransport, tool, Output, streamText } from "@k
   `/api/v1/ai` — and a relative one is resolved against the page. Two things a host would otherwise
   repeat happen here: a model that reasons inline in `<think>…</think>` (Hermes, DeepSeek, Qwen)
   gets that lifted into the SDK's `reasoning` part, and structured output is on, so `Output.array`
-  asks the gateway for a JSON schema rather than prose to parse.
+  asks the gateway for a JSON schema rather than prose to parse. And a streaming request that sends
+  nothing for 30 s — no headers, or no chunk since the last — is aborted and fails as an `AiError`
+  coded `ai/silent`.
 - **Re-exports** of the AI SDK surface a host needs — the agent, the transport, `tool`, `Output`,
   `streamText`, and the message and part types — so a host never imports `ai` itself.
   `@ai-sdk/openai-compatible` is not among them: `createGateway` is the only way to a model.

@@ -83,8 +83,9 @@ export interface AssistProviderProps {
   /** Each proposal's life — shown, accepted, partly accepted, rejected, ignored. */
   onEvent?: (event: AssistEvent) => void;
   /**
-   * Called with what the model's stream threw, whole, when a field's ask fails — including an
-   * `AiError` coded `ai/silent` when it sent nothing for 30 s. The field also says so under itself.
+   * Called with what the model's stream threw, whole, when a field's ask fails — on the first
+   * attempt, never retried. A model from `createGateway` that goes silent arrives as its `AiError`
+   * coded `ai/silent`. The field also says so under itself.
    */
   onFailure?: (error: unknown) => void;
   translations?: Partial<AssistTranslations>;

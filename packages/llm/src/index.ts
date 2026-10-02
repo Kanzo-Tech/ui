@@ -27,5 +27,5 @@ export {
   type UIMessage,
 } from "ai";
 
-/** Ours: the one door to a model. */
-export { createGateway, type Gateway, type GatewaySettings } from "./gateway.js";
+/** Ours: the one door to a model, and the failure it names. */
+export { AiError, createGateway, type Gateway, type GatewaySettings } from "./gateway.js";

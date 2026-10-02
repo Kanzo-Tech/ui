@@ -8,7 +8,6 @@
 
 export { AssistProvider, Assist } from "./assist.js";
 export type { AssistProviderProps, AssistProps, AssistTranslations } from "./assist.js";
-export { AiError } from "./engine.js";
 export type { AssistEvent, Proposal } from "./engine.js";
 
 export { Chat } from "./chat.js";

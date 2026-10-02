@@ -35,55 +35,6 @@ export interface AssistEvent {
 /** Where a request has got to. Internal: no surface exposes it, they draw from it. */
 export type Status = "idle" | "loading" | "ready" | "error";
 
-/** How long a stream may go without sending anything, the first chunk included. */
-const SILENT_AFTER = 30_000;
-
-/** The one failure this package names: the model stopped sending without closing the stream. */
-export class AiError extends Error {
-  override readonly name = "AiError";
-  constructor(
-    readonly code: "ai/silent",
-    message: string,
-    readonly data: { readonly after?: number } = {},
-    options?: ErrorOptions,
-  ) {
-    super(message, options);
-  }
-}
-
-/**
- * `pending`, unless `c` aborts first or nothing arrives within {@link SILENT_AFTER} — then `c` is
- * aborted with an `ai/silent` `AiError`, which this rejects with.
- */
-function heard<T>(pending: Promise<T>, c: AbortController): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const settle = () => {
-      clearTimeout(timer);
-      c.signal.removeEventListener("abort", aborted);
-    };
-    const aborted = () => {
-      settle();
-      reject(c.signal.reason);
-    };
-    const timer = setTimeout(
-      () => c.abort(new AiError("ai/silent", `The model sent nothing for ${SILENT_AFTER} ms`, { after: SILENT_AFTER })),
-      SILENT_AFTER,
-    );
-    if (c.signal.aborted) return aborted();
-    c.signal.addEventListener("abort", aborted);
-    pending.then(
-      (value) => {
-        settle();
-        resolve(value);
-      },
-      (e: unknown) => {
-        settle();
-        reject(e);
-      },
-    );
-  });
-}
-
 // ── The engine ───────────────────────────────────────────────────────────────
 
 /**
@@ -117,7 +68,7 @@ export function useStream<T>() {
         try {
           const it = src(c.signal)[Symbol.asyncIterator]();
           for (;;) {
-            const res = await heard(it.next(), c);
+            const res = await it.next();
             if (c.signal.aborted) return "idle";
             if (res.done) break;
             if (each(res.value) === false) {
@@ -126,8 +77,8 @@ export function useStream<T>() {
             }
           }
         } catch (e) {
-          // A cancellation is not a failure to report — the caller asked for it. Silence is.
-          if (c.signal.aborted && !(c.signal.reason instanceof AiError)) return "idle";
+          // A cancellation is not a failure to report — the caller asked for it.
+          if (c.signal.aborted) return "idle";
           if (!c.signal.aborted) c.abort();
           set("error", e);
           return "error";

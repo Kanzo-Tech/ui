@@ -55,6 +55,11 @@ interface GatewaySettings {
 }
 
 type Gateway = (alias: string) => LanguageModel;
+
+class AiError extends Error {
+  code: "ai/silent";
+  data: { after?: number }; // milliseconds
+}
 ```
 
 **A host names an alias, never a provider.** `gateway("chat")`, `gateway("complete")`: which
@@ -62,7 +67,7 @@ upstream answers is the gateway's configuration, so the host's code is the same 
 a local model answers, and in production. Changing models is an edit to the gateway, not a release of
 every app that talks to it.
 
-Three things a host would otherwise repeat are done once, here:
+Four things a host would otherwise repeat are done once, here:
 
 - **A relative `baseURL` is resolved against the page.** `/api/ai` is what a host behind a BFF is told
   to pass, and the provider underneath builds `new URL(baseURL + path)` with no base, which throws
@@ -74,6 +79,13 @@ Three things a host would otherwise repeat are done once, here:
 - **Structured output is on.** `Output.array` asks the gateway for a JSON schema rather than prose
   the caller parses — the "return only JSON, no fences" prompt and its fence-stripping is what this
   ends. [`Assist`](/docs/ai/assist)'s candidates depend on it.
+- **A stream that goes silent ends.** A streaming request's headers are due within 30 s, and each
+  chunk of its body within 30 s of the last. Past that the request is aborted and the caller —
+  `streamText`'s `onError`, `Chat`, `Assist`'s `onFailure` — gets an `AiError` whose `code` is
+  `"ai/silent"` and whose `data.after` is `30000`. A request that does not stream is not cut: its
+  headers wait on the whole answer. Your own `abortSignal` still aborts as an abort. This is the
+  only bound on a model's silence in the library; the reason is on
+  [the failure page](/docs/design/failure).
 
 The gateway speaks the OpenAI chat-completions protocol, through `@ai-sdk/openai-compatible` — a
 dependency nobody outside this package names, the standing `@duckdb/duckdb-wasm` has behind

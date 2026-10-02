@@ -183,16 +183,19 @@ interface AssistEvent {
 
 ## When asking fails
 
-A refused call, a broken stream or a model that sends nothing for 30 s does not read as "Nothing to
-suggest." The field says it failed under itself — the error's own message, or the `failed`
-translation when it has none — and `onFailure` on the provider receives what was thrown, whole. A
-model that goes silent arrives as an `AiError` whose `code` is `"ai/silent"` and whose `data.after`
-is `30000`; anything else arrives as the AI SDK or your gateway threw it, so a host branches on
-`error.code`.
+A refused call, a broken stream or a model that goes silent does not read as "Nothing to suggest."
+The field says it failed under itself — the error's own message, or the `failed` translation when it
+has none — and `onFailure` on the provider receives what was thrown, whole. Each ask is made once:
+a failure is not retried, so what arrives is the first attempt's own error, with your gateway's code
+in it.
+
+How long a model may stay silent is not `Assist`'s to decide: `createGateway` bounds the request it
+makes, and a model behind it that sends nothing for 30 s arrives as `@kanzo-tech/llm`'s `AiError`,
+`code` `"ai/silent"`, `data.after` `30000` — see [`@kanzo-tech/llm`](/docs/ai/llm). Anything else
+arrives as the AI SDK or your gateway threw it, so a host branches on `error.code`.
 
 *Held by* `packages/ai/src/assist.test.tsx`, "says so under the field and hands the provider's
-onFailure the thrown value"; `packages/ai/src/engine.test.ts`, "ends a stream that sends nothing for
-30 s as ai/silent, and not a millisecond before".
+onFailure the thrown value", "asks once: a gateway's 504 is the failure, not a retry after it".
 
 ## API
 
