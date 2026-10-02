@@ -90,7 +90,7 @@ export interface MosaicProviderProps {
  * selection handed in as a prop was built by the caller. So we do the `add` ourselves.
  *
  * `_relay` is underscore-prefixed but genuinely public — `Set<Selection>`, no `private` modifier,
- * present in mosaic-core 0.29's emitted `.d.ts` — and it is the single channel every relayed path
+ * present in mosaic-core's emitted `.d.ts` from 0.29 through 0.32.0 — and it is the single channel every relayed path
  * in `Selection` uses: `update`, `activate` and `reset` all end in `_relay.forEach(...)`. Which is
  * exactly why the obvious alternative is worse: subscribing to `from` and re-publishing into `to`
  * arrives an async tick late, can lose a clause when the dispatch queue coalesces two updates, and

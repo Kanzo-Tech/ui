@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { tableFromArrays, tableToIPC } from "@uwdata/flechette";
 
 /**
  * A registry that refuses what DuckDB-WASM refuses: a name registered again under a different URL.
@@ -28,7 +29,8 @@ const db = {
 const sql: string[] = [];
 /** Answers an arrow request with one column, and holds a statement naming `slow` until released. */
 const running = { release: () => {} };
-const answer = { numRows: 1, schema: { fields: [{ name: "one" }] }, getChild: (n: string) => (n === "one" ? { toArray: () => Int32Array.of(1) } : null) };
+// Arrow as a connector answers it, IPC bytes, which mosaic-core decodes itself (from 0.30).
+const answer = tableToIPC(tableFromArrays({ one: Int32Array.of(1) }), {});
 const connector = {
   query: vi.fn(async (request: { type: string; sql: string }) => {
     sql.push(request.sql);

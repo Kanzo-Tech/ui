@@ -50,3 +50,6 @@ export { type TableExpr } from "./table.js";
  * second database, and every host that wrote its own boot also wrote its own registry policy.
  */
 export { engine, EngineError, type Engine } from "./engine.js";
+
+/** Ours: what a query threw, from the `QueryError` mosaic-core hands a client's `queryError`. */
+export { queryFailure } from "./failure.js";

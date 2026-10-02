@@ -1,3 +1,4 @@
+import { queryFailure } from "@kanzo-tech/mosaic";
 import { MosaicClient, type Selection } from "@uwdata/mosaic-core";
 import type { Query, FilterExpr } from "@uwdata/mosaic-sql";
 
@@ -42,7 +43,7 @@ export class ChartQueryClient extends MosaicClient {
   }
 
   override queryError(error: Error): this {
-    this.#fail(error);
+    this.#fail(queryFailure(error));
     return this;
   }
 }

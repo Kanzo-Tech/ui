@@ -1,6 +1,6 @@
 "use client";
 
-import type { TableExpr } from "@kanzo-tech/mosaic";
+import { queryFailure, type TableExpr } from "@kanzo-tech/mosaic";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
@@ -302,8 +302,9 @@ export function ChartRoot(props: ChartRootProps) {
             for (const mark of (element as PlotElement).value.marks) {
               const own = mark.queryError.bind(mark);
               mark.queryError = (error) => {
-                setFailure(() => error);
-                onFailure(error);
+                const thrown = queryFailure(error);
+                setFailure(() => thrown);
+                onFailure(thrown);
                 return own(error);
               };
             }

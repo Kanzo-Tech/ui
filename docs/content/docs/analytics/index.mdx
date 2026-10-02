@@ -97,7 +97,9 @@ Anything can, and a dashboard's chips show all of it, whoever published it:
   coordinator, drawing a fossil corpus on the GPU; a lasso or a click publishes one `clausePoints`
   clause on the corpus's **address column** (`dense_id`) from that client, so the crossfilter skips
   it for the graph and applies it to every chart. The same call is open to any widget:
-  `selection.update(clausePoints([column], ids.map((id) => [id]), { source }))`.
+  `selection.update(clausePoints([column], ids.map((id) => [id]), { source }))`. Retract it with
+  `undefined` for the ids, never `[]`: an empty list is a clause whose predicate is `FALSE`, which
+  drops every row.
 
 That last one is why a dashboard over a vertex table follows a lasso on the canvas beside it: the
 clause names `dense_id`, and every vertex table has one. It is also why

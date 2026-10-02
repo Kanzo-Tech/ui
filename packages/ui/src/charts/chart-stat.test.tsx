@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import { clausePoint, Selection, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
+import { clausePoint, QueryError, Selection, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
 import { verbatim } from "@uwdata/mosaic-sql";
 import { count } from "@uwdata/vgplot";
 import { describe, expect, it, vi } from "vitest";
@@ -39,12 +39,13 @@ function stubCoordinator(answer: (sql: string) => Row[]) {
     requestQuery(client: MosaicClient, query: unknown) {
       if (query == null) return Promise.resolve();
       queries.push(String(query));
-      // As `Coordinator.updateClient` does: a rejected query goes to the client's `queryError`.
+      // As `Coordinator.updateClient` does: a rejected query goes to the client's `queryError`,
+      // wrapped in a `QueryError` holding it as `cause` — which the client unwraps for the host.
       return Promise.resolve()
         .then(() => answer(String(query)))
         .then(
           (rows) => client.queryResult(rows).update(),
-          (error: Error) => client.queryError(error),
+          (error: unknown) => client.queryError(new QueryError(error, String(query))),
         );
     },
     clear() {},

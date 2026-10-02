@@ -167,8 +167,8 @@ export const ChartTextX = mark("ChartTextX", "textX");
 export const ChartTextY = mark("ChartTextY", "textY");
 
 export const ChartVector = mark("ChartVector", "vector");
-// vgplot 0.29.2 builds this one with the mark type `vectoX`, which Observable Plot has no
-// function for. Wrapped for symmetry; use `<ChartVector>` until upstream fixes the typo.
+// vgplot builds this one with the mark type `vectoX` (still so in 0.32.0, read 2026-10-02), which
+// Observable Plot has no function for. Wrapped for symmetry; use `<ChartVector>` until upstream fixes the typo.
 export const ChartVectorX = mark("ChartVectorX", "vectorX");
 export const ChartVectorY = mark("ChartVectorY", "vectorY");
 export const ChartSpike = mark("ChartSpike", "spike");

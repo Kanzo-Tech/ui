@@ -33,8 +33,9 @@ function useSchema(relation: string): ColumnInfo[] | null {
 
   useEffect(() => {
     let live = true;
-    coordinator.query(`DESCRIBE ${relation}`, { type: "json" }).then((rows) => {
-      if (live) setColumns(rows as ColumnInfo[]);
+    // The answer is an Arrow table; `toArray()` reads it as one object per row.
+    coordinator.query(`DESCRIBE ${relation}`).then((table) => {
+      if (live) setColumns(table.toArray() as ColumnInfo[]);
     });
     return () => {
       live = false;

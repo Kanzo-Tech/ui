@@ -210,6 +210,9 @@ export type { SelectionClause, FilterExpr } from "@kanzo-tech/mosaic";
 // than checking it, and wrong the first time the query selects a string. Arrow only offers a typed
 // column when the type allows one, so the fallback is not a nicety.
 export { column, numbers } from "@kanzo-tech/mosaic";
+// And what a failed query threw: a client's `queryError` is handed mosaic-core's `QueryError`, the
+// original one level down, and a host keying on its `code` needs that original back.
+export { queryFailure } from "@kanzo-tech/mosaic";
 
 // The five preset charts (Histogram, BarChart, LineChart, ScatterPlot, BarSeriesChart) are gone —
 // they were five parallel hardcoded `vg.plot(...)` calls that could not be composed. Each one is

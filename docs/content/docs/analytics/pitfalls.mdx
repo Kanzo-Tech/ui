@@ -90,7 +90,7 @@ this reason; the axis labels and the value scale carry what the tip would. A bru
 — dragging in the first panel brushes; dragging in any other does nothing, and the console reports
 `<g> attribute transform: Expected ')', "translate(227, 0})"`.
 
-**Why.** An upstream typo. Mosaic's `brushGroups` (`@uwdata/mosaic-plot` 0.29, `interactors/util/brush.js`)
+**Why.** An upstream typo. Mosaic's `brushGroups` (`@uwdata/mosaic-plot` 0.29 through 0.32.0, `interactors/util/brush.js`)
 builds each panel's brush group with `` `translate(${X[i]}, 0})` `` when only `fx` is set — one brace
 too many. The browser rejects the transform, every panel's brush group stays at the first panel's
 position, and they all stack there. Facets on both `fx` and `fy`, or on `fy` alone, take the other
