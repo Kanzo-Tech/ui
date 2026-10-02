@@ -19,6 +19,7 @@ import {
 import { Assist, AssistProvider } from "./assist.js";
 import type { AssistEvent } from "./engine.js";
 import { elements, mockModel, promptOf } from "./testing/model.js";
+import { APICallError } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 
 const ghostText = () => document.querySelector("[data-slot=assist-ghost] .text-faint")?.textContent ?? "";
@@ -248,8 +249,7 @@ describe("Assist on a TagsInput — values to add", () => {
 });
 
 describe("Assist when the model fails", () => {
-  it("says so under the field and hands the provider's onFailure the thrown value", async () => {
-    const thrown = Object.assign(new Error("the gateway refused"), { code: "llm/refused" });
+  function failing(thrown: unknown) {
     const model = new MockLanguageModelV4({
       doStream: async () => {
         throw thrown;
@@ -272,10 +272,29 @@ describe("Assist when the model fails", () => {
     render(<Failing />);
     const field = screen.getByRole("textbox", { name: "Notice" });
     fireEvent.change(field, { target: { value: "Three hounds seen", selectionStart: 17 } });
+    return { model, onFailure };
+  }
+
+  it("says so under the field and hands the provider's onFailure the thrown value", async () => {
+    const thrown = Object.assign(new Error("the gateway refused"), { code: "llm/refused" });
+    const { onFailure } = failing(thrown);
     await waitFor(() => expect(onFailure).toHaveBeenCalled(), { timeout: 2000 });
     expect(onFailure.mock.calls[0]?.[0]).toBe(thrown);
     expect(await screen.findByRole("alert")).toHaveProperty("textContent", "the gateway refused");
     expect(ghostText()).toBe("");
   });
-});
 
+  it("asks once: a gateway's 504 is the failure, not a retry after it", async () => {
+    const thrown = new APICallError({
+      message: "Gateway Timeout",
+      url: "http://gw/v1/chat/completions",
+      requestBodyValues: {},
+      statusCode: 504,
+      isRetryable: true,
+    });
+    const { model, onFailure } = failing(thrown);
+    await waitFor(() => expect(onFailure).toHaveBeenCalled(), { timeout: 2000 });
+    expect(onFailure.mock.calls[0]?.[0]).toBe(thrown);
+    expect(model.doStreamCalls).toHaveLength(1);
+  });
+});

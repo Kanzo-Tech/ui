@@ -62,6 +62,7 @@ export async function* continuation(
     system: CONTINUE,
     prompt: `${brief(field)}\nRequest: ${trigger}${differ}\n\nText:\n${text}`,
     abortSignal: signal,
+    maxRetries: 0,
     onError: reported.onError,
   }).textStream;
   reported.rethrow();
@@ -106,6 +107,7 @@ export async function* candidates(
     prompt: `${brief(field)}\n${holds}\nGive ${count}.`,
     output: Output.array({ element: CANDIDATE }),
     abortSignal: signal,
+    maxRetries: 0,
   });
   for await (const item of result.elementStream) {
     yield list
