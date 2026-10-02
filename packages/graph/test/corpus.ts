@@ -45,6 +45,8 @@ export interface Attached {
   readonly from: string;
   /** Every statement the coordinator sent, in order. */
   readonly sent: string[];
+  /** How many of them have been answered, or refused. */
+  readonly answered: { readonly count: number };
   /** Make the next statement matching `pattern` fail with `error`, as a storage refusal would. */
   refuse(pattern: RegExp, error: unknown): void;
 }
@@ -84,10 +86,20 @@ export async function attach(): Promise<Attached> {
   const from = `corpus${++catalogs}`;
   conn.query(FIXTURE(from));
   const sent: string[] = [];
+  const answered = { count: 0 };
   const refusals: { pattern: RegExp; error: unknown }[] = [];
   const connector = {
-    async query({ type, sql }: { type?: string; sql: string }) {
-      sent.push(sql);
+    async query(request: { type?: string; sql: string }) {
+      sent.push(request.sql);
+      try {
+        return await answer(request);
+      } finally {
+        answered.count++;
+      }
+    },
+  };
+  async function answer({ type, sql }: { type?: string; sql: string }) {
+    {
       // A turn of the event loop, as a worker's answer takes: nothing here answers synchronously.
       await new Promise((next) => setTimeout(next, 0));
       const refused = refusals.findIndex((r) => r.pattern.test(sql));
@@ -98,21 +110,25 @@ export async function attach(): Promise<Attached> {
       }
       const table = decodeIPC(conn.useUnsafe((bindings, id) => bindings.runQuery(id, sql)));
       return type === "json" ? table.toArray() : table;
-    },
-  };
+    }
+  }
   const coordinator = new Coordinator(connector as never, { logger: null });
-  return { coordinator, from, sent, refuse: (pattern, error) => refusals.push({ pattern, error }) };
+  return { coordinator, from, sent, answered, refuse: (pattern, error) => refusals.push({ pattern, error }) };
 }
 
 /** What fossil's storage rejects with: an `Error` carrying a code. */
 export const refusal = () => Object.assign(new Error("the bucket did not answer"), { code: "storage/unreachable" });
 
-/** Until the coordinator has been sent nothing new for a few turns, and every answer has landed. */
+/**
+ * Until every statement sent has been answered and nothing new was sent for a few turns — counted,
+ * not timed, so a slow runner waits for the answer rather than for a quiet that came too early.
+ */
 export async function settle(attached: Attached): Promise<void> {
   let seen = -1;
-  for (let quiet = 0, round = 0; quiet < 4 && round < 400; round++) {
+  for (let quiet = 0, round = 0; quiet < 4 && round < 2000; round++) {
     await new Promise((next) => setTimeout(next, 5));
-    quiet = attached.sent.length === seen ? quiet + 1 : 0;
+    const done = attached.answered.count === attached.sent.length;
+    quiet = done && attached.sent.length === seen ? quiet + 1 : 0;
     seen = attached.sent.length;
   }
 }
