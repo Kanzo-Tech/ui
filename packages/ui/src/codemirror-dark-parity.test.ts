@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
  * The base theme in `@codemirror/view` keys a run of rules off the `darkTheme` facet: `&light
  * .cm-gutters`, `&dark .cm-gutters`, and so on. Ours is **one** theme for both appearances — the
  * tokens flip underneath it, which is the whole point of the theme package — so the facet is not
- * baked in by `EditorView.theme(spec, { dark })` but set beside it from `resolvedAppearance`.
+ * baked in by `EditorView.theme(spec, { dark })` but set beside it from `appearance`.
  * Either half can therefore apply, and anything we have not overridden paints a stock CodeMirror
  * colour on a page that chose a palette.
  *

@@ -1,6 +1,6 @@
 ---
 title: Theming
-description: A theme is one flat block of CSS. The user layers four axes over it with data-* attributes.
+description: The model — families, a light theme and a dark theme — the provider and the pre-paint script, white-label policy, every token a theme authors, and the contrast floors it owes.
 ---
 
 Two different things wear the word "theme", and this page is mostly about keeping them apart.
@@ -10,36 +10,358 @@ carrying its colours, the shape knobs and, if it wants them, its font stacks —
 *decisions*, because the [theme generator](/theme-generator) fills in the ink that follows from a
 fill. Adding a client is adding a file.
 
-<Callout type="info" title="The shipped themes are test themes">
-  The files in `packages/theme/themes/` are provisional. Sixteen were written here to exercise the
-  vocabulary and thirteen were imported from daisyUI to see whether it holds for somebody else's
-  colours. They are fixtures the guards measure, not a curated catalogue: names, values and the
-  count will change, and a product should ship its own.
-</Callout>
-
 **What a user chooses** is which theme they wear on each side, plus four axes layered over it: how
 round, how dense, which typefaces, light or dark. All of them are `data-*` attributes on `<html>`
 whose values live in static CSS.
 
-<Callout title="A theme is one MODE, and everything else follows from that">
-  Light and dark are two themes, not two blocks of one document — daisyUI's arrangement, adopted
-  after measurement. It is what lets a tint be written as a percentage on the role
-  (`bg-destructive/7`) with one meaning per theme, it is what makes a scoped preview a plain `div`, and it
-  is why "which theme" is stored per side: a theme *is* a side, so the question without the side
-  does not name a preference. The argument and the numbers are in [a theme is one flat
-  block](/docs/design/colour).
-</Callout>
-
 The rule about colour is not "the user touches no colour" — `appearance` is colour, and always was.
 It is: *the user never **authors** a colour value; they choose among themes someone already wrote.*
 
-| preference | what changes | attribute |
-| --- | --- | --- |
-| `themeByAppearance` | the whole theme worn on that side | `data-theme` |
-| `appearance` | which side is worn | **none**: it writes `.dark` |
+<Callout type="info" title="Looking for the list of themes?">
+  [Themes](/docs/themes) is the catalogue — four families, each drawn live — with the short version
+  of everything below: how to offer them, set the default, let people choose and write your own.
+</Callout>
 
-Publish one theme and nothing appears — `PreferencesColor` draws itself only where there is more
-than one theme to choose. A client wanting a single immutable brand does nothing to get one.
+## The model
+
+A theme is **one mode**. Light and dark are two themes, not two blocks of one document — daisyUI's
+arrangement, adopted after measurement — so the library ships **families**: one light theme and one
+dark theme that belong together. Four ship, eight themes in all:
+
+| Family | Day (`dark: false`) | Night (`dark: true`) |
+| --- | --- | --- |
+| `kanzo` — the default, from the kanzo.tech brand | `kanzo` | `kanzo-dark` |
+| `catppuccin` | `catppuccin-latte` | `catppuccin-mocha` |
+| `lofi` | `lofi` | `lofi-dark` |
+| `nord` | `nord` | `nord-dark` |
+
+A person therefore chooses the way GitHub's *Settings → Appearance* lets them: a **light theme**, a
+**dark theme**, and which of the two is worn. Two preferences hold it:
+
+| Preference | Values | Writes |
+| --- | --- | --- |
+| `themeByAppearance` | `{ light?: string; dark?: string }` — `{}` until they choose | `data-theme`, the theme for the side being worn |
+| `appearance` | `"light"` · `"dark"` — `"light"` unless the tenant's policy says otherwise | **no attribute**: it writes `.dark` |
+
+The two compose rather than compete: appearance picks the side, and the theme axis is keyed by that
+side. The user picks the side; the OS is never asked. Move the starting side with
+`policy={{ theme: { appearance: { default: "dark" } } }}`.
+
+<Callout title="Why one mode per theme">
+  It is what lets a tint be written as a percentage on the role (`bg-destructive/7`) with one meaning
+  per theme, what makes a scoped preview a plain `div`, and why "which theme" is stored per side: a
+  theme *is* a side, so the question without the side does not name a preference. The argument and
+  the numbers are in [the colour document](/docs/design/colour).
+</Callout>
+
+### The catalogue as data
+
+```ts
+import { defaultThemePair, themeFamilies, themeIndex } from "@kanzo-tech/theme";
+
+themeIndex[0]; // { value: "kanzo", label: "Kanzo", dark: false, family: "kanzo" }
+themeFamilies(themeIndex); // [{ family: "kanzo", light: {…}, dark: {…} }, { family: "catppuccin", … }, …]
+defaultThemePair(themeIndex); // { light: "kanzo", dark: "kanzo-dark" }
+```
+
+- **`themeIndex`** is every shipped theme as a `ThemeOption` — `{ value, label, dark, family }` —
+  read off each file's `color-scheme` and its `@family` / `@label` header by the generator, so
+  nothing lists the themes twice. The default family comes first, light before dark. It is the
+  provider's default `themes`.
+- **`ThemeOption`** is the contract between a catalogue and a control. It carries no colours: a
+  control depicts a theme by setting `data-theme` on an element and letting the cascade paint it.
+  `family` pairs a theme with its other side; a tenant theme with no partner omits it.
+- **`themeFamilies(themes)`** groups any such list into `ThemeFamily` entries
+  (`{ family, light?, dark? }`), in the order the families first appear — what the
+  [catalogue](/docs/themes) draws.
+- **`defaultThemePair(themes)`** is the pair a document wears while nobody has chosen: the first
+  light theme and its family's dark one (or the first dark theme, if that family has none). It is
+  the default of both the provider's and `themeScript`'s `defaultTheme`.
+
+## Wiring it up
+
+[Installation](/docs/installation) has the three lines every product needs. This is what each piece
+takes.
+
+### KanzoThemeProvider
+
+Owns the preferences, resolves them through the tenant's policy and writes the result to `<html>`.
+There is exactly one, at the root.
+
+```tsx
+import { KanzoThemeProvider, cookieStorageAdapter } from "@kanzo-tech/ui";
+
+<KanzoThemeProvider storage={cookieStorageAdapter()}>{children}</KanzoThemeProvider>;
+```
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `themes` | `ThemeOption[]` | `themeIndex` |
+| `defaultTheme` | `{ light?: string; dark?: string }` | `defaultThemePair(themes)` |
+| `policy` | `Record<string, SectionPolicy>` | `{}` |
+| `storage` | `ThemeStorage \| null` | localStorage |
+| `storageKey` | `string` | `"kanzo_theme_prefs"` |
+| `value` / `onChange` | `Partial<ThemePrefs>` / `(next) => void` | uncontrolled |
+| `defaults` | `Partial<ThemePrefs>` | — |
+| `fonts` / `monoFonts` | `FontOption[]` | the generated stacks |
+| `sections` | `SectionManifest[]` | `[]` |
+| `onThemeRetired` | `(theme: string) => void` | — |
+
+- **`themes`** — the themes on offer. The picker draws these, the retirement check reads them, and
+  the default pair is taken from them. A host still has to *load* the CSS of any theme it adds.
+- **`defaultTheme`** — the pair worn while the user has chosen nothing. **A pair, never one name.**
+  Give `themeScript` the same value.
+- **`policy`** — what the tenant pins, withholds or starts elsewhere, keyed by namespace; the core
+  is `theme`. See [White-label](#white-label). Give `themeScript` the same value.
+- **`storage`** — where an uncontrolled provider keeps what the user chose. `cookieStorageAdapter(key?)`
+  makes it server-readable; `null` keeps nothing. `storageKey` is what the default storage and
+  `themeScript` read.
+- **`value` / `onChange`** — controlled mode: the host owns persistence (a user profile on the
+  server, say).
+- **`defaults`** — the app's starting point for the non-theme axes, one rank below the tenant's
+  policy.
+- **`sections`** — the preference sections of the packages this host installed; see
+  [Contributing a section](/docs/sections).
+- **`onThemeRetired`** — called at most once when the stored theme is no longer in `themes`; see
+  [Retired themes](#retired-themes).
+- **`appearance`** — delegate `.dark` to a host theme manager such as next-themes; see
+  [Dark mode](#dark-mode).
+
+The provider always writes the **resolved** theme to `data-theme` — the user's choice for the side
+being worn, or the default pair's — never leaving the attribute off for "the default". The CSS
+default binding (`:root:not([data-theme])`) can name only one family, and a tenant whose default is
+its own family must not depend on it.
+
+Read or change the state with [`useKanzoTheme()`](/docs/hooks/use-kanzo-theme):
+
+```tsx
+const { resolvedTheme, appearance, setTheme, setAppearance } = useKanzoTheme();
+
+setTheme("nord-dark", { appearance: "dark" }); // file a dark theme without repainting the light
+setAppearance("dark"); // wear the dark side
+```
+
+### themeScript
+
+The provider runs after hydration; the first paint happens before it. `themeScript()` returns a tiny
+inline script that resolves the same chain — cookie, then localStorage, then policy, then the
+default pair — and writes the same `data-*` attributes and `.dark` before anything is drawn.
+
+```tsx
+import { themeScript } from "@kanzo-tech/ui";
+
+<head>
+  <script dangerouslySetInnerHTML={{ __html: themeScript({ defaultTheme, policy }) }} />
+</head>
+```
+
+| Option | Default | Must match |
+| --- | --- | --- |
+| `storageKey` | `"kanzo_theme_prefs"` | the provider's `storageKey` |
+| `defaultTheme` | `defaultThemePair(themeIndex)` | the provider's `defaultTheme` |
+| `policy` | `{}` | the provider's `policy` (only the `theme` namespace is read) |
+
+**Why the same values, and why it is mandatory under SSR.** If the script falls back to `kanzo`
+while the provider falls back to the tenant's family, the page flashes one family and then repaints
+into the other; a pinned axis the script does not know about flashes the user's own value first.
+Worse, `ThemePicker`'s cards render from the resolved theme, so a server-rendered page without the
+script hydrates into markup that differs from the server's — React reports a mismatch and does not
+patch it. `theme-script.test.ts` runs the script and the provider under one set of stubs and diffs
+`<html>`, so the two cannot drift.
+
+Pair it with `cookieStorageAdapter()` on the provider so the user's writes land where the script
+(and a server rendering the request) can read them.
+
+### ThemePicker and ThemePreview
+
+[`ThemePicker`](/docs/layout/theme-picker) is the one control for both preferences — a *Light · Dark*
+segment, then a light card and a dark card, each a large preview over a row of theme swatches — and
+`ThemePreview` is the miniature screen on each card, a scoped `KanzoTheme` painted by the real tokens. The picker offers what `themes` lists
+and obeys `policy`; its page has the full behaviour table.
+
+### Retired themes
+
+A theme the user chose can disappear: the host narrows `themes`, a tenant drops a family, or the
+library retires one. The cascade already copes — an attribute with no
+matching rule is inert — but a person who chose gold and is looking at blue reads silence as a bug.
+So the provider, on finding that the theme worn on the current side is not in `themes`:
+
+1. clears that side's choice, so the default pair applies;
+2. calls `onThemeRetired(name)` — once per session, never during SSR, and never while `themes` is
+   empty (a host still fetching its list must not wipe a valid choice);
+3. holds the name in `retiredTheme` for the rest of the session, because the place that says so may
+   mount later.
+
+`ThemePicker` then shows an *info* alert under its cards, and [`ThemeNotice`](/docs/hooks/use-kanzo-theme)
+— mounted beside your `<Toaster />` — toasts the same words once. Both take `ThemeRetiredCopy`
+(`title`, `formatDescription`) for translation.
+
+### Two themers, and only one of them owns the root
+
+`KanzoThemeProvider` writes the axes to `document.documentElement` and is **the app's themer**.
+`KanzoTheme` writes the same attributes to a `<div>` and is **for previews** — a gallery of themes on
+one page, a branded panel, `ThemePreview` itself.
+
+```tsx
+<KanzoTheme theme="catppuccin-mocha">
+  <PaletteCard />
+</KanzoTheme>
+```
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `theme` | `string` | inherits |
+| `appearance` | `"light" \| "dark"` | the page's resolved side |
+| `radius` / `font` / `monoFont` / `density` | `string` | inherit |
+
+It always writes the side as a class, so a scope never wears the light block on a dark page by
+accident; and it re-points the theme context, so a chart inside resolves its colours against the
+scope rather than the page. `set` is not re-pointed: a control inside a scope still edits the real
+preferences.
+
+<Callout type="warn">
+**Never reach for `KanzoTheme` as the app's provider.** Ark's overlays — Dialog, Popover, Menu,
+Select, Tooltip, Toast, HoverCard, Command — portal into `document.body`, outside any wrapper, so a
+wrapper cannot theme them; and density sets the root font-size that the whole `rem` scale resolves
+against, so on a wrapper it is broken outright.
+</Callout>
+
+**What would reverse it:** a scope that could theme Ark's portalled overlays. It cannot, and that is a
+fact about the portal target rather than a preference — which is why the root provider stays the app's.
+
+*Held by* `packages/ui/src/index.test.ts`, "exposes two themers, and they are not interchangeable";
+`packages/ui/src/theme/KanzoTheme.tsx`.
+
+## White-label
+
+A white-labelled instance is one product wearing a client's brand. Three levers, and all of them are
+props you already met: `themes` (what is offered), `defaultTheme` (what is worn by default) and
+`policy` (what the user may change).
+
+### Locking the theme
+
+Withhold the theme axis and pass the brand as the default pair:
+
+```tsx
+const pair = { light: "acme", dark: "acme-dark" };
+const policy = { theme: { themeByAppearance: { hidden: true } } };
+
+<KanzoThemeProvider defaultTheme={pair} policy={policy}>
+// …and themeScript({ defaultTheme: pair, policy }) in <head>
+```
+
+`hidden` means *do not offer this, and ignore what was stored*: the provider applies the pair, and
+`ThemePicker` draws only the *Light · Dark* control, so a member still chooses the side — inside
+the brand. Withhold `appearance` too and the picker draws nothing.
+
+| `policy.theme` | Effect |
+| --- | --- |
+| `themeByAppearance: { hidden: true }` | the brand is locked; the mode is still a choice |
+| `appearance: { pinned: "dark" }` | always the night side; the picker offers that side's themes only |
+| `appearance: { hidden: true }` | the tenant's default side; the control goes, the light and dark cards remain |
+| both `hidden` | nothing to choose; the picker renders nothing |
+
+Prefer `hidden` plus `defaultTheme` over `pinned` for the theme: a pinned name is one theme for
+*both* sides, which paints a light theme at night.
+
+### Offering a subset
+
+```tsx
+<KanzoThemeProvider themes={themeIndex.filter((t) => t.family !== "lofi")}>
+```
+
+The picker, the default pair and the retirement check all follow the list. The CSS of the themes
+left out stays in the page, inert.
+
+### A tenant's own family
+
+Write the pair (the [generator](/theme-generator) hands you both blocks), load the CSS after the
+library's stylesheet, and list both sides — first, if it is the default:
+
+```tsx
+const ACME: ThemeOption[] = [
+  { value: "acme", label: "Acme", dark: false, family: "acme" },
+  { value: "acme-dark", label: "Acme Dark", dark: true, family: "acme" },
+];
+
+<KanzoThemeProvider themes={[...ACME, ...themeIndex]}>
+```
+
+### Recipe: branding from an instance config
+
+When the brand is configuration rather than code — one build, many instances — let the generator's
+**Instance config** tab be the file format. It is a `branding:` block the host reads **as-is**:
+
+```yaml title="branding.yml"
+branding:
+  theme_css: |
+    /* @family acme
+       @label Acme */
+    [data-theme="acme"] {
+      color-scheme: light;
+      --background: #fbfcfd;
+      /* …both blocks, exactly as the Theme CSS tab shows them */
+    }
+  families:
+    - family: acme
+      light: { value: acme, label: Acme }
+      dark: { value: acme-dark, label: Acme Dark }
+  default: acme
+  lock: false
+```
+
+| Key | Means | Maps to |
+| --- | --- | --- |
+| `theme_css` | the theme blocks | a `<style>` the host inlines in `<head>`, after the library's sheet |
+| `families` | the families this instance offers, each with its light and dark `ThemeOption` | `themes` — each side gets `dark` and `family` filled in. Empty: every shipped theme |
+| `default` | which family is worn until a member chooses | `defaultTheme`, that family's `{ light, dark }` |
+| `lock` | whether members may choose | `true` → `policy: { theme: { themeByAppearance: { hidden: true } } }` |
+
+`families` *replaces* the catalogue rather than adding to it. To offer a shipped family beside the
+brand, list it too — its CSS is already in the page, so it needs no `theme_css`:
+
+```yaml
+  families:
+    - family: acme
+      light: { value: acme, label: Acme }
+      dark: { value: acme-dark, label: Acme Dark }
+    - family: nord
+      light: { value: nord, label: Nord }
+      dark: { value: nord-dark, label: Nord Dark }
+```
+
+The mapping is a dozen lines on the host. This is keasy's, which reads the file named by
+`KEASY_BRANDING_FILE`, validates it at boot (every family names a light and a dark theme, `default`
+is one of them, unknown keys are refused) and serves it to the web app:
+
+```tsx
+function themeLook(branding: Branding) {
+  const themes: ThemeOption[] =
+    branding.families.length === 0
+      ? themeIndex
+      : branding.families.flatMap(({ family, light, dark }) => [
+          { ...light, dark: false, family },
+          { ...dark, dark: true, family },
+        ]);
+  const chosen = branding.families.find((f) => f.family === branding.default);
+  const defaultTheme = chosen
+    ? { light: chosen.light.value, dark: chosen.dark.value }
+    : defaultThemePair(themes);
+  const policy = branding.lock ? { theme: { themeByAppearance: { hidden: true } } } : undefined;
+  return { themes, defaultTheme, policy };
+}
+
+// in the root layout's <head>
+<style dangerouslySetInnerHTML={{ __html: branding.theme_css }} />
+<script dangerouslySetInnerHTML={{ __html: themeScript({ defaultTheme, policy }) }} />
+
+// around the app
+<KanzoThemeProvider defaultTheme={defaultTheme} policy={policy} themes={themes}>
+```
+
+The same `defaultTheme` and `policy` reach both the script and the provider, which is the one rule
+the recipe cannot get wrong. The per-client checklist — writing the pair, checking contrast, deciding
+what users may change — is [Onboarding a tenant](/docs/onboarding).
 
 ## The twenty-one, and the uses
 
@@ -52,94 +374,90 @@ declared once in `tokens.css` through `@theme inline` and never re-declared.
 - **Status** — `--destructive`, `--info`, `--success`, `--warning`, each with its `-content`
 - **Lines** — `--border`, `--ring`
 
-`--popover`, `--field`, `--faint`, `--input`, the eight sidebar names and the status
-`-foreground`s are uses. A theme overrides one only when it genuinely wants it different — and it is
-worth knowing which actually do, because "is a use" and "is left alone" are different claims:
+Beside them, every shipped theme authors a few names the components read with **no fallback**, so a
+theme of your own must write them too:
 
-The counts below are measured over the shipped files (2026-09-30), and they split by origin: sixteen
-are hand-written here (49–50 custom properties each) and thirteen were imported from daisyUI (31).
+| Name | What it is |
+| --- | --- |
+| `--input` | a field's border — a boundary, so 3:1 against the page |
+| `--field` | a field's fill |
+| `--faint` | the quietest legible ink: placeholders, gutter numbers, code comments |
+| the four status `-foreground`s | the status family read **on the page** — error text, an invalid ring |
+| the eight `--syntax-*` | the editor's inks, below |
+| `--popover` | an overlay's surface — authored by the dark themes, where it lifts off the card; the light ones let it fall back to `--card` |
+
+`--popover`, `--field`, `--faint`, `--input`, the eight sidebar names and the status
+`-foreground`s are uses in the vocabulary. A theme overrides one only when it genuinely wants it
+different — and it is worth knowing which actually do, because "is a use" and "is left alone" are
+different claims. Measured over the eight shipped themes (2026-10-01):
 
 | name | what the shipped themes actually do |
 | --- | --- |
 | `--sidebar` `--sidebar-foreground` `--accent-foreground` | **no theme authors one.** Each would repeat another token in every file, so the bridge names the token and no theme restates it. `--accent` is a surface, not a fill, so its ink is the page's. |
-| `--secondary-foreground` | **none of the sixteen; all thirteen imported ones.** Here it would be `--foreground` every time. daisyUI authors an on-fill ink for `secondary` and it is *not* the page ink, so an imported theme brings a real value and says so. |
-| `--popover` | the eight hand-written **dark** themes and no light one — an overlay lifts off the card on the dark side and is the card on the light one. An imported theme leaves it to the chain. |
-| `--field` `--faint` `--input` | the sixteen author all three; the thirteen author none. Genuine values, not repetitions — daisyUI simply has no name for them. |
-| the four status `-foreground`s | **every theme.** daisyUI has no page ink, so the importer computes them with `pageInk`; left to the bridge they would resolve to the fill at full strength, which is 1.23:1 on `acid`'s warning. |
+| `--secondary-foreground` | **`lofi` and `lofi-dark` only**, whose secondary is a dark (or light) fill; everywhere else it would be `--foreground`. |
+| `--popover` | the four **dark** themes and no light one. |
+| `--field` `--faint` `--input` | **every theme.** Genuine values, not repetitions. |
+| the four status `-foreground`s | **every theme**, each `pageInk(fill, --foreground, --background)`; left to the bridge they would resolve to the fill at full strength. |
+| the eight `--syntax-*` | **every theme**, each at AA on `--background` and on `--muted`. |
 
-The second row is the shape of the rule working, and it is the interesting one: the same name is a
-repetition in one theme and a real value in another, so what earns a declaration is measured per
-file rather than decided once for the vocabulary.
-
-### What the generator edits, and the three names people ask about
-
-[`/theme-generator`](/theme-generator) carries **twenty-five pickers**: the twenty-one, plus the four
-status `-foreground`s that every shipped theme authors. The specimen pane on the right is
-sized to those — a group that no control moves would be decoration. Three names sit outside that set
-and get asked about often enough to settle here, with the counts that settle them:
-
-| name | call sites in `packages/*/src` | themes authoring it | verdict |
-| --- | --- | --- | --- |
-| `--sidebar` | `bg-sidebar` in `sidebar.tsx` | **none** | **neither a picker nor a specimen, and that is the answer.** |
-| `--faint` | the placeholder ink of the field recipes, the ghost text `Assist` draws in a `Textarea`, and inks in `CodeEditor` | the sixteen hand-written, and the value differs from `--muted-foreground` in fourteen of them | a real tier. It has no specimen, and that is a gap. |
-| `--input` | `border-input` on the field recipes, plus the switch track, the scroll-area thumb and an unfilled star | the sixteen hand-written, and the value differs from `--border` in **all sixteen** | already drawn, on every field in the pane. A field border is not an indirect showing of `--input`; it is what `--input` *is*. |
-
-`--sidebar` is the case worth stating plainly, because "a token nobody draws" reads like an
-oversight and is not one. No theme authors it, so its value is decided entirely by the chain —
-`--sidebar` → `--popover` → `--card` — and both of those already have representation: `--card` has a
-picker, `--popover` has a specimen of its own. A `bg-sidebar` swatch would repaint one of them at a
-different label, which is the second spelling the rule at the top of this page exists to refuse. A
-picker would be worse: it would let a generated theme author a name that sixteen hand-written themes
-and thirteen imported ones all declined to. **Nothing is missing here. Do not add one.**
-
-`--faint` is the opposite result from the same measurement. Fourteen of the sixteen give it a value
-its fallback does not have — it is the tier quieter than `--muted-foreground`, and it is what every
-placeholder and every code comment in the library reads at. Nothing in the specimen pane renders it
-today, for a small reason: every field in the `Fields` group carries a `defaultValue`, so no
-placeholder ever appears.
-
-<Callout title="A block copied out of the generator is not yet a hand-written theme">
-  The generator serialises exactly what it edits, so what you paste into `packages/theme/themes/`
-  authors twenty-five names and takes `--popover`, `--field`, `--input` and `--faint` off the chain.
-  The sixteen hand-written themes all author those four with genuine values, so a theme that skips
-  them draws its field borders at the page's border weight and its placeholders at
-  `--muted-foreground`. Type them in after you paste; that is the difference between the imported
-  shape (thirty-three declarations) and the shape this repository writes (forty-nine to fifty).
-</Callout>
+The second row is the shape of the rule working: the same name is a repetition in one theme and a
+real value in another, so what earns a declaration is measured per file rather than decided once for
+the vocabulary.
 
 <Callout type="warn" title="Why a use is bridged and never declared in :root">
   `:root { --sidebar-primary: var(--primary) }` looks equivalent to bridging it and is not. A custom
   property inherits its **computed** value, so it resolves once on `<html>` — and a scoped
-  `<div data-theme="dracula">` then inherits the already-substituted answer, painting Dracula's
+  `<div data-theme="catppuccin-mocha">` then inherits the already-substituted answer, painting Catppuccin's
   brand with the page's sidebar. Silently: nothing about it is a compile error. `@theme inline` puts
   the value in the *utility*, so the `var()` resolves on the element wearing the class.
 </Callout>
 
+### Syntax inks and the editor
+
+Eight inks colour code, and every theme authors all eight at AA on the editor's paper
+(`--background`) and on its active line (`--muted`). [`CodeEditor`](/docs/forms/code-editor) maps
+[Lezer highlight tags](https://lezer.codemirror.net/docs/ref/#highlight.tags) onto them, so any
+CodeMirror language is coloured by whichever theme is on the page; `kanzoHighlighting` from
+`@kanzo-tech/ui/editor` is the same mapping as an extension for an editor you assemble yourself.
+
+| Ink | Lezer tags | In a fossil program |
+| --- | --- | --- |
+| `--syntax-keyword` | `keyword`, `controlKeyword`, `definitionKeyword`, `moduleKeyword`, `operatorKeyword`, `logicOperator`, `self`; Markdown `heading` (bold) | `from`, `and` / `or` / `not`; `type` and `as` via the semantic `keyword` |
+| `--syntax-string` | `string`, `special(string)`, `docString`, `character`, `regexp`; Markdown `monospace`, `list` | string literals |
+| `--syntax-number` | `number`, `integer`, `float`, `unit`, `bool`, `null`, `atom`, `constant(name)`, `standard(name)`, `escape` | numbers, `true` / `false` / `null` |
+| `--syntax-function` | `function(variableName)`, `function(propertyName)`, `macroName`; `url` / `link` (underlined) | functions (semantic `function`) |
+| `--syntax-variable` | `variableName`; `definition(variableName)` at weight 500 | a binding — its declaration a step heavier than its uses (semantic `variable`, with the `declaration` modifier) |
+| `--syntax-property` | `propertyName`, `definition(propertyName)`, `attributeName` | columns and fields (semantic `property`); parameters (semantic `parameter` → `attributeName`) |
+| `--syntax-type` | `typeName`, `definition(typeName)`, `className`, `tagName`, `labelName` | types (semantic `type`) |
+| `--syntax-annotation` | `special(variableName)`, `annotation`, `namespace` | `@subject`, `@rename` (`special(variableName)`); an `@connection` reference (semantic `namespace`) |
+
+The rest reuse tokens that already carried the right decision: comments and `meta` are `--faint`
+(italic for comments), punctuation is `--muted-foreground`, operators are `--foreground`, a diff's
+inserted / deleted / changed lines are `--success` / `--destructive` / `--warning`, and `invalid` is
+`--destructive-foreground`. `--syntax-annotation` is deliberately **not** `--faint`: an annotation
+in a mapping is a load-bearing word, not a comment.
+
+The fossil column comes from `@fossil-lang/codemirror-fossil`: its lexer tags literals, operators and
+`@`-markers, and the language server's semantic tokens paint identifiers over them — `typeName`,
+`definition(…)` for a declaration, `namespace`, `attributeName` — which is why a theme needs no
+fossil-specific token.
+
+### Fonts
+
+| Token | Default | Set by |
+| --- | --- | --- |
+| `--font-sans`, `--font-heading` | Geist (`--font-geist-sans`), falling back to the system face | `data-font`, or a theme |
+| `--font-mono` | Geist Mono (`--font-geist-mono`), falling back to the system mono | `data-mono-font`, or a theme |
+
+The stacks are declared as plain values in a static `@theme`, so they are emitted even where no
+utility asks for them — `CodeEditor` reads `--font-mono` from a style object. They used to be
+spelled as `var()`s of their own names inside the bridge, a cycle that made `--font-mono` compute to
+nothing for a host that set it without a fallback; that is fixed. Load Geist — the `geist` package's `next/font` exports define `--font-geist-sans` and
+`--font-geist-mono` — or the system faces apply.
+
 ### The shape knobs
 
 They are what let a client look different without looking like a fork.
-
-`--noise` is the one that shows the pattern most plainly. It multiplies the *size*
-of a grain layer the recipes already paint:
-
-```css
-background-image: var(--fx-noise);
-background-size: calc(var(--noise, 0) * 100%);
-```
-
-At `0` the layer is sized to nothing and never drawn; at `1` it tiles. **One rule, no variant, no
-conditional** — which is what makes texture a value a tenant sets rather than a look somebody has to
-write, exactly as `--relief` does for relief. The grain itself is a constant in the library's sheet:
-a theme says how much it wants, never what it is.
-
-No shipped theme declares it, so `var(--noise, 0)` is where "off" lives. A theme that wants texture
-writes the line; one that does not says nothing, which is the same rule the colour names follow.
-
-<Callout title="A knob nothing reads is worse than a missing one">
-  A tenant sets it, nothing moves, and the theme looks *broken* rather than ignored.
-  `knobs-are-read.test.ts` fails for any knob that reaches neither a `var()` in the sheet nor a
-  utility the library uses.
-</Callout>
 
 | knob | governs |
 | --- | --- |
@@ -147,18 +465,87 @@ writes the line; one that does not says nothing, which is the same rule the colo
 | `--size-field` / `--size-selector` | the unit a control's height is a multiple of |
 | `--stroke` | line weight |
 | `--relief` | relief, `0`–`1`, multiplied into the shadow and the fill's edge. Not `--depth`: that name is Zag's, set per node on a tree item |
+| `--noise` | grain, `0`–`1`; undeclared means off |
 
 `--relief` is a **number, not a branch**: the recipes already contain
 `calc(var(--relief) * 30%)`, so `0` collapses the shadow to nothing and `1` gives it relief, from one
-stylesheet with no conditional in it.
+stylesheet with no conditional in it. `--noise` shows the same pattern: it multiplies the *size* of a
+grain layer the recipes already paint —
+
+```css
+background-image: var(--fx-noise);
+background-size: calc(var(--noise, 0) * 100%);
+```
+
+— so at `0` the layer is sized to nothing and never drawn. No shipped theme declares it, so
+`var(--noise, 0)` is where "off" lives.
+
+<Callout title="A knob nothing reads is worse than a missing one">
+  A tenant sets it, nothing moves, and the theme looks *broken* rather than ignored.
+  `knobs-are-read.test.ts` fails for any knob that reaches neither a `var()` in the sheet nor a
+  utility the library uses.
+</Callout>
+
+### What the generator edits
+
+[`/theme-generator`](/theme-generator) edits a family — the light theme and the dark one together —
+with an OKLCH picker per authored colour: the twenty-one, the four status `-foreground`s, `--input`
+and the eight `--syntax-*`. Shape is shared by both sides. `--popover`, `--field`, `--faint` and the
+chart set carry no picker and are emitted anyway, read off the family it started from, so what it
+hands you is a whole theme. `--sidebar` has neither a picker nor a value: no theme authors it, its
+chain is `--sidebar` → `--popover` → `--card`, and a picker would let a generated theme author a name
+every shipped theme declined to.
+
+## Contrast
+
+`CONTRAST_PAIRS` in `@kanzo-tech/theme` is every pair a theme owes, as `ContrastPair`s
+(`{ ground, ink, min }`), and `auditContrast(resolve)` returns the `ContrastFinding`s — the same pairs
+with their `ratio` — that a theme fails. One list serves the CI guard and the generator, so the page
+that authors a theme cannot pass what the build rejects.
+
+| Ground | Read on it | Floor |
+| --- | --- | --- |
+| `--background` | `--foreground`, `--muted-foreground`, the four status `-foreground`s, the eight `--syntax-*` | 4.5:1 |
+| `--muted` — also the editor's active line | `--muted-foreground`, the eight `--syntax-*` | 4.5:1 |
+| `--card`, `--popover` | `--foreground` | 4.5:1 |
+| `--accent` | `--accent-foreground`, `--muted-foreground` | 4.5:1 |
+| `--primary`, `--secondary` | each its own `-foreground` | 4.5:1 |
+| `--destructive`, `--info`, `--success`, `--warning` | each its own `-content` | 4.5:1 |
+| `--sidebar` | `--sidebar-foreground` | 4.5:1 |
+| `--background` | `--primary`, `--ring`, `--input`, `--chart-1` … `--chart-8` | 3:1 |
+
+4.5:1 is WCAG 1.4.3 for body text. 3:1 is WCAG 1.4.11 for a component's boundary or a graphical
+object — a focus ring, a field's border, a chart mark, and a brand fill that has to stand out from the
+page.
+
+`--accent` is measured against both inks because here it is a *surface* — the ground a hovered or
+selected row wears — not a third brand fill as in daisyUI.
+
+**How CI enforces it.** `themes.test.ts`, "keeps every pair at its WCAG floor once resolved", resolves
+every shipped theme through the bridge and runs `auditContrast` over it; `pnpm verify` — the one CI
+gate — fails on any finding. A pair whose side is not an opaque hex is skipped rather than failed:
+a missing token is a different defect, reported by the guards that resolve the bridge.
+
+**How the generator warns.** It runs the same `auditContrast` on both sides on every edit: the
+contrast panel lists each failing pair by token with its ratio and floor, and a warning mark sits on
+the side switch. It never refuses — a warning is a fact about the draft.
+
+**Checking a theme of your own** is the same call:
+
+```ts
+import { auditContrast } from "@kanzo-tech/theme";
+
+const acme = { "--background": "#fbfcfd", "--foreground": "#10151c" /* … */ };
+auditContrast((token) => acme[token]); // [] when every pair clears its floor
+```
 
 ## The user axes
 
 | Axis | Attribute | Sets |
 | --- | --- | --- |
 | radius | `data-radius` | `--radius-box` / `--radius-field` / `--radius-selector`; the size-named `rounded-*` scale hangs off the field one |
-| font | `data-font` | `--font-sans` |
-| monoFont | `data-mono-font` | `--font-mono` |
+| font | `data-font` | `--font-sans` — Geist by default, falling back to the system face |
+| monoFont | `data-mono-font` | `--font-mono` — Geist Mono by default, falling back to the system mono |
 | density | `data-font-size` | the root font-size, which every `rem` in the system scales from |
 
 Every one of them is **declared**, not hand-wired: `CORE_PREFS` is generated beside the CSS by
@@ -177,10 +564,6 @@ A tenant may pin, withhold or restart any of them through one `policy` prop, und
 `theme`; see [contributing a section](/docs/sections#tenant-policy-selection-never-authorship),
 which is the same mechanism.
 
-Appearance is the sixth preference, and it writes a **class**, not an attribute: `.dark` on
-`<html>`. It selects which SIDE is worn, and the theme axis is keyed by that side — so the two
-compose rather than competing, and neither is a hue somebody authored.
-
 <Callout type="warn" title="They must be on <html>, not a wrapper">
   Ark's overlays — Dialog, Popover, Menu, Select, Tooltip, Toast, HoverCard, Command — portal
   into `document.body`, outside any element you render. Tokens set on a
@@ -188,28 +571,21 @@ compose rather than competing, and neither is a hue somebody authored.
   size in the system is `rem`.
 
   This is why there is exactly one provider, and why it writes to the document rather than
-  rendering an element. A wrapper that set the same attributes on a `<div>` could not theme a
-  single overlay, and its density axis would do nothing at all.
+  rendering an element.
 </Callout>
 
 ### Setting them
 
-`KanzoThemeProvider` owns the preferences and writes the attributes:
-
 ```tsx
-import { KanzoThemeProvider } from "@kanzo-tech/ui";
-
 <KanzoThemeProvider defaults={{ radius: "md", density: "compact" }}>{children}</KanzoThemeProvider>
 ```
-
-Read or change them at runtime with `useKanzoTheme()`:
 
 ```tsx
 const { radius, set } = useKanzoTheme();
 set({ radius: "none" }); // square corners everywhere
 ```
 
-Or drop in the ready-made panel:
+Or drop in the ready-made panel, which draws `ThemePicker` first and the four axes after it:
 
 ```tsx
 import { Preferences } from "@kanzo-tech/ui";
@@ -224,28 +600,10 @@ import { Preferences } from "@kanzo-tech/ui";
 
 ## Dark mode
 
-`.dark` on `<html>` is the only mode selector, and `KanzoThemeProvider` writes it. Hand it to a
-host theme manager if you already run one — the shape matches next-themes:
-
-```tsx
-import { useTheme } from "next-themes";
-
-const { resolvedTheme, setTheme } = useTheme();
-<KanzoThemeProvider appearance={{ resolvedTheme, setTheme }}>{children}</KanzoThemeProvider>;
-```
-
-Omit the prop and the provider's built-in fallback toggles `.dark` itself, which is what these
-docs do.
-
-The preference is `"light" | "dark" | ""`, where `""` means the OS decides — there is no
-`"system"`: the value with no value is how the token-layer references model it (daisyUI's
-`--prefersdark`, `color-scheme: light dark`) rather than the theme-switcher libraries, which make it
-a third string. A host next-themes speaks `"system"`; the provider translates it to
-`""` on the way in and back on the way out, in one place, so the rest of the library never sees it.
-
-`""` is the same value the theme axis stores for "defer to the tenant", and that is not a
-coincidence: unset is one spelling here, which is what lets appearance be *declared* — and therefore
-resolved, pinned and offered — like every other axis.
+`.dark` on `<html>` is the only mode selector, and `KanzoThemeProvider` writes it from the side
+the user picked — `"light" | "dark"`, nothing else. The OS is never asked: there is no
+`prefers-color-scheme` in the provider or in `themeScript`. A host already running a theme manager
+that writes the class (next-themes with `attribute: "class"`) turns that writer off.
 
 <Callout type="info" title="Why a class and not light-dark()">
   Two reasons. The recipes' `dark:` variants need a class to key off; and
@@ -255,7 +613,7 @@ resolved, pinned and offered — like every other axis.
   `documentElement.style.colorScheme` — an inline declaration outranks every rule, permanently.
 </Callout>
 
-## Tokens
+## Fills and their inks
 
 Two families, two different rules — this trips people up, so it is worth stating plainly.
 
@@ -267,86 +625,27 @@ one is the point. `-foreground` is a readable-on-**background** variant of the s
 error text, invalid rings and destructive menu items. That it is not readable *on the fill*
 is not a contrast bug; it is Shark's convention, adopted verbatim.
 
-So on-fill text gets its own token, `-content` — daisyUI's word for exactly this role, adopted
-because it already existed and was right. It is **authored**: nothing derives it at runtime, and
-what checks it is a guard over the shipped themes. What does propose one is the studio, at authoring
-time — pick a fill and both of its inks are filled in, `-content` by daisyUI's own rule and
-`-foreground` by mixing the fill 60% toward `--foreground`. Both are proposals you overwrite, and
-what ships is the literal in the file.
+So on-fill text gets its own token, `-content` — daisyUI's word for exactly this role. It is
+**authored**: nothing derives it at runtime. What proposes one is the generator, at authoring time —
+pick a fill and both of its inks are filled in, `-content` by daisyUI's own rule and `-foreground`
+by `pageInk`. Both are proposals you overwrite, and what ships is the literal in the file.
 `bg-destructive text-destructive-content` is the readable pair. A literal `text-white` is not:
-measured, that white sits at 2.13:1 on the warning fill and 3.81 on destructive. An exception to
-"token-backed utilities only" is where a defect hides — with no token there is nothing to measure,
-and with nothing to measure there is no failing test.
-
-## Theming a region, not the document
-
-`[data-theme="nord"]` is an ordinary attribute selector. It matches an **element**, not a document,
-so the theme's custom properties land wherever you put the attribute and inherit into everything
-inside:
-
-```tsx
-<div data-theme="nord">
-  <Panel />
-</div>
-```
-
-That is the whole mechanism, and it is what makes a tenant-branded panel inside an otherwise neutral
-application possible without an iframe, a second stylesheet or any JavaScript. The
-[theme catalogue](/docs/themes) is every shipped theme on one page, each drawn wearing the same
-screen.
-
-It works because of the bridge above, and it is the first thing a `:root` declaration would break: a
-custom property inherits its **computed** value, so a colour declared on `:root` resolves once on
-`<html>` and every region would paint the same theme.
-
-<Callout type="warn" title="The default theme binds as :root:not([data-theme])">
-  Not a bare `:root`. `:root` has the same specificity as `[data-theme="x"]`, so the tie breaks on
-  source order — and `themes.css` imports alphabetically, so every theme sorting before `kanzo.css`
-  would be repainted in kanzo's colours, `color-scheme` and all. `themes.test.ts`, "binds the default
-  theme so it cannot outrank a chosen one", holds it.
-</Callout>
-
-<Callout title="Set `color-scheme` alongside it">
-  The attribute carries the colours; it does not tell the browser which way the region leans, so
-  form controls, scrollbars and the caret keep the document's. A themed region wants
-  `style={{ colorScheme: "dark" }}` beside the attribute when the theme it wears is a dark one.
-</Callout>
-
-
-### Two themers, and only one of them owns the root
-
-`KanzoThemeProvider` writes the axes to `document.documentElement` and is **the app's themer**.
-`KanzoTheme` writes the same attributes to a `<div>` and is **for previews** — a gallery of five
-themes on one page is a real screen, and the root-only provider cannot express it. Both ship, they are
-not interchangeable, and the difference is asserted rather than described.
-
-<Callout type="warn">
-**Never reach for `KanzoTheme` as the app's provider.** Ark's overlays — Dialog, Popover, Menu,
-Select, Tooltip, Toast, HoverCard, Command — portal into `document.body`, outside any wrapper, so a
-wrapper cannot theme them; and density sets the root font-size that the whole `rem` scale resolves
-against, so on a wrapper it is broken outright.
-</Callout>
-
-**What would reverse it:** a scope that could theme Ark's portalled overlays. It cannot, and that is a
-fact about the portal target rather than a preference — which is why the root provider stays the app's.
-
-*Held by* `packages/ui/src/index.test.ts`, "exposes two themers, and they are not interchangeable";
-`packages/ui/src/theme/KanzoTheme.tsx`.
+measured, that white sits at 2.13:1 on the warning fill and 3.81 on destructive.
 
 ## What `@kanzo-tech/theme` exports besides CSS
 
 The stylesheet is the product; these are the shapes a host needs when it builds its own control,
 its own storage, or its own section. None of them is required to use a theme.
 
-**The tables, generated.** `themeData` is the four non-colour axes as a JS module — the same tables
-the generator writes, so no second list can drift from them — and `ThemeData` is its type.
-`ThemeIndexEntry` is one theme as a control sees it. The axis keys are `KanzoThemeName`,
-`KanzoDensity`, `KanzoFont`, `KanzoMonoFont` and `KanzoRadius`; all of them are host-extensible, and
-`""` on a theme name means *defer to the tenant's default* rather than *no theme*.
+**The catalogue.** `themeIndex`, `ThemeOption`, `themeFamilies`, `ThemeFamily` and
+`defaultThemePair` — see [the catalogue as data](#the-catalogue-as-data). `themeData` is the generated
+tables as a JS module — read it rather than importing `theme-data.json`, which Node rejects as a bare
+JSON import — and `ThemeData` is its type. The axis keys are `KanzoThemeName`, `KanzoDensity`,
+`KanzoFont`, `KanzoMonoFont` and `KanzoRadius`; all of them are host-extensible, and `""` on a theme
+name means *defer to the tenant's default* rather than *no theme*.
 
 **Storage.** `STORAGE_KEY` is where a preference document is kept, and `CORE_NAMESPACE` is the
-namespace the core's own preferences answer to inside a tenant's policy — the core is a section like
-any other, which is what that constant is for.
+namespace the core's own preferences answer to inside a tenant's policy.
 
 **Preferences.** `CorePrefDecl` and `CorePrefKey` are the core's axes declared in the shape any
 package contributes. A `choice` offers `PrefOption`s — `value` is stored, `label` is read — as a
@@ -355,33 +654,29 @@ package contributes. A `choice` offers `PrefOption`s — `value` is stored, `lab
 panel say where a value came from and a test assert on it.
 
 **Sections.** A `LookDocument` is a stored appearance, and its `sections` are opaque: the core never
-parses a section's payload. `sectionOf` reads one — a section you do not have answers an empty
-record — and `withSection` writes one back, preserving every other section byte for byte. A section
-declares `SectionPrefDecl`s for the person on the screen and `SectionTokenDecl`s for the document;
-a tenant answers with a `SectionPolicy` of `SectionPrefPolicy`, which is **selection, never
-authorship**. `resolveSectionToken` resolves a dotted token against a document and then the
-manifest's default, `fallbackChain` is that chain most specific first, and a `Problem` is a token
-the manifest does not declare or one that would silently fall back to a parent.
+parses a section's payload. `sectionOf` reads one and `withSection` writes one back, preserving every
+other section byte for byte. A section declares `SectionPrefDecl`s for the person on the screen and
+`SectionTokenDecl`s for the document; a tenant answers with a `SectionPolicy` of
+`SectionPrefPolicy`, which is **selection, never authorship**. `resolveSectionToken` resolves a dotted
+token against a document and then the manifest's default, `fallbackChain` is that chain most specific
+first, and a `Problem` is a token the manifest does not declare.
 
 **The density obligations.** `DENSITY_OBLIGATIONS` is what the density axis owes, `checkDensity`
-grades it, and `DensityObligation` and `DensityCheck` are the two shapes involved. Density
-multiplies the root font-size the whole `rem` scale resolves against, so it is a multiplier on a bar
-both layers can break — which is why it is graded here and why a specific failure may still belong
-to the component that declared the row.
+grades it, and `DensityObligation` and `DensityCheck` are the two shapes involved.
 
 **Authoring colour.** `inkFor` returns the ink that belongs on a fill and `pageInk` the same family
 read on the page, each as a hex ready to be written into a theme. `contrast` is the WCAG ratio, `AA`
 its 4.5 floor, and `oklch`/`hex` convert between a hex and an `Oklch` (`l` from 0 to 1, `h` in
-degrees). These run in a form while somebody picks a colour, never in a page painting one.
+degrees). `CONTRAST_PAIRS` and `auditContrast` are [the floors](#contrast). These run in a form while
+somebody picks a colour, never in a page painting one.
 
 ## Generated output
 
 `themes.css` and `theme-data.json` are generated by `scripts/gen-theme.mjs` — the catalogue of
-`@import`s, the user's non-colour preferences, and the table of what each name defers to, read out
-of `tokens.css` so nothing restates it. An authoring tool that shows you what a theme *looks like*
-has to follow the same chain the cascade follows, and that table is how it does it without keeping
-a second copy of the bridge. **Edit the generator, not those two**; CI
-regenerates and fails on any diff.
+`@import`s, each theme's `color-scheme` / `@family` / `@label`, the user's non-colour preferences,
+and the table of what each name defers to, read out of `tokens.css` so nothing restates it. **Edit the
+generator, not those two**; CI regenerates and fails on any diff. The generator refuses a family
+without exactly one light and one dark theme.
 
 **`tokens.css` and `themes/*.css` are NOT generated.** They are hand-written source, and a guard
 that regenerated them would have nothing to regenerate them from.

@@ -145,13 +145,6 @@ export function prefOptions(
  * the other two — three toggles and two scalars in the graph's Display, six coefficients in its
  * simulation dock, every one of them hand-rolled with its own wiring.
  *
- * **"Follow the system" is an option and not a fourth kind.** It is the option whose value is `""`,
- * and the convention is already load-bearing here: `identity` and `palette` default to `""`, and the
- * write rule removes the attribute at the default — which is exactly what *the OS decides* means in
- * CSS, where there is no third keyword either. Declared as `{ value: "", label: "System" }` it is a
- * thing a control can offer, so getting back to it stops being the panel's `Reset` button's private
- * power.
- *
  * **A value is a string in all three**, and that is a decision rather than an oversight. One storage
  * shape means an unrecognised namespace rides through a write untouched without the core parsing
  * it; and a value that can be written to a `data-*` attribute needs no second spelling on its way

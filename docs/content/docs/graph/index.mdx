@@ -7,37 +7,48 @@ description: The graph view over a fossil corpus — the whole of it, read once 
 view: the host opens the corpus, `GraphRoot` draws the whole of it, and nothing crosses between the
 two but the corpus contract. No SQL is written here.
 
+<ComponentPreview componentName="graph" fileName="example-workspace" hasMaxHeight />
+
+That is the [discovery workspace](/docs/graph/workspace) in miniature — one root, the canvas with
+its toolbar and legend, an Info panel, a Settings panel and the counts in the footer. Each piece is
+taken apart below.
+
+## Installation
+
+```sh
+pnpm add @kanzo-tech/graph @cosmos.gl/graph @fossil-lang/corpus @kanzo-tech/mosaic @kanzo-tech/ui lucide-react
+```
+
+Every peer is required. `@fossil-lang/corpus` reads the corpus, `@kanzo-tech/mosaic` is the page's
+one DuckDB-WASM engine and its crossfilter, cosmos.gl draws, and the parts are built from
+`@kanzo-tech/ui` and its icons.
+
 <Callout type="info">
-The graph reads fossil's `fossil/1` format, which `@fossil-lang/corpus` publishes from
-`0.3.0-alpha.15`; the graph needs `0.3.0-alpha.19` or later, whose `open` and reads raise coded
-failures that `onFailure` hands on whole.
+The graph reads fossil's `fossil/1` format and needs `@fossil-lang/corpus` `0.3.0-alpha.19` or
+later, whose `open` and reads raise coded failures that `onFailure` hands on whole.
 </Callout>
 
-It is a **sibling** of `@kanzo-tech/ui`, not part of it.
+It is a **sibling** of `@kanzo-tech/ui`, not part of it. [The first admission
+rule](/docs/philosophy#admission) is *domain-free — nothing about RDF / SHACL / **graphs** / auth*,
+and a renderer with a required WebGL peer would change what `ui` is. A separate package is the same
+answer `palette` and `theme` already got.
 
-## Why it is not in the library
-
-[The first admission rule](/docs/philosophy#admission) is *domain-free — nothing about RDF /
-SHACL / **graphs** / auth*. Graphs are excluded by name, and deliberately: `ui` is the generic
-vocabulary every product shares, and a renderer with a **required** WebGL peer would change what
-that package is. A separate package is the same answer `palette` and `theme` already got — ours,
-shipped, not `ui`.
-
-## The one path
+## Usage
 
 ```tsx
 import { open } from "@fossil-lang/corpus";
 import { engine } from "@kanzo-tech/ui/analytics";
-import { GraphCanvas, GraphInspector, GraphLegend, GraphRoot, GraphToolbar } from "@kanzo-tech/graph";
+import { GraphCanvas, GraphLegend, GraphRoot, GraphToolbar } from "@kanzo-tech/graph";
+```
 
-const corpus = await open(url, { engine: await engine() });
+```tsx
+const corpus = engine().then((e) => open(url, { engine: e }));
 
-<GraphRoot corpus={corpus} r="degree" onFailure={setFailure}>
+<GraphRoot corpus={corpus} r="degree" title="label" onFailure={setFailure}>
   <GraphCanvas>
-    <GraphToolbar />
-    <GraphLegend />
+    <GraphToolbar className="absolute end-2 top-2" />
+    <GraphLegend className="absolute start-2 bottom-2" />
   </GraphCanvas>
-  <GraphInspector />
 </GraphRoot>;
 ```
 
@@ -47,39 +58,50 @@ const corpus = await open(url, { engine: await engine() });
 a URL opens as `open(url, { engine })`, and a private one under a name with a `host` that lends the
 files, `` open(`jobs/${id}`, { engine, host }) ``. `GraphRoot` takes what came back and never opens
 a second copy; closing it is the host's too. **`corpus` takes the opening itself** — the promise
-`open` returns — and the root reports `status: "opening"` until it settles and `onFailure` if it
-does not; `null` is no corpus at all. The promise must settle: the root sets no deadline on it,
-because the waits inside `open` are fossil's to bound. The canvas is mounted either way and waits over an empty
-surface, because a canvas gated on its first answer has no camera to ask with.
+`open` returns — so the root reports `status: "opening"` until it settles and `onFailure` if it does
+not; `null` is no corpus at all. The promise must settle: the root sets no deadline on it, because
+the waits inside `open` are fossil's to bound. The canvas is mounted either way and waits over an
+empty surface, because a canvas gated on its first answer has no camera to ask with.
 
-It is the archive the [workspace showcase](/docs/showcases/workspace) draws, opened the same way —
-one world, not a second one written for the docs. That showcase is the reference composition: the
-graph beside a second main view, with a dock of panels around one `GraphRoot`.
+## Anatomy
 
-## What the root and the parts own
+```text
+GraphRoot                  the state and the commands; renders no element
+├── GraphCanvas            the element: points, links, grid, labels, hover card, marquee and lasso
+│   ├── GraphToolbar       selection tools, the selection, zoom and fit, the layout's transport
+│   └── GraphLegend        one row per category: glyph, name, how many are drawn
+├── GraphCounts            "1.2K of 5K nodes drawn · 8K edges"
+├── GraphSearch            find a vertex by its text and reveal it
+└── GraphInspector         the focused vertex's row
+GraphLooks                 the picture's preferences; needs the theme provider, not a root
+```
 
-`GraphRoot` holds the graph's state outside React: the loaded graph, the channels, the selection, the
-focus and the motion. It is `useGraph` plus a context, and neither renders an element. The parts are flat
-and each reads the root: `GraphCanvas` is the element — cosmos.gl's surface, and what the look
-declares over it, the grid, the vignette, the labels, the hover card, plus the marquee and lasso
-gesture — and its children are chrome positioned over it. `GraphLegend`, `GraphToolbar` and
-`GraphInspector` are that chrome, and each is a part of the root rather than of the canvas, so it
-can sit anywhere under it.
+**Every part reads the root, not its parent.** `GraphCanvas`'s children are chrome positioned over
+the surface, but `GraphToolbar`, `GraphLegend`, `GraphCounts`, `GraphSearch` and `GraphInspector`
+each read the root's context directly, so each can sit anywhere under it — over the canvas, in a
+dock, in a footer. `GraphLooks` is the exception the other way: it writes preferences, so it needs
+`GRAPH_SECTION` on the theme provider and no root at all.
 
-**The api is the commands; the state is a selector.** `useGraphContext()` answers with an object
-that never changes — `zoomBy`, `fit`, `reveal`, `select`, `setTool` and the rest — and
-`useGraphState(selector)` reads a slice of the state and re-renders only when that slice moves. The
-state changes at frame rate, a hover and a load and a tick of the layout, so a part that read all of
-it would re-render on every hover. It is TanStack Store's `useStore(store, selector)`; inside a
-callback, `api.getState()` reads it without subscribing.
+## The mental model
 
-**Policy stays with the host, through the root's callbacks.** A click selects a vertex and its
-neighbours and focuses it; a lasso selects what it encloses; a failure is reported. What the host
-does with each is `onSelect`, `onFocus` and `onFailure`, and **no part takes a callback of its
-own** — the package's barrel test holds that. `onFailure` is the one required prop: unhandled, a
-browser with no WebGL context shows an empty box. It receives what was thrown, whole: fossil's
-errors keep their `code`, and the graph's own are a `GraphError` coded `graph/no-webgl` or
-`graph/context-lost`.
+### The root holds the state; the api is the commands
+
+`GraphRoot` holds the graph's state outside React — the loaded graph, the channels, the selection,
+the focus and the layout's motion — and renders no element. **`useGraphContext()` answers with the
+commands**, an object that never changes for the root's life: `zoomBy`, `fit`, `pause`, `resume`,
+`restart`, `unpin`, `reveal`, `frameSelection`, `clear`, `select`, `setFocus` and `setTool`.
+**`useGraphState(selector)` reads a slice of the state** and re-renders only when that slice moves.
+The state changes at frame rate — a hover, a load, a tick of the layout — so a part that read all of
+it would re-render on every hover. It is TanStack Store's `useStore(store, selector)`; pass a second
+argument, an equality, when the selector builds an object. Inside a callback, `api.getState()` reads
+the state without subscribing.
+
+### Policy stays with the host, through the root's callbacks
+
+A click selects a vertex and its neighbours and focuses it; a lasso selects what it encloses; a
+failure is reported. What the host does with each is `onSelect`, `onFocus` and `onFailure`, and **no
+part takes a callback of its own** — the package's barrel test holds that. `onFailure` is the one
+required prop; [Failures](#failures) says why.
 
 ### Ark's four: `useGraph` and `GraphRootProvider`
 
@@ -90,59 +112,153 @@ api above the parts:
 
 <ComponentPreview componentName="graph" fileName="example-provider" hasMaxHeight />
 
-The count in the corner is a part: it selects `drawn` — the vertices on the canvas, which a filter
-shrinks — `total`, the manifest's vertex count, which it does not, and `status`, which is `opening`,
-`loading` or `idle` once the whole graph is drawn.
+The badge is a host's own part: it selects `drawn`, `total` and `status`, and nothing else, so a
+hover does not re-render it.
 
-### `GraphToolbar`
+### `status` is the data's; `motion` is the layout's
+
+`status` is where the **data** is: `none`, `opening`, `loading`, `idle` once the whole graph is
+drawn, `failed`. `motion` is where the **layout** is: `running`, `paused` or `settled`, with
+`progress` from `0` to `1`. They are two axes because each moves without the other — a filter loads
+under a paused layout, and a layout runs over a graph with nothing left to read — so a footer that
+says "laying out" reads `motion`, never `status`. [Layout and camera](/docs/graph/layout) has the
+whole of it: what play does, what a drag pins, where the camera goes.
+
+## Examples
+
+### Toolbar
 
 <ComponentPreview componentName="graph" fileName="example-toolbar" hasMaxHeight />
 
 The commands, drawn: the selection tools, the selection and what to do with it, zoom and fit, and the
-layout's transport. The graph loads at the corpus's positions with no layout running; play runs the
-force layout from where the points are, and pause leaves them there. Each cluster is a `ButtonGroup`, because a cluster is
-a claim that its buttons do one job. Pick a tool and drag a box; Shift borrows the marquee whichever
-tool is armed, and at release `Alt` removes what was drawn while `⌘`/`Ctrl` adds. The toolbar
-declares no `toolbar` role: that role promises roving focus, and each button here is its own tab
-stop. `orientation="vertical"` stacks the clusters.
+layout's transport. Pick a tool and drag; **Shift** borrows the marquee whichever tool is armed, and
+at release **Alt** removes what was drawn while **⌘/Ctrl** adds; **Esc** backs out of the drag, then
+the tool, then the selection. While a selection is held its cluster appears — the count, Frame and
+Clear. Play runs the force layout from where the points are and pause leaves them there; while
+nodes are pinned, Release joins the transport. Each cluster is a `ButtonGroup`, because a cluster is
+a claim that its buttons do one job. The toolbar declares no `toolbar` role: that role promises
+roving focus, and each button here is its own tab stop. `orientation="vertical"` stacks the
+clusters.
 
-### `GraphLegend`
+### Legend
 
 <ComponentPreview componentName="graph" fileName="example-legend" hasMaxHeight />
 
-The categorical scale the canvas draws, as rows: the glyph, the name, and how many vertices of that
-category are drawn — then what is drawn of the whole. With nothing bound to `fill`, the categories
-are the vertex types. **A row never moves.** The domain is fixed before the graph loads: the drawn
-types in the manifest's order, or the keys of the root's `categories`, which is also what names the
-values. A category past the palette's capacity is Other, on the legend as on the canvas.
+The categorical scale the canvas draws, **as rows and nothing else**: the glyph, the name, and how
+many vertices of that category are drawn. With nothing bound to `fill` the categories are the vertex
+types; with colour a constant and nothing on `symbol` there is no category to key, and the legend
+renders nothing. **A row never moves.** The domain is fixed before the graph loads — the drawn types
+in the manifest's order, or the keys of the root's `categories` — so a colour never changes hands. A
+category past the palette's capacity is Other, on the legend as on the canvas.
 
-The names are the root's, never the legend's, so the hover card and the inspector say the same
-thing. A legend that renamed a category would be a part encoding one product's policy.
+The names are the root's, never the legend's, so the hover card, the search and the inspector say
+the same thing. What is drawn of the whole is not the legend's: it is `GraphCounts`.
 
-### `GraphInspector`
+### Counts
+
+<ComponentPreview componentName="graph" fileName="example-counts" hasMaxHeight />
+
+What is drawn of the whole, in one sentence: **"1.2K of 5K nodes drawn · 8K edges"**. The first
+figure shrinks with the page's filter and the second is the manifest's, so the sentence is the
+filter's effect; an edge counts when both its ends are drawn. A figure not yet known is "—", and the
+numbers are compact in the nearest `LocaleProvider`'s locale.
+
+`spinner` draws a `Spinner` beside it — labelled "Loading" while the corpus opens or the graph
+loads, "Laying out" while a layout runs — for a host with no status of its own. **`aria-busy`
+follows the load alone**: only a load changes these figures, and a running layout moves the points,
+not the counts, so a screen reader is not told the sentence is stale while it is not.
+
+### Search
+
+<ComponentPreview componentName="graph" fileName="example-search" hasMaxHeight />
+
+Find a vertex by its text and go to it. Every drawn vertex's `title` — or its table's `identity` —
+is read **once**, one two-column scan per table, and then filtered in the browser as the reader
+types: no query per keystroke. The list is ordered by the `r` ramp, so with `r="degree"` the hubs
+come first, and each match carries its category's name from the root's `categories`. Picking one is
+`reveal`: the canvas frames it and selects it with its neighbours, and `GraphInspector` reads it. A
+vertex the page's filter hides is not offered — there is nothing on the canvas to go to. `limit`
+caps the list (50) and says so.
+
+**A failed read is kept whole**: it reaches `onFailure` as thrown, and the input turns
+`aria-invalid` with the placeholder "The names could not be read." rather than staying disabled.
+
+It is a `Combobox` and not `ChartSearch` because of what the control means: `ChartSearch` publishes
+a substring filter, which narrows the picture; picking is a value, which goes somewhere.
+
+### Inspector
 
 <ComponentPreview componentName="graph" fileName="example-inspector" hasMaxHeight />
 
-The focused vertex — a click, or `reveal` — read and laid out. The loaded graph carries what the
-channels project and nothing else, so the rest of the row is read when a reader focuses it: a scan of
-its table, filtered to its `dense_id`, cancelled when the focus moves on. The fields are the table's,
-in the order the manifest declares them. **`children` is a render prop** that receives the row and draws
-fields of the product's own, a `DataListItem` each — the hall's name above, where the relation
-stores its id.
+The focused vertex — a click, a search or `reveal` — read and laid out. The loaded graph carries
+what the channels project and nothing else, so the rest of the row is read when a reader focuses it:
+a scan of its table, filtered to its `dense_id`, cancelled when the focus moves on. The fields are
+the table's, in the order the manifest declares them. **`children` is a render prop**: it receives
+the `VertexDetail` and draws fields of the product's own, a `DataListItem` each, after the corpus's —
+here the hall's name, where the relation stores its id. "Find on canvas" reveals the vertex again.
+
+### Looks
+
+<ComponentPreview componentName="graph" fileName="example-looks" hasMaxHeight />
+
+The picture's preferences, drawn: three **looks** — Nebula, Atlas and Ink, each a card with a
+miniature drawn through the canvas's own glyphs and scale — and the axes themselves folded under
+**Customize**. Wearing a look writes every axis it names; a look is checked exactly when the resolved
+axes are its own, so no name is stored beside them, and a picture customised past all three checks
+none and opens Customize. A look whose axes a tenant pinned is disabled.
+
+**It needs `GRAPH_SECTION` on the theme provider** — without it there is nothing to write and it
+renders nothing — and the root reads the answer through `useGraphPrefs()`:
+
+```tsx
+import { KanzoThemeProvider } from "@kanzo-tech/ui";
+import { GraphLooks, GraphRoot, useGraphPrefs } from "@kanzo-tech/graph";
+import { GRAPH_SECTION } from "@kanzo-tech/graph/section";
+
+const SECTIONS = [GRAPH_SECTION]; // module scope: a new array re-resolves every preference
+
+<KanzoThemeProvider sections={SECTIONS}>…</KanzoThemeProvider>;
+
+// under it
+const { look, sim, preset } = useGraphPrefs();
+<GraphRoot corpus={corpus} look={look} sim={sim} {...PAIRINGS[preset ?? "atlas"]} onFailure={setFailure}>
+```
+
+**A look is form; the channels are the host's.** `preset` is `"nebula"`, `"atlas"`, `"ink"` or
+`null`, for a host that pairs channels with a look. Ink's register spends identity on shape — `fill`
+as one ink, `symbol` on the category — but that is a binding, and a binding is the host's to make:
+
+```tsx
+const PAIRINGS: Record<LookPreset, Channels> = {
+  nebula: { fill: "kind" },
+  atlas: { fill: "kind", stroke: "var(--muted-foreground)" },
+  ink: { fill: "var(--foreground)", symbol: "kind", stroke: "var(--muted-foreground)" },
+};
+```
+
+### Declared axes, without the panel
+
+<ComponentPreview componentName="graph" fileName="example-axes" hasMaxHeight />
+
+`lookFrom` and `simFrom` read the same `Record<string, string>` a preferences section produces —
+`GRAPH_SECTION` on `@kanzo-tech/graph/section` is the declaration, and these two are its only
+readers. A host under a preferences panel never calls them itself: `useGraphPrefs()` does. A host
+that knows its corpus is large starts its users at other forces through the tenant policy, over the
+same declared axes.
+
+## The whole corpus, read once
+
+When the corpus opens, the graph reads **every vertex table with a position** — fossil's layout, or
+columns the program mapped — and **every relation whose two ends are drawn**, one scan per table,
+into arrays indexed by each vertex's `dense_id`, and uploads them to cosmos.gl once. A type with no
+position is not drawn. Nothing is read because the camera moved: panning and zooming are cosmos.gl's
+alone. Changing a column binding re-reads that column and uploads colours and sizes; positions and
+links stay where they were.
 
 **A label is the `title` column, read for the vertices that carry one.** The canvas labels the
 biggest vertices by the `r` ramp, up to the look's label budget, and reads their text — the column
 `title` binds, or each table's declared `identity` where it is unbound. The hover card reads the one
 under the pointer the same way.
-
-## The whole corpus, read once
-
-When the corpus opens, the graph reads **every vertex table with a position** — fossil's layout, or
-columns the program mapped — and **every relation whose two ends are drawn**, one scan per table, into
-arrays indexed by each vertex's `dense_id`, and uploads them to cosmos.gl once. A type with no
-position is not drawn. Nothing is read because the camera moved: panning and zooming are cosmos.gl's
-alone. Changing a column binding re-reads that column and uploads colours and sizes; positions and
-links stay where they were.
 
 [The graph view](/docs/design/graph) has the reference each layer copies and the measurements that
 decided each rule.
@@ -157,27 +273,28 @@ What a point wears is **bound on the root**, under the names Plot gives a point 
 ```
 
 **Unbound, colour is the vertex type**, so a corpus with several types reads as several colours with
-nothing passed. **A CSS colour is a constant; anything else is a column.** That is Plot's rule, and it is what makes
-the monochrome picture a binding rather than a theme:
+nothing passed. **A CSS colour is a constant; anything else is a column.** That is Plot's rule, and
+it is what makes the monochrome picture a binding rather than a theme:
 
 ```tsx
 <GraphRoot corpus={corpus} fill="var(--foreground)" symbol="kind" r="degree" onFailure={setFailure}>
 ```
 
 Identity has moved to shape, colour is free to mean the selection, and nothing had to know which of
-the two a look preferred. A bare word is always a column, so a corpus with a column called `red` is
-not a trap.
+the two a look preferred. A constant is `var(…)`, a hex or a colour function, so a bare word is
+always a column, and a corpus with a column called `red` is not a trap.
 
 **A binding is a projection.** `fill` and `r` as columns become the scan's `select` for each table
 that has them; a table without the column draws its vertices as the null category. `fill` as a
-constant and `stroke` never reach a scan.
+constant and `stroke` never reach a scan. The graph holds **one** categorical column, so `symbol`
+beside a `fill` column reads the same one.
+
+**`categories` names the values and ranks them.** Its keys are the category's values — table names
+when colour is the vertex type — and its values are what the legend, the hover card, the search and
+the inspector call them. **The keys' order is the colour rank**, fixed before the graph loads.
 
 **`x` and `y` are not channels.** A position is a fact rather than an encoding — a layout pass or the
 program wrote it, and the manifest says which columns hold it.
-
-A `Look` is **form only** — sizes, link width and curve, labels, vignette. Binding `symbol` takes on
-an obligation — `gradeComposition(look, channels)` returns the four-pixel radius floor that shape and
-size spent together require.
 
 ## A filter is a predicate, applied as a mask
 
@@ -185,13 +302,16 @@ size spent together require.
 being a client of the coordinator: each clause is translated into scan's typed filter — comparisons,
 `BETWEEN`, `IN`, `IS NULL`, `AND`, `OR`, `NOT` — read against each drawn table that has every column
 it names, and the vertices that do not survive are hidden. A table without one of those columns is
-not filtered. A clause it
-cannot translate reaches `onFailure` and is never dropped, because a dropped clause draws an
-unfiltered picture that reads as a filtered one.
+not filtered, the way a `WHERE` over a union of the tables would behave. **A clause it cannot
+translate, or one no drawn table can answer, reaches `onFailure`** as `graph/untranslatable-filter`
+and is never dropped, because a dropped clause draws an unfiltered picture that reads as a filtered
+one.
 
 **The reader's pick is published back.** A click or a lasso publishes a `dense_id` clause into the
 same crossfilter, naming the graph as the clause's client — so every chart filters by it and the
-graph does not, and a lasso of thirteen does not remove the other fifteen hundred.
+graph does not, and a lasso of thirteen does not remove the other fifteen hundred. The
+[workspace recipe](/docs/graph/workspace#one-crossfilter) shares one crossfilter with
+`@kanzo-tech/ui/analytics`.
 
 ## Identity
 
@@ -200,104 +320,222 @@ A `VertexId` is the corpus's `dense_id`, a `number`: fossil numbers every vertex
 cosmos.gl's buffers. An id from SQL — `SELECT dense_id FROM …` — is a vertex as it stands, for
 `select` or `reveal`.
 
-## How far it goes
+## Failures
 
-Measured on an Apple M4 Pro, not quoted. The recorded tables are on [Benchmarks](/docs/graph/benchmarks),
-and `/view/showcases/graph-bench` re-runs them.
+<ComponentPreview componentName="graph" fileName="example-failure" hasMaxHeight />
 
-**The viewer costs what cosmos.gl costs.** At 200,000 vertices, on the same positions and camera
-path, `GraphRoot`'s p95 frame interval is 9.0 ms and cosmos.gl's alone is 9.3 ms.
+**`onFailure` is required**, because unhandled, a browser with no WebGL context shows an empty box.
+It receives every failure **as it was thrown**: fossil's errors keep their `code` (`corpus/unreadable`
+above, from a corpus that is not there), and the graph's own are a `GraphError`. The root reports
+`status: "failed"` beside it, so a part can render the failed state without holding the error.
 
-| Nodes | Links | Per simulation step | Ceiling |
-|---|---|---|---|
-| 2,000 | 12.5k | 1.6 ms | 611 fps |
-| 50,000 | 332k | 10.4 ms | 98 fps |
-| 200,000 | 1.4M | 61.6 ms | 16 fps |
-| 1,000,000 | 6.9M | 441 ms | 2 fps |
+| `GraphError` code | When |
+| --- | --- |
+| `graph/no-webgl` | No WebGL context, or no GPU device came up. `data.after` is set when the 10 s device deadline fired. |
+| `graph/context-lost` | The browser took the WebGL context back. |
+| `graph/nothing-to-draw` | The corpus has no vertex type with a position. |
+| `graph/untranslatable-filter` | A crossfilter clause the graph cannot ask the corpus. |
 
-**The ceiling is not the renderer, it is the layout.** A live simulation is comfortable to about
-50,000 points and finished by 200,000. Past that, positions are a column — so a simulation is **off
-by default**, and the toolbar runs one from where the points are.
+A part that reads on its own — the search's names, the inspector's row, a label's text — hands its
+failure to the same `onFailure` and shows it in place. A host keys its message on `code` and falls
+back to the message.
 
-## The picture is declared, not hard-coded
+## Pitfalls
 
-Nothing about how a graph looks is a literal here. `lookFrom` and `simFrom` read the same
-`Record<string, string>` a preferences section produces — `GRAPH_SECTION` on
-`@kanzo-tech/graph/section` is the declaration, a panel draws it, and these two are the only
-readers. A host under a preferences panel never calls them itself: `useGraphPrefs()` reads the
-provider's resolved `sectionPrefs` for this section and answers `{ look, sim }`.
+- **Memoise `look`, and hold `sim` steady.** The root repaints on `look`'s identity, so a fresh
+  object per render is an upload per render; a fresh `sim` re-heats a layout that is running.
+  `useGraphPrefs()` answers the same objects until a preference moves; a hand-built look belongs in
+  `useMemo`.
+- **`categories`' key order is the colour rank.** Reorder the keys and every category changes
+  colour. Write the object once, in the order the colours should go, at module scope.
+- **`onFailure` is not optional.** Without it a browser with no WebGL, a corpus that will not open
+  and a filter that cannot be translated all look like an empty canvas.
+- **A large corpus pays for the camera that follows the layout.** While a layout runs the camera
+  re-frames every 900 ms, and so does Fit once a layout has run; each re-frame reads every position
+  back from the GPU. Past tens of thousands of points that is a stall per re-frame —
+  [Layout and camera](/docs/graph/layout#large-corpora) has what to do.
+- **Register `GRAPH_SECTION` once, at module scope.** `GraphLooks` renders nothing without it, and
+  a `sections` array built in render re-resolves every preference on every render.
+- **A hidden tab is a stopped graph.** The canvas draws on animation frames, and
+  `requestAnimationFrame` never fires in a background tab.
 
-```tsx
-import { GraphCanvas, GraphRoot, useGraphPrefs } from "@kanzo-tech/graph";
-import { GRAPH_SECTION } from "@kanzo-tech/graph/section";
-
-// <KanzoThemeProvider sections={[GRAPH_SECTION]}> somewhere above
-const { look, sim } = useGraphPrefs();
-<GraphRoot corpus={corpus} look={look} sim={sim} onFailure={setFailure}>
-  <GraphCanvas />
-</GraphRoot>;
-```
-
-<ComponentPreview componentName="graph" fileName="example-axes" hasMaxHeight />
-
-A host that knows its corpus is large starts its users at other forces through the tenant policy,
-over the same declared axes.
-
-## Things the source will not tell you twice
-
-These are cosmos.gl behaviours that typecheck perfectly while being wrong.
+### cosmos.gl behaviours that typecheck while being wrong
 
 - **`setConfig` resets everything.** In 3.x it restores defaults and *then* applies the argument.
-  Use `setConfigPartial`. Only three fields are genuinely init-only: `initialZoomLevel`,
-  `randomSeed` and `attribution`.
+  Use `setConfigPartial`.
 - **`getConnectedLinkIndices` is not a neighbourhood.** It returns only links whose *other* endpoint
   is also in the argument. `getNeighboringPointIndices` is the neighbourhood, in buffer indices.
-- **Every index cosmos.gl hands you is a buffer position.** `findPointsInRect`, `onPointClick`,
-  `getTrackedPointPositionsMap` — here a buffer position is the vertex's `dense_id`, because the
-  graph uploads the corpus in id order; in another host it would name nothing stable.
-- **`requestAnimationFrame` never fires in a background tab**, and the canvas draws on animation
-  frames. A backgrounded graph is stopped, not slow — and `graph.ready` has no failure path, so a
-  device that cannot be created leaves the promise unsettled rather than rejecting.
+- **Every index cosmos.gl hands you is a buffer position.** Here a buffer position is the vertex's
+  `dense_id`, because the graph uploads the corpus in id order; in another host it would name
+  nothing stable.
+- **`graph.ready` has no failure path.** A device that cannot be created leaves the promise
+  unsettled, which is why the root sets its own deadline.
+
+## How far it goes
+
+**The viewer costs what cosmos.gl costs**: at 200,000 vertices, on the same positions and camera
+path, `GraphRoot`'s p95 frame interval is 9.0 ms and cosmos.gl's alone is 9.3 ms. **The ceiling is
+the layout, not the renderer** — a live simulation is comfortable to about 50,000 points and
+finished by 200,000 — so a simulation is off by default. [Benchmarks](/docs/graph/benchmarks) has
+the recorded tables.
 
 ## API Reference
 
-`packages/graph/src/index.test.ts` pins the list: adding a name fails that file until somebody
+`packages/graph/src/index.test.ts` pins the barrel: adding a name fails that file until somebody
 writes it in.
 
-### The root and the parts
+### GraphRoot
 
-| Name | What it is |
-| --- | --- |
-| `GraphRoot` | `useGraph` plus the context. Renders no element. |
-| `GraphRootProvider` | Takes an api a host built with `useGraph`. |
-| `useGraph` | **Creates** the api: a store created once and given the props when one changes. |
-| `useGraphContext` | **Reads** it, from any part under a root: the commands, stable for the root's life. |
-| `useGraphState` | A slice of the state, and a render only when it moves. |
-| `GraphCanvas` | The element, the grid, the vignette, the labels, the hover card and the gesture. |
-| `GraphLegend` | The categorical scale the canvas draws, with the tally in view. |
-| `GraphToolbar` | The tools, the selection, zoom and fit, and a live layout's transport. |
-| `GraphInspector` | The focused vertex's row, with a render prop for fields a product adds. |
-| `ShapeGlyph` | The glyph the canvas draws for a category, in the DOM — for a legend key or a card. |
+`useGraph` plus the context. Renders no element.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `corpus` | `Corpus \| PromiseLike<Corpus> \| null` | required |
+| `onFailure` | `(error: unknown) => void` | required |
+| `fill` | `string` — a column, or a CSS colour every point wears | the vertex type |
+| `symbol` | `string` — the column a point's shape carries | — |
+| `stroke` | `string` — what tints a link | the colour of the vertex it leaves |
+| `r` | `string` — the column the size ramp is spent on | — |
+| `title` | `string` — the column a label, the hover card and the search read | each table's `identity` |
+| `categories` | `Readonly<Record<string, string>>` — names by value; key order is the rank | — |
+| `filterBy` | Mosaic `Selection` — the page's crossfilter | — |
+| `look` | `LookPatch` — form, over the package's own | Atlas |
+| `sim` | `Partial<Sim>` — forces, over the package's own | `simFrom()` |
+| `simulate` | `boolean` — runs the live layout while true | `false` |
+| `onSelect` | `(selection: Selection \| null) => void` | — |
+| `onFocus` | `(vertex: VertexId \| null) => void` | — |
+| `children` | `ReactNode` | — |
+
+`GraphRootProps` is `UseGraphProps` plus `children`. `GraphRootProvider` takes `value`, a `GraphApi`
+from `useGraph`, and `children` (`GraphRootProviderProps`).
+
+### GraphCanvas
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `children` | `ReactNode` — chrome positioned over the surface | — |
+
+Extends `React.ComponentProps<"div">`. The frame is `relative isolate size-full`, so a child's
+`z-index` cannot escape into the page; give it a size from outside.
+
+### GraphToolbar
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `orientation` | `"horizontal" \| "vertical"` | `"horizontal"` |
+
+Extends `React.ComponentProps<"div">`.
+
+### GraphLegend
+
+Takes `React.ComponentProps<"div">` (`GraphLegendProps`). Renders nothing when there is no category
+to key.
+
+### GraphCounts
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `spinner` | `boolean` — a spinner while opening, loading or laying out | `false` |
+
+Extends `React.ComponentProps<"p">`. `aria-busy` is set while the corpus opens or the graph loads.
+
+### GraphSearch
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `limit` | `number` | `50` |
+| `placeholder` | `string` | `"Find a node…"` |
+| `size` | `ComboboxInput`'s `size` | `"sm"` |
+| `className` | `string` — on the input | — |
+
+### GraphInspector
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `children` | `(detail: VertexDetail) => ReactNode` — fields after the corpus's own | — |
+
+Extends `React.ComponentProps<"div">` without its `children`.
+
+### GraphLooks
+
+Takes `React.ComponentProps<"div">` (`GraphLooksProps`). Needs `GRAPH_SECTION` among the theme
+provider's `sections`; renders nothing without it.
+
+### ShapeGlyph
+
+The glyph the canvas draws for a category, in the DOM — for a legend key, a card or a preview. No
+`"use client"`: it renders on a server.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `shape` | `Shape` — `"circle" \| "square" \| "triangle" \| "diamond" \| "cross"` | required |
+| `color` | `string` | `"currentColor"` |
+
+Extends `React.SVGProps<SVGSVGElement>` (`ShapeGlyphProps`); the 12×12 `viewBox` is fixed, so size
+it from outside.
+
+### Hooks
+
+| Name | Signature | What it is |
+| --- | --- | --- |
+| `useGraph` | `(props: UseGraphProps) => GraphApi` | **Creates** the api: a store created once and handed the props when one changes. |
+| `useGraphContext` | `() => GraphApi` | **Reads** it under a root; throws outside one. |
+| `useGraphState` | `(selector, isEqual = Object.is) => T` | A slice of the `GraphState`, and a render only when it moves. |
+| `useGraphPrefs` | `() => { look: Look; sim: Sim; preset: LookPreset \| null }` | The provider's resolved `GRAPH_SECTION`, as the two objects the root takes, and the look they are. |
 
 ### The picture
 
 | Name | What it is |
 | --- | --- |
-| `lookFrom` | The axes a person chose, as a `Look`. |
-| `simFrom` | The same axes, read as forces. |
-| `useGraphPrefs` | Both, joined to the provider's resolved `sectionPrefs` for `GRAPH_SECTION`. |
-| `scaleOf` | The categorical scale the channels imply: what colour and what shape a category wears. |
+| `lookFrom` | `(values?) => Look` — the section's axes, as form. |
+| `simFrom` | `(values?) => Sim` — the same axes, as forces. |
+| `scaleOf` | `(channels, capacity?)` → `{ color(rank), shape(rank) }` — what a category rank wears, the canvas's own answer. |
+| `GRAPH_SECTION` | On `@kanzo-tech/graph/section`: the graph's tokens and its preferences — the look's axes and the forces. |
 
-### The types
+### GraphApi
 
-`GraphRootProps` is `UseGraphProps` plus `children`: `corpus` (or the promise of it), the channels,
-`categories`, `filterBy`, `look`, `sim`, `simulate`, `onFailure`, `onSelect` and `onFocus`.
-`GraphApi` is the commands — the `GraphCommands` (`zoomBy`, `fit`, `pause`, `resume`, `restart`,
-`unpin`, `reveal`, `frameSelection`, `clear`), `select`, `setFocus`, `setTool` — with `subscribe` and
-`getState`. `GraphState` is what `useGraphState` selects from: `status` (a `GraphStatus`), `total`,
-`drawn` (a `Drawn`: `vertices`, `domain`, `tally`), `domain`, `selection`, `focus`, `hovered`,
-`pinned`, `tool`, `motion`, `progress`, `options` and `corpus`. `GraphCanvasProps`, `GraphLegendProps`,
-`GraphToolbarProps`, `GraphInspectorProps`, `GraphRootProviderProps` and `ShapeGlyphProps` are the
-parts' props, and `VertexDetail` is what the inspector's render prop receives; `Channels`, `Look`,
-`LookPatch`, `Shape`, `Sim`, `Motion`, `Selection`, `SelectionSource`, `Tool` and `VertexId` are the
-vocabulary.
+The commands, stable for the root's life — `GraphCommands` plus the state's door.
+
+| Member | What it does |
+| --- | --- |
+| `zoomBy(factor)` | Zooms the camera by a factor. |
+| `fit()` | Frames the graph: the corpus's extent, or where the points are once a layout has run. |
+| `pause()` / `resume()` | Pauses a running layout; resumes a paused one, or runs a settled one again. |
+| `restart()` | Releases every pin and runs the layout from full heat. |
+| `unpin()` | Releases every pin and reheats the layout. |
+| `reveal(vertex)` | Selects and focuses a vertex with its neighbours, and zooms to it. |
+| `frameSelection()` | Frames what is selected. |
+| `clear()` | Clears the selection and the focus. |
+| `select(vertices, source?, label?)` | Replaces the selection; `null` clears it. |
+| `setFocus(vertex)` | Focuses a vertex, or none. |
+| `setTool(tool)` | Arms `"rect"`, `"lasso"`, or `null` for the reading posture. |
+| `subscribe(listener)` / `getState()` | The store, for a callback; a render uses `useGraphState`. |
+
+### GraphState
+
+What `useGraphState` selects from.
+
+| Field | Type | What it is |
+| --- | --- | --- |
+| `status` | `GraphStatus` — `"none" \| "opening" \| "loading" \| "idle" \| "failed"` | The data's life. |
+| `motion` | `Motion` — `"running" \| "paused" \| "settled"` | The layout's life. |
+| `progress` | `number` | How far a running layout has settled, `0`–`1`. |
+| `total` | `number \| undefined` | Vertices of the drawn types, from the manifest. |
+| `drawn` | `Drawn \| null` | `vertices`, `edges`, `domain` and `tally` under the filter. |
+| `domain` | `readonly unknown[]` | The category domain before anything loads. |
+| `selection` | `Selection \| null` | `vertices`, `source` (a `SelectionSource`) and `label`. |
+| `focus` / `hovered` | `VertexId \| null` | The focused and the hovered vertex. |
+| `pinned` | `readonly VertexId[]` | The vertices a drag pinned. |
+| `tool` | `Tool` | The armed selection tool. |
+| `options` | `UseGraphProps` | The props as given. |
+| `corpus` | `Corpus \| null` | The corpus, once open. |
+
+### Types
+
+`GraphCanvasProps`, `GraphLegendProps`, `GraphCountsProps`, `GraphToolbarProps`,
+`GraphInspectorProps`, `GraphSearchProps`, `GraphLooksProps`, `GraphRootProviderProps` and
+`ShapeGlyphProps` are the parts' props; `VertexDetail` — `vertex`, `table` and `fields` — is what the
+inspector's render prop receives. `Channels` (`fill`, `symbol`, `stroke`), `Look`, `LookPatch`,
+`LookPreset`, `Shape`, `Sim`, `Motion`, `Selection`, `SelectionSource`, `Tool`, `VertexId`,
+`GraphCommands`, `GraphStatus` and `Drawn` are the vocabulary, and `GraphError` is the class of the
+graph's own failures.

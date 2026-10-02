@@ -19,7 +19,7 @@ DuckDB-WASM engine and its crossfilter, cosmos.gl draws, and the parts are built
 ```tsx
 import { open } from "@fossil-lang/corpus";
 import { engine } from "@kanzo-tech/mosaic";
-import { GraphCanvas, GraphInspector, GraphLegend, GraphRoot, GraphToolbar } from "@kanzo-tech/graph";
+import { GraphCanvas, GraphCounts, GraphInspector, GraphLegend, GraphRoot, GraphToolbar } from "@kanzo-tech/graph";
 
 const corpus = engine().then((e) => open(url, { engine: e }));
 
@@ -28,6 +28,7 @@ const corpus = engine().then((e) => open(url, { engine: e }));
     <GraphToolbar />
     <GraphLegend />
   </GraphCanvas>
+  <GraphCounts />
   <GraphInspector />
 </GraphRoot>;
 ```
@@ -49,8 +50,11 @@ does not survive is hidden; a clause that cannot be translated reaches `onFailur
 dropped. A lasso or a click publishes the reader's pick back into it, exempting the graph itself.
 
 **The layout is off at load.** The corpus's positions are drawn as they are; `GraphToolbar` runs and
-stops a force layout from where the points are, and dragging a node pins it either way. At 200,000
-vertices the viewer's p95 frame interval is 9.0 ms against 9.3 ms for cosmos.gl alone.
+stops a force layout from where the points are. Dragging a node pins it only while a layout runs,
+and releasing the pins reheats it. While a layout runs the camera follows the points until the reader
+zooms or pans. `status` is the data's life and `motion` the layout's — two axes, because each moves
+without the other. At 200,000 vertices the viewer's p95 frame interval is 9.0 ms against 9.3 ms for
+cosmos.gl alone.
 
 The reference composition is the docs' workspace showcase: one `GraphRoot` around a shell with the
 graph, a second main view and a dock of panels.
@@ -62,12 +66,26 @@ graph, a second main view and a dock of panels.
   never changes; `useGraphState(selector)` reads a slice of the state.
 - `GraphCanvas` — the element, the grid, the vignette, the labels, the hover card and the marquee
   and lasso gesture. Children are chrome positioned over it.
-- `GraphLegend`, `GraphToolbar`, `GraphInspector` — the categorical scale with its tally, the
-  commands drawn, and the focused vertex's row with a render prop for a product's own fields. No
-  part takes a callback: what a click means is `onSelect`, `onFocus` and `onFailure` on the root.
+- `GraphToolbar` — the selection tools, the selection, zoom and fit, and the layout's transport.
+- `GraphLegend` — one row per category: glyph, name and how many are drawn.
+- `GraphCounts` — what is drawn of the whole: "1.2K of 5K nodes drawn · 8K edges".
+- `GraphSearch` — every drawn vertex's text, read once and filtered in the browser; picking reveals.
+- `GraphInspector` — the focused vertex's row, with a render prop for a product's own fields.
+- `GraphLooks` — Nebula, Atlas and Ink as presets over `GRAPH_SECTION`'s axes, with the axes under
+  Customize. Needs `GRAPH_SECTION` on the theme provider, and no root.
+- `ShapeGlyph` — the glyph the canvas draws for a category, in the DOM.
+
+No part takes a callback: what a click means is `onSelect`, `onFocus` and `onFailure` on the root.
+`onFailure` is required and receives every failure as thrown — fossil's coded errors, and the graph's
+own `GraphError` (`graph/no-webgl`, `graph/context-lost`, `graph/nothing-to-draw`,
+`graph/untranslatable-filter`).
+
 - `lookFrom`, `simFrom`, `useGraphPrefs` — the form and the forces from a preferences panel's
-  answers; `scaleOf` — what colour and shape a category wears.
+  answers, and the look `preset` they are; `scaleOf` — what colour and shape a category wears.
 - `VertexId` — a vertex is its `dense_id`, a `number`.
+
+The full guide — the parts, layout and camera, and the workspace recipe — is at
+[kanzo-tech.github.io/ui/docs/graph](https://kanzo-tech.github.io/ui/docs/graph).
 
 ## Why a package, and not part of `@kanzo-tech/ui`
 

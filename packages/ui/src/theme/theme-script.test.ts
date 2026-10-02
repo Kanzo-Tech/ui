@@ -115,18 +115,16 @@ describe("themeScript ↔ KanzoThemeProvider agreement", () => {
   });
 
   const cases: [string, Parameters<typeof bothSides>[0], boolean][] = [
+    // The OS is stubbed on every case and neither side may read it: the third column is what the
+    // stub says, so a dark OS that leaks into either side fails the diff.
     ["nothing stored, light OS", {}, false],
     ["nothing stored, dark OS", {}, true],
     ["appearance: dark on a light OS", { prefs: { appearance: "dark" } }, false],
     ["appearance: light on a dark OS", { prefs: { appearance: "light" } }, true],
-    // `""` is the stored form of "the OS decides" — what Reset writes — and neither side may read
-    // it as a side. A stored `"system"` is the same case from the other direction: a string from a
-    // vocabulary we do not have, so both drop it and ask the OS. So is a stored `null`, which is
-    // what this field held until it was spelled the way every other deferral in the table is.
-    ["appearance: \"\" on a dark OS", { prefs: { appearance: "" } }, true],
-    ["appearance: \"\" on a light OS", { prefs: { appearance: "" } }, false],
-    ["a stored `null`, which is not a side either", { prefs: { appearance: null } }, true],
-    ["a stored `system`, from no vocabulary of ours", { prefs: { appearance: "system" } }, true],
+    // Strings that are not a side — a blob is JSON from a browser and can hold anything.
+    ["a stored `\"\"`", { prefs: { appearance: "" } }, true],
+    ["a stored `null`", { prefs: { appearance: null } }, true],
+    ["a stored `system`", { prefs: { appearance: "system" } }, true],
     // A blob missing the field takes a different branch in the script than no blob at all (the
     // empty-object guard), and both mean the same thing.
     ["a blob with no appearance at all", { prefs: { radius: "lg" } }, true],
@@ -135,8 +133,7 @@ describe("themeScript ↔ KanzoThemeProvider agreement", () => {
     // compiled document, not in storage. Both sides therefore write the stored id verbatim, and
     // an id no `[data-identity=…]` block matches is inert — the cascade falls to `:root`.
     ["a theme the tenant published", { prefs: { themeByAppearance: { light: "nord" } } }, false],
-    ["a theme the tenant has since retired", { prefs: { themeByAppearance: { light: "gone" } } }, false],
-    ["a theme alongside every other axis", { prefs: { radius: "xs", font: "inter", density: "comfortable", themeByAppearance: { dark: "dracula" }, appearance: "dark" } }, true],
+    ["a theme alongside every other axis", { prefs: { radius: "xs", font: "inter", density: "comfortable", themeByAppearance: { dark: "catppuccin-mocha" }, appearance: "dark" } }, true],
     // `""` is the default identity — a deferral to `:root`, not a value — so it must take the
     // same branch as an absent field on both sides.
     ["an empty theme map, which is a deferral and not a value", { prefs: { themeByAppearance: {} } }, false],
@@ -239,7 +236,7 @@ describe("themeScript ↔ KanzoThemeProvider agreement", () => {
           // Keyed by side, and stored for BOTH here so the assertion holds whichever this run
           // resolves to. That the two sides may differ is the point of the axis; that they agree
           // about which one is applied is the point of this file.
-          themeByAppearance: { light: "dracula", dark: "dracula" },
+          themeByAppearance: { light: "catppuccin-latte", dark: "catppuccin-latte" },
           base: "slate",
           accent: "blue",
           scheme: "vivid",
@@ -251,24 +248,37 @@ describe("themeScript ↔ KanzoThemeProvider agreement", () => {
       expect(script.attrs[attr], attr).toBeUndefined();
       expect(provider.attrs[attr], attr).toBeUndefined();
     }
-    expect(script.attrs["data-theme"]).toBe("dracula");
-    expect(provider.attrs["data-theme"]).toBe("dracula");
+    expect(script.attrs["data-theme"]).toBe("catppuccin-latte");
+    expect(provider.attrs["data-theme"]).toBe("catppuccin-latte");
   });
 
-  it("writes the theme attribute only for a chosen theme", () => {
-    // The three states of one axis, asserted as attribute PRESENCE rather than as equality, so a
-    // regression where both sides start writing `data-theme=""` still fails here. An empty attribute
-    // matches `[data-theme]` and `[data-theme=""]`, and no theme file emits either — it would be a
-    // selector nothing can clear.
-    const chosen = bothSides({ prefs: { themeByAppearance: { light: "nord", dark: "nord" } } }, false);
+  it("writes the resolved theme: the one chosen for the side, or the default pair's", () => {
+    // Never `data-theme=""`: an empty attribute matches `[data-theme]` and no theme file emits it.
+    // With nothing chosen both sides write the tenant's default for the side rather than leaving it
+    // to the CSS default binding, which knows only one family.
+    const chosen = bothSides({ prefs: { themeByAppearance: { light: "nord", dark: "nord-dark" } } }, false);
     expect(chosen.script.attrs["data-theme"]).toBe("nord");
     expect(chosen.provider.attrs["data-theme"]).toBe("nord");
 
-    for (const seed of [{ prefs: { themeByAppearance: {} } }, { prefs: { radius: "lg" } }, {}]) {
-      const { script, provider } = bothSides(seed, false);
-      expect(script.attrs["data-theme"], JSON.stringify(seed)).toBeUndefined();
-      expect(provider.attrs["data-theme"], JSON.stringify(seed)).toBeUndefined();
+    for (const [seed, osDark, want] of [
+      [{ prefs: { themeByAppearance: {} } }, false, "kanzo"],
+      [{ prefs: { radius: "lg" } }, true, "kanzo"],
+      [{}, false, "kanzo"],
+    ] as const) {
+      const { script, provider } = bothSides(seed, osDark);
+      expect(script.attrs["data-theme"], JSON.stringify(seed)).toBe(want);
+      expect(provider.attrs["data-theme"], JSON.stringify(seed)).toBe(want);
     }
+  });
+
+  it("lets the provider correct a stored theme the tenant has since retired", () => {
+    // The one case the two sides cannot agree on, stated: the script runs before anything knows
+    // what the tenant publishes, so it writes the stored name verbatim (an unmatched attribute is
+    // inert and the default binding paints). The provider knows `themes`, files the retirement and
+    // writes the default — once, after which storage no longer holds the stale name.
+    const { script, provider } = bothSides({ prefs: { themeByAppearance: { light: "gone" } } }, false);
+    expect(script.attrs["data-theme"]).toBe("gone");
+    expect(provider.attrs["data-theme"]).toBe("kanzo");
   });
 
   it("follows the PREFERENCE for `.dark`, with nothing able to overrule it", () => {
@@ -290,9 +300,8 @@ describe("themeScript source", () => {
     // compiled palette document carries would never apply again.
     expect(source).not.toContain("colorScheme");
     expect(source).not.toMatch(/setProperty\(\s*['"]color-scheme/);
-    // `prefers-color-scheme` is the media query and is expected — this asserts the property is
-    // never SET, not that the string never appears.
-    expect(source).toContain("prefers-color-scheme");
+    // …and the OS is never asked.
+    expect(source).not.toContain("prefers-color-scheme");
   });
 
   it("inlines the real axis table, not a hand-written copy", () => {

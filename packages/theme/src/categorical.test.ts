@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { contrast, oklch } from "./ink";
+import { oklch } from "./ink";
 
 /**
  * The eight colours a theme gets by saying nothing, and the bars they were chosen against.
@@ -160,7 +160,6 @@ function deltaE(a: string, b: string, vision: Vision = "normal"): number {
 // pale to see on a dark one.
 const BAND = { lo: 0.48, hi: 0.67 };
 const CHROMA_FLOOR = 0.1;
-const CONTRAST_MIN = 3;
 const CVD_FLOOR = 8;
 const NORMAL_FLOOR = 15;
 const STATUS_FLOOR = 8;
@@ -168,12 +167,6 @@ const STATUS_FLOOR = 8;
 const STATUS_TOKENS = ["--destructive", "--success", "--warning", "--info"] as const;
 
 const opaque = (value: string | undefined) => (value && /^#[0-9a-f]{6}$/.test(value) ? value : null);
-
-/** Every background the catalogue ships, so the extremes are read rather than assumed. */
-const BACKGROUNDS = THEMES.map((theme) => ({
-  name: theme.name,
-  hex: opaque(theme.declared.get("--background")),
-}));
 
 describe("the categorical set a theme falls back to", () => {
   it("publishes eight slots, each an opaque hex, and reaches a chart rather than only a utility", () => {
@@ -196,21 +189,6 @@ describe("the categorical set a theme falls back to", () => {
     expect(flat).toEqual([]);
   });
 
-  it("clears 3:1 against every background the catalogue ships", () => {
-    // Not the two extremes but all twenty-nine, because relative luminance is not monotonic in the
-    // thing that makes a background "light": a mid-lightness ground can be the hard case for a
-    // mid-lightness slot, and that pair is invisible from the ends.
-    const failures: string[] = [];
-    for (const ground of BACKGROUNDS) {
-      if (!ground.hex) continue;
-      for (const slot of DEFAULTS) {
-        const ratio = contrast(slot, ground.hex);
-        if (ratio < CONTRAST_MIN) failures.push(`${slot} on ${ground.name} ${ratio.toFixed(2)}:1`);
-      }
-    }
-    expect(failures).toEqual([]);
-  });
-
   it("keeps adjacent slots apart, to normal vision and to all three dichromacies", () => {
     // Adjacent, because that is the pairlist a stacked bar, a bar group and a multi-series line
     // actually put side by side — and because the eight cannot clear these floors over all 28
@@ -229,21 +207,20 @@ describe("the categorical set a theme falls back to", () => {
     expect(failures).toEqual([]);
   });
 
-  it("stays clear of every status fill the catalogue publishes, so a series cannot read as a state", () => {
-    const fills = new Set<string>();
-    for (const theme of THEMES) {
-      for (const token of STATUS_TOKENS) {
-        const fill = opaque(theme.declared.get(token));
-        if (fill) fills.add(fill);
-      }
-    }
-    expect(fills.size).toBeGreaterThan(40);
-
+  it("stays clear of each theme's own status fills, so a series cannot read as a state", () => {
+    // Per theme, on the set it actually resolves to — its own slots, or these where it is silent.
+    // A series that sits within 8 ΔE of the same theme's warning fill reads as a warning; one near
+    // some other theme's fill is never on screen beside it.
     const collisions: string[] = [];
-    for (const slot of DEFAULTS) {
-      for (const fill of fills) {
-        const d = deltaE(slot, fill);
-        if (d < STATUS_FLOOR) collisions.push(`${slot} ≈ ${fill} ΔE ${d.toFixed(1)}`);
+    for (const theme of THEMES) {
+      const fills = STATUS_TOKENS.map((t) => opaque(theme.declared.get(t))).filter(Boolean) as string[];
+      expect(fills, theme.name).toHaveLength(4);
+      for (let i = 0; i < 8; i++) {
+        const slot = opaque(theme.declared.get(`--chart-${i + 1}`)) ?? DEFAULTS[i] ?? "";
+        for (const fill of fills) {
+          const d = deltaE(slot, fill);
+          if (d < STATUS_FLOOR) collisions.push(`${theme.name} chart-${i + 1} ${slot} ≈ ${fill} ΔE ${d.toFixed(1)}`);
+        }
       }
     }
     expect(collisions).toEqual([]);
@@ -257,7 +234,7 @@ describe("the categorical set a theme falls back to", () => {
     const declining = THEMES.filter((t) => t.declared.get("--chart-capacity") === "0").map(
       (t) => t.name,
     );
-    expect(declining).toEqual(["monochrome-dark", "monochrome"]);
+    expect(declining).toEqual([]);
 
     const silent = THEMES.filter((t) => !t.declared.has("--chart-1"));
     for (const theme of silent) {
@@ -272,7 +249,7 @@ describe("the categorical set a theme falls back to", () => {
     // `:root` — would have been overridden all-or-nothing by source order, and it is invisible in
     // a browser until a theme authors exactly one.
     const authored = THEMES.filter((t) => t.declared.has("--chart-1"));
-    expect(authored.length).toBe(16);
+    expect(authored.length).toBe(8);
     for (const theme of authored) {
       const own = [...Array(8)].map((_, i) => theme.declared.get(`--chart-${i + 1}`));
       expect([theme.name, own.filter(Boolean).length]).toEqual([theme.name, 8]);

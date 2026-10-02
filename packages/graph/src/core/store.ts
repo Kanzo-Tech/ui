@@ -18,14 +18,21 @@ const isPromise = (value: unknown): value is PromiseLike<Corpus> =>
 
 function drawnOf(geometry: Geometry, encoding: Encoding, mask: Uint8Array | null): Drawn {
   const tally = encoding.domain.map(() => 0);
+  const shown = new Uint8Array(geometry.size);
   let vertices = 0;
   for (let id = 0; id < geometry.size; id++) {
     if ((mask && !mask[id]) || Number.isNaN(geometry.positions[id * 2])) continue;
+    shown[id] = 1;
     vertices++;
     const rank = encoding.ranks[id] as number;
     tally[rank] = (tally[rank] ?? 0) + 1;
   }
-  return { vertices, domain: encoding.domain, tally };
+  let edges = 0;
+  const { links } = geometry;
+  for (let i = 0; i < links.length; i += 2) {
+    if (shown[links[i] as number] && shown[links[i + 1] as number]) edges++;
+  }
+  return { vertices, edges, domain: encoding.domain, tally };
 }
 
 export function createGraph(initial: GraphOptions): GraphStore {

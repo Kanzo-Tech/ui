@@ -1,46 +1,43 @@
-/* kanzo-dark — a theme is one mode, one flat block, written by hand. */
-/* `:root.dark:not([data-theme])` for the same reason kanzo.css claims the bare unattributed
-   document, and for the half that file could not cover: a first-time visitor with the OS in dark
-   has an empty `localStorage`, so `themeByAppearance` resolves to its `""` default and no
-   `data-theme` is written — while the blocking theme script has already put `.dark` on `<html>`
-   from `prefers-color-scheme`. Without this selector that document paints kanzo, which declares
-   `color-scheme: light`: a page that says it is dark and is not. Measured on a clean load, no
-   control touched. It outranks `:root:not([data-theme])` by the class and loses to any
-   `[data-theme]` through the `:not()`, so choosing a theme still wins. See `themes.test.ts`,
-   "leaves no dark document painted by a light theme". */
+/* @family kanzo
+   @label Kanzo Dark
+
+   The brand at night: near-black green, mist ink, and the neon #1AE973 as the brand fill it is on
+   kanzo.tech.
+   The dark default: `:root.dark:not([data-theme])` paints a first visit whose OS is dark before any
+   theme is chosen (themes.test.ts, "leaves no dark document painted by a light theme"). */
 :root.dark:not([data-theme]), [data-theme="kanzo-dark"] {
   color-scheme: dark;
 
-  /* The twenty-one */
-  --background: #0a0a0a;
-  --foreground: #efefef;
-  --card: #0d0d0d;
-  --muted: #141414;
-  --muted-foreground: #aaaaaa;
-  --primary: #efefef;
-  --primary-foreground: #0a0a0a;
-  --secondary: #1d1d1d;
-  --accent: #282828;
-  --destructive: #e7000b;
-  --destructive-content: #ffffff;
-  --info: #155dfc;
-  --info-content: #e8f0ff;
-  --success: #009966;
-  --success-content: #060c08;
-  --warning: #e17100;
-  --warning-content: #100805;
-  --border: #353535;
-  --ring: #737373;
+  /* Surfaces, ink, brand, lines */
+  --background: #070b08;
+  --foreground: #e6eee5;
+  --card: #0b110c;
+  --popover: #101712;
+  --muted: #121a14;
+  --muted-foreground: #a3b2a6;
+  --primary: #1ae973;
+  --primary-foreground: #002b0b;
+  --secondary: #18221a;
+  --accent: #1d281f;
+  --border: #27342a;
+  --input: #5f6e63;
+  --ring: #1ae973;
+  --field: #070b08;
+  --faint: #8a998d;
 
-  /* Optional: each falls back to a bridge default in tokens.css when left out */
-  --popover: #141414;
-  --input: #737373;
-  --field: #0a0a0a;
-  --faint: #7c7c7c;
-  --destructive-foreground: #ff8677;
-  --info-foreground: #7aa7ff;
-  --success-foreground: #66c999;
-  --warning-foreground: #ffa264;
+  /* Status: the fill, the ink on it, and the same family read on the page */
+  --destructive: #f04438;
+  --destructive-content: #140201;
+  --destructive-foreground: #f59180;
+  --info: #2e90fa;
+  --info-content: #010715;
+  --info-foreground: #7fb8f5;
+  --success: #1ae973;
+  --success-content: #001305;
+  --success-foreground: #8deda3;
+  --warning: #fdb022;
+  --warning-content: #160b00;
+  --warning-foreground: #f6ca85;
 
   /* Shape */
   --radius-box: 0.75rem;
@@ -51,21 +48,24 @@
   --stroke: 1px;
   --relief: 0;
 
-  /* Optional: categorical set and syntax */
+  /* Categorical set */
   --chart-capacity: 8;
-  --chart-1: #a800b7;
-  --chart-2: #f54900;
-  --chart-3: #ad46ff;
-  --chart-4: #a65f00;
-  --chart-5: #7f22fe;
-  --chart-6: #e7000b;
-  --chart-7: #1447e6;
-  --chart-8: #009966;
-  --syntax-keyword: #c27aff;
-  --syntax-string: #00d492;
-  --syntax-number: #ff8904;
-  --syntax-function: #51a2ff;
-  --syntax-identifier: #ff6467;
-  --syntax-property: #00d3f2;
-  --syntax-type: #fdc700;
+  --chart-1: #64c600;
+  --chart-2: #a48afb;
+  --chart-3: #fd853a;
+  --chart-4: #53b1fd;
+  --chart-5: #f670c7;
+  --chart-6: #ffd632;
+  --chart-7: #2ed3b7;
+  --chart-8: #9e6dcb;
+
+  /* Syntax */
+  --syntax-keyword: #b69cff;
+  --syntax-string: #86e3ad;
+  --syntax-number: #ffb27a;
+  --syntax-function: #6cb6ff;
+  --syntax-variable: #1ae973;
+  --syntax-property: #67d4e0;
+  --syntax-type: #f2d36b;
+  --syntax-annotation: #ff7ac6;
 }

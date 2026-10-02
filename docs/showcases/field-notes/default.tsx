@@ -103,7 +103,7 @@ import {
   PaneHeader,
   PanelRail,
   WorkspaceColumns,
-} from "../shared";
+} from "./panes";
 import { FieldNotesPreferences } from "./preferences";
 import { openLedger, type Column, type Issue, type Ledger, type Row } from "./rudof";
 import { SHAPES, SLIP_SHAPE } from "./shape";

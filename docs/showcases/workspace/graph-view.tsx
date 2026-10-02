@@ -1,15 +1,13 @@
 "use client";
 
 import {
-  useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { parseDate, type DateValue } from "@internationalized/date";
-import { desc, sql, verbatim, type VerbatimNode } from "@uwdata/mosaic-sql";
+import { sql, verbatim, type VerbatimNode } from "@uwdata/mosaic-sql";
 import {
   Badge,
   Button,
@@ -22,11 +20,6 @@ import {
   CalendarViewControl,
   CalendarWeekDays,
   CalendarYearSelect,
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
   DataListItem,
   DataListItemLabel,
   DataListItemValue,
@@ -42,9 +35,6 @@ import {
   FileUploadHiddenInput,
   FileUploadTrigger,
   Input,
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
   Select,
   SelectContent,
   SelectItem,
@@ -53,8 +43,6 @@ import {
   createListCollection,
   Kbd,
   KbdGroup,
-  PreferencesFieldSet,
-  PreferencesSections,
   ScrollArea,
   Show,
   Status,
@@ -69,9 +57,6 @@ import {
   TagsInputItemPreview,
   TagsInputItemText,
   toast,
-  useFilter,
-  useKanzoTheme,
-  useListCollection,
 } from "@kanzo-tech/ui";
 import { Chat, useChat } from "@kanzo-tech/ai";
 import { DirectChatTransport, ToolLoopAgent, jsonSchema, tool } from "@kanzo-tech/llm";
@@ -87,8 +72,6 @@ import {
   useMosaic,
 } from "@kanzo-tech/ui/analytics";
 import {
-  MaximizeIcon,
-  SearchIcon,
   SparklesIcon,
   PlusIcon,
   UploadCloudIcon,
@@ -96,16 +79,15 @@ import {
 } from "lucide-react";
 import { cn } from "@kanzo-tech/ui";
 import {
+  GraphCounts,
   GraphInspector,
   GraphRoot,
-  ShapeGlyph,
-  lookFrom,
-  scaleOf,
+  GraphSearch,
   useGraphContext,
   useGraphPrefs,
   useGraphState,
   type Channels,
-  type Look,
+  type LookPreset,
   type VertexDetail,
 } from "@kanzo-tech/graph";
 import {
@@ -203,55 +185,15 @@ export function useArchive(): Archive | null {
 }
 
 /**
- * The three arrangements this product offers — a **form**, and the bindings bundled with it. A name
- * for a composition is a product's word, not a library's, so the table is here. Each writes every
- * axis any of them names, so wearing one leaves nothing behind from the last.
+ * The channels each look is paired with — the product's half of a look, since a look is form and a
+ * binding is the caller's. Ink paints every point one ink — `fill` as a constant — and spends
+ * identity on shape; a customised picture keeps Atlas's bindings.
  */
-export type LookId = "nebula" | "atlas" | "ink";
-
-const ARRANGEMENTS: Record<LookId, Record<string, string>> = {
-  nebula: { marks: "dense", "additive-links": "true", "bowed-links": "false", labels: "14", vignette: "true" },
-  atlas: { marks: "dense", "additive-links": "false", "bowed-links": "true", labels: "26", vignette: "false" },
-  ink: { marks: "legible", "additive-links": "false", "bowed-links": "false", labels: "40", vignette: "false" },
-};
-
-const LOOKS: Record<LookId, Look> = {
-  nebula: lookFrom(ARRANGEMENTS.nebula),
-  atlas: lookFrom(ARRANGEMENTS.atlas),
-  ink: lookFrom(ARRANGEMENTS.ink),
-};
-
-const LOOK_ORDER: LookId[] = ["nebula", "atlas", "ink"];
-
-const LOOK_LABEL: Record<LookId, string> = { nebula: "Nebula", atlas: "Atlas", ink: "Ink" };
-
-const LOOK_BLURB: Record<LookId, string> = {
-  nebula: "Dense and dim points, for a picture that reads as flow.",
-  atlas: "Map-steady points, links that just bow, generous labels.",
-  ink: "Large, legible marks — the print-and-projector register.",
-};
-
-/** Ink paints every point one ink — `fill` as a constant — and spends identity on shape. */
-const PAIRINGS: Record<LookId, Channels> = {
+const PAIRINGS: Record<LookPreset, Channels> = {
   nebula: { fill: "kind" },
   atlas: { fill: "kind", stroke: "var(--muted-foreground)" },
   ink: { fill: "var(--foreground)", symbol: "kind", stroke: "var(--muted-foreground)" },
 };
-
-/** The arrangement worn, and wearing one: its bindings, and one write of the axes that name it. */
-export function useArrangement(): [LookId, (id: LookId) => void] {
-  // Atlas out of the box: it is built from the theme tokens, so it arrives in the app's mode.
-  const [arrangement, setArrangement] = useState<LookId>("atlas");
-  const { setSectionPref } = useKanzoTheme();
-  const wear = useCallback(
-    (id: LookId) => {
-      setArrangement(id);
-      setSectionPref("graph", ARRANGEMENTS[id]);
-    },
-    [setSectionPref],
-  );
-  return [arrangement, wear];
-}
 
 /**
  * A failure, as a toast — once per message, and after the commit that reported it: the renderer
@@ -269,10 +211,10 @@ function announce(error: unknown): void {
  * it is opening; the Mosaic provider arrives with the engine, and the panels under it query the
  * node relation the orders and the ask box are written against.
  */
-export function ArchiveGraph({ arrangement, children }: { arrangement: LookId; children: ReactNode }) {
+export function ArchiveGraph({ children }: { children: ReactNode }) {
   const archive = useArchive();
   const opening = useMemo(() => openArchive().then((opened) => opened.corpus), []);
-  const { look, sim } = useGraphPrefs();
+  const { look, sim, preset } = useGraphPrefs();
   return (
     <GraphRoot
       categories={KINDS}
@@ -283,7 +225,7 @@ export function ArchiveGraph({ arrangement, children }: { arrangement: LookId; c
       r="degree"
       sim={sim}
       title="label"
-      {...PAIRINGS[arrangement]}
+      {...PAIRINGS[preset ?? "atlas"]}
     >
       <Show fallback={children} when={archive !== null}>
         {archive && (
@@ -296,16 +238,12 @@ export function ArchiveGraph({ arrangement, children }: { arrangement: LookId; c
   );
 }
 
-/** The footer: what the corpus holds, and whether all of it has been drawn. */
+/** The footer: whether all of it has been drawn, and how much of it is. */
 export function ArchiveCounts() {
-  const corpus = useGraphState((s) => s.corpus);
   const status = useGraphState((s) => s.status);
-  const count = (tables: readonly { record_count: number }[] = []) => tables.reduce((sum, table) => sum + table.record_count, 0);
   return (
-    <span className="flex items-center gap-2 px-1 text-muted-foreground text-xs tabular-nums">
-      <Show fallback="Opening the archive…" when={corpus !== null}>
-        {count(corpus?.manifest.vertex_tables).toLocaleString()} nodes · {count(corpus?.manifest.edge_tables).toLocaleString()} edges
-      </Show>
+    <span className="flex items-center gap-2 px-1 text-xs">
+      <GraphCounts />
       <Badge className="gap-1.5" size="xs" variant="outline">
         <Status className="ring-0" size="sm" variant={status === "idle" ? "success" : status === "failed" ? "destructive" : "info"} />
         {status}
@@ -381,104 +319,12 @@ function HallName({ detail }: { detail: VertexDetail }) {
   );
 }
 
-/**
- * Find one thing in the archive and go to it.
- *
- * Not `ChartSearch`, and the difference is what the control MEANS: `ChartSearch` publishes a
- * substring filter, the right instrument for "narrow this", and a datalist that cannot be styled.
- * Picking is a value, so this is a `Combobox`, and picking reveals that vertex — the canvas frames
- * it and selects it with its neighbours, and the inspector below reads it. The list is capped and
- * says so.
- */
-const SEARCH_LIMIT = 50;
-
-function ArchiveSearch({ archive }: { archive: Archive }) {
-  const { reveal } = useGraphContext();
-
-  // The whole corpus, once, against no filter: a search that only finds what is already on screen
-  // cannot take you anywhere. 1,543 rows is small enough to filter in the browser.
-  const { rows } = useChartQuery({
-    filterBy: null,
-    deps: [archive],
-    query: () =>
-      Query.from(archive.nodes)
-        .select({ id: ID, label: "label", kind: "kind" })
-        .orderby(desc("degree")),
-  });
-
-  const items = useMemo(
-    () =>
-      (rows ?? []).map((row) => ({
-        label: String(row.label),
-        value: String(row.id),
-        kind: String(row.kind),
-      })),
-    [rows]
-  );
-
-  const { contains } = useFilter({ sensitivity: "base" });
-  const { collection, filter, set } = useListCollection({
-    filter: contains,
-    initialItems: items,
-    limit: SEARCH_LIMIT,
-  });
-
-  const loaded = useRef(false);
-  useEffect(() => {
-    if (loaded.current || items.length === 0) return;
-    loaded.current = true;
-    set(items);
-  }, [items, set]);
-
-  return (
-    <Combobox
-      collection={collection}
-      onInputValueChange={(details) => filter(details.inputValue)}
-      onValueChange={(details) => {
-        const picked = details.value[0];
-        if (picked !== undefined) reveal(Number(picked));
-      }}
-    >
-      <ComboboxInput placeholder="Find anything in the archive…" size="sm" />
-      <ComboboxContent>
-        <ComboboxEmpty>Nothing by that name.</ComboboxEmpty>
-        {collection.items.map((item) => (
-          <ComboboxItem item={item} key={item.value}>
-            <span className="min-w-0 truncate">{item.label}</span>
-            <span className="ms-auto ps-2 text-muted-foreground text-xs">
-              {KINDS[item.kind as keyof typeof KINDS] ?? item.kind}
-            </span>
-          </ComboboxItem>
-        ))}
-        <Show when={collection.items.length >= SEARCH_LIMIT}>
-          <p className="border-t px-2 py-1.5 text-muted-foreground text-xs">
-            First {SEARCH_LIMIT}. Keep typing to narrow it.
-          </p>
-        </Show>
-      </ComboboxContent>
-    </Combobox>
-  );
-}
-
-/** The Info panel: the archive search, and the package's inspector with the hall's name added. */
+/** The Info panel: the package's search and inspector, with the hall's name added. */
 export function GraphInfo() {
-  const archive = useArchive();
   return (
     <div className="flex h-full flex-col">
       <div className="shrink-0 border-b border-border p-2">
-        <Show
-          fallback={
-            <InputGroup data-disabled size="sm">
-              <InputGroupAddon align="inline-start">
-                <SearchIcon className="size-3.5" />
-              </InputGroupAddon>
-              <InputGroupInput disabled placeholder="Search the archive…" size="sm" />
-            </InputGroup>
-          }
-          when={archive !== null}
-        >
-          {archive && <ArchiveSearch archive={archive} />}
-        </Show>
+        <GraphSearch placeholder="Find anything in the archive…" />
       </div>
       <ScrollArea className="min-h-0 flex-1 p-3">
         <GraphInspector>{(detail) => <HallName detail={detail} />}</GraphInspector>
@@ -1071,7 +917,7 @@ function OrdersBody({ archive }: { archive: Archive }) {
 const GESTURES: { keys: ReactNode; what: string }[] = [
   {
     keys: <Kbd>Drag</Kbd>,
-    what: "Pan the canvas — or pin a node where you drop it, if you grab one",
+    what: "Pan the canvas — or move a node, pinned where you drop it while the layout runs",
   },
   { keys: <Kbd>Wheel</Kbd>, what: "Zoom where you point" },
   { keys: <Kbd>Click</Kbd>, what: "Focus a node together with its neighbours" },
@@ -1093,248 +939,24 @@ const GESTURES: { keys: ReactNode; what: string }[] = [
 ];
 
 /**
- * One small graph, so the three looks can be compared on the only thing that differs: the look.
- *
- * Same seven vertices, same eight edges, same ordinals and the same degrees in all three — every
- * pixel that moves between the cards comes from `Look`, read straight off the shipped constant. A
- * preview with a layout of its own would be a fourth renderer with its own taste, and the point of
- * drawing the looks side by side is to remove taste from the comparison.
- *
- * It draws what the canvas draws rather than something evocative of it: the glyphs are
- * `ShapeGlyph`, the same paths the point shader fills, and the colours come from `scaleOf` — the
- * one scale the buffers, the hover card and the legend already share. That is what stops the card
- * promising a picture the canvas does not paint.
- */
-const PREVIEW_NODES: {
-  x: number;
-  y: number;
-  ordinal: number;
-  degree: number;
-}[] = [
-  { x: 22, y: 20, ordinal: 0, degree: 1 },
-  { x: 58, y: 8, ordinal: 1, degree: 0.3 },
-  { x: 58, y: 32, ordinal: 1, degree: 0.3 },
-  { x: 98, y: 20, ordinal: 2, degree: 0.7 },
-  { x: 140, y: 10, ordinal: 3, degree: 0.45 },
-  { x: 140, y: 31, ordinal: 2, degree: 0.2 },
-  { x: 184, y: 21, ordinal: 0, degree: 0.85 },
-];
-
-const PREVIEW_EDGES: [number, number][] = [
-  [0, 1],
-  [0, 2],
-  [1, 2],
-  [0, 3],
-  [3, 4],
-  [3, 5],
-  [4, 6],
-  [5, 6],
-];
-
-/**
- * The looks' radii are screen pixels on a full canvas; this box is a hundred units wide.
- *
- * **One factor for all three, never one per look.** Ink's floor is more than twice Nebula's, and
- * that difference is the look — a card that normalised each ramp to fit would delete the very
- * thing `shape-floor` exists to protect and make the three look interchangeable.
- */
-const PREVIEW_SCALE = 0.55;
-
-function LookPreview({
-  channels,
-  id,
-  look,
-}: {
-  channels: Channels;
-  id: string;
-  look: Look;
-}) {
-  const scale = scaleOf(channels);
-  const radius = (degree: number) => {
-    const [min, max] = look.size;
-    return (min + degree * (max - min)) * PREVIEW_SCALE;
-  };
-  return (
-    // Same shell as a palette card, deliberately: height, radius, border and page fill. The two are
-    // one kind of thing — a validated appearance you pick by looking at it — and two hand-tuned
-    // sizes made them read as two unrelated controls that happen to sit in the same panel.
-    <svg
-      aria-hidden
-      className="h-16 w-full rounded-[4px] border border-border bg-background"
-      // The box is 5:1 and the drawing is authored for it. At the 104×40 it started with, `meet`
-      // letterboxed a 2.6:1 picture into the middle of the card and left dead air on both sides —
-      // the miniature was small because the fixture was drawn for a shape the card does not have.
-      viewBox="0 0 208 40"
-      preserveAspectRatio="xMidYMid meet"
-    >
-      {PREVIEW_EDGES.map(([from, to]) => {
-        const a = PREVIEW_NODES[from] as (typeof PREVIEW_NODES)[number];
-        const b = PREVIEW_NODES[to] as (typeof PREVIEW_NODES)[number];
-        // cosmos.gl bows every link the same way by a fraction of its own length, so the control
-        // point is the midpoint pushed along the perpendicular. At `curve: 0` this is the straight
-        // line it should be, which is why there is no branch on it.
-        const [dx, dy] = [b.x - a.x, b.y - a.y];
-        const bow = look.link.curve;
-        const cx = (a.x + b.x) / 2 - dy * bow;
-        const cy = (a.y + b.y) / 2 + dx * bow;
-        return (
-          <path
-            d={`M${a.x} ${a.y}Q${cx} ${cy} ${b.x} ${b.y}`}
-            fill="none"
-            key={`${from}-${to}`}
-            // `stroke` absent tints a link with the vertex it leaves; a constant makes links plain
-            // structure — the same rule `buffers` reads, so the card cannot promise a picture the
-            // canvas does not paint, which is the one claim this component exists to make.
-            stroke={channels.stroke ?? scale.color(a.ordinal)}
-            strokeOpacity={look.link.opacity}
-            strokeWidth={look.link.width}
-          />
-        );
-      })}
-      {PREVIEW_NODES.map((node, i) => {
-        const r = radius(node.degree);
-        return (
-          // A nested `<svg>` rather than a `<path>` with a transform. It used to reach for
-          // `SHAPE_PATH` and place the glyph by hand — `translate` to the vertex, `scale` by
-          // `2r / 12` — which meant this file knew the paths are authored inside a twelve-unit box.
-          // `ShapeGlyph` is that box, so `x`/`y`/`width`/`height` place and size it and the 12 does
-          // not appear here at all.
-          <ShapeGlyph
-            color={scale.color(node.ordinal)}
-            height={r * 2}
-            key={i}
-            shape={scale.shape(node.ordinal)}
-            width={r * 2}
-            x={node.x - r}
-            y={node.y - r}
-          />
-        );
-      })}
-      {/* Mood, and only Nebula asks for it. The rim fades toward the page, which is what the
-          section's own `vignette` token binds to. */}
-      {look.vignette ? (
-        <>
-          <defs>
-            <radialGradient id={`look-vignette-${id}`}>
-              <stop
-                offset="55%"
-                stopColor="var(--background)"
-                stopOpacity="0"
-              />
-              <stop
-                offset="100%"
-                stopColor="var(--background)"
-                stopOpacity="0.85"
-              />
-            </radialGradient>
-          </defs>
-          <rect fill={`url(#look-vignette-${id})`} height="40" width="208" />
-        </>
-      ) : null}
-    </svg>
-  );
-}
-
-/**
- * The graph's APPEARANCE, and it lives in Preferences rather than in the dock.
- *
- * The split is not "graph things here, product things there" — it is the one a section's
- * obligations draw. A look and a display are an
- * appearance vocabulary whose obligations return a measured claim: `shape-capacity` puts the
- * ceiling at five shapes against seven colours, and `shape-floor` is a minimum radius a look
- * spending shape on identity may not go below. Gravity and friction are simulation coefficients and
- * no measurement grades them, so they stay in the dock beside the thing they re-heat.
- *
- * The comment this replaces put "a look, a node size and a friction coefficient" in one list. Two
- * of those three answer to a bar and the third does not.
- */
-export function GraphAppearance({ arrangement, wear }: { arrangement: LookId; wear: (id: LookId) => void }) {
-
-  return (
-    <div className="flex flex-col gap-4">
-      <PreferencesFieldSet label="Look">
-        {LOOK_ORDER.map((id) => (
-          <button
-            className={cn(
-              "w-full rounded-md border p-2 text-start transition-colors",
-              arrangement === id
-                ? "border-primary bg-accent/40"
-                : "border-border hover:bg-accent/20"
-            )}
-            key={id}
-            onClick={() => wear(id)}
-            type="button"
-          >
-            {/* Stacked, not the grid the palette list uses, and the difference is that this list
-                does not grow: there are three arrangements and a tenant cannot publish a fourth.
-                Keeping the full width is what lets the miniature be a graph rather than a
-                thumbnail of one. */}
-            <LookPreview channels={PAIRINGS[id]} id={id} look={LOOKS[id]} />
-            <span className="mt-1.5 block font-medium text-xs">
-              {LOOK_LABEL[id]}
-            </span>
-            <span className="mt-0.5 block text-[10px] text-muted-foreground leading-relaxed">
-              {LOOK_BLURB[id]}
-            </span>
-          </button>
-        ))}
-      </PreferencesFieldSet>
-
-      {/* The axes themselves, drawn by the library from what the package declared. Every control
-          that used to be here — three switches and two ranges, each with its own handler into a
-          React store — was a second copy of a preference the provider was already resolving. The
-          two ranges are gone entirely: `Node size` and `Edge opacity` multiplied numbers `lookFrom`
-          computes from `marks`, so the panel offered two ways to say one thing.
-
-          `only` draws the picture's half of the section; the forces are a live layout's, and this
-          archive draws the corpus's own. */}
-      <PreferencesSections
-        namespace="graph"
-        only={[
-          "marks",
-          "links",
-          "labels",
-          "additive-links",
-          "bowed-links",
-          "vignette",
-          "grid",
-        ]}
-      />
-    </div>
-  );
-}
-
-/**
- * The Settings panel — the camera and the gestures. There are no forces here: the archive's
- * positions are the corpus's own layout, and the toolbar is where a reader runs one.
+ * The Settings panel — the gestures. There are no forces here: the archive's positions are the
+ * corpus's own layout, and the toolbar is where a reader runs one. Fitting is the toolbar's too.
  */
 export function GraphSettings() {
-  const { fit } = useGraphContext();
-
   return (
     <ScrollArea className="h-full p-3">
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <p className="font-medium text-muted-foreground text-xs">Camera</p>
-          <Button className="w-full" onClick={() => fit()} size="sm" variant="outline">
-            <MaximizeIcon />
-            Fit to view
-          </Button>
-        </div>
-
-        <div className="space-y-2 border-t pt-3">
-          <p className="font-medium text-muted-foreground text-xs">Gestures</p>
-          <dl className="space-y-1.5">
-            {GESTURES.map((gesture) => (
-              <div className="flex items-baseline gap-2" key={gesture.what}>
-                <dt className="shrink-0">{gesture.keys}</dt>
-                <dd className="text-[11px] text-muted-foreground leading-snug">
-                  {gesture.what}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </div>
+      <div className="space-y-2">
+        <p className="font-medium text-muted-foreground text-xs">Gestures</p>
+        <dl className="space-y-1.5">
+          {GESTURES.map((gesture) => (
+            <div className="flex items-baseline gap-2" key={gesture.what}>
+              <dt className="shrink-0">{gesture.keys}</dt>
+              <dd className="text-[11px] text-muted-foreground leading-snug">
+                {gesture.what}
+              </dd>
+            </div>
+          ))}
+        </dl>
       </div>
     </ScrollArea>
   );

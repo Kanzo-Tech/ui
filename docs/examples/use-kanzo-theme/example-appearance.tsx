@@ -1,30 +1,21 @@
 "use client";
 
-import {
-  Button,
-  ButtonGroup,
-  ClientOnly,
-  Show,
-  Skeleton,
-  useKanzoTheme,
-  type AppearancePref,
-} from "@kanzo-tech/ui";
+import { Button, ButtonGroup, ClientOnly, Skeleton, useKanzoTheme, type Appearance } from "@kanzo-tech/ui";
 
-const CHOICES: { label: string; value: AppearancePref }[] = [
-  { label: "System", value: "" },
+const CHOICES: { label: string; value: Appearance }[] = [
   { label: "Light", value: "light" },
   { label: "Dark", value: "dark" },
 ];
 
 function AppearancePanel() {
-  const { appearance, resolvedAppearance, setAppearance } = useKanzoTheme();
+  const { appearance, setAppearance } = useKanzoTheme();
 
   return (
     <div className="flex flex-col items-center gap-4">
       <ButtonGroup aria-label="Appearance">
         {CHOICES.map((choice) => (
           <Button
-            key={choice.label}
+            key={choice.value}
             onClick={() => setAppearance(choice.value)}
             size="sm"
             variant={choice.value === appearance ? "default" : "outline"}
@@ -34,14 +25,7 @@ function AppearancePanel() {
         ))}
       </ButtonGroup>
 
-      <p className="text-muted-foreground text-sm">
-        <Show
-          fallback={<>Pinned to {appearance}.</>}
-          when={!appearance}
-        >
-          Following the OS — resolved to {resolvedAppearance}.
-        </Show>
-      </p>
+      <p className="text-muted-foreground text-sm">Wearing the {appearance} side.</p>
     </div>
   );
 }

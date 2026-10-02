@@ -188,16 +188,10 @@ describe("inkFor", () => {
 
 describe("pageInk", () => {
   /**
-   * The four `--*-foreground` values every shipped theme authors — one hundred and sixteen across
-   * the twenty-nine — beside the fill and the ground they were chosen against. This is the whole
-   * corpus, not a sample: the claim is that one ratio reproduces every one of them, and a sample
-   * could not carry that.
-   *
-   * The two halves are not the same kind of evidence, and the number is worth splitting. Sixty-four
-   * are the hand-written themes' own choices, and they are what calibrated 0.6 — worst ΔE 4.64,
-   * median 2.88. The other fifty-two came out of `pageInk` itself, through `import-daisy.mjs`, so
-   * they can only catch a drift between the two call sites; they sit at ΔE 0 at the median and the
-   * four that do not are `lemonade`'s, floored against its surface.
+   * The four `--*-foreground` values every shipped theme authors, beside the fill, the ink and the
+   * page they were chosen against. The whole corpus, not a sample: every one of them is the rule's
+   * own output — the fill mixed 60% toward `--foreground`, floored to AA on `--background` — so a
+   * hand edit that leaves the rule, or a rule edit that leaves the files, shows up here.
    */
   it("reproduces every authored page ink in the corpus", () => {
     const themeDir = resolve(__dirname, "..", "themes");
@@ -207,17 +201,18 @@ describe("pageInk", () => {
       const css = readFileSync(join(themeDir, file), "utf8");
       const value = (token: string) =>
         new RegExp(`^\\s*${token}:\\s*(#[0-9a-f]{6})`, "im").exec(css)?.[1]?.toLowerCase() ?? null;
-      const ground = value("--foreground");
-      if (!ground) continue;
+      const [ground, page] = [value("--foreground"), value("--background")];
+      if (!ground || !page) continue;
       for (const family of ["destructive", "info", "success", "warning"]) {
         const [fill, authored] = [value(`--${family}`), value(`--${family}-foreground`)];
         if (!fill || !authored) continue;
         measured++;
-        const d = deltaE(authored, pageInk(fill, ground));
-        if (d > 5) off.push(`${file.slice(0, -4)}/${family}: ${authored} vs ${pageInk(fill, ground)} (ΔE ${d.toFixed(1)})`);
+        const rule = pageInk(fill, ground, page);
+        const d = deltaE(authored, rule);
+        if (d > 5) off.push(`${file.slice(0, -4)}/${family}: ${authored} vs ${rule} (ΔE ${d.toFixed(1)})`);
       }
     }
-    expect(measured).toBeGreaterThan(40); // a corpus that emptied would pass vacuously
+    expect(measured).toBe(32); // eight themes × four families; a corpus that emptied would pass vacuously
     expect(off).toEqual([]);
   });
 

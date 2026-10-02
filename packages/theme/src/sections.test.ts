@@ -295,33 +295,6 @@ describe("options a tenant owns", () => {
   });
 });
 
-describe("the unset state, which is an option and not a fourth kind", () => {
-  const APPEARANCE = {
-    kind: "choice",
-    default: "",
-    options: [
-      { value: "", label: "System" },
-      { value: "light", label: "Light" },
-      { value: "dark", label: "Dark" },
-    ],
-    doc: "which side of the document is worn",
-  } as const;
-
-  it("is a value a control can offer and a user can return to", () => {
-    // The live complaint this answers: "follow the OS" used to be reachable only through the panel's
-    // Reset, because it existed in a hand-written type and in no declaration.
-    expect(resolvePref(APPEARANCE, "dark")).toEqual({ value: "dark", via: "stored", offered: true });
-    expect(resolvePref(APPEARANCE, "")).toEqual({ value: "", via: "stored", offered: true });
-    expect(prefOptions(APPEARANCE)?.[0]).toEqual({ value: "", label: "System" });
-  });
-
-  it("is what the default already meant, so nothing else changes", () => {
-    // `""` is the default, and the write rule removes an attribute at the default — which is
-    // precisely what "the OS decides" means in CSS, where there is no third keyword either.
-    expect(resolvePref(APPEARANCE, undefined).value).toBe(APPEARANCE.default);
-  });
-});
-
 describe("the kinds a section may declare", () => {
   const TOGGLE = { kind: "toggle", default: "true", doc: "draw the links" } as const;
   const RANGE = {

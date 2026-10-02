@@ -6,9 +6,9 @@ import { source } from "@/lib/source";
 
 /**
  * A group with a gallery of its own is not a fifth layer of the library, and the sidebar was
- * listing showcases as if it were once layouts got a group. Showcases are whole screens and blocks
- * are the furniture two of them share; both are demonstrations of the four layers rather than a
- * layer, so they come out of the component nav and get a top-level link each.
+ * listing showcases as if it were once layouts got a group. Showcases are whole screens — a
+ * demonstration of the four layers rather than a layer — so they come out of the component nav and
+ * get a top-level link.
  *
  * `OWN_GALLERY` is the one place that set is written, shared with `ComponentsList` — the prefix
  * used to be a literal here and the exclusion a second literal there, which is two spellings of

@@ -4,7 +4,7 @@ import { ThemeGenerator } from "./theme-generator";
 export const metadata: Metadata = {
   title: "Theme generator — Kanzo UI",
   description:
-    "Author a theme in the library's own controls: the preview wears the values and the CSS block is those values reformatted.",
+    "Author a theme family — a light theme and a dark one — in OKLCH, with live WCAG contrast checks. Copy the CSS, an instance config, or a link.",
 };
 
 /**

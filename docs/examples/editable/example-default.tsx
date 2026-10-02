@@ -2,52 +2,80 @@
 
 import {
   Button,
+  Card,
+  CardContent,
+  CardHeader,
   Editable,
   EditableArea,
   EditableCancelTrigger,
   EditableControl,
-  EditableEditTrigger,
   EditableInput,
   EditablePreview,
   EditableSubmitTrigger,
   Field,
+  FieldGroup,
   FieldLabel,
   Input,
 } from "@kanzo-tech/ui";
-import { CheckIcon, PencilIcon, XIcon } from "lucide-react";
+import { CheckIcon, XIcon } from "lucide-react";
 
 export default function Example() {
   return (
-    <Field className="w-full max-w-sm">
-      <FieldLabel>Contract title</FieldLabel>
-      <Editable
-        activationMode="dblclick"
-        defaultValue="A wyrm under the granary"
-      >
-        <EditableArea>
-          <EditableInput asChild>
-            <Input className="w-full" />
-          </EditableInput>
-          <EditablePreview />
-        </EditableArea>
-        <EditableControl>
-          <EditableEditTrigger asChild>
-            <Button aria-label="Edit" size="icon-md" variant="ghost">
-              <PencilIcon />
-            </Button>
-          </EditableEditTrigger>
-          <EditableSubmitTrigger asChild>
-            <Button aria-label="Save" size="icon-md" variant="outline">
-              <CheckIcon />
-            </Button>
-          </EditableSubmitTrigger>
-          <EditableCancelTrigger asChild>
-            <Button aria-label="Cancel" size="icon-md" variant="ghost">
-              <XIcon />
-            </Button>
-          </EditableCancelTrigger>
-        </EditableControl>
-      </Editable>
-    </Field>
+    <Card className="w-full max-w-sm">
+      <CardHeader
+        description="Focus a field to start editing."
+        title="Edit contract"
+      />
+      <CardContent>
+        <FieldGroup>
+          <Field>
+            <FieldLabel>Contract title</FieldLabel>
+            <Editable defaultValue="A wyrm under the granary">
+              <EditableArea>
+                <EditableInput asChild>
+                  <Input />
+                </EditableInput>
+                <EditablePreview />
+              </EditableArea>
+              <EditableControl>
+                <EditableCancelTrigger asChild>
+                  <Button aria-label="Cancel" size="icon-md" variant="outline">
+                    <XIcon />
+                  </Button>
+                </EditableCancelTrigger>
+                <EditableSubmitTrigger asChild>
+                  <Button aria-label="Save" size="icon-md" variant="outline">
+                    <CheckIcon />
+                  </Button>
+                </EditableSubmitTrigger>
+              </EditableControl>
+            </Editable>
+          </Field>
+          <Field>
+            <FieldLabel>Posted by</FieldLabel>
+            <Editable defaultValue="Hearthward Mill">
+              <EditableArea>
+                <EditableInput asChild>
+                  <Input />
+                </EditableInput>
+                <EditablePreview />
+              </EditableArea>
+              <EditableControl>
+                <EditableCancelTrigger asChild>
+                  <Button aria-label="Cancel" size="icon-md" variant="outline">
+                    <XIcon />
+                  </Button>
+                </EditableCancelTrigger>
+                <EditableSubmitTrigger asChild>
+                  <Button aria-label="Save" size="icon-md" variant="outline">
+                    <CheckIcon />
+                  </Button>
+                </EditableSubmitTrigger>
+              </EditableControl>
+            </Editable>
+          </Field>
+        </FieldGroup>
+      </CardContent>
+    </Card>
   );
 }

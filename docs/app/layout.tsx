@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { Geist, Geist_Mono, Inter, JetBrains_Mono } from "next/font/google";
 import { RootProvider } from "fumadocs-ui/provider/next";
 import { KanzoProvider } from "@/components/kanzo-provider";
-import { themeIndex } from "@kanzo-tech/theme";
 import "./global.css";
 
 // The theme's `data-font` / `data-mono-font` axes resolve `--font-sans` / `--font-mono` to these
@@ -29,7 +28,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     >
       <body className="flex min-h-screen flex-col">
         {/* No stylesheet is inlined here any more. The catalogue travels in `global.css` —
-            twenty-nine themes, each one flat block under its own `[data-theme]` — so choosing one
+            four families of themes, each one flat block under its own `[data-theme]` — so choosing one
             is an attribute write and this layout stays static. It used to inline *the chosen document*,
             read from a cookie, which made the layout async and every page under it dynamic. */}
         {/* next-themes OFF. `RootProvider` mounts it with `attribute: "class"`, which made two
@@ -43,9 +42,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             the way this repository keeps paying for — no error, just a search box that returns
             nothing. */}
         <RootProvider search={{ options: { type: "static" } }} theme={{ enabled: false }}>
-          <KanzoProvider defaultTheme="kanzo" themes={themeIndex.map((t) => ({ value: t.name, label: t.name }))}>
-            {children}
-          </KanzoProvider>
+          <KanzoProvider>{children}</KanzoProvider>
         </RootProvider>
       </body>
     </html>

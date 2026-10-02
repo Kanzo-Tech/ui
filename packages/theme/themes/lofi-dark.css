@@ -1,0 +1,70 @@
+/* @family lofi
+   @label Lo-fi Dark
+
+   lofi inverted: white on near-black, greys for every surface, colour only where state needs it.
+   One mode, one flat block, written by hand. */
+[data-theme="lofi-dark"] {
+  color-scheme: dark;
+
+  /* Surfaces, ink, brand, lines */
+  --background: #0a0a0a;
+  --foreground: #ffffff;
+  --card: #0f0f0f;
+  --popover: #141414;
+  --muted: #171717;
+  --muted-foreground: #b3b3b3;
+  --primary: #f2f2f2;
+  --primary-foreground: #0a0a0a;
+  --secondary: #e6e6e6;
+  --secondary-foreground: #0a0a0a;
+  --accent: #1f1f1f;
+  --border: #2b2b2b;
+  --input: #6b6b6b;
+  --ring: #f2f2f2;
+  --field: #0a0a0a;
+  --faint: #9a9a9a;
+
+  /* Status: the fill, the ink on it, and the same family read on the page */
+  --destructive: #ff9181;
+  --destructive-content: #160706;
+  --destructive-foreground: #ffbeb3;
+  --info: #5fcfdd;
+  --info-content: #031011;
+  --info-foreground: #a7e3eb;
+  --success: #69fec3;
+  --success-content: #04160e;
+  --success-foreground: #b1ffdb;
+  --warning: #ffce69;
+  --warning-content: #160f04;
+  --warning-foreground: #ffe2aa;
+
+  /* Shape */
+  --radius-box: 0.5rem;
+  --radius-field: 0.25rem;
+  --radius-selector: 2rem;
+  --size-field: 0.25rem;
+  --size-selector: 0.25rem;
+  --stroke: 1px;
+  --relief: 0;
+
+  /* Categorical set */
+  --chart-capacity: 8;
+  --chart-1: #d4d4d4;
+  --chart-2: #fdb1c1;
+  --chart-3: #a7f7ff;
+  --chart-4: #83d49d;
+  --chart-5: #f4f4a4;
+  --chart-6: #c4b5fd;
+  --chart-7: #db90c0;
+  --chart-8: #9399e0;
+
+  /* Syntax */
+  --syntax-keyword: #ffffff;
+  --syntax-string: #b9d6c4;
+  --syntax-number: #e0c3b4;
+  --syntax-function: #b4c8de;
+  --syntax-variable: #e5e5e5;
+  --syntax-property: #b4ccd6;
+  --syntax-type: #d9cfae;
+  --syntax-annotation: #dcb4cf;
+}

@@ -1,0 +1,141 @@
+---
+title: Pitfalls
+description: The failures on the analytics subpath that point somewhere other than their cause — what each looks like, why it happens, and what to do instead.
+---
+
+Each of these was hit for real, and each one's symptom shows up somewhere other than where it was
+caused. [Charts](/docs/analytics/charts#limitations) lists the grammar's own limitations; this page
+is about pages that combine parts, and about the BI kit.
+
+## One dashboard per relation
+
+**Symptom.** Cards in one dashboard read *This chart could not be drawn.* the moment someone picks
+a bar in another, and the console says `Binder Error: Referenced column "hour" not found`.
+
+**Why.** A clause is a predicate that names columns — `hour BETWEEN 3 AND 12`, `region IN (…)`.
+Every part under a `MosaicProvider` filters by the same crossfilter, so a clause published over one
+relation is applied to queries over every other. A relation without that column cannot answer it.
+
+**Instead.** One relation per crossfilter. Mount one dashboard at a time (keasy switches vertex
+types with `key={type}`, and every part withdraws its clauses when it unmounts), or give each
+relation its own `MosaicProvider` over the shared coordinator. A clause that *should* cross
+relations has to name a column they all have — the graph's lasso publishes on `dense_id` for exactly
+that reason, and every vertex table of a corpus carries it.
+
+## Columns named like a channel
+
+**Symptom.** On a relation with a column `x` or `y` — a graph corpus's layout coordinates, most
+often — a line over time, the timeline filter and the tiles' trends fail with *column "closed" must
+appear in the GROUP BY clause*, while bars and histograms of other fields draw fine.
+
+**Why.** Mosaic names a mark's output columns after its channels and groups an aggregating mark by
+those names:
+
+```sql
+SELECT time_bucket(INTERVAL 3 month, "closed") AS "x", count(*) AS "y"
+FROM contracts_layout
+GROUP BY "x"
+```
+
+DuckDB binds a name in `GROUP BY` to a **column of the relation** before an alias of the select list.
+On a relation that has its own `x`, the group key silently becomes the layout coordinate instead of
+the time bucket, and `closed` is left ungrouped. Mosaic's M4 and pre-aggregation rewrites group by the
+same names, so it is not one query to fix but a family. The channel names are `x`, `y`, `x1`, `x2`,
+`y1`, `y2`, `fx`, `fy`, `z`, `fill` and `stroke`.
+
+**What `Dashboard` does.** It reads the relation without those columns —
+`SELECT <every other column> FROM relation` — so an alias can only ever mean the alias, and it never
+offers them as fields. The same contracts as a fossil corpus hands them over, with a `dense_id` and
+a layout's `x` and `y`; the line over `closed` draws:
+
+<ComponentPreview componentName="dashboard" fileName="example-channels" hasMaxHeight={false} />
+
+**The trade-off.** The plots cannot see those columns at all, so a clause on one of them — published
+by something else on the page — cannot filter the dashboard by it. The projection has no `x`, DuckDB
+falls back to the plot's own `x` alias, and the chart fails instead. Publish on a key the relation
+keeps (`dense_id`), never on a coordinate; and if a channel-named column is *data* you want to chart,
+rename it in the relation you hand over (`SELECT x AS x_position, …`).
+
+**Composing the parts yourself.** The projection is `Dashboard`'s, not the parts'. A host that places
+`ChartCard` or `DashboardStat` directly over such a relation asks `plotRelation` for the same pair —
+the relation without the channel-named columns, and the fields without them — and hands the parts
+those:
+
+```tsx
+const stats = useFieldStats(table);
+const readable = useMemo(
+  () => (stats.fields && stats.columns ? plotRelation(table, { fields: stats.fields, columns: stats.columns }) : null),
+  [stats.fields, stats.columns, table],
+);
+// <ChartCard table={readable.table} fields={readable.fields} card={card} />
+```
+
+## A tip on picking bars swallows the pick
+
+**Symptom.** Bars with `ChartPickY` (or `ChartToggleY`) and `tip` show the tooltip on hover, but a
+click publishes nothing: no chip, no filter, no highlight. Remove `tip` and the same click works.
+
+**Why.** `tip` adds Observable Plot's pointer-driven tooltip to the mark, and with it in place the
+toggle interactor's click on that mark does not publish. The mechanism inside Plot and Mosaic is not
+established here; the behaviour is. Measured on
+`@uwdata/vgplot` 0.29 with the bar under the pointer and the clause list read back: empty with `tip`,
+one clause without it.
+
+**Instead.** Do not combine them on a mark that is picked. `ChartCard`'s bar cards draw no tip for
+this reason; the axis labels and the value scale carry what the tip would. A brushed line keeps its
+`tip` — brushing does not read clicks on the marks.
+
+## A brush on a faceted plot answers only in the first panel
+
+**Symptom.** On a plot split into panels with `fx` — a faceted line, area, histogram or scatter card
+— dragging in the first panel brushes; dragging in any other does nothing, and the console reports
+`<g> attribute transform: Expected ')', "translate(227, 0})"`.
+
+**Why.** An upstream typo. Mosaic's `brushGroups` (`@uwdata/mosaic-plot` 0.29, `interactors/util/brush.js`)
+builds each panel's brush group with `` `translate(${X[i]}, 0})` `` when only `fx` is set — one brace
+too many. The browser rejects the transform, every panel's brush group stays at the first panel's
+position, and they all stack there. Facets on both `fx` and `fy`, or on `fy` alone, take the other
+branches and are not affected.
+
+**Instead.** Until the fix lands upstream, brush faceted cards in the first panel, or filter the
+panel's category with a filter instead — the dashboard's filter row narrows every panel at once.
+Picks are unaffected.
+
+## A scatter or a fit fetches every row
+
+**Symptom.** A `dot` or `regression` card is slow, or the tab's memory climbs, on a relation of a few
+million rows, while every other card stays instant.
+
+**Why.** Every other card is aggregated in DuckDB: a bar is one row per group, a histogram one per
+bin, a line one per bucket. A scatter plots rows, so its query returns every row under the
+selection, and the browser draws each one. The fit's line and 95% band are SQL aggregates (`regr_*`),
+but the dots under it are the same row fetch.
+
+**Instead.** Keep scatters for relations in the tens of thousands, or narrow first — a filter or a
+brush elsewhere shrinks what the scatter fetches. For a dense cloud, a binned 2D mark from the
+grammar (`ChartHexbin`, `ChartRaster`, `ChartDensity`) aggregates in SQL and stays flat at any size;
+it is not a dashboard card type, so it goes in a card of your own.
+
+## Add chart needs a secure context
+
+**Symptom.** *Add chart* and *Add tile* throw `crypto.randomUUID is not a function`.
+
+**Why.** New cards and tiles are given `crypto.randomUUID()` ids, which browsers expose only on
+secure origins: `https://`, and `http://localhost`. A dev server reached over a LAN address on plain
+HTTP is not one.
+
+**Instead.** Serve over HTTPS, or reach the dev server as `localhost`.
+
+## The subpath's size, read correctly
+
+`size-limit` measures `@kanzo-tech/ui/analytics` **in isolation**: 89.19 kB brotlied,
+against 66.96 kB for the charts grammar alone. Most of that difference is not new code. The kit composes the
+root barrel's `Menu`, `Popover`, `Select`, `Table`, `Pagination`, `Card`, `Alert` and the `Stat`
+parts, and a subpath measured alone counts them again. In an app that imports both the root barrel
+and `/analytics` — which is every app with a dashboard — those are the same modules and dedupe; the
+incremental cost is the kit itself.
+
+The figure that measures what a consumer pays for one component is the tree-shaken one (a `Button`
+resolves to about 1.3 kB), and the kit adds nothing to the root barrel. Treat the subpath
+budget as a change detector, not as a download size. The vgplot, Mosaic and DuckDB-WASM peers are
+excluded from all of these: they are the ecosystem's, and an app pays for them once.

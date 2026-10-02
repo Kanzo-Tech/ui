@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Dialog as ArkDialog } from "@ark-ui/react/dialog";
 import { Portal } from "@ark-ui/react/portal";
-import { InfoIcon, MoonIcon, PaletteIcon, SunIcon, XIcon } from "lucide-react";
+import { PaletteIcon, XIcon } from "lucide-react";
 // Via the theme package's JS entry, not its raw `.json` subpath: a direct JSON subpath import
 // needs `with { type: "json" }` at runtime, and Rollup strips that attribute when bundling.
 import {
@@ -12,7 +12,6 @@ import {
   prefNumber,
   prefOptions,
   themeData,
-  type Appearance,
   type CorePrefKey,
   type KanzoRadius,
   type PrefOption,
@@ -25,8 +24,6 @@ import {
   type ThemeContextValue,
 } from "../theme/KanzoThemeProvider.js";
 import { cn } from "../lib/cn.js";
-import { Alert, AlertDescription, AlertTitle } from "../simples/alert.js";
-import { Badge } from "../simples/badge.js";
 import { Button } from "../simples/button.js";
 import { Field, FieldLabel, FieldLegend, FieldSet } from "../simples/field.js";
 import {
@@ -37,7 +34,8 @@ import {
   DialogTrigger,
 } from "../simples/dialog.js";
 import { RadioGroup as ArkRadioGroup } from "@ark-ui/react/radio-group";
-import { RadioGroup, RadioGroupCard, RadioGroupLabel } from "../simples/radio-group.js";
+import { RadioGroup, RadioGroupCard } from "../simples/radio-group.js";
+import { ThemePicker } from "./ThemePicker.js";
 import { Slider, SliderLabel } from "../simples/slider.js";
 import { Switch } from "../simples/switch.js";
 
@@ -50,7 +48,7 @@ import { Switch } from "../simples/switch.js";
  *   <PreferencesRoot>
  *     <PreferencesTrigger />
  *     <PreferencesPanel>
- *       <PreferencesColor /> <PreferencesDensity /> <PreferencesRadius />
+ *       <ThemePicker /> <PreferencesDensity /> <PreferencesRadius />
  *       <PreferencesFont /> <PreferencesMonoFont />
  *     </PreferencesPanel>
  *   </PreferencesRoot>
@@ -63,27 +61,10 @@ import { Switch } from "../simples/switch.js";
  * hue at a time. Palette, accent, base, chart scheme and the "Copy CSS" export all left with it;
  * what the export did belongs on the onboarding surface, which has a document to emit.
  *
- * `Colour` is not that coming back. It chooses among the things the TENANT published — the same kind
- * of choice `appearance` makes between one document's two modes, one level up — and it shows itself
- * only when there are two to choose from.
- *
- * **Appearance has no section of its own, and no control of its own either**: `Colour` draws one
- * card per side, and pressing a card wears that side. That IS the appearance control, and it is the
- * only one — an `AppearanceToggle` sat in the header until 2026-08-19 and was the same preference
- * wearing a second control twelve pixels from the first. It is deleted, not moved: it flipped
- * light ⇄ dark and so does a card, and "follow the OS" was never on it — that is `""`, and Reset is
- * the way back.
- *
- * **What that costs, stated rather than discovered.** `Colour` hides itself below two published
- * choices, so a tenant that published one palette and one brand now has a panel with no appearance
- * control at all. That is a real hole and the reason this paragraph exists; the fix, if it is
- * wanted, is for the section to draw the two cards even where there is nothing to choose between —
- * not for the button to come back.
- *
- * It has two states and not three: "follow the OS" is `""`, the absence of a pinned side, so the
- * way back to it is `Reset` — which UNSETS every preference rather than writing each default, and
- * therefore lands wherever the tenant's document says. That is the one thing this panel's footer
- * does that no other control can, and the declaration now offers the same value as an option.
+ * The theme is not that coming back. {@link ThemePicker} chooses among the themes the TENANT
+ * published — a light theme and a dark theme, GitHub's model — and it is also the one appearance
+ * control: its *Light · Dark* segment picks the side. There is no toggle in the header and no
+ * second control for either.
  *
  * **What a tenant pinned or withheld is not drawn at all.** Every section asks `corePrefs[key]`
  * whether its axis is still offered, because a control the chain will ignore is a control that
@@ -92,7 +73,7 @@ import { Switch } from "../simples/switch.js";
  * **One renderer draws every preference**, the core's axes and a contributed section's alike:
  * `PrefControl` switches on `kind` and nothing else. Two sections are left, each because its
  * CONTROL differs rather than its data — `RadiusSection` is a slider over an ordered scale, and
- * `ColorSection` draws documents at full size with a live cascade preview. The three specimens a
+ * the theme is {@link ThemePicker}, which draws each theme as a live miniature. The three specimens a
  * generic control cannot draw are a lookup keyed by axis, not three components.
  */
 
@@ -225,12 +206,8 @@ function PreferencesPanel({
             "motion-reduce:animate-none!",
           )}
         >
-          {/* Header. Nothing but the title and the close X: a sun/moon toggle sat here, and it was
-              the same preference wearing a second control twelve pixels from the first. `Colour`
-              draws a card per side and pressing one wears it, which is the whole of what the
-              button did — it cycled nothing, since "follow the OS" is `""` and Reset is its way
-              back. What that costs is stated on `ColorSection`: below two published choices the
-              section returns null, and such a panel now offers no appearance control at all. */}
+          {/* Header. Nothing but the title and the close X: appearance is `ThemePicker`'s
+              Light · Dark segment, and a toggle here would be a second control for it. */}
           <div className="px-5 pt-5 pb-3">
             <DialogTitle className="font-heading text-base font-semibold">{title}</DialogTitle>
             <DialogDescription className="mt-0.5 text-[length:var(--kanzo-font-size-small)] text-muted-foreground">
@@ -265,11 +242,7 @@ function PreferencesPanel({
           >
             {children ?? (
               <>
-                {/* Colour first, and ONE section: a palette and a brand are one choice at two
-                    grains, so the panel offers one list and everything below it is a different axis
-                    entirely. It renders nothing until the tenant published two choices, so the
-                    common panel is unchanged. */}
-                <ColorSection />
+                <ThemeSection />
                 <DensitySection />
                 <RadiusSection />
                 <FontSection />
@@ -353,9 +326,6 @@ const PREF_HEADING = cn(
   "text-[length:var(--kanzo-font-size-small)]!",
 );
 
-/** The side cards' own titles — a card title, not a section heading, so only the size is shared. */
-const PREF_LABEL_SIZE = "text-[length:var(--kanzo-font-size-small)]";
-
 /**
  * A titled GROUP of options — the container `PrefField` cannot be.
  *
@@ -378,411 +348,16 @@ function PrefFieldSet({ label, children }: { label: React.ReactNode; children: R
 
 // ── Sections ──────────────────────────────────────────────────────────────────
 /**
- * COLOUR — every choice the tenant published, as one list.
- *
- * **A palette and an identity are one abstraction with a parameter: how much of the document the
- * choice replaces.** An identity replaces the brand-derived slice and inherits every surface; a
- * palette replaces all of it. They always shared this control, this option type, the hide-below-two
- * rule and the retirement machinery — and the giveaway was the behaviour: changing palette *files and
- * restores* the identity, which is what containment does and what two sibling axes never would.
- *
- * So the panel shows one list. A palette that publishes several brands contributes one entry per
- * brand — `Bank · Retail`, `Bank · Private` — which is how VS Code and Slack present variants, and
- * which matches what the user is actually doing: making one choice. The model keeps the containment,
- * because that is what guarantees a tenant's brands share a neutral and stay one product.
- *
- * The prefix appears only when there is more than one palette to disambiguate against: a client with
- * a single palette and two brands sees `Retail` and `Private`, not their own name twice.
+ * THEME — the panel's heading over {@link ThemePicker}, which is the one control for the theme and
+ * the appearance alike. It draws nothing where the tenant offers neither.
  */
-export interface PreferencesColorProps {
-  /** The legend, and one of the section's two library-authored strings (i18n). */
-  label?: string;
-  /** Heading of the notice shown when the tenant withdrew what this user had chosen. */
-  retiredTitle?: string;
-  /** Compose that notice's body. The argument is the retired **id**; its label went with it. */
-  formatRetired?: (parts: { choice: string }) => string;
-  /** Name a side. The section's third and last library-authored string (i18n). */
-  formatSide?: (side: Appearance) => string;
-}
-
-const DEFAULT_RETIRED_TITLE = "Colours updated";
-const DEFAULT_RETIRED = ({ choice }: { choice: string }) =>
-  `The colours you had chosen (${choice}) are no longer published, so these are the default ones.`;
-
-/**
- * One theme, drawn by ITSELF — a miniature of the interface rather than a list of its hexes.
- *
- * **Nothing here is data.** The theme is already in the page under its own `[data-theme]`, so this
- * span sets the attribute and every utility inside it resolves against that theme: `bg-primary` is
- * that tenant's brand, `bg-chart-3` is their third categorical slot. A strip of four hexes was the
- * alternative and it could not depict a theme — on the default's own, `--primary` and `--foreground`
- * are the same value, so two of the four chips were one colour and the control said nothing.
- *
- * **Three things this used to need and no longer does**, and they are the same three the whole
- * refactor removed:
- *
- * · *The appearance class.* A document carried two blocks, so a preview had to force a side with
- *   `.light` / `.dark` or it would take the wrong one on a dark page. A theme IS a side.
- * · *A second attribute.* `data-identity` selected the brand within the document. A brand is a
- *   theme, so there is one attribute.
- * · *The default's special case.* The default document was emitted at bare `:root` with no scope of
- *   its own, so `[data-palette="kanzo"]` matched nothing and the cell inherited whatever the page
- *   wore — the class alone had to carry it. `themes/kanzo.css` answers to `:root` **and**
- *   `[data-theme="kanzo"]`, so the default selects like every other theme.
- *
- * The categorical strip draws all eight slots on purpose. Past a theme's `--chart-capacity` the
- * slot is `var(--muted-foreground)`, so a set that holds seven says so by going grey at the end.
- */
-function ThemePreview({ theme }: { theme: string }) {
+function ThemeSection() {
+  const { corePrefs } = useKanzoTheme();
+  if (corePrefs.themeByAppearance?.offered === false && corePrefs.appearance?.offered === false) return null;
   return (
-    <span
-      aria-hidden
-      className={cn(
-        // `h-16` at every width, tried and reverted at `@md:h-28`: the miniature's three rows are a
-        // fixed amount of ink, so height bought empty background and the tile read as a page that
-        // had failed to load rather than as a denser one. GitHub's tile is 2:1 because it is a
-        // screenshot with a screenshot's worth of content in it.
-        "flex h-16 flex-col justify-between rounded-[4px] border border-border bg-background p-2",
-      )}
-      data-slot="theme-preview"
-      data-theme={theme || undefined}
-    >
-      {/* Chrome: the brand fill, and two weights of ink on the page. */}
-      <span className="flex items-center gap-1">
-        <span className="h-2 w-4 rounded-[2px] bg-primary" />
-        <span className="h-1 w-5 rounded-full bg-foreground" />
-        <span className="h-1 flex-1 rounded-full bg-muted-foreground" />
-      </span>
-
-      {/* Two lines of code, indented — the half that makes the card true rather than decorative.
-          A document derives seven syntax roles of its own, so Dracula's card paints Dracula's
-          keywords; a card that stopped at surfaces and a brand would show six documents agreeing
-          about the only part of themselves they share. This is the move GitHub's theme picker
-          makes, and the reason it is the reference: the tile shows the thing being themed. */}
-      <span className="flex flex-col gap-[3px] ps-1">
-        <span className="flex items-center gap-[3px]">
-          <span className="h-1 w-3 rounded-full bg-[var(--syntax-keyword)]" />
-          <span className="h-1 w-5 rounded-full bg-[var(--syntax-function)]" />
-          <span className="h-1 w-2 rounded-full bg-[var(--syntax-number)]" />
-        </span>
-        <span className="flex items-center gap-[3px] ps-2">
-          <span className="h-1 w-4 rounded-full bg-[var(--syntax-property)]" />
-          <span className="h-1 w-6 rounded-full bg-[var(--syntax-string)]" />
-          <span className="h-1 w-2.5 rounded-full bg-[var(--syntax-type)]" />
-        </span>
-      </span>
-
-      {/* The categorical set, all eight slots. Past a document's capacity `compile` writes
-          `var(--muted-foreground)`, so a set that holds seven says so by going grey at the end. */}
-      <span className="flex items-center gap-px">
-        <span className="h-1.5 flex-1 rounded-[1px] bg-chart-1" />
-        <span className="h-1.5 flex-1 rounded-[1px] bg-chart-2" />
-        <span className="h-1.5 flex-1 rounded-[1px] bg-chart-3" />
-        <span className="h-1.5 flex-1 rounded-[1px] bg-chart-4" />
-        <span className="h-1.5 flex-1 rounded-[1px] bg-chart-5" />
-        <span className="h-1.5 flex-1 rounded-[1px] bg-chart-6" />
-        <span className="h-1.5 flex-1 rounded-[1px] bg-chart-7" />
-        <span className="h-1.5 flex-1 rounded-[1px] bg-chart-8" />
-      </span>
-    </span>
-  );
-}
-
-/**
- * Wear a palette while the pointer is on it, and put back exactly what was there.
- *
- * This is the reference behaviour — VS Code and Zed preview a theme as you arrow through the list,
- * and revert when you leave — and it is affordable here for one reason: every document the tenant
- * publishes is already in the page, so previewing is two attribute writes and no fetch, no
- * stylesheet swap and no re-render.
- *
- * **It restores a snapshot rather than recomputing what should be there.** The provider removes an
- * axis attribute at its default and sets it otherwise, so "put it back" has two spellings depending
- * on preferences this component would have to read and agree with. Reading the element on the way
- * in cannot disagree with anything.
- */
-function useThemePreview() {
-  const held = React.useRef<{ theme: string | null } | null>(null);
-
-  const restore = React.useCallback(() => {
-    const snapshot = held.current;
-    if (!snapshot) return;
-    held.current = null;
-    const el = document.documentElement;
-    if (snapshot.theme === null) el.removeAttribute("data-theme");
-    else el.setAttribute("data-theme", snapshot.theme);
-  }, []);
-
-  const preview = React.useCallback((theme: string) => {
-    const el = document.documentElement;
-    // Only the FIRST entry into the list snapshots. Moving from one card to the next fires leave
-    // and enter in an order the pointer decides, and re-snapshotting mid-sweep would file the theme
-    // being previewed as the one to go back to.
-    held.current ??= { theme: el.getAttribute("data-theme") };
-    if (theme) el.setAttribute("data-theme", theme);
-    else el.removeAttribute("data-theme");
-  }, []);
-
-  // A panel closed mid-preview — Escape, a click on the trigger — never fires the leave handler,
-  // and would leave the reader wearing a theme they did not choose.
-  React.useEffect(() => restore, [restore]);
-
-  return { preview, restore };
-}
-
-/** The two sides, in the order a settings page reads them. */
-const APPEARANCES: Appearance[] = ["light", "dark"];
-
-/** `light` / `dark`, and the only two strings this section authors. */
-const DEFAULT_SIDE_LABEL = (side: Appearance) => (side === "light" ? "Light" : "Dark");
-
-type Entry = { key: string; label: string };
-
-/**
- * One side of the choice — which document this user wears in light, or in dark.
- *
- * **The miniature is painted with the document it is offering, forced to this side.** That is what
- * `compile`'s scoped selectors were designed for and what GitHub's own picker cannot do: their
- * tiles are drawn assets, ours is the real cascade answering. A card for the side you are not
- * currently in therefore shows what you would get, not a tinted guess.
- *
- * The chips are the palettes, and they are the same control as the card above them rather than a
- * second one: one radio group per side, so the two cards never fight over a single selection.
- *
- * **The tile IS the appearance control.** It was a `Use` button beside the title, which is the
- * failure this panel keeps removing everywhere else: a second control for a preference the surface
- * was already depicting. What you want is on screen at full size, so pressing it is the whole
- * gesture — the reference is GitHub's Appearance page, where the state is a bordered card and an
- * `Active` pill and there is no verb anywhere on it.
- *
- * A pressable region is a **button inside the container**, never the container merged with one:
- * `item.tsx` states the rule and this is the same case, forced twice over. The card is the radio
- * group's root (`role="radiogroup"`), and the chips are `<label>`s — a button wrapping them would
- * be interactive content inside interactive content, and merging the roles would lose one of them.
- */
-function SideCard({
-  entries,
-  formatSide,
-  live,
-  onPreview,
-  onRestore,
-  selectedFor,
-  setAppearance,
-  setTheme,
-  side,
-}: {
-  entries: Entry[];
-  formatSide: (side: Appearance) => string;
-  /** Whether this is the side currently applied. Only then does hovering preview anything. */
-  live: boolean;
-  onPreview: (theme: string) => void;
-  onRestore: () => void;
-  resolvedTheme: string;
-  selectedFor: (side: Appearance) => string;
-  setAppearance: (appearance: Appearance) => void;
-  setTheme: (theme: string, options?: { appearance?: Appearance }) => void;
-  side: Appearance;
-}) {
-  const selected = selectedFor(side);
-  const current = entries.find((entry) => entry.key === selected) ?? entries[0];
-  const Icon = side === "light" ? SunIcon : MoonIcon;
-
-  return (
-    // The CARD is the radio group, so it is named by the machine's own label part rather than
-    // inheriting the fieldset's legend. Two groups under one legend both answered to "Colour", which
-    // is a screen reader hearing the same name twice with no way to tell the sides apart — and an
-    // `aria-label` could not fix it, because zag points `aria-labelledby` at the legend and that
-    // wins. The Ark tie-break at `/docs/design/references` is the rule; this is the case.
-    <RadioGroup
-      className={cn(
-        "flex flex-col gap-2 rounded-lg border p-2.5 transition-colors",
-        // Selected the way `RadioGroupCard` spells selected, minus its `bg-primary/17`: the chips
-        // inside are radio cards too, and a checked chip on a tinted card is the same wash twice
-        // with only a border left to tell them apart. A ring buys the same emphasis and leaves the
-        // fill for the control that has nothing else.
-        live ? "border-primary ring-1 ring-primary" : "border-border",
-      )}
-      onBlur={onRestore}
-      onPointerLeave={onRestore}
-      onValueChange={(d) => {
-        if (!d.value) return;
-        onRestore();
-        setTheme(d.value, { appearance: side });
-      }}
-      slot="preferences-side-card"
-      value={selected}
-    >
-      {/* Which side is applied right now, and it says so in a WORD: the border and the ring are
-          colour, and colour cannot be the only thing carrying a state (1.4.1). Absolutely placed
-          rather than in the header row, so it stays out of the button's accessible name — inside,
-          every tile answered to "Light Active" — and `pointer-events-none` so the corner it covers
-          still presses the tile. The root is `position: relative` already; zag sets it. */}
-      {live ? (
-        <Badge className="pointer-events-none absolute end-2.5 top-2.5" variant="info">
-          Active
-        </Badge>
-      ) : null}
-
-      {/* The tile: the side's name, and the document it would paint. `aria-pressed` and not a
-          `role="radio"` hand-rolled across two sibling groups — two toggles, each reporting its own
-          state, is what a screen reader can follow here.
-
-          `RadioGroupLabel` renders through `asChild` onto the span, so the machine's own label part
-          IS the visible title (zag's label props carry no `htmlFor`, so a span is a legal host) and
-          the group's accessible name is the word already on screen. Writing it twice — once for the
-          eye, once in an `aria-label` — is the duplication this file removes everywhere else. */}
-      <button
-        aria-pressed={live}
-        className={cn(
-          "-m-1 flex cursor-pointer flex-col gap-2 rounded-md p-1 text-start transition-colors",
-          "hover:bg-foreground/14",
-          "outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
-        )}
-        onClick={() => setAppearance(side)}
-        type="button"
-      >
-        {/* `pointer-events-none` because zag's label props carry `onClick: focus`, which is right
-            when a label sits BESIDE its group and wrong when it sits inside a button: clicking the
-            word `Light` pressed the tile and then moved focus into the chips, so where you clicked
-            decided what happened. The label is text; the tile takes the click. */}
-        <RadioGroupLabel asChild>
-          <span className="pointer-events-none flex items-center gap-1.5">
-            <Icon className="size-3.5 text-muted-foreground" />
-            <span className={cn(PREF_LABEL_SIZE, "font-medium")}>{formatSide(side)}</span>
-          </span>
-        </RadioGroupLabel>
-
-        <ThemePreview theme={current?.key ?? ""} />
-      </button>
-
-      {/* The chosen document's name — under the tile, with the chips it belongs to rather than
-          inside the button, where it would have joined the tile's accessible name. */}
-      <span className="truncate text-muted-foreground text-xs">{current?.label}</span>
-
-      <span className="flex flex-wrap gap-1">
-        {entries.map((entry) => (
-          <RadioGroupCard
-            // A chip, not a card: the depiction is one dot and the name is the accessible name.
-            className="size-6 items-center justify-center rounded-full p-0"
-            key={entry.key}
-            // Hovering only previews on the side being worn. Previewing the other one would repaint
-            // the page into a mode the reader did not ask for, which is a worse lie than no preview.
-            onFocus={live ? () => onPreview(entry.key) : undefined}
-            onPointerEnter={live ? () => onPreview(entry.key) : undefined}
-            title={entry.label}
-            value={entry.key}
-          >
-            <span
-              aria-hidden
-              className="size-3.5 rounded-full bg-primary ring-1 ring-border"
-              data-slot="theme-chip"
-              data-theme={entry.key || undefined}
-            />
-            <ArkRadioGroup.ItemText className="sr-only">{entry.label}</ArkRadioGroup.ItemText>
-          </RadioGroupCard>
-        ))}
-      </span>
-    </RadioGroup>
-  );
-}
-
-function ColorSection({
-  label = "Colour",
-  retiredTitle = DEFAULT_RETIRED_TITLE,
-  formatRetired = DEFAULT_RETIRED,
-  formatSide = DEFAULT_SIDE_LABEL,
-}: PreferencesColorProps = {}) {
-  const {
-    corePrefs,
-    defaultThemeFor,
-    resolvedAppearance,
-    resolvedTheme,
-    retiredTheme,
-    setAppearance,
-    setTheme,
-    themeByAppearance,
-    themes,
-  } = useKanzoTheme();
-  const { preview, restore } = useThemePreview();
-
-  // What the TENANT still lets this user choose. A pinned theme leaves exactly one to offer, so the
-  // section disappears — which is the white-label case working, not a control failing. The
-  // fall out of the existing `entries.length < 2` rule rather than adding a second way to hide.
-  const offered = corePrefs.themeByAppearance?.offered === false
-    ? themes.filter((theme) => theme.value === resolvedTheme)
-    : themes;
-
-  // **One entry per theme, and that is the whole of this now.** It used to be a flatMap over
-  // documents that expanded each into its brands, prefixing labels when more than one document was
-  // offered, and computing a `scope` because the default document had no selector of its own. A
-  // brand is a theme and every theme selects the same way, so the list is the list.
-  const entries: Entry[] = offered.map((theme) => ({ key: theme.value, label: theme.label }));
-
-  if (entries.length < 2) return null;
-
-  const retired = retiredTheme;
-
-  /**
-   * Which entry a side is wearing.
-   *
-   * For the applied side this is the RESOLVED theme, never the preference: an empty preference is a
-   * deferral to the tenant, and the entry that reads as checked has to be the one on screen. For the
-   * other side there is nothing on screen to agree with, so it falls back the same way the provider
-   * would — the stored value, or the tenant's default.
-   */
-  const selectedFor = (side: Appearance) =>
-    (side === resolvedAppearance ? resolvedTheme : themeByAppearance[side]) || defaultThemeFor(side);
-
-  return (
-    // A plain heading, not `PrefFieldSet`, and that is forced rather than chosen. Ark's
-    // `useRadioGroup` takes its `ids.label` from an ambient fieldset's legend and zag sets
-    // `aria-labelledby` from it, so inside one every group answers to "Colour" and the label part
-    // cannot win. Two groups live here, so the section keeps a heading and each card carries its
-    // own name.
     <div className="flex flex-col gap-2">
-      <span className={PREF_HEADING}>{label}</span>
-      {/* Two sibling cards, one per side — GitHub's Appearance page, whose move this borrows: the
-          tile shows the thing being themed rather than naming it.
-          
-          The semantics ARE theirs now, and that is new. GitHub pairs a day theme with a night theme
-          because its themes are single-mode; ours used to each carry both, so a card meant *which
-          document this user wears on the light side*. A theme is one mode, so a card is the light
-          theme, and the per-appearance palette question closed by becoming the
-          obvious shape rather than by being argued.
-          
-          A container query rather than a media query, because the question is how much room THIS
-          section was given, not how big the window is. The same markup is one column inside a
-          384px drawer and two on a settings page, which is the whole claim that a section is
-          independent of the surface that hosts it. */}
-      <div className="@container">
-        <div className="grid gap-2 @md:grid-cols-2">
-          {APPEARANCES.map((side) => (
-            <SideCard
-              entries={entries}
-              formatSide={formatSide}
-              key={side}
-              live={side === resolvedAppearance}
-              onPreview={preview}
-              onRestore={restore}
-              resolvedTheme={resolvedTheme}
-              selectedFor={selectedFor}
-              setAppearance={setAppearance}
-              setTheme={setTheme}
-              side={side}
-            />
-          ))}
-        </div>
-      </div>
-      {/* One notice for both, because there is one choice: whichever half the tenant withdrew, what
-          the user lost is the colours they picked. No toast — a document is served, so the page they
-          are reading is already the default one and nothing is about to change under them. */}
-      {retired ? (
-        <Alert variant="info">
-          <InfoIcon />
-          <AlertTitle>{retiredTitle}</AlertTitle>
-          <AlertDescription>{formatRetired({ choice: retired })}</AlertDescription>
-        </Alert>
-      ) : null}
+      <span className={PREF_HEADING}>Theme</span>
+      <ThemePicker />
     </div>
   );
 }
@@ -803,7 +378,7 @@ function ColorSection({
  * `specimen` is the escape hatch, and it is the only one: a generic control cannot draw a typeface
  * in its own face or a size at its real size. What it may not do is change the CONTROL — a
  * declaration that needs a different one is a section of its own, and there are two of those left
- * ({@link RadiusSection}, {@link ColorSection}), each saying why in its own comment.
+ * ({@link RadiusSection}, {@link ThemeSection}), each saying why in its own comment.
  */
 function PrefControl({
   name,
@@ -862,8 +437,7 @@ function PrefControl({
   }
 
   // `?? []` and not a throw: a choice whose source the host has not answered yet has nothing to
-  // offer *this render*, and the value it resolved to is still applied. Drawing an empty group is
-  // what `PreferencesColor` already does below two published documents.
+  // offer *this render*, and the value it resolved to is still applied.
   const options = prefOptions(decl, sources) ?? [];
   // A specimen is wide and wants its name under it; a bare name is a row in a list. One rule, read
   // off the data, rather than a layout prop each call site has to remember to pass.
@@ -914,7 +488,7 @@ function PrefControl({
  * only tokens. That last one is filtered in the provider, so an empty legend cannot reach the DOM.
  *
  * A contributed preference gets `RadioGroupCard` and not something new, because the choice it
- * expresses is the one `Colour` and `Density` already express — pick one of these, they have names.
+ * expresses is the one `Theme` and `Density` already express — pick one of these, they have names.
  */
 export interface PreferencesSectionsProps {
   /**
@@ -940,7 +514,7 @@ export interface PreferencesSectionsProps {
    * built to end, so a selection that stops at the namespace stops one step short.
    *
    * Order is the caller's here, where a section's own order is the manifest's. That is the same
-   * split `PreferencesColor` already makes: what to offer belongs to whoever declared it, how to
+   * split `ThemePicker` already makes: what to offer belongs to whoever declared it, how to
    * arrange a page belongs to the page. A name nothing declares draws nothing.
    */
   only?: readonly string[];
@@ -1136,7 +710,6 @@ export {
   PreferencesPanel,
   PrefField as PreferencesField,
   PrefFieldSet as PreferencesFieldSet,
-  ColorSection as PreferencesColor,
   // Flat like every other section, and for the reason the others are: a host composing its own
   // panel with `children` replaces the canonical set, and without this it would silently drop every
   // choice its installed packages contribute — which is the several-products-in-one-window failure

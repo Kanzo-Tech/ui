@@ -14,7 +14,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   KanzoThemeProvider,
   useKanzoTheme,
-  type AppearanceController,
 } from "./KanzoThemeProvider.js";
 
 function Probe({ onValue }: { onValue: (v: ReturnType<typeof useKanzoTheme>) => void }) {
@@ -89,8 +88,8 @@ describe("KanzoThemeProvider axis wiring", () => {
     expect(missing, `axes applied but never watched: ${missing.join(", ")}`).toEqual([]);
   });
 
-  it("also watches the resolved appearance, which decides `.dark` in the same effect", () => {
-    expect(deps()).toContain("resolvedAppearance");
+  it("also watches the appearance, which decides `.dark` in the same effect", () => {
+    expect(deps()).toContain("appearance");
   });
 
   it("has a default for every axis, so the attribute can be removed at it", () => {
@@ -126,83 +125,8 @@ describe("KanzoThemeProvider axis wiring", () => {
   });
 });
 
-describe("KanzoThemeProvider appearance (host controller path)", () => {
-  beforeEach(() => stubMatchMedia(false));
-  afterEach(() => html().classList.remove("dark"));
-
-  it("translates the host's `system` to the unset value, and keeps its resolution", () => {
-    // The whole point of the controller: a host may speak next-themes, we do not. `"system"` is a
-    // string in one vocabulary and the absence of a pinned side in ours, and this is the only line
-    // in the package that knows both. Note `resolvedTheme` is still honoured — the host already did
-    // the OS read, so `""` here does not mean "go and ask again".
-    const controller: AppearanceController = {
-      theme: "system",
-      resolvedTheme: "dark",
-      setTheme: vi.fn(),
-    };
-    let ctx: ReturnType<typeof useKanzoTheme> | undefined;
-    render(
-      <KanzoThemeProvider appearance={controller}>
-        <Probe onValue={(v) => (ctx = v)} />
-      </KanzoThemeProvider>,
-    );
-
-    expect(ctx?.appearance).toBe("");
-    expect(ctx?.resolvedAppearance).toBe("dark");
-  });
-
-  it("reads a host that wired only `resolvedTheme` as pinned", () => {
-    const controller: AppearanceController = {
-      resolvedTheme: "dark",
-      setTheme: vi.fn(),
-    };
-    let ctx: ReturnType<typeof useKanzoTheme> | undefined;
-    render(
-      <KanzoThemeProvider appearance={controller}>
-        <Probe onValue={(v) => (ctx = v)} />
-      </KanzoThemeProvider>,
-    );
-
-    expect(ctx?.appearance).toBe("dark");
-    expect(ctx?.resolvedAppearance).toBe("dark");
-  });
-
-  it("forwards setAppearance to the host, translating `null` back to its word for it", () => {
-    const setTheme = vi.fn();
-    const controller: AppearanceController = { theme: "light", resolvedTheme: "light", setTheme };
-    let ctx: ReturnType<typeof useKanzoTheme> | undefined;
-    render(
-      <KanzoThemeProvider appearance={controller}>
-        <Probe onValue={(v) => (ctx = v)} />
-      </KanzoThemeProvider>,
-    );
-
-    act(() => ctx?.setAppearance("dark"));
-    expect(setTheme).toHaveBeenCalledWith("dark");
-
-    // Unpinning has to reach the host as `"system"`: it is the only value next-themes has for it, and
-    // a host that never hears it keeps writing the side the user just abandoned.
-    act(() => ctx?.setAppearance(""));
-    expect(setTheme).toHaveBeenCalledWith("system");
-  });
-});
-
-/**
- * Appearance is a PREFERENCE — a pinned side, or `null` and the OS decides — and nothing else
- * participates. It used to be an axis of the palette (a partnerless palette could hold `.dark`
- * against the user's choice) and the tests that pinned that behaviour went with the model: a compiled
- * palette document publishes both modes, so there is no second opinion left to reconcile.
- *
- * `null` and not the string `"system"`: three of the reference systems make it a value (next-themes,
- * MUI, Mantine's `"auto"`) and the token layers do not (daisyUI's `--prefersdark`, `color-scheme:
- * light dark`), and we are the second kind. The behaviour these tests describe is unchanged — only
- * how it is spelled.
- */
-describe("KanzoThemeProvider appearance (built-in path)", () => {
-  let media: ReturnType<typeof stubMatchMedia>;
-
+describe("KanzoThemeProvider appearance", () => {
   beforeEach(() => {
-    media = stubMatchMedia(false);
     localStorage.clear();
     html().classList.remove("dark");
   });
@@ -222,105 +146,44 @@ describe("KanzoThemeProvider appearance (built-in path)", () => {
     return { ...utils, get ctx() { return ctx; } };
   }
 
-  it("resolves an unpinned preference against the OS", () => {
-    media.set(true);
+  it("is light until somebody picks, and never asks the OS", () => {
+    stubMatchMedia(true);
     const t = mount();
-
-    expect(t.ctx.appearance).toBe("");
-    expect(t.ctx.resolvedAppearance).toBe("dark");
-    expect(dark()).toBe(true);
-  });
-
-  it("holds an explicit side against the OS", () => {
-    media.set(true);
-    const t = mount({ appearance: "light" });
-
-    expect(t.ctx.resolvedAppearance).toBe("light");
-    expect(dark()).toBe(false);
-
-    act(() => t.ctx.setAppearance("dark"));
-    expect(dark()).toBe(true);
-  });
-
-  it("re-resolves when the OS scheme flips while nothing is pinned", () => {
-    // The listener is scoped to `appearancePref === null`; a stale scope means the app stays light
-    // for the rest of the session after the OS goes dark.
-    const t = mount();
-    expect(dark()).toBe(false);
-
-    act(() => media.set(true));
-
-    expect(t.ctx.resolvedAppearance).toBe("dark");
-    expect(dark()).toBe(true);
-  });
-
-  it("hands the side back to the OS when the preference is unpinned", () => {
-    // What `Reset` does, arrived at through `set` rather than a control of its own: `DEFAULT_PREFS`
-    // spreads `appearance: ""`, and the OS gets the side back. This is the whole "way back" — there
-    // is no third face on the toggle, because there is no third value to show.
-    media.set(true);
-    const t = mount({ appearance: "light" });
-    expect(dark()).toBe(false);
-
-    act(() => t.ctx.setAppearance(""));
-
-    expect(t.ctx.appearance).toBe("");
-    expect(dark()).toBe(true);
-  });
-
-  it("re-reads the OS live after being unpinned, not just once", () => {
-    // The listener is scoped on `appearancePref`, so unpinning has to bring it back — pinning a side
-    // tears it down. Without the re-subscribe, "hand it back to the OS" would work exactly until the
-    // OS changed, which is the case nobody tests by hand.
-    media.set(false);
-    const t = mount({ appearance: "dark" });
-
-    act(() => t.ctx.setAppearance(""));
-    expect(dark()).toBe(false);
-
-    act(() => media.set(true));
-    expect(dark()).toBe(true);
-  });
-
-  it("reads the preference from the blob, which is its only home", () => {
-    // There is no standalone `kanzo_appearance` key and no migration off one: the packages are
-    // unpublished, so a second storage location would be a compatibility path bought for nobody.
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ appearance: "light" }));
-    media.set(true);
-
-    const t = mount();
-
     expect(t.ctx.appearance).toBe("light");
     expect(dark()).toBe(false);
   });
 
-  it("stores `null` as a decision and honours it", () => {
-    // `null` IS a stored value — it is what Reset writes — and it must survive the read-time
-    // whitelist, which keeps a stored `null` and drops only `undefined`.
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ appearance: null }));
-    media.set(true);
-
+  it("wears the side the user picks", () => {
     const t = mount();
-
-    expect(t.ctx.appearance).toBe("");
+    act(() => t.ctx.setAppearance("dark"));
+    expect(t.ctx.appearance).toBe("dark");
     expect(dark()).toBe(true);
   });
 
-  it("drops a stored `system` rather than reading it as a side", () => {
-    // Not a migration — a blob is JSON from a browser and can hold any string. `"system"` is from a
-    // vocabulary we do not have, so it is neither side, and the OS answers.
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ appearance: "system" }));
-    media.set(true);
-
-    expect(mount().ctx.appearance).toBe("");
+  it("starts from a host's default side", () => {
+    expect(mount({ appearance: "dark" }).ctx.appearance).toBe("dark");
     expect(dark()).toBe(true);
+  });
+
+  it("reads the preference from the blob, which is its only home", () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ appearance: "dark" }));
+    expect(mount().ctx.appearance).toBe("dark");
+  });
+
+  it("drops a stored value that is not a side", () => {
+    // A blob is JSON from a browser and can hold any string; neither `""` nor `"system"` is a side.
+    for (const junk of ["", "system", null]) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ appearance: junk }));
+      const t = mount();
+      expect(t.ctx.appearance).toBe("light");
+      t.unmount();
+    }
   });
 
   it("leaves `.dark` in place on unmount, but takes its attributes with it", () => {
     // A host may own the class after we go; removing it repaints the page light for however long
     // the next owner takes to put it back. The attributes are ours and must not outlive us.
-    media.set(true);
-    const t = mount({ radius: "lg" });
+    const t = mount({ appearance: "dark", radius: "lg" });
     expect(dark()).toBe(true);
     expect(html().getAttribute("data-radius")).toBe("lg");
 
@@ -457,13 +320,13 @@ describe("KanzoThemeProvider under a tenant's policy", () => {
   });
 
   it("withholds an axis without discarding what the user chose", () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ font: "geist" }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ font: "inter" }));
     const { ctx } = mount({ policy: { theme: { font: { hidden: true } } } });
 
-    expect(ctx.font).toBe("system");
+    expect(ctx.font).toBe("geist");
     expect(ctx.corePrefs.font).toMatchObject({ via: "default", offered: false });
     expect(html().hasAttribute("data-font")).toBe(false);
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}").font).toBe("geist");
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}").font).toBe("inter");
   });
 
   it("pins the appearance, which is the axis that decides `.dark` and every keyed one", () => {
@@ -471,7 +334,6 @@ describe("KanzoThemeProvider under a tenant's policy", () => {
     const { ctx } = mount({ policy: { theme: { appearance: { pinned: "dark" } } } });
 
     expect(ctx.appearance).toBe("dark");
-    expect(ctx.resolvedAppearance).toBe("dark");
     expect(dark()).toBe(true);
   });
 
@@ -515,8 +377,8 @@ describe("KanzoThemeProvider under a tenant's policy", () => {
  */
 describe("KanzoThemeProvider palette", () => {
   const PALETTES: ThemeOption[] = [
-    { value: "kanzo", label: "Kanzo" },
-    { value: "dracula", label: "Dracula" },
+    { value: "kanzo", label: "Kanzo", dark: false },
+    { value: "dracula", label: "Dracula", dark: false },
   ];
 
   beforeEach(() => {
@@ -553,7 +415,7 @@ describe("KanzoThemeProvider palette", () => {
     // Asserting the CONTEXT rather than storage, and both keys, so neither half can satisfy this
     // on its own.
     const t = mount({ themes: PALETTES });
-    expect(t.ctx.resolvedAppearance).toBe("light");
+    expect(t.ctx.appearance).toBe("light");
 
     await act(async () => {
       t.ctx.setTheme("dracula", { appearance: "dark" });
@@ -561,7 +423,7 @@ describe("KanzoThemeProvider palette", () => {
     });
 
     expect(t.ctx.themeByAppearance).toEqual({ dark: "dracula" });
-    expect(t.ctx.resolvedAppearance).toBe("dark");
+    expect(t.ctx.appearance).toBe("dark");
     expect(t.ctx.resolvedTheme).toBe("dracula");
     expect(html().getAttribute("data-theme")).toBe("dracula");
   });
@@ -570,14 +432,14 @@ describe("KanzoThemeProvider palette", () => {
     const t = mount({ themes: PALETTES });
 
     // The preference is a map and starts empty on both sides; the RESOLVED value is the tenant's
-    // default. That split is the same one `appearance`/`resolvedAppearance` makes, and it is what
+    // default. That split is the same one `appearance`/`appearance` makes, and it is what
     // keeps "the user has not chosen" distinguishable from "the user chose the default".
     expect(t.ctx.themeByAppearance).toEqual({});
     expect(t.ctx.defaultTheme).toBe("kanzo");
     expect(t.ctx.resolvedTheme).toBe("kanzo");
   });
 
-  it("writes `data-theme` for a chosen palette, and nothing at the default", () => {
+  it("writes `data-theme` for a chosen palette, and the default pair's otherwise", () => {
     // This asserted the exact opposite — "an attribute here would match nothing in any compiled
     // sheet" — and it was right about the model it was written for: a palette WAS the whole
     // document, served by the server, with no block to select. `compile(doc, { scope })` emits one
@@ -592,11 +454,11 @@ describe("KanzoThemeProvider palette", () => {
     expect(t.ctx.resolvedTheme).toBe("dracula");
     expect(html().getAttribute("data-theme")).toBe("dracula");
 
-    // …and nothing at the default, which is what keeps a single-palette tenant's `<html>` clean:
-    // `def: ""` means the write rule removes the attribute rather than spelling out the fallback.
+    // …and the tenant's default once the choice is cleared: the CSS default binding knows one
+    // family, so only the attribute can say which pair this tenant defaults to.
     act(() => t.ctx.set({ themeByAppearance: { light: "" } }));
-    expect(html().hasAttribute("data-theme")).toBe(false);
-    expect([...html().attributes].map((a) => a.name).filter((n) => n.startsWith("data-"))).toEqual([]);
+    expect(html().getAttribute("data-theme")).toBe("kanzo");
+    expect([...html().attributes].map((a) => a.name).filter((n) => n.startsWith("data-"))).toEqual(["data-theme"]);
   });
 
   it("clears a palette the tenant no longer publishes, and says so once", () => {
@@ -618,7 +480,7 @@ describe("KanzoThemeProvider palette", () => {
     const onThemeRetired = vi.fn();
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ themeByAppearance: { light: "dracula" } }));
 
-    const t = mount({ onThemeRetired });
+    const t = mount({ themes: [], onThemeRetired });
 
     expect(t.ctx.resolvedTheme).toBe("dracula");
     expect(onThemeRetired).not.toHaveBeenCalled();

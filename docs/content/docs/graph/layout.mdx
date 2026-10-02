@@ -1,0 +1,145 @@
+---
+title: Layout and camera
+description: The data's status and the layout's motion, what play and a drag do to the points, where the layout simulates, and when the camera follows.
+---
+
+A graph view does two different things over time: it **reads** a corpus, and it **lays out** points.
+`@kanzo-tech/graph` keeps them on two axes, runs the layout only when asked, and moves the camera
+for the reader only while a layout is moving the points.
+
+<ComponentPreview componentName="graph" fileName="example-layout" hasMaxHeight />
+
+## `status` and `motion` are two axes
+
+| | Values | Moves when |
+| --- | --- | --- |
+| `status` | `none` · `opening` · `loading` · `idle` · `failed` | the corpus opens, the graph or a binding or a filter is read and drawn, something fails |
+| `motion` | `running` · `paused` · `settled` | a layout starts, is paused, or cools to rest |
+| `progress` | `0` – `1`, in twentieths | a running layout cools toward rest |
+
+**`status` is the data's life.** `none` is no corpus; `opening` is a corpus promised and not yet
+open; `loading` is the graph, a binding or a filter not yet read or not yet drawn; `idle` is all of
+it drawn; `failed` is a corpus that would not open or read, or a canvas with no GPU device.
+
+**`motion` is the layout's.** `running` is a live layout; `paused` is one waiting for the reader;
+`settled` is one that converged on its own — or none ever ran, which is how a graph loads.
+
+**They are separate because each moves without the other.** A filter loads under a paused layout —
+`loading` and `paused` — and a layout runs over a graph with nothing left to read — `idle` and
+`running`. Folding them into one word would make one of those states unsayable. So a host that
+shows a single word reads both:
+
+```tsx
+function Activity() {
+  const status = useGraphState((s) => s.status);
+  const laying = useGraphState((s) => s.motion === "running");
+  const progress = useGraphState((s) => s.progress);
+  if (status === "opening" || status === "loading") return <>Loading…</>;
+  if (laying) return <>Laying out · {Math.round(progress * 100)}%</>;
+  return null;
+}
+```
+
+`GraphCounts spinner` is that function already: its spinner says "Loading" for the first two and
+"Laying out" for the third, and its `aria-busy` follows the load alone, because a layout moves the
+points and not the figures it reports.
+
+## The layout runs only when asked
+
+**A graph loads at the corpus's own positions with no layout running.** The positions are a fact —
+fossil's layout pass or the program's own columns wrote them — and a live simulation is finished by
+200,000 points ([Benchmarks](/docs/graph/benchmarks)), so running one at load would spend the
+reader's first seconds on something they did not ask for.
+
+Two doors start one, and both start it **from where the points are**:
+
+- **The toolbar's transport.** Its first button is named for what it does in each state — *Run the
+  layout* when settled, *Pause the layout* while running, *Resume the layout* when paused. *Re-run
+  the layout* releases every pin and starts again from full heat.
+- **`simulate`.** True runs the layout, false pauses it. It is for a host that decides — a corpus
+  with no positions worth keeping, say — and the toolbar starts and stops the layout whatever it
+  says.
+
+The api is the same transport: `resume()` resumes a paused layout or runs a settled one, `pause()`
+pauses, `restart()` releases the pins and runs from full heat. Changing `sim` while a layout runs
+reheats it, so a reader tuning gravity sees the change; a paused layout stays paused.
+
+## Drag to fix, release to reheat
+
+In the reading posture — no tool armed — a drag on the background pans and a drag on a node moves it.
+What happens when the node is dropped depends on whether a layout can move it back:
+
+- **While a layout is running or paused, the node is pinned where it is dropped.** It is d3-force's
+  drag-to-fix: the forces keep acting on everything else, and the pinned node holds. The toolbar
+  then shows **Release N pinned nodes**, and `pinned` lists them.
+- **With no layout running, a drag only moves the node.** A pin is a promise that the layout will not
+  move it, and nothing is pulling against it; pinning there would leave pins that mean nothing.
+
+**Releasing reheats.** `unpin()` — the Release button — lets go of every pin and puts heat back into
+the layout, so the released nodes visibly flow back into place:
+
+| The layout was | After Release |
+| --- | --- |
+| running | takes the heat and goes on |
+| settled | runs, and cools to settled on its own |
+| paused | runs for a bounded burst of 1.2 s, then pauses again — the reader paused it |
+
+## Where the layout simulates
+
+cosmos.gl simulates in a square, `[0, spaceSize]²`, and two of its forces care where the points are
+in it: gravity pulls toward the square's centre, and the many-body force bins points on a grid over
+the square. Drawing is translation-invariant; the layout is not.
+
+**The corpus's extent is centred in that square, at its own scale.** The square's side is the
+extent's longer side, so a fossil layout that starts near the origin is not left in a corner where a
+running layout would contract it further into the corner and push its far side off the grid. The
+extent is scaled down only past what the device can simulate in — half its `MAX_TEXTURE_SIZE` —
+where cosmos.gl would shrink the square under the points anyway. The package declares no coordinate
+constant of its own: the box belongs to whatever wrote the positions.
+
+## The camera
+
+**At load, the camera frames the corpus's extent, and keeps it framed until you move it.** It
+frames before anything is drawn, so the first frame is already the whole graph — and again when
+cosmos.gl's device comes up and whenever the canvas changes size, because a canvas in a split panel
+or beside a dock settles its width after mount, and a frame taken at the old size opens zoomed into
+a corner.
+
+**While a layout runs, the camera follows it.** A force layout contracts a spread-out graph, and a
+camera that stayed put would watch it shrink to a dot. So every 900 ms the camera re-frames the
+moving points, gliding over 700 ms, and frames them once more when the layout settles — Cosmograph's
+fit-on-settle, kept up for the whole run.
+
+**The reader can take the camera back.** A wheel, a pan or a pinch hands the camera to the reader:
+a resize leaves it where it is, and a running layout stops following until the next run starts. Fit
+hands it back. A camera that fought the
+reader's zoom would be the bug, not the feature.
+
+**Fit frames what is there.** Before any layout has run, Fit frames the corpus's extent. Once a
+layout has moved the points the extent is history, so Fit frames where the points are now. `reveal`
+zooms to one vertex and `frameSelection` frames what is selected; neither changes who holds the
+camera.
+
+## Large corpora
+
+The camera that follows a layout is not free. **Every re-frame after a layout has run reads every
+point's position back from the GPU** — a synchronous `readPixels` of the position texture, sixteen
+bytes a point, and an array of two numbers a point on the JavaScript side. At a few thousand points
+it is invisible; past tens of thousands it is a stall each time, and a running layout asks for one
+every 900 ms on top of a simulation step that already costs 10 ms at 50,000 points and 62 ms at
+200,000.
+
+What to do about it, in the order it pays:
+
+- **Leave the layout off.** A corpus fossil laid out is drawn at its positions with no readback at
+  all, and Fit before any run frames the extent from numbers the graph already holds.
+- **Take the camera** — a wheel or a pan — once a run has started, and the re-frames stop until the
+  next run.
+- **Start large corpora at other forces** through the tenant policy over `GRAPH_SECTION`'s axes — less
+  repulsion, more friction — so a run settles in fewer frames.
+
+## Related
+
+- [Graph](/docs/graph) — the root, the parts and their API.
+- [The graph view](/docs/design/graph#the-renderer-uploads-once-and-renders-once-a-frame) — the
+  renderer's rules and the tests that hold them.

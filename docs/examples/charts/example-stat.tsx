@@ -12,7 +12,6 @@ import {
   avg,
   count,
 } from "@kanzo-tech/ui/analytics";
-import { DashboardGrid } from "@/lib/dashboard-grid";
 import { MosaicDemo } from "./mosaic-demo";
 
 // The two halves of the tile pair, side by side, because that is the only way to see why there are
@@ -37,7 +36,7 @@ export default function Example() {
   return (
     <MosaicDemo>
       <div className="flex w-full max-w-2xl flex-col gap-4">
-        <DashboardGrid minColumnWidth={180}>
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(180px,100%),1fr))] gap-4">
           {/* A number you already have. Still, and on purpose. */}
           <StatRoot>
             <StatLabel>Invoiced</StatLabel>
@@ -54,7 +53,7 @@ export default function Example() {
             <StatLabel>Mean bounty</StatLabel>
             <ChartStat format={gold} table="sightings" value={avg("bounty")} />
           </StatRoot>
-        </DashboardGrid>
+        </div>
 
         <ChartRoot height={140} margin={{ bottom: 28, left: 76, right: 12, top: 4 }} table="sightings">
           <ChartBarX fill="var(--primary)" sort={{ y: "-x" }} tip x={count()} y="region" />

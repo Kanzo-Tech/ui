@@ -174,8 +174,8 @@ const LIGHT_PULL = 0.9;
  * Sixty percent, and the number is measured rather than chosen: across the sixteen hand-written
  * themes it reproduces all sixty-four authored values at ΔE 4.6 in the worst case and about 3 at
  * the median. The per-token optima were 60, 60, 59 and 62, which is one number with rounding on it
- * rather than four. The thirteen themes imported from daisyUI author fifty-two more and they are
- * not evidence either way: `import-daisy.mjs` calls this function to write them.
+ * rather than four. Those hand-written themes are gone; every shipped theme's page inks are now
+ * this function's own output (`ink.test.ts` holds them to it).
  *
  * `surface` is the page the ink is read on, and it is optional because the mix does not need it —
  * only the *floor* does. Given one, the result is walked further toward `ground` until it clears

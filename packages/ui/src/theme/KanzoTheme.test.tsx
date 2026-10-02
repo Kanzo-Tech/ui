@@ -13,9 +13,9 @@ import { useKanzoThemeOptional } from "./theme-context.js";
  */
 
 const PALETTES: ThemeOption[] = [
-  { value: "kanzo", label: "Kanzo" },
-  { value: "bank", label: "Bank" },
-  { value: "bank-private", label: "Bank · Private" },
+  { value: "kanzo", label: "Kanzo", dark: false },
+  { value: "bank", label: "Bank", dark: false },
+  { value: "bank-private", label: "Bank · Private", dark: false },
 ];
 
 const scope = () => document.querySelector("[data-slot=kanzo-theme]") as HTMLElement;
@@ -61,7 +61,8 @@ describe("KanzoTheme", () => {
       </KanzoThemeProvider>,
     );
 
-    expect(document.documentElement.hasAttribute("data-theme")).toBe(false);
+    // The page wears the provider's default; the scope's theme stays on the scope.
+    expect(document.documentElement.getAttribute("data-theme")).toBe("kanzo");
   });
 
   it("reports what it paints, so a chart inside it re-resolves", () => {

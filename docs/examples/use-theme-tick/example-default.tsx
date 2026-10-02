@@ -21,7 +21,7 @@ export default function Example() {
   // The flip this example needs, written out rather than borrowed from a component: appearance has
   // one control and it is a card in the Preferences panel, which is not what a canvas demo wants
   // beside it. `setAppearance` is the same call that card makes.
-  const { resolvedAppearance, setAppearance } = useKanzoTheme();
+  const { appearance, setAppearance } = useKanzoTheme();
 
   useEffect(() => {
     const node = canvas.current;
@@ -48,7 +48,7 @@ export default function Example() {
       <canvas className="h-[120px] w-[320px]" ref={canvas} />
       <div className="flex items-center gap-3">
         <Button
-          onClick={() => setAppearance(resolvedAppearance === "dark" ? "light" : "dark")}
+          onClick={() => setAppearance(appearance === "dark" ? "light" : "dark")}
           size="sm"
           variant="outline"
         >
