@@ -287,7 +287,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
       disconnect();
       listeners.clear();
     },
-    select(vertices, source = "node", label = "") {
+    select(vertices, source = "external", label = "") {
       const selection = vertices && vertices.length > 0 ? { vertices: [...vertices], source, label } : null;
       patch({ selection });
       options.onSelect?.(selection);

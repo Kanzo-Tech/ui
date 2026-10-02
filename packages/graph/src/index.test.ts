@@ -24,6 +24,7 @@ const VALUES = [
   "GraphRoot",
   "GraphRootProvider",
   "GraphSearch",
+  "GraphSelect",
   "GraphToolbar",
   "ShapeGlyph",
   "lookFrom",
@@ -156,11 +157,14 @@ describe("@kanzo-tech/graph public surface", () => {
  * `onClick` every `div` carries — is told apart from one a part declared.
  *
  * What it cannot prove: a render prop that is a policy in disguise. `children` is allowed to be a
- * function, because a render prop draws markup; one that returned a verdict would pass.
+ * function, because a render prop draws markup; one that returned a verdict would pass. The same
+ * goes for a **reader**: `GraphSelect`'s `load` answers *which vertices*, data the part fetches
+ * when pressed rather than a verdict on what a gesture means, so it is named below, by itself.
  */
 describe("the parts' props", () => {
   const SRC = dirname(fileURLToPath(import.meta.url));
   const ROOT_PROPS = new Set(["GraphRootProps", "GraphRootProviderProps", "UseGraphProps"]);
+  const READERS = new Set(["GraphSelectProps.load"]);
 
   // A whole program through the checker: about a second here and past vitest's 5 s default on a
   // CI runner, which is how v0.11.0's first publish failed. The budget is for the checker, not the
@@ -187,6 +191,7 @@ describe("the parts' props", () => {
       "GraphLegendProps",
       "GraphLooksProps",
       "GraphSearchProps",
+      "GraphSelectProps",
       "GraphToolbarProps",
       "ShapeGlyphProps",
     ]);
@@ -195,7 +200,7 @@ describe("the parts' props", () => {
       const type = checker.getDeclaredTypeOfSymbol(checker.getAliasedSymbol(symbol));
       for (const property of type.getProperties()) {
         const ours = property.declarations?.some((d) => d.getSourceFile().fileName.startsWith(SRC)) ?? false;
-        if (!ours || property.name === "children") continue;
+        if (!ours || property.name === "children" || READERS.has(`${symbol.name}.${property.name}`)) continue;
         const declaration = property.valueDeclaration ?? property.declarations?.[0];
         const shape = declaration ? checker.getTypeOfSymbolAtLocation(property, declaration) : undefined;
         const callable = shape?.getNonNullableType().getCallSignatures().length ?? 0;

@@ -277,15 +277,25 @@ under it read the root.
   fields a product adds.
 - **`GraphSearch`** — a `LIMIT`ed `ILIKE` per pause in typing, named by `categories`; picking one is
   `reveal`.
+- **`GraphSelect`** — a selection the host offers, as a toggle: `load` reads the ids when pressed,
+  and pressed is derived from the live selection, never stored beside it.
 - **`GraphLooks`** — the three looks as presets over `GRAPH_SECTION`'s axes, with the axes under
   Customize. It writes preferences rather than reading the root, so it needs the theme provider and
   no `GraphRoot`.
+
+**A selection names its gesture, never its host's panel.** `SelectionSource` is the canvas's own
+gestures — `marquee`, `lasso`, `node` — and `external`, any selection a host set through `select`,
+whose identity is its `label`. It was `order` and `ask` besides, which were one host's two panels
+spelled into the renderer's type; a second host would have had to add its own or borrow those.
+What would reverse it: a part of this package that must tell two host sources apart, which a
+`label` cannot.
 
 **Names are data on the root.** The catalog names no category values, so the host passes
 `categories` on the root, where the legend, the hover card and the inspector all read it.
 
 **Policy stays out, through the root's callbacks** — `onSelect`, `onFocus` and `onFailure`. No part
-takes a callback of its own. `onFailure` is the one required prop: unhandled, a browser with no WebGL
+takes a callback of its own, and `GraphSelect`'s `load` is not one: it answers *which vertices*, data
+the part reads when pressed, and a failure of it reaches `onFailure` like any other read's. `onFailure` is the one required prop: unhandled, a browser with no WebGL
 context shows an empty box. It receives what was thrown, whole — a read's own error with its `code`,
 or a `GraphError`: `graph/no-webgl`, `graph/context-lost`, `graph/nothing-to-draw` or
 `graph/unfilterable` — so a host chooses what to show by code.
@@ -294,7 +304,8 @@ or a `GraphError`: `graph/no-webgl`, `graph/context-lost`, `graph/nothing-to-dra
 policy. That part goes back to the call site and is deleted from the package.
 
 *Held by* `packages/graph/src/index.test.ts`, "carry no callback but the root's";
-`packages/graph/src/parts/parts.test.tsx`, "draws the domain before the graph has loaded, named by
+`packages/graph/src/parts/parts.test.tsx`, "derives pressed from the live selection, so a gesture or
+another label unpresses it", "draws the domain before the graph has loaded, named by
 the root", "reads the focused vertex's row with one statement, and draws a host's extra fields after
 the corpus's own"; `packages/graph/src/core/store.test.ts`, "fixes the categorical domain before the
 graph loads".
@@ -327,11 +338,11 @@ if WebGL exists but no device ever comes up".
 ```text
 the adapter        GraphRoot · GraphRootProvider · useGraph · useGraphContext · useGraphState
 the parts          GraphCanvas · GraphLegend · GraphCounts · GraphToolbar · GraphInspector · GraphSearch
-                   ShapeGlyph
+                   GraphSelect · ShapeGlyph
 the picture        lookFrom · simFrom · useGraphPrefs · scaleOf · GraphLooks
 types              GraphRootProps · GraphRootProviderProps · UseGraphProps · GraphApi · GraphCanvasProps
                    GraphLegendProps · GraphCountsProps · GraphToolbarProps · GraphInspectorProps
-                   GraphSearchProps · GraphLooksProps · ShapeGlyphProps
+                   GraphSearchProps · GraphSelectProps · GraphLooksProps · ShapeGlyphProps
                    GraphState · GraphStatus · Drawn · VertexDetail
                    Channels · Look · LookPatch · LookPreset · Shape · Sim · Motion · Selection · SelectionSource
                    Tool · GraphCommands · VertexId

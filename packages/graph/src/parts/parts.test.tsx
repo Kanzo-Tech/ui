@@ -8,6 +8,7 @@ import { GraphCounts } from "./graph-counts";
 import { GraphInspector } from "./graph-inspector";
 import { GraphLegend } from "./graph-legend";
 import { GraphSearch } from "./graph-search";
+import { GraphSelect } from "./graph-select";
 import { GraphToolbar } from "./graph-toolbar";
 import { useOverlays } from "./overlays";
 
@@ -143,7 +144,7 @@ describe("GraphToolbar", () => {
   it("shows the selection, and clears it", async () => {
     const held = await toolbar();
     expect(screen.queryByRole("group", { name: "Current selection" })).toBeNull();
-    act(() => held.api?.select([1, 2], "order", "Two"));
+    act(() => held.api?.select([1, 2], "external", "Two"));
     expect(screen.getByRole("group", { name: "Current selection" }).textContent).toContain("2 of 20 selected");
     fireEvent.click(screen.getByRole("button", { name: "Clear the selection" }));
     expect(screen.queryByRole("group", { name: "Current selection" })).toBeNull();
@@ -295,5 +296,53 @@ describe("GraphCanvas", () => {
     act(() => store.hover(4));
     act(() => store.hover(null));
     expect(vi.mocked(useOverlays).mock.calls.length).toBe(renders);
+  });
+});
+
+describe("GraphSelect", () => {
+  async function offering(load: () => Promise<readonly number[]>) {
+    const corpus = await attach();
+    const held: { api: GraphApi | null } = { api: null };
+    const onFailure = vi.fn();
+    render(
+      <GraphRoot {...over(corpus)} onFailure={onFailure}>
+        <GraphSelect label="Two late" load={load}>
+          Two late
+        </GraphSelect>
+        <Hold into={held} />
+      </GraphRoot>,
+    );
+    await ready(corpus);
+    return { held, onFailure, button: screen.getByRole("button", { name: "Two late" }) };
+  }
+
+  it("selects what load answers as an external selection named by its label, and clears it pressed again", async () => {
+    const { held, button } = await offering(async () => [1, 2]);
+    expect(button.getAttribute("aria-pressed")).toBe("false");
+    await act(async () => fireEvent.click(button));
+    expect(held.api?.getState().selection).toEqual({ vertices: [1, 2], source: "external", label: "Two late" });
+    expect(button.getAttribute("aria-pressed")).toBe("true");
+    await act(async () => fireEvent.click(button));
+    expect(held.api?.getState().selection).toBeNull();
+    expect(button.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("derives pressed from the live selection, so a gesture or another label unpresses it", async () => {
+    const { held, button } = await offering(async () => [1, 2]);
+    act(() => held.api?.select([1, 2], "external", "Two late"));
+    expect(button.getAttribute("aria-pressed")).toBe("true");
+    act(() => held.api?.select([1, 2], "lasso", "Two late"));
+    expect(button.getAttribute("aria-pressed")).toBe("false");
+    act(() => held.api?.select([1, 2], "external", "Another"));
+    expect(button.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("hands a rejected load to the root's onFailure as thrown, selects nothing, and can be pressed again", async () => {
+    const failure = new Error("refused");
+    const { held, button, onFailure } = await offering(() => Promise.reject(failure));
+    await act(async () => fireEvent.click(button));
+    expect(onFailure).toHaveBeenCalledWith(failure);
+    expect(held.api?.getState().selection).toBeNull();
+    expect((button as HTMLButtonElement).disabled).toBe(false);
   });
 });

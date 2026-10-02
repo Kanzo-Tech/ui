@@ -13,7 +13,7 @@
  *   `useGraphState`, TanStack Store's selector, because the api is commands and the state moves at
  *   frame rate.
  * - `parts/` — `GraphCanvas`, `GraphLegend`, `GraphCounts`, `GraphToolbar`, `GraphInspector`,
- *   `GraphSearch`: flat parts over the one context; and `GraphLooks`, the picture's preferences,
+ *   `GraphSearch`, `GraphSelect`: flat parts over the one context; and `GraphLooks`, the picture's preferences,
  *   which needs only the theme provider. They own the vocabulary; the root's callbacks are the host's policy.
  *
  * **Why a package and not `@kanzo-tech/ui`.** The first admission rule is *domain-free — nothing
@@ -38,6 +38,7 @@ export { GraphCounts, type GraphCountsProps } from "./parts/graph-counts";
 export { GraphToolbar, type GraphToolbarProps } from "./parts/graph-toolbar";
 export { GraphInspector, type GraphInspectorProps } from "./parts/graph-inspector";
 export { GraphSearch, type GraphSearchProps } from "./parts/graph-search";
+export { GraphSelect, type GraphSelectProps } from "./parts/graph-select";
 export { GraphLooks, type GraphLooksProps } from "./parts/graph-looks";
 export { ShapeGlyph, type ShapeGlyphProps } from "./parts/shape-glyph";
 
