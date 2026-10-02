@@ -1,8 +1,8 @@
 // @vitest-environment node
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { sealedCookie } from "./cookie-session";
 import { statelessStore, ticketStore, type SessionRecord, type SessionStore } from "./store";
-import type { Session } from "./types";
+import { AuthError, type Session } from "./types";
 
 const SESSION: Session = {
   user: { id: "u-1", email: "ada@example.test", name: "Ada" },
@@ -99,6 +99,44 @@ describe("ticketStore", () => {
       },
     };
   }
+
+  /**
+   * The store makes the wait, so the store bounds it: an adapter is a driver call and nothing else,
+   * and a deployment that forgot to race its client must not hang a page on a store that stopped
+   * answering.
+   */
+  it("gives up on an adapter call that never answers, after 30 s and not before, as session/silent", async () => {
+    vi.useFakeTimers();
+    try {
+      const hung = new Promise<never>(() => {});
+      const store = ticketStore({ read: () => hung, write: () => hung, delete: () => hung });
+      for (const call of [() => store.get("u-1:x"), () => store.put(RECORD), () => store.drop("u-1:x")]) {
+        const settled = vi.fn();
+        const outcome = call().then(settled, (error: unknown) => {
+          settled(error);
+          return error;
+        });
+        await vi.advanceTimersByTimeAsync(29_999);
+        expect(settled).not.toHaveBeenCalled();
+        await vi.advanceTimersByTimeAsync(1);
+        const failed = await outcome;
+        expect(failed).toBeInstanceOf(AuthError);
+        expect(failed).toMatchObject({ code: "session/silent", data: { after: 30_000 } });
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("hands an adapter's own failure through unchanged", async () => {
+    const down = new Error("ECONNREFUSED");
+    const store = ticketStore({
+      read: () => Promise.reject(down),
+      write: () => Promise.reject(down),
+      delete: () => Promise.reject(down),
+    });
+    await expect(store.get("u-1:x")).rejects.toBe(down);
+  });
 
   it("round-trips a record through the adapter", async () => {
     const backing = inMemory();

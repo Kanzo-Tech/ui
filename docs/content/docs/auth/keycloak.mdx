@@ -166,6 +166,25 @@ leak between customers: **the host is a hint and the token is the authority** â€
 Resolve the hint against the `organization` claim, refuse on a miss, and do it **before** anything
 opens a database.
 
+## The account console is Keycloak's
+
+A person's password, two-factor methods and sessions on each device are Keycloak's account console,
+and a product links to it rather than rebuilding it. `accountUrl` derives the link from the public
+issuer you already configured:
+
+```ts
+import { accountUrl } from "@kanzo-tech/auth";
+
+accountUrl(issuer); // https://id.example/realms/kanzo/account
+accountUrl(issuer, "account-security/signing-in"); // password and two-factor
+accountUrl(issuer, "account-security/device-activity"); // sessions on each device
+```
+
+`AccountPage` is the routes the console (account-ui, Keycloak 26) declares that a product has a
+reason to link: `""` (personal info), `"account-security/signing-in"` and
+`"account-security/device-activity"`. It is pure and on the root barrel, so a server component and
+a SPA's menu draw the same link.
+
 ## Onboarding a customer
 
 With Organizations, creating a customer is an operation rather than a deployment: create the

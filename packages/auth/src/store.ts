@@ -1,3 +1,4 @@
+import { deadline } from "./deadline";
 import type { Session } from "./types";
 
 /**
@@ -110,8 +111,13 @@ export function statelessStore(): SessionStore {
  * The two functions and a delete that a store needs from a deployment's own database.
  *
  * Keys and opaque strings, because that is the intersection of Redis, a SQL table, a KV namespace
- * and a file on disk — anything narrower would name one of them. The value is already serialized
- * and it is **not encrypted**: it lives inside the deployment's own trust boundary, and a key held
+ * and a file on disk — anything narrower would name one of them. **An adapter does not bound its
+ * own waits**: {@link ticketStore} races every call against the package's deadline, so a driver
+ * call is all an adapter is. What it still owns is the driver's own configuration — a connect
+ * timeout, no offline queue — which is what makes a store that is down refuse at once rather than
+ * hang until the deadline.
+ *
+ * The value is already serialized and it is **not encrypted**: it lives inside the deployment's own trust boundary, and a key held
  * by the same process that reads the rows protects against a stolen dump and nothing else. Encrypt
  * the storage, not the row.
  */
@@ -172,6 +178,14 @@ function opaqueTicket(): string {
  * expressible at all. Here the cookie is a name for a row, and deleting the row ends every copy of
  * the cookie at once, immediately.
  *
+ * ## Every wait on the adapter is bounded here
+ *
+ * Each `read`, `write` and `delete` is raced against `DEADLINE` (30 s), and one that has not
+ * answered by then rejects as `AuthError` `session/silent` with `{ after }` — which the server
+ * reports as `session/unavailable`, with that as its cause, like any other failure of the store.
+ * The library makes the wait, so the library bounds it: a deployment that forgot to race its
+ * Redis client would otherwise hang a page on a store that stopped answering.
+ *
  * ## The key carries the subject, and that is deliberate
  *
  * A ticket is `<subject>:<random>`. The random half is the whole of the security — the subject is
@@ -184,6 +198,7 @@ function opaqueTicket(): string {
  */
 export function ticketStore(adapter: TicketAdapter, config: TicketStoreConfig = {}): SessionStore {
   const ttl = config.ttl ?? DEFAULT_TTL;
+  const bounded = <T>(call: () => Promise<T>) => deadline("session/silent", call);
 
   return {
     async put(record) {
@@ -191,12 +206,12 @@ export function ticketStore(adapter: TicketAdapter, config: TicketStoreConfig = 
       // anyone has seen, and on the one that makes it something with a colon in it the prefix must
       // still be the prefix. The random half needs no encoding — base64url is already key-safe.
       const ticket = `${encodeURIComponent(record.session.user.id)}:${opaqueTicket()}`;
-      await adapter.write(ticket, JSON.stringify(record), ttl);
+      await bounded(() => adapter.write(ticket, JSON.stringify(record), ttl));
       return ticket;
     },
 
     async get(ticket) {
-      const value = await adapter.read(ticket);
+      const value = await bounded(() => adapter.read(ticket));
       if (value === null) return null;
       try {
         return JSON.parse(value) as SessionRecord;
@@ -208,7 +223,7 @@ export function ticketStore(adapter: TicketAdapter, config: TicketStoreConfig = 
     },
 
     async drop(ticket) {
-      await adapter.delete(ticket);
+      await bounded(() => adapter.delete(ticket));
     },
   };
 }

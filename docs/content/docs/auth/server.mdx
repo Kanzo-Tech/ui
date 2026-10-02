@@ -183,6 +183,14 @@ the lifetime of the cookie carrying the ticket. **Honouring it is the adapter's 
 every store that could hold this already has an expiry of its own — `EX` on Redis, a column and a
 sweep on SQL — and a timer here would be one that dies with the process.
 
+**Bounding the wait is not the adapter's job.** `ticketStore` races every `read`, `write` and
+`delete` against the package's 30 s deadline, and one that has not answered rejects as
+`session/silent` with `{ after: 30000 }` — which `relyingParty` reports as `session/unavailable`
+with that as its `cause`, like any other failure of the store. So an adapter is the three driver
+calls above and nothing else. What stays the deployment's is the driver's own configuration: a
+connect timeout and no offline queue are what make a store that is down refuse at once, rather
+than at the deadline.
+
 ## Discovery, and reaching Keycloak from inside a cluster
 
 ```ts
@@ -260,6 +268,8 @@ What `token` answers.
 | `read` | `(key: string) => Promise<string \| null>` |
 | `write` | `(key: string, value: string, ttl: number) => Promise<void>` |
 | `delete` | `(key: string) => Promise<void>` |
+
+Each call is bounded by the store at 30 s (`session/silent`), so an adapter races nothing itself.
 
 `TicketStoreConfig`:
 
