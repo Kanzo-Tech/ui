@@ -176,8 +176,8 @@ Pair it with `cookieStorageAdapter()` on the provider so the user's writes land 
 ### ThemePicker and ThemePreview
 
 [`ThemePicker`](/docs/layout/theme-picker) is the one control for both preferences — *Theme mode*,
-then a day group and a night group of radio cards — and `ThemePreview` is the miniature screen on
-each card, a scoped `KanzoTheme` painted by the real tokens. The picker offers what `themes` lists
+then a light card and a dark card, each a large preview over a row of theme swatches — and
+`ThemePreview` is the miniature screen on each card, a scoped `KanzoTheme` painted by the real tokens. The picker offers what `themes` lists
 and obeys `policy`; its page has the full behaviour table.
 
 ### Retired themes
@@ -193,7 +193,7 @@ So the provider, on finding that the theme worn on the current side is not in `t
 3. holds the name in `retiredTheme` for the rest of the session, because the place that says so may
    mount later.
 
-`ThemePicker` then shows an *info* alert under its groups, and [`ThemeNotice`](/docs/hooks/use-kanzo-theme)
+`ThemePicker` then shows an *info* alert under its cards, and [`ThemeNotice`](/docs/hooks/use-kanzo-theme)
 — mounted beside your `<Toaster />` — toasts the same words once. Both take `ThemeRetiredCopy`
 (`title`, `formatDescription`) for translation.
 
@@ -252,14 +252,14 @@ const policy = { theme: { themeByAppearance: { hidden: true } } };
 ```
 
 `hidden` means *do not offer this, and ignore what was stored*: the provider applies the pair, and
-`ThemePicker` draws only the *Theme mode*, so a member still chooses day, night or the OS — inside
+`ThemePicker` draws only the *Theme mode*, so a member still chooses light, dark or the OS — inside
 the brand. Withhold `appearance` too and the picker draws nothing.
 
 | `policy.theme` | Effect |
 | --- | --- |
 | `themeByAppearance: { hidden: true }` | the brand is locked; the mode is still a choice |
 | `appearance: { pinned: "dark" }` | always the night side; the picker offers that side's themes only |
-| `appearance: { hidden: true }` | the OS decides and the mode control goes; day and night groups remain |
+| `appearance: { hidden: true }` | the OS decides and the mode control goes; the light and dark cards remain |
 | both `hidden` | nothing to choose; the picker renders nothing |
 
 Prefer `hidden` plus `defaultTheme` over `pinned` for the theme: a pinned name is one theme for

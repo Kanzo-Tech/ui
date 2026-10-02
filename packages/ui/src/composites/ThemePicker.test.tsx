@@ -45,6 +45,17 @@ function setup(provider: Partial<ComponentProps<typeof KanzoThemeProvider>> = {}
 const group = (name: string) => within(screen.getByRole("radiogroup", { name }));
 const radio = (groupName: string, name: string) =>
   group(groupName).getByRole("radio", { name }) as HTMLInputElement;
+const values = (groupName: string) => group(groupName).getAllByRole("radio").map((r) => r.getAttribute("value"));
+const mode = () => screen.getByRole("combobox", { name: "Theme mode" });
+const card = (title: string) => screen.getByRole("region", { name: title });
+
+// jsdom has no `Element.scrollTo`, which Ark's Select calls on its listbox as it opens.
+Element.prototype.scrollTo ??= () => {};
+
+async function chooseMode(user: ReturnType<typeof userEvent.setup>, name: string) {
+  await user.click(mode());
+  await user.click(await screen.findByRole("option", { name }));
+}
 
 describe("ThemePicker", () => {
   beforeEach(() => {
@@ -57,52 +68,66 @@ describe("ThemePicker", () => {
     html().classList.remove("dark");
   });
 
-  it("syncs with the system by default: a day group of light themes and a night group of dark ones", () => {
+  it("syncs with the system by default: a light card of light swatches and a dark card of dark ones", () => {
     setup();
-    expect(radio("Theme mode", "Sync with system").checked).toBe(true);
-    expect(group("Day theme").getAllByRole("radio").map((r) => r.getAttribute("value"))).toEqual(["acme", "nord"]);
-    expect(group("Night theme").getAllByRole("radio").map((r) => r.getAttribute("value"))).toEqual(["acme-dark", "nord-dark"]);
+    expect(mode().textContent).toContain("Sync with system");
+    expect(screen.getByText("Matches your system's light or dark setting.")).toBeTruthy();
+    expect(values("Light theme")).toEqual(["acme", "nord"]);
+    expect(values("Dark theme")).toEqual(["acme-dark", "nord-dark"]);
   });
 
-  it("checks the default pair, same family on both sides, and marks the one on screen Active", () => {
+  it("checks the default pair, names it under each preview, and marks the side on screen Active", () => {
     setup();
-    expect(radio("Day theme", "Acme").checked).toBe(true);
-    expect(radio("Night theme", "Acme Dark").checked).toBe(true);
-    const active = [...document.querySelectorAll("[data-slot=radio-group-card]")].filter((c) =>
-      c.textContent?.includes("Active"),
-    );
-    expect(active.map((c) => c.getAttribute("data-value") ?? c.querySelector("input")?.value)).toEqual(["acme"]);
+    expect(radio("Light theme", "Acme").checked).toBe(true);
+    expect(radio("Dark theme", "Acme Dark").checked).toBe(true);
+    expect(within(card("Light theme")).getByText("Active")).toBeTruthy();
+    expect(within(card("Dark theme")).queryByText("Active")).toBeNull();
+    expect(card("Light theme").getAttribute("data-active")).toBe("true");
+    const names = [...document.querySelectorAll("[data-slot=theme-picker-name]")].map((n) => n.textContent);
+    expect(names).toEqual(["Acme", "Acme Dark"]);
   });
 
-  it("draws every card with a live preview scoped to its own theme", () => {
+  it("paints one preview per card and every swatch from its own theme's scope", () => {
     setup();
-    const scopes = [...document.querySelectorAll("[data-slot=kanzo-theme]")];
-    expect(scopes.map((s) => s.getAttribute("data-theme"))).toEqual(["acme", "nord", "acme-dark", "nord-dark"]);
-    expect(scopes.every((s) => s.getAttribute("aria-hidden") === "true")).toBe(true);
-    expect(scopes[2]?.classList.contains("dark")).toBe(true);
+    const previews = [...document.querySelectorAll("[data-slot=kanzo-theme]:has([data-slot=theme-preview])")];
+    expect(previews.map((s) => s.getAttribute("data-theme"))).toEqual(["acme", "acme-dark"]);
+    expect(previews[1]?.classList.contains("dark")).toBe(true);
+    const swatches = [...document.querySelectorAll("[data-slot=theme-picker-swatch] [data-slot=kanzo-theme]")];
+    expect(swatches.map((s) => s.getAttribute("data-theme"))).toEqual(["acme", "nord", "acme-dark", "nord-dark"]);
+    expect(swatches.every((s) => s.getAttribute("aria-hidden") === "true")).toBe(true);
   });
 
-  it("writes the day theme and wears it, since day is the side on screen", async () => {
+  it("writes the light theme and wears it, since light is the side on screen", async () => {
     setup();
-    await userEvent.setup().click(radio("Day theme", "Nord"));
+    await userEvent.setup().click(radio("Light theme", "Nord"));
     expect(stored().themeByAppearance).toEqual({ light: "nord" });
     await waitFor(() => expect(html().getAttribute("data-theme")).toBe("nord"));
+    expect(card("Light theme").querySelector("[data-slot=theme-picker-name]")?.textContent).toBe("Nord");
   });
 
-  it("files the night theme without repainting the day", async () => {
+  it("files the dark theme without repainting the light", async () => {
     setup();
-    await userEvent.setup().click(radio("Night theme", "Nord Dark"));
+    await userEvent.setup().click(radio("Dark theme", "Nord Dark"));
     expect(stored().themeByAppearance).toEqual({ dark: "nord-dark" });
     await waitFor(() => expect(html().getAttribute("data-theme")).toBe("acme"));
   });
 
-  it("in single-theme mode offers one group of every theme, and choosing one wears its side", async () => {
+  it("moves between swatches with the arrow keys", async () => {
     const user = userEvent.setup();
     setup();
-    await user.click(radio("Theme mode", "Single theme"));
+    radio("Light theme", "Acme").focus();
+    await user.keyboard("{ArrowRight}");
+    expect(radio("Light theme", "Nord").checked).toBe(true);
+    expect(stored().themeByAppearance).toEqual({ light: "nord" });
+  });
+
+  it("in single-theme mode offers one card of every theme, and choosing one wears its side", async () => {
+    const user = userEvent.setup();
+    setup();
+    await chooseMode(user, "Single theme");
     expect(stored().appearance).toBe("light");
-    expect(screen.queryByRole("radiogroup", { name: "Day theme" })).toBeNull();
-    expect(group("Theme").getAllByRole("radio")).toHaveLength(4);
+    expect(screen.queryByRole("radiogroup", { name: "Light theme" })).toBeNull();
+    expect(values("Theme")).toHaveLength(4);
 
     await user.click(radio("Theme", "Nord Dark"));
     expect(stored().appearance).toBe("dark");
@@ -114,20 +139,20 @@ describe("ThemePicker", () => {
   it("goes back to the system by unsetting the side", async () => {
     seed({ appearance: "dark" });
     setup();
-    await userEvent.setup().click(radio("Theme mode", "Sync with system"));
+    await chooseMode(userEvent.setup(), "Sync with system");
     expect(stored().appearance).toBe("");
   });
 
   it("draws no mode control where the tenant pinned the appearance, and only that side's themes", () => {
     setup({ policy: { theme: { appearance: { pinned: "dark" } } } });
-    expect(screen.queryByRole("radiogroup", { name: "Theme mode" })).toBeNull();
-    expect(group("Theme").getAllByRole("radio").map((r) => r.getAttribute("value"))).toEqual(["acme-dark", "nord-dark"]);
+    expect(screen.queryByRole("combobox", { name: "Theme mode" })).toBeNull();
+    expect(values("Theme")).toEqual(["acme-dark", "nord-dark"]);
   });
 
-  it("draws no theme groups where the tenant locked the theme, and nothing at all when both are locked", () => {
+  it("draws no cards where the tenant locked the theme, and nothing at all when both are locked", () => {
     const { unmount } = setup({ policy: { theme: { themeByAppearance: { hidden: true } } } });
-    expect(screen.getByRole("radiogroup", { name: "Theme mode" })).toBeTruthy();
-    expect(screen.queryByRole("radiogroup", { name: "Day theme" })).toBeNull();
+    expect(mode()).toBeTruthy();
+    expect(screen.queryByRole("radiogroup", { name: "Light theme" })).toBeNull();
     unmount();
 
     setup({ policy: { theme: { themeByAppearance: { hidden: true }, appearance: { hidden: true } } } });
@@ -144,10 +169,13 @@ describe("ThemePicker", () => {
   it("takes its strings from `copy`, never the theme labels", () => {
     render(
       <KanzoThemeProvider themes={THEMES}>
-        <ThemePicker copy={{ mode: "Modo", day: "Tema de día", night: "Tema de noche" }} />
+        <ThemePicker
+          copy={{ mode: "Modo", day: "Tema claro", night: "Tema oscuro", dayDescription: "Con el sistema en claro." }}
+        />
       </KanzoThemeProvider>,
     );
-    expect(screen.getByRole("radiogroup", { name: "Modo" })).toBeTruthy();
-    expect(radio("Tema de día", "Acme")).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "Modo" })).toBeTruthy();
+    expect(radio("Tema claro", "Acme")).toBeTruthy();
+    expect(screen.getByText("Con el sistema en claro.")).toBeTruthy();
   });
 });

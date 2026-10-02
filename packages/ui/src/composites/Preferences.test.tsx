@@ -84,7 +84,7 @@ describe("Preferences", () => {
       expect(screen.queryByRole("button", { name: /^Appearance/ })).toBeNull();
       const body = document.querySelector("[data-slot=preferences-panel] form");
       expect(body?.firstElementChild?.querySelector("[data-slot=theme-picker]")).toBeTruthy();
-      expect(screen.getByRole("radiogroup", { name: "Theme mode" })).toBeTruthy();
+      expect(screen.getByRole("combobox", { name: "Theme mode" })).toBeTruthy();
     });
 
     it("still reaches the preference through Reset, which unsets it", async () => {
@@ -248,7 +248,7 @@ describe("Preferences", () => {
         policy: { theme: { themeByAppearance: { pinned: "nord" }, appearance: { pinned: "light" } } },
       });
       expect(document.querySelector("[data-slot=theme-picker]")).toBeNull();
-      expect(screen.queryByRole("radiogroup", { name: "Day theme" })).toBeNull();
+      expect(screen.queryByRole("radiogroup", { name: "Light theme" })).toBeNull();
     });
   });
 
@@ -352,7 +352,7 @@ describe("Preferences", () => {
       expect(html().getAttribute("data-theme")).toBe("t");
       // Reset put the choice back on the theme the tenant makes default rather than leaving nothing
       // checked — the default pair's day theme, worn and written.
-      const day = within(screen.getByRole("radiogroup", { name: "Day theme" }));
+      const day = within(screen.getByRole("radiogroup", { name: "Light theme" }));
       expect((day.getByRole("radio", { name: "T" }) as HTMLInputElement).checked).toBe(true);
     });
   });

@@ -71,8 +71,8 @@ The editor is a **kit**, not one screen. `ThemePicker`, `PreferencesDensity`,
 `PreferencesRadius` and the two font axes are one preference each, wired straight to
 `useKanzoTheme()`; `PreferencesField` / `PreferencesFieldSet` title a section of your own the same
 way; `PreferencesSections` draws whatever the packages a host installed contribute. None of them
-knows what it is mounted on — `ThemePicker` lays its cards on an auto-fill grid, never a window
-width.
+knows what it is mounted on — `ThemePicker` lays its cards out on a container query, never a
+window width.
 
 `Preferences` (and its `PreferencesRoot` / `Trigger` / `Panel` parts) is one **surface** over that
 kit: a non-modal drawer with a hotkey. A product with a real settings area drops the same sections

@@ -45,8 +45,8 @@ same exports build both, and no part of either takes a prop naming the other.
 | **The containers** — `PreferencesField`, `PreferencesFieldSet` | Your own preference, titled the way the library's are, so a product's section and a library section are indistinguishable in either surface. |
 | **The registry** — `PreferencesSections` | Whatever the packages this host installed contribute, drawn in the same language. It is what stops an installed package from growing a settings surface beside yours. |
 
-The one thing a section will not do is ask how big the window is. `ThemePicker` lays its cards on an
-**auto-fill grid**, so it fits as many as a 384px drawer or a settings pane allows, with nothing passed
+The one thing a section will not do is ask how big the window is. `ThemePicker` lays its cards out on a
+**container query** — side by side in a settings pane, stacked in a 384px drawer — with nothing passed
 down to say so — the question a section may ask is how much room *it* was given. A layout prop would be the surface deciding for the section again, which is the whole thing
 this split exists to prevent.
 

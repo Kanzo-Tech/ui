@@ -1,6 +1,6 @@
 ---
 title: ThemePicker
-description: The theme choice, modelled on GitHub's Appearance settings — a day theme, a night theme, and whether the OS decides between them.
+description: The theme choice, laid out as GitHub's Appearance settings — a light theme, a dark theme, and whether the OS decides between them.
 ---
 
 <ComponentPreview componentName="theme-picker" />
@@ -23,20 +23,24 @@ first), a dialog — and it edits the live theme.
 
 ## How it works
 
-A theme is one mode, so a person does not choose "a theme" — they choose one for the day and one
-for the night, and whether the OS picks between them. That is GitHub's *Settings → Appearance*, and
-the picker is its layout:
+A theme is one mode, so a person does not choose "a theme" — they choose one for light and one for
+dark, and whether the OS picks between them. That is GitHub's *Settings → Appearance*, and the
+picker is its layout:
 
-- **Theme mode** — *Sync with system* follows `prefers-color-scheme` (`appearance: ""`); *Single
-  theme* pins the side currently on screen.
-- **Day theme** and **Night theme** — in sync mode, one group each: the light themes and the dark
-  themes the provider's `themes` lists. Choosing a night theme in daylight files it under `dark`
-  without repainting what you are looking at.
-- **Theme** — in single mode, one group of every theme; choosing one wears its side, so picking
-  `nord-dark` switches the page to dark.
-- Each option is a radio card: a [`ThemePreview`](#themepreview) on top, the theme's label under it,
-  and an **Active** badge on the one on screen. A card with no choice stored shows the default pair
-  as selected.
+- **Theme mode** — a select. *Sync with system* follows `prefers-color-scheme` (`appearance: ""`);
+  *Single theme* pins the side currently on screen. A line beside it says what the chosen mode does.
+- **Light theme** and **Dark theme** — in sync mode, two cards side by side. Each says when it
+  applies, shows one large [`ThemePreview`](#themepreview) of the theme chosen for that side with its
+  name under it, and offers the side's themes as a row of round swatches. Choosing a dark theme in
+  daylight files it under `dark` without repainting what you are looking at.
+- **Theme** — in single mode, one card whose swatches are every theme on offer, light and dark;
+  choosing one wears its side, so picking `nord-dark` switches the page to dark.
+- **Active** — the card whose side is on screen carries the badge in its header and a primary
+  border. With no choice stored, each card shows the default pair.
+
+Each swatch is the theme's own `--background` and `--primary` split on the diagonal, painted inside a
+scoped `KanzoTheme` — the real tokens, never a copy of their colours — so the row grows by one circle
+per theme rather than by one card.
 
 There is no separate sun/moon toggle anywhere in the library: *Theme mode* is the appearance control.
 
@@ -62,13 +66,13 @@ import { themeIndex } from "@kanzo-tech/theme";
 </KanzoThemeProvider>
 ```
 
-A list with no theme of one side falls back to offering every theme in that side's group, rather
-than drawing an empty one.
+A list with no theme of one side falls back to offering every theme on that side's card, rather
+than drawing an empty row.
 
 ### A locked brand
 
 A white-label tenant withholds the theme axis and passes its pair as the default. The picker then
-draws only *Theme mode* — members still choose day, night or the OS, inside the brand:
+draws only *Theme mode* — members still choose light, dark or the OS, inside the brand:
 
 ```tsx
 <KanzoThemeProvider
@@ -89,9 +93,9 @@ What draws is decided by the tenant's `policy.theme`:
 
 | `policy.theme` | What draws |
 | --- | --- |
-| nothing | *Theme mode* and the groups for it |
-| `appearance: { pinned: "dark" }` | no mode control; one group, of that side's themes |
-| `appearance: { hidden: true }` | no mode control; the OS decides, so the day and night groups |
+| nothing | *Theme mode* and the cards for it |
+| `appearance: { pinned: "dark" }` | no mode control; one card, with that side's themes |
+| `appearance: { hidden: true }` | no mode control; the OS decides, so the light and dark cards |
 | `themeByAppearance: { hidden: true }` or `{ pinned }` | *Theme mode* only — the tenant's default pair applies |
 | both withheld | nothing — `ThemePicker` renders `null` |
 
@@ -99,19 +103,23 @@ What draws is decided by the tenant's `policy.theme`:
 
 When the user's stored theme is no longer in `themes` — a tenant dropped a family, or the library
 retired the theme — the provider clears the choice and the picker shows an *info* alert under its
-groups: "Brand updated — “dracula” is no longer offered here. You are seeing the default." It is the
+cards: "Brand updated — “dracula” is no longer offered here. You are seeing the default." It is the
 same state, and the same words, [`ThemeNotice`](/docs/theming#retired-themes) toasts; translate both
 through `copy.retired`.
 
 ## Accessibility
 
-- Each group is an Ark radio group named by its heading: Tab moves between groups, arrow keys move
-  within one, and the selected card is announced as checked.
-- The preview is decorative (`aria-hidden`) and the **Active** badge is hidden from assistive
-  technology too — the theme's label is the card's accessible name, and the checked state already
-  says which is chosen.
-- Cards lay out on an auto-fill grid, so the picker fits a 384px drawer and a wide settings page with
-  nothing passed down, and a long label wraps rather than truncating.
+- *Theme mode* is an Ark select named by its label: Enter or Space opens it, arrow keys move, and
+  the description beside it changes with the mode.
+- Each card is a region named by its title, and its swatches are an Ark radio group named by the same
+  title: Tab enters the row on the checked swatch, arrow keys move along it (and choose as they go,
+  so the preview above follows), and the swatch is announced by the theme's label as checked.
+- The swatch circles and the preview are decorative (`aria-hidden`); the label is the radio's
+  accessible name and also its tooltip on hover. **Active** is plain text in the card header, so it is
+  read with the card.
+- The cards sit on a container query, not a viewport one: side by side from a 36rem container,
+  stacked in a 384px drawer, with nothing passed down. Swatches wrap, and a long label wraps rather
+  than truncating.
 
 ## ThemePreview
 
@@ -150,10 +158,14 @@ theme names it.
 | --- | --- |
 | `mode` | `"Theme mode"` |
 | `sync` | `"Sync with system"` |
+| `syncDescription` | `"Matches your system's light or dark setting."` |
 | `single` | `"Single theme"` |
-| `day` | `"Day theme"` |
-| `night` | `"Night theme"` |
-| `theme` | `"Theme"` — the single-mode group |
+| `singleDescription` | `"One theme, whatever your system is set to."` |
+| `day` | `"Light theme"` — the light side's card |
+| `dayDescription` | `"Active when your system is set to light mode."` |
+| `night` | `"Dark theme"` — the dark side's card |
+| `nightDescription` | `"Active when your system is set to dark mode."` |
+| `theme` | `"Theme"` — the single-mode card |
 | `active` | `"Active"` |
 | `retired` | `ThemeRetiredCopy` — `{ title?, formatDescription?({ theme }) }`, shared with `ThemeNotice` |
 

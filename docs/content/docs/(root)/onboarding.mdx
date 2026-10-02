@@ -154,9 +154,10 @@ name is one theme on *both* sides.
 ```
 
 The client's family first makes it the default pair; the shipped families follow as alternatives.
-[`ThemePicker`](/docs/layout/theme-picker) draws a day group and a night group — because a theme *is*
-a side — and each card is a `ThemePreview`, the theme painting a miniature screen, so the preview is
-the real thing rather than a strip of swatches.
+[`ThemePicker`](/docs/layout/theme-picker) draws a light card and a dark card — because a theme *is*
+a side — each a `ThemePreview` of its choice over a row of swatches, one per theme. The preview is the
+theme painting a miniature screen, and each swatch is its real `--background` and `--primary`, so
+the client's family reads as itself rather than as a name in a list.
 
 When a client later withdraws a theme somebody had chosen, the provider moves that person to the
 default and calls `onThemeRetired` once; the picker says so in an alert, and `ThemeNotice` can toast
