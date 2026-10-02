@@ -54,9 +54,10 @@ import { ThemeContext, useKanzoThemeOptional, type ThemeContextValue } from "./t
  *
  * ## What it inherits
  *
- * Everything not named. A scope that gives only `palette` keeps the surrounding radius, fonts and
- * density: the attributes for axes it does not override are not written at all, so the cascade
- * reaches whatever `<html>` carries.
+ * Everything not named. A scope names a theme and a side, and nothing else: radius and the faces are
+ * the theme's, so a region that wants a different shape wears a different theme. Density is not
+ * scopable at all — it sets the root font-size, every size is `rem`, and a `rem` resolves against
+ * `<html>` whatever a wrapper says, so a scoped density scaled the unsized text and nothing else.
  *
  * `set` is **not** re-pointed: a control rendered inside a scope still edits the real preferences. A
  * preview has no controls in it, and a scope that silently swallowed writes would be a worse
@@ -71,28 +72,17 @@ export interface KanzoThemeProps extends React.ComponentPropsWithoutRef<"div"> {
    * A scope either pins a side or follows the page's.
    */
   appearance?: Appearance;
-  radius?: string;
-  font?: string;
-  monoFont?: string;
-  density?: string;
 }
 
 /**
- * The axes a scope may override.
- *
- * Read off `AXES` rather than listed here, so an axis added to the table is scopable the same day it
- * is applicable — the drift this whole table exists to prevent. `identityByPalette` is not an axis
- * (it is the memory behind one) and carries no attribute, so it never appears.
+ * The axes a scope may override: the keyed one, the theme. Read off `AXES` rather than naming
+ * `data-theme`, so the attribute is spelled once. Density is the other row and is root-only.
  */
-const SCOPED = AXES.filter(({ attr }) => Boolean(attr));
+const SCOPED = AXES.filter(({ byAppearance }) => byAppearance);
 
 export function KanzoTheme({
   theme,
   appearance,
-  radius,
-  font,
-  monoFont,
-  density,
   children,
   className,
   ...rest
@@ -108,12 +98,8 @@ export function KanzoTheme({
         // preview forcing one is not that user making a choice. `{}` when the prop is absent, which
         // is what "inherit the page's" spells one level up.
         themeByAppearance: theme ? { light: theme, dark: theme } : {},
-        radius,
-        font,
-        monoFont,
-        density,
       }) as Partial<ThemePrefs>,
-    [theme, radius, font, monoFont, density],
+    [theme],
   );
 
   // Rendered as props rather than written in an effect: a scope is declarative and has no OS to

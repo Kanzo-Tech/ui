@@ -22,18 +22,11 @@ import type {
  * `KanzoThemeProvider` re-exports everything here, so no import site outside this directory changes.
  */
 
-export interface FontOption {
-  value: string;
-  label: string;
-  /** CSS font-family used to render the option's own label as a live preview. */
-  preview?: string;
-}
-
 /**
  * The provider spreads {@link ThemePrefs} into the context, and every axis it names is the value the
  * chain ANSWERED — not the raw stored one.
  *
- * The distinction is the tenant's policy: a client who pinned *compact* has `density === "compact"`
+ * The distinction is the tenant's policy: a client who pinned *dark* has `appearance === "dark"`
  * here whatever this user once chose, because that is what the page is painted with and a control
  * reading anything else would draw a selection the page contradicts. What the user stored is still
  * in storage, untouched, and comes back if the tenant stops pinning it.
@@ -52,9 +45,7 @@ export interface ThemeContextValue extends ThemePrefs {
    * starting point when they published one, ours when they did not.
    */
   reset: () => void;
-  fonts: FontOption[];
-  monoFonts: FontOption[];
-  /** The side the user picked — light or dark. The OS is never asked. */
+  /** The side worn — the person's pick, else the tenant's starting side, else the OS's. */
   appearance: Appearance;
   setAppearance: (appearance: Appearance) => void;
   /** The themes the tenant published. `[]` — never `undefined` — when the host wired nothing. */

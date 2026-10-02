@@ -17,22 +17,15 @@ import {
   CORE_NAMESPACE,
   CORE_PREFS,
   DEFAULT_PREFS,
-  prefOptions,
   resolvePref,
   STORAGE_KEY,
   defaultThemePair,
-  themeData,
   themeIndex,
   type ThemePrefs,
 } from "@kanzo-tech/theme";
-import { ThemeContext, type FontOption, type ThemeContextValue } from "./theme-context.js";
+import { ThemeContext, type ThemeContextValue } from "./theme-context.js";
 
-export {
-  useKanzoTheme,
-  useKanzoThemeOptional,
-  type FontOption,
-  type ThemeContextValue,
-} from "./theme-context.js";
+export { useKanzoTheme, useKanzoThemeOptional, type ThemeContextValue } from "./theme-context.js";
 
 export type { ThemePrefs } from "@kanzo-tech/theme";
 
@@ -45,15 +38,15 @@ export type { ThemePrefs } from "@kanzo-tech/theme";
  * · **Controlled** — pass `value` + `onChange` (e.g. keasy bridges its server-persisted prefs).
  * · **Uncontrolled** — internal state persisted via a pluggable `storage` (default localStorage).
  *
- * **Colour is not a free preference.** A tenant's identity is a palette DOCUMENT, compiled to one
- * stylesheet the server inlines. Nothing here writes a colour VALUE: the six preferences are the
- * four non-colour axes, `appearance` (which of the document's two blocks applies) and `identity`
- * (which of the blocks the TENANT published applies). A user who has never been given a second
- * identity has the same five preferences they had before, and the same `<html>`.
+ * **It stores preferences and nothing a theme owns.** Three, all declared in `CORE_PREFS`: the side
+ * (`appearance`), the theme worn on each side (`themeByAppearance`, among those the TENANT published)
+ * and `density`. Radius and the faces are the theme's, so there is nothing here that could override
+ * one. See `/docs/design/preferences`.
  *
- * `.dark` follows the appearance the user picked — light or dark; the OS is never asked. A host
- * theme manager that also writes the class (next-themes with `attribute: "class"`) must be
- * disabled, or the two fight over the same class.
+ * `.dark` follows the resolved appearance. While nothing is stored and the tenant set no starting
+ * side, that is the OS's `prefers-color-scheme`; once the person picks, the pick wins. A host theme
+ * manager that also writes the class (next-themes with `attribute: "class"`) must be disabled, or the
+ * two fight over the same class.
  *
  * Attributes are written to `document.documentElement` (NOT a wrapper `<div>`): Ark overlays
  * (Dialog, Popover, Menu, Select, Tooltip…) portal to `document.body`, OUTSIDE any wrapper, so
@@ -131,20 +124,15 @@ function known(stored: Partial<ThemePrefs>): Partial<ThemePrefs> {
 }
 
 /**
- * The shipped font options, off the declaration — names and order — and the generated stacks.
+ * The OS's side, or `null` where there is no window to ask — a server, and the first render.
  *
- * They were typed here, and the copy had already drifted: the fallback this file wrote inside
- * `var(--font-geist-sans, …)` was a three-family shorthand where `themes.css` emits the full
- * system stack, so a host without the webfont got a different face from the panel's specimen than
- * from the page. Two spellings of one list, and the wrong one was the one a user looked at.
+ * It is the appearance declaration's default and nothing more: a stored pick and a tenant's starting
+ * side both outrank it. `themeScript` asks the same query before paint, so the two agree.
  */
-const stacked = (key: "font" | "monoFont", stacks: Record<string, string>): FontOption[] =>
-  (prefOptions(CORE_PREFS[key]) ?? []).map((option) => ({
-    ...option,
-    preview: stacks[option.value],
-  }));
-const DEFAULT_FONTS = stacked("font", themeData.fonts);
-const DEFAULT_MONO_FONTS = stacked("monoFont", themeData.monoFonts);
+function systemAppearance(): Appearance | null {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return null;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
 
 /**
  * A host that never wires `identities` gets this one, not a fresh `[]` per render — the context is
@@ -207,7 +195,7 @@ function useRetirement(
 
 export interface KanzoThemeProviderProps {
   children: React.ReactNode;
-  /** Override the built-in defaults (light / md / geist / geist-mono / default / the tenant's pair). */
+  /** Override the built-in defaults (the OS's side, or light / default density / the tenant's pair). */
   defaults?: Partial<ThemePrefs>;
   /** Controlled mode: supply value + onChange (host owns persistence). */
   value?: Partial<ThemePrefs>;
@@ -215,9 +203,6 @@ export interface KanzoThemeProviderProps {
   /** Uncontrolled persistence. `undefined` = localStorage; `null` = no persistence. */
   storage?: ThemeStorage | null;
   storageKey?: string;
-  /** Host-configurable option lists surfaced by the Preferences panel. */
-  fonts?: FontOption[];
-  monoFonts?: FontOption[];
   /**
    * The themes the TENANT published. Defaults to `themeIndex` — the catalogue `themes.css` ships —
    * so a host that imports the whole sheet passes nothing; a tenant narrows it or adds its own.
@@ -261,15 +246,13 @@ export interface KanzoThemeProviderProps {
    * Keyed by namespace, and **the core is the namespace `theme`** ({@link CORE_NAMESPACE}):
    *
    * ```ts
-   * policy={{ theme: { density: { default: "compact" }, radius: { pinned: "sm" } },
+   * policy={{ theme: { appearance: { pinned: "dark" }, density: { default: "compact" } },
    *           graph: { look: { hidden: true } } }}
    * ```
    *
-   * This is the white-label half, and it used to reach only half the product: a tenant could pin the
-   * graph's look and could not pin the radius, because the newer mechanism had a resolution chain
-   * and the older one had a whitelist read. Now a client ships *our product is compact and square*
-   * as the starting point their users move from — which is daisyUI's theme-carries-the-geometry,
-   * expressed as a policy over declarations rather than as a second document format.
+   * This is the white-label half for what people may change. What the product looks like — its
+   * radii, its faces — is authored in the tenant's theme, and no policy reaches it. Density is
+   * declared `personal`: a policy may start it elsewhere, and its `pinned` and `hidden` are ignored.
    *
    * It selects among the options a declaration published; it cannot author one. That line is the
    * same one the colour layer holds, and it is why this is not the retired runtime palette coming
@@ -285,8 +268,6 @@ export function KanzoThemeProvider({
   onChange,
   storage,
   storageKey = STORAGE_KEY,
-  fonts = DEFAULT_FONTS,
-  monoFonts = DEFAULT_MONO_FONTS,
   themes = themeIndex,
   defaultTheme,
   onThemeRetired,
@@ -321,6 +302,10 @@ export function KanzoThemeProvider({
     const raw = storageAdapter?.get() ?? null;
     if (raw) setInternal(known(raw));
   }, [controlled, storageAdapter]);
+
+  // The OS's side, read at the same moment and for the same reason as storage.
+  const [system, setSystem] = React.useState<Appearance | null>(null);
+  React.useLayoutEffect(() => setSystem(systemAppearance()), []);
 
   const storedPrefs = controlled ? value ?? NO_STORED : internal;
 
@@ -411,20 +396,24 @@ export function KanzoThemeProvider({
   }, [defaults, policy]);
 
   // ── Appearance ──────────────────────────────────────────────────────────────────────────
-  // The side the user picked, through the declared chain (pinned, stored, the tenant's default,
-  // `light`). It resolves first: the side is what a keyed axis is indexed by.
+  // The side, through the declared chain: pinned, stored, the tenant's default, and then the OS —
+  // which stands in for the declaration's `light` wherever there is a window to ask. It resolves
+  // first: the side is what a keyed axis is indexed by.
   const appearanceResolved = React.useMemo(
-    () => resolvePref(CORE_PREFS.appearance, storedPrefs.appearance, corePolicy.appearance),
-    [corePolicy, storedPrefs.appearance],
+    () =>
+      resolvePref(
+        system ? { ...CORE_PREFS.appearance, default: system } : CORE_PREFS.appearance,
+        storedPrefs.appearance,
+        corePolicy.appearance,
+      ),
+    [corePolicy, storedPrefs.appearance, system],
   );
   const appearance = appearanceResolved.value as Appearance;
 
   // ── One resolution ──────────────────────────────────────────────────────────────────────
   //
   // Every core axis through the chain that `@kanzo-tech/theme` owns and a contributed section
-  // already used: pinned, stored, the tenant's starting point, the declaration's default. What this
-  // ends is that **a tenant could pin the graph's look and could not pin the radius** — the newer
-  // mechanism had a resolution chain with a policy, and the older one read a stored blob.
+  // already used: pinned, stored, the tenant's starting point, the declaration's default.
   //
   // A keyed axis is indexed here, by the side that resolved above, so the chain always sees a value
   // and the write loop below never has to know that one axis stores a map.
@@ -458,9 +447,6 @@ export function KanzoThemeProvider({
     appearanceResolved,
     corePolicy,
     appearance,
-    storedPrefs.radius,
-    storedPrefs.font,
-    storedPrefs.monoFont,
     storedPrefs.density,
     storedPrefs.themeByAppearance,
   ]);
@@ -634,10 +620,10 @@ export function KanzoThemeProvider({
   const ctx = React.useMemo<ThemeContextValue>(
     () => ({
       ...prefs,
-      // The resolved values overwrite the stored ones, and that is the point of this phase: what a
-      // control shows and what the page is painted with are the same number. A tenant pinning
-      // `density` means every reader sees `"compact"`, while storage keeps whatever this user chose
-      // and hands it back the day the tenant stops pinning it.
+      // The resolved values overwrite the stored ones: what a control shows and what the page is
+      // painted with are the same value. A tenant pinning `appearance` means every reader sees
+      // `"dark"`, while storage keeps whatever this user chose and hands it back the day the tenant
+      // stops pinning it.
       ...Object.fromEntries(Object.entries(corePrefs).map(([key, { value }]) => [key, value])),
       // …except the one that is a map. `themeByAppearance` stores a side→theme map and the chain
       // answers for ONE side, so writing the resolved string over it would change the field's shape
@@ -647,8 +633,6 @@ export function KanzoThemeProvider({
       sources,
       set,
       reset,
-      fonts,
-      monoFonts,
       sectionPrefs,
       setSectionPref,
       appearance,
@@ -663,7 +647,7 @@ export function KanzoThemeProvider({
       retiredTheme,
     }),
     [
-      prefs, set, fonts, monoFonts, appearance, setAppearance,
+      prefs, set, appearance, setAppearance,
       themes, defaultThemeFor, resolvedTheme, setTheme, retiredTheme,
       sectionPrefs, setSectionPref, corePrefs, sources, reset,
     ],

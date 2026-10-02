@@ -67,12 +67,12 @@ SSR flash. Tokens and axes come from `@kanzo-tech/theme`.
 
 ### Preference menus
 
-The editor is a **kit**, not one screen. `ThemePicker`, `PreferencesDensity`,
-`PreferencesRadius` and the two font axes are one preference each, wired straight to
-`useKanzoTheme()`; `PreferencesField` / `PreferencesFieldSet` title a section of your own the same
-way; `PreferencesSections` draws whatever the packages a host installed contribute. None of them
-knows what it is mounted on — `ThemePicker` lays its cards out on a container query, never a
-window width.
+`PreferencesSections` draws every preference a host offers: the theme picker (the side, and a theme
+for each side), density, and whatever the packages a host installed contribute — or one namespace
+of them (`namespace="theme"` is the core's). It is the one way to mount a preference control: radius
+and the faces are the theme's, so there is no control for them. `PreferencesField` /
+`PreferencesFieldSet` title a section of your own the same way. None of them knows what it is mounted
+on — the theme cards lay out on a container query, never a window width.
 
 `Preferences` (and its `PreferencesRoot` / `Trigger` / `Panel` parts) is one **surface** over that
 kit: a non-modal drawer with a hotkey. A product with a real settings area drops the same sections

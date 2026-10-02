@@ -21,7 +21,7 @@
 //
 // MANDATORY under SSR, not an optimisation: the provider reads storage after hydration, so without
 // the script the first paint is the default theme. It owns `<html>` only — controls the provider
-// renders (`ThemePicker`'s cards) start from the defaults on both sides of hydration.
+// renders (the theme picker's cards) start from the defaults on both sides of hydration.
 //
 // This script must reach the SAME `class` + `data-*` as the provider from the same inputs —
 // theme-script.test.ts runs both under one set of stubs and diffs `<html>`, because a divergence
@@ -83,7 +83,16 @@ export function themeScript({
   // Appearance is resolved before the loop because the loop needs the side it resolves to: a keyed
   // axis is indexed by it. Same order the provider runs in, for the same reason.
   const appearance = JSON.stringify(row("appearance"));
-  const pol = JSON.stringify(policy[CORE_NAMESPACE] ?? {});
+  // A `personal` preference keeps only the tenant's starting point: its `pinned` and `hidden` are
+  // dropped here, at generation time, exactly as `resolvePref` ignores them.
+  const pol = JSON.stringify(
+    Object.fromEntries(
+      Object.entries(policy[CORE_NAMESPACE] ?? {}).map(([key, p]) => [
+        key,
+        CORE_PREFS[key as keyof typeof CORE_PREFS]?.personal ? { default: p.default } : p,
+      ]),
+    ),
+  );
   const sk = JSON.stringify(storageKey);
   const df = JSON.stringify(defaultTheme);
   return (
@@ -100,8 +109,10 @@ export function themeScript({
     "function ok(v,o){return typeof v==='string'&&(!o||o.indexOf(v)>=0);}" +
     "function pick(p,s,df,o){return ok(p.pinned,o)?p.pinned:((!p.hidden&&ok(s,o))?s:(ok(p['default'],o)?p['default']:df));}" +
     // Appearance first: it decides `.dark`, and it decides which side a keyed axis is indexed by.
-    // The user's side, or the tenant's, or light — the OS is never asked.
-    "var AP=" + appearance + ",W=pick(PO[AP[0]]||{},P[AP[0]],AP[2],AP[4]);" +
+    // The user's side, or the tenant's, or the OS's — `prefers-color-scheme` stands in for the
+    // declaration's `light` wherever it can be asked, as it does in the provider.
+    "var AP=" + appearance + ",M=window.matchMedia?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):AP[2]," +
+    "W=pick(PO[AP[0]]||{},P[AP[0]],M,AP[4]);" +
     // every axis, from the table itself. `data-theme` carries no option list and
     // so are written VERBATIM, never checked against what the tenant published: an attribute
     // selector with no matching rule is inert and the cascade falls through to `:root`, which is the

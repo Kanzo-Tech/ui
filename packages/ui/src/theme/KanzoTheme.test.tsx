@@ -43,11 +43,9 @@ describe("KanzoTheme", () => {
     );
 
     expect(scope().getAttribute("data-theme")).toBe("bank");
-    // Not written, so a scope that overrides colour keeps the page's radius, fonts and density —
-    // the property that makes a one-axis preview a one-word change.
-    for (const attr of ["data-radius", "data-font", "data-mono-font", "data-font-size"]) {
-      expect(scope().hasAttribute(attr), attr).toBe(false);
-    }
+    // Density is never written on a scope: a `rem` resolves against `<html>`, so a wrapper's
+    // font-size cannot scale the subtree.
+    expect(scope().hasAttribute("data-font-size")).toBe(false);
   });
 
   it("never touches <html>", () => {

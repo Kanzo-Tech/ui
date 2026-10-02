@@ -127,6 +127,7 @@ describe("KanzoThemeProvider axis wiring", () => {
 
 describe("KanzoThemeProvider appearance", () => {
   beforeEach(() => {
+    stubMatchMedia(false);
     localStorage.clear();
     html().classList.remove("dark");
   });
@@ -146,11 +147,24 @@ describe("KanzoThemeProvider appearance", () => {
     return { ...utils, get ctx() { return ctx; } };
   }
 
-  it("is light until somebody picks, and never asks the OS", () => {
+  it("starts at the OS's side while nothing is stored", () => {
     stubMatchMedia(true);
     const t = mount();
-    expect(t.ctx.appearance).toBe("light");
+    expect(t.ctx.appearance).toBe("dark");
+    expect(dark()).toBe(true);
+    // …and nothing was written: the OS is a starting point, not a choice.
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
+
+  it("lets a stored pick win over the OS", () => {
+    stubMatchMedia(true);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ appearance: "light" }));
+    expect(mount().ctx.appearance).toBe("light");
     expect(dark()).toBe(false);
+  });
+
+  it("is light while the OS is", () => {
+    expect(mount().ctx.appearance).toBe("light");
   });
 
   it("wears the side the user picks", () => {
@@ -171,6 +185,7 @@ describe("KanzoThemeProvider appearance", () => {
   });
 
   it("drops a stored value that is not a side", () => {
+    stubMatchMedia(false);
     // A blob is JSON from a browser and can hold any string; neither `""` nor `"system"` is a side.
     for (const junk of ["", "system", null]) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ appearance: junk }));
@@ -183,14 +198,14 @@ describe("KanzoThemeProvider appearance", () => {
   it("leaves `.dark` in place on unmount, but takes its attributes with it", () => {
     // A host may own the class after we go; removing it repaints the page light for however long
     // the next owner takes to put it back. The attributes are ours and must not outlive us.
-    const t = mount({ appearance: "dark", radius: "lg" });
+    const t = mount({ appearance: "dark", density: "compact" });
     expect(dark()).toBe(true);
-    expect(html().getAttribute("data-radius")).toBe("lg");
+    expect(html().getAttribute("data-font-size")).toBe("compact");
 
     t.unmount();
 
     expect(dark()).toBe(true);
-    expect(html().hasAttribute("data-radius")).toBe(false);
+    expect(html().hasAttribute("data-font-size")).toBe(false);
   });
 });
 
@@ -218,7 +233,18 @@ describe("KanzoThemeProvider persisted-blob hygiene", () => {
     // given back rather than a synonym invented for it.
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ accent: "blue", baseTint: "#123456", primary: "#abcdef", scheme: "vivid", radius: "lg" }),
+      JSON.stringify({
+        accent: "blue",
+        baseTint: "#123456",
+        primary: "#abcdef",
+        scheme: "vivid",
+        // Retired when radius and the faces became the theme's: a stored one is ignored, never
+        // migrated, and the theme's own shows.
+        radius: "lg",
+        font: "inter",
+        monoFont: "jetbrains-mono",
+        density: "compact",
+      }),
     );
 
     let ctx!: ReturnType<typeof useKanzoTheme>;
@@ -228,28 +254,26 @@ describe("KanzoThemeProvider persisted-blob hygiene", () => {
       </KanzoThemeProvider>,
     );
 
-    // The surviving axis still arrives…
-    expect(ctx.radius).toBe("lg");
+    // The surviving preference still arrives…
+    expect(ctx.density).toBe("compact");
     // …and the retired ones never enter the model.
-    expect((ctx as unknown as Record<string, unknown>).accent).toBeUndefined();
-    expect((ctx as unknown as Record<string, unknown>).primary).toBeUndefined();
+    for (const key of ["accent", "primary", "radius", "font", "monoFont"]) {
+      expect((ctx as unknown as Record<string, unknown>)[key], key).toBeUndefined();
+    }
+    expect(html().hasAttribute("data-radius")).toBe(false);
 
-    act(() => ctx.set({ density: "compact" }));
+    act(() => ctx.set({ appearance: "dark" }));
 
-    // Two keys, not nine: storage holds what somebody CHOSE. The retired four are gone — which is
-    // what this test has always been about — and the five nobody touched were never written, which
-    // is what lets a tenant's starting point answer for them.
-    expect(Object.keys(stored()).sort()).toEqual(["density", "radius"]);
+    // Two keys: storage holds what somebody CHOSE and still offers. The retired ones are gone.
+    expect(Object.keys(stored()).sort()).toEqual(["appearance", "density"]);
   });
 });
 
 /**
  * A tenant's policy over the CORE's own axes — the phase where the two halves became one mechanism.
  *
- * What it ends: a tenant could pin the graph's look and could NOT pin the radius, because the newer
- * mechanism had a resolution chain with a policy and the older one read a stored blob. A client
- * shipping *our product is compact and square* is the same white-label case the section half already
- * served, and it is now the same code, keyed by the namespace `theme`.
+ * The core is the namespace `theme` of the same policy a section answers to. Density is declared
+ * `personal`: a tenant may move where it starts and may not pin or withhold it.
  *
  * ## What these cannot prove
  *
@@ -282,26 +306,23 @@ describe("KanzoThemeProvider under a tenant's policy", () => {
     return { get ctx() { return ctx; } };
   };
 
-  it("pins an axis over what the user stored, and withdraws the control", () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ radius: "lg" }));
-    const { ctx } = mount({ policy: { theme: { radius: { pinned: "sm" } } } });
+  it("never pins density: it is the person's, whatever the tenant says", () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ density: "comfortable" }));
+    const { ctx } = mount({ policy: { theme: { density: { pinned: "compact", hidden: true } } } });
 
-    // The value every reader sees is the pinned one — a control reading anything else would draw a
-    // selection the page contradicts.
-    expect(ctx.radius).toBe("sm");
-    expect(ctx.corePrefs.radius).toMatchObject({ via: "pinned", offered: false });
-    expect(html().getAttribute("data-radius")).toBe("sm");
-    // …and what the user chose is still theirs. A tenant who stops pinning hands it back.
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}").radius).toBe("lg");
+    expect(ctx.density).toBe("comfortable");
+    expect(ctx.corePrefs.density).toMatchObject({ via: "stored", offered: true });
+    expect(html().getAttribute("data-font-size")).toBe("comfortable");
   });
 
   it("moves the starting point without taking the choice away", () => {
-    // daisyUI's theme-carries-the-geometry, in the mechanism this repo already had. The client says
-    // where a user starts; the user may still move.
+    // The client says where a user starts; the user may still move.
     const started = mount({ policy: { theme: { density: { default: "compact" } } } });
     expect(started.ctx.density).toBe("compact");
     expect(started.ctx.corePrefs.density).toMatchObject({ via: "policy", offered: true });
     expect(html().getAttribute("data-font-size")).toBe("compact");
+    // Reaching the starting point at all is what a sparse blob buys: nothing was written for it.
+    expect(Object.keys(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}"))).toEqual([]);
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ density: "comfortable" }));
     const chosen = mount({ policy: { theme: { density: { default: "compact" } } } });
@@ -309,24 +330,13 @@ describe("KanzoThemeProvider under a tenant's policy", () => {
     expect(chosen.ctx.corePrefs.density).toMatchObject({ via: "stored" });
   });
 
-  it("reaches the starting point at all, which the merged blob used to make impossible", () => {
-    // The bug this phase found. Storage held every axis filled in with its default, so
-    // `stored.density` was `"compact"`-shaped for a user who had never touched density: the chain's
-    // second link always answered and the third never ran. A client's document would have been
-    // silently outvoted by every browser that had ever opened the app.
-    const { ctx } = mount({ policy: { theme: { radius: { default: "xs" } } } });
-    expect(ctx.corePrefs.radius?.via).toBe("policy");
-    expect(Object.keys(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}"))).toEqual([]);
-  });
+  it("withholds the theme choice without discarding what the user chose", () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ themeByAppearance: { light: "nord" } }));
+    const { ctx } = mount({ policy: { theme: { themeByAppearance: { hidden: true } } } });
 
-  it("withholds an axis without discarding what the user chose", () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ font: "inter" }));
-    const { ctx } = mount({ policy: { theme: { font: { hidden: true } } } });
-
-    expect(ctx.font).toBe("geist");
-    expect(ctx.corePrefs.font).toMatchObject({ via: "default", offered: false });
-    expect(html().hasAttribute("data-font")).toBe(false);
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}").font).toBe("inter");
+    expect(ctx.corePrefs.themeByAppearance).toMatchObject({ offered: false });
+    expect(html().getAttribute("data-theme")).toBe(ctx.defaultThemeFor("light"));
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}").themeByAppearance).toEqual({ light: "nord" });
   });
 
   it("pins the appearance, which is the axis that decides `.dark` and every keyed one", () => {
@@ -338,21 +348,23 @@ describe("KanzoThemeProvider under a tenant's policy", () => {
   });
 
   it("declines a policy naming a value the declaration does not offer", () => {
-    const { ctx } = mount({ policy: { theme: { radius: { pinned: "xxl" } } } });
-    expect(ctx.radius).toBe("md");
-    expect(ctx.corePrefs.radius?.via).toBe("default");
-    expect(html().hasAttribute("data-radius")).toBe(false);
+    const { ctx } = mount({ policy: { theme: { appearance: { pinned: "sepia" } } } });
+    expect(ctx.appearance).toBe("light");
+    expect(ctx.corePrefs.appearance?.via).toBe("default");
   });
 
   it("takes a host's `defaults` as the same link, one rank lower", () => {
     // `defaults` is the app's baseline and a policy is the client's: both say *start here*, so they
     // are one link rather than two mechanisms — and the tenant's wins.
-    const host = mount({ defaults: { radius: "xs" } });
-    expect(host.ctx.radius).toBe("xs");
-    expect(host.ctx.corePrefs.radius?.via).toBe("policy");
+    const host = mount({ defaults: { density: "compact" } });
+    expect(host.ctx.density).toBe("compact");
+    expect(host.ctx.corePrefs.density?.via).toBe("policy");
 
-    const both = mount({ defaults: { radius: "xs" }, policy: { theme: { radius: { default: "lg" } } } });
-    expect(both.ctx.radius).toBe("lg");
+    const both = mount({
+      defaults: { density: "compact" },
+      policy: { theme: { density: { default: "comfortable" } } },
+    });
+    expect(both.ctx.density).toBe("comfortable");
   });
 });
 

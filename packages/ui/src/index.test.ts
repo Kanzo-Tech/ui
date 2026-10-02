@@ -185,11 +185,17 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(surface.SecretField).toBeUndefined();
     // SuggestMenu dissolved into a Popover + useSuggestions composition.
     expect(surface.SuggestMenu).toBeUndefined();
-    // The theme and the appearance are ONE control, `ThemePicker` (GitHub's Appearance settings):
-    // its Light · Dark segment is the appearance. `AppearanceToggle` and `PreferencesColor` were second doors.
-    expect(surface.AppearanceToggle).toBeUndefined();
-    expect(surface.PreferencesColor).toBeUndefined();
-    expect(surface.ThemePicker).toBeTypeOf("function");
+    // ONE way to mount a preference control: `PreferencesSections` (and the panel that draws it).
+    // `AppearanceToggle` and `PreferencesColor` were second doors to the appearance; `ThemePicker`
+    // was a third, and the per-axis sections let a host mount a radius control that overrode every
+    // theme. Radius and typography are the theme's — `/docs/design/preferences`.
+    for (const name of [
+      "AppearanceToggle", "PreferencesColor", "ThemePicker", "PreferencesRadius", "PreferencesFont",
+      "PreferencesMonoFont", "PreferencesDensity",
+    ]) {
+      expect(surface[name], name).toBeUndefined();
+    }
+    expect(surface.PreferencesSections).toBeTypeOf("function");
     expect(surface.ThemePreview).toBeTypeOf("function");
     // The AiAssist provider was over-engineered for one consumer, and a `complete` prop plus the
     // monolithic FieldSuggest violated core purity. AI-assist became two composed compounds —
@@ -474,7 +480,6 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(preferences.Density).toBeUndefined();
     expect(UI.PreferencesRoot).toBeTypeOf("function");
     expect(UI.PreferencesPanel).toBeTypeOf("function");
-    expect(UI.PreferencesDensity).toBeTypeOf("function");
     // The one section that is not one section: it draws whatever the packages a host installed
     // contribute. Flat like the rest, because a host composing the panel with `children` replaces
     // the canonical set and would otherwise silently drop every contributed choice.

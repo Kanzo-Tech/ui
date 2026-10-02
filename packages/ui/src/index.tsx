@@ -13,13 +13,10 @@
 // Select, Tooltip…) — those render into document.body, outside any wrapper element.
 export type {
   Appearance,
-  KanzoRadius,
   KanzoDensity,
-  KanzoFont,
-  KanzoMonoFont,
   KanzoThemeName,
-  // Beside the axes rather than beside `FontOption`, because it is a data shape and not a React one:
-  // the pre-hydration script reads the same axis table, and it never sees this package.
+  // A data shape and not a React one: the pre-hydration script reads the same catalogue, and it
+  // never sees this package.
   ThemeOption,
 } from "@kanzo-tech/theme";
 export { KanzoThemeProvider, useKanzoTheme, cookieStorageAdapter } from "./theme/KanzoThemeProvider.js";
@@ -29,7 +26,6 @@ export { KanzoTheme, type KanzoThemeProps } from "./theme/KanzoTheme.js";
 export type {
   KanzoThemeProviderProps,
   ThemePrefs,
-  FontOption,
   ThemeStorage,
 } from "./theme/KanzoThemeProvider.js";
 // SSR anti-FOUC pre-hydration script (see ./theme/theme-script.ts for framework recipes).
@@ -42,29 +38,19 @@ export {
   PreferencesTrigger,
   PreferencesPanel,
   PreferencesField,
-  // Every section is exported flat; `index.test.ts` keeps the list honest.
   PreferencesFieldSet,
-  // No `PreferencesColor`, `PreferencesAppearance` or `AppearanceToggle`: the theme and the
-  // appearance are one control, `ThemePicker`, exported below and drawn first in the panel.
-  PreferencesRadius,
-  PreferencesFont,
-  PreferencesMonoFont,
-  PreferencesDensity,
-  // Last, and it is not one section but however many the packages a host installed contribute —
-  // all of them, or one namespace, so a dock or a settings page is a view over the same store
-  // rather than a second copy of it.
+  // Every preference this host offers — the core's, then each installed package's — or one
+  // namespace of them. It is the ONE way to mount a preference control: there is no per-axis export
+  // and no standalone theme picker, so a host cannot mount a control for a value the theme owns.
   PreferencesSections,
 } from "./composites/Preferences.js";
 export type {
+  PreferencesCopy,
+  PreferencesPanelProps,
   PreferencesProps,
   PreferencesRootProps,
   PreferencesSectionsProps,
 } from "./composites/Preferences.js";
-// The panel may never be opened, and a retired identity is somebody looking at a brand they did not
-// choose. Opt-in rather than provider-rendered: the provider has no DOM, and two deleted themers say
-// it stays that way.
-export { ThemePicker } from "./composites/ThemePicker.js";
-export type { ThemePickerCopy, ThemePickerProps } from "./composites/ThemePicker.js";
 export { ThemePreview } from "./composites/ThemePreview.js";
 export type { ThemePreviewProps } from "./composites/ThemePreview.js";
 export { ThemeNotice } from "./composites/theme-notice.js";

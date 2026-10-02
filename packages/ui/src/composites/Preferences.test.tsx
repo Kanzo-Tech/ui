@@ -60,7 +60,7 @@ function setup(defaults?: Partial<ThemePrefs>, provider: ProviderProps = {}) {
 
 // The panel writes to `<html>`; leaving any of it behind poisons the next test in this file and
 // every file that runs after it in the same worker.
-const MANAGED_ATTRS = ["data-radius", "data-font", "data-mono-font", "data-font-size", "data-theme"];
+const MANAGED_ATTRS = ["data-font-size", "data-theme"];
 function cleanHtml() {
   for (const a of MANAGED_ATTRS) html().removeAttribute(a);
   html().classList.remove("dark");
@@ -102,99 +102,42 @@ describe("Preferences", () => {
     });
   });
 
-  describe("group labelling", () => {
-    // `Field` cannot label a radio group (one hidden input per item, no single id), so sections
-    // used to write their name twice — and the second copy had drifted: `MonoFont` announced
-    // itself as "Font". The legend is the one name, via Ark's fieldset→machine `ids.label`.
-    it.each([["Density"], ["Font"], ["Mono font"]])(
-      "names the %s group once, from its legend",
-      (name) => {
-        setup();
-        expect(screen.getByRole("radiogroup", { name })).toBeTruthy();
-      },
-    );
-
-    it("names the radius slider from its own label part", () => {
+  describe("it offers preferences, and nothing a theme owns", () => {
+    // Radius and the faces are authored in the theme. A control for either overrode every theme's
+    // own declaration, so neither is drawn — not withheld, absent: no declaration holds one.
+    it("draws the theme and density, and no radius, font or mono font control", () => {
       setup();
+      expect(screen.getByRole("radiogroup", { name: "Appearance" })).toBeTruthy();
+      expect(screen.getByRole("radiogroup", { name: "Density" })).toBeTruthy();
+      expect(document.querySelector("[data-slot=slider-thumb]")).toBeNull();
+      expect(screen.queryByRole("radiogroup", { name: "Font" })).toBeNull();
+      expect(screen.queryByRole("radiogroup", { name: "Mono font" })).toBeNull();
+    });
 
-      // Asserted through the wiring rather than through `getByRole(…, { name })`: zag keeps a thumb
-      // `visibility: hidden` until it has measured the control, jsdom reports every element as
-      // zero-sized forever, and an accessible name is "" for a hidden element by rule 2A. The
-      // relation is the thing under test anyway — Ark's `useSlider` reads NO ambient context, not
-      // Field and not Fieldset, so this can only come from the slider's own label part.
-      const thumb = document.querySelector("[data-slot=slider-thumb]")!;
-      const label = document.getElementById(thumb.getAttribute("aria-labelledby") ?? "");
-      expect(label?.textContent).toBe("Radius");
-      expect(label?.getAttribute("data-slot")).toBe("slider-label");
-      // …and it is not ALSO written as an `aria-label`, which is the duplication being removed.
-      expect(thumb.hasAttribute("aria-label")).toBe(false);
+    it("offers every declared density, in the declared order", () => {
+      setup();
+      const labels = [
+        ...screen.getByRole("radiogroup", { name: "Density" }).querySelectorAll("[data-part=item-text]"),
+      ].map((el) => el.textContent);
+      expect(labels).toEqual(prefOptions(CORE_PREFS.density)?.map((o) => o.label));
     });
   });
 
-  describe("no option list is typed twice", () => {
-    // The claim the generated declaration makes, asserted where it can fail: everything this panel
-    // OFFERS is the table `themes.css` was emitted from. `RADII` and `DENSITIES` were typed in
-    // `Preferences.tsx`, beside a `themeData` import that already carried both, and a hand-copy
-    // agrees with the generator exactly until the generator changes — which is a defect with no
-    // symptom until someone adds a radius step and the panel silently declines to offer it.
-    //
-    // **What it cannot prove:** nothing here checks that a value DOES anything. A radius step
-    // offered, selected and written as `data-radius` still relies on `themes.css` carrying a
-    // matching selector, which is `packages/theme`'s own drift guard.
-    // The machine's own text part, not the card's `textContent`: a card also carries its specimen
-    // — the fonts' `Ag`, density's `Aa abc` — and reading the whole label would compare the preview
-    // against the name.
-    const labels = (name: string) =>
-      [...screen.getByRole("radiogroup", { name }).querySelectorAll("[data-part=item-text]")].map(
-        (el) => el.textContent,
-      );
-
-    it.each([
-      ["Density", "density"],
-      ["Font", "font"],
-      ["Mono font", "monoFont"],
-    ] as const)("offers every declared %s, in the declared order", (group, key) => {
-      setup();
-      const declared = prefOptions(CORE_PREFS[key])?.map((o) => o.label);
-      expect(labels(group)).toEqual(declared);
-    });
-
-    it("marks the radius slider with the declared steps", () => {
-      setup();
-      const markers = [...document.querySelectorAll("[data-slot=slider-marker]")].map(
-        (el) => el.textContent,
-      );
-      expect(markers).toEqual(prefOptions(CORE_PREFS.radius)?.map((o) => o.label));
-    });
-  });
-
-  describe("one renderer, three specimens", () => {
-    // `Font`, `Mono font` and `Density` were three components that differed in one `<span>`. What
-    // has to survive the collapse is exactly that span — a typeface drawn in its own face, a size
-    // drawn at its real size — and nothing else may grow one.
+  describe("specimens", () => {
     const cards = (group: string) => [
       ...screen.getByRole("radiogroup", { name: group }).querySelectorAll("[data-slot=radio-group-card]"),
     ];
 
-    it("draws each font in its own face", () => {
+    it("draws each density at the size it sets, against the browser's own size", () => {
       setup();
-      const first = cards("Font")[0];
-      // The stack the generated table carries, not a name typed beside the control: the panel and
-      // the page have to be showing the same face.
-      expect(first?.querySelector("span")?.getAttribute("style")).toContain("ui-sans-serif");
-      expect(first?.textContent).toContain("Ag");
-    });
-
-    it("draws each density at the size it sets", () => {
-      setup();
-      const styles = cards("Density").map((card) => card.querySelector("span")?.getAttribute("style"));
-      expect(styles.join(" ")).toContain("16px");
-      expect(styles.join(" ")).toContain("14px");
+      const styles = cards("Density").map((card) => card.innerHTML).join(" ");
+      expect(styles).toContain("font-size: medium");
+      expect(styles).toContain("87.5%");
+      expect(styles).toContain("112.5%");
     });
 
     it("draws no specimen for a preference that declared none", () => {
-      // The escape hatch is a lookup keyed by axis, so a contributed choice gets a plain list —
-      // which is what stops "one renderer" quietly becoming "one renderer per section".
+      // The escape hatch is a lookup keyed by preference, so a contributed choice gets a plain list.
       setup(undefined, {
         sections: [
           {
@@ -221,27 +164,12 @@ describe("Preferences", () => {
   });
 
   describe("what the tenant pinned or withheld is not offered", () => {
-    // The visible half of one resolution. A control for an axis the chain will ignore is a control
-    // that visibly does nothing, and this panel is where a client's document has to be believed.
-    //
-    // **What it cannot prove:** that the axis is APPLIED as pinned. The panel only declines to draw
+    // **What it cannot prove:** that the value is APPLIED as pinned. The panel only declines to draw
     // it; `KanzoThemeProvider.test.tsx` is where the value and the attribute are asserted.
-    it("draws no radius slider when a tenant pinned it", () => {
-      setup(undefined, { policy: { theme: { radius: { pinned: "sm" } } } });
-      expect(document.querySelector("[data-slot=slider-thumb]")).toBeNull();
-      // …and the rest of the panel is untouched: withdrawing one axis is not withdrawing the panel.
+    it("draws density whatever the tenant says, because it is the person's", () => {
+      setup(undefined, { policy: { theme: { density: { pinned: "compact", hidden: true } } } });
       expect(screen.getByRole("radiogroup", { name: "Density" })).toBeTruthy();
     });
-
-    it.each([
-      ["Density", "density"],
-      ["Font", "font"],
-      ["Mono font", "monoFont"],
-    ] as const)("draws no %s group when a tenant withheld it", (group, key) => {
-      setup(undefined, { policy: { theme: { [key]: { hidden: true } } } });
-      expect(screen.queryByRole("radiogroup", { name: group })).toBeNull();
-    });
-
 
     it("hides the theme section entirely when neither the theme nor the appearance is offered", () => {
       setup(undefined, {
@@ -249,6 +177,19 @@ describe("Preferences", () => {
       });
       expect(document.querySelector("[data-slot=theme-picker]")).toBeNull();
       expect(screen.queryByRole("radiogroup", { name: "Light theme" })).toBeNull();
+      expect(screen.getByRole("radiogroup", { name: "Density" })).toBeTruthy();
+    });
+  });
+
+  describe("copy", () => {
+    it("translates the core's words through one prop", () => {
+      render(
+        <KanzoThemeProvider>
+          <Preferences copy={{ theme: "Tema", appearance: "Apariencia" }} defaultOpen />
+        </KanzoThemeProvider>,
+      );
+      expect(screen.getByText("Tema")).toBeTruthy();
+      expect(screen.getByRole("radiogroup", { name: "Apariencia" })).toBeTruthy();
     });
   });
 
@@ -337,7 +278,7 @@ describe("Preferences", () => {
   describe("Reset", () => {
     it("unsets every axis, including the ones added after it was written", async () => {
       const user = userEvent.setup();
-      seed({ appearance: "dark", radius: "none", density: "compact", font: "geist", monoFont: "geist-mono", themeByAppearance: { dark: "t" } });
+      seed({ appearance: "dark", density: "compact", themeByAppearance: { dark: "t" } });
       setup(undefined, { themes: [{ value: "t", label: "T", dark: false }, { value: "u", label: "U", dark: true }] });
 
       await user.click(screen.getByRole("button", { name: "Reset" }));
@@ -394,7 +335,7 @@ describe("sections a host contributed", () => {
 
   it("draws nothing at all when the host registered no section", () => {
     // The common panel is unchanged: a product that installs no optional package sees exactly the
-    // five sections it saw before this mechanism existed.
+    // core sections it saw before this mechanism existed.
     setup();
     expect(screen.queryByRole("radiogroup", { name: "look" })).toBeNull();
   });
@@ -447,6 +388,27 @@ describe("a surface may draw part of a section", () => {
     mount();
     expect([...document.querySelectorAll("[data-slot=slider-label]")]).toHaveLength(2);
     expect(screen.getByRole("radiogroup", { name: "marks" })).toBeTruthy();
+  });
+
+  it("draws the core as the namespace `theme`: the theme picker, then density", () => {
+    render(
+      <KanzoThemeProvider sections={[SECTION]}>
+        <PreferencesSections namespace="theme" />
+      </KanzoThemeProvider>,
+    );
+    expect(document.querySelector("[data-slot=theme-picker]")).toBeTruthy();
+    expect(screen.getByRole("radiogroup", { name: "Density" })).toBeTruthy();
+    expect(screen.queryByRole("radiogroup", { name: "marks" })).toBeNull();
+  });
+
+  it("names the picker by either of the two preferences it draws, and draws it once", () => {
+    render(
+      <KanzoThemeProvider>
+        <PreferencesSections namespace="theme" only={["themeByAppearance", "appearance"]} />
+      </KanzoThemeProvider>,
+    );
+    expect(document.querySelectorAll("[data-slot=theme-picker]")).toHaveLength(1);
+    expect(screen.queryByRole("radiogroup", { name: "Density" })).toBeNull();
   });
 
   it("draws nothing for a name the section never declared", () => {

@@ -115,8 +115,8 @@ describe("themeScript ↔ KanzoThemeProvider agreement", () => {
   });
 
   const cases: [string, Parameters<typeof bothSides>[0], boolean][] = [
-    // The OS is stubbed on every case and neither side may read it: the third column is what the
-    // stub says, so a dark OS that leaks into either side fails the diff.
+    // The OS is stubbed on every case: the third column is what the stub says. Both sides read it as
+    // the starting side while nothing is stored, and a stored side beats it on both.
     ["nothing stored, light OS", {}, false],
     ["nothing stored, dark OS", {}, true],
     ["appearance: dark on a light OS", { prefs: { appearance: "dark" } }, false],
@@ -127,13 +127,15 @@ describe("themeScript ↔ KanzoThemeProvider agreement", () => {
     ["a stored `system`", { prefs: { appearance: "system" } }, true],
     // A blob missing the field takes a different branch in the script than no blob at all (the
     // empty-object guard), and both mean the same thing.
-    ["a blob with no appearance at all", { prefs: { radius: "lg" } }, true],
-    ["every non-colour axis at once", { prefs: { radius: "lg", font: "geist", monoFont: "jetbrains-mono", density: "compact", appearance: "dark" } }, false],
+    ["a blob with no appearance at all", { prefs: { density: "compact" } }, true],
+    ["every preference at once", { prefs: { density: "compact", appearance: "dark", themeByAppearance: { dark: "nord-dark" } } }, false],
+    // Radius and the faces are the theme's now. A stored one is ignored by both sides alike.
+    ["a retired radius and faces", { prefs: { radius: "lg", font: "inter", monoFont: "jetbrains-mono" } }, false],
     // Identity is the axis the script CANNOT reason about: what a tenant published is in the
     // compiled document, not in storage. Both sides therefore write the stored id verbatim, and
     // an id no `[data-identity=…]` block matches is inert — the cascade falls to `:root`.
     ["a theme the tenant published", { prefs: { themeByAppearance: { light: "nord" } } }, false],
-    ["a theme alongside every other axis", { prefs: { radius: "xs", font: "inter", density: "comfortable", themeByAppearance: { dark: "catppuccin-mocha" }, appearance: "dark" } }, true],
+    ["a theme alongside density", { prefs: { density: "comfortable", themeByAppearance: { dark: "catppuccin-mocha" }, appearance: "dark" } }, true],
     // `""` is the default identity — a deferral to `:root`, not a value — so it must take the
     // same branch as an absent field on both sides.
     ["an empty theme map, which is a deferral and not a value", { prefs: { themeByAppearance: {} } }, false],
@@ -162,20 +164,21 @@ describe("themeScript ↔ KanzoThemeProvider agreement", () => {
   }
 
   describe("a tenant's policy, which both sides now run", () => {
-    // The phase this file had to grow for. A client shipping *compact and square* sets it on the
-    // provider AND on the script; if only React knew, the page would paint the user's own radius
-    // and then jump to the client's — the flash this script exists to prevent, arriving through the
-    // feature meant to give a client control.
+    // A client's policy is set on the provider AND on the script; if only React knew, the page would
+    // paint the user's own side and then jump to the client's — the flash this script exists to
+    // prevent, arriving through the feature meant to give a client control.
     //
     // **What it cannot prove:** that a host passed the same object to both. Nothing can, from here —
     // it is one prop on each side, and the failure is a flash rather than an error. The provider's
     // JSDoc says so, and this is why.
-    const POLICY = { theme: { radius: { pinned: "sm" }, density: { default: "compact" } } };
+    const POLICY = { theme: { density: { default: "compact" } } };
 
-    it("agrees when a tenant pins over what the user stored", () => {
-      const { script, provider } = bothSides({ prefs: { radius: "lg" } }, false, POLICY);
+    it("agrees that density cannot be pinned or withheld, only started", () => {
+      const { script, provider } = bothSides({ prefs: { density: "comfortable" } }, false, {
+        theme: { density: { pinned: "compact", hidden: true } },
+      });
       expect(script).toEqual(provider);
-      expect(script.attrs["data-radius"]).toBe("sm");
+      expect(script.attrs["data-font-size"]).toBe("comfortable");
     });
 
     it("agrees when a tenant only moves the starting point", () => {
@@ -189,15 +192,15 @@ describe("themeScript ↔ KanzoThemeProvider agreement", () => {
       expect(chosen.script.attrs["data-font-size"]).toBe("comfortable");
     });
 
-    it("agrees when a tenant withholds an axis, keeping what the user stored in storage", () => {
+    it("agrees when a tenant withholds the theme, keeping what the user stored in storage", () => {
       // `hidden` is not `pinned`: the stored value stays in the blob and simply does not apply, so
       // both sides must paint the default and neither may erase anything.
-      const { script, provider } = bothSides({ prefs: { radius: "lg" } }, false, {
-        theme: { radius: { hidden: true } },
+      const { script, provider } = bothSides({ prefs: { themeByAppearance: { light: "nord" } } }, false, {
+        theme: { themeByAppearance: { hidden: true } },
       });
       expect(script).toEqual(provider);
-      expect(script.attrs["data-radius"]).toBeUndefined();
-      expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}").radius).toBe("lg");
+      expect(script.attrs["data-theme"]).toBe("kanzo");
+      expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}").themeByAppearance).toEqual({ light: "nord" });
     });
 
     it("agrees when a tenant pins the appearance, which is a class and not an attribute", () => {
@@ -212,11 +215,11 @@ describe("themeScript ↔ KanzoThemeProvider agreement", () => {
 
     it("ignores a policy naming a value the declaration does not offer", () => {
       // A policy is authored upstream, against a version of this package that may have shipped a
-      // sixth radius. Both sides gate it against the declared options and fall through, rather than
-      // writing an attribute no selector matches.
-      const { script, provider } = bothSides({}, false, { theme: { radius: { pinned: "xxl" } } });
+      // fourth density. Both sides gate it against the declared options and fall through, rather
+      // than writing an attribute no selector matches.
+      const { script, provider } = bothSides({}, false, { theme: { density: { default: "huge" } } });
       expect(script).toEqual(provider);
-      expect(script.attrs["data-radius"]).toBeUndefined();
+      expect(script.attrs["data-font-size"]).toBeUndefined();
     });
   });
 
@@ -262,7 +265,7 @@ describe("themeScript ↔ KanzoThemeProvider agreement", () => {
 
     for (const [seed, osDark, want] of [
       [{ prefs: { themeByAppearance: {} } }, false, "kanzo"],
-      [{ prefs: { radius: "lg" } }, true, "kanzo"],
+      [{ prefs: { density: "compact" } }, true, "kanzo-dark"],
       [{}, false, "kanzo"],
     ] as const) {
       const { script, provider } = bothSides(seed, osDark);
@@ -300,8 +303,7 @@ describe("themeScript source", () => {
     // compiled palette document carries would never apply again.
     expect(source).not.toContain("colorScheme");
     expect(source).not.toMatch(/setProperty\(\s*['"]color-scheme/);
-    // …and the OS is never asked.
-    expect(source).not.toContain("prefers-color-scheme");
+    // The OS is asked for the starting side, and only through `matchMedia`, never written back.
   });
 
   it("inlines the real axis table, not a hand-written copy", () => {

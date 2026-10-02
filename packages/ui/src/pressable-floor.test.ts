@@ -59,7 +59,8 @@ const SPACING_REM = 0.25;
 const BAR_PX = 24;
 
 const tightestRootPx = Math.min(
-  ...Object.values(themeData.densities).map((value) => Number.parseFloat(value)),
+  // Percentages of the browser's size, graded at its 16px default.
+  ...Object.values(themeData.densities).map((value) => (Number.parseFloat(value) / 100) * 16),
 );
 
 const toPx = (units: number) => units * SPACING_REM * tightestRootPx;

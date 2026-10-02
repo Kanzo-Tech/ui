@@ -7,22 +7,16 @@ import { PaletteIcon, XIcon } from "lucide-react";
 // Via the theme package's JS entry, not its raw `.json` subpath: a direct JSON subpath import
 // needs `with { type: "json" }` at runtime, and Rollup strips that attribute when bundling.
 import {
-  CORE_PREFS,
+  CORE_NAMESPACE,
   prefBoolean,
   prefNumber,
   prefOptions,
   themeData,
-  type CorePrefKey,
-  type KanzoRadius,
   type PrefOption,
   type PrefSources,
   type SectionPrefDecl,
 } from "@kanzo-tech/theme";
-import {
-  useKanzoTheme,
-  type FontOption,
-  type ThemeContextValue,
-} from "../theme/KanzoThemeProvider.js";
+import { useKanzoTheme, type ThemeContextValue } from "../theme/KanzoThemeProvider.js";
 import { cn } from "../lib/cn.js";
 import { Button } from "../simples/button.js";
 import { Field, FieldLabel, FieldLegend, FieldSet } from "../simples/field.js";
@@ -35,57 +29,32 @@ import {
 } from "../simples/dialog.js";
 import { RadioGroup as ArkRadioGroup } from "@ark-ui/react/radio-group";
 import { RadioGroup, RadioGroupCard } from "../simples/radio-group.js";
-import { ThemePicker } from "./ThemePicker.js";
+import { ThemePicker, type ThemePickerCopy } from "./ThemePicker.js";
 import { Slider, SliderLabel } from "../simples/slider.js";
 import { Switch } from "../simples/switch.js";
 
 /**
- * Preferences — a live theming selector (composite) for PRODUCT settings. A non-modal drawer
- * (metadata-form's UX) that drives {@link useKanzoTheme}, which writes `data-*` attributes to
- * `<html>` and toggles `.dark`, so every component re-skins with no changes. The default panel is
- * the canonical product set:
+ * Preferences — every preference a person may change, and nothing a theme owns.
  *
- *   <PreferencesRoot>
- *     <PreferencesTrigger />
- *     <PreferencesPanel>
- *       <ThemePicker /> <PreferencesDensity /> <PreferencesRadius />
- *       <PreferencesFont /> <PreferencesMonoFont />
- *     </PreferencesPanel>
- *   </PreferencesRoot>
+ * What is offered is the declaration's: `CORE_PREFS` lists the side, the theme worn on each side and
+ * density, and an installed package contributes its own section. {@link PreferencesSections} draws all
+ * of them, the panel draws that, and there is no per-axis export — so a host cannot mount a control
+ * for a value the theme owns, because none exists. Radius and the faces are authored in the theme.
+ * See `/docs/design/preferences`.
  *
- * or the all-in-one <Preferences />. Those five sections ARE the default panel body, plus a footer
- * of Reset · Done. Open with `t`, close with Escape.
+ *   <Preferences />                          — a floating trigger and the drawer
+ *   <PreferencesSections />                  — the same sections inline, on a settings page
+ *   <PreferencesSections namespace="theme" /> — the core's alone
  *
- * **No colour is AUTHORED here.** A tenant's identity is a palette DOCUMENT — derived and measured
- * once at onboarding, compiled to one stylesheet the server inlines — not something a user picks a
- * hue at a time. Palette, accent, base, chart scheme and the "Copy CSS" export all left with it;
- * what the export did belongs on the onboarding surface, which has a document to emit.
+ * **What a tenant pinned or withheld is not drawn at all**, because a control the chain will ignore
+ * is a control that visibly does nothing.
  *
- * The theme is not that coming back. {@link ThemePicker} chooses among the themes the TENANT
- * published — a light theme and a dark theme, GitHub's model — and it is also the one appearance
- * control: its *Light · Dark* segment picks the side. There is no toggle in the header and no
- * second control for either.
- *
- * **What a tenant pinned or withheld is not drawn at all.** Every section asks `corePrefs[key]`
- * whether its axis is still offered, because a control the chain will ignore is a control that
- * visibly does nothing.
- *
- * **One renderer draws every preference**, the core's axes and a contributed section's alike:
- * `PrefControl` switches on `kind` and nothing else. Two sections are left, each because its
- * CONTROL differs rather than its data — `RadiusSection` is a slider over an ordered scale, and
- * the theme is {@link ThemePicker}, which draws each theme as a live miniature. The three specimens a
- * generic control cannot draw are a lookup keyed by axis, not three components.
+ * **One renderer draws every preference**, the core's and a contributed section's alike:
+ * `PrefControl` switches on `kind` and nothing else. The theme is the one control it cannot draw —
+ * two cards, each a live miniature of a theme — so the side and the theme per side are drawn by
+ * {@link ThemePicker}, which is internal to this module.
  */
 
-// Off the declaration, which is generated from the same table `themes.css` is emitted from. This
-// was typed here — beside a `themeData` import that already carried it — and a hand-copy disagrees
-// with the CSS the moment the generator changes. `?? []` is unreachable for a core axis (its
-// options are a literal list, never a source), and is how `prefOptions` says so in the type.
-//
-// It survives the collapse into one renderer because the radius control is a SLIDER and needs the
-// steps in order, as an array it can index. Every other axis reads its options off the declaration
-// at the point of drawing.
-const RADII = (prefOptions(CORE_PREFS.radius) ?? []).map((o) => o.value as KanzoRadius);
 // ── Root: Ark Dialog (non-modal, live-preview) + hotkey ──────────────────────
 export interface PreferencesRootProps {
   children: React.ReactNode;
@@ -179,15 +148,21 @@ function PreferencesTrigger({ className }: { className?: string }) {
 }
 
 // ── Panel: non-modal drawer pinned top-right (portaled Ark Dialog content) ────
+export interface PreferencesPanelProps {
+  /** Replaces the default body — every offered preference — with your own sections. */
+  children?: React.ReactNode;
+  title?: string;
+  hint?: string;
+  /** The words the default body draws. */
+  copy?: Partial<PreferencesCopy>;
+}
+
 function PreferencesPanel({
   children,
   title = "Preferences",
   hint = "Applied live · saved to this browser.",
-}: {
-  children?: React.ReactNode;
-  title?: string;
-  hint?: string;
-}) {
+  copy,
+}: PreferencesPanelProps) {
   return (
     <Portal>
       <ArkDialog.Positioner className="pointer-events-none fixed inset-0 z-50 flex items-start justify-end p-4">
@@ -240,20 +215,7 @@ function PreferencesPanel({
             className="flex flex-1 flex-col gap-6 overflow-y-auto px-5 pb-5 [&>*]:shrink-0"
             onSubmit={(e) => e.preventDefault()}
           >
-            {children ?? (
-              <>
-                <ThemeSection />
-                <DensitySection />
-                <RadiusSection />
-                <FontSection />
-                <MonoFontSection />
-                {/* Last, and in the same visual language as the five above. A package that owns a
-                    user-facing choice contributes it here rather than building a settings surface
-                    of its own beside this one — which is the whole difference between one product
-                    and several sharing a window. */}
-                <ContributedSections />
-              </>
-            )}
+            {children ?? <PreferencesSections copy={copy} />}
           </form>
 
           {/* Footer — canonical Shark actions bar: top separator + muted surface. */}
@@ -351,13 +313,13 @@ function PrefFieldSet({ label, children }: { label: React.ReactNode; children: R
  * THEME — the panel's heading over {@link ThemePicker}, which is the one control for the theme and
  * the appearance alike. It draws nothing where the tenant offers neither.
  */
-function ThemeSection() {
+function ThemeSection({ copy }: { copy?: Partial<PreferencesCopy> }) {
   const { corePrefs } = useKanzoTheme();
   if (corePrefs.themeByAppearance?.offered === false && corePrefs.appearance?.offered === false) return null;
   return (
     <div className="flex flex-col gap-2">
-      <span className={PREF_HEADING}>Theme</span>
-      <ThemePicker />
+      <span className={PREF_HEADING}>{copy?.theme ?? "Theme"}</span>
+      <ThemePicker copy={copy} />
     </div>
   );
 }
@@ -365,10 +327,8 @@ function ThemeSection() {
 /**
  * One declared preference, drawn — the switch on `kind`, in one place.
  *
- * **It draws the core's axes and a contributed section's alike**, which is the point: `Font`,
- * `Mono font` and `Density` were three components that differed only in which specimen they put on
- * a card, and a fourth surface rendering a contributed group had to re-decide what a `range` looks
- * like. The three arms are the primitives the panel already used: `choice` is a radio list,
+ * **It draws the core's preferences and a contributed section's alike**, so no surface re-decides
+ * what a `range` looks like. The three arms are the primitives the panel already used: `choice` is a radio list,
  * `toggle` is `Switch`, `range` is `Slider`.
  *
  * A value is a string in storage for all three — see `SectionPrefDecl` — so each arm parses on the
@@ -377,8 +337,8 @@ function ThemeSection() {
  *
  * `specimen` is the escape hatch, and it is the only one: a generic control cannot draw a typeface
  * in its own face or a size at its real size. What it may not do is change the CONTROL — a
- * declaration that needs a different one is a section of its own, and there are two of those left
- * ({@link RadiusSection}, {@link ThemeSection}), each saying why in its own comment.
+ * declaration that needs a different one is a section of its own, and there is one of those left,
+ * {@link ThemeSection}.
  */
 function PrefControl({
   name,
@@ -403,8 +363,8 @@ function PrefControl({
   if (decl.kind === "toggle") {
     // `Field` and nothing else, because Ark's Switch **does** read the ambient field context — its
     // hidden input comes out carrying `aria-labelledby="field::…::label"`. That is the opposite of
-    // `useSlider`, which reads none, and the difference is why `RadiusSection` needs the machine's
-    // own label part and this does not. An `aria-label` here was tried and is exactly the
+    // `useSlider`, which reads none, and the difference is why a `range` needs the machine's own
+    // label part and this does not. An `aria-label` here was tried and is exactly the
     // duplication this panel keeps removing: it lands on the `<label>` root, which has no role, so
     // it names nothing and hides that the wiring was already correct.
     //
@@ -422,7 +382,7 @@ function PrefControl({
 
   if (decl.kind === "range") {
     // `SliderLabel` is the machine's own label part — zag points every thumb's `aria-labelledby` at
-    // it — so the visible label IS the name, the way `RadiusSection` does it.
+    // it — so the visible label IS the name.
     return (
       <Slider
         max={decl.max}
@@ -476,19 +436,20 @@ function PrefControl({
 }
 
 /**
- * Whatever the packages this host installed contribute — one group per declared preference.
+ * Every preference this host offers: the core's first — the theme, then density — and then whatever
+ * the packages it installed contribute, one group per declared preference.
  *
  * **Nothing here names a package.** The host registers manifests on the provider, the provider
  * resolves them, and this renders what it is handed; `@kanzo-tech/ui` gains no reference to
  * `@kanzo-tech/graph` and a host that never installed it passes nothing and draws nothing.
  *
- * Three things it declines to draw, each for a reason that belongs to the section rather than to the
- * panel: a preference a tenant **pinned** or **withheld** (`offered` is false, and the two are the
- * same instruction here for different reasons upstream), and a namespace whose manifest declares
- * only tokens. That last one is filtered in the provider, so an empty legend cannot reach the DOM.
+ * **The core is a namespace like any other**, `theme` ({@link CORE_NAMESPACE}), in the order its
+ * declaration lists it. Its one exception is that `appearance` and `themeByAppearance` are one
+ * control — the theme picker — drawn once, at whichever of the two comes first.
  *
- * A contributed preference gets `RadioGroupCard` and not something new, because the choice it
- * expresses is the one `Theme` and `Density` already express — pick one of these, they have names.
+ * Two things it declines to draw: a preference a tenant **pinned** or **withheld** (`offered` is
+ * false), and a namespace whose manifest declares only tokens — filtered in the provider, so an
+ * empty legend cannot reach the DOM.
  */
 export interface PreferencesSectionsProps {
   /**
@@ -501,8 +462,9 @@ export interface PreferencesSectionsProps {
    * graph's appearance in React state, a second store for a preference the provider was already
    * resolving.
    *
-   * The namespace is the section's own — `"graph"` — and an unknown one draws nothing rather than
-   * throwing: a host that removed an optional package should lose a control, not a page.
+   * The namespace is the section's own — `"graph"`, or `"theme"` for the core — and an unknown one
+   * draws nothing rather than throwing: a host that removed an optional package should lose a
+   * control, not a page.
    */
   namespace?: string;
   /**
@@ -514,31 +476,30 @@ export interface PreferencesSectionsProps {
    * built to end, so a selection that stops at the namespace stops one step short.
    *
    * Order is the caller's here, where a section's own order is the manifest's. That is the same
-   * split `ThemePicker` already makes: what to offer belongs to whoever declared it, how to
-   * arrange a page belongs to the page. A name nothing declares draws nothing.
+   * split the provider's `themes` already makes: what to offer belongs to whoever declared it, how
+   * to arrange a page belongs to the page. A name nothing declares draws nothing. For the core,
+   * `"appearance"` and `"themeByAppearance"` both name the theme picker.
    */
   only?: readonly string[];
+  /** The words the core's sections draw. A contributed section's words are its manifest's. */
+  copy?: Partial<PreferencesCopy>;
 }
 
-function ContributedSections({ namespace, only }: PreferencesSectionsProps = {}) {
-  const { sectionPrefs, setSectionPref, themes } = useKanzoTheme();
+/** Every word the core's sections author. The theme labels are the tenant's and are never reworded. */
+export interface PreferencesCopy extends ThemePickerCopy {
+  /** The heading over the theme picker. */
+  theme: string;
+}
 
-  // The one list only a tenant can write, in the shape a declaration names it by. Built here and
-  // handed down rather than read inside the control, so the same control renders under a test that
-  // has no provider.
-  const sources: PrefSources = React.useMemo(
-    () => ({ themes: themes.map(({ label, value }) => ({ label, value })) }),
-    [themes],
-  );
+/** The two declared preferences the theme picker draws as one control. */
+const PICKER = new Set(["appearance", "themeByAppearance"]);
 
-  const drawn = namespace
-    ? Object.entries(sectionPrefs).filter(([name]) => name === namespace)
-    : Object.entries(sectionPrefs);
+function PreferencesSections({ namespace, only, copy }: PreferencesSectionsProps = {}) {
+  const theme = useKanzoTheme();
+  const { corePrefs, sectionPrefs, setSectionPref, sources } = theme;
 
-  // The caller's order when it named the set, the manifest's when it did not. The entry type is
-  // read off the context rather than re-declared: it is `ResolvedPref & { decl }`, and a second
-  // spelling of it here would be one more thing to keep in step.
   type Entry = ThemeContextValue["sectionPrefs"][string][string];
+  // The caller's order when it named the set, the declaration's when it did not.
   const chosen = (prefs: Record<string, Entry>): [string, Entry][] =>
     only
       ? only.flatMap((key) => {
@@ -547,135 +508,78 @@ function ContributedSections({ namespace, only }: PreferencesSectionsProps = {})
         })
       : Object.entries(prefs);
 
+  let picker = false;
+  const core = chosen(corePrefs).map(([key, pref]) => {
+    if (PICKER.has(key)) {
+      if (picker) return null;
+      picker = true;
+      return <ThemeSection copy={copy} key="theme" />;
+    }
+    if (!pref.offered) return null;
+    const specimen = SPECIMENS[key];
+    return (
+      <PrefControl
+        key={key}
+        name={key}
+        onChange={(next) => theme.set({ [key]: next })}
+        pref={pref}
+        sources={sources}
+        {...(specimen ? { specimen } : {})}
+      />
+    );
+  });
+
+  const contributed = Object.entries(sectionPrefs)
+    .filter(([name]) => !namespace || name === namespace)
+    .map(([name, prefs]) =>
+      chosen(prefs).map(([key, pref]) =>
+        pref.offered ? (
+          <PrefControl
+            key={`${name}.${key}`}
+            name={key}
+            onChange={(next) => setSectionPref(name, { [key]: next })}
+            pref={pref}
+            sources={sources}
+          />
+        ) : null,
+      ),
+    );
+
   return (
     <>
-      {drawn.map(([name, prefs]) =>
-        chosen(prefs).map(([key, pref]) =>
-          pref.offered ? (
-            <PrefControl
-              key={`${name}.${key}`}
-              name={key}
-              onChange={(next) => setSectionPref(name, { [key]: next })}
-              pref={pref}
-              sources={sources}
-            />
-          ) : null,
-        ),
-      )}
+      {!namespace || namespace === CORE_NAMESPACE ? core : null}
+      {contributed}
     </>
   );
 }
 
-// The one section where neither container above applies. A slider is a single control, so it is not
-// a `FieldSet`; and Ark's `useSlider` reads no ambient context at all — not Field, not Fieldset — so
-// a `FieldLabel` could not reach it either, which is why "Radius" was written twice. `SliderLabel`
-// is the machine's own label part: zag points every thumb's `aria-labelledby` at it by default, so
-// the visible label IS the name and there is nothing to repeat.
 /**
- * Whether to draw a control for a core axis at all.
+ * The specimens a generic control cannot draw, keyed by preference — the escape hatch, in one place.
  *
- * A tenant may PIN one — their product is square, and nobody chooses otherwise — or WITHHOLD it,
- * and both mean the same thing to a surface. The resolution already ignores a stored value in
- * either case, so a control drawn here would be one that visibly does nothing.
+ * Density is drawn at its real size: the card resets to the browser's own size (`medium`) and the
+ * specimen takes the step's percentage of it, which is exactly what `<html>` does with it.
  */
-const useOffered = (key: string) => useKanzoTheme().corePrefs[key]?.offered !== false;
-
-function RadiusSection() {
-  const { radius, set } = useKanzoTheme();
-  const offered = useOffered("radius");
-  const index = Math.max(0, RADII.indexOf(radius));
-  if (!offered) return null;
-  return (
-    <Slider
-      min={0}
-      max={RADII.length - 1}
-      step={1}
-      value={[index]}
-      onValueChange={(d) => set({ radius: RADII[d.value[0] ?? 3] ?? "md" })}
-      showMarkers
-      markerLabels={[...RADII]}
-    >
-      <SliderLabel className={PREF_HEADING}>Radius</SliderLabel>
-    </Slider>
-  );
-}
-
-/**
- * The specimens a generic control cannot draw, keyed by axis — the escape hatch, in one place.
- *
- * Three, and they replaced three components that differed in nothing else: `FontSection`,
- * `MonoFontSection` and `DensitySection` each wrapped the same radio list around the same card
- * around a different `<span>`. What is left is the span.
- *
- * They take the theme because two of them do: a host may replace `fonts` with its own stacks, and a
- * specimen showing a face the page does not use is worse than no specimen.
- */
-type Specimen = (option: PrefOption, theme: ThemeContextValue) => React.ReactNode;
-
-const face = (options: FontOption[], value: string) =>
-  options.find((option) => option.value === value)?.preview;
-
-const SPECIMENS: Record<string, Specimen> = {
-  font: (option, { fonts }) => (
-    <span className="text-xl leading-none text-foreground" style={{ fontFamily: face(fonts, option.value) }}>
-      Ag
-    </span>
-  ),
-  monoFont: (option, { monoFonts }) => (
-    <span
-      className="text-xl leading-none text-foreground"
-      style={{ fontFamily: face(monoFonts, option.value) }}
-    >
-      Ag
-    </span>
-  ),
-  // The root font-size everything scales from, drawn at its real size — `em` inside a card whose
-  // own `font-size` is set is a true preview rather than a description of one. The pixel values are
-  // the generated ones: a hand-copy here would disagree with the CSS the moment the generator moves.
+const SPECIMENS: Record<string, (option: PrefOption) => React.ReactNode> = {
   density: (option) => (
-    <span
-      className="flex items-center gap-1 leading-none text-foreground"
-      style={{ fontSize: themeData.densities[option.value as keyof typeof themeData.densities] }}
-    >
-      <span className="rounded-[0.25em] bg-primary px-[0.4em] py-[0.15em] text-[0.7em] font-medium text-primary-foreground">
-        Aa
+    <span className="leading-none" style={{ fontSize: "medium" }}>
+      <span
+        className="flex items-center gap-1 text-foreground"
+        style={{ fontSize: themeData.densities[option.value as keyof typeof themeData.densities] }}
+      >
+        <span className="rounded-[0.25em] bg-primary px-[0.4em] py-[0.15em] text-[0.7em] font-medium text-primary-foreground">
+          Aa
+        </span>
+        <span className="text-[0.8em]">abc</span>
       </span>
-      <span className="text-[0.8em]">abc</span>
     </span>
   ),
 };
 
-/**
- * One core axis, drawn by the one renderer.
- *
- * Everything that used to differ between the four is data now: the name, the options and the kind
- * are the declaration's, the specimen is a lookup, and whether to draw at all is the chain's
- * answer. What a host sees is unchanged — this is the same markup those components
- * emitted, which `Preferences.test.tsx` checks by rendering rather than by reading the source.
- */
-function CoreSection({ axis }: { axis: CorePrefKey }) {
-  const theme = useKanzoTheme();
-  const pref = theme.corePrefs[axis];
-  if (!pref?.offered) return null;
-  const specimen = SPECIMENS[axis];
-  return (
-    <PrefControl
-      name={axis}
-      onChange={(next) => theme.set({ [axis]: next })}
-      pref={pref}
-      sources={theme.sources}
-      {...(specimen ? { specimen: (option: PrefOption) => specimen(option, theme) } : {})}
-    />
-  );
-}
-
-const FontSection = () => <CoreSection axis="font" />;
-const MonoFontSection = () => <CoreSection axis="monoFont" />;
-const DensitySection = () => <CoreSection axis="density" />;
-
 export interface PreferencesProps extends Omit<PreferencesRootProps, "children"> {
   /** Restyle or reposition the floating trigger (it is `fixed bottom-4 end-4` by default). */
   triggerClassName?: string;
+  /** The words the panel's sections draw. */
+  copy?: Partial<PreferencesCopy>;
 }
 
 /**
@@ -690,11 +594,11 @@ export interface PreferencesProps extends Omit<PreferencesRootProps, "children">
  * "Element type is invalid". It was a broken API kept beside the working one — and it was the
  * single counter-example to "no component exports dot-notation".
  */
-export function Preferences({ triggerClassName, ...rootProps }: PreferencesProps = {}) {
+export function Preferences({ triggerClassName, copy, ...rootProps }: PreferencesProps = {}) {
   return (
     <PreferencesRoot {...rootProps}>
       <PreferencesTrigger className={triggerClassName} />
-      <PreferencesPanel />
+      <PreferencesPanel copy={copy} />
     </PreferencesRoot>
   );
 }
@@ -710,13 +614,5 @@ export {
   PreferencesPanel,
   PrefField as PreferencesField,
   PrefFieldSet as PreferencesFieldSet,
-  // Flat like every other section, and for the reason the others are: a host composing its own
-  // panel with `children` replaces the canonical set, and without this it would silently drop every
-  // choice its installed packages contribute — which is the several-products-in-one-window failure
-  // the mechanism exists to remove, reintroduced by the escape hatch.
-  ContributedSections as PreferencesSections,
-  RadiusSection as PreferencesRadius,
-  FontSection as PreferencesFont,
-  MonoFontSection as PreferencesMonoFont,
-  DensitySection as PreferencesDensity,
+  PreferencesSections,
 };
