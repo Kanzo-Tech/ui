@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import type { Coordinator, MosaicClient } from "@uwdata/mosaic-core";
+import { QueryError, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChartBarY } from "./chart-marks.js";
 import { ChartRoot } from "./chart-root.js";
@@ -8,7 +8,7 @@ import { MosaicProvider } from "./mosaic-provider.js";
 /**
  * The plot is built here, unlike in `chart-root.test.tsx`: the container is given a width, and the
  * coordinator answers every vgplot mark it is handed with a failure, as `Coordinator.updateClient`
- * does when DuckDB refuses the query.
+ * does when DuckDB refuses the query: wrapped in a `QueryError`, which the host never sees.
  */
 const failure = Object.assign(new Error("Catalog Error: Table with name telemetry does not exist"), {
   code: "x/y",
@@ -17,7 +17,7 @@ const failure = Object.assign(new Error("Catalog Error: Table with name telemetr
 const coordinator = {
   clear() {},
   connect(client: MosaicClient) {
-    queueMicrotask(() => client.queryError(failure));
+    queueMicrotask(() => client.queryError(new QueryError(failure, "SELECT * FROM telemetry")));
   },
   disconnect() {},
 } as unknown as Coordinator;

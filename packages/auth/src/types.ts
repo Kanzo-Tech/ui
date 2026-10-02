@@ -113,7 +113,11 @@ export type AuthErrorCode =
    * something other than a session or a 401. `data.status` is that answer's status.
    */
   | "session/unavailable"
-  /** The BFF's session endpoint did not answer within `data.after` milliseconds. */
+  /**
+   * The session did not answer within `data.after` milliseconds: in the browser, the BFF's session
+   * endpoint; on the server, a `ticketStore`'s adapter — reported there as the cause of a
+   * `session/unavailable`.
+   */
   | "session/silent"
   /** Signed in, but holds no membership of the organization being addressed. */
   | "organization/not-a-member"

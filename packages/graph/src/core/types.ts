@@ -34,10 +34,12 @@ export type Tool = "rect" | "lasso" | null;
 export type Motion = "running" | "settled" | "paused";
 
 /**
- * Where a selection came from. Open-ended on purpose: a host with its own panels adds its own
- * sources, and the canvas only ever uses this to label the chip in the corner.
+ * Where a selection came from: one of the canvas's own gestures, or `"external"` — a selection the
+ * host set through `select`, from a panel of its own. An external selection's identity is its
+ * `label`, which is how `GraphSelect` knows the live selection is the one it made. The graph names
+ * no host's panels here: a source per panel would be a host's vocabulary in the renderer's type.
  */
-export type SelectionSource = "marquee" | "lasso" | "node" | "order" | "ask";
+export type SelectionSource = "marquee" | "lasso" | "node" | "external";
 
 /**
  * The selection — one value, published once.

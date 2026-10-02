@@ -1,4 +1,11 @@
-import { MosaicClient, clausePoints, collectColumns, type FilterExpr, type Selection } from "@kanzo-tech/mosaic";
+import {
+  MosaicClient,
+  clausePoints,
+  collectColumns,
+  queryFailure,
+  type FilterExpr,
+  type Selection,
+} from "@kanzo-tech/mosaic";
 import { GraphError } from "./error";
 import { ident, relation, type Answer, type Structure } from "./source";
 
@@ -73,7 +80,7 @@ export class GraphClient extends MosaicClient {
   }
 
   override queryError(error: Error): this {
-    this.#fail(error);
+    this.#fail(queryFailure(error));
     return this;
   }
 }

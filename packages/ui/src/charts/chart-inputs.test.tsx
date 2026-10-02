@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { clausePoint, Selection, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
+import { clausePoint, QueryError, Selection, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
 import { asTableRef } from "@uwdata/mosaic-sql";
 import { ChartFilter, ChartSearch, ChartSlider } from "./chart-inputs.js";
 import { MosaicProvider } from "./mosaic-provider.js";
@@ -49,12 +49,13 @@ function stubCoordinator(answer: (sql: string) => Row[]) {
       if (query == null) return Promise.resolve();
       const sql = String(query);
       queries.push(sql);
-      // As `Coordinator.updateClient` does: a rejected query goes to the client's `queryError`.
+      // As `Coordinator.updateClient` does: a rejected query goes to the client's `queryError`,
+      // wrapped in a `QueryError` holding it as `cause` — which the client unwraps for the host.
       return Promise.resolve()
         .then(() => answer(sql))
         .then(
           (rows) => client.queryResult(rows).update(),
-          (error: Error) => client.queryError(error),
+          (error: unknown) => client.queryError(new QueryError(error, sql)),
         );
     },
     clear() {},

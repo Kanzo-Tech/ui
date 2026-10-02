@@ -404,6 +404,31 @@ consumer; if it lands on inventing its own `<pre>` too, that is the second call 
 *Held by* `packages/ai/src/chat.tsx`, `ChatToolRenderers`; `packages/ai/src/tool.tsx`, `JsonTreeView`;
 `packages/ui/src/tailwind.css`, `.kanzo-prose`.
 
+## A failure is read by shape, and worded by the host
+
+[`Problem`](/docs/data-display/problem) is the one composite that reads a thrown value. It enters on
+two call sites that each wrote the reading by hand — keasy's error view, over `Diagnostic`'s parts,
+and the graph docs' failure overlay, a `code` lookup over an `Alert` — and it reads **a shape, not a
+class**: `code` in `area/kind`, `title`, `message`, `data`, `cause`, and `severity`, `help` and
+`related` where they are present. Every library here already throws that shape (`AuthError`,
+`GraphError`, `EngineError`, `AiError`, fossil's `FossilError`, keasy's `ApiError`), so importing
+none of them is what lets one component show all of them, and one more nobody has written yet.
+
+**The words are the host's, through one function.** `copy(code, data)` returns a title, a detail, a
+link and the page that explains the code, or nothing. A registry of codes inside the library would
+name products — the codes worth rewording are the host's and fossil's — and a provider would be a
+second way to pass what [`LanguagePicker`](/docs/forms/language-picker)'s `translations` already
+passes as a prop. A rewritten detail keeps the author's row one level down: the host may say it
+differently, never instead.
+
+**What would reverse it:** a thrown shape the library's own packages raise that this cannot read —
+a cause that is not `cause`, a code outside `area/kind` — which would mean the shape is not shared,
+and the reading belongs back with each host.
+
+*Held by* `packages/ui/src/composites/problem.test.tsx`, "takes the title, detail and link from copy,
+given the code and its data, and keeps the author's row below", "is named by its row, so six problems
+are not six buttons called Details".
+
 ## The structure view is `TreeView` until the data nests
 
 The library ships **no schema display**. A structure — a shape's fields, a relation's columns, a

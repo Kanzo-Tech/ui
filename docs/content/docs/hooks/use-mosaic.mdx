@@ -56,9 +56,8 @@ your own registers with `registerSelection`.
 
 The coordinator you handed `MosaicProvider`, for the work the client protocol does not cover — a
 fixed topology to draw, a schema, a one-off read that no brush should change. It is deliberately
-**outside** the crossfilter.
-
-<ComponentPreview componentName="use-mosaic" fileName="example-coordinator" />
+**outside** the crossfilter. A statement read once and drawn — a schema, a catalog — is
+[`useQueryRows`](/docs/hooks/use-query-rows), which suspends on it rather than wiring an effect.
 
 <Callout type="warn">
 **A number that should follow the brush does not belong here.** A widget that runs

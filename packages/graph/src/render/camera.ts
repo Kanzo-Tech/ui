@@ -1,4 +1,5 @@
 import type { Graph } from "@cosmos.gl/graph";
+import { GraphError } from "../core/error";
 
 export const FIT_DURATION = 420;
 const FIT_PADDING = 0.18;
@@ -13,6 +14,10 @@ export interface Camera {
   fit(): void;
   /** A layout started moving the points: the corners are history, and the camera follows. */
   run(): void;
+  /** cosmos.gl's device came up: the frame is taken again, at the canvas's size. */
+  ready(): void;
+  /** cosmos.gl was handed positions and rendered them: from now on a fit may read them back. */
+  drawn(): void;
   tick(): void;
   settle(): void;
   destroy(): void;
@@ -25,31 +30,51 @@ export interface Camera {
  * zoomed into a corner — and while a layout runs it follows the moving points and frames them when
  * they settle: Cosmograph's fit-on-settle, kept up. All of it stops the moment the reader zooms or
  * pans, and comes back with Fit or the next run.
+ *
+ * **A fit without corners reads the points back from the GPU** (`fitView` → `getPointPositions` →
+ * `readPixels` of cosmos.gl's position framebuffer), so it waits until there is one to read: the
+ * device is up and a render has uploaded positions. If the read throws anyway, cosmos.gl holds no
+ * positions: that is `graph/no-positions`, reported once through `fail`, and the camera reads no more
+ * — rather than the same exception on every tick of a layout over a blank canvas.
  */
-export function createCamera(graph: Graph, host: HTMLElement): { camera: Camera; taken: (userDriven: boolean) => void } {
+export function createCamera(
+  graph: Graph,
+  host: HTMLElement,
+  fail: (error: GraphError) => void,
+): { camera: Camera; taken: (userDriven: boolean) => void } {
   let corners: readonly number[] | null = null;
   let framing = false;
   let following = false;
   let followed = 0;
   let pending = 0;
+  let drawn = false;
+  let broken = false;
+  let gone = false;
 
+  const fitPoints = (duration: number) => {
+    if (!drawn || broken || !graph.isReady) return;
+    try {
+      graph.fitView(duration, FIT_PADDING);
+    } catch (error) {
+      broken = true;
+      following = false;
+      fail(new GraphError("graph/no-positions", "cosmos.gl holds no positions on the GPU to draw or frame.", {}, { cause: error }));
+    }
+  };
   const fitNow = (duration: number) => {
     if (corners) graph.fitViewByPointPositions([...corners], duration, FIT_PADDING);
-    else graph.fitView(duration, FIT_PADDING);
+    else fitPoints(duration);
   };
   const reframe = () => {
     pending = 0;
     if (framing && !following) fitNow(0);
   };
+  const later = () => {
+    if (!pending && !gone) pending = requestAnimationFrame(reframe);
+  };
   // After cosmos.gl's own observer has resized the canvas, so the frame is taken at the new size.
-  const resizes =
-    typeof ResizeObserver === "undefined"
-      ? null
-      : new ResizeObserver(() => {
-          if (!pending) pending = requestAnimationFrame(reframe);
-        });
+  const resizes = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(later);
   resizes?.observe(host);
-  void graph.ready.then(reframe, () => {});
 
   const camera: Camera = {
     frame(next) {
@@ -66,17 +91,23 @@ export function createCamera(graph: Graph, host: HTMLElement): { camera: Camera;
       following = true;
       followed = performance.now();
     },
+    // A frame later: the commands cosmos.gl queued for its device run in the same turn as this.
+    ready: later,
+    drawn() {
+      drawn = true;
+    },
     tick() {
       const now = performance.now();
       if (!following || now - followed < FOLLOW_EVERY) return;
       followed = now;
-      graph.fitView(FOLLOW_DURATION, FIT_PADDING);
+      fitPoints(FOLLOW_DURATION);
     },
     settle() {
-      if (following) graph.fitView(FIT_DURATION, FIT_PADDING);
+      if (following) fitPoints(FIT_DURATION);
       following = false;
     },
     destroy() {
+      gone = true;
       resizes?.disconnect();
       if (pending) cancelAnimationFrame(pending);
     },

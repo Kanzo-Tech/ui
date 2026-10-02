@@ -108,8 +108,9 @@ export async function attach(): Promise<Attached> {
         conn.query(sql);
         return undefined;
       }
-      const table = decodeIPC(conn.useUnsafe((bindings, id) => bindings.runQuery(id, sql)));
-      return type === "json" ? table.toArray() : table;
+      // A connector answers Arrow as IPC bytes, which mosaic-core decodes itself (from 0.30).
+      const bytes = conn.useUnsafe((bindings, id) => bindings.runQuery(id, sql));
+      return type === "json" ? decodeIPC(bytes).toArray() : bytes;
     }
   }
   const coordinator = new Coordinator(connector as never, { logger: null });

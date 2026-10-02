@@ -227,13 +227,14 @@ import { AuthError, type AuthErrorCode } from "@kanzo-tech/auth";
 | `callback/nonce-mismatch` | The ID token's `nonce` is not the one that was sent — a replay |
 | `token/exchange-failed` | The token endpoint refused the code or the refresh token, or returned no ID token |
 | `session/unavailable` | The session could not be read: the store failed, or `/session` answered neither a session nor a 401. `data.status` is that answer |
-| `session/silent` | `/session` or `/refresh` did not answer within 30 s. `data.after` is `30000` |
+| `session/silent` | `/session` or `/refresh` did not answer within 30 s — or, on the server, a `ticketStore` adapter did not, reported as the cause of a `session/unavailable`. `data.after` is `30000` |
 | `idp/unreachable` | The IdP could not be reached, or answered with something that is not OAuth — a 5xx, a proxy's page |
 | `idp/silent` | The IdP did not answer within 30 s. `data.after` is `30000` |
 
 Every wait this package makes on another party ends in 30 s: `bffAuth`'s requests to `/session`
-and `/refresh`, every request `oidc-client-ts` makes behind `browserAuth`, and every request
-`openid-client` makes behind `./server` — the last two through each library's own timeout. What it
+and `/refresh`, every call `ticketStore` makes on its adapter, every request `oidc-client-ts` makes
+behind `browserAuth`, and every request `openid-client` makes behind `./server` — the last two
+through each library's own timeout. What it
 threw is kept as the `cause`.
 
 A failed silent renewal under `browserAuth` is *no session* only when the IdP says so —

@@ -354,7 +354,11 @@ export function ChartFilter(props: ChartFilterProps) {
         : null,
     clause: (client, value) =>
       multiple
-        ? clausePoints([field as string], value?.map((entry) => [entry]), { source: client })
+        ? // Nothing ticked is no clause, not an empty one: from mosaic-core 0.30 an empty list is
+          // `FALSE`, a filter that drops every row, where 0.29 read it as a retraction.
+          clausePoints([field as string], value?.length ? value.map((entry) => [entry]) : undefined, {
+            source: client,
+          })
         : clausePoint(field as string, value?.[0], { source: client }),
     decode: (value) => (multiple ? (value as unknown[][]).map((tuple) => tuple[0]) : [value]),
   });

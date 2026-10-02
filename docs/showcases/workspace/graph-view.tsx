@@ -84,6 +84,7 @@ import {
   GraphLooks,
   GraphRoot,
   GraphSearch,
+  GraphSelect,
   useGraphContext,
   useGraphPrefs,
   useGraphState,
@@ -114,7 +115,6 @@ import { open } from "@fossil-lang/corpus";
 import { ARCHIVE_KINDS as KINDS } from "@/example/archive";
 import { HALLS, isoDay } from "@/example/world";
 import { ensure } from "./duck";
-import { Finding } from "./graph-finding";
 
 /**
  * The archive's graph, and the product panels around it.
@@ -797,11 +797,10 @@ function OrdersBody({ archive }: { archive: Archive }) {
             const clean = !pending && n === 0;
             return (
               <li className="flex items-stretch gap-1" key={order.id}>
-                <Finding
+                <GraphSelect
                   disabled={pending || clean}
                   label={`${order.target} ${order.constraint}`}
                   load={() => failingIds(order)}
-                  source="order"
                 >
                   <span className="flex items-center gap-2">
                     <span
@@ -831,7 +830,7 @@ function OrdersBody({ archive }: { archive: Archive }) {
                   <span className="mt-0.5 block truncate font-mono text-[11px]">
                     {order.constraint}
                   </span>
-                </Finding>
+                </GraphSelect>
                 <Show when={exact}>
                   <Button
                     aria-label={`Remove ${order.constraint}`}
@@ -978,7 +977,7 @@ export function GraphSettings() {
  * The split is deliberate and it is the only honest way to show this without a model: the
  * **language** is canned, the **answer** is not. The mock model matches a question to an intent and
  * calls `count` with it; `count` runs the intent's SQL predicate against the corpus, so the number
- * in the reply is a `count(*)`, and the tool's frame draws it as a `Finding` that publishes the
+ * in the reply is a `count(*)`, and the tool's frame draws it as a `GraphSelect` that publishes the
  * matching ids into the crossfilter. Nothing here pretends to have understood anything it did not.
  *
  * Everything around the model is the real path: `ToolLoopAgent`, `DirectChatTransport`, `useChat`,
@@ -1107,12 +1106,12 @@ function CountFinding(props: { archive: Archive; intent: Intent; found: number }
     return numbers(data, "id");
   };
   return (
-    <Finding disabled={found === 0} label={intent.question} load={matchingIds} source="ask">
+    <GraphSelect disabled={found === 0} label={intent.question} load={matchingIds}>
       <span className="flex items-baseline gap-2">
         <span className="flex-1 text-xs leading-relaxed">{intent.answer(found)}</span>
         <span className="shrink-0 font-medium text-xs tabular-nums">{found}</span>
       </span>
-    </Finding>
+    </GraphSelect>
   );
 }
 

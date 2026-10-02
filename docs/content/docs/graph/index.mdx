@@ -67,12 +67,13 @@ GraphRoot                  the state and the commands; renders no element
 │   └── GraphLegend        one row per category: glyph, name, how many are drawn
 ├── GraphCounts            "1.2K of 5K nodes drawn · 8K edges"
 ├── GraphSearch            find a vertex by its text and reveal it
+├── GraphSelect            a selection the host offers, as a toggle
 └── GraphInspector         the focused vertex's row
 GraphLooks                 the picture's preferences; needs the theme provider, not a root
 ```
 
 **Every part reads the root, not its parent.** `GraphCanvas`'s children are chrome positioned over
-the surface, but `GraphToolbar`, `GraphLegend`, `GraphCounts`, `GraphSearch` and `GraphInspector`
+the surface, but `GraphToolbar`, `GraphLegend`, `GraphCounts`, `GraphSearch`, `GraphSelect` and `GraphInspector`
 each read the root's context directly, so each can sit anywhere under it — over the canvas, in a
 dock, in a footer. `GraphLooks` is the exception the other way: it writes preferences, so it needs
 `GRAPH_SECTION` on the theme provider and no root at all.
@@ -176,6 +177,20 @@ reader types and no text is held in the page. Each match carries its category's 
 
 It is a `Combobox` and not `ChartSearch` because of what the control means: `ChartSearch` publishes
 a substring filter, which narrows the picture; picking is a value, which goes somewhere.
+
+### Select
+
+<ComponentPreview componentName="graph" fileName="example-select" hasMaxHeight />
+
+A selection the host offers, as a toggle — a rule and the vertices that break it, an answer and
+the vertices it counted. **`load` is called when the reader presses it**, never before, and what it
+answers is selected as an `"external"` selection named `label`; pressing it again clears it.
+Whatever is inside is the clickable body.
+
+**Pressed is derived from the live selection** — source `"external"` and the same `label` — and
+not stored beside it, so a lasso or a click elsewhere lets it go. `label` is therefore its identity:
+keep it distinct among a panel's controls. It is disabled while `load` runs, and a rejected `load`
+reaches the root's `onFailure` as thrown, leaving it unpressed.
 
 ### Inspector
 
@@ -291,12 +306,14 @@ index in cosmos.gl's buffers. An id from SQL — `SELECT dense_id FROM …` — 
 It receives every failure **as it was thrown**, and the graph's own are a `GraphError`. The root
 reports `status: "failed"` beside it, so a part can render the failed state without holding the
 error. A failed `open` is the host's own — above, fossil's coded `corpus/unreadable`, routed to the
-same handler.
+same handler and drawn by [`Problem`](/docs/data-display/problem), which reads the code off whatever
+was thrown and takes the host's words for it.
 
 | `GraphError` code | When |
 | --- | --- |
 | `graph/no-webgl` | No WebGL context, or no GPU device came up. `data.after` is set when the 10 s device deadline fired. |
 | `graph/context-lost` | The browser took the WebGL context back. |
+| `graph/no-positions` | The device came up but holds no positions for the points it was given, found when the camera read them back. `cause` is what the read threw. |
 | `graph/nothing-to-draw` | The attached corpus has no vertex. |
 | `graph/unfilterable` | A crossfilter clause naming columns no vertex table has. A table lacking a predicate's columns just stays unfiltered. |
 
@@ -416,6 +433,16 @@ Extends `React.ComponentProps<"p">`. `aria-busy` is set while the graph loads.
 | `size` | `ComboboxInput`'s `size` | `"sm"` |
 | `className` | `string` — on the input | — |
 
+### GraphSelect
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `load` | `() => Promise<readonly VertexId[]>` — called when pressed | required |
+| `label` | `string` — the corner's name for the selection, and its identity | required |
+
+Extends `React.ComponentProps<"button">` without `onClick` and `type`. `aria-pressed` follows the
+live selection; `disabled` is also set while `load` runs.
+
 ### GraphInspector
 
 | Prop | Type | Default |
@@ -474,7 +501,7 @@ The commands, stable for the root's life — `GraphCommands` plus the state's do
 | `reveal(vertex)` | Selects and focuses a vertex with its neighbours, and zooms to it. |
 | `frameSelection()` | Frames what is selected. |
 | `clear()` | Clears the selection and the focus. |
-| `select(vertices, source?, label?)` | Replaces the selection; `null` clears it. |
+| `select(vertices, source?, label?)` | Replaces the selection; `null` clears it. `source` defaults to `"external"`. |
 | `setFocus(vertex)` | Focuses a vertex, or none. |
 | `setTool(tool)` | Arms `"rect"`, `"lasso"`, or `null` for the reading posture. |
 | `subscribe(listener)` / `getState()` | The store, for a callback; a render uses `useGraphState`. |
@@ -491,7 +518,7 @@ What `useGraphState` selects from.
 | `total` | `number \| undefined` | Every vertex of the corpus, from `fossil_tables`. |
 | `drawn` | `Drawn \| null` | `vertices`, `edges`, `domain` and `tally` under the filter. |
 | `domain` | `readonly unknown[]` | The category domain before anything loads. |
-| `selection` | `Selection \| null` | `vertices`, `source` (a `SelectionSource`) and `label`. |
+| `selection` | `Selection \| null` | `vertices`, `source` (a `SelectionSource` — `"marquee" \| "lasso" \| "node"`, the canvas's gestures, or `"external"`, a host's `select`) and `label`. |
 | `focus` / `hovered` | `VertexId \| null` | The focused and the hovered vertex. |
 | `pinned` | `readonly VertexId[]` | The vertices a drag pinned. |
 | `tool` | `Tool` | The armed selection tool. |
@@ -501,7 +528,7 @@ What `useGraphState` selects from.
 ### Types
 
 `GraphCanvasProps`, `GraphLegendProps`, `GraphCountsProps`, `GraphToolbarProps`,
-`GraphInspectorProps`, `GraphSearchProps`, `GraphLooksProps`, `GraphRootProviderProps` and
+`GraphInspectorProps`, `GraphSearchProps`, `GraphSelectProps`, `GraphLooksProps`, `GraphRootProviderProps` and
 `ShapeGlyphProps` are the parts' props; `VertexDetail` — `vertex`, `table` and `fields` — is what the
 inspector's render prop receives. `Channels` (`fill`, `symbol`, `stroke`, `x`, `y`, `cluster`), `Look`, `LookPatch`,
 `LookPreset`, `Shape`, `Sim`, `Motion`, `Selection`, `SelectionSource`, `Tool`, `VertexId`,

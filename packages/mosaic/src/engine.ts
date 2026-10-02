@@ -1,5 +1,5 @@
 import { AsyncDuckDB, DuckDBDataProtocol, VoidLogger, selectBundle } from "@duckdb/duckdb-wasm";
-import { Coordinator, wasmConnector } from "@uwdata/mosaic-core";
+import { Coordinator, decodeIPC, wasmConnector } from "@uwdata/mosaic-core";
 
 /**
  * The page's one database: a DuckDB-WASM instance, the Mosaic `Coordinator` over it, and the file
@@ -34,11 +34,18 @@ export interface Engine {
    * One statement, answered in columns as DuckDB-WASM produced them — nothing turns them into
    * objects.
    *
-   * **It is the coordinator's**: one connection, one queue, for the charts, the graph and fossil's
-   * own statements — the secret, the attach, the views. A second connection beside it made every
-   * read pay twice and serialise against itself. An abort rejects the caller's wait with
-   * `signal.reason` at once; the statement, a short one, finishes in the queue. Nothing is cached:
-   * these are statements with effects.
+   * **It is the coordinator's connection**, for the charts, the graph and fossil's own statements —
+   * the secret, the attach, the views. A second connection beside it made every read pay twice and
+   * serialise against itself.
+   *
+   * **It is not the coordinator's queue.** The statement goes to the connector directly and is
+   * decoded as the coordinator decodes, because the queue batches every Arrow request behind
+   * `requestAnimationFrame` — the consolidation the charts want — and a hidden tab never fires one:
+   * fossil's attach waited forever there with no error, and a host's DDL sat behind chart batches.
+   * DuckDB-WASM still runs one statement at a time on the connection, and a caller awaits each, so a
+   * host's sequence keeps its order. An abort rejects the caller's wait with `signal.reason` at
+   * once; the statement, a short one, finishes. Nothing is cached: these are statements with
+   * effects. A failure is DuckDB's own error, unwrapped.
    */
   query(sql: string, options: { readonly signal: AbortSignal }): Promise<Columns>;
   /**
@@ -215,7 +222,11 @@ async function start(made: (duckdb: AsyncDuckDB) => void): Promise<Engine> {
 
   const query = (sql: string, { signal }: { readonly signal: AbortSignal }) => {
     if (signal.aborted) return Promise.reject(signal.reason as Error);
-    return abandon(coordinator.query(sql, { type: "arrow", cache: false }) as Promise<Columns>, signal);
+    // `decodeIPC`'s defaults are the coordinator's own: this engine sets no `ipc` options on it.
+    return abandon(
+      connector.query({ type: "arrow", sql }).then((bytes) => decodeIPC(bytes) as unknown as Columns),
+      signal,
+    );
   };
 
   return {

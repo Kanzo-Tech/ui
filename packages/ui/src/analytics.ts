@@ -93,6 +93,8 @@ export type { ChartStatProps } from "./charts/chart-stat.js";
 
 // For anything that is not a plot but must still follow the brush — a KPI, a readout, a table.
 export { useChartQuery, Query } from "./charts/use-chart-query.js";
+// A statement read once and suspended on — a catalog, a schema — outside the crossfilter.
+export { useQueryRows } from "./charts/use-query-rows.js";
 export type { ChartQueryOptions, ChartQueryResult, ChartQueryRow } from "./charts/use-chart-query.js";
 // What a selection holds, as chips that retract a clause where it was published.
 export { FilterChips, useClauses } from "./charts/filter-chips.js";
@@ -210,6 +212,9 @@ export type { SelectionClause, FilterExpr } from "@kanzo-tech/mosaic";
 // than checking it, and wrong the first time the query selects a string. Arrow only offers a typed
 // column when the type allows one, so the fallback is not a nicety.
 export { column, numbers } from "@kanzo-tech/mosaic";
+// And what a failed query threw: a client's `queryError` is handed mosaic-core's `QueryError`, the
+// original one level down, and a host keying on its `code` needs that original back.
+export { queryFailure } from "@kanzo-tech/mosaic";
 
 // The five preset charts (Histogram, BarChart, LineChart, ScatterPlot, BarSeriesChart) are gone —
 // they were five parallel hardcoded `vg.plot(...)` calls that could not be composed. Each one is

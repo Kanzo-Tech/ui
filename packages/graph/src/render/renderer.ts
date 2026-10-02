@@ -156,7 +156,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     fail(new GraphError("graph/no-webgl", "The renderer failed to start.", {}, { cause: error }));
     return null;
   }
-  const { camera, taken } = createCamera(graph, host);
+  const { camera, taken } = createCamera(graph, host, fail);
 
   const schedule = () => {
     if (frame) return;
@@ -170,20 +170,19 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     const snapshot = store.getSnapshot();
     const { geometry, encoding } = snapshot;
     const options = store.getOptions();
-    let changed = false;
     // Positions wait for the first colours, so a graph's first frame is the drawn one, not a grey one.
-    if (dirty.positions && geometry && encoding) {
+    const placing = dirty.positions && encoding ? geometry : null;
+    if (placing) {
       dirty.positions = false;
-      graph.setPointPositions(position(geometry), true);
-      if (geometry.links !== links) {
-        links = geometry.links;
+      graph.setPointPositions(position(placing), true);
+      if (placing.links !== links) {
+        links = placing.links;
         graph.setLinks(links);
         dirty.paint = dirty.state = dirty.pinned = true;
       }
-      changed = true;
-      layout(geometry, simulating(options, geometry));
     }
-    if (dirty.paint && geometry && encoding) {
+    const painting = dirty.paint && geometry && encoding;
+    if (painting) {
       dirty.paint = false;
       const buffers = paint(geometry, encoding, look, host, options);
       graph.setPointColors(buffers.colors);
@@ -192,7 +191,6 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       graph.setLinkColors(buffers.linkColors);
       graph.setPointClusters(encoding.clusters ?? []);
       graph.setConfigPartial({ ...appearance(look, host), renderLinks: linksShown() });
-      changed = true;
     }
     if (dirty.state && geometry) {
       dirty.state = false;
@@ -205,7 +203,8 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       dirty.pinned = false;
       graph.setPinnedPoints(snapshot.pinned.length > 0 ? [...snapshot.pinned] : null);
     }
-    if (changed) graph.render();
+    if (painting || placing) graph.render();
+    if (placing) layout(placing, simulating(options, placing)); // after render(): cosmos.gl 3.4 turning its simulation on drops unrendered uploads
     if (geometry && encoding && !dirty.paint) store.reportDrawn(snapshot);
     events.onFrame?.();
   }
@@ -221,6 +220,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
 
   /** A new geometry lays itself out when its positions are a start, and stands still when they are data. */
   function layout(geometry: Geometry, running: boolean): void {
+    camera.drawn();
     if (running) return run(1);
     if (live) graph.pause();
     if (!geometry.bound) camera.fit();
@@ -288,6 +288,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     () => {
       clearTimeout(deadline);
       if (!destroyed) host.querySelector("canvas")?.addEventListener("webglcontextlost", onLost);
+      camera.ready();
     },
     (error: unknown) => {
       clearTimeout(deadline);

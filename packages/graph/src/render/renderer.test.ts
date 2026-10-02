@@ -19,6 +19,12 @@ const constructed: Record<string, unknown>[] = [];
 const uploaded: { positions: Float32Array | null; config: Record<string, unknown> } = { positions: null, config: {} };
 /** What the next graph's `ready` is, and whether its first `render()` throws. */
 const device: { ready: () => Promise<void>; broken: unknown } = { ready: () => Promise.resolve(), broken: undefined };
+/**
+ * cosmos.gl 3.4's position buffer, as it behaves: `setPointPositions` flags an upload that `render()`
+ * makes, and turning `enableSimulation` on runs its `create()`, which clears the flag first. A fit that
+ * reads positions back with no buffer throws what luma.gl throws.
+ */
+const gpu = { pending: false, buffer: false, unreadable: false };
 
 vi.mock("@cosmos.gl/graph", () => ({
   Graph: class {
@@ -42,13 +48,19 @@ vi.mock("@cosmos.gl/graph", () => ({
     destroy = () => calls.push("destroy");
     render = () => {
       if (device.broken !== undefined) throw device.broken;
+      if (gpu.pending) gpu.buffer = true;
+      gpu.pending = false;
       calls.push("render");
     };
     setPointPositions = (positions: Float32Array) => {
       uploaded.positions = positions;
+      gpu.pending = true;
       calls.push("positions");
     };
-    fitView = () => calls.push("fitView");
+    fitView = () => {
+      if (!gpu.buffer || gpu.unreadable) throw new TypeError("Cannot destructure property 'device' of 'texture' as it is undefined.");
+      calls.push("fitView");
+    };
     setLinks = () => calls.push("links");
     setPointColors = () => calls.push("colors");
     setPointSizes = () => calls.push("sizes");
@@ -58,6 +70,7 @@ vi.mock("@cosmos.gl/graph", () => ({
     setPointClusters = () => calls.push("clusters");
     setPinnedPoints = () => calls.push("pinned");
     setConfigPartial = (config: Record<string, unknown>) => {
+      if (config.enableSimulation === true && uploaded.config.enableSimulation !== true) gpu.pending = false;
       Object.assign(uploaded.config, config);
       calls.push(`config:${Object.keys(config).join(",")}`);
     };
@@ -88,6 +101,7 @@ beforeEach(() => {
   uploaded.config = {};
   device.ready = () => Promise.resolve();
   device.broken = undefined;
+  Object.assign(gpu, { pending: false, buffer: false, unreadable: false });
   vi.stubGlobal("requestAnimationFrame", (run: () => void) => setTimeout(run, 0));
   vi.stubGlobal("cancelAnimationFrame", (id: number) => clearTimeout(id));
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({} as RenderingContext);
@@ -287,6 +301,51 @@ describe("the camera while a layout runs", () => {
     calls.length = 0;
     (constructed[0]?.onSimulationEnd as () => void)();
     expect(commands()).toEqual(["fitView"]);
+  });
+
+  it("starts a layout only after the render that uploads its positions, so it has them to follow", async () => {
+    const onFailure = vi.fn();
+    await drawing({ onFailure });
+    expect(calls.indexOf("render", calls.indexOf("positions"))).toBeLessThan(calls.findIndex((call) => /enableSimulation/.test(call)));
+    later(2000);
+    tick();
+    (constructed[0]?.onSimulationEnd as () => void)();
+    expect(count("fitView")).toBe(2);
+    expect(onFailure).not.toHaveBeenCalled();
+  });
+
+  it("fails once with graph/no-positions when cosmos.gl has none to read back, and reads no more", async () => {
+    const onFailure = vi.fn();
+    const { store } = await drawing({ onFailure });
+    gpu.unreadable = true;
+    later(2000);
+    expect(() => tick()).not.toThrow();
+    later(4000);
+    tick();
+    (constructed[0]?.onSimulationEnd as () => void)();
+    expect(onFailure).toHaveBeenCalledOnce();
+    expect(onFailure.mock.calls[0]?.[0]).toMatchObject({ name: "GraphError", code: "graph/no-positions", cause: expect.any(TypeError) });
+    expect(store.getSnapshot().status).toBe("failed");
+  });
+
+  it("reads no positions back before the device is up", async () => {
+    let up: () => void = () => {};
+    device.ready = () => new Promise<void>((resolve) => (up = resolve));
+    const { renderer } = await drawing({});
+    const graph = renderer?.graph as unknown as { isReady: boolean };
+    graph.isReady = false;
+    gpu.unreadable = true;
+    later(2000);
+    tick();
+    renderer?.fit();
+    expect(count("fitView")).toBe(0);
+    gpu.unreadable = false;
+    graph.isReady = true;
+    up();
+    await frame();
+    later(4000);
+    tick();
+    expect(count("fitView")).toBe(1);
   });
 
   it("leaves the camera to a reader who took it", async () => {

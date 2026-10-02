@@ -50,6 +50,7 @@
  * server there is no protocol left in the browser, only a `fetch` to a session endpoint.
  */
 
+export { accountUrl, type AccountPage } from "./account";
 export { authFetch, type TokenSource } from "./auth-fetch";
 export type { AuthContextValue, AuthStatus } from "./auth-context";
 export { AuthProvider } from "./auth-provider";

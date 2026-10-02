@@ -475,6 +475,11 @@ Three, because wrapping vgplot must stay a convenience:
   `column` and `numbers` are exported for that: Arrow only offers a typed column when
   the type allows one, so the fallback is not a nicety.
 
+  So is the failure. A client's `queryError` is handed mosaic-core's `QueryError` — a fresh `Error`
+  with the SQL appended to the message and the thrown value as its `cause` — so a host keying on a
+  `code` finds none on it. `queryFailure(error)` gives the thrown value back, which is what every
+  client in this library hands `onFailure`.
+
 Neither hatch needs a source builder: `ChartRoot` already owns the `plot(…)` call, and a mark's
 `data` / `filterBy` props already name its relation. Anything past that — an expression builder, a
 plot attribute — still comes from `@uwdata/vgplot` directly, which is what a hatch is.
