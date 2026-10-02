@@ -6,8 +6,16 @@ import { DEFAULT_LOOK } from "./graph-looks";
 /** Three drawn vertices, nothing bound, no links — override what a test is about. */
 function loaded(over: { sizes?: Float32Array; links?: Float32Array } = {}): [Geometry, Encoding] {
   return [
-    { tables: [], size: 3, positions: new Float32Array(6), table: new Uint16Array(3), links: over.links ?? new Float32Array(), extent: null },
-    { ranks: new Uint32Array(3), sizes: over.sizes ?? null, domain: [] },
+    {
+      structure: { from: "c", vertices: [], edges: [], size: 3 },
+      size: 3,
+      positions: new Float32Array(6),
+      bound: false,
+      links: over.links ?? new Float32Array(),
+      extent: null,
+      space: 4096,
+    },
+    { ranks: new Uint32Array(3), sizes: over.sizes ?? new Float32Array(3), clusters: null, domain: [] },
   ];
 }
 

@@ -3,9 +3,9 @@ import { resolve } from "node:path";
 import { renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Selection, clauseInterval } from "@kanzo-tech/mosaic";
-import { fakeCorpus } from "../../test/corpus";
-import { graphClient } from "../core/filter";
+import { attach, settle } from "../../test/corpus";
 import { GraphError } from "../core/error";
+import type { GraphOptions } from "../core/state";
 import { createGraph } from "../core/store";
 import { internalsOf, useGraph } from "../react/use-graph";
 
@@ -55,6 +55,7 @@ vi.mock("@cosmos.gl/graph", () => ({
     setPointShapes = () => calls.push("shapes");
     setLinkColors = () => calls.push("linkColors");
     setLinkWidths = () => calls.push("linkWidths");
+    setPointClusters = () => calls.push("clusters");
     setPinnedPoints = () => calls.push("pinned");
     setConfigPartial = (config: Record<string, unknown>) => {
       Object.assign(uploaded.config, config);
@@ -66,8 +67,8 @@ vi.mock("@cosmos.gl/graph", () => ({
       this.config.onSimulationStart?.();
     };
     pause = () => {
-      calls.push("pause");
       this.config.onSimulationPause?.();
+      calls.push("pause");
     };
     unpause = () => calls.push("unpause");
   },
@@ -77,6 +78,8 @@ const { createRenderer } = await import("./renderer");
 
 const frame = () => new Promise((resolve) => setTimeout(resolve, 20));
 const count = (name: string) => calls.filter((call) => call === name).length;
+/** What was called, config aside: a setter, a command, a render. */
+const commands = () => calls.filter((call) => !call.startsWith("config:"));
 
 beforeEach(() => {
   calls.length = 0;
@@ -91,15 +94,16 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 
-async function drawing() {
-  const fake = fakeCorpus();
+/** The fixture's corpus drawn at its `lon`/`lat` — bound, so nothing runs unless a test asks. */
+async function drawing(over: Partial<GraphOptions> = { x: "lon", y: "lat" }) {
+  const corpus = await attach();
   const crossfilter = Selection.crossfilter();
-  const store = createGraph({ corpus: fake.corpus, fill: "cluster_id", filterBy: crossfilter, r: "degree", onFailure: () => {} });
+  const store = createGraph({ from: corpus.from, coordinator: corpus.coordinator, fill: "team", filterBy: crossfilter, onFailure: () => {}, ...over });
   const host = document.createElement("div");
   const renderer = createRenderer(host, store);
-  await fake.settle();
+  await settle(corpus);
   await frame();
-  return { crossfilter, fake, renderer, store };
+  return { corpus, crossfilter, renderer, store };
 }
 
 describe("the renderer's frame", () => {
@@ -125,13 +129,16 @@ describe("the renderer's frame", () => {
     expect(count("render")).toBe(1);
   });
 
-  it("uploads positions alone for a filter", async () => {
-    const { crossfilter, fake } = await drawing();
+  it("greys out a filter with config alone: no upload, no render, links said out loud", async () => {
+    const { corpus, crossfilter } = await drawing();
     calls.length = 0;
-    crossfilter.update(clauseInterval("degree", [2, 5], { source: graphClient() }));
-    await fake.settle();
+    crossfilter.update(clauseInterval("score", [2, 5], { source: { reset() {} } }));
+    await settle(corpus);
     await frame();
-    expect(calls.filter((call) => !call.startsWith("config:"))).toEqual(["positions", "render"]);
+    expect(commands()).toEqual([]);
+    expect(uploaded.config.highlightedPointIndices).toEqual([1, 2, 3, 4, ...Array.from({ length: 10 }, (_, i) => 10 + i)]);
+    // knows 1→2, 2→3, 3→4 and livesIn 1→11 … 4→14; tagged 0→16 has an end the filter greyed.
+    expect(uploaded.config.highlightedLinkIndices).toHaveLength(7);
   });
 
   it("a camera move notifies nobody", async () => {
@@ -145,21 +152,21 @@ describe("the renderer's frame", () => {
     expect(calls).toEqual([]);
   });
 
-  it("frames the corpus's extent before it draws anything, and only once", async () => {
+  it("frames bound positions' extent before it draws anything, and only once", async () => {
     const { store } = await drawing();
-    const framed = calls.indexOf("config:spaceSize");
+    const framed = calls.indexOf("config:spaceSize,simulationDecay");
     expect(framed).toBeGreaterThanOrEqual(0);
     expect(framed).toBeLessThan(calls.indexOf("positions"));
     expect(calls.indexOf("fit")).toBeLessThan(calls.indexOf("positions"));
-    store.setOptions({ ...store.getOptions(), r: "cluster_id" });
+    store.setOptions({ ...store.getOptions(), r: "score" });
     await frame();
-    expect(calls.filter((call) => call === "config:spaceSize")).toHaveLength(1);
+    expect(calls.filter((call) => call.startsWith("config:spaceSize"))).toHaveLength(1);
   });
 
   it("constructs cosmos.gl with no simulation and no transition", async () => {
     await drawing();
     expect(constructed).toHaveLength(1);
-    expect(constructed[0]).toMatchObject({ enableSimulation: false, transitionDuration: 0 });
+    expect(constructed[0]).toMatchObject({ enableSimulation: false, transitionDuration: 0, fitViewOnInit: false });
   });
 
   it("a selection sets config and calls no render and no setter", async () => {
@@ -173,12 +180,26 @@ describe("the renderer's frame", () => {
   });
 });
 
-describe("the square the layout runs in", () => {
-  it("centres the corpus's extent in it, at the corpus's own scale", async () => {
+describe("where the points start", () => {
+  it("runs the layout by itself when x and y are unbound, in the square and with the decay for its size", async () => {
+    await drawing({});
+    expect(calls).toContain("start");
+    expect(uploaded.config).toMatchObject({ spaceSize: 4096, simulationDecay: 600, enableSimulation: true });
+  });
+
+  it("stands still when x and y are bound, and runs when simulate says so", async () => {
+    await drawing();
+    expect(calls).not.toContain("start");
+    calls.length = 0;
+    await drawing({ x: "lon", y: "lat", simulate: true });
+    expect(calls).toContain("start");
+  });
+
+  it("centres bound positions' extent in it, at the data's own scale", async () => {
     await drawing();
     // Person at (i, 0) for i < 10, Place at (i, 1) for i < 6: a 9 × 1 extent in a square of 9.
     expect(uploaded.config.spaceSize).toBe(9);
-    const ys = new Set(Array.from(uploaded.positions ?? [], (v, i) => (i % 2 ? v : null)).filter((v) => v !== null));
+    const ys = new Set(Array.from(uploaded.positions ?? [], (v, i) => (i % 2 ? v : null)).filter((v) => v !== null && !Number.isNaN(v)));
     expect([...ys].sort()).toEqual([4, 5]);
     expect(uploaded.positions?.[2 * 9]).toBe(9);
   });
@@ -265,7 +286,7 @@ describe("the camera while a layout runs", () => {
     expect(calls).toContain("fitView");
     calls.length = 0;
     (constructed[0]?.onSimulationEnd as () => void)();
-    expect(calls).toEqual(["fitView"]);
+    expect(commands()).toEqual(["fitView"]);
   });
 
   it("leaves the camera to a reader who took it", async () => {
@@ -298,7 +319,7 @@ describe("the live layout", () => {
     expect(calls.find((call) => call.startsWith("config:"))).toMatch(/enableSimulation/);
     expect(calls).toContain("start");
     renderer?.pause();
-    expect(calls.at(-1)).toBe("pause");
+    expect(commands().at(-1)).toBe("pause");
     store.setOptions({ ...store.getOptions(), sim: { gravity: 0.5 } });
     await frame();
     expect(calls).not.toContain("positions");
@@ -310,7 +331,7 @@ describe("the live layout", () => {
     store.setOptions({ ...store.getOptions(), simulate: true });
     expect(calls).toContain("start");
     store.setOptions({ ...store.getOptions(), simulate: false });
-    expect(calls.at(-1)).toBe("pause");
+    expect(commands().at(-1)).toBe("pause");
   });
 });
 
@@ -348,7 +369,7 @@ describe("pinning", () => {
     calls.length = 0;
     renderer?.unpin();
     expect(store.getSnapshot().pinned).toEqual([]);
-    expect(calls).toEqual(["start"]);
+    expect(commands()).toEqual(["start"]);
     expect(store.getSnapshot().motion).toBe("running");
   });
 
@@ -360,7 +381,7 @@ describe("pinning", () => {
     expect(store.getSnapshot().motion).toBe("settled");
     calls.length = 0;
     renderer?.unpin();
-    expect(calls).toEqual(["start"]);
+    expect(commands()).toEqual(["start"]);
     expect(store.getSnapshot().motion).toBe("running");
     await frame();
     expect(calls).toContain("pinned");
@@ -379,7 +400,7 @@ describe("pinning", () => {
       expect(store.getSnapshot().motion).toBe("running");
       vi.advanceTimersByTime(2000);
       expect(store.getSnapshot().motion).toBe("paused");
-      expect(calls.at(-1)).toBe("pause");
+      expect(commands().at(-1)).toBe("pause");
     } finally {
       vi.useRealTimers();
     }
@@ -407,7 +428,7 @@ describe("pinning", () => {
     const { renderer } = await drawing();
     calls.length = 0;
     renderer?.unpin();
-    expect(calls).toEqual([]);
+    expect(commands()).toEqual([]);
   });
 });
 
@@ -425,7 +446,7 @@ describe("the renderer's lifetime", () => {
 describe("the renderer's failures", () => {
   function mounted() {
     const onFailure = vi.fn();
-    const store = createGraph({ corpus: null, onFailure });
+    const store = createGraph({ from: null, coordinator: null, onFailure });
     const host = document.createElement("div");
     const renderer = createRenderer(host, store);
     return { host, onFailure, renderer, store };
@@ -486,7 +507,7 @@ describe("the renderer's failures", () => {
     const broken = new Error("render threw");
     device.broken = broken;
     const onFailure = vi.fn();
-    const { result } = renderHook(() => useGraph({ corpus: null, onFailure }));
+    const { result } = renderHook(() => useGraph({ from: null, coordinator: null, onFailure }));
     const { attach } = internalsOf(result.current);
     expect(() => attach(document.createElement("div"))).not.toThrow();
     expect(onFailure).toHaveBeenCalledOnce();

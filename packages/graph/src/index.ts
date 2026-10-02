@@ -50,5 +50,5 @@ export type { Channels } from "./core/channels";
 
 export type { GraphCommands, Motion, Selection, SelectionSource, Tool, VertexId } from "./core/types";
 export type { Drawn, GraphState, GraphStatus } from "./core/state";
-export type { VertexDetail } from "./core/detail";
+export type { VertexDetail } from "./core/source";
 export { GraphError } from "./core/error";

@@ -51,7 +51,7 @@ const TRANSPORT: Record<Motion, { pause: boolean; label: string }> = {
  */
 export function GraphToolbar({ className, orientation = "horizontal", slot, ...rest }: GraphToolbarProps) {
   const api = useGraphContext();
-  const ready = useGraphState((s) => s.corpus !== null);
+  const ready = useGraphState((s) => s.structure !== null);
   const tool = useGraphState((s) => s.tool);
   const selection = useGraphState((s) => s.selection);
   const total = useGraphState((s) => s.total);

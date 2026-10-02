@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fakeCorpus } from "../../test/corpus";
+import { attach, refusal, settle, type Attached } from "../../test/corpus";
 import { GraphRoot, useGraphContext } from "../react/graph-root";
 import { internalsOf, type GraphApi } from "../react/use-graph";
 import { GraphCanvas } from "./graph-canvas";
@@ -26,33 +26,45 @@ function Hold({ into }: { into: { api: GraphApi | null } }) {
   return null;
 }
 
+/** The root's two source props, for an attached corpus. */
+const over = (corpus: Attached) => ({ from: corpus.from, coordinator: corpus.coordinator });
+const ready = (corpus: Attached) => act(() => settle(corpus));
+const noResize = () =>
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+
 describe("GraphLegend", () => {
-  it("draws the domain before the graph has loaded, named by the root", () => {
-    const { corpus } = fakeCorpus();
+  it("draws the domain before the graph has loaded, named by the root", async () => {
+    const corpus = await attach();
     render(
-      <GraphRoot categories={{ 0: "Amber", 3: "Salt" }} corpus={corpus} fill="cluster_id" onFailure={() => {}}>
+      <GraphRoot categories={{ 0: "Amber", 3: "Salt" }} {...over(corpus)} fill="team" onFailure={() => {}}>
         <GraphLegend />
       </GraphRoot>,
     );
-    const rows = screen.getAllByRole("listitem").map((row) => row.textContent);
-    expect(rows).toEqual(["Amber—", "Salt—"]);
+    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Amber—", "Salt—"]);
   });
 
   it("draws the vertex types when nothing is bound, with what each has drawn", async () => {
-    const fake = fakeCorpus();
+    const corpus = await attach();
     render(
-      <GraphRoot corpus={fake.corpus} onFailure={() => {}}>
+      <GraphRoot {...over(corpus)} onFailure={() => {}}>
         <GraphLegend />
       </GraphRoot>,
     );
-    await act(() => fake.settle());
-    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Person10", "Place6"]);
+    await ready(corpus);
+    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Person10", "Place6", "Tag4"]);
   });
 
-  it("draws nothing when colour is a constant and nothing carries a category", () => {
-    const { corpus } = fakeCorpus();
+  it("draws nothing when colour is a constant and nothing carries a category", async () => {
+    const corpus = await attach();
     const { container } = render(
-      <GraphRoot corpus={corpus} fill="var(--foreground)" onFailure={() => {}}>
+      <GraphRoot {...over(corpus)} fill="var(--foreground)" onFailure={() => {}}>
         <GraphLegend />
       </GraphRoot>,
     );
@@ -61,41 +73,41 @@ describe("GraphLegend", () => {
 });
 
 describe("GraphCounts", () => {
-  it("says what it does not know yet as a dash, and is busy while it loads", () => {
-    const { corpus } = fakeCorpus();
+  it("says what it does not know yet as a dash, and is busy while it loads", async () => {
+    const corpus = await attach();
     render(
-      <GraphRoot corpus={corpus} onFailure={() => {}}>
+      <GraphRoot {...over(corpus)} onFailure={() => {}}>
         <GraphCounts spinner />
       </GraphRoot>,
     );
     const counts = document.querySelector('[data-slot="graph-counts"]');
-    expect(counts?.textContent).toBe("— of 16 nodes drawn · — edges");
+    expect(counts?.textContent).toBe("— of — nodes drawn · — edges");
     expect(counts?.getAttribute("aria-busy")).toBe("true");
     expect(screen.getByRole("status")).toBeTruthy();
   });
 
   it("counts what is drawn of the whole, and the edges whose two ends are drawn", async () => {
-    const fake = fakeCorpus();
+    const corpus = await attach();
     render(
-      <GraphRoot corpus={fake.corpus} onFailure={() => {}}>
+      <GraphRoot {...over(corpus)} onFailure={() => {}} x="lon" y="lat">
         <GraphCounts />
       </GraphRoot>,
     );
-    await act(() => fake.settle());
-    expect(document.querySelector('[data-slot="graph-counts"]')?.textContent).toBe("16 of 16 nodes drawn · 19 edges");
-    expect(screen.queryByRole("status")).toBeNull();
+    await ready(corpus);
+    // Bound to lon/lat, Tag has no position: its four vertices and the one link to them are not drawn.
+    expect(document.querySelector('[data-slot="graph-counts"]')?.textContent).toBe("16 of 20 nodes drawn · 19 edges");
   });
 
   it("spins for a running layout without calling the figures busy", async () => {
-    const fake = fakeCorpus();
+    const corpus = await attach();
     const held: { api: GraphApi | null } = { api: null };
     render(
-      <GraphRoot corpus={fake.corpus} onFailure={() => {}}>
+      <GraphRoot {...over(corpus)} onFailure={() => {}}>
         <GraphCounts spinner />
         <Hold into={held} />
       </GraphRoot>,
     );
-    await act(() => fake.settle());
+    await ready(corpus);
     if (!held.api) throw new Error("no api");
     const { store } = internalsOf(held.api);
     act(() => store.reportDrawn(store.getSnapshot()));
@@ -106,13 +118,21 @@ describe("GraphCounts", () => {
 });
 
 describe("GraphToolbar", () => {
-  it("arms a tool and disarms it, through the root's state", () => {
-    const { corpus } = fakeCorpus();
+  async function toolbar() {
+    const corpus = await attach();
+    const held: { api: GraphApi | null } = { api: null };
     render(
-      <GraphRoot corpus={corpus} onFailure={() => {}}>
+      <GraphRoot {...over(corpus)} onFailure={() => {}}>
         <GraphToolbar />
+        <Hold into={held} />
       </GraphRoot>,
     );
+    await ready(corpus);
+    return held;
+  }
+
+  it("arms a tool and disarms it, through the root's state", async () => {
+    await toolbar();
     const lasso = screen.getByRole("button", { name: "Lasso" });
     fireEvent.click(lasso);
     expect(lasso.getAttribute("aria-pressed")).toBe("true");
@@ -120,163 +140,49 @@ describe("GraphToolbar", () => {
     expect(lasso.getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("shows the selection, and clears it", () => {
-    const { corpus } = fakeCorpus();
-    const held: { api: GraphApi | null } = { api: null };
-    render(
-      <GraphRoot corpus={corpus} onFailure={() => {}}>
-        <GraphToolbar />
-        <Hold into={held} />
-      </GraphRoot>,
-    );
+  it("shows the selection, and clears it", async () => {
+    const held = await toolbar();
     expect(screen.queryByRole("group", { name: "Current selection" })).toBeNull();
     act(() => held.api?.select([1, 2], "order", "Two"));
-    expect(screen.getByRole("group", { name: "Current selection" }).textContent).toContain("2 of 16 selected");
+    expect(screen.getByRole("group", { name: "Current selection" }).textContent).toContain("2 of 20 selected");
     fireEvent.click(screen.getByRole("button", { name: "Clear the selection" }));
     expect(screen.queryByRole("group", { name: "Current selection" })).toBeNull();
   });
 
-  it("offers to run the layout without a simulate prop", () => {
-    const { corpus } = fakeCorpus();
-    render(
-      <GraphRoot corpus={corpus} onFailure={() => {}}>
-        <GraphToolbar />
-      </GraphRoot>,
-    );
+  it("offers to run the layout without a simulate prop", async () => {
+    await toolbar();
     const layout = screen.getByRole("group", { name: "Layout" });
     expect(layout.querySelector('[aria-label="Run the layout"]')).toBeTruthy();
   });
 });
 
 describe("GraphInspector", () => {
-  it("reads the focused vertex's row, and draws a host's extra fields after the corpus's own", async () => {
-    const fake = fakeCorpus();
+  async function inspecting(children?: (detail: { fields: readonly { name: string; value: unknown }[] }) => React.ReactNode) {
+    const corpus = await attach();
     const held: { api: GraphApi | null } = { api: null };
+    const onFailure = vi.fn();
+    render(
+      <GraphRoot {...over(corpus)} fill="team" onFailure={onFailure}>
+        <GraphInspector>{children}</GraphInspector>
+        <Hold into={held} />
+      </GraphRoot>,
+    );
+    await ready(corpus);
+    return { corpus, held, onFailure };
+  }
+
+  it("reads the focused vertex's row with one statement, and draws a host's extra fields after the corpus's own", async () => {
     const extra = vi.fn((detail: { fields: readonly { name: string; value: unknown }[] }) => (
-      <p data-testid="extra">degree plus one: {Number(detail.fields.find((f) => f.name === "degree")?.value) + 1}</p>
+      <p data-testid="extra">score plus one: {Number(detail.fields.find((f) => f.name === "score")?.value) + 1}</p>
     ));
-    render(
-      <GraphRoot corpus={fake.corpus} fill="cluster_id" onFailure={() => {}}>
-        <GraphInspector>{extra}</GraphInspector>
-        <Hold into={held} />
-      </GraphRoot>,
-    );
+    const { corpus, held } = await inspecting(extra);
     expect(screen.getByText("Click a vertex on the canvas to inspect it.")).toBeTruthy();
-    await act(() => fake.settle());
     act(() => held.api?.setFocus(6));
-    await act(() => fake.settle());
-    await waitFor(() => expect(screen.getByTestId("extra").textContent).toBe("degree plus one: 8"));
+    await waitFor(() => expect(screen.getByTestId("extra").textContent).toBe("score plus one: 8"));
     const labels = [...document.querySelectorAll("dt")].map((dt) => dt.textContent);
-    expect(labels).toEqual(["subject", "cluster_id", "degree"]);
-    expect(fake.scans.at(-1)).toMatchObject({ table: "Person", filter: { column: "dense_id", op: "=", value: 6 } });
+    expect(labels).toEqual(["subject", "name", "team", "score", "lon", "lat"]);
+    expect(corpus.sent.at(-1)).toMatch(/"Person" WHERE dense_id = 6$/);
   });
-});
-
-describe("GraphSearch", () => {
-  beforeEach(() => {
-    vi.stubGlobal(
-      "ResizeObserver",
-      class {
-        observe() {}
-        unobserve() {}
-        disconnect() {}
-      },
-    );
-  });
-  afterEach(() => vi.unstubAllGlobals());
-
-  async function searching() {
-    const fake = fakeCorpus();
-    const held: { api: GraphApi | null } = { api: null };
-    render(
-      <GraphRoot categories={{ Person: "People", Place: "Places" }} corpus={fake.corpus} onFailure={() => {}} r="degree" title="name">
-        <GraphSearch limit={3} />
-        <Hold into={held} />
-      </GraphRoot>,
-    );
-    await act(() => fake.settle());
-    await act(() => fake.settle());
-    const input = screen.getByRole("combobox");
-    return { fake, held, input };
-  }
-  const options = () => screen.getAllByRole("option").map((option) => option.textContent);
-
-  it("reads every drawn vertex's text once, by its title or its table's identity", async () => {
-    const { fake } = await searching();
-    const reads = fake.scans.filter((scan) => scan.select?.length === 2 && scan.select[0] === "dense_id");
-    expect(reads.map((scan) => [scan.table, scan.select])).toEqual([
-      ["Person", ["dense_id", "subject"]],
-      ["Place", ["dense_id", "name"]],
-    ]);
-  });
-
-  it("offers the biggest on the ramp first, named by the root, and says when it stopped", async () => {
-    const { input } = await searching();
-    expect((input as HTMLInputElement).disabled).toBe(false);
-    fireEvent.click(input);
-    await waitFor(() => expect(options()).toHaveLength(3));
-    expect(options()).toEqual([
-      "https://example.org/person/9People",
-      "https://example.org/person/8People",
-      "https://example.org/person/7People",
-    ]);
-    expect(screen.getByText("First 3. Keep typing to narrow it.")).toBeTruthy();
-  });
-
-  it("filters in the browser as the reader types, and picking reveals the vertex", async () => {
-    const { fake, held, input } = await searching();
-    const before = fake.scans.length;
-    fireEvent.click(input);
-    fireEvent.change(input, { target: { value: "place 3" } });
-    await waitFor(() => expect(options()).toEqual(["Place 3Places"]));
-    expect(fake.scans.length).toBe(before);
-    fireEvent.keyDown(input, { key: "ArrowDown" });
-    fireEvent.keyDown(input, { key: "Enter" });
-    await waitFor(() => expect(held.api?.getState().focus).toBe(13));
-  });
-});
-
-describe("GraphSearch's failure", () => {
-  it("hands onFailure the thrown value, and says the names could not be read", async () => {
-    vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
-    const fake = fakeCorpus();
-    const onFailure = vi.fn();
-    render(
-      <GraphRoot corpus={fake.corpus} onFailure={onFailure} title="name">
-        <GraphSearch />
-      </GraphRoot>,
-    );
-    const refused = Object.assign(new Error("the bucket did not answer"), { code: "storage/unreachable" });
-    const isTitles = (read: (typeof fake.reads)[number]) => read.params.filter === undefined && read.params.select?.length === 2 && read.params.select[0] === "dense_id";
-    await act(async () => {
-      for (let round = 0; round < 20; round++) {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        for (const read of fake.reads.filter((r) => !r.released && !r.signal?.aborted)) {
-          if (isTitles(read)) read.reject(refused);
-          else read.release();
-        }
-      }
-    });
-    await waitFor(() => expect(screen.getByPlaceholderText("The names could not be read.")).toBeTruthy());
-    expect(onFailure).toHaveBeenCalledWith(refused);
-    vi.unstubAllGlobals();
-  });
-});
-
-describe("GraphInspector's two answers", () => {
-  async function inspecting() {
-    const fake = fakeCorpus();
-    const held: { api: GraphApi | null } = { api: null };
-    const onFailure = vi.fn();
-    render(
-      <GraphRoot corpus={fake.corpus} onFailure={onFailure}>
-        <GraphInspector />
-        <Hold into={held} />
-      </GraphRoot>,
-    );
-    await act(() => fake.settle());
-    return { fake, held, onFailure };
-  }
 
   it("says a vertex is not in the corpus, and reports nothing", async () => {
     const { held, onFailure } = await inspecting();
@@ -287,62 +193,97 @@ describe("GraphInspector's two answers", () => {
   });
 
   it("says a vertex could not be read, and hands onFailure the thrown value", async () => {
-    const { fake, held, onFailure } = await inspecting();
+    const { corpus, held, onFailure } = await inspecting();
+    const refused = refusal();
+    corpus.refuse(/WHERE dense_id = 6/, refused);
     act(() => held.api?.setFocus(6));
-    const refused = Object.assign(new Error("the bucket did not answer"), { code: "storage/unreachable" });
-    await act(async () => fake.reads.at(-1)?.reject(refused));
     await waitFor(() => expect(screen.getByText("This vertex could not be read.")).toBeTruthy());
     expect(screen.queryByText("This vertex is not in the corpus.")).toBeNull();
-    expect(onFailure).toHaveBeenCalledOnce();
-    expect(onFailure.mock.calls[0]?.[0]).toBe(refused);
+    expect(onFailure).toHaveBeenCalledExactlyOnceWith(refused);
+  });
+});
+
+describe("GraphSearch", () => {
+  beforeEach(noResize);
+  afterEach(() => vi.unstubAllGlobals());
+
+  async function searching(onFailure = () => {}) {
+    const corpus = await attach();
+    const held: { api: GraphApi | null } = { api: null };
+    render(
+      <GraphRoot categories={{ Person: "People", Place: "Places" }} {...over(corpus)} onFailure={onFailure} title="name">
+        <GraphSearch limit={3} />
+        <Hold into={held} />
+      </GraphRoot>,
+    );
+    await ready(corpus);
+    return { corpus, held, input: screen.getByRole("combobox") as HTMLInputElement };
+  }
+  const options = () => screen.getAllByRole("option").map((option) => option.textContent);
+
+  it("reads nothing until the reader types", async () => {
+    const { corpus, input } = await searching();
+    expect(input.disabled).toBe(false);
+    expect(corpus.sent.some((sql) => sql.includes("ILIKE"))).toBe(false);
+  });
+
+  it("asks the corpus once per pause, shortest match first, named by the root, and says when it stopped", async () => {
+    const { corpus, input } = await searching();
+    fireEvent.click(input);
+    fireEvent.change(input, { target: { value: "per" } });
+    fireEvent.change(input, { target: { value: "person" } });
+    await waitFor(() => expect(options()).toEqual(["Person 0People", "Person 1People", "Person 2People"]));
+    expect(corpus.sent.filter((sql) => sql.includes("ILIKE"))).toHaveLength(1);
+    expect(screen.getByText("First 3. Keep typing to narrow it.")).toBeTruthy();
+  });
+
+  it("matches without case, falls back to a table's identity, and picking reveals the vertex", async () => {
+    const { held, input } = await searching();
+    fireEvent.click(input);
+    fireEvent.change(input, { target: { value: "place 3" } });
+    await waitFor(() => expect(options()).toEqual(["Place 3Places"]));
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(held.api?.getState().focus).toBe(13));
+    fireEvent.change(input, { target: { value: "tag/2" } });
+    await waitFor(() => expect(options()).toEqual(["https://example.org/tag/2Tag"]));
+  });
+
+  it("hands onFailure the thrown value, and says the names could not be read", async () => {
+    const onFailure = vi.fn();
+    const { corpus, input } = await searching(onFailure);
+    const refused = refusal();
+    corpus.refuse(/ILIKE/, refused);
+    fireEvent.click(input);
+    fireEvent.change(input, { target: { value: "person" } });
+    await waitFor(() => expect(screen.getByPlaceholderText("The names could not be read.")).toBeTruthy());
+    expect(onFailure).toHaveBeenCalledWith(refused);
   });
 });
 
 describe("GraphCanvas", () => {
+  beforeEach(noResize);
+  afterEach(() => vi.unstubAllGlobals());
+
   it("hands onFailure the thrown value when a label's read rejects", async () => {
-    vi.stubGlobal(
-      "ResizeObserver",
-      class {
-        observe() {}
-        disconnect() {}
-      },
-    );
-    const fake = fakeCorpus();
+    const corpus = await attach();
+    const refused = refusal();
+    corpus.refuse(/dense_id IN/, refused);
     const onFailure = vi.fn();
     render(
-      <GraphRoot corpus={fake.corpus} onFailure={onFailure} r="degree">
+      <GraphRoot {...over(corpus)} onFailure={onFailure}>
         <GraphCanvas />
       </GraphRoot>,
     );
-    const refused = Object.assign(new Error("the bucket did not answer"), { code: "storage/unreachable" });
-    const isTitles = (read: (typeof fake.reads)[number]) => read.params.filter !== undefined && "values" in read.params.filter;
-    await act(async () => {
-      for (let round = 0; round < 20; round++) {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        for (const read of fake.reads.filter((r) => !r.released && !r.signal?.aborted)) {
-          if (isTitles(read)) read.reject(refused);
-          else read.release();
-        }
-      }
-    });
-    expect(fake.reads.some(isTitles)).toBe(true);
-    expect(onFailure.mock.calls.map(([error]) => error)).toContain(refused);
-    vi.unstubAllGlobals();
+    await ready(corpus);
+    await waitFor(() => expect(onFailure.mock.calls.map(([error]) => error)).toContain(refused));
   });
 
-
-  it("re-renders the card on a hover, and not the canvas", () => {
-    vi.stubGlobal(
-      "ResizeObserver",
-      class {
-        observe() {}
-        disconnect() {}
-      },
-    );
-    const { corpus } = fakeCorpus();
+  it("re-renders the card on a hover, and not the canvas", async () => {
+    const corpus = await attach();
     const held: { api: GraphApi | null } = { api: null };
     render(
-      <GraphRoot corpus={corpus} onFailure={() => {}}>
+      <GraphRoot {...over(corpus)} onFailure={() => {}}>
         <GraphCanvas />
         <Hold into={held} />
       </GraphRoot>,
@@ -354,6 +295,5 @@ describe("GraphCanvas", () => {
     act(() => store.hover(4));
     act(() => store.hover(null));
     expect(vi.mocked(useOverlays).mock.calls.length).toBe(renders);
-    vi.unstubAllGlobals();
   });
 });

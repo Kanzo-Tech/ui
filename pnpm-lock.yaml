@@ -312,9 +312,9 @@ importers:
       '@cosmos.gl/graph':
         specifier: ^3.4.0
         version: 3.4.0
-      '@fossil-lang/corpus':
-        specifier: ^0.3.0-alpha.19
-        version: 0.3.0-alpha.19
+      '@duckdb/duckdb-wasm':
+        specifier: 1.33.1-dev57.0
+        version: 1.33.1-dev57.0
       '@kanzo-tech/mosaic':
         specifier: workspace:*
         version: link:../mosaic

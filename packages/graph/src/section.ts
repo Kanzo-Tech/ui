@@ -190,7 +190,7 @@ export const GRAPH_SECTION: SectionManifest = {
       kind: "range",
       label: "Cluster pull",
       default: "0.1",
-      doc: "Pull toward the node's group position on the cluster ring. Zero lets the links decide alone.",
+      doc: "Pull toward the centre of the vertex's cluster, when a column is bound to `cluster`. Zero lets the links decide alone.",
       min: 0,
       max: 1,
       step: 0.05,

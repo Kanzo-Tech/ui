@@ -1,90 +1,81 @@
-import { GraphError } from "./error";
+import type { Coordinator } from "@kanzo-tech/mosaic";
 import { Dictionary } from "./categories";
-import { projectionOf, type Binding } from "./channels";
-import type { Batch, Corpus, EdgeTable, Filter, VertexTable } from "@fossil-lang/corpus";
-import { columnsOf } from "./filter";
+import type { Binding } from "./channels";
+import { readColumns, readLinks, type Structure } from "./source";
 
 /**
- * **The whole graph, read once and laid out as cosmos.gl's buffers.** A drawn vertex's `dense_id` is
- * its index, so every array is sized from the manifest's `record_count`s before a row arrives, and a
- * row is written where its id says. The camera never reaches here: nothing is read because it moved.
+ * **The whole graph, read once and laid out as cosmos.gl's buffers.** A vertex's `dense_id` is its
+ * index, and a vertex table is one contiguous range of them, so each table's answer is written into
+ * its own slice and nothing is resolved row by row.
  */
 
-/** Where the drawn vertices are and how they connect — read once per corpus. */
+/** Where the vertices start and how they connect — read once per corpus and per position binding. */
 export interface Geometry {
-  /** The vertex tables with a position, in the manifest's order. */
-  readonly tables: readonly VertexTable[];
-  /** Drawn vertices: ids `0 … size − 1`. */
+  readonly structure: Structure;
+  /** Every vertex: ids `0 … size − 1`. */
   readonly size: number;
-  /** `[x, y, …]` by id; `NaN` where no row has a position. */
+  /**
+   * `[x, y, …]` by id. With `x` and `y` bound, the columns' values — `NaN` where a table lacks them,
+   * which cosmos.gl does not draw. Unbound, a seeded start for the layout, inside `space`.
+   */
   readonly positions: Float32Array;
-  /** By id, the vertex's index in `tables`. */
-  readonly table: Uint16Array;
-  /** `[src, dst, …]` by id, every relation whose two ends are drawn. */
+  /** Whether the positions are the data's (`x`/`y` bound) or a start for the layout to move. */
+  readonly bound: boolean;
+  /** `[src, dst, …]` by id, every relation. */
   readonly links: Float32Array;
+  /** Bound positions' extent; `null` for a layout's start, whose square is `space`. */
   readonly extent: { readonly x: number; readonly y: number; readonly w: number; readonly h: number } | null;
+  /** The side of the square the layout runs in. */
+  readonly space: number;
 }
 
 /** What the bound channels say about each vertex — read again when a binding changes. */
 export interface Encoding {
   /** By id, the category's rank. */
   readonly ranks: Uint32Array;
-  /** By id, the ramp's raw value, or `null` when `r` is unbound. */
-  readonly sizes: Float32Array | null;
+  /** By id, the size ramp's raw value: the bound `r` column, or the vertex's degree. */
+  readonly sizes: Float32Array;
+  /** By id, the cluster a layout pulls the vertex toward, or `null` when `cluster` is unbound. */
+  readonly clusters: (number | undefined)[] | null;
   /** What each rank is: the seed, then the other values seen, in rank order. */
   readonly domain: readonly unknown[];
 }
 
-/** The vertex tables fossil lays out or the program places; a table without a position is not drawn. */
-export const drawnTables = (corpus: Corpus): VertexTable[] => corpus.manifest.vertex_tables.filter((table) => table.position);
+/**
+ * The layout's square: cosmos.gl's own 4,096 up to 200,000 vertices, and twice that past them —
+ * measured on the gate in `/docs/graph/layout`: at 500,000 the default square presses the layout
+ * against its border and the communities mix.
+ */
+export const spaceFor = (size: number): number => (size > 200_000 ? 8192 : 4096);
 
-const has = (table: VertexTable) => (column: string) => table.properties.some((p) => p.name === column);
+/** A seeded `[0, 1)`: the same start for the same corpus, so a layout is reproducible. */
+function random(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
 /**
- * Reads in parallel that end together: the first to fail aborts the rest, so no read outlives the
- * answer and no second failure goes unheard behind the first.
+ * **Cosmograph's start**: a Gaussian around the square's centre, its spread growing with the graph up
+ * to an eighth of the side — tight enough that the forces gather it in a few hundred ticks, wide
+ * enough that a million points are not one pixel.
  */
-export function together<T>(signal: AbortSignal, reads: (signal: AbortSignal) => Promise<T>): Promise<T> {
-  const local = new AbortController();
-  return reads(AbortSignal.any([signal, local.signal])).catch((error: unknown) => {
-    local.abort();
-    throw error;
-  });
-}
-
-async function readAll(corpus: Corpus, params: Parameters<Corpus["scan"]>[0], signal: AbortSignal): Promise<readonly Batch[]> {
-  const scan = corpus.scan(params);
-  return scan.read(scan.plan(), { signal });
-}
-
-function encoder(tables: readonly VertexTable[], size: number, binding: Binding, seed: readonly unknown[]) {
-  const dictionary = new Dictionary(seed);
-  const codes = new Uint32Array(size);
-  const sizes = binding.size === undefined ? null : new Float32Array(size).fill(Number.NaN);
-  return {
-    add(t: number, batch: Batch) {
-      const table = tables[t] as VertexTable;
-      const ids = batch.getChild(table.key)?.toArray() ?? [];
-      const values = binding.category === undefined ? undefined : batch.getChild(binding.category)?.toArray();
-      const ramp = binding.size === undefined ? undefined : batch.getChild(binding.size)?.toArray();
-      const own = binding.byTable ? dictionary.code(table.name) : 0;
-      for (let i = 0; i < batch.numRows; i++) {
-        const id = Number(ids[i]);
-        if (!(id < size)) continue;
-        codes[id] = binding.byTable || binding.category === undefined ? own : dictionary.code(values?.[i] ?? null);
-        if (sizes) sizes[id] = Number(ramp?.[i] ?? Number.NaN);
-      }
-    },
-    finish(): Encoding {
-      const order = dictionary.ranks();
-      const ranks = codes.map((code) => order[code] ?? 0);
-      const domain: unknown[] = [];
-      order.forEach((rank, code) => {
-        domain[rank] = dictionary.values[code];
-      });
-      return { ranks, sizes, domain };
-    },
-  };
+function seeded(size: number, space: number): Float32Array {
+  const next = random(size);
+  const sigma = (space / 8) * Math.sqrt(Math.min(1, size / 1.5e6));
+  const positions = new Float32Array(2 * size);
+  for (let i = 0; i < size; i++) {
+    const r = Math.sqrt(-2 * Math.log(1 - next())) * sigma;
+    const theta = 2 * Math.PI * next();
+    positions[2 * i] = space / 2 + r * Math.cos(theta);
+    positions[2 * i + 1] = space / 2 + r * Math.sin(theta);
+  }
+  return positions;
 }
 
 function extentOf(positions: Float32Array): Geometry["extent"] {
@@ -101,131 +92,75 @@ function extentOf(positions: Float32Array): Geometry["extent"] {
   return x0 > x1 ? null : { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
 }
 
-async function readLinks(corpus: Corpus, tables: readonly VertexTable[], size: number, signal: AbortSignal): Promise<Float32Array> {
-  const drawn = new Set(tables.map((table) => table.name));
-  const relations = corpus.manifest.edge_tables.filter(
-    (edge: EdgeTable) => drawn.has(edge.source.references) && drawn.has(edge.destination.references),
-  );
-  const answers = await Promise.all(
-    relations.map((edge) => readAll(corpus, { table: edge.name, select: [edge.source.key, edge.destination.key] }, signal)),
-  );
-  const links = new Float32Array(2 * relations.reduce((sum, edge) => sum + edge.record_count, 0));
-  let at = 0;
-  answers.forEach((batches, r) => {
-    const edge = relations[r] as EdgeTable;
-    for (const batch of batches) {
-      const src = batch.getChild(edge.source.key)?.toArray() ?? [];
-      const dst = batch.getChild(edge.destination.key)?.toArray() ?? [];
-      for (let e = 0; e < batch.numRows && at < links.length; e++) {
-        const a = Number(src[e]);
-        const b = Number(dst[e]);
-        if (!(a < size && b < size)) continue;
-        links[at++] = a;
-        links[at++] = b;
-      }
-    }
-  });
-  return at === links.length ? links : links.slice(0, at);
-}
-
-/** One scan per drawn table and one per relation between them, read whole, in parallel. */
-export async function loadGraph(
-  corpus: Corpus,
-  binding: Binding,
-  seed: readonly unknown[],
-  signal: AbortSignal,
-): Promise<{ geometry: Geometry; encoding: Encoding }> {
-  const tables = drawnTables(corpus);
-  const size = tables.reduce((sum, table) => sum + table.record_count, 0);
+/** The links, and the positions: two bound columns, or a seeded start for the layout. */
+export async function loadGeometry(coordinator: Coordinator, structure: Structure, binding: Binding): Promise<Geometry> {
+  const { size } = structure;
+  const space = spaceFor(size);
+  const bound = binding.x !== undefined && binding.y !== undefined;
+  const [links, columns] = await Promise.all([
+    readLinks(coordinator, structure),
+    bound ? readColumns(coordinator, structure, [binding.x as string, binding.y as string]) : Promise.resolve([]),
+  ]);
+  if (!bound) return { structure, size, positions: seeded(size, space), bound, links, extent: null, space };
   const positions = new Float32Array(2 * size).fill(Number.NaN);
-  const table = new Uint16Array(size);
-  const encode = encoder(tables, size, binding, seed);
-  const [vertices, links] = await together(signal, (signal) =>
-    Promise.all([
-      Promise.all(
-        tables.map((t) => {
-          const { x, y } = t.position as NonNullable<VertexTable["position"]>;
-          return readAll(corpus, { table: t.name, select: projectionOf(binding, [t.key, x, y], has(t)) }, signal);
-        }),
-      ),
-      readLinks(corpus, tables, size, signal),
-    ]),
-  );
-  vertices.forEach((batches, t) => {
-    const { key, position } = tables[t] as VertexTable;
-    for (const batch of batches) {
-      const ids = batch.getChild(key)?.toArray() ?? [];
-      const xs = batch.getChild(position?.x ?? "")?.toArray() ?? [];
-      const ys = batch.getChild(position?.y ?? "")?.toArray() ?? [];
-      for (let i = 0; i < batch.numRows; i++) {
-        const id = Number(ids[i]);
-        if (!(id < size)) continue;
-        positions[id * 2] = Number(xs[i] ?? Number.NaN);
-        positions[id * 2 + 1] = Number(ys[i] ?? Number.NaN);
-        table[id] = t;
-      }
-      encode.add(t, batch);
+  for (const { table, answer } of columns) {
+    const xs = answer.getChild(binding.x as string)?.toArray() ?? [];
+    const ys = answer.getChild(binding.y as string)?.toArray() ?? [];
+    for (let i = 0; i < answer.numRows; i++) {
+      const at = 2 * (table.first + i);
+      positions[at] = xs[i] === null ? Number.NaN : Number(xs[i]);
+      positions[at + 1] = ys[i] === null ? Number.NaN : Number(ys[i]);
     }
-  });
-  return { geometry: { tables, size, positions, table, links, extent: extentOf(positions) }, encoding: encode.finish() };
+  }
+  return { structure, size, positions, bound, links, extent: extentOf(positions), space };
 }
 
-/** A new binding re-reads the channels and nothing else: the positions and the links stay uploaded. */
+/** Each vertex's degree over every relation — the size a point takes when `r` is unbound. */
+function degrees(size: number, links: Float32Array): Float32Array {
+  const degree = new Float32Array(size);
+  for (let i = 0; i < links.length; i++) {
+    const id = links[i] as number;
+    degree[id] = (degree[id] as number) + 1;
+  }
+  return degree;
+}
+
+/** The bound channels — category, size and cluster — over every vertex. */
 export async function loadEncoding(
-  corpus: Corpus,
+  coordinator: Coordinator,
   geometry: Geometry,
   binding: Binding,
   seed: readonly unknown[],
-  signal: AbortSignal,
 ): Promise<Encoding> {
-  const { tables, size } = geometry;
-  const encode = encoder(tables, size, binding, seed);
-  const answers = await together(signal, (signal) =>
-    Promise.all(tables.map((t) => readAll(corpus, { table: t.name, select: projectionOf(binding, [t.key], has(t)) }, signal))),
-  );
-  answers.forEach((batches, t) => {
-    for (const batch of batches) encode.add(t, batch);
-  });
-  return encode.finish();
-}
-
-/** What a filter kept: per table that holds every column it names, the surviving ids. */
-export interface Kept {
-  readonly filtered: ReadonlySet<number>;
-  readonly ids: readonly number[];
-}
-
-/**
- * **A predicate, applied as a mask.** A table that lacks a column the filter names is not filtered,
- * which is what a `WHERE` over a union of the tables would do; a filter no drawn table can answer at
- * all is refused, so the unfiltered picture is never drawn as the filtered one.
- */
-export async function readKept(corpus: Corpus, tables: readonly VertexTable[], filter: Filter, signal: AbortSignal): Promise<Kept> {
-  const columns = columnsOf(filter);
-  const filtered = tables.flatMap((table, t) => (columns.every(has(table)) ? [t] : []));
-  if (filtered.length === 0) {
-    throw new GraphError("graph/untranslatable-filter", `no drawn vertex type has every column this filter names: ${columns.join(", ")}`);
+  const { structure, size } = geometry;
+  const select = [binding.category, binding.size, binding.cluster].filter((c): c is string => c !== undefined);
+  const answers = select.length > 0 ? await readColumns(coordinator, structure, [...new Set(select)]) : [];
+  const dictionary = new Dictionary(seed);
+  const codes = new Uint32Array(size);
+  const sizes = binding.size === undefined ? degrees(size, geometry.links) : new Float32Array(size).fill(Number.NaN);
+  const groups = binding.cluster === undefined ? null : new Dictionary();
+  const clusters: (number | undefined)[] | null = groups ? new Array<number | undefined>(size) : null;
+  if (binding.byTable) {
+    for (const table of structure.vertices) codes.fill(dictionary.code(table.name), table.first, table.first + table.rows);
+  } else if (binding.category === undefined) {
+    codes.fill(dictionary.code(null));
   }
-  const answers = await together(signal, (signal) =>
-    Promise.all(
-      filtered.map((t) => readAll(corpus, { table: (tables[t] as VertexTable).name, filter, select: [(tables[t] as VertexTable).key] }, signal)),
-    ),
-  );
-  const ids: number[] = [];
-  answers.forEach((batches, i) => {
-    const { key } = tables[filtered[i] as number] as VertexTable;
-    for (const batch of batches) {
-      const column = batch.getChild(key)?.toArray() ?? [];
-      for (let r = 0; r < batch.numRows; r++) ids.push(Number(column[r]));
+  for (const { table, answer } of answers) {
+    const values = binding.category === undefined || binding.byTable ? undefined : answer.getChild(binding.category)?.toArray();
+    const ramp = binding.size === undefined ? undefined : answer.getChild(binding.size)?.toArray();
+    const cluster = binding.cluster === undefined ? undefined : answer.getChild(binding.cluster)?.toArray();
+    for (let i = 0; i < answer.numRows; i++) {
+      const id = table.first + i;
+      if (values) codes[id] = dictionary.code(values[i] ?? null);
+      if (ramp) sizes[id] = ramp[i] === null ? Number.NaN : Number(ramp[i]);
+      if (cluster && clusters && groups) clusters[id] = cluster[i] === null ? undefined : groups.code(cluster[i]);
     }
+  }
+  const order = dictionary.ranks();
+  const ranks = codes.map((code) => order[code] ?? 0);
+  const domain: unknown[] = [];
+  order.forEach((rank, code) => {
+    domain[rank] = dictionary.values[code];
   });
-  return { filtered: new Set(filtered), ids };
-}
-
-/** `1` where a vertex survives the page's filter. */
-export function maskOf(geometry: Geometry, kept: Kept): Uint8Array {
-  const mask = new Uint8Array(geometry.size);
-  for (let id = 0; id < geometry.size; id++) mask[id] = kept.filtered.has(geometry.table[id] as number) ? 0 : 1;
-  for (const id of kept.ids) if (id < geometry.size) mask[id] = 1;
-  return mask;
+  return { ranks, sizes, clusters, domain };
 }

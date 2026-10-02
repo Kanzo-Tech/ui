@@ -16,10 +16,10 @@ import { CrosshairIcon } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { nameOf } from "../core/categories";
 import { bindingOf } from "../core/channels";
-import { readVertex, type VertexDetail } from "../core/detail";
+import { readVertex, type VertexDetail } from "../core/source";
 import type { VertexId } from "../core/types";
 import { useGraphContext } from "../react/graph-root";
-import { useGraphSnapshot, useGraphState } from "../react/use-graph-state";
+import { useGraphState } from "../react/use-graph-state";
 import { scaleOf } from "../render/graph-model";
 import { ShapeGlyph } from "./shape-glyph";
 
@@ -45,14 +45,14 @@ type Answer = { vertex: VertexId; detail: VertexDetail | null | false } | null;
 /**
  * **The focused vertex, fetched and laid out by the corpus's own tables.** The loaded graph carries
  * what the channels project and nothing else, so the rest of the row is read when a reader focuses
- * it — a scan of its table, filtered to its key, cancelled when the focus moves on. The fields are the
- * table's, in the order the manifest declares them; the key and the position are the canvas's.
+ * it — one statement on its table, by its key, through the page's coordinator. The fields are the
+ * table's, in the order the manifest declares them; the key is the canvas's.
  */
 export function GraphInspector({ children, className, slot, ...rest }: GraphInspectorProps) {
   const api = useGraphContext();
   const focus = useGraphState((s) => s.focus);
-  const corpus = useGraphState((s) => s.corpus);
-  const geometry = useGraphSnapshot((s) => s.geometry);
+  const structure = useGraphState((s) => s.structure);
+  const coordinator = useGraphState((s) => s.options.coordinator);
   const options = useGraphState((s) => s.options);
   const domain = useGraphState((s) => s.drawn?.domain ?? s.domain);
   const capacity = useChartCapacity();
@@ -60,18 +60,20 @@ export function GraphInspector({ children, className, slot, ...rest }: GraphInsp
   const [answer, setAnswer] = useState<Answer>(null);
 
   useEffect(() => {
-    if (focus === null || !corpus || !geometry) return;
-    const aborter = new AbortController();
-    readVertex(corpus, geometry, focus, aborter.signal).then(
-      (detail) => !aborter.signal.aborted && setAnswer({ vertex: focus, detail }),
+    if (focus === null || !structure || !coordinator) return;
+    let current = true;
+    readVertex(coordinator, structure, focus).then(
+      (detail) => current && setAnswer({ vertex: focus, detail }),
       (error: unknown) => {
-        if (aborter.signal.aborted) return;
+        if (!current) return;
         setAnswer({ vertex: focus, detail: false });
         api.getState().options.onFailure(error);
       },
     );
-    return () => aborter.abort();
-  }, [api, corpus, focus, geometry]);
+    return () => {
+      current = false;
+    };
+  }, [api, coordinator, focus, structure]);
 
   const answered = answer !== null && answer.vertex === focus ? answer.detail : undefined;
   const current = answered || null;
@@ -80,7 +82,7 @@ export function GraphInspector({ children, className, slot, ...rest }: GraphInsp
   const category = binding.byTable ? current?.table : field(binding.category);
   const rank = domain.findIndex((value) => String(value) === String(category));
   const bound = binding.byTable || binding.category !== undefined;
-  const identity = geometry?.tables.find((table) => table.name === current?.table)?.identity;
+  const identity = structure?.vertices.find((table) => table.name === current?.table)?.identity;
   const heading = field(options.title) ?? field(identity);
 
   return (

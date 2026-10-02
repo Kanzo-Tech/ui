@@ -1,7 +1,7 @@
 {
   "name": "@kanzo-tech/graph",
   "version": "0.1.0",
-  "description": "Kanzo graph view — a whole fossil corpus, read once through its scan and drawn with cosmos.gl, inside the page's Mosaic crossfilter. Sibling of @kanzo-tech/ui, not part of it: the admission rules exclude graphs from the generic vocabulary by name.",
+  "description": "Kanzo graph view — a fossil corpus attached to the page's DuckDB, read through the page's Mosaic coordinator as one more client, laid out and drawn with cosmos.gl on the GPU. Sibling of @kanzo-tech/ui, not part of it: the admission rules exclude graphs from the generic vocabulary by name.",
   "type": "module",
   "license": "MIT",
   "sideEffects": false,
@@ -28,11 +28,10 @@
     "test": "vitest run",
     "size": "size-limit"
   },
-  "//peers": "All required. cosmos.gl draws; `lucide-react` is the icon set the parts draw their buttons with, `@kanzo-tech/ui`'s own peer; `@fossil-lang/corpus` is the backend — the host opens a corpus with its `open` on `@kanzo-tech/mosaic`'s `engine()` and this package draws it through its `manifest` and `scan`, writing no SQL of its own; `@kanzo-tech/mosaic` carries the crossfilter the graph listens to and publishes into. They were optional while a root barrel with no source and a `./duckdb` entry with one existed side by side; there is one path now and nothing on it is optional (`/docs/design/graph`, *the one host path*). The Mosaic stack itself — mosaic-core, mosaic-sql — is `@kanzo-tech/mosaic`'s peer, declared once there.",
-  "//fossil": "The code reads `fossil/1` — `manifest`, `scan({ table })`, a global dense `dense_id` — which `0.3.0-alpha.15` was the first to publish. The floor is `0.3.0-alpha.19`, the first whose `Engine.query` requires a `signal` and whose `open` and `scan.read` take one and raise coded failures, which `onFailure` hands on whole. Only types are imported; `src/layers.test.ts` holds that.",
+  "//peers": "All required. cosmos.gl draws and lays out; `lucide-react` is the icon set the parts draw their buttons with, `@kanzo-tech/ui`'s own peer; `@kanzo-tech/mosaic` is the coordinator the graph reads through as a client and the crossfilter it listens to and publishes into. The Mosaic stack itself — mosaic-core, mosaic-sql — is `@kanzo-tech/mosaic`'s peer, declared once there.",
+  "//fossil": "The graph reads a corpus fossil's `open` (`@fossil-lang/corpus` ≥ 0.3.0-alpha.24) attached under a name — its tables, `fossil_tables` and `fossil_columns` — with SQL through the coordinator. It imports nothing of fossil's: the contract is the catalog, `/docs/format`.",
   "peerDependencies": {
     "@cosmos.gl/graph": "^3.4.0",
-    "@fossil-lang/corpus": "^0.3.0-alpha.19",
     "@kanzo-tech/mosaic": "workspace:*",
     "@kanzo-tech/ui": "workspace:*",
     "lucide-react": ">=1",
@@ -40,7 +39,7 @@
   },
   "devDependencies": {
     "@cosmos.gl/graph": "^3.4.0",
-    "@fossil-lang/corpus": "^0.3.0-alpha.19",
+    "@duckdb/duckdb-wasm": "1.33.1-dev57.0",
     "@kanzo-tech/mosaic": "workspace:*",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
@@ -66,7 +65,6 @@
         "react-dom",
         "react/jsx-runtime",
         "@cosmos.gl/graph",
-        "@fossil-lang/corpus",
         "@kanzo-tech/mosaic",
         "@kanzo-tech/ui",
         "lucide-react"
