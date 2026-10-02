@@ -93,7 +93,7 @@ import {
 } from "./data";
 import { hall, HOME_HALL, type HallId } from "@/example/world";
 import { initialsOf } from "@/example/people";
-import { GraphCanvas, GraphLegend, GraphLooks, GraphToolbar, useGraphState } from "@kanzo-tech/graph";
+import { GraphCanvas, GraphLegend, GraphToolbar, useGraphState } from "@kanzo-tech/graph";
 import {
 	ArchiveCounts,
 	ArchiveGraph,
@@ -559,20 +559,14 @@ function ArchiveShell() {
 						))}
 					</ToggleGroup>
 
-					{/* The library's own theme drawer, EXTENDED with the graph's looks. Passing
-					    children to `PreferencesPanel` keeps its header toggle and pinned footer while
-					    leading with a section this view owns.
-
-					    The dock's Settings keeps the gestures. The line is the one
-					    `a-section-brings-measurable-obligations` draws: a look and a display have
-					    obligations that return a measured claim, a friction coefficient has none. */}
+					{/* The library's own theme drawer: app-wide preferences only. The graph's looks
+					    live in the dock's Settings, beside the canvas they change. */}
 					<PreferencesRoot hotkey="p">
 						{/* The library's own FAB — fixed bottom-end, and the same one every showcase
 						    uses. A preference is not one of this screen's verbs, and standing among
 						    them in the header it read as one. The `P` hotkey is unchanged. */}
 						<PreferencesTrigger />
 						<PreferencesPanel>
-							<GraphLooks />
 							<ThemePicker />
 							<PreferencesDensity />
 							<PreferencesRadius />

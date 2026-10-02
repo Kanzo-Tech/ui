@@ -1,6 +1,6 @@
 ---
 title: ThemePicker
-description: The theme choice, laid out as GitHub's Appearance settings — Light or Dark, and a theme for each side.
+description: The theme choice — a light card and a dark card, a theme for each side, and the card you pick is the side you wear.
 ---
 
 <ComponentPreview componentName="theme-picker" />
@@ -24,18 +24,21 @@ first), a dialog — and it edits the live theme.
 ## How it works
 
 A theme is one mode, so a person does not choose "a theme" — they choose one for light and one for
-dark, and which side to wear. That is GitHub's *Settings → Appearance*, and the picker is its
-layout:
+dark, and which side to wear. The picker draws exactly that, and **the card is the selector**:
 
-- **Appearance** — a *Light · Dark* segment. It writes `appearance`, and with it `.dark`. The OS is
-  never asked; the starting side is `light`, or the tenant's `policy.theme.appearance.default`.
-- **Light theme** and **Dark theme** — always two cards, side by side. Each says when it applies,
-  shows one large [`ThemePreview`](#themepreview) of the theme chosen for that side with its name
-  under it, and offers that side's themes as a row of round swatches. Choosing a swatch files the
-  theme under its card's side and never flips the appearance: picking a dark theme while wearing
-  light changes nothing on screen until you switch to Dark.
-- **Active** — the card of the side being worn carries the badge in its header and a primary
-  border. With no choice stored, each card shows the default pair.
+- **Light theme** and **Dark theme** — two cards, side by side, and together one radio group,
+  *Appearance*. Clicking a card anywhere but on a swatch wears its side: it writes `appearance`, and
+  with it `.dark`. The OS is never asked; the starting side is `light`, or the tenant's
+  `policy.theme.appearance.default`.
+- **Active** — the worn card is the checked one: a primary border and the badge in its header.
+- **Swatches** — each card offers only its own side's themes, as a row of round swatches. Pointing at
+  one (or focusing it) **previews** it in that card's `ThemePreview` and name, and nowhere else: the
+  page does not change, and leaving puts the card's own theme back. **Clicking** one commits it: the
+  theme is filed under the card's side and that side is worn, so choosing a dark theme while wearing
+  light switches to dark.
+
+Each side remembers its own theme (`themeByAppearance`), so wearing the other card brings back what
+was chosen for it. With no choice stored, each card shows the default pair.
 
 Each swatch is the theme's own `--background` and `--primary` split on the diagonal, painted inside a
 scoped `KanzoTheme` — the real tokens, never a copy of their colours — so the row grows by one circle
@@ -69,7 +72,7 @@ than drawing an empty row.
 ### A locked brand
 
 A white-label tenant withholds the theme axis and passes its pair as the default. The picker then
-draws only the *Light · Dark* control — members still choose the side, inside the brand:
+draws its two cards without swatches — choosing a card still picks the side, inside the brand:
 
 ```tsx
 <KanzoThemeProvider
@@ -90,10 +93,10 @@ What draws is decided by the tenant's `policy.theme`:
 
 | `policy.theme` | What draws |
 | --- | --- |
-| nothing | the *Light · Dark* control and both cards |
-| `appearance: { pinned: "dark" }` or `{ hidden: true }` | no control — the pinned (or default) side is worn; both cards |
-| `appearance: { default: "dark" }` | the control, starting on Dark |
-| `themeByAppearance: { hidden: true }` or `{ pinned }` | the control only — the tenant's default pair applies |
+| nothing | both cards, as the *Appearance* choice, each with its swatches |
+| `appearance: { pinned: "dark" }` or `{ hidden: true }` | only the worn side's card — the pinned (or default) side — with its swatches and no radio. The other side's theme would never be worn, so it is not offered |
+| `appearance: { default: "dark" }` | both cards, the dark one checked |
+| `themeByAppearance: { hidden: true }` or `{ pinned }` | both cards without swatches — the tenant's default pair, previewed; choosing a card still picks the side |
 | both withheld | nothing — `ThemePicker` renders `null` |
 
 ## The retired-theme notice
@@ -106,14 +109,19 @@ through `copy.retired`.
 
 ## Accessibility
 
-- *Appearance* is an Ark segment group (a radio group) named by its label: arrow keys move between
-  Light and Dark.
-- Each card is a region named by its title, and its swatches are an Ark radio group named by the same
-  title: Tab enters the row on the checked swatch, arrow keys move along it (and choose as they go,
-  so the preview above follows), and the swatch is announced by the theme's label as checked.
-- The swatch circles and the preview are decorative (`aria-hidden`); the label is the radio's
-  accessible name and also its tooltip on hover. **Active** is plain text in the card header, so it is
-  read with the card.
+- The two cards are an Ark radio group named *Appearance* (`copy.appearance`). Each card's radio is
+  its header, stretched over the card, so the whole card is the click target while no control is
+  nested in another. Tab reaches the checked card; arrow keys move between the cards and wear the
+  side as they go — the native radio behaviour, kept because wearing a side is the choice itself and
+  is undone by the next arrow.
+- Each card's swatches are a radio group named by the card's title, with **manual activation**, as
+  the WAI-ARIA toolbar pattern runs its radios: Tab enters the row on the chosen swatch, arrow keys
+  (and Home / End) move focus and preview the focused theme in the card without choosing it, Enter
+  or Space chooses it, and Escape puts the preview back. Choosing on arrow would repaint the page on
+  every key press.
+- A swatch's accessible name is the theme's label, also its tooltip on hover and focus. The swatch
+  circles and the preview are decorative (`aria-hidden`); **Active** is drawn for sight and the
+  card's checked state says it to a screen reader.
 - The cards sit on a container query, not a viewport one: side by side from a 36rem container,
   stacked in a 384px drawer, with nothing passed down. Swatches wrap, and a long label wraps rather
   than truncating.
@@ -153,9 +161,7 @@ theme names it.
 
 | Key | Default |
 | --- | --- |
-| `appearance` | `"Appearance"` — the label of the *Light · Dark* control |
-| `light` | `"Light"` |
-| `dark` | `"Dark"` |
+| `appearance` | `"Appearance"` — the accessible name of the two cards' radio group |
 | `day` | `"Light theme"` — the light side's card |
 | `dayDescription` | `"Worn while the appearance is light."` |
 | `night` | `"Dark theme"` — the dark side's card |

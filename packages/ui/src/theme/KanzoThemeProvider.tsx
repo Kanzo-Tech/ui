@@ -486,9 +486,11 @@ export function KanzoThemeProvider({
   const setTheme = React.useCallback(
     (theme: string, options: { appearance?: Appearance } = {}) => {
       const side = options.appearance ?? appearance;
-      set({ themeByAppearance: { ...prefs.themeByAppearance, [side]: theme } });
+      // The latest write, not the render's snapshot: filing both sides of a family is two calls in
+      // one tick, and off the snapshot the second dropped the first.
+      set({ themeByAppearance: { ...latestPrefs.current.themeByAppearance, [side]: theme } });
     },
-    [prefs.themeByAppearance, appearance, set],
+    [appearance, set],
   );
 
   // **Not resolved against what the tenant published**, though the declaration names that source and

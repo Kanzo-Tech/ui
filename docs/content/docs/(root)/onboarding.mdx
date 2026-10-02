@@ -140,8 +140,8 @@ const policy = { theme: { themeByAppearance: { hidden: true }, radius: { pinned:
 // …and the same `defaultTheme` and `policy` to `themeScript`, or the first paint disagrees.
 ```
 
-A withheld theme leaves the pair to the tenant, so `ThemePicker` offers the *Light · Dark* control and
-nothing else — members still choose the side, inside the brand. That is the white-label case
+A withheld theme leaves the pair to the tenant, so `ThemePicker` draws its two cards without swatches —
+choosing a card still picks the side, and members still choose the side, inside the brand. That is the white-label case
 working, not a control failing. Prefer `hidden` plus `defaultTheme` to pinning a theme name: a pinned
 name is one theme on *both* sides.
 
@@ -155,7 +155,7 @@ name is one theme on *both* sides.
 
 The client's family first makes it the default pair; the shipped families follow as alternatives.
 [`ThemePicker`](/docs/layout/theme-picker) draws a light card and a dark card — because a theme *is*
-a side — each a `ThemePreview` of its choice over a row of swatches, one per theme. The preview is the
+a side, and choosing a card wears it — each a `ThemePreview` of its choice over a row of swatches, one per theme. The preview is the
 theme painting a miniature screen, and each swatch is its real `--background` and `--primary`, so
 the client's family reads as itself rather than as a name in a list.
 
