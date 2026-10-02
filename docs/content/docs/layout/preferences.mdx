@@ -105,6 +105,11 @@ The theme comes first. `ThemePicker` guards itself rather than being guarded at 
 every section is exported flat for a host's own settings page, where a call-site guard would be
 invisible. Its cards, its policy handling and its copy are on [its own page](/docs/layout/theme-picker).
 
+Before 0.20 this slot held `PreferencesColor`, swatch chips under a light side and a dark side.
+`ThemePicker` replaces it: a panel composed with `<PreferencesColor />` names `<ThemePicker />`
+instead, its strings (`formatSide` and friends) move to `copy`, and *Theme mode* is the appearance
+control.
+
 ## What the installed packages add
 
 The five sections above are the core's. A package a host installed may contribute its own choice —

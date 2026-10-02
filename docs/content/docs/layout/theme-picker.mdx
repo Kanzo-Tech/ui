@@ -5,8 +5,10 @@ description: The theme choice, modelled on GitHub's Appearance settings — a da
 
 <ComponentPreview componentName="theme-picker" />
 
+## Usage
+
 ```tsx
-import { ThemePicker, ThemePreview } from "@kanzo-tech/ui";
+import { ThemePicker } from "@kanzo-tech/ui";
 ```
 
 ```tsx
@@ -15,73 +17,145 @@ import { ThemePicker, ThemePreview } from "@kanzo-tech/ui";
 </KanzoThemeProvider>
 ```
 
-A theme is one mode, so a user does not choose "a theme" — they choose one for the day and one for
-the night, and whether the OS picks between them. That is GitHub's model, and the picker is its
-layout:
+It reads and writes `useKanzoTheme()`, so it takes no value and no handler: mount it anywhere under
+the provider — a settings page, the [`Preferences`](/docs/layout/preferences) drawer (which draws it
+first), a dialog — and it edits the live theme.
+
+## How it works
+
+A theme is one mode, so a person does not choose "a theme" — they choose one for the day and one
+for the night, and whether the OS picks between them. That is GitHub's *Settings → Appearance*, and
+the picker is its layout:
 
 - **Theme mode** — *Sync with system* follows `prefers-color-scheme` (`appearance: ""`); *Single
-  theme* pins a side.
-- **Day theme** and **Night theme** — in sync mode, a group each: the light themes and the dark
-  themes the provider's `themes` lists. In single mode, one **Theme** group of every theme, and
-  choosing one wears its side.
-- Each option is a radio card: a `ThemePreview` on top, the theme's label under it, and **Active**
-  on the one on screen. The groups are Ark radio groups, so arrow keys move within a group and each
-  group is named by its heading.
+  theme* pins the side currently on screen.
+- **Day theme** and **Night theme** — in sync mode, one group each: the light themes and the dark
+  themes the provider's `themes` lists. Choosing a night theme in daylight files it under `dark`
+  without repainting what you are looking at.
+- **Theme** — in single mode, one group of every theme; choosing one wears its side, so picking
+  `nord-dark` switches the page to dark.
+- Each option is a radio card: a [`ThemePreview`](#themepreview) on top, the theme's label under it,
+  and an **Active** badge on the one on screen. A card with no choice stored shows the default pair
+  as selected.
 
-It is the one control for both preferences: `Preferences` draws it first, and there is no separate
-appearance toggle.
+There is no separate sun/moon toggle anywhere in the library: *Theme mode* is the appearance control.
 
-## What it offers
+## Examples
 
-What the provider's `themes` lists — the shipped catalogue by default, a tenant's list when one is
-passed — and what the tenant's `policy` leaves open:
-
-| `policy.theme` | What draws |
-| --- | --- |
-| nothing | the mode control and both groups |
-| `appearance: { pinned: "dark" }` or `{ hidden: true }` | no mode control; one group, of that side's themes |
-| `themeByAppearance: { pinned }` or `{ hidden: true }` | the mode control only — the tenant's default pair applies |
-| both withheld | nothing |
-
-A stored theme the tenant no longer publishes is cleared by the provider, and the picker says so
-under its groups, in the same words `ThemeNotice` toasts.
-
-## ThemePreview
-
-<ComponentPreview componentName="theme-picker" fileName="example-preview" />
-
-A miniature app screen — header with the brand mark and a primary button, a sidebar with its active
-row, both inks, and a line of code in the `--syntax-*` colours — rendered inside a scoped
-`KanzoTheme`, so every part reads the theme's real tokens rather than a copy of its colours. It is
-what the picker's cards, the [themes catalogue](/docs/themes) and the
-[generator](/theme-generator) draw.
-
-```tsx
-<ThemePreview theme="nord-dark" />
-```
-
-Without `theme` it inherits the surrounding cascade — the generator wraps it in an element carrying
-an unshipped theme as inline custom properties. It is decorative (`aria-hidden`): whatever offers
-the theme names it.
-
-## Translating
+### Translating
 
 Every string the picker authors is in `copy`; the theme labels are the tenant's and are never
 reworded.
 
 <ComponentPreview componentName="theme-picker" fileName="example-copy" />
 
+### A subset of themes
+
+The picker offers exactly what the provider's `themes` lists, so narrowing the offer is a prop on the
+provider, not on the picker:
+
+```tsx
+import { themeIndex } from "@kanzo-tech/theme";
+
+<KanzoThemeProvider themes={themeIndex.filter((t) => t.family !== "lofi")}>
+  <ThemePicker />
+</KanzoThemeProvider>
+```
+
+A list with no theme of one side falls back to offering every theme in that side's group, rather
+than drawing an empty one.
+
+### A locked brand
+
+A white-label tenant withholds the theme axis and passes its pair as the default. The picker then
+draws only *Theme mode* — members still choose day, night or the OS, inside the brand:
+
+```tsx
+<KanzoThemeProvider
+  defaultTheme={{ light: "acme", dark: "acme-dark" }}
+  policy={{ theme: { themeByAppearance: { hidden: true } } }}
+  themes={ACME}
+>
+  <ThemePicker />
+</KanzoThemeProvider>
+```
+
+Pass the same `defaultTheme` and `policy` to `themeScript`. The whole recipe, including reading the
+brand from an instance config, is in [Theming → White-label](/docs/theming#white-label).
+
+## Policy
+
+What draws is decided by the tenant's `policy.theme`:
+
+| `policy.theme` | What draws |
+| --- | --- |
+| nothing | *Theme mode* and the groups for it |
+| `appearance: { pinned: "dark" }` | no mode control; one group, of that side's themes |
+| `appearance: { hidden: true }` | no mode control; the OS decides, so the day and night groups |
+| `themeByAppearance: { hidden: true }` or `{ pinned }` | *Theme mode* only — the tenant's default pair applies |
+| both withheld | nothing — `ThemePicker` renders `null` |
+
+## The retired-theme notice
+
+When the user's stored theme is no longer in `themes` — a tenant dropped a family, or the library
+retired the theme — the provider clears the choice and the picker shows an *info* alert under its
+groups: "Brand updated — “dracula” is no longer offered here. You are seeing the default." It is the
+same state, and the same words, [`ThemeNotice`](/docs/theming#retired-themes) toasts; translate both
+through `copy.retired`.
+
+## Accessibility
+
+- Each group is an Ark radio group named by its heading: Tab moves between groups, arrow keys move
+  within one, and the selected card is announced as checked.
+- The preview is decorative (`aria-hidden`) and the **Active** badge is hidden from assistive
+  technology too — the theme's label is the card's accessible name, and the checked state already
+  says which is chosen.
+- Cards lay out on an auto-fill grid, so the picker fits a 384px drawer and a wide settings page with
+  nothing passed down, and a long label wraps rather than truncating.
+
+## ThemePreview
+
+<ComponentPreview componentName="theme-picker" fileName="example-preview" />
+
+```tsx
+import { ThemePreview } from "@kanzo-tech/ui";
+
+<ThemePreview theme="nord-dark" />
+```
+
+A miniature app screen — a header with the brand mark and a primary button, a sidebar with its active
+row, both inks, and two lines of code in the `--syntax-*` colours — rendered inside a scoped
+`KanzoTheme`, so every part reads the theme's real tokens rather than a copy of its colours. It is
+what the picker's cards, the [themes catalogue](/docs/themes) and the [generator](/theme-generator)
+draw.
+
+Without `theme` it inherits the surrounding cascade — the generator wraps it in an element carrying
+an unshipped theme as inline custom properties. It is decorative (`aria-hidden`): whatever offers the
+theme names it.
+
 ## API Reference
 
 ### ThemePicker
 
+`ThemePickerProps` extends a `div`'s props, minus `children`.
+
 | Prop | Type | Default |
 | --- | --- | --- |
-| `copy` | `Partial<ThemePickerCopy>` | English |
+| `copy` | `Partial<ThemePickerCopy>` | English, below |
 | `className` | `string` | — |
 
-`ThemePickerCopy` is `{ mode, sync, single, day, night, theme, active, retired }`, where `retired` is
-the `ThemeRetiredCopy` `ThemeNotice` takes.
+### ThemePickerCopy
+
+| Key | Default |
+| --- | --- |
+| `mode` | `"Theme mode"` |
+| `sync` | `"Sync with system"` |
+| `single` | `"Single theme"` |
+| `day` | `"Day theme"` |
+| `night` | `"Night theme"` |
+| `theme` | `"Theme"` — the single-mode group |
+| `active` | `"Active"` |
+| `retired` | `ThemeRetiredCopy` — `{ title?, formatDescription?({ theme }) }`, shared with `ThemeNotice` |
 
 ### ThemePreview
 
@@ -89,6 +163,6 @@ the `ThemeRetiredCopy` `ThemeNotice` takes.
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `theme` | `string` | inherits |
-| `appearance` | `"light" \| "dark"` | the theme's own side |
+| `theme` | `string` | inherits the surrounding cascade |
+| `appearance` | `"light" \| "dark"` | the theme's own side, read off the provider's `themes` or `themeIndex` |
 | `className` | `string` | — |

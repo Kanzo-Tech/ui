@@ -3,21 +3,46 @@
 The themes and the axes a user layers over them. **A theme is one flat block of CSS, and it carries
 one mode.**
 
-Four families ship, each a light theme and a dark one: `kanzo` / `kanzo-dark` (the brand at
-kanzo.tech, and the default), `nord` / `nord-dark`, `catppuccin-latte` / `catppuccin-mocha` and
-`lofi` / `lofi-dark`. A user picks a day theme and a night theme — GitHub's model — and a product
-ships its own families beside or instead of these.
+Four families ship, each a light theme and a dark one — eight themes:
+
+| Family | Day | Night |
+|---|---|---|
+| `kanzo` — the default, from the kanzo.tech brand | `kanzo` | `kanzo-dark` |
+| `catppuccin` | `catppuccin-latte` | `catppuccin-mocha` |
+| `lofi` | `lofi` | `lofi-dark` |
+| `nord` | `nord` | `nord-dark` |
+
+A user picks a day theme and a night theme, and whether the OS decides between them — GitHub's
+Appearance model, drawn by `ThemePicker` in `@kanzo-tech/ui`. A product ships its own families beside
+or instead of these.
 
 - **Theme** — `packages/theme/themes/<name>.css`, hand-written source. Its colours, the shape knobs,
   optionally its font stacks, and its own `color-scheme`. Selected with `data-theme`.
 - **Radius** — `none` · `xs` · `sm` · `md` · `lg`, a user preference over the theme's own three
   radius knobs.
-- **Font** / **Mono font** — `--font-sans` / `--font-heading` / `--font-mono`.
+- **Font** / **Mono font** — `--font-sans` / `--font-heading` / `--font-mono`; Geist and Geist Mono by
+  default, falling back to the system faces.
 - **Density** — the root font-size the whole `rem` scale resolves against.
-- **Appearance** — `light` / `dark`, and it chooses *which theme* is worn, because a theme is a side.
+- **Appearance** — `light` / `dark` / `""` (follow the OS), and it chooses *which theme* is worn,
+  because a theme is a side.
 
-This package ships **no components** and no colour maths. It is CSS, the declared axes and the value
-types.
+This package ships **no components**. It is CSS, the catalogue and the declared axes as data, the
+contrast floors, and the authoring-time colour helpers the theme generator uses.
+
+## The catalogue as data
+
+```ts
+import { defaultThemePair, themeFamilies, themeIndex } from "@kanzo-tech/theme";
+
+themeIndex[0]; // { value: "kanzo", label: "Kanzo", dark: false, family: "kanzo" } — a ThemeOption
+themeFamilies(themeIndex); // [{ family: "kanzo", light, dark }, …]
+defaultThemePair(themeIndex); // { light: "kanzo", dark: "kanzo-dark" }
+```
+
+`themeIndex` is generated from the `themes/` directory — each file's `color-scheme` and its
+`@family` / `@label` header — so adding a theme is adding a file. It is the default `themes` of
+`KanzoThemeProvider`, and `defaultThemePair` is the default `defaultTheme` of both the provider and
+`themeScript`.
 
 ## A theme
 
@@ -38,7 +63,18 @@ types.
 That is the whole mechanism: a block somebody writes, an `@import` in `themes.css`, and an attribute
 on `<html>`. The header names the family the theme belongs to and the label a picker shows;
 `scripts/gen-theme.mjs` refuses a family without exactly one light and one dark theme, and
-`themes.test.ts` holds every theme to WCAG AA on the pairs `CONTRAST_PAIRS` lists — syntax included. Adding a client touches no code and needs no deploy.
+`themes.test.ts` holds every theme to the floors `CONTRAST_PAIRS` lists — text at 4.5:1, borders,
+the focus ring, the brand fill and chart marks at 3:1, and the eight `--syntax-*` inks on the page and
+on the editor's active line. `auditContrast(resolve)` runs the same list over a theme of your own.
+Adding a client touches no code and needs no deploy.
+
+**What a theme writes:** the twenty-one colours (surfaces and ink, three brand fills with their inks,
+four status fills with `-content`, `--border`, `--ring`), the names the components read with no
+fallback (`--input`, `--field`, `--faint`, the four status `-foreground`s), the eight syntax inks
+(`--syntax-keyword`, `-string`, `-number`, `-function`, `-variable`, `-property`, `-type`,
+`-annotation`), the shape knobs, and optionally `--popover` and a categorical set (`--chart-1..8`).
+The [theme generator](https://kanzo-tech.github.io/ui/theme-generator) writes all of it as a light and
+dark pair.
 
 **Twenty-one carry a value; everything else uses one.** `--card-foreground`, the sidebar tokens and
 `--popover` are *uses*, bridged once in `tokens.css` through `@theme inline` and never re-declared —
@@ -107,9 +143,16 @@ attributes before first paint so there is no flash of the wrong theme. Pair it w
 ```tsx
 import { themeScript, cookieStorageAdapter } from "@kanzo-tech/ui";
 
-<head><script dangerouslySetInnerHTML={{ __html: themeScript() }} /></head>
-<KanzoThemeProvider storage={cookieStorageAdapter()}>{children}</KanzoThemeProvider>
+<head><script dangerouslySetInnerHTML={{ __html: themeScript({ defaultTheme, policy }) }} /></head>
+<KanzoThemeProvider defaultTheme={defaultTheme} policy={policy} storage={cookieStorageAdapter()}>
+  {children}
+</KanzoThemeProvider>
 ```
+
+Give the script the **same** `defaultTheme` pair and `policy` as the provider — both are optional, but
+a mismatch is a flash of one theme followed by another, and a hydration mismatch in any control that
+renders from the resolved theme. A white-label lock is
+`policy = { theme: { themeByAppearance: { hidden: true } } }` with the brand as `defaultTheme`.
 
 ## What's in the package
 
@@ -122,8 +165,8 @@ The non-colour axis tables — and the DECLARATION of every axis, `CORE_PREFS`, 
 them — are exported from the JS entry as `themeData` / `CORE_PREFS`. Import those, **not**
 `@kanzo-tech/theme/theme-data.json`. A raw JSON subpath import is an ESM JSON import at
 runtime, which Node rejects without `with { type: "json" }`, and Rollup strips that attribute
-when bundling. `themeData.themes` is the catalogue, read off the `themes/` directory by the
-generator, so adding a theme is adding a file and nothing lists them twice.
+when bundling. `themeIndex` is the catalogue, read off the `themes/` directory by the generator,
+so adding a theme is adding a file and nothing lists them twice.
 
 `CHART_SLOTS` is a fact about the **sheet** — how many `--chart-*` properties a theme publishes —
 and a chart resolving them off the cascade runs in a browser. It is checked against what actually

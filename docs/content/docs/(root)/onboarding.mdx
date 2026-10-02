@@ -47,6 +47,9 @@ pair out of `@kanzo-tech/theme/themes/` and change the colours.
 
   /* Read with no fallback by the components, so every theme writes them. */
   --input: #7a8496;        --field: #ffffff;         --faint: #586274;
+  /* Each status family read on the page — error text, an invalid ring. */
+  --destructive-foreground: #a3161c;  --info-foreground: #0f4aad;
+  --success-foreground: #076b45;      --warning-foreground: #8a4700;
 
   /* The editor's inks — AA on --background and on --muted. */
   --syntax-keyword: #7c3aed;  --syntax-string: #0b7a4b;   --syntax-number: #b54708;
@@ -66,11 +69,11 @@ Dark is a **second theme**, not a second block:
    @label Acme Dark */
 [data-theme="acme-dark"] {
   color-scheme: dark;
-  /* …the same twenty-one, chosen for a dark ground. */
+  /* …the same set, chosen for a dark ground — plus --popover, if overlays should lift off the card. */
 }
 ```
 
-<Callout type="warn" title="Twenty-one carry a value; nothing else does">
+<Callout type="warn" title="Write the twenty-one and the extras — never the uses">
   Do not write the card ink, the sidebar brand or the other names bridged in `tokens.css`.
   They are *uses* of the twenty-one and are declared once, centrally — writing them again in a theme
   is the duplication the whole layer exists to prevent. Override one only when this theme genuinely
@@ -95,9 +98,31 @@ theme's `color-scheme`, `@family` and `@label` in `theme-data.json`. **Adding a 
 file** — nothing lists them twice — and a family without exactly one light and one dark theme is
 refused.
 
-An instance that is not this repository ships the same CSS as configuration instead: the
-generator's *Instance config* tab is a `branding: { theme_css, families, default, lock }` snippet,
-which the host inlines and maps onto the provider's `themes`, `defaultTheme` and `policy`.
+In a product's own repository there is no catalogue to regenerate: import the two files after
+`@kanzo-tech/ui/tailwind.css` and list both sides in the provider's `themes`, as below.
+
+### Or ship it as configuration
+
+An instance that is not this repository — one build, a brand per deployment — ships the same CSS as
+configuration instead. The generator's **Instance config** tab is that file:
+
+```yaml title="branding.yml"
+branding:
+  theme_css: |
+    /* both blocks, exactly as the Theme CSS tab shows them */
+  families:
+    - family: acme
+      light: { value: acme, label: Acme }
+      dark: { value: acme-dark, label: Acme Dark }
+  default: acme
+  lock: false
+```
+
+The host inlines `theme_css` after the library's stylesheet and maps the rest onto the provider:
+`families` → `themes`, `default` → the `defaultTheme` pair, `lock: true` →
+`policy: { theme: { themeByAppearance: { hidden: true } } }`. keasy reads it from
+`KEASY_BRANDING_FILE`; the mapping, a dozen lines, is in
+[Theming → Recipe: branding from an instance config](/docs/theming#recipe-branding-from-an-instance-config).
 
 ## Decide what this client's users may change
 
@@ -116,27 +141,35 @@ const policy = { theme: { themeByAppearance: { hidden: true }, radius: { pinned:
 ```
 
 A withheld theme leaves the pair to the tenant, so `ThemePicker` offers the theme mode and nothing
-else. That is the white-label case working, not a control failing.
+else — members still choose day, night or the OS, inside the brand. That is the white-label case
+working, not a control failing. Prefer `hidden` plus `defaultTheme` to pinning a theme name: a pinned
+name is one theme on *both* sides.
 
 ## Offer the choice, if there is one
 
 ```tsx
-<KanzoThemeProvider themes={[...themeIndex, ...ACME]} onThemeRetired={(name) => notify(name)}>
+<KanzoThemeProvider themes={[...ACME, ...themeIndex]} onThemeRetired={(name) => notify(name)}>
   <ThemePicker />
 </KanzoThemeProvider>
 ```
 
+The client's family first makes it the default pair; the shipped families follow as alternatives.
 [`ThemePicker`](/docs/layout/theme-picker) draws a day group and a night group — because a theme *is*
 a side — and each card is a `ThemePreview`, the theme painting a miniature screen, so the preview is
 the real thing rather than a strip of swatches.
+
+When a client later withdraws a theme somebody had chosen, the provider moves that person to the
+default and calls `onThemeRetired` once; the picker says so in an alert, and `ThemeNotice` can toast
+it. See [retired themes](/docs/theming#retired-themes).
 
 ## Verify
 
 **Contrast is checked against one list.** `CONTRAST_PAIRS` in `@kanzo-tech/theme` names every pair a
 theme owes and its WCAG floor — inks at 4.5:1, the syntax inks on the page and the active line, the
 brand fill, ring, field border and chart slots at 3:1 — and `auditContrast` returns what a theme
-fails. `themes.test.ts` holds every shipped theme to it; the generator shows the same findings live.
-A theme of your own runs through the same function:
+fails. `themes.test.ts` holds every shipped theme to it in CI; the generator shows the same findings
+live, on both sides, as you edit. A theme of your own runs through the same function (on both
+blocks — a family passes when each side does):
 
 ```ts
 import { auditContrast } from "@kanzo-tech/theme";
@@ -144,4 +177,9 @@ import { auditContrast } from "@kanzo-tech/theme";
 auditContrast((token) => acme[token]); // [] when every pair clears its floor
 ```
 
-Then look at it. Set `data-theme` on `<html>` in the docs and read a real screen.
+`auditContrast` skips a pair whose token is missing rather than failing it, so check the theme is
+whole too: the [twenty-one and the authored extras](/docs/theming#the-twenty-one-and-the-uses),
+including all eight `--syntax-*`.
+
+Then look at it: the generator's **Copy link** reopens the pair with both sides drawn on real
+components, and in an app, `data-theme="acme"` on `<html>` puts it on every screen you have.

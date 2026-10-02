@@ -30,7 +30,7 @@ document.
 **The trap, and it is not a compile error.** `:root { --sidebar-primary: var(--primary) }` and the
 same line in `@theme inline` are **not** equivalent. A custom property inherits its *computed* value,
 so the first resolves once on `<html>` and a scoped `<div data-theme="catppuccin-mocha">` inherits the
-already-substituted answer — Dracula's brand with the page's sidebar, silently. `@theme inline` puts
+already-substituted answer — Catppuccin's brand with the page's sidebar, silently. `@theme inline` puts
 the value in the *utility*, so it resolves on the element wearing the class. That is why the whole
 vocabulary is bridged and none of it re-declared, and why the radius scale hangs off `--radius-field`
 directly rather than an intermediate.
@@ -80,7 +80,7 @@ theme: the one chosen for the side, or the default pair's".
 
 `@kanzo-tech/theme` exports `inkFor`, which answers *you picked this fill, what text goes on it?* — the
 rule daisyUI's generator uses, recovered from its output, with WCAG AA as a floor rather than a hope.
-It runs in the [theme studio](/theme-generator) while somebody authors, on one colour at a time, and
+It runs in the [theme generator](/theme-generator) while somebody authors, on one colour at a time, and
 what it returns is written into the document as a **literal hex**. Themes stay flat blocks: nothing
 computes a colour in a page painting one, and `tokens.css` gains no `color-mix`.
 
@@ -269,7 +269,7 @@ marquee is `color-mix(in oklab, var(--primary) 17%, transparent)` where it is dr
 the core's vocabulary for one consumer is what this refuses; a section token lives in the owner's
 namespace and costs nothing to whoever never installs the package.
 
-**Chart and editor are not sections.** The eight categorical slots with their capacity, and the seven
+**Chart and editor are not sections.** The eight categorical slots with their capacity, and the eight
 syntax hues, are parts of colour rather than peers of it — which is why the count is three rather than
 five.
 

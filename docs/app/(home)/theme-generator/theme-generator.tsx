@@ -47,6 +47,7 @@ import {
   SunIcon,
   TriangleAlertIcon,
 } from "lucide-react";
+import Link from "next/link";
 import * as React from "react";
 import { decode, encode } from "./link";
 import { ThemeSampler } from "./theme-sampler";
@@ -94,7 +95,7 @@ const GROUPS = [
   },
   {
     title: "Brand",
-    doc: "each fill with the ink that belongs to it",
+    doc: "each fill with the ink that sits on it — the ink follows the fill until you change it",
     pairs: [
       { fill: "--primary", ink: "--primary-foreground", label: "primary" },
       { fill: "--secondary", ink: "--secondary-foreground", label: "secondary" },
@@ -103,7 +104,7 @@ const GROUPS = [
   },
   {
     title: "Status",
-    doc: "`-content` sits ON the fill; `-foreground` is the same family read on the page",
+    doc: "ink sits on the fill (-content); on the page is the same family as text on the background (-foreground)",
     pairs: [
       { fill: "--destructive", ink: "--destructive-content", page: "--destructive-foreground", label: "destructive" },
       { fill: "--info", ink: "--info-content", page: "--info-foreground", label: "info" },
@@ -113,7 +114,7 @@ const GROUPS = [
   },
   {
     title: "Lines",
-    doc: "nothing sits on these, so they are drawn as themselves",
+    doc: "border, a field's border and the focus ring — the last two at 3:1 against the page",
     row: [
       { token: "--border", label: "border" },
       { token: "--input", label: "input" },
@@ -368,7 +369,7 @@ export function ThemeGenerator() {
             <h1 className="shrink-0 font-semibold text-sm">Theme generator</h1>
             <span aria-hidden className="hidden h-4 w-px shrink-0 bg-border xl:block" />
             <p className="hidden truncate text-muted-foreground text-xs xl:block">
-              A family is a light theme and a dark one. The pane wears both; the CSS is the same values.
+              Edit a light theme and a dark one together. The previews wear your values; the output is those values.
             </p>
           </div>
 
@@ -444,6 +445,9 @@ export function ThemeGenerator() {
                 </Button>
               ))}
             </div>
+            <p className="-mt-5 text-muted-foreground text-xs leading-snug">
+              Colours are edited one side at a time; radius, size, stroke and depth are shared by both.
+            </p>
 
             {GROUPS.map((group) => (
               <section className="flex flex-col gap-2" key={group.title}>
@@ -493,7 +497,7 @@ export function ThemeGenerator() {
             ))}
 
             <section className="flex flex-col gap-2">
-              <SectionHead doc="the editor's inks, read on the page and on the active line" title="Syntax" />
+              <SectionHead doc="the code editor's inks — each at 4.5:1 on the page and on the active line" title="Syntax" />
               {SYNTAX.map((token) => (
                 <OklchPicker key={token} label={token} onChange={(v) => set(token, v)} value={theme[token] ?? ""}>
                   <span
@@ -512,7 +516,7 @@ export function ThemeGenerator() {
             </section>
 
             <section className="flex flex-col gap-3">
-              <SectionHead doc="a shape, not a number — shared by both sides" title="Radius" />
+              <SectionHead doc="shared by both sides, like everything below" title="Radius" />
               {RADII.map((row) => (
                 <StepRow
                   key={row.name}
@@ -623,8 +627,14 @@ function ContrastReport({ family, findings }: { family: string; findings: Record
         ) : (
           <TriangleAlertIcon className="size-4 text-warning-foreground" />
         )}
-        {total === 0 ? "Every pair clears its WCAG floor on both sides" : `${total} pairs below their WCAG floor`}
+        {total === 0
+          ? "Every pair clears its WCAG floor on both sides"
+          : `${total} ${total === 1 ? "pair" : "pairs"} below its WCAG floor`}
       </h2>
+      <p className="text-muted-foreground text-xs">
+        Text needs 4.5:1 on its ground; borders, the focus ring, the brand fill and chart marks need 3:1. The
+        same list the build checks shipped themes against — here it warns, it does not block.
+      </p>
       {SIDES.map((s) =>
         findings[s].length > 0 ? (
           <ul className="flex flex-col gap-1 text-xs" key={s}>
@@ -949,13 +959,16 @@ function OutputBlock({ config, css, link }: { config: string; css: string; link:
           <TabsTrigger value="config">Instance config</TabsTrigger>
         </TabsList>
         <Clipboard className="ms-auto shrink-0" value={link}>
-          <ClipboardTrigger>
-            <Button size="sm" variant="ghost">
-              <ClipboardIndicator copied={<CheckIcon />}>
-                <LinkIcon />
-              </ClipboardIndicator>
-              Copy link
-            </Button>
+          {/* The trigger IS the button — a `Button` inside it would nest one button in another. It
+              ships icon-sized, so the width and padding are put back for a labelled one. */}
+          <ClipboardTrigger
+            className="w-auto gap-1.5 px-2.5"
+            title="The whole pair, in the URL fragment — it never reaches a server"
+          >
+            <ClipboardIndicator copied={<CheckIcon />}>
+              <LinkIcon />
+            </ClipboardIndicator>
+            Copy link
           </ClipboardTrigger>
         </Clipboard>
       </div>
@@ -963,8 +976,9 @@ function OutputBlock({ config, css, link }: { config: string; css: string; link:
         <Output
           hint={
             <>
-              Two blocks, one per side. In this repository each is its own{" "}
-              <code className="font-mono">packages/theme/themes/&lt;name&gt;.css</code>, then{" "}
+              Two blocks, one per side. In an app, load them after the library&apos;s stylesheet and list both in
+              the provider&apos;s <code className="font-mono">themes</code>. In this repository, save each as{" "}
+              <code className="font-mono">packages/theme/themes/&lt;name&gt;.css</code> and run{" "}
               <code className="font-mono">pnpm --filter @kanzo-tech/theme gen</code>.
             </>
           }
@@ -973,7 +987,17 @@ function OutputBlock({ config, css, link }: { config: string; css: string; link:
       </TabsContent>
       <TabsContent className="flex flex-col gap-2" value="config">
         <Output
-          hint="For an instance: the CSS, the families its members may choose, the default, and whether the choice is locked."
+          hint={
+            <>
+              A <code className="font-mono">branding:</code> block an instance reads as-is: the CSS, the families its
+              members may choose, the default, and <code className="font-mono">lock</code> (true withdraws the choice).
+              keasy reads it from <code className="font-mono">KEASY_BRANDING_FILE</code>;{" "}
+              <Link className="underline underline-offset-2" href="/docs/theming#recipe-branding-from-an-instance-config">
+                how a host maps it
+              </Link>
+              .
+            </>
+          }
           text={config}
         />
       </TabsContent>
@@ -987,13 +1011,11 @@ function Output({ hint, text }: { hint: React.ReactNode; text: string }) {
       <div className="flex items-start gap-3">
         <p className="min-w-0 flex-1 text-muted-foreground text-xs">{hint}</p>
         <Clipboard className="shrink-0" value={text}>
-          <ClipboardTrigger>
-            <Button size="sm">
-              <ClipboardIndicator copied={<CheckIcon />}>
-                <CopyIcon />
-              </ClipboardIndicator>
-              Copy
-            </Button>
+          <ClipboardTrigger className="w-auto gap-1.5 px-2.5 [--btn-bg:var(--primary)] [--btn-fg:var(--primary-foreground)]">
+            <ClipboardIndicator copied={<CheckIcon />}>
+              <CopyIcon />
+            </ClipboardIndicator>
+            Copy
           </ClipboardTrigger>
         </Clipboard>
       </div>

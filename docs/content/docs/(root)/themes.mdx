@@ -1,58 +1,215 @@
 ---
 title: Themes
-description: Four families, each a light theme and a dark one — drawn rather than listed — and the generator that writes your own.
+description: Four families — kanzo, catppuccin, lofi and nord — each a day theme and a night theme. How to offer them, set the default, let people choose, theme a region, and write your own.
 full: true
 ---
 
-A theme is one mode, so the library ships **families**: a light theme and a dark one that belong
-together, the pair a user wears by day and by night. Four ship, and `kanzo` is the default:
+A theme is **one mode**, so the library ships **families**: a light theme and a dark one that belong
+together, the pair a person wears by day and by night. Four families ship — eight themes — and
+`kanzo` is the default.
 
 | Family | Day | Night | Source |
 | --- | --- | --- | --- |
-| `kanzo` | `kanzo` | `kanzo-dark` | the brand at [kanzo.tech](https://kanzo.tech): deep green `#004011` by day, neon `#1AE973` by night, mist `#E0E7DF`; Geist for the commercial Neue Haas Grotesk |
-| `catppuccin` | `catppuccin-latte` | `catppuccin-mocha` | [Catppuccin](https://catppuccin.com)'s Latte and Mocha flavours |
+| `kanzo` | `kanzo` | `kanzo-dark` | the [kanzo.tech](https://kanzo.tech) brand |
+| `catppuccin` | `catppuccin-latte` | `catppuccin-mocha` | [Catppuccin](https://catppuccin.com)'s Latte and Mocha |
 | `lofi` | `lofi` | `lofi-dark` | daisyUI's `lofi`, and its inversion |
 | `nord` | `nord` | `nord-dark` | [Nord](https://www.nordtheme.com)'s Snow Storm and Polar Night |
 
-Each card below is the family wearing a miniature app screen — `ThemePreview`, the same one
-[`ThemePicker`](/docs/layout/theme-picker) draws — with the side toggle inside it. **Wear it** files
-the family under both sides; **Edit** opens the [generator](/theme-generator) on the pair.
+`kanzo` is drawn from the brand: deep green `#004011` by day, neon `#1AE973` by night, mist
+`#E0E7DF` for the quiet surfaces, and Geist standing in for the commercial Neue Haas Grotesk.
+
+Each card is the family painting a miniature app screen — [`ThemePreview`](/docs/layout/theme-picker#themepreview),
+the same one `ThemePicker` draws — with a day/night toggle inside it. **Wear it** puts the family on
+both sides of this site; **Edit** opens the [generator](/theme-generator) on the pair.
 
 <ThemeCatalogue />
 
-## Each card is a theme, not a picture of one
+## How a theme is chosen
 
-A preview is a `data-theme` attribute on a `div`:
+Three facts, and everything on this page follows from them:
+
+- **A theme is a side.** Each file is one `[data-theme="<name>"]` block with its own
+  `color-scheme`. `nord-dark` is not a mode of `nord`; it is another theme.
+- **A person chooses one theme per side**, plus whether the OS decides which side is worn — GitHub's
+  Appearance model. The preference is `themeByAppearance: { light?, dark? }` beside
+  `appearance: "light" | "dark" | ""`, where `""` means *follow the OS*.
+- **The provider writes the result to `<html>`.** `data-theme` gets the theme for the side being
+  worn, and `.dark` the side. Every component reads the tokens, so nothing re-renders to re-skin.
+
+## Enabling themes
+
+There is nothing to enable. `@kanzo-tech/ui/tailwind.css` imports `@kanzo-tech/theme/themes.css`,
+which carries all eight blocks — about sixty declarations each — so every theme is already in the
+page and switching costs no request.
+
+What a product **offers** is a different question, and it is the provider's `themes` prop. It
+defaults to `themeIndex`, every shipped theme; narrow it and the picker, the retirement check and the
+default pair all follow:
 
 ```tsx
-<div data-theme="nord">
+import { themeIndex } from "@kanzo-tech/theme";
+import { KanzoThemeProvider } from "@kanzo-tech/ui";
+
+const offered = themeIndex.filter((t) => t.family === "kanzo" || t.family === "nord");
+
+<KanzoThemeProvider themes={offered}>{children}</KanzoThemeProvider>;
+```
+
+A theme left out stays in the stylesheet and is inert: no control offers it, and a person who had
+chosen it is moved to the default and told once (see [retired themes](/docs/theming#retired-themes)).
+
+## Setting the default
+
+`defaultTheme` is the pair worn while a person has chosen nothing — **a pair, never one name**,
+because one name would paint a night theme in daylight. It defaults to `defaultThemePair(themes)`:
+the first light theme listed and its family's dark one, which for the shipped catalogue is
+`{ light: "kanzo", dark: "kanzo-dark" }`.
+
+```tsx
+const pair = { light: "nord", dark: "nord-dark" };
+
+<script dangerouslySetInnerHTML={{ __html: themeScript({ defaultTheme: pair }) }} />
+<KanzoThemeProvider defaultTheme={pair}>{children}</KanzoThemeProvider>
+```
+
+<Callout type="warn" title="Give themeScript the same defaultTheme (and policy)">
+  The script paints `<html>` before React runs. If it falls back to `kanzo` while the provider falls
+  back to `nord`, the page flashes one family and hydrates into the other — and any control whose
+  markup depends on the theme reports a hydration mismatch.
+</Callout>
+
+## Letting people choose
+
+[`ThemePicker`](/docs/layout/theme-picker) is the control: a *Theme mode* (sync with system, or a
+single theme), then a **Day theme** group and a **Night theme** group of preview cards. It is what
+[`Preferences`](/docs/layout/preferences) draws first, and it offers exactly what `themes` lists.
+
+```tsx
+<KanzoThemeProvider>
+  <ThemePicker />
+</KanzoThemeProvider>
+```
+
+To fix the brand instead — a white-label instance whose members do not choose — withhold the axis in
+the tenant's policy. The picker then offers the mode alone:
+
+```tsx
+<KanzoThemeProvider defaultTheme={pair} policy={{ theme: { themeByAppearance: { hidden: true } } }}>
+```
+
+The full recipe, including a tenant's own family loaded from configuration, is in
+[Theming → White-label](/docs/theming#white-label).
+
+## Theming a region
+
+`[data-theme="nord"]` is an ordinary attribute selector — it matches an *element*, not a document —
+so a theme's custom properties land wherever the attribute is and inherit into everything inside it.
+Each card above is exactly that.
+
+```tsx
+<div data-theme="nord-dark" style={{ colorScheme: "dark" }}>
   <YourScreen />
 </div>
 ```
 
-`[data-theme="nord"]` is an ordinary attribute selector — it matches an *element*, not a document —
-so the theme's custom properties land on that div and inherit into everything inside it. Each theme
-declares its own `color-scheme`, so a dark preview's scrollbars and form controls go dark with it.
-It is also what lets a product theme a *region*: a tenant-branded panel inside a neutral app is the
-same attribute in a different place.
+In React, prefer [`KanzoTheme`](/docs/theming#two-themers-and-only-one-of-them-owns-the-root): it
+writes the attribute *and* the side's class, and re-points the theme context so a chart inside
+resolves its colours against the region rather than the page.
+
+```tsx
+<KanzoTheme theme="nord-dark">
+  <YourScreen />
+</KanzoTheme>
+```
+
+A region cannot theme Ark's overlays — Dialog, Popover, Menu and the rest portal to `document.body` —
+so it is for previews and branded panels, never for an app's chrome.
 
 <Callout title="The default theme binds as :root:not([data-theme])">
   Not a bare `:root`, which has the same specificity as `[data-theme="x"]`: the tie would break on
-  source order. Two assertions in `themes.test.ts` hold it.
+  source order. `themes.test.ts`, "binds the default theme so it cannot outrank a chosen one", holds
+  it.
 </Callout>
+
+## Adding a custom theme
+
+A family is two flat blocks. Write them in the **[theme generator](/theme-generator)** — it edits the
+light and dark sides together, proposes each ink from its fill, and warns live on contrast — or copy
+the nearest shipped pair from `@kanzo-tech/theme/themes/` and change the values.
+
+```css title="acme.css"
+/* @family acme
+   @label Acme */
+[data-theme="acme"] {
+  color-scheme: light;
+  --background: #fbfcfd;
+  --foreground: #10151c;
+  --primary: #1f6feb;
+  --primary-foreground: #ffffff;
+  /* …the rest of the twenty-one, the authored extras, the shape knobs and the eight --syntax-* */
+}
+```
+
+Load the CSS after the library's stylesheet and list both sides in `themes`:
+
+```tsx
+const ACME: ThemeOption[] = [
+  { value: "acme", label: "Acme", dark: false, family: "acme" },
+  { value: "acme-dark", label: "Acme Dark", dark: true, family: "acme" },
+];
+
+<KanzoThemeProvider themes={[...ACME, ...themeIndex]}>{children}</KanzoThemeProvider>;
+```
+
+A tenant's family first in the list makes it the default pair. Every value a theme may declare, and
+which ones it must, is in [Theming → Tokens](/docs/theming#the-twenty-one-and-the-uses); the
+per-client walkthrough is [Onboarding a tenant](/docs/onboarding).
+
+### Adjusting a shipped theme
+
+A rule of your own, loaded after the library's sheet, wins on source order — the specificity is the
+same:
+
+```css
+[data-theme="nord"] {
+  --primary: #5e81ac;
+  --radius-box: 0.25rem;
+}
+```
+
+Change a fill and its inks may stop clearing AA. For more than a nudge, open the family in the
+generator (**Edit** on its card) and ship the result as your own family.
+
+## CSS variables
+
+A theme authors these; every other colour name in the vocabulary is a *use* of one of them, bridged
+once in `tokens.css`.
+
+| Group | Variables |
+| --- | --- |
+| Surfaces and ink | `--background` `--foreground` `--card` `--muted` `--muted-foreground` |
+| Brand | `--primary` `--secondary` `--accent`, each with its `-foreground` |
+| Status | `--destructive` `--info` `--success` `--warning`, each with `-content` (on the fill) and `-foreground` (on the page) |
+| Lines | `--border` `--ring` `--input` |
+| Read with no fallback | `--field` `--faint`, and `--popover` where an overlay lifts off the card |
+| Editor | `--syntax-keyword` `--syntax-string` `--syntax-number` `--syntax-function` `--syntax-variable` `--syntax-property` `--syntax-type` `--syntax-annotation` |
+| Charts | `--chart-1` … `--chart-8`, `--chart-capacity` |
+| Shape | `--radius-box` `--radius-field` `--radius-selector` `--size-field` `--size-selector` `--stroke` `--relief` |
+
+What each one is for, and how the editor's tags map onto the syntax inks:
+[Theming](/docs/theming#the-twenty-one-and-the-uses).
 
 ## Every theme clears WCAG AA, syntax included
 
-`packages/theme/src/contrast.ts` lists the pairs a theme owes — every ink on the surface it is read
-on at 4.5:1, each of the eight `--syntax-*` inks on the editor's paper and on its active line, and
-the brand fill, the focus ring, a field's border and every chart slot at 3:1 against the page.
-`themes.test.ts` holds all eight themes to it, and the generator warns live from the same list.
+`CONTRAST_PAIRS` in `@kanzo-tech/theme` lists the pairs a theme owes: every ink on the surface it is
+read on at **4.5:1**, each of the eight `--syntax-*` inks on the editor's paper and on its active
+line, and the brand fill, the focus ring, a field's border and every chart slot at **3:1** against the
+page. `themes.test.ts` holds all eight shipped themes to it in CI, and the generator warns from the
+same list, so a theme it calls clean is one the build accepts. [The full list](/docs/theming#contrast).
 
-## Writing one is a form
+## The theme generator
 
-A family is two flat blocks of about sixty declarations each, and roughly thirty decisions per
-side, because the ink that follows from a fill is proposed for you. So there is a form, the
-**[theme generator](/theme-generator)**, and it edits the pair together.
+[`/theme-generator`](/theme-generator) is daisyUI's generator, reshaped for pairs.
 
 <Cards>
   <Card
@@ -63,36 +220,54 @@ side, because the ink that follows from a fill is proposed for you. So there is 
   <Card
     href="/docs/theming"
     title="Theming"
-    description="What a theme declares, which names are uses of another, and how a tenant publishes one."
+    description="The model, the provider, white-label policy, every token and the contrast floors."
   />
 </Cards>
+
+### Editing a pair
+
+**Start from** seeds both sides from a shipped family; **Family** names yours (`acme` writes `acme`
+and `acme-dark`). The sun/moon switch at the top of the rail — or a click on either preview — picks
+which side the colour pickers edit. Radius, size, stroke and relief are decisions about the product
+rather than a side, so they are shared and written to both blocks. **Reset** reads the starting
+family again.
+
+The rail is grouped by role, one OKLCH picker per authored colour: surfaces and their two inks, the
+three brand fills with their inks, the four status families with `-content` and `-foreground`, the
+lines, and the eight syntax inks. OKLCH because moving perceptual lightness is what changes contrast
+without dragging the hue. `--popover`, `--field`, `--faint` and the chart set have no picker and are
+carried from the family you started from, so the output is always a whole theme.
+
+### It proposes, and it does not decide
+
+Pick a fill and its inks are proposed: `-content` sits **on** the fill (`inkFor` — daisyUI's rule
+recovered from its output, with 4.5:1 as a floor), `-foreground` is the same family read **on the
+page** (`pageInk`). An ink still equal to its proposal follows the fill; change it and it stops
+following. The link mark beside an ink says which it is, and clicking a broken link takes the proposal
+back.
+
+### It warns, and it does not refuse
+
+The contrast panel lists every pair below its floor, on both sides, by token and ratio — and a
+warning mark rides on the side switch, so a problem on the side you are not editing is still visible.
+Red is a fact, not a veto: what checks the artefact is the guard over the shipped files.
 
 ### The preview cannot disagree with the output
 
 Each side's values are **inline custom properties** on its own element, and an inline declaration
 block is exactly what a `[data-theme]` rule is: the same properties, the same cascade. The previews
-are real tokens read by real components, and the CSS the page hands you is the style attributes
+are real tokens read by real components, and the CSS the page hands you is those style attributes
 reformatted — there is no serialiser to be wrong.
-
-### It proposes, and it does not decide
-
-Pick a fill and its inks are proposed: `-content` sits **on** the fill (`inkFor`, daisyUI's own rule
-recovered from its output, with 4.5:1 as a floor), `-foreground` is the same family read **on the
-page** (`pageInk`). An ink you change stops following its fill; the link mark beside it says which
-it is and takes the proposal back. The colour pickers are OKLCH — lightness, chroma, hue — because
-moving perceptual lightness is the move that changes contrast without dragging the hue.
-
-### It warns, and it does not refuse
-
-The contrast panel lists every pair below its floor, on both sides, by token. Red is a fact, not a
-veto: what checks the artefact is the guard over the shipped files.
 
 ### What it hands you
 
 - **Theme CSS** — two blocks, each with its `@family` / `@label` header. In this repository each
-  block is its own `packages/theme/themes/<name>.css`; run `pnpm --filter @kanzo-tech/theme gen`.
+  block is its own `packages/theme/themes/<name>.css`; then run `pnpm --filter @kanzo-tech/theme gen`.
+  Anywhere else, load it after the library's stylesheet.
 - **Instance config** — the same CSS plus the families offered, the default and the lock, as a
-  `branding:` snippet an instance reads declaratively.
-- **The link** — the whole pair in the URL fragment, deflate-compressed. A fragment never reaches a
-  server, so a client's unreleased palette does not leave their machine. Links made before pairs
-  still open, as the side they declared.
+  `branding:` YAML block a host reads as-is. [The recipe](/docs/theming#white-label) shows how a host
+  maps it onto the provider.
+- **The link** — **Copy link** puts the whole pair in the URL fragment (`#theme=…`, deflate-compressed).
+  A fragment never reaches a server, so a client's unreleased palette never leaves their machine.
+  Links made before pairs still open, as the side they declared, with the other side seeded from the
+  default family.
