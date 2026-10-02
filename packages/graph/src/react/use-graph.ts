@@ -59,10 +59,10 @@ export function useGraph(props: UseGraphProps): GraphApi {
   const [api] = useState<GraphApi>(() => build(createGraph(forward(props))));
   const { store } = internalsOf(api);
 
-  const { categories, corpus, fill, filterBy, look, r, sim, simulate, stroke, symbol, title } = props;
+  const { categories, cluster, coordinator, fill, filterBy, from, look, r, sim, simulate, stroke, symbol, title, x, y } = props;
   useEffect(() => {
     store.setOptions(forward(latest.current));
-  }, [store, forward, categories, corpus, fill, filterBy, look, r, sim, simulate, stroke, symbol, title]);
+  }, [store, forward, categories, cluster, coordinator, fill, filterBy, from, look, r, sim, simulate, stroke, symbol, title, x, y]);
 
   // Subscribed here as well as by the parts, so the store's first-subscriber and last-subscriber
   // moves follow the root's lifetime and not whichever part happened to mount first.

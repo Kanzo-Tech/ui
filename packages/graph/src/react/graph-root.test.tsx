@@ -1,6 +1,6 @@
 import { act, render, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { fakeCorpus } from "../../test/corpus";
+import { attach, settle } from "../../test/corpus";
 import { GraphError } from "../core/error";
 import { GraphCanvas } from "../parts/graph-canvas";
 import { GraphRoot, useGraphContext } from "./graph-root";
@@ -22,16 +22,16 @@ vi.stubGlobal(
 );
 
 describe("GraphRoot and GraphCanvas", () => {
-  it("declines in an environment with no WebGL, says so once as graph/no-webgl, and says it failed", () => {
+  it("declines in an environment with no WebGL, says so once as graph/no-webgl, and says it failed", async () => {
     const onFailure = vi.fn();
     const statuses: string[] = [];
     function Status() {
       statuses.push(useGraphState((s) => s.status));
       return null;
     }
-    const { corpus } = fakeCorpus();
+    const corpus = await attach();
     render(
-      <GraphRoot corpus={corpus} onFailure={onFailure}>
+      <GraphRoot coordinator={corpus.coordinator} from={corpus.from} onFailure={onFailure}>
         <GraphCanvas />
         <Status />
       </GraphRoot>,
@@ -45,7 +45,7 @@ describe("GraphRoot and GraphCanvas", () => {
   it("does not rebuild the renderer because a callback changed identity", () => {
     const calls: string[] = [];
     const tree = (tag: string) => (
-      <GraphRoot corpus={null} onFailure={(error) => calls.push(`${tag}:${String(error)}`)}>
+      <GraphRoot coordinator={null} from={null} onFailure={(error) => calls.push(`${tag}:${String(error)}`)}>
         <GraphCanvas />
       </GraphRoot>
     );
@@ -55,26 +55,27 @@ describe("GraphRoot and GraphCanvas", () => {
     expect(calls).toHaveLength(1);
   });
 
-  it("gives its parts the api through the context, and refuses outside a root", () => {
+  it("gives its parts the api through the context, and refuses outside a root", async () => {
     const seen: unknown[] = [];
     function Part() {
       seen.push(useGraphState((s) => s.total));
       return null;
     }
-    const { corpus } = fakeCorpus();
+    const corpus = await attach();
     render(
-      <GraphRoot corpus={corpus} onFailure={() => {}}>
+      <GraphRoot coordinator={corpus.coordinator} from={corpus.from} onFailure={() => {}}>
         <Part />
       </GraphRoot>,
     );
-    expect(seen.at(-1)).toBe(16);
+    await act(() => settle(corpus));
+    expect(seen.at(-1)).toBe(20);
     expect(() => renderHook(() => useGraphContext())).toThrow(/inside a <GraphRoot>/);
   });
 });
 
 describe("useGraphState", () => {
-  it("keeps the api's identity across hovers, and re-renders a part only on the slice it selects", () => {
-    const { corpus } = fakeCorpus();
+  it("keeps the api's identity across hovers, and re-renders a part only on the slice it selects", async () => {
+    const corpus = await attach();
     const apis = new Set<unknown>();
     let toolRenders = 0;
     let hoverRenders = 0;
@@ -98,7 +99,7 @@ describe("useGraphState", () => {
       return null;
     }
     render(
-      <GraphRoot corpus={corpus} onFailure={() => {}}>
+      <GraphRoot coordinator={corpus.coordinator} from={corpus.from} onFailure={() => {}}>
         <Host />
         <ToolPart />
         <HoverPart />
@@ -115,11 +116,12 @@ describe("useGraphState", () => {
 });
 
 describe("useGraph", () => {
-  it("does not reach setOptions on a render that changed no prop", () => {
-    const { corpus } = fakeCorpus();
+  it("does not reach setOptions on a render that changed no prop", async () => {
+    const corpus = await attach();
     const look = { vignette: true };
     const { rerender, result } = renderHook(
-      ({ tag }: { tag: string }) => useGraph({ corpus, fill: "cluster_id", look, onFailure: () => void tag }),
+      ({ tag }: { tag: string }) =>
+        useGraph({ coordinator: corpus.coordinator, from: corpus.from, fill: "team", look, onFailure: () => void tag }),
       { initialProps: { tag: "a" } },
     );
     const options = result.current.getState().options;
@@ -129,12 +131,14 @@ describe("useGraph", () => {
   });
 
   it("hands the store a new binding when a prop moves", async () => {
-    const fake = fakeCorpus();
-    const { rerender } = renderHook(({ fill }: { fill: string }) => useGraph({ corpus: fake.corpus, fill, onFailure: () => {} }), {
-      initialProps: { fill: "cluster_id" },
-    });
-    await act(() => fake.settle());
-    rerender({ fill: "degree" });
-    expect(fake.scans.at(-1)?.select).toContain("degree");
+    const corpus = await attach();
+    const { rerender } = renderHook(
+      ({ fill }: { fill: string }) => useGraph({ coordinator: corpus.coordinator, from: corpus.from, fill, onFailure: () => {} }),
+      { initialProps: { fill: "team" } },
+    );
+    await act(() => settle(corpus));
+    rerender({ fill: "score" });
+    await act(() => settle(corpus));
+    expect(corpus.sent.at(-1)).toContain('"score"');
   });
 });

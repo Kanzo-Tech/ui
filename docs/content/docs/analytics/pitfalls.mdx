@@ -24,8 +24,7 @@ that reason, and every vertex table of a corpus carries it.
 
 ## Columns named like a channel
 
-**Symptom.** On a relation with a column `x` or `y` — a graph corpus's layout coordinates, most
-often — a line over time, the timeline filter and the tiles' trends fail with *column "closed" must
+**Symptom.** On a relation with a column `x` or `y` — a program's own coordinates, most often — a line over time, the timeline filter and the tiles' trends fail with *column "closed" must
 appear in the GROUP BY clause*, while bars and histograms of other fields draw fine.
 
 **Why.** Mosaic names a mark's output columns after its channels and groups an aggregating mark by
@@ -45,8 +44,8 @@ same names, so it is not one query to fix but a family. The channel names are `x
 
 **What `Dashboard` does.** It reads the relation without those columns —
 `SELECT <every other column> FROM relation` — so an alias can only ever mean the alias, and it never
-offers them as fields. The same contracts as a fossil corpus hands them over, with a `dense_id` and
-a layout's `x` and `y`; the line over `closed` draws:
+offers them as fields. The same contracts with a `dense_id` and their own `x` and `y`;
+the line over `closed` draws:
 
 <ComponentPreview componentName="dashboard" fileName="example-channels" hasMaxHeight={false} />
 

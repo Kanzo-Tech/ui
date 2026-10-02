@@ -8,15 +8,15 @@ import { said, useArchive } from "./archive";
 /**
  * The picture as **declared axes** rather than as props. `lookFrom` and `simFrom` read the same
  * `Record<string, string>` a preferences section produces; the switches stand in for that panel.
- * **Simulate is off by default**, because the positions are the corpus's own layout: turn the forces
- * on and the layout runs from where the points are.
+ * **Simulate is on by default**, because the archive carries no positions and nothing binds `x` and
+ * `y`: switch it off and the points stay where they are; on again, the layout runs from there.
  */
 export default function Example() {
-  const corpus = useArchive();
   const [failure, setFailure] = useState<unknown>(null);
+  const archive = useArchive(setFailure);
   const [marks, setMarks] = useState("dense");
   const [bowed, setBowed] = useState(true);
-  const [simulate, setSimulate] = useState(false);
+  const [simulate, setSimulate] = useState(true);
 
   const values = useMemo(() => ({ marks, "bowed-links": String(bowed), labels: "0", grid: "false" }), [marks, bowed]);
   const look = useMemo(() => lookFrom(values), [values]);
@@ -55,7 +55,7 @@ export default function Example() {
         when={failure === null}
       >
         <GraphRoot
-          corpus={corpus}
+          {...archive}
           fill="kind"
           look={look}
           onFailure={setFailure}

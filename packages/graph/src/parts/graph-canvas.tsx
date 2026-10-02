@@ -3,7 +3,7 @@
 import { categoricalCapacity, cn, Show, useThemeTick } from "@kanzo-tech/ui";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { nameOf } from "../core/categories";
-import { readTitles } from "../core/detail";
+import { readTitles } from "../core/source";
 import type { Encoding, Geometry } from "../core/load";
 import type { GraphOptions } from "../core/state";
 import type { VertexId } from "../core/types";
@@ -47,25 +47,26 @@ function labelled(geometry: Geometry, encoding: Encoding, mask: Uint8Array | nul
 /** A label's text is read for the vertices that carry one, never carried for every vertex. */
 function useTitles(vertices: readonly VertexId[]): ReadonlyMap<VertexId, string> {
   const api = useGraphContext();
-  const corpus = useGraphState((s) => s.corpus);
+  const structure = useGraphState((s) => s.structure);
   const title = useGraphState((s) => s.options.title);
-  const geometry = useGraphSnapshot((s) => s.geometry);
+  const coordinator = useGraphState((s) => s.options.coordinator);
   const [titles, setTitles] = useState<ReadonlyMap<VertexId, string>>(() => new Map());
   const key = vertices.join(",");
   useEffect(() => {
-    if (!corpus || !geometry || key === "") return;
-    const aborter = new AbortController();
-    readTitles(corpus, geometry, key.split(",").map(Number), title, aborter.signal).then(
-      (found) => !aborter.signal.aborted && setTitles(found),
-      (error: unknown) => !aborter.signal.aborted && api.getState().options.onFailure(error),
+    if (!structure || !coordinator || key === "") return;
+    let current = true;
+    readTitles(coordinator, structure, key.split(",").map(Number), title).then(
+      (found) => current && setTitles(found),
+      (error: unknown) => current && api.getState().options.onFailure(error),
     );
-    return () => aborter.abort();
-  }, [api, corpus, geometry, key, title]);
+    return () => {
+      current = false;
+    };
+  }, [api, structure, coordinator, key, title]);
   return titles;
 }
 
 const WAITING: Partial<Record<string, string>> = {
-  opening: "Opening the corpus…",
   loading: "Loading the graph…",
 };
 

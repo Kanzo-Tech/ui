@@ -11,11 +11,11 @@ import { ARCHIVE_KINDS, said, useArchive } from "./archive";
  * sentence for a host with no status of its own.
  */
 export default function Example() {
-  const corpus = useArchive();
   const [failure, setFailure] = useState<unknown>(null);
+  const archive = useArchive(setFailure);
   return (
     <div className="flex h-96 w-full flex-col gap-2">
-      <GraphRoot categories={ARCHIVE_KINDS} corpus={corpus} fill="kind" onFailure={setFailure} r="degree" title="label">
+      <GraphRoot categories={ARCHIVE_KINDS} {...archive} fill="kind" onFailure={setFailure} r="degree" title="label">
         <GraphCanvas className="flex-1 rounded-lg border">
           <GraphLegend className="absolute start-2 bottom-2" />
           <Show when={failure !== null}>

@@ -110,7 +110,7 @@ import {
   ruleFrom,
   toOrders,
 } from "./order-builder";
-import { open, type Corpus } from "@fossil-lang/corpus";
+import { open } from "@fossil-lang/corpus";
 import { ARCHIVE_KINDS as KINDS } from "@/example/archive";
 import { HALLS, isoDay } from "@/example/world";
 import { ensure } from "./duck";
@@ -141,42 +141,41 @@ const TYPE = "Node";
 /** The address column a panel's `SELECT` names, so a picked row becomes a vertex. */
 const ID = "dense_id";
 
+/** The catalog the archive is attached under — every relation below is spelled with it. */
+const FROM = "archive";
+
 /**
- * An opened archive: the coordinator and crossfilter every panel queries through, the corpus the
- * canvas draws, and the node relation as the orders and the ask box name it — a node rather than a
- * string, because `Query.from("x")` quotes a string again and `"catalog"."Node"` is no table.
+ * An attached archive: the coordinator and crossfilter every panel and the canvas query through, and
+ * the node relation as the orders and the ask box name it — a node rather than a string, because
+ * `Query.from("x")` quotes a string again and `"catalog"."Node"` is no table.
  */
 export interface Archive {
   coordinator: Coordinator;
   crossfilter: MosaicSelection;
-  corpus: Corpus;
   nodes: VerbatimNode;
 }
 
 function openArchive(): Promise<Archive> {
   return ensure(CORPUS, async (engine) => {
-    // Origin-qualified: DuckDB-WASM resolves a root-relative path in its own filesystem.
-    const corpus = await open(`${window.location.origin}${CORPUS}`, { engine });
-    if (!corpus.manifest.vertex_tables.some((table) => table.name === TYPE)) {
-      throw new Error(`corpus: ${CORPUS} declares no ${TYPE} vertices`);
-    }
+    // Origin-qualified: DuckDB-WASM resolves a root-relative path in its own filesystem. The page
+    // holds the catalog for its life, so the `close` that `open` answers is not kept.
+    await open(FROM, { engine, url: `${window.location.origin}${CORPUS}` });
     return {
       coordinator: engine.coordinator,
       crossfilter: MosaicSelection.crossfilter(),
-      corpus,
-      nodes: verbatim(`"${corpus.url.replaceAll('"', '""')}"."${TYPE}"`),
+      nodes: verbatim(`"${FROM}"."${TYPE}"`),
     };
   });
 }
 
-/** The archive once it is open, or `null` while it opens or when it would not. */
+/** The archive once it is attached, or `null` while it attaches or when it would not — said once, as a toast. */
 export function useArchive(): Archive | null {
   const [archive, setArchive] = useState<Archive | null>(null);
   useEffect(() => {
     let live = true;
     openArchive().then(
       (opened) => live && setArchive(opened),
-      () => {},
+      (error) => live && announce(error),
     );
     return () => {
       live = false;
@@ -208,19 +207,19 @@ function announce(error: unknown): void {
 }
 
 /**
- * **The graph, whole.** The root takes the opening rather than waiting for it, so the canvas says
- * it is opening; the Mosaic provider arrives with the engine, and the panels under it query the
- * node relation the orders and the ask box are written against.
+ * **The graph, whole.** The root names the attached catalog and reads it through the page's
+ * coordinator, one Mosaic client beside the charts; the provider arrives with the same coordinator,
+ * and the panels under it query the node relation the orders and the ask box are written against.
  */
 export function ArchiveGraph({ children }: { children: ReactNode }) {
   const archive = useArchive();
-  const opening = useMemo(() => openArchive().then((opened) => opened.corpus), []);
   const { look, sim, preset } = useGraphPrefs();
   return (
     <GraphRoot
       categories={KINDS}
-      corpus={opening}
+      coordinator={archive?.coordinator ?? null}
       filterBy={archive?.crossfilter}
+      from={archive ? FROM : null}
       look={look}
       onFailure={announce}
       r="degree"
@@ -942,9 +941,9 @@ const GESTURES: { keys: ReactNode; what: string }[] = [
 /**
  * The Settings panel: how the graph draws (`GraphLooks` — the presets and Customize), and the
  * gestures. The graph's settings live here, beside the canvas they change, and not in the app's
- * Preferences, which keep only what is app-wide. There are no forces here: the archive's positions
- * are the corpus's own layout, and the toolbar is where a reader runs one. Fitting is the toolbar's
- * too.
+ * Preferences, which keep only what is app-wide. There are no forces here: the archive carries no
+ * positions, so the layout runs when it loads, and the toolbar is where a reader pauses or re-runs
+ * it. Fitting is the toolbar's too.
  */
 export function GraphSettings() {
   return (

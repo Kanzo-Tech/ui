@@ -13,6 +13,14 @@ export interface Channels {
   symbol?: string;
   /** What tints a link. Absent, a link takes the colour of the vertex it leaves. */
   stroke?: string;
+  /**
+   * Two numeric columns a point is drawn at — `lon` and `lat` draw a map. Both bound, the data
+   * places the points and nothing simulates; unbound, the layout does, on the GPU.
+   */
+  x?: string;
+  y?: string;
+  /** Which column a running layout pulls points together by — cosmos.gl's cluster force. */
+  cluster?: string;
 }
 
 /** Narrow on purpose — `var(…)`, a hex, a colour function — so a bare word is always a column. */
@@ -20,7 +28,7 @@ export function isColour(value: string | undefined): value is string {
   return value !== undefined && /^(var\(|#|rgb|hsl|oklch|oklab|lab|lch|color\()/i.test(value);
 }
 
-/** The columns a binding reads, which is what a scan projects. */
+/** The columns a binding reads. */
 export interface Binding {
   /** The one categorical column: `fill` when it names one, `symbol` when `fill` is a constant or absent. */
   readonly category: string | undefined;
@@ -30,19 +38,21 @@ export interface Binding {
   readonly size: string | undefined;
   /** The text a label and the hover card show — Plot's `title`. */
   readonly title: string | undefined;
+  readonly x: string | undefined;
+  readonly y: string | undefined;
+  readonly cluster: string | undefined;
 }
 
 export function bindingOf(options: Channels & { r?: string; title?: string }): Binding {
   const constant = isColour(options.fill);
   const category = constant ? options.symbol : (options.fill ?? options.symbol);
-  return { category, byTable: !constant && category === undefined, size: options.r, title: options.title };
-}
-
-/**
- * A binding is a projection: `fill` and `r` as columns become the scan's `select`, where the table
- * has them. `title` is not: a label's text is read for the few vertices that carry one.
- */
-export function projectionOf(binding: Binding, fixed: readonly string[], has: (column: string) => boolean): string[] {
-  const bound = [binding.category, binding.size].filter((c): c is string => c !== undefined && has(c));
-  return [...new Set([...fixed, ...bound])];
+  return {
+    category,
+    byTable: !constant && category === undefined,
+    size: options.r,
+    title: options.title,
+    x: options.x,
+    y: options.y,
+    cluster: options.cluster,
+  };
 }

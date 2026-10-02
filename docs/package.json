@@ -18,7 +18,7 @@
     "measure:previews": "node scripts/measure-previews.mjs",
     "check:previews": "node scripts/measure-previews.mjs --check"
   },
-  "//fossil": "The reader, a required peer of `@kanzo-tech/graph`: the docs open every corpus with its `open` on the page's `engine()` and hand `GraphRoot` the result. `@fossil-lang/executor` is the writer, a dev dependency: `corpus` and the benchmark's `build-corpus.mjs` run it in Node, and nothing on a page imports it.",
+  "//fossil": "`@fossil-lang/corpus` is the docs' own dependency, not the graph's: the pages attach each corpus with its `open` on the page's `engine()` and name the catalog to `GraphRoot`. `@fossil-lang/executor` is the writer, a dev dependency: `corpus` and the benchmark's `build-corpus.mjs` run it in Node, and nothing on a page imports it.",
   "dependencies": {
     "@ai-sdk/react": "^4.0.129",
     "@anthropic-ai/sdk": "^0.117.1",
@@ -30,7 +30,7 @@
     "@codemirror/state": "^6.6.0",
     "@codemirror/view": "^6.43.1",
     "@cosmos.gl/graph": "^3.4.0",
-    "@fossil-lang/corpus": "^0.3.0-alpha.19",
+    "@fossil-lang/corpus": "^0.3.0-alpha.24",
     "@internationalized/date": "^3.12.2",
     "@kanzo-tech/ai": "workspace:*",
     "@kanzo-tech/auth": "workspace:*",
@@ -63,7 +63,7 @@
   "//deps": "@kanzo-tech/{ui,theme,graph,ai,llm,auth,navigation} are workspace deps. `ai` and `@ai-sdk/react` are @kanzo-tech/ai's required peers, installed once here as a host would; the examples and showcases build their models with `ai/test`'s mock, so nothing on the site calls a provider. There is no colour-derivation package any more: a theme is a flat CSS file that ships with @kanzo-tech/theme.",
   "devDependencies": {
     "@codemirror/legacy-modes": "^6.5.3",
-    "@fossil-lang/executor": "^0.3.0-alpha.19",
+    "@fossil-lang/executor": "^0.3.0-alpha.24",
     "@tailwindcss/postcss": "4",
     "@types/mdx": "^2.0.14",
     "@types/node": "^20",

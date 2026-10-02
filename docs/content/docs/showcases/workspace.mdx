@@ -27,13 +27,15 @@ the product's: the channels each look is paired with, the hall's name in the ins
 dock's panels — **Info** (the search and the inspector), **Ask** (`Chat` over an agent whose one tool
 counts nodes in the corpus), **Orders** and **Settings** (`GraphSettings`: `GraphLooks` — the looks and
 Customize — above the gestures). The graph's settings sit beside the canvas they change; the
-Preferences drawer keeps only what is app-wide — the theme, density, radius and fonts. fossil opens the corpus and the graph draws the whole of it; the
-[analytics subpath](/docs/analytics/charts) asks the panels' questions over the same engine.
+Preferences drawer keeps only what is app-wide — the theme, density, radius and fonts. fossil's
+`open` attaches the corpus as the catalog `archive`, and the graph and the
+[analytics subpath](/docs/analytics/charts)'s panels read it through the page's one coordinator —
+[Discovery workspace](/docs/graph/workspace) is the wiring.
 
-The graph is drawn at the corpus's own layout, with no simulation running; the toolbar runs one
-and stops it. A look, a slider or a zoom costs no query. A lasso or a click publishes the reader's
-pick into the page's crossfilter as one `dense_id` clause, and every panel reading that crossfilter
-follows.
+The archive carries no positions, so the layout runs on the GPU when it loads; the toolbar pauses
+and re-runs it. A look or a zoom costs no query. A lasso or a click publishes the reader's pick into
+the page's crossfilter as one `dense_id` clause, and every panel follows; a panel's filter greys
+out what it drops on the canvas.
 
 The canvas authors no colour: it draws in the page theme's categorical scale, so a theme from the
 [theme generator](/theme-generator) recolours it with everything else.

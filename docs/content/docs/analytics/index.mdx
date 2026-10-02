@@ -93,10 +93,10 @@ Anything can, and a dashboard's chips show all of it, whoever published it:
 - a chart's interactor: a pick (`region IN ('Saltmere')`), a brush (`hour BETWEEN 2 AND 5`);
 - an input: `ChartFilter`, `ChartSearch`, `ChartSlider`, which are Mosaic clients without being
   charts;
-- **a view whose positions live outside the database**. [`@kanzo-tech/graph`](/docs/graph) draws a
-  fossil corpus on the GPU; a lasso or a click publishes one `clausePoints` clause on the corpus's
-  **key column** (`dense_id`) and names the graph in the clause's `clients`, so the crossfilter
-  skips it for the graph and applies it to every chart. The same call is open to any widget:
+- **a view drawn outside the plot**. [`@kanzo-tech/graph`](/docs/graph) is one more client of the
+  coordinator, drawing a fossil corpus on the GPU; a lasso or a click publishes one `clausePoints`
+  clause on the corpus's **address column** (`dense_id`) from that client, so the crossfilter skips
+  it for the graph and applies it to every chart. The same call is open to any widget:
   `selection.update(clausePoints([column], ids.map((id) => [id]), { source }))`.
 
 That last one is why a dashboard over a vertex table follows a lasso on the canvas beside it: the

@@ -2,12 +2,13 @@ import { Graph } from "@cosmos.gl/graph";
 import { GraphError } from "../core/error";
 import type { Geometry } from "../core/load";
 import type { GraphStore } from "../core/store";
-import type { GraphCommands, VertexId } from "../core/types";
+import type { GraphCommands, Motion, VertexId } from "../core/types";
 import { resolveLook, type Look } from "./graph-looks";
 import { appearance, forces, paint } from "./graph-model";
 import { resolveSim, type Sim } from "./graph-sim";
 import { createCamera, FIT_DURATION } from "./camera";
-import { cornersOf, placed, placementOf, UNPLACED, type Placement } from "./placement";
+import { decayFor, highlighted, LINKS_WHILE_RUNNING, simulating } from "./motion";
+import { cornersOf, placed, placementOf } from "./placement";
 import { releaseContext, webglBox } from "./webgl";
 
 export interface RendererEvents {
@@ -31,6 +32,7 @@ const REHEAT = 0.35;
 const RELEASE_BURST = 1200;
 /** Twentieths: a settle costs twenty reports rather than one per frame. */
 const PROGRESS_STEPS = 20;
+
 /**
  * The slowest honest answer for a GPU device: one comes up in milliseconds when it can be made at
  * all, so ten seconds is a device that will not come, not one that is slow.
@@ -41,15 +43,16 @@ const READY_DEADLINE = 10_000;
  * **cosmos.gl's lifetime, and the frame that renders once.** Built once per element; it subscribes to
  * the store and discharges what changed in one `requestAnimationFrame`:
  *
- * - a new graph uploads positions and links, once per corpus; a filter uploads positions alone;
- * - a binding, a look or a theme change uploads colours, sizes and shapes and nothing else;
- * - a selection, a focus or a pin sets config and uploads nothing, and never calls `render()`:
- *   `render()` walks every point and link in JS, and `setConfigPartial` asks for its own frame;
+ * - a new graph uploads positions and links, once per corpus and per position binding;
+ * - a binding, a look or a theme change uploads colours, sizes, shapes and clusters and nothing else;
+ * - a filter, a selection, a focus or a pin sets config and uploads nothing, and never calls
+ *   `render()`: a vertex the page's filter does not keep is greyed out, Cosmograph's way, so the
+ *   points never move because a chart was brushed;
  * - the camera reaches nothing: cosmos.gl moves it, and the overlays follow.
  *
  * A vertex's id is its index here, so nothing is resolved between the store and the buffers.
  * `transitionDuration` is 0: the default animates every upload for 800 ms and keeps the loop awake.
- * The live layout is off unless `simulate` or the toolbar asks, and runs from the current positions.
+ * The layout runs on its own when `x` and `y` are unbound, and from the current positions.
  * Every callback reads the store's latest options, so a host's inline `onFailure` never rebuilds it.
  * A failure to draw at all marks the store `failed` through `unrenderable`, never `onFailure` alone.
  */
@@ -65,7 +68,9 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   }
 
   let sim: Sim = resolveSim(store.getOptions().sim);
-  let live = store.getOptions().simulate ?? false;
+  let live = false;
+  /** Whether a layout is moving the points — ours, since cosmos.gl's flag waits for its device. */
+  let moving = false;
   let hovering: number | null = null;
   let dragging: number | null = null;
   let burst = 0;
@@ -81,8 +86,6 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   let lookPatch = store.getOptions().look;
   const dirty = { positions: true, paint: true, state: true, pinned: true };
   let frame = 0;
-  let framed: Geometry | null = null;
-  let placement: Placement | null = null;
   let links: Float32Array | null = null;
   let last = store.getSnapshot();
   let lastOptions = store.getOptions();
@@ -92,14 +95,13 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   let graph: Graph;
   try {
     graph = new Graph(host, {
-      // No `spaceSize` here: the box is the corpus's extent, set when the graph has loaded.
-      // `rescalePositions: false` because the placement below is ours, and the corpus's own scale.
+      // No `spaceSize` here: it is the geometry's, set when the graph has loaded.
+      // `rescalePositions: false` because the placement below is ours.
       rescalePositions: false,
+      fitViewOnInit: false,
       transitionDuration: 0,
       enableSimulation: live,
       ...forces(sim),
-      // Frames to convergence: alpha reaches its floor after exactly this many rendered frames.
-      simulationDecay: 400,
       randomSeed: "kanzo-discovery",
       pixelRatio: window.devicePixelRatio || 1,
       enableDrag: true,
@@ -107,13 +109,13 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       attribution: "",
       onSimulationStart: () => store.report("running"),
       onSimulationEnd: () => {
-        store.report("settled");
+        moved("settled");
         progress(1);
         camera.settle();
         events.onFrame?.();
       },
-      onSimulationPause: () => store.report("paused"),
-      onSimulationUnpause: () => store.report("running"),
+      onSimulationPause: () => moved("paused"),
+      onSimulationUnpause: () => moved("running"),
       onSimulationTick: (_alpha, index, position) => {
         progress(graph.progress);
         camera.tick();
@@ -169,15 +171,17 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     const { geometry, encoding } = snapshot;
     const options = store.getOptions();
     let changed = false;
-    if (dirty.positions && geometry) {
+    // Positions wait for the first colours, so a graph's first frame is the drawn one, not a grey one.
+    if (dirty.positions && geometry && encoding) {
       dirty.positions = false;
-      graph.setPointPositions(placed(geometry, frameExtent(geometry), snapshot.mask), true);
+      graph.setPointPositions(position(geometry), true);
       if (geometry.links !== links) {
         links = geometry.links;
         graph.setLinks(links);
         dirty.paint = dirty.state = dirty.pinned = true;
       }
       changed = true;
+      layout(geometry, simulating(options, geometry));
     }
     if (dirty.paint && geometry && encoding) {
       dirty.paint = false;
@@ -186,13 +190,14 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       graph.setPointSizes(buffers.sizes);
       graph.setPointShapes(buffers.shapes);
       graph.setLinkColors(buffers.linkColors);
-      graph.setConfigPartial(appearance(look, host));
+      graph.setPointClusters(encoding.clusters ?? []);
+      graph.setConfigPartial({ ...appearance(look, host), renderLinks: linksShown() });
       changed = true;
     }
     if (dirty.state && geometry) {
       dirty.state = false;
       graph.setConfigPartial({
-        highlightedPointIndices: snapshot.selection ? snapshot.selection.vertices.filter((id) => id < geometry.size) : undefined,
+        ...highlighted(geometry, snapshot.mask, snapshot.selection?.vertices ?? null),
         focusedPointIndex: snapshot.focus === null || snapshot.focus >= geometry.size ? undefined : snapshot.focus,
       });
     }
@@ -205,14 +210,29 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     events.onFrame?.();
   }
 
-  function frameExtent(geometry: Geometry): Placement {
-    if (geometry === framed) return placement ?? UNPLACED;
-    if (!geometry.extent) return UNPLACED;
-    framed = geometry;
-    placement = placementOf(geometry.extent, box as number);
-    graph.setConfigPartial({ spaceSize: placement.side });
+  /** The positions cosmos.gl gets: bound, the data's extent centred in the device's box; unbound, the seeded start. */
+  function position(geometry: Geometry): Float32Array {
+    const placement = geometry.bound && geometry.extent ? placementOf(geometry.extent, box as number) : null;
+    graph.setConfigPartial({ spaceSize: placement?.side ?? geometry.space, simulationDecay: decayFor(geometry.size) });
+    if (!placement || !geometry.extent) return geometry.positions;
     camera.frame(cornersOf(geometry.extent, placement));
-    return placement;
+    return placed(geometry.positions, placement);
+  }
+
+  /** A new geometry lays itself out when its positions are a start, and stands still when they are data. */
+  function layout(geometry: Geometry, running: boolean): void {
+    if (running) return run(1);
+    if (live) graph.pause();
+    if (!geometry.bound) camera.fit();
+  }
+
+  /** Whether links are drawn now: the look's choice, unless a large layout is running. */
+  const linksShown = (): boolean => look.link.render && !(moving && (links?.length ?? 0) / 2 > LINKS_WHILE_RUNNING);
+  const showLinks = () => graph.setConfigPartial({ renderLinks: linksShown() });
+  function moved(motion: Motion): void {
+    moving = motion === "running";
+    showLinks();
+    store.report(motion);
   }
 
   function applyForces(patch: Partial<Sim> | undefined): void {
@@ -231,7 +251,9 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       graph.setConfigPartial({ enableSimulation: true, ...forces(sim) });
     }
     camera.run();
+    moving = true;
     graph.start(alpha);
+    showLinks();
   }
 
   function endBurst(): void {
@@ -278,7 +300,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   const unsubscribe = store.subscribe(() => {
     const snapshot = store.getSnapshot();
     const options = store.getOptions();
-    if (snapshot.geometry !== last.geometry || snapshot.mask !== last.mask) dirty.positions = true;
+    if (snapshot.geometry !== last.geometry) dirty.positions = true;
     if (snapshot.encoding !== last.encoding) dirty.paint = true;
     if (options.look !== lookPatch) {
       lookPatch = options.look;
@@ -288,12 +310,13 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     if (options.fill !== lastOptions.fill || options.symbol !== lastOptions.symbol || options.stroke !== lastOptions.stroke) {
       dirty.paint = true;
     }
-    if (snapshot.selection !== last.selection || snapshot.focus !== last.focus) dirty.state = true;
+    if (snapshot.selection !== last.selection || snapshot.focus !== last.focus || snapshot.mask !== last.mask) dirty.state = true;
     if (snapshot.pinned !== last.pinned) dirty.pinned = true;
     if (options.sim !== lastOptions.sim) applyForces(options.sim);
-    if ((options.simulate ?? false) !== (lastOptions.simulate ?? false)) {
+    const wants = simulating(options, snapshot.geometry);
+    if (snapshot.geometry === last.geometry && wants !== simulating(lastOptions, last.geometry)) {
       endBurst();
-      if (options.simulate) run(REHEAT);
+      if (wants) run(REHEAT);
       else graph.pause();
     }
     last = snapshot;

@@ -1,20 +1,13 @@
-import { GraphError } from "./error";
-import type { MosaicClient } from "@kanzo-tech/mosaic";
+import type { Coordinator } from "@kanzo-tech/mosaic";
 import { domainOf } from "./categories";
 import { bindingOf } from "./channels";
-import type { Corpus, Filter, VertexTable } from "@fossil-lang/corpus";
-import { filterFor, graphClient, publish } from "./filter";
-import { drawnTables, loadEncoding, loadGraph, maskOf, readKept, type Encoding, type Geometry, type Kept } from "./load";
+import { GraphClient, publish } from "./client";
+import { GraphError } from "./error";
+import { loadEncoding, loadGeometry, type Encoding, type Geometry } from "./load";
+import { readStructure, type Structure } from "./source";
 import type { Drawn, GraphOptions, GraphSnapshot, GraphStatus, GraphStore } from "./state";
 
 export type { Drawn, GraphOptions, GraphSnapshot, GraphState, GraphStatus, GraphStore } from "./state";
-
-const sameFilter = (a: Filter | undefined, b: Filter | undefined) =>
-  JSON.stringify(a, (_, v: unknown) => (typeof v === "bigint" ? `${v}n` : v)) ===
-  JSON.stringify(b, (_, v: unknown) => (typeof v === "bigint" ? `${v}n` : v));
-
-const isPromise = (value: unknown): value is PromiseLike<Corpus> =>
-  typeof (value as PromiseLike<Corpus> | null)?.then === "function";
 
 function drawnOf(geometry: Geometry, encoding: Encoding, mask: Uint8Array | null): Drawn {
   const tally = encoding.domain.map(() => 0);
@@ -35,26 +28,31 @@ function drawnOf(geometry: Geometry, encoding: Encoding, mask: Uint8Array | null
   return { vertices, edges, domain: encoding.domain, tally };
 }
 
+/** `1` where a vertex is among `ids`. */
+function maskOf(size: number, ids: Float64Array): Uint8Array {
+  const mask = new Uint8Array(size);
+  for (const id of ids) if (id < size) mask[id] = 1;
+  return mask;
+}
+
 export function createGraph(initial: GraphOptions): GraphStore {
   let options = initial;
   const listeners = new Set<() => void>();
-  const self: MosaicClient = graphClient();
 
-  let corpus: Corpus | null = null;
-  let opening: PromiseLike<Corpus> | null = null;
   let failed = false;
   let unrenderable = false;
-  let tables: readonly VertexTable[] = [];
   let binding = bindingOf(initial);
-  let filter: Filter | undefined;
-  let loading: AbortController | null = null;
-  let filtering: AbortController | null = null;
+  let structure: Structure | null = null;
   let geometry: Geometry | null = null;
   let encoding: Encoding | null = null;
-  let kept: Kept | null = null;
+  let kept: Float64Array | null = null;
   let mask: Uint8Array | null = null;
   let uploaded: readonly unknown[] = [];
-  let unlisten: (() => void) | null = null;
+  /** One read per kind in flight; a newer one makes an older one's answer stale. */
+  const reading = { structure: 0, geometry: 0, encoding: 0 };
+  const pending = { structure: false, geometry: false, encoding: false };
+  let client: GraphClient | null = null;
+  let connected: Coordinator | null = null;
   let active = false;
 
   // A failure found while the store is being built is found while React is still rendering —
@@ -80,7 +78,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     motion: "settled",
     progress: 1,
     options,
-    corpus: null,
+    structure: null,
     binding,
     geometry: null,
     encoding: null,
@@ -89,6 +87,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
 
   let domain: { key: unknown[]; value: readonly unknown[] } = { key: [], value: [] };
   function domainNow(): readonly unknown[] {
+    const tables = structure?.vertices ?? [];
     const key = [tables, binding.byTable, binding.category, options.categories];
     if (key.some((part, i) => part !== domain.key[i])) domain = { key, value: domainOf(tables, binding, options.categories) };
     return domain.value;
@@ -105,21 +104,20 @@ export function createGraph(initial: GraphOptions): GraphStore {
 
   function statusOf(): GraphStatus {
     if (failed || unrenderable) return "failed";
-    if (opening) return "opening";
-    if (!corpus) return "none";
+    if (options.from === null || options.coordinator === null) return "none";
     const current = [geometry, encoding, mask];
     const shown = geometry !== null && current.every((part, i) => part === uploaded[i]);
-    return loading || filtering || !shown ? "loading" : "idle";
+    return pending.structure || pending.geometry || pending.encoding || !shown ? "loading" : "idle";
   }
 
   function notify(fields: Partial<GraphSnapshot> = {}): void {
     snapshot = {
       ...snapshot,
-      total: corpus ? tables.reduce((sum, table) => sum + table.record_count, 0) : undefined,
+      total: structure?.size,
       drawn: drawnNow(),
       domain: domainNow(),
       options,
-      corpus,
+      structure,
       binding,
       geometry,
       encoding,
@@ -141,117 +139,22 @@ export function createGraph(initial: GraphOptions): GraphStore {
   }
 
   /**
-   * One read in flight per kind, and a newer ask aborts the older one's statements. A load that
-   * fails leaves nothing to draw; a filter that fails leaves the last picture.
+   * Read `kind`, and keep the answer only if no newer read of the same kind started meanwhile. The
+   * coordinator cannot be told to stop a statement, so a stale answer is dropped rather than aborted.
    */
-  function run<T>(
-    current: () => AbortController | null,
-    set: (aborter: AbortController | null) => void,
-    fatal: boolean,
-    read: (signal: AbortSignal) => Promise<T>,
-    done: (value: T) => void,
-  ): void {
-    current()?.abort();
-    const aborter = new AbortController();
-    set(aborter);
-    read(aborter.signal).then(
+  function read<T>(kind: keyof typeof reading, ask: () => Promise<T>, done: (value: T) => void): void {
+    const ticket = ++reading[kind];
+    pending[kind] = true;
+    ask().then(
       (value) => {
-        if (current() !== aborter) return;
-        set(null);
+        if (reading[kind] !== ticket) return;
+        pending[kind] = false;
         done(value);
         notify();
       },
       (error: unknown) => {
-        // An aborted read is one this store cancelled, not a failure of the corpus.
-        if (current() !== aborter || aborter.signal.aborted) return;
-        set(null);
-        failed ||= fatal;
-        fail(error);
-        notify();
-      },
-    );
-  }
-
-  const asLoad = [() => loading, (a: AbortController | null) => (loading = a), true] as const;
-  const asFilter = [() => filtering, (a: AbortController | null) => (filtering = a), false] as const;
-
-  function load(): void {
-    const open = corpus;
-    if (!open) return;
-    const seed = domainNow();
-    const given = geometry;
-    if (given) {
-      return run(...asLoad, (signal) => loadEncoding(open, given, binding, seed, signal), (next) => {
-        encoding = next;
-      });
-    }
-    run(...asLoad, (signal) => loadGraph(open, binding, seed, signal), (next) => {
-      geometry = next.geometry;
-      encoding = next.encoding;
-      mask = geometry && kept ? maskOf(geometry, kept) : null;
-    });
-  }
-
-  function refilter(): void {
-    filtering?.abort();
-    filtering = null;
-    const open = corpus;
-    if (!open || tables.length === 0) return;
-    if (filter === undefined) {
-      kept = null;
-      mask = null;
-      return;
-    }
-    const given = filter;
-    run(...asFilter, (signal) => readKept(open, tables, given, signal), (next) => {
-      kept = next;
-      mask = geometry ? maskOf(geometry, next) : null;
-    });
-  }
-
-  function reopen(): void {
-    loading?.abort();
-    filtering?.abort();
-    loading = filtering = null;
-    failed = false;
-    geometry = encoding = mask = kept = null;
-    uploaded = [];
-    tables = [];
-    const cleared = { selection: null, focus: null, hovered: null, pinned: [] };
-    if (!corpus) return notify(cleared);
-    try {
-      tables = drawnTables(corpus);
-      if (tables.length === 0) throw new GraphError("graph/nothing-to-draw", "the corpus has no vertex type with a position to draw");
-    } catch (error) {
-      failed = true;
-      fail(error);
-      return notify(cleared);
-    }
-    load();
-    refilter();
-    notify(cleared);
-  }
-
-  /** A promise is adopted when it settles, and only if it is still the corpus the host means. */
-  function adopt(given: GraphOptions["corpus"]): void {
-    corpus = null;
-    opening = isPromise(given) ? given : null;
-    if (!opening) {
-      corpus = given as Corpus | null;
-      return reopen();
-    }
-    const promised = opening;
-    reopen();
-    promised.then(
-      (opened) => {
-        if (opening !== promised) return;
-        opening = null;
-        corpus = opened;
-        reopen();
-      },
-      (error: unknown) => {
-        if (opening !== promised) return;
-        opening = null;
+        if (reading[kind] !== ticket) return;
+        pending[kind] = false;
         failed = true;
         fail(error);
         notify();
@@ -259,46 +162,91 @@ export function createGraph(initial: GraphOptions): GraphStore {
     );
   }
 
-  function listen(): void {
-    unlisten?.();
-    unlisten = null;
-    const crossfilter = options.filterBy;
-    const changed = () => {
-      let next: Filter | undefined;
-      try {
-        next = crossfilter ? filterFor(crossfilter, self) : undefined;
-      } catch (error) {
-        fail(error);
+  function loadStructure(): void {
+    const { coordinator, from } = options;
+    if (coordinator === null || from === null) return;
+    read("structure", () => readStructure(coordinator, from), (next) => {
+      if (next.size === 0) {
+        failed = true;
+        fail(new GraphError("graph/nothing-to-draw", `the corpus attached as ${from} has no vertex`));
         return;
       }
-      if (sameFilter(next, filter)) return;
-      filter = next;
-      refilter();
-      notify();
-    };
-    if (crossfilter) {
-      crossfilter.addEventListener("value", changed);
-      unlisten = () => crossfilter.removeEventListener("value", changed);
+      structure = next;
+      loadPositions();
+      client?.requestQuery();
+    });
+  }
+
+  function loadPositions(): void {
+    const { coordinator } = options;
+    const given = structure;
+    if (coordinator === null || given === null) return;
+    read("geometry", () => loadGeometry(coordinator, given, binding), (next) => {
+      geometry = next;
+      mask = kept ? maskOf(next.size, kept) : null;
+      loadChannels();
+    });
+  }
+
+  function loadChannels(): void {
+    const { coordinator } = options;
+    const given = geometry;
+    if (coordinator === null || given === null) return;
+    const seed = domainNow();
+    read("encoding", () => loadEncoding(coordinator, given, binding, seed), (next) => {
+      encoding = next;
+    });
+  }
+
+  function reset(): void {
+    for (const kind of Object.keys(reading) as (keyof typeof reading)[]) {
+      reading[kind]++;
+      pending[kind] = false;
     }
-    changed();
+    failed = false;
+    structure = geometry = encoding = null;
+    kept = mask = null;
+    uploaded = [];
+    notify({ selection: null, focus: null, hovered: null, pinned: [] });
+    loadStructure();
+  }
+
+  /** The graph's Mosaic client, connected to the coordinator while anything is subscribed. */
+  function connect(): void {
+    disconnect();
+    const { coordinator, filterBy } = options;
+    if (coordinator === null) return;
+    client = new GraphClient(
+      filterBy,
+      () => structure,
+      (ids) => {
+        kept = ids;
+        mask = ids && geometry ? maskOf(geometry.size, ids) : null;
+        notify();
+      },
+      (error) => fail(error),
+    );
+    coordinator.connect(client);
+    connected = coordinator;
+  }
+
+  function disconnect(): void {
+    if (client && connected) connected.disconnect(client);
+    client = null;
+    connected = null;
   }
 
   const store: GraphStore = {
     /**
-     * The first subscriber starts listening to the crossfilter and the last one stops it and lets the
-     * graph go — `QueryObserver`'s `onSubscribe`/`onUnsubscribe`, which is what survives StrictMode
-     * mounting everything twice.
+     * The first subscriber connects the client to the coordinator, and the last one disconnects it
+     * and lets the graph go — `QueryObserver`'s `onSubscribe`/`onUnsubscribe`, which is what
+     * survives StrictMode mounting everything twice.
      */
     subscribe(listener) {
       listeners.add(listener);
       if (!active) {
         active = true;
-        listen();
-        // StrictMode unsubscribes and subscribes again: what the unsubscribe cancelled starts over.
-        if (corpus && !failed && tables.length > 0) {
-          if (!loading && (!geometry || !encoding)) load();
-          if (!filtering && filter !== undefined && !kept) refilter();
-        }
+        connect();
         if (held !== null) {
           const { error } = held;
           held = null;
@@ -315,37 +263,35 @@ export function createGraph(initial: GraphOptions): GraphStore {
     setOptions(next) {
       const previous = options;
       options = next;
-      const nextBinding = bindingOf(next);
-      const rebound =
-        nextBinding.category !== binding.category ||
-        nextBinding.byTable !== binding.byTable ||
-        nextBinding.size !== binding.size ||
-        next.categories !== previous.categories;
-      binding = nextBinding;
-      if (next.corpus !== previous.corpus) {
-        adopt(next.corpus);
-        if (active && next.filterBy !== previous.filterBy) listen();
-        return;
+      const before = binding;
+      binding = bindingOf(next);
+      if (next.from !== previous.from || next.coordinator !== previous.coordinator) {
+        if (active && next.coordinator !== previous.coordinator) connect();
+        return reset();
       }
-      if (active && next.filterBy !== previous.filterBy) listen();
-      if (rebound) load();
+      if (active && next.filterBy !== previous.filterBy) connect();
+      if (binding.x !== before.x || binding.y !== before.y) loadPositions();
+      else if (
+        binding.category !== before.category ||
+        binding.byTable !== before.byTable ||
+        binding.size !== before.size ||
+        binding.cluster !== before.cluster ||
+        next.categories !== previous.categories
+      ) {
+        loadChannels();
+      }
       notify();
     },
     destroy() {
       active = false;
-      unlisten?.();
-      unlisten = null;
-      loading?.abort();
-      filtering?.abort();
-      loading = filtering = null;
+      disconnect();
       listeners.clear();
     },
     select(vertices, source = "node", label = "") {
       const selection = vertices && vertices.length > 0 ? { vertices: [...vertices], source, label } : null;
       patch({ selection });
       options.onSelect?.(selection);
-      const key = tables[0]?.key;
-      if (options.filterBy && key) publish(options.filterBy, self, key, selection ? selection.vertices : null);
+      if (options.filterBy && client) publish(options.filterBy, client, selection ? selection.vertices : null);
     },
     focus(vertex) {
       if (vertex === snapshot.focus) return;
@@ -385,7 +331,8 @@ export function createGraph(initial: GraphOptions): GraphStore {
     },
   };
 
-  adopt(initial.corpus);
+  loadStructure();
+  notify();
   building = false;
   return store;
 }

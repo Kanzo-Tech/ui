@@ -24,16 +24,16 @@ function Readout() {
 }
 
 /**
- * Press play: `motion` goes to `running` and `progress` climbs while `status` stays `idle`, because
- * nothing is being read. Drag a node while it runs and it stays where you drop it; the toolbar then
- * offers to release the pins. The camera follows the moving points until you zoom or pan.
+ * The layout starts once the graph is drawn: `motion` is `running` and `progress` climbs while
+ * `status` stays `idle`, because nothing is being read. Drag a node while it runs and it stays where
+ * you drop it; the toolbar then offers to release the pins. The camera follows the moving points until you zoom or pan.
  */
 export default function Example() {
-  const corpus = useArchive();
   const [failure, setFailure] = useState<unknown>(null);
+  const archive = useArchive(setFailure);
   return (
     <div className="flex h-96 w-full flex-col gap-2">
-      <GraphRoot categories={ARCHIVE_KINDS} corpus={corpus} fill="kind" onFailure={setFailure} r="degree" title="label">
+      <GraphRoot categories={ARCHIVE_KINDS} {...archive} fill="kind" onFailure={setFailure} r="degree" title="label">
         <Readout />
         <GraphCanvas className="flex-1 rounded-lg border">
           <GraphToolbar className="absolute end-2 top-2" />

@@ -9,14 +9,12 @@ import {
   createListCollection,
   InputGroupAddon,
   Show,
-  useFilter,
 } from "@kanzo-tech/ui";
 import { SearchIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { nameOf } from "../core/categories";
 import { bindingOf } from "../core/channels";
-import { readEveryTitle } from "../core/detail";
-import type { Encoding, Geometry } from "../core/load";
+import { searchTitles } from "../core/source";
 import { useGraphContext } from "../react/graph-root";
 import { useGraphSnapshot, useGraphState } from "../react/use-graph-state";
 
@@ -31,93 +29,69 @@ interface Entry {
   kind: string | null;
 }
 
-/** The titles read for one geometry and title column, or `false` when the read failed. */
-type Titles = { geometry: Geometry; title: string | undefined; titles: string[] | false } | null;
+/** What one query answered, or `false` when the read failed. */
+type Found = { query: string; entries: Entry[] | false } | null;
 
-/** Every drawn vertex, biggest on the `r` ramp first — the vertices a reader most likely means. */
-function entriesOf(
-  geometry: Geometry,
-  encoding: Encoding,
-  mask: Uint8Array | null,
-  titles: readonly string[],
-  kindOf: ((rank: number) => string) | null,
-): Entry[] {
-  const ids: number[] = [];
-  for (let id = 0; id < geometry.size; id++) {
-    if ((!mask || mask[id]) && !Number.isNaN(geometry.positions[id * 2])) ids.push(id);
-  }
-  const { sizes } = encoding;
-  if (sizes) {
-    const ramp = (id: number) => (Number.isNaN(sizes[id]) ? -Infinity : (sizes[id] as number));
-    ids.sort((a, b) => ramp(b) - ramp(a) || a - b);
-  }
-  return ids.map((id) => ({
-    value: String(id),
-    label: titles[id] || `#${id}`,
-    kind: kindOf ? kindOf(encoding.ranks[id] as number) : null,
-  }));
-}
+/** How long a reader pauses before the text is asked for: one statement per pause, not per key. */
+const PAUSE = 150;
 
 /**
- * **Find a vertex by its text and go to it.** Every drawn vertex's `title` — or its table's
- * `identity` — is read once, then filtered in the browser as the reader types: no query per
- * keystroke. The list is ordered by the `r` ramp, so with `r="degree"` the hubs come first, and each
- * match is named by the root's `categories`. Picking one is `reveal`: the canvas frames it and
- * selects it with its neighbours, and `GraphInspector` reads it.
+ * **Find a vertex by its text and go to it** — Cosmograph's search: each pause in typing asks the
+ * corpus for the first `limit` vertices whose `title` — or its table's `identity` — contains the text,
+ * case-insensitively, one `ILIKE` over every vertex table through the page's coordinator. Nothing is
+ * read before the reader types, and no vertex's text is held in the page. Each match is named by the
+ * root's `categories`; picking one is `reveal`: the canvas frames it and selects it with its
+ * neighbours, and `GraphInspector` reads it.
  *
- * A vertex the page's filter hides is not offered, because there is nothing on the canvas to go to.
- * A read that fails is handed to `onFailure` whole and the input says so, rather than staying disabled.
+ * A read that fails is handed to `onFailure` whole and the input says so.
  */
 export function GraphSearch({ className, limit = 50, placeholder = "Find a node…", size = "sm" }: GraphSearchProps) {
   const api = useGraphContext();
-  const corpus = useGraphState((s) => s.corpus);
+  const structure = useGraphState((s) => s.structure);
   const options = useGraphState((s) => s.options);
-  const geometry = useGraphSnapshot((s) => s.geometry);
   const encoding = useGraphSnapshot((s) => s.encoding);
-  const mask = useGraphSnapshot((s) => s.mask);
   const domain = useGraphState((s) => s.drawn?.domain ?? s.domain);
-  const [read, setRead] = useState<Titles>(null);
+  const [found, setFound] = useState<Found>(null);
   const [query, setQuery] = useState("");
-  const { contains } = useFilter({ sensitivity: "base" });
-  const { title, categories } = options;
-
-  useEffect(() => {
-    if (!corpus || !geometry) return;
-    const aborter = new AbortController();
-    readEveryTitle(corpus, geometry, title, aborter.signal).then(
-      (titles) => !aborter.signal.aborted && setRead({ geometry, title, titles }),
-      (error: unknown) => {
-        if (aborter.signal.aborted) return;
-        setRead({ geometry, title, titles: false });
-        api.getState().options.onFailure(error);
-      },
-    );
-    return () => aborter.abort();
-  }, [api, corpus, geometry, title]);
-
-  const answered = read && read.geometry === geometry && read.title === title ? read.titles : null;
-  const titles = answered || null;
+  const { title, categories, coordinator } = options;
   const binding = bindingOf(options);
   const bound = binding.byTable || binding.category !== undefined;
 
-  const entries = useMemo(() => {
-    if (!geometry || !encoding || !titles) return null;
-    return entriesOf(geometry, encoding, mask, titles, bound ? (rank) => nameOf(domain[rank], categories) : null);
-  }, [geometry, encoding, mask, titles, bound, domain, categories]);
+  useEffect(() => {
+    if (!structure || !coordinator || query === "") return;
+    let current = true;
+    const timer = setTimeout(() => {
+      searchTitles(coordinator, structure, query, title, limit).then(
+        (rows) =>
+          current &&
+          setFound({
+            query,
+            entries: rows.map(({ id, text }) => ({
+              value: String(id),
+              label: text || `#${id}`,
+              kind: bound && encoding ? nameOf(domain[encoding.ranks[id] as number], categories) : null,
+            })),
+          }),
+        (error: unknown) => {
+          if (!current) return;
+          setFound({ query, entries: false });
+          api.getState().options.onFailure(error);
+        },
+      );
+    }, PAUSE);
+    return () => {
+      current = false;
+      clearTimeout(timer);
+    };
+  }, [api, structure, coordinator, query, title, limit, bound, encoding, domain, categories]);
 
-  const collection = useMemo(() => {
-    const matches: Entry[] = [];
-    for (const entry of entries ?? []) {
-      if (matches.length === limit) break;
-      if (!query || contains(entry.label, query)) matches.push(entry);
-    }
-    return createListCollection({ items: matches });
-  }, [entries, query, contains, limit]);
+  const answered = found && found.query === query ? found.entries : null;
+  const collection = useMemo(() => createListCollection({ items: answered || [] }), [answered]);
 
   return (
     <Combobox
       collection={collection}
-      disabled={entries === null}
+      disabled={structure === null}
       onInputValueChange={(details) => setQuery(details.inputValue)}
       onValueChange={(details) => {
         const picked = details.value[0];
@@ -135,7 +109,7 @@ export function GraphSearch({ className, limit = 50, placeholder = "Find a node�
         </InputGroupAddon>
       </ComboboxInput>
       <ComboboxContent>
-        <ComboboxEmpty>Nothing drawn by that name.</ComboboxEmpty>
+        <ComboboxEmpty>Nothing by that name.</ComboboxEmpty>
         {collection.items.map((item) => (
           <ComboboxItem item={item} key={item.value}>
             <span className="min-w-0 truncate">{item.label}</span>

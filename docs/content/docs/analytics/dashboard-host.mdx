@@ -105,7 +105,7 @@ keasy draws a job's corpus one vertex type at a time:
 <Dashboard
   key={type}
   table={verbatim(relation(type))}
-  exclude={[table.key, table.identity, table.position.x, table.position.y]}
+  exclude={["dense_id", "subject"]}
   rowNoun={type}
   value={byType[type]}
   onChange={(spec) => change(type, spec)}
@@ -117,8 +117,8 @@ a chart's own selection is reset, an input retracts its clause — so a filter o
 reaches the next. A clause published by something that stays mounted, like the graph's lasso on
 `dense_id`, carries over, which is the point: every vertex table has that key.
 
-`exclude` drops the host's bookkeeping from the fields: the key the graph publishes on, the corpus's
-identity column, and the layout's coordinates. `byType` is one saved document per job, written whole
+`exclude` drops the host's bookkeeping from the fields: the address the graph publishes on and the
+corpus's identity column — the `address` and `identity` roles in `fossil_columns`. `byType` is one saved document per job, written whole
 — [the shape](/docs/analytics/dashboard-spec#the-shape-keasy-stores).
 
 ## 6. Where failures go

@@ -27,7 +27,7 @@ export function GraphCounts({ className, slot, spinner = false, ...rest }: Graph
   const vertices = useGraphState((s) => s.drawn?.vertices);
   const edges = useGraphState((s) => s.drawn?.edges);
   const total = useGraphState((s) => s.total);
-  const busy = useGraphState((s) => s.status === "opening" || s.status === "loading");
+  const busy = useGraphState((s) => s.status === "loading");
   const laying = useGraphState((s) => s.motion === "running");
 
   return (

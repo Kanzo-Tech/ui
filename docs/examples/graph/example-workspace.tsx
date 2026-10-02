@@ -50,14 +50,14 @@ const GESTURES: { keys: ReactNode; what: string }[] = [
  * the canvas and a look repaints it.
  */
 export default function Example() {
-  const corpus = useArchive();
   const [failure, setFailure] = useState<unknown>(null);
+  const archive = useArchive(setFailure);
   const { look, sim, preset } = useGraphPrefs();
   return (
     <div className="flex h-[34rem] w-full flex-col overflow-hidden rounded-lg border">
       <GraphRoot
         categories={ARCHIVE_KINDS}
-        corpus={corpus}
+        {...archive}
         look={look}
         onFailure={setFailure}
         r="degree"

@@ -15,9 +15,6 @@ export interface Placement {
   readonly dy: number;
 }
 
-/** No extent — no row has a position — so nothing moves and nothing is drawn. */
-export const UNPLACED: Placement = { side: 0, k: 1, dx: 0, dy: 0 };
-
 export function placementOf(extent: Extent, box: number): Placement {
   const longest = Math.max(extent.w, extent.h, 2);
   const k = longest > box ? box / longest : 1;
@@ -25,14 +22,12 @@ export function placementOf(extent: Extent, box: number): Placement {
   return { side, k, dx: (side - extent.w * k) / 2 - extent.x * k, dy: (side - extent.h * k) / 2 - extent.y * k };
 }
 
-/** The loaded positions in the square, with `NaN` where the page's filter hides a vertex — cosmos.gl draws no such point. */
-export function placed(geometry: Geometry, at: Placement, mask: Uint8Array | null): Float32Array {
-  const { positions } = geometry;
+/** Bound positions in the square. A vertex with no value stays `NaN`, which cosmos.gl does not draw. */
+export function placed(positions: Float32Array, at: Placement): Float32Array {
   const out = new Float32Array(positions.length);
-  for (let id = 0; id < geometry.size; id++) {
-    const hidden = mask !== null && !mask[id];
-    out[id * 2] = hidden ? Number.NaN : (positions[id * 2] as number) * at.k + at.dx;
-    out[id * 2 + 1] = hidden ? Number.NaN : (positions[id * 2 + 1] as number) * at.k + at.dy;
+  for (let i = 0; i < positions.length; i += 2) {
+    out[i] = (positions[i] as number) * at.k + at.dx;
+    out[i + 1] = (positions[i + 1] as number) * at.k + at.dy;
   }
   return out;
 }

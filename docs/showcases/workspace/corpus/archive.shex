@@ -8,10 +8,9 @@ PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 #   - The **properties** are what the workspace's panels read by name. A clause a chart publishes
 #     over `kind` or `region` has to land on the same columns the canvas is drawing from, and that
 #     is only true if the corpus carries them.
-#   - `x`, `y`, `cluster_id` and `community` are **absent**, because they are the layout pass's to
-#     write. The generator has coordinates of its own and they are not projected: under ADR-0001 the
-#     corpus' coordinates are the index every spatial question is asked against, so a second set
-#     written by hand would be a layout the reader could not address.
+#   - `x`, `y` and `community` are **absent**: a position is the viewer's choice, and the workspace
+#     lays the archive out on the GPU. A program with real coordinates — a lon/lat — would map them,
+#     and the host would bind them as `x` and `y`.
 #   - `linksTo` is a shape reference rather than a wildcard, which is what makes it an *edge*. A `.`
 #     would make it a column and the union of the two mappings would fail on column count.
 #

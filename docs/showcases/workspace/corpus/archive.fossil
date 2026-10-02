@@ -11,8 +11,8 @@
 // price is that `edges.csv` repeats the source's nine properties — the two sides are combined with a
 // plain UNION before the dedup by subject, so a column on one and not the other fails the run.
 //
-// **The layout is fossil's, not the generator's.** `buildArchiveGraph` has `x`/`y` and they are not
-// projected: the executor's layout pass writes the coordinates and `cluster_id`.
+// **No positions.** `buildArchiveGraph` has `x`/`y` and they are not projected: where a point goes is
+// the viewer's choice, and the workspace lets the GPU layout place them.
 
 type { Node } := io.shex("archive.shex")
 

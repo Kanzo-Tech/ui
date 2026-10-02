@@ -26,6 +26,7 @@ export {
 export {
   Query,
   asc,
+  collectColumns,
   desc,
   loadCSV,
   loadJSON,

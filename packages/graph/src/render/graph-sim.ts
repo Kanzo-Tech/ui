@@ -18,7 +18,7 @@ export interface Sim {
   linkSpring: number;
   linkDistance: number;
   friction: number;
-  /** Pull toward the node's group position on the cluster ring. Zero lets the links decide alone. */
+  /** Pull toward the centre of the vertex's cluster, when a column is bound to `cluster`. Zero lets the links decide alone. */
   cluster: number;
 }
 

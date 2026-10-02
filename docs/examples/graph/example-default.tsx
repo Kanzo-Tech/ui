@@ -6,15 +6,15 @@ import { Show } from "@kanzo-tech/ui";
 import { said, useArchive } from "./archive";
 
 /**
- * The whole of it: the opening of the corpus fossil reads, handed to `GraphRoot`, drawn by
- * `GraphCanvas`. The canvas says it is opening, then loading, until the whole graph is drawn.
+ * The whole of it: the catalog fossil attached, named to `GraphRoot` with the page's coordinator and
+ * drawn by `GraphCanvas`. Nothing binds `x` and `y`, so the layout runs from a seeded start.
  */
 export default function Example() {
-  const corpus = useArchive();
   const [failure, setFailure] = useState<unknown>(null);
+  const archive = useArchive(setFailure);
   return (
     <div className="h-80 w-full overflow-hidden rounded-lg border border-border bg-card">
-      <GraphRoot corpus={corpus} fill="kind" onFailure={setFailure} r="degree" title="label">
+      <GraphRoot {...archive} fill="kind" onFailure={setFailure} r="degree" title="label">
         <GraphCanvas>
           <Show when={failure !== null}>
             <p className="absolute inset-0 grid place-items-center p-6 text-center text-muted-foreground text-sm">{said(failure)}</p>

@@ -1,20 +1,19 @@
-import type { Selection as Crossfilter } from "@kanzo-tech/mosaic";
+import type { Coordinator, Selection as Crossfilter } from "@kanzo-tech/mosaic";
 import type { LookPatch } from "../render/graph-looks";
 import type { Sim } from "../render/graph-sim";
 import type { Binding, Channels } from "./channels";
-import type { Corpus } from "@fossil-lang/corpus";
 import type { Encoding, Geometry } from "./load";
+import type { Structure } from "./source";
 import type { Motion, Selection, SelectionSource, Tool, VertexId } from "./types";
 
 export interface GraphOptions extends Channels {
   /**
-   * The corpus the host opened with fossil's `open`, or the promise of it. A promise is what makes
-   * *opening* a state the graph can report; `null` is no corpus at all.
-   *
-   * The promise must settle. The graph shows *opening* until it does and sets no deadline of its
-   * own: the waits inside an open are fossil's to bound, and a rejection reaches `onFailure`.
+   * The catalog fossil's `open` attached the corpus under — its tables, `fossil_tables` and
+   * `fossil_columns` — or `null` for none yet. The graph reads it through `coordinator`.
    */
-  corpus: Corpus | PromiseLike<Corpus> | null;
+  from: string | null;
+  /** The page's Mosaic coordinator: the one connection every chart and the graph read through. */
+  coordinator: Coordinator | null;
   /** Which column the size ramp is spent on — Plot's `r`. */
   r?: string;
   /** Which column a label and the hover card show — Plot's `title`. Absent, each table's `identity`. */
@@ -31,8 +30,9 @@ export interface GraphOptions extends Channels {
   /** The force coefficients, as a patch over this package's own. */
   sim?: Partial<Sim>;
   /**
-   * Runs the live layout while true, from the points' current positions. Off by default: the corpus's
-   * positions are drawn as they are. `GraphToolbar` starts and stops the layout whatever this says.
+   * Whether the layout runs. By default it does exactly when `x` and `y` are unbound — Cosmograph's
+   * rule: bound columns place the points and nothing else does. `GraphToolbar` starts and stops the
+   * layout whatever this says.
    */
   simulate?: boolean;
   /**
@@ -45,21 +45,20 @@ export interface GraphOptions extends Channels {
 }
 
 /**
- * Where the graph is in its life. `none` is no corpus; `opening` is a corpus promised and not yet
- * open; `loading` is the graph, a binding or a filter not yet read or not yet drawn; `idle` is all of
- * it drawn; `failed` is a corpus that would not open or read, or a canvas with no GPU device to draw
- * with — none came up, or the one it had was lost.
+ * Where the graph is in its life. `none` is no corpus; `loading` is the graph, a binding or a filter
+ * not yet read or not yet drawn; `idle` is all of it drawn; `failed` is a corpus that would not read,
+ * or a canvas with no GPU device to draw with — none came up, or the one it had was lost.
  *
  * **It is the data's life, not the layout's.** A layout running over a drawn graph is `idle` here and
  * `running` in `motion`: two axes, because each can move without the other — a filter loads under a
  * paused layout, and a layout runs over a graph with nothing left to read. A host that shows one word
  * reads both, `motion === "running"` as "laying out" and `progress` for how far.
  */
-export type GraphStatus = "none" | "opening" | "loading" | "idle" | "failed";
+export type GraphStatus = "none" | "loading" | "idle" | "failed";
 
 /** What the loaded graph holds, under the page's filter. */
 export interface Drawn {
-  /** Vertices drawn: every one with a position that survives the filter. */
+  /** Vertices in full colour: every one with a position that survives the filter. */
   readonly vertices: number;
   /** Links drawn: every loaded relation whose two ends are drawn. */
   readonly edges: number;
@@ -72,7 +71,7 @@ export interface Drawn {
 /** What a host and the parts read, through `useGraphState`. */
 export interface GraphState {
   readonly status: GraphStatus;
-  /** Vertices of the drawn types, from the manifest — it does not shrink with a filter. */
+  /** Every vertex of the corpus — it does not shrink with a filter. */
   readonly total: number | undefined;
   /** What is loaded, or `null` before the graph has loaded. */
   readonly drawn: Drawn | null;
@@ -86,9 +85,9 @@ export interface GraphState {
   readonly motion: Motion;
   /** How far through settling a live layout is, `0`–`1`. */
   readonly progress: number;
-  /** The options as given, with the corpus once it is open. */
   readonly options: GraphOptions;
-  readonly corpus: Corpus | null;
+  /** The corpus's tables, once read. */
+  readonly structure: Structure | null;
 }
 
 /** The state, plus what only the renderer and the parts read. */
@@ -96,7 +95,7 @@ export interface GraphSnapshot extends GraphState {
   readonly binding: Binding;
   readonly geometry: Geometry | null;
   readonly encoding: Encoding | null;
-  /** `1` where a vertex survives the page's filter; `null` when nothing is filtered. */
+  /** `1` where a vertex survives the page's filter; `null` when nothing is filtered. A vertex that does not is greyed out, never hidden. */
   readonly mask: Uint8Array | null;
 }
 
