@@ -1,0 +1,143 @@
+---
+title: Host recipe
+description: Wiring a Dashboard to a backend — loading a saved spec, writing it after a pause, a read-only mode, your own labels and colours, one dashboard per relation, and where failures go.
+---
+
+`Dashboard` owns the fields, the automatic layout and the editors. What it does not own is the
+spec's home, who may edit it, and what a field's values *mean* in your product. This page is that
+share, end to end. Toggle **Editable**, change a card, and watch one write land after you stop:
+
+<ComponentPreview componentName="dashboard" fileName="example-host" hasMaxHeight={false} />
+
+## 1. Load the saved spec
+
+Read the relation's spec before drawing, and hand `undefined` when there is none — the automatic
+dashboard draws, and nothing is written for a relation nobody has edited.
+
+```tsx
+const saved = useQuery({ queryKey: ["dashboard", relation], queryFn: () => api.getDashboard(relation) });
+if (saved.isPending) return <Skeleton className="h-96 w-full" />;
+```
+
+**Do not draw while the read is pending, and do not fall back to the automatic dashboard when it
+fails.** The first edit on a fallback hands `onChange` a whole spec built from the automatic one, and
+saving it overwrites the reader's real dashboard. Show the failure instead; keasy wraps its view in an
+error boundary for exactly this.
+
+## 2. Write after a pause
+
+Every edit calls `onChange` with the whole next spec. Dragging a card through the layout, renaming a
+title or toggling three columns is many edits and one decision, so the write waits for a pause.
+`useDebouncedCommit` from the root barrel is that pause: `draft` follows every edit at once, and
+`onCommit` runs once the edits stop.
+
+```tsx
+import { useDebouncedCommit } from "@kanzo-tech/ui";
+import { Dashboard, type DashboardSpec } from "@kanzo-tech/ui/analytics";
+
+function SavedDashboard({ relation, saved }: { relation: string; saved: DashboardSpec | undefined }) {
+  const save = useMutation({ mutationFn: (spec: DashboardSpec) => api.putDashboard(relation, spec) });
+  const { draft, change } = useDebouncedCommit(saved, (spec) => spec && save.mutate(spec), 800);
+
+  return <Dashboard table={relation} value={draft} onChange={change} />;
+}
+```
+
+- **Draw `draft`, not the stored value.** The edit has to show at once; only the write waits.
+- **Send the whole spec** and replace on the server — never a patch merged into what is stored.
+- **A failed write is a toast, not a revert.** The reader's draft is still on screen and the next
+  edit retries with the whole spec.
+- `useDebouncedCommit` deliberately commits nothing on unmount (Strict Mode mounts twice). A host
+  that navigates away inside the pause and must not lose the last edit calls `flush()` first.
+
+## 3. Read-only
+
+Leave `onChange` out. The dashboard draws the same spec with no editors, no *Edit dashboard* menu,
+no *Add filter* and no remove buttons. Filters, picks, brushes, chips and paging still work — a
+viewer explores; a viewer does not rearrange.
+
+```tsx
+<Dashboard table={relation} value={draft} onChange={canEdit ? change : undefined} />
+```
+
+A viewer with nothing saved sees the automatic dashboard, which is the right default for a role that
+cannot make one.
+
+## 4. Your own labels and colours
+
+`config` maps a field to a [`ChartConfig`](/docs/analytics/charts#chartconfig): for each value, the
+label the legend shows, the colour the marks wear, and an icon so colour is never the only channel.
+It applies wherever that field is drawn as a series.
+
+```tsx
+const CONFIG: Record<string, ChartConfig> = {
+  verdict: {
+    confirmed: { label: "Confirmed", color: "var(--success)", icon: CheckCircle2Icon },
+    disputed: { label: "Disputed", color: "var(--warning)", icon: CircleHelpIcon },
+    hoax: { label: "Hoax", color: "var(--destructive)", icon: TriangleAlertIcon },
+  },
+};
+
+<Dashboard table="sightings" config={CONFIG} value={draft} onChange={change} />;
+```
+
+- Use **tokens**, not hex: `var(--success)` follows the theme into dark mode and through the
+  [theme generator](/theme-generator).
+- A status scale wants the status tokens; an ordinary category wants nothing — fields without a
+  config take the categorical scheme in order of frequency over the whole relation, so a filter never
+  repaints a survivor.
+- Keep `config` at module scope or memoised; it is part of what the plots compare between renders.
+
+The config is the host's, not the spec's: it describes what a value means in your product, which is
+true of every dashboard over that field, so it is not saved with any of them.
+
+## 5. One dashboard per relation
+
+A spec names columns, and so does every clause a part publishes. Two relations on one crossfilter
+means a pick on one sends `hall IN (…)` to the other, which may have no `hall`. Give each relation
+its own dashboard, and either mount one at a time or give each its own `MosaicProvider` over the
+shared coordinator.
+
+keasy draws a job's corpus one vertex type at a time:
+
+```tsx
+<ToggleGroup value={[type]} onValueChange={(d) => setType(d.value[0])}>{/* one item per type */}</ToggleGroup>
+<Dashboard
+  key={type}
+  table={verbatim(relation(type))}
+  exclude={[table.key, table.identity, table.position.x, table.position.y]}
+  rowNoun={type}
+  value={byType[type]}
+  onChange={(spec) => change(type, spec)}
+/>
+```
+
+`key={type}` remounts the dashboard on a switch. Every part withdraws its clauses when it unmounts —
+a chart's own selection is reset, an input retracts its clause — so a filter on one type never
+reaches the next. A clause published by something that stays mounted, like the graph's lasso on
+`dense_id`, carries over, which is the point: every vertex table has that key.
+
+`exclude` drops the host's bookkeeping from the fields: the key the graph publishes on, the corpus's
+identity column, and the layout's coordinates. `byType` is one saved document per job, written whole
+— [the shape](/docs/analytics/dashboard-spec#the-shape-keasy-stores).
+
+## 6. Where failures go
+
+Pass `onFailure` to the `MosaicProvider`. A dashboard reports a `SUMMARIZE` that fails, and every
+card, tile and input reports its own query, with the thrown value — DuckDB's error, or `engine()`'s
+`EngineError` with its `code`. Each part also says so in its own frame, so the callback is for
+telemetry and toasts, not for keeping the page legible.
+
+```tsx
+<MosaicProvider coordinator={coordinator} onFailure={(error) => toastError(error, "A chart could not be read")}>
+```
+
+## Checklist
+
+- [ ] One coordinator per page; one `MosaicProvider` per relation that has its own dashboard.
+- [ ] `value` is `undefined` until the relation's first save; the read's failure is shown, not
+      replaced by the automatic dashboard.
+- [ ] `onChange` writes the whole spec after a pause, keyed by the relation.
+- [ ] `onChange` is absent for viewers.
+- [ ] `exclude` lists the host's keys and coordinates; `config` is stable.
+- [ ] `onFailure` reaches your telemetry.

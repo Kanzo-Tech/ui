@@ -42,6 +42,23 @@ entry:
 | `@kanzo-tech/ui/table` | `@tanstack/react-table` |
 | `@kanzo-tech/ui/analytics` | `@uwdata/vgplot`, `@uwdata/mosaic-*` |
 
+`/analytics` holds two layers over one Mosaic coordinator and one crossfilter: the charts grammar
+(`MosaicProvider`, `ChartRoot`, marks, interactors, inputs, `ChartStat`) and the mini BI kit built
+from it — `Dashboard` with `DashboardFilters`, `DashboardStat`, `ChartCard`, `DetailTable` and
+`FilterChips`, drawn from a relation's `useFieldStats` and a JSON `DashboardSpec` the host saves.
+
+```tsx
+import { Dashboard, MosaicProvider, engine } from "@kanzo-tech/ui/analytics";
+
+const { coordinator } = await engine();
+<MosaicProvider coordinator={coordinator}>
+  <Dashboard table="sightings" value={saved} onChange={save} />
+</MosaicProvider>;
+```
+
+The docs site's Analytics section has the mental model, the spec field by field, a host recipe
+(debounced saves, read-only, custom labels and colours) and the pitfalls.
+
 ## Theming
 
 `KanzoThemeProvider` writes the theme axes as `data-*` attributes on `<html>` — required, because

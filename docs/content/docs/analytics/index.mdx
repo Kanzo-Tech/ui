@@ -1,14 +1,108 @@
 ---
 title: Analytics
-description: The charts layer, on its own subpath — what it is, what you install for it, and why it cannot be on the root barrel.
+description: The charts layer and the mini BI kit on one subpath — what they are, how they talk to each other, what you install, and why none of it is on the root barrel.
 ---
 
 `@kanzo-tech/ui/analytics` is a **subpath**, not a folder. Everything on it speaks to a live DuckDB
-relation through Mosaic: a chart declares what it wants, the coordinator turns that into SQL, and a
-brush on one chart filters every other chart on the page without either of them knowing about the
-other.
+relation through [Mosaic](https://idl.uw.edu/mosaic/): a part declares the query it wants, the
+coordinator runs it, and a brush on one chart filters every other part on the page without either
+of them knowing about the other.
 
-It is one of four entry points, and the split is a one-way door rather than a filing decision.
+It holds two layers, and the second is made of the first:
+
+- **The grammar** — `ChartRoot`, about sixty marks, the interactors, the inputs and `ChartStat`:
+  Observable Plot's vocabulary as JSX, compiled to one `vg.plot(...)` per root.
+  [Charts](/docs/analytics/charts) teaches it and the [gallery](/docs/analytics/gallery) draws every
+  mark.
+- **The BI kit** — `Dashboard` and its parts. A relation you have not seen, read from one
+  `SUMMARIZE`, drawn as a filter row, tiles, chart cards and the rows, and kept as a JSON spec the
+  host saves. [Dashboard](/docs/analytics/dashboard) teaches it.
+
+## The mental model
+
+Three things exist on a page that uses this subpath, and every part is one of them or reads one of
+them.
+
+### One coordinator, one provider
+
+A Mosaic **coordinator** owns the connection to DuckDB, the query cache, and the clients (anything
+that asks it for data). You make it — `engine()` boots DuckDB-WASM in the tab and hands it back — and
+pass it to **`MosaicProvider`**. The provider never builds one, which is what keeps DuckDB out of
+every Server Component.
+
+```tsx
+const { coordinator } = await engine();
+
+<MosaicProvider coordinator={coordinator} onFailure={(error) => report(error)}>
+  {/* every chart, input, stat and dashboard on the page */}
+</MosaicProvider>
+```
+
+One coordinator per page. The provider registers it as vgplot's active coordinator, and that setter
+is process-wide: a second coordinator leaves the first set of charts empty. Several providers may
+share the one coordinator, each with its own selections — that is how the examples on these pages
+stay independent of each other.
+
+`onFailure` is the single path a failed query takes to the host. Every chart, stat, input and
+dashboard under the provider calls it with the thrown value, whole — DuckDB's error, or `engine()`'s
+`EngineError` with its `code` — and also says it failed in its own frame, so a failed part is never a
+blank one.
+
+### One crossfilter
+
+A Mosaic **selection** is a set of **clauses**; a clause is one part's filter — a predicate, the
+values behind it, and the `source` that published it. The provider holds a
+`Selection.crossfilter()` that every part filters by. Crossfilter resolution means each part sees
+every clause *except its own*: brush a histogram and the others narrow, while the histogram keeps
+drawing the whole distribution under its brush.
+
+Charts do not publish into the crossfilter directly. Each `ChartRoot` owns a selection of its own,
+relayed into the provider's `selected` union and from there into the crossfilter. That indirection
+is what lets a chart dim its own bars after a pick (`ChartHighlight` reads the chart's selection)
+while every other chart filters —
+[the long version](/docs/analytics/charts#feedback-on-the-chart-that-filters).
+
+The provider also gives you the two operations a page-level control wants:
+
+| Call | What it clears |
+| --- | --- |
+| `useMosaic().reset()` | every clause on the page: each chart's own selection, then the shared two |
+| `useMosaic().retract(clauses)` | those clauses only, on the selection each was published into — what a chip's remove button wants |
+
+A plain `crossfilter.reset()` is neither. A reset travels downstream only, so it leaves each chart
+holding its own pick, still highlighted.
+
+### Roots, marks, interactors
+
+A **`ChartRoot`** is one plot. Its children are **descriptors** — inert elements that render no DOM:
+
+- **marks** (`ChartBarY`, `ChartLineY`, `ChartRectY`, `ChartDot`, …) say what to draw, with
+  channels that are column names or SQL aggregates (`x="hour" y={count()}`);
+- **interactors** (`ChartPickY`, `ChartBrushX`, `ChartHighlight`, …) say what a gesture publishes,
+  or what a selection dims;
+- **axes and facets** (`ChartAxisX`, `ChartFacetX`) are plot attributes.
+
+The root reads its children's props and compiles one plot. Mosaic turns each mark into SQL —
+`SELECT bin("hour") AS "x", count(*) AS "y" FROM sightings WHERE … GROUP BY "x"` — so the browser
+holds aggregates, never rows.
+
+### What publishes into the crossfilter
+
+Anything can, and a dashboard's chips show all of it, whoever published it:
+
+- a chart's interactor: a pick (`region IN ('Saltmere')`), a brush (`hour BETWEEN 2 AND 5`);
+- an input: `ChartFilter`, `ChartSearch`, `ChartSlider`, which are Mosaic clients without being
+  charts;
+- **a view whose positions live outside the database**. [`@kanzo-tech/graph`](/docs/graph) draws a
+  fossil corpus on the GPU; a lasso or a click publishes one `clausePoints` clause on the corpus's
+  **key column** (`dense_id`) and names the graph in the clause's `clients`, so the crossfilter
+  skips it for the graph and applies it to every chart. The same call is open to any widget:
+  `selection.update(clausePoints([column], ids.map((id) => [id]), { source }))`.
+
+That last one is why a dashboard over a vertex table follows a lasso on the canvas beside it: the
+clause names `dense_id`, and every vertex table has one. It is also why
+[a dashboard reads one relation](/docs/analytics/pitfalls#one-dashboard-per-relation): a clause
+names columns, and a relation without them cannot answer it.
 
 ## Why it is not on the root barrel
 
@@ -20,6 +114,10 @@ So the database half lives behind `/analytics`, and the door is held shut by a t
 real tarball, installs it with none of the optional peers, and imports the root barrel. That check is
 the only one that sees the built artefact rather than the source, and it is the reason this page can
 state the boundary as a fact rather than an intention.
+
+The parts that take a number and import no engine stay on the root barrel: `Stat` with `StatTrend`
+and `StatDelta`, `Table`, `Card`. `ChartStat` and `DashboardStat` are their connected halves —
+[the engine rule](/docs/philosophy#the-engine-rule).
 
 ## What to install
 
@@ -36,42 +134,23 @@ exact `@duckdb/duckdb-wasm` release it boots, so it arrives with the library. A 
 coordinator talks to a server-side DuckDB instead never boots it.
 
 If one is missing you find out at import time, which is the good failure. The bad one — a chart that
-renders empty and says nothing — is a different problem and [`charts`](/docs/analytics/charts) has a
-section on it, because a chart whose query dies keeps its previous render.
-
-## The shape, in four pieces
-
-- **`MosaicProvider`** — one coordinator and one crossfilter for a page. Exactly one: it registers
-  its coordinator as vgplot's active one and that setter is process-wide, so a second provider leaves
-  the first set of charts empty.
-- **`ChartRoot`** — one plot. It owns the selection a chart publishes into unless you hand it one,
-  compiles its children into a spec, and measures its own width.
-- **The descriptors** — `ChartLine`, `ChartBarY`, `ChartArea`, `ChartRect` and the rest. They render
-  no DOM. `ChartRoot` reads their props off the element and builds an Observable Plot spec, which is
-  why a mark cannot read context and why the [gallery](/docs/analytics/gallery) is the fastest way
-  to find the one you want.
-- **`useChartContext()`** — the way a DOM part of your own (a legend, a readout, a tooltip) reaches
-  the config, the selections, the coordinator, and the `color` / `formatNumber` helpers.
-
-`useChartContext` **reads**; there is no `useChart` that creates. That is deliberate and recorded —
-[Admission](/docs/design/admission#a-chart-needs-no-factory) has the argument, and the short version
-is that every hook
-in this layer reads the *provider* rather than the root, so there is no circularity for a factory to
-break.
+renders empty and says nothing — is what `onFailure` and the in-frame failure exist to rule out.
 
 ## Reaching the data directly
 
-Two escape hatches, and both are on this subpath for the same reason as everything else.
-
-`useChartQuery` runs a query beside the charts and hands back rows — the supported way to read a
-relation without drawing it, instead of a hand-written client at each call site. A view whose
-positions live **outside** the database — a graph canvas, a map, an imperative widget — publishes
-what it hit with Mosaic's own `clausePoints`: `selection.update(clausePoints([column], ids.map((id)
-=> [id]), { source }))`. `@kanzo-tech/graph` does exactly that to put a lasso into the same
-crossfilter a brushed histogram publishes into.
+`useChartQuery` runs a query beside the charts and hands back rows, re-run under the crossfilter —
+the supported way to read a relation without drawing it. A widget that runs a plain
+`coordinator.query()` in an effect reports unfiltered totals next to filtered charts, which reads as
+a bug in the crossfilter. `useFieldStats` is the other read the kit is built on: a relation's
+columns, classified.
 
 <Cards>
   <Card title="Charts" href="/docs/analytics/charts" description="The grammar: roots, marks, interactors, selections, and what fails silently." />
   <Card title="Gallery" href="/docs/analytics/gallery" description="Every mark, drawn, with the code that drew it." />
+  <Card title="Dashboard" href="/docs/analytics/dashboard" description="The mini BI kit: a relation's fields, a filter row, tiles, chart cards and the rows." />
+  <Card title="Dashboard spec" href="/docs/analytics/dashboard-spec" description="The JSON a host saves, field by field, and how to persist it." />
+  <Card title="Host recipe" href="/docs/analytics/dashboard-host" description="Wiring a Dashboard to a backend: debounced saves, read-only, your own vocabulary." />
+  <Card title="Pitfalls" href="/docs/analytics/pitfalls" description="The failures that point somewhere other than their cause." />
+  <Card title="Upgrading to v0.20" href="/docs/analytics/migration" description="What changed on the subpath, and what to edit." />
   <Card title="Graph" href="/docs/graph" description="The sibling package on the same crossfilter — a GPU canvas instead of a plot." />
 </Cards>

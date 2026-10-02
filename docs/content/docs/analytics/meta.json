@@ -4,6 +4,10 @@
     "index",
     "charts",
     "gallery",
-    "dashboard"
+    "dashboard",
+    "dashboard-spec",
+    "dashboard-host",
+    "pitfalls",
+    "migration"
   ]
 }

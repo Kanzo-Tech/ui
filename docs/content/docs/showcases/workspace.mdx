@@ -57,12 +57,28 @@ those nodes. Drop your own `.orders` file on the panel and it reads that instead
 compile is named rather than dropped, because otherwise you cannot tell "in order" from "never
 read".
 
+## Sightings
+
+The other main view is a [`Dashboard`](/docs/analytics/dashboard) over the world's own analytical
+relation, one row per reported sighting — the `boghound` met in the bestiary and as a hub on the
+canvas. Everything on it is one hand-written [spec](/docs/analytics/dashboard-spec) and the
+relation: a filter row, four tiles trending along the hour, a line, bars by hall coloured by the
+verdict's status scale, bounty by region split into panels, and a fit of distance against bounty
+over the rows, and the beasts as bars. The spec is written by hand because a showcase should look chosen; drop `value` and
+the same component draws the automatic dashboard from the relation's stats. Edit any card and the
+spec in state is what changed — the whole of what a host would persist.
+
+`sightings` has no date column, so the ordered axis is `hour`, and each tile's delta compares an
+hour with the one before. The view has its own `MosaicProvider`: it reads a different relation from
+the canvas, and [a crossfilter belongs to one relation](/docs/analytics/pitfalls#one-dashboard-per-relation).
+
 ## Worth exercising in the frame
 
 Lasso a cluster and watch the toolbar count it. Find a contract in the Info search and the canvas
 frames it while the inspector reads its row. Switch the Look in Preferences; Ink moves identity from
-colour to shape, and the legend's rows do not move. Focus an order. Then switch to **Sightings**, which puts the world's own analytical relation
-under a full crossfilter dashboard: brush the hourly curve and every panel narrows with it.
+colour to shape, and the legend's rows do not move. Focus an order. Then switch to **Sightings**: brush the hourly curve and every
+panel narrows with it, click a hall's bar and the chip under the filters says so, and open a card's
+editor to turn the line into an area.
 
 ## Source
 

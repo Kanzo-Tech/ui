@@ -1,0 +1,87 @@
+---
+title: Upgrading to v0.20
+description: What changed on @kanzo-tech/ui/analytics between v0.19 and v0.20 — the BI kit, the names it reuses, and the two shapes that moved during the release.
+---
+
+v0.20 adds the mini BI kit to the subpath. Nothing the v0.19 grammar exported was removed or
+renamed, so a page of charts upgrades with no edits. What needs attention is code that *copied*
+what the docs used to ship, and code written against a v0.20 prerelease.
+
+## New
+
+- **`Dashboard`** and its parts — `DashboardFilters`, `DashboardStat`, `ChartCard`, `DetailTable` —
+  over a serializable `DashboardSpec`, with `autoDashboard` for the spec a relation gets before
+  anybody edits one. [Dashboard](/docs/analytics/dashboard), [the spec](/docs/analytics/dashboard-spec).
+- **`useFieldStats` / `queryFieldStats`** — a relation's columns from one `SUMMARIZE`, classified by
+  kind and role.
+- **`FilterChips` and `useClauses`** — every clause on the page as removable chips, now in the
+  library.
+- **`useMosaic().retract(clauses)`** — clears those clauses on the selection each was published
+  into, so the chart that published a pick un-highlights as well. `useMosaic()` now returns
+  `{ coordinator, crossfilter, selected, registerSelection, reset, retract, onFailure }`.
+
+## The copied frames go
+
+v0.19 had no frame or grid on the subpath: the old titled card and the dashboard grid had been
+removed as arrangements with no behaviour, and the docs kept copies in `docs/lib/`
+(`chart-card.tsx`, `dashboard-grid.tsx`, `filter-chips.tsx`) for the showcases. If you copied them,
+replace each:
+
+| You copied | Replace with |
+| --- | --- |
+| `docs/lib/chart-card.tsx` (a titled frame around a chart) | `Card`, `CardHeader`, `CardTitle`, `CardContent` from the root barrel |
+| `docs/lib/dashboard-grid.tsx` | a class list: `grid gap-4 md:grid-cols-2 xl:grid-cols-3` |
+| `docs/lib/filter-chips.tsx` | `FilterChips` / `useClauses` from `/analytics` |
+
+<Callout type="warn">
+**`ChartCard` is a name again, and it is a different component.** v0.20's `ChartCard` draws one
+`DashboardCardSpec` (`table`, `fields`, `card`) — it is not a frame you put children in. A copied
+frame still called `ChartCard` will shadow or collide with the import; rename yours, or switch to
+`Card`.
+</Callout>
+
+The library's `FilterChips` removes a chip with `retract`. The copied one published an emptied clause
+into the selection it read (or called the source's own `reset`), which cleared the filter downstream
+but left the clause standing in the chart's own selection — the chart that published the pick went
+on highlighting it.
+
+## The showcase's `wirePicks` goes
+
+The Sightings showcase used to build a per-chart union selection by hand and relay it into the
+crossfilter (`wirePicks`), so a pick could dim its own chart while filtering the rest. `ChartRoot`
+already does exactly that for the selection it owns. If you copied the pattern, delete it and let
+each `ChartRoot` mint its own `as`; pass `as` only when two charts must publish into the same
+selection. The showcase itself is now a `Dashboard` over a hand-written spec.
+
+## Changed during the v0.20 prerelease
+
+These two only affect code built against a prerelease of v0.20 — no released version had the old
+shape.
+
+**`queryFieldStats` resolves to `{ fields, columns }`**, not to the field array. `columns` is every
+column of the relation, fields or not, which `Dashboard` needs to leave the channel-named ones out.
+
+```diff
+- const fields = await queryFieldStats(coordinator, table);
++ const { fields } = await queryFieldStats(coordinator, table);
+```
+
+`useFieldStats` returns `columns` beside `fields`.
+
+**`useFieldStats`'s `error` is the thrown value, typed `unknown`**, and it is also reported to the
+`MosaicProvider`'s `onFailure` — like every other part since v0.19. It used to be a re-wrapped
+`Error`. Narrow it before reading a message:
+
+```diff
+- {error && <p>{error.message}</p>}
++ {error !== null && <p>{error instanceof Error ? error.message : String(error)}</p>}
+```
+
+## Behaviour you may notice
+
+- **A relation with a column named `x`, `y` or another plot channel** now draws in a `Dashboard`: the
+  plots read it without those columns, and they are no longer offered as fields.
+  [Why](/docs/analytics/pitfalls#columns-named-like-a-channel).
+- **The subpath's measured size** went from about 67 kB to 89 kB brotlied, measured in isolation.
+  Most of it is root-barrel modules the kit composes, which dedupe in any app that imports both.
+  [Reading the number](/docs/analytics/pitfalls#the-subpaths-size-read-correctly).
