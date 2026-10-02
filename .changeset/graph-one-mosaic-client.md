@@ -22,3 +22,7 @@ now sizes points by degree. `simulate` still overrides.
 
 `status` no longer has `"opening"`. `GraphSearch` asks the corpus as the reader types, instead of
 holding every title. `@kanzo-tech/mosaic` also exports `collectColumns`.
+
+**`engine().query` runs on the coordinator's connection.** The second connection beside it is gone:
+fossil's statements — the secret, the attach, the views — queue with the charts' and the graph's,
+uncached. An abort rejects the caller's wait; the short statement finishes in the queue.

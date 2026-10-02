@@ -6,38 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 const registry = new Map<string, string>();
 const calls: string[] = [];
-/**
- * A connection that answers after a turn, so an abort can land while a statement runs — and records
- * the interrupt, which is the thing an abort owes the engine rather than only its caller.
- */
-const sent: string[] = [];
-const interrupts = vi.fn(async () => true);
-const running = { release: () => {} };
-const connection = {
-  send: vi.fn(async (text: string) => {
-    sent.push(text);
-    if (text.includes("slow")) await new Promise<void>((resolve) => (running.release = resolve));
-    const column = { length: 1, get: () => 1, toArray: () => Int32Array.of(1), concat: () => column };
-    const batch = { numRows: 1, getChildAt: (i: number) => (i === 0 ? column : null) };
-    // As apache-arrow's reader behaves: a schema only while open, and none once iterated to the end.
-    let schema: { fields: { name: string }[] } | undefined;
-    return {
-      get schema() {
-        return schema;
-      },
-      async open() {
-        schema = { fields: [{ name: "one" }] };
-      },
-      async *[Symbol.asyncIterator]() {
-        yield batch;
-        schema = undefined;
-      },
-    };
-  }),
-  cancelSent: interrupts,
-};
 const db = {
-  connect: vi.fn(async () => connection),
   instantiate: vi.fn<(module: string) => Promise<void>>(async () => {}),
   registerFileURL: vi.fn(async (name: string, url: string) => {
     if (registry.has(name) && registry.get(name) !== url) {
@@ -57,10 +26,14 @@ const db = {
   }),
 };
 const sql: string[] = [];
+/** Answers an arrow request with one column, and holds a statement naming `slow` until released. */
+const running = { release: () => {} };
+const answer = { numRows: 1, schema: { fields: [{ name: "one" }] }, getChild: (n: string) => (n === "one" ? { toArray: () => Int32Array.of(1) } : null) };
 const connector = {
   query: vi.fn(async (request: { type: string; sql: string }) => {
     sql.push(request.sql);
-    return request.type === "json" ? [{ one: 1 }] : undefined;
+    if (request.sql.includes("slow")) await new Promise<void>((resolve) => (running.release = resolve));
+    return request.type === "json" ? [{ one: 1 }] : answer;
   }),
 };
 const booted = vi.fn<(options?: unknown) => typeof connector>(() => connector);
@@ -143,39 +116,34 @@ describe("engine", () => {
     expect(sql.filter((s) => s.includes("parquet_metadata_cache"))).toHaveLength(1);
   });
 
-  it("answers in columns, as DuckDB-WASM produced them", async () => {
-    const answer = await (await engine()).query("SELECT 1 AS one", { signal: new AbortController().signal });
-    expect(answer.numRows).toBe(1);
-    expect(answer.schema.fields.map((f) => f.name)).toEqual(["one"]);
-    expect(answer.getChild("one")?.toArray()).toEqual(Int32Array.of(1));
-    expect(answer.getChild("two")).toBeNull();
+  it("answers on the coordinator's own connection, in columns, uncached", async () => {
+    const e = await engine();
+    const before = sql.length;
+    const first = await e.query("SELECT 1 AS one", { signal: new AbortController().signal });
+    await e.query("SELECT 1 AS one", { signal: new AbortController().signal });
+    expect(first.numRows).toBe(1);
+    expect(first.getChild("one")?.toArray()).toEqual(Int32Array.of(1));
+    // Twice through the connector: a statement with effects is never answered from the cache.
+    expect(sql.slice(before)).toEqual(["SELECT 1 AS one", "SELECT 1 AS one"]);
   });
 
-  it("interrupts the running statement on abort, and rejects with the signal's reason", async () => {
+  it("rejects an aborted wait with the signal's reason, and the queue goes on", async () => {
     const e = await engine();
     const controller = new AbortController();
     const slow = e.query("SELECT slow", { signal: controller.signal });
-    await vi.waitFor(() => expect(sent.at(-1)).toBe("SELECT slow"));
+    await vi.waitFor(() => expect(sql.at(-1)).toBe("SELECT slow"));
     controller.abort();
     await expect(slow).rejects.toBe(controller.signal.reason);
-    expect(interrupts).toHaveBeenCalledTimes(1);
     running.release();
-    // The connection answers the next statement as if the aborted one had never been sent.
     expect((await e.query("SELECT 1 AS one", { signal: new AbortController().signal })).numRows).toBe(1);
   });
 
-  it("never sends a statement whose signal was aborted while it waited", async () => {
+  it("never sends a statement whose signal was aborted before it asked", async () => {
     const e = await engine();
-    const first = e.query("SELECT slow", { signal: new AbortController().signal });
-    await vi.waitFor(() => expect(sent.at(-1)).toBe("SELECT slow"));
     const controller = new AbortController();
-    const queued = e.query("SELECT queued", { signal: controller.signal });
     controller.abort();
-    await expect(queued).rejects.toBe(controller.signal.reason);
-    running.release();
-    await first;
-    await e.query("SELECT after", { signal: new AbortController().signal });
-    expect(sent).not.toContain("SELECT queued");
+    await expect(e.query("SELECT never", { signal: controller.signal })).rejects.toBe(controller.signal.reason);
+    expect(sql).not.toContain("SELECT never");
   });
 
   it("lends a name once for the same URL", async () => {
