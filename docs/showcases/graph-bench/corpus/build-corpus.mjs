@@ -6,14 +6,10 @@
  * froze the tab for six seconds. It also meant the benchmark spent most of its columns measuring
  * the fixture — `Ingest` was already labelled as "the fixture's cost and not the product's".
  *
- * A corpus is a compiler's output. ADR-0001 rests on that premise and this is it applied to the
- * benchmark itself: write once with the real writer, read many with the real reader.
- *
+ * A corpus is a compiler's output: write once with the real writer, read many with the real reader.
  * **`@fossil-lang/executor` is the writer, and the only one.** It runs `bench.fossil` in Node and
- * writes `fossil/1` — one Parquet per vertex type and per relation, `fossil.json` last — with its
- * layout pass: `cluster_id`, `x`/`y`, and a `dense_id` that follows the position. Computing any of
- * that here would be a second implementation of something fossil owns, and two writers is how they
- * come to disagree.
+ * writes `fossil/1` — one Parquet per vertex type and per relation, `fossil.json` last. It carries
+ * the graph and no picture: where a point goes is the viewer's layout, on the GPU.
  *
  * Usage:  node build-corpus.mjs [--sizes 2000,10000]
  * Output: docs/public/bench/<size>/  — gitignored; tens of megabytes at the top sizes.
@@ -35,18 +31,7 @@ const PUBLIC = resolve(HERE, "../../../public/bench");
  */
 const DEFAULT_SIZES = [2_000, 10_000, 50_000, 200_000, 1_000_000];
 
-/**
- * The square this generator writes its coordinates into — **the generator's own number, and the
- * renderer does not read it.**
- *
- * It used to be spelled as cosmos.gl's simulation box, copied from the package's `SPACE`. That was
- * the bug: the drawing side no longer declares a box at all, it asks the corpus for its extent, so
- * a generator that scaled to a shared constant was agreeing with a renderer that had stopped
- * listening. A corpus fossil writes centres on the origin and scales to N — a million spans roughly
- * x ∈ [−345, 645396] — and it draws correctly, which is the proof that nothing here is shared.
- *
- * Any positive number would do. This one is kept so the recorded bench figures stay comparable.
- */
+/** The generator's own square. Only `community` and the links leave this file, so any positive number would do. */
 const EXTENT = 4096;
 
 /**

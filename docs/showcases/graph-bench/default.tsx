@@ -92,8 +92,8 @@ declare global {
 
 /**
  * Which ceiling is being asked about. Both layers render with cosmos.gl: `engine` is cosmos.gl fed
- * typed arrays straight from a generator, and `viewer` is `GraphRoot` drawing a whole corpus against
- * cosmos.gl alone on the same positions and the same camera path.
+ * typed arrays straight from a generator, and `viewer` is `GraphRoot` drawing a whole attached corpus
+ * against cosmos.gl alone on the same seeded positions and the same camera path.
  */
 type Layer = "engine" | "viewer";
 
@@ -222,9 +222,9 @@ const PREVIEW_SIZES = [2_000, 10_000, 50_000, 200_000];
  * Where a live layout stops being viable, from `/docs/graph/benchmarks` — 61 ms a step at 200,000, and
  * 441 ms at a million.
  *
- * Kept as its own number rather than folded into the size list, because it is a fact about the
- * simulation and not about what the preview offers: the moment a corpus arrives precomputed rather
- * than generated here, the sizes can grow past it and this does not move.
+ * Kept as its own number rather than folded into the size list, because it is a fact about this
+ * preview's simulation — links drawn, no decay tuned — and not about what the preview offers. The
+ * graph's own layout goes further by hiding links while it runs: `/docs/graph/layout` has the gate.
  */
 const LIVE_LAYOUT_CEILING = 200_000;
 

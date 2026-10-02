@@ -1,11 +1,11 @@
 ---
 title: Benchmarks
-description: Our viewer against cosmos.gl alone on the same positions, and how far cosmos.gl's live layout goes.
+description: Our viewer against cosmos.gl alone on the same positions, how far cosmos.gl's live layout goes, and where the layout's tuning was measured.
 ---
 
 The harness is a showcase you can run. It has two layers, and they are not variants of each other:
-**GraphRoot** is the path a product uses — a corpus opened with fossil's `open` and drawn whole by
-`<GraphRoot><GraphCanvas/></GraphRoot>` — and **cosmos.gl alone** is the control, the same renderer
+**GraphRoot** is the path a product uses — a corpus attached with fossil's `open` and drawn whole by
+`<GraphRoot from coordinator><GraphCanvas/></GraphRoot>` — and **cosmos.gl alone** is the control, the same renderer
 fed typed arrays with nothing of ours in the way.
 
 <Cards>
@@ -21,16 +21,17 @@ runs `bench.fossil` in Node once, offline; the browser only reads them.
 node docs/showcases/graph-bench/corpus/build-corpus.mjs
 ```
 
-They land in `docs/public/bench/<size>/` and are gitignored — 4.7 MB at 200,000, measured with
-`du -sh` on 2026-09-30, one Parquet per table and `fossil.json`. **The million is not written**:
-`0.3.0-alpha.15`'s executor panics in DataFusion's memory pool inside its WASM at that size, so the
-script fails there and the viewer's million is a 404 until fossil fixes it.
+They land in `docs/public/bench/<size>/` and are gitignored, one Parquet per table and
+`fossil.json`. **The million is not written**: the executor panics in DataFusion's memory pool inside
+its WASM at that size, so the script fails there and the viewer's million is a 404 until fossil
+fixes it.
 
 ## Our viewer against cosmos.gl alone
 
-`measureViewer(pointCount)`, registered on `window` by the showcase, reads every drawn table of a
-built corpus once and draws it twice — with cosmos.gl alone and with
-`<GraphRoot><GraphCanvas/></GraphRoot>` — alternating the two three times. Each run follows one
+`measureViewer(pointCount)`, registered on `window` by the showcase, attaches a built corpus, reads
+its links through the page's coordinator and draws it twice — with cosmos.gl alone and with
+`<GraphRoot simulate={false}><GraphCanvas/></GraphRoot>` — over the same seeded start, alternating
+the two three times. Each run follows one
 camera path: the same wheel events on each canvas, a change every frame, zooming into a quarter of
 the extent and then in and out at a point that sweeps across it. It records the interval between
 frames, and counts the `requestAnimationFrame` calls made during a second of nothing, which is zero
@@ -47,7 +48,8 @@ runs.
 |---|---|---|
 | 200,000 | 9.3 ms | 9.0 ms |
 
-The viewer is inside the gate: at 200,000 the frame is cosmos.gl's, not ours.
+The viewer was inside the gate on 2026-09-30, when it read the corpus's own laid-out positions; the
+harness has moved to the seeded start since and the row has not been re-run on it.
 
 ## The engine: how far a live layout goes
 
@@ -67,5 +69,7 @@ the picture is smooth and stale at once. Only the readback in `Per step` forces 
 | 50k | 331.6k | 65 ms | 192 ms | 10.03 ms | 100 fps | 80 fps |
 | 200k | 1.4M | 454 ms | 751 ms | 61.00 ms | 16 fps | 61 fps |
 
-A live layout is comfortable to about 50,000 points and finished by 200,000. That is why the graph
-loads at the corpus's own positions with no simulation, and the toolbar runs one only when asked.
+This is cosmos.gl with links drawn and its decay untuned: comfortable to about 50,000 points and
+stalling by 200,000. The graph's own layout goes further by cooling sooner, widening its square and
+hiding links while it runs — [Layout and camera](/docs/graph/layout#how-the-layout-scales) has those
+rules and the gate that measured them, at up to 500,000 vertices.

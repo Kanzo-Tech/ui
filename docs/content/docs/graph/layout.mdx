@@ -1,11 +1,11 @@
 ---
 title: Layout and camera
-description: The data's status and the layout's motion, what play and a drag do to the points, where the layout simulates, and when the camera follows.
+description: The data's status and the layout's motion, when the GPU layout runs and how it scales, what a drag does to the points, and when the camera follows.
 ---
 
 A graph view does two different things over time: it **reads** a corpus, and it **lays out** points.
-`@kanzo-tech/graph` keeps them on two axes, runs the layout only when asked, and moves the camera
-for the reader only while a layout is moving the points.
+`@kanzo-tech/graph` keeps them on two axes, runs the layout whenever the data does not say where a
+point goes, and moves the camera for the reader only while a layout is moving the points.
 
 <ComponentPreview componentName="graph" fileName="example-layout" hasMaxHeight />
 
@@ -13,16 +13,17 @@ for the reader only while a layout is moving the points.
 
 | | Values | Moves when |
 | --- | --- | --- |
-| `status` | `none` · `opening` · `loading` · `idle` · `failed` | the corpus opens, the graph or a binding or a filter is read and drawn, something fails |
+| `status` | `none` · `loading` · `idle` · `failed` | the graph, a binding or a filter is read and drawn, something fails |
 | `motion` | `running` · `paused` · `settled` | a layout starts, is paused, or cools to rest |
 | `progress` | `0` – `1`, in twentieths | a running layout cools toward rest |
 
-**`status` is the data's life.** `none` is no corpus; `opening` is a corpus promised and not yet
-open; `loading` is the graph, a binding or a filter not yet read or not yet drawn; `idle` is all of
-it drawn; `failed` is a corpus that would not open or read, or a canvas with no GPU device.
+**`status` is the data's life.** `none` is no catalog named; `loading` is the graph, a binding or a
+filter not yet read or not yet drawn; `idle` is all of it drawn; `failed` is a corpus that would not
+read, or a canvas with no GPU device — none came up, or its context was lost.
 
 **`motion` is the layout's.** `running` is a live layout; `paused` is one waiting for the reader;
-`settled` is one that converged on its own — or none ever ran, which is how a graph loads.
+`settled` is one that converged on its own — or none ever ran, which is how a graph with bound `x`
+and `y` loads.
 
 **They are separate because each moves without the other.** A filter loads under a paused layout —
 `loading` and `paused` — and a layout runs over a graph with nothing left to read — `idle` and
@@ -34,35 +35,73 @@ function Activity() {
   const status = useGraphState((s) => s.status);
   const laying = useGraphState((s) => s.motion === "running");
   const progress = useGraphState((s) => s.progress);
-  if (status === "opening" || status === "loading") return <>Loading…</>;
+  if (status === "loading") return <>Loading…</>;
   if (laying) return <>Laying out · {Math.round(progress * 100)}%</>;
   return null;
 }
 ```
 
-`GraphCounts spinner` is that function already: its spinner says "Loading" for the first two and
-"Laying out" for the third, and its `aria-busy` follows the load alone, because a layout moves the
+`GraphCounts spinner` is that function already: its spinner says "Loading" for the first and
+"Laying out" for the second, and its `aria-busy` follows the load alone, because a layout moves the
 points and not the figures it reports.
 
-## The layout runs only when asked
+## When the layout runs
 
-**A graph loads at the corpus's own positions with no layout running.** The positions are a fact —
-fossil's layout pass or the program's own columns wrote them — and a live simulation is finished by
-200,000 points ([Benchmarks](/docs/graph/benchmarks)), so running one at load would spend the
-reader's first seconds on something they did not ask for.
+**Cosmograph's rule: the data places the points, or the layout does.** Bind `x` and `y` to two
+numeric columns — `x="lon" y="lat"` — and every point is drawn at its row's values and nothing
+simulates; a vertex whose table lacks either column is not drawn. There is no base map: lon/lat as
+`x`/`y` is a scatter of positions, which is what Cosmograph does too. Leave them unbound — a fossil
+corpus carries no positions — and the points start from a seeded Gaussian around the centre of the
+layout's square, its spread growing with the graph, and the GPU force simulation runs as soon as the
+graph is drawn. The seed is the vertex count, so the same corpus starts the same way.
 
-Two doors start one, and both start it **from where the points are**:
+`cluster` names a column the running layout pulls together by — cosmos.gl's cluster force over
+`setPointClusters`. It is a binding like any other: change it and the layout reheats.
 
-- **The toolbar's transport.** Its first button is named for what it does in each state — *Run the
-  layout* when settled, *Pause the layout* while running, *Resume the layout* when paused. *Re-run
-  the layout* releases every pin and starts again from full heat.
-- **`simulate`.** True runs the layout, false pauses it. It is for a host that decides — a corpus
-  with no positions worth keeping, say — and the toolbar starts and stops the layout whatever it
-  says.
+`simulate` overrides the rule: `false` keeps an unbound graph at its seeded start, `true` runs a
+layout over bound positions. **The toolbar's transport** runs and stops the layout whatever it says —
+*Pause the layout* while running, *Resume the layout* when paused, *Run the layout* when settled,
+and *Re-run the layout*, which releases every pin and starts again from full heat. The api is the
+same transport: `resume()`, `pause()`, `restart()`. Changing `sim` while a layout runs reheats it, so a
+reader tuning gravity sees the change; a paused layout stays paused.
 
-The api is the same transport: `resume()` resumes a paused layout or runs a settled one, `pause()`
-pauses, `restart()` releases the pins and runs from full heat. Changing `sim` while a layout runs
-reheats it, so a reader tuning gravity sees the change; a paused layout stays paused.
+## How the layout scales
+
+Three settings follow the vertex count, each decided by measurement — cosmos.gl 3.4.0, an Apple M4
+Pro, Chrome 154 headed, a real GPU, a community graph of four links per vertex. **The shape is done
+in one to three seconds at every size**; what the settings buy is a layout that stops spending frames
+soon after, at a frame rate a reader can pan through.
+
+| Setting | Up to 200,000 vertices | Above |
+| --- | --- | --- |
+| how long it cools (`simulationDecay`, frames) | 600 | 240 |
+| the layout's square (`spaceSize`) | 4,096 | 8,192 |
+| links while it runs | drawn up to 250,000 links, hidden above — they return when it settles or pauses | the same |
+
+| Vertices | Links | Decay | Square | Links while running | Load | Settled | Frame (median) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 10,000 | 40,000 | 600 | 4,096 | drawn | 88 ms | 10.0 s | 16.7 ms |
+| 50,000 | 200,000 | 600 | 4,096 | drawn | 156 ms | 12.3 s | 16.7 ms |
+| 200,000 | 800,000 | 600 | 4,096 | drawn | 456 ms | 43.0 s | 66.7 ms |
+| 200,000 | 800,000 | 600 | 4,096 | hidden | 457 ms | 11.9 s | 16.7 ms |
+| 200,000 | 800,000 | 5,000 | 4,096 | drawn | 444 ms | unsettled at 120 s | 66.7 ms |
+| 500,000 | 2,000,000 | 600 | 4,096 | hidden | 1,097 ms | 25.2 s | 33.7 ms |
+| 500,000 | 2,000,000 | 240 | 8,192 | hidden | 1,128 ms | 11.0 s | 48.3 ms |
+
+*Load* is `setPointPositions` plus `setLinks`, synchronous on the main thread. *Settled* is wall
+time until cosmos.gl's alpha reaches its floor. The last row's graph has tighter communities (99% of
+links inside one); on that graph the 4,096 square was still visually mixing at 20 s, and 8,192 was
+settled by 3 s.
+
+- **Links are the cost, not the forces.** At 800,000 links a layout ticked 14 times a second with
+  links drawn and 51 without. With links drawn throughout, the practical limit is about 50,000
+  vertices.
+- **A longer decay buys nothing.** At 5,000 frames the 200,000-vertex layout looked done by 10 s and
+  was still running at 120 s.
+- **Greying needs both index lists.** `highlightedPointIndices` alone leaves links lit;
+  `highlightedLinkIndices` is set beside it — [the filter](/docs/design/graph#the-graph-is-a-client-of-the-pages-coordinator).
+
+Measured on 2026-10-02, one run per row.
 
 ## Drag to fix, release to reheat
 
@@ -88,18 +127,15 @@ the layout, so the released nodes visibly flow back into place:
 
 cosmos.gl simulates in a square, `[0, spaceSize]²`, and two of its forces care where the points are
 in it: gravity pulls toward the square's centre, and the many-body force bins points on a grid over
-the square. Drawing is translation-invariant; the layout is not.
-
-**The corpus's extent is centred in that square, at its own scale.** The square's side is the
-extent's longer side, so a fossil layout that starts near the origin is not left in a corner where a
-running layout would contract it further into the corner and push its far side off the grid. The
-extent is scaled down only past what the device can simulate in — half its `MAX_TEXTURE_SIZE` —
-where cosmos.gl would shrink the square under the points anyway. The package declares no coordinate
-constant of its own: the box belongs to whatever wrote the positions.
+the square. Drawing is translation-invariant; the layout is not. **An unbound graph is seeded in the
+middle of the square above. Bound positions are centred in it, at their own scale**, so a layout
+run over them does not contract into a corner; the extent is scaled down only past what the device
+can simulate in — half its `MAX_TEXTURE_SIZE`.
 
 ## The camera
 
-**At load, the camera frames the corpus's extent, and keeps it framed until you move it.** It
+**At load, the camera frames the bound positions' extent — or, for a layout, the seeded points — and
+keeps it framed until you move it.** It
 frames before anything is drawn, so the first frame is already the whole graph — and again when
 cosmos.gl's device comes up and whenever the canvas changes size, because a canvas in a split panel
 or beside a dock settles its width after mount, and a frame taken at the old size opens zoomed into
@@ -115,7 +151,7 @@ a resize leaves it where it is, and a running layout stops following until the n
 hands it back. A camera that fought the
 reader's zoom would be the bug, not the feature.
 
-**Fit frames what is there.** Before any layout has run, Fit frames the corpus's extent. Once a
+**Fit frames what is there.** Before any layout has run, Fit frames the bound extent. Once a
 layout has moved the points the extent is history, so Fit frames where the points are now. `reveal`
 zooms to one vertex and `frameSelection` frames what is selected; neither changes who holds the
 camera.
@@ -131,8 +167,7 @@ every 900 ms on top of a simulation step that already costs 10 ms at 50,000 poin
 
 What to do about it, in the order it pays:
 
-- **Leave the layout off.** A corpus fossil laid out is drawn at its positions with no readback at
-  all, and Fit before any run frames the extent from numbers the graph already holds.
+- **Bind `x` and `y`** when the data has positions: nothing runs and nothing is read back.
 - **Take the camera** — a wheel or a pan — once a run has started, and the re-frames stop until the
   next run.
 - **Start large corpora at other forces** through the tenant policy over `GRAPH_SECTION`'s axes — less
@@ -143,3 +178,5 @@ What to do about it, in the order it pays:
 - [Graph](/docs/graph) — the root, the parts and their API.
 - [The graph view](/docs/design/graph#the-renderer-uploads-once-and-renders-once-a-frame) — the
   renderer's rules and the tests that hold them.
+- [Benchmarks](/docs/graph/benchmarks) — the viewer against cosmos.gl alone, and a live layout's
+  step cost.

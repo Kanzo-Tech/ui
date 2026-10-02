@@ -12,8 +12,8 @@ import { ARCHIVE_KINDS, said, useArchive } from "./archive";
  * capacity they are Other.
  */
 export default function Example() {
-  const corpus = useArchive();
   const [failure, setFailure] = useState<unknown>(null);
+  const archive = useArchive(setFailure);
   const [fill, setFill] = useState("kind");
   return (
     <div className="flex h-96 w-full flex-col gap-3">
@@ -29,7 +29,7 @@ export default function Example() {
         <ToggleGroupItem value="cluster_id">cluster_id</ToggleGroupItem>
         <ToggleGroupItem value="var(--foreground)">one ink</ToggleGroupItem>
       </ToggleGroup>
-      <GraphRoot categories={ARCHIVE_KINDS} corpus={corpus} fill={fill} onFailure={setFailure} r="degree" title="label">
+      <GraphRoot categories={ARCHIVE_KINDS} {...archive} fill={fill} onFailure={setFailure} r="degree" title="label">
         <GraphCanvas className="flex-1 rounded-lg border">
           <GraphLegend className="absolute start-2 bottom-2" />
           <Show when={failure !== null}>

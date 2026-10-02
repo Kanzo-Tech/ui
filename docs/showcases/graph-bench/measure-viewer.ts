@@ -4,16 +4,17 @@ import { createElement, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { Graph } from "@cosmos.gl/graph";
 import { GraphCanvas, GraphRoot, useGraphContext, type GraphApi } from "@kanzo-tech/graph";
-import { engine } from "@kanzo-tech/ui/analytics";
-import { open, type Corpus } from "@fossil-lang/corpus";
+import { engine, type Coordinator } from "@kanzo-tech/ui/analytics";
+import { open } from "@fossil-lang/corpus";
 import { host, nextFrame, visible } from "./measure";
 
 /**
  * Our viewer against cosmos.gl alone, on the same positions and the same camera path.
  *
- * The raw half reads every drawn table once, builds the typed arrays cosmos.gl takes and draws them
- * with nothing of ours in the way. The viewer half mounts `<GraphRoot><GraphCanvas/>` over the same
- * corpus. Both then follow one trajectory — the same wheel events on each canvas, a camera change
+ * The corpus is attached once with fossil's `open`. The raw half reads its links with one statement
+ * per relation through the page's coordinator, seeds the start the graph seeds, and draws it with
+ * nothing of ours in the way. The viewer half mounts `<GraphRoot><GraphCanvas/>` over the same
+ * catalog with `simulate={false}`, so both draw the same still picture. Both then follow one trajectory — the same wheel events on each canvas, a camera change
  * every frame, through cosmos.gl's own d3-zoom and nothing else — and the page records the interval
  * between frames. The gate is the median over the repeats of the viewer's p95 against the raw one's.
  *
@@ -125,53 +126,78 @@ interface Payload {
   links: Float32Array;
   extent: Box;
   total: number;
+  space: number;
 }
 
-/** Every drawn table read once: positions indexed by `dense_id`, links between drawn tables. */
-async function payloadOf(corpus: Corpus): Promise<Payload> {
-  const readAll = async (params: Parameters<Corpus["scan"]>[0]) => {
-    const scan = corpus.scan(params);
-    return scan.read(scan.plan());
+/** What `coordinator.query(…, { type: "arrow" })` answers, as far as this file reads it. */
+interface Answer {
+  numRows: number;
+  getChild(name: string): { toArray(): ArrayLike<unknown> } | null;
+}
+
+const ident = (name: string) => `"${name.replace(/"/g, '""')}"`;
+
+/**
+ * **The graph's own start, copied** — a seeded Gaussian in the layout's square, seed `size`, the
+ * square 4,096 up to 200,000 vertices and 8,192 above (`/docs/graph/layout`). The control has to
+ * draw what the viewer draws; if `packages/graph/src/core/load.ts` changes its start, this follows.
+ */
+function seeded(size: number): { positions: Float32Array; extent: Box; space: number } {
+  const space = size > 200_000 ? 8192 : 4096;
+  let a = size >>> 0;
+  const next = () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-  const tables = corpus.manifest.vertex_tables.filter((table) => table.position);
-  if (tables.length === 0) throw new Error("the corpus has no vertex type with a position");
-  const total = tables.reduce((sum, table) => sum + table.record_count, 0);
-  const positions = new Float32Array(total * 2).fill(Number.NaN);
+  const sigma = (space / 8) * Math.sqrt(Math.min(1, size / 1.5e6));
+  const positions = new Float32Array(2 * size);
   let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity];
-  for (const table of tables) {
-    const { x, y } = table.position as { x: string; y: string };
-    for (const batch of await readAll({ table: table.name, select: [table.key, x, y] })) {
-      const keys = batch.getChild(table.key)?.toArray() ?? [];
-      const xs = batch.getChild(x)?.toArray() ?? [];
-      const ys = batch.getChild(y)?.toArray() ?? [];
-      for (let i = 0; i < batch.numRows; i++) {
-        const id = Number(keys[i]);
-        const px = Number(xs[i]);
-        const py = Number(ys[i]);
-        positions[id * 2] = px;
-        positions[id * 2 + 1] = py;
-        [x0, y0, x1, y1] = [Math.min(x0, px), Math.min(y0, py), Math.max(x1, px), Math.max(y1, py)];
-      }
+  for (let i = 0; i < size; i++) {
+    const r = Math.sqrt(-2 * Math.log(1 - next())) * sigma;
+    const theta = 2 * Math.PI * next();
+    const [x, y] = [space / 2 + r * Math.cos(theta), space / 2 + r * Math.sin(theta)];
+    positions[2 * i] = x;
+    positions[2 * i + 1] = y;
+    [x0, y0, x1, y1] = [Math.min(x0, x), Math.min(y0, y), Math.max(x1, x), Math.max(y1, y)];
+  }
+  return { positions, extent: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, space };
+}
+
+/** Every vertex and every link of the attached catalog, as SQL answers them. */
+async function payloadOf(coordinator: Coordinator, from: string): Promise<Payload> {
+  const ask = (sql: string) => coordinator.query(sql, { type: "arrow" }) as Promise<Answer>;
+  const tables = await ask(`SELECT table_name, kind, rows::DOUBLE AS rows FROM ${ident(from)}.fossil_tables`);
+  const [name, kind, rows] = ["table_name", "kind", "rows"].map((c) => tables.getChild(c)?.toArray() ?? []);
+  let total = 0;
+  const relations: string[] = [];
+  for (let i = 0; i < tables.numRows; i++) {
+    if (kind[i] === "vertex") total += Number(rows[i]);
+    else relations.push(String(name[i]));
+  }
+  if (total === 0) throw new Error("the corpus has no vertex to draw");
+  const answers = await Promise.all(
+    relations.map((table) => ask(`SELECT src::DOUBLE AS src, dst::DOUBLE AS dst FROM ${ident(from)}.${ident(table)}`)),
+  );
+  const links = new Float32Array(2 * answers.reduce((sum, answer) => sum + answer.numRows, 0));
+  let at = 0;
+  for (const answer of answers) {
+    const [src, dst] = [answer.getChild("src")?.toArray() ?? [], answer.getChild("dst")?.toArray() ?? []];
+    for (let e = 0; e < answer.numRows; e++) {
+      links[at++] = src[e] as number;
+      links[at++] = dst[e] as number;
     }
   }
-  const drawn = new Set(tables.map((table) => table.name));
-  const links: number[] = [];
-  for (const edge of corpus.manifest.edge_tables) {
-    if (!drawn.has(edge.source.references) || !drawn.has(edge.destination.references)) continue;
-    for (const batch of await readAll({ table: edge.name, select: [edge.source.key, edge.destination.key] })) {
-      const src = batch.getChild(edge.source.key)?.toArray() ?? [];
-      const dst = batch.getChild(edge.destination.key)?.toArray() ?? [];
-      for (let e = 0; e < batch.numRows; e++) links.push(Number(src[e]), Number(dst[e]));
-    }
-  }
-  return { positions, links: Float32Array.from(links), extent: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, total };
+  return { ...seeded(total), links, total };
 }
 
 /** cosmos.gl configured as the renderer configures it, minus everything of ours. */
 async function rawRun(payload: Payload): Promise<Run> {
   const element = host();
   const graph = new Graph(element, {
-    spaceSize: Math.max(payload.extent.w, payload.extent.h),
+    spaceSize: payload.space,
     rescalePositions: false,
     enableSimulation: false,
     transitionDuration: 0,
@@ -206,7 +232,7 @@ function Hold({ into }: { into: (api: GraphApi) => void }) {
   return null;
 }
 
-async function viewerRun(corpus: Corpus): Promise<Run> {
+async function viewerRun(coordinator: Coordinator, from: string): Promise<Run> {
   const element = host();
   const root = createRoot(element);
   let api: GraphApi | null = null;
@@ -216,7 +242,7 @@ async function viewerRun(corpus: Corpus): Promise<Run> {
     root.render(
       createElement(
         GraphRoot,
-        { corpus, onFailure: (error: unknown) => void (failure ??= { error }) },
+        { from, coordinator, simulate: false, onFailure: (error: unknown) => void (failure ??= { error }) },
         createElement(GraphCanvas),
         createElement(Hold, { into: (held: GraphApi) => void (api = held) }),
       ),
@@ -244,15 +270,17 @@ export async function measureViewer(pointCount: number, { repeats = 3 } = {}): P
   const path = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/bench/${pointCount}`;
   const sample: ViewerSample = { path, pointCount, linkCount: 0, raw: [], viewer: [], rawP95: 0, viewerP95: 0, ratio: 0 };
   if (!visible()) return { ...sample, failure: "the tab is hidden, and a hidden tab draws no frames" };
-  let corpus: Corpus | null = null;
+  const from = `bench_${pointCount}`;
+  let close: (() => Promise<void>) | null = null;
   try {
-    corpus = await open(`${window.location.origin}${path}`, { engine: await engine() });
-    const payload = await payloadOf(corpus);
+    const e = await engine();
+    close = await open(from, { engine: e, url: `${window.location.origin}${path}` });
+    const payload = await payloadOf(e.coordinator, from);
     sample.pointCount = payload.total;
     sample.linkCount = payload.links.length / 2;
     for (let i = 0; i < repeats; i++) {
       sample.raw.push(await rawRun(payload));
-      sample.viewer.push(await viewerRun(corpus));
+      sample.viewer.push(await viewerRun(e.coordinator, from));
     }
     sample.rawP95 = median(sample.raw.map((run) => run.p95));
     sample.viewerP95 = median(sample.viewer.map((run) => run.p95));
@@ -262,7 +290,7 @@ export async function measureViewer(pointCount: number, { repeats = 3 } = {}): P
   } catch (error) {
     return { ...sample, failure: error instanceof Error ? error.message : String(error) };
   } finally {
-    await corpus?.close().catch(() => {});
+    await close?.().catch(() => {});
   }
 }
 

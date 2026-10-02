@@ -1,8 +1,8 @@
 // The benchmark's corpus, compiled rather than generated in the browser.
 //
 // Two CSVs in, a `fossil/1` corpus out: `@fossil-lang/executor` (run by `build-corpus.mjs`) writes one
-// Parquet for the vertex type and one for the relation, with the layout pass's `x` / `y` /
-// `cluster_id`, and `fossil.json` last.
+// Parquet for the vertex type and one for the relation, and `fossil.json` last. No positions: the
+// viewer lays the graph out on the GPU.
 //
 // **Two mappings, and their projections must match column for column.** Only a subject map mints a
 // vertex; an object IRI merges into one that already exists, but never creates it. So an edge list
@@ -12,7 +12,7 @@
 // The constraint on the pair is a runtime one, not a grammar one: two mappings of one vertex type
 // are combined with a plain UNION ALL (`fossil-df/src/lib.rs`, `union(next.projected)`) before the
 // dedup by subject, so both must project the same columns. A vertex projection is
-// `subject, <props…>, x, y, cluster_id`, and an IRI-valued property is an edge rather than a prop —
+// `subject, <props…>`, and an IRI-valued property is an edge rather than a prop —
 // so `linksTo` costs no column and `community` must appear on *both* sides. That is why
 // `edges.csv` carries the source's community: not redundancy for its own sake, but the price of the
 // union. `fossil check` accepts a mismatched pair; only the executor rejects it, with
@@ -26,14 +26,6 @@
 // corpus had been built since. The same drift as the `CHUNK_SIZE` constant in `measure-bounded.ts`,
 // found the same afternoon and for the same reason: this side writes down what the other side owns.
 //
-// Two more things the first written corpus showed:
-//   - `cluster_id` is 0 for every vertex. WCC is a reachability partition and this graph is
-//     connected, so the giant component is the whole thing — which is precisely the case W3.2
-//     (Leiden) exists to split, and until it lands `cluster_id` cannot colour anything here.
-//   - the coordinates come out centred on the origin (−440..437), not in cosmos.gl's 0..4096 box.
-//     That is not a defect: under ADR-0001 the source's space *is* the camera's, and the camera
-//     fits to what it is given. It does mean nothing may rescale them on the way in.
-
 // The output contract. Mandatory since ruling 3 of 2026-08-11: a property key below is the last
 // segment of a predicate IRI `bench.shex` declares, and without the document the bodies write
 // nothing at all.

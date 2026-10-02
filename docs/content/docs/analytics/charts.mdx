@@ -146,7 +146,7 @@ meets DuckDB's `File already registered` — `hold(name, bytes)` registers a cop
 `drop(names)` forgets them. `query(sql, { signal })` answers in columns — the Arrow table
 DuckDB-WASM produced, uncached — and an abort interrupts the running statement and rejects with
 `signal.reason`. That is the shape fossil's `Engine` asks for, so the engine you chart through is the
-one a corpus opens into.
+one a corpus attaches to.
 
 It boots with DuckDB's `httpfs` loaded, so object storage is SQL rather than another method: a
 reader holding a credential scoped to a prefix runs `CREATE OR REPLACE SECRET … (TYPE s3, …, SCOPE
@@ -185,9 +185,9 @@ part of the name, not a path. A relation anywhere else is a **mosaic-sql node**,
 the SQL as written: `asTableRef(["guild", "sightings"])` for a path you hold in parts, `verbatim(sql)`
 for a name a backend hands you already quoted.
 
-A fossil corpus is the second case. `open` registers every table as a view in a catalog named
-after the corpus, so a vertex type is `"<corpus.url>"."Sighting"`, catalog and all; the bare type
-name is nothing in the default catalog:
+A fossil corpus is the second case. `open(name, …)` attaches every table as a view in the catalog
+`name`, so a vertex type is `"<name>"."Sighting"`, catalog and all; the bare type name is nothing in
+the default catalog:
 
 ```tsx
 "use client";
@@ -205,7 +205,7 @@ function SightingsByRegion({ relation }: { relation: string }) {
   );
 }
 
-// relation: `"${corpus.url.replaceAll('"', '""')}"."Sighting"`
+// after open("archive", { engine, url }): relation is '"archive"."Sighting"'
 ```
 
 A node is keyed by its SQL, not by its identity, so writing `verbatim(relation)` inline does not

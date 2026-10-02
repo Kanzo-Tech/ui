@@ -25,9 +25,9 @@ function Tally() {
  * changes, so the button below is not re-rendered by a hover.
  */
 export default function Example() {
-  const corpus = useArchive();
   const [failure, setFailure] = useState<unknown>(null);
-  const api = useGraph({ corpus, fill: "kind", r: "degree", title: "label", onFailure: setFailure });
+  const archive = useArchive(setFailure);
+  const api = useGraph({ ...archive, fill: "kind", r: "degree", title: "label", onFailure: setFailure });
   return (
     <div className="flex h-96 w-full flex-col gap-2">
       <Button className="self-start" onClick={() => api.fit()} size="sm" variant="outline">

@@ -32,8 +32,8 @@ so one host registry keys all three. One class per package, named for it.
 | `engine/unavailable` | `EngineError` | DuckDB-WASM would not boot | `after` when the 60 s deadline fired |
 | `graph/no-webgl` | `GraphError` | no WebGL, a renderer that would not start, or no device within 10 s | `after` when the deadline fired |
 | `graph/context-lost` | `GraphError` | the browser took the WebGL context back | — |
-| `graph/nothing-to-draw` | `GraphError` | a corpus with no vertex type that has a position | — |
-| `graph/untranslatable-filter` | `GraphError` | a crossfilter clause the corpus cannot be asked | — |
+| `graph/nothing-to-draw` | `GraphError` | an attached corpus with no vertex | — |
+| `graph/unfilterable` | `GraphError` | a crossfilter clause naming columns no vertex table has | — |
 | `ai/silent` | `AiError`, from `@kanzo-tech/llm` | a model behind `createGateway` sent nothing for 30 s — no headers, or no chunk since the last | `after` |
 | `session/*`, `idp/*`, `callback/*`, `token/*`, `organization/*`, `claims/*` | `AuthError` | see [the auth layer](/docs/design/auth) | `after`, `status` where named |
 
@@ -44,8 +44,9 @@ list is short because every row is a different thing to show.
 
 The figures are fossil's table, and move there with the measurement beside them. Two are this
 library's own: DuckDB's boot, 60 s, and cosmos.gl's device, 10 s — the second is not in fossil's
-table yet. Work inside the process — a query, a layout — has a signal and no deadline, and so does a
-`corpus` promise a host hands the graph: the network waits inside it are fossil's to bound.
+table yet. Work inside the process — a query, a layout — has a signal and no deadline, and so does
+fossil's `open`, which the host awaits before it names the catalog: the network waits inside it are
+fossil's to bound.
 
 **What would reverse it:** a device that legitimately takes longer than 10 s to come up, measured.
 

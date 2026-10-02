@@ -13,11 +13,11 @@ import { ARCHIVE_KINDS, said, useArchive } from "./archive";
  * and `⌘`/`Ctrl` adds.
  */
 export default function Example() {
-  const corpus = useArchive();
   const [failure, setFailure] = useState<unknown>(null);
+  const archive = useArchive(setFailure);
   return (
     <div className="h-96 w-full">
-      <GraphRoot categories={ARCHIVE_KINDS} corpus={corpus} fill="kind" onFailure={setFailure} r="degree" title="label">
+      <GraphRoot categories={ARCHIVE_KINDS} {...archive} fill="kind" onFailure={setFailure} r="degree" title="label">
         <GraphCanvas className="rounded-lg border">
           <GraphToolbar className="absolute end-2 top-2" />
           <Show when={failure !== null}>

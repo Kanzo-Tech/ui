@@ -124,8 +124,9 @@ import {
  * express.
  *
  * Both regions are live and both read the same DuckDB: **Graph** is `@kanzo-tech/graph` drawing the
- * archive's 1,543 contracts, reports, members, beasts, tags and regions at the corpus's own layout,
- * listening to the page's crossfilter and publishing the reader's pick into it, and **Sightings** is
+ * archive's 1,543 contracts, reports, members, beasts, tags and regions as a GPU force layout, one
+ * Mosaic client on the page's coordinator that greys out what the crossfilter drops and publishes the
+ * reader's pick into it, and **Sightings** is
  * a full crossfilter dashboard built from the `@kanzo-tech/ui/analytics` subpath. The dashboard loads
  * client-only, because evaluating vgplot during the RSC prerender is a TDZ.
  *
@@ -186,7 +187,7 @@ function ArchiveCanvas() {
 				<GraphLegend className="absolute start-2 bottom-2 z-10" />
 				<Show when={failed}>
 					<p className="absolute inset-0 grid place-items-center p-6 text-center text-muted-foreground text-sm">
-						The archive could not be drawn here — the corpus would not open, or this browser offers no
+						The archive could not be drawn here — the corpus would not read, or this browser offers no
 						WebGL context.
 					</p>
 				</Show>

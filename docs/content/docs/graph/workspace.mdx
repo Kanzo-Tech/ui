@@ -1,6 +1,6 @@
 ---
 title: Discovery workspace
-description: A recipe — how a host composes the graph parts into a discovery workspace with a crossfilter shared with its charts.
+description: A recipe — the engine, one coordinator, a corpus attached by name, and the graph parts and charts on one crossfilter.
 ---
 
 A discovery workspace is the graph and the panels that interrogate it: a canvas with its tools,
@@ -14,9 +14,11 @@ Every piece is a library part; what the host writes is the arrangement and its o
 ## The shape
 
 ```text
+engine()                                           the page's one DuckDB and its coordinator
+open("archive", { engine, url })                   the corpus, attached as a catalog
 KanzoThemeProvider sections={[GRAPH_SECTION]}
-└── MosaicProvider coordinator crossfilter        the page's one crossfilter
-    └── GraphRoot corpus filterBy look sim …       one root for everything below
+└── MosaicProvider coordinator crossfilter         the page's one crossfilter
+    └── GraphRoot from coordinator filterBy …      one root, one Mosaic client
         ├── header        view switch: Graph · Dashboard
         ├── main          GraphCanvas > GraphToolbar + GraphLegend   or the charts
         ├── dock
@@ -25,9 +27,10 @@ KanzoThemeProvider sections={[GRAPH_SECTION]}
         └── footer        GraphCounts
 ```
 
-**One root around everything.** The canvas, the dock and the footer all read the same `GraphRoot`,
-so a search in the dock reveals on the canvas and a look chosen in Settings repaints it. A second
-root would be a second graph.
+**One coordinator under everything.** The graph and every chart are clients of the same
+coordinator — one DuckDB connection, one query cache — and share one crossfilter. **One root around
+everything graph:** the canvas, the dock and the footer all read the same `GraphRoot`, so a search in
+the dock reveals on the canvas and a look chosen in Settings repaints it.
 
 ## Step by step
 
@@ -53,47 +56,48 @@ export function Providers({ children }: { children: React.ReactNode }) {
 </Step>
 <Step>
 
-### Open the corpus, and hand the root the opening
+### Attach the corpus, once, to the page's coordinator
 
-Open with fossil on the page's engine and pass the **promise**, so the canvas can say it is opening.
-Open once — memoise it — because a new promise is a new corpus.
+`engine()` is the page's DuckDB-WASM and its coordinator, memoised per document. fossil's `open`
+attaches the corpus to it under a name: a view per table — `"archive"."Sighting"` — and the
+manifest as `"archive".fossil_tables` and `"archive".fossil_columns`. Attach once and keep the
+`close` it answers for when the page lets the corpus go.
 
 ```tsx
 import { open } from "@fossil-lang/corpus";
-import { engine } from "@kanzo-tech/ui/analytics";
+import { engine, MosaicProvider, Selection } from "@kanzo-tech/ui/analytics";
 
-const corpus = useMemo(() => engine().then((e) => open(url, { engine: e })), [url]);
+const e = await engine();
+const crossfilter = Selection.crossfilter();
+const close = await open("archive", { engine: e, url }); // a job: open(id, { engine: e, host })
+
+<MosaicProvider coordinator={e.coordinator} crossfilter={crossfilter}>
+  <Workspace />
+</MosaicProvider>;
 ```
 
-A corpus behind credentials opens as `` open(`jobs/${id}`, { engine, host }) ``. keasy opens it
-through a suspense query and hands the root the opened corpus; both are fine.
+`url` is origin-qualified — DuckDB-WASM resolves a root-relative path in its own filesystem — and,
+under a `basePath`, prefixed by hand.
 
 </Step>
 <Step>
 
 ### One crossfilter
 
-The graph and the charts share one Mosaic `Selection`. The graph's `filterBy` hides the vertices a
-chart's brush excludes, and the graph publishes the reader's click or lasso into the same selection
-as a `dense_id` clause — which every chart filters by and the graph does not.
+The graph names the catalog and reads it through the same coordinator the charts use:
 
 ```tsx
-import { MosaicProvider, useCrossfilter } from "@kanzo-tech/ui/analytics";
+const { coordinator } = useMosaic();
+const crossfilter = useCrossfilter();
 
-<MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
-  <Workspace />
-</MosaicProvider>;
-
-function Workspace() {
-  const crossfilter = useCrossfilter();
-  // …
-  return <GraphRoot corpus={corpus} filterBy={crossfilter} onFailure={setFailure}>…</GraphRoot>;
-}
+<GraphRoot from="archive" coordinator={coordinator} filterBy={crossfilter} onFailure={setFailure}>…</GraphRoot>
+<ChartRoot table={verbatim('"archive"."Sighting"')}>…</ChartRoot>
 ```
 
-A chart reading the vertex relation under the same provider now brushes the graph, and a lasso on
-the graph filters the chart. A clause the graph cannot translate reaches `onFailure` as
-`graph/untranslatable-filter`; it is never dropped.
+A chart's brush greys out on the canvas the vertices it drops, and the reader's click or lasso is
+published as a `dense_id` clause that every chart filters by and the graph does not. A clause naming
+columns no vertex table has reaches `onFailure` as `graph/unfilterable`; a table that lacks them
+just stays unfiltered.
 
 </Step>
 <Step>
@@ -114,7 +118,8 @@ const PAIRINGS: Record<LookPreset, Channels> = {
 const { look, sim, preset } = useGraphPrefs();
 
 <GraphRoot
-  corpus={corpus}
+  from="archive"
+  coordinator={coordinator}
   filterBy={crossfilter}
   categories={KINDS}
   r="degree"
@@ -172,7 +177,7 @@ function GraphInfo() {
 }
 ```
 
-The search reads every drawn vertex's text once and filters in the browser; picking reveals the
+The search asks the corpus as the reader types, one `ILIKE` per vertex table; picking reveals the
 vertex, and the inspector below reads its row. The render prop is where a product adds fields the
 corpus does not carry.
 
@@ -206,7 +211,7 @@ function GraphSettings() {
 ```
 
 `GraphLooks` is the looks and the axes under Customize; the forces are not in it, because a
-layout is a run the toolbar starts, not a picture. Fit is the toolbar's, so the panel needs no camera
+layout is a run the toolbar pauses and re-runs, not a picture. Fit is the toolbar's, so the panel needs no camera
 button. The gestures are the canvas's own; they are written down here because a reader scanning for
 "how do I select two clusters" wants a table.
 
@@ -223,8 +228,7 @@ import { GraphCounts } from "@kanzo-tech/graph";
 </ShellFooter>;
 ```
 
-"1.2K of 5K nodes drawn · 8K edges", with a spinner while the corpus opens, the graph loads or a
-layout runs. A host with its own status badge drops `spinner` and reads `status` and `motion` itself
+"1.2K of 5K nodes drawn · 8K edges", with a spinner while the graph loads or a layout runs. A host with its own status badge drops `spinner` and reads `status` and `motion` itself
 — two axes, see [Layout and camera](/docs/graph/layout#status-and-motion-are-two-axes).
 
 </Step>
@@ -232,7 +236,7 @@ layout runs. A host with its own status badge drops `spinner` and reads `status`
 
 ## What stays the host's
 
-- **Opening and closing the corpus**, and what signs it.
+- **Attaching and detaching the corpus**, and what signs it.
 - **The pairing of looks and channels**, and the names in `categories`.
 - **What a failure says.** `onFailure` hands it over whole; the host keys on `code`.
 - **What a selection means beyond the graph** — `onSelect` and `onFocus`, for a URL, a toast, a

@@ -10,11 +10,11 @@ import { ARCHIVE_KINDS, said, useArchive } from "./archive";
  * by the `r` ramp, each named by `categories`; picking one reveals it and the inspector reads it.
  */
 export default function Example() {
-  const corpus = useArchive();
   const [failure, setFailure] = useState<unknown>(null);
+  const archive = useArchive(setFailure);
   return (
     <div className="flex h-96 w-full gap-3">
-      <GraphRoot categories={ARCHIVE_KINDS} corpus={corpus} fill="kind" onFailure={setFailure} r="degree" title="label">
+      <GraphRoot categories={ARCHIVE_KINDS} {...archive} fill="kind" onFailure={setFailure} r="degree" title="label">
         <GraphCanvas className="flex-1 rounded-lg border">
           <Show when={failure !== null}>
             <p className="absolute inset-0 grid place-items-center p-6 text-center text-muted-foreground text-sm">{said(failure)}</p>

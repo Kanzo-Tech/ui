@@ -1,84 +1,153 @@
 ---
 title: The graph view
-description: How @kanzo-tech/graph is built — fossil's corpus read whole through its scan, uploaded to cosmos.gl once, an Ark-shaped root over flat parts — and what would reverse each rule.
+description: How @kanzo-tech/graph is built — one Mosaic client on the page's coordinator over a corpus fossil attached, uploaded to cosmos.gl once and greyed out by the crossfilter, an Ark-shaped root over flat parts — and what would reverse each rule.
 ---
 
 [The graph page](/docs/graph) is what `@kanzo-tech/graph` ships. This page is how it is built and
 why.
 
 <Callout type="info">
-The package reads `fossil/1`, which `@fossil-lang/corpus` publishes from `0.3.0-alpha.15` (the floor is `0.3.0-alpha.19`, whose failures are coded): a
-`fossil.json` manifest, one Parquet table per vertex type and per relation, and a `dense_id` that is
-global and dense. It imports fossil's types and nothing else.
+The contract is a catalog. fossil's `open(name, { engine, host | url })` (`@fossil-lang/corpus`
+`0.3.0-alpha.24` or later) attaches a `fossil/1` corpus to the page's DuckDB as the catalog `name`:
+a view per table, `"<name>".fossil_tables(table_name, kind, rows, first_id, source, destination, …)`
+and `"<name>".fossil_columns(table_name, column_name, ordinal, type, role, …)`. A vertex table holds
+`dense_id` — global, contiguous per table from `first_id` — its identity column and the program's
+columns; an edge table holds `src` and `dst`, both `dense_id`s. The corpus carries no position.
 </Callout>
 
-## One path: fossil is the backend, this package is the view
+**The reference is Cosmograph v2**, read from its shipped 2.5.1 bundle — its code is CC-BY-NC, so
+only the architecture is borrowed: DuckDB-WASM, a Mosaic coordinator and cosmos.gl; points indexed
+`0 … N − 1` and links as index pairs, which is exactly fossil's `dense_id`, `src` and `dst`; position
+as a view choice, with a GPU simulation from a seeded start when nothing places the points; a
+cluster column fed to `setPointClusters`; filtering as a query for the surviving indices, drawn as a
+GPU greyout; widgets and search as clients of the same coordinator. It has no map mode, and neither
+does this: `lon`/`lat` as `x`/`y` is what there is.
 
-fossil reads the corpus and this package draws it. The host opens a corpus with fossil's `open`, and
-a corpus is fossil's one door — `manifest`, `scan`, `sql` and `close` — with one layer behind each
-thing the door does (fossil's design page *One door*, in
-[fossil-lang](https://github.com/Kanzo-Tech/fossil-lang)). The view uses two of those members: the
-`manifest` it names every table and column from, and `scan({ table, filter, select })` with the
-scan's `plan()` and `read()`. **No SQL is written in `@kanzo-tech/graph`**, and there is no second
-way to reach the same bytes.
+## The graph reads SQL, through the page's coordinator
+
+The host attaches the corpus and names the catalog; `GraphRoot` reads it with SQL — `fossil_tables`
+and `fossil_columns` for the structure, the views for rows and links, one `SELECT` for a focused row,
+a `LIMIT`ed `ILIKE` for a search — every statement through `coordinator.query(sql, { type: "arrow" })`.
+It imports nothing of fossil's.
 
 ```text
-fossil (backend)                               @kanzo-tech/graph (view)
-open(url, { engine })  → Corpus                parts     GraphCanvas · GraphLegend · GraphCounts · GraphToolbar · GraphInspector · GraphSearch · GraphLooks
-manifest → vertex_tables · edge_tables         adapter   useGraph · GraphRoot · GraphRootProvider · useGraphContext · useGraphState
-scan({ table, filter, select })                render    typed arrays → cosmos.gl, uploaded once per corpus
-scan.read(scan.plan()) → Batch[]               core      load: one scan per table · store · filter
+host                                                    @kanzo-tech/graph
+engine() → DuckDB-WASM + coordinator                    parts     GraphCanvas · GraphLegend · GraphCounts · GraphToolbar · GraphInspector · GraphSearch · GraphLooks
+open(name, { engine, url }) → "<name>".<Table>          adapter   useGraph · GraphRoot · GraphRootProvider · useGraphContext · useGraphState
+           "<name>".fossil_tables · fossil_columns      render    typed arrays → cosmos.gl, uploaded once per corpus
+<GraphRoot from={name} coordinator filterBy>            core      source: SQL through the coordinator · client · load · store
 ```
 
-**Column names come from the manifest** — a table's `key`, its `position`, its `identity`, a
-relation's `source` and `destination` keys — so nothing of the writer's is spelled here.
+**It replaced "no SQL in `@kanzo-tech/graph`"**, under which every read went through fossil's
+`scan` on a connection of its own: rows decoded on the main thread, a cache nobody else shared, and a
+second reader of the same bytes beside the coordinator every chart used. Through the coordinator
+there is one connection and one cache, and a chart and the graph asking the same question get one
+answer.
 
-**What would reverse it:** a question the view has to ask that the corpus door cannot express and
-fossil declines to add. That is a gap raised on fossil's side, never a licence to write the query
-here: a query written here is a second reader.
+**What would reverse it:** a corpus the page cannot reach as SQL — served only through an API with
+no DuckDB views — or a second host that has to draw without Mosaic. Then a reader comes back behind
+the loader, and the parts do not move.
 
-*Held by* `packages/graph/src/layers.test.ts`, "writes no SQL, and reaches fossil only through its
-types"; `packages/graph/src/index.test.ts`, "keeps the second reader deleted: no opener, no source,
-no slice", `!openCorpus`.
+*Held by* `packages/graph/src/layers.test.ts`, "writes SQL only where it reads, and imports nothing
+of fossil's"; `packages/graph/src/index.test.ts`, "keeps the second reader deleted: no opener, no
+source, no slice"; `packages/graph/src/core/store.test.ts`, "reads the structure from fossil_tables
+and fossil_columns, and every vertex by its dense_id".
+
+## The graph is a client of the page's coordinator
+
+`GraphClient` is a `MosaicClient` connected to the page's coordinator, like every chart beside it.
+The coordinator hands it the crossfilter's predicate minus the graph's own clause, and it answers
+with the vertices that survive: `SELECT dense_id … WHERE <predicate>` per vertex table, `UNION ALL`.
+**The predicate runs as Mosaic wrote it** — nothing is translated. A table that lacks a column the
+predicate names is not filtered by it, which is what a `WHERE` over a union of the tables would do;
+a predicate no table can answer is `graph/unfilterable`, and the graph is drawn unfiltered rather
+than as filtered.
+
+**A filtered-out vertex is greyed, never hidden.** The surviving ids become cosmos.gl's
+`highlightedPointIndices` and the links between two of them `highlightedLinkIndices` — cosmos.gl does
+not grey a link by itself. No buffer is uploaded, so a running layout is never reset by a brush.
+
+**The reader's pick is published from the client.** A lasso, a marquee or a click is a
+`clausePoints` on `dense_id` whose source is the graph, so the crossfilter applies it to every chart
+and skips it for the graph — a canvas that greyed all but a lasso of thirteen would hide the
+neighbourhood the reader was looking at.
+
+**It replaced "the graph listens to the selection; it is not a client"**, under which the graph
+translated mosaic-sql's nodes into scan's typed filter, refused every node it could not translate,
+ran the filter as a second scan, and hid the losers by uploading every position again with `NaN` —
+which snapped a running layout back to where the corpus had put it. A client runs the predicate it
+is handed, and a mask is config.
+
+**What would reverse it:** the greyout measured too slow at the largest scale — the index lists are
+built on the main thread — which moves them into a shader; or a reader who needs filtered vertices
+gone rather than grey, which brings hiding back as a size of zero, still with no position upload.
+
+*Held by* `packages/graph/src/core/client.ts`, `GraphClient`, `publish`;
+`packages/graph/src/core/store.test.ts`, "asks the coordinator which vertices survive, and keeps every
+buffer it has", "runs the predicate as Mosaic wrote it, on every table that has its columns",
+"refuses a clause no vertex type can answer, as graph/unfilterable, and draws the graph unfiltered",
+"publishes the reader's pick on dense_id, and is exempt from its own clause";
+`packages/graph/src/render/renderer.test.ts`, "greys out a filter with config alone: no upload, no
+render, links said out loud"; `packages/graph/src/render/motion.test.ts`, "is what the filter keeps,
+and the links whose two ends it keeps".
 
 ## ADR 0001 — the canvas holds the whole graph
 
 fossil cites this decision by its number, so the label stays.
 
-**The canvas holds the whole graph.** One scan per vertex table with a position, one per relation
-between drawn tables, read into arrays sized from the manifest and uploaded to cosmos.gl once.
-**Detail is fetched, not carried**: the loaded graph holds positions, the bound channels and the
-links, and a focused vertex's row, or a label's text, is read when it is needed. **Identity is an
-id, and the id is the index**: `dense_id` numbers every vertex `0 … V − 1`, the drawn types take the
-first ids, and index `i` of every buffer is vertex `i` for as long as the corpus is open.
+**The canvas holds the whole graph.** The links — one statement per relation — and the bound
+columns of every vertex table are read into arrays sized from `fossil_tables`' `rows` and uploaded to
+cosmos.gl once. **Detail is fetched, not carried**: a focused row, a label's text, a hover card and a
+search are statements of their own, read when needed. **Identity is an id, and the id is the
+index**: a vertex table is the contiguous range `first_id … first_id + rows − 1`, so its answer in
+`dense_id` order is written into its own slice of every buffer and nothing is resolved row by row.
 
 It rests on one premise: **the graph is not edited.** It is fossil's compiled output, so what was
-loaded stays true until the host opens another corpus. Two consequences hold everywhere below:
-positions are uploaded as the corpus wrote them, because the corpus's coordinate space is the
-camera's; and the canvas element is mounted before the corpus answers, because a canvas gated on its
-first answer has no renderer to answer to.
+loaded stays true until the host attaches another corpus.
 
 **What would reverse it:** a corpus whose first paint or memory passes a threshold agreed with the
 owner, or one past cosmos.gl's link addressing (see [*A dense id is a buffer
-index*](#a-dense-id-is-a-buffer-index)). Then a partial read comes in **behind the loader**, through
-the scan's `plan()`: never a prop, and never a camera in the store.
+index*](#a-dense-id-is-a-buffer-index)). Then a partial read comes in **behind the loader** — a
+`WHERE` on the statements it already runs — never a prop, and never a camera in the store.
 
-*Held by* `packages/graph/src/core/store.test.ts`, "loads every vertex type with a position, indexed
-by its dense_id", "loads the relations whose two ends are drawn, and no other";
-`packages/graph/src/index.test.ts`, "ships a canvas that owns the renderer, and neither load nor
-Loaded".
+*Held by* `packages/graph/src/core/store.test.ts`, "reads the structure from fossil_tables and
+fossil_columns, and every vertex by its dense_id"; `packages/graph/src/index.test.ts`, "ships a canvas
+that owns the renderer, and neither load nor Loaded".
+
+## Position is a channel
+
+`x` and `y` are bindings, Cosmograph's `pointXBy` and `pointYBy`. **Both bound, the data places the
+points and nothing simulates. Unbound, they start from a seeded Gaussian and cosmos.gl's force
+simulation runs on the GPU** — `simulate` overrides either way. `cluster` feeds `setPointClusters`.
+fossil's writer stopped carrying a layout because a picture is a view's choice, not the corpus's:
+the same graph is a map with `lon`/`lat`, and a force layout without them. How long the layout
+cools, the square it runs in and when it hides links follow the vertex count;
+[Layout and camera](/docs/graph/layout#how-the-layout-scales) has the rules and the gate that set
+them.
+
+**What would reverse it:** a layout worth computing offline again — a settle time past what a reader
+waits, at the scale that exists. Then fossil writes the columns and the host binds them, and nothing
+here changes.
+
+*Held by* `packages/graph/src/render/motion.test.ts`, "runs when the positions are a start, stands
+when they are data, and simulate overrides both", "cools in 600 frames up to 200,000 vertices and 240
+past them"; `packages/graph/src/core/store.test.ts`, "starts a layout from a seeded square when x and
+y are unbound, the same start every time", "draws the data's positions when x and y are bound, and
+leaves a table without them unplaced"; `packages/graph/src/render/renderer.test.ts`, "runs the layout
+by itself when x and y are unbound, in the square and with the decay for its size".
 
 ## The viewer costs what cosmos.gl costs
 
-At 200,000 vertices, measured with `graph-bench`'s `measureViewer` in a foreground window, the
-viewer's p95 frame interval is **9.0 ms against 9.3 ms for cosmos.gl alone** on the same positions
-and camera path. The gate is 15%. The difference had been ours, and each cause is now a rule:
+At 200,000 vertices, measured on 2026-09-30 with `graph-bench`'s `measureViewer` in a foreground
+window, the viewer's p95 frame interval was **9.0 ms against 9.3 ms for cosmos.gl alone** on the same
+positions and camera path; the gate is 15%. The difference had been ours, and each cause is now a
+rule:
 
 | the cause | the rule |
 |---|---|
-| a live simulation over positions the corpus had already laid out | `simulate` is off at load; the toolbar runs and stops the layout |
 | every upload animated for cosmos.gl's default 800 ms | `transitionDuration: 0` |
 | buffers re-uploaded on every change | positions and links upload once per corpus; the rest by kind |
+| a filter re-uploaded every position | a filter is config: highlighted indices |
 | a selection called `render()`, which walks every point and link in JS | a state change is `setConfigPartial` |
 | a hover re-rendered the canvas and read positions back from the GPU | the hover card re-renders; the renderer reports where the point is |
 | camera events reached the store | the camera reaches nothing |
@@ -90,8 +159,8 @@ row here.
 
 *Held by* `packages/graph/src/render/renderer.test.ts`, "constructs cosmos.gl with no simulation and
 no transition", "a camera move notifies nobody", "a selection sets config and calls no render and no
-setter", "runs only when asked, from the positions it has, and stops where they are";
-`packages/graph/src/parts/parts.test.tsx`, "re-renders the card on a hover, and not the canvas".
+setter"; `packages/graph/src/parts/parts.test.tsx`, "re-renders the card on a hover, and not the
+canvas".
 
 ## The layers, and the reference each one copies
 
@@ -99,39 +168,31 @@ Each layer has a named reference whose shape it takes. A layer with no reference
 
 | layer | reference | owns | owns nothing of |
 |---|---|---|---|
-| **core** — the loader and the store | TanStack Query's `QueryObserver` | what is read, once, and the state a reader selects from | React, the DOM, cosmos.gl, SQL |
+| **core** — the reads and the store | TanStack Query's `QueryObserver` | what is read, once, and the state a reader selects from | React, the DOM, cosmos.gl |
+| **client** — the bridge | Mosaic's `MosaicClient` | the crossfilter's predicate as surviving ids, and the clause the graph publishes | the coordinator's connection |
 | **render** | cosmos.gl's own buffer API | typed arrays → cosmos.gl, one upload per changed kind, one render per frame | what to read |
 | **adapter** | TanStack Query's core/adapter split; Ark's root/provider/context | the store's lifetime in React, and the context the parts read | how the graph loads |
 | **parts** | Ark's flat parts over one context | the canvas element, legend, toolbar, inspector | any product's policy |
-| **filter** — the bridge | Mosaic's `Selection` | the page's crossfilter as scan's typed `filter`, and the clause the graph publishes | the coordinator's queries |
 
 Every module stays under four hundred lines:
 
 ```text
 packages/graph/src/
 ├── core/                     no React; nothing here imports cosmos.gl
-│   ├── load.ts               one scan per table → arrays indexed by dense_id; the filter's mask
-│   ├── filter.ts             a Mosaic predicate → scan's filter; the clause the graph publishes
-│   ├── channels.ts           Plot's bindings, and the projection they imply
+│   ├── source.ts             the catalog's statements: structure, columns, links, a row, titles, search
+│   ├── client.ts             GraphClient — the crossfilter's survivors — and the clause the graph publishes
+│   ├── load.ts               answers → buffers by dense_id; the seeded start; the layout's square
+│   ├── channels.ts           Plot's bindings, and the columns they read
 │   ├── store.ts              createGraph(options): subscribe · getSnapshot · setOptions
 │   ├── state.ts              the options, the state a host selects from, and the store's shape
-│   ├── categories.ts         the categorical domain, fixed before the graph loads
-│   └── detail.ts             one vertex's row, and vertices' titles, read when asked
+│   └── categories.ts         the categorical domain, fixed before the graph loads
 ├── render/
 │   ├── renderer.ts           cosmos.gl's lifetime, dirty flags by kind, one render per frame
+│   ├── motion.ts             how long a layout cools, when it hides links, whether it runs, what is in full colour
+│   ├── placement.ts · camera.ts   where bound positions sit in the square; who holds the camera
 │   └── graph-looks · graph-model · graph-sim · obligations · css-color · webgl
-├── react/
-│   ├── use-graph.ts          the store once, setOptions per changed prop; the stable api
-│   ├── use-graph-state.ts    a slice of the state, over useSyncExternalStore
-│   ├── graph-root.tsx        GraphRoot · GraphRootProvider · useGraphContext
-│   └── use-graph-prefs.ts
-├── parts/
-│   ├── graph-canvas.tsx      the element; grid, vignette, labels, hover card; the drag gesture
-│   ├── graph-legend.tsx · graph-counts.tsx · graph-toolbar.tsx · graph-inspector.tsx
-│   ├── graph-search.tsx      every drawn vertex's text, read once, filtered as the reader types
-│   ├── graph-looks.tsx       the three looks as cards over the axes, and the axes under Customize
-│   ├── overlays.ts · gesture.ts   what the canvas draws over the surface; marquee and lasso
-│   └── shape-glyph.tsx
+├── react/                    use-graph · use-graph-state · graph-root · use-graph-prefs
+├── parts/                    the canvas, legend, counts, toolbar, inspector, search, looks; overlays · gesture · shape-glyph
 ├── index.ts
 └── section.ts                the ./section entry
 ```
@@ -142,109 +203,32 @@ page names a better reference, or the behaviour is in the wrong layer.
 *Held by* `packages/graph/src/layers.test.ts`, "keeps every module under four hundred lines", "keeps
 the core free of React and of cosmos.gl".
 
-## The store reads the whole corpus, once
-
-When a corpus is adopted the loader takes the manifest's vertex tables that declare a `position` and
-reads each with `scan({ table, select: [key, x, y, …bound columns] })`, and each relation whose
-`source` and `destination` both reference a drawn table with `scan({ table, select: [src, dst] })`.
-They run in parallel. Nothing else is read until a binding changes or the page filters.
-
-**The arrays are sized before a row arrives.** The drawn vertices are ids `0 … N − 1`, `N` the sum
-of the drawn tables' `record_count`: positions are a `Float32Array` of `2N` filled with `NaN`, the
-table of each vertex a `Uint16Array`, the category ranks a `Uint32Array`, and the links a
-`Float32Array`. A row is written at the index its `dense_id` names. A vertex with no position stays
-`NaN`, which cosmos.gl draws as no point; a type with no `position` is not drawn.
-
-**The vertex type is a channel, not a prop.** Every drawn table is on the canvas at once. Unbound,
-**colour is the vertex type** — the legend's rows are the tables in the manifest's order — and a
-label's text is each table's `identity`. Binding `fill` to a column spends colour on the column; a
-table without that column draws its vertices as the null category.
-
-**A binding re-reads its columns and nothing else.** Positions and links stay as they were uploaded.
-`title` is not read at load: a label's text is read for the few vertices that carry one, and the
-hover card's for the one under the pointer.
-
-**What would reverse it:** a binding change measured slower than a full reload, which would mean
-splitting the scans is not paying.
-
-*Held by* `packages/graph/src/core/store.test.ts`, "reads once per question, never per camera move",
-"colours by vertex type unless fill binds a column", "notifies subscribers once when the graph
-loads"; `packages/graph/src/parts/parts.test.tsx`, "draws the vertex types when nothing is bound, with
-what each has drawn".
-
-## A filter is a predicate, applied as a mask
-
-The page's crossfilter reaches the corpus as scan's typed `filter` — `{ column, op, value }`,
-`{ column, op, values }` for `in` and `not in`, `{ column, op }` for the null tests, joined by `and`,
-`or` and `not`. For each drawn table that holds every column the filter names, the store reads
-`scan({ table, filter, select: [key] })`, and **what comes back is a mask**: a vertex that did not
-survive has its position set to `NaN` in one upload of positions. The predicate runs where the data
-is; the canvas only hides.
-
-**A table without a column the filter names is not filtered**, which is what a `WHERE` over a union
-of the tables would do. A filter no drawn table can answer is refused through `onFailure`, so the
-unfiltered picture is never drawn as the filtered one.
-
-**The graph listens to the selection; it is not a client of the coordinator.** A Mosaic client hands
-the coordinator SQL to run, and the graph has none. So it takes the half of the protocol that is
-about filtering: it listens for the `Selection`'s `value` event, reads `selection.predicate(graph)`,
-and translates mosaic-sql's expression nodes — column references, literals, binary comparisons,
-`BETWEEN`, `IN`, the null tests, `AND`, `OR` and `NOT` — into scan's `filter`. The `MosaicClient` it
-holds is an identity for a clause's `clients` set and is never connected. **A node it cannot
-translate is reported through `onFailure`, never dropped.**
-
-**The graph's own clause is exempt for the graph.** A lasso or a click publishes the selected ids on
-the tables' `key`, naming the graph in the clause's `clients`, so `Selection.predicate` applies it
-to every chart and skips it for the graph — a canvas that draws only what survives would otherwise
-answer a lasso of thirteen by removing the rest. `total` is the manifest's count and takes no
-filter.
-
-**What would reverse it:** the mask measured over about 50 ms at the scale that exists — then a
-filtered vertex becomes a size of zero, which touches no geometry — or a common clause that does
-not translate into scan's filter.
-
-*Held by* `packages/graph/src/core/filter.test.ts`, "translates the clauses a chart publishes", "is
-re-asked when the page filters something", "is exempt from a clause that names it", "reports a node
-it cannot translate, and never draws the unfiltered picture as filtered";
-`packages/graph/src/core/store.test.ts`, "a filter masks the survivors and reads no geometry".
-
 ## The renderer uploads once, and renders once a frame
 
 cosmos.gl 3.4 replaces a whole buffer per setter, so **what changed** is decided per kind of
 buffer:
 
-- **A corpus uploads positions and links once.** A filter uploads positions alone; a binding, a look
-  or a theme change uploads colours, sizes and shapes.
-- **A state change uploads nothing.** A selection, a focus or a pin sets config — the ids are the
-  indices — and calls no `render()`.
+- **A corpus uploads positions and links once**, and binding `x` or `y` uploads positions again. A
+  binding, a look or a theme change uploads colours, sizes and shapes.
+- **A filter and a state change upload nothing.** The surviving ids, a selection, a focus and a pin
+  are config — the ids are the indices — and call no `render()`.
 - **One frame renders once, and only for an upload.** Every dirty flag is discharged in one
   `requestAnimationFrame`.
 - **Nothing animates.** `transitionDuration` is 0.
-- **The layout runs only when asked.** cosmos.gl is built with its simulation off; `simulate` or the
-  toolbar starts it from the current positions and pauses it where they are. Dragging a node moves
-  it; it is pinned only while a layout is running or paused, because a pin nothing pulls against
-  means nothing — d3-force's drag-to-fix. Releasing the pins reheats the layout, so the released
-  points visibly flow back: a running layout takes the heat, a settled one cools to settled on its
-  own, and a paused one gets a bounded burst and is paused again.
-- **The camera is cosmos.gl's.** A zoom repaints the overlays and reaches no store. A placed corpus
-  is framed, and framed again when the device comes up and on every resize of the canvas, until the
-  reader zooms or pans; `render/camera.ts` owns who holds it. While a layout
-  runs, the renderer re-frames the moving points every 900 ms and once more when it settles —
-  Cosmograph's fit-on-settle, kept up so a contracting graph never leaves the screen — until the
-  reader zooms or pans, which hands the camera back until the next run. Once a layout has moved the
-  points, Fit frames where they are rather than the extent they came from.
-- **`status` is the data's life and `motion` the layout's.** A running layout over a drawn graph is
-  `idle` and `running`: each moves without the other, so neither word absorbs the other.
+- **The layout runs by the rule above**, from wherever the points are; a drag pins a node only while a
+  layout can pull against it, and releasing reheats — d3-force's drag-to-fix.
+- **The camera is cosmos.gl's.** A zoom repaints the overlays and reaches no store; `render/camera.ts`
+  owns who holds it, and [Layout and camera](/docs/graph/layout#the-camera) says when it moves.
 
-**What would reverse it:** cosmos.gl gaining a sub-range upload, so a filter could upload only what
-it hid; or a picture that needs a transition to be read, measured against the frames it costs.
+**What would reverse it:** cosmos.gl gaining a sub-range upload, so a binding could upload only what
+it changed; or a picture that needs a transition to be read, measured against the frames it costs.
 
 *Held by* `packages/graph/src/render/renderer.test.ts`, "uploads positions and links once per corpus,
 and renders once", "repaints colours, sizes and shapes on a look change, and uploads no geometry",
-"uploads positions alone for a filter", "starts and stops with the simulate prop, after the first
-load", "moves a dragged node and pins nothing while no layout runs", "releases a paused layout with a
-bounded burst, then pauses it again"; `packages/graph/src/react/graph-root.test.tsx`, "does not rebuild the renderer because a
-callback changed identity".
+"starts and stops with the simulate prop, after the first load", "moves a dragged node and pins
+nothing while no layout runs", "releases a paused layout with a bounded burst, then pauses it again";
+`packages/graph/src/react/graph-root.test.tsx`, "does not rebuild the renderer because a callback
+changed identity".
 
 ## The React API is a store and an adapter
 
@@ -252,7 +236,8 @@ The graph's state changes outside React and at frame rate, so the core owns it a
 TanStack Query's observer shape, and React subscribes:
 
 - **The core** is `createGraph(options)`: `subscribe`, `getSnapshot`, `setOptions` and `destroy`. It
-  knows nothing about React.
+  knows nothing about React. The first subscriber connects its client to the coordinator and the last
+  one lets it go.
 - **The adapter** is `useGraph(props)`: `useBaseQuery`'s three moves — create the store once in
   `useState`, subscribe with `useSyncExternalStore`, hand it the latest props with `setOptions` in an
   effect whose dependencies are the props themselves. Callbacks are read through a ref, so an inline
@@ -261,20 +246,16 @@ TanStack Query's observer shape, and React subscribes:
   `GraphRootProvider` takes an api a host built, and `useGraphContext` reads it — `useDialog`,
   `DialogRoot`, `DialogRootProvider`, `useDialogContext`.
 - **The api is the commands, and the state is a selector.** The api is stable for the root's life,
-  and `useGraphState(selector)` reads a slice and re-renders only when it moves. Each part renders
-  one element the context fully describes, so there are no prop getters.
-
-**`status` is one word:** `none` without a corpus, `opening` while the promised corpus settles,
-`loading` while the graph, a binding or a filter is unread or undrawn, `idle` once all of it is
-drawn, `failed` when the corpus would not open or read, or the canvas has no GPU device — none came
-up, or its context was lost.
+  and `useGraphState(selector)` reads a slice and re-renders only when it moves. `status` is the
+  data's life and `motion` the layout's — two axes,
+  [Layout and camera](/docs/graph/layout#status-and-motion-are-two-axes).
 
 **What would reverse it:** the store costing more than it buys — measured as renders per hover with
 and without `useSyncExternalStore`.
 
 *Held by* `packages/graph/src/core/store.test.ts`, "keeps getSnapshot stable between notifications",
-"lets the graph go when the last subscriber leaves", "says it is opening while a promised corpus
-opens, and has none without one", "is idle only once the graph is loaded and drawn";
+"connects its client on the first subscriber and lets it go with the last, as StrictMode does twice",
+"is idle only once the graph is loaded and drawn, and has none without a corpus";
 `packages/graph/src/react/graph-root.test.tsx`, "does not reach setOptions on a render that changed
 no prop", "keeps the api's identity across hovers, and re-renders a part only on the slice it
 selects"; `packages/graph/src/index.test.ts`, "is Ark's four: useGraph creates, GraphRoot provides,
@@ -282,83 +263,64 @@ GraphRootProvider takes, useGraphContext reads".
 
 ## The parts own the vocabulary; the host owns the policy
 
-`GraphRoot` is a facade: the host gives it a corpus and a few props, and the parts under it read
-the root.
+`GraphRoot` is a facade: the host names a catalog and a coordinator and a few props, and the parts
+under it read the root.
 
 - **`GraphCanvas`** — the element, and what the look declares over it: grid, vignette, labels and
   the hover card, plus the marquee and lasso gesture.
 - **`GraphLegend`** — the categorical scale, or the vertex types when nothing is bound, with how many
   of each are drawn. Its domain is fixed before the graph loads, so a row never moves.
-- **`GraphCounts`** — what is drawn of the whole, in one sentence: nodes drawn of the manifest's
-  total, and edges drawn. A footer carries it, which is why it is not the legend's last line.
-- **`GraphToolbar`** — the tools, the selection, zoom and fit, and the layout's run and stop.
-- **`GraphInspector`** — the focused vertex's row, in its table's `properties` order, with a render
-  prop for fields a product adds.
-- **`GraphSearch`** — every drawn vertex's text, read once and filtered in the browser, ordered by
-  the `r` ramp and named by `categories`; picking one is `reveal`.
+- **`GraphCounts`** — what is drawn of the whole, in one sentence. A footer carries it, which is why
+  it is not the legend's last line.
+- **`GraphToolbar`** — the tools, the selection, zoom and fit, and the layout's transport.
+- **`GraphInspector`** — the focused vertex's row, in `fossil_columns`' order, with a render prop for
+  fields a product adds.
+- **`GraphSearch`** — a `LIMIT`ed `ILIKE` per pause in typing, named by `categories`; picking one is
+  `reveal`.
 - **`GraphLooks`** — the three looks as presets over `GRAPH_SECTION`'s axes, with the axes under
   Customize. It writes preferences rather than reading the root, so it needs the theme provider and
   no `GraphRoot`.
 
-**Names are data on the root.** The manifest names no category values, so the host passes
+**Names are data on the root.** The catalog names no category values, so the host passes
 `categories` on the root, where the legend, the hover card and the inspector all read it.
 
 **Policy stays out, through the root's callbacks** — `onSelect`, `onFocus` and `onFailure`. No part
 takes a callback of its own. `onFailure` is the one required prop: unhandled, a browser with no WebGL
-context shows an empty box. It receives what was thrown, whole — fossil's errors keep their `code`,
-and the graph's own are a `GraphError` — `graph/no-webgl`, `graph/context-lost`,
-`graph/nothing-to-draw` or `graph/untranslatable-filter` — so a host chooses
-what to show by code.
+context shows an empty box. It receives what was thrown, whole — a read's own error with its `code`,
+or a `GraphError`: `graph/no-webgl`, `graph/context-lost`, `graph/nothing-to-draw` or
+`graph/unfilterable` — so a host chooses what to show by code.
 
 **What would reverse it:** a part a second host cannot use without a prop that encodes that host's
 policy. That part goes back to the call site and is deleted from the package.
 
 *Held by* `packages/graph/src/index.test.ts`, "carry no callback but the root's";
 `packages/graph/src/parts/parts.test.tsx`, "draws the domain before the graph has loaded, named by
-the root", "reads the focused vertex's row, and draws a host's extra fields after the corpus's own";
-`packages/graph/src/core/store.test.ts`, "fixes the categorical domain before the graph loads".
+the root", "reads the focused vertex's row with one statement, and draws a host's extra fields after
+the corpus's own"; `packages/graph/src/core/store.test.ts`, "fixes the categorical domain before the
+graph loads".
 
-## The reference composition
+## Attaching is the host's
 
-```tsx
-// @fossil-lang/corpus: open · @kanzo-tech/mosaic: engine
-const corpus = engine().then((e) => open(url, { engine: e }));
-<GraphRoot corpus={corpus} filterBy={crossfilter} look={look} title="label" onFailure={setFailure}>
-  <GraphCanvas>
-    <GraphToolbar />
-    <GraphLegend />
-  </GraphCanvas>
-  <GraphInspector />
-</GraphRoot>
-```
+**Where the corpus is and what signs it are the host's**, and so are attaching and detaching: `open`
+answers the `close` that gives the catalog back. The graph is handed a name and the page's one
+coordinator — one per page, because `MosaicProvider` makes its coordinator vgplot's active one and
+that setter is process-wide. [Discovery workspace](/docs/graph/workspace) is the wiring, and
+[the workspace showcase](/docs/showcases/workspace) the reference composition: what it writes is the
+product's — the pairings of look and channels, the hall's name in the inspector, the panels — and
+nothing in it reads a renderer or a buffer.
 
-**Opening is the host's**, and so is closing. `GraphRoot` takes the corpus or the promise of it and
-never opens a second copy. `@kanzo-tech/mosaic` and `@fossil-lang/corpus` are required peers: there
-is one path and nothing on it is optional.
+**The graph bounds the one wait it owns.** The waits inside `open` are fossil's, and the host awaits
+them before it names the catalog; the reads after that have no deadline. cosmos.gl's `ready` never
+settles when no device can be made, so after 10 s the root fails with `graph/no-webgl` and
+`data.after`.
 
-**The graph bounds the one wait it owns.** A `corpus` promise that never settles leaves the root
-`opening`, because the waits inside `open` are fossil's and fossil bounds them; the reads after it
-have a signal, not a deadline. The graph's own outside wait is cosmos.gl's device: `ready` never
-settles when none can be made, so after 10 s the root fails with `graph/no-webgl` and `data.after`.
+**What would reverse it:** a host that draws a corpus on a second engine — two coordinators, two
+caches — which is the cost this design removed; or the composition needing a prop only one host
+passes, which is the parts rule above firing.
 
-**What would reverse it:** an opening that can hang where fossil cannot bound it. Then `corpus`
-takes a signal, or the deadline moves into the root.
-
-*Held by* `packages/graph/src/core/store.test.ts`, "waits on a corpus promise that never settles,
-with no deadline of its own, and lets it go when replaced"; `packages/graph/src/render/renderer.test.ts`,
-"fails with graph/no-webgl and when the deadline fired, if WebGL exists but no device ever comes up".
-
-[The workspace showcase](/docs/showcases/workspace) is the reference composition: one `GraphRoot`
-around a shell whose main region switches between **Graph** and **Sightings**, with a dock of Info,
-Ask, Orders and Settings. What it writes itself is the product's — the named pairings of look and
-channels, the hall's name in the inspector and the panels — and nothing in it
-reads a renderer or a buffer. A host copying it and drawing without a prop added for it is the test that admits these parts.
-
-**What would reverse it:** the composition needing a prop only one host passes — the parts rule
-above, firing. Or a host drawing a corpus that was not opened on `engine()`; then the bridge to
-Mosaic goes behind an entry of its own.
-
-*Held by* `packages/graph/package.json`, `//peers`.
+*Held by* `packages/graph/package.json`, `//peers`, `//fossil`;
+`packages/graph/src/render/renderer.test.ts`, "fails with graph/no-webgl and when the deadline fired,
+if WebGL exists but no device ever comes up".
 
 ## The public surface
 
@@ -376,8 +338,8 @@ types              GraphRootProps · GraphRootProviderProps · UseGraphProps · 
 ./section          GRAPH_SECTION
 ```
 
-`GraphRoot` takes `corpus`, `filterBy`, `fill`, `symbol`, `stroke`, `r`, `title`, `categories`,
-`look`, `sim`, `simulate`, `onFailure`, `onSelect` and `onFocus`.
+`GraphRoot` takes `from`, `coordinator`, `filterBy`, `fill`, `symbol`, `stroke`, `r`, `title`, `x`,
+`y`, `cluster`, `categories`, `look`, `sim`, `simulate`, `onFailure`, `onSelect` and `onFocus`.
 
 **What would reverse it:** a host that has to reach past the parts to the renderer or the loaded
 arrays. Then the name comes back, and the part that failed it is the first thing to look at.
@@ -385,21 +347,14 @@ arrays. Then the name comes back, and the part that failed it is the first thing
 *Held by* `packages/graph/src/index.test.ts`, "is exactly this list, and grows only by somebody writing
 a name into it", "keeps the canvas's own steps internal".
 
-## The coordinate box is the corpus's extent
+## Where the points sit in cosmos.gl's square
 
-The package declares no coordinate-space constant. The renderer is built with no `spaceSize` and
-`rescalePositions: false`, and the first upload sets `spaceSize` from the larger side of the loaded
-positions' extent, which the loader computes in the pass that reads them. The box belongs to
-whatever wrote the positions; a number here would be this side stating a fact the other side owns.
-
-**The extent is centred in that square on upload, at its own scale.** Drawing is
-translation-invariant, but the layout is not: cosmos.gl's gravity pulls toward `spaceSize / 2` and
-its many-body force bins points on a grid over `[0, spaceSize]²`. An extent uploaded where it was —
-a fossil layout starts near the origin, so its centre is nowhere near the square's — contracted
-toward a corner the moment a layout ran, and lost its far side off the grid. The placement is a
-translation, plus a scale only past half the device's `MAX_TEXTURE_SIZE`, where cosmos.gl would shrink
-the square under the positions anyway; `render/placement.ts` owns it, and the camera frames the
-placed corners.
+cosmos.gl simulates in `[0, spaceSize]²`: gravity pulls toward its centre and many-body bins points on
+a grid over it. **The square is decided in one place, never written where it is used.** Unbound, it
+is the layout's own — `spaceFor`, 4,096 up to 200,000 vertices and 8,192 above, measured. Bound, it is
+the data's extent, **centred in the square at its own scale** — an extent left where it was contracts
+toward a corner the moment a layout runs over it — and scaled down only past half the device's
+`MAX_TEXTURE_SIZE`, where cosmos.gl would shrink the square under the positions anyway.
 
 **One case does not fit.** cosmos.gl's zoom floor is `1e-3`, and framing a five-million-vertex extent
 at 800×600 wants 0.000151, so only part of it fits on screen.
@@ -407,57 +362,56 @@ at 800×600 wants 0.000151, so only part of it fits on screen.
 **What would reverse it:** cosmos.gl making `spaceSize` init-only, or a simulation whose centre is a
 parameter rather than the square's middle — then the placement is a config value and not an upload.
 
-*Held by* `packages/graph/src/coordinate-box.test.ts`, "declares no coordinate-space constant of its
-own", "never writes a number where cosmos.gl asks what the space is";
-`packages/graph/src/render/renderer.test.ts`, "frames the corpus again when the canvas settles its
-size, as a split panel does after mount", "stops re-framing when the reader takes the camera, and
-starts again with Fit", "centres the corpus's extent in it, at the corpus's own
-scale", "scales the extent down only past the box the device simulates in";
-`packages/graph/src/render/renderer.test.ts`, "frames the corpus's extent before it draws anything,
-and only once".
+*Held by* `packages/graph/src/coordinate-box.test.ts`, "never writes a number where cosmos.gl asks
+what the space is", "declares no coordinate-space constant of its own";
+`packages/graph/src/core/load.ts`, `spaceFor`; `packages/graph/src/render/renderer.test.ts`,
+"centres bound positions' extent in it, at the data's own scale", "scales the extent down only past
+the box the device simulates in", "frames bound positions' extent before it draws anything, and only
+once".
 
 ## A dense id is a buffer index
 
-`VertexId` is a `number`: fossil's `dense_id`, a `uint32` numbering every vertex of the corpus
-`0 … V − 1`, the drawn types first. It is the index into every buffer, the value a selection
-publishes, and the key the inspector filters on.
+`VertexId` is a `number`: fossil's `dense_id`, numbering every vertex of the corpus `0 … V − 1`, each
+table one contiguous range. It is the index into every buffer, the value a selection publishes, and
+the key the inspector reads by.
 
 **The limit is cosmos.gl's.** It addresses a link's ends with a `Float32Array`, exact up to 2²⁴ —
 about 16.7 million ids. Past it, a link's end silently rounds to a neighbouring id, so a corpus near
 it is the day ADR 0001's partial read arrives, not a day to widen a type.
 
-**What would reverse it:** a manifest that breaks density — ids with holes, or drawn types not
-first — which brings back a map built once at load; or a corpus past 2²⁴ drawn vertices.
+**What would reverse it:** a corpus that breaks density — ids with holes, or a table that is not one
+range — which brings back a map built once at load; or a corpus past 2²⁴ vertices.
 
-*Held by* `packages/graph/src/core/load.ts`, `Float32Array`; `packages/graph/src/core/store.test.ts`,
-"loads every vertex type with a position, indexed by its dense_id".
+*Held by* `packages/graph/src/core/source.ts`, `Float32Array`; `packages/graph/src/core/store.test.ts`,
+"reads the structure from fossil_tables and fossil_columns, and every vertex by its dense_id".
 
 ## A look is form, and a channel is a binding
 
 `Look` is form and carries no encoding. What a channel carries is **bound on the root**, under
 Plot's names and Plot's rule that a CSS colour is a **constant** and anything else is a **column**:
-`fill`, `symbol`, `r`, `stroke` and `title`. `symbol` stands beside `fill`, so identity may be drawn
-as colour, as shape or as both. `stroke` absent tints each link by the vertex it leaves.
+`fill`, `symbol`, `r`, `stroke`, `title`, and the position channels `x`, `y` and `cluster`. `symbol`
+stands beside `fill`, so identity may be drawn as colour, as shape or as both. `stroke` absent tints
+each link by the vertex it leaves; `r` absent is degree.
 
-**A binding is a projection.** `fill` and `r` as columns become the scan's `select` where a table has
-them. `fill` as a constant and `stroke` never reach a scan, and `symbol` reaches it only as the one
-categorical column when `fill` is a constant or absent. `isColour` is the constant test, narrowed to
-`var(…)`, a hex and the colour functions, so **a bare word is always a column**. A theme may not
-rebind an encoding — Vega-Lite's `config` rule.
+**A binding is a column read.** `fill`, `r` and `cluster` as columns are read where a table has them.
+`fill` as a constant and `stroke` are never read, and `symbol` is read only as the one categorical
+column when `fill` is a constant or absent. `isColour` is the constant test, narrowed to `var(…)`, a
+hex and the colour functions, so **a bare word is always a column**. A theme may not rebind an
+encoding — Vega-Lite's `config` rule.
 
 **The case that does not fit.** Ink's radius floor exists because it spends shape on identity and
 size on degree at once, so that obligation is graded against the composition.
 
-**What this does not touch.** The graph holds **one** categorical column. `x` and `y` are not
-channels: in a laid-out corpus a position is a fact. And the graph authors no colour; it reads the
-page's categorical scale.
+**What this does not touch.** The graph holds **one** categorical column, and it authors no colour;
+it reads the page's categorical scale.
 
 **What would reverse it:** the composition check never firing — if every host that binds `symbol`
 also asks for the form bundled with it, the pairing was the abstraction.
 
 *Held by* `packages/graph/src/render/graph-looks.ts`, `Look`; `packages/graph/src/core/channels.ts`,
-`Channels`, `projectionOf`; `packages/graph/src/render/obligations.ts`, `gradeComposition`;
-`packages/graph/src/core/store.test.ts`, "projects the bound columns and nothing a constant names".
+`Channels`, `bindingOf`; `packages/graph/src/render/obligations.ts`, `gradeComposition`;
+`packages/graph/src/core/store.test.ts`, "sizes by degree when r is unbound, and by the column when it
+is bound", "colours by vertex type unless fill binds a column".
 
 ## A look declares what it changes
 
@@ -494,11 +448,9 @@ was the alternative and is refused: it would be a key no reader reads, which the
 
 ## What is still open
 
-- **Names for a channel's values.** The manifest names no categories, so the host passes
-  `categories`. If the manifest ever carries them, the manifest's win.
+- **Names for a channel's values.** The catalog names no categories, so the host passes
+  `categories`. If `fossil_columns` ever carries them, the catalog's win.
 - **A column two types share.** A crossfilter clause carries no table, so a filter on `name` filters
-  every drawn type that has one — a `WHERE` over a union. keasy reading it wrongly would reopen it.
-- **The extent.** The manifest publishes none, so the loader computes it. A partial read would need
-  it from the manifest.
-- **The mask at scale.** The filtered scan plus one upload of positions has not been timed at
-  145,000 vertices.
+  every vertex type that has one — a `WHERE` over a union. keasy reading it wrongly would reopen it.
+- **The greyout at scale.** The surviving-id query and the two index lists have not been timed at
+  500,000 vertices.
