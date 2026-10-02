@@ -117,9 +117,9 @@ export type {
   DashboardSpec, DashboardCardSpec, DashboardStatSpec, DashboardFilterSpec, DashboardMeasure,
   DashboardChartType, DashboardAggregate,
 } from "./charts/dashboard-spec.js";
-export { useFieldStats, queryFieldStats } from "./charts/field-stats.js";
+export { useFieldStats, queryFieldStats, fieldStats } from "./charts/field-stats.js";
 export type {
-  FieldStat, FieldStats, FieldKind, FieldRole, FieldStatsOptions, FieldStatsState,
+  FieldStat, FieldStats, FieldKind, FieldRole, FieldStatsOptions, FieldStatsState, SummarizeRow,
 } from "./charts/field-stats.js";
 
 // For a descriptor of your own: `chartDescriptor` mints one, and the types below are the contract

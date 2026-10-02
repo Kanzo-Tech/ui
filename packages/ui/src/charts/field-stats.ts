@@ -12,6 +12,10 @@ import { useMosaic } from "./mosaic-provider.js";
  * The type words are Mosaic's own `jsType`, so a column is numeric here exactly when it is numeric
  * to every mark and input on this subpath. A type `jsType` does not know (an interval, a bit
  * string) or one no chart can draw (a list, a struct, a blob) is not a field at all.
+ *
+ * That includes `TIMESTAMP_S`, `TIME WITH TIME ZONE` and `UHUGEINT`, which read as a time and a
+ * number: every vgplot mark runs `jsType` on its columns before it queries, and throws on these, so
+ * offering one is offering a chart that fails.
  */
 
 /** What an axis can do with a field: bin a range, draw a time axis, or group by value. */
@@ -42,7 +46,7 @@ export interface FieldStatsOptions {
   exclude?: readonly string[];
 }
 
-/** One `SUMMARIZE` row; the columns DuckDB names, as the coordinator returns them. */
+/** One `SUMMARIZE` row, under the column names DuckDB gives it. */
 export interface SummarizeRow {
   column_name: unknown;
   column_type: unknown;
@@ -80,15 +84,19 @@ function roleOf(name: string, kind: FieldKind, distinct: number, rows: number): 
 function extent(kind: FieldKind, value: unknown): number | undefined {
   if (value == null || kind === "categorical") return undefined;
   const text = String(value);
-  const parsed = kind === "numeric" ? Number(text) : Date.parse(text.replace(" ", "T"));
+  // DuckDB prints a whole-hour offset as `+02`, which `Date.parse` rejects without its minutes.
+  const parsed = kind === "numeric" ? Number(text) : Date.parse(text.replace(" ", "T").replace(/(:\d{2}(?:\.\d+)?[+-]\d{2})$/, "$1:00"));
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-/** The fields of a relation, from its `SUMMARIZE` rows. */
-export function fieldStats(rows: readonly SummarizeRow[], options: FieldStatsOptions = {}): FieldStat[] {
+/**
+ * A relation's fields and columns from `SUMMARIZE` rows a host fetched itself — with its own
+ * connection, or a signal the coordinator does not take.
+ */
+export function fieldStats(rows: readonly SummarizeRow[], options: FieldStatsOptions = {}): FieldStats {
   const hidden = new Set(options.exclude);
   const total = Math.max(0, ...rows.map((row) => Number(row.count ?? 0)));
-  return rows.flatMap((row) => {
+  const fields = rows.flatMap((row) => {
     const name = String(row.column_name);
     const type = String(row.column_type);
     const kind = kindOf(type);
@@ -99,20 +107,20 @@ export function fieldStats(rows: readonly SummarizeRow[], options: FieldStatsOpt
     if (min !== undefined && max !== undefined) Object.assign(field, { min, max });
     return [field];
   });
+  return { fields, columns: rows.map((row) => String(row.column_name)) };
 }
 
 /**
- * Ask the coordinator for a relation's fields. `SUMMARIZE` has no mosaic-sql builder, so this is
- * the one statement on the subpath written as text; the relation is the same identifier every
- * query here keys on.
+ * `fieldStats` over the coordinator's own `SUMMARIZE`. It has no mosaic-sql builder, so this is the
+ * one statement on the subpath written as text; the relation is the same identifier every query
+ * here keys on.
  */
 export async function queryFieldStats(
   coordinator: Coordinator,
   table: TableExpr,
   options?: FieldStatsOptions,
 ): Promise<FieldStats> {
-  const rows = Array.from((await coordinator.query(`SUMMARIZE ${chartTableKey(table)}`)) as Iterable<SummarizeRow>);
-  return { fields: fieldStats(rows, options), columns: rows.map((row) => String(row.column_name)) };
+  return fieldStats(Array.from((await coordinator.query(`SUMMARIZE ${chartTableKey(table)}`)) as Iterable<SummarizeRow>), options);
 }
 
 export interface FieldStats {

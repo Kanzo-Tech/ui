@@ -62,10 +62,14 @@ to every mark), and by **role**, from its name and its approximate distinct coun
 
 | Kind | DuckDB types |
 | --- | --- |
-| `numeric` | every integer width, signed or not; `DOUBLE`, `FLOAT`, `REAL`, `DECIMAL` |
-| `temporal` | `DATE`, `TIME`, `TIMESTAMP` in every precision, with or without a time zone |
+| `numeric` | every integer width up to `HUGEINT`, signed or not; `DOUBLE`, `FLOAT`, `REAL`, `DECIMAL` |
+| `temporal` | `DATE`, `TIME`, `TIMESTAMP`, `TIMESTAMP_MS`, `TIMESTAMP_NS`, `TIMESTAMP WITH TIME ZONE` |
 | `categorical` | `VARCHAR`, `ENUM`, `UUID`, `JSON`, `BOOLEAN` |
-| — not a field | lists, arrays, structs, maps, blobs, `GEOMETRY`, and types Mosaic does not know (`INTERVAL`, `BIT`) |
+| — not a field | lists, arrays, structs, maps, blobs, `GEOMETRY`, and types Mosaic does not know (`INTERVAL`, `BIT`, `UHUGEINT`, `TIMESTAMP_S`, `TIME WITH TIME ZONE`) |
+
+The last three read as a number and two times, and are still not fields: every vgplot mark runs
+Mosaic's `jsType` on its columns before it queries, and throws on them. Cast such a column in the
+relation you hand over — `ts::TIMESTAMP` — and it is a field like any other.
 
 | Role | When | Used as |
 | --- | --- | --- |
@@ -194,7 +198,7 @@ more. Removing one calls `retract`, so the pick that made it un-highlights too.
 Because they read `Selection.clauses`, they report filters they did not publish: a brush, a bar
 someone clicked, a lasso on a graph canvas.
 
-### useFieldStats and queryFieldStats
+### useFieldStats, queryFieldStats and fieldStats
 
 `useFieldStats(table, { exclude })` returns `{ fields, columns, error }`: `fields` are the
 classified `FieldStat`s, `columns` every column of the relation in its own order, fields or not.
@@ -204,6 +208,22 @@ compared by value, so an inline array is fine. `error` is the thrown value, whol
 
 `queryFieldStats(coordinator, table, options)` is the same read as a promise resolving to
 `{ fields, columns }`, for a host outside React or one that needs the fields before it renders.
+
+`fieldStats(rows, options)` is the classification on its own: `SUMMARIZE` rows in, the same
+`{ fields, columns }` out, nothing queried. `queryFieldStats` is `SUMMARIZE` on the coordinator and
+then this. Reach for it when the host runs the summary itself — on its own connection, or with an
+`AbortSignal` the coordinator does not take. A fossil corpus answers with its rows as arrays, so
+they are zipped with the column names first:
+
+```ts
+const summary = await corpus.sql(`SUMMARIZE ${relation}`, { signal });
+const rows = summary.rows.map((row) => Object.fromEntries(summary.columns.map((name, i) => [name, row[i]])));
+const { fields, columns } = fieldStats(rows as SummarizeRow[], { exclude: ["dense_id"] });
+```
+
+A row is a plain object under DuckDB's column names — `column_name`, `column_type`,
+`approx_unique`, `min`, `max`, `count` — with values as strings, numbers or bigints, the way any
+DuckDB client returns them.
 
 ### plotRelation
 
@@ -336,6 +356,7 @@ Every other prop goes to the root `div` (`data-slot="dashboard"`).
 ```ts
 function useFieldStats(table: TableExpr, options?: FieldStatsOptions): FieldStatsState;
 function queryFieldStats(coordinator: Coordinator, table: TableExpr, options?: FieldStatsOptions): Promise<FieldStats>;
+function fieldStats(rows: readonly SummarizeRow[], options?: FieldStatsOptions): FieldStats;
 function autoDashboard(fields: readonly FieldStat[]): DashboardSpec;
 
 interface FieldStat {
@@ -350,6 +371,10 @@ interface FieldStat {
 interface FieldStatsOptions { exclude?: readonly string[] }
 interface FieldStats { fields: FieldStat[]; columns: string[] }
 interface FieldStatsState { fields: FieldStat[] | null; columns: string[] | null; error: unknown }
+interface SummarizeRow {
+  column_name: unknown; column_type: unknown; approx_unique: unknown;
+  min: unknown; max: unknown; count: unknown;
+}
 ```
 
 The spec's types — `DashboardSpec`, `DashboardCardSpec`, `DashboardStatSpec`, `DashboardFilterSpec`,

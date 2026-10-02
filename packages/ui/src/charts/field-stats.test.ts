@@ -13,7 +13,7 @@ const row = (column_name: string, column_type: string, approx_unique: number, mi
 
 describe("fieldStats", () => {
   it("reads a kind from Mosaic's type words and a role from the name and the distinct count", () => {
-    const fields = fieldStats([
+    const { fields } = fieldStats([
       row("country", "VARCHAR", 12),
       row("email", "VARCHAR", 998),
       row("user_id", "BIGINT", 1000, "1", "1000"),
@@ -35,12 +35,45 @@ describe("fieldStats", () => {
     expect(fields.find((f) => f.name === "seen")?.min).toBe(Date.parse("2024-01-01T00:00:00"));
   });
 
-  it("drops what no chart can draw and what the host excludes", () => {
-    const fields = fieldStats(
+  it("drops what no chart can draw and what the host excludes, and lists every column", () => {
+    const { fields, columns } = fieldStats(
       [row("tags", "VARCHAR[]", 10), row("blob", "BLOB", 1), row("span", "INTERVAL", 3), row("x", "FLOAT", 990), row("name", "VARCHAR", 10)],
       { exclude: ["x"] },
     );
     expect(fields.map((f) => f.name)).toEqual(["name"]);
+    expect(columns).toEqual(["tags", "blob", "span", "x", "name"]);
+  });
+
+  it("classifies every precision DuckDB reports, reads a zoned extent, and drops the three types a mark throws on", () => {
+    const { fields } = fieldStats([
+      row("day", "DATE", 366, "2024-01-01", "2024-12-31"),
+      row("ms", "TIMESTAMP_MS", 900, "2024-01-01 00:00:00.001", "2024-12-31 00:00:00.001"),
+      row("ns", "TIMESTAMP_NS", 900),
+      row("tz", "TIMESTAMP WITH TIME ZONE", 900, "2024-01-01 02:00:00.5+02", "2024-12-31 00:00:00+00"),
+      row("big", "HUGEINT", 900, "1", "9"),
+      row("s", "TIMESTAMP_S", 900),
+      row("ttz", "TIME WITH TIME ZONE", 900),
+      row("ubig", "UHUGEINT", 900),
+    ]);
+    expect(fields.map((f) => [f.name, f.kind])).toEqual([
+      ["day", "temporal"],
+      ["ms", "temporal"],
+      ["ns", "temporal"],
+      ["tz", "temporal"],
+      ["big", "numeric"],
+    ]);
+    expect(fields.find((f) => f.name === "day")).toMatchObject({ min: Date.parse("2024-01-01"), max: Date.parse("2024-12-31") });
+    expect(fields.find((f) => f.name === "tz")).toMatchObject({
+      min: Date.parse("2024-01-01T00:00:00.5Z"),
+      max: Date.parse("2024-12-31T00:00:00Z"),
+    });
+  });
+
+  it("takes plain rows, as a host's own query returns them", () => {
+    const { fields } = fieldStats([
+      { column_name: "n", column_type: "DOUBLE", approx_unique: 5, min: "1.5", max: "4", count: 10 },
+    ]);
+    expect(fields).toEqual([{ name: "n", type: "DOUBLE", kind: "numeric", role: "measure", distinct: 5, min: 1.5, max: 4 }]);
   });
 });
 
