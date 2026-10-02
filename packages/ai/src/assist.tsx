@@ -39,6 +39,8 @@ export interface AssistTranslations {
   thinking: string;
   /** When the model had nothing to offer. */
   empty: string;
+  /** When asking failed and what was thrown carries no message of its own. */
+  failed: string;
   /** A candidate's ✕, given the candidate's text. */
   dismiss: (text: string) => string;
 }
@@ -54,6 +56,7 @@ const ENGLISH: AssistTranslations = {
   announcement: "Suggestion ready. Press Tab to accept, Escape to dismiss.",
   thinking: "Thinking…",
   empty: "Nothing to suggest.",
+  failed: "Couldn’t suggest anything.",
   dismiss: (text) => `Dismiss ${text}`,
 };
 
@@ -63,6 +66,7 @@ interface AssistSettings {
   model: LanguageModel;
   context?: () => string | undefined;
   onEvent?: (event: AssistEvent) => void;
+  onFailure?: (error: unknown) => void;
   t: AssistTranslations;
 }
 
@@ -78,6 +82,11 @@ export interface AssistProviderProps {
   context?: string | (() => string | undefined);
   /** Each proposal's life — shown, accepted, partly accepted, rejected, ignored. */
   onEvent?: (event: AssistEvent) => void;
+  /**
+   * Called with what the model's stream threw, whole, when a field's ask fails — including an
+   * `AiError` coded `ai/silent` when it sent nothing for 30 s. The field also says so under itself.
+   */
+  onFailure?: (error: unknown) => void;
   translations?: Partial<AssistTranslations>;
   children: React.ReactNode;
 }
@@ -87,15 +96,16 @@ export interface AssistProviderProps {
  * whole is about, where the telemetry goes, and in what words. Renders no element.
  */
 export function AssistProvider(props: AssistProviderProps) {
-  const { model, context, onEvent, translations, children } = props;
+  const { model, context, onEvent, onFailure, translations, children } = props;
   const value = React.useMemo<AssistSettings>(
     () => ({
       model,
       context: typeof context === "function" ? context : () => context,
       onEvent,
+      onFailure,
       t: { ...ENGLISH, ...translations },
     }),
-    [context, model, onEvent, translations],
+    [context, model, onEvent, onFailure, translations],
   );
   return <Settings.Provider value={value}>{children}</Settings.Provider>;
 }
@@ -267,6 +277,8 @@ function TextAssist(props: Inner<string>) {
     existing: [value],
     onEvent: report,
   });
+  useReported(settings, completion);
+  useReported(settings, list);
   const ghost = multiline ? completion.ghost : "";
 
   React.useLayoutEffect(() => {
@@ -457,7 +469,7 @@ function TextAssist(props: Inner<string>) {
           <span aria-live="polite" className="sr-only" data-slot="assist-status">
             {ghost ? t.announcement : ""}
           </span>
-          <Failure error={completion.error} />
+          <Failure error={completion.error} status={completion.status} t={t} />
         </>
       ) : (
         active && <Candidates list={list} onPick={pick} t={t} />
@@ -541,11 +553,21 @@ function Keys({ t }: { t: AssistTranslations }) {
   );
 }
 
-function Failure({ error }: { error: string | null }) {
-  if (error === null) return null;
+/** Hands the provider's `onFailure` each failure once, whether or not the field is showing it. */
+function useReported(settings: AssistSettings, stream: { status: string; error: unknown }) {
+  const { onFailure } = settings;
+  const { status, error } = stream;
+  React.useEffect(() => {
+    if (status === "error") onFailure?.(error);
+  }, [status, error, onFailure]);
+}
+
+function Failure(props: { error: unknown; status: string; t: AssistTranslations }) {
+  const { error, status, t } = props;
+  if (status !== "error") return null;
   return (
     <ark.p className="text-destructive-foreground text-sm" data-slot="assist-error" role="alert">
-      {error}
+      {error instanceof Error && error.message ? error.message : t.failed}
     </ark.p>
   );
 }
@@ -563,8 +585,8 @@ function Candidates(props: {
 }) {
   const { list, onPick, t } = props;
   const body =
-    list.error !== null ? (
-      <Failure error={list.error} />
+    list.status === "error" ? (
+      <Failure error={list.error} status={list.status} t={t} />
     ) : list.items.length > 0 ? (
       list.items.map((item) => (
         <ButtonGroup aria-label={item.text} key={item.text} slot="assist-candidate">
@@ -626,6 +648,7 @@ function ListAssist(props: Inner<string[]>) {
     existing: value,
     onEvent: report,
   });
+  useReported(settings, list);
 
   // The ✨ sits at the end of the control's own box — Ark marks it `data-part="control"`.
   React.useLayoutEffect(() => {

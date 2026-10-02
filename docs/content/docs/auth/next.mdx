@@ -103,6 +103,29 @@ rather than discover this.
 | `/refresh` | `POST` | the renewed `Session` and a reissued cookie, or 401 |
 | `/signout` | `GET`, `POST` | 302 to the end-session endpoint, clearing the cookie |
 
+### A failure is a page, not a body
+
+`/signin`, `/callback` and `/signout` are reached through the address bar, so an `AuthError` there
+is a 302 to the product's `problemPage` — default `/auth/problem` — with the code in `?code=`:
+`/auth/problem?code=callback%2Fstate-mismatch`. The page is the product's, and renders the code in
+its own words:
+
+```tsx
+// app/auth/problem/page.tsx
+export default async function Page({ searchParams }: { searchParams: Promise<{ code?: string }> }) {
+  const { code } = await searchParams;
+  return <Problem code={code} />; // the product's own view of a code
+}
+```
+
+`authMiddleware` keeps the same default public, because whoever lands there has no session; a
+product that moves it passes the same `problemPage` to both, or a failed sign-in loops back into
+signing in.
+
+`/session` and `/refresh` are reached by `fetch` and answer `{ error, message }` with a status: 401
+for `session/absent`, 503 for `session/unavailable`, 502 for `idp/unreachable`, 504 for
+`idp/silent`, and 400 for a refusal. `bffAuth` reads only the 401 as *nobody is signed in*.
+
 `/refresh` is the one route that constrains its verb. The others are reached by navigation, where
 the verb is the browser's to choose; this one *spends* a refresh token, and a `GET` that spends
 something is one prefetch, one link preview or one crawler away from spending it unasked. A `GET`
@@ -142,8 +165,8 @@ from also carries no evidence that it came from a *page*, and a page is the atta
 `scope` is a space-delimited list, so `?organization=acme%20offline_access` reaching `begin`
 unchecked is not a strange alias — it is a **second scope**, asking for a refresh token that
 outlives the browser session, chosen by whoever composed the link. `begin` refuses anything that is
-not an alias or `*`, and this route answers 400 with `organization.invalid` rather than a 500 on a
-mistyped link.
+not an alias or `*`, and this route sends the browser to the problem page with
+`organization/invalid` rather than a 500 on a mistyped link.
 
 ## `authProxy`
 
@@ -174,7 +197,8 @@ traffic going the same way would have every right to be surprised.
 
 `public` is matched on **segment boundaries**, so `/health` exempts `/health` and `/health/live`
 and does not exempt `/healthcare`. A plain `startsWith` is one keystroke away from opening a route
-nobody meant to open. `basePath` is always public: it is how a person signs in.
+nobody meant to open. `basePath` is always public: it is how a person signs in. So is
+`problemPage`: it is where a person who failed to sign in is sent.
 
 <Callout type="warn">
 **Middleware runs in the edge runtime, and `openid-client` must not follow it there.** The three
@@ -207,11 +231,12 @@ Returns `() => Promise<Session | null>`.
 
 ### `authRoutes`
 
-`AuthRoutesConfig` is `AuthSessionConfig` plus one optional field:
+`AuthRoutesConfig` is `AuthSessionConfig` plus two optional fields:
 
 | Prop | Type | Default |
 | --- | --- | --- |
 | `redirectUri` | `string` | derived from the request, as above |
+| `problemPage` | `string` | `/auth/problem` — [where a failed navigation goes](#a-failure-is-a-page-not-a-body) |
 
 Returns `AuthRouteHandlers` — a `GET` and a `POST`, each taking a web `Request` and answering a web
 `Response`, which is the shape an App Router route file wants.
@@ -251,6 +276,7 @@ export const { GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS } = authProxy({ … 
 | --- | --- | --- |
 | `public` | `readonly string[]` | nothing is exempt |
 | `basePath` | `string` | `/api/auth` |
+| `problemPage` | `string` | `/auth/problem`, always public |
 | `cookieName` | `string` | `__Host-kanzo-session` |
 
 Returns the `middleware` function Next expects: a `NextRequest` in, a `NextResponse` out.

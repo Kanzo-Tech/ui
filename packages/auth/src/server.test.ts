@@ -211,16 +211,16 @@ describe("relyingParty", () => {
       const auth = relyingParty(config);
 
       await expect(auth.begin({ organization: "acme offline_access" })).rejects.toMatchObject({
-        code: "organization.invalid",
+        code: "organization/invalid",
       });
       await expect(auth.begin({ organization: "acme\toffline_access" })).rejects.toMatchObject({
-        code: "organization.invalid",
+        code: "organization/invalid",
       });
       await expect(auth.begin({ organization: "" })).rejects.toMatchObject({
-        code: "organization.invalid",
+        code: "organization/invalid",
       });
       await expect(auth.begin({ organization: "acme:*" })).rejects.toMatchObject({
-        code: "organization.invalid",
+        code: "organization/invalid",
       });
     });
 
@@ -304,7 +304,7 @@ describe("relyingParty", () => {
       });
 
       await expect(refused).rejects.toThrow(AuthError);
-      await expect(refused).rejects.toMatchObject({ code: "callback.state-mismatch" });
+      await expect(refused).rejects.toMatchObject({ code: "callback/state-mismatch" });
       // And nothing was spent: the code never reached the token endpoint.
       expect(realm.state.posted).toHaveLength(0);
     });
@@ -318,7 +318,7 @@ describe("relyingParty", () => {
           url: `${REDIRECT_URI}?code=the-code`,
           cookie: asRequestHeader(started.cookies),
         }),
-      ).rejects.toMatchObject({ code: "callback.state-mismatch" });
+      ).rejects.toMatchObject({ code: "callback/state-mismatch" });
     });
 
     it("refuses a callback with no transaction cookie", async () => {
@@ -330,7 +330,7 @@ describe("relyingParty", () => {
       // a code delivered to a browser that never started the flow. All the same answer.
       await expect(
         auth.complete({ url: `${REDIRECT_URI}?code=the-code&state=${state}`, cookie: null }),
-      ).rejects.toMatchObject({ code: "callback.state-mismatch" });
+      ).rejects.toMatchObject({ code: "callback/state-mismatch" });
     });
 
     it("refuses a transaction cookie sealed by somebody else", async () => {
@@ -345,7 +345,7 @@ describe("relyingParty", () => {
           url: `${REDIRECT_URI}?code=the-code&state=${state}`,
           cookie: asRequestHeader(forged.cookies),
         }),
-      ).rejects.toMatchObject({ code: "callback.state-mismatch" });
+      ).rejects.toMatchObject({ code: "callback/state-mismatch" });
     });
 
     it("refuses an ID token whose nonce is not the one it sent", async () => {
@@ -361,7 +361,7 @@ describe("relyingParty", () => {
           url: `${REDIRECT_URI}?code=the-code&state=${state}`,
           cookie: asRequestHeader(started.cookies),
         }),
-      ).rejects.toMatchObject({ code: "callback.nonce-mismatch" });
+      ).rejects.toMatchObject({ code: "callback/nonce-mismatch" });
     });
 
     it("refuses an ID token with no nonce at all", async () => {
@@ -378,7 +378,7 @@ describe("relyingParty", () => {
           url: `${REDIRECT_URI}?code=the-code&state=${state}`,
           cookie: asRequestHeader(started.cookies),
         }),
-      ).rejects.toMatchObject({ code: "callback.nonce-mismatch" });
+      ).rejects.toMatchObject({ code: "callback/nonce-mismatch" });
     });
 
     it("reports a refused token endpoint as an exchange failure", async () => {
@@ -392,7 +392,7 @@ describe("relyingParty", () => {
           url: `${REDIRECT_URI}?code=the-code&state=${state}`,
           cookie: asRequestHeader(started.cookies),
         }),
-      ).rejects.toMatchObject({ code: "token.exchange-failed" });
+      ).rejects.toMatchObject({ code: "token/exchange-failed" });
     });
 
     it("fetches no keys when the token endpoint is reached over TLS, because the channel vouches", async () => {
@@ -453,7 +453,7 @@ describe("relyingParty", () => {
           url: `${REDIRECT_URI}?code=the-code&state=${state}`,
           cookie: asRequestHeader(started.cookies),
         }),
-      ).rejects.toMatchObject({ code: "token.exchange-failed" });
+      ).rejects.toMatchObject({ code: "token/exchange-failed" });
 
       expect(realm.state.calls.filter((c) => c.endsWith("openid-configuration"))).toHaveLength(2);
     });
@@ -547,7 +547,7 @@ describe("relyingParty", () => {
     it("refuses when there is no session to renew", async () => {
       const auth = relyingParty(config);
 
-      await expect(auth.refresh(null)).rejects.toMatchObject({ code: "session.absent" });
+      await expect(auth.refresh(null)).rejects.toMatchObject({ code: "session/absent" });
     });
 
     it("reports a refused refresh, which under rotation is often a replay", async () => {
@@ -556,7 +556,7 @@ describe("relyingParty", () => {
       realm.state.tokenEndpointStatus = 400;
 
       await expect(auth.refresh(asRequestHeader(done.cookies))).rejects.toMatchObject({
-        code: "token.exchange-failed",
+        code: "token/exchange-failed",
       });
     });
 
@@ -852,5 +852,100 @@ describe("the module boundary", () => {
         expect.soft(specifier, `${file} reaches past the server door`).not.toMatch(forbidden);
       }
     }
+  });
+});
+
+describe("relyingParty names who did not answer", () => {
+  let realm: Realm;
+  let config: RelyingPartyConfig;
+  /** Set to make the token endpoint fail at the transport, as the platform's fetch would. */
+  let tokenEndpoint: (() => Promise<Response>) | undefined;
+
+  beforeEach(async () => {
+    realm = await fakeKeycloak();
+    tokenEndpoint = undefined;
+    const through = realm.fetchImpl;
+    config = {
+      issuer: ISSUER,
+      clientId: CLIENT_ID,
+      clientSecret: "client-secret",
+      redirectUri: REDIRECT_URI,
+      secret: SECRET,
+      fetch: (async (input: RequestInfo | URL, init?: RequestInit) =>
+        tokenEndpoint !== undefined && String(input).endsWith("/token")
+          ? tokenEndpoint()
+          : through(input, init)) as typeof globalThis.fetch,
+    };
+  });
+
+  it("fails a sign-in the IdP cannot be reached for as idp/unreachable, with the cause", async () => {
+    const offline = new TypeError("fetch failed");
+    const auth = relyingParty({
+      ...config,
+      fetch: (async () => {
+        throw offline;
+      }) as unknown as typeof globalThis.fetch,
+    });
+
+    const failed = await auth.begin().catch((error: unknown) => error);
+
+    expect(failed).toBeInstanceOf(AuthError);
+    expect(failed).toMatchObject({ code: "idp/unreachable" });
+    expect((failed as AuthError).cause).toBe(offline);
+  });
+
+  it("fails a renewal the IdP did not answer in time as idp/silent, not as a refused token", async () => {
+    const auth = relyingParty(config);
+    const { done } = await signIn(auth, realm);
+    tokenEndpoint = async () => {
+      throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+    };
+
+    await expect(auth.refresh(asRequestHeader(done.cookies))).rejects.toMatchObject({
+      code: "idp/silent",
+      data: { after: 30_000 },
+    });
+  });
+
+  it("fails a renewal answered by a proxy's 502 as idp/unreachable", async () => {
+    const auth = relyingParty(config);
+    const { done } = await signIn(auth, realm);
+    tokenEndpoint = async () => new Response("<html>Bad Gateway</html>", { status: 502 });
+
+    await expect(auth.refresh(asRequestHeader(done.cookies))).rejects.toMatchObject({
+      code: "idp/unreachable",
+    });
+  });
+
+  it("still fails a refused refresh token as token/exchange-failed", async () => {
+    const auth = relyingParty(config);
+    const { done } = await signIn(auth, realm);
+    realm.state.tokenEndpointStatus = 400;
+
+    await expect(auth.refresh(asRequestHeader(done.cookies))).rejects.toMatchObject({
+      code: "token/exchange-failed",
+    });
+  });
+
+  it("fails a read the store cannot answer as session/unavailable, with the driver's error as the cause", async () => {
+    const down = new Error("ECONNREFUSED");
+    const rows = statelessStore();
+    let up = true;
+    const store: SessionStore = {
+      put: (record) => rows.put(record),
+      get: async (ticket) => {
+        if (!up) throw down;
+        return rows.get(ticket);
+      },
+      drop: (ticket) => rows.drop(ticket),
+    };
+    const auth = relyingParty({ ...config, store });
+    const { done } = await signIn(auth, realm);
+    up = false;
+
+    const failed = await auth.read(asRequestHeader(done.cookies)).catch((error: unknown) => error);
+
+    expect(failed).toMatchObject({ code: "session/unavailable" });
+    expect((failed as AuthError).cause).toBe(down);
   });
 });

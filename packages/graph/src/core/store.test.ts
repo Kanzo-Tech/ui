@@ -1,4 +1,5 @@
 import { Selection, clauseInterval } from "@kanzo-tech/mosaic";
+import type { Corpus } from "@fossil-lang/corpus";
 import { describe, expect, it, vi } from "vitest";
 import { MANIFEST, fakeCorpus } from "../../test/corpus";
 import { graphClient } from "./filter";
@@ -19,6 +20,9 @@ function subscribed() {
 }
 
 const tables = (scans: readonly { table: string }[]) => scans.map((scan) => scan.table);
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+/** What fossil's `scan.read` rejects with: an `Error` carrying a code. */
+const refusal = () => Object.assign(new Error("the bucket did not answer"), { code: "storage/unreachable" });
 
 describe("the graph store", () => {
   it("holds a failure found while it is built, and reports it to the first subscriber", () => {
@@ -31,7 +35,7 @@ describe("the graph store", () => {
     expect(onFailure).not.toHaveBeenCalled();
 
     const unsubscribe = store.subscribe(() => {});
-    expect(onFailure).toHaveBeenCalledExactlyOnceWith("the corpus has no vertex type with a position to draw");
+    expect(onFailure).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ code: "graph/nothing-to-draw" }));
 
     unsubscribe();
     store.subscribe(() => {});
@@ -152,10 +156,73 @@ describe("the graph store", () => {
 
   it("fails, and says so once, when the promised corpus does not open", async () => {
     const onFailure = vi.fn();
-    const store = createGraph({ corpus: Promise.reject(new Error("no manifest")), onFailure });
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    const refused = refusal();
+    const store = createGraph({ corpus: Promise.reject(refused), onFailure });
+    await tick();
     expect(store.getSnapshot().status).toBe("failed");
-    expect(onFailure).toHaveBeenCalledExactlyOnceWith("no manifest");
+    expect(onFailure).toHaveBeenCalledOnce();
+    expect(onFailure.mock.calls[0]?.[0]).toBe(refused);
+  });
+
+  it("waits on a corpus promise that never settles, with no deadline of its own, and lets it go when replaced", async () => {
+    vi.useFakeTimers();
+    try {
+      const onFailure = vi.fn();
+      let late: (corpus: Corpus) => void = () => {};
+      const store = createGraph({ corpus: new Promise<Corpus>((resolve) => (late = resolve)), onFailure });
+      store.subscribe(() => {});
+      await vi.advanceTimersByTimeAsync(10 * 60_000);
+      expect(store.getSnapshot().status).toBe("opening");
+      expect(onFailure).not.toHaveBeenCalled();
+
+      store.setOptions({ ...store.getOptions(), corpus: null });
+      late(fakeCorpus().corpus);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(store.getSnapshot().status).toBe("none");
+      expect(store.getSnapshot().corpus).toBeNull();
+      expect(onFailure).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("fails with the thrown value itself, code and all, when the graph's read rejects after the corpus opened", async () => {
+    const { fake, onFailure, store } = subscribed();
+    const refused = refusal();
+    fake.reads[0]?.reject(refused);
+    await tick();
+    expect(store.getSnapshot().status).toBe("failed");
+    expect(onFailure).toHaveBeenCalledOnce();
+    expect(onFailure.mock.calls[0]?.[0]).toBe(refused);
+  });
+
+  it("aborts the sibling reads when one of them rejects", async () => {
+    const { fake, onFailure } = subscribed();
+    expect(fake.reads.length).toBeGreaterThan(1);
+    fake.reads[0]?.reject(refusal());
+    await tick();
+    expect(fake.reads.slice(1).every((read) => read.signal?.aborted)).toBe(true);
+    expect(onFailure).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the last picture and reports the thrown value when a filter's read rejects", async () => {
+    const fake = fakeCorpus();
+    const crossfilter = Selection.crossfilter();
+    const onFailure = vi.fn();
+    const store = createGraph({ corpus: fake.corpus, filterBy: crossfilter, onFailure });
+    store.subscribe(() => {});
+    await fake.settle();
+    store.reportDrawn(store.getSnapshot());
+    const { geometry, encoding } = store.getSnapshot();
+    crossfilter.update(clauseInterval("cluster_id", [1, 1], { source: graphClient() }));
+    await tick();
+    const read = fake.reads.find((r) => !r.released && r.params.filter !== undefined);
+    const refused = refusal();
+    read?.reject(refused);
+    await tick();
+    expect(onFailure.mock.calls.map(([error]) => error)).toEqual([refused]);
+    expect(onFailure.mock.calls[0]?.[0]).toBe(refused);
+    expect(store.getSnapshot()).toMatchObject({ status: "idle", geometry, encoding, mask: null });
   });
 
   it("is idle only once the graph is loaded and drawn", async () => {

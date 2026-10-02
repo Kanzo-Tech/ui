@@ -205,11 +205,13 @@ needs a server; or server-sent events over `fetch` with a `ReadableStream`, whic
 patterns and is the one to take.
 </Callout>
 
-## When a credential is refused
+## When a credential is refused, or nobody answers
 
 A boolean cannot be acted on. *Not signed in* sends the person to the IdP; *signed in but not a
-member* sends them to a page that says so, and telling those apart is the difference between an
-explanation and a redirect loop. So a failure carries a code:
+member* sends them to a page that says so; *the IdP did not answer* sends them nowhere, because it
+is an outage to name. Telling those apart is the difference between an explanation and a redirect
+loop. So a failure carries a code, in the `area/kind` grammar one host registry keys, and `data`
+with what was measured:
 
 ```ts
 import { AuthError, type AuthErrorCode } from "@kanzo-tech/auth";
@@ -217,13 +219,27 @@ import { AuthError, type AuthErrorCode } from "@kanzo-tech/auth";
 
 | Code | What happened |
 | --- | --- |
-| `claims.no-subject` | The claim set carries no `sub`. Not a session at all — a realm fault, never a person's |
-| `session.absent` | There is no session: not signed in, or it expired |
-| `organization.not-a-member` | Signed in, and holds no membership of the organization being addressed |
-| `organization.invalid` | The organization asked for is not an alias — a space in it would inject a second scope |
-| `callback.state-mismatch` | The callback's `state` is absent, different, or matches no transaction |
-| `callback.nonce-mismatch` | The ID token's `nonce` is not the one that was sent — a replay |
-| `token.exchange-failed` | The token endpoint refused the code or the refresh token, or returned no ID token |
+| `claims/no-subject` | The claim set carries no `sub`. Not a session at all — a realm fault, never a person's |
+| `session/absent` | There is no session: not signed in, or it expired |
+| `organization/not-a-member` | Signed in, and holds no membership of the organization being addressed |
+| `organization/invalid` | The organization asked for is not an alias — a space in it would inject a second scope |
+| `callback/state-mismatch` | The callback's `state` is absent, different, or matches no transaction |
+| `callback/nonce-mismatch` | The ID token's `nonce` is not the one that was sent — a replay |
+| `token/exchange-failed` | The token endpoint refused the code or the refresh token, or returned no ID token |
+| `session/unavailable` | The session could not be read: the store failed, or `/session` answered neither a session nor a 401. `data.status` is that answer |
+| `session/silent` | `/session` or `/refresh` did not answer within 30 s. `data.after` is `30000` |
+| `idp/unreachable` | The IdP could not be reached, or answered with something that is not OAuth — a 5xx, a proxy's page |
+| `idp/silent` | The IdP did not answer within 30 s. `data.after` is `30000` |
+
+Every wait this package makes on another party ends in 30 s: `bffAuth`'s requests to `/session`
+and `/refresh`, every request `oidc-client-ts` makes behind `browserAuth`, and every request
+`openid-client` makes behind `./server` — the last two through each library's own timeout. What it
+threw is kept as the `cause`.
+
+A failed silent renewal under `browserAuth` is *no session* only when the IdP says so —
+`login_required`, `interaction_required`, `consent_required`, `account_selection_required`, or
+`invalid_grant` for a refresh token that is gone. A reloaded callback URL, whose `state` this tab no
+longer holds, is *no session* too. Anything else is thrown.
 
 ## API Reference
 
@@ -235,7 +251,8 @@ sign-out button needs one hook rather than two.
 | Field | Type | Description |
 | --- | --- | --- |
 | `session` | `Session \| null` | Who is signed in |
-| `status` | `AuthStatus` | `"loading" \| "authenticated" \| "anonymous"` — **branch on this** |
+| `status` | `AuthStatus` | `"loading" \| "authenticated" \| "anonymous" \| "failed"` — **branch on this** |
+| `error` | `unknown` | What `getSession` rejected with, exactly as thrown, while `status` is `"failed"` |
 | `auth` | `Auth` | The instance the provider was given |
 | `signIn` | `(options?: SignInOptions) => Promise<void>` | Send the person to the IdP |
 | `signOut` | `(options?: { returnTo?: string }) => Promise<void>` | End the session |
@@ -249,9 +266,9 @@ It throws when called outside `AuthProvider`, with the two factory names in the 
 | `auth` | `Auth` | — |
 | `children` | `React.ReactNode` | — |
 
-One per application, at the root. A session that cannot be read fails to `anonymous` rather than
-holding `loading`: the first is recoverable by signing in, and the second is a spinner nobody can
-escape.
+One per application, at the root. A session that cannot be read settles on `"failed"`, with what
+was thrown on `error` — neither `"anonymous"`, which sends the person to sign in over an outage, nor
+`loading`, which is a spinner nobody can escape. `Gate` draws neither side while it is `"failed"`.
 
 ### `browserAuth`
 

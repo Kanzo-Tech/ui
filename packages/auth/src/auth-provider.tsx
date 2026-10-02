@@ -17,9 +17,10 @@ export function AuthProvider({
   readonly auth: Auth;
   readonly children?: React.ReactNode;
 }) {
-  const [state, setState] = useState<{ session: Session | null; status: AuthStatus }>({
+  const [state, setState] = useState<{ session: Session | null; status: AuthStatus; error: unknown }>({
     session: null,
     status: "loading",
+    error: undefined,
   });
 
   useEffect(() => {
@@ -33,13 +34,12 @@ export function AuthProvider({
         .getSession()
         .then((session) => {
           if (!live) return;
-          setState({ session, status: session ? "authenticated" : "anonymous" });
+          setState({ session, status: session ? "authenticated" : "anonymous", error: undefined });
         })
-        .catch(() => {
-          // A session that cannot be read is a session you do not have. Failing to "anonymous"
-          // keeps the tree renderable and sends the person to the IdP, which is recoverable;
-          // holding "loading" forever is a spinner nobody can escape.
-          if (live) setState({ session: null, status: "anonymous" });
+        .catch((error: unknown) => {
+          // Not "anonymous": that sends the person to sign in over an outage that will still be
+          // there when they get back. Not "loading" either: a spinner nobody can escape.
+          if (live) setState({ session: null, status: "failed", error });
         });
     };
 
@@ -53,8 +53,8 @@ export function AuthProvider({
   }, [auth]);
 
   const value = useMemo(
-    () => ({ auth, session: state.session, status: state.status }),
-    [auth, state.session, state.status],
+    () => ({ auth, session: state.session, status: state.status, error: state.error }),
+    [auth, state.session, state.status, state.error],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

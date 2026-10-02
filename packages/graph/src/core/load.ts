@@ -1,3 +1,4 @@
+import { GraphError } from "./error";
 import { Dictionary } from "./categories";
 import { projectionOf, type Binding } from "./channels";
 import type { Batch, Corpus, EdgeTable, Filter, VertexTable } from "@fossil-lang/corpus";
@@ -38,6 +39,18 @@ export interface Encoding {
 export const drawnTables = (corpus: Corpus): VertexTable[] => corpus.manifest.vertex_tables.filter((table) => table.position);
 
 const has = (table: VertexTable) => (column: string) => table.properties.some((p) => p.name === column);
+
+/**
+ * Reads in parallel that end together: the first to fail aborts the rest, so no read outlives the
+ * answer and no second failure goes unheard behind the first.
+ */
+export function together<T>(signal: AbortSignal, reads: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  const local = new AbortController();
+  return reads(AbortSignal.any([signal, local.signal])).catch((error: unknown) => {
+    local.abort();
+    throw error;
+  });
+}
 
 async function readAll(corpus: Corpus, params: Parameters<Corpus["scan"]>[0], signal: AbortSignal): Promise<readonly Batch[]> {
   const scan = corpus.scan(params);
@@ -127,15 +140,17 @@ export async function loadGraph(
   const positions = new Float32Array(2 * size).fill(Number.NaN);
   const table = new Uint16Array(size);
   const encode = encoder(tables, size, binding, seed);
-  const [vertices, links] = await Promise.all([
-    Promise.all(
-      tables.map((t) => {
-        const { x, y } = t.position as NonNullable<VertexTable["position"]>;
-        return readAll(corpus, { table: t.name, select: projectionOf(binding, [t.key, x, y], has(t)) }, signal);
-      }),
-    ),
-    readLinks(corpus, tables, size, signal),
-  ]);
+  const [vertices, links] = await together(signal, (signal) =>
+    Promise.all([
+      Promise.all(
+        tables.map((t) => {
+          const { x, y } = t.position as NonNullable<VertexTable["position"]>;
+          return readAll(corpus, { table: t.name, select: projectionOf(binding, [t.key, x, y], has(t)) }, signal);
+        }),
+      ),
+      readLinks(corpus, tables, size, signal),
+    ]),
+  );
   vertices.forEach((batches, t) => {
     const { key, position } = tables[t] as VertexTable;
     for (const batch of batches) {
@@ -165,8 +180,8 @@ export async function loadEncoding(
 ): Promise<Encoding> {
   const { tables, size } = geometry;
   const encode = encoder(tables, size, binding, seed);
-  const answers = await Promise.all(
-    tables.map((t) => readAll(corpus, { table: t.name, select: projectionOf(binding, [t.key], has(t)) }, signal)),
+  const answers = await together(signal, (signal) =>
+    Promise.all(tables.map((t) => readAll(corpus, { table: t.name, select: projectionOf(binding, [t.key], has(t)) }, signal))),
   );
   answers.forEach((batches, t) => {
     for (const batch of batches) encode.add(t, batch);
@@ -189,10 +204,12 @@ export async function readKept(corpus: Corpus, tables: readonly VertexTable[], f
   const columns = columnsOf(filter);
   const filtered = tables.flatMap((table, t) => (columns.every(has(table)) ? [t] : []));
   if (filtered.length === 0) {
-    throw new Error(`no drawn vertex type has every column this filter names: ${columns.join(", ")}`);
+    throw new GraphError("graph/untranslatable-filter", `no drawn vertex type has every column this filter names: ${columns.join(", ")}`);
   }
-  const answers = await Promise.all(
-    filtered.map((t) => readAll(corpus, { table: (tables[t] as VertexTable).name, filter, select: [(tables[t] as VertexTable).key] }, signal)),
+  const answers = await together(signal, (signal) =>
+    Promise.all(
+      filtered.map((t) => readAll(corpus, { table: (tables[t] as VertexTable).name, filter, select: [(tables[t] as VertexTable).key] }, signal)),
+    ),
   );
   const ids: number[] = [];
   answers.forEach((batches, i) => {

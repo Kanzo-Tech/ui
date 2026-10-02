@@ -155,6 +155,14 @@ export const READERS: readonly Root[] = [
 ];
 
 /**
+ * The population for the rules about failure — that a wait ends and a failure reaches the host
+ * (fossil's `/docs/design/failure`): every shipped package's `src/`. How a package draws has nothing
+ * to do with whether it swallows a rejection, and the engine, the graph and auth draw no recipe.
+ * `docs` is out: a showcase is not a surface a host receives a failure through.
+ */
+export const SHIPPED: readonly Root[] = PUBLISHED.map(({ name, src }) => ({ name, src }));
+
+/**
  * A glob that silently matches nothing is worse than the two hard-coded paths it replaced, because
  * it reports the same green. Every assertion downstream of this module is an assertion of absence,
  * so an empty or halved corpus passes all of them — the throw is at import time so that the failure
@@ -176,6 +184,11 @@ if (ROOTS.length < 2) {
 }
 if (!ROOTS.some((root) => root.name === "ui")) {
   throw new Error("packages/ui is not in the guard corpus — the derivation is broken, not the tree");
+}
+for (const needed of ["ui", "graph", "mosaic", "auth"]) {
+  if (!SHIPPED.some((root) => root.name === needed)) {
+    throw new Error(`${needed} is not among the SHIPPED — the derivation is broken, not the tree`);
+  }
 }
 for (const needed of ["ui", "graph", "docs"]) {
   if (!READERS.some((root) => root.name === needed)) {

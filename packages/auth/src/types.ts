@@ -86,51 +86,64 @@ export interface Auth {
 }
 
 /**
- * Why a credential was refused, as a code a product can route on.
+ * Why a credential was refused, or who did not answer when one was asked for, as a code a product
+ * can route on.
  *
  * A boolean cannot be acted upon: "not signed in" sends the person to the IdP, "signed in but not a
- * member" sends them to a page that says so, and telling them apart is the difference between a
- * redirect loop and an explanation. The shape is borrowed from `agents/gateway`, which reports
- * `validity.expired` / `proof.signature-invalid` / `issuer.unexpected` for the same reason.
+ * member" sends them to a page that says so, and "the IdP did not answer" sends them nowhere — it is
+ * an outage to name, and sending them to sign in is the loop that hides it. The codes are
+ * `area/kind`, the grammar one host registry keys fossil's codes, the rest of kanzo-ui's and its own
+ * server's in.
  *
- * **These codes are about a credential, or about the request for one, and about nothing else.** A
- * programming or deployment fault is not one: `useSession` called outside its provider, or a
- * session too large for a cookie, both throw a plain `Error` on purpose. Giving those codes would invite a product to `catch` them
- * beside a refusal and route them to a sign-in page, which is the wrong answer to "you wired this
- * up wrong" — and it would put a deployment mistake in the same type as a user's session expiring.
+ * **A programming or deployment fault is not one**: `useSession` called outside its provider, or a
+ * session too large for a cookie, both throw a plain `Error` on purpose. Giving those codes would
+ * invite a product to `catch` them beside a refusal and route them to a sign-in page, which is the
+ * wrong answer to "you wired this up wrong".
  *
  * *What would reverse it:* a product needing to route on one of those programmatically rather than
  * read it in a stack trace. None has; both are faults you fix once, not conditions you handle.
  */
 export type AuthErrorCode =
   /** The claims carry no `sub`. Not a session at all — a configuration or IdP fault, never a user's. */
-  | "claims.no-subject"
+  | "claims/no-subject"
   /** There is no session. The person has not signed in, or it expired. */
-  | "session.absent"
+  | "session/absent"
+  /**
+   * The session could not be read: the session store failed, or the BFF's session endpoint answered
+   * something other than a session or a 401. `data.status` is that answer's status.
+   */
+  | "session/unavailable"
+  /** The BFF's session endpoint did not answer within `data.after` milliseconds. */
+  | "session/silent"
   /** Signed in, but holds no membership of the organization being addressed. */
-  | "organization.not-a-member"
+  | "organization/not-a-member"
   /**
    * The organization asked for is not an alias, so it was not put into a scope.
    *
-   * The one code here about the *request for* a credential rather than about a credential, and it
-   * earns that because the value reaches `begin` from a query parameter on every product with an
-   * organization switcher: a space in it is scope injection, and a product wants to answer "no
-   * such organization" rather than let an unreadable 400 arrive at someone who typed a link wrong.
+   * The value reaches `begin` from a query parameter on every product with an organization
+   * switcher: a space in it is scope injection, and a product wants to answer "no such
+   * organization" rather than let an unreadable 400 arrive at someone who typed a link wrong.
    */
-  | "organization.invalid"
+  | "organization/invalid"
   /** The callback's `state` is absent, different, or has no transaction to match against. */
-  | "callback.state-mismatch"
+  | "callback/state-mismatch"
   /** The ID token's `nonce` is not the one that was sent — a replay. */
-  | "callback.nonce-mismatch"
+  | "callback/nonce-mismatch"
   /** The token endpoint refused the code or the refresh token, or returned no ID token. */
-  | "token.exchange-failed";
+  | "token/exchange-failed"
+  /** The IdP could not be reached, or answered with something that is not OAuth — a 5xx, a proxy page. */
+  | "idp/unreachable"
+  /** The IdP did not answer within `data.after` milliseconds. */
+  | "idp/silent";
 
 export class AuthError extends Error {
+  override readonly name = "AuthError";
   constructor(
     readonly code: AuthErrorCode,
     message: string,
+    readonly data: { readonly after?: number; readonly status?: number } = {},
+    options?: ErrorOptions,
   ) {
-    super(message);
-    this.name = "AuthError";
+    super(message, options);
   }
 }

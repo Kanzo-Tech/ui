@@ -19,6 +19,7 @@ import {
 import { Assist, AssistProvider } from "./assist.js";
 import type { AssistEvent } from "./engine.js";
 import { elements, mockModel, promptOf } from "./testing/model.js";
+import { MockLanguageModelV4 } from "ai/test";
 
 const ghostText = () => document.querySelector("[data-slot=assist-ghost] .text-faint")?.textContent ?? "";
 const mark = () => screen.getByRole("button", { name: /AI assist|Accept suggestion|Suggest different values|Undo AI suggestion/ });
@@ -245,3 +246,36 @@ describe("Assist on a TagsInput — values to add", () => {
     expect(screen.queryByRole("button", { name: "Livestock" })).toBeNull();
   });
 });
+
+describe("Assist when the model fails", () => {
+  it("says so under the field and hands the provider's onFailure the thrown value", async () => {
+    const thrown = Object.assign(new Error("the gateway refused"), { code: "llm/refused" });
+    const model = new MockLanguageModelV4({
+      doStream: async () => {
+        throw thrown;
+      },
+    });
+    const onFailure = vi.fn();
+    function Failing() {
+      const [value, setValue] = useState("");
+      return (
+        <AssistProvider model={model} onFailure={onFailure}>
+          <Field>
+            <FieldLabel>Notice</FieldLabel>
+            <Assist onValueChange={setValue} value={value}>
+              <Textarea />
+            </Assist>
+          </Field>
+        </AssistProvider>
+      );
+    }
+    render(<Failing />);
+    const field = screen.getByRole("textbox", { name: "Notice" });
+    fireEvent.change(field, { target: { value: "Three hounds seen", selectionStart: 17 } });
+    await waitFor(() => expect(onFailure).toHaveBeenCalled(), { timeout: 2000 });
+    expect(onFailure.mock.calls[0]?.[0]).toBe(thrown);
+    expect(await screen.findByRole("alert")).toHaveProperty("textContent", "the gateway refused");
+    expect(ghostText()).toBe("");
+  });
+});
+

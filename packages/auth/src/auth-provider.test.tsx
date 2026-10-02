@@ -61,15 +61,57 @@ describe("AuthProvider holds the session and keeps it current", () => {
     await waitFor(() => expect(probe()).toBe("anonymous:-"));
   });
 
-  it("settles on anonymous when the read fails, rather than spinning forever", async () => {
-    // A session that cannot be read is a session you do not have. Holding "loading" is a spinner
-    // nobody can escape; anonymous sends the person to the IdP, which is recoverable.
+  it("settles on failed when the read fails, holding exactly what was thrown", async () => {
+    // Not "anonymous", which sends the person to sign in over an outage, and not "loading", which
+    // is a spinner nobody can escape.
+    const thrown = new Error("the IdP is down");
+    let seen: unknown;
+    function Failure() {
+      seen = useContext(AuthContext)?.error;
+      return null;
+    }
     render(
-      <AuthProvider auth={authOf({ getSession: async () => Promise.reject(new Error("offline")) })}>
+      <AuthProvider auth={authOf({ getSession: () => Promise.reject(thrown) })}>
         <Probe />
+        <Failure />
       </AuthProvider>,
     );
-    await waitFor(() => expect(probe()).toBe("anonymous:-"));
+
+    await waitFor(() => expect(probe()).toBe("failed:-"));
+    expect(seen).toBe(thrown);
+  });
+
+  it("clears the failure when a later read succeeds", async () => {
+    let announce = () => {};
+    let attempt = 0;
+    let seen: unknown = "unset";
+    function Failure() {
+      seen = useContext(AuthContext)?.error;
+      return null;
+    }
+    const auth = authOf({
+      getSession: async () => {
+        attempt += 1;
+        if (attempt === 1) throw new Error("offline");
+        return sessionOf("u-3");
+      },
+      subscribe: (onChange) => {
+        announce = onChange;
+        return () => {};
+      },
+    });
+
+    render(
+      <AuthProvider auth={auth}>
+        <Probe />
+        <Failure />
+      </AuthProvider>,
+    );
+    await waitFor(() => expect(probe()).toBe("failed:-"));
+
+    await act(async () => announce());
+    expect(probe()).toBe("authenticated:u-3");
+    expect(seen).toBeUndefined();
   });
 
   it("re-reads when the auth announces a change", async () => {

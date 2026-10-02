@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { GraphCanvas, GraphRoot, GraphToolbar } from "@kanzo-tech/graph";
 import { Show } from "@kanzo-tech/ui";
-import { ARCHIVE_KINDS, useArchive } from "./archive";
+import { ARCHIVE_KINDS, said, useArchive } from "./archive";
 
 /**
  * The toolbar is the commands, drawn: arm the marquee or the lasso and drag, and the selection
@@ -14,14 +14,14 @@ import { ARCHIVE_KINDS, useArchive } from "./archive";
  */
 export default function Example() {
   const corpus = useArchive();
-  const [failure, setFailure] = useState<string | null>(null);
+  const [failure, setFailure] = useState<unknown>(null);
   return (
     <div className="h-96 w-full">
       <GraphRoot categories={ARCHIVE_KINDS} corpus={corpus} fill="kind" onFailure={setFailure} r="degree" title="label">
         <GraphCanvas className="rounded-lg border">
           <GraphToolbar className="absolute end-2 top-2" />
           <Show when={failure !== null}>
-            <p className="absolute inset-0 grid place-items-center p-6 text-center text-muted-foreground text-sm">{failure}</p>
+            <p className="absolute inset-0 grid place-items-center p-6 text-center text-muted-foreground text-sm">{said(failure)}</p>
           </Show>
         </GraphCanvas>
       </GraphRoot>

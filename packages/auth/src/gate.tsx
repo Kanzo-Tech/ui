@@ -25,11 +25,11 @@ export function Gate({
 }) {
   const { session, status } = useSession();
 
-  // While the session is still being read, neither answer is known to be true, so neither is
-  // drawn. Rendering the fallback here is the flicker worth avoiding — "you cannot do this" shown
-  // to someone who can, for as long as the session endpoint takes — and rendering the children is
-  // worse, because it flashes a control and then retracts it.
-  if (status === "loading") return null;
+  // While the session is still being read, or could not be, neither answer is known to be true, so
+  // neither is drawn. Rendering the fallback here is the flicker worth avoiding — "you cannot do
+  // this" shown to someone who can, for as long as the session endpoint takes — and rendering the
+  // children is worse, because it flashes a control and then retracts it.
+  if (status === "loading" || status === "failed") return null;
 
   return <>{can(session, role, organization) ? children : fallback}</>;
 }

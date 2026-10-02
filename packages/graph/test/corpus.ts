@@ -17,6 +17,8 @@ export interface Read {
   readonly signal?: AbortSignal;
   released: boolean;
   release(): void;
+  /** Fail the read with `error`, as fossil's `scan.read` rejects. */
+  reject(error: unknown): void;
 }
 
 export interface FakeCorpus {
@@ -163,7 +165,7 @@ export function fakeCorpus(manifest: Manifest = MANIFEST): FakeCorpus {
   const reads: Read[] = [];
   const scans: ScanParams[] = [];
 
-  const held = <T>(read: Omit<Read, "release" | "released">, answer: () => T): Promise<T> =>
+  const held = <T>(read: Omit<Read, "release" | "released" | "reject">, answer: () => T): Promise<T> =>
     new Promise<T>((resolve, reject) => {
       const onAbort = () => reject(read.signal?.reason ?? new DOMException("aborted", "AbortError"));
       if (read.signal?.aborted) return onAbort();
@@ -174,6 +176,10 @@ export function fakeCorpus(manifest: Manifest = MANIFEST): FakeCorpus {
         release: () => {
           entry.released = true;
           resolve(answer());
+        },
+        reject: (error) => {
+          entry.released = true;
+          reject(error);
         },
       };
       reads.push(entry);

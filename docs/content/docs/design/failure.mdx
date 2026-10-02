@@ -1,0 +1,54 @@
+---
+title: How a failure leaves the library
+description: The thrown value whole, by one path; the codes kanzo-ui names itself; and the waits it bounds. The argument across fossil, kanzo-ui and keasy is fossil's page, not this one.
+---
+
+The rule spans three repositories, and its argument lives once, in fossil's
+`docs/content/docs/design/failure.mdx` (*Every wait ends, every failure is seen*). This page holds
+the two things only this library can: what its signatures promise a host, and the list of codes it
+names itself.
+
+## The thrown value, whole, by one path
+
+Every surface that hands a host a failure hands it the `unknown` that was thrown: `GraphRoot`'s
+`onFailure`, `MosaicProvider`'s `onFailure`, `AssistProvider`'s `onFailure`, `useBlocker`'s `onFailure`,
+`useSession()`'s `error` beside `status: "failed"`, `engine()`'s rejection. A `FossilError` arrives as
+a `FossilError`. The library never reduces a failure to its message, never depends on fossil's types
+to pass one, and never turns one into another state — an empty chart, `"anonymous"`, a spinner.
+
+**What would reverse it:** a second consumer that wants failures in a vocabulary of its own. Then the
+codes below become `data` on one kanzo-ui error type rather than a list a host must know.
+
+*Held by* `packages/ui/src/failures-reach-the-host.test.ts`, "bites on onFailure, onError or error
+typed string" and "bites on a class extending MosaicClient with no queryError".
+
+## The codes this library names
+
+Each is an `Error` with `code` and `data`, in the `area/kind` grammar fossil's and keasy's codes use,
+so one host registry keys all three. One class per package, named for it.
+
+| Code | Class | When | `data` |
+| --- | --- | --- | --- |
+| `engine/unavailable` | `EngineError` | DuckDB-WASM would not boot | `after` when the 60 s deadline fired |
+| `graph/no-webgl` | `GraphError` | no WebGL, a renderer that would not start, or no device within 10 s | `after` when the deadline fired |
+| `graph/context-lost` | `GraphError` | the browser took the WebGL context back | — |
+| `graph/nothing-to-draw` | `GraphError` | a corpus with no vertex type that has a position | — |
+| `graph/untranslatable-filter` | `GraphError` | a crossfilter clause the corpus cannot be asked | — |
+| `ai/silent` | `AiError` | a stream sent nothing for 30 s | `after` |
+| `session/*`, `idp/*`, `callback/*`, `token/*`, `organization/*`, `claims/*` | `AuthError` | see [the auth layer](/docs/design/auth) | `after`, `status` where named |
+
+**What would reverse it:** a code a host never branches on. Then it folds into its neighbour; the
+list is short because every row is a different thing to show.
+
+## The waits it bounds
+
+The figures are fossil's table, and move there with the measurement beside them. Two are this
+library's own: DuckDB's boot, 60 s, and cosmos.gl's device, 10 s — the second is not in fossil's
+table yet. Work inside the process — a query, a layout — has a signal and no deadline, and so does a
+`corpus` promise a host hands the graph: the network waits inside it are fossil's to bound.
+
+**What would reverse it:** a device that legitimately takes longer than 10 s to come up, measured.
+
+*Held by* `packages/mosaic/src/engine-boot.test.ts`, "rejects with data.after when the worker never
+answers within the 60 s deadline"; `packages/ai/src/engine.test.ts`, "ends a stream that sends
+nothing for 30 s as ai/silent, and not a millisecond before".

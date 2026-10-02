@@ -50,7 +50,7 @@ export function useGraph(props: UseGraphProps): GraphApi {
   const forward = useCallback(
     (options: UseGraphProps): UseGraphProps => ({
       ...options,
-      onFailure: (message) => latest.current.onFailure(message),
+      onFailure: (error) => latest.current.onFailure(error),
       onSelect: (selection) => latest.current.onSelect?.(selection),
       onFocus: (vertex) => latest.current.onFocus?.(vertex),
     }),
@@ -105,9 +105,14 @@ function build(store: GraphStore): GraphApi {
     store,
     renderer: () => renderer,
     attach(host, events) {
-      const mounted = createRenderer(host, store, events);
+      store.renderable();
+      let mounted: Renderer | null = null;
+      try {
+        mounted = createRenderer(host, store, events);
+      } catch (error) {
+        store.unrenderable(error);
+      }
       renderer = mounted;
-      store.setRenderable(mounted !== null);
       return () => {
         mounted?.destroy();
         if (renderer === mounted) renderer = null;

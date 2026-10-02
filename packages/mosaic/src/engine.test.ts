@@ -144,7 +144,7 @@ describe("engine", () => {
   });
 
   it("answers in columns, as DuckDB-WASM produced them", async () => {
-    const answer = await (await engine()).query("SELECT 1 AS one");
+    const answer = await (await engine()).query("SELECT 1 AS one", { signal: new AbortController().signal });
     expect(answer.numRows).toBe(1);
     expect(answer.schema.fields.map((f) => f.name)).toEqual(["one"]);
     expect(answer.getChild("one")?.toArray()).toEqual(Int32Array.of(1));
@@ -161,12 +161,12 @@ describe("engine", () => {
     expect(interrupts).toHaveBeenCalledTimes(1);
     running.release();
     // The connection answers the next statement as if the aborted one had never been sent.
-    expect((await e.query("SELECT 1 AS one")).numRows).toBe(1);
+    expect((await e.query("SELECT 1 AS one", { signal: new AbortController().signal })).numRows).toBe(1);
   });
 
   it("never sends a statement whose signal was aborted while it waited", async () => {
     const e = await engine();
-    const first = e.query("SELECT slow");
+    const first = e.query("SELECT slow", { signal: new AbortController().signal });
     await vi.waitFor(() => expect(sent.at(-1)).toBe("SELECT slow"));
     const controller = new AbortController();
     const queued = e.query("SELECT queued", { signal: controller.signal });
@@ -174,7 +174,7 @@ describe("engine", () => {
     await expect(queued).rejects.toBe(controller.signal.reason);
     running.release();
     await first;
-    await e.query("SELECT after");
+    await e.query("SELECT after", { signal: new AbortController().signal });
     expect(sent).not.toContain("SELECT queued");
   });
 

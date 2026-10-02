@@ -31,7 +31,8 @@ interface Entry {
   kind: string | null;
 }
 
-type Titles = { geometry: Geometry; title: string | undefined; titles: string[] } | null;
+/** The titles read for one geometry and title column, or `false` when the read failed. */
+type Titles = { geometry: Geometry; title: string | undefined; titles: string[] | false } | null;
 
 /** Every drawn vertex, biggest on the `r` ramp first â€” the vertices a reader most likely means. */
 function entriesOf(
@@ -65,6 +66,7 @@ function entriesOf(
  * selects it with its neighbours, and `GraphInspector` reads it.
  *
  * A vertex the page's filter hides is not offered, because there is nothing on the canvas to go to.
+ * A read that fails is handed to `onFailure` whole and the input says so, rather than staying disabled.
  */
 export function GraphSearch({ className, limit = 50, placeholder = "Find a nodeâ€¦", size = "sm" }: GraphSearchProps) {
   const api = useGraphContext();
@@ -86,13 +88,15 @@ export function GraphSearch({ className, limit = 50, placeholder = "Find a nodeâ
       (titles) => !aborter.signal.aborted && setRead({ geometry, title, titles }),
       (error: unknown) => {
         if (aborter.signal.aborted) return;
-        api.getState().options.onFailure(error instanceof Error ? error.message : String(error));
+        setRead({ geometry, title, titles: false });
+        api.getState().options.onFailure(error);
       },
     );
     return () => aborter.abort();
   }, [api, corpus, geometry, title]);
 
-  const titles = read && read.geometry === geometry && read.title === title ? read.titles : null;
+  const answered = read && read.geometry === geometry && read.title === title ? read.titles : null;
+  const titles = answered || null;
   const binding = bindingOf(options);
   const bound = binding.byTable || binding.category !== undefined;
 
@@ -120,7 +124,12 @@ export function GraphSearch({ className, limit = 50, placeholder = "Find a nodeâ
         if (picked !== undefined) api.reveal(Number(picked));
       }}
     >
-      <ComboboxInput className={className} placeholder={placeholder} size={size}>
+      <ComboboxInput
+        aria-invalid={answered === false || undefined}
+        className={className}
+        placeholder={answered === false ? "The names could not be read." : placeholder}
+        size={size}
+      >
         <InputGroupAddon align="inline-start">
           <SearchIcon />
         </InputGroupAddon>

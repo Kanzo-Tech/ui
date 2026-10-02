@@ -39,7 +39,8 @@ const text = (value: unknown): string => {
   return String(value);
 };
 
-type Answer = { vertex: VertexId; detail: VertexDetail | null } | null;
+/** `null` is no such vertex in the corpus; `false` is a read that did not answer. */
+type Answer = { vertex: VertexId; detail: VertexDetail | null | false } | null;
 
 /**
  * **The focused vertex, fetched and laid out by the corpus's own tables.** The loaded graph carries
@@ -65,14 +66,15 @@ export function GraphInspector({ children, className, slot, ...rest }: GraphInsp
       (detail) => !aborter.signal.aborted && setAnswer({ vertex: focus, detail }),
       (error: unknown) => {
         if (aborter.signal.aborted) return;
-        setAnswer({ vertex: focus, detail: null });
-        api.getState().options.onFailure(error instanceof Error ? error.message : String(error));
+        setAnswer({ vertex: focus, detail: false });
+        api.getState().options.onFailure(error);
       },
     );
     return () => aborter.abort();
   }, [api, corpus, focus, geometry]);
 
-  const current = answer !== null && answer.vertex === focus ? answer.detail : undefined;
+  const answered = answer !== null && answer.vertex === focus ? answer.detail : undefined;
+  const current = answered || null;
   const field = (name: string | undefined) => current?.fields.find((f) => f.name === name)?.value;
   const binding = bindingOf(options);
   const category = binding.byTable ? current?.table : field(binding.category);
@@ -86,11 +88,13 @@ export function GraphInspector({ children, className, slot, ...rest }: GraphInsp
       <Show when={focus === null}>
         <p className="text-muted-foreground text-xs">Click a vertex on the canvas to inspect it.</p>
       </Show>
-      <Show when={focus !== null && current === undefined}>
+      <Show when={focus !== null && answered === undefined}>
         <Skeleton className="h-24 w-full" />
       </Show>
-      <Show when={focus !== null && current === null}>
-        <p className="text-muted-foreground text-xs">This vertex could not be read.</p>
+      <Show when={focus !== null && answered !== undefined && !current}>
+        <p className="text-muted-foreground text-xs">
+          {answered === null ? "This vertex is not in the corpus." : "This vertex could not be read."}
+        </p>
       </Show>
       {current && (
         <>

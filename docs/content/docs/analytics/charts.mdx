@@ -135,6 +135,11 @@ export default function Analytics({ children }: { children: React.ReactNode }) {
 }
 ```
 
+`engine()` always settles. A worker that will not load, or a boot slower than 60 s, rejects with an
+`EngineError` whose `code` is `"engine/unavailable"` (with `data.after` when the deadline fired), and
+the failure is not kept: the next `engine()` boots again. `engine({ signal })` ends your own wait
+without stopping the boot other islands share.
+
 The engine also owns what DuckDB reads by name. `lend({ name: url })` registers a URL under a
 name — the same URL again is a no-op, a different one replaces the lease, so a re-signed URL never
 meets DuckDB's `File already registered` — `hold(name, bytes)` registers a copy of a buffer, and
@@ -575,6 +580,12 @@ expected.
 | --- | --- | --- |
 | `coordinator` | `Coordinator` | — |
 | `crossfilter` | `Selection` | a fresh `Selection.crossfilter({ include: selected })` |
+| `onFailure` | `(error: unknown) => void` | — |
+
+`onFailure` receives what a failed query threw, whole — DuckDB's error, or `engine()`'s `EngineError`
+with its `code` — from every chart, `ChartStat` and input beneath the provider. The part also says it
+failed in its own frame: a failed chart reads *This chart could not be drawn.*, never a blank plot.
+`useChartQuery` and `useMosaicInput` return the same value as `error`.
 
 `useMosaic()` returns `{ coordinator, crossfilter, selected, reset, retract }` — `retract(clauses)`
 clears those clauses on the selection each was published into, which is what a chip's remove button

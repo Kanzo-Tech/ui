@@ -328,3 +328,35 @@ tells rather than gates.
 
 *Held by* `packages/auth/package.json`, `//peers` and `size-limit`;
 `packages/ui/src/guard-corpus.ts`, `IDIOM`.
+
+## A failure is not a signed-out person
+
+The provider used to settle on `anonymous` when `getSession` rejected, on the argument that signing
+in is recoverable and a spinner is not. Both halves were true and the conclusion was not: an IdP or a
+session store that is down sends the person to sign in, the sign-in fails the same way, and nobody
+on either side learns what broke. fossil's `/docs/design/failure` — *every wait ends, every failure
+is seen* — puts it as one rule across fossil, kanzo-ui and keasy: a failure reaches the host whole,
+by its code, and within a bound.
+
+So a session that cannot be read is a fourth status, `"failed"`, carrying the thrown value
+untouched; *no session* is said only by whoever can know it — a 401 from `/session`, the IdP's own
+`login_required` or `invalid_grant`, a callback whose `state` this tab no longer holds. Every wait on
+another party ends in 30 s and is coded by who did not answer, `idp/silent` or `session/silent`;
+where `oidc-client-ts` or `openid-client` makes the wait, the figure is handed to its own timeout
+rather than wrapped around it. A failed sign-in, callback or sign-out is a redirect to the product's
+`problemPage` with the code in the URL, because those routes are reached through the address bar and
+a JSON body there is what a person reads.
+
+**What would reverse it:** a product that wants an outage to look like a sign-out — a public site
+where an unreadable session should degrade to the anonymous view, and nobody is ever sent to sign
+in. That product branches `"failed"` into its anonymous view itself; the library still does not
+make the choice for it. The 30 s figure moves with the table on the failure page, not here.
+
+*Held by* `packages/auth/src/auth-provider.test.tsx`, "settles on failed when the read fails,
+holding exactly what was thrown"; `packages/auth/src/bff-auth.test.ts`, "reads a 5xx from the
+session endpoint as a failure, not as nobody being signed in" and "gives up on a session endpoint
+that never answers, after 30 s and not before"; `packages/auth/src/browser.test.ts`, "reads a
+callback whose state this tab does not hold as no session, in the library's own words";
+`packages/auth/src/next-routes.test.ts`, "sends a callback with no transaction to the problem page,
+with its code"; `packages/auth/src/next-middleware.test.ts`, "lets through the problem page
+authRoutes sends a failed sign-in to, or the failure loops"; `packages/ui/src/failures-reach-the-host.test.ts`.

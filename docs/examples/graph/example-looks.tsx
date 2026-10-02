@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { GraphCanvas, GraphLooks, GraphRoot, useGraphPrefs } from "@kanzo-tech/graph";
 import { Show } from "@kanzo-tech/ui";
-import { ARCHIVE_KINDS, useArchive } from "./archive";
+import { ARCHIVE_KINDS, said, useArchive } from "./archive";
 
 /**
  * Pick a look and the canvas follows: `GraphLooks` writes the section's axes, `useGraphPrefs` reads
@@ -12,7 +12,7 @@ import { ARCHIVE_KINDS, useArchive } from "./archive";
  */
 export default function Example() {
   const corpus = useArchive();
-  const [failure, setFailure] = useState<string | null>(null);
+  const [failure, setFailure] = useState<unknown>(null);
   const { look, sim, preset } = useGraphPrefs();
   const channels = preset === "ink" ? { fill: "var(--foreground)", symbol: "kind" } : { fill: "kind" };
   return (
@@ -20,7 +20,7 @@ export default function Example() {
       <GraphRoot categories={ARCHIVE_KINDS} corpus={corpus} look={look} onFailure={setFailure} r="degree" sim={sim} title="label" {...channels}>
         <GraphCanvas className="flex-1 rounded-lg border">
           <Show when={failure !== null}>
-            <p className="absolute inset-0 grid place-items-center p-6 text-center text-muted-foreground text-sm">{failure}</p>
+            <p className="absolute inset-0 grid place-items-center p-6 text-center text-muted-foreground text-sm">{said(failure)}</p>
           </Show>
         </GraphCanvas>
       </GraphRoot>

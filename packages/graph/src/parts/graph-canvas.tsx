@@ -57,7 +57,7 @@ function useTitles(vertices: readonly VertexId[]): ReadonlyMap<VertexId, string>
     const aborter = new AbortController();
     readTitles(corpus, geometry, key.split(",").map(Number), title, aborter.signal).then(
       (found) => !aborter.signal.aborted && setTitles(found),
-      (error: unknown) => !aborter.signal.aborted && api.getState().options.onFailure(error instanceof Error ? error.message : String(error)),
+      (error: unknown) => !aborter.signal.aborted && api.getState().options.onFailure(error),
     );
     return () => aborter.abort();
   }, [api, corpus, geometry, key, title]);

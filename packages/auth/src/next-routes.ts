@@ -1,7 +1,7 @@
 import { isSameSite } from "./same-site";
 import type { AuthSessionConfig } from "./next-session";
 import { relyingParty, type RelyingParty } from "./server";
-import { AuthError } from "./types";
+import { AuthError, type AuthErrorCode } from "./types";
 
 /**
  * The five routes a Backend For Frontend needs, as one App Router catch-all.
@@ -31,6 +31,13 @@ import { AuthError } from "./types";
  * `next-routes.test.ts` drives a real `bffAuth` against these handlers rather than trusting the
  * two descriptions to agree.
  *
+ * ## A failure on a navigation is a page, not a body
+ *
+ * `signin`, `callback` and `signout` are reached by the browser's address bar, so an `AuthError`
+ * there answers with a redirect to the product's {@link AuthRoutesConfig.problemPage}, the code in
+ * `?code=`, where the product renders it in its own words. `session` and `refresh` are reached by
+ * `fetch`, and answer with a status and `{ error, message }`.
+ *
  * ## Which routes a cross-site request may reach
  *
  * `callback` and `signin` must be reachable from anywhere — one *is* a navigation from the
@@ -55,7 +62,16 @@ export interface AuthRoutesConfig extends AuthSessionConfig {
    * URL out loud here rather than discover this.
    */
   readonly redirectUri?: string;
+  /**
+   * The product's page that renders a failed sign-in, sign-in callback or sign-out, reached as
+   * `?code=<AuthErrorCode>`. Default `/auth/problem`. `authMiddleware` keeps the same default
+   * public: whoever lands here has, by definition, no session.
+   */
+  readonly problemPage?: string;
 }
+
+/** Where a failed navigation is sent; `authMiddleware` holds the same default. */
+const PROBLEM_PAGE = "/auth/problem";
 
 export interface AuthRouteHandlers {
   GET(request: Request): Promise<Response>;
@@ -84,7 +100,7 @@ function sameOrigin(candidate: string | null, origin: string): string | undefine
     const target = new URL(candidate, origin);
     return target.origin === origin ? target.href : undefined;
   } catch {
-    return undefined;
+    return undefined; // not a URL at all: dropped like a foreign one, and the sign-in goes to `/`
   }
 }
 
@@ -102,6 +118,14 @@ function redirect(url: string, cookies: readonly string[]): Response {
   return new Response(null, { status: 302, headers });
 }
 
+/** The status for a party that did not answer, or `undefined` for a refusal. */
+export function outage(code: AuthErrorCode): number | undefined {
+  if (code === "idp/silent" || code === "session/silent") return 504;
+  if (code === "idp/unreachable") return 502;
+  if (code === "session/unavailable") return 503;
+  return undefined;
+}
+
 /**
  * An `AuthError` as a status and a code a product can route on.
  *
@@ -111,7 +135,7 @@ function redirect(url: string, cookies: readonly string[]): Response {
 function failure(error: unknown): Response {
   if (!(error instanceof AuthError)) throw error;
   return new Response(JSON.stringify({ error: error.code, message: error.message }), {
-    status: error.code === "session.absent" ? 401 : 400,
+    status: outage(error.code) ?? (error.code === "session/absent" ? 401 : 400),
     headers: PRIVATE,
   });
 }
@@ -127,6 +151,14 @@ export function authRoutes(config: AuthRoutesConfig): AuthRouteHandlers {
       current = { redirectUri, auth: relyingParty({ ...config, redirectUri }) };
     }
     return current.auth;
+  };
+
+  /** An `AuthError` on a navigation, as the product's page; anything else rethrown, as in `failure`. */
+  const problem = (error: unknown, origin: string): Response => {
+    if (!(error instanceof AuthError)) throw error;
+    const page = new URL(config.problemPage ?? PROBLEM_PAGE, origin);
+    page.searchParams.set("code", error.code);
+    return redirect(page.href, []);
   };
 
   const handle = async (request: Request): Promise<Response> => {
@@ -149,9 +181,9 @@ export function authRoutes(config: AuthRoutesConfig): AuthRouteHandlers {
           return redirect(started.url, started.cookies);
         } catch (error) {
           // `organization` arrives from a query parameter and `begin` refuses one that is not an
-          // alias, because a space in it injects scopes. Without this `catch` that refusal is a
-          // 500 on a link somebody typed wrong.
-          return failure(error);
+          // alias, because a space in it injects scopes; and the IdP may be down. Without this
+          // `catch` either is a 500 on a link.
+          return problem(error, url.origin);
         }
       }
 
@@ -160,18 +192,27 @@ export function authRoutes(config: AuthRoutesConfig): AuthRouteHandlers {
           const done = await auth.complete({ url, cookie });
           return redirect(done.returnTo, done.cookies);
         } catch (error) {
-          return failure(error);
+          return problem(error, url.origin);
         }
       }
 
       case "signout": {
         const returnTo = sameOrigin(url.searchParams.get("returnTo"), url.origin);
-        const ended = await auth.end(cookie, { returnTo });
-        return redirect(ended.url, ended.cookies);
+        try {
+          const ended = await auth.end(cookie, { returnTo });
+          return redirect(ended.url, ended.cookies);
+        } catch (error) {
+          return problem(error, url.origin);
+        }
       }
 
       case "session": {
-        const session = await auth.read(cookie);
+        let session: Awaited<ReturnType<RelyingParty["read"]>>;
+        try {
+          session = await auth.read(cookie);
+        } catch (error) {
+          return failure(error);
+        }
         // 401 and no body at all. `bffAuth` reads this status as "nobody is signed in" and stops;
         // a body would be parsed by something eventually, and an error shape arriving where a
         // `Session` is expected is the failure `readSession` exists to refuse.
@@ -197,8 +238,9 @@ export function authRoutes(config: AuthRoutesConfig): AuthRouteHandlers {
           return new Response(JSON.stringify(renewed.session), { status: 200, headers });
         } catch (error) {
           // A refused refresh is the end of the session, and `failure` already answers 401 for
-          // `session.absent`. `token.exchange-failed` is a 400 and means the same thing to the
-          // browser: there is nothing left to renew, go and sign in.
+          // `session/absent`. `token/exchange-failed` is a 400 and means the same thing to the
+          // browser: there is nothing left to renew, go and sign in. An outage is a 5xx, which
+          // `bffAuth` does not read as an ended session.
           return failure(error);
         }
       }

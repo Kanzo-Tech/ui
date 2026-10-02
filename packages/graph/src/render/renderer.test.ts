@@ -1,10 +1,13 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Selection, clauseInterval } from "@kanzo-tech/mosaic";
 import { fakeCorpus } from "../../test/corpus";
 import { graphClient } from "../core/filter";
+import { GraphError } from "../core/error";
 import { createGraph } from "../core/store";
+import { internalsOf, useGraph } from "../react/use-graph";
 
 /**
  * The renderer's frame, against a cosmos.gl that records what it is told. What this cannot prove is
@@ -14,15 +17,19 @@ import { createGraph } from "../core/store";
 const calls: string[] = [];
 const constructed: Record<string, unknown>[] = [];
 const uploaded: { positions: Float32Array | null; config: Record<string, unknown> } = { positions: null, config: {} };
+/** What the next graph's `ready` is, and whether its first `render()` throws. */
+const device: { ready: () => Promise<void>; broken: unknown } = { ready: () => Promise.resolve(), broken: undefined };
 
 vi.mock("@cosmos.gl/graph", () => ({
   Graph: class {
     config: Record<string, (() => void) | undefined>;
-    constructor(_host: HTMLElement, config: Record<string, unknown>) {
+    constructor(host: HTMLElement, config: Record<string, unknown>) {
       constructed.push(config);
       this.config = config as never;
+      host.append(document.createElement("canvas"));
+      this.ready = device.ready();
     }
-    ready = Promise.resolve();
+    ready: Promise<void>;
     isReady = true;
     progress = 1;
     isSimulationRunning = false;
@@ -33,7 +40,10 @@ vi.mock("@cosmos.gl/graph", () => ({
     getZoomLevel = () => 1;
     getNeighboringPointIndices = () => [];
     destroy = () => calls.push("destroy");
-    render = () => calls.push("render");
+    render = () => {
+      if (device.broken !== undefined) throw device.broken;
+      calls.push("render");
+    };
     setPointPositions = (positions: Float32Array) => {
       uploaded.positions = positions;
       calls.push("positions");
@@ -73,6 +83,8 @@ beforeEach(() => {
   constructed.length = 0;
   uploaded.positions = null;
   uploaded.config = {};
+  device.ready = () => Promise.resolve();
+  device.broken = undefined;
   vi.stubGlobal("requestAnimationFrame", (run: () => void) => setTimeout(run, 0));
   vi.stubGlobal("cancelAnimationFrame", (id: number) => clearTimeout(id));
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({} as RenderingContext);
@@ -350,9 +362,77 @@ describe("the renderer's lifetime", () => {
     expect(SOURCE.indexOf("graph.destroy()")).toBeLessThan(SOURCE.indexOf("releaseContext(canvas)"));
   });
 
-  it("hears a lost context and asks for a restore", () => {
-    expect(SOURCE).toMatch(/graph\.ready\.then\(\(\) => \{\n\s+if \(!destroyed\) host\.querySelector\("canvas"\)\?\.addEventListener/);
-    expect(SOURCE).toContain("event.preventDefault()");
-    expect(SOURCE).toContain('removeEventListener("webglcontextlost"');
+});
+
+describe("the renderer's failures", () => {
+  function mounted() {
+    const onFailure = vi.fn();
+    const store = createGraph({ corpus: null, onFailure });
+    const host = document.createElement("div");
+    const renderer = createRenderer(host, store);
+    return { host, onFailure, renderer, store };
+  }
+
+  it("fails with graph/context-lost, and asks for a restore, when the context is lost", async () => {
+    const { host, onFailure, store } = mounted();
+    await Promise.resolve();
+    const lost = new Event("webglcontextlost", { cancelable: true });
+    host.querySelector("canvas")?.dispatchEvent(lost);
+    expect(lost.defaultPrevented).toBe(true);
+    expect(onFailure.mock.calls[0]?.[0]).toBeInstanceOf(GraphError);
+    expect(onFailure.mock.calls[0]?.[0]).toMatchObject({ code: "graph/context-lost" });
+    expect(store.getSnapshot().status).toBe("failed");
+  });
+
+  it("fails with graph/no-webgl and when the deadline fired, if WebGL exists but no device ever comes up", async () => {
+    vi.useFakeTimers();
+    try {
+      device.ready = () => new Promise(() => {});
+      const { onFailure, store } = mounted();
+      await vi.advanceTimersByTimeAsync(9_999);
+      expect(onFailure).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(onFailure).toHaveBeenCalledOnce();
+      expect(onFailure.mock.calls[0]?.[0]).toMatchObject({ name: "GraphError", code: "graph/no-webgl", data: { after: 10_000 } });
+      expect(store.getSnapshot().status).toBe("failed");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("fails with graph/no-webgl, the rejection as its cause, when the device refuses", async () => {
+    const refused = new Error("adapter lost");
+    device.ready = () => Promise.reject(refused);
+    const { onFailure, store } = mounted();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(onFailure.mock.calls[0]?.[0]).toMatchObject({ code: "graph/no-webgl", cause: refused });
+    expect(store.getSnapshot().status).toBe("failed");
+  });
+
+  it("reports nothing once destroyed, though the deadline would have fired", async () => {
+    vi.useFakeTimers();
+    try {
+      device.ready = () => new Promise(() => {});
+      vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({ isContextLost: () => true } as unknown as RenderingContext);
+      const { onFailure, renderer } = mounted();
+      renderer?.destroy();
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(onFailure).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("an attach that throws reaches onFailure as the thrown value, and marks the graph failed", () => {
+    const broken = new Error("render threw");
+    device.broken = broken;
+    const onFailure = vi.fn();
+    const { result } = renderHook(() => useGraph({ corpus: null, onFailure }));
+    const { attach } = internalsOf(result.current);
+    expect(() => attach(document.createElement("div"))).not.toThrow();
+    expect(onFailure).toHaveBeenCalledOnce();
+    expect(onFailure.mock.calls[0]?.[0]).toBe(broken);
+    expect(result.current.getState().status).toBe("failed");
   });
 });

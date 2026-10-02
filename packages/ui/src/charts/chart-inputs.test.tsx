@@ -1,6 +1,6 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { clausePoint, Selection, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
 import { asTableRef } from "@uwdata/mosaic-sql";
 import { ChartFilter, ChartSearch, ChartSlider } from "./chart-inputs.js";
@@ -49,10 +49,13 @@ function stubCoordinator(answer: (sql: string) => Row[]) {
       if (query == null) return Promise.resolve();
       const sql = String(query);
       queries.push(sql);
-      return Promise.resolve().then(() => {
-        client.queryResult(answer(sql));
-        client.update();
-      });
+      // As `Coordinator.updateClient` does: a rejected query goes to the client's `queryError`.
+      return Promise.resolve()
+        .then(() => answer(sql))
+        .then(
+          (rows) => client.queryResult(rows).update(),
+          (error: Error) => client.queryError(error),
+        );
     },
     clear() {},
   };
@@ -102,6 +105,26 @@ describe("ChartFilter", () => {
     expect(crossfilter.clauses[0]?.value).toEqual([["alpha"], ["gamma"]]);
     // The trigger badges how many are ticked, exactly as the table's facet filter does.
     expect(screen.getByRole("button", { name: /Host/ }).textContent).toBe("Host2");
+  });
+
+  it("says its values could not be read instead of loading forever, and hands the host the thrown value", async () => {
+    const failure = new Error("Binder Error: column host not found");
+    const onFailure = vi.fn();
+    const { coordinator } = stubCoordinator(() => {
+      throw failure;
+    });
+    const user = userEvent.setup();
+
+    render(
+      <MosaicProvider coordinator={coordinator} crossfilter={Selection.crossfilter()} onFailure={onFailure}>
+        <ChartFilter column="host" label="Host" table="telemetry" />
+      </MosaicProvider>,
+    );
+
+    await waitFor(() => expect(onFailure).toHaveBeenCalledTimes(1));
+    expect(onFailure.mock.calls[0]![0]).toBe(failure);
+    await user.click(screen.getByRole("button", { name: /Host/ }));
+    expect(await screen.findByText("The values could not be read.")).toBeTruthy();
   });
 
   it("groups a relation in another catalog, qualified as the SQL names it", async () => {

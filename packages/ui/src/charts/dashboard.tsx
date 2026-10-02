@@ -67,10 +67,10 @@ export function Dashboard(props: DashboardProps) {
 
   return (
     <ark.div className={cn("flex flex-col gap-4", className)} {...rest} data-slot={slot ?? "dashboard"}>
-      {error ? (
+      {error !== null ? (
         <Alert variant="destructive">
           <AlertTitle>The relation could not be summarized</AlertTitle>
-          <AlertDescription>{error.message}</AlertDescription>
+          <AlertDescription>{error instanceof Error ? error.message : String(error)}</AlertDescription>
         </Alert>
       ) : readable === null ? (
         <DashboardSkeleton />

@@ -126,12 +126,13 @@ export interface FieldStatsState {
   fields: FieldStat[] | null;
   /** Every column of the relation, or `null` until the summary lands. */
   columns: string[] | null;
-  error: Error | null;
+  /** The thrown value, kept whole — and handed to the provider's `onFailure` as well. */
+  error: unknown;
 }
 
 /** `queryFieldStats` on the provider's coordinator, re-asked when the relation changes. */
 export function useFieldStats(table: TableExpr, options?: FieldStatsOptions): FieldStatsState {
-  const { coordinator } = useMosaic();
+  const { coordinator, onFailure } = useMosaic();
   const [state, setState] = useState<FieldStatsState>({ fields: null, columns: null, error: null });
   const key = chartTableKey(table);
   const exclude = (options?.exclude ?? []).join("\u0000");
@@ -141,16 +142,18 @@ export function useFieldStats(table: TableExpr, options?: FieldStatsOptions): Fi
     setState({ fields: null, columns: null, error: null });
     queryFieldStats(coordinator, table, { exclude: exclude ? exclude.split("\u0000") : [] }).then(
       (stats) => live && setState({ ...stats, error: null }),
-      (error: unknown) =>
-        live &&
-        setState({ fields: null, columns: null, error: error instanceof Error ? error : new Error(String(error)) }),
+      (error: unknown) => {
+        if (!live) return;
+        setState({ fields: null, columns: null, error });
+        onFailure(error);
+      },
     );
     return () => {
       live = false;
     };
     // `key` and `exclude` stand in for the identities of `table` and `options`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coordinator, key, exclude]);
+  }, [coordinator, key, exclude, onFailure]);
 
   return state;
 }

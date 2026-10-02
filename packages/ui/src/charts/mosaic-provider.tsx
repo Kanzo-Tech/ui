@@ -54,6 +54,8 @@ export interface MosaicContextValue {
    * filter chip's remove button wants.
    */
   retract: (clauses: readonly SelectionClause[]) => void;
+  /** Reports a failed query to the provider's `onFailure`. Every chart part on this subpath calls it. */
+  onFailure: (error: unknown) => void;
 }
 
 const MosaicContext = createContext<MosaicContextValue | null>(null);
@@ -70,6 +72,12 @@ export interface MosaicProviderProps {
    * everything below still works, because the provider relays into it rather than constructing it.
    */
   crossfilter?: Selection;
+  /**
+   * Called with the thrown value whenever a chart, a stat or an input under this provider fails to
+   * read — the one path a failed query takes to the host. The part also shows the failure in its
+   * own frame, so a failed chart is never a blank one.
+   */
+  onFailure?: (error: unknown) => void;
   children: ReactNode;
 }
 
@@ -99,10 +107,13 @@ function relay(from: Selection, to: Selection): () => void {
   };
 }
 
-export function MosaicProvider({ coordinator, crossfilter, children }: MosaicProviderProps) {
+export function MosaicProvider({ coordinator, crossfilter, onFailure, children }: MosaicProviderProps) {
   // Survives the memo below, so a coordinator swap does not lose the charts already mounted.
   const registry = useRef<Set<Selection> | null>(null);
   registry.current ??= new Set<Selection>();
+  // Read through a ref, so a host's inline `onFailure` is never a change of context.
+  const latest = useRef(onFailure);
+  latest.current = onFailure;
 
   const value = useMemo<MosaicContextValue>(() => {
     // Register the caller's coordinator as vgplot's active one. `coordinator(instance)` is
@@ -147,6 +158,7 @@ export function MosaicProvider({ coordinator, crossfilter, children }: MosaicPro
         selected.reset();
         shared.reset();
       },
+      onFailure: (error) => latest.current?.(error),
     };
   }, [coordinator, crossfilter]);
 

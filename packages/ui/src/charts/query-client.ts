@@ -18,15 +18,18 @@ export type ChartQueryRow = Record<string, unknown>;
 export class ChartQueryClient extends MosaicClient {
   #build: (filter: FilterExpr) => Query | null;
   #emit: (rows: readonly ChartQueryRow[]) => void;
+  #fail: (error: unknown) => void;
 
   constructor(
     filterBy: Selection | undefined,
     build: (filter: FilterExpr) => Query | null,
     emit: (rows: readonly ChartQueryRow[]) => void,
+    fail: (error: unknown) => void,
   ) {
     super(filterBy);
     this.#build = build;
     this.#emit = emit;
+    this.#fail = fail;
   }
 
   override query(filter?: FilterExpr | null): Query | null {
@@ -35,6 +38,11 @@ export class ChartQueryClient extends MosaicClient {
 
   override queryResult(data: unknown): this {
     this.#emit(Array.from(data as Iterable<ChartQueryRow>));
+    return this;
+  }
+
+  override queryError(error: Error): this {
+    this.#fail(error);
     return this;
   }
 }

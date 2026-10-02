@@ -23,13 +23,13 @@ import { engine } from "@kanzo-tech/mosaic";
   a second database the last-mounted chart wins. `lend({ name: url })` registers a URL under a name:
   the same URL is a no-op, a different one drops the old lease and registers the new, which is what
   DuckDB-WASM's `File already registered` was refusing. `hold(name, bytes)` registers a copy of a
-  buffer; `drop(names)` forgets. `query(sql, { signal })` answers in columns — the Arrow table
+  buffer; `drop(names)` forgets. `query(sql, { signal })` — the signal required — answers in columns — the Arrow table
   DuckDB-WASM produced, never rows as objects — on a connection of its own, one statement at a time;
   an abort interrupts the running statement (`send`, then `cancelSent()`) and rejects with
   `signal.reason`. It is fossil's `Engine` structurally, without depending on fossil.
 
   It boots with DuckDB's `httpfs` loaded, so `s3://` is readable once a secret says how:
-  `query("CREATE OR REPLACE SECRET job (TYPE s3, …, SCOPE 's3://bucket/prefix/')")`, then name the
+  `query("CREATE OR REPLACE SECRET job (TYPE s3, …, SCOPE 's3://bucket/prefix/')", { signal })`, then name the
   objects by their URLs. A lent name has no scheme: `https://…` and `s3://…` in SQL are `httpfs`'s,
   and it answers before the registry is asked.
 

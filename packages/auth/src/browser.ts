@@ -1,4 +1,6 @@
 import {
+  ErrorResponse,
+  ErrorTimeout,
   InMemoryWebStorage,
   UserManager,
   WebStorageStateStore,
@@ -6,8 +8,9 @@ import {
 } from "oidc-client-ts";
 import { authFetch, type TokenSource } from "./auth-fetch";
 import { claims } from "./claims";
+import { DEADLINE } from "./deadline";
 import { singleFlight } from "./single-flight";
-import type { Auth, Session, SignInOptions } from "./types";
+import { AuthError, type Auth, type Session, type SignInOptions } from "./types";
 
 /**
  * `./browser` — RFC 10017's *browser-based OAuth 2.0 client*: a public client with PKCE, for the
@@ -95,6 +98,36 @@ export interface BrowserAuthConfig {
   readonly createManager?: (settings: UserManagerSettings) => OidcUserManager;
 }
 
+/**
+ * The answers to `prompt=none` and to a refresh-token grant that mean "there is no session here":
+ * the IdP holds none, or the refresh token is gone or rotated out. Every other failure is the IdP
+ * refusing the client, not answering, or not being reached, and is thrown.
+ */
+const NO_SESSION = new Set([
+  "login_required",
+  "interaction_required",
+  "consent_required",
+  "account_selection_required",
+  "invalid_grant",
+]);
+
+/**
+ * `oidc-client-ts`'s own words for a callback whose transaction this tab does not hold — a reloaded
+ * callback URL, or a `state` that expired. Pinned against the real library in `browser.test.ts`.
+ */
+const STALE_STATE = "No matching state found in storage";
+
+/** A failure from the IdP, coded by what happened: no answer, a refusal, or no reaching it. */
+function failure(error: unknown, doing: string): AuthError {
+  if (error instanceof ErrorTimeout) {
+    return new AuthError("idp/silent", `${doing}: the IdP did not answer`, { after: DEADLINE }, { cause: error });
+  }
+  if (error instanceof ErrorResponse) {
+    return new AuthError("token/exchange-failed", `${doing}: the IdP refused (${error.error})`, {}, { cause: error });
+  }
+  return new AuthError("idp/unreachable", `${doing}: the IdP could not be reached`, {}, { cause: error });
+}
+
 /** `code` or `error`, together with `state`. Nothing else in a URL is an authorization response. */
 function isAuthorizationResponse(search: string): boolean {
   const params = new URLSearchParams(search);
@@ -121,6 +154,9 @@ export function browserAuth(config: BrowserAuthConfig): Auth {
     scope,
     response_type: "code",
     monitorSession: config.monitorSession ?? false,
+    // Unset, the library waits on discovery, the token endpoint and the JWKS forever; this also
+    // becomes the silent renewal's iframe timeout.
+    requestTimeoutInSeconds: DEADLINE / 1000,
 
     // **Tokens in memory only.** The library's default is `sessionStorage`, and RFC 10017 is
     // explicit that under a public client anything script can read is something an XSS can steal;
@@ -157,6 +193,7 @@ export function browserAuth(config: BrowserAuthConfig): Auth {
    *
    * The URL is cleaned either way. An authorization code is single-use, and one left in the address
    * bar reaches history, bookmarks and the `Referer` — and replays as an error on the next reload.
+   * Cleaning it is also what makes the next call after a failure find no response to finish.
    */
   const complete = async (): Promise<OidcUser | null> => {
     if (!isAuthorizationResponse(globalThis.location.search)) return null;
@@ -164,19 +201,24 @@ export function browserAuth(config: BrowserAuthConfig): Auth {
       const user = (await manager.signinCallback(globalThis.location.href)) ?? null;
       restore(user?.url_state);
       return user;
-    } catch {
-      // A stale state entry or a reloaded callback URL is "not signed in", not an exception for
-      // every caller of `getSession` to handle.
+    } catch (error) {
       restore(undefined);
-      return null;
+      // A stale state entry or a reloaded callback URL is "not signed in", not an exception for
+      // every caller of `getSession` to handle. Anything else is the IdP's failure and is thrown.
+      if (error instanceof Error && error.message === STALE_STATE) return null;
+      throw failure(error, "the sign-in could not be completed");
     }
   };
 
-  let completing: Promise<OidcUser | null> | undefined;
+  let completed = false;
 
   const load = singleFlight(async (): Promise<OidcUser | null> => {
-    completing ??= complete();
-    return (await completing) ?? manager.getUser();
+    if (!completed) {
+      const user = await complete();
+      completed = true;
+      if (user !== null) return user;
+    }
+    return manager.getUser();
   });
 
   /**
@@ -187,10 +229,13 @@ export function browserAuth(config: BrowserAuthConfig): Auth {
   const renew = singleFlight(async (): Promise<OidcUser | null> => {
     try {
       return await manager.signinSilent();
-    } catch {
-      // A silent renewal fails when the refresh token is gone, rotated out, or the IdP session has
-      // ended. All three mean "no session", and the answer is the same one `getUser` gives for it.
-      return null;
+    } catch (error) {
+      // The refresh token gone or rotated out, or the IdP session ended, all mean "no session", and
+      // the answer is the same one `getUser` gives for it.
+      if (error instanceof ErrorResponse && error.error !== null && NO_SESSION.has(error.error)) {
+        return null;
+      }
+      throw failure(error, "the session could not be renewed");
     }
   });
 
@@ -209,8 +254,8 @@ export function browserAuth(config: BrowserAuthConfig): Auth {
    * product would accept and which no amount of XSS resistance would buy back.
    *
    * The cost is the one the `userStore` comment already names: an anonymous cold load spends a
-   * failed `prompt=none` too. `renew()` answers `null` for it rather than throwing, so the caller
-   * sees the same "not signed in" it saw before — one round trip later.
+   * failed `prompt=none` too. `renew()` answers `null` for the IdP's `login_required` rather than
+   * throwing, so the caller sees the same "not signed in" it saw before — one round trip later.
    */
   const fresh = async (): Promise<OidcUser | null> => {
     const user = await load();

@@ -1,5 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { bffAuth, readSession } from "./bff-auth";
+import { AuthError } from "./types";
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 const body = {
   user: { id: "u-7", email: "ada@example.com", name: "Ada", username: "ada" },
@@ -99,9 +104,73 @@ describe("bffAuth", () => {
     await expect(auth.getSession()).resolves.toBeNull();
   });
 
-  it("reads a broken session endpoint as nobody being signed in", async () => {
-    const auth = bffAuth({ fetch: responds(() => new Response("<html>oops</html>")) });
-    await expect(auth.getSession()).resolves.toBeNull();
+  it("reads a 5xx from the session endpoint as a failure, not as nobody being signed in", async () => {
+    const auth = bffAuth({ fetch: responds(() => new Response("", { status: 502 })) });
+
+    const failed = await auth.getSession().catch((error: unknown) => error);
+
+    expect(failed).toBeInstanceOf(AuthError);
+    expect(failed).toMatchObject({ code: "session/unavailable", data: { status: 502 } });
+  });
+
+  it("reads a 200 that is not a session as a failure — a proxy's page, a deploy skew", async () => {
+    const html = bffAuth({ fetch: responds(() => new Response("<html>oops</html>")) });
+    const empty = bffAuth({ fetch: responds(() => jsonOnce({})) });
+
+    await expect(html.getSession()).rejects.toMatchObject({ code: "session/unavailable", data: { status: 200 } });
+    await expect(empty.getSession()).rejects.toMatchObject({ code: "session/unavailable" });
+  });
+
+  it("keeps what the network threw as the cause", async () => {
+    const offline = new TypeError("Failed to fetch");
+    const auth = bffAuth({
+      fetch: async () => {
+        throw offline;
+      },
+    });
+
+    const failed = await auth.getSession().catch((error: unknown) => error);
+
+    expect(failed).toMatchObject({ code: "session/unavailable" });
+    expect((failed as AuthError).cause).toBe(offline);
+  });
+
+  it("asks again after a failed read, rather than keeping the failure", async () => {
+    const fetchMock = vi
+      .fn<typeof globalThis.fetch>()
+      .mockImplementationOnce(async () => new Response("", { status: 503 }))
+      .mockImplementationOnce(async () => jsonOnce(body));
+    const auth = bffAuth({ fetch: fetchMock });
+
+    await expect(auth.getSession()).rejects.toMatchObject({ code: "session/unavailable" });
+    expect((await auth.getSession())?.user.id).toBe("u-7");
+  });
+
+  it("gives up on a session endpoint that never answers, after 30 s and not before", async () => {
+    vi.useFakeTimers();
+    let signal: AbortSignal | undefined;
+    const auth = bffAuth({
+      fetch: (_input, init) => {
+        signal = init?.signal ?? undefined;
+        return new Promise<Response>(() => {});
+      },
+    });
+
+    const settled = vi.fn();
+    const read = auth.getSession().then(settled, (error: unknown) => {
+      settled(error);
+      return error;
+    });
+
+    await vi.advanceTimersByTimeAsync(29_999);
+    expect(settled).not.toHaveBeenCalled();
+    expect(signal?.aborted).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(1);
+    const failed = await read;
+    expect(failed).toBeInstanceOf(AuthError);
+    expect(failed).toMatchObject({ code: "session/silent", data: { after: 30_000 } });
+    expect(signal?.aborted).toBe(true);
   });
 
   /**
@@ -173,6 +242,40 @@ describe("bffAuth", () => {
     // that would have been the thing to retry with was refused.
     expect(response.status).toBe(401);
     await expect(auth.getSession()).resolves.toBeNull();
+    expect(changed).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects the request rather than ending the session when the refresh route is down", async () => {
+    const fetchMock = vi.fn<typeof globalThis.fetch>(async (input) => {
+      if (String(input).endsWith("/session")) return jsonOnce(body);
+      if (String(input).endsWith("/refresh")) return new Response("", { status: 503 });
+      return new Response("", { status: 401 });
+    });
+    const auth = bffAuth({ fetch: fetchMock });
+    await auth.getSession();
+
+    await expect(auth.fetch("/v1/jobs")).rejects.toMatchObject({
+      code: "session/unavailable",
+      data: { status: 503 },
+    });
+    expect((await auth.getSession())?.user.id).toBe("u-7");
+  });
+
+  it("still answers the caller with its 401 when the session cannot be re-read, and tells the tree", async () => {
+    const fetchMock = vi
+      .fn<typeof globalThis.fetch>()
+      .mockImplementationOnce(async () => jsonOnce(body))
+      .mockImplementationOnce(async () => new Response("no", { status: 401 }))
+      .mockImplementationOnce(async () => new Response("", { status: 401 }))
+      .mockImplementationOnce(async () => new Response("", { status: 500 }));
+    const auth = bffAuth({ fetch: fetchMock });
+    await auth.getSession();
+    const changed = vi.fn();
+    auth.subscribe(changed);
+
+    const response = await auth.fetch("/v1/jobs");
+
+    expect(response.status).toBe(401);
     expect(changed).toHaveBeenCalledTimes(1);
   });
 

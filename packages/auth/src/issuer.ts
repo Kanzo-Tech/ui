@@ -13,6 +13,7 @@ import {
   type PrivateKey,
 } from "openid-client";
 import { singleFlight } from "./single-flight";
+import { DEADLINE } from "./deadline";
 
 /**
  * Discovery and client configuration for the confidential client behind `./server`.
@@ -74,8 +75,6 @@ export interface IssuerConfig {
    * on a key rotation.
    */
   readonly verifySignatures?: boolean;
-  /** Seconds. Applies to discovery and to every request the resulting configuration makes. */
-  readonly timeout?: number;
 }
 
 /**
@@ -128,8 +127,8 @@ export function issuer(config: IssuerConfig): Issuer {
 
   const options: DiscoveryRequestOptions = {
     [customFetch]: rewriteOrigin(config.issuer, reachedAt, base),
+    timeout: DEADLINE / 1000,
   };
-  if (config.timeout !== undefined) options.timeout = config.timeout;
 
   // The channel is what the specification's exemption rests on, so the default asks whether there
   // is one rather than assuming it. Explicit beats derived in both directions.

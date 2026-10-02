@@ -1,4 +1,5 @@
 import { Graph } from "@cosmos.gl/graph";
+import { GraphError } from "../core/error";
 import type { Geometry } from "../core/load";
 import type { GraphStore } from "../core/store";
 import type { GraphCommands, VertexId } from "../core/types";
@@ -34,6 +35,11 @@ const PROGRESS_STEPS = 20;
 /** How often a running layout re-frames the camera, and how long each re-frame glides. */
 const FOLLOW_EVERY = 900;
 const FOLLOW_DURATION = 700;
+/**
+ * The slowest honest answer for a GPU device: one comes up in milliseconds when it can be made at
+ * all, so ten seconds is a device that will not come, not one that is slow.
+ */
+const READY_DEADLINE = 10_000;
 
 /**
  * **cosmos.gl's lifetime, and the frame that renders once.** Built once per element; it subscribes to
@@ -49,12 +55,16 @@ const FOLLOW_DURATION = 700;
  * `transitionDuration` is 0: the default animates every upload for 800 ms and keeps the loop awake.
  * The live layout is off unless `simulate` or the toolbar asks, and runs from the current positions.
  * Every callback reads the store's latest options, so a host's inline `onFailure` never rebuilds it.
+ * A failure to draw at all marks the store `failed` through `unrenderable`, never `onFailure` alone.
  */
 export function createRenderer(host: HTMLDivElement, store: GraphStore, events: RendererEvents = {}): Renderer | null {
-  const fail = (message: string) => store.getOptions().onFailure(message);
+  let destroyed = false;
+  const fail = (error: unknown) => {
+    if (!destroyed) store.unrenderable(error);
+  };
   const box = webglBox();
   if (box === null) {
-    fail("This canvas renders on the GPU, and this browser offers no WebGL context.");
+    fail(new GraphError("graph/no-webgl", "This browser offers no WebGL context to draw with."));
     return null;
   }
 
@@ -75,7 +85,6 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   let lookPatch = store.getOptions().look;
   const dirty = { positions: true, paint: true, state: true, pinned: true };
   let frame = 0;
-  let destroyed = false;
   let framed: Geometry | null = null;
   let placement: Placement | null = null;
   let following = false;
@@ -152,7 +161,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       onBackgroundClick: () => clear(),
     });
   } catch (error) {
-    fail(`The renderer failed to start. (${String(error)})`);
+    fail(new GraphError("graph/no-webgl", "The renderer failed to start.", {}, { cause: error }));
     return null;
   }
 
@@ -223,32 +232,6 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     graph.fitView(FOLLOW_DURATION, FIT_PADDING);
   }
 
-  const unsubscribe = store.subscribe(() => {
-    const snapshot = store.getSnapshot();
-    const options = store.getOptions();
-    if (snapshot.geometry !== last.geometry || snapshot.mask !== last.mask) dirty.positions = true;
-    if (snapshot.encoding !== last.encoding) dirty.paint = true;
-    if (options.look !== lookPatch) {
-      lookPatch = options.look;
-      look = resolveLook(options.look);
-      dirty.paint = true;
-    }
-    if (options.fill !== lastOptions.fill || options.symbol !== lastOptions.symbol || options.stroke !== lastOptions.stroke) {
-      dirty.paint = true;
-    }
-    if (snapshot.selection !== last.selection || snapshot.focus !== last.focus) dirty.state = true;
-    if (snapshot.pinned !== last.pinned) dirty.pinned = true;
-    if (options.sim !== lastOptions.sim) applyForces(options.sim);
-    if ((options.simulate ?? false) !== (lastOptions.simulate ?? false)) {
-      endBurst();
-      if (options.simulate) run(REHEAT);
-      else graph.pause();
-    }
-    last = snapshot;
-    lastOptions = options;
-    if (dirty.positions || dirty.paint || dirty.state || dirty.pinned) schedule();
-  });
-
   function applyForces(patch: Partial<Sim> | undefined): void {
     const next = resolveSim(patch);
     const moved = Object.keys(next).some((key) => next[key as keyof Sim] !== sim[key as keyof Sim]);
@@ -291,13 +274,50 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   graph.render();
   const onLost = (event: Event) => {
     event.preventDefault();
-    fail("The graph's WebGL context was lost. A browser keeps a limited number of them and drops the oldest; reload the page to get one back.");
+    fail(new GraphError("graph/context-lost", "The browser took back the WebGL context; reload to get one."));
   };
-  void graph.ready.then(() => {
-    if (!destroyed) host.querySelector("canvas")?.addEventListener("webglcontextlost", onLost);
-  });
+  const noDevice = (data: GraphError["data"], cause?: unknown) =>
+    fail(new GraphError("graph/no-webgl", "No GPU device came up to draw with.", data, { cause }));
+  // `ready` never settles when cosmos.gl cannot make a device, so the deadline is what ends the wait.
+  const deadline = setTimeout(() => noDevice({ after: READY_DEADLINE }), READY_DEADLINE);
+  void graph.ready.then(
+    () => {
+      clearTimeout(deadline);
+      if (!destroyed) host.querySelector("canvas")?.addEventListener("webglcontextlost", onLost);
+    },
+    (error: unknown) => {
+      clearTimeout(deadline);
+      noDevice({}, error);
+    },
+  );
   store.report(live && graph.isSimulationRunning ? "running" : "settled");
   schedule();
+
+  const unsubscribe = store.subscribe(() => {
+    const snapshot = store.getSnapshot();
+    const options = store.getOptions();
+    if (snapshot.geometry !== last.geometry || snapshot.mask !== last.mask) dirty.positions = true;
+    if (snapshot.encoding !== last.encoding) dirty.paint = true;
+    if (options.look !== lookPatch) {
+      lookPatch = options.look;
+      look = resolveLook(options.look);
+      dirty.paint = true;
+    }
+    if (options.fill !== lastOptions.fill || options.symbol !== lastOptions.symbol || options.stroke !== lastOptions.stroke) {
+      dirty.paint = true;
+    }
+    if (snapshot.selection !== last.selection || snapshot.focus !== last.focus) dirty.state = true;
+    if (snapshot.pinned !== last.pinned) dirty.pinned = true;
+    if (options.sim !== lastOptions.sim) applyForces(options.sim);
+    if ((options.simulate ?? false) !== (lastOptions.simulate ?? false)) {
+      endBurst();
+      if (options.simulate) run(REHEAT);
+      else graph.pause();
+    }
+    last = snapshot;
+    lastOptions = options;
+    if (dirty.positions || dirty.paint || dirty.state || dirty.pinned) schedule();
+  });
 
   return {
     graph,
@@ -365,6 +385,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       unsubscribe();
       endBurst();
       if (frame) cancelAnimationFrame(frame);
+      clearTimeout(deadline);
       destroyed = true;
       // Read here rather than remembered from construction: the element exists only with the device.
       const canvas = host.querySelector("canvas");

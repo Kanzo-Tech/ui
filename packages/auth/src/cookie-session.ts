@@ -88,8 +88,9 @@ function setCookie(name: string, value: string, maxAge: number): string {
 export function sealedCookie<T>(config: SealedCookieConfig): SealedCookie<T> {
   const name = `__Host-${config.name}`;
   // Derived once, lazily: the digest is cheap but a request path should not pay for it per call.
-  let key: Promise<Uint8Array> | undefined;
-  const material = () => (key ??= keyFrom(config.secret));
+  // The key is kept, not the promise, so a digest that failed is attempted again.
+  let key: Uint8Array | undefined;
+  const material = async () => (key ??= await keyFrom(config.secret));
 
   return {
     name,

@@ -37,9 +37,11 @@ export interface Engine {
    * **An abort interrupts the running statement**, not only the queue in front of it: the engine's
    * connection runs one statement at a time, so a stale one left to finish holds the next reader
    * back. It is `send` then `cancelSent()`, and the promise rejects with `signal.reason` at once.
-   * Statements run one after another on a connection of their own, beside the coordinator's.
+   * Statements run one after another on a connection of their own, beside the coordinator's. The
+   * signal is required, as fossil's `Engine` requires it: a reader that cannot stop is one that holds
+   * the next back.
    */
-  query(sql: string, options?: { readonly signal?: AbortSignal }): Promise<Columns>;
+  query(sql: string, options: { readonly signal: AbortSignal }): Promise<Columns>;
   /**
    * name → URL. The same URL is a no-op; a different one replaces the lease. The name has no scheme:
    * with `httpfs` loaded, `https://…` or `s3://…` in SQL is read by `httpfs` before the registry is
@@ -109,11 +111,81 @@ function builds() {
 /** A buffer is not a URL, so a held name never compares equal to a lent one. */
 const HELD = Symbol("held");
 
+/**
+ * The slowest honest boot: the worker, ~30 MB of module and `httpfs` fetched over a slow link, then
+ * instantiated. The figure and its argument are fossil's `/docs/design/failure`, G1.
+ */
+const BOOT_DEADLINE = 60_000;
+
+/** The one failure the engine names: it would not boot. `data.after` is set when the deadline fired. */
+export class EngineError extends Error {
+  override readonly name = "EngineError";
+  constructor(
+    readonly code: "engine/unavailable",
+    message: string,
+    readonly data: { readonly after?: number } = {},
+    options?: ErrorOptions,
+  ) {
+    super(message, options);
+  }
+}
+
+/**
+ * DuckDB-WASM 1.33's `onError` logs a worker's `error` event and clears its pending requests without
+ * settling them, so a worker that fails to load leaves `instantiate` waiting forever. This rejects
+ * them first. The constructor binds `this.onError`, which is why an override reaches the listener.
+ */
+class Duck extends AsyncDuckDB {
+  protected override onError(event: ErrorEvent): void {
+    const failure = new EngineError(
+      "engine/unavailable",
+      `the DuckDB worker failed: ${event.message || "it did not load"}`,
+      {},
+      { cause: event.error },
+    );
+    for (const task of this._pendingRequests.values()) task.promiseRejecter(failure);
+    super.onError(event);
+  }
+}
+
+/** `promise`, or `signal.reason` the moment the signal aborts — the work behind it is not stopped. */
+function abandon<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(signal.reason);
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => reject(signal.reason);
+    signal.addEventListener("abort", abort, { once: true });
+    promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
+  });
+}
+
 async function boot(): Promise<Engine> {
+  const deadline = new AbortController();
+  const timer = setTimeout(() => deadline.abort(), BOOT_DEADLINE);
+  let duckdb: AsyncDuckDB | undefined;
+  try {
+    return await abandon(
+      start((made) => (duckdb = made)),
+      deadline.signal,
+    );
+  } catch (error) {
+    void duckdb?.terminate();
+    if (error instanceof EngineError) throw error;
+    const after = deadline.signal.aborted ? { after: BOOT_DEADLINE } : {};
+    const message = deadline.signal.aborted
+      ? `DuckDB did not boot within ${BOOT_DEADLINE / 1000} s`
+      : "DuckDB did not boot";
+    throw new EngineError("engine/unavailable", message, after, { cause: error });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function start(made: (duckdb: AsyncDuckDB) => void): Promise<Engine> {
   const all = builds();
   const { mainModule } = await selectBundle(all);
   const build = mainModule === all.eh.mainModule ? all.eh : all.mvp;
-  const duckdb = new AsyncDuckDB(new VoidLogger(), new Worker(build.mainWorker));
+  const duckdb = new Duck(new VoidLogger(), new Worker(build.mainWorker));
+  made(duckdb);
   await duckdb.instantiate(build.mainModule);
 
   const connector = wasmConnector({ duckdb, config: RANGE_READS });
@@ -132,7 +204,7 @@ async function boot(): Promise<Engine> {
   let tail: Promise<unknown> = Promise.resolve();
   const serial = (step: () => Promise<void>): Promise<void> => {
     const run = tail.then(step);
-    tail = run.catch(() => {});
+    tail = run.catch(() => {}); // the caller holds `run`; the chain only orders the next step
     return run;
   };
 
@@ -144,16 +216,10 @@ async function boot(): Promise<Engine> {
 
   const connection = duckdb.connect();
   let queue: Promise<unknown> = Promise.resolve();
-  const query = (sql: string, options: { readonly signal?: AbortSignal } = {}) => {
-    const { signal } = options;
+  const query = (sql: string, { signal }: { readonly signal: AbortSignal }) => {
     const run = queue.then(() => answer(connection, sql, signal));
-    queue = run.catch(() => {});
-    if (!signal) return run;
-    return new Promise<Columns>((resolve, reject) => {
-      const abort = () => reject(signal.reason);
-      signal.addEventListener("abort", abort, { once: true });
-      run.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
-    });
+    queue = run.catch(() => {}); // the caller holds `run`; the chain only orders the next statement
+    return abandon(run, signal);
   };
 
   return {
@@ -198,24 +264,29 @@ interface Batch {
   getChildAt(index: number): (Column & { concat(...others: Column[]): Column }) | null;
 }
 
-async function answer(pending: Promise<Sent>, sql: string, signal?: AbortSignal): Promise<Columns> {
-  signal?.throwIfAborted();
+async function answer(pending: Promise<Sent>, sql: string, signal: AbortSignal): Promise<Columns> {
+  signal.throwIfAborted();
   const connection = await pending;
-  const interrupt = () => void connection.cancelSent();
-  signal?.addEventListener("abort", interrupt, { once: true });
+  let interrupted: Promise<boolean> | undefined;
+  const interrupt = () => (interrupted = connection.cancelSent());
+  signal.addEventListener("abort", interrupt, { once: true });
   try {
     const reader = await connection.send(sql);
     await reader.open();
     const fields = reader.schema?.fields ?? [];
     const batches: Batch[] = [];
     for await (const batch of reader) batches.push(batch);
-    signal?.throwIfAborted();
+    signal.throwIfAborted();
     return columnsOf(fields, batches);
   } catch (error) {
-    if (signal?.aborted) throw signal.reason;
+    // A cancel that fails rejects this statement in place of the abort, so the queue owns it.
+    if (signal.aborted) {
+      await interrupted;
+      throw signal.reason;
+    }
     throw error;
   } finally {
-    signal?.removeEventListener("abort", interrupt);
+    signal.removeEventListener("abort", interrupt);
   }
 }
 
@@ -247,9 +318,20 @@ function columnsOf(fields: readonly { readonly name: string }[], batches: readon
  */
 const KEY = Symbol.for("@kanzo-tech/mosaic/engine");
 
-/** The page's one engine, booted on first ask. */
-export function engine(): Promise<Engine> {
+/**
+ * The page's one engine, booted on first ask. A boot that fails is forgotten, so the next ask boots
+ * again rather than inheriting the failure for the life of the page. A `signal` ends this caller's
+ * wait, not the boot, which other callers may be waiting on.
+ */
+export function engine(options: { readonly signal?: AbortSignal } = {}): Promise<Engine> {
   const scope = globalThis as { [KEY]?: Promise<Engine> };
-  scope[KEY] ??= boot();
-  return scope[KEY];
+  let booting = scope[KEY];
+  if (!booting) {
+    const started = boot();
+    scope[KEY] = booting = started;
+    started.catch(() => {
+      if (scope[KEY] === started) delete scope[KEY];
+    }); // the callers hold `started`; this only forgets it
+  }
+  return options.signal ? abandon(booting, options.signal) : booting;
 }

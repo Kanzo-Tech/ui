@@ -47,6 +47,9 @@ import { NextResponse, type NextRequest } from "next/server";
  */
 const SESSION_COOKIE = "__Host-kanzo-session";
 
+/** `authRoutes`'s default `problemPage`, repeated because importing it would put `openid-client` on the edge. */
+const PROBLEM_PAGE = "/auth/problem";
+
 export interface AuthMiddlewareConfig {
   /**
    * Path prefixes that need no session — a health probe, a marketing page, a legal notice.
@@ -58,6 +61,12 @@ export interface AuthMiddlewareConfig {
   readonly public?: readonly string[];
   /** Where `authRoutes` is mounted. Always public — it is how a person signs in. Default `/api/auth`. */
   readonly basePath?: string;
+  /**
+   * The `problemPage` given to `authRoutes`. Always public — whoever is sent there has no session,
+   * and sending them to sign in instead is a loop when signing in is what failed. Default
+   * `/auth/problem`.
+   */
+  readonly problemPage?: string;
   /** Default `__Host-kanzo-session`. Set it only if `relyingParty` was given a different cookie. */
   readonly cookieName?: string;
 }
@@ -72,7 +81,9 @@ export function authMiddleware(
 ): (request: NextRequest) => NextResponse {
   const base = (config.basePath ?? "/api/auth").replace(/\/$/, "");
   const cookieName = config.cookieName ?? SESSION_COOKIE;
-  const open = [base, ...(config.public ?? [])].map((prefix) => prefix.replace(/\/$/, ""));
+  const open = [base, config.problemPage ?? PROBLEM_PAGE, ...(config.public ?? [])].map((prefix) =>
+    prefix.replace(/\/$/, ""),
+  );
 
   return (request) => {
     const { pathname, search } = request.nextUrl;

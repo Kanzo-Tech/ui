@@ -8,7 +8,8 @@ import { AuthContext, type AuthContextValue } from "./auth-context";
  *
  * `status` is the field to branch on, not `session === null`: those are the same answer for
  * "anonymous" and "we have not looked yet", and drawing a sign-in prompt during the second is the
- * flicker every application with a session has shipped at least once.
+ * flicker every application with a session has shipped at least once. `"failed"` is the session
+ * that could not be read, with what was thrown on `error`.
  */
 export function useSession(): AuthContextValue & {
   readonly signIn: AuthContextValue["auth"]["signIn"];

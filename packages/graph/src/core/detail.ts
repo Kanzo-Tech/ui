@@ -1,5 +1,5 @@
 import type { Corpus, VertexTable } from "@fossil-lang/corpus";
-import type { Geometry } from "./load";
+import { together, type Geometry } from "./load";
 import type { VertexId } from "./types";
 
 /** One vertex's row, as its table's properties order it — every column but the key and the position. */
@@ -50,7 +50,7 @@ export async function readTitles(
   geometry: Geometry,
   vertices: readonly VertexId[],
   title: string | undefined,
-  signal?: AbortSignal,
+  signal: AbortSignal,
 ): Promise<Map<VertexId, string>> {
   const byTable = new Map<VertexTable, VertexId[]>();
   for (const vertex of vertices) {
@@ -58,16 +58,18 @@ export async function readTitles(
     if (table) byTable.set(table, [...(byTable.get(table) ?? []), vertex]);
   }
   const found = new Map<VertexId, string>();
-  await Promise.all(
-    [...byTable].map(async ([table, ids]) => {
-      const column = titleColumn(table, title);
-      const scan = corpus.scan({ table: table.name, filter: { column: table.key, op: "in", values: ids }, select: [table.key, column] });
-      for (const batch of await scan.read(scan.plan(), { signal })) {
-        const keys = batch.getChild(table.key)?.toArray() ?? [];
-        const texts = batch.getChild(column)?.toArray() ?? [];
-        for (let i = 0; i < batch.numRows; i++) found.set(Number(keys[i]), String(texts[i] ?? ""));
-      }
-    }),
+  await together(signal, (signal) =>
+    Promise.all(
+      [...byTable].map(async ([table, ids]) => {
+        const column = titleColumn(table, title);
+        const scan = corpus.scan({ table: table.name, filter: { column: table.key, op: "in", values: ids }, select: [table.key, column] });
+        for (const batch of await scan.read(scan.plan(), { signal })) {
+          const keys = batch.getChild(table.key)?.toArray() ?? [];
+          const texts = batch.getChild(column)?.toArray() ?? [];
+          for (let i = 0; i < batch.numRows; i++) found.set(Number(keys[i]), String(texts[i] ?? ""));
+        }
+      }),
+    ),
   );
   return found;
 }
@@ -77,22 +79,24 @@ export async function readEveryTitle(
   corpus: Corpus,
   geometry: Geometry,
   title: string | undefined,
-  signal?: AbortSignal,
+  signal: AbortSignal,
 ): Promise<string[]> {
   const titles = new Array<string>(geometry.size).fill("");
-  await Promise.all(
-    geometry.tables.map(async (table) => {
-      const column = titleColumn(table, title);
-      const scan = corpus.scan({ table: table.name, select: [table.key, column] });
-      for (const batch of await scan.read(scan.plan(), { signal })) {
-        const keys = batch.getChild(table.key)?.toArray() ?? [];
-        const texts = batch.getChild(column)?.toArray() ?? [];
-        for (let i = 0; i < batch.numRows; i++) {
-          const id = Number(keys[i]);
-          if (id < geometry.size) titles[id] = String(texts[i] ?? "");
+  await together(signal, (signal) =>
+    Promise.all(
+      geometry.tables.map(async (table) => {
+        const column = titleColumn(table, title);
+        const scan = corpus.scan({ table: table.name, select: [table.key, column] });
+        for (const batch of await scan.read(scan.plan(), { signal })) {
+          const keys = batch.getChild(table.key)?.toArray() ?? [];
+          const texts = batch.getChild(column)?.toArray() ?? [];
+          for (let i = 0; i < batch.numRows; i++) {
+            const id = Number(keys[i]);
+            if (id < geometry.size) titles[id] = String(texts[i] ?? "");
+          }
         }
-      }
-    }),
+      }),
+    ),
   );
   return titles;
 }
