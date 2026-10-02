@@ -71,6 +71,31 @@ describe("Assist on a Textarea — a continuation at the caret", () => {
     expect(prompt).toContain("Three hounds<caret/>");
   });
 
+  it("tells the model the field's own context, read when the field asks", async () => {
+    const { model } = mockModel(() => " at the ford.");
+    let holds = "Accepts: hounds, wolves.";
+    function Sighting() {
+      const [value, setValue] = useState("");
+      return (
+        <AssistProvider context="A notice board for a village hall." model={model}>
+          <Field>
+            <FieldLabel>Sighting</FieldLabel>
+            <Assist context={() => holds} onValueChange={setValue} value={value}>
+              <Textarea />
+            </Assist>
+          </Field>
+        </AssistProvider>
+      );
+    }
+    render(<Sighting />);
+    holds = "Accepts: hounds, wolves, boars.";
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Three hounds", selectionStart: 12 } });
+    await waitFor(() => expect(model.doStreamCalls).toHaveLength(1), { timeout: 2000 });
+    const prompt = promptOf(model.doStreamCalls[0]!);
+    expect(prompt).toContain("Field context:\nAccepts: hounds, wolves, boars.");
+    expect(prompt.indexOf("Field context:")).toBeLessThan(prompt.indexOf("Form context:"));
+  });
+
   it("keeps the offer while the reader types what it says, and asks nothing new", async () => {
     const { model } = mockModel(() => " at the ford.");
     render(<Notice model={model} />);

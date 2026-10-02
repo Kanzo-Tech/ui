@@ -1,0 +1,81 @@
+---
+title: Findings
+description: What a check found, behind one badge — tallied, grouped worst first, and a way to each one's place.
+---
+
+<ComponentPreview componentName="findings" fileName="example-default" />
+
+## Usage
+
+```tsx
+import {
+  FindingsContent,
+  FindingsGoTo,
+  FindingsGroup,
+  FindingsRoot,
+  FindingsTrigger,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<FindingsRoot findings={findings} onSelect={(finding) => editor.reveal(finding.at)}>
+  <FindingsTrigger>
+    {({ destructive, warning }) =>
+      destructive ? `${destructive} errors` : warning ? `${warning} warnings` : "Valid"}
+  </FindingsTrigger>
+  <FindingsContent description="What the compiler found in the program.">
+    <FindingsGroup title="Errors" variant="destructive">{row}</FindingsGroup>
+    <FindingsGroup title="Warnings" variant="warning">{row}</FindingsGroup>
+    <FindingsGroup title="Notes" variant="info">{row}</FindingsGroup>
+  </FindingsContent>
+</FindingsRoot>
+```
+
+A compiler's problems and a form's violations are the same list: **a tally, the findings worst
+first, and a way to each one's place.** This is that list and nothing else. What a finding *says* is
+the row you draw — a [Diagnostic](/docs/data-display/diagnostic), or anything built on one — so the
+domain stays yours.
+
+## A finding is an id and a variant
+
+```ts
+interface Finding {
+  id: string;
+  variant: "destructive" | "warning" | "info";
+}
+```
+
+That is all the list reads. Extend it with whatever your rows need — a message, a line, a field —
+and `FindingsRoot` is generic over it: `onSelect` and each group's row receive your type, not this
+one. The variant is `Diagnostic`'s, so a finding's row wears the variant it was counted under.
+
+## The words are yours
+
+No part authors a sentence. The tally is a function of the counts, because "2 errors", "3 issues"
+and "Valid" are a product's vocabulary and a plural rule is a locale's —
+`FindingCounts` is `{ destructive, warning, info, total }`, and `Intl.PluralRules` is the right tool
+for the rest. Group titles and the header are props of the part that draws them.
+
+<ComponentPreview componentName="findings" fileName="example-spanish" />
+
+## The parts
+
+- **`FindingsRoot`** is Ark's [Popover](/docs/overlays/popover) holding the findings. `open`,
+  `defaultOpen` and `onOpenChange` are the machine's — a host that opens the list from elsewhere,
+  say a submit the errors block, controls it like any popover.
+- **`FindingsTrigger`** is a `Badge` and the popover's trigger, painted by the worst variant
+  present. `size` and `pill` are `Badge`'s. Without children it shows the total. **With nothing
+  found it is a `success` badge and not a button** — there is no list to open — and a popover left
+  open closes when the last finding goes.
+- **`FindingsContent`** is the popover: an optional `title` and `description`, then its groups,
+  scrolling once they outgrow the screen.
+- **`FindingsGroup`** draws the findings of one variant, in the order you gave them, under a heading
+  that counts them — a `<section>` named by its `<h3>`, so a screen reader can move between groups.
+  It draws nothing when its variant has none. Its child is a function from a finding to a row.
+- **`FindingsGoTo`** goes inside a row. It closes the popover, so focus can land where you send it,
+  then calls the root's `onSelect` with that row's finding. Without an `onSelect` it renders
+  nothing: a control that goes nowhere is announced as one.
+- **`useFindings`** gives a part of your own the counts, the worst variant and the findings;
+  **`useFinding`** gives a row the finding it is drawing. `FindingCounts`, `FindingVariant` and the
+  props types — `FindingsRootProps`, `FindingsTriggerProps`, `FindingsContentProps`,
+  `FindingsGroupProps` — are exported for wrappers.

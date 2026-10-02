@@ -483,6 +483,16 @@ export interface PreferencesSectionsProps {
   only?: readonly string[];
   /** The words the core's sections draw. A contributed section's words are its manifest's. */
   copy?: Partial<PreferencesCopy>;
+  /**
+   * A picture for each option of a contributed choice, keyed `namespace.preference` — what the core
+   * draws for density, for a section's own choices.
+   *
+   * A manifest is data, so it cannot carry one: a picture is React, and a section is declared in a
+   * package that may not depend on it. The surface that draws the section is where the picture is
+   * known. With one, the options are cards in a row with the picture over the name, as density's
+   * are; without one, a list.
+   */
+  specimens?: Readonly<Record<string, (option: PrefOption) => React.ReactNode>>;
 }
 
 /** Every word the core's sections author. The theme labels are the tenant's and are never reworded. */
@@ -494,7 +504,7 @@ export interface PreferencesCopy extends ThemePickerCopy {
 /** The two declared preferences the theme picker draws as one control. */
 const PICKER = new Set(["appearance", "themeByAppearance"]);
 
-function PreferencesSections({ namespace, only, copy }: PreferencesSectionsProps = {}) {
+function PreferencesSections({ namespace, only, copy, specimens }: PreferencesSectionsProps = {}) {
   const theme = useKanzoTheme();
   const { corePrefs, sectionPrefs, setSectionPref, sources } = theme;
 
@@ -540,6 +550,7 @@ function PreferencesSections({ namespace, only, copy }: PreferencesSectionsProps
             onChange={(next) => setSectionPref(name, { [key]: next })}
             pref={pref}
             sources={sources}
+            {...(specimens?.[`${name}.${key}`] ? { specimen: specimens[`${name}.${key}`] } : {})}
           />
         ) : null,
       ),

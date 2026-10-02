@@ -160,6 +160,21 @@ never told it.
 *Held by* `packages/ai/src/assist.test.tsx`, "tells the model what the field is: its label, its
 description and the form".
 
+**What the label cannot say goes in the field's `context`.** A field generated from a schema knows
+more than a person reads in its label — the values it accepts, its limits, what its neighbours
+already hold. That is facts, not an instruction, so it is its own prop, as many lines as it takes,
+and told to the model under *Field context*, before the form's:
+
+```tsx
+<Assist context={() => describeConstraints(field)} onValueChange={setValue} value={value}>
+  <Input />
+</Assist>
+```
+
+A function is read when the field asks, like the provider's, so it sees the form as it is then.
+*Held by* `packages/ai/src/assist.test.tsx`, "tells the model the field's own context, read when the
+field asks".
+
 ## What happened to a proposal
 
 `onEvent` on the provider reports each proposal's life — the lifecycle VS Code's inline completions
