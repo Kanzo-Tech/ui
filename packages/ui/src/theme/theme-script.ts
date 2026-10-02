@@ -19,13 +19,13 @@
 // here. `data-theme` is the colour one it writes, and it writes it as a string
 // off the axis table like any other: choosing among the blocks that document already contains.
 //
-// MANDATORY under SSR, not an optimisation. Skipping it costs more than a flash: any control
-// whose markup depends on the resolved theme (`ThemePicker`'s cards) renders one value on the
-// server and another on hydration, which React reports as a mismatch and does not patch.
+// MANDATORY under SSR, not an optimisation: the provider reads storage after hydration, so without
+// the script the first paint is the default theme. It owns `<html>` only — controls the provider
+// renders (`ThemePicker`'s cards) start from the defaults on both sides of hydration.
 //
 // This script must reach the SAME `class` + `data-*` as the provider from the same inputs —
 // theme-script.test.ts runs both under one set of stubs and diffs `<html>`, because a divergence
-// here IS the FOUC and the hydration mismatch the script exists to prevent.
+// here IS the FOUC the script exists to prevent.
 //
 // Hosting a theme manager already? Disable its class writer rather than pointing this at its
 // storage: two owners of `.dark` fight over the same class, and the loser wins at random.

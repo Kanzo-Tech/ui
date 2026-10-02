@@ -1,8 +1,10 @@
 import { STORAGE_KEY, type ThemeOption, type ThemePrefs } from "@kanzo-tech/theme";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { KanzoThemeProvider } from "../theme/KanzoThemeProvider.js";
 import { ThemePicker } from "./ThemePicker.js";
 
@@ -88,6 +90,40 @@ describe("ThemePicker", () => {
     await waitFor(() => expect(html().classList.contains("dark")).toBe(true));
     expect(within(card("Dark theme")).getByText("Active")).toBeTruthy();
     expect(stored().themeByAppearance).toBeUndefined();
+  });
+
+  it("hydrates over a server render that could not read storage, then wears the stored side", async () => {
+    const tree = (
+      <KanzoThemeProvider themes={THEMES}>
+        <ThemePicker />
+      </KanzoThemeProvider>
+    );
+    const container = document.body.appendChild(document.createElement("div"));
+    onTestFinished(() => container.remove());
+    container.innerHTML = renderToString(tree);
+    seed({ appearance: "dark", themeByAppearance: { dark: "nord-dark" } });
+    const onRecoverableError = vi.fn();
+    const root = await act(async () => hydrateRoot(container, tree, { onRecoverableError }));
+    onTestFinished(() => act(() => root.unmount()));
+    expect(onRecoverableError).not.toHaveBeenCalled();
+    expect(card("Dark theme").getAttribute("data-active")).toBe("true");
+    expect(card("Light theme").getAttribute("data-active")).toBeNull();
+    expect(nameOf("Dark theme")).toBe("Nord Dark");
+    expect(html().getAttribute("data-theme")).toBe("nord-dark");
+  });
+
+  it("switches back and forth by card and by the other side's swatch, moving Active each time", async () => {
+    const user = userEvent.setup();
+    setup();
+    const wearing = () => [html().getAttribute("data-theme"), card("Light theme").dataset.active, card("Dark theme").dataset.active];
+    await user.click(card("Dark theme").querySelector("[data-slot=theme-picker-card-radio]")!);
+    await waitFor(() => expect(wearing()).toEqual(["acme-dark", undefined, "true"]));
+    await user.click(radio("Light theme", "Nord"));
+    await waitFor(() => expect(wearing()).toEqual(["nord", "true", undefined]));
+    await user.click(radio("Dark theme", "Nord Dark"));
+    await waitFor(() => expect(wearing()).toEqual(["nord-dark", undefined, "true"]));
+    await user.click(card("Light theme").querySelector("[data-slot=theme-picker-card-radio]")!);
+    await waitFor(() => expect(wearing()).toEqual(["nord", "true", undefined]));
   });
 
   it("previews a hovered swatch inside its card only, and restores it on leave", async () => {

@@ -89,8 +89,7 @@ const localStorageAdapter = (key: string): ThemeStorage => ({
 
 /**
  * Cookie-backed persistence — use this in SSR apps so the SAME source the {@link themeScript}
- * reads before hydration is also written by the client, and the server can read it from the
- * request `Cookie` header to render the correct theme. Pair with `themeScript({ storageKey })`.
+ * reads before hydration is also written by the client. Pair with `themeScript({ storageKey })`.
  */
 export const cookieStorageAdapter = (
   key: string = STORAGE_KEY,
@@ -312,11 +311,16 @@ export function KanzoThemeProvider({
    * A sparse blob is also a smaller cookie, and it is what `themeScript` reads: an absent key there
    * takes exactly the same branch, so both sides fall through to the same policy.
    */
-  const [internal, setInternal] = React.useState<Partial<ThemePrefs>>(() => {
-    if (controlled) return { ...value };
+  const [internal, setInternal] = React.useState<Partial<ThemePrefs>>(() => (controlled ? { ...value } : {}));
+
+  // Storage is read after the first render, never during it: a server cannot read it, so a first
+  // render that did hydrated a stored dark side over markup drawn light. A layout effect, so the
+  // stored prefs are worn before the browser paints.
+  React.useLayoutEffect(() => {
+    if (controlled) return;
     const raw = storageAdapter?.get() ?? null;
-    return raw ? known(raw) : {};
-  });
+    if (raw) setInternal(known(raw));
+  }, [controlled, storageAdapter]);
 
   const storedPrefs = controlled ? value ?? NO_STORED : internal;
 

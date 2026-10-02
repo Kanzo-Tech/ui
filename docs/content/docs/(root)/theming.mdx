@@ -164,10 +164,13 @@ import { themeScript } from "@kanzo-tech/ui";
 **Why the same values, and why it is mandatory under SSR.** If the script falls back to `kanzo`
 while the provider falls back to the tenant's family, the page flashes one family and then repaints
 into the other; a pinned axis the script does not know about flashes the user's own value first.
-Worse, `ThemePicker`'s cards render from the resolved theme, so a server-rendered page without the
-script hydrates into markup that differs from the server's — React reports a mismatch and does not
-patch it. `theme-script.test.ts` runs the script and the provider under one set of stubs and diffs
-`<html>`, so the two cannot drift.
+`theme-script.test.ts` runs the script and the provider under one set of stubs and diffs `<html>`,
+so the two cannot drift.
+
+The script owns `<html>` and nothing else. What the provider renders — `ThemePicker`'s cards, the
+`Preferences` panel — starts from the defaults on the server and on the hydrating client alike, and
+the stored choice arrives in a layout effect before the first paint, so hydration never meets a
+stored dark side over markup the server drew light.
 
 Pair it with `cookieStorageAdapter()` on the provider so the user's writes land where the script
 (and a server rendering the request) can read them.
