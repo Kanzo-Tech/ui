@@ -99,16 +99,20 @@ constant of its own: the box belongs to whatever wrote the positions.
 
 ## The camera
 
-**At load, the camera frames the corpus's extent once**, before anything is drawn, so the first
-frame is already the whole graph.
+**At load, the camera frames the corpus's extent, and keeps it framed until you move it.** It
+frames before anything is drawn, so the first frame is already the whole graph — and again when
+cosmos.gl's device comes up and whenever the canvas changes size, because a canvas in a split panel
+or beside a dock settles its width after mount, and a frame taken at the old size opens zoomed into
+a corner.
 
 **While a layout runs, the camera follows it.** A force layout contracts a spread-out graph, and a
 camera that stayed put would watch it shrink to a dot. So every 900 ms the camera re-frames the
 moving points, gliding over 700 ms, and frames them once more when the layout settles — Cosmograph's
 fit-on-settle, kept up for the whole run.
 
-**The reader can take the camera back.** A wheel, a pan or a pinch hands the camera to the reader,
-and the running layout stops re-framing it until the next run starts. A camera that fought the
+**The reader can take the camera back.** A wheel, a pan or a pinch hands the camera to the reader:
+a resize no longer re-frames it, and a running layout stops following until the next run starts. Fit
+hands it back. A camera that fought the
 reader's zoom would be the bug, not the feature.
 
 **Fit frames what is there.** Before any layout has run, Fit frames the corpus's extent. Once a

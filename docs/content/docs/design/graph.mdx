@@ -226,7 +226,9 @@ buffer:
   means nothing — d3-force's drag-to-fix. Releasing the pins reheats the layout, so the released
   points visibly flow back: a running layout takes the heat, a settled one cools to settled on its
   own, and a paused one gets a bounded burst and is paused again.
-- **The camera is cosmos.gl's.** A zoom repaints the overlays and reaches no store. While a layout
+- **The camera is cosmos.gl's.** A zoom repaints the overlays and reaches no store. A placed corpus
+  is framed, and framed again when the device comes up and on every resize of the canvas, until the
+  reader zooms or pans; `render/camera.ts` owns who holds it. While a layout
   runs, the renderer re-frames the moving points every 900 ms and once more when it settles —
   Cosmograph's fit-on-settle, kept up so a contracting graph never leaves the screen — until the
   reader zooms or pans, which hands the camera back until the next run. Once a layout has moved the
@@ -408,7 +410,9 @@ parameter rather than the square's middle — then the placement is a config val
 
 *Held by* `packages/graph/src/coordinate-box.test.ts`, "declares no coordinate-space constant of its
 own", "never writes a number where cosmos.gl asks what the space is";
-`packages/graph/src/render/renderer.test.ts`, "centres the corpus's extent in it, at the corpus's own
+`packages/graph/src/render/renderer.test.ts`, "frames the corpus again when the canvas settles its
+size, as a split panel does after mount", "stops re-framing when the reader takes the camera, and
+starts again with Fit", "centres the corpus's extent in it, at the corpus's own
 scale", "scales the extent down only past the box the device simulates in";
 `packages/graph/src/render/renderer.test.ts`, "frames the corpus's extent before it draws anything,
 and only once".

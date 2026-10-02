@@ -6,6 +6,7 @@ import type { GraphCommands, VertexId } from "../core/types";
 import { resolveLook, type Look } from "./graph-looks";
 import { appearance, forces, paint } from "./graph-model";
 import { resolveSim, type Sim } from "./graph-sim";
+import { createCamera, FIT_DURATION } from "./camera";
 import { cornersOf, placed, placementOf, UNPLACED, type Placement } from "./placement";
 import { releaseContext, webglBox } from "./webgl";
 
@@ -25,16 +26,11 @@ export interface Renderer extends GraphCommands {
   destroy(): void;
 }
 
-const FIT_DURATION = 420;
-const FIT_PADDING = 0.18;
 const REHEAT = 0.35;
 /** How long a release wakes a paused layout before pausing it again. */
 const RELEASE_BURST = 1200;
 /** Twentieths: a settle costs twenty reports rather than one per frame. */
 const PROGRESS_STEPS = 20;
-/** How often a running layout re-frames the camera, and how long each re-frame glides. */
-const FOLLOW_EVERY = 900;
-const FOLLOW_DURATION = 700;
 /**
  * The slowest honest answer for a GPU device: one comes up in milliseconds when it can be made at
  * all, so ten seconds is a device that will not come, not one that is slow.
@@ -87,8 +83,6 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   let frame = 0;
   let framed: Geometry | null = null;
   let placement: Placement | null = null;
-  let following = false;
-  let followed = 0;
   let links: Float32Array | null = null;
   let last = store.getSnapshot();
   let lastOptions = store.getOptions();
@@ -115,22 +109,18 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       onSimulationEnd: () => {
         store.report("settled");
         progress(1);
-        if (following) graph.fitView(FIT_DURATION, FIT_PADDING);
-        following = false;
+        camera.settle();
         events.onFrame?.();
       },
       onSimulationPause: () => store.report("paused"),
       onSimulationUnpause: () => store.report("running"),
       onSimulationTick: (_alpha, index, position) => {
         progress(graph.progress);
-        follow();
+        camera.tick();
         if (index !== undefined && position) events.onHover?.(position);
         events.onFrame?.();
       },
-      // The reader took the camera: a running layout stops re-framing it until it runs again.
-      onZoomStart: (_event, userDriven) => {
-        if (userDriven) following = false;
-      },
+      onZoomStart: (_event, userDriven) => taken(userDriven),
       onZoom: () => events.onFrame?.(),
       onPointMouseOver: (index, position) => {
         hovering = index;
@@ -164,6 +154,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     fail(new GraphError("graph/no-webgl", "The renderer failed to start.", {}, { cause: error }));
     return null;
   }
+  const { camera, taken } = createCamera(graph, host);
 
   const schedule = () => {
     if (frame) return;
@@ -220,16 +211,8 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     framed = geometry;
     placement = placementOf(geometry.extent, box as number);
     graph.setConfigPartial({ spaceSize: placement.side });
-    graph.fitViewByPointPositions(cornersOf(geometry.extent, placement), 0, FIT_PADDING);
+    camera.frame(cornersOf(geometry.extent, placement));
     return placement;
-  }
-
-  /** Cosmograph's fit-on-settle, kept up while the layout runs, so a contracting graph stays in view. */
-  function follow(): void {
-    const now = performance.now();
-    if (!following || now - followed < FOLLOW_EVERY) return;
-    followed = now;
-    graph.fitView(FOLLOW_DURATION, FIT_PADDING);
   }
 
   function applyForces(patch: Partial<Sim> | undefined): void {
@@ -247,8 +230,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       live = true;
       graph.setConfigPartial({ enableSimulation: true, ...forces(sim) });
     }
-    following = true;
-    followed = performance.now();
+    camera.run();
     graph.start(alpha);
   }
 
@@ -332,12 +314,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     zoomBy(factor) {
       graph.setZoomLevel(graph.getZoomLevel() * factor, 220);
     },
-    // Once a layout has moved the points the extent is history, so the fit reads where they are.
-    fit() {
-      const extent = store.getSnapshot().geometry?.extent;
-      if (extent && placement && !live) graph.fitViewByPointPositions(cornersOf(extent, placement), FIT_DURATION, FIT_PADDING);
-      else graph.fitView(FIT_DURATION, FIT_PADDING);
-    },
+    fit: () => camera.fit(),
     pause() {
       endBurst();
       graph.pause();
@@ -386,6 +363,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       endBurst();
       if (frame) cancelAnimationFrame(frame);
       clearTimeout(deadline);
+      camera.destroy();
       destroyed = true;
       // Read here rather than remembered from construction: the element exists only with the device.
       const canvas = host.querySelector("canvas");

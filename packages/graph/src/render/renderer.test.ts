@@ -192,6 +192,64 @@ describe("the square the layout runs in", () => {
   });
 });
 
+describe("the camera at load", () => {
+  const observed: (() => void)[] = [];
+  beforeEach(() => {
+    observed.length = 0;
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: () => void) {
+          observed.push(callback);
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+  });
+  const resize = async () => {
+    for (const callback of observed) callback();
+    await frame();
+  };
+
+  it("frames the corpus again when the canvas settles its size, as a split panel does after mount", async () => {
+    await drawing();
+    calls.length = 0;
+    await resize();
+    expect(calls).toEqual(["fit"]);
+  });
+
+  it("frames the corpus once the device is up, since a frame taken before it is taken at no size", async () => {
+    let up: () => void = () => {};
+    device.ready = () => new Promise<void>((resolve) => (up = resolve));
+    await drawing();
+    calls.length = 0;
+    up();
+    await frame();
+    expect(calls).toEqual(["fit"]);
+  });
+
+  it("stops re-framing when the reader takes the camera, and starts again with Fit", async () => {
+    const { renderer } = await drawing();
+    (constructed[0]?.onZoomStart as (event: unknown, user: boolean) => void)({}, true);
+    calls.length = 0;
+    await resize();
+    expect(calls).toEqual([]);
+    renderer?.fit();
+    calls.length = 0;
+    await resize();
+    expect(calls).toEqual(["fit"]);
+  });
+
+  it("is not moved by its own fits", async () => {
+    await drawing();
+    (constructed[0]?.onZoomStart as (event: unknown, user: boolean) => void)({}, false);
+    calls.length = 0;
+    await resize();
+    expect(calls).toEqual(["fit"]);
+  });
+});
+
 describe("the camera while a layout runs", () => {
   const tick = () => (constructed[0]?.onSimulationTick as (...args: unknown[]) => void)(0.5);
   const later = (ms: number) => vi.spyOn(performance, "now").mockReturnValue(performance.now() + ms);
