@@ -62,9 +62,9 @@ import { Switch } from "../simples/switch.js";
  * what the export did belongs on the onboarding surface, which has a document to emit.
  *
  * The theme is not that coming back. {@link ThemePicker} chooses among the themes the TENANT
- * published — a day theme and a night theme, GitHub's model — and it is also the one appearance
- * control: its *Theme mode* is "Sync with system" (`appearance: ""`) or "Single theme" (a pinned
- * side). There is no toggle in the header and no second control for either.
+ * published — a light theme and a dark theme, GitHub's model — and it is also the one appearance
+ * control: its *Light · Dark* segment picks the side. There is no toggle in the header and no
+ * second control for either.
  *
  * **What a tenant pinned or withheld is not drawn at all.** Every section asks `corePrefs[key]`
  * whether its axis is still offered, because a control the chain will ignore is a control that
@@ -207,7 +207,7 @@ function PreferencesPanel({
           )}
         >
           {/* Header. Nothing but the title and the close X: appearance is `ThemePicker`'s
-              Theme mode, and a toggle here would be a second control for it. */}
+              Light · Dark segment, and a toggle here would be a second control for it. */}
           <div className="px-5 pt-5 pb-3">
             <DialogTitle className="font-heading text-base font-semibold">{title}</DialogTitle>
             <DialogDescription className="mt-0.5 text-[length:var(--kanzo-font-size-small)] text-muted-foreground">

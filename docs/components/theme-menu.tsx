@@ -1,6 +1,6 @@
 "use client";
 
-import type { AppearancePref } from "@kanzo-tech/theme";
+import type { Appearance } from "@kanzo-tech/theme";
 import { CORE_PREFS, prefOptions } from "@kanzo-tech/theme";
 import {
   Button,
@@ -103,7 +103,7 @@ export function ThemeMenu({ className }: { className?: string }) {
             away, for the side that decides which theme they see. */}
         <MenuRadioGroup
           heading="Appearance"
-          onValueChange={(details) => setAppearance(details.value as AppearancePref)}
+          onValueChange={(details) => setAppearance(details.value as Appearance)}
           value={appearance}
         >
           {APPEARANCES.map((option) => {

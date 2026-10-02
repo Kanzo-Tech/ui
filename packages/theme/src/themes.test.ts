@@ -86,6 +86,17 @@ function resolved(theme: (typeof THEMES)[number], token: string, seen = new Set<
 const PAIRED = [...new Set(CONTRAST_PAIRS.flatMap((p) => [p.ground, p.ink]))];
 
 describe("a theme resolves through the bridge", () => {
+  it("resets every optional token on a themed element, so a scope never inherits the page's", () => {
+    const bridge = readFileSync(join(PKG, "tokens.css"), "utf8");
+    const reset = bridge.match(/:where\(\[data-theme\]\)\s*\{([^}]*)\}/)?.[1] ?? "";
+    const resetTokens = new Set([...reset.matchAll(/(--[a-z0-9-]+):\s*initial;/g)].map((m) => m[1]));
+    // Every token the bridge reads with a fallback — a theme may leave it unsaid.
+    const optional = [...FALLBACKS.keys()].filter((t) => THEMES.some((th) => !th.declared.has(t)));
+    for (const chain of FALLBACKS.values()) for (const t of chain.slice(0, -1)) if (THEMES.some((th) => !th.declared.has(t))) optional.push(t);
+    expect(optional.length).toBeGreaterThan(4);
+    expect([...new Set(optional)].filter((t) => !resetTokens.has(t))).toEqual([]);
+  });
+
   it("has a corpus, and it is every shipped theme on both sides", () => {
     // A guard whose corpus is empty is indistinguishable from one that passes.
     expect(THEMES.length).toBe(8);

@@ -13,7 +13,6 @@
 // Select, Tooltip…) — those render into document.body, outside any wrapper element.
 export type {
   Appearance,
-  AppearancePref,
   KanzoRadius,
   KanzoDensity,
   KanzoFont,
@@ -32,7 +31,6 @@ export type {
   ThemePrefs,
   FontOption,
   ThemeStorage,
-  AppearanceController,
 } from "./theme/KanzoThemeProvider.js";
 // SSR anti-FOUC pre-hydration script (see ./theme/theme-script.ts for framework recipes).
 export { themeScript } from "./theme/theme-script.js";

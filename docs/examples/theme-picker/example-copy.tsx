@@ -7,16 +7,13 @@ export default function Example() {
     <div className="w-full max-w-2xl">
       <ThemePicker
         copy={{
-          mode: "Modo del tema",
-          sync: "Sincronizar con el sistema",
-          syncDescription: "Sigue el modo claro u oscuro de tu sistema.",
-          single: "Un solo tema",
-          singleDescription: "Un tema, sea cual sea el modo de tu sistema.",
+          appearance: "Apariencia",
+          light: "Claro",
+          dark: "Oscuro",
           day: "Tema claro",
-          dayDescription: "Activo cuando tu sistema está en modo claro.",
+          dayDescription: "Se usa con la apariencia clara.",
           night: "Tema oscuro",
-          nightDescription: "Activo cuando tu sistema está en modo oscuro.",
-          theme: "Tema",
+          nightDescription: "Se usa con la apariencia oscura.",
           active: "Activo",
         }}
       />

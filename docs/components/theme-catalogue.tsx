@@ -15,11 +15,11 @@ import * as React from "react";
  * miniature `ThemePicker` draws — so a card is the theme, not a picture of it.
  *
  * **Wear it** files the family under both sides at once (one tick, two writes — the provider
- * composes them) and leaves the appearance alone, so a reader following the OS keeps following it.
+ * composes them) and leaves the appearance alone, so the side a reader picked stays picked.
  * **Edit** opens the generator on the pair.
  */
 export function ThemeCatalogue() {
-  const { themes, themeByAppearance, resolvedAppearance, defaultThemeFor, setTheme } = useKanzoTheme();
+  const { themes, themeByAppearance, appearance, defaultThemeFor, setTheme } = useKanzoTheme();
   const families = themeFamilies(themes);
   const wornOn = (side: "light" | "dark") => themeByAppearance[side] || defaultThemeFor(side);
   const worn = (f: ThemeFamily) => wornOn("light") === f.light?.value && wornOn("dark") === f.dark?.value;
@@ -34,7 +34,7 @@ export function ThemeCatalogue() {
       {families.map((family) => (
         <FamilyCard
           family={family}
-          initialSide={resolvedAppearance}
+          initialSide={appearance}
           key={family.family}
           onWear={() => wear(family)}
           worn={worn(family)}

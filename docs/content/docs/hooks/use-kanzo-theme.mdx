@@ -12,7 +12,7 @@ import { useKanzoTheme } from "@kanzo-tech/ui";
 ```
 
 ```tsx
-const { radius, resolvedAppearance, set } = useKanzoTheme();
+const { radius, appearance, set } = useKanzoTheme();
 ```
 
 It throws outside a [`KanzoThemeProvider`](/docs/theming) — there is no silent default,
@@ -25,13 +25,12 @@ hook is how you **read** that state and **request** a change; it never touches t
 
 ## Preference and resolution
 
-Three of the values come in pairs, because a preference can be the *absence* of one. `appearance`
-is `""` while the user is following the OS; `resolvedAppearance` is always `light` or `dark`.
-Read the resolved value to draw something, and the preference only to say whether it was pinned.
+`appearance` is always `light` or `dark` — the side the user picked, or the tenant's default, or
+`light`. The OS is never asked.
 
 <ComponentPreview componentName="use-kanzo-theme" fileName="example-appearance" />
 
-`themeByAppearance` / `resolvedTheme` split the same way: an empty preference defers to whichever
+`themeByAppearance` / `resolvedTheme` are a preference and its resolution: an empty preference defers to whichever
 theme the tenant makes default. The preference is a **map keyed by side**, because a theme *is* a
 side — "which theme" without "on which side" does not name a choice.
 
@@ -64,9 +63,8 @@ provider is above it.
 
 | Field | Type | What it is |
 | --- | --- | --- |
-| `appearance` | `AppearancePref` | The pinned side, or `""` while the OS decides |
-| `resolvedAppearance` | `"light" \| "dark"` | The side actually applied — read this to draw |
-| `setAppearance` | `(next: AppearancePref) => void` | Sets appearance, routing through a host theme manager if one is wired |
+| `appearance` | `"light" \| "dark"` | The side being worn |
+| `setAppearance` | `(next: Appearance) => void` | Wears that side |
 | `radius` | `"none" \| "xs" \| "sm" \| "md" \| "lg"` | Corner radius axis |
 | `density` | `"default" \| "compact" \| "comfortable"` | Root font-size axis |
 | `font` | `string` | Sans typeface axis |
@@ -107,6 +105,4 @@ The preference fields are exactly `ThemePrefs`, so `set` accepts any subset of t
 translated. `ThemeStorage` is the two-method adapter the provider reads and writes through: `get`
 returns a **sparse** document, because a key is absent when nobody has chosen it, not when it is at
 its default. `ThemeScriptOptions` is what the blocking script takes, and its `storageKey` must match
-the provider's. `AppearanceController` is where a foreign appearance model enters — next-themes
-spells its third value `"system"` and this package spells it `""`, and that translation happens in
-exactly one place.
+the provider's.

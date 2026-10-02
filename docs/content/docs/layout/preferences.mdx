@@ -79,8 +79,8 @@ without being asked.
   validated. Authoring one is a different surface, the [theme generator](/theme-generator), aimed at
   whoever writes a theme rather than whoever wears it.
 
-  `ThemePicker` is also the only appearance control: its *Theme mode* is "Sync with system"
-  (`appearance: ""`) or "Single theme". There is no sun/moon toggle in the header. **Reset** unsets
+  `ThemePicker` is also the only appearance control: its *Light · Dark* segment picks the
+  side. There is no sun/moon toggle in the header. **Reset** unsets
   every preference, appearance included, and the page lands on whatever the tenant's policy starts a
   user with.
 </Callout>
@@ -105,10 +105,6 @@ The theme comes first. `ThemePicker` guards itself rather than being guarded at 
 every section is exported flat for a host's own settings page, where a call-site guard would be
 invisible. Its cards, its policy handling and its copy are on [its own page](/docs/layout/theme-picker).
 
-Before 0.20 this slot held `PreferencesColor`, swatch chips under a light side and a dark side.
-`ThemePicker` replaces it: a panel composed with `<PreferencesColor />` names `<ThemePicker />`
-instead, its strings (`formatSide` and friends) move to `copy`, and *Theme mode* is the appearance
-control.
 
 ## What the installed packages add
 
@@ -227,7 +223,7 @@ a settings menu of `ItemGroup` / `Item` rows, and the identical sections. Three 
 the split and does not have to arrange:
 
 - **The theme section fills the width it is given** on its own grid. The page passes nothing.
-- **Its Theme mode is the appearance control**, so a page with no panel chrome still has one.
+- **Its Light · Dark segment is the appearance control**, so a page with no panel chrome still has one.
 - **Every heading is one spelling** — small, upper, muted — because each section titles itself. Your
   own sections get the same by going through `PreferencesField` / `PreferencesFieldSet` rather than
   writing a heading beside a control.

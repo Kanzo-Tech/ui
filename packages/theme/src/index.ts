@@ -116,45 +116,10 @@ export const CHART_SLOTS = 8;
  */
 
 /**
- * A side of the compiled document. `compile()` always emits both blocks, so there are exactly two.
- *
- * **There is no `"system"`, and its absence is the design.** Following the OS is a real behaviour we
- * keep — without it the first visit has to guess, and guessing wrong flashes white at every
- * dark-mode user — but it is the state with *no* value, not a third value.
- *
- * That split is the reference systems', and they divide on which layer they are. The JS
- * theme-switching libraries make it a value: next-themes ships `defaultTheme = "system"` and appends
- * `"system"` to its `themes` array, MUI has `mode: "light" | "dark" | "system"`, Mantine `"auto"`.
- * The *token* layers do not: daisyUI writes `themes: light --default, dark --prefersdark`, where the
- * OS preference is a flag on a theme and `data-theme` overrides it; Tailwind has a media query or a
- * class; Radix Themes declines to model it and delegates to next-themes. And CSS itself has no third
- * keyword — `color-scheme: light dark` means "the OS decides", and an explicit side overrides.
- *
- * We are a token layer: a document with a `:root` block and a `.dark` block. `"system"` arrived here
- * as next-themes vocabulary for a mechanism we do not use, and `themeScript` never believed in it —
- * it has always resolved "anything that is not an explicit side" against `matchMedia`.
- *
- * A host next-themes IS still supported; `KanzoThemeProvider` translates its `"system"` to `null` in
- * one place, the way every other foreign vocabulary enters this system.
+ * A side of the compiled document — and the appearance preference itself. The user picks one; the
+ * OS is never asked, so there is no third value and no `prefers-color-scheme` anywhere.
  */
 export type Appearance = "light" | "dark";
-
-/**
- * The appearance PREFERENCE — an explicit side, or `""` for "ask the OS".
- *
- * A value and not an absent key: the read-time whitelist is built from `Object.keys(DEFAULT_PREFS)`,
- * so a key missing from the default blob is dropped on every read. It also survives
- * `JSON.stringify` into both storage adapters, which an `undefined` would not.
- *
- * **`""` and not `null`, which is what it was.** Unset is the same value here as everywhere else in
- * this package: a theme key stores `""` for "defer to the tenant", and the write rule
- * removes an attribute at the default. Two spellings of one idea is what kept appearance out of the
- * declaration — a `SectionPrefDecl`'s values are strings — and therefore out of the one resolution
- * chain, which is the whole of what {@link CORE_PREFS} exists to end. Declared, "follow the OS" is
- * `{ value: "", label: "System" }`: a thing a control can offer, rather than something reachable
- * only through the panel's Reset button.
- */
-export type AppearancePref = Appearance | "";
 
 /** Radius steps (`md` = 0.5rem default). */
 export type KanzoRadius = "none" | "xs" | "sm" | "md" | "lg";
@@ -222,7 +187,7 @@ export interface ThemeOption {
  * published, and never between a value they did not.
  */
 export interface ThemePrefs {
-  appearance: AppearancePref;
+  appearance: Appearance;
   radius: KanzoRadius;
   font: KanzoFont;
   monoFont: KanzoMonoFont;
@@ -264,10 +229,8 @@ export interface ThemePrefs {
  * turned on a live field.
  */
 export const DEFAULT_PREFS: ThemePrefs = {
-  // `""`, not `"system"` and no longer `null`: the default is to have no side pinned, spelled the
-  // way every other deferral in this table is — a theme key of `""` defers to the tenant, this
-  // defers to the OS. One spelling is what lets it be declared, and therefore resolved, like the rest.
-  appearance: "",
+  // A host moves the starting side with `policy.theme.appearance.default`.
+  appearance: "light",
   radius: "md",
   font: "geist",
   monoFont: "geist-mono",

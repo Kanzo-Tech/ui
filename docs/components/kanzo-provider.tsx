@@ -16,10 +16,6 @@ const SECTIONS = [GRAPH_SECTION];
  * (`RootProvider`, `attribute: "class"`) there were two writers of the class on `<html>`. It is
  * disabled in `app/layout.tsx`; that and this file are one change.
  *
- * The one thing lost: docs visitors' appearance preference used to live under next-themes' `theme`
- * key. It now lives on the prefs blob (`kanzo_theme_prefs.appearance`), so an existing visitor is
- * unpinned once — following their OS — and re-picks if they want a side held.
- *
  * **Storage is the cookie, and for a theme that is now an optimisation rather than a
  * requirement.** It was a requirement while the SERVER chose which document to inline: a choice
  * already made upstream cannot be corrected in the browser without a flash. Every document travels

@@ -474,7 +474,7 @@ const baseTheme = EditorView.theme({
  *
  * `EditorView.theme(spec, { dark })` bakes the answer into the theme, and ours cannot: it is ONE
  * theme for both appearances, because the tokens flip underneath it. So the facet is set beside the
- * theme instead of by it, from `resolvedAppearance`, and `codemirror-dark-parity.test.ts` widened to
+ * theme instead of by it, from `appearance`, and `codemirror-dark-parity.test.ts` widened to
  * both halves the day this landed — until now only `&light` could ever apply, and now either can.
  *
  * `false` is spelled as *nothing*, not as `of(false)`: the facet combines with
@@ -538,7 +538,7 @@ export function CodeEditor(p: CodeEditorProps) {
   // Optional, like every other reader of the cascade in this package: without a provider the facet
   // stays false, which is where it sat before this existed, and the guard proves the `&light`
   // defaults that then apply are all overridden anyway.
-  const dark = useKanzoThemeOptional()?.resolvedAppearance === "dark";
+  const dark = useKanzoThemeOptional()?.appearance === "dark";
   const darkNow = useRef(dark);
   darkNow.current = dark;
 

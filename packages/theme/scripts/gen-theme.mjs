@@ -148,17 +148,15 @@ writeFileSync(OUT, out);
 //
 // `appearance` is declared and has no `attr`: it writes a class, not an attribute. It is in this
 // table anyway because the table is what the panel draws from, and appearance is a choice a user
-// makes — with `""` as a listed option, which is the value that means *ask the OS*. It used to be
-// reachable only through the panel's Reset button.
+// makes: light or dark, and nothing else. The OS is never asked.
 const choice = (options, rest) => ({ kind: "choice", options, ...rest });
 const corePrefs = () => ({
   appearance: choice(
     [
-      { value: "", label: "System" },
       { value: "light", label: "Light" },
       { value: "dark", label: "Dark" },
     ],
-    { default: "", label: "Appearance", doc: "which side of the document is worn" },
+    { default: "light", label: "Appearance", doc: "which side of the document is worn" },
   ),
   radius: choice(
     RADII.map(([value, , label]) => ({ value, label })),

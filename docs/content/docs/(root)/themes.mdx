@@ -30,9 +30,9 @@ Three facts, and everything on this page follows from them:
 
 - **A theme is a side.** Each file is one `[data-theme="<name>"]` block with its own
   `color-scheme`. `nord-dark` is not a mode of `nord`; it is another theme.
-- **A person chooses one theme per side**, plus whether the OS decides which side is worn — GitHub's
+- **A person chooses one theme per side**, plus which side is worn — GitHub's
   Appearance model. The preference is `themeByAppearance: { light?, dark? }` beside
-  `appearance: "light" | "dark" | ""`, where `""` means *follow the OS*.
+  `appearance: "light" | "dark"`, picked by the user; the OS is never asked.
 - **The provider writes the result to `<html>`.** `data-theme` gets the theme for the side being
   worn, and `.dark` the side. Every component reads the tokens, so nothing re-renders to re-skin.
 
@@ -80,8 +80,8 @@ const pair = { light: "nord", dark: "nord-dark" };
 
 ## Letting people choose
 
-[`ThemePicker`](/docs/layout/theme-picker) is the control: a *Theme mode* (sync with system, or a
-single theme), then a **Light theme** card and a **Dark theme** card, each a large preview of its
+[`ThemePicker`](/docs/layout/theme-picker) is the control: a *Light · Dark* segment, then a
+**Light theme** card and a **Dark theme** card, each a large preview of its
 choice over a row of round swatches, one per theme. It is what
 [`Preferences`](/docs/layout/preferences) draws first, and it offers exactly what `themes` lists.
 

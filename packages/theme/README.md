@@ -12,7 +12,7 @@ Four families ship, each a light theme and a dark one — eight themes:
 | `lofi` | `lofi` | `lofi-dark` |
 | `nord` | `nord` | `nord-dark` |
 
-A user picks a day theme and a night theme, and whether the OS decides between them — GitHub's
+A user picks a light theme and a dark theme, and which side to wear — GitHub's
 Appearance model, drawn by `ThemePicker` in `@kanzo-tech/ui`. A product ships its own families beside
 or instead of these.
 
@@ -23,7 +23,7 @@ or instead of these.
 - **Font** / **Mono font** — `--font-sans` / `--font-heading` / `--font-mono`; Geist and Geist Mono by
   default, falling back to the system faces.
 - **Density** — the root font-size the whole `rem` scale resolves against.
-- **Appearance** — `light` / `dark` / `""` (follow the OS), and it chooses *which theme* is worn,
+- **Appearance** — `light` / `dark`, picked by the user (the OS is never asked), and it chooses *which theme* is worn,
   because a theme is a side.
 
 This package ships **no components**. It is CSS, the catalogue and the declared axes as data, the
@@ -123,16 +123,7 @@ Read or change the live preferences with `useKanzoTheme()`, or drop in the ready
 
 Not owned here. `.dark` on `<html>` says which side is worn: the provider writes the theme chosen for
 that side to `data-theme`, and the `dark:` variant keys off the class. If you already run a theme
-manager, hand it to the provider:
-
-```tsx
-import { useTheme } from "next-themes";
-
-const { resolvedTheme, setTheme } = useTheme();
-<KanzoThemeProvider appearance={{ resolvedTheme, setTheme }}>{children}</KanzoThemeProvider>;
-```
-
-Omit the prop and the provider's built-in fallback toggles `.dark` itself.
+manager that writes the class, turn its writer off — the provider is the one owner of `.dark`.
 
 ## SSR
 

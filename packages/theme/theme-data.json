@@ -76,10 +76,6 @@
       "kind": "choice",
       "options": [
         {
-          "value": "",
-          "label": "System"
-        },
-        {
           "value": "light",
           "label": "Light"
         },
@@ -88,7 +84,7 @@
           "label": "Dark"
         }
       ],
-      "default": "",
+      "default": "light",
       "label": "Appearance",
       "doc": "which side of the document is worn"
     },

@@ -100,10 +100,8 @@ export function themeScript({
     "function ok(v,o){return typeof v==='string'&&(!o||o.indexOf(v)>=0);}" +
     "function pick(p,s,df,o){return ok(p.pinned,o)?p.pinned:((!p.hidden&&ok(s,o))?s:(ok(p['default'],o)?p['default']:df));}" +
     // Appearance first: it decides `.dark`, and it decides which side a keyed axis is indexed by.
-    // Anything that is not an explicit side means "ask the OS" — which is why the last line here
-    // never changed when `"system"` left the model. It was always the whole resolution.
-    "var AP=" + appearance + ",av=pick(PO[AP[0]]||{},P[AP[0]],AP[2],AP[4]);" +
-    "var W=(av==='light'||av==='dark')?av:((window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light');" +
+    // The user's side, or the tenant's, or light — the OS is never asked.
+    "var AP=" + appearance + ",W=pick(PO[AP[0]]||{},P[AP[0]],AP[2],AP[4]);" +
     // every axis, from the table itself. `data-theme` carries no option list and
     // so are written VERBATIM, never checked against what the tenant published: an attribute
     // selector with no matching rule is inert and the cascade falls through to `:root`, which is the

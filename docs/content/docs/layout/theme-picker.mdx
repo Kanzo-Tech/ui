@@ -1,6 +1,6 @@
 ---
 title: ThemePicker
-description: The theme choice, laid out as GitHub's Appearance settings — a light theme, a dark theme, and whether the OS decides between them.
+description: The theme choice, laid out as GitHub's Appearance settings — Light or Dark, and a theme for each side.
 ---
 
 <ComponentPreview componentName="theme-picker" />
@@ -24,25 +24,22 @@ first), a dialog — and it edits the live theme.
 ## How it works
 
 A theme is one mode, so a person does not choose "a theme" — they choose one for light and one for
-dark, and whether the OS picks between them. That is GitHub's *Settings → Appearance*, and the
-picker is its layout:
+dark, and which side to wear. That is GitHub's *Settings → Appearance*, and the picker is its
+layout:
 
-- **Theme mode** — a select. *Sync with system* follows `prefers-color-scheme` (`appearance: ""`);
-  *Single theme* pins the side currently on screen. A line beside it says what the chosen mode does.
-- **Light theme** and **Dark theme** — in sync mode, two cards side by side. Each says when it
-  applies, shows one large [`ThemePreview`](#themepreview) of the theme chosen for that side with its
-  name under it, and offers the side's themes as a row of round swatches. Choosing a dark theme in
-  daylight files it under `dark` without repainting what you are looking at.
-- **Theme** — in single mode, one card whose swatches are every theme on offer, light and dark;
-  choosing one wears its side, so picking `nord-dark` switches the page to dark.
-- **Active** — the card whose side is on screen carries the badge in its header and a primary
+- **Appearance** — a *Light · Dark* segment. It writes `appearance`, and with it `.dark`. The OS is
+  never asked; the starting side is `light`, or the tenant's `policy.theme.appearance.default`.
+- **Light theme** and **Dark theme** — always two cards, side by side. Each says when it applies,
+  shows one large [`ThemePreview`](#themepreview) of the theme chosen for that side with its name
+  under it, and offers that side's themes as a row of round swatches. Choosing a swatch files the
+  theme under its card's side and never flips the appearance: picking a dark theme while wearing
+  light changes nothing on screen until you switch to Dark.
+- **Active** — the card of the side being worn carries the badge in its header and a primary
   border. With no choice stored, each card shows the default pair.
 
 Each swatch is the theme's own `--background` and `--primary` split on the diagonal, painted inside a
 scoped `KanzoTheme` — the real tokens, never a copy of their colours — so the row grows by one circle
 per theme rather than by one card.
-
-There is no separate sun/moon toggle anywhere in the library: *Theme mode* is the appearance control.
 
 ## Examples
 
@@ -72,7 +69,7 @@ than drawing an empty row.
 ### A locked brand
 
 A white-label tenant withholds the theme axis and passes its pair as the default. The picker then
-draws only *Theme mode* — members still choose light, dark or the OS, inside the brand:
+draws only the *Light · Dark* control — members still choose the side, inside the brand:
 
 ```tsx
 <KanzoThemeProvider
@@ -93,10 +90,10 @@ What draws is decided by the tenant's `policy.theme`:
 
 | `policy.theme` | What draws |
 | --- | --- |
-| nothing | *Theme mode* and the cards for it |
-| `appearance: { pinned: "dark" }` | no mode control; one card, with that side's themes |
-| `appearance: { hidden: true }` | no mode control; the OS decides, so the light and dark cards |
-| `themeByAppearance: { hidden: true }` or `{ pinned }` | *Theme mode* only — the tenant's default pair applies |
+| nothing | the *Light · Dark* control and both cards |
+| `appearance: { pinned: "dark" }` or `{ hidden: true }` | no control — the pinned (or default) side is worn; both cards |
+| `appearance: { default: "dark" }` | the control, starting on Dark |
+| `themeByAppearance: { hidden: true }` or `{ pinned }` | the control only — the tenant's default pair applies |
 | both withheld | nothing — `ThemePicker` renders `null` |
 
 ## The retired-theme notice
@@ -109,8 +106,8 @@ through `copy.retired`.
 
 ## Accessibility
 
-- *Theme mode* is an Ark select named by its label: Enter or Space opens it, arrow keys move, and
-  the description beside it changes with the mode.
+- *Appearance* is an Ark segment group (a radio group) named by its label: arrow keys move between
+  Light and Dark.
 - Each card is a region named by its title, and its swatches are an Ark radio group named by the same
   title: Tab enters the row on the checked swatch, arrow keys move along it (and choose as they go,
   so the preview above follows), and the swatch is announced by the theme's label as checked.
@@ -156,16 +153,13 @@ theme names it.
 
 | Key | Default |
 | --- | --- |
-| `mode` | `"Theme mode"` |
-| `sync` | `"Sync with system"` |
-| `syncDescription` | `"Matches your system's light or dark setting."` |
-| `single` | `"Single theme"` |
-| `singleDescription` | `"One theme, whatever your system is set to."` |
+| `appearance` | `"Appearance"` — the label of the *Light · Dark* control |
+| `light` | `"Light"` |
+| `dark` | `"Dark"` |
 | `day` | `"Light theme"` — the light side's card |
-| `dayDescription` | `"Active when your system is set to light mode."` |
+| `dayDescription` | `"Worn while the appearance is light."` |
 | `night` | `"Dark theme"` — the dark side's card |
-| `nightDescription` | `"Active when your system is set to dark mode."` |
-| `theme` | `"Theme"` — the single-mode card |
+| `nightDescription` | `"Worn while the appearance is dark."` |
 | `active` | `"Active"` |
 | `retired` | `ThemeRetiredCopy` — `{ title?, formatDescription?({ theme }) }`, shared with `ThemeNotice` |
 

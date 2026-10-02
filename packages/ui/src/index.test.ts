@@ -186,7 +186,7 @@ describe("@kanzo-tech/ui public surface", () => {
     // SuggestMenu dissolved into a Popover + useSuggestions composition.
     expect(surface.SuggestMenu).toBeUndefined();
     // The theme and the appearance are ONE control, `ThemePicker` (GitHub's Appearance settings):
-    // its Theme mode is the appearance. `AppearanceToggle` and `PreferencesColor` were second doors.
+    // its Light · Dark segment is the appearance. `AppearanceToggle` and `PreferencesColor` were second doors.
     expect(surface.AppearanceToggle).toBeUndefined();
     expect(surface.PreferencesColor).toBeUndefined();
     expect(surface.ThemePicker).toBeTypeOf("function");

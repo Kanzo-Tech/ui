@@ -3,7 +3,6 @@
 import * as React from "react";
 import type {
   Appearance,
-  AppearancePref,
   CorePrefKey,
   ThemeOption,
   PrefSources,
@@ -52,39 +51,15 @@ export type { ThemePrefs } from "@kanzo-tech/theme";
  * (which of the blocks the TENANT published applies). A user who has never been given a second
  * identity has the same five preferences they had before, and the same `<html>`.
  *
- * `.dark` therefore follows the PREFERENCE directly. It used to be derived from the applied
- * palette, so a partnerless palette could overrule the user; a document carries both modes, so
- * there is nothing left to contradict them. A host theme manager may supply the preference (see
- * {@link AppearanceController}) — if it also writes the class (next-themes with
- * `attribute: "class"`) it must be disabled, or the two fight over the same class.
+ * `.dark` follows the appearance the user picked — light or dark; the OS is never asked. A host
+ * theme manager that also writes the class (next-themes with `attribute: "class"`) must be
+ * disabled, or the two fight over the same class.
  *
  * Attributes are written to `document.documentElement` (NOT a wrapper `<div>`): Ark overlays
  * (Dialog, Popover, Menu, Select, Tooltip…) portal to `document.body`, OUTSIDE any wrapper, so
  * the tokens must live on `<html>` for portaled surfaces to inherit them.
  */
 
-
-/**
- * A host theme manager (next-themes) as the source of the appearance PREFERENCE.
- *
- * A host that also writes `.dark` must be turned off (`RootProvider theme={{ enabled: false }}`
- * in fumadocs, `enableColorScheme: false` + no `attribute: "class"` elsewhere), or two owners
- * write the same class. What the controller provides is the preference and the OS resolution,
- * which is all this provider reads from it. Shape matches next-themes.
- */
-export interface AppearanceController {
-  /**
-   * The host's preference, in the HOST's vocabulary; next-themes exposes this as `theme`.
-   *
-   * `string`, not `Appearance`, because this is where a foreign model enters. next-themes' third
-   * value is the string `"system"`, ours is `""`, and the translation happens once, below — no
-   * other line in this package knows that `"system"` is a word.
-   */
-  theme?: string;
-  /** The applied value (`light` | `dark`), already resolved against the OS by the host. */
-  resolvedTheme?: string;
-  setTheme: (theme: string) => void;
-}
 
 /** Pluggable persistence for the uncontrolled mode. */
 export interface ThemeStorage {
@@ -233,7 +208,7 @@ function useRetirement(
 
 export interface KanzoThemeProviderProps {
   children: React.ReactNode;
-  /** Override the built-in defaults (unpinned / md / system / system / default / the document's). */
+  /** Override the built-in defaults (light / md / geist / geist-mono / default / the tenant's pair). */
   defaults?: Partial<ThemePrefs>;
   /** Controlled mode: supply value + onChange (host owns persistence). */
   value?: Partial<ThemePrefs>;
@@ -302,8 +277,6 @@ export interface KanzoThemeProviderProps {
    * back under a new name.
    */
   policy?: Record<string, SectionPolicy>;
-  /** Delegate dark to a host theme manager (e.g. next-themes). Omit to use the built-in fallback. */
-  appearance?: AppearanceController;
 }
 
 export function KanzoThemeProvider({
@@ -320,7 +293,6 @@ export function KanzoThemeProvider({
   onThemeRetired,
   sections = NO_SECTIONS,
   policy = NO_POLICY,
-  appearance,
 }: KanzoThemeProviderProps) {
   const controlled = value !== undefined;
   const storageAdapter = React.useMemo(
@@ -435,53 +407,13 @@ export function KanzoThemeProvider({
   }, [defaults, policy]);
 
   // ── Appearance ──────────────────────────────────────────────────────────────────────────
-  // A preference — a pinned side, or `""` for "ask the OS" — and the side that resolves to.
-  // Nothing else participates: the palette document publishes both modes, so no identity can
-  // overrule the side the user asked for.
-
-  const [systemDark, setSystemDark] = React.useState(
-    () => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-color-scheme: dark)").matches,
-  );
-
-  // The declared chain, over BOTH sources, which is what makes them one model. A pinned side is the
-  // string `light` or `dark`; everything else resolves to the unset option: next-themes' `"system"`
-  // (a foreign vocabulary), a corrupt value from a stored blob, a typo. There is no hand-written
-  // whitelist here any more — `appearance` declares its three options, and `resolvePref` gates
-  // against them. `themeScript` runs the identical chain, which is what keeps the two sides from
-  // disagreeing on a blob a browser can hold but we would never write.
-  //
-  // A host that reports only `resolvedTheme` has no unpinned state to report, so it reads as pinned,
-  // which is right: it is telling us a side and nothing else.
-  //
-  // It resolves before everything below it because it has to: the side is what a keyed axis is
-  // indexed by, and `.dark` is what a document's second block keys off.
+  // The side the user picked, through the declared chain (pinned, stored, the tenant's default,
+  // `light`). It resolves first: the side is what a keyed axis is indexed by.
   const appearanceResolved = React.useMemo(
-    () =>
-      resolvePref(
-        CORE_PREFS.appearance,
-        appearance ? appearance.theme ?? appearance.resolvedTheme : storedPrefs.appearance,
-        corePolicy.appearance,
-      ),
-    [appearance, corePolicy, storedPrefs.appearance],
+    () => resolvePref(CORE_PREFS.appearance, storedPrefs.appearance, corePolicy.appearance),
+    [corePolicy, storedPrefs.appearance],
   );
-  const appearancePref = appearanceResolved.value as AppearancePref;
-
-  // Track the OS scheme with a live listener while nothing is pinned. Not needed when a host is
-  // wired: its `resolvedTheme` already is the resolution, and it re-renders us on change.
-  React.useEffect(() => {
-    if (appearance || appearancePref || typeof window === "undefined" || !window.matchMedia) return;
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = () => setSystemDark(mq.matches);
-    onChange();
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, [appearance, appearancePref]);
-
-  const resolvedAppearance: Appearance =
-    appearancePref ||
-    (appearance?.resolvedTheme === "dark" || (!appearance?.resolvedTheme && systemDark)
-      ? "dark"
-      : "light");
+  const appearance = appearanceResolved.value as Appearance;
 
   // ── One resolution ──────────────────────────────────────────────────────────────────────
   //
@@ -506,7 +438,7 @@ export function KanzoThemeProvider({
       const decl = CORE_PREFS[key as CorePrefKey];
       const raw = storedPrefs[key];
       const stored = decl.byAppearance
-        ? (raw as Record<string, string> | undefined)?.[resolvedAppearance]
+        ? (raw as Record<string, string> | undefined)?.[appearance]
         : (raw as string | undefined);
       out[key] = { ...resolvePref(decl, stored, corePolicy[key]), decl };
     }
@@ -521,7 +453,7 @@ export function KanzoThemeProvider({
   }, [
     appearanceResolved,
     corePolicy,
-    resolvedAppearance,
+    appearance,
     storedPrefs.radius,
     storedPrefs.font,
     storedPrefs.monoFont,
@@ -539,7 +471,7 @@ export function KanzoThemeProvider({
   // overwrite a brand named in the same call. Every clause of that was a real defect once. None of
   // it exists now: a brand is a theme, so there is no containment to remember and nothing to carry
   // across. The memory it needed (`identityByPalette`) went with it.
-  const resolvedTheme = corePrefs.themeByAppearance?.value || defaultThemeFor(resolvedAppearance);
+  const resolvedTheme = corePrefs.themeByAppearance?.value || defaultThemeFor(appearance);
 
   /**
    * Choose a theme for one side.
@@ -548,16 +480,15 @@ export function KanzoThemeProvider({
    * two-grid panel names the other one explicitly: choosing a night theme in daylight has to reach
    * the dark key without repainting what the reader is looking at.
    *
-   * The keying lives here and not in every panel, the same way `setAppearance` owns translating a
-   * host's `"system"`. Spelled at each call site it would be a spread of a map the caller has to
+   * The keying lives here and not in every panel, and spelled at each call site it would be a spread of a map the caller has to
    * remember is keyed at all.
    */
   const setTheme = React.useCallback(
     (theme: string, options: { appearance?: Appearance } = {}) => {
-      const side = options.appearance ?? resolvedAppearance;
+      const side = options.appearance ?? appearance;
       set({ themeByAppearance: { ...prefs.themeByAppearance, [side]: theme } });
     },
-    [prefs.themeByAppearance, resolvedAppearance, set],
+    [prefs.themeByAppearance, appearance, set],
   );
 
   // **Not resolved against what the tenant published**, though the declaration names that source and
@@ -599,8 +530,8 @@ export function KanzoThemeProvider({
       if (v === undefined || v === def) el.removeAttribute(attr);
       else el.setAttribute(attr, v);
     }
-    el.classList.toggle("dark", resolvedAppearance === "dark");
-  }, [corePrefs, resolvedAppearance, resolvedTheme]);
+    el.classList.toggle("dark", appearance === "dark");
+  }, [corePrefs, appearance, resolvedTheme]);
 
   // Clean the managed attributes off <html> only when the provider unmounts.
   // `.dark` is deliberately left alone: a host may own the class after we go, and removing it
@@ -613,16 +544,9 @@ export function KanzoThemeProvider({
     [],
   );
 
-  // It takes the unset value because the preference has one, and the reverse translation lives here:
-  // `""` reaches a host as `"system"`, the only word next-themes has for it. A setter that could not
-  // express its own type would leave a host reaching for `set({ appearance: "" })` and bypassing the
-  // host controller entirely.
   const setAppearance = React.useCallback(
-    (next: AppearancePref) => {
-      if (appearance) appearance.setTheme(next || "system");
-      else set({ appearance: next });
-    },
-    [appearance, set],
+    (next: Appearance) => set({ appearance: next }),
+    [set],
   );
 
   // ── Contributed preferences ─────────────────────────────────────────────────────────────
@@ -721,20 +645,19 @@ export function KanzoThemeProvider({
       monoFonts,
       sectionPrefs,
       setSectionPref,
-      appearance: appearancePref,
-      resolvedAppearance,
+      appearance,
       setAppearance,
       themes,
       // The applied side's default. The pair is behind `defaultThemeFor`, because a panel drawing
       // the OTHER side needs that side's answer and a single string cannot give it.
-      defaultTheme: defaultThemeFor(resolvedAppearance),
+      defaultTheme: defaultThemeFor(appearance),
       defaultThemeFor,
       resolvedTheme,
       setTheme,
       retiredTheme,
     }),
     [
-      prefs, set, fonts, monoFonts, appearancePref, resolvedAppearance, setAppearance,
+      prefs, set, fonts, monoFonts, appearance, setAppearance,
       themes, defaultThemeFor, resolvedTheme, setTheme, retiredTheme,
       sectionPrefs, setSectionPref, corePrefs, sources, reset,
     ],

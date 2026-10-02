@@ -84,7 +84,7 @@ describe("Preferences", () => {
       expect(screen.queryByRole("button", { name: /^Appearance/ })).toBeNull();
       const body = document.querySelector("[data-slot=preferences-panel] form");
       expect(body?.firstElementChild?.querySelector("[data-slot=theme-picker]")).toBeTruthy();
-      expect(screen.getByRole("combobox", { name: "Theme mode" })).toBeTruthy();
+      expect(screen.getByRole("radiogroup", { name: "Appearance" })).toBeTruthy();
     });
 
     it("still reaches the preference through Reset, which unsets it", async () => {

@@ -231,6 +231,29 @@
   }
 }
 
+/* ── A scoped theme starts from its own chain, never the page's ──────────────────────────────
+   The optional tokens above are read through a fallback: `--popover` → `--card`, `--sidebar` →
+   `--popover` → `--card`. A custom property inherits, so a theme that leaves one unsaid, scoped
+   under a page whose theme says it, would inherit the PAGE's value — a light `kanzo` preview on a
+   dark page drew `kanzo-dark`'s sidebar. Every element carrying a theme therefore resets them to
+   the guaranteed-invalid value, at zero specificity so any theme block that authors one wins, and
+   the bridge's fallback resolves against the theme on that element. `themes.test.ts` holds this
+   list to every chain the bridge reads. */
+:where([data-theme]) {
+  --accent-foreground: initial;
+  --destructive-foreground: initial;
+  --faint: initial;
+  --field: initial;
+  --info-foreground: initial;
+  --input: initial;
+  --popover: initial;
+  --secondary-foreground: initial;
+  --sidebar: initial;
+  --sidebar-foreground: initial;
+  --success-foreground: initial;
+  --warning-foreground: initial;
+}
+
 :root {
   /* ── The categorical set a theme gets by saying nothing ───────────────────────
      Every shipped theme authors its own eight; this is what a tenant's theme gets when it does not.

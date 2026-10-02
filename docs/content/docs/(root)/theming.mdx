@@ -1,6 +1,6 @@
 ---
 title: Theming
-description: The model — families, a day theme and a night theme — the provider and the pre-paint script, white-label policy, every token a theme authors, and the contrast floors it owes.
+description: The model — families, a light theme and a dark theme — the provider and the pre-paint script, white-label policy, every token a theme authors, and the contrast floors it owes.
 ---
 
 Two different things wear the word "theme", and this page is mostly about keeping them apart.
@@ -35,17 +35,17 @@ dark theme that belong together. Four ship, eight themes in all:
 | `lofi` | `lofi` | `lofi-dark` |
 | `nord` | `nord` | `nord-dark` |
 
-A person therefore chooses the way GitHub's *Settings → Appearance* lets them: a **day theme**, a
-**night theme**, and whether the OS decides which is worn. Two preferences hold it:
+A person therefore chooses the way GitHub's *Settings → Appearance* lets them: a **light theme**, a
+**dark theme**, and which of the two is worn. Two preferences hold it:
 
 | Preference | Values | Writes |
 | --- | --- | --- |
 | `themeByAppearance` | `{ light?: string; dark?: string }` — `{}` until they choose | `data-theme`, the theme for the side being worn |
-| `appearance` | `"light"` · `"dark"` · `""` (follow the OS) | **no attribute**: it writes `.dark` |
+| `appearance` | `"light"` · `"dark"` — `"light"` unless the tenant's policy says otherwise | **no attribute**: it writes `.dark` |
 
 The two compose rather than compete: appearance picks the side, and the theme axis is keyed by that
-side. *Sync with system* is `appearance: ""` — both entries of the map are in use and the OS picks
-between them. *Single theme* pins a side, and the entry for that side is the one worn.
+side. The user picks the side; the OS is never asked. Move the starting side with
+`policy={{ theme: { appearance: { default: "dark" } } }}`.
 
 <Callout title="Why one mode per theme">
   It is what lets a tint be written as a percentage on the role (`bg-destructive/7`) with one meaning
@@ -106,7 +106,6 @@ import { KanzoThemeProvider, cookieStorageAdapter } from "@kanzo-tech/ui";
 | `fonts` / `monoFonts` | `FontOption[]` | the generated stacks |
 | `sections` | `SectionManifest[]` | `[]` |
 | `onThemeRetired` | `(theme: string) => void` | — |
-| `appearance` | `AppearanceController` | built-in |
 
 - **`themes`** — the themes on offer. The picker draws these, the retirement check reads them, and
   the default pair is taken from them. A host still has to *load* the CSS of any theme it adds.
@@ -136,10 +135,10 @@ its own family must not depend on it.
 Read or change the state with [`useKanzoTheme()`](/docs/hooks/use-kanzo-theme):
 
 ```tsx
-const { resolvedTheme, resolvedAppearance, setTheme, setAppearance } = useKanzoTheme();
+const { resolvedTheme, appearance, setTheme, setAppearance } = useKanzoTheme();
 
-setTheme("nord-dark", { appearance: "dark" }); // file a night theme without repainting the day
-setAppearance(""); // back to following the OS
+setTheme("nord-dark", { appearance: "dark" }); // file a dark theme without repainting the light
+setAppearance("dark"); // wear the dark side
 ```
 
 ### themeScript
@@ -175,15 +174,15 @@ Pair it with `cookieStorageAdapter()` on the provider so the user's writes land 
 
 ### ThemePicker and ThemePreview
 
-[`ThemePicker`](/docs/layout/theme-picker) is the one control for both preferences — *Theme mode*,
-then a light card and a dark card, each a large preview over a row of theme swatches — and
+[`ThemePicker`](/docs/layout/theme-picker) is the one control for both preferences — a *Light · Dark*
+segment, then a light card and a dark card, each a large preview over a row of theme swatches — and
 `ThemePreview` is the miniature screen on each card, a scoped `KanzoTheme` painted by the real tokens. The picker offers what `themes` lists
 and obeys `policy`; its page has the full behaviour table.
 
 ### Retired themes
 
 A theme the user chose can disappear: the host narrows `themes`, a tenant drops a family, or the
-library retires one (0.20 retired twenty-two). The cascade already copes — an attribute with no
+library retires one. The cascade already copes — an attribute with no
 matching rule is inert — but a person who chose gold and is looking at blue reads silence as a bug.
 So the provider, on finding that the theme worn on the current side is not in `themes`:
 
@@ -252,14 +251,14 @@ const policy = { theme: { themeByAppearance: { hidden: true } } };
 ```
 
 `hidden` means *do not offer this, and ignore what was stored*: the provider applies the pair, and
-`ThemePicker` draws only the *Theme mode*, so a member still chooses light, dark or the OS — inside
+`ThemePicker` draws only the *Light · Dark* control, so a member still chooses the side — inside
 the brand. Withhold `appearance` too and the picker draws nothing.
 
 | `policy.theme` | Effect |
 | --- | --- |
 | `themeByAppearance: { hidden: true }` | the brand is locked; the mode is still a choice |
 | `appearance: { pinned: "dark" }` | always the night side; the picker offers that side's themes only |
-| `appearance: { hidden: true }` | the OS decides and the mode control goes; the light and dark cards remain |
+| `appearance: { hidden: true }` | the tenant's default side; the control goes, the light and dark cards remain |
 | both `hidden` | nothing to choose; the picker renders nothing |
 
 Prefer `hidden` plus `defaultTheme` over `pinned` for the theme: a pinned name is one theme for
@@ -601,24 +600,10 @@ import { Preferences } from "@kanzo-tech/ui";
 
 ## Dark mode
 
-`.dark` on `<html>` is the only mode selector, and `KanzoThemeProvider` writes it. Hand it to a
-host theme manager if you already run one — the shape matches next-themes:
-
-```tsx
-import { useTheme } from "next-themes";
-
-const { resolvedTheme, setTheme } = useTheme();
-<KanzoThemeProvider appearance={{ resolvedTheme, setTheme }}>{children}</KanzoThemeProvider>;
-```
-
-Omit the prop and the provider's built-in fallback toggles `.dark` itself, which is what these
-docs do.
-
-The preference is `"light" | "dark" | ""`, where `""` means the OS decides — there is no
-`"system"`: the value with no value is how the token-layer references model it (daisyUI's
-`--prefersdark`, `color-scheme: light dark`) rather than the theme-switcher libraries, which make it
-a third string. A host next-themes speaks `"system"`; the provider translates it to
-`""` on the way in and back on the way out, in one place, so the rest of the library never sees it.
+`.dark` on `<html>` is the only mode selector, and `KanzoThemeProvider` writes it from the side
+the user picked — `"light" | "dark"`, nothing else. The OS is never asked: there is no
+`prefers-color-scheme` in the provider or in `themeScript`. A host already running a theme manager
+that writes the class (next-themes with `attribute: "class"`) turns that writer off.
 
 <Callout type="info" title="Why a class and not light-dark()">
   Two reasons. The recipes' `dark:` variants need a class to key off; and
@@ -695,35 +680,3 @@ without exactly one light and one dark theme.
 
 **`tokens.css` and `themes/*.css` are NOT generated.** They are hand-written source, and a guard
 that regenerated them would have nothing to regenerate them from.
-
-## Upgrading to 0.20
-
-0.20 replaces twenty-nine single themes with four families and replaces the colour chips with a
-GitHub-style picker. What to change:
-
-- **Twenty-two themes are gone.** `acid`, `bank`, `bank-dark`, `bank-private`, `bank-private-dark`,
-  `catppuccin-latte-dark`, `catppuccin-mocha-dark`, `cmyk`, `coffee`, `cyberpunk`, `dim`, `dracula`,
-  `dracula-dark`, `forest`, `lemonade`, `luxury`, `monochrome`, `monochrome-dark`, `night`, `sunset`,
-  `synthwave` and `wireframe` no longer ship. A user who had one stored is moved to the default pair
-  on their next visit — the provider clears the choice and calls `onThemeRetired` once — so wire
-  `onThemeRetired` or mount `ThemeNotice` if you want to tell them. `catppuccin-latte` and
-  `catppuccin-mocha` are now one family's day and night (their `-dark` variants went), and `lofi`
-  gained `lofi-dark`. `kanzo` and `nord` were redrawn — `kanzo` from the kanzo.tech brand.
-- **`PreferencesColor` is deleted; use `ThemePicker`.** `Preferences` already draws it first.
-  There is no separate appearance toggle: *Theme mode* in the picker is the appearance control.
-- **`defaultTheme` is a pair.** `defaultTheme="nord"` no longer type-checks; write
-  `defaultTheme={{ light: "nord", dark: "nord-dark" }}`, and pass the same to `themeScript`, which
-  now takes `defaultTheme` too. Omitted, both default to the first family of `themes`.
-- **`themes` defaults to `themeIndex`.** A host that passed the whole catalogue can drop the prop.
-- **`data-theme` is always written.** The provider and the script write the resolved theme even when
-  it is the default, where they used to remove the attribute. CSS that targeted
-  `:root:not([data-theme])` to mean "the default" should target the default theme by name.
-- **`themeIndex` entries are `ThemeOption`** — `{ value, label, dark, family }`; the old
-  `{ name, dark }` entry type is gone. Group them with `themeFamilies`.
-- **Two syntax inks are new and one is gone.** Every theme must author `--syntax-variable` (which
-  replaces the old *identifier* ink) and `--syntax-annotation`. A theme of your own without them
-  paints bindings and `@`-references in plain text colour — and `auditContrast` skips a pair whose
-  token is missing, so it will not tell you.
-- **Geist and Geist Mono are the default faces** (`font: "geist"`, `monoFont: "geist-mono"`), each
-  falling back to the system stack when the webfont is not loaded.
-- **`import-daisy.mjs` is gone.** A theme is written in the generator or by hand.
