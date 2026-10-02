@@ -161,6 +161,34 @@ describe("Preferences", () => {
       expect(card?.textContent).toBe("Atlas");
       expect(card?.querySelector("span[style]")).toBeNull();
     });
+
+    it("draws a contributed choice's specimens from the surface that draws it, keyed namespace.preference", () => {
+      const graph: SectionManifest = {
+        namespace: "graph",
+        version: 1,
+        prefs: {
+          look: {
+            kind: "choice",
+            default: "atlas",
+            doc: "how the canvas is drawn",
+            options: [
+              { value: "atlas", label: "Atlas" },
+              { value: "ink", label: "Ink" },
+            ],
+          },
+        },
+      };
+      render(
+        <KanzoThemeProvider sections={[graph]}>
+          <PreferencesSections
+            namespace="graph"
+            specimens={{ "graph.look": (option) => <span data-testid="specimen">{option.value}</span> }}
+          />
+        </KanzoThemeProvider>,
+      );
+      expect(screen.getAllByTestId("specimen").map((el) => el.textContent)).toEqual(["atlas", "ink"]);
+      expect(cards("look")[0]?.textContent).toBe("atlasAtlas");
+    });
   });
 
   describe("what the tenant pinned or withheld is not offered", () => {

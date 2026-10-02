@@ -197,6 +197,14 @@ to mount the controls it should not have.
 `packages/ui/src/composites/Preferences.test.tsx`, "draws the core as the namespace `theme`: the theme
 picker, then density".
 
+**A contributed choice can be drawn as density is: cards, each with a picture over its name.** A
+manifest is data, declared in a package that may not depend on React, so it cannot carry a picture.
+The surface that draws the section passes them instead: `specimens`, keyed `namespace.preference`, a
+function from an option to what it looks like. Without one, the choice is a list.
+
+*Held by* `packages/ui/src/composites/Preferences.test.tsx`, "draws a contributed choice's specimens
+from the surface that draws it, keyed namespace.preference".
+
 ### A scope names a theme and a side, nothing else
 
 `KanzoTheme` takes `theme` and `appearance`. A region that wants a different shape wears a different
