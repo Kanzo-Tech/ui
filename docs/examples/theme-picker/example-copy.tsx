@@ -8,8 +8,6 @@ export default function Example() {
       <ThemePicker
         copy={{
           appearance: "Apariencia",
-          light: "Claro",
-          dark: "Oscuro",
           day: "Tema claro",
           dayDescription: "Se usa con la apariencia clara.",
           night: "Tema oscuro",

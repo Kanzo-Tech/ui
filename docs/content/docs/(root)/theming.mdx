@@ -174,8 +174,9 @@ Pair it with `cookieStorageAdapter()` on the provider so the user's writes land 
 
 ### ThemePicker and ThemePreview
 
-[`ThemePicker`](/docs/layout/theme-picker) is the one control for both preferences — a *Light · Dark*
-segment, then a light card and a dark card, each a large preview over a row of theme swatches — and
+[`ThemePicker`](/docs/layout/theme-picker) is the one control for both preferences — a light card and a
+dark card, which are the appearance choice themselves, each a large preview over a row of theme
+swatches — and
 `ThemePreview` is the miniature screen on each card, a scoped `KanzoTheme` painted by the real tokens. The picker offers what `themes` lists
 and obeys `policy`; its page has the full behaviour table.
 
@@ -251,7 +252,7 @@ const policy = { theme: { themeByAppearance: { hidden: true } } };
 ```
 
 `hidden` means *do not offer this, and ignore what was stored*: the provider applies the pair, and
-`ThemePicker` draws only the *Light · Dark* control, so a member still chooses the side — inside
+`ThemePicker` draws its two cards without swatches, so a member still chooses the side — inside
 the brand. Withhold `appearance` too and the picker draws nothing.
 
 | `policy.theme` | Effect |

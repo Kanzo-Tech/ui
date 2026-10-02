@@ -81,6 +81,7 @@ import { cn } from "@kanzo-tech/ui";
 import {
   GraphCounts,
   GraphInspector,
+  GraphLooks,
   GraphRoot,
   GraphSearch,
   useGraphContext,
@@ -939,24 +940,31 @@ const GESTURES: { keys: ReactNode; what: string }[] = [
 ];
 
 /**
- * The Settings panel — the gestures. There are no forces here: the archive's positions are the
- * corpus's own layout, and the toolbar is where a reader runs one. Fitting is the toolbar's too.
+ * The Settings panel: how the graph draws (`GraphLooks` — the presets and Customize), and the
+ * gestures. The graph's settings live here, beside the canvas they change, and not in the app's
+ * Preferences, which keep only what is app-wide. There are no forces here: the archive's positions
+ * are the corpus's own layout, and the toolbar is where a reader runs one. Fitting is the toolbar's
+ * too.
  */
 export function GraphSettings() {
   return (
     <ScrollArea className="h-full p-3">
-      <div className="space-y-2">
-        <p className="font-medium text-muted-foreground text-xs">Gestures</p>
-        <dl className="space-y-1.5">
-          {GESTURES.map((gesture) => (
-            <div className="flex items-baseline gap-2" key={gesture.what}>
-              <dt className="shrink-0">{gesture.keys}</dt>
-              <dd className="text-[11px] text-muted-foreground leading-snug">
-                {gesture.what}
-              </dd>
-            </div>
-          ))}
-        </dl>
+      <div className="space-y-4">
+        <GraphLooks />
+
+        <div className="space-y-2 border-t pt-3">
+          <p className="font-medium text-muted-foreground text-xs">Gestures</p>
+          <dl className="space-y-1.5">
+            {GESTURES.map((gesture) => (
+              <div className="flex items-baseline gap-2" key={gesture.what}>
+                <dt className="shrink-0">{gesture.keys}</dt>
+                <dd className="text-[11px] text-muted-foreground leading-snug">
+                  {gesture.what}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
       </div>
     </ScrollArea>
   );

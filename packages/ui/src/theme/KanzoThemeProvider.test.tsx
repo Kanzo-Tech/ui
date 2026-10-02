@@ -428,6 +428,15 @@ describe("KanzoThemeProvider palette", () => {
     expect(html().getAttribute("data-theme")).toBe("dracula");
   });
 
+  it("files both sides of a family in one tick, which is the catalogue's Wear it", async () => {
+    const t = mount({ themes: PALETTES });
+    await act(async () => {
+      t.ctx.setTheme("kanzo", { appearance: "light" });
+      t.ctx.setTheme("dracula", { appearance: "dark" });
+    });
+    expect(t.ctx.themeByAppearance).toEqual({ light: "kanzo", dark: "dracula" });
+  });
+
   it("resolves an empty preference to the first published palette", () => {
     const t = mount({ themes: PALETTES });
 
