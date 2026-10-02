@@ -84,7 +84,7 @@ own `GraphError` (`graph/no-webgl`, `graph/context-lost`, `graph/nothing-to-draw
   answers, and the look `preset` they are; `scaleOf` — what colour and shape a category wears.
 - `VertexId` — a vertex is its `dense_id`, a `number`.
 
-The full guide — the parts, layout and camera, the workspace recipe and the v0.20 migration — is at
+The full guide — the parts, layout and camera, and the workspace recipe — is at
 [kanzo-tech.github.io/ui/docs/graph](https://kanzo-tech.github.io/ui/docs/graph).
 
 ## Why a package, and not part of `@kanzo-tech/ui`

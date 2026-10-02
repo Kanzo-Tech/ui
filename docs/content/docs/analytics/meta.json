@@ -7,7 +7,6 @@
     "dashboard",
     "dashboard-spec",
     "dashboard-host",
-    "pitfalls",
-    "migration"
+    "pitfalls"
   ]
 }
