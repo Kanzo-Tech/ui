@@ -13,6 +13,8 @@ export interface FieldBrief {
   description?: string;
   /** The host's own instruction for this field (`<Assist instructions>`). */
   instructions?: string;
+  /** What the host knows about this field beyond its label — its rules, its neighbours (`<Assist context>`). */
+  fieldContext?: string;
   /** What the rest of the form says (`<AssistProvider context>`). */
   context?: string;
 }
@@ -22,6 +24,7 @@ const brief = (field: FieldBrief) =>
     `Field: ${field.name || "(unnamed)"}`,
     field.description && `Field description: ${field.description}`,
     field.instructions && `Instructions: ${field.instructions}`,
+    field.fieldContext && `Field context:\n${field.fieldContext}`,
     field.context && `Form context:\n${field.context}`,
   ]
     .filter(Boolean)

@@ -1,16 +1,10 @@
 "use client";
 
 import {
-  Badge,
   Button,
-  cn,
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
   Resizable,
   ResizablePanel,
   ResizableResizeTrigger,
-  ScrollArea,
   ShellAside,
   Status,
   ToggleGroup,
@@ -101,76 +95,6 @@ export function PaneHeader({
         </Button>
       </span>
     </div>
-  );
-}
-
-interface Finding {
-  where: string;
-  message: string;
-}
-
-/**
- * A tally that can be interrogated: hovering lists every finding, pressing marks them where they
- * are. The reveal lives on the badge because a hover card closes when the pointer leaves its
- * trigger, so a control inside it could not be reliably clicked.
- */
-export function FindingsBadge({
-  active,
-  findings,
-  label,
-  onToggle,
-  summary,
-  tone,
-}: {
-  active: boolean;
-  findings: Finding[];
-  label: string;
-  onToggle: () => void;
-  summary: string;
-  tone: "destructive" | "success" | "warning";
-}) {
-  return (
-    <HoverCard openDelay={80}>
-      <HoverCardTrigger asChild>
-        <button
-          aria-label={active ? `Stop marking ${label}` : `Mark every ${label} where it is`}
-          aria-pressed={active}
-          className="rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
-          disabled={findings.length === 0}
-          onClick={onToggle}
-          type="button"
-        >
-          <Badge className="tabular-nums" pill size="xs" variant={active ? tone : "outline"}>
-            <Status className={cn("size-1.5", !active && "opacity-64")} variant={tone} />
-            {/* A fixed cell, so 9 → 10 does not shuffle the badges beside it while a run fills. */}
-            <span className="inline-block min-w-[2ch] text-end">{findings.length}</span> {label}
-          </Badge>
-        </button>
-      </HoverCardTrigger>
-      <HoverCardContent className="w-80 p-0">
-        <div className="border-b px-3 py-2">
-          <p className="font-medium text-sm">
-            {findings.length} {label}
-          </p>
-          <p className="text-muted-foreground text-xs">{summary}</p>
-        </div>
-        <ScrollArea className="max-h-64">
-          <ul className="divide-y">
-            {findings.map((finding, i) => (
-              <li className="flex items-start justify-between gap-3 px-3 py-1.5" key={i}>
-                <span className="shrink-0 font-medium text-xs">{finding.where}</span>
-                <span className="text-end text-muted-foreground text-xs">{finding.message}</span>
-              </li>
-            ))}
-          </ul>
-        </ScrollArea>
-        <p className="border-t px-3 py-2 text-muted-foreground text-xs">
-          {active
-            ? "Press the badge to stop marking them."
-            : "Press the badge to mark them where they are."}
-        </p>
-      </HoverCardContent>
-    </HoverCard>
   );
 }
 

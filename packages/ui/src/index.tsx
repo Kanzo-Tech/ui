@@ -55,6 +55,25 @@ export { ThemePreview } from "./composites/ThemePreview.js";
 export type { ThemePreviewProps } from "./composites/ThemePreview.js";
 export { ThemeNotice } from "./composites/theme-notice.js";
 export type { ThemeNoticeProps, ThemeRetiredCopy } from "./composites/theme-notice.js";
+// What a check found, behind one badge — keasy's job studio and metadata-form's validation tally.
+export {
+  FindingsContent,
+  FindingsGoTo,
+  FindingsGroup,
+  FindingsRoot,
+  FindingsTrigger,
+  useFinding,
+  useFindings,
+} from "./composites/findings.js";
+export type {
+  Finding,
+  FindingCounts,
+  FindingVariant,
+  FindingsContentProps,
+  FindingsGroupProps,
+  FindingsRootProps,
+  FindingsTriggerProps,
+} from "./composites/findings.js";
 export { MadeWith } from "./composites/MadeWith.js";
 export type { MadeWithProps } from "./composites/MadeWith.js";
 

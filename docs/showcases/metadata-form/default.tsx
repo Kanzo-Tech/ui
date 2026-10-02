@@ -37,7 +37,11 @@ import {
   DiagnosticFrame,
   DiagnosticFrames,
   DiagnosticHeader,
-  DiagnosticList,
+  FindingsContent,
+  FindingsGoTo,
+  FindingsGroup,
+  FindingsRoot,
+  FindingsTrigger,
   DiagnosticSeverity,
   DiagnosticSource,
   DiagnosticTitle,
@@ -98,14 +102,12 @@ import {
   FileTextIcon,
   GalleryVerticalIcon,
   LayoutPanelTopIcon,
-  ListChecksIcon,
   ListOrderedIcon,
   ScrollTextIcon,
   Share2Icon,
 } from "lucide-react";
 import { RULES_SOURCE } from "@/example/rules";
 import {
-  FindingsBadge,
   PaneHeader,
   PanelRail,
   WorkspaceColumns,
@@ -489,18 +491,15 @@ export function MetadataFormShowcase() {
   // and a keystroke in a field does not re-render every other field through the context.
   const [gate, setGate] = useState({ revealAll: false, generation: 0 });
 
-  // Three independent docked panels: the standing orders on the leading edge, and on the trailing
-  // edge the two things the posting produces — what the board would send back, and what it becomes.
-  // Any of them, all of them, or none — the form takes whatever width is left.
+  // Two independent docked panels: the standing orders on the leading edge, and on the trailing
+  // edge what the posting becomes. What the board would send back is the header's tally, so it is
+  // one press from anywhere rather than a column of its own. Either, both, or neither — the form
+  // takes whatever width is left.
   const [sourceOpen, setSourceOpen] = useState(false);
-  // Open, and the only panel that is. A posting is written against what is wrong with it, and the
-  // screen used to have nowhere to read that: the header tally counts the findings and the fields
-  // carry one line each, so the sentence a board would actually send back was on no surface at all.
-  const [findingsOpen, setFindingsOpen] = useState(true);
   const [output, setOutput] = useState<"record" | "writ">("record");
   const [outputOpen, setOutputOpen] = useState(false);
 
-  // `s` / `f` / `o` toggle the three panels — bare-key hotkeys, the same convention
+  // `s` / `o` toggle the two panels — bare-key hotkeys, the same convention
   // `PreferencesRoot` uses for `p` (ignored while a field is focused so typing an "s" never opens a
   // drawer).
   useEffect(() => {
@@ -517,9 +516,6 @@ export function MetadataFormShowcase() {
       if (key === "s") {
         e.preventDefault();
         setSourceOpen((o) => !o);
-      } else if (key === "f") {
-        e.preventDefault();
-        setFindingsOpen((o) => !o);
       } else if (key === "o") {
         e.preventDefault();
         setOutputOpen((o) => !o);
@@ -548,12 +544,6 @@ export function MetadataFormShowcase() {
     return base;
   }, [report]);
 
-  const violations = report.filter(
-    (iss) => iss.severity === "violation"
-  ).length;
-  const warnings = report.filter((iss) => iss.severity === "warning").length;
-  const valid = violations === 0;
-
   // Where the last frame sent the reader. One object per press, so pressing the same frame twice
   // scrolls again, and a field and a rule are the same act seen from either side of the workspace.
   const [sent, setSent] = useState<{
@@ -561,11 +551,8 @@ export function MetadataFormShowcase() {
     line?: number;
   } | null>(null);
 
-  // Which finding is open, held HERE rather than by each `Diagnostic`'s own uncontrolled state: a
-  // finding's rule frame opens the Source panel, opening a panel re-keys the splitter, and the
-  // re-key remounts every column — so the finding you pressed would close as you pressed it. One at
-  // a time, which is also all a column this narrow can show expanded.
-  const [openFinding, setOpenFinding] = useState<string | null>(null);
+  // The tally's popover, held here because a finding's rule frame closes it to open the Source panel.
+  const [tallyOpen, setTallyOpen] = useState(false);
 
   useEffect(() => {
     if (!sent) return;
@@ -596,6 +583,59 @@ export function MetadataFormShowcase() {
     setActiveGroup(issue.group);
     setGate((g) => ({ ...g, revealAll: true }));
     setSent({ field: issue.field });
+  };
+
+  /** The report as the tally counts it: the same issues, each with the id and variant it is listed under. */
+  const findings = useMemo(
+    () =>
+      report.map((iss) => ({
+        ...iss,
+        id: `${iss.field}:${iss.rule ?? iss.message}`,
+        variant: DIAGNOSTIC_VARIANT[iss.severity],
+      })),
+    [report]
+  );
+
+  /**
+   * One finding, as a `Diagnostic`: one line until it is opened. The identifier is the ledger key
+   * rather than the rule that raised it — three of these read "This field is required.", and a
+   * collapsed row that cannot be told from the two above it is a row nobody reads. Opened, it says
+   * what the finding costs and points at the order that objected, dimmed: upstream of the posting,
+   * and the frame that explains it. Absent for a check we invented.
+   */
+  const tallyRow = (iss: (typeof findings)[number]) => {
+    const line = iss.rule ? orderLine(iss.rule) : undefined;
+    return (
+      <Diagnostic variant={iss.variant}>
+        <DiagnosticHeader>
+          <DiagnosticSeverity>{SEVERITY_WORD[iss.severity]}</DiagnosticSeverity>
+          <DiagnosticTitle>{iss.message}</DiagnosticTitle>
+          <DiagnosticSource>{LEDGER_KEYS[iss.field]}</DiagnosticSource>
+          <DiagnosticActions>
+            <FindingsGoTo>Go to field</FindingsGoTo>
+            <DiagnosticTrigger aria-label={`What the board found on ${iss.label}`} />
+          </DiagnosticActions>
+        </DiagnosticHeader>
+        <DiagnosticContent>
+          <DiagnosticDescription>{SEVERITY_CONSEQUENCE[iss.severity]}</DiagnosticDescription>
+          <Show when={line !== undefined}>
+            <DiagnosticFrames>
+              <DiagnosticFrame
+                label={iss.rule}
+                line={line}
+                onSelect={() => {
+                  setTallyOpen(false);
+                  setSourceOpen(true);
+                  setSent({ line });
+                }}
+                path="standing-orders"
+                secondary
+              />
+            </DiagnosticFrames>
+          </Show>
+        </DiagnosticContent>
+      </Diagnostic>
+    );
   };
 
   // ── State updates ──────────────────────────────────────────────────────────
@@ -1295,97 +1335,6 @@ export function MetadataFormShowcase() {
     </pre>
   );
 
-  // Findings (trailing aside) = what the board would send back. The same `report` the header tally
-  // counts and the fields quote, read as a list: a severity, the objection, the standing order that
-  // raised it, and the positions it points at — the field on the form, and the rule in the column
-  // on the opposite edge. A frame is the only thing here that crosses the workspace, which is why
-  // the two documents a finding is made of sit on opposite sides of the form.
-  const findingsPanel = (
-    <Show
-      fallback={
-        <p className="text-muted-foreground text-sm">
-          Nothing to answer. The board would take this posting as it stands.
-        </p>
-      }
-      when={report.length > 0}
-    >
-      <DiagnosticList>
-        {report.map((iss) => {
-          const id = `${iss.field}:${iss.rule ?? iss.message}`;
-          const line = iss.rule ? orderLine(iss.rule) : undefined;
-
-          return (
-            <Diagnostic
-              key={id}
-              onOpenChange={(d) => setOpenFinding(d.open ? id : null)}
-              open={openFinding === id}
-              variant={DIAGNOSTIC_VARIANT[iss.severity]}
-            >
-              {/* Severity, where, and the control on one line; the message under them, which is
-                  how every compiler prints one and the only shape that survives this column. The
-                  panel is 24 % of the workspace — at the width a reader actually opens it, a title
-                  sharing a row with the badge and the trigger got 112 px and broke one word per
-                  line. `DiagnosticHeader` wraps, so this is where it wraps — and it did not until
-                  2026-08-22: this comment described the shape it wanted while the header was
-                  `flex-nowrap` and the title measured 0 px here.
-
-                  The identifier is the ledger key rather than the rule that raised it: three of
-                  these findings read "This field is required.", and a collapsed row that cannot be
-                  told from the two above it is a row nobody reads. The rule IS a position — it has
-                  a line — so it is a frame. This is also the string "Show ledger keys" writes
-                  beside the label on the form, so panel and field name the value identically. */}
-              <DiagnosticHeader>
-                <DiagnosticSeverity>
-                  {SEVERITY_WORD[iss.severity]}
-                </DiagnosticSeverity>
-                <DiagnosticSource>{LEDGER_KEYS[iss.field]}</DiagnosticSource>
-                <DiagnosticActions className="ms-auto">
-                  {/* The chevron alone. A word beside it ("Details") was 85 px on a 310 px column
-                      and pushed the trigger onto a third line of its own; the name it carried is
-                      what `aria-label` is for, and it can then say which finding it opens. */}
-                  <DiagnosticTrigger
-                    aria-label={`What the board found on ${iss.label}`}
-                  />
-                </DiagnosticActions>
-                <DiagnosticTitle className="basis-full">
-                  {iss.message}
-                </DiagnosticTitle>
-              </DiagnosticHeader>
-              <DiagnosticContent>
-                <DiagnosticDescription>
-                  {SEVERITY_CONSEQUENCE[iss.severity]}
-                </DiagnosticDescription>
-                <DiagnosticFrames>
-                  <DiagnosticFrame
-                    label={iss.label}
-                    onSelect={() => sendToField(iss)}
-                    path={LEDGER_KEYS[iss.field]}
-                  />
-                  {/* The order that objected, dimmed: it is upstream of the posting, and it is the
-                      frame that explains the other one. Absent for a check we invented — a frame
-                      with nowhere to go is not a button, and `DiagnosticFrame` decides that itself
-                      from `onSelect`, so there is no such thing here to leave dead. */}
-                  <Show when={line !== undefined}>
-                    <DiagnosticFrame
-                      label={iss.rule}
-                      line={line}
-                      onSelect={() => {
-                        setSourceOpen(true);
-                        setSent({ line });
-                      }}
-                      path="standing-orders"
-                      secondary
-                    />
-                  </Show>
-                </DiagnosticFrames>
-              </DiagnosticContent>
-            </Diagnostic>
-          );
-        })}
-      </DiagnosticList>
-    </Show>
-  );
-
   // Output (trailing aside) = what the posting BECOMES, derived live from the values: the writ a
   // clerk pins to the board, and the row the board files. Raw <pre> until the read-only CodeBlock
   // lands — CodeEditor is for editing, not this view.
@@ -1461,25 +1410,31 @@ export function MetadataFormShowcase() {
               <Share2Icon />
               Share
             </Button>
-            {/* The tally: hover lists every failing field, press marks them on the form. */}
-            <FindingsBadge
-              active={gate.revealAll}
-              findings={report.map((iss) => ({
-                message: iss.message,
-                where: iss.label,
-              }))}
-              label={violations === 1 ? "issue" : "issues"}
-              onToggle={() =>
-                setGate((g) => ({ ...g, revealAll: !g.revealAll }))
-              }
-              summary="What the board would send back."
-              tone="destructive"
-            />
-            <Show when={valid}>
-              <Badge pill size="xs" variant="success">
-                Valid
-              </Badge>
-            </Show>
+            {/* The tally: opening it lists every finding and marks them on the form. */}
+            <FindingsRoot
+              findings={findings}
+              onOpenChange={({ open }) => {
+                setTallyOpen(open);
+                if (open) setGate((g) => ({ ...g, revealAll: true }));
+              }}
+              open={tallyOpen}
+              onSelect={sendToField}
+            >
+              <FindingsTrigger pill size="xs">
+                {({ total }) => (total ? `${total} ${total === 1 ? "issue" : "issues"}` : "Valid")}
+              </FindingsTrigger>
+              <FindingsContent description="What the board would send back.">
+                <FindingsGroup title="Violations" variant="destructive">
+                  {tallyRow}
+                </FindingsGroup>
+                <FindingsGroup title="Warnings" variant="warning">
+                  {tallyRow}
+                </FindingsGroup>
+                <FindingsGroup title="Notes" variant="info">
+                  {tallyRow}
+                </FindingsGroup>
+              </FindingsContent>
+            </FindingsRoot>
 
             {/* No appearance control in this header. It is one click, which is why it is not a
                 panel SECTION — but `PreferencesPanel` already carries it beside its close button,
@@ -1564,7 +1519,6 @@ export function MetadataFormShowcase() {
           label="Panels"
           onValueChange={(value) => {
             setSourceOpen(value.includes("source"));
-            setFindingsOpen(value.includes("findings"));
             setOutputOpen(value.includes("output"));
           }}
           panels={[
@@ -1574,11 +1528,6 @@ export function MetadataFormShowcase() {
               value: "source",
             },
             {
-              icon: ListChecksIcon,
-              label: "Findings — what the board found",
-              value: "findings",
-            },
-            {
               icon: Code2Icon,
               label: "Output — the writ and the record",
               value: "output",
@@ -1586,7 +1535,6 @@ export function MetadataFormShowcase() {
           ]}
           value={[
             ...(sourceOpen ? ["source"] : []),
-            ...(findingsOpen ? ["findings"] : []),
             ...(outputOpen ? ["output"] : []),
           ]}
         />
@@ -1597,10 +1545,9 @@ export function MetadataFormShowcase() {
             side`). Only the open panels render, and the splitter is keyed on the open-set so Ark
             re-inits its panel model cleanly. Logical throughout — start/end, never left/right. */}
         {(() => {
-          const columns: ("source" | "form" | "findings" | "output")[] = [
+          const columns: ("source" | "form" | "output")[] = [
             ...(sourceOpen ? (["source"] as const) : []),
             "form",
-            ...(findingsOpen ? (["findings"] as const) : []),
             ...(outputOpen ? (["output"] as const) : []),
           ];
 
@@ -1649,34 +1596,6 @@ export function MetadataFormShowcase() {
                     title="Source"
                   >
                     {sourcePanel}
-                  </PanelShell>
-                </ShellAside>
-              );
-            if (id === "findings")
-              return (
-                <ShellAside
-                  aria-label="Findings"
-                  className="min-h-0 flex-1 border-s-0 bg-card"
-                  side="end"
-                >
-                  <PanelShell
-                    detail={
-                      report.length === 0
-                        ? "Nothing found"
-                        : `${violations} blocking of ${report.length}`
-                    }
-                    icon={ListChecksIcon}
-                    onClose={() => setFindingsOpen(false)}
-                    title="Findings"
-                    tone={
-                      violations > 0
-                        ? "destructive"
-                        : warnings > 0
-                        ? "warning"
-                        : "success"
-                    }
-                  >
-                    {findingsPanel}
                   </PanelShell>
                 </ShellAside>
               );

@@ -128,15 +128,15 @@ const textOf = (ids: string | null) =>
  * so an accessible field needs nothing more — and a field without a name is a field a screen reader
  * cannot fill either.
  */
-function describe(el: Control | null, instructions: string | undefined, context: string | undefined): FieldBrief {
-  if (!el) return { name: "", instructions, context };
+function describe(el: Control | null, given: Omit<FieldBrief, "name" | "description">): FieldBrief {
+  if (!el) return { name: "", ...given };
   const name =
     textOf(el.getAttribute("aria-labelledby")) ||
     [...(el.labels ?? [])].map((l) => l.textContent?.trim()).filter(Boolean).join(" ") ||
     el.getAttribute("aria-label") ||
     el.getAttribute("placeholder") ||
     "";
-  return { name, description: textOf(el.getAttribute("aria-describedby")) || undefined, instructions, context };
+  return { name, description: textOf(el.getAttribute("aria-describedby")) || undefined, ...given };
 }
 
 // ── Geometry ─────────────────────────────────────────────────────────────────
@@ -210,6 +210,12 @@ export interface AssistProps<V extends string | string[]> {
   onValueChange: (value: V) => void;
   /** One sentence for the model about this field, beyond its label and description. */
   instructions?: string;
+  /**
+   * What the host knows about this field that its label and description do not say — the values it
+   * accepts, its limits, what its neighbours hold. Facts rather than an instruction, so as many lines
+   * as it takes; a function is read when the field asks, so it sees the form as it is then.
+   */
+  context?: string | (() => string | undefined);
   /** The control, from `@kanzo-tech/ui`: `Textarea`, `Input` or `TagsInput`. `Assist` wires it. */
   children: React.ReactElement;
   className?: string;
@@ -236,6 +242,17 @@ export function Assist<V extends string | string[]>(props: AssistProps<V>) {
 
 type Inner<V extends string | string[]> = AssistProps<V> & { settings: AssistSettings };
 
+/** What the host tells the model about a field, read at the moment the field asks. */
+const briefOf = (
+  instructions: string | undefined,
+  context: AssistProps<string>["context"],
+  settings: AssistSettings,
+) => ({
+  instructions,
+  fieldContext: typeof context === "function" ? context() : context,
+  context: settings.context?.(),
+});
+
 /** The control the field reads and writes — the child itself, or the input inside a compound. */
 const controlIn = (root: HTMLElement | null) =>
   root?.querySelector<Control>("textarea, input:not([type=hidden])") ?? null;
@@ -243,7 +260,7 @@ const controlIn = (root: HTMLElement | null) =>
 function useEvents(settings: AssistSettings, control: () => Control | null) {
   return React.useCallback(
     (kind: AssistEvent["kind"], proposal: Proposal) =>
-      settings.onEvent?.({ kind, proposal, field: describe(control(), undefined, undefined).name }),
+      settings.onEvent?.({ kind, proposal, field: describe(control(), {}).name }),
     [control, settings],
   );
 }
@@ -251,7 +268,7 @@ function useEvents(settings: AssistSettings, control: () => Control | null) {
 // ── A text field: continuation (Textarea) or candidates (Input) ──────────────
 
 function TextAssist(props: Inner<string>) {
-  const { value, onValueChange, instructions, children, className, settings } = props;
+  const { value, onValueChange, instructions, context, children, className, settings } = props;
   const { t } = settings;
   const rootRef = React.useRef<HTMLDivElement>(null);
   const fieldRef = React.useRef<Control | null>(null);
@@ -267,7 +284,7 @@ function TextAssist(props: Inner<string>) {
 
   const control = React.useCallback(() => fieldRef.current, []);
   const report = useEvents(settings, control);
-  const brief = () => describe(fieldRef.current, instructions, settings.context?.());
+  const brief = () => describe(fieldRef.current, briefOf(instructions, context, settings));
 
   const completion = useContinuation({
     source: (request) => continuation(settings.model, brief(), request),
@@ -629,7 +646,7 @@ function Candidates(props: {
 // ── A list field: candidates to add ──────────────────────────────────────────
 
 function ListAssist(props: Inner<string[]>) {
-  const { value, onValueChange, instructions, children, className, settings } = props;
+  const { value, onValueChange, instructions, context, children, className, settings } = props;
   const { t } = settings;
   const rootRef = React.useRef<HTMLDivElement>(null);
   const [active, setActive] = React.useState(false);
@@ -639,7 +656,7 @@ function ListAssist(props: Inner<string[]>) {
   const report = useEvents(settings, control);
   const list = useCandidates({
     source: ({ signal }) =>
-      candidates(settings.model, describe(control(), instructions, settings.context?.()), {
+      candidates(settings.model, describe(control(), briefOf(instructions, context, settings)), {
         value: "",
         existing: value,
         signal,
