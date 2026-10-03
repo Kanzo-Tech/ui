@@ -177,9 +177,10 @@ function GraphInfo() {
 }
 ```
 
-The search asks the corpus as the reader types, one `ILIKE` per vertex table; picking reveals the
-vertex, and the inspector below reads its row. The render prop is where a product adds fields the
-corpus does not carry.
+The search is a palette: it asks the corpus as the reader types, takes `type:` and `<column>:<value>`,
+groups what it finds by type and remembers what the reader went to; ⌘K moves to it. Picking reveals
+the vertex, and the inspector below reads its row and counts its neighbours, each relation a toggle
+that selects its far end. The render prop is where a product adds fields the corpus does not carry.
 
 </Step>
 <Step>
