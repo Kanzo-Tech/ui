@@ -92,7 +92,7 @@ export function Chat<M extends UIMessage>(props: ChatProps<M>) {
             <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center" data-slot="chat-empty">
               {empty}
               {(suggestions.length > 0 || suggesting) && (
-                <Suggestions aria-busy={suggesting || undefined} className="justify-center">
+                <Suggestions aria-busy={suggesting || undefined} className="w-full justify-center">
                   {suggestions.map((s) => (
                     <Suggestion key={s} onSelect={ask} value={s}>
                       {s}
@@ -221,7 +221,7 @@ export function ChatSkeleton(props: ChatSkeletonProps) {
             </>
           )}
           {suggestions > 0 && (
-            <Suggestions className="justify-center">
+            <Suggestions className="w-full justify-center">
               <PillSkeletons count={suggestions} />
             </Suggestions>
           )}

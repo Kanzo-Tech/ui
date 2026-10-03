@@ -29,10 +29,14 @@ export interface QueryOutput {
   readonly truncated: boolean;
 }
 
-/** A `query` call the engine refused: the model reads why and tries again; the reader sees it too. */
+/**
+ * A `query` call the engine refused: the model reads why and tries again; the reader sees it too.
+ * The failure as a message can carry it — its words, and its `code` when it had one — since a thrown
+ * value does not survive being kept in a conversation.
+ */
 export interface QueryRefusal {
   readonly sql: string;
-  readonly error: string;
+  readonly error: { readonly message: string; readonly code?: string };
 }
 
 /** What a `query` call answers. */
@@ -101,7 +105,12 @@ export function statement(text: string, scope: DataScope | undefined, rows: numb
 const plain = (value: unknown) =>
   typeof value === "bigint" ? Number(value) : value instanceof Date ? value.toISOString() : value;
 
-const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
+/** What a refusal keeps of the thrown value: its words, and its `code` when it had one. */
+const refusal = (error: unknown): QueryRefusal["error"] => {
+  const message = error instanceof Error ? error.message : String(error);
+  const code = (error as { code?: unknown } | null)?.code;
+  return typeof code === "string" ? { message, code } : { message };
+};
 
 /**
  * The agent's instructions. `schema` is the data space as DDL, read from DuckDB's own catalog: the
@@ -159,14 +168,14 @@ export function dataAgent(options: DataAgentOptions): ToolLoopAgent<never, DataT
           return { sql: text, statement: ran, rows: answer, truncated: answer.length >= rows };
         } catch (error) {
           if (abortSignal?.aborted) throw error;
-          return { sql: text, error: message(error) };
+          return { sql: text, error: refusal(error) };
         }
       },
       toModelOutput: ({ output }) => ({
         type: "text",
         value:
           "error" in output
-            ? `The query failed: ${output.error}`
+            ? `The query failed: ${output.error.message}`
             : [
                 `${output.rows.length}${output.truncated ? " (the cap; there are more)" : ""} rows, already shown to the reader.`,
                 scope && `\`scope\` was: ${String(scoped(scope))}`,

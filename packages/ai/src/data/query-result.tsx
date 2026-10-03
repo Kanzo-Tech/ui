@@ -114,7 +114,7 @@ export function QueryResult(props: QueryResultProps) {
       {"error" in answer ? (
         <Alert variant="destructive">
           <AlertTitle>{t.failed}</AlertTitle>
-          <AlertDescription className="font-mono text-xs">{answer.error}</AlertDescription>
+          <AlertDescription className="font-mono text-xs">{answer.error.message}</AlertDescription>
         </Alert>
       ) : (
         <Answer actions={actions} output={answer} t={t} />

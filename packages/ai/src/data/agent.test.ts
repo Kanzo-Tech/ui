@@ -67,7 +67,7 @@ describe("dataAgent", () => {
   it("answers a refused statement with the engine's words rather than throwing", async () => {
     const { fake } = coordinator(new Error('Table "nope" does not exist'));
     const answer = await call(dataAgent({ model, coordinator: fake, schema: "" }), "SELECT * FROM nope");
-    expect(answer).toEqual({ sql: "SELECT * FROM nope", error: 'Table "nope" does not exist' });
+    expect(answer).toEqual({ sql: "SELECT * FROM nope", error: { message: 'Table "nope" does not exist' } });
   });
 
   it("tells the model the rows are already in front of the reader", () => {

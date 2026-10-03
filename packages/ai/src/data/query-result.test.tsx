@@ -43,7 +43,7 @@ describe("QueryResult", () => {
   });
 
   it("draws a refusal as the engine's words, with the SQL that was refused", () => {
-    render(<QueryResult part={part({ sql: "select * from nope", error: "Table nope does not exist" })} />);
+    render(<QueryResult part={part({ sql: "select * from nope", error: { message: "Table nope does not exist", code: "query/failed" } })} />);
     expect(screen.getByRole("alert").textContent).toContain("Table nope does not exist");
     expect(screen.getByRole("button", { name: /SQL/ })).not.toBeNull();
   });

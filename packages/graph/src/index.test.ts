@@ -29,6 +29,7 @@ const VALUES = [
   "GraphStatus",
   "GraphToolbar",
   "ShapeGlyph",
+  "corpusReferences",
   "lookFrom",
   "scaleOf",
   "simFrom",
