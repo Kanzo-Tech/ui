@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
+import type { SemiJoinMetadata } from "@kanzo-tech/mosaic";
 import type { Selection, SelectionClause } from "@uwdata/mosaic-core";
 import { XIcon } from "lucide-react";
 import { cn } from "../lib/cn.js";
@@ -11,7 +12,8 @@ import { useMosaic } from "./mosaic-provider.js";
 
 /**
  * What a selection holds, as removable chips. Read from `Selection.clauses`, so the row reports
- * filters it did not publish — a brush, a bar someone clicked, a lasso on a canvas.
+ * filters it did not publish — a brush, a bar someone clicked, a lasso on a canvas. Over the page's
+ * crossfilter it is the page's scope: what every client on it is filtered by, in a dock's header.
  */
 
 /** The live clause list of a selection, re-read on every published value. */
@@ -37,6 +39,12 @@ export function clauseLabel(clause: SelectionClause): string {
   // A field stringifies to its SQL identifier, quotes and all; the quoting is the database's.
   const name = clause.fields?.map((f) => String(f).replace(/^"|"$/g, "")).join(", ") ?? "filter";
   const value = clause.value;
+  // A semi-join is named by its publisher — a lasso, a rule, a question — and counted when its
+  // members are keys; a statement's members are not read into the page to be counted.
+  if (clause.meta?.type === "semijoin") {
+    const named = (clause.meta as SemiJoinMetadata).label ?? name;
+    return Array.isArray(value) ? `${named} · ${value.length} selected` : named;
+  }
   if (value == null) return name;
   if (Array.isArray(value)) {
     const [lo, hi] = value as [unknown, unknown];

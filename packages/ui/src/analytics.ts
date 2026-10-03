@@ -199,14 +199,21 @@ export { asc, desc } from "@kanzo-tech/mosaic";
 export { axisX, axisY, axisFx, axisFy, gridFx, gridFy } from "@uwdata/vgplot";
 
 // Joining the crossfilter without being one of ours. Subclass `MosaicClient` (or wrap `makeClient`),
-// declare a query, publish one of the five clauses — that is the entire protocol, and it is how a
+// declare a query, publish one of the six clauses — that is the entire protocol, and it is how a
 // WebGL canvas or an imperative widget becomes a peer of the plots rather than a readout drifting
 // beside them. Our own three DOM controls in `chart-inputs.tsx` are built from nothing else.
+//
+// The sixth clause is ours, and it is the one that crosses relations: `clauseSemiJoin` is
+// `key IN (ids | subquery)`, the semi-join on identity, and `clauseColumns` is what a client reads to
+// know whether its relation answers a clause — the rule `@kanzo-tech/mosaic`'s `clause.ts` states.
 export {
   MosaicClient, makeClient,
   clausePoint, clausePoints, clauseInterval, clauseIntervals, clauseMatch,
+  clauseSemiJoin, clauseColumns,
 } from "@kanzo-tech/mosaic";
-export type { SelectionClause, FilterExpr } from "@kanzo-tech/mosaic";
+export type {
+  SelectionClause, FilterExpr, SemiJoinMembers, SemiJoinMetadata, SemiJoinOptions,
+} from "@kanzo-tech/mosaic";
 
 // The other half of that protocol, and the half it does not give you. Declaring a query is small
 // and publishing a clause is documented; turning the ANSWER into values is where every client
