@@ -1,9 +1,10 @@
 "use client";
 
 import { ark } from "@ark-ui/react/factory";
-import type React from "react";
+import * as React from "react";
 import { cn } from "../lib/cn";
 import { Button, type ButtonProps } from "./button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip";
 
 /**
  * A row of values on offer. **It does not know where they came from.**
@@ -24,7 +25,9 @@ import { Button, type ButtonProps } from "./button";
  * `role="listbox"` here would promise a navigation model that is not implemented — the failure a
  * composite role without its keyboard contract always is.
  *
- * Wraps by default. A caller that wants one scrolling line passes `flex-nowrap overflow-x-auto`.
+ * Wraps by default, and a pill never outgrows the row: one longer than the strip is as wide as the
+ * strip and cut with an ellipsis — see `Suggestion`. A caller that wants one scrolling line passes
+ * `flex-nowrap overflow-x-auto`.
  */
 export const Suggestions = (props: React.ComponentProps<typeof ark.div>) => {
   const { className, slot, ...rest } = props;
@@ -54,25 +57,54 @@ export interface SuggestionProps extends Omit<ButtonProps, "onSelect" | "value">
  *
  * Children default to the value. Give it children when the label and the value differ — the value
  * is what gets committed either way.
+ *
+ * **A label longer than the strip is cut, never clipped.** `Button` is `whitespace-nowrap`, so a
+ * model's sentence in a narrow panel used to run past the panel's edge. The pill is at most the
+ * strip's width and its label truncates with an ellipsis; the whole label is in a tooltip, which
+ * opens only when the label is cut — a tooltip repeating what the pill already says is noise. The
+ * accessible name is the whole label either way: the ellipsis is paint, not text.
  */
 export const Suggestion = (props: SuggestionProps) => {
   const { children, className, onClick, onSelect, size = "sm", slot, value, variant = "outline", ...rest } =
     props;
+  const label = React.useRef<HTMLSpanElement>(null);
+  const [cut, setCut] = React.useState(false);
+  const content = children ?? value;
+
+  // Measured whenever the label's box changes, not when the pointer arrives: a tooltip disabled
+  // at the moment it is asked to open stays shut, and one opened and then refused flickers.
+  React.useLayoutEffect(() => {
+    const element = label.current;
+    if (!element) return;
+    const measure = () => setCut(element.scrollWidth > element.clientWidth);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [content]);
 
   return (
-    <Button
-      className={cn("h-auto max-w-full py-1", className)}
-      onClick={(event) => {
-        onClick?.(event);
-        if (!event.defaultPrevented) onSelect?.(value);
-      }}
-      pill
-      size={size}
-      variant={variant}
-      {...rest}
-      slot={slot ?? "suggestion"}
-    >
-      {children ?? value}
-    </Button>
+    <Tooltip disabled={!cut}>
+      <TooltipTrigger asChild>
+        <Button
+          className={cn("h-auto min-w-0 max-w-full py-1", className)}
+          onClick={(event) => {
+            onClick?.(event);
+            if (!event.defaultPrevented) onSelect?.(value);
+          }}
+          pill
+          size={size}
+          variant={variant}
+          {...rest}
+          slot={slot ?? "suggestion"}
+        >
+          <span className="min-w-0 truncate" ref={label}>
+            {content}
+          </span>
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs">{content}</TooltipContent>
+    </Tooltip>
   );
 };
