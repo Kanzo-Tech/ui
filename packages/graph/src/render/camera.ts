@@ -1,5 +1,6 @@
 import type { Graph } from "@cosmos.gl/graph";
 import { GraphError } from "../core/error";
+import type { View } from "../core/state";
 
 export const FIT_DURATION = 420;
 const FIT_PADDING = 0.18;
@@ -12,6 +13,10 @@ export interface Camera {
   frame(corners: readonly number[]): void;
   /** The reader asked for the whole graph: frame it, and keep it framed through a resize. */
   fit(): void;
+  /** A canvas before this one left the camera here: look there again, as a camera the reader holds. */
+  restore(view: View): void;
+  /** Where the camera looks now, read at the canvas's size; `null` with no size to read a centre from. */
+  view(width: number, height: number): View | null;
   /** A layout started moving the points: the corners are history, and the camera follows. */
   run(): void;
   /** cosmos.gl's device came up: the frame is taken again, at the canvas's size. */
@@ -85,6 +90,15 @@ export function createCamera(
     fit() {
       framing = true;
       fitNow(FIT_DURATION);
+    },
+    restore({ center, zoom }) {
+      corners = null;
+      framing = following = false;
+      graph.setZoomTransformByPointPositions(new Float32Array(center), 0, zoom);
+    },
+    view(width, height) {
+      if (width === 0 || height === 0) return null;
+      return { center: graph.screenToSpacePosition([width / 2, height / 2]), zoom: graph.getZoomLevel() };
     },
     run() {
       corners = null;

@@ -1,6 +1,6 @@
 ---
 title: Layout and camera
-description: The data's status and the layout's motion, when the GPU layout runs and how it scales, what a drag does to the points, and when the camera follows.
+description: The data's status and the layout's motion, when the GPU layout runs and how it scales, what a drag does to the points, when the camera follows, and what is kept when the canvas goes.
 ---
 
 A graph view does two different things over time: it **reads** a corpus, and it **lays out** points.
@@ -56,7 +56,7 @@ graph is drawn. The seed is the vertex count, so the same corpus starts the same
 `simulate` overrides the rule: `false` keeps an unbound graph at its seeded start, `true` runs a
 layout over bound positions. **The toolbar's transport** runs and stops the layout whatever it says —
 *Pause the layout* while running, *Resume the layout* when paused, *Run the layout* when settled,
-and *Re-run the layout*, which releases every pin and starts again from full heat. The api is the
+and *Re-run the layout*, which starts again from full heat. The api is the
 same transport: `resume()`, `pause()`, `restart()`. Changing `sim` while a layout runs reheats it, so a
 reader tuning gravity sees the change; a paused layout stays paused.
 
@@ -98,25 +98,13 @@ settled by 3 s.
 
 Measured on 2026-10-02, one run per row.
 
-## Drag to fix, release to reheat
+## Dragging a node
 
 In the reading posture — no tool armed — a drag on the background pans and a drag on a node moves it.
-What happens when the node is dropped depends on whether a layout can move it back:
-
-- **While a layout is running or paused, the node is pinned where it is dropped.** It is d3-force's
-  drag-to-fix: the forces keep acting on everything else, and the pinned node holds. The toolbar
-  then shows **Release N pinned nodes**, and `pinned` lists them.
-- **With no layout running, a drag only moves the node.** A pin is a promise that the layout will not
-  move it, and nothing is pulling against it; pinning there would leave pins that mean nothing.
-
-**Releasing reheats.** `unpin()` — the Release button — lets go of every pin and puts heat back into
-the layout, so the released nodes visibly flow back into place:
-
-| The layout was | After Release |
-| --- | --- |
-| running | takes the heat and goes on |
-| settled | runs, and cools to settled on its own |
-| paused | runs for a bounded burst of 1.2 s, then pauses again — the reader paused it |
+Nothing holds it there: a running layout pulls it back among its neighbours, and a settled or paused
+one leaves it where it was dropped. There is no pinning. A pin is a second state beside the selection
+that no panel can read, and an arrangement worth keeping is a placement — `x` and `y` bound to
+columns — not a set of nodes held by hand.
 
 ## Where the layout simulates
 
@@ -157,6 +145,30 @@ starts only after that render, because cosmos.gl 3.4 turning its simulation on d
 that has not been rendered yet. If the read fails anyway, the device holds no positions: the graph
 fails once with `graph/no-positions` and the camera stops reading, rather than leaving a blank canvas
 that throws on every tick.
+
+## When the canvas goes
+
+**The arrangement is the store's, and `GraphCanvas` is a view of it** — cosmos.gl's own contract,
+`setPointPositions` in and `getPointPositions` out. A host that switches the canvas away — to a
+dashboard, another tab — unmounts it, and the GPU is freed: cosmos.gl's graph is destroyed and its
+WebGL context given back. As it goes, the canvas writes where the points are and where the camera
+looks back into the store. The next `GraphCanvas` under the same root uploads those positions instead
+of the seeded start, puts the camera where it was, and the layout goes on as it was left:
+
+| The layout was | When a canvas attaches again |
+| --- | --- |
+| settled | stands still where it settled — no layout runs, nothing is re-framed |
+| paused | stands still, and stays paused until Resume |
+| running | resumes from the kept positions with a reheat, and the camera follows it again |
+
+`motion` keeps its value while no canvas is attached: it is what the layout will do when one is.
+**A new geometry drops what was kept** — another corpus, or `x` and `y` bound to other columns — and
+the next canvas places it as at load. A change of look, colour, size or cluster keeps it: those
+repaint the points and do not move them, attached or not. A restored camera is the reader's: a resize
+leaves it where it is, and Fit hands it back.
+
+There is no hidden canvas and no host prop: a canvas kept alive off-screen would hold its GPU
+context, and Chrome keeps sixteen per renderer process before it evicts the oldest.
 
 ## Large corpora
 
