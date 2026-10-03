@@ -60,19 +60,22 @@ and fossil_columns, and every vertex by its dense_id".
 `GraphClient` is a `MosaicClient` connected to the page's coordinator, like every chart beside it.
 The coordinator hands it the crossfilter's predicate minus the graph's own clause, and it answers
 with the vertices that survive: `SELECT dense_id … WHERE <predicate>` per vertex table, `UNION ALL`.
-**The predicate runs as Mosaic wrote it** — nothing is translated. A table that lacks a column the
-predicate names is not filtered by it, which is what a `WHERE` over a union of the tables would do;
-a predicate no table can answer is `graph/unfilterable`, and the graph is drawn unfiltered rather
-than as filtered.
+**The predicate runs as Mosaic wrote it** — nothing is translated. Which table a clause filters is
+[the clause rule](#the-clause-rule-column-predicates-or-a-semi-join-on-identity): a table that cannot
+answer a clause is not filtered by it, which is what a `WHERE` over a union of the tables would do;
+a clause no table can answer is `graph/unfilterable`, and the graph is drawn unfiltered rather than
+as filtered.
 
 **A filtered-out vertex is greyed, never hidden.** The surviving ids become cosmos.gl's
 `highlightedPointIndices` and the links between two of them `highlightedLinkIndices` — cosmos.gl does
 not grey a link by itself. No buffer is uploaded, so a running layout is never reset by a brush.
 
-**The reader's pick is published from the client.** A lasso, a marquee or a click is a
-`clausePoints` on `dense_id` whose source is the graph, so the crossfilter applies it to every chart
-and skips it for the graph — a canvas that greyed all but a lasso of thirteen would hide the
-neighbourhood the reader was looking at.
+**The reader's pick is published from the client.** A lasso, a marquee, a click or a host's
+`GraphSelect` is a `clauseSemiJoin` on `dense_id`, labelled with the selection's own label, whose
+source is the graph, so the crossfilter applies it to every client whose rows carry a `dense_id` and
+skips it for the graph — a canvas that greyed all but a lasso of thirteen would hide the
+neighbourhood the reader was looking at. Retracting it where it was published — a chip's remove,
+the page's reset — calls the graph back, and the pick leaves the canvas too.
 
 **It replaced "the graph listens to the selection; it is not a client"**, under which the graph
 translated mosaic-sql's nodes into scan's typed filter, refused every node it could not translate,
@@ -88,10 +91,51 @@ gone rather than grey, which brings hiding back as a size of zero, still with no
 `packages/graph/src/core/store.test.ts`, "asks the coordinator which vertices survive, and keeps every
 buffer it has", "runs the predicate as Mosaic wrote it, on every table that has its columns",
 "refuses a clause no vertex type can answer, as graph/unfilterable, and draws the graph unfiltered",
-"publishes the reader's pick on dense_id, and is exempt from its own clause";
+"publishes the reader's pick as a semi-join on dense_id, and is exempt from its own clause";
 `packages/graph/src/render/renderer.test.ts`, "greys out a filter with config alone: no upload, no
 render, links said out loud"; `packages/graph/src/render/motion.test.ts`, "is what the filter keeps,
 and the links whose two ends it keeps".
+
+## The clause rule: column predicates, or a semi-join on identity
+
+**A clause on the page's selection is one of two things.** Either it is **column predicates on the
+same relation** — a brush, a pick, a search: `hour BETWEEN 2 AND 5` names `hour`, and only a relation
+with an `hour` answers it. Or it is **a semi-join on vertex identity**: `dense_id IN (3, 4)`, or
+`dense_id IN (SELECT …)` over any relation at all. A relation answers a clause when it has every
+column the clause names *on it*, and a subquery's columns are not among them — they are another
+relation's. So a semi-join on `dense_id` names `dense_id` alone and every vertex table answers it,
+whatever its subquery reads: a dashboard over an edge table, a rule's findings, an answer to a
+question — each filters the graph, and the graph's pick filters each of them, through the one
+identity they share.
+
+`clauseSemiJoin(key, ids | query, { source, label })` in `@kanzo-tech/mosaic` is the constructor of
+the second form, built from mosaic-sql's nodes; `clauseColumns(filter)` is the reading of both, and
+`GraphClient` applies it clause by clause. Neither names the graph: the key is the caller's, and a
+relation keyed by anything else crosses the same way. `graph/unfilterable` is what is left of the
+column form — a clause no vertex table can answer.
+
+**Any panel is a client of the selection by the same protocol.** `useChartQuery` is a panel's query
+filtered by the live selection and re-run when it changes; a panel over a union of relations reads
+`clauseColumns` to apply each clause where it can, as the graph does; and `FilterChips` over the
+crossfilter is the scope every client is under — a semi-join wears its publisher's label.
+
+**It replaced a graph that answered only column predicates**, which read every column of every
+clause, subqueries included, so a set of vertices found in an edge table or another type named
+`src` and `dst` and was refused. The alternative was a second clause kind the graph alone
+understood; it would have filtered the graph and nothing else.
+
+**What would reverse it:** an identity two corpora do not share — two corpora attached on one page,
+whose `dense_id`s collide — which would make the key a pair, `(corpus, dense_id)`, and the semi-join
+a tuple; or a relation whose rows carry a vertex's IRI and not its `dense_id`, measured common enough
+that joining through the identity column on every read costs more than carrying the id.
+
+*Held by* `packages/mosaic/src/clause.test.ts`, "builds a semi-join on identity from keys, or from a
+statement that selects them", "names the key alone: a subquery's columns are another relation's";
+`packages/graph/src/core/store.test.ts`, "answers a semi-join on dense_id on every table, whatever
+relation its subquery reads", "publishes the reader's pick as a semi-join on dense_id, and is exempt
+from its own clause", "lets the pick go when its clause is retracted where it was published";
+`packages/ui/src/charts/filter-chips.test.tsx`, "names a semi-join by its publisher's label, and
+counts its members when they are keys".
 
 ## ADR 0001 — the canvas holds the whole graph
 
@@ -486,7 +530,8 @@ was the alternative and is refused: it would be a key no reader reads, which the
 
 - **Names for a channel's values.** The catalog names no categories, so the host passes
   `categories`. If `fossil_columns` ever carries them, the catalog's win.
-- **A column two types share.** A crossfilter clause carries no table, so a filter on `name` filters
-  every vertex type that has one — a `WHERE` over a union. A host reading it wrongly would reopen it.
+- **A column two types share.** A column clause carries no table, so a filter on `name` filters
+  every vertex type that has one — a `WHERE` over a union. A host reading it wrongly would reopen it;
+  a clause that means one type is a semi-join, whose subquery names it.
 - **The greyout at scale.** The surviving-id query and the two index lists have not been timed at
   500,000 vertices.
