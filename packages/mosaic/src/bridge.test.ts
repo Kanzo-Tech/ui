@@ -75,6 +75,21 @@ describe("bridgeSelection", () => {
     expect([...outer.clauses]).toEqual([]);
   });
 
+  it("retracts the inner clauses where their owner says, when the mapped clause is retracted", () => {
+    const { outer, inner, tiles, brush } = page();
+    // A chart's own selection, upstream of the inner one: a reset of `inner` alone never reaches it.
+    const chart = Selection.union();
+    chart._relay.add(inner);
+    const retract = vi.fn((clauses: SelectionClause[]) => void chart.reset(clauses));
+    bridgeSelection(inner, outer, semiJoinOf("dense_id", "Person_rel"), { retract });
+    chart.update(brush(tiles[0], [2, 5]));
+    outer.reset([...outer.clauses]);
+    expect(retract).toHaveBeenCalledOnce();
+    expect([...chart.clauses]).toEqual([]);
+    expect([...inner.clauses]).toEqual([]);
+    expect([...outer.clauses]).toEqual([]);
+  });
+
   it("resets an outer clause on the outer selection when the inner selection resets it", () => {
     const { outer, inner, graph } = page();
     const cleared = vi.fn();

@@ -63,17 +63,28 @@ function listen(selection: Selection, heard: Heard): () => void {
   return () => void selection._relay.delete(relay);
 }
 
+export interface BridgeOptions {
+  /**
+   * How the inner clauses are retracted when the mapped one is retracted on `outer`. Defaults to
+   * `inner.reset(clauses)`. A `reset` travels downstream only, so when the inner clauses were relayed
+   * in from selections upstream of `inner` — a chart's own — whoever owns those passes the call that
+   * resets them there, or they would go on highlighting a pick the page no longer has.
+   */
+  retract?: (clauses: SelectionClause[]) => void;
+}
+
 /**
  * Join `inner` to `outer` through `map` — see {@link ClauseMap}. `outer`'s clauses already standing are
  * relayed into `inner`, and `inner`'s already published, at once. Returns the unbridge, which withdraws
  * the mapped clause from `outer` and stops both relays.
  */
-export function bridgeSelection(inner: Selection, outer: Selection, map: ClauseMap): () => void {
+export function bridgeSelection(inner: Selection, outer: Selection, map: ClauseMap, options: BridgeOptions = {}): () => void {
+  const { retract = (clauses) => void inner.reset(clauses) } = options;
   /** Clauses `inner` was handed by `outer`: theirs to retract, never ours to map. */
   const arrived = new WeakSet<SelectionClause>();
   let mapped: readonly SelectionClause[] = [];
   const own = () => inner._resolved.filter((c) => !arrived.has(c));
-  const source: ClauseSource = { reset: () => void inner.reset(own()) };
+  const source: ClauseSource = { reset: () => retract(own()) };
   const ours = (clause: SelectionClause) => clause.source === source;
 
   const publish = () => {

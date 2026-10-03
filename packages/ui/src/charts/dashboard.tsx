@@ -57,7 +57,6 @@ export function Dashboard(props: DashboardProps) {
   const { fields, columns, error } = useFieldStats(table, { exclude });
   const page = useMosaic();
   const [own] = useState(() => Selection.crossfilter());
-  useEffect(() => (publish ? bridgeSelection(own, page.crossfilter, publish) : undefined), [own, page.crossfilter, publish]);
   // Everything below reads the relation the plots can: see `plotRelation`.
   const readable = useMemo(
     () =>
@@ -92,11 +91,23 @@ export function Dashboard(props: DashboardProps) {
   );
   return publish ? (
     <MosaicProvider coordinator={page.coordinator} crossfilter={own} onFailure={page.onFailure}>
+      <Bridge map={publish} to={page.crossfilter} />
       {body}
     </MosaicProvider>
   ) : (
     body
   );
+}
+
+/**
+ * The dashboard's crossfilter, bridged to the page's. Inside the dashboard's provider, so retracting
+ * the page's clause is the provider's `retract`: it resets the tiles' own selections too, which a
+ * reset of the crossfilter alone never reaches.
+ */
+function Bridge({ to, map }: { to: Selection; map: ClauseMap }) {
+  const { crossfilter, retract } = useMosaic();
+  useEffect(() => bridgeSelection(crossfilter, to, map, { retract }), [crossfilter, to, map, retract]);
+  return null;
 }
 
 // Container queries on `Dashboard`'s own width, not the viewport's: beside a dock or in a pane the

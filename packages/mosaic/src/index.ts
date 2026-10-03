@@ -74,7 +74,7 @@ export {
  * function on the way out. What a group of clients crossfiltering in their own columns publishes to
  * the page in the page's: `bridge.ts` states it.
  */
-export { bridgeSelection, type ClauseMap } from "./bridge.js";
+export { bridgeSelection, type BridgeOptions, type ClauseMap } from "./bridge.js";
 
 /** Ours: turning an Arrow answer into values, which the client protocol does not do for you. */
 export { column, numbers } from "./arrow.js";
