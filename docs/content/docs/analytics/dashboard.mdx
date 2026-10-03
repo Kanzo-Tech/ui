@@ -317,6 +317,11 @@ timeline filters by a range. The readout counts what survives. A clause publishe
 on the page — a `ChartFilter` you placed above the dashboard, a lasso on a graph — is applied the
 same way, and *Clear* retracts it too.
 
+With `publish`, the tiles crossfilter each other in a selection of the dashboard's own, and the page
+sees one clause instead: the one `publish` maps them to. Everything above still holds inside the
+dashboard, and the page's clauses still reach every tile — see [what the page
+sees](#what-the-page-sees).
+
 ## Relations
 
 The `table` can be any relation, and a relation that joins is one more `TableExpr`. A **relation** is
@@ -350,6 +355,41 @@ import { Dashboard, RelationPicker, relationIdentities, relationKey, relationQue
 - **`relationHops(graph, type)`** lists the hops that leave a type, out-edges then in-edges.
   `RelationPicker` is built on it: the root as a select, each hop as *label → type*, the last hop
   removable, and **+ Hop** offering the edges that leave the last type.
+
+### What the page sees
+
+A tile's clause on a relation names the relation's columns — `"Person.country" IN ('ES')` — and
+nothing else on the page has them: a graph beside the dashboard would refuse it as
+`graph/unfilterable`, and another relation's dashboard would fail to bind it. So a relation's
+dashboard publishes in the page's vocabulary instead, a semi-join on the root's key:
+
+```tsx
+import { semiJoinOf } from "@kanzo-tech/ui/analytics";
+
+const table = useMemo(() => relationQuery(graph, relation), [graph, relation]);
+const publish = useMemo(() => semiJoinOf(relationIdentities(graph, relation)[0].column, table, { label: key }), [graph, relation, table, key]);
+
+<Dashboard key={key} table={table} publish={publish} … />
+```
+
+The tiles publish into the dashboard's own crossfilter and filter by it, so they crossfilter each
+other on the relation's columns exactly as before. The page gets **one** clause for all of them,
+`dense_id IN (SELECT dense_id FROM <relation> WHERE <every tile's clause>)`, whose source is the
+dashboard: the graph greys out every vertex but the roots of the rows the tiles keep, another
+relation's dashboard is filtered to the same vertices through its own root key, and `FilterChips`
+names it by `label`. The clauses are mapped together, not one by one — on a joined relation,
+*a person with a row where a and b* is not *a person with a row where a, and one where b*.
+
+Retracting goes both ways. A tile that lets go withdraws the page's clause; removing the page's
+clause — its chip, the page's *Clear* — clears the tiles' brushes and picks. In the other direction,
+a lasso on the graph reaches every tile as itself, so the graph stays exempt from its own pick and
+is not filtered by it back through the dashboard.
+
+`semiJoinOf` is one map among any: `publish` takes a `ClauseMap`, `(clauses, source) => clause`,
+and the bridge that carries it is `@kanzo-tech/mosaic`'s `bridgeSelection(inner, outer, map)` —
+Mosaic's own `include` relay, in both directions, with the map on the way out. Without `publish`, a
+dashboard's clauses are the page's, which is right for a dashboard over one table beside charts over
+the same table.
 
 The `JoinGraph` is plain data a reader builds from its own catalog — `JoinType` (`name`, `table`,
 `key`, `columns`) and `JoinEdge` (`name`, `label`, `source`, `destination`, `table`, and the `src`
@@ -396,6 +436,7 @@ way. Nothing fails blank.
 | `exclude` | `readonly string[]` | — |
 | `config` | `Readonly<Record<string, ChartConfig>>` | — |
 | `rowNoun` | `string` | `"rows"` |
+| `publish` | `ClauseMap` — what the page sees of the tiles' clauses; [`semiJoinOf`](#what-the-page-sees) for a relation | — (the tiles' clauses are the page's) |
 
 Every other prop goes to the root `div` (`data-slot="dashboard"`).
 

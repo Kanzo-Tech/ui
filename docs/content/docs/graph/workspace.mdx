@@ -97,7 +97,10 @@ const crossfilter = useCrossfilter();
 A chart's brush greys out on the canvas the vertices it drops, and the reader's click or lasso is
 published as a `dense_id` clause that every chart filters by and the graph does not. A clause naming
 columns no vertex table has reaches `onFailure` as `graph/unfilterable`; a table that lacks them
-just stays unfiltered.
+just stays unfiltered. A `Dashboard` over a relation of the corpus publishes its tiles' clauses
+as a semi-join on `dense_id` when it is given `publish={semiJoinOf("dense_id", table)}`, so it shares
+this crossfilter with the graph in both directions — [what the page
+sees](/docs/analytics/dashboard#what-the-page-sees).
 
 </Step>
 <Step>

@@ -443,8 +443,13 @@ place. The charts never learn fossil; they take the graph as data.
 
 ```ts
 const graph = await readJoinGraph(coordinator, jobId);
-<Dashboard table={relationQuery(graph, { root: "Person", path: [] })} />
+const table = relationQuery(graph, { root: "Person", path: [] });
+<Dashboard table={table} publish={semiJoinOf("dense_id", table)} />
 ```
+
+`publish` is what lets the dashboard sit on the graph's crossfilter: its tiles' clauses name
+`Person.country`, which no vertex table has, so the page gets them as one semi-join on `dense_id`
+instead — [what the page sees](/docs/analytics/dashboard#what-the-page-sees).
 
 *Held by* `packages/graph/src/core/join-graph.test.ts`, "keys a type by its address, projects the
 columns the writer gave no role, and joins edges on src and dst".

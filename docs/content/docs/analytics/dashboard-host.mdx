@@ -96,24 +96,35 @@ true of every dashboard over that field, so it is not saved with any of them.
 A spec names columns, and so does every clause a part publishes. Two relations on one crossfilter
 means a pick on one sends `hall IN (…)` to the other, which may have no `hall`. Give each relation
 its own dashboard, and either mount one at a time or give each its own `MosaicProvider` over the
-shared coordinator.
+shared coordinator — or, when the relations share a key, let each dashboard `publish` a semi-join on
+it, which every relation keyed the same way answers.
 
-A host over a graph of types picks the relation with `RelationPicker` and keys everything by it:
+A host over a graph of types picks the relation with `RelationPicker`, keys everything by it, and
+publishes the tiles' clauses to the page as a semi-join on the root's key, so the graph beside the
+dashboard follows its brushes:
 
 ```tsx
 const key = relationKey(graph, relation);
 const saved = migrateDashboards(stored); // whatever the server held, as the current document
+const identities = relationIdentities(graph, relation);
+const table = useMemo(() => relationQuery(graph, relation), [graph, relation]);
+const publish = useMemo(() => semiJoinOf(identities[0].column, table, { label: key }), [identities, table, key]);
 
 <RelationPicker graph={graph} value={relation} onValueChange={setRelation} />
 <Dashboard
   key={key}
-  table={relationQuery(graph, relation)}
-  exclude={relationIdentities(graph, relation).map((i) => i.column)}
+  table={table}
+  publish={publish}
+  exclude={identities.map((i) => i.column)}
   rowNoun={relation.path.length ? "paths" : relation.root}
   value={saved.byRelation[key]}
   onChange={(spec) => change({ version: 2, byRelation: { ...saved.byRelation, [key]: spec } })}
 />
 ```
+
+The graph and the dashboard share the page's crossfilter: a brush on a tile greys out on the canvas
+every vertex but the roots of the rows it keeps, and a lasso on the canvas filters every tile —
+[what the page sees](/docs/analytics/dashboard#what-the-page-sees).
 
 `key` remounts the dashboard on a switch. Every part withdraws its clauses when it unmounts — a
 chart's own selection is reset, an input retracts its clause — so a filter on one relation never

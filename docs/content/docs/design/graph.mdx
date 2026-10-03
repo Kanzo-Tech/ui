@@ -114,6 +114,19 @@ the second form, built from mosaic-sql's nodes; `clauseColumns(filter)` is the r
 relation keyed by anything else crosses the same way. `graph/unfilterable` is what is left of the
 column form — a clause no vertex table can answer.
 
+**A group of clients that speaks columns crosses to the page as identity, through a bridge.** A
+dashboard over a relation filters its tiles by `"Person.country"`, which no vertex table has. Its
+tiles therefore publish into a crossfilter of the dashboard's own, and `bridgeSelection(inner,
+outer, map)` in `@kanzo-tech/mosaic` joins it to the page: every page clause reaches the tiles as
+itself, which is Mosaic's own `include` relay (`_relay`, the channel `update`, `reset` and `activate`
+all end in), and the clauses the tiles published are mapped *together* into one page clause whose
+source is the bridge. The map a relation takes is `semiJoinOf(key, relation)`, which is `dense_id IN
+(SELECT dense_id FROM <relation> WHERE <every tile clause>)`, the second form again. So the graph
+answers a dashboard by the rule it already had, and nothing in `GraphClient` names a dashboard.
+Retraction follows the clause to where it was published: a tile letting go withdraws the page
+clause, the page clause's chip clears the tiles, and the page's clauses are never mapped back out,
+so a lasso does not return to the graph as a dashboard's clause and filter it by its own pick.
+
 **Any panel is a client of the selection by the same protocol.** `useChartQuery` is a panel's query
 filtered by the live selection and re-run when it changes; a panel over a union of relations reads
 `clauseColumns` to apply each clause where it can, as the graph does; and `FilterChips` over the
@@ -123,6 +136,13 @@ crossfilter is the scope every client is under — a semi-join wears its publish
 clause, subqueries included, so a set of vertices found in an edge table or another type named
 `src` and `dst` and was refused. The alternative was a second clause kind the graph alone
 understood; it would have filtered the graph and nothing else.
+
+**The bridge replaced "a graph and a relation dashboard do not share a crossfilter"**, the caveat
+the relation dashboard shipped with: its clauses named prefixed columns, and the graph refused them
+as `graph/unfilterable`. The alternatives were a dashboard-shaped case in `GraphClient`, which would
+have taught the graph one publisher's vocabulary and left every other relation client to learn it
+again; and one semi-join per tile clause, which is wrong on a joined relation, where *a root with a
+row where a and b* is not *a root with a row where a and one where b*.
 
 **What would reverse it:** an identity two corpora do not share — two corpora attached on one page,
 whose `dense_id`s collide — which would make the key a pair, `(corpus, dense_id)`, and the semi-join
@@ -135,7 +155,13 @@ statement that selects them", "names the key alone: a subquery's columns are ano
 relation its subquery reads", "publishes the reader's pick as a semi-join on dense_id, and is exempt
 from its own clause", "lets the pick go when its clause is retracted where it was published";
 `packages/ui/src/charts/filter-chips.test.tsx`, "names a semi-join by its publisher's label, and
-counts its members when they are keys".
+counts its members when they are keys"; `packages/mosaic/src/bridge.test.ts`, "publishes the inner
+clauses to the outer selection as one clause, through the map, from the bridge", "does not filter a
+client by its own clause on either side, and never echoes the mapped clause inward", "calls the bridge
+back when the mapped clause is retracted where it was published, and clears the inner sources";
+`packages/graph/src/core/dashboard-bridge.test.ts`, "filters the graph by what the dashboard's
+brushes keep, as the root vertices they keep", "still filters the dashboard by the graph's pick, and
+publishes nothing back for it".
 
 ## ADR 0001 — the canvas holds the whole graph
 
