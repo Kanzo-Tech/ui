@@ -385,9 +385,27 @@ column a running layout pulls together by. [Layout and camera](/docs/graph/layou
 has the rule.
 
 **`filterBy` is the page's crossfilter.** A chart's clause greys out on the canvas what it drops —
-never hides it — and the reader's lasso or click is published back on `dense_id`, for every chart
-and not for the graph. [The graph view](/docs/design/graph#the-graph-is-a-client-of-the-pages-coordinator)
-has how.
+never hides it — and the reader's lasso, click or `GraphSelect` is published back as a semi-join on
+`dense_id`, for every client and not for the graph. Removing that clause where it was published — a
+`FilterChips` chip, the page's reset — clears the pick on the canvas too.
+
+**A clause is column predicates, or a semi-join on identity.** A column clause filters each vertex
+table that has every column it names. A semi-join — `clauseSemiJoin("dense_id", ids | query)` —
+names `dense_id` alone, so it filters every vertex table whatever its subquery reads: the vertices a
+rule found, the endpoints of an edge table, an answer's rows.
+
+```tsx
+import { Query, clauseSemiJoin } from "@kanzo-tech/ui/analytics";
+
+// Everyone who lives in Saltmere, published by a panel: the graph greys out the rest.
+crossfilter.update(
+  clauseSemiJoin("dense_id", Query.select("src").from(livesIn).where(inSaltmere), { source: panel, label: "Saltmere" }),
+);
+```
+
+[The clause rule](/docs/design/graph#the-clause-rule-column-predicates-or-a-semi-join-on-identity)
+has why, and [the graph view](/docs/design/graph#the-graph-is-a-client-of-the-pages-coordinator)
+has how the graph answers.
 
 ## Identity
 
@@ -413,7 +431,7 @@ was thrown and takes the host's words for it.
 | `graph/context-lost` | The browser took the WebGL context back. |
 | `graph/no-positions` | The device came up but holds no positions for the points it was given, found when the camera read them back. `cause` is what the read threw. |
 | `graph/nothing-to-draw` | The attached corpus has no vertex. |
-| `graph/unfilterable` | A crossfilter clause naming columns no vertex table has. A table lacking a predicate's columns just stays unfiltered. |
+| `graph/unfilterable` | A column clause naming columns no vertex table has. A table lacking a clause's columns just stays unfiltered by it; a semi-join on `dense_id` is answered by every table. |
 
 A part that reads on its own — the search's names, the inspector's row, a label's text — hands its
 failure to the same `onFailure` and shows it in place. A host keys its message on `code` and falls
