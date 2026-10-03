@@ -163,6 +163,15 @@ export default function Page() {
 
 </Steps>
 
+## Running the services
+
+`@kanzo-tech/auth` and `@kanzo-tech/llm` each talk to a server, and both servers ship from this
+repository under the same tag as the packages: [the identity service](/docs/auth/service), Keycloak
+with the platform realm as code, and [the gateway](/docs/ai/gateway), LiteLLM with both aliases on
+local models. A product adopting either includes the service's `compose.yml` in its own development
+stack, from a checkout pinned to the release its packages came from, and registers itself — a client
+and its roles, a team per tenant — with the service's Terraform module, from its own repository.
+
 ## Server-side rendering
 
 Render `themeScript()` in `<head>` so the theme attributes land before first paint. **That one is

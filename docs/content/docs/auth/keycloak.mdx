@@ -7,11 +7,9 @@ This is the page to hand to whoever runs the realm. Nothing here is invented: ev
 package reads is one Keycloak emits, and the configuration below is what makes it emit them on the
 token that needs them.
 
-The service half lives in this repository, at `services/auth/`: Keycloak with its realm as code,
-already configured as this page describes, with a seed and a conformance script
-(`scripts/verify.sh`) that signs a seeded person in through a generic `kanzo-conformance` client and
-checks the token against the contract below. `@kanzo-tech/auth` is the library that consumes it.
-Without the first, the second has nothing to talk to.
+A realm already configured as this page describes ships beside the package, under the same tag:
+[the identity service](/docs/auth/service), which also has how to run it, register an application
+and check the contract on a live token.
 
 ## One realm, one client per application
 
@@ -24,10 +22,9 @@ So a client is an *application*: `board`, `ledger`, `viewer`. Not a tenant. A cl
 how this was done before Organizations existed, and it makes onboarding a customer a deployment
 instead of an operation.
 
-An application registers itself **from its own repository**, by instantiating the Terraform module
-at `services/auth/modules/app`: its client, the audience its access token names, and its roles with
-their composites. The realm knows no application by name. `services/auth/examples/app/main.tf` is a
-complete registration.
+An application registers itself **from its own repository** — its client, the audience its access
+token names, and its roles with their composites — and the realm knows no application by name.
+[Register an application](/docs/auth/service#register-an-application) is the module that does it.
 
 ## Role claims on both tokens
 
@@ -111,20 +108,18 @@ group.
 Two things sit on either side of that mapping. The **hierarchy** is the application's, declared as
 composite roles in its registration (`roles` in `services/auth/modules/app`, at most three deep),
 so a product asks whether `editor` is present and never ranks. The **mapping** is the
-organization's: its administrator does it in the console, and `services/auth/scripts/map-group-role.sh
-ALIAS GROUP CLIENT ROLE` does it as a command, for an organization's first administrators and for
-seeds. Over the admin API it is `POST
-/admin/realms/{realm}/organizations/{orgId}/groups/{groupId}/role-mappings/clients/{clientUuid}` —
-the realm's own `/groups/{id}/role-mappings` answers 400 for an organization group, which was
-measured rather than assumed.
+organization's: its administrator does it in the console, and [the identity
+service](/docs/auth/service#map-roles-onto-an-organizations-groups) has it as a command and as the
+admin API call — under the organization, because the realm's own `/groups/{id}/role-mappings`
+answers 400 for an organization group, which was measured rather than assumed.
 
 ## What the token actually carries
 
 Organization Groups give every organization its own isolated hierarchy — which is exactly what
 shared realm groups could not do — and one claim carries all of it, every organization and the
 roles held in each. This is the `organization` claim on an access token from Keycloak 26.8.0, taken
-off `services/auth` by `scripts/verify.sh` for the seeded `ana` through the `kanzo-conformance`
-client, whose role `high` is a composite containing `low`:
+off [the identity service](/docs/auth/service) by `scripts/verify.sh` for the seeded `ana` through
+the `kanzo-conformance` client, whose role `high` is a composite containing `low`:
 
 ```json
 "organization": {

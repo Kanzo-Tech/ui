@@ -4,6 +4,7 @@
     "index",
     "assist",
     "chat",
-    "llm"
+    "llm",
+    "gateway"
   ]
 }
