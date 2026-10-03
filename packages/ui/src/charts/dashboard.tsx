@@ -118,7 +118,7 @@ function Board({
   const addCard = () => {
     const used = new Set(spec.cards.map((c) => c.x));
     const card = [...fields].sort((a, b) => Number(used.has(a.name)) - Number(used.has(b.name)))
-      .map((f) => cardFor(f, fields))
+      .map((f) => cardFor(f))
       .find((c) => c !== null);
     if (card) edit?.({ cards: [...spec.cards, card] });
   };

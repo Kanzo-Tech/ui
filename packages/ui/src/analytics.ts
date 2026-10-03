@@ -119,6 +119,8 @@ export type {
   DashboardSpec, DashboardCardSpec, DashboardStatSpec, DashboardFilterSpec, DashboardMeasure,
   DashboardChartType, DashboardAggregate,
 } from "./charts/dashboard-spec.js";
+export { recommend } from "./charts/recommend.js";
+export type { Recommendation, RecommendIntent } from "./charts/recommend.js";
 export { useFieldStats, queryFieldStats, fieldStats } from "./charts/field-stats.js";
 export type {
   FieldStat, FieldStats, FieldKind, FieldRole, FieldStatsOptions, FieldStatsState, SummarizeRow,
