@@ -1,7 +1,7 @@
 "use client";
 
 import { categoricalCapacity, cn, Show, useThemeTick } from "@kanzo-tech/ui";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { nameOf } from "../core/categories";
 import { readTitles } from "../core/source";
 import type { Encoding, Geometry } from "../core/load";
@@ -97,7 +97,9 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
   const encoding = useGraphSnapshot((s) => s.encoding);
   const mask = useGraphSnapshot((s) => s.mask);
 
-  useEffect(() => {
+  // A layout effect: its cleanup runs while the element is still in the page, and detaching reads
+  // the camera at the canvas's size. A passive cleanup runs after React removed it, at no size.
+  useLayoutEffect(() => {
     const surface = surfaceRef.current;
     if (!surface) return;
     return attach(surface, { onFrame: schedule, onHover: hoverAt });

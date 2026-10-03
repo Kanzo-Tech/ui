@@ -219,14 +219,22 @@ buffer:
   layout can pull against it, and releasing reheats — d3-force's drag-to-fix.
 - **The camera is cosmos.gl's.** A zoom repaints the overlays and reaches no store; `render/camera.ts`
   owns who holds it, and [Layout and camera](/docs/graph/layout#the-camera) says when it moves.
+- **The arrangement is the store's.** A destroyed renderer writes cosmos.gl's positions and the camera
+  back with `store.keep`, and the next one uploads them and goes on as the layout was: model and
+  view, the way cosmos.gl's own `setPointPositions` / `getPointPositions` split them. A canvas that
+  is not shown holds no GPU context; a new geometry drops what was kept.
 
 **What would reverse it:** cosmos.gl gaining a sub-range upload, so a binding could upload only what
 it changed; or a picture that needs a transition to be read, measured against the frames it costs.
+The arrangement goes back to the renderer if reading every position back on detach — one `readPixels`
+of the position texture — costs a switch of views more than a re-layout does.
 
 *Held by* `packages/graph/src/render/renderer.test.ts`, "uploads positions and links once per corpus,
 and renders once", "repaints colours, sizes and shapes on a look change, and uploads no geometry",
 "starts and stops with the simulate prop, after the first load", "moves a dragged node and pins
-nothing while no layout runs", "releases a paused layout with a bounded burst, then pauses it again";
+nothing while no layout runs", "releases a paused layout with a bounded burst, then pauses it again",
+"leaves the points and the camera to the next canvas, which starts settled from them and runs nothing",
+"drops what it kept when the geometry changes, and the next canvas places the new one";
 `packages/graph/src/react/graph-root.test.tsx`, "does not rebuild the renderer because a callback
 changed identity".
 
