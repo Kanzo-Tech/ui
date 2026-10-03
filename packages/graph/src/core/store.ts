@@ -81,7 +81,6 @@ export function createGraph(initial: GraphOptions): GraphStore {
     selection: null,
     focus: null,
     hovered: null,
-    pinned: [],
     tool: null,
     motion: "settled",
     progress: 1,
@@ -216,7 +215,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     structure = geometry = encoding = null;
     kept = mask = null;
     uploaded = [];
-    notify({ selection: null, focus: null, hovered: null, pinned: [] });
+    notify({ selection: null, focus: null, hovered: null });
     loadStructure();
   }
 
@@ -309,9 +308,6 @@ export function createGraph(initial: GraphOptions): GraphStore {
     },
     hover(vertex) {
       if (vertex !== snapshot.hovered) patch({ hovered: vertex });
-    },
-    pin(vertices) {
-      patch({ pinned: [...vertices] });
     },
     setTool(tool) {
       if (tool !== snapshot.tool) patch({ tool });

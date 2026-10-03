@@ -67,8 +67,6 @@ export interface GraphCommands {
   pause(): void;
   resume(): void;
   restart(): void;
-  /** Let go of every pinned node and reheat the layout, so the released nodes flow back into place. */
-  unpin(): void;
   /** Centre and select one vertex. */
   reveal(vertex: VertexId): void;
   /** Frame whatever the canvas currently has selected. */

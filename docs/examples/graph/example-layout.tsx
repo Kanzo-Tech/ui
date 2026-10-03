@@ -5,17 +5,15 @@ import { GraphCanvas, GraphRoot, GraphStatus, GraphToolbar, useGraphState } from
 import { Badge, Progress, Show } from "@kanzo-tech/ui";
 import { ARCHIVE_KINDS, said, useArchive } from "./archive";
 
-/** The two axes, side by side: the data's `status` and the layout's `motion`, with `progress` and the pins. */
+/** The two axes, side by side: the data's `status` and the layout's `motion`, with `progress`. */
 function Readout() {
   const status = useGraphState((s) => s.status);
   const motion = useGraphState((s) => s.motion);
   const progress = useGraphState((s) => s.progress);
-  const pinned = useGraphState((s) => s.pinned.length);
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs">
       <Badge variant="outline">status · {status}</Badge>
       <Badge variant={motion === "running" ? "default" : "outline"}>motion · {motion}</Badge>
-      <Badge variant="outline">{pinned} pinned</Badge>
       <div className="w-32">
         <Progress aria-label="Layout progress" value={Math.round(progress * 100)} />
       </div>
@@ -25,8 +23,7 @@ function Readout() {
 
 /**
  * The layout starts once the graph is drawn: `motion` is `running` and `progress` climbs while
- * `status` stays `idle`, because nothing is being read. Drag a node while it runs and it stays where
- * you drop it; the toolbar then offers to release the pins. The camera follows the moving points until you zoom or pan.
+ * `status` stays `idle`, because nothing is being read. The camera follows the moving points until you zoom or pan.
  * Under the canvas, `GraphStatus` folds the two axes into the one word a footer shows.
  */
 export default function Example() {

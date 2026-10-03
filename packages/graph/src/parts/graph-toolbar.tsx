@@ -6,7 +6,6 @@ import {
   MaximizeIcon,
   MinusIcon,
   PauseIcon,
-  PinOffIcon,
   PlayIcon,
   PlusIcon,
   RotateCcwIcon,
@@ -56,9 +55,7 @@ export function GraphToolbar({ className, orientation = "horizontal", slot, ...r
   const selection = useGraphState((s) => s.selection);
   const total = useGraphState((s) => s.total);
   const motion = useGraphState((s) => s.motion);
-  const pinned = useGraphState((s) => s.pinned.length);
   const transport = TRANSPORT[motion];
-  const release = `Release ${pinned} pinned ${pinned === 1 ? "node" : "nodes"}`;
 
   return (
     <div
@@ -138,12 +135,6 @@ export function GraphToolbar({ className, orientation = "horizontal", slot, ...r
         <Button aria-label="Re-run the layout" disabled={!ready} onClick={() => api.restart()} size="icon-sm" title="Re-run the layout" variant="ghost">
           <RotateCcwIcon />
         </Button>
-        <Show when={pinned > 0}>
-          <ButtonGroupSeparator />
-          <Button aria-label={release} onClick={() => api.unpin()} size="icon-sm" title={release} variant="ghost">
-            <PinOffIcon />
-          </Button>
-        </Show>
       </ButtonGroup>
     </div>
   );

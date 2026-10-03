@@ -86,7 +86,7 @@ dock, in a footer. `GraphLooks` is the exception the other way: it writes prefer
 `GraphRoot` holds the graph's state outside React — the loaded graph, the channels, the selection,
 the focus and the layout's motion — and renders no element. **`useGraphContext()` answers with the
 commands**, an object that never changes for the root's life: `zoomBy`, `fit`, `pause`, `resume`,
-`restart`, `unpin`, `reveal`, `frameSelection`, `clear`, `select`, `setFocus` and `setTool`.
+`restart`, `reveal`, `frameSelection`, `clear`, `select`, `setFocus` and `setTool`.
 **`useGraphState(selector)` reads a slice of the state** and re-renders only when that slice moves.
 The state changes at frame rate — a hover, a load, a tick of the layout — so a part that read all of
 it would re-render on every hover. It is TanStack Store's `useStore(store, selector)`; pass a second
@@ -128,8 +128,7 @@ The commands, drawn: the selection tools, the selection and what to do with it, 
 layout's transport. Pick a tool and drag; **Shift** borrows the marquee whichever tool is armed, and
 at release **Alt** removes what was drawn while **⌘/Ctrl** adds; **Esc** backs out of the drag, then
 the tool, then the selection. While a selection is held its cluster appears — the count, Frame and
-Clear. Play runs the force layout from where the points are and pause leaves them there; while
-nodes are pinned, Release joins the transport. Each cluster is a `ButtonGroup`, because a cluster is
+Clear. Play runs the force layout from where the points are and pause leaves them there. Each cluster is a `ButtonGroup`, because a cluster is
 a claim that its buttons do one job. The toolbar declares no `toolbar` role: that role promises
 roving focus, and each button here is its own tab stop. `orientation="vertical"` stacks the
 clusters.
@@ -518,8 +517,7 @@ The commands, stable for the root's life — `GraphCommands` plus the state's do
 | `zoomBy(factor)` | Zooms the camera by a factor. |
 | `fit()` | Frames the graph: the bound positions' extent, or where the points are once a layout has run. |
 | `pause()` / `resume()` | Pauses a running layout; resumes a paused one, or runs a settled one again. |
-| `restart()` | Releases every pin and runs the layout from full heat. |
-| `unpin()` | Releases every pin and reheats the layout. |
+| `restart()` | Runs the layout from full heat. |
 | `reveal(vertex)` | Selects and focuses a vertex with its neighbours, and zooms to it. |
 | `frameSelection()` | Frames what is selected. |
 | `clear()` | Clears the selection and the focus. |
@@ -543,7 +541,6 @@ What `useGraphState` selects from.
 | `domain` | `readonly unknown[]` | The category domain before anything loads. |
 | `selection` | `Selection \| null` | `vertices`, `source` (a `SelectionSource` — `"marquee" \| "lasso" \| "node"`, the canvas's gestures, or `"external"`, a host's `select`) and `label`. |
 | `focus` / `hovered` | `VertexId \| null` | The focused and the hovered vertex. |
-| `pinned` | `readonly VertexId[]` | The vertices a drag pinned. |
 | `tool` | `Tool` | The armed selection tool. |
 | `options` | `UseGraphProps` | The props as given. |
 | `structure` | `Structure \| null` | The catalog's tables, once read. |

@@ -83,7 +83,6 @@ function build(store: GraphStore): GraphApi {
     pause: on("pause"),
     resume: on("resume"),
     restart: on("restart"),
-    unpin: on("unpin"),
     // Selecting and focusing are state, and hold without a renderer; centring is the camera's.
     reveal: (vertex) => {
       if (renderer) return renderer.reveal(vertex);

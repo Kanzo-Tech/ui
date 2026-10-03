@@ -85,7 +85,6 @@ export interface GraphState {
   readonly selection: Selection | null;
   readonly focus: VertexId | null;
   readonly hovered: VertexId | null;
-  readonly pinned: readonly VertexId[];
   readonly tool: Tool;
   readonly motion: Motion;
   /** How far through settling a live layout is, `0`–`1`. */
@@ -118,7 +117,6 @@ export interface GraphStore {
   select(vertices: readonly VertexId[] | null, source?: SelectionSource, label?: string): void;
   focus(vertex: VertexId | null): void;
   hover(vertex: VertexId | null): void;
-  pin(vertices: readonly VertexId[]): void;
   setTool(tool: Tool): void;
   report(motion: Motion): void;
   reportProgress(value: number): void;

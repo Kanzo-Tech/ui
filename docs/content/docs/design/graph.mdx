@@ -210,13 +210,14 @@ buffer:
 
 - **A corpus uploads positions and links once**, and binding `x` or `y` uploads positions again. A
   binding, a look or a theme change uploads colours, sizes and shapes.
-- **A filter and a state change upload nothing.** The surviving ids, a selection, a focus and a pin
-  are config — the ids are the indices — and call no `render()`.
+- **A filter and a state change upload nothing.** The surviving ids, a selection and a focus are
+  config — the ids are the indices — and call no `render()`.
 - **One frame renders once, and only for an upload.** Every dirty flag is discharged in one
   `requestAnimationFrame`.
 - **Nothing animates.** `transitionDuration` is 0.
-- **The layout runs by the rule above**, from wherever the points are; a drag pins a node only while a
-  layout can pull against it, and releasing reheats — d3-force's drag-to-fix.
+- **The layout runs by the rule above**, from wherever the points are. A drag moves a node and holds
+  nothing: there is no pinning, because a held node is a second state beside the selection that no
+  panel can read, and an arrangement worth keeping is a placement.
 - **The camera is cosmos.gl's.** A zoom repaints the overlays and reaches no store; `render/camera.ts`
   owns who holds it, and [Layout and camera](/docs/graph/layout#the-camera) says when it moves.
 
@@ -225,8 +226,8 @@ it changed; or a picture that needs a transition to be read, measured against th
 
 *Held by* `packages/graph/src/render/renderer.test.ts`, "uploads positions and links once per corpus,
 and renders once", "repaints colours, sizes and shapes on a look change, and uploads no geometry",
-"starts and stops with the simulate prop, after the first load", "moves a dragged node and pins
-nothing while no layout runs", "releases a paused layout with a bounded burst, then pauses it again";
+"starts and stops with the simulate prop, after the first load", "leaves a dragged node free, with or
+without a layout running";
 `packages/graph/src/react/graph-root.test.tsx`, "does not rebuild the renderer because a callback
 changed identity".
 
