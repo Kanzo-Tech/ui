@@ -1,19 +1,18 @@
 "use client";
 
 import { categoricalCapacity, cn, Show, useThemeTick } from "@kanzo-tech/ui";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { nameOf } from "../core/categories";
-import { readTitles } from "../core/source";
-import type { Graph } from "@cosmos.gl/graph";
 import type { Encoding } from "../core/load";
 import type { GraphOptions } from "../core/state";
 import type { VertexId } from "../core/types";
 import { useGraphContext } from "../react/graph-root";
 import { internalsOf } from "../react/use-graph";
 import { useGraphSnapshot, useGraphState } from "../react/use-graph-state";
-import { resolveLook, type LabelLevel } from "../render/graph-looks";
+import { resolveLook } from "../render/graph-looks";
 import { scaleOf } from "../render/graph-model";
 import { cursorChip, useGesture } from "./gesture";
+import { labelled, topOf, useInView, useTitles } from "./labels";
 import { useOverlays } from "./overlays";
 import { ShapeGlyph } from "./shape-glyph";
 
@@ -23,123 +22,6 @@ export interface GraphCanvasProps extends React.ComponentProps<"div"> {
 }
 
 const WASH = "color-mix(in oklab, var(--primary) 17%, transparent)";
-
-/**
- * Top's and Visible's budgets — Cosmograph 2.5's own defaults, `showTopLabelsLimit` 150 and
- * `showDynamicLabelsLimit` 100, read from its `config/defaults.js` (its JSDoc says 30 for both; the
- * code is what runs). Fixed, because the level is the reader's choice and the count is not.
- */
-const TOP_LABELS = 150;
-const VISIBLE_LABELS = 100;
-
-/** How long the camera has to be still before Visible samples the view again. */
-const REST = 160;
-
-const NO_VERTICES: readonly VertexId[] = [];
-
-function* every(size: number): Generator<VertexId> {
-  for (let id = 0; id < size; id++) yield id;
-}
-
-/**
- * The biggest `budget` surviving vertices of `among`, biggest first. One pass, keeping the best few
- * in order: a sort of every vertex to name a hundred and fifty of them is the cost this avoids.
- */
-function biggest(among: Iterable<VertexId>, ramp: Float32Array, mask: Uint8Array | null, budget: number): VertexId[] {
-  const best: VertexId[] = [];
-  for (const id of among) {
-    const value = ramp[id] as number;
-    if ((mask && !mask[id]) || Number.isNaN(value)) continue;
-    if (best.length === budget && value <= (ramp[best[budget - 1] as number] as number)) continue;
-    let at = best.length;
-    while (at > 0 && (ramp[best[at - 1] as number] as number) < value) at--;
-    best.splice(at, 0, id);
-    if (best.length > budget) best.pop();
-  }
-  return best;
-}
-
-/**
- * The vertices a level labels, in the order the declutter pass places them — so where two collide,
- * the bigger point keeps its name. Each level adds to the one before; the focused vertex leads from
- * Hovered up, and Hovered's own label is the hover card, which is not a tracked label.
- */
-function labelled(
-  level: LabelLevel,
-  size: number,
-  ramp: Float32Array,
-  mask: Uint8Array | null,
-  inView: readonly VertexId[],
-  focus: VertexId | null,
-): VertexId[] {
-  let ids: VertexId[] = [];
-  if (level === "all") {
-    // Every vertex, so a sort is the honest cost; a point with no size value is still a point.
-    ids = [...every(size)].filter((id) => !mask || mask[id]);
-    ids.sort((a, b) => ((ramp[b] as number) || 0) - ((ramp[a] as number) || 0));
-  } else if (level === "top" || level === "visible") {
-    ids = biggest(every(size), ramp, mask, TOP_LABELS);
-    if (level === "visible") {
-      const top = new Set(ids);
-      const seen = biggest(inView.filter((id) => id < size && !top.has(id)), ramp, mask, VISIBLE_LABELS);
-      ids = [...ids, ...seen].sort((a, b) => (ramp[b] as number) - (ramp[a] as number));
-    }
-  }
-  if (level === "none" || focus === null || focus >= size) return ids;
-  return [focus, ...ids.filter((id) => id !== focus)];
-}
-
-/**
- * **Visible's sample: what cosmos.gl says is in view**, one point per `pointSamplingDistance` cell
- * (100 px, its default) — the call Cosmograph's dynamic labels make. A sample is a GPU pass and a
- * readback, so it is taken when the camera has rested for `REST`, not on every frame; while a layout
- * runs, the last sample's labels follow their points through the tracking the overlays already do.
- * `moved` is stable for the canvas's life, which is what lets the renderer's `onFrame` call it.
- */
-function useInView(getGraph: () => Graph | null, enabled: boolean): { inView: readonly VertexId[]; moved: () => void } {
-  const [inView, setInView] = useState<readonly VertexId[]>(NO_VERTICES);
-  const wanted = useRef(enabled);
-  const timer = useRef(0);
-  const moved = useCallback(() => {
-    if (!wanted.current) return;
-    clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => {
-      const graph = getGraph();
-      if (!graph) return;
-      const sampled = [...graph.getSampledPointPositionsMap().keys()];
-      setInView((last) => (last.length === sampled.length && last.every((id, i) => id === sampled[i]) ? last : sampled));
-    }, REST);
-  }, [getGraph]);
-  useEffect(() => {
-    wanted.current = enabled;
-    if (enabled) moved();
-    else setInView(NO_VERTICES);
-    return () => clearTimeout(timer.current);
-  }, [enabled, moved]);
-  return { inView, moved };
-}
-
-/** A label's text is read for the vertices that carry one, never carried for every vertex. */
-function useTitles(vertices: readonly VertexId[]): ReadonlyMap<VertexId, string> {
-  const api = useGraphContext();
-  const structure = useGraphState((s) => s.structure);
-  const title = useGraphState((s) => s.options.title);
-  const coordinator = useGraphState((s) => s.options.coordinator);
-  const [titles, setTitles] = useState<ReadonlyMap<VertexId, string>>(() => new Map());
-  const key = vertices.join(",");
-  useEffect(() => {
-    if (!structure || !coordinator || key === "") return;
-    let current = true;
-    readTitles(coordinator, structure, key.split(",").map(Number), title).then(
-      (found) => current && setTitles(found),
-      (error: unknown) => current && api.getState().options.onFailure(error),
-    );
-    return () => {
-      current = false;
-    };
-  }, [api, structure, coordinator, key, title]);
-  return titles;
-}
 
 const WAITING: Partial<Record<string, string>> = {
   loading: "Loading the graph…",
@@ -172,7 +54,7 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
   const encoding = useGraphSnapshot((s) => s.encoding);
   const mask = useGraphSnapshot((s) => s.mask);
 
-  const { inView, moved } = useInView(getGraph, look.labels === "visible");
+  const { inView, moved } = useInView(getGraph, surfaceRef, look.labels === "visible" || look.labels === "all");
   // A layout effect: its cleanup runs while the element is still in the page, and detaching reads
   // the camera at the canvas's size. A passive cleanup runs after React removed it, at no size.
   useLayoutEffect(() => {
@@ -190,9 +72,13 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
     renderer()?.repaint();
   }, [renderer, themeTick]);
 
+  const top = useMemo(
+    () => (geometry && encoding ? topOf(look.labels, geometry.size, encoding.sizes, mask) : []),
+    [geometry, encoding, mask, look.labels],
+  );
   const labelledIds = useMemo(
-    () => (geometry && encoding ? labelled(look.labels, geometry.size, encoding.sizes, mask, inView, focus) : []),
-    [geometry, encoding, mask, inView, focus, look.labels],
+    () => (geometry && encoding ? labelled(look.labels, geometry.size, encoding.sizes, top, mask, inView, focus) : []),
+    [geometry, encoding, top, mask, inView, focus, look.labels],
   );
   const titles = useTitles(labelledIds);
   const labels = useMemo(

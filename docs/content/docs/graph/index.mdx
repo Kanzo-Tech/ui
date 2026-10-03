@@ -282,10 +282,12 @@ The axes are Cosmograph's configuration, read as choices a reader can name:
 not even the hover card. **Hovered** is the hover card and the focused point's label. **Top** adds the
 150 biggest points by the size channel — Cosmograph's `showTopLabelsLimit` default. **Visible** adds
 the 100 biggest of cosmos.gl's sample of the points in view (one per 100 px cell), taken again each
-time the camera rests — Cosmograph's dynamic labels, `showDynamicLabelsLimit`. **All** labels every
-point, which costs a label element and a title read per point: a level for a graph small enough to
-read whole. At every level a label that would overlap a bigger point's is dropped rather than drawn
-over it. The levels are the type `LabelLevel`, the `labels` field of a `Look`.
+time the camera rests — Cosmograph's dynamic labels, `showDynamicLabelsLimit`. **All** adds every
+point of that sample, with no count of its own: the bound is the screen's, one point per 100 px
+square, so an 800 × 600 view adds at most 48 whether the graph holds a thousand points or 327,000.
+Cosmograph has no unbounded label set either, and All once was one — a sort, a label element, a
+tracked position and a title read per vertex. At every level a label that would overlap a bigger
+point's is dropped rather than drawn over it, and the titles are read for the labelled points only. The levels are the type `LabelLevel`, the `labels` field of a `Look`.
 
 **It needs `GRAPH_SECTION` on the theme provider** — without it there is nothing to write and it
 renders nothing — and the root reads the answer through `useGraphPrefs()`:
