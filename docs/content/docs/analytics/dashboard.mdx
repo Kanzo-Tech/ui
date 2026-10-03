@@ -110,13 +110,43 @@ stats alone and nothing else:
   measures.
 - **Tiles**: a row count, and the mean of up to three measures — each trending along the first time,
   when there is one.
-- **Cards** (at most six): a line over the first time, two thirds wide; bars for up to three
-  categories; histograms of up to two measures; and, given two measures, a fit of one against the
-  other. The last card of a row is widened so no row ends in a hole.
+- **Cards** (at most six): the first six that [`recommend`](#recommend) proposes for an overview.
+  The last card of a row is widened so no row ends in a hole.
 - **Rows**: the first eight fields — categories, then times, measures and keys.
 
 It is exported for a host that wants the automatic spec without the component — to seed a saved
 dashboard, or to diff against one.
+
+### recommend
+
+`recommend(fields, intent?)` is every chart a table of rules proposes for those fields, heaviest
+first — Draco's soft constraints and CompassQL's ranking, with the weights set by hand and no solver,
+since a rule reads at most two fields. Each answer is `{ spec, rationale }`: a card valid for the
+fields, and one sentence saying why.
+
+| Reads | Draws | `overview` | `answer` | At most | Rationale |
+| --- | --- | --- | --- | --- | --- |
+| a time and a measure | `line` of the measure's total | — | 100 | 3 | *day is a time and n a measure, so a line of total n over time* |
+| a category and a measure | `bar` of the measure's total | — | 90 | 3 | *type has 3 values and n is a measure, so a bar of total n per value* |
+| a time | `line` of counts, two thirds wide | 100 | 50 | 1 | *seen is a time, so a line of counts along it* |
+| a category of 2 or more values | `bar` of counts | 80 | 40 | 3 | *type has 3 values, so a bar of counts per value* |
+| a measure | `histogram` | 60 | 30 | 2 | *bounty is a measure, so a histogram of how its values spread* |
+| two measures | `regression` of one on the other, two thirds wide | 40 | 70 | 1 | *bounty and leagues are both measures, so a fit of one against the other* |
+
+- **`intent`** is `"overview"` (the default) for a dashboard over raw rows — what each field does on
+  its own — or `"answer"` for one chart of a result set, whose rows are usually aggregated already,
+  so a measure beside what it was grouped by comes first. A rule with no weight under an intent is
+  not proposed for it.
+- **Ties** keep the table's order, and a rule takes fields in the relation's order, up to its
+  *at most*. A key is never drawn, and neither is a category with one value.
+- *Add chart* gives the first field a rule draws on its own the best chart of it alone, preferring
+  a field the dashboard does not chart yet.
+
+**A card says why it is there.** While a card is exactly what the rules propose for the fields it
+reads, `ChartCard` puts its rationale before the interaction hint and an *Automatic* badge beside the
+title. Edit the type, a field, the measure, a series, a panel or the title and both go; the width is
+layout and does not count. The rationale is read again on every render, never stored, so a saved
+spec carries none and an automatic one never needs saving.
 
 ## The parts
 
@@ -170,7 +200,8 @@ bars by the measure, the top series and panels by count — so a filter never re
 repaints a survivor.
 
 Without a series, the whole relation stays drawn behind the selection in grey: the context a
-filtered chart otherwise loses. A card that names a field the relation no longer has draws *The
+filtered chart otherwise loses. A card the rules would propose as it stands shows
+[why](#recommend), under an *Automatic* badge. A card that names a field the relation no longer has draws *The
 relation has no `hall` any more.* in place of the chart.
 
 The editor (the card's `⋯`) sets the type — a type the relation cannot draw is disabled — `x`, the
@@ -358,6 +389,10 @@ function useFieldStats(table: TableExpr, options?: FieldStatsOptions): FieldStat
 function queryFieldStats(coordinator: Coordinator, table: TableExpr, options?: FieldStatsOptions): Promise<FieldStats>;
 function fieldStats(rows: readonly SummarizeRow[], options?: FieldStatsOptions): FieldStats;
 function autoDashboard(fields: readonly FieldStat[]): DashboardSpec;
+function recommend(fields: readonly FieldStat[], intent?: RecommendIntent): Recommendation[];
+
+type RecommendIntent = "overview" | "answer"; // default "overview"
+interface Recommendation { spec: DashboardCardSpec; rationale: string }
 
 interface FieldStat {
   name: string;

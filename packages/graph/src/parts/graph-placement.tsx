@@ -12,7 +12,7 @@ import {
 } from "@kanzo-tech/ui";
 import { useId, useMemo, useState } from "react";
 import type { Channels } from "../core/channels";
-import type { Structure } from "../core/source";
+import type { Structure } from "../core/structure";
 import { useGraphState } from "../react/use-graph-state";
 
 type Placed = Pick<Channels, "x" | "y" | "cluster">;
@@ -38,9 +38,10 @@ function fieldsOf(structure: Structure | null): { any: string[]; numeric: string
   const any = new Set<string>();
   const numeric = new Set<string>();
   for (const table of structure?.vertices ?? []) {
-    for (const [name, type] of table.fields) {
+    for (const [name, column] of table.columns) {
+      if (column.role !== null) continue;
       any.add(name);
-      if (NUMERIC.test(type)) numeric.add(name);
+      if (NUMERIC.test(column.type)) numeric.add(name);
     }
   }
   return { any: [...any].sort(), numeric: [...numeric].sort() };

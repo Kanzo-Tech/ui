@@ -23,9 +23,11 @@ function HallName({ detail }: { detail: VertexDetail }) {
 }
 
 /**
- * Click a vertex. The inspector reads its row — a scan of its table, filtered to its key — and lays it
- * out by the table's own properties; its `children` is a render prop for a field the product adds. It sits
- * outside the canvas because it is a part of the root, not of the canvas.
+ * Click a vertex. The inspector reads its row — one statement on its table, by its key — and lays it
+ * out as a card: identity, values and dates, and its neighbours counted per relation, each a toggle
+ * that selects that end. Zoom frames it, Focus selects its neighbourhood, Copy copies its fields. Its
+ * `children` is a render prop for a field the product adds. It sits outside the canvas because it is
+ * a part of the root, not of the canvas.
  */
 export default function Example() {
   const [failure, setFailure] = useState<unknown>(null);
@@ -38,7 +40,7 @@ export default function Example() {
             <p className="absolute inset-0 grid place-items-center p-6 text-center text-muted-foreground text-sm">{said(failure)}</p>
           </Show>
         </GraphCanvas>
-        <GraphInspector className="w-56 shrink-0 overflow-y-auto rounded-lg border p-3">
+        <GraphInspector className="w-72 shrink-0 overflow-y-auto">
           {(detail) => <HallName detail={detail} />}
         </GraphInspector>
       </GraphRoot>

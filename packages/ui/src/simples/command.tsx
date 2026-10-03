@@ -148,21 +148,20 @@ export const CommandContent = (
   );
 };
 
+// The input's own props reach the input — `placeholder`, `aria-invalid`, `autoFocus` — and
+// `className` and `size` style the group around it. `autoFocus` defaults on for the dialog, where
+// opening the palette is asking to type; a palette inline in a panel turns it off.
 export const CommandInput = (props: CommandInputProps) => {
-  const { size = "md", className, ...rest } = props;
+  const { size = "md", className, autoFocus = true, ...rest } = props;
 
   return (
     <ComboboxControl className="mb-2">
-      <InputGroup
-        className={cn("rounded-xl bg-field", className)}
-        size={size}
-        {...rest}
-      >
+      <InputGroup className={cn("rounded-xl bg-field", className)} size={size}>
         <InputGroupAddon>
           <SearchIcon aria-hidden className="opacity-64" />
         </InputGroupAddon>
         <ArkCombobox.Input asChild>
-          <InputGroupInput autoFocus slot="command-input" />
+          <InputGroupInput autoFocus={autoFocus} {...rest} slot="command-input" />
         </ArkCombobox.Input>
       </InputGroup>
     </ComboboxControl>

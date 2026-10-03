@@ -33,10 +33,10 @@ describe("the graph store", () => {
       ["Place", 10, 6, "subject"],
       ["Tag", 16, 4, "subject"],
     ]);
-    expect(structure?.edges.map((e) => [e.name, e.source, e.destination])).toEqual([
-      ["Person_knows_Person", "Person", "Person"],
-      ["Person_livesIn_Place", "Person", "Place"],
-      ["Person_tagged_Tag", "Person", "Tag"],
+    expect(structure?.edges.map((e) => [e.name, e.label, e.source, e.destination])).toEqual([
+      ["Person_knows_Person", "knows", "Person", "Person"],
+      ["Person_livesIn_Place", "livesIn", "Person", "Place"],
+      ["Person_tagged_Tag", "tagged", "Person", "Tag"],
     ]);
     expect(store.getSnapshot().total).toBe(20);
     expect(geometry?.size).toBe(20);
@@ -171,6 +171,16 @@ describe("the graph store", () => {
     await settle(second);
     expect(store.getSnapshot().structure?.from).toBe(second.from);
     expect(onFailure).not.toHaveBeenCalled();
+  });
+
+  it("remembers what the search went to, newest first, once each and five at most, until the corpus changes", async () => {
+    const { corpus, store } = await graph();
+    await settle(corpus);
+    for (const vertex of [1, 2, 3, 4, 5, 6, 2]) store.remember(vertex, `#${vertex}`);
+    expect(store.getSnapshot().recent.map((r) => r.vertex)).toEqual([2, 6, 5, 4, 3]);
+    const next = await attach();
+    store.setOptions({ ...store.getOptions(), from: next.from, coordinator: next.coordinator });
+    expect(store.getSnapshot().recent).toEqual([]);
   });
 
   it("connects its client on the first subscriber and lets it go with the last, as StrictMode does twice", async () => {

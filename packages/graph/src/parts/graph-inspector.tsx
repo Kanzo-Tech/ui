@@ -3,87 +3,173 @@
 import {
   Badge,
   Button,
+  ButtonGroup,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Clipboard,
+  ClipboardTrigger,
   cn,
   DataList,
   DataListItem,
   DataListItemLabel,
   DataListItemValue,
+  Item,
+  ItemGroup,
+  Link,
   Show,
   Skeleton,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
   useChartCapacity,
 } from "@kanzo-tech/ui";
-import { CrosshairIcon } from "lucide-react";
+import { FocusIcon, ZoomInIcon } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { nameOf } from "../core/categories";
 import { bindingOf } from "../core/channels";
-import { readVertex, type VertexDetail } from "../core/source";
+import { neighbourIds, readNeighbours, readVertex, type Neighbours, type VertexDetail } from "../core/source";
+import { tableOf } from "../core/structure";
 import type { VertexId } from "../core/types";
 import { useGraphContext } from "../react/graph-root";
 import { useGraphState } from "../react/use-graph-state";
 import { scaleOf } from "../render/graph-model";
+import { GraphSelect } from "./graph-select";
 import { ShapeGlyph } from "./shape-glyph";
 
 export interface GraphInspectorProps extends Omit<React.ComponentProps<"div">, "children"> {
   /**
-   * More fields for the focused vertex, drawn inside its list after the corpus's own — a
-   * `DataListItem` each. A render prop rather than a table of formatters: what a product adds is
-   * markup, and the part never learns what any of it means.
+   * More fields for the focused vertex, drawn after the corpus's values — a `DataListItem` each. A
+   * render prop rather than a table of formatters: what a product adds is markup, and the part never
+   * learns what any of it means.
    */
   children?: (detail: VertexDetail) => ReactNode;
 }
 
-/** A cell, as text — a `DATE` arrives as a `Date`, and a 64-bit column as a `bigint`. */
-const text = (value: unknown): string => {
+/** A cell, as text — a `DATE` arrives as a `Date`, a `TIMESTAMP` as epoch milliseconds, and a 64-bit column as a `bigint`. */
+const text = (value: unknown, date: boolean): string => {
   if (value instanceof Date) return value.toISOString().slice(0, 10);
+  if (date && typeof value === "number") return new Date(value).toISOString().replace("T", " ").slice(0, 19);
   if (value === null || value === undefined || value === "") return "—";
   return String(value);
 };
 
+const IRI = /^[a-z][a-z0-9+.-]*:\/\/\S+$/i;
+/** Past this many characters a value is clamped to three lines, and "more" lets the rest out. */
+const LONG = 160;
+
+/** One value: an IRI as a link out, long text clamped, the rest as it reads. */
+function Value({ value, date }: { value: unknown; date: boolean }) {
+  const [open, setOpen] = useState(false);
+  const shown = text(value, date);
+  if (typeof value === "string" && IRI.test(value)) {
+    return (
+      <Link className="break-all" href={value} rel="noreferrer" target="_blank">
+        {value}
+      </Link>
+    );
+  }
+  if (shown.length <= LONG) return <span className="break-words">{shown}</span>;
+  return (
+    <>
+      <span className={cn("break-words", !open && "line-clamp-3")}>{shown}</span>
+      <Button className="h-auto p-0 text-xs" onClick={() => setOpen(!open)} size="sm" variant="link">
+        {open ? "less" : "more"}
+      </Button>
+    </>
+  );
+}
+
 /** `null` is no such vertex in the corpus; `false` is a read that did not answer. */
-type Answer = { vertex: VertexId; detail: VertexDetail | null | false } | null;
+type Answer<T> = { vertex: VertexId; value: T | null | false } | null;
 
-/**
- * **The focused vertex, fetched and laid out by the corpus's own tables.** The loaded graph carries
- * what the channels project and nothing else, so the rest of the row is read when a reader focuses
- * it — one statement on its table, by its key, through the page's coordinator. The fields are the
- * table's, in the order the manifest declares them; the key is the canvas's.
- */
-export function GraphInspector({ children, className, slot, ...rest }: GraphInspectorProps) {
+/** Read `read(vertex)` for the focused vertex, keeping only the newest answer; a failure goes to `onFailure`. */
+function useRead<T>(vertex: VertexId | null, read: ((vertex: VertexId) => Promise<T | null>) | null): T | null | false | undefined {
   const api = useGraphContext();
-  const focus = useGraphState((s) => s.focus);
-  const structure = useGraphState((s) => s.structure);
-  const coordinator = useGraphState((s) => s.options.coordinator);
-  const options = useGraphState((s) => s.options);
-  const domain = useGraphState((s) => s.drawn?.domain ?? s.domain);
-  const capacity = useChartCapacity();
-  const scale = useMemo(() => scaleOf(options, capacity), [options, capacity]);
-  const [answer, setAnswer] = useState<Answer>(null);
-
+  const [answer, setAnswer] = useState<Answer<T>>(null);
   useEffect(() => {
-    if (focus === null || !structure || !coordinator) return;
+    if (vertex === null || read === null) return;
     let current = true;
-    readVertex(coordinator, structure, focus).then(
-      (detail) => current && setAnswer({ vertex: focus, detail }),
+    read(vertex).then(
+      (value) => current && setAnswer({ vertex, value }),
       (error: unknown) => {
         if (!current) return;
-        setAnswer({ vertex: focus, detail: false });
+        setAnswer({ vertex, value: false });
         api.getState().options.onFailure(error);
       },
     );
     return () => {
       current = false;
     };
-  }, [api, coordinator, focus, structure]);
+  }, [api, vertex, read]);
+  return answer !== null && answer.vertex === vertex ? answer.value : undefined;
+}
 
-  const answered = answer !== null && answer.vertex === focus ? answer.detail : undefined;
+/**
+ * **The focused vertex, fetched and laid out by the corpus's own tables** — the Linkurious inspector's
+ * shape. The loaded graph carries what the channels project and nothing else, so the rest of the row
+ * is read when a reader focuses it — one statement on its table, by its key, through the page's
+ * coordinator — and its neighbourhood with it, one count per relation and direction.
+ *
+ * The header names the vertex, copies its IRI and wears its category's glyph; **Zoom** frames it on
+ * the canvas, **Focus** selects it with every neighbour as an `"external"` selection, which the page's
+ * crossfilter hears, and **Copy** copies the row. The fields are the table's, in the order the
+ * manifest declares them, grouped as its identity, its values and its dates. Each neighbourhood row
+ * is a `GraphSelect`: pressing it selects the vertices at the far end of that relation.
+ */
+export function GraphInspector({ children, className, slot, ...rest }: GraphInspectorProps) {
+  const api = useGraphContext();
+  const focus = useGraphState((s) => s.focus);
+  const structure = useGraphState((s) => s.structure);
+  const options = useGraphState((s) => s.options);
+  const domain = useGraphState((s) => s.drawn?.domain ?? s.domain);
+  const capacity = useChartCapacity();
+  const scale = useMemo(() => scaleOf(options, capacity), [options, capacity]);
+  const { coordinator, categories } = options;
+  const readers = useMemo(
+    () =>
+      structure && coordinator
+        ? {
+            row: (vertex: VertexId) => readVertex(coordinator, structure, vertex),
+            neighbours: (vertex: VertexId) => readNeighbours(coordinator, structure, vertex),
+          }
+        : null,
+    [coordinator, structure],
+  );
+  const answered = useRead(focus, readers?.row ?? null);
+  const neighbours = useRead<Neighbours[]>(focus, readers?.neighbours ?? null);
+
   const current = answered || null;
+  const table = structure && current ? tableOf(structure, current.vertex) : undefined;
   const field = (name: string | undefined) => current?.fields.find((f) => f.name === name)?.value;
-  const binding = bindingOf(options);
-  const category = binding.byTable ? current?.table : field(binding.category);
-  const rank = domain.findIndex((value) => String(value) === String(category));
-  const bound = binding.byTable || binding.category !== undefined;
-  const identity = structure?.vertices.find((table) => table.name === current?.table)?.identity;
-  const heading = field(options.title) ?? field(identity);
+  // The badge is the vertex's type, and wears the canvas's glyph only when the type is what the canvas colours by.
+  const byType = bindingOf(options).byTable;
+  const rank = Math.max(0, domain.findIndex((value) => String(value) === current?.table));
+  const iri = field(table?.identity);
+  const named = field(options.title) ?? iri;
+  const heading = current ? (named === undefined || named === null ? `#${current.vertex}` : text(named, false)) : "";
+  const dated = (name: string) => /date|time/i.test(table?.columns.get(name)?.type ?? "");
+  const groups = current
+    ? [
+        { title: "Identity", fields: current.fields.filter((f) => f.name === table?.identity) },
+        { title: "Values", fields: current.fields.filter((f) => f.name !== table?.identity && !dated(f.name)) },
+        { title: "Dates", fields: current.fields.filter((f) => f.name !== table?.identity && dated(f.name)) },
+      ]
+    : [];
+  const row = current?.fields.map((f) => `${f.name}\t${text(f.value, dated(f.name))}`).join("\n") ?? "";
+  const around = (sides?: readonly Neighbours[]) => {
+    if (!current || !structure || !coordinator) return Promise.resolve([]);
+    return neighbourIds(coordinator, structure, current.vertex, sides);
+  };
+  const focusOn = async () => {
+    if (!current) return;
+    try {
+      api.select([current.vertex, ...(await around())], "external", `Neighbours of ${heading}`);
+    } catch (error) {
+      api.getState().options.onFailure(error);
+    }
+  };
 
   return (
     <div {...rest} className={cn("space-y-3 text-sm", className)} data-slot={slot ?? "graph-inspector"}>
@@ -99,44 +185,86 @@ export function GraphInspector({ children, className, slot, ...rest }: GraphInsp
         </p>
       </Show>
       {current && (
-        <>
-          <div>
-            <p className="truncate font-medium" data-slot="graph-inspector-title">
-              {heading === undefined || heading === null ? `#${current.vertex}` : text(heading)}
-            </p>
-            <div className="mt-1 flex items-center gap-1.5">
-              <Show when={bound}>
-                <Badge className="gap-1 text-[10px]" size="xs" variant="outline">
-                  <ShapeGlyph
-                    className="size-2 shrink-0"
-                    color={scale.color(Math.max(0, rank))}
-                    shape={scale.shape(Math.max(0, rank))}
-                  />
-                  {nameOf(category, options.categories)}
-                </Badge>
+        <Card className="gap-3 py-3 [--space:--spacing(3)]">
+          <CardHeader className="gap-2">
+            <div className="flex min-w-0 items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <CardTitle className="min-w-0 truncate text-sm" slot="graph-inspector-title">
+                    {heading}
+                  </CardTitle>
+                </TooltipTrigger>
+                <TooltipContent>{heading}</TooltipContent>
+              </Tooltip>
+              <Show when={typeof iri === "string" && iri !== ""}>
+                <Clipboard value={String(iri)}>
+                  <ClipboardTrigger aria-label="Copy the IRI" />
+                </Clipboard>
               </Show>
-              <Button
-                className="h-5 gap-1 text-[10px]"
-                onClick={() => api.reveal(current.vertex)}
-                size="sm"
-                title="Bring this vertex into view on the canvas"
-                variant="ghost"
-              >
-                <CrosshairIcon className="size-3" />
-                Find on canvas
-              </Button>
             </div>
-          </div>
-          <DataList orientation="vertical">
-            {current.fields.map((f) => (
-              <DataListItem className="gap-0.5 py-0" key={f.name}>
-                <DataListItemLabel className="text-xs">{f.name}</DataListItemLabel>
-                <DataListItemValue className="break-all">{text(f.value)}</DataListItemValue>
-              </DataListItem>
+            <div className="flex items-center justify-between gap-2">
+              <Badge className="min-w-0 gap-1 text-[10px]" size="xs" variant="outline">
+                <Show when={byType}>
+                  <ShapeGlyph className="size-2 shrink-0" color={scale.color(rank)} shape={scale.shape(rank)} />
+                </Show>
+                <span className="truncate">{nameOf(current.table, categories)}</span>
+              </Badge>
+              <ButtonGroup aria-label="This vertex">
+                <Button aria-label="Zoom to it" onClick={() => api.reveal(current.vertex)} size="icon-sm" title="Zoom to it" variant="ghost">
+                  <ZoomInIcon />
+                </Button>
+                <Button aria-label="Focus on its neighbours" onClick={() => void focusOn()} size="icon-sm" title="Focus on its neighbours" variant="ghost">
+                  <FocusIcon />
+                </Button>
+                <Clipboard className="contents" value={row}>
+                  <ClipboardTrigger aria-label="Copy its fields" title="Copy its fields" />
+                </Clipboard>
+              </ButtonGroup>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {groups.map((group) => (
+              <Show key={group.title} when={group.fields.length > 0 || (group.title === "Values" && !!children)}>
+                <section aria-label={group.title}>
+                  <p className="mb-1 font-medium text-muted-foreground text-xs">{group.title}</p>
+                  <DataList orientation="vertical">
+                    {group.fields.map((f) => (
+                      <DataListItem className="gap-0.5 py-0" key={f.name}>
+                        <DataListItemLabel className="text-xs">{f.name}</DataListItemLabel>
+                        <DataListItemValue className="min-w-0">
+                          <Value date={dated(f.name)} value={f.value} />
+                        </DataListItemValue>
+                      </DataListItem>
+                    ))}
+                    {group.title === "Values" && children?.(current)}
+                  </DataList>
+                </section>
+              </Show>
             ))}
-            {children?.(current)}
-          </DataList>
-        </>
+            <section aria-label="Neighbours">
+              <p className="mb-1 font-medium text-muted-foreground text-xs">Neighbours</p>
+              <Show when={neighbours === undefined}>
+                <Skeleton className="h-8 w-full" />
+              </Show>
+              <Show when={neighbours === false || (Array.isArray(neighbours) && neighbours.length === 0)}>
+                <p className="text-muted-foreground text-xs">{neighbours === false ? "Its neighbours could not be read." : "No edges."}</p>
+              </Show>
+              <ItemGroup className="gap-1">
+                {(neighbours || []).map((side) => {
+                  const said = `${side.edge.label} ${side.direction === "out" ? "→" : "←"} ${nameOf(side.other, categories)}`;
+                  return (
+                    <Item className="p-0" key={`${side.edge.name} ${side.direction}`}>
+                      <GraphSelect className="flex items-center gap-2 px-2 py-1.5 text-xs" label={`${said} of ${heading}`} load={() => around([side])}>
+                        <span className="min-w-0 truncate">{said}</span>
+                        <span className="ms-auto text-muted-foreground tabular-nums">{side.count.toLocaleString()}</span>
+                      </GraphSelect>
+                    </Item>
+                  );
+                })}
+              </ItemGroup>
+            </section>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

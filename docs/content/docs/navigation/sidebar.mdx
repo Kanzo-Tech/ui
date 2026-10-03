@@ -37,8 +37,8 @@ nested containers below use `<section>`. (shadcn makes its inset the `<main>` be
 separate region layer; we do.)
 </Callout>
 
-`SidebarProvider` owns the open state, persists it to a `sidebar_state` cookie, and binds
-<kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>B</kbd> to toggle. Everything below reads that state through
+`SidebarProvider` owns the open state, persists the person's preference to a `sidebar_state`
+cookie, and binds <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>B</kbd> to toggle. Everything below reads that state through
 `useSidebar`, which throws outside the provider. Below the `md` breakpoint the sidebar becomes a
 Sheet drawer instead of a rail, which is why the navigating composites close it on click.
 
@@ -176,6 +176,57 @@ const { open, isMobile, toggleSidebar } = useSidebar();
 server component is the single most common mistake with this API.
 </Callout>
 
+## Preference and route intent
+
+The open state has two inputs, and the provider keeps them apart. **The preference** is the
+person's: what they last chose, written to the `sidebar_state` cookie on every toggle. **An intent**
+is a route's: a full-canvas page wants the sidebar out of the way while it is shown.
+
+Read the preference on the server, in the layout that renders the provider, so a reload starts where
+the person left it. `parseSidebarCookie` takes the raw value and knows no framework — in Next:
+
+```tsx
+import { cookies } from "next/headers";
+import { parseSidebarCookie, SIDEBAR_COOKIE_NAME, SidebarProvider } from "@kanzo-tech/ui";
+
+export default async function Layout({ children }: { children: React.ReactNode }) {
+  const defaultOpen = parseSidebarCookie((await cookies()).get(SIDEBAR_COOKIE_NAME)?.value);
+  return <SidebarProvider defaultOpen={defaultOpen}>{children}</SidebarProvider>;
+}
+```
+
+A route declares its intent by rendering `SidebarIntent` anywhere below the provider:
+
+```tsx
+export default function ExplorerPage() {
+  return (
+    <>
+      <SidebarIntent collapsed />
+      <Explorer />
+    </>
+  );
+}
+```
+
+<ComponentPreview componentName="sidebar" fullBleed fileName="example-intent" />
+
+While an intent is mounted the sidebar shows the intent, and when it unmounts the preference is back.
+Three things follow:
+
+- **An intent never writes the cookie.** Visiting an immersive page does not change what every other
+  page looks like.
+- **The toggle still works under an intent, and wins until it unmounts** — `SidebarTrigger`,
+  <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>B</kbd> and `setOpen` alike. That choice is not persisted and
+  does not call `onOpenChange`: leaving the route lands on the preference untouched, and coming back
+  starts from the intent again.
+- **When mounted intents disagree, collapsed wins**, whichever mounted last.
+
+<Callout type="info">
+The intent applies on the client, before paint. A client navigation into the route never draws the
+sidebar open; a full page load of it renders the preference on the server and collapses as it
+hydrates.
+</Callout>
+
 ## Keyboard
 
 | Key | Does |
@@ -195,7 +246,22 @@ is, text fields included.
 | `open` | `boolean` | — |
 | `onOpenChange` | `(open: boolean) => void` | — |
 
-Extends `React.ComponentProps<"div">`.
+Extends `React.ComponentProps<"div">`. `open`, `defaultOpen` and `onOpenChange` are the preference;
+a mounted `SidebarIntent` changes what is shown, never them.
+
+### SidebarIntent
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `collapsed` | `boolean` | — |
+
+Renders nothing. Throws outside a `SidebarProvider`.
+
+### parseSidebarCookie
+
+`parseSidebarCookie(value: string | null | undefined): boolean` — the raw `SIDEBAR_COOKIE_NAME`
+cookie value as `defaultOpen`. Only `"false"` reads as collapsed; absent reads as open, the
+provider's own default. Both live outside the client module, so a Server Component can import them.
 
 ### Sidebar
 
@@ -250,5 +316,5 @@ never get a redundant one.
 
 Returns `{ state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar }`.
 
-Every part's props are exported as an interface — `SidebarIdentityProps` and `SidebarMenuBadgeProps`
+Every part's props are exported as an interface — `SidebarIdentityProps`, `SidebarIntentProps` and `SidebarMenuBadgeProps`
 — so a wrapper can take the same props without restating them.

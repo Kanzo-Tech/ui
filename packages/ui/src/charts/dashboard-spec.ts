@@ -18,6 +18,7 @@ import {
 } from "@uwdata/mosaic-sql";
 import type { TableExpr } from "@kanzo-tech/mosaic";
 import type { FieldStat } from "./field-stats.js";
+import { recommend } from "./recommend.js";
 
 /**
  * A dashboard as data: what a host saves, what `Dashboard` renders, what its editors change.
@@ -289,13 +290,13 @@ export function normalizeCard(card: DashboardCardSpec, fields: readonly FieldSta
 
 // ── The automatic dashboard ──────────────────────────────────────────────────
 
-const newId = () => globalThis.crypto.randomUUID();
-
-/** The chart a field gets on its own: bars for categories, a line over time, a histogram of a number. */
-export function cardFor(field: FieldStat, fields: readonly FieldStat[]): DashboardCardSpec | null {
-  const type: DashboardChartType =
-    field.kind === "categorical" ? "bar" : field.kind === "temporal" ? "line" : "histogram";
-  return normalizeCard({ id: newId(), type, x: field.name, y: { op: "count" } }, fields);
+/**
+ * The chart a field gets on its own — the best the rules propose for it alone — or `null` for a
+ * field no rule draws by itself, such as a key.
+ */
+export function cardFor(field: FieldStat): DashboardCardSpec | null {
+  const best = recommend([field])[0];
+  return best ? { ...best.spec, id: globalThis.crypto.randomUUID() } : null;
 }
 
 /** Widens the last card of every three-column row so no row ends in a hole. */
@@ -320,9 +321,8 @@ const CARD_LIMIT = 6;
 
 /**
  * The dashboard a relation gets before anyone has edited one — Metabase's X-ray, from the stats
- * alone: a timeline when there is a time, the categories as bars, the measures as histograms and,
- * given two, how one moves with the other; a filter per kind of field, a count and the mean of each
- * measure as tiles, and the first columns as a table.
+ * alone: the first charts `recommend` proposes for an overview, a filter per kind of field, a count
+ * and the mean of each measure as tiles, and the first columns as a table.
  */
 export function autoDashboard(fields: readonly FieldStat[]): DashboardSpec {
   const temporal = fields.filter((f) => f.kind === "temporal");
@@ -341,18 +341,9 @@ export function autoDashboard(fields: readonly FieldStat[]): DashboardSpec {
     ...measures.slice(0, 3).map((f) => ({ id: `stat-${f.name}`, measure: { op: "avg" as const, field: f.name }, trend })),
   ];
 
-  const drafts: DashboardCardSpec[] = [];
-  if (temporal[0]) drafts.push({ id: "", type: "line", x: temporal[0].name, y: { op: "count" }, span: 2 });
-  for (const f of dimensions.slice(0, 3)) drafts.push({ id: "", type: "bar", x: f.name, y: { op: "count" } });
-  for (const f of measures.slice(0, 2)) drafts.push({ id: "", type: "histogram", x: f.name, y: { op: "count" } });
-  if (measures[1]) {
-    drafts.push({ id: "", type: "regression", x: measures[0]!.name, y: { op: "value", field: measures[1].name }, span: 2 });
-  }
-  const cards = drafts
-    .map((card) => normalizeCard(card, fields))
-    .filter((card): card is DashboardCardSpec => card !== null)
+  const cards = recommend(fields, "overview")
     .slice(0, CARD_LIMIT)
-    .map((card, i) => ({ ...card, id: `card-${i}` }));
+    .map(({ spec }, i) => ({ ...spec, id: `card-${i}` }));
 
   const columns = [...dimensions, ...temporal, ...measures, ...searchable].slice(0, 8).map((f) => f.name);
   return { version: 1, filters, stats, cards: pack(cards), detail: columns.length ? { columns } : null };

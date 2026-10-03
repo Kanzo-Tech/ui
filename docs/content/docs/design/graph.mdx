@@ -27,8 +27,10 @@ does this: `lon`/`lat` as `x`/`y` is what there is.
 
 The host attaches the corpus and names the catalog; `GraphRoot` reads it with SQL — `fossil_tables`
 and `fossil_columns` for the structure, the views for rows and links, one `SELECT` for a focused row,
-a `LIMIT`ed `ILIKE` for a search — every statement through `coordinator.query(sql, { type: "arrow" })`.
-It imports nothing of fossil's.
+a `LIMIT`ed `ILIKE` for a search, a count per relation for a neighbourhood — every statement built
+from mosaic-sql's nodes and run through `coordinator.query(query, { type: "arrow" })`. A search is text
+a reader typed, so no statement is a template string: the nodes quote their own identifiers and
+literals. It imports nothing of fossil's.
 
 ```text
 host                                                    @kanzo-tech/graph
@@ -48,8 +50,8 @@ answer.
 no DuckDB views — or a second host that has to draw without Mosaic. Then a reader comes back behind
 the loader, and the parts do not move.
 
-*Held by* `packages/graph/src/layers.test.ts`, "writes SQL only where it reads, and imports nothing
-of fossil's"; `packages/graph/src/index.test.ts`, "keeps the second reader deleted: no opener, no
+*Held by* `packages/graph/src/layers.test.ts`, "builds statements only where it reads, writes none in
+a string, and imports nothing of fossil's"; `packages/graph/src/index.test.ts`, "keeps the second reader deleted: no opener, no
 source, no slice"; `packages/graph/src/core/store.test.ts`, "reads the structure from fossil_tables
 and fossil_columns, and every vertex by its dense_id".
 
@@ -179,7 +181,7 @@ Every module stays under four hundred lines:
 ```text
 packages/graph/src/
 ├── core/                     no React; nothing here imports cosmos.gl
-│   ├── source.ts             the catalog's statements: structure, columns, links, a row, titles, search
+│   ├── source.ts             the catalog's statements: structure, columns, links, a row, titles, search, neighbours
 │   ├── client.ts             GraphClient — the crossfilter's survivors — and the clause the graph publishes
 │   ├── load.ts               answers → buffers by dense_id; the seeded start; the layout's square
 │   ├── channels.ts           Plot's bindings, and the columns they read
@@ -210,23 +212,32 @@ buffer:
 
 - **A corpus uploads positions and links once**, and binding `x` or `y` uploads positions again. A
   binding, a look or a theme change uploads colours, sizes and shapes.
-- **A filter and a state change upload nothing.** The surviving ids, a selection, a focus and a pin
-  are config — the ids are the indices — and call no `render()`.
+- **A filter and a state change upload nothing.** The surviving ids, a selection and a focus are
+  config — the ids are the indices — and call no `render()`.
 - **One frame renders once, and only for an upload.** Every dirty flag is discharged in one
   `requestAnimationFrame`.
 - **Nothing animates.** `transitionDuration` is 0.
-- **The layout runs by the rule above**, from wherever the points are; a drag pins a node only while a
-  layout can pull against it, and releasing reheats — d3-force's drag-to-fix.
+- **The layout runs by the rule above**, from wherever the points are. A drag moves a node and holds
+  nothing: there is no pinning, because a held node is a second state beside the selection that no
+  panel can read, and an arrangement worth keeping is a placement.
 - **The camera is cosmos.gl's.** A zoom repaints the overlays and reaches no store; `render/camera.ts`
   owns who holds it, and [Layout and camera](/docs/graph/layout#the-camera) says when it moves.
+- **The arrangement is the store's.** A destroyed renderer writes cosmos.gl's positions and the camera
+  back with `store.keep`, and the next one uploads them and goes on as the layout was: model and
+  view, the way cosmos.gl's own `setPointPositions` / `getPointPositions` split them. A canvas that
+  is not shown holds no GPU context; a new geometry drops what was kept.
 
 **What would reverse it:** cosmos.gl gaining a sub-range upload, so a binding could upload only what
 it changed; or a picture that needs a transition to be read, measured against the frames it costs.
+The arrangement goes back to the renderer if reading every position back on detach — one `readPixels`
+of the position texture — costs a switch of views more than a re-layout does.
 
 *Held by* `packages/graph/src/render/renderer.test.ts`, "uploads positions and links once per corpus,
 and renders once", "repaints colours, sizes and shapes on a look change, and uploads no geometry",
-"starts and stops with the simulate prop, after the first load", "moves a dragged node and pins
-nothing while no layout runs", "releases a paused layout with a bounded burst, then pauses it again";
+"starts and stops with the simulate prop, after the first load", "leaves a dragged node free, with or
+without a layout running", "leaves the points and the camera to the next canvas, which starts settled
+from them and runs nothing", "drops what it kept when the geometry changes, and the next canvas places
+the new one";
 `packages/graph/src/react/graph-root.test.tsx`, "does not rebuild the renderer because a callback
 changed identity".
 
@@ -279,10 +290,12 @@ under it read the root.
   greyed, never hidden — and unfiltered it always read "N of N". A footer carries it, which is why it
   is not the legend's last line.
 - **`GraphToolbar`** — the tools, the selection, zoom and fit, and the layout's transport.
-- **`GraphInspector`** — the focused vertex's row, in `fossil_columns`' order, with a render prop for
-  fields a product adds.
-- **`GraphSearch`** — a `LIMIT`ed `ILIKE` per pause in typing, named by `categories`; picking one is
-  `reveal`.
+- **`GraphInspector`** — the focused vertex as a card, Linkurious's inspector: its row in
+  `fossil_columns`' order, grouped as identity, values and dates, its neighbourhood counted per relation
+  and direction, Zoom / Focus / Copy, and a render prop for fields a product adds.
+- **`GraphSearch`** — a palette in cmdk's shape, Raycast's and Linear's: a `LIMIT`ed `ILIKE` per pause
+  in typing, with Bloom's `type:` and `<column>:<value>` prefixes, grouped by type and counted past the
+  limit; picking one is `reveal`, and the root remembers it.
 - **`GraphSelect`** — a selection the host offers, as a toggle: `load` reads the ids when pressed,
   and pressed is derived from the live selection, never stored beside it.
 - **`GraphLooks`** — the three looks as presets over `GRAPH_SECTION`'s axes, with the axes always in
@@ -314,8 +327,8 @@ policy. That part goes back to the call site and is deleted from the package.
 *Held by* `packages/graph/src/index.test.ts`, "carry no callback but the root's";
 `packages/graph/src/parts/parts.test.tsx`, "derives pressed from the live selection, so a gesture or
 another label unpresses it", "draws the domain before the graph has loaded, named by
-the root", "reads the focused vertex's row with one statement, and draws a host's extra fields after
-the corpus's own"; `packages/graph/src/core/store.test.ts`, "fixes the categorical domain before the
+the root", "reads the focused vertex's row with one statement, grouped, and draws a host's extra fields after
+its values"; `packages/graph/src/core/store.test.ts`, "fixes the categorical domain before the
 graph loads".
 
 ## Attaching is the host's

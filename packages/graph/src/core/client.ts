@@ -1,13 +1,18 @@
 import {
   MosaicClient,
+  Query,
+  cast,
   clausePoints,
   collectColumns,
+  float64,
+  literal,
   queryFailure,
   type FilterExpr,
   type Selection,
 } from "@kanzo-tech/mosaic";
 import { GraphError } from "./error";
-import { ident, relation, type Answer, type Structure } from "./source";
+import { relation, type Answer } from "./source";
+import { type Structure } from "./structure";
 
 /**
  * **The graph as a client of the page's coordinator** — one Mosaic client, like every chart beside
@@ -17,7 +22,7 @@ import { ident, relation, type Answer, type Structure } from "./source";
  * one connection, through its cache — Cosmograph's crossfilter, on our stack.
  */
 /** The answer that clears the filter. */
-const UNFILTERED = "SELECT NULL::DOUBLE AS id";
+const UNFILTERED = Query.select({ id: cast(literal(null), "DOUBLE") });
 
 export class GraphClient extends MosaicClient {
   #structure: () => Structure | null;
@@ -49,11 +54,10 @@ export class GraphClient extends MosaicClient {
    * `NULL`, which no `dense_id` is. The answer says which it is, so two statements in flight can
    * never be read as each other's.
    */
-  override query(filter?: FilterExpr | null): string {
+  override query(filter?: FilterExpr | null): Query {
     const clauses = (Array.isArray(filter) ? filter : [filter]).filter((c) => c !== undefined && c !== null);
     const structure = this.#structure();
     if (!structure || clauses.length === 0) return UNFILTERED;
-    const where = clauses.map((c) => `(${String(c)})`).join(" AND ");
     const named = [...new Set(clauses.flatMap((c) => collectColumns(c as never).map((ref: { column: string }) => ref.column)))];
     // A table that lacks a column the predicate names is not filtered by it — what a `WHERE` over a
     // union of the tables would do. A predicate no table can answer is refused rather than ignored,
@@ -63,14 +67,13 @@ export class GraphClient extends MosaicClient {
       this.#fail(new GraphError("graph/unfilterable", `no vertex type has every column this clause names: ${named.join(", ")}`));
       return UNFILTERED;
     }
-    return structure.vertices
-      .map((t) => {
-        const from = relation(structure.from, t.name);
-        return answering.includes(t)
-          ? `SELECT ${ident("dense_id")}::DOUBLE AS id FROM ${from} WHERE ${where}`
-          : `SELECT ${ident("dense_id")}::DOUBLE AS id FROM ${from}`;
-      })
-      .join(" UNION ALL ");
+    return Query.unionAll(
+      structure.vertices.map((t) =>
+        Query.select({ id: float64("dense_id") })
+          .from(relation(structure.from, t.name))
+          .where(answering.includes(t) ? clauses : []),
+      ),
+    );
   }
 
   override queryResult(data: unknown): this {

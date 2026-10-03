@@ -265,6 +265,8 @@ export const ADDED: Readonly<Record<string, string>> = {
   "rating:RatingControl": THIN_ROOT("Rating"),
   "rating:RatingHiddenInput": THIN_ROOT("Rating"),
   "rating:RatingLabel": THIN_ROOT("Rating"),
+  "sidebar:SidebarIntent":
+    "Ours. A route's request to collapse the sidebar while it is shown, layered over the person's preference instead of written into it — Shark's provider has one state, the preference, and an immersive route could only overwrite it. `/docs/design/navigation`, `A route's intent is not a preference`.",
   "tags-input:TagsInputHiddenInput": THIN_ROOT("TagsInput"),
   "tags-input:TagsInputLabel": THIN_ROOT("TagsInput"),
 };

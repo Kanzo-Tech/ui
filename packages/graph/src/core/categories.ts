@@ -1,5 +1,5 @@
 import type { Binding } from "./channels";
-import type { VertexTable } from "./source";
+import type { VertexTable } from "./structure";
 
 /**
  * **The categorical domain, fixed before the graph loads.** Colour by vertex type ranks the drawn

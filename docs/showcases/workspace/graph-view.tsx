@@ -933,7 +933,7 @@ function OrdersBody({ archive }: { archive: Archive }) {
 const GESTURES: { keys: ReactNode; what: string }[] = [
   {
     keys: <Kbd>Drag</Kbd>,
-    what: "Pan the canvas — or move a node, pinned where you drop it while the layout runs",
+    what: "Pan the canvas — or move a node",
   },
   { keys: <Kbd>Wheel</Kbd>, what: "Zoom where you point" },
   { keys: <Kbd>Click</Kbd>, what: "Focus a node together with its neighbours" },
