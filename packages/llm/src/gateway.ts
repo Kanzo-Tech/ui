@@ -4,8 +4,8 @@ import { extractReasoningMiddleware, type LanguageModel, type LanguageModelMiddl
 export interface GatewaySettings {
   /**
    * Where the gateway's OpenAI-compatible API is, as the browser reaches it. Behind a BFF that is
-   * the host's own proxy — keasy's is `/api/v1/ai` — because the key that opens the gateway must
-   * never be in the page.
+   * the host's own proxy — a route such as `/api/v1/ai` — because the key that opens the gateway
+   * must never be in the page.
    */
   baseURL: string;
   /** Sent with every request; the place for a CSRF header a BFF asks for. */

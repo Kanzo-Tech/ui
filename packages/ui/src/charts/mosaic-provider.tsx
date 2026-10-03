@@ -117,7 +117,7 @@ export function MosaicProvider({ coordinator, crossfilter, onFailure, children }
 
   const value = useMemo<MosaicContextValue>(() => {
     // Register the caller's coordinator as vgplot's active one. `coordinator(instance)` is
-    // mosaic-core's global setter — the same call keasy's boot makes, except the instance
+    // mosaic-core's global setter — the same call a host's boot makes, except the instance
     // arrives as a prop here instead of being built in the library.
     setActiveCoordinator(coordinator);
     const owned = registry.current as Set<Selection>;

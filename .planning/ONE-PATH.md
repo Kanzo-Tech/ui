@@ -375,7 +375,7 @@ No es una cola larga: es por construcción. `place_after` desliza cada tipo detr
 siquiera entran en el layout. La mediana de una arista cruzada es **26.000× la mediana de una propia**
 y mide media anchura del corpus — treinta anchuras de ventana.
 
-**Consecuencia para keasy, que es el destino de la migración:** un grafo de conocimiento es
+**Consecuencia para el host destino de la migración:** un grafo de conocimiento es
 multi-tipo por definición, y el modelo espacial dibuja *sólo* la estructura intra-tipo. La única
 forma de dibujar lo que cruza es **la segunda clase de dirección** — «los papers de este autor» es
 una segunda ventana, en el espacio de `dense_id` de otro tipo y en otros ficheros.

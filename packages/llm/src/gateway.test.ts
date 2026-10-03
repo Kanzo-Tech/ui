@@ -25,12 +25,12 @@ describe("createGateway", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("asks the gateway by alias, at the host's base URL", async () => {
-    vi.stubGlobal("location", new URL("https://ws.keasy.example/jobs/1"));
+    vi.stubGlobal("location", new URL("https://app.example/jobs/1"));
     const { calls, fetch } = fakeGateway([delta("hi")]);
     const gateway = createGateway({ baseURL: "/api/v1/ai", fetch, headers: { "x-csrf": "1" } });
     const result = streamText({ model: gateway("chat"), prompt: "hello" });
     expect(await result.text).toBe("hi");
-    expect(calls[0]?.url).toBe("https://ws.keasy.example/api/v1/ai/chat/completions");
+    expect(calls[0]?.url).toBe("https://app.example/api/v1/ai/chat/completions");
     expect(calls[0]?.body.model).toBe("chat");
   });
 

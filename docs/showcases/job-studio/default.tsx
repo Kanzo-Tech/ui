@@ -123,7 +123,7 @@ const FLOATING = "rounded-lg border bg-card shadow-sm";
 const STEPS = ["Editor", "Configure", "Summary"] as const;
 
 /**
- * The job studio — keasy's "create a job" flow, rebuilt on this library.
+ * The job studio — a product's "create a job" flow, rebuilt on this library.
  *
  * Three pages of one job, and `Steps` is honest about them because each one IS a page. That is
  * the difference from the draft this replaced, where the same band spanned the screen while
@@ -131,9 +131,9 @@ const STEPS = ["Editor", "Configure", "Summary"] as const;
  * ACCOMPANIES the program — the connections it can reference — so only the Editor page has one,
  * and the switcher for it sits in the status strip, exactly where workspace keeps its dock's.
  *
- * keasy's original swaps the whole screen per step too (`job-editor.tsx` returns a different tree
- * for each), but its editor is one of the things that disappears. Here the program is the page you
- * come back to, and the two after it are settings and a receipt.
+ * The original swaps the whole screen per step too (it returns a different tree for each), but
+ * its editor is one of the things that disappears. Here the program is the page you come back to,
+ * and the two after it are settings and a receipt.
  */
 /* ── The rail, hand-composed ──────────────────────────────────────────────────────────────────
  * `InstanceSwitcher`, `SidebarNav` and `SidebarUser` are gone: each took its layout tree as an
@@ -347,9 +347,9 @@ export function JobStudioShowcase() {
   const view = useRef<EditorView | null>(null);
 
   // One analysis, three readers: the lint gutter inside the editor, the badge in the chrome and
-  // the gate on Create. keasy has the same split and never closed it — the LSP's diagnostics stay
-  // inside the editor, so its `validating` flag is dead state (`job-editor-store.ts:64` declares
-  // `setValidating`; nothing calls it) and Review advances with a red program.
+  // the gate on Create. The original has the same split and never closed it — the LSP's diagnostics
+  // stay inside the editor, so its `validating` flag is dead state and Review advances with a red
+  // program.
   const findings = useMemo(() => analyse(program, CONNECTIONS), [program]);
   const errors = findings.filter((f) => f.severity === "error");
 
@@ -428,8 +428,8 @@ export function JobStudioShowcase() {
   };
 
   // ── How to start ────────────────────────────────────────────────────────────
-  // keasy puts this on a blank screen with two bare toggle buttons. Cards carry the one thing
-  // the choice actually needs: what each mode does.
+  // The original puts this on a blank screen with two bare toggle buttons. Cards carry the one
+  // thing the choice actually needs: what each mode does.
 
   if (mode === null) {
     return (

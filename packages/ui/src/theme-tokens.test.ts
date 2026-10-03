@@ -17,7 +17,7 @@ import { label, READERS, REPO, sourceFiles } from "./guard-corpus";
  *   asking for them. Measured on 2026-08-23: `Badge size="xs"` computed a 16px font inside its own
  *   16px box, and the recipe's `overflow-hidden` clipped the text by three pixels.
  * - The same commit deleted the alpha steps, and eleven reads of them survived it — in `CodeEditor`,
- *   in the graph, in two showcases. Found live in keasy on 2026-09-30: the graph's lasso filled
+ *   in the graph, in two showcases. Found live in a host on 2026-09-30: the graph's lasso filled
  *   with `var(--brand-a5)` drew **black**, because `fill`'s initial value is black. `CodeEditor`'s
  *   selection, search hits and bracket match were transparent, which nobody noticed because a
  *   missing tint looks like a quiet design.

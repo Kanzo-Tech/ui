@@ -46,7 +46,7 @@ function SortGlyph({ dir }: { dir: false | "asc" | "desc" }) {
  *
  * Sorting is opt-in PER COLUMN by using this helper for the header — a plain-string header
  * stays inert even though TanStack marks every column sortable by default. This mirrors the
- * 4 keasy call sites (`header: sortableHeader("Name")`) exactly, so adopting the DS table
+ * 4 consumer call sites (`header: sortableHeader("Name")`) exactly, so adopting the DS table
  * needs zero column-definition churn.
  *
  * `sortableHeader("Runs", { align: "end" })` puts it over an end-aligned numeric column without

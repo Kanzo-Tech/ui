@@ -8,7 +8,8 @@ import { Coordinator, decodeIPC, wasmConnector } from "@uwdata/mosaic-core";
  * **One per document, because vgplot has one.** `MosaicProvider` registers its coordinator as
  * vgplot's process-wide active one, so a second coordinator on the page is a second database the
  * last-mounted chart wins. Every host wrote the same memoised boot to avoid it — three in these
- * docs, one in keasy, one in fossil's playground — and none of them owned the registry beside it.
+ * docs, one in a host app, one in fossil's playground — and none of them owned the registry beside
+ * it.
  *
  * **The registry is the part that was missing.** DuckDB-WASM refuses to register a name a second
  * time under a different URL (`File already registered`), and answers only when the URL is

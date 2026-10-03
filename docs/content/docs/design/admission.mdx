@@ -114,7 +114,7 @@ over the parts.
 There were two, and they were one idea drawn twice. `StatTile` took `label`, `value`, `delta` and
 `trend` as props and shipped in the barrel; `MetricCard` was a `Card` with a status tint, a whole-card link, a
 skeleton and an icon disc, and lived in a showcase. The first was closed, so the first host that
-wanted a link or a status on a dashboard (keasy's) copied the second. Every part either had was
+wanted a link or a status on a dashboard copied the second. Every part either had was
 already the other's missing piece: the link was `Card`'s `asChild`, the tint a data attribute, the
 delta and the sparkline were `StatTile`'s own. The collapse invented nothing, which is how you tell
 two components that were one.
@@ -168,9 +168,9 @@ is still a tombstone: it was four `ReactNode` props over a raw `div`, and a layo
 props is still refused. What was wrong was the replacement. A vertical `Item` carried
 `role="listitem"` outside any list, and centring its media needed
 `group-has-data-[slot=item-description]/item:self-center`, an override keyed on another part's
-internal slot that breaks when that slot is renamed. The showcases wrote it that way, and keasy
-repeats the arrangement on six pages. An arrangement that needs an override to look right is not a
-composition of the parts it borrows.
+internal slot that breaks when that slot is renamed. The showcases wrote it that way, and a
+consumer repeated the arrangement on six pages. An arrangement that needs an override to look right
+is not a composition of the parts it borrows.
 
 Ark ships no empty state, so the anatomy is shadcn v4's `Empty`, and the names follow the house rule
 and Ark. `EmptyRoot`, not `Empty`, because it is a compound of ours. `EmptyIndicator`, not
@@ -180,7 +180,7 @@ name because it holds more than actions: a link or a search field as often as a 
 its sentence need `gap-2`, and both blocks need the `max-w-sm` measure. Without the part, one flex
 column would need two gaps, which is margins on the children.
 
-**What would reverse it:** the keasy call sites turning out to be one arrangement that a single
+**What would reverse it:** the consumer's call sites turning out to be one arrangement that a single
 showcase could hold, or a real empty state that needs something the parts cannot express and gets
 it only from a prop. Either one sends it back to being an example.
 
@@ -210,8 +210,8 @@ than the composition and no more capable. What changed is that the composition t
 wrong where it was written out. The app-shell showcase and the Badge page both said `inert` "leaves
 it readable to a screen reader", and it does not: inert content is withheld from the accessibility
 tree, like `aria-hidden`. The only thing left to read was a badge saying *Coming soon* about nothing
-a reader could perceive. keasy builds the same gate for a connection location that is not available
-yet, in `connections/new/page.tsx`, so it had a second call site outside the showcases.
+a reader could perceive. A consumer builds the same gate for a connection location that is not
+available yet, so it had a second call site outside the showcases.
 
 That is the naming rule's own test passed, not waived: the parts are more capable than the
 composition, because the root is a `group` the badge describes and the caller names, so the reason
@@ -398,8 +398,8 @@ up. The day a caller wants the chrome without a language, this has nothing to of
 
 **What would reverse it:** a second in-repo call site that needs a *static, unhighlighted* snippet and
 cannot reach `Prose`, or a measurement showing that composing `CodeEditor` for a five-line SQL
-statement costs a consumer more than a purpose-built block would. keasy's Ask panel is the one outside
-consumer; if it lands on inventing its own `<pre>` too, that is the second call site.
+statement costs a consumer more than a purpose-built block would. A host's Ask panel is the one
+outside consumer; if it lands on inventing its own `<pre>` too, that is the second call site.
 
 *Held by* `packages/ai/src/chat.tsx`, `ChatToolRenderers`; `packages/ai/src/tool.tsx`, `JsonTreeView`;
 `packages/ui/src/tailwind.css`, `.kanzo-prose`.
@@ -407,11 +407,11 @@ consumer; if it lands on inventing its own `<pre>` too, that is the second call 
 ## A failure is read by shape, and worded by the host
 
 [`Problem`](/docs/data-display/problem) is the one composite that reads a thrown value. It enters on
-two call sites that each wrote the reading by hand — keasy's error view, over `Diagnostic`'s parts,
+two call sites that each wrote the reading by hand — a host's error view, over `Diagnostic`'s parts,
 and the graph docs' failure overlay, a `code` lookup over an `Alert` — and it reads **a shape, not a
 class**: `code` in `area/kind`, `title`, `message`, `data`, `cause`, and `severity`, `help` and
 `related` where they are present. Every library here already throws that shape (`AuthError`,
-`GraphError`, `EngineError`, `AiError`, fossil's `FossilError`, keasy's `ApiError`), so importing
+`GraphError`, `EngineError`, `AiError`, fossil's `FossilError`, a host's `ApiError`), so importing
 none of them is what lets one component show all of them, and one more nobody has written yet.
 
 **The words are the host's, through one function.** `copy(code, data)` returns a title, a detail, a

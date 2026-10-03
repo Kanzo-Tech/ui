@@ -55,7 +55,7 @@ export { ThemePreview } from "./composites/ThemePreview.js";
 export type { ThemePreviewProps } from "./composites/ThemePreview.js";
 export { ThemeNotice } from "./composites/theme-notice.js";
 export type { ThemeNoticeProps, ThemeRetiredCopy } from "./composites/theme-notice.js";
-// What a check found, behind one badge — keasy's job studio and metadata-form's validation tally.
+// What a check found, behind one badge — a host's job studio and a form's validation tally.
 export {
   FindingsContent,
   FindingsGoTo,
@@ -74,8 +74,8 @@ export type {
   FindingsRootProps,
   FindingsTriggerProps,
 } from "./composites/findings.js";
-// A failure, shown — any thrown value, read for the coded error's shared fields: keasy's every error
-// view and the graph's failure overlay in the docs.
+// A failure, shown — any thrown value, read for the coded error's shared fields: a host's every
+// error view and the graph's failure overlay in the docs.
 export { Problem } from "./composites/problem.js";
 export type { ProblemCopy, ProblemProps, ProblemTranslations } from "./composites/problem.js";
 export { MadeWith } from "./composites/MadeWith.js";

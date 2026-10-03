@@ -136,7 +136,7 @@ export const ROOTS: readonly Root[] = PUBLISHED.filter((root) => {
  * The idiom filter above is right for the rules about how a recipe is written and wrong for this
  * one, and the failure that proved it is the reason this constant exists: `graph-canvas.tsx`
  * filled the lasso with `var(--brand-a5)`, a token the theme refoundation deleted, and it drew
- * BLACK in keasy — an undefined property makes an SVG `fill` invalid, and `fill`'s initial value is
+ * BLACK in a host — an undefined property makes an SVG `fill` invalid, and `fill`'s initial value is
  * black. `graph` writes no `tv()` recipe, so no guard read a line of it. What a file reads from the
  * theme does not depend on how it spells its classes.
  *

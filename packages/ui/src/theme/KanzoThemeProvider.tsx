@@ -35,7 +35,7 @@ export type { ThemePrefs } from "@kanzo-tech/theme";
  * selector drives the whole app live.
  *
  * It is framework-agnostic and works in two modes:
- * · **Controlled** — pass `value` + `onChange` (e.g. keasy bridges its server-persisted prefs).
+ * · **Controlled** — pass `value` + `onChange` (e.g. a host bridging its server-persisted prefs).
  * · **Uncontrolled** — internal state persisted via a pluggable `storage` (default localStorage).
  *
  * **It stores preferences and nothing a theme owns.** Three, all declared in `CORE_PREFS`: the side

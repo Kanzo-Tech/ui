@@ -120,8 +120,8 @@ branding:
 
 The host inlines `theme_css` after the library's stylesheet and maps the rest onto the provider:
 `families` → `themes`, `default` → the `defaultTheme` pair, `lock: true` →
-`policy: { theme: { themeByAppearance: { hidden: true } } }`. keasy reads it from
-`KEASY_BRANDING_FILE`; the mapping, a dozen lines, is in
+`policy: { theme: { themeByAppearance: { hidden: true } } }`. Where the file lives is the host's
+call — an env var it names is the usual door; the mapping, a dozen lines, is in
 [Theming → Recipe: branding from an instance config](/docs/theming#recipe-branding-from-an-instance-config).
 
 ## Decide what this client's users may change

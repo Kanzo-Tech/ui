@@ -10,7 +10,7 @@ preference derives from one declaration, and that declaration holds nothing a th
 ## The defect this removed
 
 The library used to export a control for every value it could emit. Each host then decided the split
-for itself, by choosing which controls to mount. keasy's preferences page mounted the radius slider
+for itself, by choosing which controls to mount. One host's preferences page mounted the radius slider
 next to the theme picker. Every shipped theme declares `--radius-box`, `--radius-field` and
 `--radius-selector`, and the slider overrode them without any error:
 
