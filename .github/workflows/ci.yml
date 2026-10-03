@@ -41,7 +41,8 @@ jobs:
       - name: Validate the modules
         run: |
           for m in services/auth/modules/app services/ai/modules/gateway services/ai/modules/team; do
-            TF_DATA_DIR="$RUNNER_TEMP/tf-$(basename "$m")" terraform -chdir="$m" init -backend=false -input=false >/dev/null
+            export TF_DATA_DIR="$RUNNER_TEMP/tf-$(basename "$m")"
+            terraform -chdir="$m" init -backend=false -input=false >/dev/null
             terraform -chdir="$m" validate
           done
       - name: Bring up the identity service
