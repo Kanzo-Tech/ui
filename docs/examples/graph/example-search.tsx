@@ -6,8 +6,9 @@ import { Show } from "@kanzo-tech/ui";
 import { ARCHIVE_KINDS, said, useArchive } from "./archive";
 
 /**
- * Type a name. Every vertex's `title` was read once, so the list filters in the browser, hubs first
- * by the `r` ramp, each named by `categories`; picking one reveals it and the inspector reads it.
+ * Type a name, or narrow it — `kind:beast`, or a vertex type with `type:`. Each pause asks the corpus
+ * once; the matches come back grouped by type and named by `categories`, and picking one reveals it,
+ * the inspector reads it, and the empty palette lists it under Recent. ⌘K moves here.
  */
 export default function Example() {
   const [failure, setFailure] = useState<unknown>(null);
@@ -20,8 +21,8 @@ export default function Example() {
             <p className="absolute inset-0 grid place-items-center p-6 text-center text-muted-foreground text-sm">{said(failure)}</p>
           </Show>
         </GraphCanvas>
-        <div className="flex w-60 shrink-0 flex-col gap-3 rounded-lg border p-3">
-          <GraphSearch placeholder="Find in the archive…" />
+        <div className="flex w-72 shrink-0 flex-col gap-3 rounded-lg border p-3">
+          <GraphSearch placeholder="Find in the archive… try kind:beast" />
           <GraphInspector className="min-h-0 overflow-y-auto" />
         </div>
       </GraphRoot>

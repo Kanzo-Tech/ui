@@ -120,6 +120,8 @@ export interface GraphSnapshot extends GraphState {
   readonly encoding: Encoding | null;
   /** `1` where a vertex survives the page's filter; `null` when nothing is filtered. A vertex that does not is greyed out, never hidden. */
   readonly mask: Uint8Array | null;
+  /** What the search was last used to go to, newest first — for the root's life, never stored. */
+  readonly recent: readonly { readonly vertex: VertexId; readonly text: string }[];
   /** What the last canvas left, or `null` before one has drawn this geometry. */
   readonly arrangement: Arrangement | null;
 }
@@ -138,6 +140,8 @@ export interface GraphStore {
   select(vertices: readonly VertexId[] | null, source?: SelectionSource, label?: string): void;
   focus(vertex: VertexId | null): void;
   hover(vertex: VertexId | null): void;
+  /** A vertex the search went to, at the head of `recent`. */
+  remember(vertex: VertexId, text: string): void;
   setTool(tool: Tool): void;
   report(motion: Motion): void;
   reportProgress(value: number): void;

@@ -67,9 +67,9 @@ GraphRoot                  the state and the commands; renders no element
 │   └── GraphLegend        one row per category: glyph, name, how many are drawn
 ├── GraphStatus            where the graph is, in one word: Loading, Laying out 42%, Ready, Failed
 ├── GraphCounts            "5K nodes · 8K edges", or "1.2K of 5K nodes match · 3K edges"
-├── GraphSearch            find a vertex by its text and reveal it
+├── GraphSearch            a palette: find a vertex, by text, type or column, and reveal it
 ├── GraphSelect            a selection the host offers, as a toggle
-└── GraphInspector         the focused vertex's row
+└── GraphInspector         the focused vertex: its row and its neighbourhood
 GraphLooks                 the picture's preferences; needs the theme provider, not a root
 ```
 
@@ -185,17 +185,38 @@ it moves at frame rate. The badge is `aria-busy` while loading or laying out.
 
 <ComponentPreview componentName="graph" fileName="example-search" hasMaxHeight />
 
-Find a vertex by its text and go to it — Cosmograph's search. Each pause in typing (150 ms) asks the
-corpus, through the coordinator, for the first `limit` vertices whose `title` — or its table's
-`identity` — contains the text, one `ILIKE` over every vertex table; nothing is read before the
-reader types and no text is held in the page. Each match carries its category's name from the root's
-`categories`. Picking one is `reveal`: the canvas frames it and selects it with its neighbours, and
-`GraphInspector` reads it. `limit` caps the list (50) and says so.
+Find a vertex and go to it — a palette in the shape of Raycast's and Linear's ⌘K, over Cosmograph's
+search, built on `Command`. Each pause in typing (150 ms) asks the corpus once, through the
+coordinator, for the first `limit` matches and how many there are of each type; nothing is read
+before the reader types and no text is held in the page. Matches are grouped by vertex type — named by
+the root's `categories` and counted past the limit — each with the glyph the canvas draws it in and
+the typed text highlighted.
+
+Three things narrow it, as Neo4j Bloom's search does:
+
+| Typed | Keeps |
+| --- | --- |
+| `type:Person` | the vertices of one table |
+| `<column>:<value>` — `team:2` | vertices whose column contains the value, case-insensitively |
+| anything else | vertices whose `title` — or their table's `identity` — contains it |
+
+A word is a prefix only when what precedes its colon is `type` or a column some vertex table has, so
+an IRI typed whole stays text. Every statement is built with mosaic-sql's nodes: what the reader
+typed is a literal, never part of the SQL.
+
+Picking a match is `reveal`: the canvas frames it and selects it with its neighbours, and
+`GraphInspector` reads it. The root remembers the last five picks for its life — never in
+`localStorage` — and the empty palette lists them as **Recent**. **Select N matches** selects every
+match, past the limit, as an `"external"` selection. `limit` caps the list (50) and says so.
+
+**⌘K or Ctrl+K moves to the search** of the graph the reader last used — pointed into, focused or
+selected on — so two graphs on one page never both take the key. The input declares it as
+`aria-keyshortcuts`.
 
 **A failed read is kept whole**: it reaches `onFailure` as thrown, and the input turns
 `aria-invalid` with the placeholder "The names could not be read." rather than staying disabled.
 
-It is a `Combobox` and not `ChartSearch` because of what the control means: `ChartSearch` publishes
+It is a `Command` and not `ChartSearch` because of what the control means: `ChartSearch` publishes
 a substring filter, which narrows the picture; picking is a value, which goes somewhere.
 
 ### Select
@@ -216,11 +237,24 @@ reaches the root's `onFailure` as thrown, leaving it unpressed.
 
 <ComponentPreview componentName="graph" fileName="example-inspector" hasMaxHeight />
 
-The focused vertex — a click, a search or `reveal` — read and laid out. The loaded graph carries
-what the channels bind and nothing else, so the row is read when a reader focuses it: one `SELECT`
-of its table at its `dense_id`. The fields are the table's, in `fossil_columns`' order. **`children` is a render prop**: it receives
-the `VertexDetail` and draws fields of the product's own, a `DataListItem` each, after the corpus's —
-here the hall's name, where the relation stores its id. "Find on canvas" reveals the vertex again.
+The focused vertex — a click, a search or `reveal` — read and laid out as a card, after the
+Linkurious inspector. The loaded graph carries what the channels bind and nothing else, so the row is
+read when a reader focuses it: one `SELECT` of its table at its `dense_id`, and one count per relation
+and direction for its neighbourhood.
+
+- **The header** names the vertex — its `title`, truncated, whole in a tooltip — copies its IRI, and
+  wears its type as a badge, with the canvas's glyph when colour is the type. **Zoom** frames it on the
+  canvas; **Focus** selects it with every neighbour as an `"external"` selection named "Neighbours of
+  …", which the page's crossfilter hears; **Copy** copies its fields, a line each.
+- **The fields** are the table's, in `fossil_columns`' order, grouped as **Identity**, **Values** and
+  **Dates** — a date is a column whose declared type is a date or a time. An IRI is a link out, and a
+  long text is clamped with "more".
+- **Neighbours** lists each relation and direction it takes part in, with how many edges — "knows →
+  Person · 12". Each row is a `GraphSelect`: pressing it selects the vertices at that end.
+
+**`children` is a render prop**: it receives the `VertexDetail` and draws fields of the product's own,
+a `DataListItem` each, after the corpus's values — here the hall's name, where the relation stores
+its id.
 
 ### Looks
 
@@ -451,8 +485,8 @@ set while the graph loads or a layout runs.
 | --- | --- | --- |
 | `limit` | `number` | `50` |
 | `placeholder` | `string` | `"Find a node…"` |
-| `size` | `ComboboxInput`'s `size` | `"sm"` |
-| `className` | `string` — on the input | — |
+| `size` | `CommandInput`'s `size` | `"sm"` |
+| `className` | `string` — on the palette's box | — |
 
 ### GraphSelect
 
@@ -468,7 +502,7 @@ live selection; `disabled` is also set while `load` runs.
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `children` | `(detail: VertexDetail) => ReactNode` — fields after the corpus's own | — |
+| `children` | `(detail: VertexDetail) => ReactNode` — fields after the corpus's values | — |
 
 Extends `React.ComponentProps<"div">` without its `children`.
 

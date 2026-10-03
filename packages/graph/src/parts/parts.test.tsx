@@ -213,7 +213,7 @@ describe("GraphInspector", () => {
     const held: { api: GraphApi | null } = { api: null };
     const onFailure = vi.fn();
     render(
-      <GraphRoot {...over(corpus)} fill="team" onFailure={onFailure}>
+      <GraphRoot {...over(corpus)} fill="team" onFailure={onFailure} title="name">
         <GraphInspector>{children}</GraphInspector>
         <Hold into={held} />
       </GraphRoot>,
@@ -221,8 +221,9 @@ describe("GraphInspector", () => {
     await ready(corpus);
     return { corpus, held, onFailure };
   }
+  const section = (name: string) => screen.getByRole("region", { name });
 
-  it("reads the focused vertex's row with one statement, and draws a host's extra fields after the corpus's own", async () => {
+  it("reads the focused vertex's row with one statement, grouped, and draws a host's extra fields after its values", async () => {
     const extra = vi.fn((detail: { fields: readonly { name: string; value: unknown }[] }) => (
       <p data-testid="extra">score plus one: {Number(detail.fields.find((f) => f.name === "score")?.value) + 1}</p>
     ));
@@ -230,9 +231,36 @@ describe("GraphInspector", () => {
     expect(screen.getByText("Click a vertex on the canvas to inspect it.")).toBeTruthy();
     act(() => held.api?.setFocus(6));
     await waitFor(() => expect(screen.getByTestId("extra").textContent).toBe("score plus one: 8"));
-    const labels = [...document.querySelectorAll("dt")].map((dt) => dt.textContent);
-    expect(labels).toEqual(["subject", "name", "team", "score", "lon", "lat"]);
-    expect(corpus.sent.at(-1)).toMatch(/"Person" WHERE dense_id = 6$/);
+    const labels = (name: string) => [...section(name).querySelectorAll("dt")].map((dt) => dt.textContent);
+    expect(labels("Identity")).toEqual(["subject"]);
+    expect(labels("Values")).toEqual(["name", "team", "score", "lon", "lat"]);
+    expect(screen.queryByRole("region", { name: "Dates" })).toBeNull();
+    expect(corpus.sent.filter((sql) => /"Person" WHERE \("dense_id" = 6\)$/.test(sql))).toHaveLength(1);
+    expect(section("Identity").querySelector("a")?.getAttribute("href")).toBe("https://example.org/person/6");
+    expect(document.querySelector('[data-slot="graph-inspector-title"]')?.textContent).toBe("Person 6");
+  });
+
+  it("counts the neighbours per relation and direction, and pressing one selects that set", async () => {
+    const { held } = await inspecting();
+    act(() => held.api?.setFocus(6));
+    const region = await waitFor(() => {
+      const found = section("Neighbours");
+      expect(found.querySelectorAll("button")).toHaveLength(3);
+      return found;
+    });
+    expect([...region.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["knows → Person1", "knows ← Person1", "livesIn → Place1"]);
+    fireEvent.click(screen.getByText("livesIn → Place"));
+    await waitFor(() => expect(held.api?.getState().selection).toEqual({ vertices: [10], source: "external", label: "livesIn → Place of Person 6" }));
+  });
+
+  it("focuses on the vertex and every neighbour as one external selection, and zooms to it", async () => {
+    const { held } = await inspecting();
+    act(() => held.api?.setFocus(6));
+    fireEvent.click(await screen.findByRole("button", { name: "Focus on its neighbours" }));
+    await waitFor(() => expect(held.api?.getState().selection?.label).toBe("Neighbours of Person 6"));
+    expect([...(held.api?.getState().selection?.vertices ?? [])].sort((a, b) => a - b)).toEqual([5, 6, 7, 10]);
+    fireEvent.click(screen.getByRole("button", { name: "Zoom to it" }));
+    expect(held.api?.getState().selection).toEqual({ vertices: [6], source: "node", label: "Node" });
   });
 
   it("says a vertex is not in the corpus, and reports nothing", async () => {
@@ -246,7 +274,7 @@ describe("GraphInspector", () => {
   it("says a vertex could not be read, and hands onFailure the thrown value", async () => {
     const { corpus, held, onFailure } = await inspecting();
     const refused = refusal();
-    corpus.refuse(/WHERE dense_id = 6/, refused);
+    corpus.refuse(/WHERE \("dense_id" = 6\)$/, refused);
     act(() => held.api?.setFocus(6));
     await waitFor(() => expect(screen.getByText("This vertex could not be read.")).toBeTruthy());
     expect(screen.queryByText("This vertex is not in the corpus.")).toBeNull();
@@ -255,7 +283,11 @@ describe("GraphInspector", () => {
 });
 
 describe("GraphSearch", () => {
-  beforeEach(noResize);
+  beforeEach(() => {
+    noResize();
+    // zag finds an option by `CSS.escape`, which jsdom does not ship.
+    vi.stubGlobal("CSS", { escape: (value: string) => String(value).replace(/[^a-zA-Z0-9_-]/g, (c) => `\\${c}`) });
+  });
   afterEach(() => vi.unstubAllGlobals());
 
   async function searching(onFailure = () => {}) {
@@ -270,34 +302,62 @@ describe("GraphSearch", () => {
     await ready(corpus);
     return { corpus, held, input: screen.getByRole("combobox") as HTMLInputElement };
   }
-  const options = () => screen.getAllByRole("option").map((option) => option.textContent);
+  const options = () => screen.queryAllByRole("option").map((option) => option.textContent);
+  const groups = () => [...document.querySelectorAll('[data-slot="command-group"]')].map((group) => group.firstElementChild?.textContent);
+  const type = (input: HTMLInputElement, value: string) => fireEvent.change(input, { target: { value } });
 
   it("reads nothing until the reader types", async () => {
     const { corpus, input } = await searching();
     expect(input.disabled).toBe(false);
+    expect(input.getAttribute("aria-keyshortcuts")).toBe("Meta+K Control+K");
     expect(corpus.sent.some((sql) => sql.includes("ILIKE"))).toBe(false);
   });
 
-  it("asks the corpus once per pause, shortest match first, named by the root, and says when it stopped", async () => {
+  it("asks the corpus once per pause, shortest match first, grouped by type with every match counted, and says when it stopped", async () => {
     const { corpus, input } = await searching();
-    fireEvent.click(input);
-    fireEvent.change(input, { target: { value: "per" } });
-    fireEvent.change(input, { target: { value: "person" } });
-    await waitFor(() => expect(options()).toEqual(["Person 0People", "Person 1People", "Person 2People"]));
+    type(input, "per");
+    type(input, "person");
+    await waitFor(() => expect(options()).toEqual(["Person 0", "Person 1", "Person 2"]));
+    expect(groups()).toEqual(["People10"]);
     expect(corpus.sent.filter((sql) => sql.includes("ILIKE"))).toHaveLength(1);
     expect(screen.getByText("First 3. Keep typing to narrow it.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Select 10 matches" })).toBeTruthy();
   });
 
-  it("matches without case, falls back to a table's identity, and picking reveals the vertex", async () => {
+  it("matches without case, falls back to a table's identity, and picking reveals the vertex and remembers it", async () => {
     const { held, input } = await searching();
-    fireEvent.click(input);
-    fireEvent.change(input, { target: { value: "place 3" } });
-    await waitFor(() => expect(options()).toEqual(["Place 3Places"]));
+    type(input, "place 3");
+    await waitFor(() => expect(options()).toEqual(["Place 3"]));
+    expect(document.querySelector("mark")?.textContent).toBe("Place 3");
     fireEvent.keyDown(input, { key: "ArrowDown" });
     fireEvent.keyDown(input, { key: "Enter" });
     await waitFor(() => expect(held.api?.getState().focus).toBe(13));
-    fireEvent.change(input, { target: { value: "tag/2" } });
-    await waitFor(() => expect(options()).toEqual(["https://example.org/tag/2Tag"]));
+    await waitFor(() => expect(groups()).toEqual(["Recent"]));
+    expect(options()).toEqual(["Place 3Places"]);
+    type(input, "tag/2");
+    await waitFor(() => expect(options()).toEqual(["https://example.org/tag/2"]));
+  });
+
+  it("keeps a type with type:, a column with <column>:<value>, and an IRI typed whole as text", async () => {
+    const { input } = await searching();
+    type(input, "type:Place");
+    await waitFor(() => expect(groups()).toEqual(["Places6"]));
+    type(input, "team:2");
+    await waitFor(() => expect(options()).toEqual(["Person 2", "Person 6"]));
+    type(input, "type:tag lat:1");
+    await waitFor(() => expect(screen.getByText("Nothing by that name.")).toBeTruthy());
+    type(input, "https://example.org/tag/3");
+    await waitFor(() => expect(options()).toEqual(["https://example.org/tag/3"]));
+    type(input, "subject:place/4");
+    await waitFor(() => expect(options()).toEqual(["Place 4"]));
+  });
+
+  it("selects every match, past the limit, as one external selection", async () => {
+    const { held, input } = await searching();
+    type(input, "type:Person");
+    fireEvent.click(await screen.findByRole("button", { name: "Select 10 matches" }));
+    await waitFor(() => expect(held.api?.getState().selection?.vertices).toHaveLength(10));
+    expect(held.api?.getState().selection?.label).toBe("Matches for “type:Person”");
   });
 
   it("hands onFailure the thrown value, and says the names could not be read", async () => {
@@ -305,10 +365,31 @@ describe("GraphSearch", () => {
     const { corpus, input } = await searching(onFailure);
     const refused = refusal();
     corpus.refuse(/ILIKE/, refused);
-    fireEvent.click(input);
-    fireEvent.change(input, { target: { value: "person" } });
+    type(input, "person");
     await waitFor(() => expect(screen.getByPlaceholderText("The names could not be read.")).toBeTruthy());
     expect(onFailure).toHaveBeenCalledWith(refused);
+  });
+
+  it("moves ⌘K to the search of the graph the reader last used, so two graphs do not fight", async () => {
+    const [one, two] = [await attach(), await attach()];
+    const held = [{ api: null }, { api: null }] as { api: GraphApi | null }[];
+    render(
+      <>
+        {[one, two].map((corpus, i) => (
+          <GraphRoot key={corpus.from} {...over(corpus)} onFailure={() => {}}>
+            <GraphSearch placeholder={`graph ${i}`} />
+            <Hold into={held[i] as { api: GraphApi | null }} />
+          </GraphRoot>
+        ))}
+      </>,
+    );
+    await act(() => Promise.all([settle(one), settle(two)]));
+    const [first, second] = [screen.getByPlaceholderText("graph 0"), screen.getByPlaceholderText("graph 1")];
+    fireEvent.keyDown(document, { key: "k", metaKey: true });
+    expect(document.activeElement).toBe(second);
+    act(() => held[0]?.api?.setFocus(3));
+    fireEvent.keyDown(document, { key: "K", ctrlKey: true });
+    expect(document.activeElement).toBe(first);
   });
 });
 
@@ -319,7 +400,7 @@ describe("GraphCanvas", () => {
   it("hands onFailure the thrown value when a label's read rejects", async () => {
     const corpus = await attach();
     const refused = refusal();
-    corpus.refuse(/dense_id IN/, refused);
+    corpus.refuse(/"dense_id" IN/, refused);
     const onFailure = vi.fn();
     render(
       <GraphRoot {...over(corpus)} onFailure={onFailure}>
