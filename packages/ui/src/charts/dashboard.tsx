@@ -1,7 +1,7 @@
 "use client";
 
-import type { TableExpr } from "@kanzo-tech/mosaic";
-import { useMemo, useState } from "react";
+import { Selection, bridgeSelection, type ClauseMap, type TableExpr } from "@kanzo-tech/mosaic";
+import { useEffect, useMemo, useState } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
 import { EllipsisIcon, PlusIcon } from "lucide-react";
@@ -11,6 +11,7 @@ import { Button } from "../simples/button.js";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "../simples/menu.js";
 import { Skeleton } from "../simples/skeleton.js";
 import type { ChartConfig } from "./chart-config.js";
+import { MosaicProvider, useMosaic } from "./mosaic-provider.js";
 import { DashboardFilters } from "./dashboard-filters.js";
 import { chartTableKey } from "./chart-spec.js";
 import { TileView } from "./tile-kinds.js";
@@ -34,6 +35,15 @@ export interface DashboardProps extends Omit<React.ComponentProps<typeof ark.div
   config?: Readonly<Record<string, ChartConfig>>;
   /** What a row is, in the plural. Default `"rows"`. */
   rowNoun?: string;
+  /**
+   * What the page sees of the dashboard's clauses. Without it they are the page's own clauses, which
+   * only a client of the same columns can answer. With it the tiles crossfilter each other in a
+   * selection of the dashboard's, and the page gets the one clause this maps them to — for a relation
+   * keyed by a vertex identity, `semiJoinOf(key, table)` — so a graph or another relation beside the
+   * dashboard is filtered by what the tiles show. The page's clauses still reach every tile. Keep it
+   * memoised: a new function republishes.
+   */
+  publish?: ClauseMap;
 }
 
 /**
@@ -43,8 +53,11 @@ export interface DashboardProps extends Omit<React.ComponentProps<typeof ark.div
  * the fields, the automatic layout and the editor are this component's.
  */
 export function Dashboard(props: DashboardProps) {
-  const { table, value, onChange, exclude, config, rowNoun, className, slot, ...rest } = props;
+  const { table, value, onChange, exclude, config, rowNoun, publish, className, slot, ...rest } = props;
   const { fields, columns, error } = useFieldStats(table, { exclude });
+  const page = useMosaic();
+  const [own] = useState(() => Selection.crossfilter());
+  useEffect(() => (publish ? bridgeSelection(own, page.crossfilter, publish) : undefined), [own, page.crossfilter, publish]);
   // Everything below reads the relation the plots can: see `plotRelation`.
   const readable = useMemo(
     () =>
@@ -56,7 +69,7 @@ export function Dashboard(props: DashboardProps) {
     [fields, columns, chartTableKey(table)],
   );
 
-  return (
+  const body = (
     <ark.div className={cn("@container/dashboard flex flex-col gap-4", className)} {...rest} data-slot={slot ?? "dashboard"}>
       {error !== null ? (
         <Alert variant="destructive">
@@ -76,6 +89,13 @@ export function Dashboard(props: DashboardProps) {
         />
       )}
     </ark.div>
+  );
+  return publish ? (
+    <MosaicProvider coordinator={page.coordinator} crossfilter={own} onFailure={page.onFailure}>
+      {body}
+    </MosaicProvider>
+  ) : (
+    body
   );
 }
 
