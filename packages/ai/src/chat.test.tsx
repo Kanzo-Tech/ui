@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DirectChatTransport, ToolLoopAgent, jsonSchema, tool } from "@kanzo-tech/llm";
 import { describe, expect, it } from "vitest";
-import { Chat } from "./chat.js";
+import { Chat, ChatSkeleton } from "./chat.js";
 import { useChat } from "@ai-sdk/react";
 import { mockModel } from "./testing/model.js";
 
@@ -64,5 +64,29 @@ describe("Chat", () => {
     render(<Harness draw />);
     await user.type(screen.getByPlaceholderText("Ask anything…"), "count{Enter}");
     expect(await screen.findByText('Rows: {"rows":4}')).not.toBeNull();
+    // The host's drawing is the whole result: the input's JSON is not drawn above it a second time.
+    expect(document.querySelector("[data-slot=tool-input]")).toBeNull();
+  });
+
+  it("holds room for suggestions still arriving, beside the ones that have", () => {
+    const chat = { messages: [], status: "ready", error: undefined, sendMessage: async () => {}, stop: async () => {}, regenerate: async () => {} };
+    const { rerender } = render(<Chat chat={chat as never} suggesting suggestions={["First?"]} />);
+    expect(screen.getByRole("button", { name: "First?" })).not.toBeNull();
+    expect(document.querySelectorAll("[data-slot=suggestions] [data-slot=skeleton]").length).toBe(2);
+    // Suggesting failed: no pills, and the composer is still there to ask with.
+    rerender(<Chat chat={chat as never} suggesting={false} suggestions={[]} />);
+    expect(document.querySelector("[data-slot=suggestions]")).toBeNull();
+    expect(screen.getByPlaceholderText("Ask anything…")).not.toBeNull();
+  });
+});
+
+describe("ChatSkeleton", () => {
+  it("draws Chat's layout before it can be drawn: the empty state, pills in skeleton, an inert composer", () => {
+    render(<ChatSkeleton empty={<p>Ask about your graph.</p>} />);
+    expect(screen.getByText("Ask about your graph.")).not.toBeNull();
+    expect(document.querySelectorAll("[data-slot=suggestions] [data-slot=skeleton]").length).toBe(3);
+    const field = screen.getByPlaceholderText("Ask anything…") as HTMLTextAreaElement;
+    expect(field.disabled).toBe(true);
+    expect(document.querySelector("[data-slot=chat-skeleton]")?.getAttribute("aria-busy")).toBe("true");
   });
 });
