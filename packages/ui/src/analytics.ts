@@ -134,6 +134,10 @@ export { RelationPicker } from "./charts/relation-picker.js";
 export type { RelationPickerProps } from "./charts/relation-picker.js";
 export { relationQuery, relationKey, relationIdentities, relationHops } from "@kanzo-tech/mosaic";
 export type { Relation, Hop, JoinGraph, JoinType, JoinEdge, RelationHop } from "@kanzo-tech/mosaic";
+// What a relation dashboard publishes to the page (`Dashboard`'s `publish`): its clauses as a
+// semi-join on the root's key. The bridge that carries it is `@kanzo-tech/mosaic`'s `bridgeSelection`.
+export { semiJoinOf } from "@kanzo-tech/mosaic";
+export type { ClauseMap } from "@kanzo-tech/mosaic";
 export { recommend } from "./charts/recommend.js";
 export type { Recommendation, RecommendIntent } from "./charts/recommend.js";
 export { useFieldStats, queryFieldStats, fieldStats } from "./charts/field-stats.js";

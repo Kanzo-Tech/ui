@@ -53,6 +53,13 @@ import { engine } from "@kanzo-tech/mosaic";
   relation whose rows carry the key, whatever the subquery reads. `clauseColumns(filter)` is the
   columns a clause names on the relation it filters — a subquery's are another relation's — which is
   how a client knows whether its relation answers it.
+- **`bridgeSelection` / `semiJoinOf`** — a selection inside another, joined by a map.
+  `bridgeSelection(inner, outer, map)` hands every clause of `outer` to `inner` as itself, and maps the
+  clauses published into `inner` together into one clause of `outer`'s, whose source is the bridge;
+  retracting either side retracts the other (`retract` for clauses held upstream of `inner`). It uses
+  mosaic-core's public `Selection` API only, and `src/public-api.test.ts` fails on any `_` member.
+  `semiJoinOf(key, table)` is the map for a relation keyed by an identity, so a dashboard over a
+  joined relation filters a graph.
 - **`column` / `numbers`** — the half of the client protocol the protocol does not
   give you. The coordinator answers with an Arrow table, and Arrow offers a typed column only when
   the type allows one: an integer id gives an array, a dictionary-encoded label gives nothing
