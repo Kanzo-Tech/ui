@@ -27,7 +27,7 @@ const PAIRINGS: Record<LookPreset, Channels> = {
 
 /** What each gesture does — the canvas's, written down once by the host. */
 const GESTURES: { keys: ReactNode; what: string }[] = [
-  { keys: <Kbd>Drag</Kbd>, what: "Pan — or move a node, pinned where you drop it while a layout runs" },
+  { keys: <Kbd>Drag</Kbd>, what: "Pan — or move a node" },
   { keys: <Kbd>Wheel</Kbd>, what: "Zoom where you point" },
   { keys: <Kbd>Click</Kbd>, what: "Focus a node with its neighbours" },
   {

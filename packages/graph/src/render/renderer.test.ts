@@ -406,100 +406,15 @@ describe("the live layout", () => {
   });
 });
 
-describe("pinning", () => {
-  type Hook = (...args: unknown[]) => void;
-  const hook = (name: string) => constructed[0]?.[name] as Hook;
-  const drag = (vertex: number) => {
-    hook("onPointMouseOver")(vertex, [0, 0]);
-    hook("onDragStart")({});
-    hook("onDragEnd")({});
-  };
-
-  it("moves a dragged node and pins nothing while no layout runs", async () => {
-    const { store } = await drawing();
-    drag(3);
-    expect(store.getSnapshot().motion).toBe("settled");
-    expect(store.getSnapshot().pinned).toEqual([]);
-  });
-
-  it("pins a dragged node while the layout runs, and once", async () => {
-    const { renderer, store } = await drawing();
-    renderer?.resume();
-    drag(3);
-    drag(3);
-    drag(5);
-    expect(store.getSnapshot().pinned).toEqual([3, 5]);
-    await frame();
-    expect(count("pinned")).toBeGreaterThan(0);
-  });
-
-  it("releases into a running layout by reheating it", async () => {
-    const { renderer, store } = await drawing();
-    renderer?.resume();
-    drag(3);
-    calls.length = 0;
-    renderer?.unpin();
-    expect(store.getSnapshot().pinned).toEqual([]);
-    expect(commands()).toEqual(["start"]);
-    expect(store.getSnapshot().motion).toBe("running");
-  });
-
-  it("releases a settled layout by reheating it, and lets it cool on its own", async () => {
-    const { renderer, store } = await drawing();
-    renderer?.resume();
-    drag(3);
-    hook("onSimulationEnd")();
-    expect(store.getSnapshot().motion).toBe("settled");
-    calls.length = 0;
-    renderer?.unpin();
-    expect(commands()).toEqual(["start"]);
-    expect(store.getSnapshot().motion).toBe("running");
-    await frame();
-    expect(calls).toContain("pinned");
-    expect(calls).not.toContain("pause");
-  });
-
-  it("releases a paused layout with a bounded burst, then pauses it again", async () => {
-    const { renderer, store } = await drawing();
-    renderer?.resume();
-    drag(3);
-    renderer?.pause();
-    expect(store.getSnapshot().motion).toBe("paused");
-    vi.useFakeTimers();
-    try {
-      renderer?.unpin();
-      expect(store.getSnapshot().motion).toBe("running");
-      vi.advanceTimersByTime(2000);
-      expect(store.getSnapshot().motion).toBe("paused");
-      expect(commands().at(-1)).toBe("pause");
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("a command during the burst cancels it", async () => {
-    const { renderer, store } = await drawing();
-    renderer?.resume();
-    drag(3);
-    renderer?.pause();
-    vi.useFakeTimers();
-    try {
-      renderer?.unpin();
-      renderer?.resume();
-      calls.length = 0;
-      vi.advanceTimersByTime(2000);
-      expect(calls).not.toContain("pause");
-      expect(store.getSnapshot().motion).toBe("running");
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("releases nothing when nothing is pinned", async () => {
+describe("dragging", () => {
+  // A drag moves one node; it holds nothing in place. Pinning was a second state beside the
+  // selection that no panel could read.
+  it("leaves a dragged node free, with or without a layout running", async () => {
     const { renderer } = await drawing();
-    calls.length = 0;
-    renderer?.unpin();
-    expect(commands()).toEqual([]);
+    renderer?.resume();
+    await frame();
+    expect(constructed[0]?.onDragEnd).toBeUndefined();
+    expect(calls).not.toContain("pinned");
   });
 });
 

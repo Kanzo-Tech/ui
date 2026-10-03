@@ -28,8 +28,6 @@ export interface Renderer extends GraphCommands {
 }
 
 const REHEAT = 0.35;
-/** How long a release wakes a paused layout before pausing it again. */
-const RELEASE_BURST = 1200;
 /** Twentieths: a settle costs twenty reports rather than one per frame. */
 const PROGRESS_STEPS = 20;
 
@@ -39,7 +37,7 @@ const PROGRESS_STEPS = 20;
  *
  * - a new graph uploads positions and links, once per corpus and per position binding;
  * - a binding, a look or a theme change uploads colours, sizes, shapes and clusters and nothing else;
- * - a filter, a selection, a focus or a pin sets config and uploads nothing, and never calls
+ * - a filter, a selection or a focus sets config and uploads nothing, and never calls
  *   `render()`: a vertex the page's filter does not keep is greyed out, Cosmograph's way, so the
  *   points never move because a chart was brushed;
  * - the camera reaches nothing: cosmos.gl moves it, and the overlays follow.
@@ -70,9 +68,6 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   let live = false;
   /** Whether a layout is moving the points — ours, since cosmos.gl's flag waits for its device. */
   let moving = false;
-  let hovering: number | null = null;
-  let dragging: number | null = null;
-  let burst = 0;
   let reported = -1;
   const progress = (value: number) => {
     const bucket = Math.round(value * PROGRESS_STEPS);
@@ -83,7 +78,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
 
   let look: Look = resolveLook(store.getOptions().look);
   let lookPatch = store.getOptions().look;
-  const dirty = { positions: true, paint: true, state: true, pinned: true };
+  const dirty = { positions: true, paint: true, state: true };
   let frame = 0;
   let links: Float32Array | null = null;
   /** The geometry whose positions this canvas uploaded and rendered: the only one it can write back. */
@@ -126,29 +121,16 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       onZoomStart: (_event, userDriven) => taken(userDriven),
       onZoom: () => events.onFrame?.(),
       onPointMouseOver: (index, position) => {
-        hovering = index;
         events.onHover?.(position);
         store.hover(index);
       },
       onPointMouseOut: () => {
-        hovering = null;
         events.onHover?.(null);
         store.hover(null);
-      },
-      onDragStart: () => {
-        dragging = hovering;
       },
       onDrag: (event) => {
         events.onHover?.(graph.screenToSpacePosition([event.x, event.y]));
         events.onFrame?.();
-      },
-      // d3-force's drag-to-fix, and only while a layout can move the point back: cosmos.gl moves a
-      // dragged point with the simulation off too, and a pin nothing pulls against means nothing.
-      onDragEnd: () => {
-        const vertex = dragging;
-        dragging = null;
-        const { motion, pinned } = store.getSnapshot();
-        if (vertex !== null && motion !== "settled" && !pinned.includes(vertex)) store.pin([...pinned, vertex]);
       },
       onPointClick: (index) => focusOn(index),
       onBackgroundClick: () => clear(),
@@ -180,7 +162,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       if (placing.links !== links) {
         links = placing.links;
         graph.setLinks(links);
-        dirty.paint = dirty.state = dirty.pinned = true;
+        dirty.paint = dirty.state = true;
       }
     }
     const painting = dirty.paint && geometry && encoding;
@@ -200,10 +182,6 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
         ...highlighted(geometry, snapshot.mask, snapshot.selection?.vertices ?? null),
         focusedPointIndex: snapshot.focus === null || snapshot.focus >= geometry.size ? undefined : snapshot.focus,
       });
-    }
-    if (dirty.pinned && geometry) {
-      dirty.pinned = false;
-      graph.setPinnedPoints(snapshot.pinned.length > 0 ? [...snapshot.pinned] : null);
     }
     if (painting || placing) graph.render();
     if (placing) {
@@ -276,11 +254,6 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     showLinks();
   }
 
-  function endBurst(): void {
-    clearTimeout(burst);
-    burst = 0;
-  }
-
   function focusOn(vertex: VertexId): void {
     const around = graph.getNeighboringPointIndices(vertex) ?? [];
     store.select([vertex, ...around], "node", "Node");
@@ -314,17 +287,15 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       dirty.paint = true;
     }
     if (snapshot.selection !== last.selection || snapshot.focus !== last.focus || snapshot.mask !== last.mask) dirty.state = true;
-    if (snapshot.pinned !== last.pinned) dirty.pinned = true;
     if (options.sim !== lastOptions.sim) applyForces(options.sim);
     const wants = simulating(options, snapshot.geometry);
     if (snapshot.geometry === last.geometry && wants !== simulating(lastOptions, last.geometry)) {
-      endBurst();
       if (wants) run(REHEAT);
       else graph.pause();
     }
     last = snapshot;
     lastOptions = options;
-    if (dirty.positions || dirty.paint || dirty.state || dirty.pinned) schedule();
+    if (dirty.positions || dirty.paint || dirty.state) schedule();
   });
 
   return {
@@ -342,37 +313,15 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     },
     fit: () => camera.fit(),
     pause() {
-      endBurst();
       graph.pause();
     },
     resume() {
-      endBurst();
       const settled = store.getSnapshot().motion === "settled";
       if (settled || !live) run(REHEAT);
       else graph.unpause();
     },
     restart() {
-      endBurst();
-      store.pin([]);
       run(1);
-    },
-    /**
-     * d3's release: unfix, then reheat, so the released points visibly flow back. A running layout
-     * takes the heat and goes on; a settled one cools to settled on its own; a paused one gets a
-     * bounded burst and is paused again, because the reader paused it.
-     */
-    unpin() {
-      const { motion, pinned } = store.getSnapshot();
-      if (pinned.length === 0) return;
-      endBurst();
-      store.pin([]);
-      run(REHEAT);
-      if (motion === "paused") {
-        burst = window.setTimeout(() => {
-          burst = 0;
-          graph.pause();
-        }, RELEASE_BURST);
-      }
     },
     reveal(vertex) {
       if (vertex >= size()) return;
@@ -387,7 +336,6 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     destroy() {
       unsubscribe();
       keep();
-      endBurst();
       if (frame) cancelAnimationFrame(frame);
       camera.destroy();
       destroyed = true;

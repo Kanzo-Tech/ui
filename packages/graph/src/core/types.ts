@@ -24,8 +24,7 @@ export type VertexId = number;
 /**
  * The selection tools, and the gesture that reaches them without a mode.
  *
- * `null` is the reading posture: drag pans, and drag on a node moves it — and pins it while a layout
- * runs. Picking a tool swaps the drag for a selection gesture — and holding Shift borrows the marquee
+ * `null` is the reading posture: drag pans, and drag on a node moves it. Picking a tool swaps the drag for a selection gesture — and holding Shift borrows the marquee
  * for one drag without picking anything, which is how most selections actually get made.
  */
 export type Tool = "rect" | "lasso" | null;
@@ -67,8 +66,6 @@ export interface GraphCommands {
   pause(): void;
   resume(): void;
   restart(): void;
-  /** Let go of every pinned node and reheat the layout, so the released nodes flow back into place. */
-  unpin(): void;
   /** Centre and select one vertex. */
   reveal(vertex: VertexId): void;
   /** Frame whatever the canvas currently has selected. */
