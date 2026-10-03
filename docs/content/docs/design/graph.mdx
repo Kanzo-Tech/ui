@@ -285,9 +285,11 @@ under it read the root.
   `reveal`.
 - **`GraphSelect`** — a selection the host offers, as a toggle: `load` reads the ids when pressed,
   and pressed is derived from the live selection, never stored beside it.
-- **`GraphLooks`** — the three looks as presets over `GRAPH_SECTION`'s axes, with the axes under
-  Customize. It writes preferences rather than reading the root, so it needs the theme provider and
-  no `GraphRoot`.
+- **`GraphLooks`** — the three looks as presets over `GRAPH_SECTION`'s axes, with the axes always in
+  view under them. It writes preferences rather than reading the root, so it needs the theme provider
+  and no `GraphRoot`.
+- **`GraphPlacement`** — Force, Map or Clustered, with the corpus's fields to bind inside the checked
+  card. Controlled, because `x`, `y` and `cluster` are the root's bindings and the host holds them.
 
 **A selection names its gesture, never its host's panel.** `SelectionSource` is the canvas's own
 gestures — `marquee`, `lasso`, `node` — and `external`, any selection a host set through `select`,
@@ -433,8 +435,12 @@ is bound", "colours by vertex type unless fill binds a column".
 ## A look declares what it changes
 
 A look declares only what it moves from the shared defaults, and the preferences panel offers the
-**axes a reader can name** — `marks`, `additive-links`, `bowed-links`, `labels`, `vignette` — which
-recover the three shipped looks and combine into others.
+**axes a reader can name** — `marks`, `edges`, `additive-links`, `labels`, `vignette` — which
+recover the three shipped looks and combine into others. `edges` and `labels` are Cosmograph's
+configuration read as choices: `showLinks` and `curvedLinks` as Hidden, Straight or Curved, and the
+hovered, top and dynamic labels as one ordered scale, None to All, because a reader asks *how much
+text* rather than which of three switches. `additive-links` stays its own switch: it is how links
+composite, not the path they take, and Nebula is additive *and* straight.
 
 | field | nebula | atlas | ink | nebula → atlas |
 |---|---|---|---|---|

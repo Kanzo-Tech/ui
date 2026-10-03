@@ -97,8 +97,10 @@ the state without subscribing.
 
 A click selects a vertex and its neighbours and focuses it; a lasso selects what it encloses; a
 failure is reported. What the host does with each is `onSelect`, `onFocus` and `onFailure`, and **no
-part takes a callback of its own** — the package's barrel test holds that. `onFailure` is the one
-required prop; [Failures](#failures) says why.
+part takes a callback of its own** — the package's barrel test holds that. `GraphPlacement`'s
+`onChange` is not one: it hands back the root's own `x`, `y` and `cluster`, a controlled value the
+way an input's is, and decides nothing. `onFailure` is the one required prop;
+[Failures](#failures) says why.
 
 ### Ark's four: `useGraph` and `GraphRootProvider`
 
@@ -228,10 +230,29 @@ here the hall's name, where the relation stores its id. "Find on canvas" reveals
 <ComponentPreview componentName="graph" fileName="example-looks" hasMaxHeight />
 
 The picture's preferences, drawn: three **looks** — Nebula, Atlas and Ink, each a card with a
-miniature drawn through the canvas's own glyphs and scale — and the axes themselves folded under
-**Customize**. Wearing a look writes every axis it names; a look is checked exactly when the resolved
-axes are its own, so no name is stored beside them, and a picture customised past all three checks
-none and opens Customize. A look whose axes a tenant pinned is disabled.
+miniature drawn through the canvas's own glyphs and scale — and under them the axes, always in view.
+Wearing a look writes every axis it names; a look is checked exactly when the resolved axes are its
+own, so no name is stored beside them, and a picture customised past all three checks none and says
+Custom. A look whose axes a tenant pinned is disabled.
+
+The axes are Cosmograph's configuration, read as choices a reader can name:
+
+| Axis | Values | What it draws |
+| --- | --- | --- |
+| Marks | Dense · Legible | How much ink a point spends — cards, each previewing the current look with that mark. |
+| Edges | Hidden · Straight · Curved | `showLinks` and `curvedLinks` as one axis — cards with a preview. |
+| Additive links | switch | Links add where they overlap. Offered only while edges are drawn. |
+| Labels | None · Hovered · Top · Visible · All | Which points carry their title — below. |
+| Dot grid · Vignette | switches | The backdrop. |
+
+**Labels are one ordered scale**, each level adding to the one before. **None** draws no text at all,
+not even the hover card. **Hovered** is the hover card and the focused point's label. **Top** adds the
+150 biggest points by the size channel — Cosmograph's `showTopLabelsLimit` default. **Visible** adds
+the 100 biggest of cosmos.gl's sample of the points in view (one per 100 px cell), taken again each
+time the camera rests — Cosmograph's dynamic labels, `showDynamicLabelsLimit`. **All** labels every
+point, which costs a label element and a title read per point: a level for a graph small enough to
+read whole. At every level a label that would overlap a bigger point's is dropped rather than drawn
+over it.
 
 **It needs `GRAPH_SECTION` on the theme provider** — without it there is nothing to write and it
 renders nothing — and the root reads the answer through `useGraphPrefs()`:
@@ -261,6 +282,29 @@ const PAIRINGS: Record<LookPreset, Channels> = {
   ink: { fill: "var(--foreground)", symbol: "kind", stroke: "var(--muted-foreground)" },
 };
 ```
+
+### Placement
+
+<ComponentPreview componentName="graph" fileName="example-placement" hasMaxHeight />
+
+Where the points come from, as three cards: **Force**, the GPU layout; **Map**, two numeric columns
+as `x` and `y`, and nothing simulates; **Clustered**, the layout with cosmos.gl's cluster force over
+one column. The column selects appear inside the checked card only, and their options are the
+corpus's own fields from `fossil_columns` — numeric ones for Map, any for Clustered; fossil's
+`dense_id` and identity are not fields. **It is controlled**: `value` and `onChange` carry
+`Pick<Channels, "x" | "y" | "cluster">`, which the host passes to the root as it is:
+
+```tsx
+const [placement, setPlacement] = useState<Pick<Channels, "x" | "y" | "cluster">>({});
+
+<GraphRoot from="archive" coordinator={coordinator} {...placement} onFailure={setFailure}>
+  <GraphPlacement onChange={setPlacement} value={placement} />
+</GraphRoot>
+```
+
+With one of Map's two columns chosen the layout still runs, and the card says so. **Latitude as `y`
+draws north up**: cosmos.gl's space is y-up, and the placement into its square only scales and
+translates.
 
 ### Declared axes, without the panel
 
@@ -477,6 +521,16 @@ Extends `React.ComponentProps<"div">` without its `children`.
 
 Takes `React.ComponentProps<"div">` (`GraphLooksProps`). Needs `GRAPH_SECTION` among the theme
 provider's `sections`; renders nothing without it.
+
+### GraphPlacement
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `value` | `Pick<Channels, "x" \| "y" \| "cluster">` | required |
+| `onChange` | `(value: Pick<Channels, "x" \| "y" \| "cluster">) => void` | required |
+
+Extends `React.ComponentProps<"div">` without its `onChange` (`GraphPlacementProps`). Under a
+`GraphRoot`: the fields are the attached corpus's.
 
 ### ShapeGlyph
 

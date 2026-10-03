@@ -18,34 +18,34 @@ import { GRAPH_SECTION } from "./section";
 const NEBULA: Look = {
   size: [2, 8],
   link: { render: true, opacity: 0.42, width: 0.6, curve: 0, blend: true, fade: [200, 1400] },
-  labels: 14,
+  labels: "hovered",
   vignette: true,
   grid: true,
 };
 const ATLAS: Look = {
   size: [2, 8],
   link: { render: true, opacity: 0.42, width: 0.6, curve: 0.12, blend: false, fade: [200, 1400] },
-  labels: 26,
+  labels: "top",
   vignette: false,
   grid: true,
 };
 const INK: Look = {
   size: [4, 13],
   link: { render: true, opacity: 0.28, width: 0.5, curve: 0, blend: false, fade: [200, 1400] },
-  labels: 40,
+  labels: "visible",
   vignette: false,
   grid: true,
 };
 
 describe("the look axes", () => {
   it("still draws the three pictures the three names drew", () => {
-    // Nebula's links are additive AND straight — the default bow has to be turned off, which is the
-    // one thing the list of names hid: two of its members differed in two link fields at once.
+    // Nebula's links are additive AND straight — the default curve has to be turned off, which is
+    // the one thing the list of names hid: two of its members differed in two link fields at once.
     expect(
-      lookFrom({ "additive-links": "true", "bowed-links": "false", labels: "14", vignette: "true" }),
+      lookFrom({ edges: "straight", "additive-links": "true", labels: "hovered", vignette: "true" }),
     ).toEqual(NEBULA);
-    expect(lookFrom({ "bowed-links": "true", labels: "26" })).toEqual(ATLAS);
-    expect(lookFrom({ marks: "legible", "bowed-links": "false", labels: "40" })).toEqual(INK);
+    expect(lookFrom({ edges: "curved", labels: "top" })).toEqual(ATLAS);
+    expect(lookFrom({ marks: "legible", edges: "straight", labels: "visible" })).toEqual(INK);
   });
 
   it("wears the three pictures as presets, and knows one when the axes are it", () => {
@@ -54,7 +54,7 @@ describe("the look axes", () => {
     expect(lookFrom(PRESETS.ink)).toEqual(INK);
     expect(presetOf({}), "every default is Atlas").toBe("atlas");
     expect(presetOf({ ...PRESETS.ink, grid: "false" }), "an axis no preset names").toBe("ink");
-    expect(presetOf({ ...PRESETS.ink, labels: "38" }), "customised past all three").toBeNull();
+    expect(presetOf({ ...PRESETS.ink, labels: "all" }), "customised past all three").toBeNull();
   });
 
   it("draws what a graph drew before any of this existed, when nothing is stored", () => {
@@ -71,7 +71,8 @@ describe("the look axes", () => {
     // A stored value outside the declaration is the case `resolveSectionPref` exists for, and a
     // reader that trusted storage would paint an option this section never published.
     expect(lookFrom({ marks: "enormous" })).toEqual(ATLAS);
-    expect(lookFrom({ labels: "not-a-number" })).toEqual(ATLAS);
+    expect(lookFrom({ labels: "26" }), "a count is not a level").toEqual(ATLAS);
+    expect(lookFrom({ edges: "bowed" })).toEqual(ATLAS);
     expect(lookFrom({ "additive-links": "yes" }).link.blend, "only `true` is on").toBe(false);
   });
 

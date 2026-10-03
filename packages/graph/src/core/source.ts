@@ -18,6 +18,12 @@ export interface VertexTable {
   readonly columns: ReadonlySet<string>;
   /** The `identity` column — what a label falls back to. */
   readonly identity: string;
+  /**
+   * The program's own columns — every one the writer gave no role — with the type `fossil.json`
+   * spells (`double`, `int32`, `string`, …). What a reader may bind a channel to: `dense_id` and the
+   * identity are fossil's, not fields.
+   */
+  readonly fields: ReadonlyMap<string, string>;
 }
 
 /** One relation: its table, and the vertex tables its `src` and `dst` point into. */
@@ -61,14 +67,15 @@ const column = (answer: Answer, name: string): ArrayLike<unknown> => answer.getC
 export async function readStructure(coordinator: Coordinator, from: string): Promise<Structure> {
   const [tables, columns] = await Promise.all([
     ask(coordinator, `SELECT table_name, kind, rows::DOUBLE AS rows, first_id::DOUBLE AS first_id, source, destination FROM ${relation(from, "fossil_tables")} ORDER BY first_id NULLS LAST, table_name`),
-    ask(coordinator, `SELECT table_name, column_name, role FROM ${relation(from, "fossil_columns")} ORDER BY table_name, ordinal`),
+    ask(coordinator, `SELECT table_name, column_name, type, role FROM ${relation(from, "fossil_columns")} ORDER BY table_name, ordinal`),
   ]);
-  const byTable = new Map<string, { names: Set<string>; identity: string }>();
-  const [tn, cn, role] = [column(columns, "table_name"), column(columns, "column_name"), column(columns, "role")];
+  const byTable = new Map<string, { names: Set<string>; identity: string; fields: Map<string, string> }>();
+  const [tn, cn, type, role] = [column(columns, "table_name"), column(columns, "column_name"), column(columns, "type"), column(columns, "role")];
   for (let i = 0; i < columns.numRows; i++) {
-    const entry = byTable.get(String(tn[i])) ?? { names: new Set<string>(), identity: "subject" };
+    const entry = byTable.get(String(tn[i])) ?? { names: new Set<string>(), identity: "subject", fields: new Map<string, string>() };
     entry.names.add(String(cn[i]));
     if (role[i] === "identity") entry.identity = String(cn[i]);
+    if (role[i] === null) entry.fields.set(String(cn[i]), String(type[i]));
     byTable.set(String(tn[i]), entry);
   }
   const name = column(tables, "table_name");
@@ -89,6 +96,7 @@ export async function readStructure(coordinator: Coordinator, from: string): Pro
         rows: Number(rows[i]),
         columns: described?.names ?? new Set(),
         identity: described?.identity ?? "subject",
+        fields: described?.fields ?? new Map(),
       });
     } else {
       edges.push({ name: table, source: String(source[i]), destination: String(destination[i]), rows: Number(rows[i]) });

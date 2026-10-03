@@ -47,13 +47,13 @@ export const GRAPH_SECTION: SectionManifest = {
       default: "false",
       doc: "Links add where they overlap instead of compositing over one another.",
     },
-    labels: {
+    gravity: {
       kind: "range",
-      default: "26",
+      default: "0.14",
       min: 0,
-      max: 60,
-      step: 2,
-      doc: "How many of the highest-degree nodes carry a standing label.",
+      max: 0.5,
+      step: 0.01,
+      doc: "Pull toward the centre.",
     },
   },
 };
@@ -85,7 +85,7 @@ A preference is one of exactly three, and the set is closed — there is no `cus
 prefs: {
   marks: { kind: "choice", default: "dense", options: [...], doc: "…" },
   "additive-links": { kind: "toggle", default: "false", doc: "links add where they cross" },
-  labels: { kind: "range", default: "26", min: 0, max: 60, step: 2, doc: "…" },
+  gravity: { kind: "range", default: "0.14", min: 0, max: 0.5, step: 0.01, doc: "…" },
 }
 ```
 

@@ -57,11 +57,14 @@ describe("GraphLooks", () => {
     expect(container.querySelector("[data-slot=graph-looks]")).toBeNull();
   });
 
-  it("checks Atlas when nothing is chosen, and keeps Customize folded", () => {
+  it("checks Atlas when nothing is chosen, with every axis in view", () => {
     mount();
     expect(card("Atlas").getAttribute("data-state")).toBe("checked");
     expect(card("Ink").getAttribute("data-state")).toBe("unchecked");
-    expect(screen.getByRole("button", { name: "Customize" }).getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("button", { name: /Customize/ })).toBeNull();
+    for (const name of ["Marks", "Edges", "Additive links", "Labels", "Dot grid", "Vignette"]) {
+      expect(screen.getByText(name), name).toBeTruthy();
+    }
   });
 
   it("wears a look by writing every axis it names", async () => {
@@ -73,27 +76,33 @@ describe("GraphLooks", () => {
 
   it("checks nothing once the axes are customised past every look, and says so", () => {
     const held = mount();
-    act(() => held.set?.({ labels: "38" }));
+    act(() => held.set?.({ labels: "all" }));
     expect(held.preset).toBeNull();
-    expect(document.querySelectorAll("[data-slot=radio-group-card][data-state=checked]")).toHaveLength(0);
-    expect(screen.getByText("Custom")).toBeTruthy();
+    expect(screen.getAllByRole("radio", { name: /Nebula|Atlas|Ink/ }).every((radio) => !(radio as HTMLInputElement).checked)).toBe(true);
+    expect(screen.getByText(/^Custom/)).toBeTruthy();
   });
 
-  it("draws Marks as a segmented control under Customize", async () => {
+  it("draws Marks and Edges as preview cards, and Grid and Vignette as switches", async () => {
     const held = mount();
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "Customize" }));
     await user.click(screen.getByRole("radio", { name: "Legible" }));
     expect(held.preset).toBeNull();
-    expect(document.querySelector("[data-slot=segment-group]")).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "Curved" }).closest("[data-slot=radio-group-card]")?.querySelector("svg")).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: "Vignette" })).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: "Dot grid" })).toBeTruthy();
+  });
+
+  it("offers Additive links only while there are links to add", async () => {
+    const held = mount();
+    expect(screen.getByRole("checkbox", { name: "Additive links" })).toBeTruthy();
+    act(() => held.set?.({ edges: "hidden" }));
+    expect(screen.queryByRole("checkbox", { name: "Additive links" })).toBeNull();
   });
 
   it("disables a look whose axes a tenant pinned, and offers no Marks to change", () => {
     mount({ policy: { graph: { marks: { pinned: "legible" } } } });
     for (const name of ["Nebula", "Atlas", "Ink"]) expect(card(name).hasAttribute("data-disabled"), name).toBe(true);
-    // Legible marks under Atlas's other axes are no preset, so Customize opens on its own.
-    expect(screen.getByRole("button", { name: /Customize/ }).getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByText("Labels")).toBeTruthy();
-    expect(document.querySelector("[data-slot=segment-group]")).toBeNull();
+    expect(screen.queryByRole("radio", { name: "Dense" })).toBeNull();
   });
 });

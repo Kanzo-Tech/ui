@@ -85,6 +85,11 @@ export const SHAPE_ORDER: Shape[] = ["circle", "square", "triangle", "diamond"];
  */
 export const SHAPE_OTHER: Shape = "cross";
 
+/** How much text the canvas carries, least to most — Cosmograph's label model as one scale. */
+export type LabelLevel = "none" | "hovered" | "top" | "visible" | "all";
+
+const LEVELS: readonly LabelLevel[] = ["none", "hovered", "top", "visible", "all"];
+
 /**
  * The geometry a canvas draws — and nothing else.
  *
@@ -134,8 +139,8 @@ export interface Look {
      */
     fade: [number, number];
   };
-  /** How many of the highest-degree nodes carry a standing label. */
-  labels: number;
+  /** Which points carry their title — `labels` in `section.ts` says what each level draws. */
+  labels: LabelLevel;
   /** A darkened rim. Mood rather than a reading aid, which is why it is form and not display. */
   vignette: boolean;
   /**
@@ -207,23 +212,24 @@ export function lookFrom(values: Readonly<Record<string, string | undefined>> = 
     return value === undefined ? fallback : value === "true";
   };
   const legible = values.marks === "legible";
-  const labels = Number.parseFloat(values.labels ?? "");
+  const edges = values.edges === "hidden" || values.edges === "straight" ? values.edges : "curved";
+  const labels = LEVELS.find((level) => level === values.labels) ?? "top";
   return {
     size: legible ? [4, 13] : [2, 8],
     link: {
-      render: on("links", true),
+      render: edges !== "hidden",
       opacity: legible ? 0.28 : 0.42,
       width: legible ? 0.5 : 0.6,
       // A hint, and `obligations.ts` says why: every link bows the same way, so cosmos.gl's default
-      // of 0.5 reads as one pinwheel. A toggle rather than a range because a reader wants two
+      // of 0.5 reads as one pinwheel. A choice rather than a range because a reader wants two
       // pictures — straight, and told apart — not a number to tune.
-      curve: on("bowed-links", true) ? 0.12 : 0,
+      curve: edges === "curved" ? 0.12 : 0,
       blend: on("additive-links", false),
       // Shared by every form. It was three ranges within ±10% of each other, which is the
       // definition of a field nobody chose.
       fade: [200, 1400],
     },
-    labels: Number.isFinite(labels) ? labels : 26,
+    labels,
     vignette: on("vignette", false),
     grid: on("grid", true),
   };
@@ -238,9 +244,9 @@ export type LookPreset = "nebula" | "atlas" | "ink";
  * when the resolved axes equal its own — no name is stored beside them. Atlas is every default.
  */
 export const PRESETS: Record<LookPreset, Readonly<Record<string, string>>> = {
-  nebula: { marks: "dense", "additive-links": "true", "bowed-links": "false", labels: "14", vignette: "true" },
-  atlas: { marks: "dense", "additive-links": "false", "bowed-links": "true", labels: "26", vignette: "false" },
-  ink: { marks: "legible", "additive-links": "false", "bowed-links": "false", labels: "40", vignette: "false" },
+  nebula: { marks: "dense", edges: "straight", "additive-links": "true", labels: "hovered", vignette: "true" },
+  atlas: { marks: "dense", edges: "curved", "additive-links": "false", labels: "top", vignette: "false" },
+  ink: { marks: "legible", edges: "straight", "additive-links": "false", labels: "visible", vignette: "false" },
 };
 
 /** The look the axes are — a missing one is the section's default — or `null` once customised past all three. */

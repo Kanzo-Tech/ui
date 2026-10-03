@@ -15,10 +15,13 @@ export default function Example() {
   const [failure, setFailure] = useState<unknown>(null);
   const archive = useArchive(setFailure);
   const [marks, setMarks] = useState("dense");
-  const [bowed, setBowed] = useState(true);
+  const [curved, setCurved] = useState(true);
   const [simulate, setSimulate] = useState(true);
 
-  const values = useMemo(() => ({ marks, "bowed-links": String(bowed), labels: "0", grid: "false" }), [marks, bowed]);
+  const values = useMemo(
+    () => ({ marks, edges: curved ? "curved" : "straight", labels: "none", grid: "false" }),
+    [marks, curved],
+  );
   const look = useMemo(() => lookFrom(values), [values]);
   const sim = useMemo(() => simFrom(values), [values]);
 
@@ -36,8 +39,8 @@ export default function Example() {
           <ToggleGroupItem value="dense">Dense</ToggleGroupItem>
           <ToggleGroupItem value="legible">Legible</ToggleGroupItem>
         </ToggleGroup>
-        <Switch checked={bowed} onCheckedChange={(d) => setBowed(d.checked)}>
-          Bowed links
+        <Switch checked={curved} onCheckedChange={(d) => setCurved(d.checked)}>
+          Curved links
         </Switch>
         <Switch checked={simulate} onCheckedChange={(d) => setSimulate(d.checked)}>
           Simulate

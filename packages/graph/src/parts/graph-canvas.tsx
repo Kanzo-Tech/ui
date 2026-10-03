@@ -4,13 +4,14 @@ import { categoricalCapacity, cn, Show, useThemeTick } from "@kanzo-tech/ui";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { nameOf } from "../core/categories";
 import { readTitles } from "../core/source";
-import type { Encoding, Geometry } from "../core/load";
+import type { Graph } from "@cosmos.gl/graph";
+import type { Encoding } from "../core/load";
 import type { GraphOptions } from "../core/state";
 import type { VertexId } from "../core/types";
 import { useGraphContext } from "../react/graph-root";
 import { internalsOf } from "../react/use-graph";
 import { useGraphSnapshot, useGraphState } from "../react/use-graph-state";
-import { resolveLook } from "../render/graph-looks";
+import { resolveLook, type LabelLevel } from "../render/graph-looks";
 import { scaleOf } from "../render/graph-model";
 import { cursorChip, useGesture } from "./gesture";
 import { useOverlays } from "./overlays";
@@ -24,24 +25,98 @@ export interface GraphCanvasProps extends React.ComponentProps<"div"> {
 const WASH = "color-mix(in oklab, var(--primary) 17%, transparent)";
 
 /**
- * The biggest `budget` surviving vertices by the ramp, the focused one first. One pass, keeping the
- * best few in order: a sort of every vertex to name twenty-six of them is the cost this avoids.
+ * Top's and Visible's budgets — Cosmograph 2.5's own defaults, `showTopLabelsLimit` 150 and
+ * `showDynamicLabelsLimit` 100, read from its `config/defaults.js` (its JSDoc says 30 for both; the
+ * code is what runs). Fixed, because the level is the reader's choice and the count is not.
  */
-function labelled(geometry: Geometry, encoding: Encoding, mask: Uint8Array | null, budget: number, focus: VertexId | null): VertexId[] {
-  const ramp = encoding.sizes;
+const TOP_LABELS = 150;
+const VISIBLE_LABELS = 100;
+
+/** How long the camera has to be still before Visible samples the view again. */
+const REST = 160;
+
+const NO_VERTICES: readonly VertexId[] = [];
+
+function* every(size: number): Generator<VertexId> {
+  for (let id = 0; id < size; id++) yield id;
+}
+
+/**
+ * The biggest `budget` surviving vertices of `among`, biggest first. One pass, keeping the best few
+ * in order: a sort of every vertex to name a hundred and fifty of them is the cost this avoids.
+ */
+function biggest(among: Iterable<VertexId>, ramp: Float32Array, mask: Uint8Array | null, budget: number): VertexId[] {
   const best: VertexId[] = [];
-  if (ramp && budget > 0) {
-    for (let id = 0; id < geometry.size; id++) {
-      const value = ramp[id] as number;
-      if ((mask && !mask[id]) || Number.isNaN(value)) continue;
-      if (best.length === budget && value <= (ramp[best[budget - 1] as number] as number)) continue;
-      let at = best.length;
-      while (at > 0 && (ramp[best[at - 1] as number] as number) < value) at--;
-      best.splice(at, 0, id);
-      if (best.length > budget) best.pop();
+  for (const id of among) {
+    const value = ramp[id] as number;
+    if ((mask && !mask[id]) || Number.isNaN(value)) continue;
+    if (best.length === budget && value <= (ramp[best[budget - 1] as number] as number)) continue;
+    let at = best.length;
+    while (at > 0 && (ramp[best[at - 1] as number] as number) < value) at--;
+    best.splice(at, 0, id);
+    if (best.length > budget) best.pop();
+  }
+  return best;
+}
+
+/**
+ * The vertices a level labels, in the order the declutter pass places them — so where two collide,
+ * the bigger point keeps its name. Each level adds to the one before; the focused vertex leads from
+ * Hovered up, and Hovered's own label is the hover card, which is not a tracked label.
+ */
+function labelled(
+  level: LabelLevel,
+  size: number,
+  ramp: Float32Array,
+  mask: Uint8Array | null,
+  inView: readonly VertexId[],
+  focus: VertexId | null,
+): VertexId[] {
+  let ids: VertexId[] = [];
+  if (level === "all") {
+    // Every vertex, so a sort is the honest cost; a point with no size value is still a point.
+    ids = [...every(size)].filter((id) => !mask || mask[id]);
+    ids.sort((a, b) => ((ramp[b] as number) || 0) - ((ramp[a] as number) || 0));
+  } else if (level === "top" || level === "visible") {
+    ids = biggest(every(size), ramp, mask, TOP_LABELS);
+    if (level === "visible") {
+      const top = new Set(ids);
+      const seen = biggest(inView.filter((id) => id < size && !top.has(id)), ramp, mask, VISIBLE_LABELS);
+      ids = [...ids, ...seen].sort((a, b) => (ramp[b] as number) - (ramp[a] as number));
     }
   }
-  return focus === null || best.includes(focus) ? best : [focus, ...best];
+  if (level === "none" || focus === null || focus >= size) return ids;
+  return [focus, ...ids.filter((id) => id !== focus)];
+}
+
+/**
+ * **Visible's sample: what cosmos.gl says is in view**, one point per `pointSamplingDistance` cell
+ * (100 px, its default) — the call Cosmograph's dynamic labels make. A sample is a GPU pass and a
+ * readback, so it is taken when the camera has rested for `REST`, not on every frame; while a layout
+ * runs, the last sample's labels follow their points through the tracking the overlays already do.
+ * `moved` is stable for the canvas's life, which is what lets the renderer's `onFrame` call it.
+ */
+function useInView(getGraph: () => Graph | null, enabled: boolean): { inView: readonly VertexId[]; moved: () => void } {
+  const [inView, setInView] = useState<readonly VertexId[]>(NO_VERTICES);
+  const wanted = useRef(enabled);
+  const timer = useRef(0);
+  const moved = useCallback(() => {
+    if (!wanted.current) return;
+    clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => {
+      const graph = getGraph();
+      if (!graph) return;
+      const sampled = [...graph.getSampledPointPositionsMap().keys()];
+      setInView((last) => (last.length === sampled.length && last.every((id, i) => id === sampled[i]) ? last : sampled));
+    }, REST);
+  }, [getGraph]);
+  useEffect(() => {
+    wanted.current = enabled;
+    if (enabled) moved();
+    else setInView(NO_VERTICES);
+    return () => clearTimeout(timer.current);
+  }, [enabled, moved]);
+  return { inView, moved };
 }
 
 /** A label's text is read for the vertices that carry one, never carried for every vertex. */
@@ -97,11 +172,16 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
   const encoding = useGraphSnapshot((s) => s.encoding);
   const mask = useGraphSnapshot((s) => s.mask);
 
+  const { inView, moved } = useInView(getGraph, look.labels === "visible");
   useEffect(() => {
     const surface = surfaceRef.current;
     if (!surface) return;
-    return attach(surface, { onFrame: schedule, onHover: hoverAt });
-  }, [attach, hoverAt, schedule]);
+    const onFrame = () => {
+      schedule();
+      moved();
+    };
+    return attach(surface, { onFrame, onHover: hoverAt });
+  }, [attach, hoverAt, moved, schedule]);
 
   const themeTick = useThemeTick();
   useEffect(() => {
@@ -109,8 +189,8 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
   }, [renderer, themeTick]);
 
   const labelledIds = useMemo(
-    () => (geometry && encoding ? labelled(geometry, encoding, mask, look.labels, focus) : []),
-    [geometry, encoding, mask, focus, look.labels],
+    () => (geometry && encoding ? labelled(look.labels, geometry.size, encoding.sizes, mask, inView, focus) : []),
+    [geometry, encoding, mask, inView, focus, look.labels],
   );
   const titles = useTitles(labelledIds);
   const labels = useMemo(
@@ -160,21 +240,24 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
         {labels.map((label) => (
           <span
             className="absolute top-0 left-0 whitespace-nowrap font-medium text-[10px] text-foreground leading-none opacity-0 transition-opacity [text-shadow:0_0_3px_var(--background),0_0_6px_var(--background)]"
+            data-slot="graph-canvas-label"
             key={String(label.vertex)}
             ref={labelRef(label.vertex)}
           >
             {label.text}
           </span>
         ))}
-        <HoverCard
-          cardRef={cardRef}
-          domain={domain}
-          encoding={encoding}
-          options={options}
-          scale={scale}
-          schedule={schedule}
-          setHovered={setHovered}
-        />
+        <Show when={look.labels !== "none"}>
+          <HoverCard
+            cardRef={cardRef}
+            domain={domain}
+            encoding={encoding}
+            options={options}
+            scale={scale}
+            schedule={schedule}
+            setHovered={setHovered}
+          />
+        </Show>
       </div>
       <Show when={active !== null}>
         <div className="absolute inset-0 cursor-crosshair" data-slot="graph-canvas-gesture" {...gesture.handlers}>

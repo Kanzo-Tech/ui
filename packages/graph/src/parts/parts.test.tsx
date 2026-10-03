@@ -13,6 +13,7 @@ import { GraphSelect } from "./graph-select";
 import { GraphStatus } from "./graph-status";
 import { GraphToolbar } from "./graph-toolbar";
 import { useOverlays } from "./overlays";
+import type { LabelLevel } from "../render/graph-looks";
 
 vi.mock("./overlays", async (actual) => {
   const module = await actual<typeof import("./overlays")>();
@@ -328,6 +329,47 @@ describe("GraphCanvas", () => {
     );
     await ready(corpus);
     await waitFor(() => expect(onFailure.mock.calls.map(([error]) => error)).toContain(refused));
+  });
+
+  describe("labels", () => {
+    const labels = () => [...document.querySelectorAll("[data-slot=graph-canvas-label]")].map((el) => el.textContent);
+    const mount = async (labelled: LabelLevel) => {
+      const corpus = await attach();
+      const held: { api: GraphApi | null } = { api: null };
+      render(
+        <GraphRoot {...over(corpus)} look={{ labels: labelled }} onFailure={() => {}} title="name">
+          <GraphCanvas />
+          <Hold into={held} />
+        </GraphRoot>,
+      );
+      await ready(corpus);
+      if (!held.api) throw new Error("no api");
+      return { corpus, store: internalsOf(held.api).store };
+    };
+
+    it("names nothing at None, not even the hovered point", async () => {
+      const { corpus, store } = await mount("none");
+      act(() => store.focus(1));
+      act(() => store.hover(1));
+      await act(() => settle(corpus));
+      expect(labels()).toEqual([]);
+      expect(document.querySelector("[data-slot=graph-canvas-card]")).toBeNull();
+    });
+
+    it("names the focused point and nothing standing at Hovered", async () => {
+      const { corpus, store } = await mount("hovered");
+      expect(labels()).toEqual([]);
+      act(() => store.focus(2));
+      await waitFor(() => expect(labels()).toEqual(["Person 2"]));
+      await act(() => settle(corpus));
+    });
+
+    it("names the biggest points first at Top, within its budget", async () => {
+      await mount("top");
+      // Degree is the size, so the three Tags no relation reaches come last.
+      await waitFor(() => expect(labels()).toHaveLength(20));
+      expect(labels().slice(-3).every((text) => text?.startsWith("https://example.org/tag/"))).toBe(true);
+    });
   });
 
   it("re-renders the card on a hover, and not the canvas", async () => {
