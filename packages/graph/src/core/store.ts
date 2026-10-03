@@ -5,9 +5,9 @@ import { GraphClient, publish } from "./client";
 import { GraphError } from "./error";
 import { loadEncoding, loadGeometry, type Encoding, type Geometry } from "./load";
 import { readStructure, type Structure } from "./source";
-import type { Drawn, GraphOptions, GraphSnapshot, GraphStatus, GraphStore } from "./state";
+import type { Drawn, GraphOptions, GraphSnapshot, DataStatus, GraphStore } from "./state";
 
-export type { Drawn, GraphOptions, GraphSnapshot, GraphState, GraphStatus, GraphStore } from "./state";
+export type { Drawn, GraphOptions, GraphSnapshot, GraphState, DataStatus, GraphStore } from "./state";
 
 function drawnOf(geometry: Geometry, encoding: Encoding, mask: Uint8Array | null): Drawn {
   const tally = encoding.domain.map(() => 0);
@@ -26,6 +26,13 @@ function drawnOf(geometry: Geometry, encoding: Encoding, mask: Uint8Array | null
     if (shown[links[i] as number] && shown[links[i + 1] as number]) edges++;
   }
   return { vertices, edges, domain: encoding.domain, tally };
+}
+
+function matchingOf(mask: Uint8Array | null): number | null {
+  if (mask === null) return null;
+  let n = 0;
+  for (const kept of mask) n += kept;
+  return n;
 }
 
 /** `1` where a vertex is among `ids`. */
@@ -68,6 +75,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
   let snapshot: GraphSnapshot = {
     status: "none",
     total: undefined,
+    matching: null,
     drawn: null,
     domain: [],
     selection: null,
@@ -102,7 +110,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     return drawn.value;
   }
 
-  function statusOf(): GraphStatus {
+  function statusOf(): DataStatus {
     if (failed || unrenderable) return "failed";
     if (options.from === null || options.coordinator === null) return "none";
     const current = [geometry, encoding, mask];
@@ -114,6 +122,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     snapshot = {
       ...snapshot,
       total: structure?.size,
+      matching: mask === snapshot.mask ? snapshot.matching : matchingOf(mask),
       drawn: drawnNow(),
       domain: domainNow(),
       options,

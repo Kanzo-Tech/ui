@@ -91,7 +91,7 @@ import { hall, HOME_HALL, type HallId } from "@/example/world";
 import { initialsOf } from "@/example/people";
 import { GraphCanvas, GraphLegend, GraphToolbar, useGraphState } from "@kanzo-tech/graph";
 import {
-	ArchiveCounts,
+	ArchiveFooter,
 	ArchiveGraph,
 	GraphAsk,
 	GraphInfo,
@@ -622,7 +622,7 @@ function ArchiveShell() {
 				</ShellBody>
 
 				<ShellFooter className="h-8 flex-row items-center justify-between px-2">
-					<ArchiveCounts />
+					<ArchiveFooter />
 					{/* The panel switcher is a single-select, DESELECTABLE ToggleGroup, not a Button
 					    row and not Tabs: one panel shows at a time and clicking the active icon again
 					    collapses the dock (value → none) — a state Tabs cannot express. The machine

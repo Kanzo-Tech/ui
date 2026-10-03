@@ -9,6 +9,7 @@ import {
   GraphLooks,
   GraphRoot,
   GraphSearch,
+  GraphStatus,
   GraphToolbar,
   useGraphPrefs,
   type Channels,
@@ -100,8 +101,9 @@ export default function Example() {
             </TabsContent>
           </Tabs>
         </div>
-        <footer className="border-t px-3 py-1.5">
-          <GraphCounts spinner />
+        <footer className="flex items-center gap-2 border-t px-3 py-1.5">
+          <GraphStatus />
+          <GraphCounts />
         </footer>
       </GraphRoot>
     </div>

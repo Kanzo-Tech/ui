@@ -19,7 +19,7 @@ DuckDB-WASM engine and its crossfilter, cosmos.gl draws, and the parts are built
 ```tsx
 import { open } from "@fossil-lang/corpus";
 import { engine } from "@kanzo-tech/mosaic";
-import { GraphCanvas, GraphCounts, GraphInspector, GraphLegend, GraphRoot, GraphToolbar } from "@kanzo-tech/graph";
+import { GraphCanvas, GraphCounts, GraphInspector, GraphLegend, GraphRoot, GraphStatus, GraphToolbar } from "@kanzo-tech/graph";
 
 const corpus = engine().then((e) => open(url, { engine: e }));
 
@@ -28,6 +28,7 @@ const corpus = engine().then((e) => open(url, { engine: e }));
     <GraphToolbar />
     <GraphLegend />
   </GraphCanvas>
+  <GraphStatus />
   <GraphCounts />
   <GraphInspector />
 </GraphRoot>;
@@ -68,7 +69,9 @@ graph, a second main view and a dock of panels.
   and lasso gesture. Children are chrome positioned over it.
 - `GraphToolbar` — the selection tools, the selection, zoom and fit, and the layout's transport.
 - `GraphLegend` — one row per category: glyph, name and how many are drawn.
-- `GraphCounts` — what is drawn of the whole: "1.2K of 5K nodes drawn · 8K edges".
+- `GraphStatus` — where the graph is, in one word: Loading, Laying out 42%, Ready or Failed.
+- `GraphCounts` — the corpus and what the filter keeps of it: "5K nodes · 8K edges", or
+  "1.2K of 5K nodes match · 3K edges".
 - `GraphSearch` — every drawn vertex's text, read once and filtered in the browser; picking reveals.
 - `GraphInspector` — the focused vertex's row, with a render prop for a product's own fields.
 - `GraphLooks` — Nebula, Atlas and Ink as presets over `GRAPH_SECTION`'s axes, with the axes under

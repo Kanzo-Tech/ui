@@ -52,9 +52,12 @@ export interface GraphOptions extends Channels {
  * **It is the data's life, not the layout's.** A layout running over a drawn graph is `idle` here and
  * `running` in `motion`: two axes, because each can move without the other — a filter loads under a
  * paused layout, and a layout runs over a graph with nothing left to read. A host that shows one word
- * reads both, `motion === "running"` as "laying out" and `progress` for how far.
+ * reads both, and the `GraphStatus` part is that word, so a host draws the part, not the two axes.
+ *
+ * Named for its axis rather than `GraphStatus` because the part holds that name: a consumer writes
+ * the part in every footer, and this union only where it reads `status` itself.
  */
-export type GraphStatus = "none" | "loading" | "idle" | "failed";
+export type DataStatus = "none" | "loading" | "idle" | "failed";
 
 /** What the loaded graph holds, under the page's filter. */
 export interface Drawn {
@@ -70,9 +73,11 @@ export interface Drawn {
 
 /** What a host and the parts read, through `useGraphState`. */
 export interface GraphState {
-  readonly status: GraphStatus;
+  readonly status: DataStatus;
   /** Every vertex of the corpus — it does not shrink with a filter. */
   readonly total: number | undefined;
+  /** Vertices of the corpus the page's filter keeps, or `null` when nothing is filtered. */
+  readonly matching: number | null;
   /** What is loaded, or `null` before the graph has loaded. */
   readonly drawn: Drawn | null;
   /** The categorical domain before anything is loaded: the drawn tables, or the host's names. */

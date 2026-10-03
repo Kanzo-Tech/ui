@@ -27,22 +27,17 @@ and `y` loads.
 
 **They are separate because each moves without the other.** A filter loads under a paused layout —
 `loading` and `paused` — and a layout runs over a graph with nothing left to read — `idle` and
-`running`. Folding them into one word would make one of those states unsayable. So a host that
-shows a single word reads both:
+`running`. Folding them into one state would make one of those unsayable. So a word that sums them
+reads both, and **`GraphStatus` is that word**: Loading while anything is read, Laying out with the
+percentage while a layout runs over a drawn graph, Ready when both are at rest, Failed. A footer
+draws the part rather than reading the axes:
 
 ```tsx
-function Activity() {
-  const status = useGraphState((s) => s.status);
-  const laying = useGraphState((s) => s.motion === "running");
-  const progress = useGraphState((s) => s.progress);
-  if (status === "loading") return <>Loading…</>;
-  if (laying) return <>Laying out · {Math.round(progress * 100)}%</>;
-  return null;
-}
+<GraphStatus />
 ```
 
-`GraphCounts spinner` is that function already: its spinner says "Loading" for the first and
-"Laying out" for the second, and its `aria-busy` follows the load alone, because a layout moves the
+Reading `status` alone is the mistake it exists to prevent: a footer that did said "idle" over a
+layout visibly running. `GraphCounts`' `aria-busy` follows the load alone, because a layout moves the
 points and not the figures it reports.
 
 ## When the layout runs

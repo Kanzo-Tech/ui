@@ -32,7 +32,7 @@ It imports nothing of fossil's.
 
 ```text
 host                                                    @kanzo-tech/graph
-engine() → DuckDB-WASM + coordinator                    parts     GraphCanvas · GraphLegend · GraphCounts · GraphToolbar · GraphInspector · GraphSearch · GraphLooks
+engine() → DuckDB-WASM + coordinator                    parts     GraphCanvas · GraphLegend · GraphStatus · GraphCounts · GraphToolbar · GraphInspector · GraphSearch · GraphLooks
 open(name, { engine, url }) → "<name>".<Table>          adapter   useGraph · GraphRoot · GraphRootProvider · useGraphContext · useGraphState
            "<name>".fossil_tables · fossil_columns      render    typed arrays → cosmos.gl, uploaded once per corpus
 <GraphRoot from={name} coordinator filterBy>            core      source: SQL through the coordinator · client · load · store
@@ -270,8 +270,14 @@ under it read the root.
   the hover card, plus the marquee and lasso gesture.
 - **`GraphLegend`** — the categorical scale, or the vertex types when nothing is bound, with how many
   of each are drawn. Its domain is fixed before the graph loads, so a row never moves.
-- **`GraphCounts`** — what is drawn of the whole, in one sentence. A footer carries it, which is why
-  it is not the legend's last line.
+- **`GraphStatus`** — where the graph is, in one word: Loading, Laying out with the percentage, Ready,
+  Failed. It owns the fold of the two axes, `status` and `motion`, because a host that folded them
+  itself read `status` alone and said "idle" over a running layout. What would reverse it: a host
+  that needs the two axes apart in its footer, which `useGraphState` already gives it.
+- **`GraphCounts`** — the corpus and what the page's filter keeps of it, in one sentence: "N nodes"
+  unfiltered, "X of N nodes match" filtered. "Drawn" was the wrong verb — a vertex the filter drops is
+  greyed, never hidden — and unfiltered it always read "N of N". A footer carries it, which is why it
+  is not the legend's last line.
 - **`GraphToolbar`** — the tools, the selection, zoom and fit, and the layout's transport.
 - **`GraphInspector`** — the focused vertex's row, in `fossil_columns`' order, with a render prop for
   fields a product adds.
@@ -337,13 +343,13 @@ if WebGL exists but no device ever comes up".
 
 ```text
 the adapter        GraphRoot · GraphRootProvider · useGraph · useGraphContext · useGraphState
-the parts          GraphCanvas · GraphLegend · GraphCounts · GraphToolbar · GraphInspector · GraphSearch
-                   GraphSelect · ShapeGlyph
+the parts          GraphCanvas · GraphLegend · GraphStatus · GraphCounts · GraphToolbar · GraphInspector
+                   GraphSearch · GraphSelect · ShapeGlyph
 the picture        lookFrom · simFrom · useGraphPrefs · scaleOf · GraphLooks
 types              GraphRootProps · GraphRootProviderProps · UseGraphProps · GraphApi · GraphCanvasProps
-                   GraphLegendProps · GraphCountsProps · GraphToolbarProps · GraphInspectorProps
+                   GraphLegendProps · GraphStatusProps · GraphCountsProps · GraphToolbarProps · GraphInspectorProps
                    GraphSearchProps · GraphSelectProps · GraphLooksProps · ShapeGlyphProps
-                   GraphState · GraphStatus · Drawn · VertexDetail
+                   GraphState · DataStatus · Drawn · VertexDetail
                    Channels · Look · LookPatch · LookPreset · Shape · Sim · Motion · Selection · SelectionSource
                    Tool · GraphCommands · VertexId
 ./section          GRAPH_SECTION
@@ -462,6 +468,6 @@ was the alternative and is refused: it would be a key no reader reads, which the
 - **Names for a channel's values.** The catalog names no categories, so the host passes
   `categories`. If `fossil_columns` ever carries them, the catalog's win.
 - **A column two types share.** A crossfilter clause carries no table, so a filter on `name` filters
-  every vertex type that has one — a `WHERE` over a union. keasy reading it wrongly would reopen it.
+  every vertex type that has one — a `WHERE` over a union. A host reading it wrongly would reopen it.
 - **The greyout at scale.** The surviving-id query and the two index lists have not been timed at
   500,000 vertices.

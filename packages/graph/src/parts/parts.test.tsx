@@ -1,3 +1,4 @@
+import { clauseInterval, Selection } from "@kanzo-tech/mosaic";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { attach, refusal, settle, type Attached } from "../../test/corpus";
@@ -9,6 +10,7 @@ import { GraphInspector } from "./graph-inspector";
 import { GraphLegend } from "./graph-legend";
 import { GraphSearch } from "./graph-search";
 import { GraphSelect } from "./graph-select";
+import { GraphStatus } from "./graph-status";
 import { GraphToolbar } from "./graph-toolbar";
 import { useOverlays } from "./overlays";
 
@@ -74,20 +76,20 @@ describe("GraphLegend", () => {
 });
 
 describe("GraphCounts", () => {
+  const counts = () => document.querySelector('[data-slot="graph-counts"]');
+
   it("says what it does not know yet as a dash, and is busy while it loads", async () => {
     const corpus = await attach();
     render(
       <GraphRoot {...over(corpus)} onFailure={() => {}}>
-        <GraphCounts spinner />
+        <GraphCounts />
       </GraphRoot>,
     );
-    const counts = document.querySelector('[data-slot="graph-counts"]');
-    expect(counts?.textContent).toBe("— of — nodes drawn · — edges");
-    expect(counts?.getAttribute("aria-busy")).toBe("true");
-    expect(screen.getByRole("status")).toBeTruthy();
+    expect(counts()?.textContent).toBe("— nodes · — edges");
+    expect(counts()?.getAttribute("aria-busy")).toBe("true");
   });
 
-  it("counts what is drawn of the whole, and the edges whose two ends are drawn", async () => {
+  it("counts the corpus with no filter, and the edges whose two ends are drawn", async () => {
     const corpus = await attach();
     render(
       <GraphRoot {...over(corpus)} onFailure={() => {}} x="lon" y="lat">
@@ -95,26 +97,74 @@ describe("GraphCounts", () => {
       </GraphRoot>,
     );
     await ready(corpus);
-    // Bound to lon/lat, Tag has no position: its four vertices and the one link to them are not drawn.
-    expect(document.querySelector('[data-slot="graph-counts"]')?.textContent).toBe("16 of 20 nodes drawn · 19 edges");
+    // Bound to lon/lat, Tag has no position: the one link to it is not drawn, but its vertices are the corpus's.
+    expect(counts()?.textContent).toBe("20 nodes · 19 edges");
   });
 
-  it("spins for a running layout without calling the figures busy", async () => {
+  it("says how many of the corpus match the page's filter", async () => {
+    const corpus = await attach();
+    const crossfilter = Selection.crossfilter();
+    render(
+      <GraphRoot {...over(corpus)} filterBy={crossfilter} onFailure={() => {}}>
+        <GraphCounts />
+      </GraphRoot>,
+    );
+    await ready(corpus);
+    await act(async () => {
+      crossfilter.update(clauseInterval("score", [2, 5], { source: { reset() {} } }));
+      await settle(corpus);
+    });
+    // Person 1–4 by score, and every Place and Tag, which have no `score` for the clause to reach.
+    expect(counts()?.textContent).toBe("14 of 20 nodes match · 7 edges");
+  });
+});
+
+describe("GraphStatus", () => {
+  async function status() {
     const corpus = await attach();
     const held: { api: GraphApi | null } = { api: null };
+    const onFailure = vi.fn();
     render(
-      <GraphRoot {...over(corpus)} onFailure={() => {}}>
-        <GraphCounts spinner />
+      <GraphRoot {...over(corpus)} onFailure={onFailure}>
+        <GraphStatus />
         <Hold into={held} />
       </GraphRoot>,
     );
+    const badge = () => document.querySelector('[data-slot="graph-status"]');
+    return { corpus, held, badge };
+  }
+  const word = () => document.querySelector('[data-slot="graph-status"] [aria-live="polite"]');
+
+  it("says Loading, busy, until the graph is read and drawn", async () => {
+    const { badge } = await status();
+    expect(badge()?.textContent).toBe("Loading");
+    expect(badge()?.getAttribute("aria-busy")).toBe("true");
+  });
+
+  it("says Laying out with how far over a drawn graph, the percentage outside the live word, then Ready", async () => {
+    const { corpus, held, badge } = await status();
     await ready(corpus);
     if (!held.api) throw new Error("no api");
     const { store } = internalsOf(held.api);
     act(() => store.reportDrawn(store.getSnapshot()));
+    expect(badge()?.textContent).toBe("Ready");
+    expect(badge()?.getAttribute("aria-busy")).toBeNull();
     act(() => store.report("running"));
-    expect(screen.getByRole("status", { name: "Laying out" })).toBeTruthy();
-    expect(document.querySelector('[data-slot="graph-counts"]')?.getAttribute("aria-busy")).toBeNull();
+    act(() => store.reportProgress(0.42));
+    expect(badge()?.textContent).toBe("Laying out42%");
+    expect(word()?.textContent).toBe("Laying out");
+    expect(badge()?.getAttribute("aria-busy")).toBe("true");
+    act(() => store.report("settled"));
+    expect(badge()?.textContent).toBe("Ready");
+  });
+
+  it("says Failed when the canvas cannot draw", async () => {
+    const { corpus, held, badge } = await status();
+    await ready(corpus);
+    if (!held.api) throw new Error("no api");
+    act(() => internalsOf(held.api as GraphApi).store.unrenderable(new Error("no device")));
+    expect(word()?.textContent).toBe("Failed");
+    expect(badge()?.getAttribute("aria-busy")).toBeNull();
   });
 });
 

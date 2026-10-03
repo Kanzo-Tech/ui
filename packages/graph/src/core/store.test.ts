@@ -202,9 +202,11 @@ describe("the page's crossfilter", () => {
     expect(ids(store.getSnapshot().mask)).toEqual([1, 2, 3, 4, ...Array.from({ length: 10 }, (_, i) => 10 + i)]);
     expect(store.getSnapshot()).toMatchObject({ geometry, encoding });
     expect(store.getSnapshot().drawn?.vertices).toBe(14);
+    expect(store.getSnapshot().matching).toBe(14);
     crossfilter.update(clauseInterval("score", null, { source: chart }));
     await settle(corpus);
     expect(store.getSnapshot().mask).toBeNull();
+    expect(store.getSnapshot().matching).toBeNull();
   });
 
   it("runs the predicate as Mosaic wrote it, on every table that has its columns", async () => {
