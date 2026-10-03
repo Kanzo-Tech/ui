@@ -94,6 +94,25 @@ export interface GraphState {
   readonly structure: Structure | null;
 }
 
+/** Where the camera looks: the point of the layout's square at the canvas's centre, and cosmos.gl's zoom. */
+export interface View {
+  readonly center: readonly [number, number];
+  readonly zoom: number;
+}
+
+/**
+ * **Where a canvas left the points and the camera**, for the current geometry — cosmos.gl's
+ * `getPointPositions` read when the canvas detached, in the layout's square, and handed back to
+ * `setPointPositions` when the next one attaches. The model is the store's and a canvas is a view of
+ * it, so a canvas can go — and free its GPU — without the layout going with it. A new geometry drops
+ * it: positions are kept for the vertices they were read for.
+ */
+export interface Arrangement {
+  readonly positions: Float32Array;
+  /** `null` when the canvas had no size to read a centre from. */
+  readonly view: View | null;
+}
+
 /** The state, plus what only the renderer and the parts read. */
 export interface GraphSnapshot extends GraphState {
   readonly binding: Binding;
@@ -101,6 +120,8 @@ export interface GraphSnapshot extends GraphState {
   readonly encoding: Encoding | null;
   /** `1` where a vertex survives the page's filter; `null` when nothing is filtered. A vertex that does not is greyed out, never hidden. */
   readonly mask: Uint8Array | null;
+  /** What the last canvas left, or `null` before one has drawn this geometry. */
+  readonly arrangement: Arrangement | null;
 }
 
 /**
@@ -120,6 +141,8 @@ export interface GraphStore {
   setTool(tool: Tool): void;
   report(motion: Motion): void;
   reportProgress(value: number): void;
+  /** A canvas is detaching: keep where it left the current geometry's points and camera. */
+  keep(arrangement: Arrangement): void;
   /** The canvas has a renderer again. */
   renderable(): void;
   /** The canvas cannot draw: the graph is `failed`, and `error` goes to `onFailure`. */
