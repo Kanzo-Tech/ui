@@ -329,6 +329,12 @@ Not everything belongs in the library, and that is not a loss:
   door into Next's public router and an end-to-end fixture in three engines — none of which a
   product has. Its root knows no router; the one it adapts is behind `/next`, and [the navigation
   layer](/docs/design/navigation) says why.
+- **Services** — the server half of a capability whose client half is a sibling package: under
+  `services/` beside `packages/`, released under the same tag. `services/auth` is the Keycloak realm
+  `@kanzo-tech/auth` reads, `services/ai` the gateway `@kanzo-tech/llm` calls. They are domain-free
+  the same way the library is: a service names no application — an application registers itself
+  from its own repository — and production configuration is the deployment's.
+  [The services](/docs/design/services) is why.
 
 If a piece cannot pass [admission](#admission), it is a showcase, a sibling package or product code.
 Those are respectable destinations, not rejections.

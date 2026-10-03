@@ -168,9 +168,9 @@ server process does not pull a component library in behind an import of an OAuth
 
 ## The realm it expects
 
-`kanzo-auth` is the service half — Keycloak with its realm as code — and it is a separate
-deliverable that shares a surname. What this package needs from it is small and none of it is
-invented: role claims on **both** tokens, an audience mapper naming your API, and the
+[The identity service](/docs/auth/service) is the server half — Keycloak with its realm as code —
+and it ships from this repository under the same tag as the package. What this package needs from
+it is small and none of it is invented: role claims on **both** tokens, an audience mapper naming your API, and the
 `organization:*` scope. [Keycloak](/docs/auth/keycloak) is that page, and it is the one to hand to
 whoever runs the realm.
 
@@ -178,6 +178,7 @@ whoever runs the realm.
   <Card title="Session" href="/docs/auth/session" description="The shape, the two patterns, and why there is no active organization on it." />
   <Card title="Roles" href="/docs/auth/roles" description="can, Gate, useOrganization, and where the roles inside an organization are read from." />
   <Card title="Keycloak" href="/docs/auth/keycloak" description="The realm a consumer needs: two token toggles, an audience mapper, and the scope with the star." />
+  <Card title="The identity service" href="/docs/auth/service" description="Keycloak with the realm as code: run it, register an application, check the contract." />
   <Card title="Server" href="/docs/auth/server" description="The confidential client: five methods, strings in and strings out, and a sealed cookie." />
   <Card title="Next.js" href="/docs/auth/next" description="The BFF in the three files an App Router product already has." />
 </Cards>

@@ -1,0 +1,87 @@
+---
+title: The services
+description: Why a capability's server half ships beside its client half, in one repository under one tag — and why the service names no application and carries no production configuration.
+---
+
+Two of the sibling packages read something a server emits: `@kanzo-tech/auth` reads a Keycloak
+realm's tokens, and `@kanzo-tech/llm` names models behind a gateway. Those servers are in this
+repository too, under `services/` — [the identity service](/docs/auth/service) and
+[the gateway](/docs/ai/gateway). This page is why they are here, and what keeps them generic.
+
+## Each capability ships both halves
+
+The server half of a capability and its client half live in **one repository and are released under
+one tag**: `services/auth` beside `packages/auth`, `services/ai` beside `packages/llm`. An
+application pins `v0.28.0` once — its packages, the Terraform module it registers with and the
+compose file it includes all name the same release — and gets a server and a client that were
+checked against each other, rather than two version numbers whose agreement is its own problem.
+
+The contract between the halves is what makes this more than packaging. The package reads
+`organization.<alias>.resource_access.<clientId>.roles`; the realm is what writes it, and only
+Keycloak 26.7 and later can. Kept apart, a change to a claim mapper and a change to the reader land
+in two repositories on two schedules, and the first place they meet is a consumer's sign-in. Kept
+together, one pull request changes both, and the same CI run brings Keycloak up, signs every seeded
+person in and checks the claims, while the package's tests read a token recorded off that service.
+
+**What would reverse it:** the halves moving on different clocks — releases that carry a service
+change and nothing for the packages, or the reverse, often enough that one version number is
+costing consumers upgrades they did not need. Or a service operated by a team with its own release
+cadence, at which point the tag is a promise this repository cannot keep. Neither has happened; the
+services arrived in the same pull request as the reader that needed them.
+
+*Held by* the job `services` in `.github/workflows/ci.yml`, which runs `services/auth/scripts/verify.sh`
+on live tokens for every seeded person; `packages/auth/src/claims.test.ts`, "a real token, taken off a
+live Keycloak 26.8.0" and "reads a composite with the role it contains, as Keycloak expanded it".
+
+<Callout type="warn">
+**The recorded token is recorded, not regenerated.** `verify.sh` checks the live realm against the
+contract and `claims.test.ts` checks the reader against a token taken off it once; nothing rewrites
+the fixture when the realm changes. A mapper change that keeps `verify.sh` green but alters the
+token's shape elsewhere would pass both. Re-record the token in the same pull request as any change
+to `realm/token-claims.tf`.
+</Callout>
+
+## The service names no application
+
+Nothing under `services/` knows `board` or `ledger`. **An application registers itself**, from its
+own repository: `services/auth/modules/app` is its client, its audience and its roles with their
+composites, and `services/ai/modules/team` is one tenant's budget and key. The realm's only client
+is `kanzo-conformance`, which exists to prove the contract and is off unless a development or CI
+variable turns it on.
+
+The alternative is the one every shared realm drifts into: each new application is an edit to the
+platform's Terraform, the platform's repository becomes a list of its consumers, and removing one is
+an archaeology exercise. With the registration in the application's repository, adding an
+application is that application's pull request, deleting it deletes its module, and two
+applications' roles cannot reach each other because neither is declared where the other can see it.
+
+**What would reverse it:** something an application needs that a client registration cannot express
+from outside the realm — a realm-wide setting one application wants and another cannot live with.
+That would have to be declared in the realm, and the honest shape then is an input the realm takes,
+still named for what it does rather than for who asked. None has appeared: every setting the claim
+contract needs is realm-wide and generic, and everything per application is a client attribute.
+
+*Held by* the job `services` in `.github/workflows/ci.yml`, which validates `modules/app`,
+`modules/team` and `modules/gateway` as modules with no caller, and proves the realm through
+`kanzo-conformance` alone.
+
+## Production configuration belongs to the deployment
+
+The services ship **development** values and the **shape** of production ones, never production
+values. The gateway's `profile` — which upstream answers each alias — has no default in
+`modules/gateway`: the development profile beside it shows the shape, and a deployment writes its
+own. The upstream keys, the realm's identity provider, SMTP and TLS are the deployment's in the same
+way, and membership is runtime: development seeds it, production invites.
+
+A shipped production profile would be one deployment's choices — a provider, a model, a price —
+presented as the platform's, and every other deployment would start by undoing it. What the service
+does own is what does not vary between them: the aliases, the claim mappers, the image pin, the
+cache defaulting to off.
+
+**What would reverse it:** two deployments that want the same production profile verbatim, written
+twice. Then the duplication is real and the profile has earned a place — as a named example
+deployments copy, not as a default a module falls back to.
+
+*Held by* nothing that fails. `modules/gateway` declares `profile` with no default, so Terraform
+refuses a plan without one; that is the module's type, not a guard, and a default added later would
+pass every gate here.
