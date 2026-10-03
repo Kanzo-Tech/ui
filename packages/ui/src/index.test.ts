@@ -257,6 +257,11 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(surface.SidebarNav).toBeUndefined();
     expect(surface.SidebarNavItem).toBeUndefined();
     expect(UI.isActivePath).toBeTypeOf("function");
+    // Preference and route intent are two inputs to one state: the cookie a server layout reads into
+    // `defaultOpen`, and the component a route renders. Neither is a prop of the other.
+    expect(UI.SIDEBAR_COOKIE_NAME).toBe("sidebar_state");
+    expect(UI.parseSidebarCookie).toBeTypeOf("function");
+    expect(UI.SidebarIntent).toBeTypeOf("function");
     // `SidebarUser` and `InstanceSwitcher` were one component under two names — byte-identical
     // trigger, identity row, menu body and comments. `SidebarUser.user` was *literally* the
     // `label`/`description`/`avatarUrl` record `SidebarIdentity` names as the shape it rejects,

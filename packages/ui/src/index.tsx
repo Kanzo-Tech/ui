@@ -310,6 +310,8 @@ export type { EmptyIndicatorProps } from "./layouts/empty.js";
 export { GatedRoot, GatedContent, GatedBadge } from "./layouts/gated.js";
 export type { GatedBadgeProps } from "./layouts/gated.js";
 export * from "./composites/sidebar.js";
+// Server-safe: a layout reads the preference cookie into `SidebarProvider`'s `defaultOpen`.
+export { SIDEBAR_COOKIE_NAME, parseSidebarCookie } from "./composites/sidebar-cookie.js";
 export {
   SidebarIdentity,
   SidebarIdentityAvatar,

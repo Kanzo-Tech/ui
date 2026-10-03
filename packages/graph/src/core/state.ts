@@ -85,7 +85,6 @@ export interface GraphState {
   readonly selection: Selection | null;
   readonly focus: VertexId | null;
   readonly hovered: VertexId | null;
-  readonly pinned: readonly VertexId[];
   readonly tool: Tool;
   readonly motion: Motion;
   /** How far through settling a live layout is, `0`–`1`. */
@@ -93,6 +92,25 @@ export interface GraphState {
   readonly options: GraphOptions;
   /** The corpus's tables, once read. */
   readonly structure: Structure | null;
+}
+
+/** Where the camera looks: the point of the layout's square at the canvas's centre, and cosmos.gl's zoom. */
+export interface View {
+  readonly center: readonly [number, number];
+  readonly zoom: number;
+}
+
+/**
+ * **Where a canvas left the points and the camera**, for the current geometry — cosmos.gl's
+ * `getPointPositions` read when the canvas detached, in the layout's square, and handed back to
+ * `setPointPositions` when the next one attaches. The model is the store's and a canvas is a view of
+ * it, so a canvas can go — and free its GPU — without the layout going with it. A new geometry drops
+ * it: positions are kept for the vertices they were read for.
+ */
+export interface Arrangement {
+  readonly positions: Float32Array;
+  /** `null` when the canvas had no size to read a centre from. */
+  readonly view: View | null;
 }
 
 /** The state, plus what only the renderer and the parts read. */
@@ -104,6 +122,8 @@ export interface GraphSnapshot extends GraphState {
   readonly mask: Uint8Array | null;
   /** What the search was last used to go to, newest first — for the root's life, never stored. */
   readonly recent: readonly { readonly vertex: VertexId; readonly text: string }[];
+  /** What the last canvas left, or `null` before one has drawn this geometry. */
+  readonly arrangement: Arrangement | null;
 }
 
 /**
@@ -120,12 +140,13 @@ export interface GraphStore {
   select(vertices: readonly VertexId[] | null, source?: SelectionSource, label?: string): void;
   focus(vertex: VertexId | null): void;
   hover(vertex: VertexId | null): void;
-  pin(vertices: readonly VertexId[]): void;
   /** A vertex the search went to, at the head of `recent`. */
   remember(vertex: VertexId, text: string): void;
   setTool(tool: Tool): void;
   report(motion: Motion): void;
   reportProgress(value: number): void;
+  /** A canvas is detaching: keep where it left the current geometry's points and camera. */
+  keep(arrangement: Arrangement): void;
   /** The canvas has a renderer again. */
   renderable(): void;
   /** The canvas cannot draw: the graph is `failed`, and `error` goes to `onFailure`. */

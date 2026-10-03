@@ -16,6 +16,7 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { cn } from "../lib/cn.js";
+import { Badge } from "../simples/badge.js";
 import { Button } from "../simples/button.js";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "../simples/card.js";
 import { Field, FieldLabel } from "../simples/field.js";
@@ -39,6 +40,7 @@ import {
   type DashboardChartType,
 } from "./dashboard-spec.js";
 import type { FieldStat } from "./field-stats.js";
+import { cardRationale } from "./recommend.js";
 import { useChartQuery } from "./use-chart-query.js";
 
 export interface ChartCardProps extends Omit<React.ComponentProps<typeof Card>, "onChange"> {
@@ -79,13 +81,18 @@ const TYPE: Record<DashboardChartType, { label: string; icon: typeof ChartLineIc
  * One `DashboardCardSpec`, drawn and editable. The chart is a `ChartRoot` with the marks the type
  * calls for and the interactor its scale allows — pick on a band, brush on a range — so every card
  * publishes into the page's crossfilter and dims or filters with it. Without a series the whole
- * relation stays behind the selection in grey: the context a filtered chart otherwise loses.
+ * relation stays behind the selection in grey: the context a filtered chart otherwise loses. A card
+ * that is what `recommend` proposes for its fields says why in its description, under an
+ * *Automatic* badge, until somebody edits it.
  */
 export function ChartCard(props: ChartCardProps) {
   const { table, fields, card, config, onChange, onRemove, onMove, className, slot, ...rest } = props;
   const missing = [card.x, card.y.field, card.color, card.facet].filter(
     (name): name is string => name !== undefined && !fields.some((f) => f.name === name),
   );
+  // Derived on every render rather than stored: an automatic dashboard is never saved, and a card
+  // stops being automatic by being edited, which the rules notice on their own.
+  const rationale = cardRationale(card, fields);
 
   return (
     <Card
@@ -95,10 +102,19 @@ export function ChartCard(props: ChartCardProps) {
     >
       <CardHeader className="gap-0.5">
         <CardTitle className="truncate font-medium text-sm">{cardTitle(card)}</CardTitle>
-        <CardDescription className="text-xs">{TYPE[card.type].hint}</CardDescription>
-        {onChange ? (
-          <CardAction className="-my-1">
-            <CardEditor card={card} fields={fields} onChange={onChange} onMove={onMove} onRemove={onRemove} />
+        <CardDescription className="text-xs">
+          {rationale ? `${rationale} · ${TYPE[card.type].hint}` : TYPE[card.type].hint}
+        </CardDescription>
+        {onChange || rationale ? (
+          <CardAction className="-my-1 flex items-center gap-1">
+            {rationale ? (
+              <Badge size="sm" variant="secondary">
+                Automatic
+              </Badge>
+            ) : null}
+            {onChange ? (
+              <CardEditor card={card} fields={fields} onChange={onChange} onMove={onMove} onRemove={onRemove} />
+            ) : null}
           </CardAction>
         ) : null}
       </CardHeader>
