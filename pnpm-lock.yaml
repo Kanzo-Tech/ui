@@ -227,6 +227,9 @@ importers:
       '@codemirror/lang-sql':
         specifier: ^6.10.0
         version: 6.10.0
+      '@duckdb/duckdb-wasm':
+        specifier: 1.33.1-dev57.0
+        version: 1.33.1-dev57.0
       '@kanzo-tech/mosaic':
         specifier: workspace:*
         version: link:../mosaic

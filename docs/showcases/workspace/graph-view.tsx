@@ -66,6 +66,7 @@ import {
   dataSuggestions,
   describeSchema,
   QueryResult,
+  type DataSchema,
   type DataScope,
   type QueryOutput,
 } from "@kanzo-tech/ai/data";
@@ -1105,7 +1106,7 @@ const askModel = mockModel((call) => {
 
 export function GraphAsk() {
   const archive = useArchive();
-  const [schema, setSchema] = useState<string | null>(null);
+  const [schema, setSchema] = useState<DataSchema | null>(null);
   useEffect(() => {
     if (!archive) return;
     let live = true;
@@ -1114,7 +1115,7 @@ export function GraphAsk() {
       .then((references) =>
         describeSchema(archive.coordinator, { catalog: FROM, exclude: ["fossil_tables", "fossil_columns"], references }),
       )
-      .then((ddl) => live && setSchema(ddl), announce);
+      .then((described) => live && setSchema(described), announce);
     return () => {
       live = false;
     };
@@ -1140,7 +1141,7 @@ function AskEmpty() {
 }
 
 /** Questions to start from, as they stream in: none on failure, and the chat works without them. */
-function useStarters(schema: string, scope: DataScope) {
+function useStarters(schema: DataSchema, scope: DataScope) {
   const [state, setState] = useState<{ questions: string[]; suggesting: boolean }>({ questions: [], suggesting: true });
   useEffect(() => {
     const abort = new AbortController();
@@ -1181,7 +1182,7 @@ function AnswerActions({ output, source }: { output: QueryOutput; source: object
   );
 }
 
-function AskBody({ archive, schema }: { archive: Archive; schema: string }) {
+function AskBody({ archive, schema }: { archive: Archive; schema: DataSchema }) {
   const { coordinator, crossfilter } = useMosaic();
   const scope = useMemo<DataScope>(() => ({ selection: crossfilter, table: archive.nodes }), [crossfilter, archive]);
   const transport = useMemo(

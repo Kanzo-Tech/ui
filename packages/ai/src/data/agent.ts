@@ -1,36 +1,28 @@
 import { type LanguageModel, jsonSchema, stepCountIs, type Tool, tool, ToolLoopAgent } from "@kanzo-tech/llm";
-import { asTableRef, Query, sql, type Coordinator, type Selection, type TableExpr } from "@kanzo-tech/mosaic";
+import { asTableRef, type Coordinator } from "@kanzo-tech/mosaic";
 import { suggest } from "../suggest.js";
+import type { DataSchema } from "./schema.js";
+import { type DataScope, gateStatement, scoped } from "./statement.js";
 
 /** One row of an answer, plain enough to keep in a message. */
 export type QueryRow = Record<string, unknown>;
 
 /**
- * What the reader is looking at: the page's crossfilter, and the relation its clauses filter. The
- * agent's every query may read it as a table named `scope` — the relation's rows under the clauses
- * active when the query runs.
+ * A `query` call's rows, every one of them — what the reader sees; the model reads a sample. The rows
+ * are the answer: nothing reads the SQL again, since a transcript is kept and restored, and what it
+ * holds is no one's statement to run.
  */
-export interface DataScope {
-  selection: Selection;
-  table: TableExpr;
-}
-
-/** A `query` call's rows, every one of them — what the reader sees; the model reads a sample. */
 export interface QueryOutput {
   /** The statement the model wrote. */
   readonly sql: string;
-  /**
-   * The statement that ran: the model's, under the row cap and with `scope` defined. A relation the
-   * result card can query again — its chart reads it — and the same rows whenever it is asked.
-   */
-  readonly statement: string;
   readonly rows: readonly QueryRow[];
   /** The cap cut the answer short: these are its first rows. */
   readonly truncated: boolean;
 }
 
 /**
- * A `query` call the engine refused: the model reads why and tries again; the reader sees it too.
+ * A `query` call refused — by the statement gate, or by the engine: the model reads why and tries
+ * again; the reader sees it too.
  * The failure as a message can carry it — its words, and its `code` when it had one — since a thrown
  * value does not survive being kept in a conversation.
  */
@@ -54,8 +46,11 @@ export interface DataAgentOptions {
   model: LanguageModel;
   /** The page's coordinator: the agent queries through it, on the page's one connection. */
   coordinator: Coordinator;
-  /** The data space as DDL — `describeSchema`'s answer. The model is told it is the whole of it. */
-  schema: string;
+  /**
+   * The data space — `describeSchema`'s answer. The model reads its DDL and is told it is the whole of
+   * it; a statement may read its tables and `scope`, and nothing else.
+   */
+  schema: DataSchema;
   /** The page's selection and the relation it filters, offered to every query as `scope`. */
   scope?: DataScope;
   /**
@@ -79,28 +74,6 @@ export function sample(rows: readonly QueryRow[]): string {
   return json.length > SAMPLE_CHARS ? `${json.slice(0, SAMPLE_CHARS)}…` : json;
 }
 
-/** The scope's own statement: the relation under the clauses active now. */
-const scoped = (scope: DataScope) =>
-  Query.from(scope.table)
-    .select("*")
-    .where(scope.selection.predicate(null) ?? []);
-
-/**
- * The statement that runs: the model's text, wrapped and capped, with `scope` defined in front.
- *
- * Built with mosaic-sql rather than spliced: the scope is the selection's own predicate nodes, and
- * the model's text is the one fragment of SQL nobody here wrote. It goes in a subquery — so a
- * statement with a `WITH` of its own still composes, and the `LIMIT` outside it holds whatever the
- * model wrote — and the newline before the closing parenthesis keeps a trailing `--` comment from
- * swallowing it.
- */
-export function statement(text: string, scope: DataScope | undefined, rows: number = ROWS): string {
-  // The statement's own terminator goes, with whatever line comments trail it.
-  const body = text.trim().replace(/;+((?:\s|--[^\n]*)*)$/, "$1");
-  const query = Query.from(sql`(${body}\n)`).select("*").limit(rows);
-  return String(scope ? query.with({ scope: scoped(scope) }) : query);
-}
-
 /** A 64-bit integer comes back as a `bigint` and a timestamp as a `Date`; a message carries neither. */
 const plain = (value: unknown) =>
   typeof value === "bigint" ? Number(value) : value instanceof Date ? value.toISOString() : value;
@@ -121,13 +94,13 @@ export function dataInstructions(options: Pick<DataAgentOptions, "schema" | "sco
   const { schema, scope, key, rows = ROWS } = options;
   return [
     `You answer questions about data in DuckDB by querying it with the \`query\` tool, then saying what the rows show. The schema below is the whole of it: use those tables and those columns, and invent no others.`,
-    `## Schema\n\n${schema}`,
+    `## Schema\n\n${schema.ddl}`,
     scope &&
       `## Scope\n\nEvery query may read a table named \`scope\`: the rows of ${String(typeof scope.table === "string" ? asTableRef(scope.table) : scope.table)} the reader has filtered the page to, at the moment the query runs. Each result says which filter applied. When the question is about "these", "the selection", "what I am looking at" or "here", query \`scope\`; otherwise query the tables themselves.`,
     `## Joining\n\nA column declared \`REFERENCES\` another table's column is a join key: join the two on it.`,
     key &&
       `## Rows the reader can act on\n\n\`"${key}"\` identifies a row across every table. Include it whenever you select rows rather than aggregates, so the reader can act on the answer.`,
-    `## DuckDB SQL\n\n- Name every table exactly as the schema does, qualified as it is.\n- Quote identifiers with double quotes: \`"Table"."column"\`.\n- End every SELECT in a \`LIMIT\` of at most ${rows}: \`LIMIT 100\` by default, \`ORDER BY … DESC LIMIT N\` for a top N.\n- Select readable columns (a name, a label, a title) beside identifiers.\n- Match text with \`"col" ILIKE '%term%'\`; aggregate with \`GROUP BY\`; take dates apart with \`EXTRACT(YEAR FROM "col")\` and \`DATE_TRUNC('month', "col")\`.\n- Cast a number stored as text before comparing it: \`CAST("col" AS DOUBLE)\`.\n\nIf a query fails, read the error and try again with a corrected one.`,
+    `## DuckDB SQL\n\n- Name every table exactly as the schema does, qualified as it is.\n- Quote identifiers with double quotes: \`"Table"."column"\`.\n- End every SELECT in a \`LIMIT\` of at most ${rows}: \`LIMIT 100\` by default, \`ORDER BY … DESC LIMIT N\` for a top N.\n- Select readable columns (a name, a label, a title) beside identifiers.\n- Match text with \`"col" ILIKE '%term%'\`; aggregate with \`GROUP BY\`; take dates apart with \`EXTRACT(YEAR FROM "col")\` and \`DATE_TRUNC('month', "col")\`.\n- Cast a number stored as text before comparing it: \`CAST("col" AS DOUBLE)\`.\n- Read the tables above${scope ? " and `scope`" : ""} and nothing else: a file, a URL, a table function or the catalog is refused.\n\nIf a query fails, read the error and try again with a corrected one.`,
     `## Answering\n\nThe rows a query returns are already in front of the reader, as a table, a chart or a single figure, with the SQL one click away. Do not list the rows again, draw a table of them, or repeat the SQL. Say what they show, in concise markdown: the numbers that matter, the pattern, the exception — citing actual values.`,
   ]
     .filter(Boolean)
@@ -136,15 +109,16 @@ export function dataInstructions(options: Pick<DataAgentOptions, "schema" | "sco
 
 /**
  * An agent that answers questions about data by querying it — in the page, on the page's
- * coordinator. One tool, `query`: the model writes a DuckDB SELECT, the tool runs it under a row cap
- * with `scope` defined, and the whole answer goes to the transcript while the model reads a sample.
- * `QueryResult` draws what the reader sees.
+ * coordinator. One tool, `query`: the model writes a DuckDB SELECT, `gateStatement` turns it into the
+ * statement that may run — one read-only SELECT over the schema's tables, under a row cap and with
+ * `scope` defined — or refuses it, and the whole answer goes to the transcript while the model reads a
+ * sample. `QueryResult` draws what the reader sees.
  *
  * Nothing here knows what the data is. What a host knows that DuckDB's catalog does not — the joins,
  * the key a row is acted on by — comes in as `describeSchema`'s references and as `key`.
  */
 export function dataAgent(options: DataAgentOptions): ToolLoopAgent<never, DataTools> {
-  const { model, coordinator, scope, rows = ROWS } = options;
+  const { model, coordinator, schema, scope, rows = ROWS } = options;
   const tools: DataTools = {
     query: tool({
       description: `Run one DuckDB SELECT and return its rows. The reader sees every row it returns; you see the first ${SAMPLE_ROWS}. It ends in a LIMIT of at most ${rows}.`,
@@ -154,18 +128,20 @@ export function dataAgent(options: DataAgentOptions): ToolLoopAgent<never, DataT
         required: ["sql"],
         additionalProperties: false,
       }),
-      // A query the engine refuses is an answer, not a throw: the model reads the engine's words and
+      // A query the gate or the engine refuses is an answer, not a throw: the model reads why and
       // tries again, and the card shows the refusal as what it is.
       execute: async ({ sql: text }, { abortSignal }): Promise<QueryAnswer> => {
-        const ran = statement(text, scope, rows);
         try {
+          // One more row than the cap, so a cut answer is told from one that fits exactly.
+          const gated = await gateStatement(coordinator, text, { tables: schema.tables, scope, limit: rows + 1 });
+          if ("refused" in gated) return { sql: text, error: gated.refused };
           // The coordinator takes no signal: a stopped chat drops the answer when it lands.
-          const table = (await coordinator.query(ran)) as { toArray(): Iterable<QueryRow> };
+          const table = (await coordinator.query(gated.statement)) as { toArray(): Iterable<QueryRow> };
           abortSignal?.throwIfAborted();
           const answer = Array.from(table.toArray(), (row) =>
             Object.fromEntries(Object.entries(row).map(([column, value]) => [column, plain(value)])),
           );
-          return { sql: text, statement: ran, rows: answer, truncated: answer.length >= rows };
+          return { sql: text, rows: answer.slice(0, rows), truncated: answer.length > rows };
         } catch (error) {
           if (abortSignal?.aborted) throw error;
           return { sql: text, error: refusal(error) };
@@ -202,8 +178,8 @@ const QUESTIONS = `You suggest questions a person exploring this data would ask 
 
 export interface DataSuggestionsOptions {
   model: LanguageModel;
-  /** The same DDL the agent is given. */
-  schema: string;
+  /** The same schema the agent is given. */
+  schema: DataSchema;
   /** The same scope; its active filter is what the questions favour. */
   scope?: DataScope;
   /** How many to offer. Default 4. */
@@ -220,7 +196,7 @@ export function dataSuggestions(options: DataSuggestionsOptions) {
   return suggest({
     model,
     instructions: QUESTIONS,
-    prompt: [`Schema:\n${schema}`, scope && `Scope — the rows the reader is looking at:\n${String(scoped(scope))}`, `Give ${count}.`]
+    prompt: [`Schema:\n${schema.ddl}`, scope && `Scope — the rows the reader is looking at:\n${String(scoped(scope))}`, `Give ${count}.`]
       .filter(Boolean)
       .join("\n\n"),
     abortSignal,

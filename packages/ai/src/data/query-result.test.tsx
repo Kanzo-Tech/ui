@@ -1,9 +1,16 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
-import type { FieldStat } from "@kanzo-tech/ui/analytics";
+import { beforeAll, describe, expect, it } from "vitest";
+import { MosaicProvider, type FieldStat } from "@kanzo-tech/ui/analytics";
+import { testDatabase, type TestDatabase } from "../testing/duckdb.js";
 import type { ToolPart } from "../tool.js";
 import type { QueryAnswer } from "./agent.js";
-import { answerChart, answerView, QueryResult, toCsv } from "./query-result.js";
+import { answerChart, answerRelation, answerView, QueryResult, toCsv } from "./query-result.js";
+
+let db: TestDatabase;
+beforeAll(async () => {
+  db = await testDatabase();
+  db.run(`CREATE TABLE secret ("x" INTEGER)`);
+});
 
 const part = (output: QueryAnswer) =>
   ({ type: "tool-query", toolCallId: "c", state: "output-available", input: { sql: output.sql }, output }) as ToolPart;
@@ -35,7 +42,7 @@ describe("how an answer is read", () => {
 
 describe("QueryResult", () => {
   it("draws a single figure as a Stat, with its column as the label", () => {
-    render(<QueryResult part={part({ sql: "select count(*) as n", statement: "", rows: [{ n: 1234 }], truncated: false })} />);
+    render(<QueryResult part={part({ sql: "select count(*) as n", rows: [{ n: 1234 }], truncated: false })} />);
     expect(document.querySelector("[data-slot=stat-label]")?.textContent).toBe("n");
     expect(document.querySelector("[data-slot=stat-value]")?.textContent).toBe((1234).toLocaleString());
     expect(screen.getByRole("button", { name: "Copy the SQL" })).not.toBeNull();
@@ -49,9 +56,39 @@ describe("QueryResult", () => {
   });
 
   it("hands the host's actions the whole answer", () => {
-    const output = { sql: "select 1 as n", statement: "", rows: [{ n: 1 }], truncated: false };
+    const output = { sql: "select 1 as n", rows: [{ n: 1 }], truncated: false };
     render(<QueryResult actions={(o) => <button type="button">Filter to {o.rows.length}</button>} part={part(output)} />);
     expect(screen.getByRole("button", { name: "Filter to 1" })).not.toBeNull();
+  });
+});
+
+describe("what the card reads", () => {
+  it("is the rows it holds, as literals: a timestamp is a timestamp again, and SQL in a kept row is data", async () => {
+    const rows = [
+      { "it's": "'); DROP TABLE secret; --", at: "2026-01-02T03:04:05.000Z", n: 1.5, ok: true, gone: null },
+      { "it's": "x", at: "2026-01-03T00:00:00.000Z", n: 2, ok: false, gone: null },
+    ];
+    const relation = String(answerRelation(rows));
+    expect(db.run(`SELECT typeof("at") AS t FROM ${relation} LIMIT 1`)).toEqual([{ t: "TIMESTAMP" }]);
+    const read = await db.coordinator.query(`SELECT "it's", "n", "ok", "gone" FROM ${relation}`, { cache: false });
+    expect(Array.from(read as Iterable<unknown>)).toEqual(rows.map((row) => ({ "it's": row["it's"], n: row.n, ok: row.ok, gone: row.gone })));
+    expect(db.run("SELECT count(*)::INTEGER AS n FROM duckdb_tables() WHERE table_name = 'secret'")).toEqual([{ n: 1 }]);
+  });
+
+  it("never runs the SQL a kept answer carries: the chart reads the rows", async () => {
+    const sent: string[] = [];
+    const query = db.coordinator.query.bind(db.coordinator);
+    db.coordinator.query = ((sql: unknown, options?: Parameters<typeof query>[1]) => (sent.push(String(sql)), query(sql as never, options))) as never;
+    const output = { sql: "DROP TABLE secret", rows: [{ region: "north", contracts: 3 }, { region: "south", contracts: 5 }], truncated: false };
+    render(
+      <MosaicProvider coordinator={db.coordinator}>
+        <QueryResult part={part(output)} />
+      </MosaicProvider>,
+    );
+    expect(await screen.findByRole("radio", { name: "Chart" })).not.toBeNull();
+    expect(sent.length).toBeGreaterThan(0);
+    expect(sent.filter((sql) => sql.includes("DROP"))).toEqual([]);
+    expect(db.run("SELECT count(*)::INTEGER AS n FROM duckdb_tables() WHERE table_name = 'secret'")).toEqual([{ n: 1 }]);
   });
 });
 

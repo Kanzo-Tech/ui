@@ -1,6 +1,7 @@
 // @kanzo-tech/ai/data — asking questions of data. An agent that answers by querying DuckDB on the
-// page's coordinator (`dataAgent`), the schema it is given (`describeSchema`), the questions to start
-// from (`dataSuggestions`), and the card each answer is drawn in (`QueryResult`).
+// page's coordinator (`dataAgent`), the schema it is given (`describeSchema`), the one door from a
+// model's SQL to the engine (`gateStatement`), the questions to start from (`dataSuggestions`), and the
+// card each answer is drawn in (`QueryResult`).
 //
 // A subpath and not the root barrel because it draws with `@kanzo-tech/ui`'s analytics, table and
 // editor layers, whose engines are optional peers: a host that only chats must not install DuckDB,
@@ -10,7 +11,6 @@
 export { dataAgent, dataInstructions, dataSuggestions } from "./agent.js";
 export type {
   DataAgentOptions,
-  DataScope,
   DataSuggestionsOptions,
   DataTools,
   QueryAnswer,
@@ -19,6 +19,8 @@ export type {
   QueryRow,
 } from "./agent.js";
 export { describeSchema } from "./schema.js";
-export type { DescribeSchemaOptions, SchemaReference } from "./schema.js";
+export type { DataSchema, DescribeSchemaOptions, SchemaReference } from "./schema.js";
+export { gateStatement } from "./statement.js";
+export type { DataScope, GatedStatement, StatementGateOptions, StatementRefusal } from "./statement.js";
 export { QueryResult } from "./query-result.js";
 export type { QueryResultProps, QueryResultTranslations } from "./query-result.js";
