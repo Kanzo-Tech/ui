@@ -7,7 +7,7 @@ import { authRoutes } from "./next-routes";
 
 const ORIGIN = "https://app.example.test";
 const ISSUER = "https://id.example.test/realms/kanzo";
-const CLIENT_ID = "keasy";
+const CLIENT_ID = "board";
 
 function request(path: string, cookie?: string): NextRequest {
   return new NextRequest(

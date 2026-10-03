@@ -29,7 +29,7 @@ import { NextResponse, type NextRequest } from "next/server";
  *
  * ## The matcher
  *
- * A `middleware.ts` also exports its own `config.matcher`, and keasy learned what belongs in it the
+ * A `middleware.ts` also exports its own `config.matcher`, and what belongs in it was learned the
  * expensive way: a matcher that missed static files sent `/fossil/fossil_wasm_bg.wasm` to the
  * sign-in page, and the app loaded without its WebAssembly. The exemption is applied *here* as
  * well, on the path, so it holds whatever matcher a consumer writes — a fix for the class rather

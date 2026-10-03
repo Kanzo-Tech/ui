@@ -155,11 +155,10 @@ export const fossilLanguage = StreamLanguage.define(parser);
 // ── Analysis ──────────────────────────────────────────────────────────────────
 //
 // One PURE function over the program text, because two different consumers need the same
-// answer: the editor's lint gutter, and the chrome's validation badge. keasy has exactly this
-// split and never closed it — the LSP's diagnostics stay inside the editor, so the wizard's
-// `validating` flag is dead state (`job-editor-store.ts:64` declares `setValidating`; nothing
-// calls it) and "Review" advances with a red program. Deriving both from one function is the
-// fix, and it costs nothing.
+// answer: the editor's lint gutter, and the chrome's validation badge. The original has exactly
+// this split and never closed it — the LSP's diagnostics stay inside the editor, so the wizard's
+// `validating` flag is dead state and "Review" advances with a red program. Deriving both from one
+// function is the fix, and it costs nothing.
 
 export interface Finding {
   from: number;
@@ -205,7 +204,7 @@ export function analyse(program: string, connections: Connection[]): Finding[] {
   }
 
   // 1 — a `@conn` that does not exist. The one error only the HOST can detect: fossil treats
-  //     `@weather/x.csv` as opaque text, so whether `weather` resolves is a keasy
+  //     `@weather/x.csv` as opaque text, so whether `weather` resolves is a host
   //     question, not a compiler one. This is the reason the product owns a linter at all.
   for (const ref of connectionRefs(program)) {
     if (!known.has(ref.name)) {
@@ -265,7 +264,7 @@ export function analyse(program: string, connections: Connection[]): Finding[] {
 
 /**
  * `@` opens the connection list. The completion is the reason a `ConnectionResolver` exists in
- * keasy (`step-script.tsx:45`) — here the list is just data, so the adapter disappears.
+ * the original — here the list is just data, so the adapter disappears.
  */
 function connectionCompletion(connections: Connection[]) {
   return (context: CompletionContext): CompletionResult | null => {

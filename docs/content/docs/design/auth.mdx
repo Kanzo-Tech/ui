@@ -52,8 +52,8 @@ the rule applied once.
 The third is a division of labour that is easy to lose: the package obtains and attaches the
 credential and defines the claim model; **validating is the API's**, and ours are Rust. That
 agreement is a contract in words — what is validated (`iss`, `aud`, `exp`, the signature via JWKS)
-and what is authorised on (`resource_access.<clientId>.roles`, `organization.<alias>.groups`) — and
-[the Keycloak page](/docs/auth/keycloak#what-your-api-must-validate) is its only copy, because a
+and what is authorised on (`resource_access.<clientId>.roles`,
+`organization.<alias>.resource_access.<clientId>.roles`) — and [the Keycloak page](/docs/auth/keycloak#what-your-api-must-validate) is its only copy, because a
 second one in each language's source is a second thing to keep true.
 
 The fourth is the rule one level down, and it is a subtraction rather than a warning: nothing in
@@ -90,15 +90,15 @@ package implements two of them.
 
 | pattern | who here | why |
 | --- | --- | --- |
-| **Backend For Frontend** | keasy | *"strongly recommended for business applications, sensitive applications, and applications that handle personal data"* |
+| **Backend For Frontend** | a host with a server | *"strongly recommended for business applications, sensitive applications, and applications that handle personal data"* |
 | **browser-based OAuth 2.0 client** | `agents/viewer`, `hub/browser` | a public client with PKCE is the only architecture available when there is no server |
 | *token-mediating backend* | nobody | the norm itself says to evaluate a full BFF instead |
 
 The third is declined on the specification's own advice, not on ours, and the two that ship are not
 a preference between them: `agents/viewer` is a Vite single-page application with no server anywhere
-in its deployment, so a pattern needing one could never have served it, and keasy handles personal
-data behind a backend that already exists. **One pattern could not have covered both consumers**, and
-that — rather than generality — is why there are two.
+in its deployment, so a pattern needing one could never have served it, and a host that handles
+personal data does so behind a backend that already exists. **One pattern could not have covered
+both consumers**, and that — rather than generality — is why there are two.
 
 What is ours is that they produce **one `Session`**. `bffAuth` and `browserAuth` are the only two
 lines of a product that differ; `useSession`, `Gate` and `auth.fetch` are written once and never
@@ -214,8 +214,8 @@ whether to believe it.
 
 Two claims about the realm sit under all of this, and the difference between them is worth writing
 down, because it is the difference between a rule this repository can hold and one it cannot. That
-the `organization` claim reaches the **access** token, carrying each organization's id and its group
-paths, is held by a *recorded* token in the test corpus rather than a hand-written fixture — the
+the `organization` claim reaches the **access** token, carrying each organization's id and the
+application's roles inside it, is held by a *recorded* token in the test corpus rather than a hand-written fixture — the
 only thing here that would notice Keycloak changing its mind. That plain `organization` stops a
 multi-organization sign-in on a chooser page instead of issuing a code is held by nothing, and
 nothing here could hold it: it is a page Keycloak draws. It is why
@@ -232,7 +232,7 @@ consumer so far addresses by hostname.
 `organizationFromHost`; `packages/auth/src/use-organization.test.tsx`, "refuses a hostname the
 session does not back, and does not substitute another" and "still reports the membership while the
 active organization is unresolved"; `packages/auth/src/claims.test.ts`, "a real token, taken off a
-live Keycloak 26.6.4".
+live Keycloak 26.8.0".
 
 ## A role in one scope does not authorise in another
 
@@ -241,26 +241,52 @@ ones — [not once, and not for convenience](/docs/auth/roles#asking-the-questio
 are doing that work rather than one, at two levels, and only the second costs anything: it is why
 the claim reader takes a client id at all.
 
-That second one is [the group-path
-rule](/docs/auth/roles#the-first-segment-of-a-group-path-is-the-application), and what earns it a
-place on this page rather than only on that one is the evidence behind it. The recorded token is one
-person holding `/keasy/owner` and `/vocab-browser/editor` in the *same* organization, so the two
-applications really do arrive together, really must not see each other's roles, and the fixture
-would notice if they ever stopped arriving that way.
+That second one is the application's key inside each organization's entry —
+[`organization.<alias>.resource_access.<clientId>.roles`](/docs/auth/roles#roles-inside-an-organization-are-read-from-its-entry)
+— and what earns it a place on this page rather than only on that one is the evidence behind it.
+Keycloak itself keeps the two levels apart: the recorded token carries a person's roles in acme and
+globex inside those entries and none of them in the top-level `resource_access`, so the session
+copying them up would be the library undoing a separation the identity provider makes.
 
 [There is no hierarchy in the predicate](/docs/auth/roles#no-hierarchy-and-no-way-to-configure-one)
 either, and that is the same separation refusing a third time.
 
 **What would reverse it: nothing**, and the reason is that the alternative is already expressible.
-A role meant to hold everywhere is a realm role, and a role meant to hold across every application
-inside one organization is a single-segment group path — both exist, both are read, and neither
-needs the sets merged. A deployment asking for the merge is asking for one of those two and has
-picked the wrong one.
+A role meant to hold everywhere is a realm role or a client role, and a role meant to hold across a
+whole organization is the application's role mapped onto a group everyone there is in — both exist,
+both are read, and neither needs the sets merged. A deployment asking for the merge is asking for one
+of those two and has picked the wrong one.
 
 *Held by* `packages/auth/src/can.test.ts`, "does not carry a role from one organization into
 another" and "does not mix the global roles into an organization's, or the reverse";
-`packages/auth/src/claims.test.ts`, "does not let another application's role in, from inside the
-same organization" and "refuses another application's, which is the whole reason it filters".
+`packages/auth/src/claims.test.ts`, "does not merge an organization's roles into the session's own"
+and "keeps the organization's roles out of the session's own".
+
+## Roles are read; an organization's groups are not
+
+An application's roles in an organization are the ones its administrator **mapped onto** the
+organization's groups, and Keycloak writes them into the entry with composites expanded. The group
+names ride along on the same entry and the reader never looks at them. This replaced a convention
+that read them — a group path whose first segment named the application, `/board/editor` — and the
+convention was wrong in the direction that matters: it made an organization's own arrangement of
+its people into the application's authorization model, so a customer renaming a group revoked a
+role, and every customer had to arrange its groups the way every application wanted. A group is
+now whatever the customer calls it, and the only thing the application contributes is its roles.
+
+A hierarchy sits on the same line. A product declares `admin ⊃ editor ⊃ reader` once, as composite
+roles in its client registration, and the token carries the expanded set — so the browser and the
+resource server read one order from the realm, rather than an `owner || member` spelled out at every
+call site on both sides and kept in agreement by discipline. `can` never ranks, and the order is
+still the product's; the realm is only where the product writes it.
+
+**What would reverse it:** Keycloak withdrawing `addGroupRoleMappings`, or ceasing to expand
+composites inside the entry — the recorded token is what would notice, since it holds a composite
+and the role it contains arriving together. Or a product whose roles depend on *which* group
+granted them rather than on whether they are held, which no mapping of roles can express and a group
+name could; none has asked.
+
+*Held by* `packages/auth/src/claims.test.ts`, "never reads a role from a group's name" and "reads
+a composite with the role it contains, as Keycloak expanded it".
 
 ## The signature check follows the channel, not a default
 
@@ -335,7 +361,7 @@ The provider used to settle on `anonymous` when `getSession` rejected, on the ar
 in is recoverable and a spinner is not. Both halves were true and the conclusion was not: an IdP or a
 session store that is down sends the person to sign in, the sign-in fails the same way, and nobody
 on either side learns what broke. fossil's `/docs/design/failure` — *every wait ends, every failure
-is seen* — puts it as one rule across fossil, kanzo-ui and keasy: a failure reaches the host whole,
+is seen* — puts it as one rule across fossil, kanzo-ui and its hosts: a failure reaches the host whole,
 by its code, and within a bound.
 
 So a session that cannot be read is a fourth status, `"failed"`, carrying the thrown value

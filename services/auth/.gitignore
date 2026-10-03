@@ -1,0 +1,8 @@
+.env
+**/.terraform/
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/*.tfplan
+
+# A reusable module is pinned by its caller; only a root module keeps a lock file.
+modules/**/.terraform.lock.hcl

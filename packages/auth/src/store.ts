@@ -6,7 +6,7 @@ import type { Session } from "./types";
  *
  * The default is a cookie and nothing else: the record is sealed into it, and the deployment needs
  * no database to hold a session. That is the right default and it is not sufficient for everyone —
- * keasy's `server/src/db/sessions.rs` enforces **one live session per user** and wants a sign-out
+ * a product that enforces **one live session per user** and wants a sign-out
  * to take effect immediately, and a self-contained cookie can do neither. Both are the same
  * missing ability: a cookie already in someone's hands cannot be taken back.
  *

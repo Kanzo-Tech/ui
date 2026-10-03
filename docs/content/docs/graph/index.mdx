@@ -65,7 +65,8 @@ GraphRoot                  the state and the commands; renders no element
 ├── GraphCanvas            the element: points, links, grid, labels, hover card, marquee and lasso
 │   ├── GraphToolbar       selection tools, the selection, zoom and fit, the layout's transport
 │   └── GraphLegend        one row per category: glyph, name, how many are drawn
-├── GraphCounts            "1.2K of 5K nodes drawn · 8K edges"
+├── GraphStatus            where the graph is, in one word: Loading, Laying out 42%, Ready, Failed
+├── GraphCounts            "5K nodes · 8K edges", or "1.2K of 5K nodes match · 3K edges"
 ├── GraphSearch            find a vertex by its text and reveal it
 ├── GraphSelect            a selection the host offers, as a toggle
 └── GraphInspector         the focused vertex's row
@@ -73,7 +74,7 @@ GraphLooks                 the picture's preferences; needs the theme provider, 
 ```
 
 **Every part reads the root, not its parent.** `GraphCanvas`'s children are chrome positioned over
-the surface, but `GraphToolbar`, `GraphLegend`, `GraphCounts`, `GraphSearch`, `GraphSelect` and `GraphInspector`
+the surface, but `GraphToolbar`, `GraphLegend`, `GraphStatus`, `GraphCounts`, `GraphSearch`, `GraphSelect` and `GraphInspector`
 each read the root's context directly, so each can sit anywhere under it — over the canvas, in a
 dock, in a footer. `GraphLooks` is the exception the other way: it writes preferences, so it needs
 `GRAPH_SECTION` on the theme provider and no root at all.
@@ -145,21 +146,41 @@ in `fossil_tables`' order, or the keys of the root's `categories` — so a colou
 category past the palette's capacity is Other, on the legend as on the canvas.
 
 The names are the root's, never the legend's, so the hover card, the search and the inspector say
-the same thing. What is drawn of the whole is not the legend's: it is `GraphCounts`.
+the same thing. How much of the corpus there is, and how much the filter keeps, is not the legend's:
+it is `GraphCounts`.
 
 ### Counts
 
 <ComponentPreview componentName="graph" fileName="example-counts" hasMaxHeight />
 
-What is drawn of the whole, in one sentence: **"1.2K of 5K nodes drawn · 8K edges"**. The first
-figure shrinks with the page's filter and the second is `fossil_tables`' count, so the sentence is
-the filter's effect; an edge counts when both its ends survive. A figure not yet known is "—", and the
-numbers are compact in the nearest `LocaleProvider`'s locale.
+The corpus in one sentence: **"5K nodes · 8K edges"** with nothing filtered, and
+**"1.2K of 5K nodes match · 3K edges"** under the page's filter. The whole is `fossil_tables`'
+count and the part is `matching`, the vertices the filter keeps. A vertex the filter drops is greyed
+on the canvas, not hidden, so the verb is "match" and never "drawn". An edge counts when both its
+ends are drawn, so the edges shrink with the filter. A figure not yet known is "—", and the numbers
+are compact in the nearest `LocaleProvider`'s locale.
 
-`spinner` draws a `Spinner` beside it — labelled "Loading" while the graph loads and
-"Laying out" while a layout runs — for a host with no status of its own. **`aria-busy`
-follows the load alone**: only a load changes these figures, and a running layout moves the points,
-not the counts, so a screen reader is not told the sentence is stale while it is not.
+**`aria-busy` follows the load alone**: only a load changes these figures, and a running layout moves
+the points, not the counts, so a screen reader is not told the sentence is stale while it is not.
+Whether a layout runs is `GraphStatus`'s word.
+
+### Status
+
+**Where the graph is, in one word**: Loading, Laying out 42%, Ready or Failed. It reads both axes
+of the state — the data's `status` and the layout's `motion` with `progress` — so a layout running
+over a drawn graph says "Laying out", never the data's `idle`; a load wins over a layout, and a root
+with no corpus yet says Loading. A `Badge` with a `Status` dot: info while busy, success when ready,
+destructive when failed.
+
+The word is a polite live region, announced once per change; the percentage sits outside it, because
+it moves at frame rate. The badge is `aria-busy` while loading or laying out.
+
+```tsx
+<footer className="flex items-center gap-2">
+  <GraphStatus />
+  <GraphCounts />
+</footer>
+```
 
 ### Search
 
@@ -418,11 +439,12 @@ to key.
 
 ### GraphCounts
 
-| Prop | Type | Default |
-| --- | --- | --- |
-| `spinner` | `boolean` — a spinner while loading or laying out | `false` |
+Takes `React.ComponentProps<"p">` (`GraphCountsProps`). `aria-busy` is set while the graph loads.
 
-Extends `React.ComponentProps<"p">`. `aria-busy` is set while the graph loads.
+### GraphStatus
+
+Takes `React.ComponentProps<"span">` (`GraphStatusProps`), spread onto the `Badge`. `aria-busy` is
+set while the graph loads or a layout runs.
 
 ### GraphSearch
 
@@ -512,10 +534,11 @@ What `useGraphState` selects from.
 
 | Field | Type | What it is |
 | --- | --- | --- |
-| `status` | `GraphStatus` — `"none" \| "loading" \| "idle" \| "failed"` | The data's life. |
+| `status` | `DataStatus` — `"none" \| "loading" \| "idle" \| "failed"` | The data's life. |
 | `motion` | `Motion` — `"running" \| "paused" \| "settled"` | The layout's life. |
 | `progress` | `number` | How far a running layout has settled, `0`–`1`. |
 | `total` | `number \| undefined` | Every vertex of the corpus, from `fossil_tables`. |
+| `matching` | `number \| null` | The vertices of the corpus the page's filter keeps; `null` when nothing is filtered. |
 | `drawn` | `Drawn \| null` | `vertices`, `edges`, `domain` and `tally` under the filter. |
 | `domain` | `readonly unknown[]` | The category domain before anything loads. |
 | `selection` | `Selection \| null` | `vertices`, `source` (a `SelectionSource` — `"marquee" \| "lasso" \| "node"`, the canvas's gestures, or `"external"`, a host's `select`) and `label`. |
@@ -527,10 +550,10 @@ What `useGraphState` selects from.
 
 ### Types
 
-`GraphCanvasProps`, `GraphLegendProps`, `GraphCountsProps`, `GraphToolbarProps`,
+`GraphCanvasProps`, `GraphLegendProps`, `GraphCountsProps`, `GraphStatusProps`, `GraphToolbarProps`,
 `GraphInspectorProps`, `GraphSearchProps`, `GraphSelectProps`, `GraphLooksProps`, `GraphRootProviderProps` and
 `ShapeGlyphProps` are the parts' props; `VertexDetail` — `vertex`, `table` and `fields` — is what the
 inspector's render prop receives. `Channels` (`fill`, `symbol`, `stroke`, `x`, `y`, `cluster`), `Look`, `LookPatch`,
 `LookPreset`, `Shape`, `Sim`, `Motion`, `Selection`, `SelectionSource`, `Tool`, `VertexId`,
-`GraphCommands`, `GraphStatus` and `Drawn` are the vocabulary, and `GraphError` is the class of the
+`GraphCommands`, `DataStatus` and `Drawn` are the vocabulary, and `GraphError` is the class of the
 graph's own failures.

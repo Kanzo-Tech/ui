@@ -31,8 +31,8 @@ import type { Session } from "./types";
  * ## `cache`, and what it is for
  *
  * React's `cache` scopes memoization to one request, so a page that asks in a layout, in a
- * breadcrumb and in a menu unseals the cookie once. keasy's `web/src/lib/auth-check.ts` wraps its
- * own reader for exactly this reason. **It is dormant outside a React request scope** — `cache`
+ * breadcrumb and in a menu unseals the cookie once. A host that wraps its own reader does it for
+ * exactly this reason. **It is dormant outside a React request scope** — `cache`
  * with no dispatcher simply calls through — which is why the test beside this file asserts the
  * answers and not the number of reads.
  */

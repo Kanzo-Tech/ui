@@ -1,7 +1,7 @@
 /**
  * A `fetch` that stays authenticated.
  *
- * This is the seam a product already has. keasy's API client is
+ * This is the seam a product already has. A typed API client is often
  * `createClient({ baseUrl: "/" })` with one middleware; the viewer's trace source takes its
  * transport as a parameter. Handing either an authenticated `fetch` changes one line and no call
  * site — which is the point, because the alternative is every call site remembering a header.

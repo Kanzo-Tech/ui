@@ -7,8 +7,9 @@ the valuable part, and the final answer only makes sense against what it rejecte
 > **EVIDENCE. Reviewed 2026-08-26 and the decision still holds.** `/docs/design/admission` cites
 > this file as *the full reasoning* behind "no validation model", and the rule there carries what
 > would reverse it: a second validation consumer that agrees with the first about keys, severity
-> and cardinality. Two have not. The only thing that has moved is the follow-up — "keasy migrates
-> to the `Field` in the barrel" is parked, not done, and it is keasy's move rather than this repo's.
+> and cardinality. Two have not. The only thing that has moved is the follow-up — "the host app
+> migrates to the `Field` in the barrel" is parked, not done, and it is that host's move rather
+> than this repo's.
 
 ---
 
@@ -17,7 +18,7 @@ the valuable part, and the final answer only makes sense against what it rejecte
 **The library gets no new validation model. Not a `severity` prop, not a `FieldError` type,
 not Standard Schema at the `Field` boundary. Nothing.**
 
-The next move on forms is **adoption, not design**: keasy migrates to the `Field` that has
+The next move on forms is **adoption, not design**: the host app migrates to the `Field` that has
 been sitting unused in the barrel since it was written.
 
 ---
@@ -34,8 +35,8 @@ Counting honestly, six already exist:
 |---|---|---|
 | `ValidationResult` | metadata-form (`src/form/validation.ts`) — the SHACL/ShEx engine's output | no |
 | `FieldError` | metadata-form — per-field, message already resolved and localised | no |
-| TanStack's error map | proposed for keasy | no |
-| zod issues | keasy (and metadata-form, which has `zod >=3.23` as a peer) | no |
+| TanStack's error map | proposed for the host app | no |
+| zod issues | the host app (and metadata-form, which has `zod >=3.23` as a peer) | no |
 | `Issue` from `@standard-schema/spec` | already in the lockfile at 1.1.0 | no |
 | `invalid: boolean` | our `Field` | **yes** |
 
@@ -129,7 +130,7 @@ Three things still block it, and the third is decisive:
    **at runtime**, so values are `Record<string, unknown>`. You carry the dependency and never
    collect the benefit.
 
-For keasy — static forms, zod schemas — TanStack remains a clear win. For metadata-form it is
+For the host app — static forms, zod schemas — TanStack remains a clear win. For metadata-form it is
 a dependency whose main benefit cannot exist.
 
 **Conclusion: the library owns error *presentation*; consumers own error *production*.**
@@ -140,9 +141,9 @@ engine-specific stays in the product.
 
 ## What to do instead — in order
 
-1. **Adopt.** keasy's `FormField` (30 LOC, 8 call sites) has the `<Label>` without `htmlFor`
+1. **Adopt.** The host app's `FormField` (30 LOC, 8 call sites) has the `<Label>` without `htmlFor`
    and passes no `id` to its child: **there is no label↔control association in eight screens**.
-   It also neither accepts nor renders `error`, and none of keasy's three forms shows field
+   It also neither accepts nor renders `error`, and none of its three forms shows field
    errors at all — the only signal to the user is a disabled button. Our `Field` fixes both by
    construction, today, with **zero library changes**. This is the single highest-value move
    available and it requires no design.

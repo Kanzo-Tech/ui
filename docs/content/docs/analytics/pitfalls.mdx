@@ -16,8 +16,8 @@ a bar in another, and the console says `Binder Error: Referenced column "hour" n
 Every part under a `MosaicProvider` filters by the same crossfilter, so a clause published over one
 relation is applied to queries over every other. A relation without that column cannot answer it.
 
-**Instead.** One relation per crossfilter. Mount one dashboard at a time (keasy switches vertex
-types with `key={type}`, and every part withdraws its clauses when it unmounts), or give each
+**Instead.** One relation per crossfilter. Mount one dashboard at a time (switch vertex types
+with `key={type}`, and every part withdraws its clauses when it unmounts), or give each
 relation its own `MosaicProvider` over the shared coordinator. A clause that *should* cross
 relations has to name a column they all have — the graph's lasso publishes on `dense_id` for exactly
 that reason, and every vertex table of a corpus carries it.

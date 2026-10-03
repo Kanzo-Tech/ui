@@ -96,7 +96,7 @@ dependency nobody outside this package names, the standing `@duckdb/duckdb-wasm`
 The key that opens a gateway is a bill and a quota. In the page, it is everyone's: anybody who opens
 the network tab has it, and nothing can take it back but rotating it for every user. So the browser
 talks to the **host's own route** — a backend-for-frontend — which checks the session, adds the key,
-and forwards. `baseURL` is that route; keasy's is `/api/v1/ai`. `headers` is there for what the BFF
+and forwards. `baseURL` is that route, such as `/api/v1/ai`. `headers` is there for what the BFF
 asks of the page, a CSRF token, and never for the key.
 
 ```ts

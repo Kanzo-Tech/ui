@@ -4,7 +4,7 @@ description: Why the unsaved-changes guard is a sibling package, why it copies T
 ---
 
 [The navigation guard pages](/docs/navigation-guard) are what `@kanzo-tech/navigation` ships. This
-page is why it is shaped that way. It was issue #6: keasy had a guard that patched
+page is why it is shaped that way. It was issue #6: a host had a guard that patched
 `history.pushState`, it was removed as a hack, and what was left covered reload and close but no
 link inside the app.
 
@@ -57,7 +57,7 @@ What differs is stated rather than hidden:
 consequence is written on the consumer page as the idiom — `disabled: !dirty` — because the
 alternative asks on every reload of a clean page.
 
-**What would reverse it:** keasy leaving Next for TanStack Router, which deletes this package in
+**What would reverse it:** the hosts leaving Next for TanStack Router, which deletes this package in
 favour of TanStack's own hook with no call site changing shape. Or TanStack changing its shape,
 which this follows.
 
@@ -68,11 +68,11 @@ its options change identity".
 
 ## A `/next` door, because Next commits before it reports
 
-Read in Next's source — 16.1.6, which keasy ran, and canary:
+Read in Next's source — 16.1.6, which that host ran, and canary:
 
 - **Next writes history after the new route has rendered.** `HistoryUpdater` calls
   `history.pushState` inside `useInsertionEffect`, during the commit of the new router state. A
-  guard that cancels at `pushState` — keasy's patch — is too late: the new page is on screen under
+  guard that cancels at `pushState` — that host's patch — is too late: the new page is on screen under
   the old URL. A Navigation API `navigate` listener sees that same late same-document push, and
   has the same problem. The comment `TODO: Use Navigation API if available` is still on canary.
 - **`Link` does not go through `AppRouterContext`.** Its click handler dispatches straight to the
@@ -111,7 +111,7 @@ reason, instead of being reached by a patch: a server action's `redirect()`, a c
 or `notFound()`, `next/form`, `router.refresh`, a POST form. In practice the first three follow a
 save, when there is nothing left to block.
 
-**What would reverse it:** a navigation that keasy's users actually take with unsaved work, that
+**What would reverse it:** a navigation that a host's users actually take with unsaved work, that
 only a patch can reach — measured in the product, not imagined here. None of the uncovered rows is
 one today.
 

@@ -24,3 +24,34 @@ jobs:
       # was written out in both files they drifted, and the release path was the
       # one missing checks.
       - run: pnpm verify
+
+  # The server halves. A realm that applies but puts the roles somewhere else is worth
+  # nothing, so the auth job proves the claim contract on a live token — the same
+  # script a developer runs — rather than validating the Terraform alone.
+  services:
+    name: services
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      - name: Format
+        run: terraform fmt -recursive -check services
+      - name: Validate the modules
+        run: |
+          for m in services/auth/modules/app services/ai/modules/gateway services/ai/modules/team; do
+            export TF_DATA_DIR="$RUNNER_TEMP/tf-$(basename "$m")"
+            terraform -chdir="$m" init -backend=false -input=false >/dev/null
+            terraform -chdir="$m" validate
+          done
+      - name: Bring up the identity service
+        working-directory: services/auth
+        run: docker compose up -d --wait keycloak && docker compose up --exit-code-from auth-seed auth-seed
+      - name: The claim contract, on live tokens
+        working-directory: services/auth
+        run: for u in ana bruno eva fede carla dan; do scripts/verify.sh "$u" > "$RUNNER_TEMP/$u.log" || { cat "$RUNNER_TEMP/$u.log"; exit 1; }; done
+      - name: Keycloak's log, on failure
+        if: failure()
+        working-directory: services/auth
+        run: docker compose logs keycloak auth-realm auth-seed

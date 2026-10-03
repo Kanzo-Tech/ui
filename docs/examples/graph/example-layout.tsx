@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { GraphCanvas, GraphCounts, GraphRoot, GraphToolbar, useGraphState } from "@kanzo-tech/graph";
+import { GraphCanvas, GraphRoot, GraphStatus, GraphToolbar, useGraphState } from "@kanzo-tech/graph";
 import { Badge, Progress, Show } from "@kanzo-tech/ui";
 import { ARCHIVE_KINDS, said, useArchive } from "./archive";
 
@@ -27,6 +27,7 @@ function Readout() {
  * The layout starts once the graph is drawn: `motion` is `running` and `progress` climbs while
  * `status` stays `idle`, because nothing is being read. Drag a node while it runs and it stays where
  * you drop it; the toolbar then offers to release the pins. The camera follows the moving points until you zoom or pan.
+ * Under the canvas, `GraphStatus` folds the two axes into the one word a footer shows.
  */
 export default function Example() {
   const [failure, setFailure] = useState<unknown>(null);
@@ -41,7 +42,7 @@ export default function Example() {
             <p className="absolute inset-0 grid place-items-center p-6 text-center text-muted-foreground text-sm">{said(failure)}</p>
           </Show>
         </GraphCanvas>
-        <GraphCounts spinner />
+        <GraphStatus className="self-start" />
       </GraphRoot>
     </div>
   );

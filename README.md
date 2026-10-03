@@ -2,9 +2,8 @@
 
 Kanzo's shared **design system**: **Ark UI** for behaviour, **Tailwind v4 + tailwind-variants** for
 appearance, and design tokens between them. The component set is adopted from
-[Shark UI](https://shark.vini.one) and re-branded to the Kanzo tokens. **keasy** and
-**metadata-form** build their screens from it; **fossil** is the backend its graph and charts
-read, and ships no UI of its own.
+[Shark UI](https://shark.vini.one) and re-branded to the Kanzo tokens. Applications build their screens from it; **fossil** is the
+backend its graph and charts read, and ships no UI of its own.
 
 Agents and new contributors start at [`CLAUDE.md`](CLAUDE.md). It names everything else.
 

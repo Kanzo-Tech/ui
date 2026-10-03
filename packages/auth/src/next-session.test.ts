@@ -53,7 +53,7 @@ describe("authSession", () => {
     vi.mocked(cookies).mockReset();
     config = {
       issuer: "https://id.example.test/realms/kanzo",
-      clientId: "keasy",
+      clientId: "board",
       clientSecret: "client-secret",
       secret: SECRET,
       store: oneRecord({ session: SESSION }),

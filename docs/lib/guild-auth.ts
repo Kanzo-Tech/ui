@@ -2,8 +2,8 @@
 //
 // Every auth example on the site hangs off this file, and what it builds is a **claim set** rather
 // than a hand-written `Session`: `claims()` is the real reader — the one `browserAuth` runs over an
-// ID token — so what these examples draw is what a token would actually produce, group-path
-// filtering and all. A hand-written `Session` would agree with the pages by construction and could
+// ID token — so what these examples draw is what a token would actually produce, the asking client
+// and all. A hand-written `Session` would agree with the pages by construction and could
 // never disagree with the package.
 
 import { type Auth, type Session, claims } from "@kanzo-tech/auth";
@@ -13,44 +13,61 @@ import { HALLS, type HallId, ROLES } from "@/example/world";
 /**
  * This application's Keycloak client id: the quest board.
  *
- * It is what selects `resource_access.board` and what makes `/board/…` a group path of ours. The
- * Guild's other application is the ledger, and `/ledger/reader` below is there to be dropped.
+ * It is what selects `resource_access.board`, at the top level and inside each hall's entry. The
+ * Guild's other application is the ledger, and its roles below are there to be ignored.
  */
 export const BOARD = "board";
 
 /**
  * The Guild's *other* application, which shares the realm and shares the halls.
  *
- * Nothing here is written for it; it exists so a group path belonging to somebody else is on the
- * screen, and so a reader can ask for the same claim set read as the ledger and watch every role
- * change hands. `/ledger/reader` is a real membership of Ravenna's — it is simply not ours.
+ * Nothing here is written for it; it exists so another application's role is on the screen, and so
+ * a reader can ask for the same claim set read as the ledger and watch every role change hands.
+ * Ravenna's `reader` in the Amber Hall is a real role of hers — it is simply not ours.
  */
 export const LEDGER = "ledger";
 
+/** What one hall's entry of the `organization` claim carries. */
+export interface Charter {
+  /** The hall's own names for the groups she is in. Drawn, and never read. */
+  readonly groups: readonly string[];
+  /** The roles each application holds there, as the hall mapped them onto those groups. */
+  readonly roles: Partial<Record<typeof BOARD | typeof LEDGER, readonly string[]>>;
+}
+
 /**
- * Where Ravenna holds a charter and what she is in each, written the way Keycloak writes group
- * membership — a path whose first segment is the application.
+ * Where Ravenna holds a charter and what she is in each, written the way Keycloak writes it: the
+ * hall's groups, and each application's roles mapped onto them.
  *
  * She is a warden in her own hall and something smaller in the two she visits, which is the whole
- * demonstration: a role held in one organization says nothing about another.
+ * demonstration: a role held in one organization says nothing about another. The group names are
+ * each hall's own and say nothing about any role — the Nine calls its scouts Outriders.
  */
-export const GROUPS: Partial<Record<HallId, string[]>> = {
-  amber: [`/${BOARD}/${VIEWER.role}`, `/${LEDGER}/reader`],
-  salt: [`/${BOARD}/archivist`],
-  nine: [`/${BOARD}/scout`],
+export const CHARTERS: Partial<Record<HallId, Charter>> = {
+  amber: { groups: ["/Wardens"], roles: { [BOARD]: [VIEWER.role], [LEDGER]: ["reader"] } },
+  salt: { groups: ["/Archive"], roles: { [BOARD]: ["archivist"] } },
+  nine: { groups: ["/Outriders"], roles: { [BOARD]: ["scout"] } },
 };
 
-/** The halls the session carries a membership of — two of the five are deliberately missing. */
-const CHARTERED = HALLS.filter((entry) => GROUPS[entry.id] !== undefined);
-
 /**
- * The `organization` claim, keyed by alias, in the shape the organization scope emits.
+ * The `organization` claim, keyed by alias, in the shape the organization scope emits with the
+ * group membership mapper's `addGroupRoleMappings` on. Two of the five halls are deliberately
+ * missing: she holds no charter there.
  *
  * The ids are legible rather than uuids because nothing here stores one; a realm's are uuids, and
  * the id is the half to keep, since an alias can be renamed.
  */
 const ORGANIZATION = Object.fromEntries(
-  CHARTERED.map((entry) => [entry.id, { groups: GROUPS[entry.id], id: `hall-${entry.id}` }]),
+  HALLS.flatMap((entry) => {
+    const charter = CHARTERS[entry.id];
+    if (charter === undefined) return [];
+    const resourceAccess = Object.fromEntries(
+      Object.entries(charter.roles).map(([client, roles]) => [client, { roles }]),
+    );
+    return [
+      [entry.id, { groups: charter.groups, id: `hall-${entry.id}`, resource_access: resourceAccess }],
+    ];
+  }),
 );
 
 /** The claim set, as it would arrive decoded off an ID token. */
@@ -70,7 +87,7 @@ export const GUILD_CLAIMS = {
   sub: VIEWER.id,
 };
 
-/** What the package makes of it. `/ledger/reader` is gone by the time this is a `Session`. */
+/** What the package makes of it. The ledger's `reader` is gone by the time this is a `Session`. */
 export const GUILD_SESSION: Session = claims(GUILD_CLAIMS, { clientId: BOARD });
 
 /**

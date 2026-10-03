@@ -9,7 +9,6 @@ import {
 import { parseDate, type DateValue } from "@internationalized/date";
 import { sql, verbatim, type VerbatimNode } from "@uwdata/mosaic-sql";
 import {
-  Badge,
   Button,
   CalendarMonthSelect,
   CalendarNextTrigger,
@@ -45,7 +44,6 @@ import {
   KbdGroup,
   ScrollArea,
   Show,
-  Status,
   Skeleton,
   TagsInput,
   TagsInputContext,
@@ -85,9 +83,9 @@ import {
   GraphRoot,
   GraphSearch,
   GraphSelect,
+  GraphStatus,
   useGraphContext,
   useGraphPrefs,
-  useGraphState,
   type Channels,
   type LookPreset,
   type VertexDetail,
@@ -238,16 +236,12 @@ export function ArchiveGraph({ children }: { children: ReactNode }) {
   );
 }
 
-/** The footer: whether all of it has been drawn, and how much of it is. */
-export function ArchiveCounts() {
-  const status = useGraphState((s) => s.status);
+/** The footer: where the graph is, and how much of the corpus there is. */
+export function ArchiveFooter() {
   return (
-    <span className="flex items-center gap-2 px-1 text-xs">
+    <span className="flex items-center gap-2 px-1">
+      <GraphStatus />
       <GraphCounts />
-      <Badge className="gap-1.5" size="xs" variant="outline">
-        <Status className="ring-0" size="sm" variant={status === "idle" ? "success" : status === "failed" ? "destructive" : "info"} />
-        {status}
-      </Badge>
     </span>
   );
 }

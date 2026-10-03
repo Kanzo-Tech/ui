@@ -8,7 +8,7 @@ import { AuthError } from "./types";
 
 const ORIGIN = "https://app.example.test";
 const ISSUER = "https://id.example.test/realms/kanzo";
-const CLIENT_ID = "keasy";
+const CLIENT_ID = "board";
 const SECRET = "a-secret-nobody-chose-by-hand";
 
 /** One pair, generated once: the tests below rebuild the realm, not the key. */

@@ -90,7 +90,7 @@ describe("issuer", () => {
 
     const configuration = await issuer({
       issuer: PUBLIC_ISSUER,
-      clientId: "keasy",
+      clientId: "board",
       clientSecret: "s",
       internalOrigin: INTERNAL,
       fetch: fetchImpl,
@@ -110,7 +110,7 @@ describe("issuer", () => {
 
     await issuer({
       issuer: PUBLIC_ISSUER,
-      clientId: "keasy",
+      clientId: "board",
       clientSecret: "s",
       fetch: fetchImpl,
     }).configuration();
@@ -122,7 +122,7 @@ describe("issuer", () => {
 
   it("discovers once and reuses it", async () => {
     const { seen, fetchImpl } = discoveryFetch();
-    const provider = issuer({ issuer: PUBLIC_ISSUER, clientId: "keasy", fetch: fetchImpl });
+    const provider = issuer({ issuer: PUBLIC_ISSUER, clientId: "board", fetch: fetchImpl });
 
     const [a, b] = await Promise.all([provider.configuration(), provider.configuration()]);
     await provider.configuration();
@@ -140,7 +140,7 @@ describe("issuer", () => {
       });
     }) as unknown as typeof globalThis.fetch;
 
-    const provider = issuer({ issuer: PUBLIC_ISSUER, clientId: "keasy", fetch: fetchImpl });
+    const provider = issuer({ issuer: PUBLIC_ISSUER, clientId: "board", fetch: fetchImpl });
 
     await expect(provider.configuration()).rejects.toThrow();
 
@@ -152,7 +152,7 @@ describe("issuer", () => {
 
   it("rediscovers on demand, which is the answer to key rotation", async () => {
     const { seen, fetchImpl } = discoveryFetch();
-    const provider = issuer({ issuer: PUBLIC_ISSUER, clientId: "keasy", fetch: fetchImpl });
+    const provider = issuer({ issuer: PUBLIC_ISSUER, clientId: "board", fetch: fetchImpl });
 
     const first = await provider.configuration();
     const second = await provider.rediscover();
@@ -169,13 +169,13 @@ describe("issuer", () => {
     const { fetchImpl } = discoveryFetch(metadata(insecure));
 
     await expect(
-      issuer({ issuer: insecure, clientId: "keasy", fetch: fetchImpl }).configuration(),
+      issuer({ issuer: insecure, clientId: "board", fetch: fetchImpl }).configuration(),
     ).rejects.toThrow();
 
     // And allows it when asked, because a compose file on a laptop serves exactly this.
     const allowed = await issuer({
       issuer: insecure,
-      clientId: "keasy",
+      clientId: "board",
       fetch: fetchImpl,
       allowInsecureHttp: true,
     }).configuration();

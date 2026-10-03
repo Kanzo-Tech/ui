@@ -248,7 +248,7 @@ function toCss(pair: Record<Side, Tokens>, family: string): string {
   }).join("\n\n");
 }
 
-/** The instance config keasy reads declaratively: the CSS, the families offered, the default, the lock. */
+/** The instance config a host reads declaratively: the CSS, the families, the default, the lock. */
 function toConfig(css: string, family: string): string {
   return [
     "branding:",
@@ -991,7 +991,7 @@ function OutputBlock({ config, css, link }: { config: string; css: string; link:
             <>
               A <code className="font-mono">branding:</code> block an instance reads as-is: the CSS, the families its
               members may choose, the default, and <code className="font-mono">lock</code> (true withdraws the choice).
-              keasy reads it from <code className="font-mono">KEASY_BRANDING_FILE</code>;{" "}
+              The host names where it lives;{" "}
               <Link className="underline underline-offset-2" href="/docs/theming#recipe-branding-from-an-instance-config">
                 how a host maps it
               </Link>

@@ -7,7 +7,7 @@ import { AuthError } from "./types";
 
 const ISSUER = "https://id.example.test/realms/kanzo";
 const INTERNAL = "http://keycloak:8080";
-const CLIENT_ID = "keasy";
+const CLIENT_ID = "board";
 const REDIRECT_URI = "https://app.example.test/api/auth/callback";
 const SECRET = "a-secret-nobody-chose-by-hand";
 
@@ -254,8 +254,13 @@ describe("relyingParty", () => {
         email: "ada@example.test",
         name: "Ada Lovelace",
         realm_access: { roles: ["default-roles"] },
-        resource_access: { keasy: { roles: ["owner"] } },
-        organization: { acme: { id: "org-1", groups: ["/keasy/owner", "/hub/reader"] } },
+        resource_access: { board: { roles: ["owner"] } },
+        organization: {
+          acme: {
+            id: "org-1",
+            resource_access: { board: { roles: ["owner"] }, hub: { roles: ["reader"] } },
+          },
+        },
       });
 
       expect(done.session.user).toEqual({
@@ -265,7 +270,7 @@ describe("relyingParty", () => {
         username: "ada",
       });
       expect(done.session.roles).toEqual(["default-roles", "owner"]);
-      // `/hub/reader` is another application's role and must not arrive here — `claims.ts` does
+      // `hub`'s reader is another application's role and must not arrive here — `claims.ts` does
       // that filtering, and this is the door proving it is the reader being used.
       expect(done.session.organizations).toEqual([
         { alias: "acme", id: "org-1", roles: ["owner"] },
@@ -781,7 +786,7 @@ describe("relyingParty", () => {
         cookie: `${asRequestHeader(planted.done.cookies)}; ${asRequestHeader(started.cookies)}`,
       });
 
-      // keasy's Rust calls `cycle_id()` here. Ours issues a new ticket and a new sealed cookie and
+      // A server-side session store calls `cycle_id()` here. Ours issues a new ticket and a new sealed cookie and
       // consults the planted one for nothing at all — an attacker who put a session in the browser
       // before sign-in must not end up holding the one sign-in produced.
       expect(reads).toEqual([]);

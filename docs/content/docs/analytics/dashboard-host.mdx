@@ -21,8 +21,8 @@ if (saved.isPending) return <Skeleton className="h-96 w-full" />;
 
 **Do not draw while the read is pending, and do not fall back to the automatic dashboard when it
 fails.** The first edit on a fallback hands `onChange` a whole spec built from the automatic one, and
-saving it overwrites the reader's real dashboard. Show the failure instead; keasy wraps its view in an
-error boundary for exactly this.
+saving it overwrites the reader's real dashboard. Show the failure instead — an error boundary
+around the view is exactly for this.
 
 ## 2. Write after a pause
 
@@ -98,7 +98,7 @@ means a pick on one sends `hall IN (…)` to the other, which may have no `hall`
 its own dashboard, and either mount one at a time or give each its own `MosaicProvider` over the
 shared coordinator.
 
-keasy draws a job's corpus one vertex type at a time:
+A host that draws a corpus one vertex type at a time:
 
 ```tsx
 <ToggleGroup value={[type]} onValueChange={(d) => setType(d.value[0])}>{/* one item per type */}</ToggleGroup>
@@ -119,7 +119,7 @@ reaches the next. A clause published by something that stays mounted, like the g
 
 `exclude` drops the host's bookkeeping from the fields: the address the graph publishes on and the
 corpus's identity column — the `address` and `identity` roles in `fossil_columns`. `byType` is one saved document per job, written whole
-— [the shape](/docs/analytics/dashboard-spec#the-shape-keasy-stores).
+— [the shape](/docs/analytics/dashboard-spec#a-storage-shape).
 
 ## 6. Where failures go
 

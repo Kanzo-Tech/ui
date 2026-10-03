@@ -1,6 +1,6 @@
 "use client";
 
-import { claims, roleFromGroupPath } from "@kanzo-tech/auth";
+import { claims, organizationOf } from "@kanzo-tech/auth";
 import {
   Badge,
   Button,
@@ -26,12 +26,13 @@ import {
 } from "@kanzo-tech/ui";
 import { useMemo, useState } from "react";
 import { type HallId, hall } from "@/example/world";
-import { BOARD, GROUPS, GUILD_CLAIMS, LEDGER, roleLabel } from "@/lib/guild-auth";
+import { BOARD, CHARTERS, GUILD_CLAIMS, LEDGER, roleLabel } from "@/lib/guild-auth";
 
-/** Every group path the claim set carries, with the hall whose membership it came from. */
-const PATHS = Object.entries(GROUPS).flatMap(([alias, paths]) =>
-  (paths ?? []).map((path) => ({ alias: alias as HallId, path })),
-);
+/** Every hall the claim set carries an entry for, with the groups that entry names. */
+const ENTRIES = Object.entries(CHARTERS).map(([alias, charter]) => ({
+  alias: alias as HallId,
+  groups: charter?.groups ?? [],
+}));
 
 export default function Example() {
   const [clientId, setClientId] = useState<string>(BOARD);
@@ -129,31 +130,38 @@ export default function Example() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-56">Group path</TableHead>
               <TableHead className="w-32">Hall</TableHead>
-              <TableHead>roleFromGroupPath(path, &quot;{clientId}&quot;)</TableHead>
+              <TableHead className="w-48">groups — never read</TableHead>
+              <TableHead>resource_access.{clientId}.roles</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {PATHS.map(({ alias, path }) => {
-              const role = roleFromGroupPath(path, clientId);
+            {ENTRIES.map(({ alias, groups }) => {
+              const roles = organizationOf(session, alias)?.roles ?? [];
 
               return (
-                <TableRow key={`${alias}${path}`}>
-                  <TableCell className="font-mono text-xs">{path}</TableCell>
-                  <TableCell className="text-muted-foreground">{hall(alias).short}</TableCell>
+                <TableRow key={alias}>
+                  <TableCell>{hall(alias).short}</TableCell>
+                  <TableCell className="font-mono text-muted-foreground text-xs">
+                    {groups.join(", ")}
+                  </TableCell>
                   <TableCell>
-                    <Show
-                      fallback={
-                        <span className="text-muted-foreground">
-                          <span className="font-mono">null</span>{" "}
-                          — another application&rsquo;s role, dropped
-                        </span>
-                      }
-                      when={role !== null}
-                    >
-                      <Badge variant="secondary">{roleLabel(role ?? "")}</Badge>
-                    </Show>
+                    <div className="flex flex-wrap gap-1">
+                      <Show
+                        fallback={
+                          <span className="text-muted-foreground">
+                            a member, holding nothing for {clientId}
+                          </span>
+                        }
+                        when={roles.length > 0}
+                      >
+                        {roles.map((role) => (
+                          <Badge key={role} variant="secondary">
+                            {roleLabel(role)}
+                          </Badge>
+                        ))}
+                      </Show>
+                    </div>
                   </TableCell>
                 </TableRow>
               );

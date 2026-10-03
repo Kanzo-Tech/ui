@@ -26,8 +26,9 @@ export function organizationOf(
  * convenience is the day one organization's owner is every organization's owner.
  *
  * Closed by default: no session, or no membership of the named organization, is `false` rather than
- * an error. There is no hierarchy here either — that `owner` outranks `member` is a fact about a
- * product, so a product spells it out: `can(s, "owner", org) || can(s, "member", org)`.
+ * an error. There is no hierarchy here either: that `admin` contains `editor` is a fact about a
+ * product, declared once as Keycloak composite roles where the product registers its client, and
+ * the token carries the expanded set — so `can(s, "editor", org)` is true for an admin.
  */
 export function can(
   session: Session | null | undefined,

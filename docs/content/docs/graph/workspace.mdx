@@ -4,9 +4,9 @@ description: A recipe — the engine, one coordinator, a corpus attached by name
 ---
 
 A discovery workspace is the graph and the panels that interrogate it: a canvas with its tools,
-a legend over it, a footer that says how much is drawn, an **Info** panel to find and read a
-vertex, a **Settings** panel for the picture, and charts that filter with the graph. It is how keasy
-composes its discover page and how the [workspace showcase](/docs/showcases/workspace) is built.
+a legend over it, a footer that says where the graph is and how much of it there is, an **Info** panel to find and read a
+vertex, a **Settings** panel for the picture, and charts that filter with the graph. It is how a host
+composes a discovery page and how the [workspace showcase](/docs/showcases/workspace) is built.
 Every piece is a library part; what the host writes is the arrangement and its own policy.
 
 <ComponentPreview componentName="graph" fileName="example-workspace" hasMaxHeight />
@@ -24,7 +24,7 @@ KanzoThemeProvider sections={[GRAPH_SECTION]}
         ├── dock
         │   ├── Info      GraphSearch + GraphInspector
         │   └── Settings  GraphLooks + the gestures
-        └── footer        GraphCounts
+        └── footer        GraphStatus + GraphCounts
 ```
 
 **One coordinator under everything.** The graph and every chart are clients of the same
@@ -221,15 +221,18 @@ button. The gestures are the canvas's own; they are written down here because a 
 ### The footer
 
 ```tsx
-import { GraphCounts } from "@kanzo-tech/graph";
+import { GraphCounts, GraphStatus } from "@kanzo-tech/graph";
 
-<ShellFooter>
-  <GraphCounts spinner />
+<ShellFooter className="flex-row items-center gap-2">
+  <GraphStatus />
+  <GraphCounts />
 </ShellFooter>;
 ```
 
-"1.2K of 5K nodes drawn · 8K edges", with a spinner while the graph loads or a layout runs. A host with its own status badge drops `spinner` and reads `status` and `motion` itself
-— two axes, see [Layout and camera](/docs/graph/layout#status-and-motion-are-two-axes).
+One word for where the graph is — Loading, Laying out 42%, Ready, Failed — then the corpus:
+"5K nodes · 8K edges", or "1.2K of 5K nodes match · 3K edges" under a filter. The word reads the
+data's `status` and the layout's `motion` together, so the footer never says "idle" over a running
+layout — two axes, see [Layout and camera](/docs/graph/layout#status-and-motion-are-two-axes).
 
 </Step>
 </Steps>

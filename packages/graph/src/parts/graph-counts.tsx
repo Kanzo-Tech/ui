@@ -1,12 +1,9 @@
 "use client";
 
-import { cn, FormatNumber, Show, Spinner } from "@kanzo-tech/ui";
+import { cn, FormatNumber } from "@kanzo-tech/ui";
 import { useGraphState } from "../react/use-graph-state";
 
-export interface GraphCountsProps extends React.ComponentProps<"p"> {
-  /** Draws a spinner while the corpus opens, the graph loads or a layout runs — for a host with no status of its own beside it. */
-  spinner?: boolean;
-}
+export type GraphCountsProps = React.ComponentProps<"p">;
 
 const COMPACT = { notation: "compact", maximumFractionDigits: 1 } as const;
 
@@ -15,34 +12,38 @@ function Count({ value }: { value: number | null | undefined }) {
 }
 
 /**
- * **What is drawn of the whole, in one sentence** — "1.2K of 5K nodes drawn · 8K edges". `drawn`
- * shrinks with the page's filter and `total` is the manifest's, so the sentence is the filter's
- * effect; an edge counts when both its ends are drawn. A figure not yet known is "—", and the
- * numbers are compact in the nearest `LocaleProvider`'s locale.
+ * **The corpus in one sentence** — "5K nodes · 8K edges", and under the page's filter "1.2K of 5K
+ * nodes match · 3K edges". Nodes are the corpus's, so a filter's effect is `matching` of `total`; a
+ * vertex the filter drops is greyed on the canvas, not hidden, which is why the verb is "match" and
+ * not "drawn". Edges are those whose two ends are drawn, so they shrink with the filter. A figure
+ * not yet known is "—", and the numbers are compact in the nearest `LocaleProvider`'s locale.
  *
- * `aria-busy` follows `status`, because only a load changes these figures; a running layout moves
- * the points and not the counts, so it reaches the spinner alone, named "Laying out".
+ * `aria-busy` follows `status`, because only a load changes these figures; whether a layout runs is
+ * `GraphStatus`'s word.
  */
-export function GraphCounts({ className, slot, spinner = false, ...rest }: GraphCountsProps) {
-  const vertices = useGraphState((s) => s.drawn?.vertices);
-  const edges = useGraphState((s) => s.drawn?.edges);
+export function GraphCounts({ className, slot, ...rest }: GraphCountsProps) {
   const total = useGraphState((s) => s.total);
+  const matching = useGraphState((s) => s.matching);
+  const edges = useGraphState((s) => s.drawn?.edges);
   const busy = useGraphState((s) => s.status === "loading");
-  const laying = useGraphState((s) => s.motion === "running");
 
   return (
     <p
       aria-busy={busy || undefined}
       {...rest}
-      className={cn("flex items-center gap-1.5 text-muted-foreground text-xs tabular-nums", className)}
+      className={cn("text-muted-foreground text-xs tabular-nums", className)}
       data-slot={slot ?? "graph-counts"}
     >
-      <Show when={spinner && (busy || laying)}>
-        <Spinner aria-label={busy ? "Loading" : "Laying out"} className="size-3" />
-      </Show>
-      <span>
-        <Count value={vertices} /> of <Count value={total} /> nodes drawn · <Count value={edges} /> edges
-      </span>
+      {matching === null ? (
+        <>
+          <Count value={total} /> nodes
+        </>
+      ) : (
+        <>
+          <Count value={matching} /> of <Count value={total} /> nodes match
+        </>
+      )}{" "}
+      · <Count value={edges} /> edges
     </p>
   );
 }

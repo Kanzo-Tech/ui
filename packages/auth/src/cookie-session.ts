@@ -6,8 +6,8 @@ import { EncryptJWT, jwtDecrypt } from "jose";
  * There is **one** mechanism here and it is used twice: for the session that outlives a request,
  * and for the short-lived transaction that carries `state`, `nonce` and the PKCE verifier between
  * the two legs of the authorization code flow. Holding the transaction in a cookie rather than in
- * server memory is what makes the BFF stateless by default — keasy's Rust keeps those three in a
- * SQLite-backed server session, and pays for a session store before anyone has signed in.
+ * server memory is what makes the BFF stateless by default — keeping those three in a server
+ * session pays for a session store before anyone has signed in.
  *
  * ## The attributes, and why each one
  *

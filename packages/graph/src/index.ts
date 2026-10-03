@@ -12,8 +12,8 @@
  * - `react/` — `useGraph`, `GraphRoot`, `GraphRootProvider`, `useGraphContext`: Ark's four; and
  *   `useGraphState`, TanStack Store's selector, because the api is commands and the state moves at
  *   frame rate.
- * - `parts/` — `GraphCanvas`, `GraphLegend`, `GraphCounts`, `GraphToolbar`, `GraphInspector`,
- *   `GraphSearch`, `GraphSelect`: flat parts over the one context; and `GraphLooks`, the picture's preferences,
+ * - `parts/` — `GraphCanvas`, `GraphLegend`, `GraphCounts`, `GraphStatus`, `GraphToolbar`,
+ *   `GraphInspector`, `GraphSearch`, `GraphSelect`: flat parts over the one context; and `GraphLooks`, the picture's preferences,
  *   which needs only the theme provider. They own the vocabulary; the root's callbacks are the host's policy.
  *
  * **Why a package and not `@kanzo-tech/ui`.** The first admission rule is *domain-free — nothing
@@ -35,6 +35,7 @@ export { useGraphPrefs } from "./react/use-graph-prefs";
 export { GraphCanvas, type GraphCanvasProps } from "./parts/graph-canvas";
 export { GraphLegend, type GraphLegendProps } from "./parts/graph-legend";
 export { GraphCounts, type GraphCountsProps } from "./parts/graph-counts";
+export { GraphStatus, type GraphStatusProps } from "./parts/graph-status";
 export { GraphToolbar, type GraphToolbarProps } from "./parts/graph-toolbar";
 export { GraphInspector, type GraphInspectorProps } from "./parts/graph-inspector";
 export { GraphSearch, type GraphSearchProps } from "./parts/graph-search";
@@ -50,6 +51,6 @@ export { scaleOf } from "./render/graph-model";
 export type { Channels } from "./core/channels";
 
 export type { GraphCommands, Motion, Selection, SelectionSource, Tool, VertexId } from "./core/types";
-export type { Drawn, GraphState, GraphStatus } from "./core/state";
+export type { DataStatus, Drawn, GraphState } from "./core/state";
 export type { VertexDetail } from "./core/source";
 export { GraphError } from "./core/error";

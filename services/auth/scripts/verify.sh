@@ -1,0 +1,165 @@
+#!/usr/bin/env bash
+# Prove the claim contract: run a real authorization-code + PKCE login through the
+# `kanzo-conformance` client and check what the ACCESS token says — the token a
+# resource server authorizes on.
+#
+#   scripts/verify.sh            # ana: acme (high, so high+low) and globex (low)
+#   scripts/verify.sh bruno      # one organization, low
+#   scripts/verify.sh carla      # globex only (high)
+#   scripts/verify.sh fede       # a member of acme with no group: no roles there
+#   scripts/verify.sh dan        # no organization; a client role held directly
+#
+# The contract: an application's roles in an organization are
+# `organization[alias].resource_access[client_id].roles`, composites expanded.
+#
+# Needs: bash, curl, jq, openssl.
+set -euo pipefail
+
+USERNAME=${1:-ana}
+CLIENT=kanzo-conformance
+REDIRECT=http://localhost:8765/callback
+PASSWORD=${PASSWORD:-password}
+KC_URL=${KC_URL:-http://localhost:8080}
+KC_REALM=${KC_REALM:-kanzo}
+SCOPE=${SCOPE:-"openid organization:*"}
+
+ISSUER="$KC_URL/realms/$KC_REALM"
+WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
+JAR="$WORK/cookies"
+
+b64url() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
+jwt() {  # decode a JWT payload; base64url has no padding, so put it back
+  local p; p=$(cut -d. -f2 <<<"$1")
+  case $(( ${#p} % 4 )) in 2) p="$p==";; 3) p="$p=";; esac
+  tr '_-' '/+' <<<"$p" | openssl base64 -d -A | jq .
+}
+
+echo "== discovery =="
+DISCO=$(curl -sf "$ISSUER/.well-known/openid-configuration")
+AUTH_EP=$(jq -r .authorization_endpoint <<<"$DISCO")
+TOKEN_EP=$(jq -r .token_endpoint <<<"$DISCO")
+jq -r '"issuer: \(.issuer)\nscopes: \(.scopes_supported | join(" "))"' <<<"$DISCO"
+
+# ── authorization code + PKCE ─────────────────────────────────────────────────
+VERIFIER=$(openssl rand 32 | b64url)
+CHALLENGE=$(printf '%s' "$VERIFIER" | openssl dgst -binary -sha256 | b64url)
+STATE=$(openssl rand 12 | b64url)
+
+echo
+echo "== login: $USERNAME via $CLIENT, scope '$SCOPE' =="
+LOGIN_PAGE=$(curl -s -c "$JAR" -b "$JAR" -G "$AUTH_EP" \
+  --data-urlencode "client_id=$CLIENT" \
+  --data-urlencode "redirect_uri=$REDIRECT" \
+  --data-urlencode "response_type=code" \
+  --data-urlencode "scope=$SCOPE" \
+  --data-urlencode "state=$STATE" \
+  --data-urlencode "code_challenge=$CHALLENGE" \
+  --data-urlencode "code_challenge_method=S256")
+
+# Keycloak 26's login theme is TWO steps — username, then password — so this
+# submits the form it is given until a redirect carries a code. Posting both
+# fields every time is deliberate: each step ignores the one it did not ask for,
+# and the loop then works against a one-step theme too.
+CODE=""
+page=$LOGIN_PAGE
+for _ in 1 2 3; do
+  ACTION=$(grep -o 'action="[^"]*"' <<<"$page" | head -1 | sed 's/^action="//; s/"$//; s/&amp;/\&/g')
+  if [ -z "$ACTION" ]; then
+    echo "no login form at the authorization endpoint — the page said:" >&2
+    head -c 800 <<<"$page" >&2; exit 1
+  fi
+  curl -s -c "$JAR" -b "$JAR" -o "$WORK/page.html" -D "$WORK/head.txt" \
+    --data-urlencode "username=$USERNAME" \
+    --data-urlencode "password=$PASSWORD" \
+    --data-urlencode "credentialId=" \
+    "$ACTION"
+  LOCATION=$(tr -d '\r' < "$WORK/head.txt" | sed -n 's/^[Ll]ocation: //p')
+  if [ -n "$LOCATION" ]; then
+    CODE=$(sed -n 's/.*[?&]code=\([^&]*\).*/\1/p' <<<"$LOCATION")
+    break
+  fi
+  page=$(cat "$WORK/page.html")
+done
+
+if [ -z "$CODE" ]; then
+  if grep -q 'id="organization-' <<<"$page"; then
+    echo "the login stopped to ASK WHICH ORGANIZATION. That is what plain 'organization'" >&2
+    echo "does for a user who belongs to more than one — it is the documented cause of the" >&2
+    echo "'organization claim disappeared' reports. Request 'organization:*' instead." >&2
+    echo "  offered: $(grep -oE 'id="organization-[^"]*"' <<<"$page" | sed 's/id="organization-//; s/"//' | tr '\n' ' ')" >&2
+    exit 1
+  fi
+  echo "no authorization code. last redirect: ${LOCATION:-<none>}" >&2
+  grep -oE 'id="input-error[^"]*"[^>]*>[^<]*' <<<"$page" >&2 || true
+  exit 1
+fi
+echo "authorization code received"
+
+TOKENS=$(curl -sf -X POST "$TOKEN_EP" \
+  --data-urlencode "grant_type=authorization_code" \
+  --data-urlencode "client_id=$CLIENT" \
+  --data-urlencode "code=$CODE" \
+  --data-urlencode "redirect_uri=$REDIRECT" \
+  --data-urlencode "code_verifier=$VERIFIER")
+
+ACCESS=$(jq -r .access_token <<<"$TOKENS")
+ID=$(jq -r .id_token <<<"$TOKENS")
+
+echo
+echo "== ACCESS TOKEN =="
+jwt "$ACCESS"
+
+# ── the assertions ────────────────────────────────────────────────────────────
+echo
+echo "== checks =="
+AT=$(jwt "$ACCESS")
+IT=$(jwt "$ID")
+fail=0
+check() { if [ "$2" = true ]; then echo "  ok   $1"; else echo "  FAIL $1"; fail=1; fi; }
+roles_in() {  # roles_in TOKEN ALIAS -> the client's roles inside that organization, sorted
+  jq -c --arg a "$2" --arg c "$CLIENT" '[.organization[$a].resource_access[$c].roles // [] | .[]] | sort' <<<"$1"
+}
+
+check "access token names its API in aud" \
+  "$(jq -r '[.aud] | flatten | any(. == "kanzo-conformance-api")' <<<"$AT")"
+check "the ID token does not name the API" \
+  "$(jq -r '[.aud] | flatten | all(. != "kanzo-conformance-api")' <<<"$IT")"
+
+case "$USERNAME" in
+  ana)
+    check "acme: high arrives with the low it contains (composite expanded)" \
+      "$([ "$(roles_in "$AT" acme)" = '["high","low"]' ] && echo true || echo false)"
+    check "globex: low only" \
+      "$([ "$(roles_in "$AT" globex)" = '["low"]' ] && echo true || echo false)"
+    check "the ID token carries the same roles inside organizations" \
+      "$([ "$(roles_in "$IT" acme)" = '["high","low"]' ] && echo true || echo false)"
+    check "every organization entry has an id" \
+      "$(jq -r '[.organization[] | has("id")] | all' <<<"$AT")"
+    ;;
+  carla)
+    check "globex: high arrives with the low it contains" \
+      "$([ "$(roles_in "$AT" globex)" = '["high","low"]' ] && echo true || echo false)"
+    check "no membership of acme" "$(jq -r '.organization | has("acme") | not' <<<"$AT")"
+    ;;
+  bruno|eva)
+    check "acme: low only" "$([ "$(roles_in "$AT" acme)" = '["low"]' ] && echo true || echo false)"
+    ;;
+  fede)
+    check "acme: a member, with no role" \
+      "$(jq -r '.organization | has("acme")' <<<"$AT")"
+    check "acme: no role" "$([ "$(roles_in "$AT" acme)" = '[]' ] && echo true || echo false)"
+    ;;
+  dan)
+    check "no organization claim" "$(jq -r 'has("organization") | not' <<<"$AT")"
+    check "the client role held directly is top-level resource_access" \
+      "$(jq -r --arg c "$CLIENT" '.resource_access[$c].roles // [] | index("low") != null' <<<"$AT")"
+    ;;
+esac
+
+# Informational: whether Keycloak also copies roles mapped onto organization groups
+# into the top-level resource_access. An application must not read them there either
+# way — a role held in one organization says nothing about another.
+echo "  --   top-level resource_access[$CLIENT]: $(jq -c --arg c "$CLIENT" '.resource_access[$c].roles // []' <<<"$AT")"
+echo "  --   access token size: ${#ACCESS} bytes"
+
+exit "$fail"

@@ -336,8 +336,8 @@ brand, list it too — its CSS is already in the page, so it needs no `theme_css
       dark: { value: nord-dark, label: Nord Dark }
 ```
 
-The mapping is a dozen lines on the host. This is keasy's, which reads the file named by
-`KEASY_BRANDING_FILE`, validates it at boot (every family names a light and a dark theme, `default`
+The mapping is a dozen lines on the host. This one reads the file named by an env var of the
+host's choosing, validates it at boot (every family names a light and a dark theme, `default`
 is one of them, unknown keys are refused) and serves it to the web app:
 
 ```tsx

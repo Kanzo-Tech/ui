@@ -1,7 +1,7 @@
 // The workspace's archive, compiled rather than built in the tab.
 //
 // The showcase used to construct its graph in the browser, write two CSVs into DuckDB's virtual
-// filesystem and register them as relations. Its own comment said that was *"the same shape keasy's
+// filesystem and register them as relations. Its own comment said that was *"the same shape a
 // real corpus arrives in"* — this is that sentence made true instead of approximated: fossil writes
 // the tree, the browser only reads it, and the reader is the one a product ships.
 //

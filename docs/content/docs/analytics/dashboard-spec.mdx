@@ -144,11 +144,10 @@ however it already identifies that relation, and hands it back as `value` with t
 - **Treat it as opaque on the server.** The server needs no knowledge of the shape: a JSON column and
   a size cap are enough. A layout and its encodings are a few kilobytes; data never is.
 
-### The shape keasy stores
+### A storage shape
 
-keasy's discovery view draws one `Dashboard` per vertex type of a job's corpus — a crossfilter
-predicate names columns, and another type's table lacks them — and keeps every type's spec in one
-document per job:
+A host that draws one `Dashboard` per vertex type of a job's corpus — a crossfilter predicate names
+columns, and another type's table lacks them — can keep every type's spec in one document per job:
 
 ```ts
 type SavedDashboards = {

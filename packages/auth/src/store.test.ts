@@ -42,8 +42,8 @@ describe("statelessStore", () => {
 
 describe("SessionStore", () => {
   it("is satisfied by a store that enforces one live session per person", async () => {
-    // The interface exists for keasy, whose `server/src/db/sessions.rs` allows one session per
-    // user and revokes on sign-out. Thirty lines here is the whole of what that costs, and writing
+    // The interface exists for a product that allows one session per user and revokes on
+    // sign-out. Thirty lines here is the whole of what that costs, and writing
     // it is the check that the three methods are the right three.
     const records = new Map<string, SessionRecord>();
     const live = new Map<string, string>();
