@@ -10,15 +10,15 @@ import { AuthError, type Organization, type Session } from "./types";
  *
  * **Nothing here is invented.** Roles are `realm_access.roles` and `resource_access.<clientId>.roles`
  * — the claims Keycloak emits with no configuration — and membership is the `organization` claim
- * from the organization scope. A deployment that renames these has made work for itself; a
+ * from the organization scope, which repeats `resource_access` inside each organization. A deployment that renames these has made work for itself; a
  * deployment that uses them gets this file for free.
  */
 
 /** What the reader needs to know about the application doing the reading. */
 export interface ClaimsConfig {
   /**
-   * This application's Keycloak client id. It selects two things: which entry of `resource_access`
-   * is ours, and which organization groups are ours — see {@link roleFromGroupPath}.
+   * This application's Keycloak client id: the entry of `resource_access` that is ours, at the top
+   * level and inside each organization.
    */
   readonly clientId: string;
 }
@@ -38,34 +38,16 @@ function asString(value: unknown): string | undefined {
 }
 
 /**
- * A group path, as the role it grants *this* application — or `null` when it grants nothing here.
- *
- * Keycloak writes group membership as a path: `/keasy/owner`. Organization Groups (26.6) give each
- * organization its own hierarchy, so the convention this package reads is that **the first segment
- * is the application** when there is more than one:
- *
- * - `/keasy/owner` under client `keasy` → `owner`
- * - `/hub/reader` under client `keasy` → `null`, because it is another application's role
- * - `/owner` → `owner`, a role the organization grants across every application
- *
- * The filtering is not a nicety. Without it, a role granted to someone in the hub would authorise
- * them in keasy, which is the whole failure this separation exists to prevent.
- */
-export function roleFromGroupPath(path: string, clientId: string): string | null {
-  const segments = path.split("/").filter((s) => s.length > 0);
-  const [first, ...rest] = segments;
-  if (first === undefined) return null;
-  if (rest.length === 0) return first;
-  return first === clientId ? rest.join("/") : null;
-}
-
-/**
  * The `organization` claim, as a list.
  *
- * Canonically it is an object keyed by alias — `{ "acme": { "id": "…", "groups": ["/keasy/owner"] } }`
- * — because that is the shape that can carry the id and the groups. A realm whose mapper includes
- * neither emits the aliases alone, so both are read: the alternative is a session that silently
- * loses its memberships on a realm nobody thought to check.
+ * Canonically it is an object keyed by alias, and each entry carries what the person holds THERE:
+ * `{ "acme": { "id": "…", "resource_access": { "board": { "roles": ["editor", "reader"] } } } }`.
+ * Keycloak writes `resource_access` inside the entry from the role mappings of the person's
+ * groups in that organization, composites expanded. Group names (`groups`) are the organization's
+ * own data and are not read: an application learns its roles, never how an organization arranged
+ * its people. A realm whose mapper includes neither the id nor the roles emits the aliases alone,
+ * so both shapes are read — the alternative is a session that silently loses its memberships on a
+ * realm nobody thought to check.
  */
 function readOrganizations(claim: unknown, clientId: string): Organization[] {
   if (Array.isArray(claim)) {
@@ -79,9 +61,7 @@ function readOrganizations(claim: unknown, clientId: string): Organization[] {
 
   return Object.entries(byAlias).map(([alias, value]) => {
     const body = asRecord(value);
-    const roles = asStrings(body?.["groups"])
-      .map((path) => roleFromGroupPath(path, clientId))
-      .filter((role): role is string => role !== null);
+    const roles = asStrings(asRecord(asRecord(body?.["resource_access"])?.[clientId])?.["roles"]);
     return { alias, id: asString(body?.["id"]), roles };
   });
 }

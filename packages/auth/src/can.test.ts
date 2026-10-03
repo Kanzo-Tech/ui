@@ -45,13 +45,13 @@ describe("can", () => {
     expect(can(session, "owner", "initech")).toBe(false);
   });
 
-  it("has no hierarchy in it, so a product spells its own out", () => {
-    // keasy's `owner ⊇ member` is a fact about keasy. Written at the call site it stays visible;
-    // wired in here it would silently apply to every consumer, including the ones with three roles.
-    const isMember = (org: string) => can(session, "owner", org) || can(session, "member", org);
-    expect(isMember("acme")).toBe(true);
-    expect(isMember("globex")).toBe(true);
-    expect(isMember("initech")).toBe(false);
+  it("has no hierarchy in it: a role is held or it is not", () => {
+    // A product's hierarchy is declared as composite roles and arrives expanded in the token, so
+    // `can` only ever asks for presence. Ranking here would apply one product's order to every
+    // consumer, including the ones with three roles.
+    expect(can(session, "owner", "acme")).toBe(true);
+    expect(can(session, "member", "acme")).toBe(false);
+    expect(can(session, "member", "globex")).toBe(true);
   });
 });
 

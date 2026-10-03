@@ -59,12 +59,15 @@ Nothing here is invented. Every claim is one Keycloak emits without being asked:
 | --- | --- |
 | `sub`, `email`, `name` (or `given_name` + `family_name`), `preferred_username` | `session.user` |
 | `realm_access.roles` ∪ `resource_access.<clientId>.roles` | `session.roles` |
-| `organization` — `{ "acme": { "id": "…", "groups": ["/keasy/owner"] } }` | `session.organizations` |
+| `organization` — `{ "acme": { "id": "…", "resource_access": { "<clientId>": { "roles": ["editor"] } } } }` | `session.organizations` |
 | `exp` | `session.expiresAt`, in milliseconds |
 
-A group path's **first segment is the application**: `/keasy/owner` is a role in keasy, `/hub/reader`
-is not, and a single-segment `/owner` is granted across all of them. Without that filtering, a role
-held in one application would authorise its holder in another.
+Inside each organization, `resource_access.<clientId>.roles` is what the person holds **there**:
+the roles an organization admin mapped onto the groups they are in, composites expanded by
+Keycloak. Group names are never read — they are the organization's own business — and another
+application's roles in the same entry are ignored, so a role held in one application never
+authorises its holder in another. Nor are they merged into `session.roles`: a role in one
+organization says nothing about the next.
 
 Ask Keycloak for `organization:*` to receive every organization the person belongs to. Plain
 `organization` returns the only one when there is one and prompts for a choice when there are

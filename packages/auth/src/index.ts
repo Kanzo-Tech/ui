@@ -56,7 +56,7 @@ export type { AuthContextValue, AuthStatus } from "./auth-context";
 export { AuthProvider } from "./auth-provider";
 export { bffAuth, readSession, type BffAuthConfig } from "./bff-auth";
 export { can, organizationOf } from "./can";
-export { claims, roleFromGroupPath, type ClaimsConfig } from "./claims";
+export { claims, type ClaimsConfig } from "./claims";
 export { Gate } from "./gate";
 export { organizationFromHost } from "./host";
 export { singleFlight } from "./single-flight";

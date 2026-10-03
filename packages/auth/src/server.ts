@@ -106,7 +106,7 @@ function isNonceMismatch(error: unknown): boolean {
  * A failure that looks like the signing keys we hold are no longer the ones Keycloak signs with.
  *
  * Keycloak rotates its realm keys, and a client holding a cached JWKS sees a key id it has never
- * heard of. keasy's Rust learned this and answers it the same way: re-fetch the metadata *once, on
+ * heard of. A resource server answers it the same way: re-fetch the metadata *once, on
  * a failure*, and retry. Refreshing on a timer instead would be a request every few minutes that
  * is wrong exactly when it matters.
  *
@@ -505,8 +505,8 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
       }
 
       // Session fixation: the record is new, the ticket is new and the cookie is new, and any
-      // session cookie this callback happened to arrive with is not read. keasy's Rust calls
-      // `cycle_id()` here for the same reason — an attacker who planted a session before sign-in
+      // session cookie this callback happened to arrive with is not read. A server-side session
+      // store calls `cycle_id()` here for the same reason — an attacker who planted a session before sign-in
       // must not find themselves holding the one that sign-in produced.
       const { renewed } = await adopt(tokens, null);
 

@@ -6,7 +6,7 @@ import { authRoutes, type AuthRoutesConfig } from "./next-routes";
 
 const ORIGIN = "https://app.example.test";
 const ISSUER = "https://id.example.test/realms/kanzo";
-const CLIENT_ID = "keasy";
+const CLIENT_ID = "board";
 const SECRET = "a-secret-nobody-chose-by-hand";
 
 const KEY = await generateKeyPair("RS256", { extractable: true });

@@ -1,6 +1,6 @@
 ---
 title: Roles
-description: can, Gate and useOrganization — asking a role question inside an organization, the group path whose first segment is the application, and why there is no hierarchy.
+description: can, Gate and useOrganization — asking a role question inside an organization, where the roles in it are read from, and why the predicate has no hierarchy.
 ---
 
 ```tsx
@@ -55,39 +55,60 @@ control and then retracts it.
 
 ## No hierarchy, and no way to configure one
 
-That `owner` outranks `member` is a fact about a product, not about the predicate. So a product
-spells it out where it can be read:
+That `admin` outranks `editor` is a fact about a product, not about the predicate, so `can` never
+ranks: it asks whether a role is in a set, and nothing else. A hierarchy wired into the library would
+apply to every consumer at once, including the ones with three roles that order differently or not
+at all.
+
+**The product declares its hierarchy once, as Keycloak composite roles**, in its own client
+registration — `admin` containing `editor`, `editor` containing `reader`. Keycloak expands a
+composite into every token, so an admin's token says `admin`, `editor` and `reader`, and the
+question a product asks is the one it means:
 
 ```ts
-const isMember = (org: string) => can(session, "owner", org) || can(session, "member", org);
+can(session, "editor", "amber"); // true for an editor and for an admin, because the token says so
 ```
 
-Written out, the order is where a reader can see it and where it can be made to agree with the
-server's — which is the one deciding, and which reads the same group paths.
+The order then lives in one place both sides read — the realm — rather than in a predicate the
+browser runs and a second copy the server runs, which is the one deciding. `services/auth/modules/app`
+is where an application declares its roles and their composites; [the Keycloak
+page](/docs/auth/keycloak#roles-inside-an-organization) has the rest of what the realm owes.
 
-## The first segment of a group path is the application
+## Roles inside an organization are read from its entry
 
-Keycloak writes group membership as a path, one hierarchy per organization rather than one shared
-across the realm. The convention this package reads is that the first segment of such a path names
-the application:
+Each entry of the `organization` claim carries what the person holds **there**, keyed by
+application exactly as the top-level claim is:
 
-```text
-/board/warden     under client `board`   →  warden
-/ledger/reader    under client `board`   →  nothing: another application's role
-/warden           under any client       →  warden, granted across all of them
+```json
+"organization": {
+  "amber": {
+    "id": "hall-amber",
+    "groups": ["/Wardens"],
+    "resource_access": { "board": { "roles": ["warden"] }, "ledger": { "roles": ["reader"] } }
+  }
+}
 ```
 
-`roleFromGroupPath(path, clientId)` is that rule as a function, and it is the whole of why the
-filtering is not a nicety: without it, a role granted to somebody in the ledger would authorise
-them on the board, which is the exact failure the separation exists to prevent.
+`organization.<alias>.resource_access.<clientId>.roles` is the set `can(session, role, alias)` asks
+against. Keycloak writes it from the roles an organization's administrator mapped onto the groups
+the person is in, with composites already expanded — so the organization decides who is a warden,
+the application decides what a warden contains, and neither has to know how the other arranged it.
+Reading under `board` sees `warden` and nothing of the ledger's `reader`, which is another
+application's role sitting inside the very same organization; without the client id, a role granted
+in the ledger would authorise its holder on the board.
 
-A single-segment path is the deliberate exception — a role the organization grants everywhere,
-which is what you want for something like an organization's own administrator.
+**Group names are never read.** `/Wardens` is how the Amber Hall arranged its people, and it is the
+organization's own data: it may be renamed, split or called something else in the next hall, and a
+role inferred from it would change with it. An application learns its roles and never a group's
+name — what grants anything is a role mapped onto a group, not the group.
 
-[What the token actually carries](/docs/auth/keycloak#what-the-token-actually-carries) is this rule
-meeting a recorded claim set: one person, one organization, two applications' roles inside it. The
-[live reading](/docs/auth/keycloak#reading-it-yourself) under it lets you switch the asking client
-and watch every path change hands.
+**They are not merged into `session.roles` either**, for the reason [above](#asking-the-question): a
+role in one organization says nothing about another. Keycloak keeps them out of the top-level
+`resource_access` too, and the reader does not undo that.
+
+[What the token actually carries](/docs/auth/keycloak#what-the-token-actually-carries) is a recorded
+token in this shape, and the [live reading](/docs/auth/keycloak#reading-it-yourself) under it lets
+you switch the asking client and watch the same claim set change hands.
 
 ## `useOrganization`
 
@@ -133,7 +154,7 @@ can(session: Session | null | undefined, role: string, organization?: string): b
 | Argument | Type | Description |
 | --- | --- | --- |
 | `session` | `Session \| null \| undefined` | `null` is `false`, not an error |
-| `role` | `string` | The role name, without any group path around it |
+| `role` | `string` | The role name, as the token carries it |
 | `organization` | `string?` | Omitted, asks against `session.roles` |
 
 ### `organizationOf`
@@ -158,12 +179,6 @@ organizationOf(session: Session | null | undefined, alias: string): Organization
 | `organization` | `Organization \| undefined` | The candidate, resolved against membership |
 | `organizations` | `readonly Organization[]` | Everything the session carries |
 | `isMember` | `boolean` | Whether the candidate resolved |
-
-### `roleFromGroupPath`
-
-```ts
-roleFromGroupPath(path: string, clientId: string): string | null
-```
 
 ### `organizationFromHost`
 

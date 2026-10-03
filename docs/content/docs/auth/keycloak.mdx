@@ -1,14 +1,17 @@
 ---
 title: Keycloak
-description: The realm this package expects — role claims on both tokens, an audience mapper naming your API, and the organization scope with the star.
+description: The realm this package expects — role claims on both tokens, an audience mapper naming your API, the organization scope with the star, and an application's roles inside each organization.
 ---
 
 This is the page to hand to whoever runs the realm. Nothing here is invented: every claim the
 package reads is one Keycloak emits, and the configuration below is what makes it emit them on the
 token that needs them.
 
-`kanzo-auth` is the service half — Keycloak with its realm as code. `@kanzo-tech/auth` is the
-library that consumes it. Without the first, the second has nothing to talk to.
+The service half lives in this repository, at `services/auth/`: Keycloak with its realm as code,
+already configured as this page describes, with a seed and a conformance script
+(`scripts/verify.sh`) that signs a seeded person in through a generic `kanzo-conformance` client and
+checks the token against the contract below. `@kanzo-tech/auth` is the library that consumes it.
+Without the first, the second has nothing to talk to.
 
 ## One realm, one client per application
 
@@ -20,6 +23,11 @@ realm. **The tenants are the organizations.**
 So a client is an *application*: `board`, `ledger`, `viewer`. Not a tenant. A client per tenant is
 how this was done before Organizations existed, and it makes onboarding a customer a deployment
 instead of an operation.
+
+An application registers itself **from its own repository**, by instantiating the Terraform module
+at `services/auth/modules/app`: its client, the audience its access token names, and its roles with
+their composites. The realm knows no application by name. `services/auth/examples/app/main.tf` is a
+complete registration.
 
 ## Role claims on both tokens
 
@@ -38,7 +46,8 @@ The role mappers are Keycloak's own and need no renaming. The package reads:
 | `sub`, `email`, `name` (or `given_name` + `family_name`), `preferred_username` | the `profile` and `email` scopes | `session.user` |
 | `realm_access.roles` | the realm role mapper | `session.roles` |
 | `resource_access.<clientId>.roles` | the client role mapper | `session.roles`, unioned with the above |
-| `organization` | the `organization` scope | `session.organizations` |
+| `organization` | the `organization` scope's membership mapper, with `addOrganizationId` | `session.organizations` — alias and id |
+| `organization.<alias>.resource_access.<clientId>.roles` | the Organization Group Membership mapper, with `addGroupRoleMappings` | that organization's `roles` — never `session.roles` |
 | `exp` | the token | `session.expiresAt`, in milliseconds |
 
 <Callout type="warn">
@@ -78,25 +87,66 @@ back.
 narrows it to one, by replacement rather than by appending — asking for both the star and a name
 would defeat the point of naming one.
 
+## Roles inside an organization
+
+An application's roles in an organization arrive **inside that organization's entry** of the
+`organization` claim, and one more mapper is what puts them there:
+
+- **The Organization Group Membership mapper** (`oidc-organization-group-membership-mapper`) on the
+  `organization` client scope, beside the membership mapper rather than replacing it — it adds to
+  the entries the first one writes. A second *membership* mapper does not override the first; it
+  collides with it, and the claim comes out with a serialised JSON string as an object key.
+- **`addGroupRoleMappings` on**, which needs **Keycloak 26.7 or later**. Without it the entry
+  carries the person's group names and no roles, and every organization reads as a membership with
+  nothing in it.
+- **On the access token and the ID token both**, for the same reason as [the role
+  claims](#role-claims-on-both-tokens).
+
+With that, each entry carries `resource_access.<clientId>.roles`: the client roles an organization's
+administrator mapped onto the groups the person is in, **composites expanded**. The groups
+themselves are the organization's to name — "Admins", "Analysts", whatever that customer calls its
+people — and the package never reads a group's name. What grants a role is a role mapped onto a
+group.
+
+Two things sit on either side of that mapping. The **hierarchy** is the application's, declared as
+composite roles in its registration (`roles` in `services/auth/modules/app`, at most three deep),
+so a product asks whether `editor` is present and never ranks. The **mapping** is the
+organization's: its administrator does it in the console, and `services/auth/scripts/map-group-role.sh
+ALIAS GROUP CLIENT ROLE` does it as a command, for an organization's first administrators and for
+seeds. Over the admin API it is `POST
+/admin/realms/{realm}/organizations/{orgId}/groups/{groupId}/role-mappings/clients/{clientUuid}` —
+the realm's own `/groups/{id}/role-mappings` answers 400 for an organization group, which was
+measured rather than assumed.
+
 ## What the token actually carries
 
 Organization Groups give every organization its own isolated hierarchy — which is exactly what
-shared realm groups could not do — and one claim carries all of it, every organization and every
-path inside it:
+shared realm groups could not do — and one claim carries all of it, every organization and the
+roles held in each. This is the `organization` claim on an access token from Keycloak 26.8.0, taken
+off `services/auth` by `scripts/verify.sh` for the seeded `ana` through the `kanzo-conformance`
+client, whose role `high` is a composite containing `low`:
 
 ```json
 "organization": {
-  "acme":   { "id": "a05d65ca-…", "groups": ["/keasy/owner", "/vocab-browser/editor"] },
-  "globex": { "id": "4ba7c7b1-…", "groups": ["/keasy/member"] }
+  "globex": {
+    "id": "94b69c97-37fa-4c06-be6f-d58cabe1ff28",
+    "groups": ["/Readers"],
+    "resource_access": { "kanzo-conformance": { "roles": ["low"] } }
+  },
+  "acme": {
+    "id": "3fe7a56b-557c-478c-8381-ad0b998181dc",
+    "groups": ["/Admins"],
+    "resource_access": { "kanzo-conformance": { "roles": ["high", "low"] } }
+  }
 }
 ```
 
-Read under client `keasy`, that is an owner of acme and a member of globex — and **nothing** of
-`/vocab-browser/editor`, which is another application's role sitting inside the very same
-organization. That is [the group-path rule](/docs/auth/roles#the-first-segment-of-a-group-path-is-the-application)
-meeting a token that really does carry two applications at once, and the claim above is a recorded
-token rather than an illustration: `packages/auth/src/claims.test.ts` holds it and asserts both
-readings of it.
+acme mapped `high` onto its "Admins" and globex mapped `low` onto its "Readers"; ana is in one of
+each. So acme's entry says `high` **and** `low` — the composite arrives expanded, and nobody ranked
+anything — while the top-level `resource_access` of the same token carries no `kanzo-conformance`
+roles at all: Keycloak keeps a role held in an organization inside that organization. The group
+names are on the token and nothing reads them. This is a recorded token rather than an
+illustration: `packages/auth/src/claims.test.ts` holds it and asserts each of those readings.
 
 The `id` is the uuid and the key is the alias. Store the id: an alias can be renamed, and it is the
 alias that appears in a hostname.
@@ -114,15 +164,16 @@ const session = claims(decoded, { clientId: "board" });
 
 <ComponentPreview componentName="auth" fileName="example-claims" />
 
-The claim set on the left is the one above with the Guild's names in it; the `Session` on the right
-is what this package makes of it, and the control changes **which application is asking**. Read as
-`board`, `/ledger/reader` resolves to nothing and Ravenna is a warden of the Amber Hall; read as
-`ledger`, every `/board/…` path is dropped instead and the same token makes her a reader of one hall
-and nothing anywhere else. One token, two applications, and neither one's roles reaching the other.
+The claim set on the left is the same shape with the Guild in it — three halls, two applications
+sharing them — and the `Session` on the right is what this package makes of it. The control changes
+**which application is asking**. Read as `board`, Ravenna is a warden of the Amber Hall, an
+archivist in Salt and a scout in the Nine; read as `ledger`, the same token makes her a reader of
+one hall and nothing anywhere else. One token, two applications, and neither one's roles reaching
+the other — which is the reason the reader takes a client id at all: without it, a role granted in
+the ledger would authorise its holder on the board.
 
-The table underneath is `roleFromGroupPath` per path, which is the rule the two readings differ by —
-and the reason the filtering is not a nicety: without it, a role granted in the ledger would
-authorise its holder on the board.
+The table underneath is each hall's entry: the groups the token carries, drawn and never read, and
+the roles read for the asking client. Membership survives the switch; the roles inside it do not.
 
 Both doors run this one function, which is why a claim reaches a browser session and a server
 session as the same thing. It throws only for a claim set with no `sub` — not a session at all, but
@@ -157,8 +208,8 @@ Then authorize on:
 
 | | |
 | --- | --- |
-| `resource_access.<clientId>.roles` | what this person may do in this application |
-| `organization.<alias>.groups` | which organizations they belong to, and what they are in each |
+| `resource_access.<clientId>.roles` | what this person may do in this application, anywhere |
+| `organization.<alias>.resource_access.<clientId>.roles` | what they may do in this application inside that organization — the keys of `organization` are which ones they belong to |
 
 And one rule that belongs beside them, because it is the line between a multi-tenant product and a
 leak between customers: **the host is a hint and the token is the authority** — the same rule
@@ -192,5 +243,7 @@ organization, invite the people, done. There is no tenant table anywhere — exi
 in Keycloak — and there is no client, no pair of roles and no set of protocol mappers to provision
 per customer.
 
-What would end that is needing something per organization Keycloak cannot hold. It holds attributes,
+What the organization does for itself is arrange its people into groups and map the application's
+roles onto them, [as above](#roles-inside-an-organization). What would end that is needing something
+per organization Keycloak cannot hold. It holds attributes,
 so nothing has yet.

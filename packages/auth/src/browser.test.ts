@@ -22,7 +22,12 @@ const PROFILE = {
   exp: 1_700_000_000,
   realm_access: { roles: ["member"] },
   resource_access: { viewer: { roles: ["admin"] } },
-  organization: { acme: { id: "org-1", groups: ["/viewer/owner", "/hub/reader"] } },
+  organization: {
+    acme: {
+      id: "org-1",
+      resource_access: { viewer: { roles: ["owner"] }, hub: { roles: ["reader"] } },
+    },
+  },
 };
 
 function user(overrides: Partial<OidcUser> = {}): OidcUser {
@@ -93,7 +98,7 @@ describe("browserAuth", () => {
       name: "Ada Lovelace",
       username: "ada",
     });
-    // Realm roles and *this* client's roles, together; `/hub/reader` is another application's and
+    // Realm roles and *this* client's roles, together; `hub`'s reader is another application's and
     // must not grant anything here.
     expect(session?.roles).toEqual(["member", "admin"]);
     expect(session?.organizations).toEqual([{ alias: "acme", id: "org-1", roles: ["owner"] }]);
