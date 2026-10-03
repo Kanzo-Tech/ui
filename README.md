@@ -19,6 +19,16 @@ Agents and new contributors start at [`CLAUDE.md`](CLAUDE.md). It names everythi
 | `@kanzo-tech/auth` | Keycloak sessions, role evaluation and an authenticated fetch. |
 | `@kanzo-tech/navigation` | The unsaved-changes guard, with a `/next` adapter. |
 
+## Services
+
+The server half of a capability whose client half is a package, released under the same tag — see
+[`services/`](services) and `/docs/design/services`.
+
+| Service | What it is | Package |
+|---|---|---|
+| `services/auth` | Keycloak with the platform realm as code, and the module an application registers itself with. | `@kanzo-tech/auth` |
+| `services/ai` | The LiteLLM gateway: a development compose, a team and key per tenant, and a module to deploy it. | `@kanzo-tech/llm` |
+
 ## What lives here, and what does not
 
 `@kanzo-tech/ui` is **only** the design system. The admission test: *would this make sense in a

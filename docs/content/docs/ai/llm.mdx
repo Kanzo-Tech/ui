@@ -128,7 +128,8 @@ alias.
 
 The production shape: [LiteLLM](https://docs.litellm.ai) as the platform's one door to models. It
 holds the providers' keys, maps each alias to an upstream, and speaks OpenAI's protocol whatever the
-upstream speaks. The aliases are its `model_list`:
+upstream speaks. It ships from this repository as [the gateway](/docs/ai/gateway) — a development
+compose, a module per tenant and a module to deploy it. The aliases are its profile's `model_list`:
 
 ```yaml
 # litellm config.yaml
@@ -143,14 +144,19 @@ model_list:
       api_key: os.environ/PROVIDER_API_KEY
 ```
 
-The BFF above forwards to it, with a key LiteLLM issued for that host. `complete` is a separate
+The BFF above forwards to it, with the key [the tenant's team](/docs/ai/gateway#a-team-per-tenant)
+was issued. `complete` is a separate
 alias because a field's continuation is asked on every pause in typing: it wants a small, fast model,
 and a chat wants a good one.
 
 ### A local model, for development
 
-[Ollama](https://ollama.com) behind the same gateway, so development runs the whole loop without a
-provider key: point an alias at it in the gateway's `model_list` —
+[The gateway's development compose](/docs/ai/gateway#run-it) already is one: both aliases on open
+models through Docker Model Runner, so the whole loop runs without a provider key, and
+`AI_GATEWAY_URL` is `http://localhost:4000`.
+
+[Ollama](https://ollama.com) behind the same gateway works the same way: point an alias at it in the
+gateway's `model_list` —
 `model: ollama_chat/<model>` with `api_base: http://localhost:11434` — and nothing else changes.
 
 Without a gateway at all, `createGateway` can point at Ollama directly, since Ollama serves the same
