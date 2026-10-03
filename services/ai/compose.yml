@@ -1,0 +1,84 @@
+# The platform's AI gateway: LiteLLM, the one door to models as Keycloak is the one
+# door to identity. Applications speak OpenAI chat completions to it through their own
+# server and name an alias (`chat`, `complete`), never a provider.
+#
+#   docker compose up -d --wait
+#
+# brings the gateway up on http://localhost:4000 on the dev profile, with both aliases
+# served by Docker Model Runner on the host's GPU (Docker Desktop 4.40+, Model Runner
+# on). The first `up` pulls the models (~6.5 GB). Admin console: /ui, user `admin`,
+# password the master key below. An application includes this file (`include:`) and
+# mints its tenants' teams and keys with modules/team.
+
+name: kanzo-ai
+
+services:
+  ai-postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: litellm
+      POSTGRES_USER: litellm
+      POSTGRES_PASSWORD: litellm
+    volumes:
+      - kanzo-ai-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U litellm"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Exact-match cache for requests that opt in. Losing it costs tokens, nothing else,
+  # so no volume.
+  ai-cache:
+    image: valkey/valkey:8.1-alpine
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  ai-gateway:
+    # Pinned by digest: two LiteLLM releases (1.82.7, 1.82.8) shipped compromised.
+    image: ghcr.io/berriai/litellm-database:v1.103.0@sha256:f4f114b1996c5923c4d62a7bbdcecb2ccf9df17bdebce76050f609be97f75f5c
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    ports:
+      - "${AI_PORT:-4000}:4000"
+    volumes:
+      - ./litellm.dev.yaml:/app/config.yaml:ro
+    environment:
+      LITELLM_MASTER_KEY: ${AI_MASTER_KEY:-sk-dev-master-key}
+      DATABASE_URL: postgresql://litellm:litellm@ai-postgres:5432/litellm
+      REDIS_HOST: ai-cache
+      REDIS_PORT: "6379"
+      STORE_MODEL_IN_DB: "False"
+      # Docker Desktop's VM on Apple silicon advertises SVE2 the CPU lacks, and
+      # cryptography ≥ 49 dies on it with SIGILL (same fault: Parallels KB 131179).
+      # This only turns off OpenSSL's ARM capability probing.
+      OPENSSL_armcap: "0"
+    models:
+      chat:
+        endpoint_var: CHAT_URL
+        model_var: CHAT_MODEL
+      complete:
+        endpoint_var: COMPLETE_URL
+        model_var: COMPLETE_MODEL
+    depends_on:
+      ai-postgres:
+        condition: service_healthy
+      ai-cache:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:4000/health/liveliness')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+models:
+  chat:
+    model: hf.co/NousResearch/Hermes-3-Llama-3.1-8B-GGUF:Q4_K_M
+  complete:
+    model: hf.co/NousResearch/Hermes-3-Llama-3.2-3B-GGUF:Q4_K_M
+
+volumes:
+  kanzo-ai-db:

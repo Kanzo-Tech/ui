@@ -1,0 +1,76 @@
+{
+  "_comment": [
+    "LOCAL DEVELOPMENT FIXTURE, not a source of truth. Terraform declares the realm and the",
+    "organizations; this fills in what Keycloak treats as runtime: each organization's groups,",
+    "the roles mapped onto them, users, and who belongs where.",
+    "",
+    "Group names are the organization's own data and differ per organization on purpose: an",
+    "application reads roles, never group names. Only `kanzo-conformance` roles are mapped here;",
+    "an application maps its own roles onto these groups from its own repository.",
+    "",
+    "`ana` belongs to TWO organizations, so switching and `organization:*` can be exercised.",
+    "`fede` belongs to acme with no group, so holding no role there is a state to test.",
+    "`dan` belongs to none and holds a client role directly: the single-tenant shape."
+  ],
+  "password": "password",
+  "organizations": {
+    "acme": {
+      "groups": {
+        "Admins": { "kanzo-conformance": ["high"] },
+        "Data team": { "kanzo-conformance": ["low"] },
+        "Analysts": { "kanzo-conformance": ["low"] }
+      }
+    },
+    "globex": {
+      "groups": {
+        "Platform": { "kanzo-conformance": ["high"] },
+        "Readers": { "kanzo-conformance": ["low"] }
+      }
+    }
+  },
+  "users": [
+    {
+      "username": "ana",
+      "email": "ana@acme.test",
+      "firstName": "Ana",
+      "lastName": "Duarte",
+      "organizations": { "acme": ["Admins"], "globex": ["Readers"] }
+    },
+    {
+      "username": "bruno",
+      "email": "bruno@acme.test",
+      "firstName": "Bruno",
+      "lastName": "Oliveira",
+      "organizations": { "acme": ["Data team"] }
+    },
+    {
+      "username": "eva",
+      "email": "eva@acme.test",
+      "firstName": "Eva",
+      "lastName": "Santos",
+      "organizations": { "acme": ["Analysts"] }
+    },
+    {
+      "username": "fede",
+      "email": "fede@acme.test",
+      "firstName": "Fede",
+      "lastName": "Ruiz",
+      "organizations": { "acme": [] }
+    },
+    {
+      "username": "carla",
+      "email": "carla@globex.test",
+      "firstName": "Carla",
+      "lastName": "Mendes",
+      "organizations": { "globex": ["Platform"] }
+    },
+    {
+      "username": "dan",
+      "email": "dan@kanzo.test",
+      "firstName": "Dan",
+      "lastName": "Rivera",
+      "organizations": {},
+      "clientRoles": { "kanzo-conformance": ["low"] }
+    }
+  ]
+}
