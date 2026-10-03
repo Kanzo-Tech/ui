@@ -243,6 +243,11 @@ export function createGraph(initial: GraphOptions): GraphStore {
         notify();
       },
       (error) => fail(error),
+      () => {
+        if (snapshot.selection === null) return;
+        patch({ selection: null });
+        options.onSelect?.(null);
+      },
     );
     coordinator.connect(client);
     connected = coordinator;
@@ -309,7 +314,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
       const selection = vertices && vertices.length > 0 ? { vertices: [...vertices], source, label } : null;
       patch({ selection });
       options.onSelect?.(selection);
-      if (options.filterBy && client) publish(options.filterBy, client, selection ? selection.vertices : null);
+      if (options.filterBy && client) publish(options.filterBy, client, selection ? selection.vertices : null, label);
     },
     focus(vertex) {
       if (vertex === snapshot.focus) return;

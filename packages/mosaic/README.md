@@ -13,7 +13,7 @@ Mosaic are two coordinators, and two coordinators are two crossfilters that neve
 ## What it holds
 
 ```ts
-import { Coordinator, Selection, MosaicClient, clausePoints } from "@kanzo-tech/mosaic";
+import { Coordinator, Selection, MosaicClient, clausePoints, clauseSemiJoin } from "@kanzo-tech/mosaic";
 import { column, numbers } from "@kanzo-tech/mosaic";
 import { engine } from "@kanzo-tech/mosaic";
 ```
@@ -47,6 +47,12 @@ import { engine } from "@kanzo-tech/mosaic";
 - **Re-exports** of the coordinator, the clients, the five clause builders and the loaders — so a
   consumer never needs a direct `@uwdata` import. The DuckDB-WASM connector is not among them:
   `engine()` is the only boot.
+- **`clauseSemiJoin` / `clauseColumns`** — the clause rule. A clause is column predicates on one
+  relation, or a semi-join on identity: `clauseSemiJoin("dense_id", ids | query, { source, label })`
+  is `dense_id IN (…)`, with the keys or with a statement that selects them, and it filters every
+  relation whose rows carry the key, whatever the subquery reads. `clauseColumns(filter)` is the
+  columns a clause names on the relation it filters — a subquery's are another relation's — which is
+  how a client knows whether its relation answers it.
 - **`column` / `numbers`** — the half of the client protocol the protocol does not
   give you. The coordinator answers with an Arrow table, and Arrow offers a typed column only when
   the type allows one: an integer id gives an array, a dictionary-encoded label gives nothing

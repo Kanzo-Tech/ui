@@ -2,8 +2,8 @@ import {
   MosaicClient,
   Query,
   cast,
-  clausePoints,
-  collectColumns,
+  clauseColumns,
+  clauseSemiJoin,
   float64,
   literal,
   queryFailure,
@@ -12,7 +12,7 @@ import {
 } from "@kanzo-tech/mosaic";
 import { GraphError } from "./error";
 import { relation, type Answer } from "./source";
-import { type Structure } from "./structure";
+import { type Structure, type VertexTable } from "./structure";
 
 /**
  * **The graph as a client of the page's coordinator** — one Mosaic client, like every chart beside
@@ -28,17 +28,28 @@ export class GraphClient extends MosaicClient {
   #structure: () => Structure | null;
   #kept: (ids: Float64Array | null) => void;
   #fail: (error: unknown) => void;
+  #cleared: () => void;
 
   constructor(
     filterBy: Selection | undefined,
     structure: () => Structure | null,
     kept: (ids: Float64Array | null) => void,
     fail: (error: unknown) => void,
+    cleared: () => void,
   ) {
     super(filterBy);
     this.#structure = structure;
     this.#kept = kept;
     this.#fail = fail;
+    this.#cleared = cleared;
+  }
+
+  /**
+   * The graph's clause was retracted where it was published — a chip's remove, a page's "Clear" —
+   * and mosaic-core calls its source back: the pick goes from the canvas too.
+   */
+  reset(): void {
+    this.#cleared();
   }
 
   /**
@@ -58,20 +69,23 @@ export class GraphClient extends MosaicClient {
     const clauses = (Array.isArray(filter) ? filter : [filter]).filter((c) => c !== undefined && c !== null);
     const structure = this.#structure();
     if (!structure || clauses.length === 0) return UNFILTERED;
-    const named = [...new Set(clauses.flatMap((c) => collectColumns(c as never).map((ref: { column: string }) => ref.column)))];
-    // A table that lacks a column the predicate names is not filtered by it — what a `WHERE` over a
-    // union of the tables would do. A predicate no table can answer is refused rather than ignored,
-    // so the unfiltered picture is never drawn as the filtered one.
-    const answering = structure.vertices.filter((t) => named.every((c) => t.columns.has(c)));
-    if (answering.length === 0) {
-      this.#fail(new GraphError("graph/unfilterable", `no vertex type has every column this clause names: ${named.join(", ")}`));
+    // The clause rule, `clauseColumns`: a table answers a clause when it has every column the clause
+    // names on it — a semi-join on `dense_id` names that alone, so every table answers it. A table
+    // that cannot answer a clause is not filtered by it, what a `WHERE` over a union of the tables
+    // would do; a clause no table can answer is refused rather than ignored, so the unfiltered
+    // picture is never drawn as the filtered one.
+    const answers = (table: VertexTable, clause: (typeof clauses)[number]) =>
+      clauseColumns(clause).every((c) => table.columns.has(c));
+    const lost = clauses.find((clause) => !structure.vertices.some((t) => answers(t, clause)));
+    if (lost !== undefined) {
+      this.#fail(new GraphError("graph/unfilterable", `no vertex type has every column this clause names: ${clauseColumns(lost).join(", ")}`));
       return UNFILTERED;
     }
     return Query.unionAll(
       structure.vertices.map((t) =>
         Query.select({ id: float64("dense_id") })
           .from(relation(structure.from, t.name))
-          .where(answering.includes(t) ? clauses : []),
+          .where(clauses.filter((clause) => answers(t, clause))),
       ),
     );
   }
@@ -89,15 +103,11 @@ export class GraphClient extends MosaicClient {
 }
 
 /**
- * **The reader's pick, published** — from the graph, so the crossfilter applies it to every chart and
- * skips it for the graph. A canvas that greyed out everything but a lasso of thirteen would hide the
- * neighbourhood the reader was looking at.
+ * **The reader's pick, published** — as a semi-join on `dense_id`, the corpus's vertex identity, from
+ * the graph: the crossfilter applies it to every client whose rows carry a `dense_id` and skips it for
+ * the graph. A canvas that greyed out everything but a lasso of thirteen would hide the neighbourhood
+ * the reader was looking at.
  */
-export function publish(selection: Selection, self: MosaicClient, ids: readonly number[] | null): void {
-  selection.update(
-    clausePoints(["dense_id"], ids && ids.length > 0 ? ids.map((d) => [d]) : undefined, {
-      source: self,
-      clients: new Set([self]),
-    }),
-  );
+export function publish(selection: Selection, self: MosaicClient, ids: readonly number[] | null, label: string): void {
+  selection.update(clauseSemiJoin("dense_id", ids && ids.length > 0 ? ids : null, { source: self, label }));
 }

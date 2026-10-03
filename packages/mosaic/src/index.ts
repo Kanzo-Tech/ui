@@ -26,7 +26,6 @@ export {
 export {
   Query,
   asc,
-  collectColumns,
   desc,
   loadCSV,
   loadJSON,
@@ -56,6 +55,18 @@ export {
   sql,
   type ExprNode,
 } from "@uwdata/mosaic-sql";
+
+/**
+ * Ours: the clause rule — column predicates on one relation, or a semi-join on identity — with the
+ * constructor of the second form and the reading of the columns either names. `clause.ts` states it.
+ */
+export {
+  clauseColumns,
+  clauseSemiJoin,
+  type SemiJoinMembers,
+  type SemiJoinMetadata,
+  type SemiJoinOptions,
+} from "./clause.js";
 
 /** Ours: turning an Arrow answer into values, which the client protocol does not do for you. */
 export { column, numbers } from "./arrow.js";

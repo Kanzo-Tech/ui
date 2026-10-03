@@ -464,10 +464,14 @@ Three, because wrapping vgplot must stay a convenience:
   layer decided. For the ~225 plot attributes the axes do not cover.
 - **The Mosaic client protocol**, for a view that is not a plot at all — a WebGL canvas, a map, an
   imperative widget. Subclass `MosaicClient` or wrap `makeClient`, declare a query, and publish one
-  of the five clauses: `clausePoint`, `clausePoints`, `clauseInterval`, `clauseIntervals`,
-  `clauseMatch`. That is the whole of it, and it is what makes such a view a **peer** of the plots
-  rather than a readout drifting beside them. All seven are re-exported from the subpath, so this
-  costs no direct `@uwdata` import.
+  of the six clauses: Mosaic's `clausePoint`, `clausePoints`, `clauseInterval`, `clauseIntervals`,
+  `clauseMatch`, and ours, `clauseSemiJoin` — `key IN (ids | subquery)`, the
+  [semi-join on identity](/docs/analytics#what-publishes-into-the-crossfilter) that crosses
+  relations. `clauseColumns` is the other half: the columns a clause names on the relation it
+  filters, for a client deciding whether its relation answers it. That is the whole of it, and it is
+  what makes such a view a **peer** of the plots rather than a readout drifting beside them. All nine
+  are re-exported from the subpath, with `SemiJoinMembers`, `SemiJoinMetadata` and
+  `SemiJoinOptions`, so this costs no direct `@uwdata` import.
 
   Turning the answer back into values is the half the protocol does not give you, and it is where
   every client independently writes `as { getChild(name: string): … }` — a cast that asserts

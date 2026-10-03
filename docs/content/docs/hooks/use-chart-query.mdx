@@ -37,6 +37,26 @@ This hook connects a real `MosaicClient` instead. That is the whole protocol: de
 re-asked whenever any clause anyone publishes changes the predicate. `ChartStat` is this hook
 wrapped around `StatValue`, and it is why a stat in one card follows a brush in another.
 
+## A panel as a client of the page's selection
+
+Any panel that reads rows — a count, a summary, a list of findings — is this hook over the page's
+crossfilter: its query filtered by the live selection, re-run when it changes. Nothing else is
+needed, and nothing else exists for it.
+
+```tsx
+// How many of a rule's findings are in scope — a lasso on the graph, a brush, a chip.
+const { row } = useChartQuery({
+  query: (filter) => Query.from(findings).select({ n: count() }).where(filter),
+  deps: [findings],
+});
+```
+
+A clause names the columns it filters, so the panel's relation has to answer it: a semi-join on an
+identity its rows carry always does — `findings` above keeps each vertex's `dense_id`, and the
+graph's pick is `dense_id IN (…)`. `clauseColumns(clause)` is what a column clause needs; a panel over
+several relations reads it to apply each clause where it can, as the graph does, and refuses one no
+relation answers rather than show the unfiltered number as the filtered one.
+
 ## filterBy
 
 | Value | What it reads |
