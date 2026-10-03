@@ -1,6 +1,6 @@
 ---
 title: The navigation layer
-description: Why the unsaved-changes guard is a sibling package, why it copies TanStack Router's shape, why Next needs a door of its own, and why nothing in it patches history.
+description: Why the unsaved-changes guard is a sibling package, why it copies TanStack Router's shape, why Next needs a door of its own, why nothing in it patches history, and why a route's sidebar intent is not the person's preference.
 ---
 
 [The navigation guard pages](/docs/navigation-guard) are what `@kanzo-tech/navigation` ships. This
@@ -200,3 +200,34 @@ the buttons, not the language. There is one product today.
 
 *Held by* `packages/navigation/package.json`, `//peers` — no `@kanzo-tech/ui` and no
 `tailwind-variants`, so there is nothing here to draw a dialog with.
+
+## A route's intent is not a preference
+
+This one is `@kanzo-tech/ui`'s sidebar, not the guard package, and it is about what a route may ask
+of the shell. A full-canvas page wants the sidebar collapsed while it is shown. The provider had one
+state, the person's preference, written to `sidebar_state` on every change — so the only way for a
+route to collapse it was to overwrite what the person chose, and the next page inherited the route's
+choice as theirs. And the cookie was written and never read back, so every load started open.
+
+Two inputs, one shown state: `open = intent ?? preference`. `SidebarIntent` is the intent, a
+component a route renders, and it never writes the cookie. `parseSidebarCookie` and
+`SIDEBAR_COOKIE_NAME` are the preference's way back in, as `defaultOpen` from a server layout; they
+take the raw value and no framework's cookie API, and they live outside the client module because a
+Server Component importing a constant from one receives a reference, not a string. The shape is
+shadcn's — a provider with `open` / `onOpenChange` over a cookie — with the second input added.
+
+A toggle under an intent is the person's, and it wins: it is an override that lasts as long as the
+set of mounted intents does and is never persisted, so it calls no `onOpenChange`. That is VS Code's
+zen mode — a temporary layout the person may adjust inside, which does not rewrite their settings when
+it ends. Mounted intents that disagree resolve to collapsed rather than to the last mounted, because
+effects run children before parents and "last" would let a layout overrule the page inside it.
+
+**What would reverse it:** people who toggle the sidebar open inside an immersive route and expect it
+open the next time they come back — a per-route remembered override, which is a second stored
+preference and the first thing this declines. Or a router that can tell the server which intents a
+route declares, which would let a full page load render the intent instead of collapsing on
+hydration.
+
+*Held by* `packages/ui/src/composites/sidebar.test.tsx`, "never writes the cookie", "lets a toggle
+win for the life of the intent, unpersisted, and leaves the preference untouched" and "is collapsed
+when mounted intents disagree, whichever mounted last".
