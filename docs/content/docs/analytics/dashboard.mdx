@@ -386,8 +386,8 @@ a lasso on the graph reaches every tile as itself, so the graph stays exempt fro
 is not filtered by it back through the dashboard.
 
 `semiJoinOf` is one map among any: `publish` takes a `ClauseMap`, `(clauses, source) => clause`,
-and the bridge that carries it is `@kanzo-tech/mosaic`'s `bridgeSelection(inner, outer, map)` —
-Mosaic's own `include` relay, in both directions, with the map on the way out. Without `publish`, a
+and the bridge that carries it is `@kanzo-tech/mosaic`'s `bridgeSelection(inner, outer, map)`,
+built on mosaic-core's public `Selection` API alone. Without `publish`, a
 dashboard's clauses are the page's, which is right for a dashboard over one table beside charts over
 the same table.
 

@@ -70,9 +70,9 @@ export {
 } from "./clause.js";
 
 /**
- * Ours: a selection inside another, joined by a map — Mosaic's `include` in both directions, with a
- * function on the way out. What a group of clients crossfiltering in their own columns publishes to
- * the page in the page's: `bridge.ts` states it.
+ * Ours: a selection inside another, joined by a map — the outer clauses handed in as themselves, the
+ * inner ones mapped out together, on mosaic-core's public `Selection` API alone. What a group of
+ * clients crossfiltering in their own columns publishes to the page in the page's: `bridge.ts`.
  */
 export { bridgeSelection, type BridgeOptions, type ClauseMap } from "./bridge.js";
 

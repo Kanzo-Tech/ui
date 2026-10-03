@@ -2,71 +2,40 @@ import { Selection, clauseNone, type ClauseSource, type SelectionClause } from "
 
 /**
  * **A selection inside another, joined by a map** — what a group of clients that crossfilter each
- * other in their own vocabulary publishes to the page in the page's.
+ * other in their own vocabulary publishes to the page in the page's. Built on Mosaic's public
+ * `Selection` API alone: `update`, `reset`, `activate`, `clauses`, and the `value` and `activate`
+ * events.
  *
- * Mosaic already has half of it. A selection built with `include` is told everything published into
- * the selections it includes: `new Selection(resolver, include)` adds itself to each one's `_relay`,
- * and `update`, `reset` and `activate` all end in `_relay.forEach(…)`, handing on the clause object
- * itself, so its `source` and `clients` arrive intact and a crossfilter still exempts each client from
- * its own clause. What `include` cannot do is change a clause on the way, and that is the other half:
- * a dashboard over a joined relation names `Person.country`, and the page's other clients have no such
- * column. So the bridge rides the same `_relay` channel in both directions:
+ * - **outer → inner, as the clauses themselves.** Every clause `outer` holds is put into `inner`
+ *   unchanged, `source` and `clients` intact, so a crossfilter still exempts each client from its own
+ *   clause; a clause that leaves `outer` leaves `inner`. The one exception is the bridge's own clause.
+ * - **inner → outer, through `map`.** The clauses published into `inner` itself are mapped *together*
+ *   into one clause of `outer`'s, whose source is the bridge: `key IN (rows WHERE a AND b)` is what the
+ *   inner clients show, and on a joined relation it is not `key IN (rows WHERE a) AND key IN (rows
+ *   WHERE b)`.
+ * - **Retraction follows the clause to where it was published.** Removing the inner clauses withdraws
+ *   the mapped one. Retracting the mapped one on `outer` — a chip, a page's reset — calls its source
+ *   back (`ClauseSource.reset`), and the bridge retracts the inner clauses. An `outer` clause reset
+ *   inside `inner` — a "Clear" over the inner clients — is reset on `outer` too, so the page does not go
+ *   on filtering by something nobody can see.
  *
- * - **outer → inner, as `include` does:** every clause of `outer` reaches `inner` as itself, except
- *   the one the bridge published there — `inner` already holds what it was made from.
- * - **inner → outer, through `map`:** the clauses published into `inner` itself — not the ones that
- *   arrived from `outer` — become one clause of `outer`'s, whose source is the bridge. Mapped together,
- *   not one by one: `key IN (rows WHERE a AND b)` is what the inner clients show, and on a joined
- *   relation it is not `key IN (rows WHERE a) AND key IN (rows WHERE b)`.
- *
- * Retraction follows the clause to where it was published. Removing the inner clauses withdraws the
- * mapped one; retracting the mapped one on `outer` — a chip, a page's reset — calls the bridge back,
- * and it resets the inner clauses, whose own sources (a brush, an input) clear themselves; and an
- * `outer` clause reset inside `inner` is reset on `outer` too, so a "Clear" over the inner clients does
- * not leave the page filtering by something nobody can see.
+ * **Why outer → inner is not `include`.** `include` would relay the bridge's own clause back in, and
+ * Mosaic has no public way to keep it out. Every way to make that echo harmless is worse: unexempted,
+ * it filters the client that made the brush by its own brush; exempting the publishers re-queries
+ * every other inner client a second time per brush step; and exempting every inner client makes it
+ * the selection's active clause for all of them, for which `SelectionResolver.predicate` answers *no
+ * predicate at all* — so the next query a table pages or a tile mounts would read the relation
+ * unfiltered. `include` also cannot be undone. Listening to `outer` has none of these.
  *
  * The bridge knows nothing of what it maps: `map` is the whole vocabulary. See `semiJoinOf` for the
  * one that turns a relation's column clauses into a semi-join on identity.
  */
 export type ClauseMap = (clauses: readonly SelectionClause[], source: ClauseSource) => SelectionClause;
 
-/** What a relay is handed: the three calls `Selection` makes on everything in its `_relay`. */
-interface Heard {
-  update(clause: SelectionClause): void;
-  reset(clauses: SelectionClause[]): void;
-  activate(clause: SelectionClause): void;
-}
-
-/** A downstream selection in `_relay` that hears instead of holding — `include`, with a callback. */
-class Relay extends Selection {
-  readonly #heard: Heard;
-  constructor(heard: Heard) {
-    super();
-    this.#heard = heard;
-  }
-  override update(clause: SelectionClause): this {
-    this.#heard.update(clause);
-    return this;
-  }
-  override reset(clauses: SelectionClause[] = []): this {
-    this.#heard.reset(clauses);
-    return this;
-  }
-  override activate(clause: SelectionClause): void {
-    this.#heard.activate(clause);
-  }
-}
-
-function listen(selection: Selection, heard: Heard): () => void {
-  const relay = new Relay(heard);
-  selection._relay.add(relay);
-  return () => void selection._relay.delete(relay);
-}
-
 export interface BridgeOptions {
   /**
    * How the inner clauses are retracted when the mapped one is retracted on `outer`. Defaults to
-   * `inner.reset(clauses)`. A `reset` travels downstream only, so when the inner clauses were relayed
+   * `inner.reset(clauses)`. A reset travels downstream only, so when the inner clauses were relayed
    * in from selections upstream of `inner` — a chart's own — whoever owns those passes the call that
    * resets them there, or they would go on highlighting a pick the page no longer has.
    */
@@ -74,55 +43,64 @@ export interface BridgeOptions {
 }
 
 /**
- * Join `inner` to `outer` through `map` — see {@link ClauseMap}. `outer`'s clauses already standing are
- * relayed into `inner`, and `inner`'s already published, at once. Returns the unbridge, which withdraws
- * the mapped clause from `outer` and stops both relays.
+ * Join `inner` to `outer` through `map` — see {@link ClauseMap}. What `outer` already holds is put into
+ * `inner`, and what `inner` already holds of its own is mapped, at once. Returns the unbridge, which
+ * withdraws the mapped clause and stops listening.
  */
 export function bridgeSelection(inner: Selection, outer: Selection, map: ClauseMap, options: BridgeOptions = {}): () => void {
   const { retract = (clauses) => void inner.reset(clauses) } = options;
-  /** Clauses `inner` was handed by `outer`: theirs to retract, never ours to map. */
+  /** Clauses the bridge put into `inner` from `outer`: theirs to retract, never ours to map. */
   const arrived = new WeakSet<SelectionClause>();
-  let mapped: readonly SelectionClause[] = [];
-  const own = () => inner._resolved.filter((c) => !arrived.has(c));
+  /** Those it took out again because `outer` let them go — not a reset made inside. */
+  const withdrawn = new WeakSet<SelectionClause>();
+  const own = () => inner.clauses.filter((c) => !arrived.has(c));
   const source: ClauseSource = { reset: () => retract(own()) };
-  const ours = (clause: SelectionClause) => clause.source === source;
+  let relayed: readonly SelectionClause[] = [];
+  let mapped: readonly SelectionClause[] = [];
+  let held: readonly SelectionClause[] = [];
 
-  const publish = () => {
+  const fromOuter = () => {
+    const now = outer.clauses.filter((c) => c.source !== source);
+    for (const clause of relayed) {
+      if (now.includes(clause)) continue;
+      withdrawn.add(clause);
+      if (!now.some((c) => c.source === clause.source)) inner.update(clauseNone(clause.source));
+    }
+    for (const clause of now) {
+      if (relayed.includes(clause)) continue;
+      arrived.add(clause);
+      inner.update(clause);
+    }
+    relayed = now;
+  };
+  const fromInner = () => {
+    const now = inner.clauses;
+    // An outer clause gone from `inner` that `outer` did not let go was reset in here: reset it there.
+    const theirs = held.filter((c) => arrived.has(c) && !withdrawn.has(c) && !now.includes(c) && outer.clauses.includes(c));
+    held = [...now];
+    if (theirs.length > 0) outer.reset(theirs);
+
     const next = own();
     if (next.length === mapped.length && next.every((c, i) => c === mapped[i])) return;
     mapped = next;
-    outer.update(next.length > 0 ? map(next, source) : clauseNone(source));
+    outer.update(next.length === 0 ? clauseNone(source) : map(next, source));
   };
-  const down = (clause: SelectionClause) => {
-    if (ours(clause)) return;
-    arrived.add(clause);
-    inner.update(clause);
+  const activate = (clause: SelectionClause) => {
+    if (clause.source !== source) inner.activate(clause);
   };
 
-  for (const clause of outer._resolved) down(clause);
-  const stop = [
-    listen(outer, {
-      update: down,
-      reset: (clauses) => {
-        const held = clauses.filter((c) => !ours(c) && inner._resolved.includes(c));
-        if (held.length > 0) inner.reset(held);
-      },
-      activate: (clause) => void (ours(clause) || inner.activate(clause)),
-    }),
-    listen(inner, {
-      update: publish,
-      reset: (clauses) => {
-        const theirs = clauses.filter((c) => arrived.has(c) && outer._resolved.includes(c));
-        if (theirs.length > 0) outer.reset(theirs);
-        publish();
-      },
-      activate: () => {},
-    }),
-  ];
-  publish();
+  fromOuter();
+  outer.addEventListener("value", fromOuter);
+  // @ts-expect-error mosaic-core types Selection's listeners by its value; `activate` hands a clause.
+  outer.addEventListener("activate", activate);
+  inner.addEventListener("value", fromInner);
+  fromInner();
 
   return () => {
-    for (const s of stop) s();
+    outer.removeEventListener("value", fromOuter);
+    // @ts-expect-error as above.
+    outer.removeEventListener("activate", activate);
+    inner.removeEventListener("value", fromInner);
     if (mapped.length > 0) outer.update(clauseNone(source));
     mapped = [];
   };
