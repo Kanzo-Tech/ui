@@ -1,5 +1,6 @@
 import type { Coordinator } from "@kanzo-tech/mosaic";
 import { readStructure } from "./source";
+import type { Structure } from "./structure";
 
 /** One join a corpus declares and its catalog does not: `table.column` holds `references.table`'s `references.column`. */
 export interface CorpusReference {
@@ -21,9 +22,16 @@ export interface CorpusReference {
  * without either package knowing the other.
  */
 export async function corpusReferences(coordinator: Coordinator, from: string): Promise<CorpusReference[]> {
-  const { edges } = await readStructure(coordinator, from);
+  return referencesOf(await readStructure(coordinator, from));
+}
+
+/** The column every vertex table is keyed by, and every endpoint holds: the corpus's `address`. */
+export const VERTEX_KEY = "dense_id";
+
+/** The joins of a structure already read — the one statement of what an endpoint points into. */
+export function referencesOf({ edges }: Pick<Structure, "edges">): CorpusReference[] {
   return edges.flatMap((edge) => [
-    { table: edge.name, column: "src", references: { table: edge.source, column: "dense_id" } },
-    { table: edge.name, column: "dst", references: { table: edge.destination, column: "dense_id" } },
+    { table: edge.name, column: "src", references: { table: edge.source, column: VERTEX_KEY } },
+    { table: edge.name, column: "dst", references: { table: edge.destination, column: VERTEX_KEY } },
   ]);
 }
