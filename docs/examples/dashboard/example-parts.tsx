@@ -7,23 +7,20 @@ import {
   DashboardFilters,
   DashboardStat,
   DetailTable,
+  TileEditor,
   useFieldStats,
-  type DashboardCardSpec,
+  type Tile,
 } from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "../charts/mosaic-demo";
 
-// The parts `Dashboard` is made of, arranged by hand: one `useFieldStats` read, a filter row, two
-// tiles, two cards and the rows. Every part takes the same `table` and `fields`; each one is
-// editable only if it is given an `onChange` — here, the bar card alone.
+// The parts `Dashboard` is made of, arranged by hand: one `useFieldStats` read, a filter bar, two
+// figures, two charts and the rows. Every part takes the same `table` and `fields`; a part given an
+// `onEdit` shows a pencil, and the host opens `TileEditor` on it — here, the bar chart alone.
 
 function Board() {
   const { fields } = useFieldStats("sightings");
-  const [card, setCard] = useState<DashboardCardSpec>({
-    id: "beast",
-    type: "bar",
-    x: "beast",
-    y: { op: "avg", field: "bounty" },
-  });
+  const [bar, setBar] = useState<Tile>({ id: "beast", kind: "chart", span: 1, type: "bar", x: "beast", y: { op: "avg", field: "bounty" } });
+  const [editing, setEditing] = useState<Tile | null>(null);
   if (!fields) return <Skeleton className="h-96 w-full" />;
 
   return (
@@ -35,17 +32,29 @@ function Board() {
         table="sightings"
       />
       <div className="grid gap-4 sm:grid-cols-2">
-        <DashboardStat fields={fields} stat={{ id: "n", label: "Sightings", measure: { op: "count" }, trend: "hour" }} table="sightings" />
         <DashboardStat
           fields={fields}
-          stat={{ id: "hoax", label: "Hoaxes", measure: { op: "share", field: "verdict", equals: "hoax" }, trend: "hour", goodWhenUp: false }}
+          stat={{ id: "n", kind: "stat", span: 1, title: "Sightings", measure: { op: "count" }, trend: "hour" }}
+          table="sightings"
+        />
+        <DashboardStat
+          fields={fields}
+          stat={{
+            id: "hoax",
+            kind: "stat",
+            span: 1,
+            title: "Hoaxes",
+            measure: { op: "share", field: "verdict", equals: "hoax" },
+            trend: "hour",
+            goodWhenUp: false,
+          }}
           table="sightings"
         />
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        <ChartCard card={card} fields={fields} onChange={setCard} table="sightings" />
+        {bar.kind === "chart" ? <ChartCard card={bar} fields={fields} onEdit={() => setEditing(bar)} table="sightings" /> : null}
         <ChartCard
-          card={{ id: "hour", type: "histogram", x: "hour", y: { op: "count" }, color: "verdict" }}
+          card={{ id: "hour", kind: "chart", span: 1, type: "histogram", x: "hour", y: { op: "count" }, color: "verdict" }}
           fields={fields}
           table="sightings"
         />
@@ -58,6 +67,16 @@ function Board() {
           <DetailTable columns={["beast", "region", "hour", "bounty", "verdict"]} fields={fields} pageSize={8} table="sightings" />
         </CardContent>
       </Card>
+      <TileEditor
+        fields={fields}
+        onClose={() => setEditing(null)}
+        onSave={(tile) => {
+          setBar(tile);
+          setEditing(null);
+        }}
+        table="sightings"
+        tile={editing}
+      />
     </div>
   );
 }

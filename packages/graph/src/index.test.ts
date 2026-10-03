@@ -31,6 +31,7 @@ const VALUES = [
   "ShapeGlyph",
   "corpusReferences",
   "lookFrom",
+  "readJoinGraph",
   "scaleOf",
   "simFrom",
   "useGraph",

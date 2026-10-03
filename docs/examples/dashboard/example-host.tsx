@@ -21,17 +21,22 @@ const CONFIG: Record<string, ChartConfig> = {
 
 /** What the server returned for this relation. `undefined` would draw the automatic dashboard. */
 const SAVED: DashboardSpec = {
-  version: 1,
+  version: 2,
   filters: [{ field: "region" }, { field: "verdict" }],
-  stats: [
-    { id: "n", label: "Sightings", measure: { op: "count" }, trend: "hour" },
-    { id: "hoax", label: "Hoaxes", measure: { op: "share", field: "verdict", equals: "hoax" }, trend: "hour", goodWhenUp: false },
+  tiles: [
+    { id: "n", kind: "stat", span: 1, title: "Sightings", measure: { op: "count" }, trend: "hour" },
+    {
+      id: "hoax",
+      kind: "stat",
+      span: 2,
+      title: "Hoaxes",
+      measure: { op: "share", field: "verdict", equals: "hoax" },
+      trend: "hour",
+      goodWhenUp: false,
+    },
+    { id: "hour", kind: "chart", span: 2, type: "histogram", x: "hour", y: { op: "count" }, color: "verdict" },
+    { id: "hall", kind: "chart", span: 1, type: "bar", x: "hall", y: { op: "count" }, color: "verdict" },
   ],
-  cards: [
-    { id: "hour", type: "histogram", x: "hour", y: { op: "count" }, color: "verdict", span: 2 },
-    { id: "hall", type: "bar", x: "hall", y: { op: "count" }, color: "verdict" },
-  ],
-  detail: null,
 };
 
 export default function Example() {

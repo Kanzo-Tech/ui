@@ -1,21 +1,15 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useMemo } from "react";
 import { createListCollection } from "@ark-ui/react/collection";
 import { PencilIcon } from "lucide-react";
 import { Button } from "../simples/button.js";
 import { Field, FieldLabel } from "../simples/field.js";
-import { Popover, PopoverContent, PopoverTrigger } from "../simples/popover.js";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../simples/select.js";
-import {
-  DASHBOARD_PICKABLE_AGGREGATES,
-  measureLabel,
-  type DashboardAggregate,
-  type DashboardMeasure,
-} from "./dashboard-spec.js";
+import { DASHBOARD_PICKABLE_AGGREGATES, measureLabel, type DashboardAggregate, type DashboardMeasure } from "./dashboard-spec.js";
 import type { FieldStat } from "./field-stats.js";
 
-/** The editors' shared parts. Module-local: what a host edits is the spec, not these. */
+/** The small controls a tile and its editor are built from. Module-local: what a host edits is the spec. */
 
 export interface PickOption {
   value: string;
@@ -57,8 +51,7 @@ export function Pick({
   );
 }
 
-export const fieldOptions = (fields: readonly FieldStat[]): PickOption[] =>
-  fields.map((f) => ({ value: f.name, label: f.name }));
+export const fieldOptions = (fields: readonly FieldStat[]): PickOption[] => fields.map((f) => ({ value: f.name, label: f.name }));
 
 const isNumeric = (f: FieldStat) => f.kind === "numeric" && f.role === "measure";
 
@@ -78,7 +71,6 @@ export function MeasurePick({
     label: op === "count" ? "Count" : measureLabel({ op, field: "" }).trim(),
     disabled: op !== "count" && reads(op).length === 0,
   }));
-  const choices = reads(measure.op);
   const set = (op: DashboardAggregate) => {
     if (op === "count") return onChange({ op });
     const field = reads(op).find((f) => f.name === measure.field) ?? reads(op)[0];
@@ -92,7 +84,7 @@ export function MeasurePick({
         <Pick
           label="Of"
           onChange={(field) => onChange({ ...measure, field })}
-          options={fieldOptions(choices)}
+          options={fieldOptions(reads(measure.op))}
           value={measure.field ?? ""}
         />
       )}
@@ -100,16 +92,13 @@ export function MeasurePick({
   );
 }
 
-/** The pencil a card or a tile opens its editor from. */
-export function EditPopover({ label, children }: { label: string; children: ReactNode }) {
+/** The pencil a tile opens the editor from. */
+export function EditTileButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <Popover positioning={{ placement: "bottom-end" }}>
-      <PopoverTrigger asChild>
-        <Button aria-label={label} className="opacity-64 hover:opacity-100" size="icon-sm" variant="ghost">
-          <PencilIcon />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-72 gap-3 p-(--space)">{children}</PopoverContent>
-    </Popover>
+    <Button aria-label={label} className="opacity-64 hover:opacity-100" onClick={onClick} size="icon-sm" variant="ghost">
+      <PencilIcon />
+    </Button>
   );
 }
+
+/** A `TableTile`: the rows under the selection in a titled card. */

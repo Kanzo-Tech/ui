@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { autoDashboard, cardFor, normalizeCard } from "./dashboard-spec.js";
+import { autoDashboard, cardFor, normalizeCard, type ChartTile } from "./dashboard-spec.js";
 import type { FieldStat } from "./field-stats.js";
 import { cardRationale, recommend } from "./recommend.js";
 
@@ -22,6 +22,9 @@ const FIELDS = [
   F("leagues", "numeric", "measure", 200),
   F("teeth", "numeric", "measure", 30),
 ];
+
+const charts = (fields: readonly FieldStat[]) =>
+  autoDashboard(fields).tiles.filter((t): t is ChartTile => t.kind === "chart");
 
 const shape = (fields: readonly FieldStat[], intent?: "overview" | "answer") =>
   recommend(fields, intent).map(({ spec }) => [spec.type, spec.x, spec.y.op, spec.y.field]);
@@ -89,7 +92,7 @@ describe("the rationale", () => {
   });
 
   it("is read back from a card until it is edited, whatever its width or id", () => {
-    const [line] = autoDashboard(FIELDS).cards;
+    const [line] = charts(FIELDS);
     expect(cardRationale(line!, FIELDS)).toBe("seen is a time, so a line of counts along it");
     expect(cardRationale({ ...line!, span: 1, id: "other" }, FIELDS)).toBe("seen is a time, so a line of counts along it");
     expect(cardRationale({ ...line!, type: "area" }, FIELDS)).toBeNull();
@@ -99,7 +102,7 @@ describe("the rationale", () => {
 
   it("explains a card past the overview's caps, and a card proposed as an answer", () => {
     expect(cardRationale(cardFor(FIELDS[3]!)!, FIELDS)).toBe("cult has 12 values, so a bar of counts per value");
-    const answer = { id: "a", type: "bar" as const, x: "region", y: { op: "sum" as const, field: "bounty" } };
+    const answer: ChartTile = { id: "a", kind: "chart", span: 1, type: "bar", x: "region", y: { op: "sum", field: "bounty" } };
     expect(cardRationale(answer, FIELDS)).toBe("region has 6 values and bounty is a measure, so a bar of total bounty per value");
   });
 });
@@ -114,8 +117,7 @@ describe("cardFor", () => {
 
 describe("autoDashboard's cards", () => {
   it("are the overview's first six, ids by position", () => {
-    const { cards } = autoDashboard(FIELDS);
-    expect(cards.map((c) => [c.id, c.type, c.x])).toEqual([
+    expect(charts(FIELDS).map((c) => [c.id, c.type, c.x])).toEqual([
       ["card-0", "line", "seen"],
       ["card-1", "bar", "region"],
       ["card-2", "bar", "beast"],

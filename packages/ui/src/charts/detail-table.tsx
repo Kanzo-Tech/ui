@@ -5,10 +5,9 @@ import { useEffect, useState } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
 import { asc, count, desc, Query } from "@uwdata/mosaic-sql";
-import { ArrowDownIcon, ArrowUpIcon, ChevronsUpDownIcon, Columns3Icon } from "lucide-react";
+import { ArrowDownIcon, ArrowUpIcon, ChevronsUpDownIcon } from "lucide-react";
 import { cn } from "../lib/cn.js";
 import { Button } from "../simples/button.js";
-import { Menu, MenuCheckboxItem, MenuContent, MenuTrigger } from "../simples/menu.js";
 import { Pagination, PaginationNextTrigger, PaginationPrevTrigger } from "../simples/pagination.js";
 import { Skeleton } from "../simples/skeleton.js";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../simples/table.js";
@@ -17,13 +16,11 @@ import type { FieldStat } from "./field-stats.js";
 import { useMosaic } from "./mosaic-provider.js";
 import { useChartQuery } from "./use-chart-query.js";
 
-export interface DetailTableProps extends Omit<React.ComponentProps<typeof ark.div>, "onChange"> {
+export interface DetailTableProps extends React.ComponentProps<typeof ark.div> {
   table: TableExpr;
   fields: readonly FieldStat[];
   /** The columns shown, in order. */
   columns: readonly string[];
-  /** Makes the column set editable from a "Columns" menu. */
-  onChange?: (columns: string[]) => void;
   /** Rows per page. Default 25. */
   pageSize?: number;
 }
@@ -37,7 +34,7 @@ type Sort = { column: string; desc: boolean } | null;
  * browser never holds more than the page.
  */
 export function DetailTable(props: DetailTableProps) {
-  const { table, fields, columns, onChange, pageSize = 25, className, slot, ...rest } = props;
+  const { table, fields, columns, pageSize = 25, className, slot, ...rest } = props;
   const { crossfilter } = useMosaic();
   const [page, setPage] = useState(0);
   const [sort, setSort] = useState<Sort>(null);
@@ -132,30 +129,6 @@ export function DetailTable(props: DetailTableProps) {
             ? "0 rows"
             : `${(page * pageSize + 1).toLocaleString()}–${Math.min(n, (page + 1) * pageSize).toLocaleString()} of ${n.toLocaleString()}`}
         </span>
-        {onChange ? (
-          <Menu closeOnSelect={false} positioning={{ placement: "bottom-start" }}>
-            <MenuTrigger asChild>
-              <Button size="sm" variant="ghost">
-                <Columns3Icon />
-                Columns
-              </Button>
-            </MenuTrigger>
-            <MenuContent>
-              {fields.map((f) => (
-                <MenuCheckboxItem
-                  checked={shown.includes(f.name)}
-                  key={f.name}
-                  onCheckedChange={(checked) =>
-                    onChange(checked ? [...shown, f.name] : shown.filter((name) => name !== f.name))
-                  }
-                  value={f.name}
-                >
-                  {f.name}
-                </MenuCheckboxItem>
-              ))}
-            </MenuContent>
-          </Menu>
-        ) : null}
         {n > pageSize ? (
           <Pagination
             className="ms-auto w-auto"

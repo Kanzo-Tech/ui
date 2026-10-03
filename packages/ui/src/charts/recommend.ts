@@ -1,4 +1,4 @@
-import type { DashboardCardSpec, DashboardChartType, DashboardMeasure } from "./dashboard-spec.js";
+import type { ChartTile, DashboardChartType, DashboardMeasure } from "./dashboard-spec.js";
 import type { FieldKind, FieldRole, FieldStat } from "./field-stats.js";
 
 /**
@@ -19,8 +19,8 @@ import type { FieldKind, FieldRole, FieldStat } from "./field-stats.js";
 export type RecommendIntent = "overview" | "answer";
 
 export interface Recommendation {
-  /** A card valid for the fields it was proposed from. */
-  spec: DashboardCardSpec;
+  /** A chart tile valid for the fields it was proposed from. */
+  spec: ChartTile;
   /** One sentence naming the fields and what about them chose the chart. */
   rationale: string;
 }
@@ -48,7 +48,7 @@ interface RecommendRule {
   score: Partial<Record<RecommendIntent, number>>;
   /** How many of the rule's charts are proposed, the first fields first. */
   limit: number;
-  span?: 2;
+  span: 1 | 2;
   why: (fields: readonly FieldStat[]) => string;
 }
 
@@ -78,6 +78,7 @@ const RULES: readonly RecommendRule[] = [
     y: "sum",
     score: { answer: 90 },
     limit: 3,
+    span: 1,
     why: (f) => `${name(f, 0)} has ${values(f)} values and ${name(f, 1)} is a measure, so a bar of total ${name(f, 1)} per value`,
   },
   {
@@ -97,6 +98,7 @@ const RULES: readonly RecommendRule[] = [
     y: "count",
     score: { overview: 80, answer: 40 },
     limit: 3,
+    span: 1,
     why: (f) => `${name(f, 0)} has ${values(f)} values, so a bar of counts per value`,
   },
   {
@@ -106,6 +108,7 @@ const RULES: readonly RecommendRule[] = [
     y: "count",
     score: { overview: 60, answer: 30 },
     limit: 2,
+    span: 1,
     why: (f) => `${name(f, 0)} is a measure, so a histogram of how its values spread`,
   },
   {
@@ -155,13 +158,14 @@ function propose(rule: RecommendRule, fields: readonly FieldStat[]): Recommendat
   return tuples(rule.reads, fields)
     .slice(0, rule.limit)
     .map((read) => {
-      const spec: DashboardCardSpec = {
+      const spec: ChartTile = {
         id: `${rule.id}:${read.map((f) => f.name).join(",")}`,
+        kind: "chart",
+        span: rule.span,
         type: rule.mark,
         x: name(read, 0),
         y: measureOf(rule, read),
       };
-      if (rule.span) spec.span = rule.span;
       return { spec, rationale: rule.why(read) };
     });
 }
@@ -178,7 +182,7 @@ export function recommend(fields: readonly FieldStat[], intent: RecommendIntent 
     .map(({ recommendation }) => recommendation);
 }
 
-const encoding = (card: DashboardCardSpec) =>
+const encoding = (card: ChartTile) =>
   JSON.stringify([card.type, card.x, card.y.op, card.y.field, card.y.equals, card.color, card.facet, card.title]);
 
 /**
@@ -187,7 +191,7 @@ const encoding = (card: DashboardCardSpec) =>
  * relation has, and from every rule, so a card proposed as an answer explains itself on a dashboard.
  * Width is layout and does not count as an edit.
  */
-export function cardRationale(card: DashboardCardSpec, fields: readonly FieldStat[]): string | null {
+export function cardRationale(card: ChartTile, fields: readonly FieldStat[]): string | null {
   const own = fields.filter((f) => f.name === card.x || f.name === card.y.field);
   const key = encoding(card);
   return RULES.flatMap((rule) => propose(rule, own)).find((r) => encoding(r.spec) === key)?.rationale ?? null;

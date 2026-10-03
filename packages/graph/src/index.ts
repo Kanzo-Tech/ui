@@ -56,4 +56,6 @@ export type { DataStatus, Drawn, GraphState } from "./core/state";
 export type { VertexDetail } from "./core/source";
 // The corpus's joins as a schema states them, for a reader handed only DuckDB's catalog.
 export { corpusReferences, type CorpusReference } from "./core/references";
+// The corpus as the join graph `@kanzo-tech/mosaic`'s relations are built over, from the same joins.
+export { readJoinGraph } from "./core/join-graph";
 export { GraphError } from "./core/error";
