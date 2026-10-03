@@ -1,7 +1,7 @@
 import { Graph } from "@cosmos.gl/graph";
 import { GraphError } from "../core/error";
 import type { Geometry } from "../core/load";
-import type { GraphStore } from "../core/store";
+import type { Arrangement, GraphStore } from "../core/store";
 import type { GraphCommands, Motion, VertexId } from "../core/types";
 import { resolveLook, type Look } from "./graph-looks";
 import { appearance, forces, paint } from "./graph-model";
@@ -9,7 +9,7 @@ import { resolveSim, type Sim } from "./graph-sim";
 import { createCamera, FIT_DURATION } from "./camera";
 import { decayFor, highlighted, LINKS_WHILE_RUNNING, simulating } from "./motion";
 import { cornersOf, placed, placementOf } from "./placement";
-import { releaseContext, webglBox } from "./webgl";
+import { holdDevice, webglBox } from "./webgl";
 
 export interface RendererEvents {
   /** After every frame and every camera move — where the overlays repaint. */
@@ -28,16 +28,8 @@ export interface Renderer extends GraphCommands {
 }
 
 const REHEAT = 0.35;
-/** How long a release wakes a paused layout before pausing it again. */
-const RELEASE_BURST = 1200;
 /** Twentieths: a settle costs twenty reports rather than one per frame. */
 const PROGRESS_STEPS = 20;
-
-/**
- * The slowest honest answer for a GPU device: one comes up in milliseconds when it can be made at
- * all, so ten seconds is a device that will not come, not one that is slow.
- */
-const READY_DEADLINE = 10_000;
 
 /**
  * **cosmos.gl's lifetime, and the frame that renders once.** Built once per element; it subscribes to
@@ -45,10 +37,15 @@ const READY_DEADLINE = 10_000;
  *
  * - a new graph uploads positions and links, once per corpus and per position binding;
  * - a binding, a look or a theme change uploads colours, sizes, shapes and clusters and nothing else;
- * - a filter, a selection, a focus or a pin sets config and uploads nothing, and never calls
+ * - a filter, a selection or a focus sets config and uploads nothing, and never calls
  *   `render()`: a vertex the page's filter does not keep is greyed out, Cosmograph's way, so the
  *   points never move because a chart was brushed;
  * - the camera reaches nothing: cosmos.gl moves it, and the overlays follow.
+ *
+ * **The arrangement is the store's, and this is a view of it.** Destroyed, it writes the points and
+ * the camera back with `store.keep`; built over a kept arrangement, it uploads that instead of the
+ * geometry's start and the layout goes on as it was: settled stays still, paused stays paused, and a
+ * running one is resumed with a reheat. A detached canvas holds no GPU at all.
  *
  * A vertex's id is its index here, so nothing is resolved between the store and the buffers.
  * `transitionDuration` is 0: the default animates every upload for 800 ms and keeps the loop awake.
@@ -71,9 +68,6 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   let live = false;
   /** Whether a layout is moving the points — ours, since cosmos.gl's flag waits for its device. */
   let moving = false;
-  let hovering: number | null = null;
-  let dragging: number | null = null;
-  let burst = 0;
   let reported = -1;
   const progress = (value: number) => {
     const bucket = Math.round(value * PROGRESS_STEPS);
@@ -84,9 +78,11 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
 
   let look: Look = resolveLook(store.getOptions().look);
   let lookPatch = store.getOptions().look;
-  const dirty = { positions: true, paint: true, state: true, pinned: true };
+  const dirty = { positions: true, paint: true, state: true };
   let frame = 0;
   let links: Float32Array | null = null;
+  /** The geometry whose positions this canvas uploaded and rendered: the only one it can write back. */
+  let shown: Geometry | null = null;
   let last = store.getSnapshot();
   let lastOptions = store.getOptions();
 
@@ -125,29 +121,16 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       onZoomStart: (_event, userDriven) => taken(userDriven),
       onZoom: () => events.onFrame?.(),
       onPointMouseOver: (index, position) => {
-        hovering = index;
         events.onHover?.(position);
         store.hover(index);
       },
       onPointMouseOut: () => {
-        hovering = null;
         events.onHover?.(null);
         store.hover(null);
-      },
-      onDragStart: () => {
-        dragging = hovering;
       },
       onDrag: (event) => {
         events.onHover?.(graph.screenToSpacePosition([event.x, event.y]));
         events.onFrame?.();
-      },
-      // d3-force's drag-to-fix, and only while a layout can move the point back: cosmos.gl moves a
-      // dragged point with the simulation off too, and a pin nothing pulls against means nothing.
-      onDragEnd: () => {
-        const vertex = dragging;
-        dragging = null;
-        const { motion, pinned } = store.getSnapshot();
-        if (vertex !== null && motion !== "settled" && !pinned.includes(vertex)) store.pin([...pinned, vertex]);
       },
       onPointClick: (index) => focusOn(index),
       onBackgroundClick: () => clear(),
@@ -172,13 +155,14 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     const options = store.getOptions();
     // Positions wait for the first colours, so a graph's first frame is the drawn one, not a grey one.
     const placing = dirty.positions && encoding ? geometry : null;
+    const kept = placing && snapshot.arrangement;
     if (placing) {
       dirty.positions = false;
-      graph.setPointPositions(position(placing), true);
+      graph.setPointPositions(position(placing, kept), true);
       if (placing.links !== links) {
         links = placing.links;
         graph.setLinks(links);
-        dirty.paint = dirty.state = dirty.pinned = true;
+        dirty.paint = dirty.state = true;
       }
     }
     const painting = dirty.paint && geometry && encoding;
@@ -199,31 +183,45 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
         focusedPointIndex: snapshot.focus === null || snapshot.focus >= geometry.size ? undefined : snapshot.focus,
       });
     }
-    if (dirty.pinned && geometry) {
-      dirty.pinned = false;
-      graph.setPinnedPoints(snapshot.pinned.length > 0 ? [...snapshot.pinned] : null);
-    }
     if (painting || placing) graph.render();
-    if (placing) layout(placing, simulating(options, placing)); // after render(): cosmos.gl 3.4 turning its simulation on drops unrendered uploads
+    if (placing) {
+      shown = placing;
+      layout(placing, kept); // after render(): cosmos.gl 3.4 turning its simulation on drops unrendered uploads
+    }
     if (geometry && encoding && !dirty.paint) store.reportDrawn(snapshot);
     events.onFrame?.();
   }
 
-  /** The positions cosmos.gl gets: bound, the data's extent centred in the device's box; unbound, the seeded start. */
-  function position(geometry: Geometry): Float32Array {
+  /**
+   * The positions cosmos.gl gets: where the last canvas left them, already in the square; else bound,
+   * the data's extent centred in the device's box; unbound, the seeded start. The square is the same
+   * either way, since the box is the device's.
+   */
+  function position(geometry: Geometry, kept: Arrangement | null): Float32Array {
     const placement = geometry.bound && geometry.extent ? placementOf(geometry.extent, box as number) : null;
     graph.setConfigPartial({ spaceSize: placement?.side ?? geometry.space, simulationDecay: decayFor(geometry.size) });
-    if (!placement || !geometry.extent) return geometry.positions;
-    camera.frame(cornersOf(geometry.extent, placement));
-    return placed(geometry.positions, placement);
+    if (kept?.view) camera.restore(kept.view);
+    else if (placement && geometry.extent) camera.frame(cornersOf(geometry.extent, placement));
+    if (kept) return kept.positions;
+    return placement ? placed(geometry.positions, placement) : geometry.positions;
   }
 
-  /** A new geometry lays itself out when its positions are a start, and stands still when they are data. */
-  function layout(geometry: Geometry, running: boolean): void {
+  /**
+   * A new geometry lays itself out when its positions are a start, and stands still when they are
+   * data. A kept one goes on as it was left: `motion` is still what it was when the last canvas went.
+   */
+  function layout(geometry: Geometry, kept: Arrangement | null): void {
     camera.drawn();
-    if (running) return run(1);
+    const running = kept ? store.getSnapshot().motion === "running" : simulating(store.getOptions(), geometry);
+    if (running) return run(kept ? REHEAT : 1);
     if (live) graph.pause();
-    if (!geometry.bound) camera.fit();
+    if (!geometry.bound && !kept?.view) camera.fit();
+  }
+
+  /** What this canvas leaves the next: the points as cosmos.gl holds them, and the camera. */
+  function keep(): void {
+    if (shown === null || shown !== store.getSnapshot().geometry || !graph.isReady) return;
+    store.keep({ positions: new Float32Array(graph.getPointPositions()), view: camera.view(host.clientWidth, host.clientHeight) });
   }
 
   /** Whether links are drawn now: the look's choice, unless a large layout is running. */
@@ -256,11 +254,6 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     showLinks();
   }
 
-  function endBurst(): void {
-    clearTimeout(burst);
-    burst = 0;
-  }
-
   function focusOn(vertex: VertexId): void {
     const around = graph.getNeighboringPointIndices(vertex) ?? [];
     store.select([vertex, ...around], "node", "Node");
@@ -276,26 +269,8 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   // two synchronous hit tests answer `[]` until then; only the canvas element has to wait for `ready`.
   graph.setConfigPartial(appearance(look, host));
   graph.render();
-  const onLost = (event: Event) => {
-    event.preventDefault();
-    fail(new GraphError("graph/context-lost", "The browser took back the WebGL context; reload to get one."));
-  };
-  const noDevice = (data: GraphError["data"], cause?: unknown) =>
-    fail(new GraphError("graph/no-webgl", "No GPU device came up to draw with.", data, { cause }));
-  // `ready` never settles when cosmos.gl cannot make a device, so the deadline is what ends the wait.
-  const deadline = setTimeout(() => noDevice({ after: READY_DEADLINE }), READY_DEADLINE);
-  void graph.ready.then(
-    () => {
-      clearTimeout(deadline);
-      if (!destroyed) host.querySelector("canvas")?.addEventListener("webglcontextlost", onLost);
-      camera.ready();
-    },
-    (error: unknown) => {
-      clearTimeout(deadline);
-      noDevice({}, error);
-    },
-  );
-  store.report(live && graph.isSimulationRunning ? "running" : "settled");
+  const release = holdDevice(graph, host, fail, camera.ready);
+  if (store.getSnapshot().arrangement === null) store.report("settled");
   schedule();
 
   const unsubscribe = store.subscribe(() => {
@@ -312,17 +287,15 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       dirty.paint = true;
     }
     if (snapshot.selection !== last.selection || snapshot.focus !== last.focus || snapshot.mask !== last.mask) dirty.state = true;
-    if (snapshot.pinned !== last.pinned) dirty.pinned = true;
     if (options.sim !== lastOptions.sim) applyForces(options.sim);
     const wants = simulating(options, snapshot.geometry);
     if (snapshot.geometry === last.geometry && wants !== simulating(lastOptions, last.geometry)) {
-      endBurst();
       if (wants) run(REHEAT);
       else graph.pause();
     }
     last = snapshot;
     lastOptions = options;
-    if (dirty.positions || dirty.paint || dirty.state || dirty.pinned) schedule();
+    if (dirty.positions || dirty.paint || dirty.state) schedule();
   });
 
   return {
@@ -340,37 +313,15 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     },
     fit: () => camera.fit(),
     pause() {
-      endBurst();
       graph.pause();
     },
     resume() {
-      endBurst();
       const settled = store.getSnapshot().motion === "settled";
       if (settled || !live) run(REHEAT);
       else graph.unpause();
     },
     restart() {
-      endBurst();
-      store.pin([]);
       run(1);
-    },
-    /**
-     * d3's release: unfix, then reheat, so the released points visibly flow back. A running layout
-     * takes the heat and goes on; a settled one cools to settled on its own; a paused one gets a
-     * bounded burst and is paused again, because the reader paused it.
-     */
-    unpin() {
-      const { motion, pinned } = store.getSnapshot();
-      if (pinned.length === 0) return;
-      endBurst();
-      store.pin([]);
-      run(REHEAT);
-      if (motion === "paused") {
-        burst = window.setTimeout(() => {
-          burst = 0;
-          graph.pause();
-        }, RELEASE_BURST);
-      }
     },
     reveal(vertex) {
       if (vertex >= size()) return;
@@ -384,16 +335,11 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     clear,
     destroy() {
       unsubscribe();
-      endBurst();
+      keep();
       if (frame) cancelAnimationFrame(frame);
-      clearTimeout(deadline);
       camera.destroy();
       destroyed = true;
-      // Read here rather than remembered from construction: the element exists only with the device.
-      const canvas = host.querySelector("canvas");
-      canvas?.removeEventListener("webglcontextlost", onLost);
-      graph.destroy();
-      releaseContext(canvas);
+      release();
     },
   };
 }
