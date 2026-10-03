@@ -1,4 +1,6 @@
 import { MosaicClient, type ClauseMetadata, type ClauseSource, type SelectionClause } from "@uwdata/mosaic-core";
+import type { ClauseMap } from "./bridge.js";
+import type { TableExpr } from "./table.js";
 import {
   ColumnRefNode,
   InOpNode,
@@ -65,6 +67,17 @@ export function clauseSemiJoin(key: string, members: SemiJoinMembers | null, opt
           ? literal(false)
           : new InOpNode(field, new TupleNode(members.map((m) => literal(m))));
   return { meta, source, clients, fields: [field], value: members, predicate };
+}
+
+/**
+ * **Column clauses on a relation, crossed as a semi-join on identity** — the {@link ClauseMap} a
+ * bridge takes when the clients inside it read a relation keyed by `key`: `key IN (SELECT key FROM
+ * table WHERE <every clause>)`. The statement runs inside the predicate, so whatever the relation
+ * joins, the keys never come back to the page; and every client whose rows carry `key` answers it.
+ */
+export function semiJoinOf(key: string, table: TableExpr, options: { label?: string } = {}): ClauseMap {
+  return (clauses, source) =>
+    clauseSemiJoin(key, Query.select(key).from(table).where(clauses.flatMap((c) => (c.predicate ? [c.predicate] : []))), { source, label: options.label });
 }
 
 /**

@@ -63,10 +63,18 @@ export {
 export {
   clauseColumns,
   clauseSemiJoin,
+  semiJoinOf,
   type SemiJoinMembers,
   type SemiJoinMetadata,
   type SemiJoinOptions,
 } from "./clause.js";
+
+/**
+ * Ours: a selection inside another, joined by a map — Mosaic's `include` in both directions, with a
+ * function on the way out. What a group of clients crossfiltering in their own columns publishes to
+ * the page in the page's: `bridge.ts` states it.
+ */
+export { bridgeSelection, type ClauseMap } from "./bridge.js";
 
 /** Ours: turning an Arrow answer into values, which the client protocol does not do for you. */
 export { column, numbers } from "./arrow.js";
