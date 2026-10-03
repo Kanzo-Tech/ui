@@ -83,3 +83,21 @@ export { engine, EngineError, type Engine } from "./engine.js";
 
 /** Ours: what a query threw, from the `QueryError` mosaic-core hands a client's `queryError`. */
 export { queryFailure } from "./failure.js";
+
+/**
+ * Ours: a relation over a join graph — a root type and the hops taken from it, compiled to one
+ * `Query`, so a joined relation is a `TableExpr` like any table. The graph is data a reader builds
+ * from its own catalog; `@kanzo-tech/graph`'s `readJoinGraph` builds one from a fossil corpus.
+ */
+export {
+  relationHops,
+  relationIdentities,
+  relationKey,
+  relationQuery,
+  type Hop,
+  type JoinEdge,
+  type JoinGraph,
+  type JoinType,
+  type Relation,
+  type RelationHop,
+} from "./relation.js";
