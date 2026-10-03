@@ -10,6 +10,18 @@ export interface SchemaReference {
   references: { table: string; column: string };
 }
 
+/**
+ * A data space as the agent knows it: the DDL the model reads, and the tables that DDL declares — the
+ * ones a statement may read. One answer, so the tables the model is shown and the tables the gate lets
+ * it read cannot be two lists.
+ */
+export interface DataSchema {
+  /** The catalog as DuckDB DDL, every table qualified as a query must name it. */
+  readonly ddl: string;
+  /** Each table's path, as the DDL names it: `[catalog, table]`, or `[catalog, schema, table]`. */
+  readonly tables: readonly (readonly string[])[];
+}
+
 export interface DescribeSchemaOptions {
   /** The catalog to describe — an attached database's name. */
   catalog: string;
@@ -28,7 +40,7 @@ interface ColumnRow {
 }
 
 /**
- * A catalog as DuckDB DDL, read back from DuckDB's own `information_schema` — what `dataAgent` is
+ * A catalog as DuckDB DDL and the tables it declares, read back from DuckDB's own `information_schema` — what `dataAgent` is
  * given as its schema.
  *
  * Read from the engine rather than re-derived from a manifest, so the table names, the column names
@@ -36,7 +48,7 @@ interface ColumnRow {
  * write it, qualified by its catalog. A reference is written as DDL writes one, `REFERENCES` on the
  * column, which is the form a model has read the most of.
  */
-export async function describeSchema(coordinator: Coordinator, options: DescribeSchemaOptions): Promise<string> {
+export async function describeSchema(coordinator: Coordinator, options: DescribeSchemaOptions): Promise<DataSchema> {
   const { catalog, exclude = [], references = [], signal } = options;
   const answer = (await coordinator.query(
     Query.from(asTableRef(["information_schema", "columns"])!)
@@ -47,17 +59,21 @@ export async function describeSchema(coordinator: Coordinator, options: Describe
   )) as { toArray(): Iterable<ColumnRow> };
 
   const quote = (identifier: string) => `"${identifier.replaceAll('"', '""')}"`;
-  const name = (schema: string, table: string) =>
-    String(asTableRef(schema === "main" ? [catalog, table] : [catalog, schema, table]));
+  const path = (schema: string, table: string) => (schema === "main" ? [catalog, table] : [catalog, schema, table]);
+  const name = (schema: string, table: string) => String(asTableRef(path(schema, table)));
   const joins = new Map(references.map((r) => [`${r.table}\u0000${r.column}`, r.references]));
   const hidden = new Set(exclude);
-  const tables = new Map<string, string[]>();
+  const tables = new Map<string, { path: string[]; columns: string[] }>();
   for (const row of answer.toArray()) {
     if (hidden.has(row.table_name)) continue;
     const key = name(row.table_schema, row.table_name);
     const target = joins.get(`${row.table_name}\u0000${row.column_name}`);
     const column = `  ${quote(row.column_name)} ${row.data_type}${target ? ` REFERENCES ${name("main", target.table)} (${quote(target.column)})` : ""}`;
-    tables.set(key, [...(tables.get(key) ?? []), column]);
+    const table = tables.get(key) ?? { path: path(row.table_schema, row.table_name), columns: [] };
+    tables.set(key, { ...table, columns: [...table.columns, column] });
   }
-  return [...tables].map(([table, columns]) => `CREATE TABLE ${table} (\n${columns.join(",\n")}\n);`).join("\n\n");
+  return {
+    ddl: [...tables].map(([table, { columns }]) => `CREATE TABLE ${table} (\n${columns.join(",\n")}\n);`).join("\n\n"),
+    tables: [...tables.values()].map((table) => table.path),
+  };
 }

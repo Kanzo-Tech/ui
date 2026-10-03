@@ -61,6 +61,7 @@
     "@ai-sdk/react": "^4.0.129",
     "@ark-ui/react": "^5.37.2",
     "@codemirror/lang-sql": "^6.10.0",
+    "@duckdb/duckdb-wasm": "1.33.1-dev57.0",
     "@kanzo-tech/mosaic": "workspace:*",
     "@kanzo-tech/theme": "workspace:*",
     "@kanzo-tech/ui": "workspace:*",
@@ -78,7 +79,7 @@
     "react-dom": "^19.0.0",
     "rollup-plugin-preserve-directives": "^0.4.0"
   },
-  "//size-limit": "The root barrel, measured without the peers and dependencies a host already has. Assist and Chat tree-shake apart: a host that only assists fields does not ship the transcript, and the markdown parser comes with Chat alone. `./data` is measured on its own, without the analytics, table and editor engines it draws with.",
+  "//size-limit": "The root barrel, measured without the peers and dependencies a host already has. Assist and Chat tree-shake apart: a host that only assists fields does not ship the transcript, and the markdown parser comes with Chat alone. `./data` is measured on its own, without the analytics, table and editor engines it draws with. Raised 6 kB -> 6.5 kB on 2026-10-03 as a decision (branch `fix/ask-statement-gate`): 5.12 kB before, 6.18 kB after `gateStatement` — the one door from a model's SQL to the page's engine, which reads DuckDB's parse and words each refusal for the model — and `QueryResult` drawing from its rows. A security fix, not drift; budget set just above the measurement so the next growth trips it.",
   "size-limit": [
     {
       "name": "root barrel (JS)",
@@ -101,7 +102,7 @@
     {
       "name": "data subpath (JS)",
       "path": "dist/data/index.js",
-      "limit": "6 kB",
+      "limit": "6.5 kB",
       "ignore": [
         "react",
         "react-dom",

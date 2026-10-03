@@ -2,7 +2,7 @@
 
 import { ark } from "@ark-ui/react/factory";
 import { PostgreSQL, sql as sqlLanguage } from "@codemirror/lang-sql";
-import { sql, type TableExpr } from "@kanzo-tech/mosaic";
+import { literal, sql, type TableExpr } from "@kanzo-tech/mosaic";
 import type { ToolPart } from "../tool.js";
 import { CodeIcon, DownloadIcon } from "lucide-react";
 import * as React from "react";
@@ -63,7 +63,7 @@ export interface QueryResultTranslations {
   sql: string;
   chart: string;
   table: string;
-  /** Over the engine's words, when it refused the statement. */
+  /** Over the refusal's words, when the statement gate or the engine refused the statement. */
   failed: string;
   /** In place of a table with no rows. */
   empty: string;
@@ -97,11 +97,12 @@ export interface QueryResultProps extends Omit<React.ComponentProps<typeof ark.d
  * toggle away; anything else is a compact table. The SQL is under it, read-only and folded away,
  * and the actions are above: the SQL to the clipboard, the rows as CSV, and the host's own.
  *
- * The chart reads the answer's own statement again, as a relation — the statement that ran, scope
- * and row cap included, so it is the same rows — and it is **not** a client of the page's
- * crossfilter: an answer is what was true when it was asked, and the page filtering it again would
- * be answering a question nobody asked. Taking an answer back to the page is an action the host
- * draws.
+ * Everything it draws is the rows the answer holds — Hex's and Genie's cards draw the result set, not
+ * the query. The SQL is never run again: a transcript is kept and restored, and a statement read out
+ * of one is no one's to run. The chart reads those rows as a relation of literals (`answerRelation`),
+ * and it is **not** a client of the page's crossfilter: an answer is what was true when it was asked,
+ * and the page filtering it again would be answering a question nobody asked. Taking an answer back
+ * to the page is an action the host draws.
  */
 export function QueryResult(props: QueryResultProps) {
   const { part, actions, translations, className, slot, ...rest } = props;
@@ -177,6 +178,25 @@ export function toCsv(rows: readonly QueryRow[]): string {
   return [columns, ...rows.map((row) => columns.map((c) => row[c]))].map((line) => line.map(field).join(",")).join("\r\n");
 }
 
+/** A timestamp as the agent writes one into a message: `Date.prototype.toISOString`. */
+const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+
+/** A value of a kept row, as the literal it was: a timestamp a `Date` again, a list or struct its JSON. */
+const revive = (value: unknown) =>
+  typeof value === "string" ? (ISO.test(value) ? new Date(value) : value) : value !== null && typeof value === "object" ? JSON.stringify(value) : value;
+
+/**
+ * An answer's rows as a relation: `VALUES` of mosaic-sql literals under the answer's own column
+ * names. What the chart reads, so it draws the rows the card holds and nothing else — the values are
+ * literals and the names identifiers, quoted, so no text of a transcript reaches the engine as SQL.
+ */
+export function answerRelation(rows: readonly QueryRow[]): TableExpr {
+  const columns = columnsOf(rows);
+  const tuples = rows.map((row) => `(${columns.map((column) => String(literal(revive(row[column])))).join(", ")})`);
+  const names = columns.map((column) => `"${column.replaceAll('"', '""')}"`);
+  return sql`(SELECT * FROM (VALUES ${tuples.join(", ")}) AS "answer"(${names.join(", ")}))`;
+}
+
 const format = (value: unknown) =>
   typeof value === "number" ? value.toLocaleString() : value == null ? "—" : String(value);
 
@@ -221,9 +241,8 @@ function Rows(props: {
   t: QueryResultTranslations;
 }) {
   const { output, chosen, onChoose, t } = props;
-  // The relation is the statement that ran, so a re-render that builds a new node names the same
-  // relation: `useFieldStats` keys on its SQL.
-  const relation = React.useMemo(() => sql`(${output.statement}\n)`, [output.statement]);
+  // A re-render that builds a new node names the same relation: `useFieldStats` keys on its SQL.
+  const relation = React.useMemo(() => answerRelation(output.rows), [output.rows]);
   const stats = useFieldStats(relation);
   if (stats.fields === null && stats.error === null) return <Skeleton className="h-[220px] w-full" />;
   const plotted = stats.fields && stats.columns ? plotRelation(relation, { fields: stats.fields, columns: stats.columns }) : null;
