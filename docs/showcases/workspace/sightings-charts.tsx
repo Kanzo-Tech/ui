@@ -41,36 +41,37 @@ const CONFIG: Record<string, ChartConfig> = {
 };
 
 const SPEC: DashboardSpec = {
-  version: 1,
+  version: 2,
   filters: [{ field: "region" }, { field: "hall" }, { field: "beast" }, { field: "leagues" }],
-  stats: [
-    { id: "sightings", label: "Sightings", measure: { op: "count" }, trend: "hour" },
-    { id: "distance", label: "Mean distance (leagues)", measure: { op: "avg", field: "leagues" }, trend: "hour" },
-    { id: "bounty", label: "Bounty paid (gold)", measure: { op: "sum", field: "bounty" }, trend: "hour" },
+  tiles: [
+    { id: "sightings", kind: "stat", span: 1, title: "Sightings", measure: { op: "count" }, trend: "hour" },
+    { id: "distance", kind: "stat", span: 1, title: "Mean distance (leagues)", measure: { op: "avg", field: "leagues" }, trend: "hour" },
+    { id: "bounty-paid", kind: "stat", span: 1, title: "Bounty paid (gold)", measure: { op: "sum", field: "bounty" }, trend: "hour" },
+    { id: "hour", kind: "chart", span: 2, type: "line", x: "hour", y: { op: "count" }, title: "Sightings by hour" },
     {
       id: "hoaxes",
-      label: "Hoaxes",
+      kind: "stat",
+      span: 1,
+      title: "Hoaxes",
       measure: { op: "share", field: "verdict", equals: "hoax" },
       trend: "hour",
       goodWhenUp: false,
     },
-  ],
-  cards: [
-    { id: "hour", type: "line", x: "hour", y: { op: "count" }, span: 2, title: "Sightings by hour" },
-    { id: "hall", type: "bar", x: "hall", y: { op: "count" }, color: "verdict", title: "Sightings by hall on patrol" },
     {
       id: "bounty",
+      kind: "chart",
+      span: 3,
       type: "area",
       x: "hour",
       y: { op: "sum", field: "bounty" },
       facet: "region",
-      span: 3,
       title: "Bounty paid by region, across the day (gold)",
     },
-    { id: "fit", type: "regression", x: "leagues", y: { op: "value", field: "bounty" }, span: 2, title: "Distance × bounty" },
-    { id: "beast", type: "bar", x: "beast", y: { op: "count" }, title: "Sightings by beast" },
+    { id: "fit", kind: "chart", span: 2, type: "regression", x: "leagues", y: { op: "value", field: "bounty" }, title: "Distance × bounty" },
+    { id: "hall", kind: "chart", span: 1, type: "bar", x: "hall", y: { op: "count" }, color: "verdict", title: "Sightings by hall on patrol" },
+    { id: "beast", kind: "chart", span: 3, type: "bar", x: "beast", y: { op: "count" }, title: "Sightings by beast" },
+    { id: "rows", kind: "table", span: 3, columns: ["beast", "region", "hall", "hour", "leagues", "bounty", "verdict"] },
   ],
-  detail: { columns: ["beast", "region", "hall", "hour", "leagues", "bounty", "verdict"] },
 };
 
 /** The columns `sightings` carries, and the order the CSV writes them in. */

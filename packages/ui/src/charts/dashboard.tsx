@@ -1,33 +1,25 @@
 "use client";
 
 import type { TableExpr } from "@kanzo-tech/mosaic";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
-import { EllipsisIcon } from "lucide-react";
+import { EllipsisIcon, PlusIcon } from "lucide-react";
 import { cn } from "../lib/cn.js";
 import { Alert, AlertDescription, AlertTitle } from "../simples/alert.js";
 import { Button } from "../simples/button.js";
-import { Card, CardContent, CardHeader, CardTitle } from "../simples/card.js";
-import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "../simples/menu.js";
+import { Menu, MenuContent, MenuItem, MenuTrigger } from "../simples/menu.js";
 import { Skeleton } from "../simples/skeleton.js";
-import { ChartCard } from "./chart-card.js";
 import type { ChartConfig } from "./chart-config.js";
 import { DashboardFilters } from "./dashboard-filters.js";
 import { chartTableKey } from "./chart-spec.js";
-import {
-  autoDashboard,
-  cardFor,
-  plotRelation,
-  type DashboardCardSpec,
-  type DashboardSpec,
-} from "./dashboard-spec.js";
-import { DashboardStat } from "./dashboard-stat.js";
-import { DetailTable } from "./detail-table.js";
+import { TileView } from "./tile-kinds.js";
+import { TileEditor } from "./tile-editor.js";
+import { autoDashboard, newTile, plotRelation, type DashboardSpec, type Tile, type TileSpan } from "./dashboard-spec.js";
 import { useFieldStats, type FieldStat } from "./field-stats.js";
 
 export interface DashboardProps extends Omit<React.ComponentProps<typeof ark.div>, "onChange" | "defaultValue"> {
-  /** The relation every filter, tile, card and row reads. */
+  /** The relation every filter and tile reads — a table, or a `relationQuery` over a join graph. */
   table: TableExpr;
   /**
    * The saved dashboard. `undefined` draws the automatic one from the relation's field stats —
@@ -45,10 +37,10 @@ export interface DashboardProps extends Omit<React.ComponentProps<typeof ark.div
 }
 
 /**
- * A whole dashboard from a relation and, optionally, a saved spec: the filter row, the tiles, the
- * cards and the rows, every one of them on the provider's crossfilter. The host brings the
- * `MosaicProvider`, the relation and somewhere to keep the spec; the fields, the automatic layout
- * and the editors are this component's.
+ * A whole dashboard from a relation and, optionally, a saved spec: the filter bar and the tiles —
+ * figures, charts and tables in one three-column grid — every one of them on the provider's
+ * crossfilter. The host brings the `MosaicProvider`, the relation and somewhere to keep the spec;
+ * the fields, the automatic layout and the editor are this component's.
  */
 export function Dashboard(props: DashboardProps) {
   const { table, value, onChange, exclude, config, rowNoun, className, slot, ...rest } = props;
@@ -87,6 +79,15 @@ export function Dashboard(props: DashboardProps) {
   );
 }
 
+// Container queries on `Dashboard`'s own width, not the viewport's: beside a dock or in a pane the
+// grid is narrower than the screen, and the screen is the wrong thing to measure.
+const SPAN: Record<TileSpan, string> = {
+  1: "",
+  2: "@3xl/dashboard:col-span-2",
+  3: "@3xl/dashboard:col-span-2 @6xl/dashboard:col-span-3",
+};
+
+
 function Board({
   table,
   fields,
@@ -104,33 +105,20 @@ function Board({
 }) {
   const auto = useMemo(() => autoDashboard(fields), [fields]);
   const spec = value ?? auto;
+  // The tile in the editor; one `spec.tiles` does not hold is being added.
+  const [editing, setEditing] = useState<Tile | null>(null);
   const edit = onChange && ((patch: Partial<DashboardSpec>) => onChange({ ...spec, ...patch }));
 
-  const setCard = (index: number, card: DashboardCardSpec | null) =>
-    edit?.({ cards: spec.cards.flatMap((c, i) => (i !== index ? [c] : card ? [card] : [])) });
-  const moveCard = (index: number, offset: -1 | 1) => {
-    const to = index + offset;
-    if (to < 0 || to >= spec.cards.length) return;
-    const cards = [...spec.cards];
-    [cards[index], cards[to]] = [cards[to]!, cards[index]!];
-    edit?.({ cards });
+  const save = (tile: Tile, index: number) => {
+    const rest = spec.tiles.filter((t) => t.id !== tile.id);
+    edit?.({ tiles: [...rest.slice(0, index), tile, ...rest.slice(index)] });
+    setEditing(null);
   };
-  const addCard = () => {
-    const used = new Set(spec.cards.map((c) => c.x));
-    const card = [...fields].sort((a, b) => Number(used.has(a.name)) - Number(used.has(b.name)))
-      .map((f) => cardFor(f))
-      .find((c) => c !== null);
-    if (card) edit?.({ cards: [...spec.cards, card] });
+  const add = () => {
+    const tile = newTile("chart", fields, spec.tiles) ?? newTile("stat", fields, spec.tiles);
+    if (tile) setEditing(tile);
   };
-  const addStat = () => {
-    const measure = fields.find((f) => f.kind === "numeric" && f.role === "measure" && !spec.stats.some((s) => s.measure.field === f.name));
-    edit?.({
-      stats: [
-        ...spec.stats,
-        { id: globalThis.crypto.randomUUID(), measure: measure ? { op: "avg", field: measure.name } : { op: "count" } },
-      ],
-    });
-  };
+  const open = edit && ((tile: Tile) => () => setEditing(tile));
 
   return (
     <>
@@ -142,79 +130,57 @@ function Board({
         table={table}
       >
         {edit ? (
-          <Menu>
-            <MenuTrigger asChild>
-              <Button aria-label="Edit dashboard" size="icon-sm" variant="ghost">
-                <EllipsisIcon />
-              </Button>
-            </MenuTrigger>
-            <MenuContent>
-              <MenuItem onSelect={addCard} value="card">
-                Add chart
-              </MenuItem>
-              <MenuItem onSelect={addStat} value="stat">
-                Add tile
-              </MenuItem>
-              {spec.detail ? null : (
-                <MenuItem onSelect={() => edit({ detail: auto.detail ?? { columns: [] } })} value="rows">
-                  Add rows table
+          <>
+            <Button onClick={add} size="sm" variant="outline">
+              <PlusIcon />
+              Add tile
+            </Button>
+            <Menu>
+              <MenuTrigger asChild>
+                <Button aria-label="Dashboard options" size="icon-sm" variant="ghost">
+                  <EllipsisIcon />
+                </Button>
+              </MenuTrigger>
+              <MenuContent>
+                <MenuItem disabled={value === undefined} onSelect={() => edit(auto)} value="reset">
+                  Reset to automatic
                 </MenuItem>
-              )}
-              <MenuSeparator />
-              <MenuItem disabled={value === undefined} onSelect={() => edit(auto)} value="reset">
-                Reset to automatic
-              </MenuItem>
-            </MenuContent>
-          </Menu>
+              </MenuContent>
+            </Menu>
+          </>
         ) : null}
       </DashboardFilters>
 
-      {spec.stats.length > 0 ? (
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(200px,100%),1fr))] gap-4" data-slot="dashboard-stats">
-          {spec.stats.map((stat, index) => (
-            <DashboardStat
-              fields={fields}
-              key={stat.id}
-              onChange={edit && ((next) => edit({ stats: spec.stats.map((s, i) => (i === index ? next : s)) }))}
-              onRemove={edit && (() => edit({ stats: spec.stats.filter((_, i) => i !== index) }))}
-              stat={stat}
-              table={table}
-            />
-          ))}
-        </div>
-      ) : null}
-
-      {spec.cards.length > 0 ? (
-        <div className="grid gap-4 @3xl/dashboard:grid-cols-2 @6xl/dashboard:grid-cols-3" data-slot="dashboard-cards">
-          {spec.cards.map((card, index) => (
-            <ChartCard
-              card={card}
+      {spec.tiles.length > 0 ? (
+        <div className="grid gap-4 @3xl/dashboard:grid-cols-2 @6xl/dashboard:grid-cols-3" data-slot="dashboard-tiles">
+          {spec.tiles.map((tile) => (
+            <TileView
+              className={SPAN[tile.span]}
               config={config}
               fields={fields}
-              key={card.id}
-              onChange={edit && ((next) => setCard(index, next))}
-              onMove={edit && ((offset) => moveCard(index, offset))}
-              onRemove={edit && (() => setCard(index, null))}
+              key={tile.id}
+              onEdit={open?.(tile)}
               table={table}
+              tile={tile}
             />
           ))}
         </div>
       ) : null}
 
-      {spec.detail ? (
-        <Card className="[--space:--spacing(4)] gap-3">
-          <CardHeader>
-            <CardTitle className="font-medium text-sm">Rows</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <DetailTable
-              columns={spec.detail.columns}
-              fields={fields}
-              onChange={edit && ((columns) => edit({ detail: columns.length ? { columns } : null }))}
-              table={table}
-            />
-          </CardContent>
-        </Card>
+      {edit ? (
+        <TileEditor
+          config={config}
+          fields={fields}
+          onClose={() => setEditing(null)}
+          onRemove={() => {
+            edit({ tiles: spec.tiles.filter((t) => t.id !== editing?.id) });
+            setEditing(null);
+          }}
+          onSave={save}
+          table={table}
+          tile={editing}
+          tiles={spec.tiles}
+        />
       ) : null}
     </>
   );
@@ -223,13 +189,11 @@ function Board({
 function DashboardSkeleton() {
   return (
     <>
-      <Skeleton className="h-28 w-full rounded-lg" />
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(200px,100%),1fr))] gap-4">
-        {Array.from({ length: 4 }, (_, i) => (
+      <Skeleton className="h-8 w-full rounded-lg" />
+      <div className="grid gap-4 @3xl/dashboard:grid-cols-2 @6xl/dashboard:grid-cols-3">
+        {Array.from({ length: 3 }, (_, i) => (
           <Skeleton className="h-24 w-full rounded-lg" key={i} />
         ))}
-      </div>
-      <div className="grid gap-4 @3xl/dashboard:grid-cols-2 @6xl/dashboard:grid-cols-3">
         <Skeleton className="h-72 w-full rounded-lg @3xl/dashboard:col-span-2" />
         <Skeleton className="h-72 w-full rounded-lg" />
       </div>

@@ -2,13 +2,15 @@ import { describe, expect, it } from "vitest";
 import {
   autoDashboard,
   bucketExpr,
-  cardTitle,
+  changeKind,
   channelFields,
   filterControl,
   measureExpr,
+  newTile,
   normalizeCard,
   plotRelation,
-  type DashboardCardSpec,
+  tileTitle,
+  type ChartTile,
 } from "./dashboard-spec.js";
 import { Query, count, verbatim } from "@uwdata/mosaic-sql";
 import type { FieldStat } from "./field-stats.js";
@@ -31,7 +33,7 @@ const FIELDS = [
   F("leagues", "numeric", "measure", 200, [0, 10]),
 ];
 
-const card = (patch: Partial<DashboardCardSpec>): DashboardCardSpec => ({ id: "c", type: "bar", x: "region", y: { op: "count" }, ...patch });
+const card = (patch: Partial<ChartTile>): ChartTile => ({ id: "c", kind: "chart", span: 1, type: "bar", x: "region", y: { op: "count" }, ...patch });
 
 describe("filterControl", () => {
   it("gives a time a timeline, a category a facet, a key a search and a measure a slider", () => {
@@ -67,7 +69,7 @@ describe("normalizeCard", () => {
 
   it("drops an optional encoding that no longer fits and falls back to a count", () => {
     const next = normalizeCard(card({ type: "bar", x: "beast", y: { op: "value", field: "bounty" }, facet: "region" }), FIELDS);
-    expect(next).toEqual({ id: "c", type: "bar", x: "beast", y: { op: "count" } });
+    expect(next).toEqual({ id: "c", kind: "chart", span: 1, type: "bar", x: "beast", y: { op: "count" } });
   });
 
   it("answers null when the relation has nothing the type can draw", () => {
@@ -85,10 +87,12 @@ describe("measureExpr", () => {
     );
   });
 
-  it("titles a card from its encodings unless it was given one", () => {
-    expect(cardTitle(card({ y: { op: "sum", field: "bounty" }, color: "beast" }))).toBe("Total bounty by region and beast");
-    expect(cardTitle(card({ type: "dot", x: "bounty", y: { op: "value", field: "leagues" } }))).toBe("bounty × leagues");
-    expect(cardTitle(card({ title: "Mine" }))).toBe("Mine");
+  it("titles a tile from what it reads unless it was given one", () => {
+    expect(tileTitle(card({ y: { op: "sum", field: "bounty" }, color: "beast" }))).toBe("Total bounty by region and beast");
+    expect(tileTitle(card({ type: "dot", x: "bounty", y: { op: "value", field: "leagues" } }))).toBe("bounty × leagues");
+    expect(tileTitle(card({ title: "Mine" }))).toBe("Mine");
+    expect(tileTitle({ id: "s", kind: "stat", span: 1, measure: { op: "avg", field: "bounty" } })).toBe("Mean bounty");
+    expect(tileTitle({ id: "t", kind: "table", span: 3, columns: [] })).toBe("Rows");
   });
 });
 
@@ -102,25 +106,45 @@ describe("bucketExpr", () => {
 
 describe("autoDashboard", () => {
   const spec = autoDashboard(FIELDS);
+  const kinds = (kind: string) => spec.tiles.filter((t) => t.kind === kind);
 
   it("leads the filters with the time and bounds them to six", () => {
     expect(spec.filters.map((f) => f.field)).toEqual(["seen", "region", "beast", "email", "bounty", "leagues"]);
   });
 
-  it("counts the rows and averages each measure, along the time", () => {
-    expect(spec.stats.map((s) => [s.measure.op, s.measure.field, s.trend])).toEqual([
-      ["count", undefined, "seen"],
-      ["avg", "bounty", "seen"],
-      ["avg", "leagues", "seen"],
+  it("opens with one row of figures: the count and the mean of the first measures, along the time", () => {
+    expect(spec.tiles.slice(0, 3).map((t) => (t.kind === "stat" ? [t.measure.op, t.measure.field, t.trend, t.span] : t.kind))).toEqual([
+      ["count", undefined, "seen", 1],
+      ["avg", "bounty", "seen", 1],
+      ["avg", "leagues", "seen", 1],
     ]);
   });
 
-  it("draws a timeline, bars, histograms and a fit, and fills every row of the grid", () => {
-    expect(spec.cards.map((c) => c.type)).toEqual(["line", "bar", "bar", "histogram", "histogram", "regression"]);
+  it("draws a timeline, bars, histograms and a fit, ends on the rows, and fills every row of the grid", () => {
+    expect(kinds("chart").map((t) => t.kind === "chart" && t.type)).toEqual(["line", "bar", "bar", "histogram", "histogram", "regression"]);
+    expect(spec.tiles.at(-1)).toMatchObject({ kind: "table", span: 3 });
     let used = 0;
-    for (const c of spec.cards) used = (used + (c.span ?? 1)) % 3;
+    for (const t of spec.tiles) used = (used + t.span) % 3;
     expect(used).toBe(0);
     expect(JSON.parse(JSON.stringify(spec))).toEqual(spec);
+  });
+});
+
+describe("newTile and changeKind", () => {
+  it("adds the chart of a field the dashboard does not chart yet, and the mean of a measure it does not show", () => {
+    const tiles = autoDashboard(FIELDS).tiles;
+    expect(newTile("chart", FIELDS, [card({ x: "seen" })])).toMatchObject({ kind: "chart", x: "region" });
+    expect(newTile("stat", FIELDS, tiles)).toMatchObject({ kind: "stat", measure: { op: "count" } });
+    expect(newTile("stat", FIELDS, [])).toMatchObject({ kind: "stat", measure: { op: "avg", field: "bounty" } });
+    expect(newTile("chart", [F("email", "categorical", "identifier", 900)], [])).toBeNull();
+  });
+
+  it("carries a chart's aggregate into a figure and back, keeping the id and the width", () => {
+    const chart = card({ id: "k", span: 2, y: { op: "sum", field: "bounty" }, title: "Mine" });
+    const stat = changeKind(chart, "stat", FIELDS, []);
+    expect(stat).toEqual({ id: "k", kind: "stat", span: 2, measure: { op: "sum", field: "bounty" } });
+    expect(changeKind(stat!, "chart", FIELDS, [])).toMatchObject({ id: "k", kind: "chart", span: 2, y: { op: "sum", field: "bounty" } });
+    expect(changeKind(chart, "table", FIELDS, [])).toMatchObject({ id: "k", kind: "table", span: 2 });
   });
 });
 

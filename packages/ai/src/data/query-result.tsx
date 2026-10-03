@@ -37,7 +37,7 @@ import {
   ChartRegressionY,
   ChartRoot,
   count,
-  type DashboardCardSpec,
+  type ChartTile,
   type FieldStat,
   plotRelation,
   recommend,
@@ -159,8 +159,8 @@ export function answerView(rows: readonly QueryRow[]): AnswerView {
 const BARS = 40;
 
 /** The chart `recommend` proposes for an answer's fields, among those drawn here — or `null`. */
-export function answerChart(fields: readonly FieldStat[]): DashboardCardSpec | null {
-  const drawable = (spec: DashboardCardSpec) => {
+export function answerChart(fields: readonly FieldStat[]): ChartTile | null {
+  const drawable = (spec: ChartTile) => {
     if (spec.type === "bar") return (fields.find((f) => f.name === spec.x)?.distinct ?? Infinity) <= BARS;
     return spec.type === "line" || spec.type === "histogram" || spec.type === "regression";
   };
@@ -268,7 +268,7 @@ const truncate = (text: unknown) => {
  * `ChartCard` draws for the same spec, minus the half that makes a dashboard tile a crossfilter
  * client.
  */
-function AnswerChart(props: { table: TableExpr; fields: readonly FieldStat[]; card: DashboardCardSpec; rows: readonly QueryRow[] }) {
+function AnswerChart(props: { table: TableExpr; fields: readonly FieldStat[]; card: ChartTile; rows: readonly QueryRow[] }) {
   const { table, fields, card, rows } = props;
   const y = card.y.op === "count" ? count() : card.y.op === "sum" ? sum(card.y.field ?? "") : card.y.field;
   const frame = { table, filterBy: null, height: HEIGHT, margin: { top: 8, right: 12, bottom: 24, left: 44 } };

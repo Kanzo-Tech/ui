@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Coordinator } from "@uwdata/mosaic-core";
+import { Query, asTableRef } from "@uwdata/mosaic-sql";
 import { fieldStats, queryFieldStats, type SummarizeRow } from "./field-stats.js";
 
 const row = (column_name: string, column_type: string, approx_unique: number, min?: string, max?: string): SummarizeRow => ({
@@ -85,5 +86,17 @@ describe("queryFieldStats", () => {
     const stats = await queryFieldStats(coordinator, "t", { exclude: ["x"] });
     expect(stats.fields.map((f) => f.name)).toEqual(["name"]);
     expect(stats.columns).toEqual(["x", "tags", "name"]);
+  });
+
+  it("summarizes a query over the relation, so a joined relation is summarized like a table", async () => {
+    const asked: unknown[] = [];
+    const coordinator = { query: async (q: unknown) => (asked.push(q), []) } as unknown as Coordinator;
+    await queryFieldStats(coordinator, asTableRef(["jobs/7", "Person"])!);
+    const joined = Query.select({ "Person.age": "age" }).from("Person");
+    await queryFieldStats(coordinator, joined);
+    expect(asked).toEqual([
+      'SUMMARIZE SELECT * FROM "jobs/7"."Person"',
+      `SUMMARIZE SELECT * FROM (${joined})`,
+    ]);
   });
 });

@@ -2,6 +2,7 @@
 
 import type { TableExpr } from "@kanzo-tech/mosaic";
 import { jsType, type Coordinator } from "@uwdata/mosaic-core";
+import { Query, sql } from "@uwdata/mosaic-sql";
 import { useEffect, useState } from "react";
 import { chartTableKey } from "./chart-spec.js";
 import { useMosaic } from "./mosaic-provider.js";
@@ -110,17 +111,22 @@ export function fieldStats(rows: readonly SummarizeRow[], options: FieldStatsOpt
   return { fields, columns: rows.map((row) => String(row.column_name)) };
 }
 
+/** DuckDB's `SUMMARIZE` takes a query, so a relation of any shape — a table, a join — is summarized alike. */
+const summarizeQuery = (table: TableExpr) => sql`SUMMARIZE ${Query.select("*").from(table)}`;
+
 /**
- * `fieldStats` over the coordinator's own `SUMMARIZE`. It has no mosaic-sql builder, so this is the
- * one statement on the subpath written as text; the relation is the same identifier every query
- * here keys on.
+ * `fieldStats` over the coordinator's own `SUMMARIZE`. mosaic-sql has no node for the statement, so
+ * it is a fragment around a `Query` over the relation: the relation is a node, never text.
  */
 export async function queryFieldStats(
   coordinator: Coordinator,
   table: TableExpr,
   options?: FieldStatsOptions,
 ): Promise<FieldStats> {
-  return fieldStats(Array.from((await coordinator.query(`SUMMARIZE ${chartTableKey(table)}`)) as Iterable<SummarizeRow>), options);
+  // The coordinator takes a statement as a string or a `Query`; a fragment is neither, and renders
+  // to the same text either way.
+  const rows = await coordinator.query(String(summarizeQuery(table)));
+  return fieldStats(Array.from(rows as Iterable<SummarizeRow>), options);
 }
 
 export interface FieldStats {

@@ -432,6 +432,23 @@ const schema = await describeSchema(coordinator, { catalog: jobId, exclude: ["fo
 *Held by* `packages/graph/src/core/references.test.ts`, "names each edge table's src and dst as the
 dense_id of the vertex tables it joins".
 
+### readJoinGraph
+
+`readJoinGraph(coordinator, from)` is the same corpus as a `JoinGraph` — what
+`@kanzo-tech/ui/analytics`' [relations](/docs/analytics/dashboard#relations) are built over. Each
+vertex table is a type keyed by `dense_id` that projects the columns the writer gave no role, and
+each edge table joins through the `src` and `dst` its references name: it reads the structure once
+and rearranges what `corpusReferences` states, so what an endpoint points into is written in one
+place. The charts never learn fossil; they take the graph as data.
+
+```ts
+const graph = await readJoinGraph(coordinator, jobId);
+<Dashboard table={relationQuery(graph, { root: "Person", path: [] })} />
+```
+
+*Held by* `packages/graph/src/core/join-graph.test.ts`, "keys a type by its address, projects the
+columns the writer gave no role, and joins edges on src and dst".
+
 ## Failures
 
 <ComponentPreview componentName="graph" fileName="example-failure" hasMaxHeight />

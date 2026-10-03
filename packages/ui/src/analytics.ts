@@ -101,9 +101,10 @@ export { FilterChips, useClauses } from "./charts/filter-chips.js";
 export type { FilterChipsProps } from "./charts/filter-chips.js";
 
 // The mini BI kit: a relation's fields from one `SUMMARIZE`, and a dashboard as serializable data —
-// a filter row, tiles, chart cards and a rows table, each chosen and edited from those fields.
-// `Dashboard` is the whole thing; the four parts are what it is made of, for a host arranging its
-// own. A titled frame is `Card` and a grid is a class list, so neither is a name of its own.
+// a filter bar and tiles (figures, charts, tables), each chosen and edited from those fields.
+// `Dashboard` is the whole thing; the parts are what it is made of, for a host arranging its own,
+// and `TileEditor` is the one sheet a tile is added and edited in. A titled frame is `Card` and a
+// grid is a class list, so neither is a name of its own.
 export { Dashboard } from "./charts/dashboard.js";
 export type { DashboardProps } from "./charts/dashboard.js";
 export { DashboardFilters } from "./charts/dashboard-filters.js";
@@ -114,11 +115,25 @@ export { ChartCard } from "./charts/chart-card.js";
 export type { ChartCardProps } from "./charts/chart-card.js";
 export { DetailTable } from "./charts/detail-table.js";
 export type { DetailTableProps } from "./charts/detail-table.js";
+export { TileEditor } from "./charts/tile-editor.js";
+export type { TileEditorProps } from "./charts/tile-editor.js";
 export { autoDashboard, plotRelation } from "./charts/dashboard-spec.js";
 export type {
-  DashboardSpec, DashboardCardSpec, DashboardStatSpec, DashboardFilterSpec, DashboardMeasure,
-  DashboardChartType, DashboardAggregate,
+  DashboardSpec, Tile, TileKind, TileSpan, StatTile, ChartTile, TableTile, DashboardFilterSpec,
+  DashboardMeasure, DashboardChartType, DashboardAggregate,
 } from "./charts/dashboard-spec.js";
+// What a host keeps: every dashboard by the relation it is drawn over, and the one way in for
+// whatever it stored before.
+export { migrateDashboards } from "./charts/dashboard-migrate.js";
+export type { Dashboards } from "./charts/dashboard-migrate.js";
+
+// A relation over a join graph — a root and the hops from it, as one `Query` — and the picker that
+// walks one. The algebra is `@kanzo-tech/mosaic`'s; the graph is whatever a reader built from its
+// catalog (`@kanzo-tech/graph`'s `readJoinGraph`, for a fossil corpus).
+export { RelationPicker } from "./charts/relation-picker.js";
+export type { RelationPickerProps } from "./charts/relation-picker.js";
+export { relationQuery, relationKey, relationIdentities, relationHops } from "@kanzo-tech/mosaic";
+export type { Relation, Hop, JoinGraph, JoinType, JoinEdge, RelationHop } from "@kanzo-tech/mosaic";
 export { recommend } from "./charts/recommend.js";
 export type { Recommendation, RecommendIntent } from "./charts/recommend.js";
 export { useFieldStats, queryFieldStats, fieldStats } from "./charts/field-stats.js";

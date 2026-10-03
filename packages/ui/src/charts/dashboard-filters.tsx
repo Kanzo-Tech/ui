@@ -6,10 +6,12 @@ import { type ReactNode } from "react";
 import { ark } from "@ark-ui/react/factory";
 import { count, Query } from "@uwdata/mosaic-sql";
 import { bin } from "@uwdata/vgplot";
-import { PlusIcon, RotateCcwIcon, XIcon } from "lucide-react";
+import type { SelectionClause } from "@uwdata/mosaic-core";
+import { CalendarRangeIcon, ChevronDownIcon, PlusIcon, SearchIcon, SlidersHorizontalIcon, XIcon, type LucideIcon } from "lucide-react";
 import { cn } from "../lib/cn.js";
 import { Button } from "../simples/button.js";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "../simples/menu.js";
+import { Popover, PopoverContent, PopoverTrigger } from "../simples/popover.js";
 import { ChartAxisX, ChartAxisY } from "./chart-axes.js";
 import { ChartFilter, ChartSearch, ChartSlider } from "./chart-inputs.js";
 import { ChartBrushX } from "./chart-interactors.js";
@@ -18,7 +20,7 @@ import { ChartRoot } from "./chart-root.js";
 import { chartTableKey } from "./chart-spec.js";
 import { filterControl, type DashboardFilterControl, type DashboardFilterSpec } from "./dashboard-spec.js";
 import type { FieldStat } from "./field-stats.js";
-import { FilterChips, useClauses } from "./filter-chips.js";
+import { clauseLabel, useClauses } from "./filter-chips.js";
 import { useMosaic } from "./mosaic-provider.js";
 import { useChartQuery } from "./use-chart-query.js";
 
@@ -26,149 +28,155 @@ export interface DashboardFiltersProps extends Omit<React.ComponentProps<typeof 
   table: TableExpr;
   fields: readonly FieldStat[];
   filters: readonly DashboardFilterSpec[];
-  /** Makes the row editable: a remove button per filter and an "Add filter" menu. */
+  /** Makes the bar editable: a remove button per chip and a "Filter" menu of the fields left. */
   onChange?: (filters: DashboardFilterSpec[]) => void;
   /** What a row is, in the plural, for the "12 of 40 …" readout. Default `"rows"`. */
   rowNoun?: string;
-  /** Trailing controls on the readout row, after "Clear filters". */
+  /** Trailing controls, after "Clear". */
   children?: ReactNode;
 }
 
 /**
- * One filter row above everything it scopes — dataviz's rule, and Metabase's. Every control is
- * chosen from the field's stats (`filterControl`): a time is a brushable timeline and leads the
- * row, a category is a facet filter, a key is searched, a number is a range slider. All of them
- * publish into the provider's crossfilter, and the readout under them says what that costs and
- * holds every clause on the page as a chip, whoever published it.
+ * **One filter bar above everything it scopes** — Metabase's filter bar, drawn as Linear's chips.
+ * Every filter is a chip reading *column: value* that opens its control, and the control is chosen
+ * from the field's stats (`filterControl`): a category is a facet list, a key is searched, a number
+ * is a range slider and a time is a brushable timeline. All of them publish into the provider's
+ * crossfilter. The readout after them says what the filters cost, and *Clear* retracts every clause
+ * on the page, whoever published it.
+ *
+ * A control stays mounted while its popover is shut: a control that unmounts retracts its clause,
+ * and a filter that let go whenever its chip closed would not be a filter.
  */
 export function DashboardFilters(props: DashboardFiltersProps) {
   const { table, fields, filters, onChange, rowNoun = "rows", children, className, slot, ...rest } = props;
+  const { crossfilter } = useMosaic();
+  const clauses = useClauses(crossfilter);
   const byName = new Map(fields.map((f) => [f.name, f]));
   const placed = filters.flatMap((spec) => {
     const field = byName.get(spec.field);
     const control = field && filterControl(field);
     return field && control ? [{ field, control }] : [];
   });
-  const timelines = placed.filter((p) => p.control === "timeline");
-  const controls = placed.flatMap(({ field, control }) => (control === "timeline" ? [] : [{ field, control }]));
   const addable = fields.filter((f) => filterControl(f) && !filters.some((s) => s.field === f.name));
   const remove = onChange && ((name: string) => onChange(filters.filter((s) => s.field !== name)));
 
   return (
     <ark.section
       aria-label="Filters"
-      className={cn("@container/dashboard-filters rounded-lg border bg-card", className)}
+      className={cn("flex flex-wrap items-center gap-2", className)}
       {...rest}
       data-slot={slot ?? "dashboard-filters"}
     >
-      {timelines.map(({ field }) => (
-        <FilterCell className="border-b p-3" key={field.name} label={field.name} onRemove={remove}>
-          <Timeline field={field.name} table={table} />
-        </FilterCell>
-      ))}
-      {controls.length > 0 || (onChange && addable.length > 0) ? (
-        <div className="grid items-end gap-x-4 gap-y-3 border-b p-3 @xl/dashboard-filters:grid-cols-2 @4xl/dashboard-filters:grid-cols-4">
-          {controls.map(({ field, control }) => (
-            <FilterCell key={field.name} label={field.name} onRemove={remove}>
-              <Control control={control} field={field} table={table} />
-            </FilterCell>
-          ))}
-          {onChange && addable.length > 0 ? (
-            <Menu positioning={{ placement: "bottom-start" }}>
-              <MenuTrigger asChild>
-                <Button className="justify-self-start" size="sm" variant="ghost">
-                  <PlusIcon />
-                  Add filter
-                </Button>
-              </MenuTrigger>
-              <MenuContent>
-                {addable.map((f) => (
-                  <MenuItem
-                    key={f.name}
-                    onSelect={() => onChange([...filters, { field: f.name }])}
-                    value={f.name}
-                  >
-                    {f.name}
-                  </MenuItem>
-                ))}
-              </MenuContent>
-            </Menu>
+      {placed.map(({ field, control }) => (
+        <div className="inline-flex items-center" data-slot="dashboard-filter" key={field.name}>
+          <FilterChip clauses={clauses} control={control} field={field} table={table} />
+          {remove ? (
+            <Button
+              aria-label={`Remove the ${field.name} filter`}
+              className="size-6 opacity-64 hover:opacity-100"
+              onClick={() => remove(field.name)}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <XIcon className="size-3" />
+            </Button>
           ) : null}
         </div>
+      ))}
+      {onChange && addable.length > 0 ? (
+        <Menu positioning={{ placement: "bottom-start" }}>
+          <MenuTrigger asChild>
+            <Button size="sm" variant="ghost">
+              <PlusIcon />
+              Filter
+            </Button>
+          </MenuTrigger>
+          <MenuContent>
+            {addable.map((f) => (
+              <MenuItem key={f.name} onSelect={() => onChange([...filters, { field: f.name }])} value={f.name}>
+                {f.name}
+              </MenuItem>
+            ))}
+          </MenuContent>
+        </Menu>
       ) : null}
-      <Readout rowNoun={rowNoun} table={table}>
+      <Readout clauses={clauses} rowNoun={rowNoun} table={table}>
         {children}
       </Readout>
     </ark.section>
   );
 }
 
-/** The label lives inside the cell, so a wrapping row can never part a control from its header. */
-function FilterCell({
-  label,
-  onRemove,
-  className,
-  children,
-}: {
-  label: string;
-  onRemove?: (name: string) => void;
-  className?: string;
-  children: ReactNode;
-}) {
+/** What a clause on `field` filters it to, as the chip's value: `Saltmere`, `2 – 5`, `3 selected`. */
+function chipValue(clauses: readonly SelectionClause[], field: string): string | null {
+  const unquoted = (f: unknown) => String(f).replace(/^"|"$/g, "");
+  const clause = clauses.find((c) => c.fields?.length === 1 && unquoted(c.fields[0]) === field && c.value != null);
+  if (!clause) return null;
+  // `clauseLabel` is the one formatter of a clause; the chip names the field already.
+  return clauseLabel(clause).slice(field.length).replace(/^ · /, "").trim() || null;
+}
+
+function ChipText({ field, value }: { field: string; value: string | null }) {
   return (
-    <div className={cn("flex min-w-0 flex-col justify-end gap-1.5", className)} data-slot="dashboard-filter">
-      <div className="flex h-5 items-center justify-between gap-2">
-        <span className="truncate font-medium text-muted-foreground text-xs">{label}</span>
-        {onRemove ? (
-          <Button
-            aria-label={`Remove the ${label} filter`}
-            className="-me-1 size-5 opacity-64 hover:opacity-100"
-            onClick={() => onRemove(label)}
-            size="icon-sm"
-            variant="ghost"
-          >
-            <XIcon className="size-3" />
-          </Button>
-        ) : null}
-      </div>
-      {children}
-    </div>
+    <>
+      <span className="text-muted-foreground">{field}:</span>
+      <span className={cn("max-w-40 truncate", value === null && "text-muted-foreground")}>{value ?? "Any"}</span>
+      <ChevronDownIcon className="opacity-64" />
+    </>
   );
 }
 
-function Control({
-  control,
+const ICON: Record<Exclude<DashboardFilterControl, "filter">, LucideIcon> = {
+  search: SearchIcon,
+  slider: SlidersHorizontalIcon,
+  timeline: CalendarRangeIcon,
+};
+
+function FilterChip({
   field,
+  control,
   table,
+  clauses,
 }: {
-  control: Exclude<DashboardFilterControl, "timeline">;
   field: FieldStat;
+  control: DashboardFilterControl;
   table: TableExpr;
+  clauses: readonly SelectionClause[];
 }) {
-  // The controls' own labels are off: the cell carries them, and a repeat reads as a stutter.
-  if (control === "filter") return <ChartFilter column={field.name} label="Any" size="sm" table={table} />;
-  if (control === "search") {
+  const value = chipValue(clauses, field.name);
+  const active = value !== null && "border-primary/48 bg-primary/8";
+  // A facet filter is a chip over a popover already: it takes the chip's text and nothing around it.
+  if (control === "filter") {
     return (
-      // `min-w-0` on both: the search's own `min-w-48` would hold a narrow cell open past its edge.
-      <ChartSearch
-        className="w-full min-w-0"
+      <ChartFilter
         column={field.name}
-        controlClassName="w-full min-w-0"
-        placeholder="Search…"
+        controlClassName={cn("gap-1.5", active)}
+        label={<ChipText field={field.name} value={value} />}
+        searchable={field.distinct > 12}
         size="sm"
         table={table}
       />
     );
   }
-  // `h-7` is the `sm` control height; without it the 8px track sits lower than its neighbours.
+  const Icon = ICON[control];
   return (
-    <ChartSlider
-      className="h-7 min-w-0 justify-center"
-      column={field.name}
-      select="interval"
-      showValue={false}
-      table={table}
-    />
+    <Popover lazyMount={false} modal={false} positioning={{ placement: "bottom-start" }} unmountOnExit={false}>
+      <PopoverTrigger asChild>
+        <Button className={cn("gap-1.5", active)} size="sm" variant="outline">
+          <Icon />
+          <ChipText field={field.name} value={value} />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className={cn("gap-2 p-3", control === "timeline" ? "w-96" : "w-72")}>
+        {control === "search" ? (
+          <ChartSearch column={field.name} controlClassName="w-full min-w-0" placeholder="Search…" size="sm" table={table} />
+        ) : control === "slider" ? (
+          <ChartSlider column={field.name} select="interval" table={table} />
+        ) : (
+          <Timeline field={field.name} table={table} />
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -177,19 +185,28 @@ const TIMELINE_MARGIN = { top: 4, right: 8, bottom: 20, left: 8 };
 /** A time filter is a brush over the distribution in time — the range picker that shows what it picks. */
 function Timeline({ table, field }: { table: TableExpr; field: string }) {
   return (
-    <ChartRoot height={64} margin={TIMELINE_MARGIN} table={table}>
+    <ChartRoot height={72} margin={TIMELINE_MARGIN} table={table}>
       <ChartRectY fill="var(--muted-foreground)" filterBy={null} inset={0.5} opacity={0.22} x={bin(field)} y={count()} />
       <ChartRectY fill="var(--chart-1)" inset={0.5} x={bin(field)} y={count()} />
       <ChartBrushX />
-      <ChartAxisX label={null} ticks={6} />
+      <ChartAxisX label={null} ticks={5} />
       <ChartAxisY anchor={null} label={null} />
     </ChartRoot>
   );
 }
 
-function Readout({ table, rowNoun, children }: { table: TableExpr; rowNoun: string; children?: ReactNode }) {
-  const { crossfilter, reset } = useMosaic();
-  const clauses = useClauses(crossfilter);
+function Readout({
+  table,
+  rowNoun,
+  clauses,
+  children,
+}: {
+  table: TableExpr;
+  rowNoun: string;
+  clauses: readonly SelectionClause[];
+  children?: ReactNode;
+}) {
+  const { reset } = useMosaic();
   const key = chartTableKey(table);
   const shown = useChartQuery({ deps: [key], query: (filter) => Query.from(table).select({ n: count() }).where(filter) });
   const all = useChartQuery({ deps: [key], filterBy: null, query: () => Query.from(table).select({ n: count() }) });
@@ -197,22 +214,20 @@ function Readout({ table, rowNoun, children }: { table: TableExpr; rowNoun: stri
   const total = Number(all.row?.n ?? 0);
 
   return (
-    <div className="flex flex-wrap items-center gap-2 px-3 py-2">
-      <span className="text-muted-foreground text-xs tabular-nums">
+    <div className="ms-auto flex items-center gap-1">
+      <span className="px-1 text-muted-foreground text-xs tabular-nums">
         {all.rows === null
           ? "Counting…"
           : rows === total
             ? `${total.toLocaleString()} ${rowNoun}`
             : `${rows.toLocaleString()} of ${total.toLocaleString()} ${rowNoun}`}
       </span>
-      <FilterChips selection={crossfilter} />
-      <div className="ms-auto flex items-center gap-1">
-        <Button disabled={clauses.length === 0} onClick={() => reset()} size="sm" variant="ghost">
-          <RotateCcwIcon />
-          Clear filters
+      {clauses.length > 0 ? (
+        <Button onClick={() => reset()} size="sm" variant="ghost">
+          Clear
         </Button>
-        {children}
-      </div>
+      ) : null}
+      {children}
     </div>
   );
 }
