@@ -1,4 +1,18 @@
-import type { Coordinator } from "@kanzo-tech/mosaic";
+import {
+  Query,
+  asc,
+  asTableRef,
+  cast,
+  count,
+  eq,
+  float64,
+  isIn,
+  length,
+  literal,
+  sql,
+  type Coordinator,
+  type ExprNode,
+} from "@kanzo-tech/mosaic";
 
 /**
  * **What the graph reads, through the page's coordinator.** A corpus fossil's `open` attached under
@@ -6,6 +20,9 @@ import type { Coordinator } from "@kanzo-tech/mosaic";
  * `fossil_columns`. The graph reads the structure from those and the rows from the views, with the
  * same coordinator — and the same cache — every chart on the page uses. Nothing here parses a
  * manifest and nothing here owns a connection.
+ *
+ * Every statement is built from mosaic-sql's nodes, which quote their own identifiers and literals:
+ * a search is text a reader typed, and no string here is spliced into SQL.
  */
 
 /** One vertex table: the `dense_id` range it holds, and what it can be asked for. */
@@ -14,15 +31,17 @@ export interface VertexTable {
   /** Its first `dense_id`; its vertices are `first … first + rows − 1`. */
   readonly first: number;
   readonly rows: number;
-  /** Every column, by name. */
-  readonly columns: ReadonlySet<string>;
+  /** Every column, by name, with the type `fossil_columns` declares for it. */
+  readonly columns: ReadonlyMap<string, string>;
   /** The `identity` column — what a label falls back to. */
   readonly identity: string;
 }
 
-/** One relation: its table, and the vertex tables its `src` and `dst` point into. */
+/** One relation: its table, its label, and the vertex tables its `src` and `dst` point into. */
 export interface EdgeTable {
   readonly name: string;
+  /** What the relation is called — fossil names its table `<source>_<label>_<destination>`. */
+  readonly label: string;
   readonly source: string;
   readonly destination: string;
   readonly rows: number;
@@ -38,12 +57,8 @@ export interface Structure {
   readonly size: number;
 }
 
-/** A quoted SQL identifier. */
-export const ident = (name: string): string => `"${name.replace(/"/g, '""')}"`;
-/** A single-quoted SQL string. */
-export const lit = (value: string): string => `'${value.replace(/'/g, "''")}'`;
-/** A table of the attached corpus, as SQL names it. */
-export const relation = (from: string, table: string): string => `${ident(from)}.${ident(table)}`;
+/** A table of the attached corpus: `"<from>"."<table>"`. `asTableRef` answers `undefined` only for no input. */
+export const relation = (from: string, table: string): ExprNode => asTableRef([from, table])!;
 
 /** One column of an answer, by name, as its own array. */
 export interface Answer {
@@ -51,32 +66,47 @@ export interface Answer {
   getChild(name: string): { toArray(): ArrayLike<unknown>; get(index: number): unknown } | null;
 }
 
-/** Run `sql` on the coordinator, in Arrow. */
-export const ask = (coordinator: Coordinator, sql: string): Promise<Answer> =>
-  coordinator.query(sql, { type: "arrow" }) as Promise<Answer>;
+/** Run `query` on the coordinator, in Arrow. */
+export const ask = (coordinator: Coordinator, query: Query): Promise<Answer> =>
+  coordinator.query(query, { type: "arrow" }) as Promise<Answer>;
 
-const column = (answer: Answer, name: string): ArrayLike<unknown> => answer.getChild(name)?.toArray() ?? [];
+const values = (answer: Answer, name: string): ArrayLike<unknown> => answer.getChild(name)?.toArray() ?? [];
+
+const labelOf = (name: string, source: string, destination: string): string =>
+  name.length > source.length + destination.length + 2 && name.startsWith(`${source}_`) && name.endsWith(`_${destination}`)
+    ? name.slice(source.length + 1, name.length - destination.length - 1)
+    : name;
 
 /** `fossil_tables` and `fossil_columns`, read once per corpus. */
 export async function readStructure(coordinator: Coordinator, from: string): Promise<Structure> {
   const [tables, columns] = await Promise.all([
-    ask(coordinator, `SELECT table_name, kind, rows::DOUBLE AS rows, first_id::DOUBLE AS first_id, source, destination FROM ${relation(from, "fossil_tables")} ORDER BY first_id NULLS LAST, table_name`),
-    ask(coordinator, `SELECT table_name, column_name, role FROM ${relation(from, "fossil_columns")} ORDER BY table_name, ordinal`),
+    ask(
+      coordinator,
+      Query.select("table_name", "kind", "source", "destination", { rows: float64("rows"), first_id: float64("first_id") })
+        .from(relation(from, "fossil_tables"))
+        .orderby(asc("first_id", false), "table_name"),
+    ),
+    ask(
+      coordinator,
+      Query.select("table_name", "column_name", "role", { type: cast("type", "VARCHAR") })
+        .from(relation(from, "fossil_columns"))
+        .orderby("table_name", "ordinal"),
+    ),
   ]);
-  const byTable = new Map<string, { names: Set<string>; identity: string }>();
-  const [tn, cn, role] = [column(columns, "table_name"), column(columns, "column_name"), column(columns, "role")];
+  const byTable = new Map<string, { names: Map<string, string>; identity: string }>();
+  const [tn, cn] = [values(columns, "table_name"), values(columns, "column_name")];
+  const [role, type] = [values(columns, "role"), values(columns, "type")];
   for (let i = 0; i < columns.numRows; i++) {
-    const entry = byTable.get(String(tn[i])) ?? { names: new Set<string>(), identity: "subject" };
-    entry.names.add(String(cn[i]));
+    const entry = byTable.get(String(tn[i])) ?? { names: new Map<string, string>(), identity: "subject" };
+    entry.names.set(String(cn[i]), String(type[i] ?? ""));
     if (role[i] === "identity") entry.identity = String(cn[i]);
     byTable.set(String(tn[i]), entry);
   }
-  const name = column(tables, "table_name");
-  const kind = column(tables, "kind");
-  const rows = column(tables, "rows");
-  const first = column(tables, "first_id");
-  const source = column(tables, "source");
-  const destination = column(tables, "destination");
+  const name = values(tables, "table_name");
+  const kind = values(tables, "kind");
+  const rows = values(tables, "rows");
+  const first = values(tables, "first_id");
+  const [source, destination] = [values(tables, "source"), values(tables, "destination")];
   const vertices: VertexTable[] = [];
   const edges: EdgeTable[] = [];
   for (let i = 0; i < tables.numRows; i++) {
@@ -87,11 +117,12 @@ export async function readStructure(coordinator: Coordinator, from: string): Pro
         name: table,
         first: Number(first[i]),
         rows: Number(rows[i]),
-        columns: described?.names ?? new Set(),
+        columns: described?.names ?? new Map(),
         identity: described?.identity ?? "subject",
       });
     } else {
-      edges.push({ name: table, source: String(source[i]), destination: String(destination[i]), rows: Number(rows[i]) });
+      const [src, dst] = [String(source[i]), String(destination[i])];
+      edges.push({ name: table, label: labelOf(table, src, dst), source: src, destination: dst, rows: Number(rows[i]) });
     }
   }
   return { from, vertices, edges, size: vertices.reduce((sum, v) => sum + v.rows, 0) };
@@ -113,8 +144,8 @@ export async function readColumns(
 ): Promise<{ table: VertexTable; answer: Answer }[]> {
   return Promise.all(
     structure.vertices.map(async (table) => {
-      const projection = select.map((c) => (table.columns.has(c) ? `${ident(c)} AS ${ident(c)}` : `NULL AS ${ident(c)}`)).join(", ");
-      const answer = await ask(coordinator, `SELECT ${projection} FROM ${relation(structure.from, table.name)} ORDER BY dense_id`);
+      const projection = Object.fromEntries(select.map((c) => [c, table.columns.has(c) ? c : literal(null)]));
+      const answer = await ask(coordinator, Query.select(projection).from(relation(structure.from, table.name)).orderby("dense_id"));
       return { table, answer };
     }),
   );
@@ -123,12 +154,14 @@ export async function readColumns(
 /** `[src, dst, …]` over every relation, as cosmos.gl takes links. */
 export async function readLinks(coordinator: Coordinator, structure: Structure): Promise<Float32Array> {
   const answers = await Promise.all(
-    structure.edges.map((edge) => ask(coordinator, `SELECT src::DOUBLE AS src, dst::DOUBLE AS dst FROM ${relation(structure.from, edge.name)}`)),
+    structure.edges.map((edge) =>
+      ask(coordinator, Query.select({ src: float64("src"), dst: float64("dst") }).from(relation(structure.from, edge.name))),
+    ),
   );
   const links = new Float32Array(2 * answers.reduce((sum, a) => sum + a.numRows, 0));
   let at = 0;
   for (const answer of answers) {
-    const [src, dst] = [column(answer, "src"), column(answer, "dst")];
+    const [src, dst] = [values(answer, "src"), values(answer, "dst")];
     for (let e = 0; e < answer.numRows; e++) {
       links[at++] = src[e] as number;
       links[at++] = dst[e] as number;
@@ -153,9 +186,12 @@ export interface VertexDetail {
 export async function readVertex(coordinator: Coordinator, structure: Structure, vertex: number): Promise<VertexDetail | null> {
   const table = tableOf(structure, vertex);
   if (!table) return null;
-  const answer = await ask(coordinator, `SELECT * EXCLUDE (dense_id) FROM ${relation(structure.from, table.name)} WHERE dense_id = ${vertex}`);
+  const names = [...table.columns.keys()].filter((name) => name !== "dense_id");
+  const answer = await ask(
+    coordinator,
+    Query.select(names).from(relation(structure.from, table.name)).where(eq("dense_id", literal(vertex))),
+  );
   if (answer.numRows === 0) return null;
-  const names = [...table.columns].filter((name) => name !== "dense_id");
   return { vertex, table: table.name, fields: names.map((name) => ({ name, value: answer.getChild(name)?.get(0) ?? null })) };
 }
 
@@ -174,12 +210,13 @@ export async function readTitles(
   const found = new Map<number, string>();
   await Promise.all(
     [...byTable].map(async ([table, ids]) => {
-      const text = titleColumn(table, title);
       const answer = await ask(
         coordinator,
-        `SELECT dense_id::DOUBLE AS id, ${ident(text)}::VARCHAR AS text FROM ${relation(structure.from, table.name)} WHERE dense_id IN (${ids.join(", ")})`,
+        Query.select({ id: float64("dense_id"), text: cast(titleColumn(table, title), "VARCHAR") })
+          .from(relation(structure.from, table.name))
+          .where(isIn("dense_id", ids.map((id) => literal(id)))),
       );
-      const [id, texts] = [column(answer, "id"), column(answer, "text")];
+      const [id, texts] = [values(answer, "id"), values(answer, "text")];
       for (let i = 0; i < answer.numRows; i++) found.set(id[i] as number, String(texts[i] ?? ""));
     }),
   );
@@ -187,25 +224,175 @@ export async function readTitles(
 }
 
 /**
- * **Vertices whose text contains `query`**, case-insensitively, `limit` at most — Cosmograph's search,
- * a `LIKE` per table in one statement. Nothing is read until the reader types.
+ * **A search, as typed** — Neo4j Bloom's prefixes over Cosmograph's search. `type:<Type>` keeps a
+ * vertex table by name; `<column>:<value>` keeps the vertices whose column contains the value; every
+ * other word is text the vertex's `title` must contain. A word is a prefix only when what precedes
+ * its colon is `type` or a column some vertex table has, so an IRI typed whole stays text.
  */
-export async function searchTitles(
+export interface VertexQuery {
+  readonly text: string;
+  /** Vertex tables, by name; none is every table. */
+  readonly types: readonly string[];
+  /** Columns and what each must contain, every one of them. */
+  readonly fields: readonly { readonly column: string; readonly value: string }[];
+}
+
+const same = (a: string, b: string) => a.localeCompare(b, undefined, { sensitivity: "accent" }) === 0;
+const columnOf = (table: VertexTable, name: string) => [...table.columns.keys()].find((c) => same(c, name));
+
+/** `input` read as a {@link VertexQuery}. A prefix with nothing after its colon yet asks for nothing. */
+export function parseQuery(input: string, structure: Structure): VertexQuery {
+  const text: string[] = [];
+  const types: string[] = [];
+  const fields: { column: string; value: string }[] = [];
+  for (const word of input.trim().split(/\s+/)) {
+    const [, key = "", value = ""] = /^([^:]+):(.*)$/.exec(word) ?? [];
+    if (same(key, "type")) {
+      if (value !== "") types.push(value);
+    } else if (key !== "" && structure.vertices.some((table) => columnOf(table, key) !== undefined)) {
+      if (value !== "") fields.push({ column: key, value });
+    } else if (word !== "") {
+      text.push(word);
+    }
+  }
+  return { text: text.join(" "), types, fields };
+}
+
+/** `expr` contains `value`, case-insensitively, with a `%` or `_` in it meaning itself. */
+const ilike = (expr: ExprNode | string, value: string): ExprNode =>
+  sql`${cast(expr, "VARCHAR")} ILIKE ${literal(`%${value.replace(/[\\%_]/g, (c) => `\\${c}`)}%`)} ESCAPE ${literal("\\")}`;
+
+/**
+ * Every vertex `query` keeps — `id`, `text` and `type`, its table — as one `UNION ALL` over the tables
+ * that can answer it. A table outside `types`, or without a column a field names, is not asked, and
+ * `null` is no table left to ask.
+ */
+function matching(structure: Structure, query: VertexQuery, title: string | undefined): Query | null {
+  const selects = structure.vertices.flatMap((table) => {
+    if (query.types.length > 0 && !query.types.some((type) => same(type, table.name))) return [];
+    const fields = query.fields.map((field) => ({ name: columnOf(table, field.column), value: field.value }));
+    if (fields.some((field) => field.name === undefined)) return [];
+    const text = cast(titleColumn(table, title), "VARCHAR");
+    const where = [
+      ...(query.text === "" ? [] : [ilike(text, query.text)]),
+      ...fields.map((field) => ilike(field.name as string, field.value)),
+    ];
+    return [Query.select({ id: float64("dense_id"), text, type: literal(table.name) }).from(relation(structure.from, table.name)).where(where)];
+  });
+  return selects.length === 0 ? null : Query.unionAll(selects);
+}
+
+/** What a search answered: the first matches, and how many the limit hid, in all and per table. */
+export interface Found {
+  readonly matches: readonly { readonly id: number; readonly text: string; readonly type: string }[];
+  readonly total: number;
+  readonly byType: ReadonlyMap<string, number>;
+}
+
+/**
+ * **The first `limit` vertices `query` keeps**, shortest text first — one statement, whose counts are
+ * windows, taken before the `LIMIT` applies. Nothing is read until the reader types.
+ */
+export async function searchVertices(
   coordinator: Coordinator,
   structure: Structure,
-  query: string,
-  title: string | undefined,
-  limit: number,
-): Promise<{ id: number; text: string }[]> {
-  if (structure.vertices.length === 0) return [];
-  const needle = lit(`%${query.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
-  const union = structure.vertices
-    .map((table) => {
-      const text = `${ident(titleColumn(table, title))}::VARCHAR`;
-      return `SELECT dense_id::DOUBLE AS id, ${text} AS text FROM ${relation(structure.from, table.name)} WHERE ${text} ILIKE ${needle} ESCAPE '\\'`;
-    })
-    .join(" UNION ALL ");
-  const answer = await ask(coordinator, `SELECT * FROM (${union}) ORDER BY length(text), text LIMIT ${limit}`);
-  const [id, text] = [column(answer, "id"), column(answer, "text")];
-  return Array.from({ length: answer.numRows }, (_, i) => ({ id: id[i] as number, text: String(text[i] ?? "") }));
+  { query, title, limit }: { query: VertexQuery; title?: string; limit: number },
+): Promise<Found> {
+  const union = matching(structure, query, title);
+  if (union === null) return { matches: [], total: 0, byType: new Map() };
+  const answer = await ask(
+    coordinator,
+    Query.select("*", { per: float64(count().partitionby("type")), total: float64(count().window()) })
+      .from(union)
+      .orderby(length("text"), "text", "id")
+      .limit(limit),
+  );
+  const [id, text, type] = [values(answer, "id"), values(answer, "text"), values(answer, "type")];
+  const [per, total] = [values(answer, "per"), values(answer, "total")];
+  const byType = new Map<string, number>();
+  const matches = Array.from({ length: answer.numRows }, (_, i) => {
+    byType.set(String(type[i]), Number(per[i]));
+    return { id: id[i] as number, text: String(text[i] ?? ""), type: String(type[i]) };
+  });
+  return { matches, total: answer.numRows === 0 ? 0 : Number(total[0]), byType };
+}
+
+/** Every vertex `query` keeps, by id — what a search selects. */
+export async function matchingIds(coordinator: Coordinator, structure: Structure, query: VertexQuery, title?: string): Promise<number[]> {
+  const union = matching(structure, query, title);
+  if (union === null) return [];
+  return Array.from(values(await ask(coordinator, Query.select("id").from(union)), "id") as ArrayLike<number>);
+}
+
+/** One side of a relation, seen from a vertex: the edges it leaves by, or the ones that reach it. */
+export interface Side {
+  readonly edge: EdgeTable;
+  readonly direction: "out" | "in";
+}
+
+/** A side, the vertex table at its far end, and how many of the vertex's edges run along it. */
+export interface Neighbours extends Side {
+  readonly other: string;
+  readonly count: number;
+}
+
+const near = (side: Side) => (side.direction === "out" ? "src" : "dst");
+const far = (side: Side) => (side.direction === "out" ? "dst" : "src");
+
+/** Every side of every relation `vertex`'s table takes part in — a relation of a table to itself, twice. */
+function sidesOf(structure: Structure, vertex: number): Side[] {
+  const table = tableOf(structure, vertex);
+  if (!table) return [];
+  return structure.edges.flatMap((edge) => [
+    ...(edge.source === table.name ? [{ edge, direction: "out" as const }] : []),
+    ...(edge.destination === table.name ? [{ edge, direction: "in" as const }] : []),
+  ]);
+}
+
+/**
+ * **A vertex's neighbourhood, counted per relation and direction** — the Linkurious inspector's
+ * summary, read off the edge tables `fossil_tables` names, one count per side in one statement. A
+ * side the vertex has no edge along is left out.
+ */
+export async function readNeighbours(coordinator: Coordinator, structure: Structure, vertex: number): Promise<Neighbours[]> {
+  const sides = sidesOf(structure, vertex);
+  if (sides.length === 0) return [];
+  const answer = await ask(
+    coordinator,
+    Query.unionAll(
+      sides.map((side, at) =>
+        Query.select({ side: literal(at), n: float64(count()) })
+          .from(relation(structure.from, side.edge.name))
+          .where(eq(near(side), literal(vertex))),
+      ),
+    ),
+  );
+  const [at, n] = [values(answer, "side"), values(answer, "n")];
+  const counted = new Map<number, number>();
+  for (let i = 0; i < answer.numRows; i++) counted.set(Number(at[i]), Number(n[i]));
+  return sides.flatMap((side, i) => {
+    const count = counted.get(i) ?? 0;
+    return count > 0 ? [{ ...side, other: side.direction === "out" ? side.edge.destination : side.edge.source, count }] : [];
+  });
+}
+
+/** The vertices at the far end of `sides` from `vertex`, each once — of every side, without `sides`. */
+export async function neighbourIds(
+  coordinator: Coordinator,
+  structure: Structure,
+  vertex: number,
+  sides: readonly Side[] = sidesOf(structure, vertex),
+): Promise<number[]> {
+  if (sides.length === 0) return [];
+  const answer = await ask(
+    coordinator,
+    Query.union(
+      sides.map((side) =>
+        Query.select({ id: float64(far(side)) })
+          .from(relation(structure.from, side.edge.name))
+          .where(eq(near(side), literal(vertex))),
+      ),
+    ),
+  );
+  return Array.from(values(answer, "id") as ArrayLike<number>);
 }

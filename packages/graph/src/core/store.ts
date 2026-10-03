@@ -42,6 +42,9 @@ function maskOf(size: number, ids: Float64Array): Uint8Array {
   return mask;
 }
 
+/** How many vertices `recent` keeps: a palette's short list, not a history. */
+const RECENT = 5;
+
 export function createGraph(initial: GraphOptions): GraphStore {
   let options = initial;
   const listeners = new Set<() => void>();
@@ -91,6 +94,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     geometry: null,
     encoding: null,
     mask: null,
+    recent: [],
   };
 
   let domain: { key: unknown[]; value: readonly unknown[] } = { key: [], value: [] };
@@ -216,7 +220,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     structure = geometry = encoding = null;
     kept = mask = null;
     uploaded = [];
-    notify({ selection: null, focus: null, hovered: null, pinned: [] });
+    notify({ selection: null, focus: null, hovered: null, pinned: [], recent: [] });
     loadStructure();
   }
 
@@ -312,6 +316,10 @@ export function createGraph(initial: GraphOptions): GraphStore {
     },
     pin(vertices) {
       patch({ pinned: [...vertices] });
+    },
+    remember(vertex, text) {
+      const rest = snapshot.recent.filter((entry) => entry.vertex !== vertex);
+      patch({ recent: [{ vertex, text }, ...rest].slice(0, RECENT) });
     },
     setTool(tool) {
       if (tool !== snapshot.tool) patch({ tool });
