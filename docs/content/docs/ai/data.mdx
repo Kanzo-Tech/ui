@@ -1,0 +1,199 @@
+---
+title: Ask your data
+description: An agent that answers questions about data by querying DuckDB on the page's coordinator, the schema it is given, the questions to start from, and the card each answer is drawn in — @kanzo-tech/ai/data.
+---
+
+`@kanzo-tech/ai/data` is `Chat` pointed at data: Databricks Genie's and Hex Magic's loop — a
+question, one SQL query, the rows drawn as what they are, a sentence about them — over the page's
+own DuckDB. The live version is the **Ask** panel of the [workspace showcase](/docs/showcases/workspace):
+a recorded model, but every query runs for real, under the filter you set on the page.
+
+| | For |
+| --- | --- |
+| `dataAgent` | The agent: one `query` tool that runs DuckDB SQL on the page's coordinator |
+| `describeSchema` | The schema it is given: a catalog as DDL, read from DuckDB's `information_schema` |
+| `dataSuggestions` | Questions to start from, over that schema and the reader's scope — `suggest()` with a data space's instructions |
+| `QueryResult` | The card an answer is drawn in: a `Stat`, a chart, or a table, with its SQL and its actions |
+
+## Usage
+
+```tsx
+import { Chat, ChatSkeleton, useChat } from "@kanzo-tech/ai";
+import { dataAgent, dataSuggestions, describeSchema, QueryResult } from "@kanzo-tech/ai/data";
+import { DirectChatTransport, createGateway } from "@kanzo-tech/llm";
+import { clauseSemiJoin, useMosaic } from "@kanzo-tech/ui/analytics";
+
+const gateway = createGateway({ baseURL: "/api/ai" });
+```
+
+```tsx
+function Ask({ catalog, schema, table }: { catalog: string; schema: string; table: TableExpr }) {
+  const { coordinator, crossfilter } = useMosaic();
+  const scope = useMemo(() => ({ selection: crossfilter, table }), [crossfilter, table]);
+  const [transport] = useState(
+    () => new DirectChatTransport({ agent: dataAgent({ model: gateway("chat"), coordinator, schema, scope, key: "dense_id" }) }),
+  );
+  const chat = useChat({ transport });
+  // Cached per data space and per filter; streamed, so the pills land one by one.
+  const starters = useQuery({
+    queryKey: ["starters", catalog, String(crossfilter.predicate(null))],
+    queryFn: streamedQuery({
+      streamFn: ({ signal }) => dataSuggestions({ model: gateway("chat"), schema, scope, abortSignal: signal }),
+    }),
+  });
+  return (
+    <Chat
+      chat={chat}
+      suggesting={starters.fetchStatus === "fetching"}
+      suggestions={starters.isError ? [] : (starters.data ?? []).map((s) => s.question)}
+      tools={{ query: (part) => <QueryResult actions={(answer) => <FilterToThese answer={answer} />} part={part} /> }}
+    />
+  );
+}
+```
+
+Until the schema is read, draw `<ChatSkeleton />` in the chat's place: it is the same layout, so
+nothing jumps when the chat replaces it. The cache is the host's: `dataSuggestions` is an async
+iterable, so TanStack Query's `streamedQuery` (or an effect) holds it, keyed per data space and
+scope. While it streams the strip shows pills in skeleton; if it fails there are no pills, and the
+chat works the same — see [Before the first question](/docs/ai/chat#before-the-first-question).
+
+## The schema
+
+`describeSchema(coordinator, { catalog, exclude, references })` reads `information_schema.columns`
+for one catalog and writes it as DDL, every table qualified as a query must name it:
+
+```sql
+CREATE TABLE "jobs/7"."Person_knows_Person" (
+  "src" UINTEGER REFERENCES "jobs/7"."Person" ("dense_id"),
+  "dst" UINTEGER REFERENCES "jobs/7"."Person" ("dense_id")
+);
+```
+
+It is read from the engine rather than re-derived from a manifest, so the names and the **types** are
+the ones a query will meet. The one thing a catalog of views cannot carry is that a join exists: they
+declare no keys. `references` — `SchemaReference`s, `{ table, column, references: { table, column } }`
+— says so, written as DDL writes it, `REFERENCES`, the form a model has read the most of.
+
+**Nothing here knows what the data is.** A fossil corpus's joins come from
+[`corpusReferences`](/docs/graph#the-joins-for-a-reader-of-the-catalog) in `@kanzo-tech/graph`, the package
+that already reads `fossil_tables`; a schema describer that learnt them would be a second reader of
+fossil.
+
+*Held by* `packages/ai/src/data/schema.test.ts`, "writes the catalog as qualified DDL, its references
+as REFERENCES, and leaves out what is excluded".
+
+## The agent
+
+`dataAgent(options)` is a `ToolLoopAgent` with one tool, `query`. The model writes one DuckDB
+SELECT; the tool runs it on the page's coordinator and answers with every row — the reader sees all
+of them, the model reads the first 30, cut to 4,000 characters. A statement the engine refuses is an
+answer, `{ sql, error }`, not a throw: the model reads the engine's words and tries again, and the
+card shows the refusal.
+
+| Option | Type | |
+| --- | --- | --- |
+| `model` | `LanguageModel` | The host's — `gateway("chat")`. Nothing here names a model |
+| `coordinator` | `Coordinator` | The page's, so the agent reads through its one connection |
+| `schema` | `string` | `describeSchema`'s answer. The model is told it is the whole of the data |
+| `scope` | `DataScope` | `{ selection, table }`: offered to every query as the table `scope` |
+| `key` | `string` | A column that identifies a row across tables; the model includes it when it selects rows |
+| `rows` | `number` | The most rows a query brings back. Default 1000 |
+
+**The row cap is the tool's, not the prompt's.** The model is asked to end in a `LIMIT`, and the
+tool wraps what it wrote in `SELECT * FROM (…) LIMIT 1000` regardless — a subquery, so a statement
+with a `WITH` of its own still composes. `truncated` says when the cap cut an answer short.
+
+**The model is told the rows are already on screen.** The tool's description and its result say so,
+and the instructions end on it: say what the rows show — the numbers that matter, the pattern, the
+exception — and do not list them again or reprint the SQL. Genie's and ChatGPT's answers read the same
+way; an answer that repeats its own table is a page of duplication.
+
+`dataInstructions(options)` is the prompt, for a host that builds its own `ToolLoopAgent` around the
+same tool; `DataTools` types the toolset, so `InferAgentUIMessage<ReturnType<typeof dataAgent>>` types
+the messages.
+
+*Held by* `packages/ai/src/data/agent.test.ts`, "runs the model's SQL under the scope, and hands the
+reader every row, plain enough for a message"; "answers a refused statement with the engine's words
+rather than throwing"; "tells the model the rows are already in front of the reader".
+
+### Scope
+
+`scope` is what the reader is looking at: the page's `Selection` and the relation its clauses
+filter. Every query may read it as a table named `scope`, defined in front of the model's statement:
+
+```sql
+WITH "scope" AS (SELECT * FROM "archive"."Node" WHERE ("kind" IN ('contract')))
+SELECT * FROM (SELECT count(*) AS n FROM scope
+) LIMIT 1000
+```
+
+The tool owns that composition, and it is **built with mosaic-sql, never spliced**: the clauses are
+the selection's own predicate nodes, from `selection.predicate(null)` — a pick, a brush, or a
+`clauseSemiJoin` on identity alike — and the model's text is the one fragment nobody here wrote. The
+prompt only documents `scope`; each result tells the model which filter applied, because the page can
+change between two questions. With nothing selected, `scope` is the whole relation.
+
+*Held by* `packages/ai/src/data/agent.test.ts`, "defines scope as the relation under the selection's
+clauses, built from its predicate nodes".
+
+## The answer card
+
+`QueryResult` draws one `query` call, from the part `Chat`'s `tools` hands over:
+
+- **One row of one column is a figure**, drawn as a `Stat` with the column as its label.
+- **Rows a chart suits are a chart**: the first card [`recommend(fields, "answer")`](/docs/analytics/dashboard#recommend)
+  proposes — a measure against the time or the category it was grouped by — with the table a toggle away.
+  A bar chart of more than 40 bars is passed over.
+- **Anything else is a compact table**, eight rows a page.
+- **The SQL is under it**, folded away, in a read-only `CodeEditor` with SQL highlighting.
+- **The actions are above it**: the SQL to the clipboard, the rows as CSV, and the host's own.
+
+The chart reads the answer's statement again, as a relation — the statement that ran, scope and cap
+included, so it is the same rows — and it is **not** a client of the page's crossfilter: an answer is
+what was true when it was asked. Taking it back to the page is an action, and the host draws it,
+because only the host knows what the page is: `@kanzo-tech/ai` does not depend on the graph.
+
+```tsx
+function FilterToThese({ answer }: { answer: QueryOutput }) {
+  const { crossfilter } = useMosaic();
+  const [source] = useState(() => ({ reset() {} }));
+  if (!answer.rows[0] || !("dense_id" in answer.rows[0])) return null;
+  const ids = answer.rows.map((row) => Number(row.dense_id));
+  return (
+    <Button onClick={() => crossfilter.update(clauseSemiJoin("dense_id", ids, { source, label: "Ask" }))} size="sm" variant="ghost">
+      Filter to these
+    </Button>
+  );
+}
+```
+
+A semi-join on identity is the clause every panel that shares the key answers, so the dashboard and
+the graph both follow. *Show on graph* is the graph's `GraphSelect` with `load={async () => ids}`.
+
+| Prop | Type | |
+| --- | --- | --- |
+| `part` | `ToolPart` | The `query` call |
+| `actions` | `(answer: QueryOutput) => ReactNode` | The host's actions, beside Copy and CSV |
+| `translations` | `Partial<QueryResultTranslations>` | Every word it draws |
+
+`QueryOutput` is `{ sql, statement, rows, truncated }`, `QueryRefusal` is `{ sql, error: { message, code? } }` — the thrown value does not survive a message, its words and its code do, and a call
+answers a `QueryAnswer`, one of the two; a row is a `QueryRow`.
+
+*Held by* `packages/ai/src/data/query-result.test.tsx`, "draws a single figure as a Stat, with its
+column as the label"; "is the chart recommend proposes for an answer, a measure against what it was
+grouped by"; "hands the host's actions the whole answer".
+
+## Installing it
+
+A subpath, because it draws with `@kanzo-tech/ui`'s [analytics](/docs/analytics/charts), table and
+editor layers, whose engines are optional peers: a host that only chats does not install DuckDB to
+import `Chat`. A host of `/data` installs those layers' peers, plus two of its own:
+
+```bash
+pnpm add @kanzo-tech/mosaic @codemirror/lang-sql
+```
+
+The types are exported as `DataAgentOptions`, `DataScope`, `DataSuggestionsOptions`, `DataTools`,
+`DescribeSchemaOptions`, `SchemaReference`, `QueryAnswer`, `QueryOutput`, `QueryRefusal`, `QueryRow`,
+`QueryResultProps` and `QueryResultTranslations`.

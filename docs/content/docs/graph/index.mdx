@@ -414,6 +414,24 @@ A `VertexId` is the corpus's `dense_id`, a `number`: fossil numbers every vertex
 index in cosmos.gl's buffers. An id from SQL — `SELECT dense_id FROM …` — is a vertex as it stands, for
 `select` or `reveal`.
 
+### The joins, for a reader of the catalog
+
+The views a corpus is attached as declare no keys, so DuckDB's own catalog cannot say that an edge
+table joins anything. `corpusReferences(coordinator, from)` answers what it cannot: each edge table's
+`src` holds its source vertex table's `dense_id`, and its `dst` its destination's, as a list of
+`CorpusReference`s — `{ table, column, references: { table, column } }`. It lives here, beside the
+structure reader, because this package is the one that reads `fossil_tables`; the shape is plain
+data, so [`describeSchema`](/docs/ai/data#the-schema) takes it as its references without either
+package knowing the other.
+
+```ts
+const references = await corpusReferences(coordinator, jobId);
+const schema = await describeSchema(coordinator, { catalog: jobId, exclude: ["fossil_tables", "fossil_columns"], references });
+```
+
+*Held by* `packages/graph/src/core/references.test.ts`, "names each edge table's src and dst as the
+dense_id of the vertex tables it joins".
+
 ## Failures
 
 <ComponentPreview componentName="graph" fileName="example-failure" hasMaxHeight />
@@ -659,4 +677,4 @@ What `useGraphState` selects from.
 inspector's render prop receives. `Channels` (`fill`, `symbol`, `stroke`, `x`, `y`, `cluster`), `Look`, `LookPatch`,
 `LookPreset`, `Shape`, `Sim`, `Motion`, `Selection`, `SelectionSource`, `Tool`, `VertexId`,
 `GraphCommands`, `DataStatus` and `Drawn` are the vocabulary, and `GraphError` is the class of the
-graph's own failures.
+graph's own failures. `CorpusReference` is one of the joins `corpusReferences` answers.
