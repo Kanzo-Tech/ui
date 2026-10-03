@@ -188,7 +188,7 @@ that selects its far end. The render prop is where a product adds fields the cor
 ### The Settings panel
 
 ```tsx
-import { GraphLooks } from "@kanzo-tech/graph";
+import { GraphLooks, GraphPlacement } from "@kanzo-tech/graph";
 import { Kbd, KbdGroup } from "@kanzo-tech/ui";
 
 const GESTURES = [
@@ -202,16 +202,20 @@ const GESTURES = [
 ];
 
 function GraphSettings() {
+  // The placement the root is handed, held beside it in `ArchiveGraph` and shared through a context.
+  const [placement, setPlacement] = usePlacement();
   return (
     <ScrollArea className="h-full p-3">
       <GraphLooks />
+      <GraphPlacement onChange={setPlacement} value={placement} />
       <dl>{/* GESTURES, one row each */}</dl>
     </ScrollArea>
   );
 }
 ```
 
-`GraphLooks` is the looks and the axes under Customize; the forces are not in it, because a
+`GraphLooks` is the looks and the axes under them, and `GraphPlacement` where the points come
+from — the archive's halls make Clustered worth trying; the forces are not in either, because a
 layout is a run the toolbar pauses and re-runs, not a picture. Fit is the toolbar's, so the panel needs no camera
 button. The gestures are the canvas's own; they are written down here because a reader scanning for
 "how do I select two clusters" wants a table.

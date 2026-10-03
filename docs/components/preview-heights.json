@@ -168,6 +168,7 @@
   "graph/example-layout": 464,
   "graph/example-legend": 464,
   "graph/example-looks": 560,
+  "graph/example-placement": 560,
   "graph/example-provider": 464,
   "graph/example-search": 464,
   "graph/example-toolbar": 464,

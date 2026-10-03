@@ -3,7 +3,7 @@ import type { LookPatch } from "../render/graph-looks";
 import type { Sim } from "../render/graph-sim";
 import type { Binding, Channels } from "./channels";
 import type { Encoding, Geometry } from "./load";
-import type { Structure } from "./source";
+import type { Structure } from "./structure";
 import type { Motion, Selection, SelectionSource, Tool, VertexId } from "./types";
 
 export interface GraphOptions extends Channels {

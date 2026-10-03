@@ -13,6 +13,7 @@ import {
   type Coordinator,
   type ExprNode,
 } from "@kanzo-tech/mosaic";
+import { tableOf, type Column, type EdgeTable, type Structure, type VertexTable } from "./structure";
 
 /**
  * **What the graph reads, through the page's coordinator.** A corpus fossil's `open` attached under
@@ -24,38 +25,6 @@ import {
  * Every statement is built from mosaic-sql's nodes, which quote their own identifiers and literals:
  * a search is text a reader typed, and no string here is spliced into SQL.
  */
-
-/** One vertex table: the `dense_id` range it holds, and what it can be asked for. */
-export interface VertexTable {
-  readonly name: string;
-  /** Its first `dense_id`; its vertices are `first … first + rows − 1`. */
-  readonly first: number;
-  readonly rows: number;
-  /** Every column, by name, with the type `fossil_columns` declares for it. */
-  readonly columns: ReadonlyMap<string, string>;
-  /** The `identity` column — what a label falls back to. */
-  readonly identity: string;
-}
-
-/** One relation: its table, its label, and the vertex tables its `src` and `dst` point into. */
-export interface EdgeTable {
-  readonly name: string;
-  /** What the relation is called — fossil names its table `<source>_<label>_<destination>`. */
-  readonly label: string;
-  readonly source: string;
-  readonly destination: string;
-  readonly rows: number;
-}
-
-/** The attached corpus, as its two relations describe it. */
-export interface Structure {
-  /** The catalog `open` attached the corpus under. */
-  readonly from: string;
-  readonly vertices: readonly VertexTable[];
-  readonly edges: readonly EdgeTable[];
-  /** Every vertex, every table: `dense_id` runs `0 … size − 1`. */
-  readonly size: number;
-}
 
 /** A table of the attached corpus: `"<from>"."<table>"`. `asTableRef` answers `undefined` only for no input. */
 export const relation = (from: string, table: string): ExprNode => asTableRef([from, table])!;
@@ -93,12 +62,12 @@ export async function readStructure(coordinator: Coordinator, from: string): Pro
         .orderby("table_name", "ordinal"),
     ),
   ]);
-  const byTable = new Map<string, { names: Map<string, string>; identity: string }>();
+  const byTable = new Map<string, { names: Map<string, Column>; identity: string }>();
   const [tn, cn] = [values(columns, "table_name"), values(columns, "column_name")];
   const [role, type] = [values(columns, "role"), values(columns, "type")];
   for (let i = 0; i < columns.numRows; i++) {
-    const entry = byTable.get(String(tn[i])) ?? { names: new Map<string, string>(), identity: "subject" };
-    entry.names.set(String(cn[i]), String(type[i] ?? ""));
+    const entry = byTable.get(String(tn[i])) ?? { names: new Map<string, Column>(), identity: "subject" };
+    entry.names.set(String(cn[i]), { type: String(type[i] ?? ""), role: role[i] === null ? null : String(role[i]) });
     if (role[i] === "identity") entry.identity = String(cn[i]);
     byTable.set(String(tn[i]), entry);
   }
@@ -126,11 +95,6 @@ export async function readStructure(coordinator: Coordinator, from: string): Pro
     }
   }
   return { from, vertices, edges, size: vertices.reduce((sum, v) => sum + v.rows, 0) };
-}
-
-/** The vertex table a `dense_id` falls in. */
-export function tableOf(structure: Structure, vertex: number): VertexTable | undefined {
-  return structure.vertices.find((t) => vertex >= t.first && vertex < t.first + t.rows);
 }
 
 /**

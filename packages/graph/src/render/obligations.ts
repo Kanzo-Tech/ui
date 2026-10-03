@@ -41,10 +41,10 @@ export interface Obligation {
 const otherCollisions = SHAPE_ORDER.filter((s) => s === SHAPE_OTHER).length;
 
 /** The largest curvature any look asks for. */
-// One curvature now, not three: the `bowed-links` toggle picks it or zero, so the largest a form
-// can ask for is what the toggle turns on. Read through `lookFrom` rather than typed here, which is
+// One curvature now, not three: the `edges` axis picks it or zero, so the largest a form
+// can ask for is what Curved draws. Read through `lookFrom` rather than typed here, which is
 // what keeps this a measurement of the shipped value instead of a copy of it.
-const maxCurve = lookFrom({ "bowed-links": "true" }).link.curve;
+const maxCurve = lookFrom({ edges: "curved" }).link.curve;
 
 /**
  * The floor a **composition** owes, not a look — and that move is the point rather than a detail.

@@ -11,7 +11,8 @@ import {
   type Selection,
 } from "@kanzo-tech/mosaic";
 import { GraphError } from "./error";
-import { relation, type Answer, type Structure } from "./source";
+import { relation, type Answer } from "./source";
+import { type Structure } from "./structure";
 
 /**
  * **The graph as a client of the page's coordinator** — one Mosaic client, like every chart beside

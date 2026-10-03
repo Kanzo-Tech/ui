@@ -34,10 +34,10 @@ describe("the graph section's obligations", () => {
   it("measures the shipped forms, not a copy of their numbers", () => {
     // Every `measured` is derived from `lookFrom` or `SHAPE_ORDER` at module load. A hand-typed
     // number would go stale the first time an axis changed, silently and in the direction of
-    // passing. There is one curvature now rather than three, and it is what the toggle turns on.
+    // passing. There is one curvature now rather than three, and it is what Curved draws.
     const curve = check().find((c) => c.id === "link-curve");
-    expect(curve?.measured).toBe(lookFrom({ "bowed-links": "true" }).link.curve);
-    expect(lookFrom({ "bowed-links": "false" }).link.curve, "and off is straight").toBe(0);
+    expect(curve?.measured).toBe(lookFrom({ edges: "curved" }).link.curve);
+    expect(lookFrom({ edges: "straight" }).link.curve, "and off is straight").toBe(0);
   });
 
   it("grades the composition, and only where shape is actually spent", () => {

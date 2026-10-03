@@ -4,7 +4,8 @@ import { bindingOf } from "./channels";
 import { GraphClient, publish } from "./client";
 import { GraphError } from "./error";
 import { loadEncoding, loadGeometry, type Encoding, type Geometry } from "./load";
-import { readStructure, type Structure } from "./source";
+import { readStructure } from "./source";
+import { type Structure } from "./structure";
 import type { Arrangement, Drawn, GraphOptions, GraphSnapshot, DataStatus, GraphStore } from "./state";
 
 export type { Arrangement, Drawn, GraphOptions, GraphSnapshot, GraphState, DataStatus, GraphStore, View } from "./state";

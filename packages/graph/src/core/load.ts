@@ -1,7 +1,8 @@
 import type { Coordinator } from "@kanzo-tech/mosaic";
 import { Dictionary } from "./categories";
 import type { Binding } from "./channels";
-import { readColumns, readLinks, type Structure } from "./source";
+import { readColumns, readLinks } from "./source";
+import { type Structure } from "./structure";
 
 /**
  * **The whole graph, read once and laid out as cosmos.gl's buffers.** A vertex's `dense_id` is its

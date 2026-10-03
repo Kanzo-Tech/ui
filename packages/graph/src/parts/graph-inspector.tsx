@@ -29,7 +29,8 @@ import { FocusIcon, ZoomInIcon } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { nameOf } from "../core/categories";
 import { bindingOf } from "../core/channels";
-import { neighbourIds, readNeighbours, readVertex, tableOf, type Neighbours, type VertexDetail } from "../core/source";
+import { neighbourIds, readNeighbours, readVertex, type Neighbours, type VertexDetail } from "../core/source";
+import { tableOf } from "../core/structure";
 import type { VertexId } from "../core/types";
 import { useGraphContext } from "../react/graph-root";
 import { useGraphState } from "../react/use-graph-state";
@@ -148,7 +149,7 @@ export function GraphInspector({ children, className, slot, ...rest }: GraphInsp
   const iri = field(table?.identity);
   const named = field(options.title) ?? iri;
   const heading = current ? (named === undefined || named === null ? `#${current.vertex}` : text(named, false)) : "";
-  const dated = (name: string) => /date|time/i.test(table?.columns.get(name) ?? "");
+  const dated = (name: string) => /date|time/i.test(table?.columns.get(name)?.type ?? "");
   const groups = current
     ? [
         { title: "Identity", fields: current.fields.filter((f) => f.name === table?.identity) },

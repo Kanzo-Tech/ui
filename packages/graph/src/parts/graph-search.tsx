@@ -18,7 +18,8 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { nameOf } from "../core/categories";
 import { bindingOf } from "../core/channels";
-import { matchingIds, parseQuery, searchVertices, tableOf, type Found, type VertexQuery } from "../core/source";
+import { matchingIds, parseQuery, searchVertices, type Found, type VertexQuery } from "../core/source";
+import { tableOf } from "../core/structure";
 import { internalsOf } from "../react/use-graph";
 import { useGraphContext } from "../react/graph-root";
 import { useGraphSnapshot, useGraphState } from "../react/use-graph-state";

@@ -73,7 +73,9 @@ CREATE VIEW ${c}.fossil_tables AS SELECT * FROM (VALUES
   ('Person_tagged_Tag', 'edge', 'https://example.org/tagged', 1::UBIGINT, NULL, 'Person', 'Tag')
 ) t(table_name, kind, iri, rows, first_id, source, destination);
 CREATE VIEW ${c}.fossil_columns AS
-  SELECT table_name, column_name, column_index AS ordinal, data_type AS type,
+  SELECT table_name, column_name, column_index AS ordinal,
+    CASE data_type WHEN 'DOUBLE' THEN 'double' WHEN 'INTEGER' THEN 'int32' WHEN 'UBIGINT' THEN 'uint64'
+                   WHEN 'VARCHAR' THEN 'string' END AS type,
     CASE WHEN column_name = 'dense_id' THEN 'address' WHEN column_name = 'subject' THEN 'identity'
          WHEN column_name IN ('src', 'dst') THEN 'endpoint' END AS role,
     NULL AS iri, is_nullable AS nullable
