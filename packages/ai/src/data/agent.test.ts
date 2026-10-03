@@ -1,9 +1,9 @@
 // @vitest-environment node
 import { asTableRef, clausePoints, Selection } from "@kanzo-tech/mosaic";
 import { beforeAll, describe, expect, it } from "vitest";
-import { mockModel } from "../testing/model.js";
+import { mockModel, promptOf } from "../testing/model.js";
 import { testDatabase, type TestDatabase } from "../testing/duckdb.js";
-import { dataAgent, dataInstructions, type QueryAnswer } from "./agent.js";
+import { dataAgent, dataInstructions, dataSuggestions, type QueryAnswer } from "./agent.js";
 import { describeSchema, type DataSchema } from "./schema.js";
 
 let db: TestDatabase;
@@ -27,9 +27,9 @@ function picked() {
   return selection;
 }
 
-async function call(agent: ReturnType<typeof dataAgent>, sql: string): Promise<QueryAnswer> {
+async function call(agent: ReturnType<typeof dataAgent>, sql: string, abortSignal?: AbortSignal): Promise<QueryAnswer> {
   const query = agent.tools.query;
-  return (await query.execute!({ sql }, { toolCallId: "c", messages: [], abortSignal: undefined } as never)) as QueryAnswer;
+  return (await query.execute!({ sql }, { toolCallId: "c", messages: [], abortSignal } as never)) as QueryAnswer;
 }
 
 describe("dataAgent", () => {
@@ -65,6 +65,13 @@ describe("dataAgent", () => {
   it("answers a statement the engine refuses with the engine's words rather than throwing", async () => {
     const answer = await call(dataAgent({ model, coordinator: db.coordinator, schema }), `SELECT "nope" FROM "archive"."node"`);
     expect(answer).toMatchObject({ sql: `SELECT "nope" FROM "archive"."node"`, error: { message: expect.stringContaining("nope") } });
+  });
+
+  it("throws when the chat was stopped, rather than answering a refusal nobody asked for", async () => {
+    const stopped = new AbortController();
+    stopped.abort(new Error("stopped"));
+    const agent = dataAgent({ model, coordinator: db.coordinator, schema });
+    await expect(call(agent, `SELECT "id" FROM "archive"."node"`, stopped.signal)).rejects.toThrow("stopped");
   });
 
   it("tells the model the rows are already in front of the reader, and what it may read", () => {
@@ -104,6 +111,13 @@ describe("a conversation with dataAgent", () => {
     ]);
   });
 
+  it("stops after five steps, however often the model calls the tool", async () => {
+    const { model } = mockModel(() => ({ tool: "query", input: { sql: `SELECT count(*)::INTEGER AS "n" FROM "archive"."node"` } }));
+    const agent = dataAgent({ model, coordinator: db.coordinator, schema });
+    await (await agent.stream({ prompt: "Count forever" })).text;
+    expect(model.doStreamCalls).toHaveLength(5);
+  });
+
   it("hands the model the gate's refusal, so it can write another statement", async () => {
     const { model } = mockModel((_, index) =>
       index === 0 ? { tool: "query", input: { sql: "SELECT * FROM read_text('https://attacker.example/')" } } : "I cannot read that.",
@@ -113,5 +127,18 @@ describe("a conversation with dataAgent", () => {
     expect(toolResults(model.doStreamCalls[1]!.prompt as never)).toEqual([
       `The query failed: read_text() is a table function. A query reads "archive"."node", and nothing else.`,
     ]);
+  });
+});
+
+describe("dataSuggestions", () => {
+  it("asks for questions over the schema's DDL and the reader's scope, as many as were wanted", async () => {
+    const { model } = mockModel(() => JSON.stringify({ elements: [{ question: "How many contracts?", rationale: "kind" }] }));
+    const got = [];
+    for await (const q of dataSuggestions({ model, schema, scope: { selection: picked(), table: NODE }, count: 3 })) got.push(q);
+    expect(got).toEqual([{ question: "How many contracts?", rationale: "kind" }]);
+    const prompt = promptOf(model.doStreamCalls[0]!);
+    expect(prompt).toContain(schema.ddl);
+    expect(prompt).toContain(`SELECT * FROM "archive"."node" WHERE ("kind" IN ('contract'))`);
+    expect(prompt).toContain("Give 3.");
   });
 });
