@@ -76,7 +76,7 @@ import { Assist, AssistProvider, Chat, useChat } from "@kanzo-tech/ai";
   `createGateway` pointed at the host's own route, and the key stays on the server —
   [Connecting a model](/docs/ai/llm#connecting-a-model) has the set-ups.
 - **It does not choose a model.** `Assist` asks whatever `AssistProvider` is given; `Chat` draws
-  whatever `useChat` streams. Which upstream answers an alias is the gateway's configuration.
+  whatever `useChat` streams. Which upstream answers an alias is [the gateway](/docs/ai/gateway)'s configuration.
 - **It does not persist anything.** The conversation is `useChat`'s, and a field's value is the
   host's own state.
 
@@ -84,4 +84,5 @@ import { Assist, AssistProvider, Chat, useChat } from "@kanzo-tech/ai";
   <Card title="Assist" href="/docs/ai/assist" description="One proposal for a field, drawn as ghost text or as chips." />
   <Card title="Chat" href="/docs/ai/chat" description="A conversation with a model, whole, with the host's tools drawn inside it." />
   <Card title="@kanzo-tech/llm" href="/docs/ai/llm" description="createGateway, the AI SDK re-exported, and where the key lives." />
+  <Card title="The gateway" href="/docs/ai/gateway" description="LiteLLM, the server half: two aliases, a team per tenant, and how a deployment runs it." />
 </Cards>

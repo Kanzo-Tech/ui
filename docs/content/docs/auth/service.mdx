@@ -1,0 +1,121 @@
+---
+title: The identity service
+description: The server half of @kanzo-tech/auth — Keycloak with the platform realm as code, a module an application registers itself with, and a script that checks the claim contract on a live token.
+---
+
+`@kanzo-tech/auth` reads what a realm emits. `services/auth/`, in this repository and under the same
+release tag, is that realm: **Keycloak 26.8 with the platform realm as code** — one realm (`kanzo`),
+organizations as the tenant model, and the claim mappers [the Keycloak page](/docs/auth/keycloak)
+asks for, already set. Without the service the package has nothing to talk to; without the package
+the service is a token nobody reads. [Each capability ships both halves](/docs/design/services).
+
+## Run it
+
+From `services/auth/`:
+
+```sh
+docker compose up -d --wait   # Keycloak on http://localhost:8080, the realm applied, the seed in
+scripts/verify.sh             # ana: a real PKCE login, and her access token checked
+scripts/verify.sh fede        # a member of acme with no role there
+scripts/verify.sh dan         # no organization; a client role held directly
+docker compose down -v        # gone, the database and the Terraform state together
+```
+
+`up` brings Keycloak and its Postgres up, applies the realm with Terraform and seeds development
+people into two organizations, `acme` and `globex`. The admin console is `/admin`, `admin` /
+`admin`; `.env.example` lists what can be changed, and `KC_PORT` moves the issuer with it.
+
+`scripts/verify.sh` signs a seeded person in through `kanzo-conformance` — a client that exists to
+prove the contract and names no application — with a real authorization-code login and PKCE, and
+checks what the **access token** says, the token a resource server authorizes on. CI runs it for
+every seeded person on every pull request, against a Keycloak it has just brought up: the job is `services` in `.github/workflows/ci.yml`.
+
+## The contract
+
+An application's roles in an organization are `organization.<alias>.resource_access.<clientId>.roles`,
+on the access token and the ID token both, written by Keycloak from the role mappings of the
+person's groups in that organization with composites expanded. Group names are never read, a role
+held in one organization says nothing about another, and the scope to ask for is `organization:*`.
+[Keycloak](/docs/auth/keycloak#roles-inside-an-organization) is that contract in full, with the
+token `verify.sh` took off this service; [Roles](/docs/auth/roles) is how the package reads it.
+
+## Register an application
+
+The realm knows no application by name. An application registers itself **from its own
+repository**, with the module at `services/auth/modules/app` pinned to the release it was built
+against: its client, the audience its access token names, and its roles with their composites.
+
+```hcl title="infra/auth.tf"
+module "app" {
+  source        = "git::https://github.com/Kanzo-Tech/ui.git//services/auth/modules/app?ref=v0.28.0"
+  realm_id      = "kanzo"
+  client_id     = "board"
+  access_type   = "CONFIDENTIAL" # a BFF; PUBLIC for an application with no server
+  client_secret = var.client_secret
+  redirect_uris = ["https://*.board.example.com/api/auth/callback"]
+  audience      = "board-api"
+  roles = {
+    reader = {}
+    editor = { composites = ["reader"] }
+    admin  = { composites = ["editor"] }
+  }
+}
+```
+
+The hierarchy is declared once, here: every token carries the expanded set, so `board` asks whether
+`editor` is present and never ranks. `services/auth/examples/app/main.tf` is the whole file, with
+the provider and the `client_secret` output. A second application — `ledger` — is a second module
+block in a second repository, and neither one's roles reach the other.
+
+## Map roles onto an organization's groups
+
+Which of its people hold `board`'s roles is the organization's decision: its administrator maps a
+role onto one of the organization's own groups, in the console. As a command — for an
+organization's first administrators, and for seeds:
+
+```sh
+scripts/map-group-role.sh acme Admins board admin   # ALIAS GROUP CLIENT_ID ROLE
+```
+
+The group is created if the organization lacks it, and running it twice changes nothing. Over the
+admin API an organization group's role mappings live **under the organization** —
+`POST /admin/realms/{realm}/organizations/{orgId}/groups/{groupId}/role-mappings/clients/{clientUuid}` —
+and the realm's own `/groups/{id}/role-mappings` answers 400 for one.
+
+## Include it from an application
+
+An application's development stack includes the service rather than copying it, from a checkout
+pinned to the same release as its packages and its module:
+
+```yaml title="compose.yml"
+include:
+  - path: vendor/kanzo-ui/services/auth/compose.yml   # this repository, checked out at v0.28.0
+
+services:
+  board:
+    build: .
+    depends_on:
+      auth-seed:
+        condition: service_completed_successfully
+```
+
+`include:` merges the service's containers and volumes into the application's project, so their
+names carry a prefix — `auth-postgres`, `auth-realm`, `auth-seed`, `kanzo-auth-db` — or are
+`keycloak`, and a bare `postgres` of the application's own does not collide with them. Waiting on
+`auth-seed` means the realm is applied and the seeded people exist before the application starts.
+
+## What is not there
+
+- **No application.** The only client is `kanzo-conformance`, and it is off unless
+  `conformance = true` — `realm/dev.tfvars` turns it on for development and CI.
+- **No membership in Terraform.** Keycloak makes membership runtime — invitations, identity-provider
+  brokering, enrolment by email domain — and the provider has no resource for it. Development seeds
+  it (`seed/`); production invites.
+- **No production values.** An upstream identity provider, SMTP and TLS are the deployment's, and
+  nothing in this directory pretends to know them.
+
+<Cards>
+  <Card title="Keycloak" href="/docs/auth/keycloak" description="The realm the package expects, claim by claim, and what a resource server must validate." />
+  <Card title="Roles" href="/docs/auth/roles" description="can, Gate, and the roles inside an organization as the package reads them." />
+  <Card title="Both halves" href="/docs/design/services" description="Why the service ships beside its package, and why it names no application." />
+</Cards>
