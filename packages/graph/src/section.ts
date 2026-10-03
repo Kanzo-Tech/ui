@@ -113,7 +113,7 @@ export const GRAPH_SECTION: SectionManifest = {
       kind: "choice",
       label: "Labels",
       default: "top",
-      doc: "Which points carry their title, each level adding to the last: the hovered and focused point; the 150 biggest; the 100 biggest in view; every point. A label that would overlap a bigger point's is dropped.",
+      doc: "Which points carry their title, each level adding to the last: the hovered and focused point; the 150 biggest; the 100 biggest in view; every point in view. In view is cosmos.gl's sample, one point per 100 px square, so no level labels more than the screen holds, whatever the graph's size. A label that would overlap a bigger point's is dropped.",
       options: [
         { value: "none", label: "None" },
         { value: "hovered", label: "Hovered" },
