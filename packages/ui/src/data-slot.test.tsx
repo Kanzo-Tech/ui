@@ -164,6 +164,7 @@ const FILES = sourceFiles(/\.tsx$/);
  */
 const LAYERS = [
   "ai/",
+  "ai/data/",
   "ui/",
   "ui/charts/",
   "ui/composites/",

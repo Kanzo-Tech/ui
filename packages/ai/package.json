@@ -19,6 +19,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./data": {
+      "types": "./dist/data/index.d.ts",
+      "import": "./dist/data/index.js"
+    },
     "./tailwind.css": "./src/tailwind.css",
     "./package.json": "./package.json"
   },
@@ -28,15 +32,25 @@
     "test": "vitest run",
     "size": "size-limit"
   },
-  "//peers": "@kanzo-tech/ui and Ark are required peers rather than dependencies — two copies of Ark would mean two portals and two focus traps. `ai` and `@ai-sdk/react` are REQUIRED peers for the reason @kanzo-tech/llm gives: the host's agent and these components must share one UIMessage, one transport and one useChat. streamdown is a dependency now: Chat renders markdown, and a conversation that draws plain text is not one this package offers.",
+  "//peers": "@kanzo-tech/ui and Ark are required peers rather than dependencies — two copies of Ark would mean two portals and two focus traps. `ai` and `@ai-sdk/react` are REQUIRED peers for the reason @kanzo-tech/llm gives: the host's agent and these components must share one UIMessage, one transport and one useChat. streamdown is a dependency now: Chat renders markdown, and a conversation that draws plain text is not one this package offers. `@kanzo-tech/mosaic` and `@codemirror/lang-sql` are OPTIONAL: only `./data` imports them, beside `@kanzo-tech/ui`'s `/analytics`, `/table` and `/editor`, whose own optional peers a host of `./data` installs too.",
   "peerDependencies": {
     "@ai-sdk/react": "^4.0.0",
     "@ark-ui/react": "^5.37.2",
+    "@codemirror/lang-sql": ">=6",
+    "@kanzo-tech/mosaic": "workspace:*",
     "@kanzo-tech/ui": "workspace:*",
     "ai": "^7.0.0",
     "lucide-react": ">=1",
     "react": ">=19",
     "react-dom": ">=19"
+  },
+  "peerDependenciesMeta": {
+    "@codemirror/lang-sql": {
+      "optional": true
+    },
+    "@kanzo-tech/mosaic": {
+      "optional": true
+    }
   },
   "dependencies": {
     "@kanzo-tech/llm": "workspace:*",
@@ -46,6 +60,8 @@
   "devDependencies": {
     "@ai-sdk/react": "^4.0.129",
     "@ark-ui/react": "^5.37.2",
+    "@codemirror/lang-sql": "^6.10.0",
+    "@kanzo-tech/mosaic": "workspace:*",
     "@kanzo-tech/theme": "workspace:*",
     "@kanzo-tech/ui": "workspace:*",
     "@testing-library/dom": "^10.4.1",
@@ -53,6 +69,8 @@
     "@testing-library/user-event": "^14.6.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@uwdata/mosaic-core": "^0.32.0",
+    "@uwdata/mosaic-sql": "^0.32.0",
     "ai": "^7.0.126",
     "jsdom": "^29.1.1",
     "lucide-react": "^1.23.0",
@@ -60,7 +78,7 @@
     "react-dom": "^19.0.0",
     "rollup-plugin-preserve-directives": "^0.4.0"
   },
-  "//size-limit": "The root barrel, measured without the peers and dependencies a host already has. Assist and Chat tree-shake apart: a host that only assists fields does not ship the transcript, and the markdown parser comes with Chat alone.",
+  "//size-limit": "The root barrel, measured without the peers and dependencies a host already has. Assist and Chat tree-shake apart: a host that only assists fields does not ship the transcript, and the markdown parser comes with Chat alone. `./data` is measured on its own, without the analytics, table and editor engines it draws with.",
   "size-limit": [
     {
       "name": "root barrel (JS)",
@@ -73,6 +91,26 @@
         "@ark-ui/react",
         "@kanzo-tech/ui",
         "@kanzo-tech/llm",
+        "lucide-react",
+        "tailwind-variants",
+        "streamdown",
+        "ai",
+        "@ai-sdk/react"
+      ]
+    },
+    {
+      "name": "data subpath (JS)",
+      "path": "dist/data/index.js",
+      "limit": "6 kB",
+      "ignore": [
+        "react",
+        "react-dom",
+        "react/jsx-runtime",
+        "@ark-ui/react",
+        "@kanzo-tech/ui",
+        "@kanzo-tech/llm",
+        "@kanzo-tech/mosaic",
+        "@codemirror/lang-sql",
         "lucide-react",
         "tailwind-variants",
         "streamdown",

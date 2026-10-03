@@ -54,4 +54,6 @@ export type { Channels } from "./core/channels";
 export type { GraphCommands, Motion, Selection, SelectionSource, Tool, VertexId } from "./core/types";
 export type { DataStatus, Drawn, GraphState } from "./core/state";
 export type { VertexDetail } from "./core/source";
+// The corpus's joins as a schema states them, for a reader handed only DuckDB's catalog.
+export { corpusReferences, type CorpusReference } from "./core/references";
 export { GraphError } from "./core/error";

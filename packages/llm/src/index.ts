@@ -23,6 +23,7 @@ export {
   type InferAgentUIMessage,
   type LanguageModel,
   type ReasoningUIPart,
+  type Tool,
   type ToolUIPart,
   type UIMessage,
 } from "ai";

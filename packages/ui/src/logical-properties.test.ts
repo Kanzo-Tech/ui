@@ -37,7 +37,7 @@ import { label, resolvePath, sourceFiles, subtrees, unreadable } from "./guard-c
  * The subtrees that are scanned, spelled as the path prefixes this guard reports — `<package>` then
  * the directory under its `src/`, and a bare package name where the package has no layers.
  */
-const LAYERS = ["ai/", "ui/composites/", "ui/layouts/", "ui/simples/"];
+const LAYERS = ["ai/", "ai/data/", "ui/composites/", "ui/layouts/", "ui/simples/"];
 
 /**
  * The rest of the corpus, with the reason each is out. Declared rather than merely absent, so that a
