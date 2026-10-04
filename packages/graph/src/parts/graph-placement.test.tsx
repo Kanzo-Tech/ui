@@ -14,12 +14,18 @@ import { GraphPlacement } from "./graph-placement";
  */
 type Placed = Pick<Channels, "x" | "y" | "cluster">;
 
-function Host({ corpus, into }: { corpus: Attached; into: { value?: Placed } }) {
+function Host({ corpus, into, spy }: { corpus: Attached; into: { value?: Placed }; spy?: (value: Placed) => void }) {
   const [value, setValue] = useState<Placed>({});
   into.value = value;
   return (
     <GraphRoot coordinator={corpus.coordinator} from={corpus.from} onFailure={() => {}} {...value}>
-      <GraphPlacement onChange={setValue} value={value} />
+      <GraphPlacement
+        onChange={(next) => {
+          spy?.(next);
+          setValue(next);
+        }}
+        value={value}
+      />
     </GraphRoot>
   );
 }
@@ -55,6 +61,32 @@ describe("GraphPlacement", () => {
     expect(screen.getByText(/until then the layout runs/)).toBeTruthy();
     await user.selectOptions(screen.getByRole("combobox", { name: "y" }), "lat");
     expect(held.value).toEqual({ x: "lon", y: "lat" });
+    await act(() => settle(corpus));
+  });
+
+  it("keeps Map's selects out of the card: a click opens the select, the pick reaches onChange, Map stays checked", async () => {
+    const corpus = await attach();
+    const spy = vi.fn();
+    render(<Host corpus={corpus} into={{}} spy={spy} />);
+    await act(() => settle(corpus));
+    const user = userEvent.setup();
+    const map = screen.getByRole("radio", { name: "Map" });
+    await user.click(map);
+    spy.mockClear();
+    const x = await screen.findByRole("combobox", { name: "x" });
+    // The selects are not the radio's: no radio's label holds them, and their group is named after Map.
+    expect(x.closest("label")).toBeNull();
+    expect(screen.getByRole("group", { name: "Map columns" }).contains(x)).toBe(true);
+    await user.click(x);
+    expect(document.activeElement).toBe(x);
+    await waitFor(() => expect(options("x")).toContain("lon"));
+    await user.selectOptions(x, "lon");
+    // Clicking into the select hands the radio nothing: one call, the binding, and Map still checked.
+    expect(spy.mock.calls).toEqual([[{ x: "lon", y: undefined }]]);
+    // Its visible label focuses the select, not the radio.
+    await user.click(screen.getByText("y", { selector: "label" }));
+    expect(document.activeElement).toBe(screen.getByRole("combobox", { name: "y" }));
+    expect((map as HTMLInputElement).checked).toBe(true);
     await act(() => settle(corpus));
   });
 

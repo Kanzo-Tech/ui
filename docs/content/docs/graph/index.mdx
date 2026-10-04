@@ -324,7 +324,10 @@ const PAIRINGS: Record<LookPreset, Channels> = {
 
 Where the points come from, as three cards: **Force**, the GPU layout; **Map**, two numeric columns
 as `x` and `y`, and nothing simulates; **Clustered**, the layout with cosmos.gl's cluster force over
-one column. The column selects appear inside the checked card only, and their options are the
+one column. The column selects open under the checked card only — **beside it, never inside it**: the card is
+the radio's label and its whole box the radio's hit area, so a control in it would compete with the
+radio for the click. They are a group named after the card, each select with a label of its own,
+reached by Tab after the radios. Their options are the
 corpus's own fields from `fossil_columns` — numeric ones for Map, any for Clustered; fossil's
 `dense_id` and identity are not fields. **It is controlled**: `value` and `onChange` carry
 `Pick<Channels, "x" | "y" | "cluster">`, which the host passes to the root as it is:
