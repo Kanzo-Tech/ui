@@ -16,7 +16,11 @@ import { internalsOf, useGraph } from "../react/use-graph";
 
 const calls: string[] = [];
 const constructed: Record<string, unknown>[] = [];
-const uploaded: { positions: Float32Array | null; config: Record<string, unknown> } = { positions: null, config: {} };
+const uploaded: { positions: Float32Array | null; config: Record<string, unknown>; view: unknown } = {
+  positions: null,
+  config: {},
+  view: null,
+};
 /** What the next graph's `ready` is, and whether its first `render()` throws. */
 const device: { ready: () => Promise<void>; broken: unknown } = { ready: () => Promise.resolve(), broken: undefined };
 /**
@@ -44,6 +48,12 @@ vi.mock("@cosmos.gl/graph", () => ({
       return [x / 100, y / 100];
     }
     getZoomLevel = () => 1;
+    /** A layout that moved every point by one, so a kept position is told from an uploaded one. */
+    getPointPositions = () => Array.from(uploaded.positions ?? [], (v) => v + 1);
+    setZoomTransformByPointPositions = (positions: Float32Array, _duration: number, zoom: number) => {
+      uploaded.view = { center: [...positions], zoom };
+      calls.push("view");
+    };
     getNeighboringPointIndices = () => [];
     destroy = () => calls.push("destroy");
     render = () => {
@@ -99,12 +109,14 @@ beforeEach(() => {
   constructed.length = 0;
   uploaded.positions = null;
   uploaded.config = {};
+  uploaded.view = null;
   device.ready = () => Promise.resolve();
   device.broken = undefined;
   Object.assign(gpu, { pending: false, buffer: false, unreadable: false });
   vi.stubGlobal("requestAnimationFrame", (run: () => void) => setTimeout(run, 0));
   vi.stubGlobal("cancelAnimationFrame", (id: number) => clearTimeout(id));
-  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({} as RenderingContext);
+  // A context already lost, so a destroyed canvas has nothing to give back.
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({ isContextLost: () => true } as unknown as RenderingContext);
 });
 afterEach(() => vi.restoreAllMocks());
 
@@ -117,7 +129,7 @@ async function drawing(over: Partial<GraphOptions> = { x: "lon", y: "lat" }) {
   const renderer = createRenderer(host, store);
   await settle(corpus);
   await frame();
-  return { corpus, crossfilter, renderer, store };
+  return { corpus, crossfilter, host, renderer, store };
 }
 
 describe("the renderer's frame", () => {
@@ -394,112 +406,97 @@ describe("the live layout", () => {
   });
 });
 
-describe("pinning", () => {
-  type Hook = (...args: unknown[]) => void;
-  const hook = (name: string) => constructed[0]?.[name] as Hook;
-  const drag = (vertex: number) => {
-    hook("onPointMouseOver")(vertex, [0, 0]);
-    hook("onDragStart")({});
-    hook("onDragEnd")({});
-  };
-
-  it("moves a dragged node and pins nothing while no layout runs", async () => {
-    const { store } = await drawing();
-    drag(3);
-    expect(store.getSnapshot().motion).toBe("settled");
-    expect(store.getSnapshot().pinned).toEqual([]);
-  });
-
-  it("pins a dragged node while the layout runs, and once", async () => {
-    const { renderer, store } = await drawing();
-    renderer?.resume();
-    drag(3);
-    drag(3);
-    drag(5);
-    expect(store.getSnapshot().pinned).toEqual([3, 5]);
-    await frame();
-    expect(count("pinned")).toBeGreaterThan(0);
-  });
-
-  it("releases into a running layout by reheating it", async () => {
-    const { renderer, store } = await drawing();
-    renderer?.resume();
-    drag(3);
-    calls.length = 0;
-    renderer?.unpin();
-    expect(store.getSnapshot().pinned).toEqual([]);
-    expect(commands()).toEqual(["start"]);
-    expect(store.getSnapshot().motion).toBe("running");
-  });
-
-  it("releases a settled layout by reheating it, and lets it cool on its own", async () => {
-    const { renderer, store } = await drawing();
-    renderer?.resume();
-    drag(3);
-    hook("onSimulationEnd")();
-    expect(store.getSnapshot().motion).toBe("settled");
-    calls.length = 0;
-    renderer?.unpin();
-    expect(commands()).toEqual(["start"]);
-    expect(store.getSnapshot().motion).toBe("running");
-    await frame();
-    expect(calls).toContain("pinned");
-    expect(calls).not.toContain("pause");
-  });
-
-  it("releases a paused layout with a bounded burst, then pauses it again", async () => {
-    const { renderer, store } = await drawing();
-    renderer?.resume();
-    drag(3);
-    renderer?.pause();
-    expect(store.getSnapshot().motion).toBe("paused");
-    vi.useFakeTimers();
-    try {
-      renderer?.unpin();
-      expect(store.getSnapshot().motion).toBe("running");
-      vi.advanceTimersByTime(2000);
-      expect(store.getSnapshot().motion).toBe("paused");
-      expect(commands().at(-1)).toBe("pause");
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("a command during the burst cancels it", async () => {
-    const { renderer, store } = await drawing();
-    renderer?.resume();
-    drag(3);
-    renderer?.pause();
-    vi.useFakeTimers();
-    try {
-      renderer?.unpin();
-      renderer?.resume();
-      calls.length = 0;
-      vi.advanceTimersByTime(2000);
-      expect(calls).not.toContain("pause");
-      expect(store.getSnapshot().motion).toBe("running");
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("releases nothing when nothing is pinned", async () => {
+describe("dragging", () => {
+  // A drag moves one node; it holds nothing in place. Pinning was a second state beside the
+  // selection that no panel could read.
+  it("leaves a dragged node free, with or without a layout running", async () => {
     const { renderer } = await drawing();
-    calls.length = 0;
-    renderer?.unpin();
-    expect(commands()).toEqual([]);
+    renderer?.resume();
+    await frame();
+    expect(constructed[0]?.onDragEnd).toBeUndefined();
+    expect(calls).not.toContain("pinned");
   });
 });
 
 describe("the renderer's lifetime", () => {
-  const SOURCE = readFileSync(resolve(process.cwd(), "src/render/renderer.ts"), "utf8");
-
   it("gives the context back when the graph goes", () => {
-    expect(readFileSync(resolve(process.cwd(), "src/render/webgl.ts"), "utf8")).toContain("WEBGL_lose_context");
-    expect(SOURCE).toContain("releaseContext(canvas)");
-    expect(SOURCE.indexOf("graph.destroy()")).toBeLessThan(SOURCE.indexOf("releaseContext(canvas)"));
+    const device = readFileSync(resolve(process.cwd(), "src/render/webgl.ts"), "utf8");
+    expect(device).toContain("WEBGL_lose_context");
+    expect(device).toContain("releaseContext(canvas)");
+    expect(device.indexOf("graph.destroy()")).toBeLessThan(device.indexOf("releaseContext(canvas)"));
+    expect(readFileSync(resolve(process.cwd(), "src/render/renderer.ts"), "utf8")).toContain("holdDevice(graph, host, fail, camera.ready)");
+  });
+});
+
+describe("the arrangement outlives the canvas", () => {
+  const hook = (at: number, name: string) => constructed[at]?.[name] as (...args: unknown[]) => void;
+  /** The canvas goes at 800 × 600, as a host switching views takes it away. */
+  function detach(host: HTMLElement, renderer: ReturnType<typeof createRenderer>) {
+    Object.defineProperties(host, { clientWidth: { value: 800 }, clientHeight: { value: 600 } });
+    renderer?.destroy();
+  }
+  async function reattach(store: ReturnType<typeof createGraph>) {
+    calls.length = 0;
+    const renderer = createRenderer(document.createElement("div"), store);
+    await frame();
+    return renderer;
+  }
+
+  it("leaves the points and the camera to the next canvas, which starts settled from them and runs nothing", async () => {
+    const { host, renderer, store } = await drawing({});
+    hook(0, "onSimulationEnd")();
+    const moved = Array.from(Float32Array.from(uploaded.positions ?? [], (v) => v + 1));
+    detach(host, renderer);
+    expect(Array.from(store.getSnapshot().arrangement?.positions ?? [])).toEqual(moved);
+    expect(store.getSnapshot().arrangement?.view).toEqual({ center: [4, 3], zoom: 1 });
+    await reattach(store);
+    expect(Array.from(uploaded.positions ?? [])).toEqual(moved);
+    expect(uploaded.view).toEqual({ center: [4, 3], zoom: 1 });
+    expect(commands()).not.toContain("start");
+    expect(commands()).not.toContain("fitView");
+    expect(constructed[1]).toMatchObject({ enableSimulation: false });
+    expect(calls.some((call) => /enableSimulation/.test(call))).toBe(false);
+    expect(store.getSnapshot().motion).toBe("settled");
   });
 
+  it("keeps a paused layout paused, and resumes a running one with a reheat", async () => {
+    const paused = await drawing({});
+    paused.renderer?.pause();
+    detach(paused.host, paused.renderer);
+    await reattach(paused.store);
+    expect(commands()).not.toContain("start");
+    expect(paused.store.getSnapshot().motion).toBe("paused");
+
+    const running = await drawing({});
+    expect(running.store.getSnapshot().motion).toBe("running");
+    detach(running.host, running.renderer);
+    await reattach(running.store);
+    expect(commands()).toContain("start");
+    expect(running.store.getSnapshot().motion).toBe("running");
+  });
+
+  it("drops what it kept when the geometry changes, and the next canvas places the new one", async () => {
+    const { corpus, host, renderer, store } = await drawing({});
+    detach(host, renderer);
+    store.setOptions({ ...store.getOptions(), x: "lon", y: "lat" });
+    await settle(corpus);
+    expect(store.getSnapshot().arrangement).toBeNull();
+    await reattach(store);
+    expect(uploaded.positions?.[2 * 9]).toBe(9);
+    expect(commands()).not.toContain("view");
+  });
+
+  it("keeps nothing it never drew, and no camera from a canvas with no size", async () => {
+    const { store } = await drawing({ from: null, coordinator: null, onFailure: () => {} });
+    const early = createRenderer(document.createElement("div"), store);
+    early?.destroy();
+    expect(store.getSnapshot().arrangement).toBeNull();
+
+    const sized = await drawing({});
+    sized.renderer?.destroy();
+    expect(sized.store.getSnapshot().arrangement?.positions).toBeInstanceOf(Float32Array);
+    expect(sized.store.getSnapshot().arrangement?.view).toBeNull();
+  });
 });
 
 describe("the renderer's failures", () => {

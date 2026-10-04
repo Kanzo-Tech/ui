@@ -74,11 +74,15 @@ graph, a second main view and a dock of panels.
   "1.2K of 5K nodes match · 3K edges".
 - `GraphSearch` — every drawn vertex's text, read once and filtered in the browser; picking reveals.
 - `GraphInspector` — the focused vertex's row, with a render prop for a product's own fields.
-- `GraphLooks` — Nebula, Atlas and Ink as presets over `GRAPH_SECTION`'s axes, with the axes under
-  Customize. Needs `GRAPH_SECTION` on the theme provider, and no root.
+- `GraphLooks` — Nebula, Atlas and Ink as presets over `GRAPH_SECTION`'s axes, with the axes —
+  marks, edges, labels, the backdrop — always in view under them. Needs `GRAPH_SECTION` on the theme
+  provider, and no root.
+- `GraphPlacement` — Force, Map or Clustered as cards, with the corpus's own columns to bind inside
+  the checked one. Controlled: `value`/`onChange` of the root's `x`, `y` and `cluster`.
 - `ShapeGlyph` — the glyph the canvas draws for a category, in the DOM.
 
-No part takes a callback: what a click means is `onSelect`, `onFocus` and `onFailure` on the root.
+No part takes a callback of its own: what a click means is `onSelect`, `onFocus` and `onFailure` on
+the root, and `GraphPlacement`'s `onChange` only hands back the root's own bindings.
 `onFailure` is required and receives every failure as thrown — fossil's coded errors, and the graph's
 own `GraphError` (`graph/no-webgl`, `graph/context-lost`, `graph/no-positions`,
 `graph/nothing-to-draw`, `graph/unfilterable`).

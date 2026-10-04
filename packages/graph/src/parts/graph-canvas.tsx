@@ -1,10 +1,9 @@
 "use client";
 
 import { categoricalCapacity, cn, Show, useThemeTick } from "@kanzo-tech/ui";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { nameOf } from "../core/categories";
-import { readTitles } from "../core/source";
-import type { Encoding, Geometry } from "../core/load";
+import type { Encoding } from "../core/load";
 import type { GraphOptions } from "../core/state";
 import type { VertexId } from "../core/types";
 import { useGraphContext } from "../react/graph-root";
@@ -13,6 +12,7 @@ import { useGraphSnapshot, useGraphState } from "../react/use-graph-state";
 import { resolveLook } from "../render/graph-looks";
 import { scaleOf } from "../render/graph-model";
 import { cursorChip, useGesture } from "./gesture";
+import { labelled, topOf, useInView, useTitles } from "./labels";
 import { useOverlays } from "./overlays";
 import { ShapeGlyph } from "./shape-glyph";
 
@@ -22,49 +22,6 @@ export interface GraphCanvasProps extends React.ComponentProps<"div"> {
 }
 
 const WASH = "color-mix(in oklab, var(--primary) 17%, transparent)";
-
-/**
- * The biggest `budget` surviving vertices by the ramp, the focused one first. One pass, keeping the
- * best few in order: a sort of every vertex to name twenty-six of them is the cost this avoids.
- */
-function labelled(geometry: Geometry, encoding: Encoding, mask: Uint8Array | null, budget: number, focus: VertexId | null): VertexId[] {
-  const ramp = encoding.sizes;
-  const best: VertexId[] = [];
-  if (ramp && budget > 0) {
-    for (let id = 0; id < geometry.size; id++) {
-      const value = ramp[id] as number;
-      if ((mask && !mask[id]) || Number.isNaN(value)) continue;
-      if (best.length === budget && value <= (ramp[best[budget - 1] as number] as number)) continue;
-      let at = best.length;
-      while (at > 0 && (ramp[best[at - 1] as number] as number) < value) at--;
-      best.splice(at, 0, id);
-      if (best.length > budget) best.pop();
-    }
-  }
-  return focus === null || best.includes(focus) ? best : [focus, ...best];
-}
-
-/** A label's text is read for the vertices that carry one, never carried for every vertex. */
-function useTitles(vertices: readonly VertexId[]): ReadonlyMap<VertexId, string> {
-  const api = useGraphContext();
-  const structure = useGraphState((s) => s.structure);
-  const title = useGraphState((s) => s.options.title);
-  const coordinator = useGraphState((s) => s.options.coordinator);
-  const [titles, setTitles] = useState<ReadonlyMap<VertexId, string>>(() => new Map());
-  const key = vertices.join(",");
-  useEffect(() => {
-    if (!structure || !coordinator || key === "") return;
-    let current = true;
-    readTitles(coordinator, structure, key.split(",").map(Number), title).then(
-      (found) => current && setTitles(found),
-      (error: unknown) => current && api.getState().options.onFailure(error),
-    );
-    return () => {
-      current = false;
-    };
-  }, [api, structure, coordinator, key, title]);
-  return titles;
-}
 
 const WAITING: Partial<Record<string, string>> = {
   loading: "Loading the graph…",
@@ -97,20 +54,31 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
   const encoding = useGraphSnapshot((s) => s.encoding);
   const mask = useGraphSnapshot((s) => s.mask);
 
-  useEffect(() => {
+  const { inView, moved } = useInView(getGraph, surfaceRef, look.labels === "visible" || look.labels === "all");
+  // A layout effect: its cleanup runs while the element is still in the page, and detaching reads
+  // the camera at the canvas's size. A passive cleanup runs after React removed it, at no size.
+  useLayoutEffect(() => {
     const surface = surfaceRef.current;
     if (!surface) return;
-    return attach(surface, { onFrame: schedule, onHover: hoverAt });
-  }, [attach, hoverAt, schedule]);
+    const onFrame = () => {
+      schedule();
+      moved();
+    };
+    return attach(surface, { onFrame, onHover: hoverAt });
+  }, [attach, hoverAt, moved, schedule]);
 
   const themeTick = useThemeTick();
   useEffect(() => {
     renderer()?.repaint();
   }, [renderer, themeTick]);
 
+  const top = useMemo(
+    () => (geometry && encoding ? topOf(look.labels, geometry.size, encoding.sizes, mask) : []),
+    [geometry, encoding, mask, look.labels],
+  );
   const labelledIds = useMemo(
-    () => (geometry && encoding ? labelled(geometry, encoding, mask, look.labels, focus) : []),
-    [geometry, encoding, mask, focus, look.labels],
+    () => (geometry && encoding ? labelled(look.labels, geometry.size, encoding.sizes, top, mask, inView, focus) : []),
+    [geometry, encoding, top, mask, inView, focus, look.labels],
   );
   const titles = useTitles(labelledIds);
   const labels = useMemo(
@@ -160,21 +128,24 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
         {labels.map((label) => (
           <span
             className="absolute top-0 left-0 whitespace-nowrap font-medium text-[10px] text-foreground leading-none opacity-0 transition-opacity [text-shadow:0_0_3px_var(--background),0_0_6px_var(--background)]"
+            data-slot="graph-canvas-label"
             key={String(label.vertex)}
             ref={labelRef(label.vertex)}
           >
             {label.text}
           </span>
         ))}
-        <HoverCard
-          cardRef={cardRef}
-          domain={domain}
-          encoding={encoding}
-          options={options}
-          scale={scale}
-          schedule={schedule}
-          setHovered={setHovered}
-        />
+        <Show when={look.labels !== "none"}>
+          <HoverCard
+            cardRef={cardRef}
+            domain={domain}
+            encoding={encoding}
+            options={options}
+            scale={scale}
+            schedule={schedule}
+            setHovered={setHovered}
+          />
+        </Show>
       </div>
       <Show when={active !== null}>
         <div className="absolute inset-0 cursor-crosshair" data-slot="graph-canvas-gesture" {...gesture.handlers}>

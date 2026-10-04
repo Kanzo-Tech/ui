@@ -5,21 +5,16 @@ import type React from "react";
 import { desc, Query, type ExprValue } from "@uwdata/mosaic-sql";
 import { bin } from "@uwdata/vgplot";
 import {
-  ArrowLeftIcon,
-  ArrowRightIcon,
   ChartAreaIcon,
   ChartBarBigIcon,
   ChartColumnIcon,
   ChartLineIcon,
   ChartScatterIcon,
   ChartSplineIcon,
-  Trash2Icon,
 } from "lucide-react";
 import { cn } from "../lib/cn.js";
-import { Button } from "../simples/button.js";
+import { Badge } from "../simples/badge.js";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "../simples/card.js";
-import { Field, FieldLabel } from "../simples/field.js";
-import { Input } from "../simples/input.js";
 import { Skeleton } from "../simples/skeleton.js";
 import { ChartAxisX, ChartAxisY, ChartFacetX } from "./chart-axes.js";
 import type { ChartConfig } from "./chart-config.js";
@@ -28,45 +23,28 @@ import { ChartLegend } from "./chart-legend.js";
 import { ChartAreaY, ChartBarX, ChartDot, ChartLineY, ChartRectY, ChartRegressionY } from "./chart-marks.js";
 import { ChartRoot } from "./chart-root.js";
 import { chartTableKey } from "./chart-spec.js";
-import { EditPopover, MeasurePick, NONE, Pick, fieldOptions } from "./dashboard-editor.js";
-import {
-  DASHBOARD_CHART_TYPES,
-  cardTitle,
-  channelFields,
-  measureExpr,
-  normalizeCard,
-  type DashboardCardSpec,
-  type DashboardChartType,
-} from "./dashboard-spec.js";
+import { EditTileButton } from "./tile-controls.js";
+import { measureExpr, tileTitle, type ChartTile, type DashboardChartType } from "./dashboard-spec.js";
 import type { FieldStat } from "./field-stats.js";
+import { cardRationale } from "./recommend.js";
 import { useChartQuery } from "./use-chart-query.js";
 
 export interface ChartCardProps extends Omit<React.ComponentProps<typeof Card>, "onChange"> {
   table: TableExpr;
   fields: readonly FieldStat[];
-  card: DashboardCardSpec;
+  card: ChartTile;
   /**
    * Per-field series vocabulary — labels, icons and reserved colours for a field drawn as `color`,
    * the way a status column wants its own palette. Fields without one take the categorical scheme
    * in order of frequency over the whole relation, so a filter never repaints a survivor.
    */
   config?: Readonly<Record<string, ChartConfig>>;
-  /** Makes the card editable. */
-  onChange?: (card: DashboardCardSpec) => void;
-  onRemove?: () => void;
-  /** Moves the card one place earlier (`-1`) or later (`1`) in the layout. */
-  onMove?: (offset: -1 | 1) => void;
+  /** Puts an edit button in the header; the host opens the editor. */
+  onEdit?: () => void;
 }
 
-// Container queries on `Dashboard`'s own width, not the viewport's: beside a dock or in a pane the
-// grid is narrower than the screen, and the screen is the wrong thing to measure.
-const SPAN = {
-  1: "",
-  2: "@3xl/dashboard:col-span-2",
-  3: "@3xl/dashboard:col-span-2 @6xl/dashboard:col-span-3",
-} as const;
-
-const TYPE: Record<DashboardChartType, { label: string; icon: typeof ChartLineIcon; hint: string }> = {
+/** Each chart type's name, icon and gesture — what a card says under its title and the editor lists. */
+export const CHART_TYPE: Record<DashboardChartType, { label: string; icon: typeof ChartLineIcon; hint: string }> = {
   bar: { label: "Bar", icon: ChartBarBigIcon, hint: "click a bar to filter" },
   line: { label: "Line", icon: ChartLineIcon, hint: "drag to filter a range" },
   area: { label: "Area", icon: ChartAreaIcon, hint: "drag to filter a range" },
@@ -76,29 +54,41 @@ const TYPE: Record<DashboardChartType, { label: string; icon: typeof ChartLineIc
 };
 
 /**
- * One `DashboardCardSpec`, drawn and editable. The chart is a `ChartRoot` with the marks the type
+ * One `ChartTile`, drawn. The chart is a `ChartRoot` with the marks the type
  * calls for and the interactor its scale allows — pick on a band, brush on a range — so every card
  * publishes into the page's crossfilter and dims or filters with it. Without a series the whole
- * relation stays behind the selection in grey: the context a filtered chart otherwise loses.
+ * relation stays behind the selection in grey: the context a filtered chart otherwise loses. A card
+ * that is what `recommend` proposes for its fields says why in its description, under an
+ * *Automatic* badge, until somebody edits it.
  */
 export function ChartCard(props: ChartCardProps) {
-  const { table, fields, card, config, onChange, onRemove, onMove, className, slot, ...rest } = props;
+  const { table, fields, card, config, onEdit, className, slot, ...rest } = props;
   const missing = [card.x, card.y.field, card.color, card.facet].filter(
     (name): name is string => name !== undefined && !fields.some((f) => f.name === name),
   );
+  // Derived on every render rather than stored: an automatic dashboard is never saved, and a card
+  // stops being automatic by being edited, which the rules notice on their own.
+  const rationale = cardRationale(card, fields);
 
   return (
     <Card
-      className={cn("[--space:--spacing(4)] min-w-0 gap-3", SPAN[card.span ?? 1], className)}
+      className={cn("[--space:--spacing(4)] min-w-0 gap-3", className)}
       {...rest}
       slot={slot ?? "chart-card"}
     >
       <CardHeader className="gap-0.5">
-        <CardTitle className="truncate font-medium text-sm">{cardTitle(card)}</CardTitle>
-        <CardDescription className="text-xs">{TYPE[card.type].hint}</CardDescription>
-        {onChange ? (
-          <CardAction className="-my-1">
-            <CardEditor card={card} fields={fields} onChange={onChange} onMove={onMove} onRemove={onRemove} />
+        <CardTitle className="truncate font-medium text-sm">{tileTitle(card)}</CardTitle>
+        <CardDescription className="text-xs">
+          {rationale ? `${rationale} · ${CHART_TYPE[card.type].hint}` : CHART_TYPE[card.type].hint}
+        </CardDescription>
+        {onEdit || rationale ? (
+          <CardAction className="-my-1 flex items-center gap-1">
+            {rationale ? (
+              <Badge size="sm" variant="secondary">
+                Automatic
+              </Badge>
+            ) : null}
+            {onEdit ? <EditTileButton label="Edit chart" onClick={onEdit} /> : null}
           </CardAction>
         ) : null}
       </CardHeader>
@@ -149,7 +139,7 @@ function CardChart({
 }: {
   table: TableExpr;
   fields: readonly FieldStat[];
-  card: DashboardCardSpec;
+  card: ChartTile;
   config?: Readonly<Record<string, ChartConfig>>;
 }) {
   const y = measureExpr(card.y);
@@ -249,127 +239,4 @@ function CardChart({
         </ChartRoot>
       );
   }
-}
-
-const WIDTHS = [
-  { value: "1", label: "A third" },
-  { value: "2", label: "Two thirds" },
-  { value: "3", label: "Full width" },
-];
-
-function CardEditor({
-  card,
-  fields,
-  onChange,
-  onRemove,
-  onMove,
-}: {
-  card: DashboardCardSpec;
-  fields: readonly FieldStat[];
-  onChange: (card: DashboardCardSpec) => void;
-  onRemove?: () => void;
-  onMove?: (offset: -1 | 1) => void;
-}) {
-  // A written title describes the encodings it was written for; changing them retires it.
-  const set = (next: DashboardCardSpec) => {
-    const valid = normalizeCard({ ...next, title: undefined }, fields);
-    if (valid) onChange(valid);
-  };
-  const optional = (channel: "color" | "facet") => [
-    { value: NONE, label: "None" },
-    ...fieldOptions(channelFields(card.type, channel, fields).filter((f) => f.name !== card.x)),
-  ];
-  const rows = card.type === "dot" || card.type === "regression";
-
-  return (
-    <EditPopover label="Edit chart">
-      <div aria-label="Chart type" className="grid grid-cols-3 gap-1" role="group">
-        {DASHBOARD_CHART_TYPES.map((type) => {
-          const { label, icon: Icon } = TYPE[type];
-          const drawable = normalizeCard({ ...card, type }, fields) !== null;
-          return (
-            <Button
-              aria-pressed={card.type === type}
-              className="flex-col gap-1 py-1.5 text-xs h-auto"
-              disabled={!drawable}
-              key={type}
-              onClick={() => set({ ...card, type })}
-              size="sm"
-              variant={card.type === type ? "secondary" : "ghost"}
-            >
-              <Icon />
-              {label}
-            </Button>
-          );
-        })}
-      </div>
-      <Pick
-        label={rows ? "X" : card.type === "bar" ? "Group by" : "Along"}
-        onChange={(x) => set({ ...card, x })}
-        options={fieldOptions(channelFields(card.type, "x", fields))}
-        value={card.x}
-      />
-      {rows ? (
-        <Pick
-          label="Y"
-          onChange={(field) => set({ ...card, y: { op: "value", field } })}
-          options={fieldOptions(channelFields(card.type, "y", fields).filter((f) => f.name !== card.x))}
-          value={card.y.field ?? ""}
-        />
-      ) : (
-        <MeasurePick fields={fields} measure={card.y} onChange={(y) => set({ ...card, y })} />
-      )}
-      <div className="grid grid-cols-2 gap-2">
-        {optional("color").length > 1 ? (
-          <Pick
-            label="Series"
-            onChange={(color) => set({ ...card, color: color === NONE ? undefined : color })}
-            options={optional("color")}
-            value={card.color ?? NONE}
-          />
-        ) : null}
-        {optional("facet").length > 1 ? (
-          <Pick
-            label="Split into panels"
-            onChange={(facet) => set({ ...card, facet: facet === NONE ? undefined : facet })}
-            options={optional("facet")}
-            value={card.facet ?? NONE}
-          />
-        ) : null}
-      </div>
-      <Field className="gap-1">
-        <FieldLabel className="text-xs">Title</FieldLabel>
-        <Input
-          onChange={(event) => onChange({ ...card, title: event.target.value || undefined })}
-          placeholder={cardTitle({ ...card, title: undefined })}
-          size="sm"
-          value={card.title ?? ""}
-        />
-      </Field>
-      <Pick
-        label="Width"
-        onChange={(span) => onChange({ ...card, span: Number(span) as 1 | 2 | 3 })}
-        options={WIDTHS}
-        value={String(card.span ?? 1)}
-      />
-      <div className="flex items-center gap-1">
-        {onMove ? (
-          <>
-            <Button aria-label="Move earlier" onClick={() => onMove(-1)} size="icon-sm" variant="ghost">
-              <ArrowLeftIcon className="rtl:rotate-180" />
-            </Button>
-            <Button aria-label="Move later" onClick={() => onMove(1)} size="icon-sm" variant="ghost">
-              <ArrowRightIcon className="rtl:rotate-180" />
-            </Button>
-          </>
-        ) : null}
-        {onRemove ? (
-          <Button className="ms-auto" onClick={onRemove} size="sm" variant="ghost">
-            <Trash2Icon />
-            Remove
-          </Button>
-        ) : null}
-      </div>
-    </EditPopover>
-  );
 }

@@ -97,7 +97,10 @@ const crossfilter = useCrossfilter();
 A chart's brush greys out on the canvas the vertices it drops, and the reader's click or lasso is
 published as a `dense_id` clause that every chart filters by and the graph does not. A clause naming
 columns no vertex table has reaches `onFailure` as `graph/unfilterable`; a table that lacks them
-just stays unfiltered.
+just stays unfiltered. A `Dashboard` over a relation of the corpus publishes its tiles' clauses
+as a semi-join on `dense_id` when it is given `publish={semiJoinOf("dense_id", table)}`, so it shares
+this crossfilter with the graph in both directions — [what the page
+sees](/docs/analytics/dashboard#what-the-page-sees).
 
 </Step>
 <Step>
@@ -177,9 +180,10 @@ function GraphInfo() {
 }
 ```
 
-The search asks the corpus as the reader types, one `ILIKE` per vertex table; picking reveals the
-vertex, and the inspector below reads its row. The render prop is where a product adds fields the
-corpus does not carry.
+The search is a palette: it asks the corpus as the reader types, takes `type:` and `<column>:<value>`,
+groups what it finds by type and remembers what the reader went to; ⌘K moves to it. Picking reveals
+the vertex, and the inspector below reads its row and counts its neighbours, each relation a toggle
+that selects its far end. The render prop is where a product adds fields the corpus does not carry.
 
 </Step>
 <Step>
@@ -187,11 +191,11 @@ corpus does not carry.
 ### The Settings panel
 
 ```tsx
-import { GraphLooks } from "@kanzo-tech/graph";
+import { GraphLooks, GraphPlacement } from "@kanzo-tech/graph";
 import { Kbd, KbdGroup } from "@kanzo-tech/ui";
 
 const GESTURES = [
-  { keys: <Kbd>Drag</Kbd>, what: "Pan — or move a node, pinned where you drop it while a layout runs" },
+  { keys: <Kbd>Drag</Kbd>, what: "Pan — or move a node" },
   { keys: <Kbd>Wheel</Kbd>, what: "Zoom where you point" },
   { keys: <Kbd>Click</Kbd>, what: "Focus a node with its neighbours" },
   { keys: <KbdGroup><Kbd>Shift</Kbd><Kbd>Drag</Kbd></KbdGroup>, what: "Marquee, without picking a tool" },
@@ -201,16 +205,20 @@ const GESTURES = [
 ];
 
 function GraphSettings() {
+  // The placement the root is handed, held beside it in `ArchiveGraph` and shared through a context.
+  const [placement, setPlacement] = usePlacement();
   return (
     <ScrollArea className="h-full p-3">
       <GraphLooks />
+      <GraphPlacement onChange={setPlacement} value={placement} />
       <dl>{/* GESTURES, one row each */}</dl>
     </ScrollArea>
   );
 }
 ```
 
-`GraphLooks` is the looks and the axes under Customize; the forces are not in it, because a
+`GraphLooks` is the looks and the axes under them, and `GraphPlacement` where the points come
+from — the archive's halls make Clustered worth trying; the forces are not in either, because a
 layout is a run the toolbar pauses and re-runs, not a picture. Fit is the toolbar's, so the panel needs no camera
 button. The gestures are the canvas's own; they are written down here because a reader scanning for
 "how do I select two clusters" wants a table.

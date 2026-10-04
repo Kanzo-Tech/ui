@@ -7,6 +7,10 @@ type Extent = NonNullable<Geometry["extent"]>;
  * down only past the box the device can simulate in. Drawing alone is translation-invariant, but the
  * layout is not: gravity pulls toward the square's centre and many-body bins points on a grid over
  * `[0, side]²`, so an extent left where it was contracts toward a corner and falls off the grid.
+ *
+ * **`k` is never negative, and that is what keeps north up.** cosmos.gl's space is y-up — its store
+ * maps `scalePointY.domain([side, 0])` onto the screen top-down — so a latitude bound to `y` draws
+ * north at the top as long as nothing here flips it. A screen-convention flip would put it south.
  */
 export interface Placement {
   readonly side: number;

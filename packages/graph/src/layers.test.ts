@@ -7,8 +7,9 @@ import { describe, expect, it } from "vitest";
 /**
  * The layers of `/docs/design/graph`, held where they can be read off the source: the graph reads a
  * corpus fossil attached as a catalog, with SQL through the page's coordinator, and imports nothing of
- * fossil's; every statement is written in the two modules that read; no module past the size a named
- * reference is the shape of; and a core that knows nothing of React or cosmos.gl.
+ * fossil's; every statement is built from mosaic-sql's nodes, in the two modules that read, and none
+ * is written in a string; no module past the size a named reference is the shape of; and a core that
+ * knows nothing of React or cosmos.gl.
  *
  * What it cannot prove: a query assembled from fragments no one of which looks like SQL, or a value
  * reached through a re-export under another name. It reads literals and import declarations, and
@@ -35,24 +36,30 @@ describe("the graph's layers", () => {
     for (const { name, text } of modules) expect(text.includes("\0"), `${name} contains a NUL byte`).toBe(false);
   });
 
-  it("writes SQL only where it reads, and imports nothing of fossil's", () => {
+  it("builds statements only where it reads, writes none in a string, and imports nothing of fossil's", () => {
     const offenders: string[] = [];
+    const builders = new Set<string>();
     for (const { name, text } of modules) {
       const visit = (node: ts.Node): void => {
         const literal = ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateHead(node);
-        if (literal && SQL.test(node.text) && !READERS.has(name)) offenders.push(`${name}: SQL in a string — ${node.text.slice(0, 60)}`);
+        if (literal && SQL.test(node.text)) offenders.push(`${name}: SQL in a string — ${node.text.slice(0, 60)}`);
         if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
           const from = node.moduleSpecifier.text;
           if (from.startsWith("@uwdata/")) offenders.push(`${name}: imports ${from}, which @kanzo-tech/mosaic re-exports`);
           if (from.startsWith("@fossil-lang/")) offenders.push(`${name}: imports ${from}; the contract is the attached catalog`);
+          const bindings = node.importClause?.namedBindings;
+          if (from === "@kanzo-tech/mosaic" && bindings && ts.isNamedImports(bindings)) {
+            if (bindings.elements.some((e) => e.name.text === "Query" && !e.isTypeOnly)) builders.add(name);
+          }
         }
         ts.forEachChild(node, visit);
       };
       visit(parse(name, text));
     }
     expect(offenders).toEqual([]);
-    // Both readers do write SQL, so the rule above is not passing because the pattern went blind.
-    for (const reader of READERS) expect(SQL.test(modules.find((m) => m.name === reader)?.text ?? ""), reader).toBe(true);
+    expect([...builders].sort(), "a statement is built only where the graph reads").toEqual([...READERS].sort());
+    // The pattern still sees a statement, so the first rule is not passing because it went blind.
+    expect(SQL.test("SELECT id FROM t WHERE x")).toBe(true);
   });
 
   it("keeps every module under four hundred lines", () => {

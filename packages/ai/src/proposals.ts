@@ -39,7 +39,7 @@ Keep the language, tone and format of the existing text. Stop at a natural point
  * a refused or broken call would read as a model with nothing to say. This keeps what was reported
  * and throws it, whole, once the stream ends.
  */
-function failures() {
+export function failures() {
   let failed: { error: unknown } | undefined;
   return {
     onError: ({ error }: { error: unknown }) => void (failed ??= { error }),

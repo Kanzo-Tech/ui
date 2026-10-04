@@ -1,13 +1,18 @@
 import {
   MosaicClient,
-  clausePoints,
-  collectColumns,
+  Query,
+  cast,
+  clauseColumns,
+  clauseSemiJoin,
+  float64,
+  literal,
   queryFailure,
   type FilterExpr,
   type Selection,
 } from "@kanzo-tech/mosaic";
 import { GraphError } from "./error";
-import { ident, relation, type Answer, type Structure } from "./source";
+import { relation, type Answer } from "./source";
+import { type Structure, type VertexTable } from "./structure";
 
 /**
  * **The graph as a client of the page's coordinator** — one Mosaic client, like every chart beside
@@ -17,23 +22,34 @@ import { ident, relation, type Answer, type Structure } from "./source";
  * one connection, through its cache — Cosmograph's crossfilter, on our stack.
  */
 /** The answer that clears the filter. */
-const UNFILTERED = "SELECT NULL::DOUBLE AS id";
+const UNFILTERED = Query.select({ id: cast(literal(null), "DOUBLE") });
 
 export class GraphClient extends MosaicClient {
   #structure: () => Structure | null;
   #kept: (ids: Float64Array | null) => void;
   #fail: (error: unknown) => void;
+  #cleared: () => void;
 
   constructor(
     filterBy: Selection | undefined,
     structure: () => Structure | null,
     kept: (ids: Float64Array | null) => void,
     fail: (error: unknown) => void,
+    cleared: () => void,
   ) {
     super(filterBy);
     this.#structure = structure;
     this.#kept = kept;
     this.#fail = fail;
+    this.#cleared = cleared;
+  }
+
+  /**
+   * The graph's clause was retracted where it was published — a chip's remove, a page's "Clear" —
+   * and mosaic-core calls its source back: the pick goes from the canvas too.
+   */
+  reset(): void {
+    this.#cleared();
   }
 
   /**
@@ -49,28 +65,29 @@ export class GraphClient extends MosaicClient {
    * `NULL`, which no `dense_id` is. The answer says which it is, so two statements in flight can
    * never be read as each other's.
    */
-  override query(filter?: FilterExpr | null): string {
+  override query(filter?: FilterExpr | null): Query {
     const clauses = (Array.isArray(filter) ? filter : [filter]).filter((c) => c !== undefined && c !== null);
     const structure = this.#structure();
     if (!structure || clauses.length === 0) return UNFILTERED;
-    const where = clauses.map((c) => `(${String(c)})`).join(" AND ");
-    const named = [...new Set(clauses.flatMap((c) => collectColumns(c as never).map((ref: { column: string }) => ref.column)))];
-    // A table that lacks a column the predicate names is not filtered by it — what a `WHERE` over a
-    // union of the tables would do. A predicate no table can answer is refused rather than ignored,
-    // so the unfiltered picture is never drawn as the filtered one.
-    const answering = structure.vertices.filter((t) => named.every((c) => t.columns.has(c)));
-    if (answering.length === 0) {
-      this.#fail(new GraphError("graph/unfilterable", `no vertex type has every column this clause names: ${named.join(", ")}`));
+    // The clause rule, `clauseColumns`: a table answers a clause when it has every column the clause
+    // names on it — a semi-join on `dense_id` names that alone, so every table answers it. A table
+    // that cannot answer a clause is not filtered by it, what a `WHERE` over a union of the tables
+    // would do; a clause no table can answer is refused rather than ignored, so the unfiltered
+    // picture is never drawn as the filtered one.
+    const answers = (table: VertexTable, clause: (typeof clauses)[number]) =>
+      clauseColumns(clause).every((c) => table.columns.has(c));
+    const lost = clauses.find((clause) => !structure.vertices.some((t) => answers(t, clause)));
+    if (lost !== undefined) {
+      this.#fail(new GraphError("graph/unfilterable", `no vertex type has every column this clause names: ${clauseColumns(lost).join(", ")}`));
       return UNFILTERED;
     }
-    return structure.vertices
-      .map((t) => {
-        const from = relation(structure.from, t.name);
-        return answering.includes(t)
-          ? `SELECT ${ident("dense_id")}::DOUBLE AS id FROM ${from} WHERE ${where}`
-          : `SELECT ${ident("dense_id")}::DOUBLE AS id FROM ${from}`;
-      })
-      .join(" UNION ALL ");
+    return Query.unionAll(
+      structure.vertices.map((t) =>
+        Query.select({ id: float64("dense_id") })
+          .from(relation(structure.from, t.name))
+          .where(clauses.filter((clause) => answers(t, clause))),
+      ),
+    );
   }
 
   override queryResult(data: unknown): this {
@@ -86,15 +103,11 @@ export class GraphClient extends MosaicClient {
 }
 
 /**
- * **The reader's pick, published** — from the graph, so the crossfilter applies it to every chart and
- * skips it for the graph. A canvas that greyed out everything but a lasso of thirteen would hide the
- * neighbourhood the reader was looking at.
+ * **The reader's pick, published** — as a semi-join on `dense_id`, the corpus's vertex identity, from
+ * the graph: the crossfilter applies it to every client whose rows carry a `dense_id` and skips it for
+ * the graph. A canvas that greyed out everything but a lasso of thirteen would hide the neighbourhood
+ * the reader was looking at.
  */
-export function publish(selection: Selection, self: MosaicClient, ids: readonly number[] | null): void {
-  selection.update(
-    clausePoints(["dense_id"], ids && ids.length > 0 ? ids.map((d) => [d]) : undefined, {
-      source: self,
-      clients: new Set([self]),
-    }),
-  );
+export function publish(selection: Selection, self: MosaicClient, ids: readonly number[] | null, label: string): void {
+  selection.update(clauseSemiJoin("dense_id", ids && ids.length > 0 ? ids : null, { source: self, label }));
 }

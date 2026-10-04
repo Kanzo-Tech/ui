@@ -77,8 +77,10 @@ itself once the reader has said otherwise".
 ## Drawing a tool's result
 
 A tool's output is drawn as a JSON tree unless the host says what it is. `tools` maps a tool's name
-to a function of the call's part, and what it returns is drawn inside the frame, under the input,
-once the call has a result:
+to a function of the call's part, and once the call has a result, what it returns is drawn inside
+the frame **in place of its input and output** — the host's drawing is the whole result, and a
+result card that carries its own SQL does not want the JSON of that SQL above it. Until then the frame
+shows the input, so the reader sees what is running:
 
 <ComponentPreview componentName="chat" fileName="example-tools" />
 
@@ -95,6 +97,8 @@ SDK's `ToolUIPart` or `DynamicToolUIPart`, whole — so the renderer has the cal
 too. Its `output` is `unknown` there: the map is keyed by a string, so the host, which wrote the
 tool, says what it returns.
 
+For data, [`QueryResult`](/docs/ai/data#the-answer-card) is that drawing, whole.
+
 *Held by* `packages/ai/src/chat.test.tsx`, "lets the host draw its own tool's result".
 
 ## Before the first question
@@ -103,6 +107,75 @@ tool, says what it returns.
 from, drawn as `@kanzo-tech/ui`'s `Suggestions` under it. Pressing one asks it. Both go once the
 conversation starts.
 
+<ComponentPreview componentName="chat" fileName="example-suggestions" />
+
+**Suggested questions come from one door, `suggest()`.** It asks a model for questions over some
+material — a schema, a domain, the files — with the host's instructions, and streams each as soon as
+it is whole, a `SuggestedQuestion` of `{ question, rationale }` (the AI SDK's
+`Output.array`). There is no template fallback: a list of questions written from column names
+beside a list a model wrote is two paths to one strip, and the templates were the worse one.
+
+```tsx
+for await (const { question } of suggest({ model: gateway("chat"), instructions, prompt: schema, abortSignal })) {
+  offered.push(question);
+}
+```
+
+| `SuggestOptions` | |
+| --- | --- |
+| `model` | The host's — `gateway("chat")` |
+| `instructions` | What the questions are for and what makes a good one: the system prompt |
+| `prompt` | The material they are asked over |
+| `abortSignal` | Stops the stream |
+
+While it streams, pass `suggesting`: the strip draws pills in skeleton beside the ones that have
+arrived, so it keeps its height as they land. **A failure throws when the stream ends** — the AI SDK
+otherwise ends a refused stream as if the model had nothing to suggest — and on a failure the host
+passes no pills: the conversation works the same without them. A data space's questions are
+[`dataSuggestions`](/docs/ai/data), which is `suggest()` with a data space's instructions.
+
+**A pill never outgrows the strip.** A question longer than the panel is as wide as the strip and
+cut with an ellipsis, and the whole question is in a tooltip that opens only when it is cut. The
+accessible name is the whole question either way.
+
+*Held by* `packages/ai/src/chat.test.tsx`, "holds room for suggestions still arriving, beside the
+ones that have"; `packages/ai/src/suggest.test.ts`, "throws what stopped the model, rather than ending
+as if it had nothing to suggest"; `packages/ui/src/simples/suggestions.test.tsx`, "shows the whole
+label in a tooltip when the label is cut".
+
+## Before it can be drawn
+
+`ChatSkeleton` is `Chat`'s layout while what it needs is still loading — a schema, an agent: the
+empty state, the pills in skeleton and the composer, inert. Give it the same `empty` the chat will
+have and nothing moves when the chat replaces it. The composer is the real one, disabled, rather than
+a block of its size, so the two cannot drift apart.
+
+```tsx
+{schema ? <Chat chat={chat} empty={empty} /> : <ChatSkeleton empty={empty} />}
+```
+
+| `ChatSkeletonProps` | | |
+| --- | --- | --- |
+| `empty` | `ReactNode` | The chat's own; a placeholder of its size when omitted |
+| `suggestions` | `number` | How many pills to hold room for. Default 3 |
+| `translations` | `{ placeholder }` | The composer's placeholder |
+
+*Held by* `packages/ai/src/chat.test.tsx`, "draws Chat's layout before it can be drawn: the empty
+state, pills in skeleton, an inert composer".
+
+## The parts
+
+`Chat` is the one door, and the parts it draws with are exported beside it for a host whose
+transcript is not `Chat`'s — a review pane, a log of an agent's run:
+
+| Part | |
+| --- | --- |
+| `MessageList`, `Message`, `MessageContent`, `MessageAvatar`, `MessageActions` | A turn: `role` declared once, a bubble for the person and the page for the model |
+| `Tool`, `ToolHeader`, `ToolContent`, `ToolInput`, `ToolOutput` | One call, bound to its AI SDK part: its name, its state, its input and output |
+| `Reasoning`, `ReasoningTrigger`, `ReasoningContent` | A model's thinking, folded away once it ends |
+
+Their props are `MessageProps`, `MessageAvatarProps`, `MessageRole` and `ReasoningProps`.
+
 ## API
 
 | Prop | Type | |
@@ -110,11 +183,13 @@ conversation starts.
 | `chat` | `useChat(...)`'s return | The conversation |
 | `tools` | `ChatToolRenderers` | `Record<string, (part: ToolPart) => ReactNode>` — how the host draws its tools' results |
 | `empty` | `ReactNode` | What the panel says before the first question |
-| `suggestions` | `string[]` | Questions to start from |
+| `suggestions` | `readonly string[]` | Questions to start from |
+| `suggesting` | `boolean` | More are on their way: pills in skeleton beside them |
 | `translations` | `Partial<ChatTranslations>` | `placeholder` for the composer, and `failed`, read before an error |
 | `className` | `string` | On the root |
 
-The types are exported as `ChatProps`, `ChatToolRenderers`, `ChatTranslations` and `ToolPart`.
+The types are exported as `ChatProps`, `ChatSkeletonProps`, `ChatToolRenderers`, `ChatTranslations`,
+`ToolPart`, `SuggestOptions` and `SuggestedQuestion`.
 
 ## AI Elements is a source, not a reference
 

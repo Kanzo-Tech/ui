@@ -67,9 +67,9 @@ GraphRoot                  the state and the commands; renders no element
 │   └── GraphLegend        one row per category: glyph, name, how many are drawn
 ├── GraphStatus            where the graph is, in one word: Loading, Laying out 42%, Ready, Failed
 ├── GraphCounts            "5K nodes · 8K edges", or "1.2K of 5K nodes match · 3K edges"
-├── GraphSearch            find a vertex by its text and reveal it
+├── GraphSearch            a palette: find a vertex, by text, type or column, and reveal it
 ├── GraphSelect            a selection the host offers, as a toggle
-└── GraphInspector         the focused vertex's row
+└── GraphInspector         the focused vertex: its row and its neighbourhood
 GraphLooks                 the picture's preferences; needs the theme provider, not a root
 ```
 
@@ -86,7 +86,7 @@ dock, in a footer. `GraphLooks` is the exception the other way: it writes prefer
 `GraphRoot` holds the graph's state outside React — the loaded graph, the channels, the selection,
 the focus and the layout's motion — and renders no element. **`useGraphContext()` answers with the
 commands**, an object that never changes for the root's life: `zoomBy`, `fit`, `pause`, `resume`,
-`restart`, `unpin`, `reveal`, `frameSelection`, `clear`, `select`, `setFocus` and `setTool`.
+`restart`, `reveal`, `frameSelection`, `clear`, `select`, `setFocus` and `setTool`.
 **`useGraphState(selector)` reads a slice of the state** and re-renders only when that slice moves.
 The state changes at frame rate — a hover, a load, a tick of the layout — so a part that read all of
 it would re-render on every hover. It is TanStack Store's `useStore(store, selector)`; pass a second
@@ -97,8 +97,10 @@ the state without subscribing.
 
 A click selects a vertex and its neighbours and focuses it; a lasso selects what it encloses; a
 failure is reported. What the host does with each is `onSelect`, `onFocus` and `onFailure`, and **no
-part takes a callback of its own** — the package's barrel test holds that. `onFailure` is the one
-required prop; [Failures](#failures) says why.
+part takes a callback of its own** — the package's barrel test holds that. `GraphPlacement`'s
+`onChange` is not one: it hands back the root's own `x`, `y` and `cluster`, a controlled value the
+way an input's is, and decides nothing. `onFailure` is the one required prop;
+[Failures](#failures) says why.
 
 ### Ark's four: `useGraph` and `GraphRootProvider`
 
@@ -128,8 +130,7 @@ The commands, drawn: the selection tools, the selection and what to do with it, 
 layout's transport. Pick a tool and drag; **Shift** borrows the marquee whichever tool is armed, and
 at release **Alt** removes what was drawn while **⌘/Ctrl** adds; **Esc** backs out of the drag, then
 the tool, then the selection. While a selection is held its cluster appears — the count, Frame and
-Clear. Play runs the force layout from where the points are and pause leaves them there; while
-nodes are pinned, Release joins the transport. Each cluster is a `ButtonGroup`, because a cluster is
+Clear. Play runs the force layout from where the points are and pause leaves them there. Each cluster is a `ButtonGroup`, because a cluster is
 a claim that its buttons do one job. The toolbar declares no `toolbar` role: that role promises
 roving focus, and each button here is its own tab stop. `orientation="vertical"` stacks the
 clusters.
@@ -186,17 +187,38 @@ it moves at frame rate. The badge is `aria-busy` while loading or laying out.
 
 <ComponentPreview componentName="graph" fileName="example-search" hasMaxHeight />
 
-Find a vertex by its text and go to it — Cosmograph's search. Each pause in typing (150 ms) asks the
-corpus, through the coordinator, for the first `limit` vertices whose `title` — or its table's
-`identity` — contains the text, one `ILIKE` over every vertex table; nothing is read before the
-reader types and no text is held in the page. Each match carries its category's name from the root's
-`categories`. Picking one is `reveal`: the canvas frames it and selects it with its neighbours, and
-`GraphInspector` reads it. `limit` caps the list (50) and says so.
+Find a vertex and go to it — a palette in the shape of Raycast's and Linear's ⌘K, over Cosmograph's
+search, built on `Command`. Each pause in typing (150 ms) asks the corpus once, through the
+coordinator, for the first `limit` matches and how many there are of each type; nothing is read
+before the reader types and no text is held in the page. Matches are grouped by vertex type — named by
+the root's `categories` and counted past the limit — each with the glyph the canvas draws it in and
+the typed text highlighted.
+
+Three things narrow it, as Neo4j Bloom's search does:
+
+| Typed | Keeps |
+| --- | --- |
+| `type:Person` | the vertices of one table |
+| `<column>:<value>` — `team:2` | vertices whose column contains the value, case-insensitively |
+| anything else | vertices whose `title` — or their table's `identity` — contains it |
+
+A word is a prefix only when what precedes its colon is `type` or a column some vertex table has, so
+an IRI typed whole stays text. Every statement is built with mosaic-sql's nodes: what the reader
+typed is a literal, never part of the SQL.
+
+Picking a match is `reveal`: the canvas frames it and selects it with its neighbours, and
+`GraphInspector` reads it. The root remembers the last five picks for its life — never in
+`localStorage` — and the empty palette lists them as **Recent**. **Select N matches** selects every
+match, past the limit, as an `"external"` selection. `limit` caps the list (50) and says so.
+
+**⌘K or Ctrl+K moves to the search** of the graph the reader last used — pointed into, focused or
+selected on — so two graphs on one page never both take the key. The input declares it as
+`aria-keyshortcuts`.
 
 **A failed read is kept whole**: it reaches `onFailure` as thrown, and the input turns
 `aria-invalid` with the placeholder "The names could not be read." rather than staying disabled.
 
-It is a `Combobox` and not `ChartSearch` because of what the control means: `ChartSearch` publishes
+It is a `Command` and not `ChartSearch` because of what the control means: `ChartSearch` publishes
 a substring filter, which narrows the picture; picking is a value, which goes somewhere.
 
 ### Select
@@ -217,21 +239,55 @@ reaches the root's `onFailure` as thrown, leaving it unpressed.
 
 <ComponentPreview componentName="graph" fileName="example-inspector" hasMaxHeight />
 
-The focused vertex — a click, a search or `reveal` — read and laid out. The loaded graph carries
-what the channels bind and nothing else, so the row is read when a reader focuses it: one `SELECT`
-of its table at its `dense_id`. The fields are the table's, in `fossil_columns`' order. **`children` is a render prop**: it receives
-the `VertexDetail` and draws fields of the product's own, a `DataListItem` each, after the corpus's —
-here the hall's name, where the relation stores its id. "Find on canvas" reveals the vertex again.
+The focused vertex — a click, a search or `reveal` — read and laid out as a card, after the
+Linkurious inspector. The loaded graph carries what the channels bind and nothing else, so the row is
+read when a reader focuses it: one `SELECT` of its table at its `dense_id`, and one count per relation
+and direction for its neighbourhood.
+
+- **The header** names the vertex — its `title`, truncated, whole in a tooltip — copies its IRI, and
+  wears its type as a badge, with the canvas's glyph when colour is the type. **Zoom** frames it on the
+  canvas; **Focus** selects it with every neighbour as an `"external"` selection named "Neighbours of
+  …", which the page's crossfilter hears; **Copy** copies its fields, a line each.
+- **The fields** are the table's, in `fossil_columns`' order, grouped as **Identity**, **Values** and
+  **Dates** — a date is a column whose declared type is a date or a time. An IRI is a link out, and a
+  long text is clamped with "more".
+- **Neighbours** lists each relation and direction it takes part in, with how many edges — "knows →
+  Person · 12". Each row is a `GraphSelect`: pressing it selects the vertices at that end.
+
+**`children` is a render prop**: it receives the `VertexDetail` and draws fields of the product's own,
+a `DataListItem` each, after the corpus's values — here the hall's name, where the relation stores
+its id.
 
 ### Looks
 
 <ComponentPreview componentName="graph" fileName="example-looks" hasMaxHeight />
 
 The picture's preferences, drawn: three **looks** — Nebula, Atlas and Ink, each a card with a
-miniature drawn through the canvas's own glyphs and scale — and the axes themselves folded under
-**Customize**. Wearing a look writes every axis it names; a look is checked exactly when the resolved
-axes are its own, so no name is stored beside them, and a picture customised past all three checks
-none and opens Customize. A look whose axes a tenant pinned is disabled.
+miniature drawn through the canvas's own glyphs and scale — and under them the axes, always in view.
+Wearing a look writes every axis it names; a look is checked exactly when the resolved axes are its
+own, so no name is stored beside them, and a picture customised past all three checks none and says
+Custom. A look whose axes a tenant pinned is disabled.
+
+The axes are Cosmograph's configuration, read as choices a reader can name:
+
+| Axis | Values | What it draws |
+| --- | --- | --- |
+| Marks | Dense · Legible | How much ink a point spends — cards, each previewing the current look with that mark. |
+| Edges | Hidden · Straight · Curved | `showLinks` and `curvedLinks` as one axis — cards with a preview. |
+| Additive links | switch | Links add where they overlap. Offered only while edges are drawn. |
+| Labels | None · Hovered · Top · Visible · All | Which points carry their title — below. |
+| Dot grid · Vignette | switches | The backdrop. |
+
+**Labels are one ordered scale**, each level adding to the one before. **None** draws no text at all,
+not even the hover card. **Hovered** is the hover card and the focused point's label. **Top** adds the
+150 biggest points by the size channel — Cosmograph's `showTopLabelsLimit` default. **Visible** adds
+the 100 biggest of cosmos.gl's sample of the points in view (one per 100 px cell), taken again each
+time the camera rests — Cosmograph's dynamic labels, `showDynamicLabelsLimit`. **All** adds every
+point of that sample, with no count of its own: the bound is the screen's, one point per 100 px
+square, so an 800 × 600 view adds at most 48 whether the graph holds a thousand points or 327,000.
+Cosmograph has no unbounded label set either, and All once was one — a sort, a label element, a
+tracked position and a title read per vertex. At every level a label that would overlap a bigger
+point's is dropped rather than drawn over it, and the titles are read for the labelled points only. The levels are the type `LabelLevel`, the `labels` field of a `Look`.
 
 **It needs `GRAPH_SECTION` on the theme provider** — without it there is nothing to write and it
 renders nothing — and the root reads the answer through `useGraphPrefs()`:
@@ -261,6 +317,29 @@ const PAIRINGS: Record<LookPreset, Channels> = {
   ink: { fill: "var(--foreground)", symbol: "kind", stroke: "var(--muted-foreground)" },
 };
 ```
+
+### Placement
+
+<ComponentPreview componentName="graph" fileName="example-placement" hasMaxHeight />
+
+Where the points come from, as three cards: **Force**, the GPU layout; **Map**, two numeric columns
+as `x` and `y`, and nothing simulates; **Clustered**, the layout with cosmos.gl's cluster force over
+one column. The column selects appear inside the checked card only, and their options are the
+corpus's own fields from `fossil_columns` — numeric ones for Map, any for Clustered; fossil's
+`dense_id` and identity are not fields. **It is controlled**: `value` and `onChange` carry
+`Pick<Channels, "x" | "y" | "cluster">`, which the host passes to the root as it is:
+
+```tsx
+const [placement, setPlacement] = useState<Pick<Channels, "x" | "y" | "cluster">>({});
+
+<GraphRoot from="archive" coordinator={coordinator} {...placement} onFailure={setFailure}>
+  <GraphPlacement onChange={setPlacement} value={placement} />
+</GraphRoot>
+```
+
+With one of Map's two columns chosen the layout still runs, and the card says so. **Latitude as `y`
+draws north up**: cosmos.gl's space is y-up, and the placement into its square only scales and
+translates.
 
 ### Declared axes, without the panel
 
@@ -308,9 +387,27 @@ column a running layout pulls together by. [Layout and camera](/docs/graph/layou
 has the rule.
 
 **`filterBy` is the page's crossfilter.** A chart's clause greys out on the canvas what it drops —
-never hides it — and the reader's lasso or click is published back on `dense_id`, for every chart
-and not for the graph. [The graph view](/docs/design/graph#the-graph-is-a-client-of-the-pages-coordinator)
-has how.
+never hides it — and the reader's lasso, click or `GraphSelect` is published back as a semi-join on
+`dense_id`, for every client and not for the graph. Removing that clause where it was published — a
+`FilterChips` chip, the page's reset — clears the pick on the canvas too.
+
+**A clause is column predicates, or a semi-join on identity.** A column clause filters each vertex
+table that has every column it names. A semi-join — `clauseSemiJoin("dense_id", ids | query)` —
+names `dense_id` alone, so it filters every vertex table whatever its subquery reads: the vertices a
+rule found, the endpoints of an edge table, an answer's rows.
+
+```tsx
+import { Query, clauseSemiJoin } from "@kanzo-tech/ui/analytics";
+
+// Everyone who lives in Saltmere, published by a panel: the graph greys out the rest.
+crossfilter.update(
+  clauseSemiJoin("dense_id", Query.select("src").from(livesIn).where(inSaltmere), { source: panel, label: "Saltmere" }),
+);
+```
+
+[The clause rule](/docs/design/graph#the-clause-rule-column-predicates-or-a-semi-join-on-identity)
+has why, and [the graph view](/docs/design/graph#the-graph-is-a-client-of-the-pages-coordinator)
+has how the graph answers.
 
 ## Identity
 
@@ -318,6 +415,46 @@ A `VertexId` is the corpus's `dense_id`, a `number`: fossil numbers every vertex
 `0 … V − 1` across all its tables, each table one contiguous range, so a vertex's id is also its
 index in cosmos.gl's buffers. An id from SQL — `SELECT dense_id FROM …` — is a vertex as it stands, for
 `select` or `reveal`.
+
+### The joins, for a reader of the catalog
+
+The views a corpus is attached as declare no keys, so DuckDB's own catalog cannot say that an edge
+table joins anything. `corpusReferences(coordinator, from)` answers what it cannot: each edge table's
+`src` holds its source vertex table's `dense_id`, and its `dst` its destination's, as a list of
+`CorpusReference`s — `{ table, column, references: { table, column } }`. It lives here, beside the
+structure reader, because this package is the one that reads `fossil_tables`; the shape is plain
+data, so [`describeSchema`](/docs/ai/data#the-schema) takes it as its references without either
+package knowing the other.
+
+```ts
+const references = await corpusReferences(coordinator, jobId);
+const schema = await describeSchema(coordinator, { catalog: jobId, exclude: ["fossil_tables", "fossil_columns"], references });
+```
+
+*Held by* `packages/graph/src/core/references.test.ts`, "names each edge table's src and dst as the
+dense_id of the vertex tables it joins".
+
+### readJoinGraph
+
+`readJoinGraph(coordinator, from)` is the same corpus as a `JoinGraph` — what
+`@kanzo-tech/ui/analytics`' [relations](/docs/analytics/dashboard#relations) are built over. Each
+vertex table is a type keyed by `dense_id` that projects the columns the writer gave no role, and
+each edge table joins through the `src` and `dst` its references name: it reads the structure once
+and rearranges what `corpusReferences` states, so what an endpoint points into is written in one
+place. The charts never learn fossil; they take the graph as data.
+
+```ts
+const graph = await readJoinGraph(coordinator, jobId);
+const table = relationQuery(graph, { root: "Person", path: [] });
+<Dashboard table={table} publish={semiJoinOf("dense_id", table)} />
+```
+
+`publish` is what lets the dashboard sit on the graph's crossfilter: its tiles' clauses name
+`Person.country`, which no vertex table has, so the page gets them as one semi-join on `dense_id`
+instead — [what the page sees](/docs/analytics/dashboard#what-the-page-sees).
+
+*Held by* `packages/graph/src/core/join-graph.test.ts`, "keys a type by its address, projects the
+columns the writer gave no role, and joins edges on src and dst".
 
 ## Failures
 
@@ -336,7 +473,7 @@ was thrown and takes the host's words for it.
 | `graph/context-lost` | The browser took the WebGL context back. |
 | `graph/no-positions` | The device came up but holds no positions for the points it was given, found when the camera read them back. `cause` is what the read threw. |
 | `graph/nothing-to-draw` | The attached corpus has no vertex. |
-| `graph/unfilterable` | A crossfilter clause naming columns no vertex table has. A table lacking a predicate's columns just stays unfiltered. |
+| `graph/unfilterable` | A column clause naming columns no vertex table has. A table lacking a clause's columns just stays unfiltered by it; a semi-join on `dense_id` is answered by every table. |
 
 A part that reads on its own — the search's names, the inspector's row, a label's text — hands its
 failure to the same `onFailure` and shows it in place. A host keys its message on `code` and falls
@@ -452,8 +589,8 @@ set while the graph loads or a layout runs.
 | --- | --- | --- |
 | `limit` | `number` | `50` |
 | `placeholder` | `string` | `"Find a node…"` |
-| `size` | `ComboboxInput`'s `size` | `"sm"` |
-| `className` | `string` — on the input | — |
+| `size` | `CommandInput`'s `size` | `"sm"` |
+| `className` | `string` — on the palette's box | — |
 
 ### GraphSelect
 
@@ -469,7 +606,7 @@ live selection; `disabled` is also set while `load` runs.
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `children` | `(detail: VertexDetail) => ReactNode` — fields after the corpus's own | — |
+| `children` | `(detail: VertexDetail) => ReactNode` — fields after the corpus's values | — |
 
 Extends `React.ComponentProps<"div">` without its `children`.
 
@@ -477,6 +614,16 @@ Extends `React.ComponentProps<"div">` without its `children`.
 
 Takes `React.ComponentProps<"div">` (`GraphLooksProps`). Needs `GRAPH_SECTION` among the theme
 provider's `sections`; renders nothing without it.
+
+### GraphPlacement
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `value` | `Pick<Channels, "x" \| "y" \| "cluster">` | required |
+| `onChange` | `(value: Pick<Channels, "x" \| "y" \| "cluster">) => void` | required |
+
+Extends `React.ComponentProps<"div">` without its `onChange` (`GraphPlacementProps`). Under a
+`GraphRoot`: the fields are the attached corpus's.
 
 ### ShapeGlyph
 
@@ -518,8 +665,7 @@ The commands, stable for the root's life — `GraphCommands` plus the state's do
 | `zoomBy(factor)` | Zooms the camera by a factor. |
 | `fit()` | Frames the graph: the bound positions' extent, or where the points are once a layout has run. |
 | `pause()` / `resume()` | Pauses a running layout; resumes a paused one, or runs a settled one again. |
-| `restart()` | Releases every pin and runs the layout from full heat. |
-| `unpin()` | Releases every pin and reheats the layout. |
+| `restart()` | Runs the layout from full heat. |
 | `reveal(vertex)` | Selects and focuses a vertex with its neighbours, and zooms to it. |
 | `frameSelection()` | Frames what is selected. |
 | `clear()` | Clears the selection and the focus. |
@@ -543,7 +689,6 @@ What `useGraphState` selects from.
 | `domain` | `readonly unknown[]` | The category domain before anything loads. |
 | `selection` | `Selection \| null` | `vertices`, `source` (a `SelectionSource` — `"marquee" \| "lasso" \| "node"`, the canvas's gestures, or `"external"`, a host's `select`) and `label`. |
 | `focus` / `hovered` | `VertexId \| null` | The focused and the hovered vertex. |
-| `pinned` | `readonly VertexId[]` | The vertices a drag pinned. |
 | `tool` | `Tool` | The armed selection tool. |
 | `options` | `UseGraphProps` | The props as given. |
 | `structure` | `Structure \| null` | The catalog's tables, once read. |
@@ -556,4 +701,4 @@ What `useGraphState` selects from.
 inspector's render prop receives. `Channels` (`fill`, `symbol`, `stroke`, `x`, `y`, `cluster`), `Look`, `LookPatch`,
 `LookPreset`, `Shape`, `Sim`, `Motion`, `Selection`, `SelectionSource`, `Tool`, `VertexId`,
 `GraphCommands`, `DataStatus` and `Drawn` are the vocabulary, and `GraphError` is the class of the
-graph's own failures.
+graph's own failures. `CorpusReference` is one of the joins `corpusReferences` answers.

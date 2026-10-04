@@ -41,11 +41,12 @@ export { GraphInspector, type GraphInspectorProps } from "./parts/graph-inspecto
 export { GraphSearch, type GraphSearchProps } from "./parts/graph-search";
 export { GraphSelect, type GraphSelectProps } from "./parts/graph-select";
 export { GraphLooks, type GraphLooksProps } from "./parts/graph-looks";
+export { GraphPlacement, type GraphPlacementProps } from "./parts/graph-placement";
 export { ShapeGlyph, type ShapeGlyphProps } from "./parts/shape-glyph";
 
 // The picture: form, forces and the scale a legend asks what a category wears. `lookFrom` and
 // `simFrom` parse what `@kanzo-tech/graph/section` declares and a preferences panel writes.
-export { lookFrom, type Look, type LookPatch, type LookPreset, type Shape } from "./render/graph-looks";
+export { lookFrom, type LabelLevel, type Look, type LookPatch, type LookPreset, type Shape } from "./render/graph-looks";
 export { simFrom, type Sim } from "./render/graph-sim";
 export { scaleOf } from "./render/graph-model";
 export type { Channels } from "./core/channels";
@@ -53,4 +54,8 @@ export type { Channels } from "./core/channels";
 export type { GraphCommands, Motion, Selection, SelectionSource, Tool, VertexId } from "./core/types";
 export type { DataStatus, Drawn, GraphState } from "./core/state";
 export type { VertexDetail } from "./core/source";
+// The corpus's joins as a schema states them, for a reader handed only DuckDB's catalog.
+export { corpusReferences, type CorpusReference } from "./core/references";
+// The corpus as the join graph `@kanzo-tech/mosaic`'s relations are built over, from the same joins.
+export { readJoinGraph } from "./core/join-graph";
 export { GraphError } from "./core/error";

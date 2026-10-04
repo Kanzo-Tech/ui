@@ -1,19 +1,21 @@
 ---
 title: Dashboard
-description: A mini BI over any relation — a filter row, tiles, chart cards and the rows, chosen from the relation's stats, edited in place, and kept as a JSON spec the host saves.
+description: A mini BI over any relation — a filter bar and tiles (figures, charts, tables), chosen from the relation's stats, edited in one side sheet, and kept as a JSON spec the host saves.
 ---
 
 `Dashboard` is the charts grammar composed for a relation you have not seen. It reads the
 relation's fields from one DuckDB `SUMMARIZE`, draws a dashboard from them — or from a spec you
-saved — and lets the reader edit every part of it. The host brings three things: a
-`MosaicProvider`, the relation, and somewhere to keep the spec.
+saved — and lets the reader edit every tile of it. The host brings three things: a
+`MosaicProvider`, the relation, and somewhere to keep the spec. The relation can be a table or a
+[join over a graph of types](#relations), and the dashboard cannot tell the two apart.
 
 <ComponentPreview componentName="dashboard" fileName="example-default" hasMaxHeight={false} />
 
-The references are Metabase and Superset for the dashboard model — cards in an ordered layout, a
-filter row scoping all of them, a spec that is plain JSON — and Metabase's X-ray for the dashboard a
-relation gets before anybody has edited one. What it leaves out is their query layer: every card
-reads the one relation the `Dashboard` is given, under one crossfilter.
+The references are Grafana's panel model and editor — tiles of a kind in an ordered layout, each with
+a width, edited in a side sheet with a live preview — Metabase's filter bar drawn as Linear's chips,
+Metabase's X-ray for the dashboard a relation gets before anybody has edited one, and Looker's
+explores and Malloy's sources for a relation that joins. What it leaves out is their query layer:
+every tile reads the one relation the `Dashboard` is given, under one crossfilter.
 
 ## Usage
 
@@ -33,8 +35,8 @@ function Sightings({ coordinator, saved, save }: Props) {
   persists nothing for a relation nobody has touched.
 - **`onChange` makes it editable.** It is called with the *whole* next spec — the automatic parts
   included, the first time — so the host stores what it is handed and never merges.
-- **Without `onChange` it is read-only**: no editors, no menu, no remove buttons. Filters, picks
-  and brushes still work; reading is not editing.
+- **Without `onChange` it is read-only**: no pencils, no *Add tile*, no remove buttons. Filters,
+  picks and brushes still work; reading is not editing.
 
 Wiring that to a backend — a debounced save, a read-only role, your own labels and colours — is the
 [host recipe](/docs/analytics/dashboard-host).
@@ -43,20 +45,22 @@ Wiring that to a backend — a debounced save, a read-only role, your own labels
 
 ```text
 Dashboard                 — reads the fields, draws the spec or the automatic one
-├── DashboardFilters      — the filter row, its readout and the "Edit dashboard" menu
-│   └── FilterChips       — every clause on the page, removable
-├── DashboardStat         — one tile per `stats` entry
-├── ChartCard             — one card per `cards` entry, in a three-column grid
-└── DetailTable           — the rows under the selection, paged by DuckDB
+├── DashboardFilters      — the chip bar, its readout, "Clear", "Add tile"
+├── DashboardStat         — a `stat` tile
+├── ChartCard             — a `chart` tile
+├── DetailTable           — inside a `table` tile: the rows under the selection, paged by DuckDB
+└── TileEditor            — the side sheet a tile is added and edited in
 ```
 
-Every part is exported and works on its own inside a `MosaicProvider`; `Dashboard` is what they make
-when the spec decides the arrangement. [Arranging the parts yourself](#arranging-the-parts-yourself)
-is the other way.
+Tiles flow left to right through one three-column grid, each as wide as its `span`. Every part is
+exported and works on its own inside a `MosaicProvider`; `Dashboard` is what they make when the spec
+decides the arrangement. [Arranging the parts yourself](#arranging-the-parts-yourself) is the other
+way.
 
 ## How a relation is read
 
-`useFieldStats(table)` runs one `SUMMARIZE` and classifies every column twice — by **kind**, from
+`useFieldStats(table)` runs one `SUMMARIZE` — over `SELECT * FROM` the relation, built with
+mosaic-sql, so a join is summarized like a table — and classifies every column twice — by **kind**, from
 its DuckDB type through Mosaic's own `jsType` (so a column is numeric here exactly when it is numeric
 to every mark), and by **role**, from its name and its approximate distinct count.
 
@@ -108,33 +112,68 @@ stats alone and nothing else:
 
 - **Filters** (at most six): the first time, up to three categories, the first text key, up to two
   measures.
-- **Tiles**: a row count, and the mean of up to three measures — each trending along the first time,
-  when there is one.
-- **Cards** (at most six): a line over the first time, two thirds wide; bars for up to three
-  categories; histograms of up to two measures; and, given two measures, a fit of one against the
-  other. The last card of a row is widened so no row ends in a hole.
-- **Rows**: the first eight fields — categories, then times, measures and keys.
+- **Figures** (one row): a row count and the mean of up to two measures, each trending along the
+  first time when there is one.
+- **Charts** (at most six): the first six that [`recommend`](#recommend) proposes for an overview.
+- **A table**, full width: the first eight fields — categories, then times, measures and keys.
+
+The last tile of a row is widened so no row ends in a hole.
 
 It is exported for a host that wants the automatic spec without the component — to seed a saved
 dashboard, or to diff against one.
+
+### recommend
+
+`recommend(fields, intent?)` is every chart a table of rules proposes for those fields, heaviest
+first — Draco's soft constraints and CompassQL's ranking, with the weights set by hand and no solver,
+since a rule reads at most two fields. Each answer is `{ spec, rationale }`: a card valid for the
+fields, and one sentence saying why.
+
+| Reads | Draws | `overview` | `answer` | At most | Rationale |
+| --- | --- | --- | --- | --- | --- |
+| a time and a measure | `line` of the measure's total | — | 100 | 3 | *day is a time and n a measure, so a line of total n over time* |
+| a category and a measure | `bar` of the measure's total | — | 90 | 3 | *type has 3 values and n is a measure, so a bar of total n per value* |
+| a time | `line` of counts, two thirds wide | 100 | 50 | 1 | *seen is a time, so a line of counts along it* |
+| a category of 2 or more values | `bar` of counts | 80 | 40 | 3 | *type has 3 values, so a bar of counts per value* |
+| a measure | `histogram` | 60 | 30 | 2 | *bounty is a measure, so a histogram of how its values spread* |
+| two measures | `regression` of one on the other, two thirds wide | 40 | 70 | 1 | *bounty and leagues are both measures, so a fit of one against the other* |
+
+- **`intent`** is `"overview"` (the default) for a dashboard over raw rows — what each field does on
+  its own — or `"answer"` for one chart of a result set, whose rows are usually aggregated already,
+  so a measure beside what it was grouped by comes first. A rule with no weight under an intent is
+  not proposed for it.
+- **Ties** keep the table's order, and a rule takes fields in the relation's order, up to its
+  *at most*. A key is never drawn, and neither is a category with one value.
+- *Add tile* opens the editor on the best chart of the first field a rule draws on its own,
+  preferring a field the dashboard does not chart yet.
+
+**A card says why it is there.** While a card is exactly what the rules propose for the fields it
+reads, `ChartCard` puts its rationale before the interaction hint and an *Automatic* badge beside the
+title. Edit the type, a field, the measure, a series, a panel or the title and both go; the width is
+layout and does not count. The rationale is read again on every render, never stored, so a saved
+spec carries none and an automatic one never needs saving.
 
 ## The parts
 
 ### DashboardFilters
 
-One filter row above everything it scopes — dataviz's rule, and Metabase's. Each `filters` entry
-names a field; the control is chosen from that field's stats, never written in the spec. A time is a
-timeline that takes its own full-width row, the rest share a four-column grid, and a field that has
-no control (a numeric key) or no longer exists is skipped.
+One filter bar above everything it scopes — Metabase's filter bar, drawn as Linear's chips. Each
+`filters` entry names a field and is a chip reading *region: Saltmere ▾*, or *region: Any ▾* while
+it filters nothing. The chip opens its control, chosen from that field's stats and never written in
+the spec: a category is a facet list, a key a search, a measure a range slider, a time a brushable
+timeline. A field that has no control (a numeric key) or no longer exists is skipped. A control
+stays mounted while its popover is shut, because a control that unmounts retracts its clause.
 
-Under the controls, the **readout**: *12 of 40 sightings* (`rowNoun` is the plural), every clause on
-the page as a chip, and **Clear filters**, which is `useMosaic().reset()`. Children trail that row —
-it is where `Dashboard` puts its *Edit dashboard* menu. With `onChange`, each control gets a remove
-button and an *Add filter* menu lists the fields that have a control and no filter yet.
+After the chips, the **readout**: *12 of 40 sightings* (`rowNoun` is the plural), and a quiet
+**Clear** while anything on the page filters, which is `useMosaic().reset()`. Children trail it — it
+is where `Dashboard` puts *Add tile*. With `onChange`, each chip gets a remove button and **+ Filter**
+lists the fields that have a control and no filter yet. A clause something else published — a pick
+on a chart, a lasso — counts in the readout and goes with *Clear*; `FilterChips` is the part that
+lists every clause, for a host that wants them named.
 
 ### DashboardStat
 
-A `Stat` tile whose figure is `ChartStat` — the measure, re-queried under the crossfilter. With a
+A `stat` tile: a `Stat` whose figure is `ChartStat` — the measure, re-queried under the crossfilter. With a
 `trend` it adds the same measure along that field as a `StatTrend` sparkline, and a `StatDelta`
 comparing the last step with the one before.
 
@@ -149,7 +188,7 @@ past 10,000.
 
 ### ChartCard
 
-One `DashboardCardSpec`, drawn and, with `onChange`, editable. The chart is a `ChartRoot` with the
+A `chart` tile, drawn. The chart is a `ChartRoot` with the
 marks the type calls for and the interactor its scale allows — **pick on a band, brush on a range**,
 the rule that keeps a brush off a band scale.
 
@@ -170,23 +209,43 @@ bars by the measure, the top series and panels by count — so a filter never re
 repaints a survivor.
 
 Without a series, the whole relation stays drawn behind the selection in grey: the context a
-filtered chart otherwise loses. A card that names a field the relation no longer has draws *The
+filtered chart otherwise loses. A card the rules would propose as it stands shows
+[why](#recommend), under an *Automatic* badge. A card that names a field the relation no longer has draws *The
 relation has no `hall` any more.* in place of the chart.
 
-The editor (the card's `⋯`) sets the type — a type the relation cannot draw is disabled — `x`, the
-measure, series, panels, title, width and position. Every change goes through the same
-normalisation: an encoding the new type can keep is kept, one it cannot is replaced by the first
-field that fits, and an optional one that fits nothing is dropped. A written title describes the
-encodings it was written for, so changing them retires it.
+With `onEdit`, the header carries a pencil, and so do a figure's and a table's: what it opens is the
+host's, and in `Dashboard` it is the [`TileEditor`](#tileeditor).
 
 ### DetailTable
 
 The rows behind the charts: one page at a time, sorted and counted by DuckDB, so a relation of any
 size costs one page of DOM. A header click cycles ascending, descending, unsorted; a new selection
-returns to page one. With `onChange`, a *Columns* menu adds and removes columns.
+returns to page one. Its columns are a `table` tile's, chosen in the editor.
 
 It is the root barrel's `Table`, not `/table`'s: TanStack's row models sort and page in the browser,
 and here the browser never holds more than the page.
+
+### TileEditor
+
+**The one editor** — Grafana's panel editor in a side sheet. *Add tile* and every tile's pencil open
+the same sheet, in this order: the **kind** as cards (Figure, Chart, Table — a kind the relation
+cannot draw is disabled), the **fields** that kind reads, the title, the **width** (a third, two
+thirds, full) with the position among the tiles, and a **live preview** of the draft under the
+page's crossfilter. Nothing reaches the dashboard until *Add* or *Save*; *Cancel* and Escape drop the
+draft.
+
+- A **chart** asks for its mark — a mark the relation cannot draw is disabled — `x`, the measure,
+  series and panels. Every change goes through the same normalisation: an encoding the new mark can
+  keep is kept, one it cannot is replaced by the first field that fits, and an optional one that fits
+  nothing is dropped. A written title describes the encodings it was written for, so changing them
+  retires it.
+- A **figure** asks for the measure and the field it trends along.
+- A **table** asks for its columns; a newly ticked column goes last.
+- Changing the kind carries what carries over — a chart's aggregate becomes the figure, a figure's
+  measure the chart's — and keeps the id and the width.
+
+Each kind is one entry of a table of kinds — its name, how it is drawn and what its editor asks
+for — so neither the board nor the sheet switches on a kind.
 
 ### FilterChips and useClauses
 
@@ -196,7 +255,9 @@ from the clause: *hour 2 – 5* for a range, *region Saltmere* for one value, *b
 more. Removing one calls `retract`, so the pick that made it un-highlights too.
 
 Because they read `Selection.clauses`, they report filters they did not publish: a brush, a bar
-someone clicked, a lasso on a graph canvas.
+someone clicked, a lasso on a graph canvas. A semi-join wears its publisher's label — *Lasso · 13
+selected*, a rule's name — so `<FilterChips />` in a dock's header is the page's scope: every clause
+each client there is filtered by, each removable where it was published.
 
 ### useFieldStats, queryFieldStats and fieldStats
 
@@ -239,9 +300,8 @@ applies); it is just never offered as a field.
 
 ## Arranging the parts yourself
 
-The parts take the same `table` and `fields`, and each is editable only if it is given an
-`onChange`. Here a host arranges its own board — a filter row, two tiles, two cards and the rows —
-and lets the reader edit only the bar card:
+The parts take the same `table` and `fields`. A tile is editable when it is given an `onEdit`, and
+what that opens is the host's — here, the same `TileEditor` `Dashboard` uses, on the bar chart alone:
 
 <ComponentPreview componentName="dashboard" fileName="example-parts" hasMaxHeight={false} />
 
@@ -251,11 +311,90 @@ does the first itself — [how](/docs/analytics/pitfalls#columns-named-like-a-ch
 
 ## Interaction
 
-Every part is on the provider's crossfilter. A pick on a bar card filters every other card, tile and
-the rows, and dims the rest of its own bars instead of filtering itself away. A brush on a line,
-histogram or the timeline filters by a range. The readout counts what survives and holds every
-clause on the page as a chip. A clause published by something else on the page — a `ChartFilter`
-you placed above the dashboard, a lasso on a graph — is applied and shown the same way.
+Every part is on the provider's crossfilter. A pick on a bar chart filters every other tile, and dims
+the rest of its own bars instead of filtering itself away. A brush on a line, a histogram or the
+timeline filters by a range. The readout counts what survives. A clause published by something else
+on the page — a `ChartFilter` you placed above the dashboard, a lasso on a graph — is applied the
+same way, and *Clear* retracts it too.
+
+With `publish`, the tiles crossfilter each other in a selection of the dashboard's own, and the page
+sees one clause instead: the one `publish` maps them to. Everything above still holds inside the
+dashboard, and the page's clauses still reach every tile — see [what the page
+sees](#what-the-page-sees).
+
+## Relations
+
+The `table` can be any relation, and a relation that joins is one more `TableExpr`. A **relation** is
+a root type and the hops taken from it — Looker's explore, Malloy's source — over a **join graph**:
+types, each a table with a key, and the edge tables between them. A type on its own is a relation
+with no hops, so there is no second path for it.
+
+<ComponentPreview componentName="dashboard" fileName="example-relations" hasMaxHeight={false} />
+
+```tsx
+import { Dashboard, RelationPicker, relationIdentities, relationKey, relationQuery } from "@kanzo-tech/ui/analytics";
+
+<RelationPicker graph={graph} value={relation} onValueChange={setRelation} />
+<Dashboard
+  key={relationKey(graph, relation)}
+  table={relationQuery(graph, relation)}
+  exclude={relationIdentities(graph, relation).map((i) => i.column)}
+  value={byRelation[relationKey(graph, relation)]}
+/>
+```
+
+- **`relationQuery(graph, relation)`** is one mosaic-sql `Query`: every type along the path joined
+  through its edge tables, every column named by its step — `Person.country`, and `Person2.country`
+  when the path visits a type twice. The root's key keeps its own name.
+- **`relationKey(graph, relation)`** is the canonical identity a saved dashboard is keyed by:
+  `Person`, `Person>knows>Person`, `Person<hasCreator<Post`.
+- **`relationIdentities(graph, relation)`** is each step's key column and the type it identifies:
+  what a clause on the relation crosses to anything else keyed the same way with, as a semi-join on
+  identity. The root's key is the relation's own, so a `clauseSemiJoin` on it — a lasso on a graph —
+  filters a joined relation exactly as it filters the root's table.
+- **`relationHops(graph, type)`** lists the hops that leave a type, out-edges then in-edges.
+  `RelationPicker` is built on it: the root as a select, each hop as *label → type*, the last hop
+  removable, and **+ Hop** offering the edges that leave the last type.
+
+### What the page sees
+
+A tile's clause on a relation names the relation's columns — `"Person.country" IN ('ES')` — and
+nothing else on the page has them: a graph beside the dashboard would refuse it as
+`graph/unfilterable`, and another relation's dashboard would fail to bind it. So a relation's
+dashboard publishes in the page's vocabulary instead, a semi-join on the root's key:
+
+```tsx
+import { semiJoinOf } from "@kanzo-tech/ui/analytics";
+
+const table = useMemo(() => relationQuery(graph, relation), [graph, relation]);
+const publish = useMemo(() => semiJoinOf(relationIdentities(graph, relation)[0].column, table, { label: key }), [graph, relation, table, key]);
+
+<Dashboard key={key} table={table} publish={publish} … />
+```
+
+The tiles publish into the dashboard's own crossfilter and filter by it, so they crossfilter each
+other on the relation's columns exactly as before. The page gets **one** clause for all of them,
+`dense_id IN (SELECT dense_id FROM <relation> WHERE <every tile's clause>)`, whose source is the
+dashboard: the graph greys out every vertex but the roots of the rows the tiles keep, another
+relation's dashboard is filtered to the same vertices through its own root key, and `FilterChips`
+names it by `label`. The clauses are mapped together, not one by one — on a joined relation,
+*a person with a row where a and b* is not *a person with a row where a, and one where b*.
+
+Retracting goes both ways. A tile that lets go withdraws the page's clause; removing the page's
+clause — its chip, the page's *Clear* — clears the tiles' brushes and picks. In the other direction,
+a lasso on the graph reaches every tile as itself, so the graph stays exempt from its own pick and
+is not filtered by it back through the dashboard.
+
+`semiJoinOf` is one map among any: `publish` takes a `ClauseMap`, `(clauses, source) => clause`,
+and the bridge that carries it is `@kanzo-tech/mosaic`'s `bridgeSelection(inner, outer, map)`,
+built on mosaic-core's public `Selection` API alone. Without `publish`, a
+dashboard's clauses are the page's, which is right for a dashboard over one table beside charts over
+the same table.
+
+The `JoinGraph` is plain data a reader builds from its own catalog — `JoinType` (`name`, `table`,
+`key`, `columns`) and `JoinEdge` (`name`, `label`, `source`, `destination`, `table`, and the `src`
+and `dst` columns holding each end's key). For a fossil corpus, `@kanzo-tech/graph`'s
+[`readJoinGraph`](/docs/graph#readjoingraph) builds it from the catalog the graph already reads.
 
 ## Series vocabulary
 
@@ -291,12 +430,13 @@ way. Nothing fails blank.
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `table` | `TableExpr` — a name, or a mosaic-sql node for a relation in [another catalog](/docs/analytics/charts#a-relation-in-another-catalog) | — |
+| `table` | `TableExpr` — a name, a mosaic-sql node for a relation in [another catalog](/docs/analytics/charts#a-relation-in-another-catalog), or a [`relationQuery`](#relations) | — |
 | `value` | `DashboardSpec` | the automatic dashboard |
 | `onChange` | `(spec: DashboardSpec) => void` | — (read-only without it) |
 | `exclude` | `readonly string[]` | — |
 | `config` | `Readonly<Record<string, ChartConfig>>` | — |
 | `rowNoun` | `string` | `"rows"` |
+| `publish` | `ClauseMap` — what the page sees of the tiles' clauses; [`semiJoinOf`](#what-the-page-sees) for a relation | — (the tiles' clauses are the page's) |
 
 Every other prop goes to the root `div` (`data-slot="dashboard"`).
 
@@ -307,9 +447,9 @@ Every other prop goes to the root `div` (`data-slot="dashboard"`).
 | `table` | `TableExpr` | — |
 | `fields` | `readonly FieldStat[]` | — |
 | `filters` | `readonly DashboardFilterSpec[]` | — |
-| `onChange` | `(filters: DashboardFilterSpec[]) => void` | — (no remove, no *Add filter*) |
+| `onChange` | `(filters: DashboardFilterSpec[]) => void` | — (no remove, no *+ Filter*) |
 | `rowNoun` | `string` | `"rows"` |
-| `children` | `ReactNode` | — trailing controls on the readout row |
+| `children` | `ReactNode` | — trailing controls, after *Clear* |
 
 ### DashboardStat
 
@@ -317,9 +457,8 @@ Every other prop goes to the root `div` (`data-slot="dashboard"`).
 | --- | --- | --- |
 | `table` | `TableExpr` | — |
 | `fields` | `readonly FieldStat[]` | — |
-| `stat` | `DashboardStatSpec` | — |
-| `onChange` | `(stat: DashboardStatSpec) => void` | — (no editor) |
-| `onRemove` | `() => void` | — |
+| `stat` | `StatTile` | — |
+| `onEdit` | `() => void` | — (no pencil) |
 
 ### ChartCard
 
@@ -327,11 +466,9 @@ Every other prop goes to the root `div` (`data-slot="dashboard"`).
 | --- | --- | --- |
 | `table` | `TableExpr` | — |
 | `fields` | `readonly FieldStat[]` | — |
-| `card` | `DashboardCardSpec` | — |
+| `card` | `ChartTile` | — |
 | `config` | `Readonly<Record<string, ChartConfig>>` | — |
-| `onChange` | `(card: DashboardCardSpec) => void` | — (no editor) |
-| `onRemove` | `() => void` | — |
-| `onMove` | `(offset: -1 \| 1) => void` | — (no move buttons) |
+| `onEdit` | `() => void` | — (no pencil) |
 
 ### DetailTable
 
@@ -340,8 +477,42 @@ Every other prop goes to the root `div` (`data-slot="dashboard"`).
 | `table` | `TableExpr` | — |
 | `fields` | `readonly FieldStat[]` | — |
 | `columns` | `readonly string[]` | — in order; a name that is not a field is skipped |
-| `onChange` | `(columns: string[]) => void` | — (no *Columns* menu) |
 | `pageSize` | `number` | `25` |
+
+### TileEditor
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `table` | `TableExpr` | — what the preview reads |
+| `fields` | `readonly FieldStat[]` | — |
+| `tile` | `Tile \| null` | — the tile to edit, or to add when `tiles` does not hold it; `null` closes |
+| `tiles` | `readonly Tile[]` | `[]` — where the tile sits, and what a change of kind avoids repeating |
+| `config` | `Readonly<Record<string, ChartConfig>>` | — |
+| `onSave` | `(tile: Tile, index: number) => void` | — |
+| `onRemove` | `() => void` | — (no *Remove*) |
+| `onClose` | `() => void` | — |
+
+### RelationPicker
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `graph` | `JoinGraph` | — |
+| `value` | `Relation` | — |
+| `onValueChange` | `(relation: Relation) => void` | — |
+
+```ts
+function relationQuery(graph: JoinGraph, relation: Relation): Query;
+function relationKey(graph: Pick<JoinGraph, "edges">, relation: Relation): string;
+function relationIdentities(graph: JoinGraph, relation: Relation): { column: string; type: string }[];
+function relationHops(graph: Pick<JoinGraph, "edges">, type: string): RelationHop[];
+
+interface Relation { root: string; path: readonly Hop[] }
+interface Hop { edge: string; direction: "out" | "in" }
+interface RelationHop { hop: Hop; label: string; to: string }
+interface JoinGraph { types: readonly JoinType[]; edges: readonly JoinEdge[] }
+interface JoinType { name: string; table: TableExpr; key: string; columns: readonly string[] }
+interface JoinEdge { name: string; label: string; source: string; destination: string; table: TableExpr; src: string; dst: string }
+```
 
 ### FilterChips
 
@@ -358,6 +529,10 @@ function useFieldStats(table: TableExpr, options?: FieldStatsOptions): FieldStat
 function queryFieldStats(coordinator: Coordinator, table: TableExpr, options?: FieldStatsOptions): Promise<FieldStats>;
 function fieldStats(rows: readonly SummarizeRow[], options?: FieldStatsOptions): FieldStats;
 function autoDashboard(fields: readonly FieldStat[]): DashboardSpec;
+function recommend(fields: readonly FieldStat[], intent?: RecommendIntent): Recommendation[];
+
+type RecommendIntent = "overview" | "answer"; // default "overview"
+interface Recommendation { spec: ChartTile; rationale: string }
 
 interface FieldStat {
   name: string;
@@ -377,8 +552,9 @@ interface SummarizeRow {
 }
 ```
 
-The spec's types — `DashboardSpec`, `DashboardCardSpec`, `DashboardStatSpec`, `DashboardFilterSpec`,
-`DashboardMeasure`, `DashboardChartType` and `DashboardAggregate` — are exported and documented field
-by field on [Dashboard spec](/docs/analytics/dashboard-spec). The props types are exported as
-`DashboardProps`, `DashboardFiltersProps`, `DashboardStatProps`, `ChartCardProps`, `DetailTableProps`
-and `FilterChipsProps`.
+The spec's types — `DashboardSpec`, `Tile`, `TileKind`, `TileSpan`, `StatTile`, `ChartTile`,
+`TableTile`, `DashboardFilterSpec`, `DashboardMeasure`, `DashboardChartType` and `DashboardAggregate` —
+and `Dashboards` with `migrateDashboards` are exported and documented field by field on
+[Dashboard spec](/docs/analytics/dashboard-spec). The props types are exported as `DashboardProps`,
+`DashboardFiltersProps`, `DashboardStatProps`, `ChartCardProps`, `DetailTableProps`,
+`TileEditorProps`, `RelationPickerProps` and `FilterChipsProps`.

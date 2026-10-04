@@ -27,8 +27,10 @@ does this: `lon`/`lat` as `x`/`y` is what there is.
 
 The host attaches the corpus and names the catalog; `GraphRoot` reads it with SQL — `fossil_tables`
 and `fossil_columns` for the structure, the views for rows and links, one `SELECT` for a focused row,
-a `LIMIT`ed `ILIKE` for a search — every statement through `coordinator.query(sql, { type: "arrow" })`.
-It imports nothing of fossil's.
+a `LIMIT`ed `ILIKE` for a search, a count per relation for a neighbourhood — every statement built
+from mosaic-sql's nodes and run through `coordinator.query(query, { type: "arrow" })`. A search is text
+a reader typed, so no statement is a template string: the nodes quote their own identifiers and
+literals. It imports nothing of fossil's.
 
 ```text
 host                                                    @kanzo-tech/graph
@@ -48,8 +50,8 @@ answer.
 no DuckDB views — or a second host that has to draw without Mosaic. Then a reader comes back behind
 the loader, and the parts do not move.
 
-*Held by* `packages/graph/src/layers.test.ts`, "writes SQL only where it reads, and imports nothing
-of fossil's"; `packages/graph/src/index.test.ts`, "keeps the second reader deleted: no opener, no
+*Held by* `packages/graph/src/layers.test.ts`, "builds statements only where it reads, writes none in
+a string, and imports nothing of fossil's"; `packages/graph/src/index.test.ts`, "keeps the second reader deleted: no opener, no
 source, no slice"; `packages/graph/src/core/store.test.ts`, "reads the structure from fossil_tables
 and fossil_columns, and every vertex by its dense_id".
 
@@ -58,19 +60,22 @@ and fossil_columns, and every vertex by its dense_id".
 `GraphClient` is a `MosaicClient` connected to the page's coordinator, like every chart beside it.
 The coordinator hands it the crossfilter's predicate minus the graph's own clause, and it answers
 with the vertices that survive: `SELECT dense_id … WHERE <predicate>` per vertex table, `UNION ALL`.
-**The predicate runs as Mosaic wrote it** — nothing is translated. A table that lacks a column the
-predicate names is not filtered by it, which is what a `WHERE` over a union of the tables would do;
-a predicate no table can answer is `graph/unfilterable`, and the graph is drawn unfiltered rather
-than as filtered.
+**The predicate runs as Mosaic wrote it** — nothing is translated. Which table a clause filters is
+[the clause rule](#the-clause-rule-column-predicates-or-a-semi-join-on-identity): a table that cannot
+answer a clause is not filtered by it, which is what a `WHERE` over a union of the tables would do;
+a clause no table can answer is `graph/unfilterable`, and the graph is drawn unfiltered rather than
+as filtered.
 
 **A filtered-out vertex is greyed, never hidden.** The surviving ids become cosmos.gl's
 `highlightedPointIndices` and the links between two of them `highlightedLinkIndices` — cosmos.gl does
 not grey a link by itself. No buffer is uploaded, so a running layout is never reset by a brush.
 
-**The reader's pick is published from the client.** A lasso, a marquee or a click is a
-`clausePoints` on `dense_id` whose source is the graph, so the crossfilter applies it to every chart
-and skips it for the graph — a canvas that greyed all but a lasso of thirteen would hide the
-neighbourhood the reader was looking at.
+**The reader's pick is published from the client.** A lasso, a marquee, a click or a host's
+`GraphSelect` is a `clauseSemiJoin` on `dense_id`, labelled with the selection's own label, whose
+source is the graph, so the crossfilter applies it to every client whose rows carry a `dense_id` and
+skips it for the graph — a canvas that greyed all but a lasso of thirteen would hide the
+neighbourhood the reader was looking at. Retracting it where it was published — a chip's remove,
+the page's reset — calls the graph back, and the pick leaves the canvas too.
 
 **It replaced "the graph listens to the selection; it is not a client"**, under which the graph
 translated mosaic-sql's nodes into scan's typed filter, refused every node it could not translate,
@@ -86,10 +91,87 @@ gone rather than grey, which brings hiding back as a size of zero, still with no
 `packages/graph/src/core/store.test.ts`, "asks the coordinator which vertices survive, and keeps every
 buffer it has", "runs the predicate as Mosaic wrote it, on every table that has its columns",
 "refuses a clause no vertex type can answer, as graph/unfilterable, and draws the graph unfiltered",
-"publishes the reader's pick on dense_id, and is exempt from its own clause";
+"publishes the reader's pick as a semi-join on dense_id, and is exempt from its own clause";
 `packages/graph/src/render/renderer.test.ts`, "greys out a filter with config alone: no upload, no
 render, links said out loud"; `packages/graph/src/render/motion.test.ts`, "is what the filter keeps,
 and the links whose two ends it keeps".
+
+## The clause rule: column predicates, or a semi-join on identity
+
+**A clause on the page's selection is one of two things.** Either it is **column predicates on the
+same relation** — a brush, a pick, a search: `hour BETWEEN 2 AND 5` names `hour`, and only a relation
+with an `hour` answers it. Or it is **a semi-join on vertex identity**: `dense_id IN (3, 4)`, or
+`dense_id IN (SELECT …)` over any relation at all. A relation answers a clause when it has every
+column the clause names *on it*, and a subquery's columns are not among them — they are another
+relation's. So a semi-join on `dense_id` names `dense_id` alone and every vertex table answers it,
+whatever its subquery reads: a dashboard over an edge table, a rule's findings, an answer to a
+question — each filters the graph, and the graph's pick filters each of them, through the one
+identity they share.
+
+`clauseSemiJoin(key, ids | query, { source, label })` in `@kanzo-tech/mosaic` is the constructor of
+the second form, built from mosaic-sql's nodes; `clauseColumns(filter)` is the reading of both, and
+`GraphClient` applies it clause by clause. Neither names the graph: the key is the caller's, and a
+relation keyed by anything else crosses the same way. `graph/unfilterable` is what is left of the
+column form — a clause no vertex table can answer.
+
+**A group of clients that speaks columns crosses to the page as identity, through a bridge.** A
+dashboard over a relation filters its tiles by `"Person.country"`, which no vertex table has. Its
+tiles therefore publish into a crossfilter of the dashboard's own, and `bridgeSelection(inner,
+outer, map)` in `@kanzo-tech/mosaic` joins it to the page: every page clause is handed to the tiles
+as itself, `source` and `clients` intact, and the clauses the tiles published are mapped *together*
+into one page clause whose source is the bridge. It is built on mosaic-core's public `Selection` API
+alone — `update`, `reset`, `activate`, `clauses` and the two events — and a guard fails on any
+`_` member of mosaic-core reached from the package. The map a relation takes is `semiJoinOf(key, relation)`, which is `dense_id IN
+(SELECT dense_id FROM <relation> WHERE <every tile clause>)`, the second form again. So the graph
+answers a dashboard by the rule it already had, and nothing in `GraphClient` names a dashboard.
+Retraction follows the clause to where it was published: a tile letting go withdraws the page
+clause, the page clause's chip clears the tiles, and the page's clauses are never mapped back out,
+so a lasso does not return to the graph as a dashboard's clause and filter it by its own pick.
+
+The page's clauses are handed in by listening to the page, not by `include`, because `include` would
+relay the bridge's own clause back in and nothing public keeps it out. Unexempted, that echo filters
+the brushing tile by its own brush; exempting the tiles that published re-queries every other tile a
+second time per brush step; exempting every tile makes it the dashboard's *active* clause, for which
+Mosaic's crossfilter resolver answers no predicate at all — so the next page of a table, or a tile
+just added, reads the relation unfiltered. And an `include` cannot be undone.
+
+**Any panel is a client of the selection by the same protocol.** `useChartQuery` is a panel's query
+filtered by the live selection and re-run when it changes; a panel over a union of relations reads
+`clauseColumns` to apply each clause where it can, as the graph does; and `FilterChips` over the
+crossfilter is the scope every client is under — a semi-join wears its publisher's label.
+
+**It replaced a graph that answered only column predicates**, which read every column of every
+clause, subqueries included, so a set of vertices found in an edge table or another type named
+`src` and `dst` and was refused. The alternative was a second clause kind the graph alone
+understood; it would have filtered the graph and nothing else.
+
+**The bridge replaced "a graph and a relation dashboard do not share a crossfilter"**, the caveat
+the relation dashboard shipped with: its clauses named prefixed columns, and the graph refused them
+as `graph/unfilterable`. The alternatives were a dashboard-shaped case in `GraphClient`, which would
+have taught the graph one publisher's vocabulary and left every other relation client to learn it
+again; and one semi-join per tile clause, which is wrong on a joined relation, where *a root with a
+row where a and b* is not *a root with a row where a and one where b*.
+
+**What would reverse it:** an identity two corpora do not share — two corpora attached on one page,
+whose `dense_id`s collide — which would make the key a pair, `(corpus, dense_id)`, and the semi-join
+a tuple; or a relation whose rows carry a vertex's IRI and not its `dense_id`, measured common enough
+that joining through the identity column on every read costs more than carrying the id.
+
+*Held by* `packages/mosaic/src/clause.test.ts`, "builds a semi-join on identity from keys, or from a
+statement that selects them", "names the key alone: a subquery's columns are another relation's";
+`packages/graph/src/core/store.test.ts`, "answers a semi-join on dense_id on every table, whatever
+relation its subquery reads", "publishes the reader's pick as a semi-join on dense_id, and is exempt
+from its own clause", "lets the pick go when its clause is retracted where it was published";
+`packages/ui/src/charts/filter-chips.test.tsx`, "names a semi-join by its publisher's label, and
+counts its members when they are keys"; `packages/mosaic/src/bridge.test.ts`, "publishes the inner
+clauses to the outer selection as one clause, through the map, from the bridge", "does not filter a
+client by its own clause on either side, and never echoes the mapped clause inward", "calls the bridge
+back when the mapped clause is retracted where it was published, and clears the inner sources";
+`packages/mosaic/src/public-api.test.ts`, "reaches no underscore member of a mosaic-core object
+anywhere in this package";
+`packages/graph/src/core/dashboard-bridge.test.ts`, "filters the graph by what the dashboard's
+brushes keep, as the root vertices they keep", "still filters the dashboard by the graph's pick, and
+publishes nothing back for it".
 
 ## ADR 0001 — the canvas holds the whole graph
 
@@ -179,7 +261,7 @@ Every module stays under four hundred lines:
 ```text
 packages/graph/src/
 ├── core/                     no React; nothing here imports cosmos.gl
-│   ├── source.ts             the catalog's statements: structure, columns, links, a row, titles, search
+│   ├── source.ts             the catalog's statements: structure, columns, links, a row, titles, search, neighbours
 │   ├── client.ts             GraphClient — the crossfilter's survivors — and the clause the graph publishes
 │   ├── load.ts               answers → buffers by dense_id; the seeded start; the layout's square
 │   ├── channels.ts           Plot's bindings, and the columns they read
@@ -210,23 +292,32 @@ buffer:
 
 - **A corpus uploads positions and links once**, and binding `x` or `y` uploads positions again. A
   binding, a look or a theme change uploads colours, sizes and shapes.
-- **A filter and a state change upload nothing.** The surviving ids, a selection, a focus and a pin
-  are config — the ids are the indices — and call no `render()`.
+- **A filter and a state change upload nothing.** The surviving ids, a selection and a focus are
+  config — the ids are the indices — and call no `render()`.
 - **One frame renders once, and only for an upload.** Every dirty flag is discharged in one
   `requestAnimationFrame`.
 - **Nothing animates.** `transitionDuration` is 0.
-- **The layout runs by the rule above**, from wherever the points are; a drag pins a node only while a
-  layout can pull against it, and releasing reheats — d3-force's drag-to-fix.
+- **The layout runs by the rule above**, from wherever the points are. A drag moves a node and holds
+  nothing: there is no pinning, because a held node is a second state beside the selection that no
+  panel can read, and an arrangement worth keeping is a placement.
 - **The camera is cosmos.gl's.** A zoom repaints the overlays and reaches no store; `render/camera.ts`
   owns who holds it, and [Layout and camera](/docs/graph/layout#the-camera) says when it moves.
+- **The arrangement is the store's.** A destroyed renderer writes cosmos.gl's positions and the camera
+  back with `store.keep`, and the next one uploads them and goes on as the layout was: model and
+  view, the way cosmos.gl's own `setPointPositions` / `getPointPositions` split them. A canvas that
+  is not shown holds no GPU context; a new geometry drops what was kept.
 
 **What would reverse it:** cosmos.gl gaining a sub-range upload, so a binding could upload only what
 it changed; or a picture that needs a transition to be read, measured against the frames it costs.
+The arrangement goes back to the renderer if reading every position back on detach — one `readPixels`
+of the position texture — costs a switch of views more than a re-layout does.
 
 *Held by* `packages/graph/src/render/renderer.test.ts`, "uploads positions and links once per corpus,
 and renders once", "repaints colours, sizes and shapes on a look change, and uploads no geometry",
-"starts and stops with the simulate prop, after the first load", "moves a dragged node and pins
-nothing while no layout runs", "releases a paused layout with a bounded burst, then pauses it again";
+"starts and stops with the simulate prop, after the first load", "leaves a dragged node free, with or
+without a layout running", "leaves the points and the camera to the next canvas, which starts settled
+from them and runs nothing", "drops what it kept when the geometry changes, and the next canvas places
+the new one";
 `packages/graph/src/react/graph-root.test.tsx`, "does not rebuild the renderer because a callback
 changed identity".
 
@@ -279,15 +370,19 @@ under it read the root.
   greyed, never hidden — and unfiltered it always read "N of N". A footer carries it, which is why it
   is not the legend's last line.
 - **`GraphToolbar`** — the tools, the selection, zoom and fit, and the layout's transport.
-- **`GraphInspector`** — the focused vertex's row, in `fossil_columns`' order, with a render prop for
-  fields a product adds.
-- **`GraphSearch`** — a `LIMIT`ed `ILIKE` per pause in typing, named by `categories`; picking one is
-  `reveal`.
+- **`GraphInspector`** — the focused vertex as a card, Linkurious's inspector: its row in
+  `fossil_columns`' order, grouped as identity, values and dates, its neighbourhood counted per relation
+  and direction, Zoom / Focus / Copy, and a render prop for fields a product adds.
+- **`GraphSearch`** — a palette in cmdk's shape, Raycast's and Linear's: a `LIMIT`ed `ILIKE` per pause
+  in typing, with Bloom's `type:` and `<column>:<value>` prefixes, grouped by type and counted past the
+  limit; picking one is `reveal`, and the root remembers it.
 - **`GraphSelect`** — a selection the host offers, as a toggle: `load` reads the ids when pressed,
   and pressed is derived from the live selection, never stored beside it.
-- **`GraphLooks`** — the three looks as presets over `GRAPH_SECTION`'s axes, with the axes under
-  Customize. It writes preferences rather than reading the root, so it needs the theme provider and
-  no `GraphRoot`.
+- **`GraphLooks`** — the three looks as presets over `GRAPH_SECTION`'s axes, with the axes always in
+  view under them. It writes preferences rather than reading the root, so it needs the theme provider
+  and no `GraphRoot`.
+- **`GraphPlacement`** — Force, Map or Clustered, with the corpus's fields to bind inside the checked
+  card. Controlled, because `x`, `y` and `cluster` are the root's bindings and the host holds them.
 
 **A selection names its gesture, never its host's panel.** `SelectionSource` is the canvas's own
 gestures — `marquee`, `lasso`, `node` — and `external`, any selection a host set through `select`,
@@ -312,8 +407,8 @@ policy. That part goes back to the call site and is deleted from the package.
 *Held by* `packages/graph/src/index.test.ts`, "carry no callback but the root's";
 `packages/graph/src/parts/parts.test.tsx`, "derives pressed from the live selection, so a gesture or
 another label unpresses it", "draws the domain before the graph has loaded, named by
-the root", "reads the focused vertex's row with one statement, and draws a host's extra fields after
-the corpus's own"; `packages/graph/src/core/store.test.ts`, "fixes the categorical domain before the
+the root", "reads the focused vertex's row with one statement, grouped, and draws a host's extra fields after
+its values"; `packages/graph/src/core/store.test.ts`, "fixes the categorical domain before the
 graph loads".
 
 ## Attaching is the host's
@@ -433,8 +528,12 @@ is bound", "colours by vertex type unless fill binds a column".
 ## A look declares what it changes
 
 A look declares only what it moves from the shared defaults, and the preferences panel offers the
-**axes a reader can name** — `marks`, `additive-links`, `bowed-links`, `labels`, `vignette` — which
-recover the three shipped looks and combine into others.
+**axes a reader can name** — `marks`, `edges`, `additive-links`, `labels`, `vignette` — which
+recover the three shipped looks and combine into others. `edges` and `labels` are Cosmograph's
+configuration read as choices: `showLinks` and `curvedLinks` as Hidden, Straight or Curved, and the
+hovered, top and dynamic labels as one ordered scale, None to All, because a reader asks *how much
+text* rather than which of three switches. `additive-links` stays its own switch: it is how links
+composite, not the path they take, and Nebula is additive *and* straight.
 
 | field | nebula | atlas | ink | nebula → atlas |
 |---|---|---|---|---|
@@ -467,7 +566,8 @@ was the alternative and is refused: it would be a key no reader reads, which the
 
 - **Names for a channel's values.** The catalog names no categories, so the host passes
   `categories`. If `fossil_columns` ever carries them, the catalog's win.
-- **A column two types share.** A crossfilter clause carries no table, so a filter on `name` filters
-  every vertex type that has one — a `WHERE` over a union. A host reading it wrongly would reopen it.
+- **A column two types share.** A column clause carries no table, so a filter on `name` filters
+  every vertex type that has one — a `WHERE` over a union. A host reading it wrongly would reopen it;
+  a clause that means one type is a semi-join, whose subquery names it.
 - **The greyout at scale.** The surviving-id query and the two index lists have not been timed at
   500,000 vertices.

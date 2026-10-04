@@ -1,17 +1,11 @@
 "use client";
 
 import {
-  Button,
   cn,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleIndicator,
-  CollapsibleTrigger,
   PreferencesFieldSet,
   PreferencesSections,
   RadioGroup,
   RadioGroupCard,
-  SegmentGroup,
   Show,
   useKanzoTheme,
 } from "@kanzo-tech/ui";
@@ -28,21 +22,21 @@ export type GraphLooksProps = React.ComponentProps<"div">;
 const NAMESPACE = GRAPH_SECTION.namespace;
 
 const CARDS: Record<LookPreset, { label: string; blurb: string; channels: Channels }> = {
-  nebula: { label: "Nebula", blurb: "Dense, dim points and additive links: a picture that reads as flow.", channels: {} },
+  nebula: { label: "Nebula", blurb: "Dense points and straight, additive links that read as flow; a name only under the pointer.", channels: {} },
   atlas: {
     label: "Atlas",
-    blurb: "Map-steady points, links that just bow, generous labels.",
+    blurb: "Map-steady points, links that just curve, the biggest points named.",
     channels: { stroke: "var(--muted-foreground)" },
   },
   ink: {
     label: "Ink",
-    blurb: "Large, legible marks in one ink, identity on shape — the print-and-projector register.",
+    blurb: "Large, legible marks in one ink, identity on shape, names wherever you look — the print-and-projector register.",
     channels: { fill: "var(--foreground)", symbol: "category", stroke: "var(--muted-foreground)" },
   },
 };
 
-/** The axes under "Customize", after Marks; the forces are a live layout's and are not the picture. */
-const CUSTOMIZE = ["links", "labels", "additive-links", "bowed-links", "vignette", "grid"] as const;
+/** The axes under the looks, in reading order; the forces are a live layout's and are not the picture. */
+const AXES = ["marks", "edges", "additive-links", "labels", "grid", "vignette"] as const;
 
 /**
  * One small graph — the same seven vertices and eight edges on every card, so every pixel that differs
@@ -73,13 +67,18 @@ const EDGES = [
 /** Screen pixels to the card's units, one factor for every look: Ink's larger floor is the look. */
 const SCALE = 0.55;
 
-function LookPreview({ channels, look }: { channels: Channels; look: Look }) {
+function LookPreview({ channels, className, look }: { channels: Channels; className?: string; look: Look }) {
   const id = useId();
   const scale = scaleOf(channels);
   const radius = (ramp: number) => (look.size[0] + ramp * (look.size[1] - look.size[0])) * SCALE;
   return (
-    <svg aria-hidden className="h-16 w-full rounded-[4px] border bg-background" preserveAspectRatio="xMidYMid meet" viewBox="0 0 208 40">
-      {EDGES.map(([from, to]) => {
+    <svg
+      aria-hidden
+      className={cn("h-16 w-full rounded-[4px] border bg-background", className)}
+      preserveAspectRatio="xMidYMid meet"
+      viewBox="0 0 208 40"
+    >
+      {(look.link.render ? EDGES : []).map(([from, to]) => {
         const a = NODES[from];
         const b = NODES[to];
         // cosmos.gl bows a link by a fraction of its length: the midpoint pushed along the perpendicular.
@@ -126,17 +125,19 @@ function LookPreview({ channels, look }: { channels: Channels; look: Look }) {
 }
 
 /**
- * **The graph's picture, as three looks and the axes under them** — GitHub's appearance settings:
- * pick by looking, then customise. The looks are `PRESETS` over `GRAPH_SECTION`'s axes; wearing one
- * writes every axis it names, and a look is checked exactly when the resolved axes are its own, so
- * there is no name stored beside them to go stale. "Customize" holds the axes themselves — Marks as
- * a segmented control, the rest as the section declares them — and opens on its own when the axes
- * are no preset.
+ * **The graph's picture: three looks, and the axes under them, always in view** — GitHub's appearance
+ * settings for the looks, Gephi Lite's appearance panel for the axes. The looks are `PRESETS` over
+ * `GRAPH_SECTION`'s axes; wearing one writes every axis it names, and a look is checked exactly when
+ * the resolved axes are its own, so there is no name stored beside them to go stale.
+ *
+ * The axes are the section's own controls, through `PreferencesSections`: Marks and Edges as cards
+ * whose picture is the current look with that one option changed, Labels as a list, the rest as
+ * switches. Additive links is drawn only while there are links to add.
  *
  * Under `KanzoThemeProvider` with `GRAPH_SECTION` among its `sections` — without it there is nothing
  * to write and it draws nothing, as `PreferencesSections` does for an unknown namespace. It needs no
- * `GraphRoot`, so it sits in a preferences panel as well as in a dock. A look whose axes a tenant pinned is disabled,
- * because wearing it would change nothing.
+ * `GraphRoot`, so it sits in a preferences panel as well as in a dock. A look whose axes a tenant
+ * pinned is disabled, because wearing it would change nothing.
  */
 export function GraphLooks({ className, slot, ...rest }: GraphLooksProps) {
   const { sectionPrefs, setSectionPref } = useKanzoTheme();
@@ -144,8 +145,11 @@ export function GraphLooks({ className, slot, ...rest }: GraphLooksProps) {
   const prefs = sectionPrefs[NAMESPACE];
   if (!prefs) return null;
   const offered = (key: string) => prefs[key]?.offered === true;
-  const marks = prefs.marks;
-  const options = marks?.decl.kind === "choice" && Array.isArray(marks.decl.options) ? marks.decl.options : [];
+  const values = Object.fromEntries(Object.entries(prefs).map(([key, pref]) => [key, pref.value]));
+  const channels = CARDS[preset ?? "atlas"].channels;
+  const specimen = (key: string) => (option: { value: string }) => (
+    <LookPreview channels={channels} className="h-10" look={lookFrom({ ...values, [key]: option.value })} />
+  );
 
   return (
     <div {...rest} className={cn("flex flex-col gap-4", className)} data-slot={slot ?? "graph-looks"}>
@@ -170,33 +174,15 @@ export function GraphLooks({ className, slot, ...rest }: GraphLooksProps) {
             </RadioGroupCard>
           ))}
         </RadioGroup>
+        <Show when={preset === null}>
+          <p className="text-muted-foreground text-xs">Custom: the axes below are none of the three looks.</p>
+        </Show>
       </PreferencesFieldSet>
-
-      <Collapsible defaultOpen={preset === null}>
-        <CollapsibleTrigger asChild>
-          <Button className="w-full" size="sm" variant="ghost">
-            Customize
-            <Show when={preset === null}>
-              <span className="ms-auto me-1 font-normal text-muted-foreground text-xs">Custom</span>
-            </Show>
-            <CollapsibleIndicator />
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="flex flex-col gap-4 pt-3">
-          <Show when={offered("marks")}>
-            <PreferencesFieldSet label={marks?.decl.label ?? "Marks"}>
-              <SegmentGroup
-                onValueChange={(details) => details.value && setSectionPref(NAMESPACE, { marks: details.value })}
-                options={options}
-                size="sm"
-                value={marks?.value ?? null}
-                variant="solid"
-              />
-            </PreferencesFieldSet>
-          </Show>
-          <PreferencesSections namespace={NAMESPACE} only={CUSTOMIZE} />
-        </CollapsibleContent>
-      </Collapsible>
+      <PreferencesSections
+        namespace={NAMESPACE}
+        only={values.edges === "hidden" ? AXES.filter((key) => key !== "additive-links") : AXES}
+        specimens={{ [`${NAMESPACE}.marks`]: specimen("marks"), [`${NAMESPACE}.edges`]: specimen("edges") }}
+      />
     </div>
   );
 }

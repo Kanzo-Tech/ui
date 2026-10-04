@@ -117,8 +117,8 @@ export function useOverlays(api: { getGraph: () => Graph | null }): GraphOverlay
      * The difference is what gets read back per frame. `getPointPositions()` is a synchronous
      * `readPixels` of the *whole* position framebuffer — 10,000 bytes at this corpus size, plus an
      * O(n) array build — on every animation frame the simulation runs. Tracking reads a
-     * `ceil(√k)²` texture for the k points that actually carry an overlay: 576 bytes for Atlas'
-     * 26 labels and a hovered node. It also caches while the simulation is stopped, so a settled
+     * `ceil(√k)²` texture for the k points that actually carry an overlay: 2,704 bytes for Top's
+     * 150 labels and a focused node. It also caches while the simulation is stopped, so a settled
      * graph costs no readback at all until something moves.
      */
     // Read lazily: with labels off and nothing hovered, the only overlay left is the grid, which

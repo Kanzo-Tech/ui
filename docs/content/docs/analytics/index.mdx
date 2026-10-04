@@ -94,17 +94,22 @@ Anything can, and a dashboard's chips show all of it, whoever published it:
 - an input: `ChartFilter`, `ChartSearch`, `ChartSlider`, which are Mosaic clients without being
   charts;
 - **a view drawn outside the plot**. [`@kanzo-tech/graph`](/docs/graph) is one more client of the
-  coordinator, drawing a fossil corpus on the GPU; a lasso or a click publishes one `clausePoints`
-  clause on the corpus's **address column** (`dense_id`) from that client, so the crossfilter skips
-  it for the graph and applies it to every chart. The same call is open to any widget:
-  `selection.update(clausePoints([column], ids.map((id) => [id]), { source }))`. Retract it with
-  `undefined` for the ids, never `[]`: an empty list is a clause whose predicate is `FALSE`, which
-  drops every row.
+  coordinator, drawing a fossil corpus on the GPU; a lasso or a click publishes one `clauseSemiJoin`
+  on the corpus's **identity** (`dense_id`) from that client, so the crossfilter skips it for the
+  graph and applies it to every chart. The same call is open to any panel, with the keys or with a
+  statement that selects them:
+  `selection.update(clauseSemiJoin("dense_id", ids | query, { source, label }))`. Retract it with
+  `null`, never `[]`: an empty list is a clause whose predicate is `FALSE`, which drops every row.
 
-That last one is why a dashboard over a vertex table follows a lasso on the canvas beside it: the
-clause names `dense_id`, and every vertex table has one. It is also why
-[a dashboard reads one relation](/docs/analytics/pitfalls#one-dashboard-per-relation): a clause
-names columns, and a relation without them cannot answer it.
+That is the clause rule. A clause is **column predicates on the same relation**, which only a
+relation with those columns can answer — why
+[a dashboard reads one relation](/docs/analytics/pitfalls#one-dashboard-per-relation) — or **a
+semi-join on identity**, `key IN (…)`, which names the key alone: a subquery's columns are another
+relation's. `clauseColumns(filter)` reads what a clause names on the relation it filters, so a client
+over several relations applies each clause where it can. A dashboard over a vertex table follows a
+lasso on the canvas beside it because the semi-join names `dense_id`, and every vertex table has one.
+[The graph view](/docs/design/graph#the-clause-rule-column-predicates-or-a-semi-join-on-identity)
+has the rule and what would reverse it.
 
 ## Why it is not on the root barrel
 

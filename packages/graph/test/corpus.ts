@@ -53,38 +53,43 @@ export interface Attached {
 
 let catalogs = 0;
 
-const FIXTURE = (c: string) => `
+const FIXTURE = (c: string, n: number) => `
 ATTACH ':memory:' AS ${c};
 CREATE TABLE ${c}."Person" AS SELECT i::UBIGINT AS dense_id, 'https://example.org/person/' || i AS subject,
   'Person ' || i AS name, (i % 4)::INTEGER AS team, (i + 1)::INTEGER AS score, i::DOUBLE AS lon, 0::DOUBLE AS lat
-  FROM range(10) t(i);
-CREATE TABLE ${c}."Place" AS SELECT (10 + i)::UBIGINT AS dense_id, 'https://example.org/place/' || i AS subject,
+  FROM range(${n}) t(i);
+CREATE TABLE ${c}."Place" AS SELECT (${n} + i)::UBIGINT AS dense_id, 'https://example.org/place/' || i AS subject,
   'Place ' || i AS name, i::DOUBLE AS lon, 1::DOUBLE AS lat FROM range(6) t(i);
-CREATE TABLE ${c}."Tag" AS SELECT (16 + i)::UBIGINT AS dense_id, 'https://example.org/tag/' || i AS subject FROM range(4) t(i);
+CREATE TABLE ${c}."Tag" AS SELECT (${n + 6} + i)::UBIGINT AS dense_id, 'https://example.org/tag/' || i AS subject FROM range(4) t(i);
 CREATE TABLE ${c}."Person_knows_Person" AS SELECT i::UBIGINT AS src, (i + 1)::UBIGINT AS dst FROM range(9) t(i);
-CREATE TABLE ${c}."Person_livesIn_Place" AS SELECT i::UBIGINT AS src, (10 + i % 6)::UBIGINT AS dst FROM range(10) t(i);
-CREATE TABLE ${c}."Person_tagged_Tag" AS SELECT 0::UBIGINT AS src, 16::UBIGINT AS dst;
+CREATE TABLE ${c}."Person_livesIn_Place" AS SELECT i::UBIGINT AS src, (${n} + i % 6)::UBIGINT AS dst FROM range(10) t(i);
+CREATE TABLE ${c}."Person_tagged_Tag" AS SELECT 0::UBIGINT AS src, ${n + 6}::UBIGINT AS dst;
 CREATE VIEW ${c}.fossil_tables AS SELECT * FROM (VALUES
-  ('Person', 'vertex', 'https://example.org/Person', 10::UBIGINT, 0::UBIGINT, NULL, NULL),
-  ('Place', 'vertex', 'https://example.org/Place', 6::UBIGINT, 10::UBIGINT, NULL, NULL),
-  ('Tag', 'vertex', 'https://example.org/Tag', 4::UBIGINT, 16::UBIGINT, NULL, NULL),
+  ('Person', 'vertex', 'https://example.org/Person', ${n}::UBIGINT, 0::UBIGINT, NULL, NULL),
+  ('Place', 'vertex', 'https://example.org/Place', 6::UBIGINT, ${n}::UBIGINT, NULL, NULL),
+  ('Tag', 'vertex', 'https://example.org/Tag', 4::UBIGINT, ${n + 6}::UBIGINT, NULL, NULL),
   ('Person_knows_Person', 'edge', 'https://example.org/knows', 9::UBIGINT, NULL, 'Person', 'Person'),
   ('Person_livesIn_Place', 'edge', 'https://example.org/livesIn', 10::UBIGINT, NULL, 'Person', 'Place'),
   ('Person_tagged_Tag', 'edge', 'https://example.org/tagged', 1::UBIGINT, NULL, 'Person', 'Tag')
 ) t(table_name, kind, iri, rows, first_id, source, destination);
 CREATE VIEW ${c}.fossil_columns AS
-  SELECT table_name, column_name, column_index AS ordinal, data_type AS type,
+  SELECT table_name, column_name, column_index AS ordinal,
+    CASE data_type WHEN 'DOUBLE' THEN 'double' WHEN 'INTEGER' THEN 'int32' WHEN 'UBIGINT' THEN 'uint64'
+                   WHEN 'VARCHAR' THEN 'string' END AS type,
     CASE WHEN column_name = 'dense_id' THEN 'address' WHEN column_name = 'subject' THEN 'identity'
          WHEN column_name IN ('src', 'dst') THEN 'endpoint' END AS role,
     NULL AS iri, is_nullable AS nullable
   FROM duckdb_columns() WHERE database_name = '${c}';
 `;
 
-/** A fresh catalog holding the corpus above, and a coordinator of its own over the shared database. */
-export async function attach(): Promise<Attached> {
+/**
+ * A fresh catalog holding the corpus above, and a coordinator of its own over the shared database.
+ * `people` grows `Person` for a test about scale; the other tables follow it, ids shifted.
+ */
+export async function attach(people = 10): Promise<Attached> {
   const { conn } = await boot();
   const from = `corpus${++catalogs}`;
-  conn.query(FIXTURE(from));
+  conn.query(FIXTURE(from, people));
   const sent: string[] = [];
   const answered = { count: 0 };
   const refusals: { pattern: RegExp; error: unknown }[] = [];

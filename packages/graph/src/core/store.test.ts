@@ -1,4 +1,4 @@
-import { Selection, clauseInterval, clauseMatch, clausePoint } from "@kanzo-tech/mosaic";
+import { Query, Selection, asTableRef, clauseInterval, clauseMatch, clausePoint, clauseSemiJoin, isIn, literal } from "@kanzo-tech/mosaic";
 import { describe, expect, it, vi } from "vitest";
 import { attach, refusal, settle, type Attached } from "../../test/corpus";
 import { createGraph } from "./store";
@@ -33,10 +33,10 @@ describe("the graph store", () => {
       ["Place", 10, 6, "subject"],
       ["Tag", 16, 4, "subject"],
     ]);
-    expect(structure?.edges.map((e) => [e.name, e.source, e.destination])).toEqual([
-      ["Person_knows_Person", "Person", "Person"],
-      ["Person_livesIn_Place", "Person", "Place"],
-      ["Person_tagged_Tag", "Person", "Tag"],
+    expect(structure?.edges.map((e) => [e.name, e.label, e.source, e.destination])).toEqual([
+      ["Person_knows_Person", "knows", "Person", "Person"],
+      ["Person_livesIn_Place", "livesIn", "Person", "Place"],
+      ["Person_tagged_Tag", "tagged", "Person", "Tag"],
     ]);
     expect(store.getSnapshot().total).toBe(20);
     expect(geometry?.size).toBe(20);
@@ -173,6 +173,16 @@ describe("the graph store", () => {
     expect(onFailure).not.toHaveBeenCalled();
   });
 
+  it("remembers what the search went to, newest first, once each and five at most, until the corpus changes", async () => {
+    const { corpus, store } = await graph();
+    await settle(corpus);
+    for (const vertex of [1, 2, 3, 4, 5, 6, 2]) store.remember(vertex, `#${vertex}`);
+    expect(store.getSnapshot().recent.map((r) => r.vertex)).toEqual([2, 6, 5, 4, 3]);
+    const next = await attach();
+    store.setOptions({ ...store.getOptions(), from: next.from, coordinator: next.coordinator });
+    expect(store.getSnapshot().recent).toEqual([]);
+  });
+
   it("connects its client on the first subscriber and lets it go with the last, as StrictMode does twice", async () => {
     const { corpus, onFailure, store, unsubscribe } = await graph();
     unsubscribe();
@@ -226,17 +236,41 @@ describe("the page's crossfilter", () => {
     expect(store.getSnapshot().mask).toBeNull();
   });
 
-  it("publishes the reader's pick on dense_id, and is exempt from its own clause", async () => {
+  it("answers a semi-join on dense_id on every table, whatever relation its subquery reads", async () => {
+    const { corpus, crossfilter, onFailure, store } = await filtered();
+    // Who lives in a place: rows of an edge table, whose `src` and `dst` no vertex table has.
+    const residents = Query.select("src").from(asTableRef([corpus.from, "Person_livesIn_Place"])!).where(isIn("src", [literal(1), literal(2)]));
+    crossfilter.update(clauseSemiJoin("dense_id", residents, { source: chart, label: "Residents" }));
+    await settle(corpus);
+    expect(onFailure).not.toHaveBeenCalled();
+    // An identity clause keeps its members in every table, and nothing else in any of them.
+    expect(ids(store.getSnapshot().mask)).toEqual([1, 2]);
+  });
+
+  it("publishes the reader's pick as a semi-join on dense_id, and is exempt from its own clause", async () => {
     const { corpus, crossfilter, store } = await filtered();
     const before = corpus.sent.length;
     store.select([3, 4], "marquee", "Marquee");
     await settle(corpus);
-    expect(String(crossfilter.predicate(chart as never))).toContain("dense_id");
-    expect(String(crossfilter.predicate(chart as never))).toContain("3");
+    expect(String(crossfilter.predicate(chart as never))).toBe(`("dense_id" IN (3, 4))`);
+    expect(crossfilter.clauses[0]?.meta).toEqual({ type: "semijoin", label: "Marquee" });
     expect(store.getSnapshot().mask).toBeNull();
     expect(corpus.sent.slice(before).filter((sql) => sql.includes("WHERE"))).toEqual([]);
     store.select(null);
     expect(String(crossfilter.predicate(chart as never) ?? "")).not.toContain("dense_id");
+  });
+
+  it("lets the pick go when its clause is retracted where it was published", async () => {
+    const onSelect = vi.fn();
+    const crossfilter = Selection.crossfilter();
+    const { corpus, store } = await graph({ filterBy: crossfilter, onSelect });
+    await settle(corpus);
+    store.select([3, 4], "lasso", "Lasso");
+    crossfilter.reset([...crossfilter.clauses]);
+    expect(store.getSnapshot().selection).toBeNull();
+    expect(onSelect).toHaveBeenLastCalledWith(null);
+    await settle(corpus);
+    expect(crossfilter.clauses.map((c) => c.meta)).toEqual([]);
   });
 
   it("keeps the last picture and reports the thrown value when a filter's read rejects", async () => {

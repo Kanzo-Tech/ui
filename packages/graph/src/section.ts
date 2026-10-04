@@ -26,10 +26,14 @@ interface SectionManifest {
 /**
  * The graph's contribution to a host's preferences — its tokens and its choices.
  *
- * **It was `LOOK_SECTION`, and the name was half of it.** The look is five of the sixteen
- * preferences below; the rest are the edge layer, the dot grid and the six force coefficients, which
- * lived in a `Display` interface and a `Sim` interface with their own defaults and their own
+ * **It was `LOOK_SECTION`, and the name was half of it.** The look is six of the twelve
+ * preferences below; the rest are the six force coefficients, which lived in a `Sim` interface — as
+ * the edge layer and the dot grid lived in a `Display` one — with their own defaults and their own
  * hand-rolled sliders. One section, one storage shape, one resolution, one renderer.
+ *
+ * **The look's axes are Cosmograph's configuration, read as choices.** `edges` is `showLinks` and
+ * `curvedLinks`; `labels` is `showHoveredPointLabel`, `showTopLabels` and `showDynamicLabels` as one
+ * ordered scale, because a reader asks *how much text*, not which of three switches.
  *
  * Reached by subpath — `@kanzo-tech/graph/section` — and never imported by
  * `@kanzo-tech/theme`. That direction is the whole design: contributing is *using* a namespace, not
@@ -86,38 +90,43 @@ export const GRAPH_SECTION: SectionManifest = {
         { value: "legible", label: "Legible" },
       ],
     },
+    edges: {
+      kind: "choice",
+      label: "Edges",
+      default: "curved",
+      doc: "Whether links are drawn, and how. Curved bows each by a hint, enough to tell two parallel edges apart. Past a few hundred thousand links the layer is fog, and Hidden is the answer.",
+      options: [
+        { value: "hidden", label: "Hidden" },
+        { value: "straight", label: "Straight" },
+        { value: "curved", label: "Curved" },
+      ],
+    },
+    // Its own axis rather than a fourth value of `edges`: it is how links composite, not the path
+    // they take, and Nebula is additive *and* straight — folded in, one of the two would be lost.
     "additive-links": {
       kind: "toggle",
       label: "Additive links",
       default: "false",
       doc: "Links add where they overlap instead of compositing over one another. Additive light is what makes a dense graph read as flow — and what made 4,280 links at 0.45 swallow 1,543 points on the archive.",
     },
-    "bowed-links": {
-      kind: "toggle",
-      label: "Bowed links",
-      default: "true",
-      doc: "Links bow off the straight line by a hint, which is enough to tell two parallel edges apart. Every link curves the same way, so more than a hint reads as a pinwheel.",
-    },
     labels: {
-      kind: "range",
+      kind: "choice",
       label: "Labels",
-      default: "26",
-      doc: "How many of the highest-degree nodes carry a standing label. Zero draws none.",
-      min: 0,
-      max: 60,
-      step: 2,
+      default: "top",
+      doc: "Which points carry their title, each level adding to the last: the hovered and focused point; the 150 biggest; the 100 biggest in view; every point in view. In view is cosmos.gl's sample, one point per 100 px square, so no level labels more than the screen holds, whatever the graph's size. A label that would overlap a bigger point's is dropped.",
+      options: [
+        { value: "none", label: "None" },
+        { value: "hovered", label: "Hovered" },
+        { value: "top", label: "Top" },
+        { value: "visible", label: "Visible" },
+        { value: "all", label: "All" },
+      ],
     },
     vignette: {
       kind: "toggle",
       label: "Vignette",
       default: "false",
       doc: "A darkened rim. Mood rather than a reading aid, which is why it is a preference and not a display control.",
-    },
-    links: {
-      kind: "toggle",
-      label: "Show links",
-      default: "true",
-      doc: "Draw the edge layer at all. Past a few hundred thousand links it is fog that costs a draw call a frame.",
     },
     grid: {
       kind: "toggle",

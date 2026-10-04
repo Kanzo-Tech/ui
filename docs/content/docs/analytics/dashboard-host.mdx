@@ -26,8 +26,8 @@ around the view is exactly for this.
 
 ## 2. Write after a pause
 
-Every edit calls `onChange` with the whole next spec. Dragging a card through the layout, renaming a
-title or toggling three columns is many edits and one decision, so the write waits for a pause.
+Every edit calls `onChange` with the whole next spec. Moving a tile, renaming a
+title or ticking three columns is many edits and one decision, so the write waits for a pause.
 `useDebouncedCommit` from the root barrel is that pause: `draft` follows every edit at once, and
 `onCommit` runs once the edits stop.
 
@@ -52,8 +52,8 @@ function SavedDashboard({ relation, saved }: { relation: string; saved: Dashboar
 
 ## 3. Read-only
 
-Leave `onChange` out. The dashboard draws the same spec with no editors, no *Edit dashboard* menu,
-no *Add filter* and no remove buttons. Filters, picks, brushes, chips and paging still work — a
+Leave `onChange` out. The dashboard draws the same spec with no pencils, no *Add tile*, no *+ Filter*
+and no remove buttons. Filters, picks, brushes, chips and paging still work — a
 viewer explores; a viewer does not rearrange.
 
 ```tsx
@@ -96,30 +96,44 @@ true of every dashboard over that field, so it is not saved with any of them.
 A spec names columns, and so does every clause a part publishes. Two relations on one crossfilter
 means a pick on one sends `hall IN (…)` to the other, which may have no `hall`. Give each relation
 its own dashboard, and either mount one at a time or give each its own `MosaicProvider` over the
-shared coordinator.
+shared coordinator — or, when the relations share a key, let each dashboard `publish` a semi-join on
+it, which every relation keyed the same way answers.
 
-A host that draws a corpus one vertex type at a time:
+A host over a graph of types picks the relation with `RelationPicker`, keys everything by it, and
+publishes the tiles' clauses to the page as a semi-join on the root's key, so the graph beside the
+dashboard follows its brushes:
 
 ```tsx
-<ToggleGroup value={[type]} onValueChange={(d) => setType(d.value[0])}>{/* one item per type */}</ToggleGroup>
+const key = relationKey(graph, relation);
+const saved = migrateDashboards(stored); // whatever the server held, as the current document
+const identities = relationIdentities(graph, relation);
+const table = useMemo(() => relationQuery(graph, relation), [graph, relation]);
+const publish = useMemo(() => semiJoinOf(identities[0].column, table, { label: key }), [identities, table, key]);
+
+<RelationPicker graph={graph} value={relation} onValueChange={setRelation} />
 <Dashboard
-  key={type}
-  table={verbatim(relation(type))}
-  exclude={["dense_id", "subject"]}
-  rowNoun={type}
-  value={byType[type]}
-  onChange={(spec) => change(type, spec)}
+  key={key}
+  table={table}
+  publish={publish}
+  exclude={identities.map((i) => i.column)}
+  rowNoun={relation.path.length ? "paths" : relation.root}
+  value={saved.byRelation[key]}
+  onChange={(spec) => change({ version: 2, byRelation: { ...saved.byRelation, [key]: spec } })}
 />
 ```
 
-`key={type}` remounts the dashboard on a switch. Every part withdraws its clauses when it unmounts —
-a chart's own selection is reset, an input retracts its clause — so a filter on one type never
-reaches the next. A clause published by something that stays mounted, like the graph's lasso on
-`dense_id`, carries over, which is the point: every vertex table has that key.
+The graph and the dashboard share the page's crossfilter: a brush on a tile greys out on the canvas
+every vertex but the roots of the rows it keeps, and a lasso on the canvas filters every tile —
+[what the page sees](/docs/analytics/dashboard#what-the-page-sees).
 
-`exclude` drops the host's bookkeeping from the fields: the address the graph publishes on and the
-corpus's identity column — the `address` and `identity` roles in `fossil_columns`. `byType` is one saved document per job, written whole
-— [the shape](/docs/analytics/dashboard-spec#a-storage-shape).
+`key` remounts the dashboard on a switch. Every part withdraws its clauses when it unmounts — a
+chart's own selection is reset, an input retracts its clause — so a filter on one relation never
+reaches the next. A clause published by something that stays mounted, like a graph's lasso as a
+semi-join on `dense_id`, carries over, which is the point: a relation keeps its root's key under the
+key's own name, so the lasso filters a joined relation as it filters the root's table.
+
+`exclude` drops the keys from the fields: they are identity, not data. `Dashboards` is one document,
+written whole — [the shape, and the migration from a document per type](/docs/analytics/dashboard-spec#dashboards).
 
 ## 6. Where failures go
 

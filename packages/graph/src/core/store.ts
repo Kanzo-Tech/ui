@@ -4,10 +4,11 @@ import { bindingOf } from "./channels";
 import { GraphClient, publish } from "./client";
 import { GraphError } from "./error";
 import { loadEncoding, loadGeometry, type Encoding, type Geometry } from "./load";
-import { readStructure, type Structure } from "./source";
-import type { Drawn, GraphOptions, GraphSnapshot, DataStatus, GraphStore } from "./state";
+import { readStructure } from "./source";
+import { type Structure } from "./structure";
+import type { Arrangement, Drawn, GraphOptions, GraphSnapshot, DataStatus, GraphStore } from "./state";
 
-export type { Drawn, GraphOptions, GraphSnapshot, GraphState, DataStatus, GraphStore } from "./state";
+export type { Arrangement, Drawn, GraphOptions, GraphSnapshot, GraphState, DataStatus, GraphStore, View } from "./state";
 
 function drawnOf(geometry: Geometry, encoding: Encoding, mask: Uint8Array | null): Drawn {
   const tally = encoding.domain.map(() => 0);
@@ -42,6 +43,9 @@ function maskOf(size: number, ids: Float64Array): Uint8Array {
   return mask;
 }
 
+/** How many vertices `recent` keeps: a palette's short list, not a history. */
+const RECENT = 5;
+
 export function createGraph(initial: GraphOptions): GraphStore {
   let options = initial;
   const listeners = new Set<() => void>();
@@ -54,6 +58,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
   let encoding: Encoding | null = null;
   let kept: Float64Array | null = null;
   let mask: Uint8Array | null = null;
+  let arrangement: Arrangement | null = null;
   let uploaded: readonly unknown[] = [];
   /** One read per kind in flight; a newer one makes an older one's answer stale. */
   const reading = { structure: 0, geometry: 0, encoding: 0 };
@@ -81,7 +86,6 @@ export function createGraph(initial: GraphOptions): GraphStore {
     selection: null,
     focus: null,
     hovered: null,
-    pinned: [],
     tool: null,
     motion: "settled",
     progress: 1,
@@ -91,6 +95,8 @@ export function createGraph(initial: GraphOptions): GraphStore {
     geometry: null,
     encoding: null,
     mask: null,
+    recent: [],
+    arrangement: null,
   };
 
   let domain: { key: unknown[]; value: readonly unknown[] } = { key: [], value: [] };
@@ -131,6 +137,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
       geometry,
       encoding,
       mask,
+      arrangement,
       ...fields,
     };
     snapshot = { ...snapshot, status: statusOf() };
@@ -192,6 +199,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     if (coordinator === null || given === null) return;
     read("geometry", () => loadGeometry(coordinator, given, binding), (next) => {
       geometry = next;
+      arrangement = null;
       mask = kept ? maskOf(next.size, kept) : null;
       loadChannels();
     });
@@ -215,8 +223,9 @@ export function createGraph(initial: GraphOptions): GraphStore {
     failed = false;
     structure = geometry = encoding = null;
     kept = mask = null;
+    arrangement = null;
     uploaded = [];
-    notify({ selection: null, focus: null, hovered: null, pinned: [] });
+    notify({ selection: null, focus: null, hovered: null, recent: [] });
     loadStructure();
   }
 
@@ -234,6 +243,11 @@ export function createGraph(initial: GraphOptions): GraphStore {
         notify();
       },
       (error) => fail(error),
+      () => {
+        if (snapshot.selection === null) return;
+        patch({ selection: null });
+        options.onSelect?.(null);
+      },
     );
     coordinator.connect(client);
     connected = coordinator;
@@ -300,7 +314,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
       const selection = vertices && vertices.length > 0 ? { vertices: [...vertices], source, label } : null;
       patch({ selection });
       options.onSelect?.(selection);
-      if (options.filterBy && client) publish(options.filterBy, client, selection ? selection.vertices : null);
+      if (options.filterBy && client) publish(options.filterBy, client, selection ? selection.vertices : null, label);
     },
     focus(vertex) {
       if (vertex === snapshot.focus) return;
@@ -310,8 +324,9 @@ export function createGraph(initial: GraphOptions): GraphStore {
     hover(vertex) {
       if (vertex !== snapshot.hovered) patch({ hovered: vertex });
     },
-    pin(vertices) {
-      patch({ pinned: [...vertices] });
+    remember(vertex, text) {
+      const rest = snapshot.recent.filter((entry) => entry.vertex !== vertex);
+      patch({ recent: [{ vertex, text }, ...rest].slice(0, RECENT) });
     },
     setTool(tool) {
       if (tool !== snapshot.tool) patch({ tool });
@@ -321,6 +336,10 @@ export function createGraph(initial: GraphOptions): GraphStore {
     },
     reportProgress(value) {
       if (value !== snapshot.progress) patch({ progress: value });
+    },
+    keep(next) {
+      arrangement = next;
+      patch({ arrangement });
     },
     renderable() {
       if (!unrenderable) return;

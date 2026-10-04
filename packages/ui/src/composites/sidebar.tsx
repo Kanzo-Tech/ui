@@ -21,8 +21,8 @@ import {
   TooltipTrigger,
 } from "../simples/tooltip";
 import { useIsMobile } from "../lib/use-is-mobile.js";
+import { SIDEBAR_COOKIE_NAME } from "./sidebar-cookie.js";
 
-const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 const SIDEBAR_WIDTH = "16rem";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
@@ -42,19 +42,34 @@ interface SidebarContextProps {
 const SidebarContext = React.createContext<SidebarContextProps | null>(null);
 SidebarContext.displayName = "SidebarContext";
 
+/** One mounted `SidebarIntent`; its identity is what registers and unregisters it. */
+interface Intent {
+  collapsed: boolean;
+}
+
+// Its own context so that registering stays off `useSidebar()`: a route declares an intent by
+// rendering `SidebarIntent`, and there is no second, imperative way to do it.
+const SidebarIntentContext = React.createContext<
+  ((intent: Intent) => () => void) | null
+>(null);
+SidebarIntentContext.displayName = "SidebarIntentContext";
+
 interface SidebarProviderProps extends React.ComponentProps<"div"> {
   /**
-   * The default open state of the sidebar.
+   * The person's preference on first render — on a server, `parseSidebarCookie` of the
+   * `SIDEBAR_COOKIE_NAME` cookie, so a reload keeps what they chose.
    *
    * @default true
    */
   defaultOpen?: boolean;
   /**
-   * The function to call when the open state of the sidebar changes.
+   * Called when the person's preference changes. A toggle while a `SidebarIntent` is mounted is
+   * not one, and does not call it.
    */
   onOpenChange?: (open: boolean) => void;
   /**
-   * The open state of the sidebar.
+   * The person's preference, controlled. A mounted `SidebarIntent` overrides what is shown, not
+   * this.
    */
   open?: boolean;
 }
@@ -74,10 +89,36 @@ export const SidebarProvider = (props: SidebarProviderProps) => {
   const [openMobile, setOpenMobile] = React.useState(false);
 
   const [_open, _setOpen] = React.useState(defaultOpen);
-  const open = openProp ?? _open;
+  const preference = openProp ?? _open;
+
+  // A route's intent is layered over the preference, never written into it. A toggle while one is
+  // mounted is an override that lives as long as the set of intents does — any mount or unmount
+  // drops it — and is never persisted, so leaving the route lands on the preference untouched.
+  // VS Code's zen mode is the reference: a temporary layout does not rewrite the settings.
+  const [intents, setIntents] = React.useState<readonly Intent[]>([]);
+  const [override, setOverride] = React.useState<boolean | null>(null);
+  // Order-independent on purpose: effects run children before parents, so "the last mounted wins"
+  // would let a layout's intent overrule the page inside it.
+  const intent =
+    intents.length === 0 ? null : !intents.some((i) => i.collapsed);
+  const open = intent === null ? preference : (override ?? intent);
+
+  const register = React.useCallback((next: Intent) => {
+    setIntents((all) => [...all, next]);
+    setOverride(null);
+    return () => {
+      setIntents((all) => all.filter((i) => i !== next));
+      setOverride(null);
+    };
+  }, []);
+
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
       const openState = typeof value === "function" ? value(open) : value;
+      if (intent !== null) {
+        setOverride(openState);
+        return;
+      }
       if (setOpenProp) {
         setOpenProp(openState);
       } else {
@@ -87,7 +128,7 @@ export const SidebarProvider = (props: SidebarProviderProps) => {
       // biome-ignore lint/suspicious/noDocumentCookie: Persist the sidebar state across reloads.
       document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
     },
-    [setOpenProp, open]
+    [setOpenProp, open, intent]
   );
 
   const toggleSidebar = React.useCallback(() => {
@@ -131,24 +172,26 @@ export const SidebarProvider = (props: SidebarProviderProps) => {
 
   return (
     <SidebarContext.Provider value={contextValue}>
-      <ark.div
-        className={cn(
-          "group/sidebar-wrapper",
-          "flex",
-          "min-h-svh w-full",
-          "has-data-[variant=inset]:bg-sidebar",
-          className
-        )}
-        style={
-          {
-            "--sidebar-width": SIDEBAR_WIDTH,
-            "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
-            ...style,
-          } as React.CSSProperties
-        }
-        {...rest}
-        data-slot={slot ?? "sidebar-wrapper"}
-      />
+      <SidebarIntentContext.Provider value={register}>
+        <ark.div
+          className={cn(
+            "group/sidebar-wrapper",
+            "flex",
+            "min-h-svh w-full",
+            "has-data-[variant=inset]:bg-sidebar",
+            className
+          )}
+          style={
+            {
+              "--sidebar-width": SIDEBAR_WIDTH,
+              "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
+              ...style,
+            } as React.CSSProperties
+          }
+          {...rest}
+          data-slot={slot ?? "sidebar-wrapper"}
+        />
+      </SidebarIntentContext.Provider>
     </SidebarContext.Provider>
   );
 };
@@ -847,6 +890,30 @@ export const SidebarMenuSubButton = (props: SidebarMenuSubButtonProps) => {
       data-slot={slot ?? "sidebar-menu-sub-button"}
     />
   );
+};
+
+export interface SidebarIntentProps {
+  /** Whether this route wants the sidebar collapsed while it is shown. */
+  collapsed: boolean;
+}
+
+/**
+ * A route's intent for the sidebar, in force while it is mounted: the effective state is the
+ * intent, and the person's preference returns when it unmounts. It renders nothing and never
+ * writes the cookie. When mounted intents disagree, collapsed wins.
+ */
+export const SidebarIntent = (props: SidebarIntentProps) => {
+  const { collapsed } = props;
+  const register = React.useContext(SidebarIntentContext);
+
+  if (register === null) {
+    throw new Error("SidebarIntent must be used within a SidebarProvider.");
+  }
+
+  // Before paint, so a client navigation into the route never draws a frame of the preference.
+  React.useLayoutEffect(() => register({ collapsed }), [register, collapsed]);
+
+  return null;
 };
 
 export const useSidebar = () => {

@@ -20,7 +20,9 @@ relation is applied to queries over every other. A relation without that column 
 with `key={type}`, and every part withdraws its clauses when it unmounts), or give each
 relation its own `MosaicProvider` over the shared coordinator. A clause that *should* cross
 relations has to name a column they all have — the graph's lasso publishes on `dense_id` for exactly
-that reason, and every vertex table of a corpus carries it.
+that reason, and every vertex table of a corpus carries it. A dashboard over a relation crosses the
+same way with `publish={semiJoinOf(key, table)}`: its tiles keep their clauses to themselves, and the
+page gets one semi-join on the key — [what the page sees](/docs/analytics/dashboard#what-the-page-sees).
 
 ## Columns named like a channel
 

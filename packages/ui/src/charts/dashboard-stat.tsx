@@ -3,35 +3,30 @@
 import type { TableExpr } from "@kanzo-tech/mosaic";
 import type React from "react";
 import { Query } from "@uwdata/mosaic-sql";
-import { Trash2Icon } from "lucide-react";
-import { Button } from "../simples/button.js";
-import { Field, FieldLabel } from "../simples/field.js";
-import { Input } from "../simples/input.js";
 import { StatDelta, StatLabel, StatRoot, StatTrend } from "../simples/stat.js";
 import { ChartStat } from "./chart-stat.js";
 import { chartTableKey } from "./chart-spec.js";
-import { EditPopover, MeasurePick, NONE, Pick, fieldOptions } from "./dashboard-editor.js";
-import { bucketExpr, measureExpr, measureLabel, trendFields, type DashboardStatSpec } from "./dashboard-spec.js";
+import { EditTileButton } from "./tile-controls.js";
+import { bucketExpr, measureExpr, tileTitle, type StatTile } from "./dashboard-spec.js";
 import type { FieldStat } from "./field-stats.js";
 import { useChartQuery } from "./use-chart-query.js";
 
 export interface DashboardStatProps extends Omit<React.ComponentProps<typeof StatRoot>, "onChange"> {
   table: TableExpr;
   fields: readonly FieldStat[];
-  stat: DashboardStatSpec;
-  /** Makes the tile editable. */
-  onChange?: (stat: DashboardStatSpec) => void;
-  onRemove?: () => void;
+  stat: StatTile;
+  /** Puts an edit button beside the label; the host opens the editor. */
+  onEdit?: () => void;
 }
 
 /**
- * A `DashboardStatSpec`, drawn with the `Stat` parts: the measure under the crossfilter as the
+ * A `StatTile`, drawn with the `Stat` parts: the measure under the crossfilter as the
  * figure, and — given a `trend` — the same measure along it as a sparkline, with the last step's
  * change against the one before as the delta. Metabase's trend card, which compares periods in the
  * period's own unit rather than inventing one the relation does not have.
  */
 export function DashboardStat(props: DashboardStatProps) {
-  const { table, fields, stat, onChange, onRemove, ...rest } = props;
+  const { table, fields, stat, onEdit, ...rest } = props;
   const share = stat.measure.op === "share";
   const format = share
     ? (v: number) => `${v.toFixed(1)}%`
@@ -42,10 +37,10 @@ export function DashboardStat(props: DashboardStatProps) {
 
   return (
     <StatRoot {...rest}>
-      <StatLabel className={onChange ? "col-end-3" : undefined}>{stat.label ?? measureLabel(stat.measure)}</StatLabel>
-      {onChange ? (
+      <StatLabel className={onEdit ? "col-end-3" : undefined}>{tileTitle(stat)}</StatLabel>
+      {onEdit ? (
         <div className="col-start-3 -my-1 flex justify-end">
-          <StatEditor fields={fields} onChange={onChange} onRemove={onRemove} stat={stat} />
+          <EditTileButton label="Edit figure" onClick={onEdit} />
         </div>
       ) : null}
       <ChartStat format={format} table={table} value={measureExpr(stat.measure)} />
@@ -65,7 +60,7 @@ function Trend({
 }: {
   table: TableExpr;
   field: FieldStat;
-  stat: DashboardStatSpec;
+  stat: StatTile;
   unit?: string;
   goodWhenUp?: boolean;
 }) {
@@ -95,44 +90,5 @@ function Trend({
         </StatDelta>
       ) : null}
     </>
-  );
-}
-
-function StatEditor({
-  stat,
-  fields,
-  onChange,
-  onRemove,
-}: {
-  stat: DashboardStatSpec;
-  fields: readonly FieldStat[];
-  onChange: (stat: DashboardStatSpec) => void;
-  onRemove?: () => void;
-}) {
-  return (
-    <EditPopover label="Edit tile">
-      <Field className="gap-1">
-        <FieldLabel className="text-xs">Label</FieldLabel>
-        <Input
-          onChange={(event) => onChange({ ...stat, label: event.target.value || undefined })}
-          placeholder={measureLabel(stat.measure)}
-          size="sm"
-          value={stat.label ?? ""}
-        />
-      </Field>
-      <MeasurePick fields={fields} measure={stat.measure} onChange={(measure) => onChange({ ...stat, measure })} />
-      <Pick
-        label="Trend along"
-        onChange={(value) => onChange({ ...stat, trend: value === NONE ? undefined : value })}
-        options={[{ value: NONE, label: "None" }, ...fieldOptions(trendFields(fields))]}
-        value={stat.trend ?? NONE}
-      />
-      {onRemove ? (
-        <Button className="self-start" onClick={onRemove} size="sm" variant="ghost">
-          <Trash2Icon />
-          Remove tile
-        </Button>
-      ) : null}
-    </EditPopover>
   );
 }
