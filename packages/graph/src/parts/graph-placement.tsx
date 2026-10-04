@@ -30,6 +30,9 @@ const MODES: Record<Mode, { label: string; blurb: string }> = {
   clustered: { label: "Clustered", blurb: "The layout runs, and points sharing a value of one column pull together." },
 };
 
+/** The checked card's columns, hung under it: indented to its edge and ruled in the card's checked colour. */
+const REVEALED = "ml-2.5 flex flex-col gap-1.5 border-primary border-l-2 pl-2.5";
+
 /** The manifest's numeric spellings — `fossil-sinks`' `data_type_name`. */
 const NUMERIC = /^(u?int(8|16|32|64)|float|double|decimal)$/;
 
@@ -49,16 +52,14 @@ function fieldsOf(structure: Structure | null): { any: string[]; numeric: string
 
 function Column({ columns, label, onChange, value }: { columns: string[]; label: string; onChange: (value?: string) => void; value?: string }) {
   const id = useId();
-  // A `div` and `aria-labelledby`, not a `<label>`: the card around it is already the radio's label,
-  // and a label inside a label is invalid and names the radio by the select's text.
   return (
     <div className="flex items-center gap-2 text-muted-foreground text-xs">
-      <span className="w-12 shrink-0" id={id}>
+      <label className="w-12 shrink-0" htmlFor={id}>
         {label}
-      </span>
+      </label>
       <NativeSelect
-        aria-labelledby={id}
         className="min-w-0 flex-1"
+        id={id}
         onChange={(event) => onChange(event.target.value || undefined)}
         size="sm"
         value={value ?? ""}
@@ -77,15 +78,22 @@ function Column({ columns, label, onChange, value }: { columns: string[]; label:
 /**
  * **Where the points come from, as three cards** — Force, Map and Clustered, Cosmograph's rule that
  * the data places the points or the layout does, with the cluster force as the third. The column
- * selects live in the checked card only: Map binds `x` and `y` over the numeric fields, Clustered
+ * selects open under the checked card only: Map binds `x` and `y` over the numeric fields, Clustered
  * binds `cluster` over any. The fields are the attached corpus's own, from `fossil_columns`.
  *
  * Controlled: `value` is what the root is handed, so a half-bound Map — one column of two — is a
  * running layout until the second is chosen, which the card says. The card a reader picks before
  * binding anything is held here, since `{}` alone cannot tell Force from an empty Map.
  *
- * ARIA: Ark's radio group, one radio per card, named by the card's title alone; the selects inside
- * are native, each named by its visible label, and leave the radio's arrow keys to the group.
+ * **The selects are the card's sibling, never its child.** Ark's card is the radio's `<label>`, its
+ * whole box the radio's hit area: a select inside it sits in that hit area, so a click on the select's
+ * own label or the gap around it lands on the radio, and a label holding a second control is invalid
+ * HTML. Ark's and shadcn's choice cards keep a card to its title and description for the same reason;
+ * the settings it reveals follow it, as a group named after it.
+ *
+ * ARIA: Ark's radio group, one radio per card, named by the card's title alone; each card's columns
+ * are a `group` named "<card> columns", their selects native with a real `<label>` each, reached by
+ * Tab after the group — the arrow keys stay the group's.
  */
 export function GraphPlacement({ className, onChange, slot, value, ...rest }: GraphPlacementProps) {
   const structure = useGraphState((s) => s.structure);
@@ -106,11 +114,13 @@ export function GraphPlacement({ className, onChange, slot, value, ...rest }: Gr
           value={mode}
         >
           {(Object.keys(MODES) as Mode[]).map((id) => (
-            <RadioGroupCard className="flex-col items-stretch gap-1 p-2.5" key={id} value={id}>
-              <RadioGroupText className="font-medium text-xs">{MODES[id].label}</RadioGroupText>
-              <span className="text-[10px] text-muted-foreground leading-relaxed">{MODES[id].blurb}</span>
+            <div className="flex flex-col gap-1.5" key={id}>
+              <RadioGroupCard className="flex-col items-stretch gap-1 p-2.5" value={id}>
+                <RadioGroupText className="font-medium text-xs">{MODES[id].label}</RadioGroupText>
+                <span className="text-[10px] text-muted-foreground leading-relaxed">{MODES[id].blurb}</span>
+              </RadioGroupCard>
               <Show when={mode === id && id === "map"}>
-                <div className="mt-1.5 flex flex-col gap-1.5">
+                <div aria-label={`${MODES.map.label} columns`} className={REVEALED} role="group">
                   <Column columns={fields.numeric} label="x" onChange={(x) => onChange({ x, y: value.y })} value={value.x} />
                   <Column columns={fields.numeric} label="y" onChange={(y) => onChange({ x: value.x, y })} value={value.y} />
                   <Show when={half}>
@@ -119,11 +129,11 @@ export function GraphPlacement({ className, onChange, slot, value, ...rest }: Gr
                 </div>
               </Show>
               <Show when={mode === id && id === "clustered"}>
-                <div className="mt-1.5">
+                <div aria-label={`${MODES.clustered.label} columns`} className={REVEALED} role="group">
                   <Column columns={fields.any} label="cluster" onChange={(cluster) => onChange({ cluster })} value={value.cluster} />
                 </div>
               </Show>
-            </RadioGroupCard>
+            </div>
           ))}
         </RadioGroup>
       </PreferencesFieldSet>

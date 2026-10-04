@@ -77,8 +77,8 @@ graph, a second main view and a dock of panels.
 - `GraphLooks` — Nebula, Atlas and Ink as presets over `GRAPH_SECTION`'s axes, with the axes —
   marks, edges, labels, the backdrop — always in view under them. Needs `GRAPH_SECTION` on the theme
   provider, and no root.
-- `GraphPlacement` — Force, Map or Clustered as cards, with the corpus's own columns to bind inside
-  the checked one. Controlled: `value`/`onChange` of the root's `x`, `y` and `cluster`.
+- `GraphPlacement` — Force, Map or Clustered as cards, with the corpus's own columns to bind under
+  the checked one, beside the card and never inside it. Controlled: `value`/`onChange` of the root's `x`, `y` and `cluster`.
 - `ShapeGlyph` — the glyph the canvas draws for a category, in the DOM.
 
 No part takes a callback of its own: what a click means is `onSelect`, `onFocus` and `onFailure` on
