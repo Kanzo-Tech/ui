@@ -36,13 +36,13 @@
   "peerDependencies": {
     "@ai-sdk/react": "^4.0.0",
     "@ark-ui/react": "^5.37.2",
-    "@codemirror/lang-sql": ">=6",
+    "@codemirror/lang-sql": "^6.0.0",
     "@kanzo-tech/mosaic": "workspace:*",
     "@kanzo-tech/ui": "workspace:*",
     "ai": "^7.0.0",
-    "lucide-react": ">=1",
-    "react": ">=19",
-    "react-dom": ">=19"
+    "lucide-react": "^1.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "peerDependenciesMeta": {
     "@codemirror/lang-sql": {

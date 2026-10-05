@@ -21,7 +21,7 @@ variable "client_secret" {
 }
 
 module "app" {
-  source = "git::https://github.com/Kanzo-Tech/ui.git//services/auth/modules/app?ref=v0.28.0"
+  source = "git::https://github.com/Kanzo-Tech/ui.git//services/auth/modules/app?ref=v0.30.0"
 
   realm_id      = var.realm_id
   client_id     = "board"

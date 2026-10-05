@@ -34,7 +34,7 @@
     "@cosmos.gl/graph": "^3.4.0",
     "@kanzo-tech/mosaic": "workspace:*",
     "@kanzo-tech/ui": "workspace:*",
-    "lucide-react": ">=1",
+    "lucide-react": "^1.0.0",
     "react": "^19.0.0"
   },
   "devDependencies": {

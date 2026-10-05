@@ -37,7 +37,7 @@ export const Foo = (props: FooProps) => {
 ```
 
 <Callout title="React 19, not 18">
-  The React peer is `>=19`, where `ref` is an ordinary prop. Use `React.ComponentProps<…>`,
+  The React peer is `^19`, where `ref` is an ordinary prop. Use `React.ComponentProps<…>`,
   which already includes it, and a plain function component. `forwardRef` still works but is
   redundant, and `ComponentPropsWithoutRef` silently drops `ref`.
 </Callout>

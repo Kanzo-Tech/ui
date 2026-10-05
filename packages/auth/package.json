@@ -32,12 +32,12 @@
     "test": "vitest run",
     "size": "size-limit"
   },
-  "//peers": "react is REQUIRED: the root barrel exports a provider and hooks, and two copies of React are two context trees. Everything else is optional and lives behind a subpath: openid-client and jose are the confidential client behind `./server`, and next (16 or later, whose proxy runs on Node and can therefore read and renew a session) is behind `./next`. The browser half, `bffAuth`, needs no engine at all. The public browser client and its oidc-client-ts peer were removed: RFC 10017 recommends the BFF for business applications and nothing consumed the other. Deliberately absent: tailwind-variants, because nothing here draws — which is also what keeps this package out of the appearance guards, whose corpus in packages/ui/src/guard-corpus.ts selects on exactly that dependency. The day this package grows a screen the dependency arrives with it and the guards pick it up unasked; no list anywhere needs editing.",
+  "//peers": "react is REQUIRED: the root barrel exports a provider and hooks, and two copies of React are two context trees. Everything else is optional and lives behind a subpath: openid-client and jose are the confidential client behind `./server`, and next (16, whose proxy runs on Node and can therefore read and renew a session) is behind `./next`. The browser half, `bffAuth`, needs no engine at all. The public browser client and its oidc-client-ts peer were removed: RFC 10017 recommends the BFF for business applications and nothing consumed the other. Deliberately absent: tailwind-variants, because nothing here draws — which is also what keeps this package out of the appearance guards, whose corpus in packages/ui/src/guard-corpus.ts selects on exactly that dependency. The day this package grows a screen the dependency arrives with it and the guards pick it up unasked; no list anywhere needs editing.",
   "peerDependencies": {
     "jose": "^6",
-    "next": ">=16",
+    "next": "^16.0.0",
     "openid-client": "^6",
-    "react": ">=19"
+    "react": "^19.0.0"
   },
   "peerDependenciesMeta": {
     "jose": {
