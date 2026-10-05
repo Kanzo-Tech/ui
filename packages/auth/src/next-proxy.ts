@@ -1,4 +1,4 @@
-import type { Bound } from "./next-bound";
+import { tenantRequest, type Bound } from "./next-bound";
 import { outage } from "./next-routes";
 import { isSameSite } from "./same-site";
 import type { Ended, Token } from "./server";
@@ -124,7 +124,7 @@ export function forward(instance: () => Promise<Bound>): ApiHandlers {
     if (!isSameSite(request)) return refuse(403);
 
     const base = bound.api.mount;
-    const target = bound.api.target;
+    const target = bound.api.target(await bound.tenant(tenantRequest(request)));
     /** `https://api.test` has pathname `/`, and a prefix of `/` would double every separator. */
     const prefix = target.pathname.replace(/\/$/, "");
 

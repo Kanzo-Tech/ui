@@ -1,5 +1,6 @@
 import { relyingParty, type RelyingParty, type RelyingPartyConfig } from "./server";
 import type { Session } from "./types";
+import { cookieValue } from "./cookie-session";
 import { withoutTrailingSlashes } from "./issuer";
 
 /**
@@ -52,8 +53,15 @@ export interface KanzoAuthConfig extends RelyingPartyConfig {
   /**
    * Forward `mount` to a resource server at `target` with the access token as a bearer — the
    * token-mediating backend. The proxy leaves `mount` alone; `api` answers it.
+   *
+   * `target` may depend on the organization a request addresses: one BFF in front of a resource
+   * server per tenant, which is Keycloak's Organizations model — one client shared by every
+   * organization — with the data still kept apart.
    */
-  readonly api?: { readonly mount: string; readonly target: string };
+  readonly api?: {
+    readonly mount: string;
+    readonly target: string | ((organization: string | undefined) => string);
+  };
 }
 
 /** What a `kanzoAuth` instance is once its config has been read: one relying party and its settings. */
@@ -63,10 +71,25 @@ export interface Bound {
   readonly problemPage: string;
   readonly redirectUri?: string;
   readonly renewWithin?: number;
-  readonly api?: { readonly mount: string; readonly target: URL };
+  readonly api?: { readonly mount: string; target(organization: string | undefined): URL };
   /** Prefixes the proxy lets through: the routes, the forwarder, the problem page, and `public`. */
   readonly open: readonly string[];
   tenant(request: TenantRequest): Promise<string | undefined>;
+}
+
+/** What a tenant resolver reads, from a request a route handler was given. */
+export function tenantRequest(request: Request): TenantRequest {
+  const header = request.headers.get("cookie");
+  return {
+    url: new URL(request.url),
+    headers: request.headers,
+    cookies: {
+      get(name: string) {
+        const value = cookieValue(header, name);
+        return value === undefined ? undefined : { value };
+      },
+    },
+  };
 }
 
 /** The request header the proxy forwards the URL on — AuthKit's `x-url` — for a server component to read. */
@@ -76,10 +99,15 @@ export const URL_HEADER = "x-kanzo-url";
 export function bind(config: KanzoAuthConfig): Bound {
   const basePath = withoutTrailingSlashes(config.basePath ?? "/api/auth");
   const problemPage = config.problemPage ?? "/auth/problem";
+  const forward = config.api;
   const api =
-    config.api === undefined
+    forward === undefined
       ? undefined
-      : { mount: withoutTrailingSlashes(config.api.mount), target: new URL(config.api.target) };
+      : {
+          mount: withoutTrailingSlashes(forward.mount),
+          target: (organization: string | undefined) =>
+            new URL(typeof forward.target === "string" ? forward.target : forward.target(organization)),
+        };
   const resolve = config.organization;
   return {
     party: relyingParty(config),

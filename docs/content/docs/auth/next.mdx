@@ -274,6 +274,21 @@ and an SSE stream is never buffered until it ends, sets `redirect: "manual"` so 
 the upstream cannot send the bearer token to whatever host it names, drops `set-cookie` from the
 answer, and drops `content-encoding` and `content-length` with it.
 
+`target` may be a function of the organization the request addresses — the same answer
+`organization` gives — for one BFF in front of a resource server per tenant:
+
+```ts
+kanzoAuth(() => ({
+  …,
+  organization: (request) => request.url.hostname.split(".")[0],
+  api: { mount: "/api", target: (organization) => `http://${organization}-api:8080` },
+}));
+```
+
+That is Keycloak's Organizations model: **one client shared by every organization**, with the
+tenant in the token, so one sign-in, one session store and one back-channel logout URL serve them
+all, while each tenant's data stays behind its own resource server.
+
 It answers **401** with the cookie cleared when there is no session or the renewal was refused,
 **403** when the request is not same-site, **400** for a path outside its mount, and **404** when
 `kanzoAuth` was given no `api`. The proxy leaves `api.mount` alone.
@@ -316,7 +331,7 @@ Nothing here is invented; each piece is a reference system's answer or a standar
 | `public` | `readonly string[]` | nothing |
 | `redirectUri` | `string` | derived from the request |
 | `renewWithin` | `number` | `60`, in seconds |
-| `api` | `{ mount: string; target: string }` | none; `api` answers 404 |
+| `api` | `{ mount: string; target: string \| ((organization: string \| undefined) => string) }` | none; `api` answers 404 |
 
 ### `KanzoAuth`
 
