@@ -20,9 +20,13 @@ resource "keycloak_openid_client" "app" {
   # On a confidential client too: it costs nothing and closes code injection against the callback.
   pkce_code_challenge_method = "S256"
 
-  valid_redirect_uris                 = var.redirect_uris
-  valid_post_logout_redirect_uris     = var.post_logout_redirect_uris
-  web_origins                         = var.web_origins
+  valid_redirect_uris             = var.redirect_uris
+  valid_post_logout_redirect_uris = var.post_logout_redirect_uris
+  web_origins                     = var.web_origins
+
+  # OIDC Back-Channel Logout: where Keycloak posts a logout token when a session ends at the IdP.
+  # `session_required` puts `sid` in it, so one browser session can end without the others.
+  backchannel_logout_url              = var.backchannel_logout_url
   backchannel_logout_session_required = true
 }
 
