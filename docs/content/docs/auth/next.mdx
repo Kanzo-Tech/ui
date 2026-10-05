@@ -287,7 +287,8 @@ kanzoAuth(() => ({
 
 That is Keycloak's Organizations model: **one client shared by every organization**, with the
 tenant in the token, so one sign-in, one session store and one back-channel logout URL serve them
-all, while each tenant's data stays behind its own resource server.
+all, while each tenant's data stays behind its own resource server. A request that addresses no
+organization — a bare host — gets `undefined` from the function, and `api` answers it 404.
 
 It answers **401** with the cookie cleared when there is no session or the renewal was refused,
 **403** when the request is not same-site, **400** for a path outside its mount, and **404** when
@@ -331,7 +332,7 @@ Nothing here is invented; each piece is a reference system's answer or a standar
 | `public` | `readonly string[]` | nothing |
 | `redirectUri` | `string` | derived from the request |
 | `renewWithin` | `number` | `60`, in seconds |
-| `api` | `{ mount: string; target: string \| ((organization: string \| undefined) => string) }` | none; `api` answers 404 |
+| `api` | `{ mount: string; target: string \| ((organization: string \| undefined) => string \| undefined) }` | none; `api` answers 404 |
 
 ### `KanzoAuth`
 

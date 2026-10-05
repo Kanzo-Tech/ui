@@ -125,6 +125,7 @@ export function forward(instance: () => Promise<Bound>): ApiHandlers {
 
     const base = bound.api.mount;
     const target = bound.api.target(await bound.tenant(tenantRequest(request)));
+    if (target === undefined) return refuse(404);
     /** `https://api.test` has pathname `/`, and a prefix of `/` would double every separator. */
     const prefix = target.pathname.replace(/\/$/, "");
 

@@ -56,11 +56,12 @@ export interface KanzoAuthConfig extends RelyingPartyConfig {
    *
    * `target` may depend on the organization a request addresses: one BFF in front of a resource
    * server per tenant, which is Keycloak's Organizations model — one client shared by every
-   * organization — with the data still kept apart.
+   * organization — with the data still kept apart. A request that addresses none — a bare host —
+   * has no server to reach, and `undefined` answers it 404.
    */
   readonly api?: {
     readonly mount: string;
-    readonly target: string | ((organization: string | undefined) => string);
+    readonly target: string | ((organization: string | undefined) => string | undefined);
   };
 }
 
@@ -71,7 +72,7 @@ export interface Bound {
   readonly problemPage: string;
   readonly redirectUri?: string;
   readonly renewWithin?: number;
-  readonly api?: { readonly mount: string; target(organization: string | undefined): URL };
+  readonly api?: { readonly mount: string; target(organization: string | undefined): URL | undefined };
   /** Prefixes the proxy lets through: the routes, the forwarder, the problem page, and `public`. */
   readonly open: readonly string[];
   tenant(request: TenantRequest): Promise<string | undefined>;
@@ -105,8 +106,10 @@ export function bind(config: KanzoAuthConfig): Bound {
       ? undefined
       : {
           mount: withoutTrailingSlashes(forward.mount),
-          target: (organization: string | undefined) =>
-            new URL(typeof forward.target === "string" ? forward.target : forward.target(organization)),
+          target: (organization: string | undefined) => {
+            const target = typeof forward.target === "string" ? forward.target : forward.target(organization);
+            return target === undefined ? undefined : new URL(target);
+          },
         };
   const resolve = config.organization;
   return {

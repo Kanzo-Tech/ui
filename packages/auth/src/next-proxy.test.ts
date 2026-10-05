@@ -98,6 +98,20 @@ describe("kanzoAuth().api", () => {
     expect(sent().url.href).toBe("https://acme.reports.internal/v1/reports/7");
   });
 
+  it("answers 404, and reaches nothing, for a request that addresses no organization", async () => {
+    const cookie = await signIn();
+    const tenanted = kanzoAuth({
+      ...config,
+      organization: () => undefined,
+      api: { mount: "/api/data", target: (organization) => organization && `https://${organization}.reports.internal` },
+    });
+
+    const response = await tenanted.api.GET(new Request("https://app.test/api/data/reports/7", { headers: { cookie } }));
+
+    expect(response.status).toBe(404);
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
   it("attaches the access token as a bearer", async () => {
     realm.state.accessToken = "the-bearer-token";
     const cookie = await signIn();
