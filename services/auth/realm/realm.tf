@@ -27,4 +27,18 @@ resource "keycloak_realm" "kanzo" {
   refresh_token_max_reuse = 0
 
   ssl_required = "external" # `all` would break plain-http localhost development
+
+  # Passkeys beside the password, never instead of it. The username step offers the
+  # passkeys a browser holds for this site as autofill (conditional mediation, the
+  # default) and a "Sign in with Passkey" button; a passkey skips the password step.
+  # The provider sends every field of the block, so the two Keycloak's passwordless
+  # scenario requires are spelled out rather than reset to `not specified`. A person
+  # adds one from the account console (Signing in → Passkeys), through the
+  # `webauthn-register-passwordless` required action Keycloak enables in every realm.
+  web_authn_passwordless_policy {
+    passwordless_passkeys_enabled = true
+    relying_party_entity_name     = "Kanzo"
+    user_verification_requirement = "required"
+    discoverable_credential       = "required" # what autofill lists: no username needed
+  }
 }
