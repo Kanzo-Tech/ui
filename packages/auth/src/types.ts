@@ -28,10 +28,11 @@ export interface Organization {
 /**
  * The whole of what the client knows about who is signed in.
  *
- * **There is no active organization here, and the absence is the design.** Membership is stable and
- * comes from the token; which organization you are *looking at* is a property of the request — the
- * URL — and deriving it per request is what lets two tabs sit in two organizations at once. A field
- * here would be the single shared value they would fight over.
+ * **Membership and the current organization are two different things, and only the first is
+ * stored.** Membership is stable and comes from the token. Which organization a request is *in* is
+ * a property of that request — its host, its path, a cookie — so `organization` is resolved per
+ * request by the product's resolver and never written into the session record. That is what lets
+ * two tabs sit in two organizations at once: there is no shared value for them to fight over.
  *
  * `roles` are the realm and client roles: global to the person. Roles held inside an organization
  * live on that `Organization`. They are kept apart on purpose, because merging them is how a role
@@ -41,7 +42,17 @@ export interface Session {
   readonly user: AuthUser;
   readonly roles: readonly string[];
   readonly organizations: readonly Organization[];
-  /** Epoch milliseconds. The client uses it to refresh early, never to decide access. */
+  /**
+   * The alias of the organization this request addresses, as the product's resolver answered it.
+   *
+   * An address, not a proof of membership: `can` answers `false` for an organization the person
+   * does not belong to, which is how a product tells "not a member here" from "no tenant".
+   */
+  readonly organization?: string;
+  /**
+   * Epoch milliseconds: when the access token expires, which is when the next renewal is due. The
+   * client never uses it to decide access.
+   */
   readonly expiresAt: number;
 }
 
@@ -50,23 +61,20 @@ export interface SignInOptions {
   /** Defaults to the current URL. */
   readonly returnTo?: string;
   /**
-   * Ask Keycloak for one organization's scope rather than every one the person belongs to.
-   * Omitted, a multi-tenant product should request `organization:*` — `DEFAULT_SCOPE` in
-   * `browser.ts` carries why the star is not optional.
+   * Ask Keycloak for one organization's scope in place of `organization:*`, which every sign-in
+   * otherwise requests — plain `organization` would make Keycloak prompt for a choice.
    */
   readonly organization?: string;
 }
 
 /**
- * What a product holds, and the only seam between the two deployment patterns.
+ * What a product holds in the browser: the seam between the hooks and the session behind them.
  *
- * RFC 10017 names three architectures for browser applications and this package implements two:
- * a **Backend For Frontend**, where the token never reaches the browser and a cookie carries the
- * session, and a **browser-based OAuth client** with PKCE, for the SPA that has no server to put a
- * confidential client in. `bffAuth` and `browserAuth` are those two, and they are interchangeable
- * here — which is what lets `useSession`, `Gate` and `auth.fetch` be written once.
- *
- * A product names its pattern on one line, at startup, and nothing downstream knows which it chose.
+ * RFC 10017 names three architectures for browser applications, and this package implements the
+ * one it recommends for business applications: a **Backend For Frontend**, where the token never
+ * reaches the browser and a cookie carries the session. `bffAuth` is that implementation. The
+ * interface stays an interface so `useSession`, `Gate` and a test double are written against what
+ * a session *does*, not against the transport underneath.
  */
 export interface Auth {
   /** The session now, or `null`. Answers from cache and renews when near expiry. */
@@ -78,10 +86,7 @@ export interface Auth {
   subscribe(onChange: () => void): () => void;
   signIn(options?: SignInOptions): Promise<void>;
   signOut(options?: { readonly returnTo?: string }): Promise<void>;
-  /**
-   * A `fetch` that stays authenticated: the bearer token under one pattern, the cookie riding
-   * along by itself under the other, and a single retry after a renewal in both.
-   */
+  /** A `fetch` that stays authenticated: the cookie rides along, and one retry after a renewal. */
   readonly fetch: typeof globalThis.fetch;
 }
 
@@ -119,8 +124,6 @@ export type AuthErrorCode =
    * `session/unavailable`.
    */
   | "session/silent"
-  /** Signed in, but holds no membership of the organization being addressed. */
-  | "organization/not-a-member"
   /**
    * The organization asked for is not an alias, so it was not put into a scope.
    *
@@ -133,8 +136,22 @@ export type AuthErrorCode =
   | "callback/state-mismatch"
   /** The ID token's `nonce` is not the one that was sent — a replay. */
   | "callback/nonce-mismatch"
-  /** The token endpoint refused the code or the refresh token, or returned no ID token. */
+  /**
+   * The token endpoint refused the authorization code or answered with something unusable — no ID
+   * token, no access token, a client it does not recognise. A deployment fault or a replayed code.
+   */
   | "token/exchange-failed"
+  /**
+   * A token was refused and the session is over: the IdP answered `invalid_grant` to the refresh
+   * token (its SSO session went idle, or was ended), or a back-channel logout token did not verify.
+   */
+  | "token/refused"
+  /**
+   * The session store cannot end a session from the server: a stateless store keeps the session in
+   * the cookie, and a ticket adapter without `keys` cannot find a person's sessions. A back-channel
+   * logout answers 501 for it.
+   */
+  | "session/irrevocable"
   /** The IdP could not be reached, or answered with something that is not OAuth — a 5xx, a proxy page. */
   | "idp/unreachable"
   /** The IdP did not answer within `data.after` milliseconds. */

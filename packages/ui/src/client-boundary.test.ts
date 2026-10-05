@@ -49,7 +49,7 @@ import { label, resolvePath, sourceFiles, subtrees, unreadable } from "./guard-c
  *   this guard's one open gap.** All three declare `react` as a peer and none declares
  *   `tailwind-variants`, so the corpus that selects on appearance rejects them — correctly for every
  *   rule about colour and classes, and wrongly for this one, which is about React and not about
- *   drawing. `graph`'s `react/` and `parts/`, `auth`'s `use-session` / `use-organization` and
+ *   drawing. `graph`'s `react/` and `parts/`, `auth`'s `use-session` and
  *   `navigation`'s hook and `Link` are hooks and components, so the shape most likely to be wrong in
  *   any of them is a *missing* directive: the expensive half. `navigation`'s modules are exercised by
  *   the docs build all the same — `/fixtures/navigation-guard` is a server page rendering them.

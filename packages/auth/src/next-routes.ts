@@ -1,14 +1,14 @@
+import { cookieValue } from "./cookie-session";
+import { withTenant, type Bound } from "./next-bound";
 import { isSameSite } from "./same-site";
-import type { AuthSessionConfig } from "./next-session";
-import { relyingParty, type RelyingParty } from "./server";
-import { AuthError, type AuthErrorCode } from "./types";
+import { AuthError, type AuthErrorCode, type Session } from "./types";
 
 /**
- * The five routes a Backend For Frontend needs, as one App Router catch-all.
+ * The six routes a Backend For Frontend needs, as one App Router catch-all: `kanzoAuth().routes`.
  *
  * ```ts
  * // app/api/auth/[...auth]/route.ts
- * export const { GET, POST } = authRoutes({ issuer, clientId, clientSecret, secret });
+ * export const { GET, POST } = auth.routes;
  * ```
  *
  * `relyingParty` already does the whole flow in strings — a URL and a `Cookie` header in, a URL and
@@ -19,61 +19,49 @@ import { AuthError, type AuthErrorCode } from "./types";
  * **Nothing in this module imports `next`.** An App Router route handler is handed a standard
  * `Request` and may answer with a standard `Response`, so the framework's own types would buy
  * nothing and would make this half untestable without it. The door earns its subpath through
- * `next-session.ts` and `next-middleware.ts`, which genuinely cannot be written without `next`.
+ * `next-auth.ts` and `next-gate.ts`, which genuinely cannot be written without `next`.
  *
  * ## The other end of the contract
  *
  * `bffAuth` in the root barrel is the browser half, and it is specific: it `GET`s
  * `${basePath}/session` and reads **401 as "nobody is signed in"**, not as a failure; it `POST`s
  * `${basePath}/refresh` when a request of its own comes back 401, and retries that request once if
- * the renewal worked; it navigates to `${basePath}/signin?returnTo=…&organization=…` and
- * `${basePath}/signout?returnTo=…`. Those five paths and those status codes are the contract, and
- * `next-routes.test.ts` drives a real `bffAuth` against these handlers rather than trusting the
- * two descriptions to agree.
+ * the renewal worked, and signs in once if it was refused; it navigates to
+ * `${basePath}/signin?returnTo=…&organization=…` and `${basePath}/signout?returnTo=…`. Those paths
+ * and those status codes are the contract, and `next-routes.test.ts` drives a real `bffAuth`
+ * against these handlers rather than trusting the two descriptions to agree.
  *
  * ## A failure on a navigation is a page, not a body
  *
  * `signin`, `callback` and `signout` are reached by the browser's address bar, so an `AuthError`
- * there answers with a redirect to the product's {@link AuthRoutesConfig.problemPage}, the code in
- * `?code=`, where the product renders it in its own words. `session` and `refresh` are reached by
- * `fetch`, and answer with a status and `{ error, message }`.
+ * there answers with a redirect to the product's `problemPage`, the code in `?code=`, where the
+ * product renders it in its own words. `session` and `refresh` are reached by `fetch`, and answer
+ * with a status and `{ error, message }`.
+ *
+ * ## Back-channel logout
+ *
+ * `backchannel-logout` is where Keycloak posts a logout token when a session ends at the IdP — an
+ * administrator's sign-out, a session that expired there, a sign-out from another application —
+ * per OpenID Connect Back-Channel Logout 1.0. It answers 200 once the sessions it names are
+ * dropped, 400 for a token that does not verify, and 501 when the store cannot end a session from
+ * the server (`session/irrevocable`): the specification's answers, so Keycloak's admin console
+ * reports the failure rather than believing a logout happened.
  *
  * ## Which routes a cross-site request may reach
  *
  * `callback` and `signin` must be reachable from anywhere — one *is* a navigation from the
- * identity provider, and the other is a link somebody is allowed to put on another page. The other
- * three are not: `signout` reached cross-site is a logout anyone can cause, `refresh` is a
- * rotation anyone can cause, and `session` is a person's identity read from a page that is not
- * ours. `same-site.ts` carries the check and the reason the package rather than the product owes
- * it.
+ * identity provider, and the other is a link somebody is allowed to put on another page — and so
+ * must `backchannel-logout`, which is a server's POST, not a page's, and is authenticated by the
+ * signature on the token it carries. The other three are not: `signout` reached cross-site is a
+ * logout anyone can cause, `refresh` is a rotation anyone can cause, and `session` is a person's
+ * identity read from a page that is not ours. `same-site.ts` carries the check and the reason the
+ * package rather than the product owes it.
  */
 
 /** The session endpoint answers about a person; no cache may ever hold that answer. */
 const PRIVATE = { "content-type": "application/json", "cache-control": "no-store" } as const;
 
-export interface AuthRoutesConfig extends AuthSessionConfig {
-  /**
-   * Override the callback URL. Absent, it is derived from the incoming request: the origin it
-   * arrived at, the path this route file sits on, and `/callback`.
-   *
-   * Deriving it trusts the `Host` header, which is chosen by whoever made the request. That is a
-   * bounded trust — a forged host produces a `redirect_uri` Keycloak has not registered, and
-   * Keycloak refuses it — but a deployment behind a proxy that rewrites the host should say the
-   * URL out loud here rather than discover this.
-   */
-  readonly redirectUri?: string;
-  /**
-   * The product's page that renders a failed sign-in, sign-in callback or sign-out, reached as
-   * `?code=<AuthErrorCode>`. Default `/auth/problem`. `authMiddleware` keeps the same default
-   * public: whoever lands here has, by definition, no session.
-   */
-  readonly problemPage?: string;
-}
-
-/** Where a failed navigation is sent; `authMiddleware` holds the same default. */
-const PROBLEM_PAGE = "/auth/problem";
-
-export interface AuthRouteHandlers {
+export interface RouteHandlers {
   GET(request: Request): Promise<Response>;
   POST(request: Request): Promise<Response>;
 }
@@ -118,6 +106,11 @@ function redirect(url: string, cookies: readonly string[]): Response {
   return new Response(null, { status: 302, headers });
 }
 
+/** No body, never cached: a status is the whole answer. */
+function bare(status: number, headers: Record<string, string> = {}): Response {
+  return new Response(null, { status, headers: { "cache-control": "no-store", ...headers } });
+}
+
 /** The status for a party that did not answer, or `undefined` for a refusal. */
 export function outage(code: AuthErrorCode): number | undefined {
   if (code === "idp/silent" || code === "session/silent") return 504;
@@ -134,47 +127,50 @@ export function outage(code: AuthErrorCode): number | undefined {
  */
 function failure(error: unknown): Response {
   if (!(error instanceof AuthError)) throw error;
-  return new Response(JSON.stringify({ error: error.code, message: error.message }), {
-    status: outage(error.code) ?? (error.code === "session/absent" ? 401 : 400),
-    headers: PRIVATE,
-  });
+  return coded(error.code, error.message, outage(error.code) ?? 400);
 }
 
-export function authRoutes(config: AuthRoutesConfig): AuthRouteHandlers {
-  // One instance, rebuilt only when the callback URL it was built for changes. A `Map` keyed by
-  // origin would grow without bound on a stream of forged `Host` headers; a single slot cannot,
-  // and it self-heals, because the next genuine request derives its own URL again. What it costs
-  // in that case is a re-discovery, which is the right price for a request that lied.
-  let current: { readonly redirectUri: string; readonly auth: RelyingParty } | undefined;
-  const authFor = (redirectUri: string): RelyingParty => {
-    if (current?.redirectUri !== redirectUri) {
-      current = { redirectUri, auth: relyingParty({ ...config, redirectUri }) };
-    }
-    return current.auth;
-  };
+function coded(code: AuthErrorCode, message: string, status: number, cookies: readonly string[] = []): Response {
+  const headers = new Headers(PRIVATE);
+  for (const cookie of cookies) headers.append("set-cookie", cookie);
+  return new Response(JSON.stringify({ error: code, message }), { status, headers });
+}
 
-  /** An `AuthError` on a navigation, as the product's page; anything else rethrown, as in `failure`. */
-  const problem = (error: unknown, origin: string): Response => {
-    if (!(error instanceof AuthError)) throw error;
-    const page = new URL(config.problemPage ?? PROBLEM_PAGE, origin);
-    page.searchParams.set("code", error.code);
-    return redirect(page.href, []);
+/** A request's cookies as a tenant resolver reads them, from the `Cookie` header a route is handed. */
+function jar(header: string | null) {
+  return {
+    get(name: string) {
+      const value = cookieValue(header, name);
+      return value === undefined ? undefined : { value };
+    },
   };
+}
 
+export function routes(instance: () => Promise<Bound>): RouteHandlers {
   const handle = async (request: Request): Promise<Response> => {
+    const bound = await instance();
     const url = new URL(request.url);
     const { action, base } = split(url.pathname);
     const cookie = request.headers.get("cookie");
-    const auth = authFor(config.redirectUri ?? `${url.origin}${base}/callback`);
+    const auth = bound.party;
+    const redirectUri = bound.redirectUri ?? `${url.origin}${base}/callback`;
 
-    if (action !== "callback" && action !== "signin" && !isSameSite(request)) {
-      return new Response(null, { status: 403, headers: { "cache-control": "no-store" } });
-    }
+    /** An `AuthError` on a navigation, as the product's page; anything else rethrown, as in `failure`. */
+    const problem = (error: unknown): Response => {
+      if (!(error instanceof AuthError)) throw error;
+      const page = new URL(bound.problemPage, url.origin);
+      page.searchParams.set("code", error.code);
+      return redirect(page.href, []);
+    };
+
+    const crossable = action === "callback" || action === "signin" || action === "backchannel-logout";
+    if (!crossable && !isSameSite(request)) return bare(403);
 
     switch (action) {
       case "signin": {
         try {
           const started = await auth.begin({
+            redirectUri,
             returnTo: sameOrigin(url.searchParams.get("returnTo"), url.origin) ?? "/",
             organization: url.searchParams.get("organization") ?? undefined,
           });
@@ -183,16 +179,16 @@ export function authRoutes(config: AuthRoutesConfig): AuthRouteHandlers {
           // `organization` arrives from a query parameter and `begin` refuses one that is not an
           // alias, because a space in it injects scopes; and the IdP may be down. Without this
           // `catch` either is a 500 on a link.
-          return problem(error, url.origin);
+          return problem(error);
         }
       }
 
       case "callback": {
         try {
-          const done = await auth.complete({ url, cookie });
+          const done = await auth.complete({ url, cookie, redirectUri });
           return redirect(done.returnTo, done.cookies);
         } catch (error) {
-          return problem(error, url.origin);
+          return problem(error);
         }
       }
 
@@ -202,45 +198,63 @@ export function authRoutes(config: AuthRoutesConfig): AuthRouteHandlers {
           const ended = await auth.end(cookie, { returnTo });
           return redirect(ended.url, ended.cookies);
         } catch (error) {
-          return problem(error, url.origin);
+          return problem(error);
         }
       }
 
       case "session": {
-        let session: Awaited<ReturnType<RelyingParty["read"]>>;
+        let session: Session | null;
         try {
           session = await auth.read(cookie);
+          if (session !== null) {
+            session = withTenant(
+              session,
+              await bound.tenant({ url, headers: request.headers, cookies: jar(cookie) }),
+            );
+          }
         } catch (error) {
           return failure(error);
         }
         // 401 and no body at all. `bffAuth` reads this status as "nobody is signed in" and stops;
         // a body would be parsed by something eventually, and an error shape arriving where a
         // `Session` is expected is the failure `readSession` exists to refuse.
-        if (session === null) {
-          return new Response(null, { status: 401, headers: { "cache-control": "no-store" } });
-        }
+        if (session === null) return bare(401);
         return new Response(JSON.stringify(session), { status: 200, headers: PRIVATE });
       }
 
       case "refresh": {
-        // `POST` only, and it is the one route here that constrains its verb. The others are
-        // reached by navigation, where the verb is the browser's to choose; this one spends a
-        // refresh token, and a `GET` that spends something is a link, a prefetch and a preview
-        // pane away from spending it. The 405 says so rather than answering 404 for a route that
-        // is plainly there.
-        if (request.method !== "POST") {
-          return new Response(null, { status: 405, headers: { allow: "POST" } });
-        }
+        // `POST` only. The other routes are reached by navigation, where the verb is the browser's
+        // to choose; this one spends a refresh token, and a `GET` that spends something is a link,
+        // a prefetch and a preview pane away from spending it.
+        if (request.method !== "POST") return bare(405, { allow: "POST" });
         try {
           const renewed = await auth.refresh(cookie);
+          // An ended session is a 401 and the cookie cleared in the same answer, so the browser
+          // stops presenting a ticket whose row is gone. An outage is a 5xx, which `bffAuth` does
+          // not read as an ended session.
+          if (renewed.ended) {
+            return coded(renewed.code, "there is no session left to renew", 401, renewed.cookies);
+          }
           const headers = new Headers(PRIVATE);
           for (const value of renewed.cookies) headers.append("set-cookie", value);
           return new Response(JSON.stringify(renewed.session), { status: 200, headers });
         } catch (error) {
-          // A refused refresh is the end of the session, and `failure` already answers 401 for
-          // `session/absent`. `token/exchange-failed` is a 400 and means the same thing to the
-          // browser: there is nothing left to renew, go and sign in. An outage is a 5xx, which
-          // `bffAuth` does not read as an ended session.
+          return failure(error);
+        }
+      }
+
+      case "backchannel-logout": {
+        if (request.method !== "POST") return bare(405, { allow: "POST" });
+        // §2.5: `application/x-www-form-urlencoded`, one parameter.
+        const token = new URLSearchParams(await request.text()).get("logout_token");
+        if (token === null || token === "") return coded("token/refused", "no `logout_token`", 400);
+        try {
+          await auth.logout(token);
+          return bare(200);
+        } catch (error) {
+          if (error instanceof AuthError && error.code === "session/irrevocable") {
+            return coded(error.code, error.message, 501);
+          }
           return failure(error);
         }
       }
@@ -252,7 +266,7 @@ export function authRoutes(config: AuthRoutesConfig): AuthRouteHandlers {
 
   // One handler behind both verbs. Every route here is reached by navigation or by `fetch`, and
   // which verb a product uses for sign-out — a link or a form — is its choice, not ours to
-  // constrain with a second table that could drift from this one. `refresh` is the exception and
-  // checks its own method, because it is the only one that spends something.
+  // constrain with a second table that could drift from this one. `refresh` and
+  // `backchannel-logout` are the exceptions and check their own method.
   return { GET: handle, POST: handle };
 }

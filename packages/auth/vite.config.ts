@@ -5,14 +5,15 @@ import dts from "vite-plugin-dts";
 import preserveDirectives from "rollup-plugin-preserve-directives";
 
 // Pure ESM library build, mirroring its siblings. One entry per door, and a door is added here on
-// the day its module exists — `./browser`, `./server` and `./next` each arrive with their own.
+// the day its module exists — and removed on the day it does not, as `./browser` was.
 export default defineConfig({
   plugins: [
     react(),
     dts({
       entryRoot: "src",
       include: ["src"],
-      exclude: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+      // `src/test` is the fake realm the tests share; it is never published and no door reaches it.
+      exclude: ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test"],
       tsconfigPath: "./tsconfig.json",
     }),
   ],
@@ -20,18 +21,13 @@ export default defineConfig({
     lib: {
       entry: {
         index: resolve(__dirname, "src/index.ts"),
-        // A second entry, not a re-export: `oidc-client-ts` is reached from here and nowhere else,
-        // so the root barrel stays importable by a consumer who never installs it.
-        browser: resolve(__dirname, "src/browser.ts"),
-        // A third, and the one that must never reach React: `openid-client` and `jose` run in a
+        // A second, and the one that must never reach React: `openid-client` and `jose` run in a
         // Node process. Reaching them through the root barrel would drag a provider and three hooks
         // into a server — the exact shape of the defect that forced `@kanzo-tech/mosaic` out of
         // `@kanzo-tech/ui`.
         server: resolve(__dirname, "src/server.ts"),
-        // A fourth, thin over the third: `./server` speaks strings, so this is only the mapping to
-        // `Request`/`Response`, `next/headers` and `next/server`. The middleware half must stay
-        // importable on the edge runtime, which is why `preserveModules` matters here rather than
-        // being a stylistic preference.
+        // A third, thin over the second: `./server` speaks strings, so this is only the mapping to
+        // `Request`/`Response`, `next/headers`, `next/navigation` and `next/server`.
         next: resolve(__dirname, "src/next.ts"),
       },
       formats: ["es"],
@@ -43,7 +39,6 @@ export default defineConfig({
         id === "react/jsx-runtime" ||
         // The engines. Each is an optional peer behind its own door, and bundling one would put it
         // on every consumer's bill — including the SPA that opens neither.
-        id === "oidc-client-ts" ||
         id === "openid-client" ||
         id === "jose" ||
         id === "next" ||

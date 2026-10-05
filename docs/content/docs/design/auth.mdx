@@ -58,10 +58,9 @@ second one in each language's source is a second thing to keep true.
 
 The fourth is the rule one level down, and it is a subtraction rather than a warning: nothing in
 this package decodes an access token, so there is no code to get wrong. Roles for drawing come from
-the ID token's claims under the browser pattern and from the session endpoint under the BFF one, and
-both paths reach the same reader — so *where did this role come from* has one answer whichever door
-a product opened. Downward too: a `Session` handed to a browser holds no refresh token, and under
-the BFF pattern no token at all, because there is none in the browser to hold.
+the ID token's claims, read once on the server by the one claim reader and handed to the browser
+through the session endpoint — so *where did this role come from* has one answer. Downward too: a
+`Session` handed to a browser holds no token at all, because there is none in the browser to hold.
 
 **What would reverse it: nothing**, twice over, and for two different reasons. The first is
 physical: the decision has to be made where the attacker is not, and the attacker is on the other
@@ -72,9 +71,8 @@ between them anything. An authorization server publishing that format *to client
 would reverse it — and publishing it is precisely what an access token is defined not to do.
 
 *Held by* `packages/auth/src/can.ts`, `can`; `packages/auth/src/can.test.ts`, "is closed by default";
-`packages/auth/src/gate.tsx`, `Gate`; `packages/auth/src/browser.ts`, `OidcUser`;
-`packages/auth/src/browser.test.ts`, "reads Keycloak's claims into a Session through the one claim
-reader"; `packages/auth/src/server.test.ts`, "holds no refresh token on the Session it hands out".
+`packages/auth/src/gate.tsx`, `Gate`; `packages/auth/src/server.test.ts`, "exchanges the code and
+reads the claims into a Session" and "holds no refresh token on the Session it hands out".
 
 <Callout type="warn">
 No guard can fail on a product that decides in the browser, and none here claims to — the code that
@@ -83,44 +81,35 @@ for an absent session and never widens a role, so a product following the rule i
 library.
 </Callout>
 
-## Two patterns, one `Session`
+## One pattern: the Backend For Frontend
 
 RFC 10017 — a BCP, July 2026 — names **three** architectures for browser applications, and this
-package implements two of them.
+package implements one of them.
 
 | pattern | who here | why |
 | --- | --- | --- |
-| **Backend For Frontend** | a host with a server | *"strongly recommended for business applications, sensitive applications, and applications that handle personal data"* |
-| **browser-based OAuth 2.0 client** | `agents/viewer`, `hub/browser` | a public client with PKCE is the only architecture available when there is no server |
+| **Backend For Frontend** | every host | *"strongly recommended for business applications, sensitive applications, and applications that handle personal data"* |
+| **browser-based OAuth 2.0 client** | nobody, since 2026-10-05 | shipped as `browserAuth` on `./browser` for a SPA with no server; removed with its `oidc-client-ts` peer when nothing consumed it |
 | *token-mediating backend* | nobody | the norm itself says to evaluate a full BFF instead |
 
-The third is declined on the specification's own advice, not on ours, and the two that ship are not
-a preference between them: `agents/viewer` is a Vite single-page application with no server anywhere
-in its deployment, so a pattern needing one could never have served it, and a host that handles
-personal data does so behind a backend that already exists. **One pattern could not have covered
-both consumers**, and that — rather than generality — is why there are two.
+The second pattern shipped for `agents/viewer`, a Vite single-page application with no server; the
+viewer runs from a vendored tarball that no npm release reaches, and no other consumer ever opened
+the door. A door nobody opens is maintenance with no reader, so it went, and with it the second
+implementation of `Auth`. The interface stays — `useSession`, `Gate` and a test double are written
+against it — but there is one transport under it.
 
-What is ours is that they produce **one `Session`**. `bffAuth` and `browserAuth` are the only two
-lines of a product that differ; `useSession`, `Gate` and `auth.fetch` are written once and never
-learn which is underneath. That is a need no library can have, because no library has both of our
-consumers.
+The obligation the BFF attaches — refresh tokens rotate on every use — is why
+[the renewal path is single-flight](/docs/auth/session#keeping-requests-authenticated): a rule
+rather than a performance argument.
 
-The second pattern arrives with an obligation the norm attaches to it — refresh tokens rotate on
-every use — and that obligation, not a performance argument, is why
-[the renewal path is single-flight](/docs/auth/session#keeping-requests-authenticated). It is worth
-noticing here only because it is the one place where choosing a pattern buys a rule rather than a
-dependency.
-
-**What would reverse it:** a revision of RFC 10017 that recommends the token-mediating backend, or a
-consumer that has a backend which must not hold tokens — the shape the third pattern exists for. The
-*one `Session`* half reverses differently, and more cheaply: a field one pattern can fill and the
-other cannot ends it, and the honest answer then is two types rather than one with a hole in it.
+**What would reverse it:** a consumer with no server and personal data to protect — the public
+client is then the only architecture available, and it comes back behind its own door with its own
+engine. Short of that, a revision of RFC 10017 that recommends the token-mediating backend.
 
 *Held by* `packages/auth/src/types.ts`, `Auth`; `packages/auth/src/bff-auth.test.ts`, "attaches no
-Authorization header, because the cookie rides along by itself";
-`packages/auth/src/browser.test.ts`, "renews once for ten concurrent requests that all get a 401";
-`packages/auth/src/single-flight.test.ts`, "runs the work once for every caller that arrives while
-it is running".
+Authorization header, because the cookie rides along by itself"; `packages/auth/src/server.test.ts`,
+"spends one refresh token for a burst of concurrent renewals"; `packages/auth/src/single-flight.test.ts`,
+"runs the work once for every caller that arrives while it is running".
 
 ## The protocol is somebody else's
 
@@ -129,41 +118,35 @@ Four candidates, and two of them win half each.
 
 | | what it is | why it does not win the whole |
 | --- | --- | --- |
-| **Auth.js** | route handlers for Next, Qwik, SvelteKit, Express | *"This cannot be used as a purely static browser SPA without backend infrastructure."* One pattern of the two |
+| **Auth.js** | route handlers for Next, Qwik, SvelteKit, Express | owns the session model and drags a registry of providers nobody here uses |
 | **better-auth** | an auth framework with SSO and organization plugins | *"Better Auth requires a database to store user data"* — it would own the user store Keycloak already owns, which is not a design but a synchronisation problem |
-| **oidc-client-ts** | the browser protocol | **wins** the browser half |
+| **oidc-client-ts** | the browser protocol | won the browser half while there was one; left with `./browser` |
 | **openid-client** | the server protocol, and what Auth.js is built on | **wins** the server half |
 
-So PKCE, silent renewal, storage, cross-tab coordination, the confidential client, discovery and
-RP-initiated logout are **not written here**. `./browser` is an adapter over a `UserManager`;
-`./server` is a configuration and a set of verbs over `openid-client`, and
+So PKCE, the confidential client, discovery and RP-initiated logout are **not written here**, and
+neither is JWT verification for a back-channel logout token, which is `jose`'s. `./server` is a
+configuration and a set of verbs over `openid-client`, and
 [what is left after that subtraction](/docs/auth#what-it-is-not) is the whole of the package.
 
 **What would reverse the `./next` choice specifically** — and it is the one place Auth.js genuinely
 competes, because it does that half entire. It loses on owning the session model and on dragging a
-registry of providers nobody here uses, and what we ship instead is three factories over one config
-object. **If our own cookie and session handling grows to rival Auth.js's in size, the answer is to
+registry of providers nobody here uses, and what we ship instead is one object, `kanzoAuth`, whose
+mechanisms are each borrowed from a named reference — [the table on the Next.js
+page](/docs/auth/next#where-each-mechanism-comes-from). **If our own cookie and session handling grows to rival Auth.js's in size, the answer is to
 adopt it rather than to keep growing.** That is a measurement anyone can take, and the `size-limit`
 entry on `dist/next.js` is where it would first be visible.
 
-*Held by* `packages/auth/src/browser.ts`, `UserManager`; `packages/auth/src/issuer.ts`, `discovery`;
+*Held by* `packages/auth/src/issuer.ts`, `discovery`;
 `packages/auth/src/cookie-session.test.ts`, "refuses a cookie sealed with another secret".
 
 ## One door per engine, and the door everyone opens carries none
 
 The placement rule is the library's own: *a part belongs on a subpath only if it imports that
-subpath's engine.* Here that produces one door per engine — `oidc-client-ts` behind `./browser`,
-`openid-client` and `jose` behind `./server`, `next` behind `./next` — and, more importantly, a
-**root barrel with no engine at all**. That is why a single-page application installs this package
-and nothing else, and why the transport for the BFF pattern lives on the root rather than behind a
-door: with the token on the server there is no protocol left in the browser, only a `fetch` to a
+subpath's engine.* Here that produces one door per engine — `openid-client` and `jose` behind
+`./server`, `next` behind `./next` — and, more importantly, a **root barrel with no engine at all**.
+That is why the transport for the BFF pattern lives on the root rather than behind a door: with the token on the server there is no protocol left in the browser, only a `fetch` to a
 session endpoint. Each of them is declared in the `exports` map on the day its file exists and never
 before, so no commit ships a door pointing at a path Rollup did not write.
-
-It is also why there are [two factories rather than
-one](/docs/auth/session#two-patterns-one-session) that picks by the shape of its argument: choosing
-at run time means importing both engines to be able to choose, which is the exact defect the doors
-exist to prevent.
 
 The precedent is not hypothetical. `@kanzo-tech/graph/duckdb` reached its coordinator through
 `@kanzo-tech/ui/analytics`, whose barrel names `@uwdata/vgplot` on the way past — a static import, so
@@ -179,10 +162,8 @@ behind it, and the consumer finds out when a `node:` scheme breaks their web bui
 reads the **bytes of the installed tarball**, which is the only check in the repository that sees the
 built artefact rather than the source.
 
-**What would reverse it:** the engines merging upstream. If `openid-client` grew a supported browser
-client, or `oidc-client-ts` a confidential one, one door would be the honest shape and two would be
-ceremony. Short of that, the reversal is a measurement anyone can take — an engine that every
-consumer installs anyway is not paying for its door.
+**What would reverse it:** a measurement anyone can take — an engine that every consumer installs
+anyway is not paying for its door.
 
 <Callout type="warn">
 **The client boundary in this package is never evaluated.** Nothing checks that a module carrying
@@ -201,16 +182,19 @@ file that two packages' guards read.
 *Held by* `packages/auth/src/server.test.ts`, "imports no
 React, no barrel and no component from the server door".
 
-## Membership is in the session; the active organization is not
+## Membership is stored; the current organization is resolved per request
 
-[The absence itself](/docs/auth/session#there-is-no-active-organization-on-it) is on the Session
-page, with the two tabs that are the whole of the argument. What is here is what sits under it.
+[The rule itself](/docs/auth/session#the-current-organization-is-resolved-per-request) is on the
+Session page, with the two tabs that are the whole of the argument. What is here is what sits under
+it.
 
-Deriving the active organization per render makes **the URL the truth**, and that has a second face:
-the hostname carrying it is a [hint and never an authority](/docs/auth/roles#useorganization). Those
-two are one decision, and together they are the line between a multi-tenant product and a leak
-between customers — the derivation says where to look, the resolution against a signed claim says
-whether to believe it.
+The product's resolver derives the current organization from each request — its host, its path, a
+cookie — and the answer rides on `Session.organization` without ever being written to the record.
+That makes **the request the truth**, and it has a second face: the address is a [hint and never an
+authority](/docs/auth/roles#which-organization-a-page-is-in), so `can` resolves it against the signed
+`organization` claim and answers `false` on a miss. Those two are one decision, and together they
+are the line between a multi-tenant product and a leak between customers — the resolver says where
+to look, the claim says whether to believe it.
 
 Two claims about the realm sit under all of this, and the difference between them is worth writing
 down, because it is the difference between a rule this repository can hold and one it cannot. That
@@ -226,13 +210,13 @@ later.
 **What would reverse it:** a consumer whose organization is genuinely not addressable — no
 per-organization host, no per-organization route, nothing in the URL to derive from. Then the active
 organization has nowhere else to live and the two-tab cost is real rather than hypothetical. Every
-consumer so far addresses by hostname.
+consumer so far addresses by hostname or by deployment.
 
-*Held by* `packages/auth/src/types.ts`, `Session`; `packages/auth/src/host.ts`,
-`organizationFromHost`; `packages/auth/src/use-organization.test.tsx`, "refuses a hostname the
-session does not back, and does not substitute another" and "still reports the membership while the
-active organization is unresolved"; `packages/auth/src/claims.test.ts`, "a real token, taken off a
-live Keycloak 26.8.0".
+*Held by* `packages/auth/src/types.ts`, `Session`; `packages/auth/src/can.test.ts`, "asks inside the
+current tenant when none is named" and "is closed for a current tenant the person does not belong
+to"; `packages/auth/src/next-auth.test.ts`, "reads the session the request carries, with the tenant
+the resolver names"; `packages/auth/src/claims.test.ts`, "a real token, taken off a live Keycloak
+26.8.0".
 
 ## A role in one scope does not authorise in another
 
@@ -365,10 +349,10 @@ is seen* — puts it as one rule across fossil, kanzo-ui and its hosts: a failur
 by its code, and within a bound.
 
 So a session that cannot be read is a fourth status, `"failed"`, carrying the thrown value
-untouched; *no session* is said only by whoever can know it — a 401 from `/session`, the IdP's own
-`login_required` or `invalid_grant`, a callback whose `state` this tab no longer holds. Every wait on
+untouched; *no session* is said only by whoever can know it — a 401 from `/session`, or the IdP's
+own `invalid_grant` to a refresh token. Every wait on
 another party ends in 30 s and is coded by who did not answer, `idp/silent` or `session/silent`;
-where `oidc-client-ts` or `openid-client` makes the wait, the figure is handed to its own timeout
+where `openid-client` or `jose` makes the wait, the figure is handed to its own timeout
 rather than wrapped around it. A failed sign-in, callback or sign-out is a redirect to the product's
 `problemPage` with the code in the URL, because those routes are reached through the address bar and
 a JSON body there is what a person reads.
@@ -381,8 +365,6 @@ make the choice for it. The 30 s figure moves with the table on the failure page
 *Held by* `packages/auth/src/auth-provider.test.tsx`, "settles on failed when the read fails,
 holding exactly what was thrown"; `packages/auth/src/bff-auth.test.ts`, "reads a 5xx from the
 session endpoint as a failure, not as nobody being signed in" and "gives up on a session endpoint
-that never answers, after 30 s and not before"; `packages/auth/src/browser.test.ts`, "reads a
-callback whose state this tab does not hold as no session, in the library's own words";
-`packages/auth/src/next-routes.test.ts`, "sends a callback with no transaction to the problem page,
-with its code"; `packages/auth/src/next-middleware.test.ts`, "lets through the problem page
-authRoutes sends a failed sign-in to, or the failure loops"; `packages/ui/src/failures-reach-the-host.test.ts`.
+that never answers, after 30 s and not before"; `packages/auth/src/next-routes.test.ts`, "sends a
+callback with no transaction to the problem page, with its code"; `packages/auth/src/next-auth.test.ts`,
+"sends a navigation to the problem page when the store does not answer"; `packages/ui/src/failures-reach-the-host.test.ts`.

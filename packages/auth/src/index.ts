@@ -15,9 +15,10 @@
  * those differently. What is genuinely shared sits underneath — reading Keycloak's claims into one
  * session, evaluating a role inside an organization, and keeping a `fetch` authenticated.
  *
- * **There is no protocol in it either.** PKCE, silent renewal, storage and cross-tab coordination
- * are `oidc-client-ts`'s, behind `./browser`; the confidential client is `openid-client`'s, behind
- * `./server`. Writing either by hand is where mistakes become vulnerabilities.
+ * **There is no protocol in it either.** The confidential client is `openid-client`'s, behind
+ * `./server`, and the browser holds no token at all — RFC 10017's Backend For Frontend, the one
+ * architecture it recommends for business applications. Writing OAuth by hand is where mistakes
+ * become vulnerabilities.
  *
  * ## The one rule to read before using it
  *
@@ -27,21 +28,15 @@
  *
  * ## What a name means here
  *
- * Three families, and the shape of the name says which one a thing is. Written down because four
- * of these were added in parallel and drifted into two conventions and one exception:
+ * Two families, and the shape of the name says which one a thing is:
  *
- * - **`<pattern>Auth`** returns an {@link Auth} — `browserAuth`, `bffAuth`. Both patterns RFC 10017
- *   names, one interface, which is what lets `useSession` and `Gate` be written once.
- * - **`auth<Thing>`** returns an auth-flavoured *thing* — `authFetch` a `fetch`, and on `./next`
- *   `authRoutes`, `authSession`, `authMiddleware`.
+ * - **`<where>Auth`** is a whole side of the BFF in one object — `bffAuth` in the browser, an
+ *   {@link Auth}; `kanzoAuth` on `./next`, the server half for an App Router product.
  * - **Everything else is named for what it is**: `relyingParty`, `issuer`, `sealedCookie`, `claims`,
- *   `can`. The first of those used to be `serverAuth`, which wore the suffix without returning an
- *   `Auth` — the server half's job is `begin`/`complete`/`read`/`refresh`/`end`, not
- *   `getSession`/`signIn`/`fetch`. A name that promises an interface it does not return is worse
- *   than a long one, and *relying party* is the term the specification already uses for it.
- *
- * *What would reverse it:* a fourth family. Two exist because two patterns exist; a third convention
- * would mean the vocabulary has outgrown the rule rather than that the rule needs an exception.
+ *   `can`. The first of those used to be `serverAuth`, which wore the suffix without being a side
+ *   of anything — its job is `begin`/`complete`/`read`/`refresh`/`end`, the protocol's verbs. A
+ *   name that promises an interface it does not return is worse than a long one, and *relying
+ *   party* is the term the specification already uses for it.
  *
  * ## This door carries no engine
  *
@@ -51,14 +46,12 @@
  */
 
 export { accountUrl, type AccountPage } from "./account";
-export { authFetch, type TokenSource } from "./auth-fetch";
 export type { AuthContextValue, AuthStatus } from "./auth-context";
 export { AuthProvider } from "./auth-provider";
 export { bffAuth, readSession, type BffAuthConfig } from "./bff-auth";
 export { can, organizationOf } from "./can";
 export { claims, type ClaimsConfig } from "./claims";
 export { Gate } from "./gate";
-export { organizationFromHost } from "./host";
 export { singleFlight } from "./single-flight";
 export {
   AuthError,
@@ -69,5 +62,4 @@ export {
   type Session,
   type SignInOptions,
 } from "./types";
-export { useOrganization } from "./use-organization";
 export { useSession } from "./use-session";

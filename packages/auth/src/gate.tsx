@@ -1,16 +1,15 @@
 "use client";
 
-import { can } from "./can";
 import { useSession } from "./use-session";
 
 /**
  * Show `children` to someone who holds `role`, and `fallback` to everyone else.
  *
- * **This hides UI and protects nothing**, for the reason {@link can} carries: a product gated only
- * here is ungated.
+ * **This hides UI and protects nothing**, for the reason `can` carries: a product gated only here is
+ * ungated.
  *
- * `organization` asks the question inside that organization rather than against the realm roles,
- * and {@link can} does not merge the two.
+ * The question is asked inside the current tenant, `session.organization`, unless `organization`
+ * names another — the same default as `useSession().can`.
  */
 export function Gate({
   role,
@@ -23,7 +22,7 @@ export function Gate({
   readonly fallback?: React.ReactNode;
   readonly children?: React.ReactNode;
 }) {
-  const { session, status } = useSession();
+  const { can, status } = useSession();
 
   // While the session is still being read, or could not be, neither answer is known to be true, so
   // neither is drawn. Rendering the fallback here is the flicker worth avoiding — "you cannot do
@@ -31,5 +30,5 @@ export function Gate({
   // children is worse, because it flashes a control and then retracts it.
   if (status === "loading" || status === "failed") return null;
 
-  return <>{can(session, role, organization) ? children : fallback}</>;
+  return <>{can(role, organization) ? children : fallback}</>;
 }

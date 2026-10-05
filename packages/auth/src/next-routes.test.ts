@@ -1,84 +1,29 @@
 // @vitest-environment node
-import { SignJWT, exportJWK, generateKeyPair } from "jose";
 import { beforeEach, describe, expect, it } from "vitest";
 import { bffAuth } from "./bff-auth";
-import { authRoutes, type AuthRoutesConfig } from "./next-routes";
+import { kanzoAuth, type KanzoAuth, type KanzoAuthConfig } from "./next-auth";
 import { ticketStore } from "./store";
+import {
+  CLIENT_ID,
+  ISSUER,
+  ORIGIN,
+  SECRET,
+  asRequestHeader,
+  fakeKeycloak,
+  inMemoryAdapter,
+  type Realm,
+} from "./test/fake-keycloak";
 import { AuthError } from "./types";
 
-const ORIGIN = "https://app.example.test";
-const ISSUER = "https://id.example.test/realms/kanzo";
-const CLIENT_ID = "board";
-const SECRET = "a-secret-nobody-chose-by-hand";
+type Routes = KanzoAuth["routes"];
 
-/** One pair, generated once: the tests below rebuild the realm, not the key. */
-const KEY = await generateKeyPair("RS256", { extractable: true });
-
-/**
- * A Keycloak that answers on a function instead of a socket.
- *
- * A trimmed relative of the one in `server.test.ts` — no key rotation, no error injection, because
- * those are that file's subject and not this one's. What is still real is the RS256 signature and
- * the verification `openid-client` does over it, which is what keeps these assertions about this
- * module rather than about a stub agreeing with itself.
- */
-function fakeKeycloak() {
-  const state = { idTokenClaims: {} as Record<string, unknown> };
-
-  const json = (body: unknown) =>
-    new Response(JSON.stringify(body), { headers: { "content-type": "application/json" } });
-
-  const fetchImpl = async (input: RequestInfo | URL): Promise<Response> => {
-    const url = String(input);
-
-    if (url.endsWith("/.well-known/openid-configuration")) {
-      return json({
-        issuer: ISSUER,
-        authorization_endpoint: `${ISSUER}/protocol/openid-connect/auth`,
-        token_endpoint: `${ISSUER}/protocol/openid-connect/token`,
-        jwks_uri: `${ISSUER}/protocol/openid-connect/certs`,
-        end_session_endpoint: `${ISSUER}/protocol/openid-connect/logout`,
-        response_types_supported: ["code"],
-        code_challenge_methods_supported: ["S256"],
-      });
-    }
-    if (url.endsWith("/protocol/openid-connect/certs")) {
-      return json({ keys: [{ ...(await exportJWK(KEY.publicKey)), kid: "k", alg: "RS256", use: "sig" }] });
-    }
-    if (url.endsWith("/protocol/openid-connect/token")) {
-      const idToken = await new SignJWT(state.idTokenClaims)
-        .setProtectedHeader({ alg: "RS256", kid: "k" })
-        .setIssuer(ISSUER)
-        .setAudience(CLIENT_ID)
-        .setIssuedAt()
-        .setExpirationTime("1h")
-        .sign(KEY.privateKey);
-      return json({
-        access_token: "at",
-        token_type: "Bearer",
-        expires_in: 300,
-        refresh_token: "refresh-1",
-        id_token: idToken,
-      });
-    }
-    throw new Error(`the fake realm was asked for ${url}`);
-  };
-
-  return { state, fetchImpl: fetchImpl as unknown as typeof globalThis.fetch };
-}
-
-type Realm = ReturnType<typeof fakeKeycloak>;
-
-/** What a browser would send back: a cleared cookie is dropped rather than echoed empty. */
-function asRequestHeader(cookies: readonly string[]): string {
-  return cookies
-    .filter((c) => !c.includes("Max-Age=0"))
-    .map((c) => c.slice(0, c.indexOf(";")))
-    .join("; ");
+/** The routes of a `kanzoAuth` over `config`: the door a route file actually exports. */
+function authRoutes(config: KanzoAuthConfig): Routes {
+  return kanzoAuth(config).routes;
 }
 
 function get(
-  routes: ReturnType<typeof authRoutes>,
+  routes: Routes,
   path: string,
   cookie?: string,
 ): Promise<Response> {
@@ -89,7 +34,7 @@ function get(
 
 /** A request with a verb and headers of its own, for the routes that care about either. */
 function send(
-  routes: ReturnType<typeof authRoutes>,
+  routes: Routes,
   method: "GET" | "POST",
   path: string,
   headers: Record<string, string> = {},
@@ -99,8 +44,8 @@ function send(
 
 describe("authRoutes", () => {
   let realm: Realm;
-  let config: AuthRoutesConfig;
-  let routes: ReturnType<typeof authRoutes>;
+  let config: KanzoAuthConfig;
+  let routes: Routes;
 
   beforeEach(() => {
     realm = fakeKeycloak();
@@ -139,7 +84,7 @@ describe("authRoutes", () => {
 
       const cookies = response.headers.getSetCookie();
       expect(cookies).toHaveLength(1);
-      expect(cookies[0]?.startsWith("__Host-kanzo-auth=")).toBe(true);
+      expect(cookies[0]?.startsWith(`__Host-kanzo-auth.${away.searchParams.get("state")}=`)).toBe(true);
     });
 
     it("derives the callback URL from the request it arrived on", async () => {
@@ -229,7 +174,7 @@ describe("authRoutes", () => {
       expect(cookies).toHaveLength(2);
       expect(cookies.filter((c) => c.startsWith("__Host-kanzo-session="))).toHaveLength(1);
       // The transaction is spent: cleared, in the same answer that sets the session.
-      const transaction = cookies.find((c) => c.startsWith("__Host-kanzo-auth="));
+      const transaction = cookies.find((c) => c.startsWith("__Host-kanzo-auth."));
       expect(transaction).toContain("Max-Age=0");
     });
 
@@ -294,6 +239,26 @@ describe("authRoutes", () => {
       });
     });
 
+    it("answers the current tenant, as the resolver reads it off this request", async () => {
+      routes = authRoutes({
+        ...config,
+        organization: ({ url, headers, cookies }) =>
+          `${url.hostname.split(".")[0]}-${headers.get("x-region")}-${cookies.get("pick")?.value}`,
+      });
+      const { cookie } = await signIn("/", {
+        sub: "u-1",
+        organization: { "app-eu-acme": { resource_access: { board: { roles: ["editor"] } } } },
+      });
+
+      const response = await routes.GET(
+        new Request(`${ORIGIN}/api/auth/session`, {
+          headers: { cookie: `${cookie}; pick=acme`, "x-region": "eu" },
+        }),
+      );
+
+      expect(await response.json()).toMatchObject({ organization: "app-eu-acme" });
+    });
+
     /**
      * 401 **and no body**. `bffAuth` reads the status as "nobody is signed in" and returns `null`;
      * a body here would be a second, contradictory way to say the same thing, and the first thing
@@ -326,6 +291,7 @@ describe("authRoutes", () => {
             return rows.get(key) ?? null;
           },
           write: async (key, value) => void rows.set(key, value),
+          replace: async (key, value) => rows.has(key) && Boolean(rows.set(key, value)),
           delete: async (key) => void rows.delete(key),
         }),
       });
@@ -442,6 +408,19 @@ describe("authRoutes", () => {
       expect(await response.json()).toMatchObject({ error: "session/absent" });
     });
 
+    it("answers 401 and clears the cookie when the IdP refuses to renew", async () => {
+      const { cookie } = await signIn();
+      realm.state.refusingRefresh = true;
+
+      const response = await routes.POST(
+        new Request(`${ORIGIN}/api/auth/refresh`, { method: "POST", headers: { cookie } }),
+      );
+
+      expect(response.status).toBe(401);
+      expect(await response.json()).toMatchObject({ error: "token/refused" });
+      expect(response.headers.getSetCookie()[0]).toContain("Max-Age=0");
+    });
+
     /**
      * The only route here that constrains its verb. The others are reached by navigation, where
      * the verb is the browser's to choose; this one *spends* a refresh token, and a `GET` that
@@ -504,6 +483,70 @@ describe("authRoutes", () => {
     expect(done.headers.get("location")).toBe(`${ORIGIN}/dashboard`);
   });
 
+  describe("backchannel-logout", () => {
+    function logout(token: string | null, headers: Record<string, string> = {}): Promise<Response> {
+      return routes.POST(
+        new Request(`${ORIGIN}/api/auth/backchannel-logout`, {
+          method: "POST",
+          headers: { "content-type": "application/x-www-form-urlencoded", ...headers },
+          body: token === null ? "" : new URLSearchParams({ logout_token: token }).toString(),
+        }),
+      );
+    }
+
+    beforeEach(() => {
+      routes = authRoutes({ ...config, store: ticketStore(inMemoryAdapter().adapter) });
+    });
+
+    it("ends the session Keycloak names, and answers 200", async () => {
+      const { cookie } = await signIn();
+
+      const response = await logout(await realm.logoutToken());
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      expect((await get(routes, "/api/auth/session", cookie)).status).toBe(401);
+    });
+
+    it("answers 400 for a token that does not verify, or for none", async () => {
+      await signIn();
+
+      expect((await logout(await realm.logoutToken({ aud: "other" }))).status).toBe(400);
+      expect((await logout(null)).status).toBe(400);
+    });
+
+    it("answers 501 when the store cannot end a session from the server", async () => {
+      const stateless = authRoutes(config);
+
+      const response = await stateless.POST(
+        new Request(`${ORIGIN}/api/auth/backchannel-logout`, {
+          method: "POST",
+          body: new URLSearchParams({ logout_token: await realm.logoutToken() }),
+        }),
+      );
+
+      expect(response.status).toBe(501);
+      expect(await response.json()).toMatchObject({ error: "session/irrevocable" });
+    });
+
+    /**
+     * Keycloak's POST carries no browser's Fetch Metadata, and the signature on the token is what
+     * authenticates it — so the same-site check, which exists to stop a *page* causing a request,
+     * has nothing to say here and must not refuse it if a proxy adds an `Origin`.
+     */
+    it("is not subject to the same-site check", async () => {
+      await signIn();
+
+      const response = await logout(await realm.logoutToken(), { origin: "http://keycloak:8080" });
+
+      expect(response.status).toBe(200);
+    });
+
+    it("answers 405 to anything but a POST", async () => {
+      expect((await get(routes, "/api/auth/backchannel-logout")).status).toBe(405);
+    });
+  });
+
   it("answers 404 for a path this door does not serve", async () => {
     expect((await get(routes, "/api/auth/token")).status).toBe(404);
   });
@@ -520,7 +563,7 @@ describe("authRoutes", () => {
    * of one contract is how they drift, so the contract is exercised instead.
    */
   describe("against bffAuth, the other end of the contract", () => {
-    const through = (routes: ReturnType<typeof authRoutes>, cookie: string) =>
+    const through = (routes: Routes, cookie: string) =>
       ((input: RequestInfo | URL, init?: RequestInit) => {
         const request = new Request(new URL(String(input), ORIGIN), { ...init, headers: { cookie } });
         return request.method === "POST" ? routes.POST(request) : routes.GET(request);
@@ -550,6 +593,7 @@ describe("authRoutes", () => {
             return rows.get(key) ?? null;
           },
           write: async (key, value) => void rows.set(key, value),
+          replace: async (key, value) => rows.has(key) && Boolean(rows.set(key, value)),
           delete: async (key) => void rows.delete(key),
         }),
       });

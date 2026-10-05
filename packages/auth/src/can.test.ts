@@ -45,6 +45,20 @@ describe("can", () => {
     expect(can(session, "owner", "initech")).toBe(false);
   });
 
+  it("asks inside the current tenant when none is named", () => {
+    const atAcme: Session = { ...session, organization: "acme" };
+
+    expect(can(atAcme, "owner")).toBe(true);
+    expect(can(atAcme, "auditor")).toBe(false);
+    // Named explicitly, the question moves to that organization whatever the request addresses.
+    expect(can(atAcme, "member", "globex")).toBe(true);
+  });
+
+  it("is closed for a current tenant the person does not belong to", () => {
+    // The resolver answers an address, and an address is not a membership.
+    expect(can({ ...session, organization: "initech" }, "owner")).toBe(false);
+  });
+
   it("has no hierarchy in it: a role is held or it is not", () => {
     // A product's hierarchy is declared as composite roles and arrives expanded in the token, so
     // `can` only ever asks for presence. Ranking here would apply one product's order to every

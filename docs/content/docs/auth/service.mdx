@@ -54,6 +54,8 @@ module "app" {
   client_secret = var.client_secret
   redirect_uris = ["https://*.board.example.com/api/auth/callback"]
   audience      = "board-api"
+  # where Keycloak posts a logout token; see Keycloak → Back-channel logout
+  backchannel_logout_url = "http://board:3000/api/auth/backchannel-logout"
   roles = {
     reader = {}
     editor = { composites = ["reader"] }

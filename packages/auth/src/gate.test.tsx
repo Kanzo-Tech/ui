@@ -86,6 +86,16 @@ describe("Gate draws one side or the other, and neither before it knows", () => 
     await waitFor(() => expect(screen.getByRole("button")).toBeDefined());
   });
 
+  it("asks inside the current tenant when none is named", async () => {
+    gate(
+      <Gate role="owner" fallback={<span>no</span>}>
+        <button type="button">Delete everything</button>
+      </Gate>,
+      authOf({ getSession: async () => ({ ...session, organization: "acme" }) }),
+    );
+    await waitFor(() => expect(screen.getByRole("button")).toBeDefined());
+  });
+
   it("does not carry a role from one organization into another", async () => {
     // Owner of acme; the question is about globex, and the sets are never unioned. This is the
     // component-level face of the rule `can` enforces.

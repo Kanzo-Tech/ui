@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import * as door from "./next";
 
-vi.mock("next/headers", () => ({ cookies: vi.fn() }));
+vi.mock("next/headers", () => ({ cookies: vi.fn(), headers: vi.fn() }));
 
 const SRC = dirname(fileURLToPath(import.meta.url));
 
@@ -18,8 +18,7 @@ function source(module: string): string {
  *
  * All three spellings — `import x from`, a bare `import "./x"`, and a dynamic `import("./x")` —
  * because the sibling guard in `server.test.ts` only knew the first, and a side-effect import
- * walked straight past it. Non-relative specifiers are deliberately not returned: `next-middleware`
- * imports `next/server`, and the assertion below reads this as "nothing from this package".
+ * walked straight past it. Non-relative specifiers are deliberately not returned.
  */
 function importsOf(module: string): string[] {
   const found = new Set<string>();
@@ -46,25 +45,24 @@ function reachable(entry: string): Set<string> {
 }
 
 describe("@kanzo-tech/auth/next", () => {
-  it("is five names and nothing else", () => {
-    expect(Object.keys(door).sort()).toEqual([
-      "authMiddleware",
-      "authProxy",
-      "authRoutes",
-      "authSession",
-      "authToken",
-    ]);
+  /**
+   * One name. The five factories this replaced each built their own relying party, so there were
+   * five discovery caches and five configs to keep in step; the types ride along with the one
+   * value and are not counted here because they are not runtime names.
+   */
+  it("is kanzoAuth and nothing else", () => {
+    expect(Object.keys(door)).toEqual(["kanzoAuth"]);
   });
 
   /**
    * `requireRole` is deliberately absent, and this is the assertion that keeps it absent.
    *
-   * A server component asks about a role with `can(session, "owner", alias)` from the root barrel
-   * — the same predicate `Gate` asks with in the browser, so there is one evaluation of a role in
-   * the package and not two. What `requireRole` would have added is the *throw*, and the throw is
-   * the part that is not ours: `notFound()`, `redirect("/choose-an-organization")` and a rendered
-   * explanation are three different products' answers to one situation, and a library that picks
-   * one has picked wrong for the other two.
+   * A server component asks about a role with `can(session, "owner")` from the root barrel — the
+   * same predicate `Gate` asks with in the browser, so there is one evaluation of a role in the
+   * package and not two. What `requireRole` would have added is the *throw*, and the throw is the
+   * part that is not ours: `forbidden()`, a redirect and a rendered explanation are three different
+   * products' answers to one situation, and a library that picks one has picked wrong for the
+   * other two.
    */
   it("does not offer requireRole", () => {
     expect(Object.keys(door)).not.toContain("requireRole");
@@ -78,6 +76,7 @@ describe("@kanzo-tech/auth/next", () => {
   it("reaches no client module", () => {
     const modules = [...reachable("next")];
 
+    expect(modules).toEqual(expect.arrayContaining(["next-auth", "next-gate", "next-routes", "next-proxy"]));
     expect(modules).not.toContain("index");
     for (const module of modules) {
       expect(source(module)).not.toContain('"use client"');
@@ -85,34 +84,18 @@ describe("@kanzo-tech/auth/next", () => {
   });
 
   /**
-   * The middleware runs in the edge runtime, where `openid-client` and `jose` have no business
-   * being. It stays clean by importing nothing from this package at all — which is also why the
-   * cookie name is written there a second time, and why `next-middleware.test.ts` ties the two.
+   * A route handler is handed a standard `Request`, so the routes, the forwarder and the config
+   * they share need no framework. Stated as an assertion because it is the thing that would
+   * quietly stop being true the first time someone reached for `NextRequest` to read a cookie.
+   * The proxy needs `next/server` for `NextResponse.next`, and the server component's session
+   * needs `next/headers` and `next/navigation`; those two modules are where the framework lives.
    */
-  it("keeps the middleware free of the package's own engines", () => {
-    expect(importsOf("next-middleware")).toEqual([]);
-    expect(source("next-middleware")).toContain('from "next/server"');
-  });
-
-  /**
-   * A route handler is handed a standard `Request`, so the half of this door that does the actual
-   * work needs no framework. Stated as an assertion because it is the thing that would quietly
-   * stop being true the first time someone reached for `NextRequest` to read a cookie.
-   */
-  it("serves its routes without importing next", () => {
-    expect(source("next-routes")).not.toContain('"next/');
-  });
-
-  /**
-   * The same rule for the two doors added beside them, and for the same reason: a `Request` in and
-   * a `Response` out is the whole of what a route file needs, so reaching for `NextRequest` here
-   * would buy nothing and would make both untestable without the framework. `authSession` is the
-   * one module that genuinely cannot be written this way — `next/headers` is how a server
-   * component reaches a request it was never handed — and it is the only one that imports it.
-   */
-  it("proxies and mints tokens without importing next either", () => {
-    expect(source("next-proxy")).not.toContain('"next/');
-    expect(source("next-token")).not.toContain('"next/');
-    expect(source("next-session")).toContain('from "next/headers"');
+  it("keeps the framework in the two modules that cannot do without it", () => {
+    for (const module of ["next-routes", "next-proxy", "next-bound"]) {
+      expect(source(module)).not.toContain('"next/');
+    }
+    expect(source("next-gate")).toContain('from "next/server"');
+    expect(source("next-auth")).toContain('from "next/headers"');
+    expect(source("next-auth")).toContain('from "next/navigation"');
   });
 });

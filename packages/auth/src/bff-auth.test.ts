@@ -10,6 +10,7 @@ const body = {
   user: { id: "u-7", email: "ada@example.com", name: "Ada", username: "ada" },
   roles: ["auditor"],
   organizations: [{ alias: "acme", id: "f8d3", groups: ["ignored"], roles: ["owner"] }],
+  organization: "acme",
   expiresAt: 1_700_000_000_000,
 };
 
@@ -35,6 +36,7 @@ describe("readSession checks the wire instead of casting it", () => {
     });
     expect(session?.roles).toEqual(["auditor"]);
     expect(session?.organizations).toEqual([{ alias: "acme", id: "f8d3", roles: ["owner"] }]);
+    expect(session?.organization).toBe("acme");
     expect(session?.expiresAt).toBe(1_700_000_000_000);
   });
 
@@ -58,6 +60,7 @@ describe("readSession checks the wire instead of casting it", () => {
       user: { id: "u-1", email: undefined, name: undefined, username: undefined },
       roles: [],
       organizations: [],
+      organization: undefined,
       expiresAt: 0,
     });
   });
@@ -221,28 +224,29 @@ describe("bffAuth", () => {
     expect(renewals).toHaveLength(1);
   });
 
-  it("re-reads the session when the renewal is refused, and tells the tree", async () => {
-    const fetchMock = vi
-      .fn<typeof globalThis.fetch>()
-      .mockImplementationOnce(async () => jsonOnce(body))
-      .mockImplementationOnce(async () => new Response("no", { status: 401 }))
-      .mockImplementationOnce(async () => new Response("", { status: 401 }))
-      .mockImplementationOnce(async () => new Response("", { status: 401 }));
-    const auth = bffAuth({ fetch: fetchMock });
-
+  /**
+   * The one layer that answers an ended session in the browser. Before it, every product wrote its
+   * own `401 → signIn()` branch in its data client, and a page that fired six queries at an ended
+   * session navigated six times.
+   */
+  it("signs in once, back to this page, when the renewal is refused", async () => {
+    const fetchMock = vi.fn<typeof globalThis.fetch>(async (input) => {
+      if (String(input).endsWith("/session")) return jsonOnce(body);
+      return new Response("", { status: 401 });
+    });
+    const navigate = vi.fn();
+    const auth = bffAuth({ fetch: fetchMock, navigate });
     await auth.getSession();
-    // Subscribed after the first read, because arriving at a session is itself a change and
-    // announces one. What is under test is the second announcement: the session going away.
-    const changed = vi.fn();
-    auth.subscribe(changed);
 
-    const response = await auth.fetch("/v1/jobs");
+    const responses = await Promise.all([auth.fetch("/v1/jobs"), auth.fetch("/v1/graphs")]);
+    await auth.fetch("/v1/later");
 
-    // The caller still sees its own 401: the session is gone rather than stale, and the renewal
-    // that would have been the thing to retry with was refused.
-    expect(response.status).toBe(401);
-    await expect(auth.getSession()).resolves.toBeNull();
-    expect(changed).toHaveBeenCalledTimes(1);
+    // The callers still see their own 401s; the session is over, and the sign-in carries the page.
+    expect(responses.map((r) => r.status)).toEqual([401, 401]);
+    expect(navigate).toHaveBeenCalledTimes(1);
+    const away = new URL(navigate.mock.calls[0]?.[0] as string, "https://app.example.test");
+    expect(away.pathname).toBe("/api/auth/signin");
+    expect(away.searchParams.get("returnTo")).toBe(globalThis.location.href);
   });
 
   it("rejects the request rather than ending the session when the refresh route is down", async () => {
@@ -259,24 +263,6 @@ describe("bffAuth", () => {
       data: { status: 503 },
     });
     expect((await auth.getSession())?.user.id).toBe("u-7");
-  });
-
-  it("still answers the caller with its 401 when the session cannot be re-read, and tells the tree", async () => {
-    const fetchMock = vi
-      .fn<typeof globalThis.fetch>()
-      .mockImplementationOnce(async () => jsonOnce(body))
-      .mockImplementationOnce(async () => new Response("no", { status: 401 }))
-      .mockImplementationOnce(async () => new Response("", { status: 401 }))
-      .mockImplementationOnce(async () => new Response("", { status: 500 }));
-    const auth = bffAuth({ fetch: fetchMock });
-    await auth.getSession();
-    const changed = vi.fn();
-    auth.subscribe(changed);
-
-    const response = await auth.fetch("/v1/jobs");
-
-    expect(response.status).toBe(401);
-    expect(changed).toHaveBeenCalledTimes(1);
   });
 
   it("does not retry a request whose body cannot be sent twice", async () => {

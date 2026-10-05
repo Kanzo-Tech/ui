@@ -1,9 +1,9 @@
 // The Guild's session, with no identity provider behind it.
 //
 // Every auth example on the site hangs off this file, and what it builds is a **claim set** rather
-// than a hand-written `Session`: `claims()` is the real reader — the one `browserAuth` runs over an
-// ID token — so what these examples draw is what a token would actually produce, the asking client
-// and all. A hand-written `Session` would agree with the pages by construction and could
+// than a hand-written `Session`: `claims()` is the real reader — the one the server runs over an
+// ID token at sign-in — so what these examples draw is what a token would actually produce, the
+// asking client and all. A hand-written `Session` would agree with the pages by construction and could
 // never disagree with the package.
 
 import { type Auth, type Session, claims } from "@kanzo-tech/auth";
@@ -93,9 +93,8 @@ export const GUILD_SESSION: Session = claims(GUILD_CLAIMS, { clientId: BOARD });
 /**
  * The five members of `Auth`, with no protocol behind any of them.
  *
- * A product writes `browserAuth(…)` or `bffAuth(…)` here and never writes this. Five members is
- * what makes faking it possible at all, and it is the same smallness that lets one provider serve
- * a backend-for-frontend and a browser client without anything below knowing which is underneath.
+ * A product writes `bffAuth(…)` here and never writes this. Five members is what makes faking it
+ * possible at all, and it is why `useSession` and `Gate` can be shown working with no server.
  */
 export function guildAuth(initial: Session | null = GUILD_SESSION): Auth {
   let current = initial;
