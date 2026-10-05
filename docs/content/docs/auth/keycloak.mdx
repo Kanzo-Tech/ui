@@ -1,6 +1,6 @@
 ---
 title: Keycloak
-description: The realm this package expects — role claims on both tokens, an audience mapper naming your API, the organization scope with the star, an application's roles inside each organization, and back-channel logout.
+description: The realm this package expects — role claims on both tokens, an audience mapper naming your API, the organization scope with the star, an application's roles inside each organization, back-channel logout, and passkeys.
 ---
 
 This is the page to hand to whoever runs the realm. Nothing here is invented: every claim the
@@ -244,6 +244,46 @@ Two properties of the setting decide how it is used:
 It also needs a session store that can find a person's sessions: a `ticketStore` whose adapter has
 `keys`. With the stateless store, or without `keys`, the route answers **501**, and Keycloak's admin
 console reports the logout as failed rather than believing it happened.
+
+## Passkeys
+
+Passkeys are Keycloak's since 26.4, and turning them on is one switch on the realm: **Enable
+Passkeys**, in the WebAuthn Passwordless Policy. Keycloak then puts them into the forms it already
+draws — no flow of your own, no theme, and nothing in this package, because the sign-in is
+Keycloak's page.
+
+What a person sees, with the realm's default browser flow and organizations on:
+
+- **The username step** tags its input `autocomplete="username webauthn"`, so the browser offers the
+  passkeys it holds for the site as autofill, and adds a *Sign in with Passkey* button for the ones
+  it cannot list — a security key, another device.
+- **A passkey ends the sign-in there.** The password step sees a person already authenticated by a
+  passwordless credential and asks for nothing, and the realm's conditional two-factor is skipped
+  for the same reason.
+- **The password still works,** exactly as before. Passkeys are offered, never required.
+
+A person adds one from the account console, *Signing in → Passkeys* —
+`accountUrl(issuer, "account-security/signing-in")`, [below](#the-account-console-is-keycloaks) —
+through the `webauthn-register-passwordless` required action, which Keycloak enables in every realm.
+
+In Terraform the switch is `passwordless_passkeys_enabled` in the realm's
+`web_authn_passwordless_policy`, and the block wants two more lines than it looks like it should:
+
+```hcl
+web_authn_passwordless_policy {
+  passwordless_passkeys_enabled = true
+  relying_party_entity_name     = "Kanzo"
+  user_verification_requirement = "required"
+  discoverable_credential       = "required"
+}
+```
+
+The provider sends **every** field of the block, and for one left out it sends `not specified`,
+not Keycloak's own default. A passkey is a discoverable credential with user verification: without
+those two lines the realm may register a key autofill cannot list, or one that signs in without
+proving who holds it. *Passkey Mediation* — whether the page opens a passkey dialog on load — is
+not in the provider, and Keycloak's default, `conditional` (autofill only, no dialog), is the one
+wanted.
 
 ## The account console is Keycloak's
 
