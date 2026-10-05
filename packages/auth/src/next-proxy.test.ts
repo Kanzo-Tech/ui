@@ -84,6 +84,34 @@ describe("kanzoAuth().api", () => {
     expect(response.headers.get("x-from")).toBe("upstream");
   });
 
+  /** One BFF in front of a resource server per tenant: Keycloak's one client for every organization. */
+  it("forwards to the target of the organization the request addresses", async () => {
+    const cookie = await signIn();
+    const tenanted = kanzoAuth({
+      ...config,
+      organization: (request) => request.url.hostname.split(".")[0],
+      api: { mount: "/api/data", target: (organization) => `https://${organization}.reports.internal/v1` },
+    });
+
+    await tenanted.api.GET(new Request("https://acme.app.test/api/data/reports/7", { headers: { cookie } }));
+
+    expect(sent().url.href).toBe("https://acme.reports.internal/v1/reports/7");
+  });
+
+  it("answers 404, and reaches nothing, for a request that addresses no organization", async () => {
+    const cookie = await signIn();
+    const tenanted = kanzoAuth({
+      ...config,
+      organization: () => undefined,
+      api: { mount: "/api/data", target: (organization) => organization && `https://${organization}.reports.internal` },
+    });
+
+    const response = await tenanted.api.GET(new Request("https://app.test/api/data/reports/7", { headers: { cookie } }));
+
+    expect(response.status).toBe(404);
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
   it("attaches the access token as a bearer", async () => {
     realm.state.accessToken = "the-bearer-token";
     const cookie = await signIn();

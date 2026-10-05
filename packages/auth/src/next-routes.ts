@@ -1,5 +1,4 @@
-import { cookieValue } from "./cookie-session";
-import { withTenant, type Bound } from "./next-bound";
+import { tenantRequest, withTenant, type Bound } from "./next-bound";
 import { isSameSite } from "./same-site";
 import { AuthError, type AuthErrorCode, type Session } from "./types";
 
@@ -137,15 +136,6 @@ function coded(code: AuthErrorCode, message: string, status: number, cookies: re
 }
 
 /** A request's cookies as a tenant resolver reads them, from the `Cookie` header a route is handed. */
-function jar(header: string | null) {
-  return {
-    get(name: string) {
-      const value = cookieValue(header, name);
-      return value === undefined ? undefined : { value };
-    },
-  };
-}
-
 export function routes(instance: () => Promise<Bound>): RouteHandlers {
   const handle = async (request: Request): Promise<Response> => {
     const bound = await instance();
@@ -209,7 +199,7 @@ export function routes(instance: () => Promise<Bound>): RouteHandlers {
           if (session !== null) {
             session = withTenant(
               session,
-              await bound.tenant({ url, headers: request.headers, cookies: jar(cookie) }),
+              await bound.tenant(tenantRequest(request)),
             );
           }
         } catch (error) {
