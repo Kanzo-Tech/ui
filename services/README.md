@@ -20,5 +20,5 @@ Each service has the same shape:
 Pin a module to a release:
 
 ```hcl
-source = "git::https://github.com/Kanzo-Tech/ui.git//services/auth/modules/app?ref=v0.28.0"
+source = "git::https://github.com/Kanzo-Tech/ui.git//services/auth/modules/app?ref=v0.30.0"
 ```

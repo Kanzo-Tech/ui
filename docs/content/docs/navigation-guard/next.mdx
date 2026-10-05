@@ -7,8 +7,8 @@ description: Link and useRouter — next/link and next/navigation's router, wire
 import { Link, useRouter } from "@kanzo-tech/navigation/next";
 ```
 
-Two names, each a drop-in for the one Next ships, and `next >=15.3` as an optional peer — the
-release in which `Link` gained `onNavigate`.
+Two names, each a drop-in for the one Next ships, and `next` 15.3 or 16 as an optional peer — 15.3
+is the release in which `Link` gained `onNavigate`.
 
 **Why a door at all.** The App Router writes the URL of a client navigation *after* the new route
 has rendered, so by the time the browser reports it there is nothing left to cancel. What Next

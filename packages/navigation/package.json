@@ -28,10 +28,10 @@
     "test": "vitest run",
     "size": "size-limit"
   },
-  "//peers": "react is REQUIRED: the root is a hook. next is optional and lives behind `./next`, from 15.3 because that is the release `Link` gained `onNavigate` — the only cancellable moment Next gives a link. A host that is not Next installs this package alone and gets the browser half. Deliberately absent: tailwind-variants and @kanzo-tech/ui, because nothing here draws; the confirm dialog is the product's AlertDialog. That absence is also what keeps this package out of the appearance guards, whose corpus in packages/ui/src/guard-corpus.ts selects on that dependency.",
+  "//peers": "react is REQUIRED: the root is a hook. next is optional and lives behind `./next`, from 15.3 because that is the release `Link` gained `onNavigate` — the only cancellable moment Next gives a link — and through 16, the major this package builds and tests against. A host that is not Next installs this package alone and gets the browser half. Deliberately absent: tailwind-variants and @kanzo-tech/ui, because nothing here draws; the confirm dialog is the product's AlertDialog. That absence is also what keeps this package out of the appearance guards, whose corpus in packages/ui/src/guard-corpus.ts selects on that dependency.",
   "peerDependencies": {
-    "next": ">=15.3",
-    "react": ">=19"
+    "next": "^15.3.0 || ^16.0.0",
+    "react": "^19.0.0"
   },
   "peerDependenciesMeta": {
     "next": {

@@ -245,6 +245,15 @@ that is not: the git tag decides the version, and a changeset is release notes �
 consumer must do differently**, in their words, and is deleted when the release that carries it
 ships (`.changeset/README.md`). Why a decision was taken is not what a changeset is for.
 
+**A peer range is a caret on the major the package builds against** — `^19.0.0`, never `>=19` — and
+the newest alternative is the line the package's own devDependency installs. An open range promises
+releases nobody has run; a capped one turns a new major into an install-time warning and a commit
+that raises the range and the devDependency together. A workspace sibling is `workspace:*`: the
+packages release in lockstep. *What would reverse it:* a consumer stuck behind our cap on a major
+that works, often enough that the raise cannot keep up. *Held by* `packages/ui/src/peer-ranges.test.ts`,
+"bounds every peer range above by carets, and every sibling to the release it ships with", "caps
+every peer at the line its own devDependency installs".
+
 `tailwind-variants` is imported directly, never through a local shim: a re-export that most callers
 bypass is two ways to write one import. If a shared `twMergeConfig` is ever needed, that is the
 moment for one seam — with a lint rule to enforce it.
