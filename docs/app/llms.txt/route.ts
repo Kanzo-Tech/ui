@@ -68,7 +68,7 @@ export function GET(request: Request) {
     "- `@kanzo-tech/ai` — `AssistProvider` + `Assist` (a model proposes a field's value: ghost text in a `Textarea`, chips under an `Input` or `TagsInput`) and `Chat` + `useChat` (a whole conversation: markdown, reasoning, tool calls, composer). Needs `ai` and `@ai-sdk/react`. Add `@import \"@kanzo-tech/ai/tailwind.css\";`.",
     "- `@kanzo-tech/llm` — no React: `createGateway({ baseURL })` returns `gateway(alias)`, a model behind a AI gateway, and the AI SDK (`ToolLoopAgent`, `tool`, `DirectChatTransport`, …) is re-exported from it. Import the SDK from here, never from `ai`.",
     "- `@kanzo-tech/graph` — a fossil corpus the host attached with fossil's `open`, read as one Mosaic client on the page's coordinator and drawn with cosmos.gl; `GraphRoot from coordinator` is the facade. Every peer is required.",
-    "- `@kanzo-tech/auth` — Keycloak sessions and role evaluation; `/browser`, `/server`, `/next`.",
+    "- `@kanzo-tech/auth` — Keycloak sessions and role evaluation; `/server`, and `/next` (`kanzoAuth`).",
     "- `@kanzo-tech/navigation` — the unsaved-changes guard; `/next` adapts the App Router.",
     "",
     "A component that needs one of those engines is two components: the presentational half on the root barrel, the connected half on the subpath. Theming is `data-*` attributes on `<html>` plus a light/dark class — never a wrapper element.",

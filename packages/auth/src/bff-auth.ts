@@ -1,4 +1,3 @@
-import { isReplayable } from "./auth-fetch";
 import { deadline } from "./deadline";
 import { singleFlight } from "./single-flight";
 import { AuthError, type Auth, type Organization, type Session, type SignInOptions } from "./types";
@@ -12,8 +11,7 @@ import { AuthError, type Auth, type Organization, type Session, type SignInOptio
  *
  * So there is no engine on this path — no PKCE, no storage, no renewal — which is why it lives on
  * the root barrel beside the hooks rather than behind a subpath. What it needs from the server is
- * three routes, which `@kanzo-tech/auth/next` provides: a session endpoint, a sign-in and a
- * sign-out.
+ * the routes `kanzoAuth` serves: a session endpoint, a refresh, a sign-in and a sign-out.
  */
 
 export interface BffAuthConfig {
@@ -23,6 +21,20 @@ export interface BffAuthConfig {
   readonly fetch?: typeof globalThis.fetch;
   /** Injectable for tests. Defaults to assigning `window.location`. */
   readonly navigate?: (url: string) => void;
+}
+
+/**
+ * Can this request be sent a second time?
+ *
+ * A body that is a stream can be read once, so a retry would send an empty one — silently, with a
+ * misleading error at the far end. Where we cannot prove the body is replayable we do not retry: the
+ * 401 reaches the caller, which is honest, rather than a corrupted request reaching the server.
+ */
+function isReplayable(input: RequestInfo | URL, init?: RequestInit): boolean {
+  if (typeof Request !== "undefined" && input instanceof Request && input.body !== null) return false;
+  const body = init?.body;
+  if (body === undefined || body === null) return true;
+  return !(typeof ReadableStream !== "undefined" && body instanceof ReadableStream);
 }
 
 function readOrganization(value: unknown): Organization | null {
@@ -71,6 +83,10 @@ export function readSession(value: unknown): Session | null {
           .map(readOrganization)
           .filter((o): o is Organization => o !== null)
       : [],
+    organization:
+      typeof body["organization"] === "string" && body["organization"] !== ""
+        ? body["organization"]
+        : undefined,
     expiresAt: typeof body["expiresAt"] === "number" ? body["expiresAt"] : 0,
   };
 }
@@ -87,6 +103,8 @@ export function bffAuth(config: BffAuthConfig = {}): Auth {
 
   let cached: Session | null = null;
   let known = false;
+  /** Set by the one sign-in a refused renewal starts; the page is leaving, so it is never unset. */
+  let leaving = false;
 
   const unavailable = (url: string, status: number | undefined, cause?: unknown) =>
     new AuthError(
@@ -132,10 +150,9 @@ export function bffAuth(config: BffAuthConfig = {}): Auth {
   /**
    * Ask the BFF to spend the refresh token, once for however many requests noticed at the moment.
    *
-   * This is the browser end of the renewal, and without it the session cookie's lifetime and the
-   * access token's are two different clocks with nothing between them: a cookie good for eight
-   * hours in front of a token good for one produces seven hours in which `/session` answers 200,
-   * the whole application draws, and every request for data is a 401 that nothing acts on.
+   * The proxy renews before every page and the forwarder before every request it forwards, so this
+   * is the last of three: a 401 that reached the browser anyway, from a resource the BFF does not
+   * front or a token that died between the forwarder's check and the upstream's.
    *
    * `POST`, because the route only answers `POST` — it spends something, and a `GET` that spends
    * something is one prefetch away from spending it unasked.
@@ -162,6 +179,13 @@ export function bffAuth(config: BffAuthConfig = {}): Auth {
     return cached;
   };
 
+  const signIn = async (options: SignInOptions = {}) => {
+    const params = new URLSearchParams();
+    params.set("returnTo", options.returnTo ?? globalThis.location?.href ?? "/");
+    if (options.organization !== undefined) params.set("organization", options.organization);
+    go(`${base}/signin?${params.toString()}`);
+  };
+
   return {
     async getSession() {
       if (known) return cached;
@@ -173,12 +197,7 @@ export function bffAuth(config: BffAuthConfig = {}): Auth {
       return () => listeners.delete(onChange);
     },
 
-    async signIn(options: SignInOptions = {}) {
-      const params = new URLSearchParams();
-      params.set("returnTo", options.returnTo ?? globalThis.location?.href ?? "/");
-      if (options.organization !== undefined) params.set("organization", options.organization);
-      go(`${base}/signin?${params.toString()}`);
-    },
+    signIn,
 
     async signOut(options = {}) {
       const params = new URLSearchParams();
@@ -191,15 +210,14 @@ export function bffAuth(config: BffAuthConfig = {}): Auth {
      * No `Authorization` header — the cookie rides along on a same-origin request by itself — and
      * **one** retry, behind one renewal.
      *
-     * A 401 here is ambiguous in a way it is not under `browserAuth`: the cookie was sent and was
-     * accepted, so what expired is the access token *behind* the cookie, which this half of the
-     * pattern cannot see. So the 401 is taken as "renew and try again" first and as "the session
-     * is gone" only when the renewal is refused — at which point re-reading tells the tree, which
-     * is what it did before and all it did before.
+     * A 401 here is ambiguous: the cookie was sent and was accepted, so what expired may be the
+     * access token *behind* the cookie, which this half of the pattern cannot see. So the 401 is
+     * taken as "renew and try again" first, and as "the session is over" only when the renewal is
+     * refused — and then the answer is to sign in, once, coming back to this page. One layer: a
+     * product's data client does not need a 401 branch of its own.
      *
-     * The retry is once, for the reason `authFetch` gives: twice turns an ended session into a
-     * loop against the authorization server. A request whose body cannot be replayed is not
-     * retried at all, and `isReplayable` is the same predicate the bearer-token path uses.
+     * The retry is once: twice turns an ended session into a loop against the authorization server.
+     * A request whose body cannot be replayed is not retried at all.
      */
     fetch: async (input, init) => {
       const response = await doFetch(input, init);
@@ -210,10 +228,10 @@ export function bffAuth(config: BffAuthConfig = {}): Auth {
         return doFetch(input, init);
       }
 
-      known = false;
-      // The caller is owed its own response; a session that cannot be re-read is the provider's to
-      // show, and announcing makes it read again and see the failure itself.
-      await refresh().catch(announce);
+      if (!leaving) {
+        leaving = true;
+        await signIn({ returnTo: globalThis.location?.href });
+      }
       return response;
     },
   };

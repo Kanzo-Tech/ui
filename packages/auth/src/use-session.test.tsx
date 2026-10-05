@@ -27,7 +27,7 @@ describe("useSession", () => {
     // The error a consumer meets first. "Cannot read properties of null" would send them reading
     // this package's source; this sends them to the one line they forgot to write.
     expect(() => renderHook(() => useSession())).toThrow(/outside <AuthProvider>/);
-    expect(() => renderHook(() => useSession())).toThrow(/browserAuth|bffAuth/);
+    expect(() => renderHook(() => useSession())).toThrow(/bffAuth/);
   });
 
   it("hands back the session, the status and the two verbs", async () => {
@@ -54,6 +54,28 @@ describe("useSession", () => {
 
     expect(result.current.status).toBe("loading");
     expect(result.current.session).toBeNull();
+  });
+
+  it("asks a role inside the current tenant unless told which", async () => {
+    const atAcme: Session = {
+      ...session,
+      organizations: [
+        { alias: "acme", roles: ["owner"] },
+        { alias: "globex", roles: ["reader"] },
+      ],
+      organization: "acme",
+    };
+    const { result } = renderHook(() => useSession(), {
+      wrapper: ({ children }) => (
+        <AuthProvider auth={authOf({ getSession: async () => atAcme })}>{children}</AuthProvider>
+      ),
+    });
+
+    await waitFor(() => expect(result.current.status).toBe("authenticated"));
+    expect(result.current.can("owner")).toBe(true);
+    expect(result.current.can("auditor")).toBe(false);
+    expect(result.current.can("reader", "globex")).toBe(true);
+    expect(result.current.can("owner", "globex")).toBe(false);
   });
 
   it("calls through to the auth's own sign-in and sign-out", async () => {

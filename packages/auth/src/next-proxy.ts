@@ -1,20 +1,17 @@
-import { authToken } from "./next-token";
-import type { AuthSessionConfig } from "./next-session";
-import { isSameSite } from "./same-site";
+import type { Bound } from "./next-bound";
 import { outage } from "./next-routes";
+import { isSameSite } from "./same-site";
+import type { Ended, Token } from "./server";
 import { AuthError } from "./types";
 
 /**
  * The BFF half of the *token-mediating backend*: the browser's request goes out again carrying a
- * bearer token, and the cookie that got it here stops at this line.
+ * bearer token, and the cookie that got it here stops at this line. `kanzoAuth().api`.
  *
  * ```ts
+ * // lib/auth.ts: kanzoAuth(() => ({ …, api: { mount: "/api/data", target: "https://reports.internal/v1" } }))
  * // app/api/data/[...path]/route.ts
- * export const { GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS } = authProxy({
- *   issuer, clientId, clientSecret, secret,
- *   basePath: "/api/data",
- *   target: "https://reports.internal/v1",
- * });
+ * export const { GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS } = auth.api;
  * ```
  *
  * ## Why this is in the package and not in the product
@@ -30,26 +27,19 @@ import { AuthError } from "./types";
  *
  * ## What it answers without asking upstream
  *
- * - **401** when there is no session, or when the renewal was refused. There is nothing to
- *   forward: a request with no credential is not the resource server's to refuse.
+ * - **401** when there is no session, or when the renewal was refused — with the cookie cleared in
+ *   the same answer. There is nothing to forward: a request with no credential is not the resource
+ *   server's to refuse. `bffAuth` answers that 401 by asking `refresh`, and signs in when that is
+ *   refused too.
  * - **403** when the request is not same-site. `same-site.ts` carries why the package owes this.
+ * - **404** when `kanzoAuth` was given no `api`.
  *
- * ## Renewal happens here, because here is somewhere a cookie can be set
+ * ## Renewal happens here too
  *
- * `authToken` renews when the access token is within a minute of expiry and hands back the
- * `Set-Cookie` that carries the rotated session; this attaches it to the proxied response. That is
- * the whole of the answer to *"the token lives an hour and the cookie lives eight"* — the seven
- * hours in between stop being seven hours of 401s that nothing recovers from.
+ * The proxy renews before a page renders, and a client that stays on one page for longer than an
+ * access token lives renews here: within a minute of expiry, in place, single-flight per ticket
+ * with every other renewal of that session in the process.
  */
-
-export interface AuthProxyConfig extends AuthSessionConfig {
-  /** Where the upstream lives. A path here is a prefix: `https://reports.internal/v1`. */
-  readonly target: string;
-  /** Where this route file is mounted. Stripped from the path before the rest is appended to `target`. */
-  readonly basePath: string;
-  /** Seconds of remaining lifetime below which the access token is renewed. Default 60. */
-  readonly renewWithin?: number;
-}
 
 /**
  * The upstream is reached with the global `fetch`, and **not** with the inherited `IssuerConfig`
@@ -60,7 +50,7 @@ export interface AuthProxyConfig extends AuthSessionConfig {
  * transport and the other one is the platform's.
  */
 
-export interface AuthProxyHandlers {
+export interface ApiHandlers {
   GET(request: Request): Promise<Response>;
   POST(request: Request): Promise<Response>;
   PUT(request: Request): Promise<Response>;
@@ -119,19 +109,24 @@ function copyHeaders(from: Headers, without: readonly string[]): Headers {
   return headers;
 }
 
-export function authProxy(config: AuthProxyConfig): AuthProxyHandlers {
-  const token = authToken(config);
+export function forward(instance: () => Promise<Bound>): ApiHandlers {
   const send = (...args: Parameters<typeof globalThis.fetch>) => globalThis.fetch(...args);
-  const base = config.basePath.replace(/\/$/, "");
-  const target = new URL(config.target);
-  /** `https://api.test` has pathname `/`, and a prefix of `/` would double every separator. */
-  const prefix = target.pathname.replace(/\/$/, "");
 
-  const refuse = (status: number) =>
-    new Response(null, { status, headers: { "cache-control": "no-store" } });
+  const refuse = (status: number, cookies: readonly string[] = []) => {
+    const headers = new Headers({ "cache-control": "no-store" });
+    for (const cookie of cookies) headers.append("set-cookie", cookie);
+    return new Response(null, { status, headers });
+  };
 
   const handle = async (request: Request): Promise<Response> => {
+    const bound = await instance();
+    if (bound.api === undefined) return refuse(404);
     if (!isSameSite(request)) return refuse(403);
+
+    const base = bound.api.mount;
+    const target = bound.api.target;
+    /** `https://api.test` has pathname `/`, and a prefix of `/` would double every separator. */
+    const prefix = target.pathname.replace(/\/$/, "");
 
     const url = new URL(request.url);
 
@@ -148,9 +143,9 @@ export function authProxy(config: AuthProxyConfig): AuthProxyHandlers {
     upstream.pathname = `${prefix}${url.pathname.slice(base.length)}`;
     upstream.search = url.search;
 
-    let held: Awaited<ReturnType<typeof token>>;
+    let held: Token | Ended;
     try {
-      held = await token(request.headers.get("cookie"), { renewWithin: config.renewWithin });
+      held = await bound.party.token(request.headers.get("cookie"), { renewWithin: bound.renewWithin });
     } catch (error) {
       // A refused renewal is the end of the session and not an upstream failure. An IdP or a store
       // that did not answer is an outage, and anything else is a fault this module has no reading
@@ -159,7 +154,7 @@ export function authProxy(config: AuthProxyConfig): AuthProxyHandlers {
       if (!(error instanceof AuthError)) throw error;
       return refuse(outage(error.code) ?? 401);
     }
-    if (held === null) return refuse(401);
+    if (held.ended) return refuse(401, held.cookies);
 
     const headers = copyHeaders(request.headers, NOT_FORWARDED);
     headers.set("authorization", `Bearer ${held.accessToken}`);

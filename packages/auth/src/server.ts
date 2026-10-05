@@ -9,6 +9,7 @@ import {
   authorizationCodeGrant,
   type Configuration,
 } from "openid-client";
+import { jwtVerify, type JWTPayload } from "jose";
 import { claims } from "./claims";
 import { sealedCookie, type SealedCookie } from "./cookie-session";
 import { DEADLINE } from "./deadline";
@@ -43,11 +44,23 @@ import { AuthError, type AuthErrorCode, type Session, type SignInOptions } from 
  * the signatures because a `Request` would make Next's flavour of it the one that fits.
  */
 
-const DEFAULT_SCOPE = "openid profile email";
+/**
+ * `organization:*` is always asked for: membership of every organization arrives in one token, and
+ * which one a request is *in* is the product's resolver's answer, per request. Plain
+ * `organization` would make Keycloak prompt for a choice at sign-in instead.
+ */
+const DEFAULT_SCOPE = "openid profile email organization:*";
 /** Eight hours: a working day, after which the refresh token is the thing keeping you signed in. */
 const DEFAULT_MAX_AGE = 8 * 60 * 60;
 /** Ten minutes is long enough to type a password and short enough that an abandoned leg expires. */
 const TRANSACTION_MAX_AGE = 10 * 60;
+/**
+ * What `randomState()` mints — 43 characters of base64url — with room for another client's. The
+ * callback's `state` names a cookie, so it is checked before it is spelled into one.
+ */
+const STATE = /^[A-Za-z0-9_-]{16,128}$/;
+/** The event a logout token carries, OpenID Connect Back-Channel Logout 1.0 §2.4. */
+const BACKCHANNEL_EVENT = "http://schemas.openid.net/event/backchannel-logout";
 /**
  * Renew an access token with a minute left on it rather than after it dies.
  *
@@ -122,14 +135,47 @@ function isStaleKeyMaterial(error: unknown): boolean {
 /**
  * Who did not answer, when it was the IdP: `openid-client` reports its own deadline as
  * `OAUTH_TIMEOUT`, a status that is not OAuth's (a 502 from a proxy) as `OAUTH_RESPONSE_IS_NOT_CONFORM`,
- * and a connection that never opened as the platform's uncoded `TypeError`.
+ * and a connection that never opened as the platform's uncoded `TypeError`. `jose`, fetching the
+ * keys a logout token is checked against, reports its deadline as `ERR_JWKS_TIMEOUT` and a key set
+ * that is not one as `ERR_JWKS_INVALID`, or as its generic error for a status that is not 200.
  */
 function unanswered(error: unknown): "idp/silent" | "idp/unreachable" | undefined {
   const code = codeOf(error);
-  if (code === "OAUTH_TIMEOUT") return "idp/silent";
-  if (code === "OAUTH_RESPONSE_IS_NOT_CONFORM") return "idp/unreachable";
+  if (code === "OAUTH_TIMEOUT" || code === "ERR_JWKS_TIMEOUT") return "idp/silent";
+  if (
+    code === "OAUTH_RESPONSE_IS_NOT_CONFORM" ||
+    code === "ERR_JWKS_INVALID" ||
+    code === "ERR_JOSE_GENERIC"
+  ) {
+    return "idp/unreachable";
+  }
   if (error instanceof TypeError && code === undefined) return "idp/unreachable";
   return undefined;
+}
+
+/**
+ * The token endpoint's `invalid_grant` for a refresh token: Keycloak's answer once the SSO session
+ * behind it has gone idle, been ended, or the token was already rotated by someone else.
+ * `openid-client` carries the OAuth error on the `error` field of its `ResponseBodyError`.
+ */
+function isInvalidGrant(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { error?: unknown }).error === "invalid_grant"
+  );
+}
+
+/**
+ * The scope a sign-in asks for: the configured one with its organization scope replaced by
+ * `organization:<alias>` when one is named, and by `organization:*` otherwise. Exactly one
+ * organization scope, because Keycloak gives no promise about which of two would win.
+ */
+function scopeFor(configured: string | undefined, organization: string | undefined): string {
+  const others = (configured ?? DEFAULT_SCOPE)
+    .split(/\s+/)
+    .filter((scope) => scope !== "" && scope !== "organization" && !scope.startsWith("organization:"));
+  return [...others, `organization:${organization ?? "*"}`].join(" ");
 }
 
 /**
@@ -151,44 +197,36 @@ const ORGANIZATION = /^(\*|[A-Za-z0-9](?:[A-Za-z0-9._-]{0,62}[A-Za-z0-9])?)$/;
  * One renewal per ticket, for the whole process rather than per `relyingParty`.
  *
  * `singleFlight`'s own header says why a second concurrent renewal is a revoked token chain and
- * not a wasted round trip. What that header does not say is that a server builds more than one
- * relying party: `authRoutes` rebuilds its own when the derived callback URL changes, `authToken`
- * and `authProxy` each hold theirs, and an instance-level slot would let a refresh from the route
- * and a refresh from the proxy replay the same token at the same moment. The ticket names the
- * session, so the ticket is the right key, and it is the same ticket whichever instance holds it.
+ * not a wasted round trip. The ticket names the session and no longer changes when the session is
+ * renewed, so it is the right key: the proxy, the API forwarder and the refresh route all renew the
+ * same session under the same name, and whichever asks second joins the first.
  *
- * **It is per process.** Two Node instances behind a load balancer can still collide, and the
- * answer to that is a `SessionStore` whose `put` is the point of coordination — not a lock here,
- * which would be a distributed one pretending to be a `Map`.
+ * **It is per process.** Two Node instances behind a load balancer can still both spend the same
+ * refresh token, and the loser is told `invalid_grant`. That is answered in `renew` by reading the
+ * record again — the winner has already written the rotated token under the same ticket — rather
+ * than by a lock here, which would be a distributed one pretending to be a `Map`.
  */
-const renewals = keyedSingleFlight<Adopted>();
+const renewals = keyedSingleFlight<Adopted | Ended>();
 
 /** The deployment's store, failing as `session/unavailable` rather than as whatever its driver throws. */
 function reachable(store: SessionStore): SessionStore {
-  const fail = (error: unknown): never =>
-    refuse("session/unavailable", "the session store did not answer", error);
+  const guard =
+    <A extends unknown[], R>(call: (...args: A) => Promise<R>) =>
+    async (...args: A): Promise<R> => {
+      try {
+        return await call(...args);
+      } catch (error) {
+        // A store that cannot revoke answered, and its answer is the point; it is not an outage.
+        if (error instanceof AuthError && error.code === "session/irrevocable") throw error;
+        return refuse("session/unavailable", "the session store did not answer", error);
+      }
+    };
   return {
-    async put(record) {
-      try {
-        return await store.put(record);
-      } catch (error) {
-        return fail(error);
-      }
-    },
-    async get(ticket) {
-      try {
-        return await store.get(ticket);
-      } catch (error) {
-        return fail(error);
-      }
-    },
-    async drop(ticket) {
-      try {
-        await store.drop(ticket);
-      } catch (error) {
-        fail(error);
-      }
-    },
+    put: guard((record) => store.put(record)),
+    update: guard((ticket, record) => store.update(ticket, record)),
+    get: guard((ticket) => store.get(ticket)),
+    drop: guard((ticket) => store.drop(ticket)),
+    dropAll: guard((subject) => store.dropAll(subject)),
   };
 }
 
@@ -198,33 +236,46 @@ export interface Redirect {
   readonly cookies: readonly string[];
 }
 
-/** What `refresh` answers. */
+/**
+ * A live session after `refresh`: renewed, or still good. `cookies` is empty unless the ticket
+ * itself changed, which only a stateless store's re-seal does.
+ */
 export interface Renewed {
+  readonly ended: false;
   readonly session: Session;
   readonly cookies: readonly string[];
 }
 
-/** What `complete` answers: a renewal, plus where the person was going before they were asked who they are. */
-export interface SignedIn extends Renewed {
+/**
+ * No live session: none was presented, the store no longer knows it, or the IdP refused to renew
+ * it. The ticket has been dropped, and `cookies` clears the one the browser holds — empty when it
+ * held none.
+ *
+ * A result rather than an exception, because the cookies are the point: an ended session that
+ * forgets to clear its cookie is the zombie this replaced, a page drawn for a session the IdP had
+ * already closed.
+ */
+export interface Ended {
+  readonly ended: true;
+  /** `token/refused` when the IdP refused to renew it; `session/absent` when there was none to renew. */
+  readonly code: "session/absent" | "token/refused";
+  readonly cookies: readonly string[];
+}
+
+/** What `complete` answers: the new session, its cookies, and where the person was going. */
+export interface SignedIn {
+  readonly session: Session;
+  readonly cookies: readonly string[];
   readonly returnTo: string;
 }
 
-/**
- * What `token` answers: the credential a resource server takes, and what to set on the way out.
- *
- * **`cookies` is not optional to attach.** It is empty when nothing was renewed and carries a
- * rotated session when something was, and under the rotation RFC 10017 requires, dropping it
- * throws away the only refresh token still valid — the session does not go stale, it ends. A
- * caller with nowhere to put a `Set-Cookie` is a caller that must not be asking for this.
- */
-export interface Token {
+/** What `token` answers for a live session: the credential a resource server takes, and what to set. */
+export interface Token extends Renewed {
   readonly accessToken: string;
-  readonly session: Session;
-  readonly cookies: readonly string[];
 }
 
 /**
- * Everything a successful grant produced: what the caller is told, and the record behind it.
+ * Everything a successful renewal produced: what the caller is told, and the record behind it.
  *
  * The two are separate and only the first is ever returned from a public method, because a
  * `SessionRecord` holds the refresh token and a `Renewed` is the sort of thing a route handler
@@ -237,13 +288,14 @@ interface Adopted {
 }
 
 export interface RelyingPartyConfig extends IssuerConfig {
-  /** Registered at Keycloak, and where `complete` expects to be called. */
-  readonly redirectUri: string;
   /** Seals the cookies. Any length; generate it. See `sealedCookie`. */
   readonly secret: string | Uint8Array;
-  /** Default `openid profile email`. A multi-tenant product adds `organization:*`. */
+  /**
+   * Default `openid profile email organization:*`. Whatever is given, its organization scope is
+   * `organization:*` — or the one alias a sign-in names.
+   */
   readonly scope?: string;
-  /** Default {@link statelessStore}. Supply one to invalidate a session before it expires. */
+  /** Default {@link statelessStore}. Supply a `ticketStore` to end a session before it expires. */
   readonly store?: SessionStore;
   /** Session cookie lifetime in seconds. Default eight hours. */
   readonly maxAge?: number;
@@ -252,38 +304,48 @@ export interface RelyingPartyConfig extends IssuerConfig {
 }
 
 export interface RelyingParty {
-  /** Leg one: the authorization URL, and the cookie that remembers this attempt. */
-  begin(options?: SignInOptions): Promise<Redirect>;
-  /** Leg two: the callback URL Keycloak returned to, and the `Cookie` header it arrived with. */
-  complete(request: { readonly url: string | URL; readonly cookie: string | null }): Promise<SignedIn>;
-  /** The session a request carries, or `null`. The read a route handler does on every request. */
+  /**
+   * Leg one: the authorization URL, and the cookie that remembers this attempt.
+   *
+   * `redirectUri` is per call, because it is derived from the request that asked, and one relying
+   * party serves every origin a deployment answers on.
+   */
+  begin(options: SignInOptions & { readonly redirectUri: string }): Promise<Redirect>;
+  /**
+   * Leg two: the callback URL Keycloak returned to, the `Cookie` header it arrived with, and the
+   * `redirectUri` `begin` was given — which the token request must repeat exactly.
+   */
+  complete(request: {
+    readonly url: string | URL;
+    readonly cookie: string | null;
+    readonly redirectUri: string;
+  }): Promise<SignedIn>;
+  /** The session a request carries, or `null`. One store read; nothing is renewed. */
   read(cookie: string | null | undefined): Promise<Session | null>;
   /**
-   * The access token a request carries, renewed when it is about to expire — or `null` when there
-   * is no session at all.
+   * The access token a request carries, renewed in place when it is within `renewWithin` seconds
+   * of expiry (default 60) — or {@link Ended} when there is no live session.
    *
    * This is the *token-mediating backend*: the browser holds a cookie, the resource server is
-   * given a bearer token, and the two never meet. {@link read} is its sibling for identity, and
-   * the difference in the signature is the whole of the difference in what they may be called
-   * from — this one can answer with a `Set-Cookie` and therefore must be called somewhere that can
-   * send one.
-   *
-   * Renewal is single-flight per ticket, so a page that fires eight requests at an expiring token
-   * spends it once.
+   * given a bearer token, and the two never meet. Renewal is single-flight per ticket, so a page
+   * that fires eight requests at an expiring token spends it once.
    */
   token(
     cookie: string | null | undefined,
     options?: { readonly renewWithin?: number },
-  ): Promise<Token | null>;
-  /**
-   * Spend the refresh token, take the new one, and reissue the cookie.
-   *
-   * Single-flight per ticket across the whole process: a second concurrent call joins the first
-   * rather than replaying a token it already spent. See `renewals`.
-   */
-  refresh(cookie: string | null | undefined): Promise<Renewed>;
+  ): Promise<Token | Ended>;
+  /** Spend the refresh token now, whatever the access token's expiry. See {@link token}. */
+  refresh(cookie: string | null | undefined): Promise<Renewed | Ended>;
   /** RP-initiated logout: forget the record here, clear the cookie, and end it at the IdP too. */
   end(cookie: string | null | undefined, options?: { readonly returnTo?: string }): Promise<Redirect>;
+  /**
+   * Back-channel logout, OpenID Connect Back-Channel Logout 1.0 §2.6: verify the logout token
+   * Keycloak posted, and drop every session it names.
+   *
+   * Rejects with `token/refused` for a token that does not verify, and `session/irrevocable` for a
+   * store that cannot end a session from here.
+   */
+  logout(logoutToken: string): Promise<void>;
 }
 
 /** Everything either grant returns: one type, because both are answers from the token endpoint. */
@@ -294,7 +356,7 @@ interface SessionTicket {
   readonly ticket: string;
 }
 
-/** What the transaction cookie carries between the two legs. */
+/** What a transaction cookie carries between the two legs. */
 interface Transaction {
   readonly state: string;
   readonly nonce: string;
@@ -328,26 +390,38 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
     maxAge: config.maxAge ?? DEFAULT_MAX_AGE,
   });
 
-  // A second cookie rather than a field on the first, because its lifetime is different by two
-  // orders of magnitude and it must be gone the moment the callback has used it.
-  const transaction: SealedCookie<Transaction> = sealedCookie({
-    name: "kanzo-auth",
-    secret: config.secret,
-    maxAge: TRANSACTION_MAX_AGE,
-  });
+  /**
+   * One cookie per attempt, named by its `state` — Auth0's `__txn_{state}`. A single transaction
+   * cookie is overwritten by the second tab that starts signing in, and the first tab's callback
+   * then finds someone else's attempt and fails; per-state cookies let both finish. Each lives ten
+   * minutes and is cleared by the callback that spends it.
+   */
+  const transaction = (state: string): SealedCookie<Transaction> =>
+    sealedCookie({ name: `kanzo-auth.${state}`, secret: config.secret, maxAge: TRANSACTION_MAX_AGE });
 
-  const recordFrom = async (cookie: string | null | undefined): Promise<SessionRecord | null> => {
+  /** The ticket a request's cookie carries and the record behind it, or `null` for no cookie. */
+  const opened = async (
+    cookie: string | null | undefined,
+  ): Promise<{ readonly ticket: string; readonly record: SessionRecord | null } | null> => {
     const sealed = await session.read(cookie);
     if (sealed === null) return null;
-    return store.get(sealed.ticket);
+    return { ticket: sealed.ticket, record: await store.get(sealed.ticket) };
   };
 
-  /** Everything a successful grant produces, in the one place both grants can use it. */
-  const adopt = async (tokens: Tokens, previous: SessionRecord | null): Promise<Adopted> => {
+  const ended = async (
+    ticket: string | undefined,
+    code: Ended["code"] = "session/absent",
+  ): Promise<Ended> => {
+    if (ticket !== undefined) await store.drop(ticket);
+    return { ended: true, code, cookies: ticket === undefined ? [] : [session.clear()] };
+  };
+
+  /** What a grant produced, as the record to keep: the identity, the tokens, and the IdP session. */
+  const adopt = (tokens: Tokens, previous: SessionRecord | null): SessionRecord => {
     // A refresh that returns no new ID token leaves the identity as it was; only the tokens moved.
     const idClaims = tokens.claims();
-    const next = idClaims === undefined ? previous?.session : claims(idClaims, config);
-    if (next === undefined) {
+    const identity = idClaims === undefined ? previous?.session : claims(idClaims, config);
+    if (identity === undefined) {
       refuse("token/exchange-failed", "the token response carried no ID token, so it names nobody");
     }
 
@@ -356,58 +430,74 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
     // opinion about our clock. Absent, the expiry is unknown rather than zero — a record that
     // claimed to have expired at the epoch would be renewed on every single request.
     const lifetime = tokens.expiresIn();
+    const accessTokenExpiresAt = lifetime === undefined ? undefined : Date.now() + lifetime * 1000;
+    const sid = typeof idClaims?.["sid"] === "string" ? idClaims["sid"] : previous?.sid;
 
-    const record: SessionRecord = {
-      session: next,
+    return {
+      session: { ...identity, expiresAt: accessTokenExpiresAt ?? identity.expiresAt },
+      sid,
       accessToken: tokens.access_token,
-      accessTokenExpiresAt: lifetime === undefined ? undefined : Date.now() + lifetime * 1000,
+      accessTokenExpiresAt,
       // RFC 10017 requires rotation, so the newly issued token is the only one still valid. An
       // authorization server that did not rotate returns none, and the one we hold stays good.
       refreshToken: tokens.refresh_token ?? previous?.refreshToken,
       idToken: tokens.id_token ?? previous?.idToken,
     };
-
-    const ticket = await store.put(record);
-    return { renewed: { session: next, cookies: [await session.seal({ ticket })] }, record };
   };
 
-  /** The renewal both `refresh` and `token` run, with the record they each need a different half of. */
-  const renew = async (cookie: string | null | undefined): Promise<Adopted> => {
-    const sealed = await session.read(cookie);
-    const record = sealed === null ? null : await store.get(sealed.ticket);
-    if (sealed === null || record === null) {
-      refuse("session/absent", "there is no session cookie to refresh");
-    }
-    const spent = record.refreshToken;
-    if (spent === undefined) {
-      refuse("session/absent", "the session holds no refresh token, so it cannot be renewed");
-    }
+  /**
+   * Spend the refresh token and write what comes back under the same ticket.
+   *
+   * Duende BFF's shape: the server-side session is updated in place, so the cookie naming it does
+   * not change and a renewal in the proxy has nothing to hand the browser. A refusal is the end of
+   * the session — unless the refusal is because another process got there first, which the
+   * record, re-read once, says.
+   */
+  const renew = (ticket: string, record: SessionRecord): Promise<Adopted | Ended> =>
+    renewals(ticket, async () => {
+      const spent = record.refreshToken;
+      if (spent === undefined) return ended(ticket);
 
-    // Everything above is a read and may run concurrently; everything below spends a token that can
-    // only be spent once, so it is the half behind the slot. A caller that joins gets the cookie
-    // the first one was issued, which is the cookie it would have been issued anyway.
-    return renewals(sealed.ticket, async () => {
       let tokens: Tokens;
       try {
         tokens = await refreshTokenGrant(await configuration(), spent);
       } catch (error) {
         if (error instanceof AuthError) throw error;
-        // Under rotation a refused refresh is often a *replayed* token rather than an expired one,
-        // and the authorization server may have revoked the whole chain. Either way the session is
-        // over; the slot above exists to keep us from causing it. An IdP that did not answer has
-        // refused nothing, and says so.
-        throw fromIdp(error, "token/exchange-failed", "the refresh token was refused");
+        // An IdP that did not answer has refused nothing, and a token endpoint that refused for any
+        // reason but the grant is a deployment fault: neither ends the session.
+        if (unanswered(error) !== undefined || !isInvalidGrant(error)) {
+          throw fromIdp(error, "token/exchange-failed", "the token endpoint did not renew the session");
+        }
+        const current = await store.get(ticket);
+        if (current?.refreshToken !== undefined && current.refreshToken !== spent) {
+          return { record: current, renewed: { ended: false, session: current.session, cookies: [] } };
+        }
+        return ended(ticket, "token/refused");
       }
 
-      // The superseded ticket goes first: a store that enforces one live session per person must
-      // not briefly hold two, and for the stateless default this is a no-op.
-      await store.drop(sealed.ticket);
-      return adopt(tokens, record);
+      const fresh = adopt(tokens, record);
+      const next = await store.update(ticket, fresh);
+      // The row went while the grant was in flight: a back-channel logout ended this session, and
+      // the tokens just issued are for nobody.
+      if (next === null) return ended(ticket);
+      return {
+        record: fresh,
+        renewed: {
+          ended: false,
+          session: fresh.session,
+          cookies: next === ticket ? [] : [await session.seal({ ticket: next })],
+        },
+      };
     });
-  };
+
+  /** A logout token's verification failure, as the IdP's outage or as a refused token. */
+  const fromLogout = (error: unknown): AuthError =>
+    error instanceof AuthError
+      ? error
+      : fromIdp(error, "token/refused", "the logout token did not verify");
 
   return {
-    async begin(options = {}) {
+    async begin(options) {
       const discovered = await configuration();
 
       const verifier = randomPKCECodeVerifier();
@@ -422,13 +512,8 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
       }
 
       const parameters: Record<string, string> = {
-        redirect_uri: config.redirectUri,
-        // `organization:<alias>` asks Keycloak for one; a product with many asks for
-        // `organization:*` through `scope`, because plain `organization` prompts for a choice.
-        scope:
-          options.organization === undefined
-            ? (config.scope ?? DEFAULT_SCOPE)
-            : `${config.scope ?? DEFAULT_SCOPE} organization:${options.organization}`,
+        redirect_uri: options.redirectUri,
+        scope: scopeFor(config.scope, options.organization),
         code_challenge: await calculatePKCECodeChallenge(verifier),
         code_challenge_method: "S256",
         state,
@@ -438,25 +523,24 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
       return {
         url: buildAuthorizationUrl(discovered, parameters).href,
         cookies: [
-          await transaction.seal({ state, nonce, verifier, returnTo: options.returnTo ?? "/" }),
+          await transaction(state).seal({ state, nonce, verifier, returnTo: options.returnTo ?? "/" }),
         ],
       };
     },
 
     async complete(request) {
-      const pending = await transaction.read(request.cookie);
-      if (pending === null) {
-        refuse(
-          "callback/state-mismatch",
-          "the callback arrived with no transaction cookie, so there is nothing to match its `state` against",
-        );
+      const current = new URL(request.url);
+      const state = current.searchParams.get("state");
+      if (state === null || !STATE.test(state)) {
+        refuse("callback/state-mismatch", "the callback carries no `state` this client could have sent");
       }
 
-      const current = new URL(request.url);
-      if (current.searchParams.get("state") !== pending.state) {
+      const spent = transaction(state);
+      const pending = await spent.read(request.cookie);
+      if (pending === null || pending.state !== state) {
         refuse(
           "callback/state-mismatch",
-          "the callback's `state` is not the one this browser was sent with",
+          "the callback's `state` names no transaction this browser started",
         );
       }
 
@@ -466,8 +550,14 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
         expectedNonce: pending.nonce,
       };
 
+      // The token request repeats the `redirect_uri` the authorization request sent (RFC 6749
+      // §4.1.3), and `openid-client` reads it off the URL it is handed — so the callback's own
+      // parameters go onto that URI, whatever host the request happened to arrive under.
+      const callback = new URL(request.redirectUri);
+      callback.search = current.search;
+
       const grant = (configuration: Configuration) =>
-        authorizationCodeGrant(configuration, current, checks);
+        authorizationCodeGrant(configuration, callback, checks);
 
       let tokens: Tokens;
       try {
@@ -505,60 +595,63 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
       }
 
       // Session fixation: the record is new, the ticket is new and the cookie is new, and any
-      // session cookie this callback happened to arrive with is not read. A server-side session
-      // store calls `cycle_id()` here for the same reason — an attacker who planted a session before sign-in
-      // must not find themselves holding the one that sign-in produced.
-      const { renewed } = await adopt(tokens, null);
+      // session cookie this callback happened to arrive with is not read. This is the only place a
+      // ticket is issued; every renewal after it keeps this one.
+      const record = adopt(tokens, null);
+      const ticket = await store.put(record);
 
       return {
-        ...renewed,
-        cookies: [...renewed.cookies, transaction.clear()],
+        session: record.session,
+        cookies: [await session.seal({ ticket }), spent.clear()],
         returnTo: pending.returnTo,
       };
     },
 
     async read(cookie) {
-      return (await recordFrom(cookie))?.session ?? null;
+      return (await opened(cookie))?.record?.session ?? null;
     },
 
     async token(cookie, options = {}) {
-      const record = await recordFrom(cookie);
-      if (record === null) return null;
+      const found = await opened(cookie);
+      if (found?.record == null) return ended(found?.ticket);
+      const { ticket, record } = found;
 
       const within = (options.renewWithin ?? DEFAULT_RENEW_WITHIN) * 1000;
-      const held = record.accessToken;
       // An unknown expiry is not treated as expired: a realm that omits `expires_in` would
       // otherwise be renewed on every request, which is the replay this package exists to avoid.
       const stale =
         record.accessTokenExpiresAt !== undefined &&
         record.accessTokenExpiresAt - Date.now() <= within;
 
-      if (held !== undefined && !stale) {
-        return { accessToken: held, session: record.session, cookies: [] };
+      if (record.accessToken !== undefined && !stale) {
+        return { ended: false, accessToken: record.accessToken, session: record.session, cookies: [] };
       }
 
-      const { renewed, record: fresh } = await renew(cookie);
-      if (fresh.accessToken === undefined) {
+      const outcome = await renew(ticket, record);
+      if ("ended" in outcome) return outcome;
+      if (outcome.record.accessToken === undefined) {
         refuse("token/exchange-failed", "the token response carried no access token");
       }
-      return { accessToken: fresh.accessToken, session: renewed.session, cookies: renewed.cookies };
+      return { ...outcome.renewed, accessToken: outcome.record.accessToken };
     },
 
     async refresh(cookie) {
-      return (await renew(cookie)).renewed;
+      const found = await opened(cookie);
+      if (found?.record == null) return ended(found?.ticket);
+      const outcome = await renew(found.ticket, found.record);
+      return "ended" in outcome ? outcome : outcome.renewed;
     },
 
     async end(cookie, options = {}) {
-      const sealed = await session.read(cookie);
-      const record = sealed === null ? null : await store.get(sealed.ticket);
-      if (sealed !== null) await store.drop(sealed.ticket);
+      const found = await opened(cookie);
+      if (found !== null) await store.drop(found.ticket);
 
       const parameters: Record<string, string> = {};
       const returnTo = options.returnTo ?? config.postLogoutRedirectUri;
       if (returnTo !== undefined) parameters["post_logout_redirect_uri"] = returnTo;
       // Without the hint Keycloak cannot tell which session is ending and asks the person to
       // confirm — which reads as a bug to everyone who sees it.
-      if (record?.idToken !== undefined) parameters["id_token_hint"] = record.idToken;
+      if (found?.record?.idToken !== undefined) parameters["id_token_hint"] = found.record.idToken;
 
       // `buildEndSessionUrl` rather than a hand-built URL: the endpoint comes from discovery, and
       // the parameter names are the specification's rather than ours to remember.
@@ -566,6 +659,50 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
         url: buildEndSessionUrl(await configuration(), parameters).href,
         cookies: [session.clear()],
       };
+    },
+
+    async logout(logoutToken) {
+      let payload: JWTPayload;
+      try {
+        // `jose` checks the signature against the realm's published keys, `iss`, `aud` and the
+        // presence of `iat`, and `exp` when the token carries one. An unknown `kid` re-fetches the
+        // key set once per cooldown, which is how a rotation is survived here.
+        ({ payload } = await jwtVerify(logoutToken, await provider.keys(), {
+          issuer: config.issuer,
+          audience: config.clientId,
+          requiredClaims: ["iat"],
+        }));
+      } catch (error) {
+        throw fromLogout(error);
+      }
+
+      // §2.6 steps 4–6: the event is present, there is no `nonce` — which is what keeps an ID token
+      // from being replayed as a logout token — and the token names a subject, a session, or both.
+      const events = payload["events"];
+      const event =
+        typeof events === "object" && events !== null
+          ? (events as Record<string, unknown>)[BACKCHANNEL_EVENT]
+          : undefined;
+      if (typeof event !== "object" || event === null) {
+        refuse("token/refused", "the logout token does not carry the back-channel logout event");
+      }
+      if ("nonce" in payload) {
+        refuse("token/refused", "a logout token must not carry a `nonce`");
+      }
+      const sub = typeof payload.sub === "string" ? payload.sub : undefined;
+      const sid = typeof payload["sid"] === "string" ? payload["sid"] : undefined;
+      if (sub === undefined) {
+        // §2.4 allows a token with only `sid`. Tickets are keyed by subject first, so a session
+        // could only be found by reading every ticket there is; Keycloak always sends `sub`.
+        refuse(
+          "token/refused",
+          sid === undefined
+            ? "the logout token names neither a subject nor a session"
+            : "the logout token names a session but no subject, and sessions are found by subject",
+        );
+      }
+
+      await store.dropAll({ sub, sid });
     },
   };
 }
@@ -577,6 +714,7 @@ export {
   ticketStore,
   type SessionRecord,
   type SessionStore,
+  type SessionSubject,
   type TicketAdapter,
   type TicketStoreConfig,
 } from "./store";

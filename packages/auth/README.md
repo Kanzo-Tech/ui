@@ -1,7 +1,7 @@
 # @kanzo-tech/auth
 
-Authentication over Keycloak: the claim vocabulary read into one session, the role evaluation that
-knows about organizations, and an authenticated `fetch`.
+Authentication over Keycloak: a Backend For Frontend for Next in one object, `kanzoAuth`, the claim
+vocabulary read into one session, and the role evaluation that knows about organizations.
 
 ## What it is not
 
@@ -10,14 +10,15 @@ screen is a logo, a legal line, a privacy notice and a button, and every product
 differently — `@kanzo-tech/ui` has the parts to draw one. What is genuinely shared sits underneath,
 and that is what is here.
 
-**There is no protocol in it either.** PKCE, silent renewal, token storage and cross-tab
-coordination are `oidc-client-ts`'s job, behind `./browser`; the confidential client is
-`openid-client`'s, behind `./server`. Writing either by hand is where mistakes turn into
-vulnerabilities, and neither is what this package is for.
+**There is no protocol in it either.** The confidential client is `openid-client`'s, behind
+`./server`, and the browser holds a cookie and no token — RFC 10017's Backend For Frontend, the
+architecture it recommends for business applications. Writing OAuth by hand is where mistakes turn
+into vulnerabilities, and it is not what this package is for.
 
 What is left after those two subtractions is everything this package is: **Keycloak's claims as one
-`Session`, a role predicate that understands organizations, one `fetch` that stays authenticated,
-and the same session shape across two deployment patterns that otherwise share no code.**
+`Session`, a role predicate that understands organizations, and the session lifecycle around them —
+a proxy that renews and ends sessions, back-channel logout, and a browser half that signs in once
+when a session is over.**
 
 ## Why a package, and not `@kanzo-tech/ui`
 
@@ -47,9 +48,18 @@ prising open a token.
 pnpm add @kanzo-tech/auth
 ```
 
-That is the whole of it for a single-page application: the root barrel carries no engine. The other
-doors each name theirs — `oidc-client-ts` for `./browser`, `openid-client` and `jose` for
-`./server`, `next` for `./next` — and a consumer installs only the one it opens.
+The root barrel carries no engine. The server doors name theirs — `openid-client` and `jose` for
+`./server`, and `next` 16 or later as well for `./next` — and a consumer installs only what it
+opens.
+
+```ts
+// lib/auth.ts
+export const auth = kanzoAuth(async () => ({ issuer, clientId, clientSecret, secret, store }));
+// proxy.ts
+export const proxy = (request: NextRequest) => auth.proxy(request);
+// app/api/auth/[...auth]/route.ts
+export const { GET, POST } = auth.routes;
+```
 
 ## The claims it reads
 
@@ -60,7 +70,8 @@ Nothing here is invented. Every claim is one Keycloak emits without being asked:
 | `sub`, `email`, `name` (or `given_name` + `family_name`), `preferred_username` | `session.user` |
 | `realm_access.roles` ∪ `resource_access.<clientId>.roles` | `session.roles` |
 | `organization` — `{ "acme": { "id": "…", "resource_access": { "<clientId>": { "roles": ["editor"] } } } }` | `session.organizations` |
-| `exp` | `session.expiresAt`, in milliseconds |
+| `sid` | the session record, for back-channel logout |
+| — the token response's `expires_in` | `session.expiresAt`, in milliseconds: when the access token expires |
 
 Inside each organization, `resource_access.<clientId>.roles` is what the person holds **there**:
 the roles an organization admin mapped onto the groups they are in, composites expanded by
@@ -69,34 +80,36 @@ application's roles in the same entry are ignored, so a role held in one applica
 authorises its holder in another. Nor are they merged into `session.roles`: a role in one
 organization says nothing about the next.
 
-Ask Keycloak for `organization:*` to receive every organization the person belongs to. Plain
-`organization` returns the only one when there is one and prompts for a choice when there are
-several, which is the documented behaviour behind more than one bug report about the claim
-"disappearing".
+Every sign-in asks Keycloak for `organization:*`, which returns every organization the person
+belongs to. Plain `organization` returns the only one when there is one and prompts for a choice
+when there are several, which is the documented behaviour behind more than one bug report about the
+claim "disappearing".
 
-## Membership is in the session; the active organization is not
+## Membership is stored; the current organization is resolved per request
 
 ```ts
 interface Session {
   user: AuthUser;
   roles: readonly string[];
   organizations: readonly Organization[];
+  organization?: string; // the tenant this request addresses
   expiresAt: number;
 }
 ```
 
-There is no active organization on it, and the absence is deliberate. Membership is stable and comes
-from the token; which organization you are *looking at* is a property of the request — the URL — and
-deriving it per request is what lets two tabs sit in two organizations at once. A field here would
-be the single shared value they would fight over.
+Membership is stable and comes from the token. Which organization a request is *in* is a property
+of the request — its host, its path, a cookie — so `kanzoAuth`'s `organization` resolver answers it
+per request and it is never stored. That is what lets two tabs sit in two organizations at once.
 
 Roles held inside an organization live on that organization, and are never merged into
 `session.roles`. Being an owner of one organization says nothing about another.
 
 ```ts
-can(session, "auditor");           // a realm or client role
-can(session, "owner", "acme");     // a role inside that organization
+can(session, "editor");            // inside session.organization, the current tenant
+can(session, "owner", "acme");     // inside that organization
 ```
+
+With no current tenant, `can` answers from the realm and client roles.
 
 There is no role hierarchy in the predicate. That `owner` outranks `member` is a fact about a
 product, so a product writes it where it can be seen:

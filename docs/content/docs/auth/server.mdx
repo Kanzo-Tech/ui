@@ -1,19 +1,20 @@
 ---
 title: Server
-description: The confidential client behind @kanzo-tech/auth/server — five methods, strings in and strings out, a sealed cookie, and a store for when a cookie is not enough.
+description: The confidential client behind @kanzo-tech/auth/server — seven methods, strings in and strings out, a sealed cookie, a stable ticket renewed in place, and back-channel logout through the store.
 ---
 
 ```ts
 import { relyingParty } from "@kanzo-tech/auth/server";
 ```
 
-This door is the other half of the [Backend For Frontend](/docs/auth/session#two-patterns-one-session):
+This door is the server half of the [Backend For Frontend](/docs/auth/session#the-backend-for-frontend):
 the tokens live on your server and the browser gets a cookie it cannot read. It needs
-`openid-client` and `jose`, and it reaches no React at all.
+`openid-client` and `jose`, and it reaches no React at all. [`kanzoAuth`](/docs/auth/next) is this
+door already wired into Next; read on for what it is made of, or to put it under another framework.
 
-What it answers is a `RelyingParty` and not an `Auth`: the six methods below are `begin`,
-`complete`, `read`, `token`, `refresh` and `end`, so the name carries no `Auth` suffix — [the
-suffix is a promise](/docs/auth#what-a-name-means-here).
+What it answers is a `RelyingParty` and not an `Auth`: the seven methods below are `begin`,
+`complete`, `read`, `token`, `refresh`, `end` and `logout`, the protocol's verbs, so the name
+carries no `Auth` suffix — [the suffix is a promise](/docs/auth#what-a-name-means-here).
 
 **Nothing here implements OAuth.** `openid-client` runs the flow, verifies the ID token and builds
 the end-session URL; `jose` seals the cookie. What is written here is the short sequence a route
@@ -23,33 +24,43 @@ handler needs, the cookie discipline around it, and Keycloak's claims read into 
 
 There is no `Request` in any signature, and that is deliberate: a `Request` parameter would make
 one framework's flavour of it the one that fits. A URL and a `Cookie` header go in; a URL and
-`Set-Cookie` values come out, so the same five methods sit under an App Router handler, an Express
-route or anything else.
+`Set-Cookie` values come out, so the same methods sit under an App Router handler, an Express route
+or anything else.
 
 ```ts
 const party = relyingParty({
   clientId: "board",
   issuer: "https://id.kanzo.tech/realms/kanzo",
-  redirectUri: "https://board.kanzo.tech/api/auth/callback",
-  scope: "openid profile email organization:*",
   secret: process.env.AUTH_SECRET!,
+  store: ticketStore(adapter),
 });
 ```
 
 | Method | Answers | For |
 | --- | --- | --- |
-| `begin(options?)` | `Redirect` — the authorization URL, and the cookie that remembers this attempt | `GET /api/auth/signin` |
-| `complete({ url, cookie })` | `SignedIn` — a session, its cookies, and where the person was going | the callback |
-| `read(cookie)` | `Session \| null` | `GET /api/auth/session`, on every request |
-| `token(cookie, options?)` | `Token \| null` — the access token, renewed when it is near expiry | forwarding to a resource server |
-| `refresh(cookie)` | `Renewed` — the session and a reissued cookie | `POST /api/auth/refresh` |
+| `begin({ redirectUri, returnTo?, organization? })` | `Redirect` — the authorization URL, and the cookie that remembers this attempt | `GET /api/auth/signin` |
+| `complete({ url, cookie, redirectUri })` | `SignedIn` — a session, its cookies, and where the person was going | the callback |
+| `read(cookie)` | `Session \| null` — one store read, nothing renewed | `GET /api/auth/session`, a server component |
+| `token(cookie, options?)` | `Token \| Ended` — the access token, renewed in place when near expiry | the proxy, forwarding to a resource server |
+| `refresh(cookie)` | `Renewed \| Ended` — renewed now, whatever the expiry | `POST /api/auth/refresh` |
 | `end(cookie, options?)` | `Redirect` — clears the cookie and ends it at the IdP too | `GET /api/auth/signout` |
+| `logout(logoutToken)` | nothing — drops the sessions a back-channel logout token names | `POST /api/auth/backchannel-logout` |
 
-`Redirect`, `SignedIn`, `Renewed` and `Token` are the four answer shapes, and every one of them
+`redirectUri` is per call because it is derived from the request that asked, and one relying party
+serves every origin a deployment answers on; `complete` sends the token endpoint the same URI
+`begin` sent the authorization endpoint, as RFC 6749 §4.1.3 requires, whatever host the callback
+arrived under.
+
+`Redirect`, `SignedIn`, `Renewed`, `Token` and `Ended` are the answer shapes, and every one of them
 carries its `cookies` as `Set-Cookie` values for the caller to attach. A handler that forgets to
-attach them is a handler whose sign-in appears to work and whose session is never there — and on
-`token`, worse than that: under rotation the refresh token it spent is gone and the one it minted
-was never kept, so a dropped `Set-Cookie` there ends the session rather than merely failing.
+attach them is a handler whose sign-in appears to work and whose session is never there.
+
+**`Ended` is a result, not an exception.** It says there is no live session — none was presented,
+the store no longer knows it, or the IdP refused to renew it — carries a `code` saying which
+(`session/absent` or `token/refused`), and carries the `Set-Cookie` that clears the browser's
+cookie. It used to be a thrown error that cleared nothing, which is how a refused renewal left a
+zombie: a cookie and a row that outlived the IdP's session by hours, and an application drawn for
+someone Keycloak had already signed out.
 
 ## The token-mediating backend
 
@@ -60,7 +71,8 @@ and the one that will validate the token.
 
 ```ts
 const held = await party.token(request.headers.get("cookie"));
-if (held === null) return new Response(null, { status: 401 });
+if (held.ended) return unauthorized(held.cookies); // 401, clearing the cookie
+
 
 const upstream = await fetch(REPORTS, {
   headers: { authorization: `Bearer ${held.accessToken}` },
@@ -70,8 +82,8 @@ for (const cookie of held.cookies) answer.headers.append("set-cookie", cookie);
 return answer;
 ```
 
-`cookies` is empty when nothing was renewed. [`authProxy`](/docs/auth/next#authproxy) is that
-whole handler, already written.
+`cookies` is empty unless the ticket itself changed, which only the stateless store's re-seal does.
+[`kanzoAuth().api`](/docs/auth/next#api) is that whole handler, already written.
 
 <Callout type="warn">
 **The access token is the credential, and the ID token is not.** A product without a way to ask for
@@ -81,13 +93,29 @@ should be doing. An ID token says *who signed in*; it was never a key to an API,
 `/token/introspect` or `/revoke` take either.
 </Callout>
 
-Renewal is **single-flight per ticket, for the whole process**. A page that fires eight requests at
-an expiring token spends it once, and it is per ticket rather than per instance because a server
-builds more than one relying party — `authRoutes` rebuilds its own when the derived callback URL
-changes, `authToken` and `authProxy` each hold theirs — and an instance-level slot would let two of
-them replay the same token at the same moment. Two Node processes behind a load balancer can still
-collide; the answer to that is a `SessionStore` whose `put` is the point of coordination, not a
-lock here pretending a `Map` is a distributed one.
+## Renewal
+
+**The ticket is issued once, at sign-in, and never again.** That is Duende BFF's server-side
+session, and it is also the session-fixation defence: whatever cookie a browser arrived at the
+callback with, it leaves with a ticket nobody has seen. After that a renewal spends the refresh
+token and writes what comes back **in place**, with `store.update(ticket, record)`, so under a
+`ticketStore` the cookie is the same cookie for the whole session. Two tabs, or a proxy renewal and
+a request already in flight, never hold two different cookies for one session.
+
+Renewal is **single-flight per ticket, for the whole process**: a page that fires eight requests at
+an expiring token spends it once, and the proxy, the forwarder and the refresh route all join the
+same slot.
+
+Two Node processes behind a load balancer can still both spend one refresh token, and the IdP
+answers the second with `invalid_grant`. That is not the end of the session: the first process has
+already written the rotated token under the shared ticket, so on `invalid_grant` the record is
+**read once more**, and a refresh token that changed is taken and used. Only when it has not
+changed is the session over — the ticket is dropped and `Ended` clears the cookie. An IdP that did
+not answer, or a token endpoint that refused for any reason other than the grant, ends nothing: it
+is reported as the outage or the deployment fault it is.
+
+`Session.expiresAt` is the access token's expiry, from the token response's `expires_in`, which is
+when the next renewal is due.
 
 Sign-out goes through `buildEndSessionUrl`, not a URL assembled by hand: it discovers the
 end-session endpoint and sends the `id_token_hint`, and a hand-built URL gets both wrong with
@@ -99,6 +127,10 @@ One mechanism, used twice: for the session that outlives a request, and for the 
 transaction that carries `state`, `nonce` and the PKCE verifier between the two legs of the code
 flow. Keeping the transaction in a cookie rather than in server memory is what makes this
 **stateless by default**.
+
+The transaction cookie is one **per attempt**, named by its `state` — `__Host-kanzo-auth.<state>`,
+Auth0's `__txn_{state}` — so two tabs signing in at once both finish, and each callback clears the
+one it spent.
 
 `sealedCookie` is that mechanism, `SealedCookieConfig` configures it, `SealedCookie<T>` is what it
 returns, and `cookieValue` is the one-line reader for pulling a named cookie out of a `Cookie`
@@ -119,13 +151,15 @@ that byte count rather than letting it happen, and the way out is `ticketStore`.
 
 ## When a cookie is not enough
 
-`statelessStore` is the default and it holds nothing: the ticket *is* the record. Two things it
-cannot do, both stated here rather than discovered later.
+`statelessStore` is the default and it holds nothing: the ticket *is* the record, so `update`
+re-seals it and the cookie is reissued. Two things it cannot do, both stated here rather than
+discovered later.
 
-**`drop` does nothing.** Signing out clears the cookie, which is enough for the person holding the
-browser and is not enough for anybody else: a copy taken beforehand keeps working until it expires.
-Under this store a session lifetime is a real security parameter, and *sign out everywhere* is not
-implementable at all.
+**`drop` does nothing, and `dropAll` refuses** with `session/irrevocable`. Signing out clears the
+cookie, which is enough for the person holding the browser and is not enough for anybody else: a
+copy taken beforehand keeps working until it expires. Under this store a session lifetime is a real
+security parameter, and neither *sign out everywhere* nor a back-channel logout is implementable —
+Auth0's SDK requires a session store for back-channel logout for the same reason.
 
 **It does not fit a record carrying an access token, and the numbers are the argument.** Sealed
 with the three tokens a token-mediating backend holds, a realistic Keycloak record — two
@@ -135,17 +169,23 @@ organization goes over it. `store.test.ts` holds both figures. So the stateless
 default is for a product that reads identity and calls no resource server; the moment there is an
 API to call, the cookie carries a ticket instead of the tokens.
 
-`SessionStore` is three methods, and `SessionRecord` is what they carry — the session, plus the
-access, refresh and ID tokens the browser must never see. They live on the record and not on
-`Session` for exactly that reason: a type carrying both would make the leak one typo away.
+`SessionStore` is five methods, and `SessionRecord` is what they carry — the session and the IdP's
+`sid`, plus the access, refresh and ID tokens the browser must never see. The tokens live on the
+record and not on `Session` for exactly that reason: a type carrying both would make the leak one
+typo away.
 
 ```ts
 interface SessionStore {
-  put(record: SessionRecord): Promise<string>;
+  put(record: SessionRecord): Promise<string>;                  // at sign-in: a new ticket
+  update(ticket: string, record: SessionRecord): Promise<string>; // on renewal: the ticket to carry
   get(ticket: string): Promise<SessionRecord | null>;
   drop(ticket: string): Promise<void>;
+  dropAll(subject: SessionSubject): Promise<void>;              // back-channel logout
 }
 ```
+
+`SessionSubject` is `{ sub, sid? }`, the two claims a logout token names: every session of a
+person, or the one Keycloak just ended.
 
 A deployment that needs one live session per person enforces it in `put`, by dropping that person's
 previous ticket as it issues the new one.
@@ -158,25 +198,37 @@ that wants a real sign-out writes its own sealing, and a logout that invalidates
 thing they all ship instead.
 
 ```ts
-relyingParty({
+kanzoAuth(() => ({
   …,
   store: ticketStore({
     read: (key) => redis.get(key),
     write: (key, value, ttl) => redis.set(key, value, { EX: ttl }),
+    replace: async (key, value, ttl) => (await redis.set(key, value, { XX: true, EX: ttl })) === "OK",
     delete: (key) => redis.del(key),
+    // node-redis 5 yields a batch of keys per SCAN step
+    async *keys(prefix) {
+      for await (const batch of redis.scanIterator({ MATCH: `${prefix}*` })) yield* batch;
+    },
   }),
-});
+}));
 ```
 
 The cookie then carries an opaque ticket of 256 bits from the CSPRNG — under 400 bytes sealed,
 whatever the realm puts in a token — and the record lives in your own database. **`drop` deletes**,
-so every copy of that cookie ends at once.
+so every copy of that cookie ends at once, and **`update` writes under the same key**, so a renewal
+leaves the cookie alone. That write is the adapter's `replace` — Redis `SET … XX`, SQL `UPDATE`
+and its row count — which overwrites only a row that still exists. A back-channel logout that
+deletes the row while a renewal is in flight therefore stays a logout: the renewal finds nothing to
+replace and ends the session, instead of writing it back.
 
-A ticket is `<subject>:<random>`. The random half is the whole of the security and the subject is
-neither secret nor trusted on the way back in — the record is read from the row, never from the
-key. What the prefix buys is the one query a flat random key makes impossible: *every session
-belonging to this person*. `SCAN sub:*` is then something a deployment can write, and "sign out on
-every device" stops being a feature this package has to grow an API for.
+A ticket is `<sub>:<sid>:<random>`, each part percent-encoded. The random part is the whole of the
+security; the subject and the IdP session id are neither secret nor trusted on the way back in —
+the record is read from the row, never from the key. What the prefix buys is the query a flat
+random key makes impossible: *every session belonging to this person*, or *the one Keycloak just
+ended*. `dropAll` is that query, through the adapter's optional `keys(prefix)` — Redis `SCAN MATCH`,
+SQL `LIKE`. The prefix never contains a glob metacharacter (a subject spelled `*` is encoded), so
+the Redis pattern is literal as written; a SQL adapter still escapes `%` and `_`. Without `keys`,
+everything works except back-channel logout, which answers `session/irrevocable`.
 
 `ttl` defaults to eight hours and should be set to the `maxAge` you gave `relyingParty`, which is
 the lifetime of the cookie carrying the ticket. **Honouring it is the adapter's job**, because
@@ -184,12 +236,29 @@ every store that could hold this already has an expiry of its own — `EX` on Re
 sweep on SQL — and a timer here would be one that dies with the process.
 
 **Bounding the wait is not the adapter's job.** `ticketStore` races every `read`, `write` and
-`delete` against the package's 30 s deadline, and one that has not answered rejects as
+`delete` — and each `dropAll` — against the package's 30 s deadline, and one that has not answered rejects as
 `session/silent` with `{ after: 30000 }` — which `relyingParty` reports as `session/unavailable`
 with that as its `cause`, like any other failure of the store. So an adapter is the three driver
 calls above and nothing else. What stays the deployment's is the driver's own configuration: a
 connect timeout and no offline queue are what make a store that is down refuse at once, rather
 than at the deadline.
+
+## Back-channel logout
+
+`logout(logoutToken)` is the relying party's half of **OpenID Connect Back-Channel Logout 1.0**.
+It verifies the token as §2.6 lists: the signature against the realm's published keys, `iss`
+against the issuer, `aud` against the client id, `iat` present, the
+`http://schemas.openid.net/event/backchannel-logout` event present, and **no `nonce`** — which is
+what keeps an ID token from being replayed as a logout token. Then it calls `store.dropAll` with
+the token's `sub` and, when present, `sid`.
+
+The keys are `jose`'s remote key set over the discovered `jwks_uri`, fetched through the same
+transport as discovery — an `internalOrigin` applies to it too. A `kid` it has not seen re-fetches
+the set, at most once per cooldown, which is how a key rotation is survived without a timer.
+
+A token that does not verify rejects with `token/refused`; a store that cannot end a session from
+here rejects with `session/irrevocable`. §2.4 allows a token naming only `sid`, and this one is
+refused too: tickets are found by subject first, and Keycloak always sends `sub`.
 
 ## Discovery, and reaching Keycloak from inside a cluster
 
@@ -226,9 +295,8 @@ the secret never travels. `allowInsecureHttp` is what lets a compose file on a l
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `redirectUri` | `string` | — |
 | `secret` | `string \| Uint8Array` | — |
-| `scope` | `string` | `openid profile email` |
+| `scope` | `string` | `openid profile email organization:*` — whatever is given, its organization scope is `organization:*`, or the one alias a sign-in names |
 | `store` | `SessionStore` | `statelessStore()` |
 | `maxAge` | `number` | eight hours, in seconds |
 | `postLogoutRedirectUri` | `string` | — |
@@ -237,21 +305,33 @@ Returns a `RelyingParty`.
 
 ### `Token`
 
-What `token` answers.
+What `token` answers for a live session: a `Renewed` with the credential on it.
 
 | Field | Type | Description |
 | --- | --- | --- |
+| `ended` | `false` | |
 | `accessToken` | `string` | The bearer credential for a resource server |
 | `session` | `Session` | Who it belongs to |
-| `cookies` | `readonly string[]` | `Set-Cookie` values to attach. Empty when nothing was renewed — **attaching them is not optional** |
+| `cookies` | `readonly string[]` | `Set-Cookie` values to attach. Empty unless the stateless store re-sealed — **attaching them is not optional** |
 
 `token` takes `{ renewWithin?: number }`, seconds, default `60`.
+
+### `Ended`
+
+What `token` and `refresh` answer when there is no live session.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `ended` | `true` | |
+| `code` | `"session/absent" \| "token/refused"` | No session to renew, or the IdP refused to renew it |
+| `cookies` | `readonly string[]` | The `Set-Cookie` that clears the browser's cookie; empty when it held none |
 
 ### `SessionRecord`
 
 | Field | Type | Description |
 | --- | --- | --- |
 | `session` | `Session` | What the browser is allowed to see |
+| `sid` | `string` | The ID token's `sid`, kept across refreshes, for a back-channel logout to name |
 | `accessToken` | `string` | The credential for a resource server |
 | `accessTokenExpiresAt` | `number` | Epoch ms, from the response's `expires_in` rather than from opening the token |
 | `refreshToken` | `string` | Rotated on every use; the stored one is always the newest issued |
@@ -267,7 +347,9 @@ What `token` answers.
 | --- | --- |
 | `read` | `(key: string) => Promise<string \| null>` |
 | `write` | `(key: string, value: string, ttl: number) => Promise<void>` |
+| `replace` | `(key: string, value: string, ttl: number) => Promise<boolean>` — overwrite only if the key still exists, in one atomic step |
 | `delete` | `(key: string) => Promise<void>` |
+| `keys` | `(prefix: string) => AsyncIterable<string>` — optional; only `dropAll` needs it |
 
 Each call is bounded by the store at 30 s (`session/silent`), so an adapter races nothing itself.
 

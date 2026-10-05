@@ -1,6 +1,6 @@
 ---
 title: Keycloak
-description: The realm this package expects — role claims on both tokens, an audience mapper naming your API, the organization scope with the star, and an application's roles inside each organization.
+description: The realm this package expects — role claims on both tokens, an audience mapper naming your API, the organization scope with the star, an application's roles inside each organization, and back-channel logout.
 ---
 
 This is the page to hand to whoever runs the realm. Nothing here is invented: every claim the
@@ -80,9 +80,9 @@ organizations: it never disappeared. Keycloak stopped the flow on a *"Select an 
 proceed"* page, issued no code at all, and a product that never shows a chooser saw nothing come
 back.
 
-`browserAuth` requests `openid profile email organization:*` by default. `SignInOptions.organization`
-narrows it to one, by replacement rather than by appending — asking for both the star and a name
-would defeat the point of naming one.
+Every sign-in through `relyingParty` requests `openid profile email organization:*`, whatever else a
+product adds to `scope`. `SignInOptions.organization` narrows it to one, by replacement rather than
+by appending — asking for both the star and a name would defeat the point of naming one.
 
 ## Roles inside an organization
 
@@ -208,9 +208,42 @@ Then authorize on:
 
 And one rule that belongs beside them, because it is the line between a multi-tenant product and a
 leak between customers: **the host is a hint and the token is the authority** — the same rule
-`useOrganization` follows in the browser, [stated in full on Roles](/docs/auth/roles#useorganization).
+`can` follows for the current organization, [stated in full on
+Roles](/docs/auth/roles#which-organization-a-page-is-in).
 Resolve the hint against the `organization` claim, refuse on a miss, and do it **before** anything
 opens a database.
+
+## Back-channel logout
+
+A session can end at Keycloak without the browser being anywhere near the application: an
+administrator signs the person out, the SSO session expires, they sign out of another application.
+OpenID Connect Back-Channel Logout 1.0 is how the application hears about it — Keycloak posts a
+signed logout token to the client's **back-channel logout URL**, and `kanzoAuth` serves that at
+[`<basePath>/backchannel-logout`](/docs/auth/next#back-channel-logout), dropping the sessions it
+names so the next navigation signs in.
+
+`services/auth/modules/app` takes it as `backchannel_logout_url`, and leaves
+`backchannel_logout_session_required` on so the token carries `sid` and one browser session can end
+without the person's others:
+
+```hcl
+module "app" {
+  # …
+  backchannel_logout_url = "http://board:3000/api/auth/backchannel-logout"
+}
+```
+
+Two properties of the setting decide how it is used:
+
+- **Keycloak calls it, server to server.** It is a URL *Keycloak* can reach, which inside a cluster
+  or a compose network is an internal hostname, not the public one the browser uses.
+- **It is one URL per client.** A client shared by several deployments — one per tenant behind one
+  `client_id` — can name only one of them, so the others never hear a logout. Back-channel logout
+  wants one client per deployment that holds sessions.
+
+It also needs a session store that can find a person's sessions: a `ticketStore` whose adapter has
+`keys`. With the stateless store, or without `keys`, the route answers **501**, and Keycloak's admin
+console reports the logout as failed rather than believing it happened.
 
 ## The account console is Keycloak's
 

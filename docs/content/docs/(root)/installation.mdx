@@ -91,15 +91,13 @@ know what a session is.
 pnpm add @kanzo-tech/auth
 ```
 
-That is the whole install for a single-page application: the root barrel carries no engine, which is
-what makes it the door every consumer opens. The other three each name theirs, and you install only
-the one you open.
+The root barrel carries no engine, which is what makes it the door every consumer's browser half
+opens. The other two each name theirs, and you install only the one you open.
 
 | subpath | what it is | install alongside |
 | --- | --- | --- |
-| `@kanzo-tech/auth/browser` | a public client with PKCE, for a SPA with no server | `oidc-client-ts` |
 | `@kanzo-tech/auth/server` | the confidential client, framework-agnostic | `openid-client`, `jose` |
-| `@kanzo-tech/auth/next` | App Router routes, middleware and a session reader | `next` |
+| `@kanzo-tech/auth/next` | `kanzoAuth`: the proxy, the routes, the API forwarder and a session reader | `openid-client`, `jose`, `next` 16+ |
 
 The two server doors are Node's, and nothing on them reaches React —
 `packages/auth/src/server.test.ts` imports them without React to say so, rather than trusting this

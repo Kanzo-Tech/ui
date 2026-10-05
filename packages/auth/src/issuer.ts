@@ -12,6 +12,7 @@ import {
   type DiscoveryRequestOptions,
   type PrivateKey,
 } from "openid-client";
+import { createRemoteJWKSet, customFetch as jwksFetch, type JWTVerifyGetKey } from "jose";
 import { singleFlight } from "./single-flight";
 import { DEADLINE } from "./deadline";
 
@@ -95,6 +96,26 @@ export interface Issuer {
    * still stale at the moment something is.
    */
   rediscover(): Promise<Configuration>;
+  /**
+   * The realm's signing keys, for verifying a token this client did not fetch itself — a
+   * back-channel logout token, which Keycloak posts to us rather than handing over a channel we
+   * opened.
+   *
+   * `jose`'s remote key set over the discovered `jwks_uri`, reached through the same transport as
+   * discovery, so an `internalOrigin` applies to it too. It re-fetches on a key id it has not seen,
+   * at most once per cooldown, which is the same reactive answer to rotation as {@link rediscover}.
+   */
+  keys(): Promise<JWTVerifyGetKey>;
+}
+
+/**
+ * `path` without its trailing slashes, in one pass. A regex like `/\/+$/` backtracks on a long
+ * run of slashes, and these strings come from configuration a library does not control.
+ */
+export function withoutTrailingSlashes(path: string): string {
+  let end = path.length;
+  while (end > 0 && path[end - 1] === "/") end--;
+  return path.slice(0, end);
 }
 
 /**
@@ -110,7 +131,7 @@ export function rewriteOrigin(
   base: typeof globalThis.fetch = globalThis.fetch,
 ): CustomFetch {
   const source = new URL(from).origin;
-  const target = to.replace(/\/+$/, "");
+  const target = withoutTrailingSlashes(to);
   return (url, options) =>
     base(
       url.startsWith(source) ? `${target}${url.slice(source.length)}` : url,
@@ -125,8 +146,9 @@ export function issuer(config: IssuerConfig): Issuer {
 
   const reachedAt = config.internalOrigin ?? server.origin;
 
+  const transport = rewriteOrigin(config.issuer, reachedAt, base);
   const options: DiscoveryRequestOptions = {
-    [customFetch]: rewriteOrigin(config.issuer, reachedAt, base),
+    [customFetch]: transport,
     timeout: DEADLINE / 1000,
   };
 
@@ -151,6 +173,7 @@ export function issuer(config: IssuerConfig): Issuer {
     config.clientSecret !== undefined ? { client_secret: config.clientSecret } : {};
 
   let current: Configuration | undefined;
+  let keys: { readonly uri: string; readonly set: JWTVerifyGetKey } | undefined;
 
   // Single-flight for the reason it exists everywhere in this package: six requests arriving
   // during a cold start would otherwise each fetch the discovery document. Here the slot is
@@ -171,6 +194,20 @@ export function issuer(config: IssuerConfig): Issuer {
     async rediscover() {
       current = undefined;
       return fetchOnce();
+    },
+    async keys() {
+      const uri = (current ?? (await fetchOnce())).serverMetadata().jwks_uri;
+      if (uri === undefined) throw new TypeError("the IdP's discovery document names no `jwks_uri`");
+      if (keys?.uri !== uri) {
+        keys = {
+          uri,
+          set: createRemoteJWKSet(new URL(uri), {
+            [jwksFetch]: (url, init) => transport(url, init as never),
+            timeoutDuration: DEADLINE,
+          }),
+        };
+      }
+      return keys.set;
     },
   };
 }

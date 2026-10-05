@@ -18,22 +18,26 @@ export function organizationOf(
 }
 
 /**
- * Does this session hold `role`?
+ * Does this session hold `role` — in the organization this request addresses, unless told which?
  *
- * With an `organization`, the question is asked *inside* it — the person's roles there, which is a
- * different set from their realm and client roles and is deliberately not merged with them. A role
- * held in one organization says nothing about another, and the day those two sets are unioned for
- * convenience is the day one organization's owner is every organization's owner.
+ * The organization defaults to `session.organization`, the current tenant the product's resolver
+ * named, so `can(session, "editor")` asks the question a page means: *here*. Clerk's
+ * `auth().has()` binds to the active organization the same way. Named explicitly, the question is
+ * asked inside that one instead. Inside an organization the answer comes from the person's roles
+ * there, which is a different set from their realm and client roles and is deliberately not
+ * merged with them: a role held in one organization says nothing about another, and the day those
+ * two sets are unioned for convenience is the day one organization's owner is every
+ * organization's owner. With no tenant at all, the realm and client roles answer.
  *
- * Closed by default: no session, or no membership of the named organization, is `false` rather than
- * an error. There is no hierarchy here either: that `admin` contains `editor` is a fact about a
+ * Closed by default: no session, or no membership of the organization, is `false` rather than an
+ * error. There is no hierarchy here either: that `admin` contains `editor` is a fact about a
  * product, declared once as Keycloak composite roles where the product registers its client, and
- * the token carries the expanded set — so `can(s, "editor", org)` is true for an admin.
+ * the token carries the expanded set — so `can(s, "editor")` is true for an admin.
  */
 export function can(
   session: Session | null | undefined,
   role: string,
-  organization?: string,
+  organization: string | undefined = session?.organization,
 ): boolean {
   if (!session) return false;
   if (organization === undefined) return session.roles.includes(role);

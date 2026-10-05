@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { sealedCookie } from "./cookie-session";
 import { statelessStore, ticketStore, type SessionRecord, type SessionStore } from "./store";
+import { inMemoryAdapter } from "./test/fake-keycloak";
 import { AuthError, type Session } from "./types";
 
 const SESSION: Session = {
@@ -11,7 +12,7 @@ const SESSION: Session = {
   expiresAt: 1_800_000_000_000,
 };
 
-const RECORD: SessionRecord = { session: SESSION, refreshToken: "r-1", idToken: "id-1" };
+const RECORD: SessionRecord = { session: SESSION, sid: "s-1", refreshToken: "r-1", idToken: "id-1" };
 
 describe("statelessStore", () => {
   it("returns the record it was given", async () => {
@@ -38,13 +39,30 @@ describe("statelessStore", () => {
     // Clearing the cookie ends it for the browser holding it and for nobody else.
     expect(await store.get(ticket)).toEqual(RECORD);
   });
+
+  it("re-seals on update, because the ticket is the record", async () => {
+    const store = statelessStore();
+    const ticket = await store.put(RECORD);
+    const renewed = { ...RECORD, refreshToken: "r-2" };
+
+    const next = await store.update(ticket, renewed);
+
+    expect(next).not.toBe(ticket);
+    expect(await store.get(next ?? "")).toEqual(renewed);
+  });
+
+  it("refuses a back-channel logout rather than pretending to have ended anything", async () => {
+    await expect(statelessStore().dropAll({ sub: "u-1" })).rejects.toMatchObject({
+      code: "session/irrevocable",
+    });
+  });
 });
 
 describe("SessionStore", () => {
   it("is satisfied by a store that enforces one live session per person", async () => {
     // The interface exists for a product that allows one session per user and revokes on
-    // sign-out. Thirty lines here is the whole of what that costs, and writing
-    // it is the check that the three methods are the right three.
+    // sign-out. Forty lines here is the whole of what that costs, and writing it is the check
+    // that the five methods are the right five.
     const records = new Map<string, SessionRecord>();
     const live = new Map<string, string>();
     let next = 0;
@@ -58,11 +76,20 @@ describe("SessionStore", () => {
         live.set(record.session.user.id, ticket);
         return ticket;
       },
+      async update(ticket, record) {
+        if (!records.has(ticket)) return null;
+        records.set(ticket, record);
+        return ticket;
+      },
       async get(ticket) {
         return records.get(ticket) ?? null;
       },
       async drop(ticket) {
         records.delete(ticket);
+      },
+      async dropAll({ sub }) {
+        const ticket = live.get(sub);
+        if (ticket !== undefined) records.delete(ticket);
       },
     };
 
@@ -78,27 +105,7 @@ describe("SessionStore", () => {
 });
 
 describe("ticketStore", () => {
-  /** The two functions and a delete, over a `Map`. This is the whole of what a deployment writes. */
-  function inMemory() {
-    const rows = new Map<string, string>();
-    const ttls = new Map<string, number>();
-    return {
-      rows,
-      ttls,
-      adapter: {
-        async read(key: string) {
-          return rows.get(key) ?? null;
-        },
-        async write(key: string, value: string, ttl: number) {
-          rows.set(key, value);
-          ttls.set(key, ttl);
-        },
-        async delete(key: string) {
-          rows.delete(key);
-        },
-      },
-    };
-  }
+  const inMemory = inMemoryAdapter;
 
   /**
    * The store makes the wait, so the store bounds it: an adapter is a driver call and nothing else,
@@ -109,8 +116,21 @@ describe("ticketStore", () => {
     vi.useFakeTimers();
     try {
       const hung = new Promise<never>(() => {});
-      const store = ticketStore({ read: () => hung, write: () => hung, delete: () => hung });
-      for (const call of [() => store.get("u-1:x"), () => store.put(RECORD), () => store.drop("u-1:x")]) {
+      const store = ticketStore({
+        read: () => hung,
+        write: () => hung,
+        replace: () => hung,
+        delete: () => hung,
+        keys: () => ({ [Symbol.asyncIterator]: () => ({ next: () => hung }) }),
+      });
+      const calls = [
+        () => store.get("u-1:s-1:x"),
+        () => store.put(RECORD),
+        () => store.update("u-1:s-1:x", RECORD),
+        () => store.drop("u-1:s-1:x"),
+        () => store.dropAll({ sub: "u-1" }),
+      ];
+      for (const call of calls) {
         const settled = vi.fn();
         const outcome = call().then(settled, (error: unknown) => {
           settled(error);
@@ -133,9 +153,10 @@ describe("ticketStore", () => {
     const store = ticketStore({
       read: () => Promise.reject(down),
       write: () => Promise.reject(down),
+      replace: () => Promise.reject(down),
       delete: () => Promise.reject(down),
     });
-    await expect(store.get("u-1:x")).rejects.toBe(down);
+    await expect(store.get("u-1:s-1:x")).rejects.toBe(down);
   });
 
   it("round-trips a record through the adapter", async () => {
@@ -169,8 +190,8 @@ describe("ticketStore", () => {
 
     expect(ticket).not.toContain("r-1");
     expect(ticket).not.toContain("id-1");
-    // 32 bytes of base64url after the subject, which is 43 characters and no padding.
-    expect(ticket).toMatch(/^u-1:[A-Za-z0-9_-]{43}$/);
+    // The subject, the IdP session, and 32 bytes of base64url: 43 characters and no padding.
+    expect(ticket).toMatch(/^u-1:s-1:[A-Za-z0-9_-]{43}$/);
   });
 
   it("never issues the same ticket twice", async () => {
@@ -182,23 +203,85 @@ describe("ticketStore", () => {
   });
 
   /**
-   * "Sign out on every device" is a query a deployment can write, and this prefix is what makes it
-   * one. Asserted because a later tidy-up that made the ticket a flat random string would look
-   * like a simplification and would quietly remove the only handle onto *this person's sessions*.
+   * Duende's server-side session: a renewal rewrites the row under the ticket it already has, so
+   * the cookie naming it does not change and nothing has to be handed back to the browser.
    */
-  it("keys a person's sessions under a prefix a deployment can scan", async () => {
+  it("updates in place, under the ticket it already issued", async () => {
     const backing = inMemory();
     const store = ticketStore(backing.adapter);
+    const ticket = await store.put(RECORD);
+    const renewed = { ...RECORD, refreshToken: "r-2" };
 
-    await store.put(RECORD);
-    await store.put(RECORD);
-    await store.put({ ...RECORD, session: { ...SESSION, user: { id: "u-2" } } });
-
-    const ada = [...backing.rows.keys()].filter((key) => key.startsWith("u-1:"));
-    expect(ada).toHaveLength(2);
-
-    for (const key of ada) await backing.adapter.delete(key);
+    expect(await store.update(ticket, renewed)).toBe(ticket);
+    expect(await store.get(ticket)).toEqual(renewed);
     expect(backing.rows.size).toBe(1);
+  });
+
+  /**
+   * The race a back-channel logout and a renewal can run: the logout deletes the row while the
+   * grant is in flight, and the renewal's write must not bring it back.
+   */
+  it("does not resurrect a row deleted while the update was on its way", async () => {
+    const backing = inMemory();
+    const store = ticketStore(backing.adapter);
+    const ticket = await store.put(RECORD);
+
+    await store.dropAll({ sub: "u-1" });
+
+    expect(await store.update(ticket, { ...RECORD, refreshToken: "r-2" })).toBeNull();
+    expect(backing.rows.size).toBe(0);
+  });
+
+  it("ends every session of a person, and only theirs, by subject", async () => {
+    const backing = inMemory();
+    const store = ticketStore(backing.adapter);
+    const ada = [await store.put(RECORD), await store.put({ ...RECORD, sid: "s-2" })];
+    const grace = await store.put({ ...RECORD, session: { ...SESSION, user: { id: "u-10" } } });
+
+    await store.dropAll({ sub: "u-1" });
+
+    for (const ticket of ada) expect(await store.get(ticket)).toBeNull();
+    // `u-1:` is not a prefix of `u-10:`: the separator is part of the prefix.
+    expect(await store.get(grace)).not.toBeNull();
+  });
+
+  it("ends one IdP session when the logout names it", async () => {
+    const store = ticketStore(inMemory().adapter);
+    const here = await store.put(RECORD);
+    const elsewhere = await store.put({ ...RECORD, sid: "s-2" });
+
+    await store.dropAll({ sub: "u-1", sid: "s-1" });
+
+    expect(await store.get(here)).toBeNull();
+    expect(await store.get(elsewhere)).not.toBeNull();
+  });
+
+  /**
+   * The prefix is handed to a Redis `SCAN MATCH`, where `*` is a wildcard. A subject spelled `*`
+   * would otherwise be a back-channel logout of everyone.
+   */
+  it("hands keys a prefix with no glob in it, whatever the subject is spelled", async () => {
+    const asked: string[] = [];
+    const backing = inMemory();
+    const store = ticketStore({
+      ...backing.adapter,
+      keys(prefix: string) {
+        asked.push(prefix);
+        return backing.adapter.keys(prefix);
+      },
+    });
+
+    await store.dropAll({ sub: "*", sid: "a(b)!'" });
+
+    expect(asked).toEqual(["%2A:a%28b%29%21%27:"]);
+  });
+
+  it("refuses a back-channel logout when the adapter cannot list keys", async () => {
+    const withoutKeys = { ...inMemory().adapter, keys: undefined };
+
+    await expect(ticketStore(withoutKeys).dropAll({ sub: "u-1" })).rejects.toMatchObject({
+      code: "session/irrevocable",
+    });
   });
 
   it("hands the adapter the lifetime to forget the row after", async () => {
@@ -216,10 +299,10 @@ describe("ticketStore", () => {
     const backing = inMemory();
     const store = ticketStore(backing.adapter);
 
-    expect(await store.get("u-1:nobody")).toBeNull();
+    expect(await store.get("u-1:s-1:nobody")).toBeNull();
 
-    backing.rows.set("u-1:corrupt", "not json");
-    expect(await store.get("u-1:corrupt")).toBeNull();
+    backing.rows.set("u-1:s-1:corrupt", "not json");
+    expect(await store.get("u-1:s-1:corrupt")).toBeNull();
   });
 });
 
@@ -275,6 +358,9 @@ describe("the 4096 bytes a browser is required to keep", () => {
         return null;
       },
       async write() {},
+      async replace() {
+        return false;
+      },
       async delete() {},
     }).put(KEYCLOAK);
 

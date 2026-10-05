@@ -1,93 +1,40 @@
 // @vitest-environment node
-import { SignJWT, exportJWK, generateKeyPair } from "jose";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { authProxy, type AuthProxyConfig } from "./next-proxy";
-import { authRoutes, type AuthRoutesConfig } from "./next-routes";
+import { kanzoAuth, type KanzoAuth, type KanzoAuthConfig } from "./next-auth";
+import {
+  CLIENT_ID,
+  ISSUER,
+  ORIGIN,
+  SECRET,
+  asRequestHeader,
+  fakeKeycloak,
+  type Realm,
+} from "./test/fake-keycloak";
 
-const ORIGIN = "https://app.example.test";
-const ISSUER = "https://id.example.test/realms/kanzo";
-const CLIENT_ID = "board";
-const SECRET = "a-secret-nobody-chose-by-hand";
 const TARGET = "https://reports.internal/v1";
 
-const KEY = await generateKeyPair("RS256", { extractable: true });
-
-function fakeKeycloak() {
-  const state = {
-    idTokenClaims: {} as Record<string, unknown>,
-    accessToken: "at-1",
-    expiresIn: 3600,
-  };
-
-  const json = (body: unknown) =>
-    new Response(JSON.stringify(body), { headers: { "content-type": "application/json" } });
-
-  const fetchImpl = async (input: RequestInfo | URL): Promise<Response> => {
-    const url = String(input);
-
-    if (url.endsWith("/.well-known/openid-configuration")) {
-      return json({
-        issuer: ISSUER,
-        authorization_endpoint: `${ISSUER}/protocol/openid-connect/auth`,
-        token_endpoint: `${ISSUER}/protocol/openid-connect/token`,
-        jwks_uri: `${ISSUER}/protocol/openid-connect/certs`,
-        end_session_endpoint: `${ISSUER}/protocol/openid-connect/logout`,
-        response_types_supported: ["code"],
-        code_challenge_methods_supported: ["S256"],
-      });
-    }
-    if (url.endsWith("/protocol/openid-connect/certs")) {
-      return json({
-        keys: [{ ...(await exportJWK(KEY.publicKey)), kid: "k", alg: "RS256", use: "sig" }],
-      });
-    }
-    if (url.endsWith("/protocol/openid-connect/token")) {
-      const idToken = await new SignJWT(state.idTokenClaims)
-        .setProtectedHeader({ alg: "RS256", kid: "k" })
-        .setIssuer(ISSUER)
-        .setAudience(CLIENT_ID)
-        .setIssuedAt()
-        .setExpirationTime("1h")
-        .sign(KEY.privateKey);
-      return json({
-        access_token: state.accessToken,
-        token_type: "Bearer",
-        expires_in: state.expiresIn,
-        refresh_token: "refresh-1",
-        id_token: idToken,
-      });
-    }
-    throw new Error(`the fake realm was asked for ${url}`);
-  };
-
-  return { state, fetchImpl: fetchImpl as unknown as typeof globalThis.fetch };
-}
-
-function asRequestHeader(cookies: readonly string[]): string {
-  return cookies
-    .filter((c) => !c.includes("Max-Age=0"))
-    .map((c) => c.slice(0, c.indexOf(";")))
-    .join("; ");
-}
-
-describe("authProxy", () => {
-  let realm: ReturnType<typeof fakeKeycloak>;
-  let config: AuthRoutesConfig;
-  let routes: ReturnType<typeof authRoutes>;
+describe("kanzoAuth().api", () => {
+  let realm: Realm;
+  let config: KanzoAuthConfig;
+  let routes: KanzoAuth["routes"];
   /** The resource server, and every request that reached it. */
   let upstream: ReturnType<typeof vi.fn<typeof globalThis.fetch>>;
-  let proxy: ReturnType<typeof authProxy>;
+  let proxy: KanzoAuth["api"];
 
   beforeEach(() => {
     realm = fakeKeycloak();
+    realm.state.accessToken = "at-1";
+    realm.state.expiresIn = 3600;
     config = {
       issuer: ISSUER,
       clientId: CLIENT_ID,
       clientSecret: "client-secret",
       secret: SECRET,
       fetch: realm.fetchImpl,
+      api: { mount: "/api/data", target: TARGET },
     };
-    routes = authRoutes(config);
+    const auth = kanzoAuth(config);
+    routes = auth.routes;
     upstream = vi.fn<typeof globalThis.fetch>(
       async () => new Response("the report", { status: 200, headers: { "x-from": "upstream" } }),
     );
@@ -98,7 +45,7 @@ describe("authProxy", () => {
     // therefore the same separation the design makes, asserted by the fact that these two mocks
     // never see each other's requests.
     vi.stubGlobal("fetch", upstream);
-    proxy = authProxy({ ...config, basePath: "/api/data", target: TARGET } satisfies AuthProxyConfig);
+    proxy = auth.api;
   });
 
   afterEach(() => {
@@ -301,18 +248,34 @@ describe("authProxy", () => {
     expect(reissued[0]?.startsWith("__Host-kanzo-session=")).toBe(true);
   });
 
+  it("answers 401 and clears the cookie when the IdP refuses to renew", async () => {
+    realm.state.expiresIn = 20;
+    const cookie = await signIn();
+    realm.state.refusingRefresh = true;
+
+    const response = await proxy.GET(new Request(`${ORIGIN}/api/data/reports`, { headers: { cookie } }));
+
+    expect(response.status).toBe(401);
+    expect(response.headers.getSetCookie()[0]).toContain("Max-Age=0");
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it("answers 404 when kanzoAuth was given no api", async () => {
+    const response = await kanzoAuth({ ...config, api: undefined }).api.GET(new Request(`${ORIGIN}/api/data/reports`));
+
+    expect(response.status).toBe(404);
+  });
+
   it("answers 502, not 401, when the IdP cannot be reached to renew", async () => {
     realm.state.expiresIn = 20;
     const cookie = await signIn();
-    const down = authProxy({
+    const down = kanzoAuth({
       ...config,
       fetch: (async (input: RequestInfo | URL) => {
         if (String(input).endsWith("/token")) throw new TypeError("fetch failed");
         return realm.fetchImpl(input);
       }) as typeof globalThis.fetch,
-      basePath: "/api/data",
-      target: TARGET,
-    });
+    }).api;
 
     const response = await down.GET(new Request(`${ORIGIN}/api/data/reports`, { headers: { cookie } }));
 

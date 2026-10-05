@@ -49,6 +49,17 @@ variable "web_origins" {
   default = ["+"]
 }
 
+variable "backchannel_logout_url" {
+  description = <<-EOT
+    Where Keycloak posts a logout token when a session ends at the IdP: `kanzoAuth`'s
+    `<basePath>/backchannel-logout`. Keycloak calls it server to server, so it is a URL Keycloak can
+    reach — an internal hostname inside a cluster — and it is one URL per client: a client shared by
+    several deployments can name only one of them. Null leaves back-channel logout off.
+  EOT
+  type        = string
+  default     = null
+}
+
 variable "audience" {
   description = "The API the access token is for, written into `aud`. Null when the application calls no API of its own."
   type        = string
