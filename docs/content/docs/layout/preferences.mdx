@@ -53,9 +53,9 @@ The panel is deliberately **non-modal**: you keep using the app while it re-skin
 drawer, which is the only way to judge a theme. It still closes on an outside click. Every change
 applies on selection, not on close, and the hotkey reopens it where you left off.
 
-There is no default hotkey. `hotkey` registers a bare, unmodified key on `window` (ignored while you
-are typing in a field), and a design system must not claim one in its host's keymap without being
-asked.
+There is no default hotkey. `hotkey` is a bare key (`"t"`) or a chord (`"mod+,"` for ⌘, / Ctrl+,) —
+the grammar `CommandDialog`'s `hotkey` takes — registered on `window` and ignored while you are typing
+in a field, and a design system must not claim one in its host's keymap without being asked.
 
 ## The sections
 

@@ -1,9 +1,12 @@
+"use client";
+
 import { Portal } from "@ark-ui/react";
 import { Combobox as ArkCombobox } from "@ark-ui/react/combobox";
-import { Dialog as ArkDialog } from "@ark-ui/react/dialog";
+import { Dialog as ArkDialog, useDialogContext } from "@ark-ui/react/dialog";
 import { SearchIcon } from "lucide-react";
 import type React from "react";
 import { cn } from "../lib/cn";
+import { type Hotkey, useHotkey } from "../lib/use-hotkey";
 import {
   Combobox,
   ComboboxControl,
@@ -30,10 +33,33 @@ import {
 import { MenuShortcut } from "./menu";
 import { Separator } from "./separator";
 
-export const CommandDialog = Dialog;
+export interface CommandDialogProps extends React.ComponentProps<typeof Dialog> {
+  /**
+   * The key that opens and closes the palette — `"mod+k"` for ⌘K / Ctrl+K, the palette's own
+   * convention. **Opt-in — there is no default**: a design system claims a key in its host's keymap
+   * only when asked. A key pressed while typing in a field is the field's.
+   */
+  hotkey?: Hotkey;
+}
 
-// `CommandDialog` *is* `Dialog`, so its trigger is `DialogTrigger` — a renamed alias only made
-// the two look like different machines.
+/** Toggles the dialog it sits in through Ark's own machine, so a controlled `open` hears `onOpenChange`. */
+const DialogHotkey = ({ hotkey }: { hotkey: Hotkey }) => {
+  const dialog = useDialogContext();
+  useHotkey(hotkey, () => dialog.setOpen(!dialog.open));
+  return null;
+};
+
+/**
+ * `Dialog`, and the one thing a palette adds to it: the key that summons it. Shark's site writes that
+ * listener beside every palette it mounts (`header.command.tsx`); here it is the dialog's, so the next
+ * palette does not write it again. Its trigger is still `DialogTrigger` — it is the same machine.
+ */
+export const CommandDialog = ({ hotkey, children, ...props }: CommandDialogProps) => (
+  <Dialog {...props}>
+    {hotkey ? <DialogHotkey hotkey={hotkey} /> : null}
+    {children}
+  </Dialog>
+);
 interface CommandDialogContentProps
   extends React.ComponentProps<typeof DialogContent> {
   /**
@@ -151,8 +177,12 @@ export const CommandContent = (
 // The input's own props reach the input — `placeholder`, `aria-invalid`, `autoFocus` — and
 // `className` and `size` style the group around it. `autoFocus` defaults on for the dialog, where
 // opening the palette is asking to type; a palette inline in a panel turns it off.
+//
+// `children` are drawn in the group before the input: the chips of a palette that filters, composed
+// as Shark's `tags-input/example-combobox` composes them — `TagsInputRootProvider` around the palette
+// and `TagsInputItem`s here, the input belonging to both machines.
 export const CommandInput = (props: CommandInputProps) => {
-  const { size = "md", className, autoFocus = true, ...rest } = props;
+  const { size = "md", className, autoFocus = true, children, ...rest } = props;
 
   return (
     <ComboboxControl className="mb-2">
@@ -160,6 +190,7 @@ export const CommandInput = (props: CommandInputProps) => {
         <InputGroupAddon>
           <SearchIcon aria-hidden className="opacity-64" />
         </InputGroupAddon>
+        {children}
         <ArkCombobox.Input asChild>
           <InputGroupInput autoFocus={autoFocus} {...rest} slot="command-input" />
         </ArkCombobox.Input>
@@ -174,7 +205,9 @@ export const CommandList = (props: CommandListProps) => {
   const { className, slot, ...rest } = props;
 
   return (
-    <div className="max-h-72 min-h-0 flex-1">
+    // Inline, the list caps itself so a panel keeps its height; in the dialog the content is the
+    // height, and the list fills it.
+    <div className="max-h-72 min-h-0 flex-1 in-data-[slot=command-dialog-content]:max-h-none">
       <ComboboxList
         className={cn("flex-1 pe-2.5", className)}
         {...rest}
