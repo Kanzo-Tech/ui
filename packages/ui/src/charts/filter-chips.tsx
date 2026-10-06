@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
-import type { SemiJoinMetadata } from "@kanzo-tech/mosaic";
+import { clauseLabel } from "@kanzo-tech/mosaic";
 import type { Selection, SelectionClause } from "@uwdata/mosaic-core";
 import { XIcon } from "lucide-react";
 import { cn } from "../lib/cn.js";
@@ -26,34 +26,6 @@ export function useClauses(selection: Selection): readonly SelectionClause[] {
     return () => selection.removeEventListener("value", sync);
   }, [selection]);
   return clauses;
-}
-
-function readable(value: unknown): string {
-  if (value instanceof Date) return value.toLocaleDateString();
-  if (typeof value === "number") return Number.isInteger(value) ? String(value) : value.toFixed(1);
-  return String(value);
-}
-
-/** A clause, as something a person can read. */
-export function clauseLabel(clause: SelectionClause): string {
-  // A field stringifies to its SQL identifier, quotes and all; the quoting is the database's.
-  const name = clause.fields?.map((f) => String(f).replace(/^"|"$/g, "")).join(", ") ?? "filter";
-  const value = clause.value;
-  // A semi-join is named by its publisher — a lasso, a rule, a question — and counted when its
-  // members are keys; a statement's members are not read into the page to be counted.
-  if (clause.meta?.type === "semijoin") {
-    const named = (clause.meta as SemiJoinMetadata).label ?? name;
-    return Array.isArray(value) ? `${named} · ${value.length} selected` : named;
-  }
-  if (value == null) return name;
-  if (Array.isArray(value)) {
-    const [lo, hi] = value as [unknown, unknown];
-    const range = (v: unknown) => typeof v === "number" || v instanceof Date;
-    if (value.length === 2 && range(lo) && range(hi)) return `${name} ${readable(lo)} – ${readable(hi)}`;
-    if (value.length === 1) return `${name} ${readable(Array.isArray(lo) ? lo[0] : lo)}`;
-    return `${name} · ${value.length} selected`;
-  }
-  return `${name} ${readable(value)}`;
 }
 
 export interface FilterChipsProps extends React.ComponentProps<typeof ark.div> {

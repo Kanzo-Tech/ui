@@ -96,3 +96,56 @@ export function clauseColumns(filter: FilterExpr): string[] {
   }
   return [...named];
 }
+
+/**
+ * **What a clause says, as a person reads it** — Linear's field/operator/value model, minus the
+ * operator: no clause here needs one to be read. `field` is what the clause filters, its fields
+ * joined or a semi-join's label; `value` is what it filters them to, or `null` when it says nothing
+ * more. A semi-join is named by its publisher — a lasso, a rule, a question — and counted when its
+ * members are keys; a statement's members are not read into the page to be counted.
+ */
+export interface ClauseParts {
+  /** What the clause filters: its fields joined, or a semi-join's label. */
+  field: string;
+  /** What it filters them to, readable: `Saltmere`, `2 – 5`, `3 selected`. `null` when it says nothing more. */
+  value: string | null;
+}
+
+/** The parts, and how one line joins them: a count reads `field · 3 selected`, a value `field 2 – 5`. */
+function read(clause: SelectionClause): ClauseParts & { joint: string } {
+  // A field stringifies to its SQL identifier, quotes and all; the quoting is the database's.
+  const field = clause.fields?.map((f) => String(f).replace(/^"|"$/g, "")).join(", ") ?? "filter";
+  const value: unknown = clause.value;
+  const counted = (n: number) => ({ value: `${n} selected`, joint: " · " });
+  if (clause.meta?.type === "semijoin") {
+    const named = (clause.meta as SemiJoinMetadata).label ?? field;
+    return Array.isArray(value) ? { field: named, ...counted(value.length) } : { field: named, value: null, joint: " " };
+  }
+  if (value == null) return { field, value: null, joint: " " };
+  if (Array.isArray(value)) {
+    const [lo, hi] = value as [unknown, unknown];
+    const range = (v: unknown) => typeof v === "number" || v instanceof Date;
+    if (value.length === 2 && range(lo) && range(hi)) return { field, value: `${readable(lo)} – ${readable(hi)}`, joint: " " };
+    if (value.length === 1) return { field, value: readable(Array.isArray(lo) ? lo[0] : lo), joint: " " };
+    return { field, ...counted(value.length) };
+  }
+  return { field, value: readable(value), joint: " " };
+}
+
+function readable(value: unknown): string {
+  if (value instanceof Date) return value.toLocaleDateString();
+  if (typeof value === "number") return Number.isInteger(value) ? String(value) : value.toFixed(1);
+  return String(value);
+}
+
+/** What `clause` filters, and to what. See {@link ClauseParts}. */
+export function clauseParts(clause: SelectionClause): ClauseParts {
+  const { field, value } = read(clause);
+  return { field, value };
+}
+
+/** `clauseParts`, as one line: `region Saltmere`, `score 2 – 5`, `Lasso · 3 selected`. The one formatter of a clause. */
+export function clauseLabel(clause: SelectionClause): string {
+  const { field, value, joint } = read(clause);
+  return value === null ? field : `${field}${joint}${value}`;
+}

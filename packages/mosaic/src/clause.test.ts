@@ -1,7 +1,7 @@
-import { Selection } from "@uwdata/mosaic-core";
+import { Selection, clauseInterval, clausePoint, clausePoints, type SelectionClause } from "@uwdata/mosaic-core";
 import { Query, eq, isBetween, literal } from "@uwdata/mosaic-sql";
 import { describe, expect, it } from "vitest";
-import { clauseColumns, clauseSemiJoin } from "./clause.js";
+import { clauseColumns, clauseLabel, clauseParts, clauseSemiJoin } from "./clause.js";
 
 const source = { reset() {} };
 
@@ -42,5 +42,34 @@ describe("the clause rule", () => {
     selection.reset([clause]);
     expect(reset).toBe(1);
     expect(clause.clients).toBeUndefined();
+  });
+});
+
+describe("what a clause says", () => {
+  const findings = Query.select("dense_id").from("findings");
+  const day = new Date(2026, 9, 5);
+  // [what, clause, parts, line] — every column clause shape a chip or a summary is handed.
+  const cases: [string, SelectionClause, { field: string; value: string | null }, string][] = [
+    ["a point", clausePoint("region", "Saltmere", { source }), { field: "region", value: "Saltmere" }, "region Saltmere"],
+    ["a set of one", clausePoints(["beast"], [["harpy"]], { source }), { field: "beast", value: "harpy" }, "beast harpy"],
+    ["a set of n", clausePoints(["beast"], [["harpy"], ["wyrm"]], { source }), { field: "beast", value: "2 selected" }, "beast · 2 selected"],
+    ["a numeric range", clauseInterval("hour", [6, 13.5], { source }), { field: "hour", value: "6 – 13.5" }, "hour 6 – 13.5"],
+    ["a date range", clauseInterval("seen", [day, day], { source }), { field: "seen", value: `${day.toLocaleDateString()} – ${day.toLocaleDateString()}` }, `seen ${day.toLocaleDateString()} – ${day.toLocaleDateString()}`],
+    ["a cleared clause", clausePoint("region", undefined, { source }), { field: "region", value: null }, "region"],
+  ];
+
+  it.each(cases)("reads %s without the database's quoting", (_, clause, parts, line) => {
+    expect(clauseParts(clause)).toEqual(parts);
+    expect(clauseLabel(clause)).toBe(line);
+  });
+
+  it("names a semi-join by its publisher's label, and counts its members when they are keys", () => {
+    const lasso = clauseSemiJoin("dense_id", [3, 4], { source, label: "Lasso" });
+    expect(clauseParts(lasso)).toEqual({ field: "Lasso", value: "2 selected" });
+    expect(clauseLabel(lasso)).toBe("Lasso · 2 selected");
+    const rule = clauseSemiJoin("dense_id", findings, { source, label: "Missing name" });
+    expect(clauseParts(rule)).toEqual({ field: "Missing name", value: null });
+    expect(clauseLabel(rule)).toBe("Missing name");
+    expect(clauseLabel(clauseSemiJoin("dense_id", findings, { source }))).toBe("dense_id");
   });
 });

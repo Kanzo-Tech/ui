@@ -1,6 +1,6 @@
 ---
 title: Dashboard spec
-description: The JSON a Dashboard is drawn from and hands back on every edit — every field, what it accepts, how an invalid one is treated, how a host keys it by relation, and the migration from the first version.
+description: The JSON a Dashboard is drawn from and hands back on every edit — every field, what it accepts, how an invalid one is treated, how a host keys it by relation, and the one way to read it back.
 ---
 
 A dashboard is data. `Dashboard` draws a `DashboardSpec`, its editor produces the next one, and the
@@ -19,13 +19,12 @@ The one the Sightings showcase draws, abridged:
 
 ```json
 {
-  "version": 2,
   "filters": [{ "field": "region" }, { "field": "hall" }, { "field": "leagues" }],
   "tiles": [
-    { "id": "sightings", "kind": "stat", "span": 1, "title": "Sightings", "measure": { "op": "count" }, "trend": "hour" },
-    { "id": "hour", "kind": "chart", "span": 2, "type": "line", "x": "hour", "y": { "op": "count" }, "title": "Sightings by hour" },
+    { "id": "sightings", "kind": "stat", "title": "Sightings", "measure": { "op": "count" }, "trend": "hour" },
+    { "id": "hour", "kind": "chart", "span": 3, "type": "line", "x": "hour", "y": { "op": "count" }, "title": "Sightings by hour" },
     {
-      "id": "hoaxes", "kind": "stat", "span": 1, "title": "Hoaxes",
+      "id": "hoaxes", "kind": "stat", "title": "Hoaxes",
       "measure": { "op": "share", "field": "verdict", "equals": "hoax" }, "trend": "hour", "goodWhenUp": false
     },
     { "id": "bounty", "kind": "chart", "span": 3, "type": "area", "x": "hour", "y": { "op": "sum", "field": "bounty" }, "facet": "region" },
@@ -40,9 +39,8 @@ The one the Sightings showcase draws, abridged:
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| `version` | `2` | The shape's version. [`migrateDashboards`](#migrating-from-version-1) reads the first. |
 | `filters` | `DashboardFilterSpec[]` | The filter bar, in order. |
-| `tiles` | `Tile[]` | **Order is layout**: tiles flow left to right through a three-column grid, each as wide as its `span`. `[]` for none. |
+| `tiles` | `Tile[]` | **Order is layout**: the figures are drawn first, as one band sharing a row; the charts and tables flow left to right through a three-column grid beneath it, each as wide as its `span`. `[]` for none. |
 
 ## DashboardFilterSpec
 
@@ -60,8 +58,16 @@ A filter on a field that has no control, or that the relation no longer has, is 
 | --- | --- | --- |
 | `id` | `string` | Stable identity, used as the React key. Unique within `tiles`. |
 | `kind` | `"stat" \| "chart" \| "table"` | What the tile is. |
-| `span` | `TileSpan` — `1 \| 2 \| 3` | Columns of the three-column row. The grid is one column on a phone, two from `md` and three from `xl`, and a span never exceeds the columns there are. |
 | `title` | `string?` | Overrides the title derived from what the tile reads — *Mean bounty*, *Count by hall and verdict*, *leagues × bounty*, *Rows*. |
+
+A chart and a table also have:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `span` | `TileSpan` — `1 \| 2 \| 3` | Columns of the three-column row. The grid is one column on a phone, two from `md` and three from `xl`, and a span never exceeds the columns there are. |
+
+A figure has no `span`: the figures share the band above the grid equally, so one never stands as
+tall as the chart beside it.
 
 ### StatTile
 
@@ -80,6 +86,7 @@ A filter on a field that has no control, or that the relation no longer has, is 
 | `y` | `DashboardMeasure` | What is measured per group — or, for `dot` and `regression`, `{ "op": "value", "field": … }`: the raw column, one point per row. |
 | `color` | `string?` | A category of 2–8 values drawn as series. Not on `regression`. |
 | `facet` | `string?` | A category of 2–6 values drawn as small multiples sharing one pair of scales. Not on `bar`. |
+| `origin` | `{ rule: string }?` | The [`recommend`](/docs/analytics/dashboard#recommend) rule that proposed the chart, set by `autoDashboard` and dropped by any edit but its width. What its *Automatic* badge and rationale are read from. |
 
 ### TableTile
 
@@ -121,7 +128,7 @@ valid when it draws:
   becomes `count`. A mark or a kind the relation has nothing to draw with is disabled.
 
 A host that writes specs by hand — a template, an import — gets no such normalisation on the way in:
-the fields it names are drawn as named. Validate against the [schema](#json-schema) and the
+the fields it names are drawn as named. Check it with [`parseDashboard`](#reading-it-back) and the
 relation's `useFieldStats` before saving one, or let a reader open it and save one edit.
 
 ## The automatic spec
@@ -133,7 +140,8 @@ relation's `useFieldStats` before saving one, or let a reader open it and save o
 
 The first `onChange` hands the host the automatic tiles as a real spec, so from that edit on the
 dashboard is what was saved, not what the stats would choose today. *Reset to automatic*, in the
-dashboard's options menu, replaces it with `autoDashboard` again.
+dashboard's options menu, calls `onChange(undefined)`: the host deletes what it stored for the
+relation, and the dashboard draws `autoDashboard` again — and follows the stats from then on.
 
 ## Persisting it
 
@@ -156,7 +164,6 @@ graph keeps every one of them in one document, keyed by `relationKey`:
 
 ```ts
 interface Dashboards {
-  version: 2;
   byRelation: Record<string, DashboardSpec>; // "Person", "Person>knows>Person", … → its dashboard
 }
 ```
@@ -164,118 +171,33 @@ interface Dashboards {
 A relation nobody has edited has no entry, and draws its automatic dashboard. A product keeps the
 document per whatever owns the corpus — a job, a dataset — written whole after a pause.
 
-### Migrating from version 1
+### Reading it back
 
-The first version kept figures, charts and the rows table as three lists — `stats`, `cards` and
-`detail` — and its document kept one spec per vertex type, `{ version: 1, byType }`.
-`migrateDashboards(saved)` takes whatever a host stored and answers the current document:
+What a host stored comes back through one door, checked against the spec's own declaration — the
+types on this page are inferred from it, so the check and the types cannot disagree:
 
-- **nothing** (`null`, `undefined`) is `{ version: 2, byRelation: {} }`;
-- **a version 2 document** is itself;
-- **a version 1 document** is each type's spec keyed by the relation of that type alone — whose key
-  is the type's name — with its stats, cards and rows table as tiles in that order (a stat's `label`
-  becomes its `title`, a card keeps its `span`, the table spans the row), and **every field renamed
-  as that relation names it**: `country` on `Person` becomes `Person.country`;
-- **anything else throws**, so a document a newer reader wrote is never read as nothing and
-  overwritten by an older one's first edit.
+- **`parseDashboards(saved)`** reads the document. `null` or `undefined` is `{ byRelation: {} }`.
+- **`parseDashboard(saved)`** reads one relation's spec, for a host that stores them apart.
 
-It is pure and runs on read: a host migrates what it loads and writes back what `onChange` hands it.
+Anything that is not a current spec **throws**, naming the first field that is wrong and, from
+`parseDashboards`, the relation: `not a dashboards document at byRelation.Person.tiles.0.span: …`.
+Nothing is coerced, defaulted or dropped, and a key the spec does not have is refused, so a
+document is current or it is not read: a reader never half-understands one and then overwrites it
+with its first edit. Show the failure where the dashboard would be, not the automatic dashboard.
 
-## JSON schema
+There is no version. **A dashboard saved by an earlier release is refused, not migrated**: the
+host deletes what it stored when it upgrades. The shape check is the compatibility check; a version
+and a migration chain come back together the day a release has to carry stored dashboards across a
+change of shape, never one without the other.
 
-For a host that validates specs on the server or before an import. Draft 2020-12; it checks shape,
-not that the fields exist in a relation.
-
-```json
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://kanzo.tech/schemas/dashboard-spec/2",
-  "title": "DashboardSpec",
-  "type": "object",
-  "required": ["version", "filters", "tiles"],
-  "additionalProperties": false,
-  "properties": {
-    "version": { "const": 2 },
-    "filters": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["field"],
-        "additionalProperties": false,
-        "properties": { "field": { "type": "string" } }
-      }
-    },
-    "tiles": { "type": "array", "items": { "$ref": "#/$defs/tile" } }
-  },
-  "$defs": {
-    "tile": {
-      "type": "object",
-      "required": ["id", "kind", "span"],
-      "properties": {
-        "id": { "type": "string" },
-        "kind": { "enum": ["stat", "chart", "table"] },
-        "span": { "enum": [1, 2, 3] },
-        "title": { "type": "string" }
-      },
-      "oneOf": [
-        {
-          "properties": {
-            "kind": { "const": "stat" },
-            "measure": { "$ref": "#/$defs/measure" },
-            "trend": { "type": "string" },
-            "goodWhenUp": { "type": "boolean" }
-          },
-          "required": ["measure"]
-        },
-        {
-          "properties": {
-            "kind": { "const": "chart" },
-            "type": { "enum": ["bar", "line", "area", "histogram", "dot", "regression"] },
-            "x": { "type": "string" },
-            "y": { "$ref": "#/$defs/measure" },
-            "color": { "type": "string" },
-            "facet": { "type": "string" }
-          },
-          "required": ["type", "x", "y"]
-        },
-        {
-          "properties": {
-            "kind": { "const": "table" },
-            "columns": { "type": "array", "items": { "type": "string" } }
-          },
-          "required": ["columns"]
-        }
-      ]
-    },
-    "measure": {
-      "type": "object",
-      "required": ["op"],
-      "additionalProperties": false,
-      "properties": {
-        "op": { "enum": ["count", "distinct", "sum", "avg", "min", "max", "median", "share", "value"] },
-        "field": { "type": "string" },
-        "equals": { "type": ["string", "number", "boolean"] }
-      },
-      "allOf": [
-        {
-          "if": { "properties": { "op": { "not": { "const": "count" } } } },
-          "then": { "required": ["field"] }
-        },
-        {
-          "if": { "properties": { "op": { "const": "share" } } },
-          "then": { "required": ["field", "equals"] }
-        }
-      ]
-    }
-  }
-}
-```
+Two checks hold whatever the relation: every measure but `count` names a `field`, and a `share`
+names the value it measures (`equals`). Whether the fields exist is the relation's to say, and is
+[treated when it draws](#how-an-invalid-spec-is-treated).
 
 ## Types
 
 ```ts
 interface DashboardSpec {
-  version: 2;
   filters: DashboardFilterSpec[];
   tiles: Tile[];
 }
@@ -291,7 +213,6 @@ type TileSpan = 1 | 2 | 3;
 interface StatTile {
   id: string;
   kind: "stat";
-  span: TileSpan;
   title?: string;
   measure: DashboardMeasure;
   trend?: string;
@@ -308,6 +229,7 @@ interface ChartTile {
   y: DashboardMeasure;
   color?: string;
   facet?: string;
+  origin?: { rule: string };
 }
 
 interface TableTile {
@@ -328,9 +250,9 @@ type DashboardChartType = "bar" | "line" | "area" | "histogram" | "dot" | "regre
 type DashboardAggregate = "count" | "distinct" | "sum" | "avg" | "min" | "max" | "median" | "share";
 
 interface Dashboards {
-  version: 2;
   byRelation: Record<string, DashboardSpec>;
 }
 
-function migrateDashboards(saved: unknown): Dashboards;
+function parseDashboard(saved: unknown): DashboardSpec;
+function parseDashboards(saved: unknown): Dashboards;
 ```

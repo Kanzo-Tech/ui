@@ -6,8 +6,9 @@ import { Query } from "@uwdata/mosaic-sql";
 import { StatDelta, StatLabel, StatRoot, StatTrend } from "../simples/stat.js";
 import { ChartStat } from "./chart-stat.js";
 import { chartTableKey } from "./chart-spec.js";
-import { EditTileButton } from "./tile-controls.js";
-import { bucketExpr, measureExpr, tileTitle, type StatTile } from "./dashboard-spec.js";
+import { EditTileButton } from "./edit-tile-button.js";
+import { bucketExpr, measureExpr, type StatTile } from "./dashboard-spec.js";
+import { tileTitle } from "./tile-kinds.js";
 import type { FieldStat } from "./field-stats.js";
 import { useChartQuery } from "./use-chart-query.js";
 

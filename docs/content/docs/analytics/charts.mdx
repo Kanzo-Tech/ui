@@ -475,11 +475,9 @@ Three, because wrapping vgplot must stay a convenience:
   are re-exported from the subpath, with `SemiJoinMembers`, `SemiJoinMetadata` and
   `SemiJoinOptions`, so this costs no direct `@uwdata` import.
 
-  Turning the answer back into values is the half the protocol does not give you, and it is where
-  every client independently writes `as { getChild(name: string): … }` — a cast that asserts
-  Arrow's shape rather than checking it, and is wrong the first time a query selects a string.
-  `column` and `numbers` are exported for that: Arrow only offers a typed column when
-  the type allows one, so the fallback is not a nicety.
+  Turning the answer back into values is mosaic-core's `toDataColumns`. `numbers(answer, field)`
+  is the one case worth a name: an id or a position read as a `number`, since Arrow hands back
+  `BigInt` for some integer widths.
 
   So is the failure. A client's `queryError` is handed mosaic-core's `QueryError` — a fresh `Error`
   with the SQL appended to the message and the thrown value as its `cause` — so a host keying on a

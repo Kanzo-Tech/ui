@@ -79,7 +79,7 @@ export function RelationPicker(props: RelationPickerProps) {
       {walked.length > 0 ? (
         <Button
           aria-label={`Remove the hop to ${last}`}
-          className="opacity-64 hover:opacity-100"
+          className="text-muted-foreground hover:text-foreground focus-visible:text-foreground"
           onClick={() => onValueChange({ root: value.root, path: value.path.slice(0, -1) })}
           size="icon-sm"
           variant="ghost"

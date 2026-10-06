@@ -103,7 +103,7 @@ export type { FilterChipsProps } from "./charts/filter-chips.js";
 // The mini BI kit: a relation's fields from one `SUMMARIZE`, and a dashboard as serializable data —
 // a filter bar and tiles (figures, charts, tables), each chosen and edited from those fields.
 // `Dashboard` is the whole thing; the parts are what it is made of, for a host arranging its own,
-// and `TileEditor` is the one sheet a tile is added and edited in. A titled frame is `Card` and a
+// and `TileEditor` is the one popover a tile is added and edited in, anchored to the tile. A titled frame is `Card` and a
 // grid is a class list, so neither is a name of its own.
 export { Dashboard } from "./charts/dashboard.js";
 export type { DashboardProps } from "./charts/dashboard.js";
@@ -122,10 +122,10 @@ export type {
   DashboardSpec, Tile, TileKind, TileSpan, StatTile, ChartTile, TableTile, DashboardFilterSpec,
   DashboardMeasure, DashboardChartType, DashboardAggregate,
 } from "./charts/dashboard-spec.js";
-// What a host keeps: every dashboard by the relation it is drawn over, and the one way in for
-// whatever it stored before.
-export { migrateDashboards } from "./charts/dashboard-migrate.js";
-export type { Dashboards } from "./charts/dashboard-migrate.js";
+// What a host keeps: every dashboard by the relation it is drawn over, and the one way back in for
+// what it stored — checked against the spec's schema, refused whole when it is not current.
+export { parseDashboard, parseDashboards } from "./charts/dashboard-spec.js";
+export type { Dashboards } from "./charts/dashboard-spec.js";
 
 // A relation over a join graph — a root and the hops from it, as one `Query` — and the picker that
 // walks one. The algebra is `@kanzo-tech/mosaic`'s; the graph is whatever a reader built from its
@@ -234,12 +234,10 @@ export type {
   SelectionClause, FilterExpr, SemiJoinMembers, SemiJoinMetadata, SemiJoinOptions,
 } from "@kanzo-tech/mosaic";
 
-// The other half of that protocol, and the half it does not give you. Declaring a query is small
-// and publishing a clause is documented; turning the ANSWER into values is where every client
-// independently writes `as { getChild(name: string): … }` — a cast asserting Arrow's shape rather
-// than checking it, and wrong the first time the query selects a string. Arrow only offers a typed
-// column when the type allows one, so the fallback is not a nicety.
-export { column, numbers } from "@kanzo-tech/mosaic";
+// The other half of that protocol: turning the ANSWER into values. Reading it is mosaic-core's
+// `toDataColumns`; `numbers` adds the coercion, since Arrow hands back `BigInt` for some integer
+// widths and an id or a position wants a `number`.
+export { numbers } from "@kanzo-tech/mosaic";
 // And what a failed query threw: a client's `queryError` is handed mosaic-core's `QueryError`, the
 // original one level down, and a host keying on its `code` needs that original back.
 export { queryFailure } from "@kanzo-tech/mosaic";
