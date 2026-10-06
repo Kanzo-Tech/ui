@@ -1,6 +1,6 @@
 ---
 title: Keycloak
-description: The realm this package expects — role claims on both tokens, an audience mapper naming your API, the organization scope with the star, an application's roles inside each organization, back-channel logout, and passkeys.
+description: The realm this package expects — role claims on both tokens, each API a client its tokens are exchanged for, the organization scope with the star, an application's roles inside each organization, back-channel logout, and passkeys.
 ---
 
 This is the page to hand to whoever runs the realm. Nothing here is invented: every claim the
@@ -22,8 +22,8 @@ So a client is an *application*: `board`, `ledger`, `viewer`. Not a tenant. A cl
 how this was done before Organizations existed, and it makes onboarding a customer a deployment
 instead of an operation.
 
-An application registers itself **from its own repository** — its client, the audience its access
-token names, and its roles with their composites — and the realm knows no application by name.
+An application registers itself **from its own repository** — its client, the APIs it calls, and
+its roles with their composites — and the realm knows no application by name.
 [Register an application](/docs/auth/service#register-an-application) is the module that does it.
 
 ## Role claims on both tokens
@@ -54,15 +54,35 @@ first place. Every deployment that does it has bought itself a translation layer
 this package ships.
 </Callout>
 
-## The audience mapper
+## The APIs an application calls
 
-The access token needs an **audience mapper naming your API**, because a resource server validates
-`aud` before it trusts anything else in the token. Without one, the audience is whatever client
-asked for the token — which works only while the relying party and the resource server are the same
-process, and stops working the moment they are not.
+A resource server validates `aud` before it trusts anything else in a token, so a token must name
+the API it is for — and, by [RFC 9700 §2.3](https://www.rfc-editor.org/rfc/rfc9700#section-2.3),
+name that API and not every API the application happens to call. Keycloak's own advice for an
+exchanged token is the same: *"ideally use a single audience"*.
 
-Add an *audience* protocol mapper on the application's client, with the API's client id as the
-included audience, and *Add to access token* on.
+So **each API is a client of the realm**, and **the token an application signs in with names none
+of them**. Per call, the application's server exchanges that token —
+[standard token exchange](https://www.keycloak.org/securing-apps/token-exchange), RFC 8693 — for
+one that names the API and the one organization the call is in:
+
+- **The API** is a client with no flow at all, since it never obtains a token, and a client scope
+  of the same name holding an *audience* mapper that names it, on the access token only.
+  `services/auth/modules/api` is both.
+- **The application** lists that scope as an **optional** client scope, so a sign-in never asks
+  for it, and has *Standard token exchange* on. `services/auth/modules/app` does both from
+  `apis = [...]`. A scope the application does not list is refused with `invalid_scope`, so an
+  application reaches exactly the APIs its registration names.
+- **The exchange** asks for `scope=<api> organization:<alias>`. It names the API through the scope
+  rather than through RFC 8693's `audience` parameter, because Keycloak reads that parameter as a
+  filter that keeps only the requested audience's client roles — the application's own roles, held
+  outside any organization, would not arrive. The token that comes back holds the one organization
+  with the roles held there; an organization the person is not a member of is dropped rather than
+  refused, which [`token`](/docs/auth/server#the-token-mediating-backend) reads off the granted
+  scope.
+
+`scripts/verify.sh` in [the identity service](/docs/auth/service) checks every line of that on a
+live realm.
 
 ## The scope with the star
 
@@ -186,7 +206,8 @@ them just has an empty list.
 
 ## What your API must validate
 
-The package obtains the credential, attaches it, and defines the claim model. **Validating it is
+The package obtains the credential — exchanged for your API and one organization — attaches it,
+and defines the claim model. **Validating it is
 the resource server's job**, and yours are probably not written in TypeScript — so this is the
 contract in words rather than a module, and this page is the only place it is agreed.
 
@@ -195,7 +216,7 @@ Validate, and refuse the request if any of it fails:
 | | |
 | --- | --- |
 | `iss` | exactly your realm's issuer |
-| `aud` | contains your API's client id — the audience mapper above is what puts it there |
+| `aud` | contains your API's client id — [the API's scope](#the-apis-an-application-calls) is what puts it there |
 | `exp` | not past |
 | signature | against the realm's JWKS, with the key fetched by `kid` and cached |
 

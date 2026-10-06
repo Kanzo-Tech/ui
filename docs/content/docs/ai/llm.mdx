@@ -140,63 +140,66 @@ conversation is the other door — `ToolLoopAgent` behind `useChat` — and it r
 tools in a single request, or a reading other than these three. Then the option goes on
 `StreamOptions`; the raw call still does not come back.
 
-## Why the key is never in the page
+## Why no credential is in the page
 
-The key that opens a gateway is a bill and a quota. In the page, it is everyone's: anybody who opens
-the network tab has it, and nothing can take it back but rotating it for every user. So the browser
-talks to the **host's own route** — a backend-for-frontend — which checks the session, adds the key,
-and forwards. `baseURL` is that route, such as `/api/v1/ai`. `headers` is there for what the BFF
-asks of the page, a CSRF token, and never for the key.
+A credential that opens a gateway is a bill and a quota. In the page, it is everyone's: anybody who
+opens the network tab has it, and nothing can take it back. So the browser talks to the **host's own
+route** — a backend-for-frontend — which checks the session, gets a token for the gateway and
+forwards. `baseURL` is that route, such as `/api/v1/ai`. `headers` is there for what the BFF asks of
+the page, a CSRF token, and never for a credential.
 
-```ts
-// app/api/ai/[...path]/route.ts — the BFF, in Next
-export async function POST(request: Request, { params }: { params: Promise<{ path: string[] }> }) {
-  const session = await auth();
-  if (!session) return new Response(null, { status: 401 });
-  const { path } = await params;
-  return fetch(`${process.env.AI_GATEWAY_URL}/${path.join("/")}`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${process.env.AI_GATEWAY_KEY}`,
-    },
-    body: await request.text(),
-  });
-}
+The token the BFF forwards is the person's own, exchanged: [OAuth 2.0 Token
+Exchange](https://www.rfc-editor.org/rfc/rfc8693) turns the access token the session holds into one
+issued for the gateway and for **the one organization the request is for**. The gateway accepts
+nothing else, so who asked and which organization pays are in the token, not in a key the
+application was handed. It is the same exchange every API behind the BFF gets, so the gateway is one
+more entry in [`kanzoAuth`'s `apis`](/docs/auth/next#api):
+
+```ts title="lib/auth.ts"
+export const auth = kanzoAuth(async () => ({
+  …,
+  organization: ({ url }) => url.hostname.split(".")[0],
+  apis: { "/api/ai": { audience: "ai-gateway", target: process.env.AI_GATEWAY_URL } },
+}));
 ```
 
-Returning the gateway's response as it is keeps it a stream: the answer reaches the page a token at a
-time through the BFF, not after it.
+```ts title="app/api/[...path]/route.ts"
+export const { GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS } = auth.api;
+```
+
+```ts
+const gateway = createGateway({ baseURL: "/api/ai" });
+```
+
+The application lists `ai-gateway` in its [`apis`](/docs/auth/keycloak#the-apis-an-application-calls)
+in the realm. The forwarder streams the answer as it arrives, so a reply reaches the page a token at
+a time through the BFF, not after it.
 
 ## Connecting a model
 
 Three set-ups, and the page's code is the same in all of them — `createGateway({ baseURL })` and an
 alias.
 
-### An AI gateway (LiteLLM)
+### An AI gateway
 
-The production shape: [LiteLLM](https://docs.litellm.ai) as the platform's one door to models. It
-holds the providers' keys, maps each alias to an upstream, and speaks OpenAI's protocol whatever the
-upstream speaks. It ships from this repository as [the gateway](/docs/ai/gateway) — a development
-compose, a module per tenant and a module to deploy it. The aliases are its profile's `model_list`:
+The production shape: [agentgateway](https://agentgateway.dev) as the platform's one door to models.
+It holds the providers' keys, maps each alias to an upstream, speaks OpenAI's protocol whatever the
+upstream speaks, and takes the realm's tokens as its only credential. It ships from this repository
+as [the gateway](/docs/ai/gateway) — a development compose and a module to deploy it. The aliases are
+its profile's `models`:
 
 ```yaml
-# litellm config.yaml
-model_list:
-  - model_name: chat
-    litellm_params:
-      model: <provider>/<model>
-      api_key: os.environ/PROVIDER_API_KEY
-  - model_name: complete
-    litellm_params:
-      model: <provider>/<a smaller model>
-      api_key: os.environ/PROVIDER_API_KEY
+models:
+  - name: chat
+    provider: <provider>
+    params: { model: <model>, apiKey: $PROVIDER_API_KEY }
+  - name: complete
+    provider: <provider>
+    params: { model: <a smaller model>, apiKey: $PROVIDER_API_KEY }
 ```
 
-The BFF above forwards to it, with the key [the tenant's team](/docs/ai/gateway#a-team-per-tenant)
-was issued. `complete` is a separate
-alias because a field's continuation is asked on every pause in typing: it wants a small, fast model,
-and a chat wants a good one.
+`kanzoAuth` forwards to it, as above. `complete` is a separate alias because a field's continuation is asked
+on every pause in typing: it wants a small, fast model, and a chat wants a good one.
 
 ### A local model, for development
 
@@ -205,8 +208,8 @@ models through Docker Model Runner, so the whole loop runs without a provider ke
 `AI_GATEWAY_URL` is `http://localhost:4000`.
 
 [Ollama](https://ollama.com) behind the same gateway works the same way: point an alias at it in the
-gateway's `model_list` —
-`model: ollama_chat/<model>` with `api_base: http://localhost:11434` — and nothing else changes.
+gateway's `models` — an OpenAI-compatible model whose `baseUrl` is `http://localhost:11434/v1` — and
+nothing else changes.
 
 Without a gateway at all, `createGateway` can point at Ollama directly, since Ollama serves the same
 protocol under `/v1`. The alias is then an Ollama model name, and `ollama cp` gives a model the alias

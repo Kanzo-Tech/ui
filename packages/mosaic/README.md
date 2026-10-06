@@ -31,15 +31,19 @@ import { engine } from "@kanzo-tech/mosaic";
   It boots with DuckDB's `httpfs` loaded, so `s3://` is readable once a secret says how:
   `query("CREATE OR REPLACE SECRET job (TYPE s3, …, SCOPE 's3://bucket/prefix/')", { signal })`, then name the
   objects by their URLs. A lent name has no scheme: `https://…` and `s3://…` in SQL are `httpfs`'s,
-  and it answers before the registry is asked.
+  and it answers before the registry is asked. `json` is loaded beside it, so
+  `json_serialize_sql` — DuckDB's parser as a function — is there from boot.
 
   **Nothing is fetched from a CDN.** DuckDB-WASM's worker and module come from
-  `@duckdb/duckdb-wasm`, a dependency at the exact release `httpfs` was built for; `httpfs` ships in
-  this package (`extensions/`, fetched and hash-pinned at build by `scripts/extensions.mjs`). All
-  three are reached through `new URL(…, import.meta.url)`, so your bundler emits them as assets —
-  under Next, `/_next/static/media/duckdb-browser-eh.worker.<hash>.js`, `duckdb-eh.<hash>.wasm` and
-  `httpfs.duckdb_extension.<hash>.wasm`, or their `mvp` siblings on a browser without WebAssembly
-  exceptions — and there is nothing to copy. Serve `.wasm` as `application/wasm` (Next does), and
+  `@duckdb/duckdb-wasm`, a dependency at the exact release the extensions were built for; `httpfs`
+  and `json` ship in this package (`extensions/`, fetched and hash-pinned at build by
+  `scripts/extensions.mjs`). All four are reached through `new URL(…, import.meta.url)`, so your
+  bundler emits them as assets — under Next, `/_next/static/media/duckdb-browser-eh.worker.<hash>.js`,
+  `duckdb-eh.<hash>.wasm`, `httpfs.duckdb_extension.<hash>.wasm` and
+  `json.duckdb_extension.<hash>.wasm`, or their `mvp` siblings on a browser without WebAssembly
+  exceptions — and there is nothing to copy. Autoloading is off: a function from an extension the
+  engine did not load fails with DuckDB's error naming it, rather than fetching it from
+  extensions.duckdb.org. Serve `.wasm` as `application/wasm` (Next does), and
   the page needs no origin but yours:
   `script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' <your storage>`. No
   `blob:`: the worker is started from its own URL.

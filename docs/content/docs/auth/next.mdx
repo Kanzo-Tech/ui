@@ -19,7 +19,10 @@ export const auth = kanzoAuth(async () => ({
   store: ticketStore(redisAdapter),
   organization: ({ url }) => url.hostname.split(".")[0],
   public: ["/health"],
-  api: { mount: "/api", target: process.env.API_URL },
+  apis: {
+    "/api": { audience: "board-api", target: process.env.API_URL },
+    "/api/ai": { audience: "ai-gateway", target: process.env.AI_GATEWAY_URL },
+  },
 }));
 ```
 
@@ -125,7 +128,7 @@ export const proxy = (request: NextRequest) =>
 
 ### The matcher
 
-Static files, `basePath`, `api.mount`, `problemPage` and every `public` prefix pass without a
+Static files, `basePath`, every mount of `apis`, `problemPage` and every `public` prefix pass without a
 session. `public` is matched on **segment boundaries**: `/health` opens `/health/live` and not
 `/healthcare`. The static-file exemption is applied on the path as well, so it holds whatever
 matcher a product writes — a matcher that missed static files once served an application's
@@ -262,11 +265,24 @@ Point the client at it with [`backchannel_logout_url`](/docs/auth/keycloak#back-
 
 ## `api`
 
-The token-mediating backend: `api.mount` is forwarded to `api.target` with the access token as a
-bearer, renewed in place first when it is within a minute of expiry. Ninety lines every product
-writes the same way, and one of them is load-bearing in a way that does not look it: **the `cookie`
-header is not forwarded**. Leave it on and the resource server receives a second credential beside
-the bearer token it asked for, which is the confusion the BFF pattern exists to remove.
+The token-mediating backend. `apis` names each resource server the application calls by the path
+it is mounted on, and a request under a mount is forwarded to its `target` with a bearer token
+**for that resource server and for the organization the request addresses, alone**. A request is
+forwarded by the longest mount it is under, so `/api/ai` is the gateway and `/api/anything-else` is
+the API.
+
+The token is not the session's. The session's token names every organization the person belongs to
+and no API, so it never leaves the server: [`token`](/docs/auth/server#the-token-mediating-backend) exchanges it — OAuth
+2.0 Token Exchange, RFC 8693, as Keycloak's standard token exchange implements it — for one whose
+`aud` is the mount's `audience` and whose organization is the request's, keeps it until it is
+within a minute of expiry, and renews the session first when that is the one expiring. `audience`
+is the API's client in the realm, and the application lists it in its
+[`apis`](/docs/auth/keycloak#the-apis-an-application-calls).
+
+Ninety lines every product writes the same way, and one of them is load-bearing in a way that does
+not look it: **the `cookie` header is not forwarded**. Leave it on and the resource server receives
+a second credential beside the bearer token it asked for, which is the confusion the BFF pattern
+exists to remove.
 
 What else it does, none of which is a product's idea of its own domain: strips the hop-by-hop
 headers, forwards the body as a stream with `duplex: "half"` so an upload is never read into memory
@@ -281,18 +297,22 @@ answer, and drops `content-encoding` and `content-length` with it.
 kanzoAuth(() => ({
   …,
   organization: (request) => request.url.hostname.split(".")[0],
-  api: { mount: "/api", target: (organization) => `http://${organization}-api:8080` },
+  apis: { "/api": { audience: "board-api", target: (organization) => `http://${organization}-api:8080` } },
 }));
 ```
 
 That is Keycloak's Organizations model: **one client shared by every organization**, with the
 tenant in the token, so one sign-in, one session store and one back-channel logout URL serve them
-all, while each tenant's data stays behind its own resource server. A request that addresses no
+all, while each tenant's data stays behind its own resource server — and the token `acme`'s server
+is sent names `acme` alone, so it is no good at `globex`'s. A request that addresses no
 organization — a bare host — gets `undefined` from the function, and `api` answers it 404.
 
 It answers **401** with the cookie cleared when there is no session or the renewal was refused,
-**403** when the request is not same-site, **400** for a path outside its mount, and **404** when
-`kanzoAuth` was given no `api`. The proxy leaves `api.mount` alone.
+**403** when the request is not same-site or the person is not a member of the organization it
+addresses (`organization/denied`), **400** for a path under no mount, **404** when `kanzoAuth` was
+given no `apis`, and **502** when the realm will not exchange the token for that audience at all —
+the application does not list the API, which is the deployment's to fix. The proxy leaves every
+mount alone.
 
 <Callout type="info">
 **The upstream is reached with the global `fetch`, not with the config's `fetch`.** That field
@@ -311,6 +331,7 @@ Nothing here is invented; each piece is a reference system's answer or a standar
 | One client object for proxy, routes and session | Auth0 Next.js SDK v4, `Auth0Client` |
 | Renewal and enforcement in the proxy; the URL forwarded to the page; `required` | WorkOS AuthKit, `authkitProxy`, `x-url`, `ensureSignedIn` |
 | A stable ticket, tokens updated in place | Duende BFF, server-side sessions |
+| One token per resource server and organization, exchanged | RFC 8693; RFC 9700 §2.3; Keycloak standard token exchange; Auth0 `audience` + `org_id` |
 | A transaction cookie per `state` | Auth0 Next.js SDK v4, `__txn_{state}` |
 | Redirect or 401 by `Sec-Fetch-Mode` | W3C Fetch Metadata |
 | Logout token verification, 200 / 400 / 501 | OpenID Connect Back-Channel Logout 1.0 §2.6, §2.8 |
@@ -332,7 +353,7 @@ Nothing here is invented; each piece is a reference system's answer or a standar
 | `public` | `readonly string[]` | nothing |
 | `redirectUri` | `string` | derived from the request |
 | `renewWithin` | `number` | `60`, in seconds |
-| `api` | `{ mount: string; target: string \| ((organization: string \| undefined) => string \| undefined) }` | none; `api` answers 404 |
+| `apis` | `Record<string, { audience: string; target: string \| ((organization: string \| undefined) => string \| undefined) }>`, by mount | none; `api` answers 404 |
 
 ### `KanzoAuth`
 

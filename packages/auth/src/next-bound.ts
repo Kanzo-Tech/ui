@@ -1,3 +1,4 @@
+import { DEFAULT_RENEW_WITHIN } from "./renew-within";
 import { relyingParty, type RelyingParty, type RelyingPartyConfig } from "./server";
 import type { Session } from "./types";
 import { cookieValue } from "./cookie-session";
@@ -51,18 +52,25 @@ export interface KanzoAuthConfig extends RelyingPartyConfig {
   /** Seconds of access-token lifetime below which a request renews it. Default 60. */
   readonly renewWithin?: number;
   /**
-   * Forward `mount` to a resource server at `target` with the access token as a bearer — the
-   * token-mediating backend. The proxy leaves `mount` alone; `api` answers it.
+   * The resource servers this application calls, by the path each is mounted on: a request under
+   * the mount is forwarded to `target` with a bearer token for `audience` and the organization the
+   * request addresses — the token-mediating backend. The proxy leaves every mount alone; `api`
+   * answers them, the longest mount first.
    *
-   * `target` may depend on the organization a request addresses: one BFF in front of a resource
-   * server per tenant, which is Keycloak's Organizations model — one client shared by every
-   * organization — with the data still kept apart. A request that addresses none — a bare host —
-   * has no server to reach, and `undefined` answers it 404.
+   * `audience` is the API's client id in the realm (`services/auth/modules/api`), listed in the
+   * application's `apis` there. `target` may depend on the organization: one BFF in front of a
+   * resource server per tenant, which is Keycloak's Organizations model — one client shared by
+   * every organization — with the data still kept apart. `undefined` answers 404.
    */
-  readonly api?: {
-    readonly mount: string;
-    readonly target: string | ((organization: string | undefined) => string | undefined);
-  };
+  readonly apis?: Readonly<
+    Record<
+      string,
+      {
+        readonly audience: string;
+        readonly target: string | ((organization: string | undefined) => string | undefined);
+      }
+    >
+  >;
 }
 
 /** What a `kanzoAuth` instance is once its config has been read: one relying party and its settings. */
@@ -71,11 +79,19 @@ export interface Bound {
   readonly basePath: string;
   readonly problemPage: string;
   readonly redirectUri?: string;
-  readonly renewWithin?: number;
-  readonly api?: { readonly mount: string; target(organization: string | undefined): URL | undefined };
+  readonly renewWithin: number;
+  /** Every mount, the longest first, so a request is forwarded by the most specific one. */
+  readonly apis: readonly Api[];
   /** Prefixes the proxy lets through: the routes, the forwarder, the problem page, and `public`. */
   readonly open: readonly string[];
   tenant(request: TenantRequest): Promise<string | undefined>;
+}
+
+/** One mounted resource server, once read. */
+export interface Api {
+  readonly mount: string;
+  readonly audience: string;
+  target(organization: string | undefined): URL | undefined;
 }
 
 /** What a tenant resolver reads, from a request a route handler was given. */
@@ -93,33 +109,36 @@ export function tenantRequest(request: Request): TenantRequest {
   };
 }
 
+/** On a segment boundary, so `/health` opens `/health/live` and not `/healthcare`. */
+export function under(pathname: string, prefixes: readonly string[]): boolean {
+  return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
 /** The request header the proxy forwards the URL on — AuthKit's `x-url` — for a server component to read. */
 export const URL_HEADER = "x-kanzo-url";
-
 
 export function bind(config: KanzoAuthConfig): Bound {
   const basePath = withoutTrailingSlashes(config.basePath ?? "/api/auth");
   const problemPage = config.problemPage ?? "/auth/problem";
-  const forward = config.api;
-  const api =
-    forward === undefined
-      ? undefined
-      : {
-          mount: withoutTrailingSlashes(forward.mount),
-          target: (organization: string | undefined) => {
-            const target = typeof forward.target === "string" ? forward.target : forward.target(organization);
-            return target === undefined ? undefined : new URL(target);
-          },
-        };
+  const apis: Api[] = Object.entries(config.apis ?? {})
+    .map(([mount, api]) => ({
+      mount: withoutTrailingSlashes(mount),
+      audience: api.audience,
+      target: (organization: string | undefined) => {
+        const target = typeof api.target === "string" ? api.target : api.target(organization);
+        return target === undefined ? undefined : new URL(target);
+      },
+    }))
+    .sort((a, b) => b.mount.length - a.mount.length);
   const resolve = config.organization;
   return {
     party: relyingParty(config),
     basePath,
     problemPage,
     redirectUri: config.redirectUri,
-    renewWithin: config.renewWithin,
-    api,
-    open: [basePath, problemPage, ...(api === undefined ? [] : [api.mount]), ...(config.public ?? [])].map(
+    renewWithin: config.renewWithin ?? DEFAULT_RENEW_WITHIN,
+    apis,
+    open: [basePath, problemPage, ...apis.map((api) => api.mount), ...(config.public ?? [])].map(
       withoutTrailingSlashes,
     ),
     tenant: async (request) => (resolve === undefined ? undefined : resolve(request)),

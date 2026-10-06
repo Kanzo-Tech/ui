@@ -20,4 +20,19 @@ describe("extensions", () => {
     const core = manifest("../node_modules/@uwdata/mosaic-core/package.json");
     expect(core.dependencies["@duckdb/duckdb-wasm"]).toBe(PIN.duckdbWasm);
   });
+
+  // A pin nothing loads is bytes in every host's bundle; a load nothing pins is a 404 at boot.
+  it("are each pinned for both bundles and loaded by engine() for both", () => {
+    const engine = readFileSync(new URL("../src/engine.ts", import.meta.url), "utf8");
+    const loaded = [...engine.matchAll(/"\.\.\/extensions\/(wasm_\w+)\/(\w+)\.duckdb_extension\.wasm"/g)]
+      .map(([, platform, name]) => `${platform}/${name}`)
+      .sort();
+    const pinned = Object.entries(PIN.extensions)
+      .flatMap(([name, builds]) => Object.keys(builds).map((platform) => `${platform}/${name}`))
+      .sort();
+    expect(Object.values(PIN.extensions).map((builds) => Object.keys(builds).sort())).toEqual(
+      Object.keys(PIN.extensions).map(() => ["wasm_eh", "wasm_mvp"]),
+    );
+    expect(loaded).toEqual(pinned);
+  });
 });

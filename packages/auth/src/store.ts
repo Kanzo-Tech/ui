@@ -37,9 +37,10 @@ export interface SessionRecord {
    */
   readonly sid?: string;
   /**
-   * The credential for a resource server, and the reason this field exists.
+   * The session's access token: what an exchange presents for a resource server's token, and
+   * never forwarded itself — it names every organization the person belongs to and no API.
    *
-   * Without it a token-mediating backend has nothing `typ: "Bearer"` to forward, and what it
+   * Without it a token-mediating backend has nothing `typ: "Bearer"` to exchange, and what it
    * reaches for instead is the ID token — which works on a realm that happens to put the same
    * audience in both and stops working the day the resource server checks the type, as it should.
    * An ID token says *who signed in*; it was never a key to an API. It is also what

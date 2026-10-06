@@ -53,6 +53,13 @@ export function fakeKeycloak() {
     tokenEndpointStatus: 200,
     /** Refuses refresh grants only, as a realm does once its SSO session has gone idle. */
     refusingRefresh: false,
+    /**
+     * The organizations the person is a member of. A token exchange that asks for another one is
+     * granted without it, as Keycloak drops a non-member's organization rather than refusing.
+     */
+    memberships: ["acme", "globex"],
+    /** Refuses token exchanges, as a realm does for a client not allowed to ask for that audience. */
+    refusingExchange: false,
   };
 
   const keyFor = (kid: string) => (kid === "key-a" ? first : second);
@@ -99,6 +106,27 @@ export function fakeKeycloak() {
       state.posted.push(body);
       if (state.tokenEndpointStatus !== 200) {
         return json({ error: "invalid_grant" }, state.tokenEndpointStatus);
+      }
+      if (body.get("grant_type") === "urn:ietf:params:oauth:grant-type:token-exchange") {
+        if (state.refusingExchange) {
+          return json({ error: "invalid_request", error_description: "Requested audience not available" }, 400);
+        }
+        // Standard token exchange as Keycloak answers it: an access token and the scope it was
+        // granted, no refresh token and no ID token. The token spells what it was issued for —
+        // `<subject>><audience>@<organization>` — so a test can read which exchange it came from.
+        const asked = (body.get("scope") ?? "").split(" ").filter((scope) => scope !== "");
+        const audience = asked.find((scope) => !scope.startsWith("organization:")) ?? "";
+        const granted = asked.filter(
+          (scope) => !scope.startsWith("organization:") || state.memberships.includes(scope.slice(13)),
+        );
+        const organization = granted.find((scope) => scope.startsWith("organization:"))?.slice(13);
+        return json({
+          access_token: `${body.get("subject_token")}>${audience}${organization === undefined ? "" : `@${organization}`}`,
+          token_type: "Bearer",
+          issued_token_type: "urn:ietf:params:oauth:token-type:access_token",
+          ...(state.expiresIn === undefined ? {} : { expires_in: state.expiresIn }),
+          scope: ["profile", "email", ...granted].join(" "),
+        });
       }
       if (body.get("grant_type") === "refresh_token" && state.refusingRefresh) {
         return json({ error: "invalid_grant", error_description: "Session not active" }, 400);
