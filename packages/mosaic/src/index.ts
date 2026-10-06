@@ -58,12 +58,17 @@ export {
 
 /**
  * Ours: the clause rule — column predicates on one relation, or a semi-join on identity — with the
- * constructor of the second form and the reading of the columns either names. `clause.ts` states it.
+ * constructor of the second form, the reading of the columns either names, and what a clause says
+ * to a person (`clauseParts`, `clauseLabel`) — read by the chips here and by `@kanzo-tech/ai`.
+ * `clause.ts` states it.
  */
 export {
   clauseColumns,
   clauseSemiJoin,
   semiJoinOf,
+  clauseParts,
+  clauseLabel,
+  type ClauseParts,
   type SemiJoinMembers,
   type SemiJoinMetadata,
   type SemiJoinOptions,
@@ -75,6 +80,11 @@ export {
  * clients crossfiltering in their own columns publishes to the page in the page's: `bridge.ts`.
  */
 export { bridgeSelection, type BridgeOptions, type ClauseMap } from "./bridge.js";
+/**
+ * Ours: one selection's clauses relayed into another built earlier, as the clause objects
+ * themselves — what Mosaic's `include` does at construction, after it: `relay.ts`.
+ */
+export { relaySelection, type RelayOptions } from "./relay.js";
 
 /** Ours: turning an Arrow answer into values, which the client protocol does not do for you. */
 export { numbers } from "./arrow.js";

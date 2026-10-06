@@ -1,6 +1,6 @@
 "use client";
 
-import type { TableExpr } from "@kanzo-tech/mosaic";
+import { clauseParts, type TableExpr } from "@kanzo-tech/mosaic";
 import type React from "react";
 import { type ReactNode } from "react";
 import { ark } from "@ark-ui/react/factory";
@@ -20,7 +20,7 @@ import { ChartRoot } from "./chart-root.js";
 import { chartTableKey } from "./chart-spec.js";
 import { filterControl, type DashboardFilterControl, type DashboardFilterSpec } from "./dashboard-spec.js";
 import type { FieldStat } from "./field-stats.js";
-import { clauseLabel, useClauses } from "./filter-chips.js";
+import { useClauses } from "./filter-chips.js";
 import { useMosaic } from "./mosaic-provider.js";
 import { useChartQuery } from "./use-chart-query.js";
 
@@ -111,9 +111,8 @@ export function DashboardFilters(props: DashboardFiltersProps) {
 function chipValue(clauses: readonly SelectionClause[], field: string): string | null {
   const unquoted = (f: unknown) => String(f).replace(/^"|"$/g, "");
   const clause = clauses.find((c) => c.fields?.length === 1 && unquoted(c.fields[0]) === field && c.value != null);
-  if (!clause) return null;
-  // `clauseLabel` is the one formatter of a clause; the chip names the field already.
-  return clauseLabel(clause).slice(field.length).replace(/^ · /, "").trim() || null;
+  // The chip names the field already: it shows the clause's value alone.
+  return clause ? clauseParts(clause).value : null;
 }
 
 function ChipText({ field, value }: { field: string; value: string | null }) {

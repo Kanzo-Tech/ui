@@ -26,7 +26,7 @@ export interface StackChannel {
  * The output columns are read off the channels the query was built from, by the rule mosaic-plot's
  * `markQuery` builds it with: a channel with an aggregate field is a measure, any other field is a
  * dimension, `orderby` is neither. The query's own `_select` and `_groupby` say the same thing, but
- * they are mosaic-sql internals (`public-api.test.ts`).
+ * they are mosaic-sql internals (`mosaic-public-api.test.ts`).
  */
 export function denseStack(query: Query, channels: readonly StackChannel[], along: string): Query {
   const dims: string[] = [];

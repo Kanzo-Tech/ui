@@ -1,29 +1,12 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { clauseSemiJoin } from "@kanzo-tech/mosaic";
-import { clauseInterval, clausePoints, Selection, type Coordinator } from "@uwdata/mosaic-core";
-import { Query } from "@uwdata/mosaic-sql";
+import { clausePoints, Selection, type Coordinator } from "@uwdata/mosaic-core";
 import { describe, expect, it } from "vitest";
-import { clauseLabel, FilterChips } from "./filter-chips.js";
+import { FilterChips } from "./filter-chips.js";
 import { MosaicProvider, useMosaic } from "./mosaic-provider.js";
 
 const coordinator = {} as Coordinator;
 const source = (name: string) => ({ name });
-
-describe("clauseLabel", () => {
-  it("reads a point, a set and a range without the database's quoting", () => {
-    expect(clauseLabel(clausePoints(["beast"], [["harpy"]], { source: source("a") }))).toBe("beast harpy");
-    expect(clauseLabel(clausePoints(["beast"], [["harpy"], ["wyrm"]], { source: source("b") }))).toBe("beast · 2 selected");
-    expect(clauseLabel(clauseInterval("hour", [6, 13.5], { source: source("c") }))).toBe("hour 6 – 13.5");
-  });
-
-  it("names a semi-join by its publisher's label, and counts its members when they are keys", () => {
-    expect(clauseLabel(clauseSemiJoin("dense_id", [3, 4], { source: source("d"), label: "Lasso" }))).toBe("Lasso · 2 selected");
-    const findings = Query.select("dense_id").from("findings");
-    expect(clauseLabel(clauseSemiJoin("dense_id", findings, { source: source("e"), label: "Missing name" }))).toBe("Missing name");
-    expect(clauseLabel(clauseSemiJoin("dense_id", findings, { source: source("f") }))).toBe("dense_id");
-  });
-});
 
 describe("retract", () => {
   it("removes a chart's clause where it was published, so it leaves the chart's own selection too", async () => {

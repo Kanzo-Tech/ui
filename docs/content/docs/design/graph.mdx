@@ -128,8 +128,9 @@ Retraction follows the clause to where it was published: a tile letting go withd
 clause, the page clause's chip clears the tiles, and the page's clauses are never mapped back out,
 so a lasso does not return to the graph as a dashboard's clause and filter it by its own pick.
 
-The page's clauses are handed in by listening to the page, not by `include`, because `include` would
-relay the bridge's own clause back in and nothing public keeps it out. Unexempted, that echo filters
+The page's clauses are handed in by `relaySelection`, which listens to the page, not by `include`,
+because `include` would relay the bridge's own clause back in and nothing in Mosaic keeps it out;
+`relaySelection` takes the bridge's source as `except`. Unexempted, that echo filters
 the brushing tile by its own brush; exempting the tiles that published re-queries every other tile a
 second time per brush step; exempting every tile makes it the dashboard's *active* clause, for which
 Mosaic's crossfilter resolver answers no predicate at all — so the next page of a table, or a tile
@@ -162,13 +163,16 @@ statement that selects them", "names the key alone: a subquery's columns are ano
 `packages/graph/src/core/store.test.ts`, "answers a semi-join on dense_id on every table, whatever
 relation its subquery reads", "publishes the reader's pick as a semi-join on dense_id, and is exempt
 from its own clause", "lets the pick go when its clause is retracted where it was published";
-`packages/ui/src/charts/filter-chips.test.tsx`, "names a semi-join by its publisher's label, and
-counts its members when they are keys"; `packages/mosaic/src/bridge.test.ts`, "publishes the inner
+`packages/mosaic/src/clause.test.ts`, "names a semi-join by its publisher's label, and counts its
+members when they are keys"; `packages/mosaic/src/bridge.test.ts`, "publishes the inner
 clauses to the outer selection as one clause, through the map, from the bridge", "does not filter a
 client by its own clause on either side, and never echoes the mapped clause inward", "calls the bridge
 back when the mapped clause is retracted where it was published, and clears the inner sources";
-`packages/mosaic/src/public-api.test.ts`, "reaches no underscore member of a mosaic-core object
-anywhere in this package";
+`packages/mosaic/src/relay.test.ts`, "puts the clause object itself into the target, so the
+publisher stays exempt from its own clause", "loses nothing in a burst: the last delivery holds the
+latest state", "withdraws what it relayed when stopped, even with the source's reset still queued";
+`packages/ui/src/mosaic-public-api.test.ts`, "reaches no underscore member of a Mosaic object in
+any shipped package";
 `packages/graph/src/core/dashboard-bridge.test.ts`, "filters the graph by what the dashboard's
 brushes keep, as the root vertices they keep", "still filters the dashboard by the graph's pick, and
 publishes nothing back for it".
