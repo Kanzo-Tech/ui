@@ -132,10 +132,10 @@ describe("a conversation with dataAgent", () => {
 
 describe("dataSuggestions", () => {
   it("asks for questions over the schema's DDL and the reader's scope, as many as were wanted", async () => {
-    const { model } = mockModel(() => JSON.stringify({ elements: [{ question: "How many contracts?", rationale: "kind" }] }));
+    const { model } = mockModel(() => JSON.stringify({ elements: [{ text: "How many contracts?", rationale: "kind" }] }));
     const got = [];
     for await (const q of dataSuggestions({ model, schema, scope: { selection: picked(), table: NODE }, count: 3 })) got.push(q);
-    expect(got).toEqual([{ question: "How many contracts?", rationale: "kind" }]);
+    expect(got).toEqual([{ text: "How many contracts?", rationale: "kind" }]);
     const prompt = promptOf(model.doStreamCalls[0]!);
     expect(prompt).toContain(schema.ddl);
     expect(prompt).toContain(`SELECT * FROM "archive"."node" WHERE ("kind" IN ('contract'))`);

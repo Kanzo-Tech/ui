@@ -21,10 +21,10 @@ import { elements, mockModel } from "@/lib/mock-model";
 // value the field already holds is never offered.
 const model = mockModel(() =>
   elements([
-    { value: "livestock", rationale: "A herd dog was taken." },
-    { value: "standing-water", rationale: "Bog-hounds hold wet ground, and the ford is out." },
-    { value: "night-work", rationale: "Both sightings were at dusk." },
-    { value: "escort", rationale: "The herder walks back with the party." },
+    { text: "livestock", rationale: "A herd dog was taken." },
+    { text: "standing-water", rationale: "Bog-hounds hold wet ground, and the ford is out." },
+    { text: "night-work", rationale: "Both sightings were at dusk." },
+    { text: "escort", rationale: "The herder walks back with the party." },
   ]),
 );
 

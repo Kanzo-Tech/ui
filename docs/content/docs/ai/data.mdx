@@ -46,7 +46,7 @@ function Ask({ catalog, schema, table }: { catalog: string; schema: DataSchema; 
     <Chat
       chat={chat}
       suggesting={starters.fetchStatus === "fetching"}
-      suggestions={starters.isError ? [] : (starters.data ?? []).map((s) => s.question)}
+      suggestions={starters.isError ? [] : (starters.data ?? [])}
       tools={{ query: (part) => <QueryResult actions={(answer) => <FilterToThese answer={answer} />} part={part} /> }}
     />
   );

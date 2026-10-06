@@ -13,8 +13,8 @@ installs it once so that its own agent and `@kanzo-tech/ai`'s components share o
 ## What it holds
 
 ```ts
-import { createGateway } from "@kanzo-tech/llm";
-import { ToolLoopAgent, DirectChatTransport, tool, Output, streamText } from "@kanzo-tech/llm";
+import { createGateway, stream } from "@kanzo-tech/llm";
+import { ToolLoopAgent, DirectChatTransport, tool, Output } from "@kanzo-tech/llm";
 ```
 
 - **`createGateway({ baseURL })`** — the one door to a model. `gateway("chat")` is a model by
@@ -26,9 +26,15 @@ import { ToolLoopAgent, DirectChatTransport, tool, Output, streamText } from "@k
   DeepSeek, Qwen) gets that lifted into the SDK's `reasoning` part, and structured output is on, so
   `Output.array` asks the gateway for a JSON schema rather than prose to parse. And a streaming
   request that sends nothing for 30 s — no headers, or no chunk since the last — is aborted and
-  fails as an `AiError` coded `ai/silent`.
+  fails as an `AiError` coded `ai/silent`; a gateway that answers 429 because the caller is over its
+  limit fails as an `AiError` coded `ai/rate-limited`, with `data.retryAfter` when it said when.
+- **`stream({ model, system, prompt, output })`** — the one door to an answer: `streamText`, never
+  retried, read as `text`, `elements` (`Output.array`) or `partial` (`Output.object`), each of which
+  **throws what stopped the model** once it ends. The SDK alone reports a failed stream to `onError`
+  and ends it as if it had finished, so `streamText` is not re-exported: the raw call is the one that
+  passes a refusal off as a short answer.
 - **Re-exports** of the AI SDK surface a host needs — the agent, the transport, `tool`, `Output`,
-  `streamText`, and the message and part types — so a host never imports `ai` itself.
+  and the message and part types — so a host never imports `ai` itself.
   `@ai-sdk/openai-compatible` is not among them: `createGateway` is the only way to a model.
 
 ## Why it is not part of `@kanzo-tech/ai`

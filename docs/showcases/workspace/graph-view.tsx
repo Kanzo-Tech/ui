@@ -52,7 +52,7 @@ import {
   TagsInputItemText,
   toast,
 } from "@kanzo-tech/ui";
-import { Chat, ChatSkeleton, useChat } from "@kanzo-tech/ai";
+import { Chat, ChatSkeleton, type Proposal, useChat } from "@kanzo-tech/ai";
 import {
   dataAgent,
   dataSuggestions,
@@ -1055,7 +1055,7 @@ function rowsIn(message: { content: unknown } | undefined): Record<string, unkno
  */
 const askModel = mockModel((call) => {
   if (promptOf(call).includes("You suggest questions")) {
-    return JSON.stringify({ elements: INTENTS.map(({ question, rationale }) => ({ question, rationale })) });
+    return JSON.stringify({ elements: INTENTS.map(({ question, rationale }) => ({ text: question, rationale })) });
   }
   const intent = match(askOf(call));
   if (!intent) return "That one is outside what this recording knows. Try one of the questions it starts with.";
@@ -1101,13 +1101,13 @@ function AskEmpty() {
 
 /** Questions to start from, as they stream in: none on failure, and the chat works without them. */
 function useStarters(schema: DataSchema, scope: DataScope) {
-  const [state, setState] = useState<{ questions: string[]; suggesting: boolean }>({ questions: [], suggesting: true });
+  const [state, setState] = useState<{ questions: Proposal[]; suggesting: boolean }>({ questions: [], suggesting: true });
   useEffect(() => {
     const abort = new AbortController();
     (async () => {
-      const questions: string[] = [];
+      const questions: Proposal[] = [];
       for await (const q of dataSuggestions({ model: askModel, schema, scope, abortSignal: abort.signal })) {
-        questions.push(q.question);
+        questions.push(q);
         setState({ questions: [...questions], suggesting: true });
       }
       setState({ questions, suggesting: false });

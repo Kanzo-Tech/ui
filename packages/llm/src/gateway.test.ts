@@ -175,3 +175,45 @@ describe("a model that goes silent", () => {
     expect((await answer).text).toBe("done");
   });
 });
+
+describe("a caller over its limit", () => {
+  const limited = (headers: Record<string, string>) =>
+    (async () =>
+      new Response(JSON.stringify({ error: { message: "rate limited" } }), {
+        status: 429,
+        headers: { "content-type": "application/json", ...headers },
+      })) as typeof globalThis.fetch;
+
+  it("fails as ai/rate-limited with the gateway's retry-after, asked once", async () => {
+    let calls = 0;
+    const fetch = (async (...args: Parameters<typeof globalThis.fetch>) => {
+      calls += 1;
+      return limited({ "retry-after": "12" })(...args);
+    }) as typeof globalThis.fetch;
+    const gateway = createGateway({ baseURL: "http://gw/v1", fetch });
+    const failed = await generateText({ model: gateway("chat"), prompt: "hello" }).catch((e: unknown) => e);
+    expect(failed).toBeInstanceOf(AiError);
+    expect(failed).toMatchObject({ code: "ai/rate-limited", data: { retryAfter: 12 } });
+    expect(calls).toBe(1);
+  });
+
+  it("reads x-ratelimit-reset when there is no retry-after, and reaches a stream's caller as itself", async () => {
+    const gateway = createGateway({ baseURL: "http://gw/v1", fetch: limited({ "x-ratelimit-reset": "30" }) });
+    const seen: { failed?: unknown } = {};
+    const result = streamText({
+      model: gateway("chat"),
+      prompt: "hello",
+      maxRetries: 0,
+      onError: ({ error }) => void (seen.failed ??= error),
+    });
+    for await (const _ of result.textStream) void _;
+    expect(seen.failed).toMatchObject({ code: "ai/rate-limited", data: { retryAfter: 30 } });
+  });
+
+  it("names no retryAfter when the gateway did not say when", async () => {
+    const gateway = createGateway({ baseURL: "http://gw/v1", fetch: limited({}) });
+    const failed = await generateText({ model: gateway("chat"), prompt: "hello", maxRetries: 0 }).catch((e: unknown) => e);
+    expect(failed).toMatchObject({ code: "ai/rate-limited", data: {} });
+    expect((failed as AiError).data.retryAfter).toBeUndefined();
+  });
+});

@@ -53,7 +53,7 @@ export default function Example() {
       <Chat
         chat={chat}
         empty={<p className="text-muted-foreground text-sm">Ask the quartermaster about the board.</p>}
-        suggestions={QUESTIONS}
+        suggestions={QUESTIONS.map((text) => ({ text }))}
       />
     </div>
   );

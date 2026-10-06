@@ -184,8 +184,8 @@ function Title(props: { model: ReturnType<typeof mockModel>["model"]; onEvent?: 
 }
 
 const CANDIDATES = elements([
-  { value: "Bog-hounds on the causeway", rationale: "Names the place." },
-  { value: "Herd dog taken at the ford", rationale: "Leads with the loss." },
+  { text: "Bog-hounds on the causeway", rationale: "Names the place." },
+  { text: "Herd dog taken at the ford", rationale: "Leads with the loss." },
 ]);
 
 describe("Assist on an Input — whole values, as chips", () => {
@@ -259,8 +259,8 @@ describe("Assist on a TagsInput — values to add", () => {
   it("adds a chip's value to the list, and never offers one already there", async () => {
     const { model } = mockModel(() =>
       elements([
-        { value: "Livestock", rationale: "dup" },
-        { value: "night-work", rationale: "Both sightings were at dusk." },
+        { text: "Livestock", rationale: "dup" },
+        { text: "night-work", rationale: "Both sightings were at dusk." },
       ]),
     );
     render(<Tags model={model} />);
