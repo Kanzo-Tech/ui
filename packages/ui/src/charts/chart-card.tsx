@@ -26,7 +26,7 @@ import { chartTableKey } from "./chart-spec.js";
 import { EditTileButton } from "./tile-controls.js";
 import { measureExpr, tileTitle, type ChartTile, type DashboardChartType } from "./dashboard-spec.js";
 import type { FieldStat } from "./field-stats.js";
-import { cardRationale } from "./recommend.js";
+import { rationale as rationaleOf } from "./recommend.js";
 import { useChartQuery } from "./use-chart-query.js";
 
 export interface ChartCardProps extends Omit<React.ComponentProps<typeof Card>, "onChange"> {
@@ -58,17 +58,16 @@ export const CHART_TYPE: Record<DashboardChartType, { label: string; icon: typeo
  * calls for and the interactor its scale allows — pick on a band, brush on a range — so every card
  * publishes into the page's crossfilter and dims or filters with it. Without a series the whole
  * relation stays behind the selection in grey: the context a filtered chart otherwise loses. A card
- * that is what `recommend` proposes for its fields says why in its description, under an
- * *Automatic* badge, until somebody edits it.
+ * with an `origin` says why the rule proposed it in its description, under an *Automatic* badge,
+ * until somebody edits it.
  */
 export function ChartCard(props: ChartCardProps) {
   const { table, fields, card, config, onEdit, className, slot, ...rest } = props;
   const missing = [card.x, card.y.field, card.color, card.facet].filter(
     (name): name is string => name !== undefined && !fields.some((f) => f.name === name),
   );
-  // Derived on every render rather than stored: an automatic dashboard is never saved, and a card
-  // stops being automatic by being edited, which the rules notice on their own.
-  const rationale = cardRationale(card, fields);
+  // The card's `origin` says which rule proposed it; an edit clears it (`edited`).
+  const rationale = rationaleOf(card, fields);
 
   return (
     <Card

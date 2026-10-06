@@ -78,6 +78,7 @@ A filter on a field that has no control, or that the relation no longer has, is 
 | `y` | `DashboardMeasure` | What is measured per group — or, for `dot` and `regression`, `{ "op": "value", "field": … }`: the raw column, one point per row. |
 | `color` | `string?` | A category of 2–8 values drawn as series. Not on `regression`. |
 | `facet` | `string?` | A category of 2–6 values drawn as small multiples sharing one pair of scales. Not on `bar`. |
+| `origin` | `{ rule: string }?` | The [`recommend`](/docs/analytics/dashboard#recommend) rule that proposed the chart, set by `autoDashboard` and dropped by any edit but its width. What its *Automatic* badge and rationale are read from. |
 
 ### TableTile
 
@@ -220,6 +221,7 @@ interface ChartTile {
   y: DashboardMeasure;
   color?: string;
   facet?: string;
+  origin?: { rule: string };
 }
 
 interface TableTile {

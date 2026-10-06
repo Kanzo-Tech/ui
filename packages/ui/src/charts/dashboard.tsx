@@ -16,7 +16,7 @@ import { DashboardFilters } from "./dashboard-filters.js";
 import { chartTableKey } from "./chart-spec.js";
 import { TileView } from "./tile-kinds.js";
 import { TileEditor } from "./tile-editor.js";
-import { autoDashboard, newTile, plotRelation, type DashboardSpec, type Tile, type TileSpan } from "./dashboard-spec.js";
+import { autoDashboard, edited, newTile, plotRelation, type DashboardSpec, type Tile, type TileSpan } from "./dashboard-spec.js";
 import { useFieldStats, type FieldStat } from "./field-stats.js";
 
 export interface DashboardProps extends Omit<React.ComponentProps<typeof ark.div>, "onChange" | "defaultValue"> {
@@ -142,7 +142,8 @@ function Board({
 
   const save = (tile: Tile, index: number) => {
     const rest = spec.tiles.filter((t) => t.id !== tile.id);
-    edit?.({ tiles: [...rest.slice(0, index), tile, ...rest.slice(index)] });
+    const next = edited(spec.tiles.find((t) => t.id === tile.id), tile);
+    edit?.({ tiles: [...rest.slice(0, index), next, ...rest.slice(index)] });
     setEditing(null);
   };
   const add = () => {

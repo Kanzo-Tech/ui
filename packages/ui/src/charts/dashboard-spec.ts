@@ -97,6 +97,11 @@ const ChartTileSchema = v.strictObject({
   color: v.optional(v.string()),
   /** A few-valued field drawn as small multiples sharing one pair of scales. */
   facet: v.optional(v.string()),
+  /**
+   * The `recommend` rule that proposed it, while nobody has changed what it reads: what its
+   * *Automatic* badge and its rationale are read from. Set by `autoDashboard`, cleared by an edit.
+   */
+  origin: v.optional(v.strictObject({ rule: v.string() })),
 });
 
 /** The rows under the selection, as these columns. */
@@ -379,9 +384,23 @@ export function normalizeCard(card: ChartTile, fields: readonly FieldStat[]): Ch
  * field no rule draws by itself, such as a key.
  */
 export function cardFor(field: FieldStat): ChartTile | null {
-  const best = recommend([field])[0];
-  return best ? { ...best.spec, id: globalThis.crypto.randomUUID() } : null;
+  return recommend([field])[0]?.spec ?? null;
 }
+
+/**
+ * The tile an edit saves: `after`, without the `origin` of a tile somebody changed. Its width is
+ * layout and does not count — neither does where it sits — so a proposed chart widened is still the
+ * proposal; anything else it reads, or a title, makes it the reader's.
+ */
+export function edited(before: Tile | undefined, after: Tile): Tile {
+  if (after.kind !== "chart" || !after.origin) return after;
+  if (before?.kind === "chart" && reads(before) === reads(after)) return after;
+  const { origin: _, ...mine } = after;
+  return mine;
+}
+
+/** What a chart reads and is called — everything an edit can change but its width. */
+const reads = (t: ChartTile) => JSON.stringify([t.type, t.x, t.y.op, t.y.field, t.y.equals, t.color, t.facet, t.title]);
 
 /** Widens the last tile of every three-column row so no row ends in a hole. */
 function pack(tiles: Tile[]): Tile[] {
@@ -443,7 +462,7 @@ export function autoDashboard(fields: readonly FieldStat[]): DashboardSpec {
 
   const cards = recommend(fields, "overview")
     .slice(0, CARD_LIMIT)
-    .map(({ spec }, i): ChartTile => ({ ...spec, id: `card-${i}` }));
+    .map(({ spec, rule }, i): ChartTile => ({ ...spec, id: `card-${i}`, origin: { rule } }));
 
   const columns = detailColumns(fields);
   const table: TableTile[] = columns.length ? [{ id: "rows", kind: "table", span: 3, columns }] : [];

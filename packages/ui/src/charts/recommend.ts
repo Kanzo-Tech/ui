@@ -5,10 +5,15 @@ import type { FieldKind, FieldRole, FieldStat } from "./field-stats.js";
  * Which charts a relation's fields call for, and why — a table of rules rather than a chain of
  * `if`s, so every chart the library proposes can say what proposed it.
  *
- * Shaped after Draco's soft constraints and CompassQL's ranking: a rule matches fields by kind and
- * role, proposes a mark over them, and weighs it; the answer is every match, heaviest first. Unlike
- * Draco the weights are set by hand rather than learned, and there is no solver — a rule reads at
- * most two fields, so enumerating them is the whole search.
+ * The pipeline is CompassQL's and Draco's: **enumerate** the candidates every rule matches, **rank**
+ * them, **explain** each. A rule matches fields by kind and role, proposes a mark over them, and
+ * weighs it. Unlike Draco the weights are set by hand rather than learned, and there is no solver —
+ * a rule reads at most two fields, so enumerating them is the whole search.
+ *
+ * The rules are not ours: each one is a case of Show Me (Mackinlay, Hanrahan and Stolte, *Show Me:
+ * Automatic Presentation for Visual Analysis*, IEEE TVCG 13(6), 2007) and names it in `showMe`. A rule
+ * no Show Me case covers does not belong in the table. The order within an intent is the one
+ * parameter with no published value; it is set by hand, and the docs say so.
  */
 
 /**
@@ -23,6 +28,8 @@ export interface Recommendation {
   spec: ChartTile;
   /** One sentence naming the fields and what about them chose the chart. */
   rationale: string;
+  /** The rule that proposed it — what a tile's `origin` records. */
+  rule: string;
 }
 
 /** A field a rule slot accepts: its kind, its role if that matters, and a floor on its values. */
@@ -37,8 +44,10 @@ const TIME: FieldMatch = { kind: "temporal" };
 const CATEGORY: FieldMatch = { kind: "categorical", role: "dimension", distinct: 2 };
 const MEASURE: FieldMatch = { kind: "numeric", role: "measure" };
 
-interface RecommendRule {
+export interface RecommendRule {
   id: string;
+  /** The Show Me case this rule is: the view, and what it is chosen for. */
+  showMe: string;
   /** One slot per field, in the order the chart takes them: `x`, then the measure. */
   reads: readonly FieldMatch[];
   mark: DashboardChartType;
@@ -60,9 +69,10 @@ const values = (fields: readonly FieldStat[]) => Math.round(fields[0]?.distinct 
  * `answer` puts a measure against what it was grouped by first, and falls back to the overview's
  * charts of one field.
  */
-const RULES: readonly RecommendRule[] = [
+export const RULES: readonly RecommendRule[] = [
   {
     id: "time-measure",
+    showMe: "Lines (continuous): a date and a measure",
     reads: [TIME, MEASURE],
     mark: "line",
     y: "sum",
@@ -73,6 +83,7 @@ const RULES: readonly RecommendRule[] = [
   },
   {
     id: "category-measure",
+    showMe: "Bars: a dimension and a measure",
     reads: [CATEGORY, MEASURE],
     mark: "bar",
     y: "sum",
@@ -83,6 +94,7 @@ const RULES: readonly RecommendRule[] = [
   },
   {
     id: "time",
+    showMe: "Lines (continuous): a date, its rows counted",
     reads: [TIME],
     mark: "line",
     y: "count",
@@ -93,6 +105,7 @@ const RULES: readonly RecommendRule[] = [
   },
   {
     id: "category",
+    showMe: "Bars: a dimension, its rows counted",
     reads: [CATEGORY],
     mark: "bar",
     y: "count",
@@ -103,6 +116,7 @@ const RULES: readonly RecommendRule[] = [
   },
   {
     id: "measure",
+    showMe: "Histogram: one measure",
     reads: [MEASURE],
     mark: "histogram",
     y: "count",
@@ -113,6 +127,7 @@ const RULES: readonly RecommendRule[] = [
   },
   {
     id: "measure-pair",
+    showMe: "Scatter plot: two measures, with a trend line",
     reads: [MEASURE, MEASURE],
     mark: "regression",
     y: "value",
@@ -154,20 +169,33 @@ function measureOf(rule: RecommendRule, fields: readonly FieldStat[]): Dashboard
   return { op: rule.y, field: name(fields, 1) };
 }
 
-function propose(rule: RecommendRule, fields: readonly FieldStat[]): Recommendation[] {
-  return tuples(rule.reads, fields)
-    .slice(0, rule.limit)
-    .map((read) => {
-      const spec: ChartTile = {
-        id: `${rule.id}:${read.map((f) => f.name).join(",")}`,
-        kind: "chart",
-        span: rule.span,
-        type: rule.mark,
-        x: name(read, 0),
-        y: measureOf(rule, read),
-      };
-      return { spec, rationale: rule.why(read) };
-    });
+/** One way a rule reads the relation: the rule, and the fields in its slots. */
+export interface Candidate {
+  rule: RecommendRule;
+  fields: readonly FieldStat[];
+}
+
+/** Every candidate `rules` match in `fields`, in the table's order and, within a rule, the relation's. */
+export function enumerate(rules: readonly RecommendRule[], fields: readonly FieldStat[]): Candidate[] {
+  return rules.flatMap((rule) => tuples(rule.reads, fields).slice(0, rule.limit).map((read) => ({ rule, fields: read })));
+}
+
+/** The candidates `intent` weighs, heaviest first; ties keep the order they came in. */
+export function rank(candidates: readonly Candidate[], intent: RecommendIntent): Candidate[] {
+  return candidates.filter((c) => c.rule.score[intent] !== undefined).sort((a, b) => b.rule.score[intent]! - a.rule.score[intent]!);
+}
+
+/** A candidate as a chart and the sentence that says why. Its id is derived, so the answer is pure. */
+export function explain({ rule, fields }: Candidate): Recommendation {
+  const spec: ChartTile = {
+    id: `${rule.id}:${fields.map((f) => f.name).join(",")}`,
+    kind: "chart",
+    span: rule.span,
+    type: rule.mark,
+    x: name(fields, 0),
+    y: measureOf(rule, fields),
+  };
+  return { spec, rationale: rule.why(fields), rule: rule.id };
 }
 
 /**
@@ -176,23 +204,17 @@ function propose(rule: RecommendRule, fields: readonly FieldStat[]): Recommendat
  * an `answer` the first.
  */
 export function recommend(fields: readonly FieldStat[], intent: RecommendIntent = "overview"): Recommendation[] {
-  return RULES.filter((rule) => rule.score[intent] !== undefined)
-    .flatMap((rule) => propose(rule, fields).map((recommendation) => ({ recommendation, score: rule.score[intent]! })))
-    .sort((a, b) => b.score - a.score)
-    .map(({ recommendation }) => recommendation);
+  return rank(enumerate(RULES, fields), intent).map(explain);
 }
 
-const encoding = (card: ChartTile) =>
-  JSON.stringify([card.type, card.x, card.y.op, card.y.field, card.y.equals, card.color, card.facet, card.title]);
-
 /**
- * Why a card was proposed, or `null` once it is not a card the rules propose — somebody edited it.
- * Read from the fields the card itself reads, so the answer does not depend on what else the
- * relation has, and from every rule, so a card proposed as an answer explains itself on a dashboard.
- * Width is layout and does not count as an edit.
+ * Why a tile was proposed: its `origin` rule's sentence, over the fields the tile itself reads.
+ * `null` for a tile with no origin — added by hand, or edited since — or whose rule or fields are
+ * gone.
  */
-export function cardRationale(card: ChartTile, fields: readonly FieldStat[]): string | null {
-  const own = fields.filter((f) => f.name === card.x || f.name === card.y.field);
-  const key = encoding(card);
-  return RULES.flatMap((rule) => propose(rule, own)).find((r) => encoding(r.spec) === key)?.rationale ?? null;
+export function rationale(tile: ChartTile, fields: readonly FieldStat[]): string | null {
+  const rule = RULES.find((r) => r.id === tile.origin?.rule);
+  if (!rule) return null;
+  const read = [tile.x, tile.y.field].slice(0, rule.reads.length).map((n) => fields.find((f) => f.name === n));
+  return read.every((f): f is FieldStat => f !== undefined) ? rule.why(read) : null;
 }

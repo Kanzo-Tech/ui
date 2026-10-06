@@ -125,18 +125,24 @@ dashboard, or to diff against one.
 ### recommend
 
 `recommend(fields, intent?)` is every chart a table of rules proposes for those fields, heaviest
-first — Draco's soft constraints and CompassQL's ranking, with the weights set by hand and no solver,
-since a rule reads at most two fields. Each answer is `{ spec, rationale }`: a card valid for the
-fields, and one sentence saying why.
+first. It is CompassQL's and Draco's pipeline — **enumerate** what every rule matches, **rank** it,
+**explain** each — with the weights set by hand and no solver, since a rule reads at most two
+fields. Each answer is `{ spec, rationale, rule }`: a card valid for the fields, one sentence saying
+why, and the rule that proposed it. Its ids are derived from the rule and the fields, so the same
+fields always give the same answer.
 
-| Reads | Draws | `overview` | `answer` | At most | Rationale |
-| --- | --- | --- | --- | --- | --- |
-| a time and a measure | `line` of the measure's total | — | 100 | 3 | *day is a time and n a measure, so a line of total n over time* |
-| a category and a measure | `bar` of the measure's total | — | 90 | 3 | *type has 3 values and n is a measure, so a bar of total n per value* |
-| a time | `line` of counts, two thirds wide | 100 | 50 | 1 | *seen is a time, so a line of counts along it* |
-| a category of 2 or more values | `bar` of counts | 80 | 40 | 3 | *type has 3 values, so a bar of counts per value* |
-| a measure | `histogram` | 60 | 30 | 2 | *bounty is a measure, so a histogram of how its values spread* |
-| two measures | `regression` of one on the other, two thirds wide | 40 | 70 | 1 | *bounty and leagues are both measures, so a fit of one against the other* |
+The rules are not the library's own: each is a case of **Show Me** (Mackinlay, Hanrahan and Stolte,
+2007), the automatic presentation behind Tableau's chart picker, and a rule no Show Me case covers
+does not belong in the table. The weights are the one part with no published value.
+
+| `rule` | Show Me | Reads | Draws | `overview` | `answer` | At most | Rationale |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `time-measure` | Lines (continuous) | a time and a measure | `line` of the measure's total | — | 100 | 3 | *day is a time and n a measure, so a line of total n over time* |
+| `category-measure` | Bars | a category and a measure | `bar` of the measure's total | — | 90 | 3 | *type has 3 values and n is a measure, so a bar of total n per value* |
+| `time` | Lines (continuous) | a time | `line` of counts, two thirds wide | 100 | 50 | 1 | *seen is a time, so a line of counts along it* |
+| `category` | Bars | a category of 2 or more values | `bar` of counts | 80 | 40 | 3 | *type has 3 values, so a bar of counts per value* |
+| `measure` | Histogram | a measure | `histogram` | 60 | 30 | 2 | *bounty is a measure, so a histogram of how its values spread* |
+| `measure-pair` | Scatter plot, with a trend line | two measures | `regression` of one on the other, two thirds wide | 40 | 70 | 1 | *bounty and leagues are both measures, so a fit of one against the other* |
 
 - **`intent`** is `"overview"` (the default) for a dashboard over raw rows — what each field does on
   its own — or `"answer"` for one chart of a result set, whose rows are usually aggregated already,
@@ -147,11 +153,13 @@ fields, and one sentence saying why.
 - *Add tile* opens the editor on the best chart of the first field a rule draws on its own,
   preferring a field the dashboard does not chart yet.
 
-**A card says why it is there.** While a card is exactly what the rules propose for the fields it
-reads, `ChartCard` puts its rationale before the interaction hint and an *Automatic* badge beside the
-title. Edit the type, a field, the measure, a series, a panel or the title and both go; the width is
-layout and does not count. The rationale is read again on every render, never stored, so a saved
-spec carries none and an automatic one never needs saving.
+**A card says why it is there.** `autoDashboard` records the rule behind each card it proposes as
+the card's `origin` (`{ rule }`), and while a card has one, `ChartCard` puts that rule's rationale
+before the interaction hint and an *Automatic* badge beside the title. Edit the type, a field, the
+measure, a series, a panel or the title and the origin goes, and both with it; the width is layout
+and does not count. A card added by hand has no origin, whatever the rules would say of it. The
+origin is part of the saved spec, and the sentence is read from the rule over the card's own fields
+on every render.
 
 ## The parts
 
@@ -209,7 +217,7 @@ bars by the measure, the top series and panels by count — so a filter never re
 repaints a survivor.
 
 Without a series, the whole relation stays drawn behind the selection in grey: the context a
-filtered chart otherwise loses. A card the rules would propose as it stands shows
+filtered chart otherwise loses. A card with an `origin` shows
 [why](#recommend), under an *Automatic* badge. A card that names a field the relation no longer has draws *The
 relation has no `hall` any more.* in place of the chart.
 
@@ -532,7 +540,7 @@ function autoDashboard(fields: readonly FieldStat[]): DashboardSpec;
 function recommend(fields: readonly FieldStat[], intent?: RecommendIntent): Recommendation[];
 
 type RecommendIntent = "overview" | "answer"; // default "overview"
-interface Recommendation { spec: ChartTile; rationale: string }
+interface Recommendation { spec: ChartTile; rationale: string; rule: string }
 
 interface FieldStat {
   name: string;

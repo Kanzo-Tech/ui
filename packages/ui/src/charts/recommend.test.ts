@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { autoDashboard, cardFor, normalizeCard, type ChartTile } from "./dashboard-spec.js";
+import { autoDashboard, cardFor, edited, normalizeCard, type ChartTile } from "./dashboard-spec.js";
 import type { FieldStat } from "./field-stats.js";
-import { cardRationale, recommend } from "./recommend.js";
+import { enumerate, explain, rank, rationale, recommend, RULES } from "./recommend.js";
 
 const F = (name: string, kind: FieldStat["kind"], role: FieldStat["role"], distinct: number): FieldStat => ({
   name,
@@ -91,19 +91,66 @@ describe("the rationale", () => {
     ]);
   });
 
-  it("is read back from a card until it is edited, whatever its width or id", () => {
+  it("is read back from a tile's origin, over the fields the tile itself reads", () => {
     const [line] = charts(FIELDS);
-    expect(cardRationale(line!, FIELDS)).toBe("seen is a time, so a line of counts along it");
-    expect(cardRationale({ ...line!, span: 1, id: "other" }, FIELDS)).toBe("seen is a time, so a line of counts along it");
-    expect(cardRationale({ ...line!, type: "area" }, FIELDS)).toBeNull();
-    expect(cardRationale({ ...line!, color: "region" }, FIELDS)).toBeNull();
-    expect(cardRationale({ ...line!, title: "Sightings" }, FIELDS)).toBeNull();
+    expect(line!.origin).toEqual({ rule: "time" });
+    expect(rationale(line!, FIELDS)).toBe("seen is a time, so a line of counts along it");
+    expect(rationale({ ...line!, origin: undefined }, FIELDS)).toBeNull();
+    expect(rationale(line!, FIELDS.filter((f) => f.name !== "seen"))).toBeNull();
   });
 
-  it("explains a card past the overview's caps, and a card proposed as an answer", () => {
-    expect(cardRationale(cardFor(FIELDS[3]!)!, FIELDS)).toBe("cult has 12 values, so a bar of counts per value");
-    const answer: ChartTile = { id: "a", kind: "chart", span: 1, type: "bar", x: "region", y: { op: "sum", field: "bounty" } };
-    expect(cardRationale(answer, FIELDS)).toBe("region has 6 values and bounty is a measure, so a bar of total bounty per value");
+  it("is not claimed by a card added by hand, even one the rules would propose", () => {
+    expect(cardFor(FIELDS[3]!)!.origin).toBeUndefined();
+    expect(rationale(cardFor(FIELDS[3]!)!, FIELDS)).toBeNull();
+  });
+});
+
+describe("edited", () => {
+  const [line] = charts(FIELDS);
+
+  it("keeps the origin of a tile only widened or moved", () => {
+    expect(edited(line, { ...line!, span: 1 })).toEqual({ ...line!, span: 1 });
+  });
+
+  it("drops it once the tile reads something else or is renamed", () => {
+    for (const change of [{ type: "area" as const }, { color: "region" }, { title: "Sightings" }, { y: { op: "sum" as const, field: "bounty" } }]) {
+      expect((edited(line, { ...line!, ...change }) as ChartTile).origin).toBeUndefined();
+    }
+  });
+
+  it("drops it from a tile it has never seen", () => {
+    expect((edited(undefined, line!) as ChartTile).origin).toBeUndefined();
+  });
+});
+
+describe("the pipeline", () => {
+  it("enumerates every rule's candidates in the table's order, capped per rule, before any weighing", () => {
+    const candidates = enumerate(RULES, FIELDS);
+    expect(candidates.map((c) => c.rule.id)).toEqual([
+      "time-measure", "time-measure", "time-measure",
+      "category-measure", "category-measure", "category-measure",
+      "time", "category", "category", "category", "measure", "measure", "measure-pair",
+    ]);
+  });
+
+  it("ranks by the intent's weight, leaving out what it does not weigh, ties in the order they came", () => {
+    const ranked = rank(enumerate(RULES, FIELDS), "overview").map((c) => [c.rule.id, c.fields[0]!.name]);
+    expect(ranked.slice(0, 4)).toEqual([["time", "seen"], ["category", "region"], ["category", "beast"], ["category", "hall"]]);
+    expect(ranked.some(([id]) => id === "time-measure")).toBe(false);
+  });
+
+  it("explains a candidate with a derived id, so the same fields always give the same answer", () => {
+    const [first] = rank(enumerate(RULES, FIELDS), "overview");
+    expect(explain(first!)).toEqual({
+      spec: { id: "time:seen", kind: "chart", span: 2, type: "line", x: "seen", y: { op: "count" } },
+      rationale: "seen is a time, so a line of counts along it",
+      rule: "time",
+    });
+    expect(recommend(FIELDS)).toEqual(recommend(FIELDS));
+  });
+
+  it("is made of Show Me's cases, each rule naming the one it is", () => {
+    for (const rule of RULES) expect(rule.showMe).toMatch(/^(Lines \(continuous\)|Bars|Histogram|Scatter plot): /);
   });
 });
 
