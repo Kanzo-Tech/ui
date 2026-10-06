@@ -1,15 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  use,
-  useEffect,
-  useMemo,
-  useState,
-  type Dispatch,
-  type ReactNode,
-  type SetStateAction,
-} from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { parseDate, type DateValue } from "@internationalized/date";
 import { sql, verbatim, type VerbatimNode } from "@uwdata/mosaic-sql";
 import {
@@ -38,6 +29,7 @@ import {
   FileUploadHiddenInput,
   FileUploadTrigger,
   Input,
+  PreferencesSections,
   Select,
   SelectContent,
   SelectItem,
@@ -92,8 +84,6 @@ import { cn } from "@kanzo-tech/ui";
 import {
   GraphCounts,
   GraphInspector,
-  GraphLooks,
-  GraphPlacement,
   GraphRoot,
   GraphSearch,
   GraphSelect,
@@ -101,7 +91,6 @@ import {
   corpusReferences,
   useGraphContext,
   useGraphPrefs,
-  type Channels,
   type VertexDetail,
 } from "@kanzo-tech/graph";
 import {
@@ -207,20 +196,6 @@ function announce(error: unknown): void {
   });
 }
 
-type Placement = Pick<Channels, "x" | "y" | "cluster">;
-
-/**
- * Where the points come from, as the reader chose it in Settings — the page's state, handed to the
- * root as it is, and shared with the Settings panel that sits under the same root.
- */
-const PlacementContext = createContext<[Placement, Dispatch<SetStateAction<Placement>>] | null>(null);
-
-function usePlacement() {
-  const placement = use(PlacementContext);
-  if (!placement) throw new Error("usePlacement must be used within ArchiveGraph");
-  return placement;
-}
-
 /**
  * **The graph, whole.** The root names the attached catalog and reads it through the page's
  * coordinator, one Mosaic client beside the charts; the provider arrives with the same coordinator,
@@ -228,11 +203,9 @@ function usePlacement() {
  */
 export function ArchiveGraph({ children }: { children: ReactNode }) {
   const archive = useArchive();
-  const { look, sim } = useGraphPrefs();
-  const placement = useState<Placement>({});
+  const { look, sim, placement } = useGraphPrefs();
   return (
-    <PlacementContext value={placement}>
-      <GraphRoot
+    <GraphRoot
         categories={KINDS}
         coordinator={archive?.coordinator ?? null}
         fill="kind"
@@ -244,7 +217,7 @@ export function ArchiveGraph({ children }: { children: ReactNode }) {
         sim={sim}
         stroke="var(--muted-foreground)"
         title="label"
-        {...placement[0]}
+        {...placement}
       >
         <Show fallback={children} when={archive !== null}>
           {archive && (
@@ -254,7 +227,6 @@ export function ArchiveGraph({ children }: { children: ReactNode }) {
           )}
         </Show>
       </GraphRoot>
-    </PlacementContext>
   );
 }
 
@@ -954,19 +926,17 @@ const GESTURES: { keys: ReactNode; what: string }[] = [
 ];
 
 /**
- * The Settings panel: how the graph draws (`GraphLooks` — the axes, each with its picture), where the
- * points come from (`GraphPlacement`), and the gestures. The graph's settings live here, beside the
- * canvas they change, and not in the app's Preferences, which keep only what is app-wide. There are no forces here: the archive carries no
- * positions, so the layout runs when it loads, and the toolbar is where a reader pauses or re-runs
- * it. Fitting is the toolbar's too.
+ * The Settings panel: the graph's section, whole — how it draws, where the points come from and the
+ * forces — and the gestures. One line, because the root is the section's owner and answers the
+ * corpus's columns itself. The graph's settings live here, beside the canvas they change, and not in
+ * the app's Preferences, which keep only what is app-wide. Pausing, re-running and fitting the
+ * layout are the toolbar's.
  */
 export function GraphSettings() {
-  const [placement, setPlacement] = usePlacement();
   return (
     <ScrollArea className="h-full p-3">
       <div className="space-y-4">
-        <GraphLooks />
-        <GraphPlacement onChange={setPlacement} value={placement} />
+        <PreferencesSections namespace="graph" />
 
         <div className="space-y-2 border-t pt-3">
           <p className="font-medium text-muted-foreground text-xs">Gestures</p>

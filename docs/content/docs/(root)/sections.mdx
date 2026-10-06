@@ -25,7 +25,7 @@ One value, published by the package that owns the namespace, reached by subpath:
 ```ts title="section.ts"
 import type { SectionManifest } from "@kanzo-tech/theme";
 
-export const GRAPH_SECTION: SectionManifest = {
+export const GRAPH_SECTION = {
   namespace: "graph",
   tokens: {
     grid: { default: "var(--border)", doc: "The dot grid behind the canvas." },
@@ -45,6 +45,14 @@ export const GRAPH_SECTION: SectionManifest = {
       kind: "toggle",
       default: "false",
       doc: "Links add where they overlap instead of compositing over one another.",
+      when: { pref: "edges", neq: "hidden" },
+    },
+    "x-by": {
+      kind: "choice",
+      default: "",
+      options: { from: "numeric-columns" },
+      when: { pref: "placement", eq: "map" },
+      doc: "The numeric column the points are placed across by.",
     },
     gravity: {
       kind: "range",
@@ -55,8 +63,11 @@ export const GRAPH_SECTION: SectionManifest = {
       doc: "Pull toward the centre.",
     },
   },
-};
+} as const satisfies SectionManifest;
 ```
+
+`as const satisfies` keeps the names and the options' values literal, which is what lets an app's
+`Register` check `<Pref name>` against them.
 
 <Callout type="info" title="Axes, not a list of names">
   **Declare what a reader can name.** A named look is a point in the space the axes span —
@@ -77,8 +88,13 @@ A preference is one of exactly three, and the set is closed — there is no `cus
 | kind | what it declares | drawn as |
 | --- | --- | --- |
 | `choice` | `options`, a closed list of `{ value, label }` | a row of radio cards |
+| `choice` | `options: { from }`, a list its owner answers | a `Select` |
 | `toggle` | nothing more | a switch |
 | `range` | `min`, `max`, `step` | a slider |
+
+**Where a list's options come from decides its control, never how many there are**: a list the author
+wrote is a few measured values, drawn as cards; a list the data answers is a pop-up, Apple's HIG's
+rule. Clearing a `Select` stores `""`, which a sourced choice takes as its default.
 
 ```ts
 prefs: {
@@ -124,6 +140,60 @@ is wired: that is the difference between one product and several sharing a windo
   it, so a host composing its own panel must place [`PreferencesSections`](/docs/layout/preferences)
   itself, or every contributed choice silently disappears.
 </Callout>
+
+## Declare, provide, compose
+
+A section is drawn the way Ark draws anything: **data, state and context, parts.**
+
+| | where it lives | for the graph |
+| --- | --- | --- |
+| **What** may be set, and **when** | the manifest — data, with `when` | `GRAPH_SECTION` |
+| **The values** | `KanzoThemeProvider` — the one chain below | registered by the host |
+| **What only the owner knows** — the lists its choices name, the pictures its options wear | a `SectionProvider` over the owner's subtree | `GraphRoot` renders one, with its corpus's columns |
+| **How** it is drawn | `<Pref name>`, or `PreferencesSections` for the whole section | the app's settings tab |
+
+```tsx
+// The owner says what only it knows — GraphRoot does this inside itself.
+<SectionProvider namespace="graph" sources={{ columns, "numeric-columns": numeric }} specimens={{ marks, edges, placement }}>
+  {/* …and every surface beneath draws the whole control */}
+  <PreferencesSections namespace="graph" />
+</SectionProvider>
+```
+
+**A list is named within its section** — `{ from: "columns" }` is the graph's own, answered in the
+owner's `sources` (a `PrefSources`, name to options) — and the theme provider is the core's owner, answering `"themes"` from what the tenant
+published. Outside every owner a list is unanswered: the value a person stored stands, and the
+control it fills is not drawn. **The owner judges a stored value against its list**, where the list is
+known: the graph's root reads a column its corpus lacks as unbound.
+
+### Offered only beside another: `when`
+
+```ts
+"additive-links": { kind: "toggle", default: "false", doc: "…", when: { pref: "edges", neq: "hidden" } },
+```
+
+One sibling, `eq` one value or `neq` one value — Storybook's `argTypes.if`, an object a tenant can
+read rather than an expression anything has to parse. **It decides what is drawn, never what
+resolves**: a preference out of view keeps its stored value, so going back to the map finds the
+columns where the reader left them. The condition's type is `PrefWhen`, and `prefShown(decl, values)` is
+its one reader.
+
+### Compose the parts
+
+```tsx
+<PreferencesSections namespace="graph" />   // the whole section, in the manifest's order
+
+<Fieldset legend="Placement">               // or the parts, in the page's
+  <Pref name="graph.placement" />
+  <Pref name="graph.x-by" />                 {/* only under Map */}
+  <Pref name="graph.y-by" />
+</Fieldset>
+
+const placement = usePref("graph.placement"); // or a control of your own
+```
+
+[Preferences](/docs/layout/preferences) has the parts' API, and [Preference or
+theme](/docs/design/preferences) why the shape is Ark's.
 
 ## Where a value comes from
 

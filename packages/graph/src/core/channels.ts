@@ -56,3 +56,28 @@ export function bindingOf(options: Channels & { r?: string; title?: string }): B
     cluster: options.cluster,
   };
 }
+
+/** The three channels that say where the points come from. */
+export type Placement = Pick<Channels, "x" | "y" | "cluster">;
+
+/**
+ * **Where the points come from, read off `GRAPH_SECTION`'s placement** — the third reader beside
+ * `lookFrom` and `simFrom`, and the same shape: a section's resolved strings in, the root's props out.
+ *
+ * The mode decides which columns apply, and the others are kept rather than cleared: going back to
+ * the map finds the columns where the reader left them. An empty column is unbound, which is what
+ * Ark's cleared `Select` stores.
+ */
+export function placementFrom(values: Readonly<Record<string, string>> = {}): Placement {
+  const column = (key: string) => values[key] || undefined;
+  if (values.placement === "map") {
+    const x = column("x-by");
+    const y = column("y-by");
+    return { ...(x ? { x } : {}), ...(y ? { y } : {}) };
+  }
+  if (values.placement === "clustered") {
+    const cluster = column("cluster-by");
+    return cluster ? { cluster } : {};
+  }
+  return {};
+}

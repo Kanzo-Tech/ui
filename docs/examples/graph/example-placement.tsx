@@ -1,20 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { GraphCanvas, GraphPlacement, GraphRoot, type Channels } from "@kanzo-tech/graph";
-import { Show } from "@kanzo-tech/ui";
+import { GraphCanvas, GraphRoot, useGraphPrefs } from "@kanzo-tech/graph";
+import { Pref, Show } from "@kanzo-tech/ui";
 import { ARCHIVE_KINDS, said, useArchive } from "./archive";
 
 /**
- * Where the points come from, as cards: Force lets the layout place them, Map binds two numeric
- * columns — the archive has no coordinates, so `degree` against `reports` is a scatter — and
- * Clustered pulls a running layout together by `hall`. The placement is the host's state, handed to
- * the root as it is.
+ * Where the points come from, composed from the part: Force lets the layout place them, Map binds two
+ * numeric columns — the archive has no coordinates, so `degree` against `reports` is a scatter — and
+ * Clustered pulls a running layout together by a column. Each `<Pref>` draws itself only when its
+ * declaration says so, and the column lists are the root's.
  */
 export default function Example() {
   const [failure, setFailure] = useState<unknown>(null);
   const archive = useArchive(setFailure);
-  const [placement, setPlacement] = useState<Pick<Channels, "x" | "y" | "cluster">>({});
+  const { placement } = useGraphPrefs();
   return (
     <div className="flex h-[32rem] w-full gap-3">
       <GraphRoot categories={ARCHIVE_KINDS} {...archive} fill="kind" onFailure={setFailure} r="degree" title="label" {...placement}>
@@ -23,7 +23,13 @@ export default function Example() {
             <p className="absolute inset-0 grid place-items-center p-6 text-center text-muted-foreground text-sm">{said(failure)}</p>
           </Show>
         </GraphCanvas>
-        <GraphPlacement className="w-64 shrink-0 overflow-y-auto rounded-lg border p-3" onChange={setPlacement} value={placement} />
+        <div className="flex w-64 shrink-0 flex-col gap-4 overflow-y-auto rounded-lg border p-3">
+          <Pref name="graph.placement" />
+          <Pref name="graph.x-by" />
+          <Pref name="graph.y-by" />
+          <Pref name="graph.cluster-by" />
+          <Pref name="graph.cluster" />
+        </div>
       </GraphRoot>
     </div>
   );

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { placementFrom } from "./core/channels";
 import { DEFAULT_LOOK, lookFrom, type Look } from "./render/graph-looks";
 import { DEFAULT_SIM, simFrom } from "./render/graph-sim";
 import { GRAPH_SECTION } from "./section";
@@ -78,17 +79,22 @@ describe("the look axes", () => {
   });
 
   it("declares every axis a reader reads, and exactly one reader reads each", () => {
-    // The manifest and the two readers are three lists that have to stay one. A key declared and
+    // The manifest and the three readers are four lists that have to stay one. A key declared and
     // read by nobody is a control that changes nothing; a key read and declared by nobody is a value
-    // no panel can set; and a key both readers answer to is one word for two things. None of the
+    // no panel can set; and a key two readers answer to is one word for two things. None of the
     // three fails anywhere else.
     //
     // The other legal value is derived from the declaration rather than typed here, so an axis added
-    // to the manifest is covered by this the day it lands.
-    const other = (decl: NonNullable<typeof GRAPH_SECTION.prefs>[string]): string => {
+    // to the manifest is covered by this the day it lands. A key is read where its `when` holds —
+    // the columns under the mode that uses them — so that is where it is changed, against columns
+    // already chosen, which is the only state in which picking a mode changes anything.
+    type Decl = (typeof GRAPH_SECTION.prefs)[keyof typeof GRAPH_SECTION.prefs];
+    const other = (decl: Decl): string => {
       if (decl.kind === "toggle") return String(decl.default !== "true");
       if (decl.kind === "choice") {
-        const option = decl.options.find((o) => o.value !== decl.default);
+        if (!Array.isArray(decl.options)) return "another-column";
+        const options: readonly { value: string }[] = decl.options;
+        const option = options.find((o) => o.value !== decl.default);
         if (!option) throw new Error("a choice with one option is not a choice");
         return option.value;
       }
@@ -96,14 +102,35 @@ describe("the look axes", () => {
       return String(from + decl.step <= decl.max ? from + decl.step : from - decl.step);
     };
 
-    const declared = Object.entries(GRAPH_SECTION.prefs ?? {});
+    const declared = Object.entries(GRAPH_SECTION.prefs) as [string, Decl][];
     expect(declared.length, "the section declares nothing").toBeGreaterThan(0);
+    const readers = { look: lookFrom, sim: simFrom, placement: placementFrom };
     for (const [key, decl] of declared) {
-      const value = { [key]: other(decl) };
-      const inLook = JSON.stringify(lookFrom(value)) !== JSON.stringify(DEFAULT_LOOK);
-      const inSim = JSON.stringify(simFrom(value)) !== JSON.stringify(DEFAULT_SIM);
-      expect(inLook || inSim, `"${key}" is declared and nobody reads it`).toBe(true);
-      expect(inLook && inSim, `"${key}" is read by both the look and the forces`).toBe(false);
+      const when: Record<string, string> = {
+        "x-by": "a-column",
+        "y-by": "a-column",
+        "cluster-by": "a-column",
+        ...("when" in decl && "eq" in decl.when ? { [decl.when.pref]: decl.when.eq } : {}),
+      };
+      const reading = Object.entries(readers).filter(
+        ([, read]) => JSON.stringify(read({ ...when, [key]: other(decl) })) !== JSON.stringify(read(when)),
+      );
+      expect(reading.length, `"${key}" is declared and nobody reads it`).toBeGreaterThan(0);
+      expect(reading.map(([name]) => name), `"${key}" is read by more than one reader`).toHaveLength(1);
     }
+  });
+});
+
+describe("where the points come from", () => {
+  it("places by nothing until the reader picks a mode, and keeps the other mode's columns", () => {
+    expect(placementFrom()).toEqual({});
+    const stored = { "x-by": "lon", "y-by": "lat", "cluster-by": "kind" };
+    expect(placementFrom({ ...stored, placement: "force" })).toEqual({});
+    expect(placementFrom({ ...stored, placement: "map" })).toEqual({ x: "lon", y: "lat" });
+    expect(placementFrom({ ...stored, placement: "clustered" })).toEqual({ cluster: "kind" });
+  });
+
+  it("reads a cleared column as unbound", () => {
+    expect(placementFrom({ placement: "map", "x-by": "lon", "y-by": "" })).toEqual({ x: "lon" });
   });
 });

@@ -13,8 +13,10 @@
  *   `useGraphState`, TanStack Store's selector, because the api is commands and the state moves at
  *   frame rate.
  * - `parts/` — `GraphCanvas`, `GraphLegend`, `GraphCounts`, `GraphStatus`, `GraphToolbar`,
- *   `GraphInspector`, `GraphSearch`, `GraphSelect`: flat parts over the one context; and `GraphLooks`, the picture's preferences,
- *   which needs only the theme provider. They own the vocabulary; the root's callbacks are the host's policy.
+ *   `GraphInspector`, `GraphSearch`, `GraphSelect`: flat parts over the one context. They own the
+ *   vocabulary; the root's callbacks are the host's policy. The graph's settings are no part of
+ *   this package: they are `GRAPH_SECTION`, drawn by `@kanzo-tech/ui`'s `PreferencesSections`, and
+ *   the root is the section's owner — it answers the corpus's columns and the options' pictures.
  *
  * **Why a package and not `@kanzo-tech/ui`.** The first admission rule is *domain-free — nothing
  * about RDF / SHACL / fossil / graphs / auth*. Graphs are excluded by name, and a sibling package is
@@ -40,16 +42,15 @@ export { GraphToolbar, type GraphToolbarProps } from "./parts/graph-toolbar";
 export { GraphInspector, type GraphInspectorProps } from "./parts/graph-inspector";
 export { GraphSearch, type GraphSearchProps } from "./parts/graph-search";
 export { GraphSelect, type GraphSelectProps } from "./parts/graph-select";
-export { GraphLooks, type GraphLooksProps } from "./parts/graph-looks";
-export { GraphPlacement, type GraphPlacementProps } from "./parts/graph-placement";
 export { ShapeGlyph, type ShapeGlyphProps } from "./parts/shape-glyph";
 
-// The picture: form, forces and the scale a legend asks what a category wears. `lookFrom` and
-// `simFrom` parse what `@kanzo-tech/graph/section` declares and a preferences panel writes.
+// The picture: form, forces, where the points come from, and the scale a legend asks what a
+// category wears. `lookFrom`, `simFrom` and `placementFrom` parse what `@kanzo-tech/graph/section`
+// declares and a preferences panel writes.
 export { lookFrom, type LabelLevel, type Look, type LookPatch, type Shape } from "./render/graph-looks";
 export { simFrom, type Sim } from "./render/graph-sim";
 export { scaleOf } from "./render/graph-model";
-export type { Channels } from "./core/channels";
+export { placementFrom, type Channels, type Placement } from "./core/channels";
 
 export type { GraphCommands, Motion, Selection, SelectionSource, Tool, VertexId } from "./core/types";
 export type { DataStatus, Drawn, GraphState } from "./core/state";

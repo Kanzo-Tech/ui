@@ -89,6 +89,34 @@ interface PrefCommon {
    * the cost the four core axes pay for having attributes at all.
    */
   attr?: string;
+  /**
+   * Offered only while a sibling preference resolves to one value — or to any value but one.
+   *
+   * **Storybook's `argTypes.if`, spelled the same way**: an object, not an expression, so a manifest
+   * stays data a tenant can read and nothing here parses. Grafana's `showIf` is the same idea as a
+   * function, which is exactly what a declaration cannot hold. `additive-links` asks for drawn
+   * edges; the columns a map is placed by ask for the map.
+   *
+   * It decides whether a control is DRAWN, never what the preference resolves to: a preference out
+   * of view keeps its stored value, the way a tenant's `hidden` does, so going back to the map finds
+   * the columns where the reader left them. {@link prefShown} is the one reader.
+   */
+  when?: PrefWhen;
+}
+
+/** The condition {@link PrefCommon.when} names: one sibling, equal to a value or not. */
+export type PrefWhen = { pref: string; eq: string } | { pref: string; neq: string };
+
+/**
+ * Whether a declaration's `when` holds against its section's resolved values.
+ *
+ * A sibling nobody declared resolves to `undefined`, which equals nothing — so a condition naming a
+ * preference that is gone hides an `eq` and shows a `neq`, rather than throwing.
+ */
+export function prefShown(decl: { when?: PrefWhen }, values: Readonly<Record<string, string>>): boolean {
+  const when = decl.when;
+  if (!when) return true;
+  return "eq" in when ? values[when.pref] === when.eq : values[when.pref] !== when.neq;
 }
 
 /** One thing a `choice` may offer. `value` is what is stored; `label` is what a person reads. */
@@ -98,16 +126,19 @@ export interface PrefOption {
 }
 
 /**
- * Where a choice's options come from, when an author cannot list them.
+ * Where a choice's options come from, when an author cannot list them — **named within the
+ * section's own namespace.**
  *
- * The one thing a TENANT publishes that nobody can know at authoring time: the themes they wrote.
- * Closed on purpose — a source is something the provider already receives and can hand to a
- * resolver, not a hook for a package to fetch from.
+ * The list is answered by whoever knows it, for the subtree under them: the core's `"themes"` by
+ * the theme provider, from what the tenant published; the graph's `"columns"` by the graph's root,
+ * from the corpus it attached. Home Assistant's selectors work this way — a schema names an entity
+ * list and the frontend fills it. A name is the section's, so two packages cannot collide, and a
+ * source is still data somebody hands over, never a hook for a package to fetch from.
  *
- * It was two, `"palettes"` and `"identities"`, while a palette contained brands and a control had to
- * ask which level it was filling. A brand is a theme, so there is one level and one list.
+ * It was the closed `"themes"` while the tenant was the only one who knew a list; the columns of a
+ * corpus are the second, and the core does not learn their name.
  */
-export type PrefSource = "themes";
+export type PrefSource = string;
 
 /**
  * A list, or the name of the list's owner.
@@ -118,8 +149,8 @@ export type PrefSource = "themes";
  */
 export type PrefOptions = readonly PrefOption[] | { from: PrefSource };
 
-/** What the host publishes, for the declarations that name a source. */
-export type PrefSources = Partial<Record<PrefSource, readonly PrefOption[]>>;
+/** What whoever knows them publishes, for the declarations that name a source. */
+export type PrefSources = Readonly<Record<PrefSource, readonly PrefOption[]>>;
 
 /**
  * The options a declaration offers — `null` when it names a source nobody has answered yet.
