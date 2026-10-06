@@ -1,7 +1,7 @@
 "use client";
 
 import { ark } from "@ark-ui/react/factory";
-import { CircleCheckIcon, CircleDashedIcon, CircleXIcon, WrenchIcon } from "lucide-react";
+import { CircleCheckIcon, CircleDashedIcon, CircleStopIcon, CircleXIcon, WrenchIcon } from "lucide-react";
 import * as React from "react";
 import { type DynamicToolUIPart, getToolName, type ToolUIPart } from "@kanzo-tech/llm";
 import {
@@ -35,8 +35,19 @@ const LOOK: Record<State, { tone: BadgeVariant; label: string; settled: boolean;
   "output-denied": { tone: "destructive", label: "Denied", settled: true, failed: true },
 };
 
-const mark = (look: (typeof LOOK)[State]) =>
-  look.failed ? (
+/**
+ * A call that will never settle: the reader pressed Stop, or a kept transcript was cut mid-call. The
+ * AI SDK has no state for it and leaves the part where it was, so it is drawn from `stopped` — neutral,
+ * and still, because nothing is running.
+ */
+const STOPPED: Look = { tone: "outline", label: "Stopped", settled: false, failed: false };
+
+type Look = (typeof LOOK)[State];
+
+const mark = (look: Look) =>
+  look === STOPPED ? (
+    <CircleStopIcon className="text-muted-foreground" />
+  ) : look.failed ? (
     <CircleXIcon className="text-destructive-foreground" />
   ) : look.settled ? (
     <CircleCheckIcon className="text-success-foreground" />
@@ -49,11 +60,11 @@ const mark = (look: (typeof LOOK)[State]) =>
 const LABEL = "mb-1.5 block font-medium text-muted-foreground text-xs uppercase tracking-wide";
 const PANEL = "min-w-0 overflow-x-auto rounded-lg bg-muted px-3 py-2 text-xs [&_code]:font-mono";
 
-const Ctx = React.createContext<ToolPart | null>(null);
-const usePart = (name: string) => {
-  const part = React.useContext(Ctx);
-  if (!part) throw new Error(`${name} must render inside <Tool>`);
-  return part;
+const Ctx = React.createContext<{ part: ToolPart; look: Look } | null>(null);
+const useCall = (name: string) => {
+  const call = React.useContext(Ctx);
+  if (!call) throw new Error(`${name} must render inside <Tool>`);
+  return call;
 };
 
 /**
@@ -63,10 +74,12 @@ const usePart = (name: string) => {
  * It opens itself when the call settles — a result is what a reader came for — unless the reader
  * has already opened or closed it, in which case their choice stands. The state sits on a wrapper
  * rather than on the collapsible because Ark writes its own `data-state` (`open`/`closed`) there.
+ *
+ * `stopped` says the call will never settle; `Chat` derives it, since the part alone cannot say so.
  */
-export function Tool(props: Omit<React.ComponentProps<typeof ark.div>, "part"> & { part: ToolPart }) {
-  const { part, className, children, slot, ...rest } = props;
-  const look = LOOK[part.state];
+export function Tool(props: Omit<React.ComponentProps<typeof ark.div>, "part"> & { part: ToolPart; stopped?: boolean }) {
+  const { part, stopped = false, className, children, slot, ...rest } = props;
+  const look = stopped && !LOOK[part.state].settled ? STOPPED : LOOK[part.state];
   const [open, setOpen] = React.useState(look.settled);
   const touched = React.useRef(false);
   const wasSettled = React.useRef(look.settled);
@@ -77,11 +90,12 @@ export function Tool(props: Omit<React.ComponentProps<typeof ark.div>, "part"> &
   }, [look.settled]);
 
   return (
-    <Ctx.Provider value={part}>
+    <Ctx.Provider value={{ part, look }}>
       <ark.div
         className={cn("group/tool w-full overflow-hidden rounded-xl border bg-card shadow-xs/5", className)}
         data-failed={look.failed || undefined}
         data-state={part.state}
+        data-stopped={look === STOPPED || undefined}
         {...rest}
         data-slot={slot ?? "tool"}
       >
@@ -111,8 +125,7 @@ export function Tool(props: Omit<React.ComponentProps<typeof ark.div>, "part"> &
 /** The tool's name, its state as a pill, and the chevron the whole row toggles. */
 export function ToolHeader(props: React.ComponentProps<typeof CollapsibleTrigger>) {
   const { className, children, slot, ...rest } = props;
-  const part = usePart("ToolHeader");
-  const look = LOOK[part.state];
+  const { part, look } = useCall("ToolHeader");
 
   return (
     <CollapsibleTrigger
@@ -164,7 +177,7 @@ function Io(props: { label: string; failed?: boolean; slot: string; children: Re
 
 /** What the model passed in; the JSON tree unless `children` draws it. */
 export function ToolInput(props: { children?: React.ReactNode; label?: string }) {
-  const part = usePart("ToolInput");
+  const { part } = useCall("ToolInput");
   if (props.children === undefined && part.input === undefined) return null;
   return (
     <Io label={props.label ?? "Parameters"} slot="tool-input">
@@ -175,7 +188,7 @@ export function ToolInput(props: { children?: React.ReactNode; label?: string })
 
 /** What came back — or why nothing did. The JSON tree unless `children` draws it. */
 export function ToolOutput(props: { children?: React.ReactNode; label?: string }) {
-  const part = usePart("ToolOutput");
+  const { part } = useCall("ToolOutput");
   if (part.state === "output-error" || part.state === "output-denied") {
     return (
       <Io failed label={props.label ?? "Error"} slot="tool-output">

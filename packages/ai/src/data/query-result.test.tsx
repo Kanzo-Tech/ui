@@ -49,16 +49,49 @@ describe("QueryResult", () => {
     expect(screen.getByRole("button", { name: "Download as CSV" })).not.toBeNull();
   });
 
-  it("draws a refusal as the engine's words, with the SQL that was refused", () => {
-    render(<QueryResult part={part({ sql: "select * from nope", error: { message: "Table nope does not exist", code: "query/failed" } })} />);
-    expect(screen.getByRole("alert").textContent).toContain("Table nope does not exist");
+  it("draws a refusal as a Problem under the card's title: the gate's code, the words, and the SQL refused", () => {
+    render(<QueryResult part={part({ sql: "select * from read_text('x')", error: { message: "read_text() is a table function.", code: "query/refused" } })} />);
+    const problem = document.querySelector("[data-slot=diagnostic]");
+    expect(problem?.getAttribute("data-code")).toBe("query/refused");
+    expect(problem?.textContent).toContain("The query failed");
+    expect(problem?.textContent).toContain("read_text() is a table function.");
     expect(screen.getByRole("button", { name: /SQL/ })).not.toBeNull();
+  });
+
+  it("keeps the engine's own words uncoded", () => {
+    render(<QueryResult part={part({ sql: "select * from nope", error: { message: "Table nope does not exist" } })} />);
+    const problem = document.querySelector("[data-slot=diagnostic]");
+    expect(problem?.hasAttribute("data-code")).toBe(false);
+    expect(problem?.textContent).toContain("Table nope does not exist");
   });
 
   it("hands the host's actions the whole answer", () => {
     const output = { sql: "select 1 as n", rows: [{ n: 1 }], truncated: false };
     render(<QueryResult actions={(o) => <button type="button">Filter to {o.rows.length}</button>} part={part(output)} />);
     expect(screen.getByRole("button", { name: "Filter to 1" })).not.toBeNull();
+  });
+});
+
+/** The `query` call before it has an answer, its statement as far as the model wrote it. */
+const at = (state: ToolPart["state"], extra: object = {}) =>
+  ({ type: "tool-query", toolCallId: "c", state, input: { sql: "select count(*) from" }, ...extra }) as ToolPart;
+
+describe("QueryResult before and without an answer", () => {
+  it("shows the statement as it is written, open, over a skeleton the chart's height", () => {
+    render(<QueryResult part={at("input-streaming")} />);
+    expect(document.querySelector("[data-slot=query-result-pending]")?.className).toContain("h-[220px]");
+    expect(document.querySelector("[data-slot=query-result-sql]")?.getAttribute("data-state")).toBe("open");
+  });
+
+  it("shows a stopped call's statement and nothing that waits", () => {
+    render(<QueryResult part={at("input-available")} stopped />);
+    expect(document.querySelector("[data-slot=query-result-pending]")).toBeNull();
+    expect(document.querySelector("[data-slot=query-result-sql]")).not.toBeNull();
+  });
+
+  it("draws the tool's own failure as a Problem", () => {
+    render(<QueryResult part={at("output-error", { errorText: "The engine went away." })} />);
+    expect(document.querySelector("[data-slot=diagnostic]")?.textContent).toContain("The engine went away.");
   });
 });
 

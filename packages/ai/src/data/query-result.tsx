@@ -7,9 +7,6 @@ import type { ToolPart } from "../tool.js";
 import { CodeIcon, DownloadIcon } from "lucide-react";
 import * as React from "react";
 import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
   Button,
   Clipboard,
   ClipboardTrigger,
@@ -18,7 +15,9 @@ import {
   CollapsibleContent,
   CollapsibleIndicator,
   CollapsibleTrigger,
+  DiagnosticList,
   DownloadTrigger,
+  Problem,
   Skeleton,
   StatLabel,
   StatRoot,
@@ -63,7 +62,7 @@ export interface QueryResultTranslations {
   sql: string;
   chart: string;
   table: string;
-  /** Over the refusal's words, when the statement gate or the engine refused the statement. */
+  /** The refusal's title, over its words: the statement gate or the engine refused the statement. */
   failed: string;
   /** In place of a table with no rows. */
   empty: string;
@@ -81,8 +80,10 @@ const ENGLISH: QueryResultTranslations = {
 };
 
 export interface QueryResultProps extends Omit<React.ComponentProps<typeof ark.div>, "children" | "part"> {
-  /** The `query` call, as `Chat`'s `tools` hands it over. */
+  /** The `query` call, as `Chat`'s `tools` hands it over, at whatever state it is in. */
   part: ToolPart;
+  /** The call will never settle — `Chat`'s `stopped`. The statement is then all there is to draw. */
+  stopped?: boolean;
   /**
    * What the host does with the answer, beside Copy and CSV — show these on a canvas, filter the
    * page to these. Given the whole answer; draws buttons.
@@ -103,40 +104,67 @@ export interface QueryResultProps extends Omit<React.ComponentProps<typeof ark.d
  * and it is **not** a client of the page's crossfilter: an answer is what was true when it was asked,
  * and the page filtering it again would be answering a question nobody asked. Taking an answer back
  * to the page is an action the host draws.
+ *
+ * **Every state of the call is drawn**, so a host passes the part whatever it holds. While the model
+ * writes the statement and the engine runs it, the statement shows as it is written, open, under a
+ * skeleton the chart's height, so nothing jumps when the rows land. A call that stopped shows its
+ * statement and nothing else. A refusal — the gate's `query/refused`, the engine's own words, or the
+ * tool's failure — is a `Problem`, so a coded one carries its code like every failure in the library.
  */
 export function QueryResult(props: QueryResultProps) {
-  const { part, actions, translations, className, slot, ...rest } = props;
+  const { part, stopped = false, actions, translations, className, slot, ...rest } = props;
   const t = { ...ENGLISH, ...translations };
-  if (part.state !== "output-available") return null;
-  const answer = part.output as QueryAnswer;
+  const answer = part.state === "output-available" ? (part.output as QueryAnswer) : null;
+  const statement = answer?.sql ?? (part.input as { sql?: string } | undefined)?.sql ?? "";
+  const running = !stopped && RUNNING.has(part.state);
 
   return (
     <ark.div className={cn("flex min-w-0 flex-col gap-3", className)} {...rest} data-slot={slot ?? "query-result"}>
-      {"error" in answer ? (
-        <Alert variant="destructive">
-          <AlertTitle>{t.failed}</AlertTitle>
-          <AlertDescription className="font-mono text-xs">{answer.error.message}</AlertDescription>
-        </Alert>
+      {answer === null ? null : "error" in answer ? (
+        <Refusal error={answer.error} t={t} />
       ) : (
         <Answer actions={actions} output={answer} t={t} />
       )}
-      <Collapsible slot="query-result-sql">
-        <CollapsibleTrigger
-          className={cn(
-            "-ms-1.5 inline-flex min-h-[24px] w-fit items-center gap-1.5 rounded-md px-1.5 py-1",
-            "text-muted-foreground text-xs transition-colors hover:bg-accent hover:text-foreground",
-            "motion-reduce:transition-none! [&_svg:not([class*='size-'])]:size-3.5",
-          )}
-        >
-          <CodeIcon />
-          <span className="font-medium">{t.sql}</span>
-          <CollapsibleIndicator className="opacity-64" />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="pt-1">
-          <CodeEditor extensions={SQL} lineNumbers={false} maxHeight="16rem" readOnly value={answer.sql} />
-        </CollapsibleContent>
-      </Collapsible>
+      {part.state === "output-error" && <Refusal error={{ message: part.errorText }} t={t} />}
+      {running && <Skeleton className="h-[220px] w-full" slot="query-result-pending" />}
+      {/* Open until there is an answer to read instead; keyed so the answer folds it away. */}
+      {statement !== "" && <Statement key={answer === null ? "open" : "folded"} open={answer === null} statement={statement} t={t} />}
     </ark.div>
+  );
+}
+
+/** The states of a call still at work: the model writing the statement, or the engine running it. */
+const RUNNING = new Set<ToolPart["state"]>(["input-streaming", "input-available", "approval-responded"]);
+
+/** Why there is no answer, as a `Problem` under the card's own title. */
+function Refusal(props: { error: { message: string; code?: string }; t: QueryResultTranslations }) {
+  return (
+    <DiagnosticList>
+      <Problem error={{ ...props.error, title: props.t.failed }} />
+    </DiagnosticList>
+  );
+}
+
+/** The statement, read-only: folded under an answer, open while there is none. */
+function Statement(props: { statement: string; open: boolean; t: QueryResultTranslations }) {
+  const { statement, open, t } = props;
+  return (
+    <Collapsible defaultOpen={open} slot="query-result-sql">
+      <CollapsibleTrigger
+        className={cn(
+          "-ms-1.5 inline-flex min-h-[24px] w-fit items-center gap-1.5 rounded-md px-1.5 py-1",
+          "text-muted-foreground text-xs transition-colors hover:bg-accent hover:text-foreground",
+          "motion-reduce:transition-none! [&_svg:not([class*='size-'])]:size-3.5",
+        )}
+      >
+        <CodeIcon />
+        <span className="font-medium">{t.sql}</span>
+        <CollapsibleIndicator className="opacity-64" />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pt-1">
+        <CodeEditor extensions={SQL} lineNumbers={false} maxHeight="16rem" readOnly value={statement} />
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 

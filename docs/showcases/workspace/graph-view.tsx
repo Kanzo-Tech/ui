@@ -52,7 +52,7 @@ import {
   TagsInputItemText,
   toast,
 } from "@kanzo-tech/ui";
-import { Chat, ChatSkeleton, type Proposal, useChat } from "@kanzo-tech/ai";
+import { Chat, ChatSkeleton, type Proposal, useAgentChat } from "@kanzo-tech/ai";
 import {
   dataAgent,
   dataSuggestions,
@@ -62,7 +62,6 @@ import {
   type DataScope,
   type QueryOutput,
 } from "@kanzo-tech/ai/data";
-import { DirectChatTransport } from "@kanzo-tech/llm";
 import { afterTool, askOf, mockModel, promptOf } from "@/lib/mock-model";
 import {
   Coordinator,
@@ -1144,11 +1143,7 @@ function AnswerActions({ output, source }: { output: QueryOutput; source: object
 function AskBody({ archive, schema }: { archive: Archive; schema: DataSchema }) {
   const { coordinator, crossfilter } = useMosaic();
   const scope = useMemo<DataScope>(() => ({ selection: crossfilter, table: archive.nodes }), [crossfilter, archive]);
-  const transport = useMemo(
-    () => new DirectChatTransport({ agent: dataAgent({ model: askModel, coordinator, schema, scope, key: ID }) }),
-    [coordinator, schema, scope],
-  );
-  const chat = useChat({ transport });
+  const chat = useAgentChat(dataAgent({ model: askModel, coordinator, schema, scope, key: ID }));
   const starters = useStarters(schema, scope);
   // What a `reset()` of the crossfilter calls back, and what retracts the clause the answer published.
   const [source] = useState(() => ({ reset: () => {} }));
@@ -1160,7 +1155,11 @@ function AskBody({ archive, schema }: { archive: Archive; schema: DataSchema }) 
         empty={<AskEmpty />}
         suggesting={starters.suggesting}
         suggestions={starters.questions}
-        tools={{ query: (part) => <QueryResult actions={(output) => <AnswerActions output={output} source={source} />} part={part} /> }}
+        tools={{
+          query: (part, { stopped }) => (
+            <QueryResult actions={(output) => <AnswerActions output={output} source={source} />} part={part} stopped={stopped} />
+          ),
+        }}
         translations={{ placeholder: "Ask about your data…" }}
       />
     </div>

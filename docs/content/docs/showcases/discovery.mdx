@@ -16,7 +16,7 @@ It runs without a network, and the split that makes that honest is the same one 
 is not. The model is the AI SDK's mock, phrasing five recipes; the statement it writes is executed
 by the `query` tool over the running example world, so the table under the answer is a real result
 set and the prose reads it back. Everything between the two — the agent loop, the tool call, its
-states, the streaming — is the real `ToolLoopAgent` and `useChat`.
+states, the streaming — is the real `ToolLoopAgent` and `useAgentChat`.
 
 Worth pressing in the frame:
 
@@ -35,14 +35,14 @@ Worth pressing in the frame:
 
 `Chat` draws every part of the AI SDK's message as it arrives — text as markdown, reasoning folded
 away, each tool call in its frame with the SDK's own state. The one thing it cannot know is what a
-result *means*, so a host passes a renderer per tool name and it draws inside the frame, under the
-input:
+result *means*, so a host passes a renderer per tool name and it draws inside the frame, in place of
+its input and output, at every state of the call:
 
 ```tsx
 <Chat
-  chat={useChat({ transport: new DirectChatTransport({ agent }) })}
+  chat={useAgentChat(agent)}
   suggestions={RECIPES.map((recipe) => ({ text: recipe.question }))}
-  tools={{ query: (part) => <ResultTable {...(part.output as ResultSet)} /> }}
+  tools={{ query: (part) => (part.state === "output-available" ? <ResultTable {...(part.output as ResultSet)} /> : <ToolInput />) }}
 />
 ```
 
@@ -56,15 +56,13 @@ optional peer, and a reader who only wanted a transcript does not pay for it.
 ## The agent is the swap
 
 ```tsx
-import { Chat, useChat } from "@kanzo-tech/ai";
-import { DirectChatTransport, ToolLoopAgent, jsonSchema, tool } from "@kanzo-tech/llm";
+import { Chat, ToolInput, useAgentChat } from "@kanzo-tech/ai";
+import { ToolLoopAgent, jsonSchema, tool } from "@kanzo-tech/llm";
 ```
 
-`ToolLoopAgent` takes a model and the tools; `DirectChatTransport` runs it in the page, which is
-what a showcase with no server needs. A product swaps two things and nothing else on the screen
-changes: the model becomes `gateway("chat")` from [`createGateway`](/docs/ai/llm), and the
-transport becomes the default HTTP one pointed at the host's own endpoint, where the agent and its
-key live.
+`ToolLoopAgent` takes a model and the tools; `useAgentChat` runs it in the page. A product swaps one
+thing and nothing else on the screen changes: the model becomes `gateway("chat")` from
+[`createGateway`](/docs/ai/llm), which reaches the host's own route, where the key lives.
 
 - **`Chat`** — the transcript, the composer and the stream, whole. The pin, send/stop/retry and the
   tool states are its business, not this file's.

@@ -34,7 +34,11 @@ function Harness(props: { draw?: boolean }) {
       chat={chat}
       empty={<p>Ask about your graph.</p>}
       suggestions={[{ text: "How many nodes are there?", rationale: "nodes" }]}
-      tools={props.draw ? { query: (part) => <p>Rows: {JSON.stringify(part.output)}</p> } : undefined}
+      tools={
+        props.draw
+          ? { query: (part) => (part.state === "output-available" ? <p>Rows: {JSON.stringify(part.output)}</p> : <p>Counting…</p>) }
+          : undefined
+      }
     />
   );
 }
@@ -66,6 +70,22 @@ describe("Chat", () => {
     expect(await screen.findByText('Rows: {"rows":4}')).not.toBeNull();
     // The host's drawing is the whole result: the input's JSON is not drawn above it a second time.
     expect(document.querySelector("[data-slot=tool-input]")).toBeNull();
+  });
+
+  it("hands the host's renderer every state, and says whether the call will ever settle", () => {
+    const calls: { state: string; stopped: boolean }[] = [];
+    const query = (state: string, status: string) => ({
+      ...idle,
+      status,
+      messages: [{ id: "a", role: "assistant", parts: [{ type: "tool-query", toolCallId: "c", state, input: { sql: "select 1" } }] }],
+    });
+    const tools = { query: (part: { state: string }, call: { stopped: boolean }) => (calls.push({ state: part.state, ...call }), <p>drawn</p>) };
+    const { rerender } = render(<Chat chat={query("input-available", "streaming") as never} tools={tools} />);
+    // The answer stopped with the call still at `input-available`: it will never settle.
+    rerender(<Chat chat={query("input-available", "ready") as never} tools={tools} />);
+    expect(calls.at(0)).toEqual({ state: "input-available", stopped: false });
+    expect(calls.at(-1)).toEqual({ state: "input-available", stopped: true });
+    expect(document.querySelector("[data-slot=tool]")?.getAttribute("data-stopped")).toBe("true");
   });
 
   it("holds room for suggestions still arriving, beside the ones that have", () => {

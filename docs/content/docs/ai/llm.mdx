@@ -32,8 +32,9 @@ what is ours is the door it does not have.
 | Re-exported from `ai` | For |
 | --- | --- |
 | `ToolLoopAgent`, `stepCountIs` | An agent: a model, its tools, and when to stop calling them |
+| `Agent`, `ToolSet` | The types of an agent and of its tools, for code that takes one |
 | `tool`, `jsonSchema` | A tool the model may call, and its input's schema |
-| `DirectChatTransport` | Run an agent in the page, behind `useChat` |
+| `DirectChatTransport` | Run an agent in the page — what `@kanzo-tech/ai`'s `useAgentChat` runs it over |
 | `Output` | Structured output for [`stream`](#stream): `Output.object` / `Output.array` |
 | `getToolName`, `isToolUIPart` | Reading a message's tool parts |
 | `UIMessage`, `InferAgentUIMessage` | A message as `useChat` holds it, and its type for a given agent |
@@ -134,7 +135,8 @@ for await (const { text } of stream({ model, prompt, output: Output.array({ elem
 
 `streamText` is not re-exported, and that is the rule rather than an omission: the raw call is the
 one that passes a refusal off as a short answer, and two ways to one request are one too many. A
-conversation is the other door — `ToolLoopAgent` behind `useChat` — and it reports a failure itself.
+conversation is the other door — `ToolLoopAgent` behind `useAgentChat` — and it hands over what was
+thrown itself.
 
 *What would reverse it:* a caller that needs something of `streamText` that `stream` cannot pass —
 tools in a single request, or a reading other than these three. Then the option goes on
