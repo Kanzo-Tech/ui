@@ -253,8 +253,7 @@ describe("GraphInspector", () => {
     await ready(corpus);
     act(() => held.api?.setFocus(6));
     await waitFor(() => expect(document.querySelector('[data-slot="graph-inspector-title"]')?.textContent).toBe("6"));
-    expect(screen.getByRole("button", { name: "Copy the IRI" })).toBeTruthy();
-    expect(screen.queryByRole("region", { name: "Identity" })).toBeNull();
+    expect(section("Identity").querySelector('[aria-label="Copy the IRI"]')).toBeTruthy();
     expect(section("Values")).toBeTruthy();
     expect(screen.queryByRole("region", { name: "Neighbours" })).toBeNull();
     expect(screen.queryByRole("button", { name: /Copy its fields/ })).toBeNull();

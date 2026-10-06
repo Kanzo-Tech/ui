@@ -66,7 +66,7 @@ export interface GraphCommands {
   pause(): void;
   resume(): void;
   restart(): void;
-  /** Centre and select one vertex. */
+  /** Select one vertex with its neighbours and frame them, taking the camera from any fit. */
   reveal(vertex: VertexId): void;
   /** Frame whatever the canvas currently has selected. */
   frameSelection(): void;

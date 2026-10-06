@@ -29,6 +29,8 @@ const device: { ready: () => Promise<void>; broken: unknown } = { ready: () => P
  * reads positions back with no buffer throws what luma.gl throws.
  */
 const gpu = { pending: false, buffer: false, unreadable: false };
+/** What cosmos.gl's link index answers for any point: its neighbours, in buffer indices. */
+const neighbours: number[] = [];
 
 vi.mock("@cosmos.gl/graph", () => ({
   Graph: class {
@@ -54,7 +56,10 @@ vi.mock("@cosmos.gl/graph", () => ({
       uploaded.view = { center: [...positions], zoom };
       calls.push("view");
     };
-    getNeighboringPointIndices = () => [];
+    getNeighboringPointIndices = () => [...neighbours];
+    fitViewByPointIndices = (indices: number[]) => calls.push(`frame:${indices.join(",")}`);
+    zoomToPointByIndex = (index: number, _duration: number, scale: number, canZoomOut: boolean) =>
+      calls.push(`zoom:${index}@${scale}${canZoomOut ? "" : " in"}`);
     destroy = () => calls.push("destroy");
     render = () => {
       if (device.broken !== undefined) throw device.broken;
@@ -286,6 +291,21 @@ describe("the camera at load", () => {
     calls.length = 0;
     await resize();
     expect(calls).toEqual(["fit"]);
+  });
+
+  it("locates a vertex by framing it with its neighbours, and a resize does not take that back", async () => {
+    const { renderer } = await drawing();
+    neighbours.splice(0, neighbours.length, 1, 2);
+    calls.length = 0;
+    renderer?.reveal(0);
+    expect(commands()).toEqual(["frame:0,1,2"]);
+    await frame();
+    calls.length = 0;
+    await resize();
+    expect(commands()).toEqual([]);
+    neighbours.length = 0;
+    renderer?.reveal(1);
+    expect(commands()).toEqual(["zoom:1@4 in"]);
   });
 
   it("is not moved by its own fits", async () => {

@@ -300,8 +300,8 @@ function HallName({ detail }: { detail: VertexDetail }) {
   const id = detail.fields.find((field) => field.name === "hall")?.value;
   const name = HALLS.find((entry) => entry.id === id)?.short;
   return (
-    <DataListItem className="gap-0.5 py-0">
-      <DataListItemLabel className="text-xs">hall name</DataListItemLabel>
+    <DataListItem>
+      <DataListItemLabel>hall name</DataListItemLabel>
       <DataListItemValue>{name ?? "shared across the halls"}</DataListItemValue>
     </DataListItem>
   );
