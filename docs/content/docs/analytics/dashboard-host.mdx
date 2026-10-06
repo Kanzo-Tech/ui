@@ -105,7 +105,7 @@ dashboard follows its brushes:
 
 ```tsx
 const key = relationKey(graph, relation);
-const saved = migrateDashboards(stored); // whatever the server held, as the current document
+const saved = parseDashboards(stored); // throws on anything that is not a current document
 const identities = relationIdentities(graph, relation);
 const table = useMemo(() => relationQuery(graph, relation), [graph, relation]);
 const publish = useMemo(() => semiJoinOf(identities[0].column, table, { label: key }), [identities, table, key]);
@@ -118,7 +118,7 @@ const publish = useMemo(() => semiJoinOf(identities[0].column, table, { label: k
   exclude={identities.map((i) => i.column)}
   rowNoun={relation.path.length ? "paths" : relation.root}
   value={saved.byRelation[key]}
-  onChange={(spec) => change({ version: 2, byRelation: { ...saved.byRelation, [key]: spec } })}
+  onChange={(spec) => change({ byRelation: { ...saved.byRelation, [key]: spec } })}
 />
 ```
 
@@ -133,7 +133,7 @@ semi-join on `dense_id`, carries over, which is the point: a relation keeps its 
 key's own name, so the lasso filters a joined relation as it filters the root's table.
 
 `exclude` drops the keys from the fields: they are identity, not data. `Dashboards` is one document,
-written whole — [the shape, and the migration from a document per type](/docs/analytics/dashboard-spec#dashboards).
+written whole — [the shape, and how it is read back](/docs/analytics/dashboard-spec#dashboards).
 
 ## 6. Where failures go
 

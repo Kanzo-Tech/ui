@@ -17,6 +17,7 @@ import {
   type ExprValue,
 } from "@uwdata/mosaic-sql";
 import type { TableExpr } from "@kanzo-tech/mosaic";
+import * as v from "valibot";
 import type { FieldStat } from "./field-stats.js";
 import { recommend } from "./recommend.js";
 
@@ -27,80 +28,143 @@ import { recommend } from "./recommend.js";
  * each one a kind plus the fields it reads and a width, and a filter row scoping every tile — without
  * their query layer: every tile reads the one relation the `Dashboard` is given, under one
  * crossfilter. Nothing in it is a function or a component, so it survives `JSON.stringify` and a
- * database.
+ * database, and `parseDashboard` is the one way back in.
  */
 
-export type DashboardChartType = "bar" | "line" | "area" | "histogram" | "dot" | "regression";
+export const DASHBOARD_CHART_TYPES = ["bar", "line", "area", "histogram", "dot", "regression"] as const;
 
-export const DASHBOARD_CHART_TYPES: readonly DashboardChartType[] = [
-  "bar", "line", "area", "histogram", "dot", "regression",
-];
+export type DashboardChartType = (typeof DASHBOARD_CHART_TYPES)[number];
 
-export type DashboardAggregate = "count" | "distinct" | "sum" | "avg" | "min" | "max" | "median" | "share";
+const AGGREGATES = ["count", "distinct", "sum", "avg", "min", "max", "median", "share"] as const;
+
+export type DashboardAggregate = (typeof AGGREGATES)[number];
+
+// ── The spec, declared once ──────────────────────────────────────────────────
+//
+// Every type below is inferred from a schema, so what `parseDashboard` checks and what the compiler
+// checks cannot drift apart. The objects are strict: a key the spec does not have is refused rather
+// than dropped, so a document is current or it is not read at all.
 
 /**
  * A number per group. `field` is what the aggregate reads (none for `count`); `share` is the
  * percentage of rows whose `field` equals `equals`; `value` is the raw column, for the two charts
  * that plot rows rather than groups.
  */
-export interface DashboardMeasure {
-  op: DashboardAggregate | "value";
-  field?: string;
-  equals?: string | number | boolean;
-}
+const MeasureSchema = v.pipe(
+  v.strictObject({
+    op: v.picklist([...AGGREGATES, "value"]),
+    field: v.optional(v.string()),
+    equals: v.optional(v.union([v.string(), v.number(), v.boolean()])),
+  }),
+  v.check((m) => m.op === "count" || m.field !== undefined, "every measure but count names a field"),
+  v.check((m) => m.op !== "share" || m.equals !== undefined, "a share names the value it measures"),
+);
+
+export type DashboardMeasure = v.InferOutput<typeof MeasureSchema>;
 
 /** Columns of a three-column row. */
-export type TileSpan = 1 | 2 | 3;
+const SpanSchema = v.picklist([1, 2, 3]);
 
-interface TileBase {
+export type TileSpan = v.InferOutput<typeof SpanSchema>;
+
+const tileBase = {
   /** Stable identity, used as the React key. */
-  id: string;
-  span: TileSpan;
+  id: v.string(),
+  span: SpanSchema,
   /** Overrides the title derived from what the tile reads. */
-  title?: string;
-}
+  title: v.optional(v.string()),
+};
 
 /** One figure: a measure under the crossfilter, optionally trending along an ordered field. */
-export interface StatTile extends TileBase {
-  kind: "stat";
-  measure: DashboardMeasure;
+const StatTileSchema = v.strictObject({
+  ...tileBase,
+  kind: v.literal("stat"),
+  measure: MeasureSchema,
   /** An ordered field: draws the measure across it as a sparkline, with the last step's change. */
-  trend?: string;
+  trend: v.optional(v.string()),
   /** Whether a rise is good news. Default true. */
-  goodWhenUp?: boolean;
-}
+  goodWhenUp: v.optional(v.boolean()),
+});
 
 /** One chart: a mark type and the fields its channels read. */
-export interface ChartTile extends TileBase {
-  kind: "chart";
-  type: DashboardChartType;
-  x: string;
-  y: DashboardMeasure;
+const ChartTileSchema = v.strictObject({
+  ...tileBase,
+  kind: v.literal("chart"),
+  type: v.picklist(DASHBOARD_CHART_TYPES),
+  x: v.string(),
+  y: MeasureSchema,
   /** A few-valued field drawn as series. */
-  color?: string;
+  color: v.optional(v.string()),
   /** A few-valued field drawn as small multiples sharing one pair of scales. */
-  facet?: string;
-}
+  facet: v.optional(v.string()),
+});
 
 /** The rows under the selection, as these columns. */
-export interface TableTile extends TileBase {
-  kind: "table";
-  columns: string[];
-}
+const TableTileSchema = v.strictObject({
+  ...tileBase,
+  kind: v.literal("table"),
+  columns: v.array(v.string()),
+});
 
-export type Tile = StatTile | ChartTile | TableTile;
+const TileSchema = v.variant("kind", [StatTileSchema, ChartTileSchema, TableTileSchema]);
+
+export type StatTile = v.InferOutput<typeof StatTileSchema>;
+export type ChartTile = v.InferOutput<typeof ChartTileSchema>;
+export type TableTile = v.InferOutput<typeof TableTileSchema>;
+export type Tile = v.InferOutput<typeof TileSchema>;
 
 export type TileKind = Tile["kind"];
 
-export interface DashboardFilterSpec {
-  field: string;
+const FilterSchema = v.strictObject({ field: v.string() });
+
+export type DashboardFilterSpec = v.InferOutput<typeof FilterSchema>;
+
+const DashboardSpecSchema = v.strictObject({
+  filters: v.array(FilterSchema),
+  /** In layout order: they flow left to right through a three-column grid. */
+  tiles: v.array(TileSchema),
+});
+
+export type DashboardSpec = v.InferOutput<typeof DashboardSpecSchema>;
+
+const DashboardsSchema = v.strictObject({ byRelation: v.record(v.string(), DashboardSpecSchema) });
+
+/**
+ * Every dashboard a host keeps, keyed by the relation it is drawn over (`relationKey`): a type's is
+ * keyed by the type's name, a joined relation's by its path. One document, written whole.
+ */
+export type Dashboards = v.InferOutput<typeof DashboardsSchema>;
+
+// ── Reading what a host stored ───────────────────────────────────────────────
+
+/** The first issue in `result`, as one line: where it is, and what was expected there. */
+function refusal(what: string, issues: readonly v.BaseIssue<unknown>[]): Error {
+  const issue = issues[0]!;
+  const at = v.getDotPath(issue);
+  return new Error(`not a ${what}${at ? ` at ${at}` : ""}: ${issue.message}`);
 }
 
-export interface DashboardSpec {
-  version: 2;
-  filters: DashboardFilterSpec[];
-  /** In layout order: they flow left to right through a three-column grid. */
-  tiles: Tile[];
+/**
+ * What a host stored for one relation, checked. Throws on anything that is not a current spec,
+ * naming the first field that is wrong. Nothing is coerced, defaulted or dropped, and there is no
+ * version: a spec saved by an earlier release is refused, and the host deletes it.
+ */
+export function parseDashboard(saved: unknown): DashboardSpec {
+  const result = v.safeParse(DashboardSpecSchema, saved);
+  if (!result.success) throw refusal("dashboard spec", result.issues);
+  return result.output;
+}
+
+/**
+ * What a host stored as one document, `{ byRelation }`, checked whole: `null` or `undefined` is no
+ * dashboards, and anything else that is not a current document throws, naming the relation and the
+ * field. A newer or older document is never half-read and then overwritten by the next edit.
+ */
+export function parseDashboards(saved: unknown): Dashboards {
+  if (saved == null) return { byRelation: {} };
+  const result = v.safeParse(DashboardsSchema, saved);
+  if (!result.success) throw refusal("dashboards document", result.issues);
+  return result.output;
 }
 
 // ── The relation the plots read ──────────────────────────────────────────────
@@ -383,7 +447,7 @@ export function autoDashboard(fields: readonly FieldStat[]): DashboardSpec {
 
   const columns = detailColumns(fields);
   const table: TableTile[] = columns.length ? [{ id: "rows", kind: "table", span: 3, columns }] : [];
-  return { version: 2, filters, tiles: [...pack(stats), ...pack(cards), ...table] };
+  return { filters, tiles: [...pack(stats), ...pack(cards), ...table] };
 }
 
 /**

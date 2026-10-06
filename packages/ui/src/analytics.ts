@@ -122,10 +122,10 @@ export type {
   DashboardSpec, Tile, TileKind, TileSpan, StatTile, ChartTile, TableTile, DashboardFilterSpec,
   DashboardMeasure, DashboardChartType, DashboardAggregate,
 } from "./charts/dashboard-spec.js";
-// What a host keeps: every dashboard by the relation it is drawn over, and the one way in for
-// whatever it stored before.
-export { migrateDashboards } from "./charts/dashboard-migrate.js";
-export type { Dashboards } from "./charts/dashboard-migrate.js";
+// What a host keeps: every dashboard by the relation it is drawn over, and the one way back in for
+// what it stored — checked against the spec's schema, refused whole when it is not current.
+export { parseDashboard, parseDashboards } from "./charts/dashboard-spec.js";
+export type { Dashboards } from "./charts/dashboard-spec.js";
 
 // A relation over a join graph — a root and the hops from it, as one `Query` — and the picker that
 // walks one. The algebra is `@kanzo-tech/mosaic`'s; the graph is whatever a reader built from its

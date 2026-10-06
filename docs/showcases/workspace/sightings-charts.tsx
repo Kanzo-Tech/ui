@@ -41,7 +41,6 @@ const CONFIG: Record<string, ChartConfig> = {
 };
 
 const SPEC: DashboardSpec = {
-  version: 2,
   filters: [{ field: "region" }, { field: "hall" }, { field: "beast" }, { field: "leagues" }],
   tiles: [
     { id: "sightings", kind: "stat", span: 1, title: "Sightings", measure: { op: "count" }, trend: "hour" },
