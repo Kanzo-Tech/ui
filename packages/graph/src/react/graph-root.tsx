@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, type ReactNode } from "react";
+import { GraphSection } from "../parts/graph-section";
 import { useGraph, type GraphApi, type UseGraphProps } from "./use-graph";
 
 /**
@@ -25,8 +26,16 @@ export interface GraphRootProviderProps {
   children?: ReactNode;
 }
 
+/**
+ * The context, and the graph's section owner under it: whatever sits beneath a root — a settings
+ * tab, a dock, one `<Pref>` — draws the graph's preferences with the corpus's columns in hand.
+ */
 export function GraphRootProvider({ children, value }: GraphRootProviderProps) {
-  return <GraphContext.Provider value={value}>{children}</GraphContext.Provider>;
+  return (
+    <GraphContext.Provider value={value}>
+      <GraphSection>{children}</GraphSection>
+    </GraphContext.Provider>
+  );
 }
 
 export interface GraphRootProps extends UseGraphProps {

@@ -23,7 +23,7 @@ KanzoThemeProvider sections={[GRAPH_SECTION]}
         ├── main          GraphCanvas > GraphToolbar + GraphLegend   or the charts
         ├── dock
         │   ├── Info      GraphSearch + GraphInspector
-        │   └── Settings  GraphLooks + the gestures
+        │   └── Settings  PreferencesSections namespace="graph" + the gestures
         └── footer        GraphStatus + GraphCounts
 ```
 
@@ -39,7 +39,7 @@ the dock reveals on the canvas and a look chosen in Settings repaints it.
 
 ### Register the graph's preferences
 
-`GraphLooks` writes `GRAPH_SECTION`'s axes and `useGraphPrefs` reads them; both need the section on
+`PreferencesSections` writes `GRAPH_SECTION` and `useGraphPrefs` reads it; both need the section on
 the theme provider. Hoist the array: a new one each render re-resolves every preference.
 
 ```tsx
@@ -105,38 +105,34 @@ sees](/docs/analytics/dashboard#what-the-page-sees).
 </Step>
 <Step>
 
-### The root, with the look and its pairing
+### The root, with the preferences and its channels
 
 ```tsx
-import { GraphRoot, useGraphPrefs, type Channels, type LookPreset } from "@kanzo-tech/graph";
+import { GraphRoot, useGraphPrefs } from "@kanzo-tech/graph";
 
 const KINDS = { Dataset: "Dataset", Keyword: "Keyword", Publisher: "Publisher" }; // key order = colour rank
 
-const PAIRINGS: Record<LookPreset, Channels> = {
-  nebula: { fill: "kind" },
-  atlas: { fill: "kind", stroke: "var(--muted-foreground)" },
-  ink: { fill: "var(--foreground)", symbol: "kind", stroke: "var(--muted-foreground)" },
-};
-
-const { look, sim, preset } = useGraphPrefs();
+const { look, sim, placement } = useGraphPrefs();
 
 <GraphRoot
   from="archive"
   coordinator={coordinator}
   filterBy={crossfilter}
   categories={KINDS}
+  fill="kind"
+  stroke="var(--muted-foreground)"
   r="degree"
   title="label"
   look={look}
   sim={sim}
-  {...PAIRINGS[preset ?? "atlas"]}
+  {...placement}
   onFailure={setFailure}
 >
 ```
 
-`look` and `sim` come from the preferences, already memoised. The pairing is the host's: a look is
-form, and which column wears colour or shape is a binding. `preset` is `null` once the reader
-customises past all three looks, and the host decides what a custom picture wears.
+`look`, `sim` and `placement` come from the preferences, already memoised; `placement` is `{}`,
+`{ x, y }` or `{ cluster }`, spread on the root. The channels are the host's: a look
+is form, and which column wears colour or shape is a binding the reader's preferences never change.
 
 </Step>
 <Step>
@@ -191,8 +187,7 @@ that selects its far end. The render prop is where a product adds fields the cor
 ### The Settings panel
 
 ```tsx
-import { GraphLooks, GraphPlacement } from "@kanzo-tech/graph";
-import { Kbd, KbdGroup } from "@kanzo-tech/ui";
+import { Kbd, KbdGroup, PreferencesSections } from "@kanzo-tech/ui";
 
 const GESTURES = [
   { keys: <Kbd>Drag</Kbd>, what: "Pan — or move a node" },
@@ -205,21 +200,19 @@ const GESTURES = [
 ];
 
 function GraphSettings() {
-  // The placement the root is handed, held beside it in `ArchiveGraph` and shared through a context.
-  const [placement, setPlacement] = usePlacement();
   return (
     <ScrollArea className="h-full p-3">
-      <GraphLooks />
-      <GraphPlacement onChange={setPlacement} value={placement} />
+      <PreferencesSections namespace="graph" />
       <dl>{/* GESTURES, one row each */}</dl>
     </ScrollArea>
   );
 }
 ```
 
-`GraphLooks` is the looks and the axes under them, and `GraphPlacement` where the points come
-from — the archive's halls make Clustered worth trying; the forces are not in either, because a
-layout is a run the toolbar pauses and re-runs, not a picture. Fit is the toolbar's, so the panel needs no camera
+The graph's section, whole: the picture, where the points come from — the archive's halls make
+Clustered worth trying — and the forces. **One line, because the root is the section's owner**: it
+answers the corpus's columns to the panel, so the panel holds no state and the page passes no list.
+Pausing, re-running and fitting the layout are the toolbar's, so the panel needs no camera
 button. The gestures are the canvas's own; they are written down here because a reader scanning for
 "how do I select two clusters" wants a table.
 
@@ -248,7 +241,7 @@ layout — two axes, see [Layout and camera](/docs/graph/layout#status-and-motio
 ## What stays the host's
 
 - **Attaching and detaching the corpus**, and what signs it.
-- **The pairing of looks and channels**, and the names in `categories`.
+- **The channels**: which column wears colour, shape and size, and the names in `categories`.
 - **What a failure says.** `onFailure` hands it over whole; the host keys on `code`.
 - **What a selection means beyond the graph** — `onSelect` and `onFocus`, for a URL, a toast, a
   panel that opens.

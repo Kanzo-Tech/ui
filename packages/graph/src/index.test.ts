@@ -20,8 +20,6 @@ const VALUES = [
   "GraphError",
   "GraphInspector",
   "GraphLegend",
-  "GraphLooks",
-  "GraphPlacement",
   "GraphRoot",
   "GraphRootProvider",
   "GraphSearch",
@@ -31,6 +29,7 @@ const VALUES = [
   "ShapeGlyph",
   "corpusReferences",
   "lookFrom",
+  "placementFrom",
   "readJoinGraph",
   "scaleOf",
   "simFrom",
@@ -105,9 +104,6 @@ describe("@kanzo-tech/graph public surface", () => {
     expect(surface.DEFAULT_LOOK).toBeUndefined();
     expect(surface.DEFAULT_SIM).toBeUndefined();
     expect(surface.DEFAULT_LIMIT).toBeUndefined();
-    // The looks are worn through `GraphLooks` and read back through `useGraphPrefs`'s `preset`.
-    expect(surface.PRESETS).toBeUndefined();
-    expect(surface.presetOf).toBeUndefined();
     expect(surface.REHEAT).toBeUndefined();
     expect(surface.GRID).toBeUndefined();
     expect(surface.SPACE).toBeUndefined();
@@ -164,14 +160,11 @@ describe("@kanzo-tech/graph public surface", () => {
  * function, because a render prop draws markup; one that returned a verdict would pass. The same
  * goes for a **reader**: `GraphSelect`'s `load` answers *which vertices*, data the part fetches
  * when pressed rather than a verdict on what a gesture means, so it is named below, by itself.
- * And a **controlled value**: `GraphPlacement`'s `onChange` hands back the root's own `x`/`y`/
- * `cluster` props — bindings the host already owns and passes to the root — the way an input's
- * `value`/`onChange` hands back a field; it decides nothing, so it is named below too.
  */
 describe("the parts' props", () => {
   const SRC = dirname(fileURLToPath(import.meta.url));
   const ROOT_PROPS = new Set(["GraphRootProps", "GraphRootProviderProps", "UseGraphProps"]);
-  const READERS = new Set(["GraphSelectProps.load", "GraphPlacementProps.onChange"]);
+  const READERS = new Set(["GraphSelectProps.load"]);
 
   // A whole program through the checker: about a second here and past vitest's 5 s default on a
   // CI runner, which is how v0.11.0's first publish failed. The budget is for the checker, not the
@@ -196,8 +189,6 @@ describe("the parts' props", () => {
       "GraphCountsProps",
       "GraphInspectorProps",
       "GraphLegendProps",
-      "GraphLooksProps",
-      "GraphPlacementProps",
       "GraphSearchProps",
       "GraphSelectProps",
       "GraphStatusProps",

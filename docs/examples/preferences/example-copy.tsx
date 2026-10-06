@@ -1,11 +1,11 @@
 "use client";
 
-import { PreferencesSections } from "@kanzo-tech/ui";
+import { Pref } from "@kanzo-tech/ui";
 
 export default function Example() {
   return (
     <div className="flex w-full max-w-2xl flex-col gap-6">
-      <PreferencesSections
+      <Pref
         copy={{
           theme: "Tema",
           appearance: "Apariencia",
@@ -15,8 +15,7 @@ export default function Example() {
           nightDescription: "Se usa con la apariencia oscura.",
           active: "Activo",
         }}
-        namespace="theme"
-        only={["appearance"]}
+        name="theme.appearance"
       />
     </div>
   );

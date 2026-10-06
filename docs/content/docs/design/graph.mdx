@@ -34,7 +34,7 @@ literals. It imports nothing of fossil's.
 
 ```text
 host                                                    @kanzo-tech/graph
-engine() → DuckDB-WASM + coordinator                    parts     GraphCanvas · GraphLegend · GraphStatus · GraphCounts · GraphToolbar · GraphInspector · GraphSearch · GraphLooks
+engine() → DuckDB-WASM + coordinator                    parts     GraphCanvas · GraphLegend · GraphStatus · GraphCounts · GraphToolbar · GraphInspector · GraphSearch
 open(name, { engine, url }) → "<name>".<Table>          adapter   useGraph · GraphRoot · GraphRootProvider · useGraphContext · useGraphState
            "<name>".fossil_tables · fossil_columns      render    typed arrays → cosmos.gl, uploaded once per corpus
 <GraphRoot from={name} coordinator filterBy>            core      source: SQL through the coordinator · client · load · store
@@ -378,11 +378,25 @@ under it read the root.
   limit; picking one is `reveal`, and the root remembers it.
 - **`GraphSelect`** — a selection the host offers, as a toggle: `load` reads the ids when pressed,
   and pressed is derived from the live selection, never stored beside it.
-- **`GraphLooks`** — the three looks as presets over `GRAPH_SECTION`'s axes, with the axes always in
-  view under them. It writes preferences rather than reading the root, so it needs the theme provider
-  and no `GraphRoot`.
-- **`GraphPlacement`** — Force, Map or Clustered, with the corpus's fields to bind under the checked
-  card, as its sibling and not its child. Controlled, because `x`, `y` and `cluster` are the root's bindings and the host holds them.
+
+**The settings are not a part; they are the section.** `GRAPH_SECTION` declares the picture, where
+the points come from and the forces, and `@kanzo-tech/ui` draws them — `PreferencesSections
+namespace="graph"` whole, or `<Pref>` by `<Pref>`. What the manifest cannot know, the root answers as
+the section's owner (`GraphSection`, a `SectionProvider` inside every root): the attached corpus's
+columns for `x-by`, `y-by` and `cluster-by`, and the miniatures on the Marks, Edges and Placement
+cards. Two components stood here, `GraphLooks` and `GraphPlacement`, the second holding the
+placement as the host's state with a callback of its own; both were a second way to draw a setting.
+`/docs/design/preferences` has the model.
+
+**Placement is the person's, so a column outlives its corpus.** Stored with the preferences, a column
+reaches corpora that lack it, and the root reads it as unbound (`carries`, in the loaders) — the
+same rule `resolvePref` applies to a value its options no longer hold, applied where the options are
+known. **What would reverse it:** readers expecting each corpus to remember its own placement, which
+would make it the host's state again — in the URL, per corpus.
+
+*Held by* `packages/graph/src/core/store.test.ts`, "reads a column the corpus does not carry as
+unbound, so a column chosen on another corpus places nothing"; `packages/graph/src/parts/graph-section.test.tsx`,
+"offers the corpus's numeric fields to the map, from the root that attached it".
 
 **A selection names its gesture, never its host's panel.** `SelectionSource` is the canvas's own
 gestures — `marquee`, `lasso`, `node` — and `external`, any selection a host set through `select`,
@@ -440,12 +454,12 @@ if WebGL exists but no device ever comes up".
 the adapter        GraphRoot · GraphRootProvider · useGraph · useGraphContext · useGraphState
 the parts          GraphCanvas · GraphLegend · GraphStatus · GraphCounts · GraphToolbar · GraphInspector
                    GraphSearch · GraphSelect · ShapeGlyph
-the picture        lookFrom · simFrom · useGraphPrefs · scaleOf · GraphLooks
+the picture        lookFrom · simFrom · placementFrom · useGraphPrefs · scaleOf
 types              GraphRootProps · GraphRootProviderProps · UseGraphProps · GraphApi · GraphCanvasProps
                    GraphLegendProps · GraphStatusProps · GraphCountsProps · GraphToolbarProps · GraphInspectorProps
-                   GraphSearchProps · GraphSelectProps · GraphLooksProps · ShapeGlyphProps
+                   GraphSearchProps · GraphSelectProps · ShapeGlyphProps
                    GraphState · DataStatus · Drawn · VertexDetail
-                   Channels · Look · LookPatch · LookPreset · Shape · Sim · Motion · Selection · SelectionSource
+                   Channels · Placement · Look · LookPatch · Shape · Sim · Motion · Selection · SelectionSource
                    Tool · GraphCommands · VertexId
 ./section          GRAPH_SECTION
 ```
@@ -549,17 +563,18 @@ composite, not the path they take, and Nebula is additive *and* straight.
 Six of the ten fields separate Nebula from Atlas by 7–17%, below a luminance JND of 6.5–11.3 ΔL\*.
 **Ink is a real form.** An empty look is Atlas.
 
-**The three names live on as presets over the axes, not as a fourth axis.** `PRESETS` writes each
-look as axis values and `GraphLooks` offers them as cards, GitHub's appearance settings: pick by
-looking, then customise. A look is worn exactly when the resolved axes equal its own, so there is no
-stored name to disagree with them, and `useGraphPrefs` answers `preset` for a host that pairs
-channels with a look — the pairing stays the host's, because a look is form. A `preset` preference
-was the alternative and is refused: it would be a key no reader reads, which the axes guard forbids.
+**The three names are gone; the axes are the whole model.** They lived on for a while as presets
+over the axes, offered as cards above them, and the panel repeated itself: a preset set the axes, an
+axis un-set the preset, and "Custom" was where most readers ended. Cosmograph's configuration and
+Gephi Lite's appearance panel offer the axes alone with good defaults, and so does the section. The
+three pictures stay reachable as axis values, which is what the test below holds. With no names, a
+host has nothing to pair channels with, and that is right: a look is form, and which column wears
+colour or shape is a binding the host makes once.
 
-**What would reverse it:** a reader telling Nebula from Atlas in a blind pairing on those six fields.
+**What would reverse it:** a reader telling Nebula from Atlas in a blind pairing on those six fields,
+or readers asking for a named starting point the axes' defaults do not give them.
 
-*Held by* `packages/graph/src/section.test.ts`, "still draws the three pictures the three names drew",
-"wears the three pictures as presets, and knows one when the axes are it";
+*Held by* `packages/graph/src/section.test.ts`, "still draws the three pictures the three names drew";
 `packages/graph/src/render/graph-looks.ts`, `lookFrom`.
 
 ## What is still open

@@ -69,6 +69,13 @@ describe("the graph store", () => {
     expect(store.getSnapshot().drawn?.vertices).toBe(16);
   });
 
+  it("reads a column the corpus does not carry as unbound, so a column chosen on another corpus places nothing", async () => {
+    const { corpus, store } = await graph({ x: "lon", y: "elevation", cluster: "nowhere" });
+    await settle(corpus);
+    expect(store.getSnapshot().geometry?.bound).toBe(false);
+    expect(store.getSnapshot().encoding?.clusters).toBeNull();
+  });
+
   it("reads positions again when x or y moves, and nothing else", async () => {
     const { corpus, store } = await graph({ x: "lon", y: "lat" });
     await settle(corpus);

@@ -4,6 +4,7 @@ import {
   prefBoolean,
   prefNumber,
   prefOptions,
+  prefShown,
   resolvePref,
   resolveSectionToken,
   sectionOf,
@@ -34,7 +35,6 @@ import {
  */
 const FIXTURE: SectionManifest = {
   namespace: "graph",
-  version: 1,
   tokens: {
     marquee: {
       default: "color-mix(in oklab, var(--primary) 20%, transparent)",
@@ -149,7 +149,6 @@ describe("a document outlives the packages that wrote it", () => {
  */
 const PREF_FIXTURE: SectionManifest = {
   namespace: "graph",
-  version: 1,
   prefs: {
     look: {
       kind: "choice",
@@ -284,7 +283,7 @@ describe("options a tenant owns", () => {
       offered: true,
     });
     // And validation says nothing rather than reporting a problem it cannot know it has.
-    const manifest: SectionManifest = { namespace: "bank", version: 1, prefs: { identity: THEME_PREF } };
+    const manifest: SectionManifest = { namespace: "bank", prefs: { identity: THEME_PREF } };
     expect(validatePrefs(manifest, { identity: "private" })).toEqual([]);
   });
 
@@ -294,7 +293,7 @@ describe("options a tenant owns", () => {
     // chose is not published any more, so it does not apply.
     expect(resolvePref(THEME_PREF, "private", undefined, sources).via).toBe("default");
     expect(resolvePref(THEME_PREF, "retail", undefined, sources).via).toBe("stored");
-    const manifest: SectionManifest = { namespace: "bank", version: 1, prefs: { identity: THEME_PREF } };
+    const manifest: SectionManifest = { namespace: "bank", prefs: { identity: THEME_PREF } };
     expect(validatePrefs(manifest, { identity: "private" }, sources)[0]?.detail).toContain("retail");
   });
 
@@ -357,11 +356,49 @@ describe("the kinds a section may declare", () => {
   it("reports an illegal value per kind, saying what was expected", () => {
     const manifest = {
       namespace: "graph",
-      version: 1,
       prefs: { links: TOGGLE, pointScale: RANGE },
     };
     expect(validatePrefs(manifest, { links: "true", pointScale: "1.4" })).toEqual([]);
     expect(validatePrefs(manifest, { links: "maybe" })[0]?.detail).toContain("true, false");
     expect(validatePrefs(manifest, { pointScale: "9" })[0]?.detail).toContain("0.4–2.5");
+  });
+});
+
+describe("a preference offered only beside another", () => {
+  const additive = { when: { pref: "edges", neq: "hidden" } } as const;
+  const column = { when: { pref: "placement", eq: "map" } } as const;
+
+  it("shows what declares no condition", () => {
+    expect(prefShown({}, {})).toBe(true);
+  });
+
+  it("reads eq and neq against the sibling's resolved value", () => {
+    expect(prefShown(column, { placement: "map" })).toBe(true);
+    expect(prefShown(column, { placement: "force" })).toBe(false);
+    expect(prefShown(additive, { edges: "curved" })).toBe(true);
+    expect(prefShown(additive, { edges: "hidden" })).toBe(false);
+  });
+
+  it("hides an eq and shows a neq whose sibling nobody declared, rather than throwing", () => {
+    expect(prefShown(column, {})).toBe(false);
+    expect(prefShown(additive, {})).toBe(true);
+  });
+
+  it("decides what is drawn, never what resolves: a hidden preference keeps its stored value", () => {
+    const decl = { kind: "choice", default: "", doc: "", options: { from: "columns" }, ...column } as const;
+    expect(resolvePref(decl, "lon").value).toBe("lon");
+  });
+});
+
+describe("options a section's owner answers", () => {
+  const decl = { kind: "choice", default: "", doc: "", options: { from: "columns" } } as const;
+
+  it("names its source within the section, and reads it from whoever answered", () => {
+    expect(prefOptions(decl, { columns: [{ value: "lat", label: "lat" }] })).toEqual([{ value: "lat", label: "lat" }]);
+  });
+
+  it("answers null while nobody has, so a stored column stands until the owner judges it", () => {
+    expect(prefOptions(decl)).toBeNull();
+    expect(resolvePref(decl, "lat").via).toBe("stored");
   });
 });

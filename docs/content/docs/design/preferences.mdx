@@ -179,31 +179,87 @@ ships no font files: the host loads the faces its published themes name.
 **What would reverse it:** the first tenant who wants their face set in the generator rather than
 in the file. That tenant is the second call site a face field needs.
 
-### One way to mount a preference control
+### A preference has Ark's shape: data, state and context, a part
 
-`PreferencesSections` draws every offered preference. First comes the core, the namespace `theme`: the
-theme picker, then density. After it comes each installed package's section. The panel with no
-children draws exactly that. `namespace` and `only` narrow it. For the core, `"appearance"` and
-`"themeByAppearance"` both name the picker, because the picker is one control for the two of them.
-There is no per-axis export and no standalone theme picker on the barrel. A host mounts
-`<Preferences />` or `<PreferencesSections />`, and it cannot mount a control for a value the theme
-owns, because no such control exists.
+**Ark never draws from a schema.** It holds state in a hook (`useSelect`), hands it down in context
+(`Select.RootProvider`, `Field.Root`), and draws with parts that read the context; a rule about the
+data lives in the data — `createListCollection({ items, isItemDisabled })`. Park, Shark and Chakra
+v3 compose parts, and none adds a schema-driven form. A preference takes the same shape:
 
-**What would reverse it:** a host that needs one core preference on a surface, arranged in a way that
-`only` cannot express. The per-axis exports were that escape hatch, and their only consumer used them
-to mount the controls it should not have.
+| | Ark's | a preference's |
+| --- | --- | --- |
+| the data, and its rules | a collection, `isItemDisabled` | the declaration, `when` |
+| state and context | `useSelect` and its provider | `KanzoThemeProvider` (the values) and a `SectionProvider` per owner (what only it knows) |
+| a part | `Select.Trigger`, `Select.Item` | `<Pref name="graph.x-by" />`, the kind's Ark control |
+| a control of your own | `useSelectContext` | `usePref(name)` — `{ value, setValue, options, offered, shown }` |
+| a composition | an example, a Shark block | `PreferencesSections`, a `<Pref>` per preference |
+
+So **`<Pref>` is the one way to mount a control**, and `PreferencesSections` is made of it rather
+than beside it: a page that arranges preferences its own way composes `<Pref>`s, and the tenant's
+policy, the conditions and the owner's lists hold there as they hold in the whole section. For the
+core, `theme.appearance` and `theme.themeByAppearance` both name the theme picker, because it is one
+control for the two. There is no per-axis export and no standalone theme picker, so a host cannot
+mount a control for a value the theme owns.
+
+**What would reverse it:** a host that needs a preference arranged in a way neither a `<Pref>` nor
+`usePref` can express — the per-axis exports were that escape hatch, and their only consumer used them
+to mount controls it should not have.
 
 *Held by* `packages/ui/src/index.test.ts`, "drops components superseded by composition or a merge";
-`packages/ui/src/composites/Preferences.test.tsx`, "draws the core as the namespace `theme`: the theme
-picker, then density".
+`packages/ui/src/composites/Preferences.test.tsx`, "draws the named ones, in the order the page wrote
+them", "hands a control of your own the same value and setter the part uses".
 
-**A contributed choice can be drawn as density is: cards, each with a picture over its name.** A
-manifest is data, declared in a package that may not depend on React, so it cannot carry a picture.
-The surface that draws the section passes them instead: `specimens`, keyed `namespace.preference`, a
-function from an option to what it looks like. Without one, the choice is a list.
+**What a declaration cannot know, its owner answers, for the subtree beneath it.** A manifest is data,
+declared in a package that may not depend on React, so it cannot carry a picture, and it is written
+before any corpus exists, so it cannot list one's columns. Its owner can: the theme provider answers
+the core's `"themes"` from what the tenant published and the density pictures, and the graph's root
+answers its corpus's columns and its cards' pictures — a `SectionProvider` each, React context the way
+Ark's `EnvironmentProvider` reaches a subtree, merged over the one above as a nested `ThemeProvider`
+merges in MUI. Home Assistant's selectors are the reference for the naming: a schema names a list, and
+whoever holds it fills it. Outside every owner a list is unanswered and the control it fills is not
+drawn, which is what a tenant who published no themes already got.
 
 *Held by* `packages/ui/src/composites/Preferences.test.tsx`, "draws a contributed choice's specimens
-from the surface that draws it, keyed namespace.preference".
+from the section's owner, above it in the tree", "draws no Select outside the owner that answers its
+list".
+
+**A list the author wrote is cards; a list the data answers is a `Select`.** Apple's HIG gives a
+segmented set to a few fixed values and a pop-up to a list nobody could count in advance; the source
+decides, never a count, so there is no number to tune. "None" is Ark's `deselectable` and its clear
+trigger, not an option nobody declared.
+
+*Held by* `packages/ui/src/composites/Preferences.test.tsx`, "draws a list the data answers as a
+Select, and a list the author wrote as cards".
+
+**A preference may be offered only beside another: `when`.** Storybook's `argTypes.if`, spelled the
+same way — `{ pref, eq }` or `{ pref, neq }` — an object rather than an expression, so a manifest stays
+data a tenant can read and nothing parses it. Grafana's `showIf` is the same idea as a function, which
+a declaration cannot hold. It decides what is drawn, never what resolves: a preference out of view
+keeps its stored value, as a tenant's `hidden` does.
+
+*Held by* `packages/theme/src/sections.test.ts`, "decides what is drawn, never what resolves: a hidden
+preference keeps its stored value"; `packages/ui/src/composites/Preferences.test.tsx`, "offers a
+preference only while its sibling says so, and keeps what it stored meanwhile".
+
+**Names are checked once an app says what it registered.** TanStack Router's and Query's `Register`:
+an app augments one interface with its sections, and `<Pref name>` completes, a typo fails `tsc`, and
+`usePref("graph.placement").value` is the options' union. Unaugmented, a name is a string.
+
+**Discarded, and what would bring each back:**
+
+- **A schema-form library** — JSON Forms, react-jsonschema-form — or JSON Schema with `if`/`then`.
+  Either brings a validator (Ajv compiles with `new Function`) and its own renderers, and the Ark arms
+  would still be ours to write; none knows a tenant's policy or a value that resolves before paint.
+  *Back if* conditions outgrow one sibling's `eq`/`neq` — `and`, `or`, ranges — which is when an
+  expression standard earns its weight.
+- **`PreferencesSections` as the only way in, picking with `only` and decorating with `specimens`.**
+  Configuration where Ark composes, and two props that were a second path to the part and the owner.
+  *Back if* no page ever arranges preferences its own way.
+- **Conditions in the page's JSX** (`{placement === "map" && <Pref … />}`). Every page would repeat a
+  rule of the data. *Back if* a condition depends on something outside its section.
+- **A host passing an owner's lists in** (`{...useGraphSettings()}` on every panel). Explicit, but each
+  host would have to know which section is special. *Back if* a section has to be drawn outside its
+  owner's subtree with the owner's data.
 
 ### A scope names a theme and a side, nothing else
 
