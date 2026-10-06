@@ -1,5 +1,5 @@
 import { AsyncDuckDB, DuckDBDataProtocol, VoidLogger, selectBundle } from "@duckdb/duckdb-wasm";
-import { Coordinator, decodeIPC, wasmConnector } from "@uwdata/mosaic-core";
+import { Coordinator, decodeIPC, DuckDBWASMConnector } from "@uwdata/mosaic-core";
 
 /**
  * The page's one database: a DuckDB-WASM instance, the Mosaic `Coordinator` over it, and the file
@@ -195,7 +195,7 @@ async function start(made: (duckdb: AsyncDuckDB) => void): Promise<Engine> {
   made(duckdb);
   await duckdb.instantiate(build.mainModule);
 
-  const connector = wasmConnector({ duckdb, config: RANGE_READS });
+  const connector = new DuckDBWASMConnector({ duckdb, config: RANGE_READS });
   const coordinator = new Coordinator(connector);
   await coordinator.exec(`LOAD '${build.httpfs}'`);
   // Files are read lazily by range; caching their metadata is what keeps a pan from re-probing, and

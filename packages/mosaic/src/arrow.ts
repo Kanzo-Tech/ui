@@ -1,30 +1,17 @@
+import { toDataColumns } from "@uwdata/mosaic-core";
+
 /**
- * Reading one column out of whatever a Mosaic query handed back.
+ * One numeric column out of whatever a Mosaic query handed back, an Arrow table or an array of
+ * rows. Reading the answer is mosaic-core's `toDataColumns`; what is ours is the coercion, because
+ * Arrow hands back `BigInt` for some integer widths and every caller here wants a `number` — an id
+ * to select, a value to place.
  *
- * The coordinator answers with an Arrow table, and Arrow only offers a typed column when the type
- * allows one: `getChild` gives an array for an integer column and nothing usable for a
- * dictionary-encoded string. Both shapes come back from ordinary queries — an `id` is the first, a
- * `label` is the second — so a `queryResult` that assumes the typed path is a crash waiting for the
- * first query that selects a string.
- *
- * This is the half of the client protocol the protocol itself does not give you. Declaring a query
- * and publishing a clause is documented and small; turning the answer into values is where every
- * call site independently writes `as { getChild(name: string): … }`, which is a cast asserting the
- * shape rather than checking it.
+ * A field the query did not select throws: an empty or row-shaped hole would be a selection that
+ * silently matched nothing.
  */
-
-interface ArrowLike {
-  getChild?: (name: string) => { toArray(): ArrayLike<unknown> } | null;
-}
-
-/** Every value in `field`, in row order. */
-export function column(data: unknown, field: string): unknown[] {
-  const child = (data as ArrowLike).getChild?.(field);
-  if (child) return Array.from(child.toArray());
-  return Array.from(data as Iterable<Record<string, unknown>>, (row) => row[field]);
-}
-
-/** The same, coerced — Arrow hands back `BigInt` for some integer widths. */
 export function numbers(data: unknown, field: string): number[] {
-  return column(data, field).map(Number);
+  const answer = toDataColumns(data);
+  const values = "columns" in answer ? answer.columns[field] : undefined;
+  if (values === undefined) throw new Error(`the answer has no column "${field}"`);
+  return Array.from(values as ArrayLike<unknown>, Number);
 }

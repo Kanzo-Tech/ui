@@ -40,8 +40,8 @@ export {
 /**
  * The expression builders the graph writes its statements with — the ones it uses, and no more. A
  * statement built from nodes quotes its own identifiers and literals, which a search a reader types
- * must never leave to a template string. mosaic-sql's `column` is not among them: `column` here is
- * the Arrow reader below, and a bare string is already a column wherever these take one.
+ * must never leave to a template string. mosaic-sql's `column` is not among them: a bare string is
+ * already a column wherever these take one.
  */
 export {
   asTableRef,
@@ -77,7 +77,7 @@ export {
 export { bridgeSelection, type BridgeOptions, type ClauseMap } from "./bridge.js";
 
 /** Ours: turning an Arrow answer into values, which the client protocol does not do for you. */
-export { column, numbers } from "./arrow.js";
+export { numbers } from "./arrow.js";
 
 /** Ours: what every `table` here and in the charts takes — one identifier, or a relation named in SQL. */
 export { type TableExpr } from "./table.js";

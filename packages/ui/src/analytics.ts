@@ -234,12 +234,10 @@ export type {
   SelectionClause, FilterExpr, SemiJoinMembers, SemiJoinMetadata, SemiJoinOptions,
 } from "@kanzo-tech/mosaic";
 
-// The other half of that protocol, and the half it does not give you. Declaring a query is small
-// and publishing a clause is documented; turning the ANSWER into values is where every client
-// independently writes `as { getChild(name: string): … }` — a cast asserting Arrow's shape rather
-// than checking it, and wrong the first time the query selects a string. Arrow only offers a typed
-// column when the type allows one, so the fallback is not a nicety.
-export { column, numbers } from "@kanzo-tech/mosaic";
+// The other half of that protocol: turning the ANSWER into values. Reading it is mosaic-core's
+// `toDataColumns`; `numbers` adds the coercion, since Arrow hands back `BigInt` for some integer
+// widths and an id or a position wants a `number`.
+export { numbers } from "@kanzo-tech/mosaic";
 // And what a failed query threw: a client's `queryError` is handed mosaic-core's `QueryError`, the
 // original one level down, and a host keying on its `code` needs that original back.
 export { queryFailure } from "@kanzo-tech/mosaic";

@@ -14,7 +14,7 @@ Mosaic are two coordinators, and two coordinators are two crossfilters that neve
 
 ```ts
 import { Coordinator, Selection, MosaicClient, clausePoints, clauseSemiJoin } from "@kanzo-tech/mosaic";
-import { column, numbers } from "@kanzo-tech/mosaic";
+import { numbers } from "@kanzo-tech/mosaic";
 import { engine } from "@kanzo-tech/mosaic";
 ```
 
@@ -60,11 +60,9 @@ import { engine } from "@kanzo-tech/mosaic";
   mosaic-core's public `Selection` API only, and `src/public-api.test.ts` fails on any `_` member.
   `semiJoinOf(key, table)` is the map for a relation keyed by an identity, so a dashboard over a
   joined relation filters a graph.
-- **`column` / `numbers`** — the half of the client protocol the protocol does not
-  give you. The coordinator answers with an Arrow table, and Arrow offers a typed column only when
-  the type allows one: an integer id gives an array, a dictionary-encoded label gives nothing
-  usable. Every call site was writing `as { getChild(name: string): … }`, which asserts Arrow's
-  shape rather than checking it, and is wrong on the first query that selects a string.
+- **`numbers(answer, field)`** — one numeric column out of an answer, an Arrow table or an array
+  of rows. Reading it is mosaic-core's `toDataColumns`; `numbers` adds the coercion, since Arrow
+  hands back `BigInt` for some integer widths. A field the query did not select throws.
 - **`TableExpr`** — what a `table` takes, here and in the charts: a string is one identifier in the
   default catalog, a mosaic-sql node is a relation named in SQL — `verbatim(relation.sql)` for a
   fossil corpus's catalog-qualified relation.
