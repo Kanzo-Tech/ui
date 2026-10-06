@@ -184,9 +184,10 @@ import { AuthError, type AuthErrorCode } from "@kanzo-tech/auth";
 | `session/absent` | There is no session: not signed in, or it expired |
 | `session/irrevocable` | The store cannot end a session from the server — a stateless store, or a ticket adapter without `keys`. Back-channel logout answers 501 |
 | `organization/invalid` | The organization asked for is not an alias — a space in it would inject a second scope |
+| `organization/denied` | The realm would not issue a token for that organization: the person is not a member. `api` answers 403 |
 | `callback/state-mismatch` | The callback's `state` is absent, different, or matches no transaction |
 | `callback/nonce-mismatch` | The ID token's `nonce` is not the one that was sent — a replay |
-| `token/exchange-failed` | The token endpoint refused the code, or answered something unusable — no ID token, a client it does not know |
+| `token/exchange-failed` | The token endpoint refused the code or the token exchange, or answered something unusable — no ID token, a client it does not know, an API the application does not list |
 | `token/refused` | A token was refused and the session is over: the IdP answered `invalid_grant` to the refresh token, or a back-channel logout token did not verify |
 | `session/unavailable` | The session could not be read: the store failed, or `/session` answered neither a session nor a 401. `data.status` is that answer |
 | `session/silent` | `/session` or `/refresh` did not answer within 30 s — or, on the server, a `ticketStore` adapter did not, reported as the cause of a `session/unavailable`. `data.after` is `30000` |

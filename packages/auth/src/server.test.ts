@@ -643,7 +643,7 @@ describe("relyingParty", () => {
 
       expect(realm.state.posted.at(-1)?.get("refresh_token")).toBe("refresh-1");
       expect(outcome.cookies).toEqual([]);
-      expect(alive<Token>(await here.token(cookie)).accessToken).toBe("theirs");
+      expect(alive<Token>(await here.token(cookie, { audience: "reports" })).accessToken).toBe("theirs>reports");
     });
 
     /**
@@ -683,49 +683,12 @@ describe("relyingParty", () => {
     });
   });
 
-  describe("token", () => {
-    /**
-     * The field that was missing, and the reason it mattered: with no access token on the record a
-     * product forwards the **ID token** to its resource server instead. That works on a realm that
-     * happens to put the same audience in both, and stops the day the resource server checks
-     * `typ == "Bearer"` — which is what it should be doing.
-     */
-    it("answers the access token the grant returned, and not the ID token", async () => {
-      const auth = relyingParty(config);
-      realm.state.accessToken = "the-access-token";
-      const { done } = await signIn(auth, realm);
-
-      const held = alive<Token>(await auth.token(asRequestHeader(done.cookies)));
-
-      expect(held.accessToken).toBe("the-access-token");
-      expect(held.session.user.id).toBe("u-1");
-    });
-
-    it("answers that there is no live session when there is no cookie", async () => {
-      await expect(relyingParty(config).token(null)).resolves.toEqual({
-        ended: true,
-        code: "session/absent",
-        cookies: [],
-      });
-    });
-
-    it("clears a cookie whose ticket the store has forgotten", async () => {
-      const { store, records } = recordingStore();
-      const auth = relyingParty({ ...config, store });
-      const { done } = await signIn(auth, realm);
-      records.clear();
-
-      const outcome = await auth.token(asRequestHeader(done.cookies));
-
-      expect(outcome).toMatchObject({ ended: true, code: "session/absent" });
-      expect(outcome.cookies[0]).toContain("Max-Age=0");
-    });
-
+  describe("refresh within a window", () => {
     it("does not renew a token with time left on it", async () => {
       const auth = relyingParty(config);
       const { done } = await signIn(auth, realm);
 
-      const held = await auth.token(asRequestHeader(done.cookies));
+      const held = await auth.refresh(asRequestHeader(done.cookies), { renewWithin: 60 });
 
       expect(realm.state.posted).toHaveLength(1);
       // Nothing was renewed, so there is nothing to attach — and a caller that always has cookies
@@ -737,15 +700,12 @@ describe("relyingParty", () => {
       const store = ticketStore(inMemoryAdapter().adapter);
       const auth = relyingParty({ ...config, store });
       realm.state.expiresIn = 30;
-      realm.state.accessToken = "about-to-expire";
       const { done } = await signIn(auth, realm);
       const cookie = asRequestHeader(done.cookies);
 
-      realm.state.accessToken = "renewed";
       realm.state.refreshToken = "refresh-2";
-      const held = alive<Token>(await auth.token(cookie));
+      const held = alive(await auth.refresh(cookie, { renewWithin: 60 }));
 
-      expect(held.accessToken).toBe("renewed");
       expect(held.cookies).toEqual([]);
       expect(realm.state.posted[1]?.get("grant_type")).toBe("refresh_token");
 
@@ -760,10 +720,8 @@ describe("relyingParty", () => {
       realm.state.expiresIn = 30;
       const { done } = await signIn(auth, realm);
 
-      realm.state.accessToken = "renewed";
-      const held = alive<Token>(await auth.token(asRequestHeader(done.cookies)));
+      const held = alive(await auth.refresh(asRequestHeader(done.cookies), { renewWithin: 60 }));
 
-      expect(held.accessToken).toBe("renewed");
       expect(held.cookies[0]?.startsWith("__Host-kanzo-session=")).toBe(true);
     });
 
@@ -772,7 +730,7 @@ describe("relyingParty", () => {
       realm.state.expiresIn = 300;
       const { done } = await signIn(auth, realm);
 
-      await auth.token(asRequestHeader(done.cookies), { renewWithin: 600 });
+      await auth.refresh(asRequestHeader(done.cookies), { renewWithin: 600 });
 
       expect(realm.state.posted[1]?.get("grant_type")).toBe("refresh_token");
     });
@@ -788,8 +746,8 @@ describe("relyingParty", () => {
       realm.state.expiresIn = undefined;
       const { done } = await signIn(auth, realm);
 
-      await auth.token(asRequestHeader(done.cookies));
-      await auth.token(asRequestHeader(done.cookies));
+      await auth.refresh(asRequestHeader(done.cookies), { renewWithin: 60 });
+      await auth.refresh(asRequestHeader(done.cookies), { renewWithin: 60 });
 
       expect(realm.state.posted).toHaveLength(1);
     });
@@ -800,10 +758,165 @@ describe("relyingParty", () => {
       const { done } = await signIn(auth, realm);
       const cookie = asRequestHeader(done.cookies);
 
-      await Promise.all(Array.from({ length: 8 }, () => auth.token(cookie)));
+      await Promise.all(Array.from({ length: 8 }, () => auth.refresh(cookie, { renewWithin: 60 })));
 
       const grants = realm.state.posted.filter((body) => body.get("grant_type") === "refresh_token");
       expect(grants).toHaveLength(1);
+    });
+  });
+
+  describe("token", () => {
+    const exchanges = () =>
+      realm.state.posted.filter(
+        (body) => body.get("grant_type") === "urn:ietf:params:oauth:grant-type:token-exchange",
+      );
+
+    /**
+     * The session's token names every organization the person belongs to and no API, so it is the
+     * one token that must never reach a resource server: one handed to `acme`'s API would be good
+     * at `globex`'s too. What leaves is an exchange, RFC 8693, for one audience and one organization.
+     */
+    it("exchanges the session's token for one naming the audience and the organization alone", async () => {
+      const auth = relyingParty(config);
+      realm.state.accessToken = "session";
+      const { done } = await signIn(auth, realm);
+
+      const held = alive<Token>(
+        await auth.token(asRequestHeader(done.cookies), { audience: "reports", organization: "acme" }),
+      );
+
+      expect(held.accessToken).toBe("session>reports@acme");
+      expect(held.session.user.id).toBe("u-1");
+      const [sent] = exchanges();
+      expect(sent?.get("subject_token")).toBe("session");
+      expect(sent?.get("subject_token_type")).toBe("urn:ietf:params:oauth:token-type:access_token");
+      expect(sent?.get("requested_token_type")).toBe("urn:ietf:params:oauth:token-type:access_token");
+      // By its scope, not by `audience`, which Keycloak reads as a filter that drops the
+      // application's own roles: see `exchange` in server.ts.
+      expect(sent?.has("audience")).toBe(false);
+      expect(sent?.get("scope")).toBe("reports organization:acme");
+    });
+
+    it("asks for no organization when the call is in none", async () => {
+      const auth = relyingParty(config);
+      const { done } = await signIn(auth, realm);
+
+      await auth.token(asRequestHeader(done.cookies), { audience: "reports" });
+
+      expect(exchanges()[0]?.get("scope")).toBe("reports");
+    });
+
+    it("answers that there is no live session when there is no cookie", async () => {
+      await expect(relyingParty(config).token(null, { audience: "reports" })).resolves.toEqual({
+        ended: true,
+        code: "session/absent",
+        cookies: [],
+      });
+      expect(exchanges()).toHaveLength(0);
+    });
+
+    it("clears a cookie whose ticket the store has forgotten", async () => {
+      const { store, records } = recordingStore();
+      const auth = relyingParty({ ...config, store });
+      const { done } = await signIn(auth, realm);
+      records.clear();
+
+      const outcome = await auth.token(asRequestHeader(done.cookies), { audience: "reports" });
+
+      expect(outcome).toMatchObject({ ended: true, code: "session/absent" });
+      expect(outcome.cookies[0]).toContain("Max-Age=0");
+    });
+
+    it("keeps an exchanged token until it is within the window of expiry", async () => {
+      const auth = relyingParty(config);
+      const { done } = await signIn(auth, realm);
+      const cookie = asRequestHeader(done.cookies);
+
+      const first = alive<Token>(await auth.token(cookie, { audience: "reports", organization: "acme" }));
+      const second = alive<Token>(await auth.token(cookie, { audience: "reports", organization: "acme" }));
+
+      expect(second.accessToken).toBe(first.accessToken);
+      expect(exchanges()).toHaveLength(1);
+    });
+
+    it("exchanges once per audience and organization", async () => {
+      const auth = relyingParty(config);
+      const { done } = await signIn(auth, realm);
+      const cookie = asRequestHeader(done.cookies);
+
+      const tokens = await Promise.all([
+        auth.token(cookie, { audience: "reports", organization: "acme" }),
+        auth.token(cookie, { audience: "reports", organization: "globex" }),
+        auth.token(cookie, { audience: "ai-gateway", organization: "acme" }),
+      ]);
+
+      expect(tokens.map((token) => alive<Token>(token).accessToken)).toEqual([
+        "at>reports@acme",
+        "at>reports@globex",
+        "at>ai-gateway@acme",
+      ]);
+      expect(exchanges()).toHaveLength(3);
+    });
+
+    it("exchanges once for a burst of requests", async () => {
+      const auth = relyingParty(config);
+      const { done } = await signIn(auth, realm);
+      const cookie = asRequestHeader(done.cookies);
+
+      await Promise.all(Array.from({ length: 8 }, () => auth.token(cookie, { audience: "reports" })));
+
+      expect(exchanges()).toHaveLength(1);
+    });
+
+    it("renews the session first, and exchanges the renewed token", async () => {
+      const auth = relyingParty(config);
+      realm.state.expiresIn = 30;
+      const { done } = await signIn(auth, realm);
+
+      realm.state.accessToken = "renewed";
+      const held = alive<Token>(await auth.token(asRequestHeader(done.cookies), { audience: "reports" }));
+
+      expect(realm.state.posted[1]?.get("grant_type")).toBe("refresh_token");
+      expect(held.accessToken).toBe("renewed>reports");
+      expect(held.cookies[0]?.startsWith("__Host-kanzo-session=")).toBe(true);
+    });
+
+    /**
+     * Keycloak does not refuse an exchange for an organization the person is not in: it grants the
+     * token without it. Forwarding that token would hand the resource server a caller in no
+     * organization where it was promised one, so the granted scope is read and the call refused.
+     */
+    it("refuses an organization the person is not a member of", async () => {
+      const auth = relyingParty(config);
+      realm.state.memberships = ["globex"];
+      const { done } = await signIn(auth, realm);
+
+      await expect(
+        auth.token(asRequestHeader(done.cookies), { audience: "reports", organization: "acme" }),
+      ).rejects.toMatchObject({ code: "organization/denied" });
+    });
+
+    it("refuses every organization at once, and anything that is not an alias, before asking", async () => {
+      const auth = relyingParty(config);
+      const { done } = await signIn(auth, realm);
+      const cookie = asRequestHeader(done.cookies);
+
+      for (const organization of ["*", "acme offline_access", ""]) {
+        await expect(auth.token(cookie, { audience: "reports", organization })).rejects.toMatchObject({
+          code: "organization/invalid",
+        });
+      }
+      expect(exchanges()).toHaveLength(0);
+    });
+
+    it("reports an exchange the realm refuses as an exchange failure", async () => {
+      const auth = relyingParty(config);
+      const { done } = await signIn(auth, realm);
+      realm.state.refusingExchange = true;
+
+      await expect(auth.token(asRequestHeader(done.cookies), { audience: "reports" })).rejects.toMatchObject({
+        code: "token/exchange-failed",
+      });
     });
   });
 

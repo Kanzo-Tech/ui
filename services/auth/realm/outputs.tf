@@ -12,3 +12,8 @@ output "organizations" {
   description = "alias => Keycloak's internal id, as it appears in the organization claim."
   value       = { for k, v in keycloak_organization.org : k => v.id }
 }
+
+output "apis" {
+  description = "The platform's resource servers: client_id => the scope an application lists in `apis`."
+  value       = { for k, m in module.api : k => m.scope }
+}

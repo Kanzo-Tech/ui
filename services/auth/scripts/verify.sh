@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Prove the claim contract: run a real authorization-code + PKCE login through the
-# `kanzo-conformance` client and check what the ACCESS token says — the token a
-# resource server authorizes on.
+# `kanzo-conformance` client, exchange the session's token for one its API accepts
+# (RFC 8693, one organization), and check what each ACCESS token says — the
+# exchanged one is the token a resource server authorizes on.
 #
 #   scripts/verify.sh            # ana: acme (high, so high+low) and globex (low)
 #   scripts/verify.sh bruno      # one organization, low
@@ -10,13 +11,16 @@
 #   scripts/verify.sh dan        # no organization; a client role held directly
 #
 # The contract: an application's roles in an organization are
-# `organization[alias].resource_access[client_id].roles`, composites expanded.
+# `organization[alias].resource_access[client_id].roles`, composites expanded; the
+# session's token names no API, and an exchanged one names one API and one organization.
 #
 # Needs: bash, curl, jq, openssl.
 set -euo pipefail
 
 USERNAME=${1:-ana}
 CLIENT=kanzo-conformance
+SECRET=${SECRET:-conformance}
+API=kanzo-conformance-api
 REDIRECT=http://localhost:8765/callback
 PASSWORD=${PASSWORD:-password}
 KC_URL=${KC_URL:-http://localhost:8080}
@@ -98,6 +102,7 @@ echo "authorization code received"
 TOKENS=$(curl -sf -X POST "$TOKEN_EP" \
   --data-urlencode "grant_type=authorization_code" \
   --data-urlencode "client_id=$CLIENT" \
+  --data-urlencode "client_secret=$SECRET" \
   --data-urlencode "code=$CODE" \
   --data-urlencode "redirect_uri=$REDIRECT" \
   --data-urlencode "code_verifier=$VERIFIER")
@@ -108,6 +113,21 @@ ID=$(jq -r .id_token <<<"$TOKENS")
 echo
 echo "== ACCESS TOKEN =="
 jwt "$ACCESS"
+
+# ── standard token exchange (RFC 8693) ────────────────────────────────────────
+# What an application's server does before every call: the session's token for one
+# naming the API and the one organization the call is for. Prints the response, a
+# token or Keycloak's refusal; an empty ORG asks for no organization.
+exchange() {  # exchange ORG
+  curl -s -X POST "$TOKEN_EP" \
+    --data-urlencode "grant_type=urn:ietf:params:oauth:grant-type:token-exchange" \
+    --data-urlencode "client_id=$CLIENT" \
+    --data-urlencode "client_secret=$SECRET" \
+    --data-urlencode "subject_token=$ACCESS" \
+    --data-urlencode "subject_token_type=urn:ietf:params:oauth:token-type:access_token" \
+    --data-urlencode "scope=$API${1:+ organization:$1}"
+}
+exchanged() { jq -r '.access_token // empty' <<<"$(exchange "$1")"; }
 
 # ── the assertions ────────────────────────────────────────────────────────────
 echo
@@ -120,10 +140,28 @@ roles_in() {  # roles_in TOKEN ALIAS -> the client's roles inside that organizat
   jq -c --arg a "$2" --arg c "$CLIENT" '[.organization[$a].resource_access[$c].roles // [] | .[]] | sort' <<<"$1"
 }
 
-check "access token names its API in aud" \
-  "$(jq -r '[.aud] | flatten | any(. == "kanzo-conformance-api")' <<<"$AT")"
+check "the session's access token names no API" \
+  "$(jq -r --arg api "$API" '[.aud] | flatten | all(. != $api)' <<<"$AT")"
 check "the ID token does not name the API" \
-  "$(jq -r '[.aud] | flatten | all(. != "kanzo-conformance-api")' <<<"$IT")"
+  "$(jq -r --arg api "$API" '[.aud] | flatten | all(. != $api)' <<<"$IT")"
+for_api() {  # for_api ALIAS -> the exchanged token's claims, or {} when the exchange was refused
+  local t; t=$(exchanged "$1"); if [ -n "$t" ]; then jwt "$t"; else echo '{}'; fi
+}
+one_org() {  # one_org ALIAS: an exchange for ALIAS names the API alone and ALIAS alone
+  local x; x=$(for_api "$1")
+  check "$1: the exchanged token names the API" "$(jq -r --arg api "$API" '[.aud] | flatten | index($api) != null' <<<"$x")"
+  check "$1: the exchanged token names $1 and no other organization" \
+    "$(jq -r --arg a "$1" '(.organization // {} | keys) == [$a]' <<<"$x")"
+  check "$1: the granted scope says organization:$1" \
+    "$(jq -r --arg s "organization:$1" '(.scope // "" | split(" ")) | index($s) != null' <<<"$(exchange "$1")")"
+}
+outsider() {  # outsider ALIAS: an organization the person is not in is dropped, never granted
+  local r; r=$(exchange "$1")
+  check "$1: not a member, so the granted scope leaves organization:$1 out" \
+    "$(jq -r --arg s "organization:$1" '(.scope // "" | split(" ")) | index($s) == null' <<<"$r")"
+  check "$1: not a member, so the exchanged token names no organization" \
+    "$(jq -r 'has("organization") | not' <<<"$(jwt "$(jq -r .access_token <<<"$r")")")"
+}
 
 case "$USERNAME" in
   ana)
@@ -135,14 +173,25 @@ case "$USERNAME" in
       "$([ "$(roles_in "$IT" acme)" = '["high","low"]' ] && echo true || echo false)"
     check "every organization entry has an id" \
       "$(jq -r '[.organization[] | has("id")] | all' <<<"$AT")"
+    one_org acme
+    check "acme: the exchanged token keeps the roles held there" \
+      "$([ "$(roles_in "$(for_api acme)" acme)" = '["high","low"]' ] && echo true || echo false)"
+    one_org globex
+    # `ai-gateway` is a registered API (realm/dev.tfvars) that this application does not list in
+    # its `apis`, so its scope is not one the application may ask for.
+    check "an API the application does not list is refused (invalid_scope)" \
+      "$(jq -r '.error == "invalid_scope" and (has("access_token") | not)' <<<"$(API=ai-gateway exchange acme)")"
     ;;
   carla)
     check "globex: high arrives with the low it contains" \
       "$([ "$(roles_in "$AT" globex)" = '["high","low"]' ] && echo true || echo false)"
     check "no membership of acme" "$(jq -r '.organization | has("acme") | not' <<<"$AT")"
+    one_org globex
+    outsider acme
     ;;
   bruno|eva)
     check "acme: low only" "$([ "$(roles_in "$AT" acme)" = '["low"]' ] && echo true || echo false)"
+    one_org acme
     ;;
   fede)
     check "acme: a member, with no role" \
@@ -153,6 +202,8 @@ case "$USERNAME" in
     check "no organization claim" "$(jq -r 'has("organization") | not' <<<"$AT")"
     check "the client role held directly is top-level resource_access" \
       "$(jq -r --arg c "$CLIENT" '.resource_access[$c].roles // [] | index("low") != null' <<<"$AT")"
+    check "and the token exchanged for the API still carries it" \
+      "$(jq -r --arg c "$CLIENT" '.resource_access[$c].roles // [] | index("low") != null' <<<"$(for_api "")")"
     ;;
 esac
 

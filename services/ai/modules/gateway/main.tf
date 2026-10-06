@@ -1,8 +1,3 @@
-resource "random_password" "master" {
-  length  = 48
-  special = false
-}
-
 resource "random_password" "db" {
   length  = 32
   special = false
@@ -13,10 +8,34 @@ resource "docker_secret" "db_password" {
   data = base64encode(random_password.db.result)
 }
 
-# Named by the profile's hash, so a changed profile is a new config and rolls the gateway.
-resource "docker_config" "profile" {
-  name = "${var.name}-gateway-${substr(sha256(var.profile), 0, 12)}"
-  data = base64encode(var.profile)
+# The service's own gateway.yaml with the deployment's models in place of the development ones,
+# and the token budget when one is set. Its key is the organization the request is charged to,
+# which gateway.yaml already says once, for the request log.
+locals {
+  base = yamldecode(file("${path.module}/../../gateway.yaml"))
+
+  budget = var.tokens_per_hour == null ? {} : {
+    localRateLimit = [{
+      type          = "tokens"
+      maxTokens     = var.tokens_per_hour
+      tokensPerFill = var.tokens_per_hour
+      fillInterval  = "1h"
+      key           = local.base.config.standardAttributes.group
+    }]
+  }
+
+  config = yamlencode(merge(local.base, {
+    llm = merge(local.base.llm, {
+      policies = merge(local.base.llm.policies, local.budget)
+      models   = yamldecode(var.profile).models
+    })
+  }))
+}
+
+# Named by the config's hash, so a changed profile or budget is a new config and rolls the gateway.
+resource "docker_config" "gateway" {
+  name = "${var.name}-gateway-${substr(sha256(local.config), 0, 12)}"
+  data = base64encode(local.config)
   lifecycle {
     create_before_destroy = true
   }
@@ -33,8 +52,8 @@ resource "docker_service" "postgres" {
     container_spec {
       image = var.postgres_image
       env = {
-        POSTGRES_DB            = "litellm"
-        POSTGRES_USER          = "litellm"
+        POSTGRES_DB            = "gateway"
+        POSTGRES_USER          = "gateway"
         POSTGRES_PASSWORD_FILE = "/run/secrets/db-password"
       }
       secrets {
@@ -48,7 +67,7 @@ resource "docker_service" "postgres" {
         target = "/var/lib/postgresql/data"
       }
       healthcheck {
-        test         = ["CMD-SHELL", "pg_isready -U litellm -d litellm"]
+        test         = ["CMD-SHELL", "pg_isready -U gateway -d gateway"]
         interval     = "10s"
         timeout      = "5s"
         retries      = 5
@@ -77,57 +96,26 @@ resource "docker_service" "postgres" {
   }
 }
 
-# Exact-match cache for `complete` (opted in per request). Losing it costs
-# tokens, nothing else, so no volume.
-resource "docker_service" "cache" {
-  name = "${var.name}-cache"
-
-  task_spec {
-    container_spec {
-      image = var.valkey_image
-    }
-    restart_policy {
-      condition = "any"
-    }
-    networks_advanced {
-      name = var.network
-    }
-  }
-
-  mode {
-    replicated {
-      replicas = 1
-    }
-  }
-}
-
-# LiteLLM reads no `_FILE` variants, so the master key, the DB URL and the upstream
-# keys are env — their values live in state, as Keycloak's admin password does.
+# The database URL and the upstream keys are env, expanded into gateway.yaml and the profile when
+# the gateway loads them; their values live in state, as Keycloak's admin password does. The
+# gateway exits while the realm's keys cannot be fetched, and Swarm starts it again.
 resource "docker_service" "gateway" {
   name = "${var.name}-gateway"
 
   task_spec {
     container_spec {
       image = var.image
-      args  = ["--config", "/app/config.yaml", "--port", "4000"]
+      args  = ["-f", "/config/gateway.yaml"]
       env = merge(var.upstream_keys, {
-        LITELLM_MASTER_KEY = random_password.master.result
-        DATABASE_URL       = "postgresql://litellm:${random_password.db.result}@${var.name}-postgres:5432/litellm"
-        REDIS_HOST         = "${var.name}-cache"
-        REDIS_PORT         = "6379"
-        STORE_MODEL_IN_DB  = "False"
+        AI_DATABASE_URL = "postgresql://gateway:${random_password.db.result}@${var.name}-postgres:5432/gateway"
+        AI_ISSUER       = var.issuer
+        AI_JWKS_URL     = coalesce(var.jwks_url, "${var.issuer}/protocol/openid-connect/certs")
+        AI_AUDIENCE     = var.audience
       })
       configs {
-        config_id   = docker_config.profile.id
-        config_name = docker_config.profile.name
-        file_name   = "/app/config.yaml"
-      }
-      healthcheck {
-        test         = ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:4000/health/liveliness')\""]
-        interval     = "15s"
-        timeout      = "5s"
-        retries      = 5
-        start_period = "60s"
+        config_id   = docker_config.gateway.id
+        config_name = docker_config.gateway.name
+        file_name   = "/config/gateway.yaml"
       }
     }
     restart_policy {
@@ -140,6 +128,8 @@ resource "docker_service" "gateway" {
     }
   }
 
+  # One replica: the token budget is counted in the gateway's memory, so a second replica would be
+  # a second budget.
   mode {
     replicated {
       replicas = 1
@@ -150,25 +140,5 @@ resource "docker_service" "gateway" {
     order          = "start-first"
     failure_action = "rollback"
     monitor        = "30s"
-  }
-
-  # The admin console (and the management API modules/team drives) on an internal
-  # host, reachable only from `admin_allow`. Applications never use this route: they
-  # reach `alias`:4000 over the overlay.
-  dynamic "labels" {
-    for_each = var.admin_hostname == null ? {} : {
-      "traefik.enable"                                                           = "true"
-      "traefik.docker.network"                                                   = var.network
-      "traefik.http.routers.${var.name}-admin.rule"                              = "Host(`${var.admin_hostname}`)"
-      "traefik.http.routers.${var.name}-admin.entrypoints"                       = var.admin_entrypoint
-      "traefik.http.routers.${var.name}-admin.tls.certresolver"                  = var.admin_certresolver
-      "traefik.http.routers.${var.name}-admin.middlewares"                       = "${var.name}-admin-allow"
-      "traefik.http.middlewares.${var.name}-admin-allow.ipallowlist.sourcerange" = join(",", var.admin_allow)
-      "traefik.http.services.${var.name}-admin.loadbalancer.server.port"         = "4000"
-    }
-    content {
-      label = labels.key
-      value = labels.value
-    }
   }
 }

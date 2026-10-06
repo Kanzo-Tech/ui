@@ -12,10 +12,6 @@ output "client_secret" {
   sensitive = true
 }
 
-output "audience" {
-  value = var.audience
-}
-
 output "roles" {
   description = "Role name => its id, to map onto organization groups."
   value = merge(

@@ -1,60 +1,48 @@
-# The platform's AI gateway: LiteLLM, the one door to models as Keycloak is the one
-# door to identity. Applications speak OpenAI chat completions to it through their own
-# server and name an alias (`chat`, `complete`), never a provider.
+# The platform's AI gateway: agentgateway, the one door to models as Keycloak is the one door to
+# identity. Applications speak OpenAI chat completions to it through their own server, with an
+# access token the realm issued for this gateway, and name an alias (`chat`, `complete`), never a
+# provider.
 #
-#   docker compose up -d --wait
+#   docker compose -f ../auth/compose.yml -f compose.yml up -d --wait
 #
-# brings the gateway up on http://localhost:4000 on the dev profile, with both aliases
-# served by Docker Model Runner on the host's GPU (Docker Desktop 4.40+, Model Runner
-# on). The first `up` pulls the models (~6.5 GB). Admin console: /ui, user `admin`,
-# password the master key below. An application includes this file (`include:`) and
-# mints its tenants' teams and keys with modules/team.
+# brings the gateway up on http://localhost:4000 beside the identity service it trusts, with both
+# aliases served by Docker Model Runner on the host's GPU (Docker Desktop 4.40+, Model Runner on).
+# The first `up` pulls the models (~6.5 GB). An application includes both files (`include:`).
 
 name: kanzo-ai
 
 services:
+  # The request log: who asked, for which organization, the alias, the tokens and their cost.
   ai-postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_DB: litellm
-      POSTGRES_USER: litellm
-      POSTGRES_PASSWORD: litellm
+      POSTGRES_DB: gateway
+      POSTGRES_USER: gateway
+      POSTGRES_PASSWORD: gateway
     volumes:
       - kanzo-ai-db:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U litellm"]
+      test: ["CMD-SHELL", "pg_isready -U gateway"]
       interval: 5s
       timeout: 5s
       retries: 20
 
-  # Exact-match cache for requests that opt in. Losing it costs tokens, nothing else,
-  # so no volume.
-  ai-cache:
-    image: valkey/valkey:8.1-alpine
-    healthcheck:
-      test: ["CMD", "valkey-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
   ai-gateway:
-    # Pinned by digest: two LiteLLM releases (1.82.7, 1.82.8) shipped compromised.
-    image: ghcr.io/berriai/litellm-database:v1.103.0@sha256:f4f114b1996c5923c4d62a7bbdcecb2ccf9df17bdebce76050f609be97f75f5c
-    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    # Pinned by digest, and moved deliberately: the gateway holds every provider's key.
+    image: ghcr.io/agentgateway/agentgateway:v1.6.0@sha256:9d3e6044ddcdc0878b1787f77bd401252b95e22684203fb5e874c4c42d2ed90c
+    command: ["-f", "/config/gateway.yaml"]
     ports:
       - "${AI_PORT:-4000}:4000"
     volumes:
-      - ./litellm.dev.yaml:/app/config.yaml:ro
+      - ./gateway.yaml:/config/gateway.yaml:ro
     environment:
-      LITELLM_MASTER_KEY: ${AI_MASTER_KEY:-sk-dev-master-key}
-      DATABASE_URL: postgresql://litellm:litellm@ai-postgres:5432/litellm
-      REDIS_HOST: ai-cache
-      REDIS_PORT: "6379"
-      STORE_MODEL_IN_DB: "False"
-      # Docker Desktop's VM on Apple silicon advertises SVE2 the CPU lacks, and
-      # cryptography ≥ 49 dies on it with SIGILL (same fault: Parallels KB 131179).
-      # This only turns off OpenSSL's ARM capability probing.
-      OPENSSL_armcap: "0"
+      AI_DATABASE_URL: postgresql://gateway:gateway@ai-postgres:5432/gateway
+      # The issuer the tokens say, which is the one a browser sees; the keys are fetched from
+      # inside the network. The gateway exits while they cannot be fetched, and restarts.
+      AI_ISSUER: ${AI_ISSUER:-http://localhost:8080/realms/kanzo}
+      AI_JWKS_URL: ${AI_JWKS_URL:-http://keycloak:8080/realms/kanzo/protocol/openid-connect/certs}
+      AI_AUDIENCE: ${AI_AUDIENCE:-ai-gateway}
+    restart: on-failure
     models:
       chat:
         endpoint_var: CHAT_URL
@@ -65,14 +53,6 @@ services:
     depends_on:
       ai-postgres:
         condition: service_healthy
-      ai-cache:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:4000/health/liveliness')\""]
-      interval: 10s
-      timeout: 5s
-      retries: 30
-      start_period: 60s
 
 models:
   chat:
