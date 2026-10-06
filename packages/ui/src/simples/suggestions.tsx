@@ -46,6 +46,12 @@ export interface SuggestionProps extends Omit<ButtonProps, "onSelect" | "value">
   value: string;
   /** Given the value, so a handler needs no closure per pill. */
   onSelect?: (value: string) => void;
+  /**
+   * Why this one is on offer — a saved filter's note, a model's rationale. Shown in the tooltip,
+   * which then opens whether or not the label is cut, and read as the pill's accessible
+   * description.
+   */
+  description?: React.ReactNode;
 }
 
 /**
@@ -63,11 +69,18 @@ export interface SuggestionProps extends Omit<ButtonProps, "onSelect" | "value">
  * strip's width and its label truncates with an ellipsis; the whole label is in a tooltip, which
  * opens only when the label is cut — a tooltip repeating what the pill already says is noise. The
  * accessible name is the whole label either way: the ellipsis is paint, not text.
+ *
+ * **A `description` is the one other thing a pill can say**, and it says it in the same tooltip:
+ * under the whole label when the label is cut, alone when it is not. It costs no box, so a strip in
+ * a side panel stays one row; text under each pill would double it. It is also the accessible
+ * description, written once into the page rather than only while the tooltip is open, so a screen
+ * reader hears it on focus.
  */
 export const Suggestion = (props: SuggestionProps) => {
-  const { children, className, onClick, onSelect, size = "sm", slot, value, variant = "outline", ...rest } =
+  const { children, className, description, onClick, onSelect, size = "sm", slot, value, variant = "outline", ...rest } =
     props;
   const label = React.useRef<HTMLSpanElement>(null);
+  const described = React.useId();
   const [cut, setCut] = React.useState(false);
   const content = children ?? value;
 
@@ -85,26 +98,38 @@ export const Suggestion = (props: SuggestionProps) => {
   }, [content]);
 
   return (
-    <Tooltip disabled={!cut}>
-      <TooltipTrigger asChild>
-        <Button
-          className={cn("h-auto min-w-0 max-w-full py-1", className)}
-          onClick={(event) => {
-            onClick?.(event);
-            if (!event.defaultPrevented) onSelect?.(value);
-          }}
-          pill
-          size={size}
-          variant={variant}
-          {...rest}
-          slot={slot ?? "suggestion"}
-        >
-          <span className="min-w-0 truncate" ref={label}>
-            {content}
-          </span>
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent className="max-w-xs">{content}</TooltipContent>
-    </Tooltip>
+    <>
+      <Tooltip disabled={!cut && description === undefined}>
+        <TooltipTrigger asChild>
+          <Button
+            aria-describedby={description === undefined ? undefined : described}
+            className={cn("h-auto min-w-0 max-w-full py-1", className)}
+            onClick={(event) => {
+              onClick?.(event);
+              if (!event.defaultPrevented) onSelect?.(value);
+            }}
+            pill
+            size={size}
+            variant={variant}
+            {...rest}
+            slot={slot ?? "suggestion"}
+          >
+            <span className="min-w-0 truncate" ref={label}>
+              {content}
+            </span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent className="flex max-w-xs flex-col gap-1">
+          {(cut || description === undefined) && <span className="font-medium">{content}</span>}
+          {description !== undefined && <span>{description}</span>}
+        </TooltipContent>
+      </Tooltip>
+      {/* Beside the button, not in it: text inside a button is part of its name. */}
+      {description !== undefined && (
+        <span className="sr-only" id={described}>
+          {description}
+        </span>
+      )}
+    </>
   );
 };

@@ -4,8 +4,9 @@ import { ark } from "@ark-ui/react/factory";
 import * as React from "react";
 import { getToolName, isToolUIPart, type UIMessage } from "@kanzo-tech/llm";
 import type { UseChatHelpers } from "@ai-sdk/react";
-import { cn, Skeleton, Suggestion, Suggestions } from "@kanzo-tech/ui";
+import { cn, Skeleton } from "@kanzo-tech/ui";
 import type { Proposal } from "./engine.js";
+import { PILLS, ProposalStrip } from "./proposal-strip.js";
 import { Conversation, ConversationContent, ConversationScrollButton } from "./conversation.js";
 import { MessageMarkdown } from "./markdown.js";
 import { Message, MessageContent, MessageList } from "./message.js";
@@ -115,13 +116,12 @@ export function Chat<M extends UIMessage>(props: ChatProps<M>) {
       {chat.messages.length === 0 ? (
         <ChatOpening empty={empty}>
           {(suggestions !== undefined || suggesting) && (
-            <PillRow busy={suggesting} pending={suggesting ? PILLS - (suggestions?.length ?? 0) : 0}>
-              {suggestions?.map((s) => (
-                <Suggestion key={s.text} onSelect={ask} value={s.text}>
-                  {s.text}
-                </Suggestion>
-              ))}
-            </PillRow>
+            <ProposalStrip
+              className="justify-center"
+              onSelect={ask}
+              pending={suggesting ? PILLS - (suggestions?.length ?? 0) : 0}
+              proposals={suggestions ?? []}
+            />
           )}
         </ChatOpening>
       ) : (
@@ -179,10 +179,6 @@ export function Chat<M extends UIMessage>(props: ChatProps<M>) {
   );
 }
 
-/** How many pills a strip of suggestions holds while it is still arriving. */
-const PILLS = 3;
-const PILL_WIDTHS = ["w-44", "w-36", "w-52", "w-40"];
-
 interface ChatFrameProps extends React.ComponentProps<typeof ark.div> {
   /** Below the transcript: the composer, live or inert. */
   composer: React.ReactNode;
@@ -214,21 +210,6 @@ function ChatOpening({ empty, children }: { empty: React.ReactNode; children?: R
       {empty}
       {children}
     </div>
-  );
-}
-
-/**
- * The strip of questions, one pill high even when it holds none: arriving, failed or answered, the
- * empty state above it never moves. `pending` pills in skeleton stand for the ones still coming.
- */
-function PillRow({ busy, pending, children }: { busy: boolean; pending: number; children?: React.ReactNode }) {
-  return (
-    <Suggestions aria-busy={busy || undefined} className="min-h-7 w-full justify-center">
-      {children}
-      {Array.from({ length: Math.max(0, pending) }, (_, i) => (
-        <Skeleton className={cn("h-7 max-w-full rounded-full", PILL_WIDTHS[i % PILL_WIDTHS.length])} key={i} />
-      ))}
-    </Suggestions>
   );
 }
 
@@ -273,7 +254,7 @@ export function ChatSkeleton(props: ChatSkeletonProps) {
           )
         }
       >
-        {suggestions > 0 && <PillRow busy pending={suggestions} />}
+        {suggestions > 0 && <ProposalStrip className="justify-center" pending={suggestions} proposals={[]} />}
       </ChatOpening>
     </ChatFrame>
   );

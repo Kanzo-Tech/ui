@@ -198,7 +198,9 @@ describe("Assist on an Input — whole values, as chips", () => {
     await user.click(screen.getByRole("textbox", { name: "Title" }));
     await user.click(mark());
     const chip = await screen.findByRole("button", { name: "Herd dog taken at the ford" });
-    expect(chip.getAttribute("title")).toBe("Leads with the loss.");
+    // The rationale is the chip's description, not a `title` the browser draws on its own.
+    expect(chip.getAttribute("title")).toBeNull();
+    expect(document.getElementById(chip.getAttribute("aria-describedby") ?? "")?.textContent).toBe("Leads with the loss.");
 
     await user.click(chip);
     expect(value()).toBe("Herd dog taken at the ford");

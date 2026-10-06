@@ -141,4 +141,13 @@ describe("dataSuggestions", () => {
     expect(prompt).toContain(`SELECT * FROM "archive"."node" WHERE ("kind" IN ('contract'))`);
     expect(prompt).toContain("Give 3.");
   });
+
+  it("favours a question across a declared join, and a rationale naming the tables it connects", async () => {
+    const { model } = mockModel(() => JSON.stringify({ elements: [] }));
+    for await (const _ of dataSuggestions({ model, schema })) void _;
+    const system = (model.doStreamCalls[0]!.prompt as { role: string; content: unknown }[]).find((m) => m.role === "system");
+    expect(String(system?.content)).toContain("cross a join the schema declares");
+    expect(String(system?.content)).toContain("only when the schema declares no join");
+    expect(String(system?.content)).toContain("The rationale names the tables the question connects.");
+  });
 });
