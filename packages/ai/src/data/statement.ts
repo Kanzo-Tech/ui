@@ -39,8 +39,8 @@ export type GatedStatement = { readonly statement: string } | { readonly refused
  * The one door from a model's SQL to the page's engine: one read-only SELECT over the tables the model
  * was shown, or a refusal.
  *
- * The engine it guards is the page's one connection, with `httpfs` loaded and a scoped secret beside
- * it — a statement that reached it unread could drop a view the page draws, copy a table to a bucket,
+ * The engine it guards is the page's one connection, with `httpfs` and `json` loaded and a scoped
+ * secret beside it — a statement that reached it unread could drop a view the page draws, copy a table to a bucket,
  * or read any URL. So the text is never run, and never spliced into anything that runs: DuckDB's own
  * parser reads it (`json_serialize_sql`, the text going in as a literal), the gate reads the parse,
  * and DuckDB prints the parse back (`json_deserialize_sql`). What runs is that print, wrapped in the

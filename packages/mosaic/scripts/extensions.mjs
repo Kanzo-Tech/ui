@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /**
- * Puts DuckDB's `httpfs` extension beside this package, so `engine()` loads it from the host's own
- * origin rather than from extensions.duckdb.org at runtime.
+ * Puts the DuckDB extensions `engine()` loads beside this package, so they come from the host's own
+ * origin rather than from extensions.duckdb.org at runtime: `httpfs`, the reader of `s3://` and of a
+ * URL named in SQL, and `json`, whose `json_serialize_sql` is the parser `@kanzo-tech/ai`'s statement
+ * gate reads a model's SQL through. DuckDB-WASM builds neither in.
  *
  * **Fetched at build, never committed.** The binaries ride the npm tarball (`files` lists
  * `extensions/`) and the host's bundler emits them as assets through `new URL(…, import.meta.url)` in
@@ -24,13 +26,20 @@ import { fileURLToPath } from "node:url";
  * `duckdbWasm` is the DuckDB-WASM release this package depends on, and `duckdb` the library version
  * that release reports (`SELECT library_version FROM pragma_version()`), which is the directory
  * extensions are published under. `extensions.test.mjs` fails when a dependency moves and this does not.
+ * `extensions` is each one's sha256 per platform.
  */
 export const PIN = {
   duckdbWasm: "1.33.1-dev57.0",
   duckdb: "v1.5.4",
-  httpfs: {
-    wasm_mvp: "ef756ec28db02feafd02ab036aa01f4fc11ac197bd295bf0f20e4e23d48c54c3",
-    wasm_eh: "576721756dd01b86cdfdcf1303ecdcc9776929fd21c3e3b86fdd43a2259aec5b",
+  extensions: {
+    httpfs: {
+      wasm_mvp: "ef756ec28db02feafd02ab036aa01f4fc11ac197bd295bf0f20e4e23d48c54c3",
+      wasm_eh: "576721756dd01b86cdfdcf1303ecdcc9776929fd21c3e3b86fdd43a2259aec5b",
+    },
+    json: {
+      wasm_mvp: "15a89d3fd0fa3449c0d8981e6cb1ca6be8df4bcaf0dfdd6660c17bcc3bdf0af8",
+      wasm_eh: "993b19f7929cc305b2529c548f2842e8e7a5b112d1c88f31c84798b51901ca16",
+    },
   },
 };
 
@@ -38,12 +47,12 @@ const REPOSITORY = "https://extensions.duckdb.org";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "extensions");
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
-async function ensure(platform, expected) {
-  const file = join(root, platform, "httpfs.duckdb_extension.wasm");
+async function ensure(extension, platform, expected) {
+  const file = join(root, platform, `${extension}.duckdb_extension.wasm`);
   const held = await readFile(file).catch(() => null);
   if (held && sha256(held) === expected) return;
 
-  const url = `${REPOSITORY}/${PIN.duckdb}/${platform}/httpfs.duckdb_extension.wasm`;
+  const url = `${REPOSITORY}/${PIN.duckdb}/${platform}/${extension}.duckdb_extension.wasm`;
   const response = await fetch(url);
   if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
   const bytes = new Uint8Array(await response.arrayBuffer());
@@ -53,9 +62,13 @@ async function ensure(platform, expected) {
   }
   await mkdir(dirname(file), { recursive: true });
   await writeFile(file, bytes);
-  console.log(`extensions: ${PIN.duckdb}/${platform}/httpfs (${(bytes.byteLength / 1024).toFixed(0)} kB)`);
+  console.log(`extensions: ${PIN.duckdb}/${platform}/${extension} (${(bytes.byteLength / 1024).toFixed(0)} kB)`);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  await Promise.all(Object.entries(PIN.httpfs).map(([platform, hash]) => ensure(platform, hash)));
+  await Promise.all(
+    Object.entries(PIN.extensions).flatMap(([extension, builds]) =>
+      Object.entries(builds).map(([platform, hash]) => ensure(extension, platform, hash)),
+    ),
+  );
 }
