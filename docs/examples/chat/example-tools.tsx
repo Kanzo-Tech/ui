@@ -1,7 +1,7 @@
 "use client";
 
-import { Chat, useChat } from "@kanzo-tech/ai";
-import { DirectChatTransport, jsonSchema, tool, ToolLoopAgent } from "@kanzo-tech/llm";
+import { Chat, ToolInput, ToolOutput, useAgentChat } from "@kanzo-tech/ai";
+import { jsonSchema, tool, ToolLoopAgent } from "@kanzo-tech/llm";
 import {
   Badge,
   Table,
@@ -41,10 +41,10 @@ const model = mockModel((call) =>
     : { reasoning: "The board knows what is late; ask it rather than guess.", tool: "late", input: { limit: 3 } },
 );
 
-const transport = new DirectChatTransport({ agent: new ToolLoopAgent({ model, tools: { late } }) });
+const agent = new ToolLoopAgent({ model, tools: { late } });
 
 export default function Example() {
-  const chat = useChat({ transport });
+  const chat = useAgentChat(agent);
 
   return (
     <div className="flex h-120 w-full max-w-xl flex-col">
@@ -52,8 +52,15 @@ export default function Example() {
         chat={chat}
         suggestions={[{ text: "Which contracts are late?" }]}
         tools={{
-          // Without this the result is drawn as a JSON tree; with it, as what it is.
-          late: (part) => (
+          // Without this the result is drawn as a JSON tree; with it, as what it is. Called at every
+          // state: until there is a result, the frame's own input and output say what is running.
+          late: (part) =>
+            part.state !== "output-available" ? (
+              <>
+                <ToolInput />
+                <ToolOutput />
+              </>
+            ) : (
             <Table>
               <TableHeader>
                 <TableRow>

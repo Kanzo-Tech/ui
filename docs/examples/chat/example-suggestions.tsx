@@ -1,7 +1,7 @@
 "use client";
 
-import { Chat, ChatSkeleton, type Proposal, suggest, useChat } from "@kanzo-tech/ai";
-import { DirectChatTransport, ToolLoopAgent } from "@kanzo-tech/llm";
+import { Chat, ChatSkeleton, type Proposal, suggest, useAgentChat } from "@kanzo-tech/ai";
+import { ToolLoopAgent } from "@kanzo-tech/llm";
 import { Button } from "@kanzo-tech/ui";
 import { useEffect, useState } from "react";
 import { mockModel } from "@/lib/mock-model";
@@ -20,12 +20,10 @@ const OFFERED = [
 // In a product the model is `gateway("chat")`; here it is a mock that streams the answer a word at
 // a time, so the skeleton pills are on screen long enough to see.
 const model = mockModel(() => JSON.stringify({ elements: OFFERED }), { delay: 25 });
-const transport = new DirectChatTransport({
-  agent: new ToolLoopAgent({ model: mockModel(() => "Ask the board.") }),
-});
+const agent = new ToolLoopAgent({ model: mockModel(() => "Ask the board.") });
 
 export default function Example() {
-  const chat = useChat({ transport });
+  const chat = useAgentChat(agent);
   const [ready, setReady] = useState(false);
   const [round, setRound] = useState(0);
   const [questions, setQuestions] = useState<Proposal[]>([]);

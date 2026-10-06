@@ -19,9 +19,9 @@ a recorded model, but every query runs for real, under the filter you set on the
 ## Usage
 
 ```tsx
-import { Chat, ChatSkeleton, useChat } from "@kanzo-tech/ai";
+import { Chat, ChatSkeleton, useAgentChat } from "@kanzo-tech/ai";
 import { dataAgent, dataSuggestions, describeSchema, QueryResult, type DataSchema } from "@kanzo-tech/ai/data";
-import { DirectChatTransport, createGateway } from "@kanzo-tech/llm";
+import { createGateway } from "@kanzo-tech/llm";
 import { clauseSemiJoin, useMosaic } from "@kanzo-tech/ui/analytics";
 
 const gateway = createGateway({ baseURL: "/api/ai" });
@@ -31,10 +31,7 @@ const gateway = createGateway({ baseURL: "/api/ai" });
 function Ask({ catalog, schema, table }: { catalog: string; schema: DataSchema; table: TableExpr }) {
   const { coordinator, crossfilter } = useMosaic();
   const scope = useMemo(() => ({ selection: crossfilter, table }), [crossfilter, table]);
-  const [transport] = useState(
-    () => new DirectChatTransport({ agent: dataAgent({ model: gateway("chat"), coordinator, schema, scope, key: "dense_id" }) }),
-  );
-  const chat = useChat({ transport });
+  const chat = useAgentChat(dataAgent({ model: gateway("chat"), coordinator, schema, scope, key: "dense_id" }));
   // Cached per data space and per filter; streamed, so the pills land one by one.
   const starters = useQuery({
     queryKey: ["starters", catalog, String(crossfilter.predicate(null))],
@@ -47,7 +44,11 @@ function Ask({ catalog, schema, table }: { catalog: string; schema: DataSchema; 
       chat={chat}
       suggesting={starters.fetchStatus === "fetching"}
       suggestions={starters.isError ? [] : (starters.data ?? [])}
-      tools={{ query: (part) => <QueryResult actions={(answer) => <FilterToThese answer={answer} />} part={part} /> }}
+      tools={{
+        query: (part, { stopped }) => (
+          <QueryResult actions={(answer) => <FilterToThese answer={answer} />} part={part} stopped={stopped} />
+        ),
+      }}
     />
   );
 }
@@ -214,7 +215,8 @@ gate's refusal, so it can write another statement".
 
 ## The answer card
 
-`QueryResult` draws one `query` call, from the part `Chat`'s `tools` hands over:
+`QueryResult` draws one `query` call, from the part `Chat`'s `tools` hands over, at whatever state
+it is in. Once there is an answer:
 
 - **One row of one column is a figure**, drawn as a `Stat` with the column as its label.
 - **Rows a chart suits are a chart**: the first card [`recommend(fields, "answer")`](/docs/analytics/dashboard#recommend)
@@ -223,6 +225,20 @@ gate's refusal, so it can write another statement".
 - **Anything else is a compact table**, eight rows a page.
 - **The SQL is under it**, folded away, in a read-only `CodeEditor` with SQL highlighting.
 - **The actions are above it**: the SQL to the clipboard, the rows as CSV, and the host's own.
+
+Before there is one, and when there will be none:
+
+- **While the model writes the statement and the engine runs it**, the statement shows as it is
+  written, open, under a skeleton the chart's height, so nothing jumps when the rows land.
+- **A call that stopped** (`stopped`, from `Chat`) shows its statement and nothing that waits.
+- **A refusal is a [`Problem`](/docs/data-display/problem)** under the card's title, *The query
+  failed*. The statement gate's carries `query/refused` on `data-code`, like every coded failure in
+  the library; the engine's own words stay uncoded, because no host branches on them. The tool's
+  own failure, the part's `errorText`, is drawn the same way. A kept refusal is data in a
+  `QueryRefusal`, never thrown, and one kept before it had a code draws as an uncoded `Problem`.
+
+*What would reverse the uncoded engine error:* the first host that branches on it. Then it is
+`query/failed`, with a row in [the codes table](/docs/design/failure#the-codes-this-library-names).
 
 **Everything it draws is the rows the answer holds**, as Hex's and Genie's cards draw the result set
 rather than the query. The SQL is never run again: a transcript is kept and restored, and a statement
@@ -253,7 +269,8 @@ the graph both follow. *Show on graph* is the graph's `GraphSelect` with `load={
 
 | Prop | Type | |
 | --- | --- | --- |
-| `part` | `ToolPart` | The `query` call |
+| `part` | `ToolPart` | The `query` call, at any state |
+| `stopped` | `boolean` | The call will never settle — `Chat`'s `stopped` |
 | `actions` | `(answer: QueryOutput) => ReactNode` | The host's actions, beside Copy and CSV |
 | `translations` | `Partial<QueryResultTranslations>` | Every word it draws |
 
@@ -262,7 +279,9 @@ answers a `QueryAnswer`, one of the two; a row is a `QueryRow`.
 
 *Held by* `packages/ai/src/data/query-result.test.tsx`, "draws a single figure as a Stat, with its
 column as the label"; "is the chart recommend proposes for an answer, a measure against what it was
-grouped by"; "hands the host's actions the whole answer"; "never runs the SQL a kept answer carries:
+grouped by"; "hands the host's actions the whole answer"; "draws a refusal as a Problem under the
+card's title: the gate's code, the words, and the SQL refused"; "shows the statement as it is written,
+open, over a skeleton the chart's height"; "shows a stopped call's statement and nothing that waits"; "never runs the SQL a kept answer carries:
 the chart reads the rows"; "is the rows it holds, as literals: a timestamp is a timestamp again, and
 SQL in a kept row is data".
 

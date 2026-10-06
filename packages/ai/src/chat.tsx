@@ -4,7 +4,7 @@ import { ark } from "@ark-ui/react/factory";
 import * as React from "react";
 import { getToolName, isToolUIPart, type UIMessage } from "@kanzo-tech/llm";
 import type { UseChatHelpers } from "@ai-sdk/react";
-import { cn, Skeleton } from "@kanzo-tech/ui";
+import { cn, DiagnosticList, Problem, type ProblemProps, Skeleton } from "@kanzo-tech/ui";
 import type { Proposal } from "./engine.js";
 import { PILLS, ProposalStrip } from "./proposal-strip.js";
 import { Conversation, ConversationContent, ConversationScrollButton } from "./conversation.js";
@@ -33,19 +33,25 @@ const ENGLISH: ChatTranslations = {
 };
 
 /**
- * How a host draws its own tools' results, by tool name. Each gets the call's part — typed, when the
- * host's messages are (`InferAgentUIMessage<typeof agent>`) — and draws inside the tool's frame once
- * the call has a result, in place of its input and output: a result card, a chart, an action that
- * takes the result somewhere. Until then the frame shows the input, so the reader sees what is
- * running.
+ * How a host draws its own tools, by tool name. Each gets the call's part — typed, when the host's
+ * messages are (`InferAgentUIMessage<typeof agent>`) — at **every** state, and what it returns is
+ * drawn inside the tool's frame in place of its input and output: the statement as it is written,
+ * a result card, a chart, an action that takes the result somewhere. A renderer that only wants the
+ * result switches on `part.state`.
+ *
+ * `stopped` is true when the call will never settle: the reader pressed Stop, or a kept transcript
+ * was cut mid-call. The AI SDK leaves such a part at the state it reached, so it is derived here.
  */
-export type ChatToolRenderers = Record<string, (part: ToolPart) => React.ReactNode>;
+export type ChatToolRenderers = Record<string, (part: ToolPart, call: { stopped: boolean }) => React.ReactNode>;
 
-/** What `Chat` reads from `useChat` — the helpers, not the hook, so any chat state can drive it. */
-type ChatState<M extends UIMessage> = Pick<
-  UseChatHelpers<M>,
-  "messages" | "status" | "error" | "sendMessage" | "stop" | "regenerate"
->;
+/**
+ * What `Chat` reads from `useAgentChat` or `useChat` — the helpers, not the hook, so any chat state
+ * can drive it. `error` is whatever stopped the answer: `useAgentChat`'s thrown value, or
+ * `useChat`'s `Error`.
+ */
+type ChatState<M extends UIMessage> = Pick<UseChatHelpers<M>, "messages" | "status" | "sendMessage" | "stop" | "regenerate"> & {
+  error: unknown;
+};
 
 export interface ChatProps<M extends UIMessage> {
   /** `useChat(...)`'s return. */
@@ -64,6 +70,8 @@ export interface ChatProps<M extends UIMessage> {
    * skeleton beside the ones that arrived, as many as make up the strip.
    */
   suggesting?: boolean;
+  /** The host's words for a failure's code, as `Problem` takes them. */
+  copy?: ProblemProps["copy"];
   translations?: Partial<ChatTranslations>;
   className?: string;
 }
@@ -77,7 +85,7 @@ export interface ChatProps<M extends UIMessage> {
  * text as markdown, `reasoning` folded away, every tool call in its frame with the SDK's state.
  */
 export function Chat<M extends UIMessage>(props: ChatProps<M>) {
-  const { chat, tools = {}, empty, suggestions, suggesting = false, translations, className } = props;
+  const { chat, tools = {}, empty, suggestions, suggesting = false, copy, translations, className } = props;
   const t = { ...ENGLISH, ...translations };
   const [draft, setDraft] = React.useState("");
   const busy = chat.status === "submitted" || chat.status === "streaming";
@@ -146,12 +154,13 @@ export function Chat<M extends UIMessage>(props: ChatProps<M>) {
                   if (part.type === "reasoning") return <Reasoning key={key} part={part} />;
                   if (isToolUIPart(part)) {
                     const draw = tools[getToolName(part)];
+                    const stopped = !streaming && RUNNING.has(part.state);
                     return (
-                      <Tool key={key} part={part}>
+                      <Tool key={key} part={part} stopped={stopped}>
                         <ToolHeader />
                         <ToolContent>
-                          {draw && part.state === "output-available" ? (
-                            draw(part)
+                          {draw ? (
+                            draw(part, { stopped })
                           ) : (
                             <>
                               <ToolInput />
@@ -169,15 +178,22 @@ export function Chat<M extends UIMessage>(props: ChatProps<M>) {
           ))}
         </MessageList>
       )}
-      {chat.error && (
-        <p className="text-destructive-foreground text-sm" data-slot="chat-error" role="alert">
-          <span className="sr-only">{t.failed} </span>
-          {chat.error.message}
-        </p>
+      {chat.error !== undefined && (
+        // Through `Problem`, as every failure in the library is drawn: a coded one shows its code and
+        // takes the host's `copy`. The live region says what the list is.
+        <div data-slot="chat-error" role="alert">
+          <span className="sr-only">{t.failed}</span>
+          <DiagnosticList>
+            <Problem copy={copy} error={chat.error} />
+          </DiagnosticList>
+        </div>
       )}
     </ChatFrame>
   );
 }
+
+/** The states of a call still working; one left in them once the answer stopped never settles. */
+const RUNNING = new Set<ToolPart["state"]>(["input-streaming", "input-available", "approval-responded"]);
 
 interface ChatFrameProps extends React.ComponentProps<typeof ark.div> {
   /** Below the transcript: the composer, live or inert. */

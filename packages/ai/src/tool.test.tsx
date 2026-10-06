@@ -61,6 +61,16 @@ describe("Tool", () => {
     expect(badge().textContent).toContain("Denied");
   });
 
+  it("reads Stopped, and still, for a call that will never settle; a settled one keeps its state", () => {
+    const { rerender } = render(<Tool part={part("input-available")} stopped />);
+    const badge = () => document.querySelector("[data-slot=tool-badge]") as HTMLElement;
+    expect(badge().textContent).toContain("Stopped");
+    expect(badge().querySelector("[data-slot=spinner]")).toBeNull();
+    expect(root().getAttribute("data-stopped")).toBe("true");
+    rerender(<Tool part={part("output-available")} stopped />);
+    expect(badge().textContent).toContain("Done");
+  });
+
   it("falls back to the default frame and a JSON tree when given nothing", async () => {
     render(<Tool part={part("output-available")} />);
     const tree = await waitFor(() => {
