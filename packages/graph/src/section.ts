@@ -10,15 +10,19 @@
  * can drift; what stops it is that a mismatch is a `tsc` error the moment a host passes this to
  * `validateSection`, which `docs/` does.
  */
-type PrefCommon_ = { default: string; doc: string; label?: string };
+type PrefCommon_ = {
+  default: string;
+  doc: string;
+  label?: string;
+  when?: { pref: string; eq: string } | { pref: string; neq: string };
+};
 type SectionPrefDecl_ =
-  | (PrefCommon_ & { kind: "choice"; options: readonly { value: string; label: string }[] })
+  | (PrefCommon_ & { kind: "choice"; options: readonly { value: string; label: string }[] | { from: string } })
   | (PrefCommon_ & { kind: "toggle" })
   | (PrefCommon_ & { kind: "range"; min: number; max: number; step: number });
 
 interface SectionManifest {
   namespace: string;
-  version: number;
   tokens?: Readonly<Record<string, { default: string; doc: string }>>;
   prefs?: Readonly<Record<string, SectionPrefDecl_>>;
 }
@@ -66,9 +70,8 @@ interface SectionManifest {
  * nothing between it and the browser, and the type it mirrored no longer has to be declared
  * structurally in two packages at once.
  */
-export const GRAPH_SECTION: SectionManifest = {
+export const GRAPH_SECTION = {
   namespace: "graph",
-  version: 1,
   tokens: {
     grid: {
       default: "var(--border)",
@@ -108,6 +111,7 @@ export const GRAPH_SECTION: SectionManifest = {
       label: "Additive links",
       default: "false",
       doc: "Links add where they overlap instead of compositing over one another. Additive light is what makes a dense graph read as flow — and what made 4,280 links at 0.45 swallow 1,543 points on the archive.",
+      when: { pref: "edges", neq: "hidden" },
     },
     labels: {
       kind: "choice",
@@ -133,6 +137,53 @@ export const GRAPH_SECTION: SectionManifest = {
       label: "Dot grid",
       default: "true",
       doc: "The dot grid behind the graph. It pans and subdivides with the camera, which is what makes a pan read as motion rather than as a redraw.",
+    },
+
+    /**
+     * **Where the points come from, as preferences** — Cosmograph's rule that the data places the
+     * points or the layout does, with the cluster force as the third way. The columns are
+     * Cosmograph's `pointXBy`, `pointYBy` and `pointClusterBy`, named after them, and their options
+     * are the attached corpus's own fields: a list only the graph's root knows, so the root answers
+     * it (`GraphSection`) and nothing here can.
+     *
+     * A column outlives the corpus it was chosen on — it is stored per person, not per corpus — and
+     * a corpus that lacks it reads it as unbound (`carries`, in the loaders). That is
+     * `resolvePref`'s own rule, an illegal value falls back, applied where the options are known.
+     */
+    placement: {
+      kind: "choice",
+      label: "Placement",
+      default: "force",
+      doc: "Where the points come from: the layout, two numeric columns, or the layout pulling points that share a column's value together. Longitude and latitude draw a map, north up.",
+      options: [
+        { value: "force", label: "Force" },
+        { value: "map", label: "Map" },
+        { value: "clustered", label: "Clustered" },
+      ],
+    },
+    "x-by": {
+      kind: "choice",
+      label: "x",
+      default: "",
+      doc: "The numeric column the points are placed across by. With only one of the two chosen, the layout runs.",
+      options: { from: "numeric-columns" },
+      when: { pref: "placement", eq: "map" },
+    },
+    "y-by": {
+      kind: "choice",
+      label: "y",
+      default: "",
+      doc: "The numeric column the points are placed up by — latitude draws north up.",
+      options: { from: "numeric-columns" },
+      when: { pref: "placement", eq: "map" },
+    },
+    "cluster-by": {
+      kind: "choice",
+      label: "Cluster by",
+      default: "",
+      doc: "The column whose shared values pull points together while the layout runs.",
+      options: { from: "columns" },
+      when: { pref: "placement", eq: "clustered" },
     },
 
     /**
@@ -199,10 +250,11 @@ export const GRAPH_SECTION: SectionManifest = {
       kind: "range",
       label: "Cluster pull",
       default: "0.1",
-      doc: "Pull toward the centre of the vertex's cluster, when a column is bound to `cluster`. Zero lets the links decide alone.",
+      doc: "Pull toward the centre of the vertex's cluster. Zero lets the links decide alone.",
       min: 0,
       max: 1,
       step: 0.05,
+      when: { pref: "placement", eq: "clustered" },
     },
   },
-};
+} as const satisfies SectionManifest;

@@ -1,4 +1,4 @@
-import { tenantRequest, withTenant, type Bound } from "./next-bound";
+import { addressedUrl, tenantRequest, withTenant, type Bound } from "./next-bound";
 import { isSameSite } from "./same-site";
 import { AuthError, type AuthErrorCode, type Session } from "./types";
 
@@ -139,7 +139,7 @@ function coded(code: AuthErrorCode, message: string, status: number, cookies: re
 export function routes(instance: () => Promise<Bound>): RouteHandlers {
   const handle = async (request: Request): Promise<Response> => {
     const bound = await instance();
-    const url = new URL(request.url);
+    const url = addressedUrl(request);
     const { action, base } = split(url.pathname);
     const cookie = request.headers.get("cookie");
     const auth = bound.party;

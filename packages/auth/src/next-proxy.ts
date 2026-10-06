@@ -1,16 +1,17 @@
-import { tenantRequest, type Bound } from "./next-bound";
+import { tenantRequest, under, type Bound } from "./next-bound";
 import { outage } from "./next-routes";
 import { isSameSite } from "./same-site";
 import type { Ended, Token } from "./server";
-import { AuthError } from "./types";
+import { AuthError, type AuthErrorCode } from "./types";
 
 /**
  * The BFF half of the *token-mediating backend*: the browser's request goes out again carrying a
- * bearer token, and the cookie that got it here stops at this line. `kanzoAuth().api`.
+ * bearer token for that resource server and that organization alone, and the cookie that got it
+ * here stops at this line. `kanzoAuth().api`.
  *
  * ```ts
- * // lib/auth.ts: kanzoAuth(() => ({ …, api: { mount: "/api/data", target: "https://reports.internal/v1" } }))
- * // app/api/data/[...path]/route.ts
+ * // lib/auth.ts: kanzoAuth(() => ({ …, apis: { "/api/data": { audience: "reports", target: "https://reports.internal/v1" } } }))
+ * // app/api/[...path]/route.ts — one route file can serve every mount under it
  * export const { GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS } = auth.api;
  * ```
  *
@@ -31,8 +32,14 @@ import { AuthError } from "./types";
  *   the same answer. There is nothing to forward: a request with no credential is not the resource
  *   server's to refuse. `bffAuth` answers that 401 by asking `refresh`, and signs in when that is
  *   refused too.
- * - **403** when the request is not same-site. `same-site.ts` carries why the package owes this.
- * - **404** when `kanzoAuth` was given no `api`.
+ * - **403** when the request is not same-site — `same-site.ts` carries why the package owes this —
+ *   and when the realm will not issue a token for the organization the request addresses, because
+ *   the person is not a member of it.
+ * - **404** when `kanzoAuth` was given no `apis`, or the mount's `target` names no server for the
+ *   organization.
+ * - **400** for a path under no mount, and for an organization that is not an alias.
+ * - **502** when the realm would not exchange the token at all: the application is not allowed to
+ *   ask for that audience, which is the deployment's to fix and not the person's.
  *
  * ## Renewal happens here too
  *
@@ -103,6 +110,14 @@ const NOT_FORWARDED = [...HOP_BY_HOP, "cookie", "authorization", "host", "conten
  */
 const NOT_RETURNED = [...HOP_BY_HOP, "set-cookie", "content-encoding", "content-length"];
 
+/** What an `AuthError` from getting the token answers, when it is not the IdP's or the store's outage. */
+function refusal(code: AuthErrorCode): number {
+  if (code === "organization/denied") return 403;
+  if (code === "organization/invalid") return 400;
+  if (code === "token/exchange-failed") return 502;
+  return 401;
+}
+
 function copyHeaders(from: Headers, without: readonly string[]): Headers {
   const headers = new Headers(from);
   for (const name of without) headers.delete(name);
@@ -120,40 +135,45 @@ export function forward(instance: () => Promise<Bound>): ApiHandlers {
 
   const handle = async (request: Request): Promise<Response> => {
     const bound = await instance();
-    if (bound.api === undefined) return refuse(404);
+    if (bound.apis.length === 0) return refuse(404);
     if (!isSameSite(request)) return refuse(403);
-
-    const base = bound.api.mount;
-    const target = bound.api.target(await bound.tenant(tenantRequest(request)));
-    if (target === undefined) return refuse(404);
-    /** `https://api.test` has pathname `/`, and a prefix of `/` would double every separator. */
-    const prefix = target.pathname.replace(/\/$/, "");
 
     const url = new URL(request.url);
 
-    // A path outside the mount is not one this handler was mounted for, and refusing it *is* the
+    // A path under no mount is not one this handler was mounted for, and refusing it *is* the
     // traversal check: the URL parser has already resolved every dot segment — `..` and its
     // percent-encoded spellings alike, which is the parser's job and not a thing to re-implement
-    // — so a path that tried to climb has already fallen out of the prefix by the time it is read.
-    if (!url.pathname.startsWith(base)) return refuse(400);
+    // — so a path that tried to climb has already fallen out of every mount by the time it is read.
+    const api = bound.apis.find((candidate) => under(url.pathname, [candidate.mount]));
+    if (api === undefined) return refuse(400);
+
+    const organization = await bound.tenant(tenantRequest(request));
+    const target = api.target(organization);
+    if (target === undefined) return refuse(404);
+    /** `https://api.test` has pathname `/`, and a prefix of `/` would double every separator. */
+    const prefix = target.pathname.replace(/\/$/, "");
 
     // Assigning `pathname` rather than composing a string: a path beginning `//` parsed as a *URL*
     // is protocol-relative and names another host, and `//evil.test/x` is a path a browser will
     // happily send. Set as a component it cannot reach the origin at all.
     const upstream = new URL(target.href);
-    upstream.pathname = `${prefix}${url.pathname.slice(base.length)}`;
+    upstream.pathname = `${prefix}${url.pathname.slice(api.mount.length)}`;
     upstream.search = url.search;
 
     let held: Token | Ended;
     try {
-      held = await bound.party.token(request.headers.get("cookie"), { renewWithin: bound.renewWithin });
+      held = await bound.party.token(request.headers.get("cookie"), {
+        audience: api.audience,
+        organization,
+        renewWithin: bound.renewWithin,
+      });
     } catch (error) {
       // A refused renewal is the end of the session and not an upstream failure. An IdP or a store
       // that did not answer is an outage, and anything else is a fault this module has no reading
       // of: hiding either behind a 401 would send a person to sign in again over something that
       // will still be there when they get back.
       if (!(error instanceof AuthError)) throw error;
-      return refuse(outage(error.code) ?? 401);
+      return refuse(outage(error.code) ?? refusal(error.code));
     }
     if (held.ended) return refuse(401, held.cookies);
 

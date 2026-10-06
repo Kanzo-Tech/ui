@@ -36,6 +36,7 @@ so one host registry keys all three. One class per package, named for it.
 | `graph/nothing-to-draw` | `GraphError` | an attached corpus with no vertex | — |
 | `graph/unfilterable` | `GraphError` | a crossfilter clause naming columns no vertex table has | — |
 | `ai/silent` | `AiError`, from `@kanzo-tech/llm` | a model behind `createGateway` sent nothing for 30 s — no headers, or no chunk since the last | `after` |
+| `ai/rate-limited` | `AiError`, from `@kanzo-tech/llm` | the gateway answered 429: the caller is over its tenant's or its key's limit | `retryAfter`, in seconds, when the gateway said when |
 | `session/*`, `idp/*`, `callback/*`, `token/*`, `organization/*`, `claims/*` | `AuthError` | see [the auth layer](/docs/design/auth) | `after`, `status` where named |
 
 **What would reverse it:** a code a host never branches on. Then it folds into its neighbour; the
@@ -69,7 +70,7 @@ The figure is fossil's for a stream's next chunk. Three things follow from where
   the text it yields and cut a model mid-thought.
 - **A request that does not stream is not bounded.** Its headers wait on the whole answer, which is
   work on the far side: there is no silence to tell apart from it. The caller's signal is its end.
-- **The library's own asks are made once.** `Assist` passes `maxRetries: 0`, so a gateway's 504 is
+- **The library's own asks are made once.** `stream` passes `maxRetries: 0`, so a gateway's 504 is
   the failure it shows, with the gateway's code, on the first attempt. The SDK's default is two
   retries with backoff: a gateway that gives up after its own 30 s was asked three times and
   surfaced some 96 s later, as a `RetryError` with the 504 inside it.
@@ -87,3 +88,24 @@ as ai/silent, and not a millisecond before", "ends a stream that stops sending m
 its last chunk", "does not cut a request that does not stream, whose headers wait on the whole
 answer"; `packages/ai/src/assist.test.tsx`, "asks once: a gateway's 504 is the failure, not a retry
 after it".
+
+## A limit is an answer, named by the door that met it
+
+A gateway that limits per tenant or per key answers 429, and `createGateway` turns that into
+`ai/rate-limited` before the provider reads it, with `retryAfter` from `retry-after` (seconds or an
+HTTP date) or else `x-ratelimit-reset`. It is not retried, by the door or above it: the limit is the
+gateway's answer to this caller, and asking again inside the window is how a caller stays over it.
+What a host does with `retryAfter` — a countdown, a disabled composer — is the host's; the code is
+what lets it tell a limit from a refusal without reading a provider's message.
+
+The headers are the gateway-agnostic part: agentgateway, LiteLLM and an OpenAI-compatible provider
+all send one of the two, so no gateway is named in the code.
+
+**What would reverse it:** a gateway that signals a limit some other way than a 429 — then the
+reading widens, still in `createGateway`. A host that wants the library to wait out `retryAfter` and
+ask again would be a second policy on one limit, and the gateway is where that policy lives.
+
+*Held by* `packages/llm/src/gateway.test.ts`, "fails as ai/rate-limited with the gateway's
+retry-after, asked once", "reads x-ratelimit-reset when there is no retry-after, and reaches a
+stream's caller as itself", "names no retryAfter when the gateway did not say when";
+`packages/llm/src/stream.test.ts`, "never retries a refused call".

@@ -141,6 +141,16 @@ describe("kanzoAuth", () => {
       expect(away.searchParams.get("returnTo")).toBe("/graphs/7?tab=rules");
     });
 
+    it("sends a sign-in to the host the browser addressed, not the one the server listens on", async () => {
+      const response = await auth.proxy(
+        new NextRequest("http://localhost:3000/graphs", {
+          headers: { host: "acme.localhost:3000", "sec-fetch-mode": "navigate" },
+        }),
+      );
+
+      expect(new URL(response.headers.get("location") ?? "").origin).toBe("http://acme.localhost:3000");
+    });
+
     it("treats a request without Fetch Metadata as a navigation", async () => {
       const response = await auth.proxy(new NextRequest(`${ORIGIN}/graphs`));
 
@@ -236,7 +246,7 @@ describe("kanzoAuth", () => {
     it("lets static files, the auth routes, the problem page, the api mount and public paths through unread", async () => {
       const mounted = kanzoAuth({
         ...config,
-        api: { mount: "/api/data", target: "https://reports.internal" },
+        apis: { "/api/data": { audience: "reports", target: "https://reports.internal" } },
       });
       for (const path of [
         "/fossil/fossil_wasm_bg.wasm",

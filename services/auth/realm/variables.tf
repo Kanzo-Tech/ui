@@ -44,3 +44,10 @@ variable "conformance" {
   type        = bool
   default     = false
 }
+
+# ── APIs ──────────────────────────────────────────────────────────────────────
+variable "apis" {
+  description = "client_id => description: the platform's own resource servers, registered with modules/api. An application's API registers from the application's repository instead."
+  type        = map(string)
+  default     = {}
+}

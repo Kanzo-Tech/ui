@@ -59,7 +59,7 @@ export interface KanzoAuth {
   proxy(request: NextRequest, options?: { readonly headers?: HeadersInit }): Promise<NextResponse>;
   /** `signin`, `callback`, `signout`, `session`, `refresh` and `backchannel-logout`, for `[...auth]/route.ts`. */
   readonly routes: RouteHandlers;
-  /** Every verb a route file exports, forwarding to `api.target`. 404 without `api`. */
+  /** Every verb a route file exports, forwarding each mount of `apis` to its `target`. 404 without `apis`. */
   readonly api: ApiHandlers;
   /** The session this request carries, read once per request, or `null`. */
   session(): Promise<Session | null>;

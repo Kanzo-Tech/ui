@@ -13,7 +13,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "../simples/toast.js";
 import { KanzoThemeProvider } from "../theme/KanzoThemeProvider.js";
 import { ThemeNotice } from "./theme-notice.js";
-import { Preferences, PreferencesSections } from "./Preferences.js";
+import { SectionProvider } from "../theme/section-context.js";
+import { Pref, Preferences, PreferencesSections, usePref } from "./Preferences.js";
 
 // jsdom ships no `matchMedia`; stub it per-file (do not edit vitest.setup.ts).
 function stubMatchMedia(matches = false) {
@@ -142,7 +143,6 @@ describe("Preferences", () => {
         sections: [
           {
             namespace: "graph",
-            version: 1,
             prefs: {
               look: {
                 kind: "choice",
@@ -162,10 +162,9 @@ describe("Preferences", () => {
       expect(card?.querySelector("span[style]")).toBeNull();
     });
 
-    it("draws a contributed choice's specimens from the surface that draws it, keyed namespace.preference", () => {
+    it("draws a contributed choice's specimens from the section's owner, above it in the tree", () => {
       const graph: SectionManifest = {
         namespace: "graph",
-        version: 1,
         prefs: {
           look: {
             kind: "choice",
@@ -180,10 +179,12 @@ describe("Preferences", () => {
       };
       render(
         <KanzoThemeProvider sections={[graph]}>
-          <PreferencesSections
+          <SectionProvider
             namespace="graph"
-            specimens={{ "graph.look": (option) => <span data-testid="specimen">{option.value}</span> }}
-          />
+            specimens={{ look: (option) => <span data-testid="specimen">{option.value}</span> }}
+          >
+            <PreferencesSections namespace="graph" />
+          </SectionProvider>
         </KanzoThemeProvider>,
       );
       expect(screen.getAllByTestId("specimen").map((el) => el.textContent)).toEqual(["atlas", "ink"]);
@@ -337,7 +338,6 @@ describe("Preferences", () => {
 describe("sections a host contributed", () => {
   const SECTION: SectionManifest = {
     namespace: "graph",
-    version: 1,
     prefs: {
       look: {
         kind: "choice",
@@ -375,13 +375,12 @@ describe("sections a host contributed", () => {
   });
 });
 
-describe("a surface may draw part of a section", () => {
-  // The third selection, and the one a dock needs: a canvas has a panel for the forces and a panel
-  // for the picture, and both are the same section. A selection that stopped at the namespace would
-  // send the surface back to hand-rolling, which is what the mechanism exists to end.
+describe("a page composes the part", () => {
+  // Ark composes parts where a configurable component would take a list of names: a dock that wants
+  // the forces and not the picture writes the forces' `<Pref>`s, in its own order, and every rule a
+  // declaration carries holds there as it holds in the whole section.
   const SECTION: SectionManifest = {
     namespace: "graph",
-    version: 1,
     prefs: {
       marks: {
         kind: "choice",
@@ -397,23 +396,24 @@ describe("a surface may draw part of a section", () => {
     },
   };
 
-  const mount = (only?: string[]) =>
+  it("draws the named ones, in the order the page wrote them", () => {
     render(
       <KanzoThemeProvider sections={[SECTION]}>
-        <PreferencesSections namespace="graph" {...(only ? { only } : {})} />
+        <Pref name="graph.friction" />
+        <Pref name="graph.gravity" />
       </KanzoThemeProvider>,
     );
-
-  it("draws the named ones, in the order the caller named them", () => {
-    mount(["friction", "gravity"]);
     const labels = [...document.querySelectorAll("[data-slot=slider-label]")].map((l) => l.textContent);
     expect(labels).toEqual(["friction", "gravity"]);
-    // …and nothing else from the same section.
     expect(screen.queryByRole("radiogroup", { name: "marks" })).toBeNull();
   });
 
-  it("draws the whole section when nobody names a subset", () => {
-    mount();
+  it("draws the whole section as one part each", () => {
+    render(
+      <KanzoThemeProvider sections={[SECTION]}>
+        <PreferencesSections namespace="graph" />
+      </KanzoThemeProvider>,
+    );
     expect([...document.querySelectorAll("[data-slot=slider-label]")]).toHaveLength(2);
     expect(screen.getByRole("radiogroup", { name: "marks" })).toBeTruthy();
   });
@@ -429,21 +429,107 @@ describe("a surface may draw part of a section", () => {
     expect(screen.queryByRole("radiogroup", { name: "marks" })).toBeNull();
   });
 
-  it("names the picker by either of the two preferences it draws, and draws it once", () => {
+  it("names the picker by either of the two preferences it draws", () => {
     render(
       <KanzoThemeProvider>
-        <PreferencesSections namespace="theme" only={["themeByAppearance", "appearance"]} />
+        <Pref name="theme.appearance" />
       </KanzoThemeProvider>,
     );
     expect(document.querySelectorAll("[data-slot=theme-picker]")).toHaveLength(1);
     expect(screen.queryByRole("radiogroup", { name: "Density" })).toBeNull();
   });
 
-  it("draws nothing for a name the section never declared", () => {
-    // A host's list outliving a package's manifest is the version-skew case one level up, and the
-    // answer is the same: lose a control, not a page.
-    mount(["gravity", "spaceSize"]);
+  it("draws nothing for a name no section declares", () => {
+    // A page outliving a package's manifest is the version-skew case one level up, and the answer is
+    // the same: lose a control, not a page.
+    render(
+      <KanzoThemeProvider sections={[SECTION]}>
+        <Pref name="graph.gravity" />
+        <Pref name="graph.spaceSize" />
+      </KanzoThemeProvider>,
+    );
     expect([...document.querySelectorAll("[data-slot=slider-label]")]).toHaveLength(1);
+  });
+});
+
+describe("what a declaration says beyond its kind", () => {
+  const PLACED: SectionManifest = {
+    namespace: "graph",
+    prefs: {
+      placement: {
+        kind: "choice",
+        label: "Placement",
+        default: "force",
+        doc: "where the points come from",
+        options: [
+          { value: "force", label: "Force" },
+          { value: "map", label: "Map" },
+        ],
+      },
+      "x-by": {
+        kind: "choice",
+        label: "x",
+        default: "",
+        doc: "the column the points are placed across by",
+        options: { from: "numeric-columns" },
+        when: { pref: "placement", eq: "map" },
+      },
+    },
+  };
+  const COLUMNS = { "numeric-columns": [{ value: "lon", label: "lon" }, { value: "lat", label: "lat" }] };
+
+  it("offers a preference only while its sibling says so, and keeps what it stored meanwhile", async () => {
+    const user = userEvent.setup();
+    render(
+      <KanzoThemeProvider sections={[PLACED]} storage={null}>
+        <SectionProvider namespace="graph" sources={COLUMNS}>
+          <PreferencesSections namespace="graph" />
+        </SectionProvider>
+      </KanzoThemeProvider>,
+    );
+    expect(screen.queryByText("x")).toBeNull();
+    await user.click(screen.getByRole("radio", { name: "Map" }));
+    expect(screen.getByText("x")).toBeTruthy();
+  });
+
+  it("draws a list the data answers as a Select, and a list the author wrote as cards", () => {
+    render(
+      <KanzoThemeProvider sections={[PLACED]} policy={{ graph: { placement: { default: "map" } } }} storage={null}>
+        <SectionProvider namespace="graph" sources={COLUMNS}>
+          <PreferencesSections namespace="graph" />
+        </SectionProvider>
+      </KanzoThemeProvider>,
+    );
+    expect(screen.getByRole("radiogroup", { name: "Placement" })).toBeTruthy();
+    expect(document.querySelector("[data-slot=select-trigger]")).toBeTruthy();
+  });
+
+  it("draws no Select outside the owner that answers its list", () => {
+    render(
+      <KanzoThemeProvider sections={[PLACED]} policy={{ graph: { placement: { default: "map" } } }} storage={null}>
+        <PreferencesSections namespace="graph" />
+      </KanzoThemeProvider>,
+    );
+    expect(document.querySelector("[data-slot=select-trigger]")).toBeNull();
+  });
+
+  it("hands a control of your own the same value and setter the part uses", async () => {
+    const user = userEvent.setup();
+    function Own() {
+      const placement = usePref("graph.placement");
+      return (
+        <button onClick={() => placement?.setValue("map")} type="button">
+          {placement?.value}
+        </button>
+      );
+    }
+    render(
+      <KanzoThemeProvider sections={[PLACED]} storage={null}>
+        <Own />
+      </KanzoThemeProvider>,
+    );
+    await user.click(screen.getByRole("button", { name: "force" }));
+    expect(screen.getByRole("button", { name: "map" })).toBeTruthy();
   });
 });
 
@@ -453,7 +539,6 @@ describe("the three kinds a section may declare, drawn", () => {
   // what it looks like when they are declared instead.
   const DISPLAY: SectionManifest = {
     namespace: "graph",
-    version: 1,
     prefs: {
       links: { kind: "toggle", default: "true", doc: "draw the links" },
       pointScale: {

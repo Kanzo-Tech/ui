@@ -171,14 +171,14 @@ server process does not pull a component library in behind an import of an OAuth
 
 [The identity service](/docs/auth/service) is the server half — Keycloak with its realm as code —
 and it ships from this repository under the same tag as the package. What this package needs from
-it is small and none of it is invented: role claims on **both** tokens, an audience mapper naming your API, and the
+it is small and none of it is invented: role claims on **both** tokens, each API a client its tokens are exchanged for, and the
 `organization:*` scope. [Keycloak](/docs/auth/keycloak) is that page, and it is the one to hand to
 whoever runs the realm.
 
 <Cards>
   <Card title="Session" href="/docs/auth/session" description="The shape, bffAuth, how a session is kept alive and ends, and the current organization." />
   <Card title="Roles" href="/docs/auth/roles" description="can, Gate, useSession().can, and where the roles inside an organization are read from." />
-  <Card title="Keycloak" href="/docs/auth/keycloak" description="The realm a consumer needs: two token toggles, an audience mapper, and the scope with the star." />
+  <Card title="Keycloak" href="/docs/auth/keycloak" description="The realm a consumer needs: two token toggles, each API a client, and the scope with the star." />
   <Card title="The identity service" href="/docs/auth/service" description="Keycloak with the realm as code: run it, register an application, check the contract." />
   <Card title="Server" href="/docs/auth/server" description="The confidential client: strings in and strings out, a stable ticket renewed in place, back-channel logout." />
   <Card title="Next.js" href="/docs/auth/next" description="kanzoAuth: the BFF as one object, in the four files an App Router product already has." />

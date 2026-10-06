@@ -19,7 +19,7 @@ const transport = new DirectChatTransport({ agent });
 ```tsx
 function Ask() {
   const chat = useChat({ transport });
-  return <Chat chat={chat} suggestions={["How many contracts are late?"]} />;
+  return <Chat chat={chat} suggestions={[{ text: "How many contracts are late?" }]} />;
 }
 ```
 
@@ -111,13 +111,14 @@ conversation starts.
 
 **Suggested questions come from one door, `suggest()`.** It asks a model for questions over some
 material — a schema, a domain, the files — with the host's instructions, and streams each as soon as
-it is whole, a `SuggestedQuestion` of `{ question, rationale }` (the AI SDK's
-`Output.array`). There is no template fallback: a list of questions written from column names
+it is whole, a `Proposal` of `{ text, rationale }` (the AI SDK's `Output.array`, read through
+`@kanzo-tech/llm`'s `stream`). It is the same `Proposal` a field's `Assist` offers: one type for
+everything a model offers, whatever surface draws it. There is no template fallback: a list of questions written from column names
 beside a list a model wrote is two paths to one strip, and the templates were the worse one.
 
 ```tsx
-for await (const { question } of suggest({ model: gateway("chat"), instructions, prompt: schema, abortSignal })) {
-  offered.push(question);
+for await (const proposal of suggest({ model: gateway("chat"), instructions, prompt: schema, abortSignal })) {
+  offered.push(proposal);
 }
 ```
 
@@ -183,13 +184,13 @@ Their props are `MessageProps`, `MessageAvatarProps`, `MessageRole` and `Reasoni
 | `chat` | `useChat(...)`'s return | The conversation |
 | `tools` | `ChatToolRenderers` | `Record<string, (part: ToolPart) => ReactNode>` — how the host draws its tools' results |
 | `empty` | `ReactNode` | What the panel says before the first question |
-| `suggestions` | `readonly string[]` | Questions to start from |
+| `suggestions` | `readonly Proposal[]` | Questions to start from |
 | `suggesting` | `boolean` | More are on their way: pills in skeleton beside them |
 | `translations` | `Partial<ChatTranslations>` | `placeholder` for the composer, and `failed`, read before an error |
 | `className` | `string` | On the root |
 
 The types are exported as `ChatProps`, `ChatSkeletonProps`, `ChatToolRenderers`, `ChatTranslations`,
-`ToolPart`, `SuggestOptions` and `SuggestedQuestion`.
+`ToolPart` and `SuggestOptions`; a suggestion is a `Proposal`.
 
 ## AI Elements is a source, not a reference
 

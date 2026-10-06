@@ -32,8 +32,8 @@ emits the CSS. Everything else follows from the declaration:
 | --- | --- |
 | **Declaration** | `kind`, options (or the name of whoever owns them), default, attribute, doc. `CORE_PREFS` for the core's three, a `SectionManifest` for an optional package's. |
 | **Resolution** | one chain, most specific first: what a tenant pinned, what the person stored, where the tenant said to start, the declaration's default. `useKanzoTheme().corePrefs` / `.sectionPrefs` carry the answer, `via` says which link gave it, and `offered` says whether to draw a control at all. |
-| **Renderer** | one control per `kind`, such as a radio list, a `Switch` or a `Slider`, so a surface never re-decides what a `range` looks like. The specimens are a lookup keyed by preference. |
-| **Surfaces** | the drawer below, a settings page, a dock inside a canvas. All of them mount `PreferencesSections`. |
+| **Renderer** | `<Pref>`, one Ark control per `kind`: a row of radio cards for a list the author wrote, a `Select` for a list the data answers, a `Switch`, a `Slider`. A surface never re-decides what a `range` looks like. What the declaration cannot know — the lists it names, the pictures on its cards — its owner answers through a `SectionProvider`. |
+| **Surfaces** | the drawer below, a settings page, a dock inside a canvas. Each composes `<Pref>`s, or `PreferencesSections` for a whole section. |
 
 ## Usage
 
@@ -64,23 +64,49 @@ asked.
 1. **The theme.** A light card and a dark card, described below. It is the control for both
    `appearance` and `themeByAppearance`.
 2. **Density.** Compact, default and cozy, each a percentage of the browser's own font size.
-3. **What installed packages contribute.** For example, the graph contributes which look the canvas
-   draws. See [Contributing a section](/docs/sections).
+3. **What installed packages contribute.** For example, the graph contributes its picture, where its
+   points come from and its forces. See [Sections](/docs/sections).
 
-It is the one way to mount a preference control. There is no per-axis export and no standalone theme
-picker, so a host cannot mount a control that overrides its theme.
+**It is a composition of the part, `<Pref>`, and not a second way in.** A page that wants one
+preference, or its own order, writes the parts:
 
 ```tsx
-<PreferencesSections />                          // everything, as the panel draws it
-<PreferencesSections namespace="theme" />        // the core's alone: the theme, then density
-<PreferencesSections namespace="graph" />        // one package's
-<PreferencesSections namespace="theme" only={["density"]} />
+<PreferencesSections />                    // everything, as the panel draws it
+<PreferencesSections namespace="theme" />  // the core's alone: the theme, then density
+<PreferencesSections namespace="graph" />  // one package's
+<Pref name="theme.density" />              // one preference, where the page puts it
 ```
 
-`namespace` picks one namespace, and the core's is `theme`. `only` picks preferences by name, in your
-order. For the core, `"appearance"` and `"themeByAppearance"` both name the theme cards, because the
-cards are one control for the two of them. A name nothing declares draws nothing. A choice the tenant
-pinned or withheld is not drawn at all.
+A name is the section's namespace and the preference's key; the core's namespace is `theme`, and
+`theme.appearance` and `theme.themeByAppearance` both name the theme cards, because the cards are one
+control for the two of them. A name nothing declares draws nothing. A part draws nothing for a choice
+the tenant pinned or withheld, for a preference whose `when` does not hold, or for a list nobody
+answered.
+
+**A control of your own reads the same state.** `usePref(name)` answers what `<Pref>` draws —
+`value`, `setValue`, `options`, `offered` and `shown` — so a product can draw a preference its own
+way without the library growing an arm:
+
+```tsx
+const density = usePref("theme.density");
+if (density?.offered) density.setValue("compact");
+```
+
+**Names are checked once the app says what it registered** — TanStack's `Register`, augmented once
+beside the provider:
+
+```tsx
+const SECTIONS = [GRAPH_SECTION];
+
+declare module "@kanzo-tech/ui" {
+  interface Register {
+    sections: typeof SECTIONS;
+  }
+}
+```
+
+From then on `name` completes, a typo fails `tsc`, and `usePref("graph.placement").value` is
+`"force" | "map" | "clustered"`.
 
 <ComponentPreview componentName="preferences" />
 
@@ -261,8 +287,38 @@ decorative (`aria-hidden`): whatever offers the theme names it.
 | Prop | Type | Default |
 | --- | --- | --- |
 | `namespace` | `string` | every namespace, the core's (`"theme"`) first |
-| `only` | `readonly string[]` | every offered preference, in declaration order |
 | `copy` | `Partial<PreferencesCopy>` | English, below |
+
+### Pref
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `name` | `PrefName` — `"<namespace>.<key>"`, checked once `Register` is augmented | required |
+| `copy` | `Partial<PreferencesCopy>` — the theme cards' words | English, below |
+
+### usePref
+
+`usePref(name: PrefName): PrefState | null` — `null` for a name nothing declares.
+
+| Field | Type |
+| --- | --- |
+| `name` | `string` |
+| `decl` | `SectionPrefDecl` |
+| `value` / `setValue` | `PrefValue<name>` — the options' union for a listed choice, a string otherwise |
+| `options` | `readonly PrefOption[] \| null` — `null` for a toggle or range, and for a list nobody answered |
+| `offered` | `boolean` — false where a tenant pinned or withheld it |
+| `shown` | `boolean` — whether its `when` holds |
+| `specimen` | `PrefSpecimen \| undefined` — the owner's picture for an option |
+
+### SectionProvider
+
+What only a section's owner knows, for the subtree beneath it. Merges over the one above.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `namespace` | `string` | required |
+| `sources` | `Record<string, readonly PrefOption[]>` — the lists the section's choices name with `{ from }` | — |
+| `specimens` | `Record<string, PrefSpecimen>` — a picture per option, keyed by preference | — |
 
 ### PreferencesCopy
 
@@ -301,5 +357,6 @@ For sections of your own, so a product's controls are indistinguishable from the
 
 There is no `Preferences.X` namespace: statics built with `Object.assign` do not survive the RSC
 boundary, so the flat name is the only name. Every part's props are exported as an interface —
-`PreferencesProps`, `PreferencesRootProps`, `PreferencesPanelProps`, `PreferencesSectionsProps` and
-`PreferencesCopy`.
+`PreferencesProps`, `PreferencesRootProps`, `PreferencesPanelProps`, `PreferencesSectionsProps`,
+`PrefProps`, `SectionProviderProps` and `PreferencesCopy` — with `PrefName`, `PrefValue`, `PrefState`,
+`PrefSpecimen` and the `Register` interface an app augments.

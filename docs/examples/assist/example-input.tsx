@@ -7,14 +7,14 @@ import { elements, mockModel } from "@/lib/mock-model";
 
 const TITLES = [
   [
-    { value: "Bog-hounds on the Greenhollow causeway", rationale: "Names the beast and the place." },
-    { value: "Herd dog taken at the ford", rationale: "Leads with what was lost." },
-    { value: "Standing water below the lane", rationale: "Leads with the hazard." },
+    { text: "Bog-hounds on the Greenhollow causeway", rationale: "Names the beast and the place." },
+    { text: "Herd dog taken at the ford", rationale: "Leads with what was lost." },
+    { text: "Standing water below the lane", rationale: "Leads with the hazard." },
   ],
   [
-    { value: "Second call: bog-hounds, Greenhollow", rationale: "The hall posted this once already." },
-    { value: "Three hounds at the ford", rationale: "Says how many, which is what a party asks first." },
-    { value: "Greenhollow wants its causeway back", rationale: "Puts the hall's ask first." },
+    { text: "Second call: bog-hounds, Greenhollow", rationale: "The hall posted this once already." },
+    { text: "Three hounds at the ford", rationale: "Says how many, which is what a party asks first." },
+    { text: "Greenhollow wants its causeway back", rationale: "Puts the hall's ask first." },
   ],
 ];
 

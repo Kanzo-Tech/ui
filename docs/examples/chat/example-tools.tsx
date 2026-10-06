@@ -50,7 +50,7 @@ export default function Example() {
     <div className="flex h-120 w-full max-w-xl flex-col">
       <Chat
         chat={chat}
-        suggestions={["Which contracts are late?"]}
+        suggestions={[{ text: "Which contracts are late?" }]}
         tools={{
           // Without this the result is drawn as a JSON tree; with it, as what it is.
           late: (part) => (

@@ -23,9 +23,18 @@ import { Coordinator, decodeIPC, DuckDBWASMConnector } from "@uwdata/mosaic-core
  * `query` — `CREATE OR REPLACE SECRET … (TYPE s3, …, SCOPE 's3://bucket/prefix/')` — and names the
  * objects by their own URLs. There is no method for it: the secret is SQL, and `query` is the door.
  *
- * **Nothing is fetched from a CDN.** DuckDB-WASM's worker and module and its `httpfs` are named with
- * `new URL(…, import.meta.url)`, so the host's bundler emits them as assets and the page loads all of
- * it from its own origin: `script-src 'self'`, `worker-src 'self'` and `connect-src 'self' <storage>`.
+ * **It parses SQL from boot.** DuckDB's `json` is loaded beside `httpfs`: its `json_serialize_sql` is
+ * DuckDB's own parser as a function, which `@kanzo-tech/ai`'s statement gate reads a model's SQL
+ * through. DuckDB-WASM builds in neither.
+ *
+ * **Nothing is fetched from a CDN.** DuckDB-WASM's worker and module and its `httpfs` and `json` are
+ * named with `new URL(…, import.meta.url)`, so the host's bundler emits them as assets and the page
+ * loads all of it from its own origin: `script-src 'self'`, `worker-src 'self'` and
+ * `connect-src 'self' <storage>`. Autoloading is off, because it is the one path that would not be:
+ * DuckDB answers a function from an extension nobody loaded by fetching that extension from
+ * extensions.duckdb.org, which a page under that policy refuses — the gate failed that way, on the
+ * first question, until `json` shipped here. Off, the statement fails with DuckDB's own error naming
+ * the extension, and the fix is a line in `scripts/extensions.mjs`.
  *
  * It satisfies fossil's `Engine` structurally; this package does not depend on fossil.
  */
@@ -93,24 +102,31 @@ const RANGE_READS = { filesystem: { forceFullHTTPReads: false } };
 const served = (asset: URL) => new URL(asset.href, location.href).href;
 
 /**
- * One build per bundle `selectBundle` chooses between, each with the `httpfs` built for it. The worker
- * and module are `@duckdb/duckdb-wasm`'s own, the release this package pins, named by specifier as
- * DuckDB-WASM documents for webpack: the bundler resolves it to that dependency. `httpfs` is not on npm,
- * so `scripts/extensions.mjs` fetches the pinned builds into `extensions/` and the tarball carries
- * them. It is `LOAD`ed by URL, which DuckDB accepts under a hashed file name as long as the name still
- * starts `httpfs.` — the entrypoint is looked up by that prefix.
+ * One build per bundle `selectBundle` chooses between, each with the extensions built for it. The
+ * worker and module are `@duckdb/duckdb-wasm`'s own, the release this package pins, named by specifier
+ * as DuckDB-WASM documents for webpack: the bundler resolves it to that dependency. The extensions are
+ * not on npm, so `scripts/extensions.mjs` fetches the pinned builds into `extensions/` and the tarball
+ * carries them. Each is `LOAD`ed by URL, which DuckDB accepts under a hashed file name as long as the
+ * name still starts with the extension's — `httpfs.`, `json.` — the entrypoint is looked up by that
+ * prefix.
  */
 function builds() {
   return {
     mvp: {
       mainModule: served(new URL("@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm", import.meta.url)),
       mainWorker: served(new URL("@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js", import.meta.url)),
-      httpfs: served(new URL("../extensions/wasm_mvp/httpfs.duckdb_extension.wasm", import.meta.url)),
+      extensions: [
+        served(new URL("../extensions/wasm_mvp/httpfs.duckdb_extension.wasm", import.meta.url)),
+        served(new URL("../extensions/wasm_mvp/json.duckdb_extension.wasm", import.meta.url)),
+      ],
     },
     eh: {
       mainModule: served(new URL("@duckdb/duckdb-wasm/dist/duckdb-eh.wasm", import.meta.url)),
       mainWorker: served(new URL("@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js", import.meta.url)),
-      httpfs: served(new URL("../extensions/wasm_eh/httpfs.duckdb_extension.wasm", import.meta.url)),
+      extensions: [
+        served(new URL("../extensions/wasm_eh/httpfs.duckdb_extension.wasm", import.meta.url)),
+        served(new URL("../extensions/wasm_eh/json.duckdb_extension.wasm", import.meta.url)),
+      ],
     },
   };
 }
@@ -119,7 +135,7 @@ function builds() {
 const HELD = Symbol("held");
 
 /**
- * The slowest honest boot: the worker, ~30 MB of module and `httpfs` fetched over a slow link, then
+ * The slowest honest boot: the worker, ~30 MB of module and its extensions fetched over a slow link, then
  * instantiated. The figure and its argument are fossil's `/docs/design/failure`, G1.
  */
 const BOOT_DEADLINE = 60_000;
@@ -197,7 +213,8 @@ async function start(made: (duckdb: AsyncDuckDB) => void): Promise<Engine> {
 
   const connector = new DuckDBWASMConnector({ duckdb, config: RANGE_READS });
   const coordinator = new Coordinator(connector);
-  await coordinator.exec(`LOAD '${build.httpfs}'`);
+  await coordinator.exec("SET autoload_known_extensions = false");
+  for (const extension of build.extensions) await coordinator.exec(`LOAD '${extension}'`);
   // Files are read lazily by range; caching their metadata is what keeps a pan from re-probing, and
   // caching Parquet footers is what keeps every tile read from re-reading one that grows with the
   // corpus — 2.2× on a window's reads, measured in fossil on 2026-09-30.

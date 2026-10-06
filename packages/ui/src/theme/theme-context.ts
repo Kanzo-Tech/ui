@@ -4,7 +4,6 @@ import * as React from "react";
 import type {
   Appearance,
   ThemeOption,
-  PrefSources,
   ResolvedPref,
   SectionPrefDecl,
   ThemePrefs,
@@ -116,14 +115,6 @@ export interface ThemeContextValue extends ThemePrefs {
    * Keyed by preference name, never by namespace: there is exactly one core.
    */
   corePrefs: Record<string, ResolvedPref & { decl: SectionPrefDecl }>;
-  /**
-   * What this host published, in the shape a declaration names it by — `themes`.
-   *
-   * A choice may name where its options come from instead of listing them, because a client's
-   * brands cannot be typed by whoever wrote the package. This is what fills such a control, and it
-   * is built once here rather than in every surface that draws one.
-   */
-  sources: PrefSources;
 }
 
 export const ThemeContext = React.createContext<ThemeContextValue | null>(null);

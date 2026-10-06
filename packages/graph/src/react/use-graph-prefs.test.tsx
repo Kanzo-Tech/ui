@@ -12,7 +12,7 @@ import { useGraphPrefs } from "./use-graph-prefs";
  * could get wrong: the readers and the chain are tested where they live.
  */
 // Hoisted: the provider re-resolves when `sections` changes identity, as a host's constant does not.
-const SECTIONS = [GRAPH_SECTION as never];
+const SECTIONS = [GRAPH_SECTION];
 
 function mount(props: Record<string, unknown> = {}) {
   const wrapper = ({ children }: { children: ReactNode }) => (
@@ -26,7 +26,7 @@ function mount(props: Record<string, unknown> = {}) {
 describe("useGraphPrefs", () => {
   it("answers the manifest's defaults when nobody chose anything", () => {
     const { result } = mount();
-    expect(result.current.prefs).toEqual({ look: lookFrom(), sim: simFrom(), preset: "atlas" });
+    expect(result.current.prefs).toEqual({ look: lookFrom(), sim: simFrom(), placement: {} });
   });
 
   it("follows a stored choice", () => {
@@ -34,13 +34,18 @@ describe("useGraphPrefs", () => {
     act(() => result.current.theme.setSectionPref("graph", { marks: "legible", gravity: "0.5" }));
     expect(result.current.prefs.look).toEqual(lookFrom({ marks: "legible" }));
     expect(result.current.prefs.sim.gravity).toBe(0.5);
-    expect(result.current.prefs.preset, "Atlas's axes with Ink's marks are no preset").toBeNull();
   });
 
   it("answers the tenant's pin over the user's choice", () => {
     const { result } = mount({ policy: { graph: { marks: { pinned: "legible" } } } });
     act(() => result.current.theme.setSectionPref("graph", { marks: "dense" }));
     expect(result.current.prefs.look).toEqual(lookFrom({ marks: "legible" }));
+  });
+
+  it("answers where the points come from, as the root's channels", () => {
+    const { result } = mount();
+    act(() => result.current.theme.setSectionPref("graph", { placement: "map", "x-by": "lon", "y-by": "lat" }));
+    expect(result.current.prefs.placement).toEqual({ x: "lon", y: "lat" });
   });
 
   // `useGraph` rebuilds GPU buffers on the look's identity, so a fresh object per render is a

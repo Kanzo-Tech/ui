@@ -24,6 +24,8 @@ import {
   type ThemePrefs,
 } from "@kanzo-tech/theme";
 import { ThemeContext, type ThemeContextValue } from "./theme-context.js";
+import { SectionProvider } from "./section-context.js";
+import { CORE_SPECIMENS } from "./core-specimens.js";
 
 export { useKanzoTheme, useKanzoThemeOptional, type ThemeContextValue } from "./theme-context.js";
 
@@ -239,7 +241,7 @@ export interface KanzoThemeProviderProps {
    * `packages/theme/src/boundary.test.ts` keeps passing because there is nothing to import.
    * Registration by import into the core would be the same mechanism with the dependency inverted.
    */
-  sections?: SectionManifest[];
+  sections?: readonly SectionManifest[];
   /**
    * What the TENANT says about every choice — pinned, withheld, or merely started elsewhere.
    *
@@ -492,8 +494,8 @@ export function KanzoThemeProvider({
   // gate would be half of it, done twice.
 
   // The one list only a tenant can write, in the shape a declaration names it by — so a control for
-  // `{ from: "themes" }` is filled from what this host actually published, and a package that
-  // declares such a choice needs no prop of its own to receive it.
+  // `{ from: "themes" }` is filled from what this host actually published. It reaches the panel the
+  // way every owner's lists do: this provider is the core section's `SectionProvider`.
   const sources: PrefSources = React.useMemo(
     () => ({ themes: themes.map(({ label, value }) => ({ label, value })) }),
     [themes],
@@ -548,10 +550,9 @@ export function KanzoThemeProvider({
   // mechanism's, and a second implementation of it in the provider is how the two halves of a
   // section would begin to disagree.
   //
-  // These DO get the sources, where the core's two do not: a section's attribute is written by this
-  // provider alone — the pre-hydration script knows only the axis table — so there is no second
-  // writer to keep in step, and a stored value naming a brand the tenant withdrew can be declined
-  // where it is read.
+  // No sources here: a section's lists are named in its own namespace and answered by its owner,
+  // below this provider — the graph's columns by the graph's root — so a stored value naming one is
+  // unanswered here and stands. The owner is what judges it, where the list is known.
   const sectionPrefs = React.useMemo(() => {
     const out: Record<string, Record<string, Entry>> = {};
     for (const manifest of sections) {
@@ -559,14 +560,14 @@ export function KanzoThemeProvider({
       const section = policy[manifest.namespace] ?? NO_SECTION_POLICY;
       const resolved: Record<string, Entry> = {};
       for (const [key, decl] of Object.entries(manifest.prefs ?? {})) {
-        resolved[key] = { ...resolvePref(decl, stored[key], section[key], sources), decl };
+        resolved[key] = { ...resolvePref(decl, stored[key], section[key]), decl };
       }
       // A manifest that declares only tokens contributes no group. Skipping it here rather than in
       // the panel is what stops an empty legend appearing for a section that has nothing to ask.
       if (Object.keys(resolved).length > 0) out[manifest.namespace] = resolved;
     }
     return out;
-  }, [prefs.sections, policy, sections, sources]);
+  }, [prefs.sections, policy, sections]);
 
   const setSectionPref = React.useCallback(
     (namespace: string, values: Readonly<Record<string, string | undefined>>) => {
@@ -630,7 +631,6 @@ export function KanzoThemeProvider({
       // under every reader. `resolvedTheme` is where the answer belongs, and it is below.
       themeByAppearance: prefs.themeByAppearance,
       corePrefs,
-      sources,
       set,
       reset,
       sectionPrefs,
@@ -649,9 +649,15 @@ export function KanzoThemeProvider({
     [
       prefs, set, appearance, setAppearance,
       themes, defaultThemeFor, resolvedTheme, setTheme, retiredTheme,
-      sectionPrefs, setSectionPref, corePrefs, sources, reset,
+      sectionPrefs, setSectionPref, corePrefs, reset,
     ],
   );
 
-  return <ThemeContext.Provider value={ctx}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={ctx}>
+      <SectionProvider namespace={CORE_NAMESPACE} sources={sources} specimens={CORE_SPECIMENS}>
+        {children}
+      </SectionProvider>
+    </ThemeContext.Provider>
+  );
 }

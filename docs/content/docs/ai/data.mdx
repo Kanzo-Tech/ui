@@ -46,7 +46,7 @@ function Ask({ catalog, schema, table }: { catalog: string; schema: DataSchema; 
     <Chat
       chat={chat}
       suggesting={starters.fetchStatus === "fetching"}
-      suggestions={starters.isError ? [] : (starters.data ?? []).map((s) => s.question)}
+      suggestions={starters.isError ? [] : (starters.data ?? [])}
       tools={{ query: (part) => <QueryResult actions={(answer) => <FilterToThese answer={answer} />} part={part} /> }}
     />
   );
@@ -152,11 +152,11 @@ page's engine, and it answers `{ statement }` — what may run — or `{ refused
 with `code` `"query/refused"`. The agent calls it before every query; a host that builds its own tool
 around the same engine calls it too.
 
-The engine is the page's one connection, with `httpfs` loaded and a scoped secret beside it. A model's
-text that reached it unread could close the subquery it was put in and run a second statement — drop
-or replace a view the graph and the dashboard draw, `DETACH` a catalog, `COPY` a table to a bucket,
-drop the secret — or, inside one SELECT, read any URL with `read_text`. A prompt injected through a row
-value or a column name is enough to ask for any of it. So the text is **never run and never spliced**:
+The engine is the page's one connection, with `httpfs` and `json` loaded and a scoped secret beside
+it. A model's text that reached it unread could close the subquery it was put in and run a second
+statement — drop or replace a view the graph and the dashboard draw, `DETACH` a catalog, `COPY` a
+table to a bucket, drop the secret — or, inside one SELECT, read any URL with `read_text`. A prompt
+injected through a row value or a column name is enough to ask for any of it. So the text is **never run and never spliced**:
 
 1. **DuckDB parses it.** `json_serialize_sql` reads the text as a literal and answers the parse. It
    serialises one kind of statement, SELECT, so DDL, `COPY`, `ATTACH`, `SET`, `PRAGMA` and a second
@@ -169,6 +169,10 @@ value or a column name is enough to ask for any of it. So the text is **never ru
    `scope` is refused: the reader's selection is read, never redefined.
 3. **DuckDB prints the parse back.** `json_deserialize_sql` turns it into text, and mosaic-sql wraps
    that in the cap and the scope. What runs is DuckDB's rendering of one SELECT.
+
+Both functions are DuckDB's `json` extension, which `engine()` loads at boot. A coordinator you build
+over another DuckDB needs it loaded too; without it every statement fails with DuckDB's error naming
+the extension.
 
 A refusal names what the model may read, by the names it was shown, so the next statement can be
 right. Databricks Genie runs its model's SQL read-only for the same reason, and the AI SDK's advice is

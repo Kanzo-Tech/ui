@@ -27,7 +27,7 @@ The server half of a capability whose client half is a package, released under t
 | Service | What it is | Package |
 |---|---|---|
 | `services/auth` | Keycloak with the platform realm as code, and the module an application registers itself with. | `@kanzo-tech/auth` |
-| `services/ai` | The LiteLLM gateway: a development compose, a team and key per tenant, and a module to deploy it. | `@kanzo-tech/llm` |
+| `services/ai` | The agentgateway gateway, which takes the realm's tokens: a development compose and a module to deploy it. | `@kanzo-tech/llm` |
 
 ## What lives here, and what does not
 

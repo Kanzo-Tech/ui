@@ -26,8 +26,9 @@ people into two organizations, `acme` and `globex`. The admin console is `/admin
 `admin`; `.env.example` lists what can be changed, and `KC_PORT` moves the issuer with it.
 
 `scripts/verify.sh` signs a seeded person in through `kanzo-conformance` — a client that exists to
-prove the contract and names no application — with a real authorization-code login and PKCE, and
-checks what the **access token** says, the token a resource server authorizes on. CI runs it for
+prove the contract and names no application — with a real authorization-code login and PKCE,
+checks what the **access token** says, then exchanges it for `kanzo-conformance-api` and one
+organization and checks that token too: the one a resource server authorizes on. CI runs it for
 every seeded person on every pull request, against a Keycloak it has just brought up: the job is `services` in `.github/workflows/ci.yml`.
 
 ## The contract
@@ -43,17 +44,27 @@ token `verify.sh` took off this service; [Roles](/docs/auth/roles) is how the pa
 
 The realm knows no application by name. An application registers itself **from its own
 repository**, with the module at `services/auth/modules/app` pinned to the release it was built
-against: its client, the audience its access token names, and its roles with their composites.
+against: its client, the APIs it calls, and its roles with their composites. Its API registers
+beside it with `services/auth/modules/api`: a client with no flow, and the scope whose audience
+mapper names it, which the application lists in `apis` and [exchanges its token
+for](/docs/auth/keycloak#the-apis-an-application-calls).
 
 ```hcl title="infra/auth.tf"
+module "api" {
+  source    = "git::https://github.com/Kanzo-Tech/ui.git//services/auth/modules/api?ref=<release>"
+  realm_id  = "kanzo"
+  client_id = "board-api"
+}
+
 module "app" {
-  source        = "git::https://github.com/Kanzo-Tech/ui.git//services/auth/modules/app?ref=v0.30.0"
+  source        = "git::https://github.com/Kanzo-Tech/ui.git//services/auth/modules/app?ref=<release>"
   realm_id      = "kanzo"
   client_id     = "board"
-  access_type   = "CONFIDENTIAL" # a BFF; PUBLIC for an application with no server
+  access_type   = "CONFIDENTIAL" # a BFF; PUBLIC for an application with no server, which calls no API
   client_secret = var.client_secret
   redirect_uris = ["https://*.board.example.com/api/auth/callback"]
-  audience      = "board-api"
+  # the APIs it exchanges its token for: its own, and the platform's AI gateway
+  apis = [module.api.scope, "ai-gateway"]
   # where Keycloak posts a logout token; see Keycloak → Back-channel logout
   backchannel_logout_url = "http://board:3000/api/auth/backchannel-logout"
   roles = {
@@ -108,8 +119,10 @@ names carry a prefix — `auth-postgres`, `auth-realm`, `auth-seed`, `kanzo-auth
 
 ## What is not there
 
-- **No application.** The only client is `kanzo-conformance`, and it is off unless
-  `conformance = true` — `realm/dev.tfvars` turns it on for development and CI.
+- **No application.** The only client is `kanzo-conformance`, with its API `kanzo-conformance-api`,
+  and both are off unless `conformance = true` — `realm/dev.tfvars` turns it on for development and
+  CI. The realm's own APIs are `apis`, and development registers `ai-gateway`, the
+  [gateway](/docs/ai/gateway) this repository ships.
 - **No membership in Terraform.** Keycloak makes membership runtime — invitations, identity-provider
   brokering, enrolment by email domain — and the provider has no resource for it. Development seeds
   it (`seed/`); production invites.
