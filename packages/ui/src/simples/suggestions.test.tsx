@@ -47,6 +47,25 @@ describe("a suggestion longer than its strip", () => {
     expect(screen.queryByRole("tooltip")).toBeNull();
   });
 
+  it("shows its description in the tooltip, under the whole label, and is described by it", async () => {
+    widths(400, 200);
+    render(<Suggestion description="Joins contracts to regions." value={LONG} />);
+    const pill = await point(LONG);
+    const tip = await screen.findByRole("tooltip");
+    expect(tip.textContent).toContain(LONG);
+    expect(tip.textContent).toContain("Joins contracts to regions.");
+    expect(document.getElementById(pill.getAttribute("aria-describedby") ?? "")?.textContent).toBe(
+      "Joins contracts to regions.",
+    );
+  });
+
+  it("opens the tooltip for a description even when the label fits, and does not repeat the label", async () => {
+    widths(120, 120);
+    render(<Suggestion description="Both sightings were at dusk." value="night-work" />);
+    await point("night-work");
+    expect((await screen.findByRole("tooltip")).textContent).toBe("Both sightings were at dusk.");
+  });
+
   it("still commits its value when pressed", () => {
     const onSelect = vi.fn();
     render(<Suggestion onSelect={onSelect} value={LONG} />);

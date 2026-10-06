@@ -16,7 +16,7 @@ An application names an **alias**, never a provider:
 | Alias | For |
 | --- | --- |
 | `chat` | conversations and agents — [`Chat`](/docs/ai/chat), a `ToolLoopAgent` |
-| `complete` | short completions asked on every pause in typing — [`Assist`](/docs/ai/assist)'s ghost text and suggestions |
+| `complete` | short completions asked on every pause in typing — [`Assist`](/docs/ai/assist)'s ghost text and suggestions, and the questions a [`Chat`](/docs/ai/chat) starts from |
 
 Which upstream answers each one is the gateway's **profile**, so the same `gateway("chat")` runs on
 a laptop's GPU in development and on a provider in production. Changing models is an edit to the
