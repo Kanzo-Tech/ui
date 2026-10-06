@@ -176,9 +176,11 @@ for `organization:*`, so membership of every organization arrives in one token.
 | `/backchannel-logout` | `POST` | 200, 400, or 501 — [below](#back-channel-logout) |
 
 The callback URL is `redirectUri`, or derived from the request — the origin it arrived at, the path
-the routes sit on, and `/callback`. Deriving it trusts `Host`, which is a **bounded trust**: a forged
-host produces a `redirect_uri` Keycloak has not registered, and Keycloak refuses it. A deployment
-behind a proxy that rewrites the host says the URL out loud.
+the routes sit on, and `/callback`. That origin is not `request.url`'s, which Next builds from the
+address it listens on: the host is `X-Forwarded-Host`, else `Host`, and the scheme
+`X-Forwarded-Proto`, else the request's — the headers Auth.js reads. Trusting them is a **bounded
+trust**: a forged host produces a `redirect_uri` Keycloak has not registered, and Keycloak refuses
+it. A deployment whose proxy sets none of them says the URL out loud.
 
 ### One transaction per `state`
 
