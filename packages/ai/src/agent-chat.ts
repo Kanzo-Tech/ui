@@ -13,7 +13,6 @@ export type AgentChat<M extends UIMessage> = Omit<UseChatHelpers<M>, "error"> & 
 /** `useChat`'s options, less the transport: it is the agent's. */
 export type AgentChatOptions<M extends UIMessage> = Omit<Extract<UseChatOptions<M>, { transport?: unknown }>, "transport">;
 
-
 /**
  * A conversation with an agent that runs in the page — `useChat` over the AI SDK's
  * `DirectChatTransport` — that keeps what the agent threw.
