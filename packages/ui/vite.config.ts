@@ -63,7 +63,10 @@ export default defineConfig({
         id === "lucide-react" ||
         id === "tailwind-variants" ||
         id === "tailwind-merge" ||
-        id === "clsx",
+        id === "clsx" ||
+        // The dashboard spec's schema. A dependency like the three above: inlined, it would land in
+        // `dist/node_modules` and a consumer who also validates with it would ship it twice.
+        id === "valibot",
       // Rollup drops `"use client"` when it merges modules, which silently made every
       // published component a server component for Next.js App Router consumers.
       plugins: [preserveDirectives()],
