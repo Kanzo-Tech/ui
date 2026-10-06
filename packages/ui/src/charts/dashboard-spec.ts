@@ -70,10 +70,15 @@ export type TileSpan = v.InferOutput<typeof SpanSchema>;
 const tileBase = {
   /** Stable identity, used as the React key. */
   id: v.string(),
-  span: SpanSchema,
   /** Overrides the title derived from what the tile reads. */
   title: v.optional(v.string()),
 };
+
+/**
+ * A tile in the grid: a chart or a table, as wide as `span`. A figure has no width — the figures are
+ * a band of their own above the grid, sharing it equally, so one never stands as tall as a chart.
+ */
+const gridBase = { ...tileBase, span: SpanSchema };
 
 /** One figure: a measure under the crossfilter, optionally trending along an ordered field. */
 const StatTileSchema = v.strictObject({
@@ -88,7 +93,7 @@ const StatTileSchema = v.strictObject({
 
 /** One chart: a mark type and the fields its channels read. */
 const ChartTileSchema = v.strictObject({
-  ...tileBase,
+  ...gridBase,
   kind: v.literal("chart"),
   type: v.picklist(DASHBOARD_CHART_TYPES),
   x: v.string(),
@@ -106,7 +111,7 @@ const ChartTileSchema = v.strictObject({
 
 /** The rows under the selection, as these columns. */
 const TableTileSchema = v.strictObject({
-  ...tileBase,
+  ...gridBase,
   kind: v.literal("table"),
   columns: v.array(v.string()),
 });
@@ -120,13 +125,19 @@ export type Tile = v.InferOutput<typeof TileSchema>;
 
 export type TileKind = Tile["kind"];
 
+/** A tile with a width: what the grid holds, under the band of figures. */
+export type GridTile = ChartTile | TableTile;
+
 const FilterSchema = v.strictObject({ field: v.string() });
 
 export type DashboardFilterSpec = v.InferOutput<typeof FilterSchema>;
 
 const DashboardSpecSchema = v.strictObject({
   filters: v.array(FilterSchema),
-  /** In layout order: they flow left to right through a three-column grid. */
+  /**
+   * In layout order. The figures are drawn as one band, in their order here; the charts and tables
+   * flow left to right through a three-column grid beneath it, in theirs.
+   */
   tiles: v.array(TileSchema),
 });
 
@@ -395,7 +406,7 @@ export function edited(before: Tile | undefined, after: Tile): Tile {
 const reads = (t: ChartTile) => JSON.stringify([t.type, t.x, t.y.op, t.y.field, t.y.equals, t.color, t.facet, t.title]);
 
 /** Widens the last tile of every three-column row so no row ends in a hole. */
-function pack(tiles: Tile[]): Tile[] {
+function pack(tiles: GridTile[]): GridTile[] {
   let used = 0;
   const out = tiles.map((tile) => ({ ...tile }));
   out.forEach((tile, i) => {
@@ -412,7 +423,7 @@ function pack(tiles: Tile[]): Tile[] {
 }
 
 const CARD_LIMIT = 6;
-/** One row of figures: the count and two means fill three columns. */
+/** The band of figures: the count and two means. */
 const STAT_LIMIT = 3;
 
 /** The table a relation gets by default: its first eight fields, categories first. */
@@ -442,11 +453,10 @@ export function autoDashboard(fields: readonly FieldStat[]): DashboardSpec {
     .map((f) => ({ field: f.name }));
 
   const stats: StatTile[] = [
-    { id: "stat-count", kind: "stat", span: 1, title: "Rows", measure: { op: "count" }, trend },
+    { id: "stat-count", kind: "stat", title: "Rows", measure: { op: "count" }, trend },
     ...measures.slice(0, STAT_LIMIT - 1).map((f): StatTile => ({
       id: `stat-${f.name}`,
       kind: "stat",
-      span: 1,
       measure: { op: "avg", field: f.name },
       trend,
     })),
@@ -458,5 +468,5 @@ export function autoDashboard(fields: readonly FieldStat[]): DashboardSpec {
 
   const columns = detailColumns(fields);
   const table: TableTile[] = columns.length ? [{ id: "rows", kind: "table", span: 3, columns }] : [];
-  return { filters, tiles: [...pack(stats), ...pack(cards), ...table] };
+  return { filters, tiles: [...stats, ...pack(cards), ...table] };
 }

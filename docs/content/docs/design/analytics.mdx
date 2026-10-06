@@ -149,15 +149,40 @@ which is exactly what `parseDashboard` refuses to do.
 none of the three does. Then the kind joins the set, here, with its three rows.
 
 *Held by* `packages/ui/src/charts/tile-kinds.test.ts`, "makes every kind with the id it is given, so
-making a tile is pure", and "lets every kind become every other, keeping the id and the width and
-dropping the title"; `packages/ui/src/charts/dashboard-layering.test.ts`, "keeps React out of the
+making a tile is pure", and "lets every kind become every other, keeping the id and dropping the
+title, and a figure has no width"; `packages/ui/src/charts/dashboard-layering.test.ts`, "keeps React out of the
 spec, the recommender and the kind table".
+
+## Figures are a band, not grid tiles
+
+The figures are drawn first, as one band whose row they share equally, wrapping when they run out of
+room. Charts and tables flow through the three-column grid beneath it, each as wide as its `span`. A
+figure has no `span` in the spec, and the editor asks for none; its position is among the figures,
+as a chart's is among the grid's tiles. A figure that becomes a chart moves to the grid, and back.
+
+A grid row is as tall as its tallest tile, so a figure that shared one with a chart stood as tall as
+the chart: one number in a tall empty card. The band is where Few's *Information Dashboard Design*
+puts the key figures, and what Grafana's stat row and every KPI strip draw.
+
+**Two alternatives were rejected.** A grid of fixed-height rows, where a figure takes one and a chart
+three, as Grafana and Metabase lay panels out, would stack figures beside a chart; it needs every
+chart to fill a height it is given, and a table to scroll inside one. A height stored per tile, with
+drag to resize, is that and an editor besides.
+
+**What would reverse it:** a dashboard whose figures belong beside the chart they summarise, read
+together, more than together at the top. Then the fixed-row grid above, and figures leave the band.
+
+*Held by* `packages/ui/src/charts/tile-kinds.test.ts`, "draws a figure in the band and every other
+kind in the grid", and "places a tile among its peers, whatever lies between them in the spec";
+`packages/ui/src/charts/dashboard-spec.test.ts`, "refuses a width on a figure: the band gives it its
+width"; `packages/ui/src/charts/dashboard.test.tsx`, "changes the kind, keeping the id, and a figure
+that becomes a table moves from the band to the grid".
 
 ## The editor is edited in place, and loaded on first edit
 
 `TileEditor` is an Ark `Popover` anchored to the tile's slot in the grid. The slot keeps the tile's
-own view mounted and draws the draft in it, so a change is seen where the tile is. The kind and the
-width are `SegmentGroup`s. A tile being added gets a slot of its own at the end of the grid, brought
+own view mounted and draws the draft in it, so a change is seen where the tile is. The kind is a row of
+cards like a chart's mark, and the width a `SegmentGroup`. A tile being added gets a slot of its own at the end of the grid, brought
 into view as the popover opens, and Cancel removes the slot again.
 
 The editor draws no tile of its own. It holds the draft as a controlled value and reaches the slot
@@ -211,8 +236,8 @@ Measured on the base of this change and after it:
 
 | Gauge | Before | After |
 | --- | --- | --- |
-| analytics | 31.22 kB | 32.1 kB |
-| one dashboard | 29.88 kB | 30.9 kB |
+| analytics | 31.22 kB | 32.31 kB |
+| one dashboard | 29.88 kB | 31.09 kB |
 
 **What would reverse it:** a bundler in size-limit that splits a dynamic import. Then the
 `{ Dashboard }` gauge measures the entry chunk alone, and a separate gauge measures the editor.

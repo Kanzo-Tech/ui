@@ -38,7 +38,7 @@ export const KINDS: Kinds = {
     // The mean of a measure no figure shows yet, else the count.
     create: (fields, tiles, id): StatTile => {
       const measure = fields.find((f) => isMeasure(f) && !tiles.some((t) => t.kind === "stat" && t.measure.field === f.name));
-      return { id, kind: "stat", span: 1, measure: measure ? { op: "avg", field: measure.name } : { op: "count" } };
+      return { id, kind: "stat", measure: measure ? { op: "avg", field: measure.name } : { op: "count" } };
     },
     title: (tile) => measureLabel(tile.measure),
     // A chart's aggregate becomes the figure.
@@ -86,11 +86,40 @@ export function tileTitle(tile: Tile): string {
 }
 
 /**
- * The tile as another kind, keeping what carries over and its id and width. A title goes, since it
+ * The tile as another kind, keeping what carries over, its id and — between a chart and a table —
+ * its width. A title goes, since it
  * described the tile it was written for. `null` when the relation cannot make that kind.
  */
 export function changeKind(tile: Tile, k: TileKind, fields: readonly FieldStat[], tiles: readonly Tile[]): Tile | null {
   if (tile.kind === k) return tile;
   const made = kind(k).create(fields, tiles, tile.id);
-  return made && kind(k).convertFrom(tile, { ...made, span: tile.span }, fields);
+  // A width carries over between the kinds that have one; a figure has none to give or take.
+  const sized = made && "span" in made && "span" in tile ? { ...made, span: tile.span } : made;
+  return sized && kind(k).convertFrom(tile, sized, fields);
+}
+
+/**
+ * Whether a tile is drawn in the band of figures above the grid. A figure is one number and its
+ * trend, as short as a line of text; beside a chart in a grid row it would stand as tall as the
+ * chart. The band is where Few's *Information Dashboard Design* and every KPI strip put them.
+ */
+export const inBand = (tile: Tile): tile is StatTile => tile.kind === "stat";
+
+/** The tiles drawn with `tile` — its band or its grid — in spec order, itself left out. */
+export function peersOf(tiles: readonly Tile[], tile: Tile): Tile[] {
+  return tiles.filter((t) => t.id !== tile.id && inBand(t) === inBand(tile));
+}
+
+/**
+ * The spec's tiles with `tile` at `position` among its peers, in place of the tile with its id. A
+ * position past the last peer puts it after them; a first figure goes before everything, a first
+ * grid tile after everything.
+ */
+export function placeTile(tiles: readonly Tile[], tile: Tile, position: number): Tile[] {
+  const rest = tiles.filter((t) => t.id !== tile.id);
+  const peers = peersOf(rest, tile);
+  const before = peers[position];
+  const last = peers.at(-1);
+  const at = before ? rest.indexOf(before) : last ? rest.indexOf(last) + 1 : inBand(tile) ? 0 : rest.length;
+  return [...rest.slice(0, at), tile, ...rest.slice(at)];
 }

@@ -14,7 +14,7 @@ import type { ChartConfig } from "./chart-config.js";
 import { MosaicProvider, useMosaic } from "./mosaic-provider.js";
 import { DashboardFilters } from "./dashboard-filters.js";
 import { chartTableKey } from "./chart-spec.js";
-import { newTile } from "./tile-kinds.js";
+import { inBand, newTile, placeTile } from "./tile-kinds.js";
 import { TileView, tileSpan } from "./tile-views.js";
 import { autoDashboard, edited, plotRelation, type DashboardSpec, type Tile } from "./dashboard-spec.js";
 import { useFieldStats, type FieldStat } from "./field-stats.js";
@@ -52,7 +52,7 @@ export interface DashboardProps extends Omit<React.ComponentProps<typeof ark.div
 
 /**
  * A whole dashboard from a relation and, optionally, a saved spec: the filter bar and the tiles —
- * figures, charts and tables in one three-column grid — every one of them on the provider's
+ * a band of figures, then charts and tables in a three-column grid — every one of them on the provider's
  * crossfilter. The host brings the `MosaicProvider`, the relation and somewhere to keep the spec;
  * the fields, the automatic layout and the editor are this component's.
  */
@@ -140,13 +140,12 @@ function Board({
   const spec = value ?? auto;
   // The tile in the editor; one `spec.tiles` does not hold is being added.
   const [editing, setEditing] = useState<Tile | null>(null);
+  const band = useRef<HTMLDivElement>(null);
   const grid = useRef<HTMLDivElement>(null);
   const edit = onChange && ((patch: Partial<DashboardSpec>) => onChange({ ...spec, ...patch }));
 
-  const save = (tile: Tile, index: number) => {
-    const rest = spec.tiles.filter((t) => t.id !== tile.id);
-    const next = edited(spec.tiles.find((t) => t.id === tile.id), tile);
-    edit?.({ tiles: [...rest.slice(0, index), next, ...rest.slice(index)] });
+  const save = (tile: Tile, position: number) => {
+    edit?.({ tiles: placeTile(spec.tiles, edited(spec.tiles.find((t) => t.id === tile.id), tile), position) });
     setEditing(null);
   };
   const add = () => {
@@ -156,8 +155,15 @@ function Board({
     if (tile) setEditing(tile);
   };
   const open = edit && ((tile: Tile) => () => setEditing(tile));
-  // A tile being added has a slot of its own at the end, so its popover has somewhere to anchor.
+  // A tile being added has a slot of its own at the end of its band or grid, so its popover has
+  // somewhere to anchor; a tile whose kind changes moves to the other one with its draft.
   const slots = editing && !spec.tiles.some((t) => t.id === editing.id) ? [...spec.tiles, editing] : spec.tiles;
+  const shownIn = (band: boolean) => slots.filter((t) => inBand(editing?.id === t.id ? editing : t) === band);
+  const groups = [
+    // The figures share one row, equally, and wrap when they run out of room.
+    { name: "dashboard-figures", tiles: shownIn(true), ref: band, className: "grid grid-cols-[repeat(auto-fit,minmax(14rem,1fr))] gap-4" },
+    { name: "dashboard-tiles", tiles: shownIn(false), ref: grid, className: "grid gap-4 @3xl/dashboard:grid-cols-2 @6xl/dashboard:grid-cols-3" },
+  ];
 
   return (
     <>
@@ -190,23 +196,36 @@ function Board({
         ) : null}
       </DashboardFilters>
 
-      {slots.length > 0 ? (
-        <div className="grid gap-4 @3xl/dashboard:grid-cols-2 @6xl/dashboard:grid-cols-3" data-slot="dashboard-tiles" ref={grid}>
-          {slots.map((tile) => {
-            // The tile being edited draws its draft, in the same slot and the same view, so opening
-            // the editor neither remounts it nor queries again.
-            const shown = editing?.id === tile.id ? editing : tile;
-            return (
-              <TileView className={tileSpan(shown.span)} config={config} fields={fields} key={tile.id} onEdit={open?.(tile)} table={table} tile={shown} />
-            );
-          })}
-        </div>
-      ) : null}
+      {groups.map(({ name, tiles, ref, className }) =>
+        tiles.length > 0 ? (
+          <div className={className} data-slot={name} key={name} ref={ref}>
+            {tiles.map((tile) => {
+              // The tile being edited draws its draft, in the same slot and the same view, so opening
+              // the editor neither remounts it nor queries again.
+              const shown = editing?.id === tile.id ? editing : tile;
+              return (
+                <TileView
+                  className={inBand(shown) ? undefined : tileSpan(shown.span)}
+                  config={config}
+                  fields={fields}
+                  key={tile.id}
+                  onEdit={open?.(tile)}
+                  table={table}
+                  tile={shown}
+                />
+              );
+            })}
+          </div>
+        ) : null,
+      )}
 
       {edit && editing ? (
         <Suspense fallback={null}>
           <TileEditor
-            anchor={() => (grid.current?.children[slots.findIndex((t) => t.id === editing.id)] as HTMLElement | undefined) ?? null}
+            anchor={() => {
+              const { ref, tiles } = groups[inBand(editing) ? 0 : 1]!;
+              return (ref.current?.children[tiles.findIndex((t) => t.id === editing.id)] as HTMLElement | undefined) ?? null;
+            }}
             fields={fields}
             key={editing.id}
             onChange={setEditing}

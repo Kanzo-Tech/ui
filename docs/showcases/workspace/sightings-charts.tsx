@@ -43,14 +43,13 @@ const CONFIG: Record<string, ChartConfig> = {
 const SPEC: DashboardSpec = {
   filters: [{ field: "region" }, { field: "hall" }, { field: "beast" }, { field: "leagues" }],
   tiles: [
-    { id: "sightings", kind: "stat", span: 1, title: "Sightings", measure: { op: "count" }, trend: "hour" },
-    { id: "distance", kind: "stat", span: 1, title: "Mean distance (leagues)", measure: { op: "avg", field: "leagues" }, trend: "hour" },
-    { id: "bounty-paid", kind: "stat", span: 1, title: "Bounty paid (gold)", measure: { op: "sum", field: "bounty" }, trend: "hour" },
-    { id: "hour", kind: "chart", span: 2, type: "line", x: "hour", y: { op: "count" }, title: "Sightings by hour" },
+    { id: "sightings", kind: "stat", title: "Sightings", measure: { op: "count" }, trend: "hour" },
+    { id: "distance", kind: "stat", title: "Mean distance (leagues)", measure: { op: "avg", field: "leagues" }, trend: "hour" },
+    { id: "bounty-paid", kind: "stat", title: "Bounty paid (gold)", measure: { op: "sum", field: "bounty" }, trend: "hour" },
+    { id: "hour", kind: "chart", span: 3, type: "line", x: "hour", y: { op: "count" }, title: "Sightings by hour" },
     {
       id: "hoaxes",
       kind: "stat",
-      span: 1,
       title: "Hoaxes",
       measure: { op: "share", field: "verdict", equals: "hoax" },
       trend: "hour",

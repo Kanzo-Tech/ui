@@ -2,7 +2,7 @@
 "@kanzo-tech/ui": minor
 ---
 
-**The dashboard, block A of 0.31.** Five breaking changes in `@kanzo-tech/ui/analytics`, and what to
+**The dashboard, block A of 0.31.** Six breaking changes in `@kanzo-tech/ui/analytics`, and what to
 edit for each:
 
 - **`parseDashboards(json)` replaces `migrateDashboards`**, and `parseDashboard(json)` reads one
@@ -19,6 +19,10 @@ edit for each:
   draft in the tile's own view, and pass that view's element as `anchor: () => HTMLElement | null`.
   `table` and `config` are gone. Mount it only while a tile is being edited. `Dashboard` already does
   all of this.
+- **A figure (`StatTile`) has no `span`.** The figures are drawn as one band above the grid, sharing
+  its row equally, so a figure never stands as tall as the chart beside it; charts and tables keep
+  their `span` in the grid below. Drop `span` from every `kind: "stat"` tile you write; a stored spec
+  that still has one is refused by `parseDashboard`.
 - **`column` is no longer exported.** Use `numbers(data, field)`.
 
 New:

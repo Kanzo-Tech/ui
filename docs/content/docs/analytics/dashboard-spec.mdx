@@ -21,10 +21,10 @@ The one the Sightings showcase draws, abridged:
 {
   "filters": [{ "field": "region" }, { "field": "hall" }, { "field": "leagues" }],
   "tiles": [
-    { "id": "sightings", "kind": "stat", "span": 1, "title": "Sightings", "measure": { "op": "count" }, "trend": "hour" },
-    { "id": "hour", "kind": "chart", "span": 2, "type": "line", "x": "hour", "y": { "op": "count" }, "title": "Sightings by hour" },
+    { "id": "sightings", "kind": "stat", "title": "Sightings", "measure": { "op": "count" }, "trend": "hour" },
+    { "id": "hour", "kind": "chart", "span": 3, "type": "line", "x": "hour", "y": { "op": "count" }, "title": "Sightings by hour" },
     {
-      "id": "hoaxes", "kind": "stat", "span": 1, "title": "Hoaxes",
+      "id": "hoaxes", "kind": "stat", "title": "Hoaxes",
       "measure": { "op": "share", "field": "verdict", "equals": "hoax" }, "trend": "hour", "goodWhenUp": false
     },
     { "id": "bounty", "kind": "chart", "span": 3, "type": "area", "x": "hour", "y": { "op": "sum", "field": "bounty" }, "facet": "region" },
@@ -40,7 +40,7 @@ The one the Sightings showcase draws, abridged:
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `filters` | `DashboardFilterSpec[]` | The filter bar, in order. |
-| `tiles` | `Tile[]` | **Order is layout**: tiles flow left to right through a three-column grid, each as wide as its `span`. `[]` for none. |
+| `tiles` | `Tile[]` | **Order is layout**: the figures are drawn first, as one band sharing a row; the charts and tables flow left to right through a three-column grid beneath it, each as wide as its `span`. `[]` for none. |
 
 ## DashboardFilterSpec
 
@@ -58,8 +58,16 @@ A filter on a field that has no control, or that the relation no longer has, is 
 | --- | --- | --- |
 | `id` | `string` | Stable identity, used as the React key. Unique within `tiles`. |
 | `kind` | `"stat" \| "chart" \| "table"` | What the tile is. |
-| `span` | `TileSpan` — `1 \| 2 \| 3` | Columns of the three-column row. The grid is one column on a phone, two from `md` and three from `xl`, and a span never exceeds the columns there are. |
 | `title` | `string?` | Overrides the title derived from what the tile reads — *Mean bounty*, *Count by hall and verdict*, *leagues × bounty*, *Rows*. |
+
+A chart and a table also have:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `span` | `TileSpan` — `1 \| 2 \| 3` | Columns of the three-column row. The grid is one column on a phone, two from `md` and three from `xl`, and a span never exceeds the columns there are. |
+
+A figure has no `span`: the figures share the band above the grid equally, so one never stands as
+tall as the chart beside it.
 
 ### StatTile
 
@@ -205,7 +213,6 @@ type TileSpan = 1 | 2 | 3;
 interface StatTile {
   id: string;
   kind: "stat";
-  span: TileSpan;
   title?: string;
   measure: DashboardMeasure;
   trend?: string;

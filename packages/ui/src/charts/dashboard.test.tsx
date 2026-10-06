@@ -42,7 +42,7 @@ function stubCoordinator(): Coordinator {
 const SPEC: DashboardSpec = {
   filters: [],
   tiles: [
-    { id: "n", kind: "stat", span: 1, title: "Sightings", measure: { op: "count" } },
+    { id: "n", kind: "stat", title: "Sightings", measure: { op: "count" } },
     { id: "t", kind: "table", span: 3, columns: ["region"] },
   ],
 };
@@ -76,7 +76,7 @@ describe("the tile editor", () => {
   it("opens from the pencil beside the tile it edits, which stays mounted and draws the draft", async () => {
     const user = userEvent.setup();
     draw({ value: SPEC, onChange: vi.fn() });
-    const slot = (await screen.findByText("Sightings")).closest("[data-slot=dashboard-tiles] > *")!;
+    const slot = (await screen.findByText("Sightings")).closest("[data-slot=dashboard-figures] > *")!;
     await user.click(within(slot as HTMLElement).getByRole("button", { name: "Edit figure" }));
     expect(within(await editor()).getByText("Edit tile")).toBeTruthy();
     expect(editorLoads.count).toBe(1); // the read-only test above is not blind
@@ -111,14 +111,20 @@ describe("the tile editor", () => {
     expect(onChange.mock.calls[0]![0].tiles[0]).toMatchObject({ id: "n", kind: "stat", title: "Sightings today" });
   });
 
-  it("changes the kind, keeping the id and the width", async () => {
+  it("changes the kind, keeping the id, and a figure that becomes a table moves from the band to the grid", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     draw({ value: SPEC, onChange });
+    const grid = () => document.querySelector("[data-slot=dashboard-tiles]")!.children;
     await user.click(await screen.findByRole("button", { name: "Edit figure" }));
     await user.click(within(await editor()).getByText("Table"));
+    expect(grid()).toHaveLength(2);
+    expect(document.querySelector("[data-slot=dashboard-figures]")).toBeNull();
     await user.click(within(await editor()).getByRole("button", { name: "Save" }));
-    expect(onChange.mock.calls[0]![0].tiles[0]).toMatchObject({ id: "n", kind: "table", span: 1 });
+    expect(onChange.mock.calls[0]![0].tiles.map((t: { id: string; kind: string }) => [t.id, t.kind])).toEqual([
+      ["t", "table"],
+      ["n", "table"],
+    ]);
   });
 
   it("removes a tile", async () => {
@@ -135,14 +141,14 @@ describe("the tile editor", () => {
     const onChange = vi.fn();
     draw({ value: SPEC, onChange });
     const tiles = () => document.querySelector("[data-slot=dashboard-tiles]")!.children;
-    await waitFor(() => expect(tiles()).toHaveLength(2));
+    await waitFor(() => expect(tiles()).toHaveLength(1));
     await user.click(screen.getByRole("button", { name: "Add tile" }));
     expect(within(await editor()).getByText("Add tile")).toBeTruthy();
-    expect(tiles()).toHaveLength(3);
+    expect(tiles()).toHaveLength(2);
     // Below the fold on a real page: opening brings the new slot into view.
-    expect(scrolled.mock.results.at(-1)!.value).toBe(tiles()[2]);
+    expect(scrolled.mock.results.at(-1)!.value).toBe(tiles()[1]);
     await user.click(within(await editor()).getByRole("button", { name: "Cancel" }));
-    await waitFor(() => expect(tiles()).toHaveLength(2));
+    await waitFor(() => expect(tiles()).toHaveLength(1));
     expect(onChange).not.toHaveBeenCalled();
   });
 });

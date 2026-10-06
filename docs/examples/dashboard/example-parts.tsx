@@ -37,7 +37,7 @@ function Board() {
       <div className="grid gap-4 sm:grid-cols-2">
         <DashboardStat
           fields={fields}
-          stat={{ id: "n", kind: "stat", span: 1, title: "Sightings", measure: { op: "count" }, trend: "hour" }}
+          stat={{ id: "n", kind: "stat", title: "Sightings", measure: { op: "count" }, trend: "hour" }}
           table="sightings"
         />
         <DashboardStat
@@ -45,7 +45,6 @@ function Board() {
           stat={{
             id: "hoax",
             kind: "stat",
-            span: 1,
             title: "Hoaxes",
             measure: { op: "share", field: "verdict", equals: "hoax" },
             trend: "hour",

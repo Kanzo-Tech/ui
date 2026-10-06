@@ -55,7 +55,10 @@ Dashboard                 — reads the fields, draws the spec or the automatic 
 └── TileEditor            — the popover a tile is added and edited in, anchored to the tile
 ```
 
-Tiles flow left to right through one three-column grid, each as wide as its `span`. Every part is
+The figures come first, as one band whose row they share equally, wrapping when they run out of
+room: a figure is one number and its trend, and beside a chart it would stand as tall as the chart.
+Charts and tables flow left to right through a three-column grid beneath it, each as wide as its
+`span`. Every part is
 exported and works on its own inside a `MosaicProvider`; `Dashboard` is what they make when the spec
 decides the arrangement. [Arranging the parts yourself](#arranging-the-parts-yourself) is the other
 way.
@@ -115,7 +118,7 @@ stats alone and nothing else:
 
 - **Filters** (at most six): the first time, up to three categories, the first text key, up to two
   measures.
-- **Figures** (one row): a row count and the mean of up to two measures, each trending along the
+- **Figures** (the band): a row count and the mean of up to two measures, each trending along the
   first time when there is one.
 - **Charts** (at most six): the first six that [`recommend`](#recommend) proposes for an overview.
 - **A table**, full width: the first eight fields — categories, then times, measures and keys.
@@ -240,11 +243,12 @@ and here the browser never holds more than the page.
 
 **The one editor** — a popover anchored to the tile it edits, the way Notion and Linear edit a block
 where it sits. *Add tile* and every tile's pencil open the same popover, in this order: the **kind**
-as a segmented control (Figure, Chart, Table — a kind the relation cannot draw is disabled), the
-**fields** that kind reads, the title, and the **width** (a third, two thirds, full) with the
-position among the tiles. **The tile is the preview**: it draws the draft in its own slot under the
-page's crossfilter, and grows or shrinks with the width; a tile being added gets a slot at the end,
-brought into view as the popover opens.
+as cards with an icon, like a chart's mark (Figure, Chart, Table — a kind the relation cannot draw is disabled), the
+**fields** that kind reads, the title, and — for a chart or a table — the **width** (a third, two
+thirds, full), with the position among the figures or among the grid's tiles. **The tile is the
+preview**: it draws the draft in its own slot under the page's crossfilter, and grows or shrinks with
+the width; a tile being added gets a slot at the end of its band or grid, brought into view as the
+popover opens.
 Nothing reaches the dashboard until *Add* or *Save*; *Cancel*, Escape and a click outside drop the
 draft. A new position applies on save, so the tile never moves under the popover.
 
@@ -262,7 +266,8 @@ editor's code.
 - A **figure** asks for the measure and the field it trends along.
 - A **table** asks for its columns; a newly ticked column goes last.
 - Changing the kind carries what carries over — a chart's aggregate becomes the figure, a figure's
-  measure the chart's — and keeps the id and the width.
+  measure the chart's — and keeps the id, and the width between a chart and a table. A figure that
+  becomes a chart moves from the band to the grid, and back.
 
 Each kind is a row in three tables — how one is made, titled and converted (plain TypeScript, no
 React), how it is drawn, and what its editor asks for — each mapped over the kinds, so a kind missing

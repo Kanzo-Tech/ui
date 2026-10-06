@@ -6,12 +6,13 @@ import { Button } from "../simples/button.js";
 import { Field, FieldLabel } from "../simples/field.js";
 import { Input } from "../simples/input.js";
 import { Popover, PopoverBody, PopoverContent, PopoverFooter, PopoverHeader } from "../simples/popover.js";
+import { RadioGroup, RadioGroupCard, RadioGroupLabel } from "../simples/radio-group.js";
 import { SegmentGroup } from "../simples/segment-group.js";
 import type { Tile, TileKind, TileSpan } from "./dashboard-spec.js";
 import type { FieldStat } from "./field-stats.js";
 import { Pick } from "./tile-controls.js";
 import { TILE_EDITORS, TileFields } from "./tile-fields.js";
-import { changeKind, tileTitle } from "./tile-kinds.js";
+import { changeKind, inBand, peersOf, tileTitle } from "./tile-kinds.js";
 
 const WIDTHS = [
   { value: "1", label: "A third" },
@@ -32,7 +33,7 @@ export interface TileEditorProps {
   anchor: () => HTMLElement | null;
   /** The dashboard's tiles: where the tile sits, and what a change of kind prefers not to repeat. */
   tiles?: readonly Tile[];
-  /** Called with the draft and the place it goes among `tiles`. */
+  /** Called with the draft and its position among its peers — the figures, or the grid's tiles. */
   onSave: (tile: Tile, index: number) => void;
   onRemove?: () => void;
   /** Cancel, Escape and a click outside: the draft is dropped. */
@@ -50,10 +51,16 @@ export interface TileEditorProps {
  * `anchor`: a view that remounted on opening would rebuild its plot and query again.
  */
 export function TileEditor({ fields, tile: draft, onChange: setDraft, anchor, tiles = [], onSave, onRemove, onClose }: TileEditorProps) {
-  const at = tiles.findIndex((t) => t.id === draft.id);
-  const adding = at === -1;
-  const places = tiles.length + (adding ? 1 : 0);
-  const [index, setIndex] = useState(adding ? tiles.length : at);
+  const adding = !tiles.some((t) => t.id === draft.id);
+  // A position is among the tile's peers — the band of figures, or the grid — and a change of kind
+  // that moves it to the other one puts it at the end there, until somebody picks another.
+  const peers = peersOf(tiles, draft);
+  const [placed, setPlaced] = useState(() => {
+    const own = tiles.filter((t) => inBand(t) === inBand(draft)).findIndex((t) => t.id === draft.id);
+    return { band: inBand(draft), position: own === -1 ? peers.length : own };
+  });
+  const position = placed.band === inBand(draft) ? placed.position : peers.length;
+  const places = peers.length + 1;
   // A tile being added has its slot at the end of the grid, usually below the fold. Once, on opening:
   // `anchor` is a new function on every render of the host.
   useEffect(() => {
@@ -61,19 +68,7 @@ export function TileEditor({ fields, tile: draft, onChange: setDraft, anchor, ti
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const others = tiles.filter((t) => t.id !== draft.id);
-  const kinds = (Object.keys(TILE_EDITORS) as TileKind[]).map((kind) => {
-    const { label, icon: Icon } = TILE_EDITORS[kind];
-    return {
-      value: kind,
-      label: (
-        <>
-          <Icon className="size-4" />
-          {label}
-        </>
-      ),
-      disabled: changeKind(draft, kind, fields, others) === null,
-    };
-  });
+  const kinds = Object.keys(TILE_EDITORS) as TileKind[];
 
   return (
     <Popover
@@ -84,17 +79,31 @@ export function TileEditor({ fields, tile: draft, onChange: setDraft, anchor, ti
       <PopoverContent className="max-h-(--available-height) w-[min(28rem,calc(100vw-2rem))]">
         <PopoverHeader description={TILE_EDITORS[draft.kind].hint} title={adding ? "Add tile" : "Edit tile"} />
         <PopoverBody className="flex flex-col gap-4">
-          <SegmentGroup
-            aria-label="Kind"
+          {/* The same cards as a chart's mark: the kind is the first choice, and the biggest. */}
+          <RadioGroup
+            columns={3}
             onValueChange={(d) => {
               const next = d.value ? changeKind(draft, d.value as TileKind, fields, others) : null;
               if (next) setDraft(next);
             }}
-            options={kinds}
-            size="sm"
             value={draft.kind}
-            variant="solid"
-          />
+          >
+            <RadioGroupLabel className="col-span-full text-xs">Kind</RadioGroupLabel>
+            {kinds.map((kind) => {
+              const { label, icon: Icon } = TILE_EDITORS[kind];
+              return (
+                <RadioGroupCard
+                  className="items-center py-2"
+                  disabled={changeKind(draft, kind, fields, others) === null}
+                  key={kind}
+                  value={kind}
+                >
+                  <Icon className="size-4" />
+                  <span className="text-xs">{label}</span>
+                </RadioGroupCard>
+              );
+            })}
+          </RadioGroup>
 
           <TileFields fields={fields} onChange={setDraft} tile={draft} />
 
@@ -109,22 +118,27 @@ export function TileEditor({ fields, tile: draft, onChange: setDraft, anchor, ti
           </Field>
 
           <div className="grid grid-cols-[1fr_auto] items-end gap-2">
-            <Field className="gap-1">
-              <FieldLabel className="text-xs">Width</FieldLabel>
-              <SegmentGroup
-                onValueChange={(d) => d.value && setDraft({ ...draft, span: Number(d.value) as TileSpan })}
-                options={WIDTHS}
-                size="sm"
-                value={String(draft.span)}
-                variant="solid"
-              />
-            </Field>
+            {/* A figure has no width: the band shares its row among the figures. */}
+            {inBand(draft) ? (
+              <span />
+            ) : (
+              <Field className="gap-1">
+                <FieldLabel className="text-xs">Width</FieldLabel>
+                <SegmentGroup
+                  onValueChange={(d) => d.value && setDraft({ ...draft, span: Number(d.value) as TileSpan })}
+                  options={WIDTHS}
+                  size="sm"
+                  value={String(draft.span)}
+                  variant="solid"
+                />
+              </Field>
+            )}
             {places > 1 ? (
               <Pick
                 label="Position"
-                onChange={(value) => setIndex(Number(value))}
+                onChange={(value) => setPlaced({ band: inBand(draft), position: Number(value) })}
                 options={Array.from({ length: places }, (_, i) => ({ value: String(i), label: String(i + 1) }))}
-                value={String(index)}
+                value={String(position)}
               />
             ) : null}
           </div>
@@ -139,7 +153,7 @@ export function TileEditor({ fields, tile: draft, onChange: setDraft, anchor, ti
           <Button onClick={onClose} size="sm" variant="ghost">
             Cancel
           </Button>
-          <Button onClick={() => onSave(draft, index)} size="sm">
+          <Button onClick={() => onSave(draft, position)} size="sm">
             {adding ? "Add" : "Save"}
           </Button>
         </PopoverFooter>

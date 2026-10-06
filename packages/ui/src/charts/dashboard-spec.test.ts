@@ -103,11 +103,11 @@ describe("autoDashboard", () => {
     expect(spec.filters.map((f) => f.field)).toEqual(["seen", "region", "beast", "email", "bounty", "leagues"]);
   });
 
-  it("opens with one row of figures: the count and the mean of the first measures, along the time", () => {
-    expect(spec.tiles.slice(0, 3).map((t) => (t.kind === "stat" ? [t.measure.op, t.measure.field, t.trend, t.span] : t.kind))).toEqual([
-      ["count", undefined, "seen", 1],
-      ["avg", "bounty", "seen", 1],
-      ["avg", "leagues", "seen", 1],
+  it("opens with a band of figures: the count and the mean of the first measures, along the time", () => {
+    expect(spec.tiles.slice(0, 3).map((t) => (t.kind === "stat" ? [t.measure.op, t.measure.field, t.trend] : t.kind))).toEqual([
+      ["count", undefined, "seen"],
+      ["avg", "bounty", "seen"],
+      ["avg", "leagues", "seen"],
     ]);
   });
 
@@ -115,7 +115,7 @@ describe("autoDashboard", () => {
     expect(kinds("chart").map((t) => t.kind === "chart" && t.type)).toEqual(["line", "bar", "bar", "histogram", "histogram", "regression"]);
     expect(spec.tiles.at(-1)).toMatchObject({ kind: "table", span: 3 });
     let used = 0;
-    for (const t of spec.tiles) used = (used + t.span) % 3;
+    for (const t of spec.tiles) if (t.kind !== "stat") used = (used + t.span) % 3;
     expect(used).toBe(0);
     expect(JSON.parse(JSON.stringify(spec))).toEqual(spec);
   });
@@ -167,6 +167,10 @@ describe("parseDashboard and parseDashboards", () => {
     expect(() => parseDashboard({ ...spec, tiles: [{ id: "a", kind: "map", span: 1 }] })).toThrow(/at tiles\.0\.kind/);
   });
 
+  it("refuses a width on a figure: the band gives it its width", () => {
+    expect(() => parseDashboard({ filters: [], tiles: [{ id: "a", kind: "stat", span: 1, measure: { op: "count" } }] })).toThrow(/span/);
+  });
+
   it("coerces, defaults and drops nothing", () => {
     expect(() => parseDashboard({ filters: [], tiles: [{ id: "a", kind: "table", span: "3", columns: [] }] })).toThrow(/span/);
     expect(() => parseDashboard({ filters: [] })).toThrow(/tiles/);
@@ -174,7 +178,7 @@ describe("parseDashboard and parseDashboards", () => {
   });
 
   it("refuses a measure that cannot be drawn whatever the relation: a sum of nothing, a share of no value", () => {
-    const stat = (measure: object) => ({ filters: [], tiles: [{ id: "a", kind: "stat", span: 1, measure }] });
+    const stat = (measure: object) => ({ filters: [], tiles: [{ id: "a", kind: "stat", measure }] });
     expect(parseDashboard(stat({ op: "count" })).tiles).toHaveLength(1);
     expect(() => parseDashboard(stat({ op: "sum" }))).toThrow(/at tiles\.0\.measure: every measure but count names a field/);
     expect(() => parseDashboard(stat({ op: "share", field: "verdict" }))).toThrow(/a share names the value it measures/);
