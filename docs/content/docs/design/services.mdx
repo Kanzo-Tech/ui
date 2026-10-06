@@ -45,9 +45,9 @@ to `realm/token-claims.tf`.
 
 Nothing under `services/` knows `board` or `ledger`. **An application registers itself**, from its
 own repository: `services/auth/modules/app` is its client, its audience and its roles with their
-composites, and `services/ai/modules/team` is one tenant's budget and key. The realm's only client
-is `kanzo-conformance`, which exists to prove the contract and is off unless a development or CI
-variable turns it on.
+composites. The gateway knows no application and no tenant either: both arrive in the token. The
+realm's only client is `kanzo-conformance`, which exists to prove the contract and is off unless a
+development or CI variable turns it on.
 
 The alternative is the one every shared realm drifts into: each new application is an edit to the
 platform's Terraform, the platform's repository becomes a list of its consumers, and removing one is
@@ -61,22 +61,60 @@ That would have to be declared in the realm, and the honest shape then is an inp
 still named for what it does rather than for who asked. None has appeared: every setting the claim
 contract needs is realm-wide and generic, and everything per application is a client attribute.
 
-*Held by* the job `services` in `.github/workflows/ci.yml`, which validates `modules/app`,
-`modules/team` and `modules/gateway` as modules with no caller, and proves the realm through
-`kanzo-conformance` alone.
+*Held by* the job `services` in `.github/workflows/ci.yml`, which validates `modules/app` and
+`modules/gateway` as modules with no caller, and proves the realm through `kanzo-conformance` alone.
+
+## The gateway is agentgateway, and the token is its credential
+
+The gateway validates the realm's access tokens and takes the person and the organization from them.
+There is no key per tenant, no team to mint and no list of tenants to keep beside the realm's: an
+organization Keycloak knows is one the gateway can charge, and the request log names the person as
+well as the organization. The application's server asks Keycloak for a token issued for the
+gateway and for one organization ([RFC 8693](https://www.rfc-editor.org/rfc/rfc8693)), and the
+gateway refuses any token that names more than one.
+
+**Why agentgateway.** We do not write a gateway, and the one we run has to be open source under a
+foundation, configured rather than extended, and able to run in a plain container. It was measured
+against the alternatives on 5 October 2026, with tokens shaped like this realm's:
+
+- **LiteLLM** validates a JWT only in its Enterprise edition, which is the whole point here.
+- **Agent Router** (formerly Envoy AI Gateway, now under the Linux Foundation) validates the token,
+  but outside Kubernetes no rate limit loads at all — startup fails validation, and the rate-limit
+  service is a Kubernetes DNS name in its source — and its documentation presents that mode as a
+  way to test configuration before deploying to a cluster. On Kubernetes it would mean the cluster,
+  Envoy Gateway, Redis and the controller, to host one service.
+- **agentgateway** (Apache-2.0, a Linux Foundation project) did all of it in one binary and one
+  file: strict validation against the realm's keys, one organization required, a token budget keyed
+  on the organization the token names, and a request log with the person, the organization, the
+  tokens and their cost. It reads the `organization` claim as the map it is, so the realm changes
+  nothing for it. The same binary runs under its own Kubernetes controller, so choosing it does not
+  close that door.
+
+**What it cost.** A budget per tenant in dollars: agentgateway prices requests and logs the cost,
+but its dollar budgets belong to API keys, so a tenant's budget is in tokens. LiteLLM's exact-match
+cache, which `complete` opted into. And LiteLLM's console per team, whose place the request log
+takes.
+
+**What would reverse it:** an organization's budget in money becoming a requirement no token budget
+can stand in for, or the platform moving onto Kubernetes, where Agent Router's limits and quotas
+work. Neither changes the contract — the token is the credential and the organization is in it —
+only what enforces it.
+
+*Held by* the job `services` in `.github/workflows/ci.yml`, which loads `services/ai/gateway.yaml`
+into the pinned gateway against the live realm's keys.
 
 ## Production configuration belongs to the deployment
 
 The services ship **development** values and the **shape** of production ones, never production
 values. The gateway's `profile` — which upstream answers each alias — has no default in
-`modules/gateway`: the development profile beside it shows the shape, and a deployment writes its
-own. The upstream keys, the realm's identity provider, SMTP and TLS are the deployment's in the same
-way, and membership is runtime: development seeds it, production invites.
+`modules/gateway`: the development models in `gateway.yaml` show the shape, and a deployment writes
+its own. The upstream keys, the realm's identity provider, SMTP and TLS are the deployment's in the
+same way, and membership is runtime: development seeds it, production invites.
 
 A shipped production profile would be one deployment's choices — a provider, a model, a price —
 presented as the platform's, and every other deployment would start by undoing it. What the service
 does own is what does not vary between them: the aliases, the claim mappers, the image pin, the
-cache defaulting to off.
+rule that a request names one organization, the timeouts under the client's.
 
 **What would reverse it:** two deployments that want the same production profile verbatim, written
 twice. Then the duplication is real and the profile has earned a place — as a named example

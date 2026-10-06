@@ -1,6 +1,7 @@
-# The gateway as Swarm services: LiteLLM, its Postgres and its cache, on a network the
-# caller owns. The caller passes the profile — which upstream answers which alias — and
-# the upstream keys; this module knows no provider and no application.
+# The gateway as Swarm services: agentgateway and the Postgres its request log is kept in, on a
+# network the caller owns. The caller passes the profile — which upstream answers which alias —,
+# the upstream keys and the realm whose tokens it accepts; this module knows no provider and no
+# application.
 #
 # Prerequisite the docker provider cannot do itself: `docker swarm init`.
 terraform {
