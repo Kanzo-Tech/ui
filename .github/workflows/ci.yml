@@ -40,7 +40,7 @@ jobs:
         run: terraform fmt -recursive -check services
       - name: Validate the modules
         run: |
-          for m in services/auth/modules/app services/ai/modules/gateway; do
+          for m in services/auth/modules/app services/auth/modules/api services/ai/modules/gateway; do
             export TF_DATA_DIR="$RUNNER_TEMP/tf-$(basename "$m")"
             terraform -chdir="$m" init -backend=false -input=false >/dev/null
             terraform -chdir="$m" validate

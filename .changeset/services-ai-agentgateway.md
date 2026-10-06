@@ -6,10 +6,11 @@
 Breaking for a deployment of `services/ai`; `createGateway` and the aliases `chat` and `complete` are
 unchanged.
 
-- Your server no longer presents a tenant's key. It exchanges the person's access token for one
-  issued for the gateway's audience (`ai-gateway`) and for the one organization the request is for
-  (`scope=organization:<alias>`, RFC 8693), and forwards that. A token naming every membership is
-  refused with 403. The BFF on `/docs/ai/llm` shows the exchange.
+- Your server no longer presents a tenant's key. It forwards a token exchanged for the gateway
+  (`ai-gateway`) and the one organization the request is for: add
+  `"/api/ai": { audience: "ai-gateway", target: AI_GATEWAY_URL }` to `kanzoAuth`'s `apis`, and
+  `"ai-gateway"` to your application's `modules/app` `apis`. A token naming every membership is
+  refused with 403.
 - `modules/team` is gone, with the per-tenant keys and teams: delete your instances of it. The
   gateway charges the organization the token names.
 - `modules/gateway` takes `issuer` (the realm, as its tokens say it), optionally `jwks_url` and

@@ -13,9 +13,13 @@ browser ──▶ the application's server (BFF) ──Bearer <token for the gat
 ```
 
 The browser never holds a credential. The application's server exchanges the person's access token
-for one issued for the gateway's audience and one organization (RFC 8693), and forwards. The gateway
-takes everything from that token: who asked, which organization is charged. There is no key per
-tenant. `@kanzo-tech/llm` is the client.
+for one issued for the gateway and one organization (RFC 8693), and forwards — `kanzoAuth`'s `apis`
+does both, as for any API. The gateway takes everything from that token: who asked, which
+organization is charged. There is no key per tenant. `@kanzo-tech/llm` is the client.
+
+The gateway is a client of the realm, `ai-gateway`: the realm's `apis` registers it
+(`../auth/realm/dev.tfvars` does in development), and an application that calls it lists it in its
+`modules/app` `apis`.
 
 ## Run it
 

@@ -44,8 +44,8 @@ what follows from it that would otherwise look like four unrelated decisions.
 Two of them are realm configuration, and [the Keycloak page](/docs/auth/keycloak) is where they are
 set. The role mappers are marked for [**both**
 tokens](/docs/auth/keycloak#role-claims-on-both-tokens) — the access token so an API can authorise,
-the ID token so an interface can draw — and the access token carries [an audience
-mapper](/docs/auth/keycloak#the-audience-mapper) naming the API, because a resource server validates
+the ID token so an interface can draw — and the token an API receives names [that API and no
+other](/docs/auth/keycloak#the-apis-an-application-calls), because a resource server validates
 `aud` before it trusts anything else. Neither is a Keycloak convention we happen to follow; each is
 the rule applied once.
 
@@ -110,6 +110,61 @@ engine. Short of that, a revision of RFC 10017 that recommends the token-mediati
 Authorization header, because the cookie rides along by itself"; `packages/auth/src/server.test.ts`,
 "spends one refresh token for a burst of concurrent renewals"; `packages/auth/src/single-flight.test.ts`,
 "runs the work once for every caller that arrives while it is running".
+
+## One token per API and organization, exchanged
+
+The session's access token never leaves the server. It is asked for with `organization:*`, so it
+names every organization the person belongs to, and it names no API. What a resource server
+receives is that token exchanged — [OAuth 2.0 Token Exchange](https://www.rfc-editor.org/rfc/rfc8693),
+as Keycloak 26.8's standard token exchange implements it, supported and on by default — for one
+whose `aud` is that API and whose `organization` claim is the one organization the call is in. One
+credential model for everything behind a BFF: a tenant's API, the [AI gateway](/docs/ai/gateway),
+and whatever comes next are each a client of the realm, registered with
+`services/auth/modules/api`, and an application lists the ones it calls.
+
+None of it is ours. [RFC 9700 §2.3](https://www.rfc-editor.org/rfc/rfc9700#section-2.3) restricts
+an access token to one resource server, RFC 9068 has the resource server reject any `aud` but its
+own, and Keycloak's exchange guide says *"ideally use a single audience"*. Auth0 issues one token
+per API and organization (`audience`, `org_id`); Entra's on-behalf-of flow is a token exchange with
+one resource per token; Zitadel takes RFC 8693 with the organization and the audience as scopes.
+Storage is the same shape one step further: an Iceberg REST catalog, Lakekeeper or Polaris validates
+the person's token and vends a short credential for a prefix with its **own** cloud identity, which
+is what fossil's `Host.credentials` already expects of a host — a resource server like any other.
+
+What it buys is the line between customers. Forwarded as it was, the session's token was as good at
+`globex`'s API as at `acme`'s for anyone in both; exchanged, it is good at one API in one
+organization for five minutes, and a key handed to an application — the gateway's per-tenant keys
+were — stops existing.
+
+Three things here were measured rather than read, on Keycloak 26.8 by `scripts/verify.sh`:
+
+- **The API is asked for by its scope, not by RFC 8693's `audience` parameter.** Keycloak reads that
+  parameter as a filter and keeps only the requested audience's client roles, so the application's
+  own roles held outside any organization did not arrive. The scope's audience mapper names the API
+  and filters nothing. The token also names `account`, Keycloak's account service, as every token of
+  the realm does from its default roles — a small set, which RFC 9700 allows when one is not
+  feasible, and not one of ours.
+- **A non-member's organization is dropped, not refused.** The granted `scope` says so, and `token`
+  refuses there (`organization/denied`) rather than forward a token with no organization in it. The
+  access token stays unread.
+- **A scope the application does not list is refused** with `invalid_scope`, so an application
+  reaches the APIs its registration names and no others.
+
+Two alternatives lost. **One token with every API in `aud`** is the multi-audience token RFC 9700
+and Keycloak both advise against: any of the APIs could replay it at the others. **RFC 8707's
+`resource`** in place of `audience` is the more exact standard, and it is experimental in Keycloak
+26.8, whose exchange does not take it.
+
+**What would reverse it:** Keycloak's resource indicators leaving experimental with exchange support
+moves the request from the scope to `resource`, and changes nothing a consumer writes. An API that
+must act on behalf of another — a delegation chain with `act` — is RFC 8693's delegation, still
+preview in Keycloak, and would extend this rather than replace it. The exchange itself goes only if
+Keycloak stops being the one realm, which is a different platform.
+
+*Held by* `packages/auth/src/server.test.ts`, "exchanges the session's token for one naming the
+audience and the organization alone" and "refuses an organization the person is not a member of";
+`packages/auth/src/next-proxy.test.ts`, "attaches a token exchanged for the mount's audience as a
+bearer, never the session's own"; `services/auth/scripts/verify.sh`.
 
 ## The protocol is somebody else's
 

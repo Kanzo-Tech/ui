@@ -1,6 +1,6 @@
-# One application, registered with the platform's realm: its client, the audience its access
-# token names, and its roles. An application declares this from its own repository; the realm
-# knows no application by name.
+# One application, registered with the platform's realm: its client, the APIs it may exchange its
+# token for, and its roles. An application declares this from its own repository; the realm knows
+# no application by name.
 
 resource "keycloak_openid_client" "app" {
   realm_id    = var.realm_id
@@ -28,21 +28,11 @@ resource "keycloak_openid_client" "app" {
   # `session_required` puts `sid` in it, so one browser session can end without the others.
   backchannel_logout_url              = var.backchannel_logout_url
   backchannel_logout_session_required = true
-}
 
-# `included_custom_audience`: a resource server validates tokens and never obtains one, so it is
-# not a client. The ID token is for the interface and must not name the API, or an interface that
-# forwarded it would look valid there.
-resource "keycloak_openid_audience_protocol_mapper" "api" {
-  count = var.audience == null ? 0 : 1
-
-  realm_id  = var.realm_id
-  client_id = keycloak_openid_client.app.id
-  name      = "audience"
-
-  included_custom_audience = var.audience
-  add_to_access_token      = true
-  add_to_id_token          = false
+  # Standard token exchange (RFC 8693): the session's token, which names no API and every
+  # organization, is exchanged per call for one that names one API and one organization. The
+  # exchanged token carries no refresh token; the next one is another exchange.
+  standard_token_exchange_enabled = length(var.apis) > 0
 }
 
 # ── Roles, in tiers ──────────────────────────────────────────────────────────
@@ -110,7 +100,8 @@ resource "keycloak_openid_client_default_scopes" "app" {
 }
 
 resource "keycloak_openid_client_optional_scopes" "app" {
-  realm_id        = var.realm_id
-  client_id       = keycloak_openid_client.app.id
-  optional_scopes = var.optional_scopes
+  realm_id  = var.realm_id
+  client_id = keycloak_openid_client.app.id
+  # The APIs' scopes are optional: a sign-in never asks for one, and an exchange asks for one.
+  optional_scopes = concat(var.optional_scopes, var.apis)
 }

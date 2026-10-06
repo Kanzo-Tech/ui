@@ -41,8 +41,8 @@ const party = relyingParty({
 | `begin({ redirectUri, returnTo?, organization? })` | `Redirect` — the authorization URL, and the cookie that remembers this attempt | `GET /api/auth/signin` |
 | `complete({ url, cookie, redirectUri })` | `SignedIn` — a session, its cookies, and where the person was going | the callback |
 | `read(cookie)` | `Session \| null` — one store read, nothing renewed | `GET /api/auth/session`, a server component |
-| `token(cookie, options?)` | `Token \| Ended` — the access token, renewed in place when near expiry | the proxy, forwarding to a resource server |
-| `refresh(cookie)` | `Renewed \| Ended` — renewed now, whatever the expiry | `POST /api/auth/refresh` |
+| `token(cookie, { audience, organization? })` | `Token \| Ended` — a token for one resource server and one organization, exchanged for the session's | forwarding to a resource server |
+| `refresh(cookie, options?)` | `Renewed \| Ended` — renewed now, or with `renewWithin` only when near expiry | the proxy, `POST /api/auth/refresh` |
 | `end(cookie, options?)` | `Redirect` — clears the cookie and ends it at the IdP too | `GET /api/auth/signout` |
 | `logout(logoutToken)` | nothing — drops the sessions a back-channel logout token names | `POST /api/auth/backchannel-logout` |
 
@@ -64,15 +64,25 @@ someone Keycloak had already signed out.
 
 ## The token-mediating backend
 
-`token` is the credential half of `read`. It answers the **access token**, which is what a resource
-server takes, and renews it when less than `renewWithin` seconds remain — sixty by default, which
-covers both the flight time of the request about to be sent and the clock skew between this server
-and the one that will validate the token.
+`token` is the credential half of `read`. It answers a bearer token for **one resource server and
+one organization** — the `aud` that server validates, and the organization the call is in — and
+never the session's own access token, which names every organization the person belongs to and no
+API at all. Forwarding that one would hand `acme`'s server a token that is just as good at
+`globex`'s.
+
+So the session's token is exchanged: [OAuth 2.0 Token
+Exchange](https://www.rfc-editor.org/rfc/rfc8693), as Keycloak's [standard token
+exchange](https://www.keycloak.org/securing-apps/token-exchange) implements it. The request is
+`audience=<api>` and `scope=<api> organization:<alias>`; the realm answers with a token whose `aud`
+is the API alone and whose `organization` claim holds that organization alone, with the roles held
+there. A person who is not a member of the organization is not refused by Keycloak — the
+organization is dropped from the token — so the granted `scope` is read, and `token` rejects with
+`organization/denied` rather than hand a resource server a token that names no organization in its
+place. The access token stays opaque here, as it is by contract.
 
 ```ts
-const held = await party.token(request.headers.get("cookie"));
+const held = await party.token(request.headers.get("cookie"), { audience: "reports", organization: "acme" });
 if (held.ended) return unauthorized(held.cookies); // 401, clearing the cookie
-
 
 const upstream = await fetch(REPORTS, {
   headers: { authorization: `Bearer ${held.accessToken}` },
@@ -82,8 +92,17 @@ for (const cookie of held.cookies) answer.headers.append("set-cookie", cookie);
 return answer;
 ```
 
+The session is renewed first when less than `renewWithin` seconds remain — sixty by default, which
+covers both the flight time of the request about to be sent and the clock skew between this server
+and the one that will validate the token — and the exchanged token is kept until it is inside the
+same window, one per session token, audience and organization. An exchange is single-flight under
+that key, so a page that fires eight requests costs the realm one exchange. The exchanged token
+carries no refresh token: the next one is another exchange.
+
 `cookies` is empty unless the ticket itself changed, which only the stateless store's re-seal does.
-[`kanzoAuth().api`](/docs/auth/next#api) is that whole handler, already written.
+[`kanzoAuth().api`](/docs/auth/next#api) is that whole handler, already written, and
+[the realm](/docs/auth/keycloak#the-apis-an-application-calls) is where an application is allowed to
+ask for an API.
 
 <Callout type="warn">
 **The access token is the credential, and the ID token is not.** A product without a way to ask for
@@ -104,7 +123,8 @@ a request already in flight, never hold two different cookies for one session.
 
 Renewal is **single-flight per ticket, for the whole process**: a page that fires eight requests at
 an expiring token spends it once, and the proxy, the forwarder and the refresh route all join the
-same slot.
+same slot. The proxy asks `refresh(cookie, { renewWithin })`, which renews only inside the window;
+the refresh route asks `refresh(cookie)`, which renews now.
 
 Two Node processes behind a load balancer can still both spend one refresh token, and the IdP
 answers the second with `invalid_grant`. That is not the end of the session: the first process has
@@ -310,11 +330,23 @@ What `token` answers for a live session: a `Renewed` with the credential on it.
 | Field | Type | Description |
 | --- | --- | --- |
 | `ended` | `false` | |
-| `accessToken` | `string` | The bearer credential for a resource server |
+| `accessToken` | `string` | The bearer credential for the one resource server and organization asked for |
 | `session` | `Session` | Who it belongs to |
 | `cookies` | `readonly string[]` | `Set-Cookie` values to attach. Empty unless the stateless store re-sealed — **attaching them is not optional** |
 
-`token` takes `{ renewWithin?: number }`, seconds, default `60`.
+`token` takes:
+
+| Option | Type | Description |
+| --- | --- | --- |
+| `audience` | `string` | The API's client id in the realm, which `services/auth/modules/api` registers |
+| `organization` | `string` | The organization the call is in. Absent for an API no organization owns: the token then names none |
+| `renewWithin` | `number` | Seconds, default `60` |
+
+It rejects with `organization/denied` for an organization the person is not a member of,
+`organization/invalid` for one that is not an alias — `*` included — and `token/exchange-failed`
+when the realm will not exchange for that audience at all.
+
+`refresh` takes `{ renewWithin?: number }`: absent, it renews now.
 
 ### `Ended`
 
@@ -332,7 +364,7 @@ What `token` and `refresh` answer when there is no live session.
 | --- | --- | --- |
 | `session` | `Session` | What the browser is allowed to see |
 | `sid` | `string` | The ID token's `sid`, kept across refreshes, for a back-channel logout to name |
-| `accessToken` | `string` | The credential for a resource server |
+| `accessToken` | `string` | The session's own token: what `token` exchanges, and never forwarded |
 | `accessTokenExpiresAt` | `number` | Epoch ms, from the response's `expires_in` rather than from opening the token |
 | `refreshToken` | `string` | Rotated on every use; the stored one is always the newest issued |
 | `idToken` | `string` | Kept for `id_token_hint` at the end-session endpoint |

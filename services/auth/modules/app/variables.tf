@@ -60,10 +60,20 @@ variable "backchannel_logout_url" {
   default     = null
 }
 
-variable "audience" {
-  description = "The API the access token is for, written into `aud`. Null when the application calls no API of its own."
-  type        = string
-  default     = null
+variable "apis" {
+  description = <<-EOT
+    The APIs the application calls: each one's modules/api `scope`. The application exchanges its
+    session's token for one naming a single API and a single organization before each call, so the
+    token it signs in with names none of them. Needs a CONFIDENTIAL client: an exchange is a client
+    authenticating itself.
+  EOT
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = length(var.apis) == 0 || var.access_type == "CONFIDENTIAL"
+    error_message = "A token exchange is made by a CONFIDENTIAL client; a PUBLIC one calls no API through this realm."
+  }
 }
 
 variable "roles" {

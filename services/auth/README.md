@@ -50,17 +50,24 @@ organization — the Organization Group Membership mapper with `addGroupRoleMapp
 
 ## Registering an application
 
-From the application's own repository, with [`modules/app`](modules/app):
+From the application's own repository, with [`modules/app`](modules/app) and, for its API,
+[`modules/api`](modules/api):
 
 ```hcl
+module "api" {
+  source    = "git::https://github.com/Kanzo-Tech/ui.git//services/auth/modules/api?ref=<release>"
+  realm_id  = "kanzo"
+  client_id = "board-api"
+}
+
 module "app" {
-  source        = "git::https://github.com/Kanzo-Tech/ui.git//services/auth/modules/app?ref=v0.30.0"
+  source        = "git::https://github.com/Kanzo-Tech/ui.git//services/auth/modules/app?ref=<release>"
   realm_id      = "kanzo"
   client_id     = "board"
   access_type   = "CONFIDENTIAL"
   client_secret = var.client_secret
   redirect_uris = ["https://*.board.example.com/api/auth/callback"]
-  audience      = "board-api"
+  apis          = [module.api.scope, "ai-gateway"]
   roles = {
     reader = {}
     editor = { composites = ["reader"] }
@@ -69,7 +76,9 @@ module "app" {
 }
 ```
 
-[`examples/app`](examples/app) is the whole file. Then map the application's roles onto an
+The token the application signs in with names no API. Before each call its server exchanges it
+(RFC 8693, Keycloak's standard token exchange) for one naming one API and one organization, and
+`scripts/verify.sh` checks that on a live token. [`examples/app`](examples/app) is the whole file. Then map the application's roles onto an
 organization's groups — what an organization admin does in the console — with
 
 ```sh
@@ -82,8 +91,9 @@ realm's `/groups/{id}/role-mappings` answers 400 for an organization group.
 
 ## What is not here
 
-- **No application.** The only client is `kanzo-conformance`, which exists to prove the contract
-  (`conformance = true` in `realm/dev.tfvars`; off by default).
+- **No application.** The only client is `kanzo-conformance`, with its API, which exist to prove
+  the contract (`conformance = true` in `realm/dev.tfvars`; off by default). The platform's own
+  APIs are the realm's `apis`; development registers `ai-gateway`.
 - **No membership in Terraform.** Keycloak makes membership runtime — invitations, IdP brokering,
   enrolment by email domain — and the provider has no membership resource. Development seeds it
   (`seed/`); production invites.
@@ -93,8 +103,9 @@ realm's `/groups/{id}/role-mappings` answers 400 for an organization group.
 
 ```
 compose.yml          Keycloak, its Postgres, the realm (two applies), the seed
-realm/               the platform realm: organizations, claim mappers, the conformance client
-modules/app/         an application's registration: client, audience, roles with composites
+realm/               the platform realm: organizations, claim mappers, its APIs, the conformance client
+modules/app/         an application's registration: client, the APIs it calls, roles with composites
+modules/api/         an API's registration: a client with no flow, and the scope naming it in `aud`
 examples/app/        modules/app from an application's repository
 seed/                development users, organization groups and their role mappings
 scripts/verify.sh    the contract, checked on a live token

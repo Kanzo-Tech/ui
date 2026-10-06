@@ -30,7 +30,8 @@ browser ──▶ the application's server (BFF) ──Bearer <token for the gat
 
 The browser never holds a credential for the gateway. It calls its own application's route — the
 `baseURL` it hands `createGateway` — and that server exchanges the user's access token for one the
-gateway accepts, and forwards. The gateway then checks three things, all from the token and none
+gateway accepts, and forwards: an entry in [`kanzoAuth`'s `apis`](/docs/ai/llm#why-no-credential-is-in-the-page),
+the same exchange as for every other API. The gateway then checks three things, all from the token and none
 from a key of its own:
 
 - **It was signed by the realm** (`issuer`, keys fetched from the realm) **and issued for the
@@ -43,8 +44,10 @@ from a key of its own:
 
 The exchange is [OAuth 2.0 Token Exchange](https://www.rfc-editor.org/rfc/rfc8693) as Keycloak
 implements it ([standard token exchange](https://www.keycloak.org/securing-apps/token-exchange)):
-the application's server presents the access token it holds and asks for the gateway's audience and
-one organization's scope.
+the application's server presents the access token it holds and asks for the gateway's scope and
+one organization's. The gateway is a client of the realm like any API — `ai-gateway`, registered
+with `services/auth/modules/api` — and an application that calls it lists it in its
+[`apis`](/docs/auth/keycloak#the-apis-an-application-calls).
 
 ## What the gateway keeps
 
@@ -88,7 +91,8 @@ development ones. The deployment passes what is its own:
   them as `$NAME`.
 - **`issuer`** — the realm, as its tokens say it — and **`jwks_url`** when the gateway reaches
   Keycloak by another address. **`audience`** is the gateway's client in the realm, `ai-gateway`
-  unless it is given another.
+  unless it is given another: `services/auth/modules/api` registers it, and the realm's own `apis`
+  variable does so for the platform.
 - **`tokens_per_hour`** — optionally, how many tokens each organization may spend an hour, input
   and output together. Null is no budget.
 

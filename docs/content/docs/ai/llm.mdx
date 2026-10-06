@@ -101,42 +101,30 @@ the page, a CSRF token, and never for a credential.
 
 The token the BFF forwards is the person's own, exchanged: [OAuth 2.0 Token
 Exchange](https://www.rfc-editor.org/rfc/rfc8693) turns the access token the session holds into one
-issued for the gateway's audience and for **the one organization the request is for**. The gateway
-accepts nothing else, so who asked and which organization pays are in the token, not in a key the
-application was handed.
+issued for the gateway and for **the one organization the request is for**. The gateway accepts
+nothing else, so who asked and which organization pays are in the token, not in a key the
+application was handed. It is the same exchange every API behind the BFF gets, so the gateway is one
+more entry in [`kanzoAuth`'s `apis`](/docs/auth/next#api):
 
-```ts
-// app/api/ai/[...path]/route.ts — the BFF, in Next
-export async function POST(request: Request, { params }: { params: Promise<{ path: string[] }> }) {
-  const held = await party.token(request.headers.get("cookie"));
-  if (held.ended) return new Response(null, { status: 401 });
-  const exchanged = await fetch(TOKEN_ENDPOINT, {
-    method: "POST",
-    body: new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
-      client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET,
-      subject_token: held.accessToken,
-      subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
-      audience: "ai-gateway",
-      scope: `organization:${organizationOf(request)}`,
-    }),
-  });
-  if (!exchanged.ok) return new Response(null, { status: 403 });
-  const { access_token } = await exchanged.json();
-  const { path } = await params;
-  return fetch(`${process.env.AI_GATEWAY_URL}/${path.join("/")}`, {
-    method: "POST",
-    headers: { "content-type": "application/json", authorization: `Bearer ${access_token}` },
-    body: await request.text(),
-  });
-}
+```ts title="lib/auth.ts"
+export const auth = kanzoAuth(async () => ({
+  …,
+  organization: ({ url }) => url.hostname.split(".")[0],
+  apis: { "/api/ai": { audience: "ai-gateway", target: process.env.AI_GATEWAY_URL } },
+}));
 ```
 
-`party` is [the server door](/docs/auth/server) of `@kanzo-tech/auth`, and `organizationOf` is
-however the application knows which organization a request addresses — the same answer
-[`api`'s `target`](/docs/auth/next#api) is given. Returning the gateway's response as it is keeps it
-a stream: the answer reaches the page a token at a time through the BFF, not after it.
+```ts title="app/api/[...path]/route.ts"
+export const { GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS } = auth.api;
+```
+
+```ts
+const gateway = createGateway({ baseURL: "/api/ai" });
+```
+
+The application lists `ai-gateway` in its [`apis`](/docs/auth/keycloak#the-apis-an-application-calls)
+in the realm. The forwarder streams the answer as it arrives, so a reply reaches the page a token at
+a time through the BFF, not after it.
 
 ## Connecting a model
 
@@ -161,7 +149,7 @@ models:
     params: { model: <a smaller model>, apiKey: $PROVIDER_API_KEY }
 ```
 
-The BFF above forwards to it. `complete` is a separate alias because a field's continuation is asked
+`kanzoAuth` forwards to it, as above. `complete` is a separate alias because a field's continuation is asked
 on every pause in typing: it wants a small, fast model, and a chat wants a good one.
 
 ### A local model, for development
