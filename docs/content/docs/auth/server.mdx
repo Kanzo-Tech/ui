@@ -334,7 +334,7 @@ What `token` answers for a live session: a `Renewed` with the credential on it.
 | `session` | `Session` | Who it belongs to |
 | `cookies` | `readonly string[]` | `Set-Cookie` values to attach. Empty unless the stateless store re-sealed — **attaching them is not optional** |
 
-`token` takes:
+`token` takes an `Audience` — the API and the organization a token is for — and `renewWithin`:
 
 | Option | Type | Description |
 | --- | --- | --- |
