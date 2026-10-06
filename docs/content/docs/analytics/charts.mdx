@@ -152,10 +152,11 @@ It boots with DuckDB's `httpfs` loaded, so object storage is SQL rather than ano
 reader holding a credential scoped to a prefix runs `CREATE OR REPLACE SECRET … (TYPE s3, …, SCOPE
 's3://bucket/prefix/')` through `query` and reads `s3://…` by range. Lend under a name without a
 scheme: with `httpfs` loaded, `https://…` and `s3://…` in SQL are read by it before the registry is
-asked. DuckDB's `json` extension is loaded beside it, for `json_serialize_sql`.
+asked. DuckDB's `parquet` and `json` extensions are loaded beside it, for Parquet and for
+`json_serialize_sql`.
 
-Nothing it runs comes from a CDN. DuckDB-WASM's worker and module and the `httpfs` and `json`
-extensions are part of `@kanzo-tech/mosaic`, named with `new URL(…, import.meta.url)`, so your
+Nothing it runs comes from a CDN. DuckDB-WASM's worker and module and the `parquet`, `httpfs` and
+`json` extensions are part of `@kanzo-tech/mosaic`, named with `new URL(…, import.meta.url)`, so your
 bundler emits them as assets and the page loads them from your own origin — there is nothing to copy
 into `public/`. DuckDB's autoloading is off, so a function from an extension the engine did not load
 is DuckDB's error naming it, never a fetch from extensions.duckdb.org.

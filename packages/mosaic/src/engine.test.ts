@@ -105,15 +105,17 @@ describe("engine", () => {
   });
 
   // Without httpfs a vended credential has nowhere to go: `CREATE SECRET (TYPE s3 …)` is httpfs's.
-  // Without json the AI statement gate has no parser: `json_serialize_sql` is json's.
-  it("loads httpfs and json at boot, the builds for the bundle it booted, from beside the package", async () => {
+  // Without json the AI statement gate has no parser: `json_serialize_sql` is json's. Without parquet
+  // there is no corpus, and no boot: `parquet_metadata_cache` is parquet's setting.
+  it("loads parquet, httpfs and json at boot, the builds for the bundle it booted, from beside the package", async () => {
     await engine();
     const loads = sql.filter((s) => s.startsWith("LOAD ")).map((s) => new URL(s.slice("LOAD '".length, -1)));
     expect(loads.map((url) => url.pathname.replace(/^.*\/extensions\//, ""))).toEqual([
+      "wasm_eh/parquet.duckdb_extension.wasm",
       "wasm_eh/httpfs.duckdb_extension.wasm",
       "wasm_eh/json.duckdb_extension.wasm",
     ]);
-    expect(loads.map((url) => url.protocol)).toEqual(["file:", "file:"]);
+    expect(loads.map((url) => url.protocol)).toEqual(["file:", "file:", "file:"]);
   });
 
   // An extension nobody loaded would otherwise be fetched from extensions.duckdb.org, past the CSP.
