@@ -292,38 +292,3 @@ export async function matchingIds(coordinator: Coordinator, structure: Structure
   return Array.from(values(await ask(coordinator, Query.select("id").from(union)), "id") as ArrayLike<number>);
 }
 
-/** One side of a relation, seen from a vertex: the edges it leaves by, or the ones that reach it. */
-interface Side {
-  readonly edge: EdgeTable;
-  readonly direction: "out" | "in";
-}
-
-const near = (side: Side) => (side.direction === "out" ? "src" : "dst");
-const far = (side: Side) => (side.direction === "out" ? "dst" : "src");
-
-/** Every side of every relation `vertex`'s table takes part in — a relation of a table to itself, twice. */
-function sidesOf(structure: Structure, vertex: number): Side[] {
-  const table = tableOf(structure, vertex);
-  if (!table) return [];
-  return structure.edges.flatMap((edge) => [
-    ...(edge.source === table.name ? [{ edge, direction: "out" as const }] : []),
-    ...(edge.destination === table.name ? [{ edge, direction: "in" as const }] : []),
-  ]);
-}
-
-/** The vertices one edge away from `vertex`, along every relation its table takes part in, each once. */
-export async function neighbourIds(coordinator: Coordinator, structure: Structure, vertex: number): Promise<number[]> {
-  const sides = sidesOf(structure, vertex);
-  if (sides.length === 0) return [];
-  const answer = await ask(
-    coordinator,
-    Query.union(
-      sides.map((side) =>
-        Query.select({ id: float64(far(side)) })
-          .from(relation(structure.from, side.edge.name))
-          .where(eq(near(side), literal(vertex))),
-      ),
-    ),
-  );
-  return Array.from(values(answer, "id") as ArrayLike<number>);
-}

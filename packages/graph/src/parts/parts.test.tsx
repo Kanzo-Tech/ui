@@ -233,15 +233,15 @@ describe("GraphInspector", () => {
     act(() => held.api?.setFocus(6));
     await waitFor(() => expect(screen.getByTestId("extra").textContent).toBe("score plus one: 8"));
     const labels = (name: string) => [...section(name).querySelectorAll("dt")].map((dt) => dt.textContent);
-    expect(labels("Identity")).toEqual(["subject"]);
     expect(labels("Values")).toEqual(["name", "team", "score", "lon", "lat"]);
     expect(screen.queryByRole("region", { name: "Dates" })).toBeNull();
     expect(corpus.sent.filter((sql) => /"Person" WHERE \("dense_id" = 6\)$/.test(sql))).toHaveLength(1);
-    expect(section("Identity").querySelector("a")?.getAttribute("href")).toBe("https://example.org/person/6");
+    expect(screen.queryByRole("region", { name: "Identity" })).toBeNull();
+    expect(document.querySelector('[data-slot="graph-inspector-iri"] a')?.getAttribute("href")).toBe("https://example.org/person/6");
     expect(document.querySelector('[data-slot="graph-inspector-title"]')?.textContent).toBe("Person 6");
   });
 
-  it("heads with the IRI's local name when there is no title, keeps the IRI behind Copy, and lists no neighbours", async () => {
+  it("heads with the IRI's local name when there is no title, prints the IRI under it with Copy, and lists no neighbours", async () => {
     const corpus = await attach();
     const held: { api: GraphApi | null } = { api: null };
     render(
@@ -253,20 +253,20 @@ describe("GraphInspector", () => {
     await ready(corpus);
     act(() => held.api?.setFocus(6));
     await waitFor(() => expect(document.querySelector('[data-slot="graph-inspector-title"]')?.textContent).toBe("6"));
-    expect(section("Identity").querySelector('[aria-label="Copy the IRI"]')).toBeTruthy();
+    const iri = document.querySelector('[data-slot="graph-inspector-iri"]');
+    expect(iri?.textContent).toBe("https://example.org/person/6");
+    expect(iri?.querySelector('[aria-label="Copy the IRI"]')).toBeTruthy();
     expect(section("Values")).toBeTruthy();
     expect(screen.queryByRole("region", { name: "Neighbours" })).toBeNull();
     expect(screen.queryByRole("button", { name: /Copy its fields/ })).toBeNull();
   });
 
-  it("selects the vertex and every neighbour as one external selection, and locates it", async () => {
+  it("locates the vertex, and offers nothing a click on the canvas already does", async () => {
     const { held } = await inspecting();
     act(() => held.api?.setFocus(6));
-    fireEvent.click(await screen.findByRole("button", { name: "Select neighbours" }));
-    await waitFor(() => expect(held.api?.getState().selection?.label).toBe("Neighbours of Person 6"));
-    expect([...(held.api?.getState().selection?.vertices ?? [])].sort((a, b) => a - b)).toEqual([5, 6, 7, 10]);
-    fireEvent.click(screen.getByRole("button", { name: "Locate" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Locate" }));
     expect(held.api?.getState().selection).toEqual({ vertices: [6], source: "node", label: "Node" });
+    expect(screen.queryByRole("button", { name: /neighbours/i })).toBeNull();
   });
 
   it("says a vertex is not in the corpus, and reports nothing", async () => {

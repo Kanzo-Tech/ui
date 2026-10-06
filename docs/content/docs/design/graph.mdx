@@ -27,7 +27,7 @@ does this: `lon`/`lat` as `x`/`y` is what there is.
 
 The host attaches the corpus and names the catalog; `GraphRoot` reads it with SQL — `fossil_tables`
 and `fossil_columns` for the structure, the views for rows and links, one `SELECT` for a focused row,
-a `LIMIT`ed `ILIKE` for a search, a union of edge ends for a neighbourhood — every statement built
+a `LIMIT`ed `ILIKE` for a search — every statement built
 from mosaic-sql's nodes and run through `coordinator.query(query, { type: "arrow" })`. A search is text
 a reader typed, so no statement is a template string: the nodes quote their own identifiers and
 literals. It imports nothing of fossil's.
@@ -265,7 +265,7 @@ Every module stays under four hundred lines:
 ```text
 packages/graph/src/
 ├── core/                     no React; nothing here imports cosmos.gl
-│   ├── source.ts             the catalog's statements: structure, columns, links, a row, titles, search, neighbours
+│   ├── source.ts             the catalog's statements: structure, columns, links, a row, titles, search
 │   ├── client.ts             GraphClient — the crossfilter's survivors — and the clause the graph publishes
 │   ├── load.ts               answers → buffers by dense_id; the seeded start; the layout's square
 │   ├── channels.ts           Plot's bindings, and the columns they read
@@ -375,14 +375,16 @@ under it read the root.
   is not the legend's last line.
 - **`GraphToolbar`** — the tools, the selection, zoom and fit, and the layout's transport.
 - **`GraphInspector`** — the focused vertex, Linkurious's inspector: headed by its title or its IRI's
-  local name under its type, then two labelled actions side by side, **Locate** (`reveal`: frame it
-  with its neighbours, and keep the camera there) and **Select neighbours**, then its row in two
-  columns, in `fossil_columns`' order, grouped as identity, values and dates, and a render prop for
-  fields a product adds. Sections and rules, not a card: in a dock a card is a second border. **It
-  lists no neighbourhood**: a count per relation repeated what the canvas draws one click away, and
-  three icon buttons (zoom, focus, copy the row) read as a riddle — the row copy had no reader at all.
-  *Held by* `packages/graph/src/parts/parts.test.tsx`, "heads with the IRI's local name when there is
-  no title, keeps the IRI behind Copy, and lists no neighbours". What would reverse it: a corpus whose
+  local name under its type, **Locate** beside it (`reveal`: frame it with its neighbours, and keep the
+  camera there), the IRI under it with its copy button, then its row in two columns, in
+  `fossil_columns`' order, grouped as values and dates, and a render prop for fields a product adds.
+  Sections and rules, not a card: in a dock a card is a second border. **It does nothing with the
+  neighbourhood**: a count per relation repeated what the canvas draws one click away, a "select
+  neighbours" repeated what a click and Locate already select, and three icon buttons (zoom, focus,
+  copy the row) read as a riddle — the row copy had no reader at all. *Held by*
+  `packages/graph/src/parts/parts.test.tsx`, "heads with the IRI's local name when there is no title,
+  prints the IRI under it with Copy, and lists no neighbours" and "locates the vertex, and offers
+  nothing a click on the canvas already does". What would reverse it: a corpus whose
   relations the canvas cannot draw — too many edges to load — where the panel is the only place a
   neighbourhood can be read.
 - **`GraphSearch`** — a palette in cmdk's shape, Raycast's and Linear's: a `LIMIT`ed `ILIKE` per pause

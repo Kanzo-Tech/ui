@@ -13,16 +13,13 @@ import {
   Separator,
   Show,
   Skeleton,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
   useChartCapacity,
 } from "@kanzo-tech/ui";
-import { LocateFixedIcon, WaypointsIcon } from "lucide-react";
+import { LocateFixedIcon } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { nameOf } from "../core/categories";
 import { bindingOf } from "../core/channels";
-import { neighbourIds, readVertex, type VertexDetail } from "../core/source";
+import { readVertex, type VertexDetail } from "../core/source";
 import { localName, tableOf } from "../core/structure";
 import type { VertexId } from "../core/types";
 import { useGraphContext } from "../react/graph-root";
@@ -115,15 +112,13 @@ function useRead<T>(vertex: VertexId | null, read: ((vertex: VertexId) => Promis
  * is read when a reader focuses it — one statement on its table, by its key, through the page's
  * coordinator.
  *
- * The header names the vertex — its type over it, with the canvas's glyph when colour is the type;
- * its `title`, else its IRI's local name, with the whole IRI in the tooltip. Under it, two actions
- * that say what they do, in Linkurious's and Bloom's words: **Locate** frames it with its neighbours
- * on the canvas and keeps the camera there, and
- * **Select neighbours** selects it with every vertex one edge away as an `"external"` selection, which
- * the page's crossfilter hears. The connections themselves are the
- * canvas's to show, so the panel does not list them a second time. Then the fields, two columns, in
- * the order the manifest declares them, grouped as its identity — with the copy button beside the
- * IRI — its values and its dates. A row the render prop adds lines up with them. Sections
+ * The header names the vertex: its type over it, with the canvas's glyph when colour is the type;
+ * its `title`, else its IRI's local name; and **Locate** beside it, which frames it with its
+ * neighbours on the canvas and keeps the camera there. Under the name, the IRI itself — a link out,
+ * with the copy button beside it, because the IRI is what a reader carries elsewhere. Nothing
+ * selects the neighbours here: a click on the canvas already does, and so does Locate. Then the
+ * fields, two columns, in the order the manifest declares them, grouped as values and dates; a row
+ * the render prop adds lines up with them. Sections
  * and rules, no card: inside a dock a card is a second border.
  */
 export function GraphInspector({ children, className, slot, ...rest }: GraphInspectorProps) {
@@ -151,24 +146,13 @@ export function GraphInspector({ children, className, slot, ...rest }: GraphInsp
   const titled = field(options.title);
   const named = titled ?? (typeof iri === "string" && iri !== "" ? localName(iri) : iri);
   const heading = current ? (named === undefined || named === null ? `#${current.vertex}` : text(named, false)) : "";
-  const whole = typeof iri === "string" && iri !== "" ? iri : heading;
   const dated = (name: string) => /date|time/i.test(table?.columns.get(name)?.type ?? "");
   const groups = current
     ? [
-        { title: "Identity", fields: current.fields.filter((f) => f.name === table?.identity) },
         { title: "Values", fields: current.fields.filter((f) => f.name !== table?.identity && !dated(f.name)) },
         { title: "Dates", fields: current.fields.filter((f) => f.name !== table?.identity && dated(f.name)) },
       ]
     : [];
-  const selectNeighbours = async () => {
-    if (!current || !structure || !coordinator) return;
-    try {
-      const around = await neighbourIds(coordinator, structure, current.vertex);
-      api.select([current.vertex, ...around], "external", `Neighbours of ${heading}`);
-    } catch (error) {
-      api.getState().options.onFailure(error);
-    }
-  };
 
   return (
     <div {...rest} className={cn("space-y-3 text-sm", className)} data-slot={slot ?? "graph-inspector"}>
@@ -185,33 +169,34 @@ export function GraphInspector({ children, className, slot, ...rest }: GraphInsp
       </Show>
       {current && (
         <>
-          <header className="space-y-3">
-            <div className="min-w-0 space-y-0.5">
-              <p className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs" data-slot="graph-inspector-type">
-                <Show when={byType}>
-                  <ShapeGlyph aria-hidden className="size-2.5 shrink-0" color={scale.color(rank)} shape={scale.shape(rank)} />
-                </Show>
-                <span className="truncate">{nameOf(current.table, categories)}</span>
-              </p>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <h3 className="truncate font-semibold text-base" data-slot="graph-inspector-title">
-                    {heading}
-                  </h3>
-                </TooltipTrigger>
-                <TooltipContent>{whole}</TooltipContent>
-              </Tooltip>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Button onClick={() => api.reveal(current.vertex)} size="sm" variant="outline">
+          <header className="space-y-1">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs" data-slot="graph-inspector-type">
+                  <Show when={byType}>
+                    <ShapeGlyph aria-hidden className="size-2.5 shrink-0" color={scale.color(rank)} shape={scale.shape(rank)} />
+                  </Show>
+                  <span className="truncate">{nameOf(current.table, categories)}</span>
+                </p>
+                <h3 className="truncate font-semibold text-base" data-slot="graph-inspector-title" title={heading}>
+                  {heading}
+                </h3>
+              </div>
+              <Button className="shrink-0" onClick={() => api.reveal(current.vertex)} size="sm" variant="outline">
                 <LocateFixedIcon aria-hidden />
                 Locate
               </Button>
-              <Button onClick={() => void selectNeighbours()} size="sm" variant="outline">
-                <WaypointsIcon aria-hidden />
-                <span className="truncate">Select neighbours</span>
-              </Button>
             </div>
+            <Show when={typeof iri === "string" && iri !== ""}>
+              <div className="flex min-w-0 items-center gap-1 text-xs" data-slot="graph-inspector-iri">
+                <Link className="min-w-0 truncate text-muted-foreground" href={String(iri)} rel="noreferrer" target="_blank" title={String(iri)}>
+                  {String(iri)}
+                </Link>
+                <Clipboard className="-my-1 shrink-0" value={String(iri)}>
+                  <ClipboardTrigger aria-label="Copy the IRI" />
+                </Clipboard>
+              </div>
+            </Show>
           </header>
           {groups.map((group) => (
             <Show key={group.title} when={group.fields.length > 0 || (group.title === "Values" && !!children)}>
@@ -222,13 +207,8 @@ export function GraphInspector({ children, className, slot, ...rest }: GraphInsp
                   {group.fields.map((f) => (
                     <DataListItem key={f.name}>
                       <DataListItemLabel title={f.name}>{f.name}</DataListItemLabel>
-                      <DataListItemValue className="flex items-baseline gap-1">
+                      <DataListItemValue>
                         <Value date={dated(f.name)} value={f.value} />
-                        <Show when={f.name === table?.identity && typeof f.value === "string" && f.value !== ""}>
-                          <Clipboard className="shrink-0 self-center" value={String(f.value)}>
-                            <ClipboardTrigger aria-label="Copy the IRI" />
-                          </Clipboard>
-                        </Show>
                       </DataListItemValue>
                     </DataListItem>
                   ))}

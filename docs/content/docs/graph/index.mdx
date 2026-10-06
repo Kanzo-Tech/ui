@@ -265,17 +265,17 @@ inspector, in sections and rules rather than a card, which inside a dock would b
 read when a reader focuses it: one `SELECT` of its table at its `dense_id`.
 
 - **The header** names the vertex — its type over it, with the canvas's glyph when colour is the
-  type, then its `title`, else its IRI's local name (what follows the last `#` or `/`), else `#id`,
-  with the whole IRI in a tooltip.
-- **Two actions that say what they do**, side by side under the name, in Linkurious's and Bloom's
-  words: **Locate** frames it with its neighbours on the canvas — `reveal` — and the camera stays there
-  through a resize or a settling layout; **Select neighbours** selects it with every vertex one edge away in the corpus as an
-  `"external"` selection named "Neighbours of …", which the page's crossfilter hears. The connections
-  themselves are the canvas's to show, so the panel does not list them a second time.
-- **The fields** are the table's, two columns, in `fossil_columns`' order, grouped as **Identity**,
-  **Values** and **Dates** — a date is a column whose declared type is a date or a time; the identity
-  carries the copy button beside the IRI. An IRI is a link out, and a long text is clamped with
-  "more". A `DataListItem` the render prop draws lines up with them without a class of its own.
+  type, then its `title`, else its IRI's local name (what follows the last `#` or `/`), else `#id` —
+  with **Locate** beside it: `reveal`, which frames it with its neighbours on the canvas and keeps the
+  camera there through a resize or a settling layout.
+- **The IRI under the name**, a link out with the copy button beside it: the identity is what a
+  reader carries elsewhere, so it is never a row to hunt for.
+- **Nothing selects the neighbours here.** A click on the canvas already selects a vertex with its
+  neighbours, and so does Locate; the connections are the canvas's to show.
+- **The fields** are the table's, two columns, in `fossil_columns`' order, grouped as **Values** and
+  **Dates** — a date is a column whose declared type is a date or a time. An IRI is a link out, and a
+  long text is clamped with "more". A `DataListItem` the render prop draws lines up with them without
+  a class of its own.
 
 **`children` is a render prop**: it receives the `VertexDetail` and draws fields of the product's own,
 a `DataListItem` each, after the corpus's values — here the hall's name, where the relation stores

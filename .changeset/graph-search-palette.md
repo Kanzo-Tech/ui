@@ -11,10 +11,10 @@ with the same title can be told apart. `placeholder`, `size` and `limit` are unc
 now style the button, and `size` is `"sm" | "md" | "lg"`. Mount one per page: the key opens every
 palette that declares it.
 
-**`GraphInspector` is compact.** It heads with the vertex's type over its title or IRI local name
-(the whole IRI in the tooltip), offers **Locate** and **Select neighbours** as labelled buttons in
-place of the zoom, focus and copy icons, moves the IRI's copy button beside the IRI, no longer lists
-the neighbourhood, lays the fields out in two columns, and drops its card, so a dock no longer draws a
+**`GraphInspector` is compact.** It heads with the vertex's type over its title or IRI local name,
+with a labelled **Locate** button beside them in place of the zoom, focus and copy icons, and prints
+the IRI under the name with its copy button, so there is no Identity section. It no longer lists or
+selects the neighbourhood — a click on the canvas already does — lays the fields out in two columns, and drops its card, so a dock no longer draws a
 second border around it. Rows your render prop adds line up without classes of their own: drop any
 you set on its `DataListItem`s.
 
