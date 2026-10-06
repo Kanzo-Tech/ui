@@ -1,6 +1,6 @@
 ---
 title: Dashboard
-description: A mini BI over any relation — a filter bar and tiles (figures, charts, tables), chosen from the relation's stats, edited in one side sheet, and kept as a JSON spec the host saves.
+description: A dashboard over any relation for finding what it holds — a filter bar and tiles (figures, charts, tables), chosen from the relation's stats, edited where they sit, and kept as a JSON spec the host saves.
 ---
 
 `Dashboard` is the charts grammar composed for a relation you have not seen. It reads the
@@ -11,8 +11,8 @@ saved — and lets the reader edit every tile of it. The host brings three thing
 
 <ComponentPreview componentName="dashboard" fileName="example-default" hasMaxHeight={false} />
 
-The references are Grafana's panel model and editor — tiles of a kind in an ordered layout, each with
-a width, edited in a side sheet with a live preview — Metabase's filter bar drawn as Linear's chips,
+The references are Grafana's panel model — tiles of a kind in an ordered layout, each with a width —
+edited in place the way Notion and Linear edit a block, Metabase's filter bar drawn as Linear's chips,
 Metabase's X-ray for the dashboard a relation gets before anybody has edited one, and Looker's
 explores and Malloy's sources for a relation that joins. What it leaves out is their query layer:
 every tile reads the one relation the `Dashboard` is given, under one crossfilter.
@@ -52,7 +52,7 @@ Dashboard                 — reads the fields, draws the spec or the automatic 
 ├── DashboardStat         — a `stat` tile
 ├── ChartCard             — a `chart` tile
 ├── DetailTable           — inside a `table` tile: the rows under the selection, paged by DuckDB
-└── TileEditor            — the side sheet a tile is added and edited in
+└── TileEditor            — the popover a tile is added and edited in, anchored to the tile
 ```
 
 Tiles flow left to right through one three-column grid, each as wide as its `span`. Every part is
@@ -238,12 +238,18 @@ and here the browser never holds more than the page.
 
 ### TileEditor
 
-**The one editor** — Grafana's panel editor in a side sheet. *Add tile* and every tile's pencil open
-the same sheet, in this order: the **kind** as cards (Figure, Chart, Table — a kind the relation
-cannot draw is disabled), the **fields** that kind reads, the title, the **width** (a third, two
-thirds, full) with the position among the tiles, and a **live preview** of the draft under the
-page's crossfilter. Nothing reaches the dashboard until *Add* or *Save*; *Cancel* and Escape drop the
-draft.
+**The one editor** — a popover anchored to the tile it edits, the way Notion and Linear edit a block
+where it sits. *Add tile* and every tile's pencil open the same popover, in this order: the **kind**
+as a segmented control (Figure, Chart, Table — a kind the relation cannot draw is disabled), the
+**fields** that kind reads, the title, and the **width** (a third, two thirds, full) with the
+position among the tiles. **The tile is the preview**: it draws the draft in its own slot under the
+page's crossfilter, and grows or shrinks with the width; a tile being added gets a slot at the end.
+Nothing reaches the dashboard until *Add* or *Save*; *Cancel*, Escape and a click outside drop the
+draft. A new position applies on save, so the tile never moves under the popover.
+
+`TileEditor` draws the tile itself: render it in the tile's place, mounted while it is open.
+`Dashboard` loads it the first time somebody edits, so a read-only dashboard never fetches the
+editor's code.
 
 - A **chart** asks for its mark — a mark the relation cannot draw is disabled — `x`, the measure,
   series and panels. Every change goes through the same normalisation: an encoding the new mark can
@@ -255,8 +261,9 @@ draft.
 - Changing the kind carries what carries over — a chart's aggregate becomes the figure, a figure's
   measure the chart's — and keeps the id and the width.
 
-Each kind is one entry of a table of kinds — its name, how it is drawn and what its editor asks
-for — so neither the board nor the sheet switches on a kind.
+Each kind is a row in three tables — how one is made, titled and converted (plain TypeScript, no
+React), how it is drawn, and what its editor asks for — each mapped over the kinds, so a kind missing
+from any of them does not compile and neither the board nor the editor switches on a kind.
 
 ### FilterChips and useClauses
 
@@ -494,14 +501,14 @@ Every other prop goes to the root `div` (`data-slot="dashboard"`).
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `table` | `TableExpr` | — what the preview reads |
+| `table` | `TableExpr` | — what the tile reads |
 | `fields` | `readonly FieldStat[]` | — |
-| `tile` | `Tile \| null` | — the tile to edit, or to add when `tiles` does not hold it; `null` closes |
+| `tile` | `Tile` | — the tile to edit, or to add when `tiles` does not hold it. Mounted is open |
 | `tiles` | `readonly Tile[]` | `[]` — where the tile sits, and what a change of kind avoids repeating |
 | `config` | `Readonly<Record<string, ChartConfig>>` | — |
 | `onSave` | `(tile: Tile, index: number) => void` | — |
 | `onRemove` | `() => void` | — (no *Remove*) |
-| `onClose` | `() => void` | — |
+| `onClose` | `() => void` | — Cancel, Escape and a click outside |
 
 ### RelationPicker
 

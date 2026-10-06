@@ -15,8 +15,8 @@ import { MosaicProvider, useMosaic } from "./mosaic-provider.js";
 import { DashboardFilters } from "./dashboard-filters.js";
 import { chartTableKey } from "./chart-spec.js";
 import { newTile } from "./tile-kinds.js";
-import { TileView } from "./tile-views.js";
-import { autoDashboard, edited, plotRelation, type DashboardSpec, type Tile, type TileSpan } from "./dashboard-spec.js";
+import { TileView, tileSpan } from "./tile-views.js";
+import { autoDashboard, edited, plotRelation, type DashboardSpec, type Tile } from "./dashboard-spec.js";
 import { useFieldStats, type FieldStat } from "./field-stats.js";
 
 export interface DashboardProps extends Omit<React.ComponentProps<typeof ark.div>, "onChange" | "defaultValue"> {
@@ -121,15 +121,6 @@ function Bridge({ to, map }: { to: Selection; map: ClauseMap }) {
  */
 const TileEditor = lazy(() => import("./tile-editor.js").then((m) => ({ default: m.TileEditor })));
 
-// Container queries on `Dashboard`'s own width, not the viewport's: beside a dock or in a pane the
-// grid is narrower than the screen, and the screen is the wrong thing to measure.
-const SPAN: Record<TileSpan, string> = {
-  1: "",
-  2: "@3xl/dashboard:col-span-2",
-  3: "@3xl/dashboard:col-span-2 @6xl/dashboard:col-span-3",
-};
-
-
 function Board({
   table,
   fields,
@@ -164,6 +155,8 @@ function Board({
     if (tile) setEditing(tile);
   };
   const open = edit && ((tile: Tile) => () => setEditing(tile));
+  // A tile being added has a slot of its own at the end, so its popover has somewhere to anchor.
+  const slots = editing && !spec.tiles.some((t) => t.id === editing.id) ? [...spec.tiles, editing] : spec.tiles;
 
   return (
     <>
@@ -196,39 +189,36 @@ function Board({
         ) : null}
       </DashboardFilters>
 
-      {spec.tiles.length > 0 ? (
+      {slots.length > 0 ? (
         <div className="grid gap-4 @3xl/dashboard:grid-cols-2 @6xl/dashboard:grid-cols-3" data-slot="dashboard-tiles">
-          {spec.tiles.map((tile) => (
-            <TileView
-              className={SPAN[tile.span]}
-              config={config}
-              fields={fields}
-              key={tile.id}
-              onEdit={open?.(tile)}
-              table={table}
-              tile={tile}
-            />
-          ))}
+          {slots.map((tile) => {
+            const view = (
+              <TileView className={tileSpan(tile.span)} config={config} fields={fields} key={tile.id} onEdit={open?.(tile)} table={table} tile={tile} />
+            );
+            // The tile being edited is drawn by its editor, in its own slot: the popover's anchor.
+            return edit && editing?.id === tile.id ? (
+              <Suspense fallback={view} key={tile.id}>
+                <TileEditor
+                  config={config}
+                  fields={fields}
+                  onClose={() => setEditing(null)}
+                  onRemove={() => {
+                    edit({ tiles: spec.tiles.filter((t) => t.id !== tile.id) });
+                    setEditing(null);
+                  }}
+                  onSave={save}
+                  table={table}
+                  tile={editing}
+                  tiles={spec.tiles}
+                />
+              </Suspense>
+            ) : (
+              view
+            );
+          })}
         </div>
       ) : null}
 
-      {edit && editing ? (
-        <Suspense fallback={null}>
-          <TileEditor
-            config={config}
-            fields={fields}
-            onClose={() => setEditing(null)}
-            onRemove={() => {
-              edit({ tiles: spec.tiles.filter((t) => t.id !== editing.id) });
-              setEditing(null);
-            }}
-            onSave={save}
-            table={table}
-            tile={editing}
-            tiles={spec.tiles}
-          />
-        </Suspense>
-      ) : null}
     </>
   );
 }

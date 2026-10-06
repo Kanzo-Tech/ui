@@ -73,7 +73,7 @@ export function DashboardFilters(props: DashboardFiltersProps) {
           {remove ? (
             <Button
               aria-label={`Remove the ${field.name} filter`}
-              className="size-6 opacity-64 hover:opacity-100"
+              className="size-6 text-muted-foreground hover:text-foreground focus-visible:text-foreground"
               onClick={() => remove(field.name)}
               size="icon-sm"
               variant="ghost"
@@ -120,7 +120,7 @@ function ChipText({ field, value }: { field: string; value: string | null }) {
     <>
       <span className="text-muted-foreground">{field}:</span>
       <span className={cn("max-w-40 truncate", value === null && "text-muted-foreground")}>{value ?? "Any"}</span>
-      <ChevronDownIcon className="opacity-64" />
+      <ChevronDownIcon className="text-muted-foreground" />
     </>
   );
 }

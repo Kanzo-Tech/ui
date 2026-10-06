@@ -6,7 +6,7 @@ import { cn } from "../lib/cn.js";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "../simples/card.js";
 import { ChartCard } from "./chart-card.js";
 import type { ChartConfig } from "./chart-config.js";
-import type { TableTile, Tile, TileKind } from "./dashboard-spec.js";
+import type { TableTile, Tile, TileKind, TileSpan } from "./dashboard-spec.js";
 import { DashboardStat } from "./dashboard-stat.js";
 import { DetailTable } from "./detail-table.js";
 import { EditTileButton } from "./edit-tile-button.js";
@@ -60,6 +60,18 @@ export const TILE_VIEWS: Views = {
   chart: { View: ({ tile, ...rest }) => <ChartCard {...rest} card={tile} /> },
   table: { View: TableCard },
 };
+
+// Container queries on `Dashboard`'s own width, not the viewport's: beside a dock or in a pane the
+// grid is narrower than the screen, and the screen is the wrong thing to measure. Outside a
+// dashboard's container they match nothing.
+const SPAN: Record<TileSpan, string> = {
+  1: "",
+  2: "@3xl/dashboard:col-span-2",
+  3: "@3xl/dashboard:col-span-2 @6xl/dashboard:col-span-3",
+};
+
+/** The columns of the dashboard's grid a tile of `span` takes — on its view, and on its editor. */
+export const tileSpan = (span: TileSpan): string => SPAN[span];
 
 /** A tile of any kind, drawn by its kind. */
 export function TileView(props: TileViewProps<Tile>) {

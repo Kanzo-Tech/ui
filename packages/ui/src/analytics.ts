@@ -103,7 +103,7 @@ export type { FilterChipsProps } from "./charts/filter-chips.js";
 // The mini BI kit: a relation's fields from one `SUMMARIZE`, and a dashboard as serializable data —
 // a filter bar and tiles (figures, charts, tables), each chosen and edited from those fields.
 // `Dashboard` is the whole thing; the parts are what it is made of, for a host arranging its own,
-// and `TileEditor` is the one sheet a tile is added and edited in. A titled frame is `Card` and a
+// and `TileEditor` is the one popover a tile is added and edited in, anchored to the tile. A titled frame is `Card` and a
 // grid is a class list, so neither is a name of its own.
 export { Dashboard } from "./charts/dashboard.js";
 export type { DashboardProps } from "./charts/dashboard.js";
