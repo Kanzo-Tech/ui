@@ -98,7 +98,8 @@ function boot(): Promise<Coordinator> {
 
 export default function SightingsDashboard() {
   const [coordinator, setCoordinator] = useState<Coordinator | null>(null);
-  const [spec, setSpec] = useState(SPEC);
+  // `undefined` is Reset: the automatic dashboard, which this showcase keeps nothing for.
+  const [spec, setSpec] = useState<DashboardSpec | undefined>(SPEC);
 
   useEffect(() => {
     let live = true;

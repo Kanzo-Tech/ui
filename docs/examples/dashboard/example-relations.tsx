@@ -62,7 +62,12 @@ export default function Example() {
           exclude={drawn.exclude}
           key={drawn.key}
           onChange={(spec) =>
-            setSpecs(({ [drawn.key]: _, ...rest }) => (spec === undefined ? rest : { ...rest, [drawn.key]: spec }))
+            setSpecs((specs) => {
+              const next = { ...specs };
+              if (spec === undefined) delete next[drawn.key];
+              else next[drawn.key] = spec;
+              return next;
+            })
           }
           publish={drawn.publish}
           rowNoun={relation.path.length ? "paths" : "nodes"}

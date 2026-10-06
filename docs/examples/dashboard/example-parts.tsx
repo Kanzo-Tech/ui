@@ -15,7 +15,8 @@ import { MosaicDemo } from "../charts/mosaic-demo";
 
 // The parts `Dashboard` is made of, arranged by hand: one `useFieldStats` read, a filter bar, two
 // figures, two charts and the rows. Every part takes the same `table` and `fields`; a part given an
-// `onEdit` shows a pencil, and the host opens `TileEditor` on it — here, the bar chart alone.
+// `onEdit` shows a pencil, and the host draws `TileEditor` in that tile's place — here, the bar
+// chart alone.
 
 function Board() {
   const { fields } = useFieldStats("sightings");
@@ -52,7 +53,22 @@ function Board() {
         />
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        {bar.kind === "chart" ? <ChartCard card={bar} fields={fields} onEdit={() => setEditing(bar)} table="sightings" /> : null}
+        {editing ? (
+          // The editor draws the tile itself, in the tile's place: it is the popover's anchor.
+          <TileEditor
+            fields={fields}
+            onClose={() => setEditing(null)}
+            onSave={(tile) => {
+              setBar(tile);
+              setEditing(null);
+            }}
+            table="sightings"
+            tile={editing}
+            tiles={[bar]}
+          />
+        ) : (
+          bar.kind === "chart" && <ChartCard card={bar} fields={fields} onEdit={() => setEditing(bar)} table="sightings" />
+        )}
         <ChartCard
           card={{ id: "hour", kind: "chart", span: 1, type: "histogram", x: "hour", y: { op: "count" }, color: "verdict" }}
           fields={fields}
@@ -67,16 +83,6 @@ function Board() {
           <DetailTable columns={["beast", "region", "hour", "bounty", "verdict"]} fields={fields} pageSize={8} table="sightings" />
         </CardContent>
       </Card>
-      <TileEditor
-        fields={fields}
-        onClose={() => setEditing(null)}
-        onSave={(tile) => {
-          setBar(tile);
-          setEditing(null);
-        }}
-        table="sightings"
-        tile={editing}
-      />
     </div>
   );
 }

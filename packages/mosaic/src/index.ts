@@ -59,7 +59,7 @@ export {
 /**
  * Ours: the clause rule — column predicates on one relation, or a semi-join on identity — with the
  * constructor of the second form, the reading of the columns either names, and what a clause says
- * to a person (`clauseParts`, `clauseLabel`) — read by the chips here and by `@kanzo-tech/ai`.
+ * to a person (`clauseParts`, `clauseLabel`) — read by `@kanzo-tech/ui`'s chips and filter bar.
  * `clause.ts` states it.
  */
 export {
