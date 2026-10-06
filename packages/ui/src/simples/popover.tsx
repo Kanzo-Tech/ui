@@ -189,7 +189,10 @@ export const PopoverBody = (props: React.ComponentProps<typeof ark.div>) => {
   const { className, slot, ...rest } = props;
 
   return (
-    <ScrollArea>
+    // A body taller than the room the positioner leaves scrolls between the header and the footer.
+    // The content has a `max-height`, not a height, so the viewport's `h-full` resolves to nothing;
+    // as a flex item of a column the viewport — a scroll container, whose minimum is 0 — shrinks.
+    <ScrollArea className="flex min-h-0 flex-1 flex-col">
       <ark.div
         className={cn(
           "flex-1",

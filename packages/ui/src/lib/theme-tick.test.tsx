@@ -94,3 +94,61 @@ describe("useThemeTick, when the document lands late", () => {
     style.remove();
   });
 });
+
+describe("useThemeTick, when an overlay locks the scroll", () => {
+  it("stays put for an inline style on the root, and still moves for a theme attribute", async () => {
+    // A modal dialog or popover locks the page's scroll by writing an inline style on `<html>`, on
+    // every open and close. The theme never writes one, so a tick on it is false — and it rebuilt
+    // every chart on the page each time an editor opened.
+    const ticks: number[] = [];
+    function Probe() {
+      ticks.push(useThemeTick());
+      return null;
+    }
+    render(<Probe />);
+    const settle = () => act(async () => void (await new Promise((resolve) => setTimeout(resolve, 0))));
+    const root = document.documentElement;
+    const before = ticks.at(-1);
+
+    root.style.setProperty("--scrollbar-width", "15px");
+    root.style.overflow = "hidden";
+    await settle();
+    root.removeAttribute("style");
+    await settle();
+    expect(ticks.at(-1)).toBe(before);
+
+    root.setAttribute("data-density", "compact");
+    await settle();
+    expect(ticks.at(-1)).not.toBe(before);
+    root.removeAttribute("data-density");
+  });
+});
+
+describe("useThemeTick, when a chunk loads", () => {
+  it("stays put for a script added to <head>, and moves for a stylesheet link", async () => {
+    // A bundler loads a lazy module by inserting a `<script>` into `<head>`. Nothing about colour
+    // moved, and a tick here rebuilt every chart the first time an editor was opened.
+    const ticks: number[] = [];
+    function Probe() {
+      ticks.push(useThemeTick());
+      return null;
+    }
+    render(<Probe />);
+    const settle = () => act(async () => void (await new Promise((resolve) => setTimeout(resolve, 0))));
+    const before = ticks.at(-1);
+
+    const script = document.createElement("script");
+    document.head.append(script);
+    await settle();
+    script.remove();
+    await settle();
+    expect(ticks.at(-1)).toBe(before);
+
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    document.head.append(link);
+    await settle();
+    expect(ticks.at(-1)).not.toBe(before);
+    link.remove();
+  });
+});

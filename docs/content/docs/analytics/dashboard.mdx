@@ -243,11 +243,14 @@ where it sits. *Add tile* and every tile's pencil open the same popover, in this
 as a segmented control (Figure, Chart, Table — a kind the relation cannot draw is disabled), the
 **fields** that kind reads, the title, and the **width** (a third, two thirds, full) with the
 position among the tiles. **The tile is the preview**: it draws the draft in its own slot under the
-page's crossfilter, and grows or shrinks with the width; a tile being added gets a slot at the end.
+page's crossfilter, and grows or shrinks with the width; a tile being added gets a slot at the end,
+brought into view as the popover opens.
 Nothing reaches the dashboard until *Add* or *Save*; *Cancel*, Escape and a click outside drop the
 draft. A new position applies on save, so the tile never moves under the popover.
 
-`TileEditor` draws the tile itself: render it in the tile's place, mounted while it is open.
+`TileEditor` draws no tile. Hand it the draft as `tile` with `onChange`, draw that draft in the
+tile's own view, and pass the view's element as `anchor`; mount the editor while it is open. The view
+stays mounted from the pencil to *Save*, so opening the editor does not rebuild its plot.
 `Dashboard` loads it the first time somebody edits, so a read-only dashboard never fetches the
 editor's code.
 

@@ -1,20 +1,17 @@
 "use client";
 
-import type { TableExpr } from "@kanzo-tech/mosaic";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Trash2Icon } from "lucide-react";
 import { Button } from "../simples/button.js";
 import { Field, FieldLabel } from "../simples/field.js";
 import { Input } from "../simples/input.js";
-import { Popover, PopoverAnchor, PopoverBody, PopoverContent, PopoverFooter, PopoverHeader } from "../simples/popover.js";
+import { Popover, PopoverBody, PopoverContent, PopoverFooter, PopoverHeader } from "../simples/popover.js";
 import { SegmentGroup } from "../simples/segment-group.js";
-import type { ChartConfig } from "./chart-config.js";
 import type { Tile, TileKind, TileSpan } from "./dashboard-spec.js";
 import type { FieldStat } from "./field-stats.js";
 import { Pick } from "./tile-controls.js";
 import { TILE_EDITORS, TileFields } from "./tile-fields.js";
 import { changeKind, tileTitle } from "./tile-kinds.js";
-import { TileView, tileSpan } from "./tile-views.js";
 
 const WIDTHS = [
   { value: "1", label: "A third" },
@@ -23,15 +20,19 @@ const WIDTHS = [
 ];
 
 export interface TileEditorProps {
-  /** The relation the tile reads. */
-  table: TableExpr;
   fields: readonly FieldStat[];
-  /** The tile to edit — or to add, when `tiles` does not hold it. Mounted is open. */
+  /**
+   * The draft — the tile to edit, or to add when `tiles` does not hold it. The host draws it in the
+   * tile's slot, so the tile in the grid is the preview. Mounted is open.
+   */
   tile: Tile;
+  /** Every change to the draft. */
+  onChange: (tile: Tile) => void;
+  /** The tile's slot in the grid: the popover sits beside it, and opening brings it into view. */
+  anchor: () => HTMLElement | null;
   /** The dashboard's tiles: where the tile sits, and what a change of kind prefers not to repeat. */
   tiles?: readonly Tile[];
-  config?: Readonly<Record<string, ChartConfig>>;
-  /** Called with the edited tile and the place it goes among `tiles`. */
+  /** Called with the draft and the place it goes among `tiles`. */
   onSave: (tile: Tile, index: number) => void;
   onRemove?: () => void;
   /** Cancel, Escape and a click outside: the draft is dropped. */
@@ -40,20 +41,26 @@ export interface TileEditorProps {
 
 /**
  * **The one tile editor** — a popover anchored to the tile it edits, the way Notion and Linear edit a
- * block where it sits. The tile in the grid *is* the preview: it draws the draft under the page's
- * crossfilter, and grows or shrinks as the width changes. Adding and editing are the same popover,
- * and nothing reaches the dashboard until *Add* or *Save*; a new position applies on save, so the
- * tile does not move under the popover.
+ * block where it sits. The tile in the grid *is* the preview: the host draws the draft in the tile's
+ * slot under the page's crossfilter, so it grows or shrinks as the width changes. Adding and editing
+ * are the same popover, and nothing reaches the dashboard until *Add* or *Save*; a new position
+ * applies on save, so the tile does not move under the popover.
  *
- * Render it where the tile goes, in place of the tile's view: it draws the tile itself.
+ * The editor draws no tile. The host keeps its view mounted and hands the editor the slot through
+ * `anchor`: a view that remounted on opening would rebuild its plot and query again.
  */
-export function TileEditor({ table, fields, tile, tiles = [], config, onSave, onRemove, onClose }: TileEditorProps) {
-  const at = tiles.findIndex((t) => t.id === tile.id);
+export function TileEditor({ fields, tile: draft, onChange: setDraft, anchor, tiles = [], onSave, onRemove, onClose }: TileEditorProps) {
+  const at = tiles.findIndex((t) => t.id === draft.id);
   const adding = at === -1;
   const places = tiles.length + (adding ? 1 : 0);
-  const [draft, setDraft] = useState<Tile>(tile);
   const [index, setIndex] = useState(adding ? tiles.length : at);
-  const others = tiles.filter((t) => t.id !== tile.id);
+  // A tile being added has its slot at the end of the grid, usually below the fold. Once, on opening:
+  // `anchor` is a new function on every render of the host.
+  useEffect(() => {
+    anchor()?.scrollIntoView({ block: "nearest" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const others = tiles.filter((t) => t.id !== draft.id);
   const kinds = (Object.keys(TILE_EDITORS) as TileKind[]).map((kind) => {
     const { label, icon: Icon } = TILE_EDITORS[kind];
     return {
@@ -69,10 +76,11 @@ export function TileEditor({ table, fields, tile, tiles = [], config, onSave, on
   });
 
   return (
-    <Popover onOpenChange={(d) => !d.open && onClose()} open positioning={{ placement: "bottom-start", gutter: 8 }}>
-      <PopoverAnchor className={tileSpan(draft.span)}>
-        <TileView config={config} fields={fields} table={table} tile={draft} />
-      </PopoverAnchor>
+    <Popover
+      onOpenChange={(d) => !d.open && onClose()}
+      open
+      positioning={{ placement: "bottom-start", gutter: 8, getAnchorElement: anchor }}
+    >
       <PopoverContent className="max-h-(--available-height) w-[min(28rem,calc(100vw-2rem))]">
         <PopoverHeader description={TILE_EDITORS[draft.kind].hint} title={adding ? "Add tile" : "Edit tile"} />
         <PopoverBody className="flex flex-col gap-4">

@@ -57,6 +57,12 @@ function draw(props: { value?: DashboardSpec; onChange?: (spec: DashboardSpec | 
 
 const editor = () => screen.findByRole("dialog");
 
+// jsdom lays nothing out, so it has no `scrollIntoView`; the editor calls it on the tile it opens on.
+const scrolled = vi.fn(function (this: Element) {
+  return this;
+});
+Element.prototype.scrollIntoView = scrolled as unknown as Element["scrollIntoView"];
+
 describe("Dashboard, read-only", () => {
   it("draws no edit control and never fetches the editor", async () => {
     draw({ value: SPEC });
@@ -67,18 +73,19 @@ describe("Dashboard, read-only", () => {
 });
 
 describe("the tile editor", () => {
-  it("opens from the pencil, anchored to the tile it edits, which draws the draft", async () => {
+  it("opens from the pencil beside the tile it edits, which stays mounted and draws the draft", async () => {
     const user = userEvent.setup();
     draw({ value: SPEC, onChange: vi.fn() });
-    await user.click(await screen.findByRole("button", { name: "Edit figure" }));
+    const slot = (await screen.findByText("Sightings")).closest("[data-slot=dashboard-tiles] > *")!;
+    await user.click(within(slot as HTMLElement).getByRole("button", { name: "Edit figure" }));
     expect(within(await editor()).getByText("Edit tile")).toBeTruthy();
     expect(editorLoads.count).toBe(1); // the read-only test above is not blind
-    const anchor = document.querySelector("[data-slot=popover-anchor]")!;
-    expect(within(anchor as HTMLElement).getByText("Sightings")).toBeTruthy();
+    // The same element, not a new one drawn by the editor: a remounted view rebuilds its plot.
+    expect(slot.isConnected).toBe(true);
 
     await user.clear(within(await editor()).getByRole("textbox"));
     await user.type(within(await editor()).getByRole("textbox"), "Seen");
-    expect(within(anchor as HTMLElement).getByText("Seen")).toBeTruthy();
+    expect(within(slot as HTMLElement).getByText("Seen")).toBeTruthy();
   });
 
   it("saves the draft in place, and Cancel and Escape drop it", async () => {
@@ -123,7 +130,7 @@ describe("the tile editor", () => {
     expect(onChange.mock.calls[0]![0].tiles.map((t: { id: string }) => t.id)).toEqual(["n"]);
   });
 
-  it("adds a tile in a slot of its own at the end, which Cancel takes away again", async () => {
+  it("adds a tile in a slot of its own at the end, brought into view, which Cancel takes away again", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     draw({ value: SPEC, onChange });
@@ -132,7 +139,8 @@ describe("the tile editor", () => {
     await user.click(screen.getByRole("button", { name: "Add tile" }));
     expect(within(await editor()).getByText("Add tile")).toBeTruthy();
     expect(tiles()).toHaveLength(3);
-    expect(tiles()[2]!.getAttribute("data-slot")).toBe("popover-anchor");
+    // Below the fold on a real page: opening brings the new slot into view.
+    expect(scrolled.mock.results.at(-1)!.value).toBe(tiles()[2]);
     await user.click(within(await editor()).getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(tiles()).toHaveLength(2));
     expect(onChange).not.toHaveBeenCalled();

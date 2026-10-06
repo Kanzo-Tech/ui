@@ -14,8 +14,11 @@ edit for each:
 - **`onChange` is called with `undefined` on "Reset to automatic".** Delete what you stored for that
   relation; the dashboard follows the relation's statistics again. The type is now
   `(spec: DashboardSpec | undefined) => void`.
-- **`TileEditor` is a popover anchored to the tile it edits**, and its `tile` prop is a `Tile`, no
-  longer `Tile | null`. Render it only while a tile is being edited. `Dashboard` already does.
+- **`TileEditor` is a popover beside the tile it edits, and it draws no tile.** `tile` is now the
+  draft (a `Tile`, no longer `Tile | null`) and `onChange` receives every change to it: draw that
+  draft in the tile's own view, and pass that view's element as `anchor: () => HTMLElement | null`.
+  `table` and `config` are gone. Mount it only while a tile is being edited. `Dashboard` already does
+  all of this.
 - **`column` is no longer exported.** Use `numbers(data, field)`.
 
 New:
@@ -25,6 +28,8 @@ New:
   the tile reads, or renames it.
 - A read-only `Dashboard` (no `onChange`) no longer downloads the editor. It is loaded the first time
   somebody edits.
+- Opening a dialog or a popover no longer redraws every chart on the page.
+- A popover whose body is taller than the room it has scrolls between its header and footer.
 - Quiet controls (the tile's edit button, the filter chips' chevron, the relation picker, a table's
   idle sort icon) use the muted text colour instead of opacity, so they follow the theme.
 

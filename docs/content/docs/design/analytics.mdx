@@ -155,10 +155,16 @@ spec, the recommender and the kind table".
 
 ## The editor is edited in place, and loaded on first edit
 
-`TileEditor` is an Ark `Popover` anchored to the tile, in the tile's own slot in the grid. Behind
-the popover, the slot draws the draft, so a change is seen where the tile is. The kind and the
-width are `SegmentGroup`s. A tile being added gets a slot of its own at the end of the grid. That
-gives its popover somewhere to anchor, and Cancel removes the slot again.
+`TileEditor` is an Ark `Popover` anchored to the tile's slot in the grid. The slot keeps the tile's
+own view mounted and draws the draft in it, so a change is seen where the tile is. The kind and the
+width are `SegmentGroup`s. A tile being added gets a slot of its own at the end of the grid, brought
+into view as the popover opens, and Cancel removes the slot again.
+
+The editor draws no tile of its own. It holds the draft as a controlled value and reaches the slot
+through Ark's `getAnchorElement`, because a view the editor drew would be a new mount: a chart that
+remounts builds new Mosaic clients and queries again, which on opening reads as the tile reloading.
+For the same reason a scroll lock is not a theme change: `useThemeTick` ignores the inline `style`
+a modal overlay writes on `<html>`, which used to rebuild every chart on the page.
 
 `Dashboard` imports the editor through `React.lazy`. A dashboard without `onChange` is read-only:
 it draws no edit control and never fetches the kind picker, the field pickers, `Select` or
@@ -173,8 +179,10 @@ actually reaches. Then the editor becomes a sheet, still lazy.
 *Held by* `packages/ui/src/charts/dashboard-layering.test.ts`, "loads no editor for a read-only
 dashboard", and "is not blind: it sees the editor once the import is static";
 `packages/ui/src/charts/dashboard.test.tsx`, "draws no edit control and never fetches the editor";
-"opens from the pencil, anchored to the tile it edits, which draws the draft"; "adds a tile in a
-slot of its own at the end, which Cancel takes away again".
+"opens from the pencil beside the tile it edits, which stays mounted and draws the draft"; "adds a
+tile in a slot of its own at the end, brought into view, which Cancel takes away again";
+`packages/ui/src/lib/theme-tick.test.tsx`, "stays put for an inline style on the root, and still
+moves for a theme attribute".
 
 ## Going back to automatic is `undefined`
 
@@ -203,8 +211,8 @@ Measured on the base of this change and after it:
 
 | Gauge | Before | After |
 | --- | --- | --- |
-| analytics | 31.22 kB | 31.95 kB |
-| one dashboard | 29.88 kB | 30.81 kB |
+| analytics | 31.22 kB | 32.1 kB |
+| one dashboard | 29.88 kB | 30.9 kB |
 
 **What would reverse it:** a bundler in size-limit that splits a dynamic import. Then the
 `{ Dashboard }` gauge measures the entry chunk alone, and a separate gauge measures the editor.

@@ -1,7 +1,7 @@
 "use client";
 
 import { Selection, bridgeSelection, type ClauseMap, type TableExpr } from "@kanzo-tech/mosaic";
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
 import { EllipsisIcon, PlusIcon } from "lucide-react";
@@ -140,6 +140,7 @@ function Board({
   const spec = value ?? auto;
   // The tile in the editor; one `spec.tiles` does not hold is being added.
   const [editing, setEditing] = useState<Tile | null>(null);
+  const grid = useRef<HTMLDivElement>(null);
   const edit = onChange && ((patch: Partial<DashboardSpec>) => onChange({ ...spec, ...patch }));
 
   const save = (tile: Tile, index: number) => {
@@ -190,35 +191,36 @@ function Board({
       </DashboardFilters>
 
       {slots.length > 0 ? (
-        <div className="grid gap-4 @3xl/dashboard:grid-cols-2 @6xl/dashboard:grid-cols-3" data-slot="dashboard-tiles">
+        <div className="grid gap-4 @3xl/dashboard:grid-cols-2 @6xl/dashboard:grid-cols-3" data-slot="dashboard-tiles" ref={grid}>
           {slots.map((tile) => {
-            const view = (
-              <TileView className={tileSpan(tile.span)} config={config} fields={fields} key={tile.id} onEdit={open?.(tile)} table={table} tile={tile} />
-            );
-            // The tile being edited is drawn by its editor, in its own slot: the popover's anchor.
-            return edit && editing?.id === tile.id ? (
-              <Suspense fallback={view} key={tile.id}>
-                <TileEditor
-                  config={config}
-                  fields={fields}
-                  onClose={() => setEditing(null)}
-                  onRemove={() => {
-                    edit({ tiles: spec.tiles.filter((t) => t.id !== tile.id) });
-                    setEditing(null);
-                  }}
-                  onSave={save}
-                  table={table}
-                  tile={editing}
-                  tiles={spec.tiles}
-                />
-              </Suspense>
-            ) : (
-              view
+            // The tile being edited draws its draft, in the same slot and the same view, so opening
+            // the editor neither remounts it nor queries again.
+            const shown = editing?.id === tile.id ? editing : tile;
+            return (
+              <TileView className={tileSpan(shown.span)} config={config} fields={fields} key={tile.id} onEdit={open?.(tile)} table={table} tile={shown} />
             );
           })}
         </div>
       ) : null}
 
+      {edit && editing ? (
+        <Suspense fallback={null}>
+          <TileEditor
+            anchor={() => (grid.current?.children[slots.findIndex((t) => t.id === editing.id)] as HTMLElement | undefined) ?? null}
+            fields={fields}
+            key={editing.id}
+            onChange={setEditing}
+            onClose={() => setEditing(null)}
+            onRemove={() => {
+              edit({ tiles: spec.tiles.filter((t) => t.id !== editing.id) });
+              setEditing(null);
+            }}
+            onSave={save}
+            tile={editing}
+            tiles={spec.tiles}
+          />
+        </Suspense>
+      ) : null}
     </>
   );
 }
