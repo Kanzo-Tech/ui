@@ -79,17 +79,27 @@ export interface Bound {
 }
 
 /**
- * The URL the client addressed: `request.url` with the authority its `Host` header names (RFC 9110
- * §7.2). Next builds `request.url` from the address the server listens on rather than the one the
- * client asked for — under `next dev` 16 a request for `acme.localhost:3000` reads
- * `http://localhost:3000` — so a deployment that answers on several hosts would otherwise resolve
- * every tenant, callback and redirect to the same one. A request without `Host` keeps its URL.
+ * The URL the client addressed. Next builds `request.url` from the address the server listens on
+ * rather than the one the client asked for — under `next dev` 16 a request for
+ * `acme.localhost:3000` reads `http://localhost:3000` — so a deployment that answers on several
+ * hosts would resolve every tenant, callback and redirect to the same one, and one behind a proxy
+ * that terminates TLS would hand Keycloak an `http` callback. The authority is the proxy's
+ * `X-Forwarded-Host`, else `Host` (RFC 9110 §7.2); the scheme is `X-Forwarded-Proto`, else the
+ * request's. Auth.js reads the same headers. Trusting them is bounded the way `redirectUri` says:
+ * Keycloak refuses a callback it has not registered.
  */
 export function addressedUrl(request: Request): URL {
   const url = new URL(request.url);
-  const host = request.headers.get("host");
-  if (host) url.host = host;
-  return url;
+  const first = (name: string) => request.headers.get(name)?.split(",")[0]?.trim() || undefined;
+  const host = first("x-forwarded-host") ?? first("host");
+  const proto = first("x-forwarded-proto");
+  const scheme = proto === "http" || proto === "https" ? `${proto}:` : url.protocol;
+  // Rebuilt rather than assigned: `url.host = "acme.example.test"` keeps the listening port.
+  try {
+    return new URL(`${url.pathname}${url.search}`, `${scheme}//${host ?? url.host}`);
+  } catch {
+    return url;
+  }
 }
 
 /** What a tenant resolver reads, from a request a route handler was given. */

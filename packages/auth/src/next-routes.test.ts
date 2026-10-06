@@ -109,6 +109,21 @@ describe("authRoutes", () => {
       expect(away.searchParams.get("redirect_uri")).toBe("http://acme.localhost:3000/api/auth/callback");
     });
 
+    it("derives it from the proxy's forwarded host and scheme when one terminates TLS", async () => {
+      const response = await routes.GET(
+        new Request("http://localhost:3000/api/auth/signin", {
+          headers: {
+            host: "keasy-web:3000",
+            "x-forwarded-host": "acme.example.test",
+            "x-forwarded-proto": "https",
+          },
+        }),
+      );
+      const away = new URL(response.headers.get("location") ?? "");
+
+      expect(away.searchParams.get("redirect_uri")).toBe("https://acme.example.test/api/auth/callback");
+    });
+
     it("passes an explicit redirectUri through instead", async () => {
       const fixed = authRoutes({ ...config, redirectUri: "https://proxied.test/api/auth/callback" });
       const response = await get(fixed, "/api/auth/signin");
