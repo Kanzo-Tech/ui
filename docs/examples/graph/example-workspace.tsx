@@ -6,24 +6,14 @@ import {
   GraphCounts,
   GraphInspector,
   GraphLegend,
-  GraphLooks,
   GraphRoot,
   GraphSearch,
   GraphStatus,
   GraphToolbar,
   useGraphPrefs,
-  type Channels,
-  type LookPreset,
 } from "@kanzo-tech/graph";
-import { Kbd, KbdGroup, ScrollArea, Show, Tabs, TabsContent, TabsList, TabsTrigger } from "@kanzo-tech/ui";
+import { Kbd, KbdGroup, PreferencesSections, ScrollArea, Show, Tabs, TabsContent, TabsList, TabsTrigger } from "@kanzo-tech/ui";
 import { ARCHIVE_KINDS, said, useArchive } from "./archive";
-
-/** The product's half of a look: which channels each one wears. Ink spends identity on shape. */
-const PAIRINGS: Record<LookPreset, Channels> = {
-  nebula: { fill: "kind" },
-  atlas: { fill: "kind", stroke: "var(--muted-foreground)" },
-  ink: { fill: "var(--foreground)", symbol: "kind", stroke: "var(--muted-foreground)" },
-};
 
 /** What each gesture does — the canvas's, written down once by the host. */
 const GESTURES: { keys: ReactNode; what: string }[] = [
@@ -53,18 +43,20 @@ const GESTURES: { keys: ReactNode; what: string }[] = [
 export default function Example() {
   const [failure, setFailure] = useState<unknown>(null);
   const archive = useArchive(setFailure);
-  const { look, sim, preset } = useGraphPrefs();
+  const { look, sim, placement } = useGraphPrefs();
   return (
     <div className="flex h-[34rem] w-full flex-col overflow-hidden rounded-lg border">
       <GraphRoot
         categories={ARCHIVE_KINDS}
         {...archive}
+        fill="kind"
         look={look}
         onFailure={setFailure}
         r="degree"
         sim={sim}
+        stroke="var(--muted-foreground)"
         title="label"
-        {...PAIRINGS[preset ?? "atlas"]}
+        {...placement}
       >
         <div className="flex min-h-0 flex-1">
           <GraphCanvas className="min-w-0 flex-1">
@@ -87,7 +79,9 @@ export default function Example() {
             </TabsContent>
             <TabsContent className="min-h-0 flex-1" value="settings">
               <ScrollArea className="h-full px-3 pb-3">
-                <GraphLooks />
+                <div className="flex flex-col gap-4">
+                  <PreferencesSections namespace="graph" />
+                </div>
                 <p className="mt-4 mb-2 font-medium text-muted-foreground text-xs">Gestures</p>
                 <dl className="space-y-1.5">
                   {GESTURES.map((gesture) => (

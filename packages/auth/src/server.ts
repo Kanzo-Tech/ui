@@ -7,12 +7,14 @@ import {
   randomState,
   refreshTokenGrant,
   authorizationCodeGrant,
+  genericGrantRequest,
   type Configuration,
 } from "openid-client";
 import { jwtVerify, type JWTPayload } from "jose";
 import { claims } from "./claims";
 import { sealedCookie, type SealedCookie } from "./cookie-session";
 import { DEADLINE } from "./deadline";
+import { DEFAULT_RENEW_WITHIN } from "./renew-within";
 import { issuer, type IssuerConfig } from "./issuer";
 import { keyedSingleFlight } from "./single-flight";
 import { statelessStore, type SessionRecord, type SessionStore } from "./store";
@@ -61,15 +63,14 @@ const TRANSACTION_MAX_AGE = 10 * 60;
 const STATE = /^[A-Za-z0-9_-]{16,128}$/;
 /** The event a logout token carries, OpenID Connect Back-Channel Logout 1.0 §2.4. */
 const BACKCHANNEL_EVENT = "http://schemas.openid.net/event/backchannel-logout";
+/** OAuth 2.0 Token Exchange, RFC 8693 §2.1 and §3: the grant, and the one token type exchanged. */
+const TOKEN_EXCHANGE = "urn:ietf:params:oauth:grant-type:token-exchange";
+const ACCESS_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:access_token";
 /**
- * Renew an access token with a minute left on it rather than after it dies.
- *
- * The window pays for two things at once: the flight time of the request we are about to send, and
- * the clock skew between this server and the one that will validate the token. A minute covers
- * both on every deployment anyone has run; going to zero means shipping tokens that expire in the
- * air, and going large means renewing constantly on a realm with a five-minute token.
+ * A client id as a scope may carry it. The audience is a client scope's name (modules/api names the
+ * scope as the client), and a scope is a space-delimited list, so a space would be a second scope.
  */
-const DEFAULT_RENEW_WITHIN = 60;
+const AUDIENCE = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,254}$/;
 
 function refuse(code: AuthErrorCode, message: string, cause?: unknown): never {
   throw new AuthError(code, message, {}, cause === undefined ? undefined : { cause });
@@ -269,9 +270,30 @@ export interface SignedIn {
   readonly returnTo: string;
 }
 
-/** What `token` answers for a live session: the credential a resource server takes, and what to set. */
+/**
+ * What `token` answers for a live session: the credential one resource server takes, issued for
+ * it and for one organization, and what to set.
+ */
 export interface Token extends Renewed {
   readonly accessToken: string;
+}
+
+/**
+ * Who a token is for: one resource server, and the organization a call is made in. RFC 9700 §2.3
+ * restricts an access token to one resource server, and Keycloak's own advice for an exchange is
+ * *"ideally use a single audience"*.
+ */
+export interface Audience {
+  /**
+   * The API's client id in the realm: the `aud` it validates, and the client scope that puts it
+   * there (`services/auth/modules/api`), which the application lists in its `apis`.
+   */
+  readonly audience: string;
+  /**
+   * The organization the call is in: `organization:<alias>`, so the token names that organization
+   * alone. Absent for an API no organization owns, and the token then names none.
+   */
+  readonly organization?: string;
 }
 
 /**
@@ -282,6 +304,12 @@ export interface Token extends Renewed {
  * writes straight into a response body. Structural typing would have let one extra field ride
  * along unnoticed all the way to the browser.
  */
+/** An exchanged token and when it expires, epoch milliseconds — unknown when the realm did not say. */
+interface Exchanged {
+  readonly accessToken: string;
+  readonly expiresAt: number | undefined;
+}
+
 interface Adopted {
   readonly renewed: Renewed;
   readonly record: SessionRecord;
@@ -323,19 +351,36 @@ export interface RelyingParty {
   /** The session a request carries, or `null`. One store read; nothing is renewed. */
   read(cookie: string | null | undefined): Promise<Session | null>;
   /**
-   * The access token a request carries, renewed in place when it is within `renewWithin` seconds
-   * of expiry (default 60) — or {@link Ended} when there is no live session.
+   * A token for one resource server and one organization — or {@link Ended} when there is no live
+   * session.
    *
    * This is the *token-mediating backend*: the browser holds a cookie, the resource server is
-   * given a bearer token, and the two never meet. Renewal is single-flight per ticket, so a page
-   * that fires eight requests at an expiring token spends it once.
+   * given a bearer token, and the two never meet. The session's own token never leaves this
+   * server: it names every organization the person belongs to and no API, and it is exchanged
+   * (OAuth 2.0 Token Exchange, RFC 8693, as Keycloak's standard token exchange implements it) for
+   * one whose `aud` is `audience` alone and whose organization is `organization` alone. The
+   * session is renewed first when it is within `renewWithin` seconds of expiry (default 60).
+   *
+   * Exchanged tokens are kept until they are within the same window of expiry, one per session,
+   * audience and organization, and an exchange is single-flight under that key: a page that fires
+   * eight requests costs the realm one exchange, not eight.
+   *
+   * Rejects with `organization/denied` when the realm grants the token without the organization —
+   * the person is not a member of it — and with `organization/invalid` for one that is not an alias.
    */
   token(
     cookie: string | null | undefined,
-    options?: { readonly renewWithin?: number },
+    options: Audience & { readonly renewWithin?: number },
   ): Promise<Token | Ended>;
-  /** Spend the refresh token now, whatever the access token's expiry. See {@link token}. */
-  refresh(cookie: string | null | undefined): Promise<Renewed | Ended>;
+  /**
+   * Renew the session: spend the refresh token now or, with `renewWithin`, only when its access
+   * token is within that many seconds of expiry. Single-flight per ticket, so a page that fires
+   * eight requests at an expiring session spends the refresh token once.
+   */
+  refresh(
+    cookie: string | null | undefined,
+    options?: { readonly renewWithin?: number },
+  ): Promise<Renewed | Ended>;
   /** RP-initiated logout: forget the record here, clear the cookie, and end it at the IdP too. */
   end(cookie: string | null | undefined, options?: { readonly returnTo?: string }): Promise<Redirect>;
   /**
@@ -490,6 +535,90 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
       };
     });
 
+  /**
+   * The session's access token, renewed in place when it is within `within` milliseconds of expiry,
+   * or {@link Ended}. It is what an exchange presents, and it is never handed to a caller.
+   */
+  const live = async (
+    cookie: string | null | undefined,
+    within: number,
+  ): Promise<(Renewed & { readonly accessToken: string }) | Ended> => {
+    const found = await opened(cookie);
+    if (found?.record == null) return ended(found?.ticket);
+    const { ticket, record } = found;
+
+    // An unknown expiry is not treated as expired: a realm that omits `expires_in` would otherwise
+    // be renewed on every request, which is the replay this package exists to avoid.
+    const stale =
+      record.accessTokenExpiresAt !== undefined && record.accessTokenExpiresAt - Date.now() <= within;
+
+    if (record.accessToken !== undefined && !stale) {
+      return { ended: false, accessToken: record.accessToken, session: record.session, cookies: [] };
+    }
+
+    const outcome = await renew(ticket, record);
+    if ("ended" in outcome) return outcome;
+    if (outcome.record.accessToken === undefined) {
+      refuse("token/exchange-failed", "the token response carried no access token");
+    }
+    return { ...outcome.renewed, accessToken: outcome.record.accessToken };
+  };
+
+  /**
+   * Exchanged tokens, keyed by the session token they came from, the audience and the organization.
+   * The session token is the key rather than the ticket because it is what the exchange presented:
+   * a renewed session is a new key, and the old entries age out with the tokens they hold. Pruned
+   * on every write, so the map is bounded by the tokens still alive and not by who ever signed in.
+   */
+  const exchanged = new Map<string, Exchanged>();
+  const exchanges = keyedSingleFlight<Exchanged>();
+
+  /**
+   * The audience is asked for by its scope and not by RFC 8693's `audience` parameter: Keycloak
+   * reads that parameter as a filter, and keeps only the requested audience's client roles — so
+   * the application's own roles, the ones `resource_access.<clientId>` carries outside any
+   * organization, would not reach the API. The scope's audience mapper names the API without
+   * filtering anything (measured on Keycloak 26.8 by `services/auth/scripts/verify.sh`).
+   */
+  const exchange = async (
+    subject: string,
+    audience: string,
+    organization: string | undefined,
+  ): Promise<Exchanged> => {
+    const wanted = organization === undefined ? undefined : `organization:${organization}`;
+    let tokens: Awaited<ReturnType<typeof genericGrantRequest>>;
+    try {
+      tokens = await genericGrantRequest(await configuration(), TOKEN_EXCHANGE, {
+        subject_token: subject,
+        subject_token_type: ACCESS_TOKEN_TYPE,
+        requested_token_type: ACCESS_TOKEN_TYPE,
+        scope: wanted === undefined ? audience : `${audience} ${wanted}`,
+      });
+    } catch (error) {
+      if (error instanceof AuthError) throw error;
+      throw fromIdp(error, "token/exchange-failed", `the session's token was not exchanged for \`${audience}\``);
+    }
+
+    // Keycloak drops an organization the person is not a member of rather than refusing the grant,
+    // and says so in the granted scope (RFC 6749 §5.1: present when it differs from the request).
+    // Reading the response's `scope` keeps the access token opaque here, as it is by contract.
+    if (wanted !== undefined && tokens.scope !== undefined && !tokens.scope.split(" ").includes(wanted)) {
+      refuse("organization/denied", `the realm did not grant \`${wanted}\`: the person is not a member`);
+    }
+
+    const lifetime = tokens.expiresIn();
+    const fresh: Exchanged = {
+      accessToken: tokens.access_token,
+      expiresAt: lifetime === undefined ? undefined : Date.now() + lifetime * 1000,
+    };
+    const now = Date.now();
+    for (const [key, entry] of exchanged) {
+      if (entry.expiresAt !== undefined && entry.expiresAt <= now) exchanged.delete(key);
+    }
+    exchanged.set([subject, audience, organization ?? ""].join(" "), fresh);
+    return fresh;
+  };
+
   /** A logout token's verification failure, as the IdP's outage or as a refused token. */
   const fromLogout = (error: unknown): AuthError =>
     error instanceof AuthError
@@ -611,31 +740,37 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
       return (await opened(cookie))?.record?.session ?? null;
     },
 
-    async token(cookie, options = {}) {
-      const found = await opened(cookie);
-      if (found?.record == null) return ended(found?.ticket);
-      const { ticket, record } = found;
+    async token(cookie, options) {
+      const { audience, organization } = options;
+      if (!AUDIENCE.test(audience)) {
+        // The deployment's own configuration, not a request's: a fault to fix, not a refusal.
+        throw new Error(`\`${audience}\` is not a client id, and a scope is a space-delimited list`);
+      }
+      if (organization !== undefined && (organization === "*" || !ORGANIZATION.test(organization))) {
+        refuse(
+          "organization/invalid",
+          `\`${organization}\` is not one organization alias, and a token is for one organization`,
+        );
+      }
 
       const within = (options.renewWithin ?? DEFAULT_RENEW_WITHIN) * 1000;
-      // An unknown expiry is not treated as expired: a realm that omits `expires_in` would
-      // otherwise be renewed on every request, which is the replay this package exists to avoid.
-      const stale =
-        record.accessTokenExpiresAt !== undefined &&
-        record.accessTokenExpiresAt - Date.now() <= within;
+      const held = await live(cookie, within);
+      if (held.ended) return held;
 
-      if (record.accessToken !== undefined && !stale) {
-        return { ended: false, accessToken: record.accessToken, session: record.session, cookies: [] };
-      }
-
-      const outcome = await renew(ticket, record);
-      if ("ended" in outcome) return outcome;
-      if (outcome.record.accessToken === undefined) {
-        refuse("token/exchange-failed", "the token response carried no access token");
-      }
-      return { ...outcome.renewed, accessToken: outcome.record.accessToken };
+      const key = [held.accessToken, audience, organization ?? ""].join(" ");
+      const kept = exchanged.get(key);
+      const fresh =
+        kept !== undefined && (kept.expiresAt === undefined || kept.expiresAt - Date.now() > within)
+          ? kept
+          : await exchanges(key, () => exchange(held.accessToken, audience, organization));
+      return { ended: false, session: held.session, cookies: held.cookies, accessToken: fresh.accessToken };
     },
 
-    async refresh(cookie) {
+    async refresh(cookie, options = {}) {
+      if (options.renewWithin !== undefined) {
+        const held = await live(cookie, options.renewWithin * 1000);
+        return held.ended ? held : { ended: false, session: held.session, cookies: held.cookies };
+      }
       const found = await opened(cookie);
       if (found?.record == null) return ended(found?.ticket);
       const outcome = await renew(found.ticket, found.record);

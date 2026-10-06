@@ -99,6 +99,9 @@ describe("ChartRoot selections", () => {
     return { roots, mosaic, view };
   }
 
+  /** Until every value event queued so far has been dispatched: the relay follows the state it emits. */
+  const heard = () => new Promise((next) => setTimeout(next, 0));
+
   const clause = (selection: Selection, field: string, value: string): SelectionClause => {
     // Via a variable: `ClauseSource` is `object & { reset?() }`, so an inline literal trips excess
     // property checking on `id`.
@@ -119,12 +122,13 @@ describe("ChartRoot selections", () => {
     expect(roots[0]?.resolver.cross).toBe(false);
   });
 
-  it("keeps one root's clause out of another root's selection, while both reach the crossfilter", () => {
+  it("keeps one root's clause out of another root's selection, while both reach the crossfilter", async () => {
     const { roots, mosaic } = wire(2);
     const [first, second] = roots as [Selection, Selection];
 
     clause(first, "region", "eu");
     clause(second, "provider", "aws");
+    await heard();
 
     expect(first.clauses.map((c) => c.source)).toEqual([{ id: "region:eu" }]);
     expect(second.clauses.map((c) => c.source)).toEqual([{ id: "provider:aws" }]);
@@ -141,27 +145,32 @@ describe("ChartRoot selections", () => {
     expect(mosaic.crossfilter.clauses[0]).toBe(published);
   });
 
-  it("clears every chart's selection through the provider's reset, not just the shared ones", () => {
+  it("clears every chart's selection through the provider's reset, not just the shared ones", async () => {
     const { roots, mosaic } = wire(2);
     clause(roots[0] as Selection, "region", "eu");
     clause(roots[1] as Selection, "provider", "aws");
+    await heard();
 
     // The gap this closes: a reset travels downstream only, so the crossfilter cannot clear them.
     mosaic.crossfilter.reset();
+    await heard();
     expect(roots[0]?.clauses).toHaveLength(1);
 
     mosaic.reset();
+    await heard();
     expect(roots[0]?.clauses).toHaveLength(0);
     expect(roots[1]?.clauses).toHaveLength(0);
     expect(mosaic.crossfilter.clauses).toHaveLength(0);
   });
 
-  it("withdraws a chart's clause when the chart unmounts", () => {
+  it("withdraws a chart's clause when the chart unmounts", async () => {
     const { roots, mosaic, view } = wire(1);
     clause(roots[0] as Selection, "region", "eu");
+    await heard();
     expect(mosaic.crossfilter.clauses).toHaveLength(1);
 
     view.unmount();
+    await heard();
     expect(mosaic.crossfilter.clauses).toHaveLength(0);
   });
 

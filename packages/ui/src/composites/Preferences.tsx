@@ -11,13 +11,16 @@ import {
   prefBoolean,
   prefNumber,
   prefOptions,
-  themeData,
+  prefShown,
+  type CorePrefKey,
   type PrefOption,
-  type PrefSources,
   type SectionPrefDecl,
 } from "@kanzo-tech/theme";
-import { useKanzoTheme, type ThemeContextValue } from "../theme/KanzoThemeProvider.js";
+import { createListCollection } from "@ark-ui/react/collection";
+import { useKanzoTheme } from "../theme/KanzoThemeProvider.js";
+import { useSectionContribution, type PrefSpecimen } from "../theme/section-context.js";
 import { cn } from "../lib/cn.js";
+import { useHotkey } from "../lib/use-hotkey.js";
 import { Button } from "../simples/button.js";
 import { Field, FieldLabel, FieldLegend, FieldSet } from "../simples/field.js";
 import {
@@ -32,39 +35,38 @@ import { RadioGroup, RadioGroupCard } from "../simples/radio-group.js";
 import { ThemePicker, type ThemePickerCopy } from "./ThemePicker.js";
 import { Slider, SliderLabel } from "../simples/slider.js";
 import { Switch } from "../simples/switch.js";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../simples/select.js";
 
 /**
  * Preferences — every preference a person may change, and nothing a theme owns.
  *
  * What is offered is the declaration's: `CORE_PREFS` lists the side, the theme worn on each side and
- * density, and an installed package contributes its own section. {@link PreferencesSections} draws all
- * of them, the panel draws that, and there is no per-axis export — so a host cannot mount a control
- * for a value the theme owns, because none exists. Radius and the faces are authored in the theme.
- * See `/docs/design/preferences`.
+ * density, and an installed package contributes its own section. See `/docs/design/preferences`.
+ *
+ * **Ark's shape, for a preference.** The manifest is the data and its rules (`when`); the theme
+ * provider holds the values and each section's owner says, through a `SectionProvider`, what only
+ * it knows — the lists its choices name and the pictures its options wear; {@link Pref} is the part
+ * and {@link usePref} its state. {@link PreferencesSections} is a composition of the part:
  *
  *   <Preferences />                          — a floating trigger and the drawer
- *   <PreferencesSections />                  — the same sections inline, on a settings page
- *   <PreferencesSections namespace="theme" /> — the core's alone
+ *   <PreferencesSections />                  — every section inline, on a settings page
+ *   <PreferencesSections namespace="graph" /> — one section
+ *   <Pref name="theme.density" />            — one preference, where a page puts it
  *
- * **What a tenant pinned or withheld is not drawn at all**, because a control the chain will ignore
- * is a control that visibly does nothing.
- *
- * **One renderer draws every preference**, the core's and a contributed section's alike:
- * `PrefControl` switches on `kind` and nothing else. The theme is the one control it cannot draw —
- * two cards, each a live miniature of a theme — so the side and the theme per side are drawn by
- * {@link ThemePicker}, which is internal to this module.
+ * There is no per-axis export, so a host cannot mount a control for a value the theme owns. The
+ * theme is the one control the generic arms cannot draw — two cards, each a live miniature of a
+ * theme — so the side and the theme per side are drawn by {@link ThemePicker}, internal here.
  */
 
 // ── Root: Ark Dialog (non-modal, live-preview) + hotkey ──────────────────────
 export interface PreferencesRootProps {
   children: React.ReactNode;
   /**
-   * Key that toggles the panel, e.g. `"t"`. **Opt-in — there is no default.**
+   * Key that toggles the panel — `"t"`, or `"mod+,"` for ⌘, / Ctrl+,. **Opt-in — there is no default.**
    *
-   * When set, this registers a `window` keydown listener that fires on the bare key (typing in
-   * an input, textarea or contenteditable is ignored). A design system must not claim a
-   * single, unmodified key in its host's global keymap without being asked, so omit this
-   * unless the host has decided that key is free.
+   * The same grammar and the same listener as `CommandDialog`'s: a key pressed while typing in a
+   * field is the field's. A design system must not claim a key in its host's global keymap
+   * without being asked, so omit this unless the host has decided that key is free.
    */
   hotkey?: string;
   defaultOpen?: boolean;
@@ -73,21 +75,7 @@ export interface PreferencesRootProps {
 function PreferencesRoot({ children, hotkey, defaultOpen = false }: PreferencesRootProps) {
   const [open, setOpen] = React.useState(defaultOpen);
 
-  React.useEffect(() => {
-    if (!hotkey) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || e.key.toLowerCase() !== hotkey) return;
-      const el = document.activeElement;
-      const typing =
-        el instanceof HTMLElement &&
-        (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
-      if (typing) return;
-      e.preventDefault();
-      setOpen((o) => !o);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [hotkey]);
+  useHotkey(hotkey, () => setOpen((o) => !o));
 
   // Non-modal so the app stays interactive and re-skins live behind the panel — no backdrop, no
   // scroll lock, no focus trap. But it still closes on an outside click, because that is what a
@@ -324,58 +312,135 @@ function ThemeSection({ copy }: { copy?: Partial<PreferencesCopy> }) {
   );
 }
 
+// ── The registry: which names exist, for the type checker ────────────────────
 /**
- * One declared preference, drawn — the switch on `kind`, in one place.
+ * **Where an app says which sections it registered, once, so every name is checked.**
  *
- * **It draws the core's preferences and a contributed section's alike**, so no surface re-decides
- * what a `range` looks like. The three arms are the primitives the panel already used: `choice` is a radio list,
- * `toggle` is `Switch`, `range` is `Slider`.
+ * TanStack Router's and Query's `Register`, spelled the same way: an empty interface the app
+ * augments with the array it hands the provider —
  *
- * A value is a string in storage for all three — see `SectionPrefDecl` — so each arm parses on the
- * way in with the section mechanism's own readers rather than a local `Number()` that would differ
- * from what the resolver validated against.
+ * ```ts
+ * declare module "@kanzo-tech/ui" { interface Register { sections: typeof SECTIONS } }
+ * ```
  *
- * `specimen` is the escape hatch, and it is the only one: a generic control cannot draw a typeface
- * in its own face or a size at its real size. What it may not do is change the CONTROL — a
- * declaration that needs a different one is a section of its own, and there is one of those left,
- * {@link ThemeSection}.
+ * — and from then on `<Pref name>` completes, a typo fails `tsc`, and `usePref("graph.placement")`
+ * answers `"force" | "map" | "clustered"`. Unaugmented, a name is any string: the registry is a
+ * check an app opts into, never a step it must take before anything renders.
  */
-function PrefControl({
-  name,
-  onChange,
-  pref,
-  sources,
-  specimen,
-}: {
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- augmented by the app, which is the whole point.
+export interface Register {}
+
+type Registered = Register extends { sections: infer S extends readonly SectionShape[] } ? S[number] : never;
+type SectionShape = { namespace: string; prefs?: Readonly<Record<string, unknown>> };
+type NamesOf<M> = M extends { namespace: infer N extends string; prefs?: infer P }
+  ? `${N}.${Extract<keyof NonNullable<P>, string>}`
+  : never;
+type DeclOf<N> = N extends `${infer NS}.${infer K}`
+  ? NonNullable<Extract<Registered, { namespace: NS }>["prefs"]>[K & keyof NonNullable<Extract<Registered, { namespace: NS }>["prefs"]>]
+  : never;
+
+/** Every preference by its qualified name — `theme.density`, `graph.placement` — once `Register` says. */
+export type PrefName = [Registered] extends [never] ? string : `${typeof CORE_NAMESPACE}.${CorePrefKey}` | NamesOf<Registered>;
+
+/** What a preference stores: its options' values for a listed choice, a string otherwise. */
+export type PrefValue<N extends string> = DeclOf<N> extends { kind: "choice"; options: readonly { value: infer V extends string }[] }
+  ? V
+  : string;
+
+// ── The hook and the part ─────────────────────────────────────────────────────
+/** One preference, resolved — what {@link Pref} draws and what a control of your own reads. */
+export interface PrefState<V extends string = string> {
+  /** The qualified name: `graph.placement`. */
   name: string;
-  onChange: (next: string) => void;
-  pref: { value: string; decl: SectionPrefDecl };
-  /** What the tenant published, for a choice whose options name a source. */
-  sources?: PrefSources;
-  /** Drawn above each option's name. Its presence is also what lays the cards out in a row. */
-  specimen?: (option: PrefOption) => React.ReactNode;
-}) {
-  const { decl, value } = pref;
-  // The declaration's name, and the key when it has none — which is what every surface drew before
-  // a preference could carry one, and is still what an older manifest gets.
-  const title = decl.label ?? name;
+  decl: SectionPrefDecl;
+  /** What the chain answered — pinned, stored, the tenant's start or the default. */
+  value: V;
+  setValue: (next: V) => void;
+  /** A choice's options; `null` for the other kinds, and for a source nobody beneath an owner answered. */
+  options: readonly PrefOption[] | null;
+  /** False where a tenant pinned or withheld it. */
+  offered: boolean;
+  /** Whether its `when` holds against its siblings. */
+  shown: boolean;
+  /** The owner's picture for each option, when it gave one. */
+  specimen: PrefSpecimen | undefined;
+}
+
+/**
+ * One preference, by its qualified name: the value, its setter, and whether to draw it.
+ *
+ * Ark's split — `useSelect` holds the state and the parts draw it — for a preference: {@link Pref}
+ * is this hook drawn, and a host that wants a control of its own reads the same answer and writes
+ * through the same setter, without `@kanzo-tech/ui` growing a fourth arm. `null` for a name nothing
+ * declares, which is what a host that removed an optional package gets — a lost control, not a
+ * thrown page.
+ */
+export function usePref<N extends PrefName>(name: N): PrefState<PrefValue<N>> | null {
+  const theme = useKanzoTheme();
+  const dot = name.indexOf(".");
+  const namespace = name.slice(0, dot);
+  const key = name.slice(dot + 1);
+  const { sources, specimens } = useSectionContribution(namespace);
+  const core = namespace === CORE_NAMESPACE;
+  const section = core ? theme.corePrefs : theme.sectionPrefs[namespace];
+  const pref = section?.[key];
+  if (!section || !pref) return null;
+  const values = Object.fromEntries(Object.entries(section).map(([k, p]) => [k, p.value]));
+  return {
+    name,
+    decl: pref.decl,
+    value: pref.value as PrefValue<N>,
+    setValue: (next) => (core ? theme.set({ [key]: next }) : theme.setSectionPref(namespace, { [key]: next })),
+    options: prefOptions(pref.decl, sources),
+    offered: pref.offered,
+    shown: prefShown(pref.decl, values),
+    specimen: specimens[key],
+  };
+}
+
+export interface PrefProps {
+  /** The qualified name: `theme.density`, `graph.x-by`. */
+  name: PrefName;
+  /** The words the core's theme picker draws. A contributed section's words are its manifest's. */
+  copy?: Partial<PreferencesCopy>;
+}
+
+/**
+ * **One declared preference, drawn** — the part every surface composes, and the switch on `kind` in
+ * one place, so no surface re-decides what a `range` looks like.
+ *
+ * Ark's arms, one per kind: a `choice` the author listed is a row of `RadioGroup` cards, a `choice`
+ * whose options a source answers is a `Select` — Apple's HIG, a segmented set for a few fixed values
+ * and a pop-up for a list nobody could count in advance, decided by where the options come from and
+ * never by how many there are — a `toggle` is `Switch` and a `range` is `Slider`. The owner's
+ * specimen is a card's content above its name, never a different control.
+ *
+ * It draws nothing for a preference a tenant **pinned or withheld**, one whose `when` does not hold,
+ * or a sourced choice nobody answered — a control that visibly does nothing is the one thing worse
+ * than no control. The core's `appearance` and `themeByAppearance` are one control, the theme
+ * picker, and either name draws it.
+ */
+function Pref({ name, copy }: PrefProps) {
+  const pref = usePref(name);
+  if (!pref) return null;
+  const key = name.slice(name.indexOf(".") + 1);
+  if (name.startsWith(`${CORE_NAMESPACE}.`) && PICKER.has(key)) return <ThemeSection copy={copy} />;
+  const { decl, value, setValue, options, specimen } = pref;
+  if (!pref.offered || !pref.shown) return null;
+  // The declaration's name, and the key when it has none.
+  const title = decl.label ?? key;
 
   if (decl.kind === "toggle") {
     // `Field` and nothing else, because Ark's Switch **does** read the ambient field context — its
     // hidden input comes out carrying `aria-labelledby="field::…::label"`. That is the opposite of
     // `useSlider`, which reads none, and the difference is why a `range` needs the machine's own
-    // label part and this does not. An `aria-label` here was tried and is exactly the
-    // duplication this panel keeps removing: it lands on the `<label>` root, which has no role, so
-    // it names nothing and hides that the wiring was already correct.
+    // label part and this does not.
     //
     // The control's role is `checkbox`, not `switch`: Ark renders a hidden `input type="checkbox"`
     // and does not set `role="switch"` on it. Upstream's call, adopted verbatim.
     return (
       <PrefField label={title}>
-        <Switch
-          checked={prefBoolean(value)}
-          onCheckedChange={(d) => onChange(String(d.checked === true))}
-        />
+        <Switch checked={prefBoolean(value)} onCheckedChange={(d) => setValue(String(d.checked === true))} />
       </PrefField>
     );
   }
@@ -387,7 +452,7 @@ function PrefControl({
       <Slider
         max={decl.max}
         min={decl.min}
-        onValueChange={(d) => onChange(String(d.value[0] ?? decl.min))}
+        onValueChange={(d) => setValue(String(d.value[0] ?? decl.min))}
         step={decl.step}
         value={[prefNumber(value, decl)]}
       >
@@ -396,38 +461,19 @@ function PrefControl({
     );
   }
 
-  // `?? []` and not a throw: a choice whose source the host has not answered yet has nothing to
-  // offer *this render*, and the value it resolved to is still applied.
-  const options = prefOptions(decl, sources) ?? [];
-  // A specimen is wide and wants its name under it; a bare name is a row in a list. One rule, read
-  // off the data, rather than a layout prop each call site has to remember to pass.
+  if (!options) return null;
+  if (!Array.isArray(decl.options)) return <PrefSelect label={title} onChange={setValue} options={options} value={value} />;
   return (
     <PrefFieldSet label={title}>
-      <RadioGroup
-        className={specimen ? "flex-row flex-wrap gap-2" : "gap-2"}
-        onValueChange={(d) => d.value && onChange(d.value)}
-        value={value}
-      >
+      <RadioGroup className="flex-row flex-wrap gap-2" onValueChange={(d) => d.value && setValue(d.value)} value={value}>
         {options.map((option) => (
           <RadioGroupCard
-            className={
-              specimen
-                ? "min-w-0 flex-1 basis-20 flex-col items-center gap-1 px-2 py-2"
-                : "items-center px-2.5 py-2"
-            }
+            className="min-w-0 flex-1 basis-16 flex-col items-center gap-1 px-2 py-2"
             key={option.value}
             value={option.value}
           >
             {specimen?.(option)}
-            <ArkRadioGroup.ItemText
-              className={
-                specimen
-                  ? "w-full truncate text-center text-muted-foreground text-xs"
-                  : "text-xs"
-              }
-            >
-              {option.label}
-            </ArkRadioGroup.ItemText>
+            <ArkRadioGroup.ItemText className="w-full truncate text-center text-xs">{option.label}</ArkRadioGroup.ItemText>
           </RadioGroupCard>
         ))}
       </RadioGroup>
@@ -436,63 +482,65 @@ function PrefControl({
 }
 
 /**
- * Every preference this host offers: the core's first — the theme, then density — and then whatever
- * the packages it installed contribute, one group per declared preference.
+ * A choice over a list the data answers: Ark's `Select` over a `createListCollection`.
  *
- * **Nothing here names a package.** The host registers manifests on the provider, the provider
- * resolves them, and this renders what it is handed; `@kanzo-tech/ui` gains no reference to
- * `@kanzo-tech/graph` and a host that never installed it passes nothing and draws nothing.
+ * **"None" is Ark's `deselectable` and its clear trigger**, not an option nobody declared: clearing
+ * writes the empty string, which a declaration over a source takes as its default — unbound.
+ */
+function PrefSelect({
+  label,
+  onChange,
+  options,
+  value,
+}: {
+  label: string;
+  onChange: (next: string) => void;
+  options: readonly PrefOption[];
+  value: string;
+}) {
+  const collection = React.useMemo(() => createListCollection({ items: [...options] }), [options]);
+  return (
+    <PrefField label={label}>
+      <Select
+        collection={collection}
+        deselectable
+        onValueChange={(d) => onChange(d.value[0] ?? "")}
+        value={value ? [value] : []}
+      >
+        <SelectTrigger showClear>
+          <SelectValue placeholder="None" />
+        </SelectTrigger>
+        <SelectContent>
+          {collection.items.map((item) => (
+            <SelectItem item={item} key={item.value}>
+              {item.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </PrefField>
+  );
+}
+
+/**
+ * Every preference a section offers, as one `<Pref>` each — the composition a settings page or a
+ * panel wants when it wants all of them. **It is made of the part and is not a second way in**:
+ * a page that arranges preferences its own way composes `<Pref>`s, and the conditions, the
+ * tenant's policy and the owner's lists hold there exactly as they hold here.
  *
- * **The core is a namespace like any other**, `theme` ({@link CORE_NAMESPACE}), in the order its
- * declaration lists it. Its one exception is that `appearance` and `themeByAppearance` are one
- * control — the theme picker — drawn once, at whichever of the two comes first.
- *
- * Two things it declines to draw: a preference a tenant **pinned** or **withheld** (`offered` is
- * false), and a namespace whose manifest declares only tokens — filtered in the provider, so an
- * empty legend cannot reach the DOM.
+ * The core first — the theme, then density — and then whatever the packages a host installed
+ * contribute, in each manifest's order. **Nothing here names a package**: the host registers
+ * manifests on the provider and this draws what it is handed.
  */
 export interface PreferencesSectionsProps {
   /**
-   * Draw one namespace instead of all of them.
-   *
-   * **This is what makes a preference one thing with several surfaces.** A panel wants every
-   * contributed section; a dock inside a canvas wants the graph's and nothing else; a settings page
-   * may want them under its own headings. Without it a surface that is not the panel has to
-   * hand-roll the controls — which is how the workspace's dock came to hold its own copy of the
-   * graph's appearance in React state, a second store for a preference the provider was already
-   * resolving.
-   *
-   * The namespace is the section's own — `"graph"`, or `"theme"` for the core — and an unknown one
+   * Draw one namespace instead of all of them — `"graph"`, or `"theme"` for the core. An unknown one
    * draws nothing rather than throwing: a host that removed an optional package should lose a
    * control, not a page.
    */
   namespace?: string;
-  /**
-   * Draw only these preferences, by name, in this order.
-   *
-   * The third selection, and the one a **dock** needs: a canvas has a panel for the forces and a
-   * panel for the picture, and both are the same section. Without it the surface either draws the
-   * whole section in one place or goes back to hand-rolling — which is the state this mechanism was
-   * built to end, so a selection that stops at the namespace stops one step short.
-   *
-   * Order is the caller's here, where a section's own order is the manifest's. That is the same
-   * split the provider's `themes` already makes: what to offer belongs to whoever declared it, how
-   * to arrange a page belongs to the page. A name nothing declares draws nothing. For the core,
-   * `"appearance"` and `"themeByAppearance"` both name the theme picker.
-   */
-  only?: readonly string[];
   /** The words the core's sections draw. A contributed section's words are its manifest's. */
   copy?: Partial<PreferencesCopy>;
-  /**
-   * A picture for each option of a contributed choice, keyed `namespace.preference` — what the core
-   * draws for density, for a section's own choices.
-   *
-   * A manifest is data, so it cannot carry one: a picture is React, and a section is declared in a
-   * package that may not depend on it. The surface that draws the section is where the picture is
-   * known. With one, the options are cards in a row with the picture over the name, as density's
-   * are; without one, a list.
-   */
-  specimens?: Readonly<Record<string, (option: PrefOption) => React.ReactNode>>;
 }
 
 /** Every word the core's sections author. The theme labels are the tenant's and are never reworded. */
@@ -504,87 +552,18 @@ export interface PreferencesCopy extends ThemePickerCopy {
 /** The two declared preferences the theme picker draws as one control. */
 const PICKER = new Set(["appearance", "themeByAppearance"]);
 
-function PreferencesSections({ namespace, only, copy, specimens }: PreferencesSectionsProps = {}) {
-  const theme = useKanzoTheme();
-  const { corePrefs, sectionPrefs, setSectionPref, sources } = theme;
-
-  type Entry = ThemeContextValue["sectionPrefs"][string][string];
-  // The caller's order when it named the set, the declaration's when it did not.
-  const chosen = (prefs: Record<string, Entry>): [string, Entry][] =>
-    only
-      ? only.flatMap((key) => {
-          const pref = prefs[key];
-          return pref ? [[key, pref] as [string, Entry]] : [];
-        })
-      : Object.entries(prefs);
-
-  let picker = false;
-  const core = chosen(corePrefs).map(([key, pref]) => {
-    if (PICKER.has(key)) {
-      if (picker) return null;
-      picker = true;
-      return <ThemeSection copy={copy} key="theme" />;
-    }
-    if (!pref.offered) return null;
-    const specimen = SPECIMENS[key];
-    return (
-      <PrefControl
-        key={key}
-        name={key}
-        onChange={(next) => theme.set({ [key]: next })}
-        pref={pref}
-        sources={sources}
-        {...(specimen ? { specimen } : {})}
-      />
-    );
-  });
-
-  const contributed = Object.entries(sectionPrefs)
-    .filter(([name]) => !namespace || name === namespace)
-    .map(([name, prefs]) =>
-      chosen(prefs).map(([key, pref]) =>
-        pref.offered ? (
-          <PrefControl
-            key={`${name}.${key}`}
-            name={key}
-            onChange={(next) => setSectionPref(name, { [key]: next })}
-            pref={pref}
-            sources={sources}
-            {...(specimens?.[`${name}.${key}`] ? { specimen: specimens[`${name}.${key}`] } : {})}
-          />
-        ) : null,
-      ),
-    );
-
-  return (
-    <>
-      {!namespace || namespace === CORE_NAMESPACE ? core : null}
-      {contributed}
-    </>
-  );
+function PreferencesSections({ namespace, copy }: PreferencesSectionsProps = {}) {
+  const { corePrefs, sectionPrefs } = useKanzoTheme();
+  // The picker answers to two names; drawn once, at whichever the declaration lists first.
+  const core = Object.keys(corePrefs).filter((key, i, keys) => !PICKER.has(key) || keys.findIndex((k) => PICKER.has(k)) === i);
+  const names = [
+    ...(!namespace || namespace === CORE_NAMESPACE ? core.map((key) => `${CORE_NAMESPACE}.${key}`) : []),
+    ...Object.entries(sectionPrefs)
+      .filter(([name]) => !namespace || name === namespace)
+      .flatMap(([name, prefs]) => Object.keys(prefs).map((key) => `${name}.${key}`)),
+  ];
+  return names.map((name) => <Pref copy={copy} key={name} name={name as PrefName} />);
 }
-
-/**
- * The specimens a generic control cannot draw, keyed by preference — the escape hatch, in one place.
- *
- * Density is drawn at its real size: the card resets to the browser's own size (`medium`) and the
- * specimen takes the step's percentage of it, which is exactly what `<html>` does with it.
- */
-const SPECIMENS: Record<string, (option: PrefOption) => React.ReactNode> = {
-  density: (option) => (
-    <span className="leading-none" style={{ fontSize: "medium" }}>
-      <span
-        className="flex items-center gap-1 text-foreground"
-        style={{ fontSize: themeData.densities[option.value as keyof typeof themeData.densities] }}
-      >
-        <span className="rounded-[0.25em] bg-primary px-[0.4em] py-[0.15em] text-[0.7em] font-medium text-primary-foreground">
-          Aa
-        </span>
-        <span className="text-[0.8em]">abc</span>
-      </span>
-    </span>
-  ),
-};
 
 export interface PreferencesProps extends Omit<PreferencesRootProps, "children"> {
   /** Restyle or reposition the floating trigger (it is `fixed bottom-4 end-4` by default). */
@@ -626,4 +605,5 @@ export {
   PrefField as PreferencesField,
   PrefFieldSet as PreferencesFieldSet,
   PreferencesSections,
+  Pref,
 };

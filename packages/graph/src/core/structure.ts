@@ -50,3 +50,9 @@ export interface Structure {
 export function tableOf(structure: Structure, vertex: number): VertexTable | undefined {
   return structure.vertices.find((t) => vertex >= t.first && vertex < t.first + t.rows);
 }
+
+/**
+ * An identity's local name — what follows its last `#` or `/`: RDF's syntactic split of an IRI, not
+ * a guess. An identity that is no IRI answers itself.
+ */
+export const localName = (identity: string) => /[^#/]+(?=[#/]*$)/.exec(identity)?.[0] ?? identity;

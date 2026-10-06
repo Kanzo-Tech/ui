@@ -1,13 +1,7 @@
 "use client";
 
 import {
-  Badge,
   Button,
-  ButtonGroup,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
   Clipboard,
   ClipboardTrigger,
   cn,
@@ -15,27 +9,22 @@ import {
   DataListItem,
   DataListItemLabel,
   DataListItemValue,
-  Item,
-  ItemGroup,
   Link,
+  Separator,
   Show,
   Skeleton,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
   useChartCapacity,
 } from "@kanzo-tech/ui";
-import { FocusIcon, ZoomInIcon } from "lucide-react";
+import { LocateFixedIcon } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { nameOf } from "../core/categories";
 import { bindingOf } from "../core/channels";
-import { neighbourIds, readNeighbours, readVertex, type Neighbours, type VertexDetail } from "../core/source";
-import { tableOf } from "../core/structure";
+import { readVertex, type VertexDetail } from "../core/source";
+import { localName, tableOf } from "../core/structure";
 import type { VertexId } from "../core/types";
 import { useGraphContext } from "../react/graph-root";
 import { useGraphState } from "../react/use-graph-state";
 import { scaleOf } from "../render/graph-model";
-import { GraphSelect } from "./graph-select";
 import { ShapeGlyph } from "./shape-glyph";
 
 export interface GraphInspectorProps extends Omit<React.ComponentProps<"div">, "children"> {
@@ -58,6 +47,17 @@ const text = (value: unknown, date: boolean): string => {
 const IRI = /^[a-z][a-z0-9+.-]*:\/\/\S+$/i;
 /** Past this many characters a value is clamped to three lines, and "more" lets the rest out. */
 const LONG = 160;
+
+/**
+ * How every row lays out, a host's among them: set on the list, so a `DataListItem` the render prop
+ * draws lines up with the corpus's without restating a class.
+ */
+const rows = cn(
+  "gap-0 text-xs",
+  "[&_[data-slot=data-list-item]]:items-baseline [&_[data-slot=data-list-item]]:gap-3 [&_[data-slot=data-list-item]]:py-0.5",
+  "[&_[data-slot=data-list-item-label]]:w-24 [&_[data-slot=data-list-item-label]]:min-w-0 [&_[data-slot=data-list-item-label]]:truncate [&_[data-slot=data-list-item-label]]:font-normal",
+  "[&_[data-slot=data-list-item-value]]:min-w-0",
+);
 
 /** One value: an IRI as a link out, long text clamped, the rest as it reads. */
 function Value({ value, date }: { value: unknown; date: boolean }) {
@@ -110,13 +110,16 @@ function useRead<T>(vertex: VertexId | null, read: ((vertex: VertexId) => Promis
  * **The focused vertex, fetched and laid out by the corpus's own tables** — the Linkurious inspector's
  * shape. The loaded graph carries what the channels project and nothing else, so the rest of the row
  * is read when a reader focuses it — one statement on its table, by its key, through the page's
- * coordinator — and its neighbourhood with it, one count per relation and direction.
+ * coordinator.
  *
- * The header names the vertex, copies its IRI and wears its category's glyph; **Zoom** frames it on
- * the canvas, **Focus** selects it with every neighbour as an `"external"` selection, which the page's
- * crossfilter hears, and **Copy** copies the row. The fields are the table's, in the order the
- * manifest declares them, grouped as its identity, its values and its dates. Each neighbourhood row
- * is a `GraphSelect`: pressing it selects the vertices at the far end of that relation.
+ * The header names the vertex: its type over it, with the canvas's glyph when colour is the type;
+ * its `title`, else its IRI's local name; and **Locate** beside it, which frames it with its
+ * neighbours on the canvas and keeps the camera there. Under the name, the IRI itself — a link out,
+ * with the copy button beside it, because the IRI is what a reader carries elsewhere. Nothing
+ * selects the neighbours here: a click on the canvas already does, and so does Locate. Then the
+ * fields, two columns, in the order the manifest declares them, grouped as values and dates; a row
+ * the render prop adds lines up with them. Sections
+ * and rules, no card: inside a dock a card is a second border.
  */
 export function GraphInspector({ children, className, slot, ...rest }: GraphInspectorProps) {
   const api = useGraphContext();
@@ -127,18 +130,11 @@ export function GraphInspector({ children, className, slot, ...rest }: GraphInsp
   const capacity = useChartCapacity();
   const scale = useMemo(() => scaleOf(options, capacity), [options, capacity]);
   const { coordinator, categories } = options;
-  const readers = useMemo(
-    () =>
-      structure && coordinator
-        ? {
-            row: (vertex: VertexId) => readVertex(coordinator, structure, vertex),
-            neighbours: (vertex: VertexId) => readNeighbours(coordinator, structure, vertex),
-          }
-        : null,
+  const row = useMemo(
+    () => (structure && coordinator ? (vertex: VertexId) => readVertex(coordinator, structure, vertex) : null),
     [coordinator, structure],
   );
-  const answered = useRead(focus, readers?.row ?? null);
-  const neighbours = useRead<Neighbours[]>(focus, readers?.neighbours ?? null);
+  const answered = useRead(focus, row);
 
   const current = answered || null;
   const table = structure && current ? tableOf(structure, current.vertex) : undefined;
@@ -147,29 +143,16 @@ export function GraphInspector({ children, className, slot, ...rest }: GraphInsp
   const byType = bindingOf(options).byTable;
   const rank = Math.max(0, domain.findIndex((value) => String(value) === current?.table));
   const iri = field(table?.identity);
-  const named = field(options.title) ?? iri;
+  const titled = field(options.title);
+  const named = titled ?? (typeof iri === "string" && iri !== "" ? localName(iri) : iri);
   const heading = current ? (named === undefined || named === null ? `#${current.vertex}` : text(named, false)) : "";
   const dated = (name: string) => /date|time/i.test(table?.columns.get(name)?.type ?? "");
   const groups = current
     ? [
-        { title: "Identity", fields: current.fields.filter((f) => f.name === table?.identity) },
         { title: "Values", fields: current.fields.filter((f) => f.name !== table?.identity && !dated(f.name)) },
         { title: "Dates", fields: current.fields.filter((f) => f.name !== table?.identity && dated(f.name)) },
       ]
     : [];
-  const row = current?.fields.map((f) => `${f.name}\t${text(f.value, dated(f.name))}`).join("\n") ?? "";
-  const around = (sides?: readonly Neighbours[]) => {
-    if (!current || !structure || !coordinator) return Promise.resolve([]);
-    return neighbourIds(coordinator, structure, current.vertex, sides);
-  };
-  const focusOn = async () => {
-    if (!current) return;
-    try {
-      api.select([current.vertex, ...(await around())], "external", `Neighbours of ${heading}`);
-    } catch (error) {
-      api.getState().options.onFailure(error);
-    }
-  };
 
   return (
     <div {...rest} className={cn("space-y-3 text-sm", className)} data-slot={slot ?? "graph-inspector"}>
@@ -185,86 +168,56 @@ export function GraphInspector({ children, className, slot, ...rest }: GraphInsp
         </p>
       </Show>
       {current && (
-        <Card className="gap-3 py-3 [--space:--spacing(3)]">
-          <CardHeader className="gap-2">
-            <div className="flex min-w-0 items-center gap-1">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <CardTitle className="min-w-0 truncate text-sm" slot="graph-inspector-title">
-                    {heading}
-                  </CardTitle>
-                </TooltipTrigger>
-                <TooltipContent>{heading}</TooltipContent>
-              </Tooltip>
-              <Show when={typeof iri === "string" && iri !== ""}>
-                <Clipboard value={String(iri)}>
+        <>
+          <header className="space-y-1">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs" data-slot="graph-inspector-type">
+                  <Show when={byType}>
+                    <ShapeGlyph aria-hidden className="size-2.5 shrink-0" color={scale.color(rank)} shape={scale.shape(rank)} />
+                  </Show>
+                  <span className="truncate">{nameOf(current.table, categories)}</span>
+                </p>
+                <h3 className="truncate font-semibold text-base" data-slot="graph-inspector-title" title={heading}>
+                  {heading}
+                </h3>
+              </div>
+              <Button className="shrink-0" onClick={() => api.reveal(current.vertex)} size="sm" variant="outline">
+                <LocateFixedIcon aria-hidden />
+                Locate
+              </Button>
+            </div>
+            <Show when={typeof iri === "string" && iri !== ""}>
+              <div className="flex min-w-0 items-center gap-1 text-xs" data-slot="graph-inspector-iri">
+                <Link className="min-w-0 truncate text-muted-foreground" href={String(iri)} rel="noreferrer" target="_blank" title={String(iri)}>
+                  {String(iri)}
+                </Link>
+                <Clipboard className="-my-1 shrink-0" value={String(iri)}>
                   <ClipboardTrigger aria-label="Copy the IRI" />
                 </Clipboard>
-              </Show>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <Badge className="min-w-0 gap-1 text-[10px]" size="xs" variant="outline">
-                <Show when={byType}>
-                  <ShapeGlyph className="size-2 shrink-0" color={scale.color(rank)} shape={scale.shape(rank)} />
-                </Show>
-                <span className="truncate">{nameOf(current.table, categories)}</span>
-              </Badge>
-              <ButtonGroup aria-label="This vertex">
-                <Button aria-label="Zoom to it" onClick={() => api.reveal(current.vertex)} size="icon-sm" title="Zoom to it" variant="ghost">
-                  <ZoomInIcon />
-                </Button>
-                <Button aria-label="Focus on its neighbours" onClick={() => void focusOn()} size="icon-sm" title="Focus on its neighbours" variant="ghost">
-                  <FocusIcon />
-                </Button>
-                <Clipboard className="contents" value={row}>
-                  <ClipboardTrigger aria-label="Copy its fields" title="Copy its fields" />
-                </Clipboard>
-              </ButtonGroup>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {groups.map((group) => (
-              <Show key={group.title} when={group.fields.length > 0 || (group.title === "Values" && !!children)}>
-                <section aria-label={group.title}>
-                  <p className="mb-1 font-medium text-muted-foreground text-xs">{group.title}</p>
-                  <DataList orientation="vertical">
-                    {group.fields.map((f) => (
-                      <DataListItem className="gap-0.5 py-0" key={f.name}>
-                        <DataListItemLabel className="text-xs">{f.name}</DataListItemLabel>
-                        <DataListItemValue className="min-w-0">
-                          <Value date={dated(f.name)} value={f.value} />
-                        </DataListItemValue>
-                      </DataListItem>
-                    ))}
-                    {group.title === "Values" && children?.(current)}
-                  </DataList>
-                </section>
-              </Show>
-            ))}
-            <section aria-label="Neighbours">
-              <p className="mb-1 font-medium text-muted-foreground text-xs">Neighbours</p>
-              <Show when={neighbours === undefined}>
-                <Skeleton className="h-8 w-full" />
-              </Show>
-              <Show when={neighbours === false || (Array.isArray(neighbours) && neighbours.length === 0)}>
-                <p className="text-muted-foreground text-xs">{neighbours === false ? "Its neighbours could not be read." : "No edges."}</p>
-              </Show>
-              <ItemGroup className="gap-1">
-                {(neighbours || []).map((side) => {
-                  const said = `${side.edge.label} ${side.direction === "out" ? "→" : "←"} ${nameOf(side.other, categories)}`;
-                  return (
-                    <Item className="p-0" key={`${side.edge.name} ${side.direction}`}>
-                      <GraphSelect className="flex items-center gap-2 px-2 py-1.5 text-xs" label={`${said} of ${heading}`} load={() => around([side])}>
-                        <span className="min-w-0 truncate">{said}</span>
-                        <span className="ms-auto text-muted-foreground tabular-nums">{side.count.toLocaleString()}</span>
-                      </GraphSelect>
-                    </Item>
-                  );
-                })}
-              </ItemGroup>
-            </section>
-          </CardContent>
-        </Card>
+              </div>
+            </Show>
+          </header>
+          {groups.map((group) => (
+            <Show key={group.title} when={group.fields.length > 0 || (group.title === "Values" && !!children)}>
+              <Separator />
+              <section aria-label={group.title}>
+                <p className="mb-1 font-medium text-muted-foreground text-xs">{group.title}</p>
+                <DataList className={rows} orientation="horizontal">
+                  {group.fields.map((f) => (
+                    <DataListItem key={f.name}>
+                      <DataListItemLabel title={f.name}>{f.name}</DataListItemLabel>
+                      <DataListItemValue>
+                        <Value date={dated(f.name)} value={f.value} />
+                      </DataListItemValue>
+                    </DataListItem>
+                  ))}
+                  {group.title === "Values" && children?.(current)}
+                </DataList>
+              </section>
+            </Show>
+          ))}
+        </>
       )}
     </div>
   );

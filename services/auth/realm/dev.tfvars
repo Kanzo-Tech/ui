@@ -6,6 +6,10 @@ kc_url          = "http://keycloak:8080"
 issuer_base_url = "http://localhost:8080"
 conformance     = true
 
+apis = {
+  ai-gateway = "services/ai: the platform's AI gateway."
+}
+
 organizations = {
   acme = {
     name   = "Acme Corporation"

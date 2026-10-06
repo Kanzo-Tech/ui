@@ -14,7 +14,7 @@ Mosaic are two coordinators, and two coordinators are two crossfilters that neve
 
 ```ts
 import { Coordinator, Selection, MosaicClient, clausePoints, clauseSemiJoin } from "@kanzo-tech/mosaic";
-import { column, numbers } from "@kanzo-tech/mosaic";
+import { numbers } from "@kanzo-tech/mosaic";
 import { engine } from "@kanzo-tech/mosaic";
 ```
 
@@ -31,15 +31,18 @@ import { engine } from "@kanzo-tech/mosaic";
   It boots with DuckDB's `httpfs` loaded, so `s3://` is readable once a secret says how:
   `query("CREATE OR REPLACE SECRET job (TYPE s3, …, SCOPE 's3://bucket/prefix/')", { signal })`, then name the
   objects by their URLs. A lent name has no scheme: `https://…` and `s3://…` in SQL are `httpfs`'s,
-  and it answers before the registry is asked.
+  and it answers before the registry is asked. `parquet` and `json` are loaded beside it, so Parquet
+  is readable and `json_serialize_sql` — DuckDB's parser as a function — is there from boot.
 
   **Nothing is fetched from a CDN.** DuckDB-WASM's worker and module come from
-  `@duckdb/duckdb-wasm`, a dependency at the exact release `httpfs` was built for; `httpfs` ships in
-  this package (`extensions/`, fetched and hash-pinned at build by `scripts/extensions.mjs`). All
-  three are reached through `new URL(…, import.meta.url)`, so your bundler emits them as assets —
-  under Next, `/_next/static/media/duckdb-browser-eh.worker.<hash>.js`, `duckdb-eh.<hash>.wasm` and
-  `httpfs.duckdb_extension.<hash>.wasm`, or their `mvp` siblings on a browser without WebAssembly
-  exceptions — and there is nothing to copy. Serve `.wasm` as `application/wasm` (Next does), and
+  `@duckdb/duckdb-wasm`, a dependency at the exact release the extensions were built for; `parquet`,
+  `httpfs` and `json` ship in this package (`extensions/`, fetched and hash-pinned at build by
+  `scripts/extensions.mjs`). All five are reached through `new URL(…, import.meta.url)`, so your
+  bundler emits them as assets — under Next, `/_next/static/media/duckdb-browser-eh.worker.<hash>.js`,
+  `duckdb-eh.<hash>.wasm` and `<extension>.duckdb_extension.<hash>.wasm` for each, or their `mvp` siblings on a browser without WebAssembly
+  exceptions — and there is nothing to copy. Autoloading is off: a function from an extension the
+  engine did not load fails with DuckDB's error naming it, rather than fetching it from
+  extensions.duckdb.org. Serve `.wasm` as `application/wasm` (Next does), and
   the page needs no origin but yours:
   `script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' <your storage>`. No
   `blob:`: the worker is started from its own URL.
@@ -56,18 +59,21 @@ import { engine } from "@kanzo-tech/mosaic";
 - **`bridgeSelection` / `semiJoinOf`** — a selection inside another, joined by a map.
   `bridgeSelection(inner, outer, map)` hands every clause of `outer` to `inner` as itself, and maps the
   clauses published into `inner` together into one clause of `outer`'s, whose source is the bridge;
-  retracting either side retracts the other (`retract` for clauses held upstream of `inner`). It uses
-  mosaic-core's public `Selection` API only, and `src/public-api.test.ts` fails on any `_` member.
+  retracting either side retracts the other (`retract` for clauses held upstream of `inner`).
   `semiJoinOf(key, table)` is the map for a relation keyed by an identity, so a dashboard over a
   joined relation filters a graph.
-- **`column` / `numbers`** — the half of the client protocol the protocol does not
-  give you. The coordinator answers with an Arrow table, and Arrow offers a typed column only when
-  the type allows one: an integer id gives an array, a dictionary-encoded label gives nothing
-  usable. Every call site was writing `as { getChild(name: string): … }`, which asserts Arrow's
-  shape rather than checking it, and is wrong on the first query that selects a string.
+- **`relaySelection(from, to)`** — `from`'s clauses into `to`, as the clause objects themselves,
+  after both exist: what Mosaic's `include` does at construction. The bridge's outer half is one. It
+  follows `from`'s state, so a reset travels, and its unrelay withdraws what it relayed.
+- **`numbers(answer, field)`** — one numeric column out of an answer, an Arrow table or an array
+  of rows. Reading it is mosaic-core's `toDataColumns`; `numbers` adds the coercion, since Arrow
+  hands back `BigInt` for some integer widths. A field the query did not select throws.
 - **`TableExpr`** — what a `table` takes, here and in the charts: a string is one identifier in the
   default catalog, a mosaic-sql node is a relation named in SQL — `verbatim(relation.sql)` for a
   fossil corpus's catalog-qualified relation.
+
+All of it is on Mosaic's public API: `packages/ui/src/mosaic-public-api.test.ts` fails on any `_`
+member of a Mosaic object reached from any shipped package.
 
 ## Why it is not part of `@kanzo-tech/ui`
 

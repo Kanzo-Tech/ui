@@ -20,15 +20,26 @@ variable "client_secret" {
   sensitive = true
 }
 
+# The application's API: a client with no flow, and the scope that names it in `aud`.
+module "api" {
+  source = "git::https://github.com/Kanzo-Tech/ui.git//services/auth/modules/api?ref=<release>"
+
+  realm_id  = var.realm_id
+  client_id = "board-api"
+}
+
 module "app" {
-  source = "git::https://github.com/Kanzo-Tech/ui.git//services/auth/modules/app?ref=v0.30.0"
+  source = "git::https://github.com/Kanzo-Tech/ui.git//services/auth/modules/app?ref=<release>"
 
   realm_id      = var.realm_id
   client_id     = "board"
   access_type   = "CONFIDENTIAL" # a BFF; PUBLIC for an application with no server
   client_secret = var.client_secret
   redirect_uris = ["https://*.board.example.com/api/auth/callback"]
-  audience      = "board-api"
+
+  # The APIs the application exchanges its token for, one API and one organization per token:
+  # its own, and the platform's AI gateway.
+  apis = [module.api.scope, "ai-gateway"]
 
   # Declared once, here. Every token carries the expanded set, so the application asks
   # "is editor present?" and never ranks roles itself.

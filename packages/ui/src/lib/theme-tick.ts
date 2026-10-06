@@ -24,7 +24,7 @@ import { categoricalCapacity } from "./token-color.js";
  * reports the palette *preference*, which moves the moment the user clicks — but the stylesheet it
  * selects usually arrives later, over the network. Ticking only then would re-resolve every token
  * against the document still on the page and never look again. **`<head>` is therefore watched too**,
- * for children and for character data, because that is where a document actually lands however a
+ * for the stylesheets in it and their text, because that is where a document actually lands however a
  * host chooses to apply it — a swapped `<style>`, a replaced `<link>`, an injected sheet.
  *
  * The early tick costs one wasted re-resolve and the late one is what makes the answer right. A
@@ -48,10 +48,26 @@ export function useThemeTick(): number {
   useEffect(() => {
     if (typeof MutationObserver === "undefined") return;
     const bump = () => setState((s) => ({ ...s, tick: s.tick + 1 }));
-    const root = new MutationObserver(bump);
+    // Every attribute but `style`. The theme never writes an inline style on `<html>` (see
+    // `KanzoThemeProvider`), and a modal overlay's scroll lock does, on every open and close: ticking
+    // on it rebuilt every chart on the page each time a dialog or popover opened.
+    const root = new MutationObserver((records) => {
+      if (records.some((r) => r.attributeName !== "style")) bump();
+    });
     root.observe(document.documentElement, { attributes: true });
     // Not `subtree` on the root: that would fire for every DOM change in the app.
-    const head = new MutationObserver(bump);
+    // Only what can carry a colour: a `<style>`, a stylesheet `<link>`, or the text inside a
+    // `<style>`. A bundler loading a lazy chunk inserts a `<script>` here, and ticking on it rebuilt
+    // every chart on the page the first time anything was imported on demand.
+    const sheet = (node: Node) =>
+      node.nodeName === "STYLE" || (node.nodeName === "LINK" && (node as HTMLLinkElement).rel === "stylesheet");
+    const head = new MutationObserver((records) => {
+      const styles = (r: MutationRecord) =>
+        r.type === "characterData"
+          ? r.target.parentNode?.nodeName === "STYLE"
+          : [...r.addedNodes, ...r.removedNodes].some(sheet) || r.target.nodeName === "STYLE";
+      if (records.some(styles)) bump();
+    });
     head.observe(document.head, { childList: true, subtree: true, characterData: true });
     return () => {
       root.disconnect();

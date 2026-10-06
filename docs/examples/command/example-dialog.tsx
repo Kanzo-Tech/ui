@@ -12,7 +12,9 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  DialogTrigger,
   Kbd,
+  KbdGroup,
   Show,
   useFilter,
   useListCollection,
@@ -37,14 +39,16 @@ export default function Example() {
 
   return (
     <div className="flex flex-col items-center gap-3">
-      <Button onClick={() => setOpen(true)} variant="outline">
-        Search the guild <Kbd>⌘</Kbd> <Kbd>K</Kbd>
-      </Button>
-      <Show when={!!ran}>
-        <span className="text-muted-foreground text-sm">Ran: {ran}</span>
-      </Show>
-
-      <CommandDialog onOpenChange={(e) => setOpen(e.open)} open={open}>
+      <CommandDialog hotkey="mod+k" onOpenChange={(e) => setOpen(e.open)} open={open}>
+        <DialogTrigger asChild>
+          <Button variant="outline">
+            Search the guild
+            <KbdGroup>
+              <Kbd>⌘</Kbd>
+              <Kbd>K</Kbd>
+            </KbdGroup>
+          </Button>
+        </DialogTrigger>
         <CommandDialogContent>
           <Command
             collection={collection}
@@ -74,6 +78,9 @@ export default function Example() {
           </Command>
         </CommandDialogContent>
       </CommandDialog>
+      <Show when={!!ran}>
+        <span className="text-muted-foreground text-sm">Ran: {ran}</span>
+      </Show>
     </div>
   );
 }

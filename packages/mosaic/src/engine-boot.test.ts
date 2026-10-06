@@ -50,7 +50,9 @@ vi.mock("@duckdb/duckdb-wasm", async (original) => ({
 
 vi.mock("@uwdata/mosaic-core", async (original) => ({
   ...(await original<typeof import("@uwdata/mosaic-core")>()),
-  wasmConnector: () => ({ query: async () => undefined }),
+  DuckDBWASMConnector: function () {
+    return { query: async () => undefined };
+  },
 }));
 
 const { engine, EngineError } = await import("./engine.js");

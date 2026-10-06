@@ -1,6 +1,6 @@
 ---
 title: Chat
-description: A conversation with a model, whole — the transcript, markdown that streams, the model's reasoning and tool calls as they happen, and a composer that sends, stops and retries. The host brings useChat and draws its own tools' results.
+description: A conversation with a model, whole — the transcript, markdown that streams, the model's reasoning and tool calls as they happen, and a composer that sends, stops and retries. The host brings the conversation (useAgentChat) and draws its own tools' results.
 ---
 
 <ComponentPreview componentName="chat" autoplay />
@@ -8,34 +8,48 @@ description: A conversation with a model, whole — the transcript, markdown tha
 ## Usage
 
 ```tsx
-import { Chat, useChat } from "@kanzo-tech/ai";
-import { createGateway, DirectChatTransport, ToolLoopAgent } from "@kanzo-tech/llm";
+import { Chat, useAgentChat } from "@kanzo-tech/ai";
+import { createGateway, ToolLoopAgent } from "@kanzo-tech/llm";
 
 const gateway = createGateway({ baseURL: "/api/ai" });
 const agent = new ToolLoopAgent({ model: gateway("chat"), tools: { query } });
-const transport = new DirectChatTransport({ agent });
 ```
 
 ```tsx
 function Ask() {
-  const chat = useChat({ transport });
-  return <Chat chat={chat} suggestions={["How many contracts are late?"]} />;
+  const chat = useAgentChat(agent);
+  return <Chat chat={chat} suggestions={[{ text: "How many contracts are late?" }]} />;
 }
 ```
 
-`Chat` takes `useChat(...)`'s return and nothing about where it came from. `DirectChatTransport`
-runs the agent in the page, against a model behind the host's own route — the set-up
-[`@kanzo-tech/llm`](/docs/ai/llm#connecting-a-model) describes. `useChat()` with no transport posts
-to the host's `/api/chat` instead, for an agent that runs on a server. `Chat` draws either the same,
-because both stream the AI SDK's `UIMessage`.
+`useAgentChat(agent, options?)` runs the agent in the page, against a model behind the host's own
+route — the set-up [`@kanzo-tech/llm`](/docs/ai/llm#connecting-a-model) describes. It is `useChat`
+over the AI SDK's `DirectChatTransport`, its options are `useChat`'s less the transport, and it
+keeps the agent of its first render, as `useChat` keeps its first transport: a host whose agent
+waits on something draws [`ChatSkeleton`](#before-it-can-be-drawn) until it can build it.
 
-`useChat` is `@ai-sdk/react`'s, re-exported, so a host imports the hook and the component from one
-place. `Chat` reads only the helpers — `messages`, `status`, `error`, `sendMessage`, `stop`,
-`regenerate` — so any chat state of that shape drives it.
+**It keeps what the agent threw.** `useChat` hands back a sentence: the transport writes a failure
+into the stream as text and the chat rebuilds an `Error` from the words, so an `AiError`'s `code`
+and `data` are gone before a host could branch on them. `useAgentChat`'s `error` is the value the
+agent threw, whole — the same value every other surface in the library hands over
+([failure](/docs/design/failure)).
 
-`Chat` is `flex-1` inside a column, so it wants a **bounded** parent: a panel with a height, or a
-flex column that has one. Given an unbounded one it grows with its content and there is nothing
-left to scroll.
+`useChat` is `@ai-sdk/react`'s, re-exported, for an agent that runs on a server behind the host's
+own HTTP route: that is a different transport, not a second door to this one, and a failure there
+reaches the page as the route's words. `Chat` draws either the same, because both stream the AI
+SDK's `UIMessage`, and reads only the helpers — `messages`, `status`, `error`, `sendMessage`,
+`stop`, `regenerate` — so any chat state of that shape drives it.
+
+*What would reverse it:* `useChat` passing the thrown value through itself. Then `useAgentChat` is
+one line of plumbing nobody needs, and it goes.
+
+*Held by* `packages/ai/src/agent-chat.test.tsx`, "answers what the agent threw, whole, and Chat
+draws it with its code".
+
+**`Chat` fills its parent's height**, whether the parent is a flex column or a block with a height
+of its own, so it wants a **bounded** parent: a panel with a height, or a flex column that has one.
+Given an unbounded one it grows with its content and there is nothing left to scroll. `ChatSkeleton`
+is the same frame, so the two need no matching wrappers to land in the same place.
 
 ## What it draws
 
@@ -58,6 +72,18 @@ reader needs to tell apart (waiting, working, done, failed), and the label says 
 seven states it is: *Preparing*, *Running*, *Awaiting approval*, *Done*, *Failed*, *Denied*. A
 denied or failed call shows why, from the part's own `errorText`.
 
+**One state is not the SDK's: *Stopped*.** A call left running when the answer stopped — the reader
+pressed Stop, or a kept transcript was cut mid-call — stays at the state it reached, and the SDK has
+no word for "never will". Drawn as it is, it spins forever. `Chat` derives it, a call still at work
+in a message that is no longer streaming, and the frame reads *Stopped*, neutral and still. `Tool`
+takes the same `stopped` for a transcript of the host's own.
+
+*What would reverse it:* the AI SDK giving an aborted call a state of its own. Then `stopped` goes
+and the part says it alone.
+
+*Held by* `packages/ai/src/tool.test.tsx`, "reads Stopped, and still, for a call that will never
+settle; a settled one keeps its state".
+
 **The transcript follows a stream only while the reader is at the tail.** An effect that scrolls to
 the bottom on every message follows *unconditionally*, so a reader who scrolled up to re-read
 something is dragged back down by every token. Here, scrolling up releases the pin and a button
@@ -66,8 +92,11 @@ fires no scroll event for content getting taller under a still `scrollTop`.
 
 **The composer is one button that says what pressing it does.** <kbd>Enter</kbd> sends and
 <kbd>Shift</kbd>+<kbd>Enter</kbd> is a newline. While an answer streams the button is *Stop*; after
-an error, with nothing typed, it is *Retry* and asks again. The error itself is announced under the
-transcript with `role="alert"`.
+an error, with nothing typed, it is *Retry* and asks again. The error itself is drawn under the
+transcript through `@kanzo-tech/ui`'s [`Problem`](/docs/data-display/problem) and announced with
+`role="alert"`: a coded failure shows its code, and `copy` gives it the host's words, as everywhere
+else in the library. A `failure` prop fed by the host's own transport was the alternative, and it
+is the plumbing `useAgentChat` exists so that no host writes.
 
 *Held by* `packages/ai/src/chat.test.tsx`, "asks, shows the tool call the model made, and streams the
 answer as markdown"; `packages/ai/src/conversation.test.tsx`, "releases the pin the moment the reader
@@ -77,17 +106,21 @@ itself once the reader has said otherwise".
 ## Drawing a tool's result
 
 A tool's output is drawn as a JSON tree unless the host says what it is. `tools` maps a tool's name
-to a function of the call's part, and once the call has a result, what it returns is drawn inside
-the frame **in place of its input and output** — the host's drawing is the whole result, and a
-result card that carries its own SQL does not want the JSON of that SQL above it. Until then the frame
-shows the input, so the reader sees what is running:
+to a function of the call's part, and **it is called at every state**: what it returns is drawn
+inside the frame **in place of its input and output**, from the moment the model starts writing the
+call to its result or its failure. A renderer that only wants the result switches on `part.state`;
+one that wants to show what is running — the statement as the model writes it — can. The second
+argument is `{ stopped }`, true for a call that will never settle.
 
 <ComponentPreview componentName="chat" fileName="example-tools" />
 
 ```tsx
 <Chat
   chat={chat}
-  tools={{ query: (part) => <ResultTable result={part.output as ResultSet} /> }}
+  tools={{
+    query: (part, { stopped }) =>
+      part.state === "output-available" ? <ResultTable result={part.output as ResultSet} /> : <Pending stopped={stopped} />,
+  }}
 />
 ```
 
@@ -97,9 +130,14 @@ SDK's `ToolUIPart` or `DynamicToolUIPart`, whole — so the renderer has the cal
 too. Its `output` is `unknown` there: the map is keyed by a string, so the host, which wrote the
 tool, says what it returns.
 
-For data, [`QueryResult`](/docs/ai/data#the-answer-card) is that drawing, whole.
+For data, [`QueryResult`](/docs/ai/data#the-answer-card) is that drawing, whole, at every state.
 
-*Held by* `packages/ai/src/chat.test.tsx`, "lets the host draw its own tool's result".
+Called only once the call had a result, with a default drawn before, was how this started, and a
+host could not show a pending state in its own card. Returning `null` to ask for the default was the
+other way out, and it gives one return value two meanings: whatever the renderer returns is drawn.
+
+*Held by* `packages/ai/src/chat.test.tsx`, "lets the host draw its own tool's result", "hands the
+host's renderer every state, and says whether the call will ever settle".
 
 ## Before the first question
 
@@ -111,44 +149,68 @@ conversation starts.
 
 **Suggested questions come from one door, `suggest()`.** It asks a model for questions over some
 material — a schema, a domain, the files — with the host's instructions, and streams each as soon as
-it is whole, a `SuggestedQuestion` of `{ question, rationale }` (the AI SDK's
-`Output.array`). There is no template fallback: a list of questions written from column names
+it is whole, a `Proposal` of `{ text, rationale }` (the AI SDK's `Output.array`, read through
+`@kanzo-tech/llm`'s `stream`). It is the same `Proposal` a field's `Assist` offers: one type for
+everything a model offers, whatever surface draws it. There is no template fallback: a list of questions written from column names
 beside a list a model wrote is two paths to one strip, and the templates were the worse one.
 
 ```tsx
-for await (const { question } of suggest({ model: gateway("chat"), instructions, prompt: schema, abortSignal })) {
-  offered.push(question);
+for await (const proposal of suggest({ model: gateway("complete"), instructions, prompt: schema, abortSignal })) {
+  offered.push(proposal);
 }
 ```
 
 | `SuggestOptions` | |
 | --- | --- |
-| `model` | The host's — `gateway("chat")` |
+| `model` | The host's — `gateway("complete")`: a few short questions are a completion |
 | `instructions` | What the questions are for and what makes a good one: the system prompt |
 | `prompt` | The material they are asked over |
 | `abortSignal` | Stops the stream |
 
 While it streams, pass `suggesting`: the strip draws pills in skeleton beside the ones that have
-arrived, so it keeps its height as they land. **A failure throws when the stream ends** — the AI SDK
-otherwise ends a refused stream as if the model had nothing to suggest — and on a failure the host
-passes no pills: the conversation works the same without them. A data space's questions are
+arrived, as many as make up the strip, so it keeps its height as they land. **A failure throws when
+the stream ends** — the AI SDK otherwise ends a refused stream as if the model had nothing to
+suggest — and on a failure the host passes `suggestions={[]}`: **the strip keeps its row, empty**,
+so the empty state above it does not move, and the conversation works the same without pills. A
+host that offers no suggestions at all leaves `suggestions` out, and there is no strip. A data space's questions are
 [`dataSuggestions`](/docs/ai/data), which is `suggest()` with a data space's instructions.
 
 **A pill never outgrows the strip.** A question longer than the panel is as wide as the strip and
-cut with an ellipsis, and the whole question is in a tooltip that opens only when it is cut. The
-accessible name is the whole question either way.
+cut with an ellipsis, and the whole question is in its tooltip. The accessible name is the whole
+question either way.
+
+**The strip is the one every model's offer is drawn in**, `Assist`'s candidates included: a ✨ leads
+it, hidden from assistive technology because the panel already names the feature, and each pill's
+rationale is its `Suggestion` `description` — in the tooltip, under the question, and read as the
+pill's accessible description. It costs no height, so a strip in a side panel stays one row; a line
+of text under each pill would double it. Pending is pills in skeleton, never a spinner, on both
+surfaces.
+
+*Held by* `packages/ai/src/proposal-strip.test.tsx`, "leads with the ✨, hidden from assistive
+technology, and describes each pill by its rationale", "is the strip in skeleton while proposals
+arrive, busy until they have".
+
+*What would reverse it:* a panel short enough that one empty row costs more than the jump it saves.
+Then a failure collapses the strip, and the empty state is anchored to the top instead of centred.
 
 *Held by* `packages/ai/src/chat.test.tsx`, "holds room for suggestions still arriving, beside the
-ones that have"; `packages/ai/src/suggest.test.ts`, "throws what stopped the model, rather than ending
+ones that have", "keeps the strip's row when suggesting failed, so the empty state does not move";
+`packages/ai/src/suggest.test.ts`, "throws what stopped the model, rather than ending
 as if it had nothing to suggest"; `packages/ui/src/simples/suggestions.test.tsx`, "shows the whole
 label in a tooltip when the label is cut".
 
 ## Before it can be drawn
 
-`ChatSkeleton` is `Chat`'s layout while what it needs is still loading — a schema, an agent: the
-empty state, the pills in skeleton and the composer, inert. Give it the same `empty` the chat will
-have and nothing moves when the chat replaces it. The composer is the real one, disabled, rather than
-a block of its size, so the two cannot drift apart.
+`ChatSkeleton` is `Chat` while what it needs is still loading — a schema, an agent: the empty state,
+the pills in skeleton and the composer, inert. **It is not a copy of the layout but the same one**:
+both draw one internal frame, the transcript's scroll region and then the composer, so padding,
+width and height are written once. Give it the same `empty` the chat will have and nothing moves
+when the chat replaces it. The composer is the real one, disabled, rather than a block of its size.
+
+*What would reverse it:* a skeleton that has to look different from the chat, which would make it a
+second component and not this one. `Chat` taking a `pending` flag instead was discarded: the
+skeleton exists for the moment before the conversation can be built, so `chat` would turn optional and
+`Chat` would hold two components behind one flag.
 
 ```tsx
 {schema ? <Chat chat={chat} empty={empty} /> : <ChatSkeleton empty={empty} />}
@@ -161,7 +223,9 @@ a block of its size, so the two cannot drift apart.
 | `translations` | `{ placeholder }` | The composer's placeholder |
 
 *Held by* `packages/ai/src/chat.test.tsx`, "draws Chat's layout before it can be drawn: the empty
-state, pills in skeleton, an inert composer".
+state, pills in skeleton, an inert composer", "is Chat's own frame, so nothing moves when the chat
+replaces it". jsdom has no layout, so the heights are measured in Chromium by
+`docs/scripts/chat-frame.e2e.mjs` over `/fixtures/chat-frame`, in a flex column and in a block.
 
 ## The parts
 
@@ -180,16 +244,17 @@ Their props are `MessageProps`, `MessageAvatarProps`, `MessageRole` and `Reasoni
 
 | Prop | Type | |
 | --- | --- | --- |
-| `chat` | `useChat(...)`'s return | The conversation |
-| `tools` | `ChatToolRenderers` | `Record<string, (part: ToolPart) => ReactNode>` — how the host draws its tools' results |
+| `chat` | `useAgentChat(...)`'s return, or `useChat(...)`'s | The conversation |
+| `tools` | `ChatToolRenderers` | `Record<string, (part: ToolPart, call: { stopped: boolean }) => ReactNode>` — how the host draws its tools, at every state |
 | `empty` | `ReactNode` | What the panel says before the first question |
-| `suggestions` | `readonly string[]` | Questions to start from |
+| `suggestions` | `readonly Proposal[]` | Questions to start from; given at all, even empty, the strip keeps its row |
 | `suggesting` | `boolean` | More are on their way: pills in skeleton beside them |
+| `copy` | `ProblemProps["copy"]` | The host's words for a failure's code, as `Problem` takes them |
 | `translations` | `Partial<ChatTranslations>` | `placeholder` for the composer, and `failed`, read before an error |
 | `className` | `string` | On the root |
 
 The types are exported as `ChatProps`, `ChatSkeletonProps`, `ChatToolRenderers`, `ChatTranslations`,
-`ToolPart`, `SuggestOptions` and `SuggestedQuestion`.
+`ToolPart`, `SuggestOptions`, `AgentChat` and `AgentChatOptions`; a suggestion is a `Proposal`.
 
 ## AI Elements is a source, not a reference
 

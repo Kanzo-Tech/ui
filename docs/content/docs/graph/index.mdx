@@ -20,6 +20,16 @@ taken apart below.
 pnpm add @kanzo-tech/graph @cosmos.gl/graph @kanzo-tech/mosaic @kanzo-tech/ui lucide-react
 ```
 
+Its stylesheet entry goes after `@kanzo-tech/ui`'s. The canvas is WebGL, but the palette, the
+inspector and the legend are utilities, and a utility only this package writes is generated only
+when something scans it:
+
+```css title="app/globals.css"
+@import "tailwindcss";
+@import "@kanzo-tech/ui/tailwind.css";
+@import "@kanzo-tech/graph/tailwind.css";
+```
+
 Every peer is required: cosmos.gl draws and lays out, `@kanzo-tech/mosaic` is the page's coordinator
 and crossfilter, and the parts are built from `@kanzo-tech/ui` and its icons. The host attaches the
 corpus with `@fossil-lang/corpus` `0.3.0-alpha.24` or later, whose `open` answers a catalog rather
@@ -69,15 +79,16 @@ GraphRoot                  the state and the commands; renders no element
 ├── GraphCounts            "5K nodes · 8K edges", or "1.2K of 5K nodes match · 3K edges"
 ├── GraphSearch            a palette: find a vertex, by text, type or column, and reveal it
 ├── GraphSelect            a selection the host offers, as a toggle
-└── GraphInspector         the focused vertex: its row and its neighbourhood
-GraphLooks                 the picture's preferences; needs the theme provider, not a root
+└── GraphInspector         the focused vertex: its row
 ```
 
 **Every part reads the root, not its parent.** `GraphCanvas`'s children are chrome positioned over
 the surface, but `GraphToolbar`, `GraphLegend`, `GraphStatus`, `GraphCounts`, `GraphSearch`, `GraphSelect` and `GraphInspector`
 each read the root's context directly, so each can sit anywhere under it — over the canvas, in a
-dock, in a footer. `GraphLooks` is the exception the other way: it writes preferences, so it needs
-`GRAPH_SECTION` on the theme provider and no root at all.
+dock, in a footer. **The graph's settings are not a part.** They are `GRAPH_SECTION`, drawn by
+`@kanzo-tech/ui`'s `PreferencesSections` or composed from its `<Pref>`, and the root is the section's
+owner: it answers the corpus's columns and the cards' pictures to whatever sits beneath it —
+[Settings](#settings).
 
 ## The mental model
 
@@ -97,9 +108,7 @@ the state without subscribing.
 
 A click selects a vertex and its neighbours and focuses it; a lasso selects what it encloses; a
 failure is reported. What the host does with each is `onSelect`, `onFocus` and `onFailure`, and **no
-part takes a callback of its own** — the package's barrel test holds that. `GraphPlacement`'s
-`onChange` is not one: it hands back the root's own `x`, `y` and `cluster`, a controlled value the
-way an input's is, and decides nothing. `onFailure` is the one required prop;
+part takes a callback of its own** — the package's barrel test holds that. `onFailure` is the one required prop;
 [Failures](#failures) says why.
 
 ### Ark's four: `useGraph` and `GraphRootProvider`
@@ -185,14 +194,20 @@ it moves at frame rate. The badge is `aria-busy` while loading or laying out.
 
 ### Search
 
-<ComponentPreview componentName="graph" fileName="example-search" hasMaxHeight />
-
 Find a vertex and go to it — a palette in the shape of Raycast's and Linear's ⌘K, over Cosmograph's
-search, built on `Command`. Each pause in typing (150 ms) asks the corpus once, through the
+search, built on `Command`. The workspace at the top of this page carries one: press
+<kbd>⌘</kbd>+<kbd>K</kbd>, or the field in its Info panel.
+
+**In the page it is a cue**: a button styled as a field that prints ⌘K and holds nothing, Shark's own
+command trigger. It, ⌘K and Ctrl+K open the palette, centred and full-height over the canvas — a
+`CommandDialog` with `hotkey="mod+k"`. One palette per page, so nothing arbitrates the key; the cue
+declares it as `aria-keyshortcuts`. Each pause in typing (150 ms) asks the corpus once, through the
 coordinator, for the first `limit` matches and how many there are of each type; nothing is read
 before the reader types and no text is held in the page. Matches are grouped by vertex type — named by
-the root's `categories` and counted past the limit — each with the glyph the canvas draws it in and
-the typed text highlighted.
+the root's `categories` and counted past the limit — each with the glyph the canvas draws it in, the
+typed text highlighted and, on the right, its identity's local name, as Linear prints an issue's key: a
+title is not unique, and fifty rows reading "scout" are told apart by it. The palette keeps its height
+whatever it holds, as Raycast's and Linear's do.
 
 Three things narrow it, as Neo4j Bloom's search does:
 
@@ -206,14 +221,20 @@ A word is a prefix only when what precedes its colon is `type` or a column some 
 an IRI typed whole stays text. Every statement is built with mosaic-sql's nodes: what the reader
 typed is a literal, never part of the SQL.
 
-Picking a match is `reveal`: the canvas frames it and selects it with its neighbours, and
-`GraphInspector` reads it. The root remembers the last five picks for its life — never in
-`localStorage` — and the empty palette lists them as **Recent**. **Select N matches** selects every
-match, past the limit, as an `"external"` selection. `limit` caps the list (50) and says so.
+**A prefix becomes a chip on <kbd>Space</kbd>** — a `TagsInput` sharing the palette's input, whose
+`validate` is the same reading, so free text never becomes one. <kbd>Backspace</kbd> in an empty
+input highlights the last chip, then removes it.
 
-**⌘K or Ctrl+K moves to the search** of the graph the reader last used — pointed into, focused or
-selected on — so two graphs on one page never both take the key. The input declares it as
-`aria-keyshortcuts`.
+| Key | Does |
+| --- | --- |
+| <kbd>Enter</kbd> | `reveal`s the highlighted match — the canvas frames it and selects it with its neighbours, and `GraphInspector` reads it — and closes the palette |
+| <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> | selects every match, past the limit, as one `"external"` selection — **Select all** in the footer does the same |
+| <kbd>Esc</kbd> | closes the palette |
+
+**Empty, the palette offers where to start**: the last five picks, which the root remembers for its
+life — never in `localStorage` — as **Recent**, then every vertex type with how many it holds, as
+**Narrow to a type**. Picking a type makes it a `type:` chip, as GitHub's palette offers its scopes.
+`limit` caps the list (50), and the footer says how many matched and how many of them it shows.
 
 **A failed read is kept whole**: it reaches `onFailure` as thrown, and the input turns
 `aria-invalid` with the placeholder "The names could not be read." rather than staying disabled.
@@ -239,44 +260,69 @@ reaches the root's `onFailure` as thrown, leaving it unpressed.
 
 <ComponentPreview componentName="graph" fileName="example-inspector" hasMaxHeight />
 
-The focused vertex — a click, a search or `reveal` — read and laid out as a card, after the
-Linkurious inspector. The loaded graph carries what the channels bind and nothing else, so the row is
-read when a reader focuses it: one `SELECT` of its table at its `dense_id`, and one count per relation
-and direction for its neighbourhood.
+The focused vertex — a click, a search or `reveal` — read and laid out after the Linkurious
+inspector, in sections and rules rather than a card, which inside a dock would be a second border. The loaded graph carries what the channels bind and nothing else, so the row is
+read when a reader focuses it: one `SELECT` of its table at its `dense_id`.
 
-- **The header** names the vertex — its `title`, truncated, whole in a tooltip — copies its IRI, and
-  wears its type as a badge, with the canvas's glyph when colour is the type. **Zoom** frames it on the
-  canvas; **Focus** selects it with every neighbour as an `"external"` selection named "Neighbours of
-  …", which the page's crossfilter hears; **Copy** copies its fields, a line each.
-- **The fields** are the table's, in `fossil_columns`' order, grouped as **Identity**, **Values** and
+- **The header** names the vertex — its type over it, with the canvas's glyph when colour is the
+  type, then its `title`, else its IRI's local name (what follows the last `#` or `/`), else `#id` —
+  with **Locate** beside it: `reveal`, which frames it with its neighbours on the canvas and keeps the
+  camera there through a resize or a settling layout.
+- **The IRI under the name**, a link out with the copy button beside it: the identity is what a
+  reader carries elsewhere, so it is never a row to hunt for.
+- **Nothing selects the neighbours here.** A click on the canvas already selects a vertex with its
+  neighbours, and so does Locate; the connections are the canvas's to show.
+- **The fields** are the table's, two columns, in `fossil_columns`' order, grouped as **Values** and
   **Dates** — a date is a column whose declared type is a date or a time. An IRI is a link out, and a
-  long text is clamped with "more".
-- **Neighbours** lists each relation and direction it takes part in, with how many edges — "knows →
-  Person · 12". Each row is a `GraphSelect`: pressing it selects the vertices at that end.
+  long text is clamped with "more". A `DataListItem` the render prop draws lines up with them without
+  a class of its own.
 
 **`children` is a render prop**: it receives the `VertexDetail` and draws fields of the product's own,
 a `DataListItem` each, after the corpus's values — here the hall's name, where the relation stores
 its id.
 
-### Looks
+### Settings
 
 <ComponentPreview componentName="graph" fileName="example-looks" hasMaxHeight />
 
-The picture's preferences, drawn: three **looks** — Nebula, Atlas and Ink, each a card with a
-miniature drawn through the canvas's own glyphs and scale — and under them the axes, always in view.
-Wearing a look writes every axis it names; a look is checked exactly when the resolved axes are its
-own, so no name is stored beside them, and a picture customised past all three checks none and says
-Custom. A look whose axes a tenant pinned is disabled.
+**The graph's settings are its section, drawn whole: one line.** `GRAPH_SECTION` declares what may
+be set — the picture, where the points come from and the forces — and `@kanzo-tech/ui` draws it. The
+root is the section's owner, as the theme provider is the core's: it answers the attached corpus's
+columns and the pictures on the cards to every `<Pref>` beneath it, so no host passes a list it
+does not own. [Sections](/docs/sections) has the whole model.
 
-The axes are Cosmograph's configuration, read as choices a reader can name:
+```tsx
+import { KanzoThemeProvider, PreferencesSections } from "@kanzo-tech/ui";
+import { GraphCanvas, GraphRoot, useGraphPrefs } from "@kanzo-tech/graph";
+import { GRAPH_SECTION } from "@kanzo-tech/graph/section";
 
-| Axis | Values | What it draws |
+const SECTIONS = [GRAPH_SECTION]; // module scope: a new array re-resolves every preference
+
+<KanzoThemeProvider sections={SECTIONS}>…</KanzoThemeProvider>;
+
+// under it
+const { look, sim, placement } = useGraphPrefs(); // placement: {} | { x, y } | { cluster }
+<GraphRoot from="archive" coordinator={coordinator} fill="kind" look={look} sim={sim} {...placement} onFailure={setFailure}>
+  <GraphCanvas />
+  <PreferencesSections namespace="graph" />
+</GraphRoot>
+```
+
+The picture's axes are Cosmograph's configuration, read as choices a reader can name. There are no
+named looks over them — Cosmograph and Gephi Lite's appearance panel offer the axes with good
+defaults, and so does this section. A preference a tenant pinned is not offered.
+
+| Preference | Values | What it draws |
 | --- | --- | --- |
-| Marks | Dense · Legible | How much ink a point spends — cards, each previewing the current look with that mark. |
+| Marks | Dense · Legible | How much ink a point spends — cards, each previewing the current picture with that mark. |
 | Edges | Hidden · Straight · Curved | `showLinks` and `curvedLinks` as one axis — cards with a preview. |
-| Additive links | switch | Links add where they overlap. Offered only while edges are drawn. |
+| Additive links | switch | Links add where they overlap. Offered only while edges are drawn (`when`). |
 | Labels | None · Hovered · Top · Visible · All | Which points carry their title — below. |
 | Dot grid · Vignette | switches | The backdrop. |
+| Placement | Force · Map · Clustered | Where the points come from — [Placement](#placement). Cards with a picture of each mode. |
+| x · y | the corpus's numeric fields | Map's two columns. Offered only under Map. |
+| Cluster by | the corpus's fields | Clustered's column. Offered only under Clustered. |
+| Gravity · Repulsion · Link spring · Link distance · Friction | sliders | The forces. Cluster pull is offered only under Clustered. |
 
 **Labels are one ordered scale**, each level adding to the one before. **None** draws no text at all,
 not even the hover card. **Hovered** is the hover card and the focused point's label. **Top** adds the
@@ -289,68 +335,44 @@ Cosmograph has no unbounded label set either, and All once was one — a sort, a
 tracked position and a title read per vertex. At every level a label that would overlap a bigger
 point's is dropped rather than drawn over it, and the titles are read for the labelled points only. The levels are the type `LabelLevel`, the `labels` field of a `Look`.
 
-**It needs `GRAPH_SECTION` on the theme provider** — without it there is nothing to write and it
-renders nothing — and the root reads the answer through `useGraphPrefs()`:
-
-```tsx
-import { KanzoThemeProvider } from "@kanzo-tech/ui";
-import { GraphLooks, GraphRoot, useGraphPrefs } from "@kanzo-tech/graph";
-import { GRAPH_SECTION } from "@kanzo-tech/graph/section";
-
-const SECTIONS = [GRAPH_SECTION]; // module scope: a new array re-resolves every preference
-
-<KanzoThemeProvider sections={SECTIONS}>…</KanzoThemeProvider>;
-
-// under it
-const { look, sim, preset } = useGraphPrefs();
-<GraphRoot from="archive" coordinator={coordinator} look={look} sim={sim} {...PAIRINGS[preset ?? "atlas"]} onFailure={setFailure}>
-```
-
-**A look is form; the channels are the host's.** `preset` is `"nebula"`, `"atlas"`, `"ink"` or
-`null`, for a host that pairs channels with a look. Ink's register spends identity on shape — `fill`
-as one ink, `symbol` on the category — but that is a binding, and a binding is the host's to make:
-
-```tsx
-const PAIRINGS: Record<LookPreset, Channels> = {
-  nebula: { fill: "kind" },
-  atlas: { fill: "kind", stroke: "var(--muted-foreground)" },
-  ink: { fill: "var(--foreground)", symbol: "kind", stroke: "var(--muted-foreground)" },
-};
-```
+**A look is form; the channels are the host's.** The preferences never change which column wears
+colour or shape. A host that wants identity on shape binds `symbol` to the category and paints
+`fill` one ink, and Legible marks are what make a shape readable.
 
 ### Placement
 
 <ComponentPreview componentName="graph" fileName="example-placement" hasMaxHeight />
 
-Where the points come from, as three cards: **Force**, the GPU layout; **Map**, two numeric columns
-as `x` and `y`, and nothing simulates; **Clustered**, the layout with cosmos.gl's cluster force over
-one column. The column selects open under the checked card only — **beside it, never inside it**: the card is
-the radio's label and its whole box the radio's hit area, so a control in it would compete with the
-radio for the click. They are a group named after the card, each select with a label of its own,
-reached by Tab after the radios. Their options are the
-corpus's own fields from `fossil_columns` — numeric ones for Map, any for Clustered; fossil's
-`dense_id` and identity are not fields. **It is controlled**: `value` and `onChange` carry
-`Pick<Channels, "x" | "y" | "cluster">`, which the host passes to the root as it is:
+Where the points come from, composed here from the part — a page that wants placement alone writes
+its `<Pref>`s, and each draws itself only when its declaration says so. **Force** is the GPU layout;
+**Map** binds two numeric columns as `x` and `y`, and nothing simulates; **Clustered** runs the
+layout with cosmos.gl's cluster force over one column. The columns are Cosmograph's `pointXBy`,
+`pointYBy` and `pointClusterBy`, and their options are the corpus's own fields from
+`fossil_columns`, answered by the root — numeric ones for Map, any for Clustered; fossil's
+`dense_id` and identity are not fields. A column is a `Select`, because the data answers its list;
+clearing it unbinds it.
 
 ```tsx
-const [placement, setPlacement] = useState<Pick<Channels, "x" | "y" | "cluster">>({});
-
 <GraphRoot from="archive" coordinator={coordinator} {...placement} onFailure={setFailure}>
-  <GraphPlacement onChange={setPlacement} value={placement} />
+  <Pref name="graph.placement" />
+  <Pref name="graph.x-by" /> {/* only under Map */}
+  <Pref name="graph.y-by" />
+  <Pref name="graph.cluster-by" /> {/* only under Clustered */}
 </GraphRoot>
 ```
 
-With one of Map's two columns chosen the layout still runs, and the card says so. **Latitude as `y`
-draws north up**: cosmos.gl's space is y-up, and the placement into its square only scales and
-translates.
+**A column is the person's, not the corpus's.** It is stored with their preferences, so it reaches
+corpora that lack it, and the root reads such a column as unbound — the layout runs — rather than as
+a column of nulls. With one of Map's two columns chosen the layout runs too. **Latitude as `y` draws
+north up**: cosmos.gl's space is y-up, and the placement into its square only scales and translates.
 
 ### Declared axes, without the panel
 
 <ComponentPreview componentName="graph" fileName="example-axes" hasMaxHeight />
 
-`lookFrom` and `simFrom` read the same `Record<string, string>` a preferences section produces —
-`GRAPH_SECTION` on `@kanzo-tech/graph/section` is the declaration, and these two are its only
-readers. A host under a preferences panel never calls them itself: `useGraphPrefs()` does. A host
+`lookFrom`, `simFrom` and `placementFrom` read the same `Record<string, string>` a preferences
+section produces — `GRAPH_SECTION` on `@kanzo-tech/graph/section` is the declaration, and these three
+are its only readers. A host under a preferences panel never calls them itself: `useGraphPrefs()` does. A host
 that knows its corpus is large starts its users at other forces through the tenant policy, over the
 same declared axes.
 
@@ -496,7 +518,7 @@ back to the message.
   re-frames every 900 ms, and so does Fit once a layout has run; each re-frame reads every position
   back from the GPU. Past tens of thousands of points that is a stall per re-frame —
   [Layout and camera](/docs/graph/layout#large-corpora) has what to do.
-- **Register `GRAPH_SECTION` once, at module scope.** `GraphLooks` renders nothing without it, and
+- **Register `GRAPH_SECTION` once, at module scope.** The graph's settings draw nothing without it, and
   a `sections` array built in render re-resolves every preference on every render.
 - **A hidden tab is a stopped graph.** The canvas draws on animation frames, and
   `requestAnimationFrame` never fires in a background tab.
@@ -545,7 +567,7 @@ writes it in.
 | `title` | `string` — the column a label, the hover card and the search read | each table's `identity` |
 | `categories` | `Readonly<Record<string, string>>` — names by value; key order is the rank | — |
 | `filterBy` | Mosaic `Selection` — the page's crossfilter | — |
-| `look` | `LookPatch` — form, over the package's own | Atlas |
+| `look` | `LookPatch` — form, over the package's own | `lookFrom()` |
 | `sim` | `Partial<Sim>` — forces, over the package's own | `simFrom()` |
 | `simulate` | `boolean` — runs the layout while true | `true` unless `x` and `y` are bound |
 | `onSelect` | `(selection: Selection \| null) => void` | — |
@@ -592,8 +614,8 @@ set while the graph loads or a layout runs.
 | --- | --- | --- |
 | `limit` | `number` | `50` |
 | `placeholder` | `string` | `"Find a node…"` |
-| `size` | `CommandInput`'s `size` | `"sm"` |
-| `className` | `string` — on the palette's box | — |
+| `size` | `"sm" \| "md" \| "lg"` — the cue's | `"sm"` |
+| `className` | `string` — on the cue | — |
 
 ### GraphSelect
 
@@ -612,21 +634,6 @@ live selection; `disabled` is also set while `load` runs.
 | `children` | `(detail: VertexDetail) => ReactNode` — fields after the corpus's values | — |
 
 Extends `React.ComponentProps<"div">` without its `children`.
-
-### GraphLooks
-
-Takes `React.ComponentProps<"div">` (`GraphLooksProps`). Needs `GRAPH_SECTION` among the theme
-provider's `sections`; renders nothing without it.
-
-### GraphPlacement
-
-| Prop | Type | Default |
-| --- | --- | --- |
-| `value` | `Pick<Channels, "x" \| "y" \| "cluster">` | required |
-| `onChange` | `(value: Pick<Channels, "x" \| "y" \| "cluster">) => void` | required |
-
-Extends `React.ComponentProps<"div">` without its `onChange` (`GraphPlacementProps`). Under a
-`GraphRoot`: the fields are the attached corpus's.
 
 ### ShapeGlyph
 
@@ -648,7 +655,7 @@ it from outside.
 | `useGraph` | `(props: UseGraphProps) => GraphApi` | **Creates** the api: a store created once and handed the props when one changes. |
 | `useGraphContext` | `() => GraphApi` | **Reads** it under a root; throws outside one. |
 | `useGraphState` | `(selector, isEqual = Object.is) => T` | A slice of the `GraphState`, and a render only when it moves. |
-| `useGraphPrefs` | `() => { look: Look; sim: Sim; preset: LookPreset \| null }` | The provider's resolved `GRAPH_SECTION`, as the two objects the root takes, and the look they are. |
+| `useGraphPrefs` | `() => { look: Look; sim: Sim; placement: Placement }` | The provider's resolved `GRAPH_SECTION`, as the three things the root takes. |
 
 ### The picture
 
@@ -656,8 +663,9 @@ it from outside.
 | --- | --- |
 | `lookFrom` | `(values?) => Look` — the section's axes, as form. |
 | `simFrom` | `(values?) => Sim` — the same axes, as forces. |
+| `placementFrom` | `(values?) => Placement` — where the points come from: `{}`, `{ x, y }` or `{ cluster }`. |
 | `scaleOf` | `(channels, capacity?)` → `{ color(rank), shape(rank) }` — what a category rank wears, the canvas's own answer. |
-| `GRAPH_SECTION` | On `@kanzo-tech/graph/section`: the graph's tokens and its preferences — the look's axes and the forces. |
+| `GRAPH_SECTION` | On `@kanzo-tech/graph/section`: the graph's tokens and its preferences — the look's axes, the placement and the forces. |
 
 ### GraphApi
 
@@ -669,7 +677,7 @@ The commands, stable for the root's life — `GraphCommands` plus the state's do
 | `fit()` | Frames the graph: the bound positions' extent, or where the points are once a layout has run. |
 | `pause()` / `resume()` | Pauses a running layout; resumes a paused one, or runs a settled one again. |
 | `restart()` | Runs the layout from full heat. |
-| `reveal(vertex)` | Selects and focuses a vertex with its neighbours, and zooms to it. |
+| `reveal(vertex)` | Selects and focuses a vertex with its neighbours and frames them — zooms into a vertex with none — taking the camera from any fit. |
 | `frameSelection()` | Frames what is selected. |
 | `clear()` | Clears the selection and the focus. |
 | `select(vertices, source?, label?)` | Replaces the selection; `null` clears it. `source` defaults to `"external"`. |
@@ -699,9 +707,9 @@ What `useGraphState` selects from.
 ### Types
 
 `GraphCanvasProps`, `GraphLegendProps`, `GraphCountsProps`, `GraphStatusProps`, `GraphToolbarProps`,
-`GraphInspectorProps`, `GraphSearchProps`, `GraphSelectProps`, `GraphLooksProps`, `GraphRootProviderProps` and
+`GraphInspectorProps`, `GraphSearchProps`, `GraphSelectProps`, `GraphRootProviderProps` and
 `ShapeGlyphProps` are the parts' props; `VertexDetail` — `vertex`, `table` and `fields` — is what the
-inspector's render prop receives. `Channels` (`fill`, `symbol`, `stroke`, `x`, `y`, `cluster`), `Look`, `LookPatch`,
-`LookPreset`, `Shape`, `Sim`, `Motion`, `Selection`, `SelectionSource`, `Tool`, `VertexId`,
+inspector's render prop receives. `Channels` (`fill`, `symbol`, `stroke`, `x`, `y`, `cluster`), `Placement`, `Look`, `LookPatch`,
+`Shape`, `Sim`, `Motion`, `Selection`, `SelectionSource`, `Tool`, `VertexId`,
 `GraphCommands`, `DataStatus` and `Drawn` are the vocabulary, and `GraphError` is the class of the
 graph's own failures. `CorpusReference` is one of the joins `corpusReferences` answers.

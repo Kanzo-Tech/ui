@@ -1,6 +1,6 @@
 // @kanzo-tech/ai — the surfaces that know a model is on the other end. Two capabilities, one door
 // each: a field the model helps fill (`AssistProvider` + `Assist`) and a conversation with one
-// (`Chat`, over `useChat`). The parts a conversation is drawn with are exported beside it, for a host
+// (`Chat`, over `useAgentChat`). The parts a conversation is drawn with are exported beside it, for a host
 // that draws a transcript `Chat` does not. The model behind them is the AI SDK, reached through
 // `@kanzo-tech/llm`. Asking questions of data — an agent with a SQL tool, and the card its answers
 // are drawn in — is `@kanzo-tech/ai/data`, because it needs the analytics, table and editor peers
@@ -26,6 +26,10 @@ export { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning.js";
 export type { ReasoningProps } from "./reasoning.js";
 
 export { suggest } from "./suggest.js";
-export type { SuggestOptions, SuggestedQuestion } from "./suggest.js";
+export type { SuggestOptions } from "./suggest.js";
 
+// An agent in the page is `useAgentChat`, which keeps what it threw; an agent behind the host's own
+// HTTP route is `useChat`, the AI SDK's, which is a different transport rather than a second door.
+export { useAgentChat } from "./agent-chat.js";
+export type { AgentChat, AgentChatOptions } from "./agent-chat.js";
 export { useChat } from "@ai-sdk/react";

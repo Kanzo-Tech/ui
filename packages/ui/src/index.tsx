@@ -39,18 +39,28 @@ export {
   PreferencesPanel,
   PreferencesField,
   PreferencesFieldSet,
-  // Every preference this host offers — the core's, then each installed package's — or one
-  // namespace of them. It is the ONE way to mount a preference control: there is no per-axis export
-  // and no standalone theme picker, so a host cannot mount a control for a value the theme owns.
+  // A preference is a part, `<Pref name>`, and its state, `usePref` — Ark's split. Every section
+  // drawn whole is `PreferencesSections`, which is made of the part. There is no per-axis export and
+  // no standalone theme picker, so a host cannot mount a control for a value the theme owns.
+  Pref,
+  usePref,
   PreferencesSections,
 } from "./composites/Preferences.js";
 export type {
+  PrefName,
+  PrefProps,
+  PrefState,
+  PrefValue,
   PreferencesCopy,
   PreferencesPanelProps,
   PreferencesProps,
   PreferencesRootProps,
   PreferencesSectionsProps,
+  Register,
 } from "./composites/Preferences.js";
+// What only a section's owner knows — its lists and its pictures — for the subtree beneath it.
+export { SectionProvider } from "./theme/section-context.js";
+export type { PrefSpecimen, SectionProviderProps } from "./theme/section-context.js";
 export { ThemePreview } from "./composites/ThemePreview.js";
 export type { ThemePreviewProps } from "./composites/ThemePreview.js";
 export { ThemeNotice } from "./composites/theme-notice.js";

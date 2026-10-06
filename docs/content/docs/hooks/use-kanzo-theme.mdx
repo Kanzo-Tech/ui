@@ -75,7 +75,6 @@ provider is above it.
 | `setTheme` | `(theme: string, options?: { appearance?: Appearance }) => void` | Choose a theme for one side — the applied one unless `appearance` names the other |
 | `retiredTheme` | `string \| null` | A theme the tenant withdrew out from under this user, held for the session |
 | `corePrefs` | `Record<string, ResolvedPref & { decl }>` | Every core axis **resolved** through the tenant's policy — value, `via`, `offered` |
-| `sources` | `PrefSources` | What this host published, in the shape a declaration names it by — `themes` |
 | `reset` | `() => void` | Unsets every axis, so the tenant's starting point applies again |
 | `sections` | `Record<string, Record<string, string>>` | What the user chose in the sections a host registered, keyed by namespace. Opaque: the core never parses it |
 | `sectionPrefs` | `Record<string, Record<string, ResolvedPref & { decl }>>` | Those same choices **resolved** — value, `via`, `offered` — each with its declaration beside it |

@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { addressedUrl, URL_HEADER, type Bound } from "./next-bound";
+import { addressedUrl, URL_HEADER, under, type Bound } from "./next-bound";
 import { outage } from "./next-routes";
-import type { Ended, Token } from "./server";
+import type { Ended, Renewed } from "./server";
 import { AuthError } from "./types";
 
 /**
@@ -45,11 +45,6 @@ import { AuthError } from "./types";
 /** A path whose last segment carries a dot: a static file, not a page. */
 function isFile(pathname: string): boolean {
   return pathname.slice(pathname.lastIndexOf("/") + 1).includes(".");
-}
-
-/** On a segment boundary, so `/health` opens `/health/live` and not `/healthcare`. */
-function under(pathname: string, prefixes: readonly string[]): boolean {
-  return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
 /**
@@ -114,9 +109,9 @@ export async function gate(
   const mode = request.headers.get("sec-fetch-mode");
   const navigation = mode === null || mode === "navigate";
 
-  let held: Token | Ended;
+  let held: Renewed | Ended;
   try {
-    held = await bound.party.token(request.headers.get("cookie"), { renewWithin: bound.renewWithin });
+    held = await bound.party.refresh(request.headers.get("cookie"), { renewWithin: bound.renewWithin });
   } catch (error) {
     if (!(error instanceof AuthError)) throw error;
     if (error.code === "idp/unreachable" || error.code === "idp/silent") return through();

@@ -8,7 +8,7 @@ description: Two surfaces that know a model is on the other end — a field the 
 | | For | Page |
 | --- | --- | --- |
 | `AssistProvider` + `Assist` | A field the model helps fill: ghost text in a `Textarea`, whole values under an `Input`, items for a `TagsInput` | [Assist](/docs/ai/assist) |
-| `Chat` + `useChat` | A conversation, whole: transcript, streaming markdown, reasoning, tool calls, the composer | [Chat](/docs/ai/chat) |
+| `Chat` + `useAgentChat` | A conversation, whole: transcript, streaming markdown, reasoning, tool calls, the composer | [Chat](/docs/ai/chat) |
 | `dataAgent` + `QueryResult` | A conversation with data: an agent that answers in SQL over the page's DuckDB, and the card each answer is drawn in — `@kanzo-tech/ai/data` | [Ask your data](/docs/ai/data) |
 
 `Chat` is the door, and it is the whole conversation wired: five compounds a host used to assemble
@@ -66,16 +66,16 @@ a required peer, its surface is re-exported, and what is ours is the one door it
 `createGateway`, which names a model by alias behind a gateway. Three layers:
 
 ```text
-@kanzo-tech/ai      Assist, Chat, useChat    React; draws
-@kanzo-tech/llm     createGateway + the SDK    no React; models, agents, tools
-ai, @ai-sdk/react   the AI SDK               installed once, imported by neither
+@kanzo-tech/ai      Assist, Chat, useAgentChat   React; draws
+@kanzo-tech/llm     createGateway + the SDK      no React; models, agents, tools
+ai, @ai-sdk/react   the AI SDK                   installed once, imported by neither
 ```
 
 So a host's AI imports are two lines, and neither names `ai`:
 
 ```tsx
-import { createGateway, DirectChatTransport, ToolLoopAgent, tool } from "@kanzo-tech/llm";
-import { Assist, AssistProvider, Chat, useChat } from "@kanzo-tech/ai";
+import { createGateway, ToolLoopAgent, tool } from "@kanzo-tech/llm";
+import { Assist, AssistProvider, Chat, useAgentChat } from "@kanzo-tech/ai";
 ```
 
 ## What it does not do
@@ -84,14 +84,14 @@ import { Assist, AssistProvider, Chat, useChat } from "@kanzo-tech/ai";
   `createGateway` pointed at the host's own route, and the key stays on the server —
   [Connecting a model](/docs/ai/llm#connecting-a-model) has the set-ups.
 - **It does not choose a model.** `Assist` asks whatever `AssistProvider` is given; `Chat` draws
-  whatever `useChat` streams. Which upstream answers an alias is [the gateway](/docs/ai/gateway)'s configuration.
-- **It does not persist anything.** The conversation is `useChat`'s, and a field's value is the
-  host's own state.
+  whatever its agent streams. Which upstream answers an alias is [the gateway](/docs/ai/gateway)'s configuration.
+- **It does not persist anything.** The conversation is the AI SDK's chat state, and a field's
+  value is the host's own state.
 
 <Cards>
   <Card title="Assist" href="/docs/ai/assist" description="One proposal for a field, drawn as ghost text or as chips." />
   <Card title="Chat" href="/docs/ai/chat" description="A conversation with a model, whole, with the host's tools drawn inside it." />
   <Card title="Ask your data" href="/docs/ai/data" description="An agent that answers in SQL over the page's DuckDB, and the card each answer is drawn in." />
   <Card title="@kanzo-tech/llm" href="/docs/ai/llm" description="createGateway, the AI SDK re-exported, and where the key lives." />
-  <Card title="The gateway" href="/docs/ai/gateway" description="LiteLLM, the server half: two aliases, a team per tenant, and how a deployment runs it." />
+  <Card title="The gateway" href="/docs/ai/gateway" description="agentgateway, the server half: two aliases, the realm's token as its credential, and how a deployment runs it." />
 </Cards>

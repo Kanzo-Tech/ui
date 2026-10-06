@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   Badge,
   EmptyDescription,
@@ -14,8 +13,8 @@ import {
   ShellMain,
   ShellRoot,
 } from "@kanzo-tech/ui";
-import { Chat, useChat } from "@kanzo-tech/ai";
-import { DirectChatTransport, ToolLoopAgent, jsonSchema, tool } from "@kanzo-tech/llm";
+import { Chat, ToolInput, ToolOutput, useAgentChat } from "@kanzo-tech/ai";
+import { ToolLoopAgent, jsonSchema, tool } from "@kanzo-tech/llm";
 import { SparklesIcon } from "lucide-react";
 import { afterTool, askOf, mockModel } from "@/lib/mock-model";
 import { NOTHING, RECIPES, RELATIONS, type ResultSet, recipeFor, runStatement } from "./data";
@@ -100,8 +99,7 @@ function Schema() {
 }
 
 export function DiscoveryShowcase() {
-  const [transport] = useState(() => new DirectChatTransport({ agent }));
-  const chat = useChat({ transport });
+  const chat = useAgentChat(agent);
 
   return (
     <ShellRoot className="bg-background">
@@ -134,11 +132,19 @@ export function DiscoveryShowcase() {
                 </EmptyHeader>
               </EmptyRoot>
             }
-            suggestions={RECIPES.map((recipe) => recipe.question)}
+            suggestions={RECIPES.map((recipe) => ({ text: recipe.question }))}
             tools={{
               // The columns are not known until the statement is written, so the result is drawn
               // from its own shape — the case a host's renderer exists for.
               query: (part) => {
+                if (part.state !== "output-available") {
+                  return (
+                    <>
+                      <ToolInput />
+                      <ToolOutput />
+                    </>
+                  );
+                }
                 const result = part.output as ResultSet;
                 return <ResultTable columns={result.columns} rows={result.rows} />;
               },

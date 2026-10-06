@@ -38,7 +38,7 @@ import { Skeleton } from "../simples/skeleton.js";
 import { Slider, SliderLabel, SliderValue } from "../simples/slider.js";
 import { chartTableKey } from "./chart-spec.js";
 import { useMosaic } from "./mosaic-provider.js";
-import { ChartQueryClient, type ChartQueryRow as QueryRow } from "./query-client.js";
+import { useQueryClient, type ChartQueryRow as QueryRow } from "./use-chart-query.js";
 
 /**
  * Mosaic **inputs** — controls that publish into a `Selection` without being charts.
@@ -96,40 +96,10 @@ export function useMosaicInput<T>(
   options: MosaicInputOptions<T>
 ): MosaicInputState<T> {
   const { filterBy, as, deps } = options;
-  const { coordinator, onFailure } = useMosaic();
   const latest = useRef(options);
   latest.current = options;
-
-  const clientRef = useRef<ChartQueryClient | null>(null);
-  const [client, setClient] = useState<ChartQueryClient | null>(null);
-  const [rows, setRows] = useState<readonly QueryRow[] | null>(null);
-  const [error, setError] = useState<unknown>(undefined);
+  const { client, rows, error } = useQueryClient(filterBy, (filter) => latest.current.build(filter), deps);
   const [selected, setSelected] = useState<T | undefined>(undefined);
-
-  useEffect(() => {
-    const instance = new ChartQueryClient(
-      filterBy ?? undefined,
-      (filter) => latest.current.build(filter),
-      (answer) => {
-        setError(undefined);
-        setRows(answer);
-      },
-      (failure) => {
-        setError(() => failure);
-        onFailure(failure);
-      },
-    );
-    clientRef.current = instance;
-    setRows(null);
-    setError(undefined);
-    setClient(instance);
-    coordinator.connect(instance);
-    return () => {
-      clientRef.current = null;
-      coordinator.disconnect(instance);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coordinator, filterBy, onFailure, ...deps]);
 
   useEffect(() => {
     if (!as || !client) return;
@@ -151,16 +121,14 @@ export function useMosaicInput<T>(
   const publish = useCallback(
     (value: T | undefined) => {
       setSelected(value);
-      const instance = clientRef.current;
-      if (as && instance) as.update(latest.current.clause(instance, value));
+      if (as && client) as.update(latest.current.clause(client, value));
     },
-    [as],
+    [as, client],
   );
 
   const activate = useCallback(() => {
-    const instance = clientRef.current;
-    if (as && instance) as.activate(latest.current.clause(instance, latest.current.activateValue));
-  }, [as]);
+    if (as && client) as.activate(latest.current.clause(client, latest.current.activateValue));
+  }, [as, client]);
 
   return { rows, error, selected, publish, activate };
 }

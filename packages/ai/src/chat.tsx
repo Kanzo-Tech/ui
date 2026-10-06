@@ -4,7 +4,9 @@ import { ark } from "@ark-ui/react/factory";
 import * as React from "react";
 import { getToolName, isToolUIPart, type UIMessage } from "@kanzo-tech/llm";
 import type { UseChatHelpers } from "@ai-sdk/react";
-import { cn, Skeleton, Suggestion, Suggestions } from "@kanzo-tech/ui";
+import { cn, DiagnosticList, Problem, type ProblemProps, Skeleton } from "@kanzo-tech/ui";
+import type { Proposal } from "./engine.js";
+import { PILLS, ProposalStrip } from "./proposal-strip.js";
 import { Conversation, ConversationContent, ConversationScrollButton } from "./conversation.js";
 import { MessageMarkdown } from "./markdown.js";
 import { Message, MessageContent, MessageList } from "./message.js";
@@ -31,19 +33,25 @@ const ENGLISH: ChatTranslations = {
 };
 
 /**
- * How a host draws its own tools' results, by tool name. Each gets the call's part — typed, when the
- * host's messages are (`InferAgentUIMessage<typeof agent>`) — and draws inside the tool's frame once
- * the call has a result, in place of its input and output: a result card, a chart, an action that
- * takes the result somewhere. Until then the frame shows the input, so the reader sees what is
- * running.
+ * How a host draws its own tools, by tool name. Each gets the call's part — typed, when the host's
+ * messages are (`InferAgentUIMessage<typeof agent>`) — at **every** state, and what it returns is
+ * drawn inside the tool's frame in place of its input and output: the statement as it is written,
+ * a result card, a chart, an action that takes the result somewhere. A renderer that only wants the
+ * result switches on `part.state`.
+ *
+ * `stopped` is true when the call will never settle: the reader pressed Stop, or a kept transcript
+ * was cut mid-call. The AI SDK leaves such a part at the state it reached, so it is derived here.
  */
-export type ChatToolRenderers = Record<string, (part: ToolPart) => React.ReactNode>;
+export type ChatToolRenderers = Record<string, (part: ToolPart, call: { stopped: boolean }) => React.ReactNode>;
 
-/** What `Chat` reads from `useChat` — the helpers, not the hook, so any chat state can drive it. */
-type ChatState<M extends UIMessage> = Pick<
-  UseChatHelpers<M>,
-  "messages" | "status" | "error" | "sendMessage" | "stop" | "regenerate"
->;
+/**
+ * What `Chat` reads from `useAgentChat` or `useChat` — the helpers, not the hook, so any chat state
+ * can drive it. `error` is whatever stopped the answer: `useAgentChat`'s thrown value, or
+ * `useChat`'s `Error`.
+ */
+type ChatState<M extends UIMessage> = Pick<UseChatHelpers<M>, "messages" | "status" | "sendMessage" | "stop" | "regenerate"> & {
+  error: unknown;
+};
 
 export interface ChatProps<M extends UIMessage> {
   /** `useChat(...)`'s return. */
@@ -51,14 +59,19 @@ export interface ChatProps<M extends UIMessage> {
   tools?: ChatToolRenderers;
   /** What the panel says before the first question. */
   empty?: React.ReactNode;
-  /** Questions to start from, while the conversation is empty. Pressing one asks it. */
-  suggestions?: readonly string[];
+  /**
+   * Questions to start from, while the conversation is empty — `suggest()`'s offers. Pressing one
+   * asks it. Passing it at all, even empty, holds the strip's row: a host whose suggesting failed
+   * passes `[]`, and the empty state stays where it was.
+   */
+  suggestions?: readonly Proposal[];
   /**
    * More questions are on their way — `suggest()` is still streaming them. Drawn as pills in
-   * skeleton beside the ones that arrived; a host whose suggesting failed passes `false` and no
-   * pills, and the conversation works the same without them.
+   * skeleton beside the ones that arrived, as many as make up the strip.
    */
   suggesting?: boolean;
+  /** The host's words for a failure's code, as `Problem` takes them. */
+  copy?: ProblemProps["copy"];
   translations?: Partial<ChatTranslations>;
   className?: string;
 }
@@ -72,7 +85,7 @@ export interface ChatProps<M extends UIMessage> {
  * text as markdown, `reasoning` folded away, every tool call in its frame with the SDK's state.
  */
 export function Chat<M extends UIMessage>(props: ChatProps<M>) {
-  const { chat, tools = {}, empty, suggestions = [], suggesting = false, translations, className } = props;
+  const { chat, tools = {}, empty, suggestions, suggesting = false, copy, translations, className } = props;
   const t = { ...ENGLISH, ...translations };
   const [draft, setDraft] = React.useState("");
   const busy = chat.status === "submitted" || chat.status === "streaming";
@@ -85,107 +98,135 @@ export function Chat<M extends UIMessage>(props: ChatProps<M>) {
   };
 
   return (
-    <div className={cn("flex min-h-0 flex-1 flex-col gap-3", className)} data-slot="chat">
-      <Conversation>
-        <ConversationContent>
-          {chat.messages.length === 0 ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center" data-slot="chat-empty">
-              {empty}
-              {(suggestions.length > 0 || suggesting) && (
-                <Suggestions aria-busy={suggesting || undefined} className="w-full justify-center">
-                  {suggestions.map((s) => (
-                    <Suggestion key={s} onSelect={ask} value={s}>
-                      {s}
-                    </Suggestion>
-                  ))}
-                  {suggesting && <PillSkeletons count={Math.max(1, PILLS - suggestions.length)} />}
-                </Suggestions>
-              )}
-            </div>
-          ) : (
-            <MessageList>
-              {chat.messages.map((m) => (
-                <Message key={m.id} role={m.role}>
-                  <MessageContent>
-                    {m.parts.map((part, i) => {
-                      const key = `${m.id}-${i}`;
-                      const streaming = busy && m === last;
-                      if (part.type === "text") {
-                        return m.role === "user" ? (
-                          <p className="whitespace-pre-wrap break-words" key={key}>
-                            {part.text}
-                          </p>
-                        ) : (
-                          <MessageMarkdown key={key} streaming={streaming && part.state === "streaming"}>
-                            {part.text}
-                          </MessageMarkdown>
-                        );
-                      }
-                      if (part.type === "reasoning") return <Reasoning key={key} part={part} />;
-                      if (isToolUIPart(part)) {
-                        const draw = tools[getToolName(part)];
-                        return (
-                          <Tool key={key} part={part}>
-                            <ToolHeader />
-                            <ToolContent>
-                              {draw && part.state === "output-available" ? (
-                                draw(part)
-                              ) : (
-                                <>
-                                  <ToolInput />
-                                  <ToolOutput />
-                                </>
-                              )}
-                            </ToolContent>
-                          </Tool>
-                        );
-                      }
-                      return null;
-                    })}
-                  </MessageContent>
-                </Message>
-              ))}
-            </MessageList>
+    <ChatFrame
+      className={className}
+      composer={
+        <PromptInput
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (busy) void chat.stop();
+            else if (chat.status === "error" && !draft.trim()) void chat.regenerate();
+            else ask(draft);
+          }}
+        >
+          <PromptInputTextarea
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder={t.placeholder}
+            value={draft}
+          />
+          <PromptInputToolbar>
+            <PromptInputSubmit status={chat.status} />
+          </PromptInputToolbar>
+        </PromptInput>
+      }
+      slot="chat"
+    >
+      {chat.messages.length === 0 ? (
+        <ChatOpening empty={empty}>
+          {(suggestions !== undefined || suggesting) && (
+            <ProposalStrip
+              className="justify-center"
+              onSelect={ask}
+              pending={suggesting ? PILLS - (suggestions?.length ?? 0) : 0}
+              proposals={suggestions ?? []}
+            />
           )}
-          {chat.error && (
-            <p className="text-destructive-foreground text-sm" data-slot="chat-error" role="alert">
-              <span className="sr-only">{t.failed} </span>
-              {chat.error.message}
-            </p>
-          )}
-        </ConversationContent>
-        <ConversationScrollButton />
-      </Conversation>
-      <PromptInput
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (busy) void chat.stop();
-          else if (chat.status === "error" && !draft.trim()) void chat.regenerate();
-          else ask(draft);
-        }}
-      >
-        <PromptInputTextarea
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder={t.placeholder}
-          value={draft}
-        />
-        <PromptInputToolbar>
-          <PromptInputSubmit status={chat.status} />
-        </PromptInputToolbar>
-      </PromptInput>
-    </div>
+        </ChatOpening>
+      ) : (
+        <MessageList>
+          {chat.messages.map((m) => (
+            <Message key={m.id} role={m.role}>
+              <MessageContent>
+                {m.parts.map((part, i) => {
+                  const key = `${m.id}-${i}`;
+                  const streaming = busy && m === last;
+                  if (part.type === "text") {
+                    return m.role === "user" ? (
+                      <p className="whitespace-pre-wrap break-words" key={key}>
+                        {part.text}
+                      </p>
+                    ) : (
+                      <MessageMarkdown key={key} streaming={streaming && part.state === "streaming"}>
+                        {part.text}
+                      </MessageMarkdown>
+                    );
+                  }
+                  if (part.type === "reasoning") return <Reasoning key={key} part={part} />;
+                  if (isToolUIPart(part)) {
+                    const draw = tools[getToolName(part)];
+                    const stopped = !streaming && RUNNING.has(part.state);
+                    return (
+                      <Tool key={key} part={part} stopped={stopped}>
+                        <ToolHeader />
+                        <ToolContent>
+                          {draw ? (
+                            draw(part, { stopped })
+                          ) : (
+                            <>
+                              <ToolInput />
+                              <ToolOutput />
+                            </>
+                          )}
+                        </ToolContent>
+                      </Tool>
+                    );
+                  }
+                  return null;
+                })}
+              </MessageContent>
+            </Message>
+          ))}
+        </MessageList>
+      )}
+      {chat.error !== undefined && (
+        // Through `Problem`, as every failure in the library is drawn: a coded one shows its code and
+        // takes the host's `copy`. The live region says what the list is.
+        <div data-slot="chat-error" role="alert">
+          <span className="sr-only">{t.failed}</span>
+          <DiagnosticList>
+            <Problem copy={copy} error={chat.error} />
+          </DiagnosticList>
+        </div>
+      )}
+    </ChatFrame>
   );
 }
 
-/** How many pills a strip of suggestions holds while it is still arriving. */
-const PILLS = 3;
-const PILL_WIDTHS = ["w-44", "w-36", "w-52", "w-40"];
+/** The states of a call still working; one left in them once the answer stopped never settles. */
+const RUNNING = new Set<ToolPart["state"]>(["input-streaming", "input-available", "approval-responded"]);
 
-/** Pills not yet written, the size of a `Suggestion`: the strip keeps its height as they land. */
-function PillSkeletons({ count }: { count: number }) {
-  return Array.from({ length: count }, (_, i) => (
-    <Skeleton className={cn("h-7 max-w-full rounded-full", PILL_WIDTHS[i % PILL_WIDTHS.length])} key={i} />
-  ));
+interface ChatFrameProps extends React.ComponentProps<typeof ark.div> {
+  /** Below the transcript: the composer, live or inert. */
+  composer: React.ReactNode;
+}
+
+/**
+ * The one layout `Chat` and `ChatSkeleton` share, so the skeleton cannot drift from what replaces
+ * it: the scrolling transcript (padding, width and pin are `ConversationContent`'s), then the
+ * composer. It fills its container whether that is a flex column (`flex-1`) or a block with a
+ * height (`h-full`), so a host does not have to wrap the two the same way for them to match.
+ */
+function ChatFrame(props: ChatFrameProps) {
+  const { composer, children, className, slot, ...rest } = props;
+  return (
+    <ark.div className={cn("flex h-full min-h-0 flex-1 flex-col gap-3", className)} {...rest} data-slot={slot}>
+      <Conversation>
+        <ConversationContent>{children}</ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
+      {composer}
+    </ark.div>
+  );
+}
+
+/** What an empty conversation shows, centred in the panel: the host's empty state, then the strip. */
+function ChatOpening({ empty, children }: { empty: React.ReactNode; children?: React.ReactNode }) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center" data-slot="chat-empty">
+      {empty}
+      {children}
+    </div>
+  );
 }
 
 export interface ChatSkeletonProps extends React.ComponentProps<typeof ark.div> {
@@ -203,36 +244,34 @@ export interface ChatSkeletonProps extends React.ComponentProps<typeof ark.div> 
  * the chat replaces it.
  */
 export function ChatSkeleton(props: ChatSkeletonProps) {
-  const { empty, suggestions = PILLS, translations, className, slot, ...rest } = props;
+  const { empty, suggestions = PILLS, translations, slot, ...rest } = props;
   const t = { ...ENGLISH, ...translations };
   return (
-    <ark.div
+    <ChatFrame
       aria-busy
-      className={cn("flex min-h-0 flex-1 flex-col gap-3", className)}
+      composer={
+        <PromptInput inert>
+          <PromptInputTextarea disabled placeholder={t.placeholder} />
+          <PromptInputToolbar>
+            <PromptInputSubmit disabled />
+          </PromptInputToolbar>
+        </PromptInput>
+      }
       {...rest}
-      data-slot={slot ?? "chat-skeleton"}
+      slot={slot ?? "chat-skeleton"}
     >
-      <div className="flex min-h-0 flex-1 flex-col px-4 py-6">
-        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-4">
-          {empty ?? (
+      <ChatOpening
+        empty={
+          empty ?? (
             <>
               <Skeleton className="size-10 rounded-full" />
               <Skeleton className="h-3 w-56 max-w-full" />
             </>
-          )}
-          {suggestions > 0 && (
-            <Suggestions className="w-full justify-center">
-              <PillSkeletons count={suggestions} />
-            </Suggestions>
-          )}
-        </div>
-      </div>
-      <PromptInput inert>
-        <PromptInputTextarea disabled placeholder={t.placeholder} />
-        <PromptInputToolbar>
-          <PromptInputSubmit disabled />
-        </PromptInputToolbar>
-      </PromptInput>
-    </ark.div>
+          )
+        }
+      >
+        {suggestions > 0 && <ProposalStrip className="justify-center" pending={suggestions} proposals={[]} />}
+      </ChatOpening>
+    </ChatFrame>
   );
 }

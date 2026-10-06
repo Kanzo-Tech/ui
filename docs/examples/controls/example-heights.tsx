@@ -195,33 +195,35 @@ function Controls({ size }: { size: Size }) {
   );
 }
 
+const SIZE_OPTIONS = SIZES.map((size) => ({ value: size, label: size }));
+
+/**
+ * One size at a time, so the frame is the height of one set rather than three. The grid is
+ * `items-start`, so a control that is not the height of its neighbour in the same row shows; the
+ * form row is the case the table states, an input beside the labelled indicators.
+ */
 export default function Example() {
+  const [size, setSize] = useState<Size>("md");
   return (
-    <div className="flex min-w-0 max-w-full flex-col gap-10" data-heights-example>
-      {SIZES.map((size) => (
-        <section className="flex min-w-0 flex-col gap-4" data-size-group={size} key={size}>
-          <h4 className="font-semibold text-sm">{size}</h4>
-          <div className="flex w-72 flex-col gap-2" data-layout="column">
-            <Controls size={size} />
-          </div>
-          <div className="flex flex-wrap items-start gap-x-4 gap-y-2" data-layout="form-row">
-            <Input className="w-40" placeholder="Input" size={size} />
-            <Switch>Switch</Switch>
-            <Checkbox>Checkbox</Checkbox>
-            <RadioGroup defaultValue="a">
-              <RadioGroupItem value="a">Radio</RadioGroupItem>
-            </RadioGroup>
-          </div>
-          <div className="overflow-x-auto pb-2">
-            <div
-              className="flex w-max items-start gap-2 [&>*]:w-40 [&>*]:shrink-0"
-              data-layout="row"
-            >
-              <Controls size={size} />
-            </div>
-          </div>
-        </section>
-      ))}
+    <div className="flex w-full min-w-0 flex-col gap-4" data-heights-example>
+      <SegmentGroup
+        aria-label="Size"
+        onValueChange={({ value }) => value && setSize(value as Size)}
+        options={SIZE_OPTIONS}
+        size="sm"
+        value={size}
+      />
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] items-start gap-2" data-layout="grid">
+        <Controls size={size} />
+      </div>
+      <div className="flex flex-wrap items-start gap-x-4 gap-y-2" data-layout="form-row">
+        <Input className="w-40" placeholder="Input" size={size} />
+        <Switch>Switch</Switch>
+        <Checkbox>Checkbox</Checkbox>
+        <RadioGroup defaultValue="a">
+          <RadioGroupItem value="a">Radio</RadioGroupItem>
+        </RadioGroup>
+      </div>
     </div>
   );
 }

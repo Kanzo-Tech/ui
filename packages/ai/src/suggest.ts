@@ -1,56 +1,44 @@
-// Questions to start from, asked of a model. One door for every surface that offers them: a
-// conversation's pills over a data space, a wizard's competency questions over a domain.
+// Offers asked of a model. One door for every surface that offers them: a conversation's questions
+// over a data space, a wizard's competency questions over a domain, a field's candidate values.
 
-import { type LanguageModel, Output, jsonSchema, streamText } from "@kanzo-tech/llm";
-import { failures } from "./proposals.js";
-
-/** One question a model proposes, and why — the rationale names what the question rests on. */
-export interface SuggestedQuestion {
-  question: string;
-  rationale: string;
-}
+import { type LanguageModel, Output, jsonSchema, stream } from "@kanzo-tech/llm";
+import type { Proposal } from "./engine.js";
 
 export interface SuggestOptions {
-  /** The model that proposes them — `gateway("chat")`. */
+  /** The model that proposes them — `gateway("complete")`. */
   model: LanguageModel;
-  /** What the questions are for and what makes a good one: the system prompt. */
+  /** What the offers are for and what makes a good one: the system prompt. */
   instructions: string;
-  /** The material they are asked over — a schema, a domain, the files. */
+  /** The material they are asked over — a schema, a domain, the files, a field and its form. */
   prompt: string;
   abortSignal?: AbortSignal;
 }
 
-const QUESTION = jsonSchema<SuggestedQuestion>({
+const OFFER = jsonSchema<{ text: string; rationale: string }>({
   type: "object",
   properties: {
-    question: { type: "string", description: "The question, in the words a person would ask it." },
+    text: { type: "string", description: "The offer itself, exactly as it would be used." },
     rationale: { type: "string", description: "One short sentence naming what in the material it rests on." },
   },
-  required: ["question", "rationale"],
+  required: ["text", "rationale"],
   additionalProperties: false,
 });
 
 /**
- * Questions over some material, each arriving as soon as it is whole (`Output.array`'s
- * `elementStream`), so the first is on screen while the model writes the rest.
+ * Offers over some material, each a `Proposal` with its rationale, arriving as soon as it is whole
+ * (`Output.array`'s elements), so the first is on screen while the model writes the rest.
  *
- * **A failure throws, once the stream ends.** The AI SDK reports a failed stream to `onError` and
- * then ends it as if it had finished, so a refused call would read as a model with nothing to
- * suggest — and a surface that shows "no suggestions" and one that shows "suggesting failed" are
- * the same surface only by accident. Not retried: the gateway retries its upstreams, and a silent
- * gateway asked three times is three deadlines where the person waits for one.
+ * **A failure throws, once the stream ends** — `stream`'s contract — so a surface that shows "no
+ * suggestions" and one that shows "suggesting failed" are never the same surface by accident. An
+ * empty answer is not a failure: the model had nothing to offer.
  */
-export async function* suggest(options: SuggestOptions): AsyncIterable<SuggestedQuestion> {
-  const reported = failures();
-  const result = streamText({
+export async function* suggest(options: SuggestOptions): AsyncIterable<Proposal> {
+  const answer = stream({
     model: options.model,
     system: options.instructions,
     prompt: options.prompt,
-    output: Output.array({ element: QUESTION }),
+    output: Output.array({ element: OFFER }),
     abortSignal: options.abortSignal,
-    maxRetries: 0,
-    onError: reported.onError,
   });
-  yield* result.elementStream;
-  reported.rethrow();
+  for await (const { text, rationale } of answer.elements) yield { text, rationale };
 }

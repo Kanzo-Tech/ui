@@ -65,7 +65,7 @@ export function GET(request: Request) {
     "- `@kanzo-tech/ui/editor` — the CodeMirror editors. Needs `@codemirror/*` and `@lezer/highlight`.",
     "- `@kanzo-tech/theme` — tokens, the theme files, the axis table, the value types. No React. Installed with the library.",
     "- `@kanzo-tech/mosaic` — the Mosaic coordinator, clauses and the page's one DuckDB-WASM `engine()`, without React. Installed with the library; `/analytics` re-exports what a chart needs.",
-    "- `@kanzo-tech/ai` — `AssistProvider` + `Assist` (a model proposes a field's value: ghost text in a `Textarea`, chips under an `Input` or `TagsInput`) and `Chat` + `useChat` (a whole conversation: markdown, reasoning, tool calls, composer). Needs `ai` and `@ai-sdk/react`. Add `@import \"@kanzo-tech/ai/tailwind.css\";`.",
+    "- `@kanzo-tech/ai` — `AssistProvider` + `Assist` (a model proposes a field's value: ghost text in a `Textarea`, chips under an `Input` or `TagsInput`) and `Chat` + `useAgentChat` (a whole conversation: markdown, reasoning, tool calls, composer; it keeps what the agent threw). Needs `ai` and `@ai-sdk/react`. Add `@import \"@kanzo-tech/ai/tailwind.css\";`.",
     "- `@kanzo-tech/llm` — no React: `createGateway({ baseURL })` returns `gateway(alias)`, a model behind a AI gateway, and the AI SDK (`ToolLoopAgent`, `tool`, `DirectChatTransport`, …) is re-exported from it. Import the SDK from here, never from `ai`.",
     "- `@kanzo-tech/graph` — a fossil corpus the host attached with fossil's `open`, read as one Mosaic client on the page's coordinator and drawn with cosmos.gl; `GraphRoot from coordinator` is the facade. Every peer is required.",
     "- `@kanzo-tech/auth` — Keycloak sessions and role evaluation; `/server`, and `/next` (`kanzoAuth`).",

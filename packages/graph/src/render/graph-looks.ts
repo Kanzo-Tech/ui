@@ -1,5 +1,5 @@
-// Three registers the same graph can be *drawn* in. Not three palettes, and — since a channel is a
-// binding on the request — not three encodings either.
+// The geometry the same graph can be *drawn* in. Not palettes, and — since a channel is a binding on
+// the request — not encodings either.
 //
 // **A look is form and nothing else.** No colours: colour belongs to the theme's categorical
 // scheme, the way it belongs to a chart, so every surface showing the same categories gets the same
@@ -13,11 +13,10 @@
 // in Observable Plot colour is a property of the **scale**, never of the mark, and the mark carries
 // the channels. A look is the mark's geometry.
 //
-// The three names survive as **presets over the axes** — `PRESETS`, worn through `GraphLooks` — and
-// the bindings once bundled with them stay the host's: `useGraphPrefs` says which preset the axes
-// are, and a host that wants Ink's shape-for-identity binds it. A preset never discards a binding.
-
-import { GRAPH_SECTION } from "../section";
+// **The axes are the whole model.** Three named looks — Nebula, Atlas, Ink — once sat over them as
+// presets, and a panel offering both repeated itself: the presets set the axes, the axes un-set the
+// presets, and "customised" was the state most readers ended in. Cosmograph's configuration and Gephi
+// Lite's appearance panel offer the axes alone, with good defaults, and so does this package.
 
 /**
  * The glyphs this canvas draws — **by name**, because a name is what the concept is.
@@ -233,29 +232,6 @@ export function lookFrom(values: Readonly<Record<string, string | undefined>> = 
     vignette: on("vignette", false),
     grid: on("grid", true),
   };
-}
-
-/** The three named looks. */
-export type LookPreset = "nebula" | "atlas" | "ink";
-
-/**
- * **The three looks as values of the section's axes**, in the order a picker offers them. Each writes
- * every axis any of them names, so wearing one leaves nothing of the last, and a look is worn exactly
- * when the resolved axes equal its own — no name is stored beside them. Atlas is every default.
- */
-export const PRESETS: Record<LookPreset, Readonly<Record<string, string>>> = {
-  nebula: { marks: "dense", edges: "straight", "additive-links": "true", labels: "hovered", vignette: "true" },
-  atlas: { marks: "dense", edges: "curved", "additive-links": "false", labels: "top", vignette: "false" },
-  ink: { marks: "legible", edges: "straight", "additive-links": "false", labels: "visible", vignette: "false" },
-};
-
-/** The look the axes are — a missing one is the section's default — or `null` once customised past all three. */
-export function presetOf(values: Readonly<Record<string, string | undefined>>): LookPreset | null {
-  const value = (key: string) => values[key] ?? GRAPH_SECTION.prefs?.[key]?.default;
-  const found = (Object.keys(PRESETS) as LookPreset[]).find((id) =>
-    Object.entries(PRESETS[id]).every(([key, wanted]) => value(key) === wanted),
-  );
-  return found ?? null;
 }
 
 /**

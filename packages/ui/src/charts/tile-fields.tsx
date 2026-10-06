@@ -1,12 +1,9 @@
 "use client";
 
-import type { TableExpr } from "@kanzo-tech/mosaic";
 import type React from "react";
 import { useMemo } from "react";
 import { createListCollection } from "@ark-ui/react/collection";
 import { ChartColumnIcon, GaugeIcon, Rows3Icon, type LucideIcon } from "lucide-react";
-import { cn } from "../lib/cn.js";
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from "../simples/card.js";
 import {
   Listbox,
   ListboxContent,
@@ -16,41 +13,27 @@ import {
   ListboxLabel,
 } from "../simples/listbox.js";
 import { RadioGroup, RadioGroupCard, RadioGroupLabel } from "../simples/radio-group.js";
-import { ChartCard, CHART_TYPE } from "./chart-card.js";
-import type { ChartConfig } from "./chart-config.js";
+import { CHART_TYPE } from "./chart-card.js";
 import {
   DASHBOARD_CHART_TYPES,
   channelFields,
   normalizeCard,
-  tileTitle,
   trendFields,
   type ChartTile,
   type DashboardChartType,
   type StatTile,
-  type TableTile,
   type Tile,
   type TileKind,
 } from "./dashboard-spec.js";
-import { DashboardStat } from "./dashboard-stat.js";
-import { DetailTable } from "./detail-table.js";
 import type { FieldStat } from "./field-stats.js";
-import { EditTileButton, MeasurePick, NONE, Pick, fieldOptions } from "./tile-controls.js";
+import { MeasurePick, NONE, Pick, fieldOptions } from "./tile-controls.js";
 
 /**
- * **What each kind of tile is**: its name, how it is drawn, and the fields its editor asks for. The
- * board and the editor read a kind from here and switch on nothing, so a new kind is a spec type,
- * a `newTile` case and an entry below — and neither of them changes.
+ * **How each kind of tile is edited** — its name, icon and hint in the kind picker, and the fields
+ * its editor asks for. One row per kind, mapped over `TileKind` like `KINDS` and `TILE_VIEWS`. The
+ * editor's code: `Dashboard` reaches it only through a lazy import, so a read-only dashboard never
+ * loads it.
  */
-
-/** What a tile is drawn with: the relation, its fields, and an edit button when there is an editor. */
-export interface TileViewProps<T extends Tile> {
-  table: TableExpr;
-  fields: readonly FieldStat[];
-  tile: T;
-  config?: Readonly<Record<string, ChartConfig>>;
-  onEdit?: () => void;
-  className?: string;
-}
 
 /** What a kind's editor fields are handed: the draft, and where its next value goes. */
 export interface TileFieldsProps<T extends Tile> {
@@ -59,34 +42,14 @@ export interface TileFieldsProps<T extends Tile> {
   onChange: (tile: Tile) => void;
 }
 
-export interface TileKindDefinition<T extends Tile> {
+export interface TileEditorRow<T extends Tile> {
   label: string;
   icon: LucideIcon;
   hint: string;
-  View: (props: TileViewProps<T>) => React.ReactNode;
   Fields: (props: TileFieldsProps<T>) => React.ReactNode;
 }
 
-type Kinds = { [K in TileKind]: TileKindDefinition<Extract<Tile, { kind: K }>> };
-
-/** A `TableTile`: the rows under the selection in a titled card. */
-function TableCard({ table, fields, tile, onEdit, className }: TileViewProps<TableTile>) {
-  return (
-    <Card className={cn("[--space:--spacing(4)] min-w-0 gap-3", className)}>
-      <CardHeader>
-        <CardTitle className="truncate font-medium text-sm">{tileTitle(tile)}</CardTitle>
-        {onEdit ? (
-          <CardAction className="-my-1">
-            <EditTileButton label="Edit table" onClick={onEdit} />
-          </CardAction>
-        ) : null}
-      </CardHeader>
-      <CardContent>
-        <DetailTable columns={tile.columns} fields={fields} table={table} />
-      </CardContent>
-    </Card>
-  );
-}
+type Editors = { [K in TileKind]: TileEditorRow<Extract<Tile, { kind: K }>> };
 
 function ChartFields({ tile, fields, onChange }: TileFieldsProps<ChartTile>) {
   // A written title describes the encodings it was written for; changing them retires it.
@@ -206,43 +169,21 @@ function ColumnsPick({
   );
 }
 
-export const TILE_KINDS: Kinds = {
-  stat: {
-    label: "Figure",
-    icon: GaugeIcon,
-    hint: "One number and its trend",
-    // A figure has no series, so `config` is not passed on.
-    View: ({ tile, table, fields, onEdit, className }) => (
-      <DashboardStat className={className} fields={fields} onEdit={onEdit} stat={tile} table={table} />
-    ),
-    Fields: StatFields,
-  },
-  chart: {
-    label: "Chart",
-    icon: ChartColumnIcon,
-    hint: "A measure by a field",
-    View: ({ tile, ...rest }) => <ChartCard {...rest} card={tile} />,
-    Fields: ChartFields,
-  },
+export const TILE_EDITORS: Editors = {
+  stat: { label: "Figure", icon: GaugeIcon, hint: "One number and its trend", Fields: StatFields },
+  chart: { label: "Chart", icon: ChartColumnIcon, hint: "A measure by a field", Fields: ChartFields },
   table: {
     label: "Table",
     icon: Rows3Icon,
     hint: "The rows, as columns",
-    View: TableCard,
     Fields: ({ tile, fields, onChange }) => (
       <ColumnsPick columns={tile.columns} fields={fields} onChange={(columns) => onChange({ ...tile, columns })} />
     ),
   },
 };
 
-/** A tile of any kind, drawn by its kind. */
-export function TileView(props: TileViewProps<Tile>) {
-  const { View } = TILE_KINDS[props.tile.kind] as TileKindDefinition<Tile>;
-  return <View {...props} />;
-}
-
 /** The editor fields of a tile of any kind. */
 export function TileFields(props: TileFieldsProps<Tile>) {
-  const { Fields } = TILE_KINDS[props.tile.kind] as TileKindDefinition<Tile>;
+  const { Fields } = TILE_EDITORS[props.tile.kind] as TileEditorRow<Tile>;
   return <Fields {...props} />;
 }

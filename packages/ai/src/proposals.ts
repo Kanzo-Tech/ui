@@ -2,8 +2,9 @@
 // instructions; the field describes itself through its accessible name and description, which is
 // what a person filling it in reads too.
 
-import { type LanguageModel, Output, jsonSchema, streamText } from "@kanzo-tech/llm";
+import { type LanguageModel, stream } from "@kanzo-tech/llm";
 import type { ContinuationRequest, Proposal } from "./engine.js";
+import { suggest } from "./suggest.js";
 
 /** What the model is told about the field it is filling. */
 export interface FieldBrief {
@@ -34,21 +35,6 @@ const CONTINUE = `You complete text inside a form field, like an editor's inline
 Reply with ONLY the text to insert at <caret/>: no quotes, no commentary, never repeat text that is already there.
 Keep the language, tone and format of the existing text. Stop at a natural point: the end of the sentence for an automatic suggestion; up to a short paragraph when explicitly asked.`;
 
-/**
- * The AI SDK reports a failed stream to `onError` and then ends the stream as if it had finished, so
- * a refused or broken call would read as a model with nothing to say. This keeps what was reported
- * and throws it, whole, once the stream ends.
- */
-export function failures() {
-  let failed: { error: unknown } | undefined;
-  return {
-    onError: ({ error }: { error: unknown }) => void (failed ??= { error }),
-    rethrow: () => {
-      if (failed) throw failed.error;
-    },
-  };
-}
-
 /** One continuation at the caret, streamed. */
 export async function* continuation(
   model: LanguageModel,
@@ -59,33 +45,19 @@ export async function* continuation(
   const differ = avoid.length
     ? `\nOffer something different from these earlier suggestions:\n${avoid.map((a) => `- ${a.trim()}`).join("\n")}`
     : "";
-  const reported = failures();
-  yield* streamText({
+  yield* stream({
     model,
     system: CONTINUE,
     prompt: `${brief(field)}\nRequest: ${trigger}${differ}\n\nText:\n${text}`,
     abortSignal: signal,
-    maxRetries: 0,
-    onError: reported.onError,
-  }).textStream;
-  reported.rethrow();
+  }).text;
 }
-
-const CANDIDATE = jsonSchema<{ value: string; rationale: string }>({
-  type: "object",
-  properties: {
-    value: { type: "string", description: "The whole value, exactly as it would be entered." },
-    rationale: { type: "string", description: "Why it fits, in one short sentence." },
-  },
-  required: ["value", "rationale"],
-  additionalProperties: false,
-});
 
 const CANDIDATES = `You suggest values for a form field. Each value must be complete and ready to enter as-is, in the language of the form.`;
 
 /**
- * Whole values for the field, each arriving as soon as it is complete (`elementStream`), so the
- * first candidate is on screen while the model writes the rest.
+ * Whole values for the field: `suggest()` with the field's brief as the material, so a candidate is
+ * a `Proposal` like any other offer, arriving as soon as it is whole.
  */
 export async function* candidates(
   model: LanguageModel,
@@ -102,20 +74,8 @@ export async function* candidates(
   const holds = list
     ? `Current items: ${existing.length ? existing.join(", ") : "(none)"}\nSuggest NEW items, not already present.`
     : `Current value: ${value || "(empty)"}\nSuggest alternatives to replace it${value ? ", different from it" : ""}.`;
-  const reported = failures();
-  const result = streamText({
-    model,
-    onError: reported.onError,
-    system: CANDIDATES,
-    prompt: `${brief(field)}\n${holds}\nGive ${count}.`,
-    output: Output.array({ element: CANDIDATE }),
-    abortSignal: signal,
-    maxRetries: 0,
-  });
-  for await (const item of result.elementStream) {
-    yield list
-      ? { text: item.value, rationale: item.rationale }
-      : { text: item.value, rationale: item.rationale, range: [0, value.length] };
+  const prompt = `${brief(field)}\n${holds}\nGive ${count}.`;
+  for await (const offer of suggest({ model, instructions: CANDIDATES, prompt, abortSignal: signal })) {
+    yield list ? offer : { ...offer, range: [0, value.length] };
   }
-  reported.rethrow();
 }

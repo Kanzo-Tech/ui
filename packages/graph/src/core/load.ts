@@ -93,11 +93,23 @@ function extentOf(positions: Float32Array): Geometry["extent"] {
   return x0 > x1 ? null : { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
 }
 
+/**
+ * Whether any vertex table has the column — the corpus's own judgement of a binding.
+ *
+ * A column is chosen on one corpus and stored per person, so it reaches corpora that lack it. Such a
+ * binding is UNBOUND rather than a column of nulls: positions of `NaN` everywhere, or a cluster
+ * force with no clusters, would be a picture of nothing. It is `resolvePref`'s rule — a value the
+ * options no longer hold falls back — applied where the options are known.
+ */
+export function carries(structure: Structure, column: string | undefined): column is string {
+  return column !== undefined && structure.vertices.some((table) => table.columns.has(column));
+}
+
 /** The links, and the positions: two bound columns, or a seeded start for the layout. */
 export async function loadGeometry(coordinator: Coordinator, structure: Structure, binding: Binding): Promise<Geometry> {
   const { size } = structure;
   const space = spaceFor(size);
-  const bound = binding.x !== undefined && binding.y !== undefined;
+  const bound = carries(structure, binding.x) && carries(structure, binding.y);
   const [links, columns] = await Promise.all([
     readLinks(coordinator, structure),
     bound ? readColumns(coordinator, structure, [binding.x as string, binding.y as string]) : Promise.resolve([]),
@@ -134,12 +146,14 @@ export async function loadEncoding(
   seed: readonly unknown[],
 ): Promise<Encoding> {
   const { structure, size } = geometry;
-  const select = [binding.category, binding.size, binding.cluster].filter((c): c is string => c !== undefined);
+  // A cluster column the corpus lacks is unbound, as a position column is — see `carries`.
+  const clusterBy = carries(structure, binding.cluster) ? binding.cluster : undefined;
+  const select = [binding.category, binding.size, clusterBy].filter((c): c is string => c !== undefined);
   const answers = select.length > 0 ? await readColumns(coordinator, structure, [...new Set(select)]) : [];
   const dictionary = new Dictionary(seed);
   const codes = new Uint32Array(size);
   const sizes = binding.size === undefined ? degrees(size, geometry.links) : new Float32Array(size).fill(Number.NaN);
-  const groups = binding.cluster === undefined ? null : new Dictionary();
+  const groups = clusterBy === undefined ? null : new Dictionary();
   const clusters: (number | undefined)[] | null = groups ? new Array<number | undefined>(size) : null;
   if (binding.byTable) {
     for (const table of structure.vertices) codes.fill(dictionary.code(table.name), table.first, table.first + table.rows);
@@ -149,7 +163,7 @@ export async function loadEncoding(
   for (const { table, answer } of answers) {
     const values = binding.category === undefined || binding.byTable ? undefined : answer.getChild(binding.category)?.toArray();
     const ramp = binding.size === undefined ? undefined : answer.getChild(binding.size)?.toArray();
-    const cluster = binding.cluster === undefined ? undefined : answer.getChild(binding.cluster)?.toArray();
+    const cluster = clusterBy === undefined ? undefined : answer.getChild(clusterBy)?.toArray();
     for (let i = 0; i < answer.numRows; i++) {
       const id = table.first + i;
       if (values) codes[id] = dictionary.code(values[i] ?? null);

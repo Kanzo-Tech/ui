@@ -1,0 +1,62 @@
+# The platform's AI gateway: agentgateway, the one door to models as Keycloak is the one door to
+# identity. This file is the whole gateway in development, and in production it is everything but
+# `llm.models`: modules/gateway reads it, swaps the models for the deployment's profile, and adds
+# the token budget when one is set. Applications call it through their own server, with an access
+# token Keycloak issued for this gateway's audience and for one organization, and name an alias:
+# `chat` or `complete`, never a provider.
+#
+# The braced variables below are expanded from the environment when the gateway loads this file,
+# and so is every dollar sign in it, comments included: a comment here never writes one.
+
+config:
+  # Every request, kept: who asked, for which organization, the alias, the tokens and their cost.
+  database:
+    url: ${AI_DATABASE_URL}
+  standardAttributes:
+    user: jwt.sub
+    group: jwt.organization.map(o, o)[0]
+
+gateways:
+  default:
+    port: 4000
+
+llm:
+  policies:
+    # The token is the credential: signed by the realm, issued for this gateway's audience.
+    jwtAuth:
+      mode: strict
+      issuer: ${AI_ISSUER}
+      audiences:
+        - ${AI_AUDIENCE}
+      jwks:
+        url: ${AI_JWKS_URL}
+    # One organization per request. A token for every membership (`organization:*`) names no
+    # tenant to charge, so it is refused: the caller exchanges it for `organization:<alias>`.
+    authorization:
+      rules:
+        - require: size(jwt.organization) == 1
+    # Under the client's 30 s silence bound (`ai/silent` in @kanzo-tech/llm): a hung upstream is
+    # ended here first, both before the answer starts and between its chunks.
+    timeout:
+      requestTimeout: 20s
+      responseIdleTimeout: 20s
+
+  # Development: both aliases on open models through Docker Model Runner, which compose declares
+  # and points the gateway at (`models:` in compose.yml). A deployment brings its own.
+  models:
+    - name: chat
+      provider:
+        custom:
+          formats:
+            - type: completions
+      params:
+        baseUrl: ${CHAT_URL}
+        model: ${CHAT_MODEL}
+    - name: complete
+      provider:
+        custom:
+          formats:
+            - type: completions
+      params:
+        baseUrl: ${COMPLETE_URL}
+        model: ${COMPLETE_MODEL}

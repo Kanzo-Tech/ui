@@ -114,11 +114,13 @@ sentence.
 @import "tailwindcss";
 @import "@kanzo-tech/ui/tailwind.css";
 @import "@kanzo-tech/ai/tailwind.css"; /* only with @kanzo-tech/ai */
+@import "@kanzo-tech/graph/tailwind.css"; /* only with @kanzo-tech/graph */
 ```
 
 The entries are Tailwind source, not compiled CSS. `@kanzo-tech/ui`'s carries the tokens, the
 generated themes, the `dark` variant, the typography plugin and the `@source` that finds its own
-components; `@kanzo-tech/ai`'s adds its components and streamdown's. Your build compiles the page
+components; `@kanzo-tech/ai`'s adds its components and streamdown's, and `@kanzo-tech/graph`'s the
+parts around its canvas. Your build compiles the page
 once — one preflight, one utilities layer, one variant order — and your own utilities resolve
 against the same tokens. Do not import `@kanzo-tech/theme/tokens.css` beside them: the entry
 already does.
@@ -165,10 +167,10 @@ export default function Page() {
 
 `@kanzo-tech/auth` and `@kanzo-tech/llm` each talk to a server, and both servers ship from this
 repository under the same tag as the packages: [the identity service](/docs/auth/service), Keycloak
-with the platform realm as code, and [the gateway](/docs/ai/gateway), LiteLLM with both aliases on
+with the platform realm as code, and [the gateway](/docs/ai/gateway), agentgateway with both aliases on
 local models. A product adopting either includes the service's `compose.yml` in its own development
 stack, from a checkout pinned to the release its packages came from, and registers itself — a client
-and its roles, a team per tenant — with the service's Terraform module, from its own repository.
+and its roles — with the service's Terraform module, from its own repository.
 
 ## Server-side rendering
 

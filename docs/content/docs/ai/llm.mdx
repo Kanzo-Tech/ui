@@ -11,7 +11,7 @@ pnpm add @kanzo-tech/llm ai
 ```
 
 ```ts
-import { createGateway, ToolLoopAgent, tool, jsonSchema } from "@kanzo-tech/llm";
+import { createGateway, stream, ToolLoopAgent, tool, jsonSchema } from "@kanzo-tech/llm";
 
 const gateway = createGateway({ baseURL: "/api/ai" });
 const model = gateway("chat");
@@ -32,9 +32,10 @@ what is ours is the door it does not have.
 | Re-exported from `ai` | For |
 | --- | --- |
 | `ToolLoopAgent`, `stepCountIs` | An agent: a model, its tools, and when to stop calling them |
+| `Agent`, `ToolSet` | The types of an agent and of its tools, for code that takes one |
 | `tool`, `jsonSchema` | A tool the model may call, and its input's schema |
-| `DirectChatTransport` | Run an agent in the page, behind `useChat` |
-| `streamText`, `Output` | One request, streamed; `Output.object` / `Output.array` for structured output |
+| `DirectChatTransport` | Run an agent in the page — what `@kanzo-tech/ai`'s `useAgentChat` runs it over |
+| `Output` | Structured output for [`stream`](#stream): `Output.object` / `Output.array` |
 | `getToolName`, `isToolUIPart` | Reading a message's tool parts |
 | `UIMessage`, `InferAgentUIMessage` | A message as `useChat` holds it, and its type for a given agent |
 | `ToolUIPart`, `DynamicToolUIPart`, `ReasoningUIPart` | Its parts |
@@ -57,8 +58,8 @@ interface GatewaySettings {
 type Gateway = (alias: string) => LanguageModel;
 
 class AiError extends Error {
-  code: "ai/silent";
-  data: { after?: number }; // milliseconds
+  code: "ai/silent" | "ai/rate-limited";
+  data: { after?: number; retryAfter?: number }; // the silence in ms; when to retry, in seconds
 }
 ```
 
@@ -81,73 +82,126 @@ Four things a host would otherwise repeat are done once, here:
   ends. [`Assist`](/docs/ai/assist)'s candidates depend on it.
 - **A stream that goes silent ends.** A streaming request's headers are due within 30 s, and each
   chunk of its body within 30 s of the last. Past that the request is aborted and the caller —
-  `streamText`'s `onError`, `Chat`, `Assist`'s `onFailure` — gets an `AiError` whose `code` is
+  [`stream`](#stream)'s readings, `Chat`, `Assist`'s `onFailure` — gets an `AiError` whose `code` is
   `"ai/silent"` and whose `data.after` is `30000`. A request that does not stream is not cut: its
   headers wait on the whole answer. Your own `abortSignal` still aborts as an abort. This is the
   only bound on a model's silence in the library; the reason is on
   [the failure page](/docs/design/failure).
+- **A caller over its limit is told so.** A gateway that limits per tenant or per key answers 429,
+  and the caller gets an `AiError` whose `code` is `"ai/rate-limited"`, with `data.retryAfter` in
+  seconds when the gateway said when (`retry-after`, else `x-ratelimit-reset`). It is not retried:
+  the limit is the answer, and asking again is how a caller stays over it.
 
 The gateway speaks the OpenAI chat-completions protocol, through `@ai-sdk/openai-compatible` — a
 dependency nobody outside this package names, the standing `@duckdb/duckdb-wasm` has behind
 `engine()`.
 
-## Why the key is never in the page
-
-The key that opens a gateway is a bill and a quota. In the page, it is everyone's: anybody who opens
-the network tab has it, and nothing can take it back but rotating it for every user. So the browser
-talks to the **host's own route** — a backend-for-frontend — which checks the session, adds the key,
-and forwards. `baseURL` is that route, such as `/api/v1/ai`. `headers` is there for what the BFF
-asks of the page, a CSRF token, and never for the key.
+## `stream`
 
 ```ts
-// app/api/ai/[...path]/route.ts — the BFF, in Next
-export async function POST(request: Request, { params }: { params: Promise<{ path: string[] }> }) {
-  const session = await auth();
-  if (!session) return new Response(null, { status: 401 });
-  const { path } = await params;
-  return fetch(`${process.env.AI_GATEWAY_URL}/${path.join("/")}`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${process.env.AI_GATEWAY_KEY}`,
-    },
-    body: await request.text(),
-  });
+stream(options: StreamOptions): Stream
+
+interface StreamOptions {
+  model: LanguageModel;          // gateway("complete")
+  system?: string;
+  prompt: string;
+  output?: Output;               // Output.array(…) or Output.object(…); plain text when omitted
+  abortSignal?: AbortSignal;
+}
+
+interface Stream {
+  text: AsyncIterable<string>;     // the answer as it is written
+  elements: AsyncIterable<E>;      // each element of an Output.array, once it is whole
+  partial: AsyncIterable<P>;       // an Output.object as it grows
 }
 ```
 
-Returning the gateway's response as it is keeps it a stream: the answer reaches the page a token at a
-time through the BFF, not after it.
+**The one door to a model's answer outside a conversation** — a field's continuation, a strip of
+suggestions, anything that asks once and reads what comes back. Read one of the three, once: they
+are views of the same request.
+
+```ts
+for await (const { text } of stream({ model, prompt, output: Output.array({ element }) }).elements) {
+  offered.push(text);
+}
+```
+
+- **A failure throws, once the stream ends.** The SDK reports a failed stream to `onError` and then
+  ends it as if it had finished, so a refused call reads as a model with nothing to say. Each
+  reading rethrows what was reported, whole: a silence as `ai/silent`, a limit as
+  `ai/rate-limited`, a refusal as the provider's error.
+- **Never retried.** The gateway retries its upstreams, and a silent gateway asked three times is
+  three deadlines where the person waits for one.
+
+`streamText` is not re-exported, and that is the rule rather than an omission: the raw call is the
+one that passes a refusal off as a short answer, and two ways to one request are one too many. A
+conversation is the other door — `ToolLoopAgent` behind `useAgentChat` — and it hands over what was
+thrown itself.
+
+*What would reverse it:* a caller that needs something of `streamText` that `stream` cannot pass —
+tools in a single request, or a reading other than these three. Then the option goes on
+`StreamOptions`; the raw call still does not come back.
+
+## Why no credential is in the page
+
+A credential that opens a gateway is a bill and a quota. In the page, it is everyone's: anybody who
+opens the network tab has it, and nothing can take it back. So the browser talks to the **host's own
+route** — a backend-for-frontend — which checks the session, gets a token for the gateway and
+forwards. `baseURL` is that route, such as `/api/v1/ai`. `headers` is there for what the BFF asks of
+the page, a CSRF token, and never for a credential.
+
+The token the BFF forwards is the person's own, exchanged: [OAuth 2.0 Token
+Exchange](https://www.rfc-editor.org/rfc/rfc8693) turns the access token the session holds into one
+issued for the gateway and for **the one organization the request is for**. The gateway accepts
+nothing else, so who asked and which organization pays are in the token, not in a key the
+application was handed. It is the same exchange every API behind the BFF gets, so the gateway is one
+more entry in [`kanzoAuth`'s `apis`](/docs/auth/next#api):
+
+```ts title="lib/auth.ts"
+export const auth = kanzoAuth(async () => ({
+  …,
+  organization: ({ url }) => url.hostname.split(".")[0],
+  apis: { "/api/ai": { audience: "ai-gateway", target: process.env.AI_GATEWAY_URL } },
+}));
+```
+
+```ts title="app/api/[...path]/route.ts"
+export const { GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS } = auth.api;
+```
+
+```ts
+const gateway = createGateway({ baseURL: "/api/ai" });
+```
+
+The application lists `ai-gateway` in its [`apis`](/docs/auth/keycloak#the-apis-an-application-calls)
+in the realm. The forwarder streams the answer as it arrives, so a reply reaches the page a token at
+a time through the BFF, not after it.
 
 ## Connecting a model
 
 Three set-ups, and the page's code is the same in all of them — `createGateway({ baseURL })` and an
 alias.
 
-### An AI gateway (LiteLLM)
+### An AI gateway
 
-The production shape: [LiteLLM](https://docs.litellm.ai) as the platform's one door to models. It
-holds the providers' keys, maps each alias to an upstream, and speaks OpenAI's protocol whatever the
-upstream speaks. It ships from this repository as [the gateway](/docs/ai/gateway) — a development
-compose, a module per tenant and a module to deploy it. The aliases are its profile's `model_list`:
+The production shape: [agentgateway](https://agentgateway.dev) as the platform's one door to models.
+It holds the providers' keys, maps each alias to an upstream, speaks OpenAI's protocol whatever the
+upstream speaks, and takes the realm's tokens as its only credential. It ships from this repository
+as [the gateway](/docs/ai/gateway) — a development compose and a module to deploy it. The aliases are
+its profile's `models`:
 
 ```yaml
-# litellm config.yaml
-model_list:
-  - model_name: chat
-    litellm_params:
-      model: <provider>/<model>
-      api_key: os.environ/PROVIDER_API_KEY
-  - model_name: complete
-    litellm_params:
-      model: <provider>/<a smaller model>
-      api_key: os.environ/PROVIDER_API_KEY
+models:
+  - name: chat
+    provider: <provider>
+    params: { model: <model>, apiKey: $PROVIDER_API_KEY }
+  - name: complete
+    provider: <provider>
+    params: { model: <a smaller model>, apiKey: $PROVIDER_API_KEY }
 ```
 
-The BFF above forwards to it, with the key [the tenant's team](/docs/ai/gateway#a-team-per-tenant)
-was issued. `complete` is a separate
-alias because a field's continuation is asked on every pause in typing: it wants a small, fast model,
-and a chat wants a good one.
+`kanzoAuth` forwards to it, as above. `complete` is a separate alias because a field's continuation is asked
+on every pause in typing: it wants a small, fast model, and a chat wants a good one.
 
 ### A local model, for development
 
@@ -156,8 +210,8 @@ models through Docker Model Runner, so the whole loop runs without a provider ke
 `AI_GATEWAY_URL` is `http://localhost:4000`.
 
 [Ollama](https://ollama.com) behind the same gateway works the same way: point an alias at it in the
-gateway's `model_list` —
-`model: ollama_chat/<model>` with `api_base: http://localhost:11434` — and nothing else changes.
+gateway's `models` — an OpenAI-compatible model whose `baseUrl` is `http://localhost:11434/v1` — and
+nothing else changes.
 
 Without a gateway at all, `createGateway` can point at Ollama directly, since Ollama serves the same
 protocol under `/v1`. The alias is then an Ollama model name, and `ollama cp` gives a model the alias

@@ -23,11 +23,11 @@ This is the composition a product copies. One `GraphRoot` sits outside
 the shell, so the canvas, the inspector and every dock panel read one graph and one crossfilter. The
 canvas, the toolbar, the legend, the counts in the footer, the search and the inspector are
 [`@kanzo-tech/graph`](/docs/graph)'s parts, and the showcase writes none of them. What it writes is
-the product's: the channels each look is paired with, the hall's name in the inspector, and the
+the product's: the channels the graph wears, the hall's name in the inspector, and the
 dock's panels — **Info** (the search and the inspector), **Ask** ([`@kanzo-tech/ai/data`](/docs/ai/data): `dataAgent` over a
 recorded model, its SQL run for real under the page's filter, each answer a `QueryResult` with
-*Show on graph* and *Filter to these*), **Orders** and **Settings** (`GraphSettings`: `GraphLooks` — the looks and
-their axes — and `GraphPlacement` above the gestures). The graph's settings sit beside the canvas they change; the
+*Show on graph* and *Filter to these*), **Orders** and **Settings** (`GraphSettings`: the graph's section,
+`PreferencesSections namespace="graph"`, above the gestures). The graph's settings sit beside the canvas they change; the
 Preferences drawer keeps only what is app-wide — the theme, density, radius and fonts. fossil's
 `open` attaches the corpus as the catalog `archive`, and the graph and the
 [analytics subpath](/docs/analytics/charts)'s panels read it through the page's one coordinator —

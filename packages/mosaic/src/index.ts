@@ -40,8 +40,8 @@ export {
 /**
  * The expression builders the graph writes its statements with — the ones it uses, and no more. A
  * statement built from nodes quotes its own identifiers and literals, which a search a reader types
- * must never leave to a template string. mosaic-sql's `column` is not among them: `column` here is
- * the Arrow reader below, and a bare string is already a column wherever these take one.
+ * must never leave to a template string. mosaic-sql's `column` is not among them: a bare string is
+ * already a column wherever these take one.
  */
 export {
   asTableRef,
@@ -58,12 +58,17 @@ export {
 
 /**
  * Ours: the clause rule — column predicates on one relation, or a semi-join on identity — with the
- * constructor of the second form and the reading of the columns either names. `clause.ts` states it.
+ * constructor of the second form, the reading of the columns either names, and what a clause says
+ * to a person (`clauseParts`, `clauseLabel`) — read by `@kanzo-tech/ui`'s chips and filter bar.
+ * `clause.ts` states it.
  */
 export {
   clauseColumns,
   clauseSemiJoin,
   semiJoinOf,
+  clauseParts,
+  clauseLabel,
+  type ClauseParts,
   type SemiJoinMembers,
   type SemiJoinMetadata,
   type SemiJoinOptions,
@@ -75,9 +80,14 @@ export {
  * clients crossfiltering in their own columns publishes to the page in the page's: `bridge.ts`.
  */
 export { bridgeSelection, type BridgeOptions, type ClauseMap } from "./bridge.js";
+/**
+ * Ours: one selection's clauses relayed into another built earlier, as the clause objects
+ * themselves — what Mosaic's `include` does at construction, after it: `relay.ts`.
+ */
+export { relaySelection, type RelayOptions } from "./relay.js";
 
 /** Ours: turning an Arrow answer into values, which the client protocol does not do for you. */
-export { column, numbers } from "./arrow.js";
+export { numbers } from "./arrow.js";
 
 /** Ours: what every `table` here and in the charts takes — one identifier, or a relation named in SQL. */
 export { type TableExpr } from "./table.js";

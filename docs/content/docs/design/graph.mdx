@@ -27,14 +27,14 @@ does this: `lon`/`lat` as `x`/`y` is what there is.
 
 The host attaches the corpus and names the catalog; `GraphRoot` reads it with SQL — `fossil_tables`
 and `fossil_columns` for the structure, the views for rows and links, one `SELECT` for a focused row,
-a `LIMIT`ed `ILIKE` for a search, a count per relation for a neighbourhood — every statement built
+a `LIMIT`ed `ILIKE` for a search — every statement built
 from mosaic-sql's nodes and run through `coordinator.query(query, { type: "arrow" })`. A search is text
 a reader typed, so no statement is a template string: the nodes quote their own identifiers and
 literals. It imports nothing of fossil's.
 
 ```text
 host                                                    @kanzo-tech/graph
-engine() → DuckDB-WASM + coordinator                    parts     GraphCanvas · GraphLegend · GraphStatus · GraphCounts · GraphToolbar · GraphInspector · GraphSearch · GraphLooks
+engine() → DuckDB-WASM + coordinator                    parts     GraphCanvas · GraphLegend · GraphStatus · GraphCounts · GraphToolbar · GraphInspector · GraphSearch
 open(name, { engine, url }) → "<name>".<Table>          adapter   useGraph · GraphRoot · GraphRootProvider · useGraphContext · useGraphState
            "<name>".fossil_tables · fossil_columns      render    typed arrays → cosmos.gl, uploaded once per corpus
 <GraphRoot from={name} coordinator filterBy>            core      source: SQL through the coordinator · client · load · store
@@ -128,8 +128,9 @@ Retraction follows the clause to where it was published: a tile letting go withd
 clause, the page clause's chip clears the tiles, and the page's clauses are never mapped back out,
 so a lasso does not return to the graph as a dashboard's clause and filter it by its own pick.
 
-The page's clauses are handed in by listening to the page, not by `include`, because `include` would
-relay the bridge's own clause back in and nothing public keeps it out. Unexempted, that echo filters
+The page's clauses are handed in by `relaySelection`, which listens to the page, not by `include`,
+because `include` would relay the bridge's own clause back in and nothing in Mosaic keeps it out;
+`relaySelection` takes the bridge's source as `except`. Unexempted, that echo filters
 the brushing tile by its own brush; exempting the tiles that published re-queries every other tile a
 second time per brush step; exempting every tile makes it the dashboard's *active* clause, for which
 Mosaic's crossfilter resolver answers no predicate at all — so the next page of a table, or a tile
@@ -162,13 +163,16 @@ statement that selects them", "names the key alone: a subquery's columns are ano
 `packages/graph/src/core/store.test.ts`, "answers a semi-join on dense_id on every table, whatever
 relation its subquery reads", "publishes the reader's pick as a semi-join on dense_id, and is exempt
 from its own clause", "lets the pick go when its clause is retracted where it was published";
-`packages/ui/src/charts/filter-chips.test.tsx`, "names a semi-join by its publisher's label, and
-counts its members when they are keys"; `packages/mosaic/src/bridge.test.ts`, "publishes the inner
+`packages/mosaic/src/clause.test.ts`, "names a semi-join by its publisher's label, and counts its
+members when they are keys"; `packages/mosaic/src/bridge.test.ts`, "publishes the inner
 clauses to the outer selection as one clause, through the map, from the bridge", "does not filter a
 client by its own clause on either side, and never echoes the mapped clause inward", "calls the bridge
 back when the mapped clause is retracted where it was published, and clears the inner sources";
-`packages/mosaic/src/public-api.test.ts`, "reaches no underscore member of a mosaic-core object
-anywhere in this package";
+`packages/mosaic/src/relay.test.ts`, "puts the clause object itself into the target, so the
+publisher stays exempt from its own clause", "loses nothing in a burst: the last delivery holds the
+latest state", "withdraws what it relayed when stopped, even with the source's reset still queued";
+`packages/ui/src/mosaic-public-api.test.ts`, "reaches no underscore member of a Mosaic object in
+any shipped package";
 `packages/graph/src/core/dashboard-bridge.test.ts`, "filters the graph by what the dashboard's
 brushes keep, as the root vertices they keep", "still filters the dashboard by the graph's pick, and
 publishes nothing back for it".
@@ -261,7 +265,7 @@ Every module stays under four hundred lines:
 ```text
 packages/graph/src/
 ├── core/                     no React; nothing here imports cosmos.gl
-│   ├── source.ts             the catalog's statements: structure, columns, links, a row, titles, search, neighbours
+│   ├── source.ts             the catalog's statements: structure, columns, links, a row, titles, search
 │   ├── client.ts             GraphClient — the crossfilter's survivors — and the clause the graph publishes
 │   ├── load.ts               answers → buffers by dense_id; the seeded start; the layout's square
 │   ├── channels.ts           Plot's bindings, and the columns they read
@@ -370,19 +374,55 @@ under it read the root.
   greyed, never hidden — and unfiltered it always read "N of N". A footer carries it, which is why it
   is not the legend's last line.
 - **`GraphToolbar`** — the tools, the selection, zoom and fit, and the layout's transport.
-- **`GraphInspector`** — the focused vertex as a card, Linkurious's inspector: its row in
-  `fossil_columns`' order, grouped as identity, values and dates, its neighbourhood counted per relation
-  and direction, Zoom / Focus / Copy, and a render prop for fields a product adds.
+- **`GraphInspector`** — the focused vertex, Linkurious's inspector: headed by its title or its IRI's
+  local name under its type, **Locate** beside it (`reveal`: frame it with its neighbours, and keep the
+  camera there), the IRI under it with its copy button, then its row in two columns, in
+  `fossil_columns`' order, grouped as values and dates, and a render prop for fields a product adds.
+  Sections and rules, not a card: in a dock a card is a second border. **It does nothing with the
+  neighbourhood**: a count per relation repeated what the canvas draws one click away, a "select
+  neighbours" repeated what a click and Locate already select, and three icon buttons (zoom, focus,
+  copy the row) read as a riddle — the row copy had no reader at all. *Held by*
+  `packages/graph/src/parts/parts.test.tsx`, "heads with the IRI's local name when there is no title,
+  prints the IRI under it with Copy, and lists no neighbours" and "locates the vertex, and offers
+  nothing a click on the canvas already does". What would reverse it: a corpus whose
+  relations the canvas cannot draw — too many edges to load — where the panel is the only place a
+  neighbourhood can be read.
 - **`GraphSearch`** — a palette in cmdk's shape, Raycast's and Linear's: a `LIMIT`ed `ILIKE` per pause
   in typing, with Bloom's `type:` and `<column>:<value>` prefixes, grouped by type and counted past the
-  limit; picking one is `reveal`, and the root remembers it.
+  limit; Enter is `reveal`, and the root remembers it. **In the page it is only a cue** — a button that
+  prints ⌘K, Shark's command trigger, never an inline list — and the palette is a full-height
+  `CommandDialog`, because docked it was cramped and its results covered the panel. The key, the chips
+  and the height are `ui`'s, not the graph's (`CommandDialog`'s `hotkey`, `CommandInput`'s children):
+  the graph keeps only what a graph knows — what a prefix is, the grouping, ⌘Enter. **Empty, it is
+  never a bare input**: Recent, then every vertex type with its count, a pick becoming a `type:` chip
+  — GitHub's palette scopes, the start a reader of an unfamiliar corpus lacks. **A match prints its
+  identity's local name on the right**, Linear's issue key, because titles repeat. *Held by*
+  `packages/graph/src/parts/parts.test.tsx`, "opens and closes the palette on ⌘K or Ctrl+K", "turns a type: or column: word
+  into a chip on Space, keeps free text as text, and takes the last chip back on Backspace" and
+  "offers, empty, every vertex type with its count, and picking one makes it a chip". **One
+  palette per page** is what lets the key go unarbitrated — what would reverse it is a page that needs
+  two graphs' palettes at once, and then the arbitration is a provider, never module state.
 - **`GraphSelect`** — a selection the host offers, as a toggle: `load` reads the ids when pressed,
   and pressed is derived from the live selection, never stored beside it.
-- **`GraphLooks`** — the three looks as presets over `GRAPH_SECTION`'s axes, with the axes always in
-  view under them. It writes preferences rather than reading the root, so it needs the theme provider
-  and no `GraphRoot`.
-- **`GraphPlacement`** — Force, Map or Clustered, with the corpus's fields to bind under the checked
-  card, as its sibling and not its child. Controlled, because `x`, `y` and `cluster` are the root's bindings and the host holds them.
+
+**The settings are not a part; they are the section.** `GRAPH_SECTION` declares the picture, where
+the points come from and the forces, and `@kanzo-tech/ui` draws them — `PreferencesSections
+namespace="graph"` whole, or `<Pref>` by `<Pref>`. What the manifest cannot know, the root answers as
+the section's owner (`GraphSection`, a `SectionProvider` inside every root): the attached corpus's
+columns for `x-by`, `y-by` and `cluster-by`, and the miniatures on the Marks, Edges and Placement
+cards. Two components stood here, `GraphLooks` and `GraphPlacement`, the second holding the
+placement as the host's state with a callback of its own; both were a second way to draw a setting.
+`/docs/design/preferences` has the model.
+
+**Placement is the person's, so a column outlives its corpus.** Stored with the preferences, a column
+reaches corpora that lack it, and the root reads it as unbound (`carries`, in the loaders) — the
+same rule `resolvePref` applies to a value its options no longer hold, applied where the options are
+known. **What would reverse it:** readers expecting each corpus to remember its own placement, which
+would make it the host's state again — in the URL, per corpus.
+
+*Held by* `packages/graph/src/core/store.test.ts`, "reads a column the corpus does not carry as
+unbound, so a column chosen on another corpus places nothing"; `packages/graph/src/parts/graph-section.test.tsx`,
+"offers the corpus's numeric fields to the map, from the root that attached it".
 
 **A selection names its gesture, never its host's panel.** `SelectionSource` is the canvas's own
 gestures — `marquee`, `lasso`, `node` — and `external`, any selection a host set through `select`,
@@ -440,12 +480,12 @@ if WebGL exists but no device ever comes up".
 the adapter        GraphRoot · GraphRootProvider · useGraph · useGraphContext · useGraphState
 the parts          GraphCanvas · GraphLegend · GraphStatus · GraphCounts · GraphToolbar · GraphInspector
                    GraphSearch · GraphSelect · ShapeGlyph
-the picture        lookFrom · simFrom · useGraphPrefs · scaleOf · GraphLooks
+the picture        lookFrom · simFrom · placementFrom · useGraphPrefs · scaleOf
 types              GraphRootProps · GraphRootProviderProps · UseGraphProps · GraphApi · GraphCanvasProps
                    GraphLegendProps · GraphStatusProps · GraphCountsProps · GraphToolbarProps · GraphInspectorProps
-                   GraphSearchProps · GraphSelectProps · GraphLooksProps · ShapeGlyphProps
+                   GraphSearchProps · GraphSelectProps · ShapeGlyphProps
                    GraphState · DataStatus · Drawn · VertexDetail
-                   Channels · Look · LookPatch · LookPreset · Shape · Sim · Motion · Selection · SelectionSource
+                   Channels · Placement · Look · LookPatch · Shape · Sim · Motion · Selection · SelectionSource
                    Tool · GraphCommands · VertexId
 ./section          GRAPH_SECTION
 ```
@@ -549,17 +589,18 @@ composite, not the path they take, and Nebula is additive *and* straight.
 Six of the ten fields separate Nebula from Atlas by 7–17%, below a luminance JND of 6.5–11.3 ΔL\*.
 **Ink is a real form.** An empty look is Atlas.
 
-**The three names live on as presets over the axes, not as a fourth axis.** `PRESETS` writes each
-look as axis values and `GraphLooks` offers them as cards, GitHub's appearance settings: pick by
-looking, then customise. A look is worn exactly when the resolved axes equal its own, so there is no
-stored name to disagree with them, and `useGraphPrefs` answers `preset` for a host that pairs
-channels with a look — the pairing stays the host's, because a look is form. A `preset` preference
-was the alternative and is refused: it would be a key no reader reads, which the axes guard forbids.
+**The three names are gone; the axes are the whole model.** They lived on for a while as presets
+over the axes, offered as cards above them, and the panel repeated itself: a preset set the axes, an
+axis un-set the preset, and "Custom" was where most readers ended. Cosmograph's configuration and
+Gephi Lite's appearance panel offer the axes alone with good defaults, and so does the section. The
+three pictures stay reachable as axis values, which is what the test below holds. With no names, a
+host has nothing to pair channels with, and that is right: a look is form, and which column wears
+colour or shape is a binding the host makes once.
 
-**What would reverse it:** a reader telling Nebula from Atlas in a blind pairing on those six fields.
+**What would reverse it:** a reader telling Nebula from Atlas in a blind pairing on those six fields,
+or readers asking for a named starting point the axes' defaults do not give them.
 
-*Held by* `packages/graph/src/section.test.ts`, "still draws the three pictures the three names drew",
-"wears the three pictures as presets, and knows one when the axes are it";
+*Held by* `packages/graph/src/section.test.ts`, "still draws the three pictures the three names drew";
 `packages/graph/src/render/graph-looks.ts`, `lookFrom`.
 
 ## What is still open

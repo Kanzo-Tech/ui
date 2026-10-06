@@ -23,6 +23,12 @@ export interface Camera {
   ready(): void;
   /** cosmos.gl was handed positions and rendered them: from now on a fit may read them back. */
   drawn(): void;
+  /**
+   * The reader moved the camera — a gesture, or a command one of the panels sent for them (zoom,
+   * locate, frame the selection): stop framing and following, so neither a resize nor a settling
+   * layout puts it back. Fit and the next run hand it back.
+   */
+  take(): void;
   tick(): void;
   settle(): void;
   destroy(): void;
@@ -105,6 +111,10 @@ export function createCamera(
       following = true;
       followed = performance.now();
     },
+    take() {
+      framing = false;
+      following = false;
+    },
     // A frame later: the commands cosmos.gl queued for its device run in the same turn as this.
     ready: later,
     drawn() {
@@ -127,9 +137,7 @@ export function createCamera(
     },
   };
   const taken = (userDriven: boolean) => {
-    if (!userDriven) return;
-    framing = false;
-    following = false;
+    if (userDriven) camera.take();
   };
   return { camera, taken };
 }

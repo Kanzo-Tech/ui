@@ -28,6 +28,10 @@ export interface Renderer extends GraphCommands {
 }
 
 const REHEAT = 0.35;
+/** Locate's margin around a vertex and its neighbours, a share of the viewport — wider than a fit's, so the neighbourhood reads as a group in its context. */
+const LOCATE_PADDING = 0.3;
+/** How much closer Locate goes to a vertex with no neighbour to frame. */
+const LOCATE_ZOOM = 4;
 /** Twentieths: a settle costs twenty reports rather than one per frame. */
 const PROGRESS_STEPS = 20;
 
@@ -254,10 +258,11 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     showLinks();
   }
 
-  function focusOn(vertex: VertexId): void {
+  function focusOn(vertex: VertexId): number[] {
     const around = graph.getNeighboringPointIndices(vertex) ?? [];
     store.select([vertex, ...around], "node", "Node");
     store.focus(vertex);
+    return around;
   }
 
   function clear(): void {
@@ -309,6 +314,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       return Array.from(found);
     },
     zoomBy(factor) {
+      camera.take();
       graph.setZoomLevel(graph.getZoomLevel() * factor, 220);
     },
     fit: () => camera.fit(),
@@ -323,12 +329,17 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     restart() {
       run(1);
     },
+    // Frames the vertex with its neighbours, Linkurious's locate: close enough to read, and the
+    // edges it has in view. A vertex with none is zoomed into, never out of.
     reveal(vertex) {
       if (vertex >= size()) return;
-      focusOn(vertex);
-      graph.zoomToPointByIndex(vertex, 500, 5, true);
+      camera.take();
+      const around = focusOn(vertex);
+      if (around.length > 0) graph.fitViewByPointIndices([vertex, ...around], FIT_DURATION, LOCATE_PADDING);
+      else graph.zoomToPointByIndex(vertex, FIT_DURATION, graph.getZoomLevel() * LOCATE_ZOOM, false);
     },
     frameSelection() {
+      camera.take();
       const vertices = (store.getSnapshot().selection?.vertices ?? []).filter((id) => id < size());
       if (vertices.length > 0) graph.fitViewByPointIndices(vertices, FIT_DURATION, 0.25);
     },

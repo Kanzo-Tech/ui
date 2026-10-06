@@ -294,6 +294,20 @@ export const BEYOND_THE_SURFACE: readonly {
   readonly held: readonly string[];
 }[] = [
   {
+    what: "The palette carries its own key, its chips and its height: `CommandDialog` takes `hotkey`, `CommandInput` draws `children`, and `CommandList` fills a dialog.",
+    why:
+      "Ours, and each one is a line Shark writes beside every palette instead. Its site registers the " +
+      "⌘K listener next to the palette it mounts (`header.command.tsx`), its `tags-input/example-combobox` " +
+      "composes chips into a combobox by hand, and its list caps at the inline height inside a " +
+      "full-height dialog too. The graph's search is the second palette, so the behaviour moved into " +
+      "the parts rather than being written twice; `/docs/design/graph` has the palette's rule.",
+    held: [
+      "packages/ui/src/simples/command.test.tsx",
+      "packages/ui/src/lib/use-hotkey.test.tsx",
+      "docs/content/docs/design/graph.mdx",
+    ],
+  },
+  {
     what: "The focus ring is solid where Shark dilutes it.",
     why:
       "The only divergence in this library with a number behind it. Shark's diluted ring measured " +

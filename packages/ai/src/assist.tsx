@@ -1,10 +1,10 @@
 "use client";
 
 import { ark } from "@ark-ui/react/factory";
-import { Undo2Icon, XIcon } from "lucide-react";
+import { Undo2Icon } from "lucide-react";
 import * as React from "react";
 import type { LanguageModel } from "@kanzo-tech/llm";
-import { Button, ButtonGroup, cn, Kbd, Spinner, Suggestion, Suggestions } from "@kanzo-tech/ui";
+import { cn, Kbd } from "@kanzo-tech/ui";
 import { AiMark } from "./ai-mark.js";
 import {
   type AssistEvent,
@@ -14,6 +14,7 @@ import {
   useContinuation,
 } from "./engine.js";
 import { type FieldBrief, candidates, continuation } from "./proposals.js";
+import { PILLS, ProposalStrip } from "./proposal-strip.js";
 
 // ── The words ────────────────────────────────────────────────────────────────
 
@@ -35,8 +36,6 @@ export interface AssistTranslations {
   nextKey: string;
   /** Read once, by a screen reader, when a continuation lands. */
   announcement: string;
-  /** While candidates are on their way. */
-  thinking: string;
   /** When the model had nothing to offer. */
   empty: string;
   /** When asking failed and what was thrown carries no message of its own. */
@@ -54,7 +53,6 @@ const ENGLISH: AssistTranslations = {
   dismissKey: "dismiss",
   nextKey: "next",
   announcement: "Suggestion ready. Press Tab to accept, Escape to dismiss.",
-  thinking: "Thinking…",
   empty: "Nothing to suggest.",
   failed: "Couldn’t suggest anything.",
   dismiss: (text) => `Dismiss ${text}`,
@@ -591,10 +589,9 @@ function Failure(props: { error: unknown; status: string; t: AssistTranslations 
 }
 
 /**
- * The strip, in the flow under the field, while it has focus. Two buttons per candidate in a group —
- * a `<button>` cannot hold a button — and the ✕ always drawn: a hover-only control is unreachable by
- * keyboard and absent on touch. The rationale is the pill's `title`: it reaches the keyboard through
- * focus and costs no box.
+ * The strip, in the flow under the field, while it has focus. While candidates arrive it is the
+ * strip in skeleton; when asking failed or found nothing it says so in words, because here the
+ * reader pressed the ✨ and is owed an answer.
  */
 function Candidates(props: {
   list: ReturnType<typeof useCandidates>;
@@ -602,44 +599,25 @@ function Candidates(props: {
   t: AssistTranslations;
 }) {
   const { list, onPick, t } = props;
-  const body =
-    list.status === "error" ? (
-      <Failure error={list.error} status={list.status} t={t} />
-    ) : list.items.length > 0 ? (
-      list.items.map((item) => (
-        <ButtonGroup aria-label={item.text} key={item.text} slot="assist-candidate">
-          <Suggestion onSelect={onPick} title={item.rationale} value={item.text}>
-            {item.text}
-          </Suggestion>
-          <Button
-            aria-label={t.dismiss(item.text)}
-            className="h-auto min-h-[24px] self-stretch px-2 py-1"
-            onClick={() => list.dismiss(item.text)}
-            pill
-            size="sm"
-            slot="assist-dismiss"
-            variant="outline"
-          >
-            <XIcon />
-          </Button>
-        </ButtonGroup>
-      ))
-    ) : list.status === "loading" ? (
-      <span className="inline-flex items-center gap-2 text-muted-foreground text-sm" data-slot="assist-pending">
-        <Spinner aria-hidden />
-        {t.thinking}
-      </span>
-    ) : list.status === "ready" ? (
-      <span className="text-muted-foreground text-sm" data-slot="assist-empty">
-        {t.empty}
-      </span>
-    ) : null;
-
-  if (body === null) return null;
+  if (list.status === "idle" && list.items.length === 0) return null;
   return (
-    <Suggestions className="min-h-8" slot="assist-candidates">
-      {body}
-    </Suggestions>
+    <ProposalStrip
+      dismiss={{ label: t.dismiss, onDismiss: list.dismiss }}
+      notice={
+        list.status === "error" ? (
+          <Failure error={list.error} status={list.status} t={t} />
+        ) : list.status === "ready" ? (
+          <span className="text-muted-foreground text-sm" data-slot="assist-empty">
+            {t.empty}
+          </span>
+        ) : null
+      }
+      onSelect={onPick}
+      pending={list.status === "loading" ? PILLS - list.items.length : 0}
+      // A failure is the answer, even after some arrived: the reader is told, not left with a part.
+      proposals={list.status === "error" ? [] : list.items}
+      slot="assist-candidates"
+    />
   );
 }
 

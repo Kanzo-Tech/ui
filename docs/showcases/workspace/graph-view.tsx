@@ -1,15 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  use,
-  useEffect,
-  useMemo,
-  useState,
-  type Dispatch,
-  type ReactNode,
-  type SetStateAction,
-} from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { parseDate, type DateValue } from "@internationalized/date";
 import { sql, verbatim, type VerbatimNode } from "@uwdata/mosaic-sql";
 import {
@@ -38,6 +29,7 @@ import {
   FileUploadHiddenInput,
   FileUploadTrigger,
   Input,
+  PreferencesSections,
   Select,
   SelectContent,
   SelectItem,
@@ -60,7 +52,7 @@ import {
   TagsInputItemText,
   toast,
 } from "@kanzo-tech/ui";
-import { Chat, ChatSkeleton, useChat } from "@kanzo-tech/ai";
+import { Chat, ChatSkeleton, type Proposal, useAgentChat } from "@kanzo-tech/ai";
 import {
   dataAgent,
   dataSuggestions,
@@ -70,7 +62,6 @@ import {
   type DataScope,
   type QueryOutput,
 } from "@kanzo-tech/ai/data";
-import { DirectChatTransport } from "@kanzo-tech/llm";
 import { afterTool, askOf, mockModel, promptOf } from "@/lib/mock-model";
 import {
   Coordinator,
@@ -92,8 +83,6 @@ import { cn } from "@kanzo-tech/ui";
 import {
   GraphCounts,
   GraphInspector,
-  GraphLooks,
-  GraphPlacement,
   GraphRoot,
   GraphSearch,
   GraphSelect,
@@ -101,8 +90,6 @@ import {
   corpusReferences,
   useGraphContext,
   useGraphPrefs,
-  type Channels,
-  type LookPreset,
   type VertexDetail,
 } from "@kanzo-tech/graph";
 import {
@@ -198,17 +185,6 @@ export function useArchive(): Archive | null {
 }
 
 /**
- * The channels each look is paired with — the product's half of a look, since a look is form and a
- * binding is the caller's. Ink paints every point one ink — `fill` as a constant — and spends
- * identity on shape; a customised picture keeps Atlas's bindings.
- */
-const PAIRINGS: Record<LookPreset, Channels> = {
-  nebula: { fill: "kind" },
-  atlas: { fill: "kind", stroke: "var(--muted-foreground)" },
-  ink: { fill: "var(--foreground)", symbol: "kind", stroke: "var(--muted-foreground)" },
-};
-
-/**
  * A failure, as a toast — once per message, and after the commit that reported it: the renderer
  * reports from an effect, where a toast's synchronous flush is refused.
  */
@@ -219,20 +195,6 @@ function announce(error: unknown): void {
   });
 }
 
-type Placement = Pick<Channels, "x" | "y" | "cluster">;
-
-/**
- * Where the points come from, as the reader chose it in Settings — the page's state, handed to the
- * root as it is, and shared with the Settings panel that sits under the same root.
- */
-const PlacementContext = createContext<[Placement, Dispatch<SetStateAction<Placement>>] | null>(null);
-
-function usePlacement() {
-  const placement = use(PlacementContext);
-  if (!placement) throw new Error("usePlacement must be used within ArchiveGraph");
-  return placement;
-}
-
 /**
  * **The graph, whole.** The root names the attached catalog and reads it through the page's
  * coordinator, one Mosaic client beside the charts; the provider arrives with the same coordinator,
@@ -240,22 +202,21 @@ function usePlacement() {
  */
 export function ArchiveGraph({ children }: { children: ReactNode }) {
   const archive = useArchive();
-  const { look, sim, preset } = useGraphPrefs();
-  const placement = useState<Placement>({});
+  const { look, sim, placement } = useGraphPrefs();
   return (
-    <PlacementContext value={placement}>
-      <GraphRoot
+    <GraphRoot
         categories={KINDS}
         coordinator={archive?.coordinator ?? null}
+        fill="kind"
         filterBy={archive?.crossfilter}
         from={archive ? FROM : null}
         look={look}
         onFailure={announce}
         r="degree"
         sim={sim}
+        stroke="var(--muted-foreground)"
         title="label"
-        {...PAIRINGS[preset ?? "atlas"]}
-        {...placement[0]}
+        {...placement}
       >
         <Show fallback={children} when={archive !== null}>
           {archive && (
@@ -265,7 +226,6 @@ export function ArchiveGraph({ children }: { children: ReactNode }) {
           )}
         </Show>
       </GraphRoot>
-    </PlacementContext>
   );
 }
 
@@ -339,8 +299,8 @@ function HallName({ detail }: { detail: VertexDetail }) {
   const id = detail.fields.find((field) => field.name === "hall")?.value;
   const name = HALLS.find((entry) => entry.id === id)?.short;
   return (
-    <DataListItem className="gap-0.5 py-0">
-      <DataListItemLabel className="text-xs">hall name</DataListItemLabel>
+    <DataListItem>
+      <DataListItemLabel>hall name</DataListItemLabel>
       <DataListItemValue>{name ?? "shared across the halls"}</DataListItemValue>
     </DataListItem>
   );
@@ -965,19 +925,17 @@ const GESTURES: { keys: ReactNode; what: string }[] = [
 ];
 
 /**
- * The Settings panel: how the graph draws (`GraphLooks` — the presets and their axes), where the
- * points come from (`GraphPlacement`), and the gestures. The graph's settings live here, beside the
- * canvas they change, and not in the app's Preferences, which keep only what is app-wide. There are no forces here: the archive carries no
- * positions, so the layout runs when it loads, and the toolbar is where a reader pauses or re-runs
- * it. Fitting is the toolbar's too.
+ * The Settings panel: the graph's section, whole — how it draws, where the points come from and the
+ * forces — and the gestures. One line, because the root is the section's owner and answers the
+ * corpus's columns itself. The graph's settings live here, beside the canvas they change, and not in
+ * the app's Preferences, which keep only what is app-wide. Pausing, re-running and fitting the
+ * layout are the toolbar's.
  */
 export function GraphSettings() {
-  const [placement, setPlacement] = usePlacement();
   return (
     <ScrollArea className="h-full p-3">
       <div className="space-y-4">
-        <GraphLooks />
-        <GraphPlacement onChange={setPlacement} value={placement} />
+        <PreferencesSections namespace="graph" />
 
         <div className="space-y-2 border-t pt-3">
           <p className="font-medium text-muted-foreground text-xs">Gestures</p>
@@ -1096,7 +1054,7 @@ function rowsIn(message: { content: unknown } | undefined): Record<string, unkno
  */
 const askModel = mockModel((call) => {
   if (promptOf(call).includes("You suggest questions")) {
-    return JSON.stringify({ elements: INTENTS.map(({ question, rationale }) => ({ question, rationale })) });
+    return JSON.stringify({ elements: INTENTS.map(({ question, rationale }) => ({ text: question, rationale })) });
   }
   const intent = match(askOf(call));
   if (!intent) return "That one is outside what this recording knows. Try one of the questions it starts with.";
@@ -1142,13 +1100,13 @@ function AskEmpty() {
 
 /** Questions to start from, as they stream in: none on failure, and the chat works without them. */
 function useStarters(schema: DataSchema, scope: DataScope) {
-  const [state, setState] = useState<{ questions: string[]; suggesting: boolean }>({ questions: [], suggesting: true });
+  const [state, setState] = useState<{ questions: Proposal[]; suggesting: boolean }>({ questions: [], suggesting: true });
   useEffect(() => {
     const abort = new AbortController();
     (async () => {
-      const questions: string[] = [];
+      const questions: Proposal[] = [];
       for await (const q of dataSuggestions({ model: askModel, schema, scope, abortSignal: abort.signal })) {
-        questions.push(q.question);
+        questions.push(q);
         setState({ questions: [...questions], suggesting: true });
       }
       setState({ questions, suggesting: false });
@@ -1185,11 +1143,7 @@ function AnswerActions({ output, source }: { output: QueryOutput; source: object
 function AskBody({ archive, schema }: { archive: Archive; schema: DataSchema }) {
   const { coordinator, crossfilter } = useMosaic();
   const scope = useMemo<DataScope>(() => ({ selection: crossfilter, table: archive.nodes }), [crossfilter, archive]);
-  const transport = useMemo(
-    () => new DirectChatTransport({ agent: dataAgent({ model: askModel, coordinator, schema, scope, key: ID }) }),
-    [coordinator, schema, scope],
-  );
-  const chat = useChat({ transport });
+  const chat = useAgentChat(dataAgent({ model: askModel, coordinator, schema, scope, key: ID }));
   const starters = useStarters(schema, scope);
   // What a `reset()` of the crossfilter calls back, and what retracts the clause the answer published.
   const [source] = useState(() => ({ reset: () => {} }));
@@ -1201,7 +1155,11 @@ function AskBody({ archive, schema }: { archive: Archive; schema: DataSchema }) 
         empty={<AskEmpty />}
         suggesting={starters.suggesting}
         suggestions={starters.questions}
-        tools={{ query: (part) => <QueryResult actions={(output) => <AnswerActions output={output} source={source} />} part={part} /> }}
+        tools={{
+          query: (part, { stopped }) => (
+            <QueryResult actions={(output) => <AnswerActions output={output} source={source} />} part={part} stopped={stopped} />
+          ),
+        }}
         translations={{ placeholder: "Ask about your data…" }}
       />
     </div>

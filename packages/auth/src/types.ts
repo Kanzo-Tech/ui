@@ -132,6 +132,11 @@ export type AuthErrorCode =
    * organization" rather than let an unreadable 400 arrive at someone who typed a link wrong.
    */
   | "organization/invalid"
+  /**
+   * The realm would not issue a token for the organization asked for: the person is not a member of
+   * it. A resource server is never called with a token that names no organization in its place.
+   */
+  | "organization/denied"
   /** The callback's `state` is absent, different, or has no transaction to match against. */
   | "callback/state-mismatch"
   /** The ID token's `nonce` is not the one that was sent — a replay. */

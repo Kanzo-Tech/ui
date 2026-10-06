@@ -5,8 +5,15 @@ import { useServerInsertedHTML } from "next/navigation";
 import { KanzoThemeProvider, cookieStorageAdapter, themeScript } from "@kanzo-tech/ui";
 import { GRAPH_SECTION } from "@kanzo-tech/graph/section";
 
-/** The sections the site's pages contribute — the workspace's graph looks — hoisted, so they never change identity. */
+/** The sections the site's pages contribute — the graph's — hoisted, so they never change identity. */
 const SECTIONS = [GRAPH_SECTION];
+
+// Every `<Pref name>` and `usePref` on the site is checked against what this provider registers.
+declare module "@kanzo-tech/ui" {
+  interface Register {
+    sections: typeof SECTIONS;
+  }
+}
 
 /**
  * The design system owns the theme, appearance included.

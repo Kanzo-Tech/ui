@@ -1,7 +1,7 @@
 "use client";
 
-import { Chat, useChat } from "@kanzo-tech/ai";
-import { DirectChatTransport, ToolLoopAgent } from "@kanzo-tech/llm";
+import { Chat, useAgentChat } from "@kanzo-tech/ai";
+import { ToolLoopAgent } from "@kanzo-tech/llm";
 import { useRef, useState } from "react";
 import { daysOverdue, FEATURED, overdueQuests, partyOf, questLabel } from "@/example/quests";
 import { role } from "@/example/world";
@@ -29,19 +29,17 @@ const ANSWERS: Record<string, { reasoning: string; text: string }> = {
 
 export default function Example() {
   // In a product the model is `gateway("chat")`; here it is a mock, so the page needs no
-  // network. Everything after it — the agent, the transport, useChat, Chat — is what a product runs.
+  // network. Everything after it — the agent, useAgentChat, Chat — is what a product runs.
   const pace = useRef(40);
-  const [transport] = useState(
+  const [agent] = useState(
     () =>
-      new DirectChatTransport({
-        agent: new ToolLoopAgent({
-          model: mockModel((call) => ANSWERS[askOf(call)] ?? "I can only read the board.", {
-            delay: () => pace.current,
-          }),
+      new ToolLoopAgent({
+        model: mockModel((call) => ANSWERS[askOf(call)] ?? "I can only read the board.", {
+          delay: () => pace.current,
         }),
       }),
   );
-  const chat = useChat({ transport });
+  const chat = useAgentChat(agent);
 
   useAutoplay((mode) => {
     pace.current = mode === "play" ? 40 : 0;
@@ -53,7 +51,7 @@ export default function Example() {
       <Chat
         chat={chat}
         empty={<p className="text-muted-foreground text-sm">Ask the quartermaster about the board.</p>}
-        suggestions={QUESTIONS}
+        suggestions={QUESTIONS.map((text) => ({ text }))}
       />
     </div>
   );

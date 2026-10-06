@@ -61,7 +61,14 @@ export default function Example() {
         <Dashboard
           exclude={drawn.exclude}
           key={drawn.key}
-          onChange={(spec) => setSpecs((all) => ({ ...all, [drawn.key]: spec }))}
+          onChange={(spec) =>
+            setSpecs((specs) => {
+              const next = { ...specs };
+              if (spec === undefined) delete next[drawn.key];
+              else next[drawn.key] = spec;
+              return next;
+            })
+          }
           publish={drawn.publish}
           rowNoun={relation.path.length ? "paths" : "nodes"}
           table={drawn.table}

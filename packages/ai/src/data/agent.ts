@@ -173,8 +173,8 @@ export function dataAgent(options: DataAgentOptions): ToolLoopAgent<never, DataT
   });
 }
 
-/** What makes a question worth offering over a data space. */
-const QUESTIONS = `You suggest questions a person exploring this data would ask first. Each must be answerable by one SQL query over the schema given, in plain words rather than column names where a plain word exists, and short enough to read at a glance. Cover different tables and different kinds of question — a count, a top N, a trend, a comparison, a relationship across a join. When a scope is given, the reader is looking at those rows: favour questions about them.`;
+/** What makes a question worth offering over a data space: one that crosses a join, first. `/docs/ai/data` says why. */
+const QUESTIONS = `You suggest questions a person exploring this data would ask first, to find what they could not see in any one table. Favour questions that cross a join the schema declares — a column written \`REFERENCES\` another table's — and connect what each side holds: which rows of one share something through the other, what one table says about the rows another lists. Ask a plain count or top N over a single table only when the schema declares no join. Each must be answerable by one SQL query over the schema given, in plain words rather than column names where a plain word exists, and short enough to read at a glance. The rationale names the tables the question connects. When a scope is given, the reader is looking at those rows: favour questions about them.`;
 
 export interface DataSuggestionsOptions {
   model: LanguageModel;

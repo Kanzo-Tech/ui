@@ -246,7 +246,7 @@ describe("kanzoAuth", () => {
     it("lets static files, the auth routes, the problem page, the api mount and public paths through unread", async () => {
       const mounted = kanzoAuth({
         ...config,
-        api: { mount: "/api/data", target: "https://reports.internal" },
+        apis: { "/api/data": { audience: "reports", target: "https://reports.internal" } },
       });
       for (const path of [
         "/fossil/fossil_wasm_bg.wasm",

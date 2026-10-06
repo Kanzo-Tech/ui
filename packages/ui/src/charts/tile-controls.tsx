@@ -2,8 +2,6 @@
 
 import { useMemo } from "react";
 import { createListCollection } from "@ark-ui/react/collection";
-import { PencilIcon } from "lucide-react";
-import { Button } from "../simples/button.js";
 import { Field, FieldLabel } from "../simples/field.js";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../simples/select.js";
 import { DASHBOARD_PICKABLE_AGGREGATES, measureLabel, type DashboardAggregate, type DashboardMeasure } from "./dashboard-spec.js";
@@ -66,12 +64,16 @@ export function MeasurePick({
   onChange: (measure: DashboardMeasure) => void;
 }) {
   const reads = (op: DashboardMeasure["op"]) => (op === "distinct" ? fields : fields.filter(isNumeric));
-  const ops = DASHBOARD_PICKABLE_AGGREGATES.map((op) => ({
+  const ops: { value: string; label: string; disabled: boolean }[] = DASHBOARD_PICKABLE_AGGREGATES.map((op) => ({
     value: op,
     label: op === "count" ? "Count" : measureLabel({ op, field: "" }).trim(),
     disabled: op !== "count" && reads(op).length === 0,
   }));
+  // A share is written in a spec, never picked here: it needs the value it measures. Offered as the
+  // tile's own, so the picker shows what the tile measures rather than nothing.
+  if (!ops.some((o) => o.value === measure.op)) ops.unshift({ value: measure.op, label: measureLabel(measure), disabled: false });
   const set = (op: DashboardAggregate) => {
+    if (op === measure.op) return;
     if (op === "count") return onChange({ op });
     const field = reads(op).find((f) => f.name === measure.field) ?? reads(op)[0];
     if (field) onChange({ op, field: field.name });
@@ -91,14 +93,3 @@ export function MeasurePick({
     </div>
   );
 }
-
-/** The pencil a tile opens the editor from. */
-export function EditTileButton({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <Button aria-label={label} className="opacity-64 hover:opacity-100" onClick={onClick} size="icon-sm" variant="ghost">
-      <PencilIcon />
-    </Button>
-  );
-}
-
-/** A `TableTile`: the rows under the selection in a titled card. */

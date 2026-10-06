@@ -65,7 +65,9 @@ vi.mock("@duckdb/duckdb-wasm", async (original) => ({
 
 vi.mock("@uwdata/mosaic-core", async (original) => ({
   ...(await original<typeof import("@uwdata/mosaic-core")>()),
-  wasmConnector: (options?: unknown) => booted(options),
+  DuckDBWASMConnector: function (options?: unknown) {
+    return booted(options);
+  },
 }));
 
 const { engine } = await import("./engine.js");
@@ -102,14 +104,26 @@ describe("engine", () => {
     expect([worker.protocol, module.protocol]).toEqual(["file:", "file:"]);
   });
 
-  // Without it a vended credential has nowhere to go: `CREATE SECRET (TYPE s3 …)` is httpfs's.
-  it("loads httpfs at boot, the build for the bundle it booted, from beside the package", async () => {
+  // Without httpfs a vended credential has nowhere to go: `CREATE SECRET (TYPE s3 …)` is httpfs's.
+  // Without json the AI statement gate has no parser: `json_serialize_sql` is json's. Without parquet
+  // there is no corpus, and no boot: `parquet_metadata_cache` is parquet's setting.
+  it("loads parquet, httpfs and json at boot, the builds for the bundle it booted, from beside the package", async () => {
     await engine();
-    const loads = sql.filter((s) => s.startsWith("LOAD "));
-    expect(loads).toHaveLength(1);
-    const url = new URL(loads[0]!.slice("LOAD '".length, -1));
-    expect(url.pathname).toMatch(/\/extensions\/wasm_eh\/httpfs\.duckdb_extension\.wasm$/);
-    expect(url.protocol).toBe("file:");
+    const loads = sql.filter((s) => s.startsWith("LOAD ")).map((s) => new URL(s.slice("LOAD '".length, -1)));
+    expect(loads.map((url) => url.pathname.replace(/^.*\/extensions\//, ""))).toEqual([
+      "wasm_eh/parquet.duckdb_extension.wasm",
+      "wasm_eh/httpfs.duckdb_extension.wasm",
+      "wasm_eh/json.duckdb_extension.wasm",
+    ]);
+    expect(loads.map((url) => url.protocol)).toEqual(["file:", "file:", "file:"]);
+  });
+
+  // An extension nobody loaded would otherwise be fetched from extensions.duckdb.org, past the CSP.
+  it("turns autoloading off before it loads anything", async () => {
+    await engine();
+    const off = sql.indexOf("SET autoload_known_extensions = false");
+    expect(off).toBeGreaterThanOrEqual(0);
+    expect(off).toBeLessThan(sql.findIndex((s) => s.startsWith("LOAD ")));
   });
 
   it("applies its settings once, at boot", async () => {

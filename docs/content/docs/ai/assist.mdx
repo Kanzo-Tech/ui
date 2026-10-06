@@ -107,8 +107,18 @@ props `SuggestionProps` — and neither knows a model exists, which is why they 
 can draw a strip of its own with them.
 
 **Candidates are structured output, never prose to parse.** They are asked for as a JSON schema —
-a value and a one-sentence rationale each, the rationale shown as the chip's tooltip — so there is no
-"reply with only the list, no fences" prompt and no fence-stripping after it.
+a value and a one-sentence rationale each, the rationale the chip's `description`: its tooltip and its
+accessible description — so there is no "reply with only the list, no fences" prompt and no
+fence-stripping after it.
+
+**It is the strip `Chat`'s questions are drawn in**, with a ✕ beside each chip — see [the
+strip](/docs/ai/chat#before-the-first-question). While the model writes, the strip is in skeleton
+beside the chips that have arrived; there is no spinner and no "Thinking…". When asking failed or
+found nothing, the strip says so in words, because here the reader pressed the ✨ and is owed an
+answer — where `Chat`, which asked on its own, keeps its row silent.
+
+*Held by* `packages/ai/src/proposal-strip.test.tsx`, "says its notice only when it offers nothing,
+and draws no ✨ beside it", "draws a named ✕ beside each pill only when it is given a dismiss".
 
 ### Items — `TagsInput`
 

@@ -31,7 +31,7 @@ describe("kanzoAuth().api", () => {
       clientSecret: "client-secret",
       secret: SECRET,
       fetch: realm.fetchImpl,
-      api: { mount: "/api/data", target: TARGET },
+      apis: { "/api/data": { audience: "reports", target: TARGET } },
     };
     const auth = kanzoAuth(config);
     routes = auth.routes;
@@ -90,7 +90,9 @@ describe("kanzoAuth().api", () => {
     const tenanted = kanzoAuth({
       ...config,
       organization: (request) => request.url.hostname.split(".")[0],
-      api: { mount: "/api/data", target: (organization) => `https://${organization}.reports.internal/v1` },
+      apis: {
+        "/api/data": { audience: "reports", target: (organization) => `https://${organization}.reports.internal/v1` },
+      },
     });
 
     await tenanted.api.GET(new Request("https://acme.app.test/api/data/reports/7", { headers: { cookie } }));
@@ -103,7 +105,9 @@ describe("kanzoAuth().api", () => {
     const tenanted = kanzoAuth({
       ...config,
       organization: () => undefined,
-      api: { mount: "/api/data", target: (organization) => organization && `https://${organization}.reports.internal` },
+      apis: {
+        "/api/data": { audience: "reports", target: (organization) => organization && `https://${organization}.reports.internal` },
+      },
     });
 
     const response = await tenanted.api.GET(new Request("https://app.test/api/data/reports/7", { headers: { cookie } }));
@@ -112,13 +116,64 @@ describe("kanzoAuth().api", () => {
     expect(upstream).not.toHaveBeenCalled();
   });
 
-  it("attaches the access token as a bearer", async () => {
-    realm.state.accessToken = "the-bearer-token";
+  it("attaches a token exchanged for the mount's audience as a bearer, never the session's own", async () => {
+    realm.state.accessToken = "session";
     const cookie = await signIn();
 
     await proxy.GET(new Request(`${ORIGIN}/api/data/reports`, { headers: { cookie } }));
 
-    expect(sent().headers.get("authorization")).toBe("Bearer the-bearer-token");
+    expect(sent().headers.get("authorization")).toBe("Bearer session>reports");
+  });
+
+  it("exchanges for the organization the request addresses, and that one alone", async () => {
+    const cookie = await signIn();
+    const tenanted = kanzoAuth({ ...config, organization: (request) => request.url.hostname.split(".")[0] });
+
+    await tenanted.api.GET(new Request("https://acme.app.test/api/data/reports", { headers: { cookie } }));
+
+    expect(sent().headers.get("authorization")).toBe("Bearer at-1>reports@acme");
+  });
+
+  it("answers 403, and reaches nothing, for an organization the person is not a member of", async () => {
+    realm.state.memberships = ["globex"];
+    const cookie = await signIn();
+    const tenanted = kanzoAuth({ ...config, organization: (request) => request.url.hostname.split(".")[0] });
+
+    const response = await tenanted.api.GET(new Request("https://acme.app.test/api/data/reports", { headers: { cookie } }));
+
+    expect(response.status).toBe(403);
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it("answers 502, not 401, when the realm will not exchange the token for the audience", async () => {
+    const cookie = await signIn();
+    realm.state.refusingExchange = true;
+
+    const response = await proxy.GET(new Request(`${ORIGIN}/api/data/reports`, { headers: { cookie } }));
+
+    expect(response.status).toBe(502);
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it("forwards each mount to its own target with its own audience, the longest mount first", async () => {
+    const cookie = await signIn();
+    const both = kanzoAuth({
+      ...config,
+      apis: {
+        "/api": { audience: "reports", target: TARGET },
+        "/api/ai": { audience: "ai-gateway", target: "https://gateway.internal/v1" },
+      },
+    });
+
+    await both.api.POST(new Request(`${ORIGIN}/api/ai/chat/completions`, { method: "POST", headers: { cookie } }));
+    await both.api.GET(new Request(`${ORIGIN}/api/aim/7`, { headers: { cookie } }));
+
+    const [ai, reports] = upstream.mock.calls.map(([url, init]) => ({
+      url: String(url),
+      authorization: new Headers((init as RequestInit).headers).get("authorization"),
+    }));
+    expect(ai).toEqual({ url: "https://gateway.internal/v1/chat/completions", authorization: "Bearer at-1>ai-gateway" });
+    expect(reports).toEqual({ url: "https://reports.internal/v1/aim/7", authorization: "Bearer at-1>reports" });
   });
 
   /**
@@ -170,7 +225,7 @@ describe("kanzoAuth().api", () => {
       }),
     );
 
-    expect(sent().headers.get("authorization")).toBe("Bearer at-1");
+    expect(sent().headers.get("authorization")).toBe("Bearer at-1>reports");
   });
 
   /**
@@ -270,7 +325,7 @@ describe("kanzoAuth().api", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(sent().headers.get("authorization")).toBe("Bearer renewed");
+    expect(sent().headers.get("authorization")).toBe("Bearer renewed>reports");
     const reissued = response.headers.getSetCookie();
     expect(reissued).toHaveLength(1);
     expect(reissued[0]?.startsWith("__Host-kanzo-session=")).toBe(true);
@@ -288,8 +343,8 @@ describe("kanzoAuth().api", () => {
     expect(upstream).not.toHaveBeenCalled();
   });
 
-  it("answers 404 when kanzoAuth was given no api", async () => {
-    const response = await kanzoAuth({ ...config, api: undefined }).api.GET(new Request(`${ORIGIN}/api/data/reports`));
+  it("answers 404 when kanzoAuth was given no apis", async () => {
+    const response = await kanzoAuth({ ...config, apis: undefined }).api.GET(new Request(`${ORIGIN}/api/data/reports`));
 
     expect(response.status).toBe(404);
   });
