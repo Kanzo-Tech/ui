@@ -36,8 +36,12 @@ import { useDebouncedCommit } from "@kanzo-tech/ui";
 import { Dashboard, type DashboardSpec } from "@kanzo-tech/ui/analytics";
 
 function SavedDashboard({ relation, saved }: { relation: string; saved: DashboardSpec | undefined }) {
-  const save = useMutation({ mutationFn: (spec: DashboardSpec) => api.putDashboard(relation, spec) });
-  const { draft, change } = useDebouncedCommit(saved, (spec) => spec && save.mutate(spec), 800);
+  // `undefined` is *Reset to automatic*: the stored spec is deleted, not overwritten.
+  const save = useMutation({
+    mutationFn: (spec: DashboardSpec | undefined) =>
+      spec === undefined ? api.deleteDashboard(relation) : api.putDashboard(relation, spec),
+  });
+  const { draft, change } = useDebouncedCommit(saved, (spec) => save.mutate(spec), 800);
 
   return <Dashboard table={relation} value={draft} onChange={change} />;
 }
@@ -118,7 +122,10 @@ const publish = useMemo(() => semiJoinOf(identities[0].column, table, { label: k
   exclude={identities.map((i) => i.column)}
   rowNoun={relation.path.length ? "paths" : relation.root}
   value={saved.byRelation[key]}
-  onChange={(spec) => change({ byRelation: { ...saved.byRelation, [key]: spec } })}
+  onChange={(spec) => {
+    const { [key]: _, ...rest } = saved.byRelation; // `undefined` is a reset: forget the relation
+    change({ byRelation: spec === undefined ? rest : { ...rest, [key]: spec } });
+  }}
 />
 ```
 

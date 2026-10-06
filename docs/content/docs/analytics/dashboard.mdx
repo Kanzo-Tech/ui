@@ -34,7 +34,10 @@ function Sightings({ coordinator, saved, save }: Props) {
 - **`value` is `undefined`** until somebody edits: the automatic dashboard is drawn, and a host
   persists nothing for a relation nobody has touched.
 - **`onChange` makes it editable.** It is called with the *whole* next spec — the automatic parts
-  included, the first time — so the host stores what it is handed and never merges.
+  included, the first time — so the host stores what it is handed and never merges. *Reset to
+  automatic* calls it with `undefined`: the host deletes what it stored, and the dashboard follows
+  the stats again — `undefined` meaning automatic in both directions, as Metabase's X-ray stays
+  unsaved until it is saved.
 - **Without `onChange` it is read-only**: no pencils, no *Add tile*, no remove buttons. Filters,
   picks and brushes still work; reading is not editing.
 

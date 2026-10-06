@@ -132,7 +132,8 @@ relation's `useFieldStats` before saving one, or let a reader open it and save o
 
 The first `onChange` hands the host the automatic tiles as a real spec, so from that edit on the
 dashboard is what was saved, not what the stats would choose today. *Reset to automatic*, in the
-dashboard's options menu, replaces it with `autoDashboard` again.
+dashboard's options menu, calls `onChange(undefined)`: the host deletes what it stored for the
+relation, and the dashboard draws `autoDashboard` again — and follows the stats from then on.
 
 ## Persisting it
 

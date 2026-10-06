@@ -27,8 +27,12 @@ export interface DashboardProps extends Omit<React.ComponentProps<typeof ark.div
    * which is what a host persists nothing for until somebody edits it.
    */
   value?: DashboardSpec;
-  /** Makes everything editable; called with the whole next spec, the automatic one included. */
-  onChange?: (spec: DashboardSpec) => void;
+  /**
+   * Makes everything editable. Called with the whole next spec — the automatic one included, on the
+   * first edit — or with `undefined` when the dashboard goes back to automatic: the host deletes
+   * what it stored for this relation, and the dashboard follows the stats again.
+   */
+  onChange?: (spec: DashboardSpec | undefined) => void;
   /** Columns that are the host's bookkeeping rather than data. */
   exclude?: readonly string[];
   /** Series vocabulary per field, for a field drawn as `color`. See `ChartCard`. */
@@ -137,7 +141,7 @@ function Board({
   table: TableExpr;
   fields: FieldStat[];
   value?: DashboardSpec;
-  onChange?: (spec: DashboardSpec) => void;
+  onChange?: (spec: DashboardSpec | undefined) => void;
   config?: Readonly<Record<string, ChartConfig>>;
   rowNoun?: string;
 }) {
@@ -183,7 +187,7 @@ function Board({
                 </Button>
               </MenuTrigger>
               <MenuContent>
-                <MenuItem disabled={value === undefined} onSelect={() => edit(auto)} value="reset">
+                <MenuItem disabled={value === undefined} onSelect={() => onChange?.(undefined)} value="reset">
                   Reset to automatic
                 </MenuItem>
               </MenuContent>
