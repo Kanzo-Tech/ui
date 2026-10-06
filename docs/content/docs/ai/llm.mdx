@@ -11,7 +11,7 @@ pnpm add @kanzo-tech/llm ai
 ```
 
 ```ts
-import { createGateway, ToolLoopAgent, tool, jsonSchema } from "@kanzo-tech/llm";
+import { createGateway, stream, ToolLoopAgent, tool, jsonSchema } from "@kanzo-tech/llm";
 
 const gateway = createGateway({ baseURL: "/api/ai" });
 const model = gateway("chat");
@@ -34,7 +34,7 @@ what is ours is the door it does not have.
 | `ToolLoopAgent`, `stepCountIs` | An agent: a model, its tools, and when to stop calling them |
 | `tool`, `jsonSchema` | A tool the model may call, and its input's schema |
 | `DirectChatTransport` | Run an agent in the page, behind `useChat` |
-| `streamText`, `Output` | One request, streamed; `Output.object` / `Output.array` for structured output |
+| `Output` | Structured output for [`stream`](#stream): `Output.object` / `Output.array` |
 | `getToolName`, `isToolUIPart` | Reading a message's tool parts |
 | `UIMessage`, `InferAgentUIMessage` | A message as `useChat` holds it, and its type for a given agent |
 | `ToolUIPart`, `DynamicToolUIPart`, `ReasoningUIPart` | Its parts |
@@ -57,8 +57,8 @@ interface GatewaySettings {
 type Gateway = (alias: string) => LanguageModel;
 
 class AiError extends Error {
-  code: "ai/silent";
-  data: { after?: number }; // milliseconds
+  code: "ai/silent" | "ai/rate-limited";
+  data: { after?: number; retryAfter?: number }; // the silence in ms; when to retry, in seconds
 }
 ```
 
@@ -81,15 +81,64 @@ Four things a host would otherwise repeat are done once, here:
   ends. [`Assist`](/docs/ai/assist)'s candidates depend on it.
 - **A stream that goes silent ends.** A streaming request's headers are due within 30 s, and each
   chunk of its body within 30 s of the last. Past that the request is aborted and the caller —
-  `streamText`'s `onError`, `Chat`, `Assist`'s `onFailure` — gets an `AiError` whose `code` is
+  [`stream`](#stream)'s readings, `Chat`, `Assist`'s `onFailure` — gets an `AiError` whose `code` is
   `"ai/silent"` and whose `data.after` is `30000`. A request that does not stream is not cut: its
   headers wait on the whole answer. Your own `abortSignal` still aborts as an abort. This is the
   only bound on a model's silence in the library; the reason is on
   [the failure page](/docs/design/failure).
+- **A caller over its limit is told so.** A gateway that limits per tenant or per key answers 429,
+  and the caller gets an `AiError` whose `code` is `"ai/rate-limited"`, with `data.retryAfter` in
+  seconds when the gateway said when (`retry-after`, else `x-ratelimit-reset`). It is not retried:
+  the limit is the answer, and asking again is how a caller stays over it.
 
 The gateway speaks the OpenAI chat-completions protocol, through `@ai-sdk/openai-compatible` — a
 dependency nobody outside this package names, the standing `@duckdb/duckdb-wasm` has behind
 `engine()`.
+
+## `stream`
+
+```ts
+stream(options: StreamOptions): Stream
+
+interface StreamOptions {
+  model: LanguageModel;          // gateway("complete")
+  system?: string;
+  prompt: string;
+  output?: Output;               // Output.array(…) or Output.object(…); plain text when omitted
+  abortSignal?: AbortSignal;
+}
+
+interface Stream {
+  text: AsyncIterable<string>;     // the answer as it is written
+  elements: AsyncIterable<E>;      // each element of an Output.array, once it is whole
+  partial: AsyncIterable<P>;       // an Output.object as it grows
+}
+```
+
+**The one door to a model's answer outside a conversation** — a field's continuation, a strip of
+suggestions, anything that asks once and reads what comes back. Read one of the three, once: they
+are views of the same request.
+
+```ts
+for await (const { text } of stream({ model, prompt, output: Output.array({ element }) }).elements) {
+  offered.push(text);
+}
+```
+
+- **A failure throws, once the stream ends.** The SDK reports a failed stream to `onError` and then
+  ends it as if it had finished, so a refused call reads as a model with nothing to say. Each
+  reading rethrows what was reported, whole: a silence as `ai/silent`, a limit as
+  `ai/rate-limited`, a refusal as the provider's error.
+- **Never retried.** The gateway retries its upstreams, and a silent gateway asked three times is
+  three deadlines where the person waits for one.
+
+`streamText` is not re-exported, and that is the rule rather than an omission: the raw call is the
+one that passes a refusal off as a short answer, and two ways to one request are one too many. A
+conversation is the other door — `ToolLoopAgent` behind `useChat` — and it reports a failure itself.
+
+*What would reverse it:* a caller that needs something of `streamText` that `stream` cannot pass —
+tools in a single request, or a reading other than these three. Then the option goes on
+`StreamOptions`; the raw call still does not come back.
 
 ## Why the key is never in the page
 

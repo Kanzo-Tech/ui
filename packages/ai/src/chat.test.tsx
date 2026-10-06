@@ -33,7 +33,7 @@ function Harness(props: { draw?: boolean }) {
     <Chat
       chat={chat}
       empty={<p>Ask about your graph.</p>}
-      suggestions={["How many nodes are there?"]}
+      suggestions={[{ text: "How many nodes are there?", rationale: "nodes" }]}
       tools={props.draw ? { query: (part) => <p>Rows: {JSON.stringify(part.output)}</p> } : undefined}
     />
   );
@@ -70,7 +70,7 @@ describe("Chat", () => {
 
   it("holds room for suggestions still arriving, beside the ones that have", () => {
     const chat = { messages: [], status: "ready", error: undefined, sendMessage: async () => {}, stop: async () => {}, regenerate: async () => {} };
-    const { rerender } = render(<Chat chat={chat as never} suggesting suggestions={["First?"]} />);
+    const { rerender } = render(<Chat chat={chat as never} suggesting suggestions={[{ text: "First?", rationale: "first" }]} />);
     expect(screen.getByRole("button", { name: "First?" })).not.toBeNull();
     expect(document.querySelectorAll("[data-slot=suggestions] [data-slot=skeleton]").length).toBe(2);
     // Suggesting failed: no pills, and the composer is still there to ask with.

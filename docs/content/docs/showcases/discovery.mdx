@@ -41,7 +41,7 @@ input:
 ```tsx
 <Chat
   chat={useChat({ transport: new DirectChatTransport({ agent }) })}
-  suggestions={RECIPES.map((recipe) => recipe.question)}
+  suggestions={RECIPES.map((recipe) => ({ text: recipe.question }))}
   tools={{ query: (part) => <ResultTable {...(part.output as ResultSet)} /> }}
 />
 ```

@@ -5,6 +5,7 @@ import * as React from "react";
 import { getToolName, isToolUIPart, type UIMessage } from "@kanzo-tech/llm";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { cn, Skeleton, Suggestion, Suggestions } from "@kanzo-tech/ui";
+import type { Proposal } from "./engine.js";
 import { Conversation, ConversationContent, ConversationScrollButton } from "./conversation.js";
 import { MessageMarkdown } from "./markdown.js";
 import { Message, MessageContent, MessageList } from "./message.js";
@@ -51,8 +52,8 @@ export interface ChatProps<M extends UIMessage> {
   tools?: ChatToolRenderers;
   /** What the panel says before the first question. */
   empty?: React.ReactNode;
-  /** Questions to start from, while the conversation is empty. Pressing one asks it. */
-  suggestions?: readonly string[];
+  /** Questions to start from, while the conversation is empty — `suggest()`'s offers. Pressing one asks it. */
+  suggestions?: readonly Proposal[];
   /**
    * More questions are on their way — `suggest()` is still streaming them. Drawn as pills in
    * skeleton beside the ones that arrived; a host whose suggesting failed passes `false` and no
@@ -94,8 +95,8 @@ export function Chat<M extends UIMessage>(props: ChatProps<M>) {
               {(suggestions.length > 0 || suggesting) && (
                 <Suggestions aria-busy={suggesting || undefined} className="w-full justify-center">
                   {suggestions.map((s) => (
-                    <Suggestion key={s} onSelect={ask} value={s}>
-                      {s}
+                    <Suggestion key={s.text} onSelect={ask} value={s.text}>
+                      {s.text}
                     </Suggestion>
                   ))}
                   {suggesting && <PillSkeletons count={Math.max(1, PILLS - suggestions.length)} />}

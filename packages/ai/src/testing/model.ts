@@ -73,4 +73,4 @@ export function mockModel(reply: (call: Call, index: number) => Reply) {
 }
 
 /** A structured-output reply: the AI SDK's `Output.array` reads `{ elements: [...] }`. */
-export const elements = (values: { value: string; rationale: string }[]) => JSON.stringify({ elements: values });
+export const elements = (values: { text: string; rationale: string }[]) => JSON.stringify({ elements: values });
