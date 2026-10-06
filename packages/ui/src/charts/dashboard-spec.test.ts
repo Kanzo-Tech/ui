@@ -2,16 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   autoDashboard,
   bucketExpr,
-  changeKind,
   channelFields,
   filterControl,
   measureExpr,
-  newTile,
   normalizeCard,
   parseDashboard,
   parseDashboards,
   plotRelation,
-  tileTitle,
   type ChartTile,
 } from "./dashboard-spec.js";
 import { Query, count, verbatim } from "@uwdata/mosaic-sql";
@@ -88,14 +85,6 @@ describe("measureExpr", () => {
       `(100 * (count(*) FILTER (WHERE ("verdict" = 'hoax')) / count(*)))`,
     );
   });
-
-  it("titles a tile from what it reads unless it was given one", () => {
-    expect(tileTitle(card({ y: { op: "sum", field: "bounty" }, color: "beast" }))).toBe("Total bounty by region and beast");
-    expect(tileTitle(card({ type: "dot", x: "bounty", y: { op: "value", field: "leagues" } }))).toBe("bounty × leagues");
-    expect(tileTitle(card({ title: "Mine" }))).toBe("Mine");
-    expect(tileTitle({ id: "s", kind: "stat", span: 1, measure: { op: "avg", field: "bounty" } })).toBe("Mean bounty");
-    expect(tileTitle({ id: "t", kind: "table", span: 3, columns: [] })).toBe("Rows");
-  });
 });
 
 describe("bucketExpr", () => {
@@ -129,24 +118,6 @@ describe("autoDashboard", () => {
     for (const t of spec.tiles) used = (used + t.span) % 3;
     expect(used).toBe(0);
     expect(JSON.parse(JSON.stringify(spec))).toEqual(spec);
-  });
-});
-
-describe("newTile and changeKind", () => {
-  it("adds the chart of a field the dashboard does not chart yet, and the mean of a measure it does not show", () => {
-    const tiles = autoDashboard(FIELDS).tiles;
-    expect(newTile("chart", FIELDS, [card({ x: "seen" })])).toMatchObject({ kind: "chart", x: "region" });
-    expect(newTile("stat", FIELDS, tiles)).toMatchObject({ kind: "stat", measure: { op: "count" } });
-    expect(newTile("stat", FIELDS, [])).toMatchObject({ kind: "stat", measure: { op: "avg", field: "bounty" } });
-    expect(newTile("chart", [F("email", "categorical", "identifier", 900)], [])).toBeNull();
-  });
-
-  it("carries a chart's aggregate into a figure and back, keeping the id and the width", () => {
-    const chart = card({ id: "k", span: 2, y: { op: "sum", field: "bounty" }, title: "Mine" });
-    const stat = changeKind(chart, "stat", FIELDS, []);
-    expect(stat).toEqual({ id: "k", kind: "stat", span: 2, measure: { op: "sum", field: "bounty" } });
-    expect(changeKind(stat!, "chart", FIELDS, [])).toMatchObject({ id: "k", kind: "chart", span: 2, y: { op: "sum", field: "bounty" } });
-    expect(changeKind(chart, "table", FIELDS, [])).toMatchObject({ id: "k", kind: "table", span: 2 });
   });
 });
 

@@ -9,10 +9,12 @@ import { Input } from "../simples/input.js";
 import { RadioGroup, RadioGroupCard, RadioGroupLabel } from "../simples/radio-group.js";
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader } from "../simples/sheet.js";
 import type { ChartConfig } from "./chart-config.js";
-import { changeKind, tileTitle, type Tile, type TileKind, type TileSpan } from "./dashboard-spec.js";
+import type { Tile, TileKind, TileSpan } from "./dashboard-spec.js";
 import type { FieldStat } from "./field-stats.js";
 import { Pick } from "./tile-controls.js";
-import { TILE_KINDS, TileFields, TileView } from "./tile-kinds.js";
+import { TILE_EDITORS, TileFields } from "./tile-fields.js";
+import { changeKind, tileTitle } from "./tile-kinds.js";
+import { TileView } from "./tile-views.js";
 
 const WIDTHS = [
   { value: "1", label: "A third" },
@@ -70,8 +72,8 @@ function Draft({ table, fields, tile, tiles = [], config, onSave, onRemove, onCl
           value={draft.kind}
         >
           <RadioGroupLabel className="col-span-full text-xs">Kind</RadioGroupLabel>
-          {(Object.keys(TILE_KINDS) as TileKind[]).map((kind) => {
-            const { label, icon: Icon, hint } = TILE_KINDS[kind];
+          {(Object.keys(TILE_EDITORS) as TileKind[]).map((kind) => {
+            const { label, icon: Icon, hint } = TILE_EDITORS[kind];
             return (
               <RadioGroupCard
                 className="flex-col"

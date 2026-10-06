@@ -2,8 +2,6 @@
 
 import { useMemo } from "react";
 import { createListCollection } from "@ark-ui/react/collection";
-import { PencilIcon } from "lucide-react";
-import { Button } from "../simples/button.js";
 import { Field, FieldLabel } from "../simples/field.js";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../simples/select.js";
 import { DASHBOARD_PICKABLE_AGGREGATES, measureLabel, type DashboardAggregate, type DashboardMeasure } from "./dashboard-spec.js";
@@ -91,14 +89,3 @@ export function MeasurePick({
     </div>
   );
 }
-
-/** The pencil a tile opens the editor from. */
-export function EditTileButton({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <Button aria-label={label} className="opacity-64 hover:opacity-100" onClick={onClick} size="icon-sm" variant="ghost">
-      <PencilIcon />
-    </Button>
-  );
-}
-
-/** A `TableTile`: the rows under the selection in a titled card. */

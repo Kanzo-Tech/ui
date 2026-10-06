@@ -23,10 +23,11 @@ import { ChartLegend } from "./chart-legend.js";
 import { ChartAreaY, ChartBarX, ChartDot, ChartLineY, ChartRectY, ChartRegressionY } from "./chart-marks.js";
 import { ChartRoot } from "./chart-root.js";
 import { chartTableKey } from "./chart-spec.js";
-import { EditTileButton } from "./tile-controls.js";
-import { measureExpr, tileTitle, type ChartTile, type DashboardChartType } from "./dashboard-spec.js";
+import { EditTileButton } from "./edit-tile-button.js";
+import { measureExpr, type ChartTile, type DashboardChartType } from "./dashboard-spec.js";
 import type { FieldStat } from "./field-stats.js";
 import { rationale as rationaleOf } from "./recommend.js";
+import { tileTitle } from "./tile-kinds.js";
 import { useChartQuery } from "./use-chart-query.js";
 
 export interface ChartCardProps extends Omit<React.ComponentProps<typeof Card>, "onChange"> {

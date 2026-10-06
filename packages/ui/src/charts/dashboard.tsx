@@ -1,7 +1,7 @@
 "use client";
 
 import { Selection, bridgeSelection, type ClauseMap, type TableExpr } from "@kanzo-tech/mosaic";
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
 import { EllipsisIcon, PlusIcon } from "lucide-react";
@@ -14,9 +14,9 @@ import type { ChartConfig } from "./chart-config.js";
 import { MosaicProvider, useMosaic } from "./mosaic-provider.js";
 import { DashboardFilters } from "./dashboard-filters.js";
 import { chartTableKey } from "./chart-spec.js";
-import { TileView } from "./tile-kinds.js";
-import { TileEditor } from "./tile-editor.js";
-import { autoDashboard, edited, newTile, plotRelation, type DashboardSpec, type Tile, type TileSpan } from "./dashboard-spec.js";
+import { newTile } from "./tile-kinds.js";
+import { TileView } from "./tile-views.js";
+import { autoDashboard, edited, plotRelation, type DashboardSpec, type Tile, type TileSpan } from "./dashboard-spec.js";
 import { useFieldStats, type FieldStat } from "./field-stats.js";
 
 export interface DashboardProps extends Omit<React.ComponentProps<typeof ark.div>, "onChange" | "defaultValue"> {
@@ -110,6 +110,13 @@ function Bridge({ to, map }: { to: Selection; map: ClauseMap }) {
   return null;
 }
 
+/**
+ * The editor, loaded the first time somebody edits. A read-only dashboard never fetches its code —
+ * the kind picker, the field pickers, `Select`, `Listbox` and `RadioGroup` — and a
+ * `dashboard-layering.test.ts` holds that against this module's static imports.
+ */
+const TileEditor = lazy(() => import("./tile-editor.js").then((m) => ({ default: m.TileEditor })));
+
 // Container queries on `Dashboard`'s own width, not the viewport's: beside a dock or in a pane the
 // grid is narrower than the screen, and the screen is the wrong thing to measure.
 const SPAN: Record<TileSpan, string> = {
@@ -147,7 +154,9 @@ function Board({
     setEditing(null);
   };
   const add = () => {
-    const tile = newTile("chart", fields, spec.tiles) ?? newTile("stat", fields, spec.tiles);
+    // The one place an id is minted: everything below it is pure.
+    const id = globalThis.crypto.randomUUID();
+    const tile = newTile("chart", fields, spec.tiles, id) ?? newTile("stat", fields, spec.tiles, id);
     if (tile) setEditing(tile);
   };
   const open = edit && ((tile: Tile) => () => setEditing(tile));
@@ -199,20 +208,22 @@ function Board({
         </div>
       ) : null}
 
-      {edit ? (
-        <TileEditor
-          config={config}
-          fields={fields}
-          onClose={() => setEditing(null)}
-          onRemove={() => {
-            edit({ tiles: spec.tiles.filter((t) => t.id !== editing?.id) });
-            setEditing(null);
-          }}
-          onSave={save}
-          table={table}
-          tile={editing}
-          tiles={spec.tiles}
-        />
+      {edit && editing ? (
+        <Suspense fallback={null}>
+          <TileEditor
+            config={config}
+            fields={fields}
+            onClose={() => setEditing(null)}
+            onRemove={() => {
+              edit({ tiles: spec.tiles.filter((t) => t.id !== editing.id) });
+              setEditing(null);
+            }}
+            onSave={save}
+            table={table}
+            tile={editing}
+            tiles={spec.tiles}
+          />
+        </Suspense>
       ) : null}
     </>
   );

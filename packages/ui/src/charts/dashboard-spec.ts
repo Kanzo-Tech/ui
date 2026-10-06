@@ -250,15 +250,6 @@ export function measureLabel(measure: DashboardMeasure): string {
   return `${OP_LABEL[measure.op]} ${measure.field}`;
 }
 
-/** The title a tile is drawn under: its own, or one derived from what it reads. */
-export function tileTitle(tile: Tile): string {
-  if (tile.title) return tile.title;
-  if (tile.kind === "stat") return measureLabel(tile.measure);
-  if (tile.kind === "table") return "Rows";
-  if (tile.type === "dot" || tile.type === "regression") return `${tile.x} × ${tile.y.field}`;
-  return `${measureLabel(tile.y)} by ${tile.x}${tile.color ? ` and ${tile.color}` : ""}`;
-}
-
 /** A field a trend can run along: a time, or a number with an extent to bin. */
 export function trendFields(fields: readonly FieldStat[]): FieldStat[] {
   return fields.filter((f) => f.kind === "temporal" || (isMeasure(f) && f.min !== undefined));
@@ -292,7 +283,7 @@ export function filterControl(field: FieldStat): DashboardFilterControl | null {
 }
 
 const isDimension = (f: FieldStat) => f.kind === "categorical" && f.role === "dimension";
-const isMeasure = (f: FieldStat) => f.kind === "numeric" && f.role === "measure";
+export const isMeasure = (f: FieldStat) => f.kind === "numeric" && f.role === "measure";
 const isOrdered = (f: FieldStat) => f.kind === "temporal" || isMeasure(f);
 
 /** Series beyond eight are a table, not more hues; facets beyond six stop being comparable. */
@@ -395,7 +386,8 @@ export function cardFor(field: FieldStat): ChartTile | null {
 export function edited(before: Tile | undefined, after: Tile): Tile {
   if (after.kind !== "chart" || !after.origin) return after;
   if (before?.kind === "chart" && reads(before) === reads(after)) return after;
-  const { origin: _, ...mine } = after;
+  const mine = { ...after };
+  delete mine.origin;
   return mine;
 }
 
@@ -424,7 +416,7 @@ const CARD_LIMIT = 6;
 const STAT_LIMIT = 3;
 
 /** The table a relation gets by default: its first eight fields, categories first. */
-function detailColumns(fields: readonly FieldStat[]): string[] {
+export function detailColumns(fields: readonly FieldStat[]): string[] {
   const dimensions = fields.filter((f) => isDimension(f) && f.distinct >= 2);
   const temporal = fields.filter((f) => f.kind === "temporal");
   const searchable = fields.filter((f) => f.kind === "categorical" && f.role === "identifier");
@@ -467,41 +459,4 @@ export function autoDashboard(fields: readonly FieldStat[]): DashboardSpec {
   const columns = detailColumns(fields);
   const table: TableTile[] = columns.length ? [{ id: "rows", kind: "table", span: 3, columns }] : [];
   return { filters, tiles: [...pack(stats), ...pack(cards), ...table] };
-}
-
-/**
- * A new tile of `kind`, chosen from the fields the way the automatic dashboard would choose it,
- * preferring what the dashboard does not show yet — what *Add tile* opens the editor on. `null` for
- * a chart when no field draws one on its own.
- */
-export function newTile(kind: TileKind, fields: readonly FieldStat[], tiles: readonly Tile[]): Tile | null {
-  const id = globalThis.crypto.randomUUID();
-  if (kind === "table") return { id, kind, span: 3, columns: detailColumns(fields) };
-  if (kind === "stat") {
-    const measure = fields.find((f) => isMeasure(f) && !tiles.some((t) => t.kind === "stat" && t.measure.field === f.name));
-    return { id, kind, span: 1, measure: measure ? { op: "avg", field: measure.name } : { op: "count" } };
-  }
-  const used = new Set(tiles.flatMap((t) => (t.kind === "chart" ? [t.x] : [])));
-  const card = [...fields]
-    .sort((a, b) => Number(used.has(a.name)) - Number(used.has(b.name)))
-    .map((f) => cardFor(f))
-    .find((c) => c !== null);
-  return card ? { ...card, id } : null;
-}
-
-/**
- * The tile as another kind, keeping what carries over: a chart's aggregate becomes the figure and a
- * figure's field the chart's measure, and the id and width stay. A title goes, since it described
- * the tile it was written for. `null` when the relation cannot draw that kind.
- */
-export function changeKind(tile: Tile, kind: TileKind, fields: readonly FieldStat[], tiles: readonly Tile[]): Tile | null {
-  if (tile.kind === kind) return tile;
-  const made = newTile(kind, fields, tiles);
-  if (!made) return null;
-  const next = { ...made, id: tile.id, span: tile.span };
-  if (next.kind === "stat" && tile.kind === "chart" && tile.y.op !== "value") return { ...next, measure: tile.y };
-  if (next.kind === "chart" && tile.kind === "stat" && tile.measure.op !== "share") {
-    return normalizeCard({ ...next, y: tile.measure }, fields) ?? next;
-  }
-  return next;
 }
