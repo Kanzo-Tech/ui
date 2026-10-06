@@ -87,7 +87,7 @@ export function DetailTable(props: DetailTableProps) {
                     variant="ghost"
                   >
                     {column}
-                    <Icon className={cn("size-3.5", sort?.column !== column && "opacity-48")} />
+                    <Icon className={cn("size-3.5", sort?.column !== column && "text-muted-foreground")} />
                   </Button>
                 </TableHead>
               );

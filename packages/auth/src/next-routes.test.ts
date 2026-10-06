@@ -94,6 +94,36 @@ describe("authRoutes", () => {
       expect(away.searchParams.get("redirect_uri")).toBe(`${ORIGIN}/api/auth/callback`);
     });
 
+    /**
+     * Next builds `request.url` from the address it listens on: under `next dev` a request for
+     * `acme.localhost:3000` arrives as `http://localhost:3000/…`, and only `Host` says which
+     * organization's origin the browser is on. A callback on the listening address is one the IdP
+     * has not registered.
+     */
+    it("derives it from the host the browser addressed, not the one the server listens on", async () => {
+      const response = await routes.GET(
+        new Request("http://localhost:3000/api/auth/signin", { headers: { host: "acme.localhost:3000" } }),
+      );
+      const away = new URL(response.headers.get("location") ?? "");
+
+      expect(away.searchParams.get("redirect_uri")).toBe("http://acme.localhost:3000/api/auth/callback");
+    });
+
+    it("derives it from the proxy's forwarded host and scheme when one terminates TLS", async () => {
+      const response = await routes.GET(
+        new Request("http://localhost:3000/api/auth/signin", {
+          headers: {
+            host: "keasy-web:3000",
+            "x-forwarded-host": "acme.example.test",
+            "x-forwarded-proto": "https",
+          },
+        }),
+      );
+      const away = new URL(response.headers.get("location") ?? "");
+
+      expect(away.searchParams.get("redirect_uri")).toBe("https://acme.example.test/api/auth/callback");
+    });
+
     it("passes an explicit redirectUri through instead", async () => {
       const fixed = authRoutes({ ...config, redirectUri: "https://proxied.test/api/auth/callback" });
       const response = await get(fixed, "/api/auth/signin");
@@ -257,6 +287,22 @@ describe("authRoutes", () => {
       );
 
       expect(await response.json()).toMatchObject({ organization: "app-eu-acme" });
+    });
+
+    it("reads the tenant off the host the browser addressed", async () => {
+      routes = authRoutes({ ...config, organization: ({ url }) => url.hostname.split(".")[0] });
+      const { cookie } = await signIn("/", {
+        sub: "u-1",
+        organization: { acme: { resource_access: { board: { roles: ["editor"] } } } },
+      });
+
+      const response = await routes.GET(
+        new Request("http://localhost:3000/api/auth/session", {
+          headers: { cookie, host: "acme.localhost:3000" },
+        }),
+      );
+
+      expect(await response.json()).toMatchObject({ organization: "acme" });
     });
 
     /**

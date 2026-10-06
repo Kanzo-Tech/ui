@@ -132,13 +132,22 @@ describe("a conversation with dataAgent", () => {
 
 describe("dataSuggestions", () => {
   it("asks for questions over the schema's DDL and the reader's scope, as many as were wanted", async () => {
-    const { model } = mockModel(() => JSON.stringify({ elements: [{ question: "How many contracts?", rationale: "kind" }] }));
+    const { model } = mockModel(() => JSON.stringify({ elements: [{ text: "How many contracts?", rationale: "kind" }] }));
     const got = [];
     for await (const q of dataSuggestions({ model, schema, scope: { selection: picked(), table: NODE }, count: 3 })) got.push(q);
-    expect(got).toEqual([{ question: "How many contracts?", rationale: "kind" }]);
+    expect(got).toEqual([{ text: "How many contracts?", rationale: "kind" }]);
     const prompt = promptOf(model.doStreamCalls[0]!);
     expect(prompt).toContain(schema.ddl);
     expect(prompt).toContain(`SELECT * FROM "archive"."node" WHERE ("kind" IN ('contract'))`);
     expect(prompt).toContain("Give 3.");
+  });
+
+  it("favours a question across a declared join, and a rationale naming the tables it connects", async () => {
+    const { model } = mockModel(() => JSON.stringify({ elements: [] }));
+    for await (const _ of dataSuggestions({ model, schema })) void _;
+    const system = (model.doStreamCalls[0]!.prompt as { role: string; content: unknown }[]).find((m) => m.role === "system");
+    expect(String(system?.content)).toContain("cross a join the schema declares");
+    expect(String(system?.content)).toContain("only when the schema declares no join");
+    expect(String(system?.content)).toContain("The rationale names the tables the question connects.");
   });
 });

@@ -26,6 +26,6 @@ export { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning.js";
 export type { ReasoningProps } from "./reasoning.js";
 
 export { suggest } from "./suggest.js";
-export type { SuggestOptions, SuggestedQuestion } from "./suggest.js";
+export type { SuggestOptions } from "./suggest.js";
 
 export { useChat } from "@ai-sdk/react";

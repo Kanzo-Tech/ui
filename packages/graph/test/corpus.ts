@@ -47,6 +47,8 @@ export interface Attached {
   readonly sent: string[];
   /** How many of them have been answered, or refused. */
   readonly answered: { readonly count: number };
+  /** How many queries the coordinator was asked, and how many of those have settled. */
+  readonly asked: { readonly count: number; readonly settled: number };
   /** Make the next statement matching `pattern` fail with `error`, as a storage refusal would. */
   refuse(pattern: RegExp, error: unknown): void;
 }
@@ -119,22 +121,36 @@ export async function attach(people = 10): Promise<Attached> {
     }
   }
   const coordinator = new Coordinator(connector as never, { logger: null });
-  return { coordinator, from, sent, answered, refuse: (pattern, error) => refusals.push({ pattern, error }) };
+  // Mosaic consolidates a query on the next animation frame before the connector sees it, so the
+  // connector alone cannot tell a quiet from a frame that has not run yet: count at the manager too.
+  const asked = { count: 0, settled: 0 };
+  const request = coordinator.manager.request.bind(coordinator.manager);
+  coordinator.manager.request = (entry, priority) => {
+    asked.count++;
+    const result = request(entry, priority);
+    const settled = () => void asked.settled++;
+    result.then(settled, settled);
+    return result;
+  };
+  return { coordinator, from, sent, answered, asked, refuse: (pattern, error) => refusals.push({ pattern, error }) };
 }
 
 /** What fossil's storage rejects with: an `Error` carrying a code. */
 export const refusal = () => Object.assign(new Error("the bucket did not answer"), { code: "storage/unreachable" });
 
 /**
- * Until every statement sent has been answered and nothing new was sent for a few turns — counted,
- * not timed, so a slow runner waits for the answer rather than for a quiet that came too early.
+ * Until every query asked of the coordinator has settled, every statement sent has been answered, and
+ * nothing new was asked for a few turns — counted, not timed, so a slow runner waits for the answer
+ * rather than for a quiet that came too early. Counting at the manager is what covers a query still
+ * waiting on its frame, which the connector has not seen yet.
  */
 export async function settle(attached: Attached): Promise<void> {
   let seen = -1;
   for (let quiet = 0, round = 0; quiet < 4 && round < 2000; round++) {
     await new Promise((next) => setTimeout(next, 5));
-    const done = attached.answered.count === attached.sent.length;
-    quiet = done && attached.sent.length === seen ? quiet + 1 : 0;
-    seen = attached.sent.length;
+    const { asked, answered, sent } = attached;
+    const done = asked.settled === asked.count && answered.count === sent.length;
+    quiet = done && asked.count === seen ? quiet + 1 : 0;
+    seen = asked.count;
   }
 }

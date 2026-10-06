@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { URL_HEADER, under, type Bound } from "./next-bound";
+import { addressedUrl, URL_HEADER, under, type Bound } from "./next-bound";
 import { outage } from "./next-routes";
 import type { Ended, Renewed } from "./server";
 import { AuthError } from "./types";
@@ -94,11 +94,13 @@ export async function gate(
 ): Promise<NextResponse> {
   const { pathname, search } = request.nextUrl;
 
+  const addressed = addressedUrl(request);
+
   const forwarded = new Headers(request.headers);
   for (const name of [...forwarded.keys()]) {
     if (name.startsWith("x-kanzo-")) forwarded.delete(name);
   }
-  forwarded.set(URL_HEADER, request.url);
+  forwarded.set(URL_HEADER, addressed.href);
   new Headers(extra).forEach((value, name) => forwarded.set(name, value));
   const through = () => NextResponse.next({ request: { headers: forwarded } });
 
@@ -119,7 +121,7 @@ export async function gate(
         headers: { "cache-control": "no-store" },
       });
     }
-    const problem = new URL(bound.problemPage, request.url);
+    const problem = new URL(bound.problemPage, addressed);
     problem.searchParams.set("code", error.code);
     return NextResponse.redirect(problem, 307);
   }
@@ -127,7 +129,7 @@ export async function gate(
   if (held.ended) {
     let answer: NextResponse;
     if (navigation) {
-      const signIn = new URL(`${bound.basePath}/signin`, request.url);
+      const signIn = new URL(`${bound.basePath}/signin`, addressed);
       // `routes` confines `returnTo` to this origin before sealing it; this relies on that check
       // rather than repeating it.
       signIn.searchParams.set("returnTo", `${pathname}${search}`);

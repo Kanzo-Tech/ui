@@ -39,14 +39,14 @@ function Ask({ catalog, schema, table }: { catalog: string; schema: DataSchema; 
   const starters = useQuery({
     queryKey: ["starters", catalog, String(crossfilter.predicate(null))],
     queryFn: streamedQuery({
-      streamFn: ({ signal }) => dataSuggestions({ model: gateway("chat"), schema, scope, abortSignal: signal }),
+      streamFn: ({ signal }) => dataSuggestions({ model: gateway("complete"), schema, scope, abortSignal: signal }),
     }),
   });
   return (
     <Chat
       chat={chat}
       suggesting={starters.fetchStatus === "fetching"}
-      suggestions={starters.isError ? [] : (starters.data ?? []).map((s) => s.question)}
+      suggestions={starters.isError ? [] : (starters.data ?? [])}
       tools={{ query: (part) => <QueryResult actions={(answer) => <FilterToThese answer={answer} />} part={part} /> }}
     />
   );
@@ -58,6 +58,25 @@ nothing jumps when the chat replaces it. The cache is the host's: `dataSuggestio
 iterable, so TanStack Query's `streamedQuery` (or an effect) holds it, keyed per data space and
 scope. While it streams the strip shows pills in skeleton; if it fails there are no pills, and the
 chat works the same — see [Before the first question](/docs/ai/chat#before-the-first-question).
+
+## The questions
+
+`dataSuggestions` offers what crosses a join first. A count or a top N over one table is what a BI
+tool's first screen already shows; what a reader cannot see in any one file is how two of them
+connect, and a catalog whose `REFERENCES` are declared says exactly where that is. So the
+instructions favour a question across a declared join, ask a single-table count or top N only when
+the schema declares none, and have each rationale name the tables the question connects — which is
+what the pill's tooltip then says.
+
+The model is the host's `complete` alias, not `chat`: a handful of short questions is a completion,
+and the reader is waiting on the strip, not on an answer.
+
+*What would reverse it:* readers picking the count and top-N pills over the cross-join ones,
+observed in a discovery view, or hosts whose schemas declare no joins at all — then the
+instructions are favouring what nobody has.
+
+*Held by* `packages/ai/src/data/agent.test.ts`, "favours a question across a declared join, and a
+rationale naming the tables it connects".
 
 ## The schema
 

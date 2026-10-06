@@ -17,6 +17,7 @@ import {
   type ExprValue,
 } from "@uwdata/mosaic-sql";
 import type { TableExpr } from "@kanzo-tech/mosaic";
+import * as v from "valibot";
 import type { FieldStat } from "./field-stats.js";
 import { recommend } from "./recommend.js";
 
@@ -27,80 +28,159 @@ import { recommend } from "./recommend.js";
  * each one a kind plus the fields it reads and a width, and a filter row scoping every tile — without
  * their query layer: every tile reads the one relation the `Dashboard` is given, under one
  * crossfilter. Nothing in it is a function or a component, so it survives `JSON.stringify` and a
- * database.
+ * database, and `parseDashboard` is the one way back in.
  */
 
-export type DashboardChartType = "bar" | "line" | "area" | "histogram" | "dot" | "regression";
+export const DASHBOARD_CHART_TYPES = ["bar", "line", "area", "histogram", "dot", "regression"] as const;
 
-export const DASHBOARD_CHART_TYPES: readonly DashboardChartType[] = [
-  "bar", "line", "area", "histogram", "dot", "regression",
-];
+export type DashboardChartType = (typeof DASHBOARD_CHART_TYPES)[number];
 
-export type DashboardAggregate = "count" | "distinct" | "sum" | "avg" | "min" | "max" | "median" | "share";
+const AGGREGATES = ["count", "distinct", "sum", "avg", "min", "max", "median", "share"] as const;
+
+export type DashboardAggregate = (typeof AGGREGATES)[number];
+
+// ── The spec, declared once ──────────────────────────────────────────────────
+//
+// Every type below is inferred from a schema, so what `parseDashboard` checks and what the compiler
+// checks cannot drift apart. The objects are strict: a key the spec does not have is refused rather
+// than dropped, so a document is current or it is not read at all.
 
 /**
  * A number per group. `field` is what the aggregate reads (none for `count`); `share` is the
  * percentage of rows whose `field` equals `equals`; `value` is the raw column, for the two charts
  * that plot rows rather than groups.
  */
-export interface DashboardMeasure {
-  op: DashboardAggregate | "value";
-  field?: string;
-  equals?: string | number | boolean;
-}
+const MeasureSchema = v.pipe(
+  v.strictObject({
+    op: v.picklist([...AGGREGATES, "value"]),
+    field: v.optional(v.string()),
+    equals: v.optional(v.union([v.string(), v.number(), v.boolean()])),
+  }),
+  v.check((m) => m.op === "count" || m.field !== undefined, "every measure but count names a field"),
+  v.check((m) => m.op !== "share" || m.equals !== undefined, "a share names the value it measures"),
+);
+
+export type DashboardMeasure = v.InferOutput<typeof MeasureSchema>;
 
 /** Columns of a three-column row. */
-export type TileSpan = 1 | 2 | 3;
+const SpanSchema = v.picklist([1, 2, 3]);
 
-interface TileBase {
+export type TileSpan = v.InferOutput<typeof SpanSchema>;
+
+const tileBase = {
   /** Stable identity, used as the React key. */
-  id: string;
-  span: TileSpan;
+  id: v.string(),
   /** Overrides the title derived from what the tile reads. */
-  title?: string;
-}
+  title: v.optional(v.string()),
+};
+
+/**
+ * A tile in the grid: a chart or a table, as wide as `span`. A figure has no width — the figures are
+ * a band of their own above the grid, sharing it equally, so one never stands as tall as a chart.
+ */
+const gridBase = { ...tileBase, span: SpanSchema };
 
 /** One figure: a measure under the crossfilter, optionally trending along an ordered field. */
-export interface StatTile extends TileBase {
-  kind: "stat";
-  measure: DashboardMeasure;
+const StatTileSchema = v.strictObject({
+  ...tileBase,
+  kind: v.literal("stat"),
+  measure: MeasureSchema,
   /** An ordered field: draws the measure across it as a sparkline, with the last step's change. */
-  trend?: string;
+  trend: v.optional(v.string()),
   /** Whether a rise is good news. Default true. */
-  goodWhenUp?: boolean;
-}
+  goodWhenUp: v.optional(v.boolean()),
+});
 
 /** One chart: a mark type and the fields its channels read. */
-export interface ChartTile extends TileBase {
-  kind: "chart";
-  type: DashboardChartType;
-  x: string;
-  y: DashboardMeasure;
+const ChartTileSchema = v.strictObject({
+  ...gridBase,
+  kind: v.literal("chart"),
+  type: v.picklist(DASHBOARD_CHART_TYPES),
+  x: v.string(),
+  y: MeasureSchema,
   /** A few-valued field drawn as series. */
-  color?: string;
+  color: v.optional(v.string()),
   /** A few-valued field drawn as small multiples sharing one pair of scales. */
-  facet?: string;
-}
+  facet: v.optional(v.string()),
+  /**
+   * The `recommend` rule that proposed it, while nobody has changed what it reads: what its
+   * *Automatic* badge and its rationale are read from. Set by `autoDashboard`, cleared by an edit.
+   */
+  origin: v.optional(v.strictObject({ rule: v.string() })),
+});
 
 /** The rows under the selection, as these columns. */
-export interface TableTile extends TileBase {
-  kind: "table";
-  columns: string[];
-}
+const TableTileSchema = v.strictObject({
+  ...gridBase,
+  kind: v.literal("table"),
+  columns: v.array(v.string()),
+});
 
-export type Tile = StatTile | ChartTile | TableTile;
+const TileSchema = v.variant("kind", [StatTileSchema, ChartTileSchema, TableTileSchema]);
+
+export type StatTile = v.InferOutput<typeof StatTileSchema>;
+export type ChartTile = v.InferOutput<typeof ChartTileSchema>;
+export type TableTile = v.InferOutput<typeof TableTileSchema>;
+export type Tile = v.InferOutput<typeof TileSchema>;
 
 export type TileKind = Tile["kind"];
 
-export interface DashboardFilterSpec {
-  field: string;
+/** A tile with a width: what the grid holds, under the band of figures. */
+export type GridTile = ChartTile | TableTile;
+
+const FilterSchema = v.strictObject({ field: v.string() });
+
+export type DashboardFilterSpec = v.InferOutput<typeof FilterSchema>;
+
+const DashboardSpecSchema = v.strictObject({
+  filters: v.array(FilterSchema),
+  /**
+   * In layout order. The figures are drawn as one band, in their order here; the charts and tables
+   * flow left to right through a three-column grid beneath it, in theirs.
+   */
+  tiles: v.array(TileSchema),
+});
+
+export type DashboardSpec = v.InferOutput<typeof DashboardSpecSchema>;
+
+const DashboardsSchema = v.strictObject({ byRelation: v.record(v.string(), DashboardSpecSchema) });
+
+/**
+ * Every dashboard a host keeps, keyed by the relation it is drawn over (`relationKey`): a type's is
+ * keyed by the type's name, a joined relation's by its path. One document, written whole.
+ */
+export type Dashboards = v.InferOutput<typeof DashboardsSchema>;
+
+// ── Reading what a host stored ───────────────────────────────────────────────
+
+/** The first issue in `result`, as one line: where it is, and what was expected there. */
+function refusal(what: string, issues: readonly v.BaseIssue<unknown>[]): Error {
+  const issue = issues[0]!;
+  const at = v.getDotPath(issue);
+  return new Error(`not a ${what}${at ? ` at ${at}` : ""}: ${issue.message}`);
 }
 
-export interface DashboardSpec {
-  version: 2;
-  filters: DashboardFilterSpec[];
-  /** In layout order: they flow left to right through a three-column grid. */
-  tiles: Tile[];
+/**
+ * What a host stored for one relation, checked. Throws on anything that is not a current spec,
+ * naming the first field that is wrong. Nothing is coerced, defaulted or dropped, and there is no
+ * version: a spec saved by an earlier release is refused, and the host deletes it.
+ */
+export function parseDashboard(saved: unknown): DashboardSpec {
+  const result = v.safeParse(DashboardSpecSchema, saved);
+  if (!result.success) throw refusal("dashboard spec", result.issues);
+  return result.output;
+}
+
+/**
+ * What a host stored as one document, `{ byRelation }`, checked whole: `null` or `undefined` is no
+ * dashboards, and anything else that is not a current document throws, naming the relation and the
+ * field. A newer or older document is never half-read and then overwritten by the next edit.
+ */
+export function parseDashboards(saved: unknown): Dashboards {
+  if (saved == null) return { byRelation: {} };
+  const result = v.safeParse(DashboardsSchema, saved);
+  if (!result.success) throw refusal("dashboards document", result.issues);
+  return result.output;
 }
 
 // ── The relation the plots read ──────────────────────────────────────────────
@@ -181,15 +261,6 @@ export function measureLabel(measure: DashboardMeasure): string {
   return `${OP_LABEL[measure.op]} ${measure.field}`;
 }
 
-/** The title a tile is drawn under: its own, or one derived from what it reads. */
-export function tileTitle(tile: Tile): string {
-  if (tile.title) return tile.title;
-  if (tile.kind === "stat") return measureLabel(tile.measure);
-  if (tile.kind === "table") return "Rows";
-  if (tile.type === "dot" || tile.type === "regression") return `${tile.x} × ${tile.y.field}`;
-  return `${measureLabel(tile.y)} by ${tile.x}${tile.color ? ` and ${tile.color}` : ""}`;
-}
-
 /** A field a trend can run along: a time, or a number with an extent to bin. */
 export function trendFields(fields: readonly FieldStat[]): FieldStat[] {
   return fields.filter((f) => f.kind === "temporal" || (isMeasure(f) && f.min !== undefined));
@@ -223,7 +294,7 @@ export function filterControl(field: FieldStat): DashboardFilterControl | null {
 }
 
 const isDimension = (f: FieldStat) => f.kind === "categorical" && f.role === "dimension";
-const isMeasure = (f: FieldStat) => f.kind === "numeric" && f.role === "measure";
+export const isMeasure = (f: FieldStat) => f.kind === "numeric" && f.role === "measure";
 const isOrdered = (f: FieldStat) => f.kind === "temporal" || isMeasure(f);
 
 /** Series beyond eight are a table, not more hues; facets beyond six stop being comparable. */
@@ -315,12 +386,27 @@ export function normalizeCard(card: ChartTile, fields: readonly FieldStat[]): Ch
  * field no rule draws by itself, such as a key.
  */
 export function cardFor(field: FieldStat): ChartTile | null {
-  const best = recommend([field])[0];
-  return best ? { ...best.spec, id: globalThis.crypto.randomUUID() } : null;
+  return recommend([field])[0]?.spec ?? null;
 }
 
+/**
+ * The tile an edit saves: `after`, without the `origin` of a tile somebody changed. Its width is
+ * layout and does not count — neither does where it sits — so a proposed chart widened is still the
+ * proposal; anything else it reads, or a title, makes it the reader's.
+ */
+export function edited(before: Tile | undefined, after: Tile): Tile {
+  if (after.kind !== "chart" || !after.origin) return after;
+  if (before?.kind === "chart" && reads(before) === reads(after)) return after;
+  const mine = { ...after };
+  delete mine.origin;
+  return mine;
+}
+
+/** What a chart reads and is called — everything an edit can change but its width. */
+const reads = (t: ChartTile) => JSON.stringify([t.type, t.x, t.y.op, t.y.field, t.y.equals, t.color, t.facet, t.title]);
+
 /** Widens the last tile of every three-column row so no row ends in a hole. */
-function pack(tiles: Tile[]): Tile[] {
+function pack(tiles: GridTile[]): GridTile[] {
   let used = 0;
   const out = tiles.map((tile) => ({ ...tile }));
   out.forEach((tile, i) => {
@@ -337,11 +423,11 @@ function pack(tiles: Tile[]): Tile[] {
 }
 
 const CARD_LIMIT = 6;
-/** One row of figures: the count and two means fill three columns. */
+/** The band of figures: the count and two means. */
 const STAT_LIMIT = 3;
 
 /** The table a relation gets by default: its first eight fields, categories first. */
-function detailColumns(fields: readonly FieldStat[]): string[] {
+export function detailColumns(fields: readonly FieldStat[]): string[] {
   const dimensions = fields.filter((f) => isDimension(f) && f.distinct >= 2);
   const temporal = fields.filter((f) => f.kind === "temporal");
   const searchable = fields.filter((f) => f.kind === "categorical" && f.role === "identifier");
@@ -367,11 +453,10 @@ export function autoDashboard(fields: readonly FieldStat[]): DashboardSpec {
     .map((f) => ({ field: f.name }));
 
   const stats: StatTile[] = [
-    { id: "stat-count", kind: "stat", span: 1, title: "Rows", measure: { op: "count" }, trend },
+    { id: "stat-count", kind: "stat", title: "Rows", measure: { op: "count" }, trend },
     ...measures.slice(0, STAT_LIMIT - 1).map((f): StatTile => ({
       id: `stat-${f.name}`,
       kind: "stat",
-      span: 1,
       measure: { op: "avg", field: f.name },
       trend,
     })),
@@ -379,46 +464,9 @@ export function autoDashboard(fields: readonly FieldStat[]): DashboardSpec {
 
   const cards = recommend(fields, "overview")
     .slice(0, CARD_LIMIT)
-    .map(({ spec }, i): ChartTile => ({ ...spec, id: `card-${i}` }));
+    .map(({ spec, rule }, i): ChartTile => ({ ...spec, id: `card-${i}`, origin: { rule } }));
 
   const columns = detailColumns(fields);
   const table: TableTile[] = columns.length ? [{ id: "rows", kind: "table", span: 3, columns }] : [];
-  return { version: 2, filters, tiles: [...pack(stats), ...pack(cards), ...table] };
-}
-
-/**
- * A new tile of `kind`, chosen from the fields the way the automatic dashboard would choose it,
- * preferring what the dashboard does not show yet — what *Add tile* opens the editor on. `null` for
- * a chart when no field draws one on its own.
- */
-export function newTile(kind: TileKind, fields: readonly FieldStat[], tiles: readonly Tile[]): Tile | null {
-  const id = globalThis.crypto.randomUUID();
-  if (kind === "table") return { id, kind, span: 3, columns: detailColumns(fields) };
-  if (kind === "stat") {
-    const measure = fields.find((f) => isMeasure(f) && !tiles.some((t) => t.kind === "stat" && t.measure.field === f.name));
-    return { id, kind, span: 1, measure: measure ? { op: "avg", field: measure.name } : { op: "count" } };
-  }
-  const used = new Set(tiles.flatMap((t) => (t.kind === "chart" ? [t.x] : [])));
-  const card = [...fields]
-    .sort((a, b) => Number(used.has(a.name)) - Number(used.has(b.name)))
-    .map((f) => cardFor(f))
-    .find((c) => c !== null);
-  return card ? { ...card, id } : null;
-}
-
-/**
- * The tile as another kind, keeping what carries over: a chart's aggregate becomes the figure and a
- * figure's field the chart's measure, and the id and width stay. A title goes, since it described
- * the tile it was written for. `null` when the relation cannot draw that kind.
- */
-export function changeKind(tile: Tile, kind: TileKind, fields: readonly FieldStat[], tiles: readonly Tile[]): Tile | null {
-  if (tile.kind === kind) return tile;
-  const made = newTile(kind, fields, tiles);
-  if (!made) return null;
-  const next = { ...made, id: tile.id, span: tile.span };
-  if (next.kind === "stat" && tile.kind === "chart" && tile.y.op !== "value") return { ...next, measure: tile.y };
-  if (next.kind === "chart" && tile.kind === "stat" && tile.measure.op !== "share") {
-    return normalizeCard({ ...next, y: tile.measure }, fields) ?? next;
-  }
-  return next;
+  return { filters, tiles: [...stats, ...pack(cards), ...table] };
 }

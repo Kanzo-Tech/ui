@@ -604,10 +604,10 @@ const TAG_NOTES: Partial<Record<Tag, string>> = {
 };
 
 const TITLES = [
-  { value: "Something in the millrace at Greenhollow", rationale: "Where it was seen." },
-  { value: "Greenhollow: the millrace, and it is not rats", rationale: "Rules out the cheap answer." },
-  { value: "Night work at the Greenhollow millrace", rationale: "Leads with when." },
-  { value: "The mill has stopped twice this week", rationale: "Leads with the cost." },
+  { text: "Something in the millrace at Greenhollow", rationale: "Where it was seen." },
+  { text: "Greenhollow: the millrace, and it is not rats", rationale: "Rules out the cheap answer." },
+  { text: "Night work at the Greenhollow millrace", rationale: "Leads with when." },
+  { text: "The mill has stopped twice this week", rationale: "Leads with the cost." },
 ];
 
 const NOTICE =
@@ -623,7 +623,7 @@ export const MODEL = mockModel((call) => {
   if (call.responseFormat?.type !== "json") return NOTICE;
   const field = /^Field: (.*)$/m.exec(promptOf(call))?.[1];
   if (field?.startsWith("Tags")) {
-    return elements(Object.entries(TAG_NOTES).map(([value, rationale]) => ({ value, rationale })));
+    return elements(Object.entries(TAG_NOTES).map(([value, rationale]) => ({ text: value, rationale })));
   }
   return elements(TITLES);
 });

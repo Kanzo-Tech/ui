@@ -1,6 +1,6 @@
 /**
  * A model for the examples and showcases: the AI SDK's own mock, so `Assist` and `Chat` run the
- * real conversation — `streamText`, `ToolLoopAgent`, `useChat` — with nothing on the other end of a
+ * real conversation — `stream`, `ToolLoopAgent`, `useChat` — with nothing on the other end of a
  * network. The same shape as `packages/ai/src/testing/model.ts`, plus a pause between words: a test
  * wants the answer at once, and a reader has to see it arrive to see that it streams.
  *
@@ -43,7 +43,7 @@ export const askOf = (call: Call): string => {
 export const afterTool = (call: Call) => call.prompt.at(-1)?.role === "tool";
 
 /** A structured-output reply: `Output.array` reads `{ elements: [...] }`. */
-export const elements = (values: { value: string; rationale: string }[]) =>
+export const elements = (values: { text: string; rationale: string }[]) =>
   JSON.stringify({ elements: values });
 
 /**

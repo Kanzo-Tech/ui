@@ -17,13 +17,17 @@ export interface GatewaySettings {
 /** How long a model's stream may send nothing, its headers included: fossil's figure for a stream's next chunk. */
 const SILENT_AFTER = 30_000;
 
-/** The one failure this package names: the model stopped sending without closing the stream. */
+/**
+ * The failures this package names: the model stopped sending without closing the stream
+ * (`ai/silent`), and the gateway refused because the caller is over its limit (`ai/rate-limited`).
+ */
 export class AiError extends Error {
   override readonly name = "AiError";
   constructor(
-    readonly code: "ai/silent",
+    readonly code: "ai/silent" | "ai/rate-limited",
     message: string,
-    readonly data: { readonly after?: number } = {},
+    /** `after`: the silence, in ms. `retryAfter`: when the gateway said a retry may succeed, in seconds. */
+    readonly data: { readonly after?: number; readonly retryAfter?: number } = {},
     options?: ErrorOptions,
   ) {
     super(message, options);
@@ -48,6 +52,9 @@ export type Gateway = (alias: string) => LanguageModel;
  *   (Hermes, DeepSeek, Qwen) write it inline as `<think>…</think>` because the chat completions
  *   protocol has no field for it; the middleware lifts it into the SDK's `reasoning` part, which is
  *   what `Chat` draws as reasoning. A model that never writes the tag is untouched.
+ * - **A caller over its limit is told so, as `ai/rate-limited`.** A gateway that limits per tenant or
+ *   per key answers 429; the caller sees an {@link AiError} with `data.retryAfter` when the gateway
+ *   said when, rather than the provider's uncoded error. It is not retried: the limit is the answer.
  * - **Structured output is on**, so `Output.object`/`Output.array` ask the gateway for a JSON
  *   schema rather than prose the caller would parse — the "return ONLY JSON, no fences" prompt and
  *   its fence-stripping is what this ends.
@@ -57,7 +64,7 @@ export function createGateway(settings: GatewaySettings): Gateway {
     name: "gateway",
     baseURL: absolute(settings.baseURL),
     headers: settings.headers,
-    fetch: bounded(settings.fetch ?? ((...args) => globalThis.fetch(...args))),
+    fetch: bounded(limited(settings.fetch ?? ((...args) => globalThis.fetch(...args)))),
     includeUsage: true,
     supportsStructuredOutputs: true,
   });
@@ -94,6 +101,41 @@ const silence: LanguageModelMiddleware = {
     };
   },
 };
+
+/**
+ * `fetch`, with a 429 thrown as `ai/rate-limited` before the provider reads it. Thrown from the
+ * request, it reaches the caller as itself — the path a silence before the headers takes — and an
+ * `AiError` is not one of the errors the SDK retries.
+ */
+function limited(fetch: typeof globalThis.fetch): typeof globalThis.fetch {
+  return async (input, init) => {
+    const response = await fetch(input, init);
+    if (response.status !== 429) return response;
+    void response.body?.cancel().catch(() => {}); // the refusal is the status; its body is not read
+    const retryAfter = seconds(response.headers);
+    throw new AiError(
+      "ai/rate-limited",
+      "The gateway refused the request: the limit for this caller is reached",
+      retryAfter === undefined ? {} : { retryAfter },
+    );
+  };
+}
+
+/**
+ * When a retry may succeed, in seconds: `retry-after` (seconds or an HTTP date, RFC 9110), else
+ * `x-ratelimit-reset` read as seconds from now (the IETF RateLimit fields draft's reading).
+ */
+function seconds(headers: Headers): number | undefined {
+  const retry = headers.get("retry-after");
+  if (retry !== null) {
+    const n = Number(retry);
+    if (Number.isFinite(n) && n >= 0) return n;
+    const at = Date.parse(retry);
+    if (Number.isFinite(at)) return Math.max(0, Math.ceil((at - Date.now()) / 1000));
+  }
+  const reset = Number(headers.get("x-ratelimit-reset") ?? Number.NaN);
+  return Number.isFinite(reset) && reset >= 0 ? reset : undefined;
+}
 
 /**
  * The provider builds `new URL(baseURL + path)` with no base, so the BFF's own path — the one a

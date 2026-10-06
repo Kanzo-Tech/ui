@@ -3,8 +3,8 @@
  *
  * Same standing as `@kanzo-tech/mosaic`: the third party — here the AI SDK — is a required peer, its
  * surface is re-exported so a host never imports `ai` itself, and what is ours is the one door it
- * does not have. A host reaches a model only through `createGateway`, an agent through
- * `ToolLoopAgent`, and a conversation through `@kanzo-tech/ai`'s `useChat`, so one copy of the SDK
+ * does not have. A host reaches a model only through `createGateway`, an answer through `stream`,
+ * an agent through `ToolLoopAgent`, and a conversation through `@kanzo-tech/ai`'s `useChat`, so one copy of the SDK
  * is the easy outcome.
  */
 
@@ -16,7 +16,6 @@ export {
   isToolUIPart,
   jsonSchema,
   stepCountIs,
-  streamText,
   tool,
   type ChatStatus,
   type DynamicToolUIPart,
@@ -28,5 +27,6 @@ export {
   type UIMessage,
 } from "ai";
 
-/** Ours: the one door to a model, and the failure it names. */
+/** Ours: the one door to a model, the failures it names, and the one door to an answer. */
 export { AiError, createGateway, type Gateway, type GatewaySettings } from "./gateway.js";
+export { stream, type Stream, type StreamOptions } from "./stream.js";

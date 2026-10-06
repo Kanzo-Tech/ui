@@ -1,0 +1,243 @@
+---
+title: Analytics
+description: How the dashboard is built — Mosaic's public surface and nothing under it, a spec that is read whole or refused, a recommender made of Show Me's cases, three tables over one closed set of kinds, and an editor nobody downloads until they edit — and what would reverse each rule.
+---
+
+[The dashboard page](/docs/analytics/dashboard) is what `Dashboard` does, and
+[the spec page](/docs/analytics/dashboard-spec) is what it stores. This page is why it is built
+the way it is.
+
+**The product is discovery, not BI.** A dashboard here exists to show what a relation holds that
+nobody had looked at: which categories dominate, how a measure spreads, what moves over time, and
+what a brush on one of those does to the rest. It is not a report builder. Each rule below is
+judged by that, and a feature that only a report builder needs is the one this page turns away.
+
+## Mosaic does the work, through its public surface
+
+The charts are Mosaic clients on the page's coordinator, and where Mosaic already solves something
+the library calls it rather than repeating it:
+
+- `makeClient` is the client behind every chart input. It replaced a `MosaicClient` subclass of our
+  own.
+- `toDataColumns` reads an Arrow answer, so `numbers(data, field)` is one line over it.
+- `DuckDBWASMConnector` is the connector. It replaced the deprecated `wasmConnector`.
+- `denseStack` reads a mark's `channels`, the same input `markQuery` reads, and no longer reads the
+  query's private `_groupby` and `_select`.
+
+A `Selection`'s clauses are relayed by `relaySelection` in `@kanzo-tech/mosaic`. It reads the
+selection's state, never its events: a dispatch raised while another is pending is queued, and
+Mosaic may coalesce it, so the only reliable account of what a selection holds is `clauses` once
+the event arrives. A relay diffs that list by clause identity, withdraws a clause that has left
+its source, and withdraws everything it put in when it is stopped. The provider's page bridge and
+`bridgeSelection`'s outer half are both this one function.
+
+**It replaced `from._relay.add(to)`** in `MosaicProvider`, a private member, and the copy of the same
+loop that `bridgeSelection` already ran on the public API. Keeping `_relay` behind a guard exemption
+was rejected: an exemption is a private member the next Mosaic release may change without notice.
+
+**What would reverse it:** a test showing a clause lost or reordered on the public path. Then the fix
+is a public relay upstream in mosaic-core, not an exemption, and `relaySelection` is deleted for it.
+
+*Held by* `packages/ui/src/mosaic-public-api.test.ts`, "reaches no underscore member of a Mosaic
+object in any shipped package", and "is not blind: it sees a relay reached, a resolved list read, a
+filter group destructured and a query's grouping read"; `packages/mosaic/src/relay.test.ts`,
+"withdraws what it relayed when stopped, even with the source's reset still queued", and "loses
+nothing in a burst: the last delivery holds the latest state"; `packages/ui/src/charts/dense-stack.test.ts`,
+"completes every (step, series) pair the filtered query answered with, at zero".
+
+The guard sits in `packages/ui` rather than `packages/mosaic`, because it reads the type
+declarations of `@uwdata/*` as they are installed. A member counts as private when its name begins
+with `_` and it is declared under `@uwdata/`. The guard scans every package in `guard-corpus.ts`'s
+shipped set, so it covers `@kanzo-tech/graph` as well as the analytics.
+
+## What a clause says is Mosaic's to answer
+
+`clauseParts(clause)` splits a clause into a field, an operator and a value, and `clauseLabel`
+joins those into the words of a chip. Both live in `@kanzo-tech/mosaic`, beside `clauseFor`, the
+function that builds the clause. `FilterChips` and the dashboard's filter bar both read them.
+
+**It replaced a reader inside `FilterChips`**, which the filter bar had to import a chip component
+to reach. Reading a clause is a question about Mosaic, not about a chip.
+
+**What would reverse it:** Mosaic's clause carrying a description of its own. Then the description
+is read straight from the clause, and these two are deleted.
+
+*Held by* `packages/mosaic/src/clause.test.ts`, "names a semi-join by its publisher's label, and
+counts its members when they are keys".
+
+## The spec is read whole or refused
+
+A `DashboardSpec` is a valibot schema, and the type is inferred from that schema, so the two cannot
+drift. `parseDashboard` and `parseDashboards` read untrusted JSON, and either return a value of the
+type or throw `not a dashboard spec at <path>`, naming the field. They do not coerce, they do not
+fill in defaults, and they do not drop an unknown key. A measure that could never be drawn against
+any relation, such as a sum of nothing or a share of no value, is refused when the spec is read,
+not when it is drawn.
+
+There is no `version` field, and there is no migration. Something an earlier release saved is
+refused as a whole. The host deletes it, and the dashboard follows the relation's statistics again.
+
+**It replaced `migrateDashboards`** and a hand-written type checked by hand. The migration chain was
+the only reader of the `version` field, and the only data it ever carried forward was our own,
+which is thrown away while the library is `0.x`.
+
+**What would reverse it:** a consumer whose saved dashboards cannot be thrown away. Then `version`
+returns together with one migration per breaking release, each a schema of its own. Even then,
+nothing would be partly read.
+
+*Held by* `packages/ui/src/charts/dashboard-spec.test.ts`, "refuses what an earlier release saved,
+whole, rather than reading part of it"; "coerces, defaults and drops nothing"; "refuses a measure
+that cannot be drawn whatever the relation: a sum of nothing, a share of no value".
+
+## The recommender is Show Me's cases, in CompassQL's pipeline
+
+`recommend(fields, intent)` runs three steps. `enumerate` asks every rule for its candidates.
+`rank` orders them by the intent's weights. `explain` turns a candidate into a tile, a sentence of
+rationale and the id of the rule that chose it. That is CompassQL's split, and Draco's after it:
+the set of what could be drawn, the preference among those, and the reason. The rules are not
+ours. Each is one of the cases in Mackinlay, Hanrahan and Stolte's *Show Me* (2007), and it names
+that case in its `showMe` field: a line for a time, bars for a category, a histogram for a measure,
+a scatter plot for two measures.
+
+**Draco itself was rejected.** Draco 2 is Python and clingo, and it answers in Vega-Lite. Running it
+would mean shipping a solver to the browser and translating its output into the spec. A table of
+four Show Me cases is the part of Draco this dashboard uses, which makes it a light Draco and not a
+new design.
+
+**What would reverse it:** a rule that no published case covers, or a fifth chart that Show Me's
+cases cannot rank. Then the knowledge base becomes a set of constraints and a solver, as Draco's
+is, and `RULES` is retired, not grown.
+
+*Held by* `packages/ui/src/charts/recommend.test.ts`, "is made of Show Me's cases, each rule naming
+the one it is"; "enumerates every rule's candidates in the table's order, capped per rule, before
+any weighing"; "explains a candidate with a derived id, so the same fields always give the same
+answer".
+
+## A tile records which rule drew it
+
+`ChartTile.origin` is `{ rule }`. The automatic dashboard sets it, and `rationale(tile, fields)`
+reads it back to say why the card is there. `edited(before, after)` drops `origin` as soon as the
+tile reads something else, or is renamed. A card added by hand never gets one, even when a rule
+would have proposed the same card.
+
+**Deriving the rationale was rejected.** Running the rules again over the current tile would claim
+a reason for a card that somebody drew by hand, and a reader would take a choice they made for a
+choice the recommender made.
+
+**What would reverse it:** a rationale that has to change when the rules do, for tiles that have
+already been saved. Then it is derived, and `origin` is deleted.
+
+*Held by* `packages/ui/src/charts/recommend.test.ts`, "is not claimed by a card added by hand, even
+one the rules would propose"; "drops it once the tile reads something else or is renamed".
+
+## One closed set of kinds, and three tables over it
+
+A tile is a `stat`, a `chart` or a `table`. Three tables are each keyed by that kind:
+
+- `KINDS` in `tile-kinds.ts`: how to make a tile of the kind, how to title it, and how to convert
+  one from another kind. It has no React in it.
+- `TILE_VIEWS` in `tile-views.tsx`: how to draw it.
+- `TILE_EDITORS` in `tile-fields.tsx`: how to edit it.
+
+Each table is mapped over `TileKind`, so adding a kind is a type error until all three rows exist.
+Making a tile is pure: the id is passed in, and it is minted once, in `Dashboard`'s `add`.
+
+Hosts cannot extend the set. A host-defined kind would be a spec this library cannot read back,
+which is exactly what `parseDashboard` refuses to do.
+
+**What would reverse it:** a second consumer that needs a kind which reads a relation in a way
+none of the three does. Then the kind joins the set, here, with its three rows.
+
+*Held by* `packages/ui/src/charts/tile-kinds.test.ts`, "makes every kind with the id it is given, so
+making a tile is pure", and "lets every kind become every other, keeping the id and dropping the
+title, and a figure has no width"; `packages/ui/src/charts/dashboard-layering.test.ts`, "keeps React out of the
+spec, the recommender and the kind table".
+
+## Figures are a band, not grid tiles
+
+The figures are drawn first, as one band whose row they share equally, wrapping when they run out of
+room. Charts and tables flow through the three-column grid beneath it, each as wide as its `span`. A
+figure has no `span` in the spec, and the editor asks for none; its position is among the figures,
+as a chart's is among the grid's tiles. A figure that becomes a chart moves to the grid, and back.
+
+A grid row is as tall as its tallest tile, so a figure that shared one with a chart stood as tall as
+the chart: one number in a tall empty card. The band is where Few's *Information Dashboard Design*
+puts the key figures, and what Grafana's stat row and every KPI strip draw.
+
+**Two alternatives were rejected.** A grid of fixed-height rows, where a figure takes one and a chart
+three, as Grafana and Metabase lay panels out, would stack figures beside a chart; it needs every
+chart to fill a height it is given, and a table to scroll inside one. A height stored per tile, with
+drag to resize, is that and an editor besides.
+
+**What would reverse it:** a dashboard whose figures belong beside the chart they summarise, read
+together, more than together at the top. Then the fixed-row grid above, and figures leave the band.
+
+*Held by* `packages/ui/src/charts/tile-kinds.test.ts`, "draws a figure in the band and every other
+kind in the grid", and "places a tile among its peers, whatever lies between them in the spec";
+`packages/ui/src/charts/dashboard-spec.test.ts`, "refuses a width on a figure: the band gives it its
+width"; `packages/ui/src/charts/dashboard.test.tsx`, "changes the kind, keeping the id, and a figure
+that becomes a table moves from the band to the grid".
+
+## The editor is edited in place, and loaded on first edit
+
+`TileEditor` is an Ark `Popover` anchored to the tile's slot in the grid. The slot keeps the tile's
+own view mounted and draws the draft in it, so a change is seen where the tile is. The kind is a row of
+cards like a chart's mark, and the width a `SegmentGroup`. A tile being added gets a slot of its own at the end of the grid, brought
+into view as the popover opens, and Cancel removes the slot again.
+
+The editor draws no tile of its own. It holds the draft as a controlled value and reaches the slot
+through Ark's `getAnchorElement`, because a view the editor drew would be a new mount: a chart that
+remounts builds new Mosaic clients and queries again, which on opening reads as the tile reloading.
+For the same reason a scroll lock is not a theme change: `useThemeTick` ignores the inline `style`
+a modal overlay writes on `<html>`, which used to rebuild every chart on the page.
+
+`Dashboard` imports the editor through `React.lazy`. A dashboard without `onChange` is read-only:
+it draws no edit control and never fetches the kind picker, the field pickers, `Select` or
+`RadioGroup`.
+
+**It replaced a `Sheet` at the edge of the page**, which covered the board and drew the draft away
+from the tile it changed.
+
+**What would reverse it:** a tile too small to anchor a popover beside, at a width the grid
+actually reaches. Then the editor becomes a sheet, still lazy.
+
+*Held by* `packages/ui/src/charts/dashboard-layering.test.ts`, "loads no editor for a read-only
+dashboard", and "is not blind: it sees the editor once the import is static";
+`packages/ui/src/charts/dashboard.test.tsx`, "draws no edit control and never fetches the editor";
+"opens from the pencil beside the tile it edits, which stays mounted and draws the draft"; "adds a
+tile in a slot of its own at the end, brought into view, which Cancel takes away again";
+`packages/ui/src/lib/theme-tick.test.tsx`, "stays put for an inline style on the root, and still
+moves for a theme attribute".
+
+## Going back to automatic is `undefined`
+
+Reset calls `onChange(undefined)`. The host deletes what it stored, and the dashboard follows the
+relation's statistics again.
+
+Handing the host the automatic spec was rejected. A stored copy of it would freeze the cards at
+the moment of the reset, and would not follow the relation the way the automatic dashboard is
+meant to.
+
+**What would reverse it:** a host that has to tell "never edited" apart from "reset". Neither one
+carries any data, so this case has no evidence that could reverse it, and none is expected.
+
+*Held by* `packages/ui/src/charts/dashboard.test.tsx`, "hands the host undefined, and is disabled
+while nothing is stored".
+
+## Two size gauges, measured against what ships
+
+The analytics gauge and the `{ Dashboard }` gauge leave out what `vite.config.ts` externalises:
+the peers, valibot and every `@uwdata/*` package. Those are installed by the consumer, not shipped
+in our bundle, so a gauge that counts them measures somebody else's code. esbuild bundles without
+splitting, so the lazy editor is inside both figures. A consumer's bundler splits it out, so the
+gauges overstate what a read-only page pays for.
+
+Measured on the base of this change and after it:
+
+| Gauge | Before | After |
+| --- | --- | --- |
+| analytics | 31.22 kB | 32.31 kB |
+| one dashboard | 29.88 kB | 31.09 kB |
+
+**What would reverse it:** a bundler in size-limit that splits a dynamic import. Then the
+`{ Dashboard }` gauge measures the entry chunk alone, and a separate gauge measures the editor.

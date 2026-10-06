@@ -5,19 +5,19 @@ import { mockModel, promptOf } from "./testing/model.js";
 
 const QUESTIONS = JSON.stringify({
   elements: [
-    { question: "How many contracts are late?", rationale: "closed and due" },
-    { question: "Which region signs the most?", rationale: "region" },
+    { text: "How many contracts are late?", rationale: "closed and due" },
+    { text: "Which region signs the most?", rationale: "region" },
   ],
 });
 
 describe("suggest", () => {
-  it("streams each question with its rationale, asked over the host's instructions and material", async () => {
+  it("streams each offer with its rationale, asked over the host's instructions and material", async () => {
     const { model } = mockModel(() => QUESTIONS);
     const got = [];
     for await (const q of suggest({ model, instructions: "Suggest questions.", prompt: "CREATE TABLE t (x INT);" })) got.push(q);
     expect(got).toEqual([
-      { question: "How many contracts are late?", rationale: "closed and due" },
-      { question: "Which region signs the most?", rationale: "region" },
+      { text: "How many contracts are late?", rationale: "closed and due" },
+      { text: "Which region signs the most?", rationale: "region" },
     ]);
     expect(promptOf(model.doStreamCalls[0]!)).toContain("CREATE TABLE t");
   });

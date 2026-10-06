@@ -43,10 +43,10 @@ export interface KanzoAuthConfig extends RelyingPartyConfig {
    */
   readonly public?: readonly string[];
   /**
-   * Override the callback URL. Absent, it is derived from the request: its origin, the path the
-   * routes sit on, and `/callback`. Deriving it trusts `Host`, which is bounded — Keycloak refuses
-   * a `redirect_uri` it has not registered — but a deployment behind a proxy that rewrites the
-   * host says the URL out loud here.
+   * Override the callback URL. Absent, it is derived from the request: its `addressedUrl` origin,
+   * the path the routes sit on, and `/callback`. Deriving it trusts `Host` and the proxy's
+   * `X-Forwarded-*`, which is bounded — Keycloak refuses a `redirect_uri` it has not registered —
+   * but a deployment whose proxy sets none of them says the URL out loud here.
    */
   readonly redirectUri?: string;
   /** Seconds of access-token lifetime below which a request renews it. Default 60. */
@@ -94,11 +94,35 @@ export interface Api {
   target(organization: string | undefined): URL | undefined;
 }
 
+/**
+ * The URL the client addressed. Next builds `request.url` from the address the server listens on
+ * rather than the one the client asked for — under `next dev` 16 a request for
+ * `acme.localhost:3000` reads `http://localhost:3000` — so a deployment that answers on several
+ * hosts would resolve every tenant, callback and redirect to the same one, and one behind a proxy
+ * that terminates TLS would hand Keycloak an `http` callback. The authority is the proxy's
+ * `X-Forwarded-Host`, else `Host` (RFC 9110 §7.2); the scheme is `X-Forwarded-Proto`, else the
+ * request's. Auth.js reads the same headers. Trusting them is bounded the way `redirectUri` says:
+ * Keycloak refuses a callback it has not registered.
+ */
+export function addressedUrl(request: Request): URL {
+  const url = new URL(request.url);
+  const first = (name: string) => request.headers.get(name)?.split(",")[0]?.trim() || undefined;
+  const host = first("x-forwarded-host") ?? first("host");
+  const proto = first("x-forwarded-proto");
+  const scheme = proto === "http" || proto === "https" ? `${proto}:` : url.protocol;
+  // Rebuilt rather than assigned: `url.host = "acme.example.test"` keeps the listening port.
+  try {
+    return new URL(`${url.pathname}${url.search}`, `${scheme}//${host ?? url.host}`);
+  } catch {
+    return url;
+  }
+}
+
 /** What a tenant resolver reads, from a request a route handler was given. */
 export function tenantRequest(request: Request): TenantRequest {
   const header = request.headers.get("cookie");
   return {
-    url: new URL(request.url),
+    url: addressedUrl(request),
     headers: request.headers,
     cookies: {
       get(name: string) {
