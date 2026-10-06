@@ -34,7 +34,6 @@ import {
  */
 const FIXTURE: SectionManifest = {
   namespace: "graph",
-  version: 1,
   tokens: {
     marquee: {
       default: "color-mix(in oklab, var(--primary) 20%, transparent)",
@@ -149,7 +148,6 @@ describe("a document outlives the packages that wrote it", () => {
  */
 const PREF_FIXTURE: SectionManifest = {
   namespace: "graph",
-  version: 1,
   prefs: {
     look: {
       kind: "choice",
@@ -284,7 +282,7 @@ describe("options a tenant owns", () => {
       offered: true,
     });
     // And validation says nothing rather than reporting a problem it cannot know it has.
-    const manifest: SectionManifest = { namespace: "bank", version: 1, prefs: { identity: THEME_PREF } };
+    const manifest: SectionManifest = { namespace: "bank", prefs: { identity: THEME_PREF } };
     expect(validatePrefs(manifest, { identity: "private" })).toEqual([]);
   });
 
@@ -294,7 +292,7 @@ describe("options a tenant owns", () => {
     // chose is not published any more, so it does not apply.
     expect(resolvePref(THEME_PREF, "private", undefined, sources).via).toBe("default");
     expect(resolvePref(THEME_PREF, "retail", undefined, sources).via).toBe("stored");
-    const manifest: SectionManifest = { namespace: "bank", version: 1, prefs: { identity: THEME_PREF } };
+    const manifest: SectionManifest = { namespace: "bank", prefs: { identity: THEME_PREF } };
     expect(validatePrefs(manifest, { identity: "private" }, sources)[0]?.detail).toContain("retail");
   });
 
@@ -357,7 +355,6 @@ describe("the kinds a section may declare", () => {
   it("reports an illegal value per kind, saying what was expected", () => {
     const manifest = {
       namespace: "graph",
-      version: 1,
       prefs: { links: TOGGLE, pointScale: RANGE },
     };
     expect(validatePrefs(manifest, { links: "true", pointScale: "1.4" })).toEqual([]);

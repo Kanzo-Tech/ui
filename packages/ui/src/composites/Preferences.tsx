@@ -328,8 +328,8 @@ function ThemeSection({ copy }: { copy?: Partial<PreferencesCopy> }) {
  * One declared preference, drawn — the switch on `kind`, in one place.
  *
  * **It draws the core's preferences and a contributed section's alike**, so no surface re-decides
- * what a `range` looks like. The three arms are the primitives the panel already used: `choice` is a radio list,
- * `toggle` is `Switch`, `range` is `Slider`.
+ * what a `range` looks like. The three arms are the primitives the panel already used: `choice` is
+ * a row of radio cards, `toggle` is `Switch`, `range` is `Slider`.
  *
  * A value is a string in storage for all three — see `SectionPrefDecl` — so each arm parses on the
  * way in with the section mechanism's own readers rather than a local `Number()` that would differ
@@ -399,33 +399,24 @@ function PrefControl({
   // `?? []` and not a throw: a choice whose source the host has not answered yet has nothing to
   // offer *this render*, and the value it resolved to is still applied.
   const options = prefOptions(decl, sources) ?? [];
-  // A specimen is wide and wants its name under it; a bare name is a row in a list. One rule, read
-  // off the data, rather than a layout prop each call site has to remember to pass.
+  // One control for every choice: a compact row of cards — Shark's card radio, GitHub's appearance
+  // settings. A specimen is the card's content above its name, never a different control; a choice
+  // without one is the same card holding its name alone.
   return (
     <PrefFieldSet label={title}>
       <RadioGroup
-        className={specimen ? "flex-row flex-wrap gap-2" : "gap-2"}
+        className="flex-row flex-wrap gap-2"
         onValueChange={(d) => d.value && onChange(d.value)}
         value={value}
       >
         {options.map((option) => (
           <RadioGroupCard
-            className={
-              specimen
-                ? "min-w-0 flex-1 basis-20 flex-col items-center gap-1 px-2 py-2"
-                : "items-center px-2.5 py-2"
-            }
+            className="min-w-0 flex-1 basis-16 flex-col items-center gap-1 px-2 py-2"
             key={option.value}
             value={option.value}
           >
             {specimen?.(option)}
-            <ArkRadioGroup.ItemText
-              className={
-                specimen
-                  ? "w-full truncate text-center text-muted-foreground text-xs"
-                  : "text-xs"
-              }
-            >
+            <ArkRadioGroup.ItemText className="w-full truncate text-center text-xs">
               {option.label}
             </ArkRadioGroup.ItemText>
           </RadioGroupCard>

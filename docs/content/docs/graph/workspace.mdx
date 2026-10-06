@@ -105,38 +105,32 @@ sees](/docs/analytics/dashboard#what-the-page-sees).
 </Step>
 <Step>
 
-### The root, with the look and its pairing
+### The root, with the look and its channels
 
 ```tsx
-import { GraphRoot, useGraphPrefs, type Channels, type LookPreset } from "@kanzo-tech/graph";
+import { GraphRoot, useGraphPrefs } from "@kanzo-tech/graph";
 
 const KINDS = { Dataset: "Dataset", Keyword: "Keyword", Publisher: "Publisher" }; // key order = colour rank
 
-const PAIRINGS: Record<LookPreset, Channels> = {
-  nebula: { fill: "kind" },
-  atlas: { fill: "kind", stroke: "var(--muted-foreground)" },
-  ink: { fill: "var(--foreground)", symbol: "kind", stroke: "var(--muted-foreground)" },
-};
-
-const { look, sim, preset } = useGraphPrefs();
+const { look, sim } = useGraphPrefs();
 
 <GraphRoot
   from="archive"
   coordinator={coordinator}
   filterBy={crossfilter}
   categories={KINDS}
+  fill="kind"
+  stroke="var(--muted-foreground)"
   r="degree"
   title="label"
   look={look}
   sim={sim}
-  {...PAIRINGS[preset ?? "atlas"]}
   onFailure={setFailure}
 >
 ```
 
-`look` and `sim` come from the preferences, already memoised. The pairing is the host's: a look is
-form, and which column wears colour or shape is a binding. `preset` is `null` once the reader
-customises past all three looks, and the host decides what a custom picture wears.
+`look` and `sim` come from the preferences, already memoised. The channels are the host's: a look
+is form, and which column wears colour or shape is a binding the reader's preferences never change.
 
 </Step>
 <Step>
@@ -248,7 +242,7 @@ layout — two axes, see [Layout and camera](/docs/graph/layout#status-and-motio
 ## What stays the host's
 
 - **Attaching and detaching the corpus**, and what signs it.
-- **The pairing of looks and channels**, and the names in `categories`.
+- **The channels**: which column wears colour, shape and size, and the names in `categories`.
 - **What a failure says.** `onFailure` hands it over whole; the host keys on `code`.
 - **What a selection means beyond the graph** — `onSelect` and `onFocus`, for a URL, a toast, a
   panel that opens.

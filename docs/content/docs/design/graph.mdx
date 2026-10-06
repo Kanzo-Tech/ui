@@ -378,11 +378,11 @@ under it read the root.
   limit; picking one is `reveal`, and the root remembers it.
 - **`GraphSelect`** — a selection the host offers, as a toggle: `load` reads the ids when pressed,
   and pressed is derived from the live selection, never stored beside it.
-- **`GraphLooks`** — the three looks as presets over `GRAPH_SECTION`'s axes, with the axes always in
-  view under them. It writes preferences rather than reading the root, so it needs the theme provider
-  and no `GraphRoot`.
-- **`GraphPlacement`** — Force, Map or Clustered, with the corpus's fields to bind under the checked
-  card, as its sibling and not its child. Controlled, because `x`, `y` and `cluster` are the root's bindings and the host holds them.
+- **`GraphLooks`** — `GRAPH_SECTION`'s axes, every one in view, through the one preferences renderer;
+  Marks and Edges carry a miniature on each card. It writes preferences rather than reading the root,
+  so it needs the theme provider and no `GraphRoot`.
+- **`GraphPlacement`** — Force, Map or Clustered as a row of cards, each with a picture of its mode,
+  one line for the checked mode, and the corpus's fields to bind under the row, never inside a card. Controlled, because `x`, `y` and `cluster` are the root's bindings and the host holds them.
 
 **A selection names its gesture, never its host's panel.** `SelectionSource` is the canvas's own
 gestures — `marquee`, `lasso`, `node` — and `external`, any selection a host set through `select`,
@@ -445,7 +445,7 @@ types              GraphRootProps · GraphRootProviderProps · UseGraphProps · 
                    GraphLegendProps · GraphStatusProps · GraphCountsProps · GraphToolbarProps · GraphInspectorProps
                    GraphSearchProps · GraphSelectProps · GraphLooksProps · ShapeGlyphProps
                    GraphState · DataStatus · Drawn · VertexDetail
-                   Channels · Look · LookPatch · LookPreset · Shape · Sim · Motion · Selection · SelectionSource
+                   Channels · Look · LookPatch · Shape · Sim · Motion · Selection · SelectionSource
                    Tool · GraphCommands · VertexId
 ./section          GRAPH_SECTION
 ```
@@ -549,17 +549,18 @@ composite, not the path they take, and Nebula is additive *and* straight.
 Six of the ten fields separate Nebula from Atlas by 7–17%, below a luminance JND of 6.5–11.3 ΔL\*.
 **Ink is a real form.** An empty look is Atlas.
 
-**The three names live on as presets over the axes, not as a fourth axis.** `PRESETS` writes each
-look as axis values and `GraphLooks` offers them as cards, GitHub's appearance settings: pick by
-looking, then customise. A look is worn exactly when the resolved axes equal its own, so there is no
-stored name to disagree with them, and `useGraphPrefs` answers `preset` for a host that pairs
-channels with a look — the pairing stays the host's, because a look is form. A `preset` preference
-was the alternative and is refused: it would be a key no reader reads, which the axes guard forbids.
+**The three names are gone; the axes are the whole model.** They lived on for a while as presets
+over the axes, offered as cards above them, and the panel repeated itself: a preset set the axes, an
+axis un-set the preset, and "Custom" was where most readers ended. Cosmograph's configuration and
+Gephi Lite's appearance panel offer the axes alone with good defaults, and so does `GraphLooks`. The
+three pictures stay reachable as axis values, which is what the test below holds. With no names, a
+host has nothing to pair channels with, and that is right: a look is form, and which column wears
+colour or shape is a binding the host makes once.
 
-**What would reverse it:** a reader telling Nebula from Atlas in a blind pairing on those six fields.
+**What would reverse it:** a reader telling Nebula from Atlas in a blind pairing on those six fields,
+or readers asking for a named starting point the axes' defaults do not give them.
 
-*Held by* `packages/graph/src/section.test.ts`, "still draws the three pictures the three names drew",
-"wears the three pictures as presets, and knows one when the axes are it";
+*Held by* `packages/graph/src/section.test.ts`, "still draws the three pictures the three names drew";
 `packages/graph/src/render/graph-looks.ts`, `lookFrom`.
 
 ## What is still open

@@ -102,7 +102,6 @@ import {
   useGraphContext,
   useGraphPrefs,
   type Channels,
-  type LookPreset,
   type VertexDetail,
 } from "@kanzo-tech/graph";
 import {
@@ -198,17 +197,6 @@ export function useArchive(): Archive | null {
 }
 
 /**
- * The channels each look is paired with — the product's half of a look, since a look is form and a
- * binding is the caller's. Ink paints every point one ink — `fill` as a constant — and spends
- * identity on shape; a customised picture keeps Atlas's bindings.
- */
-const PAIRINGS: Record<LookPreset, Channels> = {
-  nebula: { fill: "kind" },
-  atlas: { fill: "kind", stroke: "var(--muted-foreground)" },
-  ink: { fill: "var(--foreground)", symbol: "kind", stroke: "var(--muted-foreground)" },
-};
-
-/**
  * A failure, as a toast — once per message, and after the commit that reported it: the renderer
  * reports from an effect, where a toast's synchronous flush is refused.
  */
@@ -240,21 +228,22 @@ function usePlacement() {
  */
 export function ArchiveGraph({ children }: { children: ReactNode }) {
   const archive = useArchive();
-  const { look, sim, preset } = useGraphPrefs();
+  const { look, sim } = useGraphPrefs();
   const placement = useState<Placement>({});
   return (
     <PlacementContext value={placement}>
       <GraphRoot
         categories={KINDS}
         coordinator={archive?.coordinator ?? null}
+        fill="kind"
         filterBy={archive?.crossfilter}
         from={archive ? FROM : null}
         look={look}
         onFailure={announce}
         r="degree"
         sim={sim}
+        stroke="var(--muted-foreground)"
         title="label"
-        {...PAIRINGS[preset ?? "atlas"]}
         {...placement[0]}
       >
         <Show fallback={children} when={archive !== null}>
@@ -965,7 +954,7 @@ const GESTURES: { keys: ReactNode; what: string }[] = [
 ];
 
 /**
- * The Settings panel: how the graph draws (`GraphLooks` — the presets and their axes), where the
+ * The Settings panel: how the graph draws (`GraphLooks` — the axes, each with its picture), where the
  * points come from (`GraphPlacement`), and the gestures. The graph's settings live here, beside the
  * canvas they change, and not in the app's Preferences, which keep only what is app-wide. There are no forces here: the archive carries no
  * positions, so the layout runs when it loads, and the toolbar is where a reader pauses or re-runs

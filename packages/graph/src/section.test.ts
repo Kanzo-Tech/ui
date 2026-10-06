@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_LOOK, lookFrom, presetOf, PRESETS, type Look } from "./render/graph-looks";
+import { DEFAULT_LOOK, lookFrom, type Look } from "./render/graph-looks";
 import { DEFAULT_SIM, simFrom } from "./render/graph-sim";
 import { GRAPH_SECTION } from "./section";
 
@@ -46,15 +46,6 @@ describe("the look axes", () => {
     ).toEqual(NEBULA);
     expect(lookFrom({ edges: "curved", labels: "top" })).toEqual(ATLAS);
     expect(lookFrom({ marks: "legible", edges: "straight", labels: "visible" })).toEqual(INK);
-  });
-
-  it("wears the three pictures as presets, and knows one when the axes are it", () => {
-    expect(lookFrom(PRESETS.nebula)).toEqual(NEBULA);
-    expect(lookFrom(PRESETS.atlas)).toEqual(ATLAS);
-    expect(lookFrom(PRESETS.ink)).toEqual(INK);
-    expect(presetOf({}), "every default is Atlas").toBe("atlas");
-    expect(presetOf({ ...PRESETS.ink, grid: "false" }), "an axis no preset names").toBe("ink");
-    expect(presetOf({ ...PRESETS.ink, labels: "all" }), "customised past all three").toBeNull();
   });
 
   it("draws what a graph drew before any of this existed, when nothing is stored", () => {

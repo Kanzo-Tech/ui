@@ -8,7 +8,7 @@ import { GraphRoot } from "../react/graph-root";
 import { GraphPlacement } from "./graph-placement";
 
 /**
- * The placement cards over a real corpus's structure: which fields each card offers, and what a
+ * The placement row over a real corpus's structure: which fields each card offers, and what a
  * choice hands the host. What it cannot prove is the picture a binding draws — `store.test.ts` has
  * the positions, and `render/placement.test.ts` the orientation.
  */
@@ -45,6 +45,19 @@ describe("GraphPlacement", () => {
     await act(() => settle(corpus));
     expect((screen.getByRole("radio", { name: "Force" }) as HTMLInputElement).checked).toBe(true);
     expect(screen.queryByRole("combobox")).toBeNull();
+  });
+
+  it("is one row of cards, each with a picture of its mode, and one line for the checked mode", async () => {
+    const corpus = await attach();
+    render(<Host corpus={corpus} into={{}} />);
+    await act(() => settle(corpus));
+    for (const name of ["Force", "Map", "Clustered"]) {
+      expect(screen.getByRole("radio", { name }).closest("[data-slot=radio-group-card]")?.querySelector("svg"), name).toBeTruthy();
+    }
+    expect(screen.getAllByText(/until it settles/)).toHaveLength(1);
+    await userEvent.setup().click(screen.getByRole("radio", { name: "Map" }));
+    expect(screen.queryByText(/until it settles/)).toBeNull();
+    expect(screen.getByText(/nothing simulates/)).toBeTruthy();
   });
 
   it("binds x and y over the numeric fields inside Map, and says a half binding still runs", async () => {

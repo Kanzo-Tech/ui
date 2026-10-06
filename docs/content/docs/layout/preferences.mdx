@@ -32,7 +32,7 @@ emits the CSS. Everything else follows from the declaration:
 | --- | --- |
 | **Declaration** | `kind`, options (or the name of whoever owns them), default, attribute, doc. `CORE_PREFS` for the core's three, a `SectionManifest` for an optional package's. |
 | **Resolution** | one chain, most specific first: what a tenant pinned, what the person stored, where the tenant said to start, the declaration's default. `useKanzoTheme().corePrefs` / `.sectionPrefs` carry the answer, `via` says which link gave it, and `offered` says whether to draw a control at all. |
-| **Renderer** | one control per `kind`, such as a radio list, a `Switch` or a `Slider`, so a surface never re-decides what a `range` looks like. The specimens are a lookup keyed by preference. |
+| **Renderer** | one control per `kind`, such as a row of radio cards, a `Switch` or a `Slider`, so a surface never re-decides what a `range` looks like. The specimens are a lookup keyed by preference. |
 | **Surfaces** | the drawer below, a settings page, a dock inside a canvas. All of them mount `PreferencesSections`. |
 
 ## Usage

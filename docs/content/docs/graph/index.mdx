@@ -262,11 +262,11 @@ its id.
 
 <ComponentPreview componentName="graph" fileName="example-looks" hasMaxHeight />
 
-The picture's preferences, drawn: three **looks** — Nebula, Atlas and Ink, each a card with a
-miniature drawn through the canvas's own glyphs and scale — and under them the axes, always in view.
-Wearing a look writes every axis it names; a look is checked exactly when the resolved axes are its
-own, so no name is stored beside them, and a picture customised past all three checks none and says
-Custom. A look whose axes a tenant pinned is disabled.
+The picture's preferences, drawn: the axes alone, every one in view, each choice a row of cards.
+There are no named looks over them — Cosmograph's configuration and Gephi Lite's appearance panel
+offer the axes with good defaults, and so does this one. Marks and Edges draw each card as a
+miniature through the canvas's own glyphs and scale; the rest are names or switches. An axis a tenant
+pinned is not offered.
 
 The axes are Cosmograph's configuration, read as choices a reader can name:
 
@@ -302,32 +302,25 @@ const SECTIONS = [GRAPH_SECTION]; // module scope: a new array re-resolves every
 <KanzoThemeProvider sections={SECTIONS}>…</KanzoThemeProvider>;
 
 // under it
-const { look, sim, preset } = useGraphPrefs();
-<GraphRoot from="archive" coordinator={coordinator} look={look} sim={sim} {...PAIRINGS[preset ?? "atlas"]} onFailure={setFailure}>
+const { look, sim } = useGraphPrefs();
+<GraphRoot from="archive" coordinator={coordinator} fill="kind" look={look} sim={sim} onFailure={setFailure}>
 ```
 
-**A look is form; the channels are the host's.** `preset` is `"nebula"`, `"atlas"`, `"ink"` or
-`null`, for a host that pairs channels with a look. Ink's register spends identity on shape — `fill`
-as one ink, `symbol` on the category — but that is a binding, and a binding is the host's to make:
-
-```tsx
-const PAIRINGS: Record<LookPreset, Channels> = {
-  nebula: { fill: "kind" },
-  atlas: { fill: "kind", stroke: "var(--muted-foreground)" },
-  ink: { fill: "var(--foreground)", symbol: "kind", stroke: "var(--muted-foreground)" },
-};
-```
+**A look is form; the channels are the host's.** The preferences never change which column wears
+colour or shape. A host that wants identity on shape binds `symbol` to the category and paints
+`fill` one ink, and Legible marks are what make a shape readable.
 
 ### Placement
 
 <ComponentPreview componentName="graph" fileName="example-placement" hasMaxHeight />
 
-Where the points come from, as three cards: **Force**, the GPU layout; **Map**, two numeric columns
-as `x` and `y`, and nothing simulates; **Clustered**, the layout with cosmos.gl's cluster force over
-one column. The column selects open under the checked card only — **beside it, never inside it**: the card is
-the radio's label and its whole box the radio's hit area, so a control in it would compete with the
-radio for the click. They are a group named after the card, each select with a label of its own,
-reached by Tab after the radios. Their options are the
+Where the points come from, as a row of three cards, each with a picture of its mode: **Force**,
+the GPU layout; **Map**, two numeric columns as `x` and `y`, and nothing simulates; **Clustered**, the
+layout with cosmos.gl's cluster force over one column. One line under the row says what the checked
+mode does. The column selects sit under that line, for the checked mode only — **below the cards,
+never inside one**: the card is the radio's label and its whole box the radio's hit area, so a
+control in it would compete with the radio for the click. They are a group named after the mode,
+each select with a label of its own, reached by Tab after the radios. Their options are the
 corpus's own fields from `fossil_columns` — numeric ones for Map, any for Clustered; fossil's
 `dense_id` and identity are not fields. **It is controlled**: `value` and `onChange` carry
 `Pick<Channels, "x" | "y" | "cluster">`, which the host passes to the root as it is:
@@ -340,7 +333,7 @@ const [placement, setPlacement] = useState<Pick<Channels, "x" | "y" | "cluster">
 </GraphRoot>
 ```
 
-With one of Map's two columns chosen the layout still runs, and the card says so. **Latitude as `y`
+With one of Map's two columns chosen the layout still runs, and the panel says so. **Latitude as `y`
 draws north up**: cosmos.gl's space is y-up, and the placement into its square only scales and
 translates.
 
@@ -545,7 +538,7 @@ writes it in.
 | `title` | `string` — the column a label, the hover card and the search read | each table's `identity` |
 | `categories` | `Readonly<Record<string, string>>` — names by value; key order is the rank | — |
 | `filterBy` | Mosaic `Selection` — the page's crossfilter | — |
-| `look` | `LookPatch` — form, over the package's own | Atlas |
+| `look` | `LookPatch` — form, over the package's own | `lookFrom()` |
 | `sim` | `Partial<Sim>` — forces, over the package's own | `simFrom()` |
 | `simulate` | `boolean` — runs the layout while true | `true` unless `x` and `y` are bound |
 | `onSelect` | `(selection: Selection \| null) => void` | — |
@@ -648,7 +641,7 @@ it from outside.
 | `useGraph` | `(props: UseGraphProps) => GraphApi` | **Creates** the api: a store created once and handed the props when one changes. |
 | `useGraphContext` | `() => GraphApi` | **Reads** it under a root; throws outside one. |
 | `useGraphState` | `(selector, isEqual = Object.is) => T` | A slice of the `GraphState`, and a render only when it moves. |
-| `useGraphPrefs` | `() => { look: Look; sim: Sim; preset: LookPreset \| null }` | The provider's resolved `GRAPH_SECTION`, as the two objects the root takes, and the look they are. |
+| `useGraphPrefs` | `() => { look: Look; sim: Sim }` | The provider's resolved `GRAPH_SECTION`, as the two objects the root takes. |
 
 ### The picture
 
@@ -702,6 +695,6 @@ What `useGraphState` selects from.
 `GraphInspectorProps`, `GraphSearchProps`, `GraphSelectProps`, `GraphLooksProps`, `GraphRootProviderProps` and
 `ShapeGlyphProps` are the parts' props; `VertexDetail` — `vertex`, `table` and `fields` — is what the
 inspector's render prop receives. `Channels` (`fill`, `symbol`, `stroke`, `x`, `y`, `cluster`), `Look`, `LookPatch`,
-`LookPreset`, `Shape`, `Sim`, `Motion`, `Selection`, `SelectionSource`, `Tool`, `VertexId`,
+`Shape`, `Sim`, `Motion`, `Selection`, `SelectionSource`, `Tool`, `VertexId`,
 `GraphCommands`, `DataStatus` and `Drawn` are the vocabulary, and `GraphError` is the class of the
 graph's own failures. `CorpusReference` is one of the joins `corpusReferences` answers.

@@ -12,18 +12,9 @@ import {
   GraphStatus,
   GraphToolbar,
   useGraphPrefs,
-  type Channels,
-  type LookPreset,
 } from "@kanzo-tech/graph";
 import { Kbd, KbdGroup, ScrollArea, Show, Tabs, TabsContent, TabsList, TabsTrigger } from "@kanzo-tech/ui";
 import { ARCHIVE_KINDS, said, useArchive } from "./archive";
-
-/** The product's half of a look: which channels each one wears. Ink spends identity on shape. */
-const PAIRINGS: Record<LookPreset, Channels> = {
-  nebula: { fill: "kind" },
-  atlas: { fill: "kind", stroke: "var(--muted-foreground)" },
-  ink: { fill: "var(--foreground)", symbol: "kind", stroke: "var(--muted-foreground)" },
-};
 
 /** What each gesture does — the canvas's, written down once by the host. */
 const GESTURES: { keys: ReactNode; what: string }[] = [
@@ -53,18 +44,19 @@ const GESTURES: { keys: ReactNode; what: string }[] = [
 export default function Example() {
   const [failure, setFailure] = useState<unknown>(null);
   const archive = useArchive(setFailure);
-  const { look, sim, preset } = useGraphPrefs();
+  const { look, sim } = useGraphPrefs();
   return (
     <div className="flex h-[34rem] w-full flex-col overflow-hidden rounded-lg border">
       <GraphRoot
         categories={ARCHIVE_KINDS}
         {...archive}
+        fill="kind"
         look={look}
         onFailure={setFailure}
         r="degree"
         sim={sim}
+        stroke="var(--muted-foreground)"
         title="label"
-        {...PAIRINGS[preset ?? "atlas"]}
       >
         <div className="flex min-h-0 flex-1">
           <GraphCanvas className="min-w-0 flex-1">

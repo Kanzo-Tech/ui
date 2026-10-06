@@ -209,13 +209,12 @@ export interface SectionPrefPolicy {
  *
  * **One manifest carries both halves**, and they are both optional. A package may contribute tokens
  * without preferences (a vocabulary a document decides), preferences without tokens (a choice that
- * paints nothing of its own), or both. Two exports would let a namespace and a version drift apart
- * while describing the same section, and the namespace is the whole of the contract.
+ * paints nothing of its own), or both. Two exports would let two halves drift apart while
+ * describing the same section, and the namespace is the whole of the contract.
  */
 export interface SectionManifest {
   /** The namespace segment. `"graph"` produces `--graph-*`. */
   namespace: string;
-  version: number;
   /** Keys are token names **without** the namespace: `"marquee"`, `"point-size-min"`. */
   tokens?: Readonly<Record<string, SectionTokenDecl>>;
   /** Keys are preference names, unqualified: `"look"`. */

@@ -27,7 +27,6 @@ import type { SectionManifest } from "@kanzo-tech/theme";
 
 export const GRAPH_SECTION: SectionManifest = {
   namespace: "graph",
-  version: 1,
   tokens: {
     grid: { default: "var(--border)", doc: "The dot grid behind the canvas." },
     "point-ring-hover": { default: "var(--primary)", doc: "The ring around a hovered point." },
@@ -77,7 +76,7 @@ A preference is one of exactly three, and the set is closed — there is no `cus
 
 | kind | what it declares | drawn as |
 | --- | --- | --- |
-| `choice` | `options`, a closed list of `{ value, label }` | a radio list |
+| `choice` | `options`, a closed list of `{ value, label }` | a row of radio cards |
 | `toggle` | nothing more | a switch |
 | `range` | `min`, `max`, `step` | a slider |
 

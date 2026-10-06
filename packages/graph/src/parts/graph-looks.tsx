@@ -1,18 +1,9 @@
 "use client";
 
-import {
-  cn,
-  PreferencesFieldSet,
-  PreferencesSections,
-  RadioGroup,
-  RadioGroupCard,
-  Show,
-  useKanzoTheme,
-} from "@kanzo-tech/ui";
+import { cn, PreferencesSections, useKanzoTheme } from "@kanzo-tech/ui";
 import { useId } from "react";
 import type { Channels } from "../core/channels";
-import { useGraphPrefs } from "../react/use-graph-prefs";
-import { lookFrom, PRESETS, type Look, type LookPreset } from "../render/graph-looks";
+import { lookFrom, type Look } from "../render/graph-looks";
 import { scaleOf } from "../render/graph-model";
 import { GRAPH_SECTION } from "../section";
 import { ShapeGlyph } from "./shape-glyph";
@@ -21,21 +12,14 @@ export type GraphLooksProps = React.ComponentProps<"div">;
 
 const NAMESPACE = GRAPH_SECTION.namespace;
 
-const CARDS: Record<LookPreset, { label: string; blurb: string; channels: Channels }> = {
-  nebula: { label: "Nebula", blurb: "Dense points and straight, additive links that read as flow; a name only under the pointer.", channels: {} },
-  atlas: {
-    label: "Atlas",
-    blurb: "Map-steady points, links that just curve, the biggest points named.",
-    channels: { stroke: "var(--muted-foreground)" },
-  },
-  ink: {
-    label: "Ink",
-    blurb: "Large, legible marks in one ink, identity on shape, names wherever you look — the print-and-projector register.",
-    channels: { fill: "var(--foreground)", symbol: "category", stroke: "var(--muted-foreground)" },
-  },
-};
+/**
+ * What the previews draw with: the categorical scale over the preview's ranks, and one ink for the
+ * links. Neutral on purpose — the channels a canvas binds are its host's, and a preview that guessed
+ * them would promise a picture the canvas might not paint.
+ */
+const PREVIEW: Channels = { stroke: "var(--muted-foreground)" };
 
-/** The axes under the looks, in reading order; the forces are a live layout's and are not the picture. */
+/** The axes, in reading order; the forces are a live layout's and are not the picture. */
 const AXES = ["marks", "edges", "additive-links", "labels", "grid", "vignette"] as const;
 
 /**
@@ -125,59 +109,27 @@ function LookPreview({ channels, className, look }: { channels: Channels; classN
 }
 
 /**
- * **The graph's picture: three looks, and the axes under them, always in view** — GitHub's appearance
- * settings for the looks, Gephi Lite's appearance panel for the axes. The looks are `PRESETS` over
- * `GRAPH_SECTION`'s axes; wearing one writes every axis it names, and a look is checked exactly when
- * the resolved axes are its own, so there is no name stored beside them to go stale.
- *
- * The axes are the section's own controls, through `PreferencesSections`: Marks and Edges as cards
- * whose picture is the current look with that one option changed, Labels as a list, the rest as
- * switches. Additive links is drawn only while there are links to add.
+ * **The graph's picture, as its axes** — Cosmograph's configuration and Gephi Lite's appearance
+ * panel, which offer the axes alone with good defaults. Every axis is `GRAPH_SECTION`'s own control,
+ * drawn by `PreferencesSections`: a choice is a row of cards, and Marks and Edges carry a preview —
+ * the same small graph with that one option changed — the rest are switches. Additive links is drawn
+ * only while there are links to add.
  *
  * Under `KanzoThemeProvider` with `GRAPH_SECTION` among its `sections` — without it there is nothing
  * to write and it draws nothing, as `PreferencesSections` does for an unknown namespace. It needs no
- * `GraphRoot`, so it sits in a preferences panel as well as in a dock. A look whose axes a tenant
- * pinned is disabled, because wearing it would change nothing.
+ * `GraphRoot`, so it sits in a preferences panel as well as in a dock.
  */
 export function GraphLooks({ className, slot, ...rest }: GraphLooksProps) {
-  const { sectionPrefs, setSectionPref } = useKanzoTheme();
-  const { preset } = useGraphPrefs();
+  const { sectionPrefs } = useKanzoTheme();
   const prefs = sectionPrefs[NAMESPACE];
   if (!prefs) return null;
-  const offered = (key: string) => prefs[key]?.offered === true;
   const values = Object.fromEntries(Object.entries(prefs).map(([key, pref]) => [key, pref.value]));
-  const channels = CARDS[preset ?? "atlas"].channels;
   const specimen = (key: string) => (option: { value: string }) => (
-    <LookPreview channels={channels} className="h-10" look={lookFrom({ ...values, [key]: option.value })} />
+    <LookPreview channels={PREVIEW} className="h-10" look={lookFrom({ ...values, [key]: option.value })} />
   );
 
   return (
     <div {...rest} className={cn("flex flex-col gap-4", className)} data-slot={slot ?? "graph-looks"}>
-      <PreferencesFieldSet label="Look">
-        <RadioGroup
-          onValueChange={(details) => {
-            const id = details.value as LookPreset | null;
-            if (id) setSectionPref(NAMESPACE, PRESETS[id]);
-          }}
-          value={preset}
-        >
-          {(Object.keys(CARDS) as LookPreset[]).map((id) => (
-            <RadioGroupCard
-              className="flex-col gap-0 p-2"
-              disabled={!Object.keys(PRESETS[id]).every(offered)}
-              key={id}
-              value={id}
-            >
-              <LookPreview channels={CARDS[id].channels} look={lookFrom(PRESETS[id])} />
-              <span className="mt-1.5 font-medium text-xs">{CARDS[id].label}</span>
-              <span className="mt-0.5 text-[10px] text-muted-foreground leading-relaxed">{CARDS[id].blurb}</span>
-            </RadioGroupCard>
-          ))}
-        </RadioGroup>
-        <Show when={preset === null}>
-          <p className="text-muted-foreground text-xs">Custom: the axes below are none of the three looks.</p>
-        </Show>
-      </PreferencesFieldSet>
       <PreferencesSections
         namespace={NAMESPACE}
         only={values.edges === "hidden" ? AXES.filter((key) => key !== "additive-links") : AXES}

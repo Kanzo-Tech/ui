@@ -105,9 +105,6 @@ describe("@kanzo-tech/graph public surface", () => {
     expect(surface.DEFAULT_LOOK).toBeUndefined();
     expect(surface.DEFAULT_SIM).toBeUndefined();
     expect(surface.DEFAULT_LIMIT).toBeUndefined();
-    // The looks are worn through `GraphLooks` and read back through `useGraphPrefs`'s `preset`.
-    expect(surface.PRESETS).toBeUndefined();
-    expect(surface.presetOf).toBeUndefined();
     expect(surface.REHEAT).toBeUndefined();
     expect(surface.GRID).toBeUndefined();
     expect(surface.SPACE).toBeUndefined();

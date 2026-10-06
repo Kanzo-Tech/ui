@@ -531,7 +531,6 @@ describe("KanzoThemeProvider palette", () => {
 describe("sections a host registers", () => {
   const SECTION: SectionManifest = {
     namespace: "graph",
-    version: 1,
     prefs: {
       look: {
         kind: "choice",
@@ -547,7 +546,6 @@ describe("sections a host registers", () => {
   };
   const WITH_ATTR: SectionManifest = {
     namespace: "editor",
-    version: 1,
     prefs: {
       size: {
         kind: "choice",
@@ -621,7 +619,7 @@ describe("sections a host registers", () => {
   });
 
   it("declares no group for a manifest that contributes only tokens", () => {
-    const view = mount({ sections: [{ namespace: "graph", version: 1, tokens: {} }] });
+    const view = mount({ sections: [{ namespace: "graph", tokens: {} }] });
     expect(Object.keys(view.ctx.sectionPrefs)).toEqual([]);
   });
 

@@ -142,7 +142,6 @@ describe("Preferences", () => {
         sections: [
           {
             namespace: "graph",
-            version: 1,
             prefs: {
               look: {
                 kind: "choice",
@@ -165,7 +164,6 @@ describe("Preferences", () => {
     it("draws a contributed choice's specimens from the surface that draws it, keyed namespace.preference", () => {
       const graph: SectionManifest = {
         namespace: "graph",
-        version: 1,
         prefs: {
           look: {
             kind: "choice",
@@ -337,7 +335,6 @@ describe("Preferences", () => {
 describe("sections a host contributed", () => {
   const SECTION: SectionManifest = {
     namespace: "graph",
-    version: 1,
     prefs: {
       look: {
         kind: "choice",
@@ -381,7 +378,6 @@ describe("a surface may draw part of a section", () => {
   // send the surface back to hand-rolling, which is what the mechanism exists to end.
   const SECTION: SectionManifest = {
     namespace: "graph",
-    version: 1,
     prefs: {
       marks: {
         kind: "choice",
@@ -453,7 +449,6 @@ describe("the three kinds a section may declare, drawn", () => {
   // what it looks like when they are declared instead.
   const DISPLAY: SectionManifest = {
     namespace: "graph",
-    version: 1,
     prefs: {
       links: { kind: "toggle", default: "true", doc: "draw the links" },
       pointScale: {

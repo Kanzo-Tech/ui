@@ -26,7 +26,7 @@ function mount(props: Record<string, unknown> = {}) {
 describe("useGraphPrefs", () => {
   it("answers the manifest's defaults when nobody chose anything", () => {
     const { result } = mount();
-    expect(result.current.prefs).toEqual({ look: lookFrom(), sim: simFrom(), preset: "atlas" });
+    expect(result.current.prefs).toEqual({ look: lookFrom(), sim: simFrom() });
   });
 
   it("follows a stored choice", () => {
@@ -34,7 +34,6 @@ describe("useGraphPrefs", () => {
     act(() => result.current.theme.setSectionPref("graph", { marks: "legible", gravity: "0.5" }));
     expect(result.current.prefs.look).toEqual(lookFrom({ marks: "legible" }));
     expect(result.current.prefs.sim.gravity).toBe(0.5);
-    expect(result.current.prefs.preset, "Atlas's axes with Ink's marks are no preset").toBeNull();
   });
 
   it("answers the tenant's pin over the user's choice", () => {

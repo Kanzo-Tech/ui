@@ -18,7 +18,6 @@ type SectionPrefDecl_ =
 
 interface SectionManifest {
   namespace: string;
-  version: number;
   tokens?: Readonly<Record<string, { default: string; doc: string }>>;
   prefs?: Readonly<Record<string, SectionPrefDecl_>>;
 }
@@ -68,7 +67,6 @@ interface SectionManifest {
  */
 export const GRAPH_SECTION: SectionManifest = {
   namespace: "graph",
-  version: 1,
   tokens: {
     grid: {
       default: "var(--border)",
