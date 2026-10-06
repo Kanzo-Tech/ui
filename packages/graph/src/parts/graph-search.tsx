@@ -32,7 +32,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { nameOf } from "../core/categories";
 import { bindingOf } from "../core/channels";
 import { matchingIds, parseQuery, searchVertices, type Found, type VertexQuery } from "../core/source";
-import { tableOf } from "../core/structure";
+import { localName, tableOf } from "../core/structure";
 import { internalsOf } from "../react/use-graph";
 import { useGraphContext } from "../react/graph-root";
 import { useGraphSnapshot, useGraphState } from "../react/use-graph-state";
@@ -52,9 +52,12 @@ export interface GraphSearchProps {
 
 interface Entry {
   value: string;
-  vertex: number;
+  /** The vertex it goes to, or `null` for a type the empty palette offers as a chip. */
+  vertex: number | null;
   label: string;
-  /** Its vertex table, or {@link RECENT} for a vertex the search went to before. */
+  /** What tells it apart from a match of the same name: its identity's local name, or its type. */
+  detail: string;
+  /** Its vertex table, {@link RECENT} for a vertex the search went to before, or {@link TYPES}. */
   group: string;
 }
 
@@ -64,6 +67,7 @@ type Answered = { input: string; query: VertexQuery; found: Found | false } | nu
 /** How long a reader pauses before the text is asked for: one statement per pause, not per key. */
 const PAUSE = 150;
 const RECENT = "\0recent";
+const TYPES = "\0types";
 
 /**
  * **Find a vertex and go to it** — a palette in Raycast's and Linear's shape over Cosmograph's search,
@@ -79,11 +83,15 @@ const RECENT = "\0recent";
  * becomes a chip on Space — a `TagsInput` sharing the palette's input, its `validate` the same
  * `parseQuery` the read uses, so free text never becomes one.
  *
- * Matches are grouped by vertex type, named by the root's `categories` and counted past the limit,
- * each with the glyph the canvas draws it in. **Enter** reveals the highlighted one — the canvas frames
- * it and selects it with its neighbours — closes the palette, and puts it at the head of the recents
- * the empty palette shows, kept by the root while it lives. **⌘Enter** selects every match as an
- * `"external"` selection.
+ * The palette keeps its height whatever it holds, as Raycast's and Linear's do. Empty, it offers what
+ * to start from: the vertices the search went to before, kept by the root while it lives, then every
+ * vertex type with how many it holds — picking one makes it a `type:` chip, GitHub's palette scopes.
+ * Typed, matches are grouped by vertex type, named by the root's `categories` and counted past the
+ * limit, each with the glyph the canvas draws it in and, on the right, its identity's local name, as
+ * Linear prints an issue's key — a title is not unique, and the key is what tells two apart. **Enter**
+ * reveals the highlighted one — the canvas frames it and selects it with its neighbours — closes the
+ * palette and puts it at the head of the recents. **⌘Enter** selects every match as an `"external"`
+ * selection. The footer says how many matched and how many of them the list shows.
  *
  * A read that fails is handed to `onFailure` whole and the input says so.
  *
@@ -95,6 +103,7 @@ export function GraphSearch({ className, limit = 50, placeholder = "Find a node�
   const structure = useGraphState((s) => s.structure);
   const options = useGraphState((s) => s.options);
   const encoding = useGraphSnapshot((s) => s.encoding);
+  const domain = useGraphState((s) => s.drawn?.domain ?? s.domain);
   const recent = useGraphSnapshot((s) => s.recent);
   const capacity = useChartCapacity();
   const scale = useMemo(() => scaleOf(options, capacity), [options, capacity]);
@@ -145,19 +154,39 @@ export function GraphSearch({ className, limit = 50, placeholder = "Find a node�
   const result = answered !== null && answered.input === input ? answered : null;
   const found = typed ? (result?.found ?? null) : null;
   const items = useMemo<Entry[]>(() => {
-    if (typed) return found ? found.matches.map((m) => ({ value: String(m.id), vertex: m.id, label: m.text || `#${m.id}`, group: m.type })) : [];
-    return recent.map((r) => ({ value: String(r.vertex), vertex: r.vertex, label: r.text, group: RECENT }));
-  }, [typed, found, recent]);
+    if (typed) {
+      if (!found) return [];
+      return found.matches.map((m) => {
+        const label = m.text || `#${m.id}`;
+        const key = localName(m.key);
+        return { value: String(m.id), vertex: m.id, label, detail: key === label ? "" : key, group: m.type };
+      });
+    }
+    const typeOf = (vertex: number) => (structure ? nameOf(tableOf(structure, vertex)?.name, categories) : "");
+    return [
+      ...recent.map((r) => ({ value: String(r.vertex), vertex: r.vertex, label: r.text, detail: typeOf(r.vertex), group: RECENT })),
+      ...(structure?.vertices ?? []).map((t) => ({
+        value: `type:${t.name}`,
+        vertex: null,
+        label: nameOf(t.name, categories),
+        detail: t.rows.toLocaleString(),
+        group: TYPES,
+      })),
+    ];
+  }, [typed, found, recent, structure, categories]);
   const collection = useMemo(() => createListCollection({ items, groupBy: (item) => item.group }), [items]);
   const terms = result ? [result.query.text, ...result.query.fields.map((f) => f.value)].filter((t) => t !== "") : [];
 
-  const glyph = (vertex: number) => {
-    const rank = encoding?.ranks[vertex];
+  const glyph = (item: Entry) => {
+    // A type wears the glyph its vertices do only when the type is what the canvas colours by.
+    const typeRank = binding.byTable ? domain.findIndex((value) => `type:${String(value)}` === item.value) : -1;
+    const rank = item.vertex === null ? (typeRank < 0 ? undefined : typeRank) : encoding?.ranks[item.vertex];
     if (!bound || rank === undefined) return null;
     return <ShapeGlyph aria-hidden className="size-2.5 shrink-0" color={scale.color(rank)} shape={scale.shape(rank)} />;
   };
   const heading = (group: string) => {
     if (group === RECENT) return "Recent";
+    if (group === TYPES) return "Narrow to a type";
     const n = found ? found.byType.get(group) : undefined;
     return (
       <span className="flex w-full items-center justify-between gap-2">
@@ -208,6 +237,10 @@ export function GraphSearch({ className, limit = 50, placeholder = "Find a node�
             onValueChange={(details) => {
               const picked = items.find((item) => item.value === details.value[0]);
               if (!picked) return;
+              if (picked.vertex === null) {
+                chips.addValue(picked.value);
+                return;
+              }
               internalsOf(api).store.remember(picked.vertex, picked.label);
               api.reveal(picked.vertex);
               setOpen(false);
@@ -244,38 +277,46 @@ export function GraphSearch({ className, limit = 50, placeholder = "Find a node�
                   <CommandGroup heading={heading(group)} key={group}>
                     {entries.map((item) => (
                       <CommandItem item={item} key={item.value}>
-                        {glyph(item.vertex)}
+                        {glyph(item)}
                         <span className="min-w-0 truncate">
                           <Highlight ignoreCase matchAll query={terms} text={item.label} />
                         </span>
-                        <Show when={group === RECENT && !!structure}>
-                          <span className="ms-auto ps-2 text-muted-foreground text-xs">
-                            {structure && nameOf(tableOf(structure, item.vertex)?.name, categories)}
-                          </span>
+                        <Show when={item.detail !== ""}>
+                          <span className="ms-auto shrink-0 ps-2 text-muted-foreground text-xs tabular-nums">{item.detail}</span>
                         </Show>
                       </CommandItem>
                     ))}
                   </CommandGroup>
                 ))}
               </CommandList>
-              <Show when={!!found && found.total > limit}>
-                <p className="border-t px-2 py-1.5 text-muted-foreground text-xs">First {limit}. Keep typing to narrow it.</p>
-              </Show>
             </CommandContent>
-            <Show when={!!found && found.total > 0}>
-              <CommandFooter>
-                <span className="flex items-center gap-1">
-                  <Kbd>↵</Kbd> to go to it
+            <CommandFooter>
+              {found && found.total > 0 ? (
+                <>
+                  <span className="min-w-0 truncate tabular-nums">
+                    {found.total > limit
+                      ? `First ${limit} of ${found.total.toLocaleString()} — keep typing to narrow it`
+                      : `${found.total.toLocaleString()} ${found.total === 1 ? "match" : "matches"}`}
+                  </span>
+                  <span className="flex shrink-0 items-center gap-1">
+                    <span className="flex items-center gap-1 px-2">
+                      Go to <Kbd>↵</Kbd>
+                    </span>
+                    <Button onClick={() => void selectAll()} size="sm" variant="ghost">
+                      Select all
+                      <KbdGroup>
+                        <Kbd>⌘</Kbd>
+                        <Kbd>↵</Kbd>
+                      </KbdGroup>
+                    </Button>
+                  </span>
+                </>
+              ) : (
+                <span className="min-w-0 truncate">
+                  Narrow with <Kbd>type:Name</Kbd> or <Kbd>column:value</Kbd>, then Space.
                 </span>
-                <Button onClick={() => void selectAll()} size="sm" variant="ghost">
-                  Select {found ? found.total.toLocaleString() : 0} matches
-                  <KbdGroup>
-                    <Kbd>⌘</Kbd>
-                    <Kbd>↵</Kbd>
-                  </KbdGroup>
-                </Button>
-              </CommandFooter>
-            </Show>
+              )}
+            </CommandFooter>
           </Command>
         </TagsInputRootProvider>
       </CommandDialogContent>

@@ -241,7 +241,7 @@ describe("GraphInspector", () => {
     expect(document.querySelector('[data-slot="graph-inspector-title"]')?.textContent).toBe("Person 6");
   });
 
-  it("heads with the IRI's local name when there is no title, keeps the IRI behind Copy, and puts the neighbours before the fields", async () => {
+  it("heads with the IRI's local name when there is no title, keeps the IRI behind Copy, and lists no neighbours", async () => {
     const corpus = await attach();
     const held: { api: GraphApi | null } = { api: null };
     render(
@@ -255,30 +255,18 @@ describe("GraphInspector", () => {
     await waitFor(() => expect(document.querySelector('[data-slot="graph-inspector-title"]')?.textContent).toBe("6"));
     expect(screen.getByRole("button", { name: "Copy the IRI" })).toBeTruthy();
     expect(screen.queryByRole("region", { name: "Identity" })).toBeNull();
-    const [neighbours, values] = [section("Neighbours"), section("Values")];
-    expect(neighbours.compareDocumentPosition(values) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(section("Values")).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Neighbours" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Copy its fields/ })).toBeNull();
   });
 
-  it("counts the neighbours per relation and direction, and pressing one selects that set", async () => {
+  it("selects the vertex and every neighbour as one external selection, and locates it", async () => {
     const { held } = await inspecting();
     act(() => held.api?.setFocus(6));
-    const region = await waitFor(() => {
-      const found = section("Neighbours");
-      expect(found.querySelectorAll("button")).toHaveLength(3);
-      return found;
-    });
-    expect([...region.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["knows → Person1", "knows ← Person1", "livesIn → Place1"]);
-    fireEvent.click(screen.getByText("livesIn → Place"));
-    await waitFor(() => expect(held.api?.getState().selection).toEqual({ vertices: [10], source: "external", label: "livesIn → Place of Person 6" }));
-  });
-
-  it("focuses on the vertex and every neighbour as one external selection, and zooms to it", async () => {
-    const { held } = await inspecting();
-    act(() => held.api?.setFocus(6));
-    fireEvent.click(await screen.findByRole("button", { name: "Focus on its neighbours" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Select neighbours" }));
     await waitFor(() => expect(held.api?.getState().selection?.label).toBe("Neighbours of Person 6"));
     expect([...(held.api?.getState().selection?.vertices ?? [])].sort((a, b) => a - b)).toEqual([5, 6, 7, 10]);
-    fireEvent.click(screen.getByRole("button", { name: "Zoom to it" }));
+    fireEvent.click(screen.getByRole("button", { name: "Locate" }));
     expect(held.api?.getState().selection).toEqual({ vertices: [6], source: "node", label: "Node" });
   });
 
@@ -325,7 +313,9 @@ describe("GraphSearch", () => {
     await act(async () => input.focus());
     return { corpus, held, cue, input };
   }
-  const options = () => screen.queryAllByRole("option").map((option) => option.textContent);
+  // An option's name, without what tells it apart — that is `details`.
+  const options = () => screen.queryAllByRole("option").map((option) => option.querySelector("span")?.textContent);
+  const details = () => screen.queryAllByRole("option").map((option) => option.querySelector("span:last-child")?.textContent);
   const groups = () => [...document.querySelectorAll('[data-slot="command-group"]')].map((group) => group.firstElementChild?.textContent);
   const chips = () => [...document.querySelectorAll('[data-slot="tags-input-item-text"]')].map((chip) => chip.textContent);
   const type = (input: HTMLInputElement, value: string) => act(async () => fireEvent.input(input, { target: { value } }));
@@ -359,8 +349,21 @@ describe("GraphSearch", () => {
     await waitFor(() => expect(options()).toEqual(["Person 0", "Person 1", "Person 2"]));
     expect(groups()).toEqual(["People10"]);
     expect(corpus.sent.filter((sql) => sql.includes("ILIKE"))).toHaveLength(1);
-    expect(screen.getByText("First 3. Keep typing to narrow it.")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Select 10 matches/ })).toBeTruthy();
+    expect(details()).toEqual(["0", "1", "2"]);
+    expect(screen.getByText("First 3 of 10 — keep typing to narrow it")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Select all/ })).toBeTruthy();
+  });
+
+  it("offers, empty, every vertex type with its count, and picking one makes it a chip", async () => {
+    const { input } = await searching();
+    expect(groups()).toEqual(["Narrow to a type"]);
+    expect(options()).toEqual(["People", "Places", "Tag"]);
+    expect(details()).toEqual(["10", "6", "4"]);
+    expect(screen.getByText(/Narrow with/)).toBeTruthy();
+    await act(async () => fireEvent.click(screen.getByRole("option", { name: /Places/ })));
+    expect(chips()).toEqual(["type:Place"]);
+    await waitFor(() => expect(groups()).toEqual(["Places6"]));
+    expect(input.value).toBe("");
   });
 
   it("matches without case, falls back to a table's identity, and Enter reveals the vertex, closes, and remembers it", async () => {
@@ -373,8 +376,9 @@ describe("GraphSearch", () => {
     await waitFor(() => expect(held.api?.getState().focus).toBe(13));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await act(async () => fireEvent.click(cue));
-    await waitFor(() => expect(groups()).toEqual(["Recent"]));
-    expect(options()).toEqual(["Place 3Places"]);
+    await waitFor(() => expect(groups()).toEqual(["Recent", "Narrow to a type"]));
+    expect(options()[0]).toBe("Place 3");
+    expect(details()[0]).toBe("Places");
     const again = screen.getByRole("combobox") as HTMLInputElement;
     await act(async () => again.focus());
     await type(again, "tag/2");
@@ -414,7 +418,7 @@ describe("GraphSearch", () => {
   it("selects every match, past the limit, as one external selection, from its button or ⌘Enter", async () => {
     const { held, input } = await searching();
     await type(input, "type:Person");
-    fireEvent.click(await screen.findByRole("button", { name: /Select 10 matches/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Select all/ }));
     await waitFor(() => expect(held.api?.getState().selection?.vertices).toHaveLength(10));
     expect(held.api?.getState().selection?.label).toBe("Matches for “type:Person”");
     await act(async () => held.api?.select([], "external"));
@@ -422,7 +426,7 @@ describe("GraphSearch", () => {
     const again = screen.getByRole("combobox") as HTMLInputElement;
     await act(async () => again.focus());
     await type(again, "type:Place");
-    await screen.findByRole("button", { name: /Select 6 matches/ });
+    await screen.findByText("First 3 of 6 — keep typing to narrow it");
     await act(async () => fireEvent.keyDown(again, { key: "Enter", metaKey: true }));
     await waitFor(() => expect(held.api?.getState().selection?.vertices).toHaveLength(6));
     expect(held.api?.getState().focus).not.toBe(10);

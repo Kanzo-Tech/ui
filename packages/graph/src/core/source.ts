@@ -241,14 +241,18 @@ function matching(structure: Structure, query: VertexQuery, title: string | unde
       ...(query.text === "" ? [] : [ilike(text, query.text)]),
       ...fields.map((field) => ilike(field.name as string, field.value)),
     ];
-    return [Query.select({ id: float64("dense_id"), text, type: literal(table.name) }).from(relation(structure.from, table.name)).where(where)];
+    return [Query.select({ id: float64("dense_id"), text, key: cast(table.identity, "VARCHAR"), type: literal(table.name) }).from(relation(structure.from, table.name)).where(where)];
   });
   return selects.length === 0 ? null : Query.unionAll(selects);
 }
 
-/** What a search answered: the first matches, and how many the limit hid, in all and per table. */
+/**
+ * What a search answered: the first matches, and how many the limit hid, in all and per table. A
+ * match carries its identity as `key` beside its `text`, because a title is not unique and fifty rows
+ * reading "scout" are one row fifty times until something tells them apart.
+ */
 export interface Found {
-  readonly matches: readonly { readonly id: number; readonly text: string; readonly type: string }[];
+  readonly matches: readonly { readonly id: number; readonly text: string; readonly key: string; readonly type: string }[];
   readonly total: number;
   readonly byType: ReadonlyMap<string, number>;
 }
@@ -271,12 +275,12 @@ export async function searchVertices(
       .orderby(length("text"), "text", "id")
       .limit(limit),
   );
-  const [id, text, type] = [values(answer, "id"), values(answer, "text"), values(answer, "type")];
+  const [id, text, key, type] = [values(answer, "id"), values(answer, "text"), values(answer, "key"), values(answer, "type")];
   const [per, total] = [values(answer, "per"), values(answer, "total")];
   const byType = new Map<string, number>();
   const matches = Array.from({ length: answer.numRows }, (_, i) => {
     byType.set(String(type[i]), Number(per[i]));
-    return { id: id[i] as number, text: String(text[i] ?? ""), type: String(type[i]) };
+    return { id: id[i] as number, text: String(text[i] ?? ""), key: String(key[i] ?? ""), type: String(type[i]) };
   });
   return { matches, total: answer.numRows === 0 ? 0 : Number(total[0]), byType };
 }
@@ -289,15 +293,9 @@ export async function matchingIds(coordinator: Coordinator, structure: Structure
 }
 
 /** One side of a relation, seen from a vertex: the edges it leaves by, or the ones that reach it. */
-export interface Side {
+interface Side {
   readonly edge: EdgeTable;
   readonly direction: "out" | "in";
-}
-
-/** A side, the vertex table at its far end, and how many of the vertex's edges run along it. */
-export interface Neighbours extends Side {
-  readonly other: string;
-  readonly count: number;
 }
 
 const near = (side: Side) => (side.direction === "out" ? "src" : "dst");
@@ -313,40 +311,9 @@ function sidesOf(structure: Structure, vertex: number): Side[] {
   ]);
 }
 
-/**
- * **A vertex's neighbourhood, counted per relation and direction** — the Linkurious inspector's
- * summary, read off the edge tables `fossil_tables` names, one count per side in one statement. A
- * side the vertex has no edge along is left out.
- */
-export async function readNeighbours(coordinator: Coordinator, structure: Structure, vertex: number): Promise<Neighbours[]> {
+/** The vertices one edge away from `vertex`, along every relation its table takes part in, each once. */
+export async function neighbourIds(coordinator: Coordinator, structure: Structure, vertex: number): Promise<number[]> {
   const sides = sidesOf(structure, vertex);
-  if (sides.length === 0) return [];
-  const answer = await ask(
-    coordinator,
-    Query.unionAll(
-      sides.map((side, at) =>
-        Query.select({ side: literal(at), n: float64(count()) })
-          .from(relation(structure.from, side.edge.name))
-          .where(eq(near(side), literal(vertex))),
-      ),
-    ),
-  );
-  const [at, n] = [values(answer, "side"), values(answer, "n")];
-  const counted = new Map<number, number>();
-  for (let i = 0; i < answer.numRows; i++) counted.set(Number(at[i]), Number(n[i]));
-  return sides.flatMap((side, i) => {
-    const count = counted.get(i) ?? 0;
-    return count > 0 ? [{ ...side, other: side.direction === "out" ? side.edge.destination : side.edge.source, count }] : [];
-  });
-}
-
-/** The vertices at the far end of `sides` from `vertex`, each once — of every side, without `sides`. */
-export async function neighbourIds(
-  coordinator: Coordinator,
-  structure: Structure,
-  vertex: number,
-  sides: readonly Side[] = sidesOf(structure, vertex),
-): Promise<number[]> {
   if (sides.length === 0) return [];
   const answer = await ask(
     coordinator,

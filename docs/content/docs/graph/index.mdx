@@ -20,6 +20,16 @@ taken apart below.
 pnpm add @kanzo-tech/graph @cosmos.gl/graph @kanzo-tech/mosaic @kanzo-tech/ui lucide-react
 ```
 
+Its stylesheet entry goes after `@kanzo-tech/ui`'s. The canvas is WebGL, but the palette, the
+inspector and the legend are utilities, and a utility only this package writes is generated only
+when something scans it:
+
+```css title="app/globals.css"
+@import "tailwindcss";
+@import "@kanzo-tech/ui/tailwind.css";
+@import "@kanzo-tech/graph/tailwind.css";
+```
+
 Every peer is required: cosmos.gl draws and lays out, `@kanzo-tech/mosaic` is the page's coordinator
 and crossfilter, and the parts are built from `@kanzo-tech/ui` and its icons. The host attaches the
 corpus with `@fossil-lang/corpus` `0.3.0-alpha.24` or later, whose `open` answers a catalog rather
@@ -69,7 +79,7 @@ GraphRoot                  the state and the commands; renders no element
 ├── GraphCounts            "5K nodes · 8K edges", or "1.2K of 5K nodes match · 3K edges"
 ├── GraphSearch            a palette: find a vertex, by text, type or column, and reveal it
 ├── GraphSelect            a selection the host offers, as a toggle
-└── GraphInspector         the focused vertex: its row and its neighbourhood
+└── GraphInspector         the focused vertex: its row
 ```
 
 **Every part reads the root, not its parent.** `GraphCanvas`'s children are chrome positioned over
@@ -194,8 +204,10 @@ command trigger. It, ⌘K and Ctrl+K open the palette, centred and full-height o
 declares it as `aria-keyshortcuts`. Each pause in typing (150 ms) asks the corpus once, through the
 coordinator, for the first `limit` matches and how many there are of each type; nothing is read
 before the reader types and no text is held in the page. Matches are grouped by vertex type — named by
-the root's `categories` and counted past the limit — each with the glyph the canvas draws it in and
-the typed text highlighted.
+the root's `categories` and counted past the limit — each with the glyph the canvas draws it in, the
+typed text highlighted and, on the right, its identity's local name, as Linear prints an issue's key: a
+title is not unique, and fifty rows reading "scout" are told apart by it. The palette keeps its height
+whatever it holds, as Raycast's and Linear's do.
 
 Three things narrow it, as Neo4j Bloom's search does:
 
@@ -216,11 +228,13 @@ input highlights the last chip, then removes it.
 | Key | Does |
 | --- | --- |
 | <kbd>Enter</kbd> | `reveal`s the highlighted match — the canvas frames it and selects it with its neighbours, and `GraphInspector` reads it — and closes the palette |
-| <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> | selects every match, past the limit, as one `"external"` selection — **Select N matches** in the footer does the same |
+| <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> | selects every match, past the limit, as one `"external"` selection — **Select all** in the footer does the same |
 | <kbd>Esc</kbd> | closes the palette |
 
-The root remembers the last five picks for its life — never in `localStorage` — and the empty
-palette lists them as **Recent**. `limit` caps the list (50) and says so.
+**Empty, the palette offers where to start**: the last five picks, which the root remembers for its
+life — never in `localStorage` — as **Recent**, then every vertex type with how many it holds, as
+**Narrow to a type**. Picking a type makes it a `type:` chip, as GitHub's palette offers its scopes.
+`limit` caps the list (50), and the footer says how many matched and how many of them it shows.
 
 **A failed read is kept whole**: it reaches `onFailure` as thrown, and the input turns
 `aria-invalid` with the placeholder "The names could not be read." rather than staying disabled.
@@ -248,16 +262,15 @@ reaches the root's `onFailure` as thrown, leaving it unpressed.
 
 The focused vertex — a click, a search or `reveal` — read and laid out after the Linkurious
 inspector, in sections and rules rather than a card, which inside a dock would be a second border. The loaded graph carries what the channels bind and nothing else, so the row is
-read when a reader focuses it: one `SELECT` of its table at its `dense_id`, and one count per relation
-and direction for its neighbourhood.
+read when a reader focuses it: one `SELECT` of its table at its `dense_id`.
 
 - **The header** names the vertex — its `title`, else its IRI's local name (what follows the last `#`
-  or `/`), else `#id` — with the whole IRI in a tooltip and behind Copy, and wears its type as a badge, with the canvas's glyph when colour is the type. **Zoom** frames it on the
-  canvas; **Focus** selects it with every neighbour as an `"external"` selection named "Neighbours of
-  …", which the page's crossfilter hears; **Copy** copies its fields, a line each.
-- **Neighbours come first**, because the connection is what a graph shows and a row does not: each
-  relation and direction it takes part in, with how many edges — "knows → Person · 12". Each row is a
-  `GraphSelect`: pressing it selects the vertices at that end.
+  or `/`), else `#id` — with the whole IRI in a tooltip and behind the copy button beside it, and
+  wears its type as a badge, with the canvas's glyph when colour is the type.
+- **Two actions that say what they do**, in Linkurious's and Bloom's words: **Locate** frames it on
+  the canvas; **Select neighbours** selects it with every vertex one edge away in the corpus as an
+  `"external"` selection named "Neighbours of …", which the page's crossfilter hears. The connections
+  themselves are the canvas's to show, so the panel does not list them a second time.
 - **The fields** are the table's, two columns, in `fossil_columns`' order, grouped as **Identity**,
   **Values** and **Dates** — a date is a column whose declared type is a date or a time; the identity
   is not repeated when the header already shows it. An IRI is a link out, and a long text is clamped

@@ -4,9 +4,12 @@
   "description": "Kanzo graph view — a fossil corpus attached to the page's DuckDB, read through the page's Mosaic coordinator as one more client, laid out and drawn with cosmos.gl on the GPU. Sibling of @kanzo-tech/ui, not part of it: the admission rules exclude graphs from the generic vocabulary by name.",
   "type": "module",
   "license": "MIT",
-  "sideEffects": false,
+  "sideEffects": [
+    "**/*.css"
+  ],
   "files": [
     "dist",
+    "src/tailwind.css",
     "README.md"
   ],
   "module": "./dist/index.js",
@@ -20,6 +23,7 @@
       "types": "./dist/section.d.ts",
       "import": "./dist/section.js"
     },
+    "./tailwind.css": "./src/tailwind.css",
     "./package.json": "./package.json"
   },
   "scripts": {

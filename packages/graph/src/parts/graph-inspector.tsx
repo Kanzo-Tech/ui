@@ -3,7 +3,6 @@
 import {
   Badge,
   Button,
-  ButtonGroup,
   Clipboard,
   ClipboardTrigger,
   cn,
@@ -11,8 +10,6 @@ import {
   DataListItem,
   DataListItemLabel,
   DataListItemValue,
-  Item,
-  ItemGroup,
   Link,
   Separator,
   Show,
@@ -22,17 +19,16 @@ import {
   TooltipTrigger,
   useChartCapacity,
 } from "@kanzo-tech/ui";
-import { FocusIcon, ZoomInIcon } from "lucide-react";
+import { LocateFixedIcon, WaypointsIcon } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { nameOf } from "../core/categories";
 import { bindingOf } from "../core/channels";
-import { neighbourIds, readNeighbours, readVertex, type Neighbours, type VertexDetail } from "../core/source";
-import { tableOf } from "../core/structure";
+import { neighbourIds, readVertex, type VertexDetail } from "../core/source";
+import { localName, tableOf } from "../core/structure";
 import type { VertexId } from "../core/types";
 import { useGraphContext } from "../react/graph-root";
 import { useGraphState } from "../react/use-graph-state";
 import { scaleOf } from "../render/graph-model";
-import { GraphSelect } from "./graph-select";
 import { ShapeGlyph } from "./shape-glyph";
 
 export interface GraphInspectorProps extends Omit<React.ComponentProps<"div">, "children"> {
@@ -53,8 +49,6 @@ const text = (value: unknown, date: boolean): string => {
 };
 
 const IRI = /^[a-z][a-z0-9+.-]*:\/\/\S+$/i;
-/** An IRI's local name — what follows its last `#` or `/`: RDF's syntactic split, not a guess. */
-const localName = (iri: string) => /[^#/]+(?=[#/]*$)/.exec(iri)?.[0] ?? iri;
 /** Past this many characters a value is clamped to three lines, and "more" lets the rest out. */
 const LONG = 160;
 
@@ -109,16 +103,16 @@ function useRead<T>(vertex: VertexId | null, read: ((vertex: VertexId) => Promis
  * **The focused vertex, fetched and laid out by the corpus's own tables** — the Linkurious inspector's
  * shape. The loaded graph carries what the channels project and nothing else, so the rest of the row
  * is read when a reader focuses it — one statement on its table, by its key, through the page's
- * coordinator — and its neighbourhood with it, one count per relation and direction.
+ * coordinator.
  *
  * The header names the vertex — its `title`, else its IRI's local name, with the whole IRI in the
- * tooltip and behind Copy — and wears its type as a badge; **Zoom** frames it on the canvas,
- * **Focus** selects it with every neighbour as an `"external"` selection, which the page's
- * crossfilter hears, and **Copy** copies the row. **Its neighbours come first**, because the
- * connection is what a graph shows and a row does not: each relation and direction is a
- * `GraphSelect`, pressing it selects the vertices at the far end. Then the fields, two columns, in the
- * order the manifest declares them, grouped as its identity, its values and its dates. Sections and
- * rules, no card: inside a dock a card is a second border.
+ * tooltip and behind the copy button beside it — and wears its type as a badge. Under it, two actions
+ * that say what they do, in Linkurious's and Bloom's words: **Locate** frames it on the canvas, and
+ * **Select neighbours** selects it with every vertex one edge away as an `"external"` selection, which
+ * the page's crossfilter hears. The connections themselves are the
+ * canvas's to show, so the panel does not list them a second time. Then the fields, two columns, in
+ * the order the manifest declares them, grouped as its identity, its values and its dates. Sections
+ * and rules, no card: inside a dock a card is a second border.
  */
 export function GraphInspector({ children, className, slot, ...rest }: GraphInspectorProps) {
   const api = useGraphContext();
@@ -129,18 +123,11 @@ export function GraphInspector({ children, className, slot, ...rest }: GraphInsp
   const capacity = useChartCapacity();
   const scale = useMemo(() => scaleOf(options, capacity), [options, capacity]);
   const { coordinator, categories } = options;
-  const readers = useMemo(
-    () =>
-      structure && coordinator
-        ? {
-            row: (vertex: VertexId) => readVertex(coordinator, structure, vertex),
-            neighbours: (vertex: VertexId) => readNeighbours(coordinator, structure, vertex),
-          }
-        : null,
+  const row = useMemo(
+    () => (structure && coordinator ? (vertex: VertexId) => readVertex(coordinator, structure, vertex) : null),
     [coordinator, structure],
   );
-  const answered = useRead(focus, readers?.row ?? null);
-  const neighbours = useRead<Neighbours[]>(focus, readers?.neighbours ?? null);
+  const answered = useRead(focus, row);
 
   const current = answered || null;
   const table = structure && current ? tableOf(structure, current.vertex) : undefined;
@@ -162,15 +149,11 @@ export function GraphInspector({ children, className, slot, ...rest }: GraphInsp
         { title: "Dates", fields: current.fields.filter((f) => f.name !== table?.identity && dated(f.name)) },
       ]
     : [];
-  const row = current?.fields.map((f) => `${f.name}\t${text(f.value, dated(f.name))}`).join("\n") ?? "";
-  const around = (sides?: readonly Neighbours[]) => {
-    if (!current || !structure || !coordinator) return Promise.resolve([]);
-    return neighbourIds(coordinator, structure, current.vertex, sides);
-  };
-  const focusOn = async () => {
-    if (!current) return;
+  const selectNeighbours = async () => {
+    if (!current || !structure || !coordinator) return;
     try {
-      api.select([current.vertex, ...(await around())], "external", `Neighbours of ${heading}`);
+      const around = await neighbourIds(coordinator, structure, current.vertex);
+      api.select([current.vertex, ...around], "external", `Neighbours of ${heading}`);
     } catch (error) {
       api.getState().options.onFailure(error);
     }
@@ -207,49 +190,23 @@ export function GraphInspector({ children, className, slot, ...rest }: GraphInsp
                 </Clipboard>
               </Show>
             </div>
-            <div className="flex items-center justify-between gap-2">
-              <Badge className="min-w-0 gap-1 text-[10px]" size="xs" variant="outline">
-                <Show when={byType}>
-                  <ShapeGlyph className="size-2 shrink-0" color={scale.color(rank)} shape={scale.shape(rank)} />
-                </Show>
-                <span className="truncate">{nameOf(current.table, categories)}</span>
-              </Badge>
-              <ButtonGroup aria-label="This vertex">
-                <Button aria-label="Zoom to it" onClick={() => api.reveal(current.vertex)} size="icon-sm" title="Zoom to it" variant="ghost">
-                  <ZoomInIcon />
-                </Button>
-                <Button aria-label="Focus on its neighbours" onClick={() => void focusOn()} size="icon-sm" title="Focus on its neighbours" variant="ghost">
-                  <FocusIcon />
-                </Button>
-                <Clipboard className="contents" value={row}>
-                  <ClipboardTrigger aria-label="Copy its fields" title="Copy its fields" />
-                </Clipboard>
-              </ButtonGroup>
+            <Badge className="min-w-0 gap-1 text-[10px]" size="xs" variant="outline">
+              <Show when={byType}>
+                <ShapeGlyph className="size-2 shrink-0" color={scale.color(rank)} shape={scale.shape(rank)} />
+              </Show>
+              <span className="truncate">{nameOf(current.table, categories)}</span>
+            </Badge>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => api.reveal(current.vertex)} size="sm" variant="outline">
+                <LocateFixedIcon aria-hidden />
+                Locate
+              </Button>
+              <Button onClick={() => void selectNeighbours()} size="sm" variant="outline">
+                <WaypointsIcon aria-hidden />
+                Select neighbours
+              </Button>
             </div>
           </header>
-          <Separator />
-          <section aria-label="Neighbours">
-            <p className="mb-1 font-medium text-muted-foreground text-xs">Neighbours</p>
-            <Show when={neighbours === undefined}>
-              <Skeleton className="h-8 w-full" />
-            </Show>
-            <Show when={neighbours === false || (Array.isArray(neighbours) && neighbours.length === 0)}>
-              <p className="text-muted-foreground text-xs">{neighbours === false ? "Its neighbours could not be read." : "No edges."}</p>
-            </Show>
-            <ItemGroup className="gap-0">
-              {(neighbours || []).map((side) => {
-                const said = `${side.edge.label} ${side.direction === "out" ? "→" : "←"} ${nameOf(side.other, categories)}`;
-                return (
-                  <Item className="p-0" key={`${side.edge.name} ${side.direction}`}>
-                    <GraphSelect className="flex items-center gap-2 px-2 py-1 text-xs" label={`${said} of ${heading}`} load={() => around([side])}>
-                      <span className="min-w-0 truncate">{said}</span>
-                      <span className="ms-auto text-muted-foreground tabular-nums">{side.count.toLocaleString()}</span>
-                    </GraphSelect>
-                  </Item>
-                );
-              })}
-            </ItemGroup>
-          </section>
           {groups.map((group) => (
             <Show key={group.title} when={group.fields.length > 0 || (group.title === "Values" && !!children)}>
               <Separator />
