@@ -42,10 +42,10 @@ export interface KanzoAuthConfig extends RelyingPartyConfig {
    */
   readonly public?: readonly string[];
   /**
-   * Override the callback URL. Absent, it is derived from the request: its origin, the path the
-   * routes sit on, and `/callback`. Deriving it trusts `Host`, which is bounded — Keycloak refuses
-   * a `redirect_uri` it has not registered — but a deployment behind a proxy that rewrites the
-   * host says the URL out loud here.
+   * Override the callback URL. Absent, it is derived from the request: its `addressedUrl` origin,
+   * the path the routes sit on, and `/callback`. Deriving it trusts `Host` and the proxy's
+   * `X-Forwarded-*`, which is bounded — Keycloak refuses a `redirect_uri` it has not registered —
+   * but a deployment whose proxy sets none of them says the URL out loud here.
    */
   readonly redirectUri?: string;
   /** Seconds of access-token lifetime below which a request renews it. Default 60. */
