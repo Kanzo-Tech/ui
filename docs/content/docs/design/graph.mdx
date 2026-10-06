@@ -370,12 +370,22 @@ under it read the root.
   greyed, never hidden — and unfiltered it always read "N of N". A footer carries it, which is why it
   is not the legend's last line.
 - **`GraphToolbar`** — the tools, the selection, zoom and fit, and the layout's transport.
-- **`GraphInspector`** — the focused vertex as a card, Linkurious's inspector: its row in
-  `fossil_columns`' order, grouped as identity, values and dates, its neighbourhood counted per relation
-  and direction, Zoom / Focus / Copy, and a render prop for fields a product adds.
+- **`GraphInspector`** — the focused vertex, Linkurious's inspector: headed by its title or its IRI's
+  local name, **its neighbourhood first** — counted per relation and direction, because the connection
+  is what the graph makes visible and the row is detail — then its row in two columns, in
+  `fossil_columns`' order, grouped as identity, values and dates; Zoom / Focus / Copy, and a render prop
+  for fields a product adds. Sections and rules, not a card: in a dock a card is a second border.
 - **`GraphSearch`** — a palette in cmdk's shape, Raycast's and Linear's: a `LIMIT`ed `ILIKE` per pause
   in typing, with Bloom's `type:` and `<column>:<value>` prefixes, grouped by type and counted past the
-  limit; picking one is `reveal`, and the root remembers it.
+  limit; Enter is `reveal`, and the root remembers it. **In the page it is only a cue** — a button that
+  prints ⌘K, Shark's command trigger, never an inline list — and the palette is a full-height
+  `CommandDialog`, because docked it was cramped and its results covered the panel. The key, the chips
+  and the height are `ui`'s, not the graph's (`CommandDialog`'s `hotkey`, `CommandInput`'s children):
+  the graph keeps only what a graph knows — what a prefix is, the grouping, ⌘Enter. *Held by*
+  `packages/graph/src/parts/parts.test.tsx`, "opens and closes the palette on ⌘K or Ctrl+K" and "turns a type: or column: word
+  into a chip on Space, keeps free text as text, and takes the last chip back on Backspace". **One
+  palette per page** is what lets the key go unarbitrated — what would reverse it is a page that needs
+  two graphs' palettes at once, and then the arbitration is a provider, never module state.
 - **`GraphSelect`** — a selection the host offers, as a toggle: `load` reads the ids when pressed,
   and pressed is derived from the live selection, never stored beside it.
 

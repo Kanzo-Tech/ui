@@ -184,10 +184,14 @@ it moves at frame rate. The badge is `aria-busy` while loading or laying out.
 
 ### Search
 
-<ComponentPreview componentName="graph" fileName="example-search" hasMaxHeight />
-
 Find a vertex and go to it — a palette in the shape of Raycast's and Linear's ⌘K, over Cosmograph's
-search, built on `Command`. Each pause in typing (150 ms) asks the corpus once, through the
+search, built on `Command`. The workspace at the top of this page carries one: press
+<kbd>⌘</kbd>+<kbd>K</kbd>, or the field in its Info panel.
+
+**In the page it is a cue**: a button styled as a field that prints ⌘K and holds nothing, Shark's own
+command trigger. It, ⌘K and Ctrl+K open the palette, centred and full-height over the canvas — a
+`CommandDialog` with `hotkey="mod+k"`. One palette per page, so nothing arbitrates the key; the cue
+declares it as `aria-keyshortcuts`. Each pause in typing (150 ms) asks the corpus once, through the
 coordinator, for the first `limit` matches and how many there are of each type; nothing is read
 before the reader types and no text is held in the page. Matches are grouped by vertex type — named by
 the root's `categories` and counted past the limit — each with the glyph the canvas draws it in and
@@ -205,14 +209,18 @@ A word is a prefix only when what precedes its colon is `type` or a column some 
 an IRI typed whole stays text. Every statement is built with mosaic-sql's nodes: what the reader
 typed is a literal, never part of the SQL.
 
-Picking a match is `reveal`: the canvas frames it and selects it with its neighbours, and
-`GraphInspector` reads it. The root remembers the last five picks for its life — never in
-`localStorage` — and the empty palette lists them as **Recent**. **Select N matches** selects every
-match, past the limit, as an `"external"` selection. `limit` caps the list (50) and says so.
+**A prefix becomes a chip on <kbd>Space</kbd>** — a `TagsInput` sharing the palette's input, whose
+`validate` is the same reading, so free text never becomes one. <kbd>Backspace</kbd> in an empty
+input highlights the last chip, then removes it.
 
-**⌘K or Ctrl+K moves to the search** of the graph the reader last used — pointed into, focused or
-selected on — so two graphs on one page never both take the key. The input declares it as
-`aria-keyshortcuts`.
+| Key | Does |
+| --- | --- |
+| <kbd>Enter</kbd> | `reveal`s the highlighted match — the canvas frames it and selects it with its neighbours, and `GraphInspector` reads it — and closes the palette |
+| <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> | selects every match, past the limit, as one `"external"` selection — **Select N matches** in the footer does the same |
+| <kbd>Esc</kbd> | closes the palette |
+
+The root remembers the last five picks for its life — never in `localStorage` — and the empty
+palette lists them as **Recent**. `limit` caps the list (50) and says so.
 
 **A failed read is kept whole**: it reaches `onFailure` as thrown, and the input turns
 `aria-invalid` with the placeholder "The names could not be read." rather than staying disabled.
@@ -238,20 +246,22 @@ reaches the root's `onFailure` as thrown, leaving it unpressed.
 
 <ComponentPreview componentName="graph" fileName="example-inspector" hasMaxHeight />
 
-The focused vertex — a click, a search or `reveal` — read and laid out as a card, after the
-Linkurious inspector. The loaded graph carries what the channels bind and nothing else, so the row is
+The focused vertex — a click, a search or `reveal` — read and laid out after the Linkurious
+inspector, in sections and rules rather than a card, which inside a dock would be a second border. The loaded graph carries what the channels bind and nothing else, so the row is
 read when a reader focuses it: one `SELECT` of its table at its `dense_id`, and one count per relation
 and direction for its neighbourhood.
 
-- **The header** names the vertex — its `title`, truncated, whole in a tooltip — copies its IRI, and
-  wears its type as a badge, with the canvas's glyph when colour is the type. **Zoom** frames it on the
+- **The header** names the vertex — its `title`, else its IRI's local name (what follows the last `#`
+  or `/`), else `#id` — with the whole IRI in a tooltip and behind Copy, and wears its type as a badge, with the canvas's glyph when colour is the type. **Zoom** frames it on the
   canvas; **Focus** selects it with every neighbour as an `"external"` selection named "Neighbours of
   …", which the page's crossfilter hears; **Copy** copies its fields, a line each.
-- **The fields** are the table's, in `fossil_columns`' order, grouped as **Identity**, **Values** and
-  **Dates** — a date is a column whose declared type is a date or a time. An IRI is a link out, and a
-  long text is clamped with "more".
-- **Neighbours** lists each relation and direction it takes part in, with how many edges — "knows →
-  Person · 12". Each row is a `GraphSelect`: pressing it selects the vertices at that end.
+- **Neighbours come first**, because the connection is what a graph shows and a row does not: each
+  relation and direction it takes part in, with how many edges — "knows → Person · 12". Each row is a
+  `GraphSelect`: pressing it selects the vertices at that end.
+- **The fields** are the table's, two columns, in `fossil_columns`' order, grouped as **Identity**,
+  **Values** and **Dates** — a date is a column whose declared type is a date or a time; the identity
+  is not repeated when the header already shows it. An IRI is a link out, and a long text is clamped
+  with "more".
 
 **`children` is a render prop**: it receives the `VertexDetail` and draws fields of the product's own,
 a `DataListItem` each, after the corpus's values — here the hall's name, where the relation stores
@@ -590,8 +600,8 @@ set while the graph loads or a layout runs.
 | --- | --- | --- |
 | `limit` | `number` | `50` |
 | `placeholder` | `string` | `"Find a node…"` |
-| `size` | `CommandInput`'s `size` | `"sm"` |
-| `className` | `string` — on the palette's box | — |
+| `size` | `"sm" \| "md" \| "lg"` — the cue's | `"sm"` |
+| `className` | `string` — on the cue | — |
 
 ### GraphSelect
 

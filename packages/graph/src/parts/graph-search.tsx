@@ -4,18 +4,31 @@ import {
   Button,
   Command,
   CommandContent,
+  CommandDialog,
+  CommandDialogContent,
   CommandEmpty,
   CommandFooter,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
+  cn,
   createListCollection,
+  DialogTrigger,
   Highlight,
+  Kbd,
+  KbdGroup,
   Show,
+  TagsInputItem,
+  TagsInputItemDeleteTrigger,
+  TagsInputItemPreview,
+  TagsInputItemText,
+  TagsInputRootProvider,
   useChartCapacity,
+  useTagsInput,
 } from "@kanzo-tech/ui";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { SearchIcon } from "lucide-react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { nameOf } from "../core/categories";
 import { bindingOf } from "../core/channels";
 import { matchingIds, parseQuery, searchVertices, type Found, type VertexQuery } from "../core/source";
@@ -26,8 +39,12 @@ import { useGraphSnapshot, useGraphState } from "../react/use-graph-state";
 import { scaleOf } from "../render/graph-model";
 import { ShapeGlyph } from "./shape-glyph";
 
-export interface GraphSearchProps extends Pick<React.ComponentProps<typeof CommandInput>, "placeholder" | "size"> {
-  /** On the palette's box. */
+export interface GraphSearchProps {
+  /** On the cue in the page: what it says, and what the palette's empty input says. */
+  placeholder?: string;
+  /** The cue's size. */
+  size?: "sm" | "md" | "lg";
+  /** On the cue. */
   className?: string;
   /** How many matches the list shows; past it, the list says to keep typing. */
   limit?: number;
@@ -41,23 +58,12 @@ interface Entry {
   group: string;
 }
 
-/** What one input answered, or `false` when the read failed. */
+/** What one query answered, or `false` when the read failed. */
 type Answered = { input: string; query: VertexQuery; found: Found | false } | null;
 
 /** How long a reader pauses before the text is asked for: one statement per pause, not per key. */
 const PAUSE = 150;
 const RECENT = "\0recent";
-
-/**
- * Every mounted search, the one the reader used or pointed into last at the end — the one ⌘K moves
- * to. Two graphs on one page would otherwise both take the key, and the later listener would win.
- */
-const claims: object[] = [];
-const claim = (token: object) => {
-  const at = claims.indexOf(token);
-  if (at >= 0) claims.splice(at, 1);
-  claims.push(token);
-};
 
 /**
  * **Find a vertex and go to it** — a palette in Raycast's and Linear's shape over Cosmograph's search,
@@ -67,16 +73,22 @@ const claim = (token: object) => {
  * `limit` matches and how many there are of each type; nothing is read before the reader types, and
  * no vertex's text is held in the page.
  *
+ * In the page it is a cue: a button that looks like a field and prints ⌘K, holding no state — Shark's
+ * own command trigger. It and ⌘K or Ctrl+K open the palette, centred and full-height over the canvas
+ * (`CommandDialog`'s `hotkey`); one palette per page, so nothing arbitrates the key. A prefix word
+ * becomes a chip on Space — a `TagsInput` sharing the palette's input, its `validate` the same
+ * `parseQuery` the read uses, so free text never becomes one.
+ *
  * Matches are grouped by vertex type, named by the root's `categories` and counted past the limit,
- * each with the glyph the canvas draws it in. Picking one is `reveal` — the canvas frames it and
- * selects it with its neighbours — and puts it at the head of the recents the empty palette shows,
- * kept by the root while it lives. "Select N matches" selects every match as an `"external"`
- * selection. ⌘K or Ctrl+K moves to the search of the graph the reader last used.
+ * each with the glyph the canvas draws it in. **Enter** reveals the highlighted one — the canvas frames
+ * it and selects it with its neighbours — closes the palette, and puts it at the head of the recents
+ * the empty palette shows, kept by the root while it lives. **⌘Enter** selects every match as an
+ * `"external"` selection.
  *
  * A read that fails is handed to `onFailure` whole and the input says so.
  *
- * ARIA: Ark's combobox — a `combobox` input over a `listbox` of `option`s in labelled groups; the
- * shortcut is declared on the input as `aria-keyshortcuts`.
+ * ARIA: a `button` declaring `aria-keyshortcuts`, opening a `dialog` that holds Ark's combobox — a
+ * `combobox` input over a `listbox` of `option`s in labelled groups.
  */
 export function GraphSearch({ className, limit = 50, placeholder = "Find a node…", size = "sm" }: GraphSearchProps) {
   const api = useGraphContext();
@@ -87,15 +99,30 @@ export function GraphSearch({ className, limit = 50, placeholder = "Find a node�
   const capacity = useChartCapacity();
   const scale = useMemo(() => scaleOf(options, capacity), [options, capacity]);
   const [answered, setAnswered] = useState<Answered>(null);
-  const [input, setInput] = useState("");
-  const [token] = useState(() => ({}));
-  const root = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const id = useId();
   const { title, categories, coordinator } = options;
   const binding = bindingOf(options);
   const bound = binding.byTable || binding.category !== undefined;
 
+  // One input, two machines: the chips' props go first, so the palette's own id and value win and
+  // both hear every key — Shark's `tags-input/example-combobox`, through `CommandInput`'s children.
+  const chips = useTagsInput({
+    ids: { input: id },
+    delimiter: " ",
+    editable: false,
+    validate: ({ inputValue }) => {
+      if (!structure) return false;
+      const word = parseQuery(inputValue, structure);
+      return word.text === "" && word.types.length + word.fields.length > 0;
+    },
+    onValueChange: () => setText(""),
+  });
+  const input = [...chips.value, text].join(" ").trim();
+
   useEffect(() => {
-    if (!structure || !coordinator || input.trim() === "") return;
+    if (!structure || !coordinator || input === "") return;
     let current = true;
     const query = parseQuery(input, structure);
     const timer = setTimeout(() => {
@@ -114,29 +141,7 @@ export function GraphSearch({ className, limit = 50, placeholder = "Find a node�
     };
   }, [api, structure, coordinator, input, title, limit]);
 
-  useEffect(() => {
-    claim(token);
-    let last = api.getState();
-    const unsubscribe = api.subscribe(() => {
-      const now = api.getState();
-      const touched = (["hovered", "focus", "selection"] as const).some((key) => now[key] !== last[key] && now[key] !== null);
-      last = now;
-      if (touched) claim(token);
-    });
-    const onKey = (event: KeyboardEvent) => {
-      if (claims.at(-1) !== token || !(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") return;
-      event.preventDefault();
-      root.current?.querySelector("input")?.focus();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => {
-      claims.splice(claims.indexOf(token), 1);
-      unsubscribe();
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [api, token]);
-
-  const typed = input.trim() !== "";
+  const typed = input !== "";
   const result = answered !== null && answered.input === input ? answered : null;
   const found = typed ? (result?.found ?? null) : null;
   const items = useMemo<Entry[]>(() => {
@@ -164,70 +169,116 @@ export function GraphSearch({ className, limit = 50, placeholder = "Find a node�
   const selectAll = async () => {
     if (!structure || !coordinator || !result) return;
     try {
-      api.select(await matchingIds(coordinator, structure, result.query, title), "external", `Matches for “${result.input.trim()}”`);
+      api.select(await matchingIds(coordinator, structure, result.query, title), "external", `Matches for “${result.input}”`);
+      setOpen(false);
     } catch (error) {
       api.getState().options.onFailure(error);
     }
   };
 
+  // Typed as every attribute an `<input>` takes, `size` among them, which names the field's size
+  // variant here; the machine sets no `size`, so the omission is the type catching up.
+  const tagKeys: Omit<ReturnType<typeof chips.getInputProps>, "size"> = chips.getInputProps();
+
   return (
-    <Command
-      className={className}
-      collection={collection}
-      disabled={structure === null}
-      onFocus={() => claim(token)}
-      onInputValueChange={(details) => setInput(details.inputValue)}
-      onValueChange={(details) => {
-        const picked = items.find((item) => item.value === details.value[0]);
-        if (!picked) return;
-        internalsOf(api).store.remember(picked.vertex, picked.label);
-        api.reveal(picked.vertex);
-      }}
-      ref={root}
-    >
-      <CommandInput
-        aria-invalid={found === false || undefined}
-        aria-keyshortcuts="Meta+K Control+K"
-        autoFocus={false}
-        placeholder={found === false ? "The names could not be read." : placeholder}
-        size={size}
-      />
-      <Show when={typed || items.length > 0}>
-        <CommandContent>
-          <Show when={found !== null}>
-            <CommandEmpty>Nothing by that name.</CommandEmpty>
-          </Show>
-          <CommandList>
-            {collection.group().map(([group, entries]) => (
-              <CommandGroup heading={heading(group)} key={group}>
-                {entries.map((item) => (
-                  <CommandItem item={item} key={item.value}>
-                    {glyph(item.vertex)}
-                    <span className="min-w-0 truncate">
-                      <Highlight ignoreCase matchAll query={terms} text={item.label} />
-                    </span>
-                    <Show when={group === RECENT && !!structure}>
-                      <span className="ms-auto ps-2 text-muted-foreground text-xs">
-                        {structure && nameOf(tableOf(structure, item.vertex)?.name, categories)}
-                      </span>
-                    </Show>
-                  </CommandItem>
+    <CommandDialog hotkey="mod+k" onOpenChange={(details) => setOpen(details.open)} open={open}>
+      <DialogTrigger asChild>
+        <Button
+          aria-keyshortcuts="Meta+K Control+K"
+          className={cn("w-full justify-start font-normal text-muted-foreground", className)}
+          disabled={structure === null}
+          size={size}
+          variant="outline"
+        >
+          <SearchIcon aria-hidden />
+          <span className="min-w-0 truncate">{placeholder}</span>
+          <KbdGroup className="ms-auto">
+            <Kbd>⌘</Kbd>
+            <Kbd>K</Kbd>
+          </KbdGroup>
+        </Button>
+      </DialogTrigger>
+      <CommandDialogContent className="h-[min(40rem,calc(100dvh-4rem))]" description="Find a vertex by its name, its type or a column." title="Find a node">
+        <TagsInputRootProvider className="min-h-0 flex-1" value={chips}>
+          <Command
+            collection={collection}
+            ids={{ input: id }}
+            inputValue={text}
+            onInputValueChange={(details) => setText(details.inputValue)}
+            onValueChange={(details) => {
+              const picked = items.find((item) => item.value === details.value[0]);
+              if (!picked) return;
+              internalsOf(api).store.remember(picked.vertex, picked.label);
+              api.reveal(picked.vertex);
+              setOpen(false);
+            }}
+          >
+            <CommandInput
+              {...tagKeys}
+              aria-invalid={found === false || undefined}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                  event.preventDefault();
+                  void selectAll();
+                  return;
+                }
+                tagKeys.onKeyDown?.(event);
+              }}
+              placeholder={found === false ? "The names could not be read." : placeholder}
+            >
+              {chips.value.map((value, index) => (
+                <TagsInputItem index={index} key={value} value={value}>
+                  <TagsInputItemPreview>
+                    <TagsInputItemText>{value}</TagsInputItemText>
+                    <TagsInputItemDeleteTrigger />
+                  </TagsInputItemPreview>
+                </TagsInputItem>
+              ))}
+            </CommandInput>
+            <CommandContent>
+              <Show when={found !== null}>
+                <CommandEmpty>Nothing by that name.</CommandEmpty>
+              </Show>
+              <CommandList>
+                {collection.group().map(([group, entries]) => (
+                  <CommandGroup heading={heading(group)} key={group}>
+                    {entries.map((item) => (
+                      <CommandItem item={item} key={item.value}>
+                        {glyph(item.vertex)}
+                        <span className="min-w-0 truncate">
+                          <Highlight ignoreCase matchAll query={terms} text={item.label} />
+                        </span>
+                        <Show when={group === RECENT && !!structure}>
+                          <span className="ms-auto ps-2 text-muted-foreground text-xs">
+                            {structure && nameOf(tableOf(structure, item.vertex)?.name, categories)}
+                          </span>
+                        </Show>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
                 ))}
-              </CommandGroup>
-            ))}
-          </CommandList>
-          <Show when={!!found && found.total > limit}>
-            <p className="border-t px-2 py-1.5 text-muted-foreground text-xs">First {limit}. Keep typing to narrow it.</p>
-          </Show>
-        </CommandContent>
-        <Show when={!!found && found.total > 0}>
-          <CommandFooter>
-            <Button onClick={() => void selectAll()} size="sm" variant="ghost">
-              Select {found ? found.total.toLocaleString() : 0} matches
-            </Button>
-          </CommandFooter>
-        </Show>
-      </Show>
-    </Command>
+              </CommandList>
+              <Show when={!!found && found.total > limit}>
+                <p className="border-t px-2 py-1.5 text-muted-foreground text-xs">First {limit}. Keep typing to narrow it.</p>
+              </Show>
+            </CommandContent>
+            <Show when={!!found && found.total > 0}>
+              <CommandFooter>
+                <span className="flex items-center gap-1">
+                  <Kbd>↵</Kbd> to go to it
+                </span>
+                <Button onClick={() => void selectAll()} size="sm" variant="ghost">
+                  Select {found ? found.total.toLocaleString() : 0} matches
+                  <KbdGroup>
+                    <Kbd>⌘</Kbd>
+                    <Kbd>↵</Kbd>
+                  </KbdGroup>
+                </Button>
+              </CommandFooter>
+            </Show>
+          </Command>
+        </TagsInputRootProvider>
+      </CommandDialogContent>
+    </CommandDialog>
   );
 }

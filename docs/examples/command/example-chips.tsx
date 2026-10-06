@@ -52,6 +52,9 @@ export default function Example() {
     },
   });
 
+  // An `<input>`'s every attribute, `size` among them — which names the field's size variant here.
+  const keys: Omit<ReturnType<typeof tags.getInputProps>, "size"> = tags.getInputProps();
+
   return (
     <TagsInputRootProvider className="h-80 w-full max-w-sm" value={tags}>
       <Command
@@ -63,7 +66,7 @@ export default function Example() {
           narrow(inputValue, tags.value);
         }}
       >
-        <CommandInput {...tags.getInputProps()} autoFocus={false} placeholder="Type guild:Smiths, then a name…">
+        <CommandInput {...keys} autoFocus={false} placeholder="Type guild:Smiths, then a name…">
           {tags.value.map((value, index) => (
             <TagsInputItem index={index} key={value} value={value}>
               <TagsInputItemPreview>

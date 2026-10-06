@@ -90,10 +90,12 @@ combobox's own id and value win and both hear every key.
 
 ```tsx
 const tags = useTagsInput({ ids: { input: id }, delimiter: " ", validate, onValueChange: () => setText("") });
+// The machine's props are typed as an `<input>`'s, whose `size` is a number; here `size` is the field's.
+const keys: Omit<ReturnType<typeof tags.getInputProps>, "size"> = tags.getInputProps();
 
 <TagsInputRootProvider value={tags}>
   <Command ids={{ input: id }} inputValue={text} onInputValueChange={…}>
-    <CommandInput {...tags.getInputProps()} placeholder="…">
+    <CommandInput {...keys} placeholder="…">
       {tags.value.map((value, index) => <TagsInputItem index={index} key={value} value={value}>…</TagsInputItem>)}
     </CommandInput>
 ```

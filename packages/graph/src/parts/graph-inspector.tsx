@@ -4,10 +4,6 @@ import {
   Badge,
   Button,
   ButtonGroup,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
   Clipboard,
   ClipboardTrigger,
   cn,
@@ -18,6 +14,7 @@ import {
   Item,
   ItemGroup,
   Link,
+  Separator,
   Show,
   Skeleton,
   Tooltip,
@@ -56,6 +53,8 @@ const text = (value: unknown, date: boolean): string => {
 };
 
 const IRI = /^[a-z][a-z0-9+.-]*:\/\/\S+$/i;
+/** An IRI's local name — what follows its last `#` or `/`: RDF's syntactic split, not a guess. */
+const localName = (iri: string) => /[^#/]+(?=[#/]*$)/.exec(iri)?.[0] ?? iri;
 /** Past this many characters a value is clamped to three lines, and "more" lets the rest out. */
 const LONG = 160;
 
@@ -112,11 +111,14 @@ function useRead<T>(vertex: VertexId | null, read: ((vertex: VertexId) => Promis
  * is read when a reader focuses it — one statement on its table, by its key, through the page's
  * coordinator — and its neighbourhood with it, one count per relation and direction.
  *
- * The header names the vertex, copies its IRI and wears its category's glyph; **Zoom** frames it on
- * the canvas, **Focus** selects it with every neighbour as an `"external"` selection, which the page's
- * crossfilter hears, and **Copy** copies the row. The fields are the table's, in the order the
- * manifest declares them, grouped as its identity, its values and its dates. Each neighbourhood row
- * is a `GraphSelect`: pressing it selects the vertices at the far end of that relation.
+ * The header names the vertex — its `title`, else its IRI's local name, with the whole IRI in the
+ * tooltip and behind Copy — and wears its type as a badge; **Zoom** frames it on the canvas,
+ * **Focus** selects it with every neighbour as an `"external"` selection, which the page's
+ * crossfilter hears, and **Copy** copies the row. **Its neighbours come first**, because the
+ * connection is what a graph shows and a row does not: each relation and direction is a
+ * `GraphSelect`, pressing it selects the vertices at the far end. Then the fields, two columns, in the
+ * order the manifest declares them, grouped as its identity, its values and its dates. Sections and
+ * rules, no card: inside a dock a card is a second border.
  */
 export function GraphInspector({ children, className, slot, ...rest }: GraphInspectorProps) {
   const api = useGraphContext();
@@ -147,12 +149,15 @@ export function GraphInspector({ children, className, slot, ...rest }: GraphInsp
   const byType = bindingOf(options).byTable;
   const rank = Math.max(0, domain.findIndex((value) => String(value) === current?.table));
   const iri = field(table?.identity);
-  const named = field(options.title) ?? iri;
+  const titled = field(options.title);
+  const named = titled ?? (typeof iri === "string" && iri !== "" ? localName(iri) : iri);
   const heading = current ? (named === undefined || named === null ? `#${current.vertex}` : text(named, false)) : "";
+  const whole = typeof iri === "string" && iri !== "" ? iri : heading;
   const dated = (name: string) => /date|time/i.test(table?.columns.get(name)?.type ?? "");
   const groups = current
     ? [
-        { title: "Identity", fields: current.fields.filter((f) => f.name === table?.identity) },
+        // The header already shows the identity when there is no title to show instead.
+        { title: "Identity", fields: titled === undefined ? [] : current.fields.filter((f) => f.name === table?.identity) },
         { title: "Values", fields: current.fields.filter((f) => f.name !== table?.identity && !dated(f.name)) },
         { title: "Dates", fields: current.fields.filter((f) => f.name !== table?.identity && dated(f.name)) },
       ]
@@ -185,16 +190,16 @@ export function GraphInspector({ children, className, slot, ...rest }: GraphInsp
         </p>
       </Show>
       {current && (
-        <Card className="gap-3 py-3 [--space:--spacing(3)]">
-          <CardHeader className="gap-2">
+        <>
+          <header className="space-y-2">
             <div className="flex min-w-0 items-center gap-1">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <CardTitle className="min-w-0 truncate text-sm" slot="graph-inspector-title">
+                  <h3 className="min-w-0 truncate font-semibold text-sm" data-slot="graph-inspector-title">
                     {heading}
-                  </CardTitle>
+                  </h3>
                 </TooltipTrigger>
-                <TooltipContent>{heading}</TooltipContent>
+                <TooltipContent>{whole}</TooltipContent>
               </Tooltip>
               <Show when={typeof iri === "string" && iri !== ""}>
                 <Clipboard value={String(iri)}>
@@ -221,50 +226,52 @@ export function GraphInspector({ children, className, slot, ...rest }: GraphInsp
                 </Clipboard>
               </ButtonGroup>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {groups.map((group) => (
-              <Show key={group.title} when={group.fields.length > 0 || (group.title === "Values" && !!children)}>
-                <section aria-label={group.title}>
-                  <p className="mb-1 font-medium text-muted-foreground text-xs">{group.title}</p>
-                  <DataList orientation="vertical">
-                    {group.fields.map((f) => (
-                      <DataListItem className="gap-0.5 py-0" key={f.name}>
-                        <DataListItemLabel className="text-xs">{f.name}</DataListItemLabel>
-                        <DataListItemValue className="min-w-0">
-                          <Value date={dated(f.name)} value={f.value} />
-                        </DataListItemValue>
-                      </DataListItem>
-                    ))}
-                    {group.title === "Values" && children?.(current)}
-                  </DataList>
-                </section>
-              </Show>
-            ))}
-            <section aria-label="Neighbours">
-              <p className="mb-1 font-medium text-muted-foreground text-xs">Neighbours</p>
-              <Show when={neighbours === undefined}>
-                <Skeleton className="h-8 w-full" />
-              </Show>
-              <Show when={neighbours === false || (Array.isArray(neighbours) && neighbours.length === 0)}>
-                <p className="text-muted-foreground text-xs">{neighbours === false ? "Its neighbours could not be read." : "No edges."}</p>
-              </Show>
-              <ItemGroup className="gap-1">
-                {(neighbours || []).map((side) => {
-                  const said = `${side.edge.label} ${side.direction === "out" ? "→" : "←"} ${nameOf(side.other, categories)}`;
-                  return (
-                    <Item className="p-0" key={`${side.edge.name} ${side.direction}`}>
-                      <GraphSelect className="flex items-center gap-2 px-2 py-1.5 text-xs" label={`${said} of ${heading}`} load={() => around([side])}>
-                        <span className="min-w-0 truncate">{said}</span>
-                        <span className="ms-auto text-muted-foreground tabular-nums">{side.count.toLocaleString()}</span>
-                      </GraphSelect>
-                    </Item>
-                  );
-                })}
-              </ItemGroup>
-            </section>
-          </CardContent>
-        </Card>
+          </header>
+          <Separator />
+          <section aria-label="Neighbours">
+            <p className="mb-1 font-medium text-muted-foreground text-xs">Neighbours</p>
+            <Show when={neighbours === undefined}>
+              <Skeleton className="h-8 w-full" />
+            </Show>
+            <Show when={neighbours === false || (Array.isArray(neighbours) && neighbours.length === 0)}>
+              <p className="text-muted-foreground text-xs">{neighbours === false ? "Its neighbours could not be read." : "No edges."}</p>
+            </Show>
+            <ItemGroup className="gap-0">
+              {(neighbours || []).map((side) => {
+                const said = `${side.edge.label} ${side.direction === "out" ? "→" : "←"} ${nameOf(side.other, categories)}`;
+                return (
+                  <Item className="p-0" key={`${side.edge.name} ${side.direction}`}>
+                    <GraphSelect className="flex items-center gap-2 px-2 py-1 text-xs" label={`${said} of ${heading}`} load={() => around([side])}>
+                      <span className="min-w-0 truncate">{said}</span>
+                      <span className="ms-auto text-muted-foreground tabular-nums">{side.count.toLocaleString()}</span>
+                    </GraphSelect>
+                  </Item>
+                );
+              })}
+            </ItemGroup>
+          </section>
+          {groups.map((group) => (
+            <Show key={group.title} when={group.fields.length > 0 || (group.title === "Values" && !!children)}>
+              <Separator />
+              <section aria-label={group.title}>
+                <p className="mb-1 font-medium text-muted-foreground text-xs">{group.title}</p>
+                <DataList className="gap-0 text-xs" orientation="horizontal">
+                  {group.fields.map((f) => (
+                    <DataListItem className="items-baseline gap-3 py-0.5" key={f.name}>
+                      <DataListItemLabel className="w-24 min-w-0 truncate font-normal" title={f.name}>
+                        {f.name}
+                      </DataListItemLabel>
+                      <DataListItemValue className="min-w-0">
+                        <Value date={dated(f.name)} value={f.value} />
+                      </DataListItemValue>
+                    </DataListItem>
+                  ))}
+                  {group.title === "Values" && children?.(current)}
+                </DataList>
+              </section>
+            </Show>
+          ))}
+        </>
       )}
     </div>
   );
