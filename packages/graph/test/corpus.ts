@@ -14,6 +14,8 @@ import { Coordinator } from "@kanzo-tech/mosaic";
  * - `Tag`: ids `16 … 19`, its `subject` and nothing else.
  * - `Person_knows_Person` links `i → i + 1` (9); `Person_livesIn_Place` links `i → 10 + i % 6` (10);
  *   `Person_tagged_Tag` links `0 → 16` (1).
+ * - `Person_nickname`: a multi-valued property in its own table, `src → nick i` for every person —
+ *   a table that is neither a type nor a relation, so nothing draws it.
  */
 
 const require = createRequire(import.meta.url);
@@ -66,13 +68,15 @@ CREATE TABLE ${c}."Tag" AS SELECT (${n + 6} + i)::UBIGINT AS dense_id, 'https://
 CREATE TABLE ${c}."Person_knows_Person" AS SELECT i::UBIGINT AS src, (i + 1)::UBIGINT AS dst FROM range(9) t(i);
 CREATE TABLE ${c}."Person_livesIn_Place" AS SELECT i::UBIGINT AS src, (${n} + i % 6)::UBIGINT AS dst FROM range(10) t(i);
 CREATE TABLE ${c}."Person_tagged_Tag" AS SELECT 0::UBIGINT AS src, ${n + 6}::UBIGINT AS dst;
+CREATE TABLE ${c}."Person_nickname" AS SELECT i::UBIGINT AS src, 'nick ' || i AS nickname FROM range(${n}) t(i);
 CREATE VIEW ${c}.fossil_tables AS SELECT * FROM (VALUES
   ('Person', 'vertex', 'https://example.org/Person', ${n}::UBIGINT, 0::UBIGINT, NULL, NULL),
   ('Place', 'vertex', 'https://example.org/Place', 6::UBIGINT, ${n}::UBIGINT, NULL, NULL),
   ('Tag', 'vertex', 'https://example.org/Tag', 4::UBIGINT, ${n + 6}::UBIGINT, NULL, NULL),
   ('Person_knows_Person', 'edge', 'https://example.org/knows', 9::UBIGINT, NULL, 'Person', 'Person'),
   ('Person_livesIn_Place', 'edge', 'https://example.org/livesIn', 10::UBIGINT, NULL, 'Person', 'Place'),
-  ('Person_tagged_Tag', 'edge', 'https://example.org/tagged', 1::UBIGINT, NULL, 'Person', 'Tag')
+  ('Person_tagged_Tag', 'edge', 'https://example.org/tagged', 1::UBIGINT, NULL, 'Person', 'Tag'),
+  ('Person_nickname', 'property', NULL, ${n}::UBIGINT, NULL, 'Person', NULL)
 ) t(table_name, kind, iri, rows, first_id, source, destination);
 CREATE VIEW ${c}.fossil_columns AS
   SELECT table_name, column_name, column_index AS ordinal,

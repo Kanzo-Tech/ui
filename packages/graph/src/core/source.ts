@@ -78,6 +78,8 @@ export async function readStructure(coordinator: Coordinator, from: string): Pro
   const [source, destination] = [values(tables, "source"), values(tables, "destination")];
   const vertices: VertexTable[] = [];
   const edges: EdgeTable[] = [];
+  // Each kind by name: a `property` table — a multi-valued property, one row per value — is
+  // neither a type nor a relation, and a kind this reader does not know is not one either.
   for (let i = 0; i < tables.numRows; i++) {
     const table = String(name[i]);
     if (kind[i] === "vertex") {
@@ -89,7 +91,7 @@ export async function readStructure(coordinator: Coordinator, from: string): Pro
         columns: described?.names ?? new Map(),
         identity: described?.identity ?? "subject",
       });
-    } else {
+    } else if (kind[i] === "edge") {
       const [src, dst] = [String(source[i]), String(destination[i])];
       edges.push({ name: table, label: labelOf(table, src, dst), source: src, destination: dst, rows: Number(rows[i]) });
     }
