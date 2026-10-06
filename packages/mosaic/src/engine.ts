@@ -25,10 +25,12 @@ import { Coordinator, decodeIPC, wasmConnector } from "@uwdata/mosaic-core";
  *
  * **It parses SQL from boot.** DuckDB's `json` is loaded beside `httpfs`: its `json_serialize_sql` is
  * DuckDB's own parser as a function, which `@kanzo-tech/ai`'s statement gate reads a model's SQL
- * through. DuckDB-WASM builds in neither.
+ * through. `parquet` is loaded first, since every corpus is Parquet and the boot sets its footer
+ * cache. DuckDB-WASM builds in none of the three: its one statically linked extension is
+ * `core_functions`.
  *
- * **Nothing is fetched from a CDN.** DuckDB-WASM's worker and module and its `httpfs` and `json` are
- * named with `new URL(…, import.meta.url)`, so the host's bundler emits them as assets and the page
+ * **Nothing is fetched from a CDN.** DuckDB-WASM's worker and module and its extensions are named
+ * with `new URL(…, import.meta.url)`, so the host's bundler emits them as assets and the page
  * loads all of it from its own origin: `script-src 'self'`, `worker-src 'self'` and
  * `connect-src 'self' <storage>`. Autoloading is off, because it is the one path that would not be:
  * DuckDB answers a function from an extension nobody loaded by fetching that extension from
@@ -107,7 +109,7 @@ const served = (asset: URL) => new URL(asset.href, location.href).href;
  * as DuckDB-WASM documents for webpack: the bundler resolves it to that dependency. The extensions are
  * not on npm, so `scripts/extensions.mjs` fetches the pinned builds into `extensions/` and the tarball
  * carries them. Each is `LOAD`ed by URL, which DuckDB accepts under a hashed file name as long as the
- * name still starts with the extension's — `httpfs.`, `json.` — the entrypoint is looked up by that
+ * name still starts with the extension's — `parquet.`, `httpfs.`, `json.` — the entrypoint is looked up by that
  * prefix.
  */
 function builds() {
@@ -116,6 +118,7 @@ function builds() {
       mainModule: served(new URL("@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm", import.meta.url)),
       mainWorker: served(new URL("@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js", import.meta.url)),
       extensions: [
+        served(new URL("../extensions/wasm_mvp/parquet.duckdb_extension.wasm", import.meta.url)),
         served(new URL("../extensions/wasm_mvp/httpfs.duckdb_extension.wasm", import.meta.url)),
         served(new URL("../extensions/wasm_mvp/json.duckdb_extension.wasm", import.meta.url)),
       ],
@@ -124,6 +127,7 @@ function builds() {
       mainModule: served(new URL("@duckdb/duckdb-wasm/dist/duckdb-eh.wasm", import.meta.url)),
       mainWorker: served(new URL("@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js", import.meta.url)),
       extensions: [
+        served(new URL("../extensions/wasm_eh/parquet.duckdb_extension.wasm", import.meta.url)),
         served(new URL("../extensions/wasm_eh/httpfs.duckdb_extension.wasm", import.meta.url)),
         served(new URL("../extensions/wasm_eh/json.duckdb_extension.wasm", import.meta.url)),
       ],

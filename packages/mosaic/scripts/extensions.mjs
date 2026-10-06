@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
  * Puts the DuckDB extensions `engine()` loads beside this package, so they come from the host's own
- * origin rather than from extensions.duckdb.org at runtime: `httpfs`, the reader of `s3://` and of a
- * URL named in SQL, and `json`, whose `json_serialize_sql` is the parser `@kanzo-tech/ai`'s statement
- * gate reads a model's SQL through. DuckDB-WASM builds neither in.
+ * origin rather than from extensions.duckdb.org at runtime: `parquet`, the reader of a corpus and of
+ * `loadParquet`; `httpfs`, the reader of `s3://` and of a URL named in SQL; and `json`, whose
+ * `json_serialize_sql` is the parser `@kanzo-tech/ai`'s statement gate reads a model's SQL through.
+ * DuckDB-WASM builds none of them in: its only statically linked extension is `core_functions`.
  *
  * **Fetched at build, never committed.** The binaries ride the npm tarball (`files` lists
  * `extensions/`) and the host's bundler emits them as assets through `new URL(…, import.meta.url)` in
@@ -32,6 +33,10 @@ export const PIN = {
   duckdbWasm: "1.33.1-dev57.0",
   duckdb: "v1.5.4",
   extensions: {
+    parquet: {
+      wasm_mvp: "b64c255a7f7d06cc234535b2f0ecab345fda91bffff5509d3179004bc13aa19a",
+      wasm_eh: "4845705bbd69fc9ad52878d96a505c73cae4a6c509822079cc2413e5eb437f95",
+    },
     httpfs: {
       wasm_mvp: "ef756ec28db02feafd02ab036aa01f4fc11ac197bd295bf0f20e4e23d48c54c3",
       wasm_eh: "576721756dd01b86cdfdcf1303ecdcc9776929fd21c3e3b86fdd43a2259aec5b",
