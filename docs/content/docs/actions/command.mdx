@@ -66,13 +66,46 @@ column of fixed height inline, or `CommandDialogContent`.
 
 ## In a dialog
 
-`CommandDialog` is the Dialog root re-exported, and `CommandDialogContent` supplies the
-sizing plus a screen-reader-only title and description, so the palette is announced properly
-without visible chrome. Because the root is Dialog's, so is the trigger: use `DialogTrigger`
-for an uncontrolled palette, or drive `open` yourself when a `⌘K` handler shares the state, as
-below.
+`CommandDialog` is the Dialog root plus the one thing a palette adds: **`hotkey`**, the key that
+opens and closes it. `"mod+k"` is <kbd>⌘</kbd>+<kbd>K</kbd> or <kbd>Ctrl</kbd>+<kbd>K</kbd> — the
+spelling of Mantine's `useHotkeys`, and the same grammar `PreferencesRoot` takes. It is opt-in: a
+design system claims a key in its host's keymap only when asked, and a key pressed while typing in a
+field is the field's. Controlled or not, the key goes through the dialog's own machine, so
+`onOpenChange` hears it.
+
+`CommandDialogContent` supplies the sizing plus a screen-reader-only title and description, so the
+palette is announced without visible chrome, and the list fills its height. Because the root is
+Dialog's, so is the trigger: `DialogTrigger asChild` over a `Button` that prints the key, as on
+Shark's own site.
 
 <ComponentPreview componentName="command" fileName="example-dialog" />
+
+## With filters as chips
+
+`CommandInput` draws its `children` in the field before the input, as `ComboboxInput` does. A
+palette that filters puts chips there and lets **one input belong to two machines**, the
+composition of Shark's `tags-input/example-combobox`: wrap the palette in `TagsInputRootProvider`,
+share the input's id between the two, and spread the tags-input's input props *first*, so the
+combobox's own id and value win and both hear every key.
+
+```tsx
+const tags = useTagsInput({ ids: { input: id }, delimiter: " ", validate, onValueChange: () => setText("") });
+// The machine's props are typed as an `<input>`'s, whose `size` is a number; here `size` is the field's.
+const keys: Omit<ReturnType<typeof tags.getInputProps>, "size"> = tags.getInputProps();
+
+<TagsInputRootProvider value={tags}>
+  <Command ids={{ input: id }} inputValue={text} onInputValueChange={…}>
+    <CommandInput {...keys} placeholder="…">
+      {tags.value.map((value, index) => <TagsInputItem index={index} key={value} value={value}>…</TagsInputItem>)}
+    </CommandInput>
+```
+
+`validate` decides what a word must be to become a chip, so free text stays text. The keys are the
+two machines' own: <kbd>Space</kbd> after a valid word makes a chip, <kbd>Enter</kbd> runs the
+highlighted item and makes a chip only when nothing is highlighted, and <kbd>Backspace</kbd> in an
+empty field highlights the last chip, then removes it.
+
+<ComponentPreview componentName="command" fileName="example-chips" />
 
 ## Keyboard
 
@@ -84,10 +117,18 @@ below.
 | <kbd>Esc</kbd> | Closes `CommandDialog`; an inline palette has nothing to close. |
 
 `Command` sets `inputBehavior="autohighlight"`, so the top match is already highlighted after
-every keystroke and <kbd>Enter</kbd> runs it without a single <kbd>↓</kbd>; no global shortcut is
-bound for you — <kbd>⌘</kbd>+<kbd>K</kbd> is yours to wire.
+every keystroke and <kbd>Enter</kbd> runs it without a single <kbd>↓</kbd>. No global shortcut is
+bound unless you pass `hotkey`.
 
 ## API Reference
+
+### CommandDialog
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `hotkey` | `string` — `"mod+k"`, or a bare key | — |
+
+The rest is Ark's `Dialog.Root`. Its props type is `CommandDialogProps`.
 
 ### CommandDialogContent
 
@@ -102,6 +143,7 @@ bound for you — <kbd>⌘</kbd>+<kbd>K</kbd> is yours to wire.
 | Prop | Type | Default |
 | --- | --- | --- |
 | `size` | `InputProps["size"]` | `"md"` |
+| `children` | `ReactNode` — drawn in the field, before the input | — |
 
 ### CommandGroup
 

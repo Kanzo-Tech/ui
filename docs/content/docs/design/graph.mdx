@@ -27,7 +27,7 @@ does this: `lon`/`lat` as `x`/`y` is what there is.
 
 The host attaches the corpus and names the catalog; `GraphRoot` reads it with SQL — `fossil_tables`
 and `fossil_columns` for the structure, the views for rows and links, one `SELECT` for a focused row,
-a `LIMIT`ed `ILIKE` for a search, a count per relation for a neighbourhood — every statement built
+a `LIMIT`ed `ILIKE` for a search — every statement built
 from mosaic-sql's nodes and run through `coordinator.query(query, { type: "arrow" })`. A search is text
 a reader typed, so no statement is a template string: the nodes quote their own identifiers and
 literals. It imports nothing of fossil's.
@@ -265,7 +265,7 @@ Every module stays under four hundred lines:
 ```text
 packages/graph/src/
 ├── core/                     no React; nothing here imports cosmos.gl
-│   ├── source.ts             the catalog's statements: structure, columns, links, a row, titles, search, neighbours
+│   ├── source.ts             the catalog's statements: structure, columns, links, a row, titles, search
 │   ├── client.ts             GraphClient — the crossfilter's survivors — and the clause the graph publishes
 │   ├── load.ts               answers → buffers by dense_id; the seeded start; the layout's square
 │   ├── channels.ts           Plot's bindings, and the columns they read
@@ -374,12 +374,34 @@ under it read the root.
   greyed, never hidden — and unfiltered it always read "N of N". A footer carries it, which is why it
   is not the legend's last line.
 - **`GraphToolbar`** — the tools, the selection, zoom and fit, and the layout's transport.
-- **`GraphInspector`** — the focused vertex as a card, Linkurious's inspector: its row in
-  `fossil_columns`' order, grouped as identity, values and dates, its neighbourhood counted per relation
-  and direction, Zoom / Focus / Copy, and a render prop for fields a product adds.
+- **`GraphInspector`** — the focused vertex, Linkurious's inspector: headed by its title or its IRI's
+  local name under its type, **Locate** beside it (`reveal`: frame it with its neighbours, and keep the
+  camera there), the IRI under it with its copy button, then its row in two columns, in
+  `fossil_columns`' order, grouped as values and dates, and a render prop for fields a product adds.
+  Sections and rules, not a card: in a dock a card is a second border. **It does nothing with the
+  neighbourhood**: a count per relation repeated what the canvas draws one click away, a "select
+  neighbours" repeated what a click and Locate already select, and three icon buttons (zoom, focus,
+  copy the row) read as a riddle — the row copy had no reader at all. *Held by*
+  `packages/graph/src/parts/parts.test.tsx`, "heads with the IRI's local name when there is no title,
+  prints the IRI under it with Copy, and lists no neighbours" and "locates the vertex, and offers
+  nothing a click on the canvas already does". What would reverse it: a corpus whose
+  relations the canvas cannot draw — too many edges to load — where the panel is the only place a
+  neighbourhood can be read.
 - **`GraphSearch`** — a palette in cmdk's shape, Raycast's and Linear's: a `LIMIT`ed `ILIKE` per pause
   in typing, with Bloom's `type:` and `<column>:<value>` prefixes, grouped by type and counted past the
-  limit; picking one is `reveal`, and the root remembers it.
+  limit; Enter is `reveal`, and the root remembers it. **In the page it is only a cue** — a button that
+  prints ⌘K, Shark's command trigger, never an inline list — and the palette is a full-height
+  `CommandDialog`, because docked it was cramped and its results covered the panel. The key, the chips
+  and the height are `ui`'s, not the graph's (`CommandDialog`'s `hotkey`, `CommandInput`'s children):
+  the graph keeps only what a graph knows — what a prefix is, the grouping, ⌘Enter. **Empty, it is
+  never a bare input**: Recent, then every vertex type with its count, a pick becoming a `type:` chip
+  — GitHub's palette scopes, the start a reader of an unfamiliar corpus lacks. **A match prints its
+  identity's local name on the right**, Linear's issue key, because titles repeat. *Held by*
+  `packages/graph/src/parts/parts.test.tsx`, "opens and closes the palette on ⌘K or Ctrl+K", "turns a type: or column: word
+  into a chip on Space, keeps free text as text, and takes the last chip back on Backspace" and
+  "offers, empty, every vertex type with its count, and picking one makes it a chip". **One
+  palette per page** is what lets the key go unarbitrated — what would reverse it is a page that needs
+  two graphs' palettes at once, and then the arbitration is a provider, never module state.
 - **`GraphSelect`** — a selection the host offers, as a toggle: `load` reads the ids when pressed,
   and pressed is derived from the live selection, never stored beside it.
 

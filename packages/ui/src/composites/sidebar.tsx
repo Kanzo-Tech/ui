@@ -20,6 +20,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "../simples/tooltip";
+import { useHotkey } from "../lib/use-hotkey.js";
 import { useIsMobile } from "../lib/use-is-mobile.js";
 import { SIDEBAR_COOKIE_NAME } from "./sidebar-cookie.js";
 
@@ -27,7 +28,7 @@ const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 const SIDEBAR_WIDTH = "16rem";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
-const SIDEBAR_KEYBOARD_SHORTCUT = "b";
+const SIDEBAR_KEYBOARD_SHORTCUT = "mod+b";
 
 interface SidebarContextProps {
   isMobile: boolean;
@@ -139,21 +140,7 @@ export const SidebarProvider = (props: SidebarProviderProps) => {
     }
   }, [isMobile, setOpen]);
 
-  React.useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
-        (event.metaKey || event.ctrlKey)
-      ) {
-        event.preventDefault();
-        toggleSidebar();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [toggleSidebar]);
+  useHotkey(SIDEBAR_KEYBOARD_SHORTCUT, toggleSidebar);
 
   const state = open ? "expanded" : "collapsed";
 

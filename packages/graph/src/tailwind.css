@@ -1,0 +1,13 @@
+/*
+ * @kanzo-tech/graph — the Tailwind v4 entry, imported after `@kanzo-tech/ui`'s:
+ *
+ *     @import "tailwindcss";
+ *     @import "@kanzo-tech/ui/tailwind.css";
+ *     @import "@kanzo-tech/graph/tailwind.css";
+ *
+ * Sources and nothing else, as `@kanzo-tech/ai`'s: the tokens, the variant and the plugin are `ui`'s.
+ * The canvas is WebGL, but the parts around it — the palette, the inspector, the legend — write
+ * utilities, and a utility only this package writes exists in a page only if something scans it.
+ * Without this entry the palette lost its height and stood as a bare input.
+ */
+@source "../dist/**/*.js";

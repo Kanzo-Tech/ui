@@ -20,6 +20,7 @@ import { createListCollection } from "@ark-ui/react/collection";
 import { useKanzoTheme } from "../theme/KanzoThemeProvider.js";
 import { useSectionContribution, type PrefSpecimen } from "../theme/section-context.js";
 import { cn } from "../lib/cn.js";
+import { useHotkey } from "../lib/use-hotkey.js";
 import { Button } from "../simples/button.js";
 import { Field, FieldLabel, FieldLegend, FieldSet } from "../simples/field.js";
 import {
@@ -61,12 +62,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 export interface PreferencesRootProps {
   children: React.ReactNode;
   /**
-   * Key that toggles the panel, e.g. `"t"`. **Opt-in — there is no default.**
+   * Key that toggles the panel — `"t"`, or `"mod+,"` for ⌘, / Ctrl+,. **Opt-in — there is no default.**
    *
-   * When set, this registers a `window` keydown listener that fires on the bare key (typing in
-   * an input, textarea or contenteditable is ignored). A design system must not claim a
-   * single, unmodified key in its host's global keymap without being asked, so omit this
-   * unless the host has decided that key is free.
+   * The same grammar and the same listener as `CommandDialog`'s: a key pressed while typing in a
+   * field is the field's. A design system must not claim a key in its host's global keymap
+   * without being asked, so omit this unless the host has decided that key is free.
    */
   hotkey?: string;
   defaultOpen?: boolean;
@@ -75,21 +75,7 @@ export interface PreferencesRootProps {
 function PreferencesRoot({ children, hotkey, defaultOpen = false }: PreferencesRootProps) {
   const [open, setOpen] = React.useState(defaultOpen);
 
-  React.useEffect(() => {
-    if (!hotkey) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || e.key.toLowerCase() !== hotkey) return;
-      const el = document.activeElement;
-      const typing =
-        el instanceof HTMLElement &&
-        (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
-      if (typing) return;
-      e.preventDefault();
-      setOpen((o) => !o);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [hotkey]);
+  useHotkey(hotkey, () => setOpen((o) => !o));
 
   // Non-modal so the app stays interactive and re-skins live behind the panel — no backdrop, no
   // scroll lock, no focus trap. But it still closes on an outside click, because that is what a
