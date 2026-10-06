@@ -33,9 +33,10 @@ because both stream the AI SDK's `UIMessage`.
 place. `Chat` reads only the helpers — `messages`, `status`, `error`, `sendMessage`, `stop`,
 `regenerate` — so any chat state of that shape drives it.
 
-`Chat` is `flex-1` inside a column, so it wants a **bounded** parent: a panel with a height, or a
-flex column that has one. Given an unbounded one it grows with its content and there is nothing
-left to scroll.
+**`Chat` fills its parent's height**, whether the parent is a flex column or a block with a height
+of its own, so it wants a **bounded** parent: a panel with a height, or a flex column that has one.
+Given an unbounded one it grows with its content and there is nothing left to scroll. `ChatSkeleton`
+is the same frame, so the two need no matching wrappers to land in the same place.
 
 ## What it draws
 
@@ -130,26 +131,38 @@ for await (const proposal of suggest({ model: gateway("chat"), instructions, pro
 | `abortSignal` | Stops the stream |
 
 While it streams, pass `suggesting`: the strip draws pills in skeleton beside the ones that have
-arrived, so it keeps its height as they land. **A failure throws when the stream ends** — the AI SDK
-otherwise ends a refused stream as if the model had nothing to suggest — and on a failure the host
-passes no pills: the conversation works the same without them. A data space's questions are
+arrived, as many as make up the strip, so it keeps its height as they land. **A failure throws when
+the stream ends** — the AI SDK otherwise ends a refused stream as if the model had nothing to
+suggest — and on a failure the host passes `suggestions={[]}`: **the strip keeps its row, empty**,
+so the empty state above it does not move, and the conversation works the same without pills. A
+host that offers no suggestions at all leaves `suggestions` out, and there is no strip. A data space's questions are
 [`dataSuggestions`](/docs/ai/data), which is `suggest()` with a data space's instructions.
 
 **A pill never outgrows the strip.** A question longer than the panel is as wide as the strip and
 cut with an ellipsis, and the whole question is in a tooltip that opens only when it is cut. The
 accessible name is the whole question either way.
 
+*What would reverse it:* a panel short enough that one empty row costs more than the jump it saves.
+Then a failure collapses the strip, and the empty state is anchored to the top instead of centred.
+
 *Held by* `packages/ai/src/chat.test.tsx`, "holds room for suggestions still arriving, beside the
-ones that have"; `packages/ai/src/suggest.test.ts`, "throws what stopped the model, rather than ending
+ones that have", "keeps the strip's row when suggesting failed, so the empty state does not move";
+`packages/ai/src/suggest.test.ts`, "throws what stopped the model, rather than ending
 as if it had nothing to suggest"; `packages/ui/src/simples/suggestions.test.tsx`, "shows the whole
 label in a tooltip when the label is cut".
 
 ## Before it can be drawn
 
-`ChatSkeleton` is `Chat`'s layout while what it needs is still loading — a schema, an agent: the
-empty state, the pills in skeleton and the composer, inert. Give it the same `empty` the chat will
-have and nothing moves when the chat replaces it. The composer is the real one, disabled, rather than
-a block of its size, so the two cannot drift apart.
+`ChatSkeleton` is `Chat` while what it needs is still loading — a schema, an agent: the empty state,
+the pills in skeleton and the composer, inert. **It is not a copy of the layout but the same one**:
+both draw one internal frame, the transcript's scroll region and then the composer, so padding,
+width and height are written once. Give it the same `empty` the chat will have and nothing moves
+when the chat replaces it. The composer is the real one, disabled, rather than a block of its size.
+
+*What would reverse it:* a skeleton that has to look different from the chat, which would make it a
+second component and not this one. `Chat` taking a `pending` flag instead was discarded: the
+skeleton exists for the moment before `useChat` can be built, so `chat` would turn optional and
+`Chat` would hold two components behind one flag.
 
 ```tsx
 {schema ? <Chat chat={chat} empty={empty} /> : <ChatSkeleton empty={empty} />}
@@ -162,7 +175,9 @@ a block of its size, so the two cannot drift apart.
 | `translations` | `{ placeholder }` | The composer's placeholder |
 
 *Held by* `packages/ai/src/chat.test.tsx`, "draws Chat's layout before it can be drawn: the empty
-state, pills in skeleton, an inert composer".
+state, pills in skeleton, an inert composer", "is Chat's own frame, so nothing moves when the chat
+replaces it". jsdom has no layout, so the heights are measured in Chromium by
+`docs/scripts/chat-frame.e2e.mjs` over `/fixtures/chat-frame`, in a flex column and in a block.
 
 ## The parts
 
@@ -184,7 +199,7 @@ Their props are `MessageProps`, `MessageAvatarProps`, `MessageRole` and `Reasoni
 | `chat` | `useChat(...)`'s return | The conversation |
 | `tools` | `ChatToolRenderers` | `Record<string, (part: ToolPart) => ReactNode>` — how the host draws its tools' results |
 | `empty` | `ReactNode` | What the panel says before the first question |
-| `suggestions` | `readonly Proposal[]` | Questions to start from |
+| `suggestions` | `readonly Proposal[]` | Questions to start from; given at all, even empty, the strip keeps its row |
 | `suggesting` | `boolean` | More are on their way: pills in skeleton beside them |
 | `translations` | `Partial<ChatTranslations>` | `placeholder` for the composer, and `failed`, read before an error |
 | `className` | `string` | On the root |

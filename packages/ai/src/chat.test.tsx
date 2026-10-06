@@ -69,16 +69,36 @@ describe("Chat", () => {
   });
 
   it("holds room for suggestions still arriving, beside the ones that have", () => {
-    const chat = { messages: [], status: "ready", error: undefined, sendMessage: async () => {}, stop: async () => {}, regenerate: async () => {} };
-    const { rerender } = render(<Chat chat={chat as never} suggesting suggestions={[{ text: "First?", rationale: "first" }]} />);
+    const { rerender } = render(<Chat chat={idle as never} suggesting suggestions={[{ text: "First?", rationale: "first" }]} />);
     expect(screen.getByRole("button", { name: "First?" })).not.toBeNull();
     expect(document.querySelectorAll("[data-slot=suggestions] [data-slot=skeleton]").length).toBe(2);
-    // Suggesting failed: no pills, and the composer is still there to ask with.
-    rerender(<Chat chat={chat as never} suggesting={false} suggestions={[]} />);
-    expect(document.querySelector("[data-slot=suggestions]")).toBeNull();
+    // As many skeletons as make up the strip, never an extra row once it is full.
+    rerender(<Chat chat={idle as never} suggesting suggestions={["A?", "B?", "C?"].map((text) => ({ text }))} />);
+    expect(document.querySelectorAll("[data-slot=suggestions] [data-slot=skeleton]").length).toBe(0);
+  });
+
+  it("keeps the strip's row when suggesting failed, so the empty state does not move", () => {
+    render(<Chat chat={idle as never} empty={<p>Ask about your graph.</p>} suggesting={false} suggestions={[]} />);
+    const strip = document.querySelector("[data-slot=suggestions]");
+    expect(strip?.children.length).toBe(0);
+    expect(strip?.className).toContain("min-h-7");
     expect(screen.getByPlaceholderText("Ask anything…")).not.toBeNull();
   });
+
+  it("draws no strip for a host that offers no suggestions", () => {
+    render(<Chat chat={idle as never} />);
+    expect(document.querySelector("[data-slot=suggestions]")).toBeNull();
+  });
 });
+
+/** A chat state with nothing said yet. */
+const idle = { messages: [], status: "ready", error: undefined, sendMessage: async () => {}, stop: async () => {}, regenerate: async () => {} };
+
+/** The layout's slots in document order, below the root and leaving the pills out. */
+const frame = (root: Element | null) =>
+  [...(root?.querySelectorAll("[data-slot]") ?? [])]
+    .map((el) => el.getAttribute("data-slot"))
+    .filter((slot) => slot !== "skeleton" && slot !== "suggestion");
 
 describe("ChatSkeleton", () => {
   it("draws Chat's layout before it can be drawn: the empty state, pills in skeleton, an inert composer", () => {
@@ -88,5 +108,14 @@ describe("ChatSkeleton", () => {
     const field = screen.getByPlaceholderText("Ask anything…") as HTMLTextAreaElement;
     expect(field.disabled).toBe(true);
     expect(document.querySelector("[data-slot=chat-skeleton]")?.getAttribute("aria-busy")).toBe("true");
+  });
+
+  it("is Chat's own frame, so nothing moves when the chat replaces it", () => {
+    const skeleton = render(<ChatSkeleton empty={<p>Ask about your graph.</p>} />);
+    const before = frame(skeleton.container.querySelector("[data-slot=chat-skeleton]"));
+    skeleton.unmount();
+    const chat = render(<Chat chat={idle as never} empty={<p>Ask about your graph.</p>} suggesting />);
+    expect(frame(chat.container.querySelector("[data-slot=chat]"))).toEqual(before);
+    expect(before).toContain("conversation-content");
   });
 });
