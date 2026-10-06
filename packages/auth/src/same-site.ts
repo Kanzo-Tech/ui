@@ -1,3 +1,5 @@
+import { addressedUrl } from "./next-bound";
+
 /**
  * Did this request come from us?
  *
@@ -42,7 +44,7 @@ export function isSameSite(request: Request): boolean {
   if (site !== null) return TRUSTED_SITES.has(site);
 
   const origin = request.headers.get("origin");
-  if (origin !== null) return origin === new URL(request.url).origin;
+  if (origin !== null) return origin === addressedUrl(request).origin;
 
   return true;
 }

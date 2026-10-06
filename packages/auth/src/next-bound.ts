@@ -78,11 +78,25 @@ export interface Bound {
   tenant(request: TenantRequest): Promise<string | undefined>;
 }
 
+/**
+ * The URL the client addressed: `request.url` with the authority its `Host` header names (RFC 9110
+ * §7.2). Next builds `request.url` from the address the server listens on rather than the one the
+ * client asked for — under `next dev` 16 a request for `acme.localhost:3000` reads
+ * `http://localhost:3000` — so a deployment that answers on several hosts would otherwise resolve
+ * every tenant, callback and redirect to the same one. A request without `Host` keeps its URL.
+ */
+export function addressedUrl(request: Request): URL {
+  const url = new URL(request.url);
+  const host = request.headers.get("host");
+  if (host) url.host = host;
+  return url;
+}
+
 /** What a tenant resolver reads, from a request a route handler was given. */
 export function tenantRequest(request: Request): TenantRequest {
   const header = request.headers.get("cookie");
   return {
-    url: new URL(request.url),
+    url: addressedUrl(request),
     headers: request.headers,
     cookies: {
       get(name: string) {
