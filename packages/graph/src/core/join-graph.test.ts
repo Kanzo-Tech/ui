@@ -8,6 +8,7 @@ const columns = (entries: [string, string | null][]) =>
 
 const STRUCTURE: Structure = {
   from: "jobs/7",
+  key: "dense_id",
   size: 30,
   vertices: [
     {

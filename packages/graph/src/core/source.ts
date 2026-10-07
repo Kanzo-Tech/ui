@@ -13,6 +13,7 @@ import {
   type Coordinator,
   type ExprNode,
 } from "@kanzo-tech/mosaic";
+import { GraphError } from "./error";
 import { tableOf, type Column, type EdgeTable, type Structure, type VertexTable } from "./structure";
 
 /**
@@ -65,10 +66,12 @@ export async function readStructure(coordinator: Coordinator, from: string): Pro
   const byTable = new Map<string, { names: Map<string, Column>; identity: string }>();
   const [tn, cn] = [values(columns, "table_name"), values(columns, "column_name")];
   const [role, type] = [values(columns, "role"), values(columns, "type")];
+  let key: string | undefined;
   for (let i = 0; i < columns.numRows; i++) {
     const entry = byTable.get(String(tn[i])) ?? { names: new Map<string, Column>(), identity: "subject" };
     entry.names.set(String(cn[i]), { type: String(type[i] ?? ""), role: role[i] === null ? null : String(role[i]) });
     if (role[i] === "identity") entry.identity = String(cn[i]);
+    if (role[i] === "address") key ??= String(cn[i]);
     byTable.set(String(tn[i]), entry);
   }
   const name = values(tables, "table_name");
@@ -96,11 +99,14 @@ export async function readStructure(coordinator: Coordinator, from: string): Pro
       edges.push({ name: table, label: labelOf(table, src, dst), source: src, destination: dst, rows: Number(rows[i]) });
     }
   }
-  return { from, vertices, edges, size: vertices.reduce((sum, v) => sum + v.rows, 0) };
+  if (key === undefined && vertices.length > 0) {
+    throw new GraphError("graph/nothing-to-draw", `the corpus attached as ${from} gives no column the address role`);
+  }
+  return { from, key: key ?? "", vertices, edges, size: vertices.reduce((sum, v) => sum + v.rows, 0) };
 }
 
 /**
- * Each table's rows of `select`, in `dense_id` order — the table's slice of every buffer. A table
+ * Each table's rows of `select`, in the key's order — the table's slice of every buffer. A table
  * that lacks a selected column answers `null` for it, so one statement shape serves every table.
  */
 export async function readColumns(
@@ -111,7 +117,7 @@ export async function readColumns(
   return Promise.all(
     structure.vertices.map(async (table) => {
       const projection = Object.fromEntries(select.map((c) => [c, table.columns.has(c) ? c : literal(null)]));
-      const answer = await ask(coordinator, Query.select(projection).from(relation(structure.from, table.name)).orderby("dense_id"));
+      const answer = await ask(coordinator, Query.select(projection).from(relation(structure.from, table.name)).orderby(structure.key));
       return { table, answer };
     }),
   );
@@ -152,10 +158,10 @@ export interface VertexDetail {
 export async function readVertex(coordinator: Coordinator, structure: Structure, vertex: number): Promise<VertexDetail | null> {
   const table = tableOf(structure, vertex);
   if (!table) return null;
-  const names = [...table.columns.keys()].filter((name) => name !== "dense_id");
+  const names = [...table.columns.keys()].filter((name) => name !== structure.key);
   const answer = await ask(
     coordinator,
-    Query.select(names).from(relation(structure.from, table.name)).where(eq("dense_id", literal(vertex))),
+    Query.select(names).from(relation(structure.from, table.name)).where(eq(structure.key, literal(vertex))),
   );
   if (answer.numRows === 0) return null;
   return { vertex, table: table.name, fields: names.map((name) => ({ name, value: answer.getChild(name)?.get(0) ?? null })) };
@@ -178,9 +184,9 @@ export async function readTitles(
     [...byTable].map(async ([table, ids]) => {
       const answer = await ask(
         coordinator,
-        Query.select({ id: float64("dense_id"), text: cast(titleColumn(table, title), "VARCHAR") })
+        Query.select({ id: float64(structure.key), text: cast(titleColumn(table, title), "VARCHAR") })
           .from(relation(structure.from, table.name))
-          .where(isIn("dense_id", ids.map((id) => literal(id)))),
+          .where(isIn(structure.key, ids.map((id) => literal(id)))),
       );
       const [id, texts] = [values(answer, "id"), values(answer, "text")];
       for (let i = 0; i < answer.numRows; i++) found.set(id[i] as number, String(texts[i] ?? ""));
@@ -243,7 +249,7 @@ function matching(structure: Structure, query: VertexQuery, title: string | unde
       ...(query.text === "" ? [] : [ilike(text, query.text)]),
       ...fields.map((field) => ilike(field.name as string, field.value)),
     ];
-    return [Query.select({ id: float64("dense_id"), text, key: cast(table.identity, "VARCHAR"), type: literal(table.name) }).from(relation(structure.from, table.name)).where(where)];
+    return [Query.select({ id: float64(structure.key), text, key: cast(table.identity, "VARCHAR"), type: literal(table.name) }).from(relation(structure.from, table.name)).where(where)];
   });
   return selects.length === 0 ? null : Query.unionAll(selects);
 }

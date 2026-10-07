@@ -143,6 +143,31 @@ export function MosaicProvider({ coordinator, crossfilter, onFailure, children }
   return <MosaicContext.Provider value={value}>{children}</MosaicContext.Provider>;
 }
 
+const Enabled = createContext(true);
+
+export interface MosaicClientsProps {
+  /** Whether the clients under it query. A nested `false` wins over an enclosing `true`. */
+  enabled: boolean;
+  children: ReactNode;
+}
+
+/**
+ * **Mosaic's `MosaicClient.enabled`, for every client under it** — the charts' marks, the inputs and
+ * every `useChartQuery`. A disabled client keeps its state and its clauses but asks nothing; enabled
+ * again, it runs the one query it was owed. Mosaic's own reason for the flag is ours: a panel that
+ * is off screen — a view swapped out, a collapsed dock — keeps what the reader brushed there without
+ * re-querying on every pick made elsewhere. Unmounting it instead would retract its clauses.
+ */
+export function MosaicClients({ enabled, children }: MosaicClientsProps) {
+  const enclosing = useContext(Enabled);
+  return <Enabled.Provider value={enclosing && enabled}>{children}</Enabled.Provider>;
+}
+
+/** Whether the clients here should query — `MosaicClients`'s answer, `true` outside one. */
+export function useClientsEnabled(): boolean {
+  return useContext(Enabled);
+}
+
 /** The Mosaic context — coordinator, shared selections, `registerSelection` and `reset`. */
 export function useMosaic(): MosaicContextValue {
   const ctx = useContext(MosaicContext);

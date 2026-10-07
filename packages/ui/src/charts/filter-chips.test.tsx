@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { clausePoints, Selection, type Coordinator } from "@uwdata/mosaic-core";
+import { bridgeSelection, semiJoinOf } from "@kanzo-tech/mosaic";
+import { clausePoint, clausePoints, Selection, type Coordinator } from "@uwdata/mosaic-core";
 import { describe, expect, it } from "vitest";
 import { FilterChips } from "./filter-chips.js";
 import { MosaicProvider, useMosaic } from "./mosaic-provider.js";
@@ -31,5 +32,26 @@ describe("retract", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: /Remove/ })).toBeNull());
     expect(own.clauses).toHaveLength(0);
     expect(crossfilter.clauses).toHaveLength(0);
+  });
+
+  it("shows a bridged clause as its parts, and retracts one part alone", async () => {
+    const crossfilter = Selection.crossfilter();
+    const inner = Selection.crossfilter();
+    const user = userEvent.setup();
+    bridgeSelection(inner, crossfilter, semiJoinOf("dense_id", "Person", { label: "Dashboard" }));
+    render(
+      <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
+        <FilterChips />
+      </MosaicProvider>,
+    );
+    const country = clausePoint("country", "Spain", { source: { reset() {} } });
+    inner.update(country);
+    inner.update(clausePoint("team", 1, { source: { reset() {} } }));
+
+    await user.click(await screen.findByRole("button", { name: "Remove Dashboard team 1" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Remove Dashboard team 1" })).toBeNull());
+    expect(screen.getByRole("button", { name: "Remove Dashboard country Spain" })).toBeTruthy();
+    expect(inner.clauses).toEqual([country]);
+    expect(crossfilter.clauses).toHaveLength(1);
   });
 });

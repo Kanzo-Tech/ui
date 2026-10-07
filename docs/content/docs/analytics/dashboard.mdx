@@ -283,7 +283,12 @@ more. Removing one calls `retract`, so the pick that made it un-highlights too.
 Because they read `Selection.clauses`, they report filters they did not publish: a brush, a bar
 someone clicked, a lasso on a graph canvas. A semi-join wears its publisher's label — *Lasso · 13
 selected*, a rule's name — so `<FilterChips />` in a dock's header is the page's scope: every clause
-each client there is filtered by, each removable where it was published.
+each client there is filtered by, each removable where it was published. A dashboard's one bridged
+clause is shown as the tile clauses it was made of, each removable alone.
+
+**A view swapped out keeps its clauses when it is hidden, not unmounted.** Wrap it in
+[`MosaicClients enabled={false}`](/docs/analytics/charts#mosaicclients): its clients stop asking and
+its chips stay on the page; unmounted, it would retract them.
 
 ### useFieldStats, queryFieldStats and fieldStats
 
@@ -401,12 +406,14 @@ const publish = useMemo(() => semiJoinOf(relationIdentities(graph, relation)[0].
 The tiles publish into the dashboard's own crossfilter and filter by it, so they crossfilter each
 other on the relation's columns exactly as before. The page gets **one** clause for all of them,
 `dense_id IN (SELECT dense_id FROM <relation> WHERE <every tile's clause>)`, whose source is the
-dashboard: the graph greys out every vertex but the roots of the rows the tiles keep, another
-relation's dashboard is filtered to the same vertices through its own root key, and `FilterChips`
-names it by `label`. The clauses are mapped together, not one by one — on a joined relation,
+dashboard: the graph greys out every vertex but the roots of the rows the tiles keep, and another
+relation's dashboard is filtered to the same vertices through its own root key. `FilterChips` shows
+it as its parts, one chip per tile clause named after `label` — *Dashboard country Spain* — and
+removing one retracts that tile's clause alone; `bridged(clause)` is how it reads them. The clauses are mapped together, not one by one — on a joined relation,
 *a person with a row where a and b* is not *a person with a row where a, and one where b*.
 
-Retracting goes both ways. A tile that lets go withdraws the page's clause; removing the page's
+Retracting goes both ways. A tile that lets go maps the rest again, and the last one withdraws the
+page's clause; removing the page's
 clause — its chip, the page's *Clear* — clears the tiles' brushes and picks. In the other direction,
 a lasso on the graph reaches every tile as itself, so the graph stays exempt from its own pick and
 is not filtered by it back through the dashboard.
