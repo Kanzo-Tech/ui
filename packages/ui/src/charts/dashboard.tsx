@@ -37,8 +37,6 @@ export interface DashboardProps extends Omit<React.ComponentProps<typeof ark.div
   exclude?: readonly string[];
   /** Series vocabulary per field, for a field drawn as `color`. See `ChartCard`. */
   config?: Readonly<Record<string, ChartConfig>>;
-  /** What a row is, in the plural. Default `"rows"`. */
-  rowNoun?: string;
   /**
    * What the page sees of the dashboard's clauses. Without it they are the page's own clauses, which
    * only a client of the same columns can answer. With it the tiles crossfilter each other in a
@@ -51,13 +49,13 @@ export interface DashboardProps extends Omit<React.ComponentProps<typeof ark.div
 }
 
 /**
- * A whole dashboard from a relation and, optionally, a saved spec: the filter bar and the tiles —
- * a band of figures, then charts and tables in a three-column grid — every one of them on the provider's
- * crossfilter. The host brings the `MosaicProvider`, the relation and somewhere to keep the spec;
+ * A whole dashboard from a relation and, optionally, a saved spec: its filters, drawn in the page's
+ * `FilterBar`, and the tiles — a band of figures, then charts and tables in a three-column grid —
+ * every one of them on the provider's crossfilter. The host brings the `MosaicProvider`, the relation and somewhere to keep the spec;
  * the fields, the automatic layout and the editor are this component's.
  */
 export function Dashboard(props: DashboardProps) {
-  const { table, value, onChange, exclude, config, rowNoun, publish, className, slot, ...rest } = props;
+  const { table, value, onChange, exclude, config, publish, className, slot, ...rest } = props;
   const { fields, columns, error } = useFieldStats(table, { exclude });
   const page = useMosaic();
   const [own] = useState(() => Selection.crossfilter());
@@ -86,7 +84,6 @@ export function Dashboard(props: DashboardProps) {
           config={config}
           fields={readable.fields}
           onChange={onChange}
-          rowNoun={rowNoun}
           table={readable.table}
           value={value}
         />
@@ -127,14 +124,12 @@ function Board({
   value,
   onChange,
   config,
-  rowNoun,
 }: {
   table: TableExpr;
   fields: FieldStat[];
   value?: DashboardSpec;
   onChange?: (spec: DashboardSpec | undefined) => void;
   config?: Readonly<Record<string, ChartConfig>>;
-  rowNoun?: string;
 }) {
   const auto = useMemo(() => autoDashboard(fields), [fields]);
   const spec = value ?? auto;
@@ -171,30 +166,28 @@ function Board({
         fields={fields}
         filters={spec.filters}
         onChange={edit && ((filters) => edit({ filters }))}
-        rowNoun={rowNoun}
         table={table}
-      >
-        {edit ? (
-          <>
-            <Button onClick={add} size="sm" variant="outline">
-              <PlusIcon />
-              Add tile
-            </Button>
-            <Menu>
-              <MenuTrigger asChild>
-                <Button aria-label="Dashboard options" size="icon-sm" variant="ghost">
-                  <EllipsisIcon />
-                </Button>
-              </MenuTrigger>
-              <MenuContent>
-                <MenuItem disabled={value === undefined} onSelect={() => onChange?.(undefined)} value="reset">
-                  Reset to automatic
-                </MenuItem>
-              </MenuContent>
-            </Menu>
-          </>
-        ) : null}
-      </DashboardFilters>
+      />
+      {edit ? (
+        <div className="flex items-center justify-end gap-1" data-slot="dashboard-toolbar">
+          <Button onClick={add} size="sm" variant="outline">
+            <PlusIcon />
+            Add tile
+          </Button>
+          <Menu>
+            <MenuTrigger asChild>
+              <Button aria-label="Dashboard options" size="icon-sm" variant="ghost">
+                <EllipsisIcon />
+              </Button>
+            </MenuTrigger>
+            <MenuContent>
+              <MenuItem disabled={value === undefined} onSelect={() => onChange?.(undefined)} value="reset">
+                Reset to automatic
+              </MenuItem>
+            </MenuContent>
+          </Menu>
+        </div>
+      ) : null}
 
       {groups.map(({ name, tiles, ref, className }) =>
         tiles.length > 0 ? (

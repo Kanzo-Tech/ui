@@ -1,7 +1,8 @@
 "use client";
 
 import { relaySelection } from "@kanzo-tech/mosaic";
-import { createContext, useContext, useMemo, useRef, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import {
   Selection,
   coordinator as setActiveCoordinator,
@@ -140,7 +141,64 @@ export function MosaicProvider({ coordinator, crossfilter, onFailure, children }
     };
   }, [coordinator, crossfilter]);
 
-  return <MosaicContext.Provider value={value}>{children}</MosaicContext.Provider>;
+  // The page's bar is the outermost provider's: a provider nested for a dashboard draws in it too.
+  const outer = useContext(Bar);
+  const [slot, setSlot] = useState<BarSlot>(EMPTY_SLOT);
+  const bar = useMemo(() => outer ?? { slot, set: setSlot }, [outer, slot]);
+
+  return (
+    <MosaicContext.Provider value={value}>
+      <Bar.Provider value={bar}>{children}</Bar.Provider>
+    </MosaicContext.Provider>
+  );
+}
+
+/** Clauses a part draws in the bar itself — those of `selection` on one of `fields` — so `FilterBar` does not. */
+export interface BarHeld {
+  readonly selection: Selection;
+  readonly fields: readonly string[];
+}
+
+/** Where the page's `FilterBar` draws what other parts put in it, and whether its clients query. */
+interface BarSlot {
+  readonly element: HTMLElement | null;
+  readonly enabled: boolean;
+  readonly held: readonly BarHeld[];
+}
+
+const EMPTY_SLOT: BarSlot = { element: null, enabled: true, held: [] };
+const Bar = createContext<{ slot: BarSlot; set: (next: (slot: BarSlot) => BarSlot) => void } | null>(null);
+
+/** The bar's side: its slot, and the callback ref that places it. */
+export function useBarSlot() {
+  const bar = useContext(Bar);
+  const set = bar?.set;
+  const enabled = useContext(Enabled);
+  useEffect(() => set?.((s) => (s.enabled === enabled ? s : { ...s, enabled })), [set, enabled]);
+  const place = useCallback((element: HTMLElement | null) => set?.((s) => (s.element === element ? s : { ...s, element })), [set]);
+  return { held: bar?.slot.held ?? [], place };
+}
+
+/**
+ * **Draws `children` in the page's `FilterBar`**, through a portal, so they keep this tree's context
+ * — the dashboard's provider and its crossfilter — while they sit in the page's bar. `held` names the
+ * clauses they draw themselves. They query as the bar does, not as where they are declared: a view
+ * hidden by `MosaicClients` still has its filters on screen. Nothing is drawn while the page has no bar.
+ */
+export function InFilterBar({ held, children }: { held: BarHeld; children: ReactNode }) {
+  const bar = useContext(Bar);
+  const set = bar?.set;
+  const { selection } = held;
+  // By value, so a host's inline array is not a change.
+  const fields = JSON.stringify(held.fields);
+  useEffect(() => {
+    if (!set) return;
+    const entry: BarHeld = { selection, fields: JSON.parse(fields) as string[] };
+    set((s) => ({ ...s, held: [...s.held, entry] }));
+    return () => set((s) => ({ ...s, held: s.held.filter((h) => h !== entry) }));
+  }, [set, selection, fields]);
+  const element = bar?.slot.element;
+  return element ? createPortal(<Enabled.Provider value={bar.slot.enabled}>{children}</Enabled.Provider>, element) : null;
 }
 
 const Enabled = createContext(true);
