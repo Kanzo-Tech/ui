@@ -127,7 +127,7 @@ describe("the graph store", () => {
   it("colours by vertex type unless fill binds a column", async () => {
     const { corpus, store } = await graph();
     await settle(corpus);
-    expect(store.getSnapshot().drawn).toEqual({ vertices: 20, edges: 20, domain: ["Person", "Place", "Tag"], tally: [10, 6, 4] });
+    expect(store.getSnapshot().drawn).toEqual({ vertices: 20, edges: 20, domain: ["Person", "Place", "Tag"], tally: [10, 6, 4], placed: [10, 6, 4] });
     store.setOptions({ ...store.getOptions(), fill: "team" });
     await settle(corpus);
     expect(store.getSnapshot().drawn?.domain).toEqual([0, 1, 2, 3, null]);

@@ -4,7 +4,7 @@ import { queryFailure } from "@kanzo-tech/mosaic";
 import { makeClient, type MosaicClient, type Selection } from "@uwdata/mosaic-core";
 import { Query, type FilterExpr } from "@uwdata/mosaic-sql";
 import { useEffect, useRef, useState } from "react";
-import { useMosaic } from "./mosaic-provider.js";
+import { useClientsEnabled, useMosaic } from "./mosaic-provider.js";
 
 /**
  * Read a relation from the same coordinator the charts use, and follow the same crossfilter.
@@ -53,6 +53,7 @@ export function useQueryClient(
   deps: readonly unknown[],
 ): { client: MosaicClient | null; rows: readonly ChartQueryRow[] | null; error: unknown } {
   const { coordinator, onFailure } = useMosaic();
+  const enabled = useClientsEnabled();
   // Read the latest builder without making it a dependency: an inline arrow would reconnect the
   // client on every render, and reconnecting re-runs the query.
   const latest = useRef(query);
@@ -66,6 +67,8 @@ export function useQueryClient(
     setError(undefined);
     const instance = makeClient({
       coordinator,
+      // Born as `MosaicClients` says now; the effect below follows it after.
+      enabled,
       selection: filterBy ?? undefined,
       query: (filter) => latest.current(filter ?? []),
       queryResult: (data) => {
@@ -82,6 +85,10 @@ export function useQueryClient(
     return () => coordinator.disconnect(instance);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [coordinator, filterBy, onFailure, ...deps]);
+
+  useEffect(() => {
+    if (client) client.enabled = enabled;
+  }, [client, enabled]);
 
   return { client, rows, error };
 }

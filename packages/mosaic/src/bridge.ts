@@ -41,6 +41,26 @@ export interface BridgeOptions {
   retract?: (clauses: SelectionClause[]) => void;
 }
 
+/** What a mapped clause was made of, and the way back to each part. */
+export interface Bridged {
+  /** The inner clauses it maps, in the order they were published. */
+  readonly parts: readonly SelectionClause[];
+  /** Retract some of them where they were published, as the bridge's `retract` does. */
+  retract(parts: readonly SelectionClause[]): void;
+}
+
+const made = new WeakMap<SelectionClause, Bridged>();
+
+/**
+ * **The parts of a bridged clause** — the inner clauses a bridge mapped into this one, or `null` for
+ * any other clause. A row of chips over the page shows each part where the page holds one clause —
+ * *country Spain*, *creationDate 2011 – 2012* rather than one *Dashboard* — and removing one retracts
+ * that part alone, which maps the rest again.
+ */
+export function bridged(clause: SelectionClause): Bridged | null {
+  return made.get(clause) ?? null;
+}
+
 /**
  * Join `inner` to `outer` through `map` — see {@link ClauseMap}. What `outer` already holds is put into
  * `inner`, and what `inner` already holds of its own is mapped, at once. Returns the unbridge, which
@@ -68,7 +88,10 @@ export function bridgeSelection(inner: Selection, outer: Selection, map: ClauseM
     const next = own();
     if (next.length === mapped.length && next.every((c, i) => c === mapped[i])) return;
     mapped = next;
-    outer.update(next.length === 0 ? clauseNone(source) : map(next, source));
+    if (next.length === 0) return void outer.update(clauseNone(source));
+    const clause = map(next, source);
+    made.set(clause, { parts: next, retract: (parts) => retract([...parts]) });
+    outer.update(clause);
   };
 
   const unrelay = relaySelection(outer, inner, {

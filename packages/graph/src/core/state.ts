@@ -73,6 +73,8 @@ export interface Drawn {
   readonly domain: readonly unknown[];
   /** Per rank, the vertices drawn. */
   readonly tally: readonly number[];
+  /** Per rank, the vertices with a position, filtered or not: what `tally` is a part of. */
+  readonly placed: readonly number[];
 }
 
 /** What a host and the parts read, through `useGraphState`. */

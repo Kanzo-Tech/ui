@@ -6,6 +6,9 @@ Picks made beside the canvas now narrow each other instead of replacing each oth
 picks vertices (a search, a rule, an answer) publishes its own clause on the page's crossfilter
 through the new `usePick(id)` hook, and the graph greys out what the clauses together leave out.
 
+`GraphLegend` reads "1,204 of 1,528" per category while the page filters, and `Drawn` gains
+`placed`, the vertices of each category whatever the filter.
+
 Breaking:
 
 - `GraphSelect` and `GraphSelectProps` are removed. Call `usePick(id)` and render your own toggle:

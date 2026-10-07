@@ -14,8 +14,8 @@
 // children (marks, interactors, axes) into one `vg.plot(...)`, so a bar and a line share a plot and
 // any interactor pairs with any mark. `ChartRaw` and the root's `attributes` are the escape hatches
 // for the parts of vgplot the layer does not wrap — wrapping is a convenience, never a cage.
-export { MosaicProvider, useMosaic, useCrossfilter, useSelected } from "./charts/mosaic-provider.js";
-export type { MosaicProviderProps, MosaicContextValue } from "./charts/mosaic-provider.js";
+export { MosaicClients, MosaicProvider, useMosaic, useCrossfilter, useSelected } from "./charts/mosaic-provider.js";
+export type { MosaicClientsProps, MosaicProviderProps, MosaicContextValue } from "./charts/mosaic-provider.js";
 
 export { ChartRoot, useChartContext, useChartContextOptional } from "./charts/chart-root.js";
 export type { ChartRootProps, ChartContextValue } from "./charts/chart-root.js";

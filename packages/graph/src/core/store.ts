@@ -12,13 +12,16 @@ export type { Arrangement, Drawn, GraphOptions, GraphSnapshot, GraphState, DataS
 
 function drawnOf(geometry: Geometry, encoding: Encoding, mask: Uint8Array | null): Drawn {
   const tally = encoding.domain.map(() => 0);
+  const placed = encoding.domain.map(() => 0);
   const shown = new Uint8Array(geometry.size);
   let vertices = 0;
   for (let id = 0; id < geometry.size; id++) {
-    if ((mask && !mask[id]) || Number.isNaN(geometry.positions[id * 2])) continue;
+    if (Number.isNaN(geometry.positions[id * 2])) continue;
+    const rank = encoding.ranks[id] as number;
+    placed[rank] = (placed[rank] ?? 0) + 1;
+    if (mask && !mask[id]) continue;
     shown[id] = 1;
     vertices++;
-    const rank = encoding.ranks[id] as number;
     tally[rank] = (tally[rank] ?? 0) + 1;
   }
   let edges = 0;
@@ -26,7 +29,7 @@ function drawnOf(geometry: Geometry, encoding: Encoding, mask: Uint8Array | null
   for (let i = 0; i < links.length; i += 2) {
     if (shown[links[i] as number] && shown[links[i + 1] as number]) edges++;
   }
-  return { vertices, edges, domain: encoding.domain, tally };
+  return { vertices, edges, domain: encoding.domain, tally, placed };
 }
 
 function matchingOf(mask: Uint8Array | null): number | null {

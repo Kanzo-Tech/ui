@@ -65,6 +65,22 @@ describe("GraphLegend", () => {
     expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Person10", "Place6", "Tag4"]);
   });
 
+  it("says how many of each category the page's filter keeps, of how many", async () => {
+    const corpus = await attach();
+    const crossfilter = Selection.crossfilter();
+    render(
+      <GraphRoot {...over(corpus)} filterBy={crossfilter} onFailure={() => {}}>
+        <GraphLegend />
+      </GraphRoot>,
+    );
+    await ready(corpus);
+    await act(async () => {
+      crossfilter.update(clauseInterval("score", [2, 5], { source: { reset() {} } }));
+      await settle(corpus);
+    });
+    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Person4 of 10", "Place6 of 6", "Tag4 of 4"]);
+  });
+
   it("draws nothing when colour is a constant and nothing carries a category", async () => {
     const corpus = await attach();
     const { container } = render(
