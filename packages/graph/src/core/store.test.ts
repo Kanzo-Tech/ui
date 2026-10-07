@@ -38,9 +38,22 @@ describe("the graph store", () => {
       ["Person_livesIn_Place", "livesIn", "Person", "Place"],
       ["Person_tagged_Tag", "tagged", "Person", "Tag"],
     ]);
+    expect(structure?.key).toBe("dense_id");
     expect(store.getSnapshot().total).toBe(20);
     expect(geometry?.size).toBe(20);
     expect(geometry?.links.length).toBe(2 * 20);
+  });
+
+  it("reads the vertex key from the address role, and refuses a corpus that gives none as graph/nothing-to-draw", async () => {
+    const corpus = await attach();
+    await corpus.coordinator.exec(
+      `ALTER VIEW ${corpus.from}.fossil_columns RENAME TO written;
+       CREATE VIEW ${corpus.from}.fossil_columns AS SELECT * REPLACE (NULLIF(role, 'address') AS role) FROM ${corpus.from}.written;`,
+    );
+    const { onFailure, store } = await graph({}, corpus);
+    await settle(corpus);
+    expect(onFailure.mock.calls[0]?.[0]).toMatchObject({ name: "GraphError", code: "graph/nothing-to-draw" });
+    expect(store.getSnapshot().structure).toBeNull();
   });
 
   it("starts a layout from a seeded square when x and y are unbound, the same start every time", async () => {
@@ -278,6 +291,18 @@ describe("the page's crossfilter", () => {
     expect(onSelect).toHaveBeenLastCalledWith(null);
     await settle(corpus);
     expect(crossfilter.clauses.map((c) => c.meta)).toEqual([]);
+  });
+
+  it("withdraws its pick from the crossfilter it leaves, and publishes it on the one it joins", async () => {
+    const first = Selection.crossfilter();
+    const second = Selection.crossfilter();
+    const { corpus, store } = await graph({ filterBy: first });
+    await settle(corpus);
+    store.select([3, 4], "lasso", "Lasso");
+    store.setOptions({ ...store.getSnapshot().options, filterBy: second });
+    await settle(corpus);
+    expect(first.clauses.map((c) => c.meta)).toEqual([]);
+    expect(second.clauses.map((c) => c.meta)).toEqual([{ type: "semijoin", label: "Lasso" }]);
   });
 
   it("keeps the last picture and reports the thrown value when a filter's read rejects", async () => {

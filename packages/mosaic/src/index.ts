@@ -20,6 +20,7 @@ export {
   clauseInterval,
   clauseIntervals,
   clauseMatch,
+  type ClauseSource,
   type SelectionClause,
 } from "@uwdata/mosaic-core";
 

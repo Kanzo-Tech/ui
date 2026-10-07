@@ -7,7 +7,7 @@ import { DEFAULT_LOOK } from "./graph-looks";
 function loaded(over: { sizes?: Float32Array; links?: Float32Array } = {}): [Geometry, Encoding] {
   return [
     {
-      structure: { from: "c", vertices: [], edges: [], size: 3 },
+      structure: { from: "c", key: "dense_id", vertices: [], edges: [], size: 3 },
       size: 3,
       positions: new Float32Array(6),
       bound: false,

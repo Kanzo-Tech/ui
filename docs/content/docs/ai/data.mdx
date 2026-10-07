@@ -265,7 +265,7 @@ function FilterToThese({ answer }: { answer: QueryOutput }) {
 ```
 
 A semi-join on identity is the clause every panel that shares the key answers, so the dashboard and
-the graph both follow. *Show on graph* is the graph's `GraphSelect` with `load={async () => ids}`.
+the graph both follow: the graph greys out what the clause drops.
 
 | Prop | Type | |
 | --- | --- | --- |
