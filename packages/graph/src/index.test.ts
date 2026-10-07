@@ -23,7 +23,6 @@ const VALUES = [
   "GraphRoot",
   "GraphRootProvider",
   "GraphSearch",
-  "GraphSelect",
   "GraphStatus",
   "GraphToolbar",
   "ShapeGlyph",
@@ -37,6 +36,7 @@ const VALUES = [
   "useGraphContext",
   "useGraphPrefs",
   "useGraphState",
+  "usePick",
 ];
 
 const surface = GRAPH as Record<string, unknown>;
@@ -119,6 +119,14 @@ describe("@kanzo-tech/graph public surface", () => {
     expect(surface.GraphZoom).toBeUndefined();
   });
 
+  // A pick from beside the canvas is a clause of its own on the crossfilter, published through
+  // `usePick`. A button that loaded ids into the canvas's selection was a second way to pick, and
+  // one that replaced the canvas's own pick instead of intersecting with it.
+  it("picks from outside the canvas through usePick alone", () => {
+    expect(GRAPH.usePick).toBeTypeOf("function");
+    expect(surface.GraphSelect).toBeUndefined();
+  });
+
   it("ships a canvas that owns the renderer, and neither load nor Loaded", () => {
     expect(GRAPH.GraphCanvas).toBeTypeOf("function");
     expect(surface.load).toBeUndefined();
@@ -157,14 +165,11 @@ describe("@kanzo-tech/graph public surface", () => {
  * `onClick` every `div` carries — is told apart from one a part declared.
  *
  * What it cannot prove: a render prop that is a policy in disguise. `children` is allowed to be a
- * function, because a render prop draws markup; one that returned a verdict would pass. The same
- * goes for a **reader**: `GraphSelect`'s `load` answers *which vertices*, data the part fetches
- * when pressed rather than a verdict on what a gesture means, so it is named below, by itself.
+ * function, because a render prop draws markup; one that returned a verdict would pass.
  */
 describe("the parts' props", () => {
   const SRC = dirname(fileURLToPath(import.meta.url));
   const ROOT_PROPS = new Set(["GraphRootProps", "GraphRootProviderProps", "UseGraphProps"]);
-  const READERS = new Set(["GraphSelectProps.load"]);
 
   // A whole program through the checker: about a second here and past vitest's 5 s default on a
   // CI runner, which is how v0.11.0's first publish failed. The budget is for the checker, not the
@@ -190,7 +195,6 @@ describe("the parts' props", () => {
       "GraphInspectorProps",
       "GraphLegendProps",
       "GraphSearchProps",
-      "GraphSelectProps",
       "GraphStatusProps",
       "GraphToolbarProps",
       "ShapeGlyphProps",
@@ -200,7 +204,7 @@ describe("the parts' props", () => {
       const type = checker.getDeclaredTypeOfSymbol(checker.getAliasedSymbol(symbol));
       for (const property of type.getProperties()) {
         const ours = property.declarations?.some((d) => d.getSourceFile().fileName.startsWith(SRC)) ?? false;
-        if (!ours || property.name === "children" || READERS.has(`${symbol.name}.${property.name}`)) continue;
+        if (!ours || property.name === "children") continue;
         const declaration = property.valueDeclaration ?? property.declarations?.[0];
         const shape = declaration ? checker.getTypeOfSymbolAtLocation(property, declaration) : undefined;
         const callable = shape?.getNonNullableType().getCallSignatures().length ?? 0;

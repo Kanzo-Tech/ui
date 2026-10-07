@@ -40,6 +40,11 @@ export interface EdgeTable {
 export interface Structure {
   /** The catalog `open` attached the corpus under. */
   readonly from: string;
+  /**
+   * The vertex key: the column `fossil_columns` gives the `address` role, the same in every vertex
+   * table, and what every endpoint holds. Read, never spelled: the one statement of it is the corpus's.
+   */
+  readonly key: string;
   readonly vertices: readonly VertexTable[];
   readonly edges: readonly EdgeTable[];
   /** Every vertex, every table: `dense_id` runs `0 … size − 1`. */

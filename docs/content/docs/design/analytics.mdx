@@ -54,16 +54,41 @@ shipped set, so it covers `@kanzo-tech/graph` as well as the analytics.
 
 `clauseParts(clause)` splits a clause into a field, an operator and a value, and `clauseLabel`
 joins those into the words of a chip. Both live in `@kanzo-tech/mosaic`, beside `clauseFor`, the
-function that builds the clause. `FilterChips` and the dashboard's filter bar both read them.
+function that builds the clause. `FilterBar`'s chips and a dashboard's filters both read them.
 
-**It replaced a reader inside `FilterChips`**, which the filter bar had to import a chip component
-to reach. Reading a clause is a question about Mosaic, not about a chip.
+**It replaced a reader inside the chip row**, which the dashboard's filters had to import a chip
+component to reach. Reading a clause is a question about Mosaic, not about a chip.
 
 **What would reverse it:** Mosaic's clause carrying a description of its own. Then the description
 is read straight from the clause, and these two are deleted.
 
 *Held by* `packages/mosaic/src/clause.test.ts`, "names a semi-join by its publisher's label, and
 counts its members when they are keys".
+
+## One row of filters, and a dashboard draws in it
+
+**The page has one filter bar, `FilterBar`, and a `Dashboard` draws its filters into it** through a
+slot — a portal from inside the dashboard's tree, so its filters keep the dashboard's provider and
+publish into the dashboard's crossfilter, bridged to the page by key as before. The bar draws every
+other clause as a chip and leaves the dashboard's to the dashboard's chips. Metabase's filter bar is
+one row above everything it scopes; a page with a graph and a dashboard had two — the dashboard's,
+and `FilterChips` over the page — and the page's showed the dashboard's clauses a second time.
+The filters are in the bar in every view, so a dashboard hidden behind `MosaicClients` keeps them on
+screen, and a control in the bar queries as the bar does.
+
+**It replaced a filter row inside `Dashboard`**, with its readout and *Clear*, beside a separate
+`FilterChips`. The alternative was filters owned by the page and published as column clauses; it
+was turned down because a column clause filters only the vertex types that have the column, where a
+dashboard's filter reaches the whole graph through its semi-join, and because it would have taken
+`filters` out of the saved spec.
+
+**What would reverse it:** a page with two dashboards on screen at once, whose filters in one row
+could no longer say which dashboard each belongs to. Then each dashboard draws its own row again,
+and the bar draws only what no dashboard holds.
+
+*Held by* `packages/ui/src/charts/filter-bar.test.tsx`, "draws what a part puts in its slot, and
+leaves that part's clauses to it"; `packages/ui/src/charts/dashboard.test.tsx`, "are drawn in the
+page's FilterBar, from inside a dashboard that publishes its own clause".
 
 ## The spec is read whole or refused
 

@@ -11,7 +11,7 @@ export interface CorpusReference {
 
 /**
  * **The joins of an attached corpus**, as a schema states them: each edge table's `src` holds its
- * source vertex table's `dense_id`, and its `dst` its destination's. The views fossil attaches
+ * source vertex table's key, and its `dst` its destination's. The views fossil attaches
  * declare no keys, so a reader that is handed only DuckDB's catalog — an agent writing SQL over it —
  * cannot know the edges join anything.
  *
@@ -25,13 +25,10 @@ export async function corpusReferences(coordinator: Coordinator, from: string): 
   return referencesOf(await readStructure(coordinator, from));
 }
 
-/** The column every vertex table is keyed by, and every endpoint holds: the corpus's `address`. */
-export const VERTEX_KEY = "dense_id";
-
 /** The joins of a structure already read — the one statement of what an endpoint points into. */
-export function referencesOf({ edges }: Pick<Structure, "edges">): CorpusReference[] {
+export function referencesOf({ edges, key }: Pick<Structure, "edges" | "key">): CorpusReference[] {
   return edges.flatMap((edge) => [
-    { table: edge.name, column: "src", references: { table: edge.source, column: VERTEX_KEY } },
-    { table: edge.name, column: "dst", references: { table: edge.destination, column: VERTEX_KEY } },
+    { table: edge.name, column: "src", references: { table: edge.source, column: key } },
+    { table: edge.name, column: "dst", references: { table: edge.destination, column: key } },
   ]);
 }

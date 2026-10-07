@@ -33,24 +33,17 @@ export type Tool = "rect" | "lasso" | null;
 export type Motion = "running" | "settled" | "paused";
 
 /**
- * Where a selection came from: one of the canvas's own gestures, or `"external"` — a selection the
- * host set through `select`, from a panel of its own. An external selection's identity is its
- * `label`, which is how `GraphSelect` knows the live selection is the one it made. The graph names
- * no host's panels here: a source per panel would be a host's vocabulary in the renderer's type.
+ * Which of the canvas's own gestures made the selection. A pick from anywhere else — a search, a
+ * rule, an answer — is not a selection of the canvas: it is a clause of its own on the crossfilter
+ * (`usePick`), which greys out the rest of the graph.
  */
-export type SelectionSource = "marquee" | "lasso" | "node" | "external";
+export type SelectionSource = "marquee" | "lasso" | "node";
 
 /**
- * The selection — one value, published once.
- *
- * The rule this encodes: a panel does not touch the crossfilter. It hands a selection to the
- * canvas, the canvas publishes it as a single clause, and the corner shows it. Before that there
- * were four ways to say "look at these nodes" and therefore four half-answers to "what is selected
- * right now". Replacing rather than intersecting is the deliberate half — one live selection is
- * legible, and a reader can see the whole of it in one place.
- *
- * A *search* is not a selection and keeps its own clause: filtering narrows the corpus, selecting
- * points at part of it.
+ * **The canvas's pick** — what the reader drew or clicked on it, published as one clause from the
+ * graph, and the one the crossfilter exempts the graph from. A pick made beside the canvas is a
+ * clause of its own and intersects with this one: every place that picks is one chip, and they add
+ * up rather than replace each other.
  */
 export interface Selection {
   vertices: VertexId[];

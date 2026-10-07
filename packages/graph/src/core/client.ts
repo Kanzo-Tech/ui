@@ -1,5 +1,6 @@
 import {
   MosaicClient,
+  type ClauseSource,
   Query,
   cast,
   clauseColumns,
@@ -11,13 +12,13 @@ import {
   type Selection,
 } from "@kanzo-tech/mosaic";
 import { GraphError } from "./error";
-import { relation, type Answer } from "./source";
-import { type Structure, type VertexTable } from "./structure";
+import { answers, clausesOf, relation, type Answer } from "./source";
+import { type Structure } from "./structure";
 
 /**
  * **The graph as a client of the page's coordinator** — one Mosaic client, like every chart beside
  * it. The coordinator hands it the crossfilter's predicate, minus the clause the graph published
- * itself; it answers with the `dense_id`s that survive, and the canvas greys out the rest on the GPU.
+ * itself; it answers with the keys that survive, and the canvas greys out the rest on the GPU.
  * No predicate is translated, no position is uploaded again, and the query runs on the coordinator's
  * one connection, through its cache — Cosmograph's crossfilter, on our stack.
  */
@@ -62,20 +63,16 @@ export class GraphClient extends MosaicClient {
 
   /**
    * The surviving ids — or, with nothing to filter by, {@link UNFILTERED}: one row whose id is
-   * `NULL`, which no `dense_id` is. The answer says which it is, so two statements in flight can
+   * `NULL`, which no key is. The answer says which it is, so two statements in flight can
    * never be read as each other's.
    */
   override query(filter?: FilterExpr | null): Query {
-    const clauses = (Array.isArray(filter) ? filter : [filter]).filter((c) => c !== undefined && c !== null);
+    const clauses = clausesOf(filter);
     const structure = this.#structure();
     if (!structure || clauses.length === 0) return UNFILTERED;
-    // The clause rule, `clauseColumns`: a table answers a clause when it has every column the clause
-    // names on it — a semi-join on `dense_id` names that alone, so every table answers it. A table
-    // that cannot answer a clause is not filtered by it, what a `WHERE` over a union of the tables
-    // would do; a clause no table can answer is refused rather than ignored, so the unfiltered
-    // picture is never drawn as the filtered one.
-    const answers = (table: VertexTable, clause: (typeof clauses)[number]) =>
-      clauseColumns(clause).every((c) => table.columns.has(c));
+    // The clause rule, `answers`. A table that cannot answer a clause is not filtered by it, what a
+    // `WHERE` over a union of the tables would do; a clause no table can answer is refused rather
+    // than ignored, so the unfiltered picture is never drawn as the filtered one.
     const lost = clauses.find((clause) => !structure.vertices.some((t) => answers(t, clause)));
     if (lost !== undefined) {
       this.#fail(new GraphError("graph/unfilterable", `no vertex type has every column this clause names: ${clauseColumns(lost).join(", ")}`));
@@ -83,7 +80,7 @@ export class GraphClient extends MosaicClient {
     }
     return Query.unionAll(
       structure.vertices.map((t) =>
-        Query.select({ id: float64("dense_id") })
+        Query.select({ id: float64(structure.key) })
           .from(relation(structure.from, t.name))
           .where(clauses.filter((clause) => answers(t, clause))),
       ),
@@ -103,11 +100,19 @@ export class GraphClient extends MosaicClient {
 }
 
 /**
- * **The reader's pick, published** — as a semi-join on `dense_id`, the corpus's vertex identity, from
- * the graph: the crossfilter applies it to every client whose rows carry a `dense_id` and skips it for
- * the graph. A canvas that greyed out everything but a lasso of thirteen would hide the neighbourhood
- * the reader was looking at.
+ * **A pick, published** — `key IN (ids)` from `source`, labelled for its chip, on the selection the
+ * graph filters by. One clause per source: a source that picks again replaces its own clause, and two
+ * sources intersect. The canvas's own gestures publish from the graph's client, which the crossfilter
+ * exempts, so a lasso does not grey out the neighbourhood the reader drew it in; a pick from anywhere
+ * else — a search, a rule, an answer — filters the graph like any other clause. `null`, or no ids,
+ * withdraws the source's clause.
  */
-export function publish(selection: Selection, self: MosaicClient, ids: readonly number[] | null, label: string): void {
-  selection.update(clauseSemiJoin("dense_id", ids && ids.length > 0 ? ids : null, { source: self, label }));
+export function publish(
+  selection: Selection,
+  source: ClauseSource,
+  key: string,
+  ids: readonly number[] | null,
+  label: string,
+): void {
+  selection.update(clauseSemiJoin(key, ids && ids.length > 0 ? ids : null, { source, label }));
 }

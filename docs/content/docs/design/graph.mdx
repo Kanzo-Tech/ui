@@ -70,12 +70,38 @@ as filtered.
 `highlightedPointIndices` and the links between two of them `highlightedLinkIndices` — cosmos.gl does
 not grey a link by itself. No buffer is uploaded, so a running layout is never reset by a brush.
 
-**The reader's pick is published from the client.** A lasso, a marquee, a click or a host's
-`GraphSelect` is a `clauseSemiJoin` on `dense_id`, labelled with the selection's own label, whose
-source is the graph, so the crossfilter applies it to every client whose rows carry a `dense_id` and
-skips it for the graph — a canvas that greyed all but a lasso of thirteen would hide the
-neighbourhood the reader was looking at. Retracting it where it was published — a chip's remove,
-the page's reset — calls the graph back, and the pick leaves the canvas too.
+**The canvas's pick is published from the client.** A lasso, a marquee or a click is a
+`clauseSemiJoin` on the vertex key, labelled with the selection's own label, whose source is the
+graph, so the crossfilter applies it to every client whose rows carry the key and skips it for the
+graph — a canvas that greyed all but a lasso of thirteen would hide the neighbourhood the reader was
+looking at. Retracting it where it was published — a chip's remove, the page's reset — calls the
+graph back, and the pick leaves the canvas too. A reconnect withdraws it from the selection it left
+and publishes it on the one it joins, so a clause never outlives the client it exempts.
+
+**Every other pick is a clause of its own, and picks intersect.** A search's matches, a rule's
+findings, an answer's rows: each place that picks beside the canvas publishes through `usePick(id)`,
+whose source is that place's for the root's whole life. The graph is one more client of it, so it
+greys out what the pick drops; two places intersect, and one place picking again replaces only its
+own clause. That is `Selection.crossfilter()` as Mosaic defines it — one source per publisher — and
+the page's chips read the same clauses. **It replaced one selection shared by every pick**, where a
+host's `GraphSelect` and the search's *Select all* went through the canvas's own `select` as an
+`"external"` selection: every pick replaced the last, so a rule's findings and a lasso could not
+narrow each other, and a pick from beside the canvas was exempt from the graph it was meant to grey.
+
+**A place reads the subset without its own clause.** `usePick(id).predicate()` is
+`Selection.predicate(client)` for that place's source, so a search lists matches inside what every
+other clause keeps and a rule validates there, and neither is narrowed by what it picked itself —
+Mosaic's cross-filtering, where a brush never filters its own chart. A source is therefore a
+`MosaicClient` that is never connected: Mosaic exempts a clause by its `clients`, which a semi-join
+fills from its source when that source is a client. The search counts the matches outside the subset
+rather than hiding them, so a name that exists is never reported missing. *What would reverse it:* a
+reader who expects a search to look past the page's filters — then it reads `predicate(null)` and the
+footer counts what is inside instead.
+
+**The key is read, not written down.** Every clause the graph publishes, and every read of a vertex,
+names the column the manifest gives the `address` role — fossil's `dense_id` — and a corpus that
+gives no vertex column that role is `graph/nothing-to-draw`. The graph wrote `dense_id` as a constant,
+which a host repeated to publish a pick the graph would honour.
 
 **It replaced "the graph listens to the selection; it is not a client"**, under which the graph
 translated mosaic-sql's nodes into scan's typed filter, refused every node it could not translate,
@@ -86,12 +112,21 @@ is handed, and a mask is config.
 **What would reverse it:** the greyout measured too slow at the largest scale — the index lists are
 built on the main thread — which moves them into a shader; or a reader who needs filtered vertices
 gone rather than grey, which brings hiding back as a size of zero, still with no position upload.
+Picks that intersect are reversed by readers asking for a union across places — *these or those* —
+which Mosaic answers with `Selection.union()`, a choice of the selection the page owns and not of
+the graph.
 
 *Held by* `packages/graph/src/core/client.ts`, `GraphClient`, `publish`;
 `packages/graph/src/core/store.test.ts`, "asks the coordinator which vertices survive, and keeps every
 buffer it has", "runs the predicate as Mosaic wrote it, on every table that has its columns",
 "refuses a clause no vertex type can answer, as graph/unfilterable, and draws the graph unfiltered",
-"publishes the reader's pick as a semi-join on dense_id, and is exempt from its own clause";
+"publishes the reader's pick as a semi-join on dense_id, and is exempt from its own clause",
+"withdraws its pick from the crossfilter it leaves, and publishes it on the one it joins", "reads the
+vertex key from the address role, and refuses a corpus that gives none as graph/nothing-to-draw";
+`packages/graph/src/parts/parts.test.tsx`, "publishes a place's pick as a clause of its own, which
+greys the rest of the graph out", "intersects with another place's pick and with the canvas's, one
+clause each", "is still the publisher of its clause after its holder mounts again, so picking replaces
+it";
 `packages/graph/src/render/renderer.test.ts`, "greys out a filter with config alone: no upload, no
 render, links said out loud"; `packages/graph/src/render/motion.test.ts`, "is what the filter keeps,
 and the links whose two ends it keeps".
@@ -138,7 +173,7 @@ just added, reads the relation unfiltered. And an `include` cannot be undone.
 
 **Any panel is a client of the selection by the same protocol.** `useChartQuery` is a panel's query
 filtered by the live selection and re-run when it changes; a panel over a union of relations reads
-`clauseColumns` to apply each clause where it can, as the graph does; and `FilterChips` over the
+`clauseColumns` to apply each clause where it can, as the graph does; and `FilterBar` over the
 crossfilter is the scope every client is under — a semi-join wears its publisher's label.
 
 **It replaced a graph that answered only column predicates**, which read every column of every
@@ -402,8 +437,6 @@ under it read the root.
   "offers, empty, every vertex type with its count, and picking one makes it a chip". **One
   palette per page** is what lets the key go unarbitrated — what would reverse it is a page that needs
   two graphs' palettes at once, and then the arbitration is a provider, never module state.
-- **`GraphSelect`** — a selection the host offers, as a toggle: `load` reads the ids when pressed,
-  and pressed is derived from the live selection, never stored beside it.
 
 **The settings are not a part; they are the section.** `GRAPH_SECTION` declares the picture, where
 the points come from and the forces, and `@kanzo-tech/ui` draws them — `PreferencesSections
@@ -425,18 +458,16 @@ unbound, so a column chosen on another corpus places nothing"; `packages/graph/s
 "offers the corpus's numeric fields to the map, from the root that attached it".
 
 **A selection names its gesture, never its host's panel.** `SelectionSource` is the canvas's own
-gestures — `marquee`, `lasso`, `node` — and `external`, any selection a host set through `select`,
-whose identity is its `label`. It was `order` and `ask` besides, which were one host's two panels
-spelled into the renderer's type; a second host would have had to add its own or borrow those.
-What would reverse it: a part of this package that must tell two host sources apart, which a
-`label` cannot.
+gestures — `marquee`, `lasso`, `node` — and nothing else: a host's pick is not the canvas's selection
+but a clause of its own, named by the `id` it passes `usePick`. It was `order` and `ask` besides, and
+then `external`, which were a host's panels spelled into the renderer's type. What would reverse it:
+a part of this package that must tell two of the canvas's own gestures apart by more than the three.
 
 **Names are data on the root.** The catalog names no category values, so the host passes
 `categories` on the root, where the legend, the hover card and the inspector all read it.
 
 **Policy stays out, through the root's callbacks** — `onSelect`, `onFocus` and `onFailure`. No part
-takes a callback of its own, and `GraphSelect`'s `load` is not one: it answers *which vertices*, data
-the part reads when pressed, and a failure of it reaches `onFailure` like any other read's. `onFailure` is the one required prop: unhandled, a browser with no WebGL
+takes a callback of its own. `onFailure` is the one required prop: unhandled, a browser with no WebGL
 context shows an empty box. It receives what was thrown, whole — a read's own error with its `code`,
 or a `GraphError`: `graph/no-webgl`, `graph/context-lost`, `graph/no-positions`, `graph/nothing-to-draw` or
 `graph/unfilterable` — so a host chooses what to show by code.
@@ -445,8 +476,7 @@ or a `GraphError`: `graph/no-webgl`, `graph/context-lost`, `graph/no-positions`,
 policy. That part goes back to the call site and is deleted from the package.
 
 *Held by* `packages/graph/src/index.test.ts`, "carry no callback but the root's";
-`packages/graph/src/parts/parts.test.tsx`, "derives pressed from the live selection, so a gesture or
-another label unpresses it", "draws the domain before the graph has loaded, named by
+`packages/graph/src/parts/parts.test.tsx`, "draws the domain before the graph has loaded, named by
 the root", "reads the focused vertex's row with one statement, grouped, and draws a host's extra fields after
 its values"; `packages/graph/src/core/store.test.ts`, "fixes the categorical domain before the
 graph loads".
@@ -479,11 +509,12 @@ if WebGL exists but no device ever comes up".
 ```text
 the adapter        GraphRoot · GraphRootProvider · useGraph · useGraphContext · useGraphState
 the parts          GraphCanvas · GraphLegend · GraphStatus · GraphCounts · GraphToolbar · GraphInspector
-                   GraphSearch · GraphSelect · ShapeGlyph
+                   GraphSearch · ShapeGlyph
+picking            usePick
 the picture        lookFrom · simFrom · placementFrom · useGraphPrefs · scaleOf
 types              GraphRootProps · GraphRootProviderProps · UseGraphProps · GraphApi · GraphCanvasProps
                    GraphLegendProps · GraphStatusProps · GraphCountsProps · GraphToolbarProps · GraphInspectorProps
-                   GraphSearchProps · GraphSelectProps · ShapeGlyphProps
+                   GraphSearchProps · ShapeGlyphProps · Pick
                    GraphState · DataStatus · Drawn · VertexDetail
                    Channels · Placement · Look · LookPatch · Shape · Sim · Motion · Selection · SelectionSource
                    Tool · GraphCommands · VertexId

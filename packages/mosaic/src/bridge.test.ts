@@ -1,6 +1,6 @@
 import { MosaicClient, Selection, clauseInterval, clausePoint, type SelectionClause } from "@uwdata/mosaic-core";
 import { describe, expect, it, vi } from "vitest";
-import { bridgeSelection, type BridgeOptions } from "./bridge.js";
+import { bridgeSelection, bridged, type BridgeOptions } from "./bridge.js";
 import { clauseSemiJoin, semiJoinOf } from "./clause.js";
 
 /** Two tiles crossfiltering inside a dashboard, and a graph beside it on the page. */
@@ -32,6 +32,24 @@ describe("bridgeSelection", () => {
       `("dense_id" IN (SELECT "dense_id" FROM "Person_rel" WHERE ("Person.score" BETWEEN 2 AND 5) AND ("Person.team" IN (1))))`,
     );
     expect(outer.clauses[0]!.meta).toEqual({ type: "semijoin", label: "Dashboard" });
+  });
+
+  it("names the inner clauses a mapped clause was made of, and retracts one of them alone", async () => {
+    const { outer, inner, tiles, brush, options } = page();
+    bridgeSelection(inner, outer, semiJoinOf("dense_id", "Person_rel", { label: "Dashboard" }), options());
+    const score = brush(tiles[0], [2, 5]);
+    const team = clausePoint("Person.team", 1, { source: tiles[1] });
+    inner.update(score);
+    inner.update(team);
+    await heard();
+
+    const parts = bridged(outer.clauses[0]!);
+    expect(parts?.parts).toEqual([score, team]);
+    parts?.retract([score]);
+    await heard();
+    expect(inner.clauses).toEqual([team]);
+    expect(bridged(outer.clauses[0]!)?.parts).toEqual([team]);
+    expect(bridged(team)).toBeNull();
   });
 
   it("does not filter a client by its own clause on either side, and never echoes the mapped clause inward", async () => {

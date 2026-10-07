@@ -1,4 +1,4 @@
-import type { Coordinator, Selection as Crossfilter } from "@kanzo-tech/mosaic";
+import type { ClauseSource, Coordinator, MosaicClient, Selection as Crossfilter } from "@kanzo-tech/mosaic";
 import type { LookPatch } from "../render/graph-looks";
 import type { Sim } from "../render/graph-sim";
 import type { Binding, Channels } from "./channels";
@@ -23,7 +23,11 @@ export interface GraphOptions extends Channels {
    * rank, so a colour never moves because a row arrived. With colour by type, the keys are table names.
    */
   categories?: Readonly<Record<string, string>>;
-  /** The page's crossfilter: its clauses filter what is drawn, and the reader's pick is published into it. */
+  /**
+   * The page's crossfilter: its clauses filter what is drawn, and every pick — the canvas's and
+   * `usePick`'s — is published into it. Absent, the root keeps a crossfilter of its own, so a graph
+   * alone on a page still filters by what is picked beside it.
+   */
   filterBy?: Crossfilter;
   /** Form: a patch over this package's own look. Memoise it — its identity is what repaints. */
   look?: LookPatch;
@@ -69,7 +73,12 @@ export interface Drawn {
   readonly domain: readonly unknown[];
   /** Per rank, the vertices drawn. */
   readonly tally: readonly number[];
+  /** Per rank, the vertices with a position, filtered or not: what `tally` is a part of. */
+  readonly placed: readonly number[];
 }
+
+/** A place that picks: the source of its clause, and the client the crossfilter exempts from it. */
+export type PickSource = MosaicClient & ClauseSource;
 
 /** What a host and the parts read, through `useGraphState`. */
 export interface GraphState {
@@ -137,7 +146,15 @@ export interface GraphStore {
   getOptions(): GraphOptions;
   setOptions(options: GraphOptions): void;
   destroy(): void;
+  /** The canvas's own pick, from one of its gestures. */
   select(vertices: readonly VertexId[] | null, source?: SelectionSource, label?: string): void;
+  /** The crossfilter the graph filters by: `filterBy`, or the root's own. */
+  scope(): Crossfilter;
+  /**
+   * The source named `id` picks from — one per name for the store's life, so a holder that
+   * unmounts and mounts again is still the source of the clause it published.
+   */
+  source(id: string): PickSource;
   focus(vertex: VertexId | null): void;
   hover(vertex: VertexId | null): void;
   /** A vertex the search went to, at the head of `recent`. */

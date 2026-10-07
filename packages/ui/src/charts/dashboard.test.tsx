@@ -2,7 +2,9 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Selection, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
 import { describe, expect, it, vi } from "vitest";
+import { semiJoinOf } from "@kanzo-tech/mosaic";
 import { Dashboard } from "./dashboard.js";
+import { FilterBar } from "./filter-bar.js";
 import type { DashboardSpec } from "./dashboard-spec.js";
 import { MosaicProvider } from "./mosaic-provider.js";
 
@@ -189,3 +191,28 @@ describe("Reset to automatic", () => {
     expect((await screen.findByRole("menuitem", { name: "Reset to automatic" })).getAttribute("data-disabled")).not.toBeNull();
   });
 });
+
+describe("Dashboard's filters", () => {
+  it("are drawn in the page's FilterBar, from inside a dashboard that publishes its own clause", async () => {
+    const publish = semiJoinOf("dense_id", "sightings", { label: "Dashboard" });
+    const user = userEvent.setup();
+    render(
+      <MosaicProvider coordinator={stubCoordinator()} crossfilter={Selection.crossfilter()}>
+        <FilterBar />
+        <Dashboard onChange={() => {}} publish={publish} table="sightings" value={{ ...SPEC, filters: [{ field: "region" }] }} />
+      </MosaicProvider>,
+    );
+    const bar = await screen.findByRole("region", { name: "Filters" });
+    await waitFor(() => expect(within(bar).getByText("region:")).toBeTruthy());
+    expect(within(bar).getByRole("button", { name: "Remove the region filter" })).toBeTruthy();
+    await user.click(within(bar).getByRole("button", { name: /Filter/ }));
+    expect(await screen.findByRole("menuitem", { name: "bounty" })).toBeTruthy();
+  });
+
+  it("are not drawn on a page without a FilterBar", async () => {
+    draw({ value: { ...SPEC, filters: [{ field: "region" }] } });
+    expect(await screen.findByText("Sightings")).toBeTruthy();
+    expect(screen.queryByText("region:")).toBeNull();
+  });
+});
+

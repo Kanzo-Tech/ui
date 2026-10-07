@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { JsonTreeView, Switch, useDebouncedCommit } from "@kanzo-tech/ui";
-import { Dashboard, type ChartConfig, type DashboardSpec } from "@kanzo-tech/ui/analytics";
+import { Dashboard, FilterBar, type ChartConfig, type DashboardSpec } from "@kanzo-tech/ui/analytics";
 import { CheckCircle2Icon, CircleHelpIcon, TriangleAlertIcon } from "lucide-react";
 import { MosaicDemo } from "../charts/mosaic-demo";
 
@@ -60,10 +60,10 @@ export default function Example() {
             {draft !== stored ? "Saving…" : writes === 0 ? "Loaded · no edits yet" : `Saved · ${writes} ${writes === 1 ? "write" : "writes"}`}
           </span>
         </div>
+        <FilterBar rowNoun="sightings" table="sightings" />
         <Dashboard
           config={CONFIG}
           onChange={editable ? change : undefined}
-          rowNoun="sightings"
           table="sightings"
           value={draft}
         />
