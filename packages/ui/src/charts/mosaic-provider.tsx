@@ -1,8 +1,10 @@
 "use client";
 
 import { relaySelection } from "@kanzo-tech/mosaic";
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { ark } from "@ark-ui/react/factory";
+import { cn } from "../lib/cn.js";
 import {
   Selection,
   coordinator as setActiveCoordinator,
@@ -141,14 +143,14 @@ export function MosaicProvider({ coordinator, crossfilter, onFailure, children }
     };
   }, [coordinator, crossfilter]);
 
-  // The page's bar is the outermost provider's: a provider nested for a dashboard draws in it too.
-  const outer = useContext(Bar);
-  const [slot, setSlot] = useState<BarSlot>(EMPTY_SLOT);
-  const bar = useMemo(() => outer ?? { slot, set: setSlot }, [outer, slot]);
+  // The page's slots are the outermost provider's: a provider nested for a dashboard draws in them too.
+  const outer = useContext(Slots);
+  const [slot, setSlot] = useState<PageSlots>(EMPTY_SLOTS);
+  const slots = useMemo(() => outer ?? { slot, set: setSlot }, [outer, slot]);
 
   return (
     <MosaicContext.Provider value={value}>
-      <Bar.Provider value={bar}>{children}</Bar.Provider>
+      <Slots.Provider value={slots}>{children}</Slots.Provider>
     </MosaicContext.Provider>
   );
 }
@@ -159,24 +161,33 @@ export interface BarHeld {
   readonly fields: readonly string[];
 }
 
-/** Where the page's `FilterBar` draws what other parts put in it, and whether its clients query. */
-interface BarSlot {
-  readonly element: HTMLElement | null;
+/**
+ * Where the page's `FilterBar` and `TileEditorAside` draw what a dashboard puts in them, whether the
+ * bar's clients query, and whether a tile is being edited.
+ */
+interface PageSlots {
+  readonly bar: HTMLElement | null;
   readonly enabled: boolean;
   readonly held: readonly BarHeld[];
+  readonly aside: HTMLElement | null;
+  readonly editing: boolean;
 }
 
-const EMPTY_SLOT: BarSlot = { element: null, enabled: true, held: [] };
-const Bar = createContext<{ slot: BarSlot; set: (next: (slot: BarSlot) => BarSlot) => void } | null>(null);
+const EMPTY_SLOTS: PageSlots = { bar: null, enabled: true, held: [], aside: null, editing: false };
+const Slots = createContext<{ slot: PageSlots; set: (next: (slot: PageSlots) => PageSlots) => void } | null>(null);
+
+/** Sets one of the page's slots, leaving the state alone when it already holds `value`. */
+function useSlot<K extends "bar" | "enabled" | "aside" | "editing">(key: K) {
+  const set = useContext(Slots)?.set;
+  return useCallback((value: PageSlots[K]) => set?.((s) => (s[key] === value ? s : { ...s, [key]: value })), [set, key]);
+}
 
 /** The bar's side: its slot, and the callback ref that places it. */
 export function useBarSlot() {
-  const bar = useContext(Bar);
-  const set = bar?.set;
   const enabled = useContext(Enabled);
-  useEffect(() => set?.((s) => (s.enabled === enabled ? s : { ...s, enabled })), [set, enabled]);
-  const place = useCallback((element: HTMLElement | null) => set?.((s) => (s.element === element ? s : { ...s, element })), [set]);
-  return { held: bar?.slot.held ?? [], place };
+  const setEnabled = useSlot("enabled");
+  useEffect(() => setEnabled(enabled), [setEnabled, enabled]);
+  return { held: useContext(Slots)?.slot.held ?? [], place: useSlot("bar") };
 }
 
 /**
@@ -186,8 +197,8 @@ export function useBarSlot() {
  * hidden by `MosaicClients` still has its filters on screen. Nothing is drawn while the page has no bar.
  */
 export function InFilterBar({ held, children }: { held: BarHeld; children: ReactNode }) {
-  const bar = useContext(Bar);
-  const set = bar?.set;
+  const slots = useContext(Slots);
+  const set = slots?.set;
   const { selection } = held;
   // By value, so a host's inline array is not a change.
   const fields = JSON.stringify(held.fields);
@@ -197,8 +208,30 @@ export function InFilterBar({ held, children }: { held: BarHeld; children: React
     set((s) => ({ ...s, held: [...s.held, entry] }));
     return () => set((s) => ({ ...s, held: s.held.filter((h) => h !== entry) }));
   }, [set, selection, fields]);
-  const element = bar?.slot.element;
-  return element ? createPortal(<Enabled.Provider value={bar.slot.enabled}>{children}</Enabled.Provider>, element) : null;
+  const element = slots?.slot.bar;
+  return element ? createPortal(<Enabled.Provider value={slots.slot.enabled}>{children}</Enabled.Provider>, element) : null;
+}
+
+/**
+ * **Where a dashboard on this page draws its tile editor** — the host's aside, the way draw.io's
+ * Format panel is the window's right edge. Place it in your own `ShellAside`, keep it mounted, and
+ * show the aside while `useTileEditorOpen()` says a tile is edited. A page without one offers no
+ * editing: its dashboards are read-only.
+ */
+export function TileEditorAside(props: ComponentProps<typeof ark.div>) {
+  const { className, slot, ...rest } = props;
+  const place = useSlot("aside");
+  return <ark.div className={cn("contents", className)} {...rest} data-slot={slot ?? "tile-editor-aside"} ref={place} />;
+}
+
+/** Whether a dashboard on this page is editing a tile — when the host shows its `TileEditorAside`. */
+export function useTileEditorOpen(): boolean {
+  return useContext(Slots)?.slot.editing ?? false;
+}
+
+/** The dashboard's side of the aside: the element to draw the editor in, and the call that says a tile is edited. */
+export function useEditorAside() {
+  return { element: useContext(Slots)?.slot.aside ?? null, edit: useSlot("editing") };
 }
 
 const Enabled = createContext(true);

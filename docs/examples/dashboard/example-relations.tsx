@@ -17,6 +17,7 @@ import {
   type Relation,
 } from "@kanzo-tech/ui/analytics";
 import { FROM, said, useArchive } from "../graph/archive";
+import { EditingPage } from "./editing-page";
 
 // The archive's corpus as a join graph: one type, `Node`, and its `linksTo` edges. Pick "Hop" to
 // chart every link as a row — `Node.kind` beside `Node2.kind` — and the dashboard reads the joined
@@ -55,7 +56,7 @@ export default function Example() {
   if (!coordinator || !graph || !drawn) return <Skeleton className="h-96 w-full" />;
   return (
     <MosaicProvider coordinator={coordinator}>
-      <div className="flex w-full flex-col gap-4">
+      <EditingPage>
         <RelationPicker graph={graph} onValueChange={setRelation} value={relation} />
         <FilterBar rowNoun={relation.path.length ? "paths" : "nodes"} table={drawn.table} />
         <Dashboard
@@ -73,7 +74,7 @@ export default function Example() {
           table={drawn.table}
           value={specs[drawn.key]}
         />
-      </div>
+      </EditingPage>
     </MosaicProvider>
   );
 }

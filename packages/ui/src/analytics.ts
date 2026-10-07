@@ -104,7 +104,8 @@ export type { FilterBarProps } from "./charts/filter-bar.js";
 // The mini BI kit: a relation's fields from one `SUMMARIZE`, and a dashboard as serializable data —
 // filters drawn in the page's `FilterBar` and tiles (figures, charts, tables), each chosen and edited from those fields.
 // `Dashboard` is the whole thing; the parts are what it is made of, for a host arranging its own,
-// and `TileEditor` is the one popover a tile is added and edited in, anchored to the tile. A titled frame is `Card` and a
+// and `TileEditor` is the one panel a tile is added and edited in, drawn in the page's `TileEditorAside`,
+// which the host shows while `useTileEditorOpen` says a tile is edited. A titled frame is `Card` and a
 // grid is a class list, so neither is a name of its own.
 export { Dashboard } from "./charts/dashboard.js";
 export type { DashboardProps } from "./charts/dashboard.js";
@@ -115,6 +116,7 @@ export type { ChartCardProps } from "./charts/chart-card.js";
 export { DetailTable } from "./charts/detail-table.js";
 export type { DetailTableProps } from "./charts/detail-table.js";
 export { TileEditor } from "./charts/tile-editor.js";
+export { TileEditorAside, useTileEditorOpen } from "./charts/mosaic-provider.js";
 export type { TileEditorProps } from "./charts/tile-editor.js";
 export { autoDashboard, plotRelation } from "./charts/dashboard-spec.js";
 export type {

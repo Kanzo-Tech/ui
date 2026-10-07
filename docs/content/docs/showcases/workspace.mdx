@@ -70,11 +70,15 @@ relation: a filter row, four tiles trending along the hour, a line, bars by hall
 verdict's status scale, bounty by region split into panels, and a fit of distance against bounty
 over the rows, and the beasts as bars. The spec is written by hand because a showcase should look chosen; drop `value` and
 the same component draws the automatic dashboard from the relation's stats. Edit any card and the
-spec in state is what changed — the whole of what a host would persist.
+spec in state is what changed — the whole of what a host would persist. The editor draws in the
+page's Format aside at the body's end edge, shown while a tile is edited, the way draw.io's Format
+panel is.
 
 `sightings` has no date column, so the ordered axis is `hour`, and each tile's delta compares an
 hour with the one before. The view has its own `MosaicProvider`: it reads a different relation from
 the canvas, and [a crossfilter belongs to one relation](/docs/analytics/pitfalls#one-dashboard-per-relation).
+It is nested in the graph's, and the page's slots are the outermost provider's, so the dashboard
+reaches the `TileEditorAside` the shell places beside `ShellMain`.
 
 ## Worth exercising in the frame
 

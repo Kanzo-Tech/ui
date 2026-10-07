@@ -2,11 +2,9 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { Trash2Icon, XIcon } from "lucide-react";
-import { cn } from "../lib/cn.js";
 import { Button } from "../simples/button.js";
 import { Field, FieldLabel } from "../simples/field.js";
 import { Input } from "../simples/input.js";
-import { ShellAside } from "../layouts/shell.js";
 import { RadioGroup, RadioGroupCard, RadioGroupLabel } from "../simples/radio-group.js";
 import { SegmentGroup } from "../simples/segment-group.js";
 import type { Tile, TileKind, TileSpan } from "./dashboard-spec.js";
@@ -39,24 +37,23 @@ export interface TileEditorProps {
   onRemove?: () => void;
   /** Cancel, the close button and Escape: the draft is dropped. */
   onClose: () => void;
-  /** Where the panel docks — its width and stickiness — for a host that is not a row beside the board. */
-  className?: string;
 }
 
 /**
- * **The one tile editor** — a panel docked beside the board, the way Grafana's panel options, Looker
- * Studio's properties and Power BI's visualizations pane edit a tile. It is not modal: the board
+ * **The one tile editor** — the page's aside, the way draw.io's Format panel, Grafana's panel
+ * options and Power BI's visualizations pane edit what is selected. It is not modal: the board
  * keeps scrolling and stays live, and the tile in the grid *is* the preview — the host draws the
  * draft in the tile's slot under the page's crossfilter, so it grows or shrinks as the width changes.
  * It lists the kind and the fields it reads, then the title, width and position. Adding and
  * editing are the same panel, and nothing reaches the dashboard until *Add* or *Save*; a new position
  * applies on save, so the tile does not move while it is edited.
  *
- * The editor draws no tile, and does not place itself: the host puts it beside the board, keeps the
- * tile's view mounted and hands the editor the slot through `anchor`, which opening brings into view.
+ * The editor draws no tile, and does not place itself: it fills the host's `ShellAside` — header, one
+ * scrolling list, footer — and the host keeps the tile's view mounted and hands the editor the slot
+ * through `anchor`, which opening brings into view.
  * A view that remounted on opening would rebuild its plot and query again.
  */
-export function TileEditor({ fields, tile: draft, onChange: setDraft, anchor, tiles = [], onSave, onRemove, onClose, className }: TileEditorProps) {
+export function TileEditor({ fields, tile: draft, onChange: setDraft, anchor, tiles = [], onSave, onRemove, onClose }: TileEditorProps) {
   const adding = !tiles.some((t) => t.id === draft.id);
   // A position is among the tile's peers — the band of figures, or the grid — and a change of kind
   // that moves it to the other one puts it at the end there, until somebody picks another.
@@ -69,7 +66,7 @@ export function TileEditor({ fields, tile: draft, onChange: setDraft, anchor, ti
   const places = peers.length + 1;
   // A tile being added has its slot at the end of the grid, usually below the fold. Once, on opening:
   // `anchor` is a new function on every render of the host.
-  // Focus moves into the panel the way it moved into the popover, so Escape and Tab start there.
+  // Focus moves into the panel, so Escape and Tab start there.
   const panel = useRef<HTMLElement>(null);
   const titleId = useId();
   useEffect(() => {
@@ -81,20 +78,15 @@ export function TileEditor({ fields, tile: draft, onChange: setDraft, anchor, ti
   const kinds = Object.keys(TILE_EDITORS) as TileKind[];
 
   return (
-    // Shell's side region — "a dock, an inspector" — docked at the end of the board: a complementary
-    // landmark in the flow, not an overlay, so nothing behind it is locked.
-    <ShellAside
+    // A region of the host's aside, filling its height: in the flow, not an overlay, so nothing
+    // behind it is locked.
+    <section
       aria-labelledby={titleId}
-      className={cn(
-        // Kept in view while the board scrolls. Where it docks, and how wide, is the host's.
-        "sticky top-0 z-5 max-h-svh w-88 rounded-xl border bg-card shadow-lg/5 outline-hidden",
-        className,
-      )}
+      className="flex min-h-0 flex-1 flex-col outline-hidden"
       onKeyDown={(event) => {
         if (event.key === "Escape" && !event.defaultPrevented) onClose();
       }}
       ref={panel}
-      side="end"
       tabIndex={-1}
     >
       <header className="flex items-start gap-2 border-b px-4 py-3">
@@ -185,6 +177,6 @@ export function TileEditor({ fields, tile: draft, onChange: setDraft, anchor, ti
           {adding ? "Add" : "Save"}
         </Button>
       </footer>
-    </ShellAside>
+    </section>
   );
 }
