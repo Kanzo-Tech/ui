@@ -181,15 +181,19 @@ offers no suggestions at all leaves `suggestions` out, and there is no strip. A 
 cut with an ellipsis, and the whole question is in its tooltip. The accessible name is the whole
 question either way.
 
-**The strip is the one every model's offer is drawn in**, `Assist`'s candidates included: a ✨ leads
-it, hidden from assistive technology because the panel already names the feature, and each pill's
+**The strip is the one every model's offer is drawn in**, `Assist`'s candidates included. No mark
+leads it, because the panel already says a model wrote them, and in `Chat` it is centred over the
+composer, the way the empty state above it is. Each pill's
 rationale is its `Suggestion` `description` — in the tooltip, under the question, and read as the
 pill's accessible description. It costs no height, so a strip in a side panel stays one row; a line
 of text under each pill would double it. Pending is pills in skeleton, never a spinner, on both
 surfaces.
 
-*Held by* `packages/ai/src/proposal-strip.test.tsx`, "leads with the ✨, hidden from assistive
-technology, and describes each pill by its rationale", "is the strip in skeleton while proposals
+*What would reverse the missing mark:* a strip drawn where nothing around it says a model wrote it.
+Then the mark comes back, on that host's side.
+
+*Held by* `packages/ai/src/proposal-strip.test.tsx`, "describes each pill by its
+rationale", "is the strip in skeleton while proposals
 arrive, busy until they have".
 
 An empty strip was the failure's look before: a reader shown no pills could not tell a model with

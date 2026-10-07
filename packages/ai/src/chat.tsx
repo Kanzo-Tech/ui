@@ -128,6 +128,7 @@ export function Chat<M extends UIMessage>(props: ChatProps<M>) {
         chat.messages.length === 0 &&
         (suggestions !== undefined || suggesting) && (
           <ProposalStrip
+            className="justify-center"
             notice={notice}
             onSelect={ask}
             pending={suggesting ? PILLS - (suggestions?.length ?? 0) : 0}
@@ -266,7 +267,7 @@ export function ChatSkeleton(props: ChatSkeletonProps) {
           </PromptInputToolbar>
         </PromptInput>
       }
-      strip={suggestions > 0 && <ProposalStrip pending={suggestions} proposals={[]} />}
+      strip={suggestions > 0 && <ProposalStrip className="justify-center" pending={suggestions} proposals={[]} />}
       {...rest}
       slot={slot ?? "chat-skeleton"}
     >
