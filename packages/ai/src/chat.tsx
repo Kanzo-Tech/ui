@@ -70,6 +70,12 @@ export interface ChatProps<M extends UIMessage> {
    * skeleton beside the ones that arrived, as many as make up the strip.
    */
   suggesting?: boolean;
+  /**
+   * What the next question will be asked over, shown in the composer beside Send — the reader's
+   * selection as a pill, the way Copilot Chat and Cursor show the context a prompt carries. Read-only:
+   * it changes where the selection is made, never here.
+   */
+  context?: React.ReactNode;
   /** The host's words for a failure's code, as `Problem` takes them. */
   copy?: ProblemProps["copy"];
   translations?: Partial<ChatTranslations>;
@@ -85,7 +91,7 @@ export interface ChatProps<M extends UIMessage> {
  * text as markdown, `reasoning` folded away, every tool call in its frame with the SDK's state.
  */
 export function Chat<M extends UIMessage>(props: ChatProps<M>) {
-  const { chat, tools = {}, empty, suggestions, suggesting = false, copy, translations, className } = props;
+  const { chat, tools = {}, empty, suggestions, suggesting = false, context, copy, translations, className } = props;
   const t = { ...ENGLISH, ...translations };
   const [draft, setDraft] = React.useState("");
   const busy = chat.status === "submitted" || chat.status === "streaming";
@@ -115,6 +121,7 @@ export function Chat<M extends UIMessage>(props: ChatProps<M>) {
             value={draft}
           />
           <PromptInputToolbar>
+            {context}
             <PromptInputSubmit status={chat.status} />
           </PromptInputToolbar>
         </PromptInput>

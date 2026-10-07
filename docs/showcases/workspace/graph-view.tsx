@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { parseDate, type DateValue } from "@internationalized/date";
 import { sql, verbatim, type VerbatimNode } from "@uwdata/mosaic-sql";
 import {
+  Badge,
   Button,
   CalendarMonthSelect,
   CalendarNextTrigger,
@@ -68,6 +69,7 @@ import {
   MosaicProvider,
   Query,
   Selection as MosaicSelection,
+  count,
   numbers,
   useChartQuery,
   useMosaic,
@@ -1143,6 +1145,21 @@ function AnswerActions({ output }: { output: QueryOutput }) {
   );
 }
 
+/**
+ * What the next question is asked over, in the composer: the subset's size while the page holds one,
+ * and nothing while it does not — every question then reads the whole archive.
+ */
+function SubsetPill({ archive }: { archive: Archive }) {
+  const { crossfilter } = useMosaic();
+  const { row } = useChartQuery({ deps: [archive], query: (filter) => Query.from(archive.nodes).select({ n: count() }).where(filter) });
+  if (!row || crossfilter.clauses.length === 0) return null;
+  return (
+    <Badge pill variant="outline">
+      Subset · {Number(row.n).toLocaleString("en")} nodes
+    </Badge>
+  );
+}
+
 function AskBody({ archive, schema }: { archive: Archive; schema: DataSchema }) {
   const { coordinator, crossfilter } = useMosaic();
   const scope = useMemo<DataScope>(() => ({ selection: crossfilter, table: archive.nodes }), [crossfilter, archive]);
@@ -1153,6 +1170,7 @@ function AskBody({ archive, schema }: { archive: Archive; schema: DataSchema }) 
     <div className="flex h-full flex-col p-2">
       <Chat
         chat={chat}
+        context={<SubsetPill archive={archive} />}
         empty={<AskEmpty />}
         suggesting={starters.suggesting}
         suggestions={starters.questions}

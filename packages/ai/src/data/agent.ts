@@ -96,7 +96,7 @@ export function dataInstructions(options: Pick<DataAgentOptions, "schema" | "sco
     `You answer questions about data in DuckDB by querying it with the \`query\` tool, then saying what the rows show. The schema below is the whole of it: use those tables and those columns, and invent no others.`,
     `## Schema\n\n${schema.ddl}`,
     scope &&
-      `## Scope\n\nEvery query may read a table named \`scope\`: the rows of ${String(typeof scope.table === "string" ? asTableRef(scope.table) : scope.table)} the reader has filtered the page to, at the moment the query runs. Each result says which filter applied. When the question is about "these", "the selection", "what I am looking at" or "here", query \`scope\`; otherwise query the tables themselves.`,
+      `## Scope\n\nEvery query may read a table named \`scope\`: the rows of ${String(typeof scope.table === "string" ? asTableRef(scope.table) : scope.table)} the reader has filtered the page to, at the moment the query runs. Each result says which filter applied. **Every question is about those rows**: start from \`scope\`, and join the tables to it for what it does not hold. Read the tables alone only when the reader asks about the whole data — "in all", "overall", "everyone".`,
     `## Joining\n\nA column declared \`REFERENCES\` another table's column is a join key: join the two on it.`,
     key &&
       `## Rows the reader can act on\n\n\`"${key}"\` identifies a row across every table. Include it whenever you select rows rather than aggregates, so the reader can act on the answer.`,

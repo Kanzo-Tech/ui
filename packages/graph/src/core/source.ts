@@ -1,5 +1,6 @@
 import {
   Query,
+  and,
   asc,
   asTableRef,
   cast,
@@ -9,9 +10,13 @@ import {
   isIn,
   length,
   literal,
+  not,
   sql,
+  sum,
+  clauseColumns,
   type Coordinator,
   type ExprNode,
+  type FilterExpr,
 } from "@kanzo-tech/mosaic";
 import { GraphError } from "./error";
 import { tableOf, type Column, type EdgeTable, type Structure, type VertexTable } from "./structure";
@@ -235,11 +240,26 @@ const ilike = (expr: ExprNode | string, value: string): ExprNode =>
   sql`${cast(expr, "VARCHAR")} ILIKE ${literal(`%${value.replace(/[\\%_]/g, (c) => `\\${c}`)}%`)} ESCAPE ${literal("\\")}`;
 
 /**
- * Every vertex `query` keeps — `id`, `text` and `type`, its table — as one `UNION ALL` over the tables
- * that can answer it. A table outside `types`, or without a column a field names, is not asked, and
- * `null` is no table left to ask.
+ * **The clause rule**: a table answers a clause when it has every column the clause names on it — a
+ * semi-join on the key names that alone, so every table answers it.
  */
-function matching(structure: Structure, query: VertexQuery, title: string | undefined): Query | null {
+export function answers(table: VertexTable, clause: ExprNode): boolean {
+  return clauseColumns(clause).every((c) => table.columns.has(c));
+}
+
+/** The clauses of a predicate, as a list: a selection's `predicate` answers one, many or none. */
+export function clausesOf(filter: FilterExpr | null | undefined): ExprNode[] {
+  // What a selection publishes is a node per clause; a predicate is never a bare string or boolean here.
+  return (Array.isArray(filter) ? filter : [filter]).filter((c) => c !== undefined && c !== null) as ExprNode[];
+}
+
+/**
+ * Every vertex `query` keeps — `id`, `text` and `type`, its table — as one `UNION ALL` over the tables
+ * that can answer it, with `inside` saying whether the subset keeps it: the clauses a table answers,
+ * by the clause rule; a table that answers none of them is wholly inside. A table outside `types`,
+ * or without a column a field names, is not asked, and `null` is no table left to ask.
+ */
+function matching(structure: Structure, query: VertexQuery, title: string | undefined, subset: readonly ExprNode[]): Query | null {
   const selects = structure.vertices.flatMap((table) => {
     if (query.types.length > 0 && !query.types.some((type) => same(type, table.name))) return [];
     const fields = query.fields.map((field) => ({ name: columnOf(table, field.column), value: field.value }));
@@ -249,7 +269,13 @@ function matching(structure: Structure, query: VertexQuery, title: string | unde
       ...(query.text === "" ? [] : [ilike(text, query.text)]),
       ...fields.map((field) => ilike(field.name as string, field.value)),
     ];
-    return [Query.select({ id: float64(structure.key), text, key: cast(table.identity, "VARCHAR"), type: literal(table.name) }).from(relation(structure.from, table.name)).where(where)];
+    const kept = subset.filter((clause) => answers(table, clause));
+    const inside = kept.length === 0 ? literal(true) : and(...kept);
+    return [
+      Query.select({ id: float64(structure.key), text, key: cast(table.identity, "VARCHAR"), type: literal(table.name), inside })
+        .from(relation(structure.from, table.name))
+        .where(where),
+    ];
   });
   return selects.length === 0 ? null : Query.unionAll(selects);
 }
@@ -263,40 +289,59 @@ export interface Found {
   readonly matches: readonly { readonly id: number; readonly text: string; readonly key: string; readonly type: string }[];
   readonly total: number;
   readonly byType: ReadonlyMap<string, number>;
+  /** How many matches the subset leaves out: found, but not listed. */
+  readonly outside: number;
 }
 
 /**
- * **The first `limit` vertices `query` keeps**, shortest text first — one statement, whose counts are
- * windows, taken before the `LIMIT` applies. Nothing is read until the reader types.
+ * **The first `limit` vertices `query` keeps inside `subset`**, shortest text first — one statement,
+ * whose counts are windows, taken before the `LIMIT` applies: the matches inside, per type and in
+ * all, and how many the subset leaves out. The inside rows sort first, so a search with none inside
+ * still answers a row to count the outside from. Nothing is read until the reader types.
  */
 export async function searchVertices(
   coordinator: Coordinator,
   structure: Structure,
-  { query, title, limit }: { query: VertexQuery; title?: string; limit: number },
+  { query, title, limit, subset }: { query: VertexQuery; title?: string; limit: number; subset: readonly ExprNode[] },
 ): Promise<Found> {
-  const union = matching(structure, query, title);
-  if (union === null) return { matches: [], total: 0, byType: new Map() };
+  const union = matching(structure, query, title, subset);
+  if (union === null) return { matches: [], total: 0, byType: new Map(), outside: 0 };
+  // As a number: Arrow hands a boolean column back bit-packed.
+  const one = float64(sql`CASE WHEN inside THEN 1 ELSE 0 END`);
   const answer = await ask(
     coordinator,
-    Query.select("*", { per: float64(count().partitionby("type")), total: float64(count().window()) })
+    Query.select("id", "text", "key", "type", {
+      inside: one,
+      per: float64(count().partitionby("type", "inside")),
+      total: float64(sum(one).window()),
+      all: float64(count().window()),
+    })
       .from(union)
-      .orderby(length("text"), "text", "id")
+      .orderby(not("inside"), length("text"), "text", "id")
       .limit(limit),
   );
-  const [id, text, key, type] = [values(answer, "id"), values(answer, "text"), values(answer, "key"), values(answer, "type")];
-  const [per, total] = [values(answer, "per"), values(answer, "total")];
+  const [id, text, key, type, inside] = ["id", "text", "key", "type", "inside"].map((name) => values(answer, name));
+  const [per, total, all] = ["per", "total", "all"].map((name) => values(answer, name));
   const byType = new Map<string, number>();
-  const matches = Array.from({ length: answer.numRows }, (_, i) => {
-    byType.set(String(type[i]), Number(per[i]));
-    return { id: id[i] as number, text: String(text[i] ?? ""), key: String(key[i] ?? ""), type: String(type[i]) };
-  });
-  return { matches, total: answer.numRows === 0 ? 0 : Number(total[0]), byType };
+  const matches = Array.from({ length: answer.numRows }, (_, i) => i)
+    .filter((i) => inside?.[i])
+    .map((i) => {
+      byType.set(String(type?.[i]), Number(per?.[i]));
+      return { id: id?.[i] as number, text: String(text?.[i] ?? ""), key: String(key?.[i] ?? ""), type: String(type?.[i]) };
+    });
+  if (answer.numRows === 0) return { matches, total: 0, byType, outside: 0 };
+  return { matches, total: Number(total?.[0]), byType, outside: Number(all?.[0]) - Number(total?.[0]) };
 }
 
-/** Every vertex `query` keeps, by id — what a search selects. */
-export async function matchingIds(coordinator: Coordinator, structure: Structure, query: VertexQuery, title?: string): Promise<number[]> {
-  const union = matching(structure, query, title);
+/** Every vertex `query` keeps inside `subset`, by id — what a search adds to the subset. */
+export async function matchingIds(
+  coordinator: Coordinator,
+  structure: Structure,
+  query: VertexQuery,
+  { title, subset }: { title?: string; subset: readonly ExprNode[] },
+): Promise<number[]> {
+  const union = matching(structure, query, title, subset);
   if (union === null) return [];
-  return Array.from(values(await ask(coordinator, Query.select("id").from(union)), "id") as ArrayLike<number>);
+  return Array.from(values(await ask(coordinator, Query.select("id").from(union).where("inside")), "id") as ArrayLike<number>);
 }
 

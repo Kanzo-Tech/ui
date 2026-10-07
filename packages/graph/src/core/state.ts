@@ -1,4 +1,4 @@
-import type { ClauseSource, Coordinator, Selection as Crossfilter } from "@kanzo-tech/mosaic";
+import type { ClauseSource, Coordinator, MosaicClient, Selection as Crossfilter } from "@kanzo-tech/mosaic";
 import type { LookPatch } from "../render/graph-looks";
 import type { Sim } from "../render/graph-sim";
 import type { Binding, Channels } from "./channels";
@@ -77,6 +77,9 @@ export interface Drawn {
   readonly placed: readonly number[];
 }
 
+/** A place that picks: the source of its clause, and the client the crossfilter exempts from it. */
+export type PickSource = MosaicClient & ClauseSource;
+
 /** What a host and the parts read, through `useGraphState`. */
 export interface GraphState {
   readonly status: DataStatus;
@@ -151,7 +154,7 @@ export interface GraphStore {
    * The source named `id` picks from — one per name for the store's life, so a holder that
    * unmounts and mounts again is still the source of the clause it published.
    */
-  source(id: string): ClauseSource;
+  source(id: string): PickSource;
   focus(vertex: VertexId | null): void;
   hover(vertex: VertexId | null): void;
   /** A vertex the search went to, at the head of `recent`. */

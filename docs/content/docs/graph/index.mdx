@@ -227,13 +227,20 @@ input highlights the last chip, then removes it.
 | Key | Does |
 | --- | --- |
 | <kbd>Enter</kbd> | `reveal`s the highlighted match — the canvas frames it and selects it with its neighbours, and `GraphInspector` reads it — and closes the palette |
-| <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> | adds every match, past the limit, to the subset as the search's own clause — **Add to the subset** in the footer does the same |
+| <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> | adds every match in the subset, past the limit, as the search's own clause — **Add N to the subset** in the footer does the same |
 | <kbd>Esc</kbd> | closes the palette |
 
 **Empty, the palette offers where to start**: the last five picks, which the root remembers for its
 life — never in `localStorage` — as **Recent**, then every vertex type with how many it holds, as
 **Narrow to a type**. Picking a type makes it a `type:` chip, as GitHub's palette offers its scopes.
 `limit` caps the list (50), and the footer says how many matched and how many of them it shows.
+
+**It searches the subset.** The matches are those every other clause on the crossfilter keeps —
+`usePick("search").predicate()` — and the footer says how many more lie outside it: *12 matches ·
+40 more outside the subset*, or *None in the subset · 40 outside it*. **Add N to the subset**
+publishes the search's own clause over the N inside; one outside would be a clause the others
+already exclude, since picks intersect. A reveal selects on the canvas, so the next search stays
+inside that neighbourhood until its chip is removed.
 
 **A failed read is kept whole**: it reaches `onFailure` as thrown, and the input turns
 `aria-invalid` with the placeholder "The names could not be read." rather than staying disabled.
@@ -256,6 +263,10 @@ vertices both hold, as Mosaic's crossfilter defines it; one place picking twice 
 clause. `id` names the place and the source is the root's for its whole life, so a panel that closes
 and opens again still owns the clause it left: `picked` is that clause's label, or `null`. The clause
 outlives the component on purpose — it belongs to the page, and is retracted at its chip.
+
+**`predicate()` is the subset as that place sees it**: every clause on the crossfilter but its own,
+Mosaic's `Selection.predicate(client)`. A search reads its matches under it, and a rule validates
+under it, so neither narrows by what it picked itself.
 
 ### Inspector
 
@@ -652,7 +663,7 @@ it from outside.
 | `useGraph` | `(props: UseGraphProps) => GraphApi` | **Creates** the api: a store created once and handed the props when one changes. |
 | `useGraphContext` | `() => GraphApi` | **Reads** it under a root; throws outside one. |
 | `useGraphState` | `(selector, isEqual = Object.is) => T` | A slice of the `GraphState`, and a render only when it moves. |
-| `usePick` | `(id: string) => Pick` | A place beside the canvas: `pick(ids \| null, label)` publishes its clause, `picked` is that clause's label or `null`. |
+| `usePick` | `(id: string) => Pick` | A place beside the canvas: `pick(ids \| null, label)` publishes its clause, `picked` is that clause's label or `null`, `predicate()` every clause but its own. |
 | `useGraphPrefs` | `() => { look: Look; sim: Sim; placement: Placement }` | The provider's resolved `GRAPH_SECTION`, as the three things the root takes. |
 
 ### The picture

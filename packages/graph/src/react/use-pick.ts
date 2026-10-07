@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useSyncExternalStore } from "react";
+import type { ExprNode } from "@kanzo-tech/mosaic";
 import { publish } from "../core/client";
+import { clausesOf } from "../core/source";
 import type { VertexId } from "../core/types";
 import { useGraphContext } from "./graph-root";
 import { internalsOf } from "./use-graph";
@@ -15,6 +17,12 @@ export interface Pick {
    * withdraw it with `null`. A no-op before the corpus is read: there is no key to pick by yet.
    */
   pick(ids: readonly VertexId[] | null, label: string): void;
+  /**
+   * The subset this place reads: every clause on the crossfilter but its own — Mosaic's
+   * `Selection.predicate(client)`, as a list. A search asks within it, a rule checks within it, and
+   * neither is narrowed by what it picked itself.
+   */
+  predicate(): ExprNode[];
 }
 
 /**
@@ -70,5 +78,9 @@ export function usePick(id: string): Pick {
     [store, source],
   );
 
-  return { picked, pick };
+  // `noSkip`: Mosaic answers nothing to the client of the active clause, which needs no update; a
+  // reader asking now wants the predicate itself.
+  const predicate = useCallback(() => clausesOf(store.scope().predicate(source, true)), [store, source]);
+
+  return { picked, pick, predicate };
 }

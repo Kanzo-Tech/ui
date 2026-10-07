@@ -162,6 +162,11 @@ statement it parsed, not the model's text. The prompt only documents `scope`; ea
 model which filter applied, because the page can change between two questions. With nothing selected,
 `scope` is the whole relation.
 
+**Every question is about `scope`.** The instructions tell the model to start from it and join the
+tables to it for what it does not hold, and to read the tables alone only when the reader asks about
+the whole data — *in all*, *overall*. A host shows what the next question is asked over through
+`Chat`'s `context`.
+
 *Held by* `packages/ai/src/data/statement.test.ts`, "runs DuckDB's print of the parse, under the cap
 and with scope defined by the selection's predicate".
 
