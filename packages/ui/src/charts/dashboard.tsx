@@ -165,63 +165,74 @@ function Board({
     { name: "dashboard-tiles", tiles: shownIn(false), ref: grid, className: "grid gap-4 @3xl/dashboard:grid-cols-2 @6xl/dashboard:grid-cols-3" },
   ];
 
+  // The board and, while a tile is edited, the editor docked beside it: the board narrows rather than
+  // being covered, and keeps scrolling.
   return (
-    <>
-      <DashboardFilters
-        fields={fields}
-        filters={spec.filters}
-        onChange={edit && ((filters) => edit({ filters }))}
-        rowNoun={rowNoun}
-        table={table}
-      >
-        {edit ? (
-          <>
-            <Button onClick={add} size="sm" variant="outline">
-              <PlusIcon />
-              Add tile
-            </Button>
-            <Menu>
-              <MenuTrigger asChild>
-                <Button aria-label="Dashboard options" size="icon-sm" variant="ghost">
-                  <EllipsisIcon />
-                </Button>
-              </MenuTrigger>
-              <MenuContent>
-                <MenuItem disabled={value === undefined} onSelect={() => onChange?.(undefined)} value="reset">
-                  Reset to automatic
-                </MenuItem>
-              </MenuContent>
-            </Menu>
-          </>
-        ) : null}
-      </DashboardFilters>
+    <div className="flex flex-col gap-4 @3xl/dashboard:flex-row @3xl/dashboard:items-start" data-slot="dashboard-board">
+      {/* The board is the container its grid reads, so it reflows to the room the editor leaves. */}
+      <div className="@container/dashboard flex min-w-0 flex-1 flex-col gap-4">
+        <DashboardFilters
+          fields={fields}
+          filters={spec.filters}
+          onChange={edit && ((filters) => edit({ filters }))}
+          rowNoun={rowNoun}
+          table={table}
+        >
+          {edit ? (
+            <>
+              <Button onClick={add} size="sm" variant="outline">
+                <PlusIcon />
+                Add tile
+              </Button>
+              <Menu>
+                <MenuTrigger asChild>
+                  <Button aria-label="Dashboard options" size="icon-sm" variant="ghost">
+                    <EllipsisIcon />
+                  </Button>
+                </MenuTrigger>
+                <MenuContent>
+                  <MenuItem disabled={value === undefined} onSelect={() => onChange?.(undefined)} value="reset">
+                    Reset to automatic
+                  </MenuItem>
+                </MenuContent>
+              </Menu>
+            </>
+          ) : null}
+        </DashboardFilters>
 
-      {groups.map(({ name, tiles, ref, className }) =>
-        tiles.length > 0 ? (
-          <div className={className} data-slot={name} key={name} ref={ref}>
-            {tiles.map((tile) => {
-              // The tile being edited draws its draft, in the same slot and the same view, so opening
-              // the editor neither remounts it nor queries again.
-              const shown = editing?.id === tile.id ? editing : tile;
-              return (
-                <TileView
-                  className={inBand(shown) ? undefined : tileSpan(shown.span)}
-                  config={config}
-                  fields={fields}
-                  key={tile.id}
-                  onEdit={open?.(tile)}
-                  table={table}
-                  tile={shown}
-                />
-              );
-            })}
-          </div>
-        ) : null,
-      )}
+        {groups.map(({ name, tiles, ref, className }) =>
+          tiles.length > 0 ? (
+            <div className={className} data-slot={name} key={name} ref={ref}>
+              {tiles.map((tile) => {
+                // The tile being edited draws its draft, in the same slot and the same view, so opening
+                // the editor neither remounts it nor queries again.
+                const shown = editing?.id === tile.id ? editing : tile;
+                return (
+                  <TileView
+                    // The tile being edited is the preview, and says so.
+                    className={cn(
+                      inBand(shown) ? undefined : tileSpan(shown.span),
+                      editing?.id === tile.id && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+                    )}
+                    config={config}
+                    fields={fields}
+                    key={tile.id}
+                    onEdit={open?.(tile)}
+                    table={table}
+                    tile={shown}
+                  />
+                );
+              })}
+            </div>
+          ) : null,
+        )}
+      </div>
 
       {edit && editing ? (
         <Suspense fallback={null}>
           <TileEditor
+            // Under a narrow board the panel docks along the bottom of the view instead of beside it.
+            className="bottom-0 max-h-[60svh] w-full @3xl/dashboard:bottom-auto @3xl/dashboard:max-h-svh @3xl/dashboard:w-88"
             anchor={() => {
               const { ref, tiles } = groups[inBand(editing) ? 0 : 1]!;
               return (ref.current?.children[tiles.findIndex((t) => t.id === editing.id)] as HTMLElement | undefined) ?? null;
@@ -240,7 +251,7 @@ function Board({
           />
         </Suspense>
       ) : null}
-    </>
+    </div>
   );
 }
 

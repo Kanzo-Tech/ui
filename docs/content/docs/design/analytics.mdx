@@ -178,34 +178,43 @@ kind in the grid", and "places a tile among its peers, whatever lies between the
 width"; `packages/ui/src/charts/dashboard.test.tsx`, "changes the kind, keeping the id, and a figure
 that becomes a table moves from the band to the grid".
 
-## The editor is edited in place, and loaded on first edit
+## The editor docks beside the board, and is loaded on first edit
 
-`TileEditor` is an Ark `Popover` anchored to the tile's slot in the grid. The slot keeps the tile's
-own view mounted and draws the draft in it, so a change is seen where the tile is. The kind is a row of
-cards like a chart's mark, and the width a `SegmentGroup`. A tile being added gets a slot of its own at the end of the grid, brought
-into view as the popover opens, and Cancel removes the slot again.
+`TileEditor` is a panel docked beside the board, not modal: Grafana's panel options, Looker Studio's
+properties panel, Power BI's visualizations pane and Metabase's sidebar all edit a tile that way, and
+none of them covers the board or stops it scrolling. The tile's slot keeps its own view mounted and
+draws the draft in it, outlined, so a change is seen where the tile is. *Data* holds the kind — a row
+of cards like a chart's mark — and its fields; *Display* the title, the width as a `SegmentGroup` and
+the position, the split Grafana and Looker Studio make. A tile being added gets a slot of its own at
+the end of the grid, brought into view as the panel opens, and Cancel removes the slot again. The
+board is the container its grid reads, so it reflows to the room the panel leaves.
 
 The editor draws no tile of its own. It holds the draft as a controlled value and reaches the slot
-through Ark's `getAnchorElement`, because a view the editor drew would be a new mount: a chart that
-remounts builds new Mosaic clients and queries again, which on opening reads as the tile reloading.
-For the same reason a scroll lock is not a theme change: `useThemeTick` ignores the inline `style`
-a modal overlay writes on `<html>`, which used to rebuild every chart on the page.
+through `anchor`, because a view the editor drew would be a new mount: a chart that remounts builds
+new Mosaic clients and queries again, which on opening reads as the tile reloading. For the same
+reason a scroll lock is not a theme change: `useThemeTick` ignores the inline `style` a modal overlay
+elsewhere on the page writes on `<html>`, which used to rebuild every chart on the page.
 
 `Dashboard` imports the editor through `React.lazy`. A dashboard without `onChange` is read-only:
 it draws no edit control and never fetches the kind picker, the field pickers, `Select` or
 `RadioGroup`.
 
-**It replaced a `Sheet` at the edge of the page**, which covered the board and drew the draft away
-from the tile it changed.
+**It replaced a modal `Popover` anchored to the tile**, which locked the page — Ark's modal popover
+sets `overflow: hidden` and `pointer-events: none` on `<body>` — while it covered the tiles beside
+the one it edited, so the preview could not be scrolled to. That popover had replaced a `Sheet` that
+covered the board; a docked panel covers nothing.
 
-**What would reverse it:** a tile too small to anchor a popover beside, at a width the grid
-actually reaches. Then the editor becomes a sheet, still lazy.
+**What would reverse it:** a host too narrow for the board and a panel side by side at the widths
+it actually reaches, where the bottom dock leaves too little of the board to preview in. Then the
+editor becomes a full-screen editor with the tile drawn in it, as Grafana's narrow layout is, still
+lazy.
 
 *Held by* `packages/ui/src/charts/dashboard-layering.test.ts`, "loads no editor for a read-only
 dashboard", and "is not blind: it sees the editor once the import is static";
 `packages/ui/src/charts/dashboard.test.tsx`, "draws no edit control and never fetches the editor";
 "opens from the pencil beside the tile it edits, which stays mounted and draws the draft"; "adds a
-tile in a slot of its own at the end, brought into view, which Cancel takes away again";
+tile in a slot of its own at the end, brought into view, which Cancel takes away again"; "locks
+nothing: the page keeps scrolling and the board stays live while a tile is edited";
 `packages/ui/src/lib/theme-tick.test.tsx`, "stays put for an inline style on the root, and still
 moves for a theme attribute".
 

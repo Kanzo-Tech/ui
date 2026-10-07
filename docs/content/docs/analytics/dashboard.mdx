@@ -52,7 +52,7 @@ Dashboard                 — reads the fields, draws the spec or the automatic 
 ├── DashboardStat         — a `stat` tile
 ├── ChartCard             — a `chart` tile
 ├── DetailTable           — inside a `table` tile: the rows under the selection, paged by DuckDB
-└── TileEditor            — the popover a tile is added and edited in, anchored to the tile
+└── TileEditor            — the panel a tile is added and edited in, docked beside the board
 ```
 
 The figures come first, as one band whose row they share equally, wrapping when they run out of
@@ -241,20 +241,24 @@ and here the browser never holds more than the page.
 
 ### TileEditor
 
-**The one editor** — a popover anchored to the tile it edits, the way Notion and Linear edit a block
-where it sits. *Add tile* and every tile's pencil open the same popover, in this order: the **kind**
-as cards with an icon, like a chart's mark (Figure, Chart, Table — a kind the relation cannot draw is disabled), the
-**fields** that kind reads, the title, and — for a chart or a table — the **width** (a third, two
-thirds, full), with the position among the figures or among the grid's tiles. **The tile is the
-preview**: it draws the draft in its own slot under the page's crossfilter, and grows or shrinks with
-the width; a tile being added gets a slot at the end of its band or grid, brought into view as the
-popover opens.
-Nothing reaches the dashboard until *Add* or *Save*; *Cancel*, Escape and a click outside drop the
-draft. A new position applies on save, so the tile never moves under the popover.
+**The one editor** — a panel docked beside the board, the way Grafana's panel options, Looker
+Studio's properties and Power BI's visualizations pane edit a tile. *Add tile* and every tile's pencil
+open the same panel, and it is not modal: the board keeps scrolling and stays live while it is open.
+**Data** holds the **kind** as cards with an icon, like a chart's mark (Figure, Chart, Table — a kind
+the relation cannot draw is disabled), and the **fields** that kind reads; **Display** holds the
+title and — for a chart or a table — the **width** (a third, two thirds, full), with the position
+among the figures or among the grid's tiles. **The tile is the preview**: it draws the draft in its
+own slot under the page's crossfilter, outlined, and grows or shrinks with the width; a tile being
+added gets a slot at the end of its band or grid, brought into view as the panel opens. The board
+narrows to make room rather than being covered, and under a narrow board the panel docks along the
+bottom of the view.
+Nothing reaches the dashboard until *Add* or *Save*; *Cancel*, the close button and Escape drop the
+draft. A new position applies on save, so the tile never moves while it is edited.
 
-`TileEditor` draws no tile. Hand it the draft as `tile` with `onChange`, draw that draft in the
-tile's own view, and pass the view's element as `anchor`; mount the editor while it is open. The view
-stays mounted from the pencil to *Save*, so opening the editor does not rebuild its plot.
+`TileEditor` draws no tile and does not place itself. Hand it the draft as `tile` with `onChange`,
+draw that draft in the tile's own view, pass the view's element as `anchor`, and put the editor
+beside the board — a flex row is enough; `className` sets where it docks. Mount it while it is open.
+The view stays mounted from the pencil to *Save*, so opening the editor does not rebuild its plot.
 `Dashboard` loads it the first time somebody edits, so a read-only dashboard never fetches the
 editor's code.
 
@@ -509,14 +513,15 @@ Every other prop goes to the root `div` (`data-slot="dashboard"`).
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `table` | `TableExpr` | — what the tile reads |
 | `fields` | `readonly FieldStat[]` | — |
-| `tile` | `Tile` | — the tile to edit, or to add when `tiles` does not hold it. Mounted is open |
+| `tile` | `Tile` | — the draft: the tile to edit, or to add when `tiles` does not hold it. Mounted is open |
+| `onChange` | `(tile: Tile) => void` | — every change to the draft |
+| `anchor` | `() => HTMLElement \| null` | — the tile's slot, brought into view as the editor opens |
 | `tiles` | `readonly Tile[]` | `[]` — where the tile sits, and what a change of kind avoids repeating |
-| `config` | `Readonly<Record<string, ChartConfig>>` | — |
 | `onSave` | `(tile: Tile, index: number) => void` | — |
 | `onRemove` | `() => void` | — (no *Remove*) |
-| `onClose` | `() => void` | — Cancel, Escape and a click outside |
+| `onClose` | `() => void` | — Cancel, the close button and Escape |
+| `className` | `string` | — where the panel docks; beside the board, `w-88`, sticky |
 
 ### RelationPicker
 

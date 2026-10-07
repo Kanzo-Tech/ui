@@ -55,7 +55,13 @@ function draw(props: { value?: DashboardSpec; onChange?: (spec: DashboardSpec | 
   );
 }
 
-const editor = () => screen.findByRole("dialog");
+const editor = () => screen.findByRole("complementary", { name: /tile$/ });
+const editorShut = () => expect(screen.queryByRole("complementary", { name: /tile$/ })).toBeNull();
+/** The title is on the editor's Display tab, as a panel's title is in Grafana's and Looker Studio's. */
+const title = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(within(await editor()).getByRole("tab", { name: "Display" }));
+  return within(await editor()).getByRole("textbox");
+};
 
 // jsdom lays nothing out, so it has no `scrollIntoView`; the editor calls it on the tile it opens on.
 const scrolled = vi.fn(function (this: Element) {
@@ -83,8 +89,8 @@ describe("the tile editor", () => {
     // The same element, not a new one drawn by the editor: a remounted view rebuilds its plot.
     expect(slot.isConnected).toBe(true);
 
-    await user.clear(within(await editor()).getByRole("textbox"));
-    await user.type(within(await editor()).getByRole("textbox"), "Seen");
+    await user.clear(await title(user));
+    await user.type(await title(user), "Seen");
     expect(within(slot as HTMLElement).getByText("Seen")).toBeTruthy();
   });
 
@@ -94,18 +100,18 @@ describe("the tile editor", () => {
     draw({ value: SPEC, onChange });
 
     await user.click(await screen.findByRole("button", { name: "Edit figure" }));
-    await user.type(within(await editor()).getByRole("textbox"), " today");
+    await user.type(await title(user), " today");
     await user.click(within(await editor()).getByRole("button", { name: "Cancel" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(editorShut);
 
     await user.click(await screen.findByRole("button", { name: "Edit figure" }));
-    await user.type(within(await editor()).getByRole("textbox"), " today");
+    await user.type(await title(user), " today");
     await user.keyboard("{Escape}");
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(editorShut);
     expect(onChange).not.toHaveBeenCalled();
 
     await user.click(await screen.findByRole("button", { name: "Edit figure" }));
-    await user.type(within(await editor()).getByRole("textbox"), " today");
+    await user.type(await title(user), " today");
     await user.click(within(await editor()).getByRole("button", { name: "Save" }));
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange.mock.calls[0]![0].tiles[0]).toMatchObject({ id: "n", kind: "stat", title: "Sightings today" });
@@ -150,6 +156,22 @@ describe("the tile editor", () => {
     await user.click(within(await editor()).getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(tiles()).toHaveLength(1));
     expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+describe("the tile editor beside the board", () => {
+  it("locks nothing: the page keeps scrolling and the board stays live while a tile is edited", async () => {
+    const user = userEvent.setup();
+    draw({ value: SPEC, onChange: vi.fn() });
+    await user.click(await screen.findByRole("button", { name: "Edit figure" }));
+    await editor();
+    // A modal overlay hides the page from pointer and wheel and stops it scrolling.
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.body.style.overflow).toBe("");
+    expect(document.body.style.pointerEvents).toBe("");
+    // The board is still there to read and act on: a click on it leaves the draft open.
+    await user.click(screen.getByRole("button", { name: "Edit table" }));
+    expect(within(await editor()).getByText("Edit tile")).toBeTruthy();
   });
 });
 
