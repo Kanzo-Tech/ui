@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createGraph, type GraphOptions, type GraphState, type GraphStore } from "../core/store";
-import type { GraphCommands, SelectionSource, Tool, VertexId } from "../core/types";
+import type { GraphCommands, Tool, VertexId } from "../core/types";
 import { createRenderer, type Renderer, type RendererEvents } from "../render/renderer";
 
 export type UseGraphProps = GraphOptions;
@@ -14,7 +14,6 @@ export type UseGraphProps = GraphOptions;
  * vertex was hovered.
  */
 export interface GraphApi extends GraphCommands {
-  select(vertices: readonly VertexId[] | null, source?: SelectionSource, label?: string): void;
   setFocus(vertex: VertexId | null): void;
   setTool(tool: Tool): void;
   subscribe(listener: () => void): () => void;
@@ -94,7 +93,6 @@ function build(store: GraphStore): GraphApi {
       store.select(null);
       store.focus(null);
     },
-    select: (vertices, source, label) => store.select(vertices, source, label),
     setFocus: (vertex) => store.focus(vertex),
     setTool: (tool) => store.setTool(tool),
     subscribe: (listener) => store.subscribe(listener),

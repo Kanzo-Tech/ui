@@ -20,12 +20,13 @@ every tile reads the one relation the `Dashboard` is given, under one crossfilte
 ## Usage
 
 ```tsx
-import { Dashboard, MosaicProvider, type DashboardSpec } from "@kanzo-tech/ui/analytics";
+import { Dashboard, FilterBar, MosaicProvider, type DashboardSpec } from "@kanzo-tech/ui/analytics";
 
 function Sightings({ coordinator, saved, save }: Props) {
   return (
     <MosaicProvider coordinator={coordinator}>
-      <Dashboard table="sightings" value={saved} onChange={save} rowNoun="sightings" />
+      <FilterBar table="sightings" rowNoun="sightings" />
+      <Dashboard table="sightings" value={saved} onChange={save} />
     </MosaicProvider>
   );
 }
@@ -38,6 +39,8 @@ function Sightings({ coordinator, saved, save }: Props) {
   automatic* calls it with `undefined`: the host deletes what it stored, and the dashboard follows
   the stats again — `undefined` meaning automatic in both directions, as Metabase's X-ray stays
   unsaved until it is saved.
+- **Its filters are drawn in the page's [`FilterBar`](#filterbar)**, wherever the host puts it. A
+  page without one shows no filters.
 - **Without `onChange` it is read-only**: no pencils, no *Add tile*, no remove buttons. Filters,
   picks and brushes still work; reading is not editing.
 
@@ -48,7 +51,7 @@ Wiring that to a backend — a debounced save, a read-only role, your own labels
 
 ```text
 Dashboard                 — reads the fields, draws the spec or the automatic one
-├── DashboardFilters      — the chip bar, its readout, "Clear", "Add tile"
+├── its filters           — drawn in the page's FilterBar, with "+ Filter"
 ├── DashboardStat         — a `stat` tile
 ├── ChartCard             — a `chart` tile
 ├── DetailTable           — inside a `table` tile: the rows under the selection, paged by DuckDB
@@ -169,21 +172,36 @@ on every render.
 
 ## The parts
 
-### DashboardFilters
+### FilterBar
 
-One filter bar above everything it scopes — Metabase's filter bar, drawn as Linear's chips. Each
-`filters` entry names a field and is a chip reading *region: Saltmere ▾*, or *region: Any ▾* while
-it filters nothing. The chip opens its control, chosen from that field's stats and never written in
-the spec: a category is a facet list, a key a search, a measure a range slider, a time a brushable
-timeline. A field that has no control (a numeric key) or no longer exists is skipped. A control
-stays mounted while its popover is shut, because a control that unmounts retracts its clause.
+**The page's one row of filters**, under its header — Metabase's filter bar, drawn as Linear's chips.
+Every clause on the page's crossfilter is a removable chip, read from `Selection.clauses`, so the row
+reports filters it did not publish: a brush, a bar someone clicked, a lasso on a graph canvas. A
+chip's label is read from the clause: *hour 2 – 5* for a range, *region Saltmere* for one value,
+*beast · 3 selected* for more; a semi-join wears its publisher's label — *Lasso · 13 selected*, a
+rule's name. Removing one calls `retract`, so the pick that made it un-highlights too.
 
-After the chips, the **readout**: *12 of 40 sightings* (`rowNoun` is the plural), and a quiet
-**Clear** while anything on the page filters, which is `useMosaic().reset()`. Children trail it — it
-is where `Dashboard` puts *Add tile*. With `onChange`, each chip gets a remove button and **+ Filter**
-lists the fields that have a control and no filter yet. A clause something else published — a pick
-on a chart, a lasso — counts in the readout and goes with *Clear*; `FilterChips` is the part that
-lists every clause, for a host that wants them named.
+A dashboard's filters are drawn in it too. Each `filters` entry names a field and is a chip reading
+*region: Saltmere ▾*, or *region: Any ▾* while it filters nothing. The chip opens its control,
+chosen from that field's stats and never written in the spec: a category is a facet list, a key a
+search, a measure a range slider, a time a brushable timeline. A field that has no control (a
+numeric key) or no longer exists is skipped. With `onChange`, each chip gets a remove button and
+**+ Filter** lists the fields that have a control and no filter yet. The bar leaves those clauses to
+the dashboard's chips rather than drawing them twice.
+
+**The dashboard draws there through a slot**, a portal that keeps its own provider and crossfilter,
+so its filters are on screen in every view of the page and stay where the reader put them. A control
+stays mounted while its popover is shut, because a control that unmounts retracts its clause, and a
+control in the bar queries as the bar does: a dashboard hidden by
+[`MosaicClients enabled={false}`](/docs/analytics/charts#mosaicclients) still has live filters.
+
+After the chips, with `table`, the **readout** — *12 of 40 sightings*, `rowNoun` being the plural —
+then a quiet **Clear** while anything on the page filters, which is `useMosaic().reset()`, and the
+children. `useClauses(selection)` is a selection's live clause list, for a host that draws its own.
+
+**A view swapped out keeps its clauses when it is hidden, not unmounted.** Wrap it in
+`MosaicClients enabled={false}`: its clients stop asking and its chips stay in the bar; unmounted,
+it would retract them.
 
 ### DashboardStat
 
@@ -272,18 +290,6 @@ editor's code.
 Each kind is a row in three tables — how one is made, titled and converted (plain TypeScript, no
 React), how it is drawn, and what its editor asks for — each mapped over the kinds, so a kind missing
 from any of them does not compile and neither the board nor the editor switches on a kind.
-
-### FilterChips and useClauses
-
-`useClauses(selection)` is a selection's live clause list. `FilterChips` draws it as removable
-badges — the crossfilter by default — and renders nothing while it is empty. A chip's label is read
-from the clause: *hour 2 – 5* for a range, *region Saltmere* for one value, *beast · 3 selected* for
-more. Removing one calls `retract`, so the pick that made it un-highlights too.
-
-Because they read `Selection.clauses`, they report filters they did not publish: a brush, a bar
-someone clicked, a lasso on a graph canvas. A semi-join wears its publisher's label — *Lasso · 13
-selected*, a rule's name — so `<FilterChips />` in a dock's header is the page's scope: every clause
-each client there is filtered by, each removable where it was published.
 
 ### useFieldStats, queryFieldStats and fieldStats
 
@@ -401,12 +407,14 @@ const publish = useMemo(() => semiJoinOf(relationIdentities(graph, relation)[0].
 The tiles publish into the dashboard's own crossfilter and filter by it, so they crossfilter each
 other on the relation's columns exactly as before. The page gets **one** clause for all of them,
 `dense_id IN (SELECT dense_id FROM <relation> WHERE <every tile's clause>)`, whose source is the
-dashboard: the graph greys out every vertex but the roots of the rows the tiles keep, another
-relation's dashboard is filtered to the same vertices through its own root key, and `FilterChips`
-names it by `label`. The clauses are mapped together, not one by one — on a joined relation,
+dashboard: the graph greys out every vertex but the roots of the rows the tiles keep, and another
+relation's dashboard is filtered to the same vertices through its own root key. `FilterBar` shows
+it as its parts, one chip per tile clause named after `label` — *Dashboard country Spain* — and
+removing one retracts that tile's clause alone; `bridged(clause)` is how it reads them. The clauses are mapped together, not one by one — on a joined relation,
 *a person with a row where a and b* is not *a person with a row where a, and one where b*.
 
-Retracting goes both ways. A tile that lets go withdraws the page's clause; removing the page's
+Retracting goes both ways. A tile that lets go maps the rest again, and the last one withdraws the
+page's clause; removing the page's
 clause — its chip, the page's *Clear* — clears the tiles' brushes and picks. In the other direction,
 a lasso on the graph reaches every tile as itself, so the graph stays exempt from its own pick and
 is not filtered by it back through the dashboard.
@@ -461,21 +469,9 @@ way. Nothing fails blank.
 | `onChange` | `(spec: DashboardSpec) => void` | — (read-only without it) |
 | `exclude` | `readonly string[]` | — |
 | `config` | `Readonly<Record<string, ChartConfig>>` | — |
-| `rowNoun` | `string` | `"rows"` |
 | `publish` | `ClauseMap` — what the page sees of the tiles' clauses; [`semiJoinOf`](#what-the-page-sees) for a relation | — (the tiles' clauses are the page's) |
 
 Every other prop goes to the root `div` (`data-slot="dashboard"`).
-
-### DashboardFilters
-
-| Prop | Type | Default |
-| --- | --- | --- |
-| `table` | `TableExpr` | — |
-| `fields` | `readonly FieldStat[]` | — |
-| `filters` | `readonly DashboardFilterSpec[]` | — |
-| `onChange` | `(filters: DashboardFilterSpec[]) => void` | — (no remove, no *+ Filter*) |
-| `rowNoun` | `string` | `"rows"` |
-| `children` | `ReactNode` | — trailing controls, after *Clear* |
 
 ### DashboardStat
 
@@ -540,11 +536,15 @@ interface JoinType { name: string; table: TableExpr; key: string; columns: reado
 interface JoinEdge { name: string; label: string; source: string; destination: string; table: TableExpr; src: string; dst: string }
 ```
 
-### FilterChips
+### FilterBar
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `selection` | `Selection` | the provider's crossfilter |
+| `table` | `TableExpr` | — (no readout) |
+| `rowNoun` | `string` | `"rows"` |
+| `children` | `ReactNode` | — trailing controls, after *Clear* |
+
+Every other prop goes to the root `section` (`data-slot="filter-bar"`).
 
 `useClauses(selection: Selection): readonly SelectionClause[]`.
 
@@ -582,5 +582,5 @@ The spec's types — `DashboardSpec`, `Tile`, `TileKind`, `TileSpan`, `StatTile`
 `TableTile`, `DashboardFilterSpec`, `DashboardMeasure`, `DashboardChartType` and `DashboardAggregate` —
 and `Dashboards` with `parseDashboard` and `parseDashboards` are exported and documented field by field on
 [Dashboard spec](/docs/analytics/dashboard-spec). The props types are exported as `DashboardProps`,
-`DashboardFiltersProps`, `DashboardStatProps`, `ChartCardProps`, `DetailTableProps`,
-`TileEditorProps`, `RelationPickerProps` and `FilterChipsProps`.
+`DashboardStatProps`, `ChartCardProps`, `DetailTableProps`, `TileEditorProps`,
+`RelationPickerProps` and `FilterBarProps`.

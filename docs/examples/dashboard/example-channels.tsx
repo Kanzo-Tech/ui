@@ -1,6 +1,6 @@
 "use client";
 
-import { Dashboard } from "@kanzo-tech/ui/analytics";
+import { Dashboard, FilterBar } from "@kanzo-tech/ui/analytics";
 import { CONTRACTS_LAYOUT, ContractsDemo } from "./contracts";
 
 // The same contracts as a fossil corpus hands them over: `dense_id`, and a layout's `x` and `y`
@@ -12,7 +12,10 @@ import { CONTRACTS_LAYOUT, ContractsDemo } from "./contracts";
 export default function Example() {
   return (
     <ContractsDemo table={CONTRACTS_LAYOUT}>
-      <Dashboard className="w-full" exclude={["dense_id"]} rowNoun="contracts" table={CONTRACTS_LAYOUT} />
+      <div className="flex w-full flex-col gap-4">
+        <FilterBar rowNoun="contracts" table={CONTRACTS_LAYOUT} />
+        <Dashboard exclude={["dense_id"]} table={CONTRACTS_LAYOUT} />
+      </div>
     </ContractsDemo>
   );
 }

@@ -606,6 +606,31 @@ reports a failure of your own part the way the library's do; `useCrossfilter()` 
 `crossfilter` collapses `selected` onto it —
 [what that costs](#feedback-on-the-chart-that-filters).
 
+### MosaicClients
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `enabled` | `boolean` — whether the clients beneath it query; a nested `false` wins | — |
+
+`MosaicClientsProps` also takes `children`.
+
+Mosaic's own `MosaicClient.enabled`, for every chart mark, input and `useChartQuery` beneath it. A
+disabled client keeps its state and its clauses but asks nothing, and enabled again it runs the one
+query it was owed. Wrap a panel that leaves the screen but should keep what the reader brushed in
+it — a view swapped for another, a collapsed dock — and hide it rather than unmount it: unmounting
+retracts its clauses.
+
+```tsx
+<MosaicClients enabled={view === "dashboard"}>
+  <div hidden={view !== "dashboard"}>
+    <Dashboard publish={publish} table={table} />
+  </div>
+</MosaicClients>
+```
+
+*Held by* `packages/ui/src/charts/mosaic-clients.test.tsx`, "asks nothing while disabled, keeps
+its rows, and runs the query it was owed once enabled".
+
 ### ChartRoot
 
 | Prop | Type | Default |

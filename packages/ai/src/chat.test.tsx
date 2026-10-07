@@ -112,6 +112,13 @@ describe("Chat", () => {
     expect(document.querySelector("[data-slot=suggestion]")).toBeNull();
   });
 
+  it("shows what the next question is asked over in the composer, beside Send", () => {
+    render(<Chat chat={idle as never} context={<span>Subset · 40 nodes</span>} />);
+    const toolbar = document.querySelector('[data-slot="prompt-input-toolbar"]');
+    expect(toolbar?.textContent).toContain("Subset · 40 nodes");
+    expect(toolbar?.querySelector("button")).toBeTruthy();
+  });
+
   it("draws no strip for a host that offers no suggestions", () => {
     render(<Chat chat={idle as never} />);
     expect(document.querySelector("[data-slot=suggestions]")).toBeNull();

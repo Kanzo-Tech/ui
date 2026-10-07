@@ -1,11 +1,11 @@
 import type { Coordinator, JoinGraph } from "@kanzo-tech/mosaic";
-import { referencesOf, VERTEX_KEY } from "./references";
+import { referencesOf } from "./references";
 import { readStructure, relation } from "./source";
 import type { Structure } from "./structure";
 
 /**
  * **The corpus as a join graph** — what `@kanzo-tech/mosaic`'s relations are built over. A vertex
- * table is a type keyed by `VERTEX_KEY` that projects the columns the writer gave no role; an edge
+ * table is a type keyed by the structure's `key` that projects the columns the writer gave no role; an edge
  * table joins through the two columns `referencesOf` says point into its source and destination.
  * What an endpoint is stays stated once, in `references.ts`; this only rearranges it.
  */
@@ -15,7 +15,7 @@ export function joinGraphOf(structure: Structure): JoinGraph {
     types: structure.vertices.map((v) => ({
       name: v.name,
       table: relation(structure.from, v.name),
-      key: VERTEX_KEY,
+      key: structure.key,
       columns: [...v.columns]
         .filter(([, c]) => c.role === null)
         .map(([name]) => name),

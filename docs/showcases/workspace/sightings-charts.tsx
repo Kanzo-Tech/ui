@@ -6,6 +6,7 @@ import { ScrollArea, Show, Skeleton } from "@kanzo-tech/ui";
 import {
   Coordinator,
   Dashboard,
+  FilterBar,
   MosaicProvider,
   type ChartConfig,
   type DashboardSpec,
@@ -118,7 +119,10 @@ export default function SightingsDashboard() {
         </Show>
         {coordinator && (
           <MosaicProvider coordinator={coordinator}>
-            <Dashboard config={CONFIG} onChange={setSpec} rowNoun="sightings" table={T} value={spec} />
+            <div className="flex flex-col gap-4">
+              <FilterBar rowNoun="sightings" table={T} />
+              <Dashboard config={CONFIG} onChange={setSpec} table={T} value={spec} />
+            </div>
           </MosaicProvider>
         )}
       </div>

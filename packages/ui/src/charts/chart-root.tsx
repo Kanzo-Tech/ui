@@ -21,7 +21,7 @@ import {
   type ChartMargin,
   type ChartSpecContext,
 } from "./chart-spec.js";
-import { useMosaic } from "./mosaic-provider.js";
+import { useClientsEnabled, useMosaic } from "./mosaic-provider.js";
 import { resolveTokenColor } from "../lib/token-color.js";
 import { TokenizedPlot } from "./tokenized-plot.js";
 import { DenseStackMark } from "./dense-stack.js";
@@ -31,7 +31,8 @@ import { DenseStackMark } from "./dense-stack.js";
  * clients this library does not define, and their `queryError` does nothing — a failed mark leaves
  * the plot on its last render — so `ChartRoot` answers it for them.
  */
-type PlotElement = HTMLElement & { value: { marks: { queryError(error: Error): unknown }[] } };
+type PlotMark = { queryError(error: Error): unknown; enabled: boolean };
+type PlotElement = HTMLElement & { value: { marks: PlotMark[] } };
 
 /** An area stacked by a series column (the `z` `chart-marks` derives), which `denseStack` completes. */
 function isStackedArea(directive: ChartMarkDirective): boolean {
@@ -202,6 +203,12 @@ export function ChartRoot(props: ChartRootProps) {
   const target = as ?? own;
   const source = filterBy === undefined ? crossfilter : filterBy;
   const host = useRef<HTMLDivElement | null>(null);
+  // The marks of the plot on screen, so `MosaicClients` reaches them without rebuilding the plot.
+  const marks = useRef<readonly PlotMark[]>([]);
+  const enabled = useClientsEnabled();
+  useEffect(() => {
+    for (const mark of marks.current) mark.enabled = enabled;
+  }, [enabled]);
 
   useEffect(
     // Only the selection this root minted is relayed: a caller-supplied `as` was wired by the
@@ -299,7 +306,9 @@ export function ChartRoot(props: ChartRootProps) {
             );
             setFailure(undefined);
             const element = vg.plot(...spec.map(toVgDirective).filter((d): d is VgDirective => d !== null));
-            for (const mark of (element as PlotElement).value.marks) {
+            marks.current = (element as PlotElement).value.marks;
+            for (const mark of marks.current) {
+              mark.enabled = enabled;
               const own = mark.queryError.bind(mark);
               mark.queryError = (error) => {
                 const thrown = queryFailure(error);

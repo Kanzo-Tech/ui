@@ -263,6 +263,7 @@ Their props are `MessageProps`, `MessageAvatarProps`, `MessageRole` and `Reasoni
 | `suggestions` | `readonly Proposal[]` | Questions to start from; given at all, even empty, the strip keeps its row |
 | `suggesting` | `boolean` | More are on their way: pills in skeleton beside them |
 | `notice` | `ReactNode` | In place of the pills while there are none: why suggesting failed, with a retry |
+| `context` | `ReactNode` | What the next question is asked over, read-only in the composer beside Send — a pill such as *Subset · 40 nodes*, as Copilot Chat and Cursor show theirs |
 | `copy` | `ProblemProps["copy"]` | The host's words for a failure's code, as `Problem` takes them |
 | `translations` | `Partial<ChatTranslations>` | `placeholder` for the composer, and `failed`, read before an error |
 | `className` | `string` | On the root |

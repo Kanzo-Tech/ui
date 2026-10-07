@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, Skeleton } from "@kanzo-tech/ui";
 import {
   ChartCard,
-  DashboardFilters,
+  FilterBar,
   DashboardStat,
   DetailTable,
   TileEditor,
@@ -13,10 +13,10 @@ import {
 } from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "../charts/mosaic-demo";
 
-// The parts `Dashboard` is made of, arranged by hand: one `useFieldStats` read, a filter bar, two
-// figures, two charts and the rows. Every part takes the same `table` and `fields`; a part given an
-// `onEdit` shows a pencil, and the host opens `TileEditor` beside it and draws the draft in the
-// tile's place — here, the bar chart alone.
+// The parts `Dashboard` is made of, arranged by hand: one `useFieldStats` read, the page's
+// `FilterBar`, two figures, two charts and the rows. Every part takes the same `table` and
+// `fields`; a part given an `onEdit` shows a pencil, and the host opens `TileEditor` beside it and
+// draws the draft in the tile's place — here, the bar chart alone.
 
 function Board() {
   const { fields } = useFieldStats("sightings");
@@ -28,12 +28,7 @@ function Board() {
 
   return (
     <div className="flex w-full flex-col gap-4">
-      <DashboardFilters
-        fields={fields}
-        filters={[{ field: "region" }, { field: "verdict" }, { field: "leagues" }]}
-        rowNoun="sightings"
-        table="sightings"
-      />
+      <FilterBar rowNoun="sightings" table="sightings" />
       <div className="grid gap-4 sm:grid-cols-2">
         <DashboardStat
           fields={fields}

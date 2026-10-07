@@ -1,4 +1,4 @@
-import type { Coordinator } from "@kanzo-tech/mosaic";
+import { MosaicClient, Selection as Crossfilter, type Coordinator } from "@kanzo-tech/mosaic";
 import { domainOf } from "./categories";
 import { bindingOf } from "./channels";
 import { GraphClient, publish } from "./client";
@@ -6,19 +6,22 @@ import { GraphError } from "./error";
 import { loadEncoding, loadGeometry, type Encoding, type Geometry } from "./load";
 import { readStructure } from "./source";
 import { type Structure } from "./structure";
-import type { Arrangement, Drawn, GraphOptions, GraphSnapshot, DataStatus, GraphStore } from "./state";
+import type { Arrangement, Drawn, GraphOptions, GraphSnapshot, DataStatus, GraphStore, PickSource } from "./state";
 
 export type { Arrangement, Drawn, GraphOptions, GraphSnapshot, GraphState, DataStatus, GraphStore, View } from "./state";
 
 function drawnOf(geometry: Geometry, encoding: Encoding, mask: Uint8Array | null): Drawn {
   const tally = encoding.domain.map(() => 0);
+  const placed = encoding.domain.map(() => 0);
   const shown = new Uint8Array(geometry.size);
   let vertices = 0;
   for (let id = 0; id < geometry.size; id++) {
-    if ((mask && !mask[id]) || Number.isNaN(geometry.positions[id * 2])) continue;
+    if (Number.isNaN(geometry.positions[id * 2])) continue;
+    const rank = encoding.ranks[id] as number;
+    placed[rank] = (placed[rank] ?? 0) + 1;
+    if (mask && !mask[id]) continue;
     shown[id] = 1;
     vertices++;
-    const rank = encoding.ranks[id] as number;
     tally[rank] = (tally[rank] ?? 0) + 1;
   }
   let edges = 0;
@@ -26,7 +29,7 @@ function drawnOf(geometry: Geometry, encoding: Encoding, mask: Uint8Array | null
   for (let i = 0; i < links.length; i += 2) {
     if (shown[links[i] as number] && shown[links[i + 1] as number]) edges++;
   }
-  return { vertices, edges, domain: encoding.domain, tally };
+  return { vertices, edges, domain: encoding.domain, tally, placed };
 }
 
 function matchingOf(mask: Uint8Array | null): number | null {
@@ -65,7 +68,14 @@ export function createGraph(initial: GraphOptions): GraphStore {
   const pending = { structure: false, geometry: false, encoding: false };
   let client: GraphClient | null = null;
   let connected: Coordinator | null = null;
+  /** Where the client's pick is published, so a reconnect withdraws it from there. */
+  let published: Crossfilter | null = null;
   let active = false;
+  /** The root's own crossfilter, for a graph no page hands one to. */
+  const own = Crossfilter.crossfilter();
+  const scope = () => options.filterBy ?? own;
+  /** Every place a `usePick` picks from, by name: an unconnected client its clause names in `clients`, so the place reads the subset without its own pick. */
+  const sources = new Map<string, PickSource>();
 
   // A failure found while the store is being built is found while React is still rendering —
   // `useGraph` builds it in `useState` — and a host's `onFailure` is usually a `setState`. It is held
@@ -221,6 +231,9 @@ export function createGraph(initial: GraphOptions): GraphStore {
       pending[kind] = false;
     }
     failed = false;
+    // A new corpus: the old one's pick goes from the page with its vertices.
+    if (client && published && structure) publish(published, client, structure.key, null, "");
+    published = null;
     structure = geometry = encoding = null;
     kept = mask = null;
     arrangement = null;
@@ -229,13 +242,17 @@ export function createGraph(initial: GraphOptions): GraphStore {
     loadStructure();
   }
 
-  /** The graph's Mosaic client, connected to the coordinator while anything is subscribed. */
+  /**
+   * The graph's Mosaic client, connected to the coordinator while anything is subscribed. The
+   * canvas's pick goes with it: withdrawn from the selection the old client published into, and
+   * published again from the new one, so a clause never outlives the client it exempts.
+   */
   function connect(): void {
     disconnect();
-    const { coordinator, filterBy } = options;
+    const { coordinator } = options;
     if (coordinator === null) return;
     client = new GraphClient(
-      filterBy,
+      scope(),
       () => structure,
       (ids) => {
         kept = ids;
@@ -251,9 +268,16 @@ export function createGraph(initial: GraphOptions): GraphStore {
     );
     coordinator.connect(client);
     connected = coordinator;
+    const { selection } = snapshot;
+    if (selection && structure) {
+      published = scope();
+      publish(published, client, structure.key, selection.vertices, selection.label);
+    }
   }
 
   function disconnect(): void {
+    if (client && published && structure) publish(published, client, structure.key, null, "");
+    published = null;
     if (client && connected) connected.disconnect(client);
     client = null;
     connected = null;
@@ -292,7 +316,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
         if (active && next.coordinator !== previous.coordinator) connect();
         return reset();
       }
-      if (active && next.filterBy !== previous.filterBy) connect();
+      if (active && scope() !== (previous.filterBy ?? own)) connect();
       if (binding.x !== before.x || binding.y !== before.y) loadPositions();
       else if (
         binding.category !== before.category ||
@@ -310,11 +334,19 @@ export function createGraph(initial: GraphOptions): GraphStore {
       disconnect();
       listeners.clear();
     },
-    select(vertices, source = "external", label = "") {
+    select(vertices, source = "node", label = "") {
       const selection = vertices && vertices.length > 0 ? { vertices: [...vertices], source, label } : null;
       patch({ selection });
       options.onSelect?.(selection);
-      if (options.filterBy && client) publish(options.filterBy, client, selection ? selection.vertices : null, label);
+      if (!client || !structure) return;
+      published = scope();
+      publish(published, client, structure.key, selection ? selection.vertices : null, label);
+    },
+    scope,
+    source(id) {
+      let found = sources.get(id);
+      if (!found) sources.set(id, (found = Object.assign(new MosaicClient(), { reset() {} })));
+      return found;
     },
     focus(vertex) {
       if (vertex === snapshot.focus) return;
