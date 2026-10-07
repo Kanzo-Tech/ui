@@ -66,7 +66,7 @@ describe("the graph's settings, as its section", () => {
     expect((screen.getByRole("radio", { name: "Force" }) as HTMLInputElement).checked).toBe(true);
     expect(document.querySelector("[data-slot=select-trigger]")).toBeNull();
     expect(screen.queryByText("Cluster pull")).toBeNull();
-    expect(sliders()).toEqual(FORCES);
+    expect(sliders()).toEqual(["Labels", ...FORCES]);
   });
 
   it("offers the five forces under Force alone: Map has none, Clustered only its pull", async () => {
@@ -75,23 +75,21 @@ describe("the graph's settings, as its section", () => {
     await act(() => settle(corpus));
     const user = userEvent.setup();
     await user.click(screen.getByRole("radio", { name: "Map" }));
-    expect(sliders()).toEqual([]);
+    expect(sliders()).toEqual(["Labels"]);
     await user.click(screen.getByRole("radio", { name: "Clustered" }));
-    expect(sliders()).toEqual(["Cluster pull"]);
-    const ends = [...document.querySelectorAll("[data-slot=slider-marker]")].map((m) => m.textContent);
+    expect(sliders()).toEqual(["Labels", "Cluster pull"]);
+    const pull = [...document.querySelectorAll("[data-slot=slider]")].find((s) => s.textContent?.includes("Cluster pull"));
+    const ends = [...(pull?.querySelectorAll("[data-slot=slider-marker]") ?? [])].map((m) => m.textContent);
     expect(ends).toEqual(["Links decide", "Tight groups"]);
   });
 
-  it("draws a picture on every card a reader picks by looking: Marks, Labels, Edges and Placement", async () => {
+  it("draws a picture on every card a reader picks by looking: Marks, Edges and Placement", async () => {
     const corpus = await attach();
     mount(corpus);
     await act(() => settle(corpus));
-    for (const name of ["Dense", "Legible", "None", "Hovered", "Top", "Visible", "All", "Hidden", "Straight", "Curved", "Force", "Map", "Clustered"]) {
+    for (const name of ["Dense", "Legible", "Hidden", "Straight", "Curved", "Force", "Map", "Clustered"]) {
       expect(picture(name), name).toBeTruthy();
     }
-    // A label is a bar over its point, and each level adds to the last.
-    const bars = ["None", "Hovered", "Top", "Visible", "All"].map((name) => picture(name)?.querySelectorAll("rect").length);
-    expect(bars).toEqual([0, 1, 3, 4, 7]);
   });
 
   it("offers the corpus's numeric fields to the map, from the root that attached it", async () => {

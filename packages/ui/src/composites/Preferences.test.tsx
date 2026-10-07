@@ -513,6 +513,42 @@ describe("what a declaration says beyond its kind", () => {
     expect(document.querySelector("[data-slot=select-trigger]")).toBeNull();
   });
 
+  it("draws an ordered choice as a stepped slider, its options the markers, and stores the option", async () => {
+    const LEVELS: SectionManifest = {
+      namespace: "graph",
+      prefs: {
+        labels: {
+          kind: "choice",
+          ordered: true,
+          label: "Labels",
+          default: "top",
+          doc: "how many points carry their title",
+          options: [
+            { value: "none", label: "None" },
+            { value: "top", label: "Top" },
+            { value: "all", label: "All" },
+          ],
+        },
+      },
+    };
+    function Stored() {
+      return <output>{usePref("graph.labels")?.value}</output>;
+    }
+    render(
+      <KanzoThemeProvider sections={[LEVELS]} storage={null}>
+        <PreferencesSections namespace="graph" />
+        <Stored />
+      </KanzoThemeProvider>,
+    );
+    expect(screen.queryByRole("radiogroup", { name: "Labels" })).toBeNull();
+    expect([...document.querySelectorAll("[data-slot=slider-marker]")].map((m) => m.textContent)).toEqual(["None", "Top", "All"]);
+    const thumb = document.querySelector<HTMLElement>("[data-slot=slider-thumb]");
+    expect(thumb?.getAttribute("aria-valuenow")).toBe("1");
+    thumb?.focus();
+    await userEvent.setup().keyboard("{ArrowRight}");
+    expect(screen.getByRole("status").textContent).toBe("all");
+  });
+
   it("hands a control of your own the same value and setter the part uses", async () => {
     const user = userEvent.setup();
     function Own() {

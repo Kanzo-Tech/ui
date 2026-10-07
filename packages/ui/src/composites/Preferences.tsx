@@ -409,8 +409,9 @@ export interface PrefProps {
  * **One declared preference, drawn** — the part every surface composes, and the switch on `kind` in
  * one place, so no surface re-decides what a `range` looks like.
  *
- * Ark's arms, one per kind: a `choice` the author listed is a row of `RadioGroup` cards, a `choice`
- * whose options a source answers is a `Select` — Apple's HIG, a segmented set for a few fixed values
+ * Ark's arms, one per kind: a `choice` the author listed is a row of `RadioGroup` cards (a stepped
+ * `Slider` when its options are `ordered`), a `choice` whose options a source answers is a
+ * `Select` — Apple's HIG, a segmented set for a few fixed values
  * and a pop-up for a list nobody could count in advance, decided by where the options come from and
  * never by how many there are — a `toggle` is `Switch` and a `range` is `Slider`. The owner's
  * specimen is a card's content above its name, never a different control.
@@ -470,6 +471,26 @@ function Pref({ name, copy }: PrefProps) {
 
   if (!options) return null;
   if (!Array.isArray(decl.options)) return <PrefSelect label={title} onChange={setValue} options={options} value={value} />;
+  if (decl.ordered) {
+    // A scale is the range arm over the options' positions: the same Slider, its markers the
+    // options' names, and the stored value the option's, never its index.
+    return (
+      <Slider
+        markerLabels={options.map((o) => o.label)}
+        max={options.length - 1}
+        min={0}
+        onValueChange={(d) => {
+          const option = options[d.value[0] ?? 0];
+          if (option) setValue(option.value);
+        }}
+        showMarkers
+        step={1}
+        value={[Math.max(0, options.findIndex((o) => o.value === value))]}
+      >
+        <SliderLabel className={PREF_HEADING}>{title}</SliderLabel>
+      </Slider>
+    );
+  }
   return (
     <PrefFieldSet label={title}>
       <RadioGroup className="flex-row flex-wrap gap-2" onValueChange={(d) => d.value && setValue(d.value)} value={value}>

@@ -17,7 +17,7 @@ type PrefCommon_ = {
   when?: { pref: string; eq: string } | { pref: string; neq: string };
 };
 type SectionPrefDecl_ =
-  | (PrefCommon_ & { kind: "choice"; options: readonly { value: string; label: string }[] | { from: string } })
+  | (PrefCommon_ & { kind: "choice"; options: readonly { value: string; label: string }[] | { from: string }; ordered?: true })
   | (PrefCommon_ & { kind: "toggle" })
   | (PrefCommon_ & { kind: "range"; min: number; max: number; step: number; ends?: readonly [string, string] });
 
@@ -95,6 +95,7 @@ export const GRAPH_SECTION = {
     },
     labels: {
       kind: "choice",
+      ordered: true,
       label: "Labels",
       default: "top",
       doc: "Which points carry their title, each level adding to the last: the hovered and focused point; the 150 biggest; the 100 biggest in view; every point in view. In view is cosmos.gl's sample, one point per 100 px square, so no level labels more than the screen holds, whatever the graph's size. A label that would overlap a bigger point's is dropped.",

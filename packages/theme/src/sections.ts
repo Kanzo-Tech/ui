@@ -196,6 +196,14 @@ export type SectionPrefDecl =
       kind: "choice";
       /** Everything a control may offer, in order. Order is the section's, and a surface keeps it. */
       options: PrefOptions;
+      /**
+       * The options are one scale, each adding to the last — *how much*, not *which* — so a surface
+       * draws a stepped slider with the options as its markers, from least to most, and not a row of
+       * cards. Only a listed choice can be ordered: a list a source answers has no order to read.
+       * **What would reverse it:** a scale whose steps a reader picks by their picture, which is
+       * the cards' specimen and which a marker cannot carry.
+       */
+      ordered?: true;
     })
   /** On or off. Stored as `"true"` / `"false"`. */
   | (PrefCommon & { kind: "toggle" })

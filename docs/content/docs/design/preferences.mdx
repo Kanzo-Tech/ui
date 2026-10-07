@@ -251,6 +251,17 @@ wants its ends named, which asks `Slider` for a marker at any value rather than 
 *Held by* `packages/ui/src/composites/Preferences.test.tsx`, "names a range's two ends with the
 slider's own markers, and draws none where it names none".
 
+**A choice may be ordered: `ordered: true`.** Where the options are one scale, each adding to the
+last — the graph's labels, None to All — a reader asks *how much*, not *which*, and a row of cards
+does not say that the third is more than the second. `<Pref>` draws an ordered choice as the range
+arm's own `Slider`, stepped over the options' positions, with the options' names as its markers,
+least to most; what is stored is still the option's value. Only a listed choice can be ordered. **What
+would reverse it:** a scale whose steps a reader picks by their picture — a specimen is a card's
+content, and a marker cannot carry one.
+
+*Held by* `packages/ui/src/composites/Preferences.test.tsx`, "draws an ordered choice as a stepped
+slider, its options the markers, and stores the option".
+
 **A section is two columns, and only a toggle takes one.** `PreferencesSections` is a `FieldGroup` of
 two columns: a toggle is a horizontal `Field`, its name beside its switch, so two of them share a row
 (Vignette · Dot grid); cards, selects and sliders span the row, and a select's trigger fills it. The
