@@ -501,6 +501,32 @@ describe("GraphCanvas", () => {
     });
   });
 
+  it("backs out of a tool on Escape without writing the store from inside a render", async () => {
+    const corpus = await attach();
+    const held: { api: GraphApi | null } = { api: null };
+    render(
+      <GraphRoot {...over(corpus)} onFailure={() => {}}>
+        <GraphCanvas />
+        <GraphToolbar />
+        <Hold into={held} />
+      </GraphRoot>,
+    );
+    await ready(corpus);
+    if (!held.api) throw new Error("no api");
+    const api = held.api;
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    act(() => api.setTool("lasso"));
+    // Two in one batch: the second update is queued behind the first, so React runs it while it
+    // renders the canvas, which is where a store write would land in the toolbar's render.
+    act(() => {
+      fireEvent.keyDown(window, { key: "Escape" });
+      fireEvent.keyDown(window, { key: "Escape" });
+    });
+    expect(api.getState().tool).toBeNull();
+    expect(error.mock.calls.flat().join(" ")).not.toMatch(/while rendering a different component/);
+    error.mockRestore();
+  });
+
   it("re-renders the card on a hover, and not the canvas", async () => {
     const corpus = await attach();
     const held: { api: GraphApi | null } = { api: null };
