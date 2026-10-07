@@ -1,10 +1,7 @@
 "use client";
 
 import { clauseParts, type TableExpr } from "@kanzo-tech/mosaic";
-import type React from "react";
-import { type ReactNode } from "react";
-import { ark } from "@ark-ui/react/factory";
-import { count, Query } from "@uwdata/mosaic-sql";
+import { count } from "@uwdata/mosaic-sql";
 import { bin } from "@uwdata/vgplot";
 import type { SelectionClause } from "@uwdata/mosaic-core";
 import { CalendarRangeIcon, ChevronDownIcon, PlusIcon, SearchIcon, SlidersHorizontalIcon, XIcon, type LucideIcon } from "lucide-react";
@@ -17,38 +14,31 @@ import { ChartFilter, ChartSearch, ChartSlider } from "./chart-inputs.js";
 import { ChartBrushX } from "./chart-interactors.js";
 import { ChartRectY } from "./chart-marks.js";
 import { ChartRoot } from "./chart-root.js";
-import { chartTableKey } from "./chart-spec.js";
 import { filterControl, type DashboardFilterControl, type DashboardFilterSpec } from "./dashboard-spec.js";
 import type { FieldStat } from "./field-stats.js";
-import { useClauses } from "./filter-chips.js";
-import { useMosaic } from "./mosaic-provider.js";
-import { useChartQuery } from "./use-chart-query.js";
+import { clauseField, useClauses } from "./filter-bar.js";
+import { InFilterBar, useMosaic } from "./mosaic-provider.js";
 
-export interface DashboardFiltersProps extends Omit<React.ComponentProps<typeof ark.section>, "onChange"> {
+export interface DashboardFiltersProps {
   table: TableExpr;
   fields: readonly FieldStat[];
   filters: readonly DashboardFilterSpec[];
-  /** Makes the bar editable: a remove button per chip and a "Filter" menu of the fields left. */
+  /** Makes them editable: a remove button per chip and a "Filter" menu of the fields left. */
   onChange?: (filters: DashboardFilterSpec[]) => void;
-  /** What a row is, in the plural, for the "12 of 40 …" readout. Default `"rows"`. */
-  rowNoun?: string;
-  /** Trailing controls, after "Clear". */
-  children?: ReactNode;
 }
 
 /**
- * **One filter bar above everything it scopes** — Metabase's filter bar, drawn as Linear's chips.
- * Every filter is a chip reading *column: value* that opens its control, and the control is chosen
- * from the field's stats (`filterControl`): a category is a facet list, a key is searched, a number
- * is a range slider and a time is a brushable timeline. All of them publish into the provider's
- * crossfilter. The readout after them says what the filters cost, and *Clear* retracts every clause
- * on the page, whoever published it.
+ * **A dashboard's filters, drawn in the page's `FilterBar`.** Every filter is a chip reading
+ * *column: value* that opens its control, and the control is chosen from the field's stats
+ * (`filterControl`): a category is a facet list, a key is searched, a number is a range slider and a
+ * time is a brushable timeline. They publish into the dashboard's crossfilter, and the bar leaves
+ * their clauses to these chips.
  *
  * A control stays mounted while its popover is shut: a control that unmounts retracts its clause,
  * and a filter that let go whenever its chip closed would not be a filter.
  */
 export function DashboardFilters(props: DashboardFiltersProps) {
-  const { table, fields, filters, onChange, rowNoun = "rows", children, className, slot, ...rest } = props;
+  const { table, fields, filters, onChange } = props;
   const { crossfilter } = useMosaic();
   const clauses = useClauses(crossfilter);
   const byName = new Map(fields.map((f) => [f.name, f]));
@@ -61,12 +51,7 @@ export function DashboardFilters(props: DashboardFiltersProps) {
   const remove = onChange && ((name: string) => onChange(filters.filter((s) => s.field !== name)));
 
   return (
-    <ark.section
-      aria-label="Filters"
-      className={cn("flex flex-wrap items-center gap-2", className)}
-      {...rest}
-      data-slot={slot ?? "dashboard-filters"}
-    >
+    <InFilterBar held={{ selection: crossfilter, fields: placed.map(({ field }) => field.name) }}>
       {placed.map(({ field, control }) => (
         <div className="inline-flex items-center" data-slot="dashboard-filter" key={field.name}>
           <FilterChip clauses={clauses} control={control} field={field} table={table} />
@@ -100,17 +85,13 @@ export function DashboardFilters(props: DashboardFiltersProps) {
           </MenuContent>
         </Menu>
       ) : null}
-      <Readout clauses={clauses} rowNoun={rowNoun} table={table}>
-        {children}
-      </Readout>
-    </ark.section>
+    </InFilterBar>
   );
 }
 
 /** What a clause on `field` filters it to, as the chip's value: `Saltmere`, `2 – 5`, `3 selected`. */
 function chipValue(clauses: readonly SelectionClause[], field: string): string | null {
-  const unquoted = (f: unknown) => String(f).replace(/^"|"$/g, "");
-  const clause = clauses.find((c) => c.fields?.length === 1 && unquoted(c.fields[0]) === field && c.value != null);
+  const clause = clauses.find((c) => clauseField(c) === field && c.value != null);
   // The chip names the field already: it shows the clause's value alone.
   return clause ? clauseParts(clause).value : null;
 }
@@ -191,42 +172,5 @@ function Timeline({ table, field }: { table: TableExpr; field: string }) {
       <ChartAxisX label={null} ticks={5} />
       <ChartAxisY anchor={null} label={null} />
     </ChartRoot>
-  );
-}
-
-function Readout({
-  table,
-  rowNoun,
-  clauses,
-  children,
-}: {
-  table: TableExpr;
-  rowNoun: string;
-  clauses: readonly SelectionClause[];
-  children?: ReactNode;
-}) {
-  const { reset } = useMosaic();
-  const key = chartTableKey(table);
-  const shown = useChartQuery({ deps: [key], query: (filter) => Query.from(table).select({ n: count() }).where(filter) });
-  const all = useChartQuery({ deps: [key], filterBy: null, query: () => Query.from(table).select({ n: count() }) });
-  const rows = Number(shown.row?.n ?? 0);
-  const total = Number(all.row?.n ?? 0);
-
-  return (
-    <div className="ms-auto flex items-center gap-1">
-      <span className="px-1 text-muted-foreground text-xs tabular-nums">
-        {all.rows === null
-          ? "Counting…"
-          : rows === total
-            ? `${total.toLocaleString()} ${rowNoun}`
-            : `${rows.toLocaleString()} of ${total.toLocaleString()} ${rowNoun}`}
-      </span>
-      {clauses.length > 0 ? (
-        <Button onClick={() => reset()} size="sm" variant="ghost">
-          Clear
-        </Button>
-      ) : null}
-      {children}
-    </div>
   );
 }

@@ -10,7 +10,7 @@ import {
   ChartRectY,
   ChartRoot,
   ChartToggleX,
-  FilterChips,
+  FilterBar,
   bin,
   count,
   useClauses,
@@ -47,7 +47,7 @@ function Panel() {
         <Show when={clauses.length === 0}>
           <p className="text-muted-foreground text-xs">Nothing filtered yet — brush a chart or click a region.</p>
         </Show>
-        <FilterChips className="gap-1.5" selection={selected} />
+        <FilterBar className="flex-1 gap-1.5" />
       </div>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
