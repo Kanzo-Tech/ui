@@ -148,31 +148,28 @@ export function TileEditor({ fields, tile: draft, onChange: setDraft, anchor, ti
             />
           </Field>
 
-          <div className="grid grid-cols-[1fr_auto] items-end gap-2">
-            {/* A figure has no width: the band shares its row among the figures. */}
-            {inBand(draft) ? (
-              <span />
-            ) : (
-              <Field className="gap-1">
-                <FieldLabel className="text-xs">Width</FieldLabel>
-                <SegmentGroup
-                  onValueChange={(d) => d.value && setDraft({ ...draft, span: Number(d.value) as TileSpan })}
-                  options={WIDTHS}
-                  size="sm"
-                  value={String(draft.span)}
-                  variant="solid"
-                />
-              </Field>
-            )}
-            {places > 1 ? (
-              <Pick
-                label="Position"
-                onChange={(value) => setPlaced({ band: inBand(draft), position: Number(value) })}
-                options={Array.from({ length: places }, (_, i) => ({ value: String(i), label: String(i + 1) }))}
-                value={String(position)}
+          {/* A figure has no width: the band shares its row among the figures. Width takes the panel's
+              whole row, so "Two thirds" never wraps inside its segment. */}
+          {inBand(draft) ? null : (
+            <Field className="gap-1">
+              <FieldLabel className="text-xs">Width</FieldLabel>
+              <SegmentGroup
+                onValueChange={(d) => d.value && setDraft({ ...draft, span: Number(d.value) as TileSpan })}
+                options={WIDTHS}
+                size="sm"
+                value={String(draft.span)}
+                variant="solid"
               />
-            ) : null}
-          </div>
+            </Field>
+          )}
+          {places > 1 ? (
+            <Pick
+              label="Position"
+              onChange={(value) => setPlaced({ band: inBand(draft), position: Number(value) })}
+              options={Array.from({ length: places }, (_, i) => ({ value: String(i), label: String(i + 1) }))}
+              value={String(position)}
+            />
+          ) : null}
         </CardContent>
         <CardFooter className="justify-end py-3">
           {onRemove && !adding ? (
