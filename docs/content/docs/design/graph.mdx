@@ -7,10 +7,10 @@ description: How @kanzo-tech/graph is built — one Mosaic client on the page's 
 why.
 
 <Callout type="info">
-The contract is a catalog. fossil's `open(name, { engine, host | url })` (`@fossil-lang/corpus`
-`0.3.0-alpha.24` or later) attaches a `fossil/1` corpus to the page's DuckDB as the catalog `name`:
-a view per table, `"<name>".fossil_tables(table_name, kind, rows, first_id, source, destination, …)`
-and `"<name>".fossil_columns(table_name, column_name, ordinal, type, role, …)`. A vertex table holds
+The contract is a catalog. fossil's `attach(name, { engine, host | url })` (`@fossil-lang/corpus`)
+attaches a `fossil/1` corpus to the page's DuckDB as the catalog `name`: a view per table,
+`"<name>".fossil_tables(table_name, kind, record_count, first_id, source, destination, …)` and
+`"<name>".fossil_columns(table_name, column_name, ordinal_position, data_type, role, …)`. A vertex table holds
 `dense_id` — global, contiguous per table from `first_id` — its identity column and the program's
 columns; an edge table holds `src` and `dst`, both `dense_id`s. The corpus carries no position.
 </Callout>
@@ -35,7 +35,7 @@ literals. It imports nothing of fossil's.
 ```text
 host                                                    @kanzo-tech/graph
 engine() → DuckDB-WASM + coordinator                    parts     GraphCanvas · GraphLegend · GraphStatus · GraphCounts · GraphToolbar · GraphInspector · GraphSearch
-open(name, { engine, url }) → "<name>".<Table>          adapter   useGraph · GraphRoot · GraphRootProvider · useGraphContext · useGraphState
+attach(name, { engine, url }) → "<name>".<Table>          adapter   useGraph · GraphRoot · GraphRootProvider · useGraphContext · useGraphState
            "<name>".fossil_tables · fossil_columns      render    typed arrays → cosmos.gl, uploaded once per corpus
 <GraphRoot from={name} coordinator filterBy>            core      source: SQL through the coordinator · client · load · store
 ```
@@ -182,7 +182,7 @@ publishes nothing back for it".
 fossil cites this decision by its number, so the label stays.
 
 **The canvas holds the whole graph.** The links — one statement per relation — and the bound
-columns of every vertex table are read into arrays sized from `fossil_tables`' `rows` and uploaded to
+columns of every vertex table are read into arrays sized from `fossil_tables`' `record_count` and uploaded to
 cosmos.gl once. **Detail is fetched, not carried**: a focused row, a label's text, a hover card and a
 search are statements of their own, read when needed. **Identity is an id, and the id is the
 index**: a vertex table is the contiguous range `first_id … first_id + rows − 1`, so its answer in
@@ -453,15 +453,15 @@ graph loads".
 
 ## Attaching is the host's
 
-**Where the corpus is and what signs it are the host's**, and so are attaching and detaching: `open`
-answers the `close` that gives the catalog back. The graph is handed a name and the page's one
+**Where the corpus is and what signs it are the host's**, and so are attaching and detaching: `attach`
+answers the attachment whose `detach()` gives the catalog back. The graph is handed a name and the page's one
 coordinator — one per page, because `MosaicProvider` makes its coordinator vgplot's active one and
 that setter is process-wide. [Discovery workspace](/docs/graph/workspace) is the wiring, and
 [the workspace showcase](/docs/showcases/workspace) the reference composition: what it writes is the
 product's — the pairings of look and channels, the hall's name in the inspector, the panels — and
 nothing in it reads a renderer or a buffer.
 
-**The graph bounds the one wait it owns.** The waits inside `open` are fossil's, and the host awaits
+**The graph bounds the one wait it owns.** The waits inside `attach` are fossil's, and the host awaits
 them before it names the catalog; the reads after that have no deadline. cosmos.gl's `ready` never
 settles when no device can be made, so after 10 s the root fails with `graph/no-webgl` and
 `data.after`.

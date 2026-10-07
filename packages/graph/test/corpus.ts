@@ -77,14 +77,14 @@ CREATE VIEW ${c}.fossil_tables AS SELECT * FROM (VALUES
   ('Person_livesIn_Place', 'edge', 'https://example.org/livesIn', 10::UBIGINT, NULL, 'Person', 'Place'),
   ('Person_tagged_Tag', 'edge', 'https://example.org/tagged', 1::UBIGINT, NULL, 'Person', 'Tag'),
   ('Person_nickname', 'property', NULL, ${n}::UBIGINT, NULL, 'Person', NULL)
-) t(table_name, kind, iri, rows, first_id, source, destination);
+) t(table_name, kind, iri, record_count, first_id, source, destination);
 CREATE VIEW ${c}.fossil_columns AS
-  SELECT table_name, column_name, column_index AS ordinal,
+  SELECT table_name, column_name, column_index AS ordinal_position,
     CASE data_type WHEN 'DOUBLE' THEN 'double' WHEN 'INTEGER' THEN 'int32' WHEN 'UBIGINT' THEN 'uint64'
-                   WHEN 'VARCHAR' THEN 'string' END AS type,
+                   WHEN 'VARCHAR' THEN 'string' END AS data_type,
     CASE WHEN column_name = 'dense_id' THEN 'address' WHEN column_name = 'subject' THEN 'identity'
          WHEN column_name IN ('src', 'dst') THEN 'endpoint' END AS role,
-    NULL AS iri, is_nullable AS nullable
+    NULL AS iri, is_nullable
   FROM duckdb_columns() WHERE database_name = '${c}';
 `;
 

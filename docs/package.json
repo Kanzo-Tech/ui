@@ -18,7 +18,7 @@
     "measure:previews": "node scripts/measure-previews.mjs",
     "check:previews": "node scripts/measure-previews.mjs --check"
   },
-  "//fossil": "`@fossil-lang/corpus` is the docs' own dependency, not the graph's: the pages attach each corpus with its `open` on the page's `engine()` and name the catalog to `GraphRoot`. `@fossil-lang/executor` is the writer, a dev dependency: `corpus` and the benchmark's `build-corpus.mjs` run it in Node, and nothing on a page imports it.",
+  "//fossil": "`@fossil-lang/corpus` is the docs' own dependency, not the graph's: the pages attach each corpus with its `attach` on the page's `engine()` and name the catalog to `GraphRoot`. `@fossil-lang/executor` is the writer, a dev dependency: `corpus` and the benchmark's `build-corpus.mjs` run it in Node, and nothing on a page imports it.",
   "dependencies": {
     "@ai-sdk/react": "^4.0.129",
     "@anthropic-ai/sdk": "^0.117.1",

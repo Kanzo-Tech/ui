@@ -2,7 +2,7 @@
 
 import { engine, type Coordinator } from "@kanzo-tech/ui/analytics";
 import { useEffect, useState } from "react";
-import { open } from "@fossil-lang/corpus";
+import { attach } from "@fossil-lang/corpus";
 
 export { ARCHIVE_KINDS } from "@/example/archive";
 
@@ -31,7 +31,7 @@ export function useArchive(onFailure: (error: unknown) => void): { from: string 
     if (!attaching) {
       const started = engine().then(async (e) => {
         // Origin-qualified: DuckDB-WASM resolves a root-relative path in its own filesystem.
-        await open(FROM, { engine: e, url: `${window.location.origin}${ARCHIVE}` });
+        await attach(FROM, { engine: e, url: `${window.location.origin}${ARCHIVE}` });
         return e.coordinator;
       });
       attaching = started;

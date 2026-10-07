@@ -188,7 +188,7 @@ part of the name, not a path. A relation anywhere else is a **mosaic-sql node**,
 the SQL as written: `asTableRef(["guild", "sightings"])` for a path you hold in parts, `verbatim(sql)`
 for a name a backend hands you already quoted.
 
-A fossil corpus is the second case. `open(name, …)` attaches every table as a view in the catalog
+A fossil corpus is the second case. `attach(name, …)` attaches every table as a view in the catalog
 `name`, so a vertex type is `"<name>"."Sighting"`, catalog and all; the bare type name is nothing in
 the default catalog:
 
@@ -208,7 +208,7 @@ function SightingsByRegion({ relation }: { relation: string }) {
   );
 }
 
-// after open("archive", { engine, url }): relation is '"archive"."Sighting"'
+// after attach("archive", { engine, url }): relation is '"archive"."Sighting"'
 ```
 
 A node is keyed by its SQL, not by its identity, so writing `verbatim(relation)` inline does not

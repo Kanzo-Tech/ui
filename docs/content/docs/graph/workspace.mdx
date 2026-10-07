@@ -15,7 +15,7 @@ Every piece is a library part; what the host writes is the arrangement and its o
 
 ```text
 engine()                                           the page's one DuckDB and its coordinator
-open("archive", { engine, url })                   the corpus, attached as a catalog
+attach("archive", { engine, url })                 the corpus, attached as a catalog
 KanzoThemeProvider sections={[GRAPH_SECTION]}
 └── MosaicProvider coordinator crossfilter         the page's one crossfilter
     └── GraphRoot from coordinator filterBy …      one root, one Mosaic client
@@ -58,18 +58,18 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
 ### Attach the corpus, once, to the page's coordinator
 
-`engine()` is the page's DuckDB-WASM and its coordinator, memoised per document. fossil's `open`
+`engine()` is the page's DuckDB-WASM and its coordinator, memoised per document. fossil's `attach`
 attaches the corpus to it under a name: a view per table — `"archive"."Sighting"` — and the
 manifest as `"archive".fossil_tables` and `"archive".fossil_columns`. Attach once and keep the
-`close` it answers for when the page lets the corpus go.
+attachment it answers, whose `detach()` lets the corpus go.
 
 ```tsx
-import { open } from "@fossil-lang/corpus";
+import { attach } from "@fossil-lang/corpus";
 import { engine, MosaicProvider, Selection } from "@kanzo-tech/ui/analytics";
 
 const e = await engine();
 const crossfilter = Selection.crossfilter();
-const close = await open("archive", { engine: e, url }); // a job: open(id, { engine: e, host })
+const archive = await attach("archive", { engine: e, url }); // a job: attach(id, { engine: e, host })
 
 <MosaicProvider coordinator={e.coordinator} crossfilter={crossfilter}>
   <Workspace />

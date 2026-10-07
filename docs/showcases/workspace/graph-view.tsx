@@ -111,7 +111,7 @@ import {
   ruleFrom,
   toOrders,
 } from "./order-builder";
-import { open } from "@fossil-lang/corpus";
+import { attach } from "@fossil-lang/corpus";
 import { ARCHIVE_KINDS as KINDS } from "@/example/archive";
 import { HALLS, isoDay } from "@/example/world";
 import { ensure } from "./duck";
@@ -158,8 +158,8 @@ export interface Archive {
 function openArchive(): Promise<Archive> {
   return ensure(CORPUS, async (engine) => {
     // Origin-qualified: DuckDB-WASM resolves a root-relative path in its own filesystem. The page
-    // holds the catalog for its life, so the `close` that `open` answers is not kept.
-    await open(FROM, { engine, url: `${window.location.origin}${CORPUS}` });
+    // holds the catalog for its life, so the attachment `attach` answers is not kept.
+    await attach(FROM, { engine, url: `${window.location.origin}${CORPUS}` });
     return {
       coordinator: engine.coordinator,
       crossfilter: MosaicSelection.crossfilter(),

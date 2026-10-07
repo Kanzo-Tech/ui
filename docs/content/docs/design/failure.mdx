@@ -48,7 +48,7 @@ list is short because every row is a different thing to show.
 The figures are fossil's table, and move there with the measurement beside them. Two are this
 library's own: DuckDB's boot, 60 s, and cosmos.gl's device, 10 s — the second is not in fossil's
 table yet. Work inside the process — a query, a layout — has a signal and no deadline, and so does
-fossil's `open`, which the host awaits before it names the catalog: the network waits inside it are
+fossil's `attach`, which the host awaits before it names the catalog: the network waits inside it are
 fossil's to bound.
 
 **What would reverse it:** a device that legitimately takes longer than 10 s to come up, measured.

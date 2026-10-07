@@ -17,13 +17,14 @@ DuckDB-WASM engine and its crossfilter, cosmos.gl draws, and the parts are built
 ## The one path
 
 ```tsx
-import { open } from "@fossil-lang/corpus";
+import { attach } from "@fossil-lang/corpus";
 import { engine } from "@kanzo-tech/mosaic";
 import { GraphCanvas, GraphCounts, GraphInspector, GraphLegend, GraphRoot, GraphStatus, GraphToolbar } from "@kanzo-tech/graph";
 
-const corpus = engine().then((e) => open(url, { engine: e }));
+const e = await engine();
+await attach("archive", { engine: e, url }); // views "archive"."<Table>", fossil_tables, fossil_columns
 
-<GraphRoot corpus={corpus} r="degree" filterBy={crossfilter} onFailure={setFailure}>
+<GraphRoot from="archive" coordinator={e.coordinator} r="degree" filterBy={crossfilter} onFailure={setFailure}>
   <GraphCanvas>
     <GraphToolbar />
     <GraphLegend />
