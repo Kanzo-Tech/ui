@@ -12,8 +12,8 @@ import {
   type Selection,
 } from "@kanzo-tech/mosaic";
 import { GraphError } from "./error";
-import { relation, type Answer } from "./source";
-import { type Structure, type VertexTable } from "./structure";
+import { answers, clausesOf, relation, type Answer } from "./source";
+import { type Structure } from "./structure";
 
 /**
  * **The graph as a client of the page's coordinator** — one Mosaic client, like every chart beside
@@ -67,16 +67,12 @@ export class GraphClient extends MosaicClient {
    * never be read as each other's.
    */
   override query(filter?: FilterExpr | null): Query {
-    const clauses = (Array.isArray(filter) ? filter : [filter]).filter((c) => c !== undefined && c !== null);
+    const clauses = clausesOf(filter);
     const structure = this.#structure();
     if (!structure || clauses.length === 0) return UNFILTERED;
-    // The clause rule, `clauseColumns`: a table answers a clause when it has every column the clause
-    // names on it — a semi-join on the key names that alone, so every table answers it. A table
-    // that cannot answer a clause is not filtered by it, what a `WHERE` over a union of the tables
-    // would do; a clause no table can answer is refused rather than ignored, so the unfiltered
-    // picture is never drawn as the filtered one.
-    const answers = (table: VertexTable, clause: (typeof clauses)[number]) =>
-      clauseColumns(clause).every((c) => table.columns.has(c));
+    // The clause rule, `answers`. A table that cannot answer a clause is not filtered by it, what a
+    // `WHERE` over a union of the tables would do; a clause no table can answer is refused rather
+    // than ignored, so the unfiltered picture is never drawn as the filtered one.
     const lost = clauses.find((clause) => !structure.vertices.some((t) => answers(t, clause)));
     if (lost !== undefined) {
       this.#fail(new GraphError("graph/unfilterable", `no vertex type has every column this clause names: ${clauseColumns(lost).join(", ")}`));

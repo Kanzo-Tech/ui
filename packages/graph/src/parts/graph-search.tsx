@@ -93,7 +93,8 @@ const TYPES = "\0types";
  * reveals the highlighted one — the canvas frames it and selects it with its neighbours — closes the
  * palette and puts it at the head of the recents. **⌘Enter** adds every match to the subset: the
  * search's own clause (`usePick("search")`), which a new search replaces and every other pick
- * intersects. The footer says how many matched and how many of them the list shows.
+ * intersects. **It searches the subset** — every clause on the page but its own — and the footer
+ * says how many matched, how many of them the list shows, and how many more the subset leaves out.
  *
  * A read that fails is handed to `onFailure` whole and the input says so.
  *
@@ -103,6 +104,7 @@ const TYPES = "\0types";
 export function GraphSearch({ className, limit = 50, placeholder = "Find a node…", size = "sm" }: GraphSearchProps) {
   const api = useGraphContext();
   const search = usePick("search");
+  const { predicate } = search;
   const structure = useGraphState((s) => s.structure);
   const options = useGraphState((s) => s.options);
   const encoding = useGraphSnapshot((s) => s.encoding);
@@ -138,7 +140,7 @@ export function GraphSearch({ className, limit = 50, placeholder = "Find a node�
     let current = true;
     const query = parseQuery(input, structure);
     const timer = setTimeout(() => {
-      searchVertices(coordinator, structure, { query, title, limit }).then(
+      searchVertices(coordinator, structure, { query, title, limit, subset: predicate() }).then(
         (found) => current && setAnswered({ input, query, found }),
         (error: unknown) => {
           if (!current) return;
@@ -151,7 +153,7 @@ export function GraphSearch({ className, limit = 50, placeholder = "Find a node�
       current = false;
       clearTimeout(timer);
     };
-  }, [api, structure, coordinator, input, title, limit]);
+  }, [api, predicate, structure, coordinator, input, title, limit]);
 
   const typed = input !== "";
   const result = answered !== null && answered.input === input ? answered : null;
@@ -201,7 +203,7 @@ export function GraphSearch({ className, limit = 50, placeholder = "Find a node�
   const addAll = async () => {
     if (!structure || !coordinator || !result) return;
     try {
-      search.pick(await matchingIds(coordinator, structure, result.query, title), `“${result.input}”`);
+      search.pick(await matchingIds(coordinator, structure, result.query, { title, subset: predicate() }), `“${result.input}”`);
       setOpen(false);
     } catch (error) {
       api.getState().options.onFailure(error);
@@ -300,13 +302,14 @@ export function GraphSearch({ className, limit = 50, placeholder = "Find a node�
                     {found.total > limit
                       ? `First ${limit} of ${found.total.toLocaleString()} — keep typing to narrow it`
                       : `${found.total.toLocaleString()} ${found.total === 1 ? "match" : "matches"}`}
+                    {found.outside > 0 ? ` · ${found.outside.toLocaleString()} more outside the subset` : ""}
                   </span>
                   <span className="flex shrink-0 items-center gap-1">
                     <span className="flex items-center gap-1 px-2">
                       Go to <Kbd>↵</Kbd>
                     </span>
                     <Button onClick={() => void addAll()} size="sm" variant="ghost">
-                      Add to the subset
+                      Add {found.total.toLocaleString()} to the subset
                       <KbdGroup>
                         <Kbd>⌘</Kbd>
                         <Kbd>↵</Kbd>
@@ -314,6 +317,10 @@ export function GraphSearch({ className, limit = 50, placeholder = "Find a node�
                     </Button>
                   </span>
                 </>
+              ) : found && found.outside > 0 ? (
+                <span className="min-w-0 truncate tabular-nums">
+                  None in the subset · {found.outside.toLocaleString()} outside it
+                </span>
               ) : (
                 <span className="min-w-0 truncate">
                   Narrow with <Kbd>type:Name</Kbd> or <Kbd>column:value</Kbd>, then Space.

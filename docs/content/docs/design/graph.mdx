@@ -88,6 +88,16 @@ host's `GraphSelect` and the search's *Select all* went through the canvas's own
 `"external"` selection: every pick replaced the last, so a rule's findings and a lasso could not
 narrow each other, and a pick from beside the canvas was exempt from the graph it was meant to grey.
 
+**A place reads the subset without its own clause.** `usePick(id).predicate()` is
+`Selection.predicate(client)` for that place's source, so a search lists matches inside what every
+other clause keeps and a rule validates there, and neither is narrowed by what it picked itself —
+Mosaic's cross-filtering, where a brush never filters its own chart. A source is therefore a
+`MosaicClient` that is never connected: Mosaic exempts a clause by its `clients`, which a semi-join
+fills from its source when that source is a client. The search counts the matches outside the subset
+rather than hiding them, so a name that exists is never reported missing. *What would reverse it:* a
+reader who expects a search to look past the page's filters — then it reads `predicate(null)` and the
+footer counts what is inside instead.
+
 **The key is read, not written down.** Every clause the graph publishes, and every read of a vertex,
 names the column the manifest gives the `address` role — fossil's `dense_id` — and a corpus that
 gives no vertex column that role is `graph/nothing-to-draw`. The graph wrote `dense_id` as a constant,

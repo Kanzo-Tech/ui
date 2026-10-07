@@ -366,7 +366,7 @@ describe("GraphSearch", () => {
     expect(corpus.sent.filter((sql) => sql.includes("ILIKE"))).toHaveLength(1);
     expect(details()).toEqual(["0", "1", "2"]);
     expect(screen.getByText("First 3 of 10 — keep typing to narrow it")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Add to the subset/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /to the subset/ })).toBeTruthy();
   });
 
   it("offers, empty, every vertex type with its count, and picking one makes it a chip", async () => {
@@ -396,6 +396,11 @@ describe("GraphSearch", () => {
     expect(details()[0]).toBe("Places");
     const again = screen.getByRole("combobox") as HTMLInputElement;
     await act(async () => again.focus());
+    // Going to a vertex picks it with its neighbours, and the next search asks within that pick.
+    await type(again, "tag/2");
+    await waitFor(() => expect(screen.getByText("None in the subset · 1 outside it")).toBeTruthy());
+    await act(async () => held.api?.clear());
+    await type(again, "tag/");
     await type(again, "tag/2");
     await waitFor(() => expect(options()).toEqual(["https://example.org/tag/2"]));
   });
@@ -434,7 +439,7 @@ describe("GraphSearch", () => {
     const { held, input } = await searching();
     const searched = () => internalsOf(held.api!).store.scope().clauses.filter((c) => c.source === internalsOf(held.api!).store.source("search"));
     await type(input, "type:Person");
-    fireEvent.click(await screen.findByRole("button", { name: /Add to the subset/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /to the subset/ }));
     await waitFor(() => expect(searched().map((c) => (c.value as number[]).length)).toEqual([10]));
     expect(searched()[0]?.meta).toMatchObject({ label: "“type:Person”" });
     expect(held.api?.getState().selection).toBeNull();
@@ -589,6 +594,15 @@ describe("usePick", () => {
     await act(async () => places.ask!.pick([2, 3, 4], "Who posts the most?"));
     act(() => internalsOf(held.api!).store.select([3, 9], "lasso", "Lasso"));
     await waitFor(() => expect(filterBy.clauses.map((c) => (c.meta as { label?: string }).label)).toEqual(["Missing email", "Who posts the most?", "Lasso"]));
+  });
+
+  it("reads the subset as every clause but its own", async () => {
+    const { places, filterBy } = await picking(["rules", "ask"]);
+    await act(async () => places.rules!.pick([1, 2, 3], "Missing email"));
+    await act(async () => places.ask!.pick([2, 3, 4], "Who posts the most?"));
+    await waitFor(() => expect(filterBy.clauses).toHaveLength(2));
+    expect(places.rules!.predicate().map(String)).toEqual([`("dense_id" IN (2, 3, 4))`]);
+    expect(places.ask!.predicate().map(String)).toEqual([`("dense_id" IN (1, 2, 3))`]);
   });
 
   it("is still the publisher of its clause after its holder mounts again, so picking replaces it", async () => {

@@ -45,6 +45,7 @@ export {
  * already a column wherever these take one.
  */
 export {
+  and,
   asTableRef,
   cast,
   count,
@@ -53,7 +54,9 @@ export {
   isIn,
   length,
   literal,
+  not,
   sql,
+  sum,
   type ExprNode,
 } from "@uwdata/mosaic-sql";
 

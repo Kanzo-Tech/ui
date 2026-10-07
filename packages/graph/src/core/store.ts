@@ -1,4 +1,4 @@
-import { Selection as Crossfilter, type ClauseSource, type Coordinator } from "@kanzo-tech/mosaic";
+import { MosaicClient, Selection as Crossfilter, type Coordinator } from "@kanzo-tech/mosaic";
 import { domainOf } from "./categories";
 import { bindingOf } from "./channels";
 import { GraphClient, publish } from "./client";
@@ -6,7 +6,7 @@ import { GraphError } from "./error";
 import { loadEncoding, loadGeometry, type Encoding, type Geometry } from "./load";
 import { readStructure } from "./source";
 import { type Structure } from "./structure";
-import type { Arrangement, Drawn, GraphOptions, GraphSnapshot, DataStatus, GraphStore } from "./state";
+import type { Arrangement, Drawn, GraphOptions, GraphSnapshot, DataStatus, GraphStore, PickSource } from "./state";
 
 export type { Arrangement, Drawn, GraphOptions, GraphSnapshot, GraphState, DataStatus, GraphStore, View } from "./state";
 
@@ -74,8 +74,8 @@ export function createGraph(initial: GraphOptions): GraphStore {
   /** The root's own crossfilter, for a graph no page hands one to. */
   const own = Crossfilter.crossfilter();
   const scope = () => options.filterBy ?? own;
-  /** Every source a `usePick` picks from, by its name. Never a clause's owner: a holder's reset is a no-op. */
-  const sources = new Map<string, ClauseSource>();
+  /** Every place a `usePick` picks from, by name: an unconnected client its clause names in `clients`, so the place reads the subset without its own pick. */
+  const sources = new Map<string, PickSource>();
 
   // A failure found while the store is being built is found while React is still rendering —
   // `useGraph` builds it in `useState` — and a host's `onFailure` is usually a `setState`. It is held
@@ -345,7 +345,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     scope,
     source(id) {
       let found = sources.get(id);
-      if (!found) sources.set(id, (found = { reset() {} }));
+      if (!found) sources.set(id, (found = Object.assign(new MosaicClient(), { reset() {} })));
       return found;
     },
     focus(vertex) {
