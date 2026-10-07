@@ -205,8 +205,15 @@ export type SectionPrefDecl =
    * The bounds are the section's own claim about what it will honour, so a stored value outside them
    * is declined the same way a retired option is: a slider that used to run to 5 and now stops at 3
    * must not paint 5 because storage remembers it.
+   *
+   * `ends` names what the minimum and the maximum mean — "Links decide", "Tight groups" — where a
+   * number alone says nothing a reader can act on. A surface draws them as the slider's own markers
+   * (Ark's `Slider.Marker`), which `@kanzo-tech/ui`'s `Slider` places on the whole numbers from 0 to
+   * `max`: so a range that names its ends runs 0 to 1, the shape of a mix. **What would reverse
+   * it:** a range with other bounds that wants its ends named, which asks the slider for a marker
+   * at any value rather than at its whole numbers.
    */
-  | (PrefCommon & { kind: "range"; min: number; max: number; step: number });
+  | (PrefCommon & { kind: "range"; min: number; max: number; step: number; ends?: readonly [string, string] });
 
 /** Read a `toggle`'s value. Anything that is not exactly `"true"` is off. */
 export const prefBoolean = (value: string): boolean => value === "true";

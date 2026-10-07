@@ -19,7 +19,7 @@ type PrefCommon_ = {
 type SectionPrefDecl_ =
   | (PrefCommon_ & { kind: "choice"; options: readonly { value: string; label: string }[] | { from: string } })
   | (PrefCommon_ & { kind: "toggle" })
-  | (PrefCommon_ & { kind: "range"; min: number; max: number; step: number });
+  | (PrefCommon_ & { kind: "range"; min: number; max: number; step: number; ends?: readonly [string, string] });
 
 interface SectionManifest {
   namespace: string;
@@ -93,6 +93,19 @@ export const GRAPH_SECTION = {
         { value: "legible", label: "Legible" },
       ],
     },
+    labels: {
+      kind: "choice",
+      label: "Labels",
+      default: "top",
+      doc: "Which points carry their title, each level adding to the last: the hovered and focused point; the 150 biggest; the 100 biggest in view; every point in view. In view is cosmos.gl's sample, one point per 100 px square, so no level labels more than the screen holds, whatever the graph's size. A label that would overlap a bigger point's is dropped.",
+      options: [
+        { value: "none", label: "None" },
+        { value: "hovered", label: "Hovered" },
+        { value: "top", label: "Top" },
+        { value: "visible", label: "Visible" },
+        { value: "all", label: "All" },
+      ],
+    },
     edges: {
       kind: "choice",
       label: "Edges",
@@ -112,19 +125,6 @@ export const GRAPH_SECTION = {
       default: "false",
       doc: "Links add where they overlap instead of compositing over one another. Additive light is what makes a dense graph read as flow — and what made 4,280 links at 0.45 swallow 1,543 points on the archive.",
       when: { pref: "edges", neq: "hidden" },
-    },
-    labels: {
-      kind: "choice",
-      label: "Labels",
-      default: "top",
-      doc: "Which points carry their title, each level adding to the last: the hovered and focused point; the 150 biggest; the 100 biggest in view; every point in view. In view is cosmos.gl's sample, one point per 100 px square, so no level labels more than the screen holds, whatever the graph's size. A label that would overlap a bigger point's is dropped.",
-      options: [
-        { value: "none", label: "None" },
-        { value: "hovered", label: "Hovered" },
-        { value: "top", label: "Top" },
-        { value: "visible", label: "Visible" },
-        { value: "all", label: "All" },
-      ],
     },
     vignette: {
       kind: "toggle",
@@ -163,7 +163,7 @@ export const GRAPH_SECTION = {
     },
     "x-by": {
       kind: "choice",
-      label: "x",
+      label: "X axis",
       default: "",
       doc: "The numeric column the points are placed across by. With only one of the two chosen, the layout runs.",
       options: { from: "numeric-columns" },
@@ -171,7 +171,7 @@ export const GRAPH_SECTION = {
     },
     "y-by": {
       kind: "choice",
-      label: "y",
+      label: "Y axis",
       default: "",
       doc: "The numeric column the points are placed up by — latitude draws north up.",
       options: { from: "numeric-columns" },
@@ -179,7 +179,7 @@ export const GRAPH_SECTION = {
     },
     "cluster-by": {
       kind: "choice",
-      label: "Cluster by",
+      label: "Group by",
       default: "",
       doc: "The column whose shared values pull points together while the layout runs.",
       options: { from: "columns" },
@@ -200,6 +200,13 @@ export const GRAPH_SECTION = {
      * storage remembers it. These defaults are tuned for a few hundred nodes; a host with a large
      * corpus starts its users elsewhere through the tenant policy, rather than by writing values
      * into storage nobody can then reset.
+     *
+     * **They are offered under Force alone.** Clustered and a half-bound Map run the same layout, so
+     * the five still act there; what Clustered offers instead is its one coefficient, the pull, and
+     * a panel showing six sliders under a mode that names one was the noise the settings redesign
+     * removed. A stored value is kept either way (`when` decides what is drawn, never what
+     * resolves). **What would reverse it:** readers tuning the forces of a clustered layout, which
+     * puts `neq: "map"` here instead.
      */
     gravity: {
       kind: "range",
@@ -209,6 +216,7 @@ export const GRAPH_SECTION = {
       min: 0,
       max: 0.5,
       step: 0.01,
+      when: { pref: "placement", eq: "force" },
     },
     repulsion: {
       kind: "range",
@@ -218,6 +226,7 @@ export const GRAPH_SECTION = {
       min: 0,
       max: 2,
       step: 0.05,
+      when: { pref: "placement", eq: "force" },
     },
     "link-spring": {
       kind: "range",
@@ -227,6 +236,7 @@ export const GRAPH_SECTION = {
       min: 0,
       max: 2,
       step: 0.05,
+      when: { pref: "placement", eq: "force" },
     },
     "link-distance": {
       kind: "range",
@@ -236,6 +246,7 @@ export const GRAPH_SECTION = {
       min: 2,
       max: 60,
       step: 1,
+      when: { pref: "placement", eq: "force" },
     },
     friction: {
       kind: "range",
@@ -245,6 +256,7 @@ export const GRAPH_SECTION = {
       min: 0.5,
       max: 0.99,
       step: 0.01,
+      when: { pref: "placement", eq: "force" },
     },
     cluster: {
       kind: "range",
@@ -254,6 +266,7 @@ export const GRAPH_SECTION = {
       min: 0,
       max: 1,
       step: 0.05,
+      ends: ["Links decide", "Tight groups"],
       when: { pref: "placement", eq: "clustered" },
     },
   },

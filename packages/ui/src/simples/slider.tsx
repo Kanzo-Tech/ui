@@ -188,6 +188,11 @@ export const Slider = (props: SliderProps) => {
               className={cn(
                 "group/marker",
                 "flex w-0 flex-col items-center justify-center gap-2",
+                // The two ends hang inward rather than centring on their value, so a label wider
+                // than a tick — "Tight groups" — stays over the track instead of past its edge.
+                // A marker is zero wide, so the alignment alone is the direction: logical, and
+                // RTL flips with it.
+                "first:items-start last:items-end",
                 "data-[state=at-value]:text-foreground data-[state=under-value]:text-foreground"
               )}
               data-interval={index % markerInterval === 0 ? undefined : ""}
@@ -203,7 +208,7 @@ export const Slider = (props: SliderProps) => {
                 )}
               />
 
-              <span className={cn("group-data-interval/marker:opacity-0")}>
+              <span className={cn("whitespace-nowrap group-data-interval/marker:opacity-0")}>
                 {markerLabels?.[index] ?? index}
               </span>
             </ArkSlider.Marker>

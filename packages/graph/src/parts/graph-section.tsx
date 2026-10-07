@@ -69,6 +69,7 @@ function AxisPreview({ axis, value }: { axis: string; value: string }) {
 
 const SPECIMENS: Readonly<Record<string, PrefSpecimen>> = {
   marks: (option) => <AxisPreview axis="marks" value={option.value} />,
+  labels: (option) => <AxisPreview axis="labels" value={option.value} />,
   edges: (option) => <AxisPreview axis="edges" value={option.value} />,
   placement: (option) => <ModePreview mode={option.value as Mode} />,
 };
@@ -98,6 +99,20 @@ const EDGES = [
   [4, 6],
   [5, 6],
 ] as const;
+
+/**
+ * Which of the seven carry a title at each level — a bar, not text, because a label's words are the
+ * corpus's and its weight is what the level changes. Each level adds to the last, as `labels` in
+ * `section.ts` says: the hovered point (the middle one), then the biggest, then more of them, then
+ * every one.
+ */
+const LABELLED: Record<Look["labels"], readonly number[]> = {
+  none: [],
+  hovered: [3],
+  top: [3, 0, 6],
+  visible: [3, 0, 6, 4],
+  all: [0, 1, 2, 3, 4, 5, 6],
+};
 
 /** Screen pixels to the card's units, one factor for every look: Ink's larger floor is the look. */
 const SCALE = 0.55;
@@ -144,6 +159,18 @@ function LookPreview({ channels, className, look }: { channels: Channels; classN
           />
         );
       })}
+      {NODES.filter((_, i) => LABELLED[look.labels].includes(i)).map((node) => (
+        <rect
+          fill="var(--foreground)"
+          fillOpacity={0.7}
+          height={2}
+          key={`${node.x}-${node.y}`}
+          rx={1}
+          width={14}
+          x={node.x - 7}
+          y={node.y - radius(node.ramp) - 4}
+        />
+      ))}
       {look.vignette ? (
         <>
           <defs>

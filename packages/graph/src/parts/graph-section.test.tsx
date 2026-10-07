@@ -53,26 +53,45 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
+const FORCES = ["Gravity", "Repulsion", "Link spring", "Link distance", "Friction"];
+const sliders = () => [...document.querySelectorAll("[data-slot=slider-label]")].map((label) => label.textContent);
+
 const picture = (name: string) => screen.getByRole("radio", { name }).closest("[data-slot=radio-group-card]")?.querySelector("svg");
 
 describe("the graph's settings, as its section", () => {
-  it("starts at Force, with no column to choose and no cluster pull", async () => {
+  it("starts at Force, with its five forces, no column to choose and no cluster pull", async () => {
     const corpus = await attach();
     mount(corpus);
     await act(() => settle(corpus));
     expect((screen.getByRole("radio", { name: "Force" }) as HTMLInputElement).checked).toBe(true);
     expect(document.querySelector("[data-slot=select-trigger]")).toBeNull();
     expect(screen.queryByText("Cluster pull")).toBeNull();
+    expect(sliders()).toEqual(FORCES);
   });
 
-  it("draws a picture on every card a reader picks by looking: Marks, Edges and Placement", async () => {
+  it("offers the five forces under Force alone: Map has none, Clustered only its pull", async () => {
     const corpus = await attach();
     mount(corpus);
     await act(() => settle(corpus));
-    for (const name of ["Dense", "Legible", "Hidden", "Straight", "Curved", "Force", "Map", "Clustered"]) {
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("radio", { name: "Map" }));
+    expect(sliders()).toEqual([]);
+    await user.click(screen.getByRole("radio", { name: "Clustered" }));
+    expect(sliders()).toEqual(["Cluster pull"]);
+    const ends = [...document.querySelectorAll("[data-slot=slider-marker]")].map((m) => m.textContent);
+    expect(ends).toEqual(["Links decide", "Tight groups"]);
+  });
+
+  it("draws a picture on every card a reader picks by looking: Marks, Labels, Edges and Placement", async () => {
+    const corpus = await attach();
+    mount(corpus);
+    await act(() => settle(corpus));
+    for (const name of ["Dense", "Legible", "None", "Hovered", "Top", "Visible", "All", "Hidden", "Straight", "Curved", "Force", "Map", "Clustered"]) {
       expect(picture(name), name).toBeTruthy();
     }
-    expect(picture("Top"), "Labels has no picture: the preview draws no text").toBeFalsy();
+    // A label is a bar over its point, and each level adds to the last.
+    const bars = ["None", "Hovered", "Top", "Visible", "All"].map((name) => picture(name)?.querySelectorAll("rect").length);
+    expect(bars).toEqual([0, 1, 3, 4, 7]);
   });
 
   it("offers the corpus's numeric fields to the map, from the root that attached it", async () => {

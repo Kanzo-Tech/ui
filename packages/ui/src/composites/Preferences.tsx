@@ -22,7 +22,7 @@ import { useSectionContribution, type PrefSpecimen } from "../theme/section-cont
 import { cn } from "../lib/cn.js";
 import { useHotkey } from "../lib/use-hotkey.js";
 import { Button } from "../simples/button.js";
-import { Field, FieldLabel, FieldLegend, FieldSet } from "../simples/field.js";
+import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "../simples/field.js";
 import {
   Dialog,
   DialogClose,
@@ -438,21 +438,28 @@ function Pref({ name, copy }: PrefProps) {
     //
     // The control's role is `checkbox`, not `switch`: Ark renders a hidden `input type="checkbox"`
     // and does not set `role="switch"` on it. Upstream's call, adopted verbatim.
+    //
+    // The label sits beside the switch, as `/docs/forms/field` composes one: a name read with its
+    // state, not a heading over a group — which is also what lets two toggles share a row.
     return (
-      <PrefField label={title}>
+      <Field orientation="horizontal">
+        <FieldLabel>{title}</FieldLabel>
         <Switch checked={prefBoolean(value)} onCheckedChange={(d) => setValue(String(d.checked === true))} />
-      </PrefField>
+      </Field>
     );
   }
 
   if (decl.kind === "range") {
     // `SliderLabel` is the machine's own label part — zag points every thumb's `aria-labelledby` at
-    // it — so the visible label IS the name.
+    // it — so the visible label IS the name. Named ends are the slider's own markers, Ark's
+    // `Slider.Marker`, so they sit where the values are and say nothing to a screen reader twice.
     return (
       <Slider
+        markerLabels={decl.ends ? [...decl.ends] : undefined}
         max={decl.max}
         min={decl.min}
         onValueChange={(d) => setValue(String(d.value[0] ?? decl.min))}
+        showMarkers={decl.ends !== undefined}
         step={decl.step}
         value={[prefNumber(value, decl)]}
       >
@@ -507,7 +514,7 @@ function PrefSelect({
         onValueChange={(d) => onChange(d.value[0] ?? "")}
         value={value ? [value] : []}
       >
-        <SelectTrigger showClear>
+        <SelectTrigger className="w-full" showClear>
           <SelectValue placeholder="None" />
         </SelectTrigger>
         <SelectContent>
@@ -562,7 +569,16 @@ function PreferencesSections({ namespace, copy }: PreferencesSectionsProps = {})
       .filter(([name]) => !namespace || name === namespace)
       .flatMap(([name, prefs]) => Object.keys(prefs).map((key) => `${name}.${key}`)),
   ];
-  return names.map((name) => <Pref copy={copy} key={name} name={name as PrefName} />);
+  // Two columns, and a toggle is the one preference that takes one: a switch and its name are a
+  // short row, and two of them side by side read as the pair they usually are (Vignette · Dot grid).
+  // Everything else spans the row — its cards and its select want the width.
+  return (
+    <FieldGroup className="*:col-span-full *:has-data-[slot=switch]:col-span-1" columns={2}>
+      {names.map((name) => (
+        <Pref copy={copy} key={name} name={name as PrefName} />
+      ))}
+    </FieldGroup>
+  );
 }
 
 export interface PreferencesProps extends Omit<PreferencesRootProps, "children"> {
