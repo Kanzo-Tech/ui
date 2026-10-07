@@ -183,9 +183,10 @@ that becomes a table moves from the band to the grid".
 `TileEditor` is a panel docked beside the board, not modal: Grafana's panel options, Looker Studio's
 properties panel, Power BI's visualizations pane and Metabase's sidebar all edit a tile that way, and
 none of them covers the board or stops it scrolling. The tile's slot keeps its own view mounted and
-draws the draft in it, outlined, so a change is seen where the tile is. *Data* holds the kind — a row
-of cards like a chart's mark — and its fields; *Display* the title, the width as a `SegmentGroup` and
-the position, the split Grafana and Looker Studio make. A tile being added gets a slot of its own at
+draws the draft in it, outlined, so a change is seen where the tile is. The panel is one scrolling
+list in the order of Grafana's panel options — the kind as a row of cards like a chart's mark, its
+fields, then the title, the width as a `SegmentGroup` and the position — and it is a `Card`, the
+part the board already draws its tiles with, so the editor adds no layout parts to the bundle. A tile being added gets a slot of its own at
 the end of the grid, brought into view as the panel opens, and Cancel removes the slot again. The
 board is the container its grid reads, so it reflows to the room the panel leaves.
 

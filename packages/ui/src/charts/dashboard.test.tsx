@@ -57,11 +57,7 @@ function draw(props: { value?: DashboardSpec; onChange?: (spec: DashboardSpec | 
 
 const editor = () => screen.findByRole("complementary", { name: /tile$/ });
 const editorShut = () => expect(screen.queryByRole("complementary", { name: /tile$/ })).toBeNull();
-/** The title is on the editor's Display tab, as a panel's title is in Grafana's and Looker Studio's. */
-const title = async (user: ReturnType<typeof userEvent.setup>) => {
-  await user.click(within(await editor()).getByRole("tab", { name: "Display" }));
-  return within(await editor()).getByRole("textbox");
-};
+const title = async () => within(await editor()).getByRole("textbox");
 
 // jsdom lays nothing out, so it has no `scrollIntoView`; the editor calls it on the tile it opens on.
 const scrolled = vi.fn(function (this: Element) {
@@ -89,8 +85,8 @@ describe("the tile editor", () => {
     // The same element, not a new one drawn by the editor: a remounted view rebuilds its plot.
     expect(slot.isConnected).toBe(true);
 
-    await user.clear(await title(user));
-    await user.type(await title(user), "Seen");
+    await user.clear(await title());
+    await user.type(await title(), "Seen");
     expect(within(slot as HTMLElement).getByText("Seen")).toBeTruthy();
   });
 
@@ -100,18 +96,18 @@ describe("the tile editor", () => {
     draw({ value: SPEC, onChange });
 
     await user.click(await screen.findByRole("button", { name: "Edit figure" }));
-    await user.type(await title(user), " today");
+    await user.type(await title(), " today");
     await user.click(within(await editor()).getByRole("button", { name: "Cancel" }));
     await waitFor(editorShut);
 
     await user.click(await screen.findByRole("button", { name: "Edit figure" }));
-    await user.type(await title(user), " today");
+    await user.type(await title(), " today");
     await user.keyboard("{Escape}");
     await waitFor(editorShut);
     expect(onChange).not.toHaveBeenCalled();
 
     await user.click(await screen.findByRole("button", { name: "Edit figure" }));
-    await user.type(await title(user), " today");
+    await user.type(await title(), " today");
     await user.click(within(await editor()).getByRole("button", { name: "Save" }));
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange.mock.calls[0]![0].tiles[0]).toMatchObject({ id: "n", kind: "stat", title: "Sightings today" });

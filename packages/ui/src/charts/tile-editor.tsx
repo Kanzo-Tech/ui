@@ -3,14 +3,12 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Trash2Icon, XIcon } from "lucide-react";
 import { cn } from "../lib/cn.js";
-import { ShellAside } from "../layouts/shell.js";
-import { SectionActions, SectionBody, SectionDescription, SectionFooter, SectionHeader, SectionRoot, SectionTitle, SectionTitleGroup } from "../layouts/section.js";
 import { Button } from "../simples/button.js";
+import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../simples/card.js";
 import { Field, FieldLabel } from "../simples/field.js";
 import { Input } from "../simples/input.js";
 import { RadioGroup, RadioGroupCard, RadioGroupLabel } from "../simples/radio-group.js";
 import { SegmentGroup } from "../simples/segment-group.js";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../simples/tabs.js";
 import type { Tile, TileKind, TileSpan } from "./dashboard-spec.js";
 import type { FieldStat } from "./field-stats.js";
 import { Pick } from "./tile-controls.js";
@@ -50,7 +48,7 @@ export interface TileEditorProps {
  * Studio's properties and Power BI's visualizations pane edit a tile. It is not modal: the board
  * keeps scrolling and stays live, and the tile in the grid *is* the preview — the host draws the
  * draft in the tile's slot under the page's crossfilter, so it grows or shrinks as the width changes.
- * *Data* holds the kind and the fields it reads, *Display* the title, width and position. Adding and
+ * It lists the kind and the fields it reads, then the title, width and position. Adding and
  * editing are the same panel, and nothing reaches the dashboard until *Add* or *Save*; a new position
  * applies on save, so the tile does not move while it is edited.
  *
@@ -83,122 +81,114 @@ export function TileEditor({ fields, tile: draft, onChange: setDraft, anchor, ti
   const kinds = Object.keys(TILE_EDITORS) as TileKind[];
 
   return (
-    <ShellAside
+    // A card the board already draws its tiles with, as a complementary landmark beside them.
+    <Card
       aria-labelledby={titleId}
+      asChild
       className={cn(
         // Docked beside the board and kept in view while it scrolls. Where it docks is the host's.
-        "sticky top-0 z-5 max-h-svh w-88 rounded-box border bg-popover text-popover-foreground shadow-lg/5 outline-hidden",
+        "sticky top-0 z-5 max-h-svh w-88 shrink-0 gap-0 py-0 shadow-lg/5 outline-hidden [--space:--spacing(4)]",
         className,
       )}
       onKeyDown={(event) => {
         if (event.key === "Escape" && !event.defaultPrevented) onClose();
       }}
       ref={panel}
-      side="end"
       tabIndex={-1}
     >
-      <SectionRoot>
-        <SectionHeader bordered className="px-4 py-3">
-          <SectionTitleGroup>
-            <SectionTitle id={titleId} level={2}>
-              {adding ? "Add tile" : "Edit tile"}
-            </SectionTitle>
-            <SectionDescription>{TILE_EDITORS[draft.kind].hint}</SectionDescription>
-          </SectionTitleGroup>
-          <SectionActions>
+      <aside>
+        <CardHeader className="border-b py-3">
+          <CardTitle className="text-base" id={titleId}>
+            {adding ? "Add tile" : "Edit tile"}
+          </CardTitle>
+          <CardDescription>{TILE_EDITORS[draft.kind].hint}</CardDescription>
+          <CardAction>
             <Button aria-label="Close" onClick={onClose} size="icon-sm" variant="ghost">
               <XIcon />
             </Button>
-          </SectionActions>
-        </SectionHeader>
-        <Tabs className="min-h-0 flex-1" defaultValue="data">
-          <TabsList className="mx-4 mt-3" variant="underline">
-            <TabsTrigger value="data">Data</TabsTrigger>
-            <TabsTrigger value="display">Display</TabsTrigger>
-          </TabsList>
-          <SectionBody className="p-4">
-            <TabsContent className="flex flex-col gap-4" value="data">
-              {/* The same cards as a chart's mark: the kind is the first choice, and the biggest. */}
-              <RadioGroup
-                columns={3}
-                onValueChange={(d) => {
-                  const next = d.value ? changeKind(draft, d.value as TileKind, fields, others) : null;
-                  if (next) setDraft(next);
-                }}
-                value={draft.kind}
-              >
-                <RadioGroupLabel className="col-span-full text-xs">Kind</RadioGroupLabel>
-                {kinds.map((kind) => {
-                  const { label, icon: Icon } = TILE_EDITORS[kind];
-                  return (
-                    <RadioGroupCard
-                      className="items-center py-2"
-                      disabled={changeKind(draft, kind, fields, others) === null}
-                      key={kind}
-                      value={kind}
-                    >
-                      <Icon className="size-4" />
-                      <span className="text-xs">{label}</span>
-                    </RadioGroupCard>
-                  );
-                })}
-              </RadioGroup>
+          </CardAction>
+        </CardHeader>
+        {/* One scrolling list, data then display, the order of Grafana's panel options. */}
+        <CardContent className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto py-4">
+          {/* The same cards as a chart's mark: the kind is the first choice, and the biggest. */}
+          <RadioGroup
+            columns={3}
+            onValueChange={(d) => {
+              const next = d.value ? changeKind(draft, d.value as TileKind, fields, others) : null;
+              if (next) setDraft(next);
+            }}
+            value={draft.kind}
+          >
+            <RadioGroupLabel className="col-span-full text-xs">Kind</RadioGroupLabel>
+            {kinds.map((kind) => {
+              const { label, icon: Icon } = TILE_EDITORS[kind];
+              return (
+                <RadioGroupCard
+                  className="items-center py-2"
+                  disabled={changeKind(draft, kind, fields, others) === null}
+                  key={kind}
+                  value={kind}
+                >
+                  <Icon className="size-4" />
+                  <span className="text-xs">{label}</span>
+                </RadioGroupCard>
+              );
+            })}
+          </RadioGroup>
 
-              <TileFields fields={fields} onChange={setDraft} tile={draft} />
-            </TabsContent>
+          <TileFields fields={fields} onChange={setDraft} tile={draft} />
 
-            <TabsContent className="flex flex-col gap-4" value="display">
+          <Field className="gap-1 border-t pt-4">
+            <FieldLabel className="text-xs">Title</FieldLabel>
+            <Input
+              onChange={(event) => setDraft({ ...draft, title: event.target.value || undefined })}
+              placeholder={tileTitle({ ...draft, title: undefined })}
+              size="sm"
+              value={draft.title ?? ""}
+            />
+          </Field>
+
+          <div className="grid grid-cols-[1fr_auto] items-end gap-2">
+            {/* A figure has no width: the band shares its row among the figures. */}
+            {inBand(draft) ? (
+              <span />
+            ) : (
               <Field className="gap-1">
-                <FieldLabel className="text-xs">Title</FieldLabel>
-                <Input
-                  onChange={(event) => setDraft({ ...draft, title: event.target.value || undefined })}
-                  placeholder={tileTitle({ ...draft, title: undefined })}
+                <FieldLabel className="text-xs">Width</FieldLabel>
+                <SegmentGroup
+                  onValueChange={(d) => d.value && setDraft({ ...draft, span: Number(d.value) as TileSpan })}
+                  options={WIDTHS}
                   size="sm"
-                  value={draft.title ?? ""}
+                  value={String(draft.span)}
+                  variant="solid"
                 />
               </Field>
-
-              {/* A figure has no width: the band shares its row among the figures. */}
-              {inBand(draft) ? null : (
-                <Field className="gap-1">
-                  <FieldLabel className="text-xs">Width</FieldLabel>
-                  <SegmentGroup
-                    onValueChange={(d) => d.value && setDraft({ ...draft, span: Number(d.value) as TileSpan })}
-                    options={WIDTHS}
-                    size="sm"
-                    value={String(draft.span)}
-                    variant="solid"
-                  />
-                </Field>
-              )}
-              {places > 1 ? (
-                <Pick
-                  label="Position"
-                  onChange={(value) => setPlaced({ band: inBand(draft), position: Number(value) })}
-                  options={Array.from({ length: places }, (_, i) => ({ value: String(i), label: String(i + 1) }))}
-                  value={String(position)}
-                />
-              ) : null}
-            </TabsContent>
-          </SectionBody>
-        </Tabs>
-        <SectionFooter className="bg-transparent">
+            )}
+            {places > 1 ? (
+              <Pick
+                label="Position"
+                onChange={(value) => setPlaced({ band: inBand(draft), position: Number(value) })}
+                options={Array.from({ length: places }, (_, i) => ({ value: String(i), label: String(i + 1) }))}
+                value={String(position)}
+              />
+            ) : null}
+          </div>
+        </CardContent>
+        <CardFooter className="justify-end py-3">
           {onRemove && !adding ? (
-            <Button onClick={onRemove} size="sm" variant="ghost">
+            <Button className="me-auto" onClick={onRemove} size="sm" variant="ghost">
               <Trash2Icon />
               Remove
             </Button>
           ) : null}
-          <div className="ms-auto flex gap-2">
-            <Button onClick={onClose} size="sm" variant="ghost">
-              Cancel
-            </Button>
-            <Button onClick={() => onSave(draft, position)} size="sm">
-              {adding ? "Add" : "Save"}
-            </Button>
-          </div>
-        </SectionFooter>
-      </SectionRoot>
-    </ShellAside>
+          <Button onClick={onClose} size="sm" variant="ghost">
+            Cancel
+          </Button>
+          <Button onClick={() => onSave(draft, position)} size="sm">
+            {adding ? "Add" : "Save"}
+          </Button>
+        </CardFooter>
+      </aside>
+    </Card>
   );
 }
