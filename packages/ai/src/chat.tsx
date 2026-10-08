@@ -60,9 +60,8 @@ export interface ChatProps<M extends UIMessage> {
   /** What the panel says before the first question. */
   empty?: React.ReactNode;
   /**
-   * Questions to start from, while the conversation is empty — `suggest()`'s offers. Pressing one
-   * asks it. Passing it at all, even empty, holds the strip's row: a host whose suggesting failed
-   * passes `[]`, and the empty state stays where it was.
+   * Questions to start from, while the conversation is empty — `suggest()`'s offers, in a strip just
+   * above the composer. Pressing one asks it. Passing it at all, even empty, holds the strip's row.
    */
   suggestions?: readonly Proposal[];
   /**
@@ -70,6 +69,11 @@ export interface ChatProps<M extends UIMessage> {
    * skeleton beside the ones that arrived, as many as make up the strip.
    */
   suggesting?: boolean;
+  /**
+   * Words in place of the pills when there are none — suggesting failed, or found nothing — as
+   * `ProposalStrip` takes them. The host's to word: a failure as its `Problem`, with a retry.
+   */
+  notice?: React.ReactNode;
   /**
    * What the next question will be asked over, shown in the composer beside Send — the reader's
    * selection as a pill, the way Copilot Chat and Cursor show the context a prompt carries. Read-only:
@@ -91,7 +95,7 @@ export interface ChatProps<M extends UIMessage> {
  * text as markdown, `reasoning` folded away, every tool call in its frame with the SDK's state.
  */
 export function Chat<M extends UIMessage>(props: ChatProps<M>) {
-  const { chat, tools = {}, empty, suggestions, suggesting = false, context, copy, translations, className } = props;
+  const { chat, tools = {}, empty, suggestions, suggesting = false, notice, context, copy, translations, className } = props;
   const t = { ...ENGLISH, ...translations };
   const [draft, setDraft] = React.useState("");
   const busy = chat.status === "submitted" || chat.status === "streaming";
@@ -127,18 +131,21 @@ export function Chat<M extends UIMessage>(props: ChatProps<M>) {
         </PromptInput>
       }
       slot="chat"
+      strip={
+        chat.messages.length === 0 &&
+        (suggestions !== undefined || suggesting) && (
+          <ProposalStrip
+            className="justify-center"
+            notice={notice}
+            onSelect={ask}
+            pending={suggesting ? PILLS - (suggestions?.length ?? 0) : 0}
+            proposals={suggestions ?? []}
+          />
+        )
+      }
     >
       {chat.messages.length === 0 ? (
-        <ChatOpening empty={empty}>
-          {(suggestions !== undefined || suggesting) && (
-            <ProposalStrip
-              className="justify-center"
-              onSelect={ask}
-              pending={suggesting ? PILLS - (suggestions?.length ?? 0) : 0}
-              proposals={suggestions ?? []}
-            />
-          )}
-        </ChatOpening>
+        <ChatOpening empty={empty} />
       ) : (
         <MessageList>
           {chat.messages.map((m) => (
@@ -203,6 +210,8 @@ export function Chat<M extends UIMessage>(props: ChatProps<M>) {
 const RUNNING = new Set<ToolPart["state"]>(["input-streaming", "input-available", "approval-responded"]);
 
 interface ChatFrameProps extends React.ComponentProps<typeof ark.div> {
+  /** Between the transcript and the composer: the questions to start from, while there are any. */
+  strip?: React.ReactNode;
   /** Below the transcript: the composer, live or inert. */
   composer: React.ReactNode;
 }
@@ -210,28 +219,29 @@ interface ChatFrameProps extends React.ComponentProps<typeof ark.div> {
 /**
  * The one layout `Chat` and `ChatSkeleton` share, so the skeleton cannot drift from what replaces
  * it: the scrolling transcript (padding, width and pin are `ConversationContent`'s), then the
- * composer. It fills its container whether that is a flex column (`flex-1`) or a block with a
- * height (`h-full`), so a host does not have to wrap the two the same way for them to match.
+ * strip of questions to start from, then the composer. It fills its container whether that is a
+ * flex column (`flex-1`) or a block with a height (`h-full`), so a host does not have to wrap the
+ * two the same way for them to match.
  */
 function ChatFrame(props: ChatFrameProps) {
-  const { composer, children, className, slot, ...rest } = props;
+  const { strip, composer, children, className, slot, ...rest } = props;
   return (
     <ark.div className={cn("flex h-full min-h-0 flex-1 flex-col gap-3", className)} {...rest} data-slot={slot}>
       <Conversation>
         <ConversationContent>{children}</ConversationContent>
         <ConversationScrollButton />
       </Conversation>
+      {strip}
       {composer}
     </ark.div>
   );
 }
 
-/** What an empty conversation shows, centred in the panel: the host's empty state, then the strip. */
-function ChatOpening({ empty, children }: { empty: React.ReactNode; children?: React.ReactNode }) {
+/** What an empty conversation shows, centred in the panel: the host's empty state. */
+function ChatOpening({ empty }: { empty: React.ReactNode }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center" data-slot="chat-empty">
       {empty}
-      {children}
     </div>
   );
 }
@@ -264,6 +274,7 @@ export function ChatSkeleton(props: ChatSkeletonProps) {
           </PromptInputToolbar>
         </PromptInput>
       }
+      strip={suggestions > 0 && <ProposalStrip className="justify-center" pending={suggestions} proposals={[]} />}
       {...rest}
       slot={slot ?? "chat-skeleton"}
     >
@@ -276,9 +287,7 @@ export function ChatSkeleton(props: ChatSkeletonProps) {
             </>
           )
         }
-      >
-        {suggestions > 0 && <ProposalStrip className="justify-center" pending={suggestions} proposals={[]} />}
-      </ChatOpening>
+      />
     </ChatFrame>
   );
 }
