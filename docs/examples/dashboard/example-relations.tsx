@@ -5,7 +5,7 @@ import { readJoinGraph } from "@kanzo-tech/graph";
 import { Skeleton } from "@kanzo-tech/ui";
 import {
   Dashboard,
-  FilterChips,
+  FilterBar,
   MosaicProvider,
   RelationPicker,
   relationIdentities,
@@ -17,12 +17,13 @@ import {
   type Relation,
 } from "@kanzo-tech/ui/analytics";
 import { FROM, said, useArchive } from "../graph/archive";
+import { EditingPage } from "./editing-page";
 
 // The archive's corpus as a join graph: one type, `Node`, and its `linksTo` edges. Pick "Hop" to
 // chart every link as a row — `Node.kind` beside `Node2.kind` — and the dashboard reads the joined
 // relation exactly as it reads a table. Each relation keeps its own spec, keyed by `relationKey`.
-// `publish` hands the page one semi-join on the root's key for all the tiles' clauses — the chip
-// above the picker — which is what a graph beside the dashboard would be filtered by.
+// `publish` hands the page one semi-join on the root's key for all the tiles' clauses — its chips
+// in the bar — which is what a graph beside the dashboard would be filtered by.
 
 export default function Example() {
   const [failure, setFailure] = useState<unknown>(null);
@@ -55,9 +56,9 @@ export default function Example() {
   if (!coordinator || !graph || !drawn) return <Skeleton className="h-96 w-full" />;
   return (
     <MosaicProvider coordinator={coordinator}>
-      <div className="flex w-full flex-col gap-4">
-        <FilterChips />
+      <EditingPage>
         <RelationPicker graph={graph} onValueChange={setRelation} value={relation} />
+        <FilterBar rowNoun={relation.path.length ? "paths" : "nodes"} table={drawn.table} />
         <Dashboard
           exclude={drawn.exclude}
           key={drawn.key}
@@ -70,11 +71,10 @@ export default function Example() {
             })
           }
           publish={drawn.publish}
-          rowNoun={relation.path.length ? "paths" : "nodes"}
           table={drawn.table}
           value={specs[drawn.key]}
         />
-      </div>
+      </EditingPage>
     </MosaicProvider>
   );
 }

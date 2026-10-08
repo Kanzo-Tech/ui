@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { parseDate, type DateValue } from "@internationalized/date";
 import { sql, verbatim, type VerbatimNode } from "@uwdata/mosaic-sql";
 import {
+  Badge,
   Button,
   CalendarMonthSelect,
   CalendarNextTrigger,
@@ -68,7 +69,7 @@ import {
   MosaicProvider,
   Query,
   Selection as MosaicSelection,
-  clauseSemiJoin,
+  count,
   numbers,
   useChartQuery,
   useMosaic,
@@ -85,11 +86,10 @@ import {
   GraphInspector,
   GraphRoot,
   GraphSearch,
-  GraphSelect,
   GraphStatus,
   corpusReferences,
-  useGraphContext,
   useGraphPrefs,
+  usePick,
   type VertexDetail,
 } from "@kanzo-tech/graph";
 import {
@@ -123,8 +123,8 @@ import { ensure } from "./duck";
  * places. Everything else in this file is the product's: the named pairings of look and channels,
  * the hall's name in the inspector, the archive search, the standing orders, the ask box and the
  * two preferences panels. Every number a panel shows is a query against the node relation, and
- * every selection a panel makes goes through the root's `select` — so none of them reads the
- * canvas, or needs to know a graph is what the selection is drawn on.
+ * every pick a panel makes is a clause of its own through `usePick` — so none of them reads the
+ * canvas, or needs to know a graph is what the subset is drawn on.
  */
 
 /**
@@ -609,7 +609,7 @@ export function GraphOrders() {
 }
 
 function OrdersBody({ archive }: { archive: Archive }) {
-  const { select } = useGraphContext();
+  const shown = usePick("orders");
   const { coordinator } = useMosaic();
   const [source, setSource] = useState(DEFAULT_ORDERS);
   const [fileName, setFileName] = useState("amber-hall.orders");
@@ -626,7 +626,7 @@ function OrdersBody({ archive }: { archive: Archive }) {
   const { rules, exact, lost } = useMemo(() => parseRules(source), [source]);
 
   /** An order that no longer exists must not keep lighting up nodes. */
-  const unfocus = () => select(null);
+  const unfocus = () => shown.pick(null, "");
 
   const addRule = (draft: Omit<Rule, "id" | "name" | "message">) => {
     unfocus();
@@ -669,7 +669,7 @@ function OrdersBody({ archive }: { archive: Archive }) {
   const warnings = total("warning");
 
   /**
-   * The ids an order fails, so pressing it can select them — and deliberately **unfiltered**.
+   * The ids an order fails, so pressing it can pick them — and deliberately **unfiltered**.
    *
    * `coordinator.query` rather than a client, and `useChartQuery` above rather than this, and the
    * difference is the one `useChartQuery` documents: the counts beside each order are a readout
@@ -782,12 +782,24 @@ function OrdersBody({ archive }: { archive: Archive }) {
             // order re-runs the query — and `?? 0` would otherwise put a green tick on every one,
             // which is a report claiming order it has not measured.
             const clean = !pending && n === 0;
+            const label = `${order.target} ${order.constraint}`;
             return (
               <li className="flex items-stretch gap-1" key={order.id}>
-                <GraphSelect
+                <button
+                  aria-pressed={shown.picked === label}
+                  className={cn(
+                    "w-full rounded-md border p-2 text-start transition-colors",
+                    "disabled:cursor-default disabled:opacity-60",
+                    // Normal / hover / pressed is the ramp's own 3→4→5 progression. Over the card,
+                    // `bg-accent/50` and `/60` sat under the ΔE 2 a hover owes; `--secondary` →
+                    // `--accent` measures 3.96 / 4.61, and solid `border-primary` 3.07–6.07 (2026-09).
+                    shown.picked === label ? "border-primary bg-accent" : "hover:bg-secondary disabled:hover:bg-transparent",
+                  )}
                   disabled={pending || clean}
-                  label={`${order.target} ${order.constraint}`}
-                  load={() => failingIds(order)}
+                  onClick={async () =>
+                    shown.pick(shown.picked === label ? null : await failingIds(order), label)
+                  }
+                  type="button"
                 >
                   <span className="flex items-center gap-2">
                     <span
@@ -817,7 +829,7 @@ function OrdersBody({ archive }: { archive: Archive }) {
                   <span className="mt-0.5 block truncate font-mono text-[11px]">
                     {order.constraint}
                   </span>
-                </GraphSelect>
+                </button>
                 <Show when={exact}>
                   <Button
                     aria-label={`Remove ${order.constraint}`}
@@ -1117,26 +1129,34 @@ function useStarters(schema: DataSchema, scope: DataScope) {
 }
 
 /**
- * The host's two actions on an answer that carries the archive's key: put its rows on the canvas,
- * or filter the page to them — a semi-join on identity, so every panel that shares the key follows.
+ * The host's one action on an answer that carries the archive's key: add its rows to the subset, as
+ * the answer's own clause — a semi-join on identity, so every panel that shares the key follows and
+ * the graph greys out the rest. Pressed again, it takes the clause back.
  */
-function AnswerActions({ output, source }: { output: QueryOutput; source: object }) {
-  const { crossfilter } = useMosaic();
+function AnswerActions({ output }: { output: QueryOutput }) {
+  const answer = usePick(`ask ${output.sql}`);
   if (!output.rows[0] || !(ID in output.rows[0])) return null;
   const ids = [...new Set(output.rows.map((row) => Number(row[ID])))];
+  const added = answer.picked !== null;
   return (
-    <>
-      <GraphSelect label={output.sql} load={async () => ids}>
-        <span className="text-xs">Show on graph</span>
-      </GraphSelect>
-      <Button
-        onClick={() => crossfilter.update(clauseSemiJoin(ID, ids, { source, label: "Ask" }))}
-        size="sm"
-        variant="ghost"
-      >
-        Filter to these
-      </Button>
-    </>
+    <Button aria-pressed={added} onClick={() => answer.pick(added ? null : ids, "Ask")} size="sm" variant="ghost">
+      {added ? "✓ In the subset" : "Add to the subset"}
+    </Button>
+  );
+}
+
+/**
+ * What the next question is asked over, in the composer: the subset's size while the page holds one,
+ * and nothing while it does not — every question then reads the whole archive.
+ */
+function SubsetPill({ archive }: { archive: Archive }) {
+  const { crossfilter } = useMosaic();
+  const { row } = useChartQuery({ deps: [archive], query: (filter) => Query.from(archive.nodes).select({ n: count() }).where(filter) });
+  if (!row || crossfilter.clauses.length === 0) return null;
+  return (
+    <Badge pill variant="outline">
+      Subset · {Number(row.n).toLocaleString("en")} nodes
+    </Badge>
   );
 }
 
@@ -1145,19 +1165,18 @@ function AskBody({ archive, schema }: { archive: Archive; schema: DataSchema }) 
   const scope = useMemo<DataScope>(() => ({ selection: crossfilter, table: archive.nodes }), [crossfilter, archive]);
   const chat = useAgentChat(dataAgent({ model: askModel, coordinator, schema, scope, key: ID }));
   const starters = useStarters(schema, scope);
-  // What a `reset()` of the crossfilter calls back, and what retracts the clause the answer published.
-  const [source] = useState(() => ({ reset: () => {} }));
 
   return (
     <div className="flex h-full flex-col p-2">
       <Chat
         chat={chat}
+        context={<SubsetPill archive={archive} />}
         empty={<AskEmpty />}
         suggesting={starters.suggesting}
         suggestions={starters.questions}
         tools={{
           query: (part, { stopped }) => (
-            <QueryResult actions={(output) => <AnswerActions output={output} source={source} />} part={part} stopped={stopped} />
+            <QueryResult actions={(output) => <AnswerActions output={output} />} part={part} stopped={stopped} />
           ),
         }}
         translations={{ placeholder: "Ask about your data…" }}

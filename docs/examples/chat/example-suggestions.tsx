@@ -17,7 +17,7 @@ const OFFERED = [
   },
 ];
 
-// In a product the model is `gateway("chat")`; here it is a mock that streams the answer a word at
+// In a product the model is `gateway("complete")`; here it is a mock that streams the answer a word at
 // a time, so the skeleton pills are on screen long enough to see.
 const model = mockModel(() => JSON.stringify({ elements: OFFERED }), { delay: 25 });
 const agent = new ToolLoopAgent({ model: mockModel(() => "Ask the board.") });

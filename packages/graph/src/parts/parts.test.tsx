@@ -4,12 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { attach, refusal, settle, type Attached } from "../../test/corpus";
 import { GraphRoot, useGraphContext } from "../react/graph-root";
 import { internalsOf, type GraphApi } from "../react/use-graph";
+import { usePick } from "../react/use-pick";
 import { GraphCanvas } from "./graph-canvas";
 import { GraphCounts } from "./graph-counts";
 import { GraphInspector } from "./graph-inspector";
 import { GraphLegend } from "./graph-legend";
 import { GraphSearch } from "./graph-search";
-import { GraphSelect } from "./graph-select";
 import { GraphStatus } from "./graph-status";
 import { GraphToolbar } from "./graph-toolbar";
 import { useOverlays } from "./overlays";
@@ -63,6 +63,22 @@ describe("GraphLegend", () => {
     );
     await ready(corpus);
     expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Person10", "Place6", "Tag4"]);
+  });
+
+  it("says how many of each category the page's filter keeps, of how many", async () => {
+    const corpus = await attach();
+    const crossfilter = Selection.crossfilter();
+    render(
+      <GraphRoot {...over(corpus)} filterBy={crossfilter} onFailure={() => {}}>
+        <GraphLegend />
+      </GraphRoot>,
+    );
+    await ready(corpus);
+    await act(async () => {
+      crossfilter.update(clauseInterval("score", [2, 5], { source: { reset() {} } }));
+      await settle(corpus);
+    });
+    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Person4 of 10", "Place6 of 6", "Tag4 of 4"]);
   });
 
   it("draws nothing when colour is a constant and nothing carries a category", async () => {
@@ -195,7 +211,7 @@ describe("GraphToolbar", () => {
   it("shows the selection, and clears it", async () => {
     const held = await toolbar();
     expect(screen.queryByRole("group", { name: "Current selection" })).toBeNull();
-    act(() => held.api?.select([1, 2], "external", "Two"));
+    act(() => internalsOf(held.api!).store.select([1, 2], "lasso", "Two"));
     expect(screen.getByRole("group", { name: "Current selection" }).textContent).toContain("2 of 20 selected");
     fireEvent.click(screen.getByRole("button", { name: "Clear the selection" }));
     expect(screen.queryByRole("group", { name: "Current selection" })).toBeNull();
@@ -350,7 +366,7 @@ describe("GraphSearch", () => {
     expect(corpus.sent.filter((sql) => sql.includes("ILIKE"))).toHaveLength(1);
     expect(details()).toEqual(["0", "1", "2"]);
     expect(screen.getByText("First 3 of 10 — keep typing to narrow it")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Select all/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /to the subset/ })).toBeTruthy();
   });
 
   it("offers, empty, every vertex type with its count, and picking one makes it a chip", async () => {
@@ -380,6 +396,11 @@ describe("GraphSearch", () => {
     expect(details()[0]).toBe("Places");
     const again = screen.getByRole("combobox") as HTMLInputElement;
     await act(async () => again.focus());
+    // Going to a vertex picks it with its neighbours, and the next search asks within that pick.
+    await type(again, "tag/2");
+    await waitFor(() => expect(screen.getByText("None in the subset · 1 outside it")).toBeTruthy());
+    await act(async () => held.api?.clear());
+    await type(again, "tag/");
     await type(again, "tag/2");
     await waitFor(() => expect(options()).toEqual(["https://example.org/tag/2"]));
   });
@@ -414,20 +435,21 @@ describe("GraphSearch", () => {
     expect(chips()).toEqual([]);
   });
 
-  it("selects every match, past the limit, as one external selection, from its button or ⌘Enter", async () => {
+  it("adds every match, past the limit, as the search's own clause, from its button or ⌘Enter, and a new search replaces it", async () => {
     const { held, input } = await searching();
+    const searched = () => internalsOf(held.api!).store.scope().clauses.filter((c) => c.source === internalsOf(held.api!).store.source("search"));
     await type(input, "type:Person");
-    fireEvent.click(await screen.findByRole("button", { name: /Select all/ }));
-    await waitFor(() => expect(held.api?.getState().selection?.vertices).toHaveLength(10));
-    expect(held.api?.getState().selection?.label).toBe("Matches for “type:Person”");
-    await act(async () => held.api?.select([], "external"));
+    fireEvent.click(await screen.findByRole("button", { name: /to the subset/ }));
+    await waitFor(() => expect(searched().map((c) => (c.value as number[]).length)).toEqual([10]));
+    expect(searched()[0]?.meta).toMatchObject({ label: "“type:Person”" });
+    expect(held.api?.getState().selection).toBeNull();
     await act(async () => fireEvent.click(screen.getByRole("button", { name: /Find a node/ })));
     const again = screen.getByRole("combobox") as HTMLInputElement;
     await act(async () => again.focus());
     await type(again, "type:Place");
     await screen.findByText("First 3 of 6 — keep typing to narrow it");
     await act(async () => fireEvent.keyDown(again, { key: "Enter", metaKey: true }));
-    await waitFor(() => expect(held.api?.getState().selection?.vertices).toHaveLength(6));
+    await waitFor(() => expect(searched().map((c) => (c.value as number[]).length)).toEqual([6]));
     expect(held.api?.getState().focus).not.toBe(10);
   });
 
@@ -501,6 +523,32 @@ describe("GraphCanvas", () => {
     });
   });
 
+  it("backs out of a tool on Escape without writing the store from inside a render", async () => {
+    const corpus = await attach();
+    const held: { api: GraphApi | null } = { api: null };
+    render(
+      <GraphRoot {...over(corpus)} onFailure={() => {}}>
+        <GraphCanvas />
+        <GraphToolbar />
+        <Hold into={held} />
+      </GraphRoot>,
+    );
+    await ready(corpus);
+    if (!held.api) throw new Error("no api");
+    const api = held.api;
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    act(() => api.setTool("lasso"));
+    // Two in one batch: the second update is queued behind the first, so React runs it while it
+    // renders the canvas, which is where a store write would land in the toolbar's render.
+    act(() => {
+      fireEvent.keyDown(window, { key: "Escape" });
+      fireEvent.keyDown(window, { key: "Escape" });
+    });
+    expect(api.getState().tool).toBeNull();
+    expect(error.mock.calls.flat().join(" ")).not.toMatch(/while rendering a different component/);
+    error.mockRestore();
+  });
+
   it("re-renders the card on a hover, and not the canvas", async () => {
     const corpus = await attach();
     const held: { api: GraphApi | null } = { api: null };
@@ -520,50 +568,85 @@ describe("GraphCanvas", () => {
   });
 });
 
-describe("GraphSelect", () => {
-  async function offering(load: () => Promise<readonly number[]>) {
+describe("usePick", () => {
+  /** A place beside the canvas, picking what it is handed. */
+  function Place({ id, into }: { id: string; into: Record<string, ReturnType<typeof usePick>> }) {
+    into[id] = usePick(id);
+    return <span>{into[id].picked ?? "nothing"}</span>;
+  }
+
+  async function picking(ids: string[]) {
     const corpus = await attach();
     const held: { api: GraphApi | null } = { api: null };
-    const onFailure = vi.fn();
+    const places: Record<string, ReturnType<typeof usePick>> = {};
+    const filterBy = Selection.crossfilter();
     render(
-      <GraphRoot {...over(corpus)} onFailure={onFailure}>
-        <GraphSelect label="Two late" load={load}>
-          Two late
-        </GraphSelect>
+      <GraphRoot {...over(corpus)} filterBy={filterBy} onFailure={() => {}}>
+        {ids.map((id) => (
+          <Place id={id} into={places} key={id} />
+        ))}
         <Hold into={held} />
       </GraphRoot>,
     );
     await ready(corpus);
-    return { held, onFailure, button: screen.getByRole("button", { name: "Two late" }) };
+    const of = (id: string) => filterBy.clauses.filter((c) => c.source === internalsOf(held.api!).store.source(id));
+    return { corpus, held, places, filterBy, of };
   }
 
-  it("selects what load answers as an external selection named by its label, and clears it pressed again", async () => {
-    const { held, button } = await offering(async () => [1, 2]);
-    expect(button.getAttribute("aria-pressed")).toBe("false");
-    await act(async () => fireEvent.click(button));
-    expect(held.api?.getState().selection).toEqual({ vertices: [1, 2], source: "external", label: "Two late" });
-    expect(button.getAttribute("aria-pressed")).toBe("true");
-    await act(async () => fireEvent.click(button));
+  it("publishes a place's pick as a clause of its own, which greys the rest of the graph out", async () => {
+    const { corpus, held, places, of } = await picking(["rules"]);
+    await act(async () => places.rules!.pick([1, 2], "Missing email"));
+    await waitFor(() => expect(of("rules").map((c) => c.value)).toEqual([[1, 2]]));
+    expect(of("rules")[0]?.meta).toMatchObject({ label: "Missing email" });
+    await waitFor(() => expect(screen.getByText("Missing email")).toBeTruthy());
+    await ready(corpus);
+    expect(held.api?.getState().matching).toBe(2);
     expect(held.api?.getState().selection).toBeNull();
-    expect(button.getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("derives pressed from the live selection, so a gesture or another label unpresses it", async () => {
-    const { held, button } = await offering(async () => [1, 2]);
-    act(() => held.api?.select([1, 2], "external", "Two late"));
-    expect(button.getAttribute("aria-pressed")).toBe("true");
-    act(() => held.api?.select([1, 2], "lasso", "Two late"));
-    expect(button.getAttribute("aria-pressed")).toBe("false");
-    act(() => held.api?.select([1, 2], "external", "Another"));
-    expect(button.getAttribute("aria-pressed")).toBe("false");
+  it("replaces its own pick when the place picks again, and withdraws it with null", async () => {
+    const { places, of } = await picking(["rules"]);
+    await act(async () => places.rules!.pick([1, 2], "Missing email"));
+    await act(async () => places.rules!.pick([3], "Bad birthday"));
+    await waitFor(() => expect(of("rules").map((c) => c.value)).toEqual([[3]]));
+    await act(async () => places.rules!.pick(null, "Bad birthday"));
+    await waitFor(() => expect(of("rules")).toEqual([]));
+    expect(screen.getByText("nothing")).toBeTruthy();
   });
 
-  it("hands a rejected load to the root's onFailure as thrown, selects nothing, and can be pressed again", async () => {
-    const failure = new Error("refused");
-    const { held, button, onFailure } = await offering(() => Promise.reject(failure));
-    await act(async () => fireEvent.click(button));
-    expect(onFailure).toHaveBeenCalledWith(failure);
-    expect(held.api?.getState().selection).toBeNull();
-    expect((button as HTMLButtonElement).disabled).toBe(false);
+  it("intersects with another place's pick and with the canvas's, one clause each", async () => {
+    const { held, places, filterBy } = await picking(["rules", "ask"]);
+    await act(async () => places.rules!.pick([1, 2, 3], "Missing email"));
+    await act(async () => places.ask!.pick([2, 3, 4], "Who posts the most?"));
+    act(() => internalsOf(held.api!).store.select([3, 9], "lasso", "Lasso"));
+    await waitFor(() => expect(filterBy.clauses.map((c) => (c.meta as { label?: string }).label)).toEqual(["Missing email", "Who posts the most?", "Lasso"]));
+  });
+
+  it("reads the subset as every clause but its own", async () => {
+    const { places, filterBy } = await picking(["rules", "ask"]);
+    await act(async () => places.rules!.pick([1, 2, 3], "Missing email"));
+    await act(async () => places.ask!.pick([2, 3, 4], "Who posts the most?"));
+    await waitFor(() => expect(filterBy.clauses).toHaveLength(2));
+    expect(places.rules!.predicate().map(String)).toEqual([`("dense_id" IN (2, 3, 4))`]);
+    expect(places.ask!.predicate().map(String)).toEqual([`("dense_id" IN (1, 2, 3))`]);
+  });
+
+  it("is still the publisher of its clause after its holder mounts again, so picking replaces it", async () => {
+    const corpus = await attach();
+    const filterBy = Selection.crossfilter();
+    const places: Record<string, ReturnType<typeof usePick>> = {};
+    const tree = (shown: boolean) => (
+      <GraphRoot {...over(corpus)} filterBy={filterBy} onFailure={() => {}}>
+        {shown ? <Place id="rules" into={places} /> : null}
+      </GraphRoot>
+    );
+    const view = render(tree(true));
+    await ready(corpus);
+    await act(async () => places.rules!.pick([1, 2], "Missing email"));
+    view.rerender(tree(false));
+    view.rerender(tree(true));
+    await waitFor(() => expect(screen.getByText("Missing email")).toBeTruthy());
+    await act(async () => places.rules!.pick([3], "Bad birthday"));
+    await waitFor(() => expect(filterBy.clauses.map((c) => c.value)).toEqual([[3]]));
   });
 });

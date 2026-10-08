@@ -44,14 +44,15 @@ entry:
 
 `/analytics` holds two layers over one Mosaic coordinator and one crossfilter: the charts grammar
 (`MosaicProvider`, `ChartRoot`, marks, interactors, inputs, `ChartStat`) and the mini BI kit built
-from it — `Dashboard` with `DashboardFilters`, `DashboardStat`, `ChartCard`, `DetailTable` and
-`FilterChips`, drawn from a relation's `useFieldStats` and a JSON `DashboardSpec` the host saves.
+from it — `Dashboard` with `DashboardStat`, `ChartCard`, `DetailTable` and `FilterBar`, drawn
+from a relation's `useFieldStats` and a JSON `DashboardSpec` the host saves.
 
 ```tsx
-import { Dashboard, MosaicProvider, engine } from "@kanzo-tech/ui/analytics";
+import { Dashboard, FilterBar, MosaicProvider, engine } from "@kanzo-tech/ui/analytics";
 
 const { coordinator } = await engine();
 <MosaicProvider coordinator={coordinator}>
+  <FilterBar table="sightings" />
   <Dashboard table="sightings" value={saved} onChange={save} />
 </MosaicProvider>;
 ```

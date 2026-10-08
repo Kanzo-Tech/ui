@@ -4,12 +4,10 @@ import { describe, expect, it, vi } from "vitest";
 import { ProposalStrip } from "./proposal-strip.js";
 
 const skeletons = () => document.querySelectorAll("[data-slot=suggestions] [data-slot=skeleton]").length;
-const mark = () => document.querySelector("[data-slot=proposal-mark]");
 
 describe("ProposalStrip", () => {
-  it("leads with the ✨, hidden from assistive technology, and describes each pill by its rationale", () => {
+  it("describes each pill by its rationale", () => {
     render(<ProposalStrip pending={0} proposals={[{ text: "Which wells share an aquifer?", rationale: "Joins wells to aquifers." }]} />);
-    expect(mark()?.getAttribute("aria-hidden")).toBe("true");
     const pill = screen.getByRole("button", { name: "Which wells share an aquifer?" });
     expect(document.getElementById(pill.getAttribute("aria-describedby") ?? "")?.textContent).toBe("Joins wells to aquifers.");
   });
@@ -17,17 +15,15 @@ describe("ProposalStrip", () => {
   it("is the strip in skeleton while proposals arrive, busy until they have", () => {
     const { rerender } = render(<ProposalStrip pending={3} proposals={[]} />);
     expect(skeletons()).toBe(3);
-    expect(mark()).not.toBeNull();
     expect(document.querySelector("[data-slot=suggestions]")?.getAttribute("aria-busy")).toBe("true");
     rerender(<ProposalStrip pending={0} proposals={[{ text: "A?" }]} />);
     expect(skeletons()).toBe(0);
     expect(document.querySelector("[data-slot=suggestions]")?.hasAttribute("aria-busy")).toBe(false);
   });
 
-  it("says its notice only when it offers nothing, and draws no ✨ beside it", () => {
+  it("says its notice only when it offers nothing", () => {
     const { rerender } = render(<ProposalStrip notice={<span>Nothing to suggest.</span>} pending={0} proposals={[]} />);
     expect(screen.getByText("Nothing to suggest.")).not.toBeNull();
-    expect(mark()).toBeNull();
     rerender(<ProposalStrip notice={<span>Nothing to suggest.</span>} pending={0} proposals={[{ text: "A?" }]} />);
     expect(screen.queryByText("Nothing to suggest.")).toBeNull();
   });

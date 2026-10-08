@@ -5,8 +5,8 @@ description: A dashboard over any relation for finding what it holds — a filte
 
 `Dashboard` is the charts grammar composed for a relation you have not seen. It reads the
 relation's fields from one DuckDB `SUMMARIZE`, draws a dashboard from them — or from a spec you
-saved — and lets the reader edit every tile of it. The host brings three things: a
-`MosaicProvider`, the relation, and somewhere to keep the spec. The relation can be a table or a
+saved — and lets the reader edit every tile of it. The host brings four things: a
+`MosaicProvider`, the relation, somewhere to keep the spec, and an aside for the editor. The relation can be a table or a
 [join over a graph of types](#relations), and the dashboard cannot tell the two apart.
 
 <ComponentPreview componentName="dashboard" fileName="example-default" hasMaxHeight={false} />
@@ -20,13 +20,29 @@ every tile reads the one relation the `Dashboard` is given, under one crossfilte
 ## Usage
 
 ```tsx
-import { Dashboard, MosaicProvider, type DashboardSpec } from "@kanzo-tech/ui/analytics";
+import { ShellAside, ShellBody, ShellMain } from "@kanzo-tech/ui";
+import { Dashboard, FilterBar, MosaicProvider, TileEditorAside, useTileEditorOpen } from "@kanzo-tech/ui/analytics";
 
 function Sightings({ coordinator, saved, save }: Props) {
   return (
     <MosaicProvider coordinator={coordinator}>
-      <Dashboard table="sightings" value={saved} onChange={save} rowNoun="sightings" />
+      <ShellBody>
+        <ShellMain>
+          <FilterBar table="sightings" rowNoun="sightings" />
+          <Dashboard table="sightings" value={saved} onChange={save} />
+        </ShellMain>
+        <Format />
+      </ShellBody>
     </MosaicProvider>
+  );
+}
+
+// Under the provider, so the dashboard reaches it; mounted always, shown while a tile is edited.
+function Format() {
+  return (
+    <ShellAside aria-label="Format" side="end" width={352} hidden={!useTileEditorOpen()}>
+      <TileEditorAside />
+    </ShellAside>
   );
 }
 ```
@@ -38,6 +54,10 @@ function Sightings({ coordinator, saved, save }: Props) {
   automatic* calls it with `undefined`: the host deletes what it stored, and the dashboard follows
   the stats again — `undefined` meaning automatic in both directions, as Metabase's X-ray stays
   unsaved until it is saved.
+- **Its filters are drawn in the page's [`FilterBar`](#filterbar)**, wherever the host puts it. A
+  page without one shows no filters.
+- **Its editor is drawn in the page's [`TileEditorAside`](#tileeditoraside)**, in an aside of the
+  host's. A page without one offers no editing: the dashboard is read-only, `onChange` or not.
 - **Without `onChange` it is read-only**: no pencils, no *Add tile*, no remove buttons. Filters,
   picks and brushes still work; reading is not editing.
 
@@ -48,11 +68,11 @@ Wiring that to a backend — a debounced save, a read-only role, your own labels
 
 ```text
 Dashboard                 — reads the fields, draws the spec or the automatic one
-├── DashboardFilters      — the chip bar, its readout, "Clear", "Add tile"
+├── its filters           — drawn in the page's FilterBar, with "+ Filter"
 ├── DashboardStat         — a `stat` tile
 ├── ChartCard             — a `chart` tile
 ├── DetailTable           — inside a `table` tile: the rows under the selection, paged by DuckDB
-└── TileEditor            — the popover a tile is added and edited in, anchored to the tile
+└── TileEditor            — the panel a tile is added and edited in, drawn in the page's TileEditorAside
 ```
 
 The figures come first, as one band whose row they share equally, wrapping when they run out of
@@ -169,21 +189,36 @@ on every render.
 
 ## The parts
 
-### DashboardFilters
+### FilterBar
 
-One filter bar above everything it scopes — Metabase's filter bar, drawn as Linear's chips. Each
-`filters` entry names a field and is a chip reading *region: Saltmere ▾*, or *region: Any ▾* while
-it filters nothing. The chip opens its control, chosen from that field's stats and never written in
-the spec: a category is a facet list, a key a search, a measure a range slider, a time a brushable
-timeline. A field that has no control (a numeric key) or no longer exists is skipped. A control
-stays mounted while its popover is shut, because a control that unmounts retracts its clause.
+**The page's one row of filters**, under its header — Metabase's filter bar, drawn as Linear's chips.
+Every clause on the page's crossfilter is a removable chip, read from `Selection.clauses`, so the row
+reports filters it did not publish: a brush, a bar someone clicked, a lasso on a graph canvas. A
+chip's label is read from the clause: *hour 2 – 5* for a range, *region Saltmere* for one value,
+*beast · 3 selected* for more; a semi-join wears its publisher's label — *Lasso · 13 selected*, a
+rule's name. Removing one calls `retract`, so the pick that made it un-highlights too.
 
-After the chips, the **readout**: *12 of 40 sightings* (`rowNoun` is the plural), and a quiet
-**Clear** while anything on the page filters, which is `useMosaic().reset()`. Children trail it — it
-is where `Dashboard` puts *Add tile*. With `onChange`, each chip gets a remove button and **+ Filter**
-lists the fields that have a control and no filter yet. A clause something else published — a pick
-on a chart, a lasso — counts in the readout and goes with *Clear*; `FilterChips` is the part that
-lists every clause, for a host that wants them named.
+A dashboard's filters are drawn in it too. Each `filters` entry names a field and is a chip reading
+*region: Saltmere ▾*, or *region: Any ▾* while it filters nothing. The chip opens its control,
+chosen from that field's stats and never written in the spec: a category is a facet list, a key a
+search, a measure a range slider, a time a brushable timeline. A field that has no control (a
+numeric key) or no longer exists is skipped. With `onChange`, each chip gets a remove button and
+**+ Filter** lists the fields that have a control and no filter yet. The bar leaves those clauses to
+the dashboard's chips rather than drawing them twice.
+
+**The dashboard draws there through a slot**, a portal that keeps its own provider and crossfilter,
+so its filters are on screen in every view of the page and stay where the reader put them. A control
+stays mounted while its popover is shut, because a control that unmounts retracts its clause, and a
+control in the bar queries as the bar does: a dashboard hidden by
+[`MosaicClients enabled={false}`](/docs/analytics/charts#mosaicclients) still has live filters.
+
+After the chips, with `table`, the **readout** — *12 of 40 sightings*, `rowNoun` being the plural —
+then a quiet **Clear** while anything on the page filters, which is `useMosaic().reset()`, and the
+children. `useClauses(selection)` is a selection's live clause list, for a host that draws its own.
+
+**A view swapped out keeps its clauses when it is hidden, not unmounted.** Wrap it in
+`MosaicClients enabled={false}`: its clients stop asking and its chips stay in the bar; unmounted,
+it would retract them.
 
 ### DashboardStat
 
@@ -241,20 +276,24 @@ and here the browser never holds more than the page.
 
 ### TileEditor
 
-**The one editor** — a popover anchored to the tile it edits, the way Notion and Linear edit a block
-where it sits. *Add tile* and every tile's pencil open the same popover, in this order: the **kind**
-as cards with an icon, like a chart's mark (Figure, Chart, Table — a kind the relation cannot draw is disabled), the
-**fields** that kind reads, the title, and — for a chart or a table — the **width** (a third, two
-thirds, full), with the position among the figures or among the grid's tiles. **The tile is the
-preview**: it draws the draft in its own slot under the page's crossfilter, and grows or shrinks with
-the width; a tile being added gets a slot at the end of its band or grid, brought into view as the
-popover opens.
-Nothing reaches the dashboard until *Add* or *Save*; *Cancel*, Escape and a click outside drop the
-draft. A new position applies on save, so the tile never moves under the popover.
+**The one editor** — the page's aside, the way draw.io's Format panel, Grafana's panel options and
+Power BI's visualizations pane edit what is selected. *Add tile* and every tile's pencil open the
+same panel, and it is not modal: the board keeps scrolling and stays live while it is open.
+It lists, in this order, the **kind** as cards with an icon, like a chart's mark (Figure, Chart,
+Table — a kind the relation cannot draw is disabled), the **fields** that kind reads, then the
+title and — for a chart or a table — the **width** (a third, two thirds, full), with the position
+among the figures or among the grid's tiles. **The tile is the preview**: it draws the draft in its
+own slot under the page's crossfilter, outlined, and grows or shrinks with the width; a tile being
+added gets a slot at the end of its band or grid, brought into view as the panel opens. The panel
+fills the aside's height: a header with the title, the kind's hint and *Close*, one scrolling list,
+and the actions in a footer.
+Nothing reaches the dashboard until *Add* or *Save*; *Cancel*, the close button and Escape drop the
+draft. A new position applies on save, so the tile never moves while it is edited.
 
-`TileEditor` draws no tile. Hand it the draft as `tile` with `onChange`, draw that draft in the
-tile's own view, and pass the view's element as `anchor`; mount the editor while it is open. The view
-stays mounted from the pencil to *Save*, so opening the editor does not rebuild its plot.
+`TileEditor` draws no tile and does not place itself. Hand it the draft as `tile` with `onChange`,
+draw that draft in the tile's own view, pass the view's element as `anchor`, and put the editor in
+an aside of your own, which it fills. Mount it while it is open.
+The view stays mounted from the pencil to *Save*, so opening the editor does not rebuild its plot.
 `Dashboard` loads it the first time somebody edits, so a read-only dashboard never fetches the
 editor's code.
 
@@ -273,17 +312,19 @@ Each kind is a row in three tables — how one is made, titled and converted (pl
 React), how it is drawn, and what its editor asks for — each mapped over the kinds, so a kind missing
 from any of them does not compile and neither the board nor the editor switches on a kind.
 
-### FilterChips and useClauses
+### TileEditorAside
 
-`useClauses(selection)` is a selection's live clause list. `FilterChips` draws it as removable
-badges — the crossfilter by default — and renders nothing while it is empty. A chip's label is read
-from the clause: *hour 2 – 5* for a range, *region Saltmere* for one value, *beast · 3 selected* for
-more. Removing one calls `retract`, so the pick that made it un-highlights too.
+**Where a `Dashboard` draws its editor** — a part the host places in its own `ShellAside`, the way
+it places a `FilterBar` under its header. The dashboard portals its `TileEditor` there, so the
+editor keeps the dashboard's tree — its provider, its crossfilter, its draft — while it sits at the
+page's edge. Like the bar's, the slot is the outermost `MosaicProvider`'s, so a dashboard with its
+own provider nested in the page's still finds it; the aside has to be under that provider.
 
-Because they read `Selection.clauses`, they report filters they did not publish: a brush, a bar
-someone clicked, a lasso on a graph canvas. A semi-join wears its publisher's label — *Lasso · 13
-selected*, a rule's name — so `<FilterChips />` in a dock's header is the page's scope: every clause
-each client there is filtered by, each removable where it was published.
+`useTileEditorOpen()` is whether a dashboard is editing a tile, so the host shows its aside then —
+draw.io swaps the Format panel in when something is selected. Keep the part mounted and hide the
+aside instead: a dashboard offers editing only while a `TileEditorAside` is on the page, so a page
+without one has read-only dashboards. The editor is drawn once the aside is shown, so it opens in
+view and takes focus.
 
 ### useFieldStats, queryFieldStats and fieldStats
 
@@ -401,12 +442,14 @@ const publish = useMemo(() => semiJoinOf(relationIdentities(graph, relation)[0].
 The tiles publish into the dashboard's own crossfilter and filter by it, so they crossfilter each
 other on the relation's columns exactly as before. The page gets **one** clause for all of them,
 `dense_id IN (SELECT dense_id FROM <relation> WHERE <every tile's clause>)`, whose source is the
-dashboard: the graph greys out every vertex but the roots of the rows the tiles keep, another
-relation's dashboard is filtered to the same vertices through its own root key, and `FilterChips`
-names it by `label`. The clauses are mapped together, not one by one — on a joined relation,
+dashboard: the graph greys out every vertex but the roots of the rows the tiles keep, and another
+relation's dashboard is filtered to the same vertices through its own root key. `FilterBar` shows
+it as its parts, one chip per tile clause named after `label` — *Dashboard country Spain* — and
+removing one retracts that tile's clause alone; `bridged(clause)` is how it reads them. The clauses are mapped together, not one by one — on a joined relation,
 *a person with a row where a and b* is not *a person with a row where a, and one where b*.
 
-Retracting goes both ways. A tile that lets go withdraws the page's clause; removing the page's
+Retracting goes both ways. A tile that lets go maps the rest again, and the last one withdraws the
+page's clause; removing the page's
 clause — its chip, the page's *Clear* — clears the tiles' brushes and picks. In the other direction,
 a lasso on the graph reaches every tile as itself, so the graph stays exempt from its own pick and
 is not filtered by it back through the dashboard.
@@ -461,21 +504,9 @@ way. Nothing fails blank.
 | `onChange` | `(spec: DashboardSpec) => void` | — (read-only without it) |
 | `exclude` | `readonly string[]` | — |
 | `config` | `Readonly<Record<string, ChartConfig>>` | — |
-| `rowNoun` | `string` | `"rows"` |
 | `publish` | `ClauseMap` — what the page sees of the tiles' clauses; [`semiJoinOf`](#what-the-page-sees) for a relation | — (the tiles' clauses are the page's) |
 
 Every other prop goes to the root `div` (`data-slot="dashboard"`).
-
-### DashboardFilters
-
-| Prop | Type | Default |
-| --- | --- | --- |
-| `table` | `TableExpr` | — |
-| `fields` | `readonly FieldStat[]` | — |
-| `filters` | `readonly DashboardFilterSpec[]` | — |
-| `onChange` | `(filters: DashboardFilterSpec[]) => void` | — (no remove, no *+ Filter*) |
-| `rowNoun` | `string` | `"rows"` |
-| `children` | `ReactNode` | — trailing controls, after *Clear* |
 
 ### DashboardStat
 
@@ -509,14 +540,21 @@ Every other prop goes to the root `div` (`data-slot="dashboard"`).
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `table` | `TableExpr` | — what the tile reads |
 | `fields` | `readonly FieldStat[]` | — |
-| `tile` | `Tile` | — the tile to edit, or to add when `tiles` does not hold it. Mounted is open |
+| `tile` | `Tile` | — the draft: the tile to edit, or to add when `tiles` does not hold it. Mounted is open |
+| `onChange` | `(tile: Tile) => void` | — every change to the draft |
+| `anchor` | `() => HTMLElement \| null` | — the tile's slot, brought into view as the editor opens |
 | `tiles` | `readonly Tile[]` | `[]` — where the tile sits, and what a change of kind avoids repeating |
-| `config` | `Readonly<Record<string, ChartConfig>>` | — |
 | `onSave` | `(tile: Tile, index: number) => void` | — |
 | `onRemove` | `() => void` | — (no *Remove*) |
-| `onClose` | `() => void` | — Cancel, Escape and a click outside |
+| `onClose` | `() => void` | — Cancel, the close button and Escape |
+
+### TileEditorAside
+
+Takes no props of its own; every prop goes to its `div` (`data-slot="tile-editor-aside"`), which is
+`display: contents`, so the editor fills the aside it is placed in.
+
+`useTileEditorOpen(): boolean`.
 
 ### RelationPicker
 
@@ -540,11 +578,15 @@ interface JoinType { name: string; table: TableExpr; key: string; columns: reado
 interface JoinEdge { name: string; label: string; source: string; destination: string; table: TableExpr; src: string; dst: string }
 ```
 
-### FilterChips
+### FilterBar
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `selection` | `Selection` | the provider's crossfilter |
+| `table` | `TableExpr` | — (no readout) |
+| `rowNoun` | `string` | `"rows"` |
+| `children` | `ReactNode` | — trailing controls, after *Clear* |
+
+Every other prop goes to the root `section` (`data-slot="filter-bar"`).
 
 `useClauses(selection: Selection): readonly SelectionClause[]`.
 
@@ -582,5 +624,5 @@ The spec's types — `DashboardSpec`, `Tile`, `TileKind`, `TileSpan`, `StatTile`
 `TableTile`, `DashboardFilterSpec`, `DashboardMeasure`, `DashboardChartType` and `DashboardAggregate` —
 and `Dashboards` with `parseDashboard` and `parseDashboards` are exported and documented field by field on
 [Dashboard spec](/docs/analytics/dashboard-spec). The props types are exported as `DashboardProps`,
-`DashboardFiltersProps`, `DashboardStatProps`, `ChartCardProps`, `DetailTableProps`,
-`TileEditorProps`, `RelationPickerProps` and `FilterChipsProps`.
+`DashboardStatProps`, `ChartCardProps`, `DetailTableProps`, `TileEditorProps`,
+`RelationPickerProps` and `FilterBarProps`.

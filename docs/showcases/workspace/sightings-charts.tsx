@@ -6,6 +6,7 @@ import { ScrollArea, Show, Skeleton } from "@kanzo-tech/ui";
 import {
   Coordinator,
   Dashboard,
+  FilterBar,
   MosaicProvider,
   type ChartConfig,
   type DashboardSpec,
@@ -22,7 +23,8 @@ import { ensure } from "./duck";
  * Everything on the page is the spec below and the relation. The spec is written by hand because a
  * showcase should look chosen; drop `value` and the same component draws the automatic dashboard
  * from the relation's stats. Edit any card or tile and the spec in state is what changed — the
- * whole of what a host persists.
+ * whole of what a host persists. The provider below is nested in the archive's, so the editor draws in
+ * the shell's `TileEditorAside`, beside `ShellMain`.
  *
  * `sightings` has no date column, so the ordered axis is `hour` and every trend is a stretch of the
  * clock: the tiles' deltas compare an hour with the one before, not a quarter nobody could check.
@@ -118,7 +120,10 @@ export default function SightingsDashboard() {
         </Show>
         {coordinator && (
           <MosaicProvider coordinator={coordinator}>
-            <Dashboard config={CONFIG} onChange={setSpec} rowNoun="sightings" table={T} value={spec} />
+            <div className="flex flex-col gap-4">
+              <FilterBar rowNoun="sightings" table={T} />
+              <Dashboard config={CONFIG} onChange={setSpec} table={T} value={spec} />
+            </div>
           </MosaicProvider>
         )}
       </div>

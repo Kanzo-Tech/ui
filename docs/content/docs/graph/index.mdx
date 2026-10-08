@@ -78,12 +78,11 @@ GraphRoot                  the state and the commands; renders no element
 ├── GraphStatus            where the graph is, in one word: Loading, Laying out 42%, Ready, Failed
 ├── GraphCounts            "5K nodes · 8K edges", or "1.2K of 5K nodes match · 3K edges"
 ├── GraphSearch            a palette: find a vertex, by text, type or column, and reveal it
-├── GraphSelect            a selection the host offers, as a toggle
 └── GraphInspector         the focused vertex: its row
 ```
 
 **Every part reads the root, not its parent.** `GraphCanvas`'s children are chrome positioned over
-the surface, but `GraphToolbar`, `GraphLegend`, `GraphStatus`, `GraphCounts`, `GraphSearch`, `GraphSelect` and `GraphInspector`
+the surface, but `GraphToolbar`, `GraphLegend`, `GraphStatus`, `GraphCounts`, `GraphSearch` and `GraphInspector`
 each read the root's context directly, so each can sit anywhere under it — over the canvas, in a
 dock, in a footer. **The graph's settings are not a part.** They are `GRAPH_SECTION`, drawn by
 `@kanzo-tech/ui`'s `PreferencesSections` or composed from its `<Pref>`, and the root is the section's
@@ -228,7 +227,7 @@ input highlights the last chip, then removes it.
 | Key | Does |
 | --- | --- |
 | <kbd>Enter</kbd> | `reveal`s the highlighted match — the canvas frames it and selects it with its neighbours, and `GraphInspector` reads it — and closes the palette |
-| <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> | selects every match, past the limit, as one `"external"` selection — **Select all** in the footer does the same |
+| <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> | adds every match in the subset, past the limit, as the search's own clause — **Add N to the subset** in the footer does the same |
 | <kbd>Esc</kbd> | closes the palette |
 
 **Empty, the palette offers where to start**: the last five picks, which the root remembers for its
@@ -236,25 +235,38 @@ life — never in `localStorage` — as **Recent**, then every vertex type with 
 **Narrow to a type**. Picking a type makes it a `type:` chip, as GitHub's palette offers its scopes.
 `limit` caps the list (50), and the footer says how many matched and how many of them it shows.
 
+**It searches the subset.** The matches are those every other clause on the crossfilter keeps —
+`usePick("search").predicate()` — and the footer says how many more lie outside it: *12 matches ·
+40 more outside the subset*, or *None in the subset · 40 outside it*. **Add N to the subset**
+publishes the search's own clause over the N inside; one outside would be a clause the others
+already exclude, since picks intersect. A reveal selects on the canvas, so the next search stays
+inside that neighbourhood until its chip is removed.
+
 **A failed read is kept whole**: it reaches `onFailure` as thrown, and the input turns
 `aria-invalid` with the placeholder "The names could not be read." rather than staying disabled.
 
 It is a `Command` and not `ChartSearch` because of what the control means: `ChartSearch` publishes
 a substring filter, which narrows the picture; picking is a value, which goes somewhere.
 
-### Select
+### Pick from beside the canvas
 
-<ComponentPreview componentName="graph" fileName="example-select" hasMaxHeight />
+<ComponentPreview componentName="graph" fileName="example-pick" hasMaxHeight />
 
-A selection the host offers, as a toggle — a rule and the vertices that break it, an answer and
-the vertices it counted. **`load` is called when the reader presses it**, never before, and what it
-answers is selected as an `"external"` selection named `label`; pressing it again clears it.
-Whatever is inside is the clickable body.
+A rule and the vertices that break it, an answer and the vertices it counted, a search's matches:
+**`usePick(id)` publishes them as a clause of their own** on the crossfilter the graph filters by —
+`key IN (ids)`, whose chip reads `label`. Every clause filters every client, the graph included,
+which greys out the rest. `pick(ids, label)` replaces what that place picked before; `pick(null)`
+withdraws it.
 
-**Pressed is derived from the live selection** — source `"external"` and the same `label` — and
-not stored beside it, so a lasso or a click elsewhere lets it go. `label` is therefore its identity:
-keep it distinct among a panel's controls. It is disabled while `load` runs, and a rejected `load`
-reaches the root's `onFailure` as thrown, leaving it unpressed.
+**Each place is its own source, so picks intersect.** A rule's pick and a lasso together keep the
+vertices both hold, as Mosaic's crossfilter defines it; one place picking twice replaces its own
+clause. `id` names the place and the source is the root's for its whole life, so a panel that closes
+and opens again still owns the clause it left: `picked` is that clause's label, or `null`. The clause
+outlives the component on purpose — it belongs to the page, and is retracted at its chip.
+
+**`predicate()` is the subset as that place sees it**: every clause on the crossfilter but its own,
+Mosaic's `Selection.predicate(client)`. A search reads its matches under it, and a rule validates
+under it, so neither narrows by what it picked itself.
 
 ### Inspector
 
@@ -315,14 +327,15 @@ defaults, and so does this section. A preference a tenant pinned is not offered.
 | Preference | Values | What it draws |
 | --- | --- | --- |
 | Marks | Dense · Legible | How much ink a point spends — cards, each previewing the current picture with that mark. |
+| Labels | None · Hovered · Top · Visible · All | Which points carry their title — below. A slider from None to All. |
 | Edges | Hidden · Straight · Curved | `showLinks` and `curvedLinks` as one axis — cards with a preview. |
 | Additive links | switch | Links add where they overlap. Offered only while edges are drawn (`when`). |
-| Labels | None · Hovered · Top · Visible · All | Which points carry their title — below. |
-| Dot grid · Vignette | switches | The backdrop. |
+| Vignette · Dot grid | switches, two to a row | The backdrop. |
 | Placement | Force · Map · Clustered | Where the points come from — [Placement](#placement). Cards with a picture of each mode. |
-| x · y | the corpus's numeric fields | Map's two columns. Offered only under Map. |
-| Cluster by | the corpus's fields | Clustered's column. Offered only under Clustered. |
-| Gravity · Repulsion · Link spring · Link distance · Friction | sliders | The forces. Cluster pull is offered only under Clustered. |
+| X axis · Y axis | the corpus's numeric fields | Map's two columns. Offered only under Map. |
+| Group by | the corpus's fields | Clustered's column. Offered only under Clustered. |
+| Cluster pull | slider, its ends named | Offered only under Clustered: from *Links decide* to *Tight groups*. |
+| Gravity · Repulsion · Link spring · Link distance · Friction | sliders | The forces. Offered only under Force. |
 
 **Labels are one ordered scale**, each level adding to the one before. **None** draws no text at all,
 not even the hover card. **Hovered** is the hover card and the focused point's label. **Top** adds the
@@ -412,9 +425,10 @@ column a running layout pulls together by. [Layout and camera](/docs/graph/layou
 has the rule.
 
 **`filterBy` is the page's crossfilter.** A chart's clause greys out on the canvas what it drops —
-never hides it — and the reader's lasso, click or `GraphSelect` is published back as a semi-join on
-`dense_id`, for every client and not for the graph. Removing that clause where it was published — a
-`FilterChips` chip, the page's reset — clears the pick on the canvas too.
+never hides it — and the reader's lasso or click is published back as a semi-join on
+the vertex key, for every client and not for the graph. A pick from beside the canvas — `usePick` —
+is a clause of its own, and filters the graph too. Removing that clause where it was published — a
+`FilterBar` chip, the page's reset — clears the pick on the canvas too.
 
 **A clause is column predicates, or a semi-join on identity.** A column clause filters each vertex
 table that has every column it names. A semi-join — `clauseSemiJoin("dense_id", ids | query)` —
@@ -439,7 +453,12 @@ has how the graph answers.
 A `VertexId` is the corpus's `dense_id`, a `number`: fossil numbers every vertex of the corpus
 `0 … V − 1` across all its tables, each table one contiguous range, so a vertex's id is also its
 index in cosmos.gl's buffers. An id from SQL — `SELECT dense_id FROM …` — is a vertex as it stands, for
-`select` or `reveal`.
+`reveal` or a pick.
+
+**The graph reads the key's name from the manifest, not from a constant**: it is the column
+`fossil_columns` gives the `address` role, which fossil's writer names `dense_id`. Every clause the
+graph publishes is a semi-join on it, and a corpus whose vertex tables have no such column is refused
+as `graph/nothing-to-draw`.
 
 ### The joins, for a reader of the catalog
 
@@ -617,16 +636,6 @@ set while the graph loads or a layout runs.
 | `size` | `"sm" \| "md" \| "lg"` — the cue's | `"sm"` |
 | `className` | `string` — on the cue | — |
 
-### GraphSelect
-
-| Prop | Type | Default |
-| --- | --- | --- |
-| `load` | `() => Promise<readonly VertexId[]>` — called when pressed | required |
-| `label` | `string` — the corner's name for the selection, and its identity | required |
-
-Extends `React.ComponentProps<"button">` without `onClick` and `type`. `aria-pressed` follows the
-live selection; `disabled` is also set while `load` runs.
-
 ### GraphInspector
 
 | Prop | Type | Default |
@@ -655,6 +664,7 @@ it from outside.
 | `useGraph` | `(props: UseGraphProps) => GraphApi` | **Creates** the api: a store created once and handed the props when one changes. |
 | `useGraphContext` | `() => GraphApi` | **Reads** it under a root; throws outside one. |
 | `useGraphState` | `(selector, isEqual = Object.is) => T` | A slice of the `GraphState`, and a render only when it moves. |
+| `usePick` | `(id: string) => Pick` | A place beside the canvas: `pick(ids \| null, label)` publishes its clause, `picked` is that clause's label or `null`, `predicate()` every clause but its own. |
 | `useGraphPrefs` | `() => { look: Look; sim: Sim; placement: Placement }` | The provider's resolved `GRAPH_SECTION`, as the three things the root takes. |
 
 ### The picture
@@ -680,7 +690,6 @@ The commands, stable for the root's life — `GraphCommands` plus the state's do
 | `reveal(vertex)` | Selects and focuses a vertex with its neighbours and frames them — zooms into a vertex with none — taking the camera from any fit. |
 | `frameSelection()` | Frames what is selected. |
 | `clear()` | Clears the selection and the focus. |
-| `select(vertices, source?, label?)` | Replaces the selection; `null` clears it. `source` defaults to `"external"`. |
 | `setFocus(vertex)` | Focuses a vertex, or none. |
 | `setTool(tool)` | Arms `"rect"`, `"lasso"`, or `null` for the reading posture. |
 | `subscribe(listener)` / `getState()` | The store, for a callback; a render uses `useGraphState`. |
@@ -698,7 +707,7 @@ What `useGraphState` selects from.
 | `matching` | `number \| null` | The vertices of the corpus the page's filter keeps; `null` when nothing is filtered. |
 | `drawn` | `Drawn \| null` | `vertices`, `edges`, `domain` and `tally` under the filter. |
 | `domain` | `readonly unknown[]` | The category domain before anything loads. |
-| `selection` | `Selection \| null` | `vertices`, `source` (a `SelectionSource` — `"marquee" \| "lasso" \| "node"`, the canvas's gestures, or `"external"`, a host's `select`) and `label`. |
+| `selection` | `Selection \| null` | `vertices`, `source` (a `SelectionSource` — `"marquee" \| "lasso" \| "node"`, the canvas's gestures) and `label`. |
 | `focus` / `hovered` | `VertexId \| null` | The focused and the hovered vertex. |
 | `tool` | `Tool` | The armed selection tool. |
 | `options` | `UseGraphProps` | The props as given. |
@@ -707,9 +716,9 @@ What `useGraphState` selects from.
 ### Types
 
 `GraphCanvasProps`, `GraphLegendProps`, `GraphCountsProps`, `GraphStatusProps`, `GraphToolbarProps`,
-`GraphInspectorProps`, `GraphSearchProps`, `GraphSelectProps`, `GraphRootProviderProps` and
+`GraphInspectorProps`, `GraphSearchProps`, `GraphRootProviderProps` and
 `ShapeGlyphProps` are the parts' props; `VertexDetail` — `vertex`, `table` and `fields` — is what the
 inspector's render prop receives. `Channels` (`fill`, `symbol`, `stroke`, `x`, `y`, `cluster`), `Placement`, `Look`, `LookPatch`,
 `Shape`, `Sim`, `Motion`, `Selection`, `SelectionSource`, `Tool`, `VertexId`,
-`GraphCommands`, `DataStatus` and `Drawn` are the vocabulary, and `GraphError` is the class of the
+`GraphCommands`, `Pick`, `DataStatus` and `Drawn` are the vocabulary, and `GraphError` is the class of the
 graph's own failures. `CorpusReference` is one of the joins `corpusReferences` answers.

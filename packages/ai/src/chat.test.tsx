@@ -97,12 +97,26 @@ describe("Chat", () => {
     expect(document.querySelectorAll("[data-slot=suggestions] [data-slot=skeleton]").length).toBe(0);
   });
 
-  it("keeps the strip's row when suggesting failed, so the empty state does not move", () => {
-    render(<Chat chat={idle as never} empty={<p>Ask about your graph.</p>} suggesting={false} suggestions={[]} />);
+  it("draws the strip just above the composer, outside the transcript", () => {
+    render(<Chat chat={idle as never} empty={<p>Ask about your graph.</p>} suggestions={[{ text: "First?" }]} />);
     const strip = document.querySelector("[data-slot=suggestions]");
-    expect(strip?.children.length).toBe(0);
+    expect(strip?.closest("[data-slot=conversation-content]")).toBeNull();
+    expect(strip?.nextElementSibling?.contains(screen.getByPlaceholderText("Ask anything…"))).toBe(true);
+  });
+
+  it("draws the host's notice in place of the pills when suggesting failed, keeping the strip's row", () => {
+    render(<Chat chat={idle as never} notice={<p>Suggesting failed.</p>} suggesting={false} suggestions={[]} />);
+    const strip = document.querySelector("[data-slot=suggestions]");
+    expect(strip?.textContent).toBe("Suggesting failed.");
     expect(strip?.className).toContain("min-h-7");
-    expect(screen.getByPlaceholderText("Ask anything…")).not.toBeNull();
+    expect(document.querySelector("[data-slot=suggestion]")).toBeNull();
+  });
+
+  it("shows what the next question is asked over in the composer, beside Send", () => {
+    render(<Chat chat={idle as never} context={<span>Subset · 40 nodes</span>} />);
+    const toolbar = document.querySelector('[data-slot="prompt-input-toolbar"]');
+    expect(toolbar?.textContent).toContain("Subset · 40 nodes");
+    expect(toolbar?.querySelector("button")).toBeTruthy();
   });
 
   it("draws no strip for a host that offers no suggestions", () => {

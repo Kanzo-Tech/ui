@@ -54,16 +54,41 @@ shipped set, so it covers `@kanzo-tech/graph` as well as the analytics.
 
 `clauseParts(clause)` splits a clause into a field, an operator and a value, and `clauseLabel`
 joins those into the words of a chip. Both live in `@kanzo-tech/mosaic`, beside `clauseFor`, the
-function that builds the clause. `FilterChips` and the dashboard's filter bar both read them.
+function that builds the clause. `FilterBar`'s chips and a dashboard's filters both read them.
 
-**It replaced a reader inside `FilterChips`**, which the filter bar had to import a chip component
-to reach. Reading a clause is a question about Mosaic, not about a chip.
+**It replaced a reader inside the chip row**, which the dashboard's filters had to import a chip
+component to reach. Reading a clause is a question about Mosaic, not about a chip.
 
 **What would reverse it:** Mosaic's clause carrying a description of its own. Then the description
 is read straight from the clause, and these two are deleted.
 
 *Held by* `packages/mosaic/src/clause.test.ts`, "names a semi-join by its publisher's label, and
 counts its members when they are keys".
+
+## One row of filters, and a dashboard draws in it
+
+**The page has one filter bar, `FilterBar`, and a `Dashboard` draws its filters into it** through a
+slot — a portal from inside the dashboard's tree, so its filters keep the dashboard's provider and
+publish into the dashboard's crossfilter, bridged to the page by key as before. The bar draws every
+other clause as a chip and leaves the dashboard's to the dashboard's chips. Metabase's filter bar is
+one row above everything it scopes; a page with a graph and a dashboard had two — the dashboard's,
+and `FilterChips` over the page — and the page's showed the dashboard's clauses a second time.
+The filters are in the bar in every view, so a dashboard hidden behind `MosaicClients` keeps them on
+screen, and a control in the bar queries as the bar does.
+
+**It replaced a filter row inside `Dashboard`**, with its readout and *Clear*, beside a separate
+`FilterChips`. The alternative was filters owned by the page and published as column clauses; it
+was turned down because a column clause filters only the vertex types that have the column, where a
+dashboard's filter reaches the whole graph through its semi-join, and because it would have taken
+`filters` out of the saved spec.
+
+**What would reverse it:** a page with two dashboards on screen at once, whose filters in one row
+could no longer say which dashboard each belongs to. Then each dashboard draws its own row again,
+and the bar draws only what no dashboard holds.
+
+*Held by* `packages/ui/src/charts/filter-bar.test.tsx`, "draws what a part puts in its slot, and
+leaves that part's clauses to it"; `packages/ui/src/charts/dashboard.test.tsx`, "are drawn in the
+page's FilterBar, from inside a dashboard that publishes its own clause".
 
 ## The spec is read whole or refused
 
@@ -178,34 +203,86 @@ kind in the grid", and "places a tile among its peers, whatever lies between the
 width"; `packages/ui/src/charts/dashboard.test.tsx`, "changes the kind, keeping the id, and a figure
 that becomes a table moves from the band to the grid".
 
-## The editor is edited in place, and loaded on first edit
+## The editor is the page's aside, and is loaded on first edit
 
-`TileEditor` is an Ark `Popover` anchored to the tile's slot in the grid. The slot keeps the tile's
-own view mounted and draws the draft in it, so a change is seen where the tile is. The kind is a row of
-cards like a chart's mark, and the width a `SegmentGroup`. A tile being added gets a slot of its own at the end of the grid, brought
-into view as the popover opens, and Cancel removes the slot again.
+`TileEditor` is drawn in the page's aside — the end edge of the app at full height, with no card —
+the way draw.io's Format panel edits what is selected, and the way Grafana's panel options, Power
+BI's visualizations pane and Metabase's sidebar edit a tile: none of them covers the board or stops
+it scrolling. The tile's slot keeps its own view mounted and draws the draft in it, outlined, so a
+change is seen where the tile is. The panel fills the aside: a header with the title, the kind's
+hint and *Close*, one scrolling list in the order of Grafana's panel options — the kind as a row of
+cards like a chart's mark, its fields, then the title, the width as a `SegmentGroup` and the
+position — and the actions in a footer. Not a `Sheet` (Ark's dialog, modal, the scroll lock again)
+and not a `FloatingPanel`, which floats over a canvas rather than beside a grid. A tile being added
+gets a slot of its own at the end of the grid, brought into view as the panel opens, and Cancel
+removes the slot again.
+
+**The aside is the host's, and the dashboard draws in it through a slot**, the mechanism a
+dashboard's filters already use to draw in the page's `FilterBar`: the host places
+`TileEditorAside` in its own `ShellAside`, and the dashboard portals its editor there, so the editor
+keeps the dashboard's tree — its provider, its crossfilter, its draft. The slot sits beside the
+bar's, on the outermost `MosaicProvider`, so a dashboard whose provider is nested in the page's
+still reaches it. A page without one offers no editing, and there is no fallback: a dashboard that
+drew the editor somewhere of its own when the page had no aside would be the docked panel below,
+kept as a second path.
+
+**It replaced a panel docked beside the board inside `Dashboard`**: a `ShellAside` styled as a card,
+rounded, bordered, shadowed and sticky, in a row with the board, which docked along the bottom of
+the view under a narrow container. The dashboard was placing a page region. Its row decided the
+editor's width and height, a page with an inspector had two end edges, and the card, the sticky
+offset and the narrow dock re-derived what the shell already lays out. That panel had replaced a
+modal `Popover` anchored to the tile, which locked the page — Ark's modal popover sets
+`overflow: hidden` and `pointer-events: none` on `<body>` — while it covered the tiles beside the
+one it edited, and the popover had replaced a `Sheet` that covered the board.
+
+**What would reverse it:** a host that draws a dashboard where it owns no aside, such as an embed
+or a card on somebody else's page, and still has to edit it. Then the editor needs a home of its
+own again, and the question is reopened between the docked panel and Grafana's full-screen editor
+with the tile drawn in it.
+
+**The host learns an edit is open from `useTileEditorOpen()`, a flag on the slot's own context.**
+draw.io swaps the Format panel in when something is selected, so the host has to know when to show
+its aside. The other way was the part drawing nothing while no edit is open, and the host checking
+whether it has content. That is a question to the DOM — `:empty`, or a `:has()` on a portal target
+React fills after the commit — so the host's own state cannot follow it: which inspector the dock
+holds, whether it collapses. An aside shown by a selector also draws its border and its width
+around nothing for a frame. One boolean beside the element the slot already holds is one field and
+one hook. The part stays mounted while the aside is hidden, which is how the dashboard knows editing
+is offered, and the editor is drawn only once the flag is out, so it opens on screen and takes
+focus.
+
+**What would reverse it:** a host that needs more than whether — which tile is edited, or a say in
+whether it opens. Then the flag becomes the draft's kind, or the part takes Ark's `open` and
+`onOpenChange` pair.
+
+**The part is `TileEditorAside`**: what draws there, then where, as `FilterBar` is the filters and
+the bar and `ShellAside` the shell's side region. The other side of a slot is spelled `In*` —
+`InFilterBar` is what a dashboard draws through — and it stays internal, as that one does. Not
+`TileEditorSlot`: on [Names and slots](/docs/design/naming) a slot is `data-slot` and the `slot`
+prop, and Radix's `Slot` is `asChild`'s merge, so the name would read as either. Not
+`TileEditorPanel`: the panel is `TileEditor`, and the part is where it goes.
+
+**What would reverse it:** a second thing a dashboard draws in the aside, such as a filter's
+settings or the spec as JSON. Then the part is named for the aside rather than the editor.
 
 The editor draws no tile of its own. It holds the draft as a controlled value and reaches the slot
-through Ark's `getAnchorElement`, because a view the editor drew would be a new mount: a chart that
-remounts builds new Mosaic clients and queries again, which on opening reads as the tile reloading.
-For the same reason a scroll lock is not a theme change: `useThemeTick` ignores the inline `style`
-a modal overlay writes on `<html>`, which used to rebuild every chart on the page.
+through `anchor`, because a view the editor drew would be a new mount: a chart that remounts builds
+new Mosaic clients and queries again, which on opening reads as the tile reloading. For the same
+reason a scroll lock is not a theme change: `useThemeTick` ignores the inline `style` a modal overlay
+elsewhere on the page writes on `<html>`, which used to rebuild every chart on the page.
 
-`Dashboard` imports the editor through `React.lazy`. A dashboard without `onChange` is read-only:
+`Dashboard` imports the editor through `React.lazy`. A dashboard without `onChange`, or on a page
+without a `TileEditorAside`, is read-only:
 it draws no edit control and never fetches the kind picker, the field pickers, `Select` or
 `RadioGroup`.
-
-**It replaced a `Sheet` at the edge of the page**, which covered the board and drew the draft away
-from the tile it changed.
-
-**What would reverse it:** a tile too small to anchor a popover beside, at a width the grid
-actually reaches. Then the editor becomes a sheet, still lazy.
 
 *Held by* `packages/ui/src/charts/dashboard-layering.test.ts`, "loads no editor for a read-only
 dashboard", and "is not blind: it sees the editor once the import is static";
 `packages/ui/src/charts/dashboard.test.tsx`, "draws no edit control and never fetches the editor";
 "opens from the pencil beside the tile it edits, which stays mounted and draws the draft"; "adds a
-tile in a slot of its own at the end, brought into view, which Cancel takes away again";
+tile in a slot of its own at the end, brought into view, which Cancel takes away again"; "draws in
+the host's aside, shown while a tile is edited, and locks nothing"; "offers no editing on a page
+without a TileEditorAside";
 `packages/ui/src/lib/theme-tick.test.tsx`, "stays put for an inline style on the root, and still
 moves for a theme attribute".
 

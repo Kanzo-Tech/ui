@@ -20,6 +20,7 @@ export {
   clauseInterval,
   clauseIntervals,
   clauseMatch,
+  type ClauseSource,
   type SelectionClause,
 } from "@uwdata/mosaic-core";
 
@@ -44,6 +45,7 @@ export {
  * already a column wherever these take one.
  */
 export {
+  and,
   asTableRef,
   cast,
   count,
@@ -52,7 +54,9 @@ export {
   isIn,
   length,
   literal,
+  not,
   sql,
+  sum,
   type ExprNode,
 } from "@uwdata/mosaic-sql";
 
@@ -79,7 +83,7 @@ export {
  * inner ones mapped out together, on mosaic-core's public `Selection` API alone. What a group of
  * clients crossfiltering in their own columns publishes to the page in the page's: `bridge.ts`.
  */
-export { bridgeSelection, type BridgeOptions, type ClauseMap } from "./bridge.js";
+export { bridgeSelection, bridged, type Bridged, type BridgeOptions, type ClauseMap } from "./bridge.js";
 /**
  * Ours: one selection's clauses relayed into another built earlier, as the clause objects
  * themselves — what Mosaic's `include` does at construction, after it: `relay.ts`.

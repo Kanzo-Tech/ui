@@ -141,9 +141,9 @@ host's renderer every state, and says whether the call will ever settle".
 
 ## Before the first question
 
-`empty` is what the panel says before anything is asked, and `suggestions` are questions to start
-from, drawn as `@kanzo-tech/ui`'s `Suggestions` under it. Pressing one asks it. Both go once the
-conversation starts.
+`empty` is what the panel says before anything is asked, centred in it, and `suggestions` are
+questions to start from, drawn as `@kanzo-tech/ui`'s `Suggestions` just above the composer, where
+the question will be typed. Pressing one asks it. Both go once the conversation starts.
 
 <ComponentPreview componentName="chat" fileName="example-suggestions" />
 
@@ -170,31 +170,44 @@ for await (const proposal of suggest({ model: gateway("complete"), instructions,
 While it streams, pass `suggesting`: the strip draws pills in skeleton beside the ones that have
 arrived, as many as make up the strip, so it keeps its height as they land. **A failure throws when
 the stream ends** — the AI SDK otherwise ends a refused stream as if the model had nothing to
-suggest — and on a failure the host passes `suggestions={[]}`: **the strip keeps its row, empty**,
-so the empty state above it does not move, and the conversation works the same without pills. A
-host that offers no suggestions at all leaves `suggestions` out, and there is no strip. A data space's questions are
+suggest — and on a failure the host passes `suggestions={[]}` and says why in `notice`: **the
+failure takes the pills' place**, drawn as the host draws any failure (its `Problem`, with a retry),
+and the conversation works the same without pills. `notice` is `ProposalStrip`'s, the words `Assist`
+puts in place of its candidates; it is drawn only while the strip has nothing to offer. A host that
+offers no suggestions at all leaves `suggestions` out, and there is no strip. A data space's questions are
 [`dataSuggestions`](/docs/ai/data), which is `suggest()` with a data space's instructions.
 
 **A pill never outgrows the strip.** A question longer than the panel is as wide as the strip and
 cut with an ellipsis, and the whole question is in its tooltip. The accessible name is the whole
 question either way.
 
-**The strip is the one every model's offer is drawn in**, `Assist`'s candidates included: a ✨ leads
-it, hidden from assistive technology because the panel already names the feature, and each pill's
+**The strip is the one every model's offer is drawn in**, `Assist`'s candidates included. No mark
+leads it, because the panel already says a model wrote them, and in `Chat` it is centred over the
+composer, the way the empty state above it is. Each pill's
 rationale is its `Suggestion` `description` — in the tooltip, under the question, and read as the
 pill's accessible description. It costs no height, so a strip in a side panel stays one row; a line
 of text under each pill would double it. Pending is pills in skeleton, never a spinner, on both
 surfaces.
 
-*Held by* `packages/ai/src/proposal-strip.test.tsx`, "leads with the ✨, hidden from assistive
-technology, and describes each pill by its rationale", "is the strip in skeleton while proposals
+*What would reverse the missing mark:* a strip drawn where nothing around it says a model wrote it.
+Then the mark comes back, on that host's side.
+
+*Held by* `packages/ai/src/proposal-strip.test.tsx`, "describes each pill by its
+rationale", "is the strip in skeleton while proposals
 arrive, busy until they have".
 
-*What would reverse it:* a panel short enough that one empty row costs more than the jump it saves.
-Then a failure collapses the strip, and the empty state is anchored to the top instead of centred.
+An empty strip was the failure's look before: a reader shown no pills could not tell a model with
+nothing to offer from a call that was refused, and a host had no place to say which. The strip sits
+outside the transcript, so whatever it holds — pills, skeletons or a failure — moves the composer
+and never the empty state.
+
+*What would reverse it:* a panel short enough that a failure's few lines above the composer cost more
+than telling the reader. Then `notice` goes, a failure leaves the strip's row empty again, and the
+failure is the host's to report elsewhere.
 
 *Held by* `packages/ai/src/chat.test.tsx`, "holds room for suggestions still arriving, beside the
-ones that have", "keeps the strip's row when suggesting failed, so the empty state does not move";
+ones that have", "draws the strip just above the composer, outside the transcript", "draws the
+host's notice in place of the pills when suggesting failed, keeping the strip's row";
 `packages/ai/src/suggest.test.ts`, "throws what stopped the model, rather than ending
 as if it had nothing to suggest"; `packages/ui/src/simples/suggestions.test.tsx`, "shows the whole
 label in a tooltip when the label is cut".
@@ -249,6 +262,8 @@ Their props are `MessageProps`, `MessageAvatarProps`, `MessageRole` and `Reasoni
 | `empty` | `ReactNode` | What the panel says before the first question |
 | `suggestions` | `readonly Proposal[]` | Questions to start from; given at all, even empty, the strip keeps its row |
 | `suggesting` | `boolean` | More are on their way: pills in skeleton beside them |
+| `notice` | `ReactNode` | In place of the pills while there are none: why suggesting failed, with a retry |
+| `context` | `ReactNode` | What the next question is asked over, read-only in the composer beside Send — a pill such as *Subset · 40 nodes*, as Copilot Chat and Cursor show theirs |
 | `copy` | `ProblemProps["copy"]` | The host's words for a failure's code, as `Problem` takes them |
 | `translations` | `Partial<ChatTranslations>` | `placeholder` for the composer, and `failed`, read before an error |
 | `className` | `string` | On the root |

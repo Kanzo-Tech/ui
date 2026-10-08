@@ -14,8 +14,8 @@
 // children (marks, interactors, axes) into one `vg.plot(...)`, so a bar and a line share a plot and
 // any interactor pairs with any mark. `ChartRaw` and the root's `attributes` are the escape hatches
 // for the parts of vgplot the layer does not wrap — wrapping is a convenience, never a cage.
-export { MosaicProvider, useMosaic, useCrossfilter, useSelected } from "./charts/mosaic-provider.js";
-export type { MosaicProviderProps, MosaicContextValue } from "./charts/mosaic-provider.js";
+export { MosaicClients, MosaicProvider, useMosaic, useCrossfilter, useSelected } from "./charts/mosaic-provider.js";
+export type { MosaicClientsProps, MosaicProviderProps, MosaicContextValue } from "./charts/mosaic-provider.js";
 
 export { ChartRoot, useChartContext, useChartContextOptional } from "./charts/chart-root.js";
 export type { ChartRootProps, ChartContextValue } from "./charts/chart-root.js";
@@ -96,19 +96,19 @@ export { useChartQuery, Query } from "./charts/use-chart-query.js";
 // A statement read once and suspended on — a catalog, a schema — outside the crossfilter.
 export { useQueryRows } from "./charts/use-query-rows.js";
 export type { ChartQueryOptions, ChartQueryResult, ChartQueryRow } from "./charts/use-chart-query.js";
-// What a selection holds, as chips that retract a clause where it was published.
-export { FilterChips, useClauses } from "./charts/filter-chips.js";
-export type { FilterChipsProps } from "./charts/filter-chips.js";
+// The page's one row of filters: every clause as a chip that retracts it where it was published, a
+// slot a dashboard draws its filters in, the readout and Clear.
+export { FilterBar, useClauses } from "./charts/filter-bar.js";
+export type { FilterBarProps } from "./charts/filter-bar.js";
 
 // The mini BI kit: a relation's fields from one `SUMMARIZE`, and a dashboard as serializable data —
-// a filter bar and tiles (figures, charts, tables), each chosen and edited from those fields.
+// filters drawn in the page's `FilterBar` and tiles (figures, charts, tables), each chosen and edited from those fields.
 // `Dashboard` is the whole thing; the parts are what it is made of, for a host arranging its own,
-// and `TileEditor` is the one popover a tile is added and edited in, anchored to the tile. A titled frame is `Card` and a
+// and `TileEditor` is the one panel a tile is added and edited in, drawn in the page's `TileEditorAside`,
+// which the host shows while `useTileEditorOpen` says a tile is edited. A titled frame is `Card` and a
 // grid is a class list, so neither is a name of its own.
 export { Dashboard } from "./charts/dashboard.js";
 export type { DashboardProps } from "./charts/dashboard.js";
-export { DashboardFilters } from "./charts/dashboard-filters.js";
-export type { DashboardFiltersProps } from "./charts/dashboard-filters.js";
 export { DashboardStat } from "./charts/dashboard-stat.js";
 export type { DashboardStatProps } from "./charts/dashboard-stat.js";
 export { ChartCard } from "./charts/chart-card.js";
@@ -116,6 +116,7 @@ export type { ChartCardProps } from "./charts/chart-card.js";
 export { DetailTable } from "./charts/detail-table.js";
 export type { DetailTableProps } from "./charts/detail-table.js";
 export { TileEditor } from "./charts/tile-editor.js";
+export { TileEditorAside, useTileEditorOpen } from "./charts/mosaic-provider.js";
 export type { TileEditorProps } from "./charts/tile-editor.js";
 export { autoDashboard, plotRelation } from "./charts/dashboard-spec.js";
 export type {

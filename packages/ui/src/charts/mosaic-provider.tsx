@@ -1,7 +1,10 @@
 "use client";
 
 import { relaySelection } from "@kanzo-tech/mosaic";
-import { createContext, useContext, useMemo, useRef, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { ark } from "@ark-ui/react/factory";
+import { cn } from "../lib/cn.js";
 import {
   Selection,
   coordinator as setActiveCoordinator,
@@ -140,7 +143,120 @@ export function MosaicProvider({ coordinator, crossfilter, onFailure, children }
     };
   }, [coordinator, crossfilter]);
 
-  return <MosaicContext.Provider value={value}>{children}</MosaicContext.Provider>;
+  // The page's slots are the outermost provider's: a provider nested for a dashboard draws in them too.
+  const outer = useContext(Slots);
+  const [slot, setSlot] = useState<PageSlots>(EMPTY_SLOTS);
+  const slots = useMemo(() => outer ?? { slot, set: setSlot }, [outer, slot]);
+
+  return (
+    <MosaicContext.Provider value={value}>
+      <Slots.Provider value={slots}>{children}</Slots.Provider>
+    </MosaicContext.Provider>
+  );
+}
+
+/** Clauses a part draws in the bar itself — those of `selection` on one of `fields` — so `FilterBar` does not. */
+export interface BarHeld {
+  readonly selection: Selection;
+  readonly fields: readonly string[];
+}
+
+/**
+ * Where the page's `FilterBar` and `TileEditorAside` draw what a dashboard puts in them, whether the
+ * bar's clients query, and whether a tile is being edited.
+ */
+interface PageSlots {
+  readonly bar: HTMLElement | null;
+  readonly enabled: boolean;
+  readonly held: readonly BarHeld[];
+  readonly aside: HTMLElement | null;
+  readonly editing: boolean;
+}
+
+const EMPTY_SLOTS: PageSlots = { bar: null, enabled: true, held: [], aside: null, editing: false };
+const Slots = createContext<{ slot: PageSlots; set: (next: (slot: PageSlots) => PageSlots) => void } | null>(null);
+
+/** Sets one of the page's slots, leaving the state alone when it already holds `value`. */
+function useSlot<K extends "bar" | "enabled" | "aside" | "editing">(key: K) {
+  const set = useContext(Slots)?.set;
+  return useCallback((value: PageSlots[K]) => set?.((s) => (s[key] === value ? s : { ...s, [key]: value })), [set, key]);
+}
+
+/** The bar's side: its slot, and the callback ref that places it. */
+export function useBarSlot() {
+  const enabled = useContext(Enabled);
+  const setEnabled = useSlot("enabled");
+  useEffect(() => setEnabled(enabled), [setEnabled, enabled]);
+  return { held: useContext(Slots)?.slot.held ?? [], place: useSlot("bar") };
+}
+
+/**
+ * **Draws `children` in the page's `FilterBar`**, through a portal, so they keep this tree's context
+ * — the dashboard's provider and its crossfilter — while they sit in the page's bar. `held` names the
+ * clauses they draw themselves. They query as the bar does, not as where they are declared: a view
+ * hidden by `MosaicClients` still has its filters on screen. Nothing is drawn while the page has no bar.
+ */
+export function InFilterBar({ held, children }: { held: BarHeld; children: ReactNode }) {
+  const slots = useContext(Slots);
+  const set = slots?.set;
+  const { selection } = held;
+  // By value, so a host's inline array is not a change.
+  const fields = JSON.stringify(held.fields);
+  useEffect(() => {
+    if (!set) return;
+    const entry: BarHeld = { selection, fields: JSON.parse(fields) as string[] };
+    set((s) => ({ ...s, held: [...s.held, entry] }));
+    return () => set((s) => ({ ...s, held: s.held.filter((h) => h !== entry) }));
+  }, [set, selection, fields]);
+  const element = slots?.slot.bar;
+  return element ? createPortal(<Enabled.Provider value={slots.slot.enabled}>{children}</Enabled.Provider>, element) : null;
+}
+
+/**
+ * **Where a dashboard on this page draws its tile editor** — the host's aside, the way draw.io's
+ * Format panel is the window's right edge. Place it in your own `ShellAside`, keep it mounted, and
+ * show the aside while `useTileEditorOpen()` says a tile is edited. A page without one offers no
+ * editing: its dashboards are read-only.
+ */
+export function TileEditorAside(props: ComponentProps<typeof ark.div>) {
+  const { className, slot, ...rest } = props;
+  const place = useSlot("aside");
+  return <ark.div className={cn("contents", className)} {...rest} data-slot={slot ?? "tile-editor-aside"} ref={place} />;
+}
+
+/** Whether a dashboard on this page is editing a tile — when the host shows its `TileEditorAside`. */
+export function useTileEditorOpen(): boolean {
+  return useContext(Slots)?.slot.editing ?? false;
+}
+
+/** The dashboard's side of the aside: the element to draw the editor in, and the call that says a tile is edited. */
+export function useEditorAside() {
+  return { element: useContext(Slots)?.slot.aside ?? null, edit: useSlot("editing") };
+}
+
+const Enabled = createContext(true);
+
+export interface MosaicClientsProps {
+  /** Whether the clients under it query. A nested `false` wins over an enclosing `true`. */
+  enabled: boolean;
+  children: ReactNode;
+}
+
+/**
+ * **Mosaic's `MosaicClient.enabled`, for every client under it** — the charts' marks, the inputs and
+ * every `useChartQuery`. A disabled client keeps its state and its clauses but asks nothing; enabled
+ * again, it runs the one query it was owed. Mosaic's own reason for the flag is ours: a panel that
+ * is off screen — a view swapped out, a collapsed dock — keeps what the reader brushed there without
+ * re-querying on every pick made elsewhere. Unmounting it instead would retract its clauses.
+ */
+export function MosaicClients({ enabled, children }: MosaicClientsProps) {
+  const enclosing = useContext(Enabled);
+  return <Enabled.Provider value={enclosing && enabled}>{children}</Enabled.Provider>;
+}
+
+/** Whether the clients here should query — `MosaicClients`'s answer, `true` outside one. */
+export function useClientsEnabled(): boolean {
+  return useContext(Enabled);
 }
 
 /** The Mosaic context — coordinator, shared selections, `registerSelection` and `reset`. */
