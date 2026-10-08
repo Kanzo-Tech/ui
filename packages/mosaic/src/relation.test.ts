@@ -17,9 +17,10 @@ const GRAPH: JoinGraph = {
 };
 
 describe("relationQuery", () => {
-  it("reads a type on its own with every column prefixed by the type, and its key under its own name", () => {
+  it("reads a type on its own under its table's name, every column prefixed by the type and its key under its own name", () => {
+    // No alias: mosaic-core's pre-aggregator evaluates these expressions against the bare table.
     expect(String(relationQuery(GRAPH, { root: "Post", path: [] }))).toBe(
-      'SELECT "t0"."dense_id" AS "dense_id", "t0"."length" AS "Post.length" FROM "jobs/7"."Post" AS "t0"',
+      'SELECT "dense_id", "length" AS "Post.length" FROM "jobs/7"."Post"',
     );
   });
 
