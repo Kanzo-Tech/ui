@@ -5,6 +5,7 @@ import { JsonTreeView, Switch, useDebouncedCommit } from "@kanzo-tech/ui";
 import { Dashboard, FilterBar, type ChartConfig, type DashboardSpec } from "@kanzo-tech/ui/analytics";
 import { CheckCircle2Icon, CircleHelpIcon, TriangleAlertIcon } from "lucide-react";
 import { MosaicDemo } from "../charts/mosaic-demo";
+import { EditingPage } from "./editing-page";
 
 // A host's whole share of a dashboard: somewhere to keep the spec, a pause before writing it, a
 // switch for who may edit, and the vocabulary of a field that has meanings of its own. The
@@ -51,7 +52,7 @@ export default function Example() {
 
   return (
     <MosaicDemo>
-      <div className="flex w-full flex-col gap-4">
+      <EditingPage>
         <div className="flex flex-wrap items-center gap-4">
           <Switch checked={editable} onCheckedChange={(d) => setEditable(d.checked)}>
             Editable
@@ -68,7 +69,7 @@ export default function Example() {
           value={draft}
         />
         {stored ? <JsonTreeView data={stored} defaultExpandedDepth={1} /> : null}
-      </div>
+      </EditingPage>
     </MosaicDemo>
   );
 }

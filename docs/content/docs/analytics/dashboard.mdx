@@ -5,8 +5,8 @@ description: A dashboard over any relation for finding what it holds — a filte
 
 `Dashboard` is the charts grammar composed for a relation you have not seen. It reads the
 relation's fields from one DuckDB `SUMMARIZE`, draws a dashboard from them — or from a spec you
-saved — and lets the reader edit every tile of it. The host brings three things: a
-`MosaicProvider`, the relation, and somewhere to keep the spec. The relation can be a table or a
+saved — and lets the reader edit every tile of it. The host brings four things: a
+`MosaicProvider`, the relation, somewhere to keep the spec, and an aside for the editor. The relation can be a table or a
 [join over a graph of types](#relations), and the dashboard cannot tell the two apart.
 
 <ComponentPreview componentName="dashboard" fileName="example-default" hasMaxHeight={false} />
@@ -20,14 +20,29 @@ every tile reads the one relation the `Dashboard` is given, under one crossfilte
 ## Usage
 
 ```tsx
-import { Dashboard, FilterBar, MosaicProvider, type DashboardSpec } from "@kanzo-tech/ui/analytics";
+import { ShellAside, ShellBody, ShellMain } from "@kanzo-tech/ui";
+import { Dashboard, FilterBar, MosaicProvider, TileEditorAside, useTileEditorOpen } from "@kanzo-tech/ui/analytics";
 
 function Sightings({ coordinator, saved, save }: Props) {
   return (
     <MosaicProvider coordinator={coordinator}>
-      <FilterBar table="sightings" rowNoun="sightings" />
-      <Dashboard table="sightings" value={saved} onChange={save} />
+      <ShellBody>
+        <ShellMain>
+          <FilterBar table="sightings" rowNoun="sightings" />
+          <Dashboard table="sightings" value={saved} onChange={save} />
+        </ShellMain>
+        <Format />
+      </ShellBody>
     </MosaicProvider>
+  );
+}
+
+// Under the provider, so the dashboard reaches it; mounted always, shown while a tile is edited.
+function Format() {
+  return (
+    <ShellAside aria-label="Format" side="end" width={352} hidden={!useTileEditorOpen()}>
+      <TileEditorAside />
+    </ShellAside>
   );
 }
 ```
@@ -41,6 +56,8 @@ function Sightings({ coordinator, saved, save }: Props) {
   unsaved until it is saved.
 - **Its filters are drawn in the page's [`FilterBar`](#filterbar)**, wherever the host puts it. A
   page without one shows no filters.
+- **Its editor is drawn in the page's [`TileEditorAside`](#tileeditoraside)**, in an aside of the
+  host's. A page without one offers no editing: the dashboard is read-only, `onChange` or not.
 - **Without `onChange` it is read-only**: no pencils, no *Add tile*, no remove buttons. Filters,
   picks and brushes still work; reading is not editing.
 
@@ -55,7 +72,7 @@ Dashboard                 — reads the fields, draws the spec or the automatic 
 ├── DashboardStat         — a `stat` tile
 ├── ChartCard             — a `chart` tile
 ├── DetailTable           — inside a `table` tile: the rows under the selection, paged by DuckDB
-└── TileEditor            — the popover a tile is added and edited in, anchored to the tile
+└── TileEditor            — the panel a tile is added and edited in, drawn in the page's TileEditorAside
 ```
 
 The figures come first, as one band whose row they share equally, wrapping when they run out of
@@ -259,20 +276,24 @@ and here the browser never holds more than the page.
 
 ### TileEditor
 
-**The one editor** — a popover anchored to the tile it edits, the way Notion and Linear edit a block
-where it sits. *Add tile* and every tile's pencil open the same popover, in this order: the **kind**
-as cards with an icon, like a chart's mark (Figure, Chart, Table — a kind the relation cannot draw is disabled), the
-**fields** that kind reads, the title, and — for a chart or a table — the **width** (a third, two
-thirds, full), with the position among the figures or among the grid's tiles. **The tile is the
-preview**: it draws the draft in its own slot under the page's crossfilter, and grows or shrinks with
-the width; a tile being added gets a slot at the end of its band or grid, brought into view as the
-popover opens.
-Nothing reaches the dashboard until *Add* or *Save*; *Cancel*, Escape and a click outside drop the
-draft. A new position applies on save, so the tile never moves under the popover.
+**The one editor** — the page's aside, the way draw.io's Format panel, Grafana's panel options and
+Power BI's visualizations pane edit what is selected. *Add tile* and every tile's pencil open the
+same panel, and it is not modal: the board keeps scrolling and stays live while it is open.
+It lists, in this order, the **kind** as cards with an icon, like a chart's mark (Figure, Chart,
+Table — a kind the relation cannot draw is disabled), the **fields** that kind reads, then the
+title and — for a chart or a table — the **width** (a third, two thirds, full), with the position
+among the figures or among the grid's tiles. **The tile is the preview**: it draws the draft in its
+own slot under the page's crossfilter, outlined, and grows or shrinks with the width; a tile being
+added gets a slot at the end of its band or grid, brought into view as the panel opens. The panel
+fills the aside's height: a header with the title, the kind's hint and *Close*, one scrolling list,
+and the actions in a footer.
+Nothing reaches the dashboard until *Add* or *Save*; *Cancel*, the close button and Escape drop the
+draft. A new position applies on save, so the tile never moves while it is edited.
 
-`TileEditor` draws no tile. Hand it the draft as `tile` with `onChange`, draw that draft in the
-tile's own view, and pass the view's element as `anchor`; mount the editor while it is open. The view
-stays mounted from the pencil to *Save*, so opening the editor does not rebuild its plot.
+`TileEditor` draws no tile and does not place itself. Hand it the draft as `tile` with `onChange`,
+draw that draft in the tile's own view, pass the view's element as `anchor`, and put the editor in
+an aside of your own, which it fills. Mount it while it is open.
+The view stays mounted from the pencil to *Save*, so opening the editor does not rebuild its plot.
 `Dashboard` loads it the first time somebody edits, so a read-only dashboard never fetches the
 editor's code.
 
@@ -290,6 +311,20 @@ editor's code.
 Each kind is a row in three tables — how one is made, titled and converted (plain TypeScript, no
 React), how it is drawn, and what its editor asks for — each mapped over the kinds, so a kind missing
 from any of them does not compile and neither the board nor the editor switches on a kind.
+
+### TileEditorAside
+
+**Where a `Dashboard` draws its editor** — a part the host places in its own `ShellAside`, the way
+it places a `FilterBar` under its header. The dashboard portals its `TileEditor` there, so the
+editor keeps the dashboard's tree — its provider, its crossfilter, its draft — while it sits at the
+page's edge. Like the bar's, the slot is the outermost `MosaicProvider`'s, so a dashboard with its
+own provider nested in the page's still finds it; the aside has to be under that provider.
+
+`useTileEditorOpen()` is whether a dashboard is editing a tile, so the host shows its aside then —
+draw.io swaps the Format panel in when something is selected. Keep the part mounted and hide the
+aside instead: a dashboard offers editing only while a `TileEditorAside` is on the page, so a page
+without one has read-only dashboards. The editor is drawn once the aside is shown, so it opens in
+view and takes focus.
 
 ### useFieldStats, queryFieldStats and fieldStats
 
@@ -505,14 +540,21 @@ Every other prop goes to the root `div` (`data-slot="dashboard"`).
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `table` | `TableExpr` | — what the tile reads |
 | `fields` | `readonly FieldStat[]` | — |
-| `tile` | `Tile` | — the tile to edit, or to add when `tiles` does not hold it. Mounted is open |
+| `tile` | `Tile` | — the draft: the tile to edit, or to add when `tiles` does not hold it. Mounted is open |
+| `onChange` | `(tile: Tile) => void` | — every change to the draft |
+| `anchor` | `() => HTMLElement \| null` | — the tile's slot, brought into view as the editor opens |
 | `tiles` | `readonly Tile[]` | `[]` — where the tile sits, and what a change of kind avoids repeating |
-| `config` | `Readonly<Record<string, ChartConfig>>` | — |
 | `onSave` | `(tile: Tile, index: number) => void` | — |
 | `onRemove` | `() => void` | — (no *Remove*) |
-| `onClose` | `() => void` | — Cancel, Escape and a click outside |
+| `onClose` | `() => void` | — Cancel, the close button and Escape |
+
+### TileEditorAside
+
+Takes no props of its own; every prop goes to its `div` (`data-slot="tile-editor-aside"`), which is
+`display: contents`, so the editor fills the aside it is placed in.
+
+`useTileEditorOpen(): boolean`.
 
 ### RelationPicker
 

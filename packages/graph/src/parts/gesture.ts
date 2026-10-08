@@ -107,18 +107,18 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
 
   // Escape is the way out of everything, in layers: it abandons a drag in progress, then drops the
   // tool, then clears what is held. And a window that loses focus never delivers the Shift keyup,
-  // which would leave the canvas unable to pan.
+  // which would leave the canvas unable to pan. The layer is read from `dragging`, not from inside a
+  // `setDrag` updater: React may run an updater while it renders the canvas, and `setTool` and
+  // `commit` write the store every other part reads, which is a setState in another's render.
+  const dragging = drag !== null;
   useEffect(() => {
     const down = (event: KeyboardEvent) => {
       if (event.key === "Shift") setShift(true);
       if (event.key !== "Escape") return;
-      setDrag((current) => {
-        if (current) return null;
-        if (tool) setTool(null);
-        else commit(null, "node", "");
-        return null;
-      });
       setPreview(null);
+      if (dragging) setDrag(null);
+      else if (tool) setTool(null);
+      else commit(null, "node", "");
     };
     const up = (event: KeyboardEvent) => {
       if (event.key === "Shift") setShift(false);
@@ -132,7 +132,7 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
       window.removeEventListener("keyup", up);
       window.removeEventListener("blur", blur);
     };
-  }, [commit, setTool, tool]);
+  }, [commit, dragging, setTool, tool]);
 
   /** Screen coordinates inside the canvas — the space every cosmos.gl hit test speaks. */
   const at = (event: React.PointerEvent): Point => {

@@ -90,6 +90,7 @@ import {
 import { hall, HOME_HALL, type HallId } from "@/example/world";
 import { initialsOf } from "@/example/people";
 import { GraphCanvas, GraphLegend, GraphToolbar, useGraphState } from "@kanzo-tech/graph";
+import { TileEditorAside, useTileEditorOpen } from "@kanzo-tech/ui/analytics";
 import {
 	ArchiveFooter,
 	ArchiveGraph,
@@ -107,7 +108,8 @@ import {
  *   ├─ Sidebar                  the app rail — hall switcher / the world's own nav / user
  *   └─ SidebarInset             neutral offset column; the content shell lives inside it
  *      ├─ ShellHeader           breadcrumb (Ledger › The archive › Graph) + ⌘B + view switcher
- *      ├─ ShellBody             Resizable: ShellMain view  ⟷  docked ShellAside inspector
+ *      ├─ ShellBody             Resizable: ShellMain view  ⟷  docked ShellAside inspector, and
+ *      │                        the Format aside at the end edge while a dashboard tile is edited
  *      └─ ShellFooter           status bar: node/edge count at start, panel-tab icons at end
  *
  * The dock is drag-resizable, and resizing is composed rather than a prop: the main region and
@@ -198,6 +200,22 @@ function SightingsRegion() {
 		<ShellMain className="min-h-0 bg-background">
 			<SightingsView />
 		</ShellMain>
+	);
+}
+
+/**
+ * The page's aside for the dashboard's tile editor, at the body's end edge — draw.io's Format panel,
+ * shown while a tile is edited. It stays mounted, hidden, because a page without a
+ * `TileEditorAside` offers no editing; a phone draws it over the view.
+ */
+function FormatAside() {
+	const { isMobile } = useSidebar();
+	return (
+		// `z-10` over the overlay's `z-5`: a table's sticky header in the view is `z-10` too, and the
+		// aside comes after it.
+		<ShellAside aria-label="Format" className="z-10 bg-card" hidden={!useTileEditorOpen()} overlay={isMobile} side="end" width={352}>
+			<TileEditorAside />
+		</ShellAside>
 	);
 }
 
@@ -619,6 +637,7 @@ function ArchiveShell() {
 							</ResizablePanel>
 						</Resizable>
 					</Show>
+					<FormatAside />
 				</ShellBody>
 
 				<ShellFooter className="h-8 flex-row items-center justify-between px-2">

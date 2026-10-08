@@ -6,7 +6,8 @@ import { semiJoinOf } from "@kanzo-tech/mosaic";
 import { Dashboard } from "./dashboard.js";
 import { FilterBar } from "./filter-bar.js";
 import type { DashboardSpec } from "./dashboard-spec.js";
-import { MosaicProvider } from "./mosaic-provider.js";
+import { MosaicProvider, TileEditorAside, useTileEditorOpen } from "./mosaic-provider.js";
+import { ShellAside } from "../layouts/shell.js";
 
 /** Counts the times the editor's module is fetched: a read-only dashboard must never fetch it. */
 const editorLoads = vi.hoisted(() => ({ count: 0 }));
@@ -49,15 +50,27 @@ const SPEC: DashboardSpec = {
   ],
 };
 
+/** The host's half: an aside of its own, shown while a tile is edited. */
+function Aside() {
+  return (
+    <ShellAside aria-label="Format" hidden={!useTileEditorOpen()} side="end">
+      <TileEditorAside />
+    </ShellAside>
+  );
+}
+
 function draw(props: { value?: DashboardSpec; onChange?: (spec: DashboardSpec | undefined) => void }) {
   return render(
     <MosaicProvider coordinator={stubCoordinator()} crossfilter={Selection.crossfilter()}>
       <Dashboard table="sightings" {...props} />
+      <Aside />
     </MosaicProvider>,
   );
 }
 
-const editor = () => screen.findByRole("dialog");
+const editor = () => screen.findByRole("region", { name: /tile$/ });
+const editorShut = () => expect(screen.queryByRole("region", { name: /tile$/ })).toBeNull();
+const title = async () => within(await editor()).getByRole("textbox");
 
 // jsdom lays nothing out, so it has no `scrollIntoView`; the editor calls it on the tile it opens on.
 const scrolled = vi.fn(function (this: Element) {
@@ -85,8 +98,8 @@ describe("the tile editor", () => {
     // The same element, not a new one drawn by the editor: a remounted view rebuilds its plot.
     expect(slot.isConnected).toBe(true);
 
-    await user.clear(within(await editor()).getByRole("textbox"));
-    await user.type(within(await editor()).getByRole("textbox"), "Seen");
+    await user.clear(await title());
+    await user.type(await title(), "Seen");
     expect(within(slot as HTMLElement).getByText("Seen")).toBeTruthy();
   });
 
@@ -96,18 +109,18 @@ describe("the tile editor", () => {
     draw({ value: SPEC, onChange });
 
     await user.click(await screen.findByRole("button", { name: "Edit figure" }));
-    await user.type(within(await editor()).getByRole("textbox"), " today");
+    await user.type(await title(), " today");
     await user.click(within(await editor()).getByRole("button", { name: "Cancel" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(editorShut);
 
     await user.click(await screen.findByRole("button", { name: "Edit figure" }));
-    await user.type(within(await editor()).getByRole("textbox"), " today");
+    await user.type(await title(), " today");
     await user.keyboard("{Escape}");
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(editorShut);
     expect(onChange).not.toHaveBeenCalled();
 
     await user.click(await screen.findByRole("button", { name: "Edit figure" }));
-    await user.type(within(await editor()).getByRole("textbox"), " today");
+    await user.type(await title(), " today");
     await user.click(within(await editor()).getByRole("button", { name: "Save" }));
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange.mock.calls[0]![0].tiles[0]).toMatchObject({ id: "n", kind: "stat", title: "Sightings today" });
@@ -155,6 +168,38 @@ describe("the tile editor", () => {
   });
 });
 
+describe("the tile editor in the page's aside", () => {
+  it("draws in the host's aside, shown while a tile is edited, and locks nothing", async () => {
+    const user = userEvent.setup();
+    draw({ value: SPEC, onChange: vi.fn() });
+    expect(screen.queryByRole("complementary", { name: "Format" })).toBeNull();
+    await user.click(await screen.findByRole("button", { name: "Edit figure" }));
+    const aside = await screen.findByRole("complementary", { name: "Format" });
+    expect(within(aside).getByRole("region", { name: "Edit tile" })).toBe(await editor());
+    // Focus moves into the panel, so Escape and Tab start there.
+    expect(aside.contains(document.activeElement)).toBe(true);
+    // A modal overlay hides the page from pointer and wheel and stops it scrolling.
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.body.style.overflow).toBe("");
+    expect(document.body.style.pointerEvents).toBe("");
+    // The board is still there to read and act on: a click on it leaves the draft open.
+    await user.click(screen.getByRole("button", { name: "Edit table" }));
+    expect(within(await editor()).getByText("Edit tile")).toBeTruthy();
+    await user.click(within(await editor()).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("complementary", { name: "Format" })).toBeNull());
+  });
+
+  it("offers no editing on a page without a TileEditorAside", async () => {
+    render(
+      <MosaicProvider coordinator={stubCoordinator()} crossfilter={Selection.crossfilter()}>
+        <Dashboard onChange={vi.fn()} table="sightings" value={SPEC} />
+      </MosaicProvider>,
+    );
+    expect(await screen.findByText("Sightings")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Edit|Add tile|Dashboard options/ })).toBeNull();
+  });
+});
+
 describe("Reset to automatic", () => {
   it("hands the host undefined, and is disabled while nothing is stored", async () => {
     const user = userEvent.setup();
@@ -167,6 +212,7 @@ describe("Reset to automatic", () => {
     rerender(
       <MosaicProvider coordinator={stubCoordinator()} crossfilter={Selection.crossfilter()}>
         <Dashboard onChange={onChange} table="sightings" />
+        <Aside />
       </MosaicProvider>,
     );
     await user.click(await screen.findByRole("button", { name: "Dashboard options" }));
@@ -182,6 +228,7 @@ describe("Dashboard's filters", () => {
       <MosaicProvider coordinator={stubCoordinator()} crossfilter={Selection.crossfilter()}>
         <FilterBar />
         <Dashboard onChange={() => {}} publish={publish} table="sightings" value={{ ...SPEC, filters: [{ field: "region" }] }} />
+        <Aside />
       </MosaicProvider>,
     );
     const bar = await screen.findByRole("region", { name: "Filters" });
