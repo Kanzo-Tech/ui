@@ -117,6 +117,26 @@ brush elsewhere shrinks what the scatter fetches. For a dense cloud, a binned 2D
 grammar (`ChartHexbin`, `ChartRaster`, `ChartDensity`) aggregates in SQL and stays flat at any size;
 it is not a dashboard card type, so it goes in a card of your own.
 
+## A fit under a brush reads a table that does not exist
+
+**Symptom.** A regression, correlation or variance tile errors as soon as another tile is brushed:
+first `Binder Error: Referenced table "t0" not found! Candidate tables: "unnamed_subquery"` on a
+`CREATE TABLE … "mosaic"."preagg_…"`, then `Catalog Error: Table with name preagg_… does not exist!`
+on every brush after it. The tile still draws, because Mosaic falls back to the plain query.
+
+**Why.** Mosaic pre-aggregates a tile whose filter is stable into a view grouped by the brushed
+columns. A regression's statistics are mean-centred, and mosaic-core 0.32 writes each mean as
+`(SELECT avg(<column>) FROM <base table>)`, where `<column>` is the expression the relation you
+handed over selects for that column. If the relation reads its table under an alias —
+`SELECT "t0"."lat" AS "Airport.lat" FROM "Airport" AS "t0"` — the lifted `"t0"."lat"` names an
+alias that the scalar subquery never declares. The failed `CREATE TABLE` is the cause, and the
+missing table is its consequence.
+
+**Instead.** `relationQuery` reads a type alone under its table's own name, with unqualified
+columns, so it pre-aggregates. A relation with a path is a join, which Mosaic never pre-aggregates
+(it has no single base table), so its aliases are never lifted. A relation of your own over one
+table should follow the same rule: no alias, and columns written the way the table names them.
+
 ## Add chart needs a secure context
 
 **Symptom.** *Add chart* and *Add tile* throw `crypto.randomUUID is not a function`.

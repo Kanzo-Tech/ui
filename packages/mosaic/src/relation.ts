@@ -138,7 +138,7 @@ function typeOf(graph: JoinGraph, name: string): JoinType {
   return type;
 }
 
-const source = (table: TableExpr, alias: string) =>
+const source = (table: TableExpr, alias?: string) =>
   new FromClauseNode(typeof table === "string" ? asTableRef(table)! : (table as ExprNode), alias);
 
 /**
@@ -146,6 +146,13 @@ const source = (table: TableExpr, alias: string) =>
  * column named `<alias>.<column>` — `Person.country`, `Person2.country` on a self-join — and every
  * key beside them, the root's under its own name. A type alone is the same query with nothing
  * joined.
+ *
+ * Only a join aliases its tables. A type alone reads its table under the table's own name, its
+ * columns unqualified, because that is the form mosaic-core's pre-aggregator resolves a subquery's
+ * columns through: it lifts a column's expression out of this query and evaluates it against the
+ * bare base table — `(SELECT avg(<expression>) FROM <table>)` for every mean-centred statistic, a
+ * regression's or a variance's — where an alias of this query's is out of scope. A join is never
+ * pre-aggregated (it has no single base table), so its aliases are never lifted.
  */
 export function relationQuery(graph: JoinGraph, relation: Relation): Query {
   const path = steps(graph, relation);
@@ -153,7 +160,7 @@ export function relationQuery(graph: JoinGraph, relation: Relation): Query {
   let from: FromClauseNode | JoinNode | undefined;
   path.forEach((step, i) => {
     const type = typeOf(graph, step.type);
-    const t = `t${i}`;
+    const t = path.length === 1 ? undefined : `t${i}`;
     select[keyName(step, i, type.key)] = column(type.key, t);
     for (const name of type.columns.filter((c) => c !== type.key)) select[prefixed(step.alias, name)] = column(name, t);
     if (!step.edge) {
