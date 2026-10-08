@@ -4,7 +4,8 @@ import { bridgeSelection, semiJoinOf } from "@kanzo-tech/mosaic";
 import { clausePoint, clausePoints, Selection, type Coordinator } from "@uwdata/mosaic-core";
 import { describe, expect, it } from "vitest";
 import { FilterBar } from "./filter-bar.js";
-import { InFilterBar, MosaicProvider, useMosaic } from "./mosaic-provider.js";
+import { useEffect } from "react";
+import { InFilterBar, MosaicClients, MosaicProvider, useMosaic } from "./mosaic-provider.js";
 
 const coordinator = {} as Coordinator;
 const source = (name: string) => ({ name });
@@ -76,6 +77,40 @@ describe("FilterBar", () => {
     await waitFor(() => expect(within(bar).getByText("country: Spain")).toBeTruthy());
     expect(within(bar).getByRole("button", { name: "Remove Dashboard team 1" })).toBeTruthy();
     expect(within(bar).queryByRole("button", { name: "Remove Dashboard country Spain" })).toBeNull();
+  });
+
+  it("draws a hidden view's clauses as its own chips and none of that view's controls, which stay mounted", async () => {
+    const crossfilter = Selection.crossfilter();
+    const inner = Selection.crossfilter();
+    bridgeSelection(inner, crossfilter, semiJoinOf("dense_id", "Person", { label: "Dashboard" }));
+    let mounts = 0;
+    function Control() {
+      useEffect(() => {
+        mounts += 1;
+      }, []);
+      return <button type="button">country: Spain</button>;
+    }
+    const page = (enabled: boolean) => (
+      <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
+        <FilterBar />
+        <MosaicClients enabled={enabled}>
+          <InFilterBar held={{ selection: inner, fields: ["country"] }}>
+            <Control />
+          </InFilterBar>
+        </MosaicClients>
+      </MosaicProvider>
+    );
+    const { rerender } = render(page(false));
+    inner.update(clausePoint("country", "Spain", { source: { reset() {} } }));
+
+    const bar = await screen.findByRole("region", { name: "Filters" });
+    await waitFor(() => expect(within(bar).getByRole("button", { name: "Remove Dashboard country Spain" })).toBeTruthy());
+    expect(within(bar).queryByRole("button", { name: "country: Spain" })).toBeNull();
+
+    rerender(page(true));
+    await waitFor(() => expect(within(bar).getByRole("button", { name: "country: Spain" })).toBeTruthy());
+    expect(within(bar).queryByRole("button", { name: "Remove Dashboard country Spain" })).toBeNull();
+    expect(mounts).toBe(1);
   });
 
   it("clears every clause on the page", async () => {

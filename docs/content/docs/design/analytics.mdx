@@ -73,8 +73,14 @@ publish into the dashboard's crossfilter, bridged to the page by key as before. 
 other clause as a chip and leaves the dashboard's to the dashboard's chips. Metabase's filter bar is
 one row above everything it scopes; a page with a graph and a dashboard had two — the dashboard's,
 and `FilterChips` over the page — and the page's showed the dashboard's clauses a second time.
-The filters are in the bar in every view, so a dashboard hidden behind `MosaicClients` keeps them on
-screen, and a control in the bar queries as the bar does.
+**The clauses are in every view; the controls are the view's.** A dashboard hidden behind
+`MosaicClients` keeps its filters, so what they filter is still on screen, as the bar's ordinary
+chips, each one removable. Its controls, the chips that open a filter and **+ Filter**, are not drawn
+while it is hidden. They stay mounted, because a control that unmounts retracts its clause, and a
+control in the bar queries as the bar does. Drawn in every view, a graph view read *type: Any*,
+*name: Any* and *+ Filter* above a canvas those controls were not about. A filter in force still has
+to be visible wherever it filters, because a dashboard's filters reach the whole page through its
+publish clause.
 
 **It replaced a filter row inside `Dashboard`**, with its readout and *Clear*, beside a separate
 `FilterChips`. The alternative was filters owned by the page and published as column clauses; it
@@ -84,11 +90,15 @@ dashboard's filter reaches the whole graph through its semi-join, and because it
 
 **What would reverse it:** a page with two dashboards on screen at once, whose filters in one row
 could no longer say which dashboard each belongs to. Then each dashboard draws its own row again,
-and the bar draws only what no dashboard holds.
+and the bar draws only what no dashboard holds. And for the hidden view: a reader who sets a hidden
+dashboard's filter from another view, which needs its control there and not only its chip. Then a
+hidden dashboard draws its controls again.
 
 *Held by* `packages/ui/src/charts/filter-bar.test.tsx`, "draws what a part puts in its slot, and
-leaves that part's clauses to it"; `packages/ui/src/charts/dashboard.test.tsx`, "are drawn in the
-page's FilterBar, from inside a dashboard that publishes its own clause".
+leaves that part's clauses to it", and "draws a hidden view's clauses as its own chips and none of
+that view's controls, which stay mounted"; `packages/ui/src/charts/dashboard.test.tsx`, "are drawn
+in the page's FilterBar, from inside a dashboard that publishes its own clause", and "are not drawn
+from a dashboard under MosaicClients that is off: no control, no remove, no + Filter".
 
 ## The spec is read whole or refused
 
