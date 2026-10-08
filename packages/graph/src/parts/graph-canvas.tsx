@@ -34,6 +34,9 @@ const WAITING: Partial<Record<string, string>> = {
  * would be a sibling inside an element the renderer resizes. The frame is `isolate`, so a host's
  * `z-index` on a child cannot escape into the page.
  *
+ * The grid is the one layer under the surface, which is positioned so tree order decides: cosmos.gl
+ * clears to a transparent background (`appearance`) and this element paints the colour.
+ *
  * The surface is never gated on the first answer: rendered behind a placeholder it deadlocks — no
  * element, no renderer, no camera, no question. Waiting is an overlay over an empty canvas.
  */
@@ -110,7 +113,6 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
       data-slot={slot ?? "graph-canvas"}
       ref={hostRef}
     >
-      <div className="size-full" data-slot="graph-canvas-surface" ref={surfaceRef} />
       <Show when={look.grid}>
         <div
           className="pointer-events-none absolute inset-0"
@@ -118,6 +120,7 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
           style={{ backgroundImage: "radial-gradient(var(--border) 1px, transparent 1px)" }}
         />
       </Show>
+      <div className="relative size-full" data-slot="graph-canvas-surface" ref={surfaceRef} />
       <Show when={look.vignette}>
         <div
           className="pointer-events-none absolute inset-0"

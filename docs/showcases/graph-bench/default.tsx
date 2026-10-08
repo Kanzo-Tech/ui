@@ -442,8 +442,8 @@ export function GraphBenchShowcase() {
       // still distinguishable. At 2px under a 69k-link haze they were not: the picture read as grey
       // weather with no structure in it, which is the opposite of the evidence it is here to give.
       pointDefaultSize: previewSize > 100_000 ? 2 : 4,
-      // Points hold their screen size, exactly as `appearance()` decides for the real canvas. Left
-      // to cosmos.gl's default they scale with zoom, and `fitViewOnInit` pulls the camera far
+      // Points hold their screen size, exactly as `appearance()` decides for the real canvas, and as
+      // cosmos.gl 3.4 does by default. Scaled with zoom, `fitViewOnInit` pulls the camera far
       // enough back at these sizes that every point shrinks under a pixel — the picture came out as
       // link haze with no nodes in it at all.
       scalePointsOnZoom: false,
