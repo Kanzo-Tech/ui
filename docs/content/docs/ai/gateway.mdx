@@ -63,7 +63,9 @@ From `services/ai/`, beside the identity service it trusts:
 docker compose -f ../auth/compose.yml -f compose.yml up -d --wait
 ```
 
-The gateway answers on `http://localhost:4000`. Its configuration is `gateway.yaml` beside the
+The gateway answers on `http://localhost:4000`, and its OpenAI-compatible API is under `/v1`: that
+is the path on which it reads a request, resolves the alias and counts the tokens, and a path outside
+it is passed through unread. Its configuration is `gateway.yaml` beside the
 compose file, and in development it serves both aliases from open models through **Docker Model
 Runner**, on the host's GPU — Docker Desktop 4.40 or later, with Model Runner turned on. Compose
 declares the models and points the gateway at them. The first `up` pulls them, **about 6.5 GB**;
