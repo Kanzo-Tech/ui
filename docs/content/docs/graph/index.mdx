@@ -327,14 +327,15 @@ defaults, and so does this section. A preference a tenant pinned is not offered.
 | Preference | Values | What it draws |
 | --- | --- | --- |
 | Marks | Dense · Legible | How much ink a point spends — cards, each previewing the current picture with that mark. |
+| Labels | None · Hovered · Top · Visible · All | Which points carry their title — below. A slider from None to All. |
 | Edges | Hidden · Straight · Curved | `showLinks` and `curvedLinks` as one axis — cards with a preview. |
 | Additive links | switch | Links add where they overlap. Offered only while edges are drawn (`when`). |
-| Labels | None · Hovered · Top · Visible · All | Which points carry their title — below. |
-| Dot grid · Vignette | switches | The backdrop. |
+| Vignette · Dot grid | switches, two to a row | The backdrop. |
 | Placement | Force · Map · Clustered | Where the points come from — [Placement](#placement). Cards with a picture of each mode. |
-| x · y | the corpus's numeric fields | Map's two columns. Offered only under Map. |
-| Cluster by | the corpus's fields | Clustered's column. Offered only under Clustered. |
-| Gravity · Repulsion · Link spring · Link distance · Friction | sliders | The forces. Cluster pull is offered only under Clustered. |
+| X axis · Y axis | the corpus's numeric fields | Map's two columns. Offered only under Map. |
+| Group by | the corpus's fields | Clustered's column. Offered only under Clustered. |
+| Cluster pull | slider, its ends named | Offered only under Clustered: from *Links decide* to *Tight groups*. |
+| Gravity · Repulsion · Link spring · Link distance · Friction | sliders | The forces. Offered only under Force. |
 
 **Labels are one ordered scale**, each level adding to the one before. **None** draws no text at all,
 not even the hover card. **Hovered** is the hover card and the focused point's label. **Top** adds the

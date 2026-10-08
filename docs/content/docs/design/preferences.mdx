@@ -241,6 +241,37 @@ keeps its stored value, as a tenant's `hidden` does.
 preference keeps its stored value"; `packages/ui/src/composites/Preferences.test.tsx`, "offers a
 preference only while its sibling says so, and keeps what it stored meanwhile".
 
+**A range may name its two ends: `ends`.** Where a number alone says nothing a reader can act on —
+the graph's cluster pull, from *Links decide* to *Tight groups* — the declaration names what the
+minimum and the maximum mean, and `<Pref>` draws them as the slider's own markers, Ark's
+`Slider.Marker`, rather than as text beside it. The markers sit on the slider's whole numbers, so a
+range that names its ends runs from 0 to 1. **What would reverse it:** a range with other bounds that
+wants its ends named, which asks `Slider` for a marker at any value rather than at its whole numbers.
+
+*Held by* `packages/ui/src/composites/Preferences.test.tsx`, "names a range's two ends with the
+slider's own markers, and draws none where it names none".
+
+**A choice may be ordered: `ordered: true`.** Where the options are one scale, each adding to the
+last — the graph's labels, None to All — a reader asks *how much*, not *which*, and a row of cards
+does not say that the third is more than the second. `<Pref>` draws an ordered choice as the range
+arm's own `Slider`, stepped over the options' positions, with the options' names as its markers,
+least to most; what is stored is still the option's value. Only a listed choice can be ordered. **What
+would reverse it:** a scale whose steps a reader picks by their picture — a specimen is a card's
+content, and a marker cannot carry one.
+
+*Held by* `packages/ui/src/composites/Preferences.test.tsx`, "draws an ordered choice as a stepped
+slider, its options the markers, and stores the option".
+
+**A section is two columns, and only a toggle takes one.** `PreferencesSections` is a `FieldGroup` of
+two columns: a toggle is a horizontal `Field`, its name beside its switch, so two of them share a row
+(Vignette · Dot grid); cards, selects and sliders span the row, and a select's trigger fills it. The
+rule is the kind's, so no section names which of its preferences pair up. **What would reverse it:** a
+section whose toggles read as a list rather than as pairs — then the order is the section's to
+declare, and a layout per declaration is the price.
+
+*Held by* `packages/ui/src/composites/Preferences.test.tsx`, "names a toggle beside its switch, and
+sets two of them in one row".
+
 **Names are checked once an app says what it registered.** TanStack Router's and Query's `Register`:
 an app augments one interface with its sections, and `<Pref name>` completes, a typo fails `tsc`, and
 `usePref("graph.placement").value` is the options' union. Unaugmented, a name is a string.

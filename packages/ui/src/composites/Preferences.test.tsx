@@ -513,6 +513,42 @@ describe("what a declaration says beyond its kind", () => {
     expect(document.querySelector("[data-slot=select-trigger]")).toBeNull();
   });
 
+  it("draws an ordered choice as a stepped slider, its options the markers, and stores the option", async () => {
+    const LEVELS: SectionManifest = {
+      namespace: "graph",
+      prefs: {
+        labels: {
+          kind: "choice",
+          ordered: true,
+          label: "Labels",
+          default: "top",
+          doc: "how many points carry their title",
+          options: [
+            { value: "none", label: "None" },
+            { value: "top", label: "Top" },
+            { value: "all", label: "All" },
+          ],
+        },
+      },
+    };
+    function Stored() {
+      return <output>{usePref("graph.labels")?.value}</output>;
+    }
+    render(
+      <KanzoThemeProvider sections={[LEVELS]} storage={null}>
+        <PreferencesSections namespace="graph" />
+        <Stored />
+      </KanzoThemeProvider>,
+    );
+    expect(screen.queryByRole("radiogroup", { name: "Labels" })).toBeNull();
+    expect([...document.querySelectorAll("[data-slot=slider-marker]")].map((m) => m.textContent)).toEqual(["None", "Top", "All"]);
+    const thumb = document.querySelector<HTMLElement>("[data-slot=slider-thumb]");
+    expect(thumb?.getAttribute("aria-valuenow")).toBe("1");
+    thumb?.focus();
+    await userEvent.setup().keyboard("{ArrowRight}");
+    expect(screen.getByRole("status").textContent).toBe("all");
+  });
+
   it("hands a control of your own the same value and setter the part uses", async () => {
     const user = userEvent.setup();
     function Own() {
@@ -541,6 +577,8 @@ describe("the three kinds a section may declare, drawn", () => {
     namespace: "graph",
     prefs: {
       links: { kind: "toggle", default: "true", doc: "draw the links" },
+      grid: { kind: "toggle", default: "true", doc: "draw the grid" },
+      pull: { kind: "range", default: "0.1", min: 0, max: 1, step: 0.05, ends: ["Loose", "Tight"], doc: "the pull" },
       pointScale: {
         kind: "range",
         default: "1",
@@ -569,6 +607,22 @@ describe("the three kinds a section may declare, drawn", () => {
     // `checkbox`, not `switch`: Ark renders a hidden input and sets no `role="switch"` on it.
     expect(screen.getByRole("checkbox", { name: "links" })).toBeTruthy();
     expect(thumbFor("pointScale")).toBeTruthy();
+  });
+
+  it("names a range's two ends with the slider's own markers, and draws none where it names none", () => {
+    setup(undefined, { sections: [DISPLAY] });
+    const markers = [...document.querySelectorAll("[data-slot=slider-marker]")].map((m) => m.textContent);
+    expect(markers).toEqual(["Loose", "Tight"]);
+  });
+
+  it("names a toggle beside its switch, and sets two of them in one row", () => {
+    setup(undefined, { sections: [DISPLAY] });
+    const fields = ["links", "grid"].map((name) => screen.getByRole("checkbox", { name }).closest("[data-slot=field]"));
+    for (const field of fields) expect(field?.getAttribute("data-orientation")).toBe("horizontal");
+    // The same grid, one cell each: the section is one `FieldGroup` of two columns, and only a
+    // toggle takes a single column of it.
+    expect(fields[0]?.parentElement).toBe(fields[1]?.parentElement);
+    expect(fields[0]?.parentElement?.className).toContain("grid-cols-2");
   });
 
   it("starts each at the declared default", () => {

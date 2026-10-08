@@ -79,9 +79,7 @@ export default function Example() {
             </TabsContent>
             <TabsContent className="min-h-0 flex-1" value="settings">
               <ScrollArea className="h-full px-3 pb-3">
-                <div className="flex flex-col gap-4">
-                  <PreferencesSections namespace="graph" />
-                </div>
+                <PreferencesSections namespace="graph" />
                 <p className="mt-4 mb-2 font-medium text-muted-foreground text-xs">Gestures</p>
                 <dl className="space-y-1.5">
                   {GESTURES.map((gesture) => (
