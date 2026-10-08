@@ -482,6 +482,25 @@ describe("GraphCanvas", () => {
     await waitFor(() => expect(onFailure.mock.calls.map(([error]) => error)).toContain(refused));
   });
 
+  // jsdom paints nothing, so this reads what CSS decides by: two positioned siblings with no
+  // z-index stack in tree order. A z-index set on either would get past it.
+  it("draws the grid under the surface, so no dot lands on a point", async () => {
+    const corpus = await attach();
+    render(
+      <GraphRoot {...over(corpus)} onFailure={() => {}}>
+        <GraphCanvas />
+      </GraphRoot>,
+    );
+    await ready(corpus);
+    const surface = document.querySelector("[data-slot=graph-canvas-surface]");
+    if (!surface?.parentElement) throw new Error("no surface");
+    const layers = [...surface.parentElement.children];
+    const grid = layers.findIndex((layer) => layer.getAttribute("style")?.includes("radial-gradient(var(--border)"));
+    expect(grid).toBeGreaterThanOrEqual(0);
+    expect(grid).toBeLessThan(layers.indexOf(surface));
+    expect(surface.classList.contains("relative")).toBe(true);
+  });
+
   describe("labels", () => {
     const labels = () => [...document.querySelectorAll("[data-slot=graph-canvas-label]")].map((el) => el.textContent);
     const mount = async (labelled: LabelLevel) => {

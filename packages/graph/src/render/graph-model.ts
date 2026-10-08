@@ -110,8 +110,13 @@ export function forces(sim: Sim): GraphConfig {
  * fresh on every draw, so a look change costs a `setConfigPartial` and no upload at all.
  */
 export function appearance(look: Look, host: Element): GraphConfig {
+  // Cleared transparent, as Cosmograph keeps cosmos.gl's canvas: the element paints the background, so
+  // the grid can lie between it and the points. The RGB stays because the greyout reads it to dim
+  // towards the page, darker on a dark one and lighter on a light one.
+  const [r, g, b] = resolveToken(host, "var(--background)");
   return {
-    backgroundColor: toHex(resolveToken(host, "var(--background)")),
+    backgroundColor: [r, g, b, 0],
+    // Screen pixels, cosmos.gl's default and Cosmograph's: `/docs/design/graph` has the measurement.
     scalePointsOnZoom: false,
     renderLinks: look.link.render,
     linkOpacity: look.link.opacity,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Encoding, Geometry } from "../core/load";
-import { paint, scaleOf } from "./graph-model";
+import { appearance, paint, scaleOf } from "./graph-model";
 import { DEFAULT_LOOK } from "./graph-looks";
 
 /** Three drawn vertices, nothing bound, no links — override what a test is about. */
@@ -86,5 +86,12 @@ describe("scaleOf", () => {
 
     // And shape is spent only where it is bound: unbound, every point is a circle.
     expect(scaleOf({ fill: "kind" }).shape(3)).toBe(scaleOf({ fill: "kind" }).shape(0));
+  });
+});
+
+describe("appearance", () => {
+  it("clears cosmos.gl transparent and keeps the background's RGB for the greyout", () => {
+    const { backgroundColor } = appearance(DEFAULT_LOOK, document.createElement("div"));
+    expect(backgroundColor).toEqual([expect.any(Number), expect.any(Number), expect.any(Number), 0]);
   });
 });

@@ -396,8 +396,19 @@ GraphRootProvider takes, useGraphContext reads".
 `GraphRoot` is a facade: the host names a catalog and a coordinator and a few props, and the parts
 under it read the root.
 
-- **`GraphCanvas`** — the element, and what the look declares over it: grid, vignette, labels and
-  the hover card, plus the marquee and lasso gesture.
+- **`GraphCanvas`** — the element, and what the look declares around it: the grid under the points;
+  the vignette, labels and hover card over them; and the marquee and lasso gesture. **cosmos.gl
+  clears to a transparent background and the element paints the colour**, which is Cosmograph's
+  arrangement: it keeps "the WebGL canvas transparent; the wrapper div carries the configured
+  background". Nothing between the element and the points can show otherwise, and a grid over the
+  canvas laid a lattice across a dense graph, one dot over every point beneath it. The RGB stays in
+  the config at zero alpha, because cosmos.gl's greyout reads it to dim darker or lighter. Point
+  blending writes alpha with `one, one-minus-src-alpha`, so a transparent clear composites
+  correctly, and occlusion culling depends only on `pointOpacity` and highlighting. *Held by*
+  `packages/graph/src/parts/parts.test.tsx`, "draws the grid under the surface, so no dot lands on a
+  point"; `packages/graph/src/render/graph-model.test.ts`, "clears cosmos.gl transparent and keeps
+  the background's RGB for the greyout". What would reverse it: a theme that needs the grid to read
+  over the marks.
 - **`GraphLegend`** — the categorical scale, or the vertex types when nothing is bound, with how many
   of each are drawn. Its domain is fixed before the graph loads, so a row never moves.
 - **`GraphStatus`** — where the graph is, in one word: Loading, Laying out with the percentage, Ready,
@@ -584,6 +595,15 @@ encoding — Vega-Lite's `config` rule.
 
 **The case that does not fit.** Ink's radius floor exists because it spends shape on identity and
 size on degree at once, so that obligation is graded against the composition.
+
+**A radius is screen pixels**, `scalePointsOnZoom: false`, which is cosmos.gl 3.4's default and
+Cosmograph's. Sizing in graph space was measured on 2026-10-08 at 327,588 vertices and 913,221
+links in the default look, framed whole: zoomed out, the points go under a pixel and the link layer
+covers them, so the disc reads as link colour with no type mix left in it, where pixel sizes keep
+the points visible through the links. Without links it is the better picture, overlap reading as
+density, but links are drawn by default. **What would reverse it:** a corpus framed whole with links
+drawn where points in graph space stay visible, or a density control that makes overlap legible
+at pixel sizes.
 
 **What this does not touch.** The graph holds **one** categorical column, and it authors no colour;
 it reads the page's categorical scale.
