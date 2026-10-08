@@ -2,61 +2,43 @@
  * Run a fossil program with fossil's own writer — `@fossil-lang/executor`, in Node — and write the
  * `fossil/1` corpus it produces to `dest`. The one writer there is: no CLI, no second implementation.
  *
- * The program is compiled under a placeholder `https://` origin rather than its `file://` path,
- * because a run in memory takes only locators the executor reads through a store, and it has no
- * store for `file://`. Every document and source the program names relative to itself lands under
- * that origin, and each is read from beside the program on disk (a document) or taken from
- * `sources` by the path the program wrote (a source).
+ * The program runs in memory under a placeholder `https://` origin rather than its `file://` path:
+ * a run over `files` reads every document and source from them by the location fossil resolves it
+ * to, so each file the program names beside itself is handed over under that origin.
  */
 
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { FossilExecutor, initFossilExecutor } from "@fossil-lang/executor";
+import { initFossilExecutor, run } from "@fossil-lang/executor";
 
 const ORIGIN = "https://corpus.invalid/";
 
 /**
  * @param {string} program   path to the `.fossil` file
- * @param {Record<string, Uint8Array>} sources   each source's bytes, by the path the program names it
+ * @param {Record<string, Uint8Array>} files   every document and source it reads, by the path the program names it
  * @param {string} dest   the corpus directory; replaced whole
  * @returns {Promise<{ files: number, dropped: { table: string, dropped: number }[] }>}
  */
-export async function writeCorpus(program, sources, dest) {
+export async function writeCorpus(program, files, dest) {
+  // Node's `fetch` rejects `file://`, so the module's bytes are handed over first.
   await initFossilExecutor(
     readFileSync(fileURLToPath(import.meta.resolve("@fossil-lang/executor/pkg/fossil_df_wasm_bg.wasm"))),
   );
-  const here = dirname(program);
-  const relative = (locator) => {
-    if (!locator.startsWith(ORIGIN)) throw new Error(`${program} names ${locator}, outside its own directory`);
-    return locator.slice(ORIGIN.length);
-  };
+  const { files: corpus, report } = await run(readFileSync(program, "utf8"), {
+    files: Object.fromEntries(Object.entries(files).map(([path, bytes]) => [`${ORIGIN}${path}`, bytes])),
+    path: `${ORIGIN}${basename(program)}`,
+  });
 
-  const executor = new FossilExecutor(readFileSync(program, "utf8"), `${ORIGIN}${basename(program)}`);
-  try {
-    for (const { key, locator } of executor.missingDocuments()) {
-      executor.registerDocument(key, readFileSync(join(here, relative(locator)), "utf8"));
-    }
-    const input = {};
-    for (const { uri } of executor.sources()) {
-      const bytes = sources[relative(uri)];
-      if (!bytes) throw new Error(`${program} reads ${relative(uri)}, and no bytes were given for it`);
-      input[uri] = bytes;
-    }
-    const { files, report } = await executor.runInMemory(input, "memory://corpus/");
-
-    rmSync(dest, { force: true, recursive: true });
-    // `fossil.json` last, as the writer orders it: a corpus without it is not one yet.
-    const ordered = [...files.filter((f) => f.path !== "fossil.json"), ...files.filter((f) => f.path === "fossil.json")];
-    for (const { path, bytes } of ordered) {
-      mkdirSync(dirname(join(dest, path)), { recursive: true });
-      writeFileSync(join(dest, path), bytes);
-    }
-    return { files: files.length, dropped: report.dropped };
-  } finally {
-    executor.free();
+  rmSync(dest, { force: true, recursive: true });
+  // `fossil.json` last, as the writer orders it: a corpus without it is not one yet.
+  const ordered = [...corpus.filter((f) => f.path !== "fossil.json"), ...corpus.filter((f) => f.path === "fossil.json")];
+  for (const { path, bytes } of ordered) {
+    mkdirSync(dirname(join(dest, path)), { recursive: true });
+    writeFileSync(join(dest, path), bytes);
   }
+  return { files: corpus.length, dropped: report.dropped };
 }
 
 /** A CSV as bytes, built in chunks, so a file past V8's string limit never becomes one string. */

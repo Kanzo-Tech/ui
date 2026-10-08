@@ -15,6 +15,7 @@
  * written here rather than imported and trimmed.
  */
 
+import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -36,6 +37,7 @@ const started = Date.now();
 const { dropped } = await writeCorpus(
   join(HERE, "archive.fossil"),
   {
+    "archive.shex": readFileSync(join(HERE, "archive.shex")),
     "nodes.csv": csv(header, (line) => graph.nodes.forEach((n) => line(row(n)))),
     // The source's properties repeated on every edge, which is the price of the UNION rather than
     // redundancy for its own sake — see the note in `archive.fossil`.

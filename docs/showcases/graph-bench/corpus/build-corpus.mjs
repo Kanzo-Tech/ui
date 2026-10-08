@@ -15,6 +15,7 @@
  * Output: docs/public/bench/<size>/  — gitignored; tens of megabytes at the top sizes.
  */
 
+import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -56,6 +57,7 @@ async function build(size) {
   await writeCorpus(
     join(HERE, "bench.fossil"),
     {
+      "bench.shex": readFileSync(join(HERE, "bench.shex")),
       "nodes.csv": csv("id,community", (line) => {
         for (let n = 0; n < size; n += 1) line(`${n},${data.community[n]}`);
       }),

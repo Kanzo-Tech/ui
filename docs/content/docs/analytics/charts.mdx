@@ -140,10 +140,10 @@ export default function Analytics({ children }: { children: React.ReactNode }) {
 the failure is not kept: the next `engine()` boots again. `engine({ signal })` ends your own wait
 without stopping the boot other islands share.
 
-The engine also owns what DuckDB reads by name. `lend({ name: url })` registers a URL under a
+The engine also owns what DuckDB reads by name. `registerFiles({ name: url })` registers a URL under a
 name — the same URL again is a no-op, a different one replaces the lease, so a re-signed URL never
-meets DuckDB's `File already registered` — `hold(name, bytes)` registers a copy of a buffer, and
-`drop(names)` forgets them. `query(sql, { signal })` answers in columns — the Arrow table
+meets DuckDB's `File already registered` — `registerFileBuffer(name, bytes)` registers a copy of a buffer, and
+`dropFiles(names)` forgets them — DuckDB-WASM's names, which fossil's `Engine` uses too. `query(sql, { signal })` answers in columns — the Arrow table
 DuckDB-WASM produced, uncached — and an abort interrupts the running statement and rejects with
 `signal.reason`. That is the shape fossil's `Engine` asks for, so the engine you chart through is the
 one a corpus attaches to.
