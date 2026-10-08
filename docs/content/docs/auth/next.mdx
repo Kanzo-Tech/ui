@@ -287,7 +287,9 @@ a second credential beside the bearer token it asked for, which is the confusion
 exists to remove.
 
 What else it does, none of which is a product's idea of its own domain: strips the hop-by-hop
-headers, forwards the body as a stream with `duplex: "half"` so an upload is never read into memory
+headers, strips `Origin` and the `Sec-Fetch-*` headers — what the browser says about the page behind
+*its* request, which the same-site check has read; the upstream's request is the server's, and an
+upstream that checks `Origin` would otherwise judge a page that never addressed it — forwards the body as a stream with `duplex: "half"` so an upload is never read into memory
 and an SSE stream is never buffered until it ends, sets `redirect: "manual"` so a `Location` from
 the upstream cannot send the bearer token to whatever host it names, drops `set-cookie` from the
 answer, and drops `content-encoding` and `content-length` with it.
@@ -336,6 +338,7 @@ Nothing here is invented; each piece is a reference system's answer or a standar
 | One token per resource server and organization, exchanged | RFC 8693; RFC 9700 §2.3; Keycloak standard token exchange; Auth0 `audience` + `org_id` |
 | A transaction cookie per `state` | Auth0 Next.js SDK v4, `__txn_{state}` |
 | Redirect or 401 by `Sec-Fetch-Mode` | W3C Fetch Metadata |
+| `Origin` and `Sec-Fetch-*` end at the BFF | RFC 6454 §7; W3C Fetch Metadata |
 | Logout token verification, 200 / 400 / 501 | OpenID Connect Back-Channel Logout 1.0 §2.6, §2.8 |
 | Back-channel logout through the session store | Auth0 Next.js SDK v4 |
 

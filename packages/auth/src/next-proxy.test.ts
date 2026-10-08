@@ -216,6 +216,37 @@ describe("kanzoAuth().api", () => {
     expect(headers.get("accept")).toBe("application/json");
   });
 
+  /**
+   * The browser's `Origin` and Fetch Metadata describe the page behind *its* request, and the
+   * same-site check has read them. Forwarded, they make the upstream judge a page that never
+   * addressed it: Docker Model Runner answers any `Origin` it does not list with 403.
+   */
+  it("does not forward what the browser says about the page that caused its request", async () => {
+    const cookie = await signIn();
+
+    await proxy.POST(
+      new Request(`${ORIGIN}/api/data/reports`, {
+        method: "POST",
+        headers: {
+          cookie,
+          origin: ORIGIN,
+          "sec-fetch-site": "same-origin",
+          "sec-fetch-mode": "cors",
+          "sec-fetch-dest": "empty",
+          "sec-fetch-user": "?1",
+          "content-type": "application/json",
+        },
+        body: "{}",
+      }),
+    );
+
+    const headers = sent().headers;
+    for (const name of ["origin", "sec-fetch-site", "sec-fetch-mode", "sec-fetch-dest", "sec-fetch-user"]) {
+      expect(headers.has(name)).toBe(false);
+    }
+    expect(headers.get("content-type")).toBe("application/json");
+  });
+
   it("will not let a caller's own Authorization decide which token the upstream reads", async () => {
     const cookie = await signIn();
 

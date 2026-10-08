@@ -207,7 +207,8 @@ on every pause in typing: it wants a small, fast model, and a chat wants a good 
 
 [The gateway's development compose](/docs/ai/gateway#run-it) already is one: both aliases on open
 models through Docker Model Runner, so the whole loop runs without a provider key, and
-`AI_GATEWAY_URL` is `http://localhost:4000`.
+`AI_GATEWAY_URL` is `http://localhost:4000/v1` — the gateway's OpenAI-compatible API, as Ollama's
+is under `/v1`; at the bare origin the alias is never resolved.
 
 [Ollama](https://ollama.com) behind the same gateway works the same way: point an alias at it in the
 gateway's `models` — an OpenAI-compatible model whose `baseUrl` is `http://localhost:11434/v1` — and

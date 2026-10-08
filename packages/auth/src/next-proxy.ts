@@ -97,8 +97,25 @@ const HOP_BY_HOP = [
  * - `accept-encoding` — the client's compression negotiation is with *us*; `fetch` runs its own
  *   with the upstream and hands back a decoded body. Passing this on is how a response comes back
  *   labelled `gzip` and already decompressed, which no browser recovers from.
+ * - `origin` and the Fetch Metadata headers — what a browser says about the page that caused *its*
+ *   request (RFC 6454 §7, W3C Fetch Metadata), which `isSameSite` has already read. The request to
+ *   the upstream is this server's, caused by no page, and an upstream that checks `Origin` — Docker
+ *   Model Runner behind the AI gateway refuses any it does not list with a 403 — would otherwise
+ *   judge a browser that never addressed it.
  */
-const NOT_FORWARDED = [...HOP_BY_HOP, "cookie", "authorization", "host", "content-length", "accept-encoding"];
+const NOT_FORWARDED = [
+  ...HOP_BY_HOP,
+  "cookie",
+  "authorization",
+  "host",
+  "content-length",
+  "accept-encoding",
+  "origin",
+  "sec-fetch-site",
+  "sec-fetch-mode",
+  "sec-fetch-dest",
+  "sec-fetch-user",
+];
 
 /**
  * What is stripped from the upstream's answer.
