@@ -18,12 +18,12 @@ import { numbers } from "@kanzo-tech/mosaic";
 import { engine } from "@kanzo-tech/mosaic";
 ```
 
-- **`engine()`** — the page's one DuckDB-WASM database: `{ coordinator, query, lend, hold, drop }`,
+- **`engine()`** — the page's one DuckDB-WASM database: `{ coordinator, query, registerFiles, registerFileBuffer, dropFiles }`,
   one per document however many callers ask. vgplot has one active coordinator, so a second boot is
-  a second database the last-mounted chart wins. `lend({ name: url })` registers a URL under a name:
+  a second database the last-mounted chart wins. `registerFiles({ name: url })` registers a URL under a name:
   the same URL is a no-op, a different one drops the old lease and registers the new, which is what
-  DuckDB-WASM's `File already registered` was refusing. `hold(name, bytes)` registers a copy of a
-  buffer; `drop(names)` forgets. `query(sql, { signal })` — the signal required — answers in columns — the Arrow table
+  DuckDB-WASM's `File already registered` was refusing. `registerFileBuffer(name, bytes)` registers a copy
+  of a buffer; `dropFiles(names)` forgets. The names are DuckDB-WASM's. `query(sql, { signal })` — the signal required — answers in columns — the Arrow table
   DuckDB-WASM produced, never rows as objects — through the coordinator, on its one connection and
   uncached; an abort rejects the caller's wait with `signal.reason`. It is fossil's `Engine`
   structurally, without depending on fossil.

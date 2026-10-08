@@ -14,7 +14,7 @@ import { Coordinator, decodeIPC, DuckDBWASMConnector } from "@uwdata/mosaic-core
  * **The registry is the part that was missing.** DuckDB-WASM refuses to register a name a second
  * time under a different URL (`File already registered`), and answers only when the URL is
  * identical. A signed URL is different on every signing, so the second visit to the same data threw.
- * `lend` is the one place that knows what is behind a name: the same URL is a no-op, a new one drops
+ * `registerFiles` is the one place that knows what is behind a name: the same URL is a no-op, a new one drops
  * the old lease and registers the new. That indirection is also why the registry is kept rather than
  * reading `https://…` directly — a view names a stable file, and only the lease behind it rotates.
  *
@@ -59,28 +59,28 @@ export interface Engine {
    * once; the statement, a short one, finishes. Nothing is cached: these are statements with
    * effects. A failure is DuckDB's own error, unwrapped.
    */
-  query(sql: string, options: { readonly signal: AbortSignal }): Promise<Columns>;
+  query(sql: string, options: { readonly signal: AbortSignal }): Promise<Table>;
   /**
    * name → URL. The same URL is a no-op; a different one replaces the lease. The name has no scheme:
    * with `httpfs` loaded, `https://…` or `s3://…` in SQL is read by `httpfs` before the registry is
    * asked, so a lease under such a name is never consulted.
    */
-  lend(files: Record<string, string>): Promise<void>;
+  registerFiles(files: Record<string, string>): Promise<void>;
   /** Registers a copy of `bytes` under `name`, replacing whatever was there. */
-  hold(name: string, bytes: Uint8Array): Promise<void>;
+  registerFileBuffer(name: string, bytes: Uint8Array): Promise<void>;
   /** Unregisters the names. A name the engine does not hold is not an error. */
-  drop(names: readonly string[]): Promise<void>;
+  dropFiles(names: readonly string[]): Promise<void>;
 }
 
 /** An answer in columns: the part of apache-arrow's `Table` a reader reads. */
-export interface Columns {
+export interface Table {
   readonly numRows: number;
   readonly schema: { readonly fields: readonly { readonly name: string }[] };
-  getChild(name: string): Column | null;
+  getChild(name: string): Vector | null;
 }
 
-/** One column of {@link Columns}: a typed array for a fixed-width type, where a null reads as zero. */
-export interface Column {
+/** One column of {@link Table}: a typed array for a fixed-width type, where a null reads as zero. */
+export interface Vector {
   readonly length: number;
   get(index: number): unknown;
   toArray(): ArrayLike<unknown>;
@@ -93,7 +93,7 @@ export interface Column {
  * a 160 MiB Parquet file, a count, a point lookup and a max: 1.3 MiB in eight ranges with this, the
  * whole file in one GET without it.
  *
- * It governs `lend` alone. `s3://` and a URL named in SQL go through `httpfs`, which reads by range
+ * It governs `registerFiles` alone. `s3://` and a URL named in SQL go through `httpfs`, which reads by range
  * either way (the same queries: 1.8 MiB in four requests, flag or not). What still lends is a store
  * DuckDB-WASM has no extension for — Azure, reached by a SAS URL — and that is a URL which answers
  * `HEAD`, which the fallback needs.
@@ -227,7 +227,7 @@ async function start(made: (duckdb: AsyncDuckDB) => void): Promise<Engine> {
 
   const behind = new Map<string, string | typeof HELD>();
 
-  // Registry changes run one at a time: two `lend`s of one name racing each other would each see the
+  // Registry changes run one at a time: two `registerFiles` calls on one name racing each other would each see the
   // old entry, and the second register would be refused.
   let tail: Promise<unknown> = Promise.resolve();
   const serial = (step: () => Promise<void>): Promise<void> => {
@@ -246,7 +246,7 @@ async function start(made: (duckdb: AsyncDuckDB) => void): Promise<Engine> {
     if (signal.aborted) return Promise.reject(signal.reason as Error);
     // `decodeIPC`'s defaults are the coordinator's own: this engine sets no `ipc` options on it.
     return abandon(
-      connector.query({ type: "arrow", sql }).then((bytes) => decodeIPC(bytes) as unknown as Columns),
+      connector.query({ type: "arrow", sql }).then((bytes) => decodeIPC(bytes) as unknown as Table),
       signal,
     );
   };
@@ -254,7 +254,7 @@ async function start(made: (duckdb: AsyncDuckDB) => void): Promise<Engine> {
   return {
     coordinator,
     query,
-    lend: (files) =>
+    registerFiles: (files) =>
       serial(async () => {
         for (const [name, url] of Object.entries(files)) {
           if (behind.get(name) === url) continue;
@@ -263,14 +263,14 @@ async function start(made: (duckdb: AsyncDuckDB) => void): Promise<Engine> {
           behind.set(name, url);
         }
       }),
-    hold: (name, bytes) =>
+    registerFileBuffer: (name, bytes) =>
       serial(async () => {
         await release(name);
         // A copy, because DuckDB-WASM transfers the buffer to its worker and detaches the caller's.
         await duckdb.registerFileBuffer(name, bytes.slice());
         behind.set(name, HELD);
       }),
-    drop: (names) =>
+    dropFiles: (names) =>
       serial(async () => {
         for (const name of names) await release(name);
       }),

@@ -4,7 +4,7 @@ description: The graph view over a fossil corpus — attached to the page's Duck
 ---
 
 `@kanzo-tech/graph` draws a corpus fossil compiled. The host attaches it to the page's DuckDB with
-fossil's `open`, under a catalog name; `GraphRoot` reads that catalog through the page's Mosaic
+fossil's `attach`, under a catalog name; `GraphRoot` reads that catalog through the page's Mosaic
 coordinator, like every chart beside it, and draws the whole graph with cosmos.gl. It imports
 nothing of fossil's: the contract is the catalog.
 
@@ -32,8 +32,8 @@ when something scans it:
 
 Every peer is required: cosmos.gl draws and lays out, `@kanzo-tech/mosaic` is the page's coordinator
 and crossfilter, and the parts are built from `@kanzo-tech/ui` and its icons. The host attaches the
-corpus with `@fossil-lang/corpus` `0.3.0-alpha.24` or later, whose `open` answers a catalog rather
-than an object; the graph never imports it.
+corpus with `@fossil-lang/corpus`'s `attach`, which attaches a catalog and answers the attachment
+that detaches it; the graph never imports it.
 
 It is a **sibling** of `@kanzo-tech/ui`, not part of it. [The first admission
 rule](/docs/philosophy#admission) is *domain-free — nothing about RDF / SHACL / **graphs** / auth*,
@@ -43,14 +43,14 @@ answer `palette` and `theme` already got.
 ## Usage
 
 ```tsx
-import { open } from "@fossil-lang/corpus";
+import { attach } from "@fossil-lang/corpus";
 import { engine } from "@kanzo-tech/ui/analytics";
 import { GraphCanvas, GraphLegend, GraphRoot, GraphToolbar } from "@kanzo-tech/graph";
 ```
 
 ```tsx
 const e = await engine();
-await open("archive", { engine: e, url }); // views "archive"."<Table>", fossil_tables, fossil_columns
+await attach("archive", { engine: e, url }); // views "archive"."<Table>", fossil_tables, fossil_columns
 
 <GraphRoot from="archive" coordinator={e.coordinator} r="degree" title="label" onFailure={setFailure}>
   <GraphCanvas>
@@ -62,7 +62,7 @@ await open("archive", { engine: e, url }); // views "archive"."<Table>", fossil_
 
 <ComponentPreview componentName="graph" hasMaxHeight />
 
-**Attaching is the host's**, and so is detaching: `open` answers the `close` that gives the catalog
+**Attaching is the host's**, and so is detaching: `attach` answers the attachment whose `detach()` gives the catalog
 back. `from={null}` is no corpus yet. The canvas is mounted either way and waits over an empty
 surface, because a canvas gated on its first answer has no camera to ask with.
 [Discovery workspace](/docs/graph/workspace) is the whole wiring — the engine, one coordinator, one
@@ -507,7 +507,7 @@ columns the writer gave no role, and joins edges on src and dst".
 **`onFailure` is required**, because unhandled, a browser with no WebGL context shows an empty box.
 It receives every failure **as it was thrown**, and the graph's own are a `GraphError`. The root
 reports `status: "failed"` beside it, so a part can render the failed state without holding the
-error. A failed `open` is the host's own — above, fossil's coded `corpus/unreadable`, routed to the
+error. A failed `attach` is the host's own — above, fossil's coded `corpus/unreadable`, routed to the
 same handler and drawn by [`Problem`](/docs/data-display/problem), which reads the code off whatever
 was thrown and takes the host's words for it.
 
@@ -574,7 +574,7 @@ writes it in.
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `from` | `string \| null` — the catalog fossil's `open` attached | required |
+| `from` | `string \| null` — the catalog fossil's `attach` attached | required |
 | `coordinator` | `Coordinator \| null` — the page's Mosaic coordinator | required |
 | `onFailure` | `(error: unknown) => void` | required |
 | `fill` | `string` — a column, or a CSS colour every point wears | the vertex type |

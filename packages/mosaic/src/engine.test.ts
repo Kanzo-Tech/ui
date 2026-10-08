@@ -3,7 +3,7 @@ import { tableFromArrays, tableToIPC } from "@uwdata/flechette";
 
 /**
  * A registry that refuses what DuckDB-WASM refuses: a name registered again under a different URL.
- * That rule is the defect `lend` exists for, so a fake without it would prove nothing.
+ * That rule is the defect `registerFiles` exists for, so a fake without it would prove nothing.
  */
 const registry = new Map<string, string>();
 const calls: string[] = [];
@@ -194,18 +194,18 @@ describe("engine", () => {
     expect(sql).not.toContain("SELECT never");
   });
 
-  it("lends a name once for the same URL", async () => {
+  it("registers a name once for the same URL", async () => {
     const e = await engine();
-    await e.lend({ "jobs/a/tiles.parquet": "https://x/tiles?sig=1" });
-    await e.lend({ "jobs/a/tiles.parquet": "https://x/tiles?sig=1" });
+    await e.registerFiles({ "jobs/a/tiles.parquet": "https://x/tiles?sig=1" });
+    await e.registerFiles({ "jobs/a/tiles.parquet": "https://x/tiles?sig=1" });
     expect(calls).toEqual(["register jobs/a/tiles.parquet"]);
   });
 
-  // The reason `lend` exists: a re-signed URL is a new string behind the same name.
+  // The reason `registerFiles` exists: a re-signed URL is a new string behind the same name.
   it("swaps the lease when the URL behind a name changes", async () => {
     const e = await engine();
-    await e.lend({ "jobs/b/tiles.parquet": "https://x/tiles?sig=1" });
-    await e.lend({ "jobs/b/tiles.parquet": "https://x/tiles?sig=2" });
+    await e.registerFiles({ "jobs/b/tiles.parquet": "https://x/tiles?sig=1" });
+    await e.registerFiles({ "jobs/b/tiles.parquet": "https://x/tiles?sig=2" });
     expect(calls).toEqual([
       "register jobs/b/tiles.parquet",
       "drop jobs/b/tiles.parquet",
@@ -214,20 +214,20 @@ describe("engine", () => {
     expect(registry.get("jobs/b/tiles.parquet")).toBe("https://x/tiles?sig=2");
   });
 
-  it("serialises concurrent lends of one name", async () => {
+  it("serialises concurrent registrations of one name", async () => {
     const e = await engine();
     await Promise.all([
-      e.lend({ "jobs/c/tiles.parquet": "https://x/tiles?sig=1" }),
-      e.lend({ "jobs/c/tiles.parquet": "https://x/tiles?sig=2" }),
+      e.registerFiles({ "jobs/c/tiles.parquet": "https://x/tiles?sig=1" }),
+      e.registerFiles({ "jobs/c/tiles.parquet": "https://x/tiles?sig=2" }),
     ]);
     expect(registry.get("jobs/c/tiles.parquet")).toBe("https://x/tiles?sig=2");
   });
 
-  it("holds a copy of the bytes, replacing what was under the name", async () => {
+  it("registers a copy of the bytes, replacing what was under the name", async () => {
     const e = await engine();
     const bytes = new Uint8Array([1, 2, 3]);
-    await e.lend({ tile: "https://x/tile" });
-    await e.hold("tile", bytes);
+    await e.registerFiles({ tile: "https://x/tile" });
+    await e.registerFileBuffer("tile", bytes);
     expect(calls).toEqual(["register tile", "drop tile", "buffer tile"]);
     expect(db.registerFileBuffer.mock.lastCall?.[1]).not.toBe(bytes);
     expect(bytes.byteLength).toBe(3);
@@ -235,12 +235,12 @@ describe("engine", () => {
 
   it("drops what it holds, and ignores what it does not", async () => {
     const e = await engine();
-    await e.lend({ "jobs/d/a.parquet": "https://x/a", "jobs/d/b.parquet": "https://x/b" });
+    await e.registerFiles({ "jobs/d/a.parquet": "https://x/a", "jobs/d/b.parquet": "https://x/b" });
     calls.length = 0;
-    await e.drop(["jobs/d/a.parquet", "jobs/d/b.parquet", "never-lent"]);
+    await e.dropFiles(["jobs/d/a.parquet", "jobs/d/b.parquet", "never-lent"]);
     expect(calls).toEqual(["drop jobs/d/a.parquet", "drop jobs/d/b.parquet"]);
     // Dropped means forgotten: the same URL registers again rather than being taken as a no-op.
-    await e.lend({ "jobs/d/a.parquet": "https://x/a" });
+    await e.registerFiles({ "jobs/d/a.parquet": "https://x/a" });
     expect(calls.at(-1)).toBe("register jobs/d/a.parquet");
   });
 });

@@ -5,13 +5,13 @@ import { createRoot } from "react-dom/client";
 import { Graph } from "@cosmos.gl/graph";
 import { GraphCanvas, GraphRoot, useGraphContext, type GraphApi } from "@kanzo-tech/graph";
 import { engine, type Coordinator } from "@kanzo-tech/ui/analytics";
-import { open } from "@fossil-lang/corpus";
+import { attach, type Attachment } from "@fossil-lang/corpus";
 import { host, nextFrame, visible } from "./measure";
 
 /**
  * Our viewer against cosmos.gl alone, on the same positions and the same camera path.
  *
- * The corpus is attached once with fossil's `open`. The raw half reads its links with one statement
+ * The corpus is attached once with fossil's `attach`. The raw half reads its links with one statement
  * per relation through the page's coordinator, seeds the start the graph seeds, and draws it with
  * nothing of ours in the way. The viewer half mounts `<GraphRoot><GraphCanvas/>` over the same
  * catalog with `simulate={false}`, so both draw the same still picture. Both then follow one trajectory — the same wheel events on each canvas, a camera change
@@ -169,8 +169,8 @@ function seeded(size: number): { positions: Float32Array; extent: Box; space: nu
 /** Every vertex and every link of the attached catalog, as SQL answers them. */
 async function payloadOf(coordinator: Coordinator, from: string): Promise<Payload> {
   const ask = (sql: string) => coordinator.query(sql, { type: "arrow" }) as Promise<Answer>;
-  const tables = await ask(`SELECT table_name, kind, rows::DOUBLE AS rows FROM ${ident(from)}.fossil_tables`);
-  const [name, kind, rows] = ["table_name", "kind", "rows"].map((c) => tables.getChild(c)?.toArray() ?? []);
+  const tables = await ask(`SELECT table_name, kind, record_count::DOUBLE AS record_count FROM ${ident(from)}.fossil_tables`);
+  const [name, kind, rows] = ["table_name", "kind", "record_count"].map((c) => tables.getChild(c)?.toArray() ?? []);
   let total = 0;
   const relations: string[] = [];
   for (let i = 0; i < tables.numRows; i++) {
@@ -271,10 +271,10 @@ export async function measureViewer(pointCount: number, { repeats = 3 } = {}): P
   const sample: ViewerSample = { path, pointCount, linkCount: 0, raw: [], viewer: [], rawP95: 0, viewerP95: 0, ratio: 0 };
   if (!visible()) return { ...sample, failure: "the tab is hidden, and a hidden tab draws no frames" };
   const from = `bench_${pointCount}`;
-  let close: (() => Promise<void>) | null = null;
+  let corpus: Attachment | null = null;
   try {
     const e = await engine();
-    close = await open(from, { engine: e, url: `${window.location.origin}${path}` });
+    corpus = await attach(from, { engine: e, url: `${window.location.origin}${path}` });
     const payload = await payloadOf(e.coordinator, from);
     sample.pointCount = payload.total;
     sample.linkCount = payload.links.length / 2;
@@ -290,7 +290,7 @@ export async function measureViewer(pointCount: number, { repeats = 3 } = {}): P
   } catch (error) {
     return { ...sample, failure: error instanceof Error ? error.message : String(error) };
   } finally {
-    await close?.().catch(() => {});
+    await corpus?.detach().catch(() => {});
   }
 }
 

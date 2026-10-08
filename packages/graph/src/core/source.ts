@@ -57,20 +57,23 @@ export async function readStructure(coordinator: Coordinator, from: string): Pro
   const [tables, columns] = await Promise.all([
     ask(
       coordinator,
-      Query.select("table_name", "kind", "source", "destination", { rows: float64("rows"), first_id: float64("first_id") })
+      Query.select("table_name", "kind", "source", "destination", {
+        record_count: float64("record_count"),
+        first_id: float64("first_id"),
+      })
         .from(relation(from, "fossil_tables"))
         .orderby(asc("first_id", false), "table_name"),
     ),
     ask(
       coordinator,
-      Query.select("table_name", "column_name", "role", { type: cast("type", "VARCHAR") })
+      Query.select("table_name", "column_name", "role", { data_type: cast("data_type", "VARCHAR") })
         .from(relation(from, "fossil_columns"))
-        .orderby("table_name", "ordinal"),
+        .orderby("table_name", "ordinal_position"),
     ),
   ]);
   const byTable = new Map<string, { names: Map<string, Column>; identity: string }>();
   const [tn, cn] = [values(columns, "table_name"), values(columns, "column_name")];
-  const [role, type] = [values(columns, "role"), values(columns, "type")];
+  const [role, type] = [values(columns, "role"), values(columns, "data_type")];
   let key: string | undefined;
   for (let i = 0; i < columns.numRows; i++) {
     const entry = byTable.get(String(tn[i])) ?? { names: new Map<string, Column>(), identity: "subject" };
@@ -81,7 +84,7 @@ export async function readStructure(coordinator: Coordinator, from: string): Pro
   }
   const name = values(tables, "table_name");
   const kind = values(tables, "kind");
-  const rows = values(tables, "rows");
+  const rows = values(tables, "record_count");
   const first = values(tables, "first_id");
   const [source, destination] = [values(tables, "source"), values(tables, "destination")];
   const vertices: VertexTable[] = [];

@@ -78,7 +78,7 @@ const SPEC: DashboardSpec = {
 const COLUMNS = ["beast", "region", "hall", "hour", "leagues", "bounty", "verdict"] as const;
 
 /**
- * The world's rows as CSV text, for `hold` + `loadCSV` — not `loadObjects`, which builds one
+ * The world's rows as CSV text, for `registerFileBuffer` + `loadCSV` — not `loadObjects`, which builds one
  * `SELECT … UNION ALL` per row for DuckDB's parser to walk. No quoting, and none needed: every
  * value is a number or a single word from a closed vocabulary.
  */
@@ -90,8 +90,8 @@ function sightingsCsv(): string {
 
 /** The sightings relation, on the coordinator the graph view also uses. See `./duck`. */
 function boot(): Promise<Coordinator> {
-  return ensure(T, async ({ coordinator, hold }) => {
-    await hold(FILE, new TextEncoder().encode(sightingsCsv()));
+  return ensure(T, async ({ coordinator, registerFileBuffer }) => {
+    await registerFileBuffer(FILE, new TextEncoder().encode(sightingsCsv()));
     await coordinator.exec(loadCSV(T, FILE));
     return coordinator;
   });
