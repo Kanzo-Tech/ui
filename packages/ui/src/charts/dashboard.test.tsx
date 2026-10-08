@@ -6,7 +6,7 @@ import { semiJoinOf } from "@kanzo-tech/mosaic";
 import { Dashboard } from "./dashboard.js";
 import { FilterBar } from "./filter-bar.js";
 import type { DashboardSpec } from "./dashboard-spec.js";
-import { MosaicProvider, TileEditorAside, useTileEditorOpen } from "./mosaic-provider.js";
+import { MosaicClients, MosaicProvider, TileEditorAside, useTileEditorOpen } from "./mosaic-provider.js";
 import { ShellAside } from "../layouts/shell.js";
 
 /** Counts the times the editor's module is fetched: a read-only dashboard must never fetch it. */
@@ -236,6 +236,23 @@ describe("Dashboard's filters", () => {
     expect(within(bar).getByRole("button", { name: "Remove the region filter" })).toBeTruthy();
     await user.click(within(bar).getByRole("button", { name: /Filter/ }));
     expect(await screen.findByRole("menuitem", { name: "bounty" })).toBeTruthy();
+  });
+
+  it("are not drawn from a dashboard under MosaicClients that is off: no control, no remove, no + Filter", async () => {
+    render(
+      <MosaicProvider coordinator={stubCoordinator()} crossfilter={Selection.crossfilter()}>
+        <FilterBar />
+        <MosaicClients enabled={false}>
+          <Dashboard onChange={() => {}} table="sightings" value={{ ...SPEC, filters: [{ field: "region" }] }} />
+        </MosaicClients>
+        <Aside />
+      </MosaicProvider>,
+    );
+    const bar = await screen.findByRole("region", { name: "Filters" });
+    await waitFor(() => expect(within(bar).getByText("region:")).toBeTruthy());
+    expect(within(bar).queryByRole("button", { name: /region/ })).toBeNull();
+    expect(within(bar).queryByRole("button", { name: "Remove the region filter" })).toBeNull();
+    expect(within(bar).queryByRole("button", { name: /Filter/ })).toBeNull();
   });
 
   it("are not drawn on a page without a FilterBar", async () => {

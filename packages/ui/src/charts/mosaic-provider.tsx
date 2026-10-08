@@ -193,23 +193,36 @@ export function useBarSlot() {
 /**
  * **Draws `children` in the page's `FilterBar`**, through a portal, so they keep this tree's context
  * — the dashboard's provider and its crossfilter — while they sit in the page's bar. `held` names the
- * clauses they draw themselves. They query as the bar does, not as where they are declared: a view
- * hidden by `MosaicClients` still has its filters on screen. Nothing is drawn while the page has no bar.
+ * clauses they draw themselves. They query as the bar does, not as where they are declared. Under a
+ * `MosaicClients` that is off they are the hidden view's controls: kept mounted, so their clauses
+ * stand, but not drawn and holding nothing, so the bar draws those clauses as its own chips. Nothing
+ * is drawn while the page has no bar.
  */
 export function InFilterBar({ held, children }: { held: BarHeld; children: ReactNode }) {
   const slots = useContext(Slots);
   const set = slots?.set;
+  const shown = useContext(Enabled);
   const { selection } = held;
   // By value, so a host's inline array is not a change.
   const fields = JSON.stringify(held.fields);
   useEffect(() => {
-    if (!set) return;
+    if (!set || !shown) return;
     const entry: BarHeld = { selection, fields: JSON.parse(fields) as string[] };
     set((s) => ({ ...s, held: [...s.held, entry] }));
     return () => set((s) => ({ ...s, held: s.held.filter((h) => h !== entry) }));
-  }, [set, selection, fields]);
+  }, [set, shown, selection, fields]);
   const element = slots?.slot.bar;
-  return element ? createPortal(<Enabled.Provider value={slots.slot.enabled}>{children}</Enabled.Provider>, element) : null;
+  // One element either way: a control that remounted would retract its clause.
+  return element
+    ? createPortal(
+        <Enabled.Provider value={slots.slot.enabled && shown}>
+          <div className="contents" hidden={!shown}>
+            {children}
+          </div>
+        </Enabled.Provider>,
+        element,
+      )
+    : null;
 }
 
 /**

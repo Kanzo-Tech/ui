@@ -207,18 +207,20 @@ numeric key) or no longer exists is skipped. With `onChange`, each chip gets a r
 the dashboard's chips rather than drawing them twice.
 
 **The dashboard draws there through a slot**, a portal that keeps its own provider and crossfilter,
-so its filters are on screen in every view of the page and stay where the reader put them. A control
-stays mounted while its popover is shut, because a control that unmounts retracts its clause, and a
-control in the bar queries as the bar does: a dashboard hidden by
-[`MosaicClients enabled={false}`](/docs/analytics/charts#mosaicclients) still has live filters.
+so its filters stay where the reader put them. A control stays mounted while its popover is shut,
+because a control that unmounts retracts its clause, and a control in the bar queries as the bar
+does. A dashboard hidden by [`MosaicClients enabled={false}`](/docs/analytics/charts#mosaicclients)
+draws none of its controls there, neither its chips nor **+ Filter**, and still has live filters:
+the controls stay mounted, undrawn, and what they filter is in the bar as ordinary chips, each one
+removable.
 
 After the chips, with `table`, the **readout** — *12 of 40 sightings*, `rowNoun` being the plural —
 then a quiet **Clear** while anything on the page filters, which is `useMosaic().reset()`, and the
 children. `useClauses(selection)` is a selection's live clause list, for a host that draws its own.
 
 **A view swapped out keeps its clauses when it is hidden, not unmounted.** Wrap it in
-`MosaicClients enabled={false}`: its clients stop asking and its chips stay in the bar; unmounted,
-it would retract them.
+`MosaicClients enabled={false}`: its clients stop asking and its clauses stay in the bar, as
+chips; unmounted, it would retract them.
 
 ### DashboardStat
 
