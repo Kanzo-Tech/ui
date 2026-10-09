@@ -74,7 +74,7 @@ jobs:
       # the seed ran, and the gateway loaded its config and the realm's keys.
       - name: Bring up the platform
         working-directory: services
-        run: docker compose -f compose.dev.yaml up -d --wait && docker compose -f compose.dev.yaml up --exit-code-from auth-seed auth-seed
+        run: docker compose -f compose.dev.yaml up -d --wait ai-gateway && docker compose -f compose.dev.yaml up --exit-code-from auth-seed auth-seed
       - name: The claim contract, on live tokens
         working-directory: services/auth
         run: for u in ana bruno eva fede carla dan; do scripts/verify.sh "$u" > "$RUNNER_TEMP/$u.log" || { cat "$RUNNER_TEMP/$u.log"; exit 1; }; done
