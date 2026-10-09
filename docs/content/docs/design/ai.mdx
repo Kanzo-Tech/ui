@@ -72,7 +72,8 @@ look different, and the spec is where the missing words get added.
 
 **What would reverse it:** questions readers ask and the spec cannot say, recorded often enough that
 growing the spec costs more than a second door. Then a SQL tool returns beside the spec, behind
-`gateStatement` as it was, and the card says which one answered.
+`gateStatement` as it was — with `@kanzo-tech/mosaic`'s engine loading DuckDB's `json` again, whose
+`json_serialize_sql` was the gate's parser — and the card says which one answered.
 
 *Held by* `packages/ai/src/data/answer.test.ts`, "the enums are the relation's fields only"; "an
 answer compiles to the same query the dashboard tile reads"; "input outside the schema is refused

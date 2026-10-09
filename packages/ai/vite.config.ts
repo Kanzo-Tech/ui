@@ -46,7 +46,6 @@ export default defineConfig({
         id === "tailwind-variants" ||
         id === "streamdown" ||
         id === "ai" ||
-        /^@codemirror\//.test(id) ||
         /^@ai-sdk\//.test(id),
       // Rollup drops `"use client"` when it merges modules, which in @kanzo-tech/ui silently turned
       // every published component into a server component for App Router consumers.
