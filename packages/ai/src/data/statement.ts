@@ -53,7 +53,8 @@ export type GatedStatement = { readonly statement: string } | { readonly refused
  *   (`read_csv`, `read_text`, `glob`, `query_table`, `duckdb_secrets()`, `pragma_*`) and a `DESCRIBE`,
  *   `SHOW` or `SUMMARIZE` among them;
  * - a table that is neither one of `tables`, nor `scope`, nor a CTE the statement defines where it is
- *   read — a file or URL named as a table is a table nobody described;
+ *   read — a file or URL named as a table is a table nobody described. A name that can only mean one
+ *   of them runs as that one: `tables`' last parts unqualified, or `scope` under a qualifier;
  * - a CTE named `scope`: the reader's selection is read, never redefined.
  *
  * A refusal is an answer, not a throw: the model reads it and writes another statement.
@@ -75,10 +76,13 @@ export async function gateStatement(
 
   const readable = new Set(tables.map(key));
   if (scope) readable.add(key(["scope"]));
-  const why = refusal(parsed.statements[0]!, { readable, names: tables, scope: !!scope }, new Set());
+  const gate: Readable = { readable, names: tables, scope: !!scope, resolved: false };
+  const why = refusal(parsed.statements[0]!, gate, new Set());
   if (why) return refuse(why);
 
-  const printed = await answer(coordinator, "text", sql`json_deserialize_sql(${literal(ast)})`);
+  // The parse as the gate left it: a name it resolved is printed as the table it resolved to. Only
+  // then is it written again, because a JavaScript number cannot hold every integer a parse does.
+  const printed = await answer(coordinator, "text", sql`json_deserialize_sql(${literal(gate.resolved ? reprint(parsed) : ast)})`);
   const query = Query.from(sql`(${printed})`).select("*").limit(limit);
   return { statement: String(scope ? query.with({ scope: scoped(scope) }) : query) };
 }
@@ -103,7 +107,19 @@ interface Readable {
   readable: ReadonlySet<string>;
   names: DataSchema["tables"];
   scope: boolean;
+  /** Whether a name in the parse was resolved, and so rewritten. */
+  resolved: boolean;
 }
+
+/**
+ * A parse written back as JSON. `query_location` is the one integer of a parse past what a number
+ * holds — "no location" is the largest unsigned 64-bit value, which the parse is refused with
+ * rounded — so it is written as DuckDB wrote it. A key can be matched in the text: a quote inside a
+ * string value is escaped.
+ */
+const NO_LOCATION = "18446744073709551615";
+const reprint = (parsed: Parse) =>
+  JSON.stringify(parsed).replace(/"query_location":(\d+)/g, (_, n: string) => `"query_location":${Number(n) > Number.MAX_SAFE_INTEGER ? NO_LOCATION : n}`);
 
 /** The relations a statement may read from. Anything else in a FROM is refused. */
 const RELATIONS = new Set(["BASE_TABLE", "SUBQUERY", "JOIN", "EXPRESSION_LIST", "EMPTY", "PIVOT"]);
@@ -158,5 +174,25 @@ function relationRefusal(node: { [key: string]: Json }, gate: Readable, ctes: Re
   if (node.type !== "BASE_TABLE") return null;
   const path = [node.catalog_name, node.schema_name, node.table_name].filter((part): part is string => !!part);
   if (path.length === 1 && ctes.has(path[0]!.toLowerCase())) return null;
-  return gate.readable.has(key(path)) ? null : `${quoted(path)} is not a table of the schema. ${may}`;
+  if (gate.readable.has(key(path))) return null;
+  const meant = resolve(path, gate);
+  if (!meant) return `${quoted(path)} is not a table of the schema. ${may}`;
+  // The parse is what DuckDB prints back and what runs, so the table it meant is written into it.
+  const [table, schema = "", catalog = ""] = [...meant].reverse();
+  Object.assign(node, { catalog_name: catalog, schema_name: schema, table_name: table });
+  gate.resolved = true;
+  return null;
+}
+
+/**
+ * The one table a path the gate does not know can only mean, or `null`. A model shown qualified names
+ * drops the qualifier (`"Person"`) or puts it on `scope` (`"jobs/7"."scope"`); either names one table
+ * of the schema all the same. A path that two tables end in means neither, and is refused.
+ */
+function resolve(path: readonly string[], gate: Readable): readonly string[] | null {
+  const last = path[path.length - 1]!.toLowerCase();
+  if (gate.scope && last === "scope") return ["scope"];
+  const tail = key(path);
+  const ends = gate.names.filter((name) => name.length > path.length && key(name.slice(-path.length)) === tail);
+  return ends.length === 1 ? ends[0]! : null;
 }

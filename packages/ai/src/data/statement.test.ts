@@ -108,6 +108,13 @@ describe("the statement gate", () => {
       [{ name: "Ada", r: 1 }],
     ],
     ["the reader's scope", `SELECT "name" FROM scope ORDER BY "name"`, [{ name: "Ada" }, { name: "Grace" }]],
+    ["a table of the schema unqualified, as the one it can only mean", `SELECT count(*)::INTEGER AS n FROM "person"`, [{ n: 3 }]],
+    ["the reader's scope under the schema's qualifier", `SELECT "name" FROM "jobs/7"."scope" ORDER BY "name"`, [{ name: "Ada" }, { name: "Grace" }]],
+    [
+      "a resolved name beside a recursive CTE and a comment, which a parse marks with no location",
+      `WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 2) SELECT count(*)::INTEGER AS n FROM Person, n; -- every pair`,
+      [{ n: 6 }],
+    ],
     ["a string that looks like a comment and a terminator", "SELECT 'it''s -- not; DROP TABLE secret' AS s", [{ s: "it's -- not; DROP TABLE secret" }]],
     ["its own terminator and a trailing comment", "SELECT 1 AS x; -- one", [{ x: 1 }]],
   ])("lets %s through, and it runs", async (_, sql, expected) => {

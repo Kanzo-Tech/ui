@@ -102,7 +102,7 @@
     {
       "name": "data subpath (JS)",
       "path": "dist/data/index.js",
-      "limit": "6.5 kB",
+      "limit": "6.75 kB",
       "ignore": [
         "react",
         "react-dom",
