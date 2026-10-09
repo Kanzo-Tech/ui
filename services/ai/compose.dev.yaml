@@ -25,8 +25,8 @@ services:
     image: alpine:3.22
     command: ["true"]
     models:
-      - chat
-      - complete
+      chat: {}
+      complete: {}
 
 models:
   chat:
