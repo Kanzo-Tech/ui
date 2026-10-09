@@ -35,9 +35,9 @@ export const DASHBOARD_CHART_TYPES = ["bar", "line", "area", "histogram", "dot",
 
 export type DashboardChartType = (typeof DASHBOARD_CHART_TYPES)[number];
 
-const AGGREGATES = ["count", "distinct", "sum", "avg", "min", "max", "median", "share"] as const;
+export const DASHBOARD_AGGREGATES = ["count", "distinct", "sum", "avg", "min", "max", "median", "share"] as const;
 
-export type DashboardAggregate = (typeof AGGREGATES)[number];
+export type DashboardAggregate = (typeof DASHBOARD_AGGREGATES)[number];
 
 // ── The spec, declared once ──────────────────────────────────────────────────
 //
@@ -52,7 +52,7 @@ export type DashboardAggregate = (typeof AGGREGATES)[number];
  */
 const MeasureSchema = v.pipe(
   v.strictObject({
-    op: v.picklist([...AGGREGATES, "value"]),
+    op: v.picklist([...DASHBOARD_AGGREGATES, "value"]),
     field: v.optional(v.string()),
     equals: v.optional(v.union([v.string(), v.number(), v.boolean()])),
   }),
@@ -168,6 +168,16 @@ function refusal(what: string, issues: readonly v.BaseIssue<unknown>[]): Error {
 export function parseDashboard(saved: unknown): DashboardSpec {
   const result = v.safeParse(DashboardSpecSchema, saved);
   if (!result.success) throw refusal("dashboard spec", result.issues);
+  return result.output;
+}
+
+/**
+ * One tile, checked as `parseDashboard` checks the tiles of a spec: what a tile made outside the
+ * editor — an answer to a question — is read through before it is drawn or saved.
+ */
+export function parseTile(tile: unknown): Tile {
+  const result = v.safeParse(TileSchema, tile);
+  if (!result.success) throw refusal("tile", result.issues);
   return result.output;
 }
 
