@@ -78,12 +78,13 @@ GraphRoot                  the state and the commands; renders no element
 ├── GraphStatus            where the graph is, in one word: Loading, Laying out 42%, Ready, Failed
 ├── GraphCounts            "5K nodes · 8K edges", or "1.2K of 5K nodes match · 3K edges"
 ├── GraphSearch            a palette: find a vertex, by text, type or column, and reveal it
-└── GraphInspector         the focused vertex: its row
+├── GraphInspector         the focused vertex: its row
+└── GraphTimeline          a time column brushed and played, under the canvas
 ```
 
 **Every part reads the root, not its parent.** `GraphCanvas`'s children are chrome positioned over
-the surface, but `GraphToolbar`, `GraphLegend`, `GraphStatus`, `GraphCounts`, `GraphSearch` and `GraphInspector`
-each read the root's context directly, so each can sit anywhere under it — over the canvas, in a
+the surface, but `GraphToolbar`, `GraphLegend`, `GraphStatus`, `GraphCounts`, `GraphSearch`, `GraphInspector` and
+`GraphTimeline` each read the root's context directly, so each can sit anywhere under it — over the canvas, in a
 dock, in a footer. **The graph's settings are not a part.** They are `GRAPH_SECTION`, drawn by
 `@kanzo-tech/ui`'s `PreferencesSections` or composed from its `<Pref>`, and the root is the section's
 owner: it answers the corpus's columns and the cards' pictures to whatever sits beneath it —
@@ -296,6 +297,30 @@ read when a reader focuses it: one `SELECT` of its table at its `dense_id`.
 a `DataListItem` each, after the corpus's values — here the hall's name, where the relation stores
 its id.
 
+### Timeline
+
+```tsx
+<GraphCanvas className="h-[480px]" />
+<GraphTimeline className="border-t" />
+```
+
+Cosmograph's `CosmographTimeline`, under the canvas: the distribution of one temporal column over
+every type that has it, a window brushed across it, and a play button that moves the window forward
+a bar at a time. It is `ChartTimeline` from `@kanzo-tech/ui/analytics` over the corpus.
+
+- **The column is a setting, not a prop.** `time-by` — *Timeline* in the graph's settings — offers
+  the corpus's temporal columns, the way *X axis* offers its numeric ones, and with none chosen the
+  part draws nothing. A column is temporal by what `fossil_columns` declares: a `date` or a
+  `timestamp`, or a column whose `datatype` is `xsd:date`, `xsd:dateTime` or `xsd:gYear` — a year is
+  stored as an `int32`, and the datatype is what says it is a year. That needs a corpus attached by
+  `@fossil-lang/corpus` 0.3.0-alpha.28 or later.
+- **The window is one clause on the graph's crossfilter.** Every type with the column is filtered by
+  it and the rest stay whole, the graph's [clause rule](#the-channels-are-bindings); what it leaves
+  out is greyed, and the window is a chip in the page's `FilterBar`.
+- **A date on a relation is a vertex** — the year of a prize, the day two people met — because a
+  corpus has no edge properties yet ([why](/docs/design/timeline)). Playing it greys the relations
+  of other years and the edges into them.
+
 ### Settings
 
 <ComponentPreview componentName="graph" fileName="example-looks" hasMaxHeight />
@@ -316,7 +341,7 @@ const SECTIONS = [GRAPH_SECTION]; // module scope: a new array re-resolves every
 <KanzoThemeProvider sections={SECTIONS}>…</KanzoThemeProvider>;
 
 // under it
-const { look, sim, placement } = useGraphPrefs(); // placement: {} | { x, y } | { cluster }
+const { look, sim, placement } = useGraphPrefs(); // placement: {} | { x, y } | { cluster }; timeline: the column, or ""
 <GraphRoot from="archive" coordinator={coordinator} fill="kind" look={look} sim={sim} {...placement} onFailure={setFailure}>
   <GraphCanvas />
   <PreferencesSections namespace="graph" />
@@ -338,6 +363,7 @@ defaults, and so does this section. A preference a tenant pinned is not offered.
 | X axis · Y axis | the corpus's numeric fields | Map's two columns. Offered only under Map. |
 | Group by | the corpus's fields | Clustered's column. Offered only under Clustered. |
 | Cluster pull | slider, its ends named | Offered only under Clustered: from *Links decide* to *Tight groups*. |
+| Timeline | the corpus's temporal fields | The column `GraphTimeline` reads — [Timeline](#timeline). None draws no timeline. |
 | Gravity · Repulsion · Link spring · Link distance · Friction | sliders | The forces. Offered only under Force. |
 
 **Labels are one ordered scale**, each level adding to the one before. **None** draws no text at all,
@@ -645,6 +671,15 @@ set while the graph loads or a layout runs.
 
 Extends `React.ComponentProps<"div">` without its `children`.
 
+### GraphTimeline
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `height` | `number` — the plot's | `72` |
+| `className` | `string` | — |
+
+The column is the `time-by` preference, not a prop: [Timeline](#timeline).
+
 ### ShapeGlyph
 
 The glyph the canvas draws for a category, in the DOM — for a legend key, a card or a preview. No
@@ -666,7 +701,7 @@ it from outside.
 | `useGraphContext` | `() => GraphApi` | **Reads** it under a root; throws outside one. |
 | `useGraphState` | `(selector, isEqual = Object.is) => T` | A slice of the `GraphState`, and a render only when it moves. |
 | `usePick` | `(id: string) => Pick` | A place beside the canvas: `pick(ids \| null, label)` publishes its clause, `picked` is that clause's label or `null`, `predicate()` every clause but its own. |
-| `useGraphPrefs` | `() => { look: Look; sim: Sim; placement: Placement }` | The provider's resolved `GRAPH_SECTION`, as the three things the root takes. |
+| `useGraphPrefs` | `() => { look: Look; sim: Sim; placement: Placement; timeline: string }` | The provider's resolved `GRAPH_SECTION`, as the three things the root takes, and the column `GraphTimeline` reads. |
 
 ### The picture
 
@@ -717,7 +752,7 @@ What `useGraphState` selects from.
 ### Types
 
 `GraphCanvasProps`, `GraphLegendProps`, `GraphCountsProps`, `GraphStatusProps`, `GraphToolbarProps`,
-`GraphInspectorProps`, `GraphSearchProps`, `GraphRootProviderProps` and
+`GraphInspectorProps`, `GraphSearchProps`, `GraphTimelineProps`, `GraphRootProviderProps` and
 `ShapeGlyphProps` are the parts' props; `VertexDetail` — `vertex`, `table` and `fields` — is what the
 inspector's render prop receives. `Channels` (`fill`, `symbol`, `stroke`, `x`, `y`, `cluster`), `Placement`, `Look`, `LookPatch`,
 `Shape`, `Sim`, `Motion`, `Selection`, `SelectionSource`, `Tool`, `VertexId`,

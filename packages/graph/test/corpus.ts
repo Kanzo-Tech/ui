@@ -60,7 +60,8 @@ let catalogs = 0;
 const FIXTURE = (c: string, n: number) => `
 ATTACH ':memory:' AS ${c};
 CREATE TABLE ${c}."Person" AS SELECT i::UBIGINT AS dense_id, 'https://example.org/person/' || i AS subject,
-  'Person ' || i AS name, (i % 4)::INTEGER AS team, (i + 1)::INTEGER AS score, i::DOUBLE AS lon, 0::DOUBLE AS lat
+  'Person ' || i AS name, (i % 4)::INTEGER AS team, (i + 1)::INTEGER AS score, i::DOUBLE AS lon, 0::DOUBLE AS lat,
+  (1900 + i)::INTEGER AS born
   FROM range(${n}) t(i);
 CREATE TABLE ${c}."Place" AS SELECT (${n} + i)::UBIGINT AS dense_id, 'https://example.org/place/' || i AS subject,
   'Place ' || i AS name, i::DOUBLE AS lon, 1::DOUBLE AS lat FROM range(6) t(i);
@@ -84,7 +85,8 @@ CREATE VIEW ${c}.fossil_columns AS
                    WHEN 'VARCHAR' THEN 'string' END AS data_type,
     CASE WHEN column_name = 'dense_id' THEN 'address' WHEN column_name = 'subject' THEN 'identity'
          WHEN column_name IN ('src', 'dst') THEN 'endpoint' END AS role,
-    NULL AS iri, is_nullable
+    NULL AS iri,
+    CASE WHEN column_name = 'born' THEN 'http://www.w3.org/2001/XMLSchema#gYear' END AS datatype, is_nullable
   FROM duckdb_columns() WHERE database_name = '${c}';
 `;
 

@@ -16,25 +16,25 @@ import { GRAPH_SECTION } from "../section";
 const SECTIONS = [GRAPH_SECTION];
 
 /** What a `<Pref>` beneath the root reads — the options the root answered for one column. */
-function Columns({ name, into }: { name: "graph.x-by" | "graph.cluster-by"; into: { options?: unknown } }) {
+function Columns({ name, into }: { name: "graph.x-by" | "graph.cluster-by" | "graph.time-by"; into: { options?: unknown } }) {
   into.options = usePref(name)?.options;
   return null;
 }
 
-function Workspace({ corpus, into = {} }: { corpus: Attached | null; into?: { options?: unknown } }) {
+function Workspace({ corpus, into = {}, column = "graph.x-by" }: { corpus: Attached | null; into?: { options?: unknown }; column?: "graph.x-by" | "graph.time-by" }) {
   const { look, sim, placement } = useGraphPrefs();
   return (
     <GraphRoot coordinator={corpus?.coordinator ?? null} from={corpus?.from ?? null} look={look} onFailure={() => {}} sim={sim} {...placement}>
       <PreferencesSections namespace="graph" />
-      <Columns into={into} name="graph.x-by" />
+      <Columns into={into} name={column} />
     </GraphRoot>
   );
 }
 
-function mount(corpus: Attached | null, into?: { options?: unknown }) {
+function mount(corpus: Attached | null, into?: { options?: unknown }, column?: "graph.x-by" | "graph.time-by") {
   return render(
     <KanzoThemeProvider sections={SECTIONS} storage={null}>
-      <Workspace corpus={corpus} into={into} />
+      <Workspace column={column} corpus={corpus} into={into} />
     </KanzoThemeProvider>,
   );
 }
@@ -59,12 +59,12 @@ const sliders = () => [...document.querySelectorAll("[data-slot=slider-label]")]
 const picture = (name: string) => screen.getByRole("radio", { name }).closest("[data-slot=radio-group-card]")?.querySelector("svg");
 
 describe("the graph's settings, as its section", () => {
-  it("starts at Force, with its five forces, no column to choose and no cluster pull", async () => {
+  it("starts at Force, with its five forces, the timeline's column the only one to choose, and no cluster pull", async () => {
     const corpus = await attach();
     mount(corpus);
     await act(() => settle(corpus));
     expect((screen.getByRole("radio", { name: "Force" }) as HTMLInputElement).checked).toBe(true);
-    expect(document.querySelector("[data-slot=select-trigger]")).toBeNull();
+    expect(document.querySelectorAll("[data-slot=select-trigger]")).toHaveLength(1);
     expect(screen.queryByText("Cluster pull")).toBeNull();
     expect(sliders()).toEqual(["Labels", ...FORCES]);
   });
@@ -97,9 +97,19 @@ describe("the graph's settings, as its section", () => {
     const into: { options?: unknown } = {};
     mount(corpus, into);
     await act(() => settle(corpus));
-    expect(into.options).toEqual(["lat", "lon", "score", "team"].map((value) => ({ value, label: value })));
+    expect(into.options).toEqual(["born", "lat", "lon", "score", "team"].map((value) => ({ value, label: value })));
     await userEvent.setup().click(screen.getByRole("radio", { name: "Map" }));
-    expect(document.querySelectorAll("[data-slot=select-trigger]")).toHaveLength(2);
+    expect(document.querySelectorAll("[data-slot=select-trigger]")).toHaveLength(3);
+  });
+
+  it("offers the timeline the corpus's temporal fields, by the datatype its shape declared", async () => {
+    // `born` is an `int32` the fixture's shape types `xsd:gYear`: a year by its datatype, never by
+    // its values — `score` is an integer in the same range and is not offered.
+    const corpus = await attach();
+    const into: { options?: unknown } = {};
+    mount(corpus, into, "graph.time-by");
+    await act(() => settle(corpus));
+    expect(into.options).toEqual([{ value: "born", label: "born" }]);
   });
 
   it("pulls clusters only under Clustered, and offers Additive links only while edges are drawn", async () => {
@@ -109,7 +119,7 @@ describe("the graph's settings, as its section", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("radio", { name: "Clustered" }));
     expect(screen.getByText("Cluster pull")).toBeTruthy();
-    expect(document.querySelectorAll("[data-slot=select-trigger]")).toHaveLength(1);
+    expect(document.querySelectorAll("[data-slot=select-trigger]")).toHaveLength(2);
     expect(screen.getByText("Additive links")).toBeTruthy();
     await user.click(screen.getByRole("radio", { name: "Hidden" }));
     expect(screen.queryByText("Additive links")).toBeNull();

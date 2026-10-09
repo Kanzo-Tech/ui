@@ -34,8 +34,17 @@ import { registerChartForTesting, type PlotOutput } from "./testing-probe.js";
  */
 type PlotMark = { queryError(error: Error): unknown; enabled: boolean };
 type PlotElement = HTMLElement & {
-  value: { marks: PlotMark[]; pending(mark: PlotMark): void; render(): Promise<void>; element: HTMLElement };
+  value: ChartPlot & { marks: PlotMark[]; pending(mark: PlotMark): void; render(): Promise<void>; element: HTMLElement };
 };
+
+/**
+ * The vgplot `Plot` a root has on screen, as far as a part may read it: its interactors, which
+ * `Plot` exposes. An interactor owns the clause it publishes, so a part that moves a brush asks
+ * the brush — `ChartTimeline` plays its window through the interval's own `publish`.
+ */
+export interface ChartPlot {
+  readonly interactors: readonly unknown[];
+}
 
 /** An area stacked by a series column (the `z` `chart-marks` derives), which `denseStack` completes. */
 function isStackedArea(directive: ChartMarkDirective): boolean {
@@ -96,6 +105,8 @@ export interface ChartContextValue {
   color: (key: string) => string | undefined;
   /** The chart's locale number formatter — one vocabulary for axes, legend and tooltip. */
   formatNumber: (value: number, options?: Intl.NumberFormatOptions) => string;
+  /** The plot on screen, or `null` before the first build. Rebuilt on a resize or a theme change. */
+  plot: () => ChartPlot | null;
 }
 
 const ChartContext = createContext<ChartContextValue | null>(null);
@@ -209,6 +220,7 @@ export function ChartRoot(props: ChartRootProps) {
   const [busy, setBusy] = useState(true);
   // Plot's output on screen, for the test hook's scales.
   const output = useRef<PlotOutput | null>(null);
+  const drawn = useRef<ChartPlot | null>(null);
   const title = rest["aria-label"];
   useEffect(() => registerChartForTesting(title, () => output.current), [title]);
   // A plain union, so it hides nothing from its own publisher — a crossfilter would, and
@@ -248,6 +260,7 @@ export function ChartRoot(props: ChartRootProps) {
       },
       formatNumber: (value, options) =>
         new Intl.NumberFormat(locale, options ?? numberFormat).format(value),
+      plot: () => drawn.current,
     }),
     // `numberKey` and `tableKey` stand in for their objects' identities; both are read fresh.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -324,6 +337,7 @@ export function ChartRoot(props: ChartRootProps) {
             const element = vg.plot(...spec.map(toVgDirective).filter((d): d is VgDirective => d !== null));
             const plot = (element as PlotElement).value;
             marks.current = plot.marks;
+            drawn.current = plot;
             // Busy from each build, and from each query a mark starts, to the render that draws its
             // answer: `pending` and `render` are the two moments vgplot's `Plot` has, and neither has
             // a listener.

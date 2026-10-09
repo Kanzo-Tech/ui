@@ -188,6 +188,21 @@ export const GRAPH_SECTION = {
     },
 
     /**
+     * **The column the timeline under the graph reads** — Cosmograph's `CosmographTimeline`
+     * `accessor`, chosen where the placement's columns are, from the corpus's temporal columns: a
+     * date, a timestamp, or a year its shape types `xsd:gYear`. The root answers the list
+     * (`GraphSection`), by the type and the datatype `fossil_columns` declares and never by the
+     * values. None draws no timeline.
+     */
+    "time-by": {
+      kind: "choice",
+      label: "Timeline",
+      default: "",
+      doc: "The date or year a timeline under the graph counts, filters by and plays forward. None draws no timeline.",
+      options: { from: "temporal-columns" },
+    },
+
+    /**
      * The force coefficients, which are preferences and were a second vocabulary.
      *
      * **They are not appearance, and this manifest holds them anyway.** A section's `tokens` are the

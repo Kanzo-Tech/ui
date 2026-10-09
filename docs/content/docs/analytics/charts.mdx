@@ -446,10 +446,29 @@ function Total({ rows }: { rows: number }) {
 | `config`, `table` | what the root was given |
 | `filterBy`, `as` | the selections the marks read and the interactors write |
 | `coordinator` | for a part that queries alongside the plot |
+| `plot()` | the vgplot `Plot` on screen as `ChartPlot` — its `interactors` — or `null` before the first build; a part that moves a brush asks the brush, as `ChartTimeline` does |
 
 It throws outside a `ChartRoot`; `useChartContextOptional()` returns `null` instead, which is how
 `ChartLegend` also works standalone. Descriptors cannot use it — see
 [two kinds of children](#two-kinds-of-children).
+
+## A time filter that plays
+
+`ChartTimeline` is a brushable histogram of one temporal column — a date, a timestamp, or a year
+stored as its integer — with a play button that moves the brushed window forward a bar at a time,
+Cosmograph's `Timeline` on the page's crossfilter. The bars behind are the column unfiltered, the
+bars in front what the page keeps, and the window is one clause: a chip in the `FilterBar` like any
+control's.
+
+```tsx
+<ChartTimeline field="year" table="awards" title="Awards by year" />
+```
+
+Playing asks the window's owner to move it, through the interval's own `publish`: a clause belongs
+to the source that published it ([why](/docs/design/timeline)). With no window there is nothing to
+play, and at the end of the axis it stops. The button is `aria-pressed` while it plays, and the
+window is a group whose `aria-valuetext` reads *1950 – 1960*. A dashboard's temporal filter is this
+part, in its chip.
 
 ## Escape hatches
 
@@ -661,6 +680,19 @@ its rows, and runs the query it was owed once enabled".
 | `numberFormat` | `Intl.NumberFormatOptions` | — |
 | `className` / `plotClassName` | `string` | — |
 
+### ChartTimeline
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `field` | `string` — the temporal column | — |
+| `title` | `string` — the figure's name, and its key in a test's hook | — |
+| `table` | `TableExpr` | — |
+| `fill` | `string` — a colour, or a column to stack the bars by | `var(--chart-1)` |
+| `filterBy` / `as` | `Selection` | as `ChartRoot` |
+| `height` | `number` | `72` |
+| `playable` | `boolean` | `true` |
+| `className` | `string` | — |
+
 ### Marks
 
 Props are the vgplot / Observable Plot mark options (`x`, `y`, `z`, `r`, `fill`, `stroke`,
@@ -766,5 +798,5 @@ plain data (`{ kind: "mark", mark: "barY", source, options }`), never a `vg.*` c
 Every part's props are exported as an interface — `ChartAxisXProps`, `ChartAxisYProps`,
 `ChartColorLegendProps`, `ChartFacetXProps`, `ChartFacetYProps`, `ChartFilterProps`,
 `ChartHighlightProps`, `ChartLegendProps`, `ChartPanZoomProps`, `ChartRawProps`, `ChartRootProps`,
-`ChartSearchProps`, `ChartSliderProps`, `ChartStatProps` and `MosaicProviderProps` — so a wrapper
+`ChartSearchProps`, `ChartSliderProps`, `ChartStatProps`, `ChartTimelineProps` and `MosaicProviderProps` — so a wrapper
 can take the same props without restating them.

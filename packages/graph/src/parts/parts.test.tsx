@@ -268,7 +268,7 @@ describe("GraphInspector", () => {
     act(() => held.api?.setFocus(6));
     await waitFor(() => expect(screen.getByTestId("extra").textContent).toBe("score plus one: 8"));
     const labels = (name: string) => [...section(name).querySelectorAll("dt")].map((dt) => dt.textContent);
-    expect(labels("Values")).toEqual(["name", "team", "score", "lon", "lat"]);
+    expect(labels("Values")).toEqual(["name", "team", "score", "lon", "lat", "born"]);
     expect(screen.queryByRole("region", { name: "Dates" })).toBeNull();
     expect(corpus.sent.filter((sql) => /"Person" WHERE \("dense_id" = 6\)$/.test(sql))).toHaveLength(1);
     expect(screen.queryByRole("region", { name: "Identity" })).toBeNull();
