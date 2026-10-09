@@ -7,17 +7,32 @@ The server half of each platform capability, released with its client half under
 | Identity | [`auth/`](auth) — Keycloak with the realm as code | `@kanzo-tech/auth` |
 | Models | [`ai/`](ai) — agentgateway, the gateway applications call through their server | `@kanzo-tech/llm`, `@kanzo-tech/ai` |
 
-Each service has the same shape:
+Each service has the same shape, and Compose is the whole of it — development and deployments
+alike:
 
-- `compose.yml` — the service for development. An application includes it from its own compose
-  (`include:`) at the release it was built against.
-- `modules/` — Terraform an application or a deployment instantiates from its own repository:
-  `auth/modules/app` registers an application, `ai/modules/gateway` deploys the gateway.
-- Nothing names an application. An application registers itself; a deployment brings its own
-  production configuration (secrets, the AI profile).
+- `compose.yaml` — the service as it runs anywhere.
+- `compose.dev.yaml` — what development adds on top: published ports, seeded users, local models.
+- Nothing names an application. An application declares itself and its organizations
+  ([`auth/realm/declarations.tf`](auth/realm/declarations.tf)); a deployment brings its values —
+  hostnames, which model answers each alias, keys — as environment.
 
-Pin a module to a release:
-
-```hcl
-source = "git::https://github.com/Kanzo-Tech/ui.git//services/auth/modules/app?ref=v0.30.0"
+```sh
+docker compose up -d --wait                          # both, for development (compose.yaml here)
+docker compose --profile local-models up -d --wait   # with the AI aliases on local models
 ```
+
+An application includes the same files from this repository, at the release it was built against,
+and adds its own services and declarations:
+
+```yaml
+include:
+  - path:
+      - https://github.com/Kanzo-Tech/ui.git#v0.34.0:services/auth/compose.yaml
+      - https://github.com/Kanzo-Tech/ui.git#v0.34.0:services/auth/compose.dev.yaml   # development only
+  - path:
+      - https://github.com/Kanzo-Tech/ui.git#v0.34.0:services/ai/compose.yaml
+      - https://github.com/Kanzo-Tech/ui.git#v0.34.0:services/ai/compose.dev.yaml     # development only
+```
+
+Compose clones the tag into its cache and resolves each file's paths there: nothing is vendored. The
+tag can be a variable (`#${KANZO_UI_REF:-v0.34.0}`), so a product pins the platform in one place.

@@ -18,9 +18,32 @@ An application names an **alias**, never a provider:
 | `chat` | conversations and agents — [`Chat`](/docs/ai/chat), a `ToolLoopAgent` |
 | `complete` | short completions asked on every pause in typing — [`Assist`](/docs/ai/assist)'s ghost text and suggestions, and the questions a [`Chat`](/docs/ai/chat) starts from |
 
-Which upstream answers each one is the gateway's **profile**, so the same `gateway("chat")` runs on
-a laptop's GPU in development and on a provider in production. Changing models is an edit to the
-profile, not a release of every application that calls it.
+Which model answers each one is one variable, `provider/model` — the shape LiteLLM, OpenRouter and the
+AI SDK use — so the same `gateway("chat")` runs on a laptop's GPU in development and on a provider in
+production:
+
+```sh
+AI_CHAT=anthropic/claude-sonnet-5-5
+AI_COMPLETE=anthropic/claude-haiku-4-5
+ANTHROPIC_API_KEY=sk-ant-…
+```
+
+Changing models is changing a line and restarting the gateway, not a release of every application
+that calls it. Each alias is a `virtualModels` entry over the one model its variable names, and every
+provider is a `provider/*` model marked internal: a caller can ask for `chat` or `complete`, and
+nothing else.
+
+| Provider | Variable value | Key |
+| --- | --- | --- |
+| Anthropic | `anthropic/<model>` | `ANTHROPIC_API_KEY` |
+| OpenAI | `openai/<model>` | `OPENAI_API_KEY` |
+| Google Gemini | `gemini/<model>` | `GEMINI_API_KEY` |
+| Mistral | `mistral/<model>` | `MISTRAL_API_KEY` |
+| OpenRouter | `openrouter/<vendor>/<model>` | `OPENROUTER_API_KEY` |
+| On the machine | `local/<model>` | none; `LOCAL_MODELS_URL`, Docker Model Runner by default |
+
+A provider without a key still loads; a request routed to it fails with the provider's own refusal,
+which [`@kanzo-tech/llm`](/docs/ai/llm) hands the caller as `ai/unavailable`, reason included.
 
 ## The token is the credential
 
@@ -45,9 +68,9 @@ from a key of its own:
 The exchange is [OAuth 2.0 Token Exchange](https://www.rfc-editor.org/rfc/rfc8693) as Keycloak
 implements it ([standard token exchange](https://www.keycloak.org/securing-apps/token-exchange)):
 the application's server presents the access token it holds and asks for the gateway's scope and
-one organization's. The gateway is a client of the realm like any API — `ai-gateway`, registered
-with `services/auth/modules/api` — and an application that calls it lists it in its
-[`apis`](/docs/auth/keycloak#the-apis-an-application-calls).
+one organization's. The gateway is a client of the realm like any API — `ai-gateway`, which the realm
+registers by default — and an application that calls it lists it in its declaration's
+[`apis`](/docs/auth/service#declare-an-application-and-its-organizations).
 
 ## What the gateway keeps
 
@@ -57,86 +80,63 @@ report — per person and per organization — and it is plain SQL.
 
 ## Run it
 
-From `services/ai/`, beside the identity service it trusts:
+From `services/`, beside the identity service it trusts:
 
 ```sh
-docker compose -f ../auth/compose.yml -f compose.yml up -d --wait
+docker compose --profile local-models up -d --wait   # both aliases on local models
+ai/scripts/verify.sh                                 # a real token, each alias, the refusals
 ```
 
 The gateway answers on `http://localhost:4000`, and its OpenAI-compatible API is under `/v1`: that
 is the path on which it reads a request, resolves the alias and counts the tokens, and a path outside
-it is passed through unread. Its configuration is `gateway.yaml` beside the
-compose file, and in development it serves both aliases from open models through **Docker Model
-Runner**, on the host's GPU — Docker Desktop 4.40 or later, with Model Runner turned on. Compose
-declares the models and points the gateway at them. The first `up` pulls them, **about 6.5 GB**;
-after that the loop is offline and costs nothing.
+it is passed through unread. Its configuration is `ai/gateway.yaml`, the same file everywhere.
 
-An application's own compose includes `services/auth/compose.yml` and `services/ai/compose.yml` the
-way it includes [the identity service](/docs/auth/service#include-it-from-an-application), from a
-checkout pinned to the release of its packages. The containers are `ai-gateway` and `ai-postgres`,
-so nothing of the application's collides with them. The gateway fetches the realm's keys at
-`http://keycloak:8080` inside that network; until Keycloak answers it exits, and compose starts it
-again.
+`ai/compose.dev.yaml` sets both aliases to open models served by **Docker Model Runner** on the host's
+GPU — Docker Desktop 4.40 or later, with Model Runner turned on — and the `local-models` profile pulls
+them, **about 6.5 GB** once; after that the loop is offline and costs nothing. They run with an
+8192-token context, which fits a 16 GB laptop: the models declare 131072, and llama.cpp reserves the
+cache for all of it when it loads one, about 16 GB for the 8B alone. With both aliases on a provider,
+leave the profile off and nothing is pulled.
+
+An application's own compose includes `services/ai/compose.yaml` (and `compose.dev.yaml` in
+development) the way it includes [the identity service](/docs/auth/service#include-it-from-an-application),
+by URL at the release of its packages. The containers are `ai-gateway` and `ai-postgres`, so nothing
+of the application's collides with them. The gateway starts once the realm is applied, and fetches
+its keys at `http://keycloak:8080` inside that network.
 
 ## Deploying
 
-`services/ai/modules/gateway` runs the gateway and the Postgres its request log is kept in as Swarm
-services on a network the deployment owns; applications on that network reach it at its `url`
-output. The module takes `gateway.yaml` as it is and puts the deployment's models in place of the
-development ones. The deployment passes what is its own:
+The same `compose.yaml`, with the deployment's values in its environment:
 
-- **`profile`** — which upstream answers each alias: YAML with one key, `models`, in agentgateway's
-  [`llm.models`](https://github.com/agentgateway/agentgateway/blob/v1.6.0/schema/config.md) shape. **A production profile
-  is the deployment's**, not this repository's. The config is named by its hash, so changing it
-  rolls the gateway and no application changes.
-- **`upstream_keys`** — env name to key, for every upstream the profile names; the profile reads
-  them as `$NAME`.
-- **`issuer`** — the realm, as its tokens say it — and **`jwks_url`** when the gateway reaches
-  Keycloak by another address. **`audience`** is the gateway's client in the realm, `ai-gateway`
-  unless it is given another: `services/auth/modules/api` registers it, and the realm's own `apis`
-  variable does so for the platform.
-- **`tokens_per_hour`** — optionally, how many tokens each organization may spend an hour, input
-  and output together. Null is no budget.
-
-```hcl title="infra/ai.tf"
-module "ai_gateway" {
-  source          = "git::https://github.com/Kanzo-Tech/ui.git//services/ai/modules/gateway?ref=<release>"
-  network         = docker_network.edge.name
-  issuer          = "https://auth.example.com/realms/kanzo"
-  jwks_url        = "http://keycloak:8080/realms/kanzo/protocol/openid-connect/certs"
-  tokens_per_hour = 200000
-  upstream_keys   = { ANTHROPIC_API_KEY = var.anthropic_api_key }
-  profile         = <<-YAML
-    models:
-      - name: chat
-        provider: anthropic
-        params: { model: <a capable model>, apiKey: $ANTHROPIC_API_KEY }
-      - name: complete
-        provider: anthropic
-        params: { model: <a small, fast model>, apiKey: $ANTHROPIC_API_KEY }
-  YAML
-}
-```
+- **`AI_CHAT`, `AI_COMPLETE`** and the providers' keys. They have no value in `compose.yaml`, only in
+  `compose.dev.yaml`: an alias left empty names no model and the gateway refuses to start, so a
+  deployment names its models. **The production choice is the deployment's**, not this repository's.
+- **`KC_HOSTNAME`**, the realm's public origin, shared with the identity service: the gateway's
+  issuer is `<KC_HOSTNAME>/realms/<KC_REALM>`, and it fetches the keys from Keycloak inside the
+  network.
+- **`AI_DB_PASSWORD`**, for the request log.
+- **`AI_TOKENS_PER_HOUR`** — how many tokens each organization may spend an hour, input and output
+  together. The default is high enough to be no practical limit.
 
 <Callout type="warn">
 **The budget is counted in the gateway's memory.** It is a token bucket per organization, refilled
-every hour, and a restart refills it; the module runs one replica so there is one bucket. A budget
+every hour, and a restart refills it; the gateway runs one replica, so there is one bucket. A budget
 that must survive restarts, or be shared by replicas, is agentgateway's remote rate limit — Envoy's
-rate-limit service and a store beside it — which this module does not run.
+rate-limit service and a store beside it — which this service does not run.
 </Callout>
 
-**The image is pinned by digest**, in the compose file and in the module alike. The gateway holds
-every provider's key: move the pin deliberately, to a release that has been out for a few days,
-never by tag.
+**The image is pinned by digest** in `compose.yaml`. The gateway holds every provider's key: move
+the pin deliberately, to a release that has been out for a few days, never by tag.
 
 ## Timeouts
 
 `gateway.yaml` gives an upstream 20 s to start answering and 20 s between chunks once it has. Both
 are under [the client's 30 s bound on silence](/docs/ai/llm), so a hung upstream is ended at the
-gateway, where it is logged, before the page gives up on it.
+gateway, where it is logged, before the page gives up on it: the caller gets a 504 `request timeout`,
+which `@kanzo-tech/llm` hands on as `ai/unavailable`.
 
 <Cards>
   <Card title="@kanzo-tech/llm" href="/docs/ai/llm" description="createGateway, the AI SDK re-exported, and the BFF route the token is exchanged in." />
   <Card title="The identity service" href="/docs/auth/service" description="The other service: Keycloak with the realm as code." />
-  <Card title="Both halves" href="/docs/design/services" description="Why the gateway ships beside its package, why it is agentgateway, and why the profile is the deployment's." />
+  <Card title="Both halves" href="/docs/design/services" description="Why the gateway ships beside its package, why it is agentgateway, and why the choice of models is the deployment's." />
 </Cards>

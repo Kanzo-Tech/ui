@@ -58,8 +58,9 @@ interface GatewaySettings {
 type Gateway = (alias: string) => LanguageModel;
 
 class AiError extends Error {
-  code: "ai/silent" | "ai/rate-limited";
-  data: { after?: number; retryAfter?: number }; // the silence in ms; when to retry, in seconds
+  code: "ai/silent" | "ai/rate-limited" | "ai/unavailable";
+  // the silence in ms; when to retry, in seconds; what the gateway answered, status and reason
+  data: { after?: number; retryAfter?: number; status?: number; reason?: string };
 }
 ```
 
@@ -68,7 +69,7 @@ upstream answers is the gateway's configuration, so the host's code is the same 
 a local model answers, and in production. Changing models is an edit to the gateway, not a release of
 every app that talks to it.
 
-Four things a host would otherwise repeat are done once, here:
+Five things a host would otherwise repeat are done once, here:
 
 - **A relative `baseURL` is resolved against the page.** `/api/ai` is what a host behind a BFF is told
   to pass, and the provider underneath builds `new URL(baseURL + path)` with no base, which throws
@@ -91,6 +92,11 @@ Four things a host would otherwise repeat are done once, here:
   and the caller gets an `AiError` whose `code` is `"ai/rate-limited"`, with `data.retryAfter` in
   seconds when the gateway said when (`retry-after`, else `x-ratelimit-reset`). It is not retried:
   the limit is the answer, and asking again is how a caller stays over it.
+- **Any other refusal says what it was.** An alias no model answers (404), a provider that refused
+  its key (401), an upstream the gateway timed out on (504): the caller gets an `AiError` whose
+  `code` is `"ai/unavailable"`, with the status in `data.status` and the gateway's reason — the
+  `error.message` of its body, or its text — in `data.reason` and the message. It is not retried
+  either: the gateway already retried its upstreams.
 
 The gateway speaks the OpenAI chat-completions protocol, through `@ai-sdk/openai-compatible` — a
 dependency nobody outside this package names, the standing `@duckdb/duckdb-wasm` has behind
@@ -129,7 +135,7 @@ for await (const { text } of stream({ model, prompt, output: Output.array({ elem
 - **A failure throws, once the stream ends.** The SDK reports a failed stream to `onError` and then
   ends it as if it had finished, so a refused call reads as a model with nothing to say. Each
   reading rethrows what was reported, whole: a silence as `ai/silent`, a limit as
-  `ai/rate-limited`, a refusal as the provider's error.
+  `ai/rate-limited`, any other refusal as `ai/unavailable` with the gateway's reason.
 - **Never retried.** The gateway retries its upstreams, and a silent gateway asked three times is
   three deadlines where the person waits for one.
 

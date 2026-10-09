@@ -1,6 +1,6 @@
 ---
 title: The identity service
-description: The server half of @kanzo-tech/auth — Keycloak with the platform realm as code, a module an application registers itself with, and a script that checks the claim contract on a live token.
+description: The server half of @kanzo-tech/auth — Keycloak with the platform realm as code, applied from what applications and organizations declare, and a script that checks the claim contract on a live token.
 ---
 
 `@kanzo-tech/auth` reads what a realm emits. `services/auth/`, in this repository and under the same
@@ -14,16 +14,22 @@ the service is a token nobody reads. [Each capability ships both halves](/docs/d
 From `services/auth/`:
 
 ```sh
-docker compose up -d --wait   # Keycloak on http://localhost:8080, the realm applied, the seed in
+docker compose -f compose.yaml -f compose.dev.yaml up -d --wait   # Keycloak on :8080, the realm applied, the seed in
 scripts/verify.sh             # ana: a real PKCE login, and her access token checked
 scripts/verify.sh fede        # a member of acme with no role there
 scripts/verify.sh dan         # no organization; a client role held directly
-docker compose down -v        # gone, the database and the Terraform state together
+docker compose -f compose.yaml -f compose.dev.yaml down -v        # gone, the database and the Terraform state together
 ```
 
 `up` brings Keycloak and its Postgres up, applies the realm with Terraform and seeds development
 people into two organizations, `acme` and `globex`. The admin console is `/admin`, `admin` /
 `admin`; `.env.example` lists what can be changed, and `KC_PORT` moves the issuer with it.
+`services/compose.yaml` runs the same beside [the gateway](/docs/ai/gateway).
+
+`compose.yaml` is the service as a deployment runs it too: Keycloak in production mode behind the
+deployment's edge, `KC_HOSTNAME` its public origin, the passwords from the environment.
+`compose.dev.yaml` is what development adds: dev mode on `:8080`, the declarations in `dev/`, and the
+seed.
 
 `scripts/verify.sh` signs a seeded person in through `kanzo-conformance` — a client that exists to
 prove the contract and names no application — with a real authorization-code login and PKCE,
@@ -40,45 +46,60 @@ held in one organization says nothing about another, and the scope to ask for is
 [Keycloak](/docs/auth/keycloak#roles-inside-an-organization) is that contract in full, with the
 token `verify.sh` took off this service; [Roles](/docs/auth/roles) is how the package reads it.
 
-## Register an application
+## Declare an application and its organizations
 
-The realm knows no application by name. An application registers itself **from its own
-repository**, with the module at `services/auth/modules/app` pinned to the release it was built
-against: its client, the APIs it calls, and its roles with their composites. Its API registers
-beside it with `services/auth/modules/api`: a client with no flow, and the scope whose audience
-mapper names it, which the application lists in `apis` and [exchanges its token
-for](/docs/auth/keycloak#the-apis-an-application-calls).
+The realm knows no application and no organization by name. It is applied from **declarations**:
+YAML files mounted anywhere under `/declarations` in the `auth-realm` service, which the realm reads
+(`services/auth/realm/declarations.tf`) and registers with `modules/app` and `modules/api`. An
+organization is one line, on top of the compose file that runs its own services, so the list of
+organizations is written once, where they are deployed:
 
-```hcl title="infra/auth.tf"
-module "api" {
-  source    = "git::https://github.com/Kanzo-Tech/ui.git//services/auth/modules/api?ref=<release>"
-  realm_id  = "kanzo"
-  client_id = "board-api"
-}
+```yaml title="orgs/acme.yaml"
+x-organization: { alias: acme, name: Acme Corporation, domain: acme.com }
+```
 
-module "app" {
-  source        = "git::https://github.com/Kanzo-Tech/ui.git//services/auth/modules/app?ref=<release>"
-  realm_id      = "kanzo"
-  client_id     = "board"
-  access_type   = "CONFIDENTIAL" # a BFF; PUBLIC for an application with no server, which calls no API
-  client_secret = var.client_secret
-  redirect_uris = ["https://*.board.example.com/api/auth/callback"]
-  # the APIs it exchanges its token for: its own, and the platform's AI gateway
-  apis = [module.api.scope, "ai-gateway"]
-  # where Keycloak posts a logout token; see Keycloak → Back-channel logout
-  backchannel_logout_url = "http://board:3000/api/auth/backchannel-logout"
-  roles = {
-    reader = {}
-    editor = { composites = ["reader"] }
-    admin  = { composites = ["editor"] }
-  }
-}
+An application declares itself **from its own repository**: its client, its own API — a client with
+no flow, and the scope whose audience mapper names it, which it [exchanges its token
+for](/docs/auth/keycloak#the-apis-an-application-calls) — the platform's APIs it also calls, and its
+roles with their composites. It is a compose `configs` entry, so it is interpolated and its origin
+can differ between environments:
+
+```yaml title="compose.yaml"
+configs:
+  board:
+    content: |
+      x-application:
+        client_id: board
+        api: board-api
+        apis: [ai-gateway]                  # the platform's AI gateway
+        origin: ${BOARD_ORIGIN}             # https://{organization}.board.example.com
+        callback: /api/auth/callback        # one redirect URI per organization
+        # where Keycloak posts a logout token; see Keycloak → Back-channel logout
+        backchannel_logout: http://board:3000/api/auth/backchannel-logout
+        client_secret_file: /run/secrets/board-oidc
+        roles:
+          reader: {}
+          editor: { composites: [reader] }
+          admin: { composites: [editor] }
+```
+
+The client's secret is a compose secret the application's server mounts too; the realm sends it to
+Keycloak write-only, so it is never kept in Terraform's state. The application hands the
+declaration, the secret and its organizations' folder to `auth-realm` from an override file of its
+own — a `-f` file, such as the development or the production overlay — because a service an
+`include:` brings in cannot be redefined in the including file:
+
+```yaml title="compose.override.yaml"
+services:
+  auth-realm:
+    configs: [{ source: board, target: /declarations/board/application.yaml }]
+    secrets: [board-oidc]
+    volumes: ["./orgs:/declarations/board/organizations:ro"]
 ```
 
 The hierarchy is declared once, here: every token carries the expanded set, so `board` asks whether
-`editor` is present and never ranks. `services/auth/examples/app/main.tf` is the whole file, with
-the provider and the `client_secret` output. A second application — `ledger` — is a second module
-block in a second repository, and neither one's roles reach the other.
+`editor` is present and never ranks. A second application — `ledger` — is a second declaration in a
+second repository, and neither one's roles reach the other.
 
 ## Map roles onto an organization's groups
 
@@ -97,37 +118,39 @@ and the realm's own `/groups/{id}/role-mappings` answers 400 for one.
 
 ## Include it from an application
 
-An application's development stack includes the service rather than copying it, from a checkout
-pinned to the same release as its packages and its module:
+An application includes the service rather than copying it, by URL at the same release as its
+packages — Compose clones the tag into its cache and resolves the files' paths there:
 
-```yaml title="compose.yml"
+```yaml title="compose.yaml"
 include:
-  - path: vendor/kanzo-ui/services/auth/compose.yml   # this repository, checked out at v0.28.0
+  - path:
+      - https://github.com/Kanzo-Tech/ui.git#${KANZO_UI_REF:-v0.34.0}:services/auth/compose.yaml
+      - https://github.com/Kanzo-Tech/ui.git#${KANZO_UI_REF:-v0.34.0}:services/auth/compose.dev.yaml   # development only
 
 services:
   board:
     build: .
     depends_on:
-      auth-seed:
+      auth-realm:
         condition: service_completed_successfully
 ```
 
 `include:` merges the service's containers and volumes into the application's project, so their
 names carry a prefix — `auth-postgres`, `auth-realm`, `auth-seed`, `kanzo-auth-db` — or are
 `keycloak`, and a bare `postgres` of the application's own does not collide with them. Waiting on
-`auth-seed` means the realm is applied and the seeded people exist before the application starts.
+`auth-realm` means the realm is applied, the application's client among it, before the application
+starts.
 
 ## What is not there
 
 - **No application.** The only client is `kanzo-conformance`, with its API `kanzo-conformance-api`,
-  and both are off unless `conformance = true` — `realm/dev.tfvars` turns it on for development and
-  CI. The realm's own APIs are `apis`, and development registers `ai-gateway`, the
-  [gateway](/docs/ai/gateway) this repository ships.
+  declared in `dev/`, which only development mounts. The realm's own APIs are `apis`: `ai-gateway`,
+  the [gateway](/docs/ai/gateway) this repository ships.
 - **No membership in Terraform.** Keycloak makes membership runtime — invitations, identity-provider
   brokering, enrolment by email domain — and the provider has no resource for it. Development seeds
   it (`seed/`); production invites.
-- **No production values.** An upstream identity provider, SMTP and TLS are the deployment's, and
-  nothing in this directory pretends to know them.
+- **No production values.** Hostnames, passwords, an upstream identity provider, SMTP and TLS are
+  the deployment's, and nothing in this directory pretends to know them.
 
 <Cards>
   <Card title="Keycloak" href="/docs/auth/keycloak" description="The realm the package expects, claim by claim, and what a resource server must validate." />

@@ -1,6 +1,6 @@
 ---
 title: The services
-description: Why a capability's server half ships beside its client half, in one repository under one tag — and why the service names no application and carries no production configuration.
+description: Why a capability's server half ships beside its client half, in one repository under one tag; why Compose is the whole of it; and why the service names no application and carries no production configuration.
 ---
 
 Two of the sibling packages read something a server emits: `@kanzo-tech/auth` reads a Keycloak
@@ -12,9 +12,9 @@ repository too, under `services/` — [the identity service](/docs/auth/service)
 
 The server half of a capability and its client half live in **one repository and are released under
 one tag**: `services/auth` beside `packages/auth`, `services/ai` beside `packages/llm`. An
-application pins `v0.28.0` once — its packages, the Terraform module it registers with and the
-compose file it includes all name the same release — and gets a server and a client that were
-checked against each other, rather than two version numbers whose agreement is its own problem.
+application pins one release — its packages and the compose files it includes name the same tag —
+and gets a server and a client that were checked against each other, rather than two version
+numbers whose agreement is its own problem.
 
 The contract between the halves is what makes this more than packaging. The package reads
 `organization.<alias>.resource_access.<clientId>.roles`; the realm is what writes it, and only
@@ -41,20 +41,52 @@ token's shape elsewhere would pass both. Re-record the token in the same pull re
 to `realm/token-claims.tf`.
 </Callout>
 
+## Compose is the whole of it
+
+Each service is a `compose.yaml` that runs as it is wherever it runs, and a `compose.dev.yaml` that
+development adds on top. An application includes them by URL, at its release, beside its own
+services; a deployment is the same files with its own values in the environment. The system is
+described once: there is no second description for production — Terraform resources, a Helm chart —
+that has to be kept saying what the compose files say.
+
+The second description is what it replaced. Production was Terraform on Docker Swarm, rewriting
+Keycloak, Postgres and the gateway as resources, because `docker stack deploy` cannot read these
+files: measured on 9 October 2026 against Docker 29.8, it refuses `include:` and secrets read from
+the environment, and has no `models:`. Two descriptions meant two ways to choose a model, the
+organizations written in three places, and a production realm that failed on an empty Keycloak
+because only development knew it had to be applied twice. And the Swarm was one node: local volumes,
+a single replica each, SQLite behind the products. `docker compose up -d` converges a host to its
+files as declaratively, and `--remove-orphans` takes away what a file no longer names.
+
+**What it cost.** Swarm's rolling update with no gap: a stateless service can keep it with
+`docker rollout`, but a single-writer one (a Postgres, an SQLite file) restarts. And Compose has no
+loop: a product with one service per tenant writes one small file per tenant.
+
+**What would reverse it:** more than one machine for one deployment, or a scheduler a deployment
+already runs. Then the services would ship for that scheduler — Kubernetes is the likely one — and
+the price is a second description, paid deliberately.
+
+*Held by* the job `services` in `.github/workflows/ci.yml`, which brings the platform up from
+`services/compose.yaml` — the realm applied, the seed run, the gateway loaded — and proves the realm
+on live tokens.
+
 ## The service names no application
 
-Nothing under `services/` knows `board` or `ledger`. **An application registers itself**, from its
-own repository: `services/auth/modules/app` is its client, the APIs it calls and its roles with their
-composites, and `services/auth/modules/api` registers its API. The gateway knows no application and
-no tenant either: both arrive in the token. The realm's only application is `kanzo-conformance`,
-which exists to prove the contract and is off unless a development or CI variable turns it on; its
-only APIs are its own and the gateway this repository ships.
+Nothing under `services/` knows `board` or `ledger`. **An application declares itself**, from its
+own repository: an `x-application` — its client, its own API, the platform APIs it calls, its roles
+with their composites — and an `x-organization` per organization it serves, mounted into the realm's
+one-shot `auth-realm` service. The realm reads every declaration it is given
+(`services/auth/realm/declarations.tf`) and registers them with `modules/app` and `modules/api`; it
+never names one. The gateway knows no application and no tenant either: both arrive in the token.
+The development realm declares `kanzo-conformance` in `services/auth/dev/`, which exists to prove
+the contract and which only development mounts; its APIs are its own and the gateway this repository
+ships.
 
 The alternative is the one every shared realm drifts into: each new application is an edit to the
-platform's Terraform, the platform's repository becomes a list of its consumers, and removing one is
-an archaeology exercise. With the registration in the application's repository, adding an
-application is that application's pull request, deleting it deletes its module, and two
-applications' roles cannot reach each other because neither is declared where the other can see it.
+platform's configuration, the platform's repository becomes a list of its consumers, and removing
+one is an archaeology exercise. With the declaration in the application's repository, adding an
+application is that application's pull request, deleting it deletes its file, and two applications'
+roles cannot reach each other because neither is declared where the other can see it.
 
 **What would reverse it:** something an application needs that a client registration cannot express
 from outside the realm — a realm-wide setting one application wants and another cannot live with.
@@ -62,9 +94,8 @@ That would have to be declared in the realm, and the honest shape then is an inp
 still named for what it does rather than for who asked. None has appeared: every setting the claim
 contract needs is realm-wide and generic, and everything per application is a client attribute.
 
-*Held by* the job `services` in `.github/workflows/ci.yml`, which validates `modules/app`,
-`modules/api` and `modules/gateway` as modules with no caller, and proves the realm through
-`kanzo-conformance` alone.
+*Held by* the job `services` in `.github/workflows/ci.yml`, which validates `modules/app` and
+`modules/api` as modules with no caller, and proves the realm through `kanzo-conformance` alone.
 
 ## The gateway is agentgateway, and the token is its credential
 
@@ -102,26 +133,27 @@ can stand in for, or the platform moving onto Kubernetes, where Agent Router's l
 work. Neither changes the contract — the token is the credential and the organization is in it —
 only what enforces it.
 
-*Held by* the job `services` in `.github/workflows/ci.yml`, which loads `services/ai/gateway.yaml`
-into the pinned gateway against the live realm's keys.
+*Held by* the job `services` in `.github/workflows/ci.yml`, which starts the pinned gateway from
+`services/ai/gateway.yaml` against the live realm's keys.
 
 ## Production configuration belongs to the deployment
 
 The services ship **development** values and the **shape** of production ones, never production
-values. The gateway's `profile` — which upstream answers each alias — has no default in
-`modules/gateway`: the development models in `gateway.yaml` show the shape, and a deployment writes
-its own. The upstream keys, the realm's identity provider, SMTP and TLS are the deployment's in the
-same way, and membership is runtime: development seeds it, production invites.
+values. Which model answers each alias is `AI_CHAT` and `AI_COMPLETE`, `provider/model`: they have
+no value in `services/ai/compose.yaml`, only in `compose.dev.yaml`, where they name the local models.
+The providers' keys, the hostnames, the passwords, the realm's identity provider, SMTP and TLS are
+the deployment's in the same way, and membership is runtime: development seeds it, production
+invites.
 
-A shipped production profile would be one deployment's choices — a provider, a model, a price —
+A shipped choice of production models would be one deployment's choices — a provider, a model, a price —
 presented as the platform's, and every other deployment would start by undoing it. What the service
 does own is what does not vary between them: the aliases, the claim mappers, the image pin, the
 rule that a request names one organization, the timeouts under the client's.
 
-**What would reverse it:** two deployments that want the same production profile verbatim, written
-twice. Then the duplication is real and the profile has earned a place — as a named example
-deployments copy, not as a default a module falls back to.
+**What would reverse it:** two deployments that want the same production models verbatim, written
+twice. Then the duplication is real and the choice has earned a place — as a named example
+deployments copy, not as a default `compose.yaml` falls back to.
 
-*Held by* nothing that fails. `modules/gateway` declares `profile` with no default, so Terraform
-refuses a plan without one; that is the module's type, not a guard, and a default added later would
-pass every gate here.
+*Held by* the gateway, barely: an alias left empty names no model, and the gateway refuses to start.
+That is its loader, not a guard of ours, and a default added to `compose.yaml` later would pass every
+gate here.
