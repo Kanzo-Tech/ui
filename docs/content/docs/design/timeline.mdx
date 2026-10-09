@@ -1,0 +1,118 @@
+---
+title: Timeline
+description: Why a time filter is a histogram whose brush owns its clause, why playback moves the brush through its owner rather than the selection, why time is read from the schema and never guessed, and why a date on a relation is a vertex — and what would reverse each rule.
+---
+
+A timeline is a brushable histogram of one temporal column, which filters the page to the brushed
+range and can play that range forward. `ChartTimeline` is the analytics part; `GraphTimeline` places
+one under a graph canvas over the corpus's temporal columns. The reference is Cosmograph's
+`CosmographTimeline`, read from `@cosmograph/ui` and `@cosmograph/cosmograph` 2.5.1. This page is
+why ours is shaped as it is.
+
+## A histogram whose brush owns one clause
+
+**A timeline is two layers of bars over `bin(field)` and an interval brush that publishes one clause:
+the bars behind are the column unfiltered, the bars in front are what the page keeps, and the brush's
+clause is a chip in the bar like any other control's.** Cosmograph's `Timeline` draws the same two
+layers (`highlightSelectedData`) and publishes `isBetween(column, range)` from a client of its own.
+Ours is a `ChartRoot` of `ChartRectY` marks and a `ChartBrushX`. The bins are SQL, through vgplot's
+`bin()`, which bins a temporal channel by date.
+
+**It replaced the dashboard's private `Timeline`**, the filter control behind a temporal field's chip
+(`packages/ui/src/charts/dashboard-filters.tsx`), which drew the same marks with no playback and
+could not be placed anywhere else. The chip renders `ChartTimeline` now: one implementation, as the
+graph and the dashboard need the same part. **Cosmograph's binning was turned down**: it reads the
+whole column into the browser and bins it in JavaScript, 250 bars by default. Ours asks the
+coordinator for one row per bin, which a pre-aggregate can answer.
+
+**What would reverse it:** a temporal column whose bins cannot be a `GROUP BY` — a time with a
+timezone per row, read as wall-clock time. Then the bins are computed over the rows the client holds,
+as Cosmograph's are.
+
+## Playback moves the brush through its owner
+
+**A clause belongs to the source that published it, and only that source changes it, so playback
+asks the brush to move.** Each tick calls the interval interactor's public `publish(extent)`, with the
+range in pixels through the interactor's own `scale`. The brush moves, and its clause moves with it.
+Mosaic draws this line itself. An interval interactor never follows its selection, while an input
+that is driven from outside is bound to a `Param`: `Slider` follows a `Param`'s `value` events and
+not a `Selection`'s, and `PanZoom` follows the `Param`s of its domains. Cosmograph's
+`setSelection()` is the same shape, a method on the timeline rather than a write to the crossfilter.
+`ChartTimeline` reaches its interactor through `Plot.interactors`, which vgplot exposes.
+
+**The tick is Cosmograph's.** Every 50 ms the window moves by one bar, and it stops where the axis
+ends. Play with no window does nothing, and stop clears the window. A tick does not wait for the
+graph: each one publishes, and the store keeps the newest answer and drops a stale one
+(`packages/graph/src/core/store.ts`). A playing timeline therefore never draws behind its own clause.
+
+**Two alternatives were turned down.**
+
+- **`value` and `onValueChange` on the brush**, Ark's controlled pair. React would hold the range
+  beside the clause that already holds it: two sources of truth for one filter.
+- **Patching mosaic-plot so an interval follows its selection.** That moves the brush when another
+  source updates the clause, and the model says no other source does. Clearing is the one case where
+  something else touches the clause: the bar's chip and the page's **Clear** retract it, and the
+  interactor's `reset` already answers that.
+
+**What would reverse it:** an interval interactor in Mosaic bound to a `Param` — the brush following
+a value, as `Slider` does. Then playback writes the `Param`, and `ChartTimeline` stops reaching into
+`Plot.interactors`. A second one, for the tick: frames whose answers lag the window visibly on a
+large corpus. Then the tick waits for the page's clients to answer before the next one.
+
+## Time is read from the schema, never guessed
+
+**A column is temporal when the corpus says it is: a `date` or `timestamp` column, or one whose
+`datatype` is `xsd:date`, `xsd:dateTime` or `xsd:gYear`.** `fossil_columns.datatype` carries the IRI
+the shape declared, so an `xsd:gYear` stored as an `int32` is drawn as years. Cosmograph instead
+samples 100 values and calls a column of year-like integers a year. A count of rows, a price or an
+id in that range would be read as a date, and the schema already says which column is a year.
+
+`GraphTimeline` offers each temporal column of the vertex tables. Its default is the column on the
+most rows, a selector appears when there are several, and the part draws nothing when there are none.
+The histogram is the union of the tables that have the column, stacked by type in the legend's
+colours. The clause filters every type with that column, by the graph's clause rule (`answers`), and
+leaves the others whole.
+
+**What would reverse it:** a corpus whose times arrive as text with no datatype, such as one written
+without a shape. Then a column is offered when its values parse, and the parse is the rule.
+
+## Filtered is greyed out, and playing does not change that
+
+**What the window leaves out is greyed out, and nothing is hidden.** Cosmograph 2.5 does the same: it
+hands cosmos.gl `highlightedPointIndices` and `highlightedLinkIndices`, and the rest takes the greyout
+opacity. So there is no "hide" preference for playback. A graph that grows over time reads as points
+coming into colour against the shape of the whole.
+
+**What would reverse it:** readers who take the greyed-out points as present while it plays, often
+enough that the counts beside the canvas do not correct them. Then playback dims what is out of the
+window further than a filter does, and still does not hide it, because a hidden point moves the
+layout's sense of where things are.
+
+## A date on a relation is a vertex
+
+**A relation that carries a time, such as when a prize was won or since when two people know each
+other, is a vertex between its two ends: the W3C's n-ary relations, schema.org's `Role`.** A Nobel
+`Award` with its `year` stands between the laureate and the category, and LDBC's `knows` is a
+`Knowing` with its `creationDate`. The timeline filters those vertices, and the edges into the
+greyed ones grey with them by the rule that a link needs both its ends. Cosmograph's `useLinksData`,
+a filter over the edges themselves, is not built. A fossil corpus has no edge properties, because a
+shape cannot declare one before SHACL 1.2 and Turtle 1.2 are Recommendations; fossil plans them in
+its own `design/later/edge-properties`.
+
+**What would reverse it:** a corpus that writes edge properties. Then an edge table lists its columns
+as a vertex table does, a link gets an index as a vertex does, and a clause over an edge column keeps
+the edges it matches and their endpoints — Cosmograph's rule, `endpointPointsOf`.
+
+## What a test reads
+
+The part is accessible first, in [the testing rule's](/docs/design/testing) order. Play and pause are
+one button with `aria-pressed`, the chart is `aria-busy` while its query runs, and the brushed range
+is a group whose `aria-valuetext` reads *1950 – 1960*. `ChartTimeline` registers its `x` scale under
+its title in `window.__KANZO_TESTING__.charts` when a test has installed the hook. `TimelineHarness`
+then brushes in data and plays.
+
+*Will be held by* `packages/ui/src/charts/chart-timeline.test.tsx`: the tick moves one bar and stops
+at the end, play with no window does nothing, stop retracts the clause, and the chip and the part
+publish one clause. Also `packages/graph/src/parts/parts.test.tsx` (`GraphTimeline` offers the
+`xsd:gYear` column and draws nothing over a corpus with no temporal column) and
+`packages/ui/src/charts/filter-bar.test.tsx` (a timeline's clause is one chip).
