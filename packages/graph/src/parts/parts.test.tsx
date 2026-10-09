@@ -186,17 +186,17 @@ describe("GraphStatus", () => {
 });
 
 describe("GraphToolbar", () => {
-  async function toolbar() {
+  async function toolbar(crossfilter?: Selection) {
     const corpus = await attach();
     const held: { api: GraphApi | null } = { api: null };
     render(
-      <GraphRoot {...over(corpus)} onFailure={() => {}}>
+      <GraphRoot {...over(corpus)} filterBy={crossfilter} onFailure={() => {}}>
         <GraphToolbar />
         <Hold into={held} />
       </GraphRoot>,
     );
     await ready(corpus);
-    return held;
+    return { corpus, held };
   }
 
   it("arms a tool and disarms it, through the root's state", async () => {
@@ -209,12 +209,31 @@ describe("GraphToolbar", () => {
   });
 
   it("shows the selection, and clears it", async () => {
-    const held = await toolbar();
+    const { held } = await toolbar();
     expect(screen.queryByRole("group", { name: "Current selection" })).toBeNull();
     act(() => internalsOf(held.api!).store.select([1, 2], "lasso", "Two"));
-    expect(screen.getByRole("group", { name: "Current selection" }).textContent).toContain("2 of 20 selected");
+    expect(screen.getByRole("group", { name: "Current selection" }).textContent).toBe("2 of 20");
     fireEvent.click(screen.getByRole("button", { name: "Clear the selection" }));
     expect(screen.queryByRole("group", { name: "Current selection" })).toBeNull();
+  });
+
+  it("draws the selection's group whenever something is greyed out, and says how many other filters hide", async () => {
+    const crossfilter = Selection.crossfilter();
+    const { corpus, held } = await toolbar(crossfilter);
+    await act(async () => {
+      crossfilter.update(clauseInterval("score", [2, 5], { source: { reset() {} } }));
+      await settle(corpus);
+    });
+    // A search's clause, and nothing the canvas picked: framed from here, let go at its own chip.
+    const group = () => screen.getByRole("group", { name: "Current selection" });
+    expect(group().textContent).toBe("14 of 20");
+    expect(screen.getByRole("button", { name: "Frame what is in full colour" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Clear the selection" })).toBeNull();
+    // Person 0 scores 1, so the filter hides one of the three the canvas holds.
+    act(() => internalsOf(held.api!).store.select([0, 1, 2], "lasso", "Three"));
+    expect(group().textContent).toBe("2 of 20 · 1 hidden by other filters");
+    fireEvent.click(screen.getByRole("button", { name: "Clear the selection" }));
+    expect(group().textContent).toBe("14 of 20");
   });
 
   it("offers to run the layout without a simulate prop", async () => {

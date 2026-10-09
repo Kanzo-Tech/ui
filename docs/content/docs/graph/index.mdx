@@ -96,7 +96,7 @@ owner: it answers the corpus's columns and the cards' pictures to whatever sits 
 `GraphRoot` holds the graph's state outside React — the loaded graph, the channels, the selection,
 the focus and the layout's motion — and renders no element. **`useGraphContext()` answers with the
 commands**, an object that never changes for the root's life: `zoomBy`, `fit`, `pause`, `resume`,
-`restart`, `reveal`, `frameSelection`, `clear`, `select`, `setFocus` and `setTool`.
+`restart`, `reveal`, `frame`, `clear`, `select`, `setFocus` and `setTool`.
 **`useGraphState(selector)` reads a slice of the state** and re-renders only when that slice moves.
 The state changes at frame rate — a hover, a load, a tick of the layout — so a part that read all of
 it would re-render on every hover. It is TanStack Store's `useStore(store, selector)`; pass a second
@@ -134,11 +134,14 @@ is the one page for both.
 
 <ComponentPreview componentName="graph" fileName="example-toolbar" hasMaxHeight />
 
-The commands, drawn: the selection tools, the selection and what to do with it, zoom and fit, and the
-layout's transport. Pick a tool and drag; **Shift** borrows the marquee whichever tool is armed, and
-at release **Alt** removes what was drawn while **⌘/Ctrl** adds; **Esc** backs out of the drag, then
-the tool, then the selection. While a selection is held its cluster appears — the count, Frame and
-Clear. Play runs the force layout from where the points are and pause leaves them there. Each cluster is a `ButtonGroup`, because a cluster is
+The commands, drawn: the selection tools, what is in full colour and what to do with it, zoom and
+fit, and the layout's transport. Pick a tool and drag; **Shift** borrows the marquee whichever tool is
+armed, and at release **Alt** removes what was drawn while **⌘/Ctrl** adds — to the canvas's
+selection, or, with none, to what the page's filters keep. **Esc** backs out of the drag, then the
+tool, then the canvas's selection, and never another place's filter: that is let go at its chip.
+Whenever something is greyed out its cluster appears — *N of T*, with *· M hidden by other filters*
+when the selection holds vertices another filter hides, then Frame, and Clear while the canvas holds
+a selection. Play runs the force layout from where the points are and pause leaves them there. Each cluster is a `ButtonGroup`, because a cluster is
 a claim that its buttons do one job. The toolbar declares no `toolbar` role: that role promises
 roving focus, and each button here is its own tab stop. `orientation="vertical"` stacks the
 clusters.
@@ -688,7 +691,7 @@ The commands, stable for the root's life — `GraphCommands` plus the state's do
 | `pause()` / `resume()` | Pauses a running layout; resumes a paused one, or runs a settled one again. |
 | `restart()` | Runs the layout from full heat. |
 | `reveal(vertex)` | Selects and focuses a vertex with its neighbours and frames them — zooms into a vertex with none — taking the camera from any fit. |
-| `frameSelection()` | Frames what is selected. |
+| `frame()` | Frames what is in full colour: the canvas's selection within what the page's filter keeps, what the filter keeps when nothing is selected, or the whole graph when nothing is greyed out. |
 | `clear()` | Clears the selection and the focus. |
 | `setFocus(vertex)` | Focuses a vertex, or none. |
 | `setTool(tool)` | Arms `"rect"`, `"lasso"`, or `null` for the reading posture. |

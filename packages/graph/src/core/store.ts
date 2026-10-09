@@ -6,6 +6,8 @@ import { GraphError } from "./error";
 import { loadEncoding, loadGeometry, type Encoding, type Geometry } from "./load";
 import { readStructure } from "./source";
 import { type Structure } from "./structure";
+import type { VertexId } from "./types";
+import { maskOf, matchingOf, visibleOf } from "./kept";
 import type { Arrangement, Drawn, GraphOptions, GraphSnapshot, DataStatus, GraphStore, PickSource } from "./state";
 
 export type { Arrangement, Drawn, GraphOptions, GraphSnapshot, GraphState, DataStatus, GraphStore, View } from "./state";
@@ -30,20 +32,6 @@ function drawnOf(geometry: Geometry, encoding: Encoding, mask: Uint8Array | null
     if (shown[links[i] as number] && shown[links[i + 1] as number]) edges++;
   }
   return { vertices, edges, domain: encoding.domain, tally, placed };
-}
-
-function matchingOf(mask: Uint8Array | null): number | null {
-  if (mask === null) return null;
-  let n = 0;
-  for (const kept of mask) n += kept;
-  return n;
-}
-
-/** `1` where a vertex is among `ids`. */
-function maskOf(size: number, ids: Float64Array): Uint8Array {
-  const mask = new Uint8Array(size);
-  for (const id of ids) if (id < size) mask[id] = 1;
-  return mask;
 }
 
 /** How many vertices `recent` keeps: a palette's short list, not a history. */
@@ -124,6 +112,13 @@ export function createGraph(initial: GraphOptions): GraphStore {
       drawn = { key, value: geometry && encoding ? drawnOf(geometry, encoding, mask) : null };
     }
     return drawn.value;
+  }
+
+  let visible: { key: unknown[]; value: readonly VertexId[] | null } = { key: [], value: null };
+  function visibleNow(): readonly VertexId[] | null {
+    const key = [mask, snapshot.selection];
+    if (key.some((part, i) => part !== visible.key[i])) visible = { key, value: visibleOf(mask, snapshot.selection?.vertices ?? null) };
+    return visible.value;
   }
 
   function statusOf(): DataStatus {
@@ -334,6 +329,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
       disconnect();
       listeners.clear();
     },
+    visible: visibleNow,
     select(vertices, source = "node", label = "") {
       const selection = vertices && vertices.length > 0 ? { vertices: [...vertices], source, label } : null;
       patch({ selection });

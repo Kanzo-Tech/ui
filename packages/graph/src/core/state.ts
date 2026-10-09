@@ -146,6 +146,13 @@ export interface GraphStore {
   getOptions(): GraphOptions;
   setOptions(options: GraphOptions): void;
   destroy(): void;
+  /**
+   * **What is in full colour**: the canvas's pick within what the page's filter keeps, what the filter
+   * keeps when the canvas picks nothing, the pick when nothing is filtered — and `null` when neither
+   * greys anything out. The mask is the page's other clauses alone, since the client is exempt from
+   * its own. The same array until the pick or the mask changes.
+   */
+  visible(): readonly VertexId[] | null;
   /** The canvas's own pick, from one of its gestures. */
   select(vertices: readonly VertexId[] | null, source?: SelectionSource, label?: string): void;
   /** The crossfilter the graph filters by: `filterBy`, or the root's own. */

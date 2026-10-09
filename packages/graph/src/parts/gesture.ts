@@ -14,7 +14,9 @@ import type { Selection, SelectionSource, Tool, VertexId } from "../core/types";
  * costs a GPU readback.
  *
  * Modifiers are read at *release*, not at press, because that is when the reader has decided:
- * `Alt` removes what was drawn from the selection, `⌘`/`Ctrl` adds it, and neither replaces.
+ * `Alt` removes what was drawn from the selection, `⌘`/`Ctrl` adds it, and neither replaces. With no
+ * pick of its own, they start from what is in full colour, so what a search or a dashboard kept can
+ * be added to and taken from — while the page's other clauses stay theirs, never folded in.
  */
 export type Point = [number, number];
 
@@ -52,8 +54,10 @@ export interface GraphSelectionGesture {
 
 export interface GraphSelectionOptions {
   getGraph: () => Graph | null;
-  /** The live selection, for the modifiers to add to or subtract from. */
+  /** The canvas's own pick, for the modifiers to add to or subtract from. */
   getSelection: () => Selection | null;
+  /** What is in full colour, which the modifiers start from when the canvas picks nothing. */
+  getVisible: () => readonly VertexId[] | null;
   commit: (vertices: Set<VertexId> | null, source: SelectionSource, label: string) => void;
   tool: Tool;
   setTool: (tool: Tool) => void;
@@ -65,7 +69,7 @@ const NAME: Record<"rect" | "lasso", { source: SelectionSource; label: string }>
 };
 
 export function useGesture(options: GraphSelectionOptions): GraphSelectionGesture {
-  const { commit, getGraph, getSelection, setTool, tool } = options;
+  const { commit, getGraph, getSelection, getVisible, setTool, tool } = options;
   const [drag, setDrag] = useState<Drag | null>(null);
   const [preview, setPreview] = useState<number | null>(null);
   const [shift, setShift] = useState(false);
@@ -106,8 +110,8 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
   );
 
   // Escape is the way out of everything, in layers: it abandons a drag in progress, then drops the
-  // tool, then clears what is held. And a window that loses focus never delivers the Shift keyup,
-  // which would leave the canvas unable to pan. The layer is read from `dragging`, not from inside a
+  // tool, then clears the canvas's own pick — another place's clause is let go at its chip. And a
+  // window that loses focus never delivers the Shift keyup, which would leave the canvas unable to pan. The layer is read from `dragging`, not from inside a
   // `setDrag` updater: React may run an updater while it renders the canvas, and `setTool` and
   // `commit` write the store every other part reads, which is a setState in another's render.
   const dragging = drag !== null;
@@ -146,11 +150,12 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
     if (!shape) return;
     // The hit test answers in buffer indices, and a drawn vertex's index is its id.
     const vertices = new Set<VertexId>(hitTest(shape));
-    // A gesture that caught nothing and asked for nothing is a misfire, not a request to clear —
-    // clearing is what the corner's own button and Escape are for.
-    if (vertices.size === 0 && !event.altKey) return;
+    // A gesture that caught nothing is a misfire, not a request to clear — clearing is what the
+    // corner's own button and Escape are for — and with Alt it would turn what a filter keeps into
+    // the canvas's pick for no visible change.
+    if (vertices.size === 0) return;
     const { label, source } = NAME[shape.tool];
-    const held = getSelection()?.vertices ?? [];
+    const held = getSelection()?.vertices ?? getVisible() ?? [];
     if (event.altKey) {
       const next = new Set(held);
       for (const vertex of vertices) next.delete(vertex);

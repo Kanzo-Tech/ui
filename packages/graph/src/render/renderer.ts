@@ -338,9 +338,11 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       if (around.length > 0) graph.fitViewByPointIndices([vertex, ...around], FIT_DURATION, LOCATE_PADDING);
       else graph.zoomToPointByIndex(vertex, FIT_DURATION, graph.getZoomLevel() * LOCATE_ZOOM, false);
     },
-    frameSelection() {
+    frame() {
+      const visible = store.visible();
+      if (visible === null) return camera.fit();
       camera.take();
-      const vertices = (store.getSnapshot().selection?.vertices ?? []).filter((id) => id < size());
+      const vertices = visible.filter((id) => id < size());
       if (vertices.length > 0) graph.fitViewByPointIndices(vertices, FIT_DURATION, 0.25);
     },
     clear,

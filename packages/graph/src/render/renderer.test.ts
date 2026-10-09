@@ -308,6 +308,20 @@ describe("the camera at load", () => {
     expect(commands()).toEqual(["zoom:1@4 in"]);
   });
 
+  it("frames what is in full colour: the pick within what the filter keeps, else what the filter keeps", async () => {
+    const { corpus, crossfilter, renderer, store } = await drawing();
+    crossfilter.update(clauseInterval("score", [2, 5], { source: { reset() {} } }));
+    await settle(corpus);
+    calls.length = 0;
+    renderer?.frame();
+    expect(commands()).toEqual([`frame:1,2,3,4,${Array.from({ length: 10 }, (_, i) => 10 + i).join(",")}`]);
+    calls.length = 0;
+    // Person 0 scores 1: held by the canvas, greyed by the filter, and not framed.
+    store.select([0, 1, 2]);
+    renderer?.frame();
+    expect(commands()).toEqual(["frame:1,2"]);
+  });
+
   it("is not moved by its own fits", async () => {
     await drawing();
     (constructed[0]?.onZoomStart as (event: unknown, user: boolean) => void)({}, false);

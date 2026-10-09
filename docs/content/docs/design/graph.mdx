@@ -253,11 +253,12 @@ Tableau's *Keep only*, an explicit action, if it is ever wanted.
 often enough that *N hidden by other filters* does not explain it. Then an explicit *Keep only* on
 the toolbar, not a modifier, turns what is in full colour into the canvas's clause.
 
-*Will be held by* `packages/graph/src/parts/gesture.test.ts` (⌘ and Alt start from what is in full
-colour when the canvas has no clause; Esc never retracts another source's clause),
-`packages/graph/src/render/renderer.test.ts` (`frame` fits what is in full colour) and
-`packages/graph/src/parts/parts.test.tsx` (the toolbar's group is drawn whenever something is
-greyed out, and says how many other filters hide).
+*Held by* `packages/graph/src/parts/gesture.test.ts`, "starts ⌘ and Alt from what is in full colour
+when the canvas has no clause", "escapes a drag, then the tool, then the canvas's clause, and never
+retracts another source's clause"; `packages/graph/src/render/renderer.test.ts`, "frames what is in
+full colour: the pick within what the filter keeps, else what the filter keeps";
+`packages/graph/src/parts/parts.test.tsx`, "draws the selection's group whenever something is greyed
+out, and says how many other filters hide".
 
 ## ADR 0001 — the canvas holds the whole graph
 

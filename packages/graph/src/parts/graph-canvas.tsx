@@ -97,6 +97,7 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
   const gesture = useGesture({
     getGraph,
     getSelection: useCallback(() => api.getState().selection, [api]),
+    getVisible: useCallback(() => internalsOf(api).store.visible(), [api]),
     commit: (vertices, source, label) => internalsOf(api).store.select(vertices ? [...vertices] : null, source, label),
     setTool: api.setTool,
     tool,
