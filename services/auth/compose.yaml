@@ -85,7 +85,10 @@ services:
     command:
       - |
         terraform init -input=false -backend-config=path=/state/terraform.tfstate
-        terraform apply -input=false -auto-approve -target=keycloak_realm.kanzo
+        # Only a realm that is not there yet needs creating alone: one already in the state goes
+        # straight to the full apply, where `moved` blocks may also need what -target would exclude.
+        terraform state list keycloak_realm.kanzo | grep -q . ||
+          terraform apply -input=false -auto-approve -target=keycloak_realm.kanzo
         terraform apply -input=false -auto-approve
         terraform output
     volumes:
