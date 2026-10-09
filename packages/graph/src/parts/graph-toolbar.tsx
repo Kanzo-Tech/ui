@@ -15,7 +15,8 @@ import {
 } from "lucide-react";
 import type { Motion } from "../core/types";
 import { useGraphContext } from "../react/graph-root";
-import { useGraphState } from "../react/use-graph-state";
+import { internalsOf } from "../react/use-graph";
+import { useGraphSnapshot, useGraphState } from "../react/use-graph-state";
 
 export interface GraphToolbarProps extends React.ComponentProps<"div"> {
   /** How the clusters stack. Each cluster is a `ButtonGroup` in the same orientation. */
@@ -40,7 +41,7 @@ const TRANSPORT: Record<Motion, { pause: boolean; label: string }> = {
 };
 
 /**
- * **The commands, drawn** — the selection tools, the selection and what to do with it, the camera, and
+ * **The commands, drawn** — the selection tools, what is in full colour and what to do with it, the camera, and
  * the live layout's transport, which starts a layout from the points where they are. Each cluster is a `ButtonGroup`, because a cluster
  * is a claim that its buttons do one job; the part declares no `toolbar` role, since a `role` of that
  * kind promises roving focus and each button here is its own tab stop.
@@ -54,6 +55,10 @@ export function GraphToolbar({ className, orientation = "horizontal", slot, ...r
   const tool = useGraphState((s) => s.tool);
   const selection = useGraphState((s) => s.selection);
   const total = useGraphState((s) => s.total);
+  const { store } = internalsOf(api);
+  const visible = useGraphSnapshot(() => store.visible());
+  const greyed = visible !== null && (selection !== null || visible.length !== total);
+  const hidden = selection !== null && visible !== null ? selection.vertices.length - visible.length : 0;
   const motion = useGraphState((s) => s.motion);
   const transport = TRANSPORT[motion];
 
@@ -89,19 +94,25 @@ export function GraphToolbar({ className, orientation = "horizontal", slot, ...r
         </Button>
       </ButtonGroup>
 
-      <Show when={selection !== null}>
+      {/* Drawn whenever something is greyed out, so what a search or a dashboard keeps is framed with
+          the button that frames a lasso; Clear only for the canvas's own pick, since another place's
+          clause is let go at its chip. */}
+      <Show when={greyed}>
         <ButtonGroup aria-label="Current selection" className={CLUSTER} data-slot="graph-toolbar-selection">
           <ButtonGroupText className="gap-1 ps-2 pe-2 text-xs tabular-nums">
-            <span className="font-medium text-foreground">{selection?.vertices.length.toLocaleString()}</span>
-            {total === undefined ? " selected" : ` of ${total.toLocaleString()} selected`}
+            <span className="font-medium text-foreground">{visible?.length.toLocaleString()}</span>
+            {total !== undefined && ` of ${total.toLocaleString()}`}
+            {hidden > 0 && ` · ${hidden.toLocaleString()} hidden by other filters`}
           </ButtonGroupText>
           <ButtonGroupSeparator />
-          <Button aria-label="Frame the selection" onClick={() => api.frameSelection()} size="icon-sm" title="Frame the selection" variant="ghost">
+          <Button aria-label="Frame what is in full colour" onClick={() => api.frame()} size="icon-sm" title="Frame what is in full colour" variant="ghost">
             <ScanIcon />
           </Button>
-          <Button aria-label="Clear the selection" onClick={() => api.clear()} size="icon-sm" title="Clear the selection" variant="ghost">
-            <XIcon />
-          </Button>
+          <Show when={selection !== null}>
+            <Button aria-label="Clear the selection" onClick={() => api.clear()} size="icon-sm" title="Clear the selection" variant="ghost">
+              <XIcon />
+            </Button>
+          </Show>
         </ButtonGroup>
       </Show>
 

@@ -928,11 +928,11 @@ const GESTURES: { keys: ReactNode; what: string }[] = [
     ),
     what: "Marquee, without picking a tool first",
   },
-  { keys: <Kbd>⌘ / Ctrl</Kbd>, what: "Add what you draw to the selection" },
+  { keys: <Kbd>⌘ / Ctrl</Kbd>, what: "Add what you draw to the selection, or to what the filters keep" },
   { keys: <Kbd>Alt</Kbd>, what: "Remove it from the selection instead" },
   {
     keys: <Kbd>Esc</Kbd>,
-    what: "Back out — the drag, then the tool, then the selection",
+    what: "Back out — the drag, then the tool, then the canvas's selection",
   },
 ];
 

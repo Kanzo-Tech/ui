@@ -61,7 +61,10 @@ export interface GraphCommands {
   restart(): void;
   /** Select one vertex with its neighbours and frame them, taking the camera from any fit. */
   reveal(vertex: VertexId): void;
-  /** Frame whatever the canvas currently has selected. */
-  frameSelection(): void;
+  /**
+   * Frame what is in full colour: the canvas's pick within what the page's filter keeps, what the
+   * filter keeps when the canvas picks nothing, or everything when nothing is greyed out.
+   */
+  frame(): void;
   clear(): void;
 }

@@ -88,7 +88,7 @@ function build(store: GraphStore): GraphApi {
       store.select([vertex], "node", "Node");
       store.focus(vertex);
     },
-    frameSelection: on("frameSelection"),
+    frame: on("frame"),
     clear: () => {
       store.select(null);
       store.focus(null);
