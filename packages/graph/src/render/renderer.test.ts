@@ -322,6 +322,17 @@ describe("the camera at load", () => {
     expect(commands()).toEqual(["frame:1,2"]);
   });
 
+  it("colours what the tools act on: the canvas's full colour is store.visible(), filtered and picked", async () => {
+    const { corpus, crossfilter, store } = await drawing();
+    crossfilter.update(clauseInterval("score", [2, 5], { source: { reset() {} } }));
+    await settle(corpus);
+    // 0 is greyed by the filter and 99 is no vertex at all: neither is in full colour, for either reading.
+    store.select([0, 1, 2, 99]);
+    await frame();
+    expect(store.visible()).toEqual([1, 2]);
+    expect(uploaded.config.highlightedPointIndices).toEqual(store.visible());
+  });
+
   it("is not moved by its own fits", async () => {
     await drawing();
     (constructed[0]?.onZoomStart as (event: unknown, user: boolean) => void)({}, false);

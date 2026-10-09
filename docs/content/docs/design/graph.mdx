@@ -241,6 +241,16 @@ greyed out — a count, **Frame**, and **Clear** when the canvas holds a clause 
 rule or a dashboard keeps can be framed with the button that frames a lasso. `frameSelection` is
 renamed `frame`; it never framed only a selection once a clause from elsewhere could be one.
 
+**What is in full colour is computed once.** `visibleOf` in `core/kept.ts` answers it — the vertices
+the filter keeps, within the reader's pick when there is one, never a vertex the canvas does not draw
+— and both readings are that function: `store.visible()`, which `frame()` and the toolbar act on, and
+the renderer's `highlighted`, which colours the canvas. A link is in full colour when its two ends
+are, so there is no link mask beside the vertex mask: the timeline's window is a clause on vertex
+tables and arrives in the mask like any other. Two copies had drifted — a pick of a vertex the canvas
+does not draw was greyed on the canvas and still counted and framed by the tools. *What would reverse
+the link half:* a filter on edge columns that greys a link whose two ends are kept. Then a link mask
+becomes an argument of the same function, not a second rule in the renderer.
+
 **It replaced a canvas whose tools saw only their own pick**, so a clause from the search, the rules
 or a dashboard greyed the graph out but could be neither added to, taken from, nor framed — a reader
 recording the product's demos could not zoom onto what a filter kept. The alternative was to
@@ -256,7 +266,8 @@ the toolbar, not a modifier, turns what is in full colour into the canvas's clau
 *Held by* `packages/graph/src/parts/gesture.test.ts`, "starts ⌘ and Alt from what is in full colour
 when the canvas has no clause", "escapes a drag, then the tool, then the canvas's clause, and never
 retracts another source's clause"; `packages/graph/src/render/renderer.test.ts`, "frames what is in
-full colour: the pick within what the filter keeps, else what the filter keeps";
+full colour: the pick within what the filter keeps, else what the filter keeps", "colours what the
+tools act on: the canvas's full colour is store.visible(), filtered and picked";
 `packages/graph/src/parts/parts.test.tsx`, "draws the selection's group whenever something is greyed
 out, and says how many other filters hide".
 
@@ -352,12 +363,13 @@ packages/graph/src/
 │   ├── client.ts             GraphClient — the crossfilter's survivors — and the clause the graph publishes
 │   ├── load.ts               answers → buffers by dense_id; the seeded start; the layout's square
 │   ├── channels.ts           Plot's bindings, and the columns they read
+│   ├── kept.ts               what the filter keeps and what is in full colour — one rule, both readings
 │   ├── store.ts              createGraph(options): subscribe · getSnapshot · setOptions
 │   ├── state.ts              the options, the state a host selects from, and the store's shape
 │   └── categories.ts         the categorical domain, fixed before the graph loads
 ├── render/
 │   ├── renderer.ts           cosmos.gl's lifetime, dirty flags by kind, one render per frame
-│   ├── motion.ts             how long a layout cools, when it hides links, whether it runs, what is in full colour
+│   ├── motion.ts             how long a layout cools, when it hides links, whether it runs, which links are in full colour
 │   ├── placement.ts · camera.ts   where bound positions sit in the square; who holds the camera
 │   └── graph-looks · graph-model · graph-sim · obligations · css-color · webgl
 ├── react/                    use-graph · use-graph-state · graph-root · use-graph-prefs

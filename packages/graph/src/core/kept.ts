@@ -15,11 +15,31 @@ export function maskOf(size: number, ids: Float64Array): Uint8Array {
   return mask;
 }
 
-/** What is in full colour — `GraphStore.visible`, computed. */
-export function visibleOf(mask: Uint8Array | null, selection: readonly VertexId[] | null): readonly VertexId[] | null {
-  if (selection !== null) return mask === null ? selection : selection.filter((id) => mask[id] === 1);
-  if (mask === null) return null;
+/**
+ * **What is in full colour**, and everything else is greyed out: the vertices the page's filter keeps
+ * and — when the reader picked some — those of them they picked, never a vertex the canvas does not
+ * draw. `null` when nothing is filtered or picked, which is everything.
+ *
+ * The one reading of it: `GraphStore.visible` (what `frame()` and the toolbar act on) and the
+ * renderer's `highlighted` (what the canvas colours) both answer this, so the tools cannot act on a
+ * set the reader does not see. A link is in full colour exactly when its two ends are, which is why
+ * there is no link mask beside `mask`: the timeline's window is a clause on vertex tables, so it
+ * arrives inside `mask`. A filter that greys links on their own columns would be an argument here,
+ * not a second rule in the renderer.
+ *
+ * Ascending when it comes from the filter; in the reader's order when it comes from a pick.
+ */
+export function visibleOf(
+  size: number,
+  mask: Uint8Array | null,
+  selection: readonly VertexId[] | null,
+): VertexId[] | null {
+  if (mask === null && selection === null) return null;
   const ids: VertexId[] = [];
-  for (let id = 0; id < mask.length; id++) if (mask[id]) ids.push(id);
+  if (selection === null) {
+    for (let id = 0; id < size; id++) if ((mask as Uint8Array)[id]) ids.push(id);
+  } else {
+    for (const id of selection) if (id < size && (mask === null || mask[id])) ids.push(id);
+  }
   return ids;
 }

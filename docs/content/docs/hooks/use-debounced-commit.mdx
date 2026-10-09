@@ -25,7 +25,7 @@ that re-renders — and a control that would otherwise write on every keystroke.
 editor — still lands in the control, and one made while the user is typing does not overwrite the
 word they are in the middle of.
 
-## Blur, picks and unmount
+## Blur, picks, cancelling and unmount
 
 - **`flush` on blur.** It commits a pending draft at once and does nothing when there is none.
   This is what keeps the last characters from being lost when the control goes away before the
@@ -36,6 +36,10 @@ word they are in the middle of.
   [`AnswerCard`](/docs/ai/data#the-answer-card)'s *Add to the dashboard* does. A commit after the
   pause or on `flush` has nobody to hand the promise to, so the owner reports a failed write, as
   every write does (a mutation's `onError`); the hook does not leave it unhandled.
+- **`cancel()` when the owner's own write supersedes the draft.** It drops what is pending without
+  committing it; `draft` keeps showing it until the owner's value changes. A save that writes the
+  same field itself — a dashboard store replacing the whole document — cancels and writes once,
+  where `flush` and then the write would be two writes whose result rests on their order.
 - **Nothing is committed on unmount.** A cleanup that commits also commits in Strict Mode's
   mount–unmount–mount, and the owner then hears a value nobody typed.
 
@@ -64,3 +68,4 @@ function useDebouncedCommit<T, R = void>(
 | `change` | `(next: T) => void` | A keystroke: updates `draft` now, commits after `delay`. |
 | `flush` | `() => void` | Commits a pending draft now. |
 | `commit` | `(next: T) => R` | Commits `next` now and drops anything pending; answers what `onCommit` answered. |
+| `cancel` | `() => void` | Drops anything pending without committing it. |

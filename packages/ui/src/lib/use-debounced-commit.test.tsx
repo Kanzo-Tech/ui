@@ -68,6 +68,22 @@ describe("useDebouncedCommit", () => {
     expect(t.api.draft).toBe("http://example.org");
   });
 
+  it("drops a pending draft on cancel, never fires it, and keeps showing it until the owner's value changes", () => {
+    const t = mount("a");
+
+    act(() => t.api.change("ab"));
+    act(() => t.api.cancel());
+    act(() => vi.advanceTimersByTime(1000));
+    act(() => t.api.flush());
+
+    expect(t.commits).toEqual([]);
+    expect(t.api.draft).toBe("ab");
+
+    // Nothing is pending, so the owner's own write lands in the control.
+    t.setValue("abc");
+    expect(t.api.draft).toBe("abc");
+  });
+
   it("follows the owner's value when nothing is pending, and not while the user is typing", () => {
     const t = mount("a");
 
