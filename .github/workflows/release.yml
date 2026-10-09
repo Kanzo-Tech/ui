@@ -152,7 +152,11 @@ jobs:
       # --no-git-checks because the stamp above leaves the tree dirty by design.
       - name: Publish
         if: ${{ github.event_name == 'release' || !inputs.dry-run }}
-        # No token — see AUTH above.
+        # One token publish, for @kanzo-tech/testing's first release (see A NEW PACKAGE above): the
+        # packages that already have a trusted publisher still go through OIDC beside it. This
+        # `env:` and the NPM_TOKEN secret go once the package's trusted publisher is configured.
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           pnpm -r --filter "./packages/*" publish \
             --access public --tag "${{ steps.ver.outputs.tag }}" --no-git-checks
