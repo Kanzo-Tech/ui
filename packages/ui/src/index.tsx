@@ -291,6 +291,8 @@ export {
   ShellFooter,
 } from "./layouts/shell.js";
 export type { ShellAsideProps } from "./layouts/shell.js";
+export { ShellDockSwitcher, ShellDockItem } from "./layouts/shell-dock.js";
+export type { ShellDockSwitcherProps, ShellDockItemProps } from "./layouts/shell-dock.js";
 export {
   SectionRoot,
   SectionHeader,

@@ -98,10 +98,10 @@ view they do not filter — a hidden dashboard whose relation the visible view d
 that view draws the clauses as chips alone, as v0.33.0 did.
 
 *Held by* `packages/ui/src/charts/filter-bar.test.tsx`, "draws what a part puts in its slot, and
-leaves that part's clauses to it", and "draws a hidden view's clauses as its own chips and none of
-that view's controls, which stay mounted"; `packages/ui/src/charts/dashboard.test.tsx`, "are drawn
-in the page's FilterBar, from inside a dashboard that publishes its own clause", and "are not drawn
-from a dashboard under MosaicClients that is off: no control, no remove, no + Filter".
+leaves that part's clauses to it", and "draws a hidden view's controls as it draws a shown one's,
+querying as the bar does and mounted once"; `packages/ui/src/charts/dashboard.test.tsx`, "are drawn
+in the page's FilterBar, from inside a dashboard that publishes its own clause", and "are drawn from
+a dashboard under MosaicClients that is off as when it is shown: control, remove, + Filter".
 
 ## The spec is read whole or refused
 

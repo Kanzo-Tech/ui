@@ -13,9 +13,10 @@ the members, beasts, tags and regions they share. 1,543 vertices, 4,280 edges, d
 `ShellMain` holds the canvas full-bleed and a `Resizable` docks a `ShellAside` beside it, so the
 inspector is a panel of a splitter rather than a floating overlay: the drag, the keyboard resize and
 the ARIA all come from the machine. Two orthogonal switches, which is the IDE shape — the header
-picks what the main region shows (**Graph** · **Sightings**), the footer strip picks which inspector
-the dock holds (Info · Ask · Orders · Settings) and collapses it when you click the active icon
-again, a state `Tabs` cannot express.
+picks what the main region shows (**Graph** · **Sightings**), the footer strip's
+[`ShellDockSwitcher`](/docs/layout/shell#the-dock-switcher) picks which inspector the dock holds
+(Info · Ask · Orders · Settings) and collapses it when you click the active icon again, a state
+`Tabs` cannot express.
 
 ## The reference composition
 

@@ -10,6 +10,7 @@ description: The window regions — root, header, body, aside, main, footer. Str
 ```tsx
 import {
   ShellRoot, ShellHeader, ShellBody, ShellAside, ShellMain, ShellFooter,
+  ShellDockSwitcher, ShellDockItem,
 } from "@kanzo-tech/ui";
 ```
 
@@ -64,9 +65,9 @@ So a status strip is ordinary composition:
   role="contentinfo"
 >
   <span className="min-w-0 flex-1">Ready</span>
-  <ToggleGroup aria-label="Panels" multiple onValueChange={onToggle} value={active}>
+  <ShellDockSwitcher onValueChange={setPanel} value={panel}>
     {/* … */}
-  </ToggleGroup>
+  </ShellDockSwitcher>
 </ShellFooter>
 ```
 
@@ -127,7 +128,56 @@ keyboard resizing and ARIA come from the machine. A `resizable` prop would mean 
 behaviour Ark already ships.
 </Callout>
 
+## The dock switcher
+
+A page whose side panel holds one of several tools switches them with `ShellDockSwitcher`, VS Code's
+activity bar: an icon per panel, named by its tooltip and its accessible name, checked while its
+panel is open, and pressed again to collapse it — `value` becomes `null`. The panel's own title says
+what it is in words. Put it in whichever region keeps it: a `ShellFooter`, as above, or a vertical
+strip beside the dock with `orientation="vertical"`.
+
+```tsx
+const [panel, setPanel] = useState<string | null>("info");
+
+<ShellDockSwitcher value={panel} onValueChange={setPanel}>
+  <ShellDockItem value="info" label="Info" icon={InfoIcon} />
+  <ShellDockItem value="ask" label="Ask" icon={MessageCircleIcon} />
+</ShellDockSwitcher>
+
+{panel ? <ShellAside aria-label={labelOf(panel)} side="end">{/* … */}</ShellAside> : null}
+```
+
+It is a single-select [`ToggleGroup`](/docs/actions/toggle), so its roles, roving focus and checked
+state are Ark's, and each item is a `ToggleGroupItem` whose child is the `Tooltip` trigger — the
+nesting that keeps the group's items collectable; the other one leaves the arrow keys dead with no
+error. Why one part and not a pattern per page is on [the shell's dock](/docs/design/shell).
+
 ## API Reference
+
+### ShellDockSwitcher
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `value` | `string \| null` — the open panel, `null` while collapsed | — |
+| `onValueChange` | `(value: string \| null) => void` | — |
+| `aria-label` | `string` | `"Panels"` |
+| `size` | `"sm" \| "md" \| "lg"` | `"sm"` |
+| `spacing` | `number` | `2` |
+
+Takes the rest of `ToggleGroup`'s props — `orientation`, `variant`, `loopFocus` — except `multiple`,
+which it fixes to `false`, and `defaultValue`: the page owns which panel is open, because it draws
+the panel.
+
+### ShellDockItem
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `value` | `string` | — |
+| `label` | `string` — the tooltip and the accessible name | — |
+| `icon` | `ComponentType<{ className?: string }>` | — |
+
+Takes the rest of `ToggleGroupItem`'s props, such as `disabled`. Its `data-slot` is
+`shell-dock-item`, and the switcher's is `shell-dock-switcher`.
 
 ### ShellAside
 
@@ -149,4 +199,5 @@ fills its container.
 `asChild`, `ref`, `role` and `aria-label` pass through — no region declares a landmark role
 itself, so the call site names them.
 
-`ShellAsideProps` is exported, so a wrapper can take the same props without restating them.
+`ShellAsideProps`, `ShellDockSwitcherProps` and `ShellDockItemProps` are exported, so a wrapper can
+take the same props without restating them.

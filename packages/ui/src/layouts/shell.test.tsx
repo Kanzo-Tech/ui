@@ -1,8 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { describe, expect, it } from "vitest";
-import { ToggleGroup, ToggleGroupItem } from "../simples/toggle-group.js";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../simples/tooltip.js";
 import {
   ShellAside,
   ShellBody,
@@ -11,20 +10,7 @@ import {
   ShellMain,
   ShellRoot,
 } from "./shell.js";
-
-/**
- * The regions are structural and have nothing to assert beyond placement. What is worth a
- * test is the composition that replaced `StatusBar`: it used to own a `panels` prop and render
- * the toggle cluster itself, so the roving-focus contract lived inside the component. Now the
- * consumer composes a `ToggleGroup` inside a region — which means the knowledge about HOW to
- * compose it correctly has to be guarded here, or it is lost with the component.
- *
- * The load-bearing part is the nesting order, and nobody would guess it: `ToggleGroupItem`
- * must be OUTER and the tooltip trigger its `asChild`. In an `asChild` chain the outer
- * component's props win, and zag finds a group's items by querying
- * `[data-scope=toggle-group][data-part=item]`. Invert the nesting and the tooltip overwrites
- * both attributes, zag collects zero items, and roving focus dies with no error anywhere.
- */
+import { ShellDockItem, ShellDockSwitcher } from "./shell-dock.js";
 
 const panels = [
   { id: "files", label: "Files" },
@@ -32,31 +18,30 @@ const panels = [
   { id: "git", label: "Source control" },
 ];
 
-function StatusStrip({ active = "files" }: { active?: string }) {
+const Glyph = () => <svg aria-hidden />;
+
+/** A page's dock: the switcher in its footer, and the open panel, titled in words. */
+function Dock({ initial = "files" }: { initial?: string | null }) {
+  const [panel, setPanel] = useState<string | null>(initial);
+  const open = panels.find((p) => p.id === panel);
   return (
-    // The IDE density (h-[1.625rem], the small font) is the CALLER's, applied here as
-    // ordinary classes. The region itself has no aesthetic.
-    <ShellFooter
-      aria-label="Status"
-      className="h-[1.625rem] flex-row items-center gap-2 bg-card px-1.5 text-[11px] text-muted-foreground"
-      role="contentinfo"
-    >
-      <span className="min-w-0 flex-1">Ready</span>
-      <div className="flex shrink-0 items-center">
-        <ToggleGroup aria-label="Panels" multiple value={[active]}>
+    <>
+      {open ? <ShellAside aria-label={open.label} side="end" /> : null}
+      {/* The IDE density (h-[1.625rem], the small font) is the CALLER's, applied here as
+          ordinary classes. The region itself has no aesthetic. */}
+      <ShellFooter
+        aria-label="Status"
+        className="h-[1.625rem] flex-row items-center gap-2 bg-card px-1.5 text-[11px] text-muted-foreground"
+        role="contentinfo"
+      >
+        <span className="min-w-0 flex-1">Ready</span>
+        <ShellDockSwitcher onValueChange={setPanel} value={panel}>
           {panels.map(({ id, label }) => (
-            <Tooltip key={id} positioning={{ placement: "top" }}>
-              <ToggleGroupItem aria-label={label} asChild value={id}>
-                <TooltipTrigger>
-                  <svg aria-hidden />
-                </TooltipTrigger>
-              </ToggleGroupItem>
-              <TooltipContent>{label}</TooltipContent>
-            </Tooltip>
+            <ShellDockItem icon={Glyph} key={id} label={label} value={id} />
           ))}
-        </ToggleGroup>
-      </div>
-    </ShellFooter>
+        </ShellDockSwitcher>
+      </ShellFooter>
+    </>
   );
 }
 
@@ -75,7 +60,7 @@ describe("the header and footer regions", () => {
   });
 
   it("let the call site declare a landmark when the region genuinely is one", () => {
-    render(<StatusStrip />);
+    render(<Dock />);
     expect(screen.getByRole("contentinfo", { name: "Status" })).toBeTruthy();
   });
 
@@ -90,22 +75,44 @@ describe("the header and footer regions", () => {
   });
 });
 
-describe("a ToggleGroup composed inside a region", () => {
+describe("ShellDockSwitcher", () => {
+  it("an item is named by its label, pressed while open, and collapses its panel when pressed again", async () => {
+    const user = userEvent.setup();
+    render(<Dock />);
+
+    const files = screen.getByRole("radio", { name: "Files" });
+    expect(files.getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("complementary", { name: "Files" })).toBeTruthy();
+
+    await user.hover(files);
+    expect((await screen.findByRole("tooltip")).textContent).toBe("Files");
+
+    await user.click(screen.getByRole("radio", { name: "Search" }));
+    expect(screen.getByRole("radio", { name: "Search" }).getAttribute("aria-checked")).toBe("true");
+    expect(files.getAttribute("aria-checked")).toBe("false");
+    expect(screen.getByRole("complementary", { name: "Search" })).toBeTruthy();
+
+    await user.click(screen.getByRole("radio", { name: "Search" }));
+    expect(screen.queryByRole("complementary")).toBeNull();
+    expect(screen.getByRole("radio", { name: "Search" }).getAttribute("aria-checked")).toBe("false");
+  });
+
   it("keeps the group's own scope/part attributes, so zag can collect the items", () => {
-    render(<StatusStrip />);
+    render(<Dock />);
 
     // Invert the Tooltip/ToggleGroupItem nesting and these become scope=tooltip /
     // part=trigger, and roving focus dies silently. This is the guard.
-    const item = screen.getByRole("button", { name: "Files" });
+    const item = screen.getByRole("radio", { name: "Files" });
     expect(item.getAttribute("data-scope")).toBe("toggle-group");
     expect(item.getAttribute("data-part")).toBe("item");
+    expect(item.getAttribute("data-slot")).toBe("shell-dock-item");
   });
 
   it("moves focus with the arrow keys", async () => {
     const user = userEvent.setup();
-    render(<StatusStrip />);
+    render(<Dock />);
 
-    screen.getByRole("button", { name: "Files" }).focus();
+    screen.getByRole("radio", { name: "Files" }).focus();
 
     // zag focuses inside a rAF, which jsdom runs on a timer — hence waitFor.
     await user.keyboard("{ArrowRight}");
@@ -113,13 +120,6 @@ describe("a ToggleGroup composed inside a region", () => {
 
     await user.keyboard("{ArrowLeft}");
     await waitFor(() => expect(active()).toBe("Files"));
-  });
-
-  it("reports the pressed state through data-state", () => {
-    render(<StatusStrip active="search" />);
-
-    expect(screen.getByRole("button", { name: "Search" }).getAttribute("data-state")).toBe("on");
-    expect(screen.getByRole("button", { name: "Files" }).getAttribute("data-state")).toBe("off");
   });
 });
 

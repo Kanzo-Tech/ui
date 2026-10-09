@@ -30,6 +30,8 @@ import {
 	ResizableResizeTrigger,
 	ShellAside,
 	ShellBody,
+	ShellDockItem,
+	ShellDockSwitcher,
 	ShellFooter,
 	ShellHeader,
 	ShellMain,
@@ -117,9 +119,9 @@ import {
  * resize and ARIA all come from the machine. The Sidebar stays OUTSIDE the splitter.
  *
  * Two orthogonal switches, which is the IDE shape: the **header** picks what `ShellMain` shows
- * (Graph · Sightings), the **footer strip** picks which inspector the dock holds (Info · Ask ·
- * Orders · Settings) and collapses it when you click the active icon again — a state Tabs cannot
- * express.
+ * (Graph · Sightings), the **footer strip**'s `ShellDockSwitcher` picks which inspector the dock
+ * holds (Info · Ask · Orders · Settings) and collapses it when you click the active icon again — a
+ * state Tabs cannot express.
  *
  * Both regions are live and both read the same DuckDB: **Graph** is `@kanzo-tech/graph` drawing the
  * archive's 1,543 contracts, reports, members, beasts, tags and regions as a GPU force layout, one
@@ -642,33 +644,22 @@ function ArchiveShell() {
 
 				<ShellFooter className="h-8 flex-row items-center justify-between px-2">
 					<ArchiveFooter />
-					{/* The panel switcher is a single-select, DESELECTABLE ToggleGroup, not a Button
-					    row and not Tabs: one panel shows at a time and clicking the active icon again
-					    collapses the dock (value → none) — a state Tabs cannot express. The machine
-					    owns the pressed state and roving focus; the old Button row hand-rolled
-					    `aria-pressed`. `value` mirrors the two state atoms: `[active]` open, `[]` shut. */}
-					<ToggleGroup
-						aria-label="Panels"
-						multiple={false}
-						onValueChange={(d) => {
-							const next = d.value[0] as PanelId | undefined;
+					{/* `value` mirrors the two state atoms, so the dock reopens on the panel it closed on. */}
+					<ShellDockSwitcher
+						onValueChange={(next) => {
 							if (next) {
-								setActive(next);
+								setActive(next as PanelId);
 								setPanelOpen(true);
 							} else {
 								setPanelOpen(false);
 							}
 						}}
-						size="sm"
-						spacing={2}
-						value={panelOpen ? [active] : []}
+						value={panelOpen ? active : null}
 					>
 						{PANELS.map((p) => (
-							<ToggleGroupItem aria-label={p.label} key={p.id} value={p.id}>
-								<p.icon />
-							</ToggleGroupItem>
+							<ShellDockItem icon={p.icon} key={p.id} label={p.label} value={p.id} />
 						))}
-					</ToggleGroup>
+					</ShellDockSwitcher>
 				</ShellFooter>
 			</SidebarInset>
 			<Toaster />

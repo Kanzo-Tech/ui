@@ -238,7 +238,8 @@ describe("Dashboard's filters", () => {
     expect(await screen.findByRole("menuitem", { name: "bounty" })).toBeTruthy();
   });
 
-  it("are not drawn from a dashboard under MosaicClients that is off: no control, no remove, no + Filter", async () => {
+  it("are drawn from a dashboard under MosaicClients that is off as when it is shown: control, remove, + Filter", async () => {
+    const user = userEvent.setup();
     render(
       <MosaicProvider coordinator={stubCoordinator()} crossfilter={Selection.crossfilter()}>
         <FilterBar />
@@ -249,10 +250,10 @@ describe("Dashboard's filters", () => {
       </MosaicProvider>,
     );
     const bar = await screen.findByRole("region", { name: "Filters" });
-    await waitFor(() => expect(within(bar).getByText("region:")).toBeTruthy());
-    expect(within(bar).queryByRole("button", { name: /region/ })).toBeNull();
-    expect(within(bar).queryByRole("button", { name: "Remove the region filter" })).toBeNull();
-    expect(within(bar).queryByRole("button", { name: /Filter/ })).toBeNull();
+    await waitFor(() => expect(within(bar).getByRole("button", { name: "Remove the region filter" })).toBeTruthy());
+    expect(within(bar).getByText("region:")).toBeTruthy();
+    await user.click(within(bar).getByRole("button", { name: /Filter/ }));
+    expect(await screen.findByRole("menuitem", { name: "bounty" })).toBeTruthy();
   });
 
   it("are not drawn on a page without a FilterBar", async () => {
