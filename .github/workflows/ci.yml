@@ -68,16 +68,17 @@ jobs:
             terraform -chdir="$m" init -backend=false -input=false >/dev/null
             terraform -chdir="$m" validate
           done
-      # The platform as an application runs it (services/compose.yaml), without the local models:
+      # The platform as an application runs it in development (services/compose.dev.yaml), without the
+      # local models:
       # the runners have no Docker Model Runner. Up means the realm applied from its declarations,
       # the seed ran, and the gateway loaded its config and the realm's keys.
       - name: Bring up the platform
         working-directory: services
-        run: docker compose up -d --wait && docker compose up --exit-code-from auth-seed auth-seed
+        run: docker compose -f compose.dev.yaml up -d --wait && docker compose -f compose.dev.yaml up --exit-code-from auth-seed auth-seed
       - name: The claim contract, on live tokens
         working-directory: services/auth
         run: for u in ana bruno eva fede carla dan; do scripts/verify.sh "$u" > "$RUNNER_TEMP/$u.log" || { cat "$RUNNER_TEMP/$u.log"; exit 1; }; done
       - name: Keycloak's log, on failure
         if: failure()
         working-directory: services
-        run: docker compose logs keycloak auth-realm auth-seed ai-gateway
+        run: docker compose -f compose.dev.yaml logs keycloak auth-realm auth-seed ai-gateway

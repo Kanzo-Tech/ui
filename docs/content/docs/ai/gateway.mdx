@@ -83,7 +83,7 @@ report — per person and per organization — and it is plain SQL.
 From `services/`, beside the identity service it trusts:
 
 ```sh
-docker compose --profile local-models up -d --wait   # both aliases on local models
+docker compose -f compose.dev.yaml --profile local-models up -d --wait   # both aliases on local models
 ai/scripts/verify.sh                                 # a real token, each alias, the refusals
 ```
 

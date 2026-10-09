@@ -14,7 +14,7 @@ scripts/verify.sh dan              # no organization; a client role held directl
 docker compose -f compose.yaml -f compose.dev.yaml down -v        # gone, database and Terraform state together
 ```
 
-`../compose.yaml` runs this beside the AI gateway. Admin console: `http://localhost:8080/admin`,
+`../compose.dev.yaml` runs this beside the AI gateway. Admin console: `http://localhost:8080/admin`,
 `admin` / `admin`. `.env.example` lists what can be changed (port, versions, passwords); `KC_PORT`
 moves the issuer with it.
 

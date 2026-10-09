@@ -17,22 +17,25 @@ alike:
   hostnames, which model answers each alias, keys — as environment.
 
 ```sh
-docker compose up -d --wait                          # both, for development (compose.yaml here)
-docker compose --profile local-models up -d --wait   # with the AI aliases on local models
+docker compose -f compose.dev.yaml up -d --wait                          # both, for development
+docker compose -f compose.dev.yaml --profile local-models up -d --wait   # with the AI aliases on local models
 ```
 
-An application includes the same files from this repository, at the release it was built against,
-and adds its own services and declarations:
+An application includes them from this repository, at the release it was built against — one URL
+per environment — and adds its own services and declarations:
 
 ```yaml
+# its development overlay
 include:
-  - path:
-      - https://github.com/Kanzo-Tech/ui.git#v0.34.0:services/auth/compose.yaml
-      - https://github.com/Kanzo-Tech/ui.git#v0.34.0:services/auth/compose.dev.yaml   # development only
-  - path:
-      - https://github.com/Kanzo-Tech/ui.git#v0.34.0:services/ai/compose.yaml
-      - https://github.com/Kanzo-Tech/ui.git#v0.34.0:services/ai/compose.dev.yaml     # development only
+  - https://github.com/Kanzo-Tech/ui.git#v0.34.0:services/compose.dev.yaml
 ```
 
-Compose clones the tag into its cache and resolves each file's paths there: nothing is vendored. The
-tag can be a variable (`#${KANZO_UI_REF:-v0.34.0}`), so a product pins the platform in one place.
+```yaml
+# its production overlay
+include:
+  - https://github.com/Kanzo-Tech/ui.git#v0.34.0:services/compose.yaml
+```
+
+[`compose.yaml`](compose.yaml) here is both services as a deployment runs them;
+[`compose.dev.yaml`](compose.dev.yaml) is each with its development overlay. Compose clones the tag
+into its cache and resolves each file's paths there: nothing is vendored.

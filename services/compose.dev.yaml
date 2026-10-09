@@ -1,0 +1,13 @@
+# The platform's services as development runs them: each service with its development overlay —
+# Keycloak on :8080 with the dev/ declarations and seeded people, the gateway on :4000.
+#
+#   docker compose -f compose.dev.yaml up -d --wait                          # aliases on a provider (AI_CHAT=…, its key)
+#   docker compose -f compose.dev.yaml --profile local-models up -d --wait   # aliases on the local models
+#
+# An application includes this from its development overlay, by URL at its release, in place of
+# compose.yaml.
+name: kanzo
+
+include:
+  - path: [auth/compose.yaml, auth/compose.dev.yaml]
+  - path: [ai/compose.yaml, ai/compose.dev.yaml]

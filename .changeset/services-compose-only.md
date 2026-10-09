@@ -9,7 +9,8 @@ declarations.** What changes for an application that runs `services/auth` or `se
   `compose.dev.yaml` (published ports, the seed, local models). Include both in development, only
   `compose.yaml` in a deployment; by URL works, so nothing needs vendoring:
   `https://github.com/Kanzo-Tech/ui.git#v0.34.0:services/auth/compose.yaml`.
-  `services/compose.yaml` runs both services for development.
+  `services/compose.yaml` is both services as a deployment runs them, `services/compose.dev.yaml` both
+  for development: an application includes one URL per environment.
 - **Registering an application.** `services/auth/examples/app` is gone, and an application no longer
   runs Terraform of its own: it declares an `x-application` (client, own API, `apis`, origin and
   callback, roles, `client_secret_file`) as a compose `configs` entry, and an `x-organization` per

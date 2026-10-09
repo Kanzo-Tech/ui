@@ -7,7 +7,7 @@
 #   scripts/verify.sh            # ana, acme
 #   ORG=globex scripts/verify.sh
 #
-# Needs: bash, curl, jq, openssl, and the stack of ../compose.yaml up.
+# Needs: bash, curl, jq, openssl, and the stack of ../compose.dev.yaml up.
 set -euo pipefail
 
 USERNAME=${1:-ana}

@@ -20,6 +20,14 @@ KC_REALM=${KC_REALM:-kanzo}
 KC_ADMIN_USERNAME=${KC_ADMIN_USERNAME:-admin}
 KC_ADMIN_PASSWORD=${KC_ADMIN_PASSWORD:-admin}
 SEED_FILE=${SEED_FILE:-$(dirname "$0")/seed.json}
+# An application maps its own roles onto these groups by handing the seed a file of the same shape
+# in SEED_DIR (a compose `configs` entry): `{"organizations": {"acme": {"groups": {"Admins":
+# {"board": ["admin"]}}}}}`. They are merged into SEED_FILE, deeply, before anything runs.
+SEED_DIR=${SEED_DIR:-/seed.d}
+if ls "$SEED_DIR"/*.json >/dev/null 2>&1; then
+  jq -s 'reduce .[] as $part ({}; . * $part)' "$SEED_FILE" "$SEED_DIR"/*.json > /tmp/seed.json
+  SEED_FILE=/tmp/seed.json
+fi
 
 TOKEN=$(curl -sf -d client_id=admin-cli -d "username=$KC_ADMIN_USERNAME" \
   -d "password=$KC_ADMIN_PASSWORD" -d grant_type=password \

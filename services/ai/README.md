@@ -54,8 +54,8 @@ by default). It is counted in the gateway's memory: one replica, refilled by a r
 
 ```sh
 cd ..
-docker compose --profile local-models up -d --wait    # both aliases on local models, http://localhost:4000
-scripts/verify.sh                                     # from here: a real token, each alias, the refusals
+docker compose -f compose.dev.yaml --profile local-models up -d --wait    # both aliases on local models, :4000
+ai/scripts/verify.sh                                                      # a real token, each alias, the refusals
 ```
 
 With the `local-models` profile, both aliases run on open models through Docker Model Runner on the

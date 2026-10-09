@@ -1,13 +1,12 @@
-# The platform's services together, as they run in development: identity and the AI gateway, each
-# with its development overlay.
+# The platform's services as a deployment runs them: identity and the AI gateway, nothing of
+# development. An application includes this from its production overlay, by URL at its release:
 #
-#   docker compose up -d --wait                          # aliases on a provider (AI_CHAT=…, its key)
-#   docker compose --profile local-models up -d --wait   # aliases on the local models
+#   include:
+#     - https://github.com/Kanzo-Tech/ui.git#v0.34.0:services/compose.yaml
 #
-# It is also the shape an application uses: it includes the same files, from this repository at a
-# release, and adds its own services and declarations (auth/realm/declarations.tf).
+# and supplies the values (KC_HOSTNAME, passwords, AI_CHAT/AI_COMPLETE and keys) as environment.
 name: kanzo
 
 include:
-  - path: [auth/compose.yaml, auth/compose.dev.yaml]
-  - path: [ai/compose.yaml, ai/compose.dev.yaml]
+  - auth/compose.yaml
+  - ai/compose.yaml

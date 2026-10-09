@@ -24,7 +24,7 @@ docker compose -f compose.yaml -f compose.dev.yaml down -v        # gone, the da
 `up` brings Keycloak and its Postgres up, applies the realm with Terraform and seeds development
 people into two organizations, `acme` and `globex`. The admin console is `/admin`, `admin` /
 `admin`; `.env.example` lists what can be changed, and `KC_PORT` moves the issuer with it.
-`services/compose.yaml` runs the same beside [the gateway](/docs/ai/gateway).
+`services/compose.dev.yaml` runs the same beside [the gateway](/docs/ai/gateway).
 
 `compose.yaml` is the service as a deployment runs it too: Keycloak in production mode behind the
 deployment's edge, `KC_HOSTNAME` its public origin, the passwords from the environment.
