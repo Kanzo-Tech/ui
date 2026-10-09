@@ -29,25 +29,18 @@ variable "issuer_base_url" {
   default     = "http://localhost:8080"
 }
 
-# ── Organizations ─────────────────────────────────────────────────────────────
-variable "organizations" {
-  description = "alias => {name, domain}. Keycloak is the only registry of organizations; there is no tenant table anywhere else."
-  type = map(object({
-    name   = string
-    domain = string
-  }))
-}
-
-# ── Conformance ───────────────────────────────────────────────────────────────
-variable "conformance" {
-  description = "Register `kanzo-conformance`, the client scripts/verify.sh proves the claim contract through. Development and CI only."
-  type        = bool
-  default     = false
+# ── Declarations ──────────────────────────────────────────────────────────────
+variable "declarations" {
+  description = "The folder the organizations and applications are declared in (declarations.tf): every YAML file below it, at any depth."
+  type        = string
+  default     = "/declarations"
 }
 
 # ── APIs ──────────────────────────────────────────────────────────────────────
 variable "apis" {
-  description = "client_id => description: the platform's own resource servers, registered with modules/api. An application's API registers from the application's repository instead."
+  description = "client_id => description: the platform's own resource servers, registered with modules/api. An application's own API is declared with the application (`x-application.api`)."
   type        = map(string)
-  default     = {}
+  default = {
+    ai-gateway = "services/ai: the platform's AI gateway."
+  }
 }

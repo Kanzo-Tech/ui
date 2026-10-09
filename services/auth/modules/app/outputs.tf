@@ -7,11 +7,6 @@ output "client_id" {
   value = keycloak_openid_client.app.client_id
 }
 
-output "client_secret" {
-  value     = keycloak_openid_client.app.client_secret
-  sensitive = true
-}
-
 output "roles" {
   description = "Role name => its id, to map onto organization groups."
   value = merge(

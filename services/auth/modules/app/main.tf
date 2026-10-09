@@ -9,8 +9,10 @@ resource "keycloak_openid_client" "app" {
   description = var.description
   enabled     = true
 
-  access_type   = var.access_type
-  client_secret = var.access_type == "CONFIDENTIAL" ? var.client_secret : null
+  access_type = var.access_type
+  # Write-only, so the secret never reaches state; its digest is the version that rotates it.
+  client_secret_wo         = var.client_secret
+  client_secret_wo_version = var.client_secret == null ? null : sha256(var.client_secret)
 
   standard_flow_enabled        = true
   implicit_flow_enabled        = false

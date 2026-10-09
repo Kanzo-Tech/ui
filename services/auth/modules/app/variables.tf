@@ -29,10 +29,15 @@ variable "access_type" {
 }
 
 variable "client_secret" {
-  description = "A confidential client's secret. Null lets Keycloak generate one, read back from the `client_secret` output."
+  description = "A confidential client's secret, which the application's server also holds. Sent to Keycloak write-only: it is never kept in state, and changing it rotates it."
   type        = string
   default     = null
   sensitive   = true
+
+  validation {
+    condition     = (var.access_type == "CONFIDENTIAL") == (var.client_secret != null)
+    error_message = "A CONFIDENTIAL client takes a client_secret; a PUBLIC one does not."
+  }
 }
 
 variable "redirect_uris" {
