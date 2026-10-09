@@ -1,9 +1,10 @@
+import { visibleOf } from "../core/kept";
 import type { Geometry } from "../core/load";
 import type { GraphOptions } from "../core/state";
 
 /**
  * **What the renderer decides from the data**, apart from cosmos.gl so it can be read and tested
- * without a GPU: how long a layout cools, when it hides links, whether it runs, and what a filter
+ * without a GPU: how long a layout cools, when it hides links, whether it runs, and which links a filter
  * or a pick leaves in full colour.
  */
 
@@ -27,21 +28,18 @@ export const simulating = (options: GraphOptions, geometry: Geometry | null): bo
   options.simulate ?? (geometry !== null && !geometry.bound);
 
 /**
- * **What is in full colour**, and everything else is greyed out: the vertices the page's filter keeps
- * and — when the reader picked some — that they picked; and the links whose two ends are both. cosmos.gl
- * greys links apart from points, so the links are said out loud.
+ * `visibleOf` said to cosmos.gl, which greys links apart from points, so the links are said out loud:
+ * those whose two ends are both in full colour.
  */
 export function highlighted(
   geometry: Geometry,
   mask: Uint8Array | null,
   selection: readonly number[] | null,
 ): { highlightedPointIndices: number[] | undefined; highlightedLinkIndices: number[] | undefined } {
-  if (mask === null && selection === null) return { highlightedPointIndices: undefined, highlightedLinkIndices: undefined };
+  const points = visibleOf(geometry.size, mask, selection);
+  if (points === null) return { highlightedPointIndices: undefined, highlightedLinkIndices: undefined };
   const on = new Uint8Array(geometry.size);
-  if (selection === null) on.set(mask as Uint8Array);
-  else for (const id of selection) if (id < geometry.size && (mask === null || mask[id])) on[id] = 1;
-  const points: number[] = [];
-  for (let id = 0; id < geometry.size; id++) if (on[id]) points.push(id);
+  for (const id of points) on[id] = 1;
   const linkIds: number[] = [];
   const { links } = geometry;
   for (let e = 0; e < links.length / 2; e++) if (on[links[2 * e] as number] && on[links[2 * e + 1] as number]) linkIds.push(e);

@@ -116,8 +116,10 @@ export function createGraph(initial: GraphOptions): GraphStore {
 
   let visible: { key: unknown[]; value: readonly VertexId[] | null } = { key: [], value: null };
   function visibleNow(): readonly VertexId[] | null {
-    const key = [mask, snapshot.selection];
-    if (key.some((part, i) => part !== visible.key[i])) visible = { key, value: visibleOf(mask, snapshot.selection?.vertices ?? null) };
+    const key = [geometry, mask, snapshot.selection];
+    if (key.some((part, i) => part !== visible.key[i])) {
+      visible = { key, value: visibleOf(geometry?.size ?? 0, mask, snapshot.selection?.vertices ?? null) };
+    }
     return visible.value;
   }
 
