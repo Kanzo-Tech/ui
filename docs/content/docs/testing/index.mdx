@@ -110,8 +110,7 @@ narrowed with its `with`: `ChartHarness.with({ title })`.
 - **`AnswerHarness`** — `answer()` waits for the newest `AnswerCard` to hold its tile or its
   `Problem`, and rejects with the `Problem`'s words. `filterTo()` waits for **Filter to it** to be
   pressed, `addToDashboard()` for the card to say *On the dashboard*. The composer is named by its
-  placeholder, which a browser reads and jsdom does not: in a unit test, name it with `aria-label` or
-  pass `AnswerHarness.with({ name })`.
+  placeholder; a page with another composer starting *Ask* passes `AnswerHarness.with({ name })`.
 - **`DockHarness`** — `ShellDockSwitcher` is a single-select toggle group, a `radiogroup` of `radio`s,
   so `open(panel)` waits for the item to be checked and `close()` for none to be. Any single-select
   toggle group has that shape: `DockHarness.with({ name: "View" })` drives a view switch.

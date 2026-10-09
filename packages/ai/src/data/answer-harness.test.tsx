@@ -7,6 +7,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { mockModel } from "../testing/model.js";
 import { testDatabase, type TestDatabase } from "../testing/duckdb.js";
 import { PEOPLE, PERSON, seedPeople } from "../testing/people.js";
+import { PromptInput, PromptInputTextarea } from "../prompt-input.js";
 import type { ToolPart } from "../tool.js";
 import { dataAgent, type AnswerOutput } from "./agent.js";
 import { AnswerCard } from "./answer-card.js";
@@ -41,14 +42,13 @@ afterEach(() => {
 
 const part = (state: ToolPart["state"], extra: object = {}) => ({ type: "tool-answer", toolCallId: "c", state, input: {}, ...extra }) as ToolPart;
 
-/**
- * A composer and one answer card, as `Chat` lays them out. Named by `aria-label`: `Chat`'s composer is
- * named by its placeholder alone, which a browser reads and jsdom's name computation does not.
- */
+/** A composer and one answer card, as `Chat` lays them out. */
 function draw(answer: ToolPart, props: Partial<React.ComponentProps<typeof AnswerCard>> = {}, crossfilter = Selection.crossfilter()) {
   return render(
     <MosaicProvider coordinator={db.coordinator} crossfilter={crossfilter}>
-      <textarea aria-label="Ask about your data" />
+      <PromptInput>
+        <PromptInputTextarea placeholder="Ask about your data…" />
+      </PromptInput>
       <AnswerCard graph={PEOPLE} part={answer} {...props} />
     </MosaicProvider>,
   );
@@ -62,7 +62,9 @@ describe("AnswerHarness", () => {
     const answers = await env.harness(AnswerHarness);
     rerender(
       <MosaicProvider coordinator={db.coordinator} crossfilter={crossfilter}>
-        <textarea aria-label="Ask about your data" />
+        <PromptInput>
+          <PromptInputTextarea placeholder="Ask about your data…" />
+        </PromptInput>
         <AnswerCard graph={PEOPLE} part={part("output-available", { output })} />
       </MosaicProvider>,
     );

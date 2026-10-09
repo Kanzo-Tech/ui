@@ -2,6 +2,7 @@
 "@kanzo-tech/testing": minor
 "@kanzo-tech/ui": minor
 "@kanzo-tech/graph": minor
+"@kanzo-tech/ai": minor
 ---
 
 **`@kanzo-tech/testing` is new: a harness per component, to drive a page built with Kanzo UI from a
@@ -19,6 +20,8 @@ What the components now expose for it, which you may see in your own markup and 
 - **`FilterBar`**'s readout is a `role="status"`, `aria-busy` while it counts, so a screen reader
   hears the new count when a filter changes.
 - **`Dashboard`** is `aria-busy` while it reads the relation's fields.
+- **`PromptInputTextarea`** — the composer of `Chat` — is named by its placeholder (`aria-label`)
+  unless you name it yourself, so a screen reader announces it even once something is typed.
 - **`GraphCanvas`** is `aria-busy` until its first drawn frame, carries `data-frame` — the number of
   frames it has drawn — and always has an `id`: yours if you pass one, a generated one otherwise.
 
