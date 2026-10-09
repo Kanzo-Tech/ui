@@ -1,12 +1,21 @@
 # The platform's AI gateway: agentgateway, the one door to models as Keycloak is the one door to
-# identity. This file is the whole gateway in development, and in production it is everything but
-# `llm.models`: modules/gateway reads it, swaps the models for the deployment's profile, and adds
-# the token budget when one is set. Applications call it through their own server, with an access
-# token Keycloak issued for this gateway's audience and for one organization, and name an alias:
-# `chat` or `complete`, never a provider.
+# identity. This file is the gateway everywhere, development and deployments alike; what differs is
+# its environment. Applications call it through their own server, with an access token Keycloak
+# issued for this gateway's audience and for one organization, and name an alias: `chat` or
+# `complete`, never a provider.
+#
+# Which model answers an alias is one variable each, `provider/model`:
+#
+#   AI_CHAT=anthropic/claude-sonnet-5-5
+#   AI_COMPLETE=local/hf.co/NousResearch/Hermes-3-Llama-3.2-3B-GGUF:Q4_K_M
+#
+# compose.yaml gives both a local default. A provider's key is its usual variable
+# (ANTHROPIC_API_KEY, OPENAI_API_KEY…): unset, the gateway still starts, and a request routed to that
+# provider fails with the provider's own refusal.
 #
 # The braced variables below are expanded from the environment when the gateway loads this file,
-# and so is every dollar sign in it, comments included: a comment here never writes one.
+# and so is every dollar sign in it, comments included: a comment here never writes one. An unset
+# variable is an error at load; an empty one is not, which is how a missing key reads.
 
 config:
   # Every request, kept: who asked, for which organization, the alias, the tokens and their cost.
@@ -35,28 +44,67 @@ llm:
     authorization:
       rules:
         - require: size(jwt.organization) == 1
+    # Each organization's token budget, input and output together, refilled every hour. It is
+    # counted in this process's memory: one replica, refilled by a restart. compose.yaml's default
+    # is high enough to be no practical limit.
+    localRateLimit:
+      - type: tokens
+        maxTokens: ${AI_TOKENS_PER_HOUR}
+        tokensPerFill: ${AI_TOKENS_PER_HOUR}
+        fillInterval: 1h
+        key: jwt.organization.map(o, o)[0]
     # Under the client's 30 s silence bound (`ai/silent` in @kanzo-tech/llm): a hung upstream is
-    # ended here first, both before the answer starts and between its chunks.
+    # ended here first, as a 504, both before the answer starts and between its chunks.
     timeout:
       requestTimeout: 20s
       responseIdleTimeout: 20s
 
-  # Development: both aliases on open models through Docker Model Runner, which compose declares
-  # and points the gateway at (`models:` in compose.yml). A deployment brings its own.
-  models:
+  # The aliases. Each is a virtual model over the one `provider/model` its variable names, so a
+  # caller can only ever ask for `chat` or `complete`.
+  virtualModels:
     - name: chat
-      provider:
-        custom:
-          formats:
-            - type: completions
-      params:
-        baseUrl: ${CHAT_URL}
-        model: ${CHAT_MODEL}
+      routing:
+        failover:
+          targets:
+            - { model: "${AI_CHAT}", priority: 0 }
     - name: complete
-      provider:
-        custom:
-          formats:
-            - type: completions
-      params:
-        baseUrl: ${COMPLETE_URL}
-        model: ${COMPLETE_MODEL}
+      routing:
+        failover:
+          targets:
+            - { model: "${AI_COMPLETE}", priority: 0 }
+
+  # Every provider an alias may name, as `provider/*`. Internal: reachable through an alias only.
+  # The prefix is the gateway's; the provider is sent the model without it.
+  models:
+    - name: anthropic/*
+      visibility: internal
+      transformation: { model: 'llmRequest.model.stripPrefix("anthropic/")' }
+      provider: anthropic
+      params: { apiKey: "${ANTHROPIC_API_KEY}" }
+    - name: openai/*
+      visibility: internal
+      transformation: { model: 'llmRequest.model.stripPrefix("openai/")' }
+      provider: openAI
+      params: { apiKey: "${OPENAI_API_KEY}" }
+    - name: gemini/*
+      visibility: internal
+      transformation: { model: 'llmRequest.model.stripPrefix("gemini/")' }
+      provider: gemini
+      params: { apiKey: "${GEMINI_API_KEY}" }
+    - name: mistral/*
+      visibility: internal
+      transformation: { model: 'llmRequest.model.stripPrefix("mistral/")' }
+      provider: mistral
+      params: { apiKey: "${MISTRAL_API_KEY}" }
+    - name: openrouter/*
+      visibility: internal
+      transformation: { model: 'llmRequest.model.stripPrefix("openrouter/")' }
+      provider: openrouter
+      params: { apiKey: "${OPENROUTER_API_KEY}" }
+    # Open models served on the machine itself: Docker Model Runner in development
+    # (compose.dev.yaml), or any OpenAI-compatible server a deployment points LOCAL_MODELS_URL at.
+    - name: local/*
+      visibility: internal
+      transformation: { model: 'llmRequest.model.stripPrefix("local/")' }
+      provider: openAI
+      params: { baseUrl: "${LOCAL_MODELS_URL}" }

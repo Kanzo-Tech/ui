@@ -1,13 +1,16 @@
 # The platform's AI gateway: agentgateway, the one door to models as Keycloak is the one door to
 # identity. Applications speak OpenAI chat completions to it through their own server, with an
 # access token the realm issued for this gateway, and name an alias (`chat`, `complete`), never a
-# provider.
+# provider. This file is the service as it runs anywhere; compose.dev.yaml adds the local models.
 #
-#   docker compose -f ../auth/compose.yml -f compose.yml up -d --wait
+#   docker compose -f ../auth/compose.yaml -f ../auth/compose.dev.yaml \
+#                  -f compose.yaml -f compose.dev.yaml --profile local-models up -d --wait
 #
 # brings the gateway up on http://localhost:4000 beside the identity service it trusts, with both
-# aliases served by Docker Model Runner on the host's GPU (Docker Desktop 4.40+, Model Runner on).
-# The first `up` pulls the models (~6.5 GB). An application includes both files (`include:`).
+# aliases on open models served by Docker Model Runner on the host's GPU (Docker Desktop 4.40+,
+# Model Runner on). `AI_CHAT=anthropic/claude-sonnet-5-5` and its key, without the profile, answer
+# `chat` from Anthropic instead and download nothing. An application includes these files
+# (`include:`).
 
 name: kanzo-ai
 
@@ -18,7 +21,7 @@ services:
     environment:
       POSTGRES_DB: gateway
       POSTGRES_USER: gateway
-      POSTGRES_PASSWORD: gateway
+      POSTGRES_PASSWORD: ${AI_DB_PASSWORD:-gateway}
     volumes:
       - kanzo-ai-db:/var/lib/postgresql/data
     healthcheck:
@@ -26,39 +29,40 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+    restart: unless-stopped
 
   ai-gateway:
     # Pinned by digest, and moved deliberately: the gateway holds every provider's key.
     image: ghcr.io/agentgateway/agentgateway:v1.6.0@sha256:9d3e6044ddcdc0878b1787f77bd401252b95e22684203fb5e874c4c42d2ed90c
     command: ["-f", "/config/gateway.yaml"]
-    ports:
-      - "${AI_PORT:-4000}:4000"
     volumes:
       - ./gateway.yaml:/config/gateway.yaml:ro
     environment:
-      AI_DATABASE_URL: postgresql://gateway:gateway@ai-postgres:5432/gateway
-      # The issuer the tokens say, which is the one a browser sees; the keys are fetched from
-      # inside the network. The gateway exits while they cannot be fetched, and restarts.
-      AI_ISSUER: ${AI_ISSUER:-http://localhost:8080/realms/kanzo}
-      AI_JWKS_URL: ${AI_JWKS_URL:-http://keycloak:8080/realms/kanzo/protocol/openid-connect/certs}
-      AI_AUDIENCE: ${AI_AUDIENCE:-ai-gateway}
-    restart: on-failure
-    models:
-      chat:
-        endpoint_var: CHAT_URL
-        model_var: CHAT_MODEL
-      complete:
-        endpoint_var: COMPLETE_URL
-        model_var: COMPLETE_MODEL
+      AI_DATABASE_URL: postgresql://gateway:${AI_DB_PASSWORD:-gateway}@ai-postgres:5432/gateway
+      # The issuer the tokens say — Keycloak's own KC_HOSTNAME (../auth/compose.yaml), the origin a
+      # browser sees —; the keys are fetched from inside the network.
+      AI_ISSUER: ${KC_HOSTNAME:-http://localhost:8080}/realms/${KC_REALM:-kanzo}
+      AI_JWKS_URL: http://keycloak:8080/realms/${KC_REALM:-kanzo}/protocol/openid-connect/certs
+      AI_AUDIENCE: ai-gateway
+      # Which model answers each alias, `provider/model` (gateway.yaml). A deployment names both;
+      # left empty, the gateway refuses to start. compose.dev.yaml defaults them to the local models.
+      AI_CHAT: ${AI_CHAT:-}
+      AI_COMPLETE: ${AI_COMPLETE:-}
+      # Tokens each organization may spend an hour (gateway.yaml).
+      AI_TOKENS_PER_HOUR: ${AI_TOKENS_PER_HOUR:-1000000000}
+      LOCAL_MODELS_URL: ${LOCAL_MODELS_URL:-http://model-runner.docker.internal/engines/v1}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
     depends_on:
       ai-postgres:
         condition: service_healthy
-
-models:
-  chat:
-    model: hf.co/NousResearch/Hermes-3-Llama-3.1-8B-GGUF:Q4_K_M
-  complete:
-    model: hf.co/NousResearch/Hermes-3-Llama-3.2-3B-GGUF:Q4_K_M
+      # The gateway exits while the realm's keys cannot be fetched; they exist once the realm does.
+      auth-realm:
+        condition: service_completed_successfully
+    restart: unless-stopped
 
 volumes:
   kanzo-ai-db:

@@ -1,0 +1,13 @@
+# The platform's services together, as they run in development: identity and the AI gateway, each
+# with its development overlay.
+#
+#   docker compose up -d --wait                          # aliases on a provider (AI_CHAT=…, its key)
+#   docker compose --profile local-models up -d --wait   # aliases on the local models
+#
+# It is also the shape an application uses: it includes the same files, from this repository at a
+# release, and adds its own services and declarations (auth/realm/declarations.tf).
+name: kanzo
+
+include:
+  - path: [auth/compose.yaml, auth/compose.dev.yaml]
+  - path: [ai/compose.yaml, ai/compose.dev.yaml]
