@@ -54,15 +54,8 @@ import {
   toast,
 } from "@kanzo-tech/ui";
 import { Chat, ChatSkeleton, type Proposal, useAgentChat } from "@kanzo-tech/ai";
-import {
-  dataAgent,
-  dataSuggestions,
-  describeSchema,
-  QueryResult,
-  type DataSchema,
-  type DataScope,
-  type QueryOutput,
-} from "@kanzo-tech/ai/data";
+import { AnswerCard, dataAgent, dataSuggestions, readAnswerRelations, type AnswerInput, type AnswerRelation } from "@kanzo-tech/ai/data";
+import type { LanguageModel } from "@kanzo-tech/llm";
 import { afterTool, askOf, mockModel, promptOf } from "@/lib/mock-model";
 import {
   Coordinator,
@@ -71,8 +64,11 @@ import {
   Selection as MosaicSelection,
   count,
   numbers,
+  relationHops,
   useChartQuery,
   useMosaic,
+  type JoinGraph,
+  type Relation,
 } from "@kanzo-tech/ui/analytics";
 import {
   SparklesIcon,
@@ -87,7 +83,7 @@ import {
   GraphRoot,
   GraphSearch,
   GraphStatus,
-  corpusReferences,
+  readJoinGraph,
   useGraphPrefs,
   usePick,
   type VertexDetail,
@@ -971,68 +967,101 @@ export function GraphSettings() {
 
 /**
  * The Ask panel — `@kanzo-tech/ai`'s `Chat` over `dataAgent`, whose model is a recording and whose
- * one tool queries the corpus for real.
+ * one tool reads the corpus for real.
  *
  * The split is deliberate and it is the only honest way to show this without a model: the
  * **language** is canned, the **answer** is not. The recording matches a question to an intent and
- * calls `query` with the intent's SQL over `scope`; the tool runs it on the page's coordinator under
- * the page's crossfilter, so the rows in the card are what the archive holds under the filter you
- * set, and the sentence after them is read off those rows. Nothing here pretends to have understood
+ * calls `answer` with the intent's tile — a relation of the archive, its conditions and how it is
+ * shown, every name one the schema offered; the tool reads it on the page's coordinator under the
+ * page's crossfilter, so the tile is what the archive holds under the filter you set, and the
+ * sentence after it is read off the rows that came back. Nothing here pretends to have understood
  * anything it did not.
  *
  * Everything around the model is the real path, and it is the whole of what a host writes:
- * `describeSchema` with the corpus's `corpusReferences`, `dataAgent`, `dataSuggestions` streaming
- * the pills, `ChatSkeleton` while the schema loads, and `QueryResult` with the host's two actions.
- * Swapping the recording for `createGateway(…)("chat")` changes one line.
+ * `readJoinGraph` and `readAnswerRelations` for what may be asked, `dataAgent`, `dataSuggestions`
+ * streaming the pills, `ChatSkeleton` while the relations load, and `AnswerCard`. Swapping the
+ * recording for `createGateway(…)("chat")` changes one line.
  */
 interface Intent {
   /** Words that select this intent. */
   match: string[];
   question: string;
   rationale: string;
-  /** The SQL the recording writes for it, over `scope`. */
-  sql: string;
+  /** The answer the recording writes for it, over the archive's join graph. */
+  answer: (graph: JoinGraph) => AnswerInput;
   /** The sentence, from the rows the model read back. */
-  answer: (rows: Record<string, unknown>[]) => string;
+  says: (rows: Record<string, unknown>[]) => string;
 }
 
 /** Five years back from the world's own today, which is 14 September 1312 and never the clock. */
 const FIVE_YEARS_BACK = isoDay(-5 * 365);
 
+/** The archive's vertex type alone, and through its one link, outward. */
+const NODES: Relation = { root: TYPE, path: [] };
+const linked = (graph: JoinGraph): Relation => ({
+  root: TYPE,
+  path: [relationHops(graph, TYPE).find((h) => h.hop.direction === "out")!.hop],
+});
+
 const INTENTS: Intent[] = [
   {
     match: ["old", "oldest", "long ago", "years", "before", "closed before"],
     question: "How many contracts closed more than five years ago?",
-    rationale: "kind and closed",
-    sql: `SELECT count(*) AS "contracts" FROM scope WHERE "kind" = 'contract' AND "closed" < DATE '${FIVE_YEARS_BACK}' LIMIT 1`,
-    answer: (rows) => `${Number(rows[0]?.contracts ?? 0)} contracts in view were closed before ${FIVE_YEARS_BACK}.`,
+    rationale: "Node: kind and closed",
+    answer: () => ({
+      relation: NODES,
+      where: [
+        { field: "Node.kind", in: ["contract"] },
+        { field: "Node.closed", between: ["1000-01-01", FIVE_YEARS_BACK] },
+      ],
+      show: { kind: "stat", measure: { op: "count" }, title: `Contracts closed before ${FIVE_YEARS_BACK}` },
+    }),
+    says: (rows) => `${Number(rows[0]?.count ?? 0)} contracts in view were closed before ${FIVE_YEARS_BACK}.`,
   },
   {
     match: ["amber", "hall", "tenant", "whose"],
     question: "What does the Amber Hall hold, by kind?",
-    rationale: "hall and kind",
-    sql: `SELECT "kind", count(*) AS "nodes" FROM scope WHERE "hall" = 'amber' GROUP BY "kind" ORDER BY "nodes" DESC LIMIT 20`,
-    answer: (rows) =>
+    rationale: "Node: hall and kind",
+    answer: () => ({
+      relation: NODES,
+      where: [{ field: "Node.hall", in: ["amber"] }],
+      show: { kind: "chart", type: "bar", x: "Node.kind", y: { op: "count" } },
+      top: 20,
+    }),
+    says: (rows) =>
       rows.length === 0
         ? "Nothing in view sits on the Amber Hall's arc."
-        : `Mostly ${String(rows[0]?.kind)}s: ${Number(rows[0]?.nodes)} of them, beside ${rows.length - 1} other ${rows.length === 2 ? "kind" : "kinds"}.`,
+        : `Mostly ${String(rows[0]?.["Node.kind"])}s: ${Number(rows[0]?.count)} of them, beside ${rows.length - 1} other ${rows.length === 2 ? "kind" : "kinds"}.`,
   },
   {
     match: ["hub", "connected", "busiest", "central", "biggest", "most work"],
     question: "What holds the archive together?",
-    rationale: "degree",
-    sql: `SELECT "dense_id", "label", "kind", "degree" FROM scope WHERE "degree" >= 60 ORDER BY "degree" DESC LIMIT 100`,
-    answer: (rows) =>
+    rationale: "Node: degree",
+    answer: () => ({
+      relation: NODES,
+      where: [{ field: "Node.degree", between: [60, 1_000_000] }],
+      show: { kind: "chart", type: "bar", x: "Node.label", y: { op: "max", field: "Node.degree" }, title: "The busiest nodes" },
+      top: 10,
+    }),
+    says: (rows) =>
       rows.length === 0
         ? "Nothing in view touches 60 others or more."
-        : `${rows.length} nodes touch 60 others or more; the busiest is ${String(rows[0]?.label)}.`,
+        : `The busiest is ${String(rows[0]?.["Node.label"])}, touching ${Number(rows[0]?.["max Node.degree"])} others; ${rows.length - 1} more in view touch 60 or more.`,
   },
   {
-    match: ["orphan", "unused", "tag", "lonely", "only one contract"],
-    question: "Which tags does only one contract carry?",
-    rationale: "kind and degree",
-    sql: `SELECT "dense_id", "label", "degree" FROM scope WHERE "kind" = 'tag' AND "degree" < 2 ORDER BY "label" LIMIT 100`,
-    answer: (rows) => `${rows.length} tags were used once and never again — a vocabulary of one.`,
+    match: ["link", "links", "point", "refer", "contracts link"],
+    question: "What do contracts link to?",
+    rationale: "Node>linksTo>Node: kind on both ends",
+    answer: (graph) => ({
+      relation: linked(graph),
+      where: [{ field: "Node.kind", in: ["contract"] }],
+      show: { kind: "chart", type: "bar", x: "Node2.kind", y: { op: "count" }, title: "What contracts link to" },
+      top: 10,
+    }),
+    says: (rows) =>
+      rows.length === 0
+        ? "No contract in view links to anything."
+        : `Mostly to ${String(rows[0]?.["Node2.kind"])}s: ${Number(rows[0]?.count)} links, then ${rows.length - 1} other ${rows.length === 2 ? "kind" : "kinds"}.`,
   },
 ];
 
@@ -1060,38 +1089,45 @@ function rowsIn(message: { content: unknown } | undefined): Record<string, unkno
 }
 
 /**
- * The recording. Asked for suggestions — `dataSuggestions`' instructions — it offers the intents'
- * questions; asked a question it recognises, it calls `query` with that intent's SQL, then reads the
- * sentence off the rows that come back. Anything else is said to be outside what it knows.
+ * The recording, over the archive's graph. Asked for suggestions — `dataSuggestions`' instructions —
+ * it offers the intents' questions; asked a question it recognises, it calls `answer` with that
+ * intent's tile, then reads the sentence off the rows that come back. Anything else is said to be
+ * outside what it knows.
  */
-const askModel = mockModel((call) => {
-  if (promptOf(call).includes("You suggest questions")) {
-    return JSON.stringify({ elements: INTENTS.map(({ question, rationale }) => ({ text: question, rationale })) });
-  }
-  const intent = match(askOf(call));
-  if (!intent) return "That one is outside what this recording knows. Try one of the questions it starts with.";
-  if (afterTool(call)) return intent.answer(rowsIn(call.prompt.at(-1)));
-  return { reasoning: `Read as “${intent.question}”, which one query over \`scope\` answers.`, tool: "query", input: { sql: intent.sql } };
-});
+const recording = (graph: JoinGraph) =>
+  mockModel((call) => {
+    if (promptOf(call).includes("You suggest questions")) {
+      return JSON.stringify({ elements: INTENTS.map(({ question, rationale }) => ({ text: question, rationale })) });
+    }
+    const intent = match(askOf(call));
+    if (!intent) return "That one is outside what this recording knows. Try one of the questions it starts with.";
+    if (afterTool(call)) return intent.says(rowsIn(call.prompt.at(-1)));
+    return { reasoning: `Read as “${intent.question}”, which one tile answers.`, tool: "answer", input: intent.answer(graph) };
+  });
+
+/** What may be asked: the archive's graph, and its vertex type alone and through each of its links. */
+interface Askable {
+  graph: JoinGraph;
+  relations: AnswerRelation[];
+}
 
 export function GraphAsk() {
   const archive = useArchive();
-  const [schema, setSchema] = useState<DataSchema | null>(null);
+  const [askable, setAskable] = useState<Askable | null>(null);
   useEffect(() => {
     if (!archive) return;
     let live = true;
-    // The host's half of the schema: the catalog, and the joins only the corpus knows.
-    corpusReferences(archive.coordinator, FROM)
-      .then((references) =>
-        describeSchema(archive.coordinator, { catalog: FROM, exclude: ["fossil_tables", "fossil_columns"], references }),
-      )
-      .then((described) => live && setSchema(described), announce);
+    (async () => {
+      const graph = await readJoinGraph(archive.coordinator, FROM);
+      const relations = [NODES, ...relationHops(graph, TYPE).map((h) => ({ root: TYPE, path: [h.hop] }))];
+      return { graph, relations: await readAnswerRelations(archive.coordinator, graph, relations) };
+    })().then((read) => live && setAskable(read), announce);
     return () => {
       live = false;
     };
   }, [archive]);
-  if (!archive || schema === null) return <ChatSkeleton className="p-2" empty={<AskEmpty />} />;
-  return <AskBody archive={archive} schema={schema} />;
+  if (!archive || askable === null) return <ChatSkeleton className="p-2" empty={<AskEmpty />} />;
+  return <AskBody archive={archive} askable={askable} />;
 }
 
 function AskEmpty() {
@@ -1102,8 +1138,8 @@ function AskEmpty() {
           <SparklesIcon />
         </EmptyIndicator>
         <EmptyDescription className="text-xs">
-          Ask about the graph. Every answer is a query over what is in view — the phrasing is canned,
-          the rows are not.
+          Ask about the graph. Every answer is a tile over what is in view — the phrasing is canned,
+          the numbers are not.
         </EmptyDescription>
       </EmptyHeader>
     </EmptyRoot>
@@ -1111,38 +1147,21 @@ function AskEmpty() {
 }
 
 /** Questions to start from, as they stream in: none on failure, and the chat works without them. */
-function useStarters(schema: DataSchema, scope: DataScope) {
+function useStarters(model: LanguageModel, { graph, relations }: Askable, selection: MosaicSelection) {
   const [state, setState] = useState<{ questions: Proposal[]; suggesting: boolean }>({ questions: [], suggesting: true });
   useEffect(() => {
     const abort = new AbortController();
     (async () => {
       const questions: Proposal[] = [];
-      for await (const q of dataSuggestions({ model: askModel, schema, scope, abortSignal: abort.signal })) {
+      for await (const q of dataSuggestions({ model, graph, relations, selection, abortSignal: abort.signal })) {
         questions.push(q);
         setState({ questions: [...questions], suggesting: true });
       }
       setState({ questions, suggesting: false });
     })().catch(() => !abort.signal.aborted && setState({ questions: [], suggesting: false }));
     return () => abort.abort();
-  }, [schema, scope]);
+  }, [model, graph, relations, selection]);
   return state;
-}
-
-/**
- * The host's one action on an answer that carries the archive's key: add its rows to the subset, as
- * the answer's own clause — a semi-join on identity, so every panel that shares the key follows and
- * the graph greys out the rest. Pressed again, it takes the clause back.
- */
-function AnswerActions({ output }: { output: QueryOutput }) {
-  const answer = usePick(`ask ${output.sql}`);
-  if (!output.rows[0] || !(ID in output.rows[0])) return null;
-  const ids = [...new Set(output.rows.map((row) => Number(row[ID])))];
-  const added = answer.picked !== null;
-  return (
-    <Button aria-pressed={added} onClick={() => answer.pick(added ? null : ids, "Ask")} size="sm" variant="ghost">
-      {added ? "✓ In the subset" : "Add to the subset"}
-    </Button>
-  );
 }
 
 /**
@@ -1160,11 +1179,11 @@ function SubsetPill({ archive }: { archive: Archive }) {
   );
 }
 
-function AskBody({ archive, schema }: { archive: Archive; schema: DataSchema }) {
+function AskBody({ archive, askable }: { archive: Archive; askable: Askable }) {
   const { coordinator, crossfilter } = useMosaic();
-  const scope = useMemo<DataScope>(() => ({ selection: crossfilter, table: archive.nodes }), [crossfilter, archive]);
-  const chat = useAgentChat(dataAgent({ model: askModel, coordinator, schema, scope, key: ID }));
-  const starters = useStarters(schema, scope);
+  const model = useMemo(() => recording(askable.graph), [askable]);
+  const chat = useAgentChat(dataAgent({ model, coordinator, graph: askable.graph, relations: askable.relations, selection: crossfilter }));
+  const starters = useStarters(model, askable, crossfilter);
 
   return (
     <div className="flex h-full flex-col p-2">
@@ -1175,9 +1194,7 @@ function AskBody({ archive, schema }: { archive: Archive; schema: DataSchema }) 
         suggesting={starters.suggesting}
         suggestions={starters.questions}
         tools={{
-          query: (part, { stopped }) => (
-            <QueryResult actions={(output) => <AnswerActions output={output} />} part={part} stopped={stopped} />
-          ),
+          answer: (part, { stopped }) => <AnswerCard graph={askable.graph} part={part} stopped={stopped} />,
         }}
         translations={{ placeholder: "Ask about your data…" }}
       />

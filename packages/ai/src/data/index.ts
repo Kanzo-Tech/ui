@@ -1,26 +1,18 @@
-// @kanzo-tech/ai/data — asking questions of data. An agent that answers by querying DuckDB on the
-// page's coordinator (`dataAgent`), the schema it is given (`describeSchema`), the one door from a
-// model's SQL to the engine (`gateStatement`), the questions to start from (`dataSuggestions`), and the
-// card each answer is drawn in (`QueryResult`).
+// @kanzo-tech/ai/data — asking questions of data. An agent that answers with a dashboard tile over a
+// relation (`dataAgent`), the schema whose every name the page generated (`answerSchema`), the
+// relations it may answer about (`readAnswerRelations`), the questions to start from
+// (`dataSuggestions`), and the card each answer is drawn in (`AnswerCard`).
 //
-// A subpath and not the root barrel because it draws with `@kanzo-tech/ui`'s analytics, table and
-// editor layers, whose engines are optional peers: a host that only chats must not install DuckDB,
-// TanStack Table and CodeMirror to import `Chat`. Nothing here knows what the data is — what a host
-// knows that DuckDB's catalog does not comes in as references and a key.
+// A subpath and not the root barrel because it draws with `@kanzo-tech/ui`'s analytics and table
+// layers, whose engines are optional peers: a host that only chats must not install DuckDB and
+// TanStack Table to import `Chat`. Nothing here knows what the data is — the join graph and the
+// relations offered over it are the host's.
 
 export { dataAgent, dataInstructions, dataSuggestions } from "./agent.js";
-export type {
-  DataAgentOptions,
-  DataSuggestionsOptions,
-  DataTools,
-  QueryAnswer,
-  QueryOutput,
-  QueryRefusal,
-  QueryRow,
-} from "./agent.js";
-export { describeSchema } from "./schema.js";
-export type { DataSchema, DescribeSchemaOptions, SchemaReference } from "./schema.js";
-export { gateStatement } from "./statement.js";
-export type { DataScope, GatedStatement, StatementGateOptions, StatementRefusal } from "./statement.js";
-export { QueryResult } from "./query-result.js";
-export type { QueryResultProps, QueryResultTranslations } from "./query-result.js";
+export type { AnswerOutput, DataAgentOptions, DataSuggestionsOptions, DataTools, QueryRow } from "./agent.js";
+export { answerSchema, checkAnswer } from "./answer.js";
+export type { Answer, AnswerField, AnswerInput, AnswerRelation, Condition, ConditionValue } from "./answer.js";
+export { readAnswerRelations } from "./relations.js";
+export type { ReadAnswerRelationsOptions } from "./relations.js";
+export { AnswerCard } from "./answer-card.js";
+export type { AnswerCardProps, AnswerCardTranslations } from "./answer-card.js";

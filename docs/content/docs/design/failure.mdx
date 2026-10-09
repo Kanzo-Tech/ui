@@ -36,7 +36,6 @@ so one host registry keys all three. One class per package, named for it.
 | `graph/nothing-to-draw` | `GraphError` | an attached corpus with no vertex | — |
 | `graph/unfilterable` | `GraphError` | a crossfilter clause naming columns no vertex table has | — |
 | `ai/silent` | `AiError`, from `@kanzo-tech/llm` | a model behind `createGateway` sent nothing for 30 s — no headers, or no chunk since the last | `after` |
-| `query/refused` | data in a `QueryRefusal`, from `@kanzo-tech/ai/data`: kept in a transcript, never thrown | the statement gate refused what the model wrote — a write, a file, a URL, a table function, a table outside the schema | — |
 | `ai/rate-limited` | `AiError`, from `@kanzo-tech/llm` | the gateway answered 429: the caller is over its tenant's or its key's limit | `retryAfter`, in seconds, when the gateway said when |
 | `session/*`, `idp/*`, `callback/*`, `token/*`, `organization/*`, `claims/*` | `AuthError` | see [the auth layer](/docs/design/auth) | `after`, `status` where named |
 

@@ -9,7 +9,7 @@ description: Two surfaces that know a model is on the other end — a field the 
 | --- | --- | --- |
 | `AssistProvider` + `Assist` | A field the model helps fill: ghost text in a `Textarea`, whole values under an `Input`, items for a `TagsInput` | [Assist](/docs/ai/assist) |
 | `Chat` + `useAgentChat` | A conversation, whole: transcript, streaming markdown, reasoning, tool calls, the composer | [Chat](/docs/ai/chat) |
-| `dataAgent` + `QueryResult` | A conversation with data: an agent that answers in SQL over the page's DuckDB, and the card each answer is drawn in — `@kanzo-tech/ai/data` | [Ask your data](/docs/ai/data) |
+| `dataAgent` + `AnswerCard` | A conversation with data: an agent that answers with a dashboard tile over a relation of the page's DuckDB, and the card each answer is drawn in — `@kanzo-tech/ai/data` | [Ask your data](/docs/ai/data) |
 
 `Chat` is the door, and it is the whole conversation wired: five compounds a host used to assemble
 by hand became one. The parts it draws with — the message, the tool frame, the reasoning fold — are
@@ -53,7 +53,7 @@ Ark are two portals and two focus traps. `streamdown`, which draws the markdown,
 nothing outside `Chat` names it.
 
 `@kanzo-tech/ai/data` is a subpath for the reason `/analytics` is one in `@kanzo-tech/ui`: it draws
-with the analytics, table and editor layers, whose engines are optional peers, and a host that only
+with the analytics and table layers, whose engines are optional peers, and a host that only
 chats must not install DuckDB to import `Chat`. [Ask your data](/docs/ai/data#installing-it) has its peers.
 
 The stylesheet is one line after `@kanzo-tech/ui`'s — `@import "@kanzo-tech/ai/tailwind.css"` — and
@@ -91,7 +91,7 @@ import { Assist, AssistProvider, Chat, useAgentChat } from "@kanzo-tech/ai";
 <Cards>
   <Card title="Assist" href="/docs/ai/assist" description="One proposal for a field, drawn as ghost text or as chips." />
   <Card title="Chat" href="/docs/ai/chat" description="A conversation with a model, whole, with the host's tools drawn inside it." />
-  <Card title="Ask your data" href="/docs/ai/data" description="An agent that answers in SQL over the page's DuckDB, and the card each answer is drawn in." />
+  <Card title="Ask your data" href="/docs/ai/data" description="An agent that answers with a dashboard tile over the page's data, and the card each answer is drawn in." />
   <Card title="@kanzo-tech/llm" href="/docs/ai/llm" description="createGateway, the AI SDK re-exported, and where the key lives." />
   <Card title="The gateway" href="/docs/ai/gateway" description="agentgateway, the server half: two aliases, the realm's token as its credential, and how a deployment runs it." />
 </Cards>

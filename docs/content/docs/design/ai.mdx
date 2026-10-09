@@ -24,23 +24,30 @@ interface Answer {
 }
 ```
 
-`answerSchema(graph, fields)` is the tool's JSON Schema. The types and hops of the relation, the
-fields of each relation, the aggregates and the chart kinds are enums, so a provider that decodes
-against the schema cannot write a field that does not exist. One that does not decode against it
-sends input the AI SDK refuses before it runs, and the model reads why. The instructions list each
-field with its kind and its most common values, *Person.gender: category (female, male)*, read from
-`FieldStat`, rather than DDL.
+`answerSchema(graph, relations)` is the tool's JSON Schema. The types and hops of the relations
+offered, their fields, the aggregates and the chart kinds are enums, so a provider that decodes
+against the schema cannot write a field that does not exist. The schema is one object, not one
+branch per relation, because Anthropic and OpenAI both refuse a tool whose input is an `anyOf` at
+the top; so its field enum is every offered relation's, and `checkAnswer` holds each field to the
+relation the answer names. It is the AI SDK's `validate` on the tool's input, so input that does not
+pass is refused before `execute` runs, and the model reads why. The instructions list each field
+with its kind and its most common values, *Person.gender: category (female, male)*, read from
+`FieldStat` and one count per category by `readAnswerRelations`, rather than DDL.
 
 **It compiles with what the dashboard already compiles with.** `relationQuery` makes the relation;
 each condition is the clause a dashboard filter would publish; `plotRelation` and `measureExpr` make
-the tile's query. All of it runs under the page's crossfilter at the moment of asking. The page's
-filter is not something the model names: it is the predicate the answer is read under, as every
-tile's is.
+the tile's query. All of it runs under the page's crossfilter at the moment of asking — the clauses whose columns the
+relation has, as `clauseColumns` reads them. The page's filter is not something the model names: it
+is the predicate the answer is read under, as every tile's is. What the model reads back is what was
+true then; the card is a tile, and follows the page afterwards like any other.
 
 **The card is a dashboard tile.** `QueryResult` gives way to the dashboard's `ChartCard` over the
 answer, with two actions that fall out of the shape: **Filter to it** publishes the answer's
-conditions and the values of its `x` as clauses, and **Add to the dashboard** puts the tile in the
-relation's spec, because it already is one.
+conditions and, for a bar chart, the categories it answered, mapped to the page as one semi-join on
+the relation's root key (`semiJoinOf`, as a relation dashboard's tiles are), and **Add to the
+dashboard** puts the tile in the relation's spec, because it already is one. A kept answer is names,
+not SQL, so a restored transcript draws it again over the host's graph, and nothing a transcript
+carried reaches the engine as a statement.
 
 **The references are the semantic layer's**: Looker's Conversational Analytics and ThoughtSpot Sage,
 where a question is answered by picking fields of an explore or a worksheet, and Cube, LookML and
@@ -67,7 +74,7 @@ look different, and the spec is where the missing words get added.
 growing the spec costs more than a second door. Then a SQL tool returns beside the spec, behind
 `gateStatement` as it was, and the card says which one answered.
 
-*Will be held by* `packages/ai/src/data/answer.test.ts` (the schema's enums are the relation's
-fields and nothing else; an answer compiles to the query the same dashboard tile reads; input
-outside the schema is refused before it runs) and `packages/ai/src/data/answer-card.test.tsx` (Add
-to the dashboard writes the tile into the relation's spec).
+*Held by* `packages/ai/src/data/answer.test.ts`, "the enums are the relation's fields only"; "an
+answer compiles to the same query the dashboard tile reads"; "input outside the schema is refused
+before it runs"; and `packages/ai/src/data/answer-card.test.tsx`, "Add to the dashboard writes the
+tile into the relation's spec".

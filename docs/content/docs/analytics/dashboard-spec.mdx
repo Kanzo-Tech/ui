@@ -178,6 +178,8 @@ types on this page are inferred from it, so the check and the types cannot disag
 
 - **`parseDashboards(saved)`** reads the document. `null` or `undefined` is `{ byRelation: {} }`.
 - **`parseDashboard(saved)`** reads one relation's spec, for a host that stores them apart.
+- **`parseTile(tile)`** reads one tile, for a tile made outside the editor — an
+  [answer](/docs/ai/data) a model filled — before it is drawn or saved: `not a tile at y: …`.
 
 Anything that is not a current spec **throws**, naming the first field that is wrong and, from
 `parseDashboards`, the relation: `not a dashboards document at byRelation.Person.tiles.0.span: …`.
@@ -255,4 +257,10 @@ interface Dashboards {
 
 function parseDashboard(saved: unknown): DashboardSpec;
 function parseDashboards(saved: unknown): Dashboards;
+function parseTile(tile: unknown): Tile;
 ```
+
+What a tile compiles with is exported for a reader of a tile that is not a dashboard's — the
+[answers](/docs/ai/data) `@kanzo-tech/ai/data` reads: `DASHBOARD_CHART_TYPES` and
+`DASHBOARD_AGGREGATES`, the closed sets the schema picks from; `measureExpr(measure)`, the SQL a
+measure is; and `bucketExpr(field)`, the step a trend groups an ordered field by.

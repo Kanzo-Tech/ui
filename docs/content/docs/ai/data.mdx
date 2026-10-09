@@ -1,43 +1,52 @@
 ---
 title: Ask your data
-description: An agent that answers questions about data by querying DuckDB on the page's coordinator, the schema it is given, the one door from its SQL to the engine, the questions to start from, and the card each answer is drawn in — @kanzo-tech/ai/data.
+description: An agent that answers questions about data with a dashboard tile over a relation, filled from names the page generated — the relations it may answer about, the schema it fills, the questions to start from, and the card each answer is drawn in — @kanzo-tech/ai/data.
 ---
 
-`@kanzo-tech/ai/data` is `Chat` pointed at data: Databricks Genie's and Hex Magic's loop — a
-question, one SQL query, the rows drawn as what they are, a sentence about them — over the page's
-own DuckDB. The live version is the **Ask** panel of the [workspace showcase](/docs/showcases/workspace):
-a recorded model, but every query runs for real, under the filter you set on the page.
+`@kanzo-tech/ai/data` is `Chat` pointed at data. A question gets one answer, and an answer is a
+**dashboard tile over a relation**: the model picks a relation of the page's join graph, narrows it
+with the conditions a dashboard's filters publish, and says how it is shown — a figure, a chart or a
+table. It writes no SQL: every name it writes is an enum the page generated from the data it shows.
+[Asking data](/docs/design/ai) is why. The live version is the **Ask** panel of the
+[workspace showcase](/docs/showcases/workspace): a recorded model, but every tile is read for real,
+under the filter you set on the page.
 
 | | For |
 | --- | --- |
-| `dataAgent` | The agent: one `query` tool that runs DuckDB SQL on the page's coordinator |
-| `describeSchema` | The schema it is given: a catalog as DDL and the tables it declares, read from DuckDB's `information_schema` |
-| `gateStatement` | The one door from a model's SQL to the engine: one read-only SELECT over the schema's tables, or a refusal |
-| `dataSuggestions` | Questions to start from, over that schema and the reader's scope — `suggest()` with a data space's instructions |
-| `QueryResult` | The card an answer is drawn in: a `Stat`, a chart, or a table, with its SQL and its actions |
+| `readAnswerRelations` | What may be asked about: each relation's fields, as a dashboard over it reads them, and each category's most common values |
+| `dataAgent` | The agent: one `answer` tool, whose input is the schema below |
+| `answerSchema` | The tool's JSON Schema: the relations' types, hops and fields, the aggregates and the chart kinds, as enums |
+| `checkAnswer` | What refuses input outside that schema before anything runs, in words the model reads |
+| `dataSuggestions` | Questions to start from, over those relations and the page's filter — `suggest()` with a data space's instructions |
+| `AnswerCard` | The card an answer is drawn in: the dashboard's own tile, with *Filter to it* and *Add to the dashboard* |
 
 ## Usage
 
 ```tsx
 import { Chat, ChatSkeleton, useAgentChat } from "@kanzo-tech/ai";
-import { dataAgent, dataSuggestions, describeSchema, QueryResult, type DataSchema } from "@kanzo-tech/ai/data";
+import { AnswerCard, dataAgent, dataSuggestions, readAnswerRelations, type AnswerCardProps, type AnswerRelation } from "@kanzo-tech/ai/data";
 import { createGateway } from "@kanzo-tech/llm";
 import { DiagnosticList, Problem } from "@kanzo-tech/ui";
-import { clauseSemiJoin, useMosaic } from "@kanzo-tech/ui/analytics";
+import { relationHops, useMosaic, type JoinGraph, type Relation } from "@kanzo-tech/ui/analytics";
 
 const gateway = createGateway({ baseURL: "/api/ai" });
+
+/** A type alone, and each hop from it: what a reader of that type may ask about. */
+const around = (graph: JoinGraph, type: string): Relation[] => [
+  { root: type, path: [] },
+  ...relationHops(graph, type).map(({ hop }) => ({ root: type, path: [hop] })),
+];
 ```
 
 ```tsx
-function Ask({ catalog, schema, table }: { catalog: string; schema: DataSchema; table: TableExpr }) {
+function Ask({ graph, relations, onAdd }: { graph: JoinGraph; relations: AnswerRelation[]; onAdd: AnswerCardProps["onAdd"] }) {
   const { coordinator, crossfilter } = useMosaic();
-  const scope = useMemo(() => ({ selection: crossfilter, table }), [crossfilter, table]);
-  const chat = useAgentChat(dataAgent({ model: gateway("chat"), coordinator, schema, scope, key: "dense_id" }));
+  const chat = useAgentChat(dataAgent({ model: gateway("chat"), coordinator, graph, relations, selection: crossfilter }));
   // Cached per data space and per filter; streamed, so the pills land one by one.
   const starters = useQuery({
-    queryKey: ["starters", catalog, String(crossfilter.predicate(null))],
+    queryKey: ["starters", relations, String(crossfilter.predicate(null))],
     queryFn: streamedQuery({
-      streamFn: ({ signal }) => dataSuggestions({ model: gateway("complete"), schema, scope, abortSignal: signal }),
+      streamFn: ({ signal }) => dataSuggestions({ model: gateway("complete"), graph, relations, selection: crossfilter, abortSignal: signal }),
     }),
   });
   return (
@@ -52,263 +61,202 @@ function Ask({ catalog, schema, table }: { catalog: string; schema: DataSchema; 
       }
       suggesting={starters.fetchStatus === "fetching"}
       suggestions={starters.isError ? [] : (starters.data ?? [])}
-      tools={{
-        query: (part, { stopped }) => (
-          <QueryResult actions={(answer) => <FilterToThese answer={answer} />} part={part} stopped={stopped} />
-        ),
-      }}
+      tools={{ answer: (part, { stopped }) => <AnswerCard graph={graph} onAdd={onAdd} part={part} stopped={stopped} /> }}
     />
   );
 }
 ```
 
-Until the schema is read, draw `<ChatSkeleton />` in the chat's place: it is the same layout, so
+`relations` is `await readAnswerRelations(coordinator, graph, around(graph, "Person"))`, read once
+per data space. Until it is, draw `<ChatSkeleton />` in the chat's place: it is the same layout, so
 nothing jumps when the chat replaces it. The cache is the host's: `dataSuggestions` is an async
 iterable, so TanStack Query's `streamedQuery` (or an effect) holds it, keyed per data space and
-scope. While it streams the strip shows pills in skeleton; if it fails the failure is drawn in the
+filter. While it streams the strip shows pills in skeleton; if it fails the failure is drawn in the
 pills' place (`notice`), and the chat works the same — see [Before the first question](/docs/ai/chat#before-the-first-question).
 
-## The questions
+## The relations
 
-`dataSuggestions` offers what crosses a join first. A count or a top N over one table is what a BI
-tool's first screen already shows; what a reader cannot see in any one file is how two of them
-connect, and a catalog whose `REFERENCES` are declared says exactly where that is. So the
-instructions favour a question across a declared join, ask a single-table count or top N only when
-the schema declares none, and have each rationale name the tables the question connects — which is
-what the pill's tooltip then says.
+`readAnswerRelations(coordinator, graph, relations, { values })` answers an `AnswerRelation` per
+relation, `{ relation, columns, fields }`, read from the engine the way a [dashboard](/docs/analytics/dashboard)
+over the same relation reads them: `queryFieldStats` over `relationQuery`, without the keys
+`relationIdentities` names, then `plotRelation`. Each category that is a dimension carries its most
+common `values` — six by default, the most common first — counted over the relation.
 
-The model is the host's `complete` alias, not `chat`: a handful of short questions is a completion,
-and the reader is waiting on the strip, not on an answer.
+So the model and the dashboard read **one list of fields**: a tile the model fills names the fields
+`Dashboard` draws, and *Add to the dashboard* adds a tile the dashboard can draw.
 
-*What would reverse it:* readers picking the count and top-N pills over the cross-join ones,
-observed in a discovery view, or hosts whose schemas declare no joins at all — then the
-instructions are favouring what nobody has.
+Which relations are offered is the host's to say. A type alone and every hop from it is the usual
+answer, because a question that crosses a hop is what a reader cannot see in any one table; each one
+costs a `SUMMARIZE` and a count per category, once per data space. The graph comes from whatever
+catalog the host has — [`readJoinGraph`](/docs/graph#readjoingraph) for a fossil corpus.
 
-*Held by* `packages/ai/src/data/agent.test.ts`, "favours a question across a declared join, and a
-rationale naming the tables it connects".
+*Held by* `packages/ai/src/data/answer.test.ts`, "reads each relation's fields as a dashboard over it
+does, without its keys, and each category's most common values".
 
-## The schema
+## The answer
 
-`describeSchema(coordinator, { catalog, exclude, references })` reads `information_schema.columns`
-for one catalog and answers a `DataSchema`, `{ ddl, tables }`: the catalog written as DDL, every
-table qualified as a query must name it, and each of those tables as a path —
-`["jobs/7", "Person_knows_Person"]`. The model reads the DDL; the [statement gate](#the-statement-gate)
-lets a statement read the tables and nothing else. One answer, so the tables the model is shown and the
-tables it may read cannot be two lists.
-
-```sql
-CREATE TABLE "jobs/7"."Person_knows_Person" (
-  "src" UINTEGER REFERENCES "jobs/7"."Person" ("dense_id"),
-  "dst" UINTEGER REFERENCES "jobs/7"."Person" ("dense_id")
-);
+```ts
+interface Answer {
+  relation: Relation;            // a type, and the hops from it — the JoinGraph's
+  where?: readonly Condition[];  // { field, in } | { field, between } | { field, contains }
+  show: Tile;                    // the dashboard's Tile: a figure, a chart or a table
+  top?: number;                  // rank show's x by its measure and keep these many
+}
 ```
 
-It is read from the engine rather than re-derived from a manifest, so the names and the **types** are
-the ones a query will meet. The one thing a catalog of views cannot carry is that a join exists: they
-declare no keys. `references` — `SchemaReference`s, `{ table, column, references: { table, column } }`
-— says so, written as DDL writes it, `REFERENCES`, the form a model has read the most of.
+The model writes an `AnswerInput`: an `Answer` whose tile has no `id` and no `span`, which the page
+gives — the call's id, and the width a dashboard gives the kind.
 
-**Nothing here knows what the data is.** A fossil corpus's joins come from
-[`corpusReferences`](/docs/graph#the-joins-for-a-reader-of-the-catalog) in `@kanzo-tech/graph`, the package
-that already reads `fossil_tables`; a schema describer that learnt them would be a second reader of
-fossil.
+`answerSchema(graph, relations)` is the tool's JSON Schema. The relation's `root` and each hop's
+`edge` are enums of the types and edges the relations offered take; every field slot — a condition's
+`field`, a chart's `x`, `color` and `facet`, a measure's `field`, a figure's `trend`, a table's
+`columns` — is an enum of the offered relations' fields; `op` is an enum of the dashboard's
+aggregates and `type` of its chart kinds. A provider that decodes against the schema cannot write a
+name that does not exist.
 
-*Held by* `packages/ai/src/data/schema.test.ts`, "writes the catalog as qualified DDL, its references
-as REFERENCES, and leaves out what is excluded, from its tables as well".
+The schema is one object rather than one branch per relation, because Anthropic and OpenAI refuse a
+tool whose input is an `anyOf` at the top. So **`checkAnswer(value, relations, graph)`** holds the rest:
+the relation is one of those offered, every field is that relation's, the conditions have one
+operator each, `top` is a whole number, and the tile is one [`parseTile`](/docs/analytics/dashboard-spec#reading-it-back)
+reads. It is the AI SDK's `validate` on the tool's input, so input that fails is refused before
+`execute` runs, and the model reads the sentence: *show.x: Person2.gender is not a field of Person,
+whose fields are Person.gender, Person.age, Person.born.*
+
+**An answer compiles with what a dashboard compiles with.** `relationQuery` makes the relation and
+`plotRelation` the table the plots read; each condition is the clause a dashboard filter of its kind
+publishes — `clausePoints` for `in`, `clauseInterval` for `between`, over `Date`s for a time,
+`clauseMatch` for `contains`; and the tile's rows are its measure, `measureExpr`, by its x, grouped
+by the step a trend takes (`bucketExpr`). The page's crossfilter applies as it is when the answer
+runs: each of its clauses whose columns the relation has, as [`clauseColumns`](/docs/design/graph#the-clause-rule-column-predicates-or-a-semi-join-on-identity)
+reads them — a semi-join on the root's key always does.
+
+**What the spec cannot say gets no answer.** A ratio of two measures, a window, a join the graph does
+not have: the model is told to say so in one sentence rather than answer a different question. There
+is no SQL beside it as a fallback; [Asking data](/docs/design/ai) says why, and what would reverse
+it.
+
+*Held by* `packages/ai/src/data/answer.test.ts`, "the enums are the relation's fields only"; "an
+answer compiles to the same query the dashboard tile reads"; "crosses a hop: whom the women know, by
+gender, ranked"; "input outside the schema is refused before it runs".
 
 ## The agent
 
-`dataAgent(options)` is a `ToolLoopAgent` with one tool, `query`. The model writes one DuckDB
-SELECT; the tool passes it through [`gateStatement`](#the-statement-gate), runs what the gate lets
-through on the page's coordinator, and answers with every row — the reader sees all of them, the model
-reads the first 30, cut to 4,000 characters. A statement the gate or the engine refuses is an answer,
-`{ sql, error }`, not a throw: the model reads why and tries again, and the card shows the refusal.
+`dataAgent(options)` is a `ToolLoopAgent` with one tool, `answer`. The tool compiles the answer and
+reads its rows on the page's coordinator — the reader sees the tile, the model reads the first 30
+rows, cut to 4,000 characters, and the page's clauses the answer was read under, as a chip names
+them. An engine failure throws, so the AI SDK hands the model the error and the card draws it.
 
 | Option | Type | |
 | --- | --- | --- |
 | `model` | `LanguageModel` | The host's — `gateway("chat")`. Nothing here names a model |
 | `coordinator` | `Coordinator` | The page's, so the agent reads through its one connection |
-| `schema` | `DataSchema` | `describeSchema`'s answer. The model is told it is the whole of the data, and a statement reads nothing else |
-| `scope` | `DataScope` | `{ selection, table }`: offered to every query as the table `scope` |
-| `key` | `string` | A column that identifies a row across tables; the model includes it when it selects rows |
-| `rows` | `number` | The most rows a query brings back. Default 1000 |
+| `graph` | `JoinGraph` | The graph the relations are over |
+| `relations` | `readonly AnswerRelation[]` | `readAnswerRelations`' answer. The model is told it is the whole of the data |
+| `selection` | `Selection` | The page's crossfilter: an answer is read under its clauses when it runs |
 
-**The row cap is the tool's, not the prompt's.** The model is asked to end in a `LIMIT`, and the
-gate wraps the statement in `SELECT * FROM (…) LIMIT 1001` regardless — a subquery, so a statement
-with a `WITH` of its own still composes. The one row past the cap is how the tool knows: `truncated`
-is true only when the cap cut an answer short, and the reader gets the first 1000.
+**The instructions list fields, not DDL.** Each relation is named (`Person>knows>Person`), given as
+the literal the model writes for it, and followed by its fields, each with its kind and what it
+holds: `Person.gender: category (female, male)`, `Person.age: number (27 – 61)`, `Person.born: time
+(1965-09-15 – 1999-01-20)`, and an identifier as `text, one per row`. The model never reads a table
+name, so it never writes one.
 
-**The model is told the rows are already on screen.** The tool's description and its result say so,
-and the instructions end on it: say what the rows show — the numbers that matter, the pattern, the
-exception — and do not list them again or reprint the SQL. Genie's and ChatGPT's answers read the same
-way; an answer that repeats its own table is a page of duplication.
+**The model is told the tile is already shown.** The instructions end on it: say what the tile shows
+— the numbers that matter, the pattern, the exception — and do not list its rows again. Genie's and
+ChatGPT's answers read the same way.
 
 `dataInstructions(options)` is the prompt, for a host that builds its own `ToolLoopAgent` around the
 same tool; `DataTools` types the toolset, so `InferAgentUIMessage<ReturnType<typeof dataAgent>>` types
-the messages.
+the messages. `AnswerOutput` is what a call answers: `{ answer, rows, truncated, under }` — the answer
+as placed, the rows its tile reads, whether the 1,000-row cap cut them, and the page's clauses it was
+read under; a row is a `QueryRow`.
 
-*Held by* `packages/ai/src/data/agent.test.ts`, "runs the model's SQL under the scope, and hands the
-reader every row, plain enough for a message"; "is truncated only when the cap cut the answer short";
-"answers a statement the engine refuses with the engine's words rather than throwing"; "tells the
-model the rows are already in front of the reader, and what it may read"; "hands the model a sample of
-the rows and the scope that applied, after one tool call".
+*Held by* `packages/ai/src/data/agent.test.ts`, "tells the model each field with its kind and what it
+holds, never DDL, and that the tile is already shown"; "hands the model a sample of the rows and the
+page's filter that applied, after one tool call"; "stops after five steps, however often the model
+calls the tool"; "throws when the chat was stopped, rather than answering nobody".
 
-### Scope
+## The questions
 
-`scope` is what the reader is looking at: the page's `Selection` and the relation its clauses
-filter. Every query may read it as a table named `scope`, defined in front of the model's statement:
+`dataSuggestions` offers what crosses a hop first. A count or a top N over one type is what a BI
+tool's first screen already shows; what a reader cannot see in any one table is how two connect, and
+a relation written with `>` or `<` says exactly where that is. So the instructions favour a question
+over a relation that crosses a hop, ask a count or top N over a type alone only when none is offered,
+and have each rationale name the relation the question is over — which is what the pill's tooltip
+then says. The page's filter, as its chips read, is in the prompt: the questions favour those rows.
 
-```sql
-WITH "scope" AS (SELECT * FROM "archive"."Node" WHERE ("kind" IN ('contract')))
-SELECT * FROM (SELECT count_star() AS n FROM "scope") LIMIT 1001
-```
+The model is the host's `complete` alias, not `chat`: a handful of short questions is a completion,
+and the reader is waiting on the strip, not on an answer.
 
-The gate owns that composition, and it is **built with mosaic-sql, never spliced**: the clauses are
-the selection's own predicate nodes, from `selection.predicate(null)` — a pick, a brush, or a
-`clauseSemiJoin` on identity alike — and what sits in the subquery is DuckDB's own print of the
-statement it parsed, not the model's text. The prompt only documents `scope`; each result tells the
-model which filter applied, because the page can change between two questions. With nothing selected,
-`scope` is the whole relation.
+*What would reverse it:* readers picking the count and top-N pills over the cross-hop ones, observed
+in a discovery view, or hosts that offer no hop at all — then the instructions are favouring what
+nobody has.
 
-**Every question is about `scope`.** The instructions tell the model to start from it and join the
-tables to it for what it does not hold, and to read the tables alone only when the reader asks about
-the whole data — *in all*, *overall*. A host shows what the next question is asked over through
-`Chat`'s `context`.
-
-*Held by* `packages/ai/src/data/statement.test.ts`, "runs DuckDB's print of the parse, under the cap
-and with scope defined by the selection's predicate".
-
-## The statement gate
-
-`gateStatement(coordinator, sql, { tables, scope, limit })` is the one door from a model's SQL to the
-page's engine, and it answers `{ statement }` — what may run — or `{ refused: { message, code } }`,
-with `code` `"query/refused"`. The agent calls it before every query; a host that builds its own tool
-around the same engine calls it too.
-
-The engine is the page's one connection, with `httpfs` and `json` loaded and a scoped secret beside
-it. A model's text that reached it unread could close the subquery it was put in and run a second
-statement — drop or replace a view the graph and the dashboard draw, `DETACH` a catalog, `COPY` a
-table to a bucket, drop the secret — or, inside one SELECT, read any URL with `read_text`. A prompt
-injected through a row value or a column name is enough to ask for any of it. So the text is **never run and never spliced**:
-
-1. **DuckDB parses it.** `json_serialize_sql` reads the text as a literal and answers the parse. It
-   serialises one kind of statement, SELECT, so DDL, `COPY`, `ATTACH`, `SET`, `PRAGMA` and a second
-   statement are refused before the gate looks.
-2. **The gate reads the parse.** Every relation in it — in a FROM, either side of a join, a pivot's
-   source, a subquery inside an expression — must be one of `tables`, `scope`, or a CTE the statement
-   defines where it is read. A table function is refused, `read_*`, `glob`, `query_table`,
-   `duckdb_secrets()` and `pragma_*` among them; so are `DESCRIBE`, `SHOW` and `SUMMARIZE`, which read
-   the catalog, and a file or URL named as a table, which is a table nobody described. A CTE named
-   `scope` is refused: the reader's selection is read, never redefined.
-3. **DuckDB prints the parse back.** `json_deserialize_sql` turns it into text, and mosaic-sql wraps
-   that in the cap and the scope. What runs is DuckDB's rendering of one SELECT.
-
-Both functions are DuckDB's `json` extension, which `engine()` loads at boot. A coordinator you build
-over another DuckDB needs it loaded too; without it every statement fails with DuckDB's error naming
-the extension.
-
-A refusal names what the model may read, by the names it was shown, so the next statement can be
-right. Databricks Genie runs its model's SQL read-only for the same reason, and the AI SDK's advice is
-the same shape: validate a tool's input before `execute`.
-
-**What it cannot prove** is what a scalar function computes. It reads where rows come from, not what
-is done with them, so `current_setting(…)` or `getvariable(…)` pass; neither reads a file, a URL or a
-table.
-
-*What would reverse it* is an engine that refuses the same things itself: a read-only connection the
-agent could be handed beside the page's, with no secret and no `httpfs`. DuckDB-WASM opens one
-database per page, and the page's connection is the one with both, so the gate is the boundary there
-is.
-
-*Held by* `packages/ai/src/data/statement.test.ts`, "refuses scope when there is none"; "tells the
-model what it may read, by the names it was shown" — beside every statement it refuses, each
-checked against the database afterwards, and the ones it lets through, each run. `packages/ai/src/data/agent.test.ts`,
-"answers a statement the gate refuses with the gate's words, and runs nothing"; "hands the model the
-gate's refusal, so it can write another statement".
+*Held by* `packages/ai/src/data/agent.test.ts`, "favours a question across a hop, and a rationale
+naming the relation it is over"; "asks for questions over the relations and the page's filter, as
+many as were wanted".
 
 ## The answer card
 
-`QueryResult` draws one `query` call, from the part `Chat`'s `tools` hands over, at whatever state
-it is in. Once there is an answer:
+`AnswerCard` draws one `answer` call, from the part `Chat`'s `tools` hands over, at whatever state it
+is in. Once there is an answer it is **the dashboard's own tile** over the answer's relation,
+narrowed by its conditions — a chart is `ChartCard`, a figure `DashboardStat`, a table a
+`DetailTable` — and like every tile it reads under the page's crossfilter: what the reader filters
+afterwards, the card follows. A kept answer is names, not SQL, so a restored transcript draws it
+again over the host's graph, and one whose relation that graph no longer has is a `Problem`.
 
-- **One row of one column is a figure**, drawn as a `Stat` with the column as its label.
-- **Rows a chart suits are a chart**: the first card [`recommend(fields, "answer")`](/docs/analytics/dashboard#recommend)
-  proposes — a measure against the time or the category it was grouped by — with the table a toggle away.
-  A bar chart of more than 40 bars is passed over.
-- **Anything else is a compact table**, eight rows a page.
-- **The SQL is under it**, folded away, in a read-only `CodeEditor` with SQL highlighting.
-- **The actions are above it**: the SQL to the clipboard, the rows as CSV, and the host's own.
+Above it are the two actions the shape gives:
 
-Before there is one, and when there will be none:
-
-- **While the model writes the statement and the engine runs it**, the statement shows as it is
-  written, open, under a skeleton the chart's height, so nothing jumps when the rows land.
-- **A call that stopped** (`stopped`, from `Chat`) shows its statement and nothing that waits.
-- **A refusal is a [`Problem`](/docs/data-display/problem)** under the card's title, *The query
-  failed*. The statement gate's carries `query/refused` on `data-code`, like every coded failure in
-  the library; the engine's own words stay uncoded, because no host branches on them. The tool's
-  own failure, the part's `errorText`, is drawn the same way. A kept refusal is data in a
-  `QueryRefusal`, never thrown, and one kept before it had a code draws as an uncoded `Problem`.
-
-*What would reverse the uncoded engine error:* the first host that branches on it. Then it is
-`query/failed`, with a row in [the codes table](/docs/design/failure#the-codes-this-library-names).
-
-**Everything it draws is the rows the answer holds**, as Hex's and Genie's cards draw the result set
-rather than the query. The SQL is never run again: a transcript is kept and restored, and a statement
-read out of one is no one's to run. The chart reads those rows as a relation of literals — `VALUES`
-under the answer's own column names, every value a mosaic-sql literal and every name a quoted
-identifier — so the chart and the table are the same rows by construction. It is **not** a client of
-the page's crossfilter: an answer is what was true when it was asked. Taking it back to the page is an
-action, and the host draws it, because only the host knows what the page is: `@kanzo-tech/ai` does
-not depend on the graph. *What would reverse it* is a card asked to draw more rows than the answer
-holds; that re-query would go through `gateStatement`, with the host's tables, like any other.
+- **Filter to it** narrows the page to the answer: its conditions, and for a bar chart the
+  categories it answered, published as one semi-join on the relation's root key — [`semiJoinOf`](/docs/design/graph#the-clause-rule-column-predicates-or-a-semi-join-on-identity),
+  as a relation dashboard's tiles publish — so the graph and every panel that shares the key follow.
+  It is a chip in the page's `FilterBar`, *Ask*, and pressed again it takes the clause back. An
+  answer with nothing to narrow to draws no button.
+- **Add to the dashboard** is drawn when the host passes `onAdd`. It is called with the relation's
+  key, as `relationKey` writes it and a host keeps its dashboards by, and `add`, which answers the
+  relation's spec with the tile appended under a new id — to the automatic dashboard when the spec is
+  `undefined`, as `Dashboard` would draw it.
 
 ```tsx
-function FilterToThese({ answer }: { answer: QueryOutput }) {
-  const { crossfilter } = useMosaic();
-  const [source] = useState(() => ({ reset() {} }));
-  if (!answer.rows[0] || !("dense_id" in answer.rows[0])) return null;
-  const ids = answer.rows.map((row) => Number(row.dense_id));
-  return (
-    <Button onClick={() => crossfilter.update(clauseSemiJoin("dense_id", ids, { source, label: "Ask" }))} size="sm" variant="ghost">
-      Filter to these
-    </Button>
-  );
-}
+<AnswerCard
+  graph={graph}
+  onAdd={(key, add) => change({ byRelation: { ...current.byRelation, [key]: add(current.byRelation[key]) } })}
+  part={part}
+  stopped={stopped}
+/>
 ```
 
-A semi-join on identity is the clause every panel that shares the key answers, so the dashboard and
-the graph both follow: the graph greys out what the clause drops.
+Before there is an answer, and when there will be none:
+
+- **While the model writes the answer and the engine reads it** the card is `aria-busy`, over a
+  skeleton the chart's height, so nothing jumps when the tile lands.
+- **A call that stopped** (`stopped`, from `Chat`) draws nothing that waits.
+- **A refusal is a [`Problem`](/docs/data-display/problem)** under the card's title, *The answer
+  failed*: input `checkAnswer` refused, the engine's failure, both from the part's `errorText`.
 
 | Prop | Type | |
 | --- | --- | --- |
-| `part` | `ToolPart` | The `query` call, at any state |
+| `part` | `ToolPart` | The `answer` call, at any state |
+| `graph` | `JoinGraph` | The graph the agent was given |
 | `stopped` | `boolean` | The call will never settle — `Chat`'s `stopped` |
-| `actions` | `(answer: QueryOutput) => ReactNode` | The host's actions, beside Copy and CSV |
-| `translations` | `Partial<QueryResultTranslations>` | Every word it draws |
+| `onAdd` | `(key, add) => void` | Makes *Add to the dashboard* an action |
+| `translations` | `Partial<AnswerCardTranslations>` | Every word it draws |
 
-`QueryOutput` is `{ sql, rows, truncated }`, `QueryRefusal` is `{ sql, error: { message, code? } }` — the thrown value does not survive a message, its words and its code do, and a call
-answers a `QueryAnswer`, one of the two; a row is a `QueryRow`.
-
-*Held by* `packages/ai/src/data/query-result.test.tsx`, "draws a single figure as a Stat, with its
-column as the label"; "is the chart recommend proposes for an answer, a measure against what it was
-grouped by"; "hands the host's actions the whole answer"; "draws a refusal as a Problem under the
-card's title: the gate's code, the words, and the SQL refused"; "shows the statement as it is written,
-open, over a skeleton the chart's height"; "shows a stopped call's statement and nothing that waits"; "never runs the SQL a kept answer carries:
-the chart reads the rows"; "is the rows it holds, as literals: a timestamp is a timestamp again, and
-SQL in a kept row is data".
+*Held by* `packages/ai/src/data/answer-card.test.tsx`, "Add to the dashboard writes the tile into the
+relation's spec"; "filters the page to the answer as one semi-join on the root key, and takes it
+back"; "is busy until answered, over a skeleton the chart's height, and not once stopped"; "draws a
+refusal as a Problem under the card's title"; "draws a kept answer whose relation the graph no longer
+has as a Problem"; "draws the figure the answer is, read under its conditions".
 
 ## Installing it
 
-A subpath, because it draws with `@kanzo-tech/ui`'s [analytics](/docs/analytics/charts), table and
-editor layers, whose engines are optional peers: a host that only chats does not install DuckDB to
-import `Chat`. A host of `/data` installs those layers' peers, plus two of its own:
+A subpath, because it draws with `@kanzo-tech/ui`'s [analytics](/docs/analytics/charts) and table
+layers, whose engines are optional peers: a host that only chats does not install DuckDB to import
+`Chat`. A host of `/data` installs those layers' peers, plus one of its own:
 
 ```bash
-pnpm add @kanzo-tech/mosaic @codemirror/lang-sql
+pnpm add @kanzo-tech/mosaic
 ```
 
-The types are exported as `DataAgentOptions`, `DataSchema`, `DataScope`, `DataSuggestionsOptions`,
-`DataTools`, `DescribeSchemaOptions`, `SchemaReference`, `GatedStatement`, `StatementGateOptions`,
-`StatementRefusal`, `QueryAnswer`, `QueryOutput`, `QueryRefusal`, `QueryRow`, `QueryResultProps` and
-`QueryResultTranslations`.
+The types are exported as `Answer`, `AnswerInput`, `AnswerField`, `AnswerRelation`, `Condition`,
+`ConditionValue`, `AnswerOutput`, `QueryRow`, `DataAgentOptions`, `DataSuggestionsOptions`,
+`DataTools`, `ReadAnswerRelationsOptions`, `AnswerCardProps` and `AnswerCardTranslations`.

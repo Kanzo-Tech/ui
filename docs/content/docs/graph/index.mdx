@@ -470,12 +470,10 @@ table joins anything. `corpusReferences(coordinator, from)` answers what it cann
 `src` holds its source vertex table's `dense_id`, and its `dst` its destination's, as a list of
 `CorpusReference`s — `{ table, column, references: { table, column } }`. It lives here, beside the
 structure reader, because this package is the one that reads `fossil_tables`; the shape is plain
-data, so [`describeSchema`](/docs/ai/data#the-schema) takes it as its references without either
-package knowing the other.
+data, as a schema states a join, for a reader that is handed only DuckDB's catalog.
 
 ```ts
 const references = await corpusReferences(coordinator, jobId);
-const schema = await describeSchema(coordinator, { catalog: jobId, exclude: ["fossil_tables", "fossil_columns"], references });
 ```
 
 *Held by* `packages/graph/src/core/references.test.ts`, "names each edge table's src and dst as the
