@@ -106,6 +106,14 @@ organization's groups — what an organization admin does in the console — wit
 scripts/map-group-role.sh acme Admins board admin
 ```
 
+In development the seed does it: an application hands `auth-seed` a file shaped like
+[`seed/seed.json`](seed/seed.json)'s `organizations` — its roles on the seeded groups — as a compose
+`configs` entry at `/seed.d/<name>.json`, and the seed merges it in (`SEED_DIR`):
+
+```json
+{ "organizations": { "acme": { "groups": { "Admins": { "board": ["admin"] } } } } }
+```
+
 An organization group's role mappings live under the organization:
 `POST /admin/realms/{realm}/organizations/{org}/groups/{group}/role-mappings/clients/{client}`. The
 realm's `/groups/{id}/role-mappings` answers 400 for an organization group.
