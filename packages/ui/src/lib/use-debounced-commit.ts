@@ -14,6 +14,11 @@ export interface DebouncedCommit<T, R = void> {
    * `onCommit` answered, so a caller can wait on the write its decision made.
    */
   commit: (next: T) => R;
+  /**
+   * Drops a pending draft without committing it, and leaves `draft` showing it until the owner's
+   * value next changes. For an owner whose own write supersedes the draft: cancel, then write once.
+   */
+  cancel: () => void;
 }
 
 /**
@@ -27,6 +32,10 @@ export interface DebouncedCommit<T, R = void> {
  * Nothing is committed on unmount: a cleanup that commits also commits in Strict Mode's
  * mount–unmount–mount, and the owner then hears a value nobody typed. `flush` on blur is what
  * keeps the last characters from being lost when the control goes away before the timer fires.
+ *
+ * An owner that writes the same value itself — a save that replaces the field the user is typing in
+ * — calls `cancel` and then writes once. `flush` first would be two writes whose correctness rests
+ * on the second landing after the first.
  *
  * `onCommit` may answer a promise — the write — which `commit` hands back. A commit after the pause or
  * on `flush` has nobody to hand it to, so the owner reports its failure (a mutation's `onError`), as
@@ -86,5 +95,11 @@ export function useDebouncedCommit<T, R = void>(
     if (pending.current) unawaited(pending.current.value);
   };
 
-  return { draft: state.draft, change, flush, commit };
+  const cancel = () => {
+    clearTimeout(timer.current);
+    pending.current = null;
+    setState((s) => ({ ...s, dirty: false }));
+  };
+
+  return { draft: state.draft, change, flush, commit, cancel };
 }
