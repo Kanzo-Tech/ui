@@ -39,3 +39,17 @@ module "application" {
   )
   roles = try(each.value.roles, {})
 }
+
+# A realm applied by a release before v0.35.0 holds the conformance client under the addresses it had
+# when it was a variable rather than a declaration: moved, so such a realm carries on instead of
+# re-creating clients Keycloak already has. Where nothing was there (a new realm, a deployment
+# without dev/), they move nothing.
+moved {
+  from = module.conformance[0]
+  to   = module.application["kanzo-conformance"]
+}
+
+moved {
+  from = module.conformance_api[0]
+  to   = module.application_api["kanzo-conformance"]
+}
