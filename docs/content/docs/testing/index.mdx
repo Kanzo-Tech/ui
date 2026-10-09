@@ -91,7 +91,7 @@ narrowed with its `with`: `ChartHarness.with({ title })`.
 | `AnswerHarness` | the composer, a textbox named *Ask…*; the answer cards by their `data-slot` | `ask(question)`, `answer()`, `addToDashboard()`, `filterTo()` |
 | `FindingsHarness` | its trigger's `data-slot` | `tally()`, `finding(message)` |
 | `FindingHarness` | a `listitem` of the list | `show()`, `severity()`, a `Severity` |
-| `DockHarness` | the `radiogroup` *Panels* | `open(panel)`, `close()`, `current()` |
+| `DockHarness` | a `radiogroup`, named by the page | `open(panel)`, `close()`, `current()` |
 
 - **`GraphCanvasHarness`** — `ready()` waits for the canvas's first drawn frame and fails on a canvas
   that finished loading without one. `lasso` and `marquee` press the toolbar's tool, draw, and wait for
@@ -107,13 +107,17 @@ narrowed with its `with`: `ChartHarness.with({ title })`.
   dashboard filter as *column: value*. `remove(field)` takes everything on `field` off the bar: a
   clause chip retracts its clause, and a dashboard's filter is removed from its spec, which retracts
   its clause too. `readout()` is the status, once it has counted.
-- **`AnswerHarness`** — `answer()` waits for the newest `AnswerCard` to hold its tile or its
-  `Problem`, and rejects with the `Problem`'s words. `filterTo()` waits for **Filter to it** to be
-  pressed, `addToDashboard()` for the card to say *On the dashboard*. The composer is named by its
+- **`AnswerHarness`** — `answer()` waits for the newest `AnswerCard` to stop being `aria-busy`, which
+  it is until its tile or its `Problem` is drawn, and rejects with the `Problem`'s words. `filterTo()`
+  waits for **Filter to it** to be pressed. `addToDashboard()` waits out *Adding to the dashboard…*
+  while the host's write is pending, for *✓ On the dashboard*, which the card reads from the
+  `dashboards` the host hands back; a write the host refused rejects with the card's `Problem`. The composer is named by its
   placeholder; a page with another composer starting *Ask* passes `AnswerHarness.with({ name })`.
 - **`DockHarness`** — `ShellDockSwitcher` is a single-select toggle group, a `radiogroup` of `radio`s,
-  so `open(panel)` waits for the item to be checked and `close()` for none to be. Any single-select
-  toggle group has that shape: `DockHarness.with({ name: "View" })` drives a view switch.
+  so `open(panel)` waits for the item to be checked and `close()` for none to be. The page names the
+  group, so `DockHarness.with({ name })` picks one, and the bare harness takes the first radiogroup on
+  the page. Any single-select toggle group has that shape: `DockHarness.with({ name: "View" })` drives
+  a view switch.
 - **`TimelineHarness`** is written against [the timeline](/docs/design/timeline), which is not built
   yet; its test is skipped until it is.
 

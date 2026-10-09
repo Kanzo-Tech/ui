@@ -1,8 +1,9 @@
 import { AnswerHarness, type KanzoTestingHook } from "@kanzo-tech/testing";
 import { dom } from "@kanzo-tech/testing/dom";
 import { Selection } from "@kanzo-tech/mosaic";
-import { MosaicProvider } from "@kanzo-tech/ui/analytics";
-import { render } from "@testing-library/react";
+import { MosaicProvider, type Dashboards } from "@kanzo-tech/ui/analytics";
+import { render, screen } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { mockModel } from "../testing/model.js";
 import { testDatabase, type TestDatabase } from "../testing/duckdb.js";
@@ -10,7 +11,7 @@ import { PEOPLE, PERSON, seedPeople } from "../testing/people.js";
 import { PromptInput, PromptInputTextarea } from "../prompt-input.js";
 import type { ToolPart } from "../tool.js";
 import { dataAgent, type AnswerOutput } from "./agent.js";
-import { AnswerCard } from "./answer-card.js";
+import { AnswerCard, type AnswerCardProps } from "./answer-card.js";
 import type { AnswerRelation } from "./answer.js";
 import { readAnswerRelations } from "./relations.js";
 
@@ -42,17 +43,21 @@ afterEach(() => {
 
 const part = (state: ToolPart["state"], extra: object = {}) => ({ type: "tool-answer", toolCallId: "c", state, input: {}, ...extra }) as ToolPart;
 
+type Adding = Pick<AnswerCardProps, "dashboards" | "onAdd">;
+
 /** A composer and one answer card, as `Chat` lays them out. */
-function draw(answer: ToolPart, props: Partial<React.ComponentProps<typeof AnswerCard>> = {}, crossfilter = Selection.crossfilter()) {
-  return render(
+function page(answer: ToolPart, adding: Adding = {}, crossfilter = Selection.crossfilter()) {
+  return (
     <MosaicProvider coordinator={db.coordinator} crossfilter={crossfilter}>
       <PromptInput>
         <PromptInputTextarea placeholder="Ask about your data…" />
       </PromptInput>
-      <AnswerCard graph={PEOPLE} part={answer} {...props} />
-    </MosaicProvider>,
+      <AnswerCard graph={PEOPLE} part={answer} {...(adding as object)} />
+    </MosaicProvider>
   );
 }
+
+const draw = (answer: ToolPart, adding: Adding = {}, crossfilter = Selection.crossfilter()) => render(page(answer, adding, crossfilter));
 
 describe("AnswerHarness", () => {
   it("waits for the card to answer, reads its tile, and filters the page to it", async () => {
@@ -74,12 +79,37 @@ describe("AnswerHarness", () => {
     expect(crossfilter.clauses).toHaveLength(1);
   });
 
-  it("adds the answer to the dashboard, and waits for the card to say it is there", async () => {
+  it("adds the answer to the dashboard, through the host's pending write, and waits for the card to say it is there", async () => {
     const env = dom();
-    const onAdd = vi.fn();
-    draw(part("output-available", { output }), { onAdd });
-    await (await env.harness(AnswerHarness)).addToDashboard();
+    let settle = () => {};
+    const onAdd = vi.fn(() => new Promise<void>((resolve) => (settle = resolve)));
+    // The host: draws the document it is handed at once, and confirms the write when the test says so.
+    function Host() {
+      const [dashboards, setDashboards] = useState<Dashboards>({ byRelation: {} });
+      const [crossfilter] = useState(() => Selection.crossfilter());
+      const adding: Adding = {
+        dashboards,
+        onAdd: (next) => {
+          setDashboards(next);
+          return onAdd();
+        },
+      };
+      return page(part("output-available", { output }), adding, crossfilter);
+    }
+    render(<Host />);
+    const added = (await env.harness(AnswerHarness)).addToDashboard();
+    await vi.waitFor(() => expect(onAdd).toHaveBeenCalled(), { timeout: 10_000 });
+    await screen.findByRole("button", { name: "Adding to the dashboard…" });
+    settle();
+    await added;
     expect(onAdd).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects an add the host refused with the words of the card's Problem", async () => {
+    const env = dom();
+    const onAdd = () => Promise.reject(new Error("The dashboard could not be saved."));
+    draw(part("output-available", { output }), { dashboards: { byRelation: {} }, onAdd });
+    await expect((await env.harness(AnswerHarness)).addToDashboard()).rejects.toThrow(/not added to the dashboard.*could not be saved/);
   });
 
   it("rejects an answer that failed with the words of its Problem", async () => {

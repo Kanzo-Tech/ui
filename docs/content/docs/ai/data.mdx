@@ -13,6 +13,7 @@ under the filter you set on the page.
 
 | | For |
 | --- | --- |
+| `answerRelationsOf` | Which relations of a join graph may be asked about: each type alone, and through each of its hops |
 | `readAnswerRelations` | What may be asked about: each relation's fields, as a dashboard over it reads them, and each category's most common values |
 | `dataAgent` | The agent: one `answer` tool, whose input is the schema below |
 | `answerSchema` | The tool's JSON Schema: the relations' types, hops and fields, the aggregates and the chart kinds, as enums |
@@ -24,22 +25,16 @@ under the filter you set on the page.
 
 ```tsx
 import { Chat, ChatSkeleton, useAgentChat } from "@kanzo-tech/ai";
-import { AnswerCard, dataAgent, dataSuggestions, readAnswerRelations, type AnswerCardProps, type AnswerRelation } from "@kanzo-tech/ai/data";
+import { AnswerCard, answerRelationsOf, dataAgent, dataSuggestions, readAnswerRelations, type AnswerCardProps, type AnswerRelation } from "@kanzo-tech/ai/data";
 import { createGateway } from "@kanzo-tech/llm";
 import { DiagnosticList, Problem } from "@kanzo-tech/ui";
-import { relationHops, useMosaic, type JoinGraph, type Relation } from "@kanzo-tech/ui/analytics";
+import { useMosaic, type Dashboards, type JoinGraph } from "@kanzo-tech/ui/analytics";
 
 const gateway = createGateway({ baseURL: "/api/ai" });
-
-/** A type alone, and each hop from it: what a reader of that type may ask about. */
-const around = (graph: JoinGraph, type: string): Relation[] => [
-  { root: type, path: [] },
-  ...relationHops(graph, type).map(({ hop }) => ({ root: type, path: [hop] })),
-];
 ```
 
 ```tsx
-function Ask({ graph, relations, onAdd }: { graph: JoinGraph; relations: AnswerRelation[]; onAdd: AnswerCardProps["onAdd"] }) {
+function Ask({ graph, relations, dashboards, onAdd }: { graph: JoinGraph; relations: AnswerRelation[]; dashboards: Dashboards; onAdd: AnswerCardProps["onAdd"] }) {
   const { coordinator, crossfilter } = useMosaic();
   const chat = useAgentChat(dataAgent({ model: gateway("chat"), coordinator, graph, relations, selection: crossfilter }));
   // Cached per data space and per filter; streamed, so the pills land one by one.
@@ -61,14 +56,16 @@ function Ask({ graph, relations, onAdd }: { graph: JoinGraph; relations: AnswerR
       }
       suggesting={starters.fetchStatus === "fetching"}
       suggestions={starters.isError ? [] : (starters.data ?? [])}
-      tools={{ answer: (part, { stopped }) => <AnswerCard graph={graph} onAdd={onAdd} part={part} stopped={stopped} /> }}
+      tools={{
+        answer: (part, { stopped }) => <AnswerCard dashboards={dashboards} graph={graph} onAdd={onAdd} part={part} stopped={stopped} />,
+      }}
     />
   );
 }
 ```
 
-`relations` is `await readAnswerRelations(coordinator, graph, around(graph, "Person"))`, read once
-per data space. Until it is, draw `<ChatSkeleton />` in the chat's place: it is the same layout, so
+`relations` is `await readAnswerRelations(coordinator, graph, answerRelationsOf(graph, { from: ["Person"] }), { signal })`,
+read once per data space. Until it is, draw `<ChatSkeleton />` in the chat's place: it is the same layout, so
 nothing jumps when the chat replaces it. The cache is the host's: `dataSuggestions` is an async
 iterable, so TanStack Query's `streamedQuery` (or an effect) holds it, keyed per data space and
 filter. While it streams the strip shows pills in skeleton; if it fails the failure is drawn in the
@@ -76,22 +73,36 @@ pills' place (`notice`), and the chat works the same — see [Before the first q
 
 ## The relations
 
-`readAnswerRelations(coordinator, graph, relations, { values })` answers an `AnswerRelation` per
+`readAnswerRelations(coordinator, graph, relations, { values, signal })` answers an `AnswerRelation` per
 relation, `{ relation, columns, fields }`, read from the engine the way a [dashboard](/docs/analytics/dashboard)
 over the same relation reads them: `queryFieldStats` over `relationQuery`, without the keys
 `relationIdentities` names, then `plotRelation`. Each category that is a dimension carries its most
 common `values` — six by default, the most common first — counted over the relation.
 
+`signal` ends the read: it rejects with the signal's reason and cancels the queries still queued on
+the coordinator, so a page left mid-read stops taking the engine from the next one. Each query is
+handed the signal too, for a connector that stops one in flight; DuckDB-WASM's finishes the statement
+it is running and drops it. TanStack Query's `queryFn` hands one over.
+
 So the model and the dashboard read **one list of fields**: a tile the model fills names the fields
 `Dashboard` draws, and *Add to the dashboard* adds a tile the dashboard can draw.
 
-Which relations are offered is the host's to say. A type alone and every hop from it is the usual
-answer, because a question that crosses a hop is what a reader cannot see in any one table; each one
-costs a `SUMMARIZE` and a count per category, once per data space. The graph comes from whatever
-catalog the host has — [`readJoinGraph`](/docs/graph#readjoingraph) for a fossil corpus.
+Which relations are offered is the host's to say, and **`answerRelationsOf(graph, { from, hops })`**
+says the usual answer: each type alone and through each of its hops (`hops: 1`, the default), in the
+graph's order, from every type or from the types `from` names. A question that crosses a hop is what
+a reader cannot see in any one table, and it is also the cost: each relation is a `SUMMARIZE` and a
+count per category, once per data space, and a list of fields in every prompt. Over a graph shaped
+like LDBC's social network at scale factor 1 — 8 types, 23 edges, 3.2 million vertices and 17
+million edges — the types alone read in 1.2 s into a 3,600-character prompt, and with every hop in
+41 s into a 39,000-character one. On a graph that size, offer the hops `from` the types the reader
+is looking at, or `hops: 0`. [Asking data](/docs/design/ai#which-relations-are-offered) has the
+measurement. The graph comes from whatever catalog the host has — [`readJoinGraph`](/docs/graph#readjoingraph)
+for a fossil corpus.
 
 *Held by* `packages/ai/src/data/answer.test.ts`, "reads each relation's fields as a dashboard over it
-does, without its keys, and each category's most common values".
+does, without its keys, and each category's most common values"; "hands each query the signal, and
+ends on an abort with its reason, cancelling what is still queued"; "offers each type alone and
+through each of its hops, in the graph's order".
 
 ## The answer
 
@@ -211,24 +222,52 @@ Above it are the two actions the shape gives:
   as a relation dashboard's tiles publish — so the graph and every panel that shares the key follow.
   It is a chip in the page's `FilterBar`, *Ask*, and pressed again it takes the clause back. An
   answer with nothing to narrow to draws no button.
-- **Add to the dashboard** is drawn when the host passes `onAdd`. It is called with the relation's
-  key, as `relationKey` writes it and a host keeps its dashboards by, and `add`, which answers the
-  relation's spec with the tile appended under a new id — to the automatic dashboard when the spec is
-  `undefined`, as `Dashboard` would draw it.
+- **Add to the dashboard** is drawn when the host passes `dashboards` and `onAdd`, which go together.
+  `dashboards` is the host's [document](/docs/analytics/dashboard-spec#dashboards), a spec per
+  relation, as it draws it. `onAdd` is called with the whole next document — the tile appended to the
+  answer's relation's spec, or to its automatic dashboard when it has none, as `Dashboard` would draw
+  it — and where it landed: `{ relation, key }`, the relation and its `relationKey`, so a host can
+  switch its dashboard view to it.
+
+The tile goes on under the answer's own id, so **whether it is on the dashboard is read from
+`dashboards`**, not kept by the card: a remounted card still says *✓ On the dashboard*, and once the
+reader removes the tile and that is saved, the card offers it again. When `onAdd` returns a promise,
+the button is pending until it settles — whatever `dashboards` already shows — and a rejection is
+drawn as a [`Problem`](/docs/data-display/problem) under the actions, the thrown value whole, with
+the button back. `copy` is the host's words for a coded one, as `Chat` takes them. *On the dashboard* reads the host's `dashboards` and nothing else, so a host that draws the tile
+before its write settles is saying it is there: it rolls the document back when the write fails, and
+the card follows and offers the add again. The card says it
+where the reader pressed, so a host that also toasts every failed save says it twice.
+
+An add is a decision, not an edit: write it at once, as `useDebouncedCommit`'s `commit` does, with
+any edit pending in the dashboard's editor, which it was made over. When a page has both, **one store
+holds the document for the dashboard's editor and for Ask**: `dashboards` is the editor's draft, so an
+answer added while a tile is being edited lands on the edit rather than on what the server held.
 
 ```tsx
+// `save` is a mutation whose `onError` reports a failed write, for the edits nobody awaits.
+const { draft, change, commit } = useDebouncedCommit(saved, (next: Dashboards) => save.mutateAsync(next), 800);
+
 <AnswerCard
+  dashboards={draft}
   graph={graph}
-  onAdd={(key, add) => change({ byRelation: { ...current.byRelation, [key]: add(current.byRelation[key]) } })}
+  onAdd={(next, { relation }) => {
+    setRelation(relation); // the dashboard view, onto the relation the tile landed on
+    return commit(next); // the write, which the button waits on
+  }}
   part={part}
   stopped={stopped}
 />
 ```
 
+`commit` answers what `onCommit` answered, so the card waits on the save itself. The editor's
+`change` goes through the same `onCommit` after its pause, where nobody awaits it.
+
 Before there is an answer, and when there will be none:
 
 - **While the model writes the answer and the engine reads it** the card is `aria-busy`, over a
-  skeleton the chart's height, so nothing jumps when the tile lands.
+  skeleton the chart's height, so nothing jumps when the tile lands. It stays busy until the tile, or
+  its failure, is drawn in the skeleton's place.
 - **A call that stopped** (`stopped`, from `Chat`) draws nothing that waits.
 - **A refusal is a [`Problem`](/docs/data-display/problem)** under the card's title, *The answer
   failed*: input `checkAnswer` refused, the engine's failure, both from the part's `errorText`.
@@ -238,11 +277,17 @@ Before there is an answer, and when there will be none:
 | `part` | `ToolPart` | The `answer` call, at any state |
 | `graph` | `JoinGraph` | The graph the agent was given |
 | `stopped` | `boolean` | The call will never settle — `Chat`'s `stopped` |
-| `onAdd` | `(key, add) => void` | Makes *Add to the dashboard* an action |
+| `dashboards` | `Dashboards` | The host's dashboards, as it draws them: whether the tile is on its relation's. With `onAdd` |
+| `onAdd` | `(next: Dashboards, added: AnswerAdded) => void \| Promise<unknown>` | Makes *Add to the dashboard* an action. With `dashboards` |
+| `copy` | `ProblemProps["copy"]` | The host's words for a coded failure |
 | `translations` | `Partial<AnswerCardTranslations>` | Every word it draws |
 
-*Held by* `packages/ai/src/data/answer-card.test.tsx`, "Add to the dashboard writes the tile into the
-relation's spec"; "filters the page to the answer as one semi-join on the root key, and takes it
+*Held by* `packages/ai/src/data/answer-card.test.tsx`, "Add to the dashboard hands the host its
+dashboards with the tile in the relation's spec, and where it landed"; "is on the dashboard while the
+host's spec holds the tile, after a remount, and offered again once it is removed"; "is pending while
+the host's write is, never on the dashboard before it settles, and draws a rejection as a Problem";
+"follows a host that drew the tile before its write and rolled it back when the write failed";
+"stays busy over the skeleton until the answer's tile is drawn"; "filters the page to the answer as one semi-join on the root key, and takes it
 back"; "is busy until answered, over a skeleton the chart's height, and not once stopped"; "draws a
 refusal as a Problem under the card's title"; "draws a kept answer whose relation the graph no longer
 has as a Problem"; "draws the figure the answer is, read under its conditions".
@@ -250,8 +295,10 @@ has as a Problem"; "draws the figure the answer is, read under its conditions".
 ## Testing
 
 `AnswerHarness` from [`@kanzo-tech/testing`](/docs/testing) asks through the composer and reads the
-newest `AnswerCard`. It waits for the card to hold its tile or its `Problem` — the card is `aria-busy`
-while the model writes and the engine reads — and a failed answer rejects with the `Problem`'s words.
+newest `AnswerCard`. It waits for the card to stop being `aria-busy`, which it is until its tile or
+its `Problem` is drawn, and a failed answer rejects with the `Problem`'s words. `addToDashboard()`
+waits out the host's pending write for *✓ On the dashboard*, and rejects with the card's `Problem`
+when the host refused it.
 
 ```ts
 import { AnswerHarness } from "@kanzo-tech/testing";
@@ -274,4 +321,5 @@ pnpm add @kanzo-tech/mosaic
 
 The types are exported as `Answer`, `AnswerInput`, `AnswerField`, `AnswerRelation`, `Condition`,
 `ConditionValue`, `AnswerOutput`, `QueryRow`, `DataAgentOptions`, `DataSuggestionsOptions`,
-`DataTools`, `ReadAnswerRelationsOptions`, `AnswerCardProps` and `AnswerCardTranslations`.
+`DataTools`, `AnswerRelationsOfOptions`, `ReadAnswerRelationsOptions`, `AnswerAdded`, `AnswerCardProps`
+and `AnswerCardTranslations`.

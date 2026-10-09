@@ -13,7 +13,7 @@ VS Code's activity bar. Keasy's Discover (Info · Ask · Rules · Settings) and 
 draw the same part.
 
 ```tsx
-<ShellDockSwitcher value={panel} onValueChange={setPanel}>
+<ShellDockSwitcher aria-label="Side panels" value={panel} onValueChange={setPanel}>
   <ShellDockItem value="info" label="Info" icon={InfoIcon} />
   <ShellDockItem value="ask" label="Ask" icon={MessageCircleIcon} />
 </ShellDockSwitcher>
@@ -28,3 +28,20 @@ readers. Then the item draws its label beside the icon everywhere, not in one pa
 
 *Held by* `packages/ui/src/layouts/shell.test.tsx`, "an item is named by its label, pressed while
 open, and collapses its panel when pressed again".
+
+## The page names the switcher, and its panels keep their type
+
+**`ShellDockSwitcher` requires an accessible name and is generic over the page's panel id.** It is a
+`radiogroup`, whose name WAI-ARIA 1.2 requires, and the name it used to default to, *Panels*, misnamed
+the studio's dock of one, *Sources*: only the page knows what its panels are, so the type asks for
+`aria-label` or `aria-labelledby`, as `ButtonGroup`'s does. `value` and `onValueChange` are typed by
+the page's id, inferred from `value`, because a page that keeps its panel in a union had to narrow a
+`string` back to it — keasy's Discover with a `find` over its panels. The items stay `string`: a
+child cannot carry a type to its parent in JSX, so typing them would check nothing.
+
+**What would reverse it:** a name derivable from what the switcher holds that readers hear as right on
+a dock of one and of many — then it returns as a default. A way for the items to type the group
+would let the id be inferred from them instead.
+
+*Held by* `packages/ui/src/layouts/shell.test.tsx`, "is a radiogroup named by the page, and hands back
+the page's own panel type".

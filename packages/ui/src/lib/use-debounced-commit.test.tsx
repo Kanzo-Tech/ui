@@ -78,4 +78,38 @@ describe("useDebouncedCommit", () => {
     t.setValue("z");
     expect(t.api.draft).toBe("bc");
   });
+
+  it("hands commit's caller the write onCommit answered, and leaves nothing unhandled where nobody awaits it", async () => {
+    const refused = new Error("refused");
+    const writes: Promise<void>[] = [];
+    let api!: DebouncedCommit<string, Promise<void>>;
+    function Probe() {
+      api = useDebouncedCommit("", (next) => {
+        const write = next === "bad" ? Promise.reject(refused) : Promise.resolve();
+        writes.push(write);
+        return write;
+      });
+      return null;
+    }
+    render(<Probe />);
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+
+    let written!: Promise<void>;
+    act(() => {
+      written = api.commit("bad");
+    });
+    expect(written).toBe(writes[0]);
+    await expect(written).rejects.toBe(refused);
+
+    act(() => api.change("bad"));
+    act(() => vi.advanceTimersByTime(250));
+    act(() => api.change("bad"));
+    act(() => api.flush());
+    await vi.waitFor(() => expect(writes).toHaveLength(3));
+    vi.useRealTimers();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    process.off("unhandledRejection", unhandled);
+    expect(unhandled).not.toHaveBeenCalled();
+  });
 });

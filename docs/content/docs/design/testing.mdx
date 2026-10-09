@@ -135,8 +135,10 @@ scale".
 *Held by*, for the parts other changes delivered, `packages/ui/src/harnesses.test.tsx`, "opens
 a panel by its label, and collapses the dock when the open one is pressed again", over
 `ShellDockSwitcher`; `packages/ai/src/data/answer-harness.test.tsx`, "waits for the card to answer,
-reads its tile, and filters the page to it" and "rejects an answer that failed with the words of its
-Problem", over `AnswerCard`; and `packages/testing/e2e/workspace.e2e.test.ts`, "asks a question the
+reads its tile, and filters the page to it", "adds the answer to the dashboard, through the host's
+pending write, and waits for the card to say it is there", "rejects an add the host refused with the
+words of the card's Problem" and "rejects an answer that failed with the words of its Problem", over
+`AnswerCard`; and `packages/testing/e2e/workspace.e2e.test.ts`, "asks a question the
 recording knows, reads the answer's chart, and filters the page to it".
 
 *Not yet held*: `TimelineHarness`, whose test is skipped until `ChartTimeline` is built from

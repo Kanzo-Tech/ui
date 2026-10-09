@@ -65,7 +65,7 @@ So a status strip is ordinary composition:
   role="contentinfo"
 >
   <span className="min-w-0 flex-1">Ready</span>
-  <ShellDockSwitcher onValueChange={setPanel} value={panel}>
+  <ShellDockSwitcher aria-label="Side panels" onValueChange={setPanel} value={panel}>
     {/* … */}
   </ShellDockSwitcher>
 </ShellFooter>
@@ -137,9 +137,10 @@ what it is in words. Put it in whichever region keeps it: a `ShellFooter`, as ab
 strip beside the dock with `orientation="vertical"`.
 
 ```tsx
-const [panel, setPanel] = useState<string | null>("info");
+type Panel = "info" | "ask";
+const [panel, setPanel] = useState<Panel | null>("info");
 
-<ShellDockSwitcher value={panel} onValueChange={setPanel}>
+<ShellDockSwitcher aria-label="Side panels" value={panel} onValueChange={setPanel}>
   <ShellDockItem value="info" label="Info" icon={InfoIcon} />
   <ShellDockItem value="ask" label="Ask" icon={MessageCircleIcon} />
 </ShellDockSwitcher>
@@ -152,16 +153,25 @@ state are Ark's, and each item is a `ToggleGroupItem` whose child is the `Toolti
 nesting that keeps the group's items collectable; the other one leaves the arrow keys dead with no
 error. Why one part and not a pattern per page is on [the shell's dock](/docs/design/shell).
 
+**It is generic over the page's panel id**, inferred from `value`: `onValueChange` hands back
+`Panel | null`, so `setPanel` takes it as it is, with nothing to narrow.
+
+**It has no name of its own.** A single-select group is a `radiogroup`, and WAI-ARIA requires one to
+be named; no default fits every dock, so the type asks for exactly one of `aria-label` or
+`aria-labelledby`, as `ButtonGroup` does. Name what the panels are — *Side panels*, *Inspectors*,
+or the one panel's own name when there is only one.
+
 ## Testing
 
-`DockHarness` from [`@kanzo-tech/testing`](/docs/testing) drives a `ShellDockSwitcher`, the
-`radiogroup` *Panels*: `open(panel)` presses an item by its label and waits for it to be checked, and
-`close()` presses the open one again and waits for none to be.
+`DockHarness` from [`@kanzo-tech/testing`](/docs/testing) drives a `ShellDockSwitcher`, a
+`radiogroup` named by the page; `DockHarness.with({ name })` picks one by that name, and the bare
+harness takes the page's only one. `open(panel)` presses an item by its label and waits for it to be
+checked, and `close()` presses the open one again and waits for none to be.
 
 ```ts
 import { DockHarness } from "@kanzo-tech/testing";
 
-const dock = await env.harness(DockHarness);
+const dock = await env.harness(DockHarness.with({ name: "Side panels" }));
 await dock.open("Ask");
 await dock.close();
 ```
@@ -172,9 +182,9 @@ await dock.close();
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `value` | `string \| null` — the open panel, `null` while collapsed | — |
-| `onValueChange` | `(value: string \| null) => void` | — |
-| `aria-label` | `string` | `"Panels"` |
+| `value` | `V \| null` — the open panel, `null` while collapsed; `V` is the page's panel id | — |
+| `onValueChange` | `(value: V \| null) => void` | — |
+| `aria-label` or `aria-labelledby` | `string` — exactly one, required | — |
 | `size` | `"sm" \| "md" \| "lg"` | `"sm"` |
 | `spacing` | `number` | `2` |
 

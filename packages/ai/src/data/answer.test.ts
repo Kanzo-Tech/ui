@@ -2,13 +2,13 @@
 import { clauseInterval, clausePoints, clauseSemiJoin, Query, relationQuery, Selection } from "@kanzo-tech/mosaic";
 import { measureExpr, plotRelation } from "@kanzo-tech/ui/analytics";
 import type { JSONSchema7 } from "ai";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { mockModel } from "../testing/model.js";
 import { testDatabase, type TestDatabase } from "../testing/duckdb.js";
 import { KNOWS, PEOPLE, PERSON, seedPeople } from "../testing/people.js";
 import { dataAgent, type AnswerOutput } from "./agent.js";
 import { answerSchema, checkAnswer, type AnswerInput, type AnswerRelation } from "./answer.js";
-import { readAnswerRelations } from "./relations.js";
+import { answerRelationsOf, readAnswerRelations } from "./relations.js";
 
 let db: TestDatabase;
 let person: AnswerRelation;
@@ -34,6 +34,48 @@ describe("readAnswerRelations", () => {
     expect([...(person.fields[0]!.values ?? [])].sort()).toEqual(["female", "male"]);
     expect(knows.fields.map((f) => f.name)).toEqual(["Person.gender", "Person.age", "Person.born", "Person2.gender", "Person2.age", "Person2.born"]);
     expect(knows.columns).toContain("Person2.dense_id");
+  });
+
+  it("hands each query the signal, and ends on an abort with its reason, cancelling what is still queued", async () => {
+    const query = vi.spyOn(db.coordinator, "query");
+    const cancel = vi.spyOn(db.coordinator, "cancel");
+    const controller = new AbortController();
+    const reason = new Error("left the page");
+    const read = readAnswerRelations(db.coordinator, PEOPLE, [PERSON, KNOWS], { signal: controller.signal });
+    controller.abort(reason);
+    await expect(read).rejects.toBe(reason);
+    expect(query.mock.calls.length).toBeGreaterThan(0);
+    for (const [, options] of query.mock.calls) expect(options).toEqual({ signal: controller.signal });
+    expect(cancel).toHaveBeenCalledWith(query.mock.results.map((r) => r.value));
+    query.mockRestore();
+    cancel.mockRestore();
+
+    await expect(readAnswerRelations(db.coordinator, PEOPLE, [PERSON], { signal: AbortSignal.abort(reason) })).rejects.toBe(reason);
+  });
+});
+
+describe("answerRelationsOf", () => {
+  const graph = {
+    types: [...PEOPLE.types, { name: "Post", table: "post", key: "dense_id", columns: ["title"] }],
+    edges: [...PEOPLE.edges, { name: "wrote", label: "wrote", source: "Person", destination: "Post", table: "wrote", src: "src", dst: "dst" }],
+  };
+  const out = (edge: string) => ({ edge, direction: "out" as const });
+  const into = (edge: string) => ({ edge, direction: "in" as const });
+
+  it("offers each type alone and through each of its hops, in the graph's order", () => {
+    expect(answerRelationsOf(graph)).toEqual([
+      { root: "Person", path: [] },
+      { root: "Person", path: [out("knows")] },
+      { root: "Person", path: [out("wrote")] },
+      { root: "Person", path: [into("knows")] },
+      { root: "Post", path: [] },
+      { root: "Post", path: [into("wrote")] },
+    ]);
+  });
+
+  it("offers the types alone at hops 0, and only the types named in from", () => {
+    expect(answerRelationsOf(graph, { hops: 0 })).toEqual([{ root: "Person", path: [] }, { root: "Post", path: [] }]);
+    expect(answerRelationsOf(graph, { from: ["Post"] })).toEqual([{ root: "Post", path: [] }, { root: "Post", path: [into("wrote")] }]);
   });
 });
 
