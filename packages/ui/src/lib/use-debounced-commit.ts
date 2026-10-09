@@ -2,15 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 
-export interface DebouncedCommit<T> {
+export interface DebouncedCommit<T, R = void> {
   /** What the control shows: the last thing typed until the value it commits to comes back. */
   draft: T;
   /** A keystroke. Updates `draft` now and commits after `delay`, restarting the wait each time. */
   change: (next: T) => void;
   /** Commits a pending draft immediately. Call it on blur; it does nothing when nothing is pending. */
   flush: () => void;
-  /** Commits `next` now and drops anything pending — a pick supersedes typing. */
-  commit: (next: T) => void;
+  /**
+   * Commits `next` now and drops anything pending — a pick supersedes typing. Answers what
+   * `onCommit` answered, so a caller can wait on the write its decision made.
+   */
+  commit: (next: T) => R;
 }
 
 /**
@@ -25,15 +28,19 @@ export interface DebouncedCommit<T> {
  * mount–unmount–mount, and the owner then hears a value nobody typed. `flush` on blur is what
  * keeps the last characters from being lost when the control goes away before the timer fires.
  *
+ * `onCommit` may answer a promise — the write — which `commit` hands back. A commit after the pause or
+ * on `flush` has nobody to hand it to, so the owner reports its failure (a mutation's `onError`), as
+ * it does for every write.
+ *
  * @example
  * const { draft, change, flush } = useDebouncedCommit(value, onChange);
  * <input value={draft} onChange={(e) => change(e.target.value)} onBlur={flush} />
  */
-export function useDebouncedCommit<T>(
+export function useDebouncedCommit<T, R = void>(
   value: T,
-  onCommit: (next: T) => void,
+  onCommit: (next: T) => R,
   delay = 250
-): DebouncedCommit<T> {
+): DebouncedCommit<T, R> {
   const [state, setState] = useState({ draft: value, dirty: false, seen: value });
 
   // Adopt the owner's value during render rather than in an effect, so the control never paints
@@ -50,11 +57,20 @@ export function useDebouncedCommit<T>(
   const pending = useRef<{ value: T } | null>(null);
   useEffect(() => () => clearTimeout(timer.current), []);
 
-  const commit = (next: T) => {
+  const commit = (next: T): R => {
     clearTimeout(timer.current);
     pending.current = null;
     setState((s) => ({ ...s, draft: next, dirty: false }));
-    latest.current(next);
+    return latest.current(next);
+  };
+
+  /** A commit nobody awaits: the pause's, or `flush`'s. */
+  const unawaited = (next: T) => {
+    const written = commit(next) as unknown;
+    if (typeof (written as PromiseLike<unknown> | null)?.then === "function") {
+      // Reported by the owner, whose write it is (see above); unhandled, it would be reported twice.
+      (written as PromiseLike<unknown>).then(undefined, () => undefined);
+    }
   };
 
   const change = (next: T) => {
@@ -62,12 +78,12 @@ export function useDebouncedCommit<T>(
     pending.current = { value: next };
     clearTimeout(timer.current);
     timer.current = setTimeout(() => {
-      if (pending.current) commit(pending.current.value);
+      if (pending.current) unawaited(pending.current.value);
     }, delay);
   };
 
   const flush = () => {
-    if (pending.current) commit(pending.current.value);
+    if (pending.current) unawaited(pending.current.value);
   };
 
   return { draft: state.draft, change, flush, commit };

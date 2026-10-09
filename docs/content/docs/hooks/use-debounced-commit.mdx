@@ -31,7 +31,11 @@ word they are in the middle of.
   This is what keeps the last characters from being lost when the control goes away before the
   timer fires.
 - **`commit(next)` for a pick.** A choice made from a list supersedes typing: it commits now and
-  drops anything pending.
+  drops anything pending. It answers what `onCommit` answered, so when `onCommit` answers the write —
+  `(next) => save.mutateAsync(next)` — the caller can wait on the write its decision made, as
+  [`AnswerCard`](/docs/ai/data#the-answer-card)'s *Add to the dashboard* does. A commit after the
+  pause or on `flush` has nobody to hand the promise to, so the owner reports a failed write, as
+  every write does (a mutation's `onError`); the hook does not leave it unhandled.
 - **Nothing is committed on unmount.** A cleanup that commits also commits in Strict Mode's
   mount–unmount–mount, and the owner then hears a value nobody typed.
 
@@ -43,11 +47,11 @@ wrapper: whatever you pass as `value` is what `change` and `commit` take.
 ### useDebouncedCommit
 
 ```ts
-function useDebouncedCommit<T>(
+function useDebouncedCommit<T, R = void>(
   value: T,
-  onCommit: (next: T) => void,
+  onCommit: (next: T) => R,
   delay?: number,
-): DebouncedCommit<T>;
+): DebouncedCommit<T, R>;
 ```
 
 `delay` is in milliseconds and defaults to `250`.
@@ -59,4 +63,4 @@ function useDebouncedCommit<T>(
 | `draft` | `T` | What the control shows. |
 | `change` | `(next: T) => void` | A keystroke: updates `draft` now, commits after `delay`. |
 | `flush` | `() => void` | Commits a pending draft now. |
-| `commit` | `(next: T) => void` | Commits `next` now and drops anything pending. |
+| `commit` | `(next: T) => R` | Commits `next` now and drops anything pending; answers what `onCommit` answered. |
