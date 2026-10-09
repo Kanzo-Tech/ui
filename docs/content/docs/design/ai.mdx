@@ -77,5 +77,67 @@ growing the spec costs more than a second door. Then a SQL tool returns beside t
 
 *Held by* `packages/ai/src/data/answer.test.ts`, "the enums are the relation's fields only"; "an
 answer compiles to the same query the dashboard tile reads"; "input outside the schema is refused
-before it runs"; and `packages/ai/src/data/answer-card.test.tsx`, "Add to the dashboard writes the
-tile into the relation's spec".
+before it runs"; and `packages/ai/src/data/answer-card.test.tsx`, "Add to the dashboard hands the
+host its dashboards with the tile in the relation's spec, and where it landed".
+
+## Whether a tile is on the dashboard is the host's spec, read
+
+**`AnswerCard` takes the host's `Dashboards` and hands `onAdd` the whole next document, and *On the
+dashboard* is the tile's id found in its relation's spec.** It is `Dashboard`'s own contract — a
+value and the whole next value — and the controlled answer to a flag a card kept: that flag said
+*added* the moment `onAdd` returned, before the host's save had succeeded, and a remount forgot it.
+The tile goes on under the answer's id, the call's, which is what lets the spec be asked. A write the
+host answers with a promise is waited on: pending until it settles, whatever the spec shows, and a
+rejection drawn as a `Problem` beside the button, the thrown value whole.
+
+`onAdd` is told the relation as well as its key, because a host's dashboard view is driven by a
+`Relation` and a key cannot be read back into one.
+
+**What would reverse it:** a host that keeps its dashboards in some shape other than `Dashboards`,
+asking for the card. Then the card takes a predicate and a callback that build the next spec, and the
+document is the host's again.
+
+*Held by* `packages/ai/src/data/answer-card.test.tsx`, "is on the dashboard while the host's spec
+holds the tile, after a remount, and offered again once it is removed"; "is pending while the host's
+write is, never on the dashboard before it settles, and draws a rejection as a Problem".
+
+## Which relations are offered
+
+**`answerRelationsOf(graph)` offers each type alone and through each of its hops, and a host on a
+large graph narrows the hops with `from`, or offers none.** A question across a hop is what the
+reader cannot see in any one table, and what the starter questions favour, so it is the default. It
+is also nearly all of the cost, measured 2026-10 with `readAnswerRelations` in DuckDB-WASM's Node
+build, over a graph shaped like LDBC's social network benchmark — its 8 types, its 23 edges, its
+columns and its row counts, the values synthesised:
+
+| Scale | Offered | Relations | Queries | Read | Fields | Prompt |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0.1 (0.3 M vertices, 1.7 M edges) | the types alone | 8 | 16 | 0.4 s | 31 | 3,520 characters |
+| 0.1 | and every hop | 54 | 290 | 9.4 s | 455 | 36,749 characters |
+| 1 (3.2 M vertices, 17 M edges) | the types alone | 8 | 18 | 1.2 s | 31 | 3,581 characters |
+| 1 | and every hop | 54 | 308 | 41.5 s | 455 | 39,018 characters |
+
+The prompt is `dataInstructions`, sent with every question and, as `dataSuggestions`' relations,
+with every set of starters; the tool's schema is 8,724 characters beside it for the types alone and
+13,485 with the hops. The read is queued on the page's one connection, ahead of the dashboard's own
+charts. One hop relation read alone took 0.8 s at the median and 3.0 s at the slowest, at scale 1.
+
+Two other shapes were weighed. **Reading a relation's fields when the model picks it** costs that
+0.8–3.0 s inside the question rather than before it, and gives up what the design rests on: the
+schema's field enum must exist before the model writes a name, so a lazy read becomes a second tool
+call per question and an enum widened to names nobody has read. **A cap on the prompt** would drop
+relations by an order nobody chose, and the model is told the list is the whole of the data. So the
+helper names the cost and the host chooses: `from` keeps the hops of the types the reader is looking
+at, and `hops: 0` keeps none.
+
+`readAnswerRelations` takes a `signal`: a page left mid-read cancels what is still queued on the
+coordinator, so a 40-second read does not hold the engine from the next page.
+
+**What would reverse it:** a host that needs every hop on a graph where the read or the prompt is
+measured past what a reader waits for, or past a model's context. Then a relation's fields are read
+when the model picks it, by a tool of their own, and the field enum is the graph's columns rather
+than a read's.
+
+*Held by* `packages/ai/src/data/answer.test.ts`, "offers each type alone and through each of its
+hops, in the graph's order"; "offers the types alone at hops 0, and only the types named in from";
+"hands each query the signal, and ends on an abort with its reason, cancelling what is still queued".

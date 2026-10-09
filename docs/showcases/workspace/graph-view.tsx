@@ -54,7 +54,7 @@ import {
   toast,
 } from "@kanzo-tech/ui";
 import { Chat, ChatSkeleton, type Proposal, useAgentChat } from "@kanzo-tech/ai";
-import { AnswerCard, dataAgent, dataSuggestions, readAnswerRelations, type AnswerInput, type AnswerRelation } from "@kanzo-tech/ai/data";
+import { AnswerCard, answerRelationsOf, dataAgent, dataSuggestions, readAnswerRelations, type AnswerInput, type AnswerRelation } from "@kanzo-tech/ai/data";
 import type { LanguageModel } from "@kanzo-tech/llm";
 import { afterTool, askOf, mockModel, promptOf } from "@/lib/mock-model";
 import {
@@ -978,7 +978,7 @@ export function GraphSettings() {
  * anything it did not.
  *
  * Everything around the model is the real path, and it is the whole of what a host writes:
- * `readJoinGraph` and `readAnswerRelations` for what may be asked, `dataAgent`, `dataSuggestions`
+ * `readJoinGraph`, `answerRelationsOf` and `readAnswerRelations` for what may be asked, `dataAgent`, `dataSuggestions`
  * streaming the pills, `ChatSkeleton` while the relations load, and `AnswerCard`. Swapping the
  * recording for `createGateway(…)("chat")` changes one line.
  */
@@ -1116,15 +1116,17 @@ export function GraphAsk() {
   const [askable, setAskable] = useState<Askable | null>(null);
   useEffect(() => {
     if (!archive) return;
-    let live = true;
+    // Leaving the page ends the read: what is still queued is cancelled, and the abort is not a failure.
+    const controller = new AbortController();
+    const { signal } = controller;
     (async () => {
       const graph = await readJoinGraph(archive.coordinator, FROM);
-      const relations = [NODES, ...relationHops(graph, TYPE).map((h) => ({ root: TYPE, path: [h.hop] }))];
-      return { graph, relations: await readAnswerRelations(archive.coordinator, graph, relations) };
-    })().then((read) => live && setAskable(read), announce);
-    return () => {
-      live = false;
-    };
+      return { graph, relations: await readAnswerRelations(archive.coordinator, graph, answerRelationsOf(graph), { signal }) };
+    })().then(
+      (read) => !signal.aborted && setAskable(read),
+      (error: unknown) => !signal.aborted && announce(error),
+    );
+    return () => controller.abort();
   }, [archive]);
   if (!archive || askable === null) return <ChatSkeleton className="p-2" empty={<AskEmpty />} />;
   return <AskBody archive={archive} askable={askable} />;
