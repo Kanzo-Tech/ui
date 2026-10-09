@@ -1,7 +1,7 @@
 "use client";
 
 import { categoricalCapacity, cn, Show, useThemeTick } from "@kanzo-tech/ui";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { nameOf } from "../core/categories";
 import type { Encoding } from "../core/load";
 import type { GraphOptions } from "../core/state";
@@ -15,6 +15,7 @@ import { cursorChip, useGesture } from "./gesture";
 import { labelled, topOf, useInView, useTitles } from "./labels";
 import { useOverlays } from "./overlays";
 import { ShapeGlyph } from "./shape-glyph";
+import { registerForTesting } from "./testing-probe";
 
 export interface GraphCanvasProps extends React.ComponentProps<"div"> {
   /** The chrome — a toolbar, a legend, an inspector — positioned over the surface. */
@@ -39,15 +40,22 @@ const WAITING: Partial<Record<string, string>> = {
  *
  * The surface is never gated on the first answer: rendered behind a placeholder it deadlocks — no
  * element, no renderer, no camera, no question. Waiting is an overlay over an empty canvas.
+ *
+ * What a test reads (`/docs/design/testing`): the element is `aria-busy` until the graph's first drawn
+ * frame, and `data-frame` counts the frames drawn — the one attribute with no accessible equivalent,
+ * and the only way to see that a WebGL canvas moved. Its `id` is its key in the test hook.
  */
 export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasProps) {
   const api = useGraphContext();
+  const generated = useId();
+  const id = rest.id ?? generated;
   const { attach, renderer } = internalsOf(api);
   const focus = useGraphState((s) => s.focus);
   const tool = useGraphState((s) => s.tool);
   const options = useGraphState((s) => s.options);
   const domain = useGraphState((s) => s.drawn?.domain ?? s.domain);
   const waiting = useGraphState((s) => (s.drawn === null ? WAITING[s.status] : undefined));
+  const busy = useGraphState((s) => s.drawn === null && s.status !== "failed");
   const look = useMemo(() => resolveLook(options.look), [options.look]);
   const getGraph = useCallback(() => renderer()?.graph ?? null, [renderer]);
   const overlays = useOverlays({ getGraph });
@@ -66,9 +74,16 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
     const onFrame = () => {
       schedule();
       moved();
+      // Written past React, once a frame: a render per frame is what the overlays exist to avoid.
+      const host = hostRef.current;
+      host?.setAttribute("data-frame", String(Number(host.getAttribute("data-frame")) + 1));
     };
     return attach(surface, { onFrame, onHover: hoverAt });
-  }, [attach, hoverAt, moved, schedule]);
+  }, [attach, hoverAt, hostRef, moved, schedule]);
+  useEffect(
+    () => registerForTesting(id, getGraph, () => internalsOf(api).store.getSnapshot().geometry),
+    [api, getGraph, id],
+  );
 
   const themeTick = useThemeTick();
   useEffect(() => {
@@ -110,8 +125,11 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
   return (
     <div
       {...rest}
+      aria-busy={busy || undefined}
       className={cn("relative isolate size-full overflow-hidden bg-background", className)}
+      data-frame={0}
       data-slot={slot ?? "graph-canvas"}
+      id={id}
       ref={hostRef}
     >
       <Show when={look.grid}>

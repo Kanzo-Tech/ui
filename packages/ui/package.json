@@ -120,6 +120,7 @@
     "@codemirror/state": "^6.6.0",
     "@codemirror/view": "^6.43.1",
     "@kanzo-tech/mosaic": "workspace:*",
+    "@kanzo-tech/testing": "workspace:*",
     "@lezer/highlight": "^1.2.3",
     "@tanstack/react-table": "^8.21.3",
     "@testing-library/dom": "^10.4.1",

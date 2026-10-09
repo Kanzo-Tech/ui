@@ -112,7 +112,7 @@ function Readout({ table, rowNoun }: { table: TableExpr; rowNoun: string }) {
   const rows = Number(shown.row?.n ?? 0);
   const total = Number(all.row?.n ?? 0);
   return (
-    <span className="px-1 text-muted-foreground text-xs tabular-nums">
+    <span aria-busy={all.rows === null || shown.rows === null || undefined} className="px-1 text-muted-foreground text-xs tabular-nums" role="status">
       {all.rows === null
         ? "Counting…"
         : rows === total

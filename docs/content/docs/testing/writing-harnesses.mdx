@@ -1,0 +1,123 @@
+---
+title: Writing a harness
+description: A harness for a part of your own — extending ComponentHarness, finding its host and its insides by their ARIA, composing the library's harnesses inside it, and waiting on states.
+---
+
+The library's harnesses cover the library's parts. The panels, forms and pages your product builds
+around them need harnesses of their own, and they are written the same way. The structure follows
+Angular CDK's [Creating harnesses](https://material.angular.dev/cdk/test-harnesses/overview#creating-harnesses)
+guide, which `@kanzo-tech/testing` is modelled on.
+
+## Extending `ComponentHarness`
+
+A harness is a class that extends `ComponentHarness` and says, in a static `by`, how its host is
+found. Everything else is async methods that operate the host and resolve when the state they caused
+is there.
+
+```ts
+import { ComponentHarness, type By } from "@kanzo-tech/testing";
+
+export class RulesPanelHarness extends ComponentHarness {
+  static readonly by: By = { role: "complementary", name: "Rules panel" };
+
+  async rules(): Promise<string[]> {
+    const rows = await this.host.find({ role: "listitem" });
+    return Promise.all(rows.map((row) => row.text()));
+  }
+}
+```
+
+`this.host` is a `Handle`, the element the environment found. `env.harness(RulesPanelHarness)`
+waits for the host to be in the document and builds the harness over it, in Playwright and in jsdom
+alike.
+
+## Finding what is inside the host
+
+`this.host.find(by)` answers the descendants that match now, and `this.one(by, what)` waits for the
+first one and fails with `what` when it never comes. A `By` is the same in both places:
+
+- `{ role, name }` — a role and its accessible name, which is what a screen reader announces;
+- `{ role, has }` — an element of that role holding a match of its own, *an article holding its title*;
+- `{ text }` — the words a reader sees;
+- `{ css }` — a selector, for a `data-*` attribute, only where nothing accessible says it.
+
+## Filtering with `with`
+
+When a page has several of a part, a static `with` narrows the query, and returns a `HarnessQuery`:
+
+```ts
+import { ComponentHarness, type By, type HarnessQuery } from "@kanzo-tech/testing";
+
+export class PanelHarness extends ComponentHarness {
+  static readonly by: By = { role: "complementary" };
+
+  static with(options: { name: string | RegExp }): HarnessQuery<PanelHarness> {
+    return { type: PanelHarness, by: { role: "complementary", name: options.name } };
+  }
+}
+
+const orders = await env.harness(PanelHarness.with({ name: "Orders panel" }));
+```
+
+## Waiting on a state
+
+A method that changes something waits for the change, with the environment's `until(probe, what)`:
+it resolves with the first truthy answer of `probe`, asked again until the environment's timeout, and
+rejects with `what`. It is the only way a harness waits. A fixed time is either too short on a slow
+runner or wasted on a fast one, and it says nothing when it fails.
+
+```ts
+async addRule(name: string): Promise<void> {
+  const field = await this.one({ role: "textbox", name: "Rule name" }, "the panel has no rule name field");
+  await field.fill(name);
+  await (await this.one({ role: "button", name: "Add rule" }, "the panel has no Add rule")).click();
+  await this.env.until(
+    async () => (await this.host.find({ role: "listitem", has: { text: name } })).length > 0,
+    `the rule ${name} was not added`,
+  );
+}
+```
+
+Wait on what the reader would see: a row that appears, a button that becomes pressed, an
+`aria-busy` that goes. A part that finishes work no reader can perceive should say so — `aria-busy`
+is what the library's own parts use.
+
+## Composing the library's harnesses
+
+A harness for a host's panel returns the library's harnesses for the library's parts in it, rather
+than reaching into their markup. `this.locate(query)` finds one inside the host:
+
+```ts
+import { ComponentHarness, FindingsHarness, type By } from "@kanzo-tech/testing";
+
+export class RulesPanelHarness extends ComponentHarness {
+  static readonly by: By = { role: "complementary", name: "Rules panel" };
+
+  /** What the rules found, as the library's own harness drives it. */
+  findings(): Promise<FindingsHarness> {
+    return this.locate(FindingsHarness);
+  }
+}
+
+const panel = await env.harness(RulesPanelHarness);
+const finding = await (await panel.findings()).finding("No date on the writ");
+expect(await finding.severity()).toBe("destructive");
+```
+
+When the library changes a part's markup, its harness changes with it, and your panel's harness
+does not move.
+
+## ARIA first, in your own parts
+
+A harness can only be as stable as what it finds. The rule the library follows applies to a host's
+parts too, in [Testing Library's order](https://testing-library.com/docs/queries/about/#priority):
+
+1. **A role and an accessible name.** An `aside` with an `aria-label` is a `complementary` region a
+   harness and a screen reader both find by name. A button named by its icon alone has no name; give
+   it an `aria-label`.
+2. **Text**, for what has no role: a row's words, a heading's.
+3. **A `data-*` attribute last**, where a state is real and nothing accessible describes it. The
+   library has one, `GraphCanvas`'s `data-frame`, and [the testing rule](/docs/design/testing) says
+   why.
+
+When a harness of yours needs `{ css }`, it is usually the part that needs a name.

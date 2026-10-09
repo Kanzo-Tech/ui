@@ -147,7 +147,7 @@ function CardChart({
   const bars = useTopValues(table, card.type === "bar" ? card.x : undefined, y, BAR_LIMIT);
   const series = useTopValues(table, card.color, measureExpr({ op: "count" }), SERIES_LIMIT, given !== undefined);
   const panels = useTopValues(table, card.facet, measureExpr({ op: "count" }), FACET_LIMIT);
-  if (bars === null || series === null || panels === null) return <Skeleton className="h-[220px] w-full" />;
+  if (bars === null || series === null || panels === null) return <Skeleton aria-busy className="h-[220px] w-full" />;
 
   const seriesConfig: ChartConfig =
     given ?? Object.fromEntries(series.map((value) => [value, { label: value }]));
@@ -160,6 +160,7 @@ function CardChart({
   const fill = card.color ?? ACCENT;
   const faceted = fx ? { facetMargin: { left: 8, right: 8 }, margin: { top: 26, right: 8, bottom: 24, left: 44 } } : {};
   const frame = {
+    "aria-label": tileTitle(card),
     config: card.color ? seriesConfig : undefined,
     height: HEIGHT,
     margin: { top: 8, right: 12, bottom: 24, left: 44 },

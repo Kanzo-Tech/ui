@@ -247,6 +247,21 @@ back"; "is busy until answered, over a skeleton the chart's height, and not once
 refusal as a Problem under the card's title"; "draws a kept answer whose relation the graph no longer
 has as a Problem"; "draws the figure the answer is, read under its conditions".
 
+## Testing
+
+`AnswerHarness` from [`@kanzo-tech/testing`](/docs/testing) asks through the composer and reads the
+newest `AnswerCard`. It waits for the card to hold its tile or its `Problem` — the card is `aria-busy`
+while the model writes and the engine reads — and a failed answer rejects with the `Problem`'s words.
+
+```ts
+import { AnswerHarness } from "@kanzo-tech/testing";
+
+const answers = await env.harness(AnswerHarness);
+await answers.ask("What does the Amber Hall hold, by kind?");
+await (await (await answers.answer()).chart()).settled();
+await answers.filterTo();
+```
+
 ## Installing it
 
 A subpath, because it draws with `@kanzo-tech/ui`'s [analytics](/docs/analytics/charts) and table

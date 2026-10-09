@@ -25,6 +25,29 @@ jobs:
       # one missing checks.
       - run: pnpm verify
 
+  # The harnesses in a browser: `@kanzo-tech/testing`'s end-to-end suite drives the docs' workspace
+  # showcase in Chromium, through the same harnesses a host's suite uses. It needs what `verify` does
+  # not run — a corpus written by fossil's executor, a `next start` to talk to, and a browser — so it
+  # is a job of its own. WebGL is SwiftShader's, Chromium's software renderer: a runner has no GPU.
+  harnesses:
+    name: harnesses
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: pnpm build
+      - run: pnpm --filter @kanzo-tech/docs corpus
+      - name: Chromium
+        run: pnpm --filter @kanzo-tech/testing exec playwright-core install --with-deps chromium-headless-shell
+      - name: Serve the docs
+        run: |
+          pnpm --filter @kanzo-tech/docs start > "$RUNNER_TEMP/next.log" 2>&1 &
+          for _ in $(seq 60); do curl -sf http://localhost:3100/view/showcases/workspace > /dev/null && exit 0; sleep 1; done
+          cat "$RUNNER_TEMP/next.log"; exit 1
+      - run: pnpm --filter @kanzo-tech/testing test:e2e
+        env:
+          KANZO_DOCS_URL: http://localhost:3100
+
   # The server halves. A realm that applies but puts the roles somewhere else is worth
   # nothing, so the auth job proves the claim contract on a live token — the same
   # script a developer runs — rather than validating the Terraform alone.

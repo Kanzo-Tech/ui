@@ -1,0 +1,137 @@
+---
+title: Testing
+description: Component harnesses for a page built with Kanzo UI — a class per component that finds it by its ARIA and drives it, in Playwright or in Testing Library, in Angular CDK's shape. A sibling of @kanzo-tech/ui that imports none of it.
+---
+
+`@kanzo-tech/testing` is how a host tests a page built with the library. Each component a test drives
+has a **harness**: a class that knows how to find that component and how to operate it, and nothing
+about the page around it. The same harness runs in a host's Playwright suite and in a unit test over
+Testing Library, so the library's own tests exercise what a host relies on. [Testing a page built with
+Kanzo UI](/docs/design/testing) is why it is shaped this way.
+
+```sh
+pnpm add -D @kanzo-tech/testing
+```
+
+It imports none of the components. A harness knows one by its roles, its accessible names and its
+text, and what a canvas knows comes through a hook only a test installs, so it runs against whatever
+version of the components the page loaded.
+
+## In Playwright
+
+```ts
+import { ChartHarness, FilterBarHarness, GraphCanvasHarness, playwright } from "@kanzo-tech/testing";
+
+const env = await playwright(page); // before the page loads: it installs the test hook
+await page.goto("/archive");
+
+const graph = await env.harness(GraphCanvasHarness);
+await graph.ready();
+
+const lon = await env.harness(ChartHarness.with({ title: "Count by Airport.lon" }));
+await lon.brush({ x: [-125, -100] }); // in data, not in pixels
+
+const bar = await env.harness(FilterBarHarness);
+await expect.poll(() => bar.readout()).toBe("611 of 3,218 airports");
+```
+
+**`playwright(page, options?)`** resolves with a `HarnessEnvironment` once it has installed the test
+hook with `addInitScript`, so make it **before** the page navigates: a chart or a graph registers with
+the hook while it mounts. `options` is an `EnvironmentOptions`, `{ timeout }`, how long a harness waits
+for a state before it fails — 10 000 ms by default. It imports nothing of Playwright's at run time;
+`playwright-core` is an optional peer for its types, and a suite on `@playwright/test` has it already.
+
+## In a unit test
+
+```tsx
+import { FilterBarHarness } from "@kanzo-tech/testing";
+import { dom } from "@kanzo-tech/testing/dom";
+
+const env = dom(); // before render: the hook is installed at once
+render(<Page />);
+const bar = await env.harness(FilterBarHarness);
+expect(await bar.readout()).toBe("10 sightings");
+```
+
+**`dom(container?, options?)`**, on its own subpath because it queries with `@testing-library/dom`, an
+optional peer. `container` is where every search starts, `document.body` by default. jsdom lays
+nothing out and has no WebGL, so what a harness reads there is the ARIA: a chart never measures a width
+to draw at and stays busy, and a graph canvas has no renderer. Brushes, picks and lassos are for a
+browser.
+
+## The environment
+
+`env.harness(query)` resolves with the first component that matches, **waiting for it** to be in the
+document; `env.harnesses(query)` returns every one there now. A query is a harness class, or a class
+narrowed with its `with`: `ChartHarness.with({ title })`.
+
+- **`HarnessEnvironment`** — `harness`, `harnesses`, `root` (the `Handle` searches start at) and
+  `until(probe, what)`, which resolves with the first truthy answer of `probe` and fails with `what`.
+  A harness never waits for a fixed time, only for a state.
+- **`ComponentHarness`** — the class every harness extends. A harness of your own declares a static
+  `by` and reaches its host as `this.host`.
+- **`By`** — how a host is found, in Testing Library's order: `{ role, name?, has? }`, then
+  `{ text }`, and `{ css }` only where nothing accessible says it.
+- **`Handle`** — one element as the environment reaches it: `find`, `text`, `attribute`, `rect` (a
+  `Rect`), `reveal`, `click({ at, with })`, `drag(points, { with })`, `fill`, `press` and `evaluate`.
+  `at` and the points are a `Point`, `[clientX, clientY]`; `with` lists `Modifier` keys.
+- **`Driver`** — what an environment is built from: a root `Handle` and `until`. `HarnessType` and
+  `HarnessQuery` are the class and the narrowed class `env.harness` takes.
+
+## The harnesses
+
+| Harness | Found by | Operates |
+| --- | --- | --- |
+| `GraphCanvasHarness` | `data-frame`, the frames the canvas has drawn | `ready()`, `frames()`, `run()`, `pause()`, `lasso(points, { in, with })`, `marquee(from, to, { in, with })`, `frame()`, `screenOf(vertex)`, `counts()` |
+| `ChartHarness` | a `figure` named by its title | `brush({ x, y })` in data, `pick({ x })` or `pick({ y })` by value, `busy()`, `settled()`, `title()` |
+| `TimelineHarness` | a `figure` named by its title | `brush([from, to])`, `range()`, `play()`, `pause()` |
+| `DashboardHarness` | its `data-slot` | `tile(title)`, `settled()` |
+| `TileHarness` | an `article` holding its title | `text()`, `chart()`, `settled()` |
+| `FilterBarHarness` | the region *Filters* | `chips()`, `remove(field)`, `open(field)`, `readout()` |
+| `AnswerHarness` | the composer, a textbox named *Ask…*; the answer cards by their `data-slot` | `ask(question)`, `answer()`, `addToDashboard()`, `filterTo()` |
+| `FindingsHarness` | its trigger's `data-slot` | `tally()`, `finding(message)` |
+| `FindingHarness` | a `listitem` of the list | `show()`, `severity()`, a `Severity` |
+| `DockHarness` | the `radiogroup` *Panels* | `open(panel)`, `close()`, `current()` |
+
+- **`GraphCanvasHarness`** — `ready()` waits for the canvas's first drawn frame and fails on a canvas
+  that finished loading without one. `lasso` and `marquee` press the toolbar's tool, draw, and wait for
+  a frame drawn after the gesture; their `GestureOptions` take `in: "data"`, the values bound to `x` and
+  `y` (a layout that binds neither has only its own space), or `in: "screen"`, the canvas's pixels, and
+  `with`, the keys held on release: `Meta` or `Control` adds, `Alt` takes away. `frame()` presses
+  **Frame** and waits for the camera to have drawn. `screenOf(vertex)` is where a vertex is drawn now,
+  in the canvas's pixels. `counts()` reads `GraphCounts`' sentence wherever the page put it.
+- **`ChartHarness`** — `brush` takes an `Extent` per channel; a channel left out spans the plot, so
+  `{ x }` is a horizontal brush. `pick` clicks the mark drawn at a value — a bar by its category. Both
+  scroll the chart into view first and read its own scales through the hook.
+- **`FilterBarHarness`** — `chips()` lists each clause by its label, *region Saltmere*, and each
+  dashboard filter as *column: value*. `remove(field)` takes everything on `field` off the bar: a
+  clause chip retracts its clause, and a dashboard's filter is removed from its spec, which retracts
+  its clause too. `readout()` is the status, once it has counted.
+- **`AnswerHarness`** — `answer()` waits for the newest `AnswerCard` to hold its tile or its
+  `Problem`, and rejects with the `Problem`'s words. `filterTo()` waits for **Filter to it** to be
+  pressed, `addToDashboard()` for the card to say *On the dashboard*. The composer is named by its
+  placeholder, which a browser reads and jsdom does not: in a unit test, name it with `aria-label` or
+  pass `AnswerHarness.with({ name })`.
+- **`DockHarness`** — `ShellDockSwitcher` is a single-select toggle group, a `radiogroup` of `radio`s,
+  so `open(panel)` waits for the item to be checked and `close()` for none to be. Any single-select
+  toggle group has that shape: `DockHarness.with({ name: "View" })` drives a view switch.
+- **`TimelineHarness`** is written against [the timeline](/docs/design/timeline), which is not built
+  yet; its test is skipped until it is.
+
+[Writing a harness](/docs/testing/writing-harnesses) is how to add one for a part of your own, and
+[Organising an end-to-end suite](/docs/testing/end-to-end) is how to put them together.
+
+## The test hook
+
+```ts
+interface KanzoTestingHook {
+  graphs: Map<string, GraphProbe>;  // by the canvas's id: screenOf(vertex), screenAt({ x, y })
+  charts: Map<string, ChartProbe>;  // by the chart's title: scale(channel) → { apply, invert? }
+}
+```
+
+`window.__KANZO_TESTING__` is defined by the environment and never by a page. `GraphCanvas` and
+`ChartRoot` register themselves when they find it, and do nothing otherwise. A `GraphProbe` answers
+with cosmos.gl's own `spaceToScreenPosition`; a `ChartProbe` is Observable Plot's own
+`figure.scale(channel)`. A chart is registered under its `aria-label`, which a dashboard tile sets to
+its title; a chart with no title is not registered.

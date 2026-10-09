@@ -6,8 +6,9 @@ description: Why a page switches its side panels with one part, an activity bar 
 ## One dock switcher, an activity bar
 
 **A page whose side panel holds one of several tools switches them with `ShellDockSwitcher`: an
-icon per panel, named by its tooltip and its accessible name, pressed while its panel is open, and
-pressed again to collapse it.** The panel's own title says what it is in words. The reference is
+icon per panel, named by its tooltip and its accessible name, checked while its panel is open, and
+pressed again to collapse it.** It is a single-select `ToggleGroup`, so Ark makes the switcher a
+`radiogroup` and each icon a `radio` with `aria-checked` — not a toggle button with `aria-pressed`. The panel's own title says what it is in words. The reference is
 VS Code's activity bar. Keasy's Discover (Info · Ask · Rules · Settings) and its studio (Sources)
 draw the same part.
 

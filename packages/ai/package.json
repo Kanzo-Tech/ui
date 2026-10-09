@@ -58,6 +58,7 @@
     "@ark-ui/react": "^5.37.2",
     "@duckdb/duckdb-wasm": "1.33.1-dev57.0",
     "@kanzo-tech/mosaic": "workspace:*",
+    "@kanzo-tech/testing": "workspace:*",
     "@kanzo-tech/theme": "workspace:*",
     "@kanzo-tech/ui": "workspace:*",
     "@testing-library/dom": "^10.4.1",

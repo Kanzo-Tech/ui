@@ -583,6 +583,21 @@ and `MosaicInputState<T>` are what a control needs to be a Mosaic client — the
 filter input on this page. `ExprValue` is anything Mosaic will accept where an expression is
 expected.
 
+## Testing
+
+`ChartHarness` from [`@kanzo-tech/testing`](/docs/testing) finds a chart as the `figure` its
+`aria-label` names, and brushes and picks in data, through the chart's own Plot scales. It waits for
+the chart to have drawn — `ChartRoot` is `aria-busy` until then and while a query runs. Pass the
+`aria-label` yourself on a `ChartRoot` of your own; a dashboard tile passes its title.
+
+```ts
+import { ChartHarness } from "@kanzo-tech/testing";
+
+const lon = await env.harness(ChartHarness.with({ title: "Count by Airport.lon" }));
+await lon.brush({ x: [-125, -100] });
+await (await env.harness(ChartHarness.with({ title: "Sightings by beast" }))).pick({ y: "boghound" });
+```
+
 ## API Reference
 
 ### MosaicProvider

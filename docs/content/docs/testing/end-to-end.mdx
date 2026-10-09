@@ -1,0 +1,112 @@
+---
+title: Organising an end-to-end suite
+description: How a host's Playwright suite is layered over the library's harnesses — specs over page objects over harnesses — and the rules that keep it from flaking, after Playwright's own best practices.
+---
+
+A Playwright suite for a page built with Kanzo UI has four layers, and each knows only the one under
+it. The examples are this site's own suite, which drives the [workspace
+showcase](/docs/showcases/workspace) in CI (`packages/testing/e2e/workspace.e2e.test.ts`). The
+references are Playwright's [best practices](https://playwright.dev/docs/best-practices) and Testing
+Library's [query priority](https://testing-library.com/docs/queries/about/#priority).
+
+## The layers
+
+| Layer | Knows | Example |
+| --- | --- | --- |
+| **Spec** | what a reader does and what they should see | *a pick on a bar filters the sightings* |
+| **Page objects** | the host's own parts, as harnesses | `ArchivePage`, a `RulesPanelHarness` |
+| **Library harnesses** | the library's parts | `ChartHarness`, `FilterBarHarness`, `DockHarness` |
+| **Playwright** | the browser | `page`, the mouse, the keyboard |
+
+A spec never names a selector, and a page object never names one of the library's. When a part's
+markup changes, the one layer that knew it changes, and the specs above it do not.
+
+```ts
+import { DashboardHarness, DockHarness, GraphCanvasHarness, playwright, type HarnessEnvironment } from "@kanzo-tech/testing";
+
+/** The host's page object: the archive's views, built from the library's harnesses. */
+export class ArchivePage {
+  constructor(readonly env: HarnessEnvironment) {}
+
+  async sightings(): Promise<DashboardHarness> {
+    // The shell remounts once the archive attaches: switch after the graph has drawn.
+    await (await this.env.harness(GraphCanvasHarness)).ready();
+    await (await this.env.harness(DockHarness.with({ name: "View" }))).open("Sightings");
+    const dashboard = await this.env.harness(DashboardHarness);
+    await dashboard.settled();
+    return dashboard;
+  }
+}
+```
+
+```ts
+import { FilterBarHarness } from "@kanzo-tech/testing";
+
+const archive = new ArchivePage(env);
+const dashboard = await archive.sightings();
+const bar = await env.harness(FilterBarHarness);
+await (await (await dashboard.tile("Sightings by beast")).chart()).pick({ y: "boghound" });
+await expect.poll(() => bar.readout()).toMatch(/ of [\d,]+ sightings$/);
+```
+
+## Install the hook before navigating
+
+`playwright(page)` installs the test hook with `addInitScript`, and a chart or a graph canvas
+registers while it mounts. So the environment is made, and awaited, **before** `page.goto`. A page
+already loaded mounted without the hook, and a brush or a lasso on it fails with *not registered with
+the test hook*.
+
+```ts
+import { playwright } from "@kanzo-tech/testing";
+
+const env = await playwright(page);
+await page.goto("/view/showcases/workspace");
+```
+
+## Wait on states, never on time
+
+Every harness method resolves when the state it caused is there — a chart that has drawn, a button
+that is pressed, a readout that has counted — and a harness never sleeps. A spec keeps the same rule:
+assert with Playwright's retrying assertions, `expect.poll` over a harness method, and never
+`page.waitForTimeout`. A wait for a time is too short on a loaded CI runner and wasted everywhere
+else, and when it fails it says nothing about what did not happen.
+
+## Drive charts and canvases in data
+
+A brush is a range of values and a lasso is a set of points in the data, not shares of a width:
+
+```ts
+import { ChartHarness, GraphCanvasHarness } from "@kanzo-tech/testing";
+
+const hours = await env.harness(ChartHarness.with({ title: "Sightings by hour" }));
+await hours.brush({ x: [6, 12] });
+
+const graph = await env.harness(GraphCanvasHarness);
+await graph.lasso([[-10, 40], [5, 40], [5, 55], [-10, 55]], { in: "data" });
+```
+
+The chart's own scale, and cosmos.gl's own space-to-screen conversion, turn them into pixels at the
+moment of the gesture. A test that survives a resize, a theme with other margins or a new axis is one
+that never knew where 125°W was.
+
+## Deep-link the state, rather than clicking towards it
+
+A spec that starts by clicking through three views to reach the one it tests is three things that
+can fail before the test begins. Where the host keeps its state in the URL — a view, a dashboard, a
+selection — the spec navigates straight to it, and only the thing under test is clicked. The workspace
+showcase keeps its view in React state, which is why `ArchivePage.sightings()` above has to switch to
+it; a product page with a `?view=sightings` would `goto` it instead.
+
+## Lint the suite
+
+[eslint-plugin-playwright](https://github.com/playwright-community/eslint-plugin-playwright) holds
+the rules above in code. These four are the ones that matter here:
+
+```js
+rules: {
+  "playwright/no-wait-for-timeout": "error",      // waits on a state, never on time
+  "playwright/no-force-option": "error",          // a click that needs force is a click a reader cannot make
+  "playwright/no-element-handle": "error",        // locators re-resolve; an element handle goes stale
+  "playwright/prefer-web-first-assertions": "error", // assertions that retry, not a read and a compare
+}
+```
