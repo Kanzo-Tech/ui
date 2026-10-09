@@ -26,7 +26,6 @@ const VALUES = [
   "GraphStatus",
   "GraphToolbar",
   "ShapeGlyph",
-  "corpusReferences",
   "lookFrom",
   "placementFrom",
   "readJoinGraph",

@@ -1,16 +1,14 @@
 import type { Coordinator, JoinGraph } from "@kanzo-tech/mosaic";
-import { referencesOf } from "./references";
 import { readStructure, relation } from "./source";
 import type { Structure } from "./structure";
 
 /**
  * **The corpus as a join graph** — what `@kanzo-tech/mosaic`'s relations are built over. A vertex
  * table is a type keyed by the structure's `key` that projects the columns the writer gave no role; an edge
- * table joins through the two columns `referencesOf` says point into its source and destination.
- * What an endpoint is stays stated once, in `references.ts`; this only rearranges it.
+ * table joins through fossil's endpoint columns: its `src` holds its source vertex table's key, and its
+ * `dst` its destination's — a self-loop's included.
  */
 export function joinGraphOf(structure: Structure): JoinGraph {
-  const references = referencesOf(structure);
   return {
     types: structure.vertices.map((v) => ({
       name: v.name,
@@ -20,19 +18,15 @@ export function joinGraphOf(structure: Structure): JoinGraph {
         .filter(([, c]) => c.role === null)
         .map(([name]) => name),
     })),
-    edges: structure.edges.map((e) => {
-      // An edge's references are its source end, then its destination end — a self-loop's included.
-      const [src, dst] = references.filter((r) => r.table === e.name);
-      return {
-        name: e.name,
-        label: e.label,
-        source: e.source,
-        destination: e.destination,
-        table: relation(structure.from, e.name),
-        src: src!.column,
-        dst: dst!.column,
-      };
-    }),
+    edges: structure.edges.map((e) => ({
+      name: e.name,
+      label: e.label,
+      source: e.source,
+      destination: e.destination,
+      table: relation(structure.from, e.name),
+      src: "src",
+      dst: "dst",
+    })),
   };
 }
 
