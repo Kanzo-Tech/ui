@@ -27,13 +27,13 @@ per environment — and adds its own services and declarations:
 ```yaml
 # its development overlay
 include:
-  - https://github.com/Kanzo-Tech/ui.git#v0.34.0:services/compose.dev.yaml
+  - https://github.com/Kanzo-Tech/ui.git#v0.35.0:services/compose.dev.yaml
 ```
 
 ```yaml
 # its production overlay
 include:
-  - https://github.com/Kanzo-Tech/ui.git#v0.34.0:services/compose.yaml
+  - https://github.com/Kanzo-Tech/ui.git#v0.35.0:services/compose.yaml
 ```
 
 [`compose.yaml`](compose.yaml) here is both services as a deployment runs them;

@@ -8,7 +8,7 @@ declarations.** What changes for an application that runs `services/auth` or `se
 - **Files.** `compose.yml` is now `compose.yaml` (the service as it runs anywhere) plus
   `compose.dev.yaml` (published ports, the seed, local models). Include both in development, only
   `compose.yaml` in a deployment; by URL works, so nothing needs vendoring:
-  `https://github.com/Kanzo-Tech/ui.git#v0.34.0:services/auth/compose.yaml`.
+  `https://github.com/Kanzo-Tech/ui.git#v0.35.0:services/auth/compose.yaml`.
   `services/compose.yaml` is both services as a deployment runs them, `services/compose.dev.yaml` both
   for development: an application includes one URL per environment.
 - **Registering an application.** `services/auth/examples/app` is gone, and an application no longer
