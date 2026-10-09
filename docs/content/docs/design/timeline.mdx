@@ -41,7 +41,8 @@ not a `Selection`'s, and `PanZoom` follows the `Param`s of its domains. Cosmogra
 `ChartTimeline` reaches its interactor through `Plot.interactors`, which vgplot exposes.
 
 **The tick is Cosmograph's.** Every 50 ms the window moves by one bar, and it stops where the axis
-ends. Play with no window does nothing, and stop clears the window. A tick does not wait for the
+ends. Play with no window does nothing. There is no stop: a window is let go as any filter is, from its
+chip or the page's **Clear**, and Cosmograph's stop is that and a pause. A tick does not wait for the
 graph: each one publishes, and the store keeps the newest answer and drops a stale one
 (`packages/graph/src/core/store.ts`). A playing timeline therefore never draws behind its own clause.
 
@@ -67,14 +68,18 @@ the shape declared, so an `xsd:gYear` stored as an `int32` is drawn as years. Co
 samples 100 values and calls a column of year-like integers a year. A count of rows, a price or an
 id in that range would be read as a date, and the schema already says which column is a year.
 
-`GraphTimeline` offers each temporal column of the vertex tables. Its default is the column on the
-most rows, a selector appears when there are several, and the part draws nothing when there are none.
-The histogram is the union of the tables that have the column, stacked by type in the legend's
-colours. The clause filters every type with that column, by the graph's clause rule (`answers`), and
-leaves the others whole.
+**The column is a setting of the graph, not a selector of the part's.** `time-by` sits beside
+*X axis* and *Group by* in `GRAPH_SECTION`, and the root answers its options from the corpus's
+temporal columns, as it answers theirs. Cosmograph's own app configures its timeline the same way, in
+its settings panel. A selector inside the part would have been a second door to a choice the graph
+already makes in one place. None, the default, draws no timeline. The histogram is the union of the
+tables that have the column, one colour, and the clause filters every type with that column, by the
+graph's clause rule (`answers`), and leaves the others whole.
 
 **What would reverse it:** a corpus whose times arrive as text with no datatype, such as one written
-without a shape. Then a column is offered when its values parse, and the parse is the rule.
+without a shape. Then a column is offered when its values parse, and the parse is the rule. And for
+the setting: a page with two timelines over one graph, each on its own column. Then the column is a
+prop of the part again, and the setting is the default the root hands it.
 
 ## Filtered is greyed out, and playing does not change that
 
@@ -111,8 +116,9 @@ is a group whose `aria-valuetext` reads *1950 – 1960*. `ChartTimeline` registe
 its title in `window.__KANZO_TESTING__.charts` when a test has installed the hook. `TimelineHarness`
 then brushes in data and plays.
 
-*Will be held by* `packages/ui/src/charts/chart-timeline.test.tsx`: the tick moves one bar and stops
-at the end, play with no window does nothing, stop retracts the clause, and the chip and the part
-publish one clause. Also `packages/graph/src/parts/parts.test.tsx` (`GraphTimeline` offers the
-`xsd:gYear` column and draws nothing over a corpus with no temporal column) and
-`packages/ui/src/charts/filter-bar.test.tsx` (a timeline's clause is one chip).
+*Held by* `packages/ui/src/charts/chart-timeline.test.tsx` (a tick moves the window one bar, in axis
+order, and stops at the end of the axis; with no window there is nothing to play; a year reads as
+its integer; the figure, its button and its group are what a harness reads),
+`packages/graph/src/parts/graph-timeline.test.tsx` (it draws nothing until `time-by` is chosen, and
+nothing for a column the corpus lacks) and `packages/graph/src/parts/graph-section.test.tsx` (the
+setting offers the `xsd:gYear` column by its datatype, and no integer of the same range).
