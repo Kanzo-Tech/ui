@@ -58,6 +58,12 @@ export interface Engine {
    * host's sequence keeps its order. An abort rejects the caller's wait with `signal.reason` at
    * once; the statement, a short one, finishes. Nothing is cached: these are statements with
    * effects. A failure is DuckDB's own error, unwrapped.
+   *
+   * So a statement here does not wait for what the queue still holds. One that takes away what the
+   * coordinator's clients read — a `DETACH`, a dropped view — runs only once nothing reads it: a
+   * client that disconnects keeps its queued queries (mosaic-core's `disconnect` cancels nothing),
+   * and they run after it. Release such a thing as a cache does, when it is collected some time
+   * after its last reader went, never as its readers unmount.
    */
   query(sql: string, options: { readonly signal: AbortSignal }): Promise<Table>;
   /**

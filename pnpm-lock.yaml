@@ -8,11 +8,6 @@ overrides:
   react: ^19.0.0
   react-dom: ^19.0.0
 
-patchedDependencies:
-  '@uwdata/mosaic-core@0.32.0':
-    hash: pbjbcxru6l2urcnbk3z35z3mvi
-    path: patches/@uwdata__mosaic-core@0.32.0.patch
-
 importers:
 
   .:
@@ -136,7 +131,7 @@ importers:
         version: 1.26.1
       '@uwdata/mosaic-core':
         specifier: ^0.32.0
-        version: 0.32.0(patch_hash=pbjbcxru6l2urcnbk3z35z3mvi)
+        version: 0.32.0
       '@uwdata/mosaic-sql':
         specifier: ^0.32.0
         version: 0.32.0
@@ -261,7 +256,7 @@ importers:
         version: 19.2.3(@types/react@19.2.17)
       '@uwdata/mosaic-core':
         specifier: ^0.32.0
-        version: 0.32.0(patch_hash=pbjbcxru6l2urcnbk3z35z3mvi)
+        version: 0.32.0
       '@uwdata/mosaic-sql':
         specifier: ^0.32.0
         version: 0.32.0
@@ -352,7 +347,7 @@ importers:
         version: 19.2.3(@types/react@19.2.17)
       '@uwdata/mosaic-core':
         specifier: ^0.32.0
-        version: 0.32.0(patch_hash=pbjbcxru6l2urcnbk3z35z3mvi)
+        version: 0.32.0
       '@uwdata/mosaic-sql':
         specifier: ^0.32.0
         version: 0.32.0
@@ -393,7 +388,7 @@ importers:
         version: 2.5.0
       '@uwdata/mosaic-core':
         specifier: ^0.32.0
-        version: 0.32.0(patch_hash=pbjbcxru6l2urcnbk3z35z3mvi)
+        version: 0.32.0
       '@uwdata/mosaic-sql':
         specifier: ^0.32.0
         version: 0.32.0
@@ -508,7 +503,7 @@ importers:
         version: 19.2.3(@types/react@19.2.17)
       '@uwdata/mosaic-core':
         specifier: ^0.32.0
-        version: 0.32.0(patch_hash=pbjbcxru6l2urcnbk3z35z3mvi)
+        version: 0.32.0
       '@uwdata/mosaic-plot':
         specifier: ^0.32.0
         version: 0.32.0
@@ -7764,7 +7759,7 @@ snapshots:
 
   '@uwdata/flechette@2.5.0': {}
 
-  '@uwdata/mosaic-core@0.32.0(patch_hash=pbjbcxru6l2urcnbk3z35z3mvi)':
+  '@uwdata/mosaic-core@0.32.0':
     dependencies:
       '@duckdb/duckdb-wasm': 1.33.1-dev57.0
       '@uwdata/flechette': 2.5.0
@@ -7772,7 +7767,7 @@ snapshots:
 
   '@uwdata/mosaic-inputs@0.32.0':
     dependencies:
-      '@uwdata/mosaic-core': 0.32.0(patch_hash=pbjbcxru6l2urcnbk3z35z3mvi)
+      '@uwdata/mosaic-core': 0.32.0
       '@uwdata/mosaic-sql': 0.32.0
     transitivePeerDependencies:
       - '@uwdata/mosaic-duckdb'
@@ -7781,7 +7776,7 @@ snapshots:
     dependencies:
       '@observablehq/plot': 0.6.17
       '@uwdata/flechette': 2.5.0
-      '@uwdata/mosaic-core': 0.32.0(patch_hash=pbjbcxru6l2urcnbk3z35z3mvi)
+      '@uwdata/mosaic-core': 0.32.0
       '@uwdata/mosaic-sql': 0.32.0
       d3: 7.9.0
     transitivePeerDependencies:
@@ -7791,7 +7786,7 @@ snapshots:
 
   '@uwdata/vgplot@0.32.0':
     dependencies:
-      '@uwdata/mosaic-core': 0.32.0(patch_hash=pbjbcxru6l2urcnbk3z35z3mvi)
+      '@uwdata/mosaic-core': 0.32.0
       '@uwdata/mosaic-inputs': 0.32.0
       '@uwdata/mosaic-plot': 0.32.0
       '@uwdata/mosaic-sql': 0.32.0

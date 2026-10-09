@@ -21,7 +21,6 @@
     "//verify": "The whole gate, in one place. CI and the publish workflow both run THIS, so the list cannot drift between them — it already had: the release path was missing the RSC fixture and publint, so a publish could ship what CI would have rejected. Order matters: build first, because packages typecheck against each other emitted .d.ts and the exports maps point at dist/.",
     "verify": "pnpm build && pnpm typecheck && pnpm lint && pnpm check:generated && pnpm test && pnpm size && pnpm --filter @kanzo-tech/docs build && pnpm publint"
   },
-  "//patches": "`patches/@uwdata__mosaic-core@0.32.0.patch`: `Coordinator.disconnect(client)` cancels the client's queued queries, and what they answer no longer reaches the client or the log. Without it a page that tears down — a clause withdrawn as it goes, the clients still connected querying again — ran those queries after the host released what they read (keasy: `Catalog Error … \"<graph>\".\"Airport\" does not exist` on leaving Discover). Held by packages/mosaic/src/disconnect.test.ts. mosaic-core is a peer, so a host carries the same patch; it goes when mosaic-core ships the behaviour.",
   "devDependencies": {
     "@changesets/cli": "^2.27.0",
     "@eslint/js": "^9.39.4",
@@ -42,9 +41,6 @@
     "overrides": {
       "react": "^19.0.0",
       "react-dom": "^19.0.0"
-    },
-    "patchedDependencies": {
-      "@uwdata/mosaic-core@0.32.0": "patches/@uwdata__mosaic-core@0.32.0.patch"
     }
   },
   "packageManager": "pnpm@9.0.0",
