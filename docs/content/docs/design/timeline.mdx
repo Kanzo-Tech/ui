@@ -1,6 +1,6 @@
 ---
 title: Timeline
-description: Why a time filter is a histogram whose brush owns its clause, why playback moves the brush through its owner rather than the selection, why time is read from the schema and never guessed, and why a date on a relation is a vertex — and what would reverse each rule.
+description: Why a time filter is a histogram whose brush owns its clause and sticks to its bars, why playback moves the brush through its owner rather than the selection, why its window reaches the page as identity, why time is read from the schema and never guessed, and why a date on a relation is a vertex — and what would reverse each rule.
 ---
 
 A timeline is a brushable histogram of one temporal column, which filters the page to the brushed
@@ -32,8 +32,18 @@ as Cosmograph's are.
 ## Playback moves the brush through its owner
 
 **A clause belongs to the source that published it, and only that source changes it, so playback
-asks the brush to move.** Each tick calls the interval interactor's public `publish(extent)`, with the
-range in pixels through the interactor's own `scale`. The brush moves, and its clause moves with it.
+asks the brush to move.** Each tick moves the interval interactor as its own `publish(extent)` does —
+its `value`, its brush moved silently, and `selection.update(interval.clause(window))` — but with the
+window in data rather than pixels. `publish` inverts a pixel floored to the interactor's
+`pixelSize`, so a window it set would hold *1909.9* where the bar starts at *1910*. The brush moves,
+and its clause, built by the interactor, moves with it.
+
+**The window sticks to the bars' edges, Cosmograph's `stickySelection`.** When a drag ends — a
+d3-brush `end` with a `sourceEvent`, which a move made in code never has — the window is moved to the
+nearest edges of the bars the brushed mark drew, at least one bar wide. So it reads *1910 – 1940*,
+its chip too, and a tick moves each end to the next edge: one bar, whatever its width, a month of
+uneven days included. The edges are the mark's own `x1` and `x2`, the bins vgplot asked for, so
+nothing is binned twice.
 Mosaic draws this line itself. An interval interactor never follows its selection, while an input
 that is driven from outside is bound to a `Param`: `Slider` follows a `Param`'s `value` events and
 not a `Selection`'s, and `PanZoom` follows the `Param`s of its domains. Cosmograph's
@@ -76,6 +86,20 @@ already makes in one place. None, the default, draws no timeline. The histogram 
 tables that have the column, one colour, and the clause filters every type with that column, by the
 graph's clause rule (`answers`), and leaves the others whole.
 
+**The window reaches the page as identity, not as its column.** A window is `date BETWEEN …`, and
+only the types with a date can answer it: published straight into the page's crossfilter, it reached
+every client of the page, and a dashboard's relation or a filter over a type with no date failed on
+the column it does not have. So the timeline publishes into a crossfilter of its own, bridged to the
+page by `antiJoinOf(key, timeline)` — `dense_id NOT IN (SELECT dense_id FROM <the types with the
+column> WHERE NOT <the window>)` — the way a dashboard's tiles cross by `semiJoinOf`. The anti-join
+drops only the rows of the types with the column that the window leaves out, so the rest stay whole,
+and it names the key alone, so every client answers it. The chip still reads *date 1910 – 1940*: the
+bar names a bridged clause by its parts.
+
+**What would reverse it:** clients of the page that each apply the clause rule themselves, as
+`GraphClient` does, skipping a clause they cannot answer. Then a column clause could go to the page
+as itself. Mosaic's clients apply every clause they are handed, so the rule lives in the clause.
+
 **What would reverse it:** a corpus whose times arrive as text with no datatype, such as one written
 without a shape. Then a column is offered when its values parse, and the parse is the rule. And for
 the setting: a page with two timelines over one graph, each on its own column. Then the column is a
@@ -117,8 +141,11 @@ its title in `window.__KANZO_TESTING__.charts` when a test has installed the hoo
 then brushes in data and plays.
 
 *Held by* `packages/ui/src/charts/chart-timeline.test.tsx` (a tick moves the window one bar, in axis
-order, and stops at the end of the axis; with no window there is nothing to play; a year reads as
-its integer; the figure, its button and its group are what a harness reads),
+order, and stops at the end of the axis; with no window there is nothing to play; a brushed window
+sticks to the nearest edges, at least one bar wide; a year reads as its integer, on the axis too; the
+figure, its button and its group are what a harness reads),
 `packages/graph/src/parts/graph-timeline.test.tsx` (it draws nothing until `time-by` is chosen, and
-nothing for a column the corpus lacks) and `packages/graph/src/parts/graph-section.test.tsx` (the
+nothing for a column the corpus lacks; the window filters the types with the column and leaves a
+relation without it whole, unbroken), `packages/mosaic/src/clause.test.ts` (the anti-join names the
+key alone) and `packages/graph/src/parts/graph-section.test.tsx` (the
 setting offers the `xsd:gYear` column by its datatype, and no integer of the same range).

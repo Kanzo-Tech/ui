@@ -314,9 +314,11 @@ a bar at a time. It is `ChartTimeline` from `@kanzo-tech/ui/analytics` over the 
   `timestamp`, or a column whose `datatype` is `xsd:date`, `xsd:dateTime` or `xsd:gYear` — a year is
   stored as an `int32`, and the datatype is what says it is a year. That needs a corpus attached by
   `@fossil-lang/corpus` 0.3.0-alpha.28 or later.
-- **The window is one clause on the graph's crossfilter.** Every type with the column is filtered by
-  it and the rest stay whole, the graph's [clause rule](#the-channels-are-bindings); what it leaves
-  out is greyed, and the window is a chip in the page's `FilterBar`.
+- **The window reaches the page as identity.** It is a clause of the timeline's own, crossed into
+  the page's crossfilter as an anti-join on `dense_id` (`antiJoinOf`), as a dashboard's clauses
+  cross as a semi-join. Every type with the column is filtered by it and the rest stay whole; what it
+  leaves out is greyed, a dashboard beside the graph is filtered through its relation's root, and
+  the window is a chip in the page's `FilterBar`.
 - **A date on a relation is a vertex** — the year of a prize, the day two people met — because a
   corpus has no edge properties yet ([why](/docs/design/timeline)). Playing it greys the relations
   of other years and the edges into them.

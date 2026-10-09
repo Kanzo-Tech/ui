@@ -1,8 +1,9 @@
 "use client";
 
 import { ChartTimeline } from "@kanzo-tech/ui/analytics";
-import { useMemo } from "react";
-import { timelineTable } from "../core/source";
+import { Selection, bridgeSelection } from "@kanzo-tech/mosaic";
+import { useEffect, useMemo } from "react";
+import { timelineOf } from "../core/source";
 import { useGraphContext } from "../react/graph-root";
 import { internalsOf } from "../react/use-graph";
 import { useGraphPrefs } from "../react/use-graph-prefs";
@@ -20,25 +21,30 @@ export interface GraphTimelineProps {
  * moves the window forward. The column is the `time-by` preference, chosen in the graph's settings;
  * with none chosen, or one this corpus does not have, it draws nothing.
  *
- * The window is one clause on the graph's crossfilter, so it greys out what it leaves out — every
- * type with the column is filtered by it and the rest stay whole, the graph's clause rule — and it
- * is a chip in the page's `FilterBar`. A date on a relation is a vertex here (`/docs/design/timeline`),
+ * The window is a clause of the timeline's own, crossed into the page's crossfilter as an anti-join
+ * on the key — as a dashboard's clauses cross as a semi-join — so every client of the page answers
+ * it: what it leaves out is greyed out, every type with the column is filtered by it and the rest stay
+ * whole, a dashboard's relation is filtered through its root, and it is a chip in the page's
+ * `FilterBar`. A date on a relation is a vertex here (`/docs/design/timeline`),
  * so playing it greys the relations of other years and the edges into them.
  */
 export function GraphTimeline({ className, height }: GraphTimelineProps) {
   const { timeline } = useGraphPrefs();
   const structure = useGraphState((s) => s.structure);
-  const scope = internalsOf(useGraphContext()).store.scope();
-  const table = useMemo(() => timelineTable(structure, timeline), [structure, timeline]);
-  if (!table) return null;
+  const page = internalsOf(useGraphContext()).store.scope();
+  const of = useMemo(() => timelineOf(structure, timeline), [structure, timeline]);
+  // One per timeline: a window brushed over another column is not this one's to map.
+  const own = useMemo(() => (of ? Selection.crossfilter() : null), [of]);
+  useEffect(() => (of && own ? bridgeSelection(own, page, of.publish) : undefined), [of, own, page]);
+  if (!of || !own) return null;
   return (
     <ChartTimeline
-      as={scope}
+      as={own}
       className={className}
       field={timeline}
-      filterBy={scope}
+      filterBy={own}
       height={height}
-      table={table}
+      table={of.table}
       title={`Timeline: ${timeline}`}
     />
   );
