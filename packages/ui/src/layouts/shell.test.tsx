@@ -16,13 +16,16 @@ const panels = [
   { id: "files", label: "Files" },
   { id: "search", label: "Search" },
   { id: "git", label: "Source control" },
-];
+] as const;
+
+type Panel = (typeof panels)[number]["id"];
 
 const Glyph = () => <svg aria-hidden />;
 
 /** A page's dock: the switcher in its footer, and the open panel, titled in words. */
-function Dock({ initial = "files" }: { initial?: string | null }) {
-  const [panel, setPanel] = useState<string | null>(initial);
+function Dock({ initial = "files" }: { initial?: Panel | null }) {
+  // The page's own id type, handed straight to the switcher: `setPanel` takes no `string`.
+  const [panel, setPanel] = useState<Panel | null>(initial);
   const open = panels.find((p) => p.id === panel);
   return (
     <>
@@ -35,7 +38,7 @@ function Dock({ initial = "files" }: { initial?: string | null }) {
         role="contentinfo"
       >
         <span className="min-w-0 flex-1">Ready</span>
-        <ShellDockSwitcher onValueChange={setPanel} value={panel}>
+        <ShellDockSwitcher aria-label="Side panels" onValueChange={setPanel} value={panel}>
           {panels.map(({ id, label }) => (
             <ShellDockItem icon={Glyph} key={id} label={label} value={id} />
           ))}
@@ -76,6 +79,17 @@ describe("the header and footer regions", () => {
 });
 
 describe("ShellDockSwitcher", () => {
+  it("is a radiogroup named by the page, and hands back the page's own panel type", () => {
+    render(<Dock />);
+    expect(screen.getByRole("radiogroup", { name: "Side panels" })).toBeTruthy();
+
+    const typed = (next: Panel | null) => next;
+    // @ts-expect-error a radiogroup's name is required, and no default fits every dock
+    void (<ShellDockSwitcher onValueChange={typed} value="files" />);
+    // @ts-expect-error onValueChange hands back the type of `value`, not a wider one
+    void (<ShellDockSwitcher aria-label="Panels" onValueChange={(next: "files" | null) => next} value={"search" as Panel} />);
+  });
+
   it("an item is named by its label, pressed while open, and collapses its panel when pressed again", async () => {
     const user = userEvent.setup();
     render(<Dock />);

@@ -646,9 +646,10 @@ function ArchiveShell() {
 					<ArchiveFooter />
 					{/* `value` mirrors the two state atoms, so the dock reopens on the panel it closed on. */}
 					<ShellDockSwitcher
+						aria-label="Inspectors"
 						onValueChange={(next) => {
 							if (next) {
-								setActive(next as PanelId);
+								setActive(next);
 								setPanelOpen(true);
 							} else {
 								setPanelOpen(false);
