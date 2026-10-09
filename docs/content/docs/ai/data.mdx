@@ -234,7 +234,9 @@ The tile goes on under the answer's own id, so **whether it is on the dashboard 
 reader removes the tile and that is saved, the card offers it again. When `onAdd` returns a promise,
 the button is pending until it settles — whatever `dashboards` already shows — and a rejection is
 drawn as a [`Problem`](/docs/data-display/problem) under the actions, the thrown value whole, with
-the button back. `copy` is the host's words for a coded one, as `Chat` takes them. The card says it
+the button back. `copy` is the host's words for a coded one, as `Chat` takes them. *On the dashboard* reads the host's `dashboards` and nothing else, so a host that draws the tile
+before its write settles is saying it is there: it rolls the document back when the write fails, and
+the card follows and offers the add again. The card says it
 where the reader pressed, so a host that also toasts every failed save says it twice.
 
 An add is a decision, not an edit: write it at once, as `useDebouncedCommit`'s `commit` does, with
@@ -284,6 +286,7 @@ Before there is an answer, and when there will be none:
 dashboards with the tile in the relation's spec, and where it landed"; "is on the dashboard while the
 host's spec holds the tile, after a remount, and offered again once it is removed"; "is pending while
 the host's write is, never on the dashboard before it settles, and draws a rejection as a Problem";
+"follows a host that drew the tile before its write and rolled it back when the write failed";
 "stays busy over the skeleton until the answer's tile is drawn"; "filters the page to the answer as one semi-join on the root key, and takes it
 back"; "is busy until answered, over a skeleton the chart's height, and not once stopped"; "draws a
 refusal as a Problem under the card's title"; "draws a kept answer whose relation the graph no longer

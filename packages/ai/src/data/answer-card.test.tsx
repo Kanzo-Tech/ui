@@ -2,6 +2,7 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Selection } from "@kanzo-tech/mosaic";
 import { autoDashboard, MosaicProvider, type Dashboards, type DashboardSpec } from "@kanzo-tech/ui/analytics";
+import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { mockModel } from "../testing/model.js";
 import { testDatabase, type TestDatabase } from "../testing/duckdb.js";
@@ -101,6 +102,35 @@ describe("AnswerCard", () => {
     await act(async () => settle.resolve());
     rerender(<AnswerCard dashboards={writing} graph={PEOPLE} onAdd={onAdd} part={answered(output)} />);
     expect(screen.getByRole("button", { name: "✓ On the dashboard" })).toBeTruthy();
+  });
+
+  it("follows a host that drew the tile before its write and rolled it back when the write failed", async () => {
+    const refused = new Error("The dashboard could not be saved.");
+    let fail!: () => void;
+    // The host: optimistic, so it draws what it is writing at once, and puts back what it held when the
+    // write fails — remounting the card in between, as a host that keys its panel would.
+    function Host() {
+      const [dashboards, setDashboards] = useState<Dashboards>({ byRelation: {} });
+      const [mount, setMount] = useState(0);
+      const onAdd = (next: Dashboards) => {
+        const held = dashboards;
+        setDashboards(next);
+        setMount((n) => n + 1);
+        return new Promise<void>((_, reject) => {
+          fail = () => {
+            setDashboards(held);
+            reject(refused);
+          };
+        });
+      };
+      return <AnswerCard dashboards={dashboards} graph={PEOPLE} key={mount} onAdd={onAdd} part={answered(output)} />;
+    }
+    render(<Host />, { wrapper: page() });
+    await userEvent.click(await screen.findByRole("button", { name: "Add to the dashboard" }));
+    // Remounted over a document that holds the tile, the card says what the host says.
+    expect(await screen.findByRole("button", { name: "✓ On the dashboard" })).toBeTruthy();
+    await act(async () => fail());
+    expect((await screen.findByRole("button", { name: "Add to the dashboard" })).hasAttribute("disabled")).toBe(false);
   });
 
   it("filters the page to the answer as one semi-join on the root key, and takes it back", async () => {
