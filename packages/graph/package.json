@@ -33,7 +33,7 @@
     "size": "size-limit"
   },
   "//peers": "All required. cosmos.gl draws and lays out; `lucide-react` is the icon set the parts draw their buttons with, `@kanzo-tech/ui`'s own peer; `@kanzo-tech/mosaic` is the coordinator the graph reads through as a client and the crossfilter it listens to and publishes into. The Mosaic stack itself — mosaic-core, mosaic-sql — is `@kanzo-tech/mosaic`'s peer, declared once there.",
-  "//fossil": "The graph reads a corpus fossil's `attach` (`@fossil-lang/corpus`) attached under a name — its tables, `fossil_tables` and `fossil_columns` — with SQL through the coordinator. It imports nothing of fossil's: the contract is the catalog, `/docs/format`.",
+  "//fossil": "The graph reads a corpus fossil's `attach` (`@fossil-lang/corpus`) attached under a name — its tables, `fossil_tables` and `fossil_columns` — with SQL through the coordinator. It imports nothing of fossil's: the contract is the catalog, `/docs/format`, as `@fossil-lang/corpus` 0.3.0-alpha.28 writes it — `fossil_columns.datatype` is what tells a year stored as an `int32` from a number.",
   "peerDependencies": {
     "@cosmos.gl/graph": "^3.4.0",
     "@kanzo-tech/mosaic": "workspace:*",

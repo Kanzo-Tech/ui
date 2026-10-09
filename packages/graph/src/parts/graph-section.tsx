@@ -34,19 +34,28 @@ export function GraphSection({ children }: { children?: ReactNode }) {
 /** The manifest's numeric spellings — `fossil-sinks`' `data_type_name`. */
 const NUMERIC = /^(u?int(8|16|32|64)|float|double|decimal)$/;
 
-/** Every vertex table's fields, once each by name, sorted: all of them, and the numeric ones. */
-function fieldsOf(structure: Structure | null): { columns: PrefOption[]; "numeric-columns": PrefOption[] } {
+const XSD = "http://www.w3.org/2001/XMLSchema#";
+/** A time by its type — the manifest's `date` and `timestamp` — or by its datatype: a year is an `int32`. */
+const TEMPORAL_TYPES = new Set(["date", "timestamp"]);
+const TEMPORAL_DATATYPES = new Set([`${XSD}date`, `${XSD}dateTime`, `${XSD}gYear`]);
+
+/** Every vertex table's fields, once each by name, sorted: all of them, the numeric and the temporal ones. */
+function fieldsOf(structure: Structure | null): Record<"columns" | "numeric-columns" | "temporal-columns", PrefOption[]> {
   const any = new Set<string>();
   const numeric = new Set<string>();
+  const temporal = new Set<string>();
   for (const table of structure?.vertices ?? []) {
     for (const [name, column] of table.columns) {
       if (column.role !== null) continue;
       any.add(name);
       if (NUMERIC.test(column.type)) numeric.add(name);
+      if (TEMPORAL_TYPES.has(column.type) || (column.datatype !== null && TEMPORAL_DATATYPES.has(column.datatype))) {
+        temporal.add(name);
+      }
     }
   }
   const options = (names: Set<string>) => [...names].sort().map((name) => ({ value: name, label: name }));
-  return { columns: options(any), "numeric-columns": options(numeric) };
+  return { columns: options(any), "numeric-columns": options(numeric), "temporal-columns": options(temporal) };
 }
 
 /**

@@ -24,6 +24,8 @@ export interface VertexTable {
 export interface Column {
   readonly type: string;
   readonly role: string | null;
+  /** The literal datatype IRI its shape declared — `xsd:gYear` over an `int32` — or `null`. */
+  readonly datatype: string | null;
 }
 
 /** One relation: its table, its label, and the vertex tables its `src` and `dst` point into. */

@@ -4,7 +4,7 @@ import { joinGraphOf } from "./join-graph";
 import type { Column, Structure } from "./structure";
 
 const columns = (entries: [string, string | null][]) =>
-  new Map<string, Column>(entries.map(([name, role]) => [name, { type: "string", role }]));
+  new Map<string, Column>(entries.map(([name, role]) => [name, { type: "string", role, datatype: null }]));
 
 const STRUCTURE: Structure = {
   from: "jobs/7",

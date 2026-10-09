@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { placementFrom } from "./core/channels";
+import { placementFrom, timelineFrom } from "./core/channels";
 import { DEFAULT_LOOK, lookFrom, type Look } from "./render/graph-looks";
 import { DEFAULT_SIM, simFrom } from "./render/graph-sim";
 import { GRAPH_SECTION } from "./section";
@@ -104,7 +104,7 @@ describe("the look axes", () => {
 
     const declared = Object.entries(GRAPH_SECTION.prefs) as [string, Decl][];
     expect(declared.length, "the section declares nothing").toBeGreaterThan(0);
-    const readers = { look: lookFrom, sim: simFrom, placement: placementFrom };
+    const readers = { look: lookFrom, sim: simFrom, placement: placementFrom, timeline: timelineFrom };
     for (const [key, decl] of declared) {
       const when: Record<string, string> = {
         "x-by": "a-column",

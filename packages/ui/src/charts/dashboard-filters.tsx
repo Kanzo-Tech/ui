@@ -1,19 +1,14 @@
 "use client";
 
 import { clauseParts, type TableExpr } from "@kanzo-tech/mosaic";
-import { count } from "@uwdata/mosaic-sql";
-import { bin } from "@uwdata/vgplot";
 import type { SelectionClause } from "@uwdata/mosaic-core";
 import { CalendarRangeIcon, ChevronDownIcon, PlusIcon, SearchIcon, SlidersHorizontalIcon, XIcon, type LucideIcon } from "lucide-react";
 import { cn } from "../lib/cn.js";
 import { Button } from "../simples/button.js";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "../simples/menu.js";
 import { Popover, PopoverContent, PopoverTrigger } from "../simples/popover.js";
-import { ChartAxisX, ChartAxisY } from "./chart-axes.js";
 import { ChartFilter, ChartSearch, ChartSlider } from "./chart-inputs.js";
-import { ChartBrushX } from "./chart-interactors.js";
-import { ChartRectY } from "./chart-marks.js";
-import { ChartRoot } from "./chart-root.js";
+import { ChartTimeline } from "./chart-timeline.js";
 import { filterControl, type DashboardFilterControl, type DashboardFilterSpec } from "./dashboard-spec.js";
 import type { FieldStat } from "./field-stats.js";
 import { clauseField, useClauses } from "./filter-bar.js";
@@ -153,24 +148,9 @@ function FilterChip({
         ) : control === "slider" ? (
           <ChartSlider column={field.name} select="interval" table={table} />
         ) : (
-          <Timeline field={field.name} table={table} />
+          <ChartTimeline field={field.name} table={table} title={field.name} />
         )}
       </PopoverContent>
     </Popover>
-  );
-}
-
-const TIMELINE_MARGIN = { top: 4, right: 8, bottom: 20, left: 8 };
-
-/** A time filter is a brush over the distribution in time — the range picker that shows what it picks. */
-function Timeline({ table, field }: { table: TableExpr; field: string }) {
-  return (
-    <ChartRoot height={72} margin={TIMELINE_MARGIN} table={table}>
-      <ChartRectY fill="var(--muted-foreground)" filterBy={null} inset={0.5} opacity={0.22} x={bin(field)} y={count()} />
-      <ChartRectY fill="var(--chart-1)" inset={0.5} x={bin(field)} y={count()} />
-      <ChartBrushX />
-      <ChartAxisX label={null} ticks={5} />
-      <ChartAxisY anchor={null} label={null} />
-    </ChartRoot>
   );
 }

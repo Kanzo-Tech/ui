@@ -18,7 +18,8 @@ export { MosaicClients, MosaicProvider, useMosaic, useCrossfilter, useSelected }
 export type { MosaicClientsProps, MosaicProviderProps, MosaicContextValue } from "./charts/mosaic-provider.js";
 
 export { ChartRoot, useChartContext, useChartContextOptional } from "./charts/chart-root.js";
-export type { ChartRootProps, ChartContextValue } from "./charts/chart-root.js";
+export type { ChartRootProps, ChartContextValue, ChartPlot } from "./charts/chart-root.js";
+export { ChartTimeline, type ChartTimelineProps } from "./charts/chart-timeline.js";
 
 export type { ChartConfig, ChartSeriesConfig, ChartSeriesEntry } from "./charts/chart-config.js";
 // No `chartSeriesEntries` (the config→rows projection `ChartLegend` renders) and no `isColorValue`,

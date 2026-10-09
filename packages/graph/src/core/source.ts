@@ -66,18 +66,22 @@ export async function readStructure(coordinator: Coordinator, from: string): Pro
     ),
     ask(
       coordinator,
-      Query.select("table_name", "column_name", "role", { data_type: cast("data_type", "VARCHAR") })
+      Query.select("table_name", "column_name", "role", "datatype", { data_type: cast("data_type", "VARCHAR") })
         .from(relation(from, "fossil_columns"))
         .orderby("table_name", "ordinal_position"),
     ),
   ]);
   const byTable = new Map<string, { names: Map<string, Column>; identity: string }>();
   const [tn, cn] = [values(columns, "table_name"), values(columns, "column_name")];
-  const [role, type] = [values(columns, "role"), values(columns, "data_type")];
+  const [role, type, datatype] = [values(columns, "role"), values(columns, "data_type"), values(columns, "datatype")];
   let key: string | undefined;
   for (let i = 0; i < columns.numRows; i++) {
     const entry = byTable.get(String(tn[i])) ?? { names: new Map<string, Column>(), identity: "subject" };
-    entry.names.set(String(cn[i]), { type: String(type[i] ?? ""), role: role[i] === null ? null : String(role[i]) });
+    entry.names.set(String(cn[i]), {
+      type: String(type[i] ?? ""),
+      role: role[i] === null ? null : String(role[i]),
+      datatype: datatype[i] === null || datatype[i] === undefined ? null : String(datatype[i]),
+    });
     if (role[i] === "identity") entry.identity = String(cn[i]);
     if (role[i] === "address") key ??= String(cn[i]);
     byTable.set(String(tn[i]), entry);
@@ -348,3 +352,10 @@ export async function matchingIds(
   return Array.from(values(await ask(coordinator, Query.select("id").from(union).where("inside")), "id") as ArrayLike<number>);
 }
 
+/** `field` from every vertex table that has it, as one relation; `null` when none does. */
+export function timelineTable(structure: Structure | null, field: string): Query | null {
+  if (!structure || field === "") return null;
+  const tables = structure.vertices.filter((t) => t.columns.get(field)?.role === null);
+  if (tables.length === 0) return null;
+  return Query.unionAll(tables.map((t) => Query.select({ [field]: field }).from(relation(structure.from, t.name))));
+}

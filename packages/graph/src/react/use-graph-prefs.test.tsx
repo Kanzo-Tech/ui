@@ -26,7 +26,7 @@ function mount(props: Record<string, unknown> = {}) {
 describe("useGraphPrefs", () => {
   it("answers the manifest's defaults when nobody chose anything", () => {
     const { result } = mount();
-    expect(result.current.prefs).toEqual({ look: lookFrom(), sim: simFrom(), placement: {} });
+    expect(result.current.prefs).toEqual({ look: lookFrom(), sim: simFrom(), placement: {}, timeline: "" });
   });
 
   it("follows a stored choice", () => {

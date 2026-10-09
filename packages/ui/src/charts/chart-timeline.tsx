@@ -1,0 +1,164 @@
+"use client";
+
+import type { TableExpr } from "@kanzo-tech/mosaic";
+import type { Selection } from "@uwdata/mosaic-core";
+import { Interval1D } from "@uwdata/mosaic-plot";
+import { count } from "@uwdata/mosaic-sql";
+import { bin } from "@uwdata/vgplot";
+import { PauseIcon, PlayIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+import { cn } from "../lib/cn.js";
+import { Button } from "../simples/button.js";
+import { ChartAxisX, ChartAxisY } from "./chart-axes.js";
+import { ChartBrushX } from "./chart-interactors.js";
+import { ChartRectY } from "./chart-marks.js";
+import { ChartRoot, useChartContext, type ChartPlot } from "./chart-root.js";
+
+export interface ChartTimelineProps {
+  /** The relation the bars count. */
+  table?: TableExpr;
+  /** The temporal column: a date, a timestamp, or a year stored as its integer. */
+  field: string;
+  /** Names the figure — its accessible name, and its key in a test's hook. */
+  title: string;
+  /**
+   * The bars' colour, or a column to stack them by — `type`, to read each type in its legend colour.
+   * Default `var(--chart-1)`.
+   */
+  fill?: string;
+  /** What the bars filter by. Defaults to the page's crossfilter. */
+  filterBy?: Selection | null;
+  /** Where the window publishes. Defaults to the root's own selection, relayed into the page's. */
+  as?: Selection;
+  /** Plot height in px. Default 72. */
+  height?: number;
+  /** Draw the play button. Default `true`. */
+  playable?: boolean;
+  className?: string;
+}
+
+const MARGIN = { top: 4, right: 8, bottom: 20, left: 8 };
+/** How many bars the axis is cut into, and so how far one tick of playback moves the window. */
+const BARS = 60;
+/** Cosmograph's `animationSpeed`: one bar every 50 ms. */
+const TICK_MS = 50;
+
+/**
+ * **A time filter: the distribution over time, a window brushed across it, and a play button that
+ * moves the window forward** — Cosmograph's `Timeline`, on the page's crossfilter. The bars behind
+ * are the column unfiltered and the bars in front are what the page keeps; the window is one clause,
+ * a chip in the `FilterBar` like any control's. `/docs/design/timeline` is why it is shaped so.
+ *
+ * Playing asks the window's owner to move it — the interval's own `publish`, a bar at a time —
+ * because a clause belongs to the source that published it. With no window there is nothing to
+ * play, and at the end of the axis it stops.
+ */
+export function ChartTimeline({
+  table,
+  field,
+  title,
+  fill = "var(--chart-1)",
+  filterBy,
+  as,
+  height = 72,
+  playable = true,
+  className,
+}: ChartTimelineProps) {
+  const bars = bin(field, { steps: BARS });
+  return (
+    <ChartRoot
+      aria-label={title}
+      as={as}
+      className={cn("gap-1", className)}
+      filterBy={filterBy}
+      height={height}
+      margin={MARGIN}
+      table={table}
+    >
+      <ChartRectY fill="var(--muted-foreground)" filterBy={null} inset={0.5} opacity={0.22} x={bars} y={count()} />
+      <ChartRectY fill={fill} inset={0.5} x={bars} y={count()} />
+      <ChartBrushX />
+      <ChartAxisX label={null} ticks={5} />
+      <ChartAxisY anchor={null} label={null} />
+      <TimelineWindow playable={playable} />
+    </ChartRoot>
+  );
+}
+
+/** The play button and the window's readout, under the bars. */
+function TimelineWindow({ playable }: { playable: boolean }) {
+  const { as, plot } = useChartContext();
+  const [range, setRange] = useState<readonly unknown[] | null>(null);
+  const [playing, setPlaying] = useState(false);
+
+  // The window is the interval's value, and it changes whenever the interval publishes — a drag,
+  // a tick, or a reset from the bar's chip.
+  useEffect(() => {
+    const read = () => setRange(intervalOf(plot())?.value ?? null);
+    as.addEventListener("value", read);
+    return () => as.removeEventListener("value", read);
+  }, [as, plot]);
+
+  useEffect(() => {
+    if (!playing) return;
+    const timer = setInterval(() => {
+      const interval = intervalOf(plot());
+      const next = interval && nextWindow(interval);
+      if (next) interval.publish(next);
+      else setPlaying(false);
+    }, TICK_MS);
+    return () => clearInterval(timer);
+  }, [playing, plot]);
+
+  const reading = range ? readWindow(range) : null;
+  return (
+    <div className="flex min-h-7 items-center gap-2 px-2 text-muted-foreground text-xs">
+      {playable ? (
+        <Button
+          aria-label={playing ? "Pause" : "Play"}
+          aria-pressed={playing}
+          disabled={!range && !playing}
+          onClick={() => setPlaying((p) => !p)}
+          size="icon-sm"
+          variant="ghost"
+        >
+          {playing ? <PauseIcon /> : <PlayIcon />}
+        </Button>
+      ) : null}
+      <div aria-label="Window" aria-valuetext={reading ?? undefined} className="tabular-nums" role="group">
+        {reading ?? "Drag across the bars to choose a window"}
+      </div>
+    </div>
+  );
+}
+
+/** The interval the plot on screen publishes through, if it has drawn one. */
+function intervalOf(plot: ChartPlot | null): Interval1D | null {
+  return (plot?.interactors.find((i): i is Interval1D => i instanceof Interval1D) ?? null);
+}
+
+/**
+ * The window one tick later, in pixels: one bar further along, or `null` where it would pass the
+ * end of the axis or there is no window to move.
+ */
+export function nextWindow(interval: {
+  value?: readonly unknown[];
+  scale: { apply(value: unknown): number; range: readonly number[] };
+}): [number, number] | null {
+  if (!interval.value) return null;
+  const [a, b] = interval.value.map((v) => interval.scale.apply(v)).sort((x, y) => x - y);
+  const [start, end] = [Math.min(...interval.scale.range), Math.max(...interval.scale.range)];
+  const step = (end - start) / BARS;
+  if (a === undefined || b === undefined || b + step > end + 0.5) return null;
+  return [a + step, b + step];
+}
+
+const DAY = new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" });
+
+/** *1950 – 1960*: a year as its integer, a date as a day. */
+export function readWindow(window: readonly unknown[]): string {
+  const [from, to] = window.map((v) =>
+    v instanceof Date ? DAY.format(v) : typeof v === "number" ? String(Math.round(v)) : String(v),
+  );
+  return `${from} – ${to}`;
+}

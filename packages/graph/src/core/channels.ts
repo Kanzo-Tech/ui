@@ -81,3 +81,8 @@ export function placementFrom(values: Readonly<Record<string, string>> = {}): Pl
   }
   return {};
 }
+
+/** The column `GraphTimeline` reads: `time-by`, or `""` for none. */
+export function timelineFrom(values: Readonly<Record<string, string>> = {}): string {
+  return values["time-by"] ?? "";
+}
