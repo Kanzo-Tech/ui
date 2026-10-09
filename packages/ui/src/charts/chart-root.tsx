@@ -25,6 +25,7 @@ import { useClientsEnabled, useMosaic } from "./mosaic-provider.js";
 import { resolveTokenColor } from "../lib/token-color.js";
 import { TokenizedPlot } from "./tokenized-plot.js";
 import { DenseStackMark } from "./dense-stack.js";
+import { registerChartForTesting, type PlotOutput } from "./testing-probe.js";
 
 /**
  * What `vg.plot` returns: its element, carrying the `Plot` as `value`. vgplot's marks are Mosaic
@@ -32,7 +33,9 @@ import { DenseStackMark } from "./dense-stack.js";
  * the plot on its last render — so `ChartRoot` answers it for them.
  */
 type PlotMark = { queryError(error: Error): unknown; enabled: boolean };
-type PlotElement = HTMLElement & { value: { marks: PlotMark[] } };
+type PlotElement = HTMLElement & {
+  value: { marks: PlotMark[]; pending(mark: PlotMark): void; render(): Promise<void>; element: HTMLElement };
+};
 
 /** An area stacked by a series column (the `z` `chart-marks` derives), which `denseStack` completes. */
 function isStackedArea(directive: ChartMarkDirective): boolean {
@@ -172,6 +175,10 @@ const EMPTY_CONFIG: ChartConfig = {};
  * columns this plot's own interactors could produce — which are the columns its marks group by. The
  * clauses are relayed on into the provider (`selected` → `crossfilter`) with `source` and `clients`
  * intact, so every other chart filters exactly as before and this one still does not filter itself.
+ *
+ * ARIA: the root is a `figure`, named by the caller's `aria-label` — a tile passes its title — and
+ * `aria-busy` until it has drawn and while a query runs. Its title is also its key in
+ * `@kanzo-tech/testing`'s hook, when a test has installed one.
  */
 export function ChartRoot(props: ChartRootProps) {
   const {
@@ -197,6 +204,13 @@ export function ChartRoot(props: ChartRootProps) {
   } = props;
   const { coordinator, crossfilter, selected, registerSelection, onFailure } = useMosaic();
   const [failure, setFailure] = useState<unknown>(undefined);
+  // Busy until the first render, so a chart that has not measured its width yet is not read as
+  // drawn; where it never can, as under jsdom, it stays busy, which is what it is.
+  const [busy, setBusy] = useState(true);
+  // Plot's output on screen, for the test hook's scales.
+  const output = useRef<PlotOutput | null>(null);
+  const title = rest["aria-label"];
+  useEffect(() => registerChartForTesting(title, () => output.current), [title]);
   // A plain union, so it hides nothing from its own publisher — a crossfilter would, and
   // `ChartHighlight` would read an empty predicate and dim nothing.
   const [own] = useState(() => Selection.union());
@@ -260,7 +274,9 @@ export function ChartRoot(props: ChartRootProps) {
   return (
     <ChartContext.Provider value={context}>
       <ark.div
+        aria-busy={busy || undefined}
         className={cn("flex w-full flex-col gap-2", className)}
+        role="figure"
         ref={(node: HTMLDivElement | null) => {
           host.current = node;
           assignRef(ref, node);
@@ -306,13 +322,30 @@ export function ChartRoot(props: ChartRootProps) {
             );
             setFailure(undefined);
             const element = vg.plot(...spec.map(toVgDirective).filter((d): d is VgDirective => d !== null));
-            marks.current = (element as PlotElement).value.marks;
+            const plot = (element as PlotElement).value;
+            marks.current = plot.marks;
+            // Busy from each build, and from each query a mark starts, to the render that draws its
+            // answer: `pending` and `render` are the two moments vgplot's `Plot` has, and neither has
+            // a listener.
+            setBusy(true);
+            const pending = plot.pending.bind(plot);
+            plot.pending = (mark) => {
+              setBusy(true);
+              pending(mark);
+            };
+            const render = plot.render.bind(plot);
+            plot.render = async () => {
+              await render();
+              output.current = plot.element.firstElementChild as PlotOutput | null;
+              setBusy(false);
+            };
             for (const mark of marks.current) {
               mark.enabled = enabled;
               const own = mark.queryError.bind(mark);
               mark.queryError = (error) => {
                 const thrown = queryFailure(error);
                 setFailure(() => thrown);
+                setBusy(false);
                 onFailure(thrown);
                 return own(error);
               };

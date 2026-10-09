@@ -73,7 +73,12 @@ export function Dashboard(props: DashboardProps) {
   );
 
   const body = (
-    <ark.div className={cn("@container/dashboard flex flex-col gap-4", className)} {...rest} data-slot={slot ?? "dashboard"}>
+    <ark.div
+      aria-busy={(error === null && readable === null) || undefined}
+      className={cn("@container/dashboard flex flex-col gap-4", className)}
+      {...rest}
+      data-slot={slot ?? "dashboard"}
+    >
       {error !== null ? (
         <Alert variant="destructive">
           <AlertTitle>The relation could not be summarized</AlertTitle>

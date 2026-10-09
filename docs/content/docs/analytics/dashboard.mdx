@@ -496,6 +496,22 @@ alert, *The relation could not be summarized*, with DuckDB's message, and report
 provider's `onFailure`. A failed card, tile or input says so in its own frame and reports the same
 way. Nothing fails blank.
 
+## Testing
+
+`DashboardHarness` and `FilterBarHarness` from [`@kanzo-tech/testing`](/docs/testing). A dashboard
+is `aria-busy` while it reads the relation's fields, and `settled()` waits for nothing in it to be busy;
+`tile(title)` finds a tile by its title. The bar is the region *Filters*, and its readout a `status`
+that is `aria-busy` while it counts, which `readout()` waits out.
+
+```ts
+import { DashboardHarness, FilterBarHarness } from "@kanzo-tech/testing";
+
+const dashboard = await env.harness(DashboardHarness);
+await dashboard.settled();
+await (await (await dashboard.tile("Sightings by beast")).chart()).pick({ y: "boghound" });
+await expect.poll(async () => (await env.harness(FilterBarHarness)).readout()).toMatch(/ of /);
+```
+
 ## API Reference
 
 ### Dashboard

@@ -548,6 +548,22 @@ it runs — and done in about ten seconds at 200,000 vertices and at 500,000.
 [Layout and camera](/docs/graph/layout#how-the-layout-scales) has the rules and the measurements;
 [Benchmarks](/docs/graph/benchmarks) has the viewer against cosmos.gl alone.
 
+## Testing
+
+`GraphCanvasHarness` from [`@kanzo-tech/testing`](/docs/testing) drives a canvas and its toolbar.
+It waits for the canvas's first drawn frame (`aria-busy` until then) and, after a gesture or
+**Frame**, for a frame drawn after it, counted in `data-frame`. Points are in the data you bound to
+`x` and `y`, through cosmos.gl's own space-to-screen conversion.
+
+```ts
+import { GraphCanvasHarness } from "@kanzo-tech/testing";
+
+const graph = await env.harness(GraphCanvasHarness);
+await graph.ready();
+await graph.lasso([[-10, 40], [5, 40], [5, 55]], { in: "data", with: "Meta" });
+await graph.frame();
+```
+
 ## API Reference
 
 `packages/graph/src/index.test.ts` pins the barrel: adding a name fails that file until somebody

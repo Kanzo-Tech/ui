@@ -93,9 +93,10 @@ function entryPoints(pkgDir: string): Entry[] {
 /**
  * `graph` is here for the reason the comment above predicted: `docs/content/docs/graph/` documents
  * `@kanzo-tech/graph`, and until this line the page could name anything at all. `llm` for the same
- * reason: `docs/content/docs/ai/` imports `createGateway` and the agent from it.
+ * reason: `docs/content/docs/ai/` imports `createGateway` and the agent from it. `testing` because
+ * `docs/content/docs/testing/` and `/docs/design/testing` import the harnesses from it.
  */
-const ENTRIES = ["ui", "theme", "graph", "ai", "llm", "auth", "navigation"].flatMap((name) =>
+const ENTRIES = ["ui", "theme", "graph", "ai", "llm", "auth", "navigation", "testing"].flatMap((name) =>
   entryPoints(join(REPO, "packages", name)),
 );
 
@@ -358,10 +359,6 @@ const DELIBERATE: Record<string, string[]> = {
     "PaginationPrevious",
     "FileUploadItemSize",
   ],
-  // A package designed ahead of its code: the page is the design `@kanzo-tech/testing` is built to,
-  // and its example is the API the harnesses will have. "Keeps both exception lists alive" fails the
-  // day the package exports these, which is when this entry goes.
-  "design/testing.mdx": ["playwright", "ChartHarness", "GraphCanvasHarness", "FilterBarHarness"],
 };
 
 /**

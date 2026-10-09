@@ -17,7 +17,8 @@ a unit test and in an end-to-end one.
 ```ts
 import { playwright, GraphCanvasHarness, ChartHarness, FilterBarHarness } from "@kanzo-tech/testing";
 
-const env = playwright(page);                                    // installs the test hook, then the page loads
+const env = await playwright(page);                              // installs the test hook, then the page loads
+await page.goto("/archive");
 const lon = await env.harness(ChartHarness.with({ title: "Count by Airport.lon" }));
 await lon.brush({ x: [-125, -100] });                            // data, not pixels
 const graph = await env.harness(GraphCanvasHarness);
@@ -27,14 +28,16 @@ await expect.poll(async () => (await env.harness(FilterBarHarness)).readout()).t
 
 | Harness | Operates |
 | --- | --- |
-| `GraphCanvasHarness` | `ready`, `run`, `pause`, `lasso(points, { in: "data", with })`, `marquee`, `frame`, `counts` |
-| `ChartHarness` | `brush({ x, y })`, `pick({ x })` by value, `busy` |
-| `TimelineHarness` | `brush([from, to])`, `play`, `pause` |
-| `DashboardHarness` | `tile(title)`, `settled` |
+| `GraphCanvasHarness` | `ready`, `run`, `pause`, `lasso(points, { in: "data", with })`, `marquee`, `frame`, `screenOf`, `counts` |
+| `ChartHarness` | `brush({ x, y })`, `pick({ x })` by value, `busy`, `settled` |
+| `TimelineHarness` | `brush([from, to])`, `range`, `play`, `pause` |
+| `DashboardHarness` | `tile(title)`, a `TileHarness`; `settled` |
 | `FilterBarHarness` | `chips`, `remove(field)`, `open(field)`, `readout` |
 | `AnswerHarness` | `ask(question)`, `answer`, `addToDashboard`, `filterTo` |
-| `FindingsHarness` | `finding(message)`, `show`, `severity` |
-| `DockHarness` | `open(panel)`, `close` |
+| `FindingsHarness` | `finding(message)`, a `FindingHarness` with `show` and `severity` |
+| `DockHarness` | `open(panel)`, `close`, `current` |
+
+[Testing](/docs/testing) is the reference.
 
 Two environments: `playwright(page)` for a host's end-to-end suite and the docs' showcases, and
 `dom(container)` over Testing Library for the library's own tests. So the library's unit tests
@@ -45,26 +48,53 @@ heading, clicked at `width * 0.35` of it, brushed from `0.231` to `0.292` of a h
 mean 125°W to 100°W, and waited fixed milliseconds for what a click did. Every one of those knew the
 library's markup and broke when it changed.
 
+**The environment is made before the page loads**, so `playwright(page)` is awaited: it installs the
+hook with `addInitScript`, and a component registers while it mounts. A page already loaded mounted
+without it.
+
 **What would reverse it:** a host whose tests drive the components through their public props
 rather than the screen, such as component tests that mount a `Dashboard` with a spec. Then the
 harnesses are a convenience for end-to-end alone, and the `dom` environment goes.
+
+*Held by* `packages/ui/src/harnesses.test.tsx`, "reads the readout once it has counted, and a clause
+as a chip it removes by its field", and `packages/testing/e2e/workspace.e2e.test.ts`, "picks a bar by
+its value, and removing the beast filter from the bar retracts it" — the same `FilterBarHarness`, once
+in jsdom and once in Chromium.
 
 ## ARIA first, `data-*` last
 
 **A harness finds and waits on what assistive technology reads, in Testing Library's order: role,
 accessible name, text, and a `data-*` attribute only where nothing accessible says it.** What the
 library already exposes stays the contract: `GraphStatus` and `GraphCounts` are `aria-busy` with live
-text, the layout's transport button is `aria-pressed`, and `FilterBar` is the region *Filters*. What
-is added is accessible first. `ChartRoot` is `aria-busy` while its query runs, an answer card is
-`aria-busy` until it answers, and a timeline's range is a group whose `aria-valuetext` reads
-*1950 – 1960*. One attribute has no accessible equivalent: `GraphCanvas`'s `data-frame`, a count of
-frames drawn, which is how a harness waits for the camera to have moved.
+text, the layout's transport button is `aria-pressed`, `FilterBar` is the region *Filters*, a dock
+switcher is a `radiogroup` whose open panel is checked, and a tile is an `article` holding its title.
+What is added is accessible first. `ChartRoot` is a `figure` named by its title and `aria-busy` until
+it has drawn and while its query runs; `GraphCanvas` is `aria-busy` until its first drawn frame; a
+`Dashboard` is `aria-busy` while it reads its fields, and `FilterBar`'s readout is a `status`,
+`aria-busy` while it counts. An answer card is `aria-busy` while the model writes and the engine
+reads, then holds its tile — an `article` — or a `Problem`; a harness waits for one of the two,
+because the card reads its fields over a skeleton after it stops being busy. A timeline's range will
+be a group whose `aria-valuetext` reads *1950 – 1960*.
+
+One attribute is added with no accessible equivalent: `GraphCanvas`'s `data-frame`, a count of frames
+drawn, which is how a harness waits for the camera to have moved and how it finds the canvas. Two
+harnesses find their host by an existing `data-slot`, because nothing accessible tells it apart: a
+`Dashboard`, a column of cards that is not a landmark, and a findings badge, which is one popover
+trigger among others. An answer card's frame is found by its `data-slot` too: the tile inside it is
+an `article`, and the frame holding the tile and its actions has no role. A finding's severity is its row's `data-variant`, because the words a reader
+sees, *Errors* or *2 warnings*, are the host's.
 
 A harness never waits for a fixed time. It waits for a state, with Playwright's assertions that
 retry on their own.
 
 **What would reverse it:** a state a reader can perceive that no ARIA role or property describes,
 measured in a component. Then that component gets a `data-*` of its own, named in this section.
+
+*Held by* `packages/testing/src/environment.test.ts`, "fails a wait with what it waited for, never
+after a fixed time with nothing to say"; `packages/ui/src/harnesses.test.tsx`, "settles once the
+fields are read and no tile is loading, then finds a tile by its title"; and
+`packages/graph/src/parts/graph-canvas-harness.test.tsx`, "ready() rejects a canvas that finished
+loading without drawing a frame, as one with no WebGL does".
 
 ## A canvas's coordinates come through a hook only a test installs
 
@@ -88,5 +118,26 @@ registers with. A chart's scale is Observable Plot's own `figure.scale(channel)`
 rendered with an accessible table of its vertices beside the canvas. Then a harness reads that, and
 the graph's half of the hook goes.
 
-*Will be held by* the harnesses' own tests over `docs/showcases/workspace`, in Playwright in this
-repository's CI, and over Testing Library in each package.
+The type is declared once, in `@kanzo-tech/testing`, because that package installs the hook. `ui` and
+`graph` import it as a type from a devDependency, so it never reaches what they publish, and the
+testing package imports nothing of theirs: no cycle, and a harness runs against whatever version of
+the components a page loaded. A chart registers under its `aria-label`; a chart with no title is not
+one a harness can name, and is not registered.
+
+*Held by* `packages/graph/src/parts/graph-canvas-harness.test.tsx`, "registers with the test hook
+under its id when one is installed, and lets go of it when it unmounts" and "registers nothing when no
+test installed the hook"; `packages/ui/src/harnesses.test.tsx`, "registers nothing when no test
+installed the hook, nor a chart with no title"; and, in Chromium over the workspace showcase in CI's
+harnesses job, `packages/testing/e2e/workspace.e2e.test.ts`, "draws the archive, and a lasso
+around a vertex gives the canvas a clause" and "brushes a range in data, through the chart's own
+scale".
+
+*Held by*, for the parts other changes delivered, `packages/ui/src/harnesses.test.tsx`, "opens
+a panel by its label, and collapses the dock when the open one is pressed again", over
+`ShellDockSwitcher`; `packages/ai/src/data/answer-harness.test.tsx`, "waits for the card to answer,
+reads its tile, and filters the page to it" and "rejects an answer that failed with the words of its
+Problem", over `AnswerCard`; and `packages/testing/e2e/workspace.e2e.test.ts`, "asks a question the
+recording knows, reads the answer's chart, and filters the page to it".
+
+*Not yet held*: `TimelineHarness`, whose test is skipped until `ChartTimeline` is built from
+[the timeline's design](/docs/design/timeline).

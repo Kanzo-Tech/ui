@@ -38,6 +38,11 @@ export const PromptInputTextarea = (props: React.ComponentProps<typeof InputGrou
 
   return (
     <InputGroupTextarea
+      // The composer has no visible label, and a placeholder is not one: it is gone once something is
+      // typed, and jsdom's name computation, like some screen readers, never reads it. So the
+      // placeholder's words are its name too, unless the caller names it — `aria-label` or
+      // `aria-labelledby` in `rest` win.
+      aria-label={typeof rest.placeholder === "string" ? rest.placeholder : undefined}
       // `Textarea`'s base already sets `field-sizing-content`, so the field grows with what is
       // typed; the ceiling is what this adds. Without it a pasted document swallows the panel and
       // takes the transcript with it. Past 12rem the field scrolls and the composer stops moving.

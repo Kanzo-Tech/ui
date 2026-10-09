@@ -1,0 +1,77 @@
+{
+  "name": "@kanzo-tech/testing",
+  "version": "0.1.0",
+  "description": "Kanzo component harnesses — a class per component that finds it and drives it by its ARIA, in Angular CDK's shape, run by Playwright in a host's end-to-end suite or by Testing Library in a unit test. What a canvas knows reaches a harness through a hook only a test installs.",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./dom": {
+      "types": "./dist/dom.d.ts",
+      "import": "./dist/dom.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "size": "size-limit"
+  },
+  "//peers": "Both OPTIONAL, one per door. `playwright-core` is the root's, and for its types alone: `playwright(page)` drives the Page a host's suite hands it and imports nothing of Playwright's at run time, so a host on `@playwright/test` or `playwright` has it already. `@testing-library/dom` is `./dom`'s, which queries with it. Deliberately absent: `@kanzo-tech/ui`, `@kanzo-tech/graph` and React. A harness knows a component by its ARIA and the test hook, never by an import, so it runs against whatever version of the components the page loaded — and it is why `ui` and `graph` can take this package as a devDependency for the hook's type without a cycle.",
+  "peerDependencies": {
+    "@testing-library/dom": "^10.4.0",
+    "playwright-core": "^1.62.0"
+  },
+  "peerDependenciesMeta": {
+    "@testing-library/dom": {
+      "optional": true
+    },
+    "playwright-core": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.1",
+    "jsdom": "^29.1.1",
+    "playwright-core": "^1.62.1"
+  },
+  "size-limit": [
+    {
+      "name": "root barrel (JS)",
+      "path": "dist/index.js",
+      "limit": "10 kB",
+      "ignore": [
+        "playwright-core"
+      ]
+    },
+    {
+      "name": "dom subpath (JS)",
+      "path": "dist/dom.js",
+      "limit": "10 kB",
+      "ignore": [
+        "@testing-library/dom"
+      ]
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kanzo-Tech/ui.git",
+    "directory": "packages/testing"
+  },
+  "homepage": "https://kanzo-tech.github.io/ui",
+  "bugs": {
+    "url": "https://github.com/Kanzo-Tech/ui/issues"
+  }
+}

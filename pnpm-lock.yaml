@@ -230,6 +230,9 @@ importers:
       '@kanzo-tech/mosaic':
         specifier: workspace:*
         version: link:../mosaic
+      '@kanzo-tech/testing':
+        specifier: workspace:*
+        version: link:../testing
       '@kanzo-tech/theme':
         specifier: workspace:*
         version: link:../theme
@@ -327,6 +330,9 @@ importers:
       '@kanzo-tech/mosaic':
         specifier: workspace:*
         version: link:../mosaic
+      '@kanzo-tech/testing':
+        specifier: workspace:*
+        version: link:../testing
       '@testing-library/dom':
         specifier: ^10.4.1
         version: 10.4.1
@@ -420,6 +426,18 @@ importers:
         specifier: ^0.4.0
         version: 0.4.0(rollup@4.62.2)
 
+  packages/testing:
+    devDependencies:
+      '@testing-library/dom':
+        specifier: ^10.4.1
+        version: 10.4.1
+      jsdom:
+        specifier: ^29.1.1
+        version: 29.1.1
+      playwright-core:
+        specifier: ^1.62.1
+        version: 1.62.1
+
   packages/theme:
     devDependencies:
       tailwindcss:
@@ -477,6 +495,9 @@ importers:
       '@kanzo-tech/mosaic':
         specifier: workspace:*
         version: link:../mosaic
+      '@kanzo-tech/testing':
+        specifier: workspace:*
+        version: link:../testing
       '@lezer/highlight':
         specifier: ^1.2.3
         version: 1.2.3

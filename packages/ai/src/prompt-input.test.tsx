@@ -44,6 +44,18 @@ describe("PromptInput", () => {
     expect(onSubmit).toHaveBeenCalledTimes(1);
   });
 
+  it("names the field by its placeholder, unless the caller names it", () => {
+    const { unmount } = render(<Composer onSubmit={submitHandler()} />);
+    expect(screen.getByRole("textbox", { name: "Ask about your data…" })).toBeTruthy();
+    unmount();
+    render(
+      <PromptInput>
+        <PromptInputTextarea aria-label="Question" placeholder="Ask about your data…" />
+      </PromptInput>,
+    );
+    expect(screen.getByRole("textbox", { name: "Question" })).toBeTruthy();
+  });
+
   it("names the button by what pressing it would do", () => {
     const { rerender } = render(<Composer onSubmit={submitHandler()} />);
     expect(screen.getByRole("button", { name: "Send" }).getAttribute("type")).toBe("submit");

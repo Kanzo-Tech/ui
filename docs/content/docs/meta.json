@@ -12,6 +12,7 @@
     "ai",
     "auth",
     "navigation-guard",
+    "testing",
     "layout",
     "hooks",
     "showcases",

@@ -152,6 +152,20 @@ state are Ark's, and each item is a `ToggleGroupItem` whose child is the `Toolti
 nesting that keeps the group's items collectable; the other one leaves the arrow keys dead with no
 error. Why one part and not a pattern per page is on [the shell's dock](/docs/design/shell).
 
+## Testing
+
+`DockHarness` from [`@kanzo-tech/testing`](/docs/testing) drives a `ShellDockSwitcher`, the
+`radiogroup` *Panels*: `open(panel)` presses an item by its label and waits for it to be checked, and
+`close()` presses the open one again and waits for none to be.
+
+```ts
+import { DockHarness } from "@kanzo-tech/testing";
+
+const dock = await env.harness(DockHarness);
+await dock.open("Ask");
+await dock.close();
+```
+
 ## API Reference
 
 ### ShellDockSwitcher
