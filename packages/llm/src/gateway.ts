@@ -19,15 +19,25 @@ const SILENT_AFTER = 30_000;
 
 /**
  * The failures this package names: the model stopped sending without closing the stream
- * (`ai/silent`), and the gateway refused because the caller is over its limit (`ai/rate-limited`).
+ * (`ai/silent`), the gateway refused because the caller is over its limit (`ai/rate-limited`), and
+ * the gateway answered with any other error (`ai/unavailable`): an alias no model answers, a
+ * provider that refused or failed, an upstream the gateway gave up on.
  */
 export class AiError extends Error {
   override readonly name = "AiError";
   constructor(
-    readonly code: "ai/silent" | "ai/rate-limited",
+    readonly code: "ai/silent" | "ai/rate-limited" | "ai/unavailable",
     message: string,
-    /** `after`: the silence, in ms. `retryAfter`: when the gateway said a retry may succeed, in seconds. */
-    readonly data: { readonly after?: number; readonly retryAfter?: number } = {},
+    /**
+     * `after`: the silence, in ms. `retryAfter`: when the gateway said a retry may succeed, in
+     * seconds. `status` and `reason`: what the gateway answered, its status and the error it gave.
+     */
+    readonly data: {
+      readonly after?: number;
+      readonly retryAfter?: number;
+      readonly status?: number;
+      readonly reason?: string;
+    } = {},
     options?: ErrorOptions,
   ) {
     super(message, options);
@@ -42,7 +52,7 @@ export type Gateway = (alias: string) => LanguageModel;
  * Which upstream answers it is the gateway's configuration, so a host's code is the same in dev,
  * where a local model answers, and in prod.
  *
- * Three things a host would otherwise repeat are done here, once:
+ * What a host would otherwise repeat is done here, once:
  *
  * - **A stream that goes silent ends, as `ai/silent`.** Its headers are due within 30 s and each
  *   chunk of its body within 30 s of the last; past that the request is aborted and the caller sees
@@ -55,6 +65,9 @@ export type Gateway = (alias: string) => LanguageModel;
  * - **A caller over its limit is told so, as `ai/rate-limited`.** A gateway that limits per tenant or
  *   per key answers 429; the caller sees an {@link AiError} with `data.retryAfter` when the gateway
  *   said when, rather than the provider's uncoded error. It is not retried: the limit is the answer.
+ * - **Any other refusal says what it was, as `ai/unavailable`.** An alias no model answers, a
+ *   provider that refused the key, an upstream the gateway timed out on: the caller sees the status
+ *   and the gateway's reason (`data.status`, `data.reason`) instead of a bare HTTP error.
  * - **Structured output is on**, so `Output.object`/`Output.array` ask the gateway for a JSON
  *   schema rather than prose the caller would parse — the "return ONLY JSON, no fences" prompt and
  *   its fence-stripping is what this ends.
@@ -64,7 +77,7 @@ export function createGateway(settings: GatewaySettings): Gateway {
     name: "gateway",
     baseURL: absolute(settings.baseURL),
     headers: settings.headers,
-    fetch: bounded(limited(settings.fetch ?? ((...args) => globalThis.fetch(...args)))),
+    fetch: bounded(refused(settings.fetch ?? ((...args) => globalThis.fetch(...args)))),
     includeUsage: true,
     supportsStructuredOutputs: true,
   });
@@ -103,22 +116,51 @@ const silence: LanguageModelMiddleware = {
 };
 
 /**
- * `fetch`, with a 429 thrown as `ai/rate-limited` before the provider reads it. Thrown from the
- * request, it reaches the caller as itself — the path a silence before the headers takes — and an
- * `AiError` is not one of the errors the SDK retries.
+ * `fetch`, with an error answer thrown before the provider reads it: a 429 as `ai/rate-limited`,
+ * anything else as `ai/unavailable` carrying the status and the reason the gateway gave, so a 404
+ * for an alias or a 504 from a hung upstream reads as what it is. Thrown from the request, it reaches
+ * the caller as itself — the path a silence before the headers takes — and an `AiError` is not one
+ * of the errors the SDK retries: the gateway already retried its upstreams.
  */
-function limited(fetch: typeof globalThis.fetch): typeof globalThis.fetch {
+function refused(fetch: typeof globalThis.fetch): typeof globalThis.fetch {
   return async (input, init) => {
     const response = await fetch(input, init);
-    if (response.status !== 429) return response;
-    void response.body?.cancel().catch(() => {}); // the refusal is the status; its body is not read
-    const retryAfter = seconds(response.headers);
+    if (response.ok) return response;
+    if (response.status === 429) {
+      void response.body?.cancel().catch(() => {}); // the refusal is the status; its body is not read
+      const retryAfter = seconds(response.headers);
+      throw new AiError(
+        "ai/rate-limited",
+        "The gateway refused the request: the limit for this caller is reached",
+        retryAfter === undefined ? {} : { retryAfter },
+      );
+    }
+    const reason = await said(response);
     throw new AiError(
-      "ai/rate-limited",
-      "The gateway refused the request: the limit for this caller is reached",
-      retryAfter === undefined ? {} : { retryAfter },
+      "ai/unavailable",
+      `The model is unavailable (${response.status})${reason ? `: ${reason}` : ""}`,
+      reason ? { status: response.status, reason } : { status: response.status },
     );
   };
+}
+
+/**
+ * The reason an error answer gives: the `error.message` of an OpenAI-shaped body, which the gateway
+ * and the providers behind it use, or the text of a plain one (the gateway's own refusals).
+ */
+async function said(response: Response): Promise<string | undefined> {
+  const text = (await response.text().catch(() => "")).trim();
+  if (!text) return undefined;
+  try {
+    const body = JSON.parse(text) as Record<string, unknown>;
+    const nested =
+      typeof body.error === "object" && body.error !== null ? (body.error as Record<string, unknown>).message : body.error;
+    const message = [nested, body.message].find((m): m is string => typeof m === "string" && m !== "");
+    if (message) return message;
+  } catch {
+    // not JSON: the text is the reason
+  }
+  return text.slice(0, 300);
 }
 
 /**

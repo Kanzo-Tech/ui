@@ -63,29 +63,22 @@ jobs:
         run: terraform fmt -recursive -check services
       - name: Validate the modules
         run: |
-          for m in services/auth/modules/app services/auth/modules/api services/ai/modules/gateway; do
+          for m in services/auth/modules/app services/auth/modules/api; do
             export TF_DATA_DIR="$RUNNER_TEMP/tf-$(basename "$m")"
             terraform -chdir="$m" init -backend=false -input=false >/dev/null
             terraform -chdir="$m" validate
           done
-      - name: Bring up the identity service
-        working-directory: services/auth
-        run: docker compose up -d --wait keycloak && docker compose up --exit-code-from auth-seed auth-seed
+      # The platform as an application runs it in development (services/compose.dev.yaml), without the
+      # local models:
+      # the runners have no Docker Model Runner. Up means the realm applied from its declarations,
+      # the seed ran, and the gateway loaded its config and the realm's keys.
+      - name: Bring up the platform
+        working-directory: services
+        run: docker compose -f compose.dev.yaml up -d --wait ai-gateway && docker compose -f compose.dev.yaml up --exit-code-from auth-seed auth-seed
       - name: The claim contract, on live tokens
         working-directory: services/auth
         run: for u in ana bruno eva fede carla dan; do scripts/verify.sh "$u" > "$RUNNER_TEMP/$u.log" || { cat "$RUNNER_TEMP/$u.log"; exit 1; }; done
-      - name: The gateway's config, against the live realm
-        run: |
-          image=$(sed -n 's/^ *image: \(ghcr\.io\/agentgateway\/[^ ]*\)$/\1/p' services/ai/compose.yml)
-          docker run --rm --network host -v "$PWD/services/ai/gateway.yaml:/config/gateway.yaml:ro" \
-            -e AI_DATABASE_URL=/tmp/requests.sqlite \
-            -e AI_ISSUER=http://localhost:8080/realms/kanzo \
-            -e AI_JWKS_URL=http://localhost:8080/realms/kanzo/protocol/openid-connect/certs \
-            -e AI_AUDIENCE=ai-gateway \
-            -e CHAT_URL=http://localhost:12434/engines/v1 -e CHAT_MODEL=chat \
-            -e COMPLETE_URL=http://localhost:12434/engines/v1 -e COMPLETE_MODEL=complete \
-            "$image" --validate-only -f /config/gateway.yaml
       - name: Keycloak's log, on failure
         if: failure()
-        working-directory: services/auth
-        run: docker compose logs keycloak auth-realm auth-seed
+        working-directory: services
+        run: docker compose -f compose.dev.yaml logs keycloak auth-realm auth-seed ai-gateway

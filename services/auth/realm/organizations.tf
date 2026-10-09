@@ -1,7 +1,7 @@
 # ── The tenant model ──────────────────────────────────────────────────────────
 #
-# An organization is a DATUM, not infrastructure: adding a customer adds two lines
-# to a tfvars map, never a client.
+# An organization is a DATUM, not infrastructure: adding a customer adds one
+# declaration (declarations.tf), never a client.
 #
 # WHAT IS NOT HERE, DELIBERATELY:
 # - Membership. Keycloak's model makes it runtime — invitation links, IdP brokering,
@@ -14,7 +14,7 @@
 #   application's roles onto its groups, and the token carries the roles.
 
 resource "keycloak_organization" "org" {
-  for_each = var.organizations
+  for_each = local.organizations
 
   realm   = keycloak_realm.kanzo.id
   name    = each.value.name

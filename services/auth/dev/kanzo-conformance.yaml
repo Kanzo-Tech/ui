@@ -1,0 +1,13 @@
+# The client the contract is proved through — no product's. Two roles, one containing the other, are
+# the smallest set that shows composites arriving expanded inside an organization entry; its own API
+# and the AI gateway show a session's token exchanged for one that names one API (scripts/verify.sh).
+x-application:
+  client_id: kanzo-conformance
+  description: Proves the claim contract. Development and CI only.
+  api: kanzo-conformance-api
+  apis: [ai-gateway]
+  redirect_uris: ["http://localhost:8765/callback"]
+  client_secret_file: /run/secrets/kanzo-conformance
+  roles:
+    low: { description: Contained by high. }
+    high: { description: Contains low., composites: [low] }

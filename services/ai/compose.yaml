@@ -1,0 +1,68 @@
+# The platform's AI gateway: agentgateway, the one door to models as Keycloak is the one door to
+# identity. Applications speak OpenAI chat completions to it through their own server, with an
+# access token the realm issued for this gateway, and name an alias (`chat`, `complete`), never a
+# provider. This file is the service as it runs anywhere; compose.dev.yaml adds the local models.
+#
+#   docker compose -f ../auth/compose.yaml -f ../auth/compose.dev.yaml \
+#                  -f compose.yaml -f compose.dev.yaml --profile local-models up -d --wait
+#
+# brings the gateway up on http://localhost:4000 beside the identity service it trusts, with both
+# aliases on open models served by Docker Model Runner on the host's GPU (Docker Desktop 4.40+,
+# Model Runner on). `AI_CHAT=anthropic/claude-sonnet-5-5` and its key, without the profile, answer
+# `chat` from Anthropic instead and download nothing. An application includes these files
+# (`include:`).
+
+name: kanzo-ai
+
+services:
+  # The request log: who asked, for which organization, the alias, the tokens and their cost.
+  ai-postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: gateway
+      POSTGRES_USER: gateway
+      POSTGRES_PASSWORD: ${AI_DB_PASSWORD:-gateway}
+    volumes:
+      - kanzo-ai-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gateway"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  ai-gateway:
+    # Pinned by digest, and moved deliberately: the gateway holds every provider's key.
+    image: ghcr.io/agentgateway/agentgateway:v1.6.0@sha256:9d3e6044ddcdc0878b1787f77bd401252b95e22684203fb5e874c4c42d2ed90c
+    command: ["-f", "/config/gateway.yaml"]
+    volumes:
+      - ./gateway.yaml:/config/gateway.yaml:ro
+    environment:
+      AI_DATABASE_URL: postgresql://gateway:${AI_DB_PASSWORD:-gateway}@ai-postgres:5432/gateway
+      # The issuer the tokens say — Keycloak's own KC_HOSTNAME (../auth/compose.yaml), the origin a
+      # browser sees —; the keys are fetched from inside the network.
+      AI_ISSUER: ${KC_HOSTNAME:-http://localhost:8080}/realms/${KC_REALM:-kanzo}
+      AI_JWKS_URL: http://keycloak:8080/realms/${KC_REALM:-kanzo}/protocol/openid-connect/certs
+      AI_AUDIENCE: ai-gateway
+      # Which model answers each alias, `provider/model` (gateway.yaml). A deployment names both;
+      # left empty, the gateway refuses to start. compose.dev.yaml defaults them to the local models.
+      AI_CHAT: ${AI_CHAT:-}
+      AI_COMPLETE: ${AI_COMPLETE:-}
+      # Tokens each organization may spend an hour (gateway.yaml).
+      AI_TOKENS_PER_HOUR: ${AI_TOKENS_PER_HOUR:-1000000000}
+      LOCAL_MODELS_URL: ${LOCAL_MODELS_URL:-http://model-runner.docker.internal/engines/v1}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+    depends_on:
+      ai-postgres:
+        condition: service_healthy
+      # The gateway exits while the realm's keys cannot be fetched; they exist once the realm does.
+      auth-realm:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  kanzo-ai-db:

@@ -21,17 +21,9 @@ USERNAME=${1:-ana}
 CLIENT=kanzo-conformance
 SECRET=${SECRET:-conformance}
 API=kanzo-conformance-api
-REDIRECT=http://localhost:8765/callback
-PASSWORD=${PASSWORD:-password}
 KC_URL=${KC_URL:-http://localhost:8080}
 KC_REALM=${KC_REALM:-kanzo}
-SCOPE=${SCOPE:-"openid organization:*"}
 
-ISSUER="$KC_URL/realms/$KC_REALM"
-WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
-JAR="$WORK/cookies"
-
-b64url() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
 jwt() {  # decode a JWT payload; base64url has no padding, so put it back
   local p; p=$(cut -d. -f2 <<<"$1")
   case $(( ${#p} % 4 )) in 2) p="$p==";; 3) p="$p=";; esac
@@ -39,73 +31,12 @@ jwt() {  # decode a JWT payload; base64url has no padding, so put it back
 }
 
 echo "== discovery =="
-DISCO=$(curl -sf "$ISSUER/.well-known/openid-configuration")
-AUTH_EP=$(jq -r .authorization_endpoint <<<"$DISCO")
+DISCO=$(curl -sf "$KC_URL/realms/$KC_REALM/.well-known/openid-configuration")
 TOKEN_EP=$(jq -r .token_endpoint <<<"$DISCO")
 jq -r '"issuer: \(.issuer)\nscopes: \(.scopes_supported | join(" "))"' <<<"$DISCO"
 
-# ── authorization code + PKCE ─────────────────────────────────────────────────
-VERIFIER=$(openssl rand 32 | b64url)
-CHALLENGE=$(printf '%s' "$VERIFIER" | openssl dgst -binary -sha256 | b64url)
-STATE=$(openssl rand 12 | b64url)
-
 echo
-echo "== login: $USERNAME via $CLIENT, scope '$SCOPE' =="
-LOGIN_PAGE=$(curl -s -c "$JAR" -b "$JAR" -G "$AUTH_EP" \
-  --data-urlencode "client_id=$CLIENT" \
-  --data-urlencode "redirect_uri=$REDIRECT" \
-  --data-urlencode "response_type=code" \
-  --data-urlencode "scope=$SCOPE" \
-  --data-urlencode "state=$STATE" \
-  --data-urlencode "code_challenge=$CHALLENGE" \
-  --data-urlencode "code_challenge_method=S256")
-
-# Keycloak 26's login theme is TWO steps — username, then password — so this
-# submits the form it is given until a redirect carries a code. Posting both
-# fields every time is deliberate: each step ignores the one it did not ask for,
-# and the loop then works against a one-step theme too.
-CODE=""
-page=$LOGIN_PAGE
-for _ in 1 2 3; do
-  ACTION=$(grep -o 'action="[^"]*"' <<<"$page" | head -1 | sed 's/^action="//; s/"$//; s/&amp;/\&/g')
-  if [ -z "$ACTION" ]; then
-    echo "no login form at the authorization endpoint — the page said:" >&2
-    head -c 800 <<<"$page" >&2; exit 1
-  fi
-  curl -s -c "$JAR" -b "$JAR" -o "$WORK/page.html" -D "$WORK/head.txt" \
-    --data-urlencode "username=$USERNAME" \
-    --data-urlencode "password=$PASSWORD" \
-    --data-urlencode "credentialId=" \
-    "$ACTION"
-  LOCATION=$(tr -d '\r' < "$WORK/head.txt" | sed -n 's/^[Ll]ocation: //p')
-  if [ -n "$LOCATION" ]; then
-    CODE=$(sed -n 's/.*[?&]code=\([^&]*\).*/\1/p' <<<"$LOCATION")
-    break
-  fi
-  page=$(cat "$WORK/page.html")
-done
-
-if [ -z "$CODE" ]; then
-  if grep -q 'id="organization-' <<<"$page"; then
-    echo "the login stopped to ASK WHICH ORGANIZATION. That is what plain 'organization'" >&2
-    echo "does for a user who belongs to more than one — it is the documented cause of the" >&2
-    echo "'organization claim disappeared' reports. Request 'organization:*' instead." >&2
-    echo "  offered: $(grep -oE 'id="organization-[^"]*"' <<<"$page" | sed 's/id="organization-//; s/"//' | tr '\n' ' ')" >&2
-    exit 1
-  fi
-  echo "no authorization code. last redirect: ${LOCATION:-<none>}" >&2
-  grep -oE 'id="input-error[^"]*"[^>]*>[^<]*' <<<"$page" >&2 || true
-  exit 1
-fi
-echo "authorization code received"
-
-TOKENS=$(curl -sf -X POST "$TOKEN_EP" \
-  --data-urlencode "grant_type=authorization_code" \
-  --data-urlencode "client_id=$CLIENT" \
-  --data-urlencode "client_secret=$SECRET" \
-  --data-urlencode "code=$CODE" \
-  --data-urlencode "redirect_uri=$REDIRECT" \
-  --data-urlencode "code_verifier=$VERIFIER")
+TOKENS=$(CLIENT=$CLIENT SECRET=$SECRET KC_URL=$KC_URL KC_REALM=$KC_REALM "$(dirname "$0")/login.sh" "$USERNAME")
 
 ACCESS=$(jq -r .access_token <<<"$TOKENS")
 ID=$(jq -r .id_token <<<"$TOKENS")
@@ -177,10 +108,12 @@ case "$USERNAME" in
     check "acme: the exchanged token keeps the roles held there" \
       "$([ "$(roles_in "$(for_api acme)" acme)" = '["high","low"]' ] && echo true || echo false)"
     one_org globex
-    # `ai-gateway` is a registered API (realm/dev.tfvars) that this application does not list in
-    # its `apis`, so its scope is not one the application may ask for.
+    # The application lists the AI gateway among its `apis` (dev/kanzo-conformance.yaml), so a
+    # token for it can be had; a scope it does not list cannot.
+    check "acme: an exchange for the AI gateway names it" \
+      "$(jq -r '[.aud] | flatten | index("ai-gateway") != null' <<<"$(API=ai-gateway for_api acme)")"
     check "an API the application does not list is refused (invalid_scope)" \
-      "$(jq -r '.error == "invalid_scope" and (has("access_token") | not)' <<<"$(API=ai-gateway exchange acme)")"
+      "$(jq -r '.error == "invalid_scope" and (has("access_token") | not)' <<<"$(API=kanzo-unlisted exchange acme)")"
     ;;
   carla)
     check "globex: high arrives with the low it contains" \

@@ -1,0 +1,47 @@
+# Development, on top of compose.yaml: Keycloak in dev mode on the host's :8080, the organizations
+# and the conformance client of dev/, and seeded members. An application that includes this file in
+# development gets all of it, and mounts its own declarations beside dev/ (realm/declarations.tf).
+services:
+  keycloak:
+    command: ["start-dev"]
+    environment:
+      KC_HOSTNAME: http://localhost:${KC_PORT:-8080}
+      KC_HOSTNAME_STRICT: "false"
+    ports:
+      - "${KC_PORT:-8080}:8080"
+    healthcheck:
+      start_period: 30s
+
+  auth-realm:
+    volumes:
+      - ./dev:/declarations/kanzo-dev:ro
+    secrets:
+      - kanzo-conformance
+    environment:
+      TF_VAR_issuer_base_url: http://localhost:${KC_PORT:-8080}
+
+  # ── Local members ───────────────────────────────────────────────────────────
+  # Membership is runtime in Keycloak's model and has no Terraform resource. In
+  # development it is a script; in production it is an invitation.
+  auth-seed:
+    image: alpine:3.22
+    restart: "no"
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        apk add --no-cache --quiet curl jq >/dev/null
+        exec /seed/seed.sh
+    volumes:
+      - ./seed:/seed:ro
+    environment:
+      KC_URL: http://keycloak:8080
+      KC_REALM: ${KC_REALM:-kanzo}
+      KC_ADMIN_USERNAME: ${KC_ADMIN_USERNAME:-admin}
+      KC_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD:-admin}
+    depends_on:
+      auth-realm:
+        condition: service_completed_successfully
+
+secrets:
+  kanzo-conformance:
+    file: ./dev/kanzo-conformance.secret

@@ -18,7 +18,7 @@
 # resource declares what it should say. The provider documents this pattern for
 # this mapper by name.
 #
-# The cost is real and is why apply runs twice (see docker-compose.yml): an
+# The cost is real and is why apply runs twice (see ../compose.yaml): an
 # `import` id must resolve at PLAN time, and on an empty Keycloak the realm does
 # not exist yet. First apply the realm alone, then everything.
 

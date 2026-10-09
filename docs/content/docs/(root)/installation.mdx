@@ -168,9 +168,10 @@ export default function Page() {
 `@kanzo-tech/auth` and `@kanzo-tech/llm` each talk to a server, and both servers ship from this
 repository under the same tag as the packages: [the identity service](/docs/auth/service), Keycloak
 with the platform realm as code, and [the gateway](/docs/ai/gateway), agentgateway with both aliases on
-local models. A product adopting either includes the service's `compose.yml` in its own development
-stack, from a checkout pinned to the release its packages came from, and registers itself — a client
-and its roles — with the service's Terraform module, from its own repository.
+local models. A product adopting either includes the service's `compose.yaml` — and, in development,
+its `compose.dev.yaml` — by URL at the release its packages came from, the same files in development
+and in production, and declares itself — a client and its roles, and its organizations — from its
+own repository.
 
 ## Server-side rendering
 

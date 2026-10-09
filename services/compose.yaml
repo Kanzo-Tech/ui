@@ -1,0 +1,12 @@
+# The platform's services as a deployment runs them: identity and the AI gateway, nothing of
+# development. An application includes this from its production overlay, by URL at its release:
+#
+#   include:
+#     - https://github.com/Kanzo-Tech/ui.git#v0.35.0:services/compose.yaml
+#
+# and supplies the values (KC_HOSTNAME, passwords, AI_CHAT/AI_COMPLETE and keys) as environment.
+name: kanzo
+
+include:
+  - auth/compose.yaml
+  - ai/compose.yaml

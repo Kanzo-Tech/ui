@@ -217,3 +217,58 @@ describe("a caller over its limit", () => {
     expect((failed as AiError).data.retryAfter).toBeUndefined();
   });
 });
+
+describe("a gateway that answers with an error", () => {
+  const answering = (status: number, body: string, type = "application/json") =>
+    (async () => new Response(body, { status, headers: { "content-type": type } })) as typeof globalThis.fetch;
+  const failure = (fetch: typeof globalThis.fetch) =>
+    generateText({ model: createGateway({ baseURL: "http://gw/v1", fetch })("chat"), prompt: "hello", maxRetries: 0 }).catch(
+      (e: unknown) => e,
+    );
+
+  it("names an alias no model answers as ai/unavailable, with the gateway's reason", async () => {
+    const failed = await failure(
+      answering(404, JSON.stringify({ error: { message: "Model not found", type: "invalid_request_error" } })),
+    );
+    expect(failed).toBeInstanceOf(AiError);
+    expect(failed).toMatchObject({ code: "ai/unavailable", data: { status: 404, reason: "Model not found" } });
+    expect((failed as AiError).message).toBe("The model is unavailable (404): Model not found");
+  });
+
+  it("reads the gateway's plain-text refusals, a timed-out upstream among them", async () => {
+    const failed = await failure(answering(504, "request timeout", "text/plain"));
+    expect(failed).toMatchObject({ code: "ai/unavailable", data: { status: 504, reason: "request timeout" } });
+  });
+
+  it("carries a provider's refusal through, and reaches a stream's caller as itself", async () => {
+    const gateway = createGateway({
+      baseURL: "http://gw/v1",
+      fetch: answering(401, JSON.stringify({ error: { type: "invalid_request_error", message: "x-api-key header is required" } })),
+    });
+    const seen: { failed?: unknown } = {};
+    const result = streamText({
+      model: gateway("chat"),
+      prompt: "hello",
+      maxRetries: 0,
+      onError: ({ error }) => void (seen.failed ??= error),
+    });
+    for await (const _ of result.textStream) void _;
+    expect(seen.failed).toMatchObject({
+      code: "ai/unavailable",
+      data: { status: 401, reason: "x-api-key header is required" },
+    });
+  });
+
+  it("asks once: the gateway already retried its upstreams", async () => {
+    let calls = 0;
+    const fetch = (async () => {
+      calls += 1;
+      return new Response("upstream failed", { status: 502 });
+    }) as typeof globalThis.fetch;
+    const failed = await generateText({ model: createGateway({ baseURL: "http://gw/v1", fetch })("chat"), prompt: "hello" }).catch(
+      (e: unknown) => e,
+    );
+    expect(failed).toMatchObject({ code: "ai/unavailable", data: { status: 502 } });
+    expect(calls).toBe(1);
+  });
+});

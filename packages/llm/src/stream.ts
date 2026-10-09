@@ -29,7 +29,7 @@ export interface Stream<OUTPUT extends OutputInterface> {
  * - **A failure throws, once the stream ends.** The SDK reports a failed stream to `onError` and then
  *   ends it as if it had finished, so a refused call would read as a model with nothing to say. Each
  *   reading below rethrows what was reported, whole: a silent model as its `AiError` coded
- *   `ai/silent`, a refusal as the provider's error.
+ *   `ai/silent`, a refusal as its `AiError` coded `ai/rate-limited` or `ai/unavailable`.
  * - **Never retried.** The gateway retries its upstreams, and a silent gateway asked three times is
  *   three deadlines where the person waits for one.
  *
