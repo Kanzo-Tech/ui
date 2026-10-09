@@ -1,14 +1,14 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Selection } from "@kanzo-tech/mosaic";
-import { autoDashboard, MosaicProvider, type DashboardSpec } from "@kanzo-tech/ui/analytics";
+import { autoDashboard, MosaicProvider, type Dashboards, type DashboardSpec } from "@kanzo-tech/ui/analytics";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { mockModel } from "../testing/model.js";
 import { testDatabase, type TestDatabase } from "../testing/duckdb.js";
 import { PEOPLE, PERSON, seedPeople } from "../testing/people.js";
 import type { ToolPart } from "../tool.js";
 import { dataAgent, type AnswerOutput } from "./agent.js";
-import { AnswerCard } from "./answer-card.js";
+import { AnswerCard, type AnswerAdded } from "./answer-card.js";
 import type { AnswerRelation } from "./answer.js";
 import { readAnswerRelations } from "./relations.js";
 
@@ -42,25 +42,65 @@ function page(crossfilter = Selection.crossfilter()) {
 }
 
 describe("AnswerCard", () => {
-  it("Add to the dashboard writes the tile into the relation's spec", async () => {
-    const onAdd = vi.fn<(key: string, add: (spec: DashboardSpec | undefined) => DashboardSpec) => void>();
-    render(<AnswerCard graph={PEOPLE} onAdd={onAdd} part={answered(output)} />, { wrapper: page() });
-    await userEvent.click(await screen.findByRole("button", { name: "Add to the dashboard" }));
-    expect(onAdd).toHaveBeenCalledTimes(1);
-    const [key, add] = onAdd.mock.calls[0]!;
-    expect(key).toBe("Person");
-    const { id, ...tile } = output.answer.show;
+  it("Add to the dashboard hands the host its dashboards with the tile in the relation's spec, and where it landed", async () => {
+    const onAdd = vi.fn<(next: Dashboards, added: AnswerAdded) => void>();
+    const saved: DashboardSpec = { filters: [{ field: "Person.age" }], tiles: [{ id: "mine", kind: "stat", measure: { op: "count" } }] };
+    const other: DashboardSpec = { filters: [], tiles: [{ id: "theirs", kind: "stat", measure: { op: "count" } }] };
 
     // A relation nobody has edited: the automatic dashboard, as `Dashboard` draws it, then the tile.
-    const auto = autoDashboard(person.fields);
-    const first = add(undefined);
-    expect(first.tiles.slice(0, -1)).toEqual(auto.tiles);
-    expect(first.tiles.at(-1)).toEqual({ ...tile, id: expect.any(String) });
-    expect(first.tiles.at(-1)!.id).not.toBe(id);
+    const { unmount } = render(<AnswerCard dashboards={{ byRelation: { Other: other } }} graph={PEOPLE} onAdd={onAdd} part={answered(output)} />, {
+      wrapper: page(),
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Add to the dashboard" }));
+    const [next, added] = onAdd.mock.calls[0]!;
+    expect(added).toEqual({ relation: PERSON, key: "Person" });
+    expect(next.byRelation.Other).toBe(other);
+    expect(next.byRelation.Person!.tiles).toEqual([...autoDashboard(person.fields).tiles, output.answer.show]);
+    unmount();
 
-    const saved: DashboardSpec = { filters: [{ field: "Person.age" }], tiles: [{ id: "mine", kind: "stat", measure: { op: "count" } }] };
-    expect(add(saved)).toEqual({ filters: saved.filters, tiles: [saved.tiles[0], { ...tile, id: expect.any(String) }] });
-    expect(screen.getByRole("button", { name: "✓ On the dashboard" })).toHaveProperty("disabled", true);
+    // A relation with a spec: the tile after the reader's own.
+    render(<AnswerCard dashboards={{ byRelation: { Person: saved } }} graph={PEOPLE} onAdd={onAdd} part={answered(output)} />, { wrapper: page() });
+    await userEvent.click(await screen.findByRole("button", { name: "Add to the dashboard" }));
+    expect(onAdd.mock.calls[1]![0].byRelation.Person).toEqual({ filters: saved.filters, tiles: [saved.tiles[0], output.answer.show] });
+  });
+
+  it("is on the dashboard while the host's spec holds the tile, after a remount, and offered again once it is removed", async () => {
+    const onAdd = vi.fn();
+    const holding: Dashboards = { byRelation: { Person: { filters: [], tiles: [output.answer.show] } } };
+    const { rerender } = render(<AnswerCard dashboards={holding} graph={PEOPLE} onAdd={onAdd} part={answered(output)} />, { wrapper: page() });
+    expect((await screen.findByRole("button", { name: "✓ On the dashboard" })).hasAttribute("disabled")).toBe(true);
+    rerender(<AnswerCard dashboards={{ byRelation: { Person: { filters: [], tiles: [] } } }} graph={PEOPLE} onAdd={onAdd} part={answered(output)} />);
+    expect((await screen.findByRole("button", { name: "Add to the dashboard" })).hasAttribute("disabled")).toBe(false);
+  });
+
+  it("is pending while the host's write is, never on the dashboard before it settles, and draws a rejection as a Problem", async () => {
+    let settle!: { resolve: () => void; reject: (error: unknown) => void };
+    const onAdd = vi.fn<(next: Dashboards) => Promise<void>>(() => new Promise<void>((resolve, reject) => (settle = { resolve, reject })));
+    const empty: Dashboards = { byRelation: {} };
+    const { rerender } = render(<AnswerCard dashboards={empty} graph={PEOPLE} onAdd={onAdd} part={answered(output)} />, { wrapper: page() });
+    await userEvent.click(await screen.findByRole("button", { name: "Add to the dashboard" }));
+
+    // The host draws what it is writing at once: the card waits for the write all the same.
+    const writing = onAdd.mock.calls[0]![0];
+    rerender(<AnswerCard dashboards={writing} graph={PEOPLE} onAdd={onAdd} part={answered(output)} />);
+    const pending = screen.getByRole("button", { name: "Adding to the dashboard…" });
+    expect(pending.hasAttribute("disabled")).toBe(true);
+    expect(pending.getAttribute("aria-busy")).toBe("true");
+
+    const failure = Object.assign(new Error("The dashboard could not be saved."), { code: "api/conflict" });
+    await act(async () => settle.reject(failure));
+    rerender(<AnswerCard dashboards={empty} graph={PEOPLE} onAdd={onAdd} part={answered(output)} />);
+    const problem = document.querySelector("[data-slot=diagnostic]");
+    expect(problem?.getAttribute("data-code")).toBe("api/conflict");
+    expect(problem?.textContent).toContain("The dashboard could not be saved.");
+    expect(screen.getByRole("button", { name: "Add to the dashboard" }).hasAttribute("disabled")).toBe(false);
+
+    // Pressed again, the failure goes; confirmed, the spec the host hands back says it is there.
+    await userEvent.click(screen.getByRole("button", { name: "Add to the dashboard" }));
+    expect(document.querySelector("[data-slot=diagnostic]")).toBeNull();
+    await act(async () => settle.resolve());
+    rerender(<AnswerCard dashboards={writing} graph={PEOPLE} onAdd={onAdd} part={answered(output)} />);
+    expect(screen.getByRole("button", { name: "✓ On the dashboard" })).toBeTruthy();
   });
 
   it("filters the page to the answer as one semi-join on the root key, and takes it back", async () => {
@@ -74,6 +114,23 @@ describe("AnswerCard", () => {
     expect(pressed.getAttribute("aria-pressed")).toBe("true");
     await userEvent.click(pressed);
     expect(crossfilter.clauses.filter((c) => c.predicate != null)).toHaveLength(0);
+  });
+
+  it("stays busy over the skeleton until the answer's tile is drawn", async () => {
+    render(<AnswerCard graph={PEOPLE} part={answered(output)} />, { wrapper: page() });
+    const card = document.querySelector("[data-slot=answer-card]")!;
+    // Answered, but its fields not read yet: the skeleton is still the tile's place.
+    expect(document.querySelector("[data-slot=answer-card-pending]")).not.toBeNull();
+    expect(card.getAttribute("aria-busy")).toBe("true");
+    await waitFor(() => expect(document.querySelector("[data-slot=answer-card-pending]")).toBeNull());
+    expect(card.hasAttribute("aria-busy")).toBe(false);
+  });
+
+  it("is not busy over a kept answer it cannot draw", () => {
+    render(<AnswerCard graph={{ types: PEOPLE.types, edges: [] }} part={answered({ ...output, answer: { ...output.answer, relation: { root: "Post", path: [] } } })} />, {
+      wrapper: page(),
+    });
+    expect(document.querySelector("[data-slot=answer-card]")?.hasAttribute("aria-busy")).toBe(false);
   });
 
   it("is busy until answered, over a skeleton the chart's height, and not once stopped", () => {

@@ -54,6 +54,12 @@ function SavedDashboard({ relation, saved }: { relation: string; saved: Dashboar
 - `useDebouncedCommit` deliberately commits nothing on unmount (Strict Mode mounts twice). A host
   that navigates away inside the pause and must not lose the last edit calls `flush()` first.
 
+**An edit made somewhere else is a decision, written at once.** *Add to the dashboard* on an
+[answer](/docs/ai/data#the-answer-card) is one: the page keeps one store for the document, which the
+editor and Ask both write — the editor with `change`, after its pause, and Ask with `commit`, now and
+with whatever edit was pending, so neither overwrites the other. `commit` answers what `onCommit`
+answered, so `(spec) => save.mutateAsync(spec)` gives the answer card the write to wait on.
+
 ## 3. Read-only
 
 Leave `onChange` out. The dashboard draws the same spec with no pencils, no *Add tile*, no *+ Filter*

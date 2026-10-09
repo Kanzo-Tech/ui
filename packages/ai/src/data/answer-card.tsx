@@ -10,12 +10,13 @@ import {
   relationQuery,
   semiJoinOf,
   type JoinGraph,
+  type Relation,
   type SelectionClause,
   type TableExpr,
 } from "@kanzo-tech/mosaic";
 import { LayoutDashboardIcon, ListFilterIcon } from "lucide-react";
 import * as React from "react";
-import { Button, Card, CardContent, CardHeader, CardTitle, cn, DiagnosticList, Problem, Skeleton } from "@kanzo-tech/ui";
+import { Button, Card, CardContent, CardHeader, CardTitle, cn, DiagnosticList, Problem, Skeleton, type ProblemProps } from "@kanzo-tech/ui";
 import {
   autoDashboard,
   ChartCard,
@@ -25,7 +26,7 @@ import {
   useClauses,
   useFieldStats,
   useMosaic,
-  type DashboardSpec,
+  type Dashboards,
   type FieldStat,
 } from "@kanzo-tech/ui/analytics";
 import type { ToolPart } from "../tool.js";
@@ -41,6 +42,8 @@ export interface AnswerCardTranslations {
   /** What a chip of the page's filter calls the answer's clause. */
   label: string;
   add: string;
+  /** The same button while the host writes the tile. */
+  adding: string;
   added: string;
   /** The failure's title, over its words. */
   failed: string;
@@ -53,25 +56,52 @@ const ENGLISH: AnswerCardTranslations = {
   filtered: "✓ Filtered to it",
   label: "Ask",
   add: "Add to the dashboard",
+  adding: "Adding to the dashboard…",
   added: "✓ On the dashboard",
   failed: "The answer failed",
   rows: "Rows",
 };
 
-export interface AnswerCardProps extends Omit<React.ComponentProps<typeof ark.div>, "children" | "part"> {
+export type AnswerCardProps = Omit<React.ComponentProps<typeof ark.div>, "children" | "part"> & {
   /** The `answer` call, as `Chat`'s `tools` hands it over, at whatever state it is in. */
   part: ToolPart;
   /** The call will never settle — `Chat`'s `stopped`. */
   stopped?: boolean;
   /** The join graph the agent was given: the answer's relation is compiled over it. */
   graph: JoinGraph;
-  /**
-   * Makes *Add to the dashboard* an action. Called with the relation's key (`relationKey`, what a
-   * host keeps its dashboards by) and `add`, which answers the relation's spec with the tile
-   * appended — to the automatic one when `spec` is `undefined`, as `Dashboard` would draw it.
-   */
-  onAdd?: (key: string, add: (spec: DashboardSpec | undefined) => DashboardSpec) => void;
+  /** The host's words for a coded failure, as `Problem` takes them. */
+  copy?: ProblemProps["copy"];
   translations?: Partial<AnswerCardTranslations>;
+} & AnswerCardAdding;
+
+/**
+ * *Add to the dashboard*: both or neither. The next document is built from `dashboards`, so a write
+ * without it would replace every other relation's spec with nothing.
+ */
+type AnswerCardAdding =
+  | { dashboards?: never; onAdd?: never }
+  | {
+      /**
+       * The host's saved dashboards, a spec per relation, as it draws them: the tile is *On the
+       * dashboard* while its relation's spec holds it, so a remount still says so, and a removal saved
+       * offers it again.
+       */
+      dashboards: Dashboards;
+      /**
+       * Makes *Add to the dashboard* an action. Called with the whole next document — `dashboards`
+       * with the tile appended to the answer's relation's spec, or to its automatic dashboard when it
+       * has none, as `Dashboard` would draw it — and where it landed. A promise holds the button
+       * pending until it settles, and a rejection is drawn as a `Problem`.
+       */
+      onAdd: (next: Dashboards, added: AnswerAdded) => void | Promise<unknown>;
+    };
+
+/** Where *Add to the dashboard* put the tile. */
+export interface AnswerAdded {
+  /** The answer's relation, as the model named it: what a host's dashboard view is driven by. */
+  relation: Relation;
+  /** `relationKey(graph, relation)`: what a host keeps its dashboards by. */
+  key: string;
 }
 
 /** The states of a call still at work: the model writing the answer, or the engine reading it. */
@@ -86,25 +116,31 @@ const RUNNING = new Set<ToolPart["state"]>(["input-streaming", "input-available"
  * Two actions fall out of the shape. **Filter to it** narrows the page to the answer — its
  * conditions, and the categories its bars answered — as one semi-join on the relation's root key,
  * so the graph and every relation keyed the same way follow. **Add to the dashboard** hands the host
- * the relation's spec with the tile in it.
+ * its dashboards with the tile in the relation's spec, and reads whether it is there off what the
+ * host hands back.
  *
  * The card is `aria-busy` while the model writes the answer and the engine reads it, over a skeleton
  * the chart's height. A refusal — input the schema refused, or the engine's failure — is a `Problem`.
  */
 export function AnswerCard(props: AnswerCardProps) {
-  const { part, stopped = false, graph, onAdd, translations, className, slot, ...rest } = props;
+  const { part, stopped = false, graph, dashboards, onAdd, copy, translations, className, slot, ...rest } = props;
   const t = { ...ENGLISH, ...translations };
   const output = part.state === "output-available" ? (part.output as AnswerOutput) : null;
   const running = !stopped && RUNNING.has(part.state);
+  // Busy from the first render an answer is there, so it is never idle over the skeleton between the
+  // answer landing and its fields being read; what draws the tile or its failure says when it is done.
+  const [drawing, setDrawing] = React.useState(true);
 
   return (
     <ark.div
-      aria-busy={running || undefined}
+      aria-busy={running || (output !== null && drawing) || undefined}
       className={cn("flex min-w-0 flex-col gap-2", className)}
       {...rest}
       data-slot={slot ?? "answer-card"}
     >
-      {output && <Answered graph={graph} onAdd={onAdd} output={output} t={t} />}
+      {output && (
+        <Answered adding={onAdd && dashboards && { dashboards, onAdd, copy }} graph={graph} onDrawing={setDrawing} output={output} t={t} />
+      )}
       {part.state === "output-error" && <Failure error={{ message: part.errorText }} t={t} />}
       {running && <Skeleton className="h-[220px] w-full" slot="answer-card-pending" />}
     </ark.div>
@@ -122,35 +158,45 @@ function Failure(props: { error: unknown; t: AnswerCardTranslations }) {
 }
 
 /** The answer's relation, compiled over the host's graph — which may no longer have it. */
-function Answered(props: {
-  graph: JoinGraph;
-  output: AnswerOutput;
-  onAdd?: AnswerCardProps["onAdd"];
-  t: AnswerCardTranslations;
-}) {
-  const { graph, output, t } = props;
+/** Whether the card still draws the skeleton in its tile's place: `aria-busy` is the card's root's. */
+type OnDrawing = (drawing: boolean) => void;
+
+function Answered(props: { graph: JoinGraph; output: AnswerOutput; adding?: Adding; onDrawing: OnDrawing; t: AnswerCardTranslations }) {
+  const { graph, output, onDrawing, t } = props;
   const relation = output.answer.relation;
   const compiled = React.useMemo(() => {
     try {
-      return { table: relationQuery(graph, relation), name: relationKey(graph, relation), identities: relationIdentities(graph, relation) };
+      return { table: relationQuery(graph, relation), dashboardKey: relationKey(graph, relation), identities: relationIdentities(graph, relation) };
     } catch (error) {
       return { error };
     }
   }, [graph, relation]);
+  const failed = "error" in compiled;
+  React.useLayoutEffect(() => {
+    if (failed) onDrawing(false);
+  }, [failed, onDrawing]);
   if ("error" in compiled) return <Failure error={compiled.error} t={t} />;
   return <Drawn {...props} {...compiled} />;
 }
 
+/** What *Add to the dashboard* reads and writes: the host's document, its write, and its words for a failure. */
+interface Adding {
+  dashboards: Dashboards;
+  onAdd: (next: Dashboards, added: AnswerAdded) => void | Promise<unknown>;
+  copy?: ProblemProps["copy"];
+}
+
 function Drawn(props: {
   table: TableExpr;
-  /** The relation's key: what a host keeps its dashboards by. */
-  name: string;
+  /** The relation's key: what a host keeps its dashboards by. Not `key`, which React keeps for itself. */
+  dashboardKey: string;
   identities: { column: string }[];
   output: AnswerOutput;
-  onAdd?: AnswerCardProps["onAdd"];
+  adding?: Adding;
+  onDrawing: OnDrawing;
   t: AnswerCardTranslations;
 }) {
-  const { table, identities, output, onAdd, t } = props;
+  const { table, identities, output, adding, onDrawing, t } = props;
   // The fields a dashboard over the relation reads, so the tile it is added to is drawn the same.
   const stats = useFieldStats(table, { exclude: identities.map((i) => i.column) });
   const readable = React.useMemo(
@@ -164,14 +210,17 @@ function Drawn(props: {
     return { clauses, table: Query.from(readable.table).select("*").where([...clauses, ...(ranked ? [ranked] : [])].map((c) => c.predicate!)) };
   }, [readable, output]);
 
+  const drawing = stats.error === null && (!readable || !narrowed);
+  React.useLayoutEffect(() => onDrawing(drawing), [drawing, onDrawing]);
+
   if (stats.error !== null) return <Failure error={stats.error} t={t} />;
-  if (!readable || !narrowed) return <Skeleton className="h-[220px] w-full" />;
+  if (!readable || !narrowed) return <Skeleton className="h-[220px] w-full" slot="answer-card-pending" />;
   const tile = output.answer.show;
   return (
     <>
       <div className="flex min-w-0 flex-wrap items-center justify-end gap-1" data-slot="answer-card-actions">
         <FilterToIt identity={identities[0]!.column} output={output} fields={readable.fields} t={t} table={table} />
-        {onAdd && <AddToDashboard fields={readable.fields} onAdd={onAdd} relationKey={props.name} output={output} t={t} />}
+        {adding && <AddToDashboard {...adding} fields={readable.fields} relationKey={props.dashboardKey} output={output} t={t} />}
       </div>
       {tile.kind === "chart" ? (
         <ChartCard card={tile} fields={readable.fields} table={narrowed.table} />
@@ -238,27 +287,50 @@ function FilterToIt(props: {
   );
 }
 
-function AddToDashboard(props: {
+/**
+ * The tile goes on under the answer's own id — the call's — so whether the relation's spec holds it
+ * is a lookup in what the host hands back, not a flag this card keeps and a remount loses. The host's
+ * write is what confirms it: while a promise it returned is pending the button says so, whatever the
+ * spec already shows, and a rejection is drawn under the actions with the button back.
+ */
+function AddToDashboard(props: Adding & {
   relationKey: string;
   output: AnswerOutput;
   fields: readonly FieldStat[];
-  onAdd: NonNullable<AnswerCardProps["onAdd"]>;
   t: AnswerCardTranslations;
 }) {
-  const { relationKey: key, output, fields, onAdd, t } = props;
-  const [added, setAdded] = React.useState(false);
+  const { dashboards, onAdd, copy, relationKey: key, output, fields, t } = props;
+  const [write, setWrite] = React.useState<{ status: "idle" } | { status: "pending" } | { status: "failed"; error: unknown }>({ status: "idle" });
+  const tile = output.answer.show;
+  const added = dashboards.byRelation[key]?.tiles.some((each) => each.id === tile.id) ?? false;
+  const pending = write.status === "pending";
   const add = () => {
-    onAdd(key, (spec) => {
-      const current = spec ?? autoDashboard(fields);
-      // Its own id on the dashboard: the answer's is the tool call's, and one answer may be added twice.
-      return { ...current, tiles: [...current.tiles, { ...output.answer.show, id: globalThis.crypto.randomUUID() }] };
-    });
-    setAdded(true);
+    const current = dashboards.byRelation[key] ?? autoDashboard(fields);
+    const next = { ...dashboards, byRelation: { ...dashboards.byRelation, [key]: { ...current, tiles: [...current.tiles, tile] } } };
+    let written: void | Promise<unknown>;
+    try {
+      written = onAdd(next, { relation: output.answer.relation, key });
+    } catch (error) {
+      return setWrite({ status: "failed", error });
+    }
+    if (typeof (written as PromiseLike<unknown> | undefined)?.then !== "function") return setWrite({ status: "idle" });
+    setWrite({ status: "pending" });
+    (written as PromiseLike<unknown>).then(
+      () => setWrite({ status: "idle" }),
+      (error: unknown) => setWrite({ status: "failed", error }),
+    );
   };
   return (
-    <Button disabled={added} onClick={add} size="sm" variant="ghost">
-      <LayoutDashboardIcon />
-      {added ? t.added : t.add}
-    </Button>
+    <>
+      <Button disabled={added || pending} isLoading={pending} onClick={add} size="sm" variant="ghost">
+        <LayoutDashboardIcon />
+        {pending ? t.adding : added ? t.added : t.add}
+      </Button>
+      {write.status === "failed" && (
+        <DiagnosticList className="basis-full">
+          <Problem copy={copy} error={write.error} />
+        </DiagnosticList>
+      )}
+    </>
   );
 }
