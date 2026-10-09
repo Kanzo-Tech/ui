@@ -7,8 +7,11 @@ import {
   Query,
   ScalarSubqueryNode,
   TupleNode,
+  and,
+  coalesce,
   column,
   literal,
+  not,
   walk,
   type ExprNode,
   type FilterExpr,
@@ -20,12 +23,14 @@ import {
  *
  * 1. **Column predicates on the same relation** — a brush, a pick, a search. `hour BETWEEN 2 AND 5`
  *    names `hour`, and only a relation with an `hour` can answer it.
- * 2. **A semi-join on identity** — `key IN (ids)` or `key IN (SELECT … )`. It names `key` and nothing
- *    else: the subquery's columns are another relation's. Any relation whose rows carry the key
+ * 2. **A semi-join on identity** — `key IN (ids)` or `key IN (SELECT … )`, or its anti-join
+ *    `key NOT IN (SELECT … )`. It names `key` and nothing else: the subquery's columns are another
+ *    relation's. Any relation whose rows carry the key
  *    answers it, which is how a set of rows found in one relation — a lasso on a canvas, a rule's
  *    findings, an answer — filters every other relation that shares the identity.
  *
- * {@link clauseSemiJoin} is the constructor of the second form and {@link clauseColumns} reads the
+ * {@link clauseSemiJoin} is the constructor of the second form, {@link semiJoinOf} and
+ * {@link antiJoinOf} map a relation's own clauses into it, and {@link clauseColumns} reads the
  * names of both, so a client applies one rule whichever form it was handed.
  */
 
@@ -78,6 +83,24 @@ export function clauseSemiJoin(key: string, members: SemiJoinMembers | null, opt
 export function semiJoinOf(key: string, table: TableExpr, options: { label?: string } = {}): ClauseMap {
   return (clauses, source) =>
     clauseSemiJoin(key, Query.select(key).from(table).where(clauses.flatMap((c) => (c.predicate ? [c.predicate] : []))), { source, label: options.label });
+}
+
+/**
+ * **Column clauses on some of the page's rows, crossed as an anti-join on identity** — the
+ * {@link ClauseMap} for clauses only one kind of row can answer: `key NOT IN (SELECT key FROM table
+ * WHERE NOT <every clause>)`. The rows `table` holds are kept as the clauses keep them, one the
+ * clauses cannot judge (a null) among those dropped, and every row it does not hold stays — so a
+ * timeline over the types that have a date leaves the types without one whole, where `semiJoinOf`
+ * would drop them. Like a semi-join it names `key` alone, and every client whose rows carry `key`
+ * answers it.
+ */
+export function antiJoinOf(key: string, table: TableExpr, options: { label?: string } = {}): ClauseMap {
+  return (clauses, source) => {
+    const kept = and(...clauses.flatMap((c) => (c.predicate ? [c.predicate] : [])));
+    const dropped = Query.select(key).from(table).where(not(coalesce(kept, literal(false))));
+    const clause = clauseSemiJoin(key, dropped, { source, label: options.label });
+    return { ...clause, predicate: not(clause.predicate as ExprNode) };
+  };
 }
 
 /**

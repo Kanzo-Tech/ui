@@ -38,7 +38,7 @@ export interface ChartTimelineProps {
 }
 
 const MARGIN = { top: 4, right: 8, bottom: 20, left: 8 };
-/** How many bars the axis is cut into, and so how far one tick of playback moves the window. */
+/** How many bars the axis is cut into. */
 const BARS = 60;
 /** Cosmograph's `animationSpeed`: one bar every 50 ms. */
 const TICK_MS = 50;
@@ -49,9 +49,10 @@ const TICK_MS = 50;
  * are the column unfiltered and the bars in front are what the page keeps; the window is one clause,
  * a chip in the `FilterBar` like any control's. `/docs/design/timeline` is why it is shaped so.
  *
- * Playing asks the window's owner to move it — the interval's own `publish`, a bar at a time —
- * because a clause belongs to the source that published it. With no window there is nothing to
- * play, and at the end of the axis it stops.
+ * The window sticks to the bars' edges, as Cosmograph's `stickySelection` does, so it reads
+ * *1910 – 1940* rather than where the pointer let go. Playing asks the window's owner to move it —
+ * the interval, through its own clause, a bar at a time — because a clause belongs to the source
+ * that published it. With no window there is nothing to play, and at the end of the axis it stops.
  */
 export function ChartTimeline({
   table,
@@ -78,7 +79,7 @@ export function ChartTimeline({
       <ChartRectY fill="var(--muted-foreground)" filterBy={null} inset={0.5} opacity={0.22} x={bars} y={count()} />
       <ChartRectY fill={fill} inset={0.5} x={bars} y={count()} />
       <ChartBrushX />
-      <ChartAxisX label={null} ticks={5} />
+      <ChartAxisX label={null} tickFormat={tickLabel} ticks={5} />
       <ChartAxisY anchor={null} label={null} />
       <TimelineWindow playable={playable} />
     </ChartRoot>
@@ -99,12 +100,30 @@ function TimelineWindow({ playable }: { playable: boolean }) {
     return () => as.removeEventListener("value", read);
   }, [as, plot]);
 
+  // An interval activates its selection when the pointer enters the plot, before any drag: that
+  // is when its brush learns to stick. A brush ends a gesture with `sourceEvent`; a move made here
+  // ends with none, so sticking never feeds itself.
+  useEffect(() => {
+    const stuck = new WeakSet<Interval1D>();
+    const learn = () => {
+      const interval = intervalOf(plot());
+      if (!interval || stuck.has(interval)) return;
+      stuck.add(interval);
+      interval.brush.on("end.stick", ({ selection, sourceEvent }: { selection: [number, number] | null; sourceEvent?: unknown }) => {
+        const window = sourceEvent && selection ? stickWindow(brushedBy(interval), selection) : null;
+        if (window) moveWindow(interval, window);
+      });
+    };
+    as.addEventListener("activate", learn);
+    return () => as.removeEventListener("activate", learn);
+  }, [as, plot]);
+
   useEffect(() => {
     if (!playing) return;
     const timer = setInterval(() => {
       const interval = intervalOf(plot());
-      const next = interval && nextWindow(interval);
-      if (next) interval.publish(next);
+      const next = interval && nextWindow(brushedBy(interval));
+      if (next) moveWindow(interval, next);
       else setPlaying(false);
     }, TICK_MS);
     return () => clearInterval(timer);
@@ -138,22 +157,79 @@ function intervalOf(plot: ChartPlot | null): Interval1D | null {
 }
 
 /**
- * The window one tick later, in pixels: one bar further along, or `null` where it would pass the
- * end of the axis or there is no window to move.
+ * What `interval` brushes. Its mark is typed as the interactor's narrow view, but it is a vgplot
+ * `Mark`, which keeps the columns of its last answer as `data`.
  */
-export function nextWindow(interval: {
+function brushedBy(interval: Interval1D): Brushed {
+  return { value: interval.value, scale: interval.scale, mark: interval.mark as unknown as Brushed["mark"] };
+}
+
+/** What a window is read from: the interval's value, its scale, and the bars of the mark it brushes. */
+export interface Brushed {
   value?: readonly unknown[];
-  scale: { apply(value: unknown): number; range: readonly number[] };
-}): [number, number] | null {
-  if (!interval.value) return null;
-  const [a, b] = interval.value.map((v) => interval.scale.apply(v)).sort((x, y) => x - y);
-  const [start, end] = [Math.min(...interval.scale.range), Math.max(...interval.scale.range)];
-  const step = (end - start) / BARS;
-  if (a === undefined || b === undefined || b + step > end + 0.5) return null;
-  return [a + step, b + step];
+  scale: { apply(value: unknown): number; type?: string };
+  mark: { data?: { columns: Record<string, ArrayLike<unknown>> } | null };
+}
+
+/**
+ * Where a window may begin and end: every edge of the bars the brushed mark drew, ascending, each
+ * as the value the clause takes — a year as its number, a date as a `Date`.
+ */
+export function edgesOf({ scale, mark }: Pick<Brushed, "scale" | "mark">): unknown[] {
+  const { x1 = [], x2 = [] } = mark.data?.columns ?? {};
+  const time = scale.type === "utc" || scale.type === "time";
+  const at = new Map<number, unknown>();
+  for (const raw of [...Array.from(x1), ...Array.from(x2)]) {
+    const value = time && !(raw instanceof Date) ? new Date(Number(raw)) : raw;
+    at.set(+(value as number), value);
+  }
+  return [...at.keys()].sort((a, b) => a - b).map((k) => at.get(k));
+}
+
+/** The index of the edge nearest `pixel`. */
+function nearest(edges: readonly unknown[], scale: Brushed["scale"], pixel: number): number {
+  let best = 0;
+  edges.forEach((edge, i) => {
+    if (Math.abs(scale.apply(edge) - pixel) < Math.abs(scale.apply(edges[best]) - pixel)) best = i;
+  });
+  return best;
+}
+
+/**
+ * A window brushed by hand, stuck to the nearest edges — at least one bar wide — or `null` where
+ * the mark has drawn no bars.
+ */
+export function stickWindow(brushed: Pick<Brushed, "scale" | "mark">, extent: readonly [number, number]): [unknown, unknown] | null {
+  const edges = edgesOf(brushed);
+  if (edges.length < 2) return null;
+  const [a, b] = [...extent].sort((x, y) => x - y).map((px) => nearest(edges, brushed.scale, px)) as [number, number];
+  const lo = Math.min(a, edges.length - 2);
+  return [edges[lo], edges[Math.max(b, lo + 1)]];
+}
+
+/**
+ * The window one tick later: each end on the next edge, or `null` where it would pass the end of
+ * the axis or there is no window to move.
+ */
+export function nextWindow(brushed: Brushed): [unknown, unknown] | null {
+  if (!brushed.value) return null;
+  const edges = edgesOf(brushed);
+  const [a, b] = brushed.value.map((v) => nearest(edges, brushed.scale, brushed.scale.apply(v))).sort((x, y) => x - y) as [number, number];
+  return b + 1 < edges.length ? [edges[a + 1], edges[b + 1]] : null;
+}
+
+/**
+ * The interval moved to `window`, as its own `publish` moves it but in data rather than pixels, so
+ * the clause holds the edges themselves and not the value a pixel inverts to.
+ */
+function moveWindow(interval: Interval1D, window: readonly [unknown, unknown]) {
+  interval.value = window;
+  interval.g.call(interval.brush.moveSilent, window.map((v) => interval.scale.apply(v)));
+  interval.selection.update(interval.clause(window));
 }
 
 const DAY = new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" });
+const MONTH = new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", timeZone: "UTC" });
 
 /** *1950 – 1960*: a year as its integer, a date as a day. */
 export function readWindow(window: readonly unknown[]): string {
@@ -161,4 +237,11 @@ export function readWindow(window: readonly unknown[]): string {
     v instanceof Date ? DAY.format(v) : typeof v === "number" ? String(Math.round(v)) : String(v),
   );
   return `${from} – ${to}`;
+}
+
+/** An axis tick: a year as its integer, never *1,900*, and a date by the coarsest unit it starts. */
+export function tickLabel(v: unknown): string {
+  if (!(v instanceof Date)) return String(v);
+  if (v.getUTCMonth() === 0 && v.getUTCDate() === 1) return String(v.getUTCFullYear());
+  return (v.getUTCDate() === 1 ? MONTH : DAY).format(v);
 }

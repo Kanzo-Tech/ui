@@ -158,7 +158,13 @@ into one page clause whose source is the bridge. It is built on mosaic-core's pu
 alone — `update`, `reset`, `activate`, `clauses` and the two events — and a guard fails on any
 `_` member of mosaic-core reached from the package. The map a relation takes is `semiJoinOf(key, relation)`, which is `dense_id IN
 (SELECT dense_id FROM <relation> WHERE <every tile clause>)`, the second form again. So the graph
-answers a dashboard by the rule it already had, and nothing in `GraphClient` names a dashboard.
+answers a dashboard by the rule it already had, and nothing in `GraphClient` names a dashboard. A
+`GraphTimeline` speaks columns too — its window is `date BETWEEN …`, which only the types with a
+date can answer — and crosses the same way, through `antiJoinOf(key, timeline)`: `dense_id NOT IN
+(SELECT dense_id FROM <the types with the column> WHERE NOT <the window>)`. Where a semi-join keeps
+only the rows its relation holds, the anti-join drops only the ones its relation holds and the
+window leaves out, so the types without a date stay whole, as the column form left them in the
+graph. It names the key alone, so a dashboard's relation answers it through its root.
 Retraction follows the clause to where it was published: a tile letting go withdraws the page
 clause, the page clause's chip clears the tiles, and the page's clauses are never mapped back out,
 so a lasso does not return to the graph as a dashboard's clause and filter it by its own pick.

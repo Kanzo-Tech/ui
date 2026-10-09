@@ -62,7 +62,8 @@ export {
 
 /**
  * Ours: the clause rule — column predicates on one relation, or a semi-join on identity — with the
- * constructor of the second form, the reading of the columns either names, and what a clause says
+ * constructor of the second form, the maps that cross a relation's clauses into it (`semiJoinOf`,
+ * `antiJoinOf`), the reading of the columns either names, and what a clause says
  * to a person (`clauseParts`, `clauseLabel`) — read by `@kanzo-tech/ui`'s chips and filter bar.
  * `clause.ts` states it.
  */
@@ -70,6 +71,7 @@ export {
   clauseColumns,
   clauseSemiJoin,
   semiJoinOf,
+  antiJoinOf,
   clauseParts,
   clauseLabel,
   type ClauseParts,

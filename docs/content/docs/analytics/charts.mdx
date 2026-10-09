@@ -464,9 +464,11 @@ control's.
 <ChartTimeline field="year" table="awards" title="Awards by year" />
 ```
 
-Playing asks the window's owner to move it, through the interval's own `publish`: a clause belongs
-to the source that published it ([why](/docs/design/timeline)). With no window there is nothing to
-play, and at the end of the axis it stops. The button is `aria-pressed` while it plays, and the
+The window sticks to the bars' edges, Cosmograph's `stickySelection`, so it reads *1910 – 1940*
+and not where the pointer let go, and a year on the axis reads *1900*, never *1,900*. Playing asks
+the window's owner to move it, one bar at a time, through the interval's own state and clause: a
+clause belongs to the source that published it ([why](/docs/design/timeline)). With no window there
+is nothing to play, and at the end of the axis it stops. The button is `aria-pressed` while it plays, and the
 window is a group whose `aria-valuetext` reads *1950 – 1960*. A dashboard's temporal filter is this
 part, in its chip.
 

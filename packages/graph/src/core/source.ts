@@ -14,6 +14,8 @@ import {
   sql,
   sum,
   clauseColumns,
+  antiJoinOf,
+  type ClauseMap,
   type Coordinator,
   type ExprNode,
   type FilterExpr,
@@ -352,10 +354,24 @@ export async function matchingIds(
   return Array.from(values(await ask(coordinator, Query.select("id").from(union).where("inside")), "id") as ArrayLike<number>);
 }
 
-/** `field` from every vertex table that has it, as one relation; `null` when none does. */
-export function timelineTable(structure: Structure | null, field: string): Query | null {
+/** A timeline over the graph: the relation its bars count, and how its window reaches the page. */
+export interface Timeline {
+  /** The key and `field` of every vertex table that has `field`, as one relation. */
+  readonly table: Query;
+  /**
+   * The window as the page's clause: an anti-join on the key, so the types with `field` are kept as
+   * the window keeps them and the rest stay whole — the graph's clause rule, in the one form every
+   * client of the page answers, a dashboard's relation among them.
+   */
+  readonly publish: ClauseMap;
+}
+
+/** The timeline over `field`, or `null` when no vertex table has it. */
+export function timelineOf(structure: Structure | null, field: string): Timeline | null {
   if (!structure || field === "") return null;
   const tables = structure.vertices.filter((t) => t.columns.get(field)?.role === null);
   if (tables.length === 0) return null;
-  return Query.unionAll(tables.map((t) => Query.select({ [field]: field }).from(relation(structure.from, t.name))));
+  const key = structure.key;
+  const table = Query.unionAll(tables.map((t) => Query.select({ [key]: key, [field]: field }).from(relation(structure.from, t.name))));
+  return { table, publish: antiJoinOf(key, table, { label: field }) };
 }
