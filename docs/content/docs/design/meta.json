@@ -10,9 +10,12 @@
     "preferences",
     "graph",
     "analytics",
+    "ai",
     "services",
     "auth",
     "navigation",
-    "failure"
+    "shell",
+    "failure",
+    "testing"
   ]
 }
