@@ -214,16 +214,16 @@ describe("DockHarness", () => {
   it("opens a panel by its label, and collapses the dock when the open one is pressed again", async () => {
     const env = dom();
     function Dock() {
-      const [open, setOpen] = useState<string | null>("info");
+      const [open, setOpen] = useState<"info" | "ask" | null>("info");
       return (
-        <ShellDockSwitcher onValueChange={setOpen} value={open}>
+        <ShellDockSwitcher aria-label="Side panels" onValueChange={setOpen} value={open}>
           <ShellDockItem icon={InfoIcon} label="Info" value="info" />
           <ShellDockItem icon={MessageCircleIcon} label="Ask" value="ask" />
         </ShellDockSwitcher>
       );
     }
     render(<Dock />);
-    const dock = await env.harness(DockHarness);
+    const dock = await env.harness(DockHarness.with({ name: "Side panels" }));
     expect(await dock.current()).toBe("Info");
     await dock.open("Ask");
     expect(await dock.current()).toBe("Ask");

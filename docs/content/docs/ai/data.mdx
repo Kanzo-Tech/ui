@@ -292,8 +292,10 @@ has as a Problem"; "draws the figure the answer is, read under its conditions".
 ## Testing
 
 `AnswerHarness` from [`@kanzo-tech/testing`](/docs/testing) asks through the composer and reads the
-newest `AnswerCard`. It waits for the card to hold its tile or its `Problem` — the card is `aria-busy`
-while the model writes and the engine reads — and a failed answer rejects with the `Problem`'s words.
+newest `AnswerCard`. It waits for the card to stop being `aria-busy`, which it is until its tile or
+its `Problem` is drawn, and a failed answer rejects with the `Problem`'s words. `addToDashboard()`
+waits out the host's pending write for *✓ On the dashboard*, and rejects with the card's `Problem`
+when the host refused it.
 
 ```ts
 import { AnswerHarness } from "@kanzo-tech/testing";

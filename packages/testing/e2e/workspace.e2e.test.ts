@@ -78,7 +78,7 @@ describe("the workspace's graph", () => {
 
 describe("the workspace's dock", () => {
   it("opens a panel by its label, and collapses the dock when it is pressed again", async () => {
-    const dock = await env.harness(DockHarness);
+    const dock = await env.harness(DockHarness.with({ name: "Inspectors" }));
     expect(await dock.current()).toBe("Info");
     await dock.open("Settings");
     expect(await dock.current()).toBe("Settings");
@@ -91,7 +91,7 @@ describe("the workspace's Ask panel", () => {
   it("asks a question the recording knows, reads the answer's chart, and filters the page to it", async () => {
     const graph = await env.harness(GraphCanvasHarness);
     await graph.ready();
-    await (await env.harness(DockHarness)).open("Ask");
+    await (await env.harness(DockHarness.with({ name: "Inspectors" }))).open("Ask");
     const answers = await env.harness(AnswerHarness);
     await answers.ask("What does the Amber Hall hold, by kind?");
     const tile = await answers.answer();

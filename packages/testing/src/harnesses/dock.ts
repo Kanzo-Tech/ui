@@ -2,12 +2,13 @@ import { ComponentHarness, type By, type Handle, type HarnessQuery } from "../en
 
 /**
  * **A `ShellDockSwitcher`** — `/docs/design/shell`: a single-select `ToggleGroup`, so Ark makes it a
- * `radiogroup`, named *Panels* unless the page names it otherwise, with a `radio` per panel named by
- * its label and checked while that panel is open. Pressing the checked one again collapses the dock.
- * Any single-select toggle group has that shape, so it drives one — a view switch — as well.
+ * `radiogroup`, with a `radio` per panel named by its label and checked while that panel is open.
+ * Pressing the checked one again collapses the dock. The page names the group — it has no name of its
+ * own — so `with({ name })` picks one, and the bare harness takes the first radiogroup on the page. Any
+ * single-select toggle group has that shape, so it drives one — a view switch — as well.
  */
 export class DockHarness extends ComponentHarness {
-  static readonly by: By = { role: "radiogroup", name: "Panels" };
+  static readonly by: By = { role: "radiogroup" };
 
   /** The switcher named `name`. */
   static with(options: { name: string | RegExp }): HarnessQuery<DockHarness> {
