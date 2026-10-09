@@ -1,0 +1,140 @@
+diff --git a/dist/src/Coordinator.js b/dist/src/Coordinator.js
+index d5488cf9f11e7a3cbae3fe044bd966bfd250dbd5..613a44455f140f5393f97b6246051bfd006686a8 100644
+--- a/dist/src/Coordinator.js
++++ b/dist/src/Coordinator.js
+@@ -31,6 +31,8 @@ export class Coordinator {
+     preaggregator;
+     clients = new Set;
+     filterGroups = new Map;
++    /** Client query requests that have not yet settled, by client. */
++    requests = new Map;
+     _logger = voidLogger();
+     /**
+      * @param db Database connector. Defaults to a web socket connection.
+@@ -146,14 +148,29 @@ export class Coordinator {
+      */
+     updateClient(client, query, priority = Priority.Normal) {
+         client.queryPending();
+-        return client._pending = this.query(query, { priority })
+-            .then(data => client.queryResult(data).update(), err => {
++        const request = this.query(query, { priority });
++        const { requests } = this;
++        const pending = requests.get(client) ?? new Set();
++        requests.set(client, pending.add(request));
++        // A request the client no longer holds was canceled when it disconnected:
++        // neither its data nor its error is the client's to receive.
++        const held = () => requests.get(client)?.has(request) ?? false;
++        return client._pending = request
++            .then(data => { if (held())
++            client.queryResult(data).update(); }, err => {
++            if (!held())
++                return;
+             const e = new QueryError(err, query);
+             this._logger?.error(e);
+             client.queryError(e);
+             return e;
+         })
+-            .catch(err => this._logger?.error(err));
++            .catch(err => this._logger?.error(err))
++            .finally(() => {
++            pending.delete(request);
++            if (!pending.size && requests.get(client) === pending)
++                requests.delete(client);
++        });
+     }
+     /**
+      * Issue a query request for a client. If the query is null or undefined,
+@@ -193,11 +210,18 @@ export class Coordinator {
+      * @param client The Mosaic client to disconnect.
+      */
+     disconnect(client) {
+-        const { clients, filterGroups } = this;
++        const { clients, filterGroups, requests } = this;
+         if (!clients?.has(client))
+             return;
+         clients.delete(client);
+         client.coordinator = null;
++        // cancel the client's queued requests: what a client leaves behind may
++        // query resources that are released along with it
++        const pending = requests.get(client);
++        if (pending) {
++            requests.delete(client);
++            this.cancel([...pending]);
++        }
+         const group = filterGroups?.get(client.filterBy);
+         if (group) {
+             group.clients.delete(client);
+diff --git a/src/Coordinator.ts b/src/Coordinator.ts
+index e5a8a54e2295f8cf73e9a607b2cc6230c10c1fe1..e026482029cb60fa1475b0860ac217e41e560484 100644
+--- a/src/Coordinator.ts
++++ b/src/Coordinator.ts
+@@ -49,6 +49,8 @@ export class Coordinator {
+   public preaggregator: PreAggregator;
+   public clients = new Set<MosaicClient>;
+   public filterGroups = new Map<Selection, FilterGroupEntry>;
++  /** Client query requests that have not yet settled, by client. */
++  private requests = new Map<MosaicClient, Set<QueryResult>>;
+   protected _logger: Logger = voidLogger();
+ 
+   /**
+@@ -218,17 +220,29 @@ export class Coordinator {
+     priority: number = Priority.Normal
+   ): Promise<unknown> {
+     client.queryPending();
+-    return client._pending = this.query(query, { priority })
++    const request = this.query(query, { priority });
++    const { requests } = this;
++    const pending = requests.get(client) ?? new Set<QueryResult>();
++    requests.set(client, pending.add(request));
++    // A request the client no longer holds was canceled when it disconnected:
++    // neither its data nor its error is the client's to receive.
++    const held = () => requests.get(client)?.has(request) ?? false;
++    return client._pending = request
+       .then(
+-        data => client.queryResult(data).update(),
++        data => { if (held()) client.queryResult(data).update(); },
+         err => {
++          if (!held()) return;
+           const e = new QueryError(err, query);
+           this._logger?.error(e);
+           client.queryError(e);
+           return e;
+         }
+       )
+-      .catch(err => this._logger?.error(err));
++      .catch(err => this._logger?.error(err))
++      .finally(() => {
++        pending.delete(request);
++        if (!pending.size && requests.get(client) === pending) requests.delete(client);
++      });
+   }
+ 
+   /**
+@@ -271,16 +285,24 @@ export class Coordinator {
+   }
+ 
+   /**
+-   * Disconnect a client from the coordinator.
+-   * This method has no effect if the client is already disconnected.
++   * Disconnect a client from the coordinator, canceling its queued query
++   * requests. This method has no effect if the client is already disconnected.
+    * @param client The Mosaic client to disconnect.
+    */
+   disconnect(client: MosaicClient): void {
+-    const { clients, filterGroups } = this;
++    const { clients, filterGroups, requests } = this;
+     if (!clients?.has(client)) return;
+     clients.delete(client);
+     client.coordinator = null;
+ 
++    // cancel the client's queued requests: what a client leaves behind may
++    // query resources that are released along with it
++    const pending = requests.get(client);
++    if (pending) {
++      requests.delete(client);
++      this.cancel([...pending]);
++    }
++
+     const group = filterGroups?.get(client.filterBy!);
+     if (group) {
+       group.clients.delete(client);
