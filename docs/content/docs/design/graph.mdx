@@ -212,6 +212,53 @@ any shipped package";
 brushes keep, as the root vertices they keep", "still filters the dashboard by the graph's pick, and
 publishes nothing back for it".
 
+## The canvas's tools edit the canvas's own clause
+
+**What is in full colour is what the page keeps, and the canvas's tools work on it without taking
+anyone else's clause.** Each place that picks owns one clause on the page's crossfilter, and clauses
+intersect — Mosaic's model, where every interactor publishes one clause from one source and a
+crossfilter is their conjunction; and Tableau's, where selecting highlights and only a filter
+filters. The marquee, the lasso and a click publish the canvas's clause from the graph's client, as
+before. What changes is where a modified gesture starts:
+
+| Gesture | The canvas's clause becomes |
+| --- | --- |
+| drag, click | what the gesture caught |
+| ⌘/Ctrl + drag | its clause — or, with none, what is in full colour — with what it caught added |
+| Alt + drag | the same base, with what it caught taken away |
+| Esc | a drag in progress, then the tool, then the canvas's clause; never another place's |
+
+So a search that kept the 40 airports in Spain is a selection the tools can work on: Alt and a lasso
+over Madrid leave Spain without Madrid, because the canvas's clause is now *Spain less Madrid* and it
+intersects the search's. ⌘ and a lasso over Portugal add nothing in full colour while the search
+holds, because a filter filters; the toolbar says so — *40 of 3,218 · 20 hidden by other filters* —
+and the search's chip is where it is let go.
+
+**Framing is of what is in full colour.** `frame()` fits the camera to the canvas's clause within
+what the page keeps, or to what the page keeps when the canvas has no clause, or to the canvas's
+clause when the page keeps everything. The toolbar's selection group is drawn whenever something is
+greyed out — a count, **Frame**, and **Clear** when the canvas holds a clause — so what a search, a
+rule or a dashboard keeps can be framed with the button that frames a lasso. `frameSelection` is
+renamed `frame`; it never framed only a selection once a clause from elsewhere could be one.
+
+**It replaced a canvas whose tools saw only their own pick**, so a clause from the search, the rules
+or a dashboard greyed the graph out but could be neither added to, taken from, nor framed — a reader
+recording the product's demos could not zoom onto what a filter kept. The alternative was to
+**absorb**: ⌘ or Alt over a filtered page folds every clause into the canvas's and retracts their
+chips. It was turned down because a modifier key would erase other places' filters — a dashboard's
+brush gone because a lasso was drawn — and their chips are where the reader goes to undo them. It is
+Tableau's *Keep only*, an explicit action, if it is ever wanted.
+
+**What would reverse it:** readers who ⌘-drag outside a filter expecting the points to join it,
+often enough that *N hidden by other filters* does not explain it. Then an explicit *Keep only* on
+the toolbar, not a modifier, turns what is in full colour into the canvas's clause.
+
+*Will be held by* `packages/graph/src/parts/gesture.test.ts` (⌘ and Alt start from what is in full
+colour when the canvas has no clause; Esc never retracts another source's clause),
+`packages/graph/src/render/renderer.test.ts` (`frame` fits what is in full colour) and
+`packages/graph/src/parts/parts.test.tsx` (the toolbar's group is drawn whenever something is
+greyed out, and says how many other filters hide).
+
 ## ADR 0001 — the canvas holds the whole graph
 
 fossil cites this decision by its number, so the label stays.

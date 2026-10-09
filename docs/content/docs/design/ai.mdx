@@ -1,0 +1,73 @@
+---
+title: Asking data
+description: Why an answer in @kanzo-tech/ai/data is a tile over a relation the model fills from typed names, not SQL it writes — and what would reverse it.
+---
+
+[Ask your data](/docs/ai/data) is what `@kanzo-tech/ai/data` ships. This page is why an answer is
+shaped the way it is.
+
+## An answer is a tile over a relation, and the model fills it from typed names
+
+**The model does not write SQL. It fills an answer whose every name is an enum the page generated
+from the data it shows.** An answer is the dashboard's own vocabulary:
+
+```ts
+interface Answer {
+  /** What is asked about: a type, and the hops from it. The `JoinGraph`'s, as `relationQuery` reads it. */
+  relation: Relation;
+  /** What it is narrowed to, with the clauses the dashboard's filters publish. */
+  where?: readonly Condition[]; // { field, in } | { field, between } | { field, contains }
+  /** How it is shown: a figure, a chart or a table — the dashboard's `Tile`. */
+  show: Tile;
+  /** Rank `show`'s x by its measure and keep these many. */
+  top?: number;
+}
+```
+
+`answerSchema(graph, fields)` is the tool's JSON Schema. The types and hops of the relation, the
+fields of each relation, the aggregates and the chart kinds are enums, so a provider that decodes
+against the schema cannot write a field that does not exist. One that does not decode against it
+sends input the AI SDK refuses before it runs, and the model reads why. The instructions list each
+field with its kind and its most common values, *Person.gender: category (female, male)*, read from
+`FieldStat`, rather than DDL.
+
+**It compiles with what the dashboard already compiles with.** `relationQuery` makes the relation;
+each condition is the clause a dashboard filter would publish; `plotRelation` and `measureExpr` make
+the tile's query. All of it runs under the page's crossfilter at the moment of asking. The page's
+filter is not something the model names: it is the predicate the answer is read under, as every
+tile's is.
+
+**The card is a dashboard tile.** `QueryResult` gives way to the dashboard's `ChartCard` over the
+answer, with two actions that fall out of the shape: **Filter to it** publishes the answer's
+conditions and the values of its `x` as clauses, and **Add to the dashboard** puts the tile in the
+relation's spec, because it already is one.
+
+**The references are the semantic layer's**: Looker's Conversational Analytics and ThoughtSpot Sage,
+where a question is answered by picking fields of an explore or a worksheet, and Cube, LookML and
+Malloy, where SQL is compiled from a model of the data rather than written against tables.
+`relationQuery`'s own page names Looker's explore and Malloy's source as its reference, so the
+answer and the dashboard share a model.
+
+**It replaced Databricks Genie's and Hex Magic's loop**: one SQL query per answer, written by the
+model against DDL, and `gateStatement` between that text and the page's engine. The gate kept the
+engine safe, but it could not make the model right. A local model shown
+`"cac8fcfb-…"."Person"` wrote `"Person"` in one take and `"cac8fcfb-…"."scope"` in the next, and
+both were refused. Making the gate tolerant guessed what the model meant, and showing plain names
+moved the same mistake one step along. Every mistake of that kind is a name, and an enum removes
+names from what the model writes. Genie and Hex run frontier models against warehouses whose
+names are the reader's own. A page that runs whatever model its host points it at, over names a
+corpus generated, cannot count on either.
+
+**What it costs:** a question the spec cannot say, such as a window function, a ratio of two
+aggregates or a join the `JoinGraph` does not have, gets no answer, and the model says so. There is
+no SQL tool kept beside it as a fallback: two doors means two things to secure and two answers that
+look different, and the spec is where the missing words get added.
+
+**What would reverse it:** questions readers ask and the spec cannot say, recorded often enough that
+growing the spec costs more than a second door. Then a SQL tool returns beside the spec, behind
+`gateStatement` as it was, and the card says which one answered.
+
+*Will be held by* `packages/ai/src/data/answer.test.ts` (the schema's enums are the relation's
+fields and nothing else; an answer compiles to the query the same dashboard tile reads; input
+outside the schema is refused before it runs) and `packages/ai/src/data/answer-card.test.tsx` (Add
+to the dashboard writes the tile into the relation's spec).

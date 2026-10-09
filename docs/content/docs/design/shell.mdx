@@ -1,0 +1,29 @@
+---
+title: The shell's dock
+description: Why a page switches its side panels with one part, an activity bar of icons named by their tooltips — and what would reverse it.
+---
+
+## One dock switcher, an activity bar
+
+**A page whose side panel holds one of several tools switches them with `ShellDockSwitcher`: an
+icon per panel, named by its tooltip and its accessible name, pressed while its panel is open, and
+pressed again to collapse it.** The panel's own title says what it is in words. The reference is
+VS Code's activity bar. Keasy's Discover (Info · Ask · Rules · Settings) and its studio (Sources)
+draw the same part.
+
+```tsx
+<ShellDockSwitcher value={panel} onValueChange={setPanel}>
+  <ShellDockItem value="info" label="Info" icon={InfoIcon} />
+  <ShellDockItem value="ask" label="Ask" icon={MessageCircleIcon} />
+</ShellDockSwitcher>
+```
+
+**It replaced two ways of doing one thing**: Discover's `ToggleGroup` of bare icons in its footer,
+and the studio's `Toggle` with an icon and the word *Sources* in a status bar of its own. A reader
+learnt each, and a test found each differently.
+
+**What would reverse it:** a dock with panels a reader cannot tell apart by icon, as tested with
+readers. Then the item draws its label beside the icon everywhere, not in one page.
+
+*Will be held by* `packages/ui/src/layouts/shell.test.tsx` (an item is named by its label, pressed
+while open, and collapses its panel when pressed again).

@@ -358,6 +358,10 @@ const DELIBERATE: Record<string, string[]> = {
     "PaginationPrevious",
     "FileUploadItemSize",
   ],
+  // A package designed ahead of its code: the page is the design `@kanzo-tech/testing` is built to,
+  // and its example is the API the harnesses will have. "Keeps both exception lists alive" fails the
+  // day the package exports these, which is when this entry goes.
+  "design/testing.mdx": ["playwright", "ChartHarness", "GraphCanvasHarness", "FilterBarHarness"],
 };
 
 /**
