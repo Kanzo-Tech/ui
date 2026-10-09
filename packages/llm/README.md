@@ -27,7 +27,9 @@ import { ToolLoopAgent, DirectChatTransport, tool, Output } from "@kanzo-tech/ll
   `Output.array` asks the gateway for a JSON schema rather than prose to parse. And a streaming
   request that sends nothing for 30 s — no headers, or no chunk since the last — is aborted and
   fails as an `AiError` coded `ai/silent`; a gateway that answers 429 because the caller is over its
-  limit fails as an `AiError` coded `ai/rate-limited`, with `data.retryAfter` when it said when.
+  limit fails as an `AiError` coded `ai/rate-limited`, with `data.retryAfter` when it said when; and
+  any other error answer — an alias no model answers, a provider's refusal, a 504 from a hung
+  upstream — fails as an `AiError` coded `ai/unavailable`, with `data.status` and `data.reason`.
 - **`stream({ model, system, prompt, output })`** — the one door to an answer: `streamText`, never
   retried, read as `text`, `elements` (`Output.array`) or `partial` (`Output.object`), each of which
   **throws what stopped the model** once it ends. The SDK alone reports a failed stream to `onError`
