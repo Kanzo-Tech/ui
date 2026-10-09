@@ -7,6 +7,14 @@ const FIT_PADDING = 0.18;
 /** How often a running layout re-frames the camera, and how long each re-frame glides. */
 const FOLLOW_EVERY = 900;
 const FOLLOW_DURATION = 700;
+/**
+ * **A re-frame waits ten times what the last one stalled.** The readback is synchronous, so it waits
+ * for every simulation step the GPU has queued: a few milliseconds on a GPU, where 900 ms rules, and
+ * about two seconds a read at 206,629 vertices on SwiftShader, where reading every 900 ms held the
+ * main thread 99% of the time and the page's DuckDB and rudof never got it back. Ten keeps a
+ * following camera to a tenth of the main thread on any device, without a vertex count to tune.
+ */
+const FOLLOW_SHARE = 10;
 
 export interface Camera {
   /** A corpus was placed: frame these corners now, and again whenever the canvas changes size. */
@@ -57,6 +65,7 @@ export function createCamera(
   let framing = false;
   let following = false;
   let followed = 0;
+  let wait = FOLLOW_EVERY;
   let pending = 0;
   let drawn = false;
   let broken = false;
@@ -110,6 +119,7 @@ export function createCamera(
       corners = null;
       following = true;
       followed = performance.now();
+      wait = FOLLOW_EVERY;
     },
     take() {
       framing = false;
@@ -122,9 +132,10 @@ export function createCamera(
     },
     tick() {
       const now = performance.now();
-      if (!following || now - followed < FOLLOW_EVERY) return;
-      followed = now;
+      if (!following || now - followed < wait) return;
       fitPoints(FOLLOW_DURATION);
+      followed = performance.now();
+      wait = Math.max(FOLLOW_EVERY, (followed - now) * FOLLOW_SHARE);
     },
     settle() {
       if (following) fitPoints(FIT_DURATION);

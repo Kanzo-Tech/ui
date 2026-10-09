@@ -349,6 +349,39 @@ describe("the camera while a layout runs", () => {
     expect(commands()).toEqual(["fitView"]);
   });
 
+  it("waits ten times a re-frame's stall before the next, so a slow readback cannot hold the main thread", async () => {
+    const { renderer } = await drawing();
+    // Whole milliseconds, so a stall of 2000 is exactly 2000 and ten of them exactly 20,000.
+    let clock = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => clock);
+    const graph = renderer?.graph as unknown as { fitView: () => void };
+    const read = graph.fitView;
+    // SwiftShader at 206,629 vertices: the readback waits two seconds for the queued steps.
+    graph.fitView = () => {
+      clock += 2000;
+      read();
+    };
+    renderer?.resume();
+    calls.length = 0;
+    clock += 900;
+    tick();
+    expect(count("fitView")).toBe(1);
+    clock += 19_999;
+    tick();
+    expect(count("fitView")).toBe(1);
+    clock += 1;
+    tick();
+    expect(count("fitView")).toBe(2);
+    // A new run measures again: a fast readback follows every 900 ms.
+    graph.fitView = read;
+    renderer?.restart();
+    clock += 900;
+    tick();
+    clock += 900;
+    tick();
+    expect(count("fitView")).toBe(4);
+  });
+
   it("starts a layout only after the render that uploads its positions, so it has them to follow", async () => {
     const onFailure = vi.fn();
     await drawing({ onFailure });

@@ -184,6 +184,18 @@ it is invisible; past tens of thousands it is a stall each time, and a running l
 every 900 ms on top of a simulation step that already costs 10 ms at 50,000 points and 62 ms at
 200,000.
 
+**The camera waits ten times what its last re-frame stalled before the next one.** The read is
+synchronous, so it waits for every step the GPU has queued. On a GPU that is milliseconds and the
+900 ms rule holds. On software WebGL it is not: SwiftShader, which headless Chromium falls back to,
+steps 206,629 vertices about once a second, a read stalled about two seconds, and a re-frame every
+900 ms held the page's main thread 99% of the time — the 10 ms timers that ran fell from 459 to 2 in
+five seconds, so nothing else on the page (DuckDB's replies, rudof's checks) ran either. Waiting ten
+times the stall leaves it 90% free on any device, with no vertex count to tune. The layout itself still
+costs what it costs there: 240 steps at a step a second is four minutes to settle, where an M4 Pro's
+GPU settles the same graph in under ten. Measured on 2026-10-09 with cosmos.gl 3.4.0 alone, Playwright's
+headless Chromium on SwiftShader and on Metal, 206,629 vertices and 316,766 links. What would reverse
+it: a readback cosmos.gl answers without waiting for the queue, which would make every re-frame cheap.
+
 What to do about it, in the order it pays:
 
 - **Bind `x` and `y`** when the data has positions: nothing runs and nothing is read back.

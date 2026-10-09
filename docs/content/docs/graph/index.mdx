@@ -545,8 +545,9 @@ back to the message.
 - **`onFailure` is not optional.** Without it a browser with no WebGL, a corpus that will not read
   and a filter no table can answer all look like an empty canvas.
 - **A large corpus pays for the camera that follows the layout.** While a layout runs the camera
-  re-frames every 900 ms, and so does Fit once a layout has run; each re-frame reads every position
-  back from the GPU. Past tens of thousands of points that is a stall per re-frame —
+  re-frames every 900 ms — or ten times its last stall, when that is longer — and so does Fit once a
+  layout has run; each re-frame reads every position back from the GPU. Past tens of thousands of
+  points that is a stall per re-frame —
   [Layout and camera](/docs/graph/layout#large-corpora) has what to do.
 - **Register `GRAPH_SECTION` once, at module scope.** The graph's settings draw nothing without it, and
   a `sections` array built in render re-resolves every preference on every render.
