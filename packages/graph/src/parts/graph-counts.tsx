@@ -13,7 +13,9 @@ function Count({ value }: { value: number | null | undefined }) {
 
 /**
  * **The corpus in one sentence** — "5K nodes · 8K edges", and under the page's filter "1.2K of 5K
- * nodes match · 3K edges". Nodes are the corpus's, so a filter's effect is `matching` of `total`; a
+ * nodes match · 3K edges". What matches is what is in full colour: the page's filter and the
+ * canvas's own pick (a lasso, a marquee, a click) together, as the toolbar counts it. Nodes are the
+ * corpus's, so a filter's effect is `matching` of `total`; a
  * vertex the filter drops is greyed on the canvas, not hidden, which is why the verb is "match" and
  * not "drawn". Edges are those whose two ends are drawn, so they shrink with the filter. A figure
  * not yet known is "—", and the numbers are compact in the nearest `LocaleProvider`'s locale.

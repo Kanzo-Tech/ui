@@ -2,7 +2,7 @@ import type { Encoding, Geometry } from "./load";
 import type { Drawn } from "./state";
 import type { VertexId } from "./types";
 
-/** How many vertices the page's filter keeps, or `null` when nothing is filtered. */
+/** How many vertices a mask keeps, or `null` when nothing is filtered. */
 export function matchingOf(mask: Uint8Array | null): number | null {
   if (mask === null) return null;
   let n = 0;
@@ -44,6 +44,20 @@ export function visibleOf(
     for (const id of selection) if (id < size && (mask === null || mask[id])) ids.push(id);
   }
   return ids;
+}
+
+/**
+ * **What is in full colour, as a mask**: `mask` narrowed to the canvas's own pick, what
+ * {@link visibleOf} lists. The graph's client is exempt from the clause it publishes, as Mosaic
+ * exempts every client, so `mask` alone is the page's filter without the canvas's lasso, marquee or
+ * click; the counts and the legend read this one, so they count what the canvas colours and the
+ * toolbar reads. `mask` itself when nothing is picked.
+ */
+export function litOf(size: number, mask: Uint8Array | null, selection: readonly VertexId[] | null): Uint8Array | null {
+  if (selection === null) return mask;
+  const lit = new Uint8Array(size);
+  for (const id of selection) if (id < size && (mask === null || mask[id])) lit[id] = 1;
+  return lit;
 }
 
 /**

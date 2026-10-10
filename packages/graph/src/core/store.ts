@@ -7,7 +7,7 @@ import { loadEncoding, loadGeometry, type Encoding, type Geometry } from "./load
 import { readStructure } from "./source";
 import { type Structure } from "./structure";
 import type { VertexId } from "./types";
-import { drawnOf, maskOf, matchingOf, visibleOf } from "./kept";
+import { drawnOf, litOf, maskOf, matchingOf, visibleOf } from "./kept";
 import type { Arrangement, Drawn, GraphOptions, GraphSnapshot, DataStatus, GraphStore, PickSource } from "./state";
 
 export type { Arrangement, Drawn, GraphOptions, GraphSnapshot, GraphState, DataStatus, GraphStore, View } from "./state";
@@ -82,11 +82,22 @@ export function createGraph(initial: GraphOptions): GraphStore {
     return domain.value;
   }
 
+  /** What is in full colour as a mask: the page's filter narrowed to the canvas's own pick. */
+  let lit: { key: unknown[]; value: Uint8Array | null } = { key: [], value: null };
+  function litNow(): Uint8Array | null {
+    const key = [geometry, mask, snapshot.selection];
+    if (key.some((part, i) => part !== lit.key[i])) {
+      lit = { key, value: litOf(geometry?.size ?? 0, mask, snapshot.selection?.vertices ?? null) };
+    }
+    return lit.value;
+  }
+
   let drawn: { key: unknown[]; value: Drawn | null } = { key: [], value: null };
   function drawnNow(): Drawn | null {
-    const key = [geometry, encoding, mask];
+    const shown = litNow();
+    const key = [geometry, encoding, shown];
     if (key.some((part, i) => part !== drawn.key[i])) {
-      drawn = { key, value: geometry && encoding ? drawnOf(geometry, encoding, mask) : null };
+      drawn = { key, value: geometry && encoding ? drawnOf(geometry, encoding, shown) : null };
     }
     return drawn.value;
   }
@@ -109,10 +120,12 @@ export function createGraph(initial: GraphOptions): GraphStore {
   }
 
   function notify(fields: Partial<GraphSnapshot> = {}): void {
+    // The fields first, so a selection among them is what the counts below are counted under.
+    snapshot = { ...snapshot, ...fields };
     snapshot = {
       ...snapshot,
       total: structure?.size,
-      matching: mask === snapshot.mask ? snapshot.matching : matchingOf(mask),
+      matching: matchingOf(litNow()),
       drawn: drawnNow(),
       domain: domainNow(),
       options,
@@ -236,7 +249,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
       (error) => fail(error),
       () => {
         if (snapshot.selection === null) return;
-        patch({ selection: null });
+        notify({ selection: null });
         options.onSelect?.(null);
       },
     );
@@ -311,7 +324,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     visible: visibleNow,
     select(vertices, source = "node", label = "") {
       const selection = vertices && vertices.length > 0 ? { vertices: [...vertices], source, label } : null;
-      patch({ selection });
+      notify({ selection });
       options.onSelect?.(selection);
       if (!client || !structure) return;
       published = scope();

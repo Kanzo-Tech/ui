@@ -292,6 +292,34 @@ describe("the page's crossfilter", () => {
     expect(String(crossfilter.predicate(chart as never) ?? "")).not.toContain("dense_id");
   });
 
+  it("counts what is in full colour: the page's filter narrowed to its own pick, which it is exempt from", async () => {
+    const { corpus, crossfilter, store } = await filtered();
+    crossfilter.update(clauseInterval("score", [2, 5], { source: chart }));
+    await settle(corpus);
+    expect(store.getSnapshot().matching).toBe(14);
+    // A lasso over Person 3, 4 and 5: 5 is outside the filter, so two of the three are in full colour.
+    store.select([3, 4, 5], "lasso", "Lasso");
+    await settle(corpus);
+    expect(ids(store.getSnapshot().mask)).toHaveLength(14);
+    expect(store.visible()).toEqual([3, 4]);
+    expect(store.getSnapshot().matching).toBe(2);
+    expect(store.getSnapshot().drawn).toMatchObject({ vertices: 2, tally: [2, 0, 0] });
+    store.select(null);
+    await settle(corpus);
+    expect(store.getSnapshot().matching).toBe(14);
+    expect(store.getSnapshot().drawn?.vertices).toBe(14);
+  });
+
+  it("counts a pick alone when nothing else filters the page", async () => {
+    const { corpus, store } = await filtered();
+    store.select([3, 4], "marquee", "Marquee");
+    await settle(corpus);
+    expect(store.getSnapshot().mask).toBeNull();
+    expect(store.getSnapshot().matching).toBe(2);
+    store.select(null);
+    expect(store.getSnapshot().matching).toBeNull();
+  });
+
   it("lets the pick go when its clause is retracted where it was published", async () => {
     const onSelect = vi.fn();
     const crossfilter = Selection.crossfilter();
