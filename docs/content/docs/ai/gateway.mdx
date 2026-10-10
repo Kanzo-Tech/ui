@@ -98,6 +98,22 @@ them, **about 6.5 GB** once; after that the loop is offline and costs nothing. T
 cache for all of it when it loads one, about 16 GB for the 8B alone. With both aliases on a provider,
 leave the profile off and nothing is pulled.
 
+**Each alias's context is declared once**, as `AI_CHAT_CONTEXT` and `AI_COMPLETE_CONTEXT`. With the
+profile they are what Model Runner starts the model with (8192 when unset), and with a provider they
+are its window, set by the operator beside `AI_CHAT`. The gateway reports no window, so an
+application passes the same variables to its server, which hands them to `@kanzo-tech/ai/data`'s
+`context: { tokens }` ([why](/docs/design/ai-context)):
+
+```yaml
+services:
+  web:
+    environment:
+      MYAPP_AI_CHAT_CONTEXT: ${AI_CHAT_CONTEXT:-}
+      MYAPP_AI_COMPLETE_CONTEXT: ${AI_COMPLETE_CONTEXT:-}
+```
+
+Unset, the application passes no budget and nothing narrows.
+
 An application's own compose includes `services/ai/compose.yaml` (and `compose.dev.yaml` in
 development) the way it includes [the identity service](/docs/auth/service#include-it-from-an-application),
 by URL at the release of its packages. The containers are `ai-gateway` and `ai-postgres`, so nothing
@@ -111,6 +127,8 @@ The same `compose.yaml`, with the deployment's values in its environment:
 - **`AI_CHAT`, `AI_COMPLETE`** and the providers' keys. They have no value in `compose.yaml`, only in
   `compose.dev.yaml`: an alias left empty names no model and the gateway refuses to start, so a
   deployment names its models. **The production choice is the deployment's**, not this repository's.
+- **`AI_CHAT_CONTEXT`, `AI_COMPLETE_CONTEXT`**: each model's window in tokens, which an application
+  reads to fit its prompts. Left empty, an application passes no budget.
 - **`KC_HOSTNAME`**, the realm's public origin, shared with the identity service: the gateway's
   issuer is `<KC_HOSTNAME>/realms/<KC_REALM>`, and it fetches the keys from Keycloak inside the
   network.
