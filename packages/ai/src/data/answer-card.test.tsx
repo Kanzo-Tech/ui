@@ -21,7 +21,7 @@ beforeAll(async () => {
   db = await testDatabase();
   seedPeople(db);
   [person] = (await readAnswerRelations(db.coordinator, PEOPLE, [PERSON])) as [AnswerRelation];
-  const agent = dataAgent({ model: mockModel(() => "").model, coordinator: db.coordinator, graph: PEOPLE, relations: [person] });
+  const agent = dataAgent({ model: mockModel(() => "").model, engine: db.engine, graph: PEOPLE, relations: [person] });
   const input = {
     relation: PERSON,
     where: [{ field: "Person.gender", in: ["female"] }],
@@ -184,6 +184,21 @@ describe("AnswerCard", () => {
       wrapper: page(),
     });
     expect(document.querySelector("[data-slot=diagnostic]")?.textContent).toContain("the join graph has no type Post");
+  });
+
+  it("says which of the page's clauses the answer was read under, and which its relation could not answer", async () => {
+    const kept = { ...output, under: ["Person.gender female"], skipped: [{ clause: "City.name Madrid", missing: ["City.name"] }] };
+    render(<AnswerCard graph={PEOPLE} part={answered(kept)} />, { wrapper: page() });
+    await waitFor(() => expect(document.querySelector("[data-slot=answer-card-filter]")).not.toBeNull());
+    expect(document.querySelector("[data-slot=answer-card-filter]")!.textContent).toBe(
+      "Read under the page's filter: Person.gender female. Not applied, as this relation lacks the fields they filter: City.name Madrid (City.name).",
+    );
+  });
+
+  it("says nothing of the page's filter when the page had none", async () => {
+    render(<AnswerCard graph={PEOPLE} part={answered(output)} />, { wrapper: page() });
+    await waitFor(() => expect(document.querySelector("[data-slot=stat-value]")).not.toBeNull());
+    expect(document.querySelector("[data-slot=answer-card-filter]")).toBeNull();
   });
 
   it("draws the figure the answer is, read under its conditions", async () => {

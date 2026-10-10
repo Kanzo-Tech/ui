@@ -28,7 +28,7 @@ beforeAll(async () => {
   db = await testDatabase();
   seedPeople(db);
   const [person] = (await readAnswerRelations(db.coordinator, PEOPLE, [PERSON])) as [AnswerRelation];
-  const agent = dataAgent({ model: mockModel(() => "").model, coordinator: db.coordinator, graph: PEOPLE, relations: [person] });
+  const agent = dataAgent({ model: mockModel(() => "").model, engine: db.engine, graph: PEOPLE, relations: [person] });
   const input = {
     relation: PERSON,
     where: [{ field: "Person.gender", in: ["female"] }],

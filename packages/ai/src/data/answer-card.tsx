@@ -31,7 +31,7 @@ import {
 } from "@kanzo-tech/ui/analytics";
 import type { ToolPart } from "../tool.js";
 import type { AnswerOutput } from "./agent.js";
-import { conditionClauses } from "./answer.js";
+import { conditionClauses, skippedText } from "./answer.js";
 
 /** Every word `AnswerCard` draws. English by default. */
 export interface AnswerCardTranslations {
@@ -49,6 +49,10 @@ export interface AnswerCardTranslations {
   failed: string;
   /** A table's title. */
   rows: string;
+  /** Before the page's clauses the answer was read under. */
+  under: string;
+  /** Before the page's clauses its relation could not answer, each with the fields it lacks. */
+  skipped: string;
 }
 
 const ENGLISH: AnswerCardTranslations = {
@@ -60,6 +64,8 @@ const ENGLISH: AnswerCardTranslations = {
   added: "✓ On the dashboard",
   failed: "The answer failed",
   rows: "Rows",
+  under: "Read under the page's filter:",
+  skipped: "Not applied, as this relation lacks the fields they filter:",
 };
 
 export type AnswerCardProps = Omit<React.ComponentProps<typeof ark.div>, "children" | "part"> & {
@@ -219,6 +225,7 @@ function Drawn(props: {
   return (
     <>
       <div className="flex min-w-0 flex-wrap items-center justify-end gap-1" data-slot="answer-card-actions">
+        {/* TODO(Kanzo-Tech/ui#155): `relationRootKey(graph, relation)` once it is on main, not the root key by position. */}
         <FilterToIt identity={identities[0]!.column} output={output} fields={readable.fields} t={t} table={table} />
         {adding && <AddToDashboard {...adding} fields={readable.fields} relationKey={props.dashboardKey} output={output} t={t} />}
       </div>
@@ -236,7 +243,24 @@ function Drawn(props: {
           </CardContent>
         </Card>
       )}
+      <PageFilter output={output} t={t} />
     </>
+  );
+}
+
+/**
+ * What of the page's filter the answer was read under, and what its relation could not answer — as
+ * the model was told. It is the read's, when it ran: the tile above follows the page afterwards.
+ * Nothing when the page had no filter.
+ */
+function PageFilter({ output, t }: { output: AnswerOutput; t: AnswerCardTranslations }) {
+  const { under, skipped } = output;
+  if (under.length === 0 && skipped.length === 0) return null;
+  const said = [under.length > 0 && `${t.under} ${under.join("; ")}.`, skipped.length > 0 && `${t.skipped} ${skippedText(skipped)}.`];
+  return (
+    <p className="text-muted-foreground text-xs" data-slot="answer-card-filter">
+      {said.filter(Boolean).join(" ")}
+    </p>
   );
 }
 

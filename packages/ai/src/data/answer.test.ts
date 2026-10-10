@@ -24,7 +24,7 @@ const rowsOf = async (query: Query | string) =>
   Array.from((await db.coordinator.query(query, { cache: false })) as Iterable<Record<string, unknown>>, (row) => ({ ...row }));
 
 async function answer(input: AnswerInput, selection?: Selection): Promise<AnswerOutput> {
-  const agent = dataAgent({ model: mockModel(() => "").model, coordinator: db.coordinator, graph: PEOPLE, relations: [person, knows], selection });
+  const agent = dataAgent({ model: mockModel(() => "").model, engine: db.engine, graph: PEOPLE, relations: [person, knows], selection });
   return (await agent.tools.answer.execute!(input, { toolCallId: "c", messages: [] } as never)) as AnswerOutput;
 }
 
@@ -124,6 +124,7 @@ describe("an answer", () => {
       { "Person.gender": "male", "avg Person.age": 45 },
     ]);
     expect(output.under).toEqual(["Lasso · 5 selected"]);
+    expect(output.skipped).toEqual([{ clause: "kind contract", missing: ["kind"] }]);
     expect(output.answer.show).toMatchObject({ id: "c", span: 2 });
   });
 
@@ -162,7 +163,7 @@ describe("an answer", () => {
       const { model } = mockModel((_, index) =>
         index === 0 ? { tool: "answer", input: { relation: PERSON, show: { ...show, x: "secret" } } } : "That field does not exist.",
       );
-      const agent = dataAgent({ model, coordinator: db.coordinator, graph: PEOPLE, relations: [person] });
+      const agent = dataAgent({ model, engine: db.engine, graph: PEOPLE, relations: [person] });
       await (await agent.stream({ prompt: "By secret?" })).text;
       const results = (model.doStreamCalls[1]!.prompt as { role: string; content: unknown }[])
         .filter((m) => m.role === "tool")

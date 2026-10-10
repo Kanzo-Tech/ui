@@ -11,7 +11,7 @@
 export { dataAgent, dataInstructions, dataSuggestions } from "./agent.js";
 export type { AnswerOutput, DataAgentOptions, DataSuggestionsOptions, DataTools, QueryRow } from "./agent.js";
 export { answerSchema, checkAnswer } from "./answer.js";
-export type { Answer, AnswerField, AnswerInput, AnswerRelation, Condition, ConditionValue } from "./answer.js";
+export type { Answer, AnswerField, AnswerInput, AnswerRelation, Condition, ConditionValue, SkippedClause } from "./answer.js";
 export { answerRelationsOf, readAnswerRelations } from "./relations.js";
 export type { AnswerRelationsOfOptions, ReadAnswerRelationsOptions } from "./relations.js";
 export { AnswerCard } from "./answer-card.js";

@@ -67,6 +67,7 @@ import {
   relationHops,
   useChartQuery,
   useMosaic,
+  type Engine,
   type JoinGraph,
   type Relation,
 } from "@kanzo-tech/ui/analytics";
@@ -146,6 +147,8 @@ const FROM = "archive";
  * `Query.from("x")` quotes a string again and `"catalog"."Node"` is no table.
  */
 export interface Archive {
+  /** The page's engine: the Ask panel's agent reads through its `query`, outside the coordinator's queue. */
+  engine: Engine;
   coordinator: Coordinator;
   crossfilter: MosaicSelection;
   nodes: VerbatimNode;
@@ -157,6 +160,7 @@ function openArchive(): Promise<Archive> {
     // holds the catalog for its life, so the attachment `attach` answers is not kept.
     await attach(FROM, { engine, url: `${window.location.origin}${CORPUS}` });
     return {
+      engine,
       coordinator: engine.coordinator,
       crossfilter: MosaicSelection.crossfilter(),
       nodes: verbatim(`"${FROM}"."${TYPE}"`),
@@ -972,7 +976,7 @@ export function GraphSettings() {
  * The split is deliberate and it is the only honest way to show this without a model: the
  * **language** is canned, the **answer** is not. The recording matches a question to an intent and
  * calls `answer` with the intent's tile — a relation of the archive, its conditions and how it is
- * shown, every name one the schema offered; the tool reads it on the page's coordinator under the
+ * shown, every name one the schema offered; the tool reads it with the page's engine under the
  * page's crossfilter, so the tile is what the archive holds under the filter you set, and the
  * sentence after it is read off the rows that came back. Nothing here pretends to have understood
  * anything it did not.
@@ -1182,9 +1186,9 @@ function SubsetPill({ archive }: { archive: Archive }) {
 }
 
 function AskBody({ archive, askable }: { archive: Archive; askable: Askable }) {
-  const { coordinator, crossfilter } = useMosaic();
+  const { crossfilter } = useMosaic();
   const model = useMemo(() => recording(askable.graph), [askable]);
-  const chat = useAgentChat(dataAgent({ model, coordinator, graph: askable.graph, relations: askable.relations, selection: crossfilter }));
+  const chat = useAgentChat(dataAgent({ model, engine: archive.engine, graph: askable.graph, relations: askable.relations, selection: crossfilter }));
   const starters = useStarters(model, askable, crossfilter);
 
   return (
