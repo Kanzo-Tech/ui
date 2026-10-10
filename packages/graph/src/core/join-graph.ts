@@ -5,7 +5,7 @@ import type { Structure } from "./structure";
 /**
  * **The corpus as a join graph** — what `@kanzo-tech/mosaic`'s relations are built over. A vertex
  * table is a type keyed by the structure's `key` that projects the columns the writer gave no role; an edge
- * table joins through fossil's endpoint columns: its `src` holds its source vertex table's key, and its
+ * table joins through fossil's endpoint columns, and each carries the record count the catalog holds: its `src` holds its source vertex table's key, and its
  * `dst` its destination's — a self-loop's included.
  */
 export function joinGraphOf(structure: Structure): JoinGraph {
@@ -17,6 +17,7 @@ export function joinGraphOf(structure: Structure): JoinGraph {
       columns: [...v.columns]
         .filter(([, c]) => c.role === null)
         .map(([name]) => name),
+      rows: v.rows,
     })),
     edges: structure.edges.map((e) => ({
       name: e.name,
@@ -26,6 +27,7 @@ export function joinGraphOf(structure: Structure): JoinGraph {
       table: relation(structure.from, e.name),
       src: "src",
       dst: "dst",
+      rows: e.rows,
     })),
   };
 }

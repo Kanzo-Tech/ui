@@ -314,6 +314,54 @@ carries any data, so this case has no evidence that could reverse it, and none i
 *Held by* `packages/ui/src/charts/dashboard.test.tsx`, "hands the host undefined, and is disabled
 while nothing is stored".
 
+## A hop reads as a sentence, and says what it costs
+
+`RelationPicker` offers the hops that leave the last type as sentences, not as schema. An out-edge
+reads *The \{to\} it \{label\}* — *The place it is part of* — and an in-edge *\{To\}s \{label\} this
+\{from\}* — *Comments located in this place*. The predicate is the edge's label in words: `isPartOf`
+is *is part of*, `isLocatedIn` *located in* once its subject is plural, `hasCreator` *whose creator
+is*. A host's `phrase(edge, direction)` overrides any sentence (a self-edge's *parent* and
+*children* wording), and `plural(type)` any plural the `+s` rule gets wrong (*People*).
+
+The menu has two groups, *Follow from each \{Root\}* for out-edges and *Bring in what points at it*
+for in-edges, each sorted by fan-out ascending. Each item says its fan-out — *1 per Place*,
+*~103 per Place*, *≤1 per Place* — and warns above ten, because one choice keeps the row count and
+the next multiplies it by a hundred. The fan-out is the edge's rows over the rows of the type it
+leaves: `JoinType.rows` and `JoinEdge.rows`, which `joinGraphOf` carries from the `record_count`
+`readStructure` already read. No query is added, and the counts are as fresh as the last load.
+
+The path is chips — *Place › Comments located in this place* — and any chip can be removed, which
+cuts the path there. Under them a grain line says what a row now is: *One row per Comment ·
+151,043 rows · Places without comments are left out*. One hop's count is its edge's rows; past one
+it is an estimate, written *~N*. The joins stay **inner**, as `relationQuery` has always built them
+(mosaic-sql's `join()` defaults to `INNER`); the line exists so that a hop which drops roots says
+so.
+
+The references, verified 2026-10-10: Looker's join `relationship` (`one_to_one`, `many_to_one`,
+`one_to_many`, `many_to_many`) exists so measures survive fan-out; Metabase's notebook joins
+default to a left outer join; Tableau's relationships keep each table at its own level of detail,
+with cardinality and referential integrity deciding the join; Power BI marks cardinality `1`/`*`
+on the line; Neo4j Bloom and Linkurious expand by a chosen relationship type and direction, and
+Linkurious badges a supernode with its count. What every one of them shows is the cardinality of
+the step before it is taken, which is what the fan-out is.
+
+**Rejected:** keeping the arrows (`isPartOf → Place`, `← isLocatedIn · Comment`) and adding
+headings. Two notations for one idea, and nothing says what the arrow is relative to.
+
+**Not yet:** the skew behind an average (*~103 per Place* is 111 Places holding every Comment), a
+left join, and an aggregate column in place of a fan-out (*Count of Comments per Place*, the grain
+Tableau and Looker protect). Each needs a query or a new relation shape.
+
+**What would reverse it:** a reader misled by an average on a skewed edge — then the hint shows the
+"has any" share, one `count(distinct …)` per edge at load; or a host that needs every root kept —
+then the join becomes left and the grain line says that instead.
+
+*Held by* `packages/ui/src/charts/relation-picker.test.tsx`, "reads each hop as a sentence, grouped
+by direction and sorted by fan-out", "removes any chip, cutting the path there", "states the
+grain: one row per the last type, how many, and which roots drop out" and "lets a host phrase an
+edge and name a plural"; `packages/mosaic/src/relation.test.ts`, "gives each hop its fan-out when
+the graph carries counts".
+
 ## Two size gauges, measured against what ships
 
 The analytics gauge and the `{ Dashboard }` gauge leave out what `vite.config.ts` externalises:

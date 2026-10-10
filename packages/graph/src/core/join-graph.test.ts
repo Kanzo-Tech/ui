@@ -36,6 +36,12 @@ describe("joinGraphOf", () => {
     );
   });
 
+  it("carries each table's record count, so a hop can say its fan-out", () => {
+    const graph = joinGraphOf(STRUCTURE);
+    expect(graph.types.map((t) => t.rows)).toEqual([20, 10]);
+    expect(graph.edges[0]!.rows).toBe(10);
+  });
+
   it("takes a self-loop's source end from src and its destination end from dst", () => {
     const graph = joinGraphOf({ ...STRUCTURE, edges: [{ name: "Person_knows_Person", label: "knows", source: "Person", destination: "Person", rows: 5 }] });
     expect(graph.edges[0]).toMatchObject({ src: "src", dst: "dst" });

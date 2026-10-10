@@ -426,9 +426,28 @@ import { Dashboard, RelationPicker, relationIdentities, relationKey, relationQue
   one column of a relation that is not prefixed. It is what a relation publishes to the page
   through; [the graph's design](/docs/design/graph#a-relations-names-prefixed-but-the-roots-key) has
   why it keeps its name.
-- **`relationHops(graph, type)`** lists the hops that leave a type, out-edges then in-edges.
-  `RelationPicker` is built on it: the root as a select, each hop as *label → type*, the last hop
-  removable, and **+ Hop** offering the edges that leave the last type.
+- **`relationHops(graph, type)`** lists the hops that leave a type, out-edges then in-edges, each
+  with its `fanOut` — the edge's rows per row of the type it leaves — when the graph carries
+  `rows` on its types and edges (`joinGraphOf` does, from the catalog's record counts).
+  `RelationPicker` is built on it: the root as a select, then **+ Add related…**, a menu of
+  sentences in two groups — *Follow from each Place* (*The place it is part of*) and *Bring in
+  what points at it* (*Comments located in this place*) — each sorted by fan-out and saying it,
+  *~103 per Place*, in warning colour above ten. The path is chips, any of which can be removed,
+  cutting the path there, and under them the grain: *One row per Comment · 151,043 rows · Places
+  without comments are left out*. The hops are inner joins, so that last clause is literal.
+  `phrase(edge, direction)` rewords a hop the templates read wrong, and `plural(type)` a plural:
+
+```tsx
+<RelationPicker
+  graph={graph}
+  value={relation}
+  onValueChange={setRelation}
+  phrase={(e, direction) =>
+    e.source === e.destination ? (direction === "out" ? "Its parent place" : "Its child places") : undefined
+  }
+  plural={(type) => (type === "Person" ? "People" : undefined)}
+/>
+```
 
 ### What the page sees
 
@@ -586,20 +605,22 @@ Takes no props of its own; every prop goes to its `div` (`data-slot="tile-editor
 | `graph` | `JoinGraph` | — |
 | `value` | `Relation` | — |
 | `onValueChange` | `(relation: Relation) => void` | — |
+| `phrase` | `(edge: JoinEdge, direction: "out" \| "in") => string \| undefined` | the templates: *The \{to\} it \{label\}*, *\{To\}s \{label\} this \{from\}* |
+| `plural` | `(type: string) => string \| undefined` | the type's words, plus *s* |
 
 ```ts
 function relationQuery(graph: JoinGraph, relation: Relation): Query;
 function relationKey(graph: Pick<JoinGraph, "edges">, relation: Relation): string;
 function relationIdentities(graph: JoinGraph, relation: Relation): { column: string; type: string }[];
 function relationRootKey(graph: Pick<JoinGraph, "types">, relation: Relation): string;
-function relationHops(graph: Pick<JoinGraph, "edges">, type: string): RelationHop[];
+function relationHops(graph: JoinGraph, type: string): RelationHop[];
 
 interface Relation { root: string; path: readonly Hop[] }
 interface Hop { edge: string; direction: "out" | "in" }
-interface RelationHop { hop: Hop; label: string; to: string }
+interface RelationHop { hop: Hop; label: string; to: string; fanOut?: number }
 interface JoinGraph { types: readonly JoinType[]; edges: readonly JoinEdge[] }
-interface JoinType { name: string; table: TableExpr; key: string; columns: readonly string[] }
-interface JoinEdge { name: string; label: string; source: string; destination: string; table: TableExpr; src: string; dst: string }
+interface JoinType { name: string; table: TableExpr; key: string; columns: readonly string[]; rows?: number }
+interface JoinEdge { name: string; label: string; source: string; destination: string; table: TableExpr; src: string; dst: string; rows?: number }
 ```
 
 ### FilterBar

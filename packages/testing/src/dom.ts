@@ -42,10 +42,16 @@ function query(scope: HTMLElement, by: By): HTMLElement[] {
   return [...scope.querySelectorAll<HTMLElement>(by.css)];
 }
 
-/** Press, then click: the order a pointer delivers them in, which Ark's triggers listen across. */
-function press(element: Element, init: MouseEventInit) {
+/**
+ * Press, then click: the order a pointer delivers them in, which Ark's triggers listen across. A
+ * real press and release are separate tasks, and a machine can depend on that: zag's menu
+ * highlights an item on the press and selects the highlighted one on the click, so a release in the
+ * same task as the press finds nothing highlighted yet.
+ */
+async function press(element: Element, init: MouseEventInit) {
   fireEvent.pointerDown(element, { button: 0, pointerId: 1, ...init });
   fireEvent.mouseDown(element, { button: 0, ...init });
+  await new Promise((resolve) => setTimeout(resolve, 0));
   fireEvent.pointerUp(element, { button: 0, pointerId: 1, ...init });
   fireEvent.mouseUp(element, { button: 0, ...init });
   fireEvent.click(element, { button: 0, ...init });
@@ -63,7 +69,7 @@ function handle(element: HTMLElement): Handle {
       return { x, y, width, height };
     },
     async click({ at, with: keys } = {}) {
-      press(element, { ...modifierFlags(keys), ...(at ? { clientX: at[0], clientY: at[1] } : {}) });
+      await press(element, { ...modifierFlags(keys), ...(at ? { clientX: at[0], clientY: at[1] } : {}) });
     },
     async drag(path, { with: keys } = {}) {
       const [first, ...rest] = path;
