@@ -50,7 +50,8 @@ describe("GraphTimeline", () => {
     mount(corpus, "born");
     await act(() => settle(corpus));
     expect(screen.getByRole("figure", { name: "Timeline: born" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Play time" })).toBeTruthy();
+    // No width to draw at here, so no bars, and no Play until there are.
+    expect(screen.queryByRole("button", { name: "Play time" })).toBeNull();
   });
 
   it("draws nothing for a column this corpus does not have", async () => {
@@ -328,6 +329,64 @@ describe("GraphTimeline, drawn", () => {
 
   /** A window of years as the readout and the chip read it. */
   const readWindow = ([from, to]: [number, number]) => `${Math.round(from)} – ${Math.round(to)}`;
+
+  it("is a figure named by its title, with Play time disabled until a window is brushed", async () => {
+    const corpus = await attach();
+    const { ready } = await drawn(corpus);
+    await ready();
+    await act(() => settle(corpus));
+    const figure = screen.getByRole("figure", { name: "Timeline: born" });
+    // Space on the focused timeline plays it: the figure takes focus and says so.
+    expect(figure.getAttribute("tabindex")).toBe("0");
+    expect(figure.getAttribute("aria-keyshortcuts")).toBe("Space");
+    // Drawn: the band shows, and Play with it.
+    expect(figure.hasAttribute("data-drawn")).toBe(true);
+    const play = screen.getByRole("button", { name: "Play time" });
+    expect(play.getAttribute("aria-pressed")).toBe("false");
+    // Disabled as Cosmograph's is, and described by why: the reason is its
+    // description and, since a disabled button takes no pointer, the tooltip of what holds it.
+    expect(play.hasAttribute("disabled")).toBe(true);
+    // The title, with a name of its own, is the button's accessible description.
+    expect(play.getAttribute("title")).toBe("Brush a range to play");
+    expect(play.parentElement?.getAttribute("title")).toBe("Brush a range to play");
+    // A bare icon, as Cosmograph's is: named apart from a canvas's layout transport.
+    expect(play.textContent).toBe("");
+    const window = screen.getByRole("group", { name: "Window" });
+    expect(window.hasAttribute("aria-valuetext")).toBe(false);
+    // Read, not drawn: the bars take the width beside Play.
+    expect(window.className).toMatch(/\bsr-only\b/);
+  });
+
+  it("makes Play a bare glyph the band's height, with the same 10 px either side, as Cosmograph's", async () => {
+    const corpus = await attach();
+    const { ready } = await drawn(corpus);
+    await ready();
+    await act(() => settle(corpus));
+    const figure = screen.getByRole("figure", { name: "Timeline: born" });
+    const play = screen.getByRole("button", { name: "Play time" });
+    const control = play.parentElement!;
+    // Play first, left of the bars, which take the rest of the width; the window is read, not drawn.
+    expect(figure.className).toMatch(/\bflex-row\b/);
+    expect(control.className).toMatch(/\border-first\b/);
+    expect(screen.getByRole("group", { name: "Window" }).className).toMatch(/\bsr-only\b/);
+    expect(figure.querySelector<HTMLElement>("[data-slot=chart]")!.className).toMatch(/\bflex-1\b/);
+    // The band's height, a 20 px glyph with 10 px either side: the band's edge to the glyph is the
+    // glyph to the bars, and no gap besides.
+    expect(figure.className).toMatch(/\bitems-stretch\b/);
+    expect(figure.className).toMatch(/\bgap-0\b/);
+    expect(figure.className).not.toMatch(/\bgap-[1-9]/);
+    expect(play.className).toMatch(/\bpx-2\.5\b/);
+    expect(play.className).toMatch(/\[&_svg\]:size-5\b/);
+    // No box: no recipe, border, background or ring. Muted at 0.6, the foreground at 1 on hover and
+    // focus, 0.2 disabled; keyboard focus outlines the glyph alone.
+    expect(play.hasAttribute("data-variant")).toBe(false);
+    expect(play.className).not.toMatch(/(^|\s|:)(border|bg-|ring|shadow)/);
+    expect(play.className).toMatch(/\bopacity-60\b/);
+    expect(play.className).toMatch(/\bhover:opacity-100\b/);
+    expect(play.className).toMatch(/\bfocus-visible:opacity-100\b/);
+    expect(play.className).toMatch(/\bdisabled:opacity-20\b/);
+    expect(play.className).toMatch(/focus-visible:\[&_svg\]:outline-2/);
+  });
 
   it("is disabled with no range, and playable once one is brushed", async () => {
     const corpus = await attach();

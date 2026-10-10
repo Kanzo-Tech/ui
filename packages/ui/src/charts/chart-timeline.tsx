@@ -120,11 +120,14 @@ export function ChartTimeline({
       aria-label={title}
       as={as}
       attributes={AXIS}
-      className={cn("flex-row items-stretch gap-0 outline-none focus-visible:ring-[3px] focus-visible:ring-ring", className)}
+      // The band's height is held from the first render, and the band shows — Play with the bars —
+      // once the plot has drawn them: nothing half-built, and no Play over an empty band.
+      className={cn("flex-row items-stretch gap-0 opacity-0 motion-safe:transition-opacity data-drawn:opacity-100 outline-none focus-visible:ring-[3px] focus-visible:ring-ring", className)}
       filterBy={filterBy}
       height={height}
       margin={MARGIN}
       plotClassName="min-w-0 flex-1"
+      style={{ minHeight: height }}
       tabIndex={playable ? 0 : undefined}
       table={table}
     >
@@ -159,6 +162,8 @@ function TimelineWindow({ playable, paceBy }: { playable: boolean; paceBy?: Sele
   const [playing, setPlaying] = useState(false);
   /** The window the clause holds while a frame is shown — playing, paused or ended — else `null`. */
   const [frame, setFrame] = useState<readonly [unknown, unknown] | null>(null);
+  /** The plot has drawn its bars: until then the band is empty and there is no Play. */
+  const [drawn, setDrawn] = useState(false);
   /** Said on pause and at the end, and only then: a frame every 50 ms would flood a screen reader. */
   const [said, setSaid] = useState("");
   const anchor = useRef<HTMLDivElement>(null);
@@ -208,7 +213,8 @@ function TimelineWindow({ playable, paceBy }: { playable: boolean; paceBy?: Sele
   useEffect(() => {
     const read = () => {
       const value = intervalOf(plot())?.value ?? null;
-      if (sameWindow(value, state.current.range)) return;
+      // The same ends, or both none: a year or a date reads the same as itself.
+      if (String(value) === String(state.current.range)) return;
       state.current.range = value;
       state.current.frame = null;
       setRange(value);
@@ -244,7 +250,12 @@ function TimelineWindow({ playable, paceBy }: { playable: boolean; paceBy?: Sele
   useEffect(() => {
     const host = anchor.current?.closest("[role=figure]")?.querySelector("[data-slot=chart]");
     if (!host) return;
-    const paint = () => clipToWindow(plot() as DrawnPlot | null, frame);
+    const paint = () => {
+      clipToWindow(plot() as DrawnPlot | null, frame);
+      if (!intervalOf(plot())?.scale) return;
+      setDrawn(true);
+      host.parentElement!.setAttribute("data-drawn", "");
+    };
     const drawn = new MutationObserver(paint);
     drawn.observe(host, { childList: true, subtree: true });
     paint();
@@ -299,7 +310,7 @@ function TimelineWindow({ playable, paceBy }: { playable: boolean; paceBy?: Sele
   const disabled = !range && !playing;
   return (
     <>
-      {playable ? (
+      {playable && drawn ? (
         // Cosmograph's control, and no box: a solid 20 px glyph with 10 px either side, the band's
         // edge to it as far as it to the bars, muted until hovered or focused, a fifth when there is nothing to play. Not
         // `Button`, whose recipe is the box — border, wash and ring. Keyboard focus outlines the
@@ -335,11 +346,6 @@ type Stop = "pause" | "end" | "gone";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/** Two windows with the same ends, or both none: a year or a date reads the same as itself. */
-function sameWindow(a: readonly unknown[] | null, b: readonly unknown[] | null): boolean {
-  return String(a) === String(b);
 }
 
 /**

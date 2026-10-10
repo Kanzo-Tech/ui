@@ -80,62 +80,21 @@ describe("tickLabel", () => {
 describe("ChartTimeline", () => {
   const coordinator = { clear() {} } as unknown as Coordinator;
 
-  it("is a figure named by its title, with Play time disabled until a window is brushed", () => {
+  it("reserves the band's height and draws nothing in it — no Play, no ticks — until the bars are drawn", () => {
     render(
       <MosaicProvider coordinator={coordinator}>
         <ChartTimeline field="year" table="awards" title="Awards by year" />
       </MosaicProvider>,
     );
     const figure = screen.getByRole("figure", { name: "Awards by year" });
-    // Space on the focused timeline plays it: the figure takes focus and says so.
-    expect(figure.getAttribute("tabindex")).toBe("0");
-    expect(figure.getAttribute("aria-keyshortcuts")).toBe("Space");
-    const play = screen.getByRole("button", { name: "Play time" });
-    expect(play.getAttribute("aria-pressed")).toBe("false");
-    // Disabled as Cosmograph's is, and described by why: the reason is its
-    // description and, since a disabled button takes no pointer, the tooltip of what holds it.
-    expect(play.hasAttribute("disabled")).toBe(true);
-    // The title, with a name of its own, is the button's accessible description.
-    expect(play.getAttribute("title")).toBe("Brush a range to play");
-    expect(play.parentElement?.getAttribute("title")).toBe("Brush a range to play");
-    // A bare icon, as Cosmograph's is: named apart from a canvas's layout transport.
-    expect(play.textContent).toBe("");
-    const window = screen.getByRole("group", { name: "Window" });
-    expect(window.hasAttribute("aria-valuetext")).toBe(false);
-    // Read, not drawn: the bars take the width beside Play.
-    expect(window.className).toMatch(/\bsr-only\b/);
-  });
-
-  it("makes Play a bare glyph the band's height, with the same 10 px either side, as Cosmograph's", () => {
-    render(
-      <MosaicProvider coordinator={coordinator}>
-        <ChartTimeline field="year" table="awards" title="Awards by year" />
-      </MosaicProvider>,
-    );
-    const figure = screen.getByRole("figure", { name: "Awards by year" });
-    const play = screen.getByRole("button", { name: "Play time" });
-    const control = play.parentElement!;
-    // Play first, left of the bars, which take the rest of the width; the window is read, not drawn.
-    expect(figure.className).toMatch(/\bflex-row\b/);
-    expect(control.className).toMatch(/\border-first\b/);
-    expect(screen.getByRole("group", { name: "Window" }).className).toMatch(/\bsr-only\b/);
-    expect(figure.querySelector<HTMLElement>("[data-slot=chart]")!.className).toMatch(/\bflex-1\b/);
-    // The band's height, a 20 px glyph with 10 px either side: the band's edge to the glyph is the
-    // glyph to the bars, and no gap besides.
-    expect(figure.className).toMatch(/\bitems-stretch\b/);
-    expect(figure.className).toMatch(/\bgap-0\b/);
-    expect(figure.className).not.toMatch(/\bgap-[1-9]/);
-    expect(play.className).toMatch(/\bpx-2\.5\b/);
-    expect(play.className).toMatch(/\[&_svg\]:size-5\b/);
-    // No box: no recipe, border, background or ring. Muted at 0.6, the foreground at 1 on hover and
-    // focus, 0.2 disabled; keyboard focus outlines the glyph alone.
-    expect(play.hasAttribute("data-variant")).toBe(false);
-    expect(play.className).not.toMatch(/(^|\s|:)(border|bg-|ring|shadow)/);
-    expect(play.className).toMatch(/\bopacity-60\b/);
-    expect(play.className).toMatch(/\bhover:opacity-100\b/);
-    expect(play.className).toMatch(/\bfocus-visible:opacity-100\b/);
-    expect(play.className).toMatch(/\bdisabled:opacity-20\b/);
-    expect(play.className).toMatch(/focus-visible:\[&_svg\]:outline-2/);
+    expect(figure.style.minHeight).toBe("44px");
+    // Hidden, and Play absent from the accessibility tree, until the plot has drawn its bars.
+    expect(figure.hasAttribute("data-drawn")).toBe(false);
+    expect(figure.className).toMatch(/\bopacity-0\b/);
+    expect(figure.className).toMatch(/\bdata-drawn:opacity-100\b/);
+    expect(figure.className).toMatch(/\bmotion-safe:transition-opacity\b/);
+    expect(screen.queryByRole("button", { name: /^(Play|Pause) time$/ })).toBeNull();
+    expect(figure.querySelector("svg")).toBeNull();
   });
 
   it("draws no play button when it is not playable", () => {

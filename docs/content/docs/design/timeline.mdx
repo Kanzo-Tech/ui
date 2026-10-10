@@ -133,6 +133,11 @@ With no range the bars are a low-contrast fill, the dimmed layer alone; a range 
 it. *What would reverse it:* a timeline tall enough for a y axis, or labels that need the room a
 bottom axis gives; then the axis returns under the bars.
 
+**Nothing shows until the bars are drawn.** The band holds its 44 px from the first render, empty:
+no Play, no ticks, no skeleton, and no Play in the accessibility tree. When the plot has drawn its
+bars, the band and Play appear together with a short fade, none under `prefers-reduced-motion`. A
+Play over an empty band offered a range nobody could see.
+
 **Play is a bare glyph at the band's left edge, muted until hovered, as Cosmograph's is.** Cosmograph
 draws a borderless icon, 20 – 30 px wide and half opaque, as a flex item left of its bars
 (`style.js`, `animationControl`). Ours is a solid 20 px glyph centred on the band, with 10 px on either
@@ -268,13 +273,14 @@ test has installed the hook. `TimelineHarness` then brushes in data and plays.
 *Held by* `packages/ui/src/charts/chart-timeline.test.tsx` ("reads a brushed range as the edges it
 spans, in axis order — the frames play shows"; "has nothing to play without a range, as
 Cosmograph's has not"; "is 50 ms a bar on 60 bars or more, and slower on fewer, so a sweep takes as
-long"; "is 500 ms at least under prefers-reduced-motion"; "makes Play a bare glyph the band's height,
-with the same 10 px either side, as Cosmograph's"; a brushed window sticks to the nearest edges, at least one bar
+long"; "is 500 ms at least under prefers-reduced-motion"; "reserves the band's height and draws nothing in it — no Play, no ticks — until the bars are
+drawn"; a brushed window sticks to the nearest edges, at least one bar
 wide; a year reads as its integer, on the axis too),
 `packages/ui/src/charts/filter-bar.test.tsx` ("names a bridged part once when it already reads as its
 bridge's name — a timeline's window"),
 `packages/graph/src/parts/graph-timeline.test.tsx` (it draws nothing until `time-by` is chosen, and
-nothing for a column the corpus lacks; "crosses the window into the page as a clause every client
+nothing for a column the corpus lacks; "makes Play a bare glyph the band's height, with the same 10
+px either side, as Cosmograph's"; "crosses the window into the page as a clause every client
 answers, greying every vertex without the column"; "holds one clause and one chip through every
 state play passes — a rebuild and a stale brush included"; "is disabled with no range, and playable
 once one is brushed"; "accumulates inside the range a bar at a time, stops at its end with the whole
