@@ -1,0 +1,234 @@
+---
+title: Crossfilter
+description: Why everything that narrows the page is a filter — one clause on one page selection, the timeline and the canvas included — why "kept" is decided once and only drawn differently per view, why a position is an encoding and "no position" a state of its own, and what that changes in the graph, the timeline and the gestures. A proposal, not yet built.
+---
+
+**Status: proposal, waiting for approval.** Nothing on this page is implemented. It maps how the
+page filters today, names every place where two parts disagree, and proposes one abstraction. The
+decisions it needs are at the end.
+
+## The thesis: everything is a filter
+
+**A lasso, a click, a marquee, a chart's pick or brush, a search, the timeline's window, a filter
+bar control and a rule's "Show" are all the same thing: one clause, from one source, on the page's
+one selection.** No source is special, and none decides on its own what is kept. The clauses
+intersect, Mosaic's model, which [#112 chose](/docs/design/graph#the-canvass-tools-edit-the-canvass-own-clause):
+every interactor publishes one clause from one source, and a crossfilter is their conjunction
+([Mosaic, Selection](https://idl.uw.edu/mosaic/api/core/selection.html)).
+
+**What is kept is one predicate, derived once, and every view reads it.** Views differ only in how
+they *draw* what is not kept, never in deciding it:
+
+| View | Kept | Not kept |
+| --- | --- | --- |
+| Canvas | in colour | greyed, for context |
+| Chart, figure | the aggregate over what is kept | the total behind it, in grey |
+| List, table, Ask's answer | the rows | absent |
+
+**A position is an encoding, not a filter.** `x` and `y` place a vertex the way colour paints it
+([Position is a channel](/docs/design/graph#position-is-a-channel)). A vertex with no position has
+not been filtered out; it has nowhere to be drawn. That is a state of its own, and it is shown as
+one.
+
+## How the page filters today
+
+Every source already publishes into a Mosaic `Selection`, and most consumers read it. The paths
+differ, though, and that is where the parts disagree.
+
+| Source | Publishes | Form | Into |
+| --- | --- | --- | --- |
+| Canvas click, marquee, lasso | `publish()`, `core/client.ts:110` | `key IN (ids)` | the page, from the graph's own client, which is exempt from it |
+| Search | `publish()` | `key IN (ids)` | the page |
+| Dashboard tile pick, brush; filter bar controls | the tile's clause | column (`"Person.country" = …`) | the dashboard's own crossfilter, bridged to the page by `semiJoinOf(rootKey, relation)` (keasy `dashboard-view.tsx:50`) |
+| Timeline window | `ChartTimeline`'s brush | column (`date BETWEEN …`) | the timeline's own crossfilter, bridged by `semiJoinOf(key, timeline)` (`parts/graph-timeline.tsx:39-40`, `core/source.ts:371-377`) |
+| Rules "Show N", "Show what conforms" | keasy `rules-validation.ts:210,246` | column (`subject IN (SELECT …)`) | the page |
+| Ask's answer | `key IN (…)` | identity | the page |
+| Map placement | not a clause | — | `x`/`y` bindings; a vertex missing either is `NaN` (`render/placement.ts:29`) |
+
+| Consumer | Reads |
+| --- | --- |
+| Canvas colour | `highlighted()` → `visibleOf(mask, pick)` (`render/motion.ts:34`) |
+| Counts, legend | `litOf(mask, pick)` → `drawnOf` (`core/kept.ts:56`, since #167) |
+| Toolbar, `frame()` | `store.visible()` → `visibleOf` |
+| Search results | its own `inside`, by the clause rule (`core/source.ts:266-290`) |
+| Timeline bars | the page minus its own clause (crossfilter exemption), clipped to the window |
+| Dashboard tiles | the page minus their own clauses |
+| Ask | the page's clauses, skipping those its relation cannot answer, and saying so |
+
+### Where the parts disagree
+
+1. **"Kept" is computed in more than one place.** The store holds `mask`, the page *without* the
+   canvas's own clause, because Mosaic exempts a client from the clause it publishes. Then
+   `visibleOf` (canvas, toolbar, `frame()`) and `litOf` (counts, legend) each narrow it to the pick
+   again (`core/kept.ts:34-64`): two functions for one answer. Until #167 the counts read `mask`
+   alone and said *40 match* while the toolbar said *31*. The design page already claims "what is
+   in full colour is computed once"; the code has drifted from it.
+2. **A clause a type cannot answer means two opposite things.** In column form, a vertex table
+   without the column is *not filtered by it* and stays in colour (`core/client.ts:73-87`, the
+   clause rule, `core/source.ts:252-257`). In semi-join form, the same type is *not kept* and is
+   greyed (`core/source.ts:360-365`). The timeline uses the second on purpose
+   ([why](/docs/design/timeline)); a column clause published straight to the page (the rules'
+   `subject IN …`, any host's raw clause) uses the first. Two chips that look alike in the bar
+   grey different things.
+3. **The timeline and the dashboard are islands.** Each owns a crossfilter and a bridge; the
+   graph's search and the canvas publish straight to the page; the rules publish a column clause to
+   the page. Four routes into one selection. The timeline is the same mechanism as a dashboard
+   tile, with its own copy of the wiring (`parts/graph-timeline.tsx:39-40`).
+4. **The search decides "kept" itself.** It evaluates the subset with its own `inside`, by the
+   column rule, so a table that answers none of the clauses is "wholly inside"
+   (`core/source.ts:281-282`): divergence 2 again, in a third place.
+5. **Ask and the dashboard answer the same clause differently.** A dashboard over a relation that
+   cannot answer the timeline's window shows *no rows*; Ask skips the clause and says it did. One
+   of them is drawing "not kept" and the other is deciding it.
+6. **⌘ and Alt copy other sources' result into the canvas's clause.** With no canvas clause, a
+   modified gesture starts from `getVisible()` (`parts/gesture.ts:158`), so the canvas's clause
+   becomes "what the search kept, less Madrid": the canvas computes the other sources' result and
+   stores it as its own. It reads right while those sources hold, and goes stale when one changes.
+7. **What a filter greys is drawn so faint it reads as hidden.** Points greyed out are drawn at
+   `pointGreyoutOpacity: 0.1` and links at `0.025` (`render/graph-model.ts:132-133`). On a map, with
+   small marks on a light background, a greyed point is close to invisible. See below.
+
+## Does a filter hide anything under Map placement?
+
+**No. Only a missing position hides.** `drawnOf` (`core/kept.ts:68-96`) and the renderer agree: a
+vertex whose `x` or `y` is `NaN` is not drawn and is counted under "No position"; every other vertex
+is drawn, in colour when kept and greyed when not. A range on `lat` from the filter bar greys the
+airports outside it; it does not unplace them, because positions are bound once from the columns
+and never from the filtered rows.
+
+What makes it look like hiding is real, though, and it is two things together:
+
+- **The greyout is a tenth.** At 0.1 opacity a greyed point on a light map is nearly invisible, so a
+  window over 1900–1960 on the Nobel map seems to remove every other prize.
+- **The timeline greys every type without the column.** On the Nobel map, universities have no
+  date, so with a window set they are all greyed (*0 of 370*), and at 0.1 they vanish with the rest.
+
+So the behaviour is already one rule. The picture does not show it.
+
+## The proposal
+
+### One selection, one route in
+
+**Every source publishes one clause in identity form, `key IN (…)`, on the page's selection.** A
+group of parts that speaks columns (a dashboard, the timeline, any chart over the graph's vertices)
+does so through one crossing, `semiJoinOf(key, relation)`, which already exists for the dashboard.
+The timeline stops being a special path: `GraphTimeline` is a `ChartTimeline` in the crossing of
+"the vertices that have the column", the same hook the dashboard uses, not its own copy.
+
+**A clause a type cannot answer keeps none of that type, everywhere.** It is the timeline's rule and
+Cosmograph's (a point with no value answers `isBetween` false and is greyed,
+[Timeline](/docs/design/timeline)). Column clauses that reach the graph raw (the rules' `subject IN
+…`) are published through the crossing too, so the column rule in `GraphClient` and in the search's
+`inside` has nothing left to decide, and goes.
+
+### One "kept", derived once
+
+**The store exposes one `kept()`; nothing else reads `mask`.** It is the page's predicate with every
+clause in it, the canvas's own included. Mosaic's exemption is how a *chart* draws its own brush
+(a dimension's group ignores its own filter, as
+[crossfilter.js](https://github.com/crossfilter/crossfilter/wiki/API-Reference#dimension_filter)
+does, so the bars it is brushing do not vanish under the brush). It is a drawing choice of that
+view. The canvas does not need it: its pick is drawn in colour exactly because it is kept. Whether
+the canvas's clause is folded in by the coordinator or as a local bitmask is an implementation
+detail; there is one function, and the canvas, the counts, the legend, the toolbar, `frame()` and
+the search's results all call it. `visibleOf` and `litOf` become that one function.
+
+### One visibility rule
+
+| State | Canvas | Counts and legend |
+| --- | --- | --- |
+| kept | colour | *N match* |
+| not kept | greyed | the rest of *of M* |
+| no position (Map placement only) | not drawn | *placed* / *No position*, apart from any filter |
+
+**"No position" stays hidden on the canvas and explicit everywhere else.** cosmos.gl draws nothing
+for a `NaN` position, Vega-Lite drops invalid `x`/`y` from a continuous scale by default
+([`invalid`](https://vega.github.io/vega-lite/docs/invalid-data.html)), and Kepler.gl does not plot
+rows without coordinates. What we add is that it is never mistaken for a filter: the legend's
+**No position** group and the counts' *placed* already say it (#156); a filter never moves a vertex
+into it, and it is counted apart from what a filter keeps. The alternative, parking unplaced vertices
+in a margin strip, is listed under decisions.
+
+### The verbs act on their own source's clause, nothing more
+
+| Verb | Acts on |
+| --- | --- |
+| drag, click | the canvas's clause becomes what it caught |
+| ⌘/Ctrl + drag | the canvas's clause, with what it caught added; with no clause, what it caught |
+| Alt + drag | the canvas's clause, less what it caught; with no clause, a clause `key NOT IN (caught)` |
+| Esc | a drag in progress, then the tool, then the canvas's clause |
+| a chip's × | that chip's clause |
+| Clear | every clause |
+| `frame()` | what is kept |
+
+The one change is the second half of ⌘ and Alt. Today they start from what is in full colour
+(divergence 6). Under the thesis, Alt over a search's Spain publishes *not Madrid* from the canvas,
+which intersects with *Spain* and reads the same, *Spain less Madrid*, but stays right when the
+search changes, because the canvas never copied it. ⌘ with no canvas clause adds nothing a filter
+holds back, as today: a filter filters, and the toolbar's *N hidden by other filters* says why.
+
+### The greyout
+
+**cosmos.gl's defaults are 10 times and 4 times more visible than ours.** In
+`@cosmos.gl/graph` 3.4.0, `pointGreyoutOpacity` is `undefined`: a greyed point keeps the point's
+opacity and its colour is darkened or lightened towards the background. `linkGreyoutOpacity`
+defaults to `0.1` (`dist/config.d.ts`, `dist/variables.d.ts`). Ours sets `0.1` for points and
+`0.025` for links. The proposal is to return to cosmos.gl's defaults, the reference this canvas
+follows, and to measure them on the Nobel and OpenFlights maps in both themes before choosing
+otherwise.
+
+## What changes, and what disappears
+
+- `@kanzo-tech/graph`: `GraphStore.kept()` replaces `mask`, `visible()`, `visibleOf`, `litOf`;
+  `GraphClient`'s column rule and `graph/unfilterable` go (every clause it gets is identity);
+  `GraphTimeline` uses the shared crossing; `gesture.ts`'s Alt-with-no-clause publishes an
+  exclusion; the greyout values change.
+- `@kanzo-tech/mosaic`: a `useCrossing(relation)` (or the existing `bridgeSelection` plus
+  `semiJoinOf`, named once) that the dashboard and the timeline share; a `clauseExclude(key, ids)`
+  beside `clauseSemiJoin`.
+- keasy: the rules publish through the crossing; Ask's skipped clauses become *the answer's
+  relation keeps none of them* (no rows, as a dashboard), or Ask states it the same way the
+  dashboard does. That is decision 3.
+
+**Migration, in order:** one `kept()` and its tests (no behaviour change); the greyout measured and
+set; the timeline on the shared crossing; raw column clauses routed through crossings and the
+column rule removed; Alt's exclusion clause. Each step is its own PR with the gesture, renderer and
+counts tests that hold the rule today.
+
+## Risks
+
+- **Removing the column rule changes what a host's raw column clause does to types without the
+  column**: they go from in colour to greyed. Every in-repo source is identity already or bridged;
+  a host that publishes raw columns would see the change, and the changeset must say it.
+- **An exclusion clause is a second kind of canvas clause.** The chip has to read it (*not 3
+  vertices*), and Clear and Esc treat it like any other.
+- **Folding the canvas's clause into `kept` without the exemption** must not cost a round trip per
+  lasso: the canvas's clause is `key IN (ids)`, so the local bitmask stays; only the number of
+  functions changes.
+
+## Decisions needed
+
+1. Adopt the thesis as written: one clause per source, one `kept`, per-view drawing only.
+2. Alt with no canvas clause: an exclusion clause (proposed) or, as today, start from what is in
+   full colour.
+3. Ask under a clause its relation cannot answer: no rows like a dashboard, or keep skipping it and
+   saying so (then it is a documented view of "not kept", not a second rule).
+4. "No position": hidden on the canvas and explicit in the legend and counts (proposed), or parked
+   in a margin strip on the map.
+5. Greyout: cosmos.gl's defaults (proposed), or a value measured on our maps.
+
+## References
+
+- Mosaic, [Selection](https://idl.uw.edu/mosaic/api/core/selection.html) and
+  [core](https://idl.uw.edu/mosaic/core): clauses, resolution (`single`, `union`, `intersect`),
+  crossfilter omitting a client's own clauses, `filterBy`.
+- crossfilter.js, [API reference](https://github.com/crossfilter/crossfilter/wiki/API-Reference):
+  a group ignores its own dimension's filter.
+- Vega-Lite, [selections](https://vega.github.io/vega-lite/docs/selection.html) (`empty`,
+  conditional encodings: a selection is drawn, not removed) and
+  [invalid data](https://vega.github.io/vega-lite/docs/invalid-data.html).
+- Cosmograph `Timeline`, read in `@cosmograph/cosmograph` 2.5.1: `isBetween(column, range)` from a
+  client of its own, points without a value greyed ([Timeline](/docs/design/timeline)).
+- cosmos.gl 3.4.0 `config.d.ts`: `pointGreyoutOpacity`, `pointGreyoutColor`, `linkGreyoutOpacity`.
+- Kepler.gl, [filters](https://docs.kepler.gl/docs/user-guides/e-filters): rows outside a filter are
+  not drawn; rows without coordinates are not plotted.
