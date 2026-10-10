@@ -26,3 +26,5 @@ that clicked the menu item by its old name moves to it: `getByRole("menuitem", {
 "replyOfPost → Post" })` becomes `picker.add(">replyOfPost>Post")` (or `"replyOfPost"`), and
 `"← isLocatedIn · Comment"` becomes `"<isLocatedIn<Comment"`. The `dom` environment's `click` now
 releases a task after it presses, as a real pointer does, so a menu item selects in jsdom.
+
+The analytics subpath grows 33.82 → 34.70 kB (limit raised to 34.8 kB); the root barrel and a single `Dashboard` do not move.
