@@ -41,6 +41,20 @@ relation has, as `clauseColumns` reads them. The page's filter is not something 
 is the predicate the answer is read under, as every tile's is. What the model reads back is what was
 true then; the card is a tile, and follows the page afterwards like any other.
 
+**A clause left out is said, with what it lacks.** Skipping silently made an answer look filtered
+when it was not: under a chip on a city, a count over a relation with no city is every row, and
+neither the model nor the reader could tell. So the result carries each skipped clause and the columns it names that
+the relation lacks, the model reads it beside the clauses that applied, and the card prints both
+under the tile. What would reverse it is a page that maps a clause onto any relation — a semi-join
+through the join graph for every chip — at which point nothing is skipped and the line goes.
+
+**The read goes through the engine's door, not the coordinator's queue.** The queue batches behind
+`requestAnimationFrame` for the charts, and a hidden tab never fires one: a question asked before
+switching tabs waited forever, and *Stop* only dropped the late answer. `Engine.query` takes the
+chat's signal, so an abort ends the wait at once. An answer is one statement, which the queue had
+nothing to consolidate with. What would reverse it is a coordinator whose queue takes a signal and
+does not wait for a frame: then the agent goes back to reading where the charts read.
+
 **The card is a dashboard tile.** `QueryResult` gives way to the dashboard's `ChartCard` over the
 answer, with two actions that fall out of the shape: **Filter to it** publishes the answer's
 conditions and, for a bar chart, the categories it answered, mapped to the page as one semi-join on

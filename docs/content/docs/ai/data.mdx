@@ -28,15 +28,15 @@ import { Chat, ChatSkeleton, useAgentChat } from "@kanzo-tech/ai";
 import { AnswerCard, answerRelationsOf, dataAgent, dataSuggestions, readAnswerRelations, type AnswerCardProps, type AnswerRelation } from "@kanzo-tech/ai/data";
 import { createGateway } from "@kanzo-tech/llm";
 import { DiagnosticList, Problem } from "@kanzo-tech/ui";
-import { useMosaic, type Dashboards, type JoinGraph } from "@kanzo-tech/ui/analytics";
+import { useMosaic, type Dashboards, type Engine, type JoinGraph } from "@kanzo-tech/ui/analytics";
 
 const gateway = createGateway({ baseURL: "/api/ai" });
 ```
 
 ```tsx
-function Ask({ graph, relations, dashboards, onAdd }: { graph: JoinGraph; relations: AnswerRelation[]; dashboards: Dashboards; onAdd: AnswerCardProps["onAdd"] }) {
-  const { coordinator, crossfilter } = useMosaic();
-  const chat = useAgentChat(dataAgent({ model: gateway("chat"), coordinator, graph, relations, selection: crossfilter }));
+function Ask({ engine, graph, relations, dashboards, onAdd }: { engine: Engine; graph: JoinGraph; relations: AnswerRelation[]; dashboards: Dashboards; onAdd: AnswerCardProps["onAdd"] }) {
+  const { crossfilter } = useMosaic();
+  const chat = useAgentChat(dataAgent({ model: gateway("chat"), engine, graph, relations, selection: crossfilter }));
   // Cached per data space and per filter; streamed, so the pills land one by one.
   const starters = useQuery({
     queryKey: ["starters", relations, String(crossfilter.predicate(null))],
@@ -153,14 +153,25 @@ gender, ranked"; "input outside the schema is refused before it runs".
 ## The agent
 
 `dataAgent(options)` is a `ToolLoopAgent` with one tool, `answer`. The tool compiles the answer and
-reads its rows on the page's coordinator — the reader sees the tile, the model reads the first 30
+reads its rows with the page's engine — the reader sees the tile, the model reads the first 30
 rows, cut to 4,000 characters, and the page's clauses the answer was read under, as a chip names
 them. An engine failure throws, so the AI SDK hands the model the error and the card draws it.
+
+**It reads through `engine.query`, not the coordinator's queue.** The queue batches behind
+`requestAnimationFrame`, which a hidden tab never fires, so a question asked before switching tabs
+never answered. `query` goes to the same connection directly and takes the chat's signal: *Stop*
+rejects the wait at once with the signal's reason, and the statement, a short one, finishes.
+
+**A clause the relation cannot answer is left out, and said.** A page clause applies when the
+relation has every column it names, as `clauseColumns` reads them — a chip on a type the relation
+does not reach would otherwise fail every read with a binder error. Each one left out is in the
+result with the columns it lacks, *City.name Madrid (City.name)*: the model is told it did not
+narrow the answer, and the card says so under the tile.
 
 | Option | Type | |
 | --- | --- | --- |
 | `model` | `LanguageModel` | The host's — `gateway("chat")`. Nothing here names a model |
-| `coordinator` | `Coordinator` | The page's, so the agent reads through its one connection |
+| `engine` | `Pick<Engine, "query">` | The page's — `engine()` — so the agent reads on its one connection, outside the queue |
 | `graph` | `JoinGraph` | The graph the relations are over |
 | `relations` | `readonly AnswerRelation[]` | `readAnswerRelations`' answer. The model is told it is the whole of the data |
 | `selection` | `Selection` | The page's crossfilter: an answer is read under its clauses when it runs |
@@ -177,14 +188,18 @@ ChatGPT's answers read the same way.
 
 `dataInstructions(options)` is the prompt, for a host that builds its own `ToolLoopAgent` around the
 same tool; `DataTools` types the toolset, so `InferAgentUIMessage<ReturnType<typeof dataAgent>>` types
-the messages. `AnswerOutput` is what a call answers: `{ answer, rows, truncated, under }` — the answer
-as placed, the rows its tile reads, whether the 1,000-row cap cut them, and the page's clauses it was
-read under; a row is a `QueryRow`.
+the messages. `AnswerOutput` is what a call answers: `{ answer, rows, truncated, under, skipped }` —
+the answer as placed, the rows its tile reads, whether the 1,000-row cap cut them, the page's clauses
+it was read under, and those its relation could not answer, each a `SkippedClause`, `{ clause,
+missing }`; a row is a `QueryRow`.
 
 *Held by* `packages/ai/src/data/agent.test.ts`, "tells the model each field with its kind and what it
 holds, never DDL, and that the tile is already shown"; "hands the model a sample of the rows and the
-page's filter that applied, after one tool call"; "stops after five steps, however often the model
-calls the tool"; "throws when the chat was stopped, rather than answering nobody".
+page's filter that applied, after one tool call"; "tells the model which of the page's clauses the
+relation could not answer, and what each lacks"; "does not call a page whose every clause was skipped
+unfiltered"; "stops after five steps, however often the model calls the tool"; "throws when the chat
+was stopped, rather than answering nobody"; "answers in a hidden tab, where no animation frame ever
+fires"; "hands the engine the chat's signal, and ends the wait the moment the chat is stopped".
 
 ## The questions
 
@@ -272,6 +287,11 @@ Before there is an answer, and when there will be none:
 - **A refusal is a [`Problem`](/docs/data-display/problem)** under the card's title, *The answer
   failed*: input `checkAnswer` refused, the engine's failure, both from the part's `errorText`.
 
+Under the tile, one line says what the read was under, as the model was told: *Read under the page's
+filter: Person.gender female. Not applied, as this relation lacks the fields they filter: City.name
+Madrid (City.name).* It is the read's, when it ran — the tile follows the page afterwards — and there
+is no line when the page had no filter.
+
 | Prop | Type | |
 | --- | --- | --- |
 | `part` | `ToolPart` | The `answer` call, at any state |
@@ -290,7 +310,9 @@ the host's write is, never on the dashboard before it settles, and draws a rejec
 "stays busy over the skeleton until the answer's tile is drawn"; "filters the page to the answer as one semi-join on the root key, and takes it
 back"; "is busy until answered, over a skeleton the chart's height, and not once stopped"; "draws a
 refusal as a Problem under the card's title"; "draws a kept answer whose relation the graph no longer
-has as a Problem"; "draws the figure the answer is, read under its conditions".
+has as a Problem"; "says which of the page's clauses the answer was read under, and which its
+relation could not answer"; "says nothing of the page's filter when the page had none"; "draws the
+figure the answer is, read under its conditions".
 
 ## Testing
 

@@ -293,10 +293,36 @@ export function conditionClauses(
   });
 }
 
-/** The page's clauses a relation answers: those whose every column it has. */
-export function answeredClauses(clauses: readonly SelectionClause[], columns: readonly string[]): SelectionClause[] {
+/** One of the page's clauses an answer's relation cannot answer: as a chip reads it, and the columns it names that the relation lacks. */
+export interface SkippedClause {
+  readonly clause: string;
+  readonly missing: readonly string[];
+}
+
+/** `City.name Madrid (City.name)`: each skipped clause, and the columns it lacks. */
+export const skippedText = (skipped: readonly SkippedClause[]) =>
+  skipped.map(({ clause, missing }) => `${clause} (${missing.join(", ")})`).join("; ");
+
+/**
+ * The page's clauses, split by whether a relation answers them — Mosaic's rule, the one the graph
+ * client applies: a clause applies when the relation has every column it names. The rest are
+ * skipped, each with the columns it lacks, so the model and the reader are told what was left out
+ * and why. A clause with no predicate filters nothing and is neither.
+ */
+export function pageClauses(
+  clauses: readonly SelectionClause[],
+  columns: readonly string[],
+): { answered: SelectionClause[]; skipped: { clause: SelectionClause; missing: string[] }[] } {
   const has = new Set(columns);
-  return clauses.filter((c) => c.predicate != null && clauseColumns(c.predicate).every((name) => has.has(name)));
+  const answered: SelectionClause[] = [];
+  const skipped: { clause: SelectionClause; missing: string[] }[] = [];
+  for (const clause of clauses) {
+    if (clause.predicate == null) continue;
+    const missing = clauseColumns(clause.predicate).filter((name) => !has.has(name));
+    if (missing.length === 0) answered.push(clause);
+    else skipped.push({ clause, missing });
+  }
+  return { answered, skipped };
 }
 
 /** What the measure column of an answer's rows is called. */

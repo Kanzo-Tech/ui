@@ -1,20 +1,22 @@
 import { type LanguageModel, jsonSchema, stepCountIs, type Tool, tool, ToolLoopAgent } from "@kanzo-tech/llm";
-import { clauseLabel, Query, relationKey, relationQuery, type Coordinator, type JoinGraph, type Selection } from "@kanzo-tech/mosaic";
+import { clauseLabel, Query, relationKey, relationQuery, type Engine, type JoinGraph, type Selection } from "@kanzo-tech/mosaic";
 import { plotRelation } from "@kanzo-tech/ui/analytics";
 import { suggest } from "../suggest.js";
 import {
   ANSWER_ROWS,
-  answeredClauses,
   answerQuery,
   answerSchema,
   checkAnswer,
   conditionClauses,
   offeredRelation,
+  pageClauses,
   placed,
+  skippedText,
   type Answer,
   type AnswerField,
   type AnswerInput,
   type AnswerRelation,
+  type SkippedClause,
 } from "./answer.js";
 
 /** One row of an answer, plain enough to keep in a message. */
@@ -22,7 +24,8 @@ export type QueryRow = Record<string, unknown>;
 
 /**
  * An `answer` call's result: the answer as it was placed, the rows its tile reads — every one of
- * them, of which the model reads a sample — and the page's clauses it was read under.
+ * them, of which the model reads a sample — and the page's clauses it was read under and those it
+ * was not.
  */
 export interface AnswerOutput {
   readonly answer: Answer;
@@ -31,6 +34,8 @@ export interface AnswerOutput {
   readonly truncated: boolean;
   /** The page's clauses the answer was read under, as a chip reads each. */
   readonly under: readonly string[];
+  /** The page's clauses the relation could not answer, left out of the read. */
+  readonly skipped: readonly SkippedClause[];
 }
 
 /** The agent's one tool, typed — what `InferAgentUIMessage<ReturnType<typeof dataAgent>>` reads. */
@@ -43,8 +48,11 @@ export type DataTools = {
 export interface DataAgentOptions {
   /** The model the agent reasons with — `gateway("chat")`. */
   model: LanguageModel;
-  /** The page's coordinator: the agent reads through it, on the page's one connection. */
-  coordinator: Coordinator;
+  /**
+   * The page's engine: the agent reads through its `query`, on the page's one connection and not
+   * through the coordinator's queue, which waits for an animation frame a hidden tab never fires.
+   */
+  engine: Pick<Engine, "query">;
   /** The join graph the relations are over. */
   graph: JoinGraph;
   /** What an answer may be about — `readAnswerRelations`' answer. The model is told it is the whole of the data. */
@@ -93,6 +101,22 @@ function describeRelations(graph: JoinGraph, relations: readonly AnswerRelation[
 }
 
 /**
+ * What the model is told of the page's filter: the clauses the answer was read under, and those its
+ * relation could not answer — named with what each lacks, so the model can say the answer is not
+ * narrowed by them, or answer over a relation that has those fields.
+ */
+function filterLines({ under, skipped }: AnswerOutput): string[] {
+  const read =
+    under.length > 0
+      ? `Read under the page's filter: ${under.join("; ")}.`
+      : skipped.length > 0
+        ? "None of the page's filter applies to this relation: this is the whole relation."
+        : "The page has no filter: this is the whole relation.";
+  if (skipped.length === 0) return [read];
+  return [read, `Not applied, as this relation lacks the fields they filter: ${skippedText(skipped)}.`];
+}
+
+/**
  * The agent's instructions: the relations and their fields, each with its kind and its most common
  * values — never DDL, because the model writes names and not a statement — and what an answer is.
  */
@@ -102,7 +126,7 @@ export function dataInstructions(options: Pick<DataAgentOptions, "graph" | "rela
     `## Relations\n\nA relation is a type and the hops taken from it; a field is named after the type it belongs to, and a type met twice is numbered, \`Person2\`. Write the relation exactly as given.\n\n${describeRelations(options.graph, options.relations)}`,
     `## Conditions\n\n\`in\` keeps the rows whose field is one of the values, \`between\` the rows within a range, both ends included — a time as an ISO date — and \`contains\` the rows whose text contains the words.`,
     `## Showing\n\n- A figure: \`{ "kind": "stat", "measure": { "op": "count" } }\`.\n- A chart: \`bar\` for a measure by category, \`line\` or \`area\` for one over time, \`histogram\` for how a number spreads, and \`dot\` or \`regression\` for two numbers, whose y is \`{ "op": "value", "field": … }\`.\n- A table: the rows, as the columns that answer the question.\n\n\`top\` ranks the chart's x by its measure and keeps that many.`,
-    `## The page's filter\n\nEvery answer is read under the filter the reader has set on the page when it runs. You do not name it; each result says what it was.`,
+    `## The page's filter\n\nEvery answer is read under the filter the reader has set on the page when it runs. You do not name it; each result says what it was, and which of its clauses the relation could not answer because it lacks their fields — those did not narrow the answer, so do not speak as if they had.`,
     `## What cannot be said\n\nWhen a question needs what these names cannot say — a ratio of two measures, a running total, a link no relation above takes — say so in one sentence. Do not answer a different question instead.`,
     `## Answering\n\nThe tile is in front of the reader. Do not list its rows again or describe the tile; say what it shows, in concise markdown: the numbers that matter, the pattern, the exception, citing actual values.`,
   ].join("\n\n");
@@ -110,13 +134,13 @@ export function dataInstructions(options: Pick<DataAgentOptions, "graph" | "rela
 
 /**
  * **An agent that answers questions about data with dashboard tiles** — in the page, on the page's
- * coordinator. One tool, `answer`, whose input is `answerSchema`: the model names a relation,
+ * engine. One tool, `answer`, whose input is `answerSchema`: the model names a relation,
  * conditions and a tile, `checkAnswer` refuses anything else before it runs, and the tile's rows are
  * read with what a dashboard reads them with, under the page's crossfilter as it is at that moment.
  * The whole answer goes to the transcript; the model reads a sample. `AnswerCard` draws it.
  */
 export function dataAgent(options: DataAgentOptions): ToolLoopAgent<never, DataTools> {
-  const { model, coordinator, graph, relations, selection } = options;
+  const { model, engine, graph, relations, selection } = options;
   const tools: DataTools = {
     answer: tool({
       description: `Answer with one dashboard tile over one relation. The reader sees the tile; you read its first ${SAMPLE_ROWS} rows.`,
@@ -126,23 +150,29 @@ export function dataAgent(options: DataAgentOptions): ToolLoopAgent<never, DataT
         const answer = placed(input, toolCallId);
         const offered = offeredRelation(relations, answer.relation)!;
         const plotted = plotRelation(relationQuery(graph, answer.relation), { fields: offered.fields, columns: offered.columns });
-        const page = selection ? answeredClauses(selection.clauses, offered.columns) : [];
-        const clauses = [...conditionClauses(answer.where, offered.fields, {}), ...page];
+        const page = pageClauses(selection?.clauses ?? [], offered.columns);
+        const clauses = [...conditionClauses(answer.where, offered.fields, {}), ...page.answered];
         const table = Query.from(plotted.table).select("*").where(clauses.map((c) => c.predicate!));
-        // One more row than the cap, so a cut answer is told from one that fits exactly.
-        const read = await coordinator.query(answerQuery(table, answer, offered.fields, ANSWER_ROWS + 1));
-        // The coordinator takes no signal: a stopped chat drops the answer when it lands.
-        abortSignal?.throwIfAborted();
-        const rows = Array.from((read as { toArray(): Iterable<QueryRow> }).toArray(), (row) =>
-          Object.fromEntries(Object.entries(row).map(([column, value]) => [column, plain(value)])),
-        );
-        return { answer, rows: rows.slice(0, ANSWER_ROWS), truncated: rows.length > ANSWER_ROWS, under: page.map(clauseLabel) };
+        // One more row than the cap, so a cut answer is told from one that fits exactly. A stopped
+        // chat rejects the wait at once with the signal's reason; the statement, a short one, finishes.
+        const sql = String(answerQuery(table, answer, offered.fields, ANSWER_ROWS + 1));
+        const read = await engine.query(sql, { signal: abortSignal ?? new AbortController().signal });
+        const names = read.schema.fields.map((f) => f.name);
+        const columns = names.map((name) => read.getChild(name)!);
+        const rows = Array.from({ length: read.numRows }, (_, i) => Object.fromEntries(names.map((name, j) => [name, plain(columns[j]!.get(i))])));
+        return {
+          answer,
+          rows: rows.slice(0, ANSWER_ROWS),
+          truncated: rows.length > ANSWER_ROWS,
+          under: page.answered.map(clauseLabel),
+          skipped: page.skipped.map(({ clause, missing }) => ({ clause: clauseLabel(clause), missing })),
+        };
       },
       toModelOutput: ({ output }) => ({
         type: "text",
         value: [
           `${output.rows.length}${output.truncated ? " (the cap; there are more)" : ""} rows, drawn for the reader as a ${output.answer.show.kind}.`,
-          output.under.length ? `Read under the page's filter: ${output.under.join("; ")}.` : "The page has no filter: this is the whole relation.",
+          ...filterLines(output),
           `First rows: ${sample(output.rows)}`,
         ].join("\n"),
       }),
