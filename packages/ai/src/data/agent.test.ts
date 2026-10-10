@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { AiError } from "@kanzo-tech/llm";
 import { clausePoints, Selection, type Engine } from "@kanzo-tech/mosaic";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { mockModel, promptOf } from "../testing/model.js";
@@ -39,16 +40,17 @@ const toolResults = (prompt: { role: string; content: unknown }[]) =>
     .filter((part) => part.type === "tool-result")
     .map((part) => String(part.output?.value));
 
-const COUNT = { relation: PERSON, show: { kind: "stat", measure: { op: "count" } } };
+const COUNT = { relation: "Person", show: { kind: "stat", measure: { op: "count" } } };
 
 describe("dataAgent", () => {
-  it("tells the model each field with its kind and what it holds, never DDL, and that the tile is already shown", () => {
+  it("tells the model each type's fields once, with their kind and what they hold, each relation by its key, never DDL, and that the tile is already shown", () => {
     const text = dataInstructions({ graph: PEOPLE, relations });
-    expect(text).toMatch(/- Person\.gender: category \((female, male|male, female)\)/);
-    expect(text).toContain("- Person.age: number (27 – 61)");
-    expect(text).toContain("- Person.born: time (1965-09-15 – 1999-01-20)");
-    expect(text).toContain(`### Person>knows>Person\nrelation: {"root":"Person","path":[{"edge":"knows","direction":"out"}]}`);
-    expect(text).not.toMatch(/CREATE TABLE|SELECT|dense_id/);
+    expect(text).toMatch(/#### Person\n- gender: category \((female, male|male, female)\)\n- age: number \(27 – 61\)\n- born: time \(1965-09-15 – 1999-01-20\)/);
+    // Once, though two relations reach Person: the type alone's values, not the hop's.
+    expect(text.match(/- age:/g)).toHaveLength(1);
+    expect(text).toContain("- Person\n- Person>knows>Person");
+    expect(text).toContain("`Person2.gender` is the second Person's");
+    expect(text).not.toMatch(/"root"|CREATE TABLE|SELECT|dense_id/);
     expect(text).toContain("You never write SQL");
     expect(text).toContain("The tile is in front of the reader");
     expect(text).toContain("say so in one sentence");
@@ -130,6 +132,39 @@ describe("a conversation with dataAgent", () => {
   });
 });
 
+describe("a declared context", () => {
+  it("sends a question that fits as it is: every relation, in the tool and the instructions", async () => {
+    const { model } = mockModel(() => "Six.");
+    const agent = dataAgent({ model, engine: db.engine, graph: PEOPLE, relations, context: { tokens: 16384 } });
+    await (await agent.stream({ prompt: "How many people?" })).text;
+    const call = model.doStreamCalls[0]!;
+    const tool = call.tools![0] as unknown as { inputSchema: { properties: { relation: { enum: string[] } } } };
+    expect(tool.inputSchema.properties.relation.enum).toEqual(["Person", "Person>knows>Person"]);
+    expect(promptOf(call)).not.toContain("not described here");
+  });
+
+  it("fails as ai/context, sending nothing, when the conversation cannot fit", async () => {
+    const { model } = mockModel(() => "Six.");
+    const agent = dataAgent({ model, engine: db.engine, graph: PEOPLE, relations, context: { tokens: 400, reserve: 100 } });
+    const failed = await agent.stream({ prompt: "How many people?" }).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(failed).toBeInstanceOf(AiError);
+    expect(failed).toMatchObject({ code: "ai/context", data: { budget: expect.any(Number) } });
+    expect(model.doStreamCalls).toHaveLength(0);
+  });
+
+  it("fails the starters as ai/context, unsent, when the relations cannot fit", async () => {
+    const { model } = mockModel(() => JSON.stringify({ elements: [] }));
+    const read = async () => {
+      for await (const _ of dataSuggestions({ model, graph: PEOPLE, relations, context: { tokens: 200, reserve: 0 } })) void _;
+    };
+    await expect(read()).rejects.toMatchObject({ code: "ai/context" });
+    expect(model.doStreamCalls).toHaveLength(0);
+  });
+});
+
 describe("dataSuggestions", () => {
   it("asks for questions over the relations and the page's filter, as many as were wanted", async () => {
     const { model } = mockModel(() => JSON.stringify({ elements: [{ text: "Whom do women know?", rationale: "Person>knows>Person" }] }));
@@ -137,7 +172,9 @@ describe("dataSuggestions", () => {
     for await (const q of dataSuggestions({ model, graph: PEOPLE, relations, selection: picked(), count: 3 })) got.push(q);
     expect(got).toEqual([{ text: "Whom do women know?", rationale: "Person>knows>Person" }]);
     const prompt = promptOf(model.doStreamCalls[0]!);
-    expect(prompt).toContain("- Person2.age: number (38 – 61)");
+    expect(prompt).toContain("#### Person\n");
+    expect(prompt).toContain("- age: number (27 – 61)");
+    expect(prompt).toContain("- Person>knows>Person");
     expect(prompt).toContain("The page is filtered to: Person.gender female.");
     expect(prompt).toContain("Give 3.");
   });

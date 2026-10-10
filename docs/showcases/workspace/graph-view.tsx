@@ -65,6 +65,7 @@ import {
   count,
   numbers,
   relationHops,
+  relationKey,
   useChartQuery,
   useMosaic,
   type Engine,
@@ -1012,8 +1013,8 @@ const INTENTS: Intent[] = [
     match: ["old", "oldest", "long ago", "years", "before", "closed before"],
     question: "How many contracts closed more than five years ago?",
     rationale: "Node: kind and closed",
-    answer: () => ({
-      relation: NODES,
+    answer: (graph) => ({
+      relation: relationKey(graph, NODES),
       where: [
         { field: "Node.kind", in: ["contract"] },
         { field: "Node.closed", between: ["1000-01-01", FIVE_YEARS_BACK] },
@@ -1026,8 +1027,8 @@ const INTENTS: Intent[] = [
     match: ["amber", "hall", "tenant", "whose"],
     question: "What does the Amber Hall hold, by kind?",
     rationale: "Node: hall and kind",
-    answer: () => ({
-      relation: NODES,
+    answer: (graph) => ({
+      relation: relationKey(graph, NODES),
       where: [{ field: "Node.hall", in: ["amber"] }],
       show: { kind: "chart", type: "bar", x: "Node.kind", y: { op: "count" } },
       top: 20,
@@ -1041,8 +1042,8 @@ const INTENTS: Intent[] = [
     match: ["hub", "connected", "busiest", "central", "biggest", "most work"],
     question: "What holds the archive together?",
     rationale: "Node: degree",
-    answer: () => ({
-      relation: NODES,
+    answer: (graph) => ({
+      relation: relationKey(graph, NODES),
       where: [{ field: "Node.degree", between: [60, 1_000_000] }],
       show: { kind: "chart", type: "bar", x: "Node.label", y: { op: "max", field: "Node.degree" }, title: "The busiest nodes" },
       top: 10,
@@ -1057,7 +1058,7 @@ const INTENTS: Intent[] = [
     question: "What do contracts link to?",
     rationale: "Node>linksTo>Node: kind on both ends",
     answer: (graph) => ({
-      relation: linked(graph),
+      relation: relationKey(graph, linked(graph)),
       where: [{ field: "Node.kind", in: ["contract"] }],
       show: { kind: "chart", type: "bar", x: "Node2.kind", y: { op: "count" }, title: "What contracts link to" },
       top: 10,

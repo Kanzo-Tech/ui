@@ -80,21 +80,26 @@ describe("answerRelationsOf", () => {
 });
 
 describe("an answer", () => {
-  it("the enums are the relation's fields only", () => {
-    const schema = answerSchema(PEOPLE, [person]) as { properties: Record<string, JSONSchema7> };
+  it("the enums are the relations offered, by key, and their fields, listed once", () => {
+    const schema = answerSchema(PEOPLE, [person]) as { properties: Record<string, JSONSchema7>; $defs: Record<string, JSONSchema7> };
     const names = ["Person.gender", "Person.age", "Person.born"];
-    const relation = schema.properties.relation as { properties: { root: JSONSchema7; path: { items: { properties: Record<string, JSONSchema7> } } } };
-    expect(relation.properties.root.enum).toEqual(["Person"]);
-    expect(relation.properties.path.items.properties.edge!.enum).toEqual([]);
+    expect(schema.properties.relation!.enum).toEqual(["Person"]);
+    // One definition of the field list, which every place a field goes refers to.
+    expect(schema.$defs.field).toEqual({ type: "string", enum: names });
+    const field = { $ref: "#/$defs/field" };
     const where = (schema.properties.where as { items: { anyOf: { properties: { field: JSONSchema7 } }[] } }).items.anyOf;
-    expect(where.map((condition) => condition.properties.field.enum)).toEqual([names, names, names]);
+    expect(where.map((condition) => condition.properties.field)).toEqual([field, field, field]);
     const chart = (schema.properties.show as { anyOf: { properties: Record<string, JSONSchema7 & { properties?: Record<string, JSONSchema7> }> }[] }).anyOf[1]!;
-    for (const slot of ["x", "color", "facet"]) expect(chart.properties[slot]!.enum).toEqual(names);
-    expect(chart.properties.y!.properties!.field!.enum).toEqual(names);
+    for (const slot of ["x", "color", "facet"]) expect(chart.properties[slot]).toEqual(field);
+    expect(chart.properties.y!.properties!.field).toMatchObject(field);
     expect(chart.properties.type!.enum).toEqual(["bar", "line", "area", "histogram", "dot", "regression"]);
+    expect(JSON.stringify(schema).match(/"Person\.gender"/g)).toHaveLength(1);
     // No key, no other relation's field, no table: nothing a model could write that is not a field here.
     expect(JSON.stringify(schema)).not.toMatch(/dense_id|Person2|"person"|knows|secret/);
-    expect(JSON.stringify(answerSchema(PEOPLE, [person, knows]))).toContain('"enum":["knows"]');
+    expect((answerSchema(PEOPLE, [person, knows]) as { properties: Record<string, JSONSchema7> }).properties.relation!.enum).toEqual([
+      "Person",
+      "Person>knows>Person",
+    ]);
   });
 
   it("an answer compiles to the same query the dashboard tile reads", async () => {
@@ -104,7 +109,7 @@ describe("an answer", () => {
     page.update(clausePoints(["kind"], [["contract"]], { source: {} }));
     const output = await answer(
       {
-        relation: PERSON,
+        relation: "Person",
         where: [{ field: "Person.age", between: [30, 60] }],
         show: { kind: "chart", type: "bar", x: "Person.gender", y: { op: "avg", field: "Person.age" } },
       },
@@ -126,16 +131,19 @@ describe("an answer", () => {
     expect(output.under).toEqual(["Lasso · 5 selected"]);
     expect(output.skipped).toEqual([{ clause: "kind contract", missing: ["kind"] }]);
     expect(output.answer.show).toMatchObject({ id: "c", span: 2 });
+    // The answer carries the relation its key named, as a dashboard reads one.
+    expect(output.answer.relation).toEqual(PERSON);
   });
 
   it("crosses a hop: whom the women know, by gender, ranked", async () => {
     const output = await answer({
-      relation: KNOWS,
+      relation: "Person>knows>Person",
       where: [{ field: "Person.gender", in: ["female"] }],
       show: { kind: "chart", type: "bar", x: "Person2.gender", y: { op: "count" } },
       top: 1,
     });
     expect(output.rows).toEqual([{ "Person2.gender": "male", count: 3 }]);
+    expect(output.answer.relation).toEqual(KNOWS);
   });
 
   it("input outside the schema is refused before it runs", async () => {
@@ -144,16 +152,18 @@ describe("an answer", () => {
       return checked.success ? null : checked.error.message;
     };
     const show = { kind: "chart", type: "bar", x: "Person.gender", y: { op: "count" } };
-    expect(refusal({ relation: PERSON, show })).toBeNull();
-    expect(refusal({ relation: PERSON, show: { ...show, x: "Person2.gender" } })).toBe(
+    expect(refusal({ relation: "Person", show })).toBeNull();
+    expect(refusal({ relation: "Person", show: { ...show, x: "Person2.gender" } })).toBe(
       "show.x: Person2.gender is not a field of Person, whose fields are Person.gender, Person.age, Person.born.",
     );
-    expect(refusal({ relation: { root: "Person", path: [{ edge: "knows", direction: "in" }] }, show })).toBe(
+    expect(refusal({ relation: "Person<knows<Person", show })).toBe(
       "relation: not one of the relations offered, which are Person, Person>knows>Person.",
     );
-    expect(refusal({ relation: PERSON, show: { ...show, y: { op: "sum" } } })).toBe("show.y: every measure but count names a field");
-    expect(refusal({ relation: PERSON, show, where: [{ field: "Person.age", over: 3 }] })).toMatch(/^where\.0: a condition is/);
-    expect(refusal({ relation: PERSON, show, sql: "DROP TABLE secret" })).toBe("An answer has no sql: it is { relation, where?, show, top? }.");
+    // The object an `Answer` carries is not what the model writes.
+    expect(refusal({ relation: PERSON, show })).toBe("relation: not one of the relations offered, which are Person, Person>knows>Person.");
+    expect(refusal({ relation: "Person", show: { ...show, y: { op: "sum" } } })).toBe("show.y: every measure but count names a field");
+    expect(refusal({ relation: "Person", show, where: [{ field: "Person.age", over: 3 }] })).toMatch(/^where\.0: a condition is/);
+    expect(refusal({ relation: "Person", show, sql: "DROP TABLE secret" })).toBe("An answer has no sql: it is { relation, where?, show, top? }.");
 
     // Through the agent: the model reads the refusal, and the engine is never asked.
     const sent: string[] = [];
@@ -161,7 +171,7 @@ describe("an answer", () => {
     db.coordinator.query = ((sql: unknown, options?: Parameters<typeof query>[1]) => (sent.push(String(sql)), query(sql as never, options))) as never;
     try {
       const { model } = mockModel((_, index) =>
-        index === 0 ? { tool: "answer", input: { relation: PERSON, show: { ...show, x: "secret" } } } : "That field does not exist.",
+        index === 0 ? { tool: "answer", input: { relation: "Person", show: { ...show, x: "secret" } } } : "That field does not exist.",
       );
       const agent = dataAgent({ model, engine: db.engine, graph: PEOPLE, relations: [person] });
       await (await agent.stream({ prompt: "By secret?" })).text;

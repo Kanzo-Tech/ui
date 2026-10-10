@@ -3,8 +3,6 @@ title: Asking within a context
 description: Why @kanzo-tech/ai/data describes each type once and each relation in one line, why the answer's schema names a field list once, and why the budget is the model's declared context — measured on five graphs, and what would reverse each.
 ---
 
-*Proposal, 2026-10-10 — not implemented. Waiting for approval.*
-
 [Asking data](/docs/design/ai) settled what the model is told: every relation offered, with its
 fields. This page is about how much that costs, measured, and how to say the same in a fraction of
 it.
@@ -34,7 +32,7 @@ Where the tokens go, SNB:
 | Part | Hermes 3B / 8B | Qwen3 |
 | --- | --- | --- |
 | `QUESTIONS` (starters' instructions) | 170 | — |
-| The relations (`describeRelations`) | 10,292 | ≈ 12,900 in `dataInstructions` |
+| The relations (as `describeRelations` wrote them) | 10,292 | ≈ 12,900 in `dataInstructions` |
 | The `answer` tool's schema | 0 — see below | 3,597 |
 | The output schema (`response_format`) | 0 — a grammar, not prompt | — |
 
@@ -91,23 +89,30 @@ the same `relationKey` that wrote it. `Answer`, what `AnswerCard` and a dashboar
 object; only `AnswerInput`, what the model writes, changes.
 
 **The field list is one definition.** The schema names it once under `$defs` and every place a field
-goes is `{ "$ref": "#/$defs/field" }`. JSON Schema's own reuse; OpenAI's and Anthropic's tools and
-llama.cpp's JSON-schema grammar all resolve local `$ref`s (llama.cpp's to be checked with Qwen3
-before it ships).
+goes is `{ "$ref": "#/$defs/field" }`. JSON Schema's own reuse; OpenAI's and Anthropic's tools
+resolve local `$ref`s, and so does llama.cpp's JSON-schema grammar — checked in Docker Model Runner,
+2026-10-10, with a schema whose two fields both refer to one enum of three names and a prompt asking
+for names outside it: Qwen3 called the tool with two names from the enum, and Hermes 3 8B and 3B
+under `response_format` wrote only names from it. (Hermes calls no tool there with or without `$ref`
+— the template finding above.)
 
-The same five graphs, rebuilt so and counted the same way:
+The same five graphs, sent by `dataSuggestions` and `dataAgent` as implemented — each graph's
+relations rebuilt from its captured prompt, the request caught at the HTTP boundary and counted the
+same way:
 
-| Graph | Starters, Hermes 3B | Agent, Qwen3 |
-| --- | --- | --- |
-| e2e corpus | 743 → 397 | 2,485 → 1,754 |
-| OpenFlights | 1,290 → 387 | 3,813 → 1,837 |
-| Nobel | 1,523 → 493 | 3,787 → 1,998 |
-| CORDIS | 3,569 → 771 | 7,397 → 2,476 |
-| **LDBC SNB** | **10,466 → 1,239** | **16,565 → 3,154** |
+| Graph | Starters, Hermes 3B | Agent, Hermes 8B | Agent, Qwen3 |
+| --- | --- | --- | --- |
+| e2e corpus | 743 → 448 | 1,033 → 696 | 2,485 → 1,812 |
+| OpenFlights | 1,290 → 438 | 1,580 → 686 | 3,813 → 1,895 |
+| Nobel | 1,523 → 544 | 1,813 → 792 | 3,787 → 2,056 |
+| CORDIS | 3,569 → 822 | 3,859 → 1,070 | 7,397 → 2,535 |
+| **LDBC SNB** | **10,466 → 1,290** | **10,756 → 1,538** | **16,565 → 3,212** |
 
-SNB's starters fit the 3B's 8K six times over, and its first question leaves Qwen3 13K for the
-conversation. Dropping the category values as well saves little more once they are said once
-(SNB's starters 1,239 → 924), so values stay.
+SNB's starters fit the 3B's 8K six times over. `snb-ask` — the page filtered to women, *Which
+browsers do they use most?* on Qwen3's 16,384 — takes 3,211 on its first question and, with three
+turns of history before it (each a question, the `answer` call, its result of up to 30 rows and a
+reply), 5,164: room for the answer and many more turns. Dropping the category values as well saves
+little once they are said once (SNB's starters 1,290 → 905), so values stay unless the budget asks.
 
 **What would reverse it:** a model that answers measurably worse from a type's fields than from a
 relation's spelled out — one that cannot apply the numbering rule. Then the relation lines carry
@@ -124,18 +129,24 @@ nobody measured — a hundred types, a thousand hops — where "said once" is st
   same value travels with the alias to the browser, and `dataAgent` / `dataSuggestions` take it as
   `context: { tokens, reserve }`. Model Runner's `/models` reports the model's maximum (131,072 for
   Hermes), not what it was started with, so it is not the source.
-- **Counted, not guessed.** The page has no tokenizer, so the library counts conservatively — the
-  ratio measured above, 0.32 tokens per character at worst over these five graphs, rounded up — and
-  the measure that sets it is a test over the captured prompts, re-run when a model changes.
+- **Counted, not guessed.** The page has no tokenizer, so the library counts conservatively: 0.4
+  tokens per character. Measured over these five graphs' instructions and tool schemas, Llama 3's
+  tokenizer (Hermes 3) took at most 0.32 and Qwen3's at most 0.38, both on SNB, whose values are IP
+  addresses and URLs; `describe.test.ts` holds the estimate above every one of those counts. The
+  conversation so far is counted too, and `reserve` — a quarter of the window, at most 2,048 — is
+  kept for the answer.
 - **Over budget, the description narrows by a rule, not by a cut.** First the category values go
   (each field keeps its kind and range). Then, for the agent, the relations the question names — by
   their types' and fields' names — and their neighbours, as **LlamaIndex's `ObjectIndex` /
   `SQLTableRetriever`** retrieves the tables a question needs; for the starters, which have no
-  question, the relations that cross a hop, by fan-out, which is what they favour already. The model
-  is told what it was not shown, by name, so "these are the whole of the data" stays true.
-- **Still over, the call does not go.** It fails with `ai/context` — *This graph is too large to ask
-  about in one go with this model* — instead of a 400 from upstream that reads as *The model could
-  not answer.*
+  question, the relations that cross a hop, and those the page's filter is on, which is what they
+  favour already. The model is told what it was not shown, by name, so "these are the whole of the
+  data" stays true, and the `answer` tool offers only what was shown. On SNB at a 4,096 context the
+  agent, asked *Which browsers do people who comment use most?*, kept the 16 relations over Person,
+  Comment, Post and Place, named the other 21, and sent 2,380 tokens.
+- **Still over, the call does not go.** It fails as an `AiError` coded `ai/context`, with
+  `data.tokens` (the smallest request's estimate) and `data.budget`, instead of a 400 from upstream
+  that reads as *The model could not answer.* A host words it in its problem table.
 
 **What would reverse it:** a provider that counts for us before sending (Anthropic's and OpenAI's
 token-counting endpoints) on every alias a host uses. Then the gateway counts exactly and the ratio
@@ -149,3 +160,11 @@ goes.
 - `AnswerInput.relation` is a key string; `Answer.relation` is unchanged. A host that stored
   `AnswerInput` — none known — maps it with `relationKey`.
 - A new `AiError` code, `ai/context`, for a host's problem table.
+
+*Held by* `packages/ai/src/data/describe.test.ts`, "names each type once with its own fields, read
+from the type alone, and each relation by its key"; "errs long on every prompt measured with the
+models' own tokenizers"; "drops the values first, keeping every relation"; "then keeps the relations
+the question names, and names the rest as left out"; "fails as ai/context when not one relation fits,
+and sends nothing"; `packages/ai/src/data/agent.test.ts`, "fails as ai/context, sending nothing, when
+the conversation cannot fit"; and `packages/ai/src/data/answer.test.ts`, "the enums are the relations
+offered, by key, and their fields, listed once".
