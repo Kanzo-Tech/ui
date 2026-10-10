@@ -89,6 +89,15 @@ differ, though, and that is where the parts disagree.
    `pointGreyoutOpacity: 0.1` and links at `0.025` (`render/graph-model.ts:132-133`). On a map, with
    small marks on a light background, a greyed point is close to invisible. See below.
 
+8. **The labels read the filter without the canvas's clause.** `topOf` and `labelled` are handed
+   the store's `mask` (`parts/graph-canvas.tsx:66,94,98`), so under a lasso a vertex outside it can
+   still be labelled while it is drawn greyed.
+9. **"Match" counts vertices that are not drawn.** On a map, the counts read *N match · P of T
+   placed* with `N = |kept|` (`parts/graph-counts.tsx:19,44`) and the toolbar `|visible|`
+   (`parts/graph-toolbar.tsx:59,103`), both including kept vertices with no position, while the
+   edges count only placed ends (`core/kept.ts:68-96`). On the Nobel map, a window counts prizes with
+   no affiliation that are nowhere on the canvas.
+
 ## Does a filter hide anything under Map placement?
 
 **No. Only a missing position hides.** `drawnOf` (`core/kept.ts:68-96`) and the renderer agree: a
@@ -105,6 +114,117 @@ What makes it look like hiding is real, though, and it is two things together:
   date, so with a window set they are all greyed (*0 of 370*), and at 0.1 they vanish with the rest.
 
 So the behaviour is already one rule. The picture does not show it.
+
+## Formal semantics
+
+The words above are defined here once, and every rule and test on this page refers to these
+definitions. They are Mosaic's model, written out
+([Heer & Moritz, *Mosaic: An Architecture for Scalable & Interoperable Data Views*, IEEE TVCG 2024 (VIS 2023)](https://idl.uw.edu/papers/mosaic);
+[Selection](https://idl.uw.edu/mosaic/api/core/selection.html)), with the two rules this page adds:
+what a clause means for a type that cannot answer it, and position.
+
+**Vertices and types.** The corpus is a finite set of vertices *V*, partitioned into types; every
+vertex *v* belongs to exactly one type *T(v)*, a table with a set of columns *cols(T)*. Each vertex has
+a key *k(v)*, unique in *V*.
+
+**Clauses.** A clause *c* is a predicate over the rows of a table, naming a set of columns
+*cols(c)*. It is evaluated as SQL `WHERE` evaluates it, so a comparison with `NULL` is *unknown* and
+an unknown row is not kept. An identity clause names only the key: `k IN (…)`, `k NOT IN (…)` or
+`k IN (SELECT …)`, whatever relation its subquery reads.
+
+**Answerability.** A type *T* answers *c* when *cols(c) ⊆ cols(T)*. An identity clause is answered
+by every type.
+
+**The page.** Each source *s* holds at most one clause, *c_s*; publishing again replaces it and
+`null` withdraws it. The page's selection is the set *C = { c_s }* — Mosaic's one clause per source,
+resolved by conjunction (`intersect`).
+
+**Kept.** For a clause and a vertex,
+
+> *ans(c, v) = c(v)* if *T(v)* answers *c*, and *false* otherwise,
+
+and
+
+> *kept_C(v) = ⋀_{c ∈ C} ans(c, v)*, with *kept_∅(v) = true*.
+
+The second case of *ans* is the rule decided here: a clause a type cannot answer keeps none of that
+type. It is what Cosmograph's `isBetween(column, range)` does to a point with no value
+([Timeline](/docs/design/timeline)), and what a dashboard's relation already does with a semi-join
+on its root: a client applies every clause it is handed.
+
+**A client's own view.** A chart that publishes from source *s* and is filtered by the same selection
+draws against
+
+> *kept_C^¬s(v) = ⋀_{c ∈ C, c ≠ c_s} ans(c, v)*
+
+— Mosaic's crossfilter resolution, which omits the clauses a client published, and crossfilter.js's
+groups, which ignore their own dimension's filter
+([API reference](https://github.com/crossfilter/crossfilter/wiki/API-Reference#dimension_filter)).
+It is defined only to say how such a chart **draws** its context under its own brush. It is never
+exposed as what is kept: every count, colour, label and camera reads *kept_C*, and *kept_C =
+kept_C^¬s ∧ ans(c_s, ·)*.
+
+**Placed.** Under bound positions, with columns *x* and *y*,
+
+> *placed(v) = x(v) is a finite number ∧ y(v) is a finite number*,
+
+and under a layout *placed(v) = true*. *placed* does not depend on *C*.
+
+**What each view draws.** The canvas draws *v* in colour when *kept_C(v) ∧ placed(v)*, greyed when
+*¬kept_C(v) ∧ placed(v)*, and not at all when *¬placed(v)*. A link *(u, w)* is kept when *kept_C(u) ∧
+kept_C(w)* and drawn when *placed(u) ∧ placed(w)*. A chart draws its aggregate over *kept_C^¬s* — over
+*kept_C* when it published nothing — with its total behind in grey; a list or a table holds the rows
+of *kept_C*. This is Vega-Lite's model of a selection as a conditional encoding over the same data,
+not a second dataset ([selections](https://vega.github.io/vega-lite/docs/selection.html)).
+
+### Invariants
+
+Each is a property of the definitions, and each has a test that checks it from the predicate and the
+data, never from pixels or text.
+
+1. **Order does not matter.** *kept_C* depends on the set *C* only: ∧ is commutative and
+   associative, so publishing the same clauses in any order, or replacing a clause and putting it
+   back, gives the same *kept*.
+2. **Withdrawing never narrows; adding never widens.** *C′ ⊆ C ⇒ kept_C ⊆ kept_C′*.
+3. **One clause per source.** Publishing *c′_s* gives *kept_{(C ∖ {c_s}) ∪ {c′_s}}*: the source's
+   earlier clause has no effect left.
+4. **No filter moves a vertex out of place.** *placed* is the same for every *C*.
+5. **One reading.** The canvas's colour, the labels, the toolbar, `frame()` and the counts all read
+   *kept_C*; no consumer reads a mask that leaves a source out.
+6. **The counts.** On a map, *match = |kept_C ∧ placed|*, *placed = |placed|*, *total = |V|*; edges
+   kept = |{(u, w) : kept_C(u) ∧ kept_C(w) ∧ placed(u) ∧ placed(w)}|. Under a layout, *placed = V*.
+7. **The frame.** `frame()` fits exactly *{ v : kept_C(v) ∧ placed(v) }*, or every placed vertex when
+   *C = ∅*.
+8. **The exemption is drawing only.** For every source *s*, *kept_C ⊆ kept_C^¬s*, and no consumer
+   other than *s*'s own chart reads *kept_C^¬s*.
+9. **Alt with no canvas clause.** Alt over a set *X* sets *c_canvas = k ∉ X*, so *kept* becomes
+   *kept_C ∧ ¬X*, and stays equal to *(the other clauses) ∧ ¬X* when another source changes —
+   invariant 1 and 3, not a copy of another source's result.
+
+### What a number on this page must come from
+
+No value here is chosen by eye. Each is a cited default or follows from a stated criterion:
+
+- **Greyed colour and opacity**: cosmos.gl 3.4.0's defaults, read from its shader
+  (`dist/index.js:5239-5256`): with no `pointGreyoutColor`, a greyed point's colour is
+  *mix(colour, 0.2, 0.65)* on a background of relative luminance below 0.65 (`index.js:141`) and
+  *mix(colour, max(background, 0.8), 0.65)* otherwise, at the point's own opacity when
+  `pointGreyoutOpacity` is unset; links at `linkGreyoutOpacity = 0.1`.
+- **The criterion they are checked against**, WCAG 2.2
+  [SC 1.4.11 Non-text Contrast](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html),
+  with contrast ratios computed from relative luminance as WCAG defines them:
+  - a kept mark carries the information, so each category colour against the background is **at
+    least 3 : 1**;
+  - kept versus not kept is what a filter's result is read from. 1.4.11 asks 3 : 1 between the
+    states of a user interface component; a mark on the canvas is not a component, so this is our
+    criterion by extension, not WCAG's requirement: each kept colour against its own greyed colour
+    is **at least 3 : 1**;
+  - a greyed mark is context, not information required to understand the filter, so 1.4.11 does not
+    require 3 : 1 against the background; it is required to be **distinguishable from the
+    background, a ratio above 1 : 1**, so that greyed never reads as hidden.
+
+  The check is a unit test over the theme's category tokens in both themes and the formula above, and
+  the pull request that sets the greyout reports every ratio.
 
 ## The abstraction
 
@@ -227,6 +347,10 @@ counts tests that hold the rule today.
 
 ## References
 
+- Heer & Moritz, [*Mosaic: An Architecture for Scalable & Interoperable Data Views*](https://idl.uw.edu/papers/mosaic),
+  IEEE TVCG 2024 (VIS 2023): clients, selections, clauses and crossfilter resolution.
+- W3C, [Understanding SC 1.4.11 Non-text Contrast](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html)
+  (WCAG 2.2), and the [contrast ratio and relative luminance](https://www.w3.org/TR/WCAG22/#dfn-contrast-ratio) it uses.
 - Mosaic, [Selection](https://idl.uw.edu/mosaic/api/core/selection.html) and
   [core](https://idl.uw.edu/mosaic/core): clauses, resolution (`single`, `union`, `intersect`),
   crossfilter omitting a client's own clauses, `filterBy`.
