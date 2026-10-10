@@ -7,6 +7,7 @@ import {
   Query,
   Selection,
   bridgeSelection,
+  bridged,
   clauseInterval,
   float64,
   type FilterExpr,
@@ -235,39 +236,53 @@ describe("GraphTimeline, drawn", () => {
     expect(chips().map((chip) => chip.getAttribute("aria-label"))).toEqual(["Remove born 1903 – 1907"]);
   });
 
-  it("holds one clause through play, a rebuild while it plays, a pause, a drag and play again", async () => {
+  it("holds one clause and one chip through every state play passes — a rebuild and a stale brush included", async () => {
     const corpus = await attach();
     const { brush, chips, plot, ready } = await drawn(corpus);
     await ready();
-    const window = screen.getByRole("group", { name: "Window" });
     const play = () => fireEvent.click(screen.getByRole("button", { name: /^(Play|Pause) time$/ }));
-    const moved = async () => {
-      const before = window.getAttribute("aria-valuetext");
-      await vi.waitFor(() => expect(window.getAttribute("aria-valuetext")).not.toBe(before), { timeout: 5_000 });
+    const one = () => {
+      expect(page!.clauses).toHaveLength(1);
+      expect(chips()).toHaveLength(1);
     };
-    await brush(1900, 1901);
+    // Disabled → a range → playing, accumulating inside it.
+    expect(screen.getByRole("button", { name: "Play time" }).hasAttribute("disabled")).toBe(true);
+    await brush(1900, 1904);
+    one();
+    const { last } = recording(plot()!);
     play();
-    await moved();
+    await vi.waitFor(() => expect(last()[1]).toBeGreaterThan(1900.5));
+    one();
+    expect(last()[0]).toBe(1900);
     // Rebuilt while it plays — a resize — twice before the first rebuild has drawn.
     const stale = plot()!.interactors[0]!;
     await act(async () => rerender(80));
     await act(async () => rerender(88));
-    await moved();
-    // The brush that was on screen before the rebuild finishes its gesture: d3 keeps listening.
-    act(() => stale.publish([stale.scale.apply(1903), stale.scale.apply(1904)]));
     await ready();
-    await moved();
+    one();
+    // Paused; then a drag makes a new range — here the brush on screen before the rebuild,
+    // finishing its gesture, since d3 keeps listening — and the next Play starts from its start.
+    play();
+    one();
+    act(() => stale.publish([stale.scale.apply(1903), stale.scale.apply(1907)]));
+    await act(() => settle(corpus));
+    one();
+    expect(last()[0]).toBeCloseTo(1903, 1);
+    play();
+    const [from] = last();
+    expect(from).toBeCloseTo(1903, 0);
+    expect(last()[1]).toBeLessThan(from! + 0.5);
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: "Play time" })).toBeTruthy(), { timeout: 15_000 });
+    one();
+    expect(last()[0]).toBe(from);
+    expect(last()[1]).toBeCloseTo(1907, 0);
+    play();
+    expect(last()).toEqual([from, expect.any(Number)]);
+    expect(last()[1]).toBeLessThan(from! + 0.5);
     play();
     await act(() => settle(corpus));
-    await brush(1902, 1904);
-    play();
-    await moved();
-    play();
-    await act(() => settle(corpus));
-    expect(page!.clauses).toHaveLength(1);
-    expect(chips()).toHaveLength(1);
-  }, 20_000);
-
+    one();
+  }, 30_000);
   it("names the window once on its chip, by the column", async () => {
     const corpus = await attach();
     const { brush, chips } = await drawn(corpus);
@@ -290,74 +305,148 @@ describe("GraphTimeline, drawn", () => {
     await vi.waitFor(() => expect(window.getAttribute("aria-valuetext")).not.toBe("1902 – 1905"));
   });
 
+  /** The window the page's timeline clause holds: the part the bridge mapped. */
+  const held = () => {
+    const [clause] = page!.clauses;
+    return (clause && (bridged(clause)?.parts[0]?.value as unknown[] | undefined)) ?? null;
+  };
+
+  /**
+   * Every window the timeline publishes, as it publishes it: its own selection queues a value while
+   * the last one is being answered, so the page's clause can lag a press by a query.
+   */
+  const recording = (plot: Drawn) => {
+    const own = (plot.interactors[0] as unknown as { selection: Selection }).selection;
+    const update = own.update.bind(own);
+    const windows: number[][] = [];
+    vi.spyOn(own, "update").mockImplementation((clause) => {
+      if (clause.value) windows.push((clause.value as unknown[]).map(Number));
+      return update(clause);
+    });
+    return { windows, last: () => windows.at(-1)! };
+  };
+
   /** A window of years as the readout and the chip read it. */
   const readWindow = ([from, to]: [number, number]) => `${Math.round(from)} – ${Math.round(to)}`;
 
-  /** The first and last edges of the bars the plot drew. */
-  const axis = (plot: Drawn) => {
-    const [behind] = plot.marks;
-    const { x1 = [], x2 = [] } = behind!.data?.columns ?? {};
-    const edges = [...Array.from(x1), ...Array.from(x2)].map(Number);
-    return { first: Math.min(...edges), last: Math.max(...edges), bar: Number(x2[0]) - Number(x1[0]) };
-  };
-
-  it("plays the whole axis with no window: one bar wide from its start, to its end, then stops", async () => {
+  it("is disabled with no range, and playable once one is brushed", async () => {
     const corpus = await attach();
-    const { plot, ready, chips } = await drawn(corpus);
+    const { brush, ready } = await drawn(corpus);
     await ready();
-    await act(() => settle(corpus));
-    const { first, last, bar } = axis(plot()!);
-    const window = screen.getByRole("group", { name: "Window" });
     const play = screen.getByRole("button", { name: "Play time" });
-    const seen: unknown[] = [];
-    const watch = new MutationObserver(() => seen.push(window.getAttribute("aria-valuetext")));
-    watch.observe(window, { attributes: true });
+    expect(play.hasAttribute("disabled")).toBe(true);
     fireEvent.click(play);
-    expect(play.getAttribute("aria-pressed")).toBe("true");
-    await vi.waitFor(() => expect(play.getAttribute("aria-pressed")).toBe("false"), { timeout: 15_000 });
-    watch.disconnect();
-    expect(seen[0]).toBe(readWindow([first, first + bar]));
-    expect(plot()!.interactors[0]!.value).toEqual([last - bar, last]);
-    expect(window.getAttribute("aria-valuetext")).toBe(readWindow([last - bar, last]));
-    expect(chips()).toHaveLength(1);
-  }, 20_000);
-
-  it("plays a window from where it is, the same width, to the end of the axis", async () => {
+    expect(play.getAttribute("aria-pressed")).toBe("false");
+    await brush(1902, 1905);
+    expect(play.hasAttribute("disabled")).toBe(false);
+  });
+  it("accumulates inside the range a bar at a time, stops at its end with the whole range, and starts over on the next press", async () => {
     const corpus = await attach();
     const { brush, plot } = await drawn(corpus);
     await brush(1902, 1905);
-    const { last } = axis(plot()!);
     const play = screen.getByRole("button", { name: "Play time" });
+    const { windows, last } = recording(plot()!);
     fireEvent.click(play);
     await vi.waitFor(() => expect(play.getAttribute("aria-pressed")).toBe("false"), { timeout: 15_000 });
-    expect(plot()!.interactors[0]!.value).toEqual([last - 3, last]);
-  }, 20_000);
-
-  it("pauses where it is, the window kept", async () => {
+    // The range never moved; the clause grew from its start to its end, one bar at a time.
+    expect(plot()!.interactors[0]!.value).toEqual([1902, 1905]);
+    expect(windows.every(([from]) => from === 1902)).toBe(true);
+    const ends = windows.map(([, to]) => to!);
+    expect(ends.every((to, i) => i === 0 || to >= ends[i - 1]!)).toBe(true);
+    expect(ends[0]).toBeLessThan(1903);
+    expect(last()).toEqual([1902, 1905]);
+    await act(() => settle(corpus));
+    expect(held()).toEqual([1902, 1905]);
+    expect(screen.getByRole("status", { name: "Timeline" }).textContent).toBe("Ended at 1902 – 1905");
+    fireEvent.click(play);
+    expect(play.getAttribute("aria-pressed")).toBe("true");
+    expect(last()[0]).toBe(1902);
+    expect(last()[1]).toBeLessThan(1903);
+    fireEvent.click(play);
+  }, 30_000);
+  it("pauses when the pointer comes down on the bars, holds the frame, and plays on from it", async () => {
     const corpus = await attach();
     const { brush, plot } = await drawn(corpus);
-    await brush(1900, 1901);
-    const window = screen.getByRole("group", { name: "Window" });
-    fireEvent.click(screen.getByRole("button", { name: "Play time" }));
-    await vi.waitFor(() => expect(window.getAttribute("aria-valuetext")).not.toBe("1900 – 1901"));
-    fireEvent.click(screen.getByRole("button", { name: "Pause time" }));
-    const paused = plot()!.interactors[0]!.value;
+    await brush(1900, 1905);
+    const play = screen.getByRole("button", { name: "Play time" });
+    const { windows, last } = recording(plot()!);
+    fireEvent.click(play);
+    await vi.waitFor(() => expect(last()[1]).toBeGreaterThan(1900.5));
+    fireEvent.pointerDown(document.querySelector("[aria-label='Timeline: born'] svg")!);
+    expect(play.getAttribute("aria-pressed")).toBe("false");
+    const frozen = last();
+    const count = windows.length;
     await new Promise((resolve) => setTimeout(resolve, 200));
-    expect(plot()!.interactors[0]!.value).toEqual(paused);
-    expect(screen.getByRole("button", { name: "Play time" }).getAttribute("aria-pressed")).toBe("false");
+    expect(windows).toHaveLength(count);
+    expect(screen.getByRole("status", { name: "Timeline" }).textContent).toBe(`Paused at ${readWindow(frozen as [number, number])}`);
+    fireEvent.click(play);
+    expect(last()[0]).toBe(1900);
+    await vi.waitFor(() => expect(last()[1]).toBeGreaterThan(frozen[1]!));
+    fireEvent.click(play);
+  });
+  it("marks its chip while it plays, and the chip's remove stops it and lets the window go", async () => {
+    const corpus = await attach();
+    const { brush, chips } = await drawn(corpus);
+    await brush(1900, 1901);
+    const play = screen.getByRole("button", { name: "Play time" });
+    fireEvent.click(play);
+    await vi.waitFor(() => expect(within(chips()[0]!.parentElement!).getByRole("img", { name: "Playing" })).toBeTruthy());
+    fireEvent.click(chips()[0]!);
+    await act(() => settle(corpus));
+    expect(play.getAttribute("aria-pressed")).toBe("false");
+    expect(play.hasAttribute("disabled")).toBe(true);
+    expect(chips()).toHaveLength(0);
+    expect(page!.clauses).toHaveLength(0);
+  });
+
+  it("plays and pauses with Space on the focused timeline", async () => {
+    const corpus = await attach();
+    const { brush } = await drawn(corpus);
+    await brush(1900, 1901);
+    const figure = screen.getByRole("figure", { name: "Timeline: born" });
+    const play = screen.getByRole("button", { name: "Play time" });
+    fireEvent.keyDown(figure, { key: " " });
+    expect(play.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.keyDown(figure, { key: " " });
+    expect(play.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("waits for the page to answer each window before the next one", async () => {
+    const corpus = await attach();
+    const { brush } = await drawn(corpus);
+    await brush(1900, 1909);
+    // A client of the page that takes 300 ms to take each answer in, as a large graph does.
+    class Slow extends Rows {
+      override update(): Promise<unknown> {
+        return new Promise((resolve) => setTimeout(resolve, 300));
+      }
+    }
+    corpus.coordinator.connect(new Slow(page!, relation(corpus.from, "Person")));
+    await act(() => settle(corpus));
+    const window = screen.getByRole("group", { name: "Window" });
+    const moves: unknown[] = [];
+    const watch = new MutationObserver(() => moves.push(window.getAttribute("aria-valuetext")));
+    watch.observe(window, { attributes: true });
+    fireEvent.click(screen.getByRole("button", { name: "Play time" }));
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    fireEvent.click(screen.getByRole("button", { name: "Pause time" }));
+    watch.disconnect();
+    // At 50 ms a bar that is twenty moves; waiting for each answer, four at most.
+    expect(moves.length).toBeGreaterThan(0);
+    expect(moves.length).toBeLessThanOrEqual(4);
   });
 
   it("draws the window's bars in colour by clipping the bars in front to it, with no query", async () => {
     const corpus = await attach();
     const { brush, plot } = await drawn(corpus);
     await brush(1902, 1905);
-    const [behind, front] = plot()!.marks;
+    const [behind, , front] = plot()!.marks;
     const total = (mark: Drawn["marks"][number]) => Array.from(mark.data?.columns.y ?? []).reduce((a, b) => a + Number(b), 0);
     // The window does not filter its own plot: both layers hold every bar.
     expect(total(behind!)).toBe(10);
     expect(total(front!)).toBe(10);
     const svg = document.querySelector("[aria-label='Timeline: born'] svg")!;
-    const clip = svg.querySelector("g[data-index='1']")!.getAttribute("clip-path");
+    const clip = svg.querySelector("g[data-index='2']")!.getAttribute("clip-path");
     const rect = svg.querySelector(`${/url\((#[^)]+)\)/.exec(clip ?? "")?.[1]} rect`)!;
     const { scale } = plot()!.interactors[0]!;
     expect(Number(rect.getAttribute("x"))).toBeCloseTo(scale.apply(1902));

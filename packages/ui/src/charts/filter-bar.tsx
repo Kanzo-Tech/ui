@@ -6,7 +6,7 @@ import { ark } from "@ark-ui/react/factory";
 import { bridged, clauseLabel, clauseParts, type TableExpr } from "@kanzo-tech/mosaic";
 import { count, Query } from "@uwdata/mosaic-sql";
 import type { Selection, SelectionClause } from "@uwdata/mosaic-core";
-import { XIcon } from "lucide-react";
+import { PlayIcon, XIcon } from "lucide-react";
 import { cn } from "../lib/cn.js";
 import { Badge } from "../simples/badge.js";
 import { Button } from "../simples/button.js";
@@ -65,14 +65,14 @@ export function FilterBar(props: FilterBarProps) {
   const clauses = useClauses(crossfilter);
   const chips = clauses.flatMap((clause) => {
     const made = bridged(clause);
-    if (!made) return isHeld(held, clause) ? [] : [{ label: clauseLabel(clause), remove: () => retract([clause]) }];
+    if (!made) return isHeld(held, clause) ? [] : [{ label: clauseLabel(clause), playing: isPlaying(clause), remove: () => retract([clause]) }];
     const { field } = clauseParts(clause);
     // A part that already reads as its bridge's name is not named twice: a timeline's bridge is
     // called by its column, and its window reads *date 1910 – 1940*, not *date date 1910 – 1940*.
     const named = (part: SelectionClause) => (clauseParts(part).field === field ? clauseLabel(part) : `${field} ${clauseLabel(part)}`);
     return made.parts
       .filter((part) => !isHeld(held, part))
-      .map((part) => ({ label: named(part), remove: () => made.retract([part]) }));
+      .map((part) => ({ label: named(part), playing: isPlaying(part), remove: () => made.retract([part]) }));
   });
 
   return (
@@ -82,8 +82,9 @@ export function FilterBar(props: FilterBarProps) {
       {...rest}
       data-slot={slot ?? "filter-bar"}
     >
-      {chips.map(({ label, remove }, i) => (
+      {chips.map(({ label, playing, remove }, i) => (
         <Badge className="gap-1 ps-2 pe-1" key={i} size="sm" variant="secondary">
+          {playing ? <PlayIcon aria-label="Playing" className="size-3" role="img" /> : null}
           {label}
           <button
             aria-label={`Remove ${label}`}
@@ -107,6 +108,11 @@ export function FilterBar(props: FilterBarProps) {
       </div>
     </ark.section>
   );
+}
+
+/** A clause a timeline is playing says so in its metadata, for its chip to mark it. */
+function isPlaying(clause: SelectionClause): boolean {
+  return (clause.meta as { playing?: boolean } | undefined)?.playing === true;
 }
 
 function Readout({ table, rowNoun }: { table: TableExpr; rowNoun: string }) {

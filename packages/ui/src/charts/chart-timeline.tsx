@@ -3,16 +3,18 @@
 import type { TableExpr } from "@kanzo-tech/mosaic";
 import type { Selection } from "@uwdata/mosaic-core";
 import { Interval1D } from "@uwdata/mosaic-plot";
+import type { SelectionClause } from "@uwdata/mosaic-core";
 import { count } from "@uwdata/mosaic-sql";
 import { bin } from "./chart-bin.js";
 import { PauseIcon, PlayIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { cn } from "../lib/cn.js";
 import { Button } from "../simples/button.js";
 import { ChartAxisX, ChartAxisY } from "./chart-axes.js";
 import { ChartBrushX } from "./chart-interactors.js";
 import { ChartRectY } from "./chart-marks.js";
 import { ChartRoot, useChartContext, type ChartPlot } from "./chart-root.js";
+import { useMosaic } from "./mosaic-provider.js";
 
 export interface ChartTimelineProps {
   /** The relation the bars count. */
@@ -34,6 +36,12 @@ export interface ChartTimelineProps {
   height?: number;
   /** Draw the play button. Default `true`. */
   playable?: boolean;
+  /**
+   * The selection whose clients pace playback: the next step waits until they have answered the
+   * window on screen. Defaults to the page's crossfilter; a part that bridges its window into
+   * another selection passes that one.
+   */
+  paceBy?: Selection;
   className?: string;
 }
 
@@ -46,10 +54,12 @@ const MARGIN = { top: 4, right: 20, bottom: 20, left: 20 };
 const BARS = 60;
 /** The window drawn as an outline: d3's grey fill over it would read as the part left out. */
 const BRUSH = { fillOpacity: 0, stroke: "currentColor", strokeOpacity: 0.6 };
-/** Cosmograph's `animationSpeed`: one bar every 50 ms. */
+/** Cosmograph's `animationSpeed`: one bar every 50 ms, on an axis of 60 bars. */
 const TICK_MS = 50;
-/** One bar every half second under `prefers-reduced-motion`: the sweep still plays, ten times slower. */
+/** One bar every half second at least under `prefers-reduced-motion`: it still plays, ten times slower. */
 const REDUCED_TICK_MS = 500;
+/** Why Play is disabled, its description and the tooltip of what holds it. */
+const NO_RANGE = "Brush a range to play";
 
 /**
  * **A time filter: the distribution over time, a window brushed across it, and a play button that
@@ -60,9 +70,15 @@ const REDUCED_TICK_MS = 500;
  * The window sticks to the bars' edges, as Cosmograph's `stickySelection` does, so it reads
  * *1910 – 1940* rather than where the pointer let go. Playing asks the window's owner to move it —
  * the interval, through its own clause, a bar at a time — because a clause belongs to the source
- * that published it. It sweeps the axis, as Cosmograph's does: with no window it starts one a bar
- * wide at the axis's start, and at the end of the axis it stops. *Play time* is the first control,
- * before the bars, and the window's range reads after them.
+ * that published it.
+ *
+ * **Play runs inside the brushed range, accumulating** — Kepler's `incremental` window, Gapminder's
+ * time: the range never moves, and each step publishes *[the range's start, one bar further]* until
+ * it holds the whole range. With no range there is nothing to play, as in Cosmograph. At the end it
+ * stops with the whole range kept, and the next Play starts over from the range's first bar. A
+ * pointer coming down on the bars pauses it; a drag makes a new range, which the next Play starts.
+ * Each step waits for the page to answer the last. *Play time* is a bare icon at the bars' left
+ * edge, as Cosmograph's is, and Space on the focused figure plays and pauses.
  */
 export function ChartTimeline({
   table,
@@ -73,50 +89,145 @@ export function ChartTimeline({
   as,
   height = 72,
   playable = true,
+  paceBy,
   className,
 }: ChartTimelineProps) {
   const bars = bin(field, { steps: BARS });
   return (
     <ChartRoot
+      aria-keyshortcuts={playable ? "Space" : undefined}
       aria-label={title}
       as={as}
-      className={cn("flex-row items-center gap-1", className)}
+      className={cn("flex-row items-center gap-1 outline-none focus-visible:ring-[3px] focus-visible:ring-ring", className)}
       filterBy={filterBy}
       height={height}
       margin={MARGIN}
       plotClassName="min-w-0 flex-1"
+      tabIndex={playable ? 0 : undefined}
       table={table}
     >
       <ChartRectY fill="var(--muted-foreground)" filterBy={null} inset={0.5} opacity={0.22} x={bars} y={count()} />
       {/* The brush exempts its whole plot, so a drag queries nothing here and the plot is never
-          redrawn under the pointer. The bars in front are clipped to the window instead — in
-          colour inside it, the grey behind showing outside. Its own fill would grey the window over,
-          so it is drawn as an outline. */}
+          redrawn under the pointer. The layers above are clipped instead: the range dimmed, and in
+          front, in colour, what the clause holds — the range, or as far as play has reached into it.
+          Its own fill would grey the range over, so the brush is drawn as an outline. */}
       <ChartBrushX brush={BRUSH} />
+      <ChartRectY fill={fill} inset={0.5} opacity={0.35} x={bars} y={count()} />
       <ChartRectY fill={fill} inset={0.5} x={bars} y={count()} />
       <ChartAxisX label={null} tickFormat={tickLabel} ticks={5} />
       <ChartAxisY anchor={null} label={null} />
-      <TimelineWindow playable={playable} />
+      <TimelineWindow paceBy={paceBy} playable={playable} />
     </ChartRoot>
   );
 }
 
 /**
- * *Play time*, a round icon at the bars' left edge as Cosmograph's is, and the window's readout
- * after them. The button is named apart from a canvas's layout transport, which is a play button too.
+ * *Play time*, a bare icon at the bars' left edge, as Cosmograph's is, and what is read rather than
+ * seen: the window the clause holds, and what a pause or the end says.
+ *
+ * Playing is a loop of frames, each one bar further into the range, that waits for the frame before
+ * it to be answered — by `paceBy`'s clients and the range's own selection — and for a step's least
+ * time. A frame is published through the interval's own clause, so the page holds one clause, and
+ * says it is playing, for its chip. The range is the interval's value and stays where it was brushed.
  */
-function TimelineWindow({ playable }: { playable: boolean }) {
+function TimelineWindow({ playable, paceBy }: { playable: boolean; paceBy?: Selection }) {
   const { as, plot } = useChartContext();
+  const { crossfilter } = useMosaic();
+  const pace = paceBy ?? crossfilter;
   const [range, setRange] = useState<readonly unknown[] | null>(null);
   const [playing, setPlaying] = useState(false);
-  const readout = useRef<HTMLDivElement>(null);
+  /** The window the clause holds while a frame is shown — playing, paused or ended — else `null`. */
+  const [frame, setFrame] = useState<readonly [unknown, unknown] | null>(null);
+  /** Said on pause and at the end, and only then: a frame every 50 ms would flood a screen reader. */
+  const [said, setSaid] = useState("");
+  const anchor = useRef<HTMLDivElement>(null);
+  const hint = useId();
+  // What the loop, the pointer and the keyboard read between renders.
+  const state = useRef<{ running: boolean; range: readonly unknown[] | null; frame: number | null }>({ running: false, range: null, frame: null });
+  const transport = useRef<{ play(): void; stop(why: Stop): void; show(interval: Interval1D, at: number, live: boolean): void }>({
+    play() {},
+    stop() {},
+    show() {},
+  });
 
-  // The window's bars in colour: the front layer clipped to the window whenever it moves, and again
-  // whenever Plot draws a new svg — a page clause re-querying the bars, or a rebuild.
+  /** Show frame `at` — the range from its first edge to edge `at` — through the range's clause. */
+  transport.current.show = (interval, at, live) => {
+    const { edges, from } = rangeOf(brushedBy(interval))!;
+    const window = [edges[from], edges[at]] as const;
+    state.current.frame = at;
+    setFrame(window);
+    const clause = interval.clause(window);
+    interval.selection.update(live ? { ...clause, meta: { ...clause.meta, playing: true } as SelectionClause["meta"] } : clause);
+    clipToWindow(plot() as DrawnPlot | null, window);
+  };
+
+  transport.current.stop = (why) => {
+    if (!state.current.running) return;
+    state.current.running = false;
+    setPlaying(false);
+    const interval = intervalOf(plot());
+    const at = state.current.frame;
+    if (why === "gone" || !interval?.value || at === null) return;
+    transport.current.show(interval, at, false);
+    const { edges, from } = rangeOf(brushedBy(interval))!;
+    setSaid(`${why === "end" ? "Ended" : "Paused"} at ${readWindow([edges[from], edges[at]])}`);
+  };
+  transport.current.play = () => {
+    const interval = intervalOf(plot());
+    if (state.current.running || !interval?.value || !interval.scale) return;
+    const span = rangeOf(brushedBy(interval));
+    if (!span) return;
+    // From the first bar, or on from a pause; at the end, Play starts over.
+    const at = state.current.frame;
+    transport.current.show(interval, at === null || at >= span.to ? span.from + 1 : at, true);
+    state.current.running = true;
+    setSaid("");
+    setPlaying(true);
+  };
+  const toggle = () => (state.current.running ? transport.current.stop("pause") : transport.current.play());
+
+  // The range is the interval's value. A frame published here leaves it as it is; a drag, a stuck
+  // drag-end or a reset from the bar's chip changes it, and a changed range shows no frame.
   useEffect(() => {
-    const host = readout.current?.parentElement?.querySelector("[data-slot=chart]");
+    const read = () => {
+      const value = intervalOf(plot())?.value ?? null;
+      if (sameWindow(value, state.current.range)) return;
+      state.current.range = value;
+      state.current.frame = null;
+      setRange(value);
+      setFrame(null);
+      if (!value) transport.current.stop("gone");
+    };
+    as.addEventListener("value", read);
+    return () => as.removeEventListener("value", read);
+  }, [as, plot]);
+
+  // A pointer down on the bars or the brush is the reader's: play pauses for it. Space on the
+  // focused figure plays and pauses; on the button, Space is the button's own.
+  useEffect(() => {
+    const figure = anchor.current?.closest<HTMLElement>("[role=figure]");
+    const host = figure?.querySelector("[data-slot=chart]");
+    if (!figure || !host) return;
+    const pause = () => transport.current.stop("pause");
+    const key = (event: KeyboardEvent) => {
+      if (event.key !== " " || event.target !== figure) return;
+      event.preventDefault();
+      toggle();
+    };
+    host.addEventListener("pointerdown", pause, { capture: true });
+    figure.addEventListener("keydown", key);
+    return () => {
+      host.removeEventListener("pointerdown", pause, { capture: true });
+      figure.removeEventListener("keydown", key);
+    };
+  });
+
+  // The clip follows the range and the frame, and is drawn again whenever Plot draws a new svg — a
+  // page clause re-querying the bars, or a rebuild.
+  useEffect(() => {
+    const host = anchor.current?.closest("[role=figure]")?.querySelector("[data-slot=chart]");
     if (!host) return;
-    const paint = () => clipToWindow(plot() as DrawnPlot | null);
+    const paint = () => clipToWindow(plot() as DrawnPlot | null, frame);
     const drawn = new MutationObserver(paint);
     drawn.observe(host, { childList: true, subtree: true });
     as.addEventListener("value", paint);
@@ -125,15 +236,7 @@ function TimelineWindow({ playable }: { playable: boolean }) {
       drawn.disconnect();
       as.removeEventListener("value", paint);
     };
-  }, [as, plot]);
-
-  // The window is the interval's value, and it changes whenever the interval publishes — a drag,
-  // a tick, or a reset from the bar's chip.
-  useEffect(() => {
-    const read = () => setRange(intervalOf(plot())?.value ?? null);
-    as.addEventListener("value", read);
-    return () => as.removeEventListener("value", read);
-  }, [as, plot]);
+  }, [as, plot, frame]);
 
   // An interval activates its selection when the pointer enters the plot, before any drag: that
   // is when its brush learns to stick. A brush ends a gesture with `sourceEvent`; a move made here
@@ -155,82 +258,129 @@ function TimelineWindow({ playable }: { playable: boolean }) {
 
   useEffect(() => {
     if (!playing) return;
+    let alive = true;
     const reduced = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const timer = setInterval(() => {
-      const interval = intervalOf(plot());
-      // A plot rebuilt a moment ago has not drawn its interval yet: wait for it.
-      if (interval && !interval.scale) return;
-      const next = interval && nextWindow(brushedBy(interval));
-      if (next) moveWindow(interval, next);
-      else setPlaying(false);
-    }, reduced ? REDUCED_TICK_MS : TICK_MS);
-    return () => clearInterval(timer);
-  }, [playing, plot]);
+    void (async () => {
+      while (alive && state.current.running) {
+        const drawn = intervalOf(plot());
+        const bars = drawn?.scale ? edgesOf(brushedBy(drawn)).length - 1 : BARS;
+        await Promise.all([sleep(stepMs(bars, reduced)), as.pending("value"), pace.pending("value")]);
+        if (!alive || !state.current.running) return;
+        const interval = intervalOf(plot());
+        // A plot rebuilt a moment ago has not drawn its interval yet: wait for it.
+        if (interval && !interval.scale) continue;
+        const span = interval?.value ? rangeOf(brushedBy(interval)) : null;
+        const at = state.current.frame;
+        if (!interval || !span || at === null) return transport.current.stop("gone");
+        if (at >= span.to) return transport.current.stop("end");
+        transport.current.show(interval, at + 1, true);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [playing, plot, as, pace]);
 
-  const reading = range ? readWindow(range) : null;
+  const shown = frame ?? range;
   const label = playing ? "Pause time" : "Play time";
+  const disabled = !range && !playing;
   return (
     <>
       {playable ? (
-        <Button
-          aria-label={label}
-          aria-pressed={playing}
-          className="order-first shrink-0"
-          onClick={() => setPlaying((p) => !p)}
-          pill
-          size="icon-sm"
-          title={label}
-          variant="outline"
-        >
-          {playing ? <PauseIcon /> : <PlayIcon />}
-        </Button>
+        // A disabled button takes no pointer, so what holds it carries the tooltip.
+        <span className="order-first inline-flex shrink-0" title={disabled ? NO_RANGE : undefined}>
+          <Button
+            aria-describedby={disabled ? hint : undefined}
+            aria-label={label}
+            aria-pressed={playing}
+            className="text-muted-foreground hover:text-foreground focus-visible:text-foreground"
+            disabled={disabled}
+            onClick={toggle}
+            size="icon-sm"
+            title={disabled ? undefined : label}
+            variant="ghost"
+          >
+            {playing ? <PauseIcon /> : <PlayIcon />}
+          </Button>
+          <span hidden id={hint}>
+            {NO_RANGE}
+          </span>
+        </span>
       ) : null}
-      {/* A fixed width, empty with no window: a readout that grew and shrank as it read would resize
-          the plot beside it, and a resize rebuilds it. */}
-      <div
-        aria-label="Window"
-        aria-valuetext={reading ?? undefined}
-        className="w-40 shrink-0 truncate text-right text-muted-foreground text-xs tabular-nums"
-        ref={readout}
-        role="group"
-      >
-        {reading}
+      {/* Read, not drawn: the bars take the width, and the chip already reads the window. */}
+      <div aria-label="Window" aria-valuetext={shown ? readWindow(shown) : undefined} className="sr-only" ref={anchor} role="group">
+        {shown ? readWindow(shown) : null}
+      </div>
+      <div aria-label="Timeline" className="sr-only" role="status">
+        {said}
       </div>
     </>
   );
 }
 
+/** Why play stopped: a pause, the end of the range, or the range let go. */
+type Stop = "pause" | "end" | "gone";
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Two windows with the same ends, or both none. */
+function sameWindow(a: readonly unknown[] | null, b: readonly unknown[] | null): boolean {
+  return a === b || (!!a && !!b && a.length === b.length && a.every((v, i) => +(v as number) === +(b[i] as number)));
+}
+
+/**
+ * The least time a step takes: Cosmograph's 50 ms a bar on 60 bars, longer on fewer so a sweep
+ * takes as long, and 500 ms at least under `prefers-reduced-motion`.
+ */
+export function stepMs(bars: number, reduced: boolean): number {
+  const ms = Math.max(TICK_MS, (TICK_MS * BARS) / Math.max(bars, 1));
+  return reduced ? Math.max(REDUCED_TICK_MS, ms) : ms;
+}
+
 /** The plot as the clip reads it: its element and marks, beside the interactors `ChartPlot` names. */
 type DrawnPlot = ChartPlot & { element: HTMLElement; marks: readonly { index: number }[] };
 
-/** The bars in front, the second mark: what the clip holds to the window. */
-const FRONT = 1;
+/** The marks the clip holds: the range, dimmed, and in front what the clause holds. */
+const RANGE = 1;
+const FRONT = 2;
 
 /**
- * Clip the bars in front to the interval's window, or lift the clip with no window. Idempotent, so
- * the observer it runs from does not feed itself: the clip path is added to an svg once.
+ * Clip the dimmed bars to the interval's range and the bars in front to `frame`, or to the range
+ * when no frame is shown; with no range, lift both. Idempotent, so the observer it runs from does
+ * not feed itself: the clip paths are added to an svg once.
  */
-function clipToWindow(plot: DrawnPlot | null): void {
+function clipToWindow(plot: DrawnPlot | null, frame: readonly unknown[] | null): void {
   const svg = plot?.element.querySelector("svg");
   const interval = intervalOf(plot);
-  const front = svg?.querySelector(`g[data-index="${plot?.marks[FRONT]?.index ?? FRONT}"]`);
-  if (!svg || !front || !interval?.scale) return;
-  if (!interval.value) return void front.removeAttribute("clip-path");
-  let rect = svg.querySelector("clipPath[data-slot=timeline-window] rect");
+  if (!svg || !interval?.scale) return;
+  const range = interval.value ?? null;
+  clip(svg, interval.scale, plot!.marks[RANGE]?.index ?? RANGE, range);
+  clip(svg, interval.scale, plot!.marks[FRONT]?.index ?? FRONT, range && (frame ?? range));
+}
+
+/** Clip mark `index` of `svg` to `window` on `scale`, or lift its clip. */
+function clip(svg: SVGSVGElement, scale: Brushed["scale"], index: number, window: readonly unknown[] | null): void {
+  const mark = svg.querySelector(`g[data-index="${index}"]`);
+  if (!mark) return;
+  if (!window) return void mark.removeAttribute("clip-path");
+  const slot = `timeline-clip-${index}`;
+  let rect = svg.querySelector(`clipPath[data-slot=${slot}] rect`);
   if (!rect) {
     const ns = "http://www.w3.org/2000/svg";
     const path = document.createElementNS(ns, "clipPath");
-    path.id = `timeline-window-${(clips += 1)}`;
-    path.setAttribute("data-slot", "timeline-window");
+    path.id = `${slot}-${(clips += 1)}`;
+    path.setAttribute("data-slot", slot);
     rect = path.appendChild(document.createElementNS(ns, "rect"));
     svg.prepend(path);
   }
-  const [a, b] = (interval.value as unknown[]).map((v) => interval.scale.apply(v) as number).sort((x, y) => x - y) as [number, number];
+  const [a, b] = window.map((v) => scale.apply(v)).sort((x, y) => x - y) as [number, number];
   rect.setAttribute("x", String(a));
   rect.setAttribute("width", String(b - a));
   rect.setAttribute("y", "0");
   rect.setAttribute("height", svg.getAttribute("height") ?? "100%");
-  front.setAttribute("clip-path", `url(#${rect.parentElement!.id})`);
+  mark.setAttribute("clip-path", `url(#${rect.parentElement!.id})`);
 }
 
 let clips = 0;
@@ -292,15 +442,15 @@ export function stickWindow(brushed: Pick<Brushed, "scale" | "mark">, extent: re
 }
 
 /**
- * The window one tick later: each end on the next edge, or `null` where it would pass the end of
- * the axis or no bars are drawn. With no window it is the first bar, where a sweep of the axis starts.
+ * The brushed range on the bars: every edge, and the indexes of the range's first and last, in
+ * axis order — the frames play shows are `[edges[from], edges[at]]` for `at` in `(from, to]`. `null`
+ * with no range or before the bars are drawn.
  */
-export function nextWindow(brushed: Brushed): [unknown, unknown] | null {
+export function rangeOf(brushed: Brushed): { edges: unknown[]; from: number; to: number } | null {
   const edges = edgesOf(brushed);
-  if (edges.length < 2) return null;
-  if (!brushed.value) return [edges[0], edges[1]];
-  const [a, b] = brushed.value.map((v) => nearest(edges, brushed.scale, brushed.scale.apply(v))).sort((x, y) => x - y) as [number, number];
-  return b + 1 < edges.length ? [edges[a + 1], edges[b + 1]] : null;
+  if (!brushed.value || edges.length < 2) return null;
+  const [from, to] = brushed.value.map((v) => nearest(edges, brushed.scale, brushed.scale.apply(v))).sort((x, y) => x - y) as [number, number];
+  return to > from ? { edges, from, to } : null;
 }
 
 /**

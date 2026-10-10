@@ -1,6 +1,6 @@
 ---
 title: Timeline
-description: Why a time filter is a histogram whose brush owns its clause and sticks to its bars, why playback sweeps the axis by moving the brush through its owner rather than the selection, why its window reaches the page as identity and greys what has no time, why time is read from the schema and never guessed, and why a date on a relation is a vertex — and what would reverse each rule.
+description: Why a time filter is a histogram whose brush owns its clause and sticks to its bars, why play runs inside the brushed range, accumulating, through the brush's own clause and at the page's pace, why its window reaches the page as identity and greys what has no time, why time is read from the schema and never guessed, and why a date on a relation is a vertex — and what would reverse each rule.
 ---
 
 A timeline is a brushable histogram of one temporal column, which filters the page to the brushed
@@ -11,11 +11,13 @@ why ours is shaped as it is.
 
 ## A histogram whose brush owns one clause
 
-**A timeline is two layers of bars over `bin(field)` and an interval brush that publishes one clause:
-the bars behind are the column unfiltered, the bars in front are what the page keeps, the window
-excluded, and the brush's clause is a chip in the bar like any other control's.** The window is in
-colour and what it leaves out is grey, as in Cosmograph: the bars in front are clipped to the window,
-so inside it they cover the grey bars behind and outside it only the grey shows. The brush exempts
+**A timeline is three layers of bars over `bin(field)` and an interval brush that publishes one
+clause: the bars behind are the column unfiltered, grey; the two above are what the page keeps, the
+window excluded — the range dimmed, and in front, in colour, what the clause holds — and the
+brush's clause is a chip in the bar like any other control's.** The window is in colour and what it
+leaves out is grey, as in Cosmograph: the layers above are clipped, so inside the window they cover
+the grey bars behind and outside it only the grey shows. While play runs inside the range, the
+clause holds less than the range, and the part of the range it has not reached is dimmed. The brush exempts
 its whole plot, so a drag asks the database nothing here. A first version filtered the bars in front
 by the window (`peers: false`) instead, and every step of a drag re-queried them; vgplot's `Plot`
 redraws its whole svg for one mark's answer, brush included, so the timeline flickered and rebuilt
@@ -42,7 +44,7 @@ plot went on publishing through its brush, which d3 keeps listening to. The bar 
 once. With one source per place the selection holds one clause whoever publishes, and an interactor
 no longer on screen speaks through the one that is. The heir is handed the value, draws its brush
 from it and republishes it for its own marks; where the grammar changed, the clause is withdrawn.
-And the readout has a fixed width, so it no longer resizes the plot. *What would reverse it:*
+And the range is no longer drawn beside the bars, so it no longer resizes the plot. *What would reverse it:*
 interactors in vgplot that outlive their plot, or a plot that resizes without being rebuilt; then
 there is nothing to hand over and no place to keep.
 
@@ -57,57 +59,93 @@ coordinator for one row per bin, which a pre-aggregate can answer.
 timezone per row, read as wall-clock time. Then the bins are computed over the rows the client holds,
 as Cosmograph's are.
 
-## Playback moves the brush through its owner
+## Play runs inside the brushed range, accumulating
 
-**A clause belongs to the source that published it, and only that source changes it, so playback
-asks the brush to move.** Each tick moves the interval interactor as its own `publish(extent)` does —
-its `value`, its brush moved silently, and `selection.update(interval.clause(window))` — but with the
-window in data rather than pixels. `publish` inverts a pixel floored to the interactor's
-`pixelSize`, so a window it set would hold *1909.9* where the bar starts at *1910*. The brush moves,
-and its clause, built by the interactor, moves with it.
+**The brushed range is the reader's and never moves; play runs inside it.** Each step publishes
+*[the range's start, one bar further]*, from the range's first bar to its end, so the graph fills
+in over time. That is Kepler.gl's `incremental` animation window, whose start stays put while its
+end grows to the end of the last bin
+([`animation-controller.ts`](https://github.com/keplergl/kepler.gl/blob/f999fa696c202c5903c6ae2c9450cce83294a04b/src/components/src/common/animation-control/animation-controller.ts)
+L214-232). It is also the reading of Gapminder's play, where the chart builds through time
+([Vizabi `time.js`](https://github.com/vizabi/vizabi/blob/44bffd91a542b369321ee1ebcc882bc905b3537b/src/models/time.js)).
+The brush stays drawn as the range's outline, the bars from its start to the frame are in colour,
+the rest of the range is dimmed, and outside it is grey. A pause or the end shows the same, frozen.
+When nothing plays, the range is a plain window.
 
-**The window sticks to the bars' edges, Cosmograph's `stickySelection`.** When a drag ends — a
-d3-brush `end` with a `sourceEvent`, which a move made in code never has — the window is moved to the
+**Cosmograph's moving window was built first and turned down.** Cosmograph's `Timeline` moves the
+selection itself a bar at a time, keeping its width, and clears it at the end
+(`@cosmograph/ui` 2.5.1, `modules/timeline/component.js`: `_animateSelection` and
+`stopAnimation`). Built that way here, it threw away the range the reader had chosen: the window left
+the years it was brushed over, and a sweep from a narrow window over a large graph greyed almost
+everything. A reader who brushes 1980 – 1990 is asking to watch those years, so the range stays and
+the frame grows inside it. *What would reverse it:* readers who want a fixed-width window moving over
+time — a rolling year; then a second mode, Kepler's `free`, beside this one, chosen in the settings.
+
+**With no range, Play is disabled, as Cosmograph's is.** It is described, and its tooltip says why:
+*Brush a range to play*. Cosmograph disables its control without a selection
+(`_initAnimationControls` and the `disabled` class). The sweep from the axis's start that we tried
+instead played a range nobody chose.
+
+**At the end, it stops and keeps the whole range; the next Play starts over from its first bar.**
+That is Vizabi's rule, *go to start if we start from end point*, and what Observable's
+[Scrubber](https://observablehq.com/@mbostock/scrubber) does on the next press. Cosmograph clears the
+selection at the end, which reads as play undoing the reader's range, and Kepler loops forever, which
+never lets a graph settle. *What would reverse it:* a reader who wants it to loop; then a loop
+setting, off by default.
+
+**A pointer coming down on the bars or the brush while it plays pauses it.** Scrubber stops on any
+input it did not make, Vizabi sets `playing = false` on a drag, and
+[Animated Vega-Lite](https://vis.mit.edu/pubs/animated-vega-lite) pauses when the slider is scrubbed.
+A drag makes a new range, and the next Play starts from that range's start. Cosmograph and Flourish
+play on under the pointer, so the reader's gesture and the step fight over the same brush.
+
+**Each step waits for the page to answer the last, and takes no less than
+max(50 ms, 50 ms × 60 / bars).** The step publishes, then waits for the clients of the page
+(`Selection.pending("value")`, which resolves once the coordinator has answered every client the
+value reached, the graph's among them) and for that least time. Cosmograph's 50 ms a bar does not
+wait, and on SNB's 341,661 vertices the canvas fell behind the readout. Kepler schedules its next
+frame only after React has drawn the last, and Vizabi skips frames when they lag: both let the render
+set the pace. A graph that answers slowly plays slowly, rather than out of step, and dashboards follow
+at the same rate, each query a Mosaic client throttles to one in flight. On fewer bars a step takes
+longer, so a sweep of the whole axis lasts about as long.
+
+**Under `prefers-reduced-motion` a step takes 500 ms at least.** The rule on
+[preferences](/docs/design/preferences) is to honour the query wherever something moves. Play is
+what the person asked for and pause is one press away, so it still plays, ten times slower, each
+frame a state to read. None of the references handles the query. *What would reverse it:* a reader
+under the query for whom even that is too much; then Play steps one bar per press.
+
+**One clause, and one chip, for the timeline's life.** Each frame is published through the
+interval's own clause, whose source is its place in the plot (above), so a frame, a drag, a stuck
+drag-end and a rebuild all replace the same clause. Cosmograph does the same with one
+`FilteringClient` per timeline publishing as `source: this`. Mosaic depends on it: a crossfilter
+selection drops queued values whose clause has the same source (`queueFilter`), so with one source a
+burst of steps collapses to the newest. While it plays the clause says so in its metadata, and its
+chip carries a ▶; its × stops play and lets the range go, as the page's **Clear** does.
+
+**Play is a bare icon at the bars' left edge, muted until hovered, as Cosmograph's is.** Cosmograph
+draws a borderless icon, 20 – 30 px wide and half opaque, as a flex item left of its bars
+(`style.js`, `animationControl`). Ours is named *Play time* or *Pause time*, the same words as its
+tooltip, so it does not read as the canvas toolbar's layout transport. The bars take every pixel
+right of it. The window's range is not drawn beside them: the chip reads it, and a slot that changed
+width resized and so rebuilt the plot. It is still read, as a group whose `aria-valuetext` is the
+window. A pause and the end are announced; the steps are not, since one every 50 ms would flood a
+screen reader. Space on the focused figure plays and pauses.
+
+**A clause belongs to the source that published it, and only that source changes it, so play asks
+the brush's clause for each frame.** `interval.clause(frame)` builds it, in data rather than pixels:
+`publish` inverts a pixel floored to the interactor's `pixelSize`, so a frame it set would hold
+*1909.9* where the bar starts at *1910*.
+
+**The range sticks to the bars' edges, Cosmograph's `stickySelection`.** When a drag ends — a
+d3-brush `end` with a `sourceEvent`, which a move made in code never has — the range is moved to the
 nearest edges of the bars the brushed mark drew, at least one bar wide. So it reads *1910 – 1940*,
-its chip too, and a tick moves each end to the next edge: one bar, whatever its width, a month of
-uneven days included. The edges are the mark's own `x1` and `x2`, the bins vgplot asked for, so
-nothing is binned twice.
-Mosaic draws this line itself. An interval interactor never follows its selection, while an input
-that is driven from outside is bound to a `Param`: `Slider` follows a `Param`'s `value` events and
-not a `Selection`'s, and `PanZoom` follows the `Param`s of its domains. Cosmograph's
-`setSelection()` is the same shape, a method on the timeline rather than a write to the crossfilter.
-`ChartTimeline` reaches its interactor through `Plot.interactors`, which vgplot exposes.
-
-**Play sweeps the axis, as Cosmograph's timeline does.** With no window, it starts one a bar wide at
-the start of the axis; with one, it moves that window, its width kept, from where it is. Every 50 ms
-the window moves by one bar, and at the end of the axis it stops and the button is no longer
-pressed. A pause leaves the window where it is. So Play is never disabled while there are bars: the
-first version disabled it until a window was brushed, and a person who pressed it to see the graph
-grow had first to learn to drag. There is no stop: a window is let go as any filter is, from its chip
-or the page's **Clear**, and Cosmograph's stop is that and a pause.
-
-**Under `prefers-reduced-motion` it still plays, a bar every 500 ms.** The rule on
-[preferences](/docs/design/preferences) is to honour the query wherever something moves, and a sweep
-repaints the whole canvas twenty times a second. It is not dropped, because the sweep is what the
-person asked for and the pause is one press away; it is slowed tenfold, so each frame is a state to
-read rather than a flicker. *What would reverse it:* a reader under the query for whom even that is
-too much; then Play steps one bar per press.
-
-A tick does not wait for the graph: each one publishes, and the store keeps the newest answer and
-drops a stale one (`packages/graph/src/core/store.ts`). A playing timeline therefore never draws
-behind its own clause.
-
-**Play is a round icon at the timeline's left edge, centred on the bars, as Cosmograph's is; the
-window's range reads at the right edge.** It sat under the bars beside the readout, an icon identical
-to the canvas toolbar's layout transport, so two play buttons a few centimetres apart did different
-things. Cosmograph's `Timeline` puts its play button at the left of the bars, round and alone, and
-so does ours: an outlined round button, named *Play time* or *Pause time*, the same words as its
-tooltip — the toolbar's is square and ghosted, and named for the layout. A labelled text button was
-tried and narrowed the bars for a word the tooltip already says. The range slot, *1910 – 1940*, has
-a fixed width and is empty with no window: the helper text that filled it, *Drag across the bars to
-choose a window*, said what the cursor over a brush already says, and a slot that changed width
-resized and so rebuilt the plot. *What would reverse it:* readers who do not find the window
-without the hint; then it returns as the plot's own empty state, over the bars, not beside them.
+its chip too, and each frame ends on an edge: one bar, whatever its width, a month of uneven days
+included. The edges are the mark's own `x1` and `x2`, the bins vgplot asked for, so nothing is binned
+twice. Mosaic draws this line itself. An interval interactor never follows its selection, while an
+input that is driven from outside is bound to a `Param`: `Slider` follows a `Param`'s `value` events
+and not a `Selection`'s. `ChartTimeline` reaches its interactor through `Plot.interactors`, which
+vgplot exposes.
 
 **Two alternatives were turned down.**
 
@@ -119,9 +157,8 @@ without the hint; then it returns as the plot's own empty state, over the bars, 
   interactor's `reset` already answers that.
 
 **What would reverse it:** an interval interactor in Mosaic bound to a `Param` — the brush following
-a value, as `Slider` does. Then playback writes the `Param`, and `ChartTimeline` stops reaching into
-`Plot.interactors`. A second one, for the tick: frames whose answers lag the window visibly on a
-large corpus. Then the tick waits for the page's clients to answer before the next one.
+a value, as `Slider` does. Then play writes the `Param`, and `ChartTimeline` stops reaching into
+`Plot.interactors`.
 
 ## Time is read from the schema, never guessed
 
@@ -209,28 +246,33 @@ the edges it matches and their endpoints — Cosmograph's rule, `endpointPointsO
 ## What a test reads
 
 The part is accessible first, in [the testing rule's](/docs/design/testing) order. Play and pause are
-one button, *Play time* or *Pause time*, with `aria-pressed`, the chart is `aria-busy` while its query runs, and the brushed range
-is a group whose `aria-valuetext` reads *1950 – 1960*. `ChartTimeline` registers its `x` scale under
-its title in `window.__KANZO_TESTING__.charts` when a test has installed the hook. `TimelineHarness`
-then brushes in data and plays.
+one button, *Play time* or *Pause time*, with `aria-pressed`, disabled and described with no range;
+the chart is `aria-busy` while its query runs; the window the clause holds is a group whose
+`aria-valuetext` reads *1950 – 1960*; and a pause or the end is a status, *Paused at 1950 – 1955*.
+`ChartTimeline` registers its `x` scale under its title in `window.__KANZO_TESTING__.charts` when a
+test has installed the hook. `TimelineHarness` then brushes in data and plays.
 
-*Held by* `packages/ui/src/charts/chart-timeline.test.tsx` (a tick moves the window one bar, in axis
-order, and stops at the end of the axis; "starts a window one bar wide at the start of the axis when
-there is none, as Cosmograph's does"; "puts Play time first, before the bars, and the window's range
-after them"; a brushed window
-sticks to the nearest edges, at least one bar wide; a year reads as its integer, on the axis too; the
-figure, its button and its group are what a harness reads),
+*Held by* `packages/ui/src/charts/chart-timeline.test.tsx` ("reads a brushed range as the edges it
+spans, in axis order — the frames play shows"; "has nothing to play without a range, as
+Cosmograph's has not"; "is 50 ms a bar on 60 bars or more, and slower on fewer, so a sweep takes as
+long"; "is 500 ms at least under prefers-reduced-motion"; "puts Play time first, before the bars,
+which take the rest of the width"; a brushed window sticks to the nearest edges, at least one bar
+wide; a year reads as its integer, on the axis too),
 `packages/ui/src/charts/filter-bar.test.tsx` ("names a bridged part once when it already reads as its
-bridge's name — a timeline's window"),
+bridge's name — a timeline's window"; "marks a part that is playing — a timeline's window on the
+move"),
 `packages/graph/src/parts/graph-timeline.test.tsx` (it draws nothing until `time-by` is chosen, and
 nothing for a column the corpus lacks; "crosses the window into the page as a clause every client
-answers, greying every vertex without the column"; "plays the whole axis with no window: one bar wide
-from its start, to its end, then stops"; "plays a window from where it is, the same width, to the
-end of the axis"; "pauses where it is, the window kept"; "holds one clause through play, a rebuild
-while it plays, a pause, a drag and play again"; "neither rebuilds nor redraws the plot while a brush
-is dragged"; "holds one window, which each brush replaces — through a
-re-render and a rebuild of the plot"; "keeps the window through a rebuild of the plot, drawn and
-playable"; "draws the window's bars in colour by clipping the bars in front to it, with no query"; "draws every tick
-label whole, the first one at the axis's edge too"), `packages/mosaic/src/clause.test.ts` ("crosses clauses on some rows as a semi-join, which keeps
-no row the table does not hold") and `packages/graph/src/parts/graph-section.test.tsx` (the
-setting offers the `xsd:gYear` column by its datatype, and no integer of the same range).
+answers, greying every vertex without the column"; "holds one clause and one chip through every
+state play passes — a rebuild and a stale brush included"; "is disabled with no range, and playable
+once one is brushed"; "accumulates inside the range a bar at a time, stops at its end with the whole
+range, and starts over on the next press"; "pauses when the pointer comes down on the bars, holds
+the frame, and plays on from it"; "marks its chip while it plays, and the chip's remove stops it and
+lets the window go"; "plays and pauses with Space on the focused timeline"; "waits for the page to
+answer each window before the next one"; "neither rebuilds nor redraws the plot while a brush is
+dragged"; "holds one window, which each brush replaces — through a re-render and a rebuild of the
+plot"; "draws the window's bars in colour by clipping the bars in front to it, with no query"; "draws
+every tick label whole, the first one at the axis's edge too"), `packages/mosaic/src/clause.test.ts`
+("crosses clauses on some rows as a semi-join, which keeps no row the table does not hold") and
+`packages/graph/src/parts/graph-section.test.tsx` (the setting offers the `xsd:gYear` column by its
+datatype, and no integer of the same range).

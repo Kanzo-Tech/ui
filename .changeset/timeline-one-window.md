@@ -4,8 +4,8 @@
 "@kanzo-tech/mosaic": minor
 ---
 
-**The timeline holds one window, reads it once, greys everything outside it, sweeps the whole axis
-when played and draws its first year whole.**
+**The timeline holds one window, reads it once, greys everything outside it, plays inside the
+brushed range and draws its first year whole.**
 
 - **While a window is set, only what has the time column and falls in the window stays in colour.**
   `GraphTimeline` used to leave every type without the column whole, so a window over 30 birthdays
@@ -17,16 +17,24 @@ when played and draws its first year whole.**
 - **`antiJoinOf` is gone from `@kanzo-tech/mosaic`.** The timeline was its only user and now crosses
   with `semiJoinOf(key, table)`. Replace a call with `semiJoinOf` if you want rows the table does not
   hold dropped, which is what it now does for the timeline.
-- **Play sweeps the whole axis.** With no window it starts one a bar wide at the start of the axis and
-  moves it a bar at a time to the end, then stops; with a window it moves that window, its width kept,
-  from where it is. Pause leaves the window where it is. Play is never disabled while there are bars.
-  Under `prefers-reduced-motion` it moves a bar every 500 ms instead of every 50.
-- **Play is a round icon at the timeline's left edge, as in Cosmograph.** It is named *Play time* (and
-  *Pause time* while playing), the same words as its tooltip, so it no longer reads as the canvas
-  toolbar's layout play button. The window's range reads at the right edge in a slot of fixed width,
-  empty with no window: *Drag across the bars to choose a window* is gone. A test
-  that found it by the name *Play* or *Pause* finds it by *Play time* or *Pause time*;
-  `TimelineHarness` already matches both, and its API is unchanged.
+- **Play runs inside the brushed range, accumulating.** The range you brush never moves: play
+  publishes *[its start, one bar further]* until it holds the whole range, so the graph fills in over
+  time (Kepler's `incremental` window). With no range Play is disabled, described and titled *Brush a
+  range to play*. At the end it stops with the whole range kept, and the next Play starts over from
+  its first bar. A pointer down on the bars pauses it, and a drag makes a new range for the next Play.
+  Each step waits for the page to answer the last — new `paceBy` prop, the page's crossfilter by
+  default; `GraphTimeline` passes its page — and takes 50 ms at least on 60 bars, longer on fewer,
+  500 ms under `prefers-reduced-motion`. Space on the focused timeline plays and pauses; a pause and
+  the end are announced.
+- **While it plays, its chip in the `FilterBar` carries a ▶**, and the chip's × stops play and lets
+  the range go. A clause whose `meta.playing` is `true` is marked this way.
+- **Play is a bare icon at the timeline's left edge, muted until hovered, as in Cosmograph,** named
+  and titled *Play time* (*Pause time* while playing), so it no longer reads as the canvas toolbar's
+  layout play button. The bars take the rest of the width: the window's range is no longer drawn
+  beside them (the chip reads it), and *Drag across the bars to choose a window* is gone. The window
+  is still read by assistive technology, as before. A test that found the button by the name *Play*
+  or *Pause* finds it by *Play time* or *Pause time*; `TimelineHarness` already matches both, and its
+  API is unchanged.
 
 - **A second brush replaces the window instead of adding one.** `bin()` made a new transform on
   every call, so each render of a chart that binned — `ChartTimeline`, a tile's histogram, your own
@@ -41,10 +49,11 @@ when played and draws its first year whole.**
   did nothing; the window now survives the rebuild and plays.
 - **The chip reads *birthday 7/1/1981 – 7/1/1985***, not *birthday birthday …*: the `FilterBar` no
   longer prefixes a bridged part with its bridge's name when the part already reads as that name.
-- **The window is in colour and the rest is grey, and a drag no longer flickers.** The bars in front
+- **The window is in colour and the rest is grey, and a drag no longer flickers.** The bars above
   are clipped to the window rather than re-queried for it, so dragging the brush redraws nothing,
   and the brush draws as an outline rather than a grey fill over the bars it keeps.
 - **The first tick reads *1980*, not *980*.** The plot leaves half a label of room at either end.
 
 Size budgets raised as a decision, for one clause source per brush across rebuilds and the
-window's clip: analytics 33.9 → 34.8 kB, one dashboard 32.3 → 33.1 kB.
+window's clip: analytics 33.9 → 35.6 kB, one dashboard 32.3 → 33.9 kB (the last 0.8 kB of each for play inside
+the range).

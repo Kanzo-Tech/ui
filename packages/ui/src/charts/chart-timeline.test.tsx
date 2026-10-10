@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { Coordinator } from "@uwdata/mosaic-core";
-import { ChartTimeline, edgesOf, nextWindow, readWindow, stickWindow, tickLabel } from "./chart-timeline.js";
+import { ChartTimeline, edgesOf, rangeOf, readWindow, stepMs, stickWindow, tickLabel } from "./chart-timeline.js";
 import { MosaicProvider } from "./mosaic-provider.js";
 
 /** Pixels are years here: an axis of 0 – 600 drawn as 60 bars of 10, the brushed mark's data. */
@@ -10,26 +10,28 @@ const x1 = Array.from({ length: 60 }, (_, i) => i * 10);
 const mark = { data: { columns: { x1, x2: x1.map((x) => x + 10) } } };
 const brushed = (value?: readonly number[]) => ({ value, scale, mark });
 
-describe("nextWindow", () => {
-  it("moves the window one bar along the axis", () => {
-    expect(nextWindow(brushed([100, 200]))).toEqual([110, 210]);
+describe("rangeOf", () => {
+  it("reads a brushed range as the edges it spans, in axis order — the frames play shows", () => {
+    expect(rangeOf(brushed([100, 200]))).toMatchObject({ from: 10, to: 20 });
+    expect(rangeOf(brushed([200, 100]))).toMatchObject({ from: 10, to: 20 });
   });
 
-  it("reads a window brushed right to left in axis order", () => {
-    expect(nextWindow(brushed([200, 100]))).toEqual([110, 210]);
+  it("has nothing to play without a range, as Cosmograph's has not", () => {
+    expect(rangeOf(brushed(undefined))).toBeNull();
+    expect(rangeOf({ scale, mark: { data: null }, value: [100, 200] })).toBeNull();
+  });
+});
+
+describe("stepMs", () => {
+  it("is 50 ms a bar on 60 bars or more, and slower on fewer, so a sweep takes as long", () => {
+    expect(stepMs(60, false)).toBe(50);
+    expect(stepMs(120, false)).toBe(50);
+    expect(stepMs(10, false)).toBe(300);
   });
 
-  it("stops where the next bar would pass the end of the axis", () => {
-    expect(nextWindow(brushed([500, 600]))).toBeNull();
-    expect(nextWindow(brushed([480, 590]))).toEqual([490, 600]);
-  });
-
-  it("starts a window one bar wide at the start of the axis when there is none, as Cosmograph's does", () => {
-    expect(nextWindow(brushed(undefined))).toEqual([0, 10]);
-  });
-
-  it("has nothing to play before the bars are drawn", () => {
-    expect(nextWindow({ scale, mark: { data: null } })).toBeNull();
+  it("is 500 ms at least under prefers-reduced-motion", () => {
+    expect(stepMs(60, true)).toBe(500);
+    expect(stepMs(2, true)).toBe(1500);
   });
 });
 
@@ -78,28 +80,33 @@ describe("tickLabel", () => {
 describe("ChartTimeline", () => {
   const coordinator = { clear() {} } as unknown as Coordinator;
 
-  it("is a figure named by its title, with Play time playable with no window", () => {
+  it("is a figure named by its title, with Play time disabled until a window is brushed", () => {
     render(
       <MosaicProvider coordinator={coordinator}>
         <ChartTimeline field="year" table="awards" title="Awards by year" />
       </MosaicProvider>,
     );
-    expect(screen.getByRole("figure", { name: "Awards by year" })).toBeTruthy();
+    const figure = screen.getByRole("figure", { name: "Awards by year" });
+    // Space on the focused timeline plays it: the figure takes focus and says so.
+    expect(figure.getAttribute("tabindex")).toBe("0");
+    expect(figure.getAttribute("aria-keyshortcuts")).toBe("Space");
     const play = screen.getByRole("button", { name: "Play time" });
     expect(play.getAttribute("aria-pressed")).toBe("false");
-    expect(play.hasAttribute("disabled")).toBe(false);
-    // Icon-only and round, as Cosmograph's is: named apart from a canvas's layout transport, and
-    // the same words in its tooltip.
+    // Disabled as Cosmograph's is, and described by why: the reason is its
+    // description and, since a disabled button takes no pointer, the tooltip of what holds it.
+    expect(play.hasAttribute("disabled")).toBe(true);
+    const why = document.getElementById(play.getAttribute("aria-describedby") ?? "");
+    expect(why?.textContent).toBe("Brush a range to play");
+    expect(play.parentElement?.getAttribute("title")).toBe("Brush a range to play");
+    // A bare icon, as Cosmograph's is: named apart from a canvas's layout transport.
     expect(play.textContent).toBe("");
-    expect(play.getAttribute("title")).toBe("Play time");
     const window = screen.getByRole("group", { name: "Window" });
     expect(window.hasAttribute("aria-valuetext")).toBe(false);
-    // No helper text: the slot is empty, its width reserved so the bars do not move when it reads.
-    expect(window.textContent).toBe("");
-    expect(window.className).toMatch(/(^|\s)w-\d+/);
+    // Read, not drawn: the bars take the width beside Play.
+    expect(window.className).toMatch(/\bsr-only\b/);
   });
 
-  it("puts Play time first, before the bars, and the window's range after them", () => {
+  it("puts Play time first, before the bars, which take the rest of the width", () => {
     render(
       <MosaicProvider coordinator={coordinator}>
         <ChartTimeline field="year" table="awards" title="Awards by year" />
@@ -111,8 +118,9 @@ describe("ChartTimeline", () => {
     const plot = figure.querySelector("[data-slot=chart]")!;
     // Drawn left to right in that order: the figure is a row and the button is ordered first.
     expect(figure.className).toMatch(/\bflex-row\b/);
-    expect(play.className).toMatch(/\border-first\b/);
-    expect(plot.compareDocumentPosition(window) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(play.parentElement!.className).toMatch(/\border-first\b/);
+    expect(plot.className).toMatch(/\bflex-1\b/);
+    expect(window.className).toMatch(/\bsr-only\b/);
   });
 
   it("draws no play button when it is not playable", () => {

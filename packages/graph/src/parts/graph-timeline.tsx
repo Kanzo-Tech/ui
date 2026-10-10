@@ -17,8 +17,8 @@ export interface GraphTimelineProps {
 
 /**
  * **The timeline under the graph** — Cosmograph's `CosmographTimeline`: the distribution of one
- * temporal column over every type that has it, a window brushed across it, and *Play time*, which
- * sweeps a window across the axis. The column is the `time-by` preference, chosen in the graph's
+ * temporal column over every type that has it, a range brushed across it, and *Play time*, which
+ * plays the range a bar at a time, accumulating, each step paced by the page's answer to the last. The column is the `time-by` preference, chosen in the graph's
  * settings; with none chosen, or one this corpus does not have, it draws nothing.
  *
  * The window is a clause of the timeline's own, crossed into the page's crossfilter as a semi-join
@@ -45,6 +45,7 @@ export function GraphTimeline({ className, height }: GraphTimelineProps) {
       field={timeline}
       filterBy={own}
       height={height}
+      paceBy={page}
       table={of.table}
       title={`Timeline: ${timeline}`}
     />

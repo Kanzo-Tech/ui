@@ -316,10 +316,11 @@ its id.
 ```
 
 Cosmograph's `CosmographTimeline`, under the canvas: the distribution of one temporal column over
-every type that has it, a window brushed across it, and *Play time*, its first control, which
-sweeps a window across the axis a bar at a time — from the start of the axis with no window, from
-where the window is with one — and stops at the end. It is drawn apart from the toolbar's layout
-transport, which is a play button too. It is `ChartTimeline` from `@kanzo-tech/ui/analytics` over the corpus.
+every type that has it, a range brushed across it, and *Play time*, a bare icon at its left edge,
+which plays the range: the graph fills in from the range's start a bar at a time, each step waiting
+for the graph to answer the last, until the whole range is in colour. With no range it is disabled;
+at the end the next press starts over; a pointer down on the bars pauses it. It is named apart from
+the toolbar's layout transport, which is a play button too. It is `ChartTimeline` from `@kanzo-tech/ui/analytics` over the corpus.
 
 - **The column is a setting, not a prop.** `time-by` — *Timeline* in the graph's settings — offers
   the corpus's temporal columns, the way *X axis* offers its numeric ones, and with none chosen the
