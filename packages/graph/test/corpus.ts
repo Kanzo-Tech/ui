@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
-import { ConsoleLogger, LogLevel, NODE_RUNTIME, createDuckDB, type DuckDBBindings, type DuckDBConnection } from "@duckdb/duckdb-wasm/blocking";
+import { ConsoleLogger, LogLevel, NODE_RUNTIME, createDuckDB } from "@duckdb/duckdb-wasm/blocking";
 import { decodeIPC } from "@uwdata/mosaic-core";
 import { Coordinator } from "@kanzo-tech/mosaic";
 
@@ -20,25 +20,27 @@ import { Coordinator } from "@kanzo-tech/mosaic";
 
 const require = createRequire(import.meta.url);
 
-let booted: Promise<{ db: DuckDBBindings; conn: DuckDBConnection }> | null = null;
-
-/** One database per test file: instantiating the module is the cost, not a catalog. */
-function boot() {
-  booted ??= (async () => {
-    const dist = dirname(require.resolve("@duckdb/duckdb-wasm"));
-    const db = await createDuckDB(
-      {
-        mvp: { mainModule: resolve(dist, "duckdb-mvp.wasm"), mainWorker: resolve(dist, "duckdb-node-mvp.worker.cjs") },
-        eh: { mainModule: resolve(dist, "duckdb-eh.wasm"), mainWorker: resolve(dist, "duckdb-node-eh.worker.cjs") },
-      },
-      new ConsoleLogger(LogLevel.ERROR),
-      NODE_RUNTIME,
-    );
-    await db.instantiate();
-    return { db, conn: db.connect() };
-  })();
-  return booted;
-}
+/**
+ * **One database per test file, instantiated when this module is imported.** Compiling DuckDB-WASM
+ * is the cost here, not a catalog: about 0.3 s alone, and several seconds when `pnpm verify` runs
+ * every package's suite at once on a CI runner's few cores. Paid inside `attach`, it landed on
+ * whichever test of the file ran first and pushed that one past vitest's 5 s budget, so the same
+ * tests timed out on CI and never locally. Top-level `await` pays it while the file is collected,
+ * before any test's clock starts, and only in the files that import a corpus.
+ */
+const { conn } = await (async () => {
+  const dist = dirname(require.resolve("@duckdb/duckdb-wasm"));
+  const db = await createDuckDB(
+    {
+      mvp: { mainModule: resolve(dist, "duckdb-mvp.wasm"), mainWorker: resolve(dist, "duckdb-node-mvp.worker.cjs") },
+      eh: { mainModule: resolve(dist, "duckdb-eh.wasm"), mainWorker: resolve(dist, "duckdb-node-eh.worker.cjs") },
+    },
+    new ConsoleLogger(LogLevel.ERROR),
+    NODE_RUNTIME,
+  );
+  await db.instantiate();
+  return { conn: db.connect() };
+})();
 
 export interface Attached {
   /** The page's coordinator, over this process's DuckDB. */
@@ -95,7 +97,6 @@ CREATE VIEW ${c}.fossil_columns AS
  * `people` grows `Person` for a test about scale; the other tables follow it, ids shifted.
  */
 export async function attach(people = 10): Promise<Attached> {
-  const { conn } = await boot();
   const from = `corpus${++catalogs}`;
   conn.query(FIXTURE(from, people));
   const sent: string[] = [];
