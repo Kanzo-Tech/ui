@@ -120,8 +120,9 @@ interval's own clause, whose source is its place in the plot (above), so a frame
 drag-end and a rebuild all replace the same clause. Cosmograph does the same with one
 `FilteringClient` per timeline publishing as `source: this`. Mosaic depends on it: a crossfilter
 selection drops queued values whose clause has the same source (`queueFilter`), so with one source a
-burst of steps collapses to the newest. While it plays the clause says so in its metadata, and its
-chip carries a ▶; its × stops play and lets the range go, as the page's **Clear** does.
+burst of steps collapses to the newest. While it plays the chip reads as it does paused, its text
+following the window, with no marker; its × stops play and lets the range go, as the page's
+**Clear** does.
 
 **The timeline is a compact band, 44 px, drawn as Cosmograph's app draws it:** no border or panel of
 its own, the tick labels in a row at the top, each to the right of a thin rule that runs the band's
@@ -271,15 +272,14 @@ long"; "is 500 ms at least under prefers-reduced-motion"; "makes Play a bare gly
 with the same 10 px either side, as Cosmograph's"; a brushed window sticks to the nearest edges, at least one bar
 wide; a year reads as its integer, on the axis too),
 `packages/ui/src/charts/filter-bar.test.tsx` ("names a bridged part once when it already reads as its
-bridge's name — a timeline's window"; "marks a part that is playing — a timeline's window on the
-move"),
+bridge's name — a timeline's window"),
 `packages/graph/src/parts/graph-timeline.test.tsx` (it draws nothing until `time-by` is chosen, and
 nothing for a column the corpus lacks; "crosses the window into the page as a clause every client
 answers, greying every vertex without the column"; "holds one clause and one chip through every
 state play passes — a rebuild and a stale brush included"; "is disabled with no range, and playable
 once one is brushed"; "accumulates inside the range a bar at a time, stops at its end with the whole
 range, and starts over on the next press"; "pauses when the pointer comes down on the bars, holds
-the frame, and plays on from it"; "marks its chip while it plays, and the chip's remove stops it and
+the frame, and plays on from it"; "reads its chip as the window while it plays, and the chip's remove stops it and
 lets the window go"; "plays and pauses with Space on the focused timeline"; "waits for the page to
 answer each window before the next one"; "neither rebuilds nor redraws the plot while a brush is
 dragged"; "holds one window, which each brush replaces — through a re-render and a rebuild of the

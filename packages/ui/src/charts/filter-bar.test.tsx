@@ -71,24 +71,6 @@ describe("FilterBar", () => {
     expect(await screen.findByRole("button", { name: "Remove birthday 1981 – 1985" })).toBeTruthy();
   });
 
-  it("marks a part that is playing — a timeline's window on the move", async () => {
-    const crossfilter = Selection.crossfilter();
-    const inner = Selection.crossfilter();
-    bridgeSelection(inner, crossfilter, semiJoinOf("dense_id", "Person", { label: "birthday" }));
-    render(
-      <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
-        <FilterBar />
-      </MosaicProvider>,
-    );
-    const source = { reset() {} };
-    const window = clauseInterval("birthday", [1981, 1985], { source });
-    inner.update({ ...window, meta: { ...window.meta, playing: true } } as typeof window);
-    const chip = (await screen.findByRole("button", { name: "Remove birthday 1981 – 1985" })).parentElement!;
-    expect(within(chip).getByRole("img", { name: "Playing" })).toBeTruthy();
-    inner.update(clauseInterval("birthday", [1981, 1985], { source }));
-    await waitFor(() => expect(within(chip).queryByRole("img", { name: "Playing" })).toBeNull());
-  });
-
   it("draws what a part puts in its slot, and leaves that part's clauses to it", async () => {
     const crossfilter = Selection.crossfilter();
     const inner = Selection.crossfilter();

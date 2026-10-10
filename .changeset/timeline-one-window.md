@@ -26,8 +26,8 @@ brushed range and draws its first year whole.**
   default; `GraphTimeline` passes its page — and takes 50 ms at least on 60 bars, longer on fewer,
   500 ms under `prefers-reduced-motion`. Space on the focused timeline plays and pauses; a pause and
   the end are announced.
-- **While it plays, its chip in the `FilterBar` carries a ▶**, and the chip's × stops play and lets
-  the range go. A clause whose `meta.playing` is `true` is marked this way.
+- **While it plays, its chip in the `FilterBar` reads the window as it grows**, as it reads paused,
+  and the chip's × stops play and lets the range go.
 - **The timeline is a compact band, as in Cosmograph's app.** It is 44 px tall by default (was 72),
   with the tick labels at the top, each right of a thin rule through the band, and the bars under
   them. With no range the bars are a low-contrast fill and a range is bright. The graph docs' example

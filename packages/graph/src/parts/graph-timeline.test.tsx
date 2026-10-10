@@ -384,13 +384,15 @@ describe("GraphTimeline, drawn", () => {
     await vi.waitFor(() => expect(last()[1]).toBeGreaterThan(frozen[1]!));
     fireEvent.click(play);
   });
-  it("marks its chip while it plays, and the chip's remove stops it and lets the window go", async () => {
+  it("reads its chip as the window while it plays, and the chip's remove stops it and lets the window go", async () => {
     const corpus = await attach();
     const { brush, chips } = await drawn(corpus);
     await brush(1900, 1901);
     const play = screen.getByRole("button", { name: "Play time" });
     fireEvent.click(play);
-    await vi.waitFor(() => expect(within(chips()[0]!.parentElement!).getByRole("img", { name: "Playing" })).toBeTruthy());
+    // The chip follows the window and reads as it does paused: no marker.
+    await vi.waitFor(() => expect(chips()[0]!.getAttribute("aria-label")).toMatch(/^Remove born 1900 – 1900/));
+    expect(chips()[0]!.parentElement!.querySelector("svg:not(.size-3)")).toBeNull();
     fireEvent.click(chips()[0]!);
     await act(() => settle(corpus));
     expect(play.getAttribute("aria-pressed")).toBe("false");

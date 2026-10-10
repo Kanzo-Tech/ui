@@ -3,7 +3,6 @@
 import type { TableExpr } from "@kanzo-tech/mosaic";
 import type { Selection } from "@uwdata/mosaic-core";
 import { Interval1D } from "@uwdata/mosaic-plot";
-import type { SelectionClause } from "@uwdata/mosaic-core";
 import { count } from "@uwdata/mosaic-sql";
 import { bin } from "./chart-bin.js";
 import { PauseIcon, PlayIcon } from "lucide-react";
@@ -150,7 +149,7 @@ export function ChartTimeline({
  * Playing is a loop of frames, each one bar further into the range, that waits for the frame before
  * it to be answered — by `paceBy`'s clients and the range's own selection — and for a step's least
  * time. A frame is published through the interval's own clause, so the page holds one clause, and
- * says it is playing, for its chip. The range is the interval's value and stays where it was brushed.
+ * its chip reads the frame. The range is the interval's value and stays where it was brushed.
  */
 function TimelineWindow({ playable, paceBy }: { playable: boolean; paceBy?: Selection }) {
   const { as, plot } = useChartContext();
@@ -165,20 +164,19 @@ function TimelineWindow({ playable, paceBy }: { playable: boolean; paceBy?: Sele
   const anchor = useRef<HTMLDivElement>(null);
   // What the loop, the pointer and the keyboard read between renders.
   const state = useRef<{ running: boolean; range: readonly unknown[] | null; frame: number | null }>({ running: false, range: null, frame: null });
-  const transport = useRef<{ play(): void; stop(why: Stop): void; show(interval: Interval1D, at: number, live: boolean): void }>({
+  const transport = useRef<{ play(): void; stop(why: Stop): void; show(interval: Interval1D, at: number): void }>({
     play() {},
     stop() {},
     show() {},
   });
 
   /** Show frame `at` — the range from its first edge to edge `at` — through the range's clause. */
-  transport.current.show = (interval, at, live) => {
+  transport.current.show = (interval, at) => {
     const { edges, from } = rangeOf(brushedBy(interval))!;
     const window = [edges[from], edges[at]] as const;
     state.current.frame = at;
     setFrame(window);
-    const clause = interval.clause(window);
-    interval.selection.update(live ? { ...clause, meta: { ...clause.meta, playing: true } as SelectionClause["meta"] } : clause);
+    interval.selection.update(interval.clause(window));
   };
 
   transport.current.stop = (why) => {
@@ -188,7 +186,6 @@ function TimelineWindow({ playable, paceBy }: { playable: boolean; paceBy?: Sele
     const interval = intervalOf(plot());
     const at = state.current.frame;
     if (why === "gone" || !interval?.value || at === null) return;
-    transport.current.show(interval, at, false);
     const { edges, from } = rangeOf(brushedBy(interval))!;
     setSaid(`${why === "end" ? "Ended" : "Paused"} at ${readWindow([edges[from], edges[at]])}`);
   };
@@ -199,7 +196,7 @@ function TimelineWindow({ playable, paceBy }: { playable: boolean; paceBy?: Sele
     if (!span) return;
     // From the first bar, or on from a pause; at the end, Play starts over.
     const at = state.current.frame;
-    transport.current.show(interval, at === null || at >= span.to ? span.from + 1 : at, true);
+    transport.current.show(interval, at === null || at >= span.to ? span.from + 1 : at);
     state.current.running = true;
     setSaid("");
     setPlaying(true);
@@ -289,7 +286,7 @@ function TimelineWindow({ playable, paceBy }: { playable: boolean; paceBy?: Sele
         const at = state.current.frame;
         if (!interval || !span || at === null) return transport.current.stop("gone");
         if (at >= span.to) return transport.current.stop("end");
-        transport.current.show(interval, at + 1, true);
+        transport.current.show(interval, at + 1);
       }
     })();
     return () => {
