@@ -502,7 +502,10 @@ under it read the root.
   the background's RGB for the greyout". What would reverse it: a theme that needs the grid to read
   over the marks.
 - **`GraphLegend`** — the categorical scale, or the vertex types when nothing is bound, with how many
-  of each are drawn. Its domain is fixed before the graph loads, so a row never moves.
+  of each are drawn. Its domain is fixed before the graph loads, so a row never moves. Under bound
+  positions a row is what the map places of its whole, and a category with no position at all moves
+  into a muted *No position* group with its whole count, rather than reading 0: a map of CORDIS
+  placed Organisation alone, and `Project 0` read as missing data when it was a type with no place.
 - **`GraphStatus`** — where the graph is, in one word: Loading, Laying out with the percentage, Ready,
   Failed. It owns the fold of the two axes, `status` and `motion`, because a host that folded them
   itself read `status` alone and said "idle" over a running layout. What would reverse it: a host
@@ -510,7 +513,15 @@ under it read the root.
 - **`GraphCounts`** — the corpus and what the page's filter keeps of it, in one sentence: "N nodes"
   unfiltered, "X of N nodes match" filtered. "Drawn" was the wrong verb — a vertex the filter drops is
   greyed, never hidden — and unfiltered it always read "N of N". A footer carries it, which is why it
-  is not the legend's last line.
+  is not the legend's last line. **"Placed" is the verb only under bound positions**, because there a
+  vertex with no value in `x` or `y` really is hidden, not greyed: "P of N nodes placed · E of L
+  edges", and under a filter "X match · P of N placed · E of L edges". Both figures are drawn of
+  total there, because the footer that mixed the corpus's nodes with the drawn edges read "206.6K
+  nodes · 0 edges" over a map with no edge to draw. A vertex is placed when it has both values; half
+  a position is none. *Held by* `packages/graph/src/parts/parts.test.tsx`, "says how many of the
+  corpus the map places, and how many edges it draws of all of them" and "says so when no edge has
+  both ends on the map". What would reverse it: a placement that draws the unplaced vertices
+  somewhere — by their links, say — at which point they are drawn and a third count says how.
 - **`GraphToolbar`** — the tools, the selection, zoom and fit, and the layout's transport.
 - **`GraphInspector`** — the focused vertex, Linkurious's inspector: headed by its title or its IRI's
   local name under its type, **Locate** beside it (`reveal`: frame it with its neighbours, and keep the

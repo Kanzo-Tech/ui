@@ -76,7 +76,7 @@ GraphRoot                  the state and the commands; renders no element
 │   ├── GraphToolbar       selection tools, the selection, zoom and fit, the layout's transport
 │   └── GraphLegend        one row per category: glyph, name, how many are drawn
 ├── GraphStatus            where the graph is, in one word: Loading, Laying out 42%, Ready, Failed
-├── GraphCounts            "5K nodes · 8K edges", or "1.2K of 5K nodes match · 3K edges"
+├── GraphCounts            "5K nodes · 8K edges", "1.2K of 5K nodes match · 3K edges", or on a map "3K of 5K nodes placed · 1K of 8K edges"
 ├── GraphSearch            a palette: find a vertex, by text, type or column, and reveal it
 ├── GraphInspector         the focused vertex: its row
 └── GraphTimeline          a time column brushed and played, under the canvas
@@ -158,6 +158,12 @@ renders nothing. **A row never moves.** The domain is fixed before the graph loa
 in `fossil_tables`' order, or the keys of the root's `categories` — so a colour never changes hands. A
 category past the palette's capacity is Other, on the legend as on the canvas.
 
+**On a map a row is what the map places**: bound positions hide a vertex with no value, so a row
+reads *Organisation 33,447 of 35,122*, and a category with no position at all moves into a muted
+**No position** group with its whole count and a hollow glyph, rather than reading 0. Under the
+filter a placed row keeps its *n of m* and the group keeps its totals. When no relation has both
+ends placed, a line under the rows says *No edges have both ends on the map.*
+
 The names are the root's, never the legend's, so the hover card, the search and the inspector say
 the same thing. How much of the corpus there is, and how much the filter keeps, is not the legend's:
 it is `GraphCounts`.
@@ -172,6 +178,11 @@ count and the part is `matching`, the vertices the filter keeps. A vertex the fi
 on the canvas, not hidden, so the verb is "match" and never "drawn". An edge counts when both its
 ends are drawn, so the edges shrink with the filter. A figure not yet known is "—", and the numbers
 are compact in the nearest `LocaleProvider`'s locale.
+
+**On a map the verb is "placed"**, because there a vertex with no value in `x` or `y` is hidden, not
+greyed, and both figures are drawn of total: **"33.4K of 206.6K nodes placed · 0 of 316.8K edges"**,
+and under the filter **"1.2K match · 33.4K of 206.6K placed · 40 of 316.8K edges"**. Hovering
+"placed" names the two columns. A vertex is placed when it has both values.
 
 **`aria-busy` follows the load alone**: only a load changes these figures, and a running layout moves
 the points, not the counts, so a screen reader is not told the sentence is stale while it is not.
@@ -407,7 +418,9 @@ clearing it unbinds it.
 
 **A column is the person's, not the corpus's.** It is stored with their preferences, so it reaches
 corpora that lack it, and the root reads such a column as unbound — the layout runs — rather than as
-a column of nulls. With one of Map's two columns chosen the layout runs too. **Latitude as `y` draws
+a column of nulls. With one of Map's two columns chosen the layout runs too. **A vertex with no
+value in either column is not drawn**, and neither is an edge to it; `GraphCounts` and
+`GraphLegend` say how much of the corpus the map places, so a type with no position reads as one. **Latitude as `y` draws
 north up**: cosmos.gl's space is y-up, and the placement into its square only scales and translates.
 
 ### Declared axes, without the panel
@@ -744,7 +757,7 @@ What `useGraphState` selects from.
 | `progress` | `number` | How far a running layout has settled, `0`–`1`. |
 | `total` | `number \| undefined` | Every vertex of the corpus, from `fossil_tables`. |
 | `matching` | `number \| null` | The vertices of the corpus the page's filter keeps; `null` when nothing is filtered. |
-| `drawn` | `Drawn \| null` | `vertices`, `edges`, `domain` and `tally` under the filter. |
+| `drawn` | `Drawn \| null` | `vertices`, `edges`, `domain` and `tally` under the filter; `placed` per rank with a position, `totals` per rank in the corpus, `links` loaded and `placedLinks` with both ends placed. |
 | `domain` | `readonly unknown[]` | The category domain before anything loads. |
 | `selection` | `Selection \| null` | `vertices`, `source` (a `SelectionSource` — `"marquee" \| "lasso" \| "node"`, the canvas's gestures) and `label`. |
 | `focus` / `hovered` | `VertexId \| null` | The focused and the hovered vertex. |

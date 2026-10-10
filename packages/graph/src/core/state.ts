@@ -75,6 +75,12 @@ export interface Drawn {
   readonly tally: readonly number[];
   /** Per rank, the vertices with a position, filtered or not: what `tally` is a part of. */
   readonly placed: readonly number[];
+  /** Per rank, every vertex of the corpus, with a position or not: what `placed` is a part of. */
+  readonly totals: readonly number[];
+  /** Every loaded relation, drawn or not: what `edges` is a part of. */
+  readonly links: number;
+  /** Relations whose two ends have a position, filtered or not. None, bound positions can draw no edge at all. */
+  readonly placedLinks: number;
 }
 
 /** A place that picks: the source of its clause, and the client the crossfilter exempts from it. */

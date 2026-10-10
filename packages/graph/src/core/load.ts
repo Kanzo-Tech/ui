@@ -121,8 +121,11 @@ export async function loadGeometry(coordinator: Coordinator, structure: Structur
     const ys = answer.getChild(binding.y as string)?.toArray() ?? [];
     for (let i = 0; i < answer.numRows; i++) {
       const at = 2 * (table.first + i);
-      positions[at] = xs[i] === null ? Number.NaN : Number(xs[i]);
-      positions[at + 1] = ys[i] === null ? Number.NaN : Number(ys[i]);
+      // Half a position is none: a vertex with only one of the two values is unplaced on both axes,
+      // so "placed" is one test on either coordinate wherever it is read.
+      const whole = xs[i] !== null && ys[i] !== null;
+      positions[at] = whole ? Number(xs[i]) : Number.NaN;
+      positions[at + 1] = whole ? Number(ys[i]) : Number.NaN;
     }
   }
   return { structure, size, positions, bound, links, extent: extentOf(positions), space };

@@ -1,3 +1,5 @@
+import type { Encoding, Geometry } from "./load";
+import type { Drawn } from "./state";
 import type { VertexId } from "./types";
 
 /** How many vertices the page's filter keeps, or `null` when nothing is filtered. */
@@ -42,4 +44,38 @@ export function visibleOf(
     for (const id of selection) if (id < size && (mask === null || mask[id])) ids.push(id);
   }
   return ids;
+}
+
+/**
+ * **What the loaded graph holds, counted once per geometry, encoding and filter**: per rank what is
+ * drawn, placed and in the corpus, and the links drawn, placed and loaded. A vertex is placed when
+ * it has a position — always, under a layout; under bound positions, when it has both values.
+ */
+export function drawnOf(geometry: Geometry, encoding: Encoding, mask: Uint8Array | null): Drawn {
+  const tally = encoding.domain.map(() => 0);
+  const placed = encoding.domain.map(() => 0);
+  const totals = encoding.domain.map(() => 0);
+  const shown = new Uint8Array(geometry.size);
+  let vertices = 0;
+  for (let id = 0; id < geometry.size; id++) {
+    const rank = encoding.ranks[id] as number;
+    totals[rank] = (totals[rank] ?? 0) + 1;
+    if (Number.isNaN(geometry.positions[id * 2])) continue;
+    placed[rank] = (placed[rank] ?? 0) + 1;
+    shown[id] = 2;
+    if (mask && !mask[id]) continue;
+    shown[id] = 1;
+    vertices++;
+    tally[rank] = (tally[rank] ?? 0) + 1;
+  }
+  let edges = 0;
+  let placedLinks = 0;
+  const { links } = geometry;
+  for (let i = 0; i < links.length; i += 2) {
+    const a = shown[links[i] as number];
+    const b = shown[links[i + 1] as number];
+    if (a && b) placedLinks++;
+    if (a === 1 && b === 1) edges++;
+  }
+  return { vertices, edges, domain: encoding.domain, tally, placed, totals, links: links.length / 2, placedLinks };
 }
