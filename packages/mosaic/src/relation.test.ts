@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Query, asTableRef } from "@uwdata/mosaic-sql";
 import { clauseColumns, clauseSemiJoin } from "./clause.js";
-import { relationHops, relationIdentities, relationKey, relationQuery, type JoinGraph } from "./relation.js";
+import { relationHops, relationIdentities, relationKey, relationQuery, relationRootKey, type JoinGraph } from "./relation.js";
 
 const at = (table: string) => asTableRef(["jobs/7", table])!;
 
@@ -75,6 +75,22 @@ describe("relationIdentities", () => {
       { column: "dense_id", type: "Person" },
       { column: "Person2.dense_id", type: "Person" },
     ]);
+  });
+});
+
+describe("relationRootKey", () => {
+  it("names the root's key by the root's own name, the one column of a relation that is not prefixed", () => {
+    const graph: JoinGraph = { ...GRAPH, types: [GRAPH.types[0]!, { ...GRAPH.types[1]!, key: "post_id" }] };
+    const relation = { root: "Post", path: [{ edge: "Post_hasCreator_Person", direction: "out" as const }] };
+    expect(relationRootKey(graph, relation)).toBe("post_id");
+    expect(relationRootKey(graph, { root: "Person", path: [] })).toBe("dense_id");
+    // The column the query selects under that name, and the root's identity.
+    expect(String(relationQuery(graph, relation))).toContain('"t0"."post_id" AS "post_id"');
+    expect(relationIdentities(graph, relation)[0]).toEqual({ column: "post_id", type: "Post" });
+  });
+
+  it("throws on a root the graph has no type for", () => {
+    expect(() => relationRootKey(GRAPH, { root: "Forum", path: [] })).toThrow(/the join graph has no type Forum/);
   });
 });
 

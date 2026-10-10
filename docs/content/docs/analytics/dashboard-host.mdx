@@ -118,7 +118,7 @@ const key = relationKey(graph, relation);
 const saved = parseDashboards(stored); // throws on anything that is not a current document
 const identities = relationIdentities(graph, relation);
 const table = useMemo(() => relationQuery(graph, relation), [graph, relation]);
-const publish = useMemo(() => semiJoinOf(identities[0].column, table, { label: key }), [identities, table, key]);
+const publish = useMemo(() => semiJoinOf(relationRootKey(graph, relation), table, { label: key }), [graph, relation, table, key]);
 
 <RelationPicker graph={graph} value={relation} onValueChange={setRelation} />
 <FilterBar table={table} rowNoun={relation.path.length ? "paths" : relation.root} />

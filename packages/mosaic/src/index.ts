@@ -118,6 +118,7 @@ export {
   relationIdentities,
   relationKey,
   relationQuery,
+  relationRootKey,
   type Hop,
   type JoinEdge,
   type JoinGraph,
