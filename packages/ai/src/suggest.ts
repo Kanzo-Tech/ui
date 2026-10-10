@@ -11,6 +11,12 @@ export interface SuggestOptions {
   instructions: string;
   /** The material they are asked over — a schema, a domain, the files, a field and its form. */
   prompt: string;
+  /**
+   * At most this many. The prompt can ask for a number, but nothing in the answer's schema holds the
+   * model to it — `Output.array` has no length, and a provider's structured output need not honour
+   * one — so a model that writes more has the rest dropped here. Unset, every offer it writes.
+   */
+  count?: number;
   abortSignal?: AbortSignal;
 }
 
@@ -31,8 +37,13 @@ const OFFER = jsonSchema<{ text: string; rationale: string }>({
  * **A failure throws, once the stream ends** — `stream`'s contract — so a surface that shows "no
  * suggestions" and one that shows "suggesting failed" are never the same surface by accident. An
  * empty answer is not a failure: the model had nothing to offer.
+ *
+ * An offer whose text repeats an earlier one (ignoring case and spacing) is dropped, and does not
+ * count towards `count`.
  */
 export async function* suggest(options: SuggestOptions): AsyncIterable<Proposal> {
+  const count = options.count ?? Infinity;
+  if (count <= 0) return;
   const answer = stream({
     model: options.model,
     system: options.instructions,
@@ -40,5 +51,12 @@ export async function* suggest(options: SuggestOptions): AsyncIterable<Proposal>
     output: Output.array({ element: OFFER }),
     abortSignal: options.abortSignal,
   });
-  for await (const { text, rationale } of answer.elements) yield { text, rationale };
+  const seen = new Set<string>();
+  for await (const { text, rationale } of answer.elements) {
+    const key = text.trim().replace(/\s+/g, " ").toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    yield { text, rationale };
+    if (seen.size >= count) return;
+  }
 }
