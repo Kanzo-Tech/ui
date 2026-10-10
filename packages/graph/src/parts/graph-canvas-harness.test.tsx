@@ -84,6 +84,6 @@ describe("GraphCanvas, as a test reads it", () => {
     );
     const graph = await env.harness(GraphCanvasHarness);
     await act(() => settle(corpus));
-    expect(await graph.counts()).toMatch(/^20 nodes · \S+ edges$/);
+    expect(await graph.counts()).toMatch(/^16 of 20 nodes placed · \S+ of 20 edges$/);
   });
 });

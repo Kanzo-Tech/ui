@@ -78,8 +78,8 @@ describe("the graph store", () => {
     expect(Array.from(geometry?.positions.subarray(24, 26) ?? [])).toEqual([2, 1]);
     expect(Number.isNaN(geometry?.positions[2 * 17])).toBe(true);
     expect(geometry?.extent).toEqual({ x: 0, y: 0, w: 9, h: 1 });
-    // Tag has no position, so it is not counted as drawn.
-    expect(store.getSnapshot().drawn?.vertices).toBe(16);
+    // Tag has no position, so it is not counted as drawn, but it is counted: its four are the corpus's.
+    expect(store.getSnapshot().drawn).toMatchObject({ vertices: 16, edges: 19, tally: [10, 6, 0], placed: [10, 6, 0], totals: [10, 6, 4], links: 20, placedLinks: 19 });
   });
 
   it("reads a column the corpus does not carry as unbound, so a column chosen on another corpus places nothing", async () => {
@@ -127,7 +127,7 @@ describe("the graph store", () => {
   it("colours by vertex type unless fill binds a column", async () => {
     const { corpus, store } = await graph();
     await settle(corpus);
-    expect(store.getSnapshot().drawn).toEqual({ vertices: 20, edges: 20, domain: ["Person", "Place", "Tag"], tally: [10, 6, 4], placed: [10, 6, 4] });
+    expect(store.getSnapshot().drawn).toEqual({ vertices: 20, edges: 20, domain: ["Person", "Place", "Tag"], tally: [10, 6, 4], placed: [10, 6, 4], totals: [10, 6, 4], links: 20, placedLinks: 20 });
     store.setOptions({ ...store.getOptions(), fill: "team" });
     await settle(corpus);
     expect(store.getSnapshot().drawn?.domain).toEqual([0, 1, 2, 3, null]);

@@ -82,11 +82,12 @@ export class GraphCanvasHarness extends ComponentHarness {
   }
 
   /**
-   * `GraphCounts`' sentence — *1.2K of 5K nodes match · 3K edges* — once it has stopped loading.
-   * It is the page's, not the canvas's: the part can sit anywhere, so it is found by its words.
+   * `GraphCounts`' sentence — *1.2K of 5K nodes match · 3K edges*, or on a map *1.2K match · 33.4K
+   * of 206.6K placed · 40 of 316.8K edges* — once it has stopped loading. It is the page's, not the
+   * canvas's: the part can sit anywhere, so it is found by its words.
    */
   async counts(): Promise<string> {
-    const counts = await this.one({ text: /\bnodes\b.*\bedges\b/ }, "no GraphCounts on the page", this.env.root);
+    const counts = await this.one({ text: /\b(nodes|match)\b.*\bedges$/ }, "no GraphCounts on the page", this.env.root);
     await this.env.until(async () => !(await this.ariaBusy(counts)), "GraphCounts is still loading");
     return counts.text();
   }

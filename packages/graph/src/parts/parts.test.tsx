@@ -81,6 +81,48 @@ describe("GraphLegend", () => {
     expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Person4 of 10", "Place6 of 6", "Tag4 of 4"]);
   });
 
+  it("says how many of each type the map places, of how many, and keeps a type with no position apart", async () => {
+    const corpus = await attach();
+    render(
+      <GraphRoot {...over(corpus)} onFailure={() => {}} x="lon" y="lat">
+        <GraphLegend />
+      </GraphRoot>,
+    );
+    await ready(corpus);
+    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Person10 of 10", "Place6 of 6", "Tag4"]);
+    expect(screen.getByRole("list", { name: "No position" }).textContent).toBe("Tag4");
+    expect(screen.queryByText("No edges have both ends on the map.")).toBeNull();
+  });
+
+  it("keeps the static totals of a type with no position under the page's filter", async () => {
+    const corpus = await attach();
+    const crossfilter = Selection.crossfilter();
+    render(
+      <GraphRoot {...over(corpus)} filterBy={crossfilter} onFailure={() => {}} x="lon" y="lat">
+        <GraphLegend />
+      </GraphRoot>,
+    );
+    await ready(corpus);
+    await act(async () => {
+      crossfilter.update(clauseInterval("score", [2, 5], { source: { reset() {} } }));
+      await settle(corpus);
+    });
+    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Person4 of 10", "Place6 of 6", "Tag4"]);
+  });
+
+  it("says so when no edge has both ends on the map", async () => {
+    const corpus = await attach();
+    await corpus.coordinator.exec(`UPDATE ${corpus.from}."Person" SET lat = NULL`);
+    render(
+      <GraphRoot {...over(corpus)} onFailure={() => {}} x="lon" y="lat">
+        <GraphLegend />
+      </GraphRoot>,
+    );
+    await ready(corpus);
+    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Place6 of 6", "Person10", "Tag4"]);
+    expect(screen.getByText("No edges have both ends on the map.")).toBeTruthy();
+  });
+
   it("draws nothing when colour is a constant and nothing carries a category", async () => {
     const corpus = await attach();
     const { container } = render(
@@ -109,13 +151,42 @@ describe("GraphCounts", () => {
   it("counts the corpus with no filter, and the edges whose two ends are drawn", async () => {
     const corpus = await attach();
     render(
+      <GraphRoot {...over(corpus)} onFailure={() => {}}>
+        <GraphCounts />
+      </GraphRoot>,
+    );
+    await ready(corpus);
+    expect(counts()?.textContent).toBe("20 nodes · 20 edges");
+  });
+
+  it("says how many of the corpus the map places, and how many edges it draws of all of them", async () => {
+    const corpus = await attach();
+    render(
       <GraphRoot {...over(corpus)} onFailure={() => {}} x="lon" y="lat">
         <GraphCounts />
       </GraphRoot>,
     );
     await ready(corpus);
-    // Bound to lon/lat, Tag has no position: the one link to it is not drawn, but its vertices are the corpus's.
-    expect(counts()?.textContent).toBe("20 nodes · 19 edges");
+    // Bound to lon/lat, Tag has no position: it is hidden, not greyed, so the verb is "placed".
+    expect(counts()?.textContent).toBe("16 of 20 nodes placed · 19 of 20 edges");
+    expect(screen.getByText("placed").getAttribute("title")).toBe("On the map: vertices with a value in lon and lat. The rest have no position.");
+  });
+
+  it("says what matches, what the map places and what it draws, under the page's filter", async () => {
+    const corpus = await attach();
+    const crossfilter = Selection.crossfilter();
+    render(
+      <GraphRoot {...over(corpus)} filterBy={crossfilter} onFailure={() => {}} x="lon" y="lat">
+        <GraphCounts />
+      </GraphRoot>,
+    );
+    await ready(corpus);
+    await act(async () => {
+      crossfilter.update(clauseInterval("score", [2, 5], { source: { reset() {} } }));
+      await settle(corpus);
+    });
+    // Person 1–4 and every Place and Tag match; Tag is not on the map; drawn are Person 1–4 and Place.
+    expect(counts()?.textContent).toBe("14 match · 16 of 20 placed · 7 of 20 edges");
   });
 
   it("says how many of the corpus match the page's filter", async () => {
