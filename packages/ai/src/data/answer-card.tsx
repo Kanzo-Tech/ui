@@ -8,6 +8,7 @@ import {
   relationIdentities,
   relationKey,
   relationQuery,
+  relationRootKey,
   semiJoinOf,
   type JoinGraph,
   type Relation,
@@ -172,7 +173,7 @@ function Answered(props: { graph: JoinGraph; output: AnswerOutput; adding?: Addi
   const relation = output.answer.relation;
   const compiled = React.useMemo(() => {
     try {
-      return { table: relationQuery(graph, relation), dashboardKey: relationKey(graph, relation), identities: relationIdentities(graph, relation) };
+      return { table: relationQuery(graph, relation), dashboardKey: relationKey(graph, relation), identities: relationIdentities(graph, relation), rootKey: relationRootKey(graph, relation) };
     } catch (error) {
       return { error };
     }
@@ -197,6 +198,8 @@ function Drawn(props: {
   /** The relation's key: what a host keeps its dashboards by. Not `key`, which React keeps for itself. */
   dashboardKey: string;
   identities: { column: string }[];
+  /** The relation's root key, by name: what *Filter to it* selects. */
+  rootKey: string;
   output: AnswerOutput;
   adding?: Adding;
   onDrawing: OnDrawing;
@@ -225,8 +228,7 @@ function Drawn(props: {
   return (
     <>
       <div className="flex min-w-0 flex-wrap items-center justify-end gap-1" data-slot="answer-card-actions">
-        {/* TODO(Kanzo-Tech/ui#155): `relationRootKey(graph, relation)` once it is on main, not the root key by position. */}
-        <FilterToIt identity={identities[0]!.column} output={output} fields={readable.fields} t={t} table={table} />
+        <FilterToIt identity={props.rootKey} output={output} fields={readable.fields} t={t} table={table} />
         {adding && <AddToDashboard {...adding} fields={readable.fields} relationKey={props.dashboardKey} output={output} t={t} />}
       </div>
       {tile.kind === "chart" ? (
