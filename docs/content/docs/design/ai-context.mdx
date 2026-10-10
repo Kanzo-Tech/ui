@@ -125,10 +125,13 @@ so before sending.** Normalizing is the fix for every graph measured. The budget
 nobody measured — a hundred types, a thousand hops — where "said once" is still too much.
 
 - **The context is declared per alias, where the model is chosen.** The platform's AI services
-  already set `context_size` per model in compose (8,192 dev, 16,384 for the demo's Qwen3); that
-  same value travels with the alias to the browser, and `dataAgent` / `dataSuggestions` take it as
-  `context: { tokens, reserve }`. Model Runner's `/models` reports the model's maximum (131,072 for
-  Hermes), not what it was started with, so it is not the source.
+  declare it as `AI_CHAT_CONTEXT` / `AI_COMPLETE_CONTEXT` beside `AI_CHAT` / `AI_COMPLETE`: Model
+  Runner starts a local model with it (`context_size`, 8,192 by default; 16,384 for Keasy's demo
+  Qwen3), and an application passes the same variables to its server, which hands them to
+  `dataAgent` / `dataSuggestions` as `context: { tokens, reserve }`. Model Runner's `/models` reports
+  the model's maximum (131,072 for Hermes), not what it was started with, and agentgateway serves no
+  alias metadata, so neither is the source. A gateway that served it, as LiteLLM's `/model/info`
+  does, would let an application stop reading the variable.
 - **Counted, not guessed.** The page has no tokenizer, so the library counts conservatively: 0.4
   tokens per character. Measured over these five graphs' instructions and tool schemas, Llama 3's
   tokenizer (Hermes 3) took at most 0.32 and Qwen3's at most 0.38, both on SNB, whose values are IP
@@ -156,7 +159,7 @@ goes.
 
 - `dataAgent` and `dataSuggestions` take `context?: { tokens: number; reserve?: number }`. Unset,
   nothing narrows — today's behaviour, with the smaller prompt.
-- Keasy passes the alias's declared context, from the same setting compose gives Model Runner.
+- Keasy passes the alias's declared context, `AI_CHAT_CONTEXT` / `AI_COMPLETE_CONTEXT`, the same variables compose gives Model Runner.
 - `AnswerInput.relation` is a key string; `Answer.relation` is unchanged. A host that stored
   `AnswerInput` — none known — maps it with `relationKey`.
 - A new `AiError` code, `ai/context`, for a host's problem table.

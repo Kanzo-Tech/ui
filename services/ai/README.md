@@ -64,6 +64,30 @@ that the loop is offline and free. They run with an 8192-token context, which fi
 the models declare 131072, and llama.cpp reserves the cache for all of it when it loads one (~16 GB
 for the 8B alone). With both aliases on a provider, leave the profile off and nothing is pulled.
 
+## Each alias's context
+
+`AI_CHAT_CONTEXT` and `AI_COMPLETE_CONTEXT` are each alias's context window in tokens, declared once
+beside the model it describes. With the `local-models` profile they are what Model Runner starts the
+model with (`context_size`, 8192 when unset). With a provider they are the provider's window for that
+model, which the operator sets with `AI_CHAT`.
+
+The gateway reports no window: Model Runner's `/models` answers a model's maximum (131072 for
+Hermes 3), not what it was started with, and agentgateway serves no alias metadata. So an
+application reads the same variables. It passes them to its own server's environment and hands them
+to `@kanzo-tech/ai`'s `context: { tokens }`, which fits the prompt into that window
+(`/docs/design/ai-context`):
+
+```yaml
+services:
+  web:
+    environment:
+      MYAPP_AI_CHAT_CONTEXT: ${AI_CHAT_CONTEXT:-}
+      MYAPP_AI_COMPLETE_CONTEXT: ${AI_COMPLETE_CONTEXT:-}
+```
+
+Unset, the application passes no budget, so nothing narrows, and the local models run at 8192. Set
+it whenever a model's window is not that, for example a larger local model, or any provider.
+
 Every request is logged to `ai-postgres`: who asked, for which organization, the alias, the tokens
 and their cost.
 

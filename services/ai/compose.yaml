@@ -46,6 +46,9 @@ services:
       AI_AUDIENCE: ai-gateway
       # Which model answers each alias, `provider/model` (gateway.yaml). A deployment names both;
       # left empty, the gateway refuses to start. compose.dev.yaml defaults them to the local models.
+      # Each one's context window is AI_CHAT_CONTEXT / AI_COMPLETE_CONTEXT, which the gateway does not
+      # read: Model Runner starts a local model with it, and an application passes it to its own
+      # server to fit its prompts (README, "Each alias's context").
       AI_CHAT: ${AI_CHAT:-}
       AI_COMPLETE: ${AI_COMPLETE:-}
       # Tokens each organization may spend an hour (gateway.yaml).
