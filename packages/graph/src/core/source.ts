@@ -14,7 +14,7 @@ import {
   sql,
   sum,
   clauseColumns,
-  antiJoinOf,
+  semiJoinOf,
   type ClauseMap,
   type Coordinator,
   type ExprNode,
@@ -359,9 +359,10 @@ export interface Timeline {
   /** The key and `field` of every vertex table that has `field`, as one relation. */
   readonly table: Query;
   /**
-   * The window as the page's clause: an anti-join on the key, so the types with `field` are kept as
-   * the window keeps them and the rest stay whole — the graph's clause rule, in the one form every
-   * client of the page answers, a dashboard's relation among them.
+   * The window as the page's clause: a semi-join on the key, so only the vertices with `field` in the
+   * window are kept and every other — a type without `field` included — is greyed, as Cosmograph
+   * greys them. It names the key alone, the one form every client of the page answers: a dashboard's
+   * relation whose root has no `field` answers it with no rows.
    */
   readonly publish: ClauseMap;
 }
@@ -373,5 +374,5 @@ export function timelineOf(structure: Structure | null, field: string): Timeline
   if (tables.length === 0) return null;
   const key = structure.key;
   const table = Query.unionAll(tables.map((t) => Query.select({ [key]: key, [field]: field }).from(relation(structure.from, t.name))));
-  return { table, publish: antiJoinOf(key, table, { label: field }) };
+  return { table, publish: semiJoinOf(key, table, { label: field }) };
 }

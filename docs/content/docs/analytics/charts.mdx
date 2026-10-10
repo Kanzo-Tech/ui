@@ -455,9 +455,9 @@ It throws outside a `ChartRoot`; `useChartContextOptional()` returns `null` inst
 ## A time filter that plays
 
 `ChartTimeline` is a brushable histogram of one temporal column — a date, a timestamp, or a year
-stored as its integer — with a play button that moves the brushed window forward a bar at a time,
+stored as its integer — with *Play time*, which plays the brushed range a bar at a time,
 Cosmograph's `Timeline` on the page's crossfilter. The bars behind are the column unfiltered, the
-bars in front what the page keeps, and the window is one clause: a chip in the `FilterBar` like any
+bars above what the page keeps, and the window is one clause: a chip in the `FilterBar` like any
 control's.
 
 ```tsx
@@ -466,10 +466,15 @@ control's.
 
 The window sticks to the bars' edges, Cosmograph's `stickySelection`, so it reads *1910 – 1940*
 and not where the pointer let go, and a year on the axis reads *1900*, never *1,900*. Playing asks
-the window's owner to move it, one bar at a time, through the interval's own state and clause: a
-clause belongs to the source that published it ([why](/docs/design/timeline)). With no window there
-is nothing to play, and at the end of the axis it stops. The button is `aria-pressed` while it plays, and the
-window is a group whose `aria-valuetext` reads *1950 – 1960*. A dashboard's temporal filter is this
+the brushed range's own clause for each frame: a clause belongs to the source that published it
+([why](/docs/design/timeline)). The range never moves; play publishes *[its start, one bar
+further]* until it holds the whole range, Kepler's `incremental` window, each step waiting for the
+page (`paceBy`, the page's crossfilter by default) to answer the last. With no range Play is
+disabled, *Brush a range to play*. At the end it stops with the whole range, and the next Play starts
+over; a pointer down on the bars pauses it; Space on the focused figure plays and pauses. While it
+plays, its chip reads the window as it grows. *Play time* is a bare icon at the bars' left edge, and the bars take the
+rest of the width. The button is `aria-pressed` while it plays, the window the clause holds is a
+group whose `aria-valuetext` reads *1950 – 1960*, and a pause or the end is announced. A dashboard's temporal filter is this
 part, in its chip.
 
 ## Escape hatches
@@ -691,8 +696,9 @@ its rows, and runs the query it was owed once enabled".
 | `table` | `TableExpr` | — |
 | `fill` | `string` — a colour, or a column to stack the bars by | `var(--chart-1)` |
 | `filterBy` / `as` | `Selection` | as `ChartRoot` |
-| `height` | `number` | `72` |
+| `height` | `number` — the band's, labels and bars | `44` |
 | `playable` | `boolean` | `true` |
+| `paceBy` | `Selection` — whose clients pace play: the next step waits for their answer | the page's crossfilter |
 | `className` | `string` | — |
 
 ### Marks

@@ -183,4 +183,10 @@ export interface GraphStore {
   unrenderable(error: unknown): void;
   /** The renderer uploaded this snapshot's geometry, encoding and mask. */
   reportDrawn(snapshot: GraphSnapshot): void;
+  /**
+   * A part the graph's load waits for — a timeline's first bars: the graph stays `loading` until
+   * the returned release is called, so the canvas and the part appear together. Releasing twice is
+   * releasing once.
+   */
+  hold(): () => void;
 }

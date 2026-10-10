@@ -312,12 +312,18 @@ its id.
 
 ```tsx
 <GraphCanvas className="h-[480px]" />
-<GraphTimeline className="border-t" />
+<GraphTimeline />
 ```
 
 Cosmograph's `CosmographTimeline`, under the canvas: the distribution of one temporal column over
-every type that has it, a window brushed across it, and a play button that moves the window forward
-a bar at a time. It is `ChartTimeline` from `@kanzo-tech/ui/analytics` over the corpus.
+every type that has it, a range brushed across it, and *Play time*, a bare icon at its left edge,
+which plays the range: the graph fills in from the range's start a bar at a time, each step waiting
+for the graph to answer the last, until the whole range is in colour. With no range it is disabled;
+at the end the next press starts over; a pointer down on the bars pauses it. Its chip in the
+`FilterBar` reads the window as it grows, *birthday 1980 – 1983*, and its × stops play. The band
+is part of the graph's load: its height is held from the first render, and the graph reads *Loading*
+until the canvas and the bars have both drawn, then shows them together. It is named apart from
+the toolbar's layout transport, which is a play button too. It is `ChartTimeline` from `@kanzo-tech/ui/analytics` over the corpus.
 
 - **The column is a setting, not a prop.** `time-by` — *Timeline* in the graph's settings — offers
   the corpus's temporal columns, the way *X axis* offers its numeric ones, and with none chosen the
@@ -325,11 +331,13 @@ a bar at a time. It is `ChartTimeline` from `@kanzo-tech/ui/analytics` over the 
   `timestamp`, or a column whose `datatype` is `xsd:date`, `xsd:dateTime` or `xsd:gYear` — a year is
   stored as an `int32`, and the datatype is what says it is a year. That needs a corpus attached by
   `@fossil-lang/corpus` 0.3.0-alpha.28 or later.
-- **The window reaches the page as identity.** It is a clause of the timeline's own, crossed into
-  the page's crossfilter as an anti-join on `dense_id` (`antiJoinOf`), as a dashboard's clauses
-  cross as a semi-join. Every type with the column is filtered by it and the rest stay whole; what it
-  leaves out is greyed, a dashboard beside the graph is filtered through its relation's root, and
-  the window is a chip in the page's `FilterBar`.
+- **Only what is in the window stays in colour.** The window is a clause of the timeline's own,
+  crossed into the page's crossfilter as a semi-join on `dense_id` (`semiJoinOf`), as a dashboard's
+  clauses cross. A vertex stays in colour when it has the column and its value is in the window;
+  every other is greyed, a type without the column included, as in Cosmograph, and the edges grey
+  with their ends. A window over 30 birthdays reads *30 of 341,661*. A dashboard beside the graph is
+  filtered through its relation's root, so one whose root has no such column shows no rows, and the
+  chip that says why names the column: *birthday 1981 – 1985*.
 - **A date on a relation is a vertex** — the year of a prize, the day two people met — because a
   corpus has no edge properties yet ([why](/docs/design/timeline)). Playing it greys the relations
   of other years and the edges into them.
@@ -691,7 +699,7 @@ Extends `React.ComponentProps<"div">` without its `children`.
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `height` | `number` — the plot's | `72` |
+| `height` | `number` — the band's, labels and bars | `44` |
 | `className` | `string` | — |
 
 The column is the `time-by` preference, not a prop: [Timeline](#timeline).

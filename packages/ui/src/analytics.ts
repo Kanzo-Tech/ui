@@ -195,7 +195,9 @@ export {
 // import the rest of this barrel exists to remove, and there is no reading of "a chart author will
 // never want a standard deviation" that survives contact with a chart author. Same argument that
 // keeps the marks in `chart-marks.tsx` that no example draws.
-export { count, sum, avg, min, max, median, quantile, stddev, mode, bin, sql } from "@uwdata/vgplot";
+export { count, sum, avg, min, max, median, quantile, stddev, mode, sql } from "@uwdata/vgplot";
+// `bin` is vgplot's, made once per field and options so a re-render is not a new plot.
+export { bin } from "./charts/chart-bin.js";
 export type { ExprValue } from "@kanzo-tech/mosaic";
 // What every `table` prop takes: a string is one identifier, a mosaic-sql node is a relation named
 // in SQL — a catalog-qualified one, as a fossil corpus hands it over.
