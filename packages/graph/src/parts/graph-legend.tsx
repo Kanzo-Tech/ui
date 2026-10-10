@@ -14,7 +14,7 @@ const shallow = (a: readonly unknown[], b: readonly unknown[]) => a.length === b
 
 /**
  * **The categorical scale the canvas draws, as rows** — glyph, name and how many vertices of that
- * category are drawn, which under the page's filter reads as a part of its whole: "1,204 of 1,528".
+ * category are drawn, which under the page's filter or the canvas's own pick reads as a part of its whole: "1,204 of 1,528".
  * What is drawn of the corpus is `GraphCounts`. Unbound, the categories are the vertex types, and
  * with no category at all there is nothing to key, so nothing is drawn.
  * The rows are the domain fixed before the graph loaded, so a row never moves and a colour never

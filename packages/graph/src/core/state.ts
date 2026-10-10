@@ -63,9 +63,9 @@ export interface GraphOptions extends Channels {
  */
 export type DataStatus = "none" | "loading" | "idle" | "failed";
 
-/** What the loaded graph holds, under the page's filter. */
+/** What the loaded graph holds, under the page's filter and the canvas's own pick: what is in full colour. */
 export interface Drawn {
-  /** Vertices in full colour: every one with a position that survives the filter. */
+  /** Vertices in full colour: every one with a position that survives the filter and, while the canvas picks, is picked. */
   readonly vertices: number;
   /** Links drawn: every loaded relation whose two ends are drawn. */
   readonly edges: number;
@@ -91,7 +91,11 @@ export interface GraphState {
   readonly status: DataStatus;
   /** Every vertex of the corpus — it does not shrink with a filter. */
   readonly total: number | undefined;
-  /** Vertices of the corpus the page's filter keeps, or `null` when nothing is filtered. */
+  /**
+   * Vertices of the corpus in full colour — the page's filter, narrowed to the canvas's own pick
+   * (the graph's client is exempt from its own clause, so the filter alone would not hold it) —
+   * or `null` when nothing is filtered or picked.
+   */
   readonly matching: number | null;
   /** What is loaded, or `null` before the graph has loaded. */
   readonly drawn: Drawn | null;
