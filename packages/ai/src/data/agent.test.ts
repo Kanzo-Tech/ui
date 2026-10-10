@@ -142,6 +142,14 @@ describe("dataSuggestions", () => {
     expect(prompt).toContain("Give 3.");
   });
 
+  it("offers no more than were wanted when the model writes more", async () => {
+    const six = Array.from({ length: 6 }, (_, i) => ({ text: `Question ${i}?`, rationale: "Person>knows>Person" }));
+    const { model } = mockModel(() => JSON.stringify({ elements: six }));
+    const got = [];
+    for await (const q of dataSuggestions({ model, graph: PEOPLE, relations })) got.push(q);
+    expect(got.map((q) => q.text)).toEqual(["Question 0?", "Question 1?", "Question 2?", "Question 3?"]);
+  });
+
   it("favours a question across a hop, and a rationale naming the relation it is over", async () => {
     const { model } = mockModel(() => JSON.stringify({ elements: [] }));
     for await (const _ of dataSuggestions({ model, graph: PEOPLE, relations })) void _;

@@ -221,6 +221,7 @@ export function dataSuggestions(options: DataSuggestionsOptions) {
     ]
       .filter(Boolean)
       .join("\n\n"),
+    count,
     abortSignal,
   });
 }
