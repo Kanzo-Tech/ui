@@ -55,7 +55,7 @@ export function organizationGroups(config: OrganizationGroupsConfig): Organizati
   const fetchImpl = config.fetch ?? globalThis.fetch;
   const ttl = config.ttl ?? DEFAULT_TTL;
   const inherited = config.inherited ?? true;
-  const base = config.adminUrl.replace(/\/+$/, "");
+  const base = withoutTrailingSlashes(config.adminUrl);
   const cache = new Map<string, { readonly at: number; readonly ids: readonly string[] }>();
   const once = keyedSingleFlight<readonly string[]>();
 
@@ -107,4 +107,11 @@ export function organizationGroups(config: OrganizationGroupsConfig): Organizati
       return ids;
     });
   };
+}
+
+/** `url` without its trailing slashes, in one pass: a regex like `/\/+$/` backtracks on a run of them. */
+function withoutTrailingSlashes(url: string): string {
+  let end = url.length;
+  while (end > 0 && url.charCodeAt(end - 1) === 47) end--;
+  return url.slice(0, end);
 }
