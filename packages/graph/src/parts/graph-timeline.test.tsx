@@ -172,6 +172,8 @@ describe("GraphTimeline, drawn", () => {
   }
 
   let rerender: (height: number) => void = () => {};
+  /** The page's crossfilter, as the last `Page` rendered it. */
+  let page: Selection | null = null;
 
   function Page({ corpus, children }: { corpus: Attached; children: (height: number) => ReactNode }) {
     const [height, setHeight] = useState(72);
@@ -181,6 +183,7 @@ describe("GraphTimeline, drawn", () => {
       setTick((t) => t + 1);
     };
     const { crossfilter } = useMosaic();
+    page = crossfilter;
     return (
       <GraphRoot coordinator={corpus.coordinator} filterBy={crossfilter} from={corpus.from} onFailure={() => {}}>
         <FilterBar />
@@ -231,6 +234,39 @@ describe("GraphTimeline, drawn", () => {
     await brush(1903, 1907);
     expect(chips().map((chip) => chip.getAttribute("aria-label"))).toEqual(["Remove born 1903 – 1907"]);
   });
+
+  it("holds one clause through play, a rebuild while it plays, a pause, a drag and play again", async () => {
+    const corpus = await attach();
+    const { brush, chips, plot, ready } = await drawn(corpus);
+    await ready();
+    const window = screen.getByRole("group", { name: "Window" });
+    const play = () => fireEvent.click(screen.getByRole("button", { name: /^(Play|Pause) time$/ }));
+    const moved = async () => {
+      const before = window.getAttribute("aria-valuetext");
+      await vi.waitFor(() => expect(window.getAttribute("aria-valuetext")).not.toBe(before), { timeout: 5_000 });
+    };
+    await brush(1900, 1901);
+    play();
+    await moved();
+    // Rebuilt while it plays — a resize — twice before the first rebuild has drawn.
+    const stale = plot()!.interactors[0]!;
+    await act(async () => rerender(80));
+    await act(async () => rerender(88));
+    await moved();
+    // The brush that was on screen before the rebuild finishes its gesture: d3 keeps listening.
+    act(() => stale.publish([stale.scale.apply(1903), stale.scale.apply(1904)]));
+    await ready();
+    await moved();
+    play();
+    await act(() => settle(corpus));
+    await brush(1902, 1904);
+    play();
+    await moved();
+    play();
+    await act(() => settle(corpus));
+    expect(page!.clauses).toHaveLength(1);
+    expect(chips()).toHaveLength(1);
+  }, 20_000);
 
   it("names the window once on its chip, by the column", async () => {
     const corpus = await attach();
@@ -311,16 +347,36 @@ describe("GraphTimeline, drawn", () => {
     expect(screen.getByRole("button", { name: "Play time" }).getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("draws the window's bars in front, and what it leaves out only behind", async () => {
+  it("draws the window's bars in colour by clipping the bars in front to it, with no query", async () => {
     const corpus = await attach();
     const { brush, plot } = await drawn(corpus);
     await brush(1902, 1905);
     const [behind, front] = plot()!.marks;
     const total = (mark: Drawn["marks"][number]) => Array.from(mark.data?.columns.y ?? []).reduce((a, b) => a + Number(b), 0);
+    // The window does not filter its own plot: both layers hold every bar.
     expect(total(behind!)).toBe(10);
-    // born = 1900 + i: the window 1902 – 1905 holds People 2, 3 and 4, and 5 on its closed end.
-    expect(total(front!)).toBeLessThan(10);
-    expect(total(front!)).toBeGreaterThanOrEqual(3);
+    expect(total(front!)).toBe(10);
+    const svg = document.querySelector("[aria-label='Timeline: born'] svg")!;
+    const clip = svg.querySelector("g[data-index='1']")!.getAttribute("clip-path");
+    const rect = svg.querySelector(`${/url\((#[^)]+)\)/.exec(clip ?? "")?.[1]} rect`)!;
+    const { scale } = plot()!.interactors[0]!;
+    expect(Number(rect.getAttribute("x"))).toBeCloseTo(scale.apply(1902));
+    expect(Number(rect.getAttribute("x")) + Number(rect.getAttribute("width"))).toBeCloseTo(scale.apply(1905));
+  });
+
+  it("neither rebuilds nor redraws the plot while a brush is dragged", async () => {
+    const corpus = await attach();
+    const { plot, ready } = await drawn(corpus);
+    const before = await ready();
+    await act(() => settle(corpus));
+    const svg = document.querySelector("[aria-label='Timeline: born'] svg");
+    const [interval] = before.interactors;
+    for (const to of [1903, 1904, 1905, 1906, 1907]) {
+      act(() => interval!.publish([interval!.scale.apply(1901), interval!.scale.apply(to)]));
+      await act(() => settle(corpus));
+    }
+    expect(plot()).toBe(before);
+    expect(document.querySelector("[aria-label='Timeline: born'] svg")).toBe(svg);
   });
 
   it("draws every tick label whole, the first one at the axis's edge too", async () => {

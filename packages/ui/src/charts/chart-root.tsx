@@ -4,7 +4,7 @@ import { queryFailure, type TableExpr } from "@kanzo-tech/mosaic";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
-import { Selection, type Coordinator, type SelectionClause } from "@uwdata/mosaic-core";
+import { Selection, type ClauseSource, type Coordinator, type SelectionClause } from "@uwdata/mosaic-core";
 import * as vg from "@uwdata/vgplot";
 import { cn } from "../lib/cn.js";
 import { Show } from "../simples/show.js";
@@ -50,40 +50,80 @@ export interface ChartPlot {
 interface Publisher {
   value?: unknown;
   selection?: Selection;
-  clause?(value: unknown): SelectionClause;
+  clause?(...args: unknown[]): SelectionClause;
+  reset?(): void;
+}
+
+/** One place in the plot's interactors, and the clause source it publishes under for the root's life. */
+interface Slot {
+  readonly source: ClauseSource;
+  current: Publisher;
 }
 
 /**
- * **A rebuilt plot's interactors take over the clauses of the ones they replace.** A plot is rebuilt
- * on a resize or a theme change, and vgplot builds new interactors with it — each a new clause
- * source. The old interactor's clause would stay in its selection with no brush on screen to move or
- * clear it, and the next brush would publish beside it, not over it: two windows, intersected. So
- * where the grammar is the same, the interactor at the same place, of the same kind, on the same
- * selection, is handed the old one's value — its brush is drawn from it — and, once it has drawn,
- * publishes it as its own while the old clause is withdrawn. Where the grammar changed, a value of
- * the old one means nothing to the new one, and its clause is withdrawn at once.
+ * **An interactor's clause has one source for the root's life, whatever plot draws it.** A plot is
+ * rebuilt on a resize or a theme change, and vgplot builds new interactors with it, each its own
+ * clause source. A selection keeps one clause per source, so the old interactor's clause stayed
+ * beside the new one's: two windows, intersected. Handing the clause from one to the next was not
+ * enough — a rebuild landing before the last one had drawn handed over from an interactor that had
+ * not published yet, and a brush gesture begun on the old plot goes on publishing through it. So the
+ * interactor at each place publishes under that place's source, which survives the rebuild: whoever
+ * publishes, the selection holds one clause. One the plot no longer draws speaks through its heir.
+ *
+ * Where the grammar is the same, the interactor at the same place, of the same kind, on the same
+ * selection, keeps the place and is handed the old one's value — its brush is drawn from it — and,
+ * once it has drawn, republishes it for its own marks. Where the grammar changed, a value of the old
+ * one means nothing to the new one, and the place's clause is withdrawn at once.
  *
  * Returns what to run once the new plot has drawn, when there is anything.
  */
-function handOver(before: readonly unknown[], after: readonly unknown[], same: boolean): (() => void) | null {
+function handOver(slots: Slot[], after: readonly unknown[], same: boolean): (() => void) | null {
   const moves: (() => void)[] = [];
-  before.forEach((item, i) => {
-    const old = item as Publisher;
-    const selection = old.selection;
-    const held = selection?.clauses.find((c) => c.source === old);
-    if (!selection || !held) return;
-    const withdraw = () => selection.update({ ...held, value: null, predicate: null });
-    const heir = after[i] as Publisher | undefined;
-    const takes =
-      same && old.value !== undefined && heir?.constructor === old.constructor && heir.selection === selection && heir.clause !== undefined;
-    if (!takes) return void withdraw();
-    heir.value = old.value;
+  const next = after.map((item, i) => {
+    const heir = item as Publisher;
+    const slot = slots[i];
+    const keeps = same && slot !== undefined && slot.current.constructor === heir.constructor && slot.current.selection === heir.selection;
+    if (slot && !keeps) withdraw(slot);
+    if (!keeps) {
+      const fresh: Slot = { source: { reset: () => fresh.current.reset?.() }, current: heir };
+      return adopt(fresh, heir);
+    }
+    heir.value = slot.current.value;
+    adopt(slot, heir);
     moves.push(() => {
-      selection.update(heir.clause!(heir.value));
-      withdraw();
+      if (slot.current !== heir) return;
+      if (heir.value === undefined) withdraw(slot);
+      else if (heir.selection?.clauses.some((c) => c.source === slot.source)) heir.selection.update(heir.clause!(heir.value));
     });
+    return slot;
   });
+  slots.slice(after.length).forEach(withdraw);
+  slots.splice(0, slots.length, ...next);
   return moves.length > 0 ? () => moves.forEach((move) => move()) : null;
+}
+
+/** `interactor` takes `slot`: it publishes under the slot's source from now on. */
+function adopt(slot: Slot, interactor: Publisher): Slot {
+  slot.current = interactor;
+  const own = interactor.clause?.bind(interactor);
+  if (own) {
+    interactor.clause = (...args) => {
+      // A plot no longer on screen — a brush still mid-gesture — publishes through the one that is.
+      if (slot.current !== interactor) {
+        if ("value" in slot.current) slot.current.value = args[0];
+        return slot.current.clause!(...args);
+      }
+      return { ...own(...args), source: slot.source };
+    };
+  }
+  return slot;
+}
+
+/** The slot's clause, withdrawn from its selection. */
+function withdraw(slot: Slot): void {
+  const selection = slot.current.selection;
+  const held = selection?.clauses.find((c) => c.source === slot.source);
+  if (selection && held) selection.update({ ...held, value: null, predicate: null });
 }
 
 /** An area stacked by a series column (the `z` `chart-marks` derives), which `denseStack` completes. */
@@ -263,6 +303,8 @@ export function ChartRoot(props: ChartRootProps) {
   const drawn = useRef<ChartPlot | null>(null);
   /** The grammar and relation the plot on screen was built from: what a rebuild hands over within. */
   const drawnFrom = useRef<string | null>(null);
+  /** The clause source of each of the plot's interactors, kept across rebuilds. */
+  const slots = useRef<Slot[]>([]);
   const title = rest["aria-label"];
   useEffect(() => registerChartForTesting(title, () => output.current), [title]);
   // A plain union, so it hides nothing from its own publisher — a crossfilter would, and
@@ -379,7 +421,7 @@ export function ChartRoot(props: ChartRootProps) {
             const element = vg.plot(...spec.map(toVgDirective).filter((d): d is VgDirective => d !== null));
             const plot = (element as PlotElement).value;
             const from = `${tableKey}\u0000${signature}`;
-            let handed = handOver(drawn.current?.interactors ?? [], plot.interactors, drawnFrom.current === from);
+            let handed = handOver(slots.current, plot.interactors, drawnFrom.current === from);
             marks.current = plot.marks;
             drawn.current = plot;
             drawnFrom.current = from;

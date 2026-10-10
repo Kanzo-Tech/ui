@@ -88,10 +88,15 @@ describe("ChartTimeline", () => {
     const play = screen.getByRole("button", { name: "Play time" });
     expect(play.getAttribute("aria-pressed")).toBe("false");
     expect(play.hasAttribute("disabled")).toBe(false);
-    // Named apart from a canvas's layout transport, and described by a tooltip.
-    expect(play.getAttribute("title")).toBeTruthy();
+    // Icon-only and round, as Cosmograph's is: named apart from a canvas's layout transport, and
+    // the same words in its tooltip.
+    expect(play.textContent).toBe("");
+    expect(play.getAttribute("title")).toBe("Play time");
     const window = screen.getByRole("group", { name: "Window" });
     expect(window.hasAttribute("aria-valuetext")).toBe(false);
+    // No helper text: the slot is empty, its width reserved so the bars do not move when it reads.
+    expect(window.textContent).toBe("");
+    expect(window.className).toMatch(/(^|\s)w-\d+/);
   });
 
   it("puts Play time first, before the bars, and the window's range after them", () => {

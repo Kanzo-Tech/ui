@@ -13,11 +13,16 @@ why ours is shaped as it is.
 
 **A timeline is two layers of bars over `bin(field)` and an interval brush that publishes one clause:
 the bars behind are the column unfiltered, the bars in front are what the page keeps, the window
-included, and the brush's clause is a chip in the bar like any other control's.** So the window is
-in colour and what it leaves out is grey, as in Cosmograph. The brush sits on the bars behind and
-exempts them alone (`peers: false`): they draw every bar for it to stick to, and the bars in front
-are filtered by it. It is drawn as an outline, because d3's grey fill over the window read as the
-part left out. Cosmograph's `Timeline` draws the same two
+excluded, and the brush's clause is a chip in the bar like any other control's.** The window is in
+colour and what it leaves out is grey, as in Cosmograph: the bars in front are clipped to the window,
+so inside it they cover the grey bars behind and outside it only the grey shows. The brush exempts
+its whole plot, so a drag asks the database nothing here. A first version filtered the bars in front
+by the window (`peers: false`) instead, and every step of a drag re-queried them; vgplot's `Plot`
+redraws its whole svg for one mark's answer, brush included, so the timeline flickered and rebuilt
+under the pointer. A clip is an attribute, drawn in the same frame. The brush is an outline,
+because d3's grey fill over the window read as the part left out. *What would reverse it:* a Plot
+that redraws one mark in place; then the bars in front can be the window's own query again, and
+show its counts rather than its extent. Cosmograph's `Timeline` draws the same two
 layers (`highlightSelectedData`) and publishes `isBetween(column, range)` from a client of its own.
 Ours is a `ChartRoot` of `ChartRectY` marks and a `ChartBrushX`. The bins are SQL, through vgplot's
 `bin()`, which bins a temporal channel by date.
@@ -27,11 +32,19 @@ and vgplot builds new interactors with every plot, so a plot rebuilt under a win
 in the selection with no brush to move or clear it, and the next brush published beside it: the
 bar held two windows and intersected them. Two things rebuilt it. `bin()` returns a new closure per
 call, which the plot's signature reads by identity, so every render was a new grammar: `bin` on
-`/analytics` is made once per field and options. And a resize or a theme change rebuilds by design:
-`ChartRoot` hands each interactor's value to the one that replaces it, which draws it and publishes
-it as its own while the old clause is withdrawn — and withdraws it outright where the grammar
-changed. *What would reverse it:* interactors in vgplot that outlive their plot, or a plot that
-resizes without being rebuilt; then there is nothing to hand over.
+`/analytics` is made once per field and options. And a resize or a theme change rebuilds by design,
+so **the clause's source is the interactor's place in the plot, not the interactor**: `ChartRoot`
+gives each place a source for the root's life, and whichever interactor holds the place publishes
+under it. Handing the clause from each interactor to the next was not enough. In keasy, the readout
+beside the bars changed width as it played, every width a rebuild, and a rebuild that landed before
+the last had drawn handed over from an interactor that had never published; a drag begun on the old
+plot went on publishing through its brush, which d3 keeps listening to. The bar held four windows at
+once. With one source per place the selection holds one clause whoever publishes, and an interactor
+no longer on screen speaks through the one that is. The heir is handed the value, draws its brush
+from it and republishes it for its own marks; where the grammar changed, the clause is withdrawn.
+And the readout has a fixed width, so it no longer resizes the plot. *What would reverse it:*
+interactors in vgplot that outlive their plot, or a plot that resizes without being rebuilt; then
+there is nothing to hand over and no place to keep.
 
 **It replaced the dashboard's private `Timeline`**, the filter control behind a temporal field's chip
 (`packages/ui/src/charts/dashboard-filters.tsx`), which drew the same marks with no playback and
@@ -80,16 +93,21 @@ person asked for and the pause is one press away; it is slowed tenfold, so each 
 read rather than a flicker. *What would reverse it:* a reader under the query for whom even that is
 too much; then Play steps one bar per press.
 
-**Play time is the timeline's first control, before the bars, and the window's range reads after
-them.** It sat under the bars beside the readout, an icon identical to the canvas toolbar's layout
-transport, so two play buttons a few centimetres apart did different things. It is now an outlined
-button labelled *Play time* in words, with a tooltip, at the start of the bars as Cosmograph's is —
-the toolbar's is a bare icon, so the label is what tells them apart, and a second icon would have
-cost bytes to say less; the range, *1910 – 1940*, is right of the bars where the window ends.
-*What would reverse it:* a timeline too narrow for a labelled button beside its bars, such as one in
-a dashboard chip; then the label goes and the tooltip and the accessible name stay. A tick does not wait for the
-graph: each one publishes, and the store keeps the newest answer and drops a stale one
-(`packages/graph/src/core/store.ts`). A playing timeline therefore never draws behind its own clause.
+A tick does not wait for the graph: each one publishes, and the store keeps the newest answer and
+drops a stale one (`packages/graph/src/core/store.ts`). A playing timeline therefore never draws
+behind its own clause.
+
+**Play is a round icon at the timeline's left edge, centred on the bars, as Cosmograph's is; the
+window's range reads at the right edge.** It sat under the bars beside the readout, an icon identical
+to the canvas toolbar's layout transport, so two play buttons a few centimetres apart did different
+things. Cosmograph's `Timeline` puts its play button at the left of the bars, round and alone, and
+so does ours: an outlined round button, named *Play time* or *Pause time*, the same words as its
+tooltip — the toolbar's is square and ghosted, and named for the layout. A labelled text button was
+tried and narrowed the bars for a word the tooltip already says. The range slot, *1910 – 1940*, has
+a fixed width and is empty with no window: the helper text that filled it, *Drag across the bars to
+choose a window*, said what the cursor over a brush already says, and a slot that changed width
+resized and so rebuilt the plot. *What would reverse it:* readers who do not find the window
+without the hint; then it returns as the plot's own empty state, over the bars, not beside them.
 
 **Two alternatives were turned down.**
 
@@ -208,9 +226,11 @@ bridge's name — a timeline's window"),
 nothing for a column the corpus lacks; "crosses the window into the page as a clause every client
 answers, greying every vertex without the column"; "plays the whole axis with no window: one bar wide
 from its start, to its end, then stops"; "plays a window from where it is, the same width, to the
-end of the axis"; "pauses where it is, the window kept"; "holds one window, which each brush replaces — through a
+end of the axis"; "pauses where it is, the window kept"; "holds one clause through play, a rebuild
+while it plays, a pause, a drag and play again"; "neither rebuilds nor redraws the plot while a brush
+is dragged"; "holds one window, which each brush replaces — through a
 re-render and a rebuild of the plot"; "keeps the window through a rebuild of the plot, drawn and
-playable"; "draws the window's bars in front, and what it leaves out only behind"; "draws every tick
+playable"; "draws the window's bars in colour by clipping the bars in front to it, with no query"; "draws every tick
 label whole, the first one at the axis's edge too"), `packages/mosaic/src/clause.test.ts` ("crosses clauses on some rows as a semi-join, which keeps
 no row the table does not hold") and `packages/graph/src/parts/graph-section.test.tsx` (the
 setting offers the `xsd:gYear` column by its datatype, and no integer of the same range).
