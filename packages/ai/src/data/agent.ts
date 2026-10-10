@@ -1,23 +1,24 @@
 import { type LanguageModel, jsonSchema, stepCountIs, type Tool, tool, ToolLoopAgent } from "@kanzo-tech/llm";
-import { clauseLabel, Query, relationKey, relationQuery, type Engine, type JoinGraph, type Selection } from "@kanzo-tech/mosaic";
+import { clauseColumns, clauseLabel, Query, relationQuery, type Engine, type JoinGraph, type Selection } from "@kanzo-tech/mosaic";
 import { plotRelation } from "@kanzo-tech/ui/analytics";
-import { suggest } from "../suggest.js";
+import type { ModelMessage } from "ai";
+import { OFFER_SCHEMA, suggest } from "../suggest.js";
 import {
   ANSWER_ROWS,
   answerQuery,
   answerSchema,
   checkAnswer,
   conditionClauses,
-  offeredRelation,
   pageClauses,
   placed,
+  relationByKey,
   skippedText,
   type Answer,
-  type AnswerField,
   type AnswerInput,
   type AnswerRelation,
   type SkippedClause,
 } from "./answer.js";
+import { describeData, estimateTokens, fitData, promptBudget, type ContextBudget } from "./describe.js";
 
 /** One row of an answer, plain enough to keep in a message. */
 export type QueryRow = Record<string, unknown>;
@@ -59,6 +60,12 @@ export interface DataAgentOptions {
   relations: readonly AnswerRelation[];
   /** The page's crossfilter: an answer is read under the clauses it holds when the answer runs. */
   selection?: Selection;
+  /**
+   * The context the model's alias declares. Given, each question is fitted to it — the relations it
+   * names most, when not all fit — and a conversation that cannot fit fails with `ai/context` before
+   * anything is sent. Unset, every relation is described with every question.
+   */
+  context?: ContextBudget;
 }
 
 /** How much of an answer the model reads; the reader sees all of it. */
@@ -74,31 +81,6 @@ export function sample(rows: readonly QueryRow[]): string {
 /** A 64-bit integer comes back as a `bigint` and a timestamp as a `Date`; a message carries neither. */
 const plain = (value: unknown) =>
   typeof value === "bigint" ? Number(value) : value instanceof Date ? value.toISOString() : value;
-
-const day = (ms: number) => new Date(ms).toISOString().slice(0, 10);
-
-/** A field as the model is told it: its kind, and what it holds. `Person.gender: category (female, male)`. */
-export function describeField(field: AnswerField): string {
-  const range = (format: (n: number) => string) =>
-    field.min === undefined || field.max === undefined ? "" : ` (${format(field.min)} – ${format(field.max)})`;
-  if (field.kind === "numeric") return `${field.name}: number${range(String)}`;
-  if (field.kind === "temporal") return `${field.name}: time${range(day)}`;
-  if (field.role === "identifier") return `${field.name}: text, one per row`;
-  return `${field.name}: category${field.values?.length ? ` (${field.values.join(", ")})` : ""}`;
-}
-
-/** Every relation offered, as the model reads it: its name, the literal to write, its fields. */
-function describeRelations(graph: JoinGraph, relations: readonly AnswerRelation[]): string {
-  return relations
-    .map((r) =>
-      [
-        `### ${relationKey(graph, r.relation)}`,
-        `relation: ${JSON.stringify(r.relation)}`,
-        ...r.fields.map((f) => `- ${describeField(f)}`),
-      ].join("\n"),
-    )
-    .join("\n\n");
-}
 
 /**
  * What the model is told of the page's filter: the clauses the answer was read under, and those its
@@ -117,13 +99,15 @@ function filterLines({ under, skipped }: AnswerOutput): string[] {
 }
 
 /**
- * The agent's instructions: the relations and their fields, each with its kind and its most common
- * values — never DDL, because the model writes names and not a statement — and what an answer is.
+ * The agent's instructions: the data — every type once with its fields, each with its kind and its
+ * most common values, and every relation by its key; never DDL, because the model writes names and
+ * not a statement — and what an answer is. `description` is the data as fitted to a context;
+ * unset, every relation.
  */
-export function dataInstructions(options: Pick<DataAgentOptions, "graph" | "relations">): string {
+export function dataInstructions(options: Pick<DataAgentOptions, "graph" | "relations">, description?: string): string {
   return [
     `You answer questions about data with the \`answer\` tool. An answer is a dashboard tile: you choose the relation the question is about, narrow it with conditions, and choose how it is shown — one figure, a chart or a table. You never write SQL, and you name nothing that is not listed below: these relations are the whole of the data.`,
-    `## Relations\n\nA relation is a type and the hops taken from it; a field is named after the type it belongs to, and a type met twice is numbered, \`Person2\`. Write the relation exactly as given.\n\n${describeRelations(options.graph, options.relations)}`,
+    `## The data\n\n${description ?? describeData(options.graph, options.relations)}`,
     `## Conditions\n\n\`in\` keeps the rows whose field is one of the values, \`between\` the rows within a range, both ends included — a time as an ISO date — and \`contains\` the rows whose text contains the words.`,
     `## Showing\n\n- A figure: \`{ "kind": "stat", "measure": { "op": "count" } }\`.\n- A chart: \`bar\` for a measure by category, \`line\` or \`area\` for one over time, \`histogram\` for how a number spreads, and \`dot\` or \`regression\` for two numbers, whose y is \`{ "op": "value", "field": … }\`.\n- A table: the rows, as the columns that answer the question.\n\n\`top\` ranks the chart's x by its measure and keeps that many.`,
     `## The page's filter\n\nEvery answer is read under the filter the reader has set on the page when it runs. You do not name it; each result says what it was, and which of its clauses the relation could not answer because it lacks their fields — those did not narrow the answer, so do not speak as if they had.`,
@@ -140,22 +124,61 @@ export function dataInstructions(options: Pick<DataAgentOptions, "graph" | "rela
  * The whole answer goes to the transcript; the model reads a sample. `AnswerCard` draws it.
  */
 export function dataAgent(options: DataAgentOptions): ToolLoopAgent<never, DataTools> {
-  const { model, engine, graph, relations, selection } = options;
-  const tools: DataTools = {
+  const { model, graph, relations, context } = options;
+  const tools = answerTools(options, relations);
+  return new ToolLoopAgent({
+    model,
+    instructions: dataInstructions(options),
+    stopWhen: stepCountIs(5),
+    // Not retried here: the gateway retries its upstreams, and a silent gateway asked three times is
+    // three deadlines where the person waits for one.
+    maxRetries: 0,
+    tools,
+    // Fitted per question, when the alias declared its context: the question decides which relations
+    // stay when not all fit, and the conversation so far is part of what must fit.
+    prepareCall: context
+      ? (call) => {
+          const history = JSON.stringify(call.messages ?? call.prompt ?? "");
+          const fitted = fitData(graph, relations, {
+            budget: promptBudget(context) - estimateTokens(history),
+            fixed: (description, shown) => dataInstructions(options, description) + JSON.stringify(answerSchema(graph, shown)),
+            about: lastQuestion(call.messages ?? (typeof call.prompt === "string" ? [{ role: "user", content: call.prompt }] : (call.prompt ?? []))),
+          });
+          if (fitted.shown === relations) return call;
+          return { ...call, instructions: dataInstructions(options, fitted.text), tools: answerTools(options, fitted.shown) };
+        }
+      : undefined,
+  });
+}
+
+/** The words of the last thing the reader asked: what decides which relations a narrowed call keeps. */
+function lastQuestion(messages: readonly ModelMessage[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]!;
+    if (m.role !== "user") continue;
+    return typeof m.content === "string" ? m.content : m.content.map((part) => (part.type === "text" ? part.text : "")).join(" ");
+  }
+  return "";
+}
+
+/** The agent's one tool over `offered`: what the model may answer about on this call. */
+function answerTools(options: DataAgentOptions, offered: readonly AnswerRelation[]): DataTools {
+  const { engine, graph, selection } = options;
+  return {
     answer: tool({
       description: `Answer with one dashboard tile over one relation. The reader sees the tile; you read its first ${SAMPLE_ROWS} rows.`,
       // Validated here, so input outside the schema is refused before `execute` and the model reads why.
-      inputSchema: jsonSchema<AnswerInput>(answerSchema(graph, relations), { validate: (value) => checkAnswer(value, relations, graph) }),
+      inputSchema: jsonSchema<AnswerInput>(answerSchema(graph, offered), { validate: (value) => checkAnswer(value, offered, graph) }),
       execute: async (input, { toolCallId, abortSignal }): Promise<AnswerOutput> => {
-        const answer = placed(input, toolCallId);
-        const offered = offeredRelation(relations, answer.relation)!;
-        const plotted = plotRelation(relationQuery(graph, answer.relation), { fields: offered.fields, columns: offered.columns });
-        const page = pageClauses(selection?.clauses ?? [], offered.columns);
-        const clauses = [...conditionClauses(answer.where, offered.fields, {}), ...page.answered];
+        const about = relationByKey(graph, offered, input.relation)!;
+        const answer = placed(input, toolCallId, about.relation);
+        const plotted = plotRelation(relationQuery(graph, answer.relation), { fields: about.fields, columns: about.columns });
+        const page = pageClauses(selection?.clauses ?? [], about.columns);
+        const clauses = [...conditionClauses(answer.where, about.fields, {}), ...page.answered];
         const table = Query.from(plotted.table).select("*").where(clauses.map((c) => c.predicate!));
         // One more row than the cap, so a cut answer is told from one that fits exactly. A stopped
         // chat rejects the wait at once with the signal's reason; the statement, a short one, finishes.
-        const sql = String(answerQuery(table, answer, offered.fields, ANSWER_ROWS + 1));
+        const sql = String(answerQuery(table, answer, about.fields, ANSWER_ROWS + 1));
         const read = await engine.query(sql, { signal: abortSignal ?? new AbortController().signal });
         const names = read.schema.fields.map((f) => f.name);
         const columns = names.map((name) => read.getChild(name)!);
@@ -178,15 +201,6 @@ export function dataAgent(options: DataAgentOptions): ToolLoopAgent<never, DataT
       }),
     }),
   };
-  return new ToolLoopAgent({
-    model,
-    instructions: dataInstructions(options),
-    stopWhen: stepCountIs(5),
-    // Not retried here: the gateway retries its upstreams, and a silent gateway asked three times is
-    // three deadlines where the person waits for one.
-    maxRetries: 0,
-    tools,
-  });
 }
 
 /** What makes a question worth offering over a data space: one that crosses a hop, first. `/docs/ai/data` says why. */
@@ -201,6 +215,11 @@ export interface DataSuggestionsOptions {
   selection?: Selection;
   /** How many to offer. Default 4. */
   count?: number;
+  /**
+   * The context the model's alias declares. Given, the relations are fitted to it — those that cross
+   * a hop, and those the page's filter is on, first — or the call fails with `ai/context` unsent.
+   */
+  context?: ContextBudget;
   abortSignal?: AbortSignal;
 }
 
@@ -209,19 +228,24 @@ export interface DataSuggestionsOptions {
  * `suggest()` with a data space's instructions. A host caches them per data space and filter.
  */
 export function dataSuggestions(options: DataSuggestionsOptions) {
-  const { model, graph, relations, selection, count = 4, abortSignal } = options;
+  const { model, graph, relations, selection, count = 4, context, abortSignal } = options;
   const filter = selection?.clauses.map(clauseLabel) ?? [];
-  return suggest({
-    model,
-    instructions: QUESTIONS,
-    prompt: [
-      `Relations:\n\n${describeRelations(graph, relations)}`,
-      filter.length > 0 && `The page is filtered to: ${filter.join("; ")}.`,
-      `Give ${count}.`,
-    ]
+  const prompt = (description: string) =>
+    [`The data:\n\n${description}`, filter.length > 0 && `The page is filtered to: ${filter.join("; ")}.`, `Give ${count}.`]
       .filter(Boolean)
-      .join("\n\n"),
-    count,
-    abortSignal,
-  });
+      .join("\n\n");
+  // The filter's columns are what the reader is looking at: the relations they name stay first.
+  const filtered = (selection?.clauses ?? []).flatMap((c) => (c.predicate == null ? [] : clauseColumns(c.predicate))).join(" ");
+  // A generator, so a call that cannot fit throws where `suggest`'s failures do: while it is read.
+  return (async function* () {
+    const description = context
+      ? fitData(graph, relations, {
+          budget: promptBudget(context),
+          fixed: (text) => QUESTIONS + prompt(text) + JSON.stringify(OFFER_SCHEMA),
+          about: filtered,
+          hopsFirst: true,
+        }).text
+      : describeData(graph, relations);
+    yield* suggest({ model, instructions: QUESTIONS, prompt: prompt(description), count, abortSignal });
+  })();
 }

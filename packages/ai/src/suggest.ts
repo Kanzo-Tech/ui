@@ -2,6 +2,7 @@
 // over a data space, a wizard's competency questions over a domain, a field's candidate values.
 
 import { type LanguageModel, Output, jsonSchema, stream } from "@kanzo-tech/llm";
+import type { JSONSchema7 } from "ai";
 import type { Proposal } from "./engine.js";
 
 export interface SuggestOptions {
@@ -20,7 +21,8 @@ export interface SuggestOptions {
   abortSignal?: AbortSignal;
 }
 
-const OFFER = jsonSchema<{ text: string; rationale: string }>({
+/** One offer, as JSON Schema: what a caller counts as sent beside its prompt. */
+export const OFFER_SCHEMA: JSONSchema7 = {
   type: "object",
   properties: {
     text: { type: "string", description: "The offer itself, exactly as it would be used." },
@@ -28,7 +30,9 @@ const OFFER = jsonSchema<{ text: string; rationale: string }>({
   },
   required: ["text", "rationale"],
   additionalProperties: false,
-});
+};
+
+const OFFER = jsonSchema<{ text: string; rationale: string }>(OFFER_SCHEMA);
 
 /**
  * Offers over some material, each a `Proposal` with its rationale, arriving as soon as it is whole

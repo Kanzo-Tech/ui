@@ -115,6 +115,15 @@ function steps(graph: Pick<JoinGraph, "edges">, relation: Relation): Step[] {
 }
 
 /**
+ * The types a relation reaches, in order, each with the name its columns are prefixed by: the type's
+ * own, numbered on a repeat — `Person`, `Person2` on a self-join. What a description of a relation's
+ * fields reads to say which type a column belongs to.
+ */
+export function relationSteps(graph: Pick<JoinGraph, "edges">, relation: Relation): { type: string; alias: string }[] {
+  return steps(graph, relation).map(({ type, alias }) => ({ type, alias }));
+}
+
+/**
  * The relation's canonical identity: `Person`, `Person>knows>Person`, `Person<hasCreator<Post`.
  * What a saved dashboard is keyed by, so two spellings of one relation are one key.
  */

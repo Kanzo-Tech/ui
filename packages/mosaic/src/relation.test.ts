@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Query, asTableRef } from "@uwdata/mosaic-sql";
 import { clauseColumns, clauseSemiJoin } from "./clause.js";
-import { relationHops, relationIdentities, relationKey, relationQuery, relationRootKey, type JoinGraph } from "./relation.js";
+import { relationHops, relationIdentities, relationKey, relationQuery, relationRootKey, relationSteps, type JoinGraph } from "./relation.js";
 
 const at = (table: string) => asTableRef(["jobs/7", table])!;
 
@@ -66,6 +66,25 @@ describe("relationKey", () => {
         ],
       }),
     ).toBe("Person>knows>Person<hasCreator<Post");
+  });
+});
+
+describe("relationSteps", () => {
+  it("names each type the relation reaches by its columns' prefix, numbering a repeat", () => {
+    expect(relationSteps(GRAPH, { root: "Person", path: [] })).toEqual([{ type: "Person", alias: "Person" }]);
+    expect(
+      relationSteps(GRAPH, {
+        root: "Person",
+        path: [
+          { edge: "Person_knows_Person", direction: "out" },
+          { edge: "Post_hasCreator_Person", direction: "in" },
+        ],
+      }),
+    ).toEqual([
+      { type: "Person", alias: "Person" },
+      { type: "Person", alias: "Person2" },
+      { type: "Post", alias: "Post" },
+    ]);
   });
 });
 

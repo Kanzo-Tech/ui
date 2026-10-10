@@ -30,7 +30,7 @@ beforeAll(async () => {
   const [person] = (await readAnswerRelations(db.coordinator, PEOPLE, [PERSON])) as [AnswerRelation];
   const agent = dataAgent({ model: mockModel(() => "").model, engine: db.engine, graph: PEOPLE, relations: [person] });
   const input = {
-    relation: PERSON,
+    relation: "Person",
     where: [{ field: "Person.gender", in: ["female"] }],
     show: { kind: "stat", title: "Mean age", measure: { op: "avg", field: "Person.age" } },
   };

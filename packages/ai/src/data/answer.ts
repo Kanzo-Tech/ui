@@ -56,8 +56,11 @@ export interface Answer {
 /** A tile as the model writes one: without the id and the width, which are the page's to give. */
 type Shown<T> = T extends Tile ? Omit<T, "id" | "span" | "origin"> : never;
 
-/** What the model writes: an `Answer` whose tile has no id and no width yet. */
-export type AnswerInput = Omit<Answer, "show"> & { readonly show: Shown<Tile> };
+/**
+ * What the model writes: an `Answer` whose relation is its key — `Person>knows>Person`, as
+ * `relationKey` writes it — and whose tile has no id and no width yet. `placed` makes it an `Answer`.
+ */
+export type AnswerInput = Omit<Answer, "relation" | "show"> & { readonly relation: string; readonly show: Shown<Tile> };
 
 /** A field of a relation, with its most common values when it is a category. */
 export interface AnswerField extends FieldStat {
@@ -86,23 +89,30 @@ const same = (a: Relation, b: Relation) =>
 export const offeredRelation = (relations: readonly AnswerRelation[], relation: Relation) =>
   relations.find((r) => same(r.relation, relation));
 
+/** The relation offered under `key`, as `relationKey` writes it, or `undefined`. */
+export const relationByKey = (graph: Pick<JoinGraph, "edges">, relations: readonly AnswerRelation[], key: string) =>
+  relations.find((r) => relationKey(graph, r.relation) === key);
+
 // ── The schema the model fills ───────────────────────────────────────────────
 
 /**
- * **The `answer` tool's input, as JSON Schema.** Every name in it is an enum: the types and hops of
- * the relations offered, their fields, the aggregates and the chart kinds. A provider that decodes
- * against it cannot write a name that does not exist; one that does not is checked by
- * `checkAnswer` before anything runs.
+ * **The `answer` tool's input, as JSON Schema.** Every name in it is an enum: the relations offered,
+ * by key, their fields, the aggregates and the chart kinds. A provider that decodes against it cannot
+ * write a name that does not exist; one that does not is checked by `checkAnswer` before anything
+ * runs.
+ *
+ * The field list is one definition, `$defs.field`, which every place a field goes refers to: JSON
+ * Schema's own reuse, which OpenAI's and Anthropic's tools and llama.cpp's grammar resolve. Written
+ * out at each place, it was ten copies of every field name.
  *
  * The root is one object, not one branch per relation: Anthropic and OpenAI both refuse a tool
  * whose input schema is an `anyOf` at the top. So the fields are every relation's, and
  * `checkAnswer` holds each to its own relation.
  */
 export function answerSchema(graph: Pick<JoinGraph, "edges">, relations: readonly AnswerRelation[]): JSONSchema7 {
-  const roots = [...new Set(relations.map((r) => r.relation.root))];
-  const edges = [...new Set(relations.flatMap((r) => r.relation.path.map((hop) => hop.edge)))];
+  const keys = relations.map((r) => relationKey(graph, r.relation));
   const names = [...new Set(relations.flatMap((r) => r.fields.map((f) => f.name)))];
-  const field: JSONSchema7 = { type: "string", enum: names };
+  const field: JSONSchema7 = { $ref: "#/$defs/field" };
   const object = (properties: Record<string, JSONSchema7>, required: string[], description?: string): JSONSchema7 => ({
     type: "object",
     ...(description ? { description } : {}),
@@ -120,19 +130,9 @@ export function answerSchema(graph: Pick<JoinGraph, "edges">, relations: readonl
     ["op"],
   );
   const title = { type: "string", description: "A title, when the derived one would not read well." } as const;
-  return object(
+  const schema = object(
     {
-      relation: object(
-        {
-          root: { type: "string", enum: roots },
-          path: {
-            type: "array",
-            items: object({ edge: { type: "string", enum: edges }, direction: { type: "string", enum: ["out", "in"] } }, ["edge", "direction"]),
-          },
-        },
-        ["root", "path"],
-        `One of: ${relations.map((r) => relationKey(graph, r.relation)).join(", ")}.`,
-      ),
+      relation: { type: "string", enum: keys, description: "What the answer is about, written exactly as listed." },
       where: {
         type: "array",
         items: {
@@ -174,6 +174,7 @@ export function answerSchema(graph: Pick<JoinGraph, "edges">, relations: readonl
     },
     ["relation", "show"],
   );
+  return { ...schema, $defs: { field: { type: "string", enum: names } } };
 }
 
 // ── Checking what the model wrote ────────────────────────────────────────────
@@ -217,11 +218,7 @@ export function checkAnswer(
   if (extra.length) return refuse(`An answer has no ${extra.join(", ")}: it is { relation, where?, show, top? }.`);
 
   const keys = relations.map((r) => relationKey(graph, r.relation)).join(", ");
-  const relation = value.relation;
-  const offered =
-    isObject(relation) && typeof relation.root === "string" && Array.isArray(relation.path)
-      ? offeredRelation(relations, relation as unknown as Relation)
-      : undefined;
+  const offered = typeof value.relation === "string" ? relationByKey(graph, relations, value.relation) : undefined;
   if (!offered) return refuse(`relation: not one of the relations offered, which are ${keys}.`);
   const fields = new Set(offered.fields.map((f) => f.name));
   const about = relationKey(graph, offered.relation);
@@ -269,8 +266,8 @@ export function checkAnswer(
   return { success: true, value: value as unknown as AnswerInput };
 }
 
-/** The answer the model wrote, with its tile placed: its id and its width. */
-export const placed = (input: AnswerInput, id: string): Answer => ({ ...input, show: place(input.show, id) });
+/** The answer the model wrote, about `relation` — the one its key names — with its tile placed: its id and its width. */
+export const placed = (input: AnswerInput, id: string, relation: Relation): Answer => ({ ...input, relation, show: place(input.show, id) });
 
 // ── Compiling an answer ──────────────────────────────────────────────────────
 

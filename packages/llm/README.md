@@ -30,6 +30,9 @@ import { ToolLoopAgent, DirectChatTransport, tool, Output } from "@kanzo-tech/ll
   limit fails as an `AiError` coded `ai/rate-limited`, with `data.retryAfter` when it said when; and
   any other error answer — an alias no model answers, a provider's refusal, a 504 from a hung
   upstream — fails as an `AiError` coded `ai/unavailable`, with `data.status` and `data.reason`.
+  `ai/context` is a fourth code, thrown by a caller before anything is sent: a request that would
+  not fit the model's declared context (`@kanzo-tech/ai/data`'s `context` option), with
+  `data.tokens` and `data.budget`.
 - **`stream({ model, system, prompt, output })`** — the one door to an answer: `streamText`, never
   retried, read as `text`, `elements` (`Output.array`) or `partial` (`Output.object`), each of which
   **throws what stopped the model** once it ends. The SDK alone reports a failed stream to `onError`

@@ -36,12 +36,14 @@ const gateway = createGateway({ baseURL: "/api/ai" });
 ```tsx
 function Ask({ engine, graph, relations, dashboards, onAdd }: { engine: Engine; graph: JoinGraph; relations: AnswerRelation[]; dashboards: Dashboards; onAdd: AnswerCardProps["onAdd"] }) {
   const { crossfilter } = useMosaic();
-  const chat = useAgentChat(dataAgent({ model: gateway("chat"), engine, graph, relations, selection: crossfilter }));
+  // The context each alias was started with, as the host declares it: each call fits in it.
+  const chat = useAgentChat(dataAgent({ model: gateway("chat"), engine, graph, relations, selection: crossfilter, context: { tokens: 16384 } }));
   // Cached per data space and per filter; streamed, so the pills land one by one.
   const starters = useQuery({
     queryKey: ["starters", relations, String(crossfilter.predicate(null))],
     queryFn: streamedQuery({
-      streamFn: ({ signal }) => dataSuggestions({ model: gateway("complete"), graph, relations, selection: crossfilter, abortSignal: signal }),
+      streamFn: ({ signal }) =>
+        dataSuggestions({ model: gateway("complete"), graph, relations, selection: crossfilter, context: { tokens: 8192 }, abortSignal: signal }),
     }),
   });
   return (
@@ -115,15 +117,17 @@ interface Answer {
 }
 ```
 
-The model writes an `AnswerInput`: an `Answer` whose tile has no `id` and no `span`, which the page
-gives — the call's id, and the width a dashboard gives the kind.
+The model writes an `AnswerInput`: an `Answer` whose relation is its key — `"Person>knows>Person"`,
+as `relationKey` writes it — and whose tile has no `id` and no `span`, which the page gives: the
+call's id, and the width a dashboard gives the kind. The tool turns the key back into the `Relation`
+it names, so the `Answer` a card and a dashboard read carries the relation as before.
 
-`answerSchema(graph, relations)` is the tool's JSON Schema. The relation's `root` and each hop's
-`edge` are enums of the types and edges the relations offered take; every field slot — a condition's
-`field`, a chart's `x`, `color` and `facet`, a measure's `field`, a figure's `trend`, a table's
-`columns` — is an enum of the offered relations' fields; `op` is an enum of the dashboard's
-aggregates and `type` of its chart kinds. A provider that decodes against the schema cannot write a
-name that does not exist.
+`answerSchema(graph, relations)` is the tool's JSON Schema. `relation` is an enum of the offered
+relations' keys; every field slot — a condition's `field`, a chart's `x`, `color` and `facet`, a
+measure's `field`, a figure's `trend`, a table's `columns` — refers to one enum of the offered
+relations' fields, defined once under `$defs`; `op` is an enum of the dashboard's aggregates and
+`type` of its chart kinds. A provider that decodes against the schema cannot write a name that does
+not exist.
 
 The schema is one object rather than one branch per relation, because Anthropic and OpenAI refuse a
 tool whose input is an `anyOf` at the top. So **`checkAnswer(value, relations, graph)`** holds the rest:
@@ -146,7 +150,7 @@ not have: the model is told to say so in one sentence rather than answer a diffe
 is no SQL beside it as a fallback; [Asking data](/docs/design/ai) says why, and what would reverse
 it.
 
-*Held by* `packages/ai/src/data/answer.test.ts`, "the enums are the relation's fields only"; "an
+*Held by* `packages/ai/src/data/answer.test.ts`, "the enums are the relations offered, by key, and their fields, listed once"; "an
 answer compiles to the same query the dashboard tile reads"; "crosses a hop: whom the women know, by
 gender, ranked"; "input outside the schema is refused before it runs".
 
@@ -175,12 +179,21 @@ narrow the answer, and the card says so under the tile.
 | `graph` | `JoinGraph` | The graph the relations are over |
 | `relations` | `readonly AnswerRelation[]` | `readAnswerRelations`' answer. The model is told it is the whole of the data |
 | `selection` | `Selection` | The page's crossfilter: an answer is read under its clauses when it runs |
+| `context` | `{ tokens, reserve? }` | The context the model's alias declares. Each question is fitted to it, or fails as `ai/context` unsent. Unset, every relation is described |
 
-**The instructions list fields, not DDL.** Each relation is named (`Person>knows>Person`), given as
-the literal the model writes for it, and followed by its fields, each with its kind and what it
-holds: `Person.gender: category (female, male)`, `Person.age: number (27 – 61)`, `Person.born: time
-(1965-09-15 – 1999-01-20)`, and an identifier as `text, one per row`. The model never reads a table
-name, so it never writes one.
+**The instructions list fields, not DDL, and each once.** Every type is described once, with its
+fields, each with its kind and what it holds — `gender: category (female, male)`, `age: number
+(27 – 61)`, `born: time (1965-09-15 – 1999-01-20)`, an identifier as `text, one per row` — and every
+relation as its key, `Person>knows>Person`, under one rule for how its fields are named:
+`Person.gender`, and `Person2.gender` for a type met twice. The model never reads a table name, so it
+never writes one. [Asking within a context](/docs/design/ai-context) has what this saves.
+
+**Given a `context`, a call fits in it.** `{ tokens, reserve? }` is the window the model's alias was
+started with and what is kept for the answer (a quarter, at most 2,048, by default). The
+conversation so far is counted; when the description does not fit beside it, the category values
+go first, then the relations the question names least, which the model is told by name — and when
+not one relation fits, the call fails as an `AiError` coded `ai/context` before anything is sent.
+`dataSuggestions` takes the same option, keeping what crosses a hop and what the page's filter is on.
 
 **The model is told the tile is already shown.** The instructions end on it: say what the tile shows
 — the numbers that matter, the pattern, the exception — and do not list its rows again. Genie's and
@@ -193,9 +206,9 @@ the answer as placed, the rows its tile reads, whether the 1,000-row cap cut the
 it was read under, and those its relation could not answer, each a `SkippedClause`, `{ clause,
 missing }`; a row is a `QueryRow`.
 
-*Held by* `packages/ai/src/data/agent.test.ts`, "tells the model each field with its kind and what it
-holds, never DDL, and that the tile is already shown"; "hands the model a sample of the rows and the
-page's filter that applied, after one tool call"; "tells the model which of the page's clauses the
+*Held by* `packages/ai/src/data/agent.test.ts`, "tells the model each type's fields once, with their
+kind and what they hold, each relation by its key, never DDL, and that the tile is already shown";
+"hands the model a sample of the rows and the page's filter that applied, after one tool call"; "tells the model which of the page's clauses the
 relation could not answer, and what each lacks"; "does not call a page whose every clause was skipped
 unfiltered"; "stops after five steps, however often the model calls the tool"; "throws when the chat
 was stopped, rather than answering nobody"; "answers in a hidden tab, where no animation frame ever

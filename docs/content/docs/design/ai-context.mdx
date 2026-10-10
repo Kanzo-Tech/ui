@@ -1,0 +1,170 @@
+---
+title: Asking within a context
+description: Why @kanzo-tech/ai/data describes each type once and each relation in one line, why the answer's schema names a field list once, and why the budget is the model's declared context — measured on five graphs, and what would reverse each.
+---
+
+[Asking data](/docs/design/ai) settled what the model is told: every relation offered, with its
+fields. This page is about how much that costs, measured, and how to say the same in a fraction of
+it.
+
+## What was measured
+
+Keasy's Discover sent its two calls on five graphs, captured at the BFF and replayed to Docker Model
+Runner with `max_tokens: 1`. The counts are **exact**: the model's own tokenizer and chat template
+answer `usage.prompt_tokens`, or refuse with *request (N tokens) exceeds the available context*. A
+part's cost is the request's tokens less the request's without it.
+
+| Graph | Relations (hops) | `dataSuggestions`, Hermes 3B | `dataAgent`, Hermes 8B | `dataAgent`, Qwen3 |
+| --- | --- | --- | --- | --- |
+| e2e corpus | 4 (2) | 743 | 1,033 | 2,485 |
+| OpenFlights | 3 (2) | 1,290 | 1,580 | 3,813 |
+| Nobel | 15 (10) | 1,523 | 1,813 | 3,787 |
+| CORDIS | 12 (8) | 3,569 | 3,859 | 7,397 |
+| **LDBC SNB** | 37 (28) | **10,466** | **10,756** | **16,565** |
+
+The dev stack serves `complete` and `chat` with an 8,192-token context, and `make demo`'s Qwen3 with
+16,384. **SNB's starters and SNB's first question both overflow before the model writes a word**:
+the 10,466 in the logs at 09:46, 12:39 and 13:48 is SNB's starters each time, and `snb-ask` on Qwen3
+is refused at 16,565 of 16,384 with no history yet.
+
+Where the tokens go, SNB:
+
+| Part | Hermes 3B / 8B | Qwen3 |
+| --- | --- | --- |
+| `QUESTIONS` (starters' instructions) | 170 | — |
+| The relations (as `describeRelations` wrote them) | 10,292 | ≈ 12,900 in `dataInstructions` |
+| The `answer` tool's schema | 0 — see below | 3,597 |
+| The output schema (`response_format`) | 0 — a grammar, not prompt | — |
+
+**The relations are nearly all of it, and most of them are repeats.** 37 relations list 300 field
+lines, of only 44 distinct fields: each type's fields are written again in every relation that
+reaches it, values and all — *Person.firstName: category (John, Carlos, A., Rahul, Shweta, Jun)*
+seven times. Category values are 72% of the characters. Each relation also carries its literal,
+`{"root":"Place","path":[{"edge":"Place_isPartOf_Place","direction":"out"}]}`, which its heading,
+`Place>isPartOf>Place`, already says.
+
+**The tool's schema repeats too.** The field enum — every field name of every relation — is
+written ten times, once for each place a field goes (a measure's `field` twice, each condition's,
+`trend`, `x`, `color`, `facet`, `columns`), and the relation's description lists every relation key
+once more.
+
+*Hermes in Model Runner counts the tool at 0*: its template there does not put tools into the
+prompt, so the 8B is never told the `answer` tool exists. That is the behaviour
+`e2e/demos/models.yml` records — Hermes writes a query of its own instead of calling the tool — and
+it is the template, not the model. A separate finding; the services' compose is where it is fixed.
+
+## Say each thing once
+
+**Types are described once, with their fields; a relation is one line, its key.**
+
+```
+### Types
+
+#### Person
+- firstName: category (John, Carlos, A., Rahul, Shweta, Jun)
+- gender: category (female, male)
+- birthday: time (1980-02-06 – 1990-01-28)
+…
+
+### Relations
+
+A relation is a type and the hops taken from it. Its fields are those of every type it reaches,
+named Type.field; a type met twice is numbered, Person2.
+
+- Person
+- Person>knows>Person
+- Person<hasCreator<Comment
+…
+```
+
+This is **LangChain's `SQLDatabase.get_table_info`**: each table's columns once, with a few sample
+rows (`sample_rows_in_table_info`), and the joins as foreign keys rather than as a table per join.
+Vanna and LlamaIndex's `SQLDatabase` describe a schema the same way. A type's values are read from
+the relation over the type alone, which is what a reader sees of it; the values a hop narrows to
+(*Place2.name* over countries only) are a detail the answer's rows say, not the description.
+
+**The model writes the relation as its key.** `relation` becomes one string enum of keys —
+`"Person>knows>Person"` — and `placed()` turns the key back into the `Relation` it names, through
+the same `relationKey` that wrote it. `Answer`, what `AnswerCard` and a dashboard read, keeps the
+object; only `AnswerInput`, what the model writes, changes.
+
+**The field list is one definition.** The schema names it once under `$defs` and every place a field
+goes is `{ "$ref": "#/$defs/field" }`. JSON Schema's own reuse; OpenAI's and Anthropic's tools
+resolve local `$ref`s, and so does llama.cpp's JSON-schema grammar — checked in Docker Model Runner,
+2026-10-10, with a schema whose two fields both refer to one enum of three names and a prompt asking
+for names outside it: Qwen3 called the tool with two names from the enum, and Hermes 3 8B and 3B
+under `response_format` wrote only names from it. (Hermes calls no tool there with or without `$ref`
+— the template finding above.)
+
+The same five graphs, sent by `dataSuggestions` and `dataAgent` as implemented — each graph's
+relations rebuilt from its captured prompt, the request caught at the HTTP boundary and counted the
+same way:
+
+| Graph | Starters, Hermes 3B | Agent, Hermes 8B | Agent, Qwen3 |
+| --- | --- | --- | --- |
+| e2e corpus | 743 → 448 | 1,033 → 696 | 2,485 → 1,812 |
+| OpenFlights | 1,290 → 438 | 1,580 → 686 | 3,813 → 1,895 |
+| Nobel | 1,523 → 544 | 1,813 → 792 | 3,787 → 2,056 |
+| CORDIS | 3,569 → 822 | 3,859 → 1,070 | 7,397 → 2,535 |
+| **LDBC SNB** | **10,466 → 1,290** | **10,756 → 1,538** | **16,565 → 3,212** |
+
+SNB's starters fit the 3B's 8K six times over. `snb-ask` — the page filtered to women, *Which
+browsers do they use most?* on Qwen3's 16,384 — takes 3,211 on its first question and, with three
+turns of history before it (each a question, the `answer` call, its result of up to 30 rows and a
+reply), 5,164: room for the answer and many more turns. Dropping the category values as well saves
+little once they are said once (SNB's starters 1,290 → 905), so values stay unless the budget asks.
+
+**What would reverse it:** a model that answers measurably worse from a type's fields than from a
+relation's spelled out — one that cannot apply the numbering rule. Then the relation lines carry
+their fields' names, still without the types' values.
+
+## The budget is the model's
+
+**A call is told the context it has, and fits in it with room to answer; when it cannot, it says
+so before sending.** Normalizing is the fix for every graph measured. The budget is for the graph
+nobody measured — a hundred types, a thousand hops — where "said once" is still too much.
+
+- **The context is declared per alias, where the model is chosen.** The platform's AI services
+  already set `context_size` per model in compose (8,192 dev, 16,384 for the demo's Qwen3); that
+  same value travels with the alias to the browser, and `dataAgent` / `dataSuggestions` take it as
+  `context: { tokens, reserve }`. Model Runner's `/models` reports the model's maximum (131,072 for
+  Hermes), not what it was started with, so it is not the source.
+- **Counted, not guessed.** The page has no tokenizer, so the library counts conservatively: 0.4
+  tokens per character. Measured over these five graphs' instructions and tool schemas, Llama 3's
+  tokenizer (Hermes 3) took at most 0.32 and Qwen3's at most 0.38, both on SNB, whose values are IP
+  addresses and URLs; `describe.test.ts` holds the estimate above every one of those counts. The
+  conversation so far is counted too, and `reserve` — a quarter of the window, at most 2,048 — is
+  kept for the answer.
+- **Over budget, the description narrows by a rule, not by a cut.** First the category values go
+  (each field keeps its kind and range). Then, for the agent, the relations the question names — by
+  their types' and fields' names — and their neighbours, as **LlamaIndex's `ObjectIndex` /
+  `SQLTableRetriever`** retrieves the tables a question needs; for the starters, which have no
+  question, the relations that cross a hop, and those the page's filter is on, which is what they
+  favour already. The model is told what it was not shown, by name, so "these are the whole of the
+  data" stays true, and the `answer` tool offers only what was shown. On SNB at a 4,096 context the
+  agent, asked *Which browsers do people who comment use most?*, kept the 16 relations over Person,
+  Comment, Post and Place, named the other 21, and sent 2,380 tokens.
+- **Still over, the call does not go.** It fails as an `AiError` coded `ai/context`, with
+  `data.tokens` (the smallest request's estimate) and `data.budget`, instead of a 400 from upstream
+  that reads as *The model could not answer.* A host words it in its problem table.
+
+**What would reverse it:** a provider that counts for us before sending (Anthropic's and OpenAI's
+token-counting endpoints) on every alias a host uses. Then the gateway counts exactly and the ratio
+goes.
+
+## What changes for a host
+
+- `dataAgent` and `dataSuggestions` take `context?: { tokens: number; reserve?: number }`. Unset,
+  nothing narrows — today's behaviour, with the smaller prompt.
+- Keasy passes the alias's declared context, from the same setting compose gives Model Runner.
+- `AnswerInput.relation` is a key string; `Answer.relation` is unchanged. A host that stored
+  `AnswerInput` — none known — maps it with `relationKey`.
+- A new `AiError` code, `ai/context`, for a host's problem table.
+
+*Held by* `packages/ai/src/data/describe.test.ts`, "names each type once with its own fields, read
+from the type alone, and each relation by its key"; "errs long on every prompt measured with the
+models' own tokenizers"; "drops the values first, keeping every relation"; "then keeps the relations
+the question names, and names the rest as left out"; "fails as ai/context when not one relation fits,
+and sends nothing"; `packages/ai/src/data/agent.test.ts`, "fails as ai/context, sending nothing, when
+the conversation cannot fit"; and `packages/ai/src/data/answer.test.ts`, "the enums are the relations
+offered, by key, and their fields, listed once".

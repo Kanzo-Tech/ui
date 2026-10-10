@@ -24,15 +24,16 @@ interface Answer {
 }
 ```
 
-`answerSchema(graph, relations)` is the tool's JSON Schema. The types and hops of the relations
-offered, their fields, the aggregates and the chart kinds are enums, so a provider that decodes
-against the schema cannot write a field that does not exist. The schema is one object, not one
+`answerSchema(graph, relations)` is the tool's JSON Schema. The relations offered, by key, their
+fields — one list under `$defs` — the aggregates and the chart kinds are enums, so a provider that
+decodes against the schema cannot write a field that does not exist. The schema is one object, not one
 branch per relation, because Anthropic and OpenAI both refuse a tool whose input is an `anyOf` at
 the top; so its field enum is every offered relation's, and `checkAnswer` holds each field to the
 relation the answer names. It is the AI SDK's `validate` on the tool's input, so input that does not
-pass is refused before `execute` runs, and the model reads why. The instructions list each field
-with its kind and its most common values, *Person.gender: category (female, male)*, read from
-`FieldStat` and one count per category by `readAnswerRelations`, rather than DDL.
+pass is refused before `execute` runs, and the model reads why. The instructions list each type's
+fields once, with their kind and most common values, *gender: category (female, male)*, read from
+`FieldStat` and one count per category by `readAnswerRelations`, rather than DDL; [Asking within a
+context](/docs/design/ai-context) is why once.
 
 **It compiles with what the dashboard already compiles with.** `relationQuery` makes the relation;
 each condition is the clause a dashboard filter would publish; `plotRelation` and `measureExpr` make
@@ -89,7 +90,7 @@ growing the spec costs more than a second door. Then a SQL tool returns beside t
 `gateStatement` as it was — with `@kanzo-tech/mosaic`'s engine loading DuckDB's `json` again, whose
 `json_serialize_sql` was the gate's parser — and the card says which one answered.
 
-*Held by* `packages/ai/src/data/answer.test.ts`, "the enums are the relation's fields only"; "an
+*Held by* `packages/ai/src/data/answer.test.ts`, "the enums are the relations offered, by key, and their fields, listed once"; "an
 answer compiles to the same query the dashboard tile reads"; "input outside the schema is refused
 before it runs"; and `packages/ai/src/data/answer-card.test.tsx`, "Add to the dashboard hands the
 host its dashboards with the tile in the relation's spec, and where it landed".
