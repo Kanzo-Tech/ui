@@ -48,7 +48,7 @@ export function GraphTimeline({ className, height = 44 }: GraphTimelineProps) {
     if (!host || !wait || missing) return;
     const release = store.hold();
     const drawn = new MutationObserver(() => host.querySelector("[data-drawn]") && release());
-    drawn.observe(host, { attributes: true, subtree: true, attributeFilter: ["data-drawn"] });
+    drawn.observe(host, { subtree: true, attributeFilter: ["data-drawn"] });
     return () => (drawn.disconnect(), release());
   }, [store, wait, missing]);
   if (!timeline || missing) return null;
