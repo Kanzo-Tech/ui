@@ -44,11 +44,20 @@ so the fade doubles as the "there is more above/below" signal.
 
 <ComponentPreview componentName="scroll-area" fileName="example-scroll-fade" />
 
+## Vertical only
+
+Ark gives the content `min-width: fit-content`, so one line that does not wrap — an IRI, a `nowrap`
+label — sets the whole area's width, and the panel around it grows or scrolls sideways.
+`orientation="vertical"` drops that floor, hides the sideways overflow and draws no horizontal
+scrollbar: the column is its parent's width, and what is too wide wraps or is cut by its own rule.
+A list of findings, a menu, a feed. `both` stays the default for a code block or a wide table.
+
 ## API Reference
 
 | Prop | Type | Default |
 | --- | --- | --- |
 | `scrollFade` | `boolean` | `false` |
+| `orientation` | `"both" \| "vertical"` | `"both"` |
 
 Extends Ark's `ScrollArea.Root`, and `useScrollArea` re-exports Ark's `useScrollAreaContext`.
 `ScrollAreaScrollbar` is exported for a custom root of your own; `ScrollArea` already places one per

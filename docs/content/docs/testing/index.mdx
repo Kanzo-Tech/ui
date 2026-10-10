@@ -89,8 +89,9 @@ narrowed with its `with`: `ChartHarness.with({ title })`.
 | `TileHarness` | an `article` holding its title | `text()`, `chart()`, `settled()` |
 | `FilterBarHarness` | the region *Filters* | `chips()`, `remove(field)`, `open(field)`, `readout()` |
 | `AnswerHarness` | the composer, a textbox named *Ask…*; the answer cards by their `data-slot` | `ask(question)`, `answer()`, `addToDashboard()`, `filterTo()` |
-| `FindingsHarness` | its trigger's `data-slot` | `tally()`, `finding(message)` |
-| `FindingHarness` | a `listitem` of the list | `show()`, `severity()`, a `Severity` |
+| `FindingsBadgeHarness` | its `data-slot`: the badge is named by the host's tally | `tally()`, `open()`, `groups()`, `row(message)`, `groupRow(message)` |
+| `FindingRowHarness` | its `data-slot`, a `listitem` | `severity()`, `message()`, `where()`, `act(label)`, `open()`, a `Severity` |
+| `FindingGroupRowHarness` | its `data-slot`, a `listitem` | the row's, and `count()`, `sample()` |
 | `DockHarness` | a `radiogroup`, named by the page | `open(panel)`, `close()`, `current()` |
 
 - **`GraphCanvasHarness`** — `ready()` waits for the canvas's first drawn frame and fails on a canvas

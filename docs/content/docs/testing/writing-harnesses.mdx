@@ -88,20 +88,20 @@ A harness for a host's panel returns the library's harnesses for the library's p
 than reaching into their markup. `this.locate(query)` finds one inside the host:
 
 ```ts
-import { ComponentHarness, FindingsHarness, type By } from "@kanzo-tech/testing";
+import { ComponentHarness, FindingsBadgeHarness, type By } from "@kanzo-tech/testing";
 
 export class RulesPanelHarness extends ComponentHarness {
   static readonly by: By = { role: "complementary", name: "Rules panel" };
 
   /** What the rules found, as the library's own harness drives it. */
-  findings(): Promise<FindingsHarness> {
-    return this.locate(FindingsHarness);
+  findings(): Promise<FindingsBadgeHarness> {
+    return this.locate(FindingsBadgeHarness);
   }
 }
 
 const panel = await env.harness(RulesPanelHarness);
-const finding = await (await panel.findings()).finding("No date on the writ");
-expect(await finding.severity()).toBe("destructive");
+const finding = await (await panel.findings()).row("No date on the writ");
+expect(await finding.severity()).toBe("violation");
 ```
 
 When the library changes a part's markup, its harness changes with it, and your panel's harness

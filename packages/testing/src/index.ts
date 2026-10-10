@@ -17,6 +17,11 @@ export { ChartHarness, type Extent } from "./harnesses/chart";
 export { DashboardHarness, TileHarness } from "./harnesses/dashboard";
 export { DockHarness } from "./harnesses/dock";
 export { FilterBarHarness } from "./harnesses/filter-bar";
-export { FindingHarness, FindingsHarness, type Severity } from "./harnesses/findings";
+export {
+  FindingGroupRowHarness,
+  FindingRowHarness,
+  FindingsBadgeHarness,
+  type Severity,
+} from "./harnesses/findings";
 export { GraphCanvasHarness, type GestureOptions } from "./harnesses/graph-canvas";
 export { TimelineHarness } from "./harnesses/timeline";

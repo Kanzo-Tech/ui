@@ -242,6 +242,14 @@ describe("@kanzo-tech/ui public surface", () => {
     // `RadioGroupCard`, which is what a card radio always was.
     expect(surface.CardRadioGroup).toBeUndefined();
     expect(UI.RadioGroupCard).toBeTypeOf("function");
+    // `FindingsTrigger` was a badge that stopped being a button when nothing was found, and
+    // `FindingsGoTo` and `useFinding` read a finding from context to call one `onSelect`. A finding's
+    // place is the host's, so its action is too: `describe(place).action` on `FindingRow`, and the
+    // badge is `FindingsBadge`, a button in every state. `/docs/design/findings` has the argument.
+    expect(surface.FindingsTrigger).toBeUndefined();
+    expect(surface.FindingsGoTo).toBeUndefined();
+    expect(surface.useFinding).toBeUndefined();
+    expect(UI.FindingsBadge).toBeTypeOf("function");
     expect(surface.SectionNav).toBeUndefined();
   });
 

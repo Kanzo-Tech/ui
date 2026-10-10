@@ -30,22 +30,17 @@ import {
   DatePicker,
   DatePickerContent,
   DatePickerInput,
-  Diagnostic,
-  DiagnosticActions,
-  DiagnosticContent,
-  DiagnosticDescription,
   DiagnosticFrame,
   DiagnosticFrames,
-  DiagnosticHeader,
+  type DescribePlace,
+  type Finding,
+  FindingRow,
+  FindingsBadge,
   FindingsContent,
-  FindingsGoTo,
   FindingsGroup,
   FindingsRoot,
-  FindingsTrigger,
-  DiagnosticSeverity,
-  DiagnosticSource,
-  DiagnosticTitle,
-  DiagnosticTrigger,
+  PopoverHeader,
+  tallyFindings,
   Field,
   FieldArray,
   FieldError,
@@ -154,17 +149,10 @@ const SEVERITY_TEXT: Record<Issue["severity"], string> = {
   info: "text-info",
 };
 
-/** The board's three words for how bad it is, in the library's three variants. */
-const DIAGNOSTIC_VARIANT: Record<Severity, "destructive" | "warning" | "info"> = {
-  violation: "destructive",
-  warning: "warning",
-  info: "info",
-};
-
-const SEVERITY_WORD: Record<Severity, string> = {
-  violation: "Violation",
-  warning: "Warning",
-  info: "Note",
+/** The board's words for the rows the tally draws; `info` is a note here. */
+const FINDING_LABELS = {
+  severity: { violation: "Violation", warning: "Warning", info: "Note" } as Record<Severity, string>,
+  details: "What the board found",
 };
 
 /** What the severity costs the posting — the one thing a collapsed finding cannot say, since its
@@ -585,39 +573,36 @@ export function MetadataFormShowcase() {
     setSent({ field: issue.field });
   };
 
-  /** The report as the tally counts it: the same issues, each with the id and variant it is listed under. */
+  /**
+   * The report as the tally counts it: one finding per issue, the issue itself its place. A check
+   * we invented has no standing order behind it, so its rule is the check.
+   */
   const findings = useMemo(
-    () =>
+    (): Finding<Issue>[] =>
       report.map((iss) => ({
-        ...iss,
-        id: `${iss.field}:${iss.rule ?? iss.message}`,
-        variant: DIAGNOSTIC_VARIANT[iss.severity],
+        severity: iss.severity,
+        message: iss.message,
+        rule: { id: iss.rule ?? "check", label: iss.rule ?? "check" },
+        place: iss,
       })),
     [report]
   );
+  const tally = useMemo(() => tallyFindings(findings), [findings]);
 
   /**
-   * One finding, as a `Diagnostic`: one line until it is opened. The identifier is the ledger key
-   * rather than the rule that raised it — three of these read "This field is required.", and a
-   * collapsed row that cannot be told from the two above it is a row nobody reads. Opened, it says
-   * what the finding costs and points at the order that objected, dimmed: upstream of the posting,
-   * and the frame that explains it. Absent for a check we invented.
+   * A finding's place, read: the ledger key rather than the rule — three of these read "This field
+   * is required.", and a row that cannot be told from the two above it is a row nobody reads.
+   * Opened, it says what the finding costs and points at the order that objected, dimmed: upstream
+   * of the posting, and the frame that explains it. Absent for a check we invented.
    */
-  const tallyRow = (iss: (typeof findings)[number]) => {
+  const describeIssue: DescribePlace<Issue> = (iss) => {
     const line = iss.rule ? orderLine(iss.rule) : undefined;
-    return (
-      <Diagnostic variant={iss.variant}>
-        <DiagnosticHeader>
-          <DiagnosticSeverity>{SEVERITY_WORD[iss.severity]}</DiagnosticSeverity>
-          <DiagnosticTitle>{iss.message}</DiagnosticTitle>
-          <DiagnosticSource>{LEDGER_KEYS[iss.field]}</DiagnosticSource>
-          <DiagnosticActions>
-            <FindingsGoTo>Go to field</FindingsGoTo>
-            <DiagnosticTrigger aria-label={`What the board found on ${iss.label}`} />
-          </DiagnosticActions>
-        </DiagnosticHeader>
-        <DiagnosticContent>
-          <DiagnosticDescription>{SEVERITY_CONSEQUENCE[iss.severity]}</DiagnosticDescription>
+    return {
+      where: LEDGER_KEYS[iss.field],
+      action: { label: "Go to field", run: () => sendToField(iss) },
+      detail: (
+        <>
+          <p>{SEVERITY_CONSEQUENCE[iss.severity]}</p>
           <Show when={line !== undefined}>
             <DiagnosticFrames>
               <DiagnosticFrame
@@ -633,10 +618,12 @@ export function MetadataFormShowcase() {
               />
             </DiagnosticFrames>
           </Show>
-        </DiagnosticContent>
-      </Diagnostic>
-    );
+        </>
+      ),
+    };
   };
+
+  const GROUP_TITLE: Record<Severity, string> = { violation: "Violations", warning: "Warnings", info: "Notes" };
 
   // ── State updates ──────────────────────────────────────────────────────────
 
@@ -1412,27 +1399,35 @@ export function MetadataFormShowcase() {
             </Button>
             {/* The tally: opening it lists every finding and marks them on the form. */}
             <FindingsRoot
-              findings={findings}
+              labels={FINDING_LABELS}
               onOpenChange={({ open }) => {
                 setTallyOpen(open);
                 if (open) setGate((g) => ({ ...g, revealAll: true }));
               }}
               open={tallyOpen}
-              onSelect={sendToField}
+              tally={tally}
             >
-              <FindingsTrigger pill size="xs">
-                {({ total }) => (total ? `${total} ${total === 1 ? "issue" : "issues"}` : "Valid")}
-              </FindingsTrigger>
-              <FindingsContent description="What the board would send back.">
-                <FindingsGroup title="Violations" variant="destructive">
-                  {tallyRow}
-                </FindingsGroup>
-                <FindingsGroup title="Warnings" variant="warning">
-                  {tallyRow}
-                </FindingsGroup>
-                <FindingsGroup title="Notes" variant="info">
-                  {tallyRow}
-                </FindingsGroup>
+              <FindingsBadge pill size="xs">
+                {(t) => (t?.total ? `${t.total} ${t.total === 1 ? "issue" : "issues"}` : "Valid")}
+              </FindingsBadge>
+              <FindingsContent
+                empty={<p className="text-muted-foreground text-sm">The board would take it as it is.</p>}
+                header={<PopoverHeader description="What the board would send back." />}
+              >
+                {(["violation", "warning", "info"] as const).map((severity) => {
+                  const rows = findings.filter((finding) => finding.severity === severity);
+                  return rows.length === 0 ? null : (
+                    <FindingsGroup key={severity} tally={tallyFindings(rows)} title={GROUP_TITLE[severity]}>
+                      {rows.map((finding) => (
+                        <FindingRow
+                          describe={describeIssue}
+                          finding={finding}
+                          key={`${finding.place.field}:${finding.rule.id}:${finding.message}`}
+                        />
+                      ))}
+                    </FindingsGroup>
+                  );
+                })}
               </FindingsContent>
             </FindingsRoot>
 
