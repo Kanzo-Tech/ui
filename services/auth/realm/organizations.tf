@@ -11,7 +11,8 @@
 # - Organization groups. Since 26.6 each organization owns an isolated group tree,
 #   and what is in it ("Data team", "Analysts") is the organization's own business.
 #   An application never learns a group's name: the organization maps the
-#   application's roles onto its groups, and the token carries the roles.
+#   application's roles onto its groups, and the token carries the roles — and, for an
+#   application that declares `groups`, the groups' ids (../mappers, modules/app).
 
 resource "keycloak_organization" "org" {
   for_each = local.organizations

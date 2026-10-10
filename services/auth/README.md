@@ -10,6 +10,7 @@ an organization inside it. `@kanzo-tech/auth` is the library that reads what thi
 docker compose -f compose.yaml -f compose.dev.yaml up -d --wait   # Keycloak 26.8 on http://localhost:8080, realm applied, seeded
 scripts/verify.sh                  # ana: a real PKCE login, and the claims checked
 scripts/verify.sh fede             # a member of acme with no role there
+scripts/verify.sh gil              # past the conformance client's overage threshold: no ids
 scripts/verify.sh dan              # no organization; a client role held directly
 docker compose -f compose.yaml -f compose.dev.yaml down -v        # gone, database and Terraform state together
 ```
@@ -38,8 +39,8 @@ organization — the Organization Group Membership mapper with `addGroupRoleMapp
 
 ```json
 "organization": {
-  "acme":   { "id": "3fe7…", "groups": ["/Admins"],  "resource_access": { "kanzo-conformance": { "roles": ["high", "low"] } } },
-  "globex": { "id": "94b6…", "groups": ["/Readers"], "resource_access": { "kanzo-conformance": { "roles": ["low"] } } }
+  "acme":   { "id": "72af…", "groups": ["b086…", "05ca…"], "resource_access": { "kanzo-conformance": { "roles": ["high", "low"] } } },
+  "globex": { "id": "d46d…", "groups": ["939d…", "4e2b…"], "resource_access": { "kanzo-conformance": { "roles": ["low"] } } }
 }
 ```
 
@@ -53,6 +54,22 @@ organization — the Organization Group Membership mapper with `addGroupRoleMapp
 - **Ask for `organization:*`.** Plain `organization` prompts for a choice when a person belongs to
   several, and no code comes back until they pick.
 - A disabled organization drops out of the claim (measured).
+
+An application that grants to a group ("Research may use this") also reads the **ids** of the
+person's groups in each organization:
+
+```json
+"acme": { "id": "…", "groups": ["<group id>", "…"], "resource_access": { … } }
+```
+
+Keycloak's mapper writes group paths and no ids, so the platform ships one that does —
+[`mappers/`](mappers), a protocol mapper provider (Keycloak's SPI, not a fork) that the one-shot
+`auth-mappers` service builds with Maven against the pinned Keycloak and puts in the volume Keycloak
+loads `/opt/keycloak/providers` from; `kc.sh start` registers it with no custom image. It is on the
+clients that declare `groups` (below). A member of `Research/ML` carries Research's id too
+(`inherited`), and past `overage` ids (default 100) the entry says `groups_overage: true` and carries
+none — Microsoft Entra ID's rule — and the application reads the membership from the admin API
+(`GET /organizations/{org}/members/{user}/groups`, with `view-organizations` and `view-users`).
 
 ## Declaring an application and its organizations
 
@@ -82,6 +99,7 @@ configs:
         callback: /api/auth/callback        # one redirect URI per organization
         backchannel_logout: http://web:3000/api/auth/backchannel-logout
         client_secret_file: /run/secrets/board-oidc
+        groups: {}                          # optional: group ids in its tokens; { inherited, overage }
         roles:
           reader: {}
           editor: { composites: [reader] }
@@ -131,9 +149,10 @@ realm's `/groups/{id}/role-mappings` answers 400 for an organization group.
 ## Layout
 
 ```
-compose.yaml         Keycloak, its Postgres, the realm (two applies)
+compose.yaml         Keycloak, its Postgres, the platform's mappers (auth-mappers), the realm (two applies)
 compose.dev.yaml     dev mode on :8080, the dev/ declarations, the seed
 realm/               the platform realm: claim mappers, its APIs, and what is declared (declarations.tf)
+mappers/             the platform's Keycloak protocol mapper (group ids), a Maven-built provider jar
 modules/app/         an application's registration: client, the APIs it calls, roles with composites
 modules/api/         an API's registration: a client with no flow, and the scope naming it in `aud`
 dev/                 development declarations: acme, globex, the conformance client

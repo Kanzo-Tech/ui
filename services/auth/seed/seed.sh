@@ -65,10 +65,33 @@ org_id() {
   kc GET "/organizations?search=$1" | jq -r --arg a "$1" '.[] | select(.alias == $a) | .id'
 }
 
-# The id of the top-level group NAME in organization OID, or empty.
+# The id of the group PATH in organization OID, or empty. A path is a top-level group's name, or
+# "Parent/Child" for a subgroup one level down.
 org_group_id() {
-  kc GET "/organizations/$1/groups?search=$(printf '%s' "$2" | jq -sRr @uri)&exact=true" |
-    jq -r --arg n "$2" '.[] | select(.name == $n) | .id'
+  case "$2" in
+    */*)
+      _parent=$(org_group_id "$1" "${2%%/*}")
+      [ -n "$_parent" ] || return 0
+      kc GET "/organizations/$1/groups/$_parent/children?max=1000" |
+        jq -r --arg n "${2#*/}" '.[] | select(.name == $n) | .id'
+      ;;
+    *)
+      kc GET "/organizations/$1/groups?search=$(printf '%s' "$2" | jq -sRr @uri)&exact=true" |
+        jq -r --arg n "$2" '.[] | select(.name == $n) | .id'
+      ;;
+  esac
+}
+
+# Create the group PATH in organization OID: a top-level group, or a subgroup of its parent, which
+# the seed lists first. Prints the HTTP status.
+create_org_group() {
+  case "$2" in
+    */*)
+      _parent=$(org_group_id "$1" "${2%%/*}")
+      kc_code POST "/organizations/$1/groups/$_parent/children" "$(jq -n --arg n "${2#*/}" '{name: $n}')"
+      ;;
+    *) kc_code POST "/organizations/$1/groups" "$(jq -n --arg n "$2" '{name: $n}')" ;;
+  esac
 }
 
 client_uuid() {
@@ -84,7 +107,7 @@ jq -r '.organizations | keys[]' "$SEED_FILE" | while read -r alias; do
     group=$(printf '%s' "$entry" | jq -r .key)
     gid=$(org_group_id "$oid" "$group")
     if [ -z "$gid" ]; then
-      code=$(kc_code POST "/organizations/$oid/groups" "$(jq -n --arg n "$group" '{name: $n}')")
+      code=$(create_org_group "$oid" "$group")
       case "$code" in
         201|204) ;;
         *) echo "seed: group $alias/$group FAILED ($code)" >&2; exit 1 ;;

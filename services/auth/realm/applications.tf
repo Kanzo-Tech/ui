@@ -11,6 +11,8 @@
 #   client_secret_file   where the client's secret is mounted; it is sent to Keycloak write-only,
 #                        and never kept in state
 #   roles                name => { description, composites }
+#   groups               optional: `{}` puts the ids of the person's groups in each organization in
+#                        its tokens; `{ inherited: false, overage: 50 }` changes the defaults
 module "application_api" {
   source   = "../modules/api"
   for_each = { for id, app in local.applications : id => app.api if can(app.api) }
@@ -37,7 +39,8 @@ module "application" {
     can(each.value.api) ? [module.application_api[each.key].scope] : [],
     [for api in try(each.value.apis, []) : module.api[api].scope],
   )
-  roles = try(each.value.roles, {})
+  roles  = try(each.value.roles, {})
+  groups = try(each.value.groups, null)
 }
 
 # A realm applied by a release before v0.35.0 holds the conformance client under the addresses it had

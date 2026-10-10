@@ -8,6 +8,11 @@
     "application reads roles, never group names. Only `kanzo-conformance` roles are mapped here;",
     "an application maps its own roles onto these groups from its own repository.",
     "",
+    "`Research`, `Research/ML` and `Finance` hold no role: they are what an application grants to",
+    "by id (keasy's \"Research may use this\"). acme and globex each have a `Research`, with two ids.",
+    "`bruno` is in acme's `Research/ML`, so his token carries Research's id too (inherited).",
+    "`gil` is in five of acme's groups, past the conformance client's overage threshold of 4.",
+    "",
     "`ana` belongs to TWO organizations, so switching and `organization:*` can be exercised.",
     "`fede` belongs to acme with no group, so holding no role there is a state to test.",
     "`dan` belongs to none and holds a client role directly: the single-tenant shape."
@@ -18,13 +23,17 @@
       "groups": {
         "Admins": { "kanzo-conformance": ["high"] },
         "Data team": { "kanzo-conformance": ["low"] },
-        "Analysts": { "kanzo-conformance": ["low"] }
+        "Analysts": { "kanzo-conformance": ["low"] },
+        "Research": {},
+        "Research/ML": {},
+        "Finance": {}
       }
     },
     "globex": {
       "groups": {
         "Platform": { "kanzo-conformance": ["high"] },
-        "Readers": { "kanzo-conformance": ["low"] }
+        "Readers": { "kanzo-conformance": ["low"] },
+        "Research": {}
       }
     }
   },
@@ -34,21 +43,21 @@
       "email": "ana@acme.test",
       "firstName": "Ana",
       "lastName": "Duarte",
-      "organizations": { "acme": ["Admins"], "globex": ["Readers"] }
+      "organizations": { "acme": ["Admins", "Research"], "globex": ["Readers", "Research"] }
     },
     {
       "username": "bruno",
       "email": "bruno@acme.test",
       "firstName": "Bruno",
       "lastName": "Oliveira",
-      "organizations": { "acme": ["Data team"] }
+      "organizations": { "acme": ["Data team", "Research/ML"] }
     },
     {
       "username": "eva",
       "email": "eva@acme.test",
       "firstName": "Eva",
       "lastName": "Santos",
-      "organizations": { "acme": ["Analysts"] }
+      "organizations": { "acme": ["Analysts", "Finance"] }
     },
     {
       "username": "fede",
@@ -56,6 +65,13 @@
       "firstName": "Fede",
       "lastName": "Ruiz",
       "organizations": { "acme": [] }
+    },
+    {
+      "username": "gil",
+      "email": "gil@acme.test",
+      "firstName": "Gil",
+      "lastName": "Moreno",
+      "organizations": { "acme": ["Admins", "Data team", "Analysts", "Research", "Finance"] }
     },
     {
       "username": "carla",

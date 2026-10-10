@@ -45,6 +45,7 @@ The role mappers are Keycloak's own and need no renaming. The package reads:
 | `resource_access.<clientId>.roles` | the client role mapper | `session.roles`, unioned with the above |
 | `organization` | the `organization` scope's membership mapper, with `addOrganizationId` | `session.organizations` — alias and id |
 | `organization.<alias>.resource_access.<clientId>.roles` | the Organization Group Membership mapper, with `addGroupRoleMappings` | that organization's `roles` — never `session.roles` |
+| `organization.<alias>.groups`, `organization.<alias>.groups_overage` | the platform's Organization Group Ids mapper, on a client that [asks for it](#groups-by-id) | that organization's `groups` (ids, never paths) and `groupsOverage` |
 | `exp` | the token | `session.expiresAt`, in milliseconds |
 
 <Callout type="warn">
@@ -133,6 +134,32 @@ service](/docs/auth/service#map-roles-onto-an-organizations-groups) has it as a 
 admin API call — under the organization, because the realm's own `/groups/{id}/role-mappings`
 answers 400 for an organization group, which was measured rather than assumed.
 
+## Groups, by id
+
+An application that grants to a group — share this with *Research* — reads which groups a person is
+in from the same entry, and reads their **ids**. Keycloak's own mapper writes the groups' paths and
+no ids, so the platform ships a protocol mapper of its own, *Organization Group Ids*
+(`kanzo-organization-group-ids-mapper`), as a provider jar the [identity
+service](/docs/auth/service) builds and loads into Keycloak. An application turns it on in its
+declaration:
+
+```yaml
+x-application:
+  client_id: board
+  groups: {}                               # or { inherited: false, overage: 50 }
+```
+
+and its tokens' entries carry `groups: ["<group id>", …]` in place of the paths. Two settings:
+
+- **`inherited`**, default on: a member of *Research/ML* carries Research's id too.
+- **`overage`**, default 100: past it, the entry carries `groups_overage: true` and no ids, and the
+  application reads the membership from the admin API — Microsoft Entra ID's overage rule.
+  `organizationGroups` on `./server` is a sketch of that lookup.
+
+The reader ignores any value under `groups` that begins with `/`, so a client without the mapper
+reads as no groups rather than as names. [Why it is shaped this
+way](/docs/design/auth#a-group-is-granted-to-by-id-with-entras-overage-rule).
+
 ## What the token actually carries
 
 Organization Groups give every organization its own isolated hierarchy — which is exactly what
@@ -144,23 +171,24 @@ the `kanzo-conformance` client, whose role `high` is a composite containing `low
 ```json
 "organization": {
   "globex": {
-    "id": "94b69c97-37fa-4c06-be6f-d58cabe1ff28",
-    "groups": ["/Readers"],
-    "resource_access": { "kanzo-conformance": { "roles": ["low"] } }
+    "id": "d46d7143-dae3-4413-8bcf-af2f6ebacac0",
+    "resource_access": { "kanzo-conformance": { "roles": ["low"] } },
+    "groups": ["939de696-36e2-409e-ac53-67069335f42e", "4e2b3f51-0129-4d3e-8424-1f9b912348f1"]
   },
   "acme": {
-    "id": "3fe7a56b-557c-478c-8381-ad0b998181dc",
-    "groups": ["/Admins"],
-    "resource_access": { "kanzo-conformance": { "roles": ["high", "low"] } }
+    "id": "72af72cd-3d23-4970-b4c6-3b36a1dd2ed9",
+    "resource_access": { "kanzo-conformance": { "roles": ["low", "high"] } },
+    "groups": ["b0865cd1-2af1-4ae8-b454-fbd5fbc6139a", "05cab159-8de1-4d4b-b086-79f6d3b2b64c"]
   }
 }
 ```
 
 acme mapped `high` onto its "Admins" and globex mapped `low` onto its "Readers"; ana is in one of
-each. So acme's entry says `high` **and** `low` — the composite arrives expanded, and nobody ranked
+each, and in each organization's "Research" too — two groups with one name, and two ids, which
+`kanzo-conformance` asks for. So acme's entry says `high` **and** `low` — the composite arrives expanded, and nobody ranked
 anything — while the top-level `resource_access` of the same token carries no `kanzo-conformance`
-roles at all: Keycloak keeps a role held in an organization inside that organization. The group
-names are on the token and nothing reads them. This is a recorded token rather than an
+roles at all: Keycloak keeps a role held in an organization inside that organization. No group name
+is on the token at all. This is a recorded token rather than an
 illustration: `packages/auth/src/claims.test.ts` holds it and asserts each of those readings.
 
 The `id` is the uuid and the key is the alias. Store the id: an alias can be renamed, and it is the
@@ -226,6 +254,7 @@ Then authorize on:
 | --- | --- |
 | `resource_access.<clientId>.roles` | what this person may do in this application, anywhere |
 | `organization.<alias>.resource_access.<clientId>.roles` | what they may do in this application inside that organization — the keys of `organization` are which ones they belong to |
+| `organization.<alias>.groups` | the ids of the groups they are in there, for a grant made to a group — compared with the ids stored beside the grant, inside that organization only. When `groups_overage` is `true` the list is absent and means nothing: read the membership from the admin API |
 
 And one rule that belongs beside them, because it is the line between a multi-tenant product and a
 leak between customers: **the host is a hint and the token is the authority** — the same rule

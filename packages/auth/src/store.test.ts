@@ -8,7 +8,7 @@ import { AuthError, type Session } from "./types";
 const SESSION: Session = {
   user: { id: "u-1", email: "ada@example.test", name: "Ada" },
   roles: ["owner"],
-  organizations: [{ alias: "acme", id: "org-1", roles: ["owner"] }],
+  organizations: [{ alias: "acme", id: "org-1", roles: ["owner"], groups: [], groupsOverage: false }],
   expiresAt: 1_800_000_000_000,
 };
 

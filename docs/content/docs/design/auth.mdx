@@ -327,6 +327,104 @@ name could; none has asked.
 *Held by* `packages/auth/src/claims.test.ts`, "never reads a role from a group's name" and "reads
 a composite with the role it contains, as Keycloak expanded it".
 
+## A group is granted to by id, with Entra's overage rule
+
+Roles cover what an application decides about everyone in a group. Some applications also let a
+person grant to a group — keasy shares a dataset with *Research* — and then the server needs, from
+the token, which of the organization's groups the person is in, as something it can store beside
+the grant. The token carries their **ids**, in the organization's entry, or says it cannot:
+
+```json
+"organization": {
+  "acme":   { "id": "…", "groups": ["<group id>", "…"], "resource_access": { … } },
+  "globex": { "id": "…", "groups_overage": true,         "resource_access": { … } }
+}
+```
+
+and `Session.organizations[]` reads them as `groups` and `groupsOverage`.
+
+**The reference is Microsoft Entra ID's groups claim**, which made both decisions first and wrote
+them down. Its `groups` claim is group object ids, not names, and past a limit — 200 groups in a JWT
+— the token carries no groups at all and an *overage* indicator instead (`_claim_names`, or
+`hasgroups` in the implicit flow), and the application asks Microsoft Graph for the membership
+([group claims and app roles](https://learn.microsoft.com/en-us/security/zero-trust/develop/configure-tokens-group-claims-app-roles),
+[the overage claim](https://learn.microsoft.com/en-us/troubleshoot/entra/entra-id/app-integration/get-signed-in-users-groups-in-access-token)).
+Both halves are taken, inside each organization: ids, and `groups_overage: true` with no ids past
+a threshold.
+
+**Ids, never names.** A name is the organization's to change, and a grant keyed by it either moves
+with a rename or reaches the next group to take the name — acme's *Research* and globex's are two
+groups with one name, and two ids in the seed. Auth0 says the same of its own organization claim:
+validate `org_id`, because a token outlives a rename and a name can be reused
+([Auth0, organization names](https://auth0.com/docs/manage-users/organizations/configure-organizations/use-org-name-authentication-api)).
+That is also why the reader drops anything under `groups` that begins with `/`: on a client without
+the mapper, Keycloak's own organization group mapper writes the groups' **paths** under the same
+key, and a realm that forgot the mapper must read as *no groups*, never as names.
+
+**Keycloak has no mapper for it, so the platform ships one, at the documented extension point.** The
+Organization Group Membership mapper writes paths and mapped roles and has no option for ids — not
+in 26.8.0, and not on `main`, read in the source. A protocol mapper is a provider: a class, a
+`META-INF/services` line, a jar in `/opt/keycloak/providers` (the Server Developer Guide, *Service
+Provider Interfaces*). `services/auth/mappers` is that jar — one mapper, `Organization Group Ids`,
+compiled against the pinned Keycloak — and the identity service builds it with Maven and mounts it,
+so there is no fork and no custom image: `kc.sh start` without `--optimized` registers it itself.
+It runs after Keycloak's two organization mappers and writes only into the entries the membership
+mapper wrote, so which organizations a token names — all of them for `organization:*`, one after an
+exchange — stays Keycloak's decision. It is on the clients that ask for it (`groups` in an
+`x-application`), not the `organization` scope, so an application that grants nothing to groups
+pays nothing in its tokens.
+
+The cost is named by Keycloak itself: it classes `protocol-mapper` as an internal SPI and logs
+`KC-SERVICES0047` when the jar loads — *may change without notice*. What answers it is the pin: the
+mapper compiles against exactly the Keycloak it runs on (`keycloak.version` in the pom, beside
+`KEYCLOAK_VERSION`), CI builds and tests it, and `verify.sh` proves it on live tokens, so an upgrade
+that moves the API fails a build rather than a sign-in.
+
+**Two alternatives lost.** *A role per group, named by the group's id*, mapped onto it, rides in on
+`addGroupRoleMappings` with no code — and it was built first. It needs a reconciler, because groups
+are created at runtime and the role is not: between its runs a new group is absent from the token,
+an administrator mapping one group's id onto another lets its members claim it, and the realm fills
+with roles that are not roles under a client that is not an application. *A script mapper* is the
+same provider with JavaScript in it and less checking at build. The mapper computes from the groups
+themselves, so it is never behind them.
+
+**Ancestors count, by default.** A member of *Research/ML* carries ML's id and Research's, so a
+grant to Research reaches the people in its subgroups — what a person reading the group tree
+expects, and what Entra's transitive membership does. `inheritedGroups: false` on the mapper turns
+it off, and `organizationGroups` on `./server` takes the same switch; the two must agree.
+
+**The threshold is 100, and the arithmetic is the argument.** An id is 36 characters: 39 bytes of
+JSON, 52 once a token is base64url-encoded. The token that travels is the exchanged one, which names
+one organization, so a full entry adds at most about 5.2 KB to an `Authorization` header that is
+otherwise about 1.5 KB — under nginx's default 8 KB `large_client_header_buffers`, which is the
+tightest limit between a BFF and an API here, and well under Node's 16 KB. Past 100 the header would
+cross it somewhere around 120. Okta's group functions stop at the same 100. The ID token carries
+every organization, so a person near the threshold in several weighs on `statelessStore`, whose
+4096-byte guard throws with the count; a product that grants to groups calls an API, and has a
+`ticketStore` anyway.
+
+**An overage is a question, never an answer.** An empty `groups` beside `groupsOverage` means
+*look it up*, and reading it as *in no group* is Entra's documented trap. The lookup is the
+application's: `organizationGroups` on `./server` is the sketch — the member's groups from the admin
+API, ancestors walked, cached for the token's own five minutes — and it needs a service account with
+`view-organizations` and `view-users`, which the package does not hold and the realm does not
+provision. It is a sketch rather than a door because the credential and the cache size are the
+application's to own.
+
+**What would reverse it:** Keycloak giving its organization group mapper an option for ids — then
+the jar goes and the claim stays where it is. Keycloak removing or reshaping the internal SPI past
+what a pinned rebuild can follow — then the role-per-group reconciler above is the fallback, at the
+cost it names. A tighter header limit somewhere between a BFF and an API lowers the threshold; a
+product that must never take the admin-API round trip raises it, and pays in header bytes.
+
+*Held by* `services/auth/scripts/verify.sh`, which proves the mapper on live tokens for every seeded
+person, and the mapper's own tests in `services/auth/mappers`;
+`packages/auth/src/claims.test.ts`, "reads the ids of the person's groups in each organization",
+"never reads a group's path as its id", "reads an overage as no ids, and says so" and "carries the
+ids of the groups held in each organization, two Researches apart";
+`packages/auth/src/organization-groups.test.ts`, "reads a member's groups with their ancestors,
+stopping at the organization's own group".
+
 ## The signature check follows the channel, not a default
 
 `openid-client` does not verify the ID token's signature in an authorization code grant, and it is

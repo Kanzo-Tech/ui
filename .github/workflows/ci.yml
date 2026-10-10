@@ -61,6 +61,17 @@ jobs:
           terraform_wrapper: false
       - name: Format
         run: terraform fmt -recursive -check services
+      # The platform's Keycloak mappers (services/auth/mappers): compiled against the pinned Keycloak
+      # and unit-tested here; `up` below builds the same jar into Keycloak's providers volume, and
+      # the claim contract step proves it on live tokens.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: services/auth/mappers/pom.xml
+      - name: Build and test the mappers
+        run: mvn -B -f services/auth/mappers/pom.xml verify
       - name: Validate the modules
         run: |
           for m in services/auth/modules/app services/auth/modules/api; do
@@ -77,8 +88,8 @@ jobs:
         run: docker compose -f compose.dev.yaml up -d --wait ai-gateway && docker compose -f compose.dev.yaml up --exit-code-from auth-seed auth-seed
       - name: The claim contract, on live tokens
         working-directory: services/auth
-        run: for u in ana bruno eva fede carla dan; do scripts/verify.sh "$u" > "$RUNNER_TEMP/$u.log" || { cat "$RUNNER_TEMP/$u.log"; exit 1; }; done
+        run: for u in ana bruno eva fede gil carla dan; do scripts/verify.sh "$u" > "$RUNNER_TEMP/$u.log" || { cat "$RUNNER_TEMP/$u.log"; exit 1; }; done
       - name: Keycloak's log, on failure
         if: failure()
         working-directory: services
-        run: docker compose -f compose.dev.yaml logs keycloak auth-realm auth-seed ai-gateway
+        run: docker compose -f compose.dev.yaml logs auth-mappers keycloak auth-realm auth-seed ai-gateway
