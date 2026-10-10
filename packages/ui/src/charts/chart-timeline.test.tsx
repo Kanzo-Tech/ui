@@ -106,7 +106,7 @@ describe("ChartTimeline", () => {
     expect(window.className).toMatch(/\bsr-only\b/);
   });
 
-  it("makes Play a bare glyph the band's height, flush at its left and 6 px from the bars, as Cosmograph's", () => {
+  it("makes Play a bare glyph the band's height, flush at its left and 4 px from the bars, as Cosmograph's", () => {
     render(
       <MosaicProvider coordinator={coordinator}>
         <ChartTimeline field="year" table="awards" title="Awards by year" />
@@ -119,17 +119,22 @@ describe("ChartTimeline", () => {
     expect(figure.className).toMatch(/\bflex-row\b/);
     expect(control.className).toMatch(/\border-first\b/);
     expect(screen.getByRole("group", { name: "Window" }).className).toMatch(/\bsr-only\b/);
-    // A compact band, 44 px by default; the control stretches to its height and fills its 20 px.
     expect(figure.querySelector<HTMLElement>("[data-slot=chart]")!.className).toMatch(/\bflex-1\b/);
+    // The band's height, 16 px wide with the 12 px glyph at its start: 4 px to the bars, no gap besides.
     expect(figure.className).toMatch(/\bitems-stretch\b/);
-    expect(figure.className).toMatch(/\bgap-1\.5\b/);
-    expect(control.className).toMatch(/\bw-5\b/);
-    expect(play.className).toMatch(/\bh-full\b/);
-    // Bare and muted: no border, half opaque until hovered or focused, a fifth when disabled.
-    expect(play.getAttribute("data-variant")).toBe("ghost");
-    expect(play.className).toMatch(/\bopacity-50\b/);
+    expect(figure.className).toMatch(/\bgap-0\b/);
+    expect(figure.className).not.toMatch(/\bgap-[1-9]/);
+    expect(play.className).toMatch(/\bw-4\b/);
+    expect(play.className).toMatch(/\[&_svg\]:size-3\b/);
+    // No box: no recipe, border, background or ring. Muted at 0.6, the foreground at 1 on hover and
+    // focus, 0.2 disabled; keyboard focus outlines the glyph alone.
+    expect(play.hasAttribute("data-variant")).toBe(false);
+    expect(play.className).not.toMatch(/(^|\s|:)(border|bg-|ring|shadow)/);
+    expect(play.className).toMatch(/\bopacity-60\b/);
     expect(play.className).toMatch(/\bhover:opacity-100\b/);
+    expect(play.className).toMatch(/\bfocus-visible:opacity-100\b/);
     expect(play.className).toMatch(/\bdisabled:opacity-20\b/);
+    expect(play.className).toMatch(/focus-visible:\[&_svg\]:outline-2/);
   });
 
   it("draws no play button when it is not playable", () => {

@@ -32,7 +32,7 @@ brushed range and draws its first year whole.**
   with the tick labels at the top, each right of a thin rule through the band, and the bars under
   them. With no range the bars are a low-contrast fill and a range is bright. The graph docs' example
   no longer puts a border on it.
-- **Play is a bare glyph at the timeline's left edge, muted until hovered, as in Cosmograph,** named
+- **Play is a bare glyph at the timeline's left edge, with no box, muted until hovered or focused, as in Cosmograph,** named
   and titled *Play time* (*Pause time* while playing), so it no longer reads as the canvas toolbar's
   layout play button. The bars take the rest of the width: the window's range is no longer drawn
   beside them (the chip reads it), and *Drag across the bars to choose a window* is gone. The window

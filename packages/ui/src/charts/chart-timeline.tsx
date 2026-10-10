@@ -9,7 +9,6 @@ import { bin } from "./chart-bin.js";
 import { PauseIcon, PlayIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "../lib/cn.js";
-import { Button } from "../simples/button.js";
 import * as vg from "@uwdata/vgplot";
 import { ChartAxisY } from "./chart-axes.js";
 import { ChartBrushX } from "./chart-interactors.js";
@@ -122,7 +121,7 @@ export function ChartTimeline({
       aria-label={title}
       as={as}
       attributes={AXIS}
-      className={cn("flex-row items-stretch gap-1.5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring", className)}
+      className={cn("flex-row items-stretch gap-0 outline-none focus-visible:ring-[3px] focus-visible:ring-ring", className)}
       filterBy={filterBy}
       height={height}
       margin={MARGIN}
@@ -304,22 +303,23 @@ function TimelineWindow({ playable, paceBy }: { playable: boolean; paceBy?: Sele
   return (
     <>
       {playable ? (
-        // Cosmograph's control: a bare glyph in a hit area the band's height, flush at its left edge,
-        // half opaque until hovered or focused, a fifth when there is nothing to play. Its title is
-        // its description; a disabled button takes no pointer, so what holds it shows the tooltip.
-        <span className="order-first flex w-5 shrink-0" title={disabled ? NO_RANGE : undefined}>
-          <Button
+        // Cosmograph's control, and no box: a solid 12 px glyph flush at the band's left, 4 px from
+        // the bars, muted until hovered or focused, a fifth when there is nothing to play. Not
+        // `Button`, whose recipe is the box — border, wash and ring. Keyboard focus outlines the
+        // glyph alone. Its title is its description; a disabled button takes no pointer, so what
+        // holds it shows the tooltip.
+        <span className="order-first flex shrink-0" title={disabled ? NO_RANGE : undefined}>
+          <button
             aria-label={label}
             aria-pressed={playing}
-            className="h-full w-full px-0 opacity-50 hover:bg-muted hover:opacity-100 focus-visible:opacity-100 disabled:opacity-20 [&_svg]:size-3 [&_svg]:fill-current"
+            className="flex w-4 items-center text-muted-foreground opacity-60 outline-none hover:text-foreground hover:opacity-100 focus-visible:text-foreground focus-visible:opacity-100 focus-visible:[&_svg]:outline-2 focus-visible:[&_svg]:outline-ring focus-visible:[&_svg]:outline-offset-2 disabled:opacity-20 [&_svg]:size-3 [&_svg]:fill-current"
             disabled={disabled}
             onClick={toggle}
-            size="icon-sm"
             title={disabled ? NO_RANGE : label}
-            variant="ghost"
+            type="button"
           >
             {playing ? <PauseIcon /> : <PlayIcon />}
-          </Button>
+          </button>
         </span>
       ) : null}
       {/* Read, not drawn: the bars take the width, and the chip already reads the window. */}
