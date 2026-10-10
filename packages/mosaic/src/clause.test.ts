@@ -1,7 +1,7 @@
 import { Selection, clauseInterval, clausePoint, clausePoints, type SelectionClause } from "@uwdata/mosaic-core";
 import { Query, eq, isBetween, literal } from "@uwdata/mosaic-sql";
 import { describe, expect, it } from "vitest";
-import { antiJoinOf, clauseColumns, clauseLabel, clauseParts, clauseSemiJoin } from "./clause.js";
+import { clauseColumns, clauseLabel, clauseParts, clauseSemiJoin, semiJoinOf } from "./clause.js";
 
 const source = { reset() {} };
 
@@ -23,12 +23,10 @@ describe("the clause rule", () => {
     expect(String(clauseSemiJoin("dense_id", [], { source }).predicate)).toBe("FALSE");
   });
 
-  it("crosses clauses on some rows as an anti-join, which keeps every row the table does not hold", () => {
+  it("crosses clauses on some rows as a semi-join, which keeps no row the table does not hold", () => {
     const window = clauseInterval("born", [1902, 1905], { source });
-    const crossed = antiJoinOf("dense_id", "timed", { label: "born" })([window], source);
-    expect(String(crossed.predicate)).toBe(
-      `(NOT ("dense_id" IN (SELECT "dense_id" FROM "timed" WHERE (NOT coalesce(("born" BETWEEN 1902 AND 1905), FALSE)))))`,
-    );
+    const crossed = semiJoinOf("dense_id", "timed", { label: "born" })([window], source);
+    expect(String(crossed.predicate)).toBe(`("dense_id" IN (SELECT "dense_id" FROM "timed" WHERE ("born" BETWEEN 1902 AND 1905)))`);
     expect(clauseColumns(crossed.predicate!)).toEqual(["dense_id"]);
     expect(crossed.meta).toEqual({ type: "semijoin", label: "born" });
   });

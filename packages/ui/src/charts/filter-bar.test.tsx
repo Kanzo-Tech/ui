@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { antiJoinOf, bridgeSelection, semiJoinOf } from "@kanzo-tech/mosaic";
+import { bridgeSelection, semiJoinOf } from "@kanzo-tech/mosaic";
 import { clauseInterval, clausePoint, clausePoints, Selection, type Coordinator } from "@uwdata/mosaic-core";
 import { describe, expect, it } from "vitest";
 import { FilterBar } from "./filter-bar.js";
@@ -61,7 +61,7 @@ describe("FilterBar", () => {
   it("names a bridged part once when it already reads as its bridge's name — a timeline's window", async () => {
     const crossfilter = Selection.crossfilter();
     const inner = Selection.crossfilter();
-    bridgeSelection(inner, crossfilter, antiJoinOf("dense_id", "Person", { label: "birthday" }));
+    bridgeSelection(inner, crossfilter, semiJoinOf("dense_id", "Person", { label: "birthday" }));
     render(
       <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
         <FilterBar />

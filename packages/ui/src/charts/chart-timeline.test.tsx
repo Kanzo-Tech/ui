@@ -24,8 +24,12 @@ describe("nextWindow", () => {
     expect(nextWindow(brushed([480, 590]))).toEqual([490, 600]);
   });
 
-  it("has nothing to play without a window", () => {
-    expect(nextWindow(brushed(undefined))).toBeNull();
+  it("starts a window one bar wide at the start of the axis when there is none, as Cosmograph's does", () => {
+    expect(nextWindow(brushed(undefined))).toEqual([0, 10]);
+  });
+
+  it("has nothing to play before the bars are drawn", () => {
+    expect(nextWindow({ scale, mark: { data: null } })).toBeNull();
   });
 });
 
@@ -74,21 +78,36 @@ describe("tickLabel", () => {
 describe("ChartTimeline", () => {
   const coordinator = { clear() {} } as unknown as Coordinator;
 
-  it("is a figure named by its title, with a play button that waits for a window", () => {
+  it("is a figure named by its title, with Play time playable with no window", () => {
     render(
       <MosaicProvider coordinator={coordinator}>
         <ChartTimeline field="year" table="awards" title="Awards by year" />
       </MosaicProvider>,
     );
     expect(screen.getByRole("figure", { name: "Awards by year" })).toBeTruthy();
-    const play = screen.getByRole("button", { name: "Play" });
+    const play = screen.getByRole("button", { name: "Play time" });
     expect(play.getAttribute("aria-pressed")).toBe("false");
-    expect(play.hasAttribute("disabled")).toBe(true);
+    expect(play.hasAttribute("disabled")).toBe(false);
+    // Named apart from a canvas's layout transport, and described by a tooltip.
+    expect(play.getAttribute("title")).toBeTruthy();
     const window = screen.getByRole("group", { name: "Window" });
     expect(window.hasAttribute("aria-valuetext")).toBe(false);
-    // Disabled with its reason, the readout beside it: *Drag across the bars to choose a window*.
-    expect(play.getAttribute("aria-describedby")).toBe(window.id);
-    expect(window.textContent).toBe("Drag across the bars to choose a window");
+  });
+
+  it("puts Play time first, before the bars, and the window's range after them", () => {
+    render(
+      <MosaicProvider coordinator={coordinator}>
+        <ChartTimeline field="year" table="awards" title="Awards by year" />
+      </MosaicProvider>,
+    );
+    const figure = screen.getByRole("figure", { name: "Awards by year" });
+    const play = screen.getByRole("button", { name: "Play time" });
+    const window = screen.getByRole("group", { name: "Window" });
+    const plot = figure.querySelector("[data-slot=chart]")!;
+    // Drawn left to right in that order: the figure is a row and the button is ordered first.
+    expect(figure.className).toMatch(/\bflex-row\b/);
+    expect(play.className).toMatch(/\border-first\b/);
+    expect(plot.compareDocumentPosition(window) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("draws no play button when it is not playable", () => {
@@ -97,6 +116,6 @@ describe("ChartTimeline", () => {
         <ChartTimeline field="year" playable={false} table="awards" title="Awards by year" />
       </MosaicProvider>,
     );
-    expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Play time" })).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 ---
 title: Timeline
-description: Why a time filter is a histogram whose brush owns its clause and sticks to its bars, why playback moves the brush through its owner rather than the selection, why its window reaches the page as identity, why time is read from the schema and never guessed, and why a date on a relation is a vertex — and what would reverse each rule.
+description: Why a time filter is a histogram whose brush owns its clause and sticks to its bars, why playback sweeps the axis by moving the brush through its owner rather than the selection, why its window reaches the page as identity and greys what has no time, why time is read from the schema and never guessed, and why a date on a relation is a vertex — and what would reverse each rule.
 ---
 
 A timeline is a brushable histogram of one temporal column, which filters the page to the brushed
@@ -65,10 +65,29 @@ not a `Selection`'s, and `PanZoom` follows the `Param`s of its domains. Cosmogra
 `setSelection()` is the same shape, a method on the timeline rather than a write to the crossfilter.
 `ChartTimeline` reaches its interactor through `Plot.interactors`, which vgplot exposes.
 
-**The tick is Cosmograph's.** Every 50 ms the window moves by one bar, and it stops where the axis
-ends. With no window Play is disabled, described by the readout beside it: *Drag across the bars to
-choose a window*. There is no stop: a window is let go as any filter is, from its
-chip or the page's **Clear**, and Cosmograph's stop is that and a pause. A tick does not wait for the
+**Play sweeps the axis, as Cosmograph's timeline does.** With no window, it starts one a bar wide at
+the start of the axis; with one, it moves that window, its width kept, from where it is. Every 50 ms
+the window moves by one bar, and at the end of the axis it stops and the button is no longer
+pressed. A pause leaves the window where it is. So Play is never disabled while there are bars: the
+first version disabled it until a window was brushed, and a person who pressed it to see the graph
+grow had first to learn to drag. There is no stop: a window is let go as any filter is, from its chip
+or the page's **Clear**, and Cosmograph's stop is that and a pause.
+
+**Under `prefers-reduced-motion` it still plays, a bar every 500 ms.** The rule on
+[preferences](/docs/design/preferences) is to honour the query wherever something moves, and a sweep
+repaints the whole canvas twenty times a second. It is not dropped, because the sweep is what the
+person asked for and the pause is one press away; it is slowed tenfold, so each frame is a state to
+read rather than a flicker. *What would reverse it:* a reader under the query for whom even that is
+too much; then Play steps one bar per press.
+
+**Play time is the timeline's first control, before the bars, and the window's range reads after
+them.** It sat under the bars beside the readout, an icon identical to the canvas toolbar's layout
+transport, so two play buttons a few centimetres apart did different things. It is now an outlined
+button labelled *Play time* in words, with a tooltip, at the start of the bars as Cosmograph's is —
+the toolbar's is a bare icon, so the label is what tells them apart, and a second icon would have
+cost bytes to say less; the range, *1910 – 1940*, is right of the bars where the window ends.
+*What would reverse it:* a timeline too narrow for a labelled button beside its bars, such as one in
+a dashboard chip; then the label goes and the tooltip and the accessible name stay. A tick does not wait for the
 graph: each one publishes, and the store keeps the newest answer and drops a stale one
 (`packages/graph/src/core/store.ts`). A playing timeline therefore never draws behind its own clause.
 
@@ -99,23 +118,43 @@ id in that range would be read as a date, and the schema already says which colu
 temporal columns, as it answers theirs. Cosmograph's own app configures its timeline the same way, in
 its settings panel. A selector inside the part would have been a second door to a choice the graph
 already makes in one place. None, the default, draws no timeline. The histogram is the union of the
-tables that have the column, one colour, and the clause filters every type with that column, by the
-graph's clause rule (`answers`), and leaves the others whole.
+tables that have the column, one colour, and while a window is set only the vertices with the
+column inside it stay in colour.
 
 **The window reaches the page as identity, not as its column.** A window is `date BETWEEN …`, and
 only the types with a date can answer it: published straight into the page's crossfilter, it reached
 every client of the page, and a dashboard's relation or a filter over a type with no date failed on
 the column it does not have. So the timeline publishes into a crossfilter of its own, bridged to the
-page by `antiJoinOf(key, timeline)` — `dense_id NOT IN (SELECT dense_id FROM <the types with the
-column> WHERE NOT <the window>)` — the way a dashboard's tiles cross by `semiJoinOf`. The anti-join
-drops only the rows of the types with the column that the window leaves out, so the rest stay whole,
-and it names the key alone, so every client answers it. The chip still reads *date 1910 – 1940*: the
-bar names a bridged clause by its parts, and does not prefix a part with its bridge's name when the
-part already reads as it — the bridge is called by the column.
+page by `semiJoinOf(key, timeline)` — `dense_id IN (SELECT dense_id FROM <the types with the
+column> WHERE <the window>)` — the way a dashboard's tiles cross. It names the key alone, so every
+client answers it, without a Binder error. The chip reads *date 1910 – 1940*: the bar names a
+bridged clause by its parts, and does not prefix a part with its bridge's name when the part already
+reads as it — the bridge is called by the column.
+
+**A vertex without the column is outside every window, so it is greyed, as Cosmograph greys it.**
+The bridge was first an anti-join, `dense_id NOT IN (… WHERE NOT <the window>)`, which dropped only
+the dated rows the window leaves out and kept every type without the column whole. In keasy that read
+wrong: on SNB, a window over 30 birthdays left *340,163 of 341,661* vertices in colour, every post,
+place and tag among them, and it looked like a window that selected more than it should. Cosmograph's
+`Timeline` filters its points by `isBetween(column, range)`, and a point with no time answers false,
+so it is greyed with what the window leaves out. The semi-join is that rule over identity: only the
+rows that have the column and fall in the window are kept, so the same window reads *30 of 341,661*.
+The edges follow by the rule that a link needs both its ends.
+
+**A dashboard over a relation whose root has no time column shows no rows while a window is set.**
+It answers the same clause through its root, and none of its keys are in the window. That is Mosaic's
+model: a client applies every clause it is handed, and a cross-filter is the rows every clause keeps,
+so a relation that cannot be in the window is not shown as if it were. It is not left whole, which
+would say the window had nothing to do with it. Why it is empty is on the bar: the chip names the
+column, *birthday 1981 – 1985*, and removing it brings the rows back.
 
 **What would reverse it:** clients of the page that each apply the clause rule themselves, as
 `GraphClient` does, skipping a clause they cannot answer. Then a column clause could go to the page
-as itself. Mosaic's clients apply every clause they are handed, so the rule lives in the clause.
+as itself. Mosaic's clients apply every clause they are handed, so the rule lives in the clause. And
+for the greying: readers who take a greyed type with no time as one the window judged, often enough
+that the chip does not correct them; then the types without the column are drawn apart from the
+window's greyed-out vertices — fainter, or listed in the legend as having no time — and are still
+not kept whole.
 
 **What would reverse it:** a corpus whose times arrive as text with no datatype, such as one written
 without a shape. Then a column is offered when its values parse, and the parse is the rule. And for
@@ -124,9 +163,9 @@ prop of the part again, and the setting is the default the root hands it.
 
 ## Filtered is greyed out, and playing does not change that
 
-**What the window leaves out is greyed out, and nothing is hidden.** Cosmograph 2.5 does the same: it
-hands cosmos.gl `highlightedPointIndices` and `highlightedLinkIndices`, and the rest takes the greyout
-opacity. So there is no "hide" preference for playback. A graph that grows over time reads as points
+**What the window leaves out is greyed out, and nothing is hidden.** What has no time is left out
+too. Cosmograph 2.5 does the same: it hands cosmos.gl `highlightedPointIndices` and
+`highlightedLinkIndices`, and the rest takes the greyout opacity. So there is no "hide" preference for playback. A graph that grows over time reads as points
 coming into colour against the shape of the whole.
 
 **What would reverse it:** readers who take the greyed-out points as present while it plays, often
@@ -152,22 +191,26 @@ the edges it matches and their endpoints — Cosmograph's rule, `endpointPointsO
 ## What a test reads
 
 The part is accessible first, in [the testing rule's](/docs/design/testing) order. Play and pause are
-one button with `aria-pressed`, the chart is `aria-busy` while its query runs, and the brushed range
+one button, *Play time* or *Pause time*, with `aria-pressed`, the chart is `aria-busy` while its query runs, and the brushed range
 is a group whose `aria-valuetext` reads *1950 – 1960*. `ChartTimeline` registers its `x` scale under
 its title in `window.__KANZO_TESTING__.charts` when a test has installed the hook. `TimelineHarness`
 then brushes in data and plays.
 
 *Held by* `packages/ui/src/charts/chart-timeline.test.tsx` (a tick moves the window one bar, in axis
-order, and stops at the end of the axis; with no window there is nothing to play; a brushed window
+order, and stops at the end of the axis; "starts a window one bar wide at the start of the axis when
+there is none, as Cosmograph's does"; "puts Play time first, before the bars, and the window's range
+after them"; a brushed window
 sticks to the nearest edges, at least one bar wide; a year reads as its integer, on the axis too; the
 figure, its button and its group are what a harness reads),
 `packages/ui/src/charts/filter-bar.test.tsx` ("names a bridged part once when it already reads as its
 bridge's name — a timeline's window"),
 `packages/graph/src/parts/graph-timeline.test.tsx` (it draws nothing until `time-by` is chosen, and
-nothing for a column the corpus lacks; the window filters the types with the column and leaves a
-relation without it whole, unbroken; "holds one window, which each brush replaces — through a
+nothing for a column the corpus lacks; "crosses the window into the page as a clause every client
+answers, greying every vertex without the column"; "plays the whole axis with no window: one bar wide
+from its start, to its end, then stops"; "plays a window from where it is, the same width, to the
+end of the axis"; "pauses where it is, the window kept"; "holds one window, which each brush replaces — through a
 re-render and a rebuild of the plot"; "keeps the window through a rebuild of the plot, drawn and
 playable"; "draws the window's bars in front, and what it leaves out only behind"; "draws every tick
-label whole, the first one at the axis's edge too"), `packages/mosaic/src/clause.test.ts` (the anti-join names the
-key alone) and `packages/graph/src/parts/graph-section.test.tsx` (the
+label whole, the first one at the axis's edge too"), `packages/mosaic/src/clause.test.ts` ("crosses clauses on some rows as a semi-join, which keeps
+no row the table does not hold") and `packages/graph/src/parts/graph-section.test.tsx` (the
 setting offers the `xsd:gYear` column by its datatype, and no integer of the same range).

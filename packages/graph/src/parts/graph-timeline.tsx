@@ -17,16 +17,17 @@ export interface GraphTimelineProps {
 
 /**
  * **The timeline under the graph** — Cosmograph's `CosmographTimeline`: the distribution of one
- * temporal column over every type that has it, a window brushed across it, and a play button that
- * moves the window forward. The column is the `time-by` preference, chosen in the graph's settings;
- * with none chosen, or one this corpus does not have, it draws nothing.
+ * temporal column over every type that has it, a window brushed across it, and *Play time*, which
+ * sweeps a window across the axis. The column is the `time-by` preference, chosen in the graph's
+ * settings; with none chosen, or one this corpus does not have, it draws nothing.
  *
- * The window is a clause of the timeline's own, crossed into the page's crossfilter as an anti-join
- * on the key — as a dashboard's clauses cross as a semi-join — so every client of the page answers
- * it: what it leaves out is greyed out, every type with the column is filtered by it and the rest stay
- * whole, a dashboard's relation is filtered through its root, and it is a chip in the page's
- * `FilterBar`. A date on a relation is a vertex here (`/docs/design/timeline`),
- * so playing it greys the relations of other years and the edges into them.
+ * The window is a clause of the timeline's own, crossed into the page's crossfilter as a semi-join
+ * on the key — as a dashboard's clauses cross — so every client of the page answers it: only the
+ * vertices with the column inside the window stay in colour and every other is greyed, a type without
+ * the column included, as Cosmograph greys them; a dashboard's relation is filtered through its root,
+ * so one whose root has no such column shows no rows; and it is a chip in the page's `FilterBar`
+ * named by the column. A date on a relation is a vertex here (`/docs/design/timeline`), so playing it
+ * greys the relations of other years and the edges into them.
  */
 export function GraphTimeline({ className, height }: GraphTimelineProps) {
   const { timeline } = useGraphPrefs();

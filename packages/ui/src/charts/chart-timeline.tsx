@@ -6,7 +6,7 @@ import { Interval1D } from "@uwdata/mosaic-plot";
 import { count } from "@uwdata/mosaic-sql";
 import { bin } from "./chart-bin.js";
 import { PauseIcon, PlayIcon } from "lucide-react";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "../lib/cn.js";
 import { Button } from "../simples/button.js";
 import { ChartAxisX, ChartAxisY } from "./chart-axes.js";
@@ -48,6 +48,8 @@ const BARS = 60;
 const BRUSH = { fillOpacity: 0, stroke: "currentColor", strokeOpacity: 0.6 };
 /** Cosmograph's `animationSpeed`: one bar every 50 ms. */
 const TICK_MS = 50;
+/** One bar every half second under `prefers-reduced-motion`: the sweep still plays, ten times slower. */
+const REDUCED_TICK_MS = 500;
 
 /**
  * **A time filter: the distribution over time, a window brushed across it, and a play button that
@@ -58,7 +60,9 @@ const TICK_MS = 50;
  * The window sticks to the bars' edges, as Cosmograph's `stickySelection` does, so it reads
  * *1910 – 1940* rather than where the pointer let go. Playing asks the window's owner to move it —
  * the interval, through its own clause, a bar at a time — because a clause belongs to the source
- * that published it. With no window there is nothing to play, and at the end of the axis it stops.
+ * that published it. It sweeps the axis, as Cosmograph's does: with no window it starts one a bar
+ * wide at the axis's start, and at the end of the axis it stops. *Play time* is the first control,
+ * before the bars, and the window's range reads after them.
  */
 export function ChartTimeline({
   table,
@@ -76,10 +80,11 @@ export function ChartTimeline({
     <ChartRoot
       aria-label={title}
       as={as}
-      className={cn("gap-1", className)}
+      className={cn("flex-row items-center gap-1", className)}
       filterBy={filterBy}
       height={height}
       margin={MARGIN}
+      plotClassName="min-w-0 flex-1"
       table={table}
     >
       <ChartRectY fill="var(--muted-foreground)" filterBy={null} inset={0.5} opacity={0.22} x={bars} y={count()} />
@@ -95,7 +100,10 @@ export function ChartTimeline({
   );
 }
 
-/** The play button and the window's readout, under the bars. */
+/**
+ * *Play time*, ordered before the bars, and the window's readout after them. The button is named
+ * and drawn apart from a canvas's layout transport, which is a play button too.
+ */
 function TimelineWindow({ playable }: { playable: boolean }) {
   const { as, plot } = useChartContext();
   const [range, setRange] = useState<readonly unknown[] | null>(null);
@@ -129,36 +137,42 @@ function TimelineWindow({ playable }: { playable: boolean }) {
 
   useEffect(() => {
     if (!playing) return;
+    const reduced = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const timer = setInterval(() => {
       const interval = intervalOf(plot());
       const next = interval && nextWindow(brushedBy(interval));
       if (next) moveWindow(interval, next);
       else setPlaying(false);
-    }, TICK_MS);
+    }, reduced ? REDUCED_TICK_MS : TICK_MS);
     return () => clearInterval(timer);
   }, [playing, plot]);
 
   const reading = range ? readWindow(range) : null;
-  const readout = useId();
+  const label = playing ? "Pause time" : "Play time";
   return (
-    <div className="flex min-h-7 items-center gap-2 px-2 text-muted-foreground text-xs">
+    <>
       {playable ? (
         <Button
-          aria-describedby={!range && !playing ? readout : undefined}
-          aria-label={playing ? "Pause" : "Play"}
           aria-pressed={playing}
-          disabled={!range && !playing}
+          className="order-first shrink-0"
           onClick={() => setPlaying((p) => !p)}
-          size="icon-sm"
-          variant="ghost"
+          size="sm"
+          title={playing ? "Pause the window where it is" : "Play the window through time, a bar at a time"}
+          variant="outline"
         >
           {playing ? <PauseIcon /> : <PlayIcon />}
+          {label}
         </Button>
       ) : null}
-      <div aria-label="Window" aria-valuetext={reading ?? undefined} className="tabular-nums" id={readout} role="group">
-        {reading ?? "Drag across the bars to choose a window"}
+      <div
+        aria-label="Window"
+        aria-valuetext={reading ?? undefined}
+        className="min-w-28 shrink-0 whitespace-nowrap text-right text-muted-foreground text-xs tabular-nums"
+        role="group"
+      >
+        {reading ?? "Drag across the bars"}
       </div>
-    </div>
+    </>
   );
 }
 
@@ -220,11 +234,12 @@ export function stickWindow(brushed: Pick<Brushed, "scale" | "mark">, extent: re
 
 /**
  * The window one tick later: each end on the next edge, or `null` where it would pass the end of
- * the axis or there is no window to move.
+ * the axis or no bars are drawn. With no window it is the first bar, where a sweep of the axis starts.
  */
 export function nextWindow(brushed: Brushed): [unknown, unknown] | null {
-  if (!brushed.value) return null;
   const edges = edgesOf(brushed);
+  if (edges.length < 2) return null;
+  if (!brushed.value) return [edges[0], edges[1]];
   const [a, b] = brushed.value.map((v) => nearest(edges, brushed.scale, brushed.scale.apply(v))).sort((x, y) => x - y) as [number, number];
   return b + 1 < edges.length ? [edges[a + 1], edges[b + 1]] : null;
 }

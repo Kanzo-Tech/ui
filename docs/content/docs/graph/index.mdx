@@ -316,8 +316,10 @@ its id.
 ```
 
 Cosmograph's `CosmographTimeline`, under the canvas: the distribution of one temporal column over
-every type that has it, a window brushed across it, and a play button that moves the window forward
-a bar at a time. It is `ChartTimeline` from `@kanzo-tech/ui/analytics` over the corpus.
+every type that has it, a window brushed across it, and *Play time*, its first control, which
+sweeps a window across the axis a bar at a time — from the start of the axis with no window, from
+where the window is with one — and stops at the end. It is drawn apart from the toolbar's layout
+transport, which is a play button too. It is `ChartTimeline` from `@kanzo-tech/ui/analytics` over the corpus.
 
 - **The column is a setting, not a prop.** `time-by` — *Timeline* in the graph's settings — offers
   the corpus's temporal columns, the way *X axis* offers its numeric ones, and with none chosen the
@@ -325,11 +327,13 @@ a bar at a time. It is `ChartTimeline` from `@kanzo-tech/ui/analytics` over the 
   `timestamp`, or a column whose `datatype` is `xsd:date`, `xsd:dateTime` or `xsd:gYear` — a year is
   stored as an `int32`, and the datatype is what says it is a year. That needs a corpus attached by
   `@fossil-lang/corpus` 0.3.0-alpha.28 or later.
-- **The window reaches the page as identity.** It is a clause of the timeline's own, crossed into
-  the page's crossfilter as an anti-join on `dense_id` (`antiJoinOf`), as a dashboard's clauses
-  cross as a semi-join. Every type with the column is filtered by it and the rest stay whole; what it
-  leaves out is greyed, a dashboard beside the graph is filtered through its relation's root, and
-  the window is a chip in the page's `FilterBar`.
+- **Only what is in the window stays in colour.** The window is a clause of the timeline's own,
+  crossed into the page's crossfilter as a semi-join on `dense_id` (`semiJoinOf`), as a dashboard's
+  clauses cross. A vertex stays in colour when it has the column and its value is in the window;
+  every other is greyed, a type without the column included, as in Cosmograph, and the edges grey
+  with their ends. A window over 30 birthdays reads *30 of 341,661*. A dashboard beside the graph is
+  filtered through its relation's root, so one whose root has no such column shows no rows, and the
+  chip that says why names the column: *birthday 1981 – 1985*.
 - **A date on a relation is a vertex** — the year of a prize, the day two people met — because a
   corpus has no edge properties yet ([why](/docs/design/timeline)). Playing it greys the relations
   of other years and the edges into them.

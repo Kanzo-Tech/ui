@@ -455,7 +455,7 @@ It throws outside a `ChartRoot`; `useChartContextOptional()` returns `null` inst
 ## A time filter that plays
 
 `ChartTimeline` is a brushable histogram of one temporal column — a date, a timestamp, or a year
-stored as its integer — with a play button that moves the brushed window forward a bar at a time,
+stored as its integer — with *Play time*, which sweeps a window along the axis a bar at a time,
 Cosmograph's `Timeline` on the page's crossfilter. The bars behind are the column unfiltered, the
 bars in front what the page keeps, and the window is one clause: a chip in the `FilterBar` like any
 control's.
@@ -467,9 +467,11 @@ control's.
 The window sticks to the bars' edges, Cosmograph's `stickySelection`, so it reads *1910 – 1940*
 and not where the pointer let go, and a year on the axis reads *1900*, never *1,900*. Playing asks
 the window's owner to move it, one bar at a time, through the interval's own state and clause: a
-clause belongs to the source that published it ([why](/docs/design/timeline)). With no window there
-is nothing to play, and at the end of the axis it stops. The button is `aria-pressed` while it plays, and the
-window is a group whose `aria-valuetext` reads *1950 – 1960*. A dashboard's temporal filter is this
+clause belongs to the source that published it ([why](/docs/design/timeline)). With no window it
+starts one a bar wide at the start of the axis; with one it moves that window, its width kept; at
+the end of the axis it stops, and a pause leaves the window where it is. *Play time* is the first
+control, before the bars, and the window's range reads after them. The button is `aria-pressed`
+while it plays, and the window is a group whose `aria-valuetext` reads *1950 – 1960*. A dashboard's temporal filter is this
 part, in its chip.
 
 ## Escape hatches
