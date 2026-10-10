@@ -2,7 +2,9 @@
 
 The graph view over a [fossil](https://github.com/Kanzo-Tech/fossil-lang) corpus, drawn with
 [cosmos.gl](https://cosmosgl.github.io/graph). fossil is the backend and this package is the view:
-the host opens the corpus, and `GraphRoot` draws the whole of it — no SQL is written here.
+the host attaches the corpus, and `GraphRoot` draws the whole of it, reading it with SQL through the
+page's coordinator. Nothing of fossil's is imported: the contract is the catalog, `fossil_tables` and
+`fossil_columns`.
 
 ## Install
 
@@ -10,9 +12,9 @@ the host opens the corpus, and `GraphRoot` draws the whole of it — no SQL is w
 pnpm add @kanzo-tech/graph @cosmos.gl/graph @fossil-lang/corpus @kanzo-tech/mosaic @kanzo-tech/ui lucide-react @uwdata/mosaic-core @uwdata/mosaic-sql
 ```
 
-Every peer is required. `@fossil-lang/corpus` reads the corpus, `@kanzo-tech/mosaic` is the page's one
-DuckDB-WASM engine and its crossfilter, cosmos.gl draws, and the parts are built from
-`@kanzo-tech/ui` and its icons.
+Every peer is required. `@kanzo-tech/mosaic` is the page's one DuckDB-WASM engine and its
+crossfilter, cosmos.gl draws, and the parts are built from `@kanzo-tech/ui` and its icons.
+`@fossil-lang/corpus` is the host's, to attach the corpus with; the graph never imports it.
 
 ## The one path
 
@@ -35,9 +37,9 @@ await attach("archive", { engine: e, url }); // views "archive"."<Table>", fossi
 </GraphRoot>;
 ```
 
-**Opening is the host's.** Where the corpus is and what signs it are the host's to say — a private
-corpus opens as `` open(`jobs/${id}`, { engine, host }) `` — and `GraphRoot` takes what came back,
-or the promise of it, which is what lets it say it is opening. Closing it is the host's too.
+**Attaching is the host's**, and so is detaching: `attach` answers the attachment whose `detach()`
+gives the catalog back, and `GraphRoot` takes the name it was attached under as `from`.
+`from={null}` is no corpus yet; the canvas is mounted either way and waits over an empty surface.
 
 **The whole corpus is drawn**: every vertex table with a position — fossil's layout or the
 program's own columns — and every relation whose two ends are drawn, read once, one scan per table,
@@ -47,9 +49,11 @@ and uploaded once. A vertex's `dense_id` is its index in the buffers. The camera
 constant and anything else is a column. Unbound, colour is the vertex type and a label is the table's
 `identity`. Changing a column binding re-reads that column and nothing else.
 
-**`filterBy` is the page's crossfilter.** Its clauses are translated into scan's filter, and what
-does not survive is hidden; a clause that cannot be translated reaches `onFailure` rather than being
-dropped. A lasso or a click publishes the reader's pick back into it, exempting the graph itself.
+**`filterBy` is the page's crossfilter.** A clause is column predicates or a semi-join on identity,
+`dense_id IN (…)`; what it drops is greyed out on the canvas, never hidden, and a clause no vertex
+table can answer reaches `onFailure` as `graph/unfilterable` rather than being dropped. A lasso or a
+click publishes the reader's pick back into it as a semi-join on the vertex key, exempting the graph
+itself; `usePick` does the same for a place beside the canvas.
 
 **The layout is off at load.** The corpus's positions are drawn as they are; `GraphToolbar` runs and
 stops a force layout from where the points are. Dragging a node pins it only while a layout runs,
@@ -73,24 +77,37 @@ graph, a second main view and a dock of panels.
 - `GraphStatus` — where the graph is, in one word: Loading, Laying out 42%, Ready or Failed.
 - `GraphCounts` — the corpus and what the filter keeps of it: "5K nodes · 8K edges", or
   "1.2K of 5K nodes match · 3K edges".
-- `GraphSearch` — every drawn vertex's text, read once and filtered in the browser; picking reveals.
+- `GraphSearch` — a ⌘K palette that asks the corpus, through the coordinator, once per pause in
+  typing (150 ms): the first `limit` matches and how many there are of each type, under every other
+  clause on the crossfilter (`usePick("search").predicate()`), with how many more lie outside it.
+  Nothing is read before the reader types and no text is held in the page. `type:Person` and
+  `<column>:<value>` narrow it; Enter reveals a match, ⌘Enter adds every match to the subset.
 - `GraphInspector` — the focused vertex's row, with a render prop for a product's own fields.
-- `GraphLooks` — Nebula, Atlas and Ink as presets over `GRAPH_SECTION`'s axes, with the axes —
-  marks, edges, labels, the backdrop — always in view under them. Needs `GRAPH_SECTION` on the theme
-  provider, and no root.
-- `GraphPlacement` — Force, Map or Clustered as cards, with the corpus's own columns to bind under
-  the checked one, beside the card and never inside it. Controlled: `value`/`onChange` of the root's `x`, `y` and `cluster`.
+- `GraphTimeline` — one temporal column brushed and played under the canvas, the column being the
+  `time-by` setting; its window reaches the page as identity.
 - `ShapeGlyph` — the glyph the canvas draws for a category, in the DOM.
 
 No part takes a callback of its own: what a click means is `onSelect`, `onFocus` and `onFailure` on
-the root, and `GraphPlacement`'s `onChange` only hands back the root's own bindings.
+the root. The graph's settings are no part: they are `GRAPH_SECTION` on `@kanzo-tech/graph/section`,
+drawn by `@kanzo-tech/ui`'s `PreferencesSections`.
 `onFailure` is required and receives every failure as thrown — fossil's coded errors, and the graph's
 own `GraphError` (`graph/no-webgl`, `graph/context-lost`, `graph/no-positions`,
 `graph/nothing-to-draw`, `graph/unfilterable`).
 
-- `lookFrom`, `simFrom`, `useGraphPrefs` — the form and the forces from a preferences panel's
-  answers, and the look `preset` they are; `scaleOf` — what colour and shape a category wears.
+- `usePick(id)` — a place beside the canvas picking vertices as a clause of its own:
+  `pick(ids | null, label)`, `picked`, and `predicate()`, the subset as that place sees it.
+- `lookFrom`, `simFrom`, `placementFrom`, `useGraphPrefs` — the form, the forces and where the
+  points come from, read from `GRAPH_SECTION`'s answers; `scaleOf` — what colour and shape a
+  category wears.
 - `VertexId` — a vertex is its `dense_id`, a `number`.
+
+### The readers
+
+- `readJoinGraph(coordinator, from)` — the corpus attached as `from` as a `JoinGraph`, read from
+  `fossil_tables` and `fossil_columns`: each vertex table a type keyed by `dense_id` that projects
+  the columns the writer gave no role, each edge table joined through `src` and `dst`. It is what
+  `@kanzo-tech/mosaic`'s relations — and `@kanzo-tech/ui/analytics`' relation dashboards — are built
+  over; `relationRootKey` names the key a relation publishes to the page through.
 
 The full guide — the parts, layout and camera, and the workspace recipe — is at
 [kanzo-tech.github.io/ui/docs/graph](https://kanzo-tech.github.io/ui/docs/graph).

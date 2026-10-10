@@ -120,7 +120,8 @@ const prefixed = (alias: string, name: string) => `${alias}.${name}`;
  * The name a step's key goes by. The root's keeps its own: a relation's rows are its root's, keyed
  * the way the root's table is, so a semi-join on identity — `dense_id IN (…)`, published by anything
  * keyed the same way — filters a relation exactly as it filters the root's table. Every other step's
- * key is prefixed like its columns.
+ * key is prefixed like its columns. The exception, and what would reverse it, is on
+ * `/docs/design/graph`; `relationRootKey` is how a host reads the name.
  */
 const keyName = (step: Step, index: number, key: string) => (index === 0 ? key : prefixed(step.alias, key));
 
@@ -132,7 +133,16 @@ export function relationIdentities(graph: JoinGraph, relation: Relation): { colu
   return steps(graph, relation).map((s, i) => ({ column: keyName(s, i, typeOf(graph, s.type).key), type: s.type }));
 }
 
-function typeOf(graph: JoinGraph, name: string): JoinType {
+/**
+ * The root's key, by name: the column a host publishes a relation's rows to the page through, as
+ * `semiJoinOf(relationRootKey(graph, relation), relationQuery(graph, relation))`. It is the one
+ * column of a relation that is not prefixed — see `keyName` — so it is the root type's own `key`.
+ */
+export function relationRootKey(graph: Pick<JoinGraph, "types">, relation: Relation): string {
+  return typeOf(graph, relation.root).key;
+}
+
+function typeOf(graph: Pick<JoinGraph, "types">, name: string): JoinType {
   const type = graph.types.find((t) => t.name === name);
   if (!type) throw new Error(`the join graph has no type ${name}`);
   return type;

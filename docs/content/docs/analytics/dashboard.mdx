@@ -422,6 +422,10 @@ import { Dashboard, RelationPicker, relationIdentities, relationKey, relationQue
   what a clause on the relation crosses to anything else keyed the same way with, as a semi-join on
   identity. The root's key is the relation's own, so a `clauseSemiJoin` on it — a lasso on a graph —
   filters a joined relation exactly as it filters the root's table.
+- **`relationRootKey(graph, relation)`** is that root key by name — the root type's own `key`, the
+  one column of a relation that is not prefixed. It is what a relation publishes to the page
+  through; [the graph's design](/docs/design/graph#a-relations-names-prefixed-but-the-roots-key) has
+  why it keeps its name.
 - **`relationHops(graph, type)`** lists the hops that leave a type, out-edges then in-edges.
   `RelationPicker` is built on it: the root as a select, each hop as *label → type*, the last hop
   removable, and **+ Hop** offering the edges that leave the last type.
@@ -434,10 +438,10 @@ nothing else on the page has them: a graph beside the dashboard would refuse it 
 dashboard publishes in the page's vocabulary instead, a semi-join on the root's key:
 
 ```tsx
-import { semiJoinOf } from "@kanzo-tech/ui/analytics";
+import { relationRootKey, semiJoinOf } from "@kanzo-tech/ui/analytics";
 
 const table = useMemo(() => relationQuery(graph, relation), [graph, relation]);
-const publish = useMemo(() => semiJoinOf(relationIdentities(graph, relation)[0].column, table, { label: key }), [graph, relation, table, key]);
+const publish = useMemo(() => semiJoinOf(relationRootKey(graph, relation), table, { label: key }), [graph, relation, table, key]);
 
 <Dashboard key={key} table={table} publish={publish} … />
 ```
@@ -587,6 +591,7 @@ Takes no props of its own; every prop goes to its `div` (`data-slot="tile-editor
 function relationQuery(graph: JoinGraph, relation: Relation): Query;
 function relationKey(graph: Pick<JoinGraph, "edges">, relation: Relation): string;
 function relationIdentities(graph: JoinGraph, relation: Relation): { column: string; type: string }[];
+function relationRootKey(graph: Pick<JoinGraph, "types">, relation: Relation): string;
 function relationHops(graph: Pick<JoinGraph, "edges">, type: string): RelationHop[];
 
 interface Relation { root: string; path: readonly Hop[] }
