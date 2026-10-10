@@ -9,7 +9,10 @@ afterEach(() => {
 const body = {
   user: { id: "u-7", email: "ada@example.com", name: "Ada", username: "ada" },
   roles: ["auditor"],
-  organizations: [{ alias: "acme", id: "f8d3", groups: ["ignored"], roles: ["owner"] }],
+  organizations: [
+    { alias: "acme", id: "f8d3", roles: ["owner"], groups: ["g-research"], groupsOverage: false },
+    { alias: "globex", roles: [], groups: [], groupsOverage: true },
+  ],
   organization: "acme",
   expiresAt: 1_700_000_000_000,
 };
@@ -35,7 +38,10 @@ describe("readSession checks the wire instead of casting it", () => {
       username: "ada",
     });
     expect(session?.roles).toEqual(["auditor"]);
-    expect(session?.organizations).toEqual([{ alias: "acme", id: "f8d3", roles: ["owner"] }]);
+    expect(session?.organizations).toEqual([
+      { alias: "acme", id: "f8d3", roles: ["owner"], groups: ["g-research"], groupsOverage: false },
+      { alias: "globex", id: undefined, roles: [], groups: [], groupsOverage: true },
+    ]);
     expect(session?.organization).toBe("acme");
     expect(session?.expiresAt).toBe(1_700_000_000_000);
   });
@@ -69,10 +75,16 @@ describe("readSession checks the wire instead of casting it", () => {
     const session = readSession({
       user: { id: "u-1" },
       roles: ["real", 7, null],
-      organizations: [{ alias: "acme", roles: ["owner", 3] }, { id: "no-alias" }, "acme"],
+      organizations: [
+        { alias: "acme", roles: ["owner", 3], groups: ["g-1", null] },
+        { id: "no-alias" },
+        "acme",
+      ],
     });
     expect(session?.roles).toEqual(["real"]);
-    expect(session?.organizations).toEqual([{ alias: "acme", id: undefined, roles: ["owner"] }]);
+    expect(session?.organizations).toEqual([
+      { alias: "acme", id: undefined, roles: ["owner"], groups: ["g-1"], groupsOverage: false },
+    ]);
   });
 });
 

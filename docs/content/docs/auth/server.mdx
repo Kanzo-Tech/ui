@@ -307,6 +307,35 @@ timer. A timer refreshes when nothing is wrong and is still stale at the moment 
 the secret never travels. `allowInsecureHttp` is what lets a compose file on a laptop serve
 `http://localhost:8080`.
 
+## A group overage, and asking the realm
+
+```ts
+import { organizationGroups } from "@kanzo-tech/auth/server";
+```
+
+A token that would carry more group ids than its threshold carries none, and the organization says
+`groupsOverage: true` — [Microsoft Entra ID's rule](/docs/design/auth#a-group-is-granted-to-by-id-with-entras-overage-rule).
+An empty `groups` then means *ask*, never *in no group*, and asking is the application's job, because
+it needs a credential this package never holds: a service account of the application's, with
+`realm-management`'s `view-organizations` and `view-users` (the member's groups endpoint refuses
+either alone). `organizationGroups` is a sketch of the asking, small enough to copy rather than
+depend on:
+
+```ts
+const groupsOf = organizationGroups({
+  adminUrl: "http://keycloak:8080/admin/realms/kanzo",
+  token: serviceAccountToken, // your client_credentials grant, cached
+});
+
+const org = session.organizations.find((o) => o.alias === alias);
+const groups = org?.groupsOverage ? await groupsOf(org.id!, session.user.id) : (org?.groups ?? []);
+```
+
+It reads `GET /organizations/{org}/members/{user}/groups`, walks each group's ancestors as the
+realm's mapper does (`inherited`, default true — the two must agree), and keeps an answer for the
+token's own five minutes, one request per person at a time. A refusal rejects with
+`idp/unreachable` and its status, and is not cached.
+
 ## API Reference
 
 ### `relyingParty`
@@ -410,6 +439,21 @@ channel to the token endpoint vouches for it — and an `internalOrigin` of `htt
 withdraws exactly that premise. [The signature check follows the
 channel](/docs/design/auth#the-signature-check-follows-the-channel-not-a-default) is the argument
 in full, with the clause it rests on and what would reverse it.
+
+### `organizationGroups`
+
+`organizationGroups(config: OrganizationGroupsConfig): OrganizationGroups`, where
+`OrganizationGroups` is `(organizationId: string, userId: string) => Promise<readonly string[]>`.
+
+`OrganizationGroupsConfig`:
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `adminUrl` | `string` | — the realm's admin API, as this process reaches it |
+| `token` | `() => Promise<string>` | — a bearer for the service account |
+| `inherited` | `boolean` | `true`, as the realm's mapper |
+| `ttl` | `number` | five minutes, in milliseconds |
+| `fetch` | `typeof fetch` | the global |
 
 ### `sealedCookie`
 

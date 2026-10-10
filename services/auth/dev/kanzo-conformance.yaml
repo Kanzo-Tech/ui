@@ -1,6 +1,8 @@
 # The client the contract is proved through — no product's. Two roles, one containing the other, are
 # the smallest set that shows composites arriving expanded inside an organization entry; its own API
 # and the AI gateway show a session's token exchanged for one that names one API (scripts/verify.sh).
+# `groups` puts the ids of the person's groups in each organization in its tokens, with an overage
+# threshold low enough for the seed to cross it (fede's acme entry, scripts/verify.sh).
 x-application:
   client_id: kanzo-conformance
   description: Proves the claim contract. Development and CI only.
@@ -8,6 +10,7 @@ x-application:
   apis: [ai-gateway]
   redirect_uris: ["http://localhost:8765/callback"]
   client_secret_file: /run/secrets/kanzo-conformance
+  groups: { overage: 4 }
   roles:
     low: { description: Contained by high. }
     high: { description: Contains low., composites: [low] }

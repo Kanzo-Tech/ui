@@ -102,6 +102,27 @@ variable "roles" {
   }
 }
 
+variable "groups" {
+  description = <<-EOT
+    Whether the application's tokens carry the ids of the person's groups in each organization,
+    `organization.<alias>.groups`, for an application that grants to a group. Null: no ids. An
+    object turns them on: `inherited` (default true) adds each group's ancestors, so a member of
+    Research/ML carries Research's id too; above `overage` ids (default 100) an organization's entry
+    carries `groups_overage: true` and none, and the application reads membership from the admin
+    API. Needs the platform's mapper jar in Keycloak (../../mappers).
+  EOT
+  type = object({
+    inherited = optional(bool, true)
+    overage   = optional(number, 100)
+  })
+  default = null
+
+  validation {
+    condition     = var.groups == null || try(var.groups.overage >= 0 && floor(var.groups.overage) == var.groups.overage, false)
+    error_message = "groups.overage is a whole number, zero or more."
+  }
+}
+
 variable "default_scopes" {
   type    = list(string)
   default = ["acr", "basic", "email", "profile", "roles", "web-origins"]

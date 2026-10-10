@@ -7,7 +7,7 @@ import { useSession } from "./use-session";
 const session: Session = {
   user: { id: "u-7", name: "Ada" },
   roles: ["auditor"],
-  organizations: [{ alias: "acme", roles: ["owner"] }],
+  organizations: [{ alias: "acme", roles: ["owner"], groups: [], groupsOverage: false }],
   expiresAt: 0,
 };
 
@@ -60,8 +60,8 @@ describe("useSession", () => {
     const atAcme: Session = {
       ...session,
       organizations: [
-        { alias: "acme", roles: ["owner"] },
-        { alias: "globex", roles: ["reader"] },
+        { alias: "acme", roles: ["owner"], groups: [], groupsOverage: false },
+        { alias: "globex", roles: ["reader"], groups: [], groupsOverage: false },
       ],
       organization: "acme",
     };

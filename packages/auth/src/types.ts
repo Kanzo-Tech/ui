@@ -13,16 +13,30 @@ export interface AuthUser {
 }
 
 /**
- * One organization the person belongs to, with the roles they hold *inside it*.
+ * One organization the person belongs to, with the roles they hold *inside it* and the groups they
+ * are in there.
  *
  * `alias` is the addressable name — the one in a hostname and in a Keycloak scope. `id` is the
  * stable uuid, present only when the realm's organization mapper is configured to include it, and
  * is the one to store: an alias can be renamed.
+ *
+ * `groups` are the **ids** of the organization's groups the person is in — and, as the realm
+ * configures it, the groups above those — which is what an application keys a grant to a group by
+ * ("Research may use this"). Never a name: a group's name is the organization's to change, and a
+ * grant keyed by it would move with the rename. An id means something only inside this
+ * organization, as a role does. Empty for a realm whose application does not ask for them.
+ *
+ * `groupsOverage` is Microsoft Entra ID's overage rule: the person is in more groups there than the
+ * token carries, so `groups` is empty **and means nothing**. Read the membership from the realm
+ * instead — `organizationGroups` on `./server` is the sketch of that — and never read the empty
+ * list as "in no group".
  */
 export interface Organization {
   readonly alias: string;
   readonly id?: string;
   readonly roles: readonly string[];
+  readonly groups: readonly string[];
+  readonly groupsOverage: boolean;
 }
 
 /**

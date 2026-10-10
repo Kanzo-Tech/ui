@@ -38,22 +38,34 @@ function asString(value: unknown): string | undefined {
 }
 
 /**
+ * The ids in an entry's `groups`. The platform's mapper writes ids there; without it, Keycloak's
+ * own organization group mapper writes the groups' **paths** under the same key — names, which this
+ * package never reads. A path always begins with `/` and an id never does, so a realm whose
+ * application did not ask for ids reads as no groups, and never as names.
+ */
+function readGroupIds(value: unknown): string[] {
+  return asStrings(value).filter((group) => group !== "" && !group.startsWith("/"));
+}
+
+/**
  * The `organization` claim, as a list.
  *
  * Canonically it is an object keyed by alias, and each entry carries what the person holds THERE:
- * `{ "acme": { "id": "…", "resource_access": { "board": { "roles": ["editor", "reader"] } } } }`.
- * Keycloak writes `resource_access` inside the entry from the role mappings of the person's
- * groups in that organization, composites expanded. Group names (`groups`) are the organization's
- * own data and are not read: an application learns its roles, never how an organization arranged
- * its people. A realm whose mapper includes neither the id nor the roles emits the aliases alone,
- * so both shapes are read — the alternative is a session that silently loses its memberships on a
- * realm nobody thought to check.
+ * `{ "acme": { "id": "…", "groups": ["<group id>"], "resource_access": { "board": { "roles":
+ * ["editor", "reader"] } } } }`. Keycloak writes `resource_access` inside the entry from the role
+ * mappings of the person's groups in that organization, composites expanded; the platform's mapper
+ * (`services/auth/mappers`) writes `groups` as those groups' ids, or `groups_overage: true` and none
+ * when there are more than a token should carry. Group names are the organization's own data and
+ * are not read: an application learns its roles and which groups to honour a grant to, never how an
+ * organization named its people. A realm whose mapper includes neither the id nor the roles emits
+ * the aliases alone, so both shapes are read — the alternative is a session that silently loses its
+ * memberships on a realm nobody thought to check.
  */
 function readOrganizations(claim: unknown, clientId: string): Organization[] {
   if (Array.isArray(claim)) {
     return claim
       .filter((alias): alias is string => typeof alias === "string")
-      .map((alias) => ({ alias, roles: [] }));
+      .map((alias) => ({ alias, roles: [], groups: [], groupsOverage: false }));
   }
 
   const byAlias = asRecord(claim);
@@ -62,7 +74,10 @@ function readOrganizations(claim: unknown, clientId: string): Organization[] {
   return Object.entries(byAlias).map(([alias, value]) => {
     const body = asRecord(value);
     const roles = asStrings(asRecord(asRecord(body?.["resource_access"])?.[clientId])?.["roles"]);
-    return { alias, id: asString(body?.["id"]), roles };
+    const groupsOverage = body?.["groups_overage"] === true;
+    // An overage carries no ids, and a list beside it would be a partial one: none is read.
+    const groups = groupsOverage ? [] : readGroupIds(body?.["groups"]);
+    return { alias, id: asString(body?.["id"]), roles, groups, groupsOverage };
   });
 }
 

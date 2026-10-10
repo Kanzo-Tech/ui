@@ -843,6 +843,11 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
 }
 
 export { issuer, rewriteOrigin, type Issuer, type IssuerConfig } from "./issuer";
+export {
+  organizationGroups,
+  type OrganizationGroups,
+  type OrganizationGroupsConfig,
+} from "./organization-groups";
 export { sealedCookie, cookieValue, type SealedCookie, type SealedCookieConfig } from "./cookie-session";
 export {
   statelessStore,

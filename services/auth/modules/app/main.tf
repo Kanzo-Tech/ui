@@ -107,3 +107,29 @@ resource "keycloak_openid_client_optional_scopes" "app" {
   # The APIs' scopes are optional: a sign-in never asks for one, and an exchange asks for one.
   optional_scopes = concat(var.optional_scopes, var.apis)
 }
+
+# ── Group ids, for an application that grants to a group ──────────────────────
+# The platform's own mapper (../../mappers, a provider jar Keycloak loads from
+# /opt/keycloak/providers): `organization.<alias>.groups` becomes the ids of the person's groups
+# there, in place of the paths Keycloak's organization group mapper writes, with Entra ID's overage
+# rule. On this client and not on the `organization` scope, so only an application that asks for
+# ids pays for them in its tokens.
+resource "keycloak_generic_protocol_mapper" "group_ids" {
+  count = var.groups == null ? 0 : 1
+
+  realm_id        = var.realm_id
+  client_id       = keycloak_openid_client.app.id
+  name            = "organization-group-ids"
+  protocol        = "openid-connect"
+  protocol_mapper = "kanzo-organization-group-ids-mapper"
+
+  config = {
+    "inheritedGroups"           = tostring(var.groups.inherited)
+    "overageThreshold"          = tostring(var.groups.overage)
+    "id.token.claim"            = "true"
+    "access.token.claim"        = "true"
+    "introspection.token.claim" = "true"
+    "userinfo.token.claim"      = "true"
+    "lightweight.claim"         = "false"
+  }
+}

@@ -43,6 +43,11 @@ An application's roles in an organization are `organization.<alias>.resource_acc
 on the access token and the ID token both, written by Keycloak from the role mappings of the
 person's groups in that organization with composites expanded. Group names are never read, a role
 held in one organization says nothing about another, and the scope to ask for is `organization:*`.
+An application that grants to groups declares `groups: {}` and reads the ids of the person's groups
+there from `organization.<alias>.groups` — or `groups_overage: true` past its threshold — written by
+the platform's own protocol mapper, a provider jar in `mappers/` that the one-shot `auth-mappers`
+service builds with Maven, against the pinned Keycloak, into the volume Keycloak loads providers
+from. [Keycloak](/docs/auth/keycloak#groups-by-id) has the settings.
 [Keycloak](/docs/auth/keycloak#roles-inside-an-organization) is that contract in full, with the
 token `verify.sh` took off this service; [Roles](/docs/auth/roles) is how the package reads it.
 

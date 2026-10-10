@@ -42,12 +42,14 @@ function readOrganization(value: unknown): Organization | null {
   const org = value as Record<string, unknown>;
   const alias = org["alias"];
   if (typeof alias !== "string" || alias.length === 0) return null;
+  const strings = (key: string) =>
+    Array.isArray(org[key]) ? (org[key] as unknown[]).filter((v): v is string => typeof v === "string") : [];
   return {
     alias,
     id: typeof org["id"] === "string" ? org["id"] : undefined,
-    roles: Array.isArray(org["roles"])
-      ? org["roles"].filter((r): r is string => typeof r === "string")
-      : [],
+    roles: strings("roles"),
+    groups: strings("groups"),
+    groupsOverage: org["groupsOverage"] === true,
   };
 }
 

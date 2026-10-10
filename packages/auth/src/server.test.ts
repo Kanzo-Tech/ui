@@ -206,7 +206,7 @@ describe("relyingParty", () => {
       // `hub`'s reader is another application's role and must not arrive here — `claims.ts` does
       // that filtering, and this is the door proving it is the reader being used.
       expect(done.session.organizations).toEqual([
-        { alias: "acme", id: "org-1", roles: ["owner"] },
+        { alias: "acme", id: "org-1", roles: ["owner"], groups: [], groupsOverage: false },
       ]);
     });
 

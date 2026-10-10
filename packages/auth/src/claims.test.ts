@@ -99,8 +99,59 @@ describe("organizations", () => {
     );
 
     expect(session.organizations).toEqual([
-      { alias: "acme", id: "f8d3c4e1", roles: ["admin", "editor"] },
-      { alias: "globex", id: "aa11", roles: ["reader"] },
+      { alias: "acme", id: "f8d3c4e1", roles: ["admin", "editor"], groups: [], groupsOverage: false },
+      { alias: "globex", id: "aa11", roles: ["reader"], groups: [], groupsOverage: false },
+    ]);
+  });
+
+  it("reads the ids of the person's groups in each organization", () => {
+    // The platform's mapper writes each organization's group ids under `groups`.
+    const session = claims(
+      {
+        sub: "u",
+        organization: {
+          acme: { groups: ["g-admins", "g-research"], resource_access: { board: { roles: ["admin"] } } },
+          globex: { groups: ["g-research-2"] },
+        },
+      },
+      BOARD,
+    );
+    expect(
+      session.organizations.map(({ alias, groups, groupsOverage }) => ({ alias, groups, groupsOverage })),
+    ).toEqual([
+      { alias: "acme", groups: ["g-admins", "g-research"], groupsOverage: false },
+      { alias: "globex", groups: ["g-research-2"], groupsOverage: false },
+    ]);
+  });
+
+  it("never reads a group's path as its id", () => {
+    // Without the platform's mapper, Keycloak's own writes the groups' paths under the same key.
+    // A path begins with `/` and an id never does, so that realm reads as no groups, not as names.
+    expect(
+      claims({ sub: "u", organization: { acme: { groups: ["/Admins", "/Research/ML"] } } }, BOARD)
+        .organizations[0]?.groups,
+    ).toEqual([]);
+  });
+
+  it("reads an overage as no ids, and says so", () => {
+    // Entra ID's rule: past the threshold the entry carries `groups_overage` and no ids, and an
+    // empty list then means "ask the directory", never "in no group". A list beside the flag would
+    // be a partial one, and is not read.
+    const [acme] = claims(
+      { sub: "u", organization: { acme: { groups_overage: true, groups: ["g-1"] } } },
+      BOARD,
+    ).organizations;
+    expect(acme).toMatchObject({ groups: [], groupsOverage: true });
+  });
+
+  it("keeps the group ids out of the roles", () => {
+    const session = claims(
+      { sub: "u", organization: { acme: { groups: ["g-1"], resource_access: { board: { roles: ["r"] } } } } },
+      BOARD,
+    );
+    expect(session.roles).toEqual([]);
+    expect(session.organizations).toEqual([
+      { alias: "acme", id: undefined, roles: ["r"], groups: ["g-1"], groupsOverage: false },
     ]);
   });
 
@@ -112,14 +163,14 @@ describe("organizations", () => {
         { sub: "u", organization: { acme: { id: "a", groups: ["/board/admin", "/admin"] } } },
         BOARD,
       ).organizations,
-    ).toEqual([{ alias: "acme", id: "a", roles: [] }]);
+    ).toEqual([{ alias: "acme", id: "a", roles: [], groups: [], groupsOverage: false }]);
   });
 
   it("reads a realm whose mapper emits the aliases alone", () => {
     // Membership without roles is still membership; losing it silently would log a member out of
     // their own organization on a realm nobody thought to check.
     expect(claims({ sub: "u", organization: ["acme"] }, BOARD).organizations).toEqual([
-      { alias: "acme", roles: [] },
+      { alias: "acme", roles: [], groups: [], groupsOverage: false },
     ]);
   });
 
@@ -131,7 +182,7 @@ describe("organizations", () => {
         { sub: "u", organization: { acme: { resource_access: { hub: { roles: ["reader"] } } } } },
         BOARD,
       ).organizations,
-    ).toEqual([{ alias: "acme", id: undefined, roles: [] }]);
+    ).toEqual([{ alias: "acme", id: undefined, roles: [], groups: [], groupsOverage: false }]);
   });
 
   it("does not merge an organization's roles into the session's own", () => {
@@ -162,9 +213,10 @@ describe("expiry", () => {
 
 describe("a real token, taken off a live Keycloak 26.8.0", () => {
   // The access token `services/auth/scripts/verify.sh` received for the seeded `ana`: a member of
-  // acme's "Admins" (mapped onto `high`, which contains `low`) and of globex's "Readers" (mapped
-  // onto `low`), through the `kanzo-conformance` client. The claims read here are as recorded;
-  // `sub` and the timestamps are left out.
+  // acme's "Admins" (mapped onto `high`, which contains `low`) and "Research", and of globex's
+  // "Readers" (mapped onto `low`) and its own "Research", through the `kanzo-conformance` client,
+  // which asks for group ids. The organization entries are as recorded on 2026-10-10, with the
+  // platform's mapper in Keycloak; `sub` and the timestamps are left out.
   const token = {
     sub: "ana",
     aud: ["kanzo-conformance-api", "account"],
@@ -176,21 +228,25 @@ describe("a real token, taken off a live Keycloak 26.8.0", () => {
     },
     organization: {
       globex: {
-        id: "94b69c97-37fa-4c06-be6f-d58cabe1ff28",
-        groups: ["/Readers"],
+        id: "d46d7143-dae3-4413-8bcf-af2f6ebacac0",
         resource_access: { "kanzo-conformance": { roles: ["low"] } },
+        groups: ["939de696-36e2-409e-ac53-67069335f42e", "4e2b3f51-0129-4d3e-8424-1f9b912348f1"],
       },
       acme: {
-        id: "3fe7a56b-557c-478c-8381-ad0b998181dc",
-        groups: ["/Admins"],
-        resource_access: { "kanzo-conformance": { roles: ["high", "low"] } },
+        id: "72af72cd-3d23-4970-b4c6-3b36a1dd2ed9",
+        resource_access: { "kanzo-conformance": { roles: ["low", "high"] } },
+        groups: ["b0865cd1-2af1-4ae8-b454-fbd5fbc6139a", "05cab159-8de1-4d4b-b086-79f6d3b2b64c"],
       },
     },
   };
   const session = claims(token, { clientId: "kanzo-conformance" });
 
   it("reads a composite with the role it contains, as Keycloak expanded it", () => {
-    expect(organizationsByAlias(session)).toEqual({ acme: ["high", "low"], globex: ["low"] });
+    // Keycloak gives no order inside a role list, so the assertion sorts.
+    const sorted = Object.fromEntries(
+      Object.entries(organizationsByAlias(session)).map(([alias, roles]) => [alias, roles.sort()]),
+    );
+    expect(sorted).toEqual({ acme: ["high", "low"], globex: ["low"] });
   });
 
   it("keeps the organization's roles out of the session's own", () => {
@@ -201,8 +257,17 @@ describe("a real token, taken off a live Keycloak 26.8.0", () => {
 
   it("carries the ids a host keys organizations by", () => {
     expect(session.organizations.map((o) => o.id)).toEqual([
-      "94b69c97-37fa-4c06-be6f-d58cabe1ff28",
-      "3fe7a56b-557c-478c-8381-ad0b998181dc",
+      "d46d7143-dae3-4413-8bcf-af2f6ebacac0",
+      "72af72cd-3d23-4970-b4c6-3b36a1dd2ed9",
     ]);
+  });
+
+  it("carries the ids of the groups held in each organization, two Researches apart", () => {
+    // acme's "Research" and globex's are two groups with one name; a grant keyed by name would
+    // reach across customers, and a grant keyed by id cannot.
+    expect(Object.fromEntries(session.organizations.map((o) => [o.alias, o.groups]))).toEqual({
+      globex: ["939de696-36e2-409e-ac53-67069335f42e", "4e2b3f51-0129-4d3e-8424-1f9b912348f1"],
+      acme: ["b0865cd1-2af1-4ae8-b454-fbd5fbc6139a", "05cab159-8de1-4d4b-b086-79f6d3b2b64c"],
+    });
   });
 });

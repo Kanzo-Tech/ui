@@ -70,6 +70,7 @@ Nothing here is invented. Every claim is one Keycloak emits without being asked:
 | `sub`, `email`, `name` (or `given_name` + `family_name`), `preferred_username` | `session.user` |
 | `realm_access.roles` ∪ `resource_access.<clientId>.roles` | `session.roles` |
 | `organization` — `{ "acme": { "id": "…", "resource_access": { "<clientId>": { "roles": ["editor"] } } } }` | `session.organizations` |
+| `organization.<alias>.groups`, `.groups_overage` — from the platform's mapper | that organization's `groups` (ids) and `groupsOverage` |
 | `sid` | the session record, for back-channel logout |
 | — the token response's `expires_in` | `session.expiresAt`, in milliseconds: when the access token expires |
 
@@ -79,6 +80,12 @@ Keycloak. Group names are never read — they are the organization's own busines
 application's roles in the same entry are ignored, so a role held in one application never
 authorises its holder in another. Nor are they merged into `session.roles`: a role in one
 organization says nothing about the next.
+
+`groups` on each organization are the **ids** of the groups the person is in there, for an
+application that grants to a group; the platform's Keycloak mapper writes them (`services/auth/mappers`),
+and a path — what Keycloak writes there without it — is never read. Past the mapper's threshold the
+entry says `groupsOverage: true` and carries none, Entra ID's overage rule: that empty list means
+*ask the realm*, and `organizationGroups` on `./server` is a sketch of asking.
 
 Every sign-in asks Keycloak for `organization:*`, which returns every organization the person
 belongs to. Plain `organization` returns the only one when there is one and prompts for a choice

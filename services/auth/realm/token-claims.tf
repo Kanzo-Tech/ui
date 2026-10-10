@@ -79,7 +79,8 @@ resource "keycloak_generic_protocol_mapper" "organization" {
 # the roles mapped onto those groups, composites expanded. That second part is the
 # contract: an application reads its roles in an organization from
 # `organization[alias].resource_access[client_id].roles` and never parses a group
-# name. Additive — it merges into the object the mapper above produces — which is
+# name. An application that declares `groups` has the paths replaced by the groups' ids,
+# by the platform's own mapper on its client (../mappers, modules/app). Additive — it merges into the object the mapper above produces — which is
 # why it is a second mapper and not a flag on the first one.
 resource "keycloak_generic_protocol_mapper" "organization_groups" {
   realm_id        = keycloak_realm.kanzo.id

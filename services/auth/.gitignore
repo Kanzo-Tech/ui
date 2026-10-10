@@ -6,3 +6,6 @@
 
 # A reusable module is pinned by its caller; only a root module keeps a lock file.
 modules/**/.terraform.lock.hcl
+
+# The provider jar Maven builds (mappers/); compose builds it into a volume, never here.
+mappers/target/

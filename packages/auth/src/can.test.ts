@@ -6,8 +6,8 @@ const session: Session = {
   user: { id: "u-7" },
   roles: ["auditor"],
   organizations: [
-    { alias: "acme", id: "f8d3c4e1", roles: ["owner"] },
-    { alias: "globex", id: "aa11", roles: ["member"] },
+    { alias: "acme", id: "f8d3c4e1", roles: ["owner"], groups: [], groupsOverage: false },
+    { alias: "globex", id: "aa11", roles: ["member"], groups: [], groupsOverage: false },
   ],
   expiresAt: 0,
 };

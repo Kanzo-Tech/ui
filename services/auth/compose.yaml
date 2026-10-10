@@ -3,8 +3,9 @@
 #
 #   docker compose -f compose.yaml -f compose.dev.yaml up -d --wait
 #
-# brings up Keycloak on http://localhost:8080 with the `kanzo` realm applied, the organizations and
-# the conformance client declared in dev/, and seeded users and groups. An application includes this
+# brings up Keycloak on http://localhost:8080 with the platform's mappers (mappers/), the `kanzo`
+# realm applied, the organizations and the conformance client declared in dev/, and seeded users
+# and groups. An application includes this
 # file from its own compose (`include:`), mounts its declarations into `auth-realm` (an
 # `x-application`, and an `x-organization` per organization: realm/declarations.tf), and puts
 # Keycloak behind its own edge. Nothing here names an application.
@@ -35,6 +36,10 @@ services:
     # is what puts an application's roles inside each organization entry.
     image: quay.io/keycloak/keycloak:${KEYCLOAK_VERSION:-26.8.0}
     command: ["start"]
+    # The platform's protocol mappers, built by auth-mappers below. `start` without `--optimized`
+    # runs Keycloak's build step itself, which is what registers a provider jar — no custom image.
+    volumes:
+      - kanzo-auth-providers:/opt/keycloak/providers:ro
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://auth-postgres:5432/keycloak
@@ -53,6 +58,8 @@ services:
     depends_on:
       auth-postgres:
         condition: service_healthy
+      auth-mappers:
+        condition: service_completed_successfully
     healthcheck:
       # The image carries no curl. Keycloak serves health on the management port
       # 9000, so this speaks HTTP/1.1 at it through bash's /dev/tcp.
@@ -66,6 +73,27 @@ services:
       retries: 60
       start_period: 60s
     restart: unless-stopped
+
+  # ── The platform's mappers ──────────────────────────────────────────────────
+  # mappers/ is a provider jar — Keycloak's documented extension point, not a fork — holding the
+  # mapper that writes each organization's group ids (`organization.<alias>.groups`). One-shot, on
+  # every `up`: Maven builds it against the Keycloak version pinned in mappers/pom.xml, which must
+  # be KEYCLOAK_VERSION, and puts it in the volume Keycloak loads providers from. The build copies
+  # the sources out first, so a read-only checkout (or Compose's clone of a tag) builds the same.
+  # Tests are CI's (the `services` job); `up` only packages.
+  auth-mappers:
+    image: maven:3.9-eclipse-temurin-21
+    restart: "no"
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        rm -rf /tmp/mappers && cp -r /mappers /tmp/mappers && cd /tmp/mappers
+        mvn -B -q -DskipTests package
+        rm -f /providers/*.jar && cp target/kanzo-keycloak-mappers.jar /providers/
+    volumes:
+      - ./mappers:/mappers:ro
+      - kanzo-auth-providers:/providers
+      - kanzo-auth-m2:/root/.m2
 
   # ── The realm, as code ──────────────────────────────────────────────────────
   # One-shot and idempotent, on every `up`. The state lives in a volume beside the database's, so
@@ -109,3 +137,5 @@ services:
 volumes:
   kanzo-auth-db:
   kanzo-auth-tfstate:
+  kanzo-auth-providers:
+  kanzo-auth-m2:

@@ -5,16 +5,20 @@
 # exchanged one is the token a resource server authorizes on.
 #
 #   scripts/verify.sh            # ana: acme (high, so high+low) and globex (low)
-#   scripts/verify.sh bruno      # one organization, low
+#   scripts/verify.sh bruno      # one organization, low; in Research/ML, so Research's id too
 #   scripts/verify.sh carla      # globex only (high)
 #   scripts/verify.sh fede       # a member of acme with no group: no roles there
+#   scripts/verify.sh gil        # five of acme's groups: past the overage threshold, so no ids
 #   scripts/verify.sh dan        # no organization; a client role held directly
 #
 # The contract: an application's roles in an organization are
 # `organization[alias].resource_access[client_id].roles`, composites expanded; the
-# session's token names no API, and an exchanged one names one API and one organization.
+# session's token names no API, and an exchanged one names one API and one organization. The ids
+# of the person's groups in an organization are `organization[alias].groups` (the platform's mapper,
+# ../mappers), checked against the admin API's — which is why this also needs the admin's
+# credentials — or `groups_overage: true` and none past the client's threshold.
 #
-# Needs: bash, curl, jq, openssl.
+# Needs: bash, curl, jq, openssl.  Env: KC_URL, KC_REALM, KC_ADMIN_USERNAME, KC_ADMIN_PASSWORD.
 set -euo pipefail
 
 USERNAME=${1:-ana}
@@ -94,8 +98,39 @@ outsider() {  # outsider ALIAS: an organization the person is not in is dropped,
     "$(jq -r 'has("organization") | not' <<<"$(jwt "$(jq -r .access_token <<<"$r")")")"
 }
 
+group_ids_in() {  # group_ids_in TOKEN ALIAS -> the group ids inside that organization, sorted
+  jq -c --arg a "$2" '[.organization[$a].groups // [] | .[]] | sort' <<<"$1"
+}
+ADMIN=$(curl -sf -d client_id=admin-cli -d "username=${KC_ADMIN_USERNAME:-admin}" \
+  -d "password=${KC_ADMIN_PASSWORD:-admin}" -d grant_type=password \
+  "$KC_URL/realms/master/protocol/openid-connect/token" | jq -r .access_token)
+admin() { curl -sf -H "Authorization: Bearer $ADMIN" "$KC_URL/admin/realms/$KC_REALM$1"; }
+ids_of() {  # ids_of ALIAS PATH... -> what the admin API says those groups' ids are, sorted
+  local alias=$1 path id; shift
+  local oid; oid=$(admin "/organizations?search=$alias" | jq -r --arg a "$alias" '.[] | select(.alias == $a) | .id')
+  for path in "$@"; do  # "Research" or "Research/ML"
+    id=$(admin "/organizations/$oid/groups?max=1000" | jq -r --arg n "${path%%/*}" '.[] | select(.name == $n) | .id')
+    if [ "$path" != "${path#*/}" ]; then
+      id=$(admin "/organizations/$oid/groups/$id/children?max=1000" | jq -r --arg n "${path#*/}" '.[] | select(.name == $n) | .id')
+    fi
+    echo "$id"
+  done | jq -Rsc 'split("\n") | map(select(. != "")) | sort'
+}
+groups_are() {  # groups_are TOKEN ALIAS NAME...: the token's ids there are exactly those groups'
+  local token=$1 alias=$2; shift 2
+  [ "$(group_ids_in "$token" "$alias")" = "$(ids_of "$alias" "$@")" ] && echo true || echo false
+}
+
+check "every organization's groups are ids, never paths" \
+  "$(jq -r '[.organization // {} | .[] | .groups // [] | .[] | startswith("/") | not] | all' <<<"$AT")"
+
 case "$USERNAME" in
   ana)
+    check "acme: the ids of Admins and Research, and no name" "$(groups_are "$AT" acme Admins Research)"
+    check "globex: the ids of Readers and Research" "$(groups_are "$AT" globex Readers Research)"
+    check "the two Researches are two ids" \
+      "$([ "$(ids_of acme Research)" != "$(ids_of globex Research)" ] && echo true || echo false)"
+    check "the ID token carries the same group ids" "$(groups_are "$IT" acme Admins Research)"
     check "acme: high arrives with the low it contains (composite expanded)" \
       "$([ "$(roles_in "$AT" acme)" = '["high","low"]' ] && echo true || echo false)"
     check "globex: low only" \
@@ -107,6 +142,8 @@ case "$USERNAME" in
     one_org acme
     check "acme: the exchanged token keeps the roles held there" \
       "$([ "$(roles_in "$(for_api acme)" acme)" = '["high","low"]' ] && echo true || echo false)"
+    check "acme: the exchanged token keeps the group ids held there" \
+      "$(groups_are "$(for_api acme)" acme Admins Research)"
     one_org globex
     # The application lists the AI gateway among its `apis` (dev/kanzo-conformance.yaml), so a
     # token for it can be had; a scope it does not list cannot.
@@ -119,17 +156,35 @@ case "$USERNAME" in
     check "globex: high arrives with the low it contains" \
       "$([ "$(roles_in "$AT" globex)" = '["high","low"]' ] && echo true || echo false)"
     check "no membership of acme" "$(jq -r '.organization | has("acme") | not' <<<"$AT")"
+    check "globex: the id of Platform" "$(groups_are "$AT" globex Platform)"
     one_org globex
     outsider acme
     ;;
-  bruno|eva)
+  bruno)
     check "acme: low only" "$([ "$(roles_in "$AT" acme)" = '["low"]' ] && echo true || echo false)"
+    check "acme: the ids of Data team, Research/ML and Research above it (inherited)" \
+      "$(groups_are "$AT" acme "Data team" Research/ML Research)"
+    one_org acme
+    ;;
+  eva)
+    check "acme: low only" "$([ "$(roles_in "$AT" acme)" = '["low"]' ] && echo true || echo false)"
+    check "acme: the ids of Analysts and Finance" "$(groups_are "$AT" acme Analysts Finance)"
     one_org acme
     ;;
   fede)
     check "acme: a member, with no role" \
       "$(jq -r '.organization | has("acme")' <<<"$AT")"
     check "acme: no role" "$([ "$(roles_in "$AT" acme)" = '[]' ] && echo true || echo false)"
+    check "acme: no group, so no group id and no overage" \
+      "$(jq -r '.organization.acme | (.groups == []) and (has("groups_overage") | not)' <<<"$AT")"
+    ;;
+  gil)
+    check "acme: five groups past a threshold of four, so groups_overage and no ids" \
+      "$(jq -r '.organization.acme | (.groups_overage == true) and (has("groups") | not)' <<<"$AT")"
+    check "acme: the roles still arrive" \
+      "$([ "$(roles_in "$AT" acme)" = '["high","low"]' ] && echo true || echo false)"
+    check "acme: the exchanged token says the same" \
+      "$(jq -r '.organization.acme.groups_overage == true' <<<"$(for_api acme)")"
     ;;
   dan)
     check "no organization claim" "$(jq -r 'has("organization") | not' <<<"$AT")"
