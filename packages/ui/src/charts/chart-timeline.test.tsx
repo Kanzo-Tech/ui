@@ -106,7 +106,7 @@ describe("ChartTimeline", () => {
     expect(window.className).toMatch(/\bsr-only\b/);
   });
 
-  it("makes Play a bare glyph the band's height, flush at its left and 4 px from the bars, as Cosmograph's", () => {
+  it("makes Play a bare glyph the band's height, with the same 10 px either side, as Cosmograph's", () => {
     render(
       <MosaicProvider coordinator={coordinator}>
         <ChartTimeline field="year" table="awards" title="Awards by year" />
@@ -120,12 +120,13 @@ describe("ChartTimeline", () => {
     expect(control.className).toMatch(/\border-first\b/);
     expect(screen.getByRole("group", { name: "Window" }).className).toMatch(/\bsr-only\b/);
     expect(figure.querySelector<HTMLElement>("[data-slot=chart]")!.className).toMatch(/\bflex-1\b/);
-    // The band's height, 16 px wide with the 12 px glyph at its start: 4 px to the bars, no gap besides.
+    // The band's height, a 20 px glyph with 10 px either side: the band's edge to the glyph is the
+    // glyph to the bars, and no gap besides.
     expect(figure.className).toMatch(/\bitems-stretch\b/);
     expect(figure.className).toMatch(/\bgap-0\b/);
     expect(figure.className).not.toMatch(/\bgap-[1-9]/);
-    expect(play.className).toMatch(/\bw-4\b/);
-    expect(play.className).toMatch(/\[&_svg\]:size-3\b/);
+    expect(play.className).toMatch(/\bpx-2\.5\b/);
+    expect(play.className).toMatch(/\[&_svg\]:size-5\b/);
     // No box: no recipe, border, background or ring. Muted at 0.6, the foreground at 1 on hover and
     // focus, 0.2 disabled; keyboard focus outlines the glyph alone.
     expect(play.hasAttribute("data-variant")).toBe(false);

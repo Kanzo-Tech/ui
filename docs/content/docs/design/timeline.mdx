@@ -134,8 +134,8 @@ bottom axis gives; then the axis returns under the bars.
 
 **Play is a bare glyph at the band's left edge, muted until hovered, as Cosmograph's is.** Cosmograph
 draws a borderless icon, 20 – 30 px wide and half opaque, as a flex item left of its bars
-(`style.js`, `animationControl`). Ours is a solid 12 px glyph flush at the band's left, 4 px from the
-bars, with no box at all: no border, background or hover tint. It sits muted at 0.6 opacity, rises to
+(`style.js`, `animationControl`). Ours is a solid 20 px glyph centred on the band, with 10 px on either
+side, so the band's edge is as far from it as the bars are, with no box at all: no border, background or hover tint. It sits muted at 0.6 opacity, rises to
 the foreground at 1 on hover and focus, and to 0.2 when there is nothing to play. Keyboard focus
 outlines the glyph alone. It is a plain `button`, not `Button`, whose recipe is the box. It is named *Play time* or *Pause time*, the same words as its
 tooltip, so it does not read as the canvas toolbar's layout transport. The bars take every pixel
@@ -268,7 +268,7 @@ test has installed the hook. `TimelineHarness` then brushes in data and plays.
 spans, in axis order — the frames play shows"; "has nothing to play without a range, as
 Cosmograph's has not"; "is 50 ms a bar on 60 bars or more, and slower on fewer, so a sweep takes as
 long"; "is 500 ms at least under prefers-reduced-motion"; "makes Play a bare glyph the band's height,
-flush at its left and 4 px from the bars, as Cosmograph's"; a brushed window sticks to the nearest edges, at least one bar
+with the same 10 px either side, as Cosmograph's"; a brushed window sticks to the nearest edges, at least one bar
 wide; a year reads as its integer, on the axis too),
 `packages/ui/src/charts/filter-bar.test.tsx` ("names a bridged part once when it already reads as its
 bridge's name — a timeline's window"; "marks a part that is playing — a timeline's window on the

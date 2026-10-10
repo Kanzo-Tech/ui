@@ -303,8 +303,8 @@ function TimelineWindow({ playable, paceBy }: { playable: boolean; paceBy?: Sele
   return (
     <>
       {playable ? (
-        // Cosmograph's control, and no box: a solid 12 px glyph flush at the band's left, 4 px from
-        // the bars, muted until hovered or focused, a fifth when there is nothing to play. Not
+        // Cosmograph's control, and no box: a solid 20 px glyph with 10 px either side, the band's
+        // edge to it as far as it to the bars, muted until hovered or focused, a fifth when there is nothing to play. Not
         // `Button`, whose recipe is the box — border, wash and ring. Keyboard focus outlines the
         // glyph alone. Its title is its description; a disabled button takes no pointer, so what
         // holds it shows the tooltip.
@@ -312,7 +312,7 @@ function TimelineWindow({ playable, paceBy }: { playable: boolean; paceBy?: Sele
           <button
             aria-label={label}
             aria-pressed={playing}
-            className="flex w-4 items-center text-muted-foreground opacity-60 outline-none hover:text-foreground hover:opacity-100 focus-visible:text-foreground focus-visible:opacity-100 focus-visible:[&_svg]:outline-2 focus-visible:[&_svg]:outline-ring focus-visible:[&_svg]:outline-offset-2 disabled:opacity-20 [&_svg]:size-3 [&_svg]:fill-current"
+            className="flex items-center px-2.5 text-muted-foreground opacity-60 outline-none hover:text-foreground hover:opacity-100 focus-visible:text-foreground focus-visible:opacity-100 focus-visible:[&_svg]:outline-2 focus-visible:[&_svg]:outline-ring focus-visible:[&_svg]:outline-offset-2 disabled:opacity-20 [&_svg]:size-5 [&_svg]:fill-current"
             disabled={disabled}
             onClick={toggle}
             title={disabled ? NO_RANGE : label}
