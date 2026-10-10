@@ -106,7 +106,7 @@ What makes it look like hiding is real, though, and it is two things together:
 
 So the behaviour is already one rule. The picture does not show it.
 
-## The proposal
+## The abstraction
 
 ### One selection, one route in
 
@@ -174,9 +174,8 @@ holds back, as today: a filter filters, and the toolbar's *N hidden by other fil
 `@cosmos.gl/graph` 3.4.0, `pointGreyoutOpacity` is `undefined`: a greyed point keeps the point's
 opacity and its colour is darkened or lightened towards the background. `linkGreyoutOpacity`
 defaults to `0.1` (`dist/config.d.ts`, `dist/variables.d.ts`). Ours sets `0.1` for points and
-`0.025` for links. The proposal is to return to cosmos.gl's defaults, the reference this canvas
-follows, and to measure them on the Nobel and OpenFlights maps in both themes before choosing
-otherwise.
+`0.025` for links. It returns to cosmos.gl's defaults, the reference this canvas
+follows, measured on the Nobel and OpenFlights maps in both themes.
 
 ## What changes, and what disappears
 
