@@ -22,7 +22,8 @@
   "scripts": {
     "build": "node scripts/extensions.mjs && rm -rf dist && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "size": "size-limit"
   },
   "//dependencies": "@duckdb/duckdb-wasm is a dependency, exact, not a peer. `engine()` names its worker and module as `new URL(\"@duckdb/duckdb-wasm/dist/…\", import.meta.url)` — the spelling DuckDB-WASM documents for webpack — so the host's bundler emits them from this package's own copy, and they must be the release the JavaScript driving them comes from and the one the pinned extensions were built for. A range, or a peer the host resolves, would let the three drift. It is also the release mosaic-core pins, so the tree holds one copy; `scripts/extensions.test.mjs` fails when either moves.",
   "//peers": "mosaic-core and mosaic-sql are REQUIRED, not optional, and that is the whole point of this package: there is nothing here without them, so a host installs them once and both @kanzo-tech/ui/analytics and @kanzo-tech/graph/duckdb see the same coordinator. Two copies would be two crossfilters. @uwdata/vgplot is deliberately absent — it is a plotting library, it belongs to the charts in @kanzo-tech/ui, and its accidental presence on this path is exactly the bug this package exists to end. Both ranges are ^0.32.0, the floor where a failed query reaches a client as mosaic-core's `QueryError` wrapping what DuckDB threw — `queryFailure` (src/failure.ts) unwraps it at every client in @kanzo-tech/ui and @kanzo-tech/graph, so the floor is load-bearing. 0.29 also published a `workspace:^` peer range that npm cannot install. Each range names the newest release that exists; raise both together.",
@@ -39,6 +40,19 @@
     "@uwdata/mosaic-core": "^0.32.0",
     "@uwdata/mosaic-sql": "^0.32.0"
   },
+  "//size-limit": "Budgets our code only: `ignore` holds the two Mosaic peers and DuckDB-WASM, a dependency the host's bundler emits from this package's own copy and which the consumer pays once whatever this package does. graph and ui externalise this package, so this entry is the only thing that measures it. First measured 2026-10-10 at 3.27 kB — the coordinator's re-exports, `clause.ts`, `bridge.ts`, `relay.ts`, `relation.ts`, `engine.ts` and the Arrow reader — and the budget is set just above it, at 3.5 kB, for the reason `@kanzo-tech/auth` gives: a budget with lots of headroom detects nothing. esbuild warns that `import.meta` is empty under the IIFE it measures with; that is `engine.ts`'s `new URL(…, import.meta.url)` lines, which only change what a URL resolves to, not the size.",
+  "size-limit": [
+    {
+      "name": "root barrel (JS)",
+      "path": "dist/index.js",
+      "limit": "3.5 kB",
+      "ignore": [
+        "@uwdata/mosaic-core",
+        "@uwdata/mosaic-sql",
+        "@duckdb/duckdb-wasm"
+      ]
+    }
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Kanzo-Tech/ui.git",

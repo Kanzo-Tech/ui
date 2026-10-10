@@ -11,6 +11,7 @@ import {
   relationIdentities,
   relationKey,
   relationQuery,
+  relationRootKey,
   semiJoinOf,
   type DashboardSpec,
   type JoinGraph,
@@ -46,7 +47,7 @@ export default function Example() {
         table,
         // The keys are identity, not data: in the relation, out of the fields.
         exclude: identities.map((i) => i.column),
-        publish: semiJoinOf(identities[0]!.column, table, { label: key }),
+        publish: semiJoinOf(relationRootKey(graph, relation), table, { label: key }),
       };
     },
     [graph, relation],

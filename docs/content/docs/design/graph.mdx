@@ -218,6 +218,32 @@ any shipped package";
 brushes keep, as the root vertices they keep", "still filters the dashboard by the graph's pick, and
 publishes nothing back for it".
 
+## A relation's names: prefixed, but the root's key
+
+**Every column of a relation is named by its step, except the root's key.** `relationQuery` names a
+column `<alias>.<column>` — `Person.country`, and `Person2.country` when the path visits a type
+twice — because a join puts two types' columns side by side and a bare `country` would be
+ambiguous. One naming rule, one exception: the root's key keeps its own name, `dense_id` and not
+`Person.dense_id`. A relation's rows are its root's, keyed the way the root's table is, so the
+semi-join a relation publishes to the page — `dense_id IN (SELECT dense_id FROM <relation> WHERE …)`
+— names a column every vertex table answers, and a lasso's `dense_id IN (3, 4)` filters a joined
+relation exactly as it filters the root's table. Prefixed, the root's key would be a column no other
+relation has, and every crossing would need a map from one name to the other.
+
+**A host reaches it by name, `relationRootKey(graph, relation)`, never by position.** It is the
+root type's own `key`. `relationIdentities` still lists every step's key with the type it
+identifies — what a dashboard excludes from its fields — and the root's is its first entry, but an
+index into it is an ordering nobody promised; the docs and the example read the root by name.
+
+**What would reverse it:** a page whose types are keyed by different columns, so that the root's
+bare key no longer names anything the rest of the page is keyed by — then keeping the name buys
+nothing, and the root's key would be prefixed like every other column, with `relationRootKey`
+returning the prefixed name and the publishing code unchanged.
+
+*Held by* `packages/mosaic/src/relation.test.ts`, "names the root's key by the root's own name, the
+one column of a relation that is not prefixed", "joins an out-hop through its edge table, and
+numbers a type the path visits twice".
+
 ## The canvas's tools edit the canvas's own clause
 
 **What is in full colour is what the page keeps, and the canvas's tools work on it without taking
