@@ -65,24 +65,38 @@ export { ThemePreview } from "./composites/ThemePreview.js";
 export type { ThemePreviewProps } from "./composites/ThemePreview.js";
 export { ThemeNotice } from "./composites/theme-notice.js";
 export type { ThemeNoticeProps, ThemeRetiredCopy } from "./composites/theme-notice.js";
-// What a check found, behind one badge — a host's job studio and a form's validation tally.
+// What a check found: one result or a group sharing a rule, a row for each, and a badge that tallies
+// them — a SHACL report in Discover and a compiler's diagnostics in a recipe editor alike.
+export { groupFindings, tallyFindings } from "./lib/findings.js";
+export type {
+  Finding,
+  FindingGroup,
+  FindingRule,
+  FindingSeverity,
+  FindingTally,
+} from "./lib/findings.js";
 export {
+  FindingGroupRow,
+  FindingRow,
+  FindingsBadge,
   FindingsContent,
-  FindingsGoTo,
   FindingsGroup,
   FindingsRoot,
-  FindingsTrigger,
-  useFinding,
+  FindingsTally,
   useFindings,
 } from "./composites/findings.js";
 export type {
-  Finding,
-  FindingCounts,
-  FindingVariant,
+  DescribePlace,
+  FindingAction,
+  FindingGroupRowProps,
+  FindingLabels,
+  FindingPlace,
+  FindingRowProps,
+  FindingsBadgeProps,
   FindingsContentProps,
   FindingsGroupProps,
   FindingsRootProps,
-  FindingsTriggerProps,
+  FindingsTallyProps,
 } from "./composites/findings.js";
 // A failure, shown — any thrown value, read for the coded error's shared fields: a host's every
 // error view and the graph's failure overlay in the docs.

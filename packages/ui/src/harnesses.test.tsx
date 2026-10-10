@@ -3,7 +3,9 @@ import {
   DashboardHarness,
   DockHarness,
   FilterBarHarness,
-  FindingsHarness,
+  FindingGroupRowHarness,
+  FindingRowHarness,
+  FindingsBadgeHarness,
   TimelineHarness,
   type KanzoTestingHook,
 } from "@kanzo-tech/testing";
@@ -19,9 +21,17 @@ import { Dashboard } from "./charts/dashboard.js";
 import type { DashboardSpec } from "./charts/dashboard-spec.js";
 import { FilterBar } from "./charts/filter-bar.js";
 import { MosaicProvider } from "./charts/mosaic-provider.js";
-import { type Finding, FindingsContent, FindingsGoTo, FindingsGroup, FindingsRoot, FindingsTrigger } from "./composites/findings.js";
+import {
+  FindingGroupRow,
+  FindingRow,
+  FindingsBadge,
+  FindingsContent,
+  FindingsGroup,
+  FindingsRoot,
+} from "./composites/findings.js";
+import { type Finding, groupFindings, tallyFindings } from "./lib/findings.js";
 import { ShellDockItem, ShellDockSwitcher } from "./layouts/shell-dock.js";
-import { Diagnostic, DiagnosticActions, DiagnosticHeader, DiagnosticTitle } from "./simples/diagnostic.js";
+import { DiagnosticList } from "./simples/diagnostic.js";
 
 /**
  * `@kanzo-tech/testing`'s harnesses over this package's components, in the `dom` environment —
@@ -168,45 +178,70 @@ describe("ChartHarness", () => {
   });
 });
 
-interface Breach extends Finding {
-  message: string;
-}
+const writ = { id: "writ", label: "Writ" };
 
-describe("FindingsHarness", () => {
-  it("opens the list, finds a finding by its message, reads its severity and goes to it", async () => {
+const breach = (focus: string, message: string, severity: Finding["severity"]): Finding<string> => ({
+  severity,
+  message,
+  rule: writ,
+  place: focus,
+});
+
+describe("FindingsBadgeHarness", () => {
+  it("reads the tally, lists the groups, finds a row by its message and acts on it", async () => {
     const env = dom();
     const shown: string[] = [];
-    const findings: Breach[] = [
-      { id: "a", variant: "warning", message: "The seal is faded" },
-      { id: "b", variant: "destructive", message: "No date on the writ" },
+    const findings = [
+      breach("Ledger/1", "The seal is faded", "warning"),
+      breach("Ledger/2", "No date on the writ", "violation"),
     ];
+    const tally = tallyFindings(findings);
+    const describePlace = (place: string) => ({
+      where: place,
+      action: { label: "Show", run: () => shown.push(place) },
+    });
     render(
-      <FindingsRoot findings={findings} onSelect={(finding) => shown.push(finding.id)}>
-        <FindingsTrigger>{({ total }) => `${total} findings`}</FindingsTrigger>
-        <FindingsContent title="Findings">
-          {(["destructive", "warning"] as const).map((variant) => (
-            <FindingsGroup<Breach> key={variant} title={variant} variant={variant}>
-              {(breach) => (
-                <Diagnostic variant={breach.variant}>
-                  <DiagnosticHeader>
-                    <DiagnosticTitle>{breach.message}</DiagnosticTitle>
-                    <DiagnosticActions>
-                      <FindingsGoTo>Go to it</FindingsGoTo>
-                    </DiagnosticActions>
-                  </DiagnosticHeader>
-                </Diagnostic>
-              )}
-            </FindingsGroup>
-          ))}
+      <FindingsRoot tally={tally}>
+        <FindingsBadge>{(t) => `${t?.total ?? 0} findings`}</FindingsBadge>
+        <FindingsContent>
+          <FindingsGroup tally={tally} title="LedgerShape">
+            {findings.map((finding) => (
+              <FindingRow describe={describePlace} finding={finding} key={finding.place} />
+            ))}
+          </FindingsGroup>
         </FindingsContent>
       </FindingsRoot>,
     );
-    const list = await env.harness(FindingsHarness);
-    expect(await list.tally()).toBe("2 findings");
-    const writ = await list.finding("No date on the writ");
-    expect(await writ.severity()).toBe("destructive");
-    await writ.show();
-    expect(shown).toEqual(["b"]);
+    const badge = await env.harness(FindingsBadgeHarness);
+    expect(await badge.tally()).toBe("2 findings");
+    expect(await badge.groups()).toEqual(["LedgerShape"]);
+    const row = await badge.row("No date on the writ");
+    expect(await row.severity()).toBe("violation");
+    expect(await row.where()).toBe("Ledger/2");
+    await row.act("Show");
+    expect(shown).toEqual(["Ledger/2"]);
+  });
+});
+
+describe("FindingRowHarness and FindingGroupRowHarness", () => {
+  it("read a row outside any popover, and a group's count and sample", async () => {
+    const env = dom();
+    const findings = Array.from({ length: 5 }, (_, i) => breach(`Ledger/${i}`, "No date on the writ", "violation"));
+    const [group] = groupFindings(findings, (finding) => finding.rule.id, 2);
+    render(
+      <DiagnosticList>
+        <FindingRow describe={(place) => ({ where: place })} finding={breach("Ledger/9", "The seal is faded", "info")} />
+        <FindingGroupRow describe={(place) => ({ where: place })} group={group!} where="date" />
+      </DiagnosticList>,
+    );
+    const row = await env.harness(FindingRowHarness);
+    expect(await row.severity()).toBe("info");
+    expect(await row.message()).toBe("The seal is faded");
+
+    const many = await env.harness(FindingGroupRowHarness);
+    expect(await many.count()).toBe(5);
+    expect(await many.where()).toBe("date");
+    expect(await many.sample()).toEqual(["Ledger/0", "Ledger/1"]);
   });
 });
 

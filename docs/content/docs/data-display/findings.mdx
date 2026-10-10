@@ -1,6 +1,6 @@
 ---
 title: Findings
-description: What a check found, behind one badge — tallied, grouped worst first, and a way to each one's place.
+description: What a check found — one result or many sharing a rule — as rows, grouped under a heading, behind a badge that tallies them.
 ---
 
 <ComponentPreview componentName="findings" fileName="example-default" />
@@ -9,73 +9,132 @@ description: What a check found, behind one badge — tallied, grouped worst fir
 
 ```tsx
 import {
+  FindingGroupRow,
+  FindingRow,
+  FindingsBadge,
   FindingsContent,
-  FindingsGoTo,
   FindingsGroup,
   FindingsRoot,
-  FindingsTrigger,
+  groupFindings,
+  tallyFindings,
 } from "@kanzo-tech/ui";
 ```
 
 ```tsx
-<FindingsRoot findings={findings} onSelect={(finding) => editor.reveal(finding.at)}>
-  <FindingsTrigger>
-    {({ destructive, warning }) =>
-      destructive ? `${destructive} errors` : warning ? `${warning} warnings` : "Valid"}
-  </FindingsTrigger>
-  <FindingsContent description="What the compiler found in the program.">
-    <FindingsGroup title="Errors" variant="destructive">{row}</FindingsGroup>
-    <FindingsGroup title="Warnings" variant="warning">{row}</FindingsGroup>
-    <FindingsGroup title="Notes" variant="info">{row}</FindingsGroup>
+const groups = groupFindings(findings, (f) => `${f.rule.id}|${f.place.path}`);
+const tally = tallyFindings(groups);
+
+<FindingsRoot tally={tally}>
+  <FindingsBadge>{(t) => (t ? `${t.violation} violations · ${t.warning} warnings` : "No rules")}</FindingsBadge>
+  <FindingsContent header={<RulesHeader />} empty={<ChooseRules />}>
+    <FindingsGroup title="ProjectShape" tally={tally}>
+      {groups.map((group) => (
+        <FindingGroupRow
+          key={group.rule.id}
+          group={group}
+          describe={describe}
+          where={group.places[0].path}
+          action={{ label: `Show ${group.count}`, run: () => show(group.places) }}
+        />
+      ))}
+    </FindingsGroup>
   </FindingsContent>
 </FindingsRoot>
 ```
 
-A compiler's problems and a form's violations are the same list: **a tally, the findings worst
-first, and a way to each one's place.** This is that list and nothing else. What a finding *says* is
-the row you draw — a [Diagnostic](/docs/data-display/diagnostic), or anything built on one — so the
-domain stays yours.
+A SHACL report and a compiler's diagnostics are the same list: **one result, or many that share a
+rule, each pointing at a place.** The place is yours — a focus node and a path, a line of a program —
+and the library reaches it only through `describe`. Why it is shaped so is on
+[the design page](/docs/design/findings).
 
-## A finding is an id and a variant
+## The model
 
 ```ts
-interface Finding {
-  id: string;
-  variant: "destructive" | "warning" | "info";
+type FindingSeverity = "violation" | "warning" | "info";
+
+interface Finding<Place> {
+  severity: FindingSeverity;
+  message: string;
+  rule: { id: string; label: string };
+  place: Place;
+  help?: string;
+}
+
+interface FindingGroup<Place> {
+  rule: FindingRule;
+  severity: FindingSeverity;
+  message: string;
+  count: number;
+  places: Place[];
+  sample: Finding<Place>[];
 }
 ```
 
-That is all the list reads. Extend it with whatever your rows need — a message, a line, a field —
-and `FindingsRoot` is generic over it: `onSelect` and each group's row receive your type, not this
-one. The variant is `Diagnostic`'s, so a finding's row wears the variant it was counted under.
+A `Finding` is **always one result**. A `FindingGroup` is many: its `count`, every place, and a
+`sample` of the first few to open. `groupFindings(findings, keyOf, sample = 3)` folds findings by
+your key — usually the rule and the path — worst severity first and in your order within one.
+`tallyFindings(items)` counts findings and groups alike, a group by its `count`, into a
+`FindingTally`: `{ violation, warning, info, total }`. Both are plain functions, callable from a
+Server Component.
+
+## A place, described
+
+```ts
+const describe: DescribePlace<Node> = (node) => ({
+  where: `${node.path} · ${node.focus}`,
+  action: { label: "Show", run: () => select(node.focus) },
+  detail: node.value,
+});
+```
+
+`where` is what line 1 shows; `action` is a button beside it; `detail` is what opening the row shows
+first. A compiler's place is `{ where: "Line 12", action: { label: "Go to line", run } }`. Inside a
+findings popover, the row closes the popover before it runs an action, so focus can land where the
+action sends it.
+
+## The rows
+
+- **`FindingRow`** draws one finding. Line 1 is the severity, where and the actions; line 2 is the
+  message, on its own line, and it wraps. Opening it shows the detail, the rule (label and id) and
+  the help. Nothing is held to one line but the severity badge and the buttons — a long IRI breaks
+  rather than widening the list.
+- **`FindingGroupRow`** draws a group: the count on the severity badge, `where` for what the group
+  shares (the rule's label without it), and one `action` over all of it. Opening it lists the sample,
+  each place with its own action.
+
+Both are `Diagnostic`s, so they go in a [DiagnosticList](/docs/data-display/diagnostic) or a
+`FindingsGroup`, and take `Diagnostic`'s `open`, `defaultOpen` and `onOpenChange`.
 
 ## The words are yours
 
-No part authors a sentence. The tally is a function of the counts, because "2 errors", "3 issues"
-and "Valid" are a product's vocabulary and a plural rule is a locale's —
-`FindingCounts` is `{ destructive, warning, info, total }`, and `Intl.PluralRules` is the right tool
-for the rest. Group titles and the header are props of the part that draws them.
+Nothing tallies in English. The badge's words are its children, a function of the tally, because
+*362 violations* and *Valid* are a product's vocabulary and a plural rule is a locale's. The words
+the rows draw — the severity and the disclosure's name — are `FindingLabels`, English by default,
+given once on `FindingsRoot` or per row as `labels`. Counts are formatted in the
+[LocaleProvider](/docs/i18n)'s locale.
 
 <ComponentPreview componentName="findings" fileName="example-spanish" />
 
-## The parts
+## The badge and its popover
 
-- **`FindingsRoot`** is Ark's [Popover](/docs/overlays/popover) holding the findings. `open`,
-  `defaultOpen` and `onOpenChange` are the machine's — a host that opens the list from elsewhere,
-  say a submit the errors block, controls it like any popover.
-- **`FindingsTrigger`** is a `Badge` and the popover's trigger, painted by the worst variant
-  present. `size` and `pill` are `Badge`'s. Without children it shows the total. **With nothing
-  found it is a `success` badge and not a button** — there is no list to open — and a popover left
-  open closes when the last finding goes.
-- **`FindingsContent`** is the popover: an optional `title` and `description`, then its groups,
-  scrolling once they outgrow the screen.
-- **`FindingsGroup`** draws the findings of one variant, in the order you gave them, under a heading
-  that counts them — a `<section>` named by its `<h3>`, so a screen reader can move between groups.
-  It draws nothing when its variant has none. Its child is a function from a finding to a row.
-- **`FindingsGoTo`** goes inside a row. It closes the popover, so focus can land where you send it,
-  then calls the root's `onSelect` with that row's finding. Without an `onSelect` it renders
-  nothing: a control that goes nowhere is announced as one.
-- **`useFindings`** gives a part of your own the counts, the worst variant and the findings;
-  **`useFinding`** gives a row the finding it is drawing. `FindingCounts`, `FindingVariant` and the
-  props types — `FindingsRootProps`, `FindingsTriggerProps`, `FindingsContentProps`,
-  `FindingsGroupProps` — are exported for wrappers.
+- **`FindingsRoot`** is Ark's [Popover](/docs/overlays/popover), holding the `tally`. `undefined`
+  means *nothing checked* — no rules, no run — and is not *clean*. `open`, `defaultOpen` and
+  `onOpenChange` are the machine's.
+- **`FindingsBadge`** is the trigger: a `Badge` that is a button in every state, named by its
+  children. It wears the worst severity found, `success` when the check found nothing and `outline`
+  when nothing was checked. `size` and `pill` are `Badge`'s.
+- **`FindingsContent`** is the popover: `header` above the list and not scrolling with it — the rules
+  file and a *Change…*, say — then the children in a vertical-only
+  [ScrollArea](/docs/layout/scroll-area), or `empty` instead when nothing was found or checked.
+- **`FindingsGroup`** puts rows under a heading — a `<section>` named by its title — with
+  `FindingsTally` beside the title: a count per severity, not the paths it holds.
+- **`useFindings`** gives a part of your own the tally, the worst severity and the labels.
+
+The props types — `FindingRowProps`, `FindingGroupRowProps`, `FindingsRootProps`,
+`FindingsBadgeProps`, `FindingsContentProps`, `FindingsGroupProps`, `FindingsTallyProps` — and
+`FindingAction`, `FindingPlace`, `FindingRule` are exported for wrappers.
+
+## Testing
+
+`FindingsBadgeHarness`, `FindingRowHarness` and `FindingGroupRowHarness` from
+[`@kanzo-tech/testing`](/docs/testing) drive these.

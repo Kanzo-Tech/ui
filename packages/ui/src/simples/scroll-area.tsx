@@ -35,28 +35,58 @@ const scrollAreaVariants = tv({
 
 interface ScrollAreaProps
   extends React.ComponentProps<typeof ArkScrollArea.Root>,
-    VariantProps<typeof scrollAreaVariants> {}
+    VariantProps<typeof scrollAreaVariants> {
+  /**
+   * Which axes scroll. `both` is Ark's area as it ships; `vertical` is a column whose width is its
+   * parent's and never its content's.
+   *
+   * **Why `vertical` exists:** Ark gives the content `min-width: fit-content`, so one line that does
+   * not wrap — an IRI, a nowrap label — sets the whole column's width, and the panel around it grows
+   * or scrolls sideways. Measured 2026-10-02 on the findings example: rows ran past a 448 px popover
+   * to 507 px behind a horizontal scrollbar. `vertical` sets the content's floor to 0, hides the
+   * viewport's x overflow and draws no horizontal scrollbar, so what is too wide wraps or is cut by
+   * its own rule. It is not the default because a code block or a wide table in a dialog relies on
+   * the sideways scroll; what would reverse that is every call site passing `vertical`.
+   *
+   * @default "both"
+   */
+  orientation?: "both" | "vertical";
+}
 
 export const ScrollArea = (props: ScrollAreaProps) => {
-  const { scrollFade = false, className, children, slot, ...rest } = props;
+  const {
+    scrollFade = false,
+    orientation = "both",
+    className,
+    children,
+    slot,
+    ...rest
+  } = props;
+  const vertical = orientation === "vertical";
 
   return (
     <ArkScrollArea.Root
       className={cn("size-full min-h-0 [--fade-size:1.5rem]", className)}
+      data-orientation={orientation}
       {...rest}
       data-slot={slot ?? "scroll-area"}
     >
       <ArkScrollArea.Viewport
         className={cn(scrollAreaVariants({ scrollFade }))}
         data-slot="scroll-area-viewport"
+        // Ark's own `overflow: auto` is inline, so only an inline style outranks it.
+        style={vertical ? { overflowX: "hidden", overflowY: "auto" } : undefined}
       >
-        <ArkScrollArea.Content data-slot="scroll-area-content">
+        <ArkScrollArea.Content
+          data-slot="scroll-area-content"
+          style={vertical ? { minWidth: 0 } : undefined}
+        >
           {children}
         </ArkScrollArea.Content>
       </ArkScrollArea.Viewport>
 
       <ScrollAreaScrollbar orientation="vertical" />
-      <ScrollAreaScrollbar orientation="horizontal" />
+      {vertical ? null : <ScrollAreaScrollbar orientation="horizontal" />}
 
       <ArkScrollArea.Corner data-slot="scroll-area-corner" />
     </ArkScrollArea.Root>

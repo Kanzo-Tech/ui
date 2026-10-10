@@ -1,0 +1,127 @@
+---
+title: Findings
+description: Why a finding is always one result and a group is many, why its place is the host's and reaches the library only through describe, why a row's message wraps on a line of its own, and why the entry is a badge that opens a popover — and what would reverse each rule.
+---
+
+What a check found is drawn in two products here: Keasy's Discover validates a graph against SHACL
+shapes and reports seventeen thousand results, and its recipe editor shows what fossil's compiler
+found in a program. Both had their own rows, their own tally and their own popover. This page is why
+they now share one model and one set of rows, and where the line between the library and the host
+falls. [Findings](/docs/data-display/findings) is the reference.
+
+## One result, or a group
+
+**A `Finding` is always one result: a rule that failed at one place. A `FindingGroup` is many results
+sharing a key — a rule, and usually a path — with a `count`, every place, and a `sample` to open.**
+The two are different types, not one type with an optional count, because a row that might be one or
+many is a row whose every action has to ask which. `groupFindings(findings, keyOf)` makes groups from
+findings; `tallyFindings` counts both, a group by its `count`.
+
+The references agree on the split and differ only on where it is made:
+
+- **The W3C SHACL validation report** (`sh:ValidationReport`) is a flat list of `sh:ValidationResult`,
+  each one focus node, one path, one value, one source shape and constraint component, one severity.
+  That is our `Finding`, and SHACL's three severities — `sh:Violation`, `sh:Warning`, `sh:Info` — are
+  our `FindingSeverity`.
+- **TopBraid EDG and shacl-play** group that list by shape and then by constraint for a reader,
+  because a report of seventeen thousand results read one by one is not read. That is our
+  `FindingsGroup` heading and our `FindingGroupRow`.
+- **Great Expectations** reports a failed expectation as counts and a sample of the unexpected
+  values (`unexpected_count`, `partial_unexpected_list`), never the whole list. That is the group's
+  `count` beside its `sample`, and why `count` is its own field: a host may hold a summary of
+  seventeen thousand and the places of only some.
+
+**The key is the host's.** Rule and path is the default reading of a SHACL report; a compiler might
+group by code, a form by field. `groupFindings` orders worst first and keeps the host's order within
+a severity, so a list sorted by line stays sorted by line.
+
+**What would reverse it:** a consumer whose groups nest — shape, then path, then value — and who
+needs the rows to know it. Then a group holds groups, and `FindingGroupRow` opens onto rows rather
+than onto a sample.
+
+*Held by* `packages/ui/src/lib/findings.test.ts`, "keeps one group per key, counting every member and
+sampling the first", "orders the groups worst first, and by first appearance within a severity" and
+"counts a group by its count, not by its sample".
+
+## The place is the host's
+
+**A finding's `place` is a type parameter the library never reads. A view takes the host's
+`describe(place)`, which returns where it is, what to do there and what opening it shows:
+`{ where, action?, detail? }`.** This is VS Code's Problems panel: a diagnostic is a severity, a
+message, a code and a source over a *location*, and the panel draws the location through the
+resource it belongs to, never by knowing what is inside the file. The Language Server Protocol's
+`Diagnostic` is the same shape, with a `Range` as its place.
+
+So the library imports neither RDF nor LSP types. **The RDF place — a focus node, a path, a value — and
+its description live in rudof-wasm's bindings, where the report is read; the code place — a line and a
+column — lives in fossil's editor.** Each host writes one `describe`: *totalCost · Project/123* and
+*Show*; *Line 12* and *Go to line*. Inside a popover, a row closes the popover before it runs the
+action, so focus lands where the action sends it.
+
+**It replaced** `FindingsGoTo` and the root's `onSelect`, which handed the whole finding back to one
+callback: one action per list, chosen by the list's owner, and a row that could not say what it would
+do. A place with no action draws no button — a control that goes nowhere is announced as one.
+
+**What would reverse it:** two hosts writing the same `describe` for the same kind of place. Then that
+reading moves into a package both depend on — still not this one, unless the place is a type this
+library already owns.
+
+## A row is two lines, and the message wraps
+
+**Line 1 is the severity badge, where and the actions; line 2 is the message, on a line of its own,
+wrapping. Nothing is held to one line but the badge and the buttons.** It is how a compiler prints a
+diagnostic, and it is the row metadata-form's `IssueDiagnostic` arrived at after the one-line header
+measured a message 0 px wide in a panel a fifth of the workspace wide (`DiagnosticHeader`'s comment
+has the figures). `where` breaks anywhere, because an IRI has no spaces to break at.
+
+The rows are built on `Diagnostic`'s parts and add nothing to them but the arrangement:
+`DiagnosticTitle` truncates, which is right for a title beside other things, and the message is given
+`basis-full` and `whitespace-normal!` because a line of its own has nothing to align with.
+
+**What would reverse it:** a list where scanning many rows at a glance is worth more than reading any
+one — a log. Then the message truncates and the row opens to read it, as `DiagnosticTitle` does.
+
+*Held by* `packages/ui/src/composites/findings.test.tsx`, "puts the message on a line of its own that
+wraps, and holds nothing to one line but the badge and the buttons".
+
+## The list scrolls down, never across
+
+**The popover's list is a `ScrollArea` with `orientation="vertical"`.** Ark gives its content
+`min-width: fit-content`, so one unbroken line set the list's width: rows ran past a 448 px popover to
+507 px behind a horizontal scrollbar (measured 2026-10-02 on the findings example), and the first
+`FindingsContent` dropped `ScrollArea` for a plain `div` to get away from it. Vertical sets the
+content's floor to 0, hides the sideways overflow and draws no horizontal scrollbar. It is an option
+and not the default, because a code block in a dialog relies on the sideways scroll.
+
+**What would reverse it:** every `ScrollArea` in the library and its hosts passing `vertical`. Then
+it is the default and `both` is the option.
+
+*Held by* `packages/ui/src/simples/scroll-area.test.tsx`, "vertical drops Ark's fit-content floor and
+the horizontal scrollbar", and `packages/ui/src/composites/findings.test.tsx`, "lists in a
+vertical-only area, so a long line cannot widen the popover".
+
+## The entry is a badge that opens a popover
+
+**In Discover and in the editor the findings are behind one badge that tallies them — *362 violations
+· 17,364 warnings* — and opens a popover the host composes: a header (the rules file and *Change…*),
+the grouped list, or an empty state.** The tally is what a reader needs at rest; the list is what
+they need when they ask. A panel always open would spend a column on a list that is usually short or
+empty, and a page of its own would take the reader away from the graph they are fixing.
+
+**The badge is a button in every state.** The first `FindingsTrigger` stopped being one when nothing
+was found, because there was no list to open. With a header and an empty slot there always is: *No
+rules* opens onto choosing rules, *Valid* onto what was checked. `undefined` is *nothing checked* and
+wears `outline`; a tally of zero is *clean* and wears `success`; otherwise the worst severity. Its
+accessible name is its text, and its text is the host's: *362 violations* is a product's vocabulary and
+a plural rule is a locale's.
+
+**A group's heading carries its tally, not its paths.** A shape that failed on nine paths says *9*
+and *2* in their families, and the paths are the rows beneath it.
+
+**What would reverse it:** a host where the findings are the work rather than a report on it — a
+data-quality console. Then the list is a page, the groups are its sections, and the badge is a
+summary on another page.
+
+*Held by* `packages/ui/src/composites/findings.test.tsx`, "is a button named by the host's tally in
+every state, painted by the worst" and "shows the empty slot, and not the list, when nothing was
+found or nothing was checked".
