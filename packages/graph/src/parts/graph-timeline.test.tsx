@@ -431,6 +431,40 @@ describe("GraphTimeline, drawn", () => {
     expect(container.querySelector("[data-slot=graph-timeline]")).toBe(band);
   });
 
+  it("waits in the band alone when the column changes after load, and mounts neither band nor figure again", async () => {
+    const corpus = await attach();
+    const seen: string[] = [];
+    function Status() {
+      seen.push(useGraphState((s) => s.status));
+      return null;
+    }
+    const view = (column: string) => (
+      <KanzoThemeProvider policy={{ graph: { "time-by": { pinned: column } } }} sections={[GRAPH_SECTION]} storage={null}>
+        <MosaicProvider coordinator={corpus.coordinator}>
+          <GraphRoot coordinator={corpus.coordinator} from={corpus.from} onFailure={() => {}}>
+            <Status />
+            <Drawn />
+            <GraphTimeline />
+          </GraphRoot>
+        </MosaicProvider>
+      </KanzoThemeProvider>
+    );
+    const { container, rerender } = render(view("born"));
+    const band = container.querySelector<HTMLElement>("[data-slot=graph-timeline]")!;
+    for (let i = 0; i < 100 && !(band.querySelector("[data-drawn]") && seen.at(-1) === "idle"); i++) await act(() => settle(corpus));
+    expect(seen.at(-1)).toBe("idle");
+    const figure = screen.getByRole("figure", { name: "Timeline: born" });
+    // Another column — any the vertex tables carry draws; the setting offers the temporal ones.
+    seen.length = 0;
+    rerender(view("score"));
+    for (let i = 0; i < 10; i++) await act(() => settle(corpus));
+    expect(screen.getByRole("figure", { name: "Timeline: score" })).toBe(figure);
+    expect(container.querySelector("[data-slot=graph-timeline]")).toBe(band);
+    expect(band.style.minHeight).toBe("44px");
+    // The graph never went back to loading: only the band waited.
+    expect(seen.filter((status) => status !== "idle")).toEqual([]);
+  });
+
   it("is disabled with no range, and playable once one is brushed", async () => {
     const corpus = await attach();
     const { brush, ready } = await drawn(corpus);
