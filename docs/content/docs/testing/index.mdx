@@ -88,6 +88,7 @@ narrowed with its `with`: `ChartHarness.with({ title })`.
 | `DashboardHarness` | its `data-slot` | `tile(title)`, `settled()` |
 | `TileHarness` | an `article` holding its title | `text()`, `chart()`, `settled()` |
 | `FilterBarHarness` | the region *Filters* | `chips()`, `remove(field)`, `open(field)`, `readout()` |
+| `RelationPickerHarness` | the group *Relation* | `root()`, `pick(type)`, `add(hop)`, `path()`, `remove(sentence)`, `grain()` — a hop by its sentence (*Comments located in this place*), its step as `relationKey` writes it (`<isLocatedIn<Comment`), or its edge label where one item has it |
 | `AnswerHarness` | the composer, a textbox named *Ask…*; the answer cards by their `data-slot` | `ask(question)`, `answer()`, `addToDashboard()`, `filterTo()` |
 | `FindingsBadgeHarness` | its `data-slot`: the badge is named by the host's tally | `tally()`, `open()`, `groups()`, `row(message)`, `groupRow(message)` |
 | `FindingRowHarness` | its `data-slot`, a `listitem` | `severity()`, `message()`, `where()`, `act(label)`, `open()`, a `Severity` |

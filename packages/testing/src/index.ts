@@ -24,4 +24,5 @@ export {
   type Severity,
 } from "./harnesses/findings";
 export { GraphCanvasHarness, type GestureOptions } from "./harnesses/graph-canvas";
+export { RelationPickerHarness } from "./harnesses/relation-picker";
 export { TimelineHarness } from "./harnesses/timeline";

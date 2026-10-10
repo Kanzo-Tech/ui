@@ -6,6 +6,7 @@ import {
   FindingGroupRowHarness,
   FindingRowHarness,
   FindingsBadgeHarness,
+  RelationPickerHarness,
   TimelineHarness,
   type KanzoTestingHook,
 } from "@kanzo-tech/testing";
@@ -20,6 +21,8 @@ import { ChartRoot } from "./charts/chart-root.js";
 import { Dashboard } from "./charts/dashboard.js";
 import type { DashboardSpec } from "./charts/dashboard-spec.js";
 import { FilterBar } from "./charts/filter-bar.js";
+import { RelationPicker } from "./charts/relation-picker.js";
+import type { JoinGraph, Relation } from "@kanzo-tech/mosaic";
 import { MosaicProvider } from "./charts/mosaic-provider.js";
 import {
   FindingGroupRow,
@@ -270,5 +273,39 @@ describe("DockHarness", () => {
 describe("harnesses waiting on a component another change delivers", () => {
   it.skip("TimelineHarness brushes a range in data and plays it — needs ChartTimeline, designed in Kanzo-Tech/ui#132 and not yet built", async () => {
     await dom().harness(TimelineHarness);
+  });
+});
+
+describe("RelationPickerHarness", () => {
+  // Ark's select scrolls its content to the top on open, and jsdom has no `scrollTo`.
+  if (typeof Element.prototype.scrollTo !== "function") Element.prototype.scrollTo = () => {};
+  const edge = (source: string, label: string, destination: string, rows: number) => ({
+    name: `${source}_${label}_${destination}`, label, source, destination, table: "e", src: "src", dst: "dst", rows,
+  });
+  const graph: JoinGraph = {
+    types: ["Place", "Comment", "Person"].map((name) => ({ name, table: name, key: "dense_id", columns: [], rows: 10 })),
+    edges: [edge("Place", "isPartOf", "Place", 9), edge("Comment", "isLocatedIn", "Place", 100), edge("Person", "isLocatedIn", "Place", 10)],
+  };
+  function Picked() {
+    const [value, setValue] = useState<Relation>({ root: "Person", path: [] });
+    return <RelationPicker graph={graph} onValueChange={setValue} value={value} />;
+  }
+
+  it("picks a root and hops by sentence, by step or by label, and removes any", async () => {
+    const env = dom();
+    render(<Picked />);
+    const picker = await env.harness(RelationPickerHarness);
+    await picker.pick("Place");
+    expect(await picker.root()).toBe("Place");
+    await picker.add("<isLocatedIn<Comment");
+    expect(await picker.grain()).toBe("One row per Comment · 100 rows · Places without comments are left out");
+    await picker.remove("Comments located in this place");
+    // A self-edge's label names two hops, so it takes the step; a unique label is enough.
+    await expect(picker.add("isPartOf")).rejects.toThrow(/names 2 hops/);
+    await picker.add(">isPartOf>Place");
+    await picker.add("Persons located in this place");
+    expect(await picker.path()).toEqual(["The place it is part of", "Persons located in this place"]);
+    await picker.remove("The place it is part of");
+    expect(await picker.path()).toEqual([]);
   });
 });

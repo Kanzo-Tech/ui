@@ -27,6 +27,8 @@ export interface JoinType {
   readonly key: string;
   /** What a relation projects from this type, the key aside. */
   readonly columns: readonly string[];
+  /** How many rows the table holds, where the catalog says: what a hop's fan-out is read from. */
+  readonly rows?: number;
 }
 
 /** One link table: each row joins a `source` row to a `destination` row. */
@@ -41,6 +43,8 @@ export interface JoinEdge {
   /** The edge table's columns that hold the source's and the destination's `key`. */
   readonly src: string;
   readonly dst: string;
+  /** How many links the table holds, where the catalog says. */
+  readonly rows?: number;
 }
 
 export interface JoinGraph {
@@ -65,16 +69,23 @@ export interface RelationHop {
   readonly hop: Hop;
   readonly label: string;
   readonly to: string;
+  /**
+   * Rows the hop brings per row of the type it leaves: the edge's rows over that type's rows, when
+   * the graph carries both. An average, so it says nothing of skew.
+   */
+  readonly fanOut?: number;
 }
 
 /** Every hop that leaves `type`: its out-edges, then its in-edges, in the graph's order. */
-export function relationHops(graph: Pick<JoinGraph, "edges">, type: string): RelationHop[] {
+export function relationHops(graph: JoinGraph, type: string): RelationHop[] {
+  const from = graph.types.find((t) => t.name === type)?.rows;
+  const fanOut = (e: JoinEdge) => (e.rows === undefined || !from ? undefined : e.rows / from);
   const out = graph.edges
     .filter((e) => e.source === type)
-    .map((e) => ({ hop: { edge: e.name, direction: "out" as const }, label: e.label, to: e.destination }));
+    .map((e) => ({ hop: { edge: e.name, direction: "out" as const }, label: e.label, to: e.destination, fanOut: fanOut(e) }));
   const into = graph.edges
     .filter((e) => e.destination === type)
-    .map((e) => ({ hop: { edge: e.name, direction: "in" as const }, label: e.label, to: e.source }));
+    .map((e) => ({ hop: { edge: e.name, direction: "in" as const }, label: e.label, to: e.source, fanOut: fanOut(e) }));
   return [...out, ...into];
 }
 

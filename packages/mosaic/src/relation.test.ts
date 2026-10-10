@@ -102,6 +102,21 @@ describe("relationHops", () => {
       ["in", "hasCreator", "Post"],
     ]);
   });
+
+  it("gives each hop its fan-out when the graph carries counts", () => {
+    // Edge rows over the rows of the type the hop leaves; a graph without counts gives none.
+    const counted: JoinGraph = {
+      types: GRAPH.types.map((t) => ({ ...t, rows: t.name === "Person" ? 4 : 10 })),
+      edges: GRAPH.edges.map((e) => ({ ...e, rows: e.label === "knows" ? 6 : 10 })),
+    };
+    expect(relationHops(counted, "Person").map((h) => [h.hop.direction, h.label, h.fanOut])).toEqual([
+      ["out", "knows", 1.5],
+      ["in", "knows", 1.5],
+      ["in", "hasCreator", 2.5],
+    ]);
+    expect(relationHops(counted, "Post").map((h) => h.fanOut)).toEqual([1]);
+    expect(relationHops(GRAPH, "Person").every((h) => h.fanOut === undefined)).toBe(true);
+  });
 });
 
 describe("a semi-join on identity", () => {

@@ -20,7 +20,7 @@ import {
 import { FROM, said, useArchive } from "../graph/archive";
 import { EditingPage } from "./editing-page";
 
-// The archive's corpus as a join graph: one type, `Node`, and its `linksTo` edges. Pick "Hop" to
+// The archive's corpus as a join graph: one type, `Node`, and its `linksTo` edges. Pick "Add related…" to
 // chart every link as a row — `Node.kind` beside `Node2.kind` — and the dashboard reads the joined
 // relation exactly as it reads a table. Each relation keeps its own spec, keyed by `relationKey`.
 // `publish` hands the page one semi-join on the root's key for all the tiles' clauses — its chips
