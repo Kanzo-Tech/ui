@@ -177,7 +177,7 @@ describe("GraphTimeline, drawn", () => {
   let page: Selection | null = null;
 
   function Page({ corpus, children }: { corpus: Attached; children: (height: number) => ReactNode }) {
-    const [height, setHeight] = useState(72);
+    const [height, setHeight] = useState(44);
     const [, setTick] = useState(0);
     rerender = (next) => {
       setHeight(next);
@@ -228,7 +228,7 @@ describe("GraphTimeline, drawn", () => {
     const corpus = await attach();
     const { brush, chips, ready } = await drawn(corpus);
     await brush(1901, 1904);
-    await act(async () => rerender(72));
+    await act(async () => rerender(44));
     await brush(1902, 1906);
     await act(async () => rerender(80));
     await ready();
@@ -438,7 +438,13 @@ describe("GraphTimeline, drawn", () => {
 
   it("draws the window's bars in colour by clipping the bars in front to it, with no query", async () => {
     const corpus = await attach();
-    const { brush, plot } = await drawn(corpus);
+    const { brush, plot, ready } = await drawn(corpus);
+    await ready();
+    await act(() => settle(corpus));
+    // With no range the band is the dimmed fill alone, as Cosmograph's is: the bars in front are hidden.
+    const hidden = document.querySelector("[aria-label='Timeline: born'] svg g[data-index='2']")!.getAttribute("clip-path");
+    const none = document.querySelector(`${/url\((#[^)]+)\)/.exec(hidden ?? "")?.[1]} rect`)!;
+    expect(Number(none.getAttribute("width"))).toBe(0);
     await brush(1902, 1905);
     const [behind, , front] = plot()!.marks;
     const total = (mark: Drawn["marks"][number]) => Array.from(mark.data?.columns.y ?? []).reduce((a, b) => a + Number(b), 0);
@@ -468,21 +474,25 @@ describe("GraphTimeline, drawn", () => {
     expect(document.querySelector("[aria-label='Timeline: born'] svg")).toBe(svg);
   });
 
-  it("draws every tick label whole, the first one at the axis's edge too", async () => {
+  it("draws the axis at the top, each label right of its rule, whole, the first at the axis's start", async () => {
     const corpus = await attach();
     const { ready } = await drawn(corpus);
     await ready();
     await act(() => settle(corpus));
     const svg = document.querySelector("[aria-label='Timeline: born'] svg")!;
     const width = Number(svg.getAttribute("width"));
-    const labels = [...svg.querySelectorAll("g[aria-label='x-axis tick label'] text")];
-    expect(labels.map((label) => label.textContent)[0]).toBe("1900");
-    // Centred on its tick, at Plot's 10px: a digit is about 0.6em, so *1900* is 24px across.
+    expect(Number(svg.getAttribute("height"))).toBe(44);
+    const group = svg.querySelector("g[aria-label='x-axis tick label']")!;
+    const labels = [...group.querySelectorAll("text")].filter((label) => label.textContent);
+    expect(labels[0]!.textContent).toBe("1900");
+    // Plot's 10 px: a digit is about 0.6em, so *1900* is 24px across, starting 3 px right of its rule.
     for (const label of labels) {
-      const x = Number(/translate\(([-\d.]+)/.exec(label.getAttribute("transform") ?? "")?.[1]);
-      const half = (label.textContent!.length * 6) / 2;
-      expect(x - half, label.textContent!).toBeGreaterThanOrEqual(0);
-      expect(x + half, label.textContent!).toBeLessThanOrEqual(width);
+      const [x, y] = /translate\(([-\d.]+),\s*([-\d.]+)/.exec(label.getAttribute("transform") ?? "")!.slice(1).map(Number) as [number, number];
+      expect(x, label.textContent!).toBeGreaterThanOrEqual(0);
+      expect(x + 3 + label.textContent!.length * 6, label.textContent!).toBeLessThanOrEqual(width);
+      // The labels' row is the band's top 14 px.
+      expect(y, label.textContent!).toBeLessThanOrEqual(14);
     }
+    expect(svg.querySelectorAll("g[aria-label='x-grid'] line, g[aria-label='x-grid'] path").length).toBeGreaterThan(0);
   });
 });

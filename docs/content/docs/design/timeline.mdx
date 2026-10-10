@@ -123,9 +123,20 @@ selection drops queued values whose clause has the same source (`queueFilter`), 
 burst of steps collapses to the newest. While it plays the clause says so in its metadata, and its
 chip carries a ▶; its × stops play and lets the range go, as the page's **Clear** does.
 
-**Play is a bare icon at the bars' left edge, muted until hovered, as Cosmograph's is.** Cosmograph
+**The timeline is a compact band, 44 px, drawn as Cosmograph's app draws it:** no border or panel of
+its own, the tick labels in a row at the top, each to the right of a thin rule that runs the band's
+height, and the bars under them. Plot's axis attributes cannot put a label beside its tick, so the
+axis is Plot's `axisX` mark with `anchor: "top"`, `textAnchor: "start"`, and `gridX` for the rules
+through the bars. The last tick, at the axis's end, has no room to its right and goes unlabelled.
+With no range the bars are a low-contrast fill, the dimmed layer alone; a range is bright inside
+it. *What would reverse it:* a timeline tall enough for a y axis, or labels that need the room a
+bottom axis gives; then the axis returns under the bars.
+
+**Play is a bare glyph at the band's left edge, muted until hovered, as Cosmograph's is.** Cosmograph
 draws a borderless icon, 20 – 30 px wide and half opaque, as a flex item left of its bars
-(`style.js`, `animationControl`). Ours is named *Play time* or *Pause time*, the same words as its
+(`style.js`, `animationControl`). Ours is a solid 12 px glyph in a 20 px hit area the band's height,
+6 px from the bars, at half opacity, full on hover and focus with a faint background, and a fifth
+when there is nothing to play. It is named *Play time* or *Pause time*, the same words as its
 tooltip, so it does not read as the canvas toolbar's layout transport. The bars take every pixel
 right of it. The window's range is not drawn beside them: the chip reads it, and a slot that changed
 width resized and so rebuilt the plot. It is still read, as a group whose `aria-valuetext` is the
@@ -255,8 +266,8 @@ test has installed the hook. `TimelineHarness` then brushes in data and plays.
 *Held by* `packages/ui/src/charts/chart-timeline.test.tsx` ("reads a brushed range as the edges it
 spans, in axis order — the frames play shows"; "has nothing to play without a range, as
 Cosmograph's has not"; "is 50 ms a bar on 60 bars or more, and slower on fewer, so a sweep takes as
-long"; "is 500 ms at least under prefers-reduced-motion"; "puts Play time first, before the bars,
-which take the rest of the width"; a brushed window sticks to the nearest edges, at least one bar
+long"; "is 500 ms at least under prefers-reduced-motion"; "makes Play a bare glyph the band's height,
+flush at its left and 6 px from the bars, as Cosmograph's"; a brushed window sticks to the nearest edges, at least one bar
 wide; a year reads as its integer, on the axis too),
 `packages/ui/src/charts/filter-bar.test.tsx` ("names a bridged part once when it already reads as its
 bridge's name — a timeline's window"; "marks a part that is playing — a timeline's window on the
@@ -272,7 +283,7 @@ lets the window go"; "plays and pauses with Space on the focused timeline"; "wai
 answer each window before the next one"; "neither rebuilds nor redraws the plot while a brush is
 dragged"; "holds one window, which each brush replaces — through a re-render and a rebuild of the
 plot"; "draws the window's bars in colour by clipping the bars in front to it, with no query"; "draws
-every tick label whole, the first one at the axis's edge too"), `packages/mosaic/src/clause.test.ts`
+the axis at the top, each label right of its rule, whole, the first at the axis's start"), `packages/mosaic/src/clause.test.ts`
 ("crosses clauses on some rows as a semi-join, which keeps no row the table does not hold") and
 `packages/graph/src/parts/graph-section.test.tsx` (the setting offers the `xsd:gYear` column by its
 datatype, and no integer of the same range).

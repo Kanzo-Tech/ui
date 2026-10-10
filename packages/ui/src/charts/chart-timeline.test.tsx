@@ -95,8 +95,8 @@ describe("ChartTimeline", () => {
     // Disabled as Cosmograph's is, and described by why: the reason is its
     // description and, since a disabled button takes no pointer, the tooltip of what holds it.
     expect(play.hasAttribute("disabled")).toBe(true);
-    const why = document.getElementById(play.getAttribute("aria-describedby") ?? "");
-    expect(why?.textContent).toBe("Brush a range to play");
+    // The title, with a name of its own, is the button's accessible description.
+    expect(play.getAttribute("title")).toBe("Brush a range to play");
     expect(play.parentElement?.getAttribute("title")).toBe("Brush a range to play");
     // A bare icon, as Cosmograph's is: named apart from a canvas's layout transport.
     expect(play.textContent).toBe("");
@@ -106,7 +106,7 @@ describe("ChartTimeline", () => {
     expect(window.className).toMatch(/\bsr-only\b/);
   });
 
-  it("puts Play time first, before the bars, which take the rest of the width", () => {
+  it("makes Play a bare glyph the band's height, flush at its left and 6 px from the bars, as Cosmograph's", () => {
     render(
       <MosaicProvider coordinator={coordinator}>
         <ChartTimeline field="year" table="awards" title="Awards by year" />
@@ -114,13 +114,22 @@ describe("ChartTimeline", () => {
     );
     const figure = screen.getByRole("figure", { name: "Awards by year" });
     const play = screen.getByRole("button", { name: "Play time" });
-    const window = screen.getByRole("group", { name: "Window" });
-    const plot = figure.querySelector("[data-slot=chart]")!;
-    // Drawn left to right in that order: the figure is a row and the button is ordered first.
+    const control = play.parentElement!;
+    // Play first, left of the bars, which take the rest of the width; the window is read, not drawn.
     expect(figure.className).toMatch(/\bflex-row\b/);
-    expect(play.parentElement!.className).toMatch(/\border-first\b/);
-    expect(plot.className).toMatch(/\bflex-1\b/);
-    expect(window.className).toMatch(/\bsr-only\b/);
+    expect(control.className).toMatch(/\border-first\b/);
+    expect(screen.getByRole("group", { name: "Window" }).className).toMatch(/\bsr-only\b/);
+    // A compact band, 44 px by default; the control stretches to its height and fills its 20 px.
+    expect(figure.querySelector<HTMLElement>("[data-slot=chart]")!.className).toMatch(/\bflex-1\b/);
+    expect(figure.className).toMatch(/\bitems-stretch\b/);
+    expect(figure.className).toMatch(/\bgap-1\.5\b/);
+    expect(control.className).toMatch(/\bw-5\b/);
+    expect(play.className).toMatch(/\bh-full\b/);
+    // Bare and muted: no border, half opaque until hovered or focused, a fifth when disabled.
+    expect(play.getAttribute("data-variant")).toBe("ghost");
+    expect(play.className).toMatch(/\bopacity-50\b/);
+    expect(play.className).toMatch(/\bhover:opacity-100\b/);
+    expect(play.className).toMatch(/\bdisabled:opacity-20\b/);
   });
 
   it("draws no play button when it is not playable", () => {

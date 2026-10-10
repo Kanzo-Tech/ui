@@ -7,10 +7,11 @@ import type { SelectionClause } from "@uwdata/mosaic-core";
 import { count } from "@uwdata/mosaic-sql";
 import { bin } from "./chart-bin.js";
 import { PauseIcon, PlayIcon } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "../lib/cn.js";
 import { Button } from "../simples/button.js";
-import { ChartAxisX, ChartAxisY } from "./chart-axes.js";
+import * as vg from "@uwdata/vgplot";
+import { ChartAxisY } from "./chart-axes.js";
 import { ChartBrushX } from "./chart-interactors.js";
 import { ChartRectY } from "./chart-marks.js";
 import { ChartRoot, useChartContext, type ChartPlot } from "./chart-root.js";
@@ -32,7 +33,7 @@ export interface ChartTimelineProps {
   filterBy?: Selection | null;
   /** Where the window publishes. Defaults to the root's own selection, relayed into the page's. */
   as?: Selection;
-  /** Plot height in px. Default 72. */
+  /** The band's height in px: the tick labels' row and the bars under it. Default 44. */
   height?: number;
   /** Draw the play button. Default `true`. */
   playable?: boolean;
@@ -46,10 +47,10 @@ export interface ChartTimelineProps {
 }
 
 /**
- * The sides hold half a tick label: a tick on the axis's edge — *1900*, the first bar's — is centred
- * on it, and the plot's SVG clips what passes its box, so 8px read *900*.
+ * Cosmograph's band: the tick labels in a row at the top, the bars under it, flush with the band's
+ * other edges — a label sits right of its tick, so none needs room past the axis's ends.
  */
-const MARGIN = { top: 4, right: 20, bottom: 20, left: 20 };
+const MARGIN = { top: 14, right: 0, bottom: 2, left: 0 };
 /** How many bars the axis is cut into. */
 const BARS = 60;
 /** The window drawn as an outline: d3's grey fill over it would read as the part left out. */
@@ -58,6 +59,28 @@ const BRUSH = { fillOpacity: 0, stroke: "currentColor", strokeOpacity: 0.6 };
 const TICK_MS = 50;
 /** One bar every half second at least under `prefers-reduced-motion`: it still plays, ten times slower. */
 const REDUCED_TICK_MS = 500;
+/**
+ * The axis as Cosmograph draws it: a thin rule at each tick through the band's height — up through
+ * the labels' row as the axis's tick, down through the bars as the grid — and its label to the right
+ * of it at the top, small and muted. Plot's own axis attributes cannot anchor a label beside its
+ * tick, so it is the `axisX` mark. Module-scoped: a new array rebuilds the plot.
+ */
+const AXIS = [
+  vg.gridX({ strokeOpacity: 0.2, ticks: 5 }),
+  vg.axisX({
+    anchor: "top",
+    ticks: 5,
+    tickSize: MARGIN.top,
+    tickFormat: topLabel,
+    textAnchor: "start",
+    dx: 3,
+    dy: MARGIN.top,
+    fillOpacity: 0.6,
+    strokeOpacity: 0.2,
+    label: null,
+  }),
+];
+
 /** Why Play is disabled, its description and the tooltip of what holds it. */
 const NO_RANGE = "Brush a range to play";
 
@@ -87,7 +110,7 @@ export function ChartTimeline({
   fill = "var(--chart-1)",
   filterBy,
   as,
-  height = 72,
+  height = 44,
   playable = true,
   paceBy,
   className,
@@ -98,7 +121,8 @@ export function ChartTimeline({
       aria-keyshortcuts={playable ? "Space" : undefined}
       aria-label={title}
       as={as}
-      className={cn("flex-row items-center gap-1 outline-none focus-visible:ring-[3px] focus-visible:ring-ring", className)}
+      attributes={AXIS}
+      className={cn("flex-row items-stretch gap-1.5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring", className)}
       filterBy={filterBy}
       height={height}
       margin={MARGIN}
@@ -114,7 +138,6 @@ export function ChartTimeline({
       <ChartBrushX brush={BRUSH} />
       <ChartRectY fill={fill} inset={0.5} opacity={0.35} x={bars} y={count()} />
       <ChartRectY fill={fill} inset={0.5} x={bars} y={count()} />
-      <ChartAxisX label={null} tickFormat={tickLabel} ticks={5} />
       <ChartAxisY anchor={null} label={null} />
       <TimelineWindow paceBy={paceBy} playable={playable} />
     </ChartRoot>
@@ -141,7 +164,6 @@ function TimelineWindow({ playable, paceBy }: { playable: boolean; paceBy?: Sele
   /** Said on pause and at the end, and only then: a frame every 50 ms would flood a screen reader. */
   const [said, setSaid] = useState("");
   const anchor = useRef<HTMLDivElement>(null);
-  const hint = useId();
   // What the loop, the pointer and the keyboard read between renders.
   const state = useRef<{ running: boolean; range: readonly unknown[] | null; frame: number | null }>({ running: false, range: null, frame: null });
   const transport = useRef<{ play(): void; stop(why: Stop): void; show(interval: Interval1D, at: number, live: boolean): void }>({
@@ -158,7 +180,6 @@ function TimelineWindow({ playable, paceBy }: { playable: boolean; paceBy?: Sele
     setFrame(window);
     const clause = interval.clause(window);
     interval.selection.update(live ? { ...clause, meta: { ...clause.meta, playing: true } as SelectionClause["meta"] } : clause);
-    clipToWindow(plot() as DrawnPlot | null, window);
   };
 
   transport.current.stop = (why) => {
@@ -230,13 +251,9 @@ function TimelineWindow({ playable, paceBy }: { playable: boolean; paceBy?: Sele
     const paint = () => clipToWindow(plot() as DrawnPlot | null, frame);
     const drawn = new MutationObserver(paint);
     drawn.observe(host, { childList: true, subtree: true });
-    as.addEventListener("value", paint);
     paint();
-    return () => {
-      drawn.disconnect();
-      as.removeEventListener("value", paint);
-    };
-  }, [as, plot, frame]);
+    return () => drawn.disconnect();
+  }, [plot, frame, range]);
 
   // An interval activates its selection when the pointer enters the plot, before any drag: that
   // is when its brush learns to stick. A brush ends a gesture with `sourceEvent`; a move made here
@@ -287,24 +304,22 @@ function TimelineWindow({ playable, paceBy }: { playable: boolean; paceBy?: Sele
   return (
     <>
       {playable ? (
-        // A disabled button takes no pointer, so what holds it carries the tooltip.
-        <span className="order-first inline-flex shrink-0" title={disabled ? NO_RANGE : undefined}>
+        // Cosmograph's control: a bare glyph in a hit area the band's height, flush at its left edge,
+        // half opaque until hovered or focused, a fifth when there is nothing to play. Its title is
+        // its description; a disabled button takes no pointer, so what holds it shows the tooltip.
+        <span className="order-first flex w-5 shrink-0" title={disabled ? NO_RANGE : undefined}>
           <Button
-            aria-describedby={disabled ? hint : undefined}
             aria-label={label}
             aria-pressed={playing}
-            className="text-muted-foreground hover:text-foreground focus-visible:text-foreground"
+            className="h-full w-full px-0 opacity-50 hover:bg-muted hover:opacity-100 focus-visible:opacity-100 disabled:opacity-20 [&_svg]:size-3 [&_svg]:fill-current"
             disabled={disabled}
             onClick={toggle}
             size="icon-sm"
-            title={disabled ? undefined : label}
+            title={disabled ? NO_RANGE : label}
             variant="ghost"
           >
             {playing ? <PauseIcon /> : <PlayIcon />}
           </Button>
-          <span hidden id={hint}>
-            {NO_RANGE}
-          </span>
         </span>
       ) : null}
       {/* Read, not drawn: the bars take the width, and the chip already reads the window. */}
@@ -325,9 +340,9 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Two windows with the same ends, or both none. */
+/** Two windows with the same ends, or both none: a year or a date reads the same as itself. */
 function sameWindow(a: readonly unknown[] | null, b: readonly unknown[] | null): boolean {
-  return a === b || (!!a && !!b && a.length === b.length && a.every((v, i) => +(v as number) === +(b[i] as number)));
+  return String(a) === String(b);
 }
 
 /**
@@ -348,8 +363,9 @@ const FRONT = 2;
 
 /**
  * Clip the dimmed bars to the interval's range and the bars in front to `frame`, or to the range
- * when no frame is shown; with no range, lift both. Idempotent, so the observer it runs from does
- * not feed itself: the clip paths are added to an svg once.
+ * when no frame is shown. With no range the dimmed bars are whole and the bars in front hidden: the
+ * band is a low-contrast fill, as Cosmograph's is, and only a range is bright. Idempotent, so the
+ * observer it runs from does not feed itself: the clip paths are added to an svg once.
  */
 function clipToWindow(plot: DrawnPlot | null, frame: readonly unknown[] | null): void {
   const svg = plot?.element.querySelector("svg");
@@ -357,30 +373,24 @@ function clipToWindow(plot: DrawnPlot | null, frame: readonly unknown[] | null):
   if (!svg || !interval?.scale) return;
   const range = interval.value ?? null;
   clip(svg, interval.scale, plot!.marks[RANGE]?.index ?? RANGE, range);
-  clip(svg, interval.scale, plot!.marks[FRONT]?.index ?? FRONT, range && (frame ?? range));
+  clip(svg, interval.scale, plot!.marks[FRONT]?.index ?? FRONT, range ? (frame ?? range) : []);
 }
 
-/** Clip mark `index` of `svg` to `window` on `scale`, or lift its clip. */
+/** Clip mark `index` of `svg` to `window` on `scale` — to nothing when it is empty — or lift its clip. */
 function clip(svg: SVGSVGElement, scale: Brushed["scale"], index: number, window: readonly unknown[] | null): void {
   const mark = svg.querySelector(`g[data-index="${index}"]`);
   if (!mark) return;
   if (!window) return void mark.removeAttribute("clip-path");
   const slot = `timeline-clip-${index}`;
-  let rect = svg.querySelector(`clipPath[data-slot=${slot}] rect`);
-  if (!rect) {
-    const ns = "http://www.w3.org/2000/svg";
-    const path = document.createElementNS(ns, "clipPath");
-    path.id = `${slot}-${(clips += 1)}`;
-    path.setAttribute("data-slot", slot);
-    rect = path.appendChild(document.createElementNS(ns, "rect"));
-    svg.prepend(path);
+  // Parsed in the svg's namespace, so the markup is SVG; the id is unique on the page.
+  if (!svg.querySelector(`[data-slot=${slot}]`)) {
+    svg.insertAdjacentHTML("afterbegin", `<clipPath data-slot="${slot}" id="${slot}-${(clips += 1)}"><rect height="100%" y="0"/></clipPath>`);
   }
-  const [a, b] = window.map((v) => scale.apply(v)).sort((x, y) => x - y) as [number, number];
-  rect.setAttribute("x", String(a));
-  rect.setAttribute("width", String(b - a));
-  rect.setAttribute("y", "0");
-  rect.setAttribute("height", svg.getAttribute("height") ?? "100%");
-  mark.setAttribute("clip-path", `url(#${rect.parentElement!.id})`);
+  const path = svg.querySelector(`[data-slot=${slot}]`)!;
+  const [a = 0, b = 0] = window.map((v) => scale.apply(v)).sort((x, y) => x - y);
+  path.firstElementChild!.setAttribute("x", String(a));
+  path.firstElementChild!.setAttribute("width", String(b - a));
+  mark.setAttribute("clip-path", `url(#${path.id})`);
 }
 
 let clips = 0;
@@ -472,6 +482,14 @@ export function readWindow(window: readonly unknown[]): string {
     v instanceof Date ? DAY.format(v) : typeof v === "number" ? String(Math.round(v)) : String(v),
   );
   return `${from} – ${to}`;
+}
+
+/**
+ * A tick label at the top of the band: as `tickLabel`, and none for the last tick, which sits at the
+ * axis's end with no room to its right for a label that starts there.
+ */
+function topLabel(v: unknown, i: number, ticks: ArrayLike<unknown>): string {
+  return i === ticks.length - 1 ? "" : tickLabel(v);
 }
 
 /** An axis tick: a year as its integer, never *1,900*, and a date by the coarsest unit it starts. */
