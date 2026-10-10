@@ -58,6 +58,10 @@ brushed range and draws its first year whole.**
   and the brush draws as an outline rather than a grey fill over the bars it keeps.
 - **The first tick reads *1980*, not *980*.** The plot leaves half a label of room at either end.
 
+- **`GraphTimeline` is part of the graph's load.** Its band holds its height from the first render,
+  and the graph reads *Loading* until the canvas and the timeline's bars have both drawn, then shows
+  them together. A column chosen or changed later waits in the band alone.
+
 Size budgets raised as a decision, for one clause source per brush across rebuilds and the
 window's clip: analytics 33.9 → 35.6 kB, one dashboard 32.3 → 33.9 kB (the last 0.8 kB of each for play inside
 the range).

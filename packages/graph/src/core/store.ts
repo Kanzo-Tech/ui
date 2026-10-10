@@ -19,8 +19,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
   let options = initial;
   const listeners = new Set<() => void>();
 
-  let failed = false;
-  let unrenderable = false;
+  let failed = false, unrenderable = false, holds = 0; // `holds`: parts the load waits for, `hold()`
   let binding = bindingOf(initial);
   let structure: Structure | null = null;
   let geometry: Geometry | null = null;
@@ -106,7 +105,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     if (options.from === null || options.coordinator === null) return "none";
     const current = [geometry, encoding, mask];
     const shown = geometry !== null && current.every((part, i) => part === uploaded[i]);
-    return pending.structure || pending.geometry || pending.encoding || !shown ? "loading" : "idle";
+    return pending.structure || pending.geometry || pending.encoding || !shown || holds > 0 ? "loading" : "idle";
   }
 
   function notify(fields: Partial<GraphSnapshot> = {}): void {
@@ -358,6 +357,10 @@ export function createGraph(initial: GraphOptions): GraphStore {
       unrenderable = true;
       fail(error);
       notify();
+    },
+    hold() {
+      let held = (holds++, notify(), true);
+      return () => void (held && ((held = false), holds--, notify()));
     },
     reportDrawn(drawnSnapshot) {
       const next = [drawnSnapshot.geometry, drawnSnapshot.encoding, drawnSnapshot.mask];

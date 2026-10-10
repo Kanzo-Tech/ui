@@ -17,7 +17,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { attach, settle, type Attached } from "../../test/corpus";
 import { readStructure, relation, timelineOf } from "../core/source";
 import { createGraph } from "../core/store";
-import { GraphRoot } from "../react/graph-root";
+import { GraphRoot, useGraphContext } from "../react/graph-root";
+import { internalsOf } from "../react/use-graph";
+import { useGraphState } from "../react/use-graph-state";
+import { useEffect } from "react";
+
+/** A canvas stand-in that reports every snapshot drawn, so the graph's own frame is never what waits. */
+function Drawn() {
+  const store = internalsOf(useGraphContext()).store;
+  const state = useGraphState((s) => s);
+  useEffect(() => store.reportDrawn(store.getSnapshot()), [store, state]);
+  return null;
+}
 import { GRAPH_SECTION } from "../section";
 import { GraphTimeline } from "./graph-timeline";
 
@@ -386,6 +397,38 @@ describe("GraphTimeline, drawn", () => {
     expect(play.className).toMatch(/\bfocus-visible:opacity-100\b/);
     expect(play.className).toMatch(/\bdisabled:opacity-20\b/);
     expect(play.className).toMatch(/focus-visible:\[&_svg\]:outline-2/);
+  });
+
+  it("holds the graph's loading until its bars are drawn, and mounts its band once", async () => {
+    const corpus = await attach();
+    let status: string | undefined;
+    function Status() {
+      status = useGraphState((s) => s.status);
+      return null;
+    }
+    const { container } = render(
+      <KanzoThemeProvider policy={{ graph: { "time-by": { pinned: "born" } } }} sections={[GRAPH_SECTION]} storage={null}>
+        <MosaicProvider coordinator={corpus.coordinator}>
+          <GraphRoot coordinator={corpus.coordinator} from={corpus.from} onFailure={() => {}}>
+            <Status />
+            <Drawn />
+            <GraphTimeline />
+          </GraphRoot>
+        </MosaicProvider>
+      </KanzoThemeProvider>,
+    );
+    // The band is there from the first render, its height held, before the corpus is read.
+    const band = container.querySelector<HTMLElement>("[data-slot=graph-timeline]")!;
+    expect(band.style.minHeight).toBe("44px");
+    for (let i = 0; i < 100 && !band.querySelector("[data-drawn]"); i++) {
+      // The canvas has drawn every frame it was given; the timeline is the part still waited for.
+      expect(status).toBe("loading");
+      await act(() => settle(corpus));
+    }
+    expect(band.querySelector("[data-drawn]")).toBeTruthy();
+    await act(() => settle(corpus));
+    expect(status).toBe("idle");
+    expect(container.querySelector("[data-slot=graph-timeline]")).toBe(band);
   });
 
   it("is disabled with no range, and playable once one is brushed", async () => {

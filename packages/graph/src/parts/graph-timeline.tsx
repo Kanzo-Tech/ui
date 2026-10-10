@@ -2,7 +2,7 @@
 
 import { ChartTimeline } from "@kanzo-tech/ui/analytics";
 import { Selection, bridgeSelection } from "@kanzo-tech/mosaic";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { timelineOf } from "../core/source";
 import { useGraphContext } from "../react/graph-root";
 import { internalsOf } from "../react/use-graph";
@@ -29,25 +29,36 @@ export interface GraphTimelineProps {
  * named by the column. A date on a relation is a vertex here (`/docs/design/timeline`), so playing it
  * greys the relations of other years and the edges into them.
  */
-export function GraphTimeline({ className, height }: GraphTimelineProps) {
+export function GraphTimeline({ className, height = 44 }: GraphTimelineProps) {
   const { timeline } = useGraphPrefs();
   const structure = useGraphState((s) => s.structure);
-  const page = internalsOf(useGraphContext()).store.scope();
+  const { store } = internalsOf(useGraphContext());
+  const page = store.scope();
   const of = useMemo(() => timelineOf(structure, timeline), [structure, timeline]);
   // One per timeline: a window brushed over another column is not this one's to map.
   const own = useMemo(() => (of ? Selection.crossfilter() : null), [of]);
   useEffect(() => (of && own ? bridgeSelection(own, page, of.publish) : undefined), [of, own, page]);
-  if (!of || !own) return null;
+  const band = useRef<HTMLDivElement>(null);
+  const missing = structure !== null && !of;
+  // The graph's load waits for the bars: the canvas and the band appear together. A timeline that
+  // mounts on a graph already shown, or a column changed later, waits in the band alone.
+  const [wait] = useState(() => store.getSnapshot().status !== "idle");
+  useEffect(() => {
+    const host = band.current;
+    if (!host || !wait || missing) return;
+    const release = store.hold();
+    const drawn = new MutationObserver(() => host.querySelector("[data-drawn]") && release());
+    drawn.observe(host, { attributes: true, subtree: true, attributeFilter: ["data-drawn"] });
+    return () => (drawn.disconnect(), release());
+  }, [store, wait, missing]);
+  if (!timeline || missing) return null;
+  // The band is there from the first render, the bars' height held, and the figure in it from when
+  // the corpus says where the column is — part of the load, never mounted again.
   return (
-    <ChartTimeline
-      as={own}
-      className={className}
-      field={timeline}
-      filterBy={own}
-      height={height}
-      paceBy={page}
-      table={of.table}
-      title={`Timeline: ${timeline}`}
-    />
+    <div className={className} data-slot="graph-timeline" ref={band} style={{ minHeight: height }}>
+      {of && own ? (
+        <ChartTimeline as={own} field={timeline} filterBy={own} height={height} paceBy={page} table={of.table} title={`Timeline: ${timeline}`} />
+      ) : null}
+    </div>
   );
 }

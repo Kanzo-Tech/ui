@@ -320,7 +320,9 @@ every type that has it, a range brushed across it, and *Play time*, a bare icon 
 which plays the range: the graph fills in from the range's start a bar at a time, each step waiting
 for the graph to answer the last, until the whole range is in colour. With no range it is disabled;
 at the end the next press starts over; a pointer down on the bars pauses it. Its chip in the
-`FilterBar` reads the window as it grows, *birthday 1980 – 1983*, and its × stops play. It is named apart from
+`FilterBar` reads the window as it grows, *birthday 1980 – 1983*, and its × stops play. The band
+is part of the graph's load: its height is held from the first render, and the graph reads *Loading*
+until the canvas and the bars have both drawn, then shows them together. It is named apart from
 the toolbar's layout transport, which is a play button too. It is `ChartTimeline` from `@kanzo-tech/ui/analytics` over the corpus.
 
 - **The column is a setting, not a prop.** `time-by` — *Timeline* in the graph's settings — offers

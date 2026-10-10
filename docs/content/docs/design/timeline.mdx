@@ -138,6 +138,15 @@ no Play, no ticks, no skeleton, and no Play in the accessibility tree. When the 
 bars, the band and Play appear together with a short fade, none under `prefers-reduced-motion`. A
 Play over an empty band offered a range nobody could see.
 
+**Under a graph, the timeline is part of the graph's load.** `GraphTimeline` draws its band from the
+first render, its height held, and the figure in it as soon as the corpus says which tables have the
+column, so the histogram's query goes out with the corpus reads. The graph stays *Loading* until the
+canvas's first frame and the timeline's first bars: the band holds the store (`hold()`, released when
+the figure is drawn), so the canvas, the bars and Play appear at once. It is held once; a column
+chosen or changed later waits in the band alone, and the graph is not sent back to *Loading*. *What
+would reverse it:* a corpus whose histogram is much slower than its graph; then the canvas shows
+first and the band catches up, as a column chosen later does.
+
 **Play is a bare glyph at the band's left edge, muted until hovered, as Cosmograph's is.** Cosmograph
 draws a borderless icon, 20 – 30 px wide and half opaque, as a flex item left of its bars
 (`style.js`, `animationControl`). Ours is a solid 20 px glyph centred on the band, with 10 px on either

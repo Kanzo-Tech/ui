@@ -150,6 +150,18 @@ describe("the graph store", () => {
     expect(store.getSnapshot()).toBe(snapshot);
   });
 
+  it("stays loading while a part it waits for has not drawn, and is idle once every one has", async () => {
+    const { corpus, store } = await graph();
+    const release = store.hold();
+    await settle(corpus);
+    store.reportDrawn(store.getSnapshot());
+    expect(store.getSnapshot().status).toBe("loading");
+    release();
+    expect(store.getSnapshot().status).toBe("idle");
+    release();
+    expect(store.getSnapshot().status).toBe("idle");
+  });
+
   it("is idle only once the graph is loaded and drawn, and has none without a corpus", async () => {
     const { corpus, store } = await graph();
     expect(store.getSnapshot().status).toBe("loading");
