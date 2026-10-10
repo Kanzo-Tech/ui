@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { bridgeSelection, semiJoinOf } from "@kanzo-tech/mosaic";
-import { clausePoint, clausePoints, Selection, type Coordinator } from "@uwdata/mosaic-core";
+import { antiJoinOf, bridgeSelection, semiJoinOf } from "@kanzo-tech/mosaic";
+import { clauseInterval, clausePoint, clausePoints, Selection, type Coordinator } from "@uwdata/mosaic-core";
 import { describe, expect, it } from "vitest";
 import { FilterBar } from "./filter-bar.js";
 import { useEffect } from "react";
@@ -58,6 +58,19 @@ describe("retract", () => {
 });
 
 describe("FilterBar", () => {
+  it("names a bridged part once when it already reads as its bridge's name — a timeline's window", async () => {
+    const crossfilter = Selection.crossfilter();
+    const inner = Selection.crossfilter();
+    bridgeSelection(inner, crossfilter, antiJoinOf("dense_id", "Person", { label: "birthday" }));
+    render(
+      <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
+        <FilterBar />
+      </MosaicProvider>,
+    );
+    inner.update(clauseInterval("birthday", [1981, 1985], { source: { reset() {} } }));
+    expect(await screen.findByRole("button", { name: "Remove birthday 1981 – 1985" })).toBeTruthy();
+  });
+
   it("draws what a part puts in its slot, and leaves that part's clauses to it", async () => {
     const crossfilter = Selection.crossfilter();
     const inner = Selection.crossfilter();

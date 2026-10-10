@@ -86,6 +86,9 @@ describe("ChartTimeline", () => {
     expect(play.hasAttribute("disabled")).toBe(true);
     const window = screen.getByRole("group", { name: "Window" });
     expect(window.hasAttribute("aria-valuetext")).toBe(false);
+    // Disabled with its reason, the readout beside it: *Drag across the bars to choose a window*.
+    expect(play.getAttribute("aria-describedby")).toBe(window.id);
+    expect(window.textContent).toBe("Drag across the bars to choose a window");
   });
 
   it("draws no play button when it is not playable", () => {

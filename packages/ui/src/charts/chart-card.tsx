@@ -3,7 +3,7 @@
 import type { TableExpr } from "@kanzo-tech/mosaic";
 import type React from "react";
 import { desc, Query, type ExprValue } from "@uwdata/mosaic-sql";
-import { bin } from "@uwdata/vgplot";
+import { bin } from "./chart-bin.js";
 import {
   ChartAreaIcon,
   ChartBarBigIcon,

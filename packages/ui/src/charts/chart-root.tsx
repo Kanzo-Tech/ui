@@ -4,7 +4,7 @@ import { queryFailure, type TableExpr } from "@kanzo-tech/mosaic";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
-import { Selection, type Coordinator } from "@uwdata/mosaic-core";
+import { Selection, type Coordinator, type SelectionClause } from "@uwdata/mosaic-core";
 import * as vg from "@uwdata/vgplot";
 import { cn } from "../lib/cn.js";
 import { Show } from "../simples/show.js";
@@ -44,6 +44,46 @@ type PlotElement = HTMLElement & {
  */
 export interface ChartPlot {
   readonly interactors: readonly unknown[];
+}
+
+/** An interactor as a rebuild reads it: the clause it publishes, and the value that clause is of. */
+interface Publisher {
+  value?: unknown;
+  selection?: Selection;
+  clause?(value: unknown): SelectionClause;
+}
+
+/**
+ * **A rebuilt plot's interactors take over the clauses of the ones they replace.** A plot is rebuilt
+ * on a resize or a theme change, and vgplot builds new interactors with it — each a new clause
+ * source. The old interactor's clause would stay in its selection with no brush on screen to move or
+ * clear it, and the next brush would publish beside it, not over it: two windows, intersected. So
+ * where the grammar is the same, the interactor at the same place, of the same kind, on the same
+ * selection, is handed the old one's value — its brush is drawn from it — and, once it has drawn,
+ * publishes it as its own while the old clause is withdrawn. Where the grammar changed, a value of
+ * the old one means nothing to the new one, and its clause is withdrawn at once.
+ *
+ * Returns what to run once the new plot has drawn, when there is anything.
+ */
+function handOver(before: readonly unknown[], after: readonly unknown[], same: boolean): (() => void) | null {
+  const moves: (() => void)[] = [];
+  before.forEach((item, i) => {
+    const old = item as Publisher;
+    const selection = old.selection;
+    const held = selection?.clauses.find((c) => c.source === old);
+    if (!selection || !held) return;
+    const withdraw = () => selection.update({ ...held, value: null, predicate: null });
+    const heir = after[i] as Publisher | undefined;
+    const takes =
+      same && old.value !== undefined && heir?.constructor === old.constructor && heir.selection === selection && heir.clause !== undefined;
+    if (!takes) return void withdraw();
+    heir.value = old.value;
+    moves.push(() => {
+      selection.update(heir.clause!(heir.value));
+      withdraw();
+    });
+  });
+  return moves.length > 0 ? () => moves.forEach((move) => move()) : null;
 }
 
 /** An area stacked by a series column (the `z` `chart-marks` derives), which `denseStack` completes. */
@@ -221,6 +261,8 @@ export function ChartRoot(props: ChartRootProps) {
   // Plot's output on screen, for the test hook's scales.
   const output = useRef<PlotOutput | null>(null);
   const drawn = useRef<ChartPlot | null>(null);
+  /** The grammar and relation the plot on screen was built from: what a rebuild hands over within. */
+  const drawnFrom = useRef<string | null>(null);
   const title = rest["aria-label"];
   useEffect(() => registerChartForTesting(title, () => output.current), [title]);
   // A plain union, so it hides nothing from its own publisher — a crossfilter would, and
@@ -336,8 +378,11 @@ export function ChartRoot(props: ChartRootProps) {
             setFailure(undefined);
             const element = vg.plot(...spec.map(toVgDirective).filter((d): d is VgDirective => d !== null));
             const plot = (element as PlotElement).value;
+            const from = `${tableKey}\u0000${signature}`;
+            let handed = handOver(drawn.current?.interactors ?? [], plot.interactors, drawnFrom.current === from);
             marks.current = plot.marks;
             drawn.current = plot;
+            drawnFrom.current = from;
             // Busy from each build, and from each query a mark starts, to the render that draws its
             // answer: `pending` and `render` are the two moments vgplot's `Plot` has, and neither has
             // a listener.
@@ -350,6 +395,8 @@ export function ChartRoot(props: ChartRootProps) {
             const render = plot.render.bind(plot);
             plot.render = async () => {
               await render();
+              handed?.();
+              handed = null;
               output.current = plot.element.firstElementChild as PlotOutput | null;
               setBusy(false);
             };

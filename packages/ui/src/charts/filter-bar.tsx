@@ -51,7 +51,8 @@ export interface FilterBarProps extends React.ComponentProps<typeof ark.section>
  * chips. Every clause on the page's crossfilter is a chip that retracts it where it was published,
  * read from `Selection.clauses`, so the row reports filters it did not publish: a brush, a lasso, a
  * pick. A clause a bridge mapped — a dashboard's tiles as one semi-join — is its parts, each named
- * after it: *Dashboard creationDate 2011 – 2012*.
+ * after it: *Dashboard creationDate 2011 – 2012*, and once where the part already reads as the
+ * bridge's name: a timeline's window is *date 1910 – 1940*.
  *
  * Other parts draw in it through a slot: a `Dashboard` puts its filters and *+ Filter* here, as
  * chips that open their control, and the bar leaves those clauses to them. The readout says what the
@@ -66,9 +67,12 @@ export function FilterBar(props: FilterBarProps) {
     const made = bridged(clause);
     if (!made) return isHeld(held, clause) ? [] : [{ label: clauseLabel(clause), remove: () => retract([clause]) }];
     const { field } = clauseParts(clause);
+    // A part that already reads as its bridge's name is not named twice: a timeline's bridge is
+    // called by its column, and its window reads *date 1910 – 1940*, not *date date 1910 – 1940*.
+    const named = (part: SelectionClause) => (clauseParts(part).field === field ? clauseLabel(part) : `${field} ${clauseLabel(part)}`);
     return made.parts
       .filter((part) => !isHeld(held, part))
-      .map((part) => ({ label: `${field} ${clauseLabel(part)}`, remove: () => made.retract([part]) }));
+      .map((part) => ({ label: named(part), remove: () => made.retract([part]) }));
   });
 
   return (

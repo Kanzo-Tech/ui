@@ -4,9 +4,9 @@ import type { TableExpr } from "@kanzo-tech/mosaic";
 import type { Selection } from "@uwdata/mosaic-core";
 import { Interval1D } from "@uwdata/mosaic-plot";
 import { count } from "@uwdata/mosaic-sql";
-import { bin } from "@uwdata/vgplot";
+import { bin } from "./chart-bin.js";
 import { PauseIcon, PlayIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { cn } from "../lib/cn.js";
 import { Button } from "../simples/button.js";
 import { ChartAxisX, ChartAxisY } from "./chart-axes.js";
@@ -37,9 +37,15 @@ export interface ChartTimelineProps {
   className?: string;
 }
 
-const MARGIN = { top: 4, right: 8, bottom: 20, left: 8 };
+/**
+ * The sides hold half a tick label: a tick on the axis's edge — *1900*, the first bar's — is centred
+ * on it, and the plot's SVG clips what passes its box, so 8px read *900*.
+ */
+const MARGIN = { top: 4, right: 20, bottom: 20, left: 20 };
 /** How many bars the axis is cut into. */
 const BARS = 60;
+/** The window drawn as an outline: d3's grey fill over it would read as the part left out. */
+const BRUSH = { fillOpacity: 0, stroke: "currentColor", strokeOpacity: 0.6 };
 /** Cosmograph's `animationSpeed`: one bar every 50 ms. */
 const TICK_MS = 50;
 
@@ -77,8 +83,11 @@ export function ChartTimeline({
       table={table}
     >
       <ChartRectY fill="var(--muted-foreground)" filterBy={null} inset={0.5} opacity={0.22} x={bars} y={count()} />
+      {/* The brush is on the bars behind, which draw every bar for it to stick to, and exempts them
+          alone: the bars in front are filtered by the window, so it is in colour and the rest grey.
+          Its own fill would grey the window over, so it is drawn as an outline. */}
+      <ChartBrushX brush={BRUSH} peers={false} />
       <ChartRectY fill={fill} inset={0.5} x={bars} y={count()} />
-      <ChartBrushX />
       <ChartAxisX label={null} tickFormat={tickLabel} ticks={5} />
       <ChartAxisY anchor={null} label={null} />
       <TimelineWindow playable={playable} />
@@ -130,10 +139,12 @@ function TimelineWindow({ playable }: { playable: boolean }) {
   }, [playing, plot]);
 
   const reading = range ? readWindow(range) : null;
+  const readout = useId();
   return (
     <div className="flex min-h-7 items-center gap-2 px-2 text-muted-foreground text-xs">
       {playable ? (
         <Button
+          aria-describedby={!range && !playing ? readout : undefined}
           aria-label={playing ? "Pause" : "Play"}
           aria-pressed={playing}
           disabled={!range && !playing}
@@ -144,7 +155,7 @@ function TimelineWindow({ playable }: { playable: boolean }) {
           {playing ? <PauseIcon /> : <PlayIcon />}
         </Button>
       ) : null}
-      <div aria-label="Window" aria-valuetext={reading ?? undefined} className="tabular-nums" role="group">
+      <div aria-label="Window" aria-valuetext={reading ?? undefined} className="tabular-nums" id={readout} role="group">
         {reading ?? "Drag across the bars to choose a window"}
       </div>
     </div>

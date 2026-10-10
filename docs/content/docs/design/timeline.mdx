@@ -12,11 +12,26 @@ why ours is shaped as it is.
 ## A histogram whose brush owns one clause
 
 **A timeline is two layers of bars over `bin(field)` and an interval brush that publishes one clause:
-the bars behind are the column unfiltered, the bars in front are what the page keeps, and the brush's
-clause is a chip in the bar like any other control's.** Cosmograph's `Timeline` draws the same two
+the bars behind are the column unfiltered, the bars in front are what the page keeps, the window
+included, and the brush's clause is a chip in the bar like any other control's.** So the window is
+in colour and what it leaves out is grey, as in Cosmograph. The brush sits on the bars behind and
+exempts them alone (`peers: false`): they draw every bar for it to stick to, and the bars in front
+are filtered by it. It is drawn as an outline, because d3's grey fill over the window read as the
+part left out. Cosmograph's `Timeline` draws the same two
 layers (`highlightSelectedData`) and publishes `isBetween(column, range)` from a client of its own.
 Ours is a `ChartRoot` of `ChartRectY` marks and a `ChartBrushX`. The bins are SQL, through vgplot's
 `bin()`, which bins a temporal channel by date.
+
+**One clause means one source, for as long as the window lasts.** An interval is its clause's source,
+and vgplot builds new interactors with every plot, so a plot rebuilt under a window left that window
+in the selection with no brush to move or clear it, and the next brush published beside it: the
+bar held two windows and intersected them. Two things rebuilt it. `bin()` returns a new closure per
+call, which the plot's signature reads by identity, so every render was a new grammar: `bin` on
+`/analytics` is made once per field and options. And a resize or a theme change rebuilds by design:
+`ChartRoot` hands each interactor's value to the one that replaces it, which draws it and publishes
+it as its own while the old clause is withdrawn — and withdraws it outright where the grammar
+changed. *What would reverse it:* interactors in vgplot that outlive their plot, or a plot that
+resizes without being rebuilt; then there is nothing to hand over.
 
 **It replaced the dashboard's private `Timeline`**, the filter control behind a temporal field's chip
 (`packages/ui/src/charts/dashboard-filters.tsx`), which drew the same marks with no playback and
@@ -51,7 +66,8 @@ not a `Selection`'s, and `PanZoom` follows the `Param`s of its domains. Cosmogra
 `ChartTimeline` reaches its interactor through `Plot.interactors`, which vgplot exposes.
 
 **The tick is Cosmograph's.** Every 50 ms the window moves by one bar, and it stops where the axis
-ends. Play with no window does nothing. There is no stop: a window is let go as any filter is, from its
+ends. With no window Play is disabled, described by the readout beside it: *Drag across the bars to
+choose a window*. There is no stop: a window is let go as any filter is, from its
 chip or the page's **Clear**, and Cosmograph's stop is that and a pause. A tick does not wait for the
 graph: each one publishes, and the store keeps the newest answer and drops a stale one
 (`packages/graph/src/core/store.ts`). A playing timeline therefore never draws behind its own clause.
@@ -94,7 +110,8 @@ page by `antiJoinOf(key, timeline)` — `dense_id NOT IN (SELECT dense_id FROM <
 column> WHERE NOT <the window>)` — the way a dashboard's tiles cross by `semiJoinOf`. The anti-join
 drops only the rows of the types with the column that the window leaves out, so the rest stay whole,
 and it names the key alone, so every client answers it. The chip still reads *date 1910 – 1940*: the
-bar names a bridged clause by its parts.
+bar names a bridged clause by its parts, and does not prefix a part with its bridge's name when the
+part already reads as it — the bridge is called by the column.
 
 **What would reverse it:** clients of the page that each apply the clause rule themselves, as
 `GraphClient` does, skipping a clause they cannot answer. Then a column clause could go to the page
@@ -144,8 +161,13 @@ then brushes in data and plays.
 order, and stops at the end of the axis; with no window there is nothing to play; a brushed window
 sticks to the nearest edges, at least one bar wide; a year reads as its integer, on the axis too; the
 figure, its button and its group are what a harness reads),
+`packages/ui/src/charts/filter-bar.test.tsx` ("names a bridged part once when it already reads as its
+bridge's name — a timeline's window"),
 `packages/graph/src/parts/graph-timeline.test.tsx` (it draws nothing until `time-by` is chosen, and
 nothing for a column the corpus lacks; the window filters the types with the column and leaves a
-relation without it whole, unbroken), `packages/mosaic/src/clause.test.ts` (the anti-join names the
+relation without it whole, unbroken; "holds one window, which each brush replaces — through a
+re-render and a rebuild of the plot"; "keeps the window through a rebuild of the plot, drawn and
+playable"; "draws the window's bars in front, and what it leaves out only behind"; "draws every tick
+label whole, the first one at the axis's edge too"), `packages/mosaic/src/clause.test.ts` (the anti-join names the
 key alone) and `packages/graph/src/parts/graph-section.test.tsx` (the
 setting offers the `xsd:gYear` column by its datatype, and no integer of the same range).

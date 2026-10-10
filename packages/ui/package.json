@@ -195,7 +195,7 @@
       "name": "one dashboard (tree-shaken)",
       "path": "dist/analytics.js",
       "import": "{ Dashboard }",
-      "limit": "32.3 kB",
+      "limit": "32.5 kB",
       "ignore": [
         "react",
         "react-dom",
