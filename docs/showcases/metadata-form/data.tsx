@@ -1,7 +1,7 @@
 // Fixtures for the metadata-form showcase — posting a contract to the Guild board.
 //
 // The design system owns error PRESENTATION, never error PRODUCTION
-// (see `.planning/FORMS-DECISION.md`): `Field` takes a boolean + a `ReactNode`, and where the boolean
+// (see `/docs/design/admission`): `Field` takes a boolean + a `ReactNode`, and where the boolean
 // came from is the product's business. So the whole rule engine is FAKED here — a plain
 // `validate(values)` that walks a posting-shaped value object and returns `Issue[]`, exactly the
 // way the discovery showcase fakes its graph. No rule language, no interpreter, no
