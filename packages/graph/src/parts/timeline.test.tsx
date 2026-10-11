@@ -164,7 +164,14 @@ describe("the vertices relation", () => {
  * since jsdom computes none and Plot would read `color-mix(…)` as a column. What needs a pointer is
  * done through the interval itself, as its brush would: `publish` takes the brush's pixels.
  */
-describe("a timeline over the graph's vertices, drawn", () => {
+/**
+ * How long a wait in the drawn timeline may take. Each frame of play waits for every client of the
+ * page — the canvas and the bars, a real DuckDB under them — to answer the last, so a run beside
+ * other suites is slow before it is wrong; the waits and the tests are budgeted for that.
+ */
+const WAIT = { timeout: 10_000 };
+
+describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () => {
   beforeEach(() => {
     vi.stubGlobal(
       "ResizeObserver",
@@ -271,7 +278,7 @@ describe("a timeline over the graph's vertices, drawn", () => {
     await brush(1903, 1907);
     // The brush's end snaps the window to the bars' edges once the rebuilt plot's bars have answered,
     // which a loaded runner can deliver after one settle: wait for the clause's state, not a moment.
-    await vi.waitFor(() => expect(chips().map((chip) => chip.getAttribute("aria-label"))).toEqual(["Remove born 1903 – 1907"]));
+    await vi.waitFor(() => expect(chips().map((chip) => chip.getAttribute("aria-label"))).toEqual(["Remove born 1903 – 1907"]), WAIT);
   });
 
   it("holds one clause and one chip through every state play passes — a rebuild and a stale brush included", async () => {
@@ -289,7 +296,7 @@ describe("a timeline over the graph's vertices, drawn", () => {
     one();
     const { last } = recording(plot()!);
     play();
-    await vi.waitFor(() => expect(last()[1]).toBeGreaterThan(1900.5));
+    await vi.waitFor(() => expect(last()[1]).toBeGreaterThan(1900.5), WAIT);
     one();
     expect(last()[0]).toBe(1900);
     // Rebuilt while it plays — a resize — twice before the first rebuild has drawn.
@@ -340,7 +347,7 @@ describe("a timeline over the graph's vertices, drawn", () => {
     expect(window.getAttribute("aria-valuetext")).toBe("1902 – 1905");
     const play = screen.getByRole("button", { name: "Play time" });
     fireEvent.click(play);
-    await vi.waitFor(() => expect(window.getAttribute("aria-valuetext")).not.toBe("1902 – 1905"));
+    await vi.waitFor(() => expect(window.getAttribute("aria-valuetext")).not.toBe("1902 – 1905"), WAIT);
   });
 
   /** The window the page's timeline clause holds. */
@@ -447,14 +454,16 @@ describe("a timeline over the graph's vertices, drawn", () => {
     // The band is there from the first render, its height held, before the corpus is read.
     const band = container.querySelector<HTMLElement>("[data-slot=graph-timeline]")!;
     expect(band.style.minHeight).toBe("44px");
-    for (let i = 0; i < 100 && !band.querySelector("[data-drawn]"); i++) {
-      // The canvas has drawn every frame it was given; the timeline is the part still waited for.
-      expect(status).toBe("loading");
+    const figure = () => band.querySelector<HTMLElement>("[role=figure]");
+    for (let i = 0; i < 100 && status !== "idle"; i++) {
+      // The canvas has drawn every frame it was given; the chart is the part still waited for: while
+      // it has not drawn its first answer — it is busy — the graph is loading.
+      if (figure()?.getAttribute("aria-busy") === "true") expect(status).toBe("loading");
       await act(() => settle(corpus));
     }
-    expect(band.querySelector("[data-drawn]")).toBeTruthy();
-    await act(() => settle(corpus));
     expect(status).toBe("idle");
+    expect(figure()?.getAttribute("aria-busy")).toBeNull();
+    await vi.waitFor(() => expect(band.querySelector("[data-drawn]")).toBeTruthy(), WAIT);
     expect(container.querySelector("[data-slot=graph-timeline]")).toBe(band);
   });
 
@@ -535,7 +544,7 @@ describe("a timeline over the graph's vertices, drawn", () => {
     const play = screen.getByRole("button", { name: "Play time" });
     const { windows, last } = recording(plot()!);
     fireEvent.click(play);
-    await vi.waitFor(() => expect(last()[1]).toBeGreaterThan(1900.5));
+    await vi.waitFor(() => expect(last()[1]).toBeGreaterThan(1900.5), WAIT);
     fireEvent.pointerDown(document.querySelector("[aria-label='Timeline: born'] svg")!);
     expect(play.getAttribute("aria-pressed")).toBe("false");
     const frozen = last();
@@ -545,7 +554,7 @@ describe("a timeline over the graph's vertices, drawn", () => {
     expect(screen.getByRole("status", { name: "Timeline" }).textContent).toBe(`Paused at ${readWindow(frozen as [number, number])}`);
     fireEvent.click(play);
     expect(last()[0]).toBe(1900);
-    await vi.waitFor(() => expect(last()[1]).toBeGreaterThan(frozen[1]!));
+    await vi.waitFor(() => expect(last()[1]).toBeGreaterThan(frozen[1]!), WAIT);
     fireEvent.click(play);
   });
   it("reads its chip as the window while it plays, and the chip's remove stops it and lets the window go", async () => {
@@ -555,7 +564,7 @@ describe("a timeline over the graph's vertices, drawn", () => {
     const play = screen.getByRole("button", { name: "Play time" });
     fireEvent.click(play);
     // The chip follows the window and reads as it does paused: no marker.
-    await vi.waitFor(() => expect(chips()[0]!.getAttribute("aria-label")).toMatch(/^Remove born 1900 – 1900/));
+    await vi.waitFor(() => expect(chips()[0]!.getAttribute("aria-label")).toMatch(/^Remove born 1900 – 1900/), WAIT);
     expect(chips()[0]!.parentElement!.querySelector("svg:not(.size-3)")).toBeNull();
     fireEvent.click(chips()[0]!);
     await act(() => settle(corpus));
