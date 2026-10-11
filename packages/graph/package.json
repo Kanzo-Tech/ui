@@ -65,7 +65,7 @@
     {
       "name": "root barrel (JS)",
       "path": "dist/index.js",
-      "limit": "24.1 kB",
+      "limit": "24.3 kB",
       "ignore": [
         "react",
         "react-dom",

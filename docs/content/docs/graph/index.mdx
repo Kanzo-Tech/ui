@@ -271,7 +271,8 @@ A rule and the vertices that break it, an answer and the vertices it counted, a 
 **`usePick(id)` publishes them as a clause of their own** on the crossfilter the graph filters by —
 `key IN (ids)`, whose chip reads `label`. Every clause filters every client, the graph included,
 which greys out the rest. `pick(ids, label)` replaces what that place picked before; `pick(null)`
-withdraws it.
+withdraws it, and `pick([])` is a clause that keeps nothing
+([why](/docs/design/crossfilter#formal-semantics)).
 
 **Each place is its own source, so picks intersect.** A rule's pick and a lasso together keep the
 vertices both hold, as Mosaic's crossfilter defines it; one place picking twice replaces its own

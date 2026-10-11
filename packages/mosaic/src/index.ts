@@ -69,12 +69,14 @@ export {
  */
 export {
   clauseColumns,
+  clauseAntiJoin,
   clauseSemiJoin,
   semiJoinOf,
   clauseParts,
   clauseLabel,
   type ClauseParts,
   type SemiJoinMembers,
+  type AntiJoinMetadata,
   type SemiJoinMetadata,
   type SemiJoinOptions,
 } from "./clause.js";
