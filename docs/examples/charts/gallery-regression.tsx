@@ -16,7 +16,7 @@ export default function Example() {
   return (
     <MosaicDemo>
       <div className="w-full max-w-xl">
-        <ChartRoot height={280} table="sightings">
+        <ChartRoot height={280} relation="sightings">
           <ChartDot fill="var(--muted-foreground)" fillOpacity={0.25} r={2} x="bounty" y="leagues" />
           <ChartRegressionY ci={0.95} stroke="var(--chart-1)" x="bounty" y="leagues" />
           <ChartAxisX label="bounty (gold)" />

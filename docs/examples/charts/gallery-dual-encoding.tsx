@@ -35,7 +35,7 @@ export default function Example() {
   return (
     <MosaicDemo>
       <div className="w-full max-w-xl">
-        <ChartRoot height={260} table="sightings">
+        <ChartRoot height={260} relation="sightings">
           <ChartBarY fill="var(--chart-1)" fillOpacity={avg("bounty")} tip x="hour" y={count()} />
           <ChartToggleX />
           <ChartHighlight />

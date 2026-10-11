@@ -18,7 +18,7 @@ export default function Example() {
   return (
     <MosaicDemo>
       <div className="w-full max-w-xl">
-        <ChartRoot height={280} table="sightings">
+        <ChartRoot height={280} relation="sightings">
           <ChartHexgrid strokeOpacity={0.12} />
           <ChartHexbin
             binWidth={18}

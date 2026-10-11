@@ -13,7 +13,7 @@ import {
   ChartRoot,
   ChartToggleX,
   count,
-  useSelected,
+  useMosaic,
 } from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
@@ -22,7 +22,7 @@ import { MosaicDemo } from "./mosaic-demo";
 // rebuilt with the other interactor and the marks stay exactly as they were.
 //
 // The brush is its own feedback (you see the rectangle); the toggle is not, so it pairs with a
-// `ChartHighlight`. Neither needs a prop — both default to the provider's pair.
+// `ChartHighlight`. Neither needs a prop — both default to the page's selection.
 //
 // Both conditionals stay `&&`/ternary rather than `Show`, and that is the one place in docs/ where
 // the house rule does not apply: the compiler walks the element tree without rendering it, so a
@@ -46,9 +46,8 @@ export default function Example() {
 
 function Swap() {
   const [mode, setMode] = useState<string>("brush");
-  // What the interactors publish into — `useSelected()`, not `useCrossfilter()`, because that is
-  // the selection this chart's own clause lands in.
-  const selected = useSelected();
+  // What the interactors publish into: the page's one selection.
+  const { selection } = useMosaic();
 
   return (
     <div className="flex w-full max-w-xl flex-col gap-3">
@@ -57,7 +56,7 @@ function Swap() {
         className="w-fit"
         onValueChange={(details) => {
           // Removing an interactor does not withdraw the clause it published; reset on the swap.
-          selected.reset();
+          selection.reset();
           setMode(details.value ?? "brush");
         }}
         options={MODES}
@@ -65,7 +64,7 @@ function Swap() {
         variant="solid"
       />
 
-      <ChartRoot height={220} table="sightings">
+      <ChartRoot height={220} relation="sightings">
         <ChartLineY filterBy={null} stroke="var(--muted-foreground)" strokeOpacity={0.35} x="hour" y={count()} />
         <ChartAreaY fill="var(--primary)" fillOpacity={0.12} x="hour" y={count()} />
         <ChartDot fill="var(--primary)" r={3.5} x="hour" y={count()} />

@@ -34,7 +34,7 @@ for the parts where "no chart above me" is a **supported configuration**, not a 
 - `ChartLegend` — reads the root's config when it has one, and takes its own `config` / `series`
   prop when it does not, so a key can sit in a card header far from its plot.
 - `ChartStat` — the figure of a `StatRoot` in a dashboard grid, outside any plot. It falls back to its own
-  `table` prop and throws only when neither is present.
+  `relation` prop and throws only when neither is present.
 
 The rule is the same one either way: the fallback has to be a real answer. If your component cannot
 say anything useful without a chart, throw — use `useChartContext`.
@@ -54,8 +54,8 @@ Takes no arguments. Returns `null` outside a `ChartRoot`; otherwise the same obj
 | `formatNumber` | `(value: number, options?: Intl.NumberFormatOptions) => string` |
 | `config` | `ChartConfig` |
 | `table` | `TableExpr \| undefined` |
-| `filterBy` | `Selection \| null` |
-| `as` | `Selection` |
+| `relation` | `RelationRef \| null` |
+| `selection` | `Selection` |
 | `coordinator` | `Coordinator` |
 
 Descriptors (marks, interactors, axes) are no better served by this one than by `useChartContext`:

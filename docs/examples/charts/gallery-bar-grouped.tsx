@@ -27,7 +27,7 @@ export default function Example() {
   return (
     <MosaicDemo>
       <div className="w-full max-w-xl">
-        <ChartRoot config={config} facetMargin={{ left: 8, right: 8 }} height={240} table="sightings">
+        <ChartRoot config={config} facetMargin={{ left: 8, right: 8 }} height={240} relation="sightings">
           <ChartBarY fill="verdict" fx="region" tip x="verdict" y={count()} />
           <ChartToggleColor />
           <ChartHighlight />

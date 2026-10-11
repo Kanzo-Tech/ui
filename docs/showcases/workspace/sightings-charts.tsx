@@ -121,8 +121,8 @@ export default function SightingsDashboard() {
         {coordinator && (
           <MosaicProvider coordinator={coordinator}>
             <div className="flex flex-col gap-4">
-              <FilterBar rowNoun="sightings" table={T} />
-              <Dashboard config={CONFIG} onChange={setSpec} table={T} value={spec} />
+              <FilterBar rowNoun="sightings" relation={T} />
+              <Dashboard config={CONFIG} onChange={setSpec} relation={T} value={spec} />
             </div>
           </MosaicProvider>
         )}

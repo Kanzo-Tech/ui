@@ -35,15 +35,15 @@ const gateway = createGateway({ baseURL: "/api/ai" });
 
 ```tsx
 function Ask({ engine, graph, relations, dashboards, onAdd }: { engine: Engine; graph: JoinGraph; relations: AnswerRelation[]; dashboards: Dashboards; onAdd: AnswerCardProps["onAdd"] }) {
-  const { crossfilter } = useMosaic();
+  const { selection } = useMosaic();
   // The context each alias was started with, as the host declares it: each call fits in it.
-  const chat = useAgentChat(dataAgent({ model: gateway("chat"), engine, graph, relations, selection: crossfilter, context: { tokens: 16384 } }));
+  const chat = useAgentChat(dataAgent({ model: gateway("chat"), engine, graph, relations, selection, context: { tokens: 16384 } }));
   // Cached per data space and per filter; streamed, so the pills land one by one.
   const starters = useQuery({
-    queryKey: ["starters", relations, String(crossfilter.predicate(null))],
+    queryKey: ["starters", relations, String(selection.predicate(null))],
     queryFn: streamedQuery({
       streamFn: ({ signal }) =>
-        dataSuggestions({ model: gateway("complete"), graph, relations, selection: crossfilter, context: { tokens: 8192 }, abortSignal: signal }),
+        dataSuggestions({ model: gateway("complete"), graph, relations, selection, context: { tokens: 8192 }, abortSignal: signal }),
     }),
   });
   return (
@@ -246,8 +246,9 @@ again over the host's graph, and one whose relation that graph no longer has is 
 Above it are the two actions the shape gives:
 
 - **Filter to it** narrows the page to the answer: its conditions, and for a bar chart the
-  categories it answered, published as one semi-join on the relation's root key — [`semiJoinOf`](/docs/design/graph#the-clause-rule-column-predicates-or-a-semi-join-on-identity),
-  as a relation dashboard's tiles publish — so the graph and every panel that shares the key follow.
+  categories it answered, published as one semi-join on the relation's root key — a
+  [`clauseSemiJoin`](/docs/design/graph#the-clause-rule-column-predicates-or-a-semi-join-on-identity)
+  over the answer's rows — so the graph and every panel that shares the key follow.
   It is a chip in the page's `FilterBar`, *Ask*, and pressed again it takes the clause back. An
   answer with nothing to narrow to draws no button.
 - **Add to the dashboard** is drawn when the host passes `dashboards` and `onAdd`, which go together.

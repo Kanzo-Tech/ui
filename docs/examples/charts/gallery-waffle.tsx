@@ -28,7 +28,7 @@ export default function Example() {
   return (
     <MosaicDemo>
       <div className="w-full max-w-xl">
-        <ChartRoot config={config} height={260} table="sightings">
+        <ChartRoot config={config} height={260} relation="sightings">
           <ChartWaffleY fill="verdict" order={ORDER} tip unit={5} x="region" y={count()} />
           <ChartToggleColor />
           <ChartHighlight />

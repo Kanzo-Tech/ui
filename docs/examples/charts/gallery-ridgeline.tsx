@@ -29,7 +29,7 @@ export default function Example() {
           attributes={OVERLAP}
           height={280}
           margin={{ top: 48, right: 16, bottom: 32, left: 76 }}
-          table="sightings"
+          relation="sightings"
         >
           <ChartAreaY
             curve="basis"

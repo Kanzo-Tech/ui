@@ -27,7 +27,7 @@ export default function Example() {
         {SERIES.map((series) => (
           <div className="flex flex-col gap-2 rounded-lg border bg-card p-3" key={series.label}>
             <p className="font-medium text-muted-foreground text-xs">{series.label}</p>
-            <ChartRoot height={40} margin={0} table="sightings">
+            <ChartRoot height={40} margin={0} relation="sightings">
               <ChartAreaY fill={series.color} fillOpacity={0.16} x="hour" y={series.y} />
               <ChartLineY stroke={series.color} strokeWidth={1.5} x="hour" y={series.y} />
               <ChartAxisX anchor={null} label={null} />

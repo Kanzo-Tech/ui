@@ -20,7 +20,7 @@ export default function Example() {
   return (
     <MosaicDemo>
       <div className="w-full max-w-xl">
-        <ChartRoot height={160} margin={MARGIN} table="sightings">
+        <ChartRoot height={160} margin={MARGIN} relation="sightings">
           <ChartBarX
             fill="var(--muted-foreground)"
             filterBy={null}

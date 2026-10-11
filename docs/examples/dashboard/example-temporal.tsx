@@ -16,8 +16,8 @@ export default function Example() {
   return (
     <ContractsDemo table={CONTRACTS}>
       <EditingPage>
-        <FilterBar rowNoun="contracts" table={CONTRACTS} />
-        <Dashboard onChange={setSpec} table={CONTRACTS} value={spec} />
+        <FilterBar rowNoun="contracts" relation={CONTRACTS} />
+        <Dashboard onChange={setSpec} relation={CONTRACTS} value={spec} />
       </EditingPage>
     </ContractsDemo>
   );

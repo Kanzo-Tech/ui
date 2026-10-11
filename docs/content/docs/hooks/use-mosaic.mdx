@@ -1,12 +1,12 @@
 ---
 title: useMosaic
-description: The Mosaic context in one call — the coordinator, the two shared selections, and the reset a "Clear filters" button needs.
+description: The Mosaic context in one call — the coordinator, the page's one selection and the joins its relations are read over.
 ---
 
 <ComponentPreview componentName="use-mosaic" />
 
 Brush the histogram, click a region, and the count in the group above moves with them. The button
-calls `reset()`, which is not the same as resetting the crossfilter — see [reset()](#reset).
+calls `selection.reset()`: every clause goes, and every chart that published one clears with it.
 
 ## Usage
 
@@ -19,38 +19,33 @@ import { useMosaic } from "@kanzo-tech/ui/analytics";
 ```
 
 ```tsx
-const { coordinator, crossfilter, selected, registerSelection, reset } = useMosaic();
+const { coordinator, selection, joins } = useMosaic();
 ```
 
 It reads the context [`MosaicProvider`](/docs/analytics/charts#the-pages-one-engine)
-publishes, and **throws** outside one. [`useCrossfilter`](/docs/hooks/use-crossfilter) and
-[`useSelected`](/docs/hooks/use-selected) return one field each; reach for this when you want more
-than one of them, or any of the three that only live here.
+publishes, and **throws** outside one. It is the one hook: a page has one selection, and nothing else
+to choose between.
 
-## The two selections
+## selection
 
-A page has two shared selections, not one, and the difference is the whole reason both are on the
-context:
+The page's one selection, owned by the provider — nobody passes one. Every chart, control and stat
+on the page filters by it and publishes into it, and a part of your own that should follow the brush
+does the same: a `MosaicClient` with `filterBy: selection`, or [`useChartQuery`](/docs/hooks/use-chart-query).
 
-| | What it is | You use it to |
-| --- | --- | --- |
-| `crossfilter` | what marks **filter by** | filter a widget of your own by the same brush |
-| `selected` | every chart clause on the page, flattened into one plain union | **read** — a chip row, a readout |
+It is Mosaic's crossfilter — a chart is exempt from its own clause, so the bars under a brush do not
+vanish — with one addition, made through Mosaic's own extension point, its resolver: a clause
+published on one relation reaches a part reading another, crossed by key over the provider's
+`joins`, or keeping none of it where there is no way across
+([why](/docs/design/crossfilter#step-3-one-selection-across-relations)).
 
-`selected` is relayed into `crossfilter`, so a clause published by a chart reaches both. It is not a
-publish target: a page-wide selection names columns other charts do not group by, and
-`ChartHighlight` reading one is
-[a binder error waiting to happen](/docs/analytics/charts#feedback-on-the-chart-that-filters).
+**Retracting is Mosaic's own.** `selection.reset([clause])` takes a clause out and calls its source
+back, which is how a chip's × clears the brush that published it; `selection.reset()` is *Clear
+filters*. There is no second selection upstream for a reset to miss.
 
-## reset()
+## joins
 
-`Selection.reset()` travels **downstream** only. Resetting `crossfilter` therefore clears the shared
-selections and leaves every chart still holding the pick it published upstream — the bars stay
-highlighted, the brush rectangle stays drawn, and nothing on the page explains why.
-
-`reset()` clears both shared selections **and** every registered chart selection, so it is the call
-a "Clear filters" button wants. `ChartRoot` registers the selection it mints for you; a selection of
-your own registers with `registerSelection`.
+The join graph the provider was handed — `readJoinGraph` for a fossil corpus — or `null`. A part's
+`relation` names a type or a path over it.
 
 ## coordinator
 
@@ -66,20 +61,6 @@ totals beside filtered charts — which nobody reads as a stale widget, they rea
 crossfilter. Use [`useChartQuery`](/docs/hooks/use-chart-query), or `ChartStat` for the tile case.
 </Callout>
 
-## registerSelection
-
-Passing your own `as` to a `ChartRoot` means the root stops wiring it for you: its clauses are not
-relayed onward, and `reset()` cannot see it. `registerSelection(selection, { relay: true })` buys
-both back, and returns the unregister — which is exactly an effect's cleanup.
-
-<ComponentPreview componentName="use-mosaic" fileName="example-register" />
-
-Without `relay`, the selection is enrolled in `reset()` only. That is the right option for a
-selection you filter by but never want flattened into the page's read model.
-
-The unregister also calls `selection.reset()`, so a chart that unmounts — a tab, a conditional —
-cannot leave its clause filtering a page with nothing left on screen to clear it.
-
 ## API Reference
 
 `useMosaic(): MosaicContextValue`
@@ -87,9 +68,8 @@ cannot leave its clause filtering a page with nothing left on screen to clear it
 | Field | Type | What it is |
 | --- | --- | --- |
 | `coordinator` | `Coordinator` | the caller's coordinator, also registered as vgplot's active one |
-| `crossfilter` | `Selection` | the shared selection marks filter by |
-| `selected` | `Selection` | every clause on the page, flattened — a read model |
-| `registerSelection` | `(selection: Selection, options?: { relay?: boolean }) => () => void` | enrol a selection of your own; returns the unregister |
-| `reset` | `() => void` | clear the shared selections **and** every registered chart selection |
+| `selection` | `Selection` | the page's one selection: what every part filters by and publishes into |
+| `joins` | `JoinGraph \| null` | the graph the page's relations are read over |
+| `onFailure` | `(error: unknown) => void` | hands a failed read to the provider's `onFailure` |
 
 Throws `useMosaic must be used within a <MosaicProvider>.` when there is no provider above it.

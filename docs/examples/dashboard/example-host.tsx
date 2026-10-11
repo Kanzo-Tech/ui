@@ -61,11 +61,11 @@ export default function Example() {
             {draft !== stored ? "Saving…" : writes === 0 ? "Loaded · no edits yet" : `Saved · ${writes} ${writes === 1 ? "write" : "writes"}`}
           </span>
         </div>
-        <FilterBar rowNoun="sightings" table="sightings" />
+        <FilterBar rowNoun="sightings" relation="sightings" />
         <Dashboard
           config={CONFIG}
           onChange={editable ? change : undefined}
-          table="sightings"
+          relation="sightings"
           value={draft}
         />
         {stored ? <JsonTreeView data={stored} defaultExpandedDepth={1} /> : null}

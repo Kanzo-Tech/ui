@@ -13,8 +13,8 @@ export default function Example() {
   return (
     <ContractsDemo table={CONTRACTS_LAYOUT}>
       <div className="flex w-full flex-col gap-4">
-        <FilterBar rowNoun="contracts" table={CONTRACTS_LAYOUT} />
-        <Dashboard exclude={["dense_id"]} table={CONTRACTS_LAYOUT} />
+        <FilterBar rowNoun="contracts" relation={CONTRACTS_LAYOUT} />
+        <Dashboard exclude={["dense_id"]} relation={CONTRACTS_LAYOUT} />
       </div>
     </ContractsDemo>
   );

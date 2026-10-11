@@ -78,13 +78,12 @@ GraphRoot                  the state and the commands; renders no element
 ├── GraphStatus            where the graph is, in one word: Loading, Laying out 42%, Ready, Failed
 ├── GraphCounts            "5K nodes · 8K edges", "1.2K of 5K nodes match · 3K edges", or on a map "3K of 5K nodes placed · 1K of 8K edges"
 ├── GraphSearch            a palette: find a vertex, by text, type or column, and reveal it
-├── GraphInspector         the focused vertex: its row
-└── GraphTimeline          a time column brushed and played, under the canvas
+└── GraphInspector         the focused vertex: its row
 ```
 
 **Every part reads the root, not its parent.** `GraphCanvas`'s children are chrome positioned over
-the surface, but `GraphToolbar`, `GraphLegend`, `GraphStatus`, `GraphCounts`, `GraphSearch`, `GraphInspector` and
-`GraphTimeline` each read the root's context directly, so each can sit anywhere under it — over the canvas, in a
+the surface, but `GraphToolbar`, `GraphLegend`, `GraphStatus`, `GraphCounts`, `GraphSearch` and
+`GraphInspector` each read the root's context directly, so each can sit anywhere under it — over the canvas, in a
 dock, in a footer. **The graph's settings are not a part.** They are `GRAPH_SECTION`, drawn by
 `@kanzo-tech/ui`'s `PreferencesSections` or composed from its `<Pref>`, and the root is the section's
 owner: it answers the corpus's columns and the cards' pictures to whatever sits beneath it —
@@ -311,29 +310,34 @@ its id.
 ### Timeline
 
 ```tsx
+const { timeline } = useGraphPrefs();
+
 <GraphCanvas className="h-[480px]" />
-<GraphTimeline />
+{timeline && <ChartTimeline field={timeline} relation="vertices" title={`Timeline: ${timeline}`} />}
 ```
 
-Cosmograph's `CosmographTimeline`, under the canvas: the distribution of one temporal column over
-every type that has it, a range brushed across it, and *Play time*, a bare icon at its left edge,
+Cosmograph's `CosmographTimeline`, under the canvas — which is `ChartTimeline` from
+`@kanzo-tech/ui/analytics` over `vertices`, every vertex type as one relation, the way Cosmograph's
+is its generic `Timeline` over its own data: the distribution of one temporal column over every type
+that has it, a range brushed across it, and *Play time*, a bare icon at its left edge,
 which plays the range: the graph fills in from the range's start a bar at a time, each step waiting
 for the graph to answer the last, until the whole range is in colour. With no range it is disabled;
 at the end the next press starts over; a pointer down on the bars pauses it. Its chip in the
-`FilterBar` reads the window as it grows, *birthday 1980 – 1983*, and its × stops play. The band
-is part of the graph's load: its height is held from the first render, and the graph reads *Loading*
-until the canvas and the bars have both drawn, then shows them together. It is named apart from
-the toolbar's layout transport, which is a play button too. It is `ChartTimeline` from `@kanzo-tech/ui/analytics` over the corpus.
+`FilterBar` reads the window as it grows, *birthday 1980 – 1983*, and its × stops play. The bars
+are part of the graph's load: the graph reads *Loading* until the canvas and every chart on its page
+that has not drawn yet have drawn, then shows them together — a rule of the graph's, not of the
+timeline's. Give the band its height from the first render (`minHeight`), and it does not jump. It is
+named apart from the toolbar's layout transport, which is a play button too.
 
-- **The column is a setting, not a prop.** `time-by` — *Timeline* in the graph's settings — offers
-  the corpus's temporal columns, the way *X axis* offers its numeric ones, and with none chosen the
-  part draws nothing. A column is temporal by what `fossil_columns` declares: a `date` or a
+- **The column is a setting.** `time-by` — *Timeline* in the graph's settings — offers the corpus's
+  temporal columns, the way *X axis* offers its numeric ones, and `useGraphPrefs().timeline` is the
+  one chosen, `""` for none. A column is temporal by what `fossil_columns` declares: a `date` or a
   `timestamp`, or a column whose `datatype` is `xsd:date`, `xsd:dateTime` or `xsd:gYear` — a year is
   stored as an `int32`, and the datatype is what says it is a year. That needs a corpus attached by
   `@fossil-lang/corpus` 0.3.0-alpha.28 or later.
-- **Only what is in the window stays in colour.** The window is a clause of the timeline's own,
-  crossed into the page's crossfilter as a semi-join on `dense_id` (`semiJoinOf`), as a dashboard's
-  clauses cross. A vertex stays in colour when it has the column and its value is in the window;
+- **Only what is in the window stays in colour.** The window is a clause on `vertices`, the
+  relation the canvas reads too, so the canvas reads it as published; the page crosses it into any
+  other relation by `dense_id`, as it crosses a dashboard's. A vertex stays in colour when it has the column and its value is in the window;
   every other is greyed, a type without the column included, as in Cosmograph, and the edges grey
   with their ends. A window over 30 birthdays reads *30 of 341,661*. A dashboard beside the graph is
   filtered through its relation's root, so one whose root has no such column shows no rows, and the
@@ -384,7 +388,7 @@ defaults, and so does this section. A preference a tenant pinned is not offered.
 | X axis · Y axis | the corpus's numeric fields | Map's two columns. Offered only under Map. |
 | Group by | the corpus's fields | Clustered's column. Offered only under Clustered. |
 | Cluster pull | slider, its ends named | Offered only under Clustered: from *Links decide* to *Tight groups*. |
-| Timeline | the corpus's temporal fields | The column `GraphTimeline` reads — [Timeline](#timeline). None draws no timeline. |
+| Timeline | the corpus's temporal fields | `useGraphPrefs().timeline`, the column a timeline over the graph reads — [Timeline](#timeline). |
 | Gravity · Repulsion · Link spring · Link distance · Friction | sliders | The forces. Offered only under Force. |
 
 **Labels are one ordered scale**, each level adding to the one before. **None** draws no text at all,
@@ -476,22 +480,25 @@ the data's values and nothing simulates; unbound, a GPU force layout places them
 column a running layout pulls together by. [Layout and camera](/docs/graph/layout#when-the-layout-runs)
 has the rule.
 
-**`filterBy` is the page's crossfilter.** A chart's clause greys out on the canvas what it drops —
+**`filterBy` is the page's selection** — `useMosaic().selection`, under a `MosaicProvider` given the
+corpus's `joins`. The graph is one more client of it, reading `vertices`. A chart's clause greys out on the canvas what it drops —
 never hides it — and the reader's lasso or click is published back as a semi-join on
 the vertex key, for every client and not for the graph. A pick from beside the canvas — `usePick` —
 is a clause of its own, and filters the graph too. Removing that clause where it was published — a
 `FilterBar` chip, the page's reset — clears the pick on the canvas too.
 
-**A clause is column predicates, or a semi-join on identity.** A column clause filters each vertex
-table that has every column it names. A semi-join — `clauseSemiJoin("dense_id", ids | query)` —
-names `dense_id` alone, so it filters every vertex table whatever its subquery reads: the vertices a
-rule found, the endpoints of an edge table, an answer's rows.
+**A clause is column predicates, or a semi-join on identity.** A column clause on `vertices` filters
+every vertex, and keeps none of a type without a column it names: that type holds `NULL` there. A
+column clause on another relation — a dashboard's tile — reaches the graph crossed by `dense_id`. A
+semi-join — `clauseSemiJoin("dense_id", ids | query)` — names `dense_id` alone, so it filters every
+vertex table whatever its subquery reads: the vertices a rule found, the endpoints of an edge table,
+an answer's rows.
 
 ```tsx
 import { Query, clauseSemiJoin } from "@kanzo-tech/ui/analytics";
 
 // Everyone who lives in Saltmere, published by a panel: the graph greys out the rest.
-crossfilter.update(
+selection.update(
   clauseSemiJoin("dense_id", Query.select("src").from(livesIn).where(inSaltmere), { source: panel, label: "Saltmere" }),
 );
 ```
@@ -518,18 +525,22 @@ as `graph/nothing-to-draw`.
 `@kanzo-tech/ui/analytics`' [relations](/docs/analytics/dashboard#relations) are built over. Each
 vertex table is a type keyed by `dense_id` that projects the columns the writer gave no role, and
 each edge table joins through its `src`, which holds its source vertex table's `dense_id`, and its
-`dst`, which holds its destination's. The views a corpus is attached as declare no keys, so this is
+`dst`, which holds its destination's. One more type, `vertices`, is every vertex table as one
+relation (`of` every type), with `NULL` where a table has no such column — what the canvas and a
+timeline over the graph read. The views a corpus is attached as declare no keys, so this is
 what says an edge table joins anything. The charts never learn fossil; they take the graph as data.
 
-```ts
+```tsx
 const graph = await readJoinGraph(coordinator, jobId);
-const table = relationQuery(graph, { root: "Person", path: [] });
-<Dashboard table={table} publish={semiJoinOf("dense_id", table)} />
+
+<MosaicProvider coordinator={coordinator} joins={graph}>
+  <Dashboard relation={{ root: "Person", path: [] }} />
+</MosaicProvider>
 ```
 
-`publish` is what lets the dashboard sit on the graph's crossfilter: its tiles' clauses name
-`Person.country`, which no vertex table has, so the page gets them as one semi-join on `dense_id`
-instead — [what the page sees](/docs/analytics/dashboard#what-the-page-sees).
+`joins` is what lets the dashboard sit on the graph's selection: its tiles' clauses name
+`Person.country`, which `vertices` has not, and the page crosses them into the graph as one semi-join
+on `dense_id` — [what the page sees](/docs/analytics/dashboard#what-the-page-sees).
 
 *Held by* `packages/graph/src/core/join-graph.test.ts`, "keys a type by its address, projects the
 columns the writer gave no role, and joins edges on src and dst".
@@ -551,7 +562,9 @@ was thrown and takes the host's words for it.
 | `graph/context-lost` | The browser took the WebGL context back. |
 | `graph/no-positions` | The device came up but holds no positions for the points it was given, found when the camera read them back. `cause` is what the read threw. |
 | `graph/nothing-to-draw` | The attached corpus has no vertex. |
-| `graph/unfilterable` | A column clause naming columns no vertex table has. A table lacking a clause's columns just stays unfiltered by it; a semi-join on `dense_id` is answered by every table. |
+
+A column clause naming a column no vertex table has is the database's error, as thrown: `vertices`
+has no such column to bind it to.
 
 A part that reads on its own — the search's names, the inspector's row, a label's text — hands its
 failure to the same `onFailure` and shows it in place. A host keys its message on `code` and falls
@@ -695,15 +708,6 @@ set while the graph loads or a layout runs.
 
 Extends `React.ComponentProps<"div">` without its `children`.
 
-### GraphTimeline
-
-| Prop | Type | Default |
-| --- | --- | --- |
-| `height` | `number` — the band's, labels and bars | `44` |
-| `className` | `string` | — |
-
-The column is the `time-by` preference, not a prop: [Timeline](#timeline).
-
 ### ShapeGlyph
 
 The glyph the canvas draws for a category, in the DOM — for a legend key, a card or a preview. No
@@ -725,7 +729,7 @@ it from outside.
 | `useGraphContext` | `() => GraphApi` | **Reads** it under a root; throws outside one. |
 | `useGraphState` | `(selector, isEqual = Object.is) => T` | A slice of the `GraphState`, and a render only when it moves. |
 | `usePick` | `(id: string) => Pick` | A place beside the canvas: `pick(ids \| null, label)` publishes its clause, `picked` is that clause's label or `null`, `predicate()` every clause but its own. |
-| `useGraphPrefs` | `() => { look: Look; sim: Sim; placement: Placement; timeline: string }` | The provider's resolved `GRAPH_SECTION`, as the three things the root takes, and the column `GraphTimeline` reads. |
+| `useGraphPrefs` | `() => { look: Look; sim: Sim; placement: Placement; timeline: string }` | The provider's resolved `GRAPH_SECTION`, as the three things the root takes, and the column a timeline over the graph reads. |
 
 ### The picture
 
@@ -776,7 +780,7 @@ What `useGraphState` selects from.
 ### Types
 
 `GraphCanvasProps`, `GraphLegendProps`, `GraphCountsProps`, `GraphStatusProps`, `GraphToolbarProps`,
-`GraphInspectorProps`, `GraphSearchProps`, `GraphTimelineProps`, `GraphRootProviderProps` and
+`GraphInspectorProps`, `GraphSearchProps`, `GraphRootProviderProps` and
 `ShapeGlyphProps` are the parts' props; `VertexDetail` — `vertex`, `table` and `fields` — is what the
 inspector's render prop receives. `Channels` (`fill`, `symbol`, `stroke`, `x`, `y`, `cluster`), `Placement`, `Look`, `LookPatch`,
 `Shape`, `Sim`, `Motion`, `Selection`, `SelectionSource`, `Tool`, `VertexId`,
