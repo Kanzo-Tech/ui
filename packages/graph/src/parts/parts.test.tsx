@@ -264,6 +264,7 @@ describe("GraphToolbar", () => {
     render(
       <GraphRoot {...over(corpus)} filterBy={crossfilter} onFailure={() => {}}>
         <GraphToolbar />
+        <GraphCounts />
         <Hold into={held} />
       </GraphRoot>,
     );
@@ -280,40 +281,33 @@ describe("GraphToolbar", () => {
     expect(lasso.getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("counts what is in full colour first, with no button in it, and names the one Frame for what it frames", async () => {
+  it("carries no count, and names the one Frame for what it frames", async () => {
     const { held } = await toolbar();
-    const count = () => screen.queryByRole("group", { name: "In full colour" });
-    const toolbarOf = () => screen.getByRole("group", { name: "Selection tool" }).parentElement as HTMLElement;
-    expect(count()).toBeNull();
     expect(screen.getByRole("button", { name: "Frame everything" })).toBeTruthy();
     act(() => internalsOf(held.api!).store.select([1, 2], "lasso", "Two"));
-    expect(count()?.textContent).toBe("2 of 20");
-    expect(count()?.querySelector("button")).toBeNull();
-    // First in the row: the toolbar is anchored at its end, so the count grows away from the buttons.
-    expect(toolbarOf().firstElementChild).toBe(count());
+    // The figure is GraphCounts', once: an unlabelled box beside the tools repeated it.
+    expect(document.querySelector("[data-slot=graph-toolbar]")?.textContent).not.toMatch(/\d/);
     expect(screen.getByRole("group", { name: "Camera" }).querySelector('[aria-label="Frame what the filters keep"]')).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Clear the selection" })).toBeNull();
     act(() => held.api!.clear());
-    expect(count()).toBeNull();
     expect(screen.getByRole("button", { name: "Frame everything" })).toBeTruthy();
   });
 
-  it("counts whenever something is greyed out, and says how many other filters hide", async () => {
+  it("frames what the filters keep, and GraphCounts says how many other filters hide", async () => {
     const crossfilter = Selection.crossfilter();
     const { corpus, held } = await toolbar(crossfilter);
     await act(async () => {
       crossfilter.update(clauseInterval("score", [2, 5], { source: { reset() {} } }));
       await settle(corpus);
     });
-    // A search's clause, and nothing the canvas picked: framed from here, let go at its own chip.
-    const count = () => screen.getByRole("group", { name: "In full colour" });
-    expect(count().textContent).toBe("4 of 20");
+    const counts = () => document.querySelector("[data-slot=graph-counts]")?.textContent ?? "";
+    expect(counts()).toMatch(/^4 of 20 nodes match · /);
     expect(screen.getByRole("button", { name: "Frame what the filters keep" })).toBeTruthy();
     // Person 0 scores 1, so the filter hides one of the three the canvas holds.
     act(() => internalsOf(held.api!).store.select([0, 1, 2], "lasso", "Three"));
-    expect(count().textContent).toBe("2 of 20 · 1 hidden by other filters");
+    expect(counts()).toMatch(/^2 of 20 nodes match · 1 hidden by other filters · /);
     act(() => held.api!.clear());
-    expect(count().textContent).toBe("4 of 20");
+    expect(counts()).not.toContain("hidden");
   });
 
   it("offers to run the layout without a simulate prop", async () => {

@@ -4,7 +4,7 @@ import { ark } from "@ark-ui/react/factory";
 import * as React from "react";
 import { getToolName, isToolUIPart, type UIMessage } from "@kanzo-tech/llm";
 import type { UseChatHelpers } from "@ai-sdk/react";
-import { cn, DiagnosticList, Problem, type ProblemProps, Skeleton } from "@kanzo-tech/ui";
+import { cn, DiagnosticList, Problem, type ProblemProps, Skeleton, Spinner } from "@kanzo-tech/ui";
 import type { Proposal } from "./engine.js";
 import { PILLS, ProposalStrip } from "./proposal-strip.js";
 import { Conversation, ConversationContent, ConversationScrollButton } from "./conversation.js";
@@ -25,11 +25,14 @@ export interface ChatTranslations {
   placeholder: string;
   /** Announced to a screen reader with the error that stopped an answer. */
   failed: string;
+  /** Where the answer will be, from the question sent until the model's first word. */
+  waiting: string;
 }
 
 const ENGLISH: ChatTranslations = {
   placeholder: "Ask anything…",
   failed: "The answer stopped:",
+  waiting: "Thinking…",
 };
 
 /**
@@ -190,6 +193,18 @@ export function Chat<M extends UIMessage>(props: ChatProps<M>) {
               </MessageContent>
             </Message>
           ))}
+          {/* Sent, and nothing back yet: the answer's place, held where it will be — the busy Send
+              button alone says nothing in the transcript, which is where the reader is looking. */}
+          {chat.status === "submitted" && (
+            <Message role="assistant" slot="chat-waiting">
+              <MessageContent>
+                <span className="inline-flex items-center gap-1.5 text-muted-foreground text-xs" role="status">
+                  <Spinner aria-hidden className="size-3.5" />
+                  {t.waiting}
+                </span>
+              </MessageContent>
+            </Message>
+          )}
         </MessageList>
       )}
       {chat.error !== undefined && (

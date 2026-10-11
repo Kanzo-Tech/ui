@@ -14,7 +14,7 @@ function Count({ value }: { value: number | null | undefined }) {
 /**
  * **The corpus in one sentence** — "5K nodes · 8K edges", and under the page's filter "1.2K of 5K
  * nodes match · 3K edges". What matches is what is in full colour: the page's filter and the
- * canvas's own pick (a lasso, a marquee, a click) together, as the toolbar counts it. Nodes are the
+ * canvas's own pick (a lasso, a marquee, a click) together. Nodes are the
  * corpus's, so a filter's effect is `matching` of `total`; a
  * vertex the filter drops is greyed on the canvas, not hidden, which is why the verb is "match" and
  * not "drawn". Edges are those whose two ends are drawn, so they shrink with the filter. A figure
@@ -31,6 +31,8 @@ function Count({ value }: { value: number | null | undefined }) {
 export function GraphCounts({ className, slot, ...rest }: GraphCountsProps) {
   const total = useGraphState((s) => s.total);
   const matching = useGraphState((s) => s.matching);
+  // What the canvas holds that another filter hides: the one figure only this sentence says.
+  const hidden = useGraphState((s) => (s.selection !== null && s.matching !== null ? s.selection.vertices.length - s.matching : 0));
   const edges = useGraphState((s) => s.drawn?.edges);
   const busy = useGraphState((s) => s.status === "loading");
   const bound = useGraphSnapshot((s) => s.geometry?.bound === true);
@@ -56,6 +58,11 @@ export function GraphCounts({ className, slot, ...rest }: GraphCountsProps) {
           {matching === null ? null : (
             <>
               <Count value={matching} /> match ·{" "}
+              {hidden > 0 && (
+                <>
+                  <Count value={hidden} /> hidden by other filters ·{" "}
+                </>
+              )}
             </>
           )}
           <Count value={placed} /> of <Count value={total} />
@@ -69,6 +76,12 @@ export function GraphCounts({ className, slot, ...rest }: GraphCountsProps) {
       ) : (
         <>
           <Count value={matching} /> of <Count value={total} /> nodes match
+          {hidden > 0 && (
+            <>
+              {" "}
+              · <Count value={hidden} /> hidden by other filters
+            </>
+          )}
         </>
       )}{" "}
       · <Count value={edges} />

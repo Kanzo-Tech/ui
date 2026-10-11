@@ -69,14 +69,17 @@ export const Conversation = (props: React.ComponentProps<typeof ark.div>) => {
     observer?.observe(viewport);
     if (content) observer?.observe(content);
 
-    // A message added, not one growing: the pin is taken back, as the button would.
+    // A message added, not one growing: the pin is taken back, as the button would. A message is a
+    // child of the content or of the list inside it; anything deeper is an answer streaming.
     const added = new MutationObserver((records) => {
-      if (!records.some((record) => record.addedNodes.length > 0)) return;
+      const message = (record: MutationRecord) =>
+        record.addedNodes.length > 0 && (record.target === content || record.target.parentNode === content);
+      if (!records.some(message)) return;
       pinnedRef.current = true;
       setPinned(true);
       viewport.scrollTop = viewport.scrollHeight;
     });
-    if (content) added.observe(content, { childList: true });
+    if (content) added.observe(content, { childList: true, subtree: true });
 
     return () => {
       viewport.removeEventListener("scroll", sync);

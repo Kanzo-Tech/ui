@@ -92,12 +92,17 @@ describe("Conversation", () => {
 
   // A reader who scrolled up and then asked again: the question they sent is below the fold.
   it("takes the pin back when a message is added, though the reader had scrolled up", async () => {
-    const Messages = ({ n }: { n: number }) => (
+    const Messages = ({ n, streamed = 0 }: { n: number; streamed?: number }) => (
       <Conversation>
         <ConversationContent>
-          {Array.from({ length: n }, (_, i) => (
-            <p key={i}>message {i}</p>
-          ))}
+          <ul>
+            {Array.from({ length: n }, (_, i) => (
+              <li key={i}>
+                message {i}
+                {i === n - 1 && streamed > 0 && <span>{"token ".repeat(streamed)}</span>}
+              </li>
+            ))}
+          </ul>
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
@@ -115,6 +120,13 @@ describe("Conversation", () => {
 
     expect(viewport.scrollTop).toBe(1400);
     expect(scrollButton()).toBeNull();
+
+    // Released again, and the answer streams inside the last message: that is growth, not a message.
+    box(viewport, { scrollHeight: 1400, clientHeight: 300, scrollTop: 200 });
+    fireEvent.scroll(viewport);
+    rerender(<Messages n={2} streamed={3} />);
+    await act(async () => {});
+    expect(viewport.scrollTop).toBe(200);
   });
 
   it("re-pins on the button, which then goes away and the tail is followed again", async () => {

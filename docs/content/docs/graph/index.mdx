@@ -139,10 +139,8 @@ layout's transport. Pick a tool and drag; **Shift** borrows the marquee whicheve
 armed, and at release **Alt** removes what was drawn while **⌘/Ctrl** adds — to the canvas's
 selection, or, with none, to what the page's filters keep. **Esc** backs out of the drag, then the
 tool, then the canvas's selection, and never another place's filter: that is let go at its chip.
-Whenever something is greyed out a count appears — *N of T*, with *· M hidden by other filters*
-when the selection holds vertices another filter hides — and it is a readout, with no button in it:
-first in a row, last in a column, so it grows away from the corner the toolbar is anchored to and
-no button moves. Frame, beside zoom, frames what is in full colour, and is named for it: *Frame
+The toolbar carries no count: how much is in full colour is `GraphCounts`' sentence, which adds
+*· M hidden by other filters* when the selection holds vertices another filter hides. Frame, beside zoom, frames what is in full colour, and is named for it: *Frame
 everything* with nothing greyed, *Frame what the filters keep* otherwise. Play runs the force layout from where the points are and pause leaves them there. Each cluster is a `ButtonGroup`, because a cluster is
 a claim that its buttons do one job. The toolbar declares no `toolbar` role: that role promises
 roving focus, and each button here is its own tab stop. `orientation="vertical"` stacks the
