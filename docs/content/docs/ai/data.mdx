@@ -19,7 +19,7 @@ under the filter you set on the page.
 | `answerSchema` | The tool's JSON Schema: the relations' types, hops and fields, the aggregates and the chart kinds, as enums |
 | `checkAnswer` | What refuses input outside that schema before anything runs, in words the model reads |
 | `dataSuggestions` | Questions to start from, over those relations and the page's filter — `suggest()` with a data space's instructions |
-| `AnswerCard` | The card an answer is drawn in: the dashboard's own tile, with *Filter to it* and *Add to the dashboard* |
+| `AnswerCard` | The card an answer is drawn in: the dashboard's own tile, with *Filter the page to these rows* and *Add to the dashboard* in its header |
 
 ## Usage
 
@@ -243,26 +243,35 @@ narrowed by its conditions — a chart is `ChartCard`, a figure `DashboardStat`,
 afterwards, the card follows. A kept answer is names, not SQL, so a restored transcript draws it
 again over the host's graph, and one whose relation that graph no longer has is a `Problem`.
 
-Above it are the two actions the shape gives:
+In the tile's header, beside its title, are the two verbs the shape gives — icon buttons, named by
+`aria-label` and by a tooltip, as a dashboard tile's pencil is ([why](/docs/design/ai#an-answers-verbs-are-on-its-tile-and-filter-is-there-only-when-it-filters)):
 
-- **Filter to it** narrows the page to the answer: its conditions, and for a bar chart the
-  categories it answered, published as one semi-join on the relation's root key — [`semiJoinOf`](/docs/design/graph#the-clause-rule-column-predicates-or-a-semi-join-on-identity),
+- **Filter the page to these rows** narrows the page to the answer: its conditions, and for a bar
+  chart the categories it answered, published as one semi-join on the relation's root key — [`semiJoinOf`](/docs/design/graph#the-clause-rule-column-predicates-or-a-semi-join-on-identity),
   as a relation dashboard's tiles publish — so the graph and every panel that shares the key follow.
-  It is a chip in the page's `FilterBar`, *Ask*, and pressed again it takes the clause back. An
-  answer with nothing to narrow to draws no button.
+  It is `aria-pressed` while the clause holds, and pressed again it takes the clause back. Its chip
+  in the page's `FilterBar` names what it filters, each part as the bar reads a clause: *Ask:
+  Person.gender female*, *Ask: browserUsed · 3 selected*. An answer with nothing to narrow to draws
+  no button. **It is disabled when it would keep everything in view** — no conditions, a relation
+  that is a type alone, and bars over every category of their column (none missing against the
+  field's `distinct`, none null) — and its tooltip and description say so: *This answer keeps
+  everything in view*.
 - **Add to the dashboard** is drawn when the host passes `dashboards` and `onAdd`, which go together.
   `dashboards` is the host's [document](/docs/analytics/dashboard-spec#dashboards), a spec per
   relation, as it draws it. `onAdd` is called with the whole next document — the tile appended to the
   answer's relation's spec, or to its automatic dashboard when it has none, as `Dashboard` would draw
-  it — and where it landed: `{ relation, key }`, the relation and its `relationKey`, so a host can
-  switch its dashboard view to it.
+  it — and where it landed: `{ relation, key, id }`, the relation, its `relationKey` and the tile's id.
+- **Open on the dashboard** takes its place once the tile is there, when the host passes `onOpen`: it
+  is called with the same `{ relation, key, id }`, and the host switches to its dashboard view of the
+  relation and brings the tile into view. Without `onOpen` the button says *On the dashboard*,
+  disabled.
 
 The tile goes on under the answer's own id, so **whether it is on the dashboard is read from
-`dashboards`**, not kept by the card: a remounted card still says *✓ On the dashboard*, and once the
-reader removes the tile and that is saved, the card offers it again. When `onAdd` returns a promise,
-the button is pending until it settles — whatever `dashboards` already shows — and a rejection is
-drawn as a [`Problem`](/docs/data-display/problem) under the actions, the thrown value whole, with
-the button back. `copy` is the host's words for a coded one, as `Chat` takes them. *On the dashboard* reads the host's `dashboards` and nothing else, so a host that draws the tile
+`dashboards`**, not kept by the card: a remounted card still offers *Open on the dashboard*, and once
+the reader removes the tile and that is saved, the card offers the add again. When `onAdd` returns a
+promise, the button is pending until it settles — whatever `dashboards` already shows — and a
+rejection is drawn as a [`Problem`](/docs/data-display/problem) under the tile, the thrown value
+whole, with the button back. `copy` is the host's words for a coded one, as `Chat` takes them. *On the dashboard* reads the host's `dashboards` and nothing else, so a host that draws the tile
 before its write settles is saying it is there: it rolls the document back when the write fails, and
 the card follows and offers the add again. The card says it
 where the reader pressed, so a host that also toasts every failed save says it twice.
@@ -279,9 +288,11 @@ const { draft, change, commit } = useDebouncedCommit(saved, (next: Dashboards) =
 <AnswerCard
   dashboards={draft}
   graph={graph}
-  onAdd={(next, { relation }) => {
+  onAdd={(next) => commit(next)} // the write, which the button waits on
+  onOpen={({ relation, id }) => {
     setRelation(relation); // the dashboard view, onto the relation the tile landed on
-    return commit(next); // the write, which the button waits on
+    setView("dashboard");
+    setFocused(id); // the tile, brought into view
   }}
   part={part}
   stopped={stopped}
@@ -312,6 +323,7 @@ is no line when the page had no filter.
 | `stopped` | `boolean` | The call will never settle — `Chat`'s `stopped` |
 | `dashboards` | `Dashboards` | The host's dashboards, as it draws them: whether the tile is on its relation's. With `onAdd` |
 | `onAdd` | `(next: Dashboards, added: AnswerAdded) => void \| Promise<unknown>` | Makes *Add to the dashboard* an action. With `dashboards` |
+| `onOpen` | `(added: AnswerAdded) => void` | Makes *Open on the dashboard* the action once the tile is there. With `onAdd` |
 | `copy` | `ProblemProps["copy"]` | The host's words for a coded failure |
 | `translations` | `Partial<AnswerCardTranslations>` | Every word it draws |
 
@@ -325,15 +337,20 @@ back"; "is busy until answered, over a skeleton the chart's height, and not once
 refusal as a Problem under the card's title"; "draws a kept answer whose relation the graph no longer
 has as a Problem"; "says which of the page's clauses the answer was read under, and which its
 relation could not answer"; "says nothing of the page's filter when the page had none"; "draws the
-figure the answer is, read under its conditions".
+figure the answer is, read under its conditions"; "names the chip after what it filters, as the filter
+bar reads each clause"; "is disabled, and says why, when its clause would keep everything in view";
+"filters when the bars are ranked down to some categories, or cross a hop"; "draws its verbs in the
+tile's header, beside its title"; "opens the tile on the dashboard once it is there, when the host
+says how".
 
 ## Testing
 
 `AnswerHarness` from [`@kanzo-tech/testing`](/docs/testing) asks through the composer and reads the
 newest `AnswerCard`. It waits for the card to stop being `aria-busy`, which it is until its tile or
 its `Problem` is drawn, and a failed answer rejects with the `Problem`'s words. `addToDashboard()`
-waits out the host's pending write for *✓ On the dashboard*, and rejects with the card's `Problem`
-when the host refused it.
+waits out the host's pending write for *Open on the dashboard*, and rejects with the card's `Problem`
+when the host refused it; `openOnDashboard()` presses it. `filterTo()` rejects when the answer keeps
+everything in view.
 
 ```ts
 import { AnswerHarness } from "@kanzo-tech/testing";

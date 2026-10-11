@@ -43,7 +43,7 @@ afterEach(() => {
 
 const part = (state: ToolPart["state"], extra: object = {}) => ({ type: "tool-answer", toolCallId: "c", state, input: {}, ...extra }) as ToolPart;
 
-type Adding = Pick<AnswerCardProps, "dashboards" | "onAdd">;
+type Adding = Pick<AnswerCardProps, "dashboards" | "onAdd" | "onOpen">;
 
 /** A composer and one answer card, as `Chat` lays them out. */
 function page(answer: ToolPart, adding: Adding = {}, crossfilter = Selection.crossfilter()) {
@@ -113,6 +113,15 @@ describe("AnswerHarness", () => {
     settle();
     await added;
     expect(onAdd).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens the answer on the dashboard once it is there, through the host's onOpen", async () => {
+    const env = dom();
+    const onOpen = vi.fn();
+    const holding: Dashboards = { byRelation: { Person: { filters: [], tiles: [output.answer.show] } } };
+    draw(part("output-available", { output }), { dashboards: holding, onAdd: vi.fn(), onOpen });
+    await (await env.harness(AnswerHarness)).openOnDashboard();
+    expect(onOpen).toHaveBeenCalledWith({ relation: PERSON, key: "Person", id: output.answer.show.id });
   });
 
   it("rejects an add the host refused with the words of the card's Problem", async () => {

@@ -272,6 +272,8 @@ relation has no `hall` any more.* in place of the chart.
 
 With `onEdit`, the header carries a pencil, and so do a figure's and a table's: what it opens is the
 host's, and in `Dashboard` it is the [`TileEditor`](#tileeditor).
+`actions`, on a chart's and a figure's, puts the host's own controls in the same place, before the
+pencil — icon buttons, as the pencil is: an [answer's](/docs/ai/data#the-answer-card) verbs are there.
 
 ### DetailTable
 
@@ -563,6 +565,7 @@ Every other prop goes to the root `div` (`data-slot="dashboard"`).
 | `fields` | `readonly FieldStat[]` | — |
 | `stat` | `StatTile` | — |
 | `onEdit` | `() => void` | — (no pencil) |
+| `actions` | `ReactNode` | — (the host's controls in the header, before the pencil) |
 
 ### ChartCard
 
@@ -573,6 +576,7 @@ Every other prop goes to the root `div` (`data-slot="dashboard"`).
 | `card` | `ChartTile` | — |
 | `config` | `Readonly<Record<string, ChartConfig>>` | — |
 | `onEdit` | `() => void` | — (no pencil) |
+| `actions` | `ReactNode` | — (the host's controls in the header, before the pencil) |
 
 ### DetailTable
 

@@ -57,7 +57,7 @@ nothing to consolidate with. What would reverse it is a coordinator whose queue 
 does not wait for a frame: then the agent goes back to reading where the charts read.
 
 **The card is a dashboard tile.** `QueryResult` gives way to the dashboard's `ChartCard` over the
-answer, with two actions that fall out of the shape: **Filter to it** publishes the answer's
+answer, with two verbs that fall out of the shape: **Filter the page to these rows** publishes the answer's
 conditions and, for a bar chart, the categories it answered, mapped to the page as one semi-join on
 the relation's root key (`semiJoinOf`, as a relation dashboard's tiles are), and **Add to the
 dashboard** puts the tile in the relation's spec, because it already is one. A kept answer is names,
@@ -103,7 +103,7 @@ value and the whole next value — and the controlled answer to a flag a card ke
 *added* the moment `onAdd` returned, before the host's save had succeeded, and a remount forgot it.
 The tile goes on under the answer's id, the call's, which is what lets the spec be asked. A write the
 host answers with a promise is waited on: pending until it settles, whatever the spec shows, and a
-rejection drawn as a `Problem` beside the button, the thrown value whole.
+rejection drawn as a `Problem` under the tile, the thrown value whole.
 
 `onAdd` is told the relation as well as its key, because a host's dashboard view is driven by a
 `Relation` and a key cannot be read back into one.
@@ -115,6 +115,50 @@ document is the host's again.
 *Held by* `packages/ai/src/data/answer-card.test.tsx`, "is on the dashboard while the host's spec
 holds the tile, after a remount, and offered again once it is removed"; "is pending while the host's
 write is, never on the dashboard before it settles, and draws a rejection as a Problem".
+
+## An answer's verbs are on its tile, and Filter is there only when it filters
+
+***Filter the page to these rows* and *Add to the dashboard* are icon buttons in the tile's own
+header, beside its title, each named by `aria-label` and a tooltip; once the tile is on the
+dashboard the second becomes *Open on the dashboard*, the host's `onOpen`.** Grafana's Explore adds
+a query to a dashboard from the panel it is about, and its dialog ends in *Open dashboard*; Metabase
+adds a question to a dashboard and then opens it there. The verbs used to be two text buttons above
+the card, belonging to nothing on screen. A tile already has a place for its controls — the pencil
+in `ChartCard`'s and `DashboardStat`'s header, in `CardAction` — so the verbs go there, through
+`actions`, a node the host puts in the header before the pencil. Opening is the host's because the
+view is: the card cannot switch it, so `onOpen` is told `{ relation, key, id }`, the add's own
+answer and the tile's id. A host without it gets *On the dashboard*, disabled, rather than a verb
+that does nothing.
+
+`actions` sits beside `onEdit` rather than replacing it: the pencil's icon, label per kind and place
+are the library's, and `Dashboard` is its only caller. *What would reverse it:* a host that wants a
+pencil of its own; then `onEdit` goes and `Dashboard` passes its pencil through `actions`.
+
+**Filter is disabled, and says *This answer keeps everything in view*, when its clause would keep
+every row the page keeps.** In keasy's Ask over LDBC's social network, the model answered *browsers
+used, as bars, over Person* with no conditions: the bars covered every browser, the clause kept every
+person, and pressing Filter changed nothing a reader could see. The rule reads only what the card
+already holds, so it costs no query: no conditions, a relation that is a type alone (a hop keeps only
+the roots that have one), and bars over every category of their column — as many as the field's
+`distinct`, none of them null, which the clause would drop. Disabled with its reason, not hidden, as
+the timeline's Play is: the reader learns why the verb is not there. Its chip names what it filters,
+each part read by `clauseLabel` as the filter bar reads a clause — *Ask: browserUsed · 3 selected*,
+*Ask: Person.gender female* — where *Ask* alone said who had filtered and not to what.
+
+**What it costs:** `distinct` is DuckDB's `approx_unique`, exact at the few dozen values a bar chart
+answers, and it counts the whole relation. An answer read under a page that already narrowed its
+column answers fewer categories than the field has, so its Filter stays enabled even when it would
+keep exactly what the page keeps.
+
+**What would reverse it:** readers pressing an enabled Filter that changes nothing, under a page that
+had narrowed the column. Then the card counts the page's rows with and without the clause — one
+query per answer — and disables on equal counts.
+
+*Held by* `packages/ai/src/data/answer-card.test.tsx`, "draws its verbs in the tile's header, beside
+its title"; "opens the tile on the dashboard once it is there, when the host says how"; "is disabled,
+and says why, when its clause would keep everything in view"; "filters when the bars are ranked down
+to some categories, or cross a hop"; "names the chip after what it filters, as the filter bar reads
+each clause".
 
 ## Which relations are offered
 

@@ -42,6 +42,8 @@ export interface ChartCardProps extends Omit<React.ComponentProps<typeof Card>, 
   config?: Readonly<Record<string, ChartConfig>>;
   /** Puts an edit button in the header; the host opens the editor. */
   onEdit?: () => void;
+  /** The host's own controls in the header, beside the title and before the pencil — icon buttons, as the pencil is. */
+  actions?: React.ReactNode;
 }
 
 /** Each chart type's name, icon and gesture — what a card says under its title and the editor lists. */
@@ -63,7 +65,7 @@ export const CHART_TYPE: Record<DashboardChartType, { label: string; icon: typeo
  * until somebody edits it.
  */
 export function ChartCard(props: ChartCardProps) {
-  const { table, fields, card, config, onEdit, className, slot, ...rest } = props;
+  const { table, fields, card, config, onEdit, actions, className, slot, ...rest } = props;
   const missing = [card.x, card.y.field, card.color, card.facet].filter(
     (name): name is string => name !== undefined && !fields.some((f) => f.name === name),
   );
@@ -81,13 +83,14 @@ export function ChartCard(props: ChartCardProps) {
         <CardDescription className="text-xs">
           {rationale ? `${rationale} · ${CHART_TYPE[card.type].hint}` : CHART_TYPE[card.type].hint}
         </CardDescription>
-        {onEdit || rationale ? (
+        {onEdit || rationale || actions ? (
           <CardAction className="-my-1 flex items-center gap-1">
             {rationale ? (
               <Badge size="sm" variant="secondary">
                 Automatic
               </Badge>
             ) : null}
+            {actions}
             {onEdit ? <EditTileButton label="Edit chart" onClick={onEdit} /> : null}
           </CardAction>
         ) : null}

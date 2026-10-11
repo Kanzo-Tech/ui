@@ -34,7 +34,7 @@ await expect.poll(async () => (await env.harness(FilterBarHarness)).readout()).t
 | `DashboardHarness` | `tile(title)`, a `TileHarness`; `settled` |
 | `FilterBarHarness` | `chips`, `remove(field)`, `open(field)`, `readout` |
 | `RelationPickerHarness` | `root`, `pick(type)`, `add(hop)` by sentence, step or label, `path`, `remove(sentence)`, `grain` |
-| `AnswerHarness` | `ask(question)`, `answer`, `addToDashboard`, `filterTo` |
+| `AnswerHarness` | `ask(question)`, `answer`, `addToDashboard`, `openOnDashboard`, `filterTo` |
 | `FindingsBadgeHarness` | `tally`, `groups`, `item(message)`: a `FindingsItemHarness` with `severity`, `count`, `where`, `act` and, for a group, `sample` |
 | `DockHarness` | `open(panel)`, `close`, `current` |
 

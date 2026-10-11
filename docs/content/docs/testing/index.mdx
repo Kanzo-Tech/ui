@@ -89,7 +89,7 @@ narrowed with its `with`: `ChartHarness.with({ title })`.
 | `TileHarness` | an `article` holding its title | `text()`, `chart()`, `settled()` |
 | `FilterBarHarness` | the region *Filters* | `chips()`, `remove(field)`, `open(field)`, `readout()` |
 | `RelationPickerHarness` | the group *Relation* | `root()`, `pick(type)`, `add(hop)`, `path()`, `remove(sentence)`, `grain()` — a hop by its sentence (*Comments located in this place*), its step as `relationKey` writes it (`<isLocatedIn<Comment`), or its edge label where one item has it |
-| `AnswerHarness` | the composer, a textbox named *Ask…*; the answer cards by their `data-slot` | `ask(question)`, `answer()`, `rows()`, `addToDashboard()`, `filterTo()` |
+| `AnswerHarness` | the composer, a textbox named *Ask…*; the answer cards by their `data-slot` | `ask(question)`, `answer()`, `rows()`, `addToDashboard()`, `openOnDashboard()`, `filterTo()` |
 | `FindingsBadgeHarness` | its `data-slot`: the badge is named by the host's tally | `tally()`, `open()`, `groups()`, `item(message)` |
 | `FindingsItemHarness` | its `data-slot`, a `listitem` | `severity()`, `count()`, `message()`, `where()`, `act(label)`, `open()`, `sample()`, a `Severity` |
 | `DockHarness` | a `radiogroup`, named by the page | `open(panel)`, `close()`, `current()` |
@@ -113,9 +113,12 @@ narrowed with its `with`: `ChartHarness.with({ title })`.
   reads the rows the answer was read from — the engine's result under the page's filter when the
   answer ran — from the card's data table, by its caption, cell by cell: assert a figure there, not
   in the chart, which draws it, or in the model's reply, which only quotes it. `filterTo()`
-  waits for **Filter to it** to be pressed. `addToDashboard()` waits out *Adding to the dashboard…*
-  while the host's write is pending, for *✓ On the dashboard*, which the card reads from the
-  `dashboards` the host hands back; a write the host refused rejects with the card's `Problem`. The composer is named by its
+  waits for **Filter the page to these rows** to be pressed, and rejects when the button is disabled
+  because the answer keeps everything in view. `addToDashboard()` waits out *Adding to the dashboard…*
+  while the host's write is pending, for *Open on the dashboard* (*On the dashboard* without
+  `onOpen`), which the card reads from the `dashboards` the host hands back; a write the host refused
+  rejects with the card's `Problem`. `openOnDashboard()` presses *Open on the dashboard*, the host's
+  `onOpen`. The composer is named by its
   placeholder; a page with another composer starting *Ask* passes `AnswerHarness.with({ name })`.
 - **`DockHarness`** — `ShellDockSwitcher` is a single-select toggle group, a `radiogroup` of `radio`s,
   so `open(panel)` waits for the item to be checked and `close()` for none to be. The page names the
