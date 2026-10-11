@@ -5,6 +5,7 @@ import type { Encoding, Geometry } from "../core/load";
 import { resolveToken, toHex, type Rgba } from "./css-color";
 import { SHAPE_INDEX, SHAPE_ORDER, SHAPE_OTHER, type Look, type Shape } from "./graph-looks";
 import type { Sim } from "./graph-sim";
+import { greyoutOpacity, type Rgb } from "./greyout";
 
 /**
  * The categorical scale the bindings imply — what colour and what shape a category rank wears.
@@ -33,6 +34,8 @@ export interface Paint {
   sizes: Float32Array;
   shapes: Float32Array;
   linkColors: Float32Array;
+  /** Every colour a point is painted in, once each: what the greyout is derived from. */
+  palette: Rgb[];
 }
 
 /**
@@ -90,7 +93,7 @@ export function paint(geometry: Geometry, encoding: Encoding, look: Look, host: 
     linkColors[e * 4 + 2] = neutral ? neutral[2] : (colors[src * 4 + 2] ?? 0.7);
     linkColors[e * 4 + 3] = 1;
   }
-  return { colors, sizes, shapes, linkColors };
+  return { colors, sizes, shapes, linkColors, palette: [...rgba.values()].map(([r, g, b]) => [r, g, b] as const) };
 }
 
 /** The simulation coefficients, in cosmos.gl's spelling. Shared by construction and every change. */
@@ -109,7 +112,7 @@ export function forces(sim: Sim): GraphConfig {
  * Everything the picture needs that is *one number for the whole canvas* — cosmos.gl's uniforms, read
  * fresh on every draw, so a look change costs a `setConfigPartial` and no upload at all.
  */
-export function appearance(look: Look, host: Element): GraphConfig {
+export function appearance(look: Look, host: Element, palette: readonly Rgb[] = []): GraphConfig {
   // Cleared transparent, as Cosmograph keeps cosmos.gl's canvas: the element paints the background, so
   // the grid can lie between it and the points. The RGB stays because the greyout reads it to dim
   // towards the page, darker on a dark one and lighter on a light one.
@@ -129,7 +132,11 @@ export function appearance(look: Look, host: Element): GraphConfig {
     renderHoveredPointRing: true,
     hoveredPointRingColor: toHex(resolveToken(host, "var(--primary)")),
     focusedPointRingColor: toHex(resolveToken(host, "var(--primary)")),
-    pointGreyoutOpacity: 0.1,
-    linkGreyoutOpacity: 0.025,
+    // Derived from the painted colours and this background (`greyout.ts`); before a paint there is
+    // nothing to grey out, and cosmos.gl's default, full opacity, stands.
+    ...(palette.length > 0 ? { pointGreyoutOpacity: greyoutOpacity(palette, [r, g, b]) } : {}),
+    // cosmos.gl's default. A kept link is drawn under 3 : 1 to the background on purpose — its
+    // opacity, the distance fade — so SC 1.4.11 sets no value for the greyed one to derive.
+    linkGreyoutOpacity: 0.1,
   };
 }

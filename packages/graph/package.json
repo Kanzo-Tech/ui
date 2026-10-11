@@ -46,6 +46,7 @@
     "@duckdb/duckdb-wasm": "1.33.1-dev57.0",
     "@kanzo-tech/mosaic": "workspace:*",
     "@kanzo-tech/testing": "workspace:*",
+    "@kanzo-tech/theme": "workspace:^",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -65,7 +66,7 @@
     {
       "name": "root barrel (JS)",
       "path": "dist/index.js",
-      "limit": "24.3 kB",
+      "limit": "24.5 kB",
       "ignore": [
         "react",
         "react-dom",
