@@ -42,13 +42,13 @@ const isHeld = (held: readonly BarHeld[], clause: SelectionClause) => {
 
 export interface FilterBarProps extends React.ComponentProps<typeof ark.section> {
   /**
-   * The relation the readout counts, as `ChartRoot` takes it: *611 of 1,528 people*. Without it the
-   * bar has no readout.
+   * The relation the readout counts, as `ChartRoot` takes it: *611 of 1,528 people*, first in the
+   * row. Without it the bar has no readout.
    */
   relation?: RelationExpr;
   /** What a row of `relation` is, in the plural. Default `"rows"`. */
   rowNoun?: string;
-  /** Trailing controls, pinned at the end after the readout. */
+  /** Trailing controls, pinned at the end after *Clear every filter*. */
   children?: ReactNode;
 }
 
@@ -59,11 +59,16 @@ export interface FilterBarProps extends React.ComponentProps<typeof ark.section>
  * own retraction, `selection.reset([clause])`, which removes the clause and calls its source back, so
  * the brush that published it clears too.
  *
+ * **The readout comes first: the page's one count.** *611 of 1,528 people* — what every filter
+ * together keeps of `relation` — at the start of the row, before the chips, which is dc.js's
+ * `dataCount` (*selected out of records*, over the charts it filters) and Kibana Discover's hit count.
+ * It is the only place the figure is drawn: a chip names its condition and does not count what it
+ * keeps (`clauseLabel`), and the graph's legend and footer leave it to this.
+ *
  * **It is one line at any count.** The chips scroll sideways under a fade at the edge that hides
  * more, and a chip added on its own is scrolled to. The verbs are pinned after a hairline, as icons:
  * whatever a part puts there, *Clear every filter* — which retracts every clause on the page, whoever
- * published it, and is disabled rather than gone while there is none — then the readout of what the
- * filters keep of `relation`, then `children`.
+ * published it, and is disabled rather than gone while there is none — then `children`.
  *
  * Other parts draw in it through two slots: a `Dashboard` puts its filters among the chips, as chips
  * that open their control, and *Add a filter* among the verbs; the bar leaves those clauses to them.
@@ -95,6 +100,12 @@ export function FilterBar(props: FilterBarProps) {
       {...rest}
       data-slot={slot ?? "filter-bar"}
     >
+      {read.table !== undefined && relation !== undefined ? (
+        <>
+          <Readout relation={read.relation} rowNoun={rowNoun} table={read.table} />
+          <Separator className="h-4" orientation="vertical" />
+        </>
+      ) : null}
       <ScrollArea className="min-w-0 flex-1" scrollFade>
         {/* `p-1` is room for a focus ring: the scrolling viewport clips on both axes. */}
         <ark.div className="flex w-max items-center gap-2 p-1" data-slot="filter-bar-row" ref={row}>
@@ -138,7 +149,6 @@ export function FilterBar(props: FilterBarProps) {
           </TooltipTrigger>
           <TooltipContent>Clear every filter</TooltipContent>
         </Tooltip>
-        {read.table !== undefined && relation !== undefined ? <Readout relation={read.relation} rowNoun={rowNoun} table={read.table} /> : null}
         {children}
       </ark.div>
     </ark.section>
@@ -180,7 +190,12 @@ function Readout({ table, relation, rowNoun }: { table: TableExpr; relation: Rel
   const rows = Number(shown.row?.n ?? 0);
   const total = Number(all.row?.n ?? 0);
   return (
-    <span aria-busy={all.rows === null || shown.rows === null || undefined} className="px-1 text-muted-foreground text-xs tabular-nums" role="status">
+    <span
+      aria-busy={all.rows === null || shown.rows === null || undefined}
+      className="shrink-0 ps-1 text-muted-foreground text-xs tabular-nums"
+      data-slot="filter-bar-readout"
+      role="status"
+    >
       {all.rows === null
         ? "Counting…"
         : rows === total

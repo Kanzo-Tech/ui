@@ -127,7 +127,7 @@ describe("an answer", () => {
       { "Person.gender": "female", "avg Person.age": 37.5 },
       { "Person.gender": "male", "avg Person.age": 45 },
     ]);
-    expect(output.under).toEqual(["Lasso · 5 selected"]);
+    expect(output.under).toEqual(["Lasso"]);
     expect(output.unanswered).toEqual([]);
     expect(output.answer.show).toMatchObject({ id: "c", span: 2 });
     // The answer carries the relation its key named, as a dashboard reads one.
@@ -150,7 +150,7 @@ describe("an answer", () => {
     );
     expect(read).toEqual([]);
     expect(output.rows).toEqual(read);
-    expect(output.under).toEqual(["Lasso · 5 selected"]);
+    expect(output.under).toEqual(["Lasso"]);
     expect(output.unanswered).toEqual([{ clause: "kind contract", missing: ["kind"] }]);
   });
 

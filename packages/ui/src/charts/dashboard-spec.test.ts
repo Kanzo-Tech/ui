@@ -103,12 +103,14 @@ describe("autoDashboard", () => {
     expect(spec.filters.map((f) => f.field)).toEqual(["seen", "region", "beast", "email", "bounty", "leagues"]);
   });
 
-  it("opens with a band of figures: the count and the mean of the first measures, along the time", () => {
-    expect(spec.tiles.slice(0, 3).map((t) => (t.kind === "stat" ? [t.measure.op, t.measure.field, t.trend] : t.kind))).toEqual([
-      ["count", undefined, "seen"],
+  it("opens with a band of figures: the mean of the first measures, along the time, and no count", () => {
+    // The count is the FilterBar readout's, once on the page.
+    const stats = spec.tiles.filter((t) => t.kind === "stat");
+    expect(stats.map((t) => (t.kind === "stat" ? [t.measure.op, t.measure.field, t.trend] : t.kind))).toEqual([
       ["avg", "bounty", "seen"],
       ["avg", "leagues", "seen"],
     ]);
+    expect(spec.tiles.slice(0, stats.length)).toEqual(stats);
   });
 
   it("draws a timeline, bars, histograms and a fit, ends on the rows, and fills every row of the grid", () => {

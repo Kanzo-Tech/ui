@@ -262,7 +262,7 @@ So a search that kept the 40 airports in Spain is a selection the tools can work
 over Madrid publish *not Madrid* from the canvas, which intersects the search's and reads *Spain less
 Madrid* — and stays right when the search changes, because the canvas never copied what the search
 kept. ⌘ and a lasso over Portugal add nothing in full colour while the search holds, because a filter
-filters; `GraphCounts` says so — *40 of 3.2K nodes match · 20 hidden by other filters* — and the search's chip is
+filters; `GraphCounts` says so — *20 hidden by other filters* — and the search's chip is
 where it is let go.
 
 **Alt with no canvas clause was a copy, and is an exclusion** (decided 11 October 2026,
@@ -539,12 +539,14 @@ under it read the root.
   Failed. It owns the fold of the two axes, `status` and `motion`, because a host that folded them
   itself read `status` alone and said "idle" over a running layout. What would reverse it: a host
   that needs the two axes apart in its footer, which `useGraphState` already gives it.
-- **`GraphCounts`** — the corpus and what the page's filter keeps of it, in one sentence: "N nodes"
-  unfiltered, "X of N nodes match" filtered. "Drawn" was the wrong verb — a vertex the filter drops is
-  greyed, never hidden — and unfiltered it always read "N of N". A footer carries it, which is why it
-  is not the legend's last line. **"Placed" is the verb only under bound positions**, because there a
-  vertex with no value in `x` or `y` really is hidden, not greyed: "P of N nodes placed · E of L
-  edges", and under a filter "X match · P of N placed · E of L edges". Both figures are drawn of
+- **`GraphCounts`** — what is drawn, in one sentence: "N nodes · E edges". It said what the page's
+  filter keeps too ("X of N nodes match"), and so did the legend, a toolbar box and every semi-join
+  chip: four figures for one thing on one screen. That figure is the `FilterBar` readout's now, once,
+  at the start of the filter row — dc.js's `dataCount`, Kibana Discover's hit count — and this keeps
+  what only it says: the edges both of whose ends are drawn, and *M hidden by other filters*. A footer
+  carries it, which is why it is not the legend's last line. **"Placed" is the verb only under bound
+  positions**, because there a vertex with no value in `x` or `y` really is hidden, not greyed: "P of
+  N nodes placed · E of L edges". Both figures are drawn of
   total there, because the footer that mixed the corpus's nodes with the drawn edges read "206.6K
   nodes · 0 edges" over a map with no edge to draw. A vertex is placed when it has both values; half
   a position is none. *Held by* `packages/graph/src/parts/parts.test.tsx`, "says how many of the

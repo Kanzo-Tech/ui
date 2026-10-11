@@ -51,10 +51,10 @@ describe("GraphLegend", () => {
         <GraphLegend />
       </GraphRoot>,
     );
-    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Amber—", "Salt—"]);
+    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Amber", "Salt"]);
   });
 
-  it("draws the vertex types when nothing is bound, with what each has drawn", async () => {
+  it("draws the vertex types when nothing is bound, a key with no count", async () => {
     const corpus = await attach();
     render(
       <GraphRoot {...over(corpus)} onFailure={() => {}}>
@@ -62,10 +62,10 @@ describe("GraphLegend", () => {
       </GraphRoot>,
     );
     await ready(corpus);
-    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Person10", "Place6", "Tag4"]);
+    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Person", "Place", "Tag"]);
   });
 
-  it("says how many of each category the page's filter keeps, of how many", async () => {
+  it("keys the categories under the page's filter, and leaves the count to the FilterBar readout", async () => {
     const corpus = await attach();
     const crossfilter = Selection.crossfilter();
     render(
@@ -78,10 +78,10 @@ describe("GraphLegend", () => {
       crossfilter.update(clauseInterval("score", [2, 5], { source: { reset() {} } }));
       await settle(corpus);
     });
-    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Person4 of 10", "Place0 of 6", "Tag0 of 4"]);
+    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Person", "Place", "Tag"]);
   });
 
-  it("says how many of each type the map places, of how many, and keeps a type with no position apart", async () => {
+  it("keeps a type with no position apart, under No position", async () => {
     const corpus = await attach();
     render(
       <GraphRoot {...over(corpus)} onFailure={() => {}} x="lon" y="lat">
@@ -89,12 +89,12 @@ describe("GraphLegend", () => {
       </GraphRoot>,
     );
     await ready(corpus);
-    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Person10 of 10", "Place6 of 6", "Tag4"]);
-    expect(screen.getByRole("list", { name: "No position" }).textContent).toBe("Tag4");
+    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Person", "Place", "Tag"]);
+    expect(screen.getByRole("list", { name: "No position" }).textContent).toBe("Tag");
     expect(screen.queryByText("No edges have both ends on the map.")).toBeNull();
   });
 
-  it("keeps the static totals of a type with no position under the page's filter", async () => {
+  it("keeps a type with no position apart under the page's filter too", async () => {
     const corpus = await attach();
     const crossfilter = Selection.crossfilter();
     render(
@@ -107,7 +107,7 @@ describe("GraphLegend", () => {
       crossfilter.update(clauseInterval("score", [2, 5], { source: { reset() {} } }));
       await settle(corpus);
     });
-    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Person4 of 10", "Place0 of 6", "Tag4"]);
+    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Person", "Place", "Tag"]);
   });
 
   it("says so when no edge has both ends on the map", async () => {
@@ -119,7 +119,7 @@ describe("GraphLegend", () => {
       </GraphRoot>,
     );
     await ready(corpus);
-    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Place6 of 6", "Person10", "Tag4"]);
+    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Place", "Person", "Tag"]);
     expect(screen.getByText("No edges have both ends on the map.")).toBeTruthy();
   });
 
@@ -172,7 +172,7 @@ describe("GraphCounts", () => {
     expect(screen.getByText("placed").getAttribute("title")).toBe("On the map: vertices with a value in lon and lat. The rest have no position.");
   });
 
-  it("says what matches, what the map places and what it draws, under the page's filter", async () => {
+  it("says what the map places and what it draws under the page's filter, and not what matches", async () => {
     const corpus = await attach();
     const crossfilter = Selection.crossfilter();
     render(
@@ -187,10 +187,10 @@ describe("GraphCounts", () => {
     });
     // Kept are Person 1–4 — Place and Tag have no `score`, so the clause keeps none of them — and
     // the edges whose ends are both kept and placed are knows 1→2, 2→3, 3→4 (/docs/design/crossfilter).
-    expect(counts()?.textContent).toBe("4 match · 16 of 20 placed · 3 of 20 edges");
+    expect(counts()?.textContent).toBe("16 of 20 nodes placed · 3 of 20 edges");
   });
 
-  it("says how many of the corpus match the page's filter", async () => {
+  it("leaves what the page's filter keeps to the FilterBar readout, and says what it draws", async () => {
     const corpus = await attach();
     const crossfilter = Selection.crossfilter();
     render(
@@ -204,7 +204,7 @@ describe("GraphCounts", () => {
       await settle(corpus);
     });
     // Person 1–4 by score; Place and Tag have no `score`, so the clause keeps none of them.
-    expect(counts()?.textContent).toBe("4 of 20 nodes match · 3 edges");
+    expect(counts()?.textContent).toBe("20 nodes · 3 edges");
   });
 });
 
@@ -301,11 +301,11 @@ describe("GraphToolbar", () => {
       await settle(corpus);
     });
     const counts = () => document.querySelector("[data-slot=graph-counts]")?.textContent ?? "";
-    expect(counts()).toMatch(/^4 of 20 nodes match · /);
+    expect(counts()).toMatch(/^20 nodes · /);
     expect(screen.getByRole("button", { name: "Frame what the filters keep" })).toBeTruthy();
     // Person 0 scores 1, so the filter hides one of the three the canvas holds.
     act(() => internalsOf(held.api!).store.select([0, 1, 2], "lasso", "Three"));
-    expect(counts()).toMatch(/^2 of 20 nodes match · 1 hidden by other filters · /);
+    expect(counts()).toMatch(/^20 nodes · 1 hidden by other filters · /);
     act(() => held.api!.clear());
     expect(counts()).not.toContain("hidden");
   });

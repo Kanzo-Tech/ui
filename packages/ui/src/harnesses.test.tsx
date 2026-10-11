@@ -101,6 +101,8 @@ describe("FilterBarHarness", () => {
     );
     const bar = await env.harness(FilterBarHarness);
     expect(await bar.readout()).toBe("10 sightings");
+    // The page's one count, first in the row: dc.js's dataCount, before the chips it counts for.
+    expect(document.querySelector("[data-slot=filter-bar]")?.firstElementChild?.getAttribute("data-slot")).toBe("filter-bar-readout");
 
     act(() => crossfilter.update(saltmere()));
     await expect.poll(() => bar.readout()).toBe("4 of 10 sightings");

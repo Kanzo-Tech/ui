@@ -93,11 +93,11 @@ differ, though, and that is where the parts disagree.
 8. **The labels read the filter without the canvas's clause.** `topOf` and `labelled` are handed
    the store's `mask` (`parts/graph-canvas.tsx:66,94,98`), so under a lasso a vertex outside it can
    still be labelled while it is drawn greyed.
-9. **"Match" counts vertices that are not drawn.** On a map, the counts read *N match · P of T
-   placed* with `N = |kept|` (`parts/graph-counts.tsx:19,44`) and the toolbar `|visible|`
-   (`parts/graph-toolbar.tsx:59,103`), both including kept vertices with no position, while the
-   edges count only placed ends (`core/kept.ts:68-96`). On the Nobel map, a window counts prizes with
-   no affiliation that are nowhere on the canvas.
+9. **"Match" counted vertices that are not drawn.** On a map, the counts read *N match · P of T
+   placed* with `N = |kept|`, and the toolbar `|visible|`, both including kept vertices with no
+   position, while the edges count only placed ends (`core/kept.ts`). On the Nobel map, a window
+   counted prizes with no affiliation that are nowhere on the canvas. Neither count is drawn now:
+   what the filters keep is the `FilterBar` readout's, over the page's relation.
 
 10. **An empty set means opposite things.** `clauseSemiJoin(key, [])` keeps nothing; the graph's
    `publish` turns no ids into a withdrawal (`core/client.ts:110-120`), which keeps everything. The

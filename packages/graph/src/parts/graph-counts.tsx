@@ -12,25 +12,23 @@ function Count({ value }: { value: number | null | undefined }) {
 }
 
 /**
- * **The corpus in one sentence** — "5K nodes · 8K edges", and under the page's filter "1.2K of 5K
- * nodes match · 3K edges". What matches is what is in full colour: the page's filter and the
- * canvas's own pick (a lasso, a marquee, a click) together. Nodes are the
- * corpus's, so a filter's effect is `matching` of `total`; a
- * vertex the filter drops is greyed on the canvas, not hidden, which is why the verb is "match" and
- * not "drawn". Edges are those whose two ends are drawn, so they shrink with the filter. A figure
- * not yet known is "—", and the numbers are compact in the nearest `LocaleProvider`'s locale.
+ * **What is drawn, in one sentence** — "5K nodes · 8K edges". Not what the filters keep: that is
+ * the page's one count, the `FilterBar` readout at the top of the page, and this said it too
+ * ("1.2K match"), as did the legend and a toolbar box — four figures for one thing. What only this
+ * sentence says stays: edges are those whose two ends are drawn, so they shrink with the filter, and
+ * *M hidden by other filters* counts what the canvas's pick holds that another filter hides. A
+ * figure not yet known is "—", and the numbers are compact in the nearest `LocaleProvider`'s locale.
  *
  * **Under bound positions the verb is "placed"**, because there a vertex with no value in `x` or
- * `y` is hidden, not greyed: "33.4K of 206.6K nodes placed · 0 of 316.8K edges", and under a filter
- * "1.2K match · 33.4K of 206.6K placed · 40 of 316.8K edges". Both figures are then drawn of
- * total, so a map that leaves most of the corpus out says so instead of reading as missing data.
+ * `y` is hidden, not greyed: "33.4K of 206.6K nodes placed · 0 of 316.8K edges". Both figures are
+ * drawn of total, so a map that leaves most of the corpus out says so instead of reading as missing
+ * data.
  *
  * `aria-busy` follows `status`, because only a load changes these figures; whether a layout runs is
  * `GraphStatus`'s word.
  */
 export function GraphCounts({ className, slot, ...rest }: GraphCountsProps) {
   const total = useGraphState((s) => s.total);
-  const matching = useGraphState((s) => s.matching);
   // What the canvas holds that another filter hides: the one figure only this sentence says.
   const hidden = useGraphState((s) => (s.selection !== null && s.matching !== null ? s.selection.vertices.length - s.matching : 0));
   const edges = useGraphState((s) => s.drawn?.edges);
@@ -55,35 +53,18 @@ export function GraphCounts({ className, slot, ...rest }: GraphCountsProps) {
     >
       {bound ? (
         <>
-          {matching === null ? null : (
-            <>
-              <Count value={matching} /> match ·{" "}
-              {hidden > 0 && (
-                <>
-                  <Count value={hidden} /> hidden by other filters ·{" "}
-                </>
-              )}
-            </>
-          )}
-          <Count value={placed} /> of <Count value={total} />
-          {matching === null ? " nodes " : " "}
-          {verb}
-        </>
-      ) : matching === null ? (
-        <>
-          <Count value={total} /> nodes
+          <Count value={placed} /> of <Count value={total} /> nodes {verb}
         </>
       ) : (
         <>
-          <Count value={matching} /> of <Count value={total} /> nodes match
-          {hidden > 0 && (
-            <>
-              {" "}
-              · <Count value={hidden} /> hidden by other filters
-            </>
-          )}
+          <Count value={total} /> nodes
         </>
       )}{" "}
+      {hidden > 0 && (
+        <>
+          · <Count value={hidden} /> hidden by other filters{" "}
+        </>
+      )}
       · <Count value={edges} />
       {bound ? " of " : null}
       {bound ? <Count value={links} /> : null} edges

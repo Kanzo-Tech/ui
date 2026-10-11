@@ -80,10 +80,10 @@ describe("what a clause says", () => {
     expect(clauseLabel(left)).toBe("Lasso · 3 left out");
   });
 
-  it("names a semi-join by its publisher's label, and counts its members when they are keys", () => {
+  it("names a semi-join by its publisher's label, and does not count its members", () => {
     const lasso = clauseSemiJoin("dense_id", [3, 4], { source, label: "Lasso" });
-    expect(clauseParts(lasso)).toEqual({ field: "Lasso", value: "2 selected" });
-    expect(clauseLabel(lasso)).toBe("Lasso · 2 selected");
+    expect(clauseParts(lasso)).toEqual({ field: "Lasso", value: null });
+    expect(clauseLabel(lasso)).toBe("Lasso");
     const rule = clauseSemiJoin("dense_id", findings, { source, label: "Missing name" });
     expect(clauseParts(rule)).toEqual({ field: "Missing name", value: null });
     expect(clauseLabel(rule)).toBe("Missing name");
