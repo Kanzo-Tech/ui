@@ -76,7 +76,7 @@ GraphRoot                  the state and the commands; renders no element
 │   ├── GraphToolbar       how much is in full colour, the selection tools, zoom and Frame, the layout's transport
 │   └── GraphLegend        one row per category: glyph, name, how many are drawn
 ├── GraphStatus            where the graph is, in one word: Loading, Laying out 42%, Ready, Failed
-├── GraphCounts            "5K nodes · 8K edges", "1.2K of 5K nodes match · 3K edges", or on a map "3K of 5K nodes placed · 1K of 8K edges"
+├── GraphCounts            "5K nodes · 8K edges", or on a map "3K of 5K nodes placed · 1K of 8K edges"
 ├── GraphSearch            a palette: find a vertex, by text, type or column, and reveal it
 └── GraphInspector         the focused vertex: its row
 ```
@@ -139,10 +139,8 @@ layout's transport. Pick a tool and drag; **Shift** borrows the marquee whicheve
 armed, and at release **Alt** removes what was drawn while **⌘/Ctrl** adds — to the canvas's
 selection, or, with none, to what the page's filters keep. **Esc** backs out of the drag, then the
 tool, then the canvas's selection, and never another place's filter: that is let go at its chip.
-Whenever something is greyed out a count appears — *N of T*, with *· M hidden by other filters*
-when the selection holds vertices another filter hides — and it is a readout, with no button in it:
-first in a row, last in a column, so it grows away from the corner the toolbar is anchored to and
-no button moves. Frame, beside zoom, frames what is in full colour, and is named for it: *Frame
+The toolbar carries no count: how much is in full colour is `GraphCounts`' sentence, which adds
+*· M hidden by other filters* when the selection holds vertices another filter hides. Frame, beside zoom, frames what is in full colour, and is named for it: *Frame
 everything* with nothing greyed, *Frame what the filters keep* otherwise. Play runs the force layout from where the points are and pause leaves them there. Each cluster is a `ButtonGroup`, because a cluster is
 a claim that its buttons do one job. The toolbar declares no `toolbar` role: that role promises
 roving focus, and each button here is its own tab stop. `orientation="vertical"` stacks the
@@ -173,16 +171,15 @@ it is `GraphCounts`.
 
 <ComponentPreview componentName="graph" fileName="example-counts" hasMaxHeight />
 
-The corpus in one sentence: **"5K nodes · 8K edges"** with nothing filtered, and
-**"1.2K of 5K nodes match · 3K edges"** under the page's filter. The whole is `fossil_tables`'
-count and the part is `matching`, the vertices the filter keeps. A vertex the filter drops is greyed
-on the canvas, not hidden, so the verb is "match" and never "drawn". An edge counts when both its
-ends are drawn, so the edges shrink with the filter. A figure not yet known is "—", and the numbers
+What is drawn, in one sentence: **"5K nodes · 8K edges"**. Not what the page's filters keep: that
+is the page's one count, the `FilterBar` readout at the start of the filter row, and nothing else
+repeats it — not this sentence, the legend or a chip. An edge counts when both its ends are drawn,
+so the edges shrink with the filter, and **"· M hidden by other filters"** joins the sentence while
+the canvas's pick holds vertices another filter hides. A figure not yet known is "—", and the numbers
 are compact in the nearest `LocaleProvider`'s locale.
 
 **On a map the verb is "placed"**, because there a vertex with no value in `x` or `y` is hidden, not
-greyed, and both figures are drawn of total: **"33.4K of 206.6K nodes placed · 0 of 316.8K edges"**,
-and under the filter **"1.2K match · 33.4K of 206.6K placed · 40 of 316.8K edges"**. Hovering
+greyed, and both figures are drawn of total: **"33.4K of 206.6K nodes placed · 0 of 316.8K edges"**. Hovering
 "placed" names the two columns. A vertex is placed when it has both values.
 
 **`aria-busy` follows the load alone**: only a load changes these figures, and a running layout moves

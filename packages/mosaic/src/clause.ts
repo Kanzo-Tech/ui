@@ -123,8 +123,9 @@ export function clauseColumns(filter: FilterExpr): string[] {
  * **What a clause says, as a person reads it** — Linear's field/operator/value model, minus the
  * operator: no clause here needs one to be read. `field` is what the clause filters, its fields
  * joined or a semi-join's label; `value` is what it filters them to, or `null` when it says nothing
- * more. A semi-join is named by its publisher — a lasso, a rule, a question — and counted when its
- * members are keys; a statement's members are not read into the page to be counted.
+ * more. A semi-join is named by its publisher — a lasso, a rule, a question — and not counted: how
+ * many it keeps is the page's one count, the `FilterBar` readout, and a chip that repeated it was a
+ * second figure for the same thing, as no filter row of reference does (Linear, Kibana, Metabase).
  */
 export interface ClauseParts {
   /** What the clause filters: its fields joined, or a semi-join's label. */
@@ -145,7 +146,7 @@ function read(clause: SelectionClause): ClauseParts & { joint: string } {
   }
   if (clause.meta?.type === "semijoin") {
     const named = (clause.meta as SemiJoinMetadata).label ?? field;
-    return Array.isArray(value) ? { field: named, ...counted(value.length) } : { field: named, value: null, joint: " " };
+    return { field: named, value: null, joint: " " };
   }
   if (value == null) return { field, value: null, joint: " " };
   if (Array.isArray(value)) {
@@ -170,7 +171,7 @@ export function clauseParts(clause: SelectionClause): ClauseParts {
   return { field, value };
 }
 
-/** `clauseParts`, as one line: `region Saltmere`, `score 2 – 5`, `Lasso · 3 selected`. The one formatter of a clause. */
+/** `clauseParts`, as one line: `region Saltmere`, `score 2 – 5`, `beast · 3 selected`, `Lasso`. The one formatter of a clause. */
 export function clauseLabel(clause: SelectionClause): string {
   const { field, value, joint } = read(clause);
   return value === null ? field : `${field}${joint}${value}`;

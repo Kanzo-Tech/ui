@@ -63,6 +63,17 @@ describe("Chat", () => {
     );
   });
 
+  it("holds the answer's place in the transcript from the question sent until the model's first word", () => {
+    const asked = { id: "u1", role: "user" as const, parts: [{ type: "text" as const, text: "How many nodes are there?" }] };
+    const { rerender } = render(<Chat chat={{ ...idle, messages: [asked], status: "submitted" }} />);
+    const waiting = document.querySelector("[data-slot=chat-waiting]");
+    expect(waiting?.querySelector("[role=status]")?.textContent).toBe("Thinking…");
+
+    const answering = { id: "a1", role: "assistant" as const, parts: [{ type: "text" as const, text: "There are", state: "streaming" as const }] };
+    rerender(<Chat chat={{ ...idle, messages: [asked, answering], status: "streaming" }} />);
+    expect(document.querySelector("[data-slot=chat-waiting]")).toBeNull();
+  });
+
   it("lets the host draw its own tool's result", async () => {
     const user = userEvent.setup();
     render(<Harness draw />);

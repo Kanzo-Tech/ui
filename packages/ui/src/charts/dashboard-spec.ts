@@ -446,9 +446,10 @@ export function detailColumns(fields: readonly FieldStat[]): string[] {
 
 /**
  * The dashboard a relation gets before anyone has edited one — Metabase's X-ray, from the stats
- * alone: a filter per kind of field, a row of figures (the count and the mean of the first
- * measures), the first charts `recommend` proposes for an overview, and the first columns as a
- * table.
+ * alone: a filter per kind of field, a row of figures (the mean of the first measures), the first
+ * charts `recommend` proposes for an overview, and the first columns as a table. No count among the
+ * figures: how many rows the filters keep is the page's one count, the `FilterBar` readout, and a
+ * *Rows* tile beside it was the same figure twice. A reader who wants it on the board adds it.
  */
 export function autoDashboard(fields: readonly FieldStat[]): DashboardSpec {
   const temporal = fields.filter((f) => f.kind === "temporal");
@@ -463,8 +464,7 @@ export function autoDashboard(fields: readonly FieldStat[]): DashboardSpec {
     .map((f) => ({ field: f.name }));
 
   const stats: StatTile[] = [
-    { id: "stat-count", kind: "stat", title: "Rows", measure: { op: "count" }, trend },
-    ...measures.slice(0, STAT_LIMIT - 1).map((f): StatTile => ({
+    ...measures.slice(0, STAT_LIMIT).map((f): StatTile => ({
       id: `stat-${f.name}`,
       kind: "stat",
       measure: { op: "avg", field: f.name },

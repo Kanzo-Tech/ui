@@ -195,8 +195,8 @@ on every render.
 Every clause on the page's selection is a removable chip, read from `Selection.clauses`, so the row
 reports filters it did not publish: a brush, a bar someone clicked, a lasso on a graph canvas. A
 chip's label is read from the clause: *hour 2 – 5* for a range, *region Saltmere* for one value,
-*beast · 3 selected* for more; a semi-join wears its publisher's label — *Lasso · 13 selected*, a
-rule's name. Removing one is Mosaic's `selection.reset([clause])`, which calls the clause's source
+*beast · 3 selected* for more; a semi-join wears its publisher's label — *Lasso*, a rule's name —
+and does not count what it keeps, which is the readout's to say, once. Removing one is Mosaic's `selection.reset([clause])`, which calls the clause's source
 back, so the pick that made it un-highlights too.
 
 A dashboard's filters are drawn in it too. Each `filters` entry names a field and is a chip reading

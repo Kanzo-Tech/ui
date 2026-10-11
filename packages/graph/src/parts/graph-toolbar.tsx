@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, ButtonGroup, ButtonGroupSeparator, ButtonGroupText, cn, Show } from "@kanzo-tech/ui";
+import { Button, ButtonGroup, ButtonGroupSeparator, cn } from "@kanzo-tech/ui";
 import {
   LassoIcon,
   MinusIcon,
@@ -39,16 +39,15 @@ const TRANSPORT: Record<Motion, { pause: boolean; label: string }> = {
 };
 
 /**
- * **The commands, drawn** — how much is in full colour, the selection tools, the camera, and the live
- * layout's transport, which starts a layout from the points where they are. Each cluster is a
+ * **The commands, drawn** — the selection tools, the camera, and the live layout's transport, which
+ * starts a layout from the points where they are. Each cluster is a
  * `ButtonGroup`, because a cluster is a claim that its buttons do one job; the part declares no
  * `toolbar` role, since a `role` of that kind promises roving focus and each button here is its own
  * tab stop.
  *
- * **Nothing in it moves.** The count is a readout with no button in it — a `ButtonGroupText` on the
- * clusters' surface, so it stands as tall as they do — drawn only while something is greyed, and on
- * the side away from the anchor — first in a row, which `end-*` grows leftward;
- * last in a column, which `top-*` grows downward — so every button stays where the hand left it. The
+ * **No count.** It said *N of T* beside the tools while something was greyed, and the page said it
+ * three more times — `GraphCounts`, the legend and the filter's chip — so a reader met an unlabelled
+ * box repeating a figure. What only it said, *M hidden by other filters*, is `GraphCounts`' now. The
  * one Frame lives in the camera's cluster: "everything" with nothing greyed, "what the filters keep"
  * otherwise, and a canvas's pick is dropped at its chip or with Escape, like every other clause.
  *
@@ -63,7 +62,6 @@ export function GraphToolbar({ className, orientation = "horizontal", slot, ...r
   const total = useGraphState((s) => s.total);
   const matching = useGraphState((s) => s.matching);
   const greyed = greyedOf({ selection, matching, total });
-  const hidden = selection !== null && matching !== null ? selection.vertices.length - matching : 0;
   const frame = greyed ? "Frame what the filters keep" : "Frame everything";
   const motion = useGraphState((s) => s.motion);
   const transport = TRANSPORT[motion];
@@ -75,16 +73,6 @@ export function GraphToolbar({ className, orientation = "horizontal", slot, ...r
       className={cn("flex items-start gap-1.5", vertical && "flex-col items-end", className)}
       data-slot={slot ?? "graph-toolbar"}
     >
-      <Show when={greyed}>
-        <ButtonGroup aria-label="In full colour" className={cn(CLUSTER, vertical && "order-last")} data-slot="graph-toolbar-count">
-          <ButtonGroupText className="gap-1 px-2 text-xs tabular-nums">
-            <span className="font-medium text-foreground">{matching?.toLocaleString()}</span>
-            {total !== undefined && ` of ${total.toLocaleString()}`}
-            {hidden > 0 && ` · ${hidden.toLocaleString()} hidden by other filters`}
-          </ButtonGroupText>
-        </ButtonGroup>
-      </Show>
-
       <ButtonGroup aria-label="Selection tool" className={CLUSTER} orientation={orientation}>
         <Button
           aria-label="Marquee"

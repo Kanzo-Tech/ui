@@ -205,8 +205,8 @@ statement that selects them", "names the key alone: a subquery's columns are ano
 `packages/graph/src/core/store.test.ts`, "answers a semi-join on dense_id on every table, whatever
 relation its subquery reads", "publishes the reader's pick as a semi-join on dense_id, and is exempt
 from its own clause", "lets the pick go when its clause is retracted where it was published";
-`packages/mosaic/src/clause.test.ts`, "names a semi-join by its publisher's label, and counts its
-members when they are keys"; `packages/mosaic/src/crossfilter.test.ts`, "crosses a clause into
+`packages/mosaic/src/clause.test.ts`, "names a semi-join by its publisher's label, and does not
+count its members"; `packages/mosaic/src/crossfilter.test.ts`, "crosses a clause into
 another relation by the key of the step of its root's type", "keeps none of a relation with no step
 of the clause's type";
 `packages/ui/src/mosaic-public-api.test.ts`, "reaches no underscore member of a Mosaic object in
@@ -262,7 +262,7 @@ So a search that kept the 40 airports in Spain is a selection the tools can work
 over Madrid publish *not Madrid* from the canvas, which intersects the search's and reads *Spain less
 Madrid* — and stays right when the search changes, because the canvas never copied what the search
 kept. ⌘ and a lasso over Portugal add nothing in full colour while the search holds, because a filter
-filters; the toolbar says so — *40 of 3,218 · 20 hidden by other filters* — and the search's chip is
+filters; `GraphCounts` says so — *20 hidden by other filters* — and the search's chip is
 where it is let go.
 
 **Alt with no canvas clause was a copy, and is an exclusion** (decided 11 October 2026,
@@ -327,9 +327,8 @@ leaves out, and clears it when it leaves nothing out", "escapes a drag, then the
 retracts another source's clause"; `packages/graph/src/render/renderer.test.ts`, "frames what is in
 full colour: the pick within what the filter keeps, else what the filter keeps", "colours what the
 tools act on: the canvas's full colour is store.visible(), filtered and picked";
-`packages/graph/src/parts/parts.test.tsx`, "counts what is in full colour first, with no button in it,
-and names the one Frame for what it frames", "counts whenever something is greyed out, and says how
-many other filters hide"; `packages/graph/src/render/renderer.test.ts`, "stops re-framing when the
+`packages/graph/src/parts/parts.test.tsx`, "carries no count, and names the one Frame for what it
+frames", "frames what the filters keep, and GraphCounts says how many other filters hide"; `packages/graph/src/render/renderer.test.ts`, "stops re-framing when the
 reader takes the camera, and starts again with Frame"; `packages/graph/src/core/crossfilter.property.test.ts`,
 "leaves out what an excluding canvas clause names, whatever the other clauses become (invariant 9)".
 
@@ -540,12 +539,14 @@ under it read the root.
   Failed. It owns the fold of the two axes, `status` and `motion`, because a host that folded them
   itself read `status` alone and said "idle" over a running layout. What would reverse it: a host
   that needs the two axes apart in its footer, which `useGraphState` already gives it.
-- **`GraphCounts`** — the corpus and what the page's filter keeps of it, in one sentence: "N nodes"
-  unfiltered, "X of N nodes match" filtered. "Drawn" was the wrong verb — a vertex the filter drops is
-  greyed, never hidden — and unfiltered it always read "N of N". A footer carries it, which is why it
-  is not the legend's last line. **"Placed" is the verb only under bound positions**, because there a
-  vertex with no value in `x` or `y` really is hidden, not greyed: "P of N nodes placed · E of L
-  edges", and under a filter "X match · P of N placed · E of L edges". Both figures are drawn of
+- **`GraphCounts`** — what is drawn, in one sentence: "N nodes · E edges". It said what the page's
+  filter keeps too ("X of N nodes match"), and so did the legend, a toolbar box and every semi-join
+  chip: four figures for one thing on one screen. That figure is the `FilterBar` readout's now, once,
+  at the start of the filter row — dc.js's `dataCount`, Kibana Discover's hit count — and this keeps
+  what only it says: the edges both of whose ends are drawn, and *M hidden by other filters*. A footer
+  carries it, which is why it is not the legend's last line. **"Placed" is the verb only under bound
+  positions**, because there a vertex with no value in `x` or `y` really is hidden, not greyed: "P of
+  N nodes placed · E of L edges". Both figures are drawn of
   total there, because the footer that mixed the corpus's nodes with the drawn edges read "206.6K
   nodes · 0 edges" over a map with no edge to draw. A vertex is placed when it has both values; half
   a position is none. *Held by* `packages/graph/src/parts/parts.test.tsx`, "says how many of the
