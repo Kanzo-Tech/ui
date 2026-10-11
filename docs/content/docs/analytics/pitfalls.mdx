@@ -7,22 +7,23 @@ Each of these was hit for real, and each one's symptom shows up somewhere other 
 caused. [Charts](/docs/analytics/charts#limitations) lists the grammar's own limitations; this page
 is about pages that combine parts, and about the BI kit.
 
-## One dashboard per relation
+## A part of your own on more than one relation
 
-**Symptom.** Cards in one dashboard read *This chart could not be drawn.* the moment someone picks
-a bar in another, and the console says `Binder Error: Referenced column "hour" not found`.
+**Symptom.** A widget of your own reads *This chart could not be drawn.* the moment someone picks a
+bar in a dashboard over another relation, and the console says `Binder Error: Referenced column
+"Person.hour" not found`.
 
 **Why.** A clause is a predicate that names columns — `hour BETWEEN 3 AND 12`, `region IN (…)`.
-Every part under a `MosaicProvider` filters by the same crossfilter, so a clause published over one
-relation is applied to queries over every other. A relation without that column cannot answer it.
+Every part under a `MosaicProvider` filters by the page's one selection, and the selection crosses a
+clause into another relation only for a part that says which relation it reads. A client of your own
+that says nothing gets every clause as published, and a relation without that column cannot answer
+it.
 
-**Instead.** One relation per crossfilter. Mount one dashboard at a time (switch vertex types
-with `key={type}`, and every part withdraws its clauses when it unmounts), or give each
-relation its own `MosaicProvider` over the shared coordinator. A clause that *should* cross
-relations has to name a column they all have — the graph's lasso publishes on `dense_id` for exactly
-that reason, and every vertex table of a corpus carries it. A dashboard over a relation crosses the
-same way with `publish={semiJoinOf(key, table)}`: its tiles keep their clauses to themselves, and the
-page gets one semi-join on the key — [what the page sees](/docs/analytics/dashboard#what-the-page-sees).
+**Instead.** Say what it reads. A `MosaicClient` of your own carries a `relation` — a type's name or
+a path over the provider's `joins` — and the clauses it publishes say theirs with `onRelation`; a
+`useChartQuery` inside a `MosaicClients relation={…}`, or given `relation`, does both for you. Then a
+clause on another relation reaches it as a semi-join on the key the joins share, or keeps none of it
+where they share none ([across relations](/docs/analytics/charts#across-relations)).
 
 ## Columns named like a channel
 
@@ -68,7 +69,7 @@ const readable = useMemo(
   () => (stats.fields && stats.columns ? plotRelation(table, { fields: stats.fields, columns: stats.columns }) : null),
   [stats.fields, stats.columns, table],
 );
-// <ChartCard table={readable.table} fields={readable.fields} card={card} />
+// <ChartCard relation={readable.table} fields={readable.fields} card={card} />
 ```
 
 ## A tip on picking bars swallows the pick

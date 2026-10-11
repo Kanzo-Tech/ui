@@ -28,7 +28,7 @@ export default function Example() {
   return (
     <MosaicDemo>
       <div className="w-full max-w-xl">
-        <ChartRoot config={config} height={240} table="sightings">
+        <ChartRoot config={config} height={240} relation="sightings">
           <ChartRectY fill="verdict" order={ORDER} tip x={bin("bounty")} y={count()} />
           <ChartIntervalX />
           <ChartAxisX label="bounty (gold)" />

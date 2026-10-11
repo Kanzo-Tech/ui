@@ -26,7 +26,7 @@ export default function Example() {
   return (
     <MosaicDemo>
       <div className="w-full max-w-xl">
-        <ChartRoot config={config} height={240} table="sightings">
+        <ChartRoot config={config} height={240} relation="sightings">
           <ChartAreaY
             curve="monotone-x"
             fill="verdict"

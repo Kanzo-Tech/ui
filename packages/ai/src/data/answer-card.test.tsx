@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { clauseLabel, Selection } from "@kanzo-tech/mosaic";
-import { autoDashboard, MosaicProvider, type Dashboards, type DashboardSpec } from "@kanzo-tech/ui/analytics";
+import { clauseLabel, type Selection } from "@kanzo-tech/mosaic";
+import { autoDashboard, MosaicProvider, useMosaic, type Dashboards, type DashboardSpec } from "@kanzo-tech/ui/analytics";
 import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { mockModel } from "../testing/model.js";
@@ -48,6 +48,12 @@ const answered = (kept: AnswerOutput) =>
   ({ type: "tool-answer", toolCallId: "c", state: "output-available", input: {}, output: kept }) as ToolPart;
 const at = (state: ToolPart["state"], extra: object = {}) => ({ type: "tool-answer", toolCallId: "c", state, input: {}, ...extra }) as ToolPart;
 
+/** The page's selection, which the provider owns: handed out from inside it. */
+function Page({ into }: { into: (selection: Selection) => void }) {
+  into(useMosaic().selection);
+  return null;
+}
+
 /** An element's description, as `aria-describedby` names it — what assistive technology reads after its name. */
 const description = (element: Element) =>
   (element.getAttribute("aria-describedby") ?? "")
@@ -56,9 +62,10 @@ const description = (element: Element) =>
     .map((id) => document.getElementById(id)?.textContent ?? "")
     .join(" ");
 
-function page(crossfilter = Selection.crossfilter()) {
+function page(into: (selection: Selection) => void = () => {}) {
   return ({ children }: { children: React.ReactNode }) => (
-    <MosaicProvider coordinator={db.coordinator} crossfilter={crossfilter}>
+    <MosaicProvider coordinator={db.coordinator}>
+      <Page into={into} />
       {children}
     </MosaicProvider>
   );
@@ -156,8 +163,8 @@ describe("AnswerCard", () => {
   });
 
   it("filters the page to the answer as one semi-join on the root key, and takes it back", async () => {
-    const crossfilter = Selection.crossfilter();
-    render(<AnswerCard graph={PEOPLE} part={answered(output)} />, { wrapper: page(crossfilter) });
+    let crossfilter!: Selection;
+    render(<AnswerCard graph={PEOPLE} part={answered(output)} />, { wrapper: page((s) => (crossfilter = s)) });
     const button = await screen.findByRole("button", { name: "Filter the page to these rows" });
     expect(button.getAttribute("aria-pressed")).toBe("false");
     await userEvent.click(button);
@@ -171,14 +178,14 @@ describe("AnswerCard", () => {
   });
 
   it("names the chip after what it filters, as the filter bar reads each clause", async () => {
-    const crossfilter = Selection.crossfilter();
-    const { unmount } = render(<AnswerCard graph={PEOPLE} part={answered(output)} />, { wrapper: page(crossfilter) });
+    let crossfilter!: Selection;
+    const { unmount } = render(<AnswerCard graph={PEOPLE} part={answered(output)} />, { wrapper: page((s) => (crossfilter = s)) });
     await userEvent.click(await screen.findByRole("button", { name: "Filter the page to these rows" }));
     expect(clauseLabel(crossfilter.clauses[0]!)).toBe("Ask: Person.gender female");
     unmount();
 
-    const ranked = Selection.crossfilter();
-    render(<AnswerCard graph={PEOPLE} part={answered(first)} />, { wrapper: page(ranked) });
+    let ranked!: Selection;
+    render(<AnswerCard graph={PEOPLE} part={answered(first)} />, { wrapper: page((s) => (ranked = s)) });
     await userEvent.click(await screen.findByRole("button", { name: "Filter the page to these rows" }));
     expect(clauseLabel(ranked.clauses[0]!)).toBe(`Ask: Person.gender ${String(first.rows[0]!["Person.gender"])}`);
   });

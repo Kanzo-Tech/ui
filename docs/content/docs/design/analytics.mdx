@@ -28,11 +28,11 @@ A `Selection`'s clauses are relayed by `relaySelection` in `@kanzo-tech/mosaic`.
 selection's state, never its events: a dispatch raised while another is pending is queued, and
 Mosaic may coalesce it, so the only reliable account of what a selection holds is `clauses` once
 the event arrives. A relay diffs that list by clause identity, withdraws a clause that has left
-its source, and withdraws everything it put in when it is stopped. The provider's page bridge and
-`bridgeSelection`'s outer half are both this one function.
+its source, and withdraws everything it put in when it is stopped. What it carries now is a chart's
+own clauses from the page's selection into the selection its `ChartHighlight` reads.
 
 **It replaced `from._relay.add(to)`** in `MosaicProvider`, a private member, and the copy of the same
-loop that `bridgeSelection` already ran on the public API. Keeping `_relay` behind a guard exemption
+loop a bridge between selections ran on the public API. Keeping `_relay` behind a guard exemption
 was rejected: an exemption is a private member the next Mosaic release may change without notice.
 
 **What would reverse it:** a test showing a clause lost or reordered on the public path. Then the fix
@@ -68,8 +68,8 @@ counts its members when they are keys".
 ## One row of filters, and a dashboard draws in it
 
 **The page has one filter bar, `FilterBar`, and a `Dashboard` draws its filters into it** through a
-slot — a portal from inside the dashboard's tree, so its filters keep the dashboard's provider and
-publish into the dashboard's crossfilter, bridged to the page by key as before. The bar draws every
+slot — a portal from inside the dashboard's tree, so its filters keep the dashboard's relation and
+publish into the page's one selection on it, crossed to every other relation by key. The bar draws every
 other clause as a chip and leaves the dashboard's to the dashboard's chips. Metabase's filter bar is
 one row above everything it scopes; a page with a graph and a dashboard had two — the dashboard's,
 and `FilterChips` over the page — and the page's showed the dashboard's clauses a second time.
@@ -98,9 +98,9 @@ view they do not filter — a hidden dashboard whose relation the visible view d
 that view draws the clauses as chips alone, as v0.33.0 did.
 
 *Held by* `packages/ui/src/charts/filter-bar.test.tsx`, "draws what a part puts in its slot, and
-leaves that part's clauses to it", and "draws a hidden view's controls as it draws a shown one's,
+leaves that part's clauses on its relation to it", and "draws a hidden view's controls as it draws a shown one's,
 querying as the bar does and mounted once"; `packages/ui/src/charts/dashboard.test.tsx`, "are drawn
-in the page's FilterBar, from inside a dashboard that publishes its own clause", and "are drawn from
+in the page's FilterBar", and "are drawn from
 a dashboard under MosaicClients that is off as when it is shown: control, remove, Add a filter".
 
 ## The bar is one line, and its verbs are pinned

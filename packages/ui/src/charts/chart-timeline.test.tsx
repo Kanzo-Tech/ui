@@ -83,7 +83,7 @@ describe("ChartTimeline", () => {
   it("reserves the band's height and draws nothing in it — no Play, no ticks — until the bars are drawn", () => {
     render(
       <MosaicProvider coordinator={coordinator}>
-        <ChartTimeline field="year" table="awards" title="Awards by year" />
+        <ChartTimeline field="year" relation="awards" title="Awards by year" />
       </MosaicProvider>,
     );
     const figure = screen.getByRole("figure", { name: "Awards by year" });
@@ -100,7 +100,7 @@ describe("ChartTimeline", () => {
   it("draws no play button when it is not playable", () => {
     render(
       <MosaicProvider coordinator={coordinator}>
-        <ChartTimeline field="year" playable={false} table="awards" title="Awards by year" />
+        <ChartTimeline field="year" playable={false} relation="awards" title="Awards by year" />
       </MosaicProvider>,
     );
     expect(screen.queryByRole("button", { name: "Play time" })).toBeNull();

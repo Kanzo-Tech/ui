@@ -1,4 +1,4 @@
-import { Query, Selection, asTableRef, clauseInterval, clauseMatch, clausePoint, clauseSemiJoin, isIn, literal } from "@kanzo-tech/mosaic";
+import { Query, Selection, asTableRef, clauseInterval, clauseMatch, clausePoint, clauseSemiJoin, holdFirstDraw, isIn, literal } from "@kanzo-tech/mosaic";
 import { describe, expect, it, vi } from "vitest";
 import { attach, refusal, settle, type Attached } from "../../test/corpus";
 import { createGraph } from "./store";
@@ -150,15 +150,22 @@ describe("the graph store", () => {
     expect(store.getSnapshot()).toBe(snapshot);
   });
 
-  it("stays loading while a part it waits for has not drawn, and is idle once every one has", async () => {
-    const { corpus, store } = await graph();
-    const release = store.hold();
+  it("stays loading while a chart on its page has not drawn its first answer, and is idle once every one has", async () => {
+    const page = Selection.crossfilter();
+    const { corpus, store } = await graph({ filterBy: page });
+    const release = holdFirstDraw(page);
     await settle(corpus);
     store.reportDrawn(store.getSnapshot());
     expect(store.getSnapshot().status).toBe("loading");
     release();
     expect(store.getSnapshot().status).toBe("idle");
     release();
+    expect(store.getSnapshot().status).toBe("idle");
+    // Shown once, a chart that comes later waits on its own.
+    holdFirstDraw(page);
+    store.setOptions({ ...store.getOptions(), fill: "team" });
+    await settle(corpus);
+    store.reportDrawn(store.getSnapshot());
     expect(store.getSnapshot().status).toBe("idle");
   });
 
@@ -286,7 +293,7 @@ describe("the page's crossfilter", () => {
     store.select([3, 4], "marquee", "Marquee");
     await settle(corpus);
     expect(String(crossfilter.predicate(chart as never))).toBe(`("dense_id" IN (3, 4))`);
-    expect(crossfilter.clauses[0]?.meta).toEqual({ type: "semijoin", label: "Marquee" });
+    expect(crossfilter.clauses[0]?.meta).toEqual({ type: "semijoin", label: "Marquee", relation: "vertices" });
     // Kept with no query: the canvas's own clause narrows what the page's answer keeps, here everything.
     expect(ids(store.getSnapshot().kept)).toEqual([3, 4]);
     expect(corpus.sent.slice(before).filter((sql) => sql.includes("WHERE"))).toEqual([]);
@@ -344,7 +351,7 @@ describe("the page's crossfilter", () => {
     store.setOptions({ ...store.getSnapshot().options, filterBy: second });
     await settle(corpus);
     expect(first.clauses.map((c) => c.meta)).toEqual([]);
-    expect(second.clauses.map((c) => c.meta)).toEqual([{ type: "semijoin", label: "Lasso" }]);
+    expect(second.clauses.map((c) => c.meta)).toEqual([{ type: "semijoin", label: "Lasso", relation: "vertices" }]);
   });
 
   it("keeps the last picture and reports the thrown value when a filter's read rejects", async () => {

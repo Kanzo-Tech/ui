@@ -29,12 +29,12 @@ function Board() {
   return (
     <div className="flex h-[48rem] w-full overflow-hidden rounded-lg border">
       <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-auto p-4">
-        <FilterBar rowNoun="sightings" table="sightings" />
+        <FilterBar rowNoun="sightings" relation="sightings" />
         <div className="grid gap-4 sm:grid-cols-2">
           <DashboardStat
             fields={fields}
             stat={{ id: "n", kind: "stat", title: "Sightings", measure: { op: "count" }, trend: "hour" }}
-            table="sightings"
+            relation="sightings"
           />
           <DashboardStat
             fields={fields}
@@ -46,17 +46,17 @@ function Board() {
               trend: "hour",
               goodWhenUp: false,
             }}
-            table="sightings"
+            relation="sightings"
           />
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           {shown.kind === "chart" && (
-            <ChartCard card={shown} fields={fields} onEdit={() => setEditing(bar)} ref={slot} table="sightings" />
+            <ChartCard card={shown} fields={fields} onEdit={() => setEditing(bar)} ref={slot} relation="sightings" />
           )}
           <ChartCard
             card={{ id: "hour", kind: "chart", span: 1, type: "histogram", x: "hour", y: { op: "count" }, color: "verdict" }}
             fields={fields}
-            table="sightings"
+            relation="sightings"
           />
         </div>
         <Card className="gap-3">
@@ -64,7 +64,7 @@ function Board() {
             <CardTitle className="font-medium text-sm">Rows</CardTitle>
           </CardHeader>
           <CardContent>
-            <DetailTable columns={["beast", "region", "hour", "bounty", "verdict"]} fields={fields} pageSize={8} table="sightings" />
+            <DetailTable columns={["beast", "region", "hour", "bounty", "verdict"]} fields={fields} pageSize={8} relation="sightings" />
           </CardContent>
         </Card>
       </div>

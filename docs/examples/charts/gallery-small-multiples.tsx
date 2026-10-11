@@ -19,7 +19,7 @@ export default function Example() {
   return (
     <MosaicDemo>
       <div className="w-full max-w-2xl">
-        <ChartRoot facetMargin={{ left: 6, right: 6 }} height={200} table="sightings">
+        <ChartRoot facetMargin={{ left: 6, right: 6 }} height={200} relation="sightings">
           <ChartAreaY fill="var(--chart-1)" fillOpacity={0.15} fx="region" x="hour" y={count()} />
           <ChartLineY fx="region" stroke="var(--chart-1)" strokeWidth={1.5} x="hour" y={count()} />
           <ChartIntervalX />

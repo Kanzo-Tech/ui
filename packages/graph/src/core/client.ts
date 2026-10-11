@@ -7,17 +7,21 @@ import {
   clauseSemiJoin,
   float64,
   literal,
+  onRelation,
   queryFailure,
   type FilterExpr,
+  type RelationClient,
   type Selection,
 } from "@kanzo-tech/mosaic";
-import { answers, clausesOf, relation, type Answer } from "./source";
+import { VERTICES, answers, clausesOf, relation, type Answer } from "./source";
 import { type Structure } from "./structure";
 
 /**
  * **The graph as a client of the page's coordinator** — one Mosaic client, like every chart beside
- * it. The coordinator hands it the crossfilter's predicate, minus the clause the graph published
- * itself; it answers with the keys that survive, and the canvas greys out the rest on the GPU.
+ * it, reading `vertices`: every vertex as one relation. The coordinator hands it the page's
+ * predicate, minus the clause the graph published itself, with every clause published on another
+ * relation already crossed into `vertices` by the page's resolver; it answers with the keys that
+ * survive, and the canvas greys out the rest on the GPU.
  * No predicate is translated, no position is uploaded again, and the query runs on the coordinator's
  * one connection, through its cache — Cosmograph's crossfilter, on our stack.
  */
@@ -26,7 +30,9 @@ const UNFILTERED = Query.select({ id: cast(literal(null), "DOUBLE") });
 /** The answer that keeps nothing: no rows, where the unfiltered answer has one. */
 const NOTHING = Query.select({ id: cast(literal(null), "DOUBLE") }).where(literal(false));
 
-export class GraphClient extends MosaicClient {
+export class GraphClient extends MosaicClient implements RelationClient {
+  /** What the page's resolver crosses every other relation's clauses into. */
+  readonly relation = VERTICES;
   #structure: () => Structure | null;
   #kept: (ids: Float64Array | null) => void;
   #fail: (error: unknown) => void;
@@ -100,7 +106,8 @@ export class GraphClient extends MosaicClient {
 
 /**
  * **A pick, published** — `key IN (ids)` from `source`, labelled for its chip, on the selection the
- * graph filters by; with `excludes`, `NOT (key IN (ids))`, the vertices it leaves out. One clause per
+ * graph filters by; with `excludes`, `NOT (key IN (ids))`, the vertices it leaves out. Either is said
+ * to be on `vertices`, so the page crosses it into every other relation by key. One clause per
  * source: a source that picks again replaces its own clause, and two sources intersect. The canvas's
  * own gestures publish from the graph's client, which the crossfilter exempts, so the graph asks
  * nothing for them and narrows what the page keeps by them itself (`keptOf`); a pick from anywhere
@@ -115,5 +122,6 @@ export function publish(
   label: string,
   excludes = false,
 ): void {
-  selection.update(excludes ? clauseAntiJoin(key, ids, { source, label }) : clauseSemiJoin(key, ids, { source, label }));
+  const clause = excludes ? clauseAntiJoin(key, ids, { source, label }) : clauseSemiJoin(key, ids, { source, label });
+  selection.update(onRelation(clause, VERTICES));
 }

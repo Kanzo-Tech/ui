@@ -52,7 +52,7 @@ export default function Example() {
         <ChartRoot
           height={140}
           margin={{ top: 4, right: 12, bottom: 28, left: 76 }}
-          table="telemetry"
+          relation="telemetry"
         >
           <ChartBarX fill="var(--primary)" sort={{ y: "-x" }} tip x={count()} y="region" />
           <ChartPickY />

@@ -1,23 +1,27 @@
 "use client";
 
-import type { TableExpr } from "@kanzo-tech/mosaic";
-import type { Selection } from "@uwdata/mosaic-core";
+import type { RelationExpr } from "@kanzo-tech/mosaic";
 import { Interval1D } from "@uwdata/mosaic-plot";
-import { count } from "@uwdata/mosaic-sql";
+import { Query, count, isNotNull } from "@uwdata/mosaic-sql";
 import { bin } from "./chart-bin.js";
 import { PauseIcon, PlayIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "../lib/cn.js";
 import * as vg from "@uwdata/vgplot";
 import { ChartAxisY } from "./chart-axes.js";
 import { ChartBrushX } from "./chart-interactors.js";
 import { ChartRectY } from "./chart-marks.js";
 import { ChartRoot, useChartContext, type ChartPlot } from "./chart-root.js";
-import { useMosaic } from "./mosaic-provider.js";
+import { chartTableKey } from "./chart-spec.js";
+import { MosaicClients, useRelation } from "./mosaic-provider.js";
 
 export interface ChartTimelineProps {
-  /** The relation the bars count. */
-  table?: TableExpr;
+  /**
+   * The relation the bars count, as `ChartRoot` takes it: a table by name, a path over the joins, or
+   * SQL. Over a graph, `"vertices"` — every vertex type as one relation — counts every vertex with
+   * the column, and its window keeps only those.
+   */
+  relation?: RelationExpr;
   /** The temporal column: a date, a timestamp, or a year stored as its integer. */
   field: string;
   /** Names the figure — its accessible name, and its key in a test's hook. */
@@ -27,20 +31,10 @@ export interface ChartTimelineProps {
    * Default `var(--chart-1)`.
    */
   fill?: string;
-  /** What the bars filter by. Defaults to the page's crossfilter. */
-  filterBy?: Selection | null;
-  /** Where the window publishes. Defaults to the root's own selection, relayed into the page's. */
-  as?: Selection;
   /** The band's height in px: the tick labels' row and the bars under it. Default 44. */
   height?: number;
   /** Draw the play button. Default `true`. */
   playable?: boolean;
-  /**
-   * The selection whose clients pace playback: the next step waits until they have answered the
-   * window on screen. Defaults to the page's crossfilter; a part that bridges its window into
-   * another selection passes that one.
-   */
-  paceBy?: Selection;
   className?: string;
 }
 
@@ -84,7 +78,7 @@ const NO_RANGE = "Brush a range to play";
 
 /**
  * **A time filter: the distribution over time, a window brushed across it, and a play button that
- * moves the window forward** — Cosmograph's `Timeline`, on the page's crossfilter. The bars behind
+ * moves the window forward** — Cosmograph's `Timeline`, on the page's selection. The bars behind
  * are the column unfiltered and the bars in front are what the page keeps; the window is one clause,
  * a chip in the `FilterBar` like any control's. `/docs/design/timeline` is why it is shaped so.
  *
@@ -98,38 +92,44 @@ const NO_RANGE = "Brush a range to play";
  * it holds the whole range. With no range there is nothing to play, as in Cosmograph. At the end it
  * stops with the whole range kept, and the next Play starts over from the range's first bar. A
  * pointer coming down on the bars pauses it; a drag makes a new range, which the next Play starts.
- * Each step waits for the page to answer the last. *Play time* is a bare icon at the bars' left
+ * Each step waits for every client of the page to answer the last. *Play time* is a bare icon at the bars' left
  * edge, as Cosmograph's is, and Space on the focused figure plays and pauses.
  */
 export function ChartTimeline({
-  table,
+  relation,
   field,
   title,
   fill = "var(--chart-1)",
-  filterBy,
-  as,
   height = 44,
   playable = true,
-  paceBy,
   className,
 }: ChartTimelineProps) {
   const bars = bin(field, { steps: BARS });
+  const read = useRelation(relation);
+  const key = chartTableKey(read.table);
+  // The rows that have a time: one without has no bar to stand in, and a bucket of NULLs is no
+  // place on a time axis. They are still the relation's rows — the window is published on it.
+  const timed = useMemo(
+    () => (read.table === undefined ? undefined : Query.from(read.table).select("*").where(isNotNull(field))),
+    // `key` stands in for the identity of the table.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [key, field],
+  );
   return (
+    <MosaicClients relation={read.relation ?? undefined}>
     <ChartRoot
       aria-keyshortcuts={playable ? "Space" : undefined}
       aria-label={title}
-      as={as}
       attributes={AXIS}
       // The band's height is held from the first render, and the band shows — Play with the bars —
       // once the plot has drawn them: nothing half-built, and no Play over an empty band.
       className={cn("flex-row items-stretch gap-0 opacity-0 motion-safe:transition-opacity data-drawn:opacity-100 outline-none focus-visible:ring-[3px] focus-visible:ring-ring", className)}
-      filterBy={filterBy}
       height={height}
       margin={MARGIN}
       plotClassName="min-w-0 flex-1"
       style={{ minHeight: height }}
+      relation={timed}
       tabIndex={playable ? 0 : undefined}
-      table={table}
     >
       <ChartRectY fill="var(--muted-foreground)" filterBy={null} inset={0.5} opacity={0.22} x={bars} y={count()} />
       {/* The brush exempts its whole plot, so a drag queries nothing here and the plot is never
@@ -140,8 +140,9 @@ export function ChartTimeline({
       <ChartRectY fill={fill} inset={0.5} opacity={0.35} x={bars} y={count()} />
       <ChartRectY fill={fill} inset={0.5} x={bars} y={count()} />
       <ChartAxisY anchor={null} label={null} />
-      <TimelineWindow paceBy={paceBy} playable={playable} />
+      <TimelineWindow playable={playable} />
     </ChartRoot>
+    </MosaicClients>
   );
 }
 
@@ -150,14 +151,12 @@ export function ChartTimeline({
  * seen: the window the clause holds, and what a pause or the end says.
  *
  * Playing is a loop of frames, each one bar further into the range, that waits for the frame before
- * it to be answered — by `paceBy`'s clients and the range's own selection — and for a step's least
+ * it to be answered — by every client of the page's selection — and for a step's least
  * time. A frame is published through the interval's own clause, so the page holds one clause, and
  * its chip reads the frame. The range is the interval's value and stays where it was brushed.
  */
-function TimelineWindow({ playable, paceBy }: { playable: boolean; paceBy?: Selection }) {
-  const { as, plot } = useChartContext();
-  const { crossfilter } = useMosaic();
-  const pace = paceBy ?? crossfilter;
+function TimelineWindow({ playable }: { playable: boolean }) {
+  const { selection: as, plot } = useChartContext();
   const [range, setRange] = useState<readonly unknown[] | null>(null);
   const [playing, setPlaying] = useState(false);
   /** The window the clause holds while a frame is shown — playing, paused or ended — else `null`. */
@@ -288,7 +287,7 @@ function TimelineWindow({ playable, paceBy }: { playable: boolean; paceBy?: Sele
       while (alive && state.current.running) {
         const drawn = intervalOf(plot());
         const bars = drawn?.scale ? edgesOf(brushedBy(drawn)).length - 1 : BARS;
-        await Promise.all([sleep(stepMs(bars, reduced)), as.pending("value"), pace.pending("value")]);
+        await Promise.all([sleep(stepMs(bars, reduced)), as.pending("value")]);
         if (!alive || !state.current.running) return;
         const interval = intervalOf(plot());
         // A plot rebuilt a moment ago has not drawn its interval yet: wait for it.
@@ -303,7 +302,7 @@ function TimelineWindow({ playable, paceBy }: { playable: boolean; paceBy?: Sele
     return () => {
       alive = false;
     };
-  }, [playing, plot, as, pace]);
+  }, [playing, plot, as]);
 
   const shown = frame ?? range;
   const label = playing ? "Pause time" : "Play time";

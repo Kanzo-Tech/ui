@@ -17,8 +17,8 @@ export default function Example() {
   return (
     <MosaicDemo>
       <EditingPage>
-        <FilterBar rowNoun="sightings" table="sightings" />
-        <Dashboard onChange={setSpec} table="sightings" value={spec} />
+        <FilterBar rowNoun="sightings" relation="sightings" />
+        <Dashboard onChange={setSpec} relation="sightings" value={spec} />
       </EditingPage>
     </MosaicDemo>
   );

@@ -10,9 +10,6 @@ import {
   RelationPicker,
   relationIdentities,
   relationKey,
-  relationQuery,
-  relationRootKey,
-  semiJoinOf,
   type DashboardSpec,
   type JoinGraph,
   type Relation,
@@ -20,11 +17,11 @@ import {
 import { FROM, said, useArchive } from "../graph/archive";
 import { EditingPage } from "./editing-page";
 
-// The archive's corpus as a join graph: one type, `Node`, and its `linksTo` edges. Pick "Add related…" to
-// chart every link as a row — `Node.kind` beside `Node2.kind` — and the dashboard reads the joined
-// relation exactly as it reads a table. Each relation keeps its own spec, keyed by `relationKey`.
-// `publish` hands the page one semi-join on the root's key for all the tiles' clauses — its chips
-// in the bar — which is what a graph beside the dashboard would be filtered by.
+// The archive's corpus as a join graph: one type, `Node`, its `linksTo` edges, and `vertices`, every
+// node as one relation. Pick "Add related…" to chart every link as a row — `Node.kind` beside
+// `Node2.kind` — and the dashboard reads the joined relation exactly as it reads a table. Each
+// relation keeps its own spec, keyed by `relationKey`. The provider is handed the joins, so the tiles'
+// clauses — their chips in the bar — reach a graph beside the dashboard crossed by the root's key.
 
 export default function Example() {
   const [failure, setFailure] = useState<unknown>(null);
@@ -40,14 +37,11 @@ export default function Example() {
     () => {
       if (!graph) return null;
       const key = relationKey(graph, relation);
-      const table = relationQuery(graph, relation);
       const identities = relationIdentities(graph, relation);
       return {
         key,
-        table,
         // The keys are identity, not data: in the relation, out of the fields.
         exclude: identities.map((i) => i.column),
-        publish: semiJoinOf(relationRootKey(graph, relation), table, { label: key }),
       };
     },
     [graph, relation],
@@ -56,10 +50,10 @@ export default function Example() {
   if (failure !== null) return <p className="text-muted-foreground text-sm">{said(failure)}</p>;
   if (!coordinator || !graph || !drawn) return <Skeleton className="h-96 w-full" />;
   return (
-    <MosaicProvider coordinator={coordinator}>
+    <MosaicProvider coordinator={coordinator} joins={graph}>
       <EditingPage>
         <RelationPicker graph={graph} onValueChange={setRelation} value={relation} />
-        <FilterBar rowNoun={relation.path.length ? "paths" : "nodes"} table={drawn.table} />
+        <FilterBar rowNoun={relation.path.length ? "paths" : "nodes"} relation={relation} />
         <Dashboard
           exclude={drawn.exclude}
           key={drawn.key}
@@ -71,8 +65,7 @@ export default function Example() {
               return next;
             })
           }
-          publish={drawn.publish}
-          table={drawn.table}
+          relation={relation}
           value={specs[drawn.key]}
         />
       </EditingPage>

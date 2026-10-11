@@ -29,6 +29,11 @@ export interface JoinType {
   readonly columns: readonly string[];
   /** How many rows the table holds, where the catalog says: what a hop's fan-out is read from. */
   readonly rows?: number;
+  /**
+   * The types whose rows this one holds, for a type that is their union — every vertex as one
+   * relation. A clause on any of them crosses into it by `key`, and a clause on it into each of them.
+   */
+  readonly of?: readonly string[];
 }
 
 /** One link table: each row joins a `source` row to a `destination` row. */
@@ -154,9 +159,10 @@ export function relationIdentities(graph: JoinGraph, relation: Relation): { colu
 }
 
 /**
- * The root's key, by name: the column a host publishes a relation's rows to the page through, as
- * `semiJoinOf(relationRootKey(graph, relation), relationQuery(graph, relation))`. It is the one
- * column of a relation that is not prefixed — see `keyName` — so it is the root type's own `key`.
+ * The root's key, by name: the column a clause on the relation crosses to the rest of the page by —
+ * `key IN (SELECT key FROM relationQuery(graph, relation) WHERE …)`, which the page's resolver writes
+ * (`crossfilter.ts`). It is the one column of a relation that is not prefixed — see `keyName` — so
+ * it is the root type's own `key`.
  */
 export function relationRootKey(graph: Pick<JoinGraph, "types">, relation: Relation): string {
   return typeOf(graph, relation.root).key;

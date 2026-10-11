@@ -35,15 +35,15 @@ const gateway = createGateway({ baseURL: "/api/ai" });
 
 ```tsx
 function Ask({ engine, graph, relations, dashboards, onAdd }: { engine: Engine; graph: JoinGraph; relations: AnswerRelation[]; dashboards: Dashboards; onAdd: AnswerCardProps["onAdd"] }) {
-  const { crossfilter } = useMosaic();
+  const { selection } = useMosaic();
   // The context each alias was started with, as the host declares it: each call fits in it.
-  const chat = useAgentChat(dataAgent({ model: gateway("chat"), engine, graph, relations, selection: crossfilter, context: { tokens: 16384 } }));
+  const chat = useAgentChat(dataAgent({ model: gateway("chat"), engine, graph, relations, selection, context: { tokens: 16384 } }));
   // Cached per data space and per filter; streamed, so the pills land one by one.
   const starters = useQuery({
-    queryKey: ["starters", relations, String(crossfilter.predicate(null))],
+    queryKey: ["starters", relations, String(selection.predicate(null))],
     queryFn: streamedQuery({
       streamFn: ({ signal }) =>
-        dataSuggestions({ model: gateway("complete"), graph, relations, selection: crossfilter, context: { tokens: 8192 }, abortSignal: signal }),
+        dataSuggestions({ model: gateway("complete"), graph, relations, selection, context: { tokens: 8192 }, abortSignal: signal }),
     }),
   });
   return (
@@ -248,10 +248,11 @@ In the tile's header, beside its title, are the two verbs the shape gives — ic
 `aria-label` and by a tooltip, as a dashboard tile's pencil is ([why](/docs/design/ai#an-answers-verbs-are-on-its-tile-and-filter-is-there-only-when-it-filters)):
 
 - **Filter the page to these rows** narrows the page to the answer: its conditions, and for a bar
-  chart the categories it answered, published as one semi-join on the relation's root key — [`semiJoinOf`](/docs/design/graph#the-clause-rule-column-predicates-or-a-semi-join-on-identity),
-  as a relation dashboard's tiles publish — so the graph and every panel that shares the key follow.
+  chart the categories it answered, published as one semi-join on the relation's root key — a
+  [`clauseSemiJoin`](/docs/design/graph#the-clause-rule-column-predicates-or-a-semi-join-on-identity)
+  over the answer's rows — so the graph and every panel that shares the key follow.
   It is `aria-pressed` while the clause holds, and pressed again it takes the clause back. Its chip
-  in the page's `FilterBar` names what it filters, each part as the bar reads a clause: *Ask:
+  in the page's `FilterBar` names what it filters, each clause as the bar reads one: *Ask:
   Person.gender female*, *Ask: browserUsed · 3 selected*. An answer with nothing to narrow to draws
   no button. **It is disabled when it would keep everything in view** — no conditions, a relation
   that is a type alone, and bars over every category of their column (none missing against the

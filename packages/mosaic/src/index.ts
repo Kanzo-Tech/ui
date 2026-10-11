@@ -62,8 +62,7 @@ export {
 
 /**
  * Ours: the clause rule — column predicates on one relation, or a semi-join on identity — with the
- * constructor of the second form, the map that crosses a relation's clauses into it (`semiJoinOf`),
- * the reading of the columns either names, and what a clause says
+ * constructor of the second form, the reading of the columns either names, and what a clause says
  * to a person (`clauseParts`, `clauseLabel`) — read by `@kanzo-tech/ui`'s chips and filter bar.
  * `clause.ts` states it.
  */
@@ -71,7 +70,6 @@ export {
   clauseColumns,
   clauseAntiJoin,
   clauseSemiJoin,
-  semiJoinOf,
   clauseParts,
   clauseLabel,
   type ClauseParts,
@@ -82,11 +80,26 @@ export {
 } from "./clause.js";
 
 /**
- * Ours: a selection inside another, joined by a map — the outer clauses handed in as themselves, the
- * inner ones mapped out together, on mosaic-core's public `Selection` API alone. What a group of
- * clients crossfiltering in their own columns publishes to the page in the page's: `bridge.ts`.
+ * Ours: the page's one crossfilter across relations — Mosaic's crossfilter with a resolver that
+ * crosses a clause published on one relation into a client of another, by key along the joins, or
+ * keeps none of it where there is no way across; and the pre-aggregator kept to a client's own
+ * relation. `crossfilter.ts`.
  */
-export { bridgeSelection, bridged, clauseReadings, type Bridged, type BridgeOptions, type ClauseMap, type ClauseReading } from "./bridge.js";
+export {
+  JoinResolver,
+  crossfilterOver,
+  onRelation,
+  preaggregateOwnRelation,
+  readOf,
+  relationOf,
+  sameRelation,
+  type RelationClient,
+  type RelationExpr,
+  type RelationMetadata,
+  type RelationRef,
+} from "./crossfilter.js";
+/** Ours: what a page has yet to draw for the first time, counted on its selection — `drawing.ts`. */
+export { firstDrawsPending, holdFirstDraw, onFirstDraws } from "./drawing.js";
 /**
  * Ours: one selection's clauses relayed into another built earlier, as the clause objects
  * themselves — what Mosaic's `include` does at construction, after it: `relay.ts`.

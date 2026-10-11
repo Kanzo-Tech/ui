@@ -1,63 +1,43 @@
 "use client";
 
-import { relaySelection } from "@kanzo-tech/mosaic";
+import { crossfilterOver, preaggregateOwnRelation, readOf, type JoinGraph, type RelationExpr, type RelationRef, type TableExpr } from "@kanzo-tech/mosaic";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ark } from "@ark-ui/react/factory";
 import { cn } from "../lib/cn.js";
 import {
-  Selection,
   coordinator as setActiveCoordinator,
   type Coordinator,
-  type SelectionClause,
+  type Selection,
 } from "@uwdata/mosaic-core";
 
 /**
- * MosaicProvider — the crossfilter context every chart on this subpath reads from.
+ * MosaicProvider — the page's coordinator, its joins, and the one selection every part on this
+ * subpath filters by and publishes into.
  *
  * **Bring-your-own coordinator**, the way CodeEditor is bring-your-own-language. The provider
  * never instantiates a `Coordinator`: the consumer passes one in — `engine()`'s, the page's one
  * DuckDB-WASM database, or one over a socket/REST connector of their own. That keeps the boot out
  * of any React Server Component — it lives in the consumer's `"use client"` island.
  *
- * The provider does two things: it registers the caller's coordinator as vgplot's active one, so
- * `vg.plot(...)` marks resolve their queries through it, and it hands every descendant chart a
- * shared `Selection.crossfilter()` so brushing one chart filters the others.
+ * The provider registers the caller's coordinator as vgplot's active one, so `vg.plot(...)` marks
+ * resolve their queries through it, and **owns the page's selection**: one Mosaic crossfilter, built
+ * over `joins` (`@kanzo-tech/mosaic`'s `crossfilterOver`), so a clause published on one relation
+ * reaches a part reading another — crossed by key along the joins, or keeping none of it where there
+ * is no way across. Nobody passes a selection; every part publishes into this one, and a clause is
+ * retracted where it is held — `selection.reset([clause])`, which calls its source back.
  */
 
 export interface MosaicContextValue {
   /** The caller-supplied coordinator. Also registered as vgplot's active coordinator. */
   coordinator: Coordinator;
-  /** The shared crossfilter selection every chart **filters by**. */
-  crossfilter: Selection;
   /**
-   * Every clause published by any chart on the page, flattened into one plain union — the page-wide
-   * read model, for a filter-chip row or a readout. Relayed into `crossfilter`.
-   *
-   * It is **not** what a chart highlights by: a page-wide selection names columns other charts
-   * group by, and that is a binder error waiting to happen (see `chart-root`). Charts publish into
-   * a selection of their own, which converges here.
+   * The page's one selection: what every part filters by and publishes into. A chip's × is
+   * `selection.reset([clause])`, *Clear* is `selection.reset()`.
    */
-  selected: Selection;
-  /**
-   * Enrols a selection in `reset()`. With `relay` (what `ChartRoot` does for the selection it owns)
-   * the selection's clauses are also forwarded into `selected`, and from there into `crossfilter`.
-   * Returns the unregister.
-   */
-  registerSelection: (selection: Selection, options?: { relay?: boolean }) => () => void;
-  /**
-   * Clears every clause on the page — the shared selections **and** every registered chart
-   * selection. `Selection.reset()` travels downstream only, so resetting `crossfilter` alone leaves
-   * each chart holding its own pick; this is the call a "Clear filters" button wants.
-   */
-  reset: () => void;
-  /**
-   * Clears these clauses only — Mosaic's own `Selection.reset(clauses)`, issued on the selection
-   * each clause was published into, so it relays down to the crossfilter instead of being removed
-   * there and left standing upstream, still highlighting the chart that made it. That is what a
-   * filter chip's remove button wants.
-   */
-  retract: (clauses: readonly SelectionClause[]) => void;
+  selection: Selection;
+  /** The join graph the page's relations are read over, or `null` for a page of plain tables. */
+  joins: JoinGraph | null;
   /** Reports a failed query to the provider's `onFailure`. Every chart part on this subpath calls it. */
   onFailure: (error: unknown) => void;
 }
@@ -71,11 +51,13 @@ export interface MosaicProviderProps {
    */
   coordinator: Coordinator;
   /**
-   * The crossfilter `Selection` every descendant chart filters by. Defaults to a fresh
-   * `Selection.crossfilter()`. Pass one to share a selection across trees or to seed a predicate;
-   * everything below still works, because the provider relays into it rather than constructing it.
+   * The types and the edges between them that the page's relations are read over —
+   * `@kanzo-tech/graph`'s `readJoinGraph` for a fossil corpus. A part's `relation` names a type or a
+   * path over them, and a clause on one relation reaches a part on another through them. Without it
+   * every relation is a table of its own, and a clause crosses to no other. Keep it stable: a new
+   * graph is a new page selection.
    */
-  crossfilter?: Selection;
+  joins?: JoinGraph | null;
   /**
    * Called with the thrown value whenever a chart, a stat or an input under this provider fails to
    * read — the one path a failed query takes to the host. The part also shows the failure in its
@@ -85,10 +67,7 @@ export interface MosaicProviderProps {
   children: ReactNode;
 }
 
-export function MosaicProvider({ coordinator, crossfilter, onFailure, children }: MosaicProviderProps) {
-  // Survives the memo below, so a coordinator swap does not lose the charts already mounted.
-  const registry = useRef<Set<Selection> | null>(null);
-  registry.current ??= new Set<Selection>();
+export function MosaicProvider({ coordinator, joins = null, onFailure, children }: MosaicProviderProps) {
   // Read through a ref, so a host's inline `onFailure` is never a change of context.
   const latest = useRef(onFailure);
   latest.current = onFailure;
@@ -98,52 +77,13 @@ export function MosaicProvider({ coordinator, crossfilter, onFailure, children }
     // mosaic-core's global setter — the same call a host's boot makes, except the instance
     // arrives as a prop here instead of being built in the library.
     setActiveCoordinator(coordinator);
-    const owned = registry.current as Set<Selection>;
-    const selected = Selection.union();
-    const shared = crossfilter ?? Selection.crossfilter();
-    // The clause objects themselves, so `source` and `clients` survive and the crossfilter still
-    // exempts a chart from its own clause. Selections born later (a chart's) are relayed the same way.
-    relaySelection(selected, shared);
+    // A clause crossed in from another relation is never pre-aggregated against the client's table.
+    preaggregateOwnRelation(coordinator);
+    return { coordinator, selection: crossfilterOver(joins), joins, onFailure: (error) => latest.current?.(error) };
+  }, [coordinator, joins]);
 
-    return {
-      coordinator,
-      crossfilter: shared,
-      selected,
-      registerSelection(selection, options) {
-        owned.add(selection);
-        if (!options?.relay) return () => void owned.delete(selection);
-        const stop = relaySelection(selection, selected);
-        return () => {
-          owned.delete(selection);
-          // The unrelay withdraws the chart's clauses from the page, or a chart that unmounts (a
-          // tab, a conditional) would leave them filtering it with nothing on screen to clear them;
-          // the reset clears its interactors. Only for selections the root minted — a caller's `as`
-          // may well outlive this chart.
-          selection.reset();
-          stop();
-        };
-      },
-      retract(clauses) {
-        // Upstream first: a chart's own selection relays the removal on, so by the time the shared
-        // two are asked the clause is usually gone from them already.
-        for (const selection of [...owned, selected, shared]) {
-          const held = clauses.filter((clause) => selection.clauses.includes(clause));
-          if (held.length) selection.reset(held);
-        }
-      },
-      reset() {
-        // Children first: each relays its own removal downstream into `selected` and the
-        // crossfilter. The two shared resets then take whatever was published straight into them —
-        // a `ChartFilter`, a `ChartSearch`, a clause the caller seeded.
-        for (const selection of owned) selection.reset();
-        selected.reset();
-        shared.reset();
-      },
-      onFailure: (error) => latest.current?.(error),
-    };
-  }, [coordinator, crossfilter]);
-
-  // The page's slots are the outermost provider's: a provider nested for a dashboard draws in them too.
+  // The page's slots are the outermost provider's: a provider nested for another relation draws in
+  // them too.
   const outer = useContext(Slots);
   const [slot, setSlot] = useState<PageSlots>(EMPTY_SLOTS);
   const slots = useMemo(() => outer ?? { slot, set: setSlot }, [outer, slot]);
@@ -155,9 +95,9 @@ export function MosaicProvider({ coordinator, crossfilter, onFailure, children }
   );
 }
 
-/** Clauses a part draws in the bar itself — those of `selection` on one of `fields` — so `FilterBar` does not. */
+/** Clauses a part draws in the bar itself — those on `relation` over one of `fields` — so `FilterBar` does not. */
 export interface BarHeld {
-  readonly selection: Selection;
+  readonly relation: RelationRef | null;
   readonly fields: readonly string[];
 }
 
@@ -193,24 +133,22 @@ export function useBarSlot() {
 
 /**
  * **Draws `children` in the page's `FilterBar`**, through a portal, so they keep this tree's context
- * — the dashboard's provider and its crossfilter — while they sit in the page's bar. `held` names the
- * clauses they draw themselves. They query as the bar does, not as where they are declared, so under
- * a `MosaicClients` that is off — a hidden view — they are drawn and set as when it is shown: its
- * filters reach the page through the bridge whichever view the reader is in. Nothing is drawn while
- * the page has no bar.
+ * — the dashboard's relation — while they sit in the page's bar. `held` names the clauses they draw
+ * themselves. They query as the bar does, not as where they are declared, so under a
+ * `MosaicClients` that is off — a hidden view — they are drawn and set as when it is shown: its
+ * filters reach the page whichever view the reader is in. Nothing is drawn while the page has no bar.
  */
 export function InFilterBar({ held, children }: { held: BarHeld; children: ReactNode }) {
   const slots = useContext(Slots);
   const set = slots?.set;
-  const { selection } = held;
-  // By value, so a host's inline array is not a change.
-  const fields = JSON.stringify(held.fields);
+  // By value, so a host's inline relation or array is not a change.
+  const key = JSON.stringify(held);
   useEffect(() => {
     if (!set) return;
-    const entry: BarHeld = { selection, fields: JSON.parse(fields) as string[] };
+    const entry = JSON.parse(key) as BarHeld;
     set((s) => ({ ...s, held: [...s.held, entry] }));
     return () => set((s) => ({ ...s, held: s.held.filter((h) => h !== entry) }));
-  }, [set, selection, fields]);
+  }, [set, key]);
   return <InBar at="bar">{children}</InBar>;
 }
 
@@ -254,23 +192,39 @@ export function useEditorAside() {
 }
 
 const Enabled = createContext(true);
+/** The relation the clients under a `MosaicClients` read, as the page knows it. */
+const Reading = createContext<RelationRef | null>(null);
 
 export interface MosaicClientsProps {
-  /** Whether the clients under it query. A nested `false` wins over an enclosing `true`. */
-  enabled: boolean;
+  /** Whether the clients under it query. A nested `false` wins over an enclosing `true`. Default `true`. */
+  enabled?: boolean;
+  /**
+   * The relation the clients under it read, as the page knows it — a type's name or a path over the
+   * provider's joins — when what they are handed to query is SQL over it: a relation projected for
+   * the plots, an answer's rows narrowed from it. A clause they publish is on it, and a clause
+   * published elsewhere reaches them crossed into it. A part given a `relation` of its own by name or
+   * path reads that one instead.
+   */
+  relation?: RelationRef;
   children: ReactNode;
 }
 
 /**
- * **Mosaic's `MosaicClient.enabled`, for every client under it** — the charts' marks, the inputs and
- * every `useChartQuery`. A disabled client keeps its state and its clauses but asks nothing; enabled
- * again, it runs the one query it was owed. Mosaic's own reason for the flag is ours: a panel that
- * is off screen — a view swapped out, a collapsed dock — keeps what the reader brushed there without
- * re-querying on every pick made elsewhere. Unmounting it instead would retract its clauses.
+ * **What every client under it is** — Mosaic's `MosaicClient.enabled`, and the relation it reads —
+ * for the charts' marks, the inputs and every `useChartQuery`. A disabled client keeps its state and
+ * its clauses but asks nothing; enabled again, it runs the one query it was owed. Mosaic's own reason
+ * for the flag is ours: a panel that is off screen — a view swapped out, a collapsed dock — keeps what
+ * the reader brushed there without re-querying on every pick made elsewhere. Unmounting it instead
+ * would retract its clauses.
  */
-export function MosaicClients({ enabled, children }: MosaicClientsProps) {
+export function MosaicClients({ enabled = true, relation, children }: MosaicClientsProps) {
   const enclosing = useContext(Enabled);
-  return <Enabled.Provider value={enclosing && enabled}>{children}</Enabled.Provider>;
+  const reading = useContext(Reading);
+  return (
+    <Enabled.Provider value={enclosing && enabled}>
+      <Reading.Provider value={relation ?? reading}>{children}</Reading.Provider>
+    </Enabled.Provider>
+  );
 }
 
 /** Whether the clients here should query — `MosaicClients`'s answer, `true` outside one. */
@@ -278,22 +232,32 @@ export function useClientsEnabled(): boolean {
   return useContext(Enabled);
 }
 
-/** The Mosaic context — coordinator, shared selections, `registerSelection` and `reset`. */
+/**
+ * What a part pointed at `expr` reads, and the relation the page knows it by: `expr` compiled over the
+ * provider's joins when it names a type or a path, or read as written when it is SQL — which is then
+ * the relation an enclosing `MosaicClients` names. With no `expr`, the enclosing one's, read by name.
+ */
+export function useRelation(expr: RelationExpr | undefined): { table: TableExpr | undefined; relation: RelationRef | null } {
+  const { joins } = useMosaic();
+  const reading = useContext(Reading);
+  const key = expr === undefined ? undefined : typeof expr === "string" ? expr : JSON.stringify("root" in expr ? expr : String(expr));
+  return useMemo(() => {
+    if (expr === undefined) return reading === null ? { table: undefined, relation: null } : readOf(joins, reading);
+    const read = readOf(joins, expr);
+    return { table: read.table, relation: read.relation ?? reading };
+    // `key` stands in for the identity of `expr`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [joins, key, reading]);
+}
+
+/** The relation the clients here read, by the nearest `MosaicClients`; `null` outside one. */
+export function useReading(): RelationRef | null {
+  return useContext(Reading);
+}
+
+/** The page's Mosaic context — its coordinator, its one selection and its joins. */
 export function useMosaic(): MosaicContextValue {
   const ctx = useContext(MosaicContext);
   if (!ctx) throw new Error("useMosaic must be used within a <MosaicProvider>.");
   return ctx;
-}
-
-/** The shared crossfilter `Selection` — what a chart's marks filter by. */
-export function useCrossfilter(): Selection {
-  return useMosaic().crossfilter;
-}
-
-/**
- * Every chart clause on the page in one plain union — a read model, not a publish target. To clear
- * the page use `useMosaic().reset()`: a reset here never reaches the per-chart selections upstream.
- */
-export function useSelected(): Selection {
-  return useMosaic().selected;
 }

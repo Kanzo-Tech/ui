@@ -61,7 +61,7 @@ export default function Example() {
           height={150}
           margin={{ top: 20, right: 8, bottom: 24, left: 40 }}
           numberFormat={{ maximumFractionDigits: 0 }}
-          table="telemetry"
+          relation="telemetry"
         >
           <ChartBarY fill="status" x="status" y={count()} />
           <ChartPickX />

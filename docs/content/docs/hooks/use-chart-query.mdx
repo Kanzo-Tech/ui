@@ -53,15 +53,15 @@ const { row } = useChartQuery({
 
 A clause names the columns it filters, so the panel's relation has to answer it: a semi-join on an
 identity its rows carry always does — `findings` above keeps each vertex's `dense_id`, and the
-graph's pick is `dense_id IN (…)`. `clauseColumns(clause)` is what a column clause needs; a panel over
-several relations reads it to apply each clause where it can, as the graph does, and refuses one no
-relation answers rather than show the unfiltered number as the filtered one.
+graph's pick is `dense_id IN (…)`. A column clause published on another relation reaches the panel
+crossed into the one it says it reads — its `relation` — by the key the provider's `joins` share, or
+keeps none of it where they share none ([across relations](/docs/analytics/charts#across-relations)).
 
 ## filterBy
 
 | Value | What it reads |
 | --- | --- |
-| omitted | the provider's crossfilter — the usual case |
+| omitted | the page's selection — the usual case |
 | `null` | the full relation, ignoring every clause |
 | a `Selection` | that one, for a widget wired to its own scope |
 
@@ -92,7 +92,8 @@ function useChartQuery(options: ChartQueryOptions): ChartQueryResult;
 | Option | Type | Default |
 | --- | --- | --- |
 | `query` | `(filter: FilterExpr) => Query \| null` | — |
-| `filterBy` | `Selection \| null` | the provider's crossfilter; `null` reads the full relation |
+| `filterBy` | `Selection \| null` | the page's selection; `null` reads the full relation |
+| `relation` | `string \| Relation \| null` — the relation the query reads, so a clause published on another reaches it crossed ([across relations](/docs/analytics/charts#across-relations)) | the enclosing `MosaicClients`'s; with none, every clause as published |
 | `deps` | `readonly unknown[]` | `[]` |
 
 ### Returns

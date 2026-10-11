@@ -66,6 +66,11 @@ export interface ChartSpecContext {
   readonly filterBy: Selection | null;
   /** Where interactors publish. */
   readonly as: Selection | null;
+  /**
+   * What `ChartHighlight` reads by default: the clauses this chart's own interactors published, and
+   * no other — see `ChartHighlight`. Defaults to `as`.
+   */
+  readonly highlight?: Selection | null;
   readonly config: ChartConfig;
   /** Turns a `var(--token)` / `--token` reference into a Plot-safe colour. */
   readonly resolveColor: (token: string) => string;

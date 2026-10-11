@@ -23,7 +23,7 @@ Component.
 
 <ComponentPreview componentName="charts" />
 
-Four plots over **one** table, wired to **one** shared crossfilter `Selection`: drag an interval
+Four plots over **one** table, on the page's **one** crossfilter `Selection`: drag an interval
 across the histogram or the hourly line, click a region bar, drag a box on the scatter — each
 publishes to the selection, so brushing any one filters the other three. Nothing above is a chart
 component; it is four `ChartRoot`s with two marks and an interactor each.
@@ -63,7 +63,7 @@ would render them. Pass values down from the component that owns the `ChartRoot`
 ## Anatomy
 
 ```tsx
-<ChartRoot table="sightings" config={config} height={220}>
+<ChartRoot relation="sightings" config={config} height={220}>
   <ChartBarY x="host" y={count()} fill="host" tip />
   <ChartRuleY at={0} />
   <ChartAxisX tickRotate={45} />
@@ -107,9 +107,10 @@ pnpm add @uwdata/vgplot @uwdata/mosaic-plot @uwdata/mosaic-core @uwdata/mosaic-s
 
 `engine()` is the page's DuckDB-WASM database: one per document, however many islands ask, with
 the Mosaic `Coordinator` over it and the file registry beside it. Hand its coordinator to
-`MosaicProvider`, which registers it as vgplot's active coordinator and shares a pair of
-`Selection`s with every chart beneath it: one the interactors publish into, one the marks filter by
-([why two](#feedback-on-the-chart-that-filters)). DuckDB-WASM is browser-only, so ask for it in a
+`MosaicProvider`, which registers it as vgplot's active coordinator and owns the page's one
+`Selection`: every chart beneath it filters by it and publishes into it, and nobody passes one in.
+Hand it `joins` — a join graph, `readJoinGraph` for a fossil corpus — and a clause published on one
+relation reaches a chart reading another ([across relations](#across-relations)). DuckDB-WASM is browser-only, so ask for it in a
 `"use client"` island loaded with `ssr: false`, render a skeleton until it is ready, and let the
 chart hydrate:
 
@@ -174,14 +175,16 @@ the only thing that should ever call it.
 and that setter is process-wide: mount two providers with two different coordinators on the same
 page and the last one wins, leaving the other page's charts empty. Share a single instance (every
 example below does — see `docs/examples/charts/mosaic-boot.tsx`), or keep the demos on separate
-routes. Several `MosaicProvider`s over the *same* coordinator are fine; each still gets its own
-crossfilter `Selection`.
+routes. Several `MosaicProvider`s over the *same* coordinator are fine; each still owns its own
+`Selection`.
 </Callout>
 
 ## A relation in another catalog
 
-Every `table` — on `ChartRoot`, a mark, `ChartStat`, `ChartFilter`, `ChartSearch`, `ChartSlider` —
-is a `TableExpr`, and it reads the way Mosaic reads one. A **string is one
+Every `relation` — on `ChartRoot`, `ChartTimeline`, `ChartStat`, `ChartFilter`, `ChartSearch`,
+`ChartSlider`, `FilterBar` and the dashboard's parts — is one word for what a part reads: a table by
+name, a path over the provider's `joins` (a `Relation`, see [across relations](#across-relations)),
+or SQL. A table reads the way Mosaic reads one. A **string is one
 identifier** in the default catalog: `"sightings"` is `FROM "sightings"`, and a dot inside it is
 part of the name, not a path. A relation anywhere else is a **mosaic-sql node**, which goes into
 the SQL as written: `asTableRef(["guild", "sightings"])` for a path you hold in parts, `verbatim(sql)`
@@ -199,7 +202,7 @@ import { ChartAxisX, ChartBarY, ChartRoot, ChartToggleX, count } from "@kanzo-te
 
 function SightingsByRegion({ relation }: { relation: string }) {
   return (
-    <ChartRoot table={verbatim(relation)} height={160}>
+    <ChartRoot relation={verbatim(relation)} height={160}>
       <ChartBarY x="region" y={count()} fill="var(--chart-1)" />
       <ChartToggleX />
       <ChartAxisX label={null} />
@@ -212,6 +215,33 @@ function SightingsByRegion({ relation }: { relation: string }) {
 
 A node is keyed by its SQL, not by its identity, so writing `verbatim(relation)` inline does not
 rebuild the plot on every render.
+
+## Across relations
+
+A page draws more than one relation: a dashboard over people, another over their posts, a graph of
+every vertex. The provider's selection is still **one** — Mosaic's crossfilter, its interactors, its
+re-querying and its pre-aggregated views untouched — with the one thing Mosaic cannot do added
+through its own extension point, the selection's resolver: a clause published on one relation, read
+by a part on another.
+
+- A part's `relation` is what its clauses are published on, and what a clause published elsewhere
+  reaches it as. A **name** — `"Person"`, or a table — is one step; a **`Relation`**, a root type and
+  hops over the joins, is longer, compiled with `relationQuery`.
+- On **the same relation**, a clause arrives as published.
+- On **another relation the joins reach**, it arrives as `key IN (SELECT key FROM T WHERE …)`: the
+  rows of the relation it was published on, under every clause published there at once, crossed by
+  their root's key into the step of this relation that is of that type.
+- With **no step of that type**, it keeps none of the relation — `FALSE`
+  ([why](/docs/design/crossfilter#the-thesis-everything-is-a-filter)).
+
+`relation` may change: the chart re-queries and withdraws the clause it published on the old one, and
+nothing else needs to know. A part handed SQL over a relation — a projection, an answer's rows — is
+told which relation it is by a `MosaicClients relation={…}` around it.
+
+The types: `RelationExpr` is what every `relation` prop takes — a `TableExpr` or a `Relation` — and
+`RelationRef` the relation as the page knows it, a name or a path. A `MosaicClient` of your own takes
+part by implementing `RelationClient` — a `relation` it reads now — and publishing its clauses through
+`onRelation(clause, relation)`.
 
 ## The five charts
 
@@ -275,14 +305,15 @@ A crossfilter is defined by **hiding a clause from the client that published it*
   flag that `filterBy` uses. So against a crossfilter the predicate comes back empty, the test
   degrades to "everything matches", and nothing is dimmed.
 
-The chart that publishes the click is therefore the only one that cannot read it back. The fix is
-one selection more, not a fork — publish into a **non-cross** selection and relay it onward — and
-`ChartRoot` builds that selection for you, **one per chart**:
+The chart that publishes the click is therefore the only one that cannot read it back from the
+page. So the interactors publish into the page's selection, and `ChartHighlight` reads by default a
+**non-cross** selection of the chart's own, which the root fills from the page with its own
+interactors' clauses only:
 
 ```tsx
 // inside every ChartRoot, for you
-const own = Selection.union();     // interactors publish here; ChartHighlight reads it
-// relayed on, into the provider's `selected`, and from there into the crossfilter the marks use
+const highlight = Selection.union();  // what ChartHighlight reads
+// relayed from the page's selection, keeping only the clauses this chart's interactors published
 ```
 
 Per chart, not per page, and that part is load-bearing. `ChartHighlight` does not filter: it appends
@@ -292,14 +323,14 @@ query has a `GROUP BY`. So a predicate naming a column *this* plot does not grou
 swallows it, and **the plot keeps its previous render**. No error on screen, no empty state, just a
 chart frozen one state behind while its neighbours move.
 
-A page-wide publish target guarantees that the moment a second chart filters by a second column,
-which is the ordinary case. A per-chart selection cannot: the only clauses in it are the ones this
-plot's own interactors published, over the columns its own marks group by.
+Reading the page's selection guarantees that the moment a second chart filters by a second column,
+which is the ordinary case. The chart's own cannot: the only clauses in it are the ones this plot's
+own interactors published, over the columns its own marks group by. It follows the page, so a clause
+retracted there stops highlighting here.
 
-`useMosaic()` gives you `crossfilter` (what marks filter by), `selected` (every chart clause on the
-page, flattened — a read model for a filter-chip row, **not** a publish target) and `reset()`.
-Use `reset()` for a "Clear filters" button: `Selection.reset()` travels downstream only, so
-resetting the crossfilter alone leaves every chart still holding its own pick.
+`useMosaic()` gives you `selection`, the page's one. A "Clear filters" button is Mosaic's own
+`selection.reset()`, and a chip's × `selection.reset([clause])`: each takes the clause out and calls
+its source back, so the brush or the pick that published it clears too.
 
 ### Two legends, and only one of them is a control
 
@@ -320,12 +351,9 @@ is ordered by the data, so filtering to one verdict leaves the legend holding on
 
 ### When you do wire it yourself
 
-- **You pass your own `crossfilter` to `MosaicProvider`.** `include` is constructor-only, so a
-  selection handed in cannot be relayed into after the fact — the provider relays into it instead of
-  constructing it, and everything below keeps working.
-- **You pass your own `as` to a `ChartRoot`.** Then you own its wiring: nothing is relayed for you,
-  though `reset()` still clears it. Pair it with a matching `by` on the highlight, and keep to the
-  rule above — one selection per plot, naming only columns that plot groups by.
+- **You pass your own `as` to an interactor.** Then you own its wiring: its clauses are not the
+  page's, and `selection.reset()` does not reach them. Pair it with a matching `by` on the highlight,
+  and keep to the rule above — one selection per plot, naming only columns that plot groups by.
 - **A click should replace the previous pick, not add to it.** `Selection.single()` keeps one clause
   where the default union accumulates (shift/⌘-click adding to a pick is `Toggle`'s own behaviour,
   not ours).
@@ -353,17 +381,17 @@ takes the rest of the page down with it ([why](#limitations)). Bin the x, or tog
 ### Swap the interactor
 
 Click-to-toggle and drag-to-brush differ by one child. A `false` child compiles to nothing, so the
-plot is rebuilt with the other interactor and the marks stay exactly as written. Removing an
-interactor does not withdraw the clause it already published, so the example calls
-`selection.reset()` on the swap.
+plot is rebuilt with the other interactor and the marks stay exactly as written. The rebuilt plot
+withdraws the clause the old interactor published; the example also calls `selection.reset()` on the
+swap, so the page starts clean.
 
 <ComponentPreview componentName="charts" fileName="example-interactor" />
 
 ### Bring your own selection
 
-The provider's crossfilter is a default, not a cage. Own the `Selection` and wire it explicitly:
-`as` on the chart that publishes, `filterBy` on the ones that read. Everything else on the page
-stays still.
+The page's selection is a default, not a cage. Own a `Selection` and wire it explicitly, mark by
+mark, as vgplot does: `as` on the interactor that publishes, `filterBy` on the marks that read.
+Everything else on the page stays still.
 
 <ComponentPreview componentName="charts" fileName="example-selection" />
 
@@ -443,8 +471,9 @@ function Total({ rows }: { rows: number }) {
 | --- | --- |
 | `color(key)` | the series colour, already resolved to `rgb(...)` — safe in CSS and in Plot |
 | `formatNumber(value, options?)` | the chart's `Intl.NumberFormat`, from the root's `locale` / `numberFormat` — one number vocabulary for axes, legend and tooltip |
-| `config`, `table` | what the root was given |
-| `filterBy`, `as` | the selections the marks read and the interactors write |
+| `config` | what the root was given |
+| `table`, `relation` | what the marks read — the root's `relation`, compiled over the provider's `joins` — and the relation the page knows the chart by, what its clauses are on |
+| `selection` | the page's one selection: what the marks read and the interactors write |
 | `coordinator` | for a part that queries alongside the plot |
 | `plot()` | the vgplot `Plot` on screen as `ChartPlot` — its `interactors` — or `null` before the first build; a part that moves a brush asks the brush, as `ChartTimeline` does |
 
@@ -456,20 +485,25 @@ It throws outside a `ChartRoot`; `useChartContextOptional()` returns `null` inst
 
 `ChartTimeline` is a brushable histogram of one temporal column — a date, a timestamp, or a year
 stored as its integer — with *Play time*, which plays the brushed range a bar at a time,
-Cosmograph's `Timeline` on the page's crossfilter. The bars behind are the column unfiltered, the
+Cosmograph's `Timeline` on the page's selection. The bars behind are the column unfiltered, the
 bars above what the page keeps, and the window is one clause: a chip in the `FilterBar` like any
 control's.
 
 ```tsx
-<ChartTimeline field="year" table="awards" title="Awards by year" />
+<ChartTimeline field="year" relation="awards" title="Awards by year" />
 ```
+
+It counts the rows that have the column; a row without one has no bar to stand in. Over a graph,
+`relation="vertices"` — every vertex type as one relation, which `readJoinGraph` includes — draws
+every vertex with the column, and its window keeps only those: a type without the column is greyed,
+as Cosmograph greys it.
 
 The window sticks to the bars' edges, Cosmograph's `stickySelection`, so it reads *1910 – 1940*
 and not where the pointer let go, and a year on the axis reads *1900*, never *1,900*. Playing asks
 the brushed range's own clause for each frame: a clause belongs to the source that published it
 ([why](/docs/design/timeline)). The range never moves; play publishes *[its start, one bar
 further]* until it holds the whole range, Kepler's `incremental` window, each step waiting for the
-page (`paceBy`, the page's crossfilter by default) to answer the last. With no range Play is
+page — every client of its selection — to answer the last. With no range Play is
 disabled, *Brush a range to play*. At the end it stops with the whole range, and the next Play starts
 over; a pointer down on the bars pauses it; Space on the focused figure plays and pauses. While it
 plays, its chip reads the window as it grows. *Play time* is a bare icon at the bars' left edge, and the bars take the
@@ -630,7 +664,7 @@ await (await env.harness(ChartHarness.with({ title: "Sightings by beast" }))).pi
 | Prop | Type | Default |
 | --- | --- | --- |
 | `coordinator` | `Coordinator` | — |
-| `crossfilter` | `Selection` | a fresh `Selection.crossfilter()`, with `selected` relayed into it |
+| `joins` | `JoinGraph \| null` — the graph a part's `relation` names a type or a path over, and a clause crosses relations through | `null` |
 | `onFailure` | `(error: unknown) => void` | — |
 
 `onFailure` receives what a failed query threw, whole — DuckDB's error, or `engine()`'s `EngineError`
@@ -638,19 +672,17 @@ with its `code` — from every chart, `ChartStat` and input beneath the provider
 failed in its own frame: a failed chart reads *This chart could not be drawn.*, never a blank plot.
 `useChartQuery` and `useMosaicInput` return the same value as `error`.
 
-`useMosaic()` returns `{ coordinator, crossfilter, selected, registerSelection, reset, retract,
-onFailure }` — `reset()` clears every clause on the page, `retract(clauses)` clears those clauses on
-the selection each was published into, which is what a chip's remove button wants, and `onFailure`
-reports a failure of your own part the way the library's do; `useCrossfilter()` and
-`useSelected()` return one half each. All three throw outside a `MosaicProvider`. Passing your own
-`crossfilter` collapses `selected` onto it —
-[what that costs](#feedback-on-the-chart-that-filters).
+The provider owns the page's one selection; nobody passes one. `useMosaic()` returns
+`{ coordinator, selection, joins, onFailure }` — `selection.reset()` clears every clause on the page,
+`selection.reset([clause])` that clause, which is what a chip's remove button does, and `onFailure`
+reports a failure of your own part the way the library's do. It throws outside a `MosaicProvider`.
 
 ### MosaicClients
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `enabled` | `boolean` — whether the clients beneath it query; a nested `false` wins | — |
+| `enabled` | `boolean` — whether the clients beneath it query; a nested `false` wins | `true` |
+| `relation` | `string \| Relation` — the relation the clients beneath it read, for a part handed SQL over it | the enclosing one's |
 
 `MosaicClientsProps` also takes `children`.
 
@@ -663,10 +695,14 @@ retracts its clauses.
 ```tsx
 <MosaicClients enabled={view === "dashboard"}>
   <div hidden={view !== "dashboard"}>
-    <Dashboard publish={publish} table={table} />
+    <Dashboard relation={relation} />
   </div>
 </MosaicClients>
 ```
+
+`relation` names what its clients read when what they are handed is SQL over it — a relation
+projected for the plots, an answer's rows narrowed from it: their clauses are published on it, and a
+clause on another relation reaches them crossed into it. A `Dashboard` does this for its own tiles.
 
 *Held by* `packages/ui/src/charts/mosaic-clients.test.tsx`, "asks nothing while disabled, keeps
 its rows, and runs the query it was owed once enabled".
@@ -675,9 +711,7 @@ its rows, and runs the query it was owed once enabled".
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `table` | `TableExpr` — a string, or a mosaic-sql node ([another catalog](#a-relation-in-another-catalog)) | — (omit it when every mark carries its own `data`) |
-| `filterBy` | `Selection \| null` | the provider's `crossfilter`; `null` = unfiltered |
-| `as` | `Selection` | the provider's `selected`, relayed into that crossfilter |
+| `relation` | `string \| Relation \| ExprNode` — a table by name, a path over the provider's `joins`, or SQL ([another catalog](#a-relation-in-another-catalog)) | — (omit it when every mark carries its own `data`) |
 | `config` | `ChartConfig` | `{}` |
 | `height` | `number` | `200` (width is measured from the container) |
 | `margin` | `number \| { top, right, bottom, left }` | vgplot's default |
@@ -693,12 +727,10 @@ its rows, and runs the query it was owed once enabled".
 | --- | --- | --- |
 | `field` | `string` — the temporal column | — |
 | `title` | `string` — the figure's name, and its key in a test's hook | — |
-| `table` | `TableExpr` | — |
+| `relation` | as `ChartRoot`'s | — |
 | `fill` | `string` — a colour, or a column to stack the bars by | `var(--chart-1)` |
-| `filterBy` / `as` | `Selection` | as `ChartRoot` |
 | `height` | `number` — the band's, labels and bars | `44` |
 | `playable` | `boolean` | `true` |
-| `paceBy` | `Selection` — whose clients pace play: the next step waits for their answer | the page's crossfilter |
 | `className` | `string` | — |
 
 ### Marks
@@ -729,8 +761,7 @@ Six of vgplot's marks are deliberately absent — `axisX`, `axisY`, `axisFx`, `a
 
 ### Interactors
 
-`as` chooses where the interaction publishes (default: the root's `as`, which is the provider's
-`selected`). Everything else is the vgplot interactor option — `peers`, `brush`, `pixelSize`,
+`as` chooses where the interaction publishes (default: the page's selection). Everything else is the vgplot interactor option — `peers`, `brush`, `pixelSize`,
 `empty`, …
 
 `ChartIntervalX` `ChartIntervalY` `ChartIntervalXY` `ChartToggleX` `ChartToggleY`
@@ -754,7 +785,7 @@ of them undocumented, which is how a reader ends up believing they are two diffe
 
 `ChartHighlight` is the odd one out: it *reads* a selection (`by`) and dims the mark before it
 rather than publishing. It cannot read a crossfilter's own clause, which is why `by` defaults to
-`selected` and not to the crossfilter ([the whole
+the chart's own clauses and not to the page's selection ([the whole
 story](#feedback-on-the-chart-that-filters)). `ChartPanZoom` carries no selection at all — it
 rewrites the scales.
 

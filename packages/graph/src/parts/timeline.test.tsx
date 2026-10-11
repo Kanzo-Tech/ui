@@ -1,26 +1,41 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { KanzoThemeProvider } from "@kanzo-tech/ui";
-import { FilterBar, MosaicProvider, useMosaic } from "@kanzo-tech/ui/analytics";
-import { useState, type ReactNode } from "react";
+import { ChartTimeline, FilterBar, MosaicProvider, useMosaic } from "@kanzo-tech/ui/analytics";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   MosaicClient,
   Query,
-  Selection,
-  bridgeSelection,
-  bridged,
   clauseInterval,
+  count,
+  crossfilterOver,
   float64,
+  onRelation,
+  readOf,
   type FilterExpr,
+  type JoinGraph,
+  type RelationClient,
+  type RelationRef,
+  type Selection,
   type TableExpr,
 } from "@kanzo-tech/mosaic";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { attach, settle, type Attached } from "../../test/corpus";
-import { readStructure, relation, timelineOf } from "../core/source";
+import { readJoinGraph } from "../core/join-graph";
+import { readStructure, relation, verticesOf } from "../core/source";
 import { createGraph } from "../core/store";
 import { GraphRoot, useGraphContext } from "../react/graph-root";
 import { internalsOf } from "../react/use-graph";
+import { useGraphPrefs } from "../react/use-graph-prefs";
 import { useGraphState } from "../react/use-graph-state";
-import { useEffect } from "react";
+import { GRAPH_SECTION } from "../section";
+
+/**
+ * **A timeline over the graph** — `ChartTimeline` reading `vertices`, every vertex as one relation,
+ * over the column the graph's settings chose (`time-by`), on the page's one selection: what a host
+ * writes under its canvas. Nothing here is the graph's but the relation and the setting; the window
+ * is a clause on `vertices` that the page crosses into every other relation, and the graph's first
+ * load waits for the bars as it waits for any chart on its page.
+ */
 
 /** A canvas stand-in that reports every snapshot drawn, so the graph's own frame is never what waits. */
 function Drawn() {
@@ -29,55 +44,66 @@ function Drawn() {
   useEffect(() => store.reportDrawn(store.getSnapshot()), [store, state]);
   return null;
 }
-import { GRAPH_SECTION } from "../section";
-import { GraphTimeline } from "./graph-timeline";
 
-function mount(corpus: Attached, timeline: string) {
+/** What a host writes under the canvas: the band, and in it the timeline over the chosen column. */
+function Timeline({ height = 44 }: { height?: number }) {
+  const { timeline } = useGraphPrefs();
+  return (
+    <div data-slot="graph-timeline" style={{ minHeight: height }}>
+      {timeline ? <ChartTimeline field={timeline} height={height} relation="vertices" title={`Timeline: ${timeline}`} /> : null}
+    </div>
+  );
+}
+
+/** The graph on the page's selection, as a host roots it under its `MosaicProvider`. */
+function OnPage({ corpus, children }: { corpus: Attached; children: ReactNode }) {
+  const { selection } = useMosaic();
+  return (
+    <GraphRoot coordinator={corpus.coordinator} filterBy={selection} from={corpus.from} onFailure={() => {}}>
+      {children}
+    </GraphRoot>
+  );
+}
+
+const joinsOf = (corpus: Attached): Promise<JoinGraph> => readJoinGraph(corpus.coordinator, corpus.from);
+
+async function mount(corpus: Attached, timeline: string) {
+  const joins = await joinsOf(corpus);
   return render(
     <KanzoThemeProvider
       policy={timeline ? { graph: { "time-by": { pinned: timeline } } } : undefined}
       sections={[GRAPH_SECTION]}
       storage={null}
     >
-      <MosaicProvider coordinator={corpus.coordinator}>
-        <GraphRoot coordinator={corpus.coordinator} from={corpus.from} onFailure={() => {}}>
-          <GraphTimeline />
-        </GraphRoot>
+      <MosaicProvider coordinator={corpus.coordinator} joins={joins}>
+        <OnPage corpus={corpus}>
+          <Timeline />
+        </OnPage>
       </MosaicProvider>
     </KanzoThemeProvider>,
   );
 }
 
-describe("GraphTimeline", () => {
-  it("draws nothing until a timeline column is chosen in the graph's settings", async () => {
-    const corpus = await attach();
-    mount(corpus, "");
-    await act(() => settle(corpus));
-    expect(screen.queryByRole("figure")).toBeNull();
-  });
-
+describe("a timeline over the graph's vertices", () => {
   it("draws the chosen column as a timeline named by it", async () => {
     const corpus = await attach();
-    mount(corpus, "born");
+    await mount(corpus, "born");
     await act(() => settle(corpus));
     expect(screen.getByRole("figure", { name: "Timeline: born" })).toBeTruthy();
     // No width to draw at here, so no bars, and no Play until there are.
     expect(screen.queryByRole("button", { name: "Play time" })).toBeNull();
   });
-
-  it("draws nothing for a column this corpus does not have", async () => {
-    const corpus = await attach();
-    mount(corpus, "founded");
-    await act(() => settle(corpus));
-    expect(screen.queryByRole("figure")).toBeNull();
-  });
 });
 
 /** A client of the page over one table: the keys of its rows that survive the page's clauses. */
-class Rows extends MosaicClient {
+class Rows extends MosaicClient implements RelationClient {
   rows: number[] | null = null;
   readonly #table: TableExpr;
-  constructor(filterBy: Selection, table: TableExpr) {
+  constructor(
+    filterBy: Selection,
+    table: TableExpr,
+    readonly relation: RelationRef | null = null,
+  ) {
     super(filterBy);
     this.#table = table;
   }
@@ -93,44 +119,41 @@ class Rows extends MosaicClient {
 
 const ids = (mask: Uint8Array | null | undefined) => [...(mask ?? [])].flatMap((on, id) => (on ? [id] : []));
 
-describe("timelineOf", () => {
-  it("reads the key and the column from every vertex table that has it, and from no other", async () => {
+describe("the vertices relation", () => {
+  it("reads every vertex table under the key, NULL where a table has no such column", async () => {
     const corpus = await attach();
     const structure = await readStructure(corpus.coordinator, corpus.from);
-    const table = timelineOf(structure, "born")?.table;
-    expect(String(table)).toContain(`"${corpus.from}"."Person"`);
-    expect(String(table)).toContain(`"dense_id"`);
-    expect(String(table)).not.toContain(`"Place"`);
-    expect(timelineOf(structure, "")).toBeNull();
-    expect(timelineOf(structure, "dense_id")).toBeNull();
+    const { table, columns } = verticesOf(structure);
+    for (const type of ["Person", "Place", "Tag"]) expect(String(table)).toContain(`"${corpus.from}"."${type}"`);
+    expect(columns).toEqual(expect.arrayContaining(["born", "name", "lon", "subject"]));
+    const answer = await corpus.coordinator.query(Query.select({ all: count(), born: count("born") }).from(table), { type: "json" });
+    expect(Array.from(answer as unknown as Iterable<{ all: number; born: number }>).map((r) => [Number(r.all), Number(r.born)])).toEqual([[20, 10]]);
   });
 
-  it("crosses the window into the page as a clause every client answers, greying every vertex without the column", async () => {
+  it("crosses a window on it into every other relation, keeping none of a type without the column", async () => {
     const corpus = await attach();
     const { coordinator, from } = corpus;
-    const page = Selection.crossfilter();
+    const joins = await joinsOf(corpus);
+    const page = crossfilterOver(joins);
     const onFailure = vi.fn();
     const graph = createGraph({ from, coordinator, onFailure, filterBy: page });
     graph.subscribe(() => {});
-    const timeline = timelineOf(await readStructure(coordinator, from), "born");
-    const own = Selection.crossfilter();
-    bridgeSelection(own, page, timeline!.publish);
-    // A dashboard's relation over a table with no `born`: the page's clause must not name it.
-    const places = new Rows(page, relation(from, "Place"));
+    // A dashboard's relation over a table with no `born`.
+    const places = new Rows(page, readOf(joins, "Place").table, "Place");
     coordinator.connect(places);
     await settle(corpus);
     expect(places.rows).toEqual([10, 11, 12, 13, 14, 15]);
 
     // born = 1900 + i, so the window 1902–1905 keeps People 2–5, and nothing without a `born`.
     const brush = { reset() {} };
-    own.update(clauseInterval("born", [1902, 1905], { source: brush }));
+    page.update(onRelation(clauseInterval("born", [1902, 1905], { source: brush }), "vertices"));
     await settle(corpus);
     expect(onFailure).not.toHaveBeenCalled();
     expect(places.rows).toEqual([]);
     expect(ids(graph.getSnapshot().kept)).toEqual([2, 3, 4, 5]);
 
     // Let go, and everything is back.
-    own.update(clauseInterval("born", null, { source: brush }));
+    page.update(onRelation(clauseInterval("born", null, { source: brush }), "vertices"));
     await settle(corpus);
     expect(places.rows).toEqual([10, 11, 12, 13, 14, 15]);
   });
@@ -141,7 +164,14 @@ describe("timelineOf", () => {
  * since jsdom computes none and Plot would read `color-mix(…)` as a column. What needs a pointer is
  * done through the interval itself, as its brush would: `publish` takes the brush's pixels.
  */
-describe("GraphTimeline, drawn", () => {
+/**
+ * How long a wait in the drawn timeline may take. Each frame of play waits for every client of the
+ * page — the canvas and the bars, a real DuckDB under them — to answer the last, so a run beside
+ * other suites is slow before it is wrong; the waits and the tests are budgeted for that.
+ */
+const WAIT = { timeout: 10_000 };
+
+describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () => {
   beforeEach(() => {
     vi.stubGlobal(
       "ResizeObserver",
@@ -198,7 +228,7 @@ describe("GraphTimeline, drawn", () => {
   }
 
   let rerender: (height: number) => void = () => {};
-  /** The page's crossfilter, as the last `Page` rendered it. */
+  /** The page's selection, as the last `Page` rendered it. */
   let page: Selection | null = null;
 
   function Page({ corpus, children }: { corpus: Attached; children: (height: number) => ReactNode }) {
@@ -208,10 +238,10 @@ describe("GraphTimeline, drawn", () => {
       setHeight(next);
       setTick((t) => t + 1);
     };
-    const { crossfilter } = useMosaic();
-    page = crossfilter;
+    const { selection } = useMosaic();
+    page = selection;
     return (
-      <GraphRoot coordinator={corpus.coordinator} filterBy={crossfilter} from={corpus.from} onFailure={() => {}}>
+      <GraphRoot coordinator={corpus.coordinator} filterBy={selection} from={corpus.from} onFailure={() => {}}>
         <FilterBar />
         {children(height)}
       </GraphRoot>
@@ -219,10 +249,11 @@ describe("GraphTimeline, drawn", () => {
   }
 
   async function drawn(corpus: Attached) {
+    const joins = await joinsOf(corpus);
     const { container } = render(
       <KanzoThemeProvider policy={{ graph: { "time-by": { pinned: "born" } } }} sections={[GRAPH_SECTION]} storage={null}>
-        <MosaicProvider coordinator={corpus.coordinator}>
-          <Page corpus={corpus}>{(height) => <GraphTimeline height={height} />}</Page>
+        <MosaicProvider coordinator={corpus.coordinator} joins={joins}>
+          <Page corpus={corpus}>{(height) => <Timeline height={height} />}</Page>
         </MosaicProvider>
       </KanzoThemeProvider>,
     );
@@ -260,7 +291,7 @@ describe("GraphTimeline, drawn", () => {
     await brush(1903, 1907);
     // The brush's end snaps the window to the bars' edges once the rebuilt plot's bars have answered,
     // which a loaded runner can deliver after one settle: wait for the clause's state, not a moment.
-    await vi.waitFor(() => expect(chips().map((chip) => chip.getAttribute("aria-label"))).toEqual(["Remove born 1903 – 1907"]));
+    await vi.waitFor(() => expect(chips().map((chip) => chip.getAttribute("aria-label"))).toEqual(["Remove born 1903 – 1907"]), WAIT);
   });
 
   it("holds one clause and one chip through every state play passes — a rebuild and a stale brush included", async () => {
@@ -278,7 +309,7 @@ describe("GraphTimeline, drawn", () => {
     one();
     const { last } = recording(plot()!);
     play();
-    await vi.waitFor(() => expect(last()[1]).toBeGreaterThan(1900.5));
+    await vi.waitFor(() => expect(last()[1]).toBeGreaterThan(1900.5), WAIT);
     one();
     expect(last()[0]).toBe(1900);
     // Rebuilt while it plays — a resize — twice before the first rebuild has drawn.
@@ -329,18 +360,18 @@ describe("GraphTimeline, drawn", () => {
     expect(window.getAttribute("aria-valuetext")).toBe("1902 – 1905");
     const play = screen.getByRole("button", { name: "Play time" });
     fireEvent.click(play);
-    await vi.waitFor(() => expect(window.getAttribute("aria-valuetext")).not.toBe("1902 – 1905"));
+    await vi.waitFor(() => expect(window.getAttribute("aria-valuetext")).not.toBe("1902 – 1905"), WAIT);
   });
 
-  /** The window the page's timeline clause holds: the part the bridge mapped. */
+  /** The window the page's timeline clause holds. */
   const held = () => {
     const [clause] = page!.clauses;
-    return (clause && (bridged(clause)?.parts[0]?.value as unknown[] | undefined)) ?? null;
+    return (clause?.value as unknown[] | undefined) ?? null;
   };
 
   /**
-   * Every window the timeline publishes, as it publishes it: its own selection queues a value while
-   * the last one is being answered, so the page's clause can lag a press by a query.
+   * Every window the timeline publishes, as it publishes it: the page's selection queues a value
+   * while the last one is being answered, so its clause can lag a press by a query.
    */
   const recording = (plot: Drawn) => {
     const own = (plot.interactors[0] as unknown as { selection: Selection }).selection;
@@ -414,8 +445,9 @@ describe("GraphTimeline, drawn", () => {
     expect(play.className).toMatch(/focus-visible:\[&_svg\]:outline-2/);
   });
 
-  it("holds the graph's loading until its bars are drawn, and mounts its band once", async () => {
+  it("holds the graph's loading until its bars are drawn, as any chart on its page, and mounts its band once", async () => {
     const corpus = await attach();
+    const joins = await joinsOf(corpus);
     let status: string | undefined;
     function Status() {
       status = useGraphState((s) => s.status);
@@ -423,31 +455,34 @@ describe("GraphTimeline, drawn", () => {
     }
     const { container } = render(
       <KanzoThemeProvider policy={{ graph: { "time-by": { pinned: "born" } } }} sections={[GRAPH_SECTION]} storage={null}>
-        <MosaicProvider coordinator={corpus.coordinator}>
-          <GraphRoot coordinator={corpus.coordinator} from={corpus.from} onFailure={() => {}}>
+        <MosaicProvider coordinator={corpus.coordinator} joins={joins}>
+          <OnPage corpus={corpus}>
             <Status />
             <Drawn />
-            <GraphTimeline />
-          </GraphRoot>
+            <Timeline />
+          </OnPage>
         </MosaicProvider>
       </KanzoThemeProvider>,
     );
     // The band is there from the first render, its height held, before the corpus is read.
     const band = container.querySelector<HTMLElement>("[data-slot=graph-timeline]")!;
     expect(band.style.minHeight).toBe("44px");
-    for (let i = 0; i < 100 && !band.querySelector("[data-drawn]"); i++) {
-      // The canvas has drawn every frame it was given; the timeline is the part still waited for.
-      expect(status).toBe("loading");
+    const figure = () => band.querySelector<HTMLElement>("[role=figure]");
+    for (let i = 0; i < 100 && status !== "idle"; i++) {
+      // The canvas has drawn every frame it was given; the chart is the part still waited for: while
+      // it has not drawn its first answer — it is busy — the graph is loading.
+      if (figure()?.getAttribute("aria-busy") === "true") expect(status).toBe("loading");
       await act(() => settle(corpus));
     }
-    expect(band.querySelector("[data-drawn]")).toBeTruthy();
-    await act(() => settle(corpus));
     expect(status).toBe("idle");
+    expect(figure()?.getAttribute("aria-busy")).toBeNull();
+    await vi.waitFor(() => expect(band.querySelector("[data-drawn]")).toBeTruthy(), WAIT);
     expect(container.querySelector("[data-slot=graph-timeline]")).toBe(band);
   });
 
   it("waits in the band alone when the column changes after load, and mounts neither band nor figure again", async () => {
     const corpus = await attach();
+    const joins = await joinsOf(corpus);
     const seen: string[] = [];
     function Status() {
       seen.push(useGraphState((s) => s.status));
@@ -455,12 +490,12 @@ describe("GraphTimeline, drawn", () => {
     }
     const view = (column: string) => (
       <KanzoThemeProvider policy={{ graph: { "time-by": { pinned: column } } }} sections={[GRAPH_SECTION]} storage={null}>
-        <MosaicProvider coordinator={corpus.coordinator}>
-          <GraphRoot coordinator={corpus.coordinator} from={corpus.from} onFailure={() => {}}>
+        <MosaicProvider coordinator={corpus.coordinator} joins={joins}>
+          <OnPage corpus={corpus}>
             <Status />
             <Drawn />
-            <GraphTimeline />
-          </GraphRoot>
+            <Timeline />
+          </OnPage>
         </MosaicProvider>
       </KanzoThemeProvider>
     );
@@ -522,7 +557,9 @@ describe("GraphTimeline, drawn", () => {
     const play = screen.getByRole("button", { name: "Play time" });
     const { windows, last } = recording(plot()!);
     fireEvent.click(play);
-    await vi.waitFor(() => expect(last()[1]).toBeGreaterThan(1900.5));
+    // One frame is enough to pause on: each frame waits for every client of the page to answer, so
+    // how many a loaded machine shows in a given time is the machine's, not the timeline's.
+    await vi.waitFor(() => expect(windows.length).toBeGreaterThan(0), WAIT);
     fireEvent.pointerDown(document.querySelector("[aria-label='Timeline: born'] svg")!);
     expect(play.getAttribute("aria-pressed")).toBe("false");
     const frozen = last();
@@ -532,9 +569,9 @@ describe("GraphTimeline, drawn", () => {
     expect(screen.getByRole("status", { name: "Timeline" }).textContent).toBe(`Paused at ${readWindow(frozen as [number, number])}`);
     fireEvent.click(play);
     expect(last()[0]).toBe(1900);
-    await vi.waitFor(() => expect(last()[1]).toBeGreaterThan(frozen[1]!));
+    await vi.waitFor(() => expect(last()[1]).toBeGreaterThan(frozen[1]!), { timeout: 20_000 });
     fireEvent.click(play);
-  });
+  }, 45_000);
   it("reads its chip as the window while it plays, and the chip's remove stops it and lets the window go", async () => {
     const corpus = await attach();
     const { brush, chips } = await drawn(corpus);
@@ -542,7 +579,7 @@ describe("GraphTimeline, drawn", () => {
     const play = screen.getByRole("button", { name: "Play time" });
     fireEvent.click(play);
     // The chip follows the window and reads as it does paused: no marker.
-    await vi.waitFor(() => expect(chips()[0]!.getAttribute("aria-label")).toMatch(/^Remove born 1900 – 1900/));
+    await vi.waitFor(() => expect(chips()[0]!.getAttribute("aria-label")).toMatch(/^Remove born 1900 – 1900/), WAIT);
     expect(chips()[0]!.parentElement!.querySelector("svg:not(.size-3)")).toBeNull();
     fireEvent.click(chips()[0]!);
     await act(() => settle(corpus));

@@ -55,7 +55,7 @@ export default function Example() {
 }
 
 function Legends() {
-  const { reset } = useMosaic();
+  const { selection } = useMosaic();
 
   return (
     <div className="flex w-full max-w-3xl flex-col gap-3">
@@ -66,7 +66,7 @@ function Legends() {
             <CardDescription className="text-xs">our DOM, under the plot</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-          <ChartRoot config={config} height={150} table="sightings">
+          <ChartRoot config={config} height={150} relation="sightings">
             <ChartBarY fill="verdict" order={ORDER} tip x="region" y={count()} />
             <ChartAxisX label={null} />
             <ChartAxisY grid label={null} />
@@ -81,7 +81,7 @@ function Legends() {
             <CardDescription className="text-xs">vgplot's, inside the plot — click a swatch</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-          <ChartRoot config={config} height={150} table="sightings">
+          <ChartRoot config={config} height={150} relation="sightings">
             <ChartBarY fill="verdict" order={ORDER} tip x="region" y={count()} />
             {/* The field is inferred from the `fill` channel; name it with `field` when the colour
                 comes from an expression. `as={null}` would make it a static key instead. */}
@@ -96,7 +96,7 @@ function Legends() {
       <div>
         {/* Both plots read the provider's crossfilter, so the swatch on the right filters the plot
             on the left too — whose own legend cannot do it. */}
-        <Button onClick={reset} size="sm" variant="outline">
+        <Button onClick={() => selection.reset()} size="sm" variant="outline">
           Clear selection
         </Button>
       </div>

@@ -143,7 +143,7 @@ const ID = "dense_id";
 const FROM = "archive";
 
 /**
- * An attached archive: the coordinator and crossfilter every panel and the canvas query through, and
+ * An attached archive: the coordinator every panel and the canvas query through, and
  * the node relation as the orders and the ask box name it — a node rather than a string, because
  * `Query.from("x")` quotes a string again and `"catalog"."Node"` is no table.
  */
@@ -151,7 +151,6 @@ export interface Archive {
   /** The page's engine: the Ask panel's agent reads through its `query`, outside the coordinator's queue. */
   engine: Engine;
   coordinator: Coordinator;
-  crossfilter: MosaicSelection;
   nodes: VerbatimNode;
 }
 
@@ -163,7 +162,6 @@ function openArchive(): Promise<Archive> {
     return {
       engine,
       coordinator: engine.coordinator,
-      crossfilter: MosaicSelection.crossfilter(),
       nodes: verbatim(`"${FROM}"."${TYPE}"`),
     };
   });
@@ -197,19 +195,42 @@ function announce(error: unknown): void {
 }
 
 /**
- * **The graph, whole.** The root names the attached catalog and reads it through the page's
- * coordinator, one Mosaic client beside the charts; the provider arrives with the same coordinator,
- * and the panels under it query the node relation the orders and the ask box are written against.
+ * **The graph, whole.** The provider arrives with the archive's coordinator and owns the page's one
+ * selection; the root names the attached catalog and reads it through that coordinator, one Mosaic
+ * client of that selection beside the charts, and the panels under it query the node relation the
+ * orders and the ask box are written against.
  */
 export function ArchiveGraph({ children }: { children: ReactNode }) {
   const archive = useArchive();
+  return (
+    <Show fallback={<ArchiveRoot archive={null}>{children}</ArchiveRoot>} when={archive !== null}>
+      {archive && (
+        <MosaicProvider coordinator={archive.coordinator}>
+          <OnPage archive={archive}>{children}</OnPage>
+        </MosaicProvider>
+      )}
+    </Show>
+  );
+}
+
+/** The root on the page's selection. */
+function OnPage({ archive, children }: { archive: Archive; children: ReactNode }) {
+  const { selection } = useMosaic();
+  return (
+    <ArchiveRoot archive={archive} filterBy={selection}>
+      {children}
+    </ArchiveRoot>
+  );
+}
+
+function ArchiveRoot({ archive, filterBy, children }: { archive: Archive | null; filterBy?: MosaicSelection; children: ReactNode }) {
   const { look, sim, placement } = useGraphPrefs();
   return (
     <GraphRoot
         categories={KINDS}
         coordinator={archive?.coordinator ?? null}
         fill="kind"
-        filterBy={archive?.crossfilter}
+        filterBy={filterBy}
         from={archive ? FROM : null}
         look={look}
         onFailure={announce}
@@ -219,13 +240,7 @@ export function ArchiveGraph({ children }: { children: ReactNode }) {
         title="label"
         {...placement}
       >
-        <Show fallback={children} when={archive !== null}>
-          {archive && (
-            <MosaicProvider coordinator={archive.coordinator} crossfilter={archive.crossfilter}>
-              {children}
-            </MosaicProvider>
-          )}
-        </Show>
+        {children}
       </GraphRoot>
   );
 }
@@ -1176,9 +1191,9 @@ function useStarters(model: LanguageModel, { graph, relations }: Askable, select
  * and nothing while it does not — every question then reads the whole archive.
  */
 function SubsetPill({ archive }: { archive: Archive }) {
-  const { crossfilter } = useMosaic();
+  const { selection } = useMosaic();
   const { row } = useChartQuery({ deps: [archive], query: (filter) => Query.from(archive.nodes).select({ n: count() }).where(filter) });
-  if (!row || crossfilter.clauses.length === 0) return null;
+  if (!row || selection.clauses.length === 0) return null;
   return (
     <Badge pill variant="outline">
       Subset · {Number(row.n).toLocaleString("en")} nodes
@@ -1187,10 +1202,10 @@ function SubsetPill({ archive }: { archive: Archive }) {
 }
 
 function AskBody({ archive, askable }: { archive: Archive; askable: Askable }) {
-  const { crossfilter } = useMosaic();
+  const { selection } = useMosaic();
   const model = useMemo(() => recording(askable.graph), [askable]);
-  const chat = useAgentChat(dataAgent({ model, engine: archive.engine, graph: askable.graph, relations: askable.relations, selection: crossfilter }));
-  const starters = useStarters(model, askable, crossfilter);
+  const chat = useAgentChat(dataAgent({ model, engine: archive.engine, graph: askable.graph, relations: askable.relations, selection }));
+  const starters = useStarters(model, askable, selection);
 
   return (
     <div className="flex h-full flex-col p-2">

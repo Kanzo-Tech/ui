@@ -1,6 +1,6 @@
 "use client";
 
-import type { TableExpr } from "@kanzo-tech/mosaic";
+import type { RelationExpr } from "@kanzo-tech/mosaic";
 import type React from "react";
 import { cn } from "../lib/cn.js";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "../simples/card.js";
@@ -21,7 +21,7 @@ import { tileTitle } from "./tile-kinds.js";
 
 /** What a tile is drawn with: the relation, its fields, and an edit button when there is an editor. */
 export interface TileViewProps<T extends Tile> {
-  table: TableExpr;
+  relation: RelationExpr;
   fields: readonly FieldStat[];
   tile: T;
   config?: Readonly<Record<string, ChartConfig>>;
@@ -32,7 +32,7 @@ export interface TileViewProps<T extends Tile> {
 type Views = { [K in TileKind]: { View: (props: TileViewProps<Extract<Tile, { kind: K }>>) => React.ReactNode } };
 
 /** A `TableTile`: the rows under the selection in a titled card. */
-function TableCard({ table, fields, tile, onEdit, className }: TileViewProps<TableTile>) {
+function TableCard({ relation, fields, tile, onEdit, className }: TileViewProps<TableTile>) {
   return (
     <Card className={cn("[--space:--spacing(4)] min-w-0 gap-3", className)}>
       <CardHeader>
@@ -44,7 +44,7 @@ function TableCard({ table, fields, tile, onEdit, className }: TileViewProps<Tab
         ) : null}
       </CardHeader>
       <CardContent>
-        <DetailTable columns={tile.columns} fields={fields} table={table} />
+        <DetailTable columns={tile.columns} fields={fields} relation={relation} />
       </CardContent>
     </Card>
   );
@@ -53,8 +53,8 @@ function TableCard({ table, fields, tile, onEdit, className }: TileViewProps<Tab
 export const TILE_VIEWS: Views = {
   // A figure has no series, so `config` is not passed on.
   stat: {
-    View: ({ tile, table, fields, onEdit, className }) => (
-      <DashboardStat className={className} fields={fields} onEdit={onEdit} stat={tile} table={table} />
+    View: ({ tile, relation, fields, onEdit, className }) => (
+      <DashboardStat className={className} fields={fields} onEdit={onEdit} relation={relation} stat={tile} />
     ),
   },
   chart: { View: ({ tile, ...rest }) => <ChartCard {...rest} card={tile} /> },

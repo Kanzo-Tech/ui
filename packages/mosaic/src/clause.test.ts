@@ -1,7 +1,7 @@
 import { Selection, clauseInterval, clausePoint, clausePoints, type SelectionClause } from "@uwdata/mosaic-core";
 import { Query, eq, isBetween, literal } from "@uwdata/mosaic-sql";
 import { describe, expect, it } from "vitest";
-import { clauseAntiJoin, clauseColumns, clauseLabel, clauseParts, clauseSemiJoin, semiJoinOf } from "./clause.js";
+import { clauseAntiJoin, clauseColumns, clauseLabel, clauseParts, clauseSemiJoin } from "./clause.js";
 
 const source = { reset() {} };
 
@@ -32,14 +32,6 @@ describe("the clause rule", () => {
     // Clears with null; an empty list leaves nothing out, so it keeps every row.
     expect(clauseAntiJoin("dense_id", null, { source }).predicate).toBeNull();
     expect(String(clauseAntiJoin("dense_id", [], { source }).predicate)).toBe("TRUE");
-  });
-
-  it("crosses clauses on some rows as a semi-join, which keeps no row the table does not hold", () => {
-    const window = clauseInterval("born", [1902, 1905], { source });
-    const crossed = semiJoinOf("dense_id", "timed", { label: "born" })([window], source);
-    expect(String(crossed.predicate)).toBe(`("dense_id" IN (SELECT "dense_id" FROM "timed" WHERE ("born" BETWEEN 1902 AND 1905)))`);
-    expect(clauseColumns(crossed.predicate!)).toEqual(["dense_id"]);
-    expect(crossed.meta).toEqual({ type: "semijoin", label: "born" });
   });
 
   it("names the key alone: a subquery's columns are another relation's", () => {

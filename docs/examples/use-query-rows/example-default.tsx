@@ -57,7 +57,7 @@ function Panel() {
         </Suspense>
       </div>
 
-      <ChartRoot height={170} table="telemetry">
+      <ChartRoot height={170} relation="telemetry">
         <ChartRectY fill="var(--muted-foreground)" filterBy={null} opacity={0.3} x={bin("latency")} y={count()} />
         <ChartRectY fill="var(--primary)" x={bin("latency")} y={count()} />
         <ChartIntervalX />

@@ -289,7 +289,7 @@ context with a second way to reach it.
 
 What forces the factory in the graph is specific: its state lives outside React — the graph loads,
 a layout ticks and a hover moves at frame rate — so a store of ours owns it, and `useGraph` is what creates that store
-and subscribes to it ([the graph view](/docs/design/graph)). Nothing in analytics has that shape — `useChartQuery`, `useCrossfilter`, `useSelected`
+and subscribes to it ([the graph view](/docs/design/graph)). Nothing in analytics has that shape — `useChartQuery`
 and `useChartCapacity` each read `useMosaic()`, which is the provider *above* the root rather than the
 root itself, so there is no circularity to break.
 
@@ -298,14 +298,15 @@ and `children` is a render input — a factory taking props could not see it wit
 which point the factory is the render. The **context** is entirely derived; `color` reads a token off
 the live host element at call time, and the DOM is below. The **host ref** is kept so a scoped theme
 override wins when a token resolves, and never published. The one thing a root does mint is its own
-`Selection.union()`, and the escape hatch for owning it externally already exists: the `as` prop.
+`Selection.union()`, which `ChartHighlight` reads, and the escape hatch for owning it externally
+already exists: `ChartHighlight`'s `by`, and an interactor's `as`.
 
 **What would reverse it:** a hook that must be called beside a `ChartRoot` and needs a value only the
 root owns. That is the exact shape that forced `useGraph`, and it would force this.
 
 *Held by* `packages/ui/src/charts/chart-root.test.tsx`, "exposes the series colour and a locale number
-formatter through useChartContext" and "gives each root its own selection, distinct from the
-provider's shared pair".
+formatter through useChartContext" and "filters by and publishes into the provider's one
+selection, a crossfilter".
 
 ## The AI surfaces are their own package
 

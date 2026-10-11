@@ -1,8 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Selection, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
+import { type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
 import { describe, expect, it, vi } from "vitest";
-import { semiJoinOf } from "@kanzo-tech/mosaic";
 import { Dashboard } from "./dashboard.js";
 import { FilterBar } from "./filter-bar.js";
 import type { DashboardSpec } from "./dashboard-spec.js";
@@ -61,8 +60,8 @@ function Aside() {
 
 function draw(props: { value?: DashboardSpec; onChange?: (spec: DashboardSpec | undefined) => void }) {
   return render(
-    <MosaicProvider coordinator={stubCoordinator()} crossfilter={Selection.crossfilter()}>
-      <Dashboard table="sightings" {...props} />
+    <MosaicProvider coordinator={stubCoordinator()}>
+      <Dashboard relation="sightings" {...props} />
       <Aside />
     </MosaicProvider>,
   );
@@ -191,8 +190,8 @@ describe("the tile editor in the page's aside", () => {
 
   it("offers no editing on a page without a TileEditorAside", async () => {
     render(
-      <MosaicProvider coordinator={stubCoordinator()} crossfilter={Selection.crossfilter()}>
-        <Dashboard onChange={vi.fn()} table="sightings" value={SPEC} />
+      <MosaicProvider coordinator={stubCoordinator()}>
+        <Dashboard onChange={vi.fn()} relation="sightings" value={SPEC} />
       </MosaicProvider>,
     );
     expect(await screen.findByText("Sightings")).toBeTruthy();
@@ -210,8 +209,8 @@ describe("Reset to automatic", () => {
     expect(onChange).toHaveBeenCalledWith(undefined);
 
     rerender(
-      <MosaicProvider coordinator={stubCoordinator()} crossfilter={Selection.crossfilter()}>
-        <Dashboard onChange={onChange} table="sightings" />
+      <MosaicProvider coordinator={stubCoordinator()}>
+        <Dashboard onChange={onChange} relation="sightings" />
         <Aside />
       </MosaicProvider>,
     );
@@ -221,13 +220,12 @@ describe("Reset to automatic", () => {
 });
 
 describe("Dashboard's filters", () => {
-  it("are drawn in the page's FilterBar, from inside a dashboard that publishes its own clause", async () => {
-    const publish = semiJoinOf("dense_id", "sightings", { label: "Dashboard" });
+  it("are drawn in the page's FilterBar", async () => {
     const user = userEvent.setup();
     render(
-      <MosaicProvider coordinator={stubCoordinator()} crossfilter={Selection.crossfilter()}>
+      <MosaicProvider coordinator={stubCoordinator()}>
         <FilterBar />
-        <Dashboard onChange={() => {}} publish={publish} table="sightings" value={{ ...SPEC, filters: [{ field: "region" }] }} />
+        <Dashboard onChange={() => {}} relation="sightings" value={{ ...SPEC, filters: [{ field: "region" }] }} />
         <Aside />
       </MosaicProvider>,
     );
@@ -241,10 +239,10 @@ describe("Dashboard's filters", () => {
   it("are drawn from a dashboard under MosaicClients that is off as when it is shown: control, remove, Add a filter", async () => {
     const user = userEvent.setup();
     render(
-      <MosaicProvider coordinator={stubCoordinator()} crossfilter={Selection.crossfilter()}>
+      <MosaicProvider coordinator={stubCoordinator()}>
         <FilterBar />
         <MosaicClients enabled={false}>
-          <Dashboard onChange={() => {}} table="sightings" value={{ ...SPEC, filters: [{ field: "region" }] }} />
+          <Dashboard onChange={() => {}} relation="sightings" value={{ ...SPEC, filters: [{ field: "region" }] }} />
         </MosaicClients>
         <Aside />
       </MosaicProvider>,

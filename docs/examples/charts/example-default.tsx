@@ -33,7 +33,7 @@ export default function Example() {
     <MosaicDemo>
       <div className="grid w-full max-w-2xl grid-cols-1 gap-5 sm:grid-cols-2">
         <Panel label="bounty (gold) — drag to brush">
-          <ChartRoot height={120} margin={MARGIN} table="sightings">
+          <ChartRoot height={120} margin={MARGIN} relation="sightings">
             <ChartRectY fill="var(--muted-foreground)" filterBy={null} opacity={0.3} x={bin("bounty")} y={count()} />
             <ChartRectY fill="var(--primary)" x={bin("bounty")} y={count()} />
             <ChartIntervalX />
@@ -42,7 +42,7 @@ export default function Example() {
         </Panel>
 
         <Panel label="region — click to toggle">
-          <ChartRoot height={120} margin={MARGIN} table="sightings">
+          <ChartRoot height={120} margin={MARGIN} relation="sightings">
             <ChartBarY fill="var(--muted-foreground)" filterBy={null} opacity={0.3} x="region" y={count()} />
             <ChartBarY fill="var(--primary)" x="region" y={count()} />
             <ChartToggleX />
@@ -53,7 +53,7 @@ export default function Example() {
         </Panel>
 
         <Panel label="sightings by hour — drag to brush">
-          <ChartRoot height={120} margin={MARGIN} table="sightings">
+          <ChartRoot height={120} margin={MARGIN} relation="sightings">
             <ChartLineY filterBy={null} stroke="var(--muted-foreground)" strokeOpacity={0.4} x="hour" y={count()} />
             <ChartLineY stroke="var(--primary)" x="hour" y={count()} />
             <ChartIntervalX />
@@ -62,7 +62,7 @@ export default function Example() {
         </Panel>
 
         <Panel label="bounty × leagues — drag a box">
-          <ChartRoot height={120} margin={MARGIN} table="sightings">
+          <ChartRoot height={120} margin={MARGIN} relation="sightings">
             <ChartDot fill="var(--muted-foreground)" fillOpacity={0.3} filterBy={null} r={2} x="bounty" y="leagues" />
             <ChartDot fill="var(--primary)" r={2} x="bounty" y="leagues" />
             <ChartIntervalXY />

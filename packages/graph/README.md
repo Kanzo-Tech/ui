@@ -26,7 +26,10 @@ import { GraphCanvas, GraphCounts, GraphInspector, GraphLegend, GraphRoot, Graph
 const e = await engine();
 await attach("archive", { engine: e, url }); // views "archive"."<Table>", fossil_tables, fossil_columns
 
-<GraphRoot from="archive" coordinator={e.coordinator} r="degree" filterBy={crossfilter} onFailure={setFailure}>
+// Under `<MosaicProvider coordinator={e.coordinator} joins={await readJoinGraph(e.coordinator, "archive")}>`:
+const { selection } = useMosaic();
+
+<GraphRoot from="archive" coordinator={e.coordinator} r="degree" filterBy={selection} onFailure={setFailure}>
   <GraphCanvas>
     <GraphToolbar />
     <GraphLegend />
@@ -49,11 +52,14 @@ and uploaded once. A vertex's `dense_id` is its index in the buffers. The camera
 constant and anything else is a column. Unbound, colour is the vertex type and a label is the table's
 `identity`. Changing a column binding re-reads that column and nothing else.
 
-**`filterBy` is the page's crossfilter.** A clause is column predicates or a semi-join on identity,
-`dense_id IN (…)`; what it drops is greyed out on the canvas, never hidden, and a clause no vertex
-table can answer reaches `onFailure` as `graph/unfilterable` rather than being dropped. A lasso or a
-click publishes the reader's pick back into it as a semi-join on the vertex key, exempting the graph
-itself; `usePick` does the same for a place beside the canvas.
+**`filterBy` is the page's selection** — `useMosaic().selection` under a `MosaicProvider` given the
+corpus's joins. The graph is one more client of it, reading `vertices`: every vertex as one relation,
+`NULL` where a type has no such column. A clause on another relation reaches it crossed by key, and a
+column clause keeps none of a type without the column; what it drops is greyed out on the canvas,
+never hidden. A lasso or a click publishes the reader's pick back into it as a semi-join on the vertex
+key, on `vertices`, exempting the graph itself; `usePick` does the same for a place beside the canvas.
+The graph's first load waits for every chart on its page that has not drawn yet, so a timeline under
+it — `<ChartTimeline relation="vertices" field={useGraphPrefs().timeline} />` — comes up with it.
 
 **The layout is off at load.** The corpus's positions are drawn as they are; `GraphToolbar` runs and
 stops a force layout from where the points are. Dragging a node pins it only while a layout runs,
@@ -83,8 +89,6 @@ graph, a second main view and a dock of panels.
   Nothing is read before the reader types and no text is held in the page. `type:Person` and
   `<column>:<value>` narrow it; Enter reveals a match, ⌘Enter adds every match to the subset.
 - `GraphInspector` — the focused vertex's row, with a render prop for a product's own fields.
-- `GraphTimeline` — one temporal column brushed and played under the canvas, the column being the
-  `time-by` setting; its window reaches the page as identity.
 - `ShapeGlyph` — the glyph the canvas draws for a category, in the DOM.
 
 No part takes a callback of its own: what a click means is `onSelect`, `onFocus` and `onFailure` on
@@ -92,7 +96,7 @@ the root. The graph's settings are no part: they are `GRAPH_SECTION` on `@kanzo-
 drawn by `@kanzo-tech/ui`'s `PreferencesSections`.
 `onFailure` is required and receives every failure as thrown — fossil's coded errors, and the graph's
 own `GraphError` (`graph/no-webgl`, `graph/context-lost`, `graph/no-positions`,
-`graph/nothing-to-draw`, `graph/unfilterable`).
+`graph/nothing-to-draw`).
 
 - `usePick(id)` — a place beside the canvas picking vertices as a clause of its own:
   `pick(ids | null, label)`, `picked`, and `predicate()`, the subset as that place sees it.
@@ -105,9 +109,9 @@ own `GraphError` (`graph/no-webgl`, `graph/context-lost`, `graph/no-positions`,
 
 - `readJoinGraph(coordinator, from)` — the corpus attached as `from` as a `JoinGraph`, read from
   `fossil_tables` and `fossil_columns`: each vertex table a type keyed by `dense_id` that projects
-  the columns the writer gave no role, each edge table joined through `src` and `dst`. It is what
-  `@kanzo-tech/mosaic`'s relations — and `@kanzo-tech/ui/analytics`' relation dashboards — are built
-  over; `relationRootKey` names the key a relation publishes to the page through.
+  the columns the writer gave no role, each edge table joined through `src` and `dst`, and one more
+  type, `vertices`, every vertex table as one relation. It is what `@kanzo-tech/mosaic`'s relations —
+  and `@kanzo-tech/ui/analytics`' relation dashboards — are built over: `MosaicProvider`'s `joins`.
 
 The full guide — the parts, layout and camera, and the workspace recipe — is at
 [kanzo-tech.github.io/ui/docs/graph](https://kanzo-tech.github.io/ui/docs/graph).

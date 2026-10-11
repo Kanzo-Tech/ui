@@ -1,6 +1,6 @@
 "use client";
 
-import type { TableExpr } from "@kanzo-tech/mosaic";
+import { onRelation, type RelationExpr, type RelationRef, type TableExpr } from "@kanzo-tech/mosaic";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
@@ -37,7 +37,7 @@ import { Input } from "../simples/input.js";
 import { Skeleton } from "../simples/skeleton.js";
 import { Slider, SliderLabel, SliderValue } from "../simples/slider.js";
 import { chartTableKey } from "./chart-spec.js";
-import { useMosaic } from "./mosaic-provider.js";
+import { useMosaic, useRelation } from "./mosaic-provider.js";
 import { useQueryClient, type ChartQueryRow as QueryRow } from "./use-chart-query.js";
 
 /**
@@ -70,6 +70,11 @@ export interface MosaicInputOptions<T> {
   activateValue: T;
   /** Reads the widget's own clause value back out of the selection. Defaults to an identity cast. */
   decode?: (value: unknown) => T;
+  /**
+   * The relation the widget reads, as the page knows it: what its clause is published on, and what a
+   * clause published on another relation reaches its lookup crossed into. `null` names none.
+   */
+  relation?: RelationRef | null;
 }
 
 export interface MosaicInputState<T> {
@@ -95,10 +100,15 @@ export interface MosaicInputState<T> {
 export function useMosaicInput<T>(
   options: MosaicInputOptions<T>
 ): MosaicInputState<T> {
-  const { filterBy, as, deps } = options;
+  const { filterBy, as, deps, relation = null } = options;
   const latest = useRef(options);
   latest.current = options;
-  const { client, rows, error } = useQueryClient(filterBy, (filter) => latest.current.build(filter), deps);
+  const { client, rows, error } = useQueryClient(filterBy, (filter) => latest.current.build(filter), deps, relation);
+  /** The widget's clause, on the relation it reads. */
+  const clauseOf = useCallback(
+    (source: MosaicClient, value: T | undefined) => onRelation(latest.current.clause(source, value), latest.current.relation),
+    [],
+  );
   const [selected, setSelected] = useState<T | undefined>(undefined);
 
   useEffect(() => {
@@ -114,21 +124,21 @@ export function useMosaicInput<T>(
       as.removeEventListener("value", sync);
       // `Selection.remove` returns a *clone*; the live way to retract a clause is to publish an
       // empty one, which the resolver drops because its predicate is null.
-      if (as.valueFor(client) !== undefined) as.update(latest.current.clause(client, undefined));
+      if (as.valueFor(client) !== undefined) as.update(clauseOf(client, undefined));
     };
-  }, [as, client]);
+  }, [as, client, clauseOf]);
 
   const publish = useCallback(
     (value: T | undefined) => {
       setSelected(value);
-      if (as && client) as.update(latest.current.clause(client, value));
+      if (as && client) as.update(clauseOf(client, value));
     },
-    [as, client],
+    [as, client, clauseOf],
   );
 
   const activate = useCallback(() => {
-    if (as && client) as.activate(latest.current.clause(client, latest.current.activateValue));
-  }, [as, client]);
+    if (as && client) as.activate(clauseOf(client, latest.current.activateValue));
+  }, [as, client, clauseOf]);
 
   return { rows, error, selected, publish, activate };
 }
@@ -151,9 +161,9 @@ function warmUpHandlers(
 }
 
 interface SelectionProps {
-  /** Where the control publishes. Defaults to the provider's crossfilter; `null` = nowhere. */
+  /** Where the control publishes. Defaults to the page's selection; `null` = nowhere. */
   as?: Selection | null;
-  /** What the control's own lookup filters by. Defaults to the crossfilter; `null` = unfiltered. */
+  /** What the control's own lookup filters by. Defaults to the page's selection; `null` = unfiltered. */
   filterBy?: Selection | null;
 }
 
@@ -172,7 +182,7 @@ export interface ChartFilterProps
   extends Omit<React.ComponentProps<typeof ark.div>, "defaultValue">,
     SelectionProps {
   /** The relation the values and their counts come from, as `ChartRoot` takes it. */
-  table?: TableExpr;
+  relation?: RelationExpr;
   /** The column grouped by. */
   column?: string;
   /** The column named in the published clause. Defaults to `column`. */
@@ -280,7 +290,7 @@ function filterEntries(
  */
 export function ChartFilter(props: ChartFilterProps) {
   const {
-    table,
+    relation,
     column,
     field = column,
     as,
@@ -300,15 +310,17 @@ export function ChartFilter(props: ChartFilterProps) {
     slot,
     ...rest
   } = props;
-  const { crossfilter } = useMosaic();
-  const target = as === undefined ? crossfilter : as;
-  const source = filterBy === undefined ? crossfilter : filterBy;
+  const { selection } = useMosaic();
+  const { table, relation: reading } = useRelation(relation);
+  const target = as === undefined ? selection : as;
+  const source = filterBy === undefined ? selection : filterBy;
   const lookup = options === undefined && Boolean(table && column);
 
   const { rows, error, selected, publish, activate } = useMosaicInput<readonly unknown[]>({
     as: target,
     filterBy: source,
-    deps: [chartTableKey(table), column, lookup, limit],
+    relation: reading,
+    deps: [chartTableKey(table), JSON.stringify(reading), column, lookup, limit],
     activateValue: [0],
     build: (filter) =>
       lookup
@@ -393,7 +405,7 @@ export interface ChartSearchProps
   extends Omit<React.ComponentProps<typeof ark.div>, "defaultValue">,
     SelectionProps {
   /** The relation the autocomplete values come from, as `ChartRoot` takes it. */
-  table?: TableExpr;
+  relation?: RelationExpr;
   /** The column to search. */
   column?: string;
   /** The column named in the published clause. Defaults to `column`. */
@@ -423,7 +435,7 @@ export interface ChartSearchProps
  */
 export function ChartSearch(props: ChartSearchProps) {
   const {
-    table,
+    relation,
     column,
     field = column,
     as,
@@ -443,15 +455,17 @@ export function ChartSearch(props: ChartSearchProps) {
     slot,
     ...rest
   } = props;
-  const { crossfilter } = useMosaic();
-  const target = as === undefined ? crossfilter : as;
-  const source = filterBy === undefined ? crossfilter : filterBy;
+  const { selection } = useMosaic();
+  const { table, relation: reading } = useRelation(relation);
+  const target = as === undefined ? selection : as;
+  const source = filterBy === undefined ? selection : filterBy;
   const lookup = autocompleteLimit > 0 && Boolean(table && column);
 
   const { rows, selected, publish, activate } = useMosaicInput<string>({
     as: target,
     filterBy: source,
-    deps: [chartTableKey(table), column, lookup, autocompleteLimit],
+    relation: reading,
+    deps: [chartTableKey(table), JSON.stringify(reading), column, lookup, autocompleteLimit],
     activateValue: "",
     build: (filter) =>
       lookup
@@ -590,7 +604,7 @@ export interface ChartSliderProps
   extends Omit<React.ComponentProps<typeof ark.div>, "defaultValue">,
     SelectionProps {
   /** The relation the extent comes from, when `min`/`max` are not both given. */
-  table?: TableExpr;
+  relation?: RelationExpr;
   /** The numeric column. */
   column?: string;
   /** The column named in the published clause. Defaults to `column`. */
@@ -633,7 +647,7 @@ function defaultStep(min: number, max: number): number {
  */
 export function ChartSlider(props: ChartSliderProps) {
   const {
-    table,
+    relation,
     column,
     field = column,
     as,
@@ -651,9 +665,10 @@ export function ChartSlider(props: ChartSliderProps) {
     slot,
     ...rest
   } = props;
-  const { crossfilter } = useMosaic();
-  const target = as === undefined ? crossfilter : as;
-  const source = filterBy === undefined ? crossfilter : filterBy;
+  const { selection } = useMosaic();
+  const { table, relation: reading } = useRelation(relation);
+  const target = as === undefined ? selection : as;
+  const source = filterBy === undefined ? selection : filterBy;
   const lookup = (min === undefined || max === undefined) && Boolean(table && column);
   // The binning hint for the interval clause. A ref, not `extent` itself: reading the memo from
   // the clause would make the widget's own row type circular.
@@ -662,7 +677,8 @@ export function ChartSlider(props: ChartSliderProps) {
   const { rows, selected, publish, activate } = useMosaicInput<SliderValueType>({
     as: target,
     filterBy: source,
-    deps: [chartTableKey(table), column, lookup],
+    relation: reading,
+    deps: [chartTableKey(table), JSON.stringify(reading), column, lookup],
     activateValue: select === "interval" ? ([0, 0] as const) : 0,
     build: (filter) =>
       lookup

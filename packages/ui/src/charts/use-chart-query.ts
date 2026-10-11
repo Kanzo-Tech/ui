@@ -1,10 +1,10 @@
 "use client";
 
-import { queryFailure } from "@kanzo-tech/mosaic";
+import { queryFailure, type RelationClient, type RelationRef } from "@kanzo-tech/mosaic";
 import { makeClient, type MosaicClient, type Selection } from "@uwdata/mosaic-core";
 import { Query, type FilterExpr } from "@uwdata/mosaic-sql";
 import { useEffect, useRef, useState } from "react";
-import { useClientsEnabled, useMosaic } from "./mosaic-provider.js";
+import { useClientsEnabled, useMosaic, useReading } from "./mosaic-provider.js";
 
 /**
  * Read a relation from the same coordinator the charts use, and follow the same crossfilter.
@@ -20,8 +20,14 @@ export type ChartQueryRow = Record<string, unknown>;
 export interface ChartQueryOptions {
   /** Builds the query from the crossfilter predicate; return `null` to ask for nothing. */
   query: (filter: FilterExpr) => Query | null;
-  /** What to filter by. Defaults to the provider's crossfilter; `null` reads the full relation. */
+  /** What to filter by. Defaults to the page's selection; `null` reads the full relation. */
   filterBy?: Selection | null;
+  /**
+   * The relation the query reads, as the page knows it: what a clause published on another
+   * relation is crossed into. Defaults to the enclosing `MosaicClients`'s; with none, every clause
+   * reaches the query as it was published.
+   */
+  relation?: RelationRef | null;
   /** Rebuilds the client — and re-runs the query — when an entry changes. */
   deps?: readonly unknown[];
 }
@@ -37,8 +43,10 @@ export interface ChartQueryResult {
 
 export function useChartQuery(options: ChartQueryOptions): ChartQueryResult {
   const { filterBy, deps = [] } = options;
-  const { crossfilter } = useMosaic();
-  const { rows, error } = useQueryClient(filterBy === undefined ? crossfilter : filterBy, options.query, deps);
+  const { selection } = useMosaic();
+  const reading = useReading();
+  const relation = options.relation === undefined ? reading : options.relation;
+  const { rows, error } = useQueryClient(filterBy === undefined ? selection : filterBy, options.query, deps, relation);
   return { rows, row: rows?.[0], error };
 }
 
@@ -51,6 +59,7 @@ export function useQueryClient(
   filterBy: Selection | null,
   query: (filter: FilterExpr) => Query | null,
   deps: readonly unknown[],
+  relation: RelationRef | null = null,
 ): { client: MosaicClient | null; rows: readonly ChartQueryRow[] | null; error: unknown } {
   const { coordinator, onFailure } = useMosaic();
   const enabled = useClientsEnabled();
@@ -81,10 +90,22 @@ export function useQueryClient(
         onFailure(failure);
       },
     });
+    // Before its first query, which `initialize` asks after a turn: what the page's resolver crosses
+    // every other relation's clauses into.
+    (instance as MosaicClient & RelationClient).relation = relation;
     setClient(instance);
     return () => coordinator.disconnect(instance);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [coordinator, filterBy, onFailure, ...deps]);
+
+  // The relation is read when the client asks, so a new one needs no new client — only a new answer.
+  const relationKey = JSON.stringify(relation);
+  useEffect(() => {
+    const at = client as (MosaicClient & RelationClient) | null;
+    if (!at || JSON.stringify(at.relation ?? null) === relationKey) return;
+    at.relation = JSON.parse(relationKey) as RelationRef | null;
+    at.requestQuery();
+  }, [client, relationKey]);
 
   useEffect(() => {
     if (client) client.enabled = enabled;

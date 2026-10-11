@@ -18,7 +18,7 @@ export default function Example() {
   return (
     <MosaicDemo>
       <div className="w-full max-w-xl">
-        <ChartRoot height={220} table="sightings">
+        <ChartRoot height={220} relation="sightings">
           <ChartAreaY fill="var(--primary)" fillOpacity={0.12} x="hour" y={count()} />
           <ChartLineY filterBy={null} stroke="var(--muted-foreground)" strokeOpacity={0.4} x="hour" y={count()} />
           <ChartLineY stroke="var(--primary)" strokeWidth={2} tip x="hour" y={count()} />

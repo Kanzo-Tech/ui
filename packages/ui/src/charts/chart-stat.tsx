@@ -1,12 +1,13 @@
 "use client";
 
-import type { TableExpr } from "@kanzo-tech/mosaic";
+import type { RelationExpr } from "@kanzo-tech/mosaic";
 import { FormatNumber } from "@ark-ui/react/format";
 import type { ExprValue } from "@uwdata/mosaic-sql";
 import { Query } from "@uwdata/mosaic-sql";
 import { StatValue, type StatValueProps } from "../simples/stat.js";
 import { useChartContextOptional } from "./chart-root.js";
 import { chartTableKey } from "./chart-spec.js";
+import { useRelation } from "./mosaic-provider.js";
 import { useChartQuery } from "./use-chart-query.js";
 
 /**
@@ -17,8 +18,8 @@ import { useChartQuery } from "./use-chart-query.js";
  */
 
 export interface ChartStatProps extends Omit<StatValueProps, "children" | "loading"> {
-  /** The relation, as `ChartRoot` takes it. Defaults to the enclosing `ChartRoot`'s table. */
-  table?: TableExpr;
+  /** The relation, as `ChartRoot` takes it. Defaults to the enclosing `ChartRoot`'s. */
+  relation?: RelationExpr;
   /** The aggregate to show — `count()`, `avg("latency")`, any `mosaic-sql` expression. */
   value: ExprValue;
   /**
@@ -30,18 +31,21 @@ export interface ChartStatProps extends Omit<StatValueProps, "children" | "loadi
 }
 
 export function ChartStat(props: ChartStatProps) {
-  const { table, value, format, ...rest } = props;
+  const { relation, value, format, ...rest } = props;
   const chart = useChartContextOptional();
-  const relation = table ?? chart?.table;
+  const own = useRelation(relation);
+  const read = relation === undefined && chart ? { table: chart.table, relation: chart.relation } : own;
+  const { table } = read;
 
   const { row, error } = useChartQuery({
     query: (filter) =>
-      relation ? Query.from(relation).select({ value }).where(filter) : null,
-    deps: [chartTableKey(relation), value],
+      table ? Query.from(table).select({ value }).where(filter) : null,
+    deps: [chartTableKey(table), value],
+    relation: read.relation,
   });
 
-  if (!relation) {
-    throw new Error("ChartStat needs a `table`, or a <ChartRoot table> around it.");
+  if (!table) {
+    throw new Error("ChartStat needs a `relation`, or a <ChartRoot relation> around it.");
   }
 
   const raw = Number(row?.value ?? 0);

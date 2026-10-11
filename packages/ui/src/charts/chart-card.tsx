@@ -1,6 +1,6 @@
 "use client";
 
-import type { TableExpr } from "@kanzo-tech/mosaic";
+import type { RelationExpr, TableExpr } from "@kanzo-tech/mosaic";
 import type React from "react";
 import { desc, Query, type ExprValue } from "@uwdata/mosaic-sql";
 import { bin } from "./chart-bin.js";
@@ -22,6 +22,7 @@ import { ChartBrushX, ChartBrushXY, ChartHighlight, ChartPickY } from "./chart-i
 import { ChartLegend } from "./chart-legend.js";
 import { ChartAreaY, ChartBarX, ChartDot, ChartLineY, ChartRectY, ChartRegressionY } from "./chart-marks.js";
 import { ChartRoot } from "./chart-root.js";
+import { useRelation } from "./mosaic-provider.js";
 import { chartTableKey } from "./chart-spec.js";
 import { EditTileButton } from "./edit-tile-button.js";
 import { measureExpr, type ChartTile, type DashboardChartType } from "./dashboard-spec.js";
@@ -31,7 +32,8 @@ import { tileTitle } from "./tile-kinds.js";
 import { useChartQuery } from "./use-chart-query.js";
 
 export interface ChartCardProps extends Omit<React.ComponentProps<typeof Card>, "onChange"> {
-  table: TableExpr;
+  /** The relation the chart reads, as `ChartRoot` takes it. */
+  relation: RelationExpr;
   fields: readonly FieldStat[];
   card: ChartTile;
   /**
@@ -59,13 +61,13 @@ export const CHART_TYPE: Record<DashboardChartType, { label: string; icon: typeo
 /**
  * One `ChartTile`, drawn. The chart is a `ChartRoot` with the marks the type
  * calls for and the interactor its scale allows — pick on a band, brush on a range — so every card
- * publishes into the page's crossfilter and dims or filters with it. Without a series the whole
+ * publishes into the page's selection and dims or filters with it. Without a series the whole
  * relation stays behind the selection in grey: the context a filtered chart otherwise loses. A card
  * with an `origin` says why the rule proposed it in its description, under an *Automatic* badge,
  * until somebody edits it.
  */
 export function ChartCard(props: ChartCardProps) {
-  const { table, fields, card, config, onEdit, actions, className, slot, ...rest } = props;
+  const { relation, fields, card, config, onEdit, actions, className, slot, ...rest } = props;
   const missing = [card.x, card.y.field, card.color, card.facet].filter(
     (name): name is string => name !== undefined && !fields.some((f) => f.name === name),
   );
@@ -101,7 +103,7 @@ export function ChartCard(props: ChartCardProps) {
             {`The relation has no ${missing.join(", ")} any more.`}
           </p>
         ) : (
-          <CardChart card={card} config={config} fields={fields} table={table} />
+          <CardChart card={card} config={config} fields={fields} relation={relation} />
         )}
       </CardContent>
     </Card>
@@ -135,16 +137,17 @@ const truncate = (text: unknown) => {
 };
 
 function CardChart({
-  table,
+  relation,
   fields,
   card,
   config,
 }: {
-  table: TableExpr;
+  relation: RelationExpr;
   fields: readonly FieldStat[];
   card: ChartTile;
   config?: Readonly<Record<string, ChartConfig>>;
 }) {
+  const table = useRelation(relation).table!;
   const y = measureExpr(card.y);
   const given = card.color ? config?.[card.color] : undefined;
   const bars = useTopValues(table, card.type === "bar" ? card.x : undefined, y, BAR_LIMIT);
@@ -167,7 +170,7 @@ function CardChart({
     config: card.color ? seriesConfig : undefined,
     height: HEIGHT,
     margin: { top: 8, right: 12, bottom: 24, left: 44 },
-    table,
+    relation,
     ...faceted,
   };
   const legend = card.color ? <ChartLegend /> : null;

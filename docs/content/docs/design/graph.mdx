@@ -57,8 +57,11 @@ and fossil_columns, and every vertex by its dense_id".
 
 ## The graph is a client of the page's coordinator
 
-`GraphClient` is a `MosaicClient` connected to the page's coordinator, like every chart beside it.
-The coordinator hands it the crossfilter's predicate minus the graph's own clause, and it answers
+`GraphClient` is a `MosaicClient` connected to the page's coordinator, like every chart beside it,
+and it reads `vertices`: every vertex table, as one relation. The coordinator hands it the page's
+predicate minus the graph's own clause, every clause published on another relation already crossed
+into `vertices` by the page's resolver
+([across relations](#the-clause-rule-column-predicates-or-a-semi-join-on-identity)), and it answers
 with the vertices that survive: `SELECT dense_id … WHERE <predicate>` per vertex table, `UNION ALL`.
 **The predicate runs as Mosaic wrote it** — nothing is translated. Which table a clause filters is
 [the clause rule](#the-clause-rule-column-predicates-or-a-semi-join-on-identity): a table that cannot
@@ -67,7 +70,9 @@ under all of them, and a clause no table can answer keeps nothing
 ([Crossfilter](/docs/design/crossfilter#formal-semantics) decided it, 11 October 2026). Before, a
 table that could not answer a clause was left unfiltered by it and a clause no table could answer was
 refused as `graph/unfilterable`; the timeline already greyed a type without its column, and two chips
-that looked alike in the bar greyed different things.
+that looked alike in the bar greyed different things. The rule is held per table rather than by
+`NULL` in the union a chart reads `vertices` as: a clause that tests for `NULL` would keep a type
+without the column there, and a column whose type differs across tables is not in the union at all.
 
 **A filtered-out vertex is greyed, never hidden.** The surviving ids become cosmos.gl's
 `highlightedPointIndices` and the links between two of them `highlightedLinkIndices` — cosmos.gl does
@@ -154,50 +159,41 @@ the second form, built from mosaic-sql's nodes; `clauseColumns(filter)` is the r
 relation keyed by anything else crosses the same way. A column clause a vertex table cannot answer
 keeps none of that table.
 
-**A group of clients that speaks columns crosses to the page as identity, through a bridge.** A
-dashboard over a relation filters its tiles by `"Person.country"`, which no vertex table has. Its
-tiles therefore publish into a crossfilter of the dashboard's own, and `bridgeSelection(inner,
-outer, map)` in `@kanzo-tech/mosaic` joins it to the page: every page clause is handed to the tiles
-as itself, `source` and `clients` intact, and the clauses the tiles published are mapped *together*
-into one page clause whose source is the bridge. It is built on mosaic-core's public `Selection` API
-alone — `update`, `reset`, `activate`, `clauses` and the two events — and a guard fails on any
-`_` member of mosaic-core reached from the package. The map a relation takes is `semiJoinOf(key, relation)`, which is `dense_id IN
-(SELECT dense_id FROM <relation> WHERE <every tile clause>)`, the second form again. So the graph
+**A clause published on one relation reaches a client of another as the second form, written by the
+page.** A dashboard over a relation filters its tiles by `"Person.country"`, which `vertices` has
+not. The tiles publish into the page's one selection, each clause saying the relation it was
+published on (`onRelation`), and the graph says the one it reads (`relation = "vertices"`); the
+page's selection is `crossfilterOver(joins)` — Mosaic's crossfilter, with a resolver of ours through
+Mosaic's own extension point, `new Selection(resolver)` — which at predicate time hands a client of
+the same relation the clause as published and a client of another `k IN (SELECT key FROM <relation>
+WHERE <every clause on it>)`, into the client's step of the clause's root type, or `FALSE` where it
+has none ([Step 3](/docs/design/crossfilter#step-3-one-selection-across-relations)). So the graph
 answers a dashboard by the rule it already had, and nothing in `GraphClient` names a dashboard. A
-`GraphTimeline` speaks columns too — its window is `date BETWEEN …`, which only the types with a
-date can answer — and crosses the same way, through `semiJoinOf(key, timeline)`: `dense_id IN
-(SELECT dense_id FROM <the types with the column> WHERE <the window>)`. A semi-join keeps only the
-rows its relation holds, so a vertex of a type without a date is greyed, as Cosmograph greys it
-([why](/docs/design/timeline)). It names the key alone, so a dashboard's relation answers it
-through its root, with no rows when the root has no date.
-Retraction follows the clause to where it was published: a tile letting go withdraws the page
-clause, the page clause's chip clears the tiles, and the page's clauses are never mapped back out,
-so a lasso does not return to the graph as a dashboard's clause and filter it by its own pick.
-
-The page's clauses are handed in by `relaySelection`, which listens to the page, not by `include`,
-because `include` would relay the bridge's own clause back in and nothing in Mosaic keeps it out;
-`relaySelection` takes the bridge's source as `except`. Unexempted, that echo filters
-the brushing tile by its own brush; exempting the tiles that published re-queries every other tile a
-second time per brush step; exempting every tile makes it the dashboard's *active* clause, for which
-Mosaic's crossfilter resolver answers no predicate at all — so the next page of a table, or a tile
-just added, reads the relation unfiltered. And an `include` cannot be undone.
+timeline over the graph is `ChartTimeline relation="vertices"`: its window is `date BETWEEN …` on
+`vertices`, the graph's own relation, so the graph reads it as published, and a type without a date
+holds `NULL` there and is greyed, as Cosmograph greys it ([why](/docs/design/timeline)); a
+dashboard's relation reads it through its root, with no rows when the root has no date. A clause is
+retracted where it is held, on the one selection: a chip's × is Mosaic's `selection.reset([clause])`,
+which calls the clause's source back.
 
 **Any panel is a client of the selection by the same protocol.** `useChartQuery` is a panel's query
-filtered by the live selection and re-run when it changes; a panel over a union of relations reads
-`clauseColumns` to apply each clause where it can, as the graph does; and `FilterBar` over the
-crossfilter is the scope every client is under — a semi-join wears its publisher's label.
+filtered by the live selection and re-run when it changes, and says the relation it reads by
+`relation` or an enclosing `MosaicClients`; and `FilterBar` over the selection is the scope every
+client is under — a semi-join wears its publisher's label.
 
 **It replaced a graph that answered only column predicates**, which read every column of every
 clause, subqueries included, so a set of vertices found in an edge table or another type named
 `src` and `dst` and was refused. The alternative was a second clause kind the graph alone
 understood; it would have filtered the graph and nothing else.
 
-**The bridge replaced "a graph and a relation dashboard do not share a crossfilter"**, the caveat
-the relation dashboard shipped with: its clauses named prefixed columns, and the graph refused them
-as `graph/unfilterable`. The alternatives were a dashboard-shaped case in `GraphClient`, which would
-have taught the graph one publisher's vocabulary and left every other relation client to learn it
-again; and one semi-join per tile clause, which is wrong on a joined relation, where *a root with a
-row where a and b* is not *a root with a row where a and one where b*.
+**The page's resolver replaced the bridge**, a crossfilter per dashboard joined to the page by a
+map, `semiJoinOf(key, relation)` through `bridgeSelection`, which itself replaced "a graph and a
+relation dashboard do not share a crossfilter". The bridge crossed correctly but cost a selection,
+a relay and a retraction path per group of clients, and a reset had to walk upstream to reach a
+clause where it was published. The alternatives were a dashboard-shaped case in `GraphClient`, which
+would have taught the graph one publisher's vocabulary; and one semi-join per tile clause, which is
+wrong on a joined relation, where *a root with a row where a and b* is not *a root with a row where a
+and one where b* — the resolver crosses every clause on one relation together for the same reason.
 
 **What would reverse it:** an identity two corpora do not share — two corpora attached on one page,
 whose `dense_id`s collide — which would make the key a pair, `(corpus, dense_id)`, and the semi-join
@@ -210,18 +206,14 @@ statement that selects them", "names the key alone: a subquery's columns are ano
 relation its subquery reads", "publishes the reader's pick as a semi-join on dense_id, and is exempt
 from its own clause", "lets the pick go when its clause is retracted where it was published";
 `packages/mosaic/src/clause.test.ts`, "names a semi-join by its publisher's label, and counts its
-members when they are keys"; `packages/mosaic/src/bridge.test.ts`, "publishes the inner
-clauses to the outer selection as one clause, through the map, from the bridge", "does not filter a
-client by its own clause on either side, and never echoes the mapped clause inward", "calls the bridge
-back when the mapped clause is retracted where it was published, and clears the inner sources";
-`packages/mosaic/src/relay.test.ts`, "puts the clause object itself into the target, so the
-publisher stays exempt from its own clause", "loses nothing in a burst: the last delivery holds the
-latest state", "withdraws what it relayed when stopped, even with the source's reset still queued";
+members when they are keys"; `packages/mosaic/src/crossfilter.test.ts`, "crosses a clause into
+another relation by the key of the step of its root's type", "keeps none of a relation with no step
+of the clause's type";
 `packages/ui/src/mosaic-public-api.test.ts`, "reaches no underscore member of a Mosaic object in
 any shipped package";
-`packages/graph/src/core/dashboard-bridge.test.ts`, "filters the graph by what the dashboard's
-brushes keep, as the root vertices they keep", "still filters the dashboard by the graph's pick, and
-publishes nothing back for it".
+`packages/graph/src/core/one-selection.test.ts`, "filters the graph by what the tiles' brushes keep,
+as the root vertices they keep", "filters the dashboard by the graph's pick, crossed into the
+relation by its root's key".
 
 ## A relation's names: prefixed, but the root's key
 

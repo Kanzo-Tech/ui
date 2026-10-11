@@ -25,7 +25,8 @@ of its rows.
     place of *Not applied …*.
 
 **For a host that publishes raw column clauses** straight to the page the graph filters by: a vertex
-type without those columns now goes grey under them instead of staying in colour. Publish through a
-crossing (`semiJoinOf(key, relation)`) if the clause is meant to reach only one relation's types.
+type without those columns now goes grey under them instead of staying in colour. Publish it on its
+relation (`onRelation(clause, relation)`) if it is meant for that relation's rows: the page then
+crosses it into every other relation by key.
 
 Sizes: graph 24.04 kB (24.1 kB budget), ai/data 8.42 kB (8.5 kB budget); no budget moves.

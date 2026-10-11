@@ -44,7 +44,7 @@ describe("a chart whose query fails", () => {
     const onFailure = vi.fn();
     const { container } = render(
       <MosaicProvider coordinator={coordinator} onFailure={onFailure}>
-        <ChartRoot table="telemetry">
+        <ChartRoot relation="telemetry">
           <ChartBarY x="host" y="n" />
         </ChartRoot>
       </MosaicProvider>,

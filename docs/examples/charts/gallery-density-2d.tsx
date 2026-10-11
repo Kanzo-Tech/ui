@@ -16,7 +16,7 @@ export default function Example() {
   return (
     <MosaicDemo>
       <div className="w-full max-w-xl">
-        <ChartRoot height={280} table="sightings">
+        <ChartRoot height={280} relation="sightings">
           <ChartDot fill="var(--muted-foreground)" fillOpacity={0.2} r={1.5} x="bounty" y="leagues" />
           <ChartContour
             bandwidth={22}

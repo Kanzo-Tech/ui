@@ -43,7 +43,7 @@ function SavedDashboard({ relation, saved }: { relation: string; saved: Dashboar
   });
   const { draft, change } = useDebouncedCommit(saved, (spec) => save.mutate(spec), 800);
 
-  return <Dashboard table={relation} value={draft} onChange={change} />;
+  return <Dashboard relation={relation} value={draft} onChange={change} />;
 }
 ```
 
@@ -67,7 +67,7 @@ and no remove buttons. Filters, picks, brushes, chips and paging still work — 
 viewer explores; a viewer does not rearrange.
 
 ```tsx
-<Dashboard table={relation} value={draft} onChange={canEdit ? change : undefined} />
+<Dashboard relation={relation} value={draft} onChange={canEdit ? change : undefined} />
 ```
 
 A viewer with nothing saved sees the automatic dashboard, which is the right default for a role that
@@ -88,7 +88,7 @@ const CONFIG: Record<string, ChartConfig> = {
   },
 };
 
-<Dashboard table="sightings" config={CONFIG} value={draft} onChange={change} />;
+<Dashboard relation="sightings" config={CONFIG} value={draft} onChange={change} />;
 ```
 
 - Use **tokens**, not hex: `var(--success)` follows the theme into dark mode and through the
@@ -103,29 +103,28 @@ true of every dashboard over that field, so it is not saved with any of them.
 
 ## 5. One dashboard per relation
 
-A spec names columns, and so does every clause a part publishes. Two relations on one crossfilter
-means a pick on one sends `hall IN (…)` to the other, which may have no `hall`. Give each relation
-its own dashboard, and either mount one at a time or give each its own `MosaicProvider` over the
-shared coordinator — or, when the relations share a key, let each dashboard `publish` a semi-join on
-it, which every relation keyed the same way answers.
+A spec names columns, and so does every clause a part publishes. A clause says the relation it was
+published on, so two relations on the page's one selection never send each other a column the other
+does not have: the page crosses a clause into another relation by key over the provider's `joins`,
+or keeps none of it where there is no way across
+([across relations](/docs/analytics/charts#across-relations)). Give each relation its own dashboard,
+and its own spec.
 
-A host over a graph of types picks the relation with `RelationPicker`, keys everything by it, and
-publishes the tiles' clauses to the page as a semi-join on the root's key, so the graph beside the
-dashboard follows its brushes:
+A host over a graph of types hands the provider the graph as its `joins`, picks the relation with
+`RelationPicker` and keys everything by it; the graph beside the dashboard follows its brushes
+through the root's key, with nothing to wire:
 
 ```tsx
 const key = relationKey(graph, relation);
 const saved = parseDashboards(stored); // throws on anything that is not a current document
 const identities = relationIdentities(graph, relation);
-const table = useMemo(() => relationQuery(graph, relation), [graph, relation]);
-const publish = useMemo(() => semiJoinOf(relationRootKey(graph, relation), table, { label: key }), [graph, relation, table, key]);
 
+// under <MosaicProvider coordinator={coordinator} joins={graph}>
 <RelationPicker graph={graph} value={relation} onValueChange={setRelation} />
-<FilterBar table={table} rowNoun={relation.path.length ? "paths" : relation.root} />
+<FilterBar relation={relation} rowNoun={relation.path.length ? "paths" : relation.root} />
 <Dashboard
   key={key}
-  table={table}
-  publish={publish}
+  relation={relation}
   exclude={identities.map((i) => i.column)}
   value={saved.byRelation[key]}
   onChange={(spec) => {

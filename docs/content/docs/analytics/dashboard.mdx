@@ -28,8 +28,8 @@ function Sightings({ coordinator, saved, save }: Props) {
     <MosaicProvider coordinator={coordinator}>
       <ShellBody>
         <ShellMain>
-          <FilterBar table="sightings" rowNoun="sightings" />
-          <Dashboard table="sightings" value={saved} onChange={save} />
+          <FilterBar relation="sightings" rowNoun="sightings" />
+          <Dashboard relation="sightings" value={saved} onChange={save} />
         </ShellMain>
         <Format />
       </ShellBody>
@@ -192,11 +192,12 @@ on every render.
 ### FilterBar
 
 **The page's one row of filters**, under its header — Metabase's filter bar, drawn as Linear's chips.
-Every clause on the page's crossfilter is a removable chip, read from `Selection.clauses`, so the row
+Every clause on the page's selection is a removable chip, read from `Selection.clauses`, so the row
 reports filters it did not publish: a brush, a bar someone clicked, a lasso on a graph canvas. A
 chip's label is read from the clause: *hour 2 – 5* for a range, *region Saltmere* for one value,
 *beast · 3 selected* for more; a semi-join wears its publisher's label — *Lasso · 13 selected*, a
-rule's name. Removing one calls `retract`, so the pick that made it un-highlights too.
+rule's name. Removing one is Mosaic's `selection.reset([clause])`, which calls the clause's source
+back, so the pick that made it un-highlights too.
 
 A dashboard's filters are drawn in it too. Each `filters` entry names a field and is a chip reading
 *region: Saltmere ▾*, or *region: Any ▾* while it filters nothing. The chip opens its control,
@@ -207,22 +208,23 @@ numeric key) or no longer exists is skipped. With `onChange`, each chip gets a r
 a control and no filter yet. The bar leaves those clauses to the dashboard's chips rather than
 drawing them twice.
 
-**The dashboard draws there through a slot**, a portal that keeps its own provider and crossfilter,
-so its filters stay where the reader put them. A control stays mounted while its popover is shut,
+**The dashboard draws there through a slot**, a portal that keeps the dashboard's relation, so its
+filters stay where the reader put them. A control stays mounted while its popover is shut,
 because a control that unmounts retracts its clause, and a control in the bar queries as the bar
 does. **The bar is the same in every view**: a dashboard hidden by
 [`MosaicClients enabled={false}`](/docs/analytics/charts#mosaicclients) draws its chips, their
 controls and **Add a filter** there as when it is shown, so the reader sets its filters from whichever
-view they are in, and they reach the page through `publish` as before. Pass `table` in every view
+view they are in, and they reach the page on its relation as before. Pass `relation` in every view
 too, and the readout says what they keep.
 
 **The bar is one line at any count.** The chips scroll sideways, the native scrollbar hidden and a
 fade at whichever edge hides more, and a chip added on its own is scrolled to. After a hairline the
 verbs are pinned as icons, each named in a tooltip: a dashboard's **Add a filter**, then **Clear
-every filter**, which is `useMosaic().reset()` — disabled rather than gone while nothing filters, so
-nothing beside it moves — then, with `table`, the **readout** — *12 of 40 sightings*, `rowNoun`
-being the plural — and the children. With no filter at all the row reads *No filters*, at the same
-height. `useClauses(selection)` is a selection's live clause list, for a host that draws its own.
+every filter**, which is `useMosaic().selection.reset()` — disabled rather than gone while nothing
+filters, so nothing beside it moves — then, with `relation`, the **readout** — *12 of 40
+sightings*, `rowNoun` being the plural — and the children. With no filter at all the row reads *No
+filters*, at the same height. `useClauses(selection)` is a selection's live clause list, for a host
+that draws its own.
 
 **A view swapped out keeps its clauses when it is hidden, not unmounted.** Wrap it in
 `MosaicClients enabled={false}`: its clients stop asking, its clauses stay in the bar and its
@@ -326,9 +328,10 @@ from any of them does not compile and neither the board nor the editor switches 
 
 **Where a `Dashboard` draws its editor** — a part the host places in its own `ShellAside`, the way
 it places a `FilterBar` under its header. The dashboard portals its `TileEditor` there, so the
-editor keeps the dashboard's tree — its provider, its crossfilter, its draft — while it sits at the
-page's edge. Like the bar's, the slot is the outermost `MosaicProvider`'s, so a dashboard with its
-own provider nested in the page's still finds it; the aside has to be under that provider.
+editor keeps the dashboard's tree — the page's selection, the dashboard's relation, its draft — while
+it sits at the page's edge. Like the bar's, the slot is the outermost `MosaicProvider`'s, so a dashboard
+under a provider of its own, nested in the page's, still finds it; the aside has to be under that
+provider.
 
 `useTileEditorOpen()` is whether a dashboard is editing a tile, so the host shows its aside then —
 draw.io swaps the Format panel in when something is selected. Keep the part mounted and hide the
@@ -377,7 +380,7 @@ applies); it is just never offered as a field.
 
 ## Arranging the parts yourself
 
-The parts take the same `table` and `fields`. A tile is editable when it is given an `onEdit`, and
+The parts take the same `relation` and `fields`. A tile is editable when it is given an `onEdit`, and
 what that opens is the host's — here, the same `TileEditor` `Dashboard` uses, on the bar chart alone:
 
 <ComponentPreview componentName="dashboard" fileName="example-parts" hasMaxHeight={false} />
@@ -388,20 +391,19 @@ does the first itself — [how](/docs/analytics/pitfalls#columns-named-like-a-ch
 
 ## Interaction
 
-Every part is on the provider's crossfilter. A pick on a bar chart filters every other tile, and dims
+Every part is on the page's one selection. A pick on a bar chart filters every other tile, and dims
 the rest of its own bars instead of filtering itself away. A brush on a line, a histogram or the
 timeline filters by a range. The readout counts what survives. A clause published by something else
 on the page — a `ChartFilter` you placed above the dashboard, a lasso on a graph — is applied the
 same way, and *Clear every filter* retracts it too.
 
-With `publish`, the tiles crossfilter each other in a selection of the dashboard's own, and the page
-sees one clause instead: the one `publish` maps them to. Everything above still holds inside the
-dashboard, and the page's clauses still reach every tile — see [what the page
-sees](#what-the-page-sees).
+The tiles publish on the dashboard's relation, and a part on another relation — a graph, another
+dashboard — reads them crossed by key; a clause from there reaches every tile the same way — see
+[what the page sees](#what-the-page-sees).
 
 ## Relations
 
-The `table` can be any relation, and a relation that joins is one more `TableExpr`. A **relation** is
+The `relation` can be a table, or a path over the provider's `joins`. A **relation** is
 a root type and the hops taken from it — Looker's explore, Malloy's source — over a **join graph**:
 types, each a table with a key, and the edge tables between them. A type on its own is a relation
 with no hops, so there is no second path for it.
@@ -409,18 +411,20 @@ with no hops, so there is no second path for it.
 <ComponentPreview componentName="dashboard" fileName="example-relations" hasMaxHeight={false} />
 
 ```tsx
-import { Dashboard, RelationPicker, relationIdentities, relationKey, relationQuery } from "@kanzo-tech/ui/analytics";
+import { Dashboard, MosaicProvider, RelationPicker, relationIdentities, relationKey } from "@kanzo-tech/ui/analytics";
 
+<MosaicProvider coordinator={coordinator} joins={graph}>
 <RelationPicker graph={graph} value={relation} onValueChange={setRelation} />
 <Dashboard
   key={relationKey(graph, relation)}
-  table={relationQuery(graph, relation)}
+  relation={relation}
   exclude={relationIdentities(graph, relation).map((i) => i.column)}
   value={byRelation[relationKey(graph, relation)]}
 />
+</MosaicProvider>
 ```
 
-- **`relationQuery(graph, relation)`** is one mosaic-sql `Query`: every type along the path joined
+- **`relationQuery(graph, relation)`** is what a `relation` with a path reads — one mosaic-sql `Query`: every type along the path joined
   through its edge tables, every column named by its step — `Person.country`, and `Person2.country`
   when the path visits a type twice. The root's key keeps its own name.
 - **`relationKey(graph, relation)`** is the canonical identity a saved dashboard is keyed by:
@@ -430,9 +434,9 @@ import { Dashboard, RelationPicker, relationIdentities, relationKey, relationQue
   identity. The root's key is the relation's own, so a `clauseSemiJoin` on it — a lasso on a graph —
   filters a joined relation exactly as it filters the root's table.
 - **`relationRootKey(graph, relation)`** is that root key by name — the root type's own `key`, the
-  one column of a relation that is not prefixed. It is what a relation publishes to the page
-  through; [the graph's design](/docs/design/graph#a-relations-names-prefixed-but-the-roots-key) has
-  why it keeps its name.
+  one column of a relation that is not prefixed. It is what a clause on the relation crosses to the
+  rest of the page by; [the graph's design](/docs/design/graph#a-relations-names-prefixed-but-the-roots-key)
+  has why it keeps its name.
 - **`relationHops(graph, type)`** lists the hops that leave a type, out-edges then in-edges, each
   with its `fanOut` — the edge's rows per row of the type it leaves — when the graph carries
   `rows` on its types and edges (`joinGraphOf` does, from the catalog's record counts).
@@ -459,42 +463,25 @@ import { Dashboard, RelationPicker, relationIdentities, relationKey, relationQue
 ### What the page sees
 
 A tile's clause on a relation names the relation's columns — `"Person.country" IN ('ES')` — and
-nothing else on the page has them: a graph beside the dashboard would keep none of its vertices
-under it, and another relation's dashboard would fail to bind it. So a relation's
-dashboard publishes in the page's vocabulary instead, a semi-join on the root's key:
+nothing else on the page has them. So the clause says which relation it was published on, and the
+page's selection crosses it for every reader that is on another one
+([across relations](/docs/analytics/charts#across-relations)):
 
-```tsx
-import { relationRootKey, semiJoinOf } from "@kanzo-tech/ui/analytics";
+- the other tiles, on the same relation, read it **as published** — they crossfilter each other on
+  the relation's columns, and Mosaic pre-aggregates them as it would any chart;
+- a graph beside the dashboard reads `dense_id IN (SELECT dense_id FROM <relation> WHERE <every
+  clause on it>)`: it greys out every vertex but the roots of the rows the tiles keep;
+- another relation's dashboard reads the same, into its own step of the root's type — or nothing,
+  where it has no such step.
 
-const table = useMemo(() => relationQuery(graph, relation), [graph, relation]);
-const publish = useMemo(() => semiJoinOf(relationRootKey(graph, relation), table, { label: key }), [graph, relation, table, key]);
-
-<Dashboard key={key} table={table} publish={publish} … />
-```
-
-The tiles publish into the dashboard's own crossfilter and filter by it, so they crossfilter each
-other on the relation's columns exactly as before. The page gets **one** clause for all of them,
-`dense_id IN (SELECT dense_id FROM <relation> WHERE <every tile's clause>)`, whose source is the
-dashboard: the graph greys out every vertex but the roots of the rows the tiles keep, and another
-relation's dashboard is filtered to the same vertices through its own root key. `FilterBar` shows
-it as its parts, one chip per tile clause named after `label` — *Dashboard country Spain* — and
-removing one retracts that tile's clause alone; `bridged(clause)` is how it reads them. The clauses are mapped together, not one by one — on a joined relation,
-*a person with a row where a and b* is not *a person with a row where a, and one where b*.
-
-Retracting goes both ways. A tile that lets go maps the rest again, and the last one withdraws the
-page's clause; removing the page's
-clause — its chip, the page's *Clear every filter* — clears the tiles' brushes and picks. In the other direction,
-a lasso on the graph reaches every tile as itself, so the graph stays exempt from its own pick and
-is not filtered by it back through the dashboard.
-
-`semiJoinOf` is one map among any: `publish` takes a `ClauseMap`, `(clauses, source) => clause`,
-and the bridge that carries it is `@kanzo-tech/mosaic`'s `bridgeSelection(inner, outer, map)`,
-built on mosaic-core's public `Selection` API alone. Without `publish`, a
-dashboard's clauses are the page's, which is right for a dashboard over one table beside charts over
-the same table.
+The clauses on one relation cross together, not one by one — on a joined relation, *a person with a
+row where a and b* is not *a person with a row where a, and one where b*. `FilterBar` shows each as
+its own chip — *Person.country Spain* — and removing one retracts that clause alone, on the one
+selection, calling back the tile that published it. A lasso on the graph reaches every tile crossed
+the other way, and the graph stays exempt from its own pick.
 
 The `JoinGraph` is plain data a reader builds from its own catalog — `JoinType` (`name`, `table`,
-`key`, `columns`) and `JoinEdge` (`name`, `label`, `source`, `destination`, `table`, and the `src`
+`key`, `columns`, and `of` for a type that is the union of others) and `JoinEdge` (`name`, `label`, `source`, `destination`, `table`, and the `src`
 and `dst` columns holding each end's key). For a fossil corpus, `@kanzo-tech/graph`'s
 [`readJoinGraph`](/docs/graph#readjoingraph) builds it from the catalog the graph already reads.
 
@@ -505,7 +492,7 @@ a status column wearing the status colours and their icons:
 
 ```tsx
 <Dashboard
-  table="sightings"
+  relation="sightings"
   config={{
     verdict: {
       confirmed: { label: "Confirmed", color: "var(--success)", icon: CheckCircle2Icon },
@@ -548,12 +535,11 @@ await expect.poll(async () => (await env.harness(FilterBarHarness)).readout()).t
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `table` | `TableExpr` — a name, a mosaic-sql node for a relation in [another catalog](/docs/analytics/charts#a-relation-in-another-catalog), or a [`relationQuery`](#relations) | — |
+| `relation` | `string \| Relation \| ExprNode` — a table by name, a path over the provider's `joins` ([relations](#relations)), or SQL for a relation in [another catalog](/docs/analytics/charts#a-relation-in-another-catalog) | — |
 | `value` | `DashboardSpec` | the automatic dashboard |
 | `onChange` | `(spec: DashboardSpec) => void` | — (read-only without it) |
 | `exclude` | `readonly string[]` | — |
 | `config` | `Readonly<Record<string, ChartConfig>>` | — |
-| `publish` | `ClauseMap` — what the page sees of the tiles' clauses; [`semiJoinOf`](#what-the-page-sees) for a relation | — (the tiles' clauses are the page's) |
 
 Every other prop goes to the root `div` (`data-slot="dashboard"`).
 
@@ -561,7 +547,7 @@ Every other prop goes to the root `div` (`data-slot="dashboard"`).
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `table` | `TableExpr` | — |
+| `relation` | as `ChartRoot`'s | — |
 | `fields` | `readonly FieldStat[]` | — |
 | `stat` | `StatTile` | — |
 | `onEdit` | `() => void` | — (no pencil) |
@@ -571,7 +557,7 @@ Every other prop goes to the root `div` (`data-slot="dashboard"`).
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `table` | `TableExpr` | — |
+| `relation` | as `ChartRoot`'s | — |
 | `fields` | `readonly FieldStat[]` | — |
 | `card` | `ChartTile` | — |
 | `config` | `Readonly<Record<string, ChartConfig>>` | — |
@@ -582,7 +568,7 @@ Every other prop goes to the root `div` (`data-slot="dashboard"`).
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `table` | `TableExpr` | — |
+| `relation` | as `ChartRoot`'s | — |
 | `fields` | `readonly FieldStat[]` | — |
 | `columns` | `readonly string[]` | — in order; a name that is not a field is skipped |
 | `pageSize` | `number` | `25` |
@@ -628,7 +614,7 @@ interface Relation { root: string; path: readonly Hop[] }
 interface Hop { edge: string; direction: "out" | "in" }
 interface RelationHop { hop: Hop; label: string; to: string; fanOut?: number }
 interface JoinGraph { types: readonly JoinType[]; edges: readonly JoinEdge[] }
-interface JoinType { name: string; table: TableExpr; key: string; columns: readonly string[]; rows?: number }
+interface JoinType { name: string; table: TableExpr; key: string; columns: readonly string[]; rows?: number; of?: readonly string[] }
 interface JoinEdge { name: string; label: string; source: string; destination: string; table: TableExpr; src: string; dst: string; rows?: number }
 ```
 
@@ -636,7 +622,7 @@ interface JoinEdge { name: string; label: string; source: string; destination: s
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `table` | `TableExpr` | — (no readout) |
+| `relation` | as `ChartRoot`'s | — (no readout) |
 | `rowNoun` | `string` | `"rows"` |
 | `children` | `ReactNode` | — trailing controls, pinned last, after the readout |
 

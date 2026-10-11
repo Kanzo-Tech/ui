@@ -39,7 +39,7 @@ export default function Example() {
         <ChartRoot
           height={180}
           margin={{ top: 28, right: 16, bottom: 32, left: 76 }}
-          table="sightings"
+          relation="sightings"
         >
           <ChartBarX
             fill="var(--muted-foreground)"

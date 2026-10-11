@@ -18,7 +18,7 @@ export default function Example() {
   return (
     <MosaicDemo>
       <div className="w-full max-w-xl">
-        <ChartRoot height={220} table="sightings">
+        <ChartRoot height={220} relation="sightings">
           <ChartRectY fill="var(--muted-foreground)" filterBy={null} opacity={0.3} x={bin("bounty")} y={count()} />
           <ChartRectY fill="var(--primary)" tip x={bin("bounty")} y={count()} />
           <ChartIntervalX />

@@ -48,29 +48,26 @@ dashboard under the provider calls it with the thrown value, whole — DuckDB's 
 `EngineError` with its `code` — and also says it failed in its own frame, so a failed part is never a
 blank one.
 
-### One crossfilter
+### One selection
 
 A Mosaic **selection** is a set of **clauses**; a clause is one part's filter — a predicate, the
-values behind it, and the `source` that published it. The provider holds a
-`Selection.crossfilter()` that every part filters by. Crossfilter resolution means each part sees
-every clause *except its own*: brush a histogram and the others narrow, while the histogram keeps
-drawing the whole distribution under its brush.
-
-Charts do not publish into the crossfilter directly. Each `ChartRoot` owns a selection of its own,
-relayed into the provider's `selected` union and from there into the crossfilter. That indirection
-is what lets a chart dim its own bars after a pick (`ChartHighlight` reads the chart's selection)
-while every other chart filters —
+values behind it, and the `source` that published it. The provider owns the page's one selection, a
+crossfilter that every part filters by and publishes into; nobody passes one. Crossfilter resolution
+means each part sees every clause *except its own*: brush a histogram and the others narrow, while
+the histogram keeps drawing the whole distribution under its brush. A chart dims its own bars after a
+pick with `ChartHighlight`, which reads that chart's own clauses —
 [the long version](/docs/analytics/charts#feedback-on-the-chart-that-filters).
 
-The provider also gives you the two operations a page-level control wants:
+A clause says which relation it was published on, and a part which relation it reads; given the
+provider's `joins`, a clause on one relation reaches a part on another crossed by key, or keeps none
+of it where there is no way across — [across relations](/docs/analytics/charts#across-relations).
+
+The two operations a page-level control wants are Mosaic's own:
 
 | Call | What it clears |
 | --- | --- |
-| `useMosaic().reset()` | every clause on the page: each chart's own selection, then the shared two |
-| `useMosaic().retract(clauses)` | those clauses only, on the selection each was published into — what a chip's remove button wants |
-
-A plain `crossfilter.reset()` is neither. A reset travels downstream only, so it leaves each chart
-holding its own pick, still highlighted.
+| `useMosaic().selection.reset()` | every clause on the page, each source called back so its brush or pick clears |
+| `useMosaic().selection.reset([clause])` | that clause only — what a chip's remove button does |
 
 ### Roots, marks, interactors
 
@@ -103,11 +100,12 @@ Anything can, and a dashboard's chips show all of it, whoever published it:
 
 That is the clause rule. A clause is **column predicates on the same relation**, which only a
 relation with those columns can answer — why
-[a dashboard reads one relation](/docs/analytics/pitfalls#one-dashboard-per-relation) — or **a
+[a part of your own says which relation it reads](/docs/analytics/pitfalls#a-part-of-your-own-on-more-than-one-relation) — or **a
 semi-join on identity**, `key IN (…)`, which names the key alone: a subquery's columns are another
-relation's. `clauseColumns(filter)` reads what a clause names on the relation it filters, so a client
-over several relations applies each clause where it can. A dashboard over a vertex table follows a
-lasso on the canvas beside it because the semi-join names `dense_id`, and every vertex table has one.
+relation's. The page's selection writes the second form itself: a column clause published on one
+relation reaches a part on another as a semi-join on the key they share. A dashboard over a vertex
+table follows a lasso on the canvas beside it because the semi-join names `dense_id`, and every
+vertex table has one.
 [The graph view](/docs/design/graph#the-clause-rule-column-predicates-or-a-semi-join-on-identity)
 has the rule and what would reverse it.
 

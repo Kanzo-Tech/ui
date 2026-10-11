@@ -1,7 +1,7 @@
 import { AnswerHarness, type KanzoTestingHook } from "@kanzo-tech/testing";
 import { dom } from "@kanzo-tech/testing/dom";
-import { Selection } from "@kanzo-tech/mosaic";
-import { MosaicProvider, type Dashboards } from "@kanzo-tech/ui/analytics";
+import type { Selection } from "@kanzo-tech/mosaic";
+import { MosaicProvider, useMosaic, type Dashboards } from "@kanzo-tech/ui/analytics";
 import { render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -46,9 +46,16 @@ const part = (state: ToolPart["state"], extra: object = {}) => ({ type: "tool-an
 type Adding = Pick<AnswerCardProps, "dashboards" | "onAdd" | "onOpen">;
 
 /** A composer and one answer card, as `Chat` lays them out. */
-function page(answer: ToolPart, adding: Adding = {}, crossfilter = Selection.crossfilter()) {
+/** The page's selection, which the provider owns: handed out from inside it. */
+function Page({ into }: { into: (selection: Selection) => void }) {
+  into(useMosaic().selection);
+  return null;
+}
+
+function page(answer: ToolPart, adding: Adding = {}, into: (selection: Selection) => void = () => {}) {
   return (
-    <MosaicProvider coordinator={db.coordinator} crossfilter={crossfilter}>
+    <MosaicProvider coordinator={db.coordinator}>
+      <Page into={into} />
       <PromptInput>
         <PromptInputTextarea placeholder="Ask about your data…" />
       </PromptInput>
@@ -57,16 +64,17 @@ function page(answer: ToolPart, adding: Adding = {}, crossfilter = Selection.cro
   );
 }
 
-const draw = (answer: ToolPart, adding: Adding = {}, crossfilter = Selection.crossfilter()) => render(page(answer, adding, crossfilter));
+const draw = (answer: ToolPart, adding: Adding = {}, into: (selection: Selection) => void = () => {}) => render(page(answer, adding, into));
 
 describe("AnswerHarness", () => {
   it("waits for the card to answer, reads its tile, and filters the page to it", async () => {
     const env = dom();
-    const crossfilter = Selection.crossfilter();
-    const { rerender } = draw(part("input-streaming"), {}, crossfilter);
+    let crossfilter!: Selection;
+    const { rerender } = draw(part("input-streaming"), {}, (s) => (crossfilter = s));
     const answers = await env.harness(AnswerHarness);
     rerender(
-      <MosaicProvider coordinator={db.coordinator} crossfilter={crossfilter}>
+      <MosaicProvider coordinator={db.coordinator}>
+        <Page into={(s) => (crossfilter = s)} />
         <PromptInput>
           <PromptInputTextarea placeholder="Ask about your data…" />
         </PromptInput>
@@ -96,7 +104,6 @@ describe("AnswerHarness", () => {
     // The host: draws the document it is handed at once, and confirms the write when the test says so.
     function Host() {
       const [dashboards, setDashboards] = useState<Dashboards>({ byRelation: {} });
-      const [crossfilter] = useState(() => Selection.crossfilter());
       const adding: Adding = {
         dashboards,
         onAdd: (next) => {
@@ -104,7 +111,7 @@ describe("AnswerHarness", () => {
           return onAdd();
         },
       };
-      return page(part("output-available", { output }), adding, crossfilter);
+      return page(part("output-available", { output }), adding);
     }
     render(<Host />);
     const added = (await env.harness(AnswerHarness)).addToDashboard();

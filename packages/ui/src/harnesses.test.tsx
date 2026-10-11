@@ -22,7 +22,7 @@ import type { DashboardSpec } from "./charts/dashboard-spec.js";
 import { FilterBar } from "./charts/filter-bar.js";
 import { RelationPicker } from "./charts/relation-picker.js";
 import type { JoinGraph, Relation } from "@kanzo-tech/mosaic";
-import { MosaicProvider } from "./charts/mosaic-provider.js";
+import { MosaicProvider, useMosaic } from "./charts/mosaic-provider.js";
 import {
   FindingsBadge,
   FindingsContent,
@@ -34,6 +34,13 @@ import {
 import { type Finding, groupFindings, tallyFindings } from "./lib/findings.js";
 import { ShellDockItem, ShellDockSwitcher } from "./layouts/shell-dock.js";
 import { DiagnosticList } from "./simples/diagnostic.js";
+
+/** The page's selection, which the provider owns: handed out from inside it. */
+function Page({ into }: { into: (selection: Selection) => void }) {
+  into(useMosaic().selection);
+  return null;
+}
+
 
 /**
  * `@kanzo-tech/testing`'s harnesses over this package's components, in the `dom` environment —
@@ -85,10 +92,11 @@ afterEach(() => {
 describe("FilterBarHarness", () => {
   it("reads the readout once it has counted, and a clause as a chip it removes by its field", async () => {
     const env = dom();
-    const crossfilter = Selection.crossfilter();
+    let crossfilter!: Selection;
     render(
-      <MosaicProvider coordinator={stubCoordinator()} crossfilter={crossfilter}>
-        <FilterBar rowNoun="sightings" table="sightings" />
+      <MosaicProvider coordinator={stubCoordinator()}>
+        <Page into={(s) => (crossfilter = s)} />
+        <FilterBar rowNoun="sightings" relation="sightings" />
       </MosaicProvider>,
     );
     const bar = await env.harness(FilterBarHarness);
@@ -107,9 +115,9 @@ describe("FilterBarHarness", () => {
     const env = dom();
     const spec: DashboardSpec = { filters: [{ field: "bounty" }], tiles: [] };
     render(
-      <MosaicProvider coordinator={stubCoordinator()} crossfilter={Selection.crossfilter()}>
+      <MosaicProvider coordinator={stubCoordinator()}>
         <FilterBar />
-        <Dashboard table="sightings" value={spec} />
+        <Dashboard relation="sightings" value={spec} />
       </MosaicProvider>,
     );
     const bar = await env.harness(FilterBarHarness);
@@ -129,8 +137,8 @@ describe("DashboardHarness", () => {
       ],
     };
     render(
-      <MosaicProvider coordinator={stubCoordinator()} crossfilter={Selection.crossfilter()}>
-        <Dashboard table="sightings" value={spec} />
+      <MosaicProvider coordinator={stubCoordinator()}>
+        <Dashboard relation="sightings" value={spec} />
       </MosaicProvider>,
     );
     const dashboard = await env.harness(DashboardHarness);
@@ -145,7 +153,7 @@ describe("ChartHarness", () => {
     const env = dom();
     const { unmount } = render(
       <MosaicProvider coordinator={stubCoordinator()}>
-        <ChartRoot aria-label="Count by region" table="sightings">
+        <ChartRoot aria-label="Count by region" relation="sightings">
           <ChartBarY x="region" y="n" />
         </ChartRoot>
       </MosaicProvider>,
@@ -162,7 +170,7 @@ describe("ChartHarness", () => {
   it("registers nothing when no test installed the hook, nor a chart with no title", () => {
     render(
       <MosaicProvider coordinator={stubCoordinator()}>
-        <ChartRoot aria-label="Count by region" table="sightings">
+        <ChartRoot aria-label="Count by region" relation="sightings">
           <ChartBarY x="region" y="n" />
         </ChartRoot>
       </MosaicProvider>,
@@ -171,7 +179,7 @@ describe("ChartHarness", () => {
     dom();
     render(
       <MosaicProvider coordinator={stubCoordinator()}>
-        <ChartRoot table="sightings">
+        <ChartRoot relation="sightings">
           <ChartBarY x="region" y="n" />
         </ChartRoot>
       </MosaicProvider>,

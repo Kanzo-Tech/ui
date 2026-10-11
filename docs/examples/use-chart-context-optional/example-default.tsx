@@ -58,7 +58,7 @@ export default function Example() {
           config={CONFIG}
           height={130}
           margin={{ top: 4, right: 8, bottom: 24, left: 40 }}
-          table="telemetry"
+          relation="telemetry"
         >
           <ChartBarY fill="status" x="status" y={count()} />
           <ChartAxisX label={null} />

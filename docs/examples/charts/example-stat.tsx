@@ -47,15 +47,15 @@ export default function Example() {
               connected; the label and the card are the same parts as the one above. */}
           <StatRoot>
             <StatLabel>Sightings</StatLabel>
-            <ChartStat table="sightings" value={count()} />
+            <ChartStat relation="sightings" value={count()} />
           </StatRoot>
           <StatRoot>
             <StatLabel>Mean bounty</StatLabel>
-            <ChartStat format={gold} table="sightings" value={avg("bounty")} />
+            <ChartStat format={gold} relation="sightings" value={avg("bounty")} />
           </StatRoot>
         </div>
 
-        <ChartRoot height={140} margin={{ bottom: 28, left: 76, right: 12, top: 4 }} table="sightings">
+        <ChartRoot height={140} margin={{ bottom: 28, left: 76, right: 12, top: 4 }} relation="sightings">
           <ChartBarX fill="var(--primary)" sort={{ y: "-x" }} tip x={count()} y="region" />
           <ChartPickY />
           <ChartHighlight />

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
-import { bridged, clauseReadings, type TableExpr } from "@kanzo-tech/mosaic";
+import { clauseLabel, relationOf, sameRelation, type RelationExpr, type RelationRef, type TableExpr } from "@kanzo-tech/mosaic";
 import { count, Query } from "@uwdata/mosaic-sql";
 import type { Selection, SelectionClause } from "@uwdata/mosaic-core";
 import { FunnelXIcon, XIcon } from "lucide-react";
@@ -14,7 +14,7 @@ import { ScrollArea } from "../simples/scroll-area.js";
 import { Separator } from "../simples/separator.js";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../simples/tooltip.js";
 import { chartTableKey } from "./chart-spec.js";
-import { useBarSlot, useMosaic, type BarHeld } from "./mosaic-provider.js";
+import { useBarSlot, useMosaic, useRelation, type BarHeld } from "./mosaic-provider.js";
 import { useChartQuery } from "./use-chart-query.js";
 
 /** The live clause list of a selection, re-read on every published value. */
@@ -37,13 +37,16 @@ export function clauseField(clause: SelectionClause): string | null {
 
 const isHeld = (held: readonly BarHeld[], clause: SelectionClause) => {
   const field = clauseField(clause);
-  return field !== null && held.some((h) => h.fields.includes(field) && h.selection.clauses.includes(clause));
+  return field !== null && held.some((h) => h.fields.includes(field) && (h.relation === null || sameRelation(relationOf(clause), h.relation)));
 };
 
 export interface FilterBarProps extends React.ComponentProps<typeof ark.section> {
-  /** The relation the readout counts: *611 of 1,528 people*. Without it the bar has no readout. */
-  table?: TableExpr;
-  /** What a row of `table` is, in the plural. Default `"rows"`. */
+  /**
+   * The relation the readout counts, as `ChartRoot` takes it: *611 of 1,528 people*. Without it the
+   * bar has no readout.
+   */
+  relation?: RelationExpr;
+  /** What a row of `relation` is, in the plural. Default `"rows"`. */
   rowNoun?: string;
   /** Trailing controls, pinned at the end after the readout. */
   children?: ReactNode;
@@ -51,34 +54,31 @@ export interface FilterBarProps extends React.ComponentProps<typeof ark.section>
 
 /**
  * **The page's one row of filters**, under its header — Metabase's filter bar, drawn as Linear's
- * chips. Every clause on the page's crossfilter is a chip that retracts it where it was published,
- * read from `Selection.clauses`, so the row reports filters it did not publish: a brush, a lasso, a
- * pick. A clause a bridge mapped — a dashboard's tiles as one semi-join — is its parts, each named
- * after it: *Dashboard creationDate 2011 – 2012*, and once where the part already reads as the
- * bridge's name: a timeline's window is *date 1910 – 1940*.
+ * chips. Every clause on the page's selection is a chip, read from `Selection.clauses`, so the row
+ * reports filters it did not publish: a brush, a lasso, a pick, a timeline's window. Its × is Mosaic's
+ * own retraction, `selection.reset([clause])`, which removes the clause and calls its source back, so
+ * the brush that published it clears too.
  *
  * **It is one line at any count.** The chips scroll sideways under a fade at the edge that hides
  * more, and a chip added on its own is scrolled to. The verbs are pinned after a hairline, as icons:
  * whatever a part puts there, *Clear every filter* — which retracts every clause on the page, whoever
  * published it, and is disabled rather than gone while there is none — then the readout of what the
- * filters keep of `table`, then `children`.
+ * filters keep of `relation`, then `children`.
  *
  * Other parts draw in it through two slots: a `Dashboard` puts its filters among the chips, as chips
  * that open their control, and *Add a filter* among the verbs; the bar leaves those clauses to them.
  */
 export function FilterBar(props: FilterBarProps) {
-  const { table, rowNoun = "rows", children, className, slot, ...rest } = props;
-  const { crossfilter, retract, reset } = useMosaic();
+  const { relation, rowNoun = "rows", children, className, slot, ...rest } = props;
+  const { selection } = useMosaic();
+  const read = useRelation(relation);
   const { held, place, placeActions } = useBarSlot();
   const row = useRevealAdded();
-  const clauses = useClauses(crossfilter);
-  const chips = clauses.flatMap((clause) => {
-    const made = bridged(clause);
-    // Each part as `clauseReadings` reads it — the same words Ask gives the model for this filter.
-    return clauseReadings(clause)
-      .filter(({ part }) => !isHeld(held, part))
-      .map(({ part, label }) => ({ label, remove: () => (made ? made.retract([part]) : retract([part])) }));
-  });
+  const clauses = useClauses(selection);
+  // Each as `clauseLabel` reads it — the same words Ask gives the model for this filter.
+  const chips = clauses
+    .filter((clause) => !isHeld(held, clause))
+    .map((clause) => ({ label: clauseLabel(clause), remove: () => void selection.reset([clause]) }));
 
   const seen = new Map<string, number>();
   const keyed = chips.map((chip) => {
@@ -126,13 +126,19 @@ export function FilterBar(props: FilterBarProps) {
         <Tooltip>
           <TooltipTrigger asChild>
             {/* Disabled rather than gone, so nothing beside it moves when the first filter lands. */}
-            <Button aria-label="Clear every filter" disabled={clauses.length === 0} onClick={() => reset()} size="icon-sm" variant="ghost">
+            <Button
+              aria-label="Clear every filter"
+              disabled={clauses.length === 0}
+              onClick={() => selection.reset()}
+              size="icon-sm"
+              variant="ghost"
+            >
               <FunnelXIcon />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Clear every filter</TooltipContent>
         </Tooltip>
-        {table ? <Readout rowNoun={rowNoun} table={table} /> : null}
+        {read.table !== undefined && relation !== undefined ? <Readout relation={read.relation} rowNoun={rowNoun} table={read.table} /> : null}
         {children}
       </ark.div>
     </ark.section>
@@ -167,9 +173,9 @@ function useRevealAdded() {
   return ref;
 }
 
-function Readout({ table, rowNoun }: { table: TableExpr; rowNoun: string }) {
+function Readout({ table, relation, rowNoun }: { table: TableExpr; relation: RelationRef | null; rowNoun: string }) {
   const key = chartTableKey(table);
-  const shown = useChartQuery({ deps: [key], query: (filter) => Query.from(table).select({ n: count() }).where(filter) });
+  const shown = useChartQuery({ deps: [key], relation, query: (filter) => Query.from(table).select({ n: count() }).where(filter) });
   const all = useChartQuery({ deps: [key], filterBy: null, query: () => Query.from(table).select({ n: count() }) });
   const rows = Number(shown.row?.n ?? 0);
   const total = Number(all.row?.n ?? 0);

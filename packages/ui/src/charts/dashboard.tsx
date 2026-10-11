@@ -1,6 +1,6 @@
 "use client";
 
-import { Selection, bridgeSelection, type ClauseMap, type TableExpr } from "@kanzo-tech/mosaic";
+import type { RelationExpr, TableExpr } from "@kanzo-tech/mosaic";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 import { createPortal } from "react-dom";
@@ -12,7 +12,7 @@ import { Button } from "../simples/button.js";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "../simples/menu.js";
 import { Skeleton } from "../simples/skeleton.js";
 import type { ChartConfig } from "./chart-config.js";
-import { MosaicProvider, useEditorAside, useMosaic, useTileEditorOpen } from "./mosaic-provider.js";
+import { MosaicClients, useEditorAside, useRelation, useTileEditorOpen } from "./mosaic-provider.js";
 import { DashboardFilters } from "./dashboard-filters.js";
 import { chartTableKey } from "./chart-spec.js";
 import { inBand, newTile, placeTile } from "./tile-kinds.js";
@@ -21,8 +21,13 @@ import { autoDashboard, edited, plotRelation, type DashboardSpec, type Tile } fr
 import { useFieldStats, type FieldStat } from "./field-stats.js";
 
 export interface DashboardProps extends Omit<React.ComponentProps<typeof ark.div>, "onChange" | "defaultValue"> {
-  /** The relation every filter and tile reads — a table, or a `relationQuery` over a join graph. */
-  table: TableExpr;
+  /**
+   * The relation every filter and tile reads, as `ChartRoot` takes it: a table by name, or a path over
+   * the provider's joins — what a `RelationPicker` gives. Its clauses are published on it, so a graph
+   * or another relation beside the dashboard is filtered by what the tiles show, crossed by key; and a
+   * clause on another relation reaches every tile the same way.
+   */
+  relation: RelationExpr;
   /**
    * The saved dashboard. `undefined` draws the automatic one from the relation's field stats —
    * which is what a host persists nothing for until somebody edits it.
@@ -38,29 +43,20 @@ export interface DashboardProps extends Omit<React.ComponentProps<typeof ark.div
   exclude?: readonly string[];
   /** Series vocabulary per field, for a field drawn as `color`. See `ChartCard`. */
   config?: Readonly<Record<string, ChartConfig>>;
-  /**
-   * What the page sees of the dashboard's clauses. Without it they are the page's own clauses, which
-   * only a client of the same columns can answer. With it the tiles crossfilter each other in a
-   * selection of the dashboard's, and the page gets the one clause this maps them to — for a relation
-   * keyed by a vertex identity, `semiJoinOf(key, table)` — so a graph or another relation beside the
-   * dashboard is filtered by what the tiles show. The page's clauses still reach every tile. Keep it
-   * memoised: a new function republishes.
-   */
-  publish?: ClauseMap;
 }
 
 /**
  * A whole dashboard from a relation and, optionally, a saved spec: its filters, drawn in the page's
  * `FilterBar`, and the tiles — a band of figures, then charts and tables in a three-column grid —
- * every one of them on the provider's crossfilter, edited in the page's `TileEditorAside`. The host
+ * every one of them on the page's selection, edited in the page's `TileEditorAside`. The host
  * brings the `MosaicProvider`, the relation and somewhere to keep the spec; the fields, the
  * automatic layout and the editor are this component's.
  */
 export function Dashboard(props: DashboardProps) {
-  const { table, value, onChange, exclude, config, publish, className, slot, ...rest } = props;
+  const { relation, value, onChange, exclude, config, className, slot, ...rest } = props;
+  const read = useRelation(relation);
+  const table = read.table as TableExpr;
   const { fields, columns, error } = useFieldStats(table, { exclude });
-  const page = useMosaic();
-  const [own] = useState(() => Selection.crossfilter());
   // Everything below reads the relation the plots can: see `plotRelation`.
   const readable = useMemo(
     () =>
@@ -72,7 +68,7 @@ export function Dashboard(props: DashboardProps) {
     [fields, columns, chartTableKey(table)],
   );
 
-  const body = (
+  return (
     <ark.div
       aria-busy={(error === null && readable === null) || undefined}
       className={cn("@container/dashboard flex flex-col gap-4", className)}
@@ -87,35 +83,19 @@ export function Dashboard(props: DashboardProps) {
       ) : readable === null ? (
         <DashboardSkeleton />
       ) : (
-        <Board
-          config={config}
-          fields={readable.fields}
-          onChange={onChange}
-          table={readable.table}
-          value={value}
-        />
+        // The tiles read the relation projected for the plots, and are clients of the relation itself.
+        <MosaicClients relation={read.relation ?? undefined}>
+          <Board
+            config={config}
+            fields={readable.fields}
+            onChange={onChange}
+            table={readable.table}
+            value={value}
+          />
+        </MosaicClients>
       )}
     </ark.div>
   );
-  return publish ? (
-    <MosaicProvider coordinator={page.coordinator} crossfilter={own} onFailure={page.onFailure}>
-      <Bridge map={publish} to={page.crossfilter} />
-      {body}
-    </MosaicProvider>
-  ) : (
-    body
-  );
-}
-
-/**
- * The dashboard's crossfilter, bridged to the page's. Inside the dashboard's provider, so retracting
- * the page's clause is the provider's `retract`: it resets the tiles' own selections too, which a
- * reset of the crossfilter alone never reaches.
- */
-function Bridge({ to, map }: { to: Selection; map: ClauseMap }) {
-  const { crossfilter, retract } = useMosaic();
-  useEffect(() => bridgeSelection(crossfilter, to, map, { retract }), [crossfilter, to, map, retract]);
-  return null;
 }
 
 /**
@@ -186,7 +166,7 @@ function Board({
         fields={fields}
         filters={spec.filters}
         onChange={edit && ((filters) => edit({ filters }))}
-        table={table}
+        relation={table}
       />
       {edit ? (
         <div className="flex items-center justify-end gap-1" data-slot="dashboard-toolbar">
@@ -227,7 +207,7 @@ function Board({
                   fields={fields}
                   key={tile.id}
                   onEdit={pencil?.(tile)}
-                  table={table}
+                  relation={table}
                   tile={shown}
                 />
               );

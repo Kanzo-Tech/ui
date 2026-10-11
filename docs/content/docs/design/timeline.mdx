@@ -4,8 +4,9 @@ description: Why a time filter is a histogram whose brush owns its clause and st
 ---
 
 A timeline is a brushable histogram of one temporal column, which filters the page to the brushed
-range and can play that range forward. `ChartTimeline` is the analytics part; `GraphTimeline` places
-one under a graph canvas over the corpus's temporal columns. The reference is Cosmograph's
+range and can play that range forward. `ChartTimeline` is the analytics part, and a timeline under a
+graph canvas is the same part over `vertices`, every vertex type as one relation, on the column the
+graph's `time-by` setting chooses. The reference is Cosmograph's
 `CosmographTimeline`, read from `@cosmograph/ui` and `@cosmograph/cosmograph` 2.5.1. This page is
 why ours is shaped as it is.
 
@@ -138,14 +139,16 @@ no Play, no ticks, no skeleton, and no Play in the accessibility tree. When the 
 bars, the band and Play appear together with a short fade, none under `prefers-reduced-motion`. A
 Play over an empty band offered a range nobody could see.
 
-**Under a graph, the timeline is part of the graph's load.** `GraphTimeline` draws its band from the
-first render, its height held, and the figure in it as soon as the corpus says which tables have the
-column, so the histogram's query goes out with the corpus reads. The graph stays *Loading* until the
-canvas's first frame and the timeline's first bars: the band holds the store (`hold()`, released when
-the figure is drawn), so the canvas, the bars and Play appear at once. It is held once; a column
-chosen or changed later waits in the band alone, and the graph is not sent back to *Loading*. *What
-would reverse it:* a corpus whose histogram is much slower than its graph; then the canvas shows
-first and the band catches up, as a column chosen later does.
+**Under a graph, the timeline is part of the graph's load — by a rule of the graph's, not the
+timeline's.** The graph's first load waits for every chart on its page that has not drawn its first
+answer: a chart holds the page's first draw (`holdFirstDraw` on the page's selection) from the moment
+it asks until its first answer is drawn, fails, or stops asking under a `MosaicClients` that is off,
+and the graph stays *Loading* until its canvas's first frame and that count is zero, so the canvas,
+the bars and Play appear at once. It is held once; a chart that comes, or a column chosen or changed
+later, waits on its own, and the graph is not sent back to *Loading*. It replaced a hold the graph's
+own timeline part took on the store, which made the rule one part's when it is every chart's. *What
+would reverse it:* a page whose charts are much slower than its graph; then the canvas shows first
+and the charts catch up, as a column chosen later does.
 
 **Play is a bare glyph at the band's left edge, muted until hovered, as Cosmograph's is.** Cosmograph
 draws a borderless icon, 20 – 30 px wide and half opaque, as a flex item left of its bars
@@ -203,18 +206,17 @@ already makes in one place. None, the default, draws no timeline. The histogram 
 tables that have the column, one colour, and while a window is set only the vertices with the
 column inside it stay in colour.
 
-**The window reaches the page as identity, not as its column.** A window is `date BETWEEN …`, and
-only the types with a date can answer it: published straight into the page's crossfilter, it reached
-every client of the page, and a dashboard's relation or a filter over a type with no date failed on
-the column it does not have. So the timeline publishes into a crossfilter of its own, bridged to the
-page by `semiJoinOf(key, timeline)` — `dense_id IN (SELECT dense_id FROM <the types with the
-column> WHERE <the window>)` — the way a dashboard's tiles cross. It names the key alone, so every
-client answers it, without a Binder error. The chip reads *date 1910 – 1940*: the bar names a
-bridged clause by its parts, and does not prefix a part with its bridge's name when the part already
-reads as it — the bridge is called by the column.
+**The window reaches every other relation as identity, not as its column.** A window is `date
+BETWEEN …` on `vertices`, and only the types with a date can answer it. The canvas reads `vertices`
+too, so it reads the window as published; a dashboard's relation, or a filter over a type with no
+date, reads it as the page's resolver crosses it — `dense_id IN (SELECT dense_id FROM vertices WHERE
+<the window>)` — the way a dashboard's tiles cross ([one selection across
+relations](/docs/design/crossfilter#step-3-one-selection-across-relations)). It names the key alone,
+so every client answers it, without a Binder error. The chip reads *date 1910 – 1940*: the clause
+itself, on the page's one selection.
 
 **A vertex without the column is outside every window, so it is greyed, as Cosmograph greys it.**
-The bridge was first an anti-join, `dense_id NOT IN (… WHERE NOT <the window>)`, which dropped only
+The crossing was first an anti-join, `dense_id NOT IN (… WHERE NOT <the window>)`, which dropped only
 the dated rows the window leaves out and kept every type without the column whole. In keasy that read
 wrong: on SNB, a window over 30 birthdays left *340,163 of 341,661* vertices in colour, every post,
 place and tag among them, and it looked like a window that selected more than it should. Cosmograph's
@@ -231,7 +233,7 @@ would say the window had nothing to do with it. Why it is empty is on the bar: t
 column, *birthday 1981 – 1985*, and removing it brings the rows back.
 
 **What would reverse it:** clients of the page that each apply the clause rule themselves, as
-`GraphClient` does, skipping a clause they cannot answer. Then a column clause could go to the page
+`GraphClient` once did, skipping a clause they cannot answer. Then a column clause could go to the page
 as itself. Mosaic's clients apply every clause they are handed, so the rule lives in the clause. And
 for the greying: readers who take a greyed type with no time as one the window judged, often enough
 that the chip does not correct them; then the types without the column are drawn apart from the
@@ -285,12 +287,13 @@ Cosmograph's has not"; "is 50 ms a bar on 60 bars or more, and slower on fewer, 
 long"; "is 500 ms at least under prefers-reduced-motion"; "reserves the band's height and draws nothing in it — no Play, no ticks — until the bars are
 drawn"; a brushed window sticks to the nearest edges, at least one bar
 wide; a year reads as its integer, on the axis too),
-`packages/ui/src/charts/filter-bar.test.tsx` ("names a bridged part once when it already reads as its
-bridge's name — a timeline's window"),
-`packages/graph/src/parts/graph-timeline.test.tsx` (it draws nothing until `time-by` is chosen, and
-nothing for a column the corpus lacks; "makes Play a bare glyph the band's height, with the same 10
-px either side, as Cosmograph's"; "crosses the window into the page as a clause every client
-answers, greying every vertex without the column"; "holds one clause and one chip through every
+`packages/ui/src/charts/filter-bar.test.tsx` ("reads a clause as its field and value, whatever
+relation it was published on"),
+`packages/graph/src/parts/timeline.test.tsx` ("draws the chosen column as a timeline named by it";
+"holds the graph's loading until its bars are drawn, as any chart on its page, and mounts its band
+once"; "makes Play a bare glyph the band's height, with the same 10
+px either side, as Cosmograph's"; "crosses a window on it into every other relation, keeping
+none of a type without the column"; "holds one clause and one chip through every
 state play passes — a rebuild and a stale brush included"; "is disabled with no range, and playable
 once one is brushed"; "accumulates inside the range a bar at a time, stops at its end with the whole
 range, and starts over on the next press"; "pauses when the pointer comes down on the bars, holds
@@ -299,7 +302,7 @@ lets the window go"; "plays and pauses with Space on the focused timeline"; "wai
 answer each window before the next one"; "neither rebuilds nor redraws the plot while a brush is
 dragged"; "holds one window, which each brush replaces — through a re-render and a rebuild of the
 plot"; "draws the window's bars in colour by clipping the bars in front to it, with no query"; "draws
-the axis at the top, each label right of its rule, whole, the first at the axis's start"), `packages/mosaic/src/clause.test.ts`
-("crosses clauses on some rows as a semi-join, which keeps no row the table does not hold") and
+the axis at the top, each label right of its rule, whole, the first at the axis's start"), `packages/mosaic/src/crossfilter.test.ts`
+("crosses into and out of a union by the key its types share") and
 `packages/graph/src/parts/graph-section.test.tsx` (the setting offers the `xsd:gYear` column by its
 datatype, and no integer of the same range).

@@ -14,7 +14,7 @@
 // children (marks, interactors, axes) into one `vg.plot(...)`, so a bar and a line share a plot and
 // any interactor pairs with any mark. `ChartRaw` and the root's `attributes` are the escape hatches
 // for the parts of vgplot the layer does not wrap — wrapping is a convenience, never a cage.
-export { MosaicClients, MosaicProvider, useMosaic, useCrossfilter, useSelected } from "./charts/mosaic-provider.js";
+export { MosaicClients, MosaicProvider, useMosaic } from "./charts/mosaic-provider.js";
 export type { MosaicClientsProps, MosaicProviderProps, MosaicContextValue } from "./charts/mosaic-provider.js";
 
 export { ChartRoot, useChartContext, useChartContextOptional } from "./charts/chart-root.js";
@@ -97,8 +97,8 @@ export { useChartQuery, Query } from "./charts/use-chart-query.js";
 // A statement read once and suspended on — a catalog, a schema — outside the crossfilter.
 export { useQueryRows } from "./charts/use-query-rows.js";
 export type { ChartQueryOptions, ChartQueryResult, ChartQueryRow } from "./charts/use-chart-query.js";
-// The page's one row of filters: every clause as a chip that retracts it where it was published, a
-// slot a dashboard draws its filters in, the readout and Clear.
+// The page's one row of filters: every clause as a chip that retracts it where it is held, a slot a
+// dashboard draws its filters in, the readout and Clear.
 export { FilterBar, useClauses } from "./charts/filter-bar.js";
 export type { FilterBarProps } from "./charts/filter-bar.js";
 
@@ -134,15 +134,12 @@ export type { Dashboards } from "./charts/dashboard-spec.js";
 
 // A relation over a join graph — a root and the hops from it, as one `Query` — and the picker that
 // walks one. The algebra is `@kanzo-tech/mosaic`'s; the graph is whatever a reader built from its
-// catalog (`@kanzo-tech/graph`'s `readJoinGraph`, for a fossil corpus).
+// catalog (`@kanzo-tech/graph`'s `readJoinGraph`, for a fossil corpus), handed to `MosaicProvider` as
+// its `joins`. What every part's `relation` takes is `RelationExpr`: a table by name, a path, or SQL.
 export { RelationPicker } from "./charts/relation-picker.js";
 export type { RelationPickerProps } from "./charts/relation-picker.js";
 export { relationQuery, relationKey, relationIdentities, relationRootKey, relationHops } from "@kanzo-tech/mosaic";
-export type { Relation, Hop, JoinGraph, JoinType, JoinEdge, RelationHop } from "@kanzo-tech/mosaic";
-// What a relation dashboard publishes to the page (`Dashboard`'s `publish`): its clauses as a
-// semi-join on the root's key. The bridge that carries it is `@kanzo-tech/mosaic`'s `bridgeSelection`.
-export { semiJoinOf } from "@kanzo-tech/mosaic";
-export type { ClauseMap } from "@kanzo-tech/mosaic";
+export type { Relation, RelationExpr, RelationRef, Hop, JoinGraph, JoinType, JoinEdge, RelationHop } from "@kanzo-tech/mosaic";
 export { recommend } from "./charts/recommend.js";
 export type { Recommendation, RecommendIntent } from "./charts/recommend.js";
 export { useFieldStats, queryFieldStats, fieldStats } from "./charts/field-stats.js";
@@ -229,16 +226,17 @@ export { axisX, axisY, axisFx, axisFy, gridFx, gridFy } from "@uwdata/vgplot";
 // WebGL canvas or an imperative widget becomes a peer of the plots rather than a readout drifting
 // beside them. Our own three DOM controls in `chart-inputs.tsx` are built from nothing else.
 //
-// The sixth clause is ours, and it is the one that crosses relations: `clauseSemiJoin` is
-// `key IN (ids | subquery)`, the semi-join on identity, and `clauseColumns` is what a client reads to
-// know whether its relation answers a clause — the rule `@kanzo-tech/mosaic`'s `clause.ts` states.
+// The sixth clause is ours: `clauseSemiJoin` is `key IN (ids | subquery)`, the semi-join on identity,
+// and `clauseColumns` is what a client reads to know which columns a clause names. `onRelation` says
+// which relation a clause is published on, so the page's selection crosses it into every other —
+// the one thing a client of your own adds to the protocol, beside a `relation` it reads.
 export {
   MosaicClient, makeClient,
   clausePoint, clausePoints, clauseInterval, clauseIntervals, clauseMatch,
-  clauseSemiJoin, clauseColumns,
+  clauseSemiJoin, clauseColumns, onRelation,
 } from "@kanzo-tech/mosaic";
 export type {
-  SelectionClause, FilterExpr, SemiJoinMembers, SemiJoinMetadata, SemiJoinOptions,
+  SelectionClause, FilterExpr, SemiJoinMembers, SemiJoinMetadata, SemiJoinOptions, RelationClient,
 } from "@kanzo-tech/mosaic";
 
 // The other half of that protocol: turning the ANSWER into values. Reading it is mosaic-core's
