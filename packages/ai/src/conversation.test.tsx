@@ -90,6 +90,33 @@ describe("Conversation", () => {
     expect(viewport.scrollTop).toBe(100);
   });
 
+  // A reader who scrolled up and then asked again: the question they sent is below the fold.
+  it("takes the pin back when a message is added, though the reader had scrolled up", async () => {
+    const Messages = ({ n }: { n: number }) => (
+      <Conversation>
+        <ConversationContent>
+          {Array.from({ length: n }, (_, i) => (
+            <p key={i}>message {i}</p>
+          ))}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
+    );
+    const { rerender } = render(<Messages n={1} />);
+    const viewport = screen.getByRole("log");
+
+    box(viewport, { scrollHeight: 1000, clientHeight: 300, scrollTop: 100 });
+    fireEvent.scroll(viewport);
+    expect(scrollButton()).not.toBeNull();
+
+    Object.defineProperty(viewport, "scrollHeight", { configurable: true, value: 1400 });
+    rerender(<Messages n={2} />);
+    await act(async () => {});
+
+    expect(viewport.scrollTop).toBe(1400);
+    expect(scrollButton()).toBeNull();
+  });
+
   it("re-pins on the button, which then goes away and the tail is followed again", async () => {
     const user = userEvent.setup();
     render(<Harness />);

@@ -30,7 +30,9 @@ const AT_END = 24;
  * reader who scrolled up to re-read something is dragged back down by the next token, every token,
  * for as long as the answer is streaming. Following is only correct while the reader is *already*
  * at the tail: scrolling up releases the pin, and `ConversationScrollButton` is how they take it
- * back. Roughly forty lines of listener and observer, and no dependency.
+ * back. A new message takes it back too: a question just sent is where the reader is looking, and
+ * the transcript is no longer what they scrolled up to re-read. Streaming grows the last message and
+ * adds none, so it never does. Roughly fifty lines of listener and observer, and no dependency.
  */
 export const Conversation = (props: React.ComponentProps<typeof ark.div>) => {
   const { className, children, slot, ...rest } = props;
@@ -67,9 +69,19 @@ export const Conversation = (props: React.ComponentProps<typeof ark.div>) => {
     observer?.observe(viewport);
     if (content) observer?.observe(content);
 
+    // A message added, not one growing: the pin is taken back, as the button would.
+    const added = new MutationObserver((records) => {
+      if (!records.some((record) => record.addedNodes.length > 0)) return;
+      pinnedRef.current = true;
+      setPinned(true);
+      viewport.scrollTop = viewport.scrollHeight;
+    });
+    if (content) added.observe(content, { childList: true });
+
     return () => {
       viewport.removeEventListener("scroll", sync);
       observer?.disconnect();
+      added.disconnect();
     };
   }, [viewport, content]);
 
