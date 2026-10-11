@@ -320,13 +320,90 @@ set; the timeline on the shared crossing; raw column clauses routed through cros
 column rule removed; Alt's exclusion clause. Each step is its own PR with the gesture, renderer and
 counts tests that hold the rule today.
 
+## Step 3: one crossing, and retraction where a clause was published
+
+**Proposal, waiting for approval — not implemented.**
+
+### What differs today
+
+The timeline and a dashboard already cross the same way: their inner clauses are mapped to the page
+by `semiJoinOf(key, relation)` through `bridgeSelection` (`packages/mosaic/src/bridge.ts`). What
+differs is **how a clause is retracted** — a chip's ×, a page's *Clear*:
+
+- A dashboard's tiles do not publish into the dashboard's selection. Each `ChartRoot` owns a
+  selection of its own — a page-wide one would name columns other charts group by — and it is
+  relayed downstream: the chart's selection → the provider's `selected` → its crossfilter → the
+  bridge → the page (`charts/mosaic-provider.tsx:99-140`).
+- Mosaic's `Selection.reset(clauses)` travels **downstream only**. So a chip's × on the page reaches
+  the bridge's source, which resets the inner crossfilter, and the clause would stay in the chart's own
+  selection upstream, still highlighting. The provider therefore walks a registry of every chart
+  selection upstream (`retract`, `reset`), and the dashboard passes that walk to the bridge as its
+  `retract` option (`charts/dashboard.tsx:111-118`).
+- `GraphTimeline` publishes its brush straight into its inner selection (`as={own}`), so the bridge's
+  default retraction, `inner.reset(clauses)`, is enough, and it runs outside any `MosaicProvider`.
+
+Two retraction paths for one operation, and the second needs a React provider to exist.
+
+### The reference model: the clause's source owns its clause
+
+Mosaic already says who answers for a clause: its `source`. A clause carries the `ClauseSource` that
+published it, and `Selection.reset(clauses)` calls each one's `reset()` and then resets the
+selections it relays to — downstream only (`@uwdata/mosaic-core` 0.32.0, `Selection.js:168-173`;
+[Selection](https://idl.uw.edu/mosaic/api/core/selection.html); Heer & Moritz 2024). Vega-Lite's
+selections say the same from the other end: a selection's state lives in the view that defines it,
+and clearing it is that view's event, whoever asked
+([selection `clear`](https://vega.github.io/vega-lite/docs/selection.html#clear)). What is missing in ours is
+that a source's `reset()` only clears its interactor; it does not withdraw the clause *where it was
+published*.
+
+**The rule:** a source's `reset()` withdraws its clause from the selection it published into
+(`clauseNone(source)` there) and clears its interactor. The relays then carry the withdrawal down to
+every selection holding the clause, as they carry every update. A reset requested anywhere downstream
+— a chip on the page, the bridge, the provider's crossfilter — calls the source, so it reaches the
+origin and comes back down; nothing walks upstream.
+
+### What it changes
+
+- `MosaicProvider`'s registry walk goes: `retract(clauses)` and `reset()` become `selection.reset`
+  on any selection that holds the clauses, because each clause's source withdraws it at its origin.
+- `bridgeSelection`'s `retract` option goes: its default, `inner.reset(clauses)`, reaches every source.
+- **One crossing**: a `useCrossing(to, map)` that the dashboard and `GraphTimeline` both use, which
+  needs no provider — `GraphTimeline` stays usable without one, and the dashboard's tiles retract by
+  the same path as the timeline's brush.
+- The interactors whose `reset()` does not withdraw — vgplot's interval and point interactors, which
+  only clear their own state — are given a source that does, in `ChartRoot`, rather than patched.
+
+### Formally
+
+With *origin(c)* the selection *c* was published into and *R* the relay graph (an edge *A → B* when
+*B* relays *A*), every selection that holds *c* is reachable from *origin(c)* in *R*. Withdrawing *c*
+at *origin(c)* therefore removes it from every selection reachable from it, which is every selection
+that holds it, whichever selection the reset was asked of. Today a reset asked of a selection *S*
+removes *c* only from *S* and what is reachable from *S*, which misses *origin(c)* whenever *S* is
+downstream of it — the case the registry walk patches.
+
+### Risks
+
+- A source shared by two selections (a caller's `as` passed to two charts) withdraws from the one it
+  published into; the relay graph has to keep one origin per clause, which `ChartRoot` already does.
+- Mosaic calls `source.reset()` from inside `Selection.reset`; a source that publishes a withdrawal
+  synchronously re-enters it. The withdrawal is deferred to the end of the reset (a microtask), and a
+  test holds the order.
+
+### Tests that would hold it
+
+- A property over random relay graphs and a reset asked of a random selection: afterwards no
+  selection holds the clause (from the selections' `clauses`, not from chips).
+- The dashboard's and the timeline's chip × retract through the same `useCrossing`, with no
+  `retract` option and no provider registry.
+
 ## Status
 
 | Step | Pull request | State |
 | --- | --- | --- |
 | One `kept()`, labels and counts read it (divergences 1, 8, 9) | #173 | draft, stacked on this page |
 | The greyout | — | measured above; waiting on a decision |
-| The timeline on the shared crossing (divergence 3) | — | not started: after #173 and #174 it has no semantics of its own — it crosses with `semiJoinOf` and `bridgeSelection` as a dashboard does, and the properties hold both; what differs is wiring (a dashboard bridges inside its `MosaicProvider`, so a chip's `retract` resets its tiles) |
+| The timeline on the shared crossing (divergence 3) | — | designed above (*Step 3*), waiting for approval |
 | A clause a type cannot answer keeps none of it — graph, search, Ask (divergences 2, 4, 5) | #174 | draft, stacked on #173 |
 | Alt's exclusion, and an empty set keeps nothing (divergences 6, 10) | #175 | draft, stacked on #174 |
 
