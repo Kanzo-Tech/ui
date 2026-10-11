@@ -168,11 +168,27 @@ function TimelineWindow({ playable }: { playable: boolean }) {
   const anchor = useRef<HTMLDivElement>(null);
   // What the loop, the pointer and the keyboard read between renders.
   const state = useRef<{ running: boolean; range: readonly unknown[] | null; frame: number | null }>({ running: false, range: null, frame: null });
-  const transport = useRef<{ play(): void; stop(why: Stop): void; show(interval: Interval1D, at: number): void }>({
+  const transport = useRef<{ play(): void; stop(why: Stop): void; show(interval: Interval1D, at: number): void; read(): void }>({
     play() {},
     stop() {},
     show() {},
+    read() {},
   });
+
+  /**
+   * Take the interval's value as the range. A frame published here leaves it as it is; a drag, a
+   * stuck drag-end or a reset from the bar's chip changes it, and a changed range shows no frame.
+   */
+  transport.current.read = () => {
+    const value = intervalOf(plot())?.value ?? null;
+    // The same ends, or both none: a year or a date reads the same as itself.
+    if (String(value) === String(state.current.range)) return;
+    state.current.range = value;
+    state.current.frame = null;
+    setRange(value);
+    setFrame(null);
+    if (!value) transport.current.stop("gone");
+  };
 
   /** Show frame `at` — the range from its first edge to edge `at` — through the range's clause. */
   transport.current.show = (interval, at) => {
@@ -194,8 +210,12 @@ function TimelineWindow({ playable }: { playable: boolean }) {
     setSaid(`${why === "end" ? "Ended" : "Paused"} at ${readWindow([edges[from], edges[at]])}`);
   };
   transport.current.play = () => {
+    if (state.current.running) return;
+    // The range as it is now, not as the last event delivered it: one that changed before this press
+    // starts from its first bar, and its event, arriving later, finds it already read.
+    transport.current.read();
     const interval = intervalOf(plot());
-    if (state.current.running || !interval?.value || !interval.scale) return;
+    if (!interval?.value || !interval.scale) return;
     const span = rangeOf(brushedBy(interval));
     if (!span) return;
     // From the first bar, or on from a pause; at the end, Play starts over.
@@ -207,22 +227,15 @@ function TimelineWindow({ playable }: { playable: boolean }) {
   };
   const toggle = () => (state.current.running ? transport.current.stop("pause") : transport.current.play());
 
-  // The range is the interval's value. A frame published here leaves it as it is; a drag, a stuck
-  // drag-end or a reset from the bar's chip changes it, and a changed range shows no frame.
+  // The range is read on each of the page's value events, and again on each press of Play: Mosaic
+  // delivers a selection's events one at a time, each queued behind the clients' answers to the last,
+  // and a newer update from the same source replaces a queued one. So a stuck drag-end's event can
+  // arrive after Play was pressed — behind the first frame, or as it — and is no new range by then.
   useEffect(() => {
-    const read = () => {
-      const value = intervalOf(plot())?.value ?? null;
-      // The same ends, or both none: a year or a date reads the same as itself.
-      if (String(value) === String(state.current.range)) return;
-      state.current.range = value;
-      state.current.frame = null;
-      setRange(value);
-      setFrame(null);
-      if (!value) transport.current.stop("gone");
-    };
+    const read = () => transport.current.read();
     as.addEventListener("value", read);
     return () => as.removeEventListener("value", read);
-  }, [as, plot]);
+  }, [as]);
 
   // A pointer down on the bars or the brush is the reader's: play pauses for it. Space on the
   // focused figure plays and pauses; on the button, Space is the button's own.

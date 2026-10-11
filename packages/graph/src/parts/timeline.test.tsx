@@ -550,6 +550,30 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
     expect(last()[1]).toBeLessThan(1903);
     fireEvent.click(play);
   }, 30_000);
+
+  it("plays the range a brush stuck to when the page delivers the stick after Play is pressed", async () => {
+    const corpus = await attach();
+    const { brush, plot, ready } = await drawn(corpus);
+    await ready();
+    await act(() => settle(corpus));
+    // A client of the page still taking in the brush's first answer: Mosaic queues every value event
+    // behind it, so the drag-end's stick is not delivered yet when Play is pressed — a loaded page.
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    page!.addEventListener("value", () => gate);
+    await brush(1902, 1905);
+    expect(plot()!.interactors[0]!.value).toEqual([1902, 1905]);
+    expect(held()).not.toEqual([1902, 1905]);
+    const play = screen.getByRole("button", { name: "Play time" });
+    const { last } = recording(plot()!);
+    fireEvent.click(play);
+    expect(last()[0]).toBe(1902);
+    expect(last()[1]).toBeLessThan(1903);
+    await act(async () => release());
+    await vi.waitFor(() => expect(play.getAttribute("aria-pressed")).toBe("false"), WAIT);
+    expect(last()).toEqual([1902, 1905]);
+    expect(screen.getByRole("status", { name: "Timeline" }).textContent).toBe("Ended at 1902 – 1905");
+  });
   it("pauses when the pointer comes down on the bars, holds the frame, and plays on from it", async () => {
     const corpus = await attach();
     const { brush, plot } = await drawn(corpus);
