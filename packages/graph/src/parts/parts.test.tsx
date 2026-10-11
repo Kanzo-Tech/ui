@@ -594,7 +594,7 @@ describe("GraphCanvas", () => {
     const surface = document.querySelector("[data-slot=graph-canvas-surface]");
     if (!surface?.parentElement) throw new Error("no surface");
     const layers = [...surface.parentElement.children];
-    const grid = layers.findIndex((layer) => layer.getAttribute("style")?.includes("radial-gradient(var(--border)"));
+    const grid = layers.findIndex((layer) => layer.getAttribute("style")?.includes("radial-gradient(var(--input)"));
     expect(grid).toBeGreaterThanOrEqual(0);
     expect(grid).toBeLessThan(layers.indexOf(surface));
     expect(surface.classList.contains("relative")).toBe(true);

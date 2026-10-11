@@ -66,7 +66,7 @@ interface SectionManifest {
  * it goes too.
  *
  * **A default is a CSS value now, not an object.** It was `{kind, ramp, step}` in three shapes, two
- * of which named a reference tier that no longer exists; `var(--border)` says the same thing with
+ * of which named a reference tier that no longer exists; `var(--input)` says the same thing with
  * nothing between it and the browser, and the type it mirrored no longer has to be declared
  * structurally in two packages at once.
  */
@@ -74,8 +74,8 @@ export const GRAPH_SECTION = {
   namespace: "graph",
   tokens: {
     grid: {
-      default: "var(--border)",
-      doc: "The dot grid behind the canvas. Decorative, and WCAG 1.4.11 exempts a non-interactive separator by name.",
+      default: "var(--input)",
+      doc: "The dot grid behind the canvas. `--input`, not `--border`: a one-pixel dot in a border's colour is gone on a light page and in any video of it. Decorative, and WCAG 1.4.11 exempts a non-interactive separator by name.",
     },
     "point-ring-hover": {
       default: "var(--primary)",

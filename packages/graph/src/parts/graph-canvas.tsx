@@ -135,7 +135,8 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
         <div
           className="pointer-events-none absolute inset-0"
           ref={gridRef}
-          style={{ backgroundImage: "radial-gradient(var(--border) 1px, transparent 1px)" }}
+          // `--input`, not `--border`: a one-pixel dot in a border's colour is gone on a light page.
+          style={{ backgroundImage: "radial-gradient(var(--input) 1px, transparent 1px)" }}
         />
       </Show>
       <div className="relative size-full" data-slot="graph-canvas-surface" ref={surfaceRef} />
