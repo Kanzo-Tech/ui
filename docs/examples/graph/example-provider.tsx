@@ -30,8 +30,8 @@ export default function Example() {
   const api = useGraph({ ...archive, fill: "kind", r: "degree", title: "label", onFailure: setFailure });
   return (
     <div className="flex h-96 w-full flex-col gap-2">
-      <Button className="self-start" onClick={() => api.fit()} size="sm" variant="outline">
-        Fit to view
+      <Button className="self-start" onClick={() => api.frame()} size="sm" variant="outline">
+        Frame
       </Button>
       <GraphRootProvider value={api}>
         <GraphCanvas className="flex-1 rounded-lg border">

@@ -3,7 +3,6 @@
 import { Button, ButtonGroup, ButtonGroupSeparator, ButtonGroupText, cn, Show } from "@kanzo-tech/ui";
 import {
   LassoIcon,
-  MaximizeIcon,
   MinusIcon,
   PauseIcon,
   PlayIcon,
@@ -11,12 +10,11 @@ import {
   RotateCcwIcon,
   ScanIcon,
   SquareDashedIcon,
-  XIcon,
 } from "lucide-react";
+import { greyedOf } from "../core/kept";
 import type { Motion } from "../core/types";
 import { useGraphContext } from "../react/graph-root";
-import { internalsOf } from "../react/use-graph";
-import { useGraphSnapshot, useGraphState } from "../react/use-graph-state";
+import { useGraphState } from "../react/use-graph-state";
 
 export interface GraphToolbarProps extends React.ComponentProps<"div"> {
   /** How the clusters stack. Each cluster is a `ButtonGroup` in the same orientation. */
@@ -41,10 +39,18 @@ const TRANSPORT: Record<Motion, { pause: boolean; label: string }> = {
 };
 
 /**
- * **The commands, drawn** — the selection tools, what is in full colour and what to do with it, the camera, and
- * the live layout's transport, which starts a layout from the points where they are. Each cluster is a `ButtonGroup`, because a cluster
- * is a claim that its buttons do one job; the part declares no `toolbar` role, since a `role` of that
- * kind promises roving focus and each button here is its own tab stop.
+ * **The commands, drawn** — how much is in full colour, the selection tools, the camera, and the live
+ * layout's transport, which starts a layout from the points where they are. Each cluster is a
+ * `ButtonGroup`, because a cluster is a claim that its buttons do one job; the part declares no
+ * `toolbar` role, since a `role` of that kind promises roving focus and each button here is its own
+ * tab stop.
+ *
+ * **Nothing in it moves.** The count is a readout with no button in it — a `ButtonGroupText` on the
+ * clusters' surface, so it stands as tall as they do — drawn only while something is greyed, and on
+ * the side away from the anchor — first in a row, which `end-*` grows leftward;
+ * last in a column, which `top-*` grows downward — so every button stays where the hand left it. The
+ * one Frame lives in the camera's cluster: "everything" with nothing greyed, "what the filters keep"
+ * otherwise, and a canvas's pick is dropped at its chip or with Escape, like every other clause.
  *
  * The tools are not a `SegmentGroup`: that always has one member selected, and no tool — drag pans —
  * is the posture a reader spends most of their time in.
@@ -55,19 +61,30 @@ export function GraphToolbar({ className, orientation = "horizontal", slot, ...r
   const tool = useGraphState((s) => s.tool);
   const selection = useGraphState((s) => s.selection);
   const total = useGraphState((s) => s.total);
-  const { store } = internalsOf(api);
-  const visible = useGraphSnapshot(() => store.visible());
-  const greyed = visible !== null && (selection !== null || visible.length !== total);
-  const hidden = selection !== null && visible !== null ? selection.vertices.length - visible.length : 0;
+  const matching = useGraphState((s) => s.matching);
+  const greyed = greyedOf({ selection, matching, total });
+  const hidden = selection !== null && matching !== null ? selection.vertices.length - matching : 0;
+  const frame = greyed ? "Frame what the filters keep" : "Frame everything";
   const motion = useGraphState((s) => s.motion);
   const transport = TRANSPORT[motion];
+  const vertical = orientation === "vertical";
 
   return (
     <div
       {...rest}
-      className={cn("flex items-start gap-1.5", orientation === "vertical" && "flex-col items-end", className)}
+      className={cn("flex items-start gap-1.5", vertical && "flex-col items-end", className)}
       data-slot={slot ?? "graph-toolbar"}
     >
+      <Show when={greyed}>
+        <ButtonGroup aria-label="In full colour" className={cn(CLUSTER, vertical && "order-last")} data-slot="graph-toolbar-count">
+          <ButtonGroupText className="gap-1 px-2 text-xs tabular-nums">
+            <span className="font-medium text-foreground">{matching?.toLocaleString()}</span>
+            {total !== undefined && ` of ${total.toLocaleString()}`}
+            {hidden > 0 && ` · ${hidden.toLocaleString()} hidden by other filters`}
+          </ButtonGroupText>
+        </ButtonGroup>
+      </Show>
+
       <ButtonGroup aria-label="Selection tool" className={CLUSTER} orientation={orientation}>
         <Button
           aria-label="Marquee"
@@ -94,29 +111,7 @@ export function GraphToolbar({ className, orientation = "horizontal", slot, ...r
         </Button>
       </ButtonGroup>
 
-      {/* Drawn whenever something is greyed out, so what a search or a dashboard keeps is framed with
-          the button that frames a lasso; Clear only for the canvas's own pick, since another place's
-          clause is let go at its chip. */}
-      <Show when={greyed}>
-        <ButtonGroup aria-label="Current selection" className={CLUSTER} data-slot="graph-toolbar-selection">
-          <ButtonGroupText className="gap-1 ps-2 pe-2 text-xs tabular-nums">
-            <span className="font-medium text-foreground">{visible?.length.toLocaleString()}</span>
-            {total !== undefined && ` of ${total.toLocaleString()}`}
-            {hidden > 0 && ` · ${hidden.toLocaleString()} hidden by other filters`}
-          </ButtonGroupText>
-          <ButtonGroupSeparator />
-          <Button aria-label="Frame what is in full colour" onClick={() => api.frame()} size="icon-sm" title="Frame what is in full colour" variant="ghost">
-            <ScanIcon />
-          </Button>
-          <Show when={selection !== null}>
-            <Button aria-label="Clear the selection" onClick={() => api.clear()} size="icon-sm" title="Clear the selection" variant="ghost">
-              <XIcon />
-            </Button>
-          </Show>
-        </ButtonGroup>
-      </Show>
-
-      <ButtonGroup aria-label="Zoom and fit" className={CLUSTER} orientation={orientation}>
+      <ButtonGroup aria-label="Camera" className={CLUSTER} orientation={orientation}>
         <Button aria-label="Zoom in" disabled={!ready} onClick={() => api.zoomBy(ZOOM)} size="icon-sm" variant="ghost">
           <PlusIcon />
         </Button>
@@ -125,8 +120,8 @@ export function GraphToolbar({ className, orientation = "horizontal", slot, ...r
           <MinusIcon />
         </Button>
         <ButtonGroupSeparator />
-        <Button aria-label="Fit to view" disabled={!ready} onClick={() => api.fit()} size="icon-sm" variant="ghost">
-          <MaximizeIcon />
+        <Button aria-label={frame} disabled={!ready} onClick={() => api.frame()} size="icon-sm" title={frame} variant="ghost">
+          <ScanIcon />
         </Button>
       </ButtonGroup>
 

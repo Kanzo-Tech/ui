@@ -1,5 +1,5 @@
 import type { Encoding, Geometry } from "./load";
-import type { Drawn } from "./state";
+import type { Drawn, GraphSnapshot } from "./state";
 import type { VertexId } from "./types";
 
 /**
@@ -46,6 +46,14 @@ export function idsOf(kept: Uint8Array | null, positions: Float32Array | null = 
   for (let id = 0; id < kept.length; id++) if (kept[id] && (positions === null || placedAt(positions, id))) ids.push(id);
   return ids;
 }
+
+/**
+ * Whether anything is greyed out: the canvas picked something, or a clause keeps fewer than the
+ * corpus holds. The toolbar shows its count on it, and `frame()` frames everything without it — a
+ * mask that keeps every vertex greys none, so what it keeps is the whole graph.
+ */
+export const greyedOf = ({ selection, matching, total }: Pick<GraphSnapshot, "selection" | "matching" | "total">): boolean =>
+  matching !== null && (selection !== null || matching !== total);
 
 /**
  * **What the loaded graph holds, counted once per geometry, encoding and filter**: per rank what is

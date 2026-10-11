@@ -151,7 +151,7 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
     // The hit test answers in buffer indices, and a drawn vertex's index is its id.
     const vertices = new Set<VertexId>(hitTest(shape));
     // A gesture that caught nothing is a misfire, not a request to clear — clearing is what the
-    // corner's own button and Escape are for — and with Alt it would turn what a filter keeps into
+    // pick's chip and Escape are for — and with Alt it would turn what a filter keeps into
     // the canvas's pick for no visible change.
     if (vertices.size === 0) return;
     const { label, source } = NAME[shape.tool];
