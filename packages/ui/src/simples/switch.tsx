@@ -87,7 +87,11 @@ export const Switch = (props: React.ComponentProps<typeof ArkSwitch.Root>) => {
         </ArkSwitch.Label>
       )}
 
-      <ArkSwitch.HiddenInput tabIndex={tabIndex} />
+      {/* `role="switch"`: Ark renders a native `input type="checkbox"` and leaves it at its implicit
+          role, so an on/off setting reached the accessibility tree as a checkbox. The WAI-ARIA APG
+          Switch pattern is the role for a control that turns something on or off, and ARIA in HTML
+          allows it on `input type="checkbox"`; the native `checked` property still carries the state. */}
+      <ArkSwitch.HiddenInput role="switch" tabIndex={tabIndex} />
     </ArkSwitch.Root>
   );
 };

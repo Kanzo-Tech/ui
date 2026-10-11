@@ -6,7 +6,7 @@
 export class GraphError extends Error {
   override readonly name = "GraphError";
   constructor(
-    readonly code: "graph/no-webgl" | "graph/context-lost" | "graph/no-positions" | "graph/nothing-to-draw" | "graph/unfilterable",
+    readonly code: "graph/no-webgl" | "graph/context-lost" | "graph/no-positions" | "graph/nothing-to-draw",
     message: string,
     readonly data: { readonly after?: number } = {},
     options?: ErrorOptions,

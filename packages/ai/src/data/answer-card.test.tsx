@@ -262,11 +262,11 @@ describe("AnswerCard", () => {
   });
 
   it("says which of the page's clauses the answer was read under, and which its relation could not answer", async () => {
-    const kept = { ...output, under: ["Person.gender female"], skipped: [{ clause: "City.name Madrid", missing: ["City.name"] }] };
+    const kept = { ...output, under: ["Person.gender female"], unanswered: [{ clause: "City.name Madrid", missing: ["City.name"] }] };
     render(<AnswerCard graph={PEOPLE} part={answered(kept)} />, { wrapper: page() });
     await waitFor(() => expect(document.querySelector("[data-slot=answer-card-filter]")).not.toBeNull());
     expect(document.querySelector("[data-slot=answer-card-filter]")!.textContent).toBe(
-      "Read under the page's filter: Person.gender female. Not applied, as this relation lacks the fields they filter: City.name Madrid (City.name).",
+      "Read under the page's filter: Person.gender female. Keeps none of this relation's rows, which lack the fields they filter: City.name Madrid (City.name).",
     );
   });
 

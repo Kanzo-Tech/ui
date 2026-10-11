@@ -1,8 +1,9 @@
-import { Selection, clauseSemiJoin } from "@kanzo-tech/mosaic";
+import { Selection, clauseInterval, clausePoint, clauseSemiJoin } from "@kanzo-tech/mosaic";
 import fc from "fast-check";
 import { describe, expect, it, vi } from "vitest";
 import { attach, settle, type Attached } from "../../test/corpus";
 import { highlighted } from "../render/motion";
+import { matchingIds, parseQuery } from "./source";
 import { createGraph } from "./store";
 
 /**
@@ -181,6 +182,80 @@ describe("the page's crossfilter, as properties of kept", () => {
         if (kept !== null && held(state, null).length > 0) for (const id of ids(kept)) expect(others).toContain(id);
         for (const s of SOURCES) publish(s, null);
         store.select(null);
+        await settle(corpus);
+      }),
+      RUNS,
+    );
+  });
+});
+
+/**
+ * **A clause a type cannot answer keeps none of that type** — the rule decided on
+ * `/docs/design/crossfilter#formal-semantics`, `ans(c, v) = false` when `T(v)` lacks a column of `c`.
+ * Column clauses join the identity ones here: `score` only Person has, `name` Person and Place have,
+ * and Tag has neither. The oracle applies the rule table by table in SQL, a clause on a column a table
+ * lacks being `FALSE` there, so it is read from the tables' own columns and not from the store.
+ */
+describe("a clause a type cannot answer", () => {
+  const COLUMNS: Record<string, readonly string[]> = { Person: ["name", "score"], Place: ["name"], Tag: [] };
+  type Column = { kind: "score"; range: [number, number] } | { kind: "name"; value: string };
+  const column: fc.Arbitrary<Column> = fc.oneof(
+    fc.tuple(fc.integer({ min: 0, max: 11 }), fc.integer({ min: 0, max: 11 })).map(([a, b]) => ({ kind: "score" as const, range: [Math.min(a, b), Math.max(a, b)] as [number, number] })),
+    fc.constantFrom("Person 3", "Place 12", "Place 14", "nobody").map((value) => ({ kind: "name" as const, value })),
+  );
+  const sqlOf = (c: Column) => (c.kind === "score" ? `score BETWEEN ${c.range[0]} AND ${c.range[1]}` : `name = '${c.value}'`);
+
+  async function oracle(corpus: Attached, columns: readonly Column[], sets: readonly (readonly number[])[]): Promise<number[]> {
+    const branches = Object.entries(COLUMNS).map(([table, has]) => {
+      const where = [
+        ...columns.map((c) => (has.includes(c.kind) ? sqlOf(c) : "FALSE")),
+        ...sets.map((ids) => (ids.length === 0 ? "FALSE" : `dense_id IN (${ids.join(", ")})`)),
+      ];
+      return `SELECT dense_id FROM ${corpus.from}."${table}"${where.length ? ` WHERE ${where.join(" AND ")}` : ""}`;
+    });
+    const table = (await corpus.coordinator.query(`SELECT dense_id FROM (${branches.join(" UNION ALL ")}) ORDER BY dense_id`)) as { getChild(name: string): { toArray(): ArrayLike<number> } | null };
+    return Array.from(table.getChild("dense_id")?.toArray() ?? [], Number);
+  }
+
+  it("is outside a search's subset by the same rule: the search finds inside exactly what is kept", BUDGET, async () => {
+    const { corpus, store } = await mapped();
+    const structure = store.getSnapshot().structure!;
+    const source = { reset() {} };
+    await fc.assert(
+      fc.asyncProperty(fc.array(column, { maxLength: 2 }), fc.array(fc.uniqueArray(fc.integer({ min: 0, max: SIZE - 1 }), { maxLength: SIZE }), { maxLength: 2 }), async (columns, sets) => {
+        // The subset as the search is handed it: the page's clauses, as predicates.
+        const page = Selection.crossfilter();
+        columns.forEach((c, i) => page.update(c.kind === "score" ? clauseInterval("score", c.range, { source: [source, { reset() {} }][i]! }) : clausePoint("name", c.value, { source: [source, { reset() {} }][i]! })));
+        sets.forEach((set) => page.update(clauseSemiJoin("dense_id", set, { source: { reset() {} }, label: "set" })));
+        const subset = page.clauses.map((clause) => clause.predicate).filter((p) => p !== null) as never[];
+        const found = await matchingIds(corpus.coordinator, structure, parseQuery("", structure), { subset });
+        const expected = subset.length === 0 ? Array.from({ length: SIZE }, (_, i) => i) : await oracle(corpus, columns, sets);
+        expect([...found].sort((a, b) => a - b)).toEqual(expected);
+      }),
+      RUNS,
+    );
+  });
+
+  it("keeps none of it, whatever else the page holds (ans(c, v) = false)", BUDGET, async () => {
+    const { corpus, store, crossfilter, publish } = await mapped();
+    const charts = [{ reset() {} }, { reset() {} }] as const;
+    await fc.assert(
+      fc.asyncProperty(fc.array(column, { maxLength: 2 }), page, async (columns, state) => {
+        // A clean page first: a failed case leaves its clauses, and the shrinker replays from them.
+        // A null interval withdraws a source's clause; `clausePoint(field, null)` would publish `IS NULL`.
+        for (const source of charts) crossfilter.update(clauseInterval("score", null, { source }));
+        for (const s of SOURCES) publish(s, null);
+        columns.forEach((c, i) => {
+          const source = charts[i as 0 | 1];
+          crossfilter.update(c.kind === "score" ? clauseInterval("score", c.range, { source }) : clausePoint("name", c.value, { source }));
+        });
+        for (const s of SOURCES) publish(s, state[s]);
+        await settle(corpus);
+        const sets = held(state, null);
+        const expected = columns.length + sets.length === 0 ? null : await oracle(corpus, columns, sets);
+        expect(store.getSnapshot().kept === null ? null : ids(store.getSnapshot().kept)).toEqual(expected);
+        for (const source of charts) crossfilter.update(clauseInterval("score", null, { source }));
+        for (const s of SOURCES) publish(s, null);
         await settle(corpus);
       }),
       RUNS,

@@ -264,8 +264,8 @@ export function clausesOf(filter: FilterExpr | null | undefined): ExprNode[] {
 
 /**
  * Every vertex `query` keeps — `id`, `text` and `type`, its table — as one `UNION ALL` over the tables
- * that can answer it, with `inside` saying whether the subset keeps it: the clauses a table answers,
- * by the clause rule; a table that answers none of them is wholly inside. A table outside `types`,
+ * that can answer it, with `inside` saying whether the subset keeps it: every clause, by the clause
+ * rule, so a table that cannot answer one of them is wholly outside. A table outside `types`,
  * or without a column a field names, is not asked, and `null` is no table left to ask.
  */
 function matching(structure: Structure, query: VertexQuery, title: string | undefined, subset: readonly ExprNode[]): Query | null {
@@ -278,8 +278,8 @@ function matching(structure: Structure, query: VertexQuery, title: string | unde
       ...(query.text === "" ? [] : [ilike(text, query.text)]),
       ...fields.map((field) => ilike(field.name as string, field.value)),
     ];
-    const kept = subset.filter((clause) => answers(table, clause));
-    const inside = kept.length === 0 ? literal(true) : and(...kept);
+    // A clause the table cannot answer keeps none of it (`/docs/design/crossfilter#formal-semantics`).
+    const inside = subset.length === 0 ? literal(true) : subset.every((clause) => answers(table, clause)) ? and(...subset) : literal(false);
     return [
       Query.select({ id: float64(structure.key), text, key: cast(table.identity, "VARCHAR"), type: literal(table.name), inside })
         .from(relation(structure.from, table.name))

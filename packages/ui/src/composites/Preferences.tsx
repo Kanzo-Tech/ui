@@ -437,8 +437,8 @@ function Pref({ name, copy }: PrefProps) {
     // `useSlider`, which reads none, and the difference is why a `range` needs the machine's own
     // label part and this does not.
     //
-    // The control's role is `checkbox`, not `switch`: Ark renders a hidden `input type="checkbox"`
-    // and does not set `role="switch"` on it. Upstream's call, adopted verbatim.
+    // The control's role is `switch` — `Switch` sets it on Ark's hidden checkbox, the WAI-ARIA APG
+    // Switch pattern — so a toggle preference is found, and announced, as the on/off it is.
     //
     // The label sits beside the switch, as `/docs/forms/field` composes one: a name read with its
     // state, not a heading over a group — which is also what lets two toggles share a row.

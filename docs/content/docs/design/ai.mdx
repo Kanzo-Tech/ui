@@ -42,12 +42,16 @@ relation has, as `clauseColumns` reads them. The page's filter is not something 
 is the predicate the answer is read under, as every tile's is. What the model reads back is what was
 true then; the card is a tile, and follows the page afterwards like any other.
 
-**A clause left out is said, with what it lacks.** Skipping silently made an answer look filtered
-when it was not: under a chip on a city, a count over a relation with no city is every row, and
-neither the model nor the reader could tell. So the result carries each skipped clause and the columns it names that
-the relation lacks, the model reads it beside the clauses that applied, and the card prints both
-under the tile. What would reverse it is a page that maps a clause onto any relation — a semi-join
-through the join graph for every chip — at which point nothing is skipped and the line goes.
+**A clause the relation cannot answer keeps none of its rows, and is said, with what it lacks.** Under
+a chip on a city, a count over a relation with no city is 0, as a dashboard's tile over that relation
+reads it: the answer is read under every clause of the page
+([Crossfilter](/docs/design/crossfilter#formal-semantics), decided 11 October 2026). It replaced
+skipping such a clause and saying so, which read the whole relation as if no filter held: one view
+of the page deciding what is kept on its own. The result carries each unanswered clause and the
+columns it names that the relation lacks, the model reads it beside the clauses that applied, and the
+card prints both under the tile, so an empty answer says why it is empty. What would reverse it is a
+page that maps a clause onto any relation — a semi-join through the join graph for every chip — at
+which point every relation answers every clause and the line goes.
 
 **The read goes through the engine's door, not the coordinator's queue.** The queue batches behind
 `requestAnimationFrame` for the charts, and a hidden tab never fires one: a question asked before

@@ -48,7 +48,7 @@ import {
 } from "@kanzo-tech/ui/analytics";
 import type { ToolPart } from "../tool.js";
 import type { AnswerOutput } from "./agent.js";
-import { conditionClauses, skippedText } from "./answer.js";
+import { conditionClauses, unansweredText } from "./answer.js";
 
 /** Every word `AnswerCard` draws. English by default. */
 export interface AnswerCardTranslations {
@@ -71,8 +71,8 @@ export interface AnswerCardTranslations {
   rows: string;
   /** Before the page's clauses the answer was read under. */
   under: string;
-  /** Before the page's clauses its relation could not answer, each with the fields it lacks. */
-  skipped: string;
+  /** Before the page's clauses its relation cannot answer, which keep none of its rows, each with the fields it lacks. */
+  unanswered: string;
   /** The caption of the rows the answer was read from: its tile's data, as a table assistive technology reads. */
   data: string;
   /** After that caption when the cap cut the rows short. */
@@ -90,7 +90,7 @@ const ENGLISH: AnswerCardTranslations = {
   failed: "The answer failed",
   rows: "Rows",
   under: "Read under the page's filter:",
-  skipped: "Not applied, as this relation lacks the fields they filter:",
+  unanswered: "Keeps none of this relation's rows, which lack the fields they filter:",
   data: "The rows the answer was read from",
   truncated: "the first, cut short by the cap",
 };
@@ -380,9 +380,9 @@ function AnswerData({ output, t }: { output: AnswerOutput; t: AnswerCardTranslat
  * Nothing when the page had no filter.
  */
 function PageFilter({ output, t }: { output: AnswerOutput; t: AnswerCardTranslations }) {
-  const { under, skipped } = output;
-  if (under.length === 0 && skipped.length === 0) return null;
-  const said = [under.length > 0 && `${t.under} ${under.join("; ")}.`, skipped.length > 0 && `${t.skipped} ${skippedText(skipped)}.`];
+  const { under, unanswered } = output;
+  if (under.length === 0 && unanswered.length === 0) return null;
+  const said = [under.length > 0 && `${t.under} ${under.join("; ")}.`, unanswered.length > 0 && `${t.unanswered} ${unansweredText(unanswered)}.`];
   return (
     <p className="text-muted-foreground text-xs" data-slot="answer-card-filter">
       {said.filter(Boolean).join(" ")}
