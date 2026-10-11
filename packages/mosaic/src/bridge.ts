@@ -1,4 +1,5 @@
 import { Selection, clauseNone, type ClauseSource, type SelectionClause } from "@uwdata/mosaic-core";
+import { clauseLabel, clauseParts } from "./clause.js";
 import { relaySelection } from "./relay.js";
 
 /**
@@ -59,6 +60,31 @@ const made = new WeakMap<SelectionClause, Bridged>();
  */
 export function bridged(clause: SelectionClause): Bridged | null {
   return made.get(clause) ?? null;
+}
+
+/** One part of a clause as a person reads it: the clause it is, and its words. */
+export interface ClauseReading {
+  /** The clause itself, or for a bridged clause one of the inner clauses it maps. */
+  readonly part: SelectionClause;
+  readonly label: string;
+}
+
+/**
+ * **What a clause says, part by part** — the one reading of the page's filter that every reader of it
+ * shares: the filter bar's chips, and what Ask tells the model and the reader the page is filtered to.
+ * A clause no bridge made is one part, read by `clauseLabel`. A bridged clause is read as its parts,
+ * each named after the bridge unless it already reads as the bridge's name — *Person Person.gender
+ * female*, and a timeline's *date 1910 – 1940* rather than *date date 1910 – 1940* — never as the
+ * bridge alone: a semi-join's label says whose rows it crosses, not what it filters them to.
+ */
+export function clauseReadings(clause: SelectionClause): ClauseReading[] {
+  const made = bridged(clause);
+  if (!made) return [{ part: clause, label: clauseLabel(clause) }];
+  const { field } = clauseParts(clause);
+  return made.parts.map((part) => ({
+    part,
+    label: clauseParts(part).field === field ? clauseLabel(part) : `${field} ${clauseLabel(part)}`,
+  }));
 }
 
 /**

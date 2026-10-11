@@ -1,5 +1,5 @@
 import { type LanguageModel, jsonSchema, stepCountIs, type Tool, tool, ToolLoopAgent } from "@kanzo-tech/llm";
-import { clauseColumns, clauseLabel, Query, relationQuery, type Engine, type JoinGraph, type Selection } from "@kanzo-tech/mosaic";
+import { clauseColumns, clauseReadings, Query, relationQuery, type Engine, type JoinGraph, type Selection, type SelectionClause } from "@kanzo-tech/mosaic";
 import { plotRelation } from "@kanzo-tech/ui/analytics";
 import type { ModelMessage } from "ai";
 import { OFFER_SCHEMA, suggest } from "../suggest.js";
@@ -87,6 +87,9 @@ const plain = (value: unknown) =>
  * relation could not answer — named with what each lacks, so the model can say the answer is not
  * narrowed by them, or answer over a relation that has those fields.
  */
+/** A page clause in the words the filter bar's chips use for it: one per part, a bridge read as what it filters. */
+const wordsOf = (clause: SelectionClause) => clauseReadings(clause).map((r) => r.label);
+
 function filterLines({ under, skipped }: AnswerOutput): string[] {
   const read =
     under.length > 0
@@ -187,8 +190,8 @@ function answerTools(options: DataAgentOptions, offered: readonly AnswerRelation
           answer,
           rows: rows.slice(0, ANSWER_ROWS),
           truncated: rows.length > ANSWER_ROWS,
-          under: page.answered.map(clauseLabel),
-          skipped: page.skipped.map(({ clause, missing }) => ({ clause: clauseLabel(clause), missing })),
+          under: page.answered.flatMap(wordsOf),
+          skipped: page.skipped.map(({ clause, missing }) => ({ clause: wordsOf(clause).join("; "), missing })),
         };
       },
       toModelOutput: ({ output }) => ({
@@ -229,7 +232,7 @@ export interface DataSuggestionsOptions {
  */
 export function dataSuggestions(options: DataSuggestionsOptions) {
   const { model, graph, relations, selection, count = 4, context, abortSignal } = options;
-  const filter = selection?.clauses.map(clauseLabel) ?? [];
+  const filter = selection?.clauses.flatMap(wordsOf) ?? [];
   const prompt = (description: string) =>
     [`The data:\n\n${description}`, filter.length > 0 && `The page is filtered to: ${filter.join("; ")}.`, `Give ${count}.`]
       .filter(Boolean)
