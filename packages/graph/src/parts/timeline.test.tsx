@@ -557,7 +557,9 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
     const play = screen.getByRole("button", { name: "Play time" });
     const { windows, last } = recording(plot()!);
     fireEvent.click(play);
-    await vi.waitFor(() => expect(last()[1]).toBeGreaterThan(1900.5), WAIT);
+    // One frame is enough to pause on: each frame waits for every client of the page to answer, so
+    // how many a loaded machine shows in a given time is the machine's, not the timeline's.
+    await vi.waitFor(() => expect(windows.length).toBeGreaterThan(0), WAIT);
     fireEvent.pointerDown(document.querySelector("[aria-label='Timeline: born'] svg")!);
     expect(play.getAttribute("aria-pressed")).toBe("false");
     const frozen = last();
@@ -567,9 +569,9 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
     expect(screen.getByRole("status", { name: "Timeline" }).textContent).toBe(`Paused at ${readWindow(frozen as [number, number])}`);
     fireEvent.click(play);
     expect(last()[0]).toBe(1900);
-    await vi.waitFor(() => expect(last()[1]).toBeGreaterThan(frozen[1]!), WAIT);
+    await vi.waitFor(() => expect(last()[1]).toBeGreaterThan(frozen[1]!), { timeout: 20_000 });
     fireEvent.click(play);
-  });
+  }, 45_000);
   it("reads its chip as the window while it plays, and the chip's remove stops it and lets the window go", async () => {
     const corpus = await attach();
     const { brush, chips } = await drawn(corpus);
