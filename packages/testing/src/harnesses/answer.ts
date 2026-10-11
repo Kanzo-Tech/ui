@@ -4,6 +4,8 @@ import { TileHarness } from "./dashboard";
 const FILTER = /^(✓ )?Filter(ed)? to it$/;
 const ADD = "Add to the dashboard";
 const ADDED = /^✓ On the dashboard$/;
+/** The caption of the card's data table, cut short or not. */
+const DATA = /^The rows the answer was read from/;
 
 /**
  * **Asking data, and the `AnswerCard` it draws** — `/docs/design/ai`. The host is the composer, the
@@ -36,6 +38,26 @@ export class AnswerHarness extends ComponentHarness {
     const [tile] = await card.find({ role: "article" });
     if (!tile) throw new Error(`the answer failed: ${await card.text()}`);
     return new TileHarness(this.env, tile);
+  }
+
+  /**
+   * The rows the newest answer was read from, each by its column's name, as its card's data table
+   * holds them: what the engine returned under the page's filter when the answer ran — the proof of
+   * what it says, where the chart only draws it. A table, found by its caption, read cell by cell, as
+   * assistive technology reads it. Values are the table's text.
+   */
+  async rows(): Promise<Record<string, string>[]> {
+    const card = await this.settled();
+    const table = await this.one({ role: "table", name: DATA }, "the answer has no data table: it read no rows", card);
+    const [head, ...body] = await table.find({ role: "row" });
+    if (!head) return [];
+    const columns = await Promise.all((await head.find({ role: "columnheader" })).map((cell) => cell.text()));
+    return Promise.all(
+      body.map(async (row) => {
+        const cells = await Promise.all((await row.find({ role: "cell" })).map((cell) => cell.text()));
+        return Object.fromEntries(columns.map((column, i) => [column, cells[i] ?? ""]));
+      }),
+    );
   }
 
   /** Presses the newest answer's **Filter to it**, and waits for it to be pressed. */

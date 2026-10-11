@@ -156,3 +156,17 @@ than a read's.
 *Held by* `packages/ai/src/data/answer.test.ts`, "offers each type alone and through each of its
 hops, in the graph's order"; "offers the types alone at hops 0, and only the types named in from";
 "hands each query the signal, and ends on an abort with its reason, cancelling what is still queued".
+
+## An answer's rows are on the page, as a table
+
+**`AnswerCard` holds the rows the answer was read from as a visually hidden table, captioned *The
+rows the answer was read from*.** A chart's long description is its data, best structured as a
+table on the same page — the W3C WAI Images Tutorial's [*Complex
+Images*](https://www.w3.org/WAI/tutorials/images/complex/) — and Highcharts' accessibility module
+keeps such a table for screen readers in the same way. The rows are the read's as the engine
+returned them under the page's filter when the call ran, capped as the model's are; the tile above
+follows the page afterwards and may no longer show them, which the caption's words make plain.
+
+The same table is what a test proves an answer by: `AnswerHarness.rows()` reads it by its caption,
+cell by cell. A figure asserted there is the engine's; asserted in the chart it is only drawn, and in
+the reply it is only the model's quotation of it — on a replayed take, a recording's.

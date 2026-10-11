@@ -89,7 +89,7 @@ narrowed with its `with`: `ChartHarness.with({ title })`.
 | `TileHarness` | an `article` holding its title | `text()`, `chart()`, `settled()` |
 | `FilterBarHarness` | the region *Filters* | `chips()`, `remove(field)`, `open(field)`, `readout()` |
 | `RelationPickerHarness` | the group *Relation* | `root()`, `pick(type)`, `add(hop)`, `path()`, `remove(sentence)`, `grain()` — a hop by its sentence (*Comments located in this place*), its step as `relationKey` writes it (`<isLocatedIn<Comment`), or its edge label where one item has it |
-| `AnswerHarness` | the composer, a textbox named *Ask…*; the answer cards by their `data-slot` | `ask(question)`, `answer()`, `addToDashboard()`, `filterTo()` |
+| `AnswerHarness` | the composer, a textbox named *Ask…*; the answer cards by their `data-slot` | `ask(question)`, `answer()`, `rows()`, `addToDashboard()`, `filterTo()` |
 | `FindingsBadgeHarness` | its `data-slot`: the badge is named by the host's tally | `tally()`, `open()`, `groups()`, `row(message)`, `groupRow(message)` |
 | `FindingRowHarness` | its `data-slot`, a `listitem` | `severity()`, `message()`, `where()`, `act(label)`, `open()`, a `Severity` |
 | `FindingGroupRowHarness` | its `data-slot`, a `listitem` | the row's, and `count()`, `sample()` |
@@ -110,7 +110,10 @@ narrowed with its `with`: `ChartHarness.with({ title })`.
   clause chip retracts its clause, and a dashboard's filter is removed from its spec, which retracts
   its clause too. `readout()` is the status, once it has counted.
 - **`AnswerHarness`** — `answer()` waits for the newest `AnswerCard` to stop being `aria-busy`, which
-  it is until its tile or its `Problem` is drawn, and rejects with the `Problem`'s words. `filterTo()`
+  it is until its tile or its `Problem` is drawn, and rejects with the `Problem`'s words. `rows()`
+  reads the rows the answer was read from — the engine's result under the page's filter when the
+  answer ran — from the card's data table, by its caption, cell by cell: assert a figure there, not
+  in the chart, which draws it, or in the model's reply, which only quotes it. `filterTo()`
   waits for **Filter to it** to be pressed. `addToDashboard()` waits out *Adding to the dashboard…*
   while the host's write is pending, for *✓ On the dashboard*, which the card reads from the
   `dashboards` the host hands back; a write the host refused rejects with the card's `Problem`. The composer is named by its
