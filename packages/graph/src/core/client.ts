@@ -3,6 +3,7 @@ import {
   type ClauseSource,
   Query,
   cast,
+  clauseAntiJoin,
   clauseSemiJoin,
   float64,
   literal,
@@ -12,7 +13,7 @@ import {
   type RelationClient,
   type Selection,
 } from "@kanzo-tech/mosaic";
-import { VERTICES, clausesOf, verticesOf, type Answer } from "./source";
+import { VERTICES, answers, clausesOf, relation, type Answer } from "./source";
 import { type Structure } from "./structure";
 
 /**
@@ -26,6 +27,8 @@ import { type Structure } from "./structure";
  */
 /** The answer that clears the filter. */
 const UNFILTERED = Query.select({ id: cast(literal(null), "DOUBLE") });
+/** The answer that keeps nothing: no rows, where the unfiltered answer has one. */
+const NOTHING = Query.select({ id: cast(literal(null), "DOUBLE") }).where(literal(false));
 
 export class GraphClient extends MosaicClient implements RelationClient {
   /** What the page's resolver crosses every other relation's clauses into. */
@@ -74,9 +77,19 @@ export class GraphClient extends MosaicClient implements RelationClient {
     const clauses = clausesOf(filter);
     const structure = this.#structure();
     if (!structure || clauses.length === 0) return UNFILTERED;
-    // Every clause over every vertex, as one relation: a type without a column a clause names holds
-    // `NULL` there, so the clause keeps none of it.
-    return Query.select({ id: float64(structure.key) }).from(verticesOf(structure).table).where(clauses);
+    // The clause rule (`/docs/design/crossfilter#formal-semantics`): a table answers a clause when it
+    // has every column the clause names, and a clause a table cannot answer keeps none of it — so a
+    // table is asked only when it answers every clause, and asked under all of them. When none does,
+    // nothing is kept: an answer with no rows, which is not the unfiltered one.
+    const asked = structure.vertices.filter((t) => clauses.every((clause) => answers(t, clause)));
+    if (asked.length === 0) return NOTHING;
+    return Query.unionAll(
+      asked.map((t) =>
+        Query.select({ id: float64(structure.key) })
+          .from(relation(structure.from, t.name))
+          .where(clauses),
+      ),
+    );
   }
 
   override queryResult(data: unknown): this {
@@ -93,11 +106,13 @@ export class GraphClient extends MosaicClient implements RelationClient {
 
 /**
  * **A pick, published** — `key IN (ids)` from `source`, labelled for its chip, on the selection the
- * graph filters by, said to be on `vertices`, so the page crosses it into every other relation by key. One clause per source: a source that picks again replaces its own clause, and two
- * sources intersect. The canvas's own gestures publish from the graph's client, which the crossfilter
- * exempts, so a lasso does not grey out the neighbourhood the reader drew it in; a pick from anywhere
- * else — a search, a rule, an answer — filters the graph like any other clause. `null`, or no ids,
- * withdraws the source's clause.
+ * graph filters by; with `excludes`, `NOT (key IN (ids))`, the vertices it leaves out. Either is said
+ * to be on `vertices`, so the page crosses it into every other relation by key. One clause per
+ * source: a source that picks again replaces its own clause, and two sources intersect. The canvas's
+ * own gestures publish from the graph's client, which the crossfilter exempts, so the graph asks
+ * nothing for them and narrows what the page keeps by them itself (`keptOf`); a pick from anywhere
+ * else — a search, a rule, an answer — filters the graph like any other clause. `null` withdraws the
+ * source's clause; an empty list is a clause, and keeps nothing (`/docs/design/crossfilter`).
  */
 export function publish(
   selection: Selection,
@@ -105,6 +120,8 @@ export function publish(
   key: string,
   ids: readonly number[] | null,
   label: string,
+  excludes = false,
 ): void {
-  selection.update(onRelation(clauseSemiJoin(key, ids && ids.length > 0 ? ids : null, { source, label }), VERTICES));
+  const clause = excludes ? clauseAntiJoin(key, ids, { source, label }) : clauseSemiJoin(key, ids, { source, label });
+  selection.update(onRelation(clause, VERTICES));
 }

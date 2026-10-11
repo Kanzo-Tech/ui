@@ -78,7 +78,6 @@ describe("GraphLegend", () => {
       crossfilter.update(clauseInterval("score", [2, 5], { source: { reset() {} } }));
       await settle(corpus);
     });
-    // A Place or a Tag has no `score`: the clause keeps none of them.
     expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Person4 of 10", "Place0 of 6", "Tag0 of 4"]);
   });
 
@@ -186,8 +185,8 @@ describe("GraphCounts", () => {
       crossfilter.update(clauseInterval("score", [2, 5], { source: { reset() {} } }));
       await settle(corpus);
     });
-    // Kept are Person 1–4 — no Place or Tag has a `score` — and a match is a kept vertex the map places,
-    // an edge kept one with both ends kept: knows 1→2, 2→3, 3→4 (/docs/design/crossfilter, invariant 6).
+    // Kept are Person 1–4 — Place and Tag have no `score`, so the clause keeps none of them — and
+    // the edges whose ends are both kept and placed are knows 1→2, 2→3, 3→4 (/docs/design/crossfilter).
     expect(counts()?.textContent).toBe("4 match · 16 of 20 placed · 3 of 20 edges");
   });
 
@@ -204,7 +203,7 @@ describe("GraphCounts", () => {
       crossfilter.update(clauseInterval("score", [2, 5], { source: { reset() {} } }));
       await settle(corpus);
     });
-    // Person 1–4 by score; a Place or a Tag has no `score`, so the clause keeps none of them.
+    // Person 1–4 by score; Place and Tag have no `score`, so the clause keeps none of them.
     expect(counts()?.textContent).toBe("4 of 20 nodes match · 3 edges");
   });
 });
@@ -281,16 +280,25 @@ describe("GraphToolbar", () => {
     expect(lasso.getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("shows the selection, and clears it", async () => {
+  it("counts what is in full colour first, with no button in it, and names the one Frame for what it frames", async () => {
     const { held } = await toolbar();
-    expect(screen.queryByRole("group", { name: "Current selection" })).toBeNull();
+    const count = () => screen.queryByRole("group", { name: "In full colour" });
+    const toolbarOf = () => screen.getByRole("group", { name: "Selection tool" }).parentElement as HTMLElement;
+    expect(count()).toBeNull();
+    expect(screen.getByRole("button", { name: "Frame everything" })).toBeTruthy();
     act(() => internalsOf(held.api!).store.select([1, 2], "lasso", "Two"));
-    expect(screen.getByRole("group", { name: "Current selection" }).textContent).toBe("2 of 20");
-    fireEvent.click(screen.getByRole("button", { name: "Clear the selection" }));
-    expect(screen.queryByRole("group", { name: "Current selection" })).toBeNull();
+    expect(count()?.textContent).toBe("2 of 20");
+    expect(count()?.querySelector("button")).toBeNull();
+    // First in the row: the toolbar is anchored at its end, so the count grows away from the buttons.
+    expect(toolbarOf().firstElementChild).toBe(count());
+    expect(screen.getByRole("group", { name: "Camera" }).querySelector('[aria-label="Frame what the filters keep"]')).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Clear the selection" })).toBeNull();
+    act(() => held.api!.clear());
+    expect(count()).toBeNull();
+    expect(screen.getByRole("button", { name: "Frame everything" })).toBeTruthy();
   });
 
-  it("draws the selection's group whenever something is greyed out, and says how many other filters hide", async () => {
+  it("counts whenever something is greyed out, and says how many other filters hide", async () => {
     const crossfilter = Selection.crossfilter();
     const { corpus, held } = await toolbar(crossfilter);
     await act(async () => {
@@ -298,15 +306,14 @@ describe("GraphToolbar", () => {
       await settle(corpus);
     });
     // A search's clause, and nothing the canvas picked: framed from here, let go at its own chip.
-    const group = () => screen.getByRole("group", { name: "Current selection" });
-    expect(group().textContent).toBe("4 of 20");
-    expect(screen.getByRole("button", { name: "Frame what is in full colour" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Clear the selection" })).toBeNull();
+    const count = () => screen.getByRole("group", { name: "In full colour" });
+    expect(count().textContent).toBe("4 of 20");
+    expect(screen.getByRole("button", { name: "Frame what the filters keep" })).toBeTruthy();
     // Person 0 scores 1, so the filter hides one of the three the canvas holds.
     act(() => internalsOf(held.api!).store.select([0, 1, 2], "lasso", "Three"));
-    expect(group().textContent).toBe("2 of 20 · 1 hidden by other filters");
-    fireEvent.click(screen.getByRole("button", { name: "Clear the selection" }));
-    expect(group().textContent).toBe("4 of 20");
+    expect(count().textContent).toBe("2 of 20 · 1 hidden by other filters");
+    act(() => held.api!.clear());
+    expect(count().textContent).toBe("4 of 20");
   });
 
   it("offers to run the layout without a simulate prop", async () => {
@@ -373,7 +380,7 @@ describe("GraphInspector", () => {
     const { held } = await inspecting();
     act(() => held.api?.setFocus(6));
     fireEvent.click(await screen.findByRole("button", { name: "Locate" }));
-    expect(held.api?.getState().selection).toEqual({ vertices: [6], source: "node", label: "Node" });
+    expect(held.api?.getState().selection).toEqual({ vertices: [6], source: "node", label: "Node", excludes: false });
     expect(screen.queryByRole("button", { name: /neighbours/i })).toBeNull();
   });
 

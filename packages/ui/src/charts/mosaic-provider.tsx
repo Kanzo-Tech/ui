@@ -107,27 +107,28 @@ export interface BarHeld {
  */
 interface PageSlots {
   readonly bar: HTMLElement | null;
+  readonly barActions: HTMLElement | null;
   readonly enabled: boolean;
   readonly held: readonly BarHeld[];
   readonly aside: HTMLElement | null;
   readonly editing: boolean;
 }
 
-const EMPTY_SLOTS: PageSlots = { bar: null, enabled: true, held: [], aside: null, editing: false };
+const EMPTY_SLOTS: PageSlots = { bar: null, barActions: null, enabled: true, held: [], aside: null, editing: false };
 const Slots = createContext<{ slot: PageSlots; set: (next: (slot: PageSlots) => PageSlots) => void } | null>(null);
 
 /** Sets one of the page's slots, leaving the state alone when it already holds `value`. */
-function useSlot<K extends "bar" | "enabled" | "aside" | "editing">(key: K) {
+function useSlot<K extends "bar" | "barActions" | "enabled" | "aside" | "editing">(key: K) {
   const set = useContext(Slots)?.set;
   return useCallback((value: PageSlots[K]) => set?.((s) => (s[key] === value ? s : { ...s, [key]: value })), [set, key]);
 }
 
-/** The bar's side: its slot, and the callback ref that places it. */
+/** The bar's side: its two slots — among its chips and among its actions — and the callback refs that place them. */
 export function useBarSlot() {
   const enabled = useContext(Enabled);
   const setEnabled = useSlot("enabled");
   useEffect(() => setEnabled(enabled), [setEnabled, enabled]);
-  return { held: useContext(Slots)?.slot.held ?? [], place: useSlot("bar") };
+  return { held: useContext(Slots)?.slot.held ?? [], place: useSlot("bar"), placeActions: useSlot("barActions") };
 }
 
 /**
@@ -148,7 +149,21 @@ export function InFilterBar({ held, children }: { held: BarHeld; children: React
     set((s) => ({ ...s, held: [...s.held, entry] }));
     return () => set((s) => ({ ...s, held: s.held.filter((h) => h !== entry) }));
   }, [set, key]);
-  const element = slots?.slot.bar;
+  return <InBar at="bar">{children}</InBar>;
+}
+
+/**
+ * **Draws `children` among the page's `FilterBar`'s actions** — after its hairline, before *Clear
+ * every filter* — as `InFilterBar` draws among its chips: a dashboard's *Add a filter*. A verb is not
+ * a filter, so it stays pinned where the reader found it while the chips scroll.
+ */
+export function InFilterBarActions({ children }: { children: ReactNode }) {
+  return <InBar at="barActions">{children}</InBar>;
+}
+
+function InBar({ at, children }: { at: "bar" | "barActions"; children: ReactNode }) {
+  const slots = useContext(Slots);
+  const element = slots?.slot[at];
   return element
     ? createPortal(<Enabled.Provider value={slots.slot.enabled}>{children}</Enabled.Provider>, element)
     : null;

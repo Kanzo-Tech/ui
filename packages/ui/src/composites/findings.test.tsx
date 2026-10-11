@@ -3,14 +3,18 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { type Finding, type FindingTally, groupFindings, tallyFindings } from "../lib/findings.js";
 import { DiagnosticList } from "../simples/diagnostic.js";
+import { PopoverDescription } from "../simples/popover.js";
 import {
   type DescribePlace,
-  FindingGroupRow,
-  FindingRow,
+  FindingsActions,
   FindingsBadge,
   FindingsContent,
   FindingsGroup,
+  FindingsHeader,
+  FindingsItem,
+  FindingsList,
   FindingsRoot,
+  FindingsSource,
 } from "./findings.js";
 
 /** An RDF host's place. The library never reads it — only `describe` does. */
@@ -29,32 +33,31 @@ const finding = (focus: string, path: string, severity: Finding["severity"] = "v
   help: "Add the value in the source table.",
 });
 
-const describeNode =
-  (shown: string[] = []): DescribePlace<Node> =>
-  (node) => ({
-    where: `${node.path} · ${node.focus}`,
-    action: { label: "Show", run: () => shown.push(node.focus) },
-    detail: `“${node.focus}”`,
-  });
+const describeNode: DescribePlace<Node> = (node) => ({
+  where: `${node.path} · ${node.focus}`,
+  detail: `“${node.focus}”`,
+});
+
+const show = (shown: string[], node: Node) => ({ label: "Show", run: () => shown.push(node.focus) });
 
 const NOWRAP = /(^|\s)(whitespace-nowrap|truncate|text-nowrap)(\s|$)/;
 
-describe("a finding row", () => {
+describe("one finding", () => {
   it("puts the message on a line of its own that wraps, and holds nothing to one line but the badge and the buttons", () => {
     const { container } = render(
       <DiagnosticList>
-        <FindingRow describe={describeNode()} finding={finding("Project/123", "totalCost")} />
+        <FindingsItem describe={describeNode} finding={finding("Project/123", "totalCost")} />
       </DiagnosticList>,
     );
     const row = screen.getByRole("listitem");
     expect(row.getAttribute("data-severity")).toBe("violation");
 
-    const message = row.querySelector<HTMLElement>('[data-slot="finding-message"]')!;
+    const message = row.querySelector<HTMLElement>('[data-slot="findings-message"]')!;
     expect(message.textContent).toMatch(/missing it entirely/);
     expect(message.className).toMatch(/(^|\s)basis-full(\s|$)/);
     expect(message.className).toMatch(/(^|\s)whitespace-normal!(\s|$)/);
 
-    const where = row.querySelector<HTMLElement>('[data-slot="finding-where"]')!;
+    const where = row.querySelector<HTMLElement>('[data-slot="findings-where"]')!;
     expect(where.textContent).toBe("totalCost · Project/123");
     expect(where.className).toMatch(/wrap-anywhere/);
 
@@ -70,21 +73,21 @@ describe("a finding row", () => {
   it("opens onto the place's detail, the rule and the help", async () => {
     render(
       <DiagnosticList>
-        <FindingRow describe={describeNode()} finding={finding("Project/123", "totalCost")} />
+        <FindingsItem describe={describeNode} finding={finding("Project/123", "totalCost")} />
       </DiagnosticList>,
     );
     await userEvent.click(screen.getByRole("button", { name: "Details: totalCost · Project/123" }));
     const row = screen.getByRole("listitem");
     expect(within(row).getByText("“Project/123”")).toBeTruthy();
-    expect(row.querySelector('[data-slot="finding-rule"]')!.textContent).toBe("MinCount · sh:MinCountConstraintComponent");
+    expect(row.querySelector('[data-slot="findings-rule"]')!.textContent).toBe("MinCount · sh:MinCountConstraintComponent");
     expect(within(row).getByText("Add the value in the source table.")).toBeTruthy();
   });
 
   it("says its severity in the host's words", () => {
     render(
       <DiagnosticList>
-        <FindingRow
-          describe={describeNode()}
+        <FindingsItem
+          describe={describeNode}
           finding={finding("Project/1", "title", "warning")}
           labels={{ severity: { violation: "Infracción", warning: "Aviso", info: "Nota" } }}
         />
@@ -94,54 +97,99 @@ describe("a finding row", () => {
   });
 });
 
-describe("a group row", () => {
+describe("a group of findings", () => {
   const findings = Array.from({ length: 362 }, (_, i) => finding(`Project/${i}`, "totalCost"));
   const [group] = groupFindings(findings, (f) => `${f.rule.id}|${f.place.path}`);
 
-  it("carries its count on the badge and opens onto the sample, each place with its own action", async () => {
-    const shown: string[] = [];
+  it("is the same item with its count on the badge, one action for all, and a sample to read rather than to act on", async () => {
     const all = vi.fn();
     render(
       <DiagnosticList>
-        <FindingGroupRow
-          action={{ label: "Show 362", run: all }}
-          describe={describeNode(shown)}
-          group={group!}
-          where="totalCost"
-        />
+        <FindingsItem action={{ label: "Show 362", run: all }} describe={describeNode} finding={group!}>
+          totalCost
+        </FindingsItem>
       </DiagnosticList>,
     );
-    const row = screen.getAllByRole("listitem")[0]!;
-    expect(row.getAttribute("data-count")).toBe("362");
-    expect(row.querySelector('[data-slot="diagnostic-severity"]')!.textContent).toBe("Violation362");
+    const item = screen.getAllByRole("listitem")[0]!;
+    expect(item.getAttribute("data-slot")).toBe("findings-item");
+    expect(item.getAttribute("data-count")).toBe("362");
+    expect(item.querySelector('[data-slot="diagnostic-severity"]')!.textContent).toBe("Violation362");
 
     await userEvent.click(screen.getByRole("button", { name: "Show 362" }));
     expect(all).toHaveBeenCalledOnce();
 
     await userEvent.click(screen.getByRole("button", { name: "Details: totalCost" }));
-    const sample = row.querySelector<HTMLElement>('[data-slot="finding-sample"]')!;
-    expect(within(sample).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
-      "totalCost · Project/0Show",
-      "totalCost · Project/1Show",
-      "totalCost · Project/2Show",
+    const sample = item.querySelector<HTMLElement>('[data-slot="findings-sample"]')!;
+    expect(within(sample).getAllByRole("listitem").map((place) => place.textContent)).toEqual([
+      "totalCost · Project/0“Project/0”",
+      "totalCost · Project/1“Project/1”",
+      "totalCost · Project/2“Project/2”",
     ]);
-    await userEvent.click(within(sample).getAllByRole("button", { name: "Show" })[1]!);
-    expect(shown).toEqual(["Project/1"]);
+    expect(within(item).getAllByRole("button").map((button) => button.textContent)).toEqual(["Show 362", ""]);
+  });
+
+  it("reads its rule's label where nothing says what the group shares", () => {
+    render(
+      <DiagnosticList>
+        <FindingsItem describe={describeNode} finding={group!} />
+      </DiagnosticList>,
+    );
+    expect(screen.getByRole("listitem").querySelector('[data-slot="findings-where"]')!.textContent).toBe("MinCount");
   });
 });
 
-describe("a group of rows", () => {
-  it("is a region named by its title, with the tally beside the name rather than in it", () => {
+describe("an action", () => {
+  it("is a toggle when it says whether it is on, and a plain button when it does not", async () => {
+    const run = vi.fn();
+    const { rerender } = render(
+      <DiagnosticList>
+        <FindingsItem
+          action={{ label: "Show", run, pressed: false }}
+          describe={describeNode}
+          finding={finding("Project/1", "title")}
+        />
+      </DiagnosticList>,
+    );
+    const toggle = screen.getByRole("button", { name: "Show" });
+    expect(toggle.getAttribute("aria-pressed")).toBe("false");
+    await userEvent.click(toggle);
+    expect(run).toHaveBeenCalledOnce();
+
+    rerender(
+      <DiagnosticList>
+        <FindingsItem
+          action={{ label: "Show", run, pressed: true }}
+          describe={describeNode}
+          finding={finding("Project/1", "title")}
+        />
+      </DiagnosticList>,
+    );
+    expect(screen.getByRole("button", { name: "Show" }).getAttribute("aria-pressed")).toBe("true");
+
+    rerender(
+      <DiagnosticList>
+        <FindingsItem action={{ label: "Show", run }} describe={describeNode} finding={finding("Project/1", "title")} />
+      </DiagnosticList>,
+    );
+    expect(screen.getByRole("button", { name: "Show" }).hasAttribute("aria-pressed")).toBe(false);
+  });
+});
+
+describe("a group heading", () => {
+  it("is a region named by its title, with the tally and its one action beside the name rather than in it", async () => {
     const tally: FindingTally = { violation: 12, warning: 3, info: 0, total: 15 };
+    const all = vi.fn();
     render(
-      <FindingsGroup tally={tally} title="ProjectShape">
-        <FindingRow describe={describeNode()} finding={finding("Project/1", "title")} />
+      <FindingsGroup action={{ label: "Show 15", run: all }} tally={tally} title="ProjectShape">
+        <FindingsItem describe={describeNode} finding={finding("Project/1", "title")} />
       </FindingsGroup>,
     );
     const region = screen.getByRole("region", { name: "ProjectShape" });
     const counts = region.querySelector('[data-slot="findings-tally"]')!;
     expect(counts.textContent).toBe("Violation 12Warning 3");
     expect(within(region).getAllByRole("listitem")).toHaveLength(1);
+    await userEvent.click(within(region).getByRole("button", { name: "Show 15" }));
+    expect(all).toHaveBeenCalledOnce();
   });
 });
 
@@ -161,10 +209,23 @@ const Popover = ({
         {(t) =>
           !t ? "No rules" : t.total === 0 ? "Valid" : `${t.violation} violations · ${t.warning} warnings`}
       </FindingsBadge>
-      <FindingsContent empty={<p>Nothing to show.</p>} header={<p>shapes.ttl</p>}>
-        <FindingsGroup tally={tally ?? tallyFindings([])} title="ProjectShape">
-          <FindingRow describe={describeNode(shown)} finding={finding("Project/1", "title")} />
-        </FindingsGroup>
+      <FindingsContent>
+        <FindingsHeader>
+          <FindingsSource>shapes.ttl</FindingsSource>
+          <FindingsActions>
+            <button type="button">Check again</button>
+          </FindingsActions>
+          <PopoverDescription>12 of 40 nodes checked</PopoverDescription>
+        </FindingsHeader>
+        <FindingsList empty={<p>Nothing to show.</p>}>
+          <FindingsGroup tally={tally ?? tallyFindings([])} title="ProjectShape">
+            <FindingsItem
+              action={show(shown, { focus: "Project/1", path: "title" })}
+              describe={describeNode}
+              finding={finding("Project/1", "title")}
+            />
+          </FindingsGroup>
+        </FindingsList>
       </FindingsContent>
     </FindingsRoot>
   );
@@ -198,7 +259,7 @@ describe("the badge", () => {
     expect(within(dialog).queryByRole("region")).toBeNull();
   });
 
-  it("closes the popover before it runs a place's action", async () => {
+  it("closes the popover before it runs an item's action", async () => {
     render(<Popover tally={{ violation: 1, warning: 0, info: 0, total: 1 }} />);
     await userEvent.click(screen.getByRole("button", { name: "1 violations · 0 warnings" }));
     const dialog = await screen.findByRole("dialog");
@@ -226,5 +287,25 @@ describe("the badge", () => {
 
     rerender(<Popover onOpenChange={onOpenChange} open tally={tally} />);
     expect(await screen.findByRole("dialog")).toBeTruthy();
+  });
+
+  it("heads the list with the title, what was checked, its controls and what the check covered", async () => {
+    render(<Popover tally={{ violation: 1, warning: 0, info: 0, total: 1 }} />);
+    await userEvent.click(screen.getByRole("button", { name: /violations/ }));
+    const dialog = await screen.findByRole("dialog");
+    const header = dialog.querySelector<HTMLElement>('[data-slot="findings-header"]')!;
+    expect([...header.children].map((part) => part.getAttribute("data-slot"))).toEqual([
+      "popover-title",
+      "findings-source",
+      "findings-actions",
+      "popover-description",
+    ]);
+    // Ark's own title and description, the parts a popover is named and described by.
+    expect(header.querySelector('[data-scope="popover"][data-part="title"]')!.textContent).toBe("Findings");
+    expect(header.querySelector('[data-scope="popover"][data-part="description"]')!.textContent).toBe(
+      "12 of 40 nodes checked",
+    );
+    // Above the list, not in what scrolls.
+    expect(header.closest('[data-slot="scroll-area"]')).toBeNull();
   });
 });

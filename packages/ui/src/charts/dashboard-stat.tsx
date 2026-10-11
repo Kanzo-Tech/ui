@@ -20,6 +20,8 @@ export interface DashboardStatProps extends Omit<React.ComponentProps<typeof Sta
   stat: StatTile;
   /** Puts an edit button beside the label; the host opens the editor. */
   onEdit?: () => void;
+  /** The host's own controls beside the label, before the pencil — icon buttons, as the pencil is. */
+  actions?: React.ReactNode;
 }
 
 /**
@@ -29,7 +31,8 @@ export interface DashboardStatProps extends Omit<React.ComponentProps<typeof Sta
  * period's own unit rather than inventing one the relation does not have.
  */
 export function DashboardStat(props: DashboardStatProps) {
-  const { relation, fields, stat, onEdit, ...rest } = props;
+  const { relation, fields, stat, onEdit, actions, ...rest } = props;
+  const header = Boolean(onEdit || actions);
   const share = stat.measure.op === "share";
   const format = share
     ? (v: number) => `${v.toFixed(1)}%`
@@ -40,10 +43,11 @@ export function DashboardStat(props: DashboardStatProps) {
 
   return (
     <StatRoot {...rest}>
-      <StatLabel className={onEdit ? "col-end-3" : undefined}>{tileTitle(stat)}</StatLabel>
-      {onEdit ? (
-        <div className="col-start-3 -my-1 flex justify-end">
-          <EditTileButton label="Edit figure" onClick={onEdit} />
+      <StatLabel className={header ? "col-end-3" : undefined}>{tileTitle(stat)}</StatLabel>
+      {header ? (
+        <div className="col-start-3 -my-1 flex items-center justify-end gap-1">
+          {actions}
+          {onEdit ? <EditTileButton label="Edit figure" onClick={onEdit} /> : null}
         </div>
       ) : null}
       <ChartStat format={format} relation={relation} value={measureExpr(stat.measure)} />

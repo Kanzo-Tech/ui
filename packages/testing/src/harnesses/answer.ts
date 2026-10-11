@@ -1,19 +1,23 @@
 import { ComponentHarness, type By, type Handle, type HarnessQuery } from "../environment";
 import { TileHarness } from "./dashboard";
 
-const FILTER = /^(✓ )?Filter(ed)? to it$/;
+const FILTER = "Filter the page to these rows";
 const ADD = "Add to the dashboard";
-const ADDED = /^✓ On the dashboard$/;
+const OPEN = "Open on the dashboard";
+/** Once the tile is there: *Open on the dashboard* when the host gave `onOpen`, *On the dashboard* when not. */
+const ADDED = /^(Open on|On) the dashboard$/;
 /** The caption of the card's data table, cut short or not. */
 const DATA = /^The rows the answer was read from/;
 
 /**
  * **Asking data, and the `AnswerCard` it draws** — `/docs/design/ai`. The host is the composer, the
  * textbox named by its placeholder. An answer card is `aria-busy` while the model writes the answer,
- * the engine reads it and the tile is drawn; answered, it holds the tile, an `article`, and its two actions, **Filter to
- * it** (`aria-pressed` while the page is narrowed to it) and **Add to the dashboard**; refused, it holds
- * a `Problem`. Nothing accessible tells the card's frame apart from the tile in it, so the frames are
- * found by their `data-slot`.
+ * the engine reads it and the tile is drawn; answered, it holds the tile, an `article`, whose header
+ * holds its two verbs as icon buttons named by `aria-label`: **Filter the page to these rows**
+ * (`aria-pressed` while the page is narrowed to them, disabled when that would keep everything in
+ * view) and **Add to the dashboard**, which becomes **Open on the dashboard** once the tile is there;
+ * refused, it holds a `Problem`. Nothing accessible tells the card's frame apart from the tile in it,
+ * so the frames are found by their `data-slot`.
  */
 export class AnswerHarness extends ComponentHarness {
   /** `Chat`'s own placeholder, *Ask anything…*, and a data page's, *Ask about your data…*. */
@@ -60,20 +64,24 @@ export class AnswerHarness extends ComponentHarness {
     );
   }
 
-  /** Presses the newest answer's **Filter to it**, and waits for it to be pressed. */
+  /**
+   * Presses the newest answer's **Filter the page to these rows**, and waits for it to be pressed. An
+   * answer whose clause would keep everything in view rejects: its button is disabled.
+   */
   async filterTo(): Promise<void> {
     const card = await this.settled();
-    const button = await this.one({ role: "button", name: FILTER }, "the answer offers no Filter to it", card);
+    const button = await this.one({ role: "button", name: FILTER }, "the answer offers no Filter the page to these rows", card);
     if ((await button.attribute("aria-pressed")) === "true") return;
+    if ((await button.attribute("disabled")) !== null) throw new Error("the answer cannot filter the page: it keeps everything in view");
     await button.click();
     await this.env.until(async () => (await button.attribute("aria-pressed")) === "true", "the page was not filtered to the answer");
   }
 
   /**
    * Presses the newest answer's **Add to the dashboard**, and waits for it to say it is there. While the
-   * host's write is pending the button reads *Adding to the dashboard…*; *✓ On the dashboard* comes once
-   * the `dashboards` the host hands back hold the tile. A write the host refused rejects with the words
-   * of the card's `Problem`.
+   * host's write is pending the button reads *Adding to the dashboard…*; *Open on the dashboard* — *On
+   * the dashboard* for a host with no `onOpen` — comes once the `dashboards` the host hands back hold
+   * the tile. A write the host refused rejects with the words of the card's `Problem`.
    */
   async addToDashboard(): Promise<void> {
     const card = await this.settled();
@@ -87,6 +95,17 @@ export class AnswerHarness extends ComponentHarness {
       return null;
     }, "the answer was not added to the dashboard: the host never handed back dashboards holding its tile");
     if (!outcome.added) throw new Error(`the answer was not added to the dashboard: ${outcome.problem}`);
+  }
+
+  /**
+   * Presses the newest answer's **Open on the dashboard**: the host's `onOpen`, which switches to its
+   * dashboard and shows the tile. Rejects when the tile is not on the dashboard yet, or the host gave no
+   * `onOpen`. What the host shows is the host's to wait for: a `DashboardHarness`.
+   */
+  async openOnDashboard(): Promise<void> {
+    const card = await this.settled();
+    const button = await this.one({ role: "button", name: OPEN }, "the answer offers no Open on the dashboard: it is not on the dashboard, or the host gave no onOpen", card);
+    await button.click();
   }
 
   /** The newest answer card, once it holds its tile or its `Problem`: the card is `aria-busy` until then. */

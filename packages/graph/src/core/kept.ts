@@ -1,5 +1,5 @@
 import type { Encoding, Geometry } from "./load";
-import type { Drawn } from "./state";
+import type { Drawn, GraphSnapshot } from "./state";
 import type { VertexId } from "./types";
 
 /**
@@ -29,8 +29,14 @@ export function maskOf(size: number, ids: Float64Array): Uint8Array {
  * A link is kept exactly when its two ends are, which is why there is no link mask beside it: the
  * timeline's window is a clause on vertex tables, so it arrives inside `filter`.
  */
-export function keptOf(size: number, filter: Uint8Array | null, pick: readonly VertexId[] | null): Uint8Array | null {
+export function keptOf(size: number, filter: Uint8Array | null, pick: readonly VertexId[] | null, excludes = false): Uint8Array | null {
   if (pick === null) return filter;
+  if (excludes) {
+    // The canvas's clause leaves `pick` out: kept is the filter, less it.
+    const kept = filter ? filter.slice() : new Uint8Array(size).fill(1);
+    for (const id of pick) if (id < size) kept[id] = 0;
+    return kept;
+  }
   const kept = new Uint8Array(size);
   for (const id of pick) if (id < size && (filter === null || filter[id])) kept[id] = 1;
   return kept;
@@ -46,6 +52,14 @@ export function idsOf(kept: Uint8Array | null, positions: Float32Array | null = 
   for (let id = 0; id < kept.length; id++) if (kept[id] && (positions === null || placedAt(positions, id))) ids.push(id);
   return ids;
 }
+
+/**
+ * Whether anything is greyed out: the canvas picked something, or a clause keeps fewer than the
+ * corpus holds. The toolbar shows its count on it, and `frame()` frames everything without it — a
+ * mask that keeps every vertex greys none, so what it keeps is the whole graph.
+ */
+export const greyedOf = ({ selection, matching, total }: Pick<GraphSnapshot, "selection" | "matching" | "total">): boolean =>
+  matching !== null && (selection !== null || matching !== total);
 
 /**
  * **What the loaded graph holds, counted once per geometry, encoding and filter**: per rank what is

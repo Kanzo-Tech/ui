@@ -1,7 +1,7 @@
 import { Selection, clauseInterval, clausePoint, clausePoints, type SelectionClause } from "@uwdata/mosaic-core";
 import { Query, eq, isBetween, literal } from "@uwdata/mosaic-sql";
 import { describe, expect, it } from "vitest";
-import { clauseColumns, clauseLabel, clauseParts, clauseSemiJoin } from "./clause.js";
+import { clauseAntiJoin, clauseColumns, clauseLabel, clauseParts, clauseSemiJoin } from "./clause.js";
 
 const source = { reset() {} };
 
@@ -21,6 +21,17 @@ describe("the clause rule", () => {
   it("clears with null and keeps nothing with an empty list, as clausePoints does", () => {
     expect(clauseSemiJoin("dense_id", null, { source }).predicate).toBeNull();
     expect(String(clauseSemiJoin("dense_id", [], { source }).predicate)).toBe("FALSE");
+  });
+
+  it("builds an anti-join on identity, which keeps every row but the keys it names, and names the key alone", () => {
+    const left = clauseAntiJoin("dense_id", [3, 4], { source, label: "Lasso" });
+    expect(String(left.predicate)).toBe(`(NOT ("dense_id" IN (3, 4)))`);
+    expect(left.meta).toEqual({ type: "antijoin", label: "Lasso" });
+    expect(left.value).toEqual([3, 4]);
+    expect(clauseColumns(left.predicate!)).toEqual(["dense_id"]);
+    // Clears with null; an empty list leaves nothing out, so it keeps every row.
+    expect(clauseAntiJoin("dense_id", null, { source }).predicate).toBeNull();
+    expect(String(clauseAntiJoin("dense_id", [], { source }).predicate)).toBe("TRUE");
   });
 
   it("names the key alone: a subquery's columns are another relation's", () => {
@@ -61,6 +72,12 @@ describe("what a clause says", () => {
   it.each(cases)("reads %s without the database's quoting", (_, clause, parts, line) => {
     expect(clauseParts(clause)).toEqual(parts);
     expect(clauseLabel(clause)).toBe(line);
+  });
+
+  it("names an anti-join by its publisher's label, and counts what it leaves out", () => {
+    const left = clauseAntiJoin("dense_id", [3, 4, 5], { source, label: "Lasso" });
+    expect(clauseParts(left)).toEqual({ field: "Lasso", value: "3 left out" });
+    expect(clauseLabel(left)).toBe("Lasso · 3 left out");
   });
 
   it("names a semi-join by its publisher's label, and counts its members when they are keys", () => {

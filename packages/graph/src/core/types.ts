@@ -50,12 +50,16 @@ export interface Selection {
   source: SelectionSource;
   /** What the corner calls it. */
   label: string;
+  /**
+   * Whether the clause leaves `vertices` out rather than keeping them: what Alt publishes when the
+   * canvas has no clause of its own to take from (`/docs/design/crossfilter`).
+   */
+  excludes: boolean;
 }
 
 /** What the canvas can be told to do. Registered by the canvas, called by the panels. */
 export interface GraphCommands {
   zoomBy(factor: number): void;
-  fit(): void;
   pause(): void;
   resume(): void;
   restart(): void;
@@ -63,7 +67,8 @@ export interface GraphCommands {
   reveal(vertex: VertexId): void;
   /**
    * Frame what is in full colour: the canvas's pick within what the page's filter keeps, what the
-   * filter keeps when the canvas picks nothing, or everything when nothing is greyed out.
+   * filter keeps when the canvas picks nothing, or — when nothing is greyed out — the whole graph,
+   * kept framed through a resize until the reader takes the camera.
    */
   frame(): void;
   clear(): void;

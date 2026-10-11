@@ -2,24 +2,34 @@
 
 import { clauseParts, relationOf, sameRelation, type RelationExpr } from "@kanzo-tech/mosaic";
 import type { SelectionClause } from "@uwdata/mosaic-core";
-import { CalendarRangeIcon, ChevronDownIcon, PlusIcon, SearchIcon, SlidersHorizontalIcon, XIcon, type LucideIcon } from "lucide-react";
+import { useId } from "react";
+import {
+  CalendarRangeIcon,
+  ChevronDownIcon,
+  ListFilterPlusIcon,
+  SearchIcon,
+  SlidersHorizontalIcon,
+  XIcon,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "../lib/cn.js";
 import { Button } from "../simples/button.js";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "../simples/menu.js";
 import { Popover, PopoverContent, PopoverTrigger } from "../simples/popover.js";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../simples/tooltip.js";
 import { ChartFilter, ChartSearch, ChartSlider } from "./chart-inputs.js";
 import { ChartTimeline } from "./chart-timeline.js";
 import { filterControl, type DashboardFilterControl, type DashboardFilterSpec } from "./dashboard-spec.js";
 import type { FieldStat } from "./field-stats.js";
 import { clauseField, useClauses } from "./filter-bar.js";
-import { InFilterBar, useMosaic, useRelation } from "./mosaic-provider.js";
+import { InFilterBar, InFilterBarActions, useMosaic, useRelation } from "./mosaic-provider.js";
 
 export interface DashboardFiltersProps {
   /** The relation the filters read, as `ChartRoot` takes it. */
   relation: RelationExpr;
   fields: readonly FieldStat[];
   filters: readonly DashboardFilterSpec[];
-  /** Makes them editable: a remove button per chip and a "Filter" menu of the fields left. */
+  /** Makes them editable: a remove button per chip and an *Add a filter* menu of the fields left, among the bar's verbs. */
   onChange?: (filters: DashboardFilterSpec[]) => void;
 }
 
@@ -49,41 +59,60 @@ export function DashboardFilters(props: DashboardFiltersProps) {
   const remove = onChange && ((name: string) => onChange(filters.filter((s) => s.field !== name)));
 
   return (
-    <InFilterBar held={{ relation: reading, fields: placed.map(({ field }) => field.name) }}>
-      {placed.map(({ field, control }) => (
-        <div className="inline-flex items-center" data-slot="dashboard-filter" key={field.name}>
-          <FilterChip clauses={clauses} control={control} field={field} relation={relation} />
-          {remove ? (
-            <Button
-              aria-label={`Remove the ${field.name} filter`}
-              className="size-6 text-muted-foreground hover:text-foreground focus-visible:text-foreground"
-              onClick={() => remove(field.name)}
-              size="icon-sm"
-              variant="ghost"
-            >
-              <XIcon className="size-3" />
-            </Button>
-          ) : null}
-        </div>
-      ))}
+    <>
+      <InFilterBar held={{ relation: reading, fields: placed.map(({ field }) => field.name) }}>
+        {placed.map(({ field, control }) => (
+          <div className="inline-flex items-center" data-slot="dashboard-filter" key={field.name}>
+            <FilterChip clauses={clauses} control={control} field={field} relation={relation} />
+            {remove ? (
+              <Button
+                aria-label={`Remove the ${field.name} filter`}
+                className="size-6 text-muted-foreground hover:text-foreground focus-visible:text-foreground"
+                onClick={() => remove(field.name)}
+                size="icon-sm"
+                variant="ghost"
+              >
+                <XIcon className="size-3" />
+              </Button>
+            ) : null}
+          </div>
+        ))}
+      </InFilterBar>
       {onChange && addable.length > 0 ? (
-        <Menu positioning={{ placement: "bottom-start" }}>
+        <InFilterBarActions>
+          <AddFilter fields={addable} onAdd={(name) => onChange([...filters, { field: name }])} />
+        </InFilterBarActions>
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * *Add a filter*: an icon that opens a menu of the fields left, and names itself in a tooltip. The
+ * menu and the tooltip share the button, so they share its id — each would otherwise set its own.
+ */
+function AddFilter({ fields, onAdd }: { fields: readonly FieldStat[]; onAdd: (name: string) => void }) {
+  const trigger = useId();
+  return (
+    <Menu ids={{ trigger }} positioning={{ placement: "bottom-end" }}>
+      <Tooltip ids={{ trigger }}>
+        <TooltipTrigger asChild>
           <MenuTrigger asChild>
-            <Button size="sm" variant="ghost">
-              <PlusIcon />
-              Filter
+            <Button aria-label="Add a filter" size="icon-sm" variant="ghost">
+              <ListFilterPlusIcon />
             </Button>
           </MenuTrigger>
-          <MenuContent>
-            {addable.map((f) => (
-              <MenuItem key={f.name} onSelect={() => onChange([...filters, { field: f.name }])} value={f.name}>
-                {f.name}
-              </MenuItem>
-            ))}
-          </MenuContent>
-        </Menu>
-      ) : null}
-    </InFilterBar>
+        </TooltipTrigger>
+        <TooltipContent>Add a filter</TooltipContent>
+      </Tooltip>
+      <MenuContent>
+        {fields.map((f) => (
+          <MenuItem key={f.name} onSelect={() => onAdd(f.name)} value={f.name}>
+            {f.name}
+          </MenuItem>
+        ))}
+      </MenuContent>
+    </Menu>
   );
 }
 

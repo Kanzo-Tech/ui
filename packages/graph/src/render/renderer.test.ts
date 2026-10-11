@@ -8,6 +8,7 @@ import { GraphError } from "../core/error";
 import type { GraphOptions } from "../core/state";
 import { createGraph } from "../core/store";
 import { internalsOf, useGraph } from "../react/use-graph";
+import { greyoutOpacity, type Rgb } from "./greyout";
 
 /**
  * The renderer's frame, against a cosmos.gl that records what it is told. What this cannot prove is
@@ -16,8 +17,9 @@ import { internalsOf, useGraph } from "../react/use-graph";
 
 const calls: string[] = [];
 const constructed: Record<string, unknown>[] = [];
-const uploaded: { positions: Float32Array | null; config: Record<string, unknown>; view: unknown } = {
+const uploaded: { positions: Float32Array | null; colors: Float32Array | null; config: Record<string, unknown>; view: unknown } = {
   positions: null,
+  colors: null,
   config: {},
   view: null,
 };
@@ -77,7 +79,10 @@ vi.mock("@cosmos.gl/graph", () => ({
       calls.push("fitView");
     };
     setLinks = () => calls.push("links");
-    setPointColors = () => calls.push("colors");
+    setPointColors = (colors: Float32Array) => {
+      calls.push("colors");
+      uploaded.colors = colors;
+    };
     setPointSizes = () => calls.push("sizes");
     setPointShapes = () => calls.push("shapes");
     setLinkColors = () => calls.push("linkColors");
@@ -114,6 +119,7 @@ beforeEach(() => {
   constructed.length = 0;
   uploaded.positions = null;
   uploaded.config = {};
+  uploaded.colors = null;
   uploaded.view = null;
   device.ready = () => Promise.resolve();
   device.broken = undefined;
@@ -160,6 +166,17 @@ describe("the renderer's frame", () => {
     expect(count("render")).toBe(1);
   });
 
+  it("greys out at the opacity derived from the colours it painted and its background, links at cosmos.gl's default", async () => {
+    await drawing();
+    // The colours the paint uploaded, once each, and the background the canvas is cleared to.
+    const colors = uploaded.colors!;
+    const palette = new Map<string, Rgb>();
+    for (let i = 0; i < colors.length; i += 4) palette.set(`${colors[i]},${colors[i + 1]},${colors[i + 2]}`, [colors[i]!, colors[i + 1]!, colors[i + 2]!]);
+    const [r, g, b] = uploaded.config.backgroundColor as [number, number, number, number];
+    expect(uploaded.config.pointGreyoutOpacity).toBe(greyoutOpacity([...palette.values()], [r, g, b]));
+    expect(uploaded.config.linkGreyoutOpacity).toBe(0.1);
+  });
+
   it("greys out a filter with config alone: no upload, no render, links said out loud", async () => {
     const { corpus, crossfilter } = await drawing();
     calls.length = 0;
@@ -167,9 +184,9 @@ describe("the renderer's frame", () => {
     await settle(corpus);
     await frame();
     expect(commands()).toEqual([]);
-    // Person 1–4: no Place or Tag has a `score`, so the clause keeps none of them.
+    // Person 1–4; Place and Tag have no `score`, so the clause keeps none of them.
     expect(uploaded.config.highlightedPointIndices).toEqual([1, 2, 3, 4]);
-    // knows 1→2, 2→3, 3→4; every other edge has an end the filter greyed.
+    // knows 1→2, 2→3, 3→4; every livesIn ends at a Place, which the clause greyed.
     expect(uploaded.config.highlightedLinkIndices).toHaveLength(3);
   });
 
@@ -282,13 +299,13 @@ describe("the camera at load", () => {
     expect(calls).toEqual(["fit"]);
   });
 
-  it("stops re-framing when the reader takes the camera, and starts again with Fit", async () => {
+  it("stops re-framing when the reader takes the camera, and starts again with Frame", async () => {
     const { renderer } = await drawing();
     (constructed[0]?.onZoomStart as (event: unknown, user: boolean) => void)({}, true);
     calls.length = 0;
     await resize();
     expect(calls).toEqual([]);
-    renderer?.fit();
+    renderer?.frame();
     calls.length = 0;
     await resize();
     expect(calls).toEqual(["fit"]);
@@ -315,7 +332,7 @@ describe("the camera at load", () => {
     await settle(corpus);
     calls.length = 0;
     renderer?.frame();
-    // What is kept and placed: Person 1–4, the only vertices with a `score`.
+    // What is kept and placed: Person 1–4, the clause keeping none of Place or Tag.
     expect(commands()).toEqual(["frame:1,2,3,4"]);
     calls.length = 0;
     // Person 0 scores 1: held by the canvas, greyed by the filter, and not framed.
@@ -429,7 +446,7 @@ describe("the camera while a layout runs", () => {
     gpu.unreadable = true;
     later(2000);
     tick();
-    renderer?.fit();
+    renderer?.frame();
     expect(count("fitView")).toBe(0);
     gpu.unreadable = false;
     graph.isReady = true;
@@ -453,10 +470,10 @@ describe("the camera while a layout runs", () => {
 
   it("fits the points where they are once a layout has moved them", async () => {
     const { renderer } = await drawing();
-    renderer?.fit();
+    renderer?.frame();
     expect(calls.at(-1)).toBe("fit");
     renderer?.resume();
-    renderer?.fit();
+    renderer?.frame();
     expect(calls.at(-1)).toBe("fitView");
   });
 });

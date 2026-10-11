@@ -10,7 +10,7 @@ told the model *The page is filtered to: Person.* and `AnswerCard` read *Read un
 Person.* for a page filtered to women. They now read it as the filter bar's chips do:
 *Person.gender female*.
 
-`FilterBar` and `@kanzo-tech/ai` (the suggestions' prompt, an answer's `under` and `skipped`) read the
+`FilterBar` and `@kanzo-tech/ai` (the suggestions' prompt, an answer's `under` and `unanswered`) read the
 page's filter through `clauseLabel`, so the chips and what the model is told cannot differ.
 
 Nothing to change in a host. Recorded model calls keyed by their prompt (a demo's replay) differ for a

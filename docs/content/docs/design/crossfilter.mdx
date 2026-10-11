@@ -245,10 +245,12 @@ The timeline stops being a special path: it is `ChartTimeline` over `vertices`.
 
 **A clause a type cannot answer keeps none of that type, everywhere.** It is the timeline's rule and
 Cosmograph's (a point with no value answers `isBetween` false and is greyed,
-[Timeline](/docs/design/timeline)). A column clause on `vertices` keeps none of a type without the
-column because that type holds `NULL` there; a clause on another relation reaches the graph crossed by
-key — so the column rule in `GraphClient` has nothing left to decide, and goes, and the search's
-`inside` follows it (#174).
+[Timeline](/docs/design/timeline)). `GraphClient` asks only the vertex tables that answer every
+clause, under all of them, and the search's `inside` reads the same rule (#174); a clause on another
+relation reaches the graph already crossed by key, which every vertex table answers. The rule is held
+per table rather than by the `NULL` a type without the column holds in the `vertices` union: a
+clause that tests for `NULL` would keep that type, and a column whose type differs across tables is
+not in the union at all.
 
 ### One "kept", derived once
 
@@ -351,13 +353,18 @@ leaves almost no room for context: the greyed marks are just distinguishable fro
 link is drawn under 3 : 1 to the background on purpose — `linkOpacity` and the distance fade — so SC
 1.4.11 sets no value to derive the greyed one from.
 
-*Held by* the tests the pull request that implements it adds (#177): the per-theme property over the
-eight themes' tokens, and the renderer's wiring.
+*Held by* `packages/graph/src/render/greyout.test.ts`, which reads the eight themes' tokens from
+`@kanzo-tech/theme` and checks *P* with that package's own WCAG `contrast` at *α\** and at every
+thousandth below it, that *α\* + 0.001* breaks it, and that the greyed mark is distinguishable from
+the background at *α\**; `packages/graph/src/render/renderer.test.ts`, "greys
+out at the opacity derived from the colours it painted and its background, links at cosmos.gl's
+default".
 
 ## What changes, and what disappears
 
 - `@kanzo-tech/graph`: `GraphStore.kept()` replaces `mask`, `visible()`, `visibleOf`, `litOf`;
-  `GraphClient` reads `vertices`, its column rule and `graph/unfilterable` go; `GraphTimeline` goes
+  `GraphClient` reads `vertices` and keeps none of a table that cannot answer a clause, and
+  `graph/unfilterable` goes; `GraphTimeline` goes
   for `ChartTimeline relation="vertices"`; `gesture.ts`'s Alt-with-no-clause publishes an exclusion;
   the greyout values change.
 - `@kanzo-tech/mosaic`: the page's resolver, `crossfilterOver(joins)`, with a clause's relation
@@ -368,8 +375,8 @@ eight themes' tokens, and the renderer's wiring.
   decision 3.
 
 **Migration, in order:** one `kept()` and its tests (no behaviour change); the greyout measured and
-set; one selection across relations, the timeline on it and the graph's column rule removed; the
-search's and Ask's column rule removed; Alt's exclusion clause. Each step is its own PR with the gesture, renderer and
+set; one selection across relations, the timeline on it; the graph's, the search's and Ask's
+column rule keeping none instead of skipping; Alt's exclusion clause. Each step is its own PR with the gesture, renderer and
 counts tests that hold the rule today.
 
 ## Step 3: one selection across relations
@@ -426,8 +433,8 @@ Every clause published on one relation crosses **together** — on a joined rela
 row where *a* and *b* hold is not a root with a row where *a* and one where *b*. A clause or a client
 that names no relation is Mosaic's: the clause as published. *kept* is then the conjunction of
 [Formal semantics](#formal-semantics), read per client: *ans(c, v)* is false for a type with no step
-of *A*'s root type, and over `vertices` a column clause keeps none of a type without the column
-because that type holds `NULL` there and SQL keeps no unknown row — the decided rule, held by SQL.
+of *A*'s root type, and over `vertices` a column clause keeps none of a type without the column,
+because `GraphClient` asks only the tables that answer every clause (#174).
 
 ### A relation that changes
 
@@ -460,8 +467,8 @@ graph's own timeline part took on the store.
 registry walk upstream); `useCrossfilter` and `useSelected`; `ChartRoot`'s `table`, `as` and
 `filterBy` and `ChartTimeline`'s `table`, `as`, `filterBy` and `paceBy` — `relation`, and the page's
 selection; `Dashboard`'s `publish` and the selection per dashboard; `bridgeSelection`, `bridged`,
-`clauseReadings` and `semiJoinOf`; `GraphTimeline` and `timelineOf`; the column rule in
-`GraphClient` and `graph/unfilterable`.
+`clauseReadings` and `semiJoinOf`; `GraphTimeline` and `timelineOf`; `graph/unfilterable`
+(with #174).
 
 ### What would reverse it
 
@@ -476,9 +483,9 @@ selection; `Dashboard`'s `publish` and the selection per dashboard; `bridgeSelec
 - **A measured cost of the crossing subquery** at the largest corpus — it reads the relation the
   clause was published on once per crossed client per update: then the keys are materialised once
   per clause. At 200,000 people in DuckDB-WASM under Node the canvas's query over the `vertices`
-  union measured the same as the per-table union it replaced (median of 15: 19.7 ms against 19.9 ms
-  for a column clause, 25.9 ms against 29.7 ms for 500 ids); the graph benchmark in a browser was
-  not run for this step.
+union measured the same as over the per-table union it keeps for the clause rule (median of 15:
+19.7 ms against 19.9 ms for a column clause, 25.9 ms against 29.7 ms for 500 ids); the graph
+benchmark in a browser was not run for this step.
 
 *Held by* `packages/mosaic/src/crossfilter.test.ts`, "hands a clause to a client of the relation it
 was published on as it was published", "crosses a clause into another relation by the key of the
@@ -503,15 +510,15 @@ relation, keeping none of a type without the column".
 | Step | Pull request | State |
 | --- | --- | --- |
 | One `kept()`, labels and counts read it (divergences 1, 8, 9) | #173 | merged |
-| The greyout, derived per theme | #177 | draft, stacked on #175 |
-| One selection across relations — the timeline, the dashboard and the graph on it (divergence 3) | this branch | implemented; for the graph it also removes the column rule, so #174 is left with the search's `inside` and Ask |
-| A clause a type cannot answer keeps none of it — graph, search, Ask (divergences 2, 4, 5) | #174 | draft, stacked on #173; the graph's half is in step 3 |
-| Alt's exclusion, and an empty set keeps nothing (divergences 6, 10) | #175 | draft, stacked on #174 |
+| The greyout, derived per theme | #177 | merged |
+| One selection across relations — the timeline, the dashboard and the graph on it (divergence 3) | this branch | implemented, merged over #174, #175, #177 and #179 |
+| A clause a type cannot answer keeps none of it — graph, search, Ask (divergences 2, 4, 5) | #174 | merged |
+| Alt's exclusion, and an empty set keeps nothing (divergences 6, 10) | #175 | merged; its exclusion is published on `vertices` |
 
 ## Risks
 
-- **Removing the column rule changes what a host's raw column clause does to types without the
-  column**: they go from in colour to greyed. Every in-repo source publishes on its relation; a host
+- **Keeping none instead of skipping changes what a host's raw column clause does to types without
+  the column**: they go from in colour to greyed. Every in-repo source publishes on its relation; a host
   that publishes raw columns would see the change, and the changeset says it.
 - **An exclusion clause is a second kind of canvas clause.** The chip has to read it (*not 3
   vertices*), and Clear and Esc treat it like any other.

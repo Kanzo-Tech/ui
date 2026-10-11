@@ -1,5 +1,6 @@
 import { Graph } from "@cosmos.gl/graph";
 import { GraphError } from "../core/error";
+import { greyedOf } from "../core/kept";
 import type { Geometry } from "../core/load";
 import type { Arrangement, GraphStore } from "../core/store";
 import type { GraphCommands, Motion, VertexId } from "../core/types";
@@ -178,7 +179,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       graph.setPointShapes(buffers.shapes);
       graph.setLinkColors(buffers.linkColors);
       graph.setPointClusters(encoding.clusters ?? []);
-      graph.setConfigPartial({ ...appearance(look, host), renderLinks: linksShown() });
+      graph.setConfigPartial({ ...appearance(look, host, buffers.palette), renderLinks: linksShown() });
     }
     if (dirty.state && geometry) {
       dirty.state = false;
@@ -317,7 +318,6 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       camera.take();
       graph.setZoomLevel(graph.getZoomLevel() * factor, 220);
     },
-    fit: () => camera.fit(),
     pause() {
       graph.pause();
     },
@@ -340,7 +340,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     },
     frame() {
       const visible = store.visible();
-      if (visible === null) return camera.fit();
+      if (visible === null || !greyedOf(store.getSnapshot())) return camera.fit();
       camera.take();
       const vertices = visible.filter((id) => id < size());
       if (vertices.length > 0) graph.fitViewByPointIndices(vertices, FIT_DURATION, 0.25);

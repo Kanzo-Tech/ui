@@ -1,72 +1,68 @@
-import { ComponentHarness, type By, type Handle, type HarnessEnvironment } from "../environment";
+import { ComponentHarness, type By } from "../environment";
 
 /** `Finding`'s severities, worst first. */
 export type Severity = "violation" | "warning" | "info";
 
 /**
- * What both rows answer. A row is a `listitem` of a `Diagnostic` list; nothing accessible tells a
- * finding's row from any other list item — a group row's sample is one too — so the two are found
- * by their `data-slot`, and everything inside them by role.
+ * **`FindingsItem`**: one result, or many that share a rule. An item is a `listitem` of a
+ * `Diagnostic` list; nothing accessible tells a finding's item from any other list item — a group's
+ * sample is one too — so it is found by its `data-slot`, and everything inside it by role.
  */
-abstract class RowHarness extends ComponentHarness {
+export class FindingsItemHarness extends ComponentHarness {
+  static readonly by: By = { css: '[data-slot="findings-item"]' };
+
   /**
-   * The row's severity. Read from `data-severity`: the word on the badge is the host's, and the
+   * The item's severity. Read from `data-severity`: the word on the badge is the host's, and the
    * severity is the one value the library itself names.
    */
   async severity(): Promise<Severity> {
     return (await this.host.attribute("data-severity")) as Severity;
   }
 
-  /** The message, line 2. */
-  message(): Promise<string> {
-    return this.one({ css: '[data-slot="finding-message"]' }, "the row has no message").then((m) => m.text());
+  /**
+   * How many results the item stands for: a group's `data-count`, not the formatted figure on the
+   * badge, and 1 for one result.
+   */
+  async count(): Promise<number> {
+    const count = await this.host.attribute("data-count");
+    return count === null ? 1 : Number(count);
   }
 
-  /** Where, as the host's `describe` reads the place. */
+  /** The message, line 2. */
+  message(): Promise<string> {
+    return this.one({ css: '[data-slot="findings-message"]' }, "the item has no message").then((m) => m.text());
+  }
+
+  /** Where, line 1: the place as the host's `describe` reads it, or what a group shares. */
   where(): Promise<string> {
-    return this.one({ css: '[data-slot="finding-where"]' }, "the row has no place").then((w) => w.text());
+    return this.one({ css: '[data-slot="findings-where"]' }, "the item has no place").then((w) => w.text());
   }
 
   /**
-   * Presses the row's own action — *Show*, *Go to line* — by its label. Inside a findings popover,
-   * waits for the popover to close, as the row closes it before it runs the action.
+   * Presses the item's one action — *Go to line*, *Show 362* — by its label. Inside a findings
+   * popover, waits for the popover to close, as the item closes it before it runs the action.
    */
   async act(label: string | RegExp): Promise<void> {
     const inPopover = (await this.env.root.find({ role: "dialog" })).length > 0;
-    const button = await this.one({ role: "button", name: label }, `the row has no "${String(label)}"`);
+    const button = await this.one({ role: "button", name: label }, `the item has no "${String(label)}"`);
     await button.click();
     if (inPopover)
       await this.env.until(async () => (await this.env.root.find({ role: "dialog" })).length === 0, "the findings did not close");
   }
 
-  /** Opens the row's disclosure: the detail, the rule, the help — and a group's sample. */
+  /** Opens the item's disclosure: one result's detail or a group's sample, then the rule and the help. */
   async open(): Promise<void> {
     // Ark's collapsible trigger: a button with `aria-expanded`, which a `By` cannot ask for by role.
-    const trigger = await this.one({ css: '[data-scope="collapsible"][data-part="trigger"]' }, "the row has no disclosure");
+    const trigger = await this.one({ css: '[data-scope="collapsible"][data-part="trigger"]' }, "the item has no disclosure");
     if ((await trigger.attribute("aria-expanded")) !== "true") await trigger.click();
-    await this.env.until(async () => (await trigger.attribute("aria-expanded")) === "true", "the row did not open");
-  }
-}
-
-/** **`FindingRow`**: one result. */
-export class FindingRowHarness extends RowHarness {
-  static readonly by: By = { css: '[data-slot="finding-row"]' };
-}
-
-/** **`FindingGroupRow`**: many results that share a rule, a count on the badge and a sample inside. */
-export class FindingGroupRowHarness extends RowHarness {
-  static readonly by: By = { css: '[data-slot="finding-group-row"]' };
-
-  /** How many results the group holds — `data-count`, not the formatted figure on the badge. */
-  async count(): Promise<number> {
-    return Number(await this.host.attribute("data-count"));
+    await this.env.until(async () => (await trigger.attribute("aria-expanded")) === "true", "the item did not open");
   }
 
-  /** Opens the row and reads each sampled place, as `describe` reads it. */
+  /** Opens a group and reads each sampled place, as `describe` reads it. */
   async sample(): Promise<string[]> {
     await this.open();
-    const list = await this.one({ css: '[data-slot="finding-sample"]' }, "the group has no sample");
-    const places = await list.find({ css: '[data-slot="finding-where"]' });
+    const list = await this.one({ css: '[data-slot="findings-sample"]' }, "the item is not a group");
+    const places = await list.find({ css: '[data-slot="findings-where"]' });
     return Promise.all(places.map((place) => place.text()));
   }
 }
@@ -74,7 +70,7 @@ export class FindingGroupRowHarness extends RowHarness {
 /**
  * **`FindingsBadge`**, and the popover it opens. The badge is a button named by the host's tally,
  * which no harness can know in advance, so it is found by its `data-slot`; the popover is a
- * `dialog`, its groups `region`s named by their titles, its rows found as above.
+ * `dialog`, its groups `region`s named by their titles, its items found as above.
  */
 export class FindingsBadgeHarness extends ComponentHarness {
   static readonly by: By = { css: '[data-slot="findings-badge"]' };
@@ -99,29 +95,17 @@ export class FindingsBadgeHarness extends ComponentHarness {
     );
   }
 
-  /** Opens the popover and returns the row whose message reads `message`. */
-  async row(message: string | RegExp): Promise<FindingRowHarness> {
-    return this.rowOf(FindingRowHarness, message);
-  }
-
-  /** Opens the popover and returns the group row whose message reads `message`. */
-  async groupRow(message: string | RegExp): Promise<FindingGroupRowHarness> {
-    return this.rowOf(FindingGroupRowHarness, message);
-  }
-
-  private async rowOf<H extends RowHarness>(
-    type: (new (env: HarnessEnvironment, host: Handle) => H) & { by: By },
-    message: string | RegExp,
-  ): Promise<H> {
+  /** Opens the popover and returns the item whose message reads `message`, one result or a group. */
+  async item(message: string | RegExp): Promise<FindingsItemHarness> {
     const dialog = await this.open();
     const host = await this.env.until(async () => {
-      for (const row of await dialog.find(type.by)) {
-        const [line] = await row.find({ css: '[data-slot="finding-message"]' });
+      for (const item of await dialog.find(FindingsItemHarness.by)) {
+        const [line] = await item.find({ css: '[data-slot="findings-message"]' });
         const text = line ? await line.text() : "";
-        if (typeof message === "string" ? text === message : message.test(text)) return row;
+        if (typeof message === "string" ? text === message : message.test(text)) return item;
       }
       return undefined;
     }, `no finding reads "${String(message)}"`);
-    return new type(this.env, host);
+    return new FindingsItemHarness(this.env, host);
   }
 }

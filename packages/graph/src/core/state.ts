@@ -165,8 +165,8 @@ export interface GraphStore {
    * `frame()` fits; `null` when no clause is set. The same array until `kept` or the geometry changes.
    */
   visible(): readonly VertexId[] | null;
-  /** The canvas's own pick, from one of its gestures. */
-  select(vertices: readonly VertexId[] | null, source?: SelectionSource, label?: string): void;
+  /** The canvas's own clause, from one of its gestures: the vertices it keeps, or — `excludes` — those it leaves out. */
+  select(vertices: readonly VertexId[] | null, source?: SelectionSource, label?: string, excludes?: boolean): void;
   /** The crossfilter the graph filters by: `filterBy`, or the root's own. */
   scope(): Crossfilter;
   /**

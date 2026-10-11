@@ -63,7 +63,7 @@ describe("the workspace's graph", () => {
       ],
       { in: "screen" },
     );
-    await page.getByRole("button", { name: "Clear the selection" }).waitFor();
+    await page.getByRole("button", { name: "Frame what the filters keep" }).waitFor();
     await graph.frame();
   });
 

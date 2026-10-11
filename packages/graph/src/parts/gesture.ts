@@ -54,11 +54,9 @@ export interface GraphSelectionGesture {
 
 export interface GraphSelectionOptions {
   getGraph: () => Graph | null;
-  /** The canvas's own pick, for the modifiers to add to or subtract from. */
+  /** The canvas's own clause, for the modifiers to add to or take from. */
   getSelection: () => Selection | null;
-  /** What is in full colour, which the modifiers start from when the canvas picks nothing. */
-  getVisible: () => readonly VertexId[] | null;
-  commit: (vertices: Set<VertexId> | null, source: SelectionSource, label: string) => void;
+  commit: (vertices: Set<VertexId> | null, source: SelectionSource, label: string, excludes: boolean) => void;
   tool: Tool;
   setTool: (tool: Tool) => void;
 }
@@ -69,7 +67,7 @@ const NAME: Record<"rect" | "lasso", { source: SelectionSource; label: string }>
 };
 
 export function useGesture(options: GraphSelectionOptions): GraphSelectionGesture {
-  const { commit, getGraph, getSelection, getVisible, setTool, tool } = options;
+  const { commit, getGraph, getSelection, setTool, tool } = options;
   const [drag, setDrag] = useState<Drag | null>(null);
   const [preview, setPreview] = useState<number | null>(null);
   const [shift, setShift] = useState(false);
@@ -122,7 +120,7 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
       setPreview(null);
       if (dragging) setDrag(null);
       else if (tool) setTool(null);
-      else commit(null, "node", "");
+      else commit(null, "node", "", false);
     };
     const up = (event: KeyboardEvent) => {
       if (event.key === "Shift") setShift(false);
@@ -151,20 +149,13 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
     // The hit test answers in buffer indices, and a drawn vertex's index is its id.
     const vertices = new Set<VertexId>(hitTest(shape));
     // A gesture that caught nothing is a misfire, not a request to clear — clearing is what the
-    // corner's own button and Escape are for — and with Alt it would turn what a filter keeps into
+    // pick's chip and Escape are for — and with Alt it would turn what a filter keeps into
     // the canvas's pick for no visible change.
     if (vertices.size === 0) return;
     const { label, source } = NAME[shape.tool];
-    const held = getSelection()?.vertices ?? getVisible() ?? [];
-    if (event.altKey) {
-      const next = new Set(held);
-      for (const vertex of vertices) next.delete(vertex);
-      commit(next.size > 0 ? next : null, source, label);
-    } else if (event.metaKey || event.ctrlKey) {
-      commit(new Set([...held, ...vertices]), source, label);
-    } else {
-      commit(vertices, source, label);
-    }
+    const verb = event.altKey ? "take" : event.metaKey || event.ctrlKey ? "add" : "replace";
+    const next = modified(getSelection(), vertices, verb);
+    commit(next && next.vertices.size > 0 ? next.vertices : null, source, label, next?.excludes ?? false);
   };
 
   const active: Tool = tool ?? (shift ? "rect" : null);
@@ -206,4 +197,34 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
       },
     },
   };
+}
+
+/**
+ * **What a gesture makes of the canvas's own clause** — and of nothing else's
+ * (`/docs/design/crossfilter#the-verbs-act-on-their-own-sources-clause-nothing-more`). The clause
+ * keeps a set or leaves one out; ⌘ adds what the gesture caught to what is kept, Alt takes it away,
+ * and with no clause Alt leaves it out — `NOT IN` — so the clause stays right when another source's
+ * clause changes. `null` is no clause.
+ *
+ * | | no clause | keeps *I* | leaves out *E* |
+ * | --- | --- | --- | --- |
+ * | drag | keeps *X* | keeps *X* | keeps *X* |
+ * | ⌘ + drag | keeps *X* | keeps *I ∪ X* | leaves out *E ∖ X* |
+ * | Alt + drag | leaves out *X* | keeps *I ∖ X* | leaves out *E ∪ X* |
+ */
+export function modified(
+  held: Selection | null,
+  caught: ReadonlySet<VertexId>,
+  verb: "replace" | "add" | "take",
+): { vertices: Set<VertexId>; excludes: boolean } | null {
+  if (verb === "replace" || (held === null && verb === "add")) return { vertices: new Set(caught), excludes: false };
+  if (held === null) return { vertices: new Set(caught), excludes: true };
+  const set = new Set(held.vertices);
+  // The set grows when ⌘ adds to a set that is kept, or Alt to one that is left out.
+  const grows = (verb === "add") !== held.excludes;
+  for (const vertex of caught) {
+    if (grows) set.add(vertex);
+    else set.delete(vertex);
+  }
+  return set.size > 0 ? { vertices: set, excludes: held.excludes } : null;
 }

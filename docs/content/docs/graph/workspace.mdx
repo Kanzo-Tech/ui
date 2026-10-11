@@ -96,7 +96,9 @@ const { coordinator, selection } = useMosaic();
 ```
 
 A chart's brush greys out on the canvas the vertices it drops, and the reader's click or lasso is
-published as a `dense_id` clause that every chart filters by and the graph does not. A type the
+published as a `dense_id` clause that every chart filters by and the graph does not. A table that
+lacks a clause's columns keeps none of its vertices under it, so a clause naming columns no vertex
+table has greys the whole graph ([why](/docs/design/crossfilter#formal-semantics)). A type the
 joins have is read by its name, catalog and all. A clause on one relation reaches a part on another
 crossed by `dense_id`, or keeps none of it where there is no way across, so a `Dashboard` over a
 relation of the corpus shares this selection with the graph in both directions — [what the page
@@ -212,7 +214,7 @@ function GraphSettings() {
 The graph's section, whole: the picture, where the points come from — the archive's halls make
 Clustered worth trying — and the forces. **One line, because the root is the section's owner**: it
 answers the corpus's columns to the panel, so the panel holds no state and the page passes no list.
-Pausing, re-running and fitting the layout are the toolbar's, so the panel needs no camera
+Pausing, re-running and framing the layout are the toolbar's, so the panel needs no camera
 button. The gestures are the canvas's own; they are written down here because a reader scanning for
 "how do I select two clusters" wants a table.
 

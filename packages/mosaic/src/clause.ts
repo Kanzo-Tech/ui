@@ -7,6 +7,7 @@ import {
   TupleNode,
   column,
   literal,
+  not,
   walk,
   type ExprNode,
   type FilterExpr,
@@ -53,19 +54,52 @@ export interface SemiJoinOptions {
  * clause; an empty list keeps nothing, as `clausePoints` does.
  */
 export function clauseSemiJoin(key: string, members: SemiJoinMembers | null, options: SemiJoinOptions): SelectionClause {
-  const { source, label } = options;
-  const clients = options.clients ?? (source instanceof MosaicClient ? new Set([source]) : undefined);
   const field = column(key);
-  const meta: SemiJoinMetadata = label === undefined ? { type: "semijoin" } : { type: "semijoin", label };
-  const predicate: ExprNode | null =
-    members === null
-      ? null
-      : members instanceof Query
-        ? new InOpNode(field, new ScalarSubqueryNode(members))
-        : members.length === 0
-          ? literal(false)
-          : new InOpNode(field, new TupleNode(members.map((m) => literal(m))));
-  return { meta, source, clients, fields: [field], value: members, predicate };
+  return identity("semijoin", members, options, () =>
+    members instanceof Query
+      ? new InOpNode(field, new ScalarSubqueryNode(members))
+      : (members as readonly (string | number)[]).length === 0
+        ? literal(false)
+        : new InOpNode(field, new TupleNode((members as readonly (string | number)[]).map((m) => literal(m)))),
+  field);
+}
+
+/** A clause on identity: its source, the clients it does not filter, its chip's name, and `null` members clearing it. */
+function identity(
+  type: "semijoin" | "antijoin",
+  members: SemiJoinMembers | null,
+  { source, label, clients }: SemiJoinOptions,
+  predicate: () => ExprNode,
+  field: ExprNode,
+): SelectionClause {
+  return {
+    meta: (label === undefined ? { type } : { type, label }) as SemiJoinMetadata | AntiJoinMetadata,
+    source,
+    clients: clients ?? (source instanceof MosaicClient ? new Set([source]) : undefined),
+    fields: [field],
+    value: members,
+    predicate: members === null ? null : predicate(),
+  };
+}
+
+/** An anti-join clause's metadata: what a chip calls it, when its publisher named it. */
+export interface AntiJoinMetadata extends ClauseMetadata {
+  type: "antijoin";
+  label?: string;
+}
+
+/**
+ * **`NOT (key IN (members))`, as a clause** — the anti-join on identity: every row but the keys it
+ * names. It names the key alone, so every relation that carries the key answers it, as a semi-join.
+ * It is what a canvas publishes when the reader takes points away with no clause of its own to take
+ * them from (`/docs/design/crossfilter`): the clause is the points left out, so it stays right when
+ * another source's clause changes, where a copy of what that source kept, less the points, would not.
+ * `null` clears the source's clause; an empty list leaves nothing out, so it keeps every row. The
+ * key is never `NULL`, so `NOT IN` keeps every other row rather than none.
+ */
+export function clauseAntiJoin(key: string, members: readonly (string | number)[] | null, options: SemiJoinOptions): SelectionClause {
+  const field = column(key);
+  return identity("antijoin", members, options, () => (members!.length === 0 ? literal(true) : not(new InOpNode(field, new TupleNode(members!.map((m) => literal(m)))))), field);
 }
 
 /**
@@ -105,6 +139,10 @@ function read(clause: SelectionClause): ClauseParts & { joint: string } {
   const field = clause.fields?.map((f) => String(f).replace(/^"|"$/g, "")).join(", ") ?? "filter";
   const value: unknown = clause.value;
   const counted = (n: number) => ({ value: `${n} selected`, joint: " · " });
+  if (clause.meta?.type === "antijoin") {
+    const named = (clause.meta as AntiJoinMetadata).label ?? field;
+    return { field: named, value: `${(value as readonly unknown[]).length} left out`, joint: " · " };
+  }
   if (clause.meta?.type === "semijoin") {
     const named = (clause.meta as SemiJoinMetadata).label ?? field;
     return Array.isArray(value) ? { field: named, ...counted(value.length) } : { field: named, value: null, joint: " " };

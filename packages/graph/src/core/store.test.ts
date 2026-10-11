@@ -258,21 +258,22 @@ describe("the page's crossfilter", () => {
     expect(store.getSnapshot().matching).toBeNull();
   });
 
-  it("runs the predicate as Mosaic wrote it over every vertex, keeping none of a type without its column", async () => {
+  it("runs the predicate as Mosaic wrote it on every table that has its columns, and keeps none of one that has not", async () => {
     const { corpus, crossfilter, store } = await filtered();
     crossfilter.update(clausePoint("name", "Place 3", { source: chart }));
     await settle(corpus);
-    // Tag has no `name`: it holds NULL there, and the clause keeps none of it.
+    // Tag lacks `name`, so the clause keeps none of it: only the one Place that matched is kept.
     expect(ids(store.getSnapshot().kept)).toEqual([13]);
   });
 
-  it("reports a clause no vertex has the column for as the database's failure, and draws the graph unfiltered", async () => {
+  it("keeps nothing under a clause no vertex type can answer, and fails nothing", async () => {
     const { corpus, crossfilter, onFailure, store } = await filtered();
     crossfilter.update(clauseMatch("colour", "grey", { source: chart, method: "contains" }));
     await settle(corpus);
-    expect(onFailure).toHaveBeenCalledOnce();
-    expect(String(onFailure.mock.calls[0]?.[0])).toMatch(/colour/);
-    expect(store.getSnapshot().kept).toBeNull();
+    // No table has `colour`: the clause keeps none of any type, which is not the unfiltered picture.
+    expect(onFailure).not.toHaveBeenCalled();
+    expect(ids(store.getSnapshot().kept)).toEqual([]);
+    expect(store.getSnapshot().matching).toBe(0);
   });
 
   it("answers a semi-join on dense_id on every table, whatever relation its subquery reads", async () => {

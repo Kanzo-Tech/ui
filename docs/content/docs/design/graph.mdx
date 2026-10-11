@@ -58,16 +58,21 @@ and fossil_columns, and every vertex by its dense_id".
 ## The graph is a client of the page's coordinator
 
 `GraphClient` is a `MosaicClient` connected to the page's coordinator, like every chart beside it,
-and it reads `vertices`: every vertex table as one relation, `UNION ALL`, with `NULL` where a table
-has no such column. The coordinator hands it the page's predicate minus the graph's own clause, every
-clause published on another relation already crossed into `vertices` by the page's resolver
+and it reads `vertices`: every vertex table, as one relation. The coordinator hands it the page's
+predicate minus the graph's own clause, every clause published on another relation already crossed
+into `vertices` by the page's resolver
 ([across relations](#the-clause-rule-column-predicates-or-a-semi-join-on-identity)), and it answers
-with the vertices that survive: `SELECT dense_id FROM vertices WHERE <predicate>`. **The predicate
-runs as Mosaic wrote it** — nothing is translated. A column clause keeps none of a type without the
-column, because that type holds `NULL` there and SQL keeps no unknown row: the rule
-[the crossfilter decided](/docs/design/crossfilter#the-thesis-everything-is-a-filter), held by SQL
-rather than by code of the graph's. A clause naming a column no vertex table has is the database's
-error, as thrown.
+with the vertices that survive: `SELECT dense_id … WHERE <predicate>` per vertex table, `UNION ALL`.
+**The predicate runs as Mosaic wrote it** — nothing is translated. Which table a clause filters is
+[the clause rule](#the-clause-rule-column-predicates-or-a-semi-join-on-identity): a table that cannot
+answer a clause keeps none of its vertices, so only the tables that answer every clause are asked,
+under all of them, and a clause no table can answer keeps nothing
+([Crossfilter](/docs/design/crossfilter#formal-semantics) decided it, 11 October 2026). Before, a
+table that could not answer a clause was left unfiltered by it and a clause no table could answer was
+refused as `graph/unfilterable`; the timeline already greyed a type without its column, and two chips
+that looked alike in the bar greyed different things. The rule is held per table rather than by
+`NULL` in the union a chart reads `vertices` as: a clause that tests for `NULL` would keep a type
+without the column there, and a column whose type differs across tables is not in the union at all.
 
 **A filtered-out vertex is greyed, never hidden.** The surviving ids become cosmos.gl's
 `highlightedPointIndices` and the links between two of them `highlightedLinkIndices` — cosmos.gl does
@@ -121,11 +126,13 @@ the graph.
 
 *Held by* `packages/graph/src/core/client.ts`, `GraphClient`, `publish`;
 `packages/graph/src/core/store.test.ts`, "asks the coordinator which vertices survive, and keeps every
-buffer it has", "runs the predicate as Mosaic wrote it over every vertex, keeping none of a type without its column",
-"reports a clause no vertex has the column for as the database's failure, and draws the graph unfiltered",
+buffer it has", "runs the predicate as Mosaic wrote it on every table that has its columns, and keeps none of one that
+has not", "keeps nothing under a clause no vertex type can answer, and fails nothing",
 "publishes the reader's pick as a semi-join on dense_id, and is exempt from its own clause",
 "withdraws its pick from the crossfilter it leaves, and publishes it on the one it joins", "reads the
 vertex key from the address role, and refuses a corpus that gives none as graph/nothing-to-draw";
+`packages/graph/src/core/crossfilter.property.test.ts`, "keeps none of it, whatever else the page holds
+(ans(c, v) = false)";
 `packages/graph/src/parts/parts.test.tsx`, "publishes a place's pick as a clause of its own, which
 greys the rest of the graph out", "intersects with another place's pick and with the canvas's, one
 clause each", "is still the publisher of its clause after its holder mounts again, so picking replaces
@@ -147,8 +154,10 @@ question — each filters the graph, and the graph's pick filters each of them, 
 identity they share.
 
 `clauseSemiJoin(key, ids | query, { source, label })` in `@kanzo-tech/mosaic` is the constructor of
-the second form, built from mosaic-sql's nodes; `clauseColumns(filter)` is the reading of both.
-Neither names the graph: the key is the caller's.
+the second form, built from mosaic-sql's nodes; `clauseColumns(filter)` is the reading of both, and
+`GraphClient` applies it clause by clause. Neither names the graph: the key is the caller's, and a
+relation keyed by anything else crosses the same way. A column clause a vertex table cannot answer
+keeps none of that table.
 
 **A clause published on one relation reaches a client of another as the second form, written by the
 page.** A dashboard over a relation filters its tiles by `"Person.country"`, which `vertices` has
@@ -238,28 +247,56 @@ numbers a type the path visits twice".
 anyone else's clause.** Each place that picks owns one clause on the page's crossfilter, and clauses
 intersect — Mosaic's model, where every interactor publishes one clause from one source and a
 crossfilter is their conjunction; and Tableau's, where selecting highlights and only a filter
-filters. The marquee, the lasso and a click publish the canvas's clause from the graph's client, as
-before. What changes is where a modified gesture starts:
+filters. The marquee, the lasso and a click publish the canvas's clause from the graph's client. A
+gesture acts on the canvas's own clause and nothing else's, which either keeps a set or leaves one
+out (`modified` in `parts/gesture.ts`):
 
-| Gesture | The canvas's clause becomes |
-| --- | --- |
-| drag, click | what the gesture caught |
-| ⌘/Ctrl + drag | its clause — or, with none, what is in full colour — with what it caught added |
-| Alt + drag | the same base, with what it caught taken away |
-| Esc | a drag in progress, then the tool, then the canvas's clause; never another place's |
+| Gesture | No canvas clause | It keeps *I* | It leaves out *E* |
+| --- | --- | --- | --- |
+| drag, click | keeps *X* | keeps *X* | keeps *X* |
+| ⌘/Ctrl + drag | keeps *X* | keeps *I ∪ X* | leaves out *E ∖ X* |
+| Alt + drag | leaves out *X*: `NOT (key IN X)` | keeps *I ∖ X* | leaves out *E ∪ X* |
+| Esc | a drag in progress, then the tool, then the canvas's clause; never another place's | | |
 
 So a search that kept the 40 airports in Spain is a selection the tools can work on: Alt and a lasso
-over Madrid leave Spain without Madrid, because the canvas's clause is now *Spain less Madrid* and it
-intersects the search's. ⌘ and a lasso over Portugal add nothing in full colour while the search
-holds, because a filter filters; the toolbar says so — *40 of 3,218 · 20 hidden by other filters* —
-and the search's chip is where it is let go.
+over Madrid publish *not Madrid* from the canvas, which intersects the search's and reads *Spain less
+Madrid* — and stays right when the search changes, because the canvas never copied what the search
+kept. ⌘ and a lasso over Portugal add nothing in full colour while the search holds, because a filter
+filters; the toolbar says so — *40 of 3,218 · 20 hidden by other filters* — and the search's chip is
+where it is let go.
+
+**Alt with no canvas clause was a copy, and is an exclusion** (decided 11 October 2026,
+[Crossfilter](/docs/design/crossfilter#decided)). Until then ⌘ and Alt with no canvas clause started
+from what was in full colour, so Alt over Madrid made the canvas's clause *the 40 airports the search
+kept, less Madrid*: the canvas computed another source's result and held it as its own, which went
+stale when the search changed. This reverses that part of the decision above; ⌘ with no clause keeps
+what it caught, which a filter still narrows.
 
 **Framing is of what is in full colour.** `frame()` fits the camera to the canvas's clause within
 what the page keeps, or to what the page keeps when the canvas has no clause, or to the canvas's
-clause when the page keeps everything. The toolbar's selection group is drawn whenever something is
-greyed out — a count, **Frame**, and **Clear** when the canvas holds a clause — so what a search, a
-rule or a dashboard keeps can be framed with the button that frames a lasso. `frameSelection` is
-renamed `frame`; it never framed only a selection once a clause from elsewhere could be one.
+clause when the page keeps everything — and, when nothing is greyed out, to the whole graph, kept
+framed through a resize until the reader takes the camera. So a search, a rule or a dashboard's
+keep is framed with the button that frames a lasso, and with nothing kept that button is the old
+Fit: `fit()` was `frame()` over a page that greys nothing, and it is gone. `frameSelection` was
+renamed `frame` for the same reason; it never framed only a selection once a clause from elsewhere
+could be one.
+
+**The toolbar has one Frame, and nothing in it moves.** It was two: Fit in the zoom cluster, and a
+Frame inside a selection group drawn only while something was greyed — a count, Frame, and a ×
+for the canvas's own pick — placed between the tools and the zoom. Every lasso drew that group and
+pushed zoom and the transport sideways under the reader's hand, and the two buttons that frame
+were one command read in two states. Now the Frame sits in the camera's cluster, always, named for
+what it will frame — *Frame everything*, or *Frame what the filters keep* — and the count is a
+readout with no button in it, drawn on the side away from the anchor: first in a row, which the
+canvas's top-end corner grows leftward, last in a column, which grows downward. The × went because
+the canvas's pick is already a chip in the `FilterBar` and Escape drops it: one way to let go of a
+clause, its chip, as for every other place's. The reference is Figma and tldraw, which keep one zoom
+cluster in one fixed place and put a count beside it rather than inside it.
+
+**What would reverse it:** a host that anchors the toolbar at the start edge, often enough that a
+count drawn first pushes the buttons it was meant to leave alone — then the order follows the anchor,
+as a prop. Or readers who look for a way to drop a lasso on the canvas rather than at its chip, which
+puts a × back on the count, not a second Frame.
 
 **What is kept is computed once.** `keptOf` in `core/kept.ts` answers it — every clause on the page,
 the canvas's own included — and the snapshot's `kept` is the one reading: the renderer colours it, the
@@ -283,13 +320,18 @@ Tableau's *Keep only*, an explicit action, if it is ever wanted.
 often enough that *N hidden by other filters* does not explain it. Then an explicit *Keep only* on
 the toolbar, not a modifier, turns what is in full colour into the canvas's clause.
 
-*Held by* `packages/graph/src/parts/gesture.test.ts`, "starts ⌘ and Alt from what is in full colour
-when the canvas has no clause", "escapes a drag, then the tool, then the canvas's clause, and never
+*Held by* `packages/graph/src/parts/gesture.test.ts`, "keeps what ⌘ caught when the canvas has no
+clause, within what the other clauses keep", "leaves out what Alt caught when the canvas has no
+clause, and stays right when another clause changes", "takes from and adds back to a clause that
+leaves out, and clears it when it leaves nothing out", "escapes a drag, then the tool, then the canvas's clause, and never
 retracts another source's clause"; `packages/graph/src/render/renderer.test.ts`, "frames what is in
 full colour: the pick within what the filter keeps, else what the filter keeps", "colours what the
 tools act on: the canvas's full colour is store.visible(), filtered and picked";
-`packages/graph/src/parts/parts.test.tsx`, "draws the selection's group whenever something is greyed
-out, and says how many other filters hide".
+`packages/graph/src/parts/parts.test.tsx`, "counts what is in full colour first, with no button in it,
+and names the one Frame for what it frames", "counts whenever something is greyed out, and says how
+many other filters hide"; `packages/graph/src/render/renderer.test.ts`, "stops re-framing when the
+reader takes the camera, and starts again with Frame"; `packages/graph/src/core/crossfilter.property.test.ts`,
+"leaves out what an excluding canvas clause names, whatever the other clauses become (invariant 9)".
 
 ## ADR 0001 — the canvas holds the whole graph
 
@@ -510,7 +552,9 @@ under it read the root.
   corpus the map places, and how many edges it draws of all of them" and "says so when no edge has
   both ends on the map". What would reverse it: a placement that draws the unplaced vertices
   somewhere — by their links, say — at which point they are drawn and a third count says how.
-- **`GraphToolbar`** — the tools, the selection, zoom and fit, and the layout's transport.
+- **`GraphToolbar`** — how much is in full colour, the tools, zoom and Frame, and the layout's
+  transport. [The canvas's tools](#the-canvass-tools-edit-the-canvass-own-clause) says why it
+  has one Frame and why nothing in it moves.
 - **`GraphInspector`** — the focused vertex, Linkurious's inspector: headed by its title or its IRI's
   local name under its type, **Locate** beside it (`reveal`: frame it with its neighbours, and keep the
   camera there), the IRI under it with its copy button, then its row in two columns, in
@@ -571,8 +615,8 @@ a part of this package that must tell two of the canvas's own gestures apart by 
 **Policy stays out, through the root's callbacks** — `onSelect`, `onFocus` and `onFailure`. No part
 takes a callback of its own. `onFailure` is the one required prop: unhandled, a browser with no WebGL
 context shows an empty box. It receives what was thrown, whole — a read's own error with its `code`,
-or a `GraphError`: `graph/no-webgl`, `graph/context-lost`, `graph/no-positions` or `graph/nothing-to-draw`
-— so a host chooses what to show by code.
+or a `GraphError`: `graph/no-webgl`, `graph/context-lost`, `graph/no-positions` or `graph/nothing-to-draw` — so a host
+chooses what to show by code.
 
 **What would reverse it:** a part a second host cannot use without a prop that encodes that host's
 policy. That part goes back to the call site and is deleted from the package.
