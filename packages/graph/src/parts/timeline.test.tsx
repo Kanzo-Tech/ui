@@ -228,22 +228,26 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
   }
 
   let rerender: (height: number) => void = () => {};
+  /** Unmount the timeline, leaving the page. */
+  let hide: () => void = () => {};
   /** The page's selection, as the last `Page` rendered it. */
   let page: Selection | null = null;
 
   function Page({ corpus, children }: { corpus: Attached; children: (height: number) => ReactNode }) {
     const [height, setHeight] = useState(44);
     const [, setTick] = useState(0);
+    const [hidden, setHidden] = useState(false);
     rerender = (next) => {
       setHeight(next);
       setTick((t) => t + 1);
     };
+    hide = () => setHidden(true);
     const { selection } = useMosaic();
     page = selection;
     return (
       <GraphRoot coordinator={corpus.coordinator} filterBy={selection} from={corpus.from} onFailure={() => {}}>
         <FilterBar />
-        {children(height)}
+        {hidden ? null : children(height)}
       </GraphRoot>
     );
   }
@@ -258,8 +262,12 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
       </KanzoThemeProvider>,
     );
     const plot = () => (container.querySelector("[data-slot=chart]")?.firstElementChild as { value?: Drawn } | null)?.value;
+    /** The plot on screen, once it has drawn its brush. */
     const ready = async () => {
-      for (let i = 0; i < 100 && !plot()?.interactors[0]?.g; i++) await act(() => settle(corpus));
+      await vi.waitFor(async () => {
+        await act(() => settle(corpus));
+        expect(plot()?.interactors[0]?.g).toBeTruthy();
+      }, WAIT);
       return plot()!;
     };
     /**
@@ -299,39 +307,42 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
     const { brush, chips, plot, ready } = await drawn(corpus);
     await ready();
     const play = () => fireEvent.click(screen.getByRole("button", { name: /^(Play|Pause) time$/ }));
-    const one = () => {
-      expect(page!.clauses).toHaveLength(1);
-      expect(chips()).toHaveLength(1);
-    };
+    // What the page holds, once it has delivered it.
+    const one = () =>
+      vi.waitFor(() => {
+        expect(page!.clauses).toHaveLength(1);
+        expect(chips()).toHaveLength(1);
+      }, WAIT);
     // Disabled → a range → playing, accumulating inside it.
     expect(screen.getByRole("button", { name: "Play time" }).hasAttribute("disabled")).toBe(true);
     await brush(1900, 1904);
-    one();
+    await one();
     const { last } = recording(plot()!);
     play();
     await vi.waitFor(() => expect(last()[1]).toBeGreaterThan(1900.5), WAIT);
-    one();
+    await one();
     expect(last()[0]).toBe(1900);
     // Rebuilt while it plays — a resize — twice before the first rebuild has drawn.
     const stale = plot()!.interactors[0]!;
     await act(async () => rerender(80));
     await act(async () => rerender(88));
     await ready();
-    one();
-    // Paused; then a drag makes a new range — here the brush on screen before the rebuild,
-    // finishing its gesture, since d3 keeps listening — and the next Play starts from its start.
-    play();
-    one();
+    await one();
+    // Still playing through the rebuilds, and paused; then a drag makes a new range — here the brush
+    // on screen before the rebuild, finishing its gesture, since d3 keeps listening — and the next
+    // Play starts from its start.
+    fireEvent.click(screen.getByRole("button", { name: "Pause time" }));
+    await one();
     act(() => stale.publish([stale.scale.apply(1903), stale.scale.apply(1907)]));
     await act(() => settle(corpus));
-    one();
+    await one();
     expect(last()[0]).toBeCloseTo(1903, 1);
     play();
     const [from] = last();
     expect(from).toBeCloseTo(1903, 0);
     expect(last()[1]).toBeLessThan(from! + 0.5);
     await vi.waitFor(() => expect(screen.getByRole("button", { name: "Play time" })).toBeTruthy(), { timeout: 15_000 });
-    one();
+    await one();
     expect(last()[0]).toBe(from);
     expect(last()[1]).toBeCloseTo(1907, 0);
     play();
@@ -339,13 +350,16 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
     expect(last()[1]).toBeLessThan(from! + 0.5);
     play();
     await act(() => settle(corpus));
-    one();
+    await one();
   }, 30_000);
   it("names the window once on its chip, by the column", async () => {
     const corpus = await attach();
     const { brush, chips } = await drawn(corpus);
     await brush(1902, 1905);
-    expect(chips().map((chip) => chip.getAttribute("aria-label"))).toEqual(["Remove born 1902 – 1905"]);
+    // The chip reads the page's clause, which the page delivers after the brush's first answer: wait
+    // for it, and for nothing else beside it.
+    await vi.waitFor(() => expect(chips().map((chip) => chip.getAttribute("aria-label"))).toEqual(["Remove born 1902 – 1905"]), WAIT);
+    expect(page!.clauses).toHaveLength(1);
   });
 
   it("keeps the window through a rebuild of the plot, drawn and playable", async () => {
@@ -468,13 +482,15 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
     const band = container.querySelector<HTMLElement>("[data-slot=graph-timeline]")!;
     expect(band.style.minHeight).toBe("44px");
     const figure = () => band.querySelector<HTMLElement>("[role=figure]");
-    for (let i = 0; i < 100 && status !== "idle"; i++) {
-      // The canvas has drawn every frame it was given; the chart is the part still waited for: while
-      // it has not drawn its first answer — it is busy — the graph is loading.
-      if (figure()?.getAttribute("aria-busy") === "true") expect(status).toBe("loading");
+    // The canvas has drawn every frame it was given; the chart is the part still waited for: while
+    // it has not drawn its first answer — it is busy — the graph is loading. Seen at every step.
+    const busyAs: (string | undefined)[] = [];
+    await vi.waitFor(async () => {
+      if (figure()?.getAttribute("aria-busy") === "true") busyAs.push(status);
       await act(() => settle(corpus));
-    }
-    expect(status).toBe("idle");
+      expect(status).toBe("idle");
+    }, WAIT);
+    expect(busyAs.filter((seen) => seen !== "loading")).toEqual([]);
     expect(figure()?.getAttribute("aria-busy")).toBeNull();
     await vi.waitFor(() => expect(band.querySelector("[data-drawn]")).toBeTruthy(), WAIT);
     expect(container.querySelector("[data-slot=graph-timeline]")).toBe(band);
@@ -501,13 +517,21 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
     );
     const { container, rerender } = render(view("born"));
     const band = container.querySelector<HTMLElement>("[data-slot=graph-timeline]")!;
-    for (let i = 0; i < 100 && !(band.querySelector("[data-drawn]") && seen.at(-1) === "idle"); i++) await act(() => settle(corpus));
-    expect(seen.at(-1)).toBe("idle");
+    await vi.waitFor(async () => {
+      await act(() => settle(corpus));
+      expect(band.querySelector("[data-drawn]")).toBeTruthy();
+      expect(seen.at(-1)).toBe("idle");
+    }, WAIT);
     const figure = screen.getByRole("figure", { name: "Timeline: born" });
-    // Another column — any the vertex tables carry draws; the setting offers the temporal ones.
+    // Another column — any the vertex tables carry draws; the setting offers the temporal ones. The
+    // band waits for its bars, and draws them.
     seen.length = 0;
     rerender(view("score"));
-    for (let i = 0; i < 10; i++) await act(() => settle(corpus));
+    expect(figure.getAttribute("aria-busy")).toBe("true");
+    await vi.waitFor(async () => {
+      await act(() => settle(corpus));
+      expect(figure.getAttribute("aria-busy")).toBeNull();
+    }, WAIT);
     expect(screen.getByRole("figure", { name: "Timeline: score" })).toBe(figure);
     expect(container.querySelector("[data-slot=graph-timeline]")).toBe(band);
     expect(band.style.minHeight).toBe("44px");
@@ -541,15 +565,119 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
     expect(ends.every((to, i) => i === 0 || to >= ends[i - 1]!)).toBe(true);
     expect(ends[0]).toBeLessThan(1903);
     expect(last()).toEqual([1902, 1905]);
-    await act(() => settle(corpus));
-    expect(held()).toEqual([1902, 1905]);
     expect(screen.getByRole("status", { name: "Timeline" }).textContent).toBe("Ended at 1902 – 1905");
+    // The page holds the last frame once it has delivered it.
+    await vi.waitFor(() => expect(held()).toEqual([1902, 1905]), WAIT);
     fireEvent.click(play);
     expect(play.getAttribute("aria-pressed")).toBe("true");
     expect(last()[0]).toBe(1902);
     expect(last()[1]).toBeLessThan(1903);
     fireEvent.click(play);
   }, 30_000);
+
+  it("plays the range a brush stuck to when the page delivers the stick after Play is pressed", async () => {
+    const corpus = await attach();
+    const { brush, plot, ready } = await drawn(corpus);
+    await ready();
+    await act(() => settle(corpus));
+    // A client of the page still taking in the brush's first answer: Mosaic queues every value event
+    // behind it, so the drag-end's stick is not delivered yet when Play is pressed — a loaded page.
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    page!.addEventListener("value", () => gate);
+    await brush(1902, 1905);
+    expect(plot()!.interactors[0]!.value).toEqual([1902, 1905]);
+    expect(held()).not.toEqual([1902, 1905]);
+    const play = screen.getByRole("button", { name: "Play time" });
+    const { last } = recording(plot()!);
+    fireEvent.click(play);
+    expect(last()[0]).toBe(1902);
+    expect(last()[1]).toBeLessThan(1903);
+    await act(async () => release());
+    await vi.waitFor(() => expect(play.getAttribute("aria-pressed")).toBe("false"), WAIT);
+    expect(last()).toEqual([1902, 1905]);
+    expect(screen.getByRole("status", { name: "Timeline" }).textContent).toBe("Ended at 1902 – 1905");
+  });
+  it("has the range a brush stuck to at the drag's end, before the page delivers it", async () => {
+    const corpus = await attach();
+    const { brush, chips, plot, ready } = await drawn(corpus);
+    await ready();
+    await act(() => settle(corpus));
+    // Another control's window, which the page is still delivering to a client still taking it in:
+    // every event the brush makes waits behind it.
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    page!.addEventListener("value", () => gate);
+    const other = { reset() {} };
+    act(() => page!.update(onRelation(clauseInterval("born", [1800, 2000], { source: other }), "vertices")));
+    await brush(1902, 1905);
+    expect(page!.clauses.map((clause) => clause.source)).toEqual([other]);
+    // Playable, read, and drawn in colour from the snapped ends.
+    const play = screen.getByRole("button", { name: "Play time" });
+    expect(play.hasAttribute("disabled")).toBe(false);
+    expect(screen.getByRole("group", { name: "Window" }).getAttribute("aria-valuetext")).toBe("1902 – 1905");
+    const svg = document.querySelector("[aria-label='Timeline: born'] svg")!;
+    const clip = svg.querySelector("g[data-index='2']")!.getAttribute("clip-path");
+    const rect = svg.querySelector(`${/url\((#[^)]+)\)/.exec(clip ?? "")?.[1]} rect`)!;
+    const { scale } = plot()!.interactors[0]!;
+    expect(Number(rect.getAttribute("x"))).toBeCloseTo(scale.apply(1902));
+    expect(Number(rect.getAttribute("x")) + Number(rect.getAttribute("width"))).toBeCloseTo(scale.apply(1905));
+    // Delivered, and the other window let go, the page holds the snapped window once.
+    await act(async () => release());
+    act(() => page!.update(onRelation(clauseInterval("born", null, { source: other }), "vertices")));
+    await vi.waitFor(() => expect(chips().map((chip) => chip.getAttribute("aria-label"))).toEqual(["Remove born 1902 – 1905"]), WAIT);
+    expect(held()).toEqual([1902, 1905]);
+  });
+  it("holds a paused frame through a rebuild of the plot, and plays on from it", async () => {
+    const corpus = await attach();
+    const { brush, plot, ready } = await drawn(corpus);
+    await brush(1900, 1905);
+    const { windows, last } = recording(plot()!);
+    fireEvent.click(screen.getByRole("button", { name: "Play time" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pause time" }));
+    const frozen = last();
+    expect(frozen).toEqual([1900, expect.any(Number)]);
+    expect(frozen[1]).toBeLessThan(1901);
+    await act(() => settle(corpus));
+    const count = windows.length;
+    await act(async () => rerender(80));
+    await ready();
+    // The rebuilt plot republishes its brush for its own marks, and the timeline its frame over it.
+    await vi.waitFor(() => expect(windows.length).toBeGreaterThan(count), WAIT);
+    await vi.waitFor(() => expect(last()).toEqual(frozen), WAIT);
+    await act(() => settle(corpus));
+    await vi.waitFor(() => expect(held()).toEqual(frozen), WAIT);
+    expect(page!.clauses).toHaveLength(1);
+    expect(plot()!.interactors[0]!.value).toEqual([1900, 1905]);
+    expect(screen.getByRole("group", { name: "Window" }).getAttribute("aria-valuetext")).toBe(readWindow(frozen as [number, number]));
+    fireEvent.click(screen.getByRole("button", { name: "Play time" }));
+    expect(last()).toEqual(frozen);
+    await vi.waitFor(() => expect(last()[1]).toBeGreaterThan(frozen[1]!), WAIT);
+    expect(last()[0]).toBe(1900);
+    fireEvent.click(screen.getByRole("button", { name: "Pause time" }));
+  });
+  it("lets its window go when it unmounts, though the page has not delivered the window yet", async () => {
+    const corpus = await attach();
+    const { brush, chips, ready } = await drawn(corpus);
+    await ready();
+    await act(() => settle(corpus));
+    // Another control's window, which the page is still delivering: the brush's waits behind it.
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    page!.addEventListener("value", () => gate);
+    const other = { reset() {} };
+    act(() => page!.update(onRelation(clauseInterval("born", [1800, 2000], { source: other }), "vertices")));
+    await brush(1902, 1905);
+    expect(page!.clauses.map((clause) => clause.source)).toEqual([other]);
+    act(() => hide());
+    await act(async () => release());
+    act(() => page!.update(onRelation(clauseInterval("born", null, { source: other }), "vertices")));
+    // Nothing on screen publishes a window, so the page holds none.
+    await vi.waitFor(() => expect(page!.clauses).toHaveLength(0), WAIT);
+    await act(() => settle(corpus));
+    expect(page!.clauses).toHaveLength(0);
+    expect(chips()).toHaveLength(0);
+  });
   it("pauses when the pointer comes down on the bars, holds the frame, and plays on from it", async () => {
     const corpus = await attach();
     const { brush, plot } = await drawn(corpus);
@@ -582,8 +710,10 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
     await vi.waitFor(() => expect(chips()[0]!.getAttribute("aria-label")).toMatch(/^Remove born 1900 – 1900/), WAIT);
     expect(chips()[0]!.parentElement!.querySelector("svg:not(.size-3)")).toBeNull();
     fireEvent.click(chips()[0]!);
+    // The reset reaches play through the page: wait for the page to have let the window go.
+    await vi.waitFor(() => expect(page!.clauses).toHaveLength(0), WAIT);
     await act(() => settle(corpus));
-    expect(play.getAttribute("aria-pressed")).toBe("false");
+    await vi.waitFor(() => expect(play.getAttribute("aria-pressed")).toBe("false"), WAIT);
     expect(play.hasAttribute("disabled")).toBe(true);
     expect(chips()).toHaveLength(0);
     expect(page!.clauses).toHaveLength(0);

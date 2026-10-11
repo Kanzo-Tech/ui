@@ -58,6 +58,12 @@ interface Publisher {
 interface Slot {
   readonly source: ClauseSource;
   current: Publisher;
+  /**
+   * The last clause built under the source, until it is withdrawn or reset: what the page holds of
+   * the place, or is about to. `Selection.clauses` is what the page last delivered, and an update
+   * waits to be delivered behind the clients' answers to the one before, so it can lag a brush.
+   */
+  last?: SelectionClause;
 }
 
 /**
@@ -73,7 +79,8 @@ interface Slot {
  * Where the grammar is the same, the interactor at the same place, of the same kind, on the same
  * selection, keeps the place and is handed the old one's value — its brush is drawn from it — and,
  * once it has drawn, republishes it for its own marks. Where the grammar changed, a value of the old
- * one means nothing to the new one, and the place's clause is withdrawn at once.
+ * one means nothing to the new one, and the place's clause is withdrawn at once. Both go by the
+ * place's last clause, not by the page's: a brush the page has not delivered yet is still held.
  *
  * Returns what to run once the new plot has drawn, when there is anything.
  */
@@ -85,7 +92,15 @@ function handOver(slots: Slot[], after: readonly unknown[], same: boolean, relat
     const keeps = same && slot !== undefined && slot.current.constructor === heir.constructor && slot.current.selection === heir.selection;
     if (slot && !keeps) withdraw(slot);
     if (!keeps) {
-      const fresh: Slot = { source: { reset: () => fresh.current.reset?.() }, current: heir };
+      const fresh: Slot = {
+        source: {
+          reset: () => {
+            fresh.last = undefined;
+            fresh.current.reset?.();
+          },
+        },
+        current: heir,
+      };
       return adopt(fresh, heir, relation);
     }
     heir.value = slot.current.value;
@@ -93,7 +108,7 @@ function handOver(slots: Slot[], after: readonly unknown[], same: boolean, relat
     moves.push(() => {
       if (slot.current !== heir) return;
       if (heir.value === undefined) withdraw(slot);
-      else if (heir.selection?.clauses.some((c) => c.source === slot.source)) heir.selection.update(heir.clause!(heir.value));
+      else if (slot.last) heir.selection?.update(heir.clause!(heir.value));
     });
     return slot;
   });
@@ -113,7 +128,7 @@ function adopt(slot: Slot, interactor: Publisher, relation: RelationRef | null):
         if ("value" in slot.current) slot.current.value = args[0];
         return slot.current.clause!(...args);
       }
-      return onRelation({ ...own(...args), source: slot.source }, relation);
+      return (slot.last = onRelation({ ...own(...args), source: slot.source }, relation));
     };
   }
   return slot;
@@ -121,9 +136,10 @@ function adopt(slot: Slot, interactor: Publisher, relation: RelationRef | null):
 
 /** The slot's clause, withdrawn from its selection. */
 function withdraw(slot: Slot): void {
+  const { last } = slot;
   const selection = slot.current.selection;
-  const held = selection?.clauses.find((c) => c.source === slot.source);
-  if (selection && held) selection.update({ ...held, value: null, predicate: null });
+  slot.last = undefined;
+  if (selection && last) selection.update({ ...last, value: null, predicate: null });
 }
 
 /** An area stacked by a series column (the `z` `chart-marks` derives), which `denseStack` completes. */
