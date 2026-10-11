@@ -68,7 +68,7 @@ Wiring that to a backend — a debounced save, a read-only role, your own labels
 
 ```text
 Dashboard                 — reads the fields, draws the spec or the automatic one
-├── its filters           — drawn in the page's FilterBar, with "+ Filter"
+├── its filters           — drawn in the page's FilterBar, with "Add a filter" among its verbs
 ├── DashboardStat         — a `stat` tile
 ├── ChartCard             — a `chart` tile
 ├── DetailTable           — inside a `table` tile: the rows under the selection, paged by DuckDB
@@ -203,21 +203,26 @@ A dashboard's filters are drawn in it too. Each `filters` entry names a field an
 chosen from that field's stats and never written in the spec: a category is a facet list, a key a
 search, a measure a range slider, a time a brushable timeline. A field that has no control (a
 numeric key) or no longer exists is skipped. With `onChange`, each chip gets a remove button and
-**+ Filter** lists the fields that have a control and no filter yet. The bar leaves those clauses to
-the dashboard's chips rather than drawing them twice.
+**Add a filter** — an icon among the bar's verbs, not among the chips — lists the fields that have
+a control and no filter yet. The bar leaves those clauses to the dashboard's chips rather than
+drawing them twice.
 
 **The dashboard draws there through a slot**, a portal that keeps its own provider and crossfilter,
 so its filters stay where the reader put them. A control stays mounted while its popover is shut,
 because a control that unmounts retracts its clause, and a control in the bar queries as the bar
 does. **The bar is the same in every view**: a dashboard hidden by
 [`MosaicClients enabled={false}`](/docs/analytics/charts#mosaicclients) draws its chips, their
-controls and **+ Filter** there as when it is shown, so the reader sets its filters from whichever
+controls and **Add a filter** there as when it is shown, so the reader sets its filters from whichever
 view they are in, and they reach the page through `publish` as before. Pass `table` in every view
 too, and the readout says what they keep.
 
-After the chips, with `table`, the **readout** — *12 of 40 sightings*, `rowNoun` being the plural —
-then a quiet **Clear** while anything on the page filters, which is `useMosaic().reset()`, and the
-children. `useClauses(selection)` is a selection's live clause list, for a host that draws its own.
+**The bar is one line at any count.** The chips scroll sideways, the native scrollbar hidden and a
+fade at whichever edge hides more, and a chip added on its own is scrolled to. After a hairline the
+verbs are pinned as icons, each named in a tooltip: a dashboard's **Add a filter**, then **Clear
+every filter**, which is `useMosaic().reset()` — disabled rather than gone while nothing filters, so
+nothing beside it moves — then, with `table`, the **readout** — *12 of 40 sightings*, `rowNoun`
+being the plural — and the children. With no filter at all the row reads *No filters*, at the same
+height. `useClauses(selection)` is a selection's live clause list, for a host that draws its own.
 
 **A view swapped out keeps its clauses when it is hidden, not unmounted.** Wrap it in
 `MosaicClients enabled={false}`: its clients stop asking, its clauses stay in the bar and its
@@ -385,7 +390,7 @@ Every part is on the provider's crossfilter. A pick on a bar chart filters every
 the rest of its own bars instead of filtering itself away. A brush on a line, a histogram or the
 timeline filters by a range. The readout counts what survives. A clause published by something else
 on the page — a `ChartFilter` you placed above the dashboard, a lasso on a graph — is applied the
-same way, and *Clear* retracts it too.
+same way, and *Clear every filter* retracts it too.
 
 With `publish`, the tiles crossfilter each other in a selection of the dashboard's own, and the page
 sees one clause instead: the one `publish` maps them to. Everything above still holds inside the
@@ -476,7 +481,7 @@ removing one retracts that tile's clause alone; `bridged(clause)` is how it read
 
 Retracting goes both ways. A tile that lets go maps the rest again, and the last one withdraws the
 page's clause; removing the page's
-clause — its chip, the page's *Clear* — clears the tiles' brushes and picks. In the other direction,
+clause — its chip, the page's *Clear every filter* — clears the tiles' brushes and picks. In the other direction,
 a lasso on the graph reaches every tile as itself, so the graph stays exempt from its own pick and
 is not filtered by it back through the dashboard.
 
@@ -629,7 +634,7 @@ interface JoinEdge { name: string; label: string; source: string; destination: s
 | --- | --- | --- |
 | `table` | `TableExpr` | — (no readout) |
 | `rowNoun` | `string` | `"rows"` |
-| `children` | `ReactNode` | — trailing controls, after *Clear* |
+| `children` | `ReactNode` | — trailing controls, pinned last, after the readout |
 
 Every other prop goes to the root `section` (`data-slot="filter-bar"`).
 

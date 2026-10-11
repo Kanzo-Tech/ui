@@ -74,7 +74,7 @@ other clause as a chip and leaves the dashboard's to the dashboard's chips. Meta
 one row above everything it scopes; a page with a graph and a dashboard had two — the dashboard's,
 and `FilterChips` over the page — and the page's showed the dashboard's clauses a second time.
 **The bar is the same in every view.** A dashboard hidden behind `MosaicClients` keeps its filters
-and draws them: the chips that open a filter, **+ Filter**, and the readout of what they keep. Its
+and draws them: the chips that open a filter, **Add a filter**, and the readout of what they keep. Its
 filters reach the whole page through its semi-join, so they are about the canvas as much as about
 the tiles, and the reader sets them from whichever view they are in. The controls were mounted all
 along, because a control that unmounts retracts its clause; what changes is that they are drawn.
@@ -101,7 +101,43 @@ that view draws the clauses as chips alone, as v0.33.0 did.
 leaves that part's clauses to it", and "draws a hidden view's controls as it draws a shown one's,
 querying as the bar does and mounted once"; `packages/ui/src/charts/dashboard.test.tsx`, "are drawn
 in the page's FilterBar, from inside a dashboard that publishes its own clause", and "are drawn from
-a dashboard under MosaicClients that is off as when it is shown: control, remove, + Filter".
+a dashboard under MosaicClients that is off as when it is shown: control, remove, Add a filter".
+
+## The bar is one line, and its verbs are pinned
+
+**`FilterBar` is one row at any number of filters.** The chips scroll sideways in a `ScrollArea`,
+its scrollbar hidden and a fade at whichever edge hides more, and a chip added on its own is
+scrolled to — by the viewport's `scrollLeft`, since `scrollIntoView` would also scroll the page up
+to the bar while the reader brushes a chart below it. After a hairline the verbs are pinned as
+icons, each named by a tooltip and an `aria-label`: what a part puts there, *Add a filter*
+(`ListFilterPlus`), then *Clear every filter* (`FunnelX`), then the readout and the host's
+children. *Clear every filter* is disabled rather than absent while nothing filters, so the first
+filter moves nothing beside it; with none at all the row reads *No filters* at the same height.
+
+Linear draws filters as one row of chips with the view's controls pinned at its end; Notion keeps
+*+ Add filter* and *Reset* beside the chips and never among them. The bar wrapped instead, and the
+analytics example with a dashboard's filters, a brush and a pick took two lines — so the page
+under it jumped as filters came and went, and *+ Filter* sat wherever the last chip left it, a
+verb that moved every time a filter did.
+
+**A second slot, not a part.** A dashboard's *Add a filter* is the dashboard's: it knows the fields
+left, the bar does not. So it draws in the bar as its chips do, through `InFilterBarActions`, a
+second portal beside `InFilterBar`, rather than the bar growing an `onAdd` and a field list for a
+menu it cannot fill. `ScrollArea`'s `scrollFade` already masked the edges a column hides; it now
+masks the sides a row hides too, gated on there being sideways overflow, since Zag reports neither
+side reached when the content fits.
+
+**What would reverse it:** a reader who has to see every filter at once to read the page — filters
+long or many enough that a fade and a sideways scroll hide the one they came to change, measured on
+a real page. Then the row wraps again, or folds what does not fit into a *+N* chip that opens the
+rest. And for the icons: a verb a reader does not recognise from its icon, which then gets its word
+back.
+
+*Held by* `packages/ui/src/charts/filter-bar.test.tsx`, "clears every clause on the page, and keeps
+the button in place, disabled, while there is none", "draws what a part puts among its actions
+after the chips, before Clear every filter", "scrolls its chips in one row rather than wrapping, and
+says there are none while there are none", and "scrolls a chip added on its own into view, by the
+row alone".
 
 ## The spec is read whole or refused
 
