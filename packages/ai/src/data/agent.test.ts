@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { AiError } from "@kanzo-tech/llm";
-import { clausePoints, Selection, type Engine } from "@kanzo-tech/mosaic";
+import { bridgeSelection, clausePoints, semiJoinOf, Selection, type Engine } from "@kanzo-tech/mosaic";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { mockModel, promptOf } from "../testing/model.js";
 import { testDatabase, type TestDatabase } from "../testing/duckdb.js";
@@ -23,6 +23,16 @@ function picked() {
   const selection = Selection.crossfilter();
   selection.update(clausePoints(["Person.gender"], [["female"]], { source: {} }));
   return selection;
+}
+
+/** A page whose filter came from a dashboard over the relation `Person`: its pick crosses in as a semi-join. */
+async function pickedOnTheDashboard() {
+  const page = Selection.crossfilter();
+  const dashboard = Selection.crossfilter();
+  bridgeSelection(dashboard, page, semiJoinOf("Person.id", "Person", { label: "Person" }));
+  dashboard.update(clausePoints(["Person.gender"], [["female"]], { source: {} }));
+  await new Promise((heard) => setTimeout(heard, 0));
+  return page;
 }
 
 /** A page selection holding a clause the relation answers and one on a column it does not have. */
@@ -177,6 +187,14 @@ describe("dataSuggestions", () => {
     expect(prompt).toContain("- Person>knows>Person");
     expect(prompt).toContain("The page is filtered to: Person.gender female.");
     expect(prompt).toContain("Give 3.");
+  });
+
+  it("tells the model what a dashboard's pick filters the page to, not the relation it crossed from", async () => {
+    const { model } = mockModel(() => JSON.stringify({ elements: [] }));
+    for await (const _ of dataSuggestions({ model, graph: PEOPLE, relations, selection: await pickedOnTheDashboard() })) void _;
+    const prompt = promptOf(model.doStreamCalls[0]!);
+    expect(prompt).toContain("The page is filtered to: Person Person.gender female.");
+    expect(prompt).not.toContain("The page is filtered to: Person.\n");
   });
 
   it("offers no more than were wanted when the model writes more", async () => {
