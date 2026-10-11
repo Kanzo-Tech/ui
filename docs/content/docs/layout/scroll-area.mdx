@@ -40,7 +40,9 @@ overflows on that axis.
 ## Scroll fade
 
 `scrollFade` masks the top and bottom edges, and un-masks whichever edge you have reached —
-so the fade doubles as the "there is more above/below" signal.
+so the fade doubles as the "there is more above/below" signal. Content that overflows sideways
+fades at its left and right edges the same way; content that fits across is never masked there.
+`FilterBar`'s row of chips is one.
 
 <ComponentPreview componentName="scroll-area" fileName="example-scroll-fade" />
 

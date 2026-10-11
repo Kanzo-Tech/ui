@@ -6,8 +6,8 @@ import { Show } from "@kanzo-tech/ui";
 import { ARCHIVE_KINDS, said, useArchive } from "./archive";
 
 /**
- * The toolbar is the commands, drawn: arm the marquee or the lasso and drag, and the selection
- * cluster appears with what it holds, a frame and a clear. The canvas draws the rest itself — the
+ * The toolbar is the commands, drawn: arm the marquee or the lasso and drag, and a count of what
+ * it holds appears at the row's start, so Frame — beside zoom — never moves. The canvas draws the rest itself — the
  * grid, standing labels on the biggest vertices from the `title` column, the hover card and the
  * drag. Shift borrows the marquee whichever tool is armed; at release `Alt` removes what was drawn
  * and `⌘`/`Ctrl` adds.

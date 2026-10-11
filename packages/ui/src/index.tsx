@@ -65,7 +65,7 @@ export { ThemePreview } from "./composites/ThemePreview.js";
 export type { ThemePreviewProps } from "./composites/ThemePreview.js";
 export { ThemeNotice } from "./composites/theme-notice.js";
 export type { ThemeNoticeProps, ThemeRetiredCopy } from "./composites/theme-notice.js";
-// What a check found: one result or a group sharing a rule, a row for each, and a badge that tallies
+// What a check found: one result or a group sharing a rule, an item for each, and a badge that tallies
 // them — a SHACL report in Discover and a compiler's diagnostics in a recipe editor alike.
 export { groupFindings, tallyFindings } from "./lib/findings.js";
 export type {
@@ -76,25 +76,27 @@ export type {
   FindingTally,
 } from "./lib/findings.js";
 export {
-  FindingGroupRow,
-  FindingRow,
+  FindingsActions,
   FindingsBadge,
   FindingsContent,
   FindingsGroup,
+  FindingsHeader,
+  FindingsItem,
+  FindingsList,
   FindingsRoot,
+  FindingsSource,
   FindingsTally,
   useFindings,
 } from "./composites/findings.js";
 export type {
   DescribePlace,
   FindingAction,
-  FindingGroupRowProps,
   FindingLabels,
   FindingPlace,
-  FindingRowProps,
   FindingsBadgeProps,
-  FindingsContentProps,
   FindingsGroupProps,
+  FindingsItemProps,
+  FindingsListProps,
   FindingsRootProps,
   FindingsTallyProps,
 } from "./composites/findings.js";

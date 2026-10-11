@@ -2,11 +2,14 @@
 
 import {
   type Finding,
-  FindingRow,
   FindingsBadge,
   FindingsContent,
   FindingsGroup,
+  FindingsHeader,
+  FindingsItem,
+  FindingsList,
   FindingsRoot,
+  FindingsSource,
   tallyFindings,
 } from "@kanzo-tech/ui";
 
@@ -37,6 +40,7 @@ const plural = new Intl.PluralRules("es");
 const incidencias = (n: number) => `${n} ${plural.select(n) === "one" ? "incidencia" : "incidencias"}`;
 
 const LABELS = {
+  title: "Incidencias",
   severity: { violation: "Infracción", warning: "Aviso", info: "Nota" },
   details: "Detalles",
 };
@@ -48,11 +52,21 @@ export default function Example() {
     <FindingsRoot labels={LABELS} tally={tally}>
       <FindingsBadge pill>{(t) => (t?.total ? incidencias(t.total) : "Válido")}</FindingsBadge>
       <FindingsContent>
-        <FindingsGroup tally={tally} title="Conjunto de datos">
-          {ISSUES.map((issue) => (
-            <FindingRow describe={(field) => ({ where: field })} finding={issue} key={issue.place} />
-          ))}
-        </FindingsGroup>
+        <FindingsHeader>
+          <FindingsSource>conjunto-de-datos.ttl</FindingsSource>
+        </FindingsHeader>
+        <FindingsList>
+          <FindingsGroup tally={tally} title="Conjunto de datos">
+            {ISSUES.map((issue) => (
+              <FindingsItem
+                action={{ label: "Ir al campo", run: () => undefined }}
+                describe={(field) => ({ where: field })}
+                finding={issue}
+                key={issue.place}
+              />
+            ))}
+          </FindingsGroup>
+        </FindingsList>
       </FindingsContent>
     </FindingsRoot>
   );

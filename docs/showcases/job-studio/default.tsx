@@ -581,6 +581,7 @@ export function JobStudioShowcase() {
             findings={findings}
             name={name}
             onCreate={create}
+            onJump={jumpTo}
             program={program}
             values={config}
           />

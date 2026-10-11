@@ -1,12 +1,12 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Selection } from "@kanzo-tech/mosaic";
+import { clauseLabel, Selection } from "@kanzo-tech/mosaic";
 import { autoDashboard, MosaicProvider, type Dashboards, type DashboardSpec } from "@kanzo-tech/ui/analytics";
 import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { mockModel } from "../testing/model.js";
 import { testDatabase, type TestDatabase } from "../testing/duckdb.js";
-import { PEOPLE, PERSON, seedPeople } from "../testing/people.js";
+import { KNOWS, PEOPLE, PERSON, seedPeople } from "../testing/people.js";
 import type { ToolPart } from "../tool.js";
 import { dataAgent, type AnswerOutput } from "./agent.js";
 import { AnswerCard, type AnswerAdded } from "./answer-card.js";
@@ -16,23 +16,45 @@ import { readAnswerRelations } from "./relations.js";
 let db: TestDatabase;
 let person: AnswerRelation;
 let output: AnswerOutput;
+let everyone: AnswerOutput;
+let first: AnswerOutput;
+let knowing: AnswerOutput;
 
 beforeAll(async () => {
   db = await testDatabase();
   seedPeople(db);
-  [person] = (await readAnswerRelations(db.coordinator, PEOPLE, [PERSON])) as [AnswerRelation];
-  const agent = dataAgent({ model: mockModel(() => "").model, engine: db.engine, graph: PEOPLE, relations: [person] });
+  const [personal, knows] = (await readAnswerRelations(db.coordinator, PEOPLE, [PERSON, KNOWS])) as [AnswerRelation, AnswerRelation];
+  person = personal;
+  const agent = dataAgent({ model: mockModel(() => "").model, engine: db.engine, graph: PEOPLE, relations: [person, knows] });
   const input = {
     relation: "Person",
     where: [{ field: "Person.gender", in: ["female"] }],
     show: { kind: "stat", measure: { op: "avg", field: "Person.age" } },
   };
-  output = (await agent.tools.answer.execute!(input as never, { toolCallId: "c", messages: [] } as never)) as AnswerOutput;
+  output = await ask(input);
+  // keasy's snb-ask: a bar of every category, and nothing to narrow it — every person is in one.
+  everyone = await ask({ relation: "Person", show: { kind: "chart", type: "bar", x: "Person.gender", y: { op: "count" } } });
+  // The same bars, ranked down to the first: one gender of two.
+  first = await ask({ relation: "Person", top: 1, show: { kind: "chart", type: "bar", x: "Person.gender", y: { op: "count" } } });
+  // Through a hop, every category still keeps only the people who know someone.
+  knowing = await ask({ relation: "Person>knows>Person", show: { kind: "chart", type: "bar", x: "Person.gender", y: { op: "count" } } });
+
+  async function ask(input: object) {
+    return (await agent.tools.answer.execute!(input as never, { toolCallId: "c", messages: [] } as never)) as AnswerOutput;
+  }
 });
 
 const answered = (kept: AnswerOutput) =>
   ({ type: "tool-answer", toolCallId: "c", state: "output-available", input: {}, output: kept }) as ToolPart;
 const at = (state: ToolPart["state"], extra: object = {}) => ({ type: "tool-answer", toolCallId: "c", state, input: {}, ...extra }) as ToolPart;
+
+/** An element's description, as `aria-describedby` names it — what assistive technology reads after its name. */
+const description = (element: Element) =>
+  (element.getAttribute("aria-describedby") ?? "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((id) => document.getElementById(id)?.textContent ?? "")
+    .join(" ");
 
 function page(crossfilter = Selection.crossfilter()) {
   return ({ children }: { children: React.ReactNode }) => (
@@ -54,7 +76,7 @@ describe("AnswerCard", () => {
     });
     await userEvent.click(await screen.findByRole("button", { name: "Add to the dashboard" }));
     const [next, added] = onAdd.mock.calls[0]!;
-    expect(added).toEqual({ relation: PERSON, key: "Person" });
+    expect(added).toEqual({ relation: PERSON, key: "Person", id: output.answer.show.id });
     expect(next.byRelation.Other).toBe(other);
     expect(next.byRelation.Person!.tiles).toEqual([...autoDashboard(person.fields).tiles, output.answer.show]);
     unmount();
@@ -69,7 +91,7 @@ describe("AnswerCard", () => {
     const onAdd = vi.fn();
     const holding: Dashboards = { byRelation: { Person: { filters: [], tiles: [output.answer.show] } } };
     const { rerender } = render(<AnswerCard dashboards={holding} graph={PEOPLE} onAdd={onAdd} part={answered(output)} />, { wrapper: page() });
-    expect((await screen.findByRole("button", { name: "✓ On the dashboard" })).hasAttribute("disabled")).toBe(true);
+    expect((await screen.findByRole("button", { name: "On the dashboard" })).hasAttribute("disabled")).toBe(true);
     rerender(<AnswerCard dashboards={{ byRelation: { Person: { filters: [], tiles: [] } } }} graph={PEOPLE} onAdd={onAdd} part={answered(output)} />);
     expect((await screen.findByRole("button", { name: "Add to the dashboard" })).hasAttribute("disabled")).toBe(false);
   });
@@ -101,7 +123,7 @@ describe("AnswerCard", () => {
     expect(document.querySelector("[data-slot=diagnostic]")).toBeNull();
     await act(async () => settle.resolve());
     rerender(<AnswerCard dashboards={writing} graph={PEOPLE} onAdd={onAdd} part={answered(output)} />);
-    expect(screen.getByRole("button", { name: "✓ On the dashboard" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "On the dashboard" })).toBeTruthy();
   });
 
   it("follows a host that drew the tile before its write and rolled it back when the write failed", async () => {
@@ -128,7 +150,7 @@ describe("AnswerCard", () => {
     render(<Host />, { wrapper: page() });
     await userEvent.click(await screen.findByRole("button", { name: "Add to the dashboard" }));
     // Remounted over a document that holds the tile, the card says what the host says.
-    expect(await screen.findByRole("button", { name: "✓ On the dashboard" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "On the dashboard" })).toBeTruthy();
     await act(async () => fail());
     expect((await screen.findByRole("button", { name: "Add to the dashboard" })).hasAttribute("disabled")).toBe(false);
   });
@@ -136,14 +158,67 @@ describe("AnswerCard", () => {
   it("filters the page to the answer as one semi-join on the root key, and takes it back", async () => {
     const crossfilter = Selection.crossfilter();
     render(<AnswerCard graph={PEOPLE} part={answered(output)} />, { wrapper: page(crossfilter) });
-    await userEvent.click(await screen.findByRole("button", { name: "Filter to it" }));
+    const button = await screen.findByRole("button", { name: "Filter the page to these rows" });
+    expect(button.getAttribute("aria-pressed")).toBe("false");
+    await userEvent.click(button);
     expect(crossfilter.clauses).toHaveLength(1);
     expect(String(crossfilter.predicate(null))).toContain(`"dense_id" IN (SELECT "dense_id" FROM`);
     expect(String(crossfilter.predicate(null))).toContain(`"Person.gender" IN ('female')`);
-    const pressed = await screen.findByRole("button", { name: "✓ Filtered to it" });
-    expect(pressed.getAttribute("aria-pressed")).toBe("true");
-    await userEvent.click(pressed);
+    // The same button, its name kept, pressed while the clause holds.
+    expect(button.getAttribute("aria-pressed")).toBe("true");
+    await userEvent.click(button);
     expect(crossfilter.clauses.filter((c) => c.predicate != null)).toHaveLength(0);
+  });
+
+  it("names the chip after what it filters, as the filter bar reads each clause", async () => {
+    const crossfilter = Selection.crossfilter();
+    const { unmount } = render(<AnswerCard graph={PEOPLE} part={answered(output)} />, { wrapper: page(crossfilter) });
+    await userEvent.click(await screen.findByRole("button", { name: "Filter the page to these rows" }));
+    expect(clauseLabel(crossfilter.clauses[0]!)).toBe("Ask: Person.gender female");
+    unmount();
+
+    const ranked = Selection.crossfilter();
+    render(<AnswerCard graph={PEOPLE} part={answered(first)} />, { wrapper: page(ranked) });
+    await userEvent.click(await screen.findByRole("button", { name: "Filter the page to these rows" }));
+    expect(clauseLabel(ranked.clauses[0]!)).toBe(`Ask: Person.gender ${String(first.rows[0]!["Person.gender"])}`);
+  });
+
+  it("is disabled, and says why, when its clause would keep everything in view", async () => {
+    render(<AnswerCard graph={PEOPLE} part={answered(everyone)} />, { wrapper: page() });
+    const idle = await screen.findByRole("button", { name: "Filter the page to these rows" });
+    expect(idle.hasAttribute("disabled")).toBe(true);
+    expect(description(idle)).toBe("This answer keeps everything in view");
+  });
+
+  it("filters when the bars are ranked down to some categories, or cross a hop", async () => {
+    for (const kept of [first, knowing]) {
+      const { unmount } = render(<AnswerCard graph={PEOPLE} part={answered(kept)} />, { wrapper: page() });
+      const button = await screen.findByRole("button", { name: "Filter the page to these rows" });
+      expect(button.hasAttribute("disabled")).toBe(false);
+      expect(description(button)).toBe("");
+      unmount();
+    }
+  });
+
+  it("draws its verbs in the tile's header, beside its title", async () => {
+    const dashboards: Dashboards = { byRelation: {} };
+    const { unmount } = render(<AnswerCard dashboards={dashboards} graph={PEOPLE} onAdd={vi.fn()} part={answered(everyone)} />, { wrapper: page() });
+    for (const name of ["Filter the page to these rows", "Add to the dashboard"]) {
+      expect((await screen.findByRole("button", { name })).closest("[data-slot=card-header]")).not.toBeNull();
+    }
+    unmount();
+    render(<AnswerCard dashboards={dashboards} graph={PEOPLE} onAdd={vi.fn()} part={answered(output)} />, { wrapper: page() });
+    const add = await screen.findByRole("button", { name: "Add to the dashboard" });
+    expect(add.closest("[data-slot=stat-root]")).not.toBeNull();
+  });
+
+  it("opens the tile on the dashboard once it is there, when the host says how", async () => {
+    const onOpen = vi.fn<(added: AnswerAdded) => void>();
+    const holding: Dashboards = { byRelation: { Person: { filters: [], tiles: [output.answer.show] } } };
+    render(<AnswerCard dashboards={holding} graph={PEOPLE} onAdd={vi.fn()} onOpen={onOpen} part={answered(output)} />, { wrapper: page() });
+    await userEvent.click(await screen.findByRole("button", { name: "Open on the dashboard" }));
+    expect(onOpen).toHaveBeenCalledWith({ relation: PERSON, key: "Person", id: output.answer.show.id });
+    expect(screen.queryByRole("button", { name: "On the dashboard" })).toBeNull();
   });
 
   it("stays busy over the skeleton until the answer's tile is drawn", async () => {
