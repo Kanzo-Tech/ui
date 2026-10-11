@@ -59,7 +59,7 @@ does not wait for a frame: then the agent goes back to reading where the charts 
 **The card is a dashboard tile.** `QueryResult` gives way to the dashboard's `ChartCard` over the
 answer, with two actions that fall out of the shape: **Filter to it** publishes the answer's
 conditions and, for a bar chart, the categories it answered, mapped to the page as one semi-join on
-the relation's root key (`semiJoinOf`, as a relation dashboard's tiles are), and **Add to the
+the relation's root key (a `clauseSemiJoin` over the answer's rows), and **Add to the
 dashboard** puts the tile in the relation's spec, because it already is one. A kept answer is names,
 not SQL, so a restored transcript draws it again over the host's graph, and nothing a transcript
 carried reaches the engine as a statement.

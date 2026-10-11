@@ -4,7 +4,8 @@ description: Why everything that narrows the page is a filter — one clause on 
 ---
 
 **Decided 11 October 2026.** The thesis is approved, with the decisions at the end of the page. It
-is being implemented in the migration order below, one pull request per step. The page maps how the
+is being implemented in the migration order below, one pull request per step; [Step 3](#step-3-one-selection-across-relations)
+is designed in full here and [Status](#status) says where each step is. The page maps how the
 page filtered before, names every place where two parts disagreed, and states the abstraction that
 replaces them.
 
@@ -31,7 +32,7 @@ they *draw* what is not kept, never in deciding it:
 not been filtered out; it has nowhere to be drawn. That is a state of its own, and it is shown as
 one.
 
-## How the page filters today
+## How the page filtered before
 
 Every source already publishes into a Mosaic `Selection`, and most consumers read it. The paths
 differ, though, and that is where the parts disagree.
@@ -236,17 +237,18 @@ No value here is chosen by eye. Each is a cited default or follows from a stated
 
 ### One selection, one route in
 
-**Every source publishes one clause in identity form, `key IN (…)`, on the page's selection.** A
-group of parts that speaks columns (a dashboard, the timeline, any chart over the graph's vertices)
-does so through one crossing, `semiJoinOf(key, relation)`, which already exists for the dashboard.
-The timeline stops being a special path: `GraphTimeline` is a `ChartTimeline` in the crossing of
-"the vertices that have the column", the same hook the dashboard uses, not its own copy.
+**Every source publishes one clause on the page's one selection, on the relation it reads.** A
+client of the same relation reads it as published; a client of another reads it crossed into
+identity form, `key IN (SELECT key FROM <relation> WHERE …)`, by the page's resolver — the timeline,
+a dashboard and the canvas alike, with no route of their own ([Step 3](#step-3-one-selection-across-relations)).
+The timeline stops being a special path: it is `ChartTimeline` over `vertices`.
 
 **A clause a type cannot answer keeps none of that type, everywhere.** It is the timeline's rule and
 Cosmograph's (a point with no value answers `isBetween` false and is greyed,
-[Timeline](/docs/design/timeline)). Column clauses that reach the graph raw (the rules' `subject IN
-…`) are published through the crossing too, so the column rule in `GraphClient` and in the search's
-`inside` has nothing left to decide, and goes.
+[Timeline](/docs/design/timeline)). A column clause on `vertices` keeps none of a type without the
+column because that type holds `NULL` there; a clause on another relation reaches the graph crossed by
+key — so the column rule in `GraphClient` has nothing left to decide, and goes, and the search's
+`inside` follows it (#174).
 
 ### One "kept", derived once
 
@@ -355,161 +357,162 @@ eight themes' tokens, and the renderer's wiring.
 ## What changes, and what disappears
 
 - `@kanzo-tech/graph`: `GraphStore.kept()` replaces `mask`, `visible()`, `visibleOf`, `litOf`;
-  `GraphClient`'s column rule and `graph/unfilterable` go (every clause it gets is identity);
-  `GraphTimeline` uses the shared crossing; `gesture.ts`'s Alt-with-no-clause publishes an
-  exclusion; the greyout values change.
-- `@kanzo-tech/mosaic`: a `useCrossing(relation)` (or the existing `bridgeSelection` plus
-  `semiJoinOf`, named once) that the dashboard and the timeline share; a `clauseExclude(key, ids)`
+  `GraphClient` reads `vertices`, its column rule and `graph/unfilterable` go; `GraphTimeline` goes
+  for `ChartTimeline relation="vertices"`; `gesture.ts`'s Alt-with-no-clause publishes an exclusion;
+  the greyout values change.
+- `@kanzo-tech/mosaic`: the page's resolver, `crossfilterOver(joins)`, with a clause's relation
+  (`onRelation`) and a client's; `bridgeSelection` and `semiJoinOf` go; a `clauseExclude(key, ids)`
   beside `clauseSemiJoin`.
-- keasy: the rules publish through the crossing; Ask's skipped clauses become *the answer's
-  relation keeps none of them* (no rows, as a dashboard), or Ask states it the same way the
-  dashboard does. That is decision 3.
+- keasy: the rules publish on `vertices`; Ask's skipped clauses become *the answer's relation keeps
+  none of them* (no rows, as a dashboard), or Ask states it the same way the dashboard does. That is
+  decision 3.
 
 **Migration, in order:** one `kept()` and its tests (no behaviour change); the greyout measured and
-set; the timeline on the shared crossing; raw column clauses routed through crossings and the
-column rule removed; Alt's exclusion clause. Each step is its own PR with the gesture, renderer and
+set; one selection across relations, the timeline on it and the graph's column rule removed; the
+search's and Ask's column rule removed; Alt's exclusion clause. Each step is its own PR with the gesture, renderer and
 counts tests that hold the rule today.
 
-## Step 3: `GraphTimeline` is `ChartTimeline` over a source on the page's crossing
+## Step 3: one selection across relations
 
-**Proposal, waiting for approval — not implemented.**
+**Decided 11 October 2026, and implemented.** The principle is the owner's: *leave the magic to
+vgplot and Mosaic; a host does not manage selections, bridges or keys.* It replaces the proposal
+that stood here — `GraphTimeline` as a `ChartTimeline` inside a `Crossing` of a *source*, a selection
+per group of clients bridged to the page, and one way to retract through the clause's source — which
+still had a selection per group, a bridge per selection and a retraction path across them.
 
-**The thesis: they are the same.** `GraphTimeline` reduces to `ChartTimeline` reading a *source* and
-filtered by the page's crossing, with no semantics of its own. Today it adds three things to
-`ChartTimeline` (`packages/graph/src/parts/graph-timeline.tsx`, `core/source.ts:360-377`):
+### What a host writes
 
-1. **A data source** — `timelineOf(structure, column)`: one table of every vertex type that has the
-   column, and the key its window crosses the page through. That is the same kind of thing as a
-   dashboard tile's relation: a table, and the identity key the page knows it by.
-2. **A selection of its own and a bridge** — `Selection.crossfilter()` and `bridgeSelection(own,
-   page, semiJoinOf(key, table))`. That is the special path: it crosses as a dashboard crosses, but
-   by its own wiring.
-3. **Mounting** — the column from the graph's preferences, and holding the graph's load until the
-   bars have drawn. It decides nothing about what is kept.
+```tsx
+<MosaicProvider coordinator={coordinator} joins={joins}>
+  <FilterBar />
+  <GraphCanvas />                                   {/* the graph is one more client */}
+  <ChartTimeline relation="vertices" field="date" />
+  <RelationPicker value={relation} onValueChange={setRelation} />
+  <Dashboard relation={relation} />
+</MosaicProvider>
+```
 
-The references say the same. Cosmograph's `CosmographTimeline` is its generic `Timeline` bound to
-Cosmograph's data accessor ([Timeline](/docs/design/timeline)): the component is the same, only the
-source differs. A Mosaic client exposes a selection, `filterBy`, whose predicates the coordinator
-passes to its `query()` ([clients](https://idl.uw.edu/mosaic/core/#clients)), and a vgplot mark names
-its table beside it, `from(table, { filterBy })`
-([crossfilter example](https://idl.uw.edu/mosaic/examples/crossfilter.html)) — a source and a
-selection, and nothing else (Heer & Moritz 2024).
+No selection, no bridge, no key. `joins` is the corpus's join graph (`readJoinGraph`), which holds
+one more type, `vertices`: every vertex table as one relation, `NULL` where a table has no such
+column.
 
-### One abstraction: a source
+### Who does what
 
-> *A source is a pair S = (T, k)*: a relation *T* and the identity key *k* the page knows its rows
-> by.
-
-- A dashboard over a relation *R* is the source *(relationQuery(R), relationRootKey(R))*.
-- The timeline over a column *f* is the source *S_f = (⋃_\{types t with f\} π_\{k, f\}(t), k)* —
-  what `timelineOf` builds today.
-
-**A crossing of a source** is an inner selection *I* joined to the page *P*: the clauses published in
-*I*, *C_I*, reach *P* as one clause *k IN (SELECT k FROM T WHERE ⋀ C_I)*, whose source is the
-crossing — `semiJoinOf(k, T)` through `bridgeSelection`, which exists. One component, `Crossing`,
-mounts it, and every client inside it reads *T* filtered by *I*.
-
-### Formally
-
-> *GraphTimeline(f) ≡ Crossing(S_f) ∘ ChartTimeline(field = f, from = T_f, as = I, filterBy = I)*
-
-and the clause it publishes on the page is, by construction, the one a dashboard tile over *S_f*
-would publish: *k IN (SELECT k FROM T_f WHERE window(f))*. What `GraphTimeline` keeps after the
-reduction is mounting — choosing *f* from the preferences, and the load hold — none of which is in
-*kept*.
-
-### What it requires: one way to retract
-
-The reduction is only exact if removing the timeline's chip and removing a tile's chip retract the
-same way. Today they do not:
-
-- A dashboard's tiles do not publish into the dashboard's selection. Each `ChartRoot` owns a
-  selection of its own — a page-wide one would name columns other charts group by — and it is
-  relayed downstream: the chart's selection → the provider's `selected` → its crossfilter → the
-  bridge → the page (`charts/mosaic-provider.tsx:99-140`).
-- Mosaic's `Selection.reset(clauses)` travels **downstream only**. So a chip's × on the page reaches
-  the bridge's source, which resets the inner crossfilter, and the clause would stay in the chart's own
-  selection upstream, still highlighting. The provider therefore walks a registry of every chart
-  selection upstream (`retract`, `reset`), and the dashboard passes that walk to the bridge as its
-  `retract` option (`charts/dashboard.tsx:111-118`).
-- `GraphTimeline` publishes its brush straight into its inner selection (`as={own}`), so the bridge's
-  default retraction, `inner.reset(clauses)`, is enough, and it runs outside any `MosaicProvider`.
-
-Two retraction paths for one operation, and the second needs a React provider to exist.
-
-### The reference model: the clause's source owns its clause
-
-Mosaic already says who answers for a clause: its `source`. A clause carries the `ClauseSource` that
-published it, and `Selection.reset(clauses)` calls each one's `reset()` and then resets the
-selections it relays to — downstream only (`@uwdata/mosaic-core` 0.32.0, `Selection.js:168-173`;
-[Selection](https://idl.uw.edu/mosaic/api/core/selection.html); Heer & Moritz 2024). Vega-Lite's
-selections say the same from the other end: a selection's state lives in the view that defines it,
-and clearing it is that view's event, whoever asked
-([selection `clear`](https://vega.github.io/vega-lite/docs/selection.html#clear)). What is missing in ours is
-that a source's `reset()` only clears its interactor; it does not withdraw the clause *where it was
-published*.
-
-**The rule:** a source's `reset()` withdraws its clause from the selection it published into
-(`clauseNone(source)` there) and clears its interactor. The relays then carry the withdrawal down to
-every selection holding the clause, as they carry every update. A reset requested anywhere downstream
-— a chip on the page, the bridge, the provider's crossfilter — calls the source, so it reaches the
-origin and comes back down; nothing walks upstream.
-
-### What it changes
-
-- `MosaicProvider`'s registry walk goes: `retract(clauses)` and `reset()` become `selection.reset`
-  on any selection that holds the clauses, because each clause's source withdraws it at its origin.
-- `bridgeSelection`'s `retract` option goes: its default, `inner.reset(clauses)`, reaches every source.
-- **One crossing of a source**: `Crossing` over *S = (T, k)*, which the dashboard and `GraphTimeline`
-  both mount and which needs no provider — `GraphTimeline` becomes `ChartTimeline` inside
-  `Crossing(S_f)`, stays usable without a `MosaicProvider`, and its brush retracts by the same path as
-  a tile's. `timelineOf` is the source *S_f*; its own `Selection.crossfilter()` and `bridgeSelection`
-  go.
-- The interactors whose `reset()` does not withdraw — vgplot's interval and point interactors, which
-  only clear their own state — are given a source that does, in `ChartRoot`, rather than patched.
+- **vgplot and Mosaic, untouched.** The page's **one** selection is a Mosaic crossfilter: a chart
+  never filters itself, the interactors (brush, toggle, play) publish into it, the coordinator
+  re-queries, pre-aggregated views serve a brush, and a chip's × is `selection.reset([clause])`,
+  which calls the clause's source back.
+- **Ours, the one thing Mosaic cannot do: a clause published on relation *A* read by a client on
+  relation *B*.** One `SelectionResolver` — Mosaic's own extension point, `new Selection(resolver)`,
+  whose `predicate(clauses, active, client)` receives the client (`@uwdata/mosaic-core` 0.32.0,
+  `Selection.ts`) — built over `joins` by `crossfilterOver(joins)`. A clause carries the relation it
+  was published on (`meta.relation`, `onRelation`); a client exposes the one it reads now
+  (`relation`). Every part does both: a chart's interactors publish on its `relation`, its marks
+  read it, and SQL handed to a part is named by a `MosaicClients relation` around it.
 
 ### Formally
 
-With *origin(c)* the selection *c* was published into and *R* the relay graph (an edge *A → B* when
-*B* relays *A*), every selection that holds *c* is reachable from *origin(c)* in *R*. Withdrawing *c*
-at *origin(c)* therefore removes it from every selection reachable from it, which is every selection
-that holds it, whichever selection the reset was asked of. Today a reset asked of a selection *S*
-removes *c* only from *S* and what is reachable from *S*, which misses *origin(c)* whenever *S* is
-downstream of it — the case the registry walk patches.
+For a clause *c* published on relation *A* with predicate *p_c*, and a client on relation *B*, let
+*root(A)* be the key of *A*'s root and its type, and *steps(B)* the key of each step of *B* with its
+type, in path order. Two types **meet** when they are one, or one is a union (`of`) holding the
+other. Then the resolver hands the client
 
-### Risks
+> *r(c, B) = p_c* if *A = B*;
+> *r(c, B) = k IN (SELECT key_A FROM A WHERE ⋀_\{c′ on A\} p_\{c′\})* for the first *(k, t) ∈ steps(B)*
+> whose type meets *root(A)*'s;
+> *r(c, B) = FALSE* when no step meets it.
 
-- A source shared by two selections (a caller's `as` passed to two charts) withdraws from the one it
-  published into; the relay graph has to keep one origin per clause, which `ChartRoot` already does.
-- Mosaic calls `source.reset()` from inside `Selection.reset`; a source that publishes a withdrawal
-  synchronously re-enters it. The withdrawal is deferred to the end of the reset (a microtask), and a
-  test holds the order.
+Every clause published on one relation crosses **together** — on a joined relation, a root with a
+row where *a* and *b* hold is not a root with a row where *a* and one where *b*. A clause or a client
+that names no relation is Mosaic's: the clause as published. *kept* is then the conjunction of
+[Formal semantics](#formal-semantics), read per client: *ans(c, v)* is false for a type with no step
+of *A*'s root type, and over `vertices` a column clause keeps none of a type without the column
+because that type holds `NULL` there and SQL keeps no unknown row — the decided rule, held by SQL.
 
-### Tests that would hold it
+### A relation that changes
 
-- A property over random relay graphs and a reset asked of a random selection: afterwards no
-  selection holds the clause (from the selections' `clauses`, not from chips).
-- `GraphTimeline(f)` and `Crossing(S_f)` around a bare `ChartTimeline(f)` publish the same page
-  clause for every window and retract it the same way on a chip's ×, compared on the page's
-  `clauses` — the equivalence above, as a property over windows.
-- A dashboard's and the timeline's chip × retract through the same `Crossing`, with no `retract`
-  option and no provider registry.
+A chart's `relation` is reactive. When it changes the chart re-queries and withdraws its **own**
+clause — the rebuilt plot hands nothing over across relations — and no other client needs anything,
+because the resolver reads each client's relation when it asks.
+
+### Pre-aggregation stays where the clause is the client's own
+
+Mosaic's pre-aggregator indexes the **active** clause's columns against the client's table
+(`PreAggregator.ts`, `request` → `preaggregateInfo`). For a crossed client that view is built on
+columns of another relation: a failed statement where the column is missing, and where a column of
+the same name exists, **the wrong rows**. `preaggregateOwnRelation(coordinator)`, which the provider
+installs once per coordinator, answers *no view* for a client the active clause crosses into, so it
+asks the plain query the resolver crosses; a client of the clause's own relation is pre-aggregated
+exactly as before. Measured on the test corpus (`crossing-preagg.test.ts`): a brush on Places'
+`lon` over 1–3 keeps Places 11–13; a tile of places reads it from a `mosaic.preagg_*` view; a tile of
+people reads `[]` with the guard, and **`lon` 1–3 of people — three wrong rows — without it**.
+
+### The load waits for the charts, not for one part
+
+The graph's first load waits for every chart on its page that has not drawn its first answer: a
+chart holds the page's first draw (`holdFirstDraw` on the page's selection) until its first answer
+is drawn, fails, or stops asking under a `MosaicClients` that is off. It replaces the hold the
+graph's own timeline part took on the store.
+
+### What went
+
+`MosaicProvider`'s `crossfilter`, `selected`, `registerSelection`, `reset` and `retract` (the
+registry walk upstream); `useCrossfilter` and `useSelected`; `ChartRoot`'s `table`, `as` and
+`filterBy` and `ChartTimeline`'s `table`, `as`, `filterBy` and `paceBy` — `relation`, and the page's
+selection; `Dashboard`'s `publish` and the selection per dashboard; `bridgeSelection`, `bridged`,
+`clauseReadings` and `semiJoinOf`; `GraphTimeline` and `timelineOf`; the column rule in
+`GraphClient` and `graph/unfilterable`.
+
+### What would reverse it
+
+- **A relation whose keys do not share a space** — two corpora on one page, whose `dense_id`s
+  collide: then a key is a pair and the crossing a tuple semi-join.
+- **A path ambiguous enough to need choosing** — a relation with two steps of the clause's root type
+  where the first is the wrong one often enough to matter: then a clause names the step it crosses
+  into, and the resolver stops picking the first.
+- **Mosaic exposing a per-client pre-aggregation veto, or a resolver hook it calls before
+  pre-aggregating**: then `preaggregateOwnRelation`, which wraps the pre-aggregator's public
+  `request`, goes for it.
+- **A measured cost of the crossing subquery** at the largest corpus — it reads the relation the
+  clause was published on once per crossed client per update: then the keys are materialised once
+  per clause. At 200,000 people in DuckDB-WASM under Node the canvas's query over the `vertices`
+  union measured the same as the per-table union it replaced (median of 15: 19.7 ms against 19.9 ms
+  for a column clause, 25.9 ms against 29.7 ms for 500 ids); the graph benchmark in a browser was
+  not run for this step.
+
+*Held by* `packages/mosaic/src/crossfilter.test.ts`, "hands a clause to a client of the relation it
+was published on as it was published", "crosses a clause into another relation by the key of the
+step of its root's type", "keeps none of a relation with no step of the clause's type", "crosses
+every clause on one relation together, and leaves clauses that name no relation as published",
+"reads the client's relation when it asks, so a client that moves needs nothing else", "is asked for
+a clause on the client's own relation, and not for one crossed into it";
+`packages/graph/src/core/crossing.property.test.ts`, "reads a clause on one relation from another
+exactly as the semi-join on its root's key, and as nothing without a step of its type", "retracts a
+chip's clause for every reader, whatever relation it was published on";
+`packages/graph/src/core/crossing-preagg.test.ts`, "pre-aggregates a client of the clause's own
+relation, and asks a crossed one the plain query", "would index a crossed client by a column of the
+same name on its own table without it — the wrong rows";
+`packages/graph/src/core/one-selection.test.ts`, "filters the graph by what the tiles' brushes keep,
+as the root vertices they keep";
+`packages/graph/src/parts/timeline.test.tsx`, "holds the graph's loading until its bars are drawn,
+as any chart on its page, and mounts its band once", "crosses a window on it into every other
+relation, keeping none of a type without the column".
 
 ## Status
 
 | Step | Pull request | State |
 | --- | --- | --- |
-| One `kept()`, labels and counts read it (divergences 1, 8, 9) | #173 | draft, stacked on this page |
+| One `kept()`, labels and counts read it (divergences 1, 8, 9) | #173 | merged |
 | The greyout, derived per theme | #177 | draft, stacked on #175 |
-| The timeline on the shared crossing (divergence 3) | — | designed above (*Step 3*), waiting for approval |
-| A clause a type cannot answer keeps none of it — graph, search, Ask (divergences 2, 4, 5) | #174 | draft, stacked on #173 |
+| One selection across relations — the timeline, the dashboard and the graph on it (divergence 3) | this branch | implemented; for the graph it also removes the column rule, so #174 is left with the search's `inside` and Ask |
+| A clause a type cannot answer keeps none of it — graph, search, Ask (divergences 2, 4, 5) | #174 | draft, stacked on #173; the graph's half is in step 3 |
 | Alt's exclusion, and an empty set keeps nothing (divergences 6, 10) | #175 | draft, stacked on #174 |
 
 ## Risks
 
 - **Removing the column rule changes what a host's raw column clause does to types without the
-  column**: they go from in colour to greyed. Every in-repo source is identity already or bridged;
-  a host that publishes raw columns would see the change, and the changeset must say it.
+  column**: they go from in colour to greyed. Every in-repo source publishes on its relation; a host
+  that publishes raw columns would see the change, and the changeset says it.
 - **An exclusion clause is a second kind of canvas clause.** The chip has to read it (*not 3
   vertices*), and Clear and Esc treat it like any other.
 - **Folding the canvas's clause into `kept` without the exemption** must not cost a round trip per
