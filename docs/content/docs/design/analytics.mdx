@@ -367,11 +367,11 @@ leaves: `JoinType.rows` and `JoinEdge.rows`, which `joinGraphOf` carries from th
 `readStructure` already read. No query is added, and the counts are as fresh as the last load.
 
 The path is chips — *Place › Comments located in this place* — and any chip can be removed, which
-cuts the path there. Under them a grain line says what a row now is: *One row per Comment ·
-151,043 rows · Places without comments are left out*. One hop's count is its edge's rows; past one
-it is an estimate, written *~N*. The joins stay **inner**, as `relationQuery` has always built them
-(mosaic-sql's `join()` defaults to `INNER`); the line exists so that a hop which drops roots says
-so.
+cuts the path there. Nothing is written under them: the fan-out on each item already says what a
+hop does to the rows before it is taken, which is where every reference below says it, and a line
+restating the grain sat on every dashboard as chrome nobody read (the owner, 2026-10-11). The joins
+stay **inner**, as `relationQuery` has always built them (mosaic-sql's `join()` defaults to
+`INNER`).
 
 The references, verified 2026-10-10: Looker's join `relationship` (`one_to_one`, `many_to_one`,
 `one_to_many`, `many_to_many`) exists so measures survive fan-out; Metabase's notebook joins
@@ -390,12 +390,12 @@ Tableau and Looker protect). Each needs a query or a new relation shape.
 
 **What would reverse it:** a reader misled by an average on a skewed edge — then the hint shows the
 "has any" share, one `count(distinct …)` per edge at load; or a host that needs every root kept —
-then the join becomes left and the grain line says that instead.
+then the join becomes left; or a reader surprised that a hop dropped roots — then the item that
+takes it says so, beside its fan-out.
 
 *Held by* `packages/ui/src/charts/relation-picker.test.tsx`, "reads each hop as a sentence, grouped
-by direction and sorted by fan-out", "removes any chip, cutting the path there", "states the
-grain: one row per the last type, how many, and which roots drop out" and "lets a host phrase an
-edge and name a plural"; `packages/mosaic/src/relation.test.ts`, "gives each hop its fan-out when
+by direction and sorted by fan-out", "removes any chip, cutting the path there" and "lets a host
+phrase an edge and name a plural"; `packages/mosaic/src/relation.test.ts`, "gives each hop its fan-out when
 the graph carries counts".
 
 ## Two size gauges, measured against what ships

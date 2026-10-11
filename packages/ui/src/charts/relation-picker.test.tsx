@@ -84,33 +84,6 @@ describe("RelationPicker", () => {
     expect(seen.at(-1)).toEqual({ root: "Place", path: [] });
   });
 
-  it("states the grain: one row per the last type, how many, and which roots drop out", async () => {
-    const { rerender } = render(<RelationPicker graph={GRAPH} onValueChange={() => {}} value={{ root: "Place", path: [] }} />);
-    const grain = () => screen.getByRole("status").textContent;
-    expect(grain()).toBe("One row per Place · 1,460 rows");
-    rerender(<RelationPicker graph={GRAPH} onValueChange={() => {}} value={{ root: "Place", path: [{ edge: "Comment_isLocatedIn_Place", direction: "in" }] }} />);
-    expect(grain()).toBe("One row per Comment · 151,043 rows · Places without comments are left out");
-    rerender(
-      <RelationPicker
-        graph={GRAPH}
-        onValueChange={() => {}}
-        value={{
-          root: "Place",
-          path: [
-            { edge: "Person_isLocatedIn_Place", direction: "in" },
-            { edge: "Post_hasCreator_Person", direction: "in" },
-          ],
-        }}
-      />,
-    );
-    // Past one hop the count is the fan-outs multiplied, and says so.
-    expect(grain()).toBe("One row per Post · ~135,701 rows · Places without posts are left out");
-    // A graph without counts states the grain alone.
-    const bare: JoinGraph = { types: GRAPH.types.map((t) => ({ ...t, rows: undefined })), edges: GRAPH.edges.map((e) => ({ ...e, rows: undefined })) };
-    rerender(<RelationPicker graph={bare} onValueChange={() => {}} value={{ root: "Place", path: [{ edge: "Comment_isLocatedIn_Place", direction: "in" }] }} />);
-    expect(grain()).toBe("One row per Comment · Places without comments are left out");
-  });
-
   it("lets a host phrase an edge and name a plural", async () => {
     render(
       <Picked

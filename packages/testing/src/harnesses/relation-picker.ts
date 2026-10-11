@@ -6,9 +6,8 @@ const REMOVE = /^Remove (.+)$/;
  * **A `RelationPicker`**: the `group` "Relation". The root is the combobox "Root type"; each hop
  * taken is a chip whose button is "Remove {sentence}"; "Add related…" opens a menu of the hops that
  * leave the last type, each a `menuitem` named by its sentence and carrying its step as `data-hop`
- * — `>isPartOf>Place`, `<isLocatedIn<Comment`, the spelling `relationKey` joins. The grain line is
- * the group's `status`. The menus portal to the body, so they are reached through their trigger's
- * `aria-controls`.
+ * — `>isPartOf>Place`, `<isLocatedIn<Comment`, the spelling `relationKey` joins. The menus portal
+ * to the body, so they are reached through their trigger's `aria-controls`.
  */
 export class RelationPickerHarness extends ComponentHarness {
   static readonly by: By = { role: "group", name: "Relation" };
@@ -69,11 +68,6 @@ export class RelationPickerHarness extends ComponentHarness {
     const button = await this.one({ role: "button", name: `Remove ${sentence}` }, `no chip ${sentence} in the relation picker`);
     await button.click();
     await this.env.until(async () => !(await this.path()).includes(sentence), `the chip ${sentence} is still in the relation picker`);
-  }
-
-  /** What one row is, how many, and which roots drop out: *One row per Comment · 151,043 rows · …*. */
-  async grain(): Promise<string> {
-    return (await this.one({ role: "status" }, "the relation picker has no grain line")).text();
   }
 
   private trigger(name: string): Promise<Handle> {
