@@ -163,6 +163,29 @@ describe("the page's crossfilter, as properties of kept", () => {
     );
   });
 
+  it("leaves out what an excluding canvas clause names, whatever the other clauses become (invariant 9)", BUDGET, async () => {
+    const { corpus, store, publish } = await mapped();
+    const left = fc.uniqueArray(fc.integer({ min: 0, max: SIZE - 1 }), { minLength: 1, maxLength: SIZE });
+    await fc.assert(
+      fc.asyncProperty(page, page, left, async (before, after, out) => {
+        for (const s of SOURCES) publish(s, null);
+        store.select(out, "lasso", "Lasso", true);
+        for (const s of SOURCES) publish(s, before[s]);
+        await settle(corpus);
+        // kept = (the other clauses) ∧ ¬out, read from the tables.
+        const less = async (state: Record<Source, number[] | null>) => (await oracle(corpus, held(state, null), false)).filter((id) => !out.includes(id));
+        expect(ids(store.getSnapshot().kept)).toEqual(await less(before));
+        for (const s of SOURCES) publish(s, after[s]);
+        await settle(corpus);
+        expect(ids(store.getSnapshot().kept)).toEqual(await less(after));
+        store.select(null);
+        for (const s of SOURCES) publish(s, null);
+        await settle(corpus);
+      }),
+      RUNS,
+    );
+  });
+
   it("asks nothing for its own clause, and keeps no more than the page's other clauses keep (invariant 8)", BUDGET, async () => {
     const { corpus, crossfilter, store, publish } = await mapped();
     await fc.assert(

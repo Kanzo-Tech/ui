@@ -35,8 +35,7 @@ async function searched() {
     return useGesture({
       getGraph: () => graph,
       getSelection: () => store.getSnapshot().selection,
-      getVisible: () => store.visible(),
-      commit: (vertices, source, label) => store.select(vertices ? [...vertices] : null, source, label),
+      commit: (vertices, source, label, excludes) => store.select(vertices ? [...vertices] : null, source, label, excludes),
       setTool,
       tool,
     });
@@ -60,21 +59,43 @@ async function searched() {
   };
   const escape = () => act(() => void window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
   const searchHolds = () => crossfilter.clauses.some((clause) => clause.source === search);
-  return { corpus, escape, lasso, result, searchHolds, store, pointer };
+  return { corpus, crossfilter, escape, lasso, result, search, searchHolds, store, pointer };
 }
 
 describe("a modified gesture over a filtered page", () => {
-  it("starts ⌘ and Alt from what is in full colour when the canvas has no clause", async () => {
+  it("keeps what ⌘ caught when the canvas has no clause, within what the other clauses keep", async () => {
     const { lasso, searchHolds, store } = await searched();
-    // Person 5 scores 6: added to the canvas's clause, and still greyed out by the search.
+    // Person 5 scores 6: the canvas's clause holds it, and the search's clause still greys it.
     lasso([4, 5], { metaKey: true });
-    expect(sorted(store.getSnapshot().selection?.vertices)).toEqual(sorted([...KEPT, 5]));
-    expect(sorted(store.visible() ?? [])).toEqual(KEPT);
-
-    store.select(null);
-    lasso([1, 10], { altKey: true });
-    expect(sorted(store.getSnapshot().selection?.vertices)).toEqual(KEPT.filter((id) => id !== 1 && id !== 10));
+    expect(store.getSnapshot().selection).toMatchObject({ vertices: [4, 5], excludes: false });
+    expect(store.visible()).toEqual([4]);
     expect(searchHolds()).toBe(true);
+  });
+
+  it("leaves out what Alt caught when the canvas has no clause, and stays right when another clause changes (/docs/design/crossfilter, invariant 9)", async () => {
+    const { corpus, lasso, search, searchHolds, store, crossfilter } = await searched();
+    lasso([1, 10], { altKey: true });
+    // The canvas's clause is what it left out, not a copy of what the search kept less those.
+    expect(store.getSnapshot().selection).toMatchObject({ vertices: [1, 10], excludes: true });
+    expect(String(crossfilter.predicate({ reset() {} } as never))).toContain(`NOT ("dense_id" IN (1, 10))`);
+    // score ∈ [2, 5] keeps Person 1–4; leaving out 1 and 10 keeps 2–4.
+    expect(store.visible()).toEqual([2, 3, 4]);
+    expect(searchHolds()).toBe(true);
+    // The search changes to score ∈ [1, 3], Person 0–2: what is kept is that, less 1 — not 2–4 any more.
+    crossfilter.update(clauseInterval("score", [1, 3], { source: search }));
+    await settle(corpus);
+    expect(store.visible()).toEqual([0, 2]);
+  });
+
+  it("takes from and adds back to a clause that leaves out, and clears it when it leaves nothing out", async () => {
+    const { lasso, store } = await searched();
+    lasso([1], { altKey: true });
+    lasso([2], { altKey: true });
+    expect(store.getSnapshot().selection).toMatchObject({ vertices: [1, 2], excludes: true });
+    lasso([1], { metaKey: true });
+    expect(store.getSnapshot().selection).toMatchObject({ vertices: [2], excludes: true });
+    lasso([2], { metaKey: true });
+    expect(store.getSnapshot().selection).toBeNull();
   });
 
   it("adds to and takes from the canvas's own clause when it holds one, and replaces it with no key", async () => {

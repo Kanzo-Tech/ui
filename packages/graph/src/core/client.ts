@@ -3,6 +3,7 @@ import {
   type ClauseSource,
   Query,
   cast,
+  clauseAntiJoin,
   clauseSemiJoin,
   float64,
   literal,
@@ -99,11 +100,12 @@ export class GraphClient extends MosaicClient {
 
 /**
  * **A pick, published** — `key IN (ids)` from `source`, labelled for its chip, on the selection the
- * graph filters by. One clause per source: a source that picks again replaces its own clause, and two
- * sources intersect. The canvas's own gestures publish from the graph's client, which the crossfilter
- * exempts, so a lasso does not grey out the neighbourhood the reader drew it in; a pick from anywhere
- * else — a search, a rule, an answer — filters the graph like any other clause. `null`, or no ids,
- * withdraws the source's clause.
+ * graph filters by; with `excludes`, `NOT (key IN (ids))`, the vertices it leaves out. One clause per
+ * source: a source that picks again replaces its own clause, and two sources intersect. The canvas's
+ * own gestures publish from the graph's client, which the crossfilter exempts, so the graph asks
+ * nothing for them and narrows what the page keeps by them itself (`keptOf`); a pick from anywhere
+ * else — a search, a rule, an answer — filters the graph like any other clause. `null` withdraws the
+ * source's clause; an empty list is a clause, and keeps nothing (`/docs/design/crossfilter`).
  */
 export function publish(
   selection: Selection,
@@ -111,6 +113,7 @@ export function publish(
   key: string,
   ids: readonly number[] | null,
   label: string,
+  excludes = false,
 ): void {
-  selection.update(clauseSemiJoin(key, ids && ids.length > 0 ? ids : null, { source, label }));
+  selection.update(excludes ? clauseAntiJoin(key, ids, { source, label }) : clauseSemiJoin(key, ids, { source, label }));
 }

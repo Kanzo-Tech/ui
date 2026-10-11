@@ -372,7 +372,7 @@ describe("GraphInspector", () => {
     const { held } = await inspecting();
     act(() => held.api?.setFocus(6));
     fireEvent.click(await screen.findByRole("button", { name: "Locate" }));
-    expect(held.api?.getState().selection).toEqual({ vertices: [6], source: "node", label: "Node" });
+    expect(held.api?.getState().selection).toEqual({ vertices: [6], source: "node", label: "Node", excludes: false });
     expect(screen.queryByRole("button", { name: /neighbours/i })).toBeNull();
   });
 
