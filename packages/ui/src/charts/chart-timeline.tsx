@@ -1,6 +1,7 @@
 "use client";
 
 import type { RelationExpr } from "@kanzo-tech/mosaic";
+import type { SelectionClause } from "@uwdata/mosaic-core";
 import { Interval1D } from "@uwdata/mosaic-plot";
 import { Query, count, isNotNull } from "@uwdata/mosaic-sql";
 import { bin } from "./chart-bin.js";
@@ -167,12 +168,11 @@ function TimelineWindow({ playable }: { playable: boolean }) {
   const [said, setSaid] = useState("");
   const anchor = useRef<HTMLDivElement>(null);
   // What the loop, the pointer and the keyboard read between renders.
-  // `source` is what the frames are published under: the interval's place in the chart.
-  const state = useRef<{ running: boolean; range: readonly unknown[] | null; frame: number | null; source: unknown }>({
+  // `shown` is the frame's last clause: its window, and the source — the interval's place — it is under.
+  const state = useRef<{ running: boolean; range: readonly unknown[] | null; frame: number | null; shown?: SelectionClause }>({
     running: false,
     range: null,
     frame: null,
-    source: null,
   });
   const transport = useRef<{ play(): void; stop(why: Stop): void; show(interval: Interval1D, at: number): void; read(): void; hold(): void }>({
     play() {},
@@ -201,11 +201,9 @@ function TimelineWindow({ playable }: { playable: boolean }) {
   transport.current.show = (interval, at) => {
     const { edges, from } = rangeOf(brushedBy(interval))!;
     const window = [edges[from], edges[at]] as const;
-    const clause = interval.clause(window);
     state.current.frame = at;
-    state.current.source = clause.source;
     setFrame(window);
-    interval.selection.update(clause);
+    interval.selection.update((state.current.shown = interval.clause(window)));
   };
 
   /**
@@ -214,13 +212,12 @@ function TimelineWindow({ playable }: { playable: boolean }) {
    * on screen. While playing, the next frame does it.
    */
   transport.current.hold = () => {
-    const { running, frame: at, source } = state.current;
+    const { running, frame, shown } = state.current;
     const interval = intervalOf(plot());
     const active = as.active;
-    if (running || at === null || !interval?.scale || !active || active.source !== source) return;
-    const span = rangeOf(brushedBy(interval));
-    if (!span || at > span.to) return;
-    if (String(active.value) !== String([span.edges[span.from], span.edges[at]])) transport.current.show(interval, at);
+    if (!running && frame !== null && shown && interval?.value && interval.scale && active?.source === shown.source && String(active.value) !== String(shown.value)) {
+      transport.current.show(interval, frame);
+    }
   };
 
   transport.current.stop = (why) => {
