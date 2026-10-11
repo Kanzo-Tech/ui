@@ -362,6 +362,24 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
     expect(page!.clauses).toHaveLength(1);
   });
 
+  it("leaves no client of its own behind: a rebuild replaces its marks, and they go with it", async () => {
+    const corpus = await attach();
+    const { plot, ready } = await drawn(corpus);
+    const clients = () => (corpus.coordinator as unknown as { clients: Set<unknown> }).clients;
+    const first = (await ready()).marks;
+    const connected = clients().size;
+    expect(first.every((mark) => clients().has(mark))).toBe(true);
+    await act(async () => rerender(80));
+    await vi.waitFor(() => expect(plot()?.marks).not.toBe(first), WAIT);
+    const rebuilt = (await ready()).marks;
+    // The rebuilt plot's marks in place of the first's, not beside them.
+    expect(clients().size).toBe(connected);
+    expect(first.some((mark) => clients().has(mark))).toBe(false);
+    act(() => hide());
+    expect(rebuilt.some((mark) => clients().has(mark))).toBe(false);
+    expect(clients().size).toBe(connected - rebuilt.length);
+  });
+
   it("keeps the window through a rebuild of the plot, drawn and playable", async () => {
     const corpus = await attach();
     const { brush, plot, ready } = await drawn(corpus);
