@@ -210,11 +210,11 @@ data, never from pixels or text.
 
 No value here is chosen by eye. Each is a cited default or follows from a stated criterion:
 
-- **Greyed colour and opacity**: cosmos.gl 3.4.0's defaults, read from its shader
-  (`dist/index.js:5239-5256`): with no `pointGreyoutColor`, a greyed point's colour is
-  *mix(colour, 0.2, 0.65)* on a background of relative luminance below 0.65 (`index.js:141`) and
-  *mix(colour, max(background, 0.8), 0.65)* otherwise, at the point's own opacity when
-  `pointGreyoutOpacity` is unset; links at `linkGreyoutOpacity = 0.1`.
+- **Greyed colour**: cosmos.gl 3.4.0's, read from its shader (`dist/index.js:5239-5256`): with no
+  `pointGreyoutColor`, *mix(colour, 0.2, 0.65)* on a background of luminance below 0.65
+  (`index.js:141`) and *mix(colour, max(background, 0.8), 0.65)* otherwise.
+- **Greyed opacity**: derived per theme from the criterion below ([The greyout](#the-greyout)); links
+  at cosmos.gl's default, `linkGreyoutOpacity = 0.1`.
 - **The criterion they are checked against**, WCAG 2.2
   [SC 1.4.11 Non-text Contrast](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html),
   with contrast ratios computed from relative luminance as WCAG defines them:
@@ -228,8 +228,9 @@ No value here is chosen by eye. Each is a cited default or follows from a stated
     require 3 : 1 against the background; it is required to be **distinguishable from the
     background, a ratio above 1 : 1**, so that greyed never reads as hidden.
 
-  The check is a unit test over the theme's category tokens in both themes and the formula above, and
-  the pull request that sets the greyout reports every ratio.
+  The derivation maximises the opacity under the second; the third is then checked, not assumed — an
+  opacity of 0 would fail it — and holds on every shipped theme (1.014 : 1 at least). The checks are
+  unit tests over the eight themes' tokens, and [The greyout](#the-greyout) reports every ratio.
 
 ## The abstraction
 
@@ -295,12 +296,65 @@ holds back, as today: a filter filters, and the toolbar's *N hidden by other fil
 
 ### The greyout
 
-**cosmos.gl's defaults are 10 times and 4 times more visible than ours.** In
-`@cosmos.gl/graph` 3.4.0, `pointGreyoutOpacity` is `undefined`: a greyed point keeps the point's
-opacity and its colour is darkened or lightened towards the background. `linkGreyoutOpacity`
-defaults to `0.1` (`dist/config.d.ts`, `dist/variables.d.ts`). Ours sets `0.1` for points and
-`0.025` for links. It returns to cosmos.gl's defaults, the reference this canvas
-follows, measured on the Nobel and OpenFlights maps in both themes.
+**Decided 11 October 2026: each theme derives its own greyout opacity from its tokens** — the largest
+that keeps every kept colour at 3 : 1 from itself greyed out. It replaces *cosmos.gl's defaults*,
+which measured 2.03 – 2.65 : 1 on the shipped themes.
+
+**The model.** For a colour *c* the canvas paints and the background *b*, both sRGB in 0..1:
+
+- *g(c)*, cosmos.gl's greyed colour (3.4.0, `dist/index.js:5239-5256`, no `pointGreyoutColor`):
+  *mix(c, (0.2, 0.2, 0.2), 0.65)* when cosmos.gl's luminance of *b*, *0.2126 b_r + 0.7152 b_g +
+  0.0722 b_b* on the 0..1 channels, is below 0.65 (`index.js:141`), else *mix(c, max(b, 0.8), 0.65)*.
+- *d_α(c) = α · g(c) + (1 − α) · b* per channel — the greyed mark at opacity *α* composited over the
+  background, one mark over the page — each channel then rounded to a byte, as the screen shows it.
+- *L(x)*, WCAG's relative luminance: each channel linearised, *x/12.92* if *x ≤ 0.04045*, else
+  *((x + 0.055)/1.055)^2.4*, then *0.2126 R + 0.7152 G + 0.0722 B*; *CR(x, y) = (max L + 0.05) /
+  (min L + 0.05)*.
+
+**The criterion.** *P(α)*: for every painted colour *c* with *CR(c, b) ≥ 3*, *CR(c, d_α(c)) ≥ 3*
+(WCAG 2.2 SC 1.4.11, by extension to the kept/greyed state). A colour under 3 : 1 to the background
+fails 1.4.11 as a kept mark at every opacity; the theme gate already holds every shipped theme's
+`--chart-1…8` at 3 : 1 to `--background` (`themes.test.ts`), and such a colour is left out of *P*.
+
+**The opacity.** *α\* = max \{ α ∈ \{0, 0.001, …, 1\} : P(α′) for every α′ ≤ α \}*. *P(0)* holds,
+since *d_0(c) = b*. The search walks up from 0 and stops before the first opacity that fails, so every
+smaller opacity holds *P* too; it does not assume *CR(c, d_α(c))* is monotone in *α*, which it need
+not be, since the channels move towards *g(c)* by different amounts. With no colour left in *P*,
+there is no distinction to protect and cosmos.gl's default, full opacity, stands.
+
+**At runtime, not at build.** The canvas resolves its colours from the live theme's tokens when it
+paints (`paint`), and *α\** is computed from those colours and that background in `appearance` — a
+theme switched at runtime, or a host's own theme, gets its own value; a table built from the eight
+shipped themes would cover neither. It costs at most 1,000 × the painted colours luminance pairs per
+paint.
+
+**Measured on the shipped themes** (the eight category colours and `--muted-foreground`):
+
+| Theme | α\* | kept : background | kept : greyed | greyed : background |
+| --- | --- | --- | --- | --- |
+| Catppuccin Latte | 0.049 | 3.06 | 3.010 | 1.014 |
+| Catppuccin Mocha | 0.812 | 5.67 | 3.001 | 1.891 |
+| Kanzo | 0.557 | 3.79 | 3.004 | 1.262 |
+| Kanzo dark | 0.704 | 5.19 | 3.005 | 1.727 |
+| Lo-fi | 0.725 | 4.07 | 3.005 | 1.355 |
+| Lo-fi dark | 0.901 | 7.42 | 3.003 | 2.472 |
+| Nord | 0.058 | 3.05 | 3.003 | 1.016 |
+| Nord dark | 0.250 | 3.32 | 3.017 | 1.093 |
+
+Where a palette sits barely over 3 : 1 to its background — Nord, Catppuccin Latte — the criterion
+leaves almost no room for context: the greyed marks are just distinguishable from the page (1.014 –
+1.016 : 1). That is the palette's margin, not the greyout's; widening it is the theme's decision.
+
+**Links** keep cosmos.gl's default, `linkGreyoutOpacity = 0.1`, in place of our earlier `0.025`. A kept
+link is drawn under 3 : 1 to the background on purpose — `linkOpacity` and the distance fade — so SC
+1.4.11 sets no value to derive the greyed one from.
+
+*Held by* `packages/graph/src/render/greyout.test.ts`, which reads the eight themes' tokens from
+`@kanzo-tech/theme` and checks *P* with that package's own WCAG `contrast` at *α\** and at every
+thousandth below it, that *α\* + 0.001* breaks it, and that the greyed mark is distinguishable from
+the background at *α\**; `packages/graph/src/render/renderer.test.ts`, "greys
+out at the opacity derived from the colours it painted and its background, links at cosmos.gl's
+default".
 
 ## What changes, and what disappears
 
@@ -402,7 +456,7 @@ downstream of it — the case the registry walk patches.
 | Step | Pull request | State |
 | --- | --- | --- |
 | One `kept()`, labels and counts read it (divergences 1, 8, 9) | #173 | draft, stacked on this page |
-| The greyout | — | measured above; waiting on a decision |
+| The greyout, derived per theme | #176 | draft, stacked on #175 |
 | The timeline on the shared crossing (divergence 3) | — | designed above (*Step 3*), waiting for approval |
 | A clause a type cannot answer keeps none of it — graph, search, Ask (divergences 2, 4, 5) | #174 | draft, stacked on #173 |
 | Alt's exclusion, and an empty set keeps nothing (divergences 6, 10) | #175 | draft, stacked on #174 |
@@ -433,26 +487,9 @@ downstream of it — the case the registry walk patches.
    ⌘ with no canvas clause is what it caught.
 4. **"No position" is not drawn, is explicit in the legend and the counts, and no filter ever moves
    a vertex into it.**
-5. **The greyout is cosmos.gl's defaults** — points keep their opacity, coloured towards the
-   background; links at `0.1` — measured against the criterion below before it is set.
-
-   **Measured 11 October 2026, not yet set: cosmos.gl's defaults do not meet the criterion.** With
-   its greyed colour (`index.js:5239-5256`) at full opacity, over every theme's eight category
-   colours and its background (WCAG relative luminance):
-
-   | | kept : background (≥ 3) | kept : greyed (≥ 3) | greyed : background (> 1) |
-   | --- | --- | --- | --- |
-   | cosmos.gl's default (opacity 1) | 3.05 – 7.42 | **2.03 – 2.65** | 1.41 – 4.28 |
-   | ours today (opacity 0.1) | 3.05 – 7.42 | 2.95 – … | 1.03 – … |
-
-   Kept against greyed can never exceed kept against the background, and Nord and Catppuccin Latte
-   hold their category colours at 3.05 : 1 to theirs, so meeting 3 : 1 there forces the greyed mark
-   to the background. The largest opacity that meets it is **0.052** across every theme, and per
-   theme from 0.054 (Catppuccin Latte) and 0.247 (Nord dark) to 0.565 (Kanzo), 0.700 (Kanzo dark)
-   and 0.900 (Lo-fi dark). The decision is back with its owner: one number for every theme, an
-   opacity derived per theme from its own tokens, or a palette that clears 3 : 1 by more.
-
-
+5. **The greyout is derived per theme** from its own tokens — the largest opacity that keeps every
+   kept colour at 3 : 1 from itself greyed — replacing *cosmos.gl's defaults*, which measured 2.03 –
+   2.65 : 1 ([The greyout](#the-greyout)). Links keep cosmos.gl's default, 0.1.
 
 ## References
 
