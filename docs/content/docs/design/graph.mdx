@@ -205,8 +205,8 @@ statement that selects them", "names the key alone: a subquery's columns are ano
 `packages/graph/src/core/store.test.ts`, "answers a semi-join on dense_id on every table, whatever
 relation its subquery reads", "publishes the reader's pick as a semi-join on dense_id, and is exempt
 from its own clause", "lets the pick go when its clause is retracted where it was published";
-`packages/mosaic/src/clause.test.ts`, "names a semi-join by its publisher's label, and counts its
-members when they are keys"; `packages/mosaic/src/crossfilter.test.ts`, "crosses a clause into
+`packages/mosaic/src/clause.test.ts`, "names a semi-join by its publisher's label, and does not
+count its members"; `packages/mosaic/src/crossfilter.test.ts`, "crosses a clause into
 another relation by the key of the step of its root's type", "keeps none of a relation with no step
 of the clause's type";
 `packages/ui/src/mosaic-public-api.test.ts`, "reaches no underscore member of a Mosaic object in

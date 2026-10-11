@@ -97,8 +97,11 @@ describe("the workspace's Ask panel", () => {
     const tile = await answers.answer();
     await (await tile.chart()).settled();
     await answers.filterTo();
-    // The answer's clause reaches the graph: it greys out what the Amber Hall does not hold.
-    await expect.poll(() => graph.counts(), { timeout: 30_000 }).toMatch(/ of .* nodes match/);
+    // The answer's clause reaches the graph: it greys out what the Amber Hall does not hold, and the
+    // one Frame is named for what is left in full colour. The page has no filter bar to count it.
+    await expect
+      .poll(async () => (await env.root.find({ role: "button", name: "Frame what the filters keep" })).length, { timeout: 30_000 })
+      .toBe(1);
   });
 });
 
