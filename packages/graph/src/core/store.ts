@@ -87,7 +87,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
   function keptNow(): Uint8Array | null {
     const key = [geometry, mask, snapshot.selection];
     if (key.some((part, i) => part !== keptMask.key[i])) {
-      keptMask = { key, value: keptOf(geometry?.size ?? 0, mask, snapshot.selection?.vertices ?? null) };
+      keptMask = { key, value: keptOf(geometry?.size ?? 0, mask, snapshot.selection?.vertices ?? null, snapshot.selection?.excludes) };
     }
     return keptMask.value;
   }
@@ -258,7 +258,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     const { selection } = snapshot;
     if (selection && structure) {
       published = scope();
-      publish(published, client, structure.key, selection.vertices, selection.label);
+      publish(published, client, structure.key, selection.vertices, selection.label, selection.excludes);
     }
   }
 
@@ -322,13 +322,13 @@ export function createGraph(initial: GraphOptions): GraphStore {
       listeners.clear();
     },
     visible: visibleNow,
-    select(vertices, source = "node", label = "") {
-      const selection = vertices && vertices.length > 0 ? { vertices: [...vertices], source, label } : null;
+    select(vertices, source = "node", label = "", excludes = false) {
+      const selection = vertices && vertices.length > 0 ? { vertices: [...vertices], source, label, excludes } : null;
       notify({ selection });
       options.onSelect?.(selection);
       if (!client || !structure) return;
       published = scope();
-      publish(published, client, structure.key, selection ? selection.vertices : null, label);
+      publish(published, client, structure.key, selection ? selection.vertices : null, label, excludes);
     },
     scope,
     source(id) {

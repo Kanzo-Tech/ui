@@ -50,6 +50,11 @@ export interface Selection {
   source: SelectionSource;
   /** What the corner calls it. */
   label: string;
+  /**
+   * Whether the clause leaves `vertices` out rather than keeping them: what Alt publishes when the
+   * canvas has no clause of its own to take from (`/docs/design/crossfilter`).
+   */
+  excludes: boolean;
 }
 
 /** What the canvas can be told to do. Registered by the canvas, called by the panels. */

@@ -255,21 +255,30 @@ numbers a type the path visits twice".
 anyone else's clause.** Each place that picks owns one clause on the page's crossfilter, and clauses
 intersect — Mosaic's model, where every interactor publishes one clause from one source and a
 crossfilter is their conjunction; and Tableau's, where selecting highlights and only a filter
-filters. The marquee, the lasso and a click publish the canvas's clause from the graph's client, as
-before. What changes is where a modified gesture starts:
+filters. The marquee, the lasso and a click publish the canvas's clause from the graph's client. A
+gesture acts on the canvas's own clause and nothing else's, which either keeps a set or leaves one
+out (`modified` in `parts/gesture.ts`):
 
-| Gesture | The canvas's clause becomes |
-| --- | --- |
-| drag, click | what the gesture caught |
-| ⌘/Ctrl + drag | its clause — or, with none, what is in full colour — with what it caught added |
-| Alt + drag | the same base, with what it caught taken away |
-| Esc | a drag in progress, then the tool, then the canvas's clause; never another place's |
+| Gesture | No canvas clause | It keeps *I* | It leaves out *E* |
+| --- | --- | --- | --- |
+| drag, click | keeps *X* | keeps *X* | keeps *X* |
+| ⌘/Ctrl + drag | keeps *X* | keeps *I ∪ X* | leaves out *E ∖ X* |
+| Alt + drag | leaves out *X*: `NOT (key IN X)` | keeps *I ∖ X* | leaves out *E ∪ X* |
+| Esc | a drag in progress, then the tool, then the canvas's clause; never another place's | | |
 
 So a search that kept the 40 airports in Spain is a selection the tools can work on: Alt and a lasso
-over Madrid leave Spain without Madrid, because the canvas's clause is now *Spain less Madrid* and it
-intersects the search's. ⌘ and a lasso over Portugal add nothing in full colour while the search
-holds, because a filter filters; the toolbar says so — *40 of 3,218 · 20 hidden by other filters* —
-and the search's chip is where it is let go.
+over Madrid publish *not Madrid* from the canvas, which intersects the search's and reads *Spain less
+Madrid* — and stays right when the search changes, because the canvas never copied what the search
+kept. ⌘ and a lasso over Portugal add nothing in full colour while the search holds, because a filter
+filters; the toolbar says so — *40 of 3,218 · 20 hidden by other filters* — and the search's chip is
+where it is let go.
+
+**Alt with no canvas clause was a copy, and is an exclusion** (decided 11 October 2026,
+[Crossfilter](/docs/design/crossfilter#decided)). Until then ⌘ and Alt with no canvas clause started
+from what was in full colour, so Alt over Madrid made the canvas's clause *the 40 airports the search
+kept, less Madrid*: the canvas computed another source's result and held it as its own, which went
+stale when the search changed. This reverses that part of the decision above; ⌘ with no clause keeps
+what it caught, which a filter still narrows.
 
 **Framing is of what is in full colour.** `frame()` fits the camera to the canvas's clause within
 what the page keeps, or to what the page keeps when the canvas has no clause, or to the canvas's
@@ -319,15 +328,18 @@ Tableau's *Keep only*, an explicit action, if it is ever wanted.
 often enough that *N hidden by other filters* does not explain it. Then an explicit *Keep only* on
 the toolbar, not a modifier, turns what is in full colour into the canvas's clause.
 
-*Held by* `packages/graph/src/parts/gesture.test.ts`, "starts ⌘ and Alt from what is in full colour
-when the canvas has no clause", "escapes a drag, then the tool, then the canvas's clause, and never
+*Held by* `packages/graph/src/parts/gesture.test.ts`, "keeps what ⌘ caught when the canvas has no
+clause, within what the other clauses keep", "leaves out what Alt caught when the canvas has no
+clause, and stays right when another clause changes", "takes from and adds back to a clause that
+leaves out, and clears it when it leaves nothing out", "escapes a drag, then the tool, then the canvas's clause, and never
 retracts another source's clause"; `packages/graph/src/render/renderer.test.ts`, "frames what is in
 full colour: the pick within what the filter keeps, else what the filter keeps", "colours what the
 tools act on: the canvas's full colour is store.visible(), filtered and picked";
 `packages/graph/src/parts/parts.test.tsx`, "counts what is in full colour first, with no button in it,
 and names the one Frame for what it frames", "counts whenever something is greyed out, and says how
 many other filters hide"; `packages/graph/src/render/renderer.test.ts`, "stops re-framing when the
-reader takes the camera, and starts again with Frame".
+reader takes the camera, and starts again with Frame"; `packages/graph/src/core/crossfilter.property.test.ts`,
+"leaves out what an excluding canvas clause names, whatever the other clauses become (invariant 9)".
 
 ## ADR 0001 — the canvas holds the whole graph
 

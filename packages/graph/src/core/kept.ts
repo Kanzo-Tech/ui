@@ -29,8 +29,14 @@ export function maskOf(size: number, ids: Float64Array): Uint8Array {
  * A link is kept exactly when its two ends are, which is why there is no link mask beside it: the
  * timeline's window is a clause on vertex tables, so it arrives inside `filter`.
  */
-export function keptOf(size: number, filter: Uint8Array | null, pick: readonly VertexId[] | null): Uint8Array | null {
+export function keptOf(size: number, filter: Uint8Array | null, pick: readonly VertexId[] | null, excludes = false): Uint8Array | null {
   if (pick === null) return filter;
+  if (excludes) {
+    // The canvas's clause leaves `pick` out: kept is the filter, less it.
+    const kept = filter ? filter.slice() : new Uint8Array(size).fill(1);
+    for (const id of pick) if (id < size) kept[id] = 0;
+    return kept;
+  }
   const kept = new Uint8Array(size);
   for (const id of pick) if (id < size && (filter === null || filter[id])) kept[id] = 1;
   return kept;
