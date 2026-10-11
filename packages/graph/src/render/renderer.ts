@@ -183,7 +183,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     if (dirty.state && geometry) {
       dirty.state = false;
       graph.setConfigPartial({
-        ...highlighted(geometry, snapshot.mask, snapshot.selection?.vertices ?? null),
+        ...highlighted(geometry, snapshot.kept),
         focusedPointIndex: snapshot.focus === null || snapshot.focus >= geometry.size ? undefined : snapshot.focus,
       });
     }
@@ -291,7 +291,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     if (options.fill !== lastOptions.fill || options.symbol !== lastOptions.symbol || options.stroke !== lastOptions.stroke) {
       dirty.paint = true;
     }
-    if (snapshot.selection !== last.selection || snapshot.focus !== last.focus || snapshot.mask !== last.mask) dirty.state = true;
+    if (snapshot.selection !== last.selection || snapshot.focus !== last.focus || snapshot.kept !== last.kept) dirty.state = true;
     if (options.sim !== lastOptions.sim) applyForces(options.sim);
     const wants = simulating(options, snapshot.geometry);
     if (snapshot.geometry === last.geometry && wants !== simulating(lastOptions, last.geometry)) {

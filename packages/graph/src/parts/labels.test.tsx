@@ -2,7 +2,8 @@ import { act, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { attach, settle } from "../../test/corpus";
 import { readTitles } from "../core/source";
-import { GraphRoot } from "../react/graph-root";
+import { GraphRoot, useGraphContext } from "../react/graph-root";
+import { internalsOf } from "../react/use-graph";
 import type { LabelLevel } from "../render/graph-looks";
 import { GraphCanvas } from "./graph-canvas";
 import { cellsIn } from "./labels";
@@ -84,5 +85,33 @@ describe("label levels over a large graph", () => {
     const asked = vi.mocked(readTitles).mock.calls.map(([, , vertices]) => vertices.length);
     expect(asked.length).toBeGreaterThan(0);
     expect(Math.max(...asked), "ids in one title read").toBeLessThanOrEqual(bound);
+  }, 60_000);
+});
+
+describe("labels read what is kept", () => {
+  it("labels only what every clause keeps, the canvas's own pick included (/docs/design/crossfilter, divergence 8)", async () => {
+    const corpus = await attach();
+    let store: ReturnType<typeof internalsOf>["store"] | null = null;
+    function Store() {
+      store = internalsOf(useGraphContext()).store;
+      return null;
+    }
+    render(
+      <GraphRoot from={corpus.from} coordinator={corpus.coordinator} look={{ labels: "all" }} onFailure={() => {}} title="name">
+        <GraphCanvas />
+        <Store />
+      </GraphRoot>,
+    );
+    await act(() => settle(corpus));
+    await waitFor(() => expect(vi.mocked(readTitles).mock.calls.length).toBeGreaterThan(0), { timeout: 5000 });
+    // A lasso over Person 3 and 4: what is kept is {3, 4}, so no other vertex may be asked a title.
+    await act(async () => store!.select([3, 4], "lasso", "Lasso"));
+    vi.mocked(readTitles).mockClear();
+    await act(() => settle(corpus));
+    await waitFor(() => expect(vi.mocked(readTitles).mock.calls.length).toBeGreaterThan(0), { timeout: 5000 });
+    const kept = new Set(store!.visible());
+    const asked = vi.mocked(readTitles).mock.calls.flatMap(([, , vertices]) => [...vertices]);
+    expect(kept).toEqual(new Set([3, 4]));
+    expect(asked.filter((id) => !kept.has(id))).toEqual([]);
   }, 60_000);
 });

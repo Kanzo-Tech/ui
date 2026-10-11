@@ -273,15 +273,15 @@ greyed out — a count, **Frame**, and **Clear** when the canvas holds a clause 
 rule or a dashboard keeps can be framed with the button that frames a lasso. `frameSelection` is
 renamed `frame`; it never framed only a selection once a clause from elsewhere could be one.
 
-**What is in full colour is computed once.** `visibleOf` in `core/kept.ts` answers it — the vertices
-the filter keeps, within the reader's pick when there is one, never a vertex the canvas does not draw
-— and both readings are that function: `store.visible()`, which `frame()` and the toolbar act on, and
-the renderer's `highlighted`, which colours the canvas. A link is in full colour when its two ends
-are, so there is no link mask beside the vertex mask: the timeline's window is a clause on vertex
-tables and arrives in the mask like any other. Two copies had drifted — a pick of a vertex the canvas
-does not draw was greyed on the canvas and still counted and framed by the tools. *What would reverse
-the link half:* a filter on edge columns that greys a link whose two ends are kept. Then a link mask
-becomes an argument of the same function, not a second rule in the renderer.
+**What is kept is computed once.** `keptOf` in `core/kept.ts` answers it — every clause on the page,
+the canvas's own included — and the snapshot's `kept` is the one reading: the renderer colours it, the
+labels name it, and the counts, the toolbar and `frame()` read it through `store.visible()`, which is
+`kept` narrowed to what has a position. A link is kept when its two ends are, so there is no link mask
+beside it: the timeline's window is a clause on vertex tables and arrives in the filter like any
+other. Three readings had drifted — the counts, the labels and the canvas each narrowed the filter to
+the pick on their own, or did not — and a kept vertex with no position was counted as a match and
+framed. [Crossfilter](/docs/design/crossfilter#formal-semantics) defines *kept* and *placed* and the
+invariants the property tests in `core/crossfilter.property.test.ts` hold.
 
 **It replaced a canvas whose tools saw only their own pick**, so a clause from the search, the rules
 or a dashboard greyed the graph out but could be neither added to, taken from, nor framed — a reader

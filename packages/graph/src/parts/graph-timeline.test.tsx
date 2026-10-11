@@ -127,7 +127,7 @@ describe("timelineOf", () => {
     await settle(corpus);
     expect(onFailure).not.toHaveBeenCalled();
     expect(places.rows).toEqual([]);
-    expect(ids(graph.getSnapshot().mask)).toEqual([2, 3, 4, 5]);
+    expect(ids(graph.getSnapshot().kept)).toEqual([2, 3, 4, 5]);
 
     // Let go, and everything is back.
     own.update(clauseInterval("born", null, { source: brush }));
@@ -245,7 +245,9 @@ describe("GraphTimeline, drawn", () => {
     await act(async () => rerender(80));
     await ready();
     await brush(1903, 1907);
-    expect(chips().map((chip) => chip.getAttribute("aria-label"))).toEqual(["Remove born 1903 – 1907"]);
+    // The brush's end snaps the window to the bars' edges once the rebuilt plot's bars have answered,
+    // which a loaded runner can deliver after one settle: wait for the clause's state, not a moment.
+    await vi.waitFor(() => expect(chips().map((chip) => chip.getAttribute("aria-label"))).toEqual(["Remove born 1903 – 1907"]));
   });
 
   it("holds one clause and one chip through every state play passes — a rebuild and a stale brush included", async () => {

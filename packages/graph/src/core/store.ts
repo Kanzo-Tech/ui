@@ -7,7 +7,7 @@ import { loadEncoding, loadGeometry, type Encoding, type Geometry } from "./load
 import { readStructure } from "./source";
 import { type Structure } from "./structure";
 import type { VertexId } from "./types";
-import { drawnOf, litOf, maskOf, matchingOf, visibleOf } from "./kept";
+import { drawnOf, idsOf, keptOf, maskOf } from "./kept";
 import type { Arrangement, Drawn, GraphOptions, GraphSnapshot, DataStatus, GraphStore, PickSource } from "./state";
 
 export type { Arrangement, Drawn, GraphOptions, GraphSnapshot, GraphState, DataStatus, GraphStore, View } from "./state";
@@ -69,7 +69,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     binding,
     geometry: null,
     encoding: null,
-    mask: null,
+    kept: null,
     recent: [],
     arrangement: null,
   };
@@ -82,32 +82,31 @@ export function createGraph(initial: GraphOptions): GraphStore {
     return domain.value;
   }
 
-  /** What is in full colour as a mask: the page's filter narrowed to the canvas's own pick. */
-  let lit: { key: unknown[]; value: Uint8Array | null } = { key: [], value: null };
-  function litNow(): Uint8Array | null {
+  /** What is kept, `keptOf`: the one reading every view of the graph draws. The same array until the filter or the pick changes. */
+  let keptMask: { key: unknown[]; value: Uint8Array | null } = { key: [], value: null };
+  function keptNow(): Uint8Array | null {
     const key = [geometry, mask, snapshot.selection];
-    if (key.some((part, i) => part !== lit.key[i])) {
-      lit = { key, value: litOf(geometry?.size ?? 0, mask, snapshot.selection?.vertices ?? null) };
+    if (key.some((part, i) => part !== keptMask.key[i])) {
+      keptMask = { key, value: keptOf(geometry?.size ?? 0, mask, snapshot.selection?.vertices ?? null) };
     }
-    return lit.value;
+    return keptMask.value;
   }
 
   let drawn: { key: unknown[]; value: Drawn | null } = { key: [], value: null };
   function drawnNow(): Drawn | null {
-    const shown = litNow();
-    const key = [geometry, encoding, shown];
+    const kept = keptNow();
+    const key = [geometry, encoding, kept];
     if (key.some((part, i) => part !== drawn.key[i])) {
-      drawn = { key, value: geometry && encoding ? drawnOf(geometry, encoding, shown) : null };
+      drawn = { key, value: geometry && encoding ? drawnOf(geometry, encoding, kept) : null };
     }
     return drawn.value;
   }
 
-  let visible: { key: unknown[]; value: readonly VertexId[] | null } = { key: [], value: null };
+  let visible: { key: unknown[] | undefined; value: readonly VertexId[] | null } = { key: undefined, value: null };
   function visibleNow(): readonly VertexId[] | null {
-    const key = [geometry, mask, snapshot.selection];
-    if (key.some((part, i) => part !== visible.key[i])) {
-      visible = { key, value: visibleOf(geometry?.size ?? 0, mask, snapshot.selection?.vertices ?? null) };
-    }
+    const kept = keptNow();
+    const key = [kept, geometry];
+    if (key.some((part, i) => part !== (visible.key as unknown[] | undefined)?.[i])) visible = { key, value: idsOf(kept, geometry?.positions ?? null) };
     return visible.value;
   }
 
@@ -125,7 +124,8 @@ export function createGraph(initial: GraphOptions): GraphStore {
     snapshot = {
       ...snapshot,
       total: structure?.size,
-      matching: matchingOf(litNow()),
+      // What the counts say *match*: kept and placed, `visible()` — a kept vertex with no position is no match.
+      matching: visibleNow()?.length ?? null,
       drawn: drawnNow(),
       domain: domainNow(),
       options,
@@ -133,7 +133,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
       binding,
       geometry,
       encoding,
-      mask,
+      kept: keptNow(),
       arrangement,
       ...fields,
     };
@@ -376,7 +376,10 @@ export function createGraph(initial: GraphOptions): GraphStore {
       return () => void (held && ((held = false), holds--, notify()));
     },
     reportDrawn(drawnSnapshot) {
-      const next = [drawnSnapshot.geometry, drawnSnapshot.encoding, drawnSnapshot.mask];
+      // Loading waits on the page's answer, not on the canvas's own clause, which needs no query: a
+      // drawing of the current `kept` uploaded the filter it was derived from; an older one, nothing.
+      if (drawnSnapshot.kept !== keptNow()) return;
+      const next = [drawnSnapshot.geometry, drawnSnapshot.encoding, mask];
       if (next.every((part, i) => part === uploaded[i])) return;
       uploaded = next;
       notify();

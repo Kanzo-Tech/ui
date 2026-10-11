@@ -314,7 +314,8 @@ describe("the camera at load", () => {
     await settle(corpus);
     calls.length = 0;
     renderer?.frame();
-    expect(commands()).toEqual([`frame:1,2,3,4,${Array.from({ length: 10 }, (_, i) => 10 + i).join(",")}`]);
+    // What is kept and placed: Person 1–4 and the six Places; the kept Tags have no position to frame.
+    expect(commands()).toEqual([`frame:1,2,3,4,${Array.from({ length: 6 }, (_, i) => 10 + i).join(",")}`]);
     calls.length = 0;
     // Person 0 scores 1: held by the canvas, greyed by the filter, and not framed.
     store.select([0, 1, 2]);

@@ -72,7 +72,7 @@ describe("a relation dashboard beside the graph", () => {
     own.update(clauseInterval("Person.score", [2, 5], { source: tiles[0], clients: new Set([tiles[0]]) }));
     await settle(corpus);
     expect(onFailure).not.toHaveBeenCalled();
-    expect(ids(graph.getSnapshot().mask)).toEqual([1, 2, 3, 4]);
+    expect(ids(graph.getSnapshot().kept)).toEqual([1, 2, 3, 4]);
     expect(page.clauses.map((c) => c.meta)).toEqual([{ type: "semijoin", label: "People" }]);
     // Inside the dashboard the tiles crossfilter each other on the relation's own columns.
     expect(tiles[0].rows).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
@@ -81,13 +81,13 @@ describe("a relation dashboard beside the graph", () => {
     // A second tile's pick on the far end of the join: People 3 and 9 live in Place 3.
     own.update(clausePoint("Place.name", "Place 3", { source: tiles[1], clients: new Set([tiles[1]]) }));
     await settle(corpus);
-    expect(ids(graph.getSnapshot().mask)).toEqual([3]);
+    expect(ids(graph.getSnapshot().kept)).toEqual([3]);
 
     // Retracting where it was published clears the dashboard too, and the graph with it.
     page.reset([...page.clauses]);
     await settle(corpus);
     expect([...own.clauses]).toEqual([]);
-    expect(graph.getSnapshot().mask).toBeNull();
+    expect(graph.getSnapshot().kept).toBeNull();
     expect(tiles[1].rows).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
 
@@ -101,8 +101,8 @@ describe("a relation dashboard beside the graph", () => {
       [3, 4],
     ]);
     expect(page.clauses.map((c) => c.meta)).toEqual([{ type: "semijoin", label: "Lasso" }]);
-    // The graph is exempt from its own pick, as it was before there was a dashboard.
-    expect(graph.getSnapshot().mask).toBeNull();
+    // The graph's pick is a clause like the tiles': it keeps 3 and 4 there too, with no query of its own.
+    expect(ids(graph.getSnapshot().kept)).toEqual([3, 4]);
     unbridge();
     expect(page.clauses).toHaveLength(1);
   });

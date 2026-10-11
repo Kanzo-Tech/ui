@@ -137,8 +137,12 @@ export interface GraphSnapshot extends GraphState {
   readonly binding: Binding;
   readonly geometry: Geometry | null;
   readonly encoding: Encoding | null;
-  /** `1` where a vertex survives the page's filter; `null` when nothing is filtered. A vertex that does not is greyed out, never hidden. */
-  readonly mask: Uint8Array | null;
+  /**
+   * **What is kept**, `1` where every clause on the page keeps a vertex, the canvas's own included;
+   * `null` when no clause is set. Every view of the graph reads it: the canvas colours it and greys
+   * the rest, never hiding a vertex, and the counts, the legend, the toolbar and `frame()` act on it.
+   */
+  readonly kept: Uint8Array | null;
   /** What the search was last used to go to, newest first — for the root's life, never stored. */
   readonly recent: readonly { readonly vertex: VertexId; readonly text: string }[];
   /** What the last canvas left, or `null` before one has drawn this geometry. */
@@ -157,10 +161,8 @@ export interface GraphStore {
   setOptions(options: GraphOptions): void;
   destroy(): void;
   /**
-   * **What is in full colour**: the canvas's pick within what the page's filter keeps, what the filter
-   * keeps when the canvas picks nothing, the pick when nothing is filtered — and `null` when neither
-   * greys anything out. The mask is the page's other clauses alone, since the client is exempt from
-   * its own. The same array until the pick or the mask changes.
+   * The ids the snapshot's `kept` keeps that have a position, ascending — what the toolbar counts and
+   * `frame()` fits; `null` when no clause is set. The same array until `kept` or the geometry changes.
    */
   visible(): readonly VertexId[] | null;
   /** The canvas's own pick, from one of its gestures. */
@@ -185,7 +187,7 @@ export interface GraphStore {
   renderable(): void;
   /** The canvas cannot draw: the graph is `failed`, and `error` goes to `onFailure`. */
   unrenderable(error: unknown): void;
-  /** The renderer uploaded this snapshot's geometry, encoding and mask. */
+  /** The renderer uploaded this snapshot's geometry, encoding and kept. */
   reportDrawn(snapshot: GraphSnapshot): void;
   /**
    * A part the graph's load waits for — a timeline's first bars: the graph stays `loading` until

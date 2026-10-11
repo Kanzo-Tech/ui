@@ -241,13 +241,13 @@ describe("the page's crossfilter", () => {
     crossfilter.update(clauseInterval("score", [2, 5], { source: chart }));
     await settle(corpus);
     // Person 1–4 by score; Place and Tag have no `score`, so the clause does not reach them.
-    expect(ids(store.getSnapshot().mask)).toEqual([1, 2, 3, 4, ...Array.from({ length: 10 }, (_, i) => 10 + i)]);
+    expect(ids(store.getSnapshot().kept)).toEqual([1, 2, 3, 4, ...Array.from({ length: 10 }, (_, i) => 10 + i)]);
     expect(store.getSnapshot()).toMatchObject({ geometry, encoding });
     expect(store.getSnapshot().drawn?.vertices).toBe(14);
     expect(store.getSnapshot().matching).toBe(14);
     crossfilter.update(clauseInterval("score", null, { source: chart }));
     await settle(corpus);
-    expect(store.getSnapshot().mask).toBeNull();
+    expect(store.getSnapshot().kept).toBeNull();
     expect(store.getSnapshot().matching).toBeNull();
   });
 
@@ -256,7 +256,7 @@ describe("the page's crossfilter", () => {
     crossfilter.update(clausePoint("name", "Place 3", { source: chart }));
     await settle(corpus);
     // Only Tag lacks `name`, so it stays in full colour beside the one Place that matched.
-    expect(ids(store.getSnapshot().mask)).toEqual([13, 16, 17, 18, 19]);
+    expect(ids(store.getSnapshot().kept)).toEqual([13, 16, 17, 18, 19]);
   });
 
   it("refuses a clause no vertex type can answer, as graph/unfilterable, and draws the graph unfiltered", async () => {
@@ -265,7 +265,7 @@ describe("the page's crossfilter", () => {
     await settle(corpus);
     expect(onFailure).toHaveBeenCalledOnce();
     expect(onFailure.mock.calls[0]?.[0]).toMatchObject({ name: "GraphError", code: "graph/unfilterable" });
-    expect(store.getSnapshot().mask).toBeNull();
+    expect(store.getSnapshot().kept).toBeNull();
   });
 
   it("answers a semi-join on dense_id on every table, whatever relation its subquery reads", async () => {
@@ -276,7 +276,7 @@ describe("the page's crossfilter", () => {
     await settle(corpus);
     expect(onFailure).not.toHaveBeenCalled();
     // An identity clause keeps its members in every table, and nothing else in any of them.
-    expect(ids(store.getSnapshot().mask)).toEqual([1, 2]);
+    expect(ids(store.getSnapshot().kept)).toEqual([1, 2]);
   });
 
   it("publishes the reader's pick as a semi-join on dense_id, and is exempt from its own clause", async () => {
@@ -286,7 +286,8 @@ describe("the page's crossfilter", () => {
     await settle(corpus);
     expect(String(crossfilter.predicate(chart as never))).toBe(`("dense_id" IN (3, 4))`);
     expect(crossfilter.clauses[0]?.meta).toEqual({ type: "semijoin", label: "Marquee" });
-    expect(store.getSnapshot().mask).toBeNull();
+    // Kept with no query: the canvas's own clause narrows what the page's answer keeps, here everything.
+    expect(ids(store.getSnapshot().kept)).toEqual([3, 4]);
     expect(corpus.sent.slice(before).filter((sql) => sql.includes("WHERE"))).toEqual([]);
     store.select(null);
     expect(String(crossfilter.predicate(chart as never) ?? "")).not.toContain("dense_id");
@@ -300,7 +301,7 @@ describe("the page's crossfilter", () => {
     // A lasso over Person 3, 4 and 5: 5 is outside the filter, so two of the three are in full colour.
     store.select([3, 4, 5], "lasso", "Lasso");
     await settle(corpus);
-    expect(ids(store.getSnapshot().mask)).toHaveLength(14);
+    expect(ids(store.getSnapshot().kept)).toEqual([3, 4]);
     expect(store.visible()).toEqual([3, 4]);
     expect(store.getSnapshot().matching).toBe(2);
     expect(store.getSnapshot().drawn).toMatchObject({ vertices: 2, tally: [2, 0, 0] });
@@ -314,7 +315,7 @@ describe("the page's crossfilter", () => {
     const { corpus, store } = await filtered();
     store.select([3, 4], "marquee", "Marquee");
     await settle(corpus);
-    expect(store.getSnapshot().mask).toBeNull();
+    expect(ids(store.getSnapshot().kept)).toEqual([3, 4]);
     expect(store.getSnapshot().matching).toBe(2);
     store.select(null);
     expect(store.getSnapshot().matching).toBeNull();
@@ -353,7 +354,7 @@ describe("the page's crossfilter", () => {
     crossfilter.update(clauseInterval("score", [2, 5], { source: chart }));
     await settle(corpus);
     expect(onFailure.mock.calls.map(([error]) => error)).toEqual([refused]);
-    expect(store.getSnapshot()).toMatchObject({ geometry, encoding, mask: null });
+    expect(store.getSnapshot()).toMatchObject({ geometry, encoding, kept: null });
     expect(store.getSnapshot().status).not.toBe("failed");
   });
 });
