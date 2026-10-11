@@ -605,7 +605,7 @@ describe("the three kinds a section may declare, drawn", () => {
   it("draws a toggle as a switch and a range as a slider", () => {
     setup(undefined, { sections: [DISPLAY] });
     // `checkbox`, not `switch`: Ark renders a hidden input and sets no `role="switch"` on it.
-    expect(screen.getByRole("checkbox", { name: "links" })).toBeTruthy();
+    expect(screen.getByRole("switch", { name: "links" })).toBeTruthy();
     expect(thumbFor("pointScale")).toBeTruthy();
   });
 
@@ -617,7 +617,7 @@ describe("the three kinds a section may declare, drawn", () => {
 
   it("names a toggle beside its switch, and sets two of them in one row", () => {
     setup(undefined, { sections: [DISPLAY] });
-    const fields = ["links", "grid"].map((name) => screen.getByRole("checkbox", { name }).closest("[data-slot=field]"));
+    const fields = ["links", "grid"].map((name) => screen.getByRole("switch", { name }).closest("[data-slot=field]"));
     for (const field of fields) expect(field?.getAttribute("data-orientation")).toBe("horizontal");
     // The same grid, one cell each: the section is one `FieldGroup` of two columns, and only a
     // toggle takes a single column of it.
@@ -629,13 +629,13 @@ describe("the three kinds a section may declare, drawn", () => {
     setup(undefined, { sections: [DISPLAY] });
     // A native checkbox carries its state as a property, not `aria-checked` — the same way this
     // file already reads the colour radios.
-    expect((screen.getByRole("checkbox", { name: "links" }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole("switch", { name: "links" }) as HTMLInputElement).checked).toBe(true);
     expect(thumbFor("pointScale")?.getAttribute("aria-valuenow")).toBe("1");
   });
 
   it("honours a stored value, and the range's declared bounds", () => {
     setup({ sections: { graph: { links: "false", pointScale: "1.4" } } }, { sections: [DISPLAY] });
-    expect((screen.getByRole("checkbox", { name: "links" }) as HTMLInputElement).checked).toBe(false);
+    expect((screen.getByRole("switch", { name: "links" }) as HTMLInputElement).checked).toBe(false);
     const thumb = thumbFor("pointScale");
     expect(thumb?.getAttribute("aria-valuenow")).toBe("1.4");
     expect(thumb?.getAttribute("aria-valuemin")).toBe("0.4");
