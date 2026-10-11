@@ -1,6 +1,6 @@
 "use client";
 
-import type { TableExpr } from "@kanzo-tech/mosaic";
+import type { RelationExpr } from "@kanzo-tech/mosaic";
 import type React from "react";
 import { Query } from "@uwdata/mosaic-sql";
 import { StatDelta, StatLabel, StatRoot, StatTrend } from "../simples/stat.js";
@@ -10,10 +10,12 @@ import { EditTileButton } from "./edit-tile-button.js";
 import { bucketExpr, measureExpr, type StatTile } from "./dashboard-spec.js";
 import { tileTitle } from "./tile-kinds.js";
 import type { FieldStat } from "./field-stats.js";
+import { useRelation } from "./mosaic-provider.js";
 import { useChartQuery } from "./use-chart-query.js";
 
 export interface DashboardStatProps extends Omit<React.ComponentProps<typeof StatRoot>, "onChange"> {
-  table: TableExpr;
+  /** The relation the measure is read from, as `ChartRoot` takes it. */
+  relation: RelationExpr;
   fields: readonly FieldStat[];
   stat: StatTile;
   /** Puts an edit button beside the label; the host opens the editor. */
@@ -27,7 +29,7 @@ export interface DashboardStatProps extends Omit<React.ComponentProps<typeof Sta
  * period's own unit rather than inventing one the relation does not have.
  */
 export function DashboardStat(props: DashboardStatProps) {
-  const { table, fields, stat, onEdit, ...rest } = props;
+  const { relation, fields, stat, onEdit, ...rest } = props;
   const share = stat.measure.op === "share";
   const format = share
     ? (v: number) => `${v.toFixed(1)}%`
@@ -44,29 +46,32 @@ export function DashboardStat(props: DashboardStatProps) {
           <EditTileButton label="Edit figure" onClick={onEdit} />
         </div>
       ) : null}
-      <ChartStat format={format} table={table} value={measureExpr(stat.measure)} />
+      <ChartStat format={format} relation={relation} value={measureExpr(stat.measure)} />
       {trend ? (
-        <Trend field={trend} goodWhenUp={stat.goodWhenUp} stat={stat} table={table} unit={share ? "pp" : undefined} />
+        <Trend field={trend} goodWhenUp={stat.goodWhenUp} relation={relation} stat={stat} unit={share ? "pp" : undefined} />
       ) : null}
     </StatRoot>
   );
 }
 
 function Trend({
-  table,
+  relation,
   field,
   stat,
   unit,
   goodWhenUp,
 }: {
-  table: TableExpr;
+  relation: RelationExpr;
   field: FieldStat;
   stat: StatTile;
   unit?: string;
   goodWhenUp?: boolean;
 }) {
   const bucket = bucketExpr(field);
+  const read = useRelation(relation);
+  const table = read.table!;
   const { rows } = useChartQuery({
+    relation: read.relation,
     deps: [chartTableKey(table), String(bucket), JSON.stringify(stat.measure)],
     query: (filter) =>
       bucket === null

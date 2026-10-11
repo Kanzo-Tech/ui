@@ -1,6 +1,6 @@
 "use client";
 
-import { clauseParts, type TableExpr } from "@kanzo-tech/mosaic";
+import { clauseParts, relationOf, sameRelation, type RelationExpr } from "@kanzo-tech/mosaic";
 import type { SelectionClause } from "@uwdata/mosaic-core";
 import { CalendarRangeIcon, ChevronDownIcon, PlusIcon, SearchIcon, SlidersHorizontalIcon, XIcon, type LucideIcon } from "lucide-react";
 import { cn } from "../lib/cn.js";
@@ -12,10 +12,11 @@ import { ChartTimeline } from "./chart-timeline.js";
 import { filterControl, type DashboardFilterControl, type DashboardFilterSpec } from "./dashboard-spec.js";
 import type { FieldStat } from "./field-stats.js";
 import { clauseField, useClauses } from "./filter-bar.js";
-import { InFilterBar, useMosaic } from "./mosaic-provider.js";
+import { InFilterBar, useMosaic, useRelation } from "./mosaic-provider.js";
 
 export interface DashboardFiltersProps {
-  table: TableExpr;
+  /** The relation the filters read, as `ChartRoot` takes it. */
+  relation: RelationExpr;
   fields: readonly FieldStat[];
   filters: readonly DashboardFilterSpec[];
   /** Makes them editable: a remove button per chip and a "Filter" menu of the fields left. */
@@ -26,16 +27,18 @@ export interface DashboardFiltersProps {
  * **A dashboard's filters, drawn in the page's `FilterBar`.** Every filter is a chip reading
  * *column: value* that opens its control, and the control is chosen from the field's stats
  * (`filterControl`): a category is a facet list, a key is searched, a number is a range slider and a
- * time is a brushable timeline. They publish into the dashboard's crossfilter, and the bar leaves
- * their clauses to these chips.
+ * time is a brushable timeline. They publish into the page's selection on the dashboard's relation,
+ * and the bar leaves their clauses to these chips.
  *
  * A control stays mounted while its popover is shut: a control that unmounts retracts its clause,
  * and a filter that let go whenever its chip closed would not be a filter.
  */
 export function DashboardFilters(props: DashboardFiltersProps) {
-  const { table, fields, filters, onChange } = props;
-  const { crossfilter } = useMosaic();
-  const clauses = useClauses(crossfilter);
+  const { relation, fields, filters, onChange } = props;
+  const { selection } = useMosaic();
+  const reading = useRelation(relation).relation;
+  // Only the clauses on this relation: another dashboard's field of the same name is not this one's.
+  const clauses = useClauses(selection).filter((c) => reading === null || sameRelation(relationOf(c), reading));
   const byName = new Map(fields.map((f) => [f.name, f]));
   const placed = filters.flatMap((spec) => {
     const field = byName.get(spec.field);
@@ -46,10 +49,10 @@ export function DashboardFilters(props: DashboardFiltersProps) {
   const remove = onChange && ((name: string) => onChange(filters.filter((s) => s.field !== name)));
 
   return (
-    <InFilterBar held={{ selection: crossfilter, fields: placed.map(({ field }) => field.name) }}>
+    <InFilterBar held={{ relation: reading, fields: placed.map(({ field }) => field.name) }}>
       {placed.map(({ field, control }) => (
         <div className="inline-flex items-center" data-slot="dashboard-filter" key={field.name}>
-          <FilterChip clauses={clauses} control={control} field={field} table={table} />
+          <FilterChip clauses={clauses} control={control} field={field} relation={relation} />
           {remove ? (
             <Button
               aria-label={`Remove the ${field.name} filter`}
@@ -110,12 +113,12 @@ const ICON: Record<Exclude<DashboardFilterControl, "filter">, LucideIcon> = {
 function FilterChip({
   field,
   control,
-  table,
+  relation,
   clauses,
 }: {
   field: FieldStat;
   control: DashboardFilterControl;
-  table: TableExpr;
+  relation: RelationExpr;
   clauses: readonly SelectionClause[];
 }) {
   const value = chipValue(clauses, field.name);
@@ -128,8 +131,8 @@ function FilterChip({
         controlClassName={cn("gap-1.5", active)}
         label={<ChipText field={field.name} value={value} />}
         searchable={field.distinct > 12}
+        relation={relation}
         size="sm"
-        table={table}
       />
     );
   }
@@ -144,11 +147,11 @@ function FilterChip({
       </PopoverTrigger>
       <PopoverContent className={cn("gap-2 p-3", control === "timeline" ? "w-96" : "w-72")}>
         {control === "search" ? (
-          <ChartSearch column={field.name} controlClassName="w-full min-w-0" placeholder="Search…" size="sm" table={table} />
+          <ChartSearch column={field.name} controlClassName="w-full min-w-0" placeholder="Search…" relation={relation} size="sm" />
         ) : control === "slider" ? (
-          <ChartSlider column={field.name} select="interval" table={table} />
+          <ChartSlider column={field.name} relation={relation} select="interval" />
         ) : (
-          <ChartTimeline field={field.name} table={table} title={field.name} />
+          <ChartTimeline field={field.name} relation={relation} title={field.name} />
         )}
       </PopoverContent>
     </Popover>

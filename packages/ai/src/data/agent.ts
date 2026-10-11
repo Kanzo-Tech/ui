@@ -1,5 +1,5 @@
 import { type LanguageModel, jsonSchema, stepCountIs, type Tool, tool, ToolLoopAgent } from "@kanzo-tech/llm";
-import { clauseColumns, clauseReadings, Query, relationQuery, type Engine, type JoinGraph, type Selection, type SelectionClause } from "@kanzo-tech/mosaic";
+import { clauseColumns, clauseLabel, Query, relationQuery, type Engine, type JoinGraph, type Selection, type SelectionClause } from "@kanzo-tech/mosaic";
 import { plotRelation } from "@kanzo-tech/ui/analytics";
 import type { ModelMessage } from "ai";
 import { OFFER_SCHEMA, suggest } from "../suggest.js";
@@ -87,8 +87,8 @@ const plain = (value: unknown) =>
  * relation could not answer — named with what each lacks, so the model can say the answer is not
  * narrowed by them, or answer over a relation that has those fields.
  */
-/** A page clause in the words the filter bar's chips use for it: one per part, a bridge read as what it filters. */
-const wordsOf = (clause: SelectionClause) => clauseReadings(clause).map((r) => r.label);
+/** A page clause in the words the filter bar's chip uses for it. */
+const wordsOf = (clause: SelectionClause) => [clauseLabel(clause)];
 
 function filterLines({ under, skipped }: AnswerOutput): string[] {
   const read =

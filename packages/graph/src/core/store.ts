@@ -1,10 +1,10 @@
-import { MosaicClient, Selection as Crossfilter, type Coordinator } from "@kanzo-tech/mosaic";
+import { MosaicClient, Selection as Crossfilter, firstDrawsPending, onFirstDraws, type Coordinator } from "@kanzo-tech/mosaic";
 import { domainOf } from "./categories";
 import { bindingOf } from "./channels";
 import { GraphClient, publish } from "./client";
 import { GraphError } from "./error";
 import { loadEncoding, loadGeometry, type Encoding, type Geometry } from "./load";
-import { readStructure } from "./source";
+import { VERTICES, readStructure } from "./source";
 import { type Structure } from "./structure";
 import type { VertexId } from "./types";
 import { drawnOf, idsOf, keptOf, maskOf } from "./kept";
@@ -19,7 +19,9 @@ export function createGraph(initial: GraphOptions): GraphStore {
   let options = initial;
   const listeners = new Set<() => void>();
 
-  let failed = false, unrenderable = false, holds = 0; // `holds`: parts the load waits for, `hold()`
+  let failed = false, unrenderable = false;
+  // Until shown once, the load also waits for every chart on the page yet to draw (`holdFirstDraw`).
+  let shownOnce = false, unwatch: (() => void) | null = null;
   let binding = bindingOf(initial);
   let structure: Structure | null = null;
   let geometry: Geometry | null = null;
@@ -115,7 +117,10 @@ export function createGraph(initial: GraphOptions): GraphStore {
     if (options.from === null || options.coordinator === null) return "none";
     const current = [geometry, encoding, mask];
     const shown = geometry !== null && current.every((part, i) => part === uploaded[i]);
-    return pending.structure || pending.geometry || pending.encoding || !shown || holds > 0 ? "loading" : "idle";
+    if (pending.structure || pending.geometry || pending.encoding || !shown) return "loading";
+    if (!shownOnce && firstDrawsPending(scope()) > 0) return "loading";
+    shownOnce = true;
+    return "idle";
   }
 
   function notify(fields: Partial<GraphSnapshot> = {}): void {
@@ -218,6 +223,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
       pending[kind] = false;
     }
     failed = false;
+    shownOnce = false;
     // A new corpus: the old one's pick goes from the page with its vertices.
     if (client && published && structure) publish(published, client, structure.key, null, "");
     published = null;
@@ -255,6 +261,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     );
     coordinator.connect(client);
     connected = coordinator;
+    unwatch = onFirstDraws(scope(), () => notify());
     const { selection } = snapshot;
     if (selection && structure) {
       published = scope();
@@ -263,6 +270,8 @@ export function createGraph(initial: GraphOptions): GraphStore {
   }
 
   function disconnect(): void {
+    unwatch?.();
+    unwatch = null;
     if (client && published && structure) publish(published, client, structure.key, null, "");
     published = null;
     if (client && connected) connected.disconnect(client);
@@ -333,7 +342,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     scope,
     source(id) {
       let found = sources.get(id);
-      if (!found) sources.set(id, (found = Object.assign(new MosaicClient(), { reset() {} })));
+      if (!found) sources.set(id, (found = Object.assign(new MosaicClient(), { reset() {}, relation: VERTICES })));
       return found;
     },
     focus(vertex) {
@@ -370,10 +379,6 @@ export function createGraph(initial: GraphOptions): GraphStore {
       unrenderable = true;
       fail(error);
       notify();
-    },
-    hold() {
-      let held = (holds++, notify(), true);
-      return () => void (held && ((held = false), holds--, notify()));
     },
     reportDrawn(drawnSnapshot) {
       // Loading waits on the page's answer, not on the canvas's own clause, which needs no query: a

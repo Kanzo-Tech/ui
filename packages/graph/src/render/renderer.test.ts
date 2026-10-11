@@ -167,9 +167,10 @@ describe("the renderer's frame", () => {
     await settle(corpus);
     await frame();
     expect(commands()).toEqual([]);
-    expect(uploaded.config.highlightedPointIndices).toEqual([1, 2, 3, 4, ...Array.from({ length: 10 }, (_, i) => 10 + i)]);
-    // knows 1→2, 2→3, 3→4 and livesIn 1→11 … 4→14; tagged 0→16 has an end the filter greyed.
-    expect(uploaded.config.highlightedLinkIndices).toHaveLength(7);
+    // Person 1–4: no Place or Tag has a `score`, so the clause keeps none of them.
+    expect(uploaded.config.highlightedPointIndices).toEqual([1, 2, 3, 4]);
+    // knows 1→2, 2→3, 3→4; every other edge has an end the filter greyed.
+    expect(uploaded.config.highlightedLinkIndices).toHaveLength(3);
   });
 
   it("a camera move notifies nobody", async () => {
@@ -314,8 +315,8 @@ describe("the camera at load", () => {
     await settle(corpus);
     calls.length = 0;
     renderer?.frame();
-    // What is kept and placed: Person 1–4 and the six Places; the kept Tags have no position to frame.
-    expect(commands()).toEqual([`frame:1,2,3,4,${Array.from({ length: 6 }, (_, i) => 10 + i).join(",")}`]);
+    // What is kept and placed: Person 1–4, the only vertices with a `score`.
+    expect(commands()).toEqual(["frame:1,2,3,4"]);
     calls.length = 0;
     // Person 0 scores 1: held by the canvas, greyed by the filter, and not framed.
     store.select([0, 1, 2]);

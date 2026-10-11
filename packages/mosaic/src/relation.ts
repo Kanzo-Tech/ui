@@ -29,6 +29,11 @@ export interface JoinType {
   readonly columns: readonly string[];
   /** How many rows the table holds, where the catalog says: what a hop's fan-out is read from. */
   readonly rows?: number;
+  /**
+   * The types whose rows this one holds, for a type that is their union — every vertex as one
+   * relation. A clause on any of them crosses into it by `key`, and a clause on it into each of them.
+   */
+  readonly of?: readonly string[];
 }
 
 /** One link table: each row joins a `source` row to a `destination` row. */

@@ -1,6 +1,6 @@
 "use client";
 
-import { queryFailure, type TableExpr } from "@kanzo-tech/mosaic";
+import { holdFirstDraw, onRelation, queryFailure, relaySelection, type RelationExpr, type RelationRef, type TableExpr } from "@kanzo-tech/mosaic";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
@@ -21,7 +21,7 @@ import {
   type ChartMargin,
   type ChartSpecContext,
 } from "./chart-spec.js";
-import { useClientsEnabled, useMosaic } from "./mosaic-provider.js";
+import { useClientsEnabled, useMosaic, useRelation } from "./mosaic-provider.js";
 import { resolveTokenColor } from "../lib/token-color.js";
 import { TokenizedPlot } from "./tokenized-plot.js";
 import { DenseStackMark } from "./dense-stack.js";
@@ -32,7 +32,7 @@ import { registerChartForTesting, type PlotOutput } from "./testing-probe.js";
  * clients this library does not define, and their `queryError` does nothing — a failed mark leaves
  * the plot on its last render — so `ChartRoot` answers it for them.
  */
-type PlotMark = { queryError(error: Error): unknown; enabled: boolean };
+type PlotMark = { queryError(error: Error): unknown; enabled: boolean; relation?: RelationRef | null };
 type PlotElement = HTMLElement & {
   value: ChartPlot & { marks: PlotMark[]; pending(mark: PlotMark): void; render(): Promise<void>; element: HTMLElement };
 };
@@ -77,7 +77,7 @@ interface Slot {
  *
  * Returns what to run once the new plot has drawn, when there is anything.
  */
-function handOver(slots: Slot[], after: readonly unknown[], same: boolean): (() => void) | null {
+function handOver(slots: Slot[], after: readonly unknown[], same: boolean, relation: RelationRef | null): (() => void) | null {
   const moves: (() => void)[] = [];
   const next = after.map((item, i) => {
     const heir = item as Publisher;
@@ -86,10 +86,10 @@ function handOver(slots: Slot[], after: readonly unknown[], same: boolean): (() 
     if (slot && !keeps) withdraw(slot);
     if (!keeps) {
       const fresh: Slot = { source: { reset: () => fresh.current.reset?.() }, current: heir };
-      return adopt(fresh, heir);
+      return adopt(fresh, heir, relation);
     }
     heir.value = slot.current.value;
-    adopt(slot, heir);
+    adopt(slot, heir, relation);
     moves.push(() => {
       if (slot.current !== heir) return;
       if (heir.value === undefined) withdraw(slot);
@@ -102,8 +102,8 @@ function handOver(slots: Slot[], after: readonly unknown[], same: boolean): (() 
   return moves.length > 0 ? () => moves.forEach((move) => move()) : null;
 }
 
-/** `interactor` takes `slot`: it publishes under the slot's source from now on. */
-function adopt(slot: Slot, interactor: Publisher): Slot {
+/** `interactor` takes `slot`: it publishes under the slot's source from now on, on the chart's relation. */
+function adopt(slot: Slot, interactor: Publisher, relation: RelationRef | null): Slot {
   slot.current = interactor;
   const own = interactor.clause?.bind(interactor);
   if (own) {
@@ -113,7 +113,7 @@ function adopt(slot: Slot, interactor: Publisher): Slot {
         if ("value" in slot.current) slot.current.value = args[0];
         return slot.current.clause!(...args);
       }
-      return { ...own(...args), source: slot.source };
+      return onRelation({ ...own(...args), source: slot.source }, relation);
     };
   }
   return slot;
@@ -166,11 +166,12 @@ export interface ChartContextValue {
   /** The active Mosaic coordinator, for a consumer that queries alongside the plot. */
   coordinator: Coordinator;
   config: ChartConfig;
+  /** What the marks read: the root's `relation`, compiled over the provider's joins. */
   table?: TableExpr;
-  /** What the marks filter by; `null` = the full relation. */
-  filterBy: Selection | null;
-  /** Where the interactors publish. */
-  as: Selection;
+  /** The relation the page knows the chart by — what its clauses are on — or `null` for SQL it names none for. */
+  relation: RelationRef | null;
+  /** The page's selection: what the marks filter by and the interactors publish into. */
+  selection: Selection;
   /**
    * The series colour, normalised to `rgb(...)` so it is safe for both CSS and Plot. `undefined`
    * for a key the config does not name.
@@ -214,19 +215,14 @@ export interface ChartRootProps
   extends Omit<React.ComponentProps<typeof ark.div>, "children">,
     ChartFacetOptions {
   /**
-   * The relation the marks read. A string is one identifier in the default catalog; a relation in
-   * another catalog is a mosaic-sql node — `verbatim(relation.sql)`, `asTableRef([catalog, name])`.
-   * Omit it when every mark carries its own `data`.
+   * What the marks read: a table by name — a type of the provider's `joins`, read as it is — a path
+   * over the joins (a `Relation`, compiled with `relationQuery`), or SQL as a mosaic-sql node —
+   * `verbatim(relation.sql)`, `asTableRef([catalog, name])`. Its clauses are published on it, and a
+   * clause on another relation reaches the marks crossed into it. It may change: the plot re-queries
+   * and withdraws the clauses it published on the old one. Omit it when every mark carries its own
+   * `data`.
    */
-  table?: TableExpr;
-  /** What the marks filter by. Defaults to the `<MosaicProvider>` crossfilter; `null` = unfiltered. */
-  filterBy?: Selection | null;
-  /**
-   * Where the child interactors publish, and what `ChartHighlight` reads back. Defaults to a
-   * selection this root owns, relayed into the provider — see the note on `ChartRoot`. Pass one and
-   * you own its wiring: nothing is relayed for you, though the provider's `reset()` still clears it.
-   */
-  as?: Selection;
+  relation?: RelationExpr;
   /** Series key → `{ label, color, icon }`. A non-empty config pins the plot's colour scale. */
   config?: ChartConfig;
   /** Plot height in px; the width is measured from the container. Default 200. */
@@ -251,21 +247,22 @@ export interface ChartRootProps
 const EMPTY_CONFIG: ChartConfig = {};
 
 /**
- * Why every chart owns a selection instead of sharing the page's.
+ * **Every chart publishes into the page's one selection, and filters by it** — Mosaic's crossfilter:
+ * a chart is exempt from the clauses its own interactors publish, so the bars under a brush do not
+ * vanish, and a chip's × retracts a clause where it is held, calling the interactor back.
  *
- * `ChartHighlight` does not filter — it asks the mark's **own** query which rows are selected, by
- * appending the predicate as an extra output column: `q._groupby.length ? q.select({__: pred})`.
- * On an aggregating mark that query has a `GROUP BY`, so a predicate naming a column this plot does
- * not group by is `Binder Error: column "provider" must appear in the GROUP BY clause`. The query
- * dies, vgplot swallows it, and **the plot keeps its previous render** — no error, no empty state,
- * nothing but a console line. It costs hours to find, because the symptom looks like a broken
- * crossfilter three components away.
+ * Why `ChartHighlight` reads a selection of the chart's own instead. A highlight does not filter — it
+ * asks the mark's **own** query which rows are selected, by appending the predicate as an extra output
+ * column: `q._groupby.length ? q.select({__: pred})`. On an aggregating mark that query has a
+ * `GROUP BY`, so a predicate naming a column this plot does not group by is `Binder Error: column
+ * "provider" must appear in the GROUP BY clause`. The query dies, vgplot swallows it, and **the plot
+ * keeps its previous render** — no error, no empty state, nothing but a console line. So its default
+ * `by` is a plain union the root fills from the page with its own interactors' clauses only — by
+ * construction those name the columns its marks group by — following the page, so a clause retracted
+ * there stops highlighting here.
  *
- * A page-wide publish target guarantees that failure the moment a second chart filters by a second
- * column. So each root publishes into a union of its own: those clauses, by construction, name only
- * columns this plot's own interactors could produce — which are the columns its marks group by. The
- * clauses are relayed on into the provider (`selected` → `crossfilter`) with `source` and `clients`
- * intact, so every other chart filters exactly as before and this one still does not filter itself.
+ * Until the plot has drawn its first answer it holds the page's first draw (`holdFirstDraw`), so a part
+ * whose load should appear with the charts — the graph's canvas — waits for it.
  *
  * ARIA: the root is a `figure`, named by the caller's `aria-label` — a tile passes its title — and
  * `aria-busy` until it has drawn and while a query runs. Its title is also its key in
@@ -273,9 +270,7 @@ const EMPTY_CONFIG: ChartConfig = {};
  */
 export function ChartRoot(props: ChartRootProps) {
   const {
-    table,
-    filterBy,
-    as,
+    relation,
     config = EMPTY_CONFIG,
     height = 200,
     margin,
@@ -293,7 +288,10 @@ export function ChartRoot(props: ChartRootProps) {
     slot,
     ...rest
   } = props;
-  const { coordinator, crossfilter, selected, registerSelection, onFailure } = useMosaic();
+  const { coordinator, selection, onFailure } = useMosaic();
+  const read = useRelation(relation);
+  const { table } = read;
+  const reading = read.relation;
   const [failure, setFailure] = useState<unknown>(undefined);
   // Busy until the first render, so a chart that has not measured its width yet is not read as
   // drawn; where it never can, as under jsdom, it stays busy, which is what it is.
@@ -309,9 +307,14 @@ export function ChartRoot(props: ChartRootProps) {
   useEffect(() => registerChartForTesting(title, () => output.current), [title]);
   // A plain union, so it hides nothing from its own publisher — a crossfilter would, and
   // `ChartHighlight` would read an empty predicate and dim nothing.
-  const [own] = useState(() => Selection.union());
-  const target = as ?? own;
-  const source = filterBy === undefined ? crossfilter : filterBy;
+  const [highlight] = useState(() => Selection.union());
+  useEffect(
+    () => relaySelection(selection, highlight, { keep: (clause) => slots.current.some((slot) => slot.source === clause.source) }),
+    [selection, highlight],
+  );
+  // What the chart published leaves the page with it: a chart that unmounts (a tab, a conditional)
+  // would otherwise leave its clauses filtering the page with nothing on screen to clear them.
+  useEffect(() => () => slots.current.forEach(withdraw), [selection]);
   const host = useRef<HTMLDivElement | null>(null);
   // The marks of the plot on screen, so `MosaicClients` reaches them without rebuilding the plot.
   const marks = useRef<readonly PlotMark[]>([]);
@@ -319,23 +322,20 @@ export function ChartRoot(props: ChartRootProps) {
   useEffect(() => {
     for (const mark of marks.current) mark.enabled = enabled;
   }, [enabled]);
-
-  useEffect(
-    // Only the selection this root minted is relayed: a caller-supplied `as` was wired by the
-    // caller (`include`, or another root), and relaying it again would double every clause.
-    () => registerSelection(target, { relay: target === own }),
-    [registerSelection, target, own],
-  );
+  // The page's first draw waits for this chart while it asks, until its first answer is drawn.
+  const [answered, setAnswered] = useState(false);
+  useEffect(() => (enabled && !answered ? holdFirstDraw(selection) : undefined), [enabled, answered, selection]);
 
   const numberKey = JSON.stringify(numberFormat ?? null);
-  const tableKey = chartTableKey(table);
+  // The relation as the page knows it is part of what was drawn: its clauses are on it.
+  const tableKey = `${chartTableKey(table)}\u0000${JSON.stringify(reading)}`;
   const context = useMemo<ChartContextValue>(
     () => ({
       coordinator,
       config,
       table,
-      filterBy: source,
-      as: target,
+      relation: reading,
+      selection,
       color: (key) => {
         const value = chartSeriesColor(config, key);
         if (value === undefined || !isColorToken(value) || typeof document === "undefined") return value;
@@ -348,14 +348,14 @@ export function ChartRoot(props: ChartRootProps) {
     }),
     // `numberKey` and `tableKey` stand in for their objects' identities; both are read fresh.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [coordinator, config, tableKey, source, target, locale, numberKey],
+    [coordinator, config, tableKey, selection, locale, numberKey],
   );
 
   // Compiled twice on purpose: once here with an identity colour resolver, purely to fingerprint
   // the grammar for `deps`, and once inside the render below against the live DOM. The pure pass
   // is what keeps a re-render from re-running every query.
   const pure = compileChartSpec(children, {
-    table, filterBy: source, as: target, config, resolveColor: identity,
+    table, filterBy: selection, as: selection, highlight, config, resolveColor: identity,
   });
   const signature = chartSpecSignature(pure);
   const colorKey = JSON.stringify(chartColorScale(config));
@@ -364,7 +364,7 @@ export function ChartRoot(props: ChartRootProps) {
   const warned = useRef<string | null>(null);
   if (process.env.NODE_ENV !== "production" && warned.current !== signature) {
     warned.current = signature;
-    const context = { shared: [crossfilter, selected] };
+    const context = { shared: [selection] };
     for (const warning of chartSpecWarnings(pure, context)) console.warn(`[ChartRoot] ${warning}`);
   }
 
@@ -387,8 +387,7 @@ export function ChartRoot(props: ChartRootProps) {
             signature,
             colorKey,
             tableKey,
-            source,
-            target,
+            selection,
             height,
             aspectRatio,
             JSON.stringify(margin ?? null),
@@ -401,8 +400,9 @@ export function ChartRoot(props: ChartRootProps) {
             const cache = new Map<string, string>();
             const ctx: ChartSpecContext = {
               table,
-              filterBy: source,
-              as: target,
+              filterBy: selection,
+              as: selection,
+              highlight,
               config,
               resolveColor: (token) => {
                 const name = colorTokenName(token);
@@ -421,7 +421,7 @@ export function ChartRoot(props: ChartRootProps) {
             const element = vg.plot(...spec.map(toVgDirective).filter((d): d is VgDirective => d !== null));
             const plot = (element as PlotElement).value;
             const from = `${tableKey}\u0000${signature}`;
-            let handed = handOver(slots.current, plot.interactors, drawnFrom.current === from);
+            let handed = handOver(slots.current, plot.interactors, drawnFrom.current === from, reading);
             marks.current = plot.marks;
             drawn.current = plot;
             drawnFrom.current = from;
@@ -441,14 +441,18 @@ export function ChartRoot(props: ChartRootProps) {
               handed = null;
               output.current = plot.element.firstElementChild as PlotOutput | null;
               setBusy(false);
+              setAnswered(true);
             };
             for (const mark of marks.current) {
               mark.enabled = enabled;
+              // What the page's resolver crosses every other relation's clauses into.
+              mark.relation = reading;
               const own = mark.queryError.bind(mark);
               mark.queryError = (error) => {
                 const thrown = queryFailure(error);
                 setFailure(() => thrown);
                 setBusy(false);
+                setAnswered(true);
                 onFailure(thrown);
                 return own(error);
               };

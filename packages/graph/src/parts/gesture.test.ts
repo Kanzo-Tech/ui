@@ -16,7 +16,8 @@ import { useGesture } from "./gesture";
  */
 
 /** Persons `1 … 4` score 2–5, and the other tables have no score: the search keeps those 14 of 20. */
-const KEPT = [1, 2, 3, 4, ...Array.from({ length: 10 }, (_, i) => 10 + i)];
+// Person 1–4 by score; a Place or a Tag has no `score`, so the clause keeps none of them.
+const KEPT = [1, 2, 3, 4];
 const sorted = (ids: readonly VertexId[] | undefined) => [...(ids ?? [])].sort((a, b) => a - b);
 
 async function searched() {

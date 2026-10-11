@@ -10,7 +10,7 @@ import { GRAPH_SECTION } from "../section";
 /**
  * The graph section's resolved preferences, as the three things `useGraph` takes: the look, the
  * forces, and where the points come from — `{}`, `{ x, y }` or `{ cluster }`, spread on the root —
- * and the column `GraphTimeline` reads, `""` for none.
+ * and the column a timeline over the graph reads — `<ChartTimeline relation="vertices" field={timeline} />` — `""` for none.
  *
  * The join between the provider's `sectionPrefs` and the three readers of this package's manifest.
  * Every host that drew a graph under a preferences panel wrote it — the docs' workspace and a host's

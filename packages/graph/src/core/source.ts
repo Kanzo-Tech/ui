@@ -14,8 +14,6 @@ import {
   sql,
   sum,
   clauseColumns,
-  semiJoinOf,
-  type ClauseMap,
   type Coordinator,
   type ExprNode,
   type FilterExpr,
@@ -354,25 +352,40 @@ export async function matchingIds(
   return Array.from(values(await ask(coordinator, Query.select("id").from(union).where("inside")), "id") as ArrayLike<number>);
 }
 
-/** A timeline over the graph: the relation its bars count, and how its window reaches the page. */
-export interface Timeline {
-  /** The key and `field` of every vertex table that has `field`, as one relation. */
-  readonly table: Query;
-  /**
-   * The window as the page's clause: a semi-join on the key, so only the vertices with `field` in the
-   * window are kept and every other — a type without `field` included — is greyed, as Cosmograph
-   * greys them. It names the key alone, the one form every client of the page answers: a dashboard's
-   * relation whose root has no `field` answers it with no rows.
-   */
-  readonly publish: ClauseMap;
-}
+/** The name every vertex as one relation goes by: in the corpus's join graph, and as what the canvas reads. */
+export const VERTICES = "vertices";
 
-/** The timeline over `field`, or `null` when no vertex table has it. */
-export function timelineOf(structure: Structure | null, field: string): Timeline | null {
-  if (!structure || field === "") return null;
-  const tables = structure.vertices.filter((t) => t.columns.get(field)?.role === null);
-  if (tables.length === 0) return null;
+const unions = new WeakMap<Structure, { table: Query; columns: string[] }>();
+
+/**
+ * **Every vertex as one relation** — each vertex table's rows under the corpus's key, with every
+ * column some table has: `NULL` in a table without it, so a clause on a column keeps none of a type
+ * that has no such column (`/docs/design/crossfilter`). A column two tables declare with different
+ * types is not one column, and is left out. What the canvas reads, what a timeline over the graph
+ * counts (`<ChartTimeline relation="vertices" field=… />`), and the `vertices` type of the corpus's
+ * join graph.
+ */
+export function verticesOf(structure: Structure): { table: Query; columns: string[] } {
+  const found = unions.get(structure);
+  if (found) return found;
+  const types = new Map<string, string | null>();
+  for (const table of structure.vertices) {
+    for (const [name, column] of table.columns) {
+      if (name === structure.key) continue;
+      const seen = types.get(name);
+      types.set(name, seen === undefined || seen === column.type ? column.type : null);
+    }
+  }
+  const columns = [...types].flatMap(([name, type]) => (type === null ? [] : [name]));
   const key = structure.key;
-  const table = Query.unionAll(tables.map((t) => Query.select({ [key]: key, [field]: field }).from(relation(structure.from, t.name))));
-  return { table, publish: semiJoinOf(key, table, { label: field }) };
+  const table = Query.unionAll(
+    structure.vertices.map((t) =>
+      Query.select({ [key]: key, ...Object.fromEntries(columns.map((c) => [c, t.columns.has(c) ? c : literal(null)])) }).from(
+        relation(structure.from, t.name),
+      ),
+    ),
+  );
+  const union = { table, columns };
+  unions.set(structure, union);
+  return union;
 }

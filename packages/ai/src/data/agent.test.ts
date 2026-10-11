@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { AiError } from "@kanzo-tech/llm";
-import { bridgeSelection, clausePoints, semiJoinOf, Selection, type Engine } from "@kanzo-tech/mosaic";
+import { clausePoints, crossfilterOver, onRelation, Selection, type Engine } from "@kanzo-tech/mosaic";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { mockModel, promptOf } from "../testing/model.js";
 import { testDatabase, type TestDatabase } from "../testing/duckdb.js";
@@ -25,12 +25,10 @@ function picked() {
   return selection;
 }
 
-/** A page whose filter came from a dashboard over the relation `Person`: its pick crosses in as a semi-join. */
+/** A page whose filter came from a dashboard over the relation `Person`: its pick, published on it. */
 async function pickedOnTheDashboard() {
-  const page = Selection.crossfilter();
-  const dashboard = Selection.crossfilter();
-  bridgeSelection(dashboard, page, semiJoinOf("Person.id", "Person", { label: "Person" }));
-  dashboard.update(clausePoints(["Person.gender"], [["female"]], { source: {} }));
+  const page = crossfilterOver(PEOPLE);
+  page.update(onRelation(clausePoints(["Person.gender"], [["female"]], { source: {} }), { root: "Person", path: [] }));
   await new Promise((heard) => setTimeout(heard, 0));
   return page;
 }
@@ -189,11 +187,11 @@ describe("dataSuggestions", () => {
     expect(prompt).toContain("Give 3.");
   });
 
-  it("tells the model what a dashboard's pick filters the page to, not the relation it crossed from", async () => {
+  it("tells the model what a dashboard's pick filters the page to, as its chip reads it", async () => {
     const { model } = mockModel(() => JSON.stringify({ elements: [] }));
     for await (const _ of dataSuggestions({ model, graph: PEOPLE, relations, selection: await pickedOnTheDashboard() })) void _;
     const prompt = promptOf(model.doStreamCalls[0]!);
-    expect(prompt).toContain("The page is filtered to: Person Person.gender female.");
+    expect(prompt).toContain("The page is filtered to: Person.gender female.");
     expect(prompt).not.toContain("The page is filtered to: Person.\n");
   });
 

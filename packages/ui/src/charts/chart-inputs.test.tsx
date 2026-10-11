@@ -4,7 +4,14 @@ import { describe, expect, it, vi } from "vitest";
 import { clausePoint, QueryError, Selection, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
 import { asTableRef } from "@uwdata/mosaic-sql";
 import { ChartFilter, ChartSearch, ChartSlider } from "./chart-inputs.js";
-import { MosaicProvider } from "./mosaic-provider.js";
+import { MosaicProvider, useMosaic } from "./mosaic-provider.js";
+
+/** The page's selection, which the provider owns: handed out from inside it. */
+function Page({ into }: { into: (selection: Selection) => void }) {
+  into(useMosaic().selection);
+  return null;
+}
+
 
 /**
  * jsdom has no DuckDB, so the coordinator is a double: it plays the moves a real one makes against
@@ -83,13 +90,14 @@ describe("ChartFilter", () => {
     screen.findByRole("option", { name }).then((item) => user.click(item));
 
   it("groups the column with its counts and publishes every ticked value in one clause", async () => {
-    const crossfilter = Selection.crossfilter();
+    let crossfilter!: Selection;
     const { coordinator, queries } = stubCoordinator(() => HOST_COUNTS);
     const user = userEvent.setup();
 
     render(
-      <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
-        <ChartFilter column="host" label="Host" table="telemetry" />
+      <MosaicProvider coordinator={coordinator}>
+        <Page into={(s) => (crossfilter = s)} />
+        <ChartFilter column="host" label="Host" relation="telemetry" />
       </MosaicProvider>,
     );
 
@@ -117,8 +125,8 @@ describe("ChartFilter", () => {
     const user = userEvent.setup();
 
     render(
-      <MosaicProvider coordinator={coordinator} crossfilter={Selection.crossfilter()} onFailure={onFailure}>
-        <ChartFilter column="host" label="Host" table="telemetry" />
+      <MosaicProvider coordinator={coordinator} onFailure={onFailure}>
+        <ChartFilter column="host" label="Host" relation="telemetry" />
       </MosaicProvider>,
     );
 
@@ -133,8 +141,8 @@ describe("ChartFilter", () => {
     const user = userEvent.setup();
 
     render(
-      <MosaicProvider coordinator={coordinator} crossfilter={Selection.crossfilter()}>
-        <ChartFilter column="host" label="Host" table={asTableRef(["jobs/7", "telemetry"])} />
+      <MosaicProvider coordinator={coordinator}>
+        <ChartFilter column="host" label="Host" relation={asTableRef(["jobs/7", "telemetry"])} />
       </MosaicProvider>,
     );
 
@@ -143,13 +151,14 @@ describe("ChartFilter", () => {
   });
 
   it("retracts the filter when the last value is unticked", async () => {
-    const crossfilter = Selection.crossfilter();
+    let crossfilter!: Selection;
     const { coordinator } = stubCoordinator(() => HOST_COUNTS);
     const user = userEvent.setup();
 
     render(
-      <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
-        <ChartFilter column="host" label="Host" table="telemetry" />
+      <MosaicProvider coordinator={coordinator}>
+        <Page into={(s) => (crossfilter = s)} />
+        <ChartFilter column="host" label="Host" relation="telemetry" />
       </MosaicProvider>,
     );
 
@@ -165,13 +174,14 @@ describe("ChartFilter", () => {
   });
 
   it("clears every ticked value in one press", async () => {
-    const crossfilter = Selection.crossfilter();
+    let crossfilter!: Selection;
     const { coordinator } = stubCoordinator(() => HOST_COUNTS);
     const user = userEvent.setup();
 
     render(
-      <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
-        <ChartFilter column="host" label="Host" table="telemetry" />
+      <MosaicProvider coordinator={coordinator}>
+        <Page into={(s) => (crossfilter = s)} />
+        <ChartFilter column="host" label="Host" relation="telemetry" />
       </MosaicProvider>,
     );
 
@@ -185,13 +195,14 @@ describe("ChartFilter", () => {
   });
 
   it("counts against the other filters but never against its own clause", async () => {
-    const crossfilter = Selection.crossfilter();
+    let crossfilter!: Selection;
     const { coordinator, queries } = stubCoordinator(() => HOST_COUNTS);
     const user = userEvent.setup();
 
     render(
-      <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
-        <ChartFilter column="host" label="Host" table="telemetry" />
+      <MosaicProvider coordinator={coordinator}>
+        <Page into={(s) => (crossfilter = s)} />
+        <ChartFilter column="host" label="Host" relation="telemetry" />
       </MosaicProvider>,
     );
 
@@ -219,7 +230,7 @@ describe("ChartFilter", () => {
 
     render(
       <MosaicProvider coordinator={coordinator}>
-        <ChartFilter column="host" label="Host" limit={3} table="telemetry" />
+        <ChartFilter column="host" label="Host" limit={3} relation="telemetry" />
       </MosaicProvider>,
     );
 
@@ -236,7 +247,7 @@ describe("ChartFilter", () => {
 
     render(
       <MosaicProvider coordinator={coordinator}>
-        <ChartFilter column="host" label="Host" searchable table="telemetry" />
+        <ChartFilter column="host" label="Host" searchable relation="telemetry" />
       </MosaicProvider>,
     );
 
@@ -259,7 +270,7 @@ describe("ChartFilter", () => {
 
     render(
       <MosaicProvider coordinator={coordinator}>
-        <ChartFilter column="host" label="Host" limit={3} searchable table="telemetry" />
+        <ChartFilter column="host" label="Host" limit={3} searchable relation="telemetry" />
       </MosaicProvider>,
     );
 
@@ -272,13 +283,14 @@ describe("ChartFilter", () => {
   });
 
   it("falls back to a single-value point clause when multiple is false", async () => {
-    const crossfilter = Selection.crossfilter();
+    let crossfilter!: Selection;
     const { coordinator } = stubCoordinator(() => HOST_COUNTS);
     const user = userEvent.setup();
 
     render(
-      <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
-        <ChartFilter column="host" label="Host" multiple={false} table="telemetry" />
+      <MosaicProvider coordinator={coordinator}>
+        <Page into={(s) => (crossfilter = s)} />
+        <ChartFilter column="host" label="Host" multiple={false} relation="telemetry" />
       </MosaicProvider>,
     );
 
@@ -306,13 +318,14 @@ describe("ChartFilter", () => {
   });
 
   it("disconnects its client and retracts its clause on unmount", async () => {
-    const crossfilter = Selection.crossfilter();
+    let crossfilter!: Selection;
     const { coordinator, connected } = stubCoordinator(() => HOST_COUNTS);
     const user = userEvent.setup();
 
     const { unmount } = render(
-      <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
-        <ChartFilter column="host" label="Host" table="telemetry" />
+      <MosaicProvider coordinator={coordinator}>
+        <Page into={(s) => (crossfilter = s)} />
+        <ChartFilter column="host" label="Host" relation="telemetry" />
       </MosaicProvider>,
     );
 
@@ -330,13 +343,14 @@ describe("ChartFilter", () => {
 
 describe("ChartSearch", () => {
   it("publishes a match clause and offers the queried values as completions", async () => {
-    const crossfilter = Selection.crossfilter();
+    let crossfilter!: Selection;
     const { coordinator } = stubCoordinator(() => HOSTS);
     const user = userEvent.setup();
 
     render(
-      <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
-        <ChartSearch column="host" debounce={0} label="Host" table="telemetry" />
+      <MosaicProvider coordinator={coordinator}>
+        <Page into={(s) => (crossfilter = s)} />
+        <ChartSearch column="host" debounce={0} label="Host" relation="telemetry" />
       </MosaicProvider>,
     );
 
@@ -357,13 +371,14 @@ describe("ChartSearch", () => {
   });
 
   it("publishes what you pick, the same clause typing would have published", async () => {
-    const crossfilter = Selection.crossfilter();
+    let crossfilter!: Selection;
     const { coordinator } = stubCoordinator(() => HOSTS);
     const user = userEvent.setup();
 
     render(
-      <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
-        <ChartSearch column="host" debounce={0} table="telemetry" />
+      <MosaicProvider coordinator={coordinator}>
+        <Page into={(s) => (crossfilter = s)} />
+        <ChartSearch column="host" debounce={0} relation="telemetry" />
       </MosaicProvider>,
     );
 
@@ -376,13 +391,14 @@ describe("ChartSearch", () => {
   });
 
   it("follows the selection when something else changes it", async () => {
-    const crossfilter = Selection.crossfilter();
+    let crossfilter!: Selection;
     const { coordinator } = stubCoordinator(() => HOSTS);
     const user = userEvent.setup();
 
     render(
-      <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
-        <ChartSearch column="host" debounce={0} table="telemetry" />
+      <MosaicProvider coordinator={coordinator}>
+        <Page into={(s) => (crossfilter = s)} />
+        <ChartSearch column="host" debounce={0} relation="telemetry" />
       </MosaicProvider>,
     );
 
@@ -397,13 +413,14 @@ describe("ChartSearch", () => {
   });
 
   it("disconnects its client and retracts its clause on unmount", async () => {
-    const crossfilter = Selection.crossfilter();
+    let crossfilter!: Selection;
     const { coordinator, connected } = stubCoordinator(() => HOSTS);
     const user = userEvent.setup();
 
     const { unmount } = render(
-      <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
-        <ChartSearch column="host" debounce={0} table="telemetry" />
+      <MosaicProvider coordinator={coordinator}>
+        <Page into={(s) => (crossfilter = s)} />
+        <ChartSearch column="host" debounce={0} relation="telemetry" />
       </MosaicProvider>,
     );
 
@@ -420,13 +437,14 @@ describe("ChartSearch", () => {
 
 describe("ChartSlider", () => {
   it("takes its extent from the coordinator and publishes an interval clause", async () => {
-    const crossfilter = Selection.crossfilter();
+    let crossfilter!: Selection;
     const { coordinator, queries } = stubCoordinator(() => [{ min: 0, max: 100 }]);
     const user = userEvent.setup();
 
     const { container } = render(
-      <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
-        <ChartSlider column="latency" label="Latency" select="interval" table="telemetry" />
+      <MosaicProvider coordinator={coordinator}>
+        <Page into={(s) => (crossfilter = s)} />
+        <ChartSlider column="latency" label="Latency" select="interval" relation="telemetry" />
       </MosaicProvider>,
     );
 
@@ -447,13 +465,14 @@ describe("ChartSlider", () => {
   });
 
   it("returns its thumbs to the extent when the selection is reset", async () => {
-    const crossfilter = Selection.crossfilter();
+    let crossfilter!: Selection;
     const { coordinator } = stubCoordinator(() => [{ min: 0, max: 100 }]);
     const user = userEvent.setup();
 
     render(
-      <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
-        <ChartSlider column="latency" label="Latency" select="interval" table="telemetry" />
+      <MosaicProvider coordinator={coordinator}>
+        <Page into={(s) => (crossfilter = s)} />
+        <ChartSlider column="latency" label="Latency" select="interval" relation="telemetry" />
       </MosaicProvider>,
     );
 

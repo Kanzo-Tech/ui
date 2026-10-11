@@ -102,19 +102,16 @@ describe("relaySelection", () => {
     holds(crossfilter);
   });
 
-  it("leaves out the source it is told to, and reports what it moves", async () => {
-    const { chart, crossfilter, other, brush } = page();
-    const arrived = vi.fn();
-    const withdrawn = vi.fn();
-    relaySelection(chart, crossfilter, { except: other, onArrive: arrived, onWithdraw: withdrawn });
+  it("relays only the clauses it is told to keep, and follows one out when it stops being kept", async () => {
+    const { chart, crossfilter, mine, other, brush } = page();
+    relaySelection(chart, crossfilter, { keep: (clause) => clause.source === mine });
     const clause = brush([2, 5]);
     chart.update(clause);
     chart.update(clausePoint("kind", "Person", { source: other }));
     await heard();
     holds(crossfilter, clause);
-    expect(arrived).toHaveBeenCalledWith(clause);
     chart.reset();
     await heard();
-    expect(withdrawn).toHaveBeenCalledWith(clause);
+    holds(crossfilter);
   });
 });

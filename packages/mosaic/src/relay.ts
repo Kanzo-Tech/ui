@@ -1,13 +1,9 @@
-import { clauseNone, type ClauseSource, type Selection, type SelectionClause } from "@uwdata/mosaic-core";
+import { clauseNone, type Selection, type SelectionClause } from "@uwdata/mosaic-core";
 
-/** What a relay leaves out, and who hears of each clause it moves. */
+/** Which of `from`'s clauses a relay moves. */
 export interface RelayOptions {
-  /** A source whose clauses stay in `from`: a bridge's own mapped clause, which must not echo back. */
-  except?: ClauseSource;
-  /** Called with each clause as it is put into `to`. */
-  onArrive?: (clause: SelectionClause) => void;
-  /** Called with each clause as it is taken out of `to` because it left `from`. */
-  onWithdraw?: (clause: SelectionClause) => void;
+  /** Whether to relay `clause`, read every time `from` changes. Defaults to every clause. */
+  keep?: (clause: SelectionClause) => boolean;
 }
 
 /**
@@ -34,25 +30,23 @@ export interface RelayOptions {
  * before the unrelay may still be queued, and waiting for it would leave the relay half-wired.
  */
 export function relaySelection(from: Selection, to: Selection, options: RelayOptions = {}): () => void {
-  const { except, onArrive, onWithdraw } = options;
+  const { keep = () => true } = options;
   let relayed: readonly SelectionClause[] = [];
 
   const sync = () => {
-    const now = from.clauses.filter((c) => except === undefined || c.source !== except);
+    const now = from.clauses.filter(keep);
     for (const clause of relayed) {
       if (now.includes(clause)) continue;
-      onWithdraw?.(clause);
       if (!now.some((c) => c.source === clause.source)) to.update(clauseNone(clause.source));
     }
     for (const clause of now) {
       if (relayed.includes(clause)) continue;
-      onArrive?.(clause);
       to.update(clause);
     }
     relayed = now;
   };
   const activate = (clause: SelectionClause) => {
-    if (except === undefined || clause.source !== except) to.activate(clause);
+    if (keep(clause)) to.activate(clause);
   };
 
   sync();
@@ -64,7 +58,6 @@ export function relaySelection(from: Selection, to: Selection, options: RelayOpt
     from.removeEventListener("value", sync);
     // @ts-expect-error as above.
     from.removeEventListener("activate", activate);
-    for (const clause of relayed) onWithdraw?.(clause);
     for (const source of new Set(relayed.map((c) => c.source))) to.update(clauseNone(source));
     relayed = [];
   };

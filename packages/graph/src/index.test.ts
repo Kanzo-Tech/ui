@@ -24,7 +24,6 @@ const VALUES = [
   "GraphRootProvider",
   "GraphSearch",
   "GraphStatus",
-  "GraphTimeline",
   "GraphToolbar",
   "ShapeGlyph",
   "lookFrom",
@@ -112,10 +111,12 @@ describe("@kanzo-tech/graph public surface", () => {
   });
 
   it("ships the parts flat, each reading the one context", () => {
-    for (const part of ["GraphCanvas", "GraphLegend", "GraphCounts", "GraphStatus", "GraphToolbar", "GraphInspector", "GraphSearch", "GraphTimeline"]) {
+    for (const part of ["GraphCanvas", "GraphLegend", "GraphCounts", "GraphStatus", "GraphToolbar", "GraphInspector", "GraphSearch"]) {
       expect(surface[part], part).toBeTypeOf("function");
     }
     expect(surface.GraphSelection).toBeUndefined();
+    // A timeline over the graph is `ChartTimeline relation="vertices"`: no part of its own.
+    expect(surface.GraphTimeline).toBeUndefined();
     expect(surface.GraphZoom).toBeUndefined();
   });
 
@@ -196,7 +197,6 @@ describe("the parts' props", () => {
       "GraphLegendProps",
       "GraphSearchProps",
       "GraphStatusProps",
-      "GraphTimelineProps",
       "GraphToolbarProps",
       "ShapeGlyphProps",
     ]);

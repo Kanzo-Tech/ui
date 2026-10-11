@@ -2,8 +2,15 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import { clausePoint, Selection, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
 import { Query } from "@uwdata/mosaic-sql";
 import { describe, expect, it } from "vitest";
-import { MosaicClients, MosaicProvider } from "./mosaic-provider.js";
+import { MosaicClients, MosaicProvider, useMosaic } from "./mosaic-provider.js";
 import { useChartQuery } from "./use-chart-query.js";
+
+/** The page's selection, which the provider owns: handed out from inside it. */
+function Page({ into }: { into: (selection: Selection) => void }) {
+  into(useMosaic().selection);
+  return null;
+}
+
 
 /**
  * `MosaicClients` over the move a real coordinator makes when a selection changes: it asks the
@@ -37,9 +44,10 @@ function Count() {
 describe("MosaicClients", () => {
   it("asks nothing while disabled, keeps its rows, and runs the query it was owed once enabled", async () => {
     const { coordinator, queries } = stubCoordinator();
-    const crossfilter = Selection.crossfilter();
+    let crossfilter!: Selection;
     const page = (enabled: boolean) => (
-      <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
+      <MosaicProvider coordinator={coordinator}>
+        <Page into={(s) => (crossfilter = s)} />
         <MosaicClients enabled={enabled}>
           <Count />
         </MosaicClients>

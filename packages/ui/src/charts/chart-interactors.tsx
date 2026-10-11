@@ -54,7 +54,7 @@ export interface ChartHighlightProps {
  */
 export const ChartHighlight = chartDescriptor<ChartHighlightProps>("ChartHighlight", (props, ctx) => {
   const { by, ...channels } = props;
-  return { kind: "interactor", interactor: "highlight", options: { ...channels, by: by === undefined ? ctx.as : by } };
+  return { kind: "interactor", interactor: "highlight", options: { ...channels, by: by === undefined ? (ctx.highlight ?? ctx.as) : by } };
 });
 
 /**

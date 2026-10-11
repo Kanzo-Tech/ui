@@ -1,4 +1,4 @@
-import { Query, Selection, asTableRef, clauseInterval, clauseMatch, clausePoint, clauseSemiJoin, isIn, literal } from "@kanzo-tech/mosaic";
+import { Query, Selection, asTableRef, clauseInterval, clauseMatch, clausePoint, clauseSemiJoin, holdFirstDraw, isIn, literal } from "@kanzo-tech/mosaic";
 import { describe, expect, it, vi } from "vitest";
 import { attach, refusal, settle, type Attached } from "../../test/corpus";
 import { createGraph } from "./store";
@@ -150,15 +150,22 @@ describe("the graph store", () => {
     expect(store.getSnapshot()).toBe(snapshot);
   });
 
-  it("stays loading while a part it waits for has not drawn, and is idle once every one has", async () => {
-    const { corpus, store } = await graph();
-    const release = store.hold();
+  it("stays loading while a chart on its page has not drawn its first answer, and is idle once every one has", async () => {
+    const page = Selection.crossfilter();
+    const { corpus, store } = await graph({ filterBy: page });
+    const release = holdFirstDraw(page);
     await settle(corpus);
     store.reportDrawn(store.getSnapshot());
     expect(store.getSnapshot().status).toBe("loading");
     release();
     expect(store.getSnapshot().status).toBe("idle");
     release();
+    expect(store.getSnapshot().status).toBe("idle");
+    // Shown once, a chart that comes later waits on its own.
+    holdFirstDraw(page);
+    store.setOptions({ ...store.getOptions(), fill: "team" });
+    await settle(corpus);
+    store.reportDrawn(store.getSnapshot());
     expect(store.getSnapshot().status).toBe("idle");
   });
 
@@ -240,31 +247,31 @@ describe("the page's crossfilter", () => {
     const { geometry, encoding } = store.getSnapshot();
     crossfilter.update(clauseInterval("score", [2, 5], { source: chart }));
     await settle(corpus);
-    // Person 1–4 by score; Place and Tag have no `score`, so the clause does not reach them.
-    expect(ids(store.getSnapshot().kept)).toEqual([1, 2, 3, 4, ...Array.from({ length: 10 }, (_, i) => 10 + i)]);
+    // Person 1–4 by score; Place and Tag have no `score`, so the clause keeps none of them.
+    expect(ids(store.getSnapshot().kept)).toEqual([1, 2, 3, 4]);
     expect(store.getSnapshot()).toMatchObject({ geometry, encoding });
-    expect(store.getSnapshot().drawn?.vertices).toBe(14);
-    expect(store.getSnapshot().matching).toBe(14);
+    expect(store.getSnapshot().drawn?.vertices).toBe(4);
+    expect(store.getSnapshot().matching).toBe(4);
     crossfilter.update(clauseInterval("score", null, { source: chart }));
     await settle(corpus);
     expect(store.getSnapshot().kept).toBeNull();
     expect(store.getSnapshot().matching).toBeNull();
   });
 
-  it("runs the predicate as Mosaic wrote it, on every table that has its columns", async () => {
+  it("runs the predicate as Mosaic wrote it over every vertex, keeping none of a type without its column", async () => {
     const { corpus, crossfilter, store } = await filtered();
     crossfilter.update(clausePoint("name", "Place 3", { source: chart }));
     await settle(corpus);
-    // Only Tag lacks `name`, so it stays in full colour beside the one Place that matched.
-    expect(ids(store.getSnapshot().kept)).toEqual([13, 16, 17, 18, 19]);
+    // Tag has no `name`: it holds NULL there, and the clause keeps none of it.
+    expect(ids(store.getSnapshot().kept)).toEqual([13]);
   });
 
-  it("refuses a clause no vertex type can answer, as graph/unfilterable, and draws the graph unfiltered", async () => {
+  it("reports a clause no vertex has the column for as the database's failure, and draws the graph unfiltered", async () => {
     const { corpus, crossfilter, onFailure, store } = await filtered();
     crossfilter.update(clauseMatch("colour", "grey", { source: chart, method: "contains" }));
     await settle(corpus);
     expect(onFailure).toHaveBeenCalledOnce();
-    expect(onFailure.mock.calls[0]?.[0]).toMatchObject({ name: "GraphError", code: "graph/unfilterable" });
+    expect(String(onFailure.mock.calls[0]?.[0])).toMatch(/colour/);
     expect(store.getSnapshot().kept).toBeNull();
   });
 
@@ -285,7 +292,7 @@ describe("the page's crossfilter", () => {
     store.select([3, 4], "marquee", "Marquee");
     await settle(corpus);
     expect(String(crossfilter.predicate(chart as never))).toBe(`("dense_id" IN (3, 4))`);
-    expect(crossfilter.clauses[0]?.meta).toEqual({ type: "semijoin", label: "Marquee" });
+    expect(crossfilter.clauses[0]?.meta).toEqual({ type: "semijoin", label: "Marquee", relation: "vertices" });
     // Kept with no query: the canvas's own clause narrows what the page's answer keeps, here everything.
     expect(ids(store.getSnapshot().kept)).toEqual([3, 4]);
     expect(corpus.sent.slice(before).filter((sql) => sql.includes("WHERE"))).toEqual([]);
@@ -297,7 +304,7 @@ describe("the page's crossfilter", () => {
     const { corpus, crossfilter, store } = await filtered();
     crossfilter.update(clauseInterval("score", [2, 5], { source: chart }));
     await settle(corpus);
-    expect(store.getSnapshot().matching).toBe(14);
+    expect(store.getSnapshot().matching).toBe(4);
     // A lasso over Person 3, 4 and 5: 5 is outside the filter, so two of the three are in full colour.
     store.select([3, 4, 5], "lasso", "Lasso");
     await settle(corpus);
@@ -307,8 +314,8 @@ describe("the page's crossfilter", () => {
     expect(store.getSnapshot().drawn).toMatchObject({ vertices: 2, tally: [2, 0, 0] });
     store.select(null);
     await settle(corpus);
-    expect(store.getSnapshot().matching).toBe(14);
-    expect(store.getSnapshot().drawn?.vertices).toBe(14);
+    expect(store.getSnapshot().matching).toBe(4);
+    expect(store.getSnapshot().drawn?.vertices).toBe(4);
   });
 
   it("counts a pick alone when nothing else filters the page", async () => {
@@ -343,7 +350,7 @@ describe("the page's crossfilter", () => {
     store.setOptions({ ...store.getSnapshot().options, filterBy: second });
     await settle(corpus);
     expect(first.clauses.map((c) => c.meta)).toEqual([]);
-    expect(second.clauses.map((c) => c.meta)).toEqual([{ type: "semijoin", label: "Lasso" }]);
+    expect(second.clauses.map((c) => c.meta)).toEqual([{ type: "semijoin", label: "Lasso", relation: "vertices" }]);
   });
 
   it("keeps the last picture and reports the thrown value when a filter's read rejects", async () => {

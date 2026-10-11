@@ -4,7 +4,14 @@ import { verbatim } from "@uwdata/mosaic-sql";
 import { count } from "@uwdata/vgplot";
 import { describe, expect, it, vi } from "vitest";
 import { ChartStat } from "./chart-stat.js";
-import { MosaicProvider } from "./mosaic-provider.js";
+import { MosaicProvider, useMosaic } from "./mosaic-provider.js";
+
+/** The page's selection, which the provider owns: handed out from inside it. */
+function Page({ into }: { into: (selection: Selection) => void }) {
+  into(useMosaic().selection);
+  return null;
+}
+
 
 /**
  * The same coordinator double the input tests use: it plays the moves a real one makes against a
@@ -53,24 +60,26 @@ function stubCoordinator(answer: (sql: string) => Row[]) {
   return { connected: listeners, coordinator: coordinator as unknown as Coordinator, queries };
 }
 
+/** The page selection of the last `wrap`. */
+let page!: Selection;
+
 const wrap = (
   coordinator: Coordinator,
-  crossfilter: Selection,
   node: React.ReactNode,
   onFailure?: (error: unknown) => void,
 ) =>
   render(
-    <MosaicProvider coordinator={coordinator} crossfilter={crossfilter} onFailure={onFailure}>
+    <MosaicProvider coordinator={coordinator} onFailure={onFailure}>
+        <Page into={(s) => (page = s)} />
       {node}
     </MosaicProvider>,
   );
 
 describe("ChartStat", () => {
   it("shows the aggregate the relation answers, compacted", async () => {
-    const crossfilter = Selection.crossfilter();
     const { coordinator, queries } = stubCoordinator(() => [{ value: 12_900 }]);
 
-    wrap(coordinator, crossfilter, <ChartStat table="telemetry" value={count()} />);
+    wrap(coordinator, <ChartStat relation="telemetry" value={count()} />);
 
     expect(await screen.findByText("12.9K")).toBeTruthy();
     expect(queries[0]).toContain('FROM "telemetry"');
@@ -79,39 +88,36 @@ describe("ChartStat", () => {
   it("reads a relation in another catalog, qualified as the SQL names it", async () => {
     const { coordinator, queries } = stubCoordinator(() => [{ value: 3 }]);
 
-    wrap(coordinator, Selection.crossfilter(), <ChartStat table={verbatim('"jobs/7"."Person"')} value={count()} />);
+    wrap(coordinator, <ChartStat relation={verbatim('"jobs/7"."Person"')} value={count()} />);
 
     expect(await screen.findByText("3")).toBeTruthy();
     expect(queries[0]).toContain('FROM "jobs/7"."Person"');
   });
 
   it("re-asks when the crossfilter moves — the whole reason it is not a plain query", async () => {
-    const crossfilter = Selection.crossfilter();
     const { coordinator, queries } = stubCoordinator((sql) =>
       sql.includes("region") ? [{ value: 42 }] : [{ value: 4233 }],
     );
 
-    wrap(coordinator, crossfilter, <ChartStat table="telemetry" value={count()} />);
+    wrap(coordinator, <ChartStat relation="telemetry" value={count()} />);
     expect(await screen.findByText("4,233")).toBeTruthy();
 
     // Via a variable: `ClauseSource` is `object & { reset?() }`, so an inline literal trips
     // excess property checking on `id`.
     const source = { id: "elsewhere" };
-    crossfilter.update(clausePoint("region", "Galicia", { source }));
+    page.update(clausePoint("region", "Galicia", { source }));
     await waitFor(() => expect(screen.getByText("42")).toBeTruthy());
     expect(queries.at(-1)).toContain("region");
   });
 
   it("formats through the caller when asked, and disconnects on unmount", async () => {
-    const crossfilter = Selection.crossfilter();
     const { connected, coordinator } = stubCoordinator(() => [{ value: 0.42 }]);
 
     const view = wrap(
       coordinator,
-      crossfilter,
       <ChartStat
         format={(v) => `${(v * 100).toFixed(1)}%`}
-        table="telemetry"
+        relation="telemetry"
         value={count()}
       />,
     );
@@ -128,7 +134,7 @@ describe("ChartStat", () => {
       throw failure;
     });
 
-    const view = wrap(coordinator, Selection.crossfilter(), <ChartStat table="telemetry" value={count()} />, onFailure);
+    const view = wrap(coordinator, <ChartStat relation="telemetry" value={count()} />, onFailure);
 
     expect(await screen.findByText("Could not be read")).toBeTruthy();
     expect(view.container.querySelector("[data-slot=stat-value]")?.getAttribute("aria-busy")).toBeNull();

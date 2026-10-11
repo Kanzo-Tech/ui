@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Selection } from "@kanzo-tech/mosaic";
-import { autoDashboard, MosaicProvider, type Dashboards, type DashboardSpec } from "@kanzo-tech/ui/analytics";
+import type { Selection } from "@kanzo-tech/mosaic";
+import { autoDashboard, MosaicProvider, useMosaic, type Dashboards, type DashboardSpec } from "@kanzo-tech/ui/analytics";
 import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { mockModel } from "../testing/model.js";
@@ -34,9 +34,16 @@ const answered = (kept: AnswerOutput) =>
   ({ type: "tool-answer", toolCallId: "c", state: "output-available", input: {}, output: kept }) as ToolPart;
 const at = (state: ToolPart["state"], extra: object = {}) => ({ type: "tool-answer", toolCallId: "c", state, input: {}, ...extra }) as ToolPart;
 
-function page(crossfilter = Selection.crossfilter()) {
+/** The page's selection, which the provider owns: handed out from inside it. */
+function Page({ into }: { into: (selection: Selection) => void }) {
+  into(useMosaic().selection);
+  return null;
+}
+
+function page(into: (selection: Selection) => void = () => {}) {
   return ({ children }: { children: React.ReactNode }) => (
-    <MosaicProvider coordinator={db.coordinator} crossfilter={crossfilter}>
+    <MosaicProvider coordinator={db.coordinator}>
+      <Page into={into} />
       {children}
     </MosaicProvider>
   );
@@ -134,8 +141,8 @@ describe("AnswerCard", () => {
   });
 
   it("filters the page to the answer as one semi-join on the root key, and takes it back", async () => {
-    const crossfilter = Selection.crossfilter();
-    render(<AnswerCard graph={PEOPLE} part={answered(output)} />, { wrapper: page(crossfilter) });
+    let crossfilter!: Selection;
+    render(<AnswerCard graph={PEOPLE} part={answered(output)} />, { wrapper: page((s) => (crossfilter = s)) });
     await userEvent.click(await screen.findByRole("button", { name: "Filter to it" }));
     expect(crossfilter.clauses).toHaveLength(1);
     expect(String(crossfilter.predicate(null))).toContain(`"dense_id" IN (SELECT "dense_id" FROM`);

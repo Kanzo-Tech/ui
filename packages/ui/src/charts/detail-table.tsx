@@ -1,6 +1,6 @@
 "use client";
 
-import type { TableExpr } from "@kanzo-tech/mosaic";
+import type { RelationExpr } from "@kanzo-tech/mosaic";
 import { useEffect, useState } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
@@ -13,11 +13,12 @@ import { Skeleton } from "../simples/skeleton.js";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../simples/table.js";
 import { chartTableKey } from "./chart-spec.js";
 import type { FieldStat } from "./field-stats.js";
-import { useMosaic } from "./mosaic-provider.js";
+import { useMosaic, useRelation } from "./mosaic-provider.js";
 import { useChartQuery } from "./use-chart-query.js";
 
 export interface DetailTableProps extends React.ComponentProps<typeof ark.div> {
-  table: TableExpr;
+  /** The relation the rows are read from, as `ChartRoot` takes it. */
+  relation: RelationExpr;
   fields: readonly FieldStat[];
   /** The columns shown, in order. */
   columns: readonly string[];
@@ -34,8 +35,10 @@ type Sort = { column: string; desc: boolean } | null;
  * browser never holds more than the page.
  */
 export function DetailTable(props: DetailTableProps) {
-  const { table, fields, columns, pageSize = 25, className, slot, ...rest } = props;
-  const { crossfilter } = useMosaic();
+  const { relation, fields, columns, pageSize = 25, className, slot, ...rest } = props;
+  const { selection } = useMosaic();
+  const read = useRelation(relation);
+  const table = read.table!;
   const [page, setPage] = useState(0);
   const [sort, setSort] = useState<Sort>(null);
   const key = chartTableKey(table);
@@ -44,12 +47,13 @@ export function DetailTable(props: DetailTableProps) {
   // A new selection is a new result: page one of it, not page seven of something smaller.
   useEffect(() => {
     const first = () => setPage(0);
-    crossfilter.addEventListener("value", first);
-    return () => crossfilter.removeEventListener("value", first);
-  }, [crossfilter]);
+    selection.addEventListener("value", first);
+    return () => selection.removeEventListener("value", first);
+  }, [selection]);
 
-  const total = useChartQuery({ deps: [key], query: (filter) => Query.from(table).select({ n: count() }).where(filter) });
+  const total = useChartQuery({ deps: [key], relation: read.relation, query: (filter) => Query.from(table).select({ n: count() }).where(filter) });
   const { rows } = useChartQuery({
+    relation: read.relation,
     deps: [key, shown.join("\u0000"), page, pageSize, sort?.column, sort?.desc],
     query: (filter) => {
       if (shown.length === 0) return null;

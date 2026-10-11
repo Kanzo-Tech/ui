@@ -1,6 +1,4 @@
 import { MosaicClient, type ClauseMetadata, type ClauseSource, type SelectionClause } from "@uwdata/mosaic-core";
-import type { ClauseMap } from "./bridge.js";
-import type { TableExpr } from "./table.js";
 import {
   ColumnRefNode,
   InOpNode,
@@ -25,9 +23,9 @@ import {
  *    key answers it, which is how a set of rows found in one relation — a lasso on a canvas, a rule's
  *    findings, an answer — filters every other relation that shares the identity.
  *
- * {@link clauseSemiJoin} is the constructor of the second form, {@link semiJoinOf} maps a
- * relation's own clauses into it, and {@link clauseColumns} reads the
- * names of both, so a client applies one rule whichever form it was handed.
+ * {@link clauseSemiJoin} is the constructor of the second form, and {@link clauseColumns} reads the
+ * names of both. A clause published on one relation reaches a client of another as the second form,
+ * written by the page's resolver (`crossfilter.ts`), never by its publisher.
  */
 
 /** A semi-join clause's metadata: what a chip calls it, when its publisher named it. */
@@ -68,17 +66,6 @@ export function clauseSemiJoin(key: string, members: SemiJoinMembers | null, opt
           ? literal(false)
           : new InOpNode(field, new TupleNode(members.map((m) => literal(m))));
   return { meta, source, clients, fields: [field], value: members, predicate };
-}
-
-/**
- * **Column clauses on a relation, crossed as a semi-join on identity** — the {@link ClauseMap} a
- * bridge takes when the clients inside it read a relation keyed by `key`: `key IN (SELECT key FROM
- * table WHERE <every clause>)`. The statement runs inside the predicate, so whatever the relation
- * joins, the keys never come back to the page; and every client whose rows carry `key` answers it.
- */
-export function semiJoinOf(key: string, table: TableExpr, options: { label?: string } = {}): ClauseMap {
-  return (clauses, source) =>
-    clauseSemiJoin(key, Query.select(key).from(table).where(clauses.flatMap((c) => (c.predicate ? [c.predicate] : []))), { source, label: options.label });
 }
 
 /**

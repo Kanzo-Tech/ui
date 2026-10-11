@@ -9,7 +9,6 @@ import {
   relationKey,
   relationQuery,
   relationRootKey,
-  semiJoinOf,
   type JoinGraph,
   type Relation,
   type SelectionClause,
@@ -23,6 +22,7 @@ import {
   ChartCard,
   DashboardStat,
   DetailTable,
+  MosaicClients,
   plotRelation,
   useClauses,
   useFieldStats,
@@ -237,20 +237,23 @@ function Drawn(props: {
         <FilterToIt identity={props.rootKey} output={output} fields={readable.fields} t={t} table={table} />
         {adding && <AddToDashboard {...adding} fields={readable.fields} relationKey={props.dashboardKey} output={output} t={t} />}
       </div>
+      {/* The tiles read the answer's rows, and are clients of its relation: what the page crosses into. */}
+      <MosaicClients relation={output.answer.relation}>
       {tile.kind === "chart" ? (
-        <ChartCard card={tile} fields={readable.fields} table={narrowed.table} />
+        <ChartCard card={tile} fields={readable.fields} relation={narrowed.table} />
       ) : tile.kind === "stat" ? (
-        <DashboardStat fields={readable.fields} stat={tile} table={narrowed.table} />
+        <DashboardStat fields={readable.fields} relation={narrowed.table} stat={tile} />
       ) : (
         <Card className="[--space:--spacing(4)] min-w-0 gap-3">
           <CardHeader>
             <CardTitle className="truncate font-medium text-sm">{tile.title ?? t.rows}</CardTitle>
           </CardHeader>
           <CardContent>
-            <DetailTable columns={tile.columns} fields={readable.fields} table={narrowed.table} />
+            <DetailTable columns={tile.columns} fields={readable.fields} relation={narrowed.table} />
           </CardContent>
         </Card>
       )}
+      </MosaicClients>
       <AnswerData output={output} t={t} />
       <PageFilter output={output} t={t} />
     </>
@@ -334,10 +337,10 @@ function FilterToIt(props: {
   t: AnswerCardTranslations;
 }) {
   const { table, identity, output, fields, t } = props;
-  const { crossfilter } = useMosaic();
+  const { selection } = useMosaic();
   // Its own source, so its chip retracts it and nothing else.
   const [source] = React.useState(() => ({ reset() {} }));
-  const held = useClauses(crossfilter).some((clause) => clause.source === source);
+  const held = useClauses(selection).some((clause) => clause.source === source);
   const domain = domainClause(output, fields, source);
   const clauses = [...conditionClauses(output.answer.where, fields, source), ...(domain ? [domain] : [])];
   if (clauses.length === 0) return null;
@@ -345,7 +348,11 @@ function FilterToIt(props: {
     <Button
       aria-pressed={held}
       onClick={() =>
-        crossfilter.update(held ? clauseSemiJoin(identity, null, { source }) : semiJoinOf(identity, table, { label: t.label })(clauses, source))
+        selection.update(
+          held
+            ? clauseSemiJoin(identity, null, { source })
+            : clauseSemiJoin(identity, Query.select(identity).from(table).where(clauses.flatMap((c) => (c.predicate ? [c.predicate] : []))), { source, label: t.label }),
+        )
       }
       size="sm"
       variant="ghost"
