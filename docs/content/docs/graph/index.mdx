@@ -551,7 +551,6 @@ was thrown and takes the host's words for it.
 | `graph/context-lost` | The browser took the WebGL context back. |
 | `graph/no-positions` | The device came up but holds no positions for the points it was given, found when the camera read them back. `cause` is what the read threw. |
 | `graph/nothing-to-draw` | The attached corpus has no vertex. |
-| `graph/unfilterable` | A column clause naming columns no vertex table has. A table lacking a clause's columns just stays unfiltered by it; a semi-join on `dense_id` is answered by every table. |
 
 A part that reads on its own — the search's names, the inspector's row, a label's text — hands its
 failure to the same `onFailure` and shows it in place. A host keys its message on `code` and falls

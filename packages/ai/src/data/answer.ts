@@ -291,35 +291,36 @@ export function conditionClauses(
 }
 
 /** One of the page's clauses an answer's relation cannot answer: as a chip reads it, and the columns it names that the relation lacks. */
-export interface SkippedClause {
+export interface UnansweredClause {
   readonly clause: string;
   readonly missing: readonly string[];
 }
 
-/** `City.name Madrid (City.name)`: each skipped clause, and the columns it lacks. */
-export const skippedText = (skipped: readonly SkippedClause[]) =>
-  skipped.map(({ clause, missing }) => `${clause} (${missing.join(", ")})`).join("; ");
+/** `City.name Madrid (City.name)`: each unanswered clause, and the columns it lacks. */
+export const unansweredText = (unanswered: readonly UnansweredClause[]) =>
+  unanswered.map(({ clause, missing }) => `${clause} (${missing.join(", ")})`).join("; ");
 
 /**
- * The page's clauses, split by whether a relation answers them — Mosaic's rule, the one the graph
- * client applies: a clause applies when the relation has every column it names. The rest are
- * skipped, each with the columns it lacks, so the model and the reader are told what was left out
- * and why. A clause with no predicate filters nothing and is neither.
+ * The page's clauses, split by whether a relation answers them — the clause rule of
+ * `/docs/design/crossfilter#formal-semantics`: a relation answers a clause when it has every column
+ * the clause names. A clause it cannot answer keeps none of its rows, so the answer is read under
+ * every clause; the unanswered ones are said, each with the columns it lacks, so the model and the
+ * reader know why it holds nothing. A clause with no predicate filters nothing and is neither.
  */
 export function pageClauses(
   clauses: readonly SelectionClause[],
   columns: readonly string[],
-): { answered: SelectionClause[]; skipped: { clause: SelectionClause; missing: string[] }[] } {
+): { answered: SelectionClause[]; unanswered: { clause: SelectionClause; missing: string[] }[] } {
   const has = new Set(columns);
   const answered: SelectionClause[] = [];
-  const skipped: { clause: SelectionClause; missing: string[] }[] = [];
+  const unanswered: { clause: SelectionClause; missing: string[] }[] = [];
   for (const clause of clauses) {
     if (clause.predicate == null) continue;
     const missing = clauseColumns(clause.predicate).filter((name) => !has.has(name));
     if (missing.length === 0) answered.push(clause);
-    else skipped.push({ clause, missing });
+    else unanswered.push({ clause, missing });
   }
-  return { answered, skipped };
+  return { answered, unanswered };
 }
 
 /** What the measure column of an answer's rows is called. */

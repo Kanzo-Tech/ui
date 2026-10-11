@@ -1,5 +1,5 @@
 import { type LanguageModel, jsonSchema, stepCountIs, type Tool, tool, ToolLoopAgent } from "@kanzo-tech/llm";
-import { clauseColumns, clauseReadings, Query, relationQuery, type Engine, type JoinGraph, type Selection, type SelectionClause } from "@kanzo-tech/mosaic";
+import { clauseColumns, clauseReadings, literal, Query, relationQuery, type Engine, type JoinGraph, type Selection, type SelectionClause } from "@kanzo-tech/mosaic";
 import { plotRelation } from "@kanzo-tech/ui/analytics";
 import type { ModelMessage } from "ai";
 import { OFFER_SCHEMA, suggest } from "../suggest.js";
@@ -12,11 +12,11 @@ import {
   pageClauses,
   placed,
   relationByKey,
-  skippedText,
+  unansweredText,
   type Answer,
   type AnswerInput,
   type AnswerRelation,
-  type SkippedClause,
+  type UnansweredClause,
 } from "./answer.js";
 import { describeData, estimateTokens, fitData, promptBudget, type ContextBudget } from "./describe.js";
 
@@ -36,7 +36,7 @@ export interface AnswerOutput {
   /** The page's clauses the answer was read under, as a chip reads each. */
   readonly under: readonly string[];
   /** The page's clauses the relation could not answer, left out of the read. */
-  readonly skipped: readonly SkippedClause[];
+  readonly unanswered: readonly UnansweredClause[];
 }
 
 /** The agent's one tool, typed — what `InferAgentUIMessage<ReturnType<typeof dataAgent>>` reads. */
@@ -84,21 +84,16 @@ const plain = (value: unknown) =>
 
 /**
  * What the model is told of the page's filter: the clauses the answer was read under, and those its
- * relation could not answer — named with what each lacks, so the model can say the answer is not
- * narrowed by them, or answer over a relation that has those fields.
+ * relation cannot answer — which keep none of its rows — named with what each lacks, so the model can
+ * say why the answer holds nothing, or answer over a relation that has those fields.
  */
 /** A page clause in the words the filter bar's chips use for it: one per part, a bridge read as what it filters. */
 const wordsOf = (clause: SelectionClause) => clauseReadings(clause).map((r) => r.label);
 
-function filterLines({ under, skipped }: AnswerOutput): string[] {
-  const read =
-    under.length > 0
-      ? `Read under the page's filter: ${under.join("; ")}.`
-      : skipped.length > 0
-        ? "None of the page's filter applies to this relation: this is the whole relation."
-        : "The page has no filter: this is the whole relation.";
-  if (skipped.length === 0) return [read];
-  return [read, `Not applied, as this relation lacks the fields they filter: ${skippedText(skipped)}.`];
+function filterLines({ under, unanswered }: AnswerOutput): string[] {
+  const read = under.length > 0 ? `Read under the page's filter: ${under.join("; ")}.` : unanswered.length > 0 ? null : "The page has no filter: this is the whole relation.";
+  const none = unanswered.length > 0 ? `Keeps none of this relation's rows, which lack the fields they filter: ${unansweredText(unanswered)}.` : null;
+  return [read, none].filter((line): line is string => line !== null);
 }
 
 /**
@@ -178,7 +173,10 @@ function answerTools(options: DataAgentOptions, offered: readonly AnswerRelation
         const plotted = plotRelation(relationQuery(graph, answer.relation), { fields: about.fields, columns: about.columns });
         const page = pageClauses(selection?.clauses ?? [], about.columns);
         const clauses = [...conditionClauses(answer.where, about.fields, {}), ...page.answered];
-        const table = Query.from(plotted.table).select("*").where(clauses.map((c) => c.predicate!));
+        // A page clause the relation cannot answer keeps none of its rows: read under `FALSE`, so an
+        // aggregate is what it is over no rows — a count of 0 — as a dashboard tile reads it.
+        const none = page.unanswered.length > 0 ? [literal(false)] : [];
+        const table = Query.from(plotted.table).select("*").where([...clauses.map((c) => c.predicate!), ...none]);
         // One more row than the cap, so a cut answer is told from one that fits exactly. A stopped
         // chat rejects the wait at once with the signal's reason; the statement, a short one, finishes.
         const sql = String(answerQuery(table, answer, about.fields, ANSWER_ROWS + 1));
@@ -191,7 +189,7 @@ function answerTools(options: DataAgentOptions, offered: readonly AnswerRelation
           rows: rows.slice(0, ANSWER_ROWS),
           truncated: rows.length > ANSWER_ROWS,
           under: page.answered.flatMap(wordsOf),
-          skipped: page.skipped.map(({ clause, missing }) => ({ clause: wordsOf(clause).join("; "), missing })),
+          unanswered: page.unanswered.map(({ clause, missing }) => ({ clause: wordsOf(clause).join("; "), missing })),
         };
       },
       toModelOutput: ({ output }) => ({

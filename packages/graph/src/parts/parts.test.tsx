@@ -78,7 +78,7 @@ describe("GraphLegend", () => {
       crossfilter.update(clauseInterval("score", [2, 5], { source: { reset() {} } }));
       await settle(corpus);
     });
-    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Person4 of 10", "Place6 of 6", "Tag4 of 4"]);
+    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Person4 of 10", "Place0 of 6", "Tag0 of 4"]);
   });
 
   it("says how many of each type the map places, of how many, and keeps a type with no position apart", async () => {
@@ -107,7 +107,7 @@ describe("GraphLegend", () => {
       crossfilter.update(clauseInterval("score", [2, 5], { source: { reset() {} } }));
       await settle(corpus);
     });
-    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Person4 of 10", "Place6 of 6", "Tag4"]);
+    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Person4 of 10", "Place0 of 6", "Tag4"]);
   });
 
   it("says so when no edge has both ends on the map", async () => {
@@ -185,9 +185,9 @@ describe("GraphCounts", () => {
       crossfilter.update(clauseInterval("score", [2, 5], { source: { reset() {} } }));
       await settle(corpus);
     });
-    // Kept are Person 1–4 and every Place and Tag; Tag has no position, so a match is a kept vertex the
-    // map places: Person 1–4 and the 6 Places (/docs/design/crossfilter, invariant 6).
-    expect(counts()?.textContent).toBe("10 match · 16 of 20 placed · 7 of 20 edges");
+    // Kept are Person 1–4 — Place and Tag have no `score`, so the clause keeps none of them — and
+    // the edges whose ends are both kept and placed are knows 1→2, 2→3, 3→4 (/docs/design/crossfilter).
+    expect(counts()?.textContent).toBe("4 match · 16 of 20 placed · 3 of 20 edges");
   });
 
   it("says how many of the corpus match the page's filter", async () => {
@@ -203,8 +203,8 @@ describe("GraphCounts", () => {
       crossfilter.update(clauseInterval("score", [2, 5], { source: { reset() {} } }));
       await settle(corpus);
     });
-    // Person 1–4 by score, and every Place and Tag, which have no `score` for the clause to reach.
-    expect(counts()?.textContent).toBe("14 of 20 nodes match · 7 edges");
+    // Person 1–4 by score; Place and Tag have no `score`, so the clause keeps none of them.
+    expect(counts()?.textContent).toBe("4 of 20 nodes match · 3 edges");
   });
 });
 
@@ -298,14 +298,14 @@ describe("GraphToolbar", () => {
     });
     // A search's clause, and nothing the canvas picked: framed from here, let go at its own chip.
     const group = () => screen.getByRole("group", { name: "Current selection" });
-    expect(group().textContent).toBe("14 of 20");
+    expect(group().textContent).toBe("4 of 20");
     expect(screen.getByRole("button", { name: "Frame what is in full colour" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Clear the selection" })).toBeNull();
     // Person 0 scores 1, so the filter hides one of the three the canvas holds.
     act(() => internalsOf(held.api!).store.select([0, 1, 2], "lasso", "Three"));
     expect(group().textContent).toBe("2 of 20 · 1 hidden by other filters");
     fireEvent.click(screen.getByRole("button", { name: "Clear the selection" }));
-    expect(group().textContent).toBe("14 of 20");
+    expect(group().textContent).toBe("4 of 20");
   });
 
   it("offers to run the layout without a simulate prop", async () => {

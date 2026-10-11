@@ -240,32 +240,33 @@ describe("the page's crossfilter", () => {
     const { geometry, encoding } = store.getSnapshot();
     crossfilter.update(clauseInterval("score", [2, 5], { source: chart }));
     await settle(corpus);
-    // Person 1–4 by score; Place and Tag have no `score`, so the clause does not reach them.
-    expect(ids(store.getSnapshot().kept)).toEqual([1, 2, 3, 4, ...Array.from({ length: 10 }, (_, i) => 10 + i)]);
+    // Person 1–4 by score; Place and Tag have no `score`, so the clause keeps none of them.
+    expect(ids(store.getSnapshot().kept)).toEqual([1, 2, 3, 4]);
     expect(store.getSnapshot()).toMatchObject({ geometry, encoding });
-    expect(store.getSnapshot().drawn?.vertices).toBe(14);
-    expect(store.getSnapshot().matching).toBe(14);
+    expect(store.getSnapshot().drawn?.vertices).toBe(4);
+    expect(store.getSnapshot().matching).toBe(4);
     crossfilter.update(clauseInterval("score", null, { source: chart }));
     await settle(corpus);
     expect(store.getSnapshot().kept).toBeNull();
     expect(store.getSnapshot().matching).toBeNull();
   });
 
-  it("runs the predicate as Mosaic wrote it, on every table that has its columns", async () => {
+  it("runs the predicate as Mosaic wrote it on every table that has its columns, and keeps none of one that has not", async () => {
     const { corpus, crossfilter, store } = await filtered();
     crossfilter.update(clausePoint("name", "Place 3", { source: chart }));
     await settle(corpus);
-    // Only Tag lacks `name`, so it stays in full colour beside the one Place that matched.
-    expect(ids(store.getSnapshot().kept)).toEqual([13, 16, 17, 18, 19]);
+    // Tag lacks `name`, so the clause keeps none of it: only the one Place that matched is kept.
+    expect(ids(store.getSnapshot().kept)).toEqual([13]);
   });
 
-  it("refuses a clause no vertex type can answer, as graph/unfilterable, and draws the graph unfiltered", async () => {
+  it("keeps nothing under a clause no vertex type can answer, and fails nothing", async () => {
     const { corpus, crossfilter, onFailure, store } = await filtered();
     crossfilter.update(clauseMatch("colour", "grey", { source: chart, method: "contains" }));
     await settle(corpus);
-    expect(onFailure).toHaveBeenCalledOnce();
-    expect(onFailure.mock.calls[0]?.[0]).toMatchObject({ name: "GraphError", code: "graph/unfilterable" });
-    expect(store.getSnapshot().kept).toBeNull();
+    // No table has `colour`: the clause keeps none of any type, which is not the unfiltered picture.
+    expect(onFailure).not.toHaveBeenCalled();
+    expect(ids(store.getSnapshot().kept)).toEqual([]);
+    expect(store.getSnapshot().matching).toBe(0);
   });
 
   it("answers a semi-join on dense_id on every table, whatever relation its subquery reads", async () => {
@@ -297,7 +298,7 @@ describe("the page's crossfilter", () => {
     const { corpus, crossfilter, store } = await filtered();
     crossfilter.update(clauseInterval("score", [2, 5], { source: chart }));
     await settle(corpus);
-    expect(store.getSnapshot().matching).toBe(14);
+    expect(store.getSnapshot().matching).toBe(4);
     // A lasso over Person 3, 4 and 5: 5 is outside the filter, so two of the three are in full colour.
     store.select([3, 4, 5], "lasso", "Lasso");
     await settle(corpus);
@@ -307,8 +308,8 @@ describe("the page's crossfilter", () => {
     expect(store.getSnapshot().drawn).toMatchObject({ vertices: 2, tally: [2, 0, 0] });
     store.select(null);
     await settle(corpus);
-    expect(store.getSnapshot().matching).toBe(14);
-    expect(store.getSnapshot().drawn?.vertices).toBe(14);
+    expect(store.getSnapshot().matching).toBe(4);
+    expect(store.getSnapshot().drawn?.vertices).toBe(4);
   });
 
   it("counts a pick alone when nothing else filters the page", async () => {
