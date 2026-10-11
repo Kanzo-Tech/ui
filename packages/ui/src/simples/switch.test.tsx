@@ -28,23 +28,34 @@ describe("Switch", () => {
   it("renders its children as the label, which is the control's accessible name", () => {
     render(<Switch defaultChecked>Notify the hall</Switch>);
 
-    // By role and name: a `<span>` that says "Notify the hall" while the checkbox is anonymous is
+    // By role and name: a `<span>` that says "Notify the hall" while the switch is anonymous is
     // the exact defect this replaces, and querying for the text alone would pass on it.
-    expect(screen.getByRole("checkbox", { name: "Notify the hall" })).not.toBeNull();
+    expect(screen.getByRole("switch", { name: "Notify the hall" })).not.toBeNull();
   });
 
   it("is still a bare control when nothing is passed", () => {
     render(<Switch aria-label="Compact" />);
 
-    expect(screen.getByRole("checkbox", { name: "Compact" })).not.toBeNull();
+    expect(screen.getByRole("switch", { name: "Compact" })).not.toBeNull();
     expect(document.querySelector("[data-slot=switch-label]")).toBeNull();
+  });
+
+  it("is a switch to assistive technology, its state the native checked", async () => {
+    // The WAI-ARIA APG Switch pattern; ARIA in HTML allows role=switch on input type=checkbox.
+    render(<Switch>Dot grid</Switch>);
+    const control = screen.getByRole("switch", { name: "Dot grid", checked: false });
+    expect(screen.queryByRole("checkbox")).toBeNull();
+
+    await userEvent.click(control);
+
+    expect(screen.getByRole("switch", { name: "Dot grid", checked: true })).toBe(control);
   });
 
   it("toggles from the label, not only from the track", async () => {
     // The root is Ark's `<label for>`, so this is what a caption buys beyond the name: a target
     // the width of the sentence rather than of a 30px toggle.
     render(<Switch>Notify the hall</Switch>);
-    const control = screen.getByRole("checkbox", { name: "Notify the hall" }) as HTMLInputElement;
+    const control = screen.getByRole("switch", { name: "Notify the hall" }) as HTMLInputElement;
     expect(control.checked).toBe(false);
 
     await userEvent.click(screen.getByText("Notify the hall"));
