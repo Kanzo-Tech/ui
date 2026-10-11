@@ -122,12 +122,12 @@ the graph.
 *Held by* `packages/graph/src/core/client.ts`, `GraphClient`, `publish`;
 `packages/graph/src/core/store.test.ts`, "asks the coordinator which vertices survive, and keeps every
 buffer it has", "runs the predicate as Mosaic wrote it on every table that has its columns, and keeps none of one that
-has not", "keeps nothing under a clause no vertex type can answer, and fails nothing";
-`packages/graph/src/core/crossfilter.property.test.ts`, "keeps none of it, whatever else the page holds
-(ans(c, v) = false)";
+has not", "keeps nothing under a clause no vertex type can answer, and fails nothing",
 "publishes the reader's pick as a semi-join on dense_id, and is exempt from its own clause",
 "withdraws its pick from the crossfilter it leaves, and publishes it on the one it joins", "reads the
 vertex key from the address role, and refuses a corpus that gives none as graph/nothing-to-draw";
+`packages/graph/src/core/crossfilter.property.test.ts`, "keeps none of it, whatever else the page holds
+(ans(c, v) = false)";
 `packages/graph/src/parts/parts.test.tsx`, "publishes a place's pick as a clause of its own, which
 greys the rest of the graph out", "intersects with another place's pick and with the canvas's, one
 clause each", "is still the publisher of its clause after its holder mounts again, so picking replaces
