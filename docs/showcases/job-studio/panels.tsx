@@ -8,6 +8,9 @@ import {
   CardHeader,
   CardTitle,
   createListCollection,
+  type Finding as Found,
+  FindingsGroup,
+  FindingsItem,
   Field,
   FieldDescription,
   FieldLabel,
@@ -32,6 +35,7 @@ import {
   Show,
   Spinner,
   Switch,
+  tallyFindings,
 } from "@kanzo-tech/ui";
 import {
   BookMarkedIcon,
@@ -313,11 +317,18 @@ export function ConfigureForm({
 
 // ── The summary aside ─────────────────────────────────────────────────────────
 
-const SEVERITY_TEXT = {
-  error: "text-destructive dark:text-destructive-foreground",
-  warning: "text-warning",
-  info: "text-info",
-} as const;
+/** The analysis as the library's findings: a compiler's error is a violation, and its place is a line. */
+const SEVERITY = { error: "violation", warning: "warning", info: "info" } as const;
+
+/** The compiler's words for a severity: an error, not a violation. */
+const LABELS = { severity: { violation: "Error", warning: "Warning", info: "Note" } };
+
+const foundOf = (f: Finding): Found<Finding> => ({
+  severity: SEVERITY[f.severity],
+  message: f.message,
+  rule: { id: "analysis", label: "analysis" },
+  place: f,
+});
 
 /**
  * What the job will PRODUCE.
@@ -339,6 +350,7 @@ export function SummaryPage({
   blocked,
   creating,
   onCreate,
+  onJump,
 }: {
   name: string;
   values: ConfigValues;
@@ -347,6 +359,8 @@ export function SummaryPage({
   blocked: boolean;
   creating: boolean;
   onCreate: () => void;
+  /** Takes the reader to the finding at `index`, on the Editor page. */
+  onJump: (index: number) => void;
 }) {
   const destination = DESTINATIONS.find((c) => c.id === values.destinationId);
   const mappings = mappingsIn(program);
@@ -432,32 +446,19 @@ export function SummaryPage({
         </div>
       </Show>
 
+      {/* The editor's findings, as the editor's own badge lists them: one item each, the line to go to. */}
       <Show when={findings.length > 0}>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              Findings
-              <Badge
-                size="xs"
-                variant={findings.some((f) => f.severity === "error") ? "destructive" : "warning"}
-              >
-                {findings.length}
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="flex flex-col gap-2">
-              {findings.map((f, i) => (
-                <li className="flex flex-col gap-0.5 rounded-lg border p-3" key={i}>
-                  <span className={`font-medium text-xs ${SEVERITY_TEXT[f.severity]}`}>
-                    Line {f.line} · {f.severity}
-                  </span>
-                  <span className="text-muted-foreground text-sm">{f.message}</span>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
+        <FindingsGroup labels={LABELS} tally={tallyFindings(findings.map(foundOf))} title="Findings">
+          {findings.map((f, i) => (
+            <FindingsItem
+              action={{ label: "Go to line", run: () => onJump(i) }}
+              describe={(place) => ({ where: `Line ${place.line}` })}
+              finding={foundOf(f)}
+              key={i}
+              labels={LABELS}
+            />
+          ))}
+        </FindingsGroup>
       </Show>
 
       {/* The terminal action, with the thing it confirms. shadcn's blocks put no primary action

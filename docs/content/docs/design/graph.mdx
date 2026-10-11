@@ -282,10 +282,29 @@ what it caught, which a filter still narrows.
 
 **Framing is of what is in full colour.** `frame()` fits the camera to the canvas's clause within
 what the page keeps, or to what the page keeps when the canvas has no clause, or to the canvas's
-clause when the page keeps everything. The toolbar's selection group is drawn whenever something is
-greyed out — a count, **Frame**, and **Clear** when the canvas holds a clause — so what a search, a
-rule or a dashboard keeps can be framed with the button that frames a lasso. `frameSelection` is
-renamed `frame`; it never framed only a selection once a clause from elsewhere could be one.
+clause when the page keeps everything — and, when nothing is greyed out, to the whole graph, kept
+framed through a resize until the reader takes the camera. So a search, a rule or a dashboard's
+keep is framed with the button that frames a lasso, and with nothing kept that button is the old
+Fit: `fit()` was `frame()` over a page that greys nothing, and it is gone. `frameSelection` was
+renamed `frame` for the same reason; it never framed only a selection once a clause from elsewhere
+could be one.
+
+**The toolbar has one Frame, and nothing in it moves.** It was two: Fit in the zoom cluster, and a
+Frame inside a selection group drawn only while something was greyed — a count, Frame, and a ×
+for the canvas's own pick — placed between the tools and the zoom. Every lasso drew that group and
+pushed zoom and the transport sideways under the reader's hand, and the two buttons that frame
+were one command read in two states. Now the Frame sits in the camera's cluster, always, named for
+what it will frame — *Frame everything*, or *Frame what the filters keep* — and the count is a
+readout with no button in it, drawn on the side away from the anchor: first in a row, which the
+canvas's top-end corner grows leftward, last in a column, which grows downward. The × went because
+the canvas's pick is already a chip in the `FilterBar` and Escape drops it: one way to let go of a
+clause, its chip, as for every other place's. The reference is Figma and tldraw, which keep one zoom
+cluster in one fixed place and put a count beside it rather than inside it.
+
+**What would reverse it:** a host that anchors the toolbar at the start edge, often enough that a
+count drawn first pushes the buttons it was meant to leave alone — then the order follows the anchor,
+as a prop. Or readers who look for a way to drop a lasso on the canvas rather than at its chip, which
+puts a × back on the count, not a second Frame.
 
 **What is kept is computed once.** `keptOf` in `core/kept.ts` answers it — every clause on the page,
 the canvas's own included — and the snapshot's `kept` is the one reading: the renderer colours it, the
@@ -316,8 +335,10 @@ leaves out, and clears it when it leaves nothing out", "escapes a drag, then the
 retracts another source's clause"; `packages/graph/src/render/renderer.test.ts`, "frames what is in
 full colour: the pick within what the filter keeps, else what the filter keeps", "colours what the
 tools act on: the canvas's full colour is store.visible(), filtered and picked";
-`packages/graph/src/parts/parts.test.tsx`, "draws the selection's group whenever something is greyed
-out, and says how many other filters hide"; `packages/graph/src/core/crossfilter.property.test.ts`,
+`packages/graph/src/parts/parts.test.tsx`, "counts what is in full colour first, with no button in it,
+and names the one Frame for what it frames", "counts whenever something is greyed out, and says how
+many other filters hide"; `packages/graph/src/render/renderer.test.ts`, "stops re-framing when the
+reader takes the camera, and starts again with Frame"; `packages/graph/src/core/crossfilter.property.test.ts`,
 "leaves out what an excluding canvas clause names, whatever the other clauses become (invariant 9)".
 
 ## ADR 0001 — the canvas holds the whole graph
@@ -539,7 +560,9 @@ under it read the root.
   corpus the map places, and how many edges it draws of all of them" and "says so when no edge has
   both ends on the map". What would reverse it: a placement that draws the unplaced vertices
   somewhere — by their links, say — at which point they are drawn and a third count says how.
-- **`GraphToolbar`** — the tools, the selection, zoom and fit, and the layout's transport.
+- **`GraphToolbar`** — how much is in full colour, the tools, zoom and Frame, and the layout's
+  transport. [The canvas's tools](#the-canvass-tools-edit-the-canvass-own-clause) says why it
+  has one Frame and why nothing in it moves.
 - **`GraphInspector`** — the focused vertex, Linkurious's inspector: headed by its title or its IRI's
   local name under its type, **Locate** beside it (`reveal`: frame it with its neighbours, and keep the
   camera there), the IRI under it with its copy button, then its row in two columns, in

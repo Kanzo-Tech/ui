@@ -282,13 +282,13 @@ describe("the camera at load", () => {
     expect(calls).toEqual(["fit"]);
   });
 
-  it("stops re-framing when the reader takes the camera, and starts again with Fit", async () => {
+  it("stops re-framing when the reader takes the camera, and starts again with Frame", async () => {
     const { renderer } = await drawing();
     (constructed[0]?.onZoomStart as (event: unknown, user: boolean) => void)({}, true);
     calls.length = 0;
     await resize();
     expect(calls).toEqual([]);
-    renderer?.fit();
+    renderer?.frame();
     calls.length = 0;
     await resize();
     expect(calls).toEqual(["fit"]);
@@ -429,7 +429,7 @@ describe("the camera while a layout runs", () => {
     gpu.unreadable = true;
     later(2000);
     tick();
-    renderer?.fit();
+    renderer?.frame();
     expect(count("fitView")).toBe(0);
     gpu.unreadable = false;
     graph.isReady = true;
@@ -453,10 +453,10 @@ describe("the camera while a layout runs", () => {
 
   it("fits the points where they are once a layout has moved them", async () => {
     const { renderer } = await drawing();
-    renderer?.fit();
+    renderer?.frame();
     expect(calls.at(-1)).toBe("fit");
     renderer?.resume();
-    renderer?.fit();
+    renderer?.frame();
     expect(calls.at(-1)).toBe("fitView");
   });
 });

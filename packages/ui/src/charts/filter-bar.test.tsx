@@ -2,10 +2,10 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { bridgeSelection, semiJoinOf } from "@kanzo-tech/mosaic";
 import { clauseInterval, clausePoint, clausePoints, Selection, type Coordinator } from "@uwdata/mosaic-core";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { FilterBar } from "./filter-bar.js";
 import { useEffect } from "react";
-import { InFilterBar, MosaicClients, MosaicProvider, useClientsEnabled, useMosaic } from "./mosaic-provider.js";
+import { InFilterBar, InFilterBarActions, MosaicClients, MosaicProvider, useClientsEnabled, useMosaic } from "./mosaic-provider.js";
 
 const coordinator = {} as Coordinator;
 const source = (name: string) => ({ name });
@@ -126,7 +126,7 @@ describe("FilterBar", () => {
     expect(mounts).toBe(1);
   });
 
-  it("clears every clause on the page", async () => {
+  it("clears every clause on the page, and keeps the button in place, disabled, while there is none", async () => {
     const crossfilter = Selection.crossfilter();
     const user = userEvent.setup();
     render(
@@ -134,9 +134,68 @@ describe("FilterBar", () => {
         <FilterBar />
       </MosaicProvider>,
     );
+    const clear = screen.getByRole("button", { name: "Clear every filter" });
+    expect(clear).toHaveProperty("disabled", true);
     crossfilter.update(clausePoint("country", "Spain", { source: { reset() {} } }));
-    await user.click(await screen.findByRole("button", { name: "Clear" }));
+    await waitFor(() => expect(clear).toHaveProperty("disabled", false));
+    await user.click(clear);
     await waitFor(() => expect(crossfilter.clauses).toHaveLength(0));
-    expect(screen.queryByRole("button", { name: "Clear" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Clear every filter" })).toBe(clear);
+    expect(clear).toHaveProperty("disabled", true);
+  });
+
+  it("draws what a part puts among its actions after the chips, before Clear every filter", async () => {
+    const crossfilter = Selection.crossfilter();
+    render(
+      <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
+        <FilterBar />
+        <InFilterBarActions>
+          <button type="button">Add a filter</button>
+        </InFilterBarActions>
+      </MosaicProvider>,
+    );
+    crossfilter.update(clausePoint("country", "Spain", { source: { reset() {} } }));
+    const bar = await screen.findByRole("region", { name: "Filters" });
+    await waitFor(() => expect(within(bar).getByRole("button", { name: "Remove country Spain" })).toBeTruthy());
+    const names = within(bar)
+      .getAllByRole("button")
+      .map((b) => b.getAttribute("aria-label") ?? b.textContent);
+    expect(names).toEqual(["Remove country Spain", "Add a filter", "Clear every filter"]);
+  });
+
+  it("scrolls its chips in one row rather than wrapping, and says there are none while there are none", async () => {
+    const crossfilter = Selection.crossfilter();
+    const { container } = render(
+      <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
+        <FilterBar />
+      </MosaicProvider>,
+    );
+    const row = container.querySelector<HTMLElement>('[data-slot="filter-bar-row"]')!;
+    expect(row.closest('[data-slot="scroll-area-viewport"]')).not.toBeNull();
+    expect(row.className).not.toMatch(/flex-wrap/);
+    expect(screen.getByText("No filters")).toBeTruthy();
+    crossfilter.update(clausePoint("country", "Spain", { source: { reset() {} } }));
+    await waitFor(() => expect(screen.queryByText("No filters")).toBeNull());
+  });
+
+  it("scrolls a chip added on its own into view, by the row alone", async () => {
+    const crossfilter = Selection.crossfilter();
+    const { container } = render(
+      <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
+        <FilterBar />
+      </MosaicProvider>,
+    );
+    const viewport = container.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]')!;
+    let scrollLeft = 0;
+    Object.defineProperty(viewport, "scrollLeft", { get: () => scrollLeft, set: (v: number) => (scrollLeft = v) });
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 100, 24);
+    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(new DOMRect(260, 0, 40, 24));
+    try {
+      crossfilter.update(clausePoint("country", "Spain", { source: { reset() {} } }));
+      await screen.findByRole("button", { name: "Remove country Spain" });
+      await waitFor(() => expect(scrollLeft).toBe(200));
+    } finally {
+      rect.mockRestore();
+    }
   });
 });

@@ -135,14 +135,14 @@ moving points, gliding over 700 ms, and frames them once more when the layout se
 fit-on-settle, kept up for the whole run.
 
 **The reader can take the camera back.** A wheel, a pan or a pinch hands the camera to the reader:
-a resize leaves it where it is, and a running layout stops following until the next run starts. Fit
-hands it back. A camera that fought the
+a resize leaves it where it is, and a running layout stops following until the next run starts.
+Frame, with nothing greyed, hands it back. A camera that fought the
 reader's zoom would be the bug, not the feature.
 
-**Fit frames what is there.** Before any layout has run, Fit frames the bound extent. Once a
-layout has moved the points the extent is history, so Fit frames where the points are now. `reveal`
-zooms to one vertex and `frame` frames what is in full colour; neither changes who holds the
-camera.
+**Frame frames what is there.** With nothing greyed it frames the whole graph: before any layout
+has run, the bound extent; once a layout has moved the points the extent is history, so where the
+points are now. With something greyed it frames what is in full colour, and `reveal` zooms to one
+vertex; neither of those two changes who holds the camera.
 
 **A frame of the points waits for the points.** Framing where the points are reads them back from
 the GPU, so it waits for cosmos.gl's device and for the render that uploaded them — and the layout
@@ -170,7 +170,7 @@ of the seeded start, puts the camera where it was, and the layout goes on as it 
 **A new geometry drops what was kept** — another corpus, or `x` and `y` bound to other columns — and
 the next canvas places it as at load. A change of look, colour, size or cluster keeps it: those
 repaint the points and do not move them, attached or not. A restored camera is the reader's: a resize
-leaves it where it is, and Fit hands it back.
+leaves it where it is, and Frame hands it back.
 
 There is no hidden canvas and no host prop: a canvas kept alive off-screen would hold its GPU
 context, and Chrome keeps sixteen per renderer process before it evicts the oldest.

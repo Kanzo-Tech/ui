@@ -34,7 +34,7 @@ export interface Camera {
   /**
    * The reader moved the camera — a gesture, or a command one of the panels sent for them (zoom,
    * locate, frame the selection): stop framing and following, so neither a resize nor a settling
-   * layout puts it back. Fit and the next run hand it back.
+   * layout puts it back. Frame, with nothing greyed, and the next run hand it back.
    */
   take(): void;
   tick(): void;
@@ -48,7 +48,7 @@ export interface Camera {
  * since a host's split panel settles its width after mount and a frame taken at the old size opens
  * zoomed into a corner — and while a layout runs it follows the moving points and frames them when
  * they settle: Cosmograph's fit-on-settle, kept up. All of it stops the moment the reader zooms or
- * pans, and comes back with Fit or the next run.
+ * pans, and comes back with Frame — nothing greyed — or the next run.
  *
  * **A fit without corners reads the points back from the GPU** (`fitView` → `getPointPositions` →
  * `readPixels` of cosmos.gl's position framebuffer), so it waits until there is one to read: the

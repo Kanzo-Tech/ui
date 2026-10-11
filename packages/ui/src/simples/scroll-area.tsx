@@ -23,6 +23,10 @@ const scrollAreaVariants = tv({
         "mask-b-from-[calc(100%-var(--fade-size))]",
         "data-at-top:mask-t-from-100%",
         "data-at-bottom:mask-b-from-100%",
+        // Sideways only while there is sideways overflow: Zag reports neither edge reached when the
+        // content fits, so an ungated mask would fade a row that does not scroll.
+        "data-overflow-x:not-data-at-left:mask-l-from-[calc(100%-var(--fade-size))]",
+        "data-overflow-x:not-data-at-right:mask-r-from-[calc(100%-var(--fade-size))]",
         "transition-shadow",
         "motion-reduce:transition-none!",
       ],

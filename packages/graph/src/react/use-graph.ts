@@ -78,7 +78,6 @@ function build(store: GraphStore): GraphApi {
       (renderer?.[name] as ((...a: Parameters<GraphCommands[K]>) => void) | undefined)?.(...args);
   const api: GraphApi = {
     zoomBy: on("zoomBy"),
-    fit: on("fit"),
     pause: on("pause"),
     resume: on("resume"),
     restart: on("restart"),

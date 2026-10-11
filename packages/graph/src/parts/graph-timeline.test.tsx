@@ -154,6 +154,19 @@ describe("GraphTimeline, drawn", () => {
         disconnect() {}
       },
     );
+    // The page's FilterBar scrolls its chips in zag's ScrollArea, which watches its viewport with
+    // IntersectionObserver; jsdom has none.
+    vi.stubGlobal(
+      "IntersectionObserver",
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+        takeRecords() {
+          return [];
+        }
+      },
+    );
     const computed = window.getComputedStyle.bind(window);
     vi.spyOn(window, "getComputedStyle").mockImplementation((element, pseudo) => {
       const style = computed(element, pseudo);
