@@ -103,25 +103,26 @@ describe("a conversation with dataAgent", () => {
     ]);
   });
 
-  it("tells the model which of the page's clauses the relation could not answer, and what each lacks", async () => {
-    const { model } = mockModel((_, index) => (index === 0 ? { tool: "answer", input: COUNT } : "Three women."));
+  it("reads under every clause of the page: one its relation cannot answer keeps none of it, and the model is told which", async () => {
+    // City.name is no column of the Person relation, so the clause keeps none of its rows
+    // (/docs/design/crossfilter#formal-semantics): a count over no rows is 0, as SQL's COUNT(*) is.
+    const { model } = mockModel((_, index) => (index === 0 ? { tool: "answer", input: COUNT } : "None."));
     const agent = dataAgent({ model, engine: db.engine, graph: PEOPLE, relations, selection: pickedAndElsewhere() });
     await (await agent.stream({ prompt: "How many?" })).text;
     const [read] = toolResults(model.doStreamCalls[1]!.prompt as never);
+    expect(read).toContain(`First rows: [{"count":0}]`);
     expect(read).toContain("Read under the page's filter: Person.gender female.");
-    expect(read).toContain("Not applied, as this relation lacks the fields they filter: City.name Madrid (City.name).");
+    expect(read).toContain("Keeps none of this relation's rows, which lack the fields they filter: City.name Madrid (City.name).");
   });
 
-  it("does not call a page whose every clause was skipped unfiltered", async () => {
+  it("reads no row of a relation that answers none of the page's clauses, rather than the whole relation", async () => {
     const elsewhere = Selection.crossfilter();
     elsewhere.update(clausePoints(["City.name"], [["Madrid"]], { source: {} }));
-    const { model } = mockModel((_, index) => (index === 0 ? { tool: "answer", input: COUNT } : "Six."));
-    const agent = dataAgent({ model, engine: db.engine, graph: PEOPLE, relations, selection: elsewhere });
-    await (await agent.stream({ prompt: "How many?" })).text;
-    const [read] = toolResults(model.doStreamCalls[1]!.prompt as never);
-    expect(read).not.toContain("The page has no filter");
-    expect(read).toContain("None of the page's filter applies to this relation: this is the whole relation.");
-    expect(read).toContain("City.name Madrid (City.name)");
+    const agent = dataAgent({ model: mockModel(() => "").model, engine: db.engine, graph: PEOPLE, relations, selection: elsewhere });
+    const output = (await agent.tools.answer.execute!(COUNT as never, { toolCallId: "c", messages: [], abortSignal: new AbortController().signal } as never)) as AnswerOutput;
+    expect(output.rows).toEqual([{ count: 0 }]);
+    expect(output.under).toEqual([]);
+    expect(output.unanswered).toEqual([{ clause: "City.name Madrid", missing: ["City.name"] }]);
   });
 
   it("stops after five steps, however often the model calls the tool", async () => {

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { clauseInterval, clausePoints, clauseSemiJoin, Query, relationQuery, Selection } from "@kanzo-tech/mosaic";
+import { clauseInterval, clausePoints, clauseSemiJoin, literal, Query, relationQuery, Selection } from "@kanzo-tech/mosaic";
 import { measureExpr, plotRelation } from "@kanzo-tech/ui/analytics";
 import type { JSONSchema7 } from "ai";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -103,10 +103,9 @@ describe("an answer", () => {
   });
 
   it("an answer compiles to the same query the dashboard tile reads", async () => {
-    // The page: a lasso on identity, which the relation answers, and a column another relation has.
+    // The page: a lasso on identity, which the relation answers.
     const page = Selection.crossfilter();
     page.update(clauseSemiJoin("dense_id", [1, 2, 4, 5, 6], { source: {}, label: "Lasso" }));
-    page.update(clausePoints(["kind"], [["contract"]], { source: {} }));
     const output = await answer(
       {
         relation: "Person",
@@ -129,10 +128,30 @@ describe("an answer", () => {
       { "Person.gender": "male", "avg Person.age": 45 },
     ]);
     expect(output.under).toEqual(["Lasso · 5 selected"]);
-    expect(output.skipped).toEqual([{ clause: "kind contract", missing: ["kind"] }]);
+    expect(output.unanswered).toEqual([]);
     expect(output.answer.show).toMatchObject({ id: "c", span: 2 });
     // The answer carries the relation its key named, as a dashboard reads one.
     expect(output.answer.relation).toEqual(PERSON);
+  });
+
+  it("reads under a page clause its relation cannot answer as the tile does: keeping none of its rows", async () => {
+    // A column another relation has: Person has no `kind`, so the clause keeps none of it
+    // (/docs/design/crossfilter#formal-semantics) — the tile's read under every clause, `FALSE` for it.
+    const page = Selection.crossfilter();
+    page.update(clauseSemiJoin("dense_id", [1, 2, 4, 5, 6], { source: {}, label: "Lasso" }));
+    page.update(clausePoints(["kind"], [["contract"]], { source: {} }));
+    const output = await answer(
+      { relation: "Person", show: { kind: "chart", type: "bar", x: "Person.gender", y: { op: "count" } } },
+      page,
+    );
+    const tile = plotRelation(relationQuery(PEOPLE, PERSON), { fields: person.fields, columns: person.columns }).table;
+    const read = await rowsOf(
+      Query.from(tile).select({ "Person.gender": "Person.gender", count: measureExpr({ op: "count" }) }).where([page.clauses[0]!.predicate!, literal(false)]).groupby("Person.gender"),
+    );
+    expect(read).toEqual([]);
+    expect(output.rows).toEqual(read);
+    expect(output.under).toEqual(["Lasso · 5 selected"]);
+    expect(output.unanswered).toEqual([{ clause: "kind contract", missing: ["kind"] }]);
   });
 
   it("crosses a hop: whom the women know, by gender, ranked", async () => {

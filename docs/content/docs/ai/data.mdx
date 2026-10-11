@@ -201,16 +201,17 @@ ChatGPT's answers read the same way.
 
 `dataInstructions(options)` is the prompt, for a host that builds its own `ToolLoopAgent` around the
 same tool; `DataTools` types the toolset, so `InferAgentUIMessage<ReturnType<typeof dataAgent>>` types
-the messages. `AnswerOutput` is what a call answers: `{ answer, rows, truncated, under, skipped }` —
+the messages. `AnswerOutput` is what a call answers: `{ answer, rows, truncated, under, unanswered }` —
 the answer as placed, the rows its tile reads, whether the 1,000-row cap cut them, the page's clauses
-it was read under, and those its relation could not answer, each a `SkippedClause`, `{ clause,
-missing }`; a row is a `QueryRow`.
+it was read under, and those its relation cannot answer — which keep none of its rows, so the answer
+is read under `FALSE` and a count is 0 — each an `UnansweredClause`, `{ clause, missing }`; a row is
+a `QueryRow`.
 
 *Held by* `packages/ai/src/data/agent.test.ts`, "tells the model each type's fields once, with their
 kind and what they hold, each relation by its key, never DDL, and that the tile is already shown";
-"hands the model a sample of the rows and the page's filter that applied, after one tool call"; "tells the model which of the page's clauses the
-relation could not answer, and what each lacks"; "does not call a page whose every clause was skipped
-unfiltered"; "stops after five steps, however often the model calls the tool"; "throws when the chat
+"hands the model a sample of the rows and the page's filter that applied, after one tool call"; "reads under every clause of the
+page: one its relation cannot answer keeps none of it, and the model is told which"; "reads no row of
+a relation that answers none of the page's clauses, rather than the whole relation"; "stops after five steps, however often the model calls the tool"; "throws when the chat
 was stopped, rather than answering nobody"; "answers in a hidden tab, where no animation frame ever
 fires"; "hands the engine the chat's signal, and ends the wait the moment the chat is stopped".
 

@@ -3,7 +3,6 @@ import {
   type ClauseSource,
   Query,
   cast,
-  clauseColumns,
   clauseSemiJoin,
   float64,
   literal,
@@ -11,7 +10,6 @@ import {
   type FilterExpr,
   type Selection,
 } from "@kanzo-tech/mosaic";
-import { GraphError } from "./error";
 import { answers, clausesOf, relation, type Answer } from "./source";
 import { type Structure } from "./structure";
 
@@ -24,6 +22,8 @@ import { type Structure } from "./structure";
  */
 /** The answer that clears the filter. */
 const UNFILTERED = Query.select({ id: cast(literal(null), "DOUBLE") });
+/** The answer that keeps nothing: no rows, where the unfiltered answer has one. */
+const NOTHING = Query.select({ id: cast(literal(null), "DOUBLE") }).where(literal(false));
 
 export class GraphClient extends MosaicClient {
   #structure: () => Structure | null;
@@ -70,19 +70,17 @@ export class GraphClient extends MosaicClient {
     const clauses = clausesOf(filter);
     const structure = this.#structure();
     if (!structure || clauses.length === 0) return UNFILTERED;
-    // The clause rule, `answers`. A table that cannot answer a clause is not filtered by it, what a
-    // `WHERE` over a union of the tables would do; a clause no table can answer is refused rather
-    // than ignored, so the unfiltered picture is never drawn as the filtered one.
-    const lost = clauses.find((clause) => !structure.vertices.some((t) => answers(t, clause)));
-    if (lost !== undefined) {
-      this.#fail(new GraphError("graph/unfilterable", `no vertex type has every column this clause names: ${clauseColumns(lost).join(", ")}`));
-      return UNFILTERED;
-    }
+    // The clause rule (`/docs/design/crossfilter#formal-semantics`): a table answers a clause when it
+    // has every column the clause names, and a clause a table cannot answer keeps none of it — so a
+    // table is asked only when it answers every clause, and asked under all of them. When none does,
+    // nothing is kept: an answer with no rows, which is not the unfiltered one.
+    const asked = structure.vertices.filter((t) => clauses.every((clause) => answers(t, clause)));
+    if (asked.length === 0) return NOTHING;
     return Query.unionAll(
-      structure.vertices.map((t) =>
+      asked.map((t) =>
         Query.select({ id: float64(structure.key) })
           .from(relation(structure.from, t.name))
-          .where(clauses.filter((clause) => answers(t, clause))),
+          .where(clauses),
       ),
     );
   }

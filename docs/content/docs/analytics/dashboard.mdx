@@ -452,8 +452,8 @@ import { Dashboard, RelationPicker, relationIdentities, relationKey, relationQue
 ### What the page sees
 
 A tile's clause on a relation names the relation's columns — `"Person.country" IN ('ES')` — and
-nothing else on the page has them: a graph beside the dashboard would refuse it as
-`graph/unfilterable`, and another relation's dashboard would fail to bind it. So a relation's
+nothing else on the page has them: a graph beside the dashboard would keep none of its vertices
+under it, and another relation's dashboard would fail to bind it. So a relation's
 dashboard publishes in the page's vocabulary instead, a semi-join on the root's key:
 
 ```tsx
