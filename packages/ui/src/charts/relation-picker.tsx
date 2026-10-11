@@ -12,7 +12,7 @@ import { Menu, MenuContent, MenuGroup, MenuItem, MenuTrigger } from "../simples/
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../simples/select.js";
 
 export interface RelationPickerProps extends Omit<React.ComponentProps<typeof ark.div>, "onChange" | "defaultValue"> {
-  /** The types and the edges between them. A type's and an edge's `rows` are what the fan-outs and the grain line read. */
+  /** The types and the edges between them. A type's and an edge's `rows` are what the fan-outs read. */
   graph: JoinGraph;
   value: Relation;
   onValueChange: (relation: Relation) => void;
@@ -85,12 +85,11 @@ const stepOf = ({ hop, label, to }: Pick<RelationHop, "hop" | "label" | "to">) =
  * **A relation, picked as a path** — Looker's explore picker: a root type, then any number of hops,
  * each an edge to the type at its other end. Each hop reads as a sentence, says how many rows it
  * brings per row it leaves, and is a chip any of which can be taken back, cutting the path there.
- * Under the chips, the grain: what one row now is, how many there are, and which roots the inner
- * join leaves out. The reasons are on `/docs/design/analytics`.
+ * The reasons are on `/docs/design/analytics`.
  *
  * ARIA: a `group` named "Relation". The root is a `Select`; "Add related…" a `Menu` of two labelled
  * groups, each item named by its sentence and described by its fan-out, and carrying its step as
- * `data-hop`; each chip's remove button is "Remove {sentence}"; the grain line is a `status`.
+ * `data-hop`; each chip's remove button is "Remove {sentence}".
  */
 export function RelationPicker(props: RelationPickerProps) {
   const { graph, value, onValueChange, phrase, plural, className, slot, ...rest } = props;
@@ -100,16 +99,11 @@ export function RelationPicker(props: RelationPickerProps) {
     [graph],
   );
   const say = wording(phrase, plural);
-  const rowsOf = (type: string) => graph.types.find((t) => t.name === type)?.rows;
 
-  // Each hop with the sentence it reads as, and the rows the path holds once it is taken.
-  let rows = rowsOf(value.root);
+  // Each hop with the sentence it reads as.
   const walked = value.path.map((hop, i) => {
     const edge = graph.edges.find((e) => e.name === hop.edge);
-    const from = hop.direction === "out" ? edge?.source : edge?.destination;
     const to = (hop.direction === "out" ? edge?.destination : edge?.source) ?? "";
-    const fanOut = edge?.rows === undefined || !from ? undefined : edge.rows / (rowsOf(from) ?? NaN);
-    rows = rows === undefined || fanOut === undefined || !Number.isFinite(fanOut) ? undefined : rows * fanOut;
     return { i, to, sentence: edge ? say.sentence(edge, hop.direction) : hop.edge };
   });
   const last = walked.at(-1)?.to ?? value.root;
@@ -119,11 +113,6 @@ export function RelationPicker(props: RelationPickerProps) {
     { heading: `Follow from each ${last}`, hops: next.filter((h) => h.hop.direction === "out") },
     { heading: "Bring in what points at it", hops: next.filter((h) => h.hop.direction === "in") },
   ].filter((g) => g.hops.length > 0);
-  const grain = [
-    `One row per ${last}`,
-    rows === undefined ? null : `${walked.length > 1 ? "~" : ""}${Math.round(rows).toLocaleString()} rows`,
-    walked.length ? `${capital(say.nouns(value.root))} without ${say.nouns(last)} are left out` : null,
-  ];
 
   return (
     <ark.div
@@ -215,9 +204,6 @@ export function RelationPicker(props: RelationPickerProps) {
           </Menu>
         ) : null}
       </div>
-      <p className="text-muted-foreground text-xs" data-slot="relation-picker-grain" role="status">
-        {grain.filter(Boolean).join(" · ")}
-      </p>
     </ark.div>
   );
 }
