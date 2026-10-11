@@ -320,6 +320,16 @@ set; the timeline on the shared crossing; raw column clauses routed through cros
 column rule removed; Alt's exclusion clause. Each step is its own PR with the gesture, renderer and
 counts tests that hold the rule today.
 
+## Status
+
+| Step | Pull request | State |
+| --- | --- | --- |
+| One `kept()`, labels and counts read it (divergences 1, 8, 9) | #173 | draft, stacked on this page |
+| The greyout | — | measured above; waiting on a decision |
+| The timeline on the shared crossing (divergence 3) | — | not started: after #173 and #174 it has no semantics of its own — it crosses with `semiJoinOf` and `bridgeSelection` as a dashboard does, and the properties hold both; what differs is wiring (a dashboard bridges inside its `MosaicProvider`, so a chip's `retract` resets its tiles) |
+| A clause a type cannot answer keeps none of it — graph, search, Ask (divergences 2, 4, 5) | #174 | draft, stacked on #173 |
+| Alt's exclusion, and an empty set keeps nothing (divergences 6, 10) | #175 | draft, stacked on #174 |
+
 ## Risks
 
 - **Removing the column rule changes what a host's raw column clause does to types without the
@@ -347,8 +357,25 @@ counts tests that hold the rule today.
 4. **"No position" is not drawn, is explicit in the legend and the counts, and no filter ever moves
    a vertex into it.**
 5. **The greyout is cosmos.gl's defaults** — points keep their opacity, coloured towards the
-   background; links at `0.1` — measured on the Nobel and OpenFlights maps in both themes, with the
-   figures on the pull request that sets it.
+   background; links at `0.1` — measured against the criterion below before it is set.
+
+   **Measured 11 October 2026, not yet set: cosmos.gl's defaults do not meet the criterion.** With
+   its greyed colour (`index.js:5239-5256`) at full opacity, over every theme's eight category
+   colours and its background (WCAG relative luminance):
+
+   | | kept : background (≥ 3) | kept : greyed (≥ 3) | greyed : background (> 1) |
+   | --- | --- | --- | --- |
+   | cosmos.gl's default (opacity 1) | 3.05 – 7.42 | **2.03 – 2.65** | 1.41 – 4.28 |
+   | ours today (opacity 0.1) | 3.05 – 7.42 | 2.95 – … | 1.03 – … |
+
+   Kept against greyed can never exceed kept against the background, and Nord and Catppuccin Latte
+   hold their category colours at 3.05 : 1 to theirs, so meeting 3 : 1 there forces the greyed mark
+   to the background. The largest opacity that meets it is **0.052** across every theme, and per
+   theme from 0.054 (Catppuccin Latte) and 0.247 (Nord dark) to 0.565 (Kanzo), 0.700 (Kanzo dark)
+   and 0.900 (Lo-fi dark). The decision is back with its owner: one number for every theme, an
+   opacity derived per theme from its own tokens, or a palette that clears 3 : 1 by more.
+
+
 
 ## References
 
