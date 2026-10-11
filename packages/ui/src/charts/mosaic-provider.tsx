@@ -82,7 +82,8 @@ export function MosaicProvider({ coordinator, joins = null, onFailure, children 
     return { coordinator, selection: crossfilterOver(joins), joins, onFailure: (error) => latest.current?.(error) };
   }, [coordinator, joins]);
 
-// The page's slots are the outermost provider's: a provider nested for a dashboard draws in them too.
+  // The page's slots are the outermost provider's: a provider nested for another relation draws in
+  // them too.
   const outer = useContext(Slots);
   const [slot, setSlot] = useState<PageSlots>(EMPTY_SLOTS);
   const slots = useMemo(() => outer ?? { slot, set: setSlot }, [outer, slot]);

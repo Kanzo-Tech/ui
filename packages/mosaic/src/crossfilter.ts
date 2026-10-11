@@ -66,7 +66,7 @@ export function sameRelation(a: RelationRef | null | undefined, b: RelationRef |
  * joins have as a type reads that type's table; any other string is the table of that name.
  */
 export function readOf(joins: JoinGraph | null | undefined, expr: RelationExpr): { table: TableExpr; relation: RelationRef | null } {
-  if (typeof expr === "string") return { table: joins?.types.find((t) => t.name === expr)?.table ?? expr, relation: expr };
+  if (typeof expr === "string") return { table: read(joins ?? null, expr).table, relation: expr };
   if (isRelation(expr)) {
     if (!joins) throw new Error(`the relation ${expr.root} has a path and the page has no joins to compile it over`);
     return { table: relationQuery(joins, expr), relation: expr };
@@ -85,31 +85,21 @@ interface Read {
 }
 
 /**
- * **The resolver.** Mosaic's crossfilter resolution — `resolve`, `skip` and `queueFilter` are its own
- * resolver's, delegated — with `predicate` crossing what the client's relation is not.
+ * Mosaic's own resolver class, which mosaic-core exports as a type alone: reached through the
+ * resolver of a selection it builds, so what extends it is Mosaic's, not a copy.
  */
-export class JoinResolver {
-  readonly union = false;
-  readonly cross = true;
-  readonly single = false;
-  readonly empty = false;
+const MosaicResolver = Selection.crossfilter().resolver.constructor as new (options: { cross: boolean }) => Selection["resolver"];
+
+/**
+ * **The resolver.** Mosaic's crossfilter resolution — `resolve`, `skip` and `queueFilter` are its own
+ * resolver's — with `predicate` crossing what the client's relation is not.
+ */
+export class JoinResolver extends MosaicResolver {
   readonly joins: JoinGraph | null;
-  readonly #mosaic = Selection.crossfilter().resolver;
 
   constructor(joins: JoinGraph | null = null) {
+    super({ cross: true });
     this.joins = joins;
-  }
-
-  resolve(clauseList: SelectionClause[], clause: SelectionClause, reset = false): SelectionClause[] {
-    return this.#mosaic.resolve(clauseList, clause, reset);
-  }
-
-  skip(client: MosaicClient | null | undefined, clause: SelectionClause): boolean {
-    return this.#mosaic.skip(client, clause);
-  }
-
-  queueFilter(value: SelectionClause[] & { active?: SelectionClause }) {
-    return this.#mosaic.queueFilter(value);
   }
 
   /** Whether `clause` reaches `client` crossed — published on a relation the client does not read. */
@@ -119,7 +109,7 @@ export class JoinResolver {
     return at != null && from != null && !sameRelation(at, from);
   }
 
-  predicate(clauseList: SelectionClause[], active: SelectionClause | null, client: MosaicClient | null | undefined): FilterExpr | undefined {
+  override predicate(clauseList: SelectionClause[], active: SelectionClause | null, client: MosaicClient | null | undefined): FilterExpr | undefined {
     // Mosaic's: a client that published the active clause needs no update.
     if (active && this.skip(client, active)) return undefined;
     const kept = clauseList.filter((clause) => !this.skip(client, clause));
@@ -145,10 +135,10 @@ export class JoinResolver {
   /** `predicates` on `from`, as a filter of `to`: a semi-join on the key of a type both have, or `FALSE`. */
   crossing(from: RelationRef, predicates: readonly ExprNode[], to: RelationRef): ExprNode {
     try {
-      const source = this.#read(from);
-      const target = this.#read(to);
+      const source = read(this.joins, from);
+      const target = read(this.joins, to);
       const root = source.identities[0];
-      const step = root && target.identities.find((i) => this.#meets(i.type, root.type));
+      const step = root && target.identities.find((i) => meets(this.joins, i.type, root.type));
       if (!root || !step) return literal(false);
       return new InOpNode(column(step.column), new ScalarSubqueryNode(Query.select(root.column).from(source.table).where([...predicates])));
     } catch {
@@ -156,23 +146,20 @@ export class JoinResolver {
       return literal(false);
     }
   }
+}
 
-  #read(relation: RelationRef): Read {
-    const { joins } = this;
-    if (typeof relation === "string") {
-      const type = joins?.types.find((t) => t.name === relation);
-      return { table: type?.table ?? relation, identities: type ? [{ column: type.key, type: type.name }] : [] };
-    }
-    if (!joins) return { table: relation.root, identities: [] };
-    return { table: relationQuery(joins, relation), identities: relationIdentities(joins, relation) };
+function read(joins: JoinGraph | null, relation: RelationRef): Read {
+  if (typeof relation === "string") {
+    const type = joins?.types.find((t) => t.name === relation);
+    return { table: type?.table ?? relation, identities: type ? [{ column: type.key, type: type.name }] : [] };
   }
+  return joins ? { table: relationQuery(joins, relation), identities: relationIdentities(joins, relation) } : { table: relation.root, identities: [] };
+}
 
-  /** Two types share rows when they are one, or when one is a union the other is part of. */
-  #meets(a: string, b: string): boolean {
-    if (a === b) return true;
-    const of = (name: string) => this.joins?.types.find((t) => t.name === name)?.of ?? [];
-    return of(a).includes(b) || of(b).includes(a);
-  }
+/** Two types share rows when they are one, or when one is a union the other is part of. */
+function meets(joins: JoinGraph | null, a: string, b: string): boolean {
+  const of = (name: string) => joins?.types.find((t) => t.name === name)?.of ?? [];
+  return a === b || of(a).includes(b) || of(b).includes(a);
 }
 
 /**
@@ -181,7 +168,7 @@ export class JoinResolver {
  * same name, which is no crossing, and between any others it keeps nothing.
  */
 export function crossfilterOver(joins: JoinGraph | null = null): Selection {
-  return new Selection(new JoinResolver(joins) as unknown as Selection["resolver"]);
+  return new Selection(new JoinResolver(joins));
 }
 
 const guarded = new WeakSet<object>();

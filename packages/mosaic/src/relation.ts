@@ -159,9 +159,10 @@ export function relationIdentities(graph: JoinGraph, relation: Relation): { colu
 }
 
 /**
- * The root's key, by name: the column a host publishes a relation's rows to the page through, as
- * `semiJoinOf(relationRootKey(graph, relation), relationQuery(graph, relation))`. It is the one
- * column of a relation that is not prefixed — see `keyName` — so it is the root type's own `key`.
+ * The root's key, by name: the column a clause on the relation crosses to the rest of the page by —
+ * `key IN (SELECT key FROM relationQuery(graph, relation) WHERE …)`, which the page's resolver writes
+ * (`crossfilter.ts`). It is the one column of a relation that is not prefixed — see `keyName` — so
+ * it is the root type's own `key`.
  */
 export function relationRootKey(graph: Pick<JoinGraph, "types">, relation: Relation): string {
   return typeOf(graph, relation.root).key;
