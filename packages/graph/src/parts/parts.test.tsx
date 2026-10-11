@@ -185,8 +185,9 @@ describe("GraphCounts", () => {
       crossfilter.update(clauseInterval("score", [2, 5], { source: { reset() {} } }));
       await settle(corpus);
     });
-    // Person 1–4 and every Place and Tag match; Tag is not on the map; drawn are Person 1–4 and Place.
-    expect(counts()?.textContent).toBe("14 match · 16 of 20 placed · 7 of 20 edges");
+    // Kept are Person 1–4 and every Place and Tag; Tag has no position, so a match is a kept vertex the
+    // map places: Person 1–4 and the 6 Places (/docs/design/crossfilter, invariant 6).
+    expect(counts()?.textContent).toBe("10 match · 16 of 20 placed · 7 of 20 edges");
   });
 
   it("says how many of the corpus match the page's filter", async () => {

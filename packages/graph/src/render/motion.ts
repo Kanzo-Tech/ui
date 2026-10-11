@@ -1,4 +1,4 @@
-import { visibleOf } from "../core/kept";
+import { idsOf } from "../core/kept";
 import type { Geometry } from "../core/load";
 import type { GraphOptions } from "../core/state";
 
@@ -28,20 +28,17 @@ export const simulating = (options: GraphOptions, geometry: Geometry | null): bo
   options.simulate ?? (geometry !== null && !geometry.bound);
 
 /**
- * `visibleOf` said to cosmos.gl, which greys links apart from points, so the links are said out loud:
- * those whose two ends are both in full colour.
+ * What is kept, said to cosmos.gl, which greys links apart from points, so the links are said out
+ * loud: those whose two ends are both kept.
  */
 export function highlighted(
   geometry: Geometry,
-  mask: Uint8Array | null,
-  selection: readonly number[] | null,
+  kept: Uint8Array | null,
 ): { highlightedPointIndices: number[] | undefined; highlightedLinkIndices: number[] | undefined } {
-  const points = visibleOf(geometry.size, mask, selection);
-  if (points === null) return { highlightedPointIndices: undefined, highlightedLinkIndices: undefined };
-  const on = new Uint8Array(geometry.size);
-  for (const id of points) on[id] = 1;
+  const points = idsOf(kept);
+  if (points === null || kept === null) return { highlightedPointIndices: undefined, highlightedLinkIndices: undefined };
   const linkIds: number[] = [];
   const { links } = geometry;
-  for (let e = 0; e < links.length / 2; e++) if (on[links[2 * e] as number] && on[links[2 * e + 1] as number]) linkIds.push(e);
+  for (let e = 0; e < links.length / 2; e++) if (kept[links[2 * e] as number] && kept[links[2 * e + 1] as number]) linkIds.push(e);
   return { highlightedPointIndices: points, highlightedLinkIndices: linkIds };
 }

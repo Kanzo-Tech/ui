@@ -63,7 +63,7 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
   const surfaceRef = useRef<HTMLDivElement>(null);
   const geometry = useGraphSnapshot((s) => s.geometry);
   const encoding = useGraphSnapshot((s) => s.encoding);
-  const mask = useGraphSnapshot((s) => s.mask);
+  const kept = useGraphSnapshot((s) => s.kept);
 
   const { inView, moved } = useInView(getGraph, surfaceRef, look.labels === "visible" || look.labels === "all");
   // A layout effect: its cleanup runs while the element is still in the page, and detaching reads
@@ -91,12 +91,12 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
   }, [renderer, themeTick]);
 
   const top = useMemo(
-    () => (geometry && encoding ? topOf(look.labels, geometry.size, encoding.sizes, mask) : []),
-    [geometry, encoding, mask, look.labels],
+    () => (geometry && encoding ? topOf(look.labels, geometry.size, encoding.sizes, kept) : []),
+    [geometry, encoding, kept, look.labels],
   );
   const labelledIds = useMemo(
-    () => (geometry && encoding ? labelled(look.labels, geometry.size, encoding.sizes, top, mask, inView, focus) : []),
-    [geometry, encoding, top, mask, inView, focus, look.labels],
+    () => (geometry && encoding ? labelled(look.labels, geometry.size, encoding.sizes, top, kept, inView, focus) : []),
+    [geometry, encoding, top, kept, inView, focus, look.labels],
   );
   const titles = useTitles(labelledIds);
   const labels = useMemo(

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { keptOf } from "../core/kept";
 import type { Geometry } from "../core/load";
 import { decayFor, highlighted, simulating } from "./motion";
 
@@ -15,16 +16,16 @@ const path = {
 
 describe("what is in full colour", () => {
   it("is everything, said as nothing, when nothing is filtered or picked", () => {
-    expect(highlighted(path, null, null)).toEqual({ highlightedPointIndices: undefined, highlightedLinkIndices: undefined });
+    expect(highlighted(path, null)).toEqual({ highlightedPointIndices: undefined, highlightedLinkIndices: undefined });
   });
 
   it("is what the filter keeps, and the links whose two ends it keeps", () => {
-    expect(highlighted(path, Uint8Array.of(1, 1, 0, 1), null)).toEqual({ highlightedPointIndices: [0, 1, 3], highlightedLinkIndices: [0] });
+    expect(highlighted(path, Uint8Array.of(1, 1, 0, 1))).toEqual({ highlightedPointIndices: [0, 1, 3], highlightedLinkIndices: [0] });
   });
 
   it("is the reader's pick inside the filter, never a vertex the filter greyed", () => {
-    expect(highlighted(path, Uint8Array.of(1, 1, 0, 1), [1, 2, 3, 9])).toEqual({ highlightedPointIndices: [1, 3], highlightedLinkIndices: [] });
-    expect(highlighted(path, null, [1, 2])).toEqual({ highlightedPointIndices: [1, 2], highlightedLinkIndices: [1] });
+    expect(highlighted(path, keptOf(4, Uint8Array.of(1, 1, 0, 1), [1, 2, 3, 9]))).toEqual({ highlightedPointIndices: [1, 3], highlightedLinkIndices: [] });
+    expect(highlighted(path, keptOf(4, null, [1, 2]))).toEqual({ highlightedPointIndices: [1, 2], highlightedLinkIndices: [1] });
   });
 });
 

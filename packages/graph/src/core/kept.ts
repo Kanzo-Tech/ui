@@ -2,13 +2,13 @@ import type { Encoding, Geometry } from "./load";
 import type { Drawn } from "./state";
 import type { VertexId } from "./types";
 
-/** How many vertices a mask keeps, or `null` when nothing is filtered. */
-export function matchingOf(mask: Uint8Array | null): number | null {
-  if (mask === null) return null;
-  let n = 0;
-  for (const kept of mask) n += kept;
-  return n;
-}
+/**
+ * Whether a vertex has a position: both of its coordinates are numbers. Under a layout every vertex
+ * has one; under bound positions a vertex with no value in `x` or `y` is `NaN` there and is not drawn.
+ * It is not a filter's result: no clause changes it.
+ */
+export const placedAt = (positions: Float32Array, id: number): boolean =>
+  Number.isFinite(positions[id * 2]) && Number.isFinite(positions[id * 2 + 1]);
 
 /** `1` where a vertex is among `ids`. */
 export function maskOf(size: number, ids: Float64Array): Uint8Array {
@@ -18,46 +18,33 @@ export function maskOf(size: number, ids: Float64Array): Uint8Array {
 }
 
 /**
- * **What is in full colour**, and everything else is greyed out: the vertices the page's filter keeps
- * and — when the reader picked some — those of them they picked, never a vertex the canvas does not
- * draw. `null` when nothing is filtered or picked, which is everything.
+ * **What is kept** — the one reading of the page's crossfilter, which every view of the graph draws:
+ * the canvas colours it and greys the rest, the labels name it, the counts and the legend count it,
+ * the toolbar and `frame()` act on it. It is the page's other clauses (`filter`, what the coordinator
+ * answers the graph's client, which Mosaic exempts from its own clause) narrowed to the canvas's own
+ * clause (`pick`), so the canvas's clause is a clause like every other: kept means every clause keeps
+ * it. `null` when no clause is set, which keeps everything. A pick of an id the geometry does not hold
+ * is no vertex, and keeps nothing. `/docs/design/crossfilter#formal-semantics` defines it.
  *
- * The one reading of it: `GraphStore.visible` (what `frame()` and the toolbar act on) and the
- * renderer's `highlighted` (what the canvas colours) both answer this, so the tools cannot act on a
- * set the reader does not see. A link is in full colour exactly when its two ends are, which is why
- * there is no link mask beside `mask`: the timeline's window is a clause on vertex tables, so it
- * arrives inside `mask`. A filter that greys links on their own columns would be an argument here,
- * not a second rule in the renderer.
- *
- * Ascending when it comes from the filter; in the reader's order when it comes from a pick.
+ * A link is kept exactly when its two ends are, which is why there is no link mask beside it: the
+ * timeline's window is a clause on vertex tables, so it arrives inside `filter`.
  */
-export function visibleOf(
-  size: number,
-  mask: Uint8Array | null,
-  selection: readonly VertexId[] | null,
-): VertexId[] | null {
-  if (mask === null && selection === null) return null;
-  const ids: VertexId[] = [];
-  if (selection === null) {
-    for (let id = 0; id < size; id++) if ((mask as Uint8Array)[id]) ids.push(id);
-  } else {
-    for (const id of selection) if (id < size && (mask === null || mask[id])) ids.push(id);
-  }
-  return ids;
+export function keptOf(size: number, filter: Uint8Array | null, pick: readonly VertexId[] | null): Uint8Array | null {
+  if (pick === null) return filter;
+  const kept = new Uint8Array(size);
+  for (const id of pick) if (id < size && (filter === null || filter[id])) kept[id] = 1;
+  return kept;
 }
 
 /**
- * **What is in full colour, as a mask**: `mask` narrowed to the canvas's own pick, what
- * {@link visibleOf} lists. The graph's client is exempt from the clause it publishes, as Mosaic
- * exempts every client, so `mask` alone is the page's filter without the canvas's lasso, marquee or
- * click; the counts and the legend read this one, so they count what the canvas colours and the
- * toolbar reads. `mask` itself when nothing is picked.
+ * The ids `kept` keeps, ascending, and — given positions — only those placed: what the toolbar counts
+ * and `frame()` fits. `null` for no mask, which keeps everything.
  */
-export function litOf(size: number, mask: Uint8Array | null, selection: readonly VertexId[] | null): Uint8Array | null {
-  if (selection === null) return mask;
-  const lit = new Uint8Array(size);
-  for (const id of selection) if (id < size && (mask === null || mask[id])) lit[id] = 1;
-  return lit;
+export function idsOf(kept: Uint8Array | null, positions: Float32Array | null = null): VertexId[] | null {
+  if (kept === null) return null;
+  const ids: VertexId[] = [];
+  for (let id = 0; id < kept.length; id++) if (kept[id] && (positions === null || placedAt(positions, id))) ids.push(id);
+  return ids;
 }
 
 /**
@@ -74,7 +61,7 @@ export function drawnOf(geometry: Geometry, encoding: Encoding, mask: Uint8Array
   for (let id = 0; id < geometry.size; id++) {
     const rank = encoding.ranks[id] as number;
     totals[rank] = (totals[rank] ?? 0) + 1;
-    if (Number.isNaN(geometry.positions[id * 2])) continue;
+    if (!placedAt(geometry.positions, id)) continue;
     placed[rank] = (placed[rank] ?? 0) + 1;
     shown[id] = 2;
     if (mask && !mask[id]) continue;

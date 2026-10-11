@@ -127,7 +127,7 @@ describe("timelineOf", () => {
     await settle(corpus);
     expect(onFailure).not.toHaveBeenCalled();
     expect(places.rows).toEqual([]);
-    expect(ids(graph.getSnapshot().mask)).toEqual([2, 3, 4, 5]);
+    expect(ids(graph.getSnapshot().kept)).toEqual([2, 3, 4, 5]);
 
     // Let go, and everything is back.
     own.update(clauseInterval("born", null, { source: brush }));
