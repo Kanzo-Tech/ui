@@ -179,7 +179,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       graph.setPointShapes(buffers.shapes);
       graph.setLinkColors(buffers.linkColors);
       graph.setPointClusters(encoding.clusters ?? []);
-      graph.setConfigPartial({ ...appearance(look, host), renderLinks: linksShown() });
+      graph.setConfigPartial({ ...appearance(look, host, buffers.palette), renderLinks: linksShown() });
     }
     if (dirty.state && geometry) {
       dirty.state = false;

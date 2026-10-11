@@ -8,6 +8,7 @@ import { GraphError } from "../core/error";
 import type { GraphOptions } from "../core/state";
 import { createGraph } from "../core/store";
 import { internalsOf, useGraph } from "../react/use-graph";
+import { greyoutOpacity, type Rgb } from "./greyout";
 
 /**
  * The renderer's frame, against a cosmos.gl that records what it is told. What this cannot prove is
@@ -16,8 +17,9 @@ import { internalsOf, useGraph } from "../react/use-graph";
 
 const calls: string[] = [];
 const constructed: Record<string, unknown>[] = [];
-const uploaded: { positions: Float32Array | null; config: Record<string, unknown>; view: unknown } = {
+const uploaded: { positions: Float32Array | null; colors: Float32Array | null; config: Record<string, unknown>; view: unknown } = {
   positions: null,
+  colors: null,
   config: {},
   view: null,
 };
@@ -77,7 +79,10 @@ vi.mock("@cosmos.gl/graph", () => ({
       calls.push("fitView");
     };
     setLinks = () => calls.push("links");
-    setPointColors = () => calls.push("colors");
+    setPointColors = (colors: Float32Array) => {
+      calls.push("colors");
+      uploaded.colors = colors;
+    };
     setPointSizes = () => calls.push("sizes");
     setPointShapes = () => calls.push("shapes");
     setLinkColors = () => calls.push("linkColors");
@@ -114,6 +119,7 @@ beforeEach(() => {
   constructed.length = 0;
   uploaded.positions = null;
   uploaded.config = {};
+  uploaded.colors = null;
   uploaded.view = null;
   device.ready = () => Promise.resolve();
   device.broken = undefined;
@@ -158,6 +164,17 @@ describe("the renderer's frame", () => {
     expect(count("positions")).toBe(0);
     expect(count("links")).toBe(0);
     expect(count("render")).toBe(1);
+  });
+
+  it("greys out at the opacity derived from the colours it painted and its background, links at cosmos.gl's default", async () => {
+    await drawing();
+    // The colours the paint uploaded, once each, and the background the canvas is cleared to.
+    const colors = uploaded.colors!;
+    const palette = new Map<string, Rgb>();
+    for (let i = 0; i < colors.length; i += 4) palette.set(`${colors[i]},${colors[i + 1]},${colors[i + 2]}`, [colors[i]!, colors[i + 1]!, colors[i + 2]!]);
+    const [r, g, b] = uploaded.config.backgroundColor as [number, number, number, number];
+    expect(uploaded.config.pointGreyoutOpacity).toBe(greyoutOpacity([...palette.values()], [r, g, b]));
+    expect(uploaded.config.linkGreyoutOpacity).toBe(0.1);
   });
 
   it("greys out a filter with config alone: no upload, no render, links said out loud", async () => {

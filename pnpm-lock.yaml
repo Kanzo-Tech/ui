@@ -333,6 +333,9 @@ importers:
       '@kanzo-tech/testing':
         specifier: workspace:*
         version: link:../testing
+      '@kanzo-tech/theme':
+        specifier: workspace:^
+        version: link:../theme
       '@testing-library/dom':
         specifier: ^10.4.1
         version: 10.4.1
