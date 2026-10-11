@@ -349,12 +349,8 @@ leaves almost no room for context: the greyed marks are just distinguishable fro
 link is drawn under 3 : 1 to the background on purpose — `linkOpacity` and the distance fade — so SC
 1.4.11 sets no value to derive the greyed one from.
 
-*Held by* `packages/graph/src/render/greyout.test.ts`, which reads the eight themes' tokens from
-`@kanzo-tech/theme` and checks *P* with that package's own WCAG `contrast` at *α\** and at every
-thousandth below it, that *α\* + 0.001* breaks it, and that the greyed mark is distinguishable from
-the background at *α\**; `packages/graph/src/render/renderer.test.ts`, "greys
-out at the opacity derived from the colours it painted and its background, links at cosmos.gl's
-default".
+*Held by* the tests the pull request that implements it adds (#177): the per-theme property over the
+eight themes' tokens, and the renderer's wiring.
 
 ## What changes, and what disappears
 
@@ -374,15 +370,58 @@ set; the timeline on the shared crossing; raw column clauses routed through cros
 column rule removed; Alt's exclusion clause. Each step is its own PR with the gesture, renderer and
 counts tests that hold the rule today.
 
-## Step 3: one crossing, and retraction where a clause was published
+## Step 3: `GraphTimeline` is `ChartTimeline` over a source on the page's crossing
 
 **Proposal, waiting for approval — not implemented.**
 
-### What differs today
+**The thesis: they are the same.** `GraphTimeline` reduces to `ChartTimeline` reading a *source* and
+filtered by the page's crossing, with no semantics of its own. Today it adds three things to
+`ChartTimeline` (`packages/graph/src/parts/graph-timeline.tsx`, `core/source.ts:360-377`):
 
-The timeline and a dashboard already cross the same way: their inner clauses are mapped to the page
-by `semiJoinOf(key, relation)` through `bridgeSelection` (`packages/mosaic/src/bridge.ts`). What
-differs is **how a clause is retracted** — a chip's ×, a page's *Clear*:
+1. **A data source** — `timelineOf(structure, column)`: one table of every vertex type that has the
+   column, and the key its window crosses the page through. That is the same kind of thing as a
+   dashboard tile's relation: a table, and the identity key the page knows it by.
+2. **A selection of its own and a bridge** — `Selection.crossfilter()` and `bridgeSelection(own,
+   page, semiJoinOf(key, table))`. That is the special path: it crosses as a dashboard crosses, but
+   by its own wiring.
+3. **Mounting** — the column from the graph's preferences, and holding the graph's load until the
+   bars have drawn. It decides nothing about what is kept.
+
+The references say the same. Cosmograph's `CosmographTimeline` is its generic `Timeline` bound to
+Cosmograph's data accessor ([Timeline](/docs/design/timeline)): the component is the same, only the
+source differs. A Mosaic client exposes a selection, `filterBy`, whose predicates the coordinator
+passes to its `query()` ([clients](https://idl.uw.edu/mosaic/core/#clients)), and a vgplot mark names
+its table beside it, `from(table, { filterBy })`
+([crossfilter example](https://idl.uw.edu/mosaic/examples/crossfilter.html)) — a source and a
+selection, and nothing else (Heer & Moritz 2024).
+
+### One abstraction: a source
+
+> *A source is a pair S = (T, k)*: a relation *T* and the identity key *k* the page knows its rows
+> by.
+
+- A dashboard over a relation *R* is the source *(relationQuery(R), relationRootKey(R))*.
+- The timeline over a column *f* is the source *S_f = (⋃_\{types t with f\} π_\{k, f\}(t), k)* —
+  what `timelineOf` builds today.
+
+**A crossing of a source** is an inner selection *I* joined to the page *P*: the clauses published in
+*I*, *C_I*, reach *P* as one clause *k IN (SELECT k FROM T WHERE ⋀ C_I)*, whose source is the
+crossing — `semiJoinOf(k, T)` through `bridgeSelection`, which exists. One component, `Crossing`,
+mounts it, and every client inside it reads *T* filtered by *I*.
+
+### Formally
+
+> *GraphTimeline(f) ≡ Crossing(S_f) ∘ ChartTimeline(field = f, from = T_f, as = I, filterBy = I)*
+
+and the clause it publishes on the page is, by construction, the one a dashboard tile over *S_f*
+would publish: *k IN (SELECT k FROM T_f WHERE window(f))*. What `GraphTimeline` keeps after the
+reduction is mounting — choosing *f* from the preferences, and the load hold — none of which is in
+*kept*.
+
+### What it requires: one way to retract
+
+The reduction is only exact if removing the timeline's chip and removing a tile's chip retract the
+same way. Today they do not:
 
 - A dashboard's tiles do not publish into the dashboard's selection. Each `ChartRoot` owns a
   selection of its own — a page-wide one would name columns other charts group by — and it is
@@ -421,9 +460,11 @@ origin and comes back down; nothing walks upstream.
 - `MosaicProvider`'s registry walk goes: `retract(clauses)` and `reset()` become `selection.reset`
   on any selection that holds the clauses, because each clause's source withdraws it at its origin.
 - `bridgeSelection`'s `retract` option goes: its default, `inner.reset(clauses)`, reaches every source.
-- **One crossing**: a `useCrossing(to, map)` that the dashboard and `GraphTimeline` both use, which
-  needs no provider — `GraphTimeline` stays usable without one, and the dashboard's tiles retract by
-  the same path as the timeline's brush.
+- **One crossing of a source**: `Crossing` over *S = (T, k)*, which the dashboard and `GraphTimeline`
+  both mount and which needs no provider — `GraphTimeline` becomes `ChartTimeline` inside
+  `Crossing(S_f)`, stays usable without a `MosaicProvider`, and its brush retracts by the same path as
+  a tile's. `timelineOf` is the source *S_f*; its own `Selection.crossfilter()` and `bridgeSelection`
+  go.
 - The interactors whose `reset()` does not withdraw — vgplot's interval and point interactors, which
   only clear their own state — are given a source that does, in `ChartRoot`, rather than patched.
 
@@ -448,8 +489,11 @@ downstream of it — the case the registry walk patches.
 
 - A property over random relay graphs and a reset asked of a random selection: afterwards no
   selection holds the clause (from the selections' `clauses`, not from chips).
-- The dashboard's and the timeline's chip × retract through the same `useCrossing`, with no
-  `retract` option and no provider registry.
+- `GraphTimeline(f)` and `Crossing(S_f)` around a bare `ChartTimeline(f)` publish the same page
+  clause for every window and retract it the same way on a chip's ×, compared on the page's
+  `clauses` — the equivalence above, as a property over windows.
+- A dashboard's and the timeline's chip × retract through the same `Crossing`, with no `retract`
+  option and no provider registry.
 
 ## Status
 
