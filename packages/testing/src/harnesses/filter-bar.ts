@@ -30,16 +30,24 @@ export class FilterBarHarness extends ComponentHarness {
 
   /**
    * Takes `field` off the bar: every clause chip whose label starts with it, and a dashboard's control
-   * for it — which unmounts the control, and a control that unmounts retracts its clause. Waits until
-   * nothing on the bar names `field`.
+   * for it — which unmounts the control, and a control that unmounts retracts its clause. Waits for one
+   * to show first, as a chip shows once the page delivers its clause, a while after the brush or pick
+   * that published it; then until nothing on the bar names `field`.
+   *
+   * Each chip is pressed once, by its name, and gone before the next is looked for. A chip goes when
+   * the page delivers its retraction, a while after the press, and the chips after it move up into
+   * its place: a button found by its place and pressed again would be the chip after it — a pick on
+   * the dashboard, or *Clear every filter*.
    */
   async remove(field: string): Promise<void> {
-    if (!(await this.removal(field))) throw new Error(`no chip for ${field} in the filter bar`);
-    await this.env.until(async () => {
-      const button = await this.removal(field);
-      if (button) await button.click();
-      return !button;
-    }, `the chip for ${field} is still in the filter bar`);
+    let name: string | null = await this.env.until(() => this.removal(field), `no chip for ${field} in the filter bar`);
+    while (name !== null) {
+      const pressed = name;
+      const found = await this.named(pressed);
+      await found[0]?.click();
+      await this.env.until(async () => (await this.named(pressed)).length < found.length, `the chip ${pressed} is still in the filter bar`);
+      name = await this.removal(field);
+    }
   }
 
   /** Opens the control of a dashboard's filter on `field`, and waits for it to be expanded. */
@@ -71,16 +79,22 @@ export class FilterBarHarness extends ComponentHarness {
     return (await button.attribute("aria-label")) ?? (await button.text());
   }
 
-  private async removal(field: string): Promise<Handle | null> {
+  /** The buttons named exactly `name`: found by it at every step, never by where one was. */
+  private named(name: string): Promise<Handle[]> {
+    return this.host.find({ role: "button", name });
+  }
+
+  /** The name of the first button that takes `field` off the bar, or `null` when none does. */
+  private async removal(field: string): Promise<string | null> {
     for (const button of await this.buttons()) {
       const name = await this.nameOf(button);
       const control = CONTROL_REMOVE.exec(name);
       if (control) {
-        if (control[1] === field) return button;
+        if (control[1] === field) return name;
         continue;
       }
       const label = CLAUSE_REMOVE.exec(name)?.[1];
-      if (label !== undefined && (label === field || label.startsWith(`${field} `))) return button;
+      if (label !== undefined && (label === field || label.startsWith(`${field} `))) return name;
     }
     return null;
   }

@@ -32,7 +32,7 @@ import { registerChartForTesting, type PlotOutput } from "./testing-probe.js";
  * clients this library does not define, and their `queryError` does nothing — a failed mark leaves
  * the plot on its last render — so `ChartRoot` answers it for them.
  */
-type PlotMark = { queryError(error: Error): unknown; enabled: boolean; relation?: RelationRef | null };
+type PlotMark = { queryError(error: Error): unknown; enabled: boolean; relation?: RelationRef | null; destroy(): void };
 type PlotElement = HTMLElement & {
   value: ChartPlot & { marks: PlotMark[]; pending(mark: PlotMark): void; render(): Promise<void>; element: HTMLElement };
 };
@@ -334,6 +334,9 @@ export function ChartRoot(props: ChartRootProps) {
   const host = useRef<HTMLDivElement | null>(null);
   // The marks of the plot on screen, so `MosaicClients` reaches them without rebuilding the plot.
   const marks = useRef<readonly PlotMark[]>([]);
+  // Each mark is a Mosaic client the plot connected: it leaves the coordinator with the plot, by
+  // Mosaic's own `destroy`, or it goes on answering every pick for a plot nobody sees.
+  useEffect(() => () => marks.current.forEach((mark) => mark.destroy()), []);
   const enabled = useClientsEnabled();
   useEffect(() => {
     for (const mark of marks.current) mark.enabled = enabled;
@@ -438,6 +441,7 @@ export function ChartRoot(props: ChartRootProps) {
             const plot = (element as PlotElement).value;
             const from = `${tableKey}\u0000${signature}`;
             let handed = handOver(slots.current, plot.interactors, drawnFrom.current === from, reading);
+            for (const mark of marks.current) mark.destroy();
             marks.current = plot.marks;
             drawn.current = plot;
             drawnFrom.current = from;
