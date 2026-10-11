@@ -54,6 +54,10 @@ export interface AnswerCardTranslations {
   under: string;
   /** Before the page's clauses its relation cannot answer, which keep none of its rows, each with the fields it lacks. */
   unanswered: string;
+  /** The caption of the rows the answer was read from: its tile's data, as a table assistive technology reads. */
+  data: string;
+  /** After that caption when the cap cut the rows short. */
+  truncated: string;
 }
 
 const ENGLISH: AnswerCardTranslations = {
@@ -67,6 +71,8 @@ const ENGLISH: AnswerCardTranslations = {
   rows: "Rows",
   under: "Read under the page's filter:",
   unanswered: "Keeps none of this relation's rows, which lack the fields they filter:",
+  data: "The rows the answer was read from",
+  truncated: "the first, cut short by the cap",
 };
 
 export type AnswerCardProps = Omit<React.ComponentProps<typeof ark.div>, "children" | "part"> & {
@@ -245,8 +251,45 @@ function Drawn(props: {
           </CardContent>
         </Card>
       )}
+      <AnswerData output={output} t={t} />
       <PageFilter output={output} t={t} />
     </>
+  );
+}
+
+/**
+ * **The rows the answer was read from, as a table** — its tile's data for whoever cannot see the
+ * chart, after the W3C WAI Images Tutorial's *Complex Images*: a chart's long description is its data,
+ * best structured as a table on the same page. It is visually hidden, as Highcharts' accessibility
+ * module keeps its screen-reader data table, and holds the read's rows as it returned them — what the
+ * engine answered under the page's filter when the call ran, which the tile above, following the page
+ * afterwards, may no longer show. Nothing when the read returned no rows.
+ */
+function AnswerData({ output, t }: { output: AnswerOutput; t: AnswerCardTranslations }) {
+  const columns = Object.keys(output.rows[0] ?? {});
+  if (columns.length === 0) return null;
+  return (
+    <table className="sr-only" data-slot="answer-card-data">
+      <caption>{output.truncated ? `${t.data}, ${t.truncated}` : t.data}</caption>
+      <thead>
+        <tr>
+          {columns.map((column) => (
+            <th key={column} scope="col">
+              {column}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {output.rows.map((row, i) => (
+          <tr key={i}>
+            {columns.map((column) => (
+              <td key={column}>{row[column] === null || row[column] === undefined ? "" : String(row[column])}</td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 

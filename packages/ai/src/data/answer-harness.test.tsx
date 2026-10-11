@@ -79,6 +79,16 @@ describe("AnswerHarness", () => {
     expect(crossfilter.clauses).toHaveLength(1);
   });
 
+  it("reads the rows the answer was read from — the engine's result, not the tile's drawing", async () => {
+    const env = dom();
+    draw(part("output-available", { output }));
+    const rows = await (await env.harness(AnswerHarness)).rows();
+    // What the engine returned, cell for cell: the mean age of the three women, (31 + 44 + 27) / 3.
+    expect(rows).toEqual(output.rows.map((row) => Object.fromEntries(Object.entries(row).map(([k, v]) => [k, String(v)]))));
+    expect(rows).toHaveLength(1);
+    expect(Object.values(rows[0]!)).toContain("34");
+  });
+
   it("adds the answer to the dashboard, through the host's pending write, and waits for the card to say it is there", async () => {
     const env = dom();
     let settle = () => {};

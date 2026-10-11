@@ -1,6 +1,6 @@
 import { MosaicClient, Selection, clauseInterval, clausePoint, type SelectionClause } from "@uwdata/mosaic-core";
 import { describe, expect, it, vi } from "vitest";
-import { bridgeSelection, bridged, type BridgeOptions } from "./bridge.js";
+import { bridgeSelection, bridged, clauseReadings, type BridgeOptions } from "./bridge.js";
 import { clauseSemiJoin, semiJoinOf } from "./clause.js";
 
 /** Two tiles crossfiltering inside a dashboard, and a graph beside it on the page. */
@@ -170,5 +170,35 @@ describe("bridgeSelection", () => {
     await heard();
     expect([...outer.clauses]).toEqual([]);
     expect(map).toHaveBeenCalledOnce();
+  });
+});
+
+describe("clauseReadings", () => {
+  it("reads a clause no bridge made as itself, in one part", () => {
+    const { tiles } = page();
+    const clause = clausePoint("Person.team", 1, { source: tiles[0] });
+    expect(clauseReadings(clause)).toEqual([{ part: clause, label: "Person.team 1" }]);
+  });
+
+  it("reads a bridged clause as what it filters, part by part — never as the bridge's label alone", async () => {
+    const { outer, inner, tiles, brush, options } = page();
+    bridgeSelection(inner, outer, semiJoinOf("dense_id", "Person_rel", { label: "Person" }), options());
+    const team = clausePoint("Person.team", 1, { source: tiles[1] });
+    inner.update(brush(tiles[0], [2, 5]));
+    inner.update(team);
+    await heard();
+
+    const readings = clauseReadings(outer.clauses[0]!);
+    expect(readings.map((r) => r.label)).toEqual(["Person Person.score 2 – 5", "Person Person.team 1"]);
+    expect(readings[1]!.part).toBe(team);
+  });
+
+  it("names a part after its bridge only when it does not already read as the bridge's name", async () => {
+    const { outer, inner, tiles, options } = page();
+    bridgeSelection(inner, outer, semiJoinOf("dense_id", "Person_rel", { label: "date" }), options());
+    inner.update(clauseInterval("date", [1910, 1940], { source: tiles[0] }));
+    await heard();
+
+    expect(clauseReadings(outer.clauses[0]!).map((r) => r.label)).toEqual(["date 1910 – 1940"]);
   });
 });
