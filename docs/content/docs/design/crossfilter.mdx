@@ -98,6 +98,11 @@ differ, though, and that is where the parts disagree.
    edges count only placed ends (`core/kept.ts:68-96`). On the Nobel map, a window counts prizes with
    no affiliation that are nowhere on the canvas.
 
+10. **An empty set means opposite things.** `clauseSemiJoin(key, [])` keeps nothing; the graph's
+   `publish` turns no ids into a withdrawal (`core/client.ts:110-120`), which keeps everything. The
+   property tests found it: a source that publishes an empty pick through one constructor or the
+   other changes the page in opposite directions.
+
 ## Does a filter hide anything under Map placement?
 
 **No. Only a missing position hides.** `drawnOf` (`core/kept.ts:68-96`) and the renderer agree: a
@@ -135,8 +140,8 @@ an unknown row is not kept. An identity clause names only the key: `k IN (…)`,
 **Answerability.** A type *T* answers *c* when *cols(c) ⊆ cols(T)*. An identity clause is answered
 by every type.
 
-**The page.** Each source *s* holds at most one clause, *c_s*; publishing again replaces it and
-`null` withdraws it. The page's selection is the set *C = { c_s }* — Mosaic's one clause per source,
+**The page.** Each source *s* holds at most one clause, *c_s*; publishing again replaces it, and
+only `null` withdraws it. A clause over an empty set of keys is a clause, and keeps nothing. The page's selection is the set *C = { c_s }* — Mosaic's one clause per source,
 resolved by conjunction (`intersect`).
 
 **Kept.** For a clause and a vertex,
