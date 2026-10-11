@@ -4,14 +4,17 @@ import {
   Button,
   type DescribePlace,
   type Finding,
-  FindingGroupRow,
-  FindingRow,
+  FindingsActions,
   FindingsBadge,
   FindingsContent,
   FindingsGroup,
+  FindingsHeader,
+  FindingsItem,
+  FindingsList,
   FindingsRoot,
+  FindingsSource,
   groupFindings,
-  PopoverHeader,
+  PopoverDescription,
   Show,
   tallyFindings,
 } from "@kanzo-tech/ui";
@@ -51,11 +54,10 @@ export default function Example() {
 
   const describe: DescribePlace<Place> = (place) => ({
     where: `${place.field} · ${place.quest.id}`,
-    action: { label: "Show", run: () => setShown(place.quest.id) },
     detail: `${place.quest.title} — ${grade(place.quest.grade).label}, a party of ${place.quest.party.length}.`,
   });
 
-  // Many results share a rule and a field; a group is one row however many there are.
+  // Many results share a rule and a field; a group is one item however many there are.
   const groups = useMemo(
     () => groupFindings(FINDINGS, (finding) => `${finding.rule.id}|${finding.place.field}`),
     [],
@@ -75,36 +77,45 @@ export default function Example() {
                     .filter(Boolean)
                     .join(" · ")}
         </FindingsBadge>
-        <FindingsContent
-          empty={<p className="text-muted-foreground text-sm">Nothing to report.</p>}
-          header={
-            <PopoverHeader description="standing-orders, checked against the board." title="The board">
-              <Button className="self-start" size="sm" variant="outline">
+        <FindingsContent>
+          <FindingsHeader>
+            <FindingsSource>standing-orders</FindingsSource>
+            <FindingsActions>
+              <Button size="sm" variant="outline">
                 Change…
               </Button>
-            </PopoverHeader>
-          }
-        >
-          <FindingsGroup tally={tallyFindings(groups.filter((g) => g.count > 1))} title="Shared by many">
-            {groups
-              .filter((group) => group.count > 1)
-              .map((group) => (
-                <FindingGroupRow
-                  action={{ label: `Show ${group.count}`, run: () => setShown(group.rule.label) }}
-                  describe={describe}
-                  group={group}
-                  key={group.rule.id}
-                  where={group.rule.label}
-                />
-              ))}
-          </FindingsGroup>
-          <FindingsGroup tally={tallyFindings(groups.filter((g) => g.count === 1))} title="One of a kind">
-            {groups
-              .filter((group) => group.count === 1)
-              .map((group) => (
-                <FindingRow describe={describe} finding={group.sample[0]!} key={group.rule.id} />
-              ))}
-          </FindingsGroup>
+            </FindingsActions>
+            <PopoverDescription>Every posting on the board, checked.</PopoverDescription>
+          </FindingsHeader>
+          <FindingsList empty={<p className="text-muted-foreground text-sm">Nothing to report.</p>}>
+            <FindingsGroup tally={tallyFindings(groups.filter((g) => g.count > 1))} title="Shared by many">
+              {groups
+                .filter((group) => group.count > 1)
+                .map((group) => (
+                  <FindingsItem
+                    action={{ label: `Show ${group.count}`, run: () => setShown(group.rule.label) }}
+                    describe={describe}
+                    finding={group}
+                    key={group.rule.id}
+                  />
+                ))}
+            </FindingsGroup>
+            <FindingsGroup tally={tallyFindings(groups.filter((g) => g.count === 1))} title="One of a kind">
+              {groups
+                .filter((group) => group.count === 1)
+                .map((group) => {
+                  const finding = group.sample[0]!;
+                  return (
+                    <FindingsItem
+                      action={{ label: "Show", run: () => setShown(finding.place.quest.id) }}
+                      describe={describe}
+                      finding={finding}
+                      key={group.rule.id}
+                    />
+                  );
+                })}
+            </FindingsGroup>
+          </FindingsList>
         </FindingsContent>
       </FindingsRoot>
 

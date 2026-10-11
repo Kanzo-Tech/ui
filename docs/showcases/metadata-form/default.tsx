@@ -34,12 +34,17 @@ import {
   DiagnosticFrames,
   type DescribePlace,
   type Finding,
-  FindingRow,
+  type FindingTally,
   FindingsBadge,
   FindingsContent,
   FindingsGroup,
+  FindingsHeader,
+  FindingsItem,
+  FindingsList,
   FindingsRoot,
-  PopoverHeader,
+  FindingsSource,
+  FindingsTally,
+  PopoverDescription,
   tallyFindings,
   Field,
   FieldArray,
@@ -139,15 +144,8 @@ import {
 // VIOLATION goes through `Field`'s own channel (`invalid` + `FieldError`), while WARNING / INFO
 // — severities the library deliberately does not model — are product-rendered nodes.
 
-type Counts = { violations: number; warnings: number; infos: number };
 type Layout = "cards" | "tabs" | "steps";
 type EntryKey = "notices" | "tags" | "beasts" | "invited" | "waypoints";
-
-const SEVERITY_TEXT: Record<Issue["severity"], string> = {
-  violation: "text-destructive dark:text-destructive-foreground",
-  warning: "text-warning",
-  info: "text-info",
-};
 
 /** The board's words for the rows the tally draws; `info` is a note here. */
 const FINDING_LABELS = {
@@ -236,8 +234,9 @@ const RevealContext = createContext({ revealAll: false, generation: 0 });
  */
 const IssuesContext = createContext<Record<string, Issue[]>>({});
 
-/** The per-field message list — the `ReactNode` the product hands to the library. Violations
- *  use the real `FieldError` part; the non-blocking severities are plain styled lines. */
+/** The per-field message list — the `ReactNode` the product hands to the library. A violation
+ *  uses the real `FieldError` part; the non-blocking severities wear the badge the Findings items
+ *  wear, in the same words, so the field and the popover say a severity one way. */
 function IssueLines({ issues }: { issues: Issue[] }) {
   if (issues.length === 0) return null;
   return (
@@ -246,7 +245,10 @@ function IssueLines({ issues }: { issues: Issue[] }) {
         iss.severity === "violation" ? (
           <FieldError key={i}>{iss.message}</FieldError>
         ) : (
-          <p className={cn("text-sm", SEVERITY_TEXT[iss.severity])} key={i}>
+          <p className="flex items-start gap-1.5 text-muted-foreground text-sm" key={i}>
+            <Badge className="mt-0.5" size="xs" variant={iss.severity}>
+              {FINDING_LABELS.severity[iss.severity]}
+            </Badge>
             {iss.message}
           </p>
         )
@@ -379,28 +381,11 @@ function NestedCard({
   );
 }
 
-/** A group's issue tally — a red / amber / blue count, or a green tick when the group is clean.
- *  Shown on tab triggers, step indicators and card headers. */
-function GroupBadge({ counts }: { counts: Counts }) {
-  if (counts.violations)
-    return (
-      <Badge pill size="xs" variant="destructive">
-        {counts.violations}
-      </Badge>
-    );
-  if (counts.warnings)
-    return (
-      <Badge pill size="xs" variant="warning">
-        {counts.warnings}
-      </Badge>
-    );
-  if (counts.infos)
-    return (
-      <Badge pill size="xs" variant="info">
-        {counts.infos}
-      </Badge>
-    );
-  return <CheckIcon aria-label="No issues" className="size-3.5 text-success" />;
+/** A group's tally — the popover's `FindingsTally`, a count per severity — or a green tick when
+ *  the group is clean. Shown on tab triggers, step indicators and card headers. */
+function GroupTally({ tally }: { tally: FindingTally }) {
+  if (tally.total === 0) return <CheckIcon aria-label="No issues" className="size-3.5 text-success" />;
+  return <FindingsTally labels={FINDING_LABELS} tally={tally} />;
 }
 
 /** The chrome shared by both docked asides — a titled header with a close control, over a
@@ -524,14 +509,6 @@ export function MetadataFormShowcase() {
     return map;
   }, [report]);
 
-  const countsByGroup = useMemo(() => {
-    const base = Object.fromEntries(
-      GROUPS.map((g) => [g.id, { violations: 0, warnings: 0, infos: 0 }])
-    ) as Record<GroupId, Counts>;
-    for (const iss of report) base[iss.group][`${iss.severity}s`] += 1;
-    return base;
-  }, [report]);
-
   // Where the last frame sent the reader. One object per press, so pressing the same frame twice
   // scrolls again, and a field and a rule are the same act seen from either side of the workspace.
   const [sent, setSent] = useState<{
@@ -588,6 +565,14 @@ export function MetadataFormShowcase() {
     [report]
   );
   const tally = useMemo(() => tallyFindings(findings), [findings]);
+  /** The same report, tallied per group — what a card header, a tab and a step wear. */
+  const tallyByGroup = useMemo(
+    () =>
+      Object.fromEntries(
+        GROUPS.map((g) => [g.id, tallyFindings(findings.filter((f) => f.place.group === g.id))])
+      ) as Record<GroupId, FindingTally>,
+    [findings]
+  );
 
   /**
    * A finding's place, read: the ledger key rather than the rule — three of these read "This field
@@ -599,7 +584,6 @@ export function MetadataFormShowcase() {
     const line = iss.rule ? orderLine(iss.rule) : undefined;
     return {
       where: LEDGER_KEYS[iss.field],
-      action: { label: "Go to field", run: () => sendToField(iss) },
       detail: (
         <>
           <p>{SEVERITY_CONSEQUENCE[iss.severity]}</p>
@@ -1209,7 +1193,7 @@ export function MetadataFormShowcase() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <CardTitle>{g.label}</CardTitle>
-              <GroupBadge counts={countsByGroup[g.id]} />
+              <GroupTally tally={tallyByGroup[g.id]} />
             </div>
           </CardHeader>
           <CardContent className="flex flex-col gap-5">
@@ -1229,7 +1213,7 @@ export function MetadataFormShowcase() {
         {GROUPS.map((g) => (
           <TabsTrigger key={g.id} value={g.id}>
             {g.label}
-            <GroupBadge counts={countsByGroup[g.id]} />
+            <GroupTally tally={tallyByGroup[g.id]} />
           </TabsTrigger>
         ))}
       </TabsList>
@@ -1263,7 +1247,7 @@ export function MetadataFormShowcase() {
               <StepsIndicator>{index + 1}</StepsIndicator>
               <StepsTitle className="flex items-center gap-1.5">
                 {g.label}
-                <GroupBadge counts={countsByGroup[g.id]} />
+                <GroupTally tally={tallyByGroup[g.id]} />
               </StepsTitle>
             </StepsTrigger>
             <StepsSeparator />
@@ -1410,24 +1394,30 @@ export function MetadataFormShowcase() {
               <FindingsBadge pill size="xs">
                 {(t) => (t?.total ? `${t.total} ${t.total === 1 ? "issue" : "issues"}` : "Valid")}
               </FindingsBadge>
-              <FindingsContent
-                empty={<p className="text-muted-foreground text-sm">The board would take it as it is.</p>}
-                header={<PopoverHeader description="What the board would send back." />}
-              >
-                {(["violation", "warning", "info"] as const).map((severity) => {
-                  const rows = findings.filter((finding) => finding.severity === severity);
-                  return rows.length === 0 ? null : (
-                    <FindingsGroup key={severity} tally={tallyFindings(rows)} title={GROUP_TITLE[severity]}>
-                      {rows.map((finding) => (
-                        <FindingRow
-                          describe={describeIssue}
-                          finding={finding}
-                          key={`${finding.place.field}:${finding.rule.id}:${finding.message}`}
-                        />
-                      ))}
-                    </FindingsGroup>
-                  );
-                })}
+              <FindingsContent>
+                <FindingsHeader>
+                  <FindingsSource>standing-orders</FindingsSource>
+                  <PopoverDescription>What the board would send back.</PopoverDescription>
+                </FindingsHeader>
+                <FindingsList
+                  empty={<p className="text-muted-foreground text-sm">The board would take it as it is.</p>}
+                >
+                  {(["violation", "warning", "info"] as const).map((severity) => {
+                    const rows = findings.filter((finding) => finding.severity === severity);
+                    return rows.length === 0 ? null : (
+                      <FindingsGroup key={severity} tally={tallyFindings(rows)} title={GROUP_TITLE[severity]}>
+                        {rows.map((finding) => (
+                          <FindingsItem
+                            action={{ label: "Go to field", run: () => sendToField(finding.place) }}
+                            describe={describeIssue}
+                            finding={finding}
+                            key={`${finding.place.field}:${finding.rule.id}:${finding.message}`}
+                          />
+                        ))}
+                      </FindingsGroup>
+                    );
+                  })}
+                </FindingsList>
               </FindingsContent>
             </FindingsRoot>
 

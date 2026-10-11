@@ -18,9 +18,8 @@ export { DashboardHarness, TileHarness } from "./harnesses/dashboard";
 export { DockHarness } from "./harnesses/dock";
 export { FilterBarHarness } from "./harnesses/filter-bar";
 export {
-  FindingGroupRowHarness,
-  FindingRowHarness,
   FindingsBadgeHarness,
+  FindingsItemHarness,
   type Severity,
 } from "./harnesses/findings";
 export { GraphCanvasHarness, type GestureOptions } from "./harnesses/graph-canvas";

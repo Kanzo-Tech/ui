@@ -1,6 +1,6 @@
 ---
 title: Findings
-description: What a check found — one result or many sharing a rule — as rows, grouped under a heading, behind a badge that tallies them.
+description: What a check found — one result or many sharing a rule — as items, grouped under a heading, behind a badge that tallies them and a header that says what was checked.
 ---
 
 <ComponentPreview componentName="findings" fileName="example-default" />
@@ -9,13 +9,17 @@ description: What a check found — one result or many sharing a rule — as row
 
 ```tsx
 import {
-  FindingGroupRow,
-  FindingRow,
+  FindingsActions,
   FindingsBadge,
   FindingsContent,
   FindingsGroup,
+  FindingsHeader,
+  FindingsItem,
+  FindingsList,
   FindingsRoot,
+  FindingsSource,
   groupFindings,
+  PopoverDescription,
   tallyFindings,
 } from "@kanzo-tech/ui";
 ```
@@ -26,18 +30,28 @@ const tally = tallyFindings(groups);
 
 <FindingsRoot tally={tally}>
   <FindingsBadge>{(t) => (t ? `${t.violation} violations · ${t.warning} warnings` : "No rules")}</FindingsBadge>
-  <FindingsContent header={<RulesHeader />} empty={<ChooseRules />}>
-    <FindingsGroup title="ProjectShape" tally={tally}>
-      {groups.map((group) => (
-        <FindingGroupRow
-          key={group.rule.id}
-          group={group}
-          describe={describe}
-          where={group.places[0].path}
-          action={{ label: `Show ${group.count}`, run: () => show(group.places) }}
-        />
-      ))}
-    </FindingsGroup>
+  <FindingsContent>
+    <FindingsHeader>
+      <FindingsSource>flights-shapes.ttl · 4 rules</FindingsSource>
+      <FindingsActions>
+        <Button aria-label="Check again" size="icon-sm" variant="ghost"><RotateCwIcon /></Button>
+      </FindingsActions>
+      <PopoverDescription>1,204 of 3,310 nodes checked · 1,199 conform</PopoverDescription>
+    </FindingsHeader>
+    <FindingsList empty={<ChooseRules />}>
+      <FindingsGroup title="ProjectShape" tally={tally} action={{ label: "Show 44", run: showAll }}>
+        {groups.map((group) => (
+          <FindingsItem
+            key={group.rule.id}
+            finding={group}
+            describe={describe}
+            action={{ label: `Show ${group.count}`, run: () => show(group.places) }}
+          >
+            {group.places[0].path}
+          </FindingsItem>
+        ))}
+      </FindingsGroup>
+    </FindingsList>
   </FindingsContent>
 </FindingsRoot>
 ```
@@ -82,36 +96,41 @@ Server Component.
 ```ts
 const describe: DescribePlace<Node> = (node) => ({
   where: `${node.path} · ${node.focus}`,
-  action: { label: "Show", run: () => select(node.focus) },
   detail: node.value,
 });
 ```
 
-`where` is what line 1 shows; `action` is a button beside it; `detail` is what opening the row shows
-first. A compiler's place is `{ where: "Line 12", action: { label: "Go to line", run } }`. Inside a
-findings popover, the row closes the popover before it runs an action, so focus can land where the
-action sends it.
+`where` is what line 1 shows; `detail` is what opening the item shows. A compiler's place is
+`{ where: "Line 12" }`. A `FindingPlace` says where a place is, never what to do there: the action is
+the item's.
 
-## The rows
+## The item
 
-- **`FindingRow`** draws one finding. Line 1 is the severity, where and the actions; line 2 is the
-  message, on its own line, and it wraps. Opening it shows the detail, the rule (label and id) and
-  the help. Nothing is held to one line but the severity badge and the buttons — a long IRI breaks
-  rather than widening the list.
-- **`FindingGroupRow`** draws a group: the count on the severity badge, `where` for what the group
-  shares (the rule's label without it), and one `action` over all of it. Opening it lists the sample,
-  each place with its own action.
+**`FindingsItem`** draws one finding or a group, from `finding`. Line 1 is the severity — with the
+count on the badge, for a group — where, and the item's one `action`; line 2 is the message, on its
+own line, and it wraps. Nothing is held to one line but the severity badge and the buttons — a long
+IRI breaks rather than widening the list.
 
-Both are `Diagnostic`s, so they go in a [DiagnosticList](/docs/data-display/diagnostic) or a
-`FindingsGroup`, and take `Diagnostic`'s `open`, `defaultOpen` and `onOpenChange`.
+- **Where** is one result's place as `describe` reads it, or a group's rule label. Children replace
+  it: what a group shares — `totalCost` — is yours to say.
+- **`action`** is a `FindingAction`, `{ label, run, pressed? }`: *Go to field*, *Go to line*,
+  *Show 362*. One per item, and inside a findings popover the item closes the popover before it runs
+  the action, so focus lands where the action sends it. With `pressed` it is Ark's
+  [Toggle](/docs/forms/toggle) — *Show* puts something on the page and pressing again takes it off.
+- **Opening it** shows one result's `detail`, or a group's sample — each place where it is, its
+  message when it differs, and its `detail` — then the rule (label and id) and the help. A sampled
+  place is read, not acted on.
+
+`FindingsItem` is a `Diagnostic`, so it goes in a [DiagnosticList](/docs/data-display/diagnostic) or a
+`FindingsGroup`, and takes `Diagnostic`'s `open`, `defaultOpen` and `onOpenChange`.
 
 ## The words are yours
 
 Nothing tallies in English. The badge's words are its children, a function of the tally, because
 *362 violations* and *Valid* are a product's vocabulary and a plural rule is a locale's. The words
-the rows draw — the severity and the disclosure's name — are `FindingLabels`, English by default,
-given once on `FindingsRoot` or per row as `labels`. Counts are formatted in the
-[LocaleProvider](/docs/i18n)'s locale.
+the parts draw — the header's title, the severity and the disclosure's name — are `FindingLabels`,
+English by default (*Findings*, *Violation*, *Details*), given once on `FindingsRoot` or per item as
+`labels`. Counts are formatted in the [LocaleProvider](/docs/i18n)'s locale.
 
 <ComponentPreview componentName="findings" fileName="example-spanish" />
 
@@ -123,18 +142,25 @@ given once on `FindingsRoot` or per row as `labels`. Counts are formatted in the
 - **`FindingsBadge`** is the trigger: a `Badge` that is a button in every state, named by its
   children. It wears the worst severity found, `success` when the check found nothing and `outline`
   when nothing was checked. `size` and `pill` are `Badge`'s.
-- **`FindingsContent`** is the popover: `header` above the list and not scrolling with it — the rules
-  file and a *Change…*, say — then the children in a vertical-only
-  [ScrollArea](/docs/layout/scroll-area), or `empty` instead when nothing was found or checked.
-- **`FindingsGroup`** puts rows under a heading — a `<section>` named by its title — with
-  `FindingsTally` beside the title: a count per severity, not the paths it holds.
+- **`FindingsContent`** is the popover, at a fixed width: a `FindingsHeader`, then a `FindingsList`.
+- **`FindingsHeader`** is above the list and does not scroll with it. Its title is the labels'
+  *Findings*, Ark's popover title; then your parts, in order: **`FindingsSource`**, what was checked —
+  `flights-shapes.ttl · 4 rules`, `graph.fossil`, a form's name — muted and monospace;
+  **`FindingsActions`**, at the end of the line, for icon buttons (*Check again*, *Stop*, a menu) and
+  at most one text toggle; and a [PopoverDescription](/docs/overlays/popover) for what the check
+  covered — *1,204 of 3,310 nodes checked*, *2 errors · 1 warning* — on a line of its own.
+- **`FindingsList`** is the children in a vertical-only [ScrollArea](/docs/layout/scroll-area), or
+  `empty` instead when nothing was found or checked.
+- **`FindingsGroup`** puts items under a heading — a `<section>` named by its title — with
+  `FindingsTally` beside the title, a count per severity rather than the paths it holds, and one
+  `action` at the end of the heading — *Show all 44* — that works as an item's does.
 - **`useFindings`** gives a part of your own the tally, the worst severity and the labels.
 
-The props types — `FindingRowProps`, `FindingGroupRowProps`, `FindingsRootProps`,
-`FindingsBadgeProps`, `FindingsContentProps`, `FindingsGroupProps`, `FindingsTallyProps` — and
-`FindingAction`, `FindingPlace`, `FindingRule` are exported for wrappers.
+The props types — `FindingsItemProps`, `FindingsRootProps`, `FindingsBadgeProps`,
+`FindingsListProps`, `FindingsGroupProps`, `FindingsTallyProps` — and `FindingAction`,
+`FindingPlace`, `FindingRule` are exported for wrappers.
 
 ## Testing
 
-`FindingsBadgeHarness`, `FindingRowHarness` and `FindingGroupRowHarness` from
-[`@kanzo-tech/testing`](/docs/testing) drive these.
+`FindingsBadgeHarness` and `FindingsItemHarness` from [`@kanzo-tech/testing`](/docs/testing) drive
+these.

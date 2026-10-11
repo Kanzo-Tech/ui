@@ -1,9 +1,10 @@
 "use client";
 
-// What a check found, drawn: a row for one result, a row for many that share a rule, a group of
-// rows under a heading, and a badge that tallies them and opens onto the list. The model is
-// `lib/findings.ts`; the place a finding points at is the host's, and reaches a row only through
-// `describe`, so this file knows no RDF and no LSP. `/docs/design/findings` is the argument.
+// What a check found, drawn: an item for one result or for many that share a rule, a group of items
+// under a heading, a header that says what was checked, and a badge that tallies them and opens onto
+// the list. The model is `lib/findings.ts`; the place a finding points at is the host's, and reaches
+// an item only through `describe`, so this file knows no RDF and no LSP. `/docs/design/findings` is
+// the argument.
 
 import { ark } from "@ark-ui/react/factory";
 import * as React from "react";
@@ -30,8 +31,16 @@ import {
   DiagnosticTrigger,
 } from "../simples/diagnostic.js";
 import { useLocale } from "../simples/locale.js";
-import { Popover, PopoverContent, PopoverTrigger, usePopover } from "../simples/popover.js";
+import {
+  Popover,
+  PopoverContent,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+  usePopover,
+} from "../simples/popover.js";
 import { ScrollArea } from "../simples/scroll-area.js";
+import { Toggle } from "../simples/toggle.js";
 
 /** A severity is a domain word; the surface's families are `Diagnostic`'s. */
 const VARIANT = {
@@ -40,32 +49,39 @@ const VARIANT = {
   info: "info",
 } as const satisfies Record<FindingSeverity, string>;
 
-/** Something to do at a place — *Show*, *Go to line* — in the host's words. */
+/**
+ * The one thing to do about an item or a group — *Go to field*, *Go to line*, *Show 362* — in the
+ * host's words. With `pressed` it is a toggle, Ark's: *Show* puts something on the page and pressing
+ * it again takes it off, so the button says which is true now.
+ */
 export interface FindingAction {
   label: string;
   run: () => void;
+  pressed?: boolean;
 }
 
-/** A place, as a reader sees it: where it is, what to do there, and what else opening it shows. */
+/** A place, as a reader sees it: where it is, and what opening its item shows. */
 export interface FindingPlace {
-  /** *totalCost · Project/123*, *Line 12*. Wraps: a long IRI breaks anywhere rather than widening the row. */
+  /** *totalCost · Project/123*, *Line 12*. Wraps: a long IRI breaks anywhere rather than widening the item. */
   where: React.ReactNode;
-  action?: FindingAction;
-  /** Shown when the row is opened — the offending value, say. */
+  /** Shown when the item is opened — the offending value, say. */
   detail?: React.ReactNode;
 }
 
 /** The host's reading of its own place. The only door a place has into this file. */
 export type DescribePlace<Place> = (place: Place) => FindingPlace;
 
-/** The words the rows draw that are not the host's data. English until a host says otherwise. */
+/** The words the parts draw that are not the host's data. English until a host says otherwise. */
 export interface FindingLabels {
+  /** The header's title. */
+  title: string;
   severity: Record<FindingSeverity, string>;
-  /** The accessible name of a row's disclosure, before its place when the place is text. */
+  /** The accessible name of an item's disclosure, before its place when the place is text. */
   details: string;
 }
 
 const LABELS: FindingLabels = {
+  title: "Findings",
   severity: { violation: "Violation", warning: "Warning", info: "Info" },
   details: "Details",
 };
@@ -79,7 +95,7 @@ interface FindingsContextValue {
 
 const FindingsContext = React.createContext<FindingsContextValue | null>(null);
 
-/** Closes the popover a row sits in, before a place's action moves focus elsewhere. */
+/** Closes the popover an action sits in, before the action moves focus elsewhere. */
 const CloseContext = React.createContext<(() => void) | undefined>(undefined);
 
 /** The tally and the words, for a part of the caller's own. Only inside `FindingsRoot`. */
@@ -102,34 +118,58 @@ const useCount = () => {
 const nameOf = (labels: FindingLabels, where: React.ReactNode) =>
   typeof where === "string" ? `${labels.details}: ${where}` : labels.details;
 
-// ── Rows ────────────────────────────────────────────────────────────────────────────────────────
+/** A label a reader may have to type back into a tool — a path, a file — that wraps anywhere. */
+const MONO = "min-w-0 flex-1 font-mono text-muted-foreground text-xs wrap-anywhere";
 
-/** Where, as a part: the one cell of line 1 that grows, and it wraps — anywhere, for an IRI. */
-const Where = ({ children }: { children: React.ReactNode }) => (
-  <ark.span
-    className="min-w-0 flex-1 font-mono text-muted-foreground text-xs wrap-anywhere"
-    data-slot="finding-where"
-  >
-    {children}
-  </ark.span>
-);
+// ── The action ──────────────────────────────────────────────────────────────────────────────────
 
-const ActionButton = ({ action }: { action: FindingAction }) => {
+/**
+ * An item's or a group's one action: a `Button`, or Ark's `Toggle` when it is `pressed` or not.
+ * Inside a findings popover it closes the popover first, so focus lands where the action sends it.
+ */
+const Action = ({ action }: { action: FindingAction }) => {
   const close = React.useContext(CloseContext);
+  const run = () => {
+    close?.();
+    action.run();
+  };
+  if (action.pressed !== undefined)
+    return (
+      <Toggle
+        className="shrink-0"
+        onPressedChange={run}
+        pressed={action.pressed}
+        size="sm"
+        slot="findings-action"
+        variant="outline"
+      >
+        {action.label}
+      </Toggle>
+    );
   return (
-    <Button
-      slot="finding-action"
-      onClick={() => {
-        close?.();
-        action.run();
-      }}
-      size="sm"
-      variant="outline"
-    >
+    <Button onClick={run} size="sm" slot="findings-action" variant="outline">
       {action.label}
     </Button>
   );
 };
+
+/**
+ * The end of a line, where its controls sit: a group's action, the header's buttons — the place an
+ * item's action and disclosure hold on its line. `DiagnosticActions`, pushed to the end.
+ */
+export const FindingsActions = (props: React.ComponentProps<typeof DiagnosticActions>) => {
+  const { className, slot, ...rest } = props;
+  return <DiagnosticActions className={cn("ms-auto", className)} {...rest} slot={slot ?? "findings-actions"} />;
+};
+
+// ── The item ────────────────────────────────────────────────────────────────────────────────────
+
+/** Where, as a part: the one cell of line 1 that grows, and it wraps — anywhere, for an IRI. */
+const Where = ({ children }: { children: React.ReactNode }) => (
+  <ark.span className={MONO} data-slot="findings-where">
+    {children}
+  </ark.span>
+);
 
 /**
  * Line 2: the message, on its own line, wrapping. `DiagnosticTitle` truncates to keep a collapsed
@@ -137,134 +177,105 @@ const ActionButton = ({ action }: { action: FindingAction }) => {
  * own has nothing to align with, and cutting it is losing it.
  */
 const Message = ({ children }: { children: React.ReactNode }) => (
-  <DiagnosticTitle className="basis-full wrap-break-word whitespace-normal!" slot="finding-message">
+  <DiagnosticTitle className="basis-full wrap-break-word whitespace-normal!" slot="findings-message">
     {children}
   </DiagnosticTitle>
 );
 
+/** What the host's place shows when its item is opened. */
+const Detail = ({ children }: { children: React.ReactNode }) => (
+  // A `div`, not `DiagnosticDescription`'s `<p>`: a host's detail may hold frames or a list.
+  <ark.div className="text-muted-foreground text-sm leading-normal wrap-anywhere" data-slot="findings-detail">
+    {children}
+  </ark.div>
+);
+
 const Rule = ({ rule }: { rule: Finding["rule"] }) => (
-  <ark.p className="font-mono text-muted-foreground text-xs wrap-anywhere" data-slot="finding-rule">
+  <ark.p className="font-mono text-muted-foreground text-xs wrap-anywhere" data-slot="findings-rule">
     {rule.label}
     {rule.id !== rule.label ? <ark.span className="opacity-70"> · {rule.id}</ark.span> : null}
   </ark.p>
 );
 
-export interface FindingRowProps<Place>
+export interface FindingsItemProps<Place>
   extends Omit<DiagnosticProps, "variant" | "children"> {
-  finding: Finding<Place>;
+  /** One result, or many that share a rule. */
+  finding: Finding<Place> | FindingGroup<Place>;
+  /** How a place reads: one result's on line 1, a group's sampled places once it is opened. */
   describe: DescribePlace<Place>;
+  /** The item's one action — *Go to field*, *Show 362*. A group's places are read, not acted on. */
+  action?: FindingAction;
   labels?: Partial<FindingLabels>;
+  /**
+   * Line 1's place, when it is not what `describe` reads — what a group shares, *totalCost*. Without
+   * it, one result's place as `describe` reads it, and a group's rule label.
+   */
+  children?: React.ReactNode;
 }
 
+const isGroup = <Place,>(finding: Finding<Place> | FindingGroup<Place>): finding is FindingGroup<Place> =>
+  "count" in finding;
+
 /**
- * **One result.** Line 1 is the severity, where and the actions; line 2 the message, wrapping;
- * opening it shows the place's detail, the rule and the help. Nothing is held to one line but the
- * severity badge — the shape a compiler prints, and the only one that survives a narrow column.
+ * **One result, or many that share a rule.** Line 1 is the severity — with the count, for a group —
+ * where and the one action; line 2 the message, wrapping. Opening it shows one result's detail, or a
+ * group's sample, each place where it is and what it holds; then the rule and the help. Nothing is
+ * held to one line but the severity badge and the buttons — the shape a compiler prints, and the only
+ * one that survives a narrow column. A group of 17,000 is one item, not 17,000.
  */
-export function FindingRow<Place>(props: FindingRowProps<Place>) {
-  const { finding, describe, labels: own, slot, ...rest } = props;
+export function FindingsItem<Place>(props: FindingsItemProps<Place>) {
+  const { finding, describe, action, labels: own, children, slot, ...rest } = props;
   const labels = useLabels(own);
-  const { where, action, detail } = describe(finding.place);
+  const count = useCount();
+  const group = isGroup(finding) ? finding : undefined;
+  const one = group ? undefined : describe((finding as Finding<Place>).place);
+  const where = children ?? one?.where ?? finding.rule.label;
+  const help = group ? group.sample[0]?.help : (finding as Finding<Place>).help;
 
   return (
     <Diagnostic
+      data-count={group?.count}
       data-severity={finding.severity}
-      slot={slot ?? "finding-row"}
+      slot={slot ?? "findings-item"}
       variant={VARIANT[finding.severity]}
       {...rest}
     >
       <DiagnosticHeader>
-        <DiagnosticSeverity>{labels.severity[finding.severity]}</DiagnosticSeverity>
+        <DiagnosticSeverity>
+          {labels.severity[finding.severity]}
+          {group ? (
+            <ark.span className="tabular-nums" data-slot="findings-count">
+              {count.format(group.count)}
+            </ark.span>
+          ) : null}
+        </DiagnosticSeverity>
         <Where>{where}</Where>
         <DiagnosticActions className="ms-auto">
-          {action ? <ActionButton action={action} /> : null}
+          {action ? <Action action={action} /> : null}
           <DiagnosticTrigger aria-label={nameOf(labels, where)} />
         </DiagnosticActions>
         <Message>{finding.message}</Message>
       </DiagnosticHeader>
       <DiagnosticContent>
-        {detail ? (
-          // A `div`, not `DiagnosticDescription`'s `<p>`: a host's detail may hold frames or a list.
-          <ark.div
-            className="text-muted-foreground text-sm leading-normal wrap-anywhere"
-            data-slot="finding-detail"
-          >
-            {detail}
-          </ark.div>
+        {one?.detail ? <Detail>{one.detail}</Detail> : null}
+        {group ? (
+          <ark.ul className="flex list-none flex-col gap-2" data-slot="findings-sample" role="list">
+            {group.sample.map((sampled, i) => {
+              const place = describe(sampled.place);
+              return (
+                <ark.li className="flex min-w-0 flex-col gap-0.5" key={i}>
+                  <Where>{place.where}</Where>
+                  {sampled.message !== group.message ? (
+                    <ark.span className="text-muted-foreground text-xs wrap-break-word">{sampled.message}</ark.span>
+                  ) : null}
+                  {place.detail ? <Detail>{place.detail}</Detail> : null}
+                </ark.li>
+              );
+            })}
+          </ark.ul>
         ) : null}
         <Rule rule={finding.rule} />
-        {finding.help ? <DiagnosticDescription>{finding.help}</DiagnosticDescription> : null}
-      </DiagnosticContent>
-    </Diagnostic>
-  );
-}
-
-export interface FindingGroupRowProps<Place>
-  extends Omit<DiagnosticProps, "variant" | "children"> {
-  group: FindingGroup<Place>;
-  /** How each sampled place reads, once the row is opened. */
-  describe: DescribePlace<Place>;
-  /** What the group shares — a path, *totalCost*. Without it, the rule's label. */
-  where?: React.ReactNode;
-  /** One action over every place — *Show 362* — which is the host's: it may filter, select, open. */
-  action?: FindingAction;
-  labels?: Partial<FindingLabels>;
-}
-
-/**
- * **Many results that share a rule.** The same two lines as `FindingRow`, with the count on the
- * severity badge and one action for all of them; opening it lists the sample, each place with its
- * own action, then the rule and the help. A group of 17,000 is one row, not 17,000.
- */
-export function FindingGroupRow<Place>(props: FindingGroupRowProps<Place>) {
-  const { group, describe, where, action, labels: own, slot, ...rest } = props;
-  const labels = useLabels(own);
-  const count = useCount();
-  const shown = where ?? group.rule.label;
-
-  return (
-    <Diagnostic
-      data-count={group.count}
-      data-severity={group.severity}
-      slot={slot ?? "finding-group-row"}
-      variant={VARIANT[group.severity]}
-      {...rest}
-    >
-      <DiagnosticHeader>
-        <DiagnosticSeverity>
-          {labels.severity[group.severity]}
-          <ark.span className="tabular-nums" data-slot="finding-count">
-            {count.format(group.count)}
-          </ark.span>
-        </DiagnosticSeverity>
-        <Where>{shown}</Where>
-        <DiagnosticActions className="ms-auto">
-          {action ? <ActionButton action={action} /> : null}
-          <DiagnosticTrigger aria-label={nameOf(labels, shown)} />
-        </DiagnosticActions>
-        <Message>{group.message}</Message>
-      </DiagnosticHeader>
-      <DiagnosticContent>
-        <ark.ul className="flex list-none flex-col gap-1" data-slot="finding-sample" role="list">
-          {group.sample.map((finding, i) => {
-            const place = describe(finding.place);
-            return (
-              <ark.li className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1" key={i}>
-                <Where>{place.where}</Where>
-                {place.action ? <ActionButton action={place.action} /> : null}
-                {finding.message !== group.message ? (
-                  <ark.span className="basis-full text-muted-foreground text-xs wrap-break-word">
-                    {finding.message}
-                  </ark.span>
-                ) : null}
-              </ark.li>
-            );
-          })}
-        </ark.ul>
-        <Rule rule={group.rule} />
-        {group.sample[0]?.help ? (
-          <DiagnosticDescription>{group.sample[0].help}</DiagnosticDescription>
-        ) : null}
+        {help ? <DiagnosticDescription>{help}</DiagnosticDescription> : null}
       </DiagnosticContent>
     </Diagnostic>
   );
@@ -313,20 +324,22 @@ export const FindingsTally = (props: FindingsTallyProps) => {
 
 export interface FindingsGroupProps
   extends Omit<React.ComponentProps<typeof ark.section>, "title"> {
-  /** What the rows share — a shape, a file. Names the region. */
+  /** What the items share — a shape, a file. Names the region. */
   title: React.ReactNode;
   tally: FindingTally;
+  /** One action over every item — *Show 44* — at the end of the heading, as an item's is at the end of its line. */
+  action?: FindingAction;
   labels?: Partial<FindingLabels>;
 }
 
 /**
- * Rows under a heading — a `<section>` named by its `<h3>`, so a screen reader moves between them —
+ * Items under a heading — a `<section>` named by its `<h3>`, so a screen reader moves between them —
  * with the heading's tally beside it and not in its name: the region is *ProjectShape*, and the
- * counts are what it holds. The rows are the caller's, `FindingRow` and `FindingGroupRow` or
- * anything built on `Diagnostic`.
+ * counts are what it holds. The items are the caller's, `FindingsItem` or anything built on
+ * `Diagnostic`.
  */
 export const FindingsGroup = (props: FindingsGroupProps) => {
-  const { title, tally, labels, children, className, slot, ...rest } = props;
+  const { title, tally, action, labels, children, className, slot, ...rest } = props;
   const heading = React.useId();
 
   return (
@@ -344,6 +357,11 @@ export const FindingsGroup = (props: FindingsGroupProps) => {
           {title}
         </ark.h3>
         <FindingsTally labels={labels} tally={tally} />
+        {action ? (
+          <FindingsActions>
+            <Action action={action} />
+          </FindingsActions>
+        ) : null}
       </ark.div>
       <DiagnosticList>{children}</DiagnosticList>
     </ark.section>
@@ -420,25 +438,14 @@ export const FindingsBadge = (props: FindingsBadgeProps) => {
   );
 };
 
-export interface FindingsContentProps extends React.ComponentProps<typeof PopoverContent> {
-  /** Above the list and not scrolling with it — *shapes.ttl* and *Change…*, say. */
-  header?: React.ReactNode;
-  /** Drawn instead of the list when nothing was found, or nothing checked. */
-  empty?: React.ReactNode;
-}
-
 /**
- * The popover: the host's header, then the list — or the empty slot — in a vertical-only
- * `ScrollArea`. **A fixed width and a vertical area**: Ark's content is `min-width: fit-content`
- * on both axes, so one unbroken line would set the popover's width; see `ScrollArea`'s
- * `orientation`.
+ * The popover, and the width it holds: `FindingsHeader` above, `FindingsList` below. **A fixed
+ * width**, because Ark's content is `min-width: fit-content` and one unbroken line would set it.
  */
-export const FindingsContent = (props: FindingsContentProps) => {
-  const { header, empty, children, className, slot, ...rest } = props;
-  const { tally } = useFindings();
+export const FindingsContent = (props: React.ComponentProps<typeof PopoverContent>) => {
+  const { children, className, slot, ...rest } = props;
   const popover = usePopover();
   const close = React.useCallback(() => popover.setOpen(false), [popover]);
-  const found = Boolean(tally && tally.total > 0);
 
   return (
     <PopoverContent
@@ -446,15 +453,84 @@ export const FindingsContent = (props: FindingsContentProps) => {
       {...rest}
       slot={slot ?? "findings-content"}
     >
-      {header}
-      <ScrollArea className="flex min-h-0 flex-1 flex-col" orientation="vertical">
-        <ark.div
-          className={cn("flex min-w-0 flex-col gap-4 p-(--space)", header ? "pt-1" : null)}
-          data-slot="findings-list"
-        >
-          <CloseContext.Provider value={close}>{found ? children : empty}</CloseContext.Provider>
-        </ark.div>
-      </ScrollArea>
+      <CloseContext.Provider value={close}>{children}</CloseContext.Provider>
     </PopoverContent>
+  );
+};
+
+/**
+ * **The header**: the title, then what was checked and the controls on line 1, then what the check
+ * covered on a line of its own — the item's two lines, at the top of the popover:
+ *
+ * ```tsx
+ * <FindingsHeader>
+ *   <FindingsSource>flights-shapes.ttl · 4 rules</FindingsSource>
+ *   <FindingsActions>…</FindingsActions>
+ *   <PopoverDescription>1,204 of 3,310 nodes checked · 1,199 conform</PopoverDescription>
+ * </FindingsHeader>
+ * ```
+ *
+ * `PopoverHeader`, laid out as a row that wraps. The title is the labels' — *Findings* — and is
+ * Ark's `Popover.Title`, so it names the dialog; the scope is `PopoverDescription`, Ark's too, and
+ * describes it. Above the list and not scrolling with it.
+ */
+export const FindingsHeader = (props: React.ComponentProps<typeof PopoverHeader>) => {
+  const { children, className, slot, ...rest } = props;
+  const { title } = useLabels(undefined);
+
+  return (
+    <PopoverHeader
+      className={cn(
+        "flex-row flex-wrap items-center gap-x-2 gap-y-1",
+        "*:data-[slot=popover-description]:basis-full",
+        className,
+      )}
+      {...rest}
+      slot={slot ?? "findings-header"}
+    >
+      <PopoverTitle className="shrink-0">{title}</PopoverTitle>
+      {children}
+    </PopoverHeader>
+  );
+};
+
+/** What was checked — a file, a form — beside the title: muted, monospace, and it wraps. */
+export const FindingsSource = (props: React.ComponentProps<typeof ark.span>) => {
+  const { className, slot, ...rest } = props;
+  return <ark.span className={cn(MONO, className)} {...rest} data-slot={slot ?? "findings-source"} />;
+};
+
+export interface FindingsListProps extends React.ComponentProps<typeof ark.div> {
+  /**
+   * Drawn instead of the children when nothing was found, or nothing checked — the list's fallback,
+   * as `Show`'s is, and not a region beside it.
+   */
+  empty?: React.ReactNode;
+}
+
+/**
+ * The list — or `empty` — in a vertical-only `ScrollArea`. **A vertical area**: Ark's content is
+ * `min-width: fit-content` on both axes, so one unbroken line would set the popover's width; see
+ * `ScrollArea`'s `orientation`.
+ */
+export const FindingsList = (props: FindingsListProps) => {
+  const { empty, children, className, slot, ...rest } = props;
+  const { tally } = useFindings();
+  const found = Boolean(tally && tally.total > 0);
+
+  return (
+    <ScrollArea className="flex min-h-0 flex-1 flex-col" orientation="vertical">
+      <ark.div
+        className={cn(
+          "flex min-w-0 flex-col gap-4 p-(--space)",
+          "in-[[data-slot=findings-content]:has([data-slot=findings-header])]:pt-1",
+          className,
+        )}
+        {...rest}
+        data-slot={slot ?? "findings-list"}
+      >
+        {found ? children : empty}
+      </ark.div>
+    </ScrollArea>
   );
 };

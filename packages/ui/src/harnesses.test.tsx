@@ -3,9 +3,8 @@ import {
   DashboardHarness,
   DockHarness,
   FilterBarHarness,
-  FindingGroupRowHarness,
-  FindingRowHarness,
   FindingsBadgeHarness,
+  FindingsItemHarness,
   RelationPickerHarness,
   TimelineHarness,
   type KanzoTestingHook,
@@ -25,11 +24,11 @@ import { RelationPicker } from "./charts/relation-picker.js";
 import type { JoinGraph, Relation } from "@kanzo-tech/mosaic";
 import { MosaicProvider } from "./charts/mosaic-provider.js";
 import {
-  FindingGroupRow,
-  FindingRow,
   FindingsBadge,
   FindingsContent,
   FindingsGroup,
+  FindingsItem,
+  FindingsList,
   FindingsRoot,
 } from "./composites/findings.js";
 import { type Finding, groupFindings, tallyFindings } from "./lib/findings.js";
@@ -191,7 +190,7 @@ const breach = (focus: string, message: string, severity: Finding["severity"]): 
 });
 
 describe("FindingsBadgeHarness", () => {
-  it("reads the tally, lists the groups, finds a row by its message and acts on it", async () => {
+  it("reads the tally, lists the groups, finds an item by its message and acts on it", async () => {
     const env = dom();
     const shown: string[] = [];
     const findings = [
@@ -199,52 +198,57 @@ describe("FindingsBadgeHarness", () => {
       breach("Ledger/2", "No date on the writ", "violation"),
     ];
     const tally = tallyFindings(findings);
-    const describePlace = (place: string) => ({
-      where: place,
-      action: { label: "Show", run: () => shown.push(place) },
-    });
     render(
       <FindingsRoot tally={tally}>
         <FindingsBadge>{(t) => `${t?.total ?? 0} findings`}</FindingsBadge>
         <FindingsContent>
-          <FindingsGroup tally={tally} title="LedgerShape">
-            {findings.map((finding) => (
-              <FindingRow describe={describePlace} finding={finding} key={finding.place} />
-            ))}
-          </FindingsGroup>
+          <FindingsList>
+            <FindingsGroup tally={tally} title="LedgerShape">
+              {findings.map((finding) => (
+                <FindingsItem
+                  action={{ label: "Show", run: () => shown.push(finding.place) }}
+                  describe={(place) => ({ where: place })}
+                  finding={finding}
+                  key={finding.place}
+                />
+              ))}
+            </FindingsGroup>
+          </FindingsList>
         </FindingsContent>
       </FindingsRoot>,
     );
     const badge = await env.harness(FindingsBadgeHarness);
     expect(await badge.tally()).toBe("2 findings");
     expect(await badge.groups()).toEqual(["LedgerShape"]);
-    const row = await badge.row("No date on the writ");
-    expect(await row.severity()).toBe("violation");
-    expect(await row.where()).toBe("Ledger/2");
-    await row.act("Show");
+    const item = await badge.item("No date on the writ");
+    expect(await item.severity()).toBe("violation");
+    expect(await item.where()).toBe("Ledger/2");
+    await item.act("Show");
     expect(shown).toEqual(["Ledger/2"]);
   });
 });
 
-describe("FindingRowHarness and FindingGroupRowHarness", () => {
-  it("read a row outside any popover, and a group's count and sample", async () => {
+describe("FindingsItemHarness", () => {
+  it("reads an item outside any popover, one result or a group's count and sample", async () => {
     const env = dom();
     const findings = Array.from({ length: 5 }, (_, i) => breach(`Ledger/${i}`, "No date on the writ", "violation"));
     const [group] = groupFindings(findings, (finding) => finding.rule.id, 2);
     render(
       <DiagnosticList>
-        <FindingRow describe={(place) => ({ where: place })} finding={breach("Ledger/9", "The seal is faded", "info")} />
-        <FindingGroupRow describe={(place) => ({ where: place })} group={group!} where="date" />
+        <FindingsItem describe={(place) => ({ where: place })} finding={breach("Ledger/9", "The seal is faded", "info")} />
+        <FindingsItem describe={(place) => ({ where: place })} finding={group!}>
+          date
+        </FindingsItem>
       </DiagnosticList>,
     );
-    const row = await env.harness(FindingRowHarness);
-    expect(await row.severity()).toBe("info");
-    expect(await row.message()).toBe("The seal is faded");
+    const [one, many] = await env.harnesses(FindingsItemHarness);
+    expect(await one!.severity()).toBe("info");
+    expect(await one!.message()).toBe("The seal is faded");
+    expect(await one!.count()).toBe(1);
 
-    const many = await env.harness(FindingGroupRowHarness);
-    expect(await many.count()).toBe(5);
-    expect(await many.where()).toBe("date");
-    expect(await many.sample()).toEqual(["Ledger/0", "Ledger/1"]);
+    expect(await many!.count()).toBe(5);
+    expect(await many!.where()).toBe("date");
+    expect(await many!.sample()).toEqual(["Ledger/0", "Ledger/1"]);
   });
 });
 
