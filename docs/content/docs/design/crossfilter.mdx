@@ -141,7 +141,7 @@ an unknown row is not kept. An identity clause names only the key: `k IN (…)`,
 by every type.
 
 **The page.** Each source *s* holds at most one clause, *c_s*; publishing again replaces it, and
-only `null` withdraws it. A clause over an empty set of keys is a clause, and keeps nothing. The page's selection is the set *C = { c_s }* — Mosaic's one clause per source,
+only `null` withdraws it. A clause over an empty set of keys is a clause, and keeps nothing. The page's selection is the set *C = \{ c_s \}* — Mosaic's one clause per source,
 resolved by conjunction (`intersect`).
 
 **Kept.** For a clause and a vertex,
@@ -150,7 +150,7 @@ resolved by conjunction (`intersect`).
 
 and
 
-> *kept_C(v) = ⋀_{c ∈ C} ans(c, v)*, with *kept_∅(v) = true*.
+> *kept_C(v) = ⋀_\{c ∈ C\} ans(c, v)*, with *kept_∅(v) = true*.
 
 The second case of *ans* is the rule decided here: a clause a type cannot answer keeps none of that
 type. It is what Cosmograph's `isBetween(column, range)` does to a point with no value
@@ -160,7 +160,7 @@ on its root: a client applies every clause it is handed.
 **A client's own view.** A chart that publishes from source *s* and is filtered by the same selection
 draws against
 
-> *kept_C^¬s(v) = ⋀_{c ∈ C, c ≠ c_s} ans(c, v)*
+> *kept_C^¬s(v) = ⋀_\{c ∈ C, c ≠ c_s\} ans(c, v)*
 
 — Mosaic's crossfilter resolution, which omits the clauses a client published, and crossfilter.js's
 groups, which ignore their own dimension's filter
@@ -191,14 +191,14 @@ data, never from pixels or text.
    associative, so publishing the same clauses in any order, or replacing a clause and putting it
    back, gives the same *kept*.
 2. **Withdrawing never narrows; adding never widens.** *C′ ⊆ C ⇒ kept_C ⊆ kept_C′*.
-3. **One clause per source.** Publishing *c′_s* gives *kept_{(C ∖ {c_s}) ∪ {c′_s}}*: the source's
+3. **One clause per source.** Publishing *c′_s* gives *kept_\{(C ∖ \{c_s\}) ∪ \{c′_s\}\}*: the source's
    earlier clause has no effect left.
 4. **No filter moves a vertex out of place.** *placed* is the same for every *C*.
 5. **One reading.** The canvas's colour, the labels, the toolbar, `frame()` and the counts all read
    *kept_C*; no consumer reads a mask that leaves a source out.
 6. **The counts.** On a map, *match = |kept_C ∧ placed|*, *placed = |placed|*, *total = |V|*; edges
-   kept = |{(u, w) : kept_C(u) ∧ kept_C(w) ∧ placed(u) ∧ placed(w)}|. Under a layout, *placed = V*.
-7. **The frame.** `frame()` fits exactly *{ v : kept_C(v) ∧ placed(v) }*, or every placed vertex when
+   kept = |\{(u, w) : kept_C(u) ∧ kept_C(w) ∧ placed(u) ∧ placed(w)\}|. Under a layout, *placed = V*.
+7. **The frame.** `frame()` fits exactly *\{ v : kept_C(v) ∧ placed(v) \}*, or every placed vertex when
    *C = ∅*.
 8. **The exemption is drawing only.** For every source *s*, *kept_C ⊆ kept_C^¬s*, and no consumer
    other than *s*'s own chart reads *kept_C^¬s*.
