@@ -87,4 +87,20 @@ describe("FilterBarHarness over handles that are places", () => {
     expect(pressed).not.toContain("gender");
     expect(document.querySelector("#gender")).not.toBeNull();
   });
+
+  it("waits for a chip the page has not delivered yet", async () => {
+    // A brush's clause is published at once and drawn as a chip only once the page delivers it.
+    document.body.innerHTML = `<section aria-label="Filters"><button aria-label="Clear every filter"></button></section>`;
+    let steps = 0;
+    const env = positional(() => {
+      if (++steps !== 3) return;
+      const chip = document.createElement("button");
+      chip.setAttribute("aria-label", "Remove Airport Airport.altitude 3976.6 – 7990.0");
+      chip.addEventListener("click", () => chip.remove());
+      document.querySelector("section")!.prepend(chip);
+    });
+    const bar = await env.harness(FilterBarHarness);
+    await bar.remove("Airport Airport.altitude");
+    expect(document.querySelector("[aria-label^='Remove Airport']")).toBeNull();
+  });
 });

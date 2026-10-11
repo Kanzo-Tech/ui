@@ -30,8 +30,9 @@ export class FilterBarHarness extends ComponentHarness {
 
   /**
    * Takes `field` off the bar: every clause chip whose label starts with it, and a dashboard's control
-   * for it — which unmounts the control, and a control that unmounts retracts its clause. Waits until
-   * nothing on the bar names `field`.
+   * for it — which unmounts the control, and a control that unmounts retracts its clause. Waits for one
+   * to show first, as a chip shows once the page delivers its clause, a while after the brush or pick
+   * that published it; then until nothing on the bar names `field`.
    *
    * Each chip is pressed once, by its name, and gone before the next is looked for. A chip goes when
    * the page delivers its retraction, a while after the press, and the chips after it move up into
@@ -39,8 +40,7 @@ export class FilterBarHarness extends ComponentHarness {
    * the dashboard, or *Clear every filter*.
    */
   async remove(field: string): Promise<void> {
-    let name = await this.removal(field);
-    if (name === null) throw new Error(`no chip for ${field} in the filter bar`);
+    let name: string | null = await this.env.until(() => this.removal(field), `no chip for ${field} in the filter bar`);
     while (name !== null) {
       const pressed = name;
       const found = await this.named(pressed);
