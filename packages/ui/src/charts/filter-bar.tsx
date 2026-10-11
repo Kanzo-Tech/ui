@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
-import { bridged, clauseLabel, clauseParts, type TableExpr } from "@kanzo-tech/mosaic";
+import { bridged, clauseReadings, type TableExpr } from "@kanzo-tech/mosaic";
 import { count, Query } from "@uwdata/mosaic-sql";
 import type { Selection, SelectionClause } from "@uwdata/mosaic-core";
 import { XIcon } from "lucide-react";
@@ -65,14 +65,10 @@ export function FilterBar(props: FilterBarProps) {
   const clauses = useClauses(crossfilter);
   const chips = clauses.flatMap((clause) => {
     const made = bridged(clause);
-    if (!made) return isHeld(held, clause) ? [] : [{ label: clauseLabel(clause), remove: () => retract([clause]) }];
-    const { field } = clauseParts(clause);
-    // A part that already reads as its bridge's name is not named twice: a timeline's bridge is
-    // called by its column, and its window reads *date 1910 – 1940*, not *date date 1910 – 1940*.
-    const named = (part: SelectionClause) => (clauseParts(part).field === field ? clauseLabel(part) : `${field} ${clauseLabel(part)}`);
-    return made.parts
-      .filter((part) => !isHeld(held, part))
-      .map((part) => ({ label: named(part), remove: () => made.retract([part]) }));
+    // Each part as `clauseReadings` reads it — the same words Ask gives the model for this filter.
+    return clauseReadings(clause)
+      .filter(({ part }) => !isHeld(held, part))
+      .map(({ part, label }) => ({ label, remove: () => (made ? made.retract([part]) : retract([part])) }));
   });
 
   return (
