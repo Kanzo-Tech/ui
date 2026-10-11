@@ -167,12 +167,19 @@ function TimelineWindow({ playable }: { playable: boolean }) {
   const [said, setSaid] = useState("");
   const anchor = useRef<HTMLDivElement>(null);
   // What the loop, the pointer and the keyboard read between renders.
-  const state = useRef<{ running: boolean; range: readonly unknown[] | null; frame: number | null }>({ running: false, range: null, frame: null });
-  const transport = useRef<{ play(): void; stop(why: Stop): void; show(interval: Interval1D, at: number): void; read(): void }>({
+  // `source` is what the frames are published under: the interval's place in the chart.
+  const state = useRef<{ running: boolean; range: readonly unknown[] | null; frame: number | null; source: unknown }>({
+    running: false,
+    range: null,
+    frame: null,
+    source: null,
+  });
+  const transport = useRef<{ play(): void; stop(why: Stop): void; show(interval: Interval1D, at: number): void; read(): void; hold(): void }>({
     play() {},
     stop() {},
     show() {},
     read() {},
+    hold() {},
   });
 
   /**
@@ -194,9 +201,26 @@ function TimelineWindow({ playable }: { playable: boolean }) {
   transport.current.show = (interval, at) => {
     const { edges, from } = rangeOf(brushedBy(interval))!;
     const window = [edges[from], edges[at]] as const;
+    const clause = interval.clause(window);
     state.current.frame = at;
+    state.current.source = clause.source;
     setFrame(window);
-    interval.selection.update(interval.clause(window));
+    interval.selection.update(clause);
+  };
+
+  /**
+   * Keep a frame held while paused or ended the page's. A plot rebuilt under it republishes its brush
+   * — the whole range — under the frame's source, so the frame is shown again, through the interval
+   * on screen. While playing, the next frame does it.
+   */
+  transport.current.hold = () => {
+    const { running, frame: at, source } = state.current;
+    const interval = intervalOf(plot());
+    const active = as.active;
+    if (running || at === null || !interval?.scale || !active || active.source !== source) return;
+    const span = rangeOf(brushedBy(interval));
+    if (!span || at > span.to) return;
+    if (String(active.value) !== String([span.edges[span.from], span.edges[at]])) transport.current.show(interval, at);
   };
 
   transport.current.stop = (why) => {
@@ -231,10 +255,14 @@ function TimelineWindow({ playable }: { playable: boolean }) {
   // delivers a selection's events one at a time, each queued behind the clients' answers to the last,
   // and a newer update from the same source replaces a queued one. So a stuck drag-end's event can
   // arrive after Play was pressed — behind the first frame, or as it — and is no new range by then.
+  // What the page delivers under the frame's source is checked against the frame held.
   useEffect(() => {
-    const read = () => transport.current.read();
-    as.addEventListener("value", read);
-    return () => as.removeEventListener("value", read);
+    const delivered = () => {
+      transport.current.read();
+      transport.current.hold();
+    };
+    as.addEventListener("value", delivered);
+    return () => as.removeEventListener("value", delivered);
   }, [as]);
 
   // A pointer down on the bars or the brush is the reader's: play pauses for it. Space on the
@@ -276,7 +304,8 @@ function TimelineWindow({ playable }: { playable: boolean }) {
 
   // An interval activates its selection when the pointer enters the plot, before any drag: that
   // is when its brush learns to stick. A brush ends a gesture with `sourceEvent`; a move made here
-  // ends with none, so sticking never feeds itself.
+  // ends with none, so sticking never feeds itself. The gesture's end is a new range, read then
+  // rather than when the page delivers it: Play, the readout and the clip have it at once.
   useEffect(() => {
     const stuck = new WeakSet<Interval1D>();
     const learn = () => {
@@ -286,6 +315,7 @@ function TimelineWindow({ playable }: { playable: boolean }) {
       interval.brush.on("end.stick", ({ selection, sourceEvent }: { selection: [number, number] | null; sourceEvent?: unknown }) => {
         const window = sourceEvent && selection ? stickWindow(brushedBy(interval), selection) : null;
         if (window) moveWindow(interval, window);
+        if (sourceEvent) transport.current.read();
       });
     };
     as.addEventListener("activate", learn);
