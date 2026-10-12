@@ -24,6 +24,7 @@ export default defineConfig({
       entry: {
         index: resolve(__dirname, "src/index.ts"),
         "data/index": resolve(__dirname, "src/data/index.ts"),
+        "task/index": resolve(__dirname, "src/task/index.ts"),
       },
       formats: ["es"],
     },

@@ -1,0 +1,105 @@
+import { jsonSchema } from "ai";
+import { MockLanguageModelV4 } from "ai/test";
+import { describe, expect, it } from "vitest";
+import { defineTask, runTask, type TaskState } from "./index.js";
+
+const usage = {
+  inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+  outputTokens: { total: 1, text: 1, reasoning: 0 },
+};
+
+/** A model that answers each call with the next of `answers`, as JSON, and keeps what it was asked. */
+function answering(...answers: unknown[]) {
+  const prompts: string[] = [];
+  const model = new MockLanguageModelV4({
+    doGenerate: async (call) => {
+      prompts.push(JSON.stringify(call.prompt));
+      const answer = answers[Math.min(prompts.length - 1, answers.length - 1)];
+      return {
+        content: [{ type: "text", text: JSON.stringify(answer) }],
+        finishReason: { unified: "stop", raw: "stop" },
+        usage,
+        warnings: [],
+      };
+    },
+  });
+  return { model, prompts };
+}
+
+type Count = { of: string; by?: string };
+
+const count = defineTask<{ question: string }, Count, readonly string[]>({
+  name: "count",
+  context: () => ["Award", "University", "Country"],
+  instructions: "Fill the spec.",
+  prompt: (input, types) => `${input.question}\nTypes: ${types.join(", ")}`,
+  output: (_, types) =>
+    jsonSchema<Count>({
+      type: "object",
+      properties: { of: { type: "string", enum: [...types] }, by: { type: "string", enum: [...types] } },
+      required: ["of"],
+      additionalProperties: false,
+    }),
+  verify: [
+    (value) => (value.of === value.by ? { code: "same", message: "of and by are the same type", at: "/by" } : undefined),
+    (value) =>
+      value.by === "Country"
+        ? {
+            decision: {
+              id: "whichCountry",
+              question: "Which country of a prize?",
+              options: [
+                { id: "laureate", label: "Where its laureate was born" },
+                { id: "university", label: "Where its university is" },
+              ],
+            },
+          }
+        : undefined,
+  ],
+});
+
+describe("runTask", () => {
+  it("is done on a first answer every oracle accepts, and says where it lands", async () => {
+    const { model } = answering({ of: "Award", by: "University" });
+    const states: TaskState[] = [];
+    const proposal = await runTask(count, { question: "Prizes by university?" }, { model, onState: (s) => states.push(s), id: "p1" });
+    expect(proposal).toEqual({
+      id: "p1",
+      task: "count",
+      value: { of: "Award", by: "University" },
+      target: { add: "" },
+      verdict: { ok: true },
+      attempts: 1,
+    });
+    expect(states).toEqual(["linking", "drafting", "verifying", "done"]);
+  });
+
+  it("sends what the oracles found back, with where, and takes the repaired answer", async () => {
+    const { model, prompts } = answering({ of: "Award", by: "Award" }, { of: "Award", by: "University" });
+    const proposal = await runTask(count, { question: "Prizes by university?" }, { model });
+    expect(proposal.verdict).toEqual({ ok: true });
+    expect(proposal.attempts).toBe(2);
+    expect(prompts[1]).toContain("/by: of and by are the same type");
+  });
+
+  it("answers with the diagnostics once the attempts run out", async () => {
+    const { model } = answering({ of: "Award", by: "Award" });
+    const proposal = await runTask({ ...count, attempts: 2 }, { question: "?" }, { model });
+    expect(proposal.verdict).toEqual({ ok: false, diagnostics: [{ code: "same", message: "of and by are the same type", at: "/by" }] });
+    expect(proposal.attempts).toBe(2);
+  });
+
+  it("stops at a decision it has no safe default for, and asks with options", async () => {
+    const { model } = answering({ of: "Award", by: "Country" });
+    const states: TaskState[] = [];
+    const proposal = await runTask(count, { question: "Prizes by country?" }, { model, onState: (s) => states.push(s) });
+    expect(proposal.verdict).toMatchObject({ ok: false, decision: { id: "whichCountry" } });
+    expect(states.at(-1)).toBe("needs-input");
+  });
+
+  it("takes the assumed option of a decision it settles, and says so", async () => {
+    const { model } = answering({ of: "Award", by: "Country" });
+    const proposal = await runTask({ ...count, decide: { whichCountry: { assume: "university" } } }, { question: "?" }, { model });
+    expect(proposal.verdict).toMatchObject({ ok: true, assumed: [{ decision: { id: "whichCountry" }, option: "university" }] });
+  });
+});
