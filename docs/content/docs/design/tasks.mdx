@@ -313,17 +313,16 @@ Three things that could have sunk the design, checked on 12 October 2026:
 - **The executor runs on the page's main thread.** keasy's `startRun` imports `@fossil-lang/executor`
   and its `run` constructs `FossilExecutor` in the calling realm; nothing in keasy's `web/src` creates
   a `Worker`. Hence *a worker of its own* in phase 2.
-- **Cross-origin isolation is cheap for keasy, and half of it is proved.** With
-  `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp` added
-  to keasy's `next.config.ts`, the dev web served a page that was `crossOriginIsolated`, with
-  `SharedArrayBuffer` defined and no request of its own blocked; from that page a ranged `fetch` of a
-  presigned object on the dev S3 store, another origin, answered 206 with `Content-Range` exposed —
-  CORS, which COEP admits. Keasy's CSP already keeps every script, worker, `.wasm`, image and font on
-  its own origin, sign-in is a redirect with no `window.opener`, and its two `target="_blank"` links
-  carry `noopener`. **Not proved:** sign-in through Keycloak, a whole run and Discover over the
-  e2e corpus, and a read from Azure — the sandbox's network policy denied the hosts the dev realm
-  and the image builds need, and the dev stack has no Azure emulator. Those three are the e2e to run
-  before a threaded fallback is decided, together with one that asserts `crossOriginIsolated`.
+- **Cross-origin isolation is cheap for keasy.** With `Cross-Origin-Opener-Policy: same-origin` and
+  `Cross-Origin-Embedder-Policy: require-corp` added to keasy's `next.config.ts`, its e2e ran against
+  the dev stack: sign-in through Keycloak, a graph run to completion in the browser over the dev S3
+  store, and Discover over its corpus — 14 of `auth.spec.ts`' and `discover.spec.ts`' 15 passed, and
+  the one that did not fails the same way with the headers off (a dev-only overlay takes its click).
+  A test that opened Discover read `crossOriginIsolated` true and `SharedArrayBuffer` defined, and
+  saw no request blocked by COEP; a ranged `fetch` of a presigned object on the S3 store answered 206
+  with `Content-Range` exposed — CORS, which COEP admits. Keasy's CSP already keeps every script,
+  worker, `.wasm`, image and font on its own origin. **Not proved:** a read from Azure, which the dev
+  stack has no emulator for.
 
 ## Phases
 
