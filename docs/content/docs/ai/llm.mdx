@@ -185,8 +185,8 @@ a time through the BFF, not after it.
 
 ## Connecting a model
 
-Three set-ups, and the page's code is the same in all of them — `createGateway({ baseURL })` and an
-alias.
+Four set-ups. In the first three the page's code is the same — `createGateway({ baseURL })` and an
+alias; the fourth runs the model in the page and has no alias at all.
 
 ### An AI gateway
 
@@ -234,6 +234,43 @@ const gateway = createGateway({ baseURL: "http://localhost:11434/v1" });
 
 That is a browser talking to a model with no session and no key in between, so it is for a laptop and
 nowhere else. If Ollama refuses the page's origin, its `OLLAMA_ORIGINS` setting is the allowlist.
+
+### A model in the page
+
+`@kanzo-tech/llm/local` runs one on WebGPU, through [WebLLM](https://github.com/mlc-ai/web-llm) and
+the AI SDK provider [`@browser-ai/web-llm`](https://www.npmjs.com/package/@browser-ai/web-llm) —
+both optional peers, reached only from this subpath, so a host that runs no model in the page
+installs neither:
+
+```bash
+pnpm add @browser-ai/web-llm @mlc-ai/web-llm
+```
+
+```ts
+import { localModel } from "@kanzo-tech/llm/local";
+
+const model = localModel("Qwen3-4B-q4f16_1-MLC", {
+  worker: new Worker(new URL("./model.worker.ts", import.meta.url), { type: "module" }),
+  onProgress: ({ progress, text }) => console.log(Math.round(progress * 100), text),
+});
+```
+
+```ts
+// model.worker.ts — the worker's whole script
+import { serveLocalModel } from "@kanzo-tech/llm/local";
+
+serveLocalModel();
+```
+
+`localModel` takes a `LocalModelSettings` — the worker and the progress callback, both optional — and
+is a `LanguageModel`, so `stream`, `ToolLoopAgent` and `Chat` run over it unchanged. It
+makes one engine per model per page — two would be two copies of the weights in the GPU's memory — and
+lifts `<think>` into reasoning as `createGateway` does. Without WebGPU a call fails as an `AiError`
+coded `ai/unavailable` with `data.reason` `"webgpu"`, before anything is downloaded. The weights are
+downloaded on the first call and cached by the browser. A structured answer (`Output.object`) is
+decoded against its schema; a tool is described in the prompt and parsed out of the model's text, so a
+small model can write a call that does not parse. Why the platform is moving to models in the page,
+and why its Tasks use no tools, is [Tasks](/docs/design/tasks).
 
 ### A mock, for tests and these pages
 

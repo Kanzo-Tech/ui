@@ -38,6 +38,10 @@ import { ToolLoopAgent, DirectChatTransport, tool, Output } from "@kanzo-tech/ll
   **throws what stopped the model** once it ends. The SDK alone reports a failed stream to `onError`
   and ends it as if it had finished, so `streamText` is not re-exported: the raw call is the one that
   passes a refusal off as a short answer.
+- **`localModel(id, { worker, onProgress })`**, from **`@kanzo-tech/llm/local`** — a model in the
+  page, on WebGPU through WebLLM and `@browser-ai/web-llm`: both optional peers that only this subpath
+  reaches. One engine per model per page; without WebGPU a call fails as `ai/unavailable`.
+  `serveLocalModel()` is the worker's whole script.
 - **Re-exports** of the AI SDK surface a host needs — the agent, the transport, `tool`, `Output`,
   and the message and part types — so a host never imports `ai` itself.
   `@ai-sdk/openai-compatible` is not among them: `createGateway` is the only way to a model.

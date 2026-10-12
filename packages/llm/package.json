@@ -16,6 +16,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./local": {
+      "types": "./dist/local.d.ts",
+      "import": "./dist/local.js"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
@@ -24,14 +28,26 @@
     "test": "vitest run"
   },
   "//dependencies": "@ai-sdk/openai-compatible is a dependency, not a peer: it is how `createGateway` speaks to the gateway, and nothing outside this package names it — the same standing @duckdb/duckdb-wasm has in @kanzo-tech/mosaic, behind `engine()`.",
-  "//peers": "`ai` is REQUIRED, not optional, and that is the point of this package: there is nothing here without it, and a host installs it once so @kanzo-tech/ai's components and the host's own agent see the same UIMessage, the same ToolLoopAgent and the same transport. Two copies would be two type universes that do not assign to each other.",
+  "//peers": "`ai` is REQUIRED, not optional, and that is the point of this package: there is nothing here without it, and a host installs it once so @kanzo-tech/ai's components and the host's own agent see the same UIMessage, the same ToolLoopAgent and the same transport. Two copies would be two type universes that do not assign to each other. `@browser-ai/web-llm` and `@mlc-ai/web-llm` are optional, and only `/local` reaches them: a host that runs no model in the page installs neither.",
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.62"
   },
   "peerDependencies": {
+    "@browser-ai/web-llm": "^3.0.4",
+    "@mlc-ai/web-llm": "^0.2.79",
     "ai": "^7.0.0"
   },
+  "peerDependenciesMeta": {
+    "@browser-ai/web-llm": {
+      "optional": true
+    },
+    "@mlc-ai/web-llm": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@browser-ai/web-llm": "3.0.4",
+    "@mlc-ai/web-llm": "0.2.86",
     "ai": "^7.0.126"
   },
   "repository": {
