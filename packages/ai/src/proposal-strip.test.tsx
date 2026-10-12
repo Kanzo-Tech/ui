@@ -22,10 +22,10 @@ describe("ProposalStrip", () => {
   });
 
   it("says its notice only when it offers nothing", () => {
-    const { rerender } = render(<ProposalStrip notice={<span>Nothing to suggest.</span>} pending={0} proposals={[]} />);
-    expect(screen.getByText("Nothing to suggest.")).not.toBeNull();
-    rerender(<ProposalStrip notice={<span>Nothing to suggest.</span>} pending={0} proposals={[{ text: "A?" }]} />);
-    expect(screen.queryByText("Nothing to suggest.")).toBeNull();
+    const { rerender } = render(<ProposalStrip notice={<span>Nothing to offer.</span>} pending={0} proposals={[]} />);
+    expect(screen.getByText("Nothing to offer.")).not.toBeNull();
+    rerender(<ProposalStrip notice={<span>Nothing to offer.</span>} pending={0} proposals={[{ text: "A?" }]} />);
+    expect(screen.queryByText("Nothing to offer.")).toBeNull();
   });
 
   it("draws a named ✕ beside each pill only when it is given a dismiss", async () => {

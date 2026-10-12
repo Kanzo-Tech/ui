@@ -4,11 +4,11 @@ import { clauseLabel, type Selection } from "@kanzo-tech/mosaic";
 import { autoDashboard, MosaicProvider, useMosaic, type Dashboards, type DashboardSpec } from "@kanzo-tech/ui/analytics";
 import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { mockModel } from "../testing/model.js";
 import { testDatabase, type TestDatabase } from "../testing/duckdb.js";
 import { KNOWS, PEOPLE, PERSON, seedPeople } from "../testing/people.js";
 import type { ToolPart } from "../tool.js";
-import { dataAgent, type AnswerOutput } from "./agent.js";
+import type { AnswerOutput } from "./read.js";
+import { readFor } from "../testing/answer.js";
 import { AnswerCard, type AnswerAdded } from "./answer-card.js";
 import type { AnswerRelation } from "./answer.js";
 import { readAnswerRelations } from "./relations.js";
@@ -25,7 +25,6 @@ beforeAll(async () => {
   seedPeople(db);
   const [personal, knows] = (await readAnswerRelations(db.coordinator, PEOPLE, [PERSON, KNOWS])) as [AnswerRelation, AnswerRelation];
   person = personal;
-  const agent = dataAgent({ model: mockModel(() => "").model, engine: db.engine, graph: PEOPLE, relations: [person, knows] });
   const input = {
     relation: "Person",
     where: [{ field: "Person.gender", in: ["female"] }],
@@ -40,7 +39,7 @@ beforeAll(async () => {
   knowing = await ask({ relation: "Person>knows>Person", show: { kind: "chart", type: "bar", x: "Person.gender", y: { op: "count" } } });
 
   async function ask(input: object) {
-    return (await agent.tools.answer.execute!(input as never, { toolCallId: "c", messages: [] } as never)) as AnswerOutput;
+    return readFor(db.engine, PEOPLE, [person, knows], input);
   }
 });
 

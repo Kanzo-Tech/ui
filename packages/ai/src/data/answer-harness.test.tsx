@@ -5,12 +5,12 @@ import { MosaicProvider, useMosaic, type Dashboards } from "@kanzo-tech/ui/analy
 import { render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { mockModel } from "../testing/model.js";
 import { testDatabase, type TestDatabase } from "../testing/duckdb.js";
 import { PEOPLE, PERSON, seedPeople } from "../testing/people.js";
 import { PromptInput, PromptInputTextarea } from "../prompt-input.js";
 import type { ToolPart } from "../tool.js";
-import { dataAgent, type AnswerOutput } from "./agent.js";
+import type { AnswerOutput } from "./read.js";
+import { readFor } from "../testing/answer.js";
 import { AnswerCard, type AnswerCardProps } from "./answer-card.js";
 import type { AnswerRelation } from "./answer.js";
 import { readAnswerRelations } from "./relations.js";
@@ -28,13 +28,12 @@ beforeAll(async () => {
   db = await testDatabase();
   seedPeople(db);
   const [person] = (await readAnswerRelations(db.coordinator, PEOPLE, [PERSON])) as [AnswerRelation];
-  const agent = dataAgent({ model: mockModel(() => "").model, engine: db.engine, graph: PEOPLE, relations: [person] });
   const input = {
     relation: "Person",
     where: [{ field: "Person.gender", in: ["female"] }],
     show: { kind: "stat", title: "Mean age", measure: { op: "avg", field: "Person.age" } },
   };
-  output = (await agent.tools.answer.execute!(input as never, { toolCallId: "c", messages: [] } as never)) as AnswerOutput;
+  output = await readFor(db.engine, PEOPLE, [person], input);
 });
 
 afterEach(() => {

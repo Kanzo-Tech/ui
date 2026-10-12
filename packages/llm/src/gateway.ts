@@ -21,27 +21,22 @@ const SILENT_AFTER = 30_000;
  * The failures this package names: the model stopped sending without closing the stream
  * (`ai/silent`), the gateway refused because the caller is over its limit (`ai/rate-limited`), the
  * gateway answered with any other error (`ai/unavailable`): an alias no model answers, a provider
- * that refused or failed, an upstream the gateway gave up on — and a request that would not fit the
- * model's declared context, so it was never sent (`ai/context`).
+ * that refused or failed, an upstream the gateway gave up on.
  */
 export class AiError extends Error {
   override readonly name = "AiError";
   constructor(
-    readonly code: "ai/silent" | "ai/rate-limited" | "ai/unavailable" | "ai/context",
+    readonly code: "ai/silent" | "ai/rate-limited" | "ai/unavailable",
     message: string,
     /**
      * `after`: the silence, in ms. `retryAfter`: when the gateway said a retry may succeed, in
      * seconds. `status` and `reason`: what the gateway answered, its status and the error it gave.
-     * `tokens` and `budget`: for `ai/context`, what the smallest request was estimated at, and what
-     * the context left for it.
      */
     readonly data: {
       readonly after?: number;
       readonly retryAfter?: number;
       readonly status?: number;
       readonly reason?: string;
-      readonly tokens?: number;
-      readonly budget?: number;
     } = {},
     options?: ErrorOptions,
   ) {

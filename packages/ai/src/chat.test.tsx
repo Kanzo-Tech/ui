@@ -33,7 +33,7 @@ function Harness(props: { draw?: boolean }) {
     <Chat
       chat={chat}
       empty={<p>Ask about your graph.</p>}
-      suggestions={[{ text: "How many nodes are there?", rationale: "nodes" }]}
+      proposals={[{ text: "How many nodes are there?", rationale: "nodes" }]}
       tools={
         props.draw
           ? { query: (part) => (part.state === "output-available" ? <p>Rows: {JSON.stringify(part.output)}</p> : <p>Counting…</p>) }
@@ -99,26 +99,26 @@ describe("Chat", () => {
     expect(document.querySelector("[data-slot=tool]")?.getAttribute("data-stopped")).toBe("true");
   });
 
-  it("holds room for suggestions still arriving, beside the ones that have", () => {
-    const { rerender } = render(<Chat chat={idle as never} suggesting suggestions={[{ text: "First?", rationale: "first" }]} />);
+  it("holds room for proposals still arriving, beside the ones that have", () => {
+    const { rerender } = render(<Chat chat={idle as never} proposing proposals={[{ text: "First?", rationale: "first" }]} />);
     expect(screen.getByRole("button", { name: "First?" })).not.toBeNull();
     expect(document.querySelectorAll("[data-slot=suggestions] [data-slot=skeleton]").length).toBe(2);
     // As many skeletons as make up the strip, never an extra row once it is full.
-    rerender(<Chat chat={idle as never} suggesting suggestions={["A?", "B?", "C?"].map((text) => ({ text }))} />);
+    rerender(<Chat chat={idle as never} proposing proposals={["A?", "B?", "C?"].map((text) => ({ text }))} />);
     expect(document.querySelectorAll("[data-slot=suggestions] [data-slot=skeleton]").length).toBe(0);
   });
 
   it("draws the strip just above the composer, outside the transcript", () => {
-    render(<Chat chat={idle as never} empty={<p>Ask about your graph.</p>} suggestions={[{ text: "First?" }]} />);
+    render(<Chat chat={idle as never} empty={<p>Ask about your graph.</p>} proposals={[{ text: "First?" }]} />);
     const strip = document.querySelector("[data-slot=suggestions]");
     expect(strip?.closest("[data-slot=conversation-content]")).toBeNull();
     expect(strip?.nextElementSibling?.contains(screen.getByPlaceholderText("Ask anything…"))).toBe(true);
   });
 
-  it("draws the host's notice in place of the pills when suggesting failed, keeping the strip's row", () => {
-    render(<Chat chat={idle as never} notice={<p>Suggesting failed.</p>} suggesting={false} suggestions={[]} />);
+  it("draws the host's notice in place of the pills when proposing failed, keeping the strip's row", () => {
+    render(<Chat chat={idle as never} notice={<p>Proposing failed.</p>} proposing={false} proposals={[]} />);
     const strip = document.querySelector("[data-slot=suggestions]");
-    expect(strip?.textContent).toBe("Suggesting failed.");
+    expect(strip?.textContent).toBe("Proposing failed.");
     expect(strip?.className).toContain("min-h-7");
     expect(document.querySelector("[data-slot=suggestion]")).toBeNull();
   });
@@ -130,7 +130,7 @@ describe("Chat", () => {
     expect(toolbar?.querySelector("button")).toBeTruthy();
   });
 
-  it("draws no strip for a host that offers no suggestions", () => {
+  it("draws no strip for a host that offers no proposals", () => {
     render(<Chat chat={idle as never} />);
     expect(document.querySelector("[data-slot=suggestions]")).toBeNull();
   });
@@ -159,7 +159,7 @@ describe("ChatSkeleton", () => {
     const skeleton = render(<ChatSkeleton empty={<p>Ask about your graph.</p>} />);
     const before = frame(skeleton.container.querySelector("[data-slot=chat-skeleton]"));
     skeleton.unmount();
-    const chat = render(<Chat chat={idle as never} empty={<p>Ask about your graph.</p>} suggesting />);
+    const chat = render(<Chat chat={idle as never} empty={<p>Ask about your graph.</p>} proposing />);
     expect(frame(chat.container.querySelector("[data-slot=chat]"))).toEqual(before);
     expect(before).toContain("conversation-content");
   });

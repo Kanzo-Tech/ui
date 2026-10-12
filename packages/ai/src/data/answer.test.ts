@@ -3,10 +3,10 @@ import { clauseInterval, clausePoints, clauseSemiJoin, literal, Query, relationQ
 import { measureExpr, plotRelation } from "@kanzo-tech/ui/analytics";
 import type { JSONSchema7 } from "ai";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { mockModel } from "../testing/model.js";
 import { testDatabase, type TestDatabase } from "../testing/duckdb.js";
 import { KNOWS, PEOPLE, PERSON, seedPeople } from "../testing/people.js";
-import { dataAgent, type AnswerOutput } from "./agent.js";
+import type { AnswerOutput } from "./read.js";
+import { readFor } from "../testing/answer.js";
 import { answerSchema, checkAnswer, type AnswerInput, type AnswerRelation } from "./answer.js";
 import { answerRelationsOf, readAnswerRelations } from "./relations.js";
 
@@ -24,8 +24,7 @@ const rowsOf = async (query: Query | string) =>
   Array.from((await db.coordinator.query(query, { cache: false })) as Iterable<Record<string, unknown>>, (row) => ({ ...row }));
 
 async function answer(input: AnswerInput, selection?: Selection): Promise<AnswerOutput> {
-  const agent = dataAgent({ model: mockModel(() => "").model, engine: db.engine, graph: PEOPLE, relations: [person, knows], selection });
-  return (await agent.tools.answer.execute!(input, { toolCallId: "c", messages: [] } as never)) as AnswerOutput;
+  return readFor(db.engine, PEOPLE, [person, knows], input, selection);
 }
 
 describe("readAnswerRelations", () => {
@@ -184,25 +183,5 @@ describe("an answer", () => {
     expect(refusal({ relation: "Person", show, where: [{ field: "Person.age", over: 3 }] })).toMatch(/^where\.0: a condition is/);
     expect(refusal({ relation: "Person", show, sql: "DROP TABLE secret" })).toBe("An answer has no sql: it is { relation, where?, show, top? }.");
 
-    // Through the agent: the model reads the refusal, and the engine is never asked.
-    const sent: string[] = [];
-    const query = db.coordinator.query.bind(db.coordinator);
-    db.coordinator.query = ((sql: unknown, options?: Parameters<typeof query>[1]) => (sent.push(String(sql)), query(sql as never, options))) as never;
-    try {
-      const { model } = mockModel((_, index) =>
-        index === 0 ? { tool: "answer", input: { relation: "Person", show: { ...show, x: "secret" } } } : "That field does not exist.",
-      );
-      const agent = dataAgent({ model, engine: db.engine, graph: PEOPLE, relations: [person] });
-      await (await agent.stream({ prompt: "By secret?" })).text;
-      const results = (model.doStreamCalls[1]!.prompt as { role: string; content: unknown }[])
-        .filter((m) => m.role === "tool")
-        .flatMap((m) => m.content as { type: string; output?: { value?: unknown } }[])
-        .map((part) => String(part.output?.value));
-      expect(results).toHaveLength(1);
-      expect(results[0]).toContain("show.x: secret is not a field of Person");
-      expect(sent).toEqual([]);
-    } finally {
-      db.coordinator.query = query;
-    }
   });
 });

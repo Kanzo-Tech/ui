@@ -1,31 +1,33 @@
 ---
 title: Ask your data
-description: An agent that answers questions about data with a dashboard tile over a relation, filled from names the page generated — the relations it may answer about, the schema it fills, the questions to start from, and the card each answer is drawn in — @kanzo-tech/ai/data.
+description: Ask — questions about data answered with a dashboard tile over a relation, from a spec the model fills with names the page generated and a relation the page finds — the types it may answer about, the chat it runs in, the questions to start from, and the card each answer is drawn in — @kanzo-tech/ai/data.
 ---
 
 `@kanzo-tech/ai/data` is `Chat` pointed at data. A question gets one answer, and an answer is a
-**dashboard tile over a relation**: the model picks a relation of the page's join graph, narrows it
-with the conditions a dashboard's filters publish, and says how it is shown — a figure, a chart or a
-table. It writes no SQL: every name it writes is an enum the page generated from the data it shows.
-[Asking data](/docs/design/ai) is why. The live version is the **Ask** panel of the
-[workspace showcase](/docs/showcases/workspace): a recorded model, but every tile is read for real,
-under the filter you set on the page.
+**dashboard tile over a relation**. The model fills a **spec**: what is counted, how it is shown —
+a figure, a chart or a table — and the conditions a dashboard's filters publish. It names no relation
+and writes no SQL: every name it writes is an enum the page generated from the data it shows, and the
+relation is the page's to find — the shortest path from what is counted through every type the spec
+names. That is Ask as a [Task](/docs/design/tasks); [Asking data](/docs/design/ai) is why. The live
+version is the **Ask** panel of the [workspace showcase](/docs/showcases/workspace): a recorded model,
+but every tile is read for real, under the filter you set on the page.
 
 | | For |
 | --- | --- |
-| `answerRelationsOf` | Which relations of a join graph may be asked about: each type alone, and through each of its hops |
-| `readAnswerRelations` | What may be asked about: each relation's fields, as a dashboard over it reads them, and each category's most common values |
-| `dataAgent` | The agent: one `answer` tool, whose input is the schema below |
-| `answerSchema` | The tool's JSON Schema: the relations' types, hops and fields, the aggregates and the chart kinds, as enums |
-| `checkAnswer` | What refuses input outside that schema before anything runs, in words the model reads |
-| `dataSuggestions` | Questions to start from, over those relations and the page's filter — `suggest()` with a data space's instructions |
+| `answerRelationsOf` | Which relations of a join graph may be read: each type alone (`hops: 0`), or through each of its hops too |
+| `readAnswerRelations` | Their fields, as a dashboard over each reads them, and each category's most common values |
+| `useAskChat` | The chat: one run of the `ask` Task per question, its answer read on the page's engine — `Chat` draws it |
+| `askOffers` | Questions to start from: the Task's own proposals, each checked by its oracles |
+| `ask` | The Task — linker, schema, oracles — for a host that runs it with `runTask` outside a chat |
+| `answerSchema` | The JSON Schema an answer is written in: the fields, the aggregates and the chart kinds, as enums |
+| `checkAnswer` | What refuses an answer outside that schema, in words the model reads |
 | `AnswerCard` | The card an answer is drawn in: the dashboard's own tile, with *Filter the page to these rows* and *Add to the dashboard* in its header |
 
 ## Usage
 
 ```tsx
-import { Chat, ChatSkeleton, useAgentChat } from "@kanzo-tech/ai";
-import { AnswerCard, answerRelationsOf, dataAgent, dataSuggestions, readAnswerRelations, type AnswerCardProps, type AnswerRelation } from "@kanzo-tech/ai/data";
+import { Chat, ChatSkeleton } from "@kanzo-tech/ai";
+import { AnswerCard, askOffers, useAskChat, type AnswerCardProps, type AnswerRelation } from "@kanzo-tech/ai/data";
 import { createGateway } from "@kanzo-tech/llm";
 import { DiagnosticList, Problem } from "@kanzo-tech/ui";
 import { useMosaic, type Dashboards, type Engine, type JoinGraph } from "@kanzo-tech/ui/analytics";
@@ -34,30 +36,26 @@ const gateway = createGateway({ baseURL: "/api/ai" });
 ```
 
 ```tsx
-function Ask({ engine, graph, relations, dashboards, onAdd }: { engine: Engine; graph: JoinGraph; relations: AnswerRelation[]; dashboards: Dashboards; onAdd: AnswerCardProps["onAdd"] }) {
+function Ask({ engine, graph, types, dashboards, onAdd }: { engine: Engine; graph: JoinGraph; types: AnswerRelation[]; dashboards: Dashboards; onAdd: AnswerCardProps["onAdd"] }) {
   const { selection } = useMosaic();
-  // The context each alias was started with, as the host declares it: each call fits in it.
-  const chat = useAgentChat(dataAgent({ model: gateway("chat"), engine, graph, relations, selection, context: { tokens: 16384 } }));
-  // Cached per data space and per filter; streamed, so the pills land one by one.
-  const starters = useQuery({
-    queryKey: ["starters", relations, String(selection.predicate(null))],
-    queryFn: streamedQuery({
-      streamFn: ({ signal }) =>
-        dataSuggestions({ model: gateway("complete"), graph, relations, selection, context: { tokens: 8192 }, abortSignal: signal }),
-    }),
+  const chat = useAskChat({ model: gateway("chat"), engine, graph, types, selection });
+  // Cached per data space and per filter.
+  const offers = useQuery({
+    queryKey: ["offers", types, String(selection.predicate(null))],
+    queryFn: ({ signal }) => askOffers({ model: gateway("chat"), graph, types, selection, signal }),
   });
   return (
     <Chat
       chat={chat}
       notice={
-        starters.isError && (
+        offers.isError && (
           <DiagnosticList className="w-full">
-            <Problem error={starters.error} />
+            <Problem error={offers.error} />
           </DiagnosticList>
         )
       }
-      suggesting={starters.fetchStatus === "fetching"}
-      suggestions={starters.isError ? [] : (starters.data ?? [])}
+      proposals={offers.data ?? []}
+      proposing={offers.isFetching}
       tools={{
         answer: (part, { stopped }) => <AnswerCard dashboards={dashboards} graph={graph} onAdd={onAdd} part={part} stopped={stopped} />,
       }}
@@ -66,11 +64,11 @@ function Ask({ engine, graph, relations, dashboards, onAdd }: { engine: Engine; 
 }
 ```
 
-`relations` is `await readAnswerRelations(coordinator, graph, answerRelationsOf(graph, { from: ["Person"] }), { signal })`,
-read once per data space. Until it is, draw `<ChatSkeleton />` in the chat's place: it is the same layout, so
-nothing jumps when the chat replaces it. The cache is the host's: `dataSuggestions` is an async
-iterable, so TanStack Query's `streamedQuery` (or an effect) holds it, keyed per data space and
-filter. While it streams the strip shows pills in skeleton; if it fails the failure is drawn in the
+`types` is `await readAnswerRelations(coordinator, graph, answerRelationsOf(graph, { hops: 0 }), { signal })`,
+read once per data space: each type alone, with its fields. Until it is, draw `<ChatSkeleton />` in
+the chat's place: it is the same layout, so nothing jumps when the chat replaces it. The cache is the
+host's: `askOffers` is a promise, so TanStack Query (or an effect) holds it, keyed per data space and
+filter. While it runs the strip shows pills in skeleton; if it fails the failure is drawn in the
 pills' place (`notice`), and the chat works the same — see [Before the first question](/docs/ai/chat#before-the-first-question).
 
 ## The relations
@@ -117,25 +115,27 @@ interface Answer {
 }
 ```
 
-The model writes an `AnswerInput`: an `Answer` whose relation is its key — `"Person>knows>Person"`,
-as `relationKey` writes it — and whose tile has no `id` and no `span`, which the page gives: the
-call's id, and the width a dashboard gives the kind. The tool turns the key back into the `Relation`
-it names, so the `Answer` a card and a dashboard read carries the relation as before.
+An `AnswerInput` is an `Answer` whose relation is its key — `"Person>knows>Person"`, as
+`relationKey` writes it — and whose tile has no `id` and no `span`, which the page gives: the
+answer's id, and the width a dashboard gives the kind. It is what the `answer` part carries, so a kept
+transcript is names; the card turns the key back into the `Relation` it names. The spec the model
+writes is the same, with `of`, the type it counts, in the relation's place.
 
-`answerSchema(graph, relations)` is the tool's JSON Schema. `relation` is an enum of the offered
-relations' keys; every field slot — a condition's `field`, a chart's `x`, `color` and `facet`, a
-measure's `field`, a figure's `trend`, a table's `columns` — refers to one enum of the offered
-relations' fields, defined once under `$defs`; `op` is an enum of the dashboard's aggregates and
-`type` of its chart kinds. A provider that decodes against the schema cannot write a name that does
+`answerSchema(graph, relations)` is the JSON Schema an answer is written in. `relation` is an enum of
+the offered relations' keys; every field slot — a condition's `field`, a chart's `x`, `color` and
+`facet`, a measure's `field`, a figure's `trend`, a table's `columns` — refers to one enum of the
+offered relations' fields, defined once under `$defs`; `op` is an enum of the dashboard's aggregates
+and `type` of its chart kinds. The `ask` Task's schema is this one with `of` an enum of the linked
+types in `relation`'s place. A provider that decodes against the schema cannot write a name that does
 not exist.
 
-The schema is one object rather than one branch per relation, because Anthropic and OpenAI refuse a
-tool whose input is an `anyOf` at the top. So **`checkAnswer(value, relations, graph)`** holds the rest:
-the relation is one of those offered, every field is that relation's, the conditions have one
-operator each, `top` is a whole number, and the tile is one [`parseTile`](/docs/analytics/dashboard-spec#reading-it-back)
-reads. It is the AI SDK's `validate` on the tool's input, so input that fails is refused before
-`execute` runs, and the model reads the sentence: *show.x: Person2.gender is not a field of Person,
-whose fields are Person.gender, Person.age, Person.born.*
+The schema is one object rather than one branch per relation, because Anthropic and OpenAI refuse an
+`anyOf` at the top. So **`checkAnswer(value, relations, graph)`** holds the rest: the relation is one
+of those offered, every field is that relation's, the conditions have one operator each, `top` is a
+whole number, and the tile is one [`parseTile`](/docs/analytics/dashboard-spec#reading-it-back)
+reads. It is one of Ask's oracles, so a spec that fails is sent back and the model reads the
+sentence: *show.x: Person2.gender is not a field of Person, whose fields are Person.gender,
+Person.age, Person.born.*
 
 **An answer compiles with what a dashboard compiles with.** `relationQuery` makes the relation and
 `plotRelation` the table the plots read; each condition is the clause a dashboard filter of its kind
@@ -146,94 +146,107 @@ runs: each of its clauses whose columns the relation has, as [`clauseColumns`](/
 reads them — a semi-join on the root's key always does.
 
 **What the spec cannot say gets no answer.** A ratio of two measures, a window, a join the graph does
-not have: the model is told to say so in one sentence rather than answer a different question. There
-is no SQL beside it as a fallback; [Asking data](/docs/design/ai) says why, and what would reverse
-it.
+not have: there is no field or relation to write it with, and what the oracles refuse after the last
+repair is said to the reader rather than answered as a different question. There is no SQL beside it
+as a fallback; [Asking data](/docs/design/ai) says why, and what would reverse it.
 
 *Held by* `packages/ai/src/data/answer.test.ts`, "the enums are the relations offered, by key, and their fields, listed once"; "an
 answer compiles to the same query the dashboard tile reads"; "crosses a hop: whom the women know, by
 gender, ranked"; "input outside the schema is refused before it runs".
 
-## The agent
+## Ask
 
-`dataAgent(options)` is a `ToolLoopAgent` with one tool, `answer`. The tool compiles the answer and
-reads its rows with the page's engine — the reader sees the tile, the model reads the first 30
-rows, cut to 4,000 characters, and the page's clauses the answer was read under, as a chip names
-them. An engine failure throws, so the AI SDK hands the model the error and the card draws it.
+`useAskChat(options)` is `useChat` over a transport that runs the [`ask` Task](/docs/design/tasks#ask-from-agent-to-form)
+once per question, in the page, and writes what it found into the transcript as an `answer` tool part
+— the part `AnswerCard` draws — followed by a sentence. There is no tool loop and no second call to
+the model: the spec is the model's, everything after it is the page's.
+
+1. **The linker** keeps the types the question names — by the type, a field or a value it holds —
+   with their neighbours one hop away, the type the previous answer was about, and the types the
+   page's chips are on. The schema's enums are theirs, so a small model reads a small vocabulary.
+2. **The model fills the spec**, `{ of, show, where?, top? }`, with `generateText` and
+   `Output.object`: a provider that decodes against the schema cannot write a name that does not
+   exist. A follow-up — *and in Germany?* — is told the previous spec and changes only what it asks.
+3. **The resolver finds the relation**: `resolveRelation` from `@kanzo-tech/mosaic`, the shortest
+   path from `of` that has a step of every type the spec's fields are on and meets the type each of
+   the page's chips is on. None is a diagnostic sent back to the model, which repairs the spec, three
+   attempts in all. **Two equally short paths are the reader's**: the reply asks *Which way should
+   this be counted?* with each relation by its key, numbered, and the reader's next message — its
+   number or its key — picks one, with the same spec.
+4. **The answer compiles**: `checkAnswer` on the relation found, as a tile would be checked.
+5. **It is read** with the page's engine under the page's chips, and the sentence after the tile is
+   written from the rows — the figure, or the first two bars and how many there are — never by the
+   model.
 
 **It reads through `engine.query`, not the coordinator's queue.** The queue batches behind
-`requestAnimationFrame`, which a hidden tab never fires, so a question asked before switching tabs
-never answered. `query` goes to the same connection directly and takes the chat's signal: *Stop*
-rejects the wait at once with the signal's reason, and the statement, a short one, finishes.
+`requestAnimationFrame`, which a hidden tab never fires. `query` goes to the same connection directly
+and takes the chat's signal: *Stop* rejects the wait at once with the signal's reason.
 
-**A clause the relation cannot answer is left out, and said.** A page clause applies when the
-relation has every column it names, as `clauseColumns` reads them — a chip on a type the relation
-does not reach would otherwise fail every read with a binder error. Each one left out is in the
-result with the columns it lacks, *City.name Madrid (City.name)*: the model is told it did not
-narrow the answer, and the card says so under the tile.
+**A chip reaches the answer as it reaches a tile.** A clause on the answer's own relation applies as
+it is; one on another relation crosses to it by the key both reach, as the page's tiles are crossed;
+one on a relation it shares no type with keeps none of the answer's rows, which the reply and the card
+both say.
 
 | Option | Type | |
 | --- | --- | --- |
 | `model` | `LanguageModel` | The host's — `gateway("chat")`. Nothing here names a model |
-| `engine` | `Pick<Engine, "query">` | The page's — `engine()` — so the agent reads on its one connection, outside the queue |
-| `graph` | `JoinGraph` | The graph the relations are over |
-| `relations` | `readonly AnswerRelation[]` | `readAnswerRelations`' answer. The model is told it is the whole of the data |
-| `selection` | `Selection` | The page's crossfilter: an answer is read under its clauses when it runs |
-| `context` | `{ tokens, reserve? }` | The context the model's alias declares. Each question is fitted to it, or fails as `ai/context` unsent. Unset, every relation is described |
+| `engine` | `Pick<Engine, "query">` | The page's — `engine()` — so an answer is read on its one connection, outside the queue |
+| `graph` | `JoinGraph` | The graph the relations are found in |
+| `types` | `readonly AnswerRelation[]` | Each type alone, with its fields — `readAnswerRelations` at `hops: 0` |
+| `selection` | `Selection` | The page's crossfilter: an answer must reach its chips, and is read under them |
 
-**The instructions list fields, not DDL, and each once.** Every type is described once, with its
-fields, each with its kind and what it holds — `gender: category (female, male)`, `age: number
-(27 – 61)`, `born: time (1965-09-15 – 1999-01-20)`, an identifier as `text, one per row` — and every
-relation as its key, `Person>knows>Person`, under one rule for how its fields are named:
-`Person.gender`, and `Person2.gender` for a type met twice. The model never reads a table name, so it
-never writes one. [Asking within a context](/docs/design/ai-context) has what this saves.
+The options are read anew on every question — the page's filter changes between two. The messages are
+`AskMessage`: each turn keeps its spec as a `data-ask` part, an `AskTurn`, beside the `answer` part.
+`askTransport(() => options)` is the transport alone, for a host with its own `useChat`; `readAnswer`
+is the read alone. `AnswerOutput` is what a read answers: `{ answer, rows, truncated, under,
+unanswered }` — the answer as placed, the rows its tile reads, whether the 1,000-row cap cut them,
+the page's clauses it was read under, and those its relation cannot answer, each an
+`UnansweredClause`, `{ clause, missing }`; a row is a `QueryRow`.
 
-**Given a `context`, a call fits in it.** `{ tokens, reserve? }` is the window the model's alias was
-started with and what is kept for the answer (a quarter, at most 2,048, by default). The
-conversation so far is counted; when the description does not fit beside it, the category values
-go first, then the relations the question names least, which the model is told by name — and when
-not one relation fits, the call fails as an `AiError` coded `ai/context` before anything is sent.
-`dataSuggestions` takes the same option, keeping what crosses a hop and what the page's filter is on.
+*Held by* `packages/ai/src/data/ask-chat.test.ts`, "answers with the tile the Task's spec is, read on
+the page's engine, and words written from its rows"; "asks which way when two relations answer
+equally, and reads the one the reader picks". `packages/ai/src/data/ask.test.ts`, "leaves the
+relation to the resolver: prizes by university, under a chip on the prizes"; "sends a spec no
+relation reaches back, and takes the repair". `packages/ai/src/data/page-clauses.test.ts`, "crosses a
+chip on another relation by the key both reach, as the page's tiles are crossed"; "keeps none of a
+relation's rows when it shares no type with the chip's".
 
-**The model is told the tile is already shown.** The instructions end on it: say what the tile shows
-— the numbers that matter, the pattern, the exception — and do not list its rows again. Genie's and
-ChatGPT's answers read the same way.
+## The chips
 
-`dataInstructions(options)` is the prompt, for a host that builds its own `ToolLoopAgent` around the
-same tool; `DataTools` types the toolset, so `InferAgentUIMessage<ReturnType<typeof dataAgent>>` types
-the messages. `AnswerOutput` is what a call answers: `{ answer, rows, truncated, under, unanswered }` —
-the answer as placed, the rows its tile reads, whether the 1,000-row cap cut them, the page's clauses
-it was read under, and those its relation cannot answer — which keep none of its rows, so the answer
-is read under `FALSE` and a count is 0 — each an `UnansweredClause`, `{ clause, missing }`; a row is
-a `QueryRow`.
+**`AskChips` draws what an answer was read as, each part editable**: what is counted, what a chart
+is by, and each condition. A chip opens the values it can hold instead, and they are computed, not
+asked of a model — every type, every other field, a condition's other values and *any* — and each is
+offered only when Ask's own oracles accept it: the resolver reaches it by one shortest path, and it
+compiles. Taking one sends the edited spec as the next message, and the transport asks it as it is:
+the oracles run, the answer is read, and no model is called.
 
-*Held by* `packages/ai/src/data/agent.test.ts`, "tells the model each type's fields once, with their
-kind and what they hold, each relation by its key, never DDL, and that the tile is already shown";
-"hands the model a sample of the rows and the page's filter that applied, after one tool call"; "reads under every clause of the
-page: one its relation cannot answer keeps none of it, and the model is told which"; "reads no row of
-a relation that answers none of the page's clauses, rather than the whole relation"; "stops after five steps, however often the model calls the tool"; "throws when the chat
-was stopped, rather than answering nobody"; "answers in a hidden tab, where no animation frame ever
-fires"; "hands the engine the chat's signal, and ends the wait the moment the chat is stopped".
+```tsx
+answer: (part, { stopped }) => {
+  const spec = part.state === "output-available" ? (part.output as AskOutput).spec : undefined;
+  return (
+    <>
+      <AnswerCard graph={graph} part={part} stopped={stopped} />
+      {spec && <AskChips onChange={(next) => chat.sendMessage(askEdit(next))} over={{ graph, types }} spec={spec} />}
+    </>
+  );
+},
+```
+
+An `answer` part's output carries the spec it was read from (`AskOutput`), so the chips need nothing
+the part does not hold. `askAlternatives(spec, input)` is the list without the drawing, and
+`verify(task, value, input)` from `@kanzo-tech/ai/task` is the check without a model, for any Task.
+
+*Held by* `packages/ai/src/data/ask.test.ts`, "offers each slot's other values, as whole specs";
+"offers only what the oracles accept: no x two relations reach equally".
+`packages/ai/src/data/ask-chat.test.ts`, "asks an edited spec as it is, with no model in between".
 
 ## The questions
 
-`dataSuggestions` offers what crosses a hop first. A count or a top N over one type is what a BI
-tool's first screen already shows; what a reader cannot see in any one table is how two connect, and
-a relation written with `>` or `<` says exactly where that is. So the instructions favour a question
-over a relation that crosses a hop, ask a count or top N over a type alone only when none is offered,
-and have each rationale name the relation the question is over — which is what the pill's tooltip
-then says. The page's filter, as its chips read, is in the prompt: the questions favour those rows.
-
-The model is the host's `complete` alias, not `chat`: a handful of short questions is a completion,
-and the reader is waiting on the strip, not on an answer.
-
-*What would reverse it:* readers picking the count and top-N pills over the cross-hop ones, observed
-in a discovery view, or hosts that offer no hop at all — then the instructions are favouring what
-nobody has.
-
-*Held by* `packages/ai/src/data/agent.test.ts`, "favours a question across a hop, and a rationale
-naming the relation it is over"; "asks for questions over the relations and the page's filter, as
-many as were wanted".
+**`askOffers(options)` is the same Task with no question asked**: the model writes as many specs as
+`count` (four by default) in one answer, each is checked by the oracles that check an answer, and only
+those that reach a relation unasked are offered, as a reader's question — `questionOf(spec)`. A pill
+is therefore always one the chat can answer: taking it asks the question it says. The page's chips
+are in its input, so the offers reach the rows the page is filtered to.
 
 ## The answer card
 
@@ -321,7 +334,7 @@ is no line when the page had no filter.
 | Prop | Type | |
 | --- | --- | --- |
 | `part` | `ToolPart` | The `answer` call, at any state |
-| `graph` | `JoinGraph` | The graph the agent was given |
+| `graph` | `JoinGraph` | The graph Ask was given |
 | `stopped` | `boolean` | The call will never settle — `Chat`'s `stopped` |
 | `dashboards` | `Dashboards` | The host's dashboards, as it draws them: whether the tile is on its relation's. With `onAdd` |
 | `onAdd` | `(next: Dashboards, added: AnswerAdded) => void \| Promise<unknown>` | Makes *Add to the dashboard* an action. With `dashboards` |
@@ -374,6 +387,6 @@ pnpm add @kanzo-tech/mosaic
 ```
 
 The types are exported as `Answer`, `AnswerInput`, `AnswerField`, `AnswerRelation`, `Condition`,
-`ConditionValue`, `AnswerOutput`, `QueryRow`, `DataAgentOptions`, `DataSuggestionsOptions`,
-`DataTools`, `AnswerRelationsOfOptions`, `ReadAnswerRelationsOptions`, `AnswerAdded`, `AnswerCardProps`
-and `AnswerCardTranslations`.
+`ConditionValue`, `UnansweredClause`, `AnswerOutput`, `QueryRow`, `AskChatOptions`, `AskMessage`,
+`AskOutput`, `AskTurn`, `AskChip`, `AskChipsProps`, `AskInput`, `AskSpec`, `AskContext`, `AnswerRelationsOfOptions`, `ReadAnswerRelationsOptions`,
+`AnswerAdded`, `AnswerCardProps` and `AnswerCardTranslations`.

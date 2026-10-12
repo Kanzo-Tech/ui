@@ -63,17 +63,18 @@ export interface ChatProps<M extends UIMessage> {
   /** What the panel says before the first question. */
   empty?: React.ReactNode;
   /**
-   * Questions to start from, while the conversation is empty — `suggest()`'s offers, in a strip just
-   * above the composer. Pressing one asks it. Passing it at all, even empty, holds the strip's row.
+   * Questions to start from, while the conversation is empty — a Task's offers (`askOffers`, or
+   * `propose`), in a strip just above the composer. Pressing one asks it. Passing it at all, even
+   * empty, holds the strip's row.
    */
-  suggestions?: readonly Proposal[];
+  proposals?: readonly Proposal[];
   /**
-   * More questions are on their way — `suggest()` is still streaming them. Drawn as pills in
-   * skeleton beside the ones that arrived, as many as make up the strip.
+   * More questions are on their way. Drawn as pills in skeleton beside the ones that arrived, as
+   * many as make up the strip.
    */
-  suggesting?: boolean;
+  proposing?: boolean;
   /**
-   * Words in place of the pills when there are none — suggesting failed, or found nothing — as
+   * Words in place of the pills when there are none — proposing failed, or found nothing — as
    * `ProposalStrip` takes them. The host's to word: a failure as its `Problem`, with a retry.
    */
   notice?: React.ReactNode;
@@ -98,7 +99,7 @@ export interface ChatProps<M extends UIMessage> {
  * text as markdown, `reasoning` folded away, every tool call in its frame with the SDK's state.
  */
 export function Chat<M extends UIMessage>(props: ChatProps<M>) {
-  const { chat, tools = {}, empty, suggestions, suggesting = false, notice, context, copy, translations, className } = props;
+  const { chat, tools = {}, empty, proposals, proposing = false, notice, context, copy, translations, className } = props;
   const t = { ...ENGLISH, ...translations };
   const [draft, setDraft] = React.useState("");
   const busy = chat.status === "submitted" || chat.status === "streaming";
@@ -136,13 +137,13 @@ export function Chat<M extends UIMessage>(props: ChatProps<M>) {
       slot="chat"
       strip={
         chat.messages.length === 0 &&
-        (suggestions !== undefined || suggesting) && (
+        (proposals !== undefined || proposing) && (
           <ProposalStrip
             className="justify-center"
             notice={notice}
             onSelect={ask}
-            pending={suggesting ? PILLS - (suggestions?.length ?? 0) : 0}
-            proposals={suggestions ?? []}
+            pending={proposing ? PILLS - (proposals?.length ?? 0) : 0}
+            proposals={proposals ?? []}
           />
         )
       }
@@ -265,7 +266,7 @@ export interface ChatSkeletonProps extends React.ComponentProps<typeof ark.div> 
   /** The same `empty` the `Chat` will be given; a placeholder of its size when omitted. */
   empty?: React.ReactNode;
   /** How many pills to hold room for. `0` for a chat that offers none. */
-  suggestions?: number;
+  proposals?: number;
   translations?: Partial<Pick<ChatTranslations, "placeholder">>;
 }
 
@@ -276,7 +277,7 @@ export interface ChatSkeletonProps extends React.ComponentProps<typeof ark.div> 
  * the chat replaces it.
  */
 export function ChatSkeleton(props: ChatSkeletonProps) {
-  const { empty, suggestions = PILLS, translations, slot, ...rest } = props;
+  const { empty, proposals = PILLS, translations, slot, ...rest } = props;
   const t = { ...ENGLISH, ...translations };
   return (
     <ChatFrame
@@ -289,7 +290,7 @@ export function ChatSkeleton(props: ChatSkeletonProps) {
           </PromptInputToolbar>
         </PromptInput>
       }
-      strip={suggestions > 0 && <ProposalStrip className="justify-center" pending={suggestions} proposals={[]} />}
+      strip={proposals > 0 && <ProposalStrip className="justify-center" pending={proposals} proposals={[]} />}
       {...rest}
       slot={slot ?? "chat-skeleton"}
     >

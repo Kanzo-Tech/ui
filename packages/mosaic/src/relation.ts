@@ -168,6 +168,16 @@ export function relationRootKey(graph: Pick<JoinGraph, "types">, relation: Relat
   return typeOf(graph, relation.root).key;
 }
 
+/**
+ * Two types share rows when they are one, or when one is a union the other is part of: what a clause
+ * crosses between relations by (`crossfilter.ts`), and what the resolver keeps a page's clause in
+ * reach with (`resolve.ts`). Not on the barrel.
+ */
+export function meets(joins: Pick<JoinGraph, "types"> | null, a: string, b: string): boolean {
+  const of = (name: string) => joins?.types.find((t) => t.name === name)?.of ?? [];
+  return a === b || of(a).includes(b) || of(b).includes(a);
+}
+
 function typeOf(graph: Pick<JoinGraph, "types">, name: string): JoinType {
   const type = graph.types.find((t) => t.name === name);
   if (!type) throw new Error(`the join graph has no type ${name}`);

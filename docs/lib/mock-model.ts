@@ -1,7 +1,7 @@
 /**
  * A model for the examples and showcases: the AI SDK's own mock, so `Assist` and `Chat` run the
- * real conversation — `stream`, `ToolLoopAgent`, `useChat` — with nothing on the other end of a
- * network. The same shape as `packages/ai/src/testing/model.ts`, plus a pause between words: a test
+ * real conversation — `stream`, `ToolLoopAgent`, `useChat`, a Task's `generateText` — with nothing on
+ * the other end of a network. The same shape as `packages/ai/src/testing/model.ts`, plus a pause between words: a test
  * wants the answer at once, and a reader has to see it arrive to see that it streams.
  *
  * Swap it for `createGateway({ baseURL })("chat")` and nothing else on the page changes; that is
@@ -58,6 +58,17 @@ export function mockModel(
 ) {
   const pace = options.delay ?? 40;
   const model: MockLanguageModelV4 = new MockLanguageModelV4({
+    // A Task asks for its artefact whole (`generateText`): the reply's text, at once.
+    doGenerate: async (call) => {
+      const answer = reply(call, model.doGenerateCalls.length - 1);
+      if (typeof answer !== "string" && "tool" in answer) throw new Error("A Task calls no tools.");
+      return {
+        content: [{ type: "text", text: typeof answer === "string" ? answer : answer.text }],
+        finishReason: { unified: "stop", raw: "stop" },
+        usage,
+        warnings: [],
+      };
+    },
     doStream: async (call) => {
       const index = model.doStreamCalls.length - 1;
       const answer = reply(call, index);

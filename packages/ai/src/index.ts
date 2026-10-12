@@ -25,8 +25,9 @@ export type { ToolPart } from "./tool.js";
 export { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning.js";
 export type { ReasoningProps } from "./reasoning.js";
 
-export { suggest } from "./suggest.js";
-export type { SuggestOptions } from "./suggest.js";
+// What a Task offers a screen, as a list it asks for, edits and dismisses.
+export { useTask } from "./use-task.js";
+export type { TaskList, TaskListState, UseTaskOptions } from "./use-task.js";
 
 // An agent in the page is `useAgentChat`, which keeps what it threw; an agent behind the host's own
 // HTTP route is `useChat`, the AI SDK's, which is a different transport rather than a second door.

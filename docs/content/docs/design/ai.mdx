@@ -24,41 +24,48 @@ interface Answer {
 }
 ```
 
-`answerSchema(graph, relations)` is the tool's JSON Schema. The relations offered, by key, their
-fields — one list under `$defs` — the aggregates and the chart kinds are enums, so a provider that
-decodes against the schema cannot write a field that does not exist. The schema is one object, not one
-branch per relation, because Anthropic and OpenAI both refuse a tool whose input is an `anyOf` at
-the top; so its field enum is every offered relation's, and `checkAnswer` holds each field to the
-relation the answer names. It is the AI SDK's `validate` on the tool's input, so input that does not
-pass is refused before `execute` runs, and the model reads why. The instructions list each type's
-fields once, with their kind and most common values, *gender: category (female, male)*, read from
-`FieldStat` and one count per category by `readAnswerRelations`, rather than DDL; [Asking within a
-context](/docs/design/ai-context) is why once.
+`answerSchema(graph, relations)` is the JSON Schema an answer is written in. The relations offered,
+by key, their fields — one list under `$defs` — the aggregates and the chart kinds are enums, so a
+provider that decodes against the schema cannot write a field that does not exist. The schema is one
+object, not one branch per relation, because Anthropic and OpenAI both refuse an `anyOf` at the top;
+so its field enum is every offered relation's, and `checkAnswer` holds each field to the relation the
+answer names. Ask's spec is the same schema with the type it counts, `of`, where the relation was —
+the relation is the resolver's ([Tasks](/docs/design/tasks#ask-from-agent-to-form)) — and
+`checkAnswer` is one of its oracles, so a spec that does not pass is sent back with why. The prompt
+lists each linked type's fields once, with their kind and most common values, *gender: category
+(female, male)*, read from `FieldStat` and one count per category by `readAnswerRelations`, rather
+than DDL; [Asking within a context](/docs/design/ai-context) is why once.
 
 **It compiles with what the dashboard already compiles with.** `relationQuery` makes the relation;
 each condition is the clause a dashboard filter would publish; `plotRelation` and `measureExpr` make
 the tile's query. All of it runs under the page's crossfilter at the moment of asking — the clauses whose columns the
 relation has, as `clauseColumns` reads them. The page's filter is not something the model names: it
-is the predicate the answer is read under, as every tile's is. What the model reads back is what was
+is the predicate the answer is read under, as every tile's is. What the answer read is what was
 true then; the card is a tile, and follows the page afterwards like any other.
 
-**A clause the relation cannot answer keeps none of its rows, and is said, with what it lacks.** Under
-a chip on a city, a count over a relation with no city is 0, as a dashboard's tile over that relation
-reads it: the answer is read under every clause of the page
-([Crossfilter](/docs/design/crossfilter#formal-semantics), decided 11 October 2026). It replaced
-skipping such a clause and saying so, which read the whole relation as if no filter held: one view
-of the page deciding what is kept on its own. The result carries each unanswered clause and the
-columns it names that the relation lacks, the model reads it beside the clauses that applied, and the
-card prints both under the tile, so an empty answer says why it is empty. What would reverse it is a
-page that maps a clause onto any relation — a semi-join through the join graph for every chip — at
-which point every relation answers every clause and the line goes.
+**A page's clause reaches the answer as it reaches a tile.** A chip published on a relation is read
+by the page's own resolver (`JoinResolver.crossing`): as it is on that relation, and on the answer's
+through a semi-join on the key of a type both reach — a chip on *Physics*, published on
+`LaureateAward>category>Category`, narrows `LaureateAward>university>University` by the prize, so the
+University of California reads 16 and not its 43 in every category. It replaced matching a clause by
+its columns alone, under which that answer kept none of its rows while the dashboard's tiles beside
+it were narrowed: keasy's first evaluation pass showed a model that picked the right relation and an
+answer that read nothing. A clause the answer's relation shares no type with keeps none of its rows,
+as a tile's would (decided 11 October 2026), and is said, with the columns it names; the card prints
+it under the tile, so an empty answer says why it is empty. A clause published on no relation is still
+answered by column. What would reverse it is a resolver that crosses differently for tiles, and then
+the answer follows it — the two never disagree.
+
+*Held by* `packages/ai/src/data/page-clauses.test.ts`, "crosses a chip on another relation by the key
+both reach, as the page's tiles are crossed"; "keeps none of a relation's rows when it shares no type
+with the chip's".
 
 **The read goes through the engine's door, not the coordinator's queue.** The queue batches behind
 `requestAnimationFrame` for the charts, and a hidden tab never fires one: a question asked before
 switching tabs waited forever, and *Stop* only dropped the late answer. `Engine.query` takes the
 chat's signal, so an abort ends the wait at once. An answer is one statement, which the queue had
 nothing to consolidate with. What would reverse it is a coordinator whose queue takes a signal and
-does not wait for a frame: then the agent goes back to reading where the charts read.
+does not wait for a frame: then Ask goes back to reading where the charts read.
 
 **The card is a dashboard tile.** `QueryResult` gives way to the dashboard's `ChartCard` over the
 answer, with two verbs that fall out of the shape: **Filter the page to these rows** publishes the answer's
@@ -85,7 +92,8 @@ names are the reader's own. A page that runs whatever model its host points it a
 corpus generated, cannot count on either.
 
 **What it costs:** a question the spec cannot say, such as a window function, a ratio of two
-aggregates or a join the `JoinGraph` does not have, gets no answer, and the model says so. There is
+aggregates or a join the `JoinGraph` does not have, gets no answer: the oracles refuse every spec
+the model tries for it, and the reader is told so. There is
 no SQL tool kept beside it as a fallback: two doors means two things to secure and two answers that
 look different, and the spec is where the missing words get added.
 
@@ -166,12 +174,12 @@ each clause".
 
 ## Which relations are offered
 
-**`answerRelationsOf(graph)` offers each type alone and through each of its hops, and a host on a
-large graph narrows the hops with `from`, or offers none.** A question across a hop is what the
-reader cannot see in any one table, and what the starter questions favour, so it is the default. It
-is also nearly all of the cost, measured 2026-10 with `readAnswerRelations` in DuckDB-WASM's Node
-build, over a graph shaped like LDBC's social network benchmark — its 8 types, its 23 edges, its
-columns and its row counts, the values synthesised:
+**Ask is offered the types alone — `answerRelationsOf(graph, { hops: 0 })` — and the relation is
+grown from them by the resolver.** An answer across a hop is still answered: the resolver finds the
+path, and a step's fields are the type's, read once. What a relation of its own costs is nearly all
+of the cost, measured 2026-10 with `readAnswerRelations` in DuckDB-WASM's Node build, over a graph
+shaped like LDBC's social network benchmark — its 8 types, its 23 edges, its columns and its row
+counts, the values synthesised:
 
 | Scale | Offered | Relations | Queries | Read | Fields | Prompt |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -180,26 +188,23 @@ columns and its row counts, the values synthesised:
 | 1 (3.2 M vertices, 17 M edges) | the types alone | 8 | 18 | 1.2 s | 31 | 3,581 characters |
 | 1 | and every hop | 54 | 308 | 41.5 s | 455 | 39,018 characters |
 
-The prompt is `dataInstructions`, sent with every question and, as `dataSuggestions`' relations,
-with every set of starters; the tool's schema is 8,724 characters beside it for the types alone and
-13,485 with the hops. The read is queued on the page's one connection, ahead of the dashboard's own
-charts. One hop relation read alone took 0.8 s at the median and 3.0 s at the slowest, at scale 1.
+The prompt was the agent's instructions, every relation with its fields; the tool's schema was 8,724
+characters beside it for the types alone and 13,485 with the hops. The read is queued on the page's
+one connection, ahead of the dashboard's own charts. One hop relation read alone took 0.8 s at the
+median and 3.0 s at the slowest, at scale 1.
 
-Two other shapes were weighed. **Reading a relation's fields when the model picks it** costs that
-0.8–3.0 s inside the question rather than before it, and gives up what the design rests on: the
-schema's field enum must exist before the model writes a name, so a lazy read becomes a second tool
-call per question and an enum widened to names nobody has read. **A cap on the prompt** would drop
-relations by an order nobody chose, and the model is told the list is the whole of the data. So the
-helper names the cost and the host chooses: `from` keeps the hops of the types the reader is looking
-at, and `hops: 0` keeps none.
+It replaced offering every type through each of its hops, with `from` and `hops: 0` for a host on a
+large graph to narrow by: that left the cost to the host and the choice of a relation to the model,
+and keasy's first evaluation pass found the model choosing it wrongly. A type's own values are what a
+step of it reads; the values a hop narrows to (*Place2.name* over countries only) are the answer's
+rows, not the prompt. `answerRelationsOf` keeps `hops` for a dashboard over relations of its own.
 
 `readAnswerRelations` takes a `signal`: a page left mid-read cancels what is still queued on the
 coordinator, so a 40-second read does not hold the engine from the next page.
 
-**What would reverse it:** a host that needs every hop on a graph where the read or the prompt is
-measured past what a reader waits for, or past a model's context. Then a relation's fields are read
-when the model picks it, by a tool of their own, and the field enum is the graph's columns rather
-than a read's.
+**What would reverse it:** a spec whose fields the type alone cannot give — a field a hop alone
+reads, such as an edge's own property. Then that relation is read beside the types, and its fields
+join the spec's enum under its key.
 
 *Held by* `packages/ai/src/data/answer.test.ts`, "offers each type alone and through each of its
 hops, in the graph's order"; "offers the types alone at hops 0, and only the types named in from";

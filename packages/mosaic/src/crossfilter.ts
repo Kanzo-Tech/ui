@@ -1,6 +1,6 @@
 import { Selection, type ClauseMetadata, type Coordinator, type MosaicClient, type SelectionClause } from "@uwdata/mosaic-core";
 import { InOpNode, Query, ScalarSubqueryNode, column, literal, type ExprNode, type FilterExpr } from "@uwdata/mosaic-sql";
-import { relationIdentities, relationQuery, type JoinGraph, type Relation } from "./relation.js";
+import { meets, relationIdentities, relationQuery, type JoinGraph, type Relation } from "./relation.js";
 import type { TableExpr } from "./table.js";
 
 /**
@@ -154,12 +154,6 @@ function read(joins: JoinGraph | null, relation: RelationRef): Read {
     return { table: type?.table ?? relation, identities: type ? [{ column: type.key, type: type.name }] : [] };
   }
   return joins ? { table: relationQuery(joins, relation), identities: relationIdentities(joins, relation) } : { table: relation.root, identities: [] };
-}
-
-/** Two types share rows when they are one, or when one is a union the other is part of. */
-function meets(joins: JoinGraph | null, a: string, b: string): boolean {
-  const of = (name: string) => joins?.types.find((t) => t.name === name)?.of ?? [];
-  return a === b || of(a).includes(b) || of(b).includes(a);
 }
 
 /**

@@ -47,7 +47,7 @@ import {
   type FieldStat,
 } from "@kanzo-tech/ui/analytics";
 import type { ToolPart } from "../tool.js";
-import type { AnswerOutput } from "./agent.js";
+import type { AnswerOutput } from "./read.js";
 import { conditionClauses, unansweredText } from "./answer.js";
 
 /** Every word `AnswerCard` draws. English by default. */
@@ -150,7 +150,7 @@ export interface AnswerAdded {
 const RUNNING = new Set<ToolPart["state"]>(["input-streaming", "input-available", "approval-responded"]);
 
 /**
- * **A `dataAgent` answer, drawn as the dashboard tile it is**: `ChartCard`, `DashboardStat` or a
+ * **An Ask answer, drawn as the dashboard tile it is**: `ChartCard`, `DashboardStat` or a
  * `DetailTable`, over the answer's relation narrowed by its conditions, under the page's crossfilter
  * like every tile — what the reader filters afterwards, the card follows. Nothing in it is SQL a
  * transcript carried: a kept answer is names, compiled again over the host's graph.

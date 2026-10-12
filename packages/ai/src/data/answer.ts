@@ -4,8 +4,11 @@ import {
   clauseMatch,
   clausePoints,
   desc,
+  JoinResolver,
   Query,
   relationKey,
+  relationOf,
+  sameRelation,
   type ClauseSource,
   type ExprValue,
   type JoinGraph,
@@ -13,6 +16,7 @@ import {
   type SelectionClause,
   type TableExpr,
 } from "@kanzo-tech/mosaic";
+import type { ExprNode } from "@uwdata/mosaic-sql";
 import {
   bucketExpr,
   DASHBOARD_AGGREGATES,
@@ -302,25 +306,45 @@ export const unansweredText = (unanswered: readonly UnansweredClause[]) =>
 
 /**
  * The page's clauses, split by whether a relation answers them — the clause rule of
- * `/docs/design/crossfilter#formal-semantics`: a relation answers a clause when it has every column
- * the clause names. A clause it cannot answer keeps none of its rows, so the answer is read under
- * every clause; the unanswered ones are said, each with the columns it lacks, so the model and the
- * reader know why it holds nothing. A clause with no predicate filters nothing and is neither.
+ * `/docs/design/crossfilter#formal-semantics`, read as the page's own resolver reads it for a tile. A
+ * clause published on a relation (`relationOf`) is asked of `resolver`: as it is on that relation, and
+ * on any other through a semi-join on the key of a type both reach — so a chip on
+ * `LaureateAward>category>Category` narrows `LaureateAward>university>University` by the prize, as the
+ * dashboard's tiles are narrowed — and `FALSE` where they share none. A clause published on no
+ * relation is answered when the relation has every column it names. A clause it cannot answer keeps
+ * none of its rows, so the answer is read under every clause; the unanswered ones are said, each with
+ * the columns it names, so the model and the reader know why it holds nothing. A clause with no
+ * predicate filters nothing and is neither. `predicates` are what the read is filtered by.
  */
 export function pageClauses(
   clauses: readonly SelectionClause[],
   columns: readonly string[],
-): { answered: SelectionClause[]; unanswered: { clause: SelectionClause; missing: string[] }[] } {
+  at?: { readonly relation: Relation; readonly resolver?: unknown },
+): { answered: SelectionClause[]; predicates: ExprNode[]; unanswered: { clause: SelectionClause; missing: string[] }[] } {
   const has = new Set(columns);
+  const resolver = at?.resolver instanceof JoinResolver ? at.resolver : undefined;
   const answered: SelectionClause[] = [];
+  const predicates: ExprNode[] = [];
   const unanswered: { clause: SelectionClause; missing: string[] }[] = [];
   for (const clause of clauses) {
     if (clause.predicate == null) continue;
+    const from = relationOf(clause);
+    if (at && resolver && from != null && !sameRelation(from, at.relation)) {
+      const crossed = resolver.crossing(from, [clause.predicate as ExprNode], at.relation);
+      if (String(crossed) === "FALSE") unanswered.push({ clause, missing: clauseColumns(clause.predicate) });
+      else {
+        answered.push(clause);
+        predicates.push(crossed);
+      }
+      continue;
+    }
     const missing = clauseColumns(clause.predicate).filter((name) => !has.has(name));
-    if (missing.length === 0) answered.push(clause);
-    else unanswered.push({ clause, missing });
+    if (missing.length === 0) {
+      answered.push(clause);
+      predicates.push(clause.predicate as ExprNode);
+    } else unanswered.push({ clause, missing });
   }
-  return { answered, unanswered };
+  return { answered, predicates, unanswered };
 }
 
 /** What the measure column of an answer's rows is called. */

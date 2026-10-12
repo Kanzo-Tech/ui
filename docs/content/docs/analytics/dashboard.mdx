@@ -460,6 +460,22 @@ import { Dashboard, MosaicProvider, RelationPicker, relationIdentities, relation
 />
 ```
 
+### Resolving a relation
+
+`resolveRelation(graph, needs)` is the relation a question needs, computed rather than picked: the
+shortest path from `needs.root` — the type the answer counts — whose steps cover `needs.types`, the
+types its fields are on, and meet `needs.under`, the root type of each relation the page's clauses
+were published on, which is how a clause reaches a relation (below). Breadth first, in the graph's
+order, up to `maxHops` (3). It answers a `Resolved`: the one `relation`; the `relations` that are
+`ambiguous` — equally short, so which one is the person's to say, as a prize's country is its
+laureate's birthplace or its university's; or `unreachable`, with what the closest relation still
+`missing`. It never walks back along the edge it just took.
+
+```ts
+resolveRelation(graph, { root: "LaureateAward", types: ["University"], under: ["LaureateAward"] });
+// { kind: "relation", relation: LaureateAward>university>University }
+```
+
 ### What the page sees
 
 A tile's clause on a relation names the relation's columns — `"Person.country" IN ('ES')` — and
@@ -609,10 +625,16 @@ function relationKey(graph: Pick<JoinGraph, "edges">, relation: Relation): strin
 function relationIdentities(graph: JoinGraph, relation: Relation): { column: string; type: string }[];
 function relationRootKey(graph: Pick<JoinGraph, "types">, relation: Relation): string;
 function relationHops(graph: JoinGraph, type: string): RelationHop[];
+function resolveRelation(graph: JoinGraph, needs: RelationNeeds): Resolved;
 
 interface Relation { root: string; path: readonly Hop[] }
 interface Hop { edge: string; direction: "out" | "in" }
 interface RelationHop { hop: Hop; label: string; to: string; fanOut?: number }
+interface RelationNeeds { root: string; types?: readonly string[]; under?: readonly string[]; maxHops?: number }
+type Resolved =
+  | { kind: "relation"; relation: Relation }
+  | { kind: "ambiguous"; relations: readonly Relation[] }
+  | { kind: "unreachable"; missing: readonly string[] };
 interface JoinGraph { types: readonly JoinType[]; edges: readonly JoinEdge[] }
 interface JoinType { name: string; table: TableExpr; key: string; columns: readonly string[]; rows?: number; of?: readonly string[] }
 interface JoinEdge { name: string; label: string; source: string; destination: string; table: TableExpr; src: string; dst: string; rows?: number }

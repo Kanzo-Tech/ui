@@ -1,7 +1,8 @@
 "use client";
 
-import { Chat, ChatSkeleton, type Proposal, suggest, useAgentChat } from "@kanzo-tech/ai";
-import { ToolLoopAgent } from "@kanzo-tech/llm";
+import { Chat, ChatSkeleton, type Proposal, useAgentChat } from "@kanzo-tech/ai";
+import { defineTask, propose } from "@kanzo-tech/ai/task";
+import { jsonSchema, ToolLoopAgent } from "@kanzo-tech/llm";
 import { Button } from "@kanzo-tech/ui";
 import { useEffect, useState } from "react";
 import { mockModel } from "@/lib/mock-model";
@@ -17,17 +18,29 @@ const OFFERED = [
   },
 ];
 
-// In a product the model is `gateway("complete")`; here it is a mock that streams the answer a word at
-// a time, so the skeleton pills are on screen long enough to see.
-const model = mockModel(() => JSON.stringify({ elements: OFFERED }), { delay: 25 });
+/** A Task whose artefact is a question: what it says, and what in the board it rests on. */
+const questions = defineTask<string, { text: string; rationale: string }>({
+  name: "board-questions",
+  instructions: "You offer questions a quartermaster would ask of the board.",
+  prompt: (board) => `The board: ${board}`,
+  output: () =>
+    jsonSchema({
+      type: "object",
+      properties: { text: { type: "string" }, rationale: { type: "string" } },
+      required: ["text", "rationale"],
+    }),
+});
+
+// In a product the model is the host's; here it is a mock.
+const model = mockModel(() => JSON.stringify({ elements: OFFERED }));
 const agent = new ToolLoopAgent({ model: mockModel(() => "Ask the board.") });
 
 export default function Example() {
   const chat = useAgentChat(agent);
   const [ready, setReady] = useState(false);
   const [round, setRound] = useState(0);
-  const [questions, setQuestions] = useState<Proposal[]>([]);
-  const [suggesting, setSuggesting] = useState(true);
+  const [offered, setOffered] = useState<Proposal[]>([]);
+  const [proposing, setProposing] = useState(true);
 
   // A first beat as a skeleton — the host still loading what the chat needs — then the chat.
   useEffect(() => {
@@ -37,34 +50,23 @@ export default function Example() {
 
   useEffect(() => {
     const abort = new AbortController();
-    setQuestions([]);
-    setSuggesting(true);
-    (async () => {
-      const got: Proposal[] = [];
-      for await (const q of suggest({
-        model,
-        instructions: "Suggest questions a quartermaster would ask of the board.",
-        prompt: "The board: contracts, their party, region, due and closed days.",
-        abortSignal: abort.signal,
-      })) {
-        got.push(q);
-        setQuestions([...got]);
-      }
-      setSuggesting(false);
-    })().catch(() => {
-      // Suggesting failed: no pills, and the chat still works.
-      if (!abort.signal.aborted) {
-        setQuestions([]);
-        setSuggesting(false);
-      }
-    });
+    setOffered([]);
+    setProposing(true);
+    propose(questions, "contracts, their party, region, due and closed days", { model, signal: abort.signal, count: 3 }).then(
+      (proposals) => {
+        setOffered(proposals.map((p) => p.value));
+        setProposing(false);
+      },
+      // Proposing failed: no pills, and the chat still works.
+      () => !abort.signal.aborted && setProposing(false),
+    );
     return () => abort.abort();
   }, [round]);
 
   return (
     <div className="flex w-full max-w-sm flex-col gap-2">
       <div className="flex h-96 flex-col rounded-xl border p-2">
-        {ready ? <Chat chat={chat} suggesting={suggesting} suggestions={questions} /> : <ChatSkeleton />}
+        {ready ? <Chat chat={chat} proposals={offered} proposing={proposing} /> : <ChatSkeleton />}
       </div>
       <Button
         className="self-start"

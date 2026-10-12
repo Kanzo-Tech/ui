@@ -1,0 +1,373 @@
+---
+title: Tasks
+description: Why Ask and Fossil's assistant become one pattern — a small model fills a small artefact under contract, a deterministic oracle checks it, and a bounded loop repairs it or asks the person — and what would reverse each part.
+---
+
+<Callout type="warn">
+**This page is a direction, not a description.** Four parts of it are built.
+[`@kanzo-tech/llm/local`](/docs/ai/llm#a-model-in-the-page) runs a WebLLM model by its id, with no
+manifest, no versions and no `ai/loading`. `@kanzo-tech/mosaic`'s
+[`resolveRelation`](/docs/analytics/dashboard#resolving-a-relation) is the resolver.
+`@kanzo-tech/ai/task` holds the loop: `defineTask` declares a `TaskDefinition` — context, instructions,
+prompt, output schema, `Oracle`s and the decisions it settles — and `runTask` runs it with
+`RunOptions` (a model, a signal, `onState` for each `TaskState`), answering a `Proposal` whose
+`Verdict` is accepted, a `Diagnostic` list, or a `Decision`; an oracle answers a `Finding`, and a
+proposal lands at its `Target`; `propose` asks for several at once and keeps those the oracles
+accept. And [Ask](/docs/ai/data#ask) is a Task on it: `@kanzo-tech/ai/data`'s `ask`, run behind the
+chat by `useAskChat`, with `askOffers` for the questions to start from and `AskChips` for the chips
+on an answer, each opening its checked alternatives (`verify` re-checks an edit with no model). What
+is still to come is the assistant's Tasks and the model. The decision
+record this page was drawn from is the *Kanzo Tasks* design page of 12 October 2026, and where the
+two disagree this page is the one that gets fixed.
+</Callout>
+
+Two things in the platform asked a model to decide something. **Ask** (`@kanzo-tech/ai/data`)
+let an agent pick a relation, its fields, an aggregate and a filter in one call, among every
+relation `answerRelationsOf` enumerated. **Fossil's assistant** (keasy's new-graph wizard) asks one
+call, `writeProgram`, for a whole program, which the checker reads only afterwards. Both are an
+agent with a free hand and an oracle that runs too late.
+
+They become one pattern, a **Task**: the model fills a small artefact whose shape is a JSON Schema,
+an oracle that is a fact of the data or of the program checks it, and a bounded loop sends the typed
+failures back or turns them into a question for the person. Keasy's side — the assistant's screens
+and *time to smile* — and fossil's side — `fossil-profile` and the mapping spec — are on their own
+sites and link here.
+
+## The premise: a small model, in the browser
+
+**The system is designed to work with a small local model. A large or remote model is an optional
+improvement, never a requirement.** It is the premise that makes the rest make sense — bounded
+Tasks, `compute` steps, constrained decoding — and it changes what the evaluation set is for: it
+does not decide *whether* a small model is good enough, it points at *which Task is not yet bounded
+well enough*. Every failure is a lead to move one more fact into a deterministic step.
+
+The model runs in the page through [WebLLM](https://github.com/mlc-ai/web-llm), behind the AI SDK's
+`LanguageModel` by way of `@browser-ai/web-llm`. What goes with it: agentgateway, its Postgres and
+the local-model profile (`services/ai`), `gateway.ts` and the BFF's `/api/ai` forward, and the
+per-alias context variables. The exception to *your data does not leave the browser* — the question
+travels to the gateway today — goes with them.
+
+**What would reverse it:** a Task that, after everything computable has been moved into `compute`
+steps, still fails the evaluation set with a small model. Then that Task, and only that Task, takes
+an optional remote model behind an authenticated proxy.
+
+## A Task has four ports
+
+```
+Context ──limits──▶ Model ──proposes──▶ Verify ──diagnostics──▶ Repair
+closed vocabulary   local by default    deterministic oracle    bounded policy
+        Contract (a JSON Schema) ──constrains──▶ Model
+```
+
+- **Context** is a closed vocabulary computed from the data: the linker's candidates for Ask, the
+  Profile's columns, keys and inclusions for the assistant. Nothing is described to the model that
+  the model is not allowed to name.
+- **Contract** is the artefact's JSON Schema, with enums from the context. The provider decodes
+  against it, so a name that does not exist cannot be written.
+- **Verify** is a list of oracles, each a fact: reachable, compiles, non-empty, conforms to the
+  shape, answers the competency question.
+- **Repair** reads the oracles' typed diagnostics. A `fixable` one goes back to the model with its
+  location, a bounded number of times. A `decision` — two candidate keys, a property with no column
+  — goes to the person as options, never as free text; a decision that declares a safe default is
+  taken, recorded as an assumption, and can be changed later.
+
+The states — `linking`, `drafting`, `verifying`, `repairing`, `needs-input`, `done`, `failed` —
+travel as data parts of the message, the AI SDK's standard form for application data, so `useChat`
+does not change. Presenting leaves the Task and becomes the UI layer's: a Task is tested without
+React and runs the same on a server or in a browser.
+
+**What would reverse it:** a free agent with the same small model that matches the Task's execution
+accuracy across the whole evaluation set.
+
+## Three kinds of step
+
+**A step is deterministic when its answer is a fact of the data or the program** — columns, keys,
+paths in the join graph, whether it compiles, whether a competency question returns rows.
+Interpreting what someone meant is not a fact, and turning it into hand-written rules (written
+synonyms, heuristics over the question) only moves the guess into code, where it is more fragile and
+nobody evaluates it.
+
+| Kind | When | Examples |
+| --- | --- | --- |
+| `compute` | The answer is a computable fact | Profile, the value linker, the resolver, the emitter, the checker, a dry run |
+| `propose` | Intent must be interpreted or a design chosen | Ask's planner, competency questions, shapes, the mapping spec |
+| `decide` | More than one answer is valid, and it is the person's | The key of an award; counting universities or awards |
+
+The working rule: every time a `propose` fails on the evaluation set, look at whether part of what it
+decided was a fact. If it was, it moves into a `compute` and the `propose` shrinks.
+
+**What would reverse it:** nothing found. The rule is a definition of where a step belongs, and it
+is reopened per step, by the evaluation set, not as a whole.
+
+## Ask: from agent to form
+
+**The model fills the spec; the relation is computed.** The resolver (`@kanzo-tech/mosaic`) takes
+the shortest path in the join graph that covers the spec's fields and the page's filter. A question
+whose filter cannot reach its relation — *universities* under a chip on *Physics* — is caught before
+anything runs: no path re-plans, a tie is a `decision`. A follow-up such as *and in Germany?* is a
+patch to the previous spec, one more `where`, not a new spec.
+
+```
+Question ─▶ Linker ─▶ Planner ─▶ Resolver ─▶ Compile ─▶ Check ─▶ Chips
+            words→     fills     shortest     the tile's  empty,   editable
+            types      the spec  path         SQL         reach
+```
+
+The model touches only the planner, which chooses among the linker's candidates through a closed
+enum. Every chip on the answer opens its computed alternatives, and editing one re-checks without
+the model. The numbers in the reply are written from the rows, not by the model.
+
+This replaced the agent's relations on [Asking data](/docs/design/ai#which-relations-are-offered)
+and its token budget on [Asking within a context](/docs/design/ai-context#the-linker-is-the-budget):
+with a linker the context is small and closed, and there is no budget to fit into.
+
+**What would reverse it:** a model that picks relations as well as the resolver across the whole
+evaluation set.
+
+## Suggest and complete stop being the split
+
+Today `chat` and `complete` mix three things: a verb, a model size and a context window. **The unit
+is the proposal.** `Proposal` already has the shape of the LSP's `InlineCompletionItem`: with a range
+at the cursor it is a continuation, with the whole value a replacement, with no range a new item.
+What changes between surfaces is how a proposal is shown and which oracle backs it, not what is
+generated.
+
+| Form | Target | Where |
+| --- | --- | --- |
+| Ghost text | a range at the cursor | free fields; Tab accepts, word by word with ⌘→ |
+| Card | no range, a list | competency questions, shapes, mapping rows |
+| Chip | a replacement of one field of a spec | Ask's rephrasing; each chip opens its alternatives |
+| Choice | a `decision` diagnostic | an ambiguity the oracle found; never free text |
+
+A list's offers are already a Task's — `propose`, and the pills `Chat`
+draws as `proposals`. `continuation()` and `candidates()`, a field's two, become Tasks next; `Assist`
+stays as the presentation of a field, and its ghost text logic stays as it is. A Task's model is resolved by the Task's name in
+one place. `AssistEvent` covers every form, with the Task and two more kinds: `edited` (a chip or a
+card corrected, with the final value) and `chosen` (a decision).
+
+## The API
+
+A small declarative surface on top; underneath, only parts that already exist. Whoever writes a Task
+declares what the model knows, what it may return and how it is checked. Whoever writes a screen asks
+for proposals and presents them. Nobody writes a loop, names a model or deduplicates text.
+
+```ts
+// @kanzo-tech/ai/task
+/** What a model offers: a value, where it lands and what backs it. */
+export interface Proposal<A> {
+  id: string;
+  task: string;
+  value: A;
+  target: Target;
+  rationale?: string;
+  verdict: Verdict;
+}
+
+/** Where it lands when accepted: an LSP TextEdit or a JSON Patch operation. */
+export type Target =
+  | { insert: number } // a continuation at the cursor
+  | { replace: [from: number, to: number] }
+  | { add: string } // JSON Pointer to the list
+  | { set: string }; // JSON Pointer to the slot: a chip
+
+/** What the oracles said. */
+export type Verdict =
+  | { ok: true }
+  | { ok: false; diagnostics: Diagnostic[] } // the LSP's Diagnostic
+  | { ok: false; decision: Decision; assumed?: string };
+
+/** A question to the person, in the shape of MCP's elicitation. */
+export interface Decision {
+  id: string;
+  question: string;
+  options: { id: string; label: string; detail?: string }[];
+}
+```
+
+Declaring a Task, composing steps, naming models once, and using them on a screen:
+
+```ts
+// @kanzo-tech/ai/data
+export const ask = defineTask({
+  name: "ask",
+  input: AskInput, // { question, page, previous? }
+  context: link, // compute: the question's types, fields and values
+  instructions: ASK,
+  output: answerSpec, // Zod, with the linker's enums
+  target: (i) => (i.previous ? { set: "" } : { add: "/answers" }),
+  verify: [reachable, compiles, nonEmpty, unambiguous],
+  decide: { ambiguousMeasure: {} },
+});
+
+// keasy
+export const assistant = defineFlow({
+  profile: compute(profileSources),
+  requirements: propose(requirements),
+  model: propose(modelTask),
+  mapping: propose(mapping),
+  program: compute(emit),
+});
+
+// keasy/web/src/lib/ai.ts
+export const models = defineModels({
+  default: localModel({ url: env.KEASY_MODEL_URL, model: "kanzo-tasks-1.5b-q4" }),
+});
+
+// a screen
+const { proposals, state, decision, take, edit, dismiss, choose } = useTask(requirements, { profile, domain });
+const chat = useTaskChat(ask, { input: (question, previous) => ({ question, page: page(), previous }) });
+
+// measuring it — keasy/e2e/eval/ask.eval.ts
+evaluate(ask, { cases: "nobel", scorers: [executionAccuracy, specMatch] });
+```
+
+Each step of a flow receives by name what the steps before it produced. `propose` emits proposals and
+may stop at a decision; `compute` is a function. A decision that declares `assume` does not stop the
+flow: the verdict carries `assumed`, and the person changes it later from Discover.
+
+### Under the hood
+
+Every name above is a thin layer over something that exists. If one of those pieces changes
+tomorrow, its row changes, not the API.
+
+| Ours | Over | Dependency |
+| --- | --- | --- |
+| `defineTask` | `generateText` with `Output.object`, which WebLLM constrains with XGrammar, inside a loop of our own: generate, verify, retry with the diagnostics until the attempts run out — Instructor's pattern | `ai`, already a peer |
+| states | the message's own data parts (`data-task`) | — |
+| `useTaskChat` | the AI SDK's `useChat` with a `ChatTransport` that writes through `createUIMessageStream` | — |
+| `useTask`, `useProposal` | the same events without a conversation; the gestures are `AssistEvent`, VS Code's inline-completion cycle | — |
+| `Target` | the LSP's `TextEdit` and JSON Patch (RFC 6902) with JSON Pointer | about 40 lines, tested against `json-patch-tests` |
+| `Verdict` | the LSP's `Diagnostic`; `Decision` in the shape of MCP's elicitation | types only |
+| `defineFlow` | an async function; Mastra's vocabulary of steps and suspension, without its state store | — |
+| `defineModels` | the AI SDK's `customProvider`: each Task resolves its name, `default` the fallback. It takes any `LanguageModel`, never an API key — in a browser that key is public | — |
+| `localModel` | `@browser-ai/web-llm` over WebLLM | optional peer of `@kanzo-tech/llm/local` |
+| `evaluate` | Evalite, over Vitest | optional peer of `@kanzo-tech/testing` |
+
+**Why no `submit` tool.** `@browser-ai/web-llm` 3.0.4 constrains JSON and not tools: structured
+output sends `response_format: json_object` with the schema and WebLLM decodes against it, while
+tools are described in the prompt and parsed out of the text. So `defineTask` generates with
+`Output.object` and loops itself, and a small model cannot return a malformed call. And since the
+mapping is a spec from which Fossil is emitted, everything the model writes is schema'd JSON: no GBNF
+projection of `grammar.bnf` is needed.
+
+### Where each dependency lives
+
+The pattern of `@kanzo-tech/mosaic` and `@kanzo-tech/llm`: the third party is a peer, its surface is
+re-exported so a host never imports it directly, and ours is only the door it lacks. Two copies of
+WebLLM would be two engines and two models in GPU memory.
+
+| Package | Third-party peer | What it will carry — none of these names exists yet |
+| --- | --- | --- |
+| `@kanzo-tech/llm` | `ai`, required | the AI SDK's surface, `defineModels`, `AiError`, `stream`; `createGateway` goes |
+| `@kanzo-tech/llm/local` | `@browser-ai/web-llm`, `@mlc-ai/web-llm`, optional | `localModel`: one engine per page in a worker, manifest and versions, progress, `storage.persist()`, `ai/unavailable` without WebGPU and `ai/loading` |
+| `@kanzo-tech/ai/task` | — | the types, `defineTask`, `defineFlow`, `compute`, `propose` |
+| `@kanzo-tech/ai` | — | `TaskProvider`, `useTask`, `useTaskChat`, `useProposal`, `Assist`, `ProposalList`, `Decision`, `Chat` |
+| `@kanzo-tech/ai/data` | `@kanzo-tech/mosaic`, optional | `ask`, `askSuggestions`, `link`, `alternatives`, `AnswerCard` |
+| `@kanzo-tech/testing` | `evalite`, optional | `evaluate`, `executionAccuracy`, `specMatch` |
+
+`/local` is a subpath for the reason [the optional-peer door](/docs/philosophy#the-engine-rule) exists: a static
+import of WebLLM from a root barrel breaks `import { Assist }` for every host that did not install it.
+
+## Everything in the browser, the model too
+
+The deterministic parts — linker, resolver, Profile, emitter, checker, executor, DuckDB — and the
+model run in the client. Outside it stay two things, and the AI depends on neither: file storage, with
+credentials keasy vends as today; and evaluation in CI, with the same weights on native llama.cpp.
+
+| Engine | Today | Target |
+| --- | --- | --- |
+| DuckDB-WASM | its own worker (mosaic), no threads | unchanged |
+| `fossil-wasm`: compiler, checker | the page | unchanged, plus Profile and the mapping emitter in the same module |
+| `fossil-df-wasm`: executor | **the page's main thread** — confirmed 12 October 2026, below | a worker of its own |
+| WebLLM | — | its worker (`WebWorkerMLCEngine`), memory on the GPU |
+| A fallback without WebGPU | — | none at first, below |
+
+**No fallback without WebGPU, at first.** `@browser-ai/transformers-js` 3.0.4 warns that
+`responseFormat` is unsupported, so a CPU fallback through it generates unconstrained JSON that only
+the oracles and retries catch; llama.cpp in WASM (wllama) constrains with grammars but has no AI SDK
+provider. Without WebGPU there is no assistant and no Ask, said plainly; the rest of keasy works the
+same. WebGPU is in Chrome and Edge (Windows, macOS, ChromeOS), Safari 26 and Firefox on Windows and
+ARM Macs; the gaps are mostly Linux and Android outside Chrome on Qualcomm or ARM GPUs.
+
+**What would reverse it:** the evaluation set showing that unconstrained output passes the oracles
+nearly as often, or a CPU provider that constrains. A threaded WASM fallback also needs cross-origin
+isolation, which keasy can afford — below.
+
+## Decisions, and what would reverse each
+
+| Decision | Why | What would reverse it |
+| --- | --- | --- |
+| Ask's set is small and by shape: Nobel, plus SNB for what Nobel lacks | What it must cover is the shapes of a question, not a count; two corpora from two domains are enough to catch a linker fitted to one vocabulary, and the rest is the readers' failures | A Task that passes the set and fails a third corpus's questions of a shape the set has; then that corpus joins the set |
+| No separate phase of measuring today's system | It is known to fail and is being replaced; the evaluation set is needed anyway, as tests, gate and distillation data | That the set cannot be built without measuring today's system first; then one more pass, not a phase |
+| Every piece on a standard or a reference library | Less code of our own, known behaviour, someone else's documentation | A reference that requires a server runtime or persistent state not needed here; then we take its shape, not its package |
+| Generate, verify, repair instead of a free agent | The model decides little and every decision has an oracle | A free agent with the same small model matching execution accuracy across the set |
+| The relation is computed | The *University* × *Physics* failure is caught before running | A model that picks relations as well as the resolver across the set |
+| The mapping is a spec and Fossil is emitted | The model writes no syntax; the emitter always produces valid Fossil | A small model with Fossil's grammar passing the gold set's competency questions at the same rate |
+| Profile replaces introspect | One way to read sources, for the compiler, the assistant and the linker | A host that cannot afford the statistics; the answer is a mode of Profile, not a second package |
+| Profile is sans-IO, inside the wasm closure | One implementation for browser and LSP, watched by the wasm gate | A query only one host can run; that query is marked per host, the module is not duplicated |
+| No fallback without WebGPU, at first | The one CPU provider with an AI SDK binding does not constrain JSON | The set showing unconstrained output passes nearly as often, or a CPU provider with constraints |
+| Everything in the browser, the model too | The data stays, and the AI depends on no server | An oracle with no wasm32 build at reasonable cost |
+| Designed for a small local model | No API dependency, the data stays, and it forces each Task to be bounded | A Task that, with everything computable moved out, still fails the set with a small model |
+| No remote model in the API | One way to reach a model: no keys in the browser, no forward on the server | A customer who cannot run the local model and accepts that the question leaves the browser; then a `LanguageModel` behind an authenticated proxy |
+| One local multi-task model, named per Task in `customProvider` | One download; changing a Task's model is configuration | A Task whose quality needs a model of its own; then that Task gets its entry |
+
+## What was checked before any code
+
+Three things that could have sunk the design, checked on 12 October 2026:
+
+- **`fossil-profile` sits inside the wasm closure.** A sans-IO skeleton — `Profiler::new`,
+  `next_query`, `feed`, `finish`, depending on `smol_str` alone — wired as a dependency of
+  `fossil-wasm`: `cargo xtask wasm-check` derived 18 crates with `fossil-profile` among them and
+  passed. `fossil-introspect` is not in the closure (it is `fossil-lsp`'s, and a dev-dependency of
+  `fossil-df`), so replacing it moves logic *into* the gate on purpose. The skeleton was not
+  committed: the crate lands with its first query.
+- **The executor runs on the page's main thread.** keasy's `startRun` imports `@fossil-lang/executor`
+  and its `run` constructs `FossilExecutor` in the calling realm; nothing in keasy's `web/src` creates
+  a `Worker`. Hence *a worker of its own* in phase 2.
+- **Cross-origin isolation is cheap for keasy.** With `Cross-Origin-Opener-Policy: same-origin` and
+  `Cross-Origin-Embedder-Policy: require-corp` added to keasy's `next.config.ts`, its e2e ran against
+  the dev stack: sign-in through Keycloak, a graph run to completion in the browser over the dev S3
+  store, and Discover over its corpus — 14 of `auth.spec.ts`' and `discover.spec.ts`' 15 passed, and
+  the one that did not fails the same way with the headers off (a dev-only overlay takes its click).
+  A test that opened Discover read `crossOriginIsolated` true and `SharedArrayBuffer` defined, and
+  saw no request blocked by COEP; a ranged `fetch` of a presigned object on the S3 store answered 206
+  with `Content-Range` exposed — CORS, which COEP admits. Keasy's CSP already keeps every script,
+  worker, `.wasm`, image and font on its own origin. **Not proved:** a read from Azure, which the dev
+  stack has no emulator for.
+
+## Phases
+
+There is no separate phase of measuring today's system: it is known to fail and it is being replaced.
+The evaluation set is built anyway, because the Tasks need it as tests, as the model's release gate
+and as distillation data.
+
+1. **Ask as a Task, with its evaluation set** (≈ 42 % of the lines touched). First what measures:
+   the evaluation set — for Ask, one or two cases per shape of question (a figure, a breakdown, a
+   ranking, a where, a date range, one and two hops, a page filter on another relation, a tie that
+   must ask, a question with no path, a follow-up, a synonym), each with its spec and the rows that
+   spec reads: about 25 on Nobel, and about 10 on LDBC SNB for what Nobel lacks — self-joins and a
+   large graph; for the assistant, the four examples as they are — one pass of today's Ask with one
+   model, as a reference number, and the WebLLM provider measured on real devices. The set grows with
+   the failures readers hit, not ahead of them; the thousands of pairs a distillation needs are
+   generated and kept only when they pass the oracles. Then the linker, the resolver in mosaic,
+   the Task layer, Ask as a Task and its chips; the agent goes. The base model is chosen by
+   measuring these Tasks, not today's system.
+2. **Profile and the mapping spec** (≈ 28 %). `fossil-profile` sans-IO in the wasm closure with its
+   two hosts, replacing introspect; a mapping spec in RML's shape and its emitter; the executor in a
+   worker.
+3. **The assistant, and the gateway retired** (≈ 30 %). Three screens over the `requirements`,
+   `model` and `mapping` Tasks; competency questions as Ask's questions. The current wizard goes, and
+   with it the gateway's last consumer: `services/ai`, `gateway.ts`, the BFF's `/api/ai` forward and
+   their configuration.
+4. **A model of our own.** One small multi-task model distilled for every Task, the evaluation set as
+   its gate, versioned and served as shards — in `kanzo-models`, outside these repositories.
+
+## References
+
+Generate, verify, repair: Self-Debugging and the compiler-in-the-loop line, as Cortex Analyst and
+Genie do it. Constrained decoding: PICARD for SQL; today XGrammar, llguidance and Outlines. A
+semantic layer with a spec: Power BI Q&A, ThoughtSpot, NL4DV. Linking: DIN-SQL and CHESS. Competency
+questions as tests: NeOn and test-driven ontology development. Profiling: unique column combinations
+(HyUCC) and inclusion dependencies (SPIDER, Metanome). Declaring Tasks: DSPy's signatures and
+assertions, BAML's typed functions — their shape, not their runtime, since DSPy is Python and BAML
+brings its own.

@@ -382,6 +382,12 @@ importers:
         specifier: ^3.0.62
         version: 3.0.62(zod@4.4.3)
     devDependencies:
+      '@browser-ai/web-llm':
+        specifier: 3.0.4
+        version: 3.0.4(@mlc-ai/web-llm@0.2.86)(ai@7.0.126(zod@4.4.3))
+      '@mlc-ai/web-llm':
+        specifier: 0.2.86
+        version: 0.2.86
       ai:
         specifier: ^7.0.126
         version: 7.0.126(zod@4.4.3)
@@ -725,6 +731,12 @@ packages:
   '@bramus/specificity@2.4.2':
     resolution: {integrity: sha512-ctxtJ/eA+t+6q2++vj5j7FYX3nRu311q1wfYH3xjlLOsczhlhxAg2FWNUXhpGvAw3BWo1xBcvOV6/YLc2r5FJw==}
     hasBin: true
+
+  '@browser-ai/web-llm@3.0.4':
+    resolution: {integrity: sha512-716/SO/NqrbYjy7IZiBBNGfYB0hu5ObUSdtMc/8BsiiCz6FTE45fwva8WhCJl3QNh1M2q2qBw1T+u8t8abBq2A==}
+    peerDependencies:
+      '@mlc-ai/web-llm': ^0.2.79
+      ai: ^7.0.0
 
   '@changesets/apply-release-plan@7.1.1':
     resolution: {integrity: sha512-9qPCm/rLx/xoOFXIHGB229+4GOL76S4MC+7tyOuTsR6+1jYlfFDQORdvwR5hDA6y4FL2BPt3qpbcQIS+dW85LA==}
@@ -1552,6 +1564,9 @@ packages:
 
   '@microsoft/tsdoc@0.16.0':
     resolution: {integrity: sha512-xgAyonlVVS+q7Vc7qLW0UrJU7rSFcETRWsqdXZtjzRU8dF+6CkozTK4V4y1LwOX7j8r/vHphjDeMeGI4tNGeGA==}
+
+  '@mlc-ai/web-llm@0.2.86':
+    resolution: {integrity: sha512-plciXBCYtY7iTKHzEcsqOfSO+s5u8NqMYFPnHmRbsN8CEdKcolgXIoGLPbzO6FtJHV43m7YP00x6qQ6Kb8CJJw==}
 
   '@next/env@16.3.7':
     resolution: {integrity: sha512-/HuhBN1CorqNTmewTIh81yXOQri6B8Ye/c9D7+830XqwVaf8qMnJNrgNxDn6dLtihq8YzBbI6NSAuMKvpr+DvQ==}
@@ -4319,6 +4334,10 @@ packages:
   lodash.startcase@4.4.0:
     resolution: {integrity: sha512-+WKqsK294HMSc2jEbNgpHpd0JfIBhp7rEV4aqXWqFr6AlXov+SlcgB1Fv01y2kGe3Gc8nMW7VA0SrGuSkRfIEg==}
 
+  loglevel@1.9.2:
+    resolution: {integrity: sha512-HgMmCqIJSAKqo68l0rS2AanEWfkxaZ5wNiEFb5ggm08lDs9Xl2KxBlX3PTcaD2chBM1gXAYf491/M2Rv8Jwayg==}
+    engines: {node: '>= 0.6.0'}
+
   longest-streak@3.1.0:
     resolution: {integrity: sha512-9Ri+o0JYgehTaVBBDoMqIl8GXtbWg711O3srftcHhZ0dqnETqLaoIK0x17fUw9rFSlK/0NlsKe0Ahhyl5pXE2g==}
 
@@ -5917,6 +5936,11 @@ snapshots:
     dependencies:
       css-tree: 3.2.1
 
+  '@browser-ai/web-llm@3.0.4(@mlc-ai/web-llm@0.2.86)(ai@7.0.126(zod@4.4.3))':
+    dependencies:
+      '@mlc-ai/web-llm': 0.2.86
+      ai: 7.0.126(zod@4.4.3)
+
   '@changesets/apply-release-plan@7.1.1':
     dependencies:
       '@changesets/config': 3.1.4
@@ -6736,6 +6760,10 @@ snapshots:
       resolve: 1.22.12
 
   '@microsoft/tsdoc@0.16.0': {}
+
+  '@mlc-ai/web-llm@0.2.86':
+    dependencies:
+      loglevel: 1.9.2
 
   '@next/env@16.3.7': {}
 
@@ -9943,6 +9971,8 @@ snapshots:
   lodash.merge@4.6.2: {}
 
   lodash.startcase@4.4.0: {}
+
+  loglevel@1.9.2: {}
 
   longest-streak@3.1.0: {}
 

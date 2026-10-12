@@ -5,6 +5,7 @@
     "assist",
     "chat",
     "data",
+    "tasks",
     "llm",
     "gateway"
   ]

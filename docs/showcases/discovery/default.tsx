@@ -132,7 +132,7 @@ export function DiscoveryShowcase() {
                 </EmptyHeader>
               </EmptyRoot>
             }
-            suggestions={RECIPES.map((recipe) => ({ text: recipe.question }))}
+            proposals={RECIPES.map((recipe) => ({ text: recipe.question }))}
             tools={{
               // The columns are not known until the statement is written, so the result is drawn
               // from its own shape — the case a host's renderer exists for.

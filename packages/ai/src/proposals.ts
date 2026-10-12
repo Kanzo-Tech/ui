@@ -2,9 +2,8 @@
 // instructions; the field describes itself through its accessible name and description, which is
 // what a person filling it in reads too.
 
-import { type LanguageModel, stream } from "@kanzo-tech/llm";
+import { type LanguageModel, Output, jsonSchema, stream } from "@kanzo-tech/llm";
 import type { ContinuationRequest, Proposal } from "./engine.js";
-import { suggest } from "./suggest.js";
 
 /** What the model is told about the field it is filling. */
 export interface FieldBrief {
@@ -55,9 +54,24 @@ export async function* continuation(
 
 const CANDIDATES = `You suggest values for a form field. Each value must be complete and ready to enter as-is, in the language of the form.`;
 
+const OFFER = jsonSchema<{ text: string; rationale: string }>({
+  type: "object",
+  properties: {
+    text: { type: "string", description: "The value itself, exactly as it would be entered." },
+    rationale: { type: "string", description: "One short sentence naming what in the field or the form it rests on." },
+  },
+  required: ["text", "rationale"],
+  additionalProperties: false,
+});
+
 /**
- * Whole values for the field: `suggest()` with the field's brief as the material, so a candidate is
- * a `Proposal` like any other offer, arriving as soon as it is whole.
+ * Whole values for the field, each a `Proposal` with its rationale, arriving as soon as it is whole
+ * (`Output.array`'s elements), so the first is on screen while the model writes the rest.
+ *
+ * **A failure throws, once the stream ends** — `stream`'s contract — so a field that shows "nothing
+ * to offer" and one that shows "it failed" are never the same field by accident. A value repeating an
+ * earlier one (ignoring case and spacing) is dropped and does not count; past `count`, the rest are
+ * dropped, since nothing in `Output.array` holds the model to a length.
  */
 export async function* candidates(
   model: LanguageModel,
@@ -71,11 +85,23 @@ export async function* candidates(
     list: boolean;
   },
 ): AsyncIterable<Proposal> {
+  if (count <= 0) return;
   const holds = list
     ? `Current items: ${existing.length ? existing.join(", ") : "(none)"}\nSuggest NEW items, not already present.`
     : `Current value: ${value || "(empty)"}\nSuggest alternatives to replace it${value ? ", different from it" : ""}.`;
-  const prompt = `${brief(field)}\n${holds}\nGive ${count}.`;
-  for await (const offer of suggest({ model, instructions: CANDIDATES, prompt, abortSignal: signal })) {
-    yield list ? offer : { ...offer, range: [0, value.length] };
+  const answer = stream({
+    model,
+    system: CANDIDATES,
+    prompt: `${brief(field)}\n${holds}\nGive ${count}.`,
+    output: Output.array({ element: OFFER }),
+    abortSignal: signal,
+  });
+  const seen = new Set<string>();
+  for await (const { text, rationale } of answer.elements) {
+    const key = text.trim().replace(/\s+/g, " ").toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    yield list ? { text, rationale } : { text, rationale, range: [0, value.length] };
+    if (seen.size >= count) return;
   }
 }

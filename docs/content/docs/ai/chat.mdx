@@ -18,7 +18,7 @@ const agent = new ToolLoopAgent({ model: gateway("chat"), tools: { query } });
 ```tsx
 function Ask() {
   const chat = useAgentChat(agent);
-  return <Chat chat={chat} suggestions={[{ text: "How many contracts are late?" }]} />;
+  return <Chat chat={chat} proposals={[{ text: "How many contracts are late?" }]} />;
 }
 ```
 
@@ -141,41 +141,32 @@ host's renderer every state, and says whether the call will ever settle".
 
 ## Before the first question
 
-`empty` is what the panel says before anything is asked, centred in it, and `suggestions` are
+`empty` is what the panel says before anything is asked, centred in it, and `proposals` are
 questions to start from, drawn as `@kanzo-tech/ui`'s `Suggestions` just above the composer, where
 the question will be typed. Pressing one asks it. Both go once the conversation starts.
 
-<ComponentPreview componentName="chat" fileName="example-suggestions" />
+<ComponentPreview componentName="chat" fileName="example-proposals" />
 
-**Suggested questions come from one door, `suggest()`.** It asks a model for questions over some
-material — a schema, a domain, the files — with the host's instructions, and streams each as soon as
-it is whole, a `Proposal` of `{ text, rationale }` (the AI SDK's `Output.array`, read through
-`@kanzo-tech/llm`'s `stream`). It is the same `Proposal` a field's `Assist` offers: one type for
-everything a model offers, whatever surface draws it. There is no template fallback: a list of questions written from column names
+**Questions to start from are a Task's proposals.** A model offers them as it offers anything — the
+artefact a [Task](/docs/design/tasks) declares, asked with `propose(task, input, { model, count })`
+from `@kanzo-tech/ai/task`, each checked by the Task's oracles, and only those every oracle accepts
+kept. A pill is `{ text, rationale? }`, the same `Proposal` a field's `Assist` offers. Ask's are
+[`askOffers`](/docs/ai/data#the-questions): the `ask` Task with no question asked, so every pill is
+one the chat answers. There is no template fallback: a list of questions written from column names
 beside a list a model wrote is two paths to one strip, and the templates were the worse one.
 
 ```tsx
-for await (const proposal of suggest({ model: gateway("complete"), instructions, prompt: schema, abortSignal })) {
-  offered.push(proposal);
-}
+const offered = await propose(questions, material, { model, count: 3, signal });
+<Chat chat={chat} proposals={offered.map((p) => p.value)} proposing={false} />
 ```
 
-| `SuggestOptions` | |
-| --- | --- |
-| `model` | The host's — `gateway("complete")`: a few short questions are a completion |
-| `instructions` | What the questions are for and what makes a good one: the system prompt |
-| `prompt` | The material they are asked over |
-| `abortSignal` | Stops the stream |
-
-While it streams, pass `suggesting`: the strip draws pills in skeleton beside the ones that have
-arrived, as many as make up the strip, so it keeps its height as they land. **A failure throws when
-the stream ends** — the AI SDK otherwise ends a refused stream as if the model had nothing to
-suggest — and on a failure the host passes `suggestions={[]}` and says why in `notice`: **the
-failure takes the pills' place**, drawn as the host draws any failure (its `Problem`, with a retry),
-and the conversation works the same without pills. `notice` is `ProposalStrip`'s, the words `Assist`
-puts in place of its candidates; it is drawn only while the strip has nothing to offer. A host that
-offers no suggestions at all leaves `suggestions` out, and there is no strip. A data space's questions are
-[`dataSuggestions`](/docs/ai/data), which is `suggest()` with a data space's instructions.
+While they are on their way, pass `proposing`: the strip draws pills in skeleton, as many as make up
+the strip, so it keeps its height when they land. **A failure throws** — `propose` rejects with what
+stopped the model — and on a failure the host passes `proposals={[]}` and says why in `notice`:
+**the failure takes the pills' place**, drawn as the host draws any failure (its `Problem`, with a
+retry), and the conversation works the same without pills. `notice` is `ProposalStrip`'s, the words
+`Assist` puts in place of its candidates; it is drawn only while the strip has nothing to offer. A
+host that offers none at all leaves `proposals` out, and there is no strip.
 
 **A pill never outgrows the strip.** A question longer than the panel is as wide as the strip and
 cut with an ellipsis, and the whole question is in its tooltip. The accessible name is the whole
@@ -205,12 +196,13 @@ and never the empty state.
 than telling the reader. Then `notice` goes, a failure leaves the strip's row empty again, and the
 failure is the host's to report elsewhere.
 
-*Held by* `packages/ai/src/chat.test.tsx`, "holds room for suggestions still arriving, beside the
+*Held by* `packages/ai/src/chat.test.tsx`, "holds room for proposals still arriving, beside the
 ones that have", "draws the strip just above the composer, outside the transcript", "draws the
-host's notice in place of the pills when suggesting failed, keeping the strip's row";
-`packages/ai/src/suggest.test.ts`, "throws what stopped the model, rather than ending
-as if it had nothing to suggest"; `packages/ui/src/simples/suggestions.test.tsx`, "shows the whole
-label in a tooltip when the label is cut".
+host's notice in place of the pills when proposing failed, keeping the strip's row";
+`packages/ai/src/task/task.test.ts`, "offers only what every oracle accepts, with no decision left
+open, at most as many as asked", "throws what stopped the model, rather than offering nothing";
+`packages/ui/src/simples/suggestions.test.tsx`, "shows the whole label in a tooltip when the label is
+cut".
 
 ## Before it can be drawn
 
@@ -232,7 +224,7 @@ skeleton exists for the moment before the conversation can be built, so `chat` w
 | `ChatSkeletonProps` | | |
 | --- | --- | --- |
 | `empty` | `ReactNode` | The chat's own; a placeholder of its size when omitted |
-| `suggestions` | `number` | How many pills to hold room for. Default 3 |
+| `proposals` | `number` | How many pills to hold room for. Default 3 |
 | `translations` | `{ placeholder }` | The composer's placeholder |
 
 *Held by* `packages/ai/src/chat.test.tsx`, "draws Chat's layout before it can be drawn: the empty
@@ -260,16 +252,16 @@ Their props are `MessageProps`, `MessageAvatarProps`, `MessageRole` and `Reasoni
 | `chat` | `useAgentChat(...)`'s return, or `useChat(...)`'s | The conversation |
 | `tools` | `ChatToolRenderers` | `Record<string, (part: ToolPart, call: { stopped: boolean }) => ReactNode>` — how the host draws its tools, at every state |
 | `empty` | `ReactNode` | What the panel says before the first question |
-| `suggestions` | `readonly Proposal[]` | Questions to start from; given at all, even empty, the strip keeps its row |
-| `suggesting` | `boolean` | More are on their way: pills in skeleton beside them |
-| `notice` | `ReactNode` | In place of the pills while there are none: why suggesting failed, with a retry |
+| `proposals` | `readonly Proposal[]` | Questions to start from; given at all, even empty, the strip keeps its row |
+| `proposing` | `boolean` | More are on their way: pills in skeleton beside them |
+| `notice` | `ReactNode` | In place of the pills while there are none: why proposing failed, with a retry |
 | `context` | `ReactNode` | What the next question is asked over, read-only in the composer beside Send — a pill such as *Subset · 40 nodes*, as Copilot Chat and Cursor show theirs |
 | `copy` | `ProblemProps["copy"]` | The host's words for a failure's code, as `Problem` takes them |
 | `translations` | `Partial<ChatTranslations>` | `placeholder` for the composer, and `failed`, read before an error |
 | `className` | `string` | On the root |
 
 The types are exported as `ChatProps`, `ChatSkeletonProps`, `ChatToolRenderers`, `ChatTranslations`,
-`ToolPart`, `SuggestOptions`, `AgentChat` and `AgentChatOptions`; a suggestion is a `Proposal`.
+`ToolPart`, `AgentChat` and `AgentChatOptions`; a pill is a `Proposal`.
 
 ## AI Elements is a source, not a reference
 
