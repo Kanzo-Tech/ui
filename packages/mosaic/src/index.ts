@@ -141,3 +141,10 @@ export {
   type Relation,
   type RelationHop,
 } from "./relation.js";
+
+/**
+ * Ours: the relation a question needs, computed — the shortest path from the type it counts that
+ * covers the types its fields are on and reaches the page's clauses, or the tie, or what is out of
+ * reach. `resolve.ts`.
+ */
+export { resolveRelation, type RelationNeeds, type Resolved } from "./resolve.js";
