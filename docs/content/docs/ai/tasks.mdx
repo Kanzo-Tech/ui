@@ -1,0 +1,57 @@
+---
+title: Tasks
+description: A small model fills a small artefact under a JSON Schema, oracles check it, and a bounded loop repairs it or asks the person — defineTask, runTask, propose, verify from @kanzo-tech/ai/task, and useTask for a screen's list of proposals.
+---
+
+A **Task** is what the platform asks a model for: an artefact whose shape is a schema, checked by
+oracles that are facts of the data or of the program, never the model's opinion. [Tasks in the
+design](/docs/design/tasks) is why; [Ask](/docs/ai/data#ask) is the first one built on it.
+
+```ts
+import { defineTask, propose, runTask, verify } from "@kanzo-tech/ai/task";
+
+const questions = defineTask<string, { text: string }>({
+  name: "questions",
+  instructions: "Offer competency questions about the domain.",
+  prompt: (domain) => domain,
+  output: () => jsonSchema({ type: "object", properties: { text: { type: "string" } }, required: ["text"] }),
+  verify: [(value) => (value.text.endsWith("?") ? undefined : { code: "not-a-question", message: "a question ends in ?" })],
+});
+```
+
+| | |
+| --- | --- |
+| `defineTask(definition)` | The Task: its `context` (computed, never asked), `instructions`, `prompt`, `output` schema, `verify` oracles, the decisions it settles with `decide`, and how many `attempts` |
+| `runTask(task, input, { model, signal, onState })` | One artefact: asked, checked, the diagnostics sent back while attempts are left; a `Proposal` whose `verdict` is accepted, the diagnostics, or a `Decision` for the person |
+| `propose(task, input, { model, count })` | Several at once, in one call, keeping only those every oracle accepts — what a list offers before anything is asked |
+| `verify(task, value, input)` | The oracles' verdict on a value no model wrote: a person's edit |
+
+An oracle answers nothing, a `Diagnostic` (`{ code, message, at? }`, `at` a JSON Pointer into the
+artefact), or a `{ decision }` — a question in the shape of MCP's elicitation, with options and
+never free text.
+
+*Held by* `packages/ai/src/task/task.test.ts`, "sends what the oracles found back, with where, and
+takes the repaired answer"; "stops at a decision it has no safe default for, and asks with options";
+"offers only what every oracle accepts, with no decision left open, at most as many as asked".
+
+## A list on a screen
+
+`useTask(task, input, { model, count })` is a screen's list of what a Task offers. It asks when the
+screen says — `propose()` — never on mount, because the input is usually still being filled and the
+model call is the expensive part. `edit(id, value)` checks the person's change with `verify`, with no
+model, and keeps it with its verdict: one the oracles refuse stays on the list, saying why.
+`dismiss(id)` takes one off. Taking one is the screen's: the proposal's `target` says where it lands,
+and the screen owns that document.
+
+```tsx
+const list = useTask(questions, domain, { model });
+// list.state: "idle" | "proposing" | "ready" | "failed"; list.error when it failed
+<Button onClick={() => list.propose()}>Suggest questions</Button>
+```
+
+*Held by* `packages/ai/src/use-task.test.tsx`, "asks only when told, and keeps what the oracles
+accept"; "checks an edit with no model, and keeps it with its verdict; a dismissal takes it off".
+
+The types are exported as `TaskDefinition`, `Proposal`, `Verdict`, `Diagnostic`, `Decision`,
+`Finding`, `Oracle`, `Target`, `TaskState`, `RunOptions`, `TaskList`, `TaskListState` and
+`UseTaskOptions`.
