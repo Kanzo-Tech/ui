@@ -105,8 +105,13 @@ const engines = new Map<string, { model: LanguageModel; load: () => Promise<void
  * Asks the browser to keep what is stored for this page — the weights among it — rather than evict
  * it under pressure. Asked once, when a model first loads: a refusal changes nothing but the odds.
  */
-let persisting: Promise<unknown> | undefined;
-const persist = () => (persisting ??= globalThis.navigator?.storage?.persist?.().catch(() => false) ?? Promise.resolve(false));
+let persistAsked = false;
+const persist = () => {
+  if (persistAsked) return;
+  persistAsked = true;
+  // A refusal or a browser without the API leaves the odds as they were: nothing to report.
+  void globalThis.navigator?.storage?.persist?.().catch(() => false);
+};
 
 /**
  * `model`, a WebLLM model id (`Qwen3-4B-q4f16_1-MLC`), as a `LanguageModel`. Without WebGPU every call
@@ -142,7 +147,7 @@ function engine(model: string, settings: LocalModelSettings) {
     new AiError("ai/unavailable", `This browser cannot run ${model}: it has no WebGPU`, { reason: "webgpu" });
   const ready = (): Promise<void> => {
     if (!doesBrowserSupportWebLLM()) return Promise.reject(unavailable());
-    void persist();
+    persist();
     return Promise.resolve();
   };
   const built = wrapLanguageModel({
