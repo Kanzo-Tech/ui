@@ -77,15 +77,37 @@ import { serveLocalModel } from "@kanzo-tech/llm/local";
 serveLocalModel();
 ```
 
-`localModel` takes a `LocalModelSettings` — the worker and the progress callback, both optional — and
-is a `LanguageModel`, so `stream`, `ToolLoopAgent` and `Chat` run over it unchanged. It
+`localModel` takes a `LocalModelSettings` — the worker, the progress callback and where the model is
+served from, all optional — and is a `LanguageModel`, so `stream`, `ToolLoopAgent` and `Chat` run over it unchanged. It
 makes one engine per model per page — two would be two copies of the weights in the GPU's memory — and
 lifts `<think>` into reasoning — Qwen3 and DeepSeek write theirs inline, and [`Chat`](/docs/ai/chat) folds it away. Without WebGPU a call fails as an `AiError`
 coded `ai/unavailable` with `data.reason` `"webgpu"`, before anything is downloaded. The weights are
-downloaded on the first call and cached by the browser. A structured answer (`Output.object`) is
+downloaded on the first call and cached by the browser, which is asked once to persist what it stores
+for the page (`navigator.storage.persist()`), so a model is not evicted under pressure. A structured answer (`Output.object`) is
 decoded against its schema; a tool is described in the prompt and parsed out of the model's text, so a
 small model can write a call that does not parse. Why the platform is moving to models in the page,
 and why its Tasks use no tools, is [Tasks](/docs/design/tasks).
+
+**Serve the model yourself, and load it before it is asked.** Without `from`, the id is looked up in
+WebLLM's prebuilt list and the weights come from Hugging Face; with it, from your own origin, so the
+page reaches no third party:
+
+```ts
+const settings = {
+  worker,
+  from: { weights: `${MODEL_URL}/Qwen3-4B-q4f16_1-MLC/`, library: `${MODEL_URL}/Qwen3-4B-q4f16_1-MLC.wasm` },
+};
+const model = localModel("Qwen3-4B-q4f16_1-MLC", settings);
+
+// When the screen that will ask opens: the download starts now, not on the first question.
+void loadLocalModel("Qwen3-4B-q4f16_1-MLC", settings);
+```
+
+`loadLocalModel` resolves when the engine is ready, on the same engine `localModel` answers with, and
+rejects as a call would — `ai/unavailable` without WebGPU.
+
+*Held by* `packages/llm/src/local.test.ts`, "loads from where the host serves the model, when it says",
+"loads ahead of the first call, on the one engine, and asks once for the storage to persist".
 
 **A call can hold the model to a grammar.** `providerOptions: { kanzo: { grammar } }`, an EBNF
 string (`LocalCallOptions`), reaches WebLLM's engine as `response_format: { type: "grammar" }`, and
