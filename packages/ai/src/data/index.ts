@@ -12,7 +12,7 @@ export { askOffers, askTransport, questionOf, useAskChat } from "./ask-chat.js";
 export type { AskChatOptions, AskMessage, AskTurn } from "./ask-chat.js";
 export { readAnswer } from "./read.js";
 export type { AnswerOutput, QueryRow } from "./read.js";
-export { ask, askAnswer, askRelation, link } from "./ask.js";
+export { ask, link } from "./ask.js";
 export type { AskContext, AskInput, AskSpec } from "./ask.js";
 export { answerSchema, checkAnswer } from "./answer.js";
 export type { Answer, AnswerField, AnswerInput, AnswerRelation, Condition, ConditionValue, UnansweredClause } from "./answer.js";

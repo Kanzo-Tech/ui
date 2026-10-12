@@ -45,6 +45,7 @@ const LAYERS = ["ai/", "ai/data/", "ui/composites/", "ui/layouts/", "ui/simples/
  * classified instead of quietly escaping the scan.
  */
 const EXCLUDED: Record<string, string> = {
+  "ai/task/": "the Task loop — a model asked, oracles run — with no JSX",
   "ai/testing/": "a mock model for the package's tests — no JSX, and not in the published build",
   "ui/": "the barrels and the guards — an entry point re-exports, it does not draw",
   "ui/charts/": "SVG plot geometry — a mark's x is a coordinate, not a reading direction",

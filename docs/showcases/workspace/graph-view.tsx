@@ -1001,6 +1001,8 @@ export function GraphSettings() {
 interface Intent {
   /** Words that select this intent. */
   match: string[];
+  /** The question it was recorded for, which selects it before any word does. */
+  question: string;
   /** The spec the recording writes for it. */
   spec: AskSpec;
 }
@@ -1011,6 +1013,7 @@ const FIVE_YEARS_BACK = isoDay(-5 * 365);
 const INTENTS: Intent[] = [
   {
     match: ["old", "oldest", "long ago", "years", "before", "closed before"],
+    question: "How many contracts closed more than five years ago?",
     spec: {
       of: TYPE,
       where: [
@@ -1022,6 +1025,7 @@ const INTENTS: Intent[] = [
   },
   {
     match: ["amber", "hall", "tenant", "whose"],
+    question: "What does the Amber Hall hold, by kind?",
     spec: {
       of: TYPE,
       where: [{ field: "Node.hall", in: ["amber"] }],
@@ -1031,6 +1035,7 @@ const INTENTS: Intent[] = [
   },
   {
     match: ["hub", "connected", "busiest", "central", "biggest", "most work"],
+    question: "What holds the archive together?",
     spec: {
       of: TYPE,
       where: [{ field: "Node.degree", between: [60, 1_000_000] }],
@@ -1040,6 +1045,7 @@ const INTENTS: Intent[] = [
   },
   {
     match: ["contracts", "halls", "spread", "split"],
+    question: "How do contracts spread across the halls?",
     spec: {
       of: TYPE,
       where: [{ field: "Node.kind", in: ["contract"] }],
@@ -1050,13 +1056,14 @@ const INTENTS: Intent[] = [
 ];
 
 /**
- * The intent's own question wins before any keyword does — a pill the panel just offered must
- * always resolve to the intent that produced it, whatever words its question happens to hold.
+ * An intent's own question, or the words a pill it offered says, win before any keyword does — a
+ * question must always resolve to the intent that produced it, whatever words it happens to hold
+ * (*hold* holds *old*).
  */
 function match(question: string): Intent | null {
   const asked = question.trim().toLowerCase();
-  const offered = INTENTS.find((intent) => questionOf(intent.spec).toLowerCase() === asked);
-  if (offered) return offered;
+  const own = INTENTS.find((intent) => [intent.question, questionOf(intent.spec)].some((q) => q.toLowerCase() === asked));
+  if (own) return own;
   return INTENTS.find((intent) => intent.match.some((word) => asked.includes(word))) ?? null;
 }
 
