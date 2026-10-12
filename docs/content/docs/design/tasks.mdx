@@ -290,6 +290,7 @@ isolation, which keasy can afford — below.
 
 | Decision | Why | What would reverse it |
 | --- | --- | --- |
+| Ask's set is small and by shape: Nobel, plus SNB for what Nobel lacks | What it must cover is the shapes of a question, not a count; two corpora from two domains are enough to catch a linker fitted to one vocabulary, and the rest is the readers' failures | A Task that passes the set and fails a third corpus's questions of a shape the set has; then that corpus joins the set |
 | No separate phase of measuring today's system | It is known to fail and is being replaced; the evaluation set is needed anyway, as tests, gate and distillation data | That the set cannot be built without measuring today's system first; then one more pass, not a phase |
 | Every piece on a standard or a reference library | Less code of our own, known behaviour, someone else's documentation | A reference that requires a server runtime or persistent state not needed here; then we take its shape, not its package |
 | Generate, verify, repair instead of a free agent | The model decides little and every decision has an oracle | A free agent with the same small model matching execution accuracy across the set |
@@ -334,9 +335,14 @@ The evaluation set is built anyway, because the Tasks need it as tests, as the m
 and as distillation data.
 
 1. **Ask as a Task, with its evaluation set** (≈ 42 % of the lines touched). First what measures:
-   the evaluation set — about a hundred questions per corpus, each with its spec and expected rows;
-   the four examples for the assistant — one pass of today's Ask with one model, as a reference
-   number, and the WebLLM provider measured on real devices. Then the linker, the resolver in mosaic,
+   the evaluation set — for Ask, one or two cases per shape of question (a figure, a breakdown, a
+   ranking, a where, a date range, one and two hops, a page filter on another relation, a tie that
+   must ask, a question with no path, a follow-up, a synonym), each with its spec and the rows that
+   spec reads: about 25 on Nobel, and about 10 on LDBC SNB for what Nobel lacks — self-joins and a
+   large graph; for the assistant, the four examples as they are — one pass of today's Ask with one
+   model, as a reference number, and the WebLLM provider measured on real devices. The set grows with
+   the failures readers hit, not ahead of them; the thousands of pairs a distillation needs are
+   generated and kept only when they pass the oracles. Then the linker, the resolver in mosaic,
    the Task layer, Ask as a Task and its chips; `dataAgent` goes. The base model is chosen by
    measuring these Tasks, not today's system.
 2. **Profile and the mapping spec** (≈ 28 %). `fossil-profile` sans-IO in the wasm closure with its
