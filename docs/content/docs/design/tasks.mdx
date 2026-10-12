@@ -247,7 +247,7 @@ The pattern of `@kanzo-tech/mosaic` and `@kanzo-tech/llm`: the third party is a 
 re-exported so a host never imports it directly, and ours is only the door it lacks. Two copies of
 WebLLM would be two engines and two models in GPU memory.
 
-| Package | Third-party peer | Exports |
+| Package | Third-party peer | What it will carry — none of these names exists yet |
 | --- | --- | --- |
 | `@kanzo-tech/llm` | `ai`, required | the AI SDK's surface, `defineModels`, `AiError`, `stream`; `createGateway` goes |
 | `@kanzo-tech/llm/local` | `@browser-ai/web-llm`, `@mlc-ai/web-llm`, optional | `localModel`: one engine per page in a worker, manifest and versions, progress, `storage.persist()`, `ai/unavailable` without WebGPU and `ai/loading` |
