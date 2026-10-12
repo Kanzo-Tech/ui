@@ -2,7 +2,7 @@
 
 import { Chat, ChatSkeleton } from "@kanzo-tech/ai";
 
-/** A chat with nothing said yet, whose suggesting failed: the strip it keeps is the hard case. */
+/** A chat with nothing said yet, whose proposing failed: the strip it keeps is the hard case. */
 const idle = {
   messages: [],
   status: "ready" as const,
@@ -25,7 +25,7 @@ export function Frames() {
           <ChatSkeleton empty={empty} />
         </section>,
         <section className={`${className} rounded-xl border p-2`} data-testid={`${parent}-chat`} key={`${parent}-chat`}>
-          <Chat chat={idle as never} empty={empty} suggestions={[]} />
+          <Chat chat={idle as never} empty={empty} proposals={[]} />
         </section>,
       ])}
     </main>

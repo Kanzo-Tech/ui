@@ -41,7 +41,7 @@ its input and output, at every state of the call:
 ```tsx
 <Chat
   chat={useAgentChat(agent)}
-  suggestions={RECIPES.map((recipe) => ({ text: recipe.question }))}
+  proposals={RECIPES.map((recipe) => ({ text: recipe.question }))}
   tools={{ query: (part) => (part.state === "output-available" ? <ResultTable {...(part.output as ResultSet)} /> : <ToolInput />) }}
 />
 ```

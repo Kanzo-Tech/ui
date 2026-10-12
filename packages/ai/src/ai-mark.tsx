@@ -55,8 +55,8 @@ export interface AiMarkProps
   busy?: boolean;
   /**
    * The whole accessible name, and the only thing that carries state to a reader who cannot see
-   * the colour — so a caller that sets `offering` names the offer too, the way `CompleteMark`
-   * does.
+   * the colour — so a caller that sets `offering` names the offer too, the way `Assist`'s
+   * mark over a ghost does.
    */
   label?: string;
 }
@@ -71,7 +71,7 @@ export interface AiMarkProps
  * ## Both compounds bind it the same way, and that is a rule
  *
  * A mark that paints one way over a ghost and another over a candidate strip reads as two products
- * rather than one library, so `CompleteMark` and `SuggestMark` derive their props identically:
+ * rather than one library, so `Assist`'s mark over a ghost and over candidates derive their props identically:
  *
  * - `offering` — *there is something on offer*: a ghost, or candidates on screen. It used to be set
  *   only over a ghost, so a strip full of candidates left the mark at rest.
@@ -115,7 +115,7 @@ export function AiMark(props: AiMarkProps) {
       // from the primitive, and a spinner you can press stops being a lie.
       isLoading={busy}
       size="icon-sm"
-      // The browser's own tooltip, for the same reason `SuggestList` gives a candidate's rationale
+      // The browser's own tooltip, for the same reason the candidate list gives a candidate's rationale
       // one: it reaches the keyboard through focus and costs no box. A 16px glyph with an
       // accessible name and no visible one tells a pointer reader nothing at all.
       title={title ?? label}

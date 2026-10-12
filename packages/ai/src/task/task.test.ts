@@ -1,7 +1,7 @@
 import { jsonSchema } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, it } from "vitest";
-import { defineTask, runTask, type TaskState } from "./index.js";
+import { defineTask, propose, runTask, type TaskState } from "./index.js";
 
 const usage = {
   inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
@@ -101,5 +101,32 @@ describe("runTask", () => {
     const { model } = answering({ of: "Award", by: "Country" });
     const proposal = await runTask({ ...count, decide: { whichCountry: { assume: "university" } } }, { question: "?" }, { model });
     expect(proposal.verdict).toMatchObject({ ok: true, assumed: [{ decision: { id: "whichCountry" }, option: "university" }] });
+  });
+});
+
+describe("propose", () => {
+  it("offers only what every oracle accepts, with no decision left open, at most as many as asked", async () => {
+    const { model, prompts } = answering({
+      elements: [
+        { of: "Award", by: "University" },
+        { of: "Award", by: "Award" },
+        { of: "Award", by: "Country" },
+        { of: "University" },
+        { of: "Country" },
+      ],
+    });
+    const offered = await propose(count, { question: "" }, { model, count: 2 });
+    expect(offered.map((p) => p.value)).toEqual([{ of: "Award", by: "University" }, { of: "University" }]);
+    expect(prompts[0]).toContain("Offer 2");
+  });
+
+  it("throws what stopped the model, rather than offering nothing", async () => {
+    const refused = new Error("gateway refused");
+    const model = new MockLanguageModelV4({
+      doGenerate: async () => {
+        throw refused;
+      },
+    });
+    await expect(propose(count, { question: "" }, { model, count: 2 })).rejects.toBe(refused);
   });
 });

@@ -54,8 +54,8 @@ function Ask({ engine, graph, types, dashboards, onAdd }: { engine: Engine; grap
           </DiagnosticList>
         )
       }
-      suggesting={offers.isFetching}
-      suggestions={offers.data ?? []}
+      proposals={offers.data ?? []}
+      proposing={offers.isFetching}
       tools={{
         answer: (part, { stopped }) => <AnswerCard dashboards={dashboards} graph={graph} onAdd={onAdd} part={part} stopped={stopped} />,
       }}

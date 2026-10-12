@@ -1117,12 +1117,12 @@ function AskEmpty() {
 
 /** Questions to start from: Ask's own offers, each checked. None on failure, and the chat works without them. */
 function useOffers({ graph, types }: Askable, selection: MosaicSelection) {
-  const [state, setState] = useState<{ questions: Proposal[]; suggesting: boolean }>({ questions: [], suggesting: true });
+  const [state, setState] = useState<{ questions: Proposal[]; proposing: boolean }>({ questions: [], proposing: true });
   useEffect(() => {
     const abort = new AbortController();
     askOffers({ model: recording, graph, types, selection, signal: abort.signal }).then(
-      (offers) => setState({ questions: offers.map(({ text }) => ({ text })), suggesting: false }),
-      () => !abort.signal.aborted && setState({ questions: [], suggesting: false }),
+      (offers) => setState({ questions: offers.map(({ text }) => ({ text })), proposing: false }),
+      () => !abort.signal.aborted && setState({ questions: [], proposing: false }),
     );
     return () => abort.abort();
   }, [graph, types, selection]);
@@ -1155,8 +1155,8 @@ function AskBody({ archive, askable }: { archive: Archive; askable: Askable }) {
         chat={chat}
         context={<SubsetPill archive={archive} />}
         empty={<AskEmpty />}
-        suggesting={starters.suggesting}
-        suggestions={starters.questions}
+        proposals={starters.questions}
+        proposing={starters.proposing}
         tools={{
           answer: (part, { stopped }) => <AnswerCard graph={askable.graph} part={part} stopped={stopped} />,
         }}
