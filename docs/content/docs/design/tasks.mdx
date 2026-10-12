@@ -290,6 +290,7 @@ isolation, which keasy can afford — below.
 
 | Decision | Why | What would reverse it |
 | --- | --- | --- |
+| No separate phase of measuring today's system | It is known to fail and is being replaced; the evaluation set is needed anyway, as tests, gate and distillation data | That the set cannot be built without measuring today's system first; then one more pass, not a phase |
 | Every piece on a standard or a reference library | Less code of our own, known behaviour, someone else's documentation | A reference that requires a server runtime or persistent state not needed here; then we take its shape, not its package |
 | Generate, verify, repair instead of a free agent | The model decides little and every decision has an oracle | A free agent with the same small model matching execution accuracy across the set |
 | The relation is computed | The *University* × *Physics* failure is caught before running | A model that picks relations as well as the resolver across the set |
@@ -328,19 +329,25 @@ Three things that could have sunk the design, checked on 12 October 2026:
 
 ## Phases
 
-0. **Measure before touching.** Evalite suites and their cases: Ask's storyboards, and the four
-   examples — Nobel, OpenFlights, LDBC SNB, CORDIS — for the assistant. A baseline of today's system
-   with three or four models, the small candidates among them, and the WebLLM provider behind
-   `LanguageModel`, measured on real devices.
-1. **The resolver, and Ask as a Task.** The linker, the resolver in mosaic, the closed spec and its
-   chips. `dataAgent` goes. It improves the current model too.
-2. **Profile and the mapping spec** (fossil-lang). `fossil-profile` sans-IO in the wasm closure with
-   its two hosts, replacing introspect; a mapping spec in RML's shape and its emitter; the executor
-   in a worker.
-3. **The assistant as three Tasks** (keasy). Requirements, shapes and mapping over the Profile; the
-   current wizard goes.
-4. **A model of our own.** One small multi-task model distilled for every Task, versioned and served
-   as shards.
+There is no separate phase of measuring today's system: it is known to fail and it is being replaced.
+The evaluation set is built anyway, because the Tasks need it as tests, as the model's release gate
+and as distillation data.
+
+1. **Ask as a Task, with its evaluation set** (≈ 42 % of the lines touched). First what measures:
+   the evaluation set — about a hundred questions per corpus, each with its spec and expected rows;
+   the four examples for the assistant — one pass of today's Ask with one model, as a reference
+   number, and the WebLLM provider measured on real devices. Then the linker, the resolver in mosaic,
+   the Task layer, Ask as a Task and its chips; `dataAgent` goes. The base model is chosen by
+   measuring these Tasks, not today's system.
+2. **Profile and the mapping spec** (≈ 28 %). `fossil-profile` sans-IO in the wasm closure with its
+   two hosts, replacing introspect; a mapping spec in RML's shape and its emitter; the executor in a
+   worker.
+3. **The assistant, and the gateway retired** (≈ 30 %). Three screens over the `requirements`,
+   `model` and `mapping` Tasks; competency questions as Ask's questions. The current wizard goes, and
+   with it the gateway's last consumer: `services/ai`, `gateway.ts`, the BFF's `/api/ai` forward and
+   their configuration.
+4. **A model of our own.** One small multi-task model distilled for every Task, the evaluation set as
+   its gate, versioned and served as shards — in `kanzo-models`, outside these repositories.
 
 ## References
 
