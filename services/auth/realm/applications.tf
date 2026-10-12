@@ -3,7 +3,6 @@
 #   client_id            the client; it keys `resource_access.<client_id>` in every token
 #   description          optional
 #   api                  optional: the application's own API, registered with modules/api
-#   apis                 optional: the platform's APIs it also calls (this realm's `apis`)
 #   origin + callback    one redirect URI per organization: `{organization}` in the origin is
 #                        replaced by each alias, e.g. `https://{organization}.board.example.com`
 #   redirect_uris        instead of origin + callback, when the application has fixed ones
@@ -35,12 +34,9 @@ module "application" {
     for alias in keys(local.organizations) : "${replace(each.value.origin, "{organization}", alias)}${each.value.callback}"
   ]
   backchannel_logout_url = try(each.value.backchannel_logout, null)
-  apis = concat(
-    can(each.value.api) ? [module.application_api[each.key].scope] : [],
-    [for api in try(each.value.apis, []) : module.api[api].scope],
-  )
-  roles  = try(each.value.roles, {})
-  groups = try(each.value.groups, null)
+  apis                   = can(each.value.api) ? [module.application_api[each.key].scope] : []
+  roles                  = try(each.value.roles, {})
+  groups                 = try(each.value.groups, null)
 }
 
 # A realm applied by a release before v0.35.0 holds the conformance client under the addresses it had

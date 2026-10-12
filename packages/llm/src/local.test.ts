@@ -4,6 +4,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const supported = vi.fn(() => true);
 const requests: Record<string, unknown>[] = [];
 const made: { id: string; settings: Record<string, unknown> }[] = [];
+const loaded: string[] = [];
+const persist = vi.fn(async () => true);
+vi.stubGlobal("navigator", { storage: { persist } });
 
 vi.mock("@browser-ai/web-llm", () => ({
   doesBrowserSupportWebLLM: () => supported(),
@@ -26,6 +29,9 @@ vi.mock("@browser-ai/web-llm", () => ({
       doStream: async () => {
         throw new Error("not streamed here");
       },
+      createSessionWithProgress: async () => {
+        loaded.push(id);
+      },
       // The engine the provider keeps private, which a grammar is handed to directly.
       getEngine: async () => ({
         chat: {
@@ -42,8 +48,8 @@ vi.mock("@browser-ai/web-llm", () => ({
   },
 }));
 
-const { localModel } = await import("./local");
-const { AiError } = await import("./gateway");
+const { loadLocalModel, localModel } = await import("./local");
+const { AiError } = await import("./error");
 
 beforeEach(() => {
   supported.mockReturnValue(true);
@@ -101,5 +107,30 @@ describe("localModel", () => {
     const call = generateText({ model: localModel("Qwen3-1.7B-q4f16_1-MLC"), prompt: "?" });
     await expect(call).rejects.toBeInstanceOf(AiError);
     await expect(call).rejects.toMatchObject({ code: "ai/unavailable", data: { reason: "webgpu" } });
+  });
+
+  it("loads from where the host serves the model, when it says", () => {
+    localModel("kanzo-tasks-q4", { from: { weights: "https://models.example/kanzo-tasks-q4/", library: "https://models.example/kanzo-tasks-q4.wasm" } });
+    expect(made.at(-1)!.settings.appConfig).toEqual({
+      model_list: [
+        { model: "https://models.example/kanzo-tasks-q4/", model_id: "kanzo-tasks-q4", model_lib: "https://models.example/kanzo-tasks-q4.wasm" },
+      ],
+    });
+  });
+
+  it("loads ahead of the first call, on the one engine, and asks once for the storage to persist", async () => {
+    const before = made.length;
+    const model = localModel("SmolLM2-1.7B-Instruct-q4f16_1-MLC");
+    await loadLocalModel("SmolLM2-1.7B-Instruct-q4f16_1-MLC");
+    await loadLocalModel("Phi-3.5-mini-instruct-q4f16_1-MLC");
+    expect(loaded).toEqual(["SmolLM2-1.7B-Instruct-q4f16_1-MLC", "Phi-3.5-mini-instruct-q4f16_1-MLC"]);
+    expect(made.length).toBe(before + 2);
+    expect(localModel("SmolLM2-1.7B-Instruct-q4f16_1-MLC")).toBe(model);
+    expect(persist).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses to load without WebGPU, as a call does", async () => {
+    supported.mockReturnValue(false);
+    await expect(loadLocalModel("gemma-2-2b-it-q4f16_1-MLC")).rejects.toMatchObject({ code: "ai/unavailable" });
   });
 });

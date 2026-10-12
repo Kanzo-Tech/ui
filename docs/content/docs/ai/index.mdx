@@ -1,12 +1,13 @@
 ---
 title: AI
-description: Two surfaces that know a model is on the other end — a field the model helps fill, and a conversation with one — over the AI SDK, reached through @kanzo-tech/llm. A sibling of @kanzo-tech/ui, never part of it.
+description: What knows a model is on the other end — Tasks, where a small model fills an artefact that oracles check; a field the model helps fill; a conversation, with data or without — over the AI SDK, reached through @kanzo-tech/llm, a model in the page. A sibling of @kanzo-tech/ui, never part of it.
 ---
 
-`@kanzo-tech/ai` ships two capabilities, one door each:
+`@kanzo-tech/ai` ships one pattern and the surfaces built on it, one door each:
 
 | | For | Page |
 | --- | --- | --- |
+| `defineTask` + `runTask` + `useTask` | A **Task**: a small model fills a small artefact under a schema or a grammar, oracles that are facts check it, and a bounded loop repairs it or asks the person — `@kanzo-tech/ai/task` | [Tasks](/docs/ai/tasks) |
 | `AssistProvider` + `Assist` | A field the model helps fill: ghost text in a `Textarea`, whole values under an `Input`, items for a `TagsInput` | [Assist](/docs/ai/assist) |
 | `Chat` + `useAgentChat` | A conversation, whole: transcript, streaming markdown, reasoning, tool calls, the composer | [Chat](/docs/ai/chat) |
 | `useAskChat` + `AnswerCard` | A conversation with data: Ask, which answers with a dashboard tile over a relation of the page's DuckDB, and the card each answer is drawn in — `@kanzo-tech/ai/data` | [Ask your data](/docs/ai/data) |
@@ -19,8 +20,9 @@ everyone*: a part with a second arrangement is a part. The composer and the ✨ 
 nothing draws them but `Chat` and `Assist`, and would come out the same way. [The parts](/docs/ai/chat#the-parts)
 lists them.
 
-The model behind both is the [AI SDK](https://ai-sdk.dev), and a host reaches it through
-[`@kanzo-tech/llm`](/docs/ai/llm), never through `ai` directly.
+The model behind all of them is the [AI SDK](https://ai-sdk.dev)'s, and a host reaches it through
+[`@kanzo-tech/llm`](/docs/ai/llm), never through `ai` directly — [in the page](/docs/ai/llm#localmodel),
+on WebGPU.
 
 ## Why it is not in the library
 
@@ -62,29 +64,28 @@ carries sources only: the tokens and variants are `ui`'s.
 ## The middleware pattern
 
 `@kanzo-tech/llm` stands to the AI SDK as `@kanzo-tech/mosaic` stands to Mosaic: the third party is
-a required peer, its surface is re-exported, and what is ours is the one door it does not have —
-`createGateway`, which names a model by alias behind a gateway. Three layers:
+a required peer, its surface is re-exported, and what is ours is the door it does not have —
+`stream`, and `localModel`, a model in the page. Three layers:
 
 ```text
 @kanzo-tech/ai      Assist, Chat, useAgentChat   React; draws
-@kanzo-tech/llm     createGateway + the SDK      no React; models, agents, tools
+@kanzo-tech/llm     localModel, stream + the SDK no React; models, agents, tools
 ai, @ai-sdk/react   the AI SDK                   installed once, imported by neither
 ```
 
-So a host's AI imports are two lines, and neither names `ai`:
+So a host's AI imports are a few lines, and none names `ai`:
 
 ```tsx
-import { createGateway, ToolLoopAgent, tool } from "@kanzo-tech/llm";
+import { localModel } from "@kanzo-tech/llm/local";
+import { ToolLoopAgent, tool } from "@kanzo-tech/llm";
 import { Assist, AssistProvider, Chat, useAgentChat } from "@kanzo-tech/ai";
 ```
 
 ## What it does not do
 
-- **It does not hold a key.** A model is a `LanguageModel` the host passes in. In the browser that is
-  `createGateway` pointed at the host's own route, and the key stays on the server —
-  [Connecting a model](/docs/ai/llm#connecting-a-model) has the set-ups.
-- **It does not choose a model.** `Assist` asks whatever `AssistProvider` is given; `Chat` draws
-  whatever its agent streams. Which upstream answers an alias is [the gateway](/docs/ai/gateway)'s configuration.
+- **It does not choose a model.** A model is a `LanguageModel` the host passes in — `localModel`,
+  in the page, or a mock in a test. `Assist` asks whatever `AssistProvider` is given; `Chat` draws
+  whatever its agent streams.
 - **It does not persist anything.** The conversation is the AI SDK's chat state, and a field's
   value is the host's own state.
 
@@ -92,6 +93,5 @@ import { Assist, AssistProvider, Chat, useAgentChat } from "@kanzo-tech/ai";
   <Card title="Assist" href="/docs/ai/assist" description="One proposal for a field, drawn as ghost text or as chips." />
   <Card title="Chat" href="/docs/ai/chat" description="A conversation with a model, whole, with the host's tools drawn inside it." />
   <Card title="Ask your data" href="/docs/ai/data" description="An agent that answers with a dashboard tile over the page's data, and the card each answer is drawn in." />
-  <Card title="@kanzo-tech/llm" href="/docs/ai/llm" description="createGateway, the AI SDK re-exported, and where the key lives." />
-  <Card title="The gateway" href="/docs/ai/gateway" description="agentgateway, the server half: two aliases, the realm's token as its credential, and how a deployment runs it." />
+  <Card title="@kanzo-tech/llm" href="/docs/ai/llm" description="localModel, stream, and the AI SDK re-exported." />
 </Cards>

@@ -28,7 +28,7 @@ const questions = defineTask<string, { text: string }>({
 
 **An artefact can be text in a language instead of JSON.** A Task declares `grammar(input, context)`,
 an EBNF, in place of `output`: the model is asked for text, the grammar travels as
-`providerOptions.kanzo.grammar`, and [`localModel`](/docs/ai/llm#a-model-in-the-page) holds every token
+`providerOptions.kanzo.grammar`, and [`localModel`](/docs/ai/llm#localmodel) holds every token
 to it, so the model cannot write a name the grammar does not list. The oracles check the text as they
 check any artefact — for a Fossil mapping, the checker. `propose` takes a schema only.
 

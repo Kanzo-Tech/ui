@@ -21,7 +21,7 @@ export const auth = kanzoAuth(async () => ({
   public: ["/health"],
   apis: {
     "/api": { audience: "board-api", target: process.env.API_URL },
-    "/api/ai": { audience: "ai-gateway", target: process.env.AI_GATEWAY_URL },
+    "/api/search": { audience: "search-api", target: process.env.SEARCH_URL },
   },
 }));
 ```
@@ -270,8 +270,8 @@ Point the client at it with [`backchannel_logout_url`](/docs/auth/keycloak#back-
 The token-mediating backend. `apis` names each resource server the application calls by the path
 it is mounted on, and a request under a mount is forwarded to its `target` with a bearer token
 **for that resource server and for the organization the request addresses, alone**. A request is
-forwarded by the longest mount it is under, so `/api/ai` is the gateway and `/api/anything-else` is
-the API.
+forwarded by the longest mount it is under, so `/api/search` is the search API and
+`/api/anything-else` is the board's.
 
 The token is not the session's. The session's token names every organization the person belongs to
 and no API, so it never leaves the server: [`token`](/docs/auth/server#the-token-mediating-backend) exchanges it — OAuth

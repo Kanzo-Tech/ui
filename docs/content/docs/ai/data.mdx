@@ -28,21 +28,21 @@ but every tile is read for real, under the filter you set on the page.
 ```tsx
 import { Chat, ChatSkeleton } from "@kanzo-tech/ai";
 import { AnswerCard, askOffers, useAskChat, type AnswerCardProps, type AnswerRelation } from "@kanzo-tech/ai/data";
-import { createGateway } from "@kanzo-tech/llm";
+import { localModel } from "@kanzo-tech/llm/local";
 import { DiagnosticList, Problem } from "@kanzo-tech/ui";
 import { useMosaic, type Dashboards, type Engine, type JoinGraph } from "@kanzo-tech/ui/analytics";
 
-const gateway = createGateway({ baseURL: "/api/ai" });
+const model = localModel("Qwen3-4B-q4f16_1-MLC", { worker });
 ```
 
 ```tsx
 function Ask({ engine, graph, types, dashboards, onAdd }: { engine: Engine; graph: JoinGraph; types: AnswerRelation[]; dashboards: Dashboards; onAdd: AnswerCardProps["onAdd"] }) {
   const { selection } = useMosaic();
-  const chat = useAskChat({ model: gateway("chat"), engine, graph, types, selection });
+  const chat = useAskChat({ model, engine, graph, types, selection });
   // Cached per data space and per filter.
   const offers = useQuery({
     queryKey: ["offers", types, String(selection.predicate(null))],
-    queryFn: ({ signal }) => askOffers({ model: gateway("chat"), graph, types, selection, signal }),
+    queryFn: ({ signal }) => askOffers({ model, graph, types, selection, signal }),
   });
   return (
     <Chat
@@ -189,7 +189,7 @@ both say.
 
 | Option | Type | |
 | --- | --- | --- |
-| `model` | `LanguageModel` | The host's — `gateway("chat")`. Nothing here names a model |
+| `model` | `LanguageModel` | The host's — `localModel(…)`. Nothing here names a model |
 | `engine` | `Pick<Engine, "query">` | The page's — `engine()` — so an answer is read on its one connection, outside the queue |
 | `graph` | `JoinGraph` | The graph the relations are found in |
 | `types` | `readonly AnswerRelation[]` | Each type alone, with its fields — `readAnswerRelations` at `hops: 0` |

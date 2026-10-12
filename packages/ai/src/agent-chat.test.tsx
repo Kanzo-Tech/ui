@@ -7,7 +7,7 @@ import { useAgentChat } from "./agent-chat.js";
 import { Chat } from "./chat.js";
 import { mockModel } from "./testing/model.js";
 
-const limited = new AiError("ai/rate-limited", "Over the organisation's limit.", { retryAfter: 30 });
+const limited = new AiError("ai/unavailable", "This browser cannot run the model: it has no WebGPU", { reason: "webgpu" });
 
 function Harness(props: { agent: ToolLoopAgent; seen?: (error: unknown) => void }) {
   const chat = useAgentChat(props.agent);
@@ -29,7 +29,7 @@ describe("useAgentChat", () => {
     render(<Harness agent={agent} seen={(e) => (error = e)} />);
     await userEvent.setup().type(screen.getByPlaceholderText("Ask anything…"), "count{Enter}");
     await waitFor(() => expect(error).toBe(limited));
-    expect(document.querySelector("[data-slot=chat-error] [data-slot=diagnostic]")?.getAttribute("data-code")).toBe("ai/rate-limited");
+    expect(document.querySelector("[data-slot=chat-error] [data-slot=diagnostic]")?.getAttribute("data-code")).toBe("ai/unavailable");
   });
 
   it("is the AI SDK's conversation otherwise: it asks, and the answer streams in", async () => {

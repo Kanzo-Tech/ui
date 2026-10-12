@@ -13,11 +13,6 @@ output "organizations" {
   value       = { for k, v in keycloak_organization.org : k => v.id }
 }
 
-output "apis" {
-  description = "The platform's resource servers: client_id => the scope an application lists in `apis`."
-  value       = { for k, m in module.api : k => m.scope }
-}
-
 output "applications" {
   description = "The declared applications' client ids."
   value       = keys(module.application)

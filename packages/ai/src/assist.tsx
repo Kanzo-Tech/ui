@@ -71,7 +71,7 @@ interface AssistSettings {
 const Settings = React.createContext<AssistSettings | null>(null);
 
 export interface AssistProviderProps {
-  /** The model every assisted field below asks — `gateway("complete")`. */
+  /** The model every assisted field below asks — `localModel(…)`, from `@kanzo-tech/llm/local`. */
   model: LanguageModel;
   /**
    * What the rest of the form says, for every field below: read at the moment a field asks, so it
@@ -82,8 +82,8 @@ export interface AssistProviderProps {
   onEvent?: (event: AssistEvent) => void;
   /**
    * Called with what the model's stream threw, whole, when a field's ask fails — on the first
-   * attempt, never retried. A model from `createGateway` that goes silent arrives as its `AiError`
-   * coded `ai/silent`. The field also says so under itself.
+   * attempt, never retried. A page that cannot run `localModel` arrives as its `AiError` coded
+   * `ai/unavailable`. The field also says so under itself.
    */
   onFailure?: (error: unknown) => void;
   translations?: Partial<AssistTranslations>;

@@ -3,15 +3,15 @@ title: The services
 description: Why a capability's server half ships beside its client half, in one repository under one tag; why Compose is the whole of it; and why the service names no application and carries no production configuration.
 ---
 
-Two of the sibling packages read something a server emits: `@kanzo-tech/auth` reads a Keycloak
-realm's tokens, and `@kanzo-tech/llm` names models behind a gateway. Those servers are in this
-repository too, under `services/` — [the identity service](/docs/auth/service) and
-[the gateway](/docs/ai/gateway). This page is why they are here, and what keeps them generic.
+A sibling package reads something a server emits: `@kanzo-tech/auth` reads a Keycloak realm's
+tokens. That server is in this repository too, under `services/` —
+[the identity service](/docs/auth/service). This page is why it is here, what keeps it generic, and
+why there is no second one for models.
 
 ## Each capability ships both halves
 
 The server half of a capability and its client half live in **one repository and are released under
-one tag**: `services/auth` beside `packages/auth`, `services/ai` beside `packages/llm`. An
+one tag**: `services/auth` beside `packages/auth`. An
 application pins one release — its packages and the compose files it includes name the same tag —
 and gets a server and a client that were checked against each other, rather than two version
 numbers whose agreement is its own problem.
@@ -50,7 +50,7 @@ described once: there is no second description for production — Terraform reso
 that has to be kept saying what the compose files say.
 
 The second description is what it replaced. Production was Terraform on Docker Swarm, rewriting
-Keycloak, Postgres and the gateway as resources, because `docker stack deploy` cannot read these
+Keycloak, Postgres and the AI gateway as resources, because `docker stack deploy` cannot read these
 files: measured on 9 October 2026 against Docker 29.8, it refuses `include:` and secrets read from
 the environment, and has no `models:`. Two descriptions meant two ways to choose a model, the
 organizations written in three places, and a production realm that failed on an empty Keycloak
@@ -67,20 +67,19 @@ already runs. Then the services would ship for that scheduler — Kubernetes is 
 the price is a second description, paid deliberately.
 
 *Held by* the job `services` in `.github/workflows/ci.yml`, which brings the platform up from
-`services/compose.dev.yaml` — the realm applied, the seed run, the gateway loaded — and proves the realm
+`services/compose.dev.yaml` — the realm applied, the seed run — and proves the realm
 on live tokens.
 
 ## The service names no application
 
 Nothing under `services/` knows `board` or `ledger`. **An application declares itself**, from its
-own repository: an `x-application` — its client, its own API, the platform APIs it calls, its roles
+own repository: an `x-application` — its client, its own API, its roles
 with their composites — and an `x-organization` per organization it serves, mounted into the realm's
 one-shot `auth-realm` service. The realm reads every declaration it is given
 (`services/auth/realm/declarations.tf`) and registers them with `modules/app` and `modules/api`; it
-never names one. The gateway knows no application and no tenant either: both arrive in the token.
+never names one, and it ships no API of its own: every API is an application's, declared with it.
 The development realm declares `kanzo-conformance` in `services/auth/dev/`, which exists to prove
-the contract and which only development mounts; its APIs are its own and the gateway this repository
-ships.
+the contract and which only development mounts.
 
 The alternative is the one every shared realm drifts into: each new application is an edit to the
 platform's configuration, the platform's repository becomes a list of its consumers, and removing
@@ -97,63 +96,34 @@ contract needs is realm-wide and generic, and everything per application is a cl
 *Held by* the job `services` in `.github/workflows/ci.yml`, which validates `modules/app` and
 `modules/api` as modules with no caller, and proves the realm through `kanzo-conformance` alone.
 
-## The gateway is agentgateway, and the token is its credential
+## There is no model service
 
-The gateway validates the realm's access tokens and takes the person and the organization from them.
-There is no key per tenant, no team to mint and no list of tenants to keep beside the realm's: an
-organization Keycloak knows is one the gateway can charge, and the request log names the person as
-well as the organization. The gateway is an API like any other: a client of the realm, which the
-application's server [exchanges its token for](/docs/design/auth#one-token-per-api-and-organization-exchanged),
-for one organization, and the gateway refuses any token that names more than one.
+The model runs in the page ([Tasks](/docs/design/tasks)): a small model on the person's own device,
+held to a schema or a grammar and checked by oracles. So no server stands between the page and a
+model, no provider key exists to keep, and a question about a tenant's data does not leave the
+browser to be answered. The gateway that was here — agentgateway, chosen on 5 October 2026 because it
+validated the realm's tokens and budgeted per organization in one open-source binary, where LiteLLM
+needed its Enterprise edition and Agent Router needed Kubernetes — went with its last consumer, and
+so did the realm's `ai-gateway` API, the only API the realm registered for itself.
 
-**Why agentgateway.** We do not write a gateway, and the one we run has to be open source under a
-foundation, configured rather than extended, and able to run in a plain container. It was measured
-against the alternatives on 5 October 2026, with tokens shaped like this realm's:
-
-- **LiteLLM** validates a JWT only in its Enterprise edition, which is the whole point here.
-- **Agent Router** (formerly Envoy AI Gateway, now under the Linux Foundation) validates the token,
-  but outside Kubernetes no rate limit loads at all — startup fails validation, and the rate-limit
-  service is a Kubernetes DNS name in its source — and its documentation presents that mode as a
-  way to test configuration before deploying to a cluster. On Kubernetes it would mean the cluster,
-  Envoy Gateway, Redis and the controller, to host one service.
-- **agentgateway** (Apache-2.0, a Linux Foundation project) did all of it in one binary and one
-  file: strict validation against the realm's keys, one organization required, a token budget keyed
-  on the organization the token names, and a request log with the person, the organization, the
-  tokens and their cost. It reads the `organization` claim as the map it is, so the realm changes
-  nothing for it. The same binary runs under its own Kubernetes controller, so choosing it does not
-  close that door.
-
-**What it cost.** A budget per tenant in dollars: agentgateway prices requests and logs the cost,
-but its dollar budgets belong to API keys, so a tenant's budget is in tokens. LiteLLM's exact-match
-cache, which `complete` opted into. And LiteLLM's console per team, whose place the request log
-takes.
-
-**What would reverse it:** an organization's budget in money becoming a requirement no token budget
-can stand in for, or the platform moving onto Kubernetes, where Agent Router's limits and quotas
-work. Neither changes the contract — the token is the credential and the organization is in it —
-only what enforces it.
-
-*Held by* the job `services` in `.github/workflows/ci.yml`, which starts the pinned gateway from
-`services/ai/gateway.yaml` against the live realm's keys.
+**What would reverse it:** a Task no model that fits a device can do, measured on the evaluation set
+after everything computable has moved out of the model. Then a model goes behind a server again, and
+the contract it starts from is the one above: the realm's token, exchanged for one organization, is
+the credential, and nothing names a tenant but the token.
 
 ## Production configuration belongs to the deployment
 
 The services ship **development** values and the **shape** of production ones, never production
-values. Which model answers each alias is `AI_CHAT` and `AI_COMPLETE`, `provider/model`: they have
-no value in `services/ai/compose.yaml`, only in `compose.dev.yaml`, where they name the local models.
-The providers' keys, the hostnames, the passwords, the realm's identity provider, SMTP and TLS are
-the deployment's in the same way, and membership is runtime: development seeds it, production
-invites.
+values. The hostnames, the passwords, the realm's identity provider, SMTP and TLS are the
+deployment's, and membership is runtime: development seeds it, production invites.
 
-A shipped choice of production models would be one deployment's choices — a provider, a model, a price —
-presented as the platform's, and every other deployment would start by undoing it. What the service
-does own is what does not vary between them: the aliases, the claim mappers, the image pin, the
-rule that a request names one organization, the timeouts under the client's.
+A shipped production value would be one deployment's choice presented as the platform's, and every
+other deployment would start by undoing it. What the service does own is what does not vary between
+them: the claim mappers, the image pins, the rule that an exchanged token names one organization.
 
-**What would reverse it:** two deployments that want the same production models verbatim, written
+**What would reverse it:** two deployments that want the same production values verbatim, written
 twice. Then the duplication is real and the choice has earned a place — as a named example
 deployments copy, not as a default `compose.yaml` falls back to.
 
-*Held by* the gateway, barely: an alias left empty names no model, and the gateway refuses to start.
-That is its loader, not a guard of ours, and a default added to `compose.yaml` later would pass every
-gate here.
+Held by nothing: a default added to `compose.yaml` would pass every gate here, and review is what
+stands in front of it.

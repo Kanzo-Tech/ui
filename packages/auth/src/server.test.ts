@@ -847,13 +847,13 @@ describe("relyingParty", () => {
       const tokens = await Promise.all([
         auth.token(cookie, { audience: "reports", organization: "acme" }),
         auth.token(cookie, { audience: "reports", organization: "globex" }),
-        auth.token(cookie, { audience: "ai-gateway", organization: "acme" }),
+        auth.token(cookie, { audience: "search", organization: "acme" }),
       ]);
 
       expect(tokens.map((token) => alive<Token>(token).accessToken)).toEqual([
         "at>reports@acme",
         "at>reports@globex",
-        "at>ai-gateway@acme",
+        "at>search@acme",
       ]);
       expect(exchanges()).toHaveLength(3);
     });

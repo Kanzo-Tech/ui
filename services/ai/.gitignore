@@ -1,4 +1,0 @@
-.env
-**/.terraform/
-# A reusable module is pinned by its caller; only a root module keeps a lock file.
-modules/**/.terraform.lock.hcl

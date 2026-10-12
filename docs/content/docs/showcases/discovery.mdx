@@ -61,8 +61,8 @@ import { ToolLoopAgent, jsonSchema, tool } from "@kanzo-tech/llm";
 ```
 
 `ToolLoopAgent` takes a model and the tools; `useAgentChat` runs it in the page. A product swaps one
-thing and nothing else on the screen changes: the model becomes `gateway("chat")` from
-[`createGateway`](/docs/ai/llm), which reaches the host's own route, where the key lives.
+thing and nothing else on the screen changes: the model becomes
+[`localModel`](/docs/ai/llm#localmodel), in the page.
 
 - **`Chat`** — the transcript, the composer and the stream, whole. The pin, send/stop/retry and the
   tool states are its business, not this file's.

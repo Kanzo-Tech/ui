@@ -303,18 +303,18 @@ describe("Assist when the model fails", () => {
   }
 
   it("says so under the field and hands the provider's onFailure the thrown value", async () => {
-    const thrown = Object.assign(new Error("the gateway refused"), { code: "llm/refused" });
+    const thrown = Object.assign(new Error("the model refused"), { code: "llm/refused" });
     const { onFailure } = failing(thrown);
     await waitFor(() => expect(onFailure).toHaveBeenCalled(), { timeout: 2000 });
     expect(onFailure.mock.calls[0]?.[0]).toBe(thrown);
-    expect(await screen.findByRole("alert")).toHaveProperty("textContent", "the gateway refused");
+    expect(await screen.findByRole("alert")).toHaveProperty("textContent", "the model refused");
     expect(ghostText()).toBe("");
   });
 
-  it("asks once: a gateway's 504 is the failure, not a retry after it", async () => {
+  it("asks once: an error the SDK would retry is the failure, not a retry after it", async () => {
     const thrown = new APICallError({
-      message: "Gateway Timeout",
-      url: "http://gw/v1/chat/completions",
+      message: "Timeout",
+      url: "http://model/v1/chat/completions",
       requestBodyValues: {},
       statusCode: 504,
       isRetryable: true,

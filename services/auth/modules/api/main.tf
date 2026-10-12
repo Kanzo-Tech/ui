@@ -1,4 +1,4 @@
-# One resource server, registered with the platform's realm: an API, the AI gateway, a storage
+# One resource server, registered with the platform's realm: an API, a storage
 # broker. It obtains no token, so its client has no flow; it exists to be named. A token reaches
 # it through an application's token exchange (RFC 8693), which asks for this scope and this
 # audience and gets a token that names nothing else.

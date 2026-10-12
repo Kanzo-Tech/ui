@@ -118,9 +118,9 @@ names every organization the person belongs to, and it names no API. What a reso
 receives is that token exchanged — [OAuth 2.0 Token Exchange](https://www.rfc-editor.org/rfc/rfc8693),
 as Keycloak 26.8's standard token exchange implements it, supported and on by default — for one
 whose `aud` is that API and whose `organization` claim is the one organization the call is in. One
-credential model for everything behind a BFF: a tenant's API, the [AI gateway](/docs/ai/gateway),
-and whatever comes next are each a client of the realm, registered with
-`services/auth/modules/api`, and an application lists the ones it calls.
+credential model for everything behind a BFF: a tenant's API and whatever comes next are each a
+client of the realm, registered with `services/auth/modules/api`, and an application lists the ones
+it calls.
 
 None of it is ours. [RFC 9700 §2.3](https://www.rfc-editor.org/rfc/rfc9700#section-2.3) restricts
 an access token to one resource server, RFC 9068 has the resource server reject any `aud` but its
@@ -133,8 +133,7 @@ is what fossil's `Host.credentials` already expects of a host — a resource ser
 
 What it buys is the line between customers. Forwarded as it was, the session's token was as good at
 `globex`'s API as at `acme`'s for anyone in both; exchanged, it is good at one API in one
-organization for five minutes, and a key handed to an application — the gateway's per-tenant keys
-were — stops existing.
+organization for five minutes, and a key handed to an application stops existing.
 
 Three things here were measured rather than read, on Keycloak 26.8 by `scripts/verify.sh`:
 

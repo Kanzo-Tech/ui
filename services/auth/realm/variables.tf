@@ -36,11 +36,3 @@ variable "declarations" {
   default     = "/declarations"
 }
 
-# ── APIs ──────────────────────────────────────────────────────────────────────
-variable "apis" {
-  description = "client_id => description: the platform's own resource servers, registered with modules/api. An application's own API is declared with the application (`x-application.api`)."
-  type        = map(string)
-  default = {
-    ai-gateway = "services/ai: the platform's AI gateway."
-  }
-}

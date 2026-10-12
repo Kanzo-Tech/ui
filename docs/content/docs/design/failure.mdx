@@ -34,8 +34,7 @@ so one host registry keys all three. One class per package, named for it.
 | `graph/context-lost` | `GraphError` | the browser took the WebGL context back | — |
 | `graph/no-positions` | `GraphError` | a device that came up holds no positions for the points it was given: a frame's read-back failed | — |
 | `graph/nothing-to-draw` | `GraphError` | an attached corpus with no vertex | — |
-| `ai/silent` | `AiError`, from `@kanzo-tech/llm` | a model behind `createGateway` sent nothing for 30 s — no headers, or no chunk since the last | `after` |
-| `ai/rate-limited` | `AiError`, from `@kanzo-tech/llm` | the gateway answered 429: the caller is over its tenant's or its key's limit | `retryAfter`, in seconds, when the gateway said when |
+| `ai/unavailable` | `AiError`, from `@kanzo-tech/llm` | the page cannot run the model: no WebGPU for `localModel` | `reason` |
 | `session/*`, `idp/*`, `callback/*`, `token/*`, `organization/*`, `claims/*` | `AuthError` | see [the auth layer](/docs/design/auth) | `after`, `status` where named |
 
 **What would reverse it:** a code a host never branches on. Then it folds into its neighbour; the
@@ -54,57 +53,21 @@ fossil's to bound.
 *Held by* `packages/mosaic/src/engine-boot.test.ts`, "rejects with data.after when the worker never
 answers within the 60 s deadline".
 
-## A model's silence is bounded once, by the door that makes the request
+## A model's failure is shown once, on the first attempt
 
-`createGateway` owns the request to the model, so it owns the wait: a streaming request's headers are
-due within 30 s and each chunk of its body within 30 s of the last, and past that the request is
-aborted and the caller sees `ai/silent`. Nothing above it bounds the same wait again — not `Assist`,
-not `Chat`, not a host. A second bound on one wait is two parties racing to name one failure, and the
-one that wins is whichever timer was armed first.
+The model runs in the page ([Tasks](/docs/design/tasks)), so there is no request to a server to bound
+and no limit to be told about: what can fail is the device. `localModel` checks for WebGPU before it
+downloads anything and fails as `ai/unavailable` with `reason` `"webgpu"`, so a host says the device
+cannot run it rather than waiting on a load that will not finish.
 
-The figure is fossil's for a stream's next chunk. Three things follow from where it sits:
+**The library's own asks are made once.** `stream` passes `maxRetries: 0`, so the first attempt's
+error is the one shown. The SDK's default is two retries with backoff, and a generation that failed
+on this device fails the same way asked again — three waits where the person sits through one.
 
-- **Silence is the network's, not the model's thinking.** A model reasoning inside `<think>` is still
-  sending chunks; only a stream that sends nothing is cut. A bound above the SDK would count only
-  the text it yields and cut a model mid-thought.
-- **A request that does not stream is not bounded.** Its headers wait on the whole answer, which is
-  work on the far side: there is no silence to tell apart from it. The caller's signal is its end.
-- **The library's own asks are made once.** `stream` passes `maxRetries: 0`, so a gateway's 504 is
-  the failure it shows, with the gateway's code, on the first attempt. The SDK's default is two
-  retries with backoff: a gateway that gives up after its own 30 s was asked three times and
-  surfaced some 96 s later, as a `RetryError` with the 504 inside it.
+**What would reverse it:** a model the page reaches over the network again. Then the request has a
+silence to bound and a limit to name, and both belong to the one door that makes the request, not to
+`Assist` or `Chat` above it — two bounds on one wait are two parties racing to name one failure.
 
-A model that does not come from `createGateway` — a mock, a host's own provider — has no bound here.
-That is the price of one layer, and it is paid by whoever skips the door.
-
-**What would reverse it:** a host that must bound a model stream differently from every other — a
-longer idle for a model measured to pause past 30 s mid-answer. Then the figure becomes a
-`GatewaySettings` field, still on the one door. A silence the fetch cannot see — a stream that keeps
-sending bytes and never a token — would put a second bound above the SDK, and it has not been seen.
-
-*Held by* `packages/llm/src/gateway.test.ts`, "ends a stream whose headers do not come within 30 s
-as ai/silent, and not a millisecond before", "ends a stream that stops sending mid-way, 30 s after
-its last chunk", "does not cut a request that does not stream, whose headers wait on the whole
-answer"; `packages/ai/src/assist.test.tsx`, "asks once: a gateway's 504 is the failure, not a retry
-after it".
-
-## A limit is an answer, named by the door that met it
-
-A gateway that limits per tenant or per key answers 429, and `createGateway` turns that into
-`ai/rate-limited` before the provider reads it, with `retryAfter` from `retry-after` (seconds or an
-HTTP date) or else `x-ratelimit-reset`. It is not retried, by the door or above it: the limit is the
-gateway's answer to this caller, and asking again inside the window is how a caller stays over it.
-What a host does with `retryAfter` — a countdown, a disabled composer — is the host's; the code is
-what lets it tell a limit from a refusal without reading a provider's message.
-
-The headers are the gateway-agnostic part: agentgateway, LiteLLM and an OpenAI-compatible provider
-all send one of the two, so no gateway is named in the code.
-
-**What would reverse it:** a gateway that signals a limit some other way than a 429 — then the
-reading widens, still in `createGateway`. A host that wants the library to wait out `retryAfter` and
-ask again would be a second policy on one limit, and the gateway is where that policy lives.
-
-*Held by* `packages/llm/src/gateway.test.ts`, "fails as ai/rate-limited with the gateway's
-retry-after, asked once", "reads x-ratelimit-reset when there is no retry-after, and reaches a
-stream's caller as itself", "names no retryAfter when the gateway did not say when";
-`packages/llm/src/stream.test.ts`, "never retries a refused call".
+*Held by* `packages/llm/src/local.test.ts`, "fails as ai/unavailable without WebGPU, before anything
+loads"; `packages/ai/src/assist.test.tsx`, "asks once: an error the SDK would retry is the failure,
+not a retry after it"; `packages/llm/src/stream.test.ts`, "never retries a refused call".

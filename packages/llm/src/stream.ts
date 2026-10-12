@@ -1,7 +1,7 @@
 import { type LanguageModel, type OutputInterface, type StreamTextResult, type ToolSet, streamText } from "ai";
 
 export interface StreamOptions<OUTPUT extends OutputInterface> {
-  /** A model behind the gateway — `gateway("complete")`. */
+  /** The host's model — `localModel(…)`, from `@kanzo-tech/llm/local`. */
   model: LanguageModel;
   /** What the answer is for: the system prompt. */
   system?: string;
@@ -28,10 +28,10 @@ export interface Stream<OUTPUT extends OutputInterface> {
  *
  * - **A failure throws, once the stream ends.** The SDK reports a failed stream to `onError` and then
  *   ends it as if it had finished, so a refused call would read as a model with nothing to say. Each
- *   reading below rethrows what was reported, whole: a silent model as its `AiError` coded
- *   `ai/silent`, a refusal as its `AiError` coded `ai/rate-limited` or `ai/unavailable`.
- * - **Never retried.** The gateway retries its upstreams, and a silent gateway asked three times is
- *   three deadlines where the person waits for one.
+ *   reading below rethrows what was reported, whole: a page that cannot run the model as its
+ *   `AiError` coded `ai/unavailable`, anything else as the model threw it.
+ * - **Never retried.** A model that failed on this device fails the same way asked again, and each
+ *   attempt is a whole generation the person waits through.
  *
  * Read one of `text`, `elements` or `partial`, once: they are views of the same stream.
  */
