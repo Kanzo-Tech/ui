@@ -67,7 +67,13 @@ export interface TaskDefinition<I, A, C = string> {
   /** The question as the model reads it: the input and the context. */
   readonly prompt: (input: I, context: C) => string;
   /** The artefact's schema — the context's enums in it — as `Output.object` takes it. */
-  readonly output: (input: I, context: C) => FlexibleSchema<A>;
+  readonly output?: (input: I, context: C) => FlexibleSchema<A>;
+  /**
+   * For an artefact that is text in a language — a Fossil mapping — in place of `output`: the EBNF
+   * every token is held to, passed as `providerOptions.kanzo.grammar`. `@kanzo-tech/llm/local` holds
+   * the model to it; a model that is not local writes freely, and the oracles judge it the same.
+   */
+  readonly grammar?: (input: I, context: C) => string;
   readonly target?: (input: I) => Target;
   readonly verify?: readonly Oracle<I, A>[];
   /**
@@ -94,6 +100,12 @@ export interface RunOptions {
 }
 
 const isDecision = (f: Finding): f is { decision: Decision } => "decision" in f;
+
+/** `task`, which must declare the schema its artefact is decoded against. */
+function required<I, A, C>(task: TaskDefinition<I, A, C>): TaskDefinition<I, A, C> & { output: NonNullable<TaskDefinition<I, A, C>["output"]> } {
+  if (!task.output) throw new TypeError(`Task \`${task.name}\` declares neither an output schema nor a grammar`);
+  return task as TaskDefinition<I, A, C> & { output: NonNullable<TaskDefinition<I, A, C>["output"]> };
+}
 
 /** Every oracle's findings on `value`, split into what is wrong and what is the person's to decide. */
 async function check<I, A, C>(task: TaskDefinition<I, A, C>, value: A, input: I) {
@@ -136,21 +148,20 @@ export async function runTask<I, A, C>(task: TaskDefinition<I, A, C>, input: I, 
 
   onState?.("linking");
   const context = task.context ? await task.context(input, signal) : ("" as C);
-  const schema = task.output(input, context);
+  const grammar = task.grammar?.(input, context);
+  const schema = grammar === undefined ? required(task).output(input, context) : undefined;
   const asked = task.prompt(input, context);
 
   let feedback = "";
   let last: { value: A; diagnostics: Diagnostic[] } | undefined;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     onState?.(attempt === 1 ? "drafting" : "repairing");
-    const { output } = await generateText({
-      model,
-      system: task.instructions,
-      prompt: feedback ? `${asked}\n\n${feedback}` : asked,
-      output: Output.object({ schema }),
-      abortSignal: signal,
-    });
-    const value = output as A;
+    const prompt = feedback ? `${asked}\n\n${feedback}` : asked;
+    const value = (
+      schema === undefined
+        ? (await generateText({ model, system: task.instructions, prompt, providerOptions: { kanzo: { grammar: grammar! } }, abortSignal: signal })).text
+        : (await generateText({ model, system: task.instructions, prompt, output: Output.object({ schema }), abortSignal: signal })).output
+    ) as A;
 
     onState?.("verifying");
     const { diagnostics, decisions } = await check(task, value, input);
@@ -187,7 +198,7 @@ export async function propose<I, A, C>(
     model,
     system: task.instructions,
     prompt: `${task.prompt(input, context)}\n\nOffer ${count}, different from one another.`,
-    output: Output.array({ element: task.output(input, context) }),
+    output: Output.array({ element: required(task).output(input, context) }),
     abortSignal: signal,
   });
   const offered: Proposal<A>[] = [];

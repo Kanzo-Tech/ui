@@ -2,6 +2,7 @@ import { generateText } from "ai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const supported = vi.fn(() => true);
+const requests: Record<string, unknown>[] = [];
 const made: { id: string; settings: Record<string, unknown> }[] = [];
 
 vi.mock("@browser-ai/web-llm", () => ({
@@ -25,6 +26,18 @@ vi.mock("@browser-ai/web-llm", () => ({
       doStream: async () => {
         throw new Error("not streamed here");
       },
+      // The engine the provider keeps private, which a grammar is handed to directly.
+      getEngine: async () => ({
+        chat: {
+          completions: {
+            create: async (request: Record<string, unknown>) => {
+              requests.push(request);
+              return { choices: [{ message: { content: "People : Person from User" }, finish_reason: "stop" }], usage: { prompt_tokens: 3, completion_tokens: 5 } };
+            },
+          },
+        },
+        interruptGenerate: async () => {},
+      }),
     };
   },
 }));
@@ -37,6 +50,24 @@ beforeEach(() => {
 });
 
 describe("localModel", () => {
+  it("holds the model to a grammar a call passes, on the engine itself", async () => {
+    const grammar = 'root ::= "People : Person from User"';
+    const { text } = await generateText({
+      model: localModel("Qwen3-4B-q4f16_1-MLC"),
+      system: "Write the mapping.",
+      prompt: "User",
+      providerOptions: { kanzo: { grammar } },
+    });
+    expect(text).toBe("People : Person from User");
+    expect(requests.at(-1)).toMatchObject({
+      response_format: { type: "grammar", grammar },
+      messages: [
+        { role: "system", content: "Write the mapping." },
+        { role: "user", content: "User" },
+      ],
+    });
+  });
+
   it("answers through WebLLM, with what the model thought kept apart from what it said", async () => {
     const { text, reasoningText } = await generateText({ model: localModel("Qwen3-4B-q4f16_1-MLC"), prompt: "?" });
     expect(text).toBe("42");

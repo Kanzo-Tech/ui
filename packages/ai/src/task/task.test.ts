@@ -130,3 +130,25 @@ describe("propose", () => {
     await expect(propose(count, { question: "" }, { model, count: 2 })).rejects.toBe(refused);
   });
 });
+
+describe("a Task held to a grammar", () => {
+  it("asks for text with the grammar beside the prompt, and checks it as any artefact", async () => {
+    const seen: unknown[] = [];
+    const model = new MockLanguageModelV4({
+      doGenerate: async (call) => {
+        seen.push(call.providerOptions);
+        return { content: [{ type: "text", text: seen.length === 1 ? "People : Person from Usr" : "People : Person from User" }], finishReason: { unified: "stop", raw: "stop" }, usage, warnings: [] };
+      },
+    });
+    const mapping = defineTask<string, string>({
+      name: "mapping",
+      instructions: "Write the mapping.",
+      prompt: (sources) => sources,
+      grammar: () => 'root ::= "People : Person from " ("User" | "Usr")',
+      verify: [(text) => (text.endsWith("User") ? undefined : { code: "unknown-source", message: "Usr is not a source" })],
+    });
+    const proposal = await runTask(mapping, "User", { model });
+    expect(seen[0]).toEqual({ kanzo: { grammar: 'root ::= "People : Person from " ("User" | "Usr")' } });
+    expect(proposal).toMatchObject({ value: "People : Person from User", attempts: 2, verdict: { ok: true } });
+  });
+});

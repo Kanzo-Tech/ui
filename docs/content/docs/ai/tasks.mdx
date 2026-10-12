@@ -26,6 +26,15 @@ const questions = defineTask<string, { text: string }>({
 | `propose(task, input, { model, count })` | Several at once, in one call, keeping only those every oracle accepts — what a list offers before anything is asked |
 | `verify(task, value, input)` | The oracles' verdict on a value no model wrote: a person's edit |
 
+**An artefact can be text in a language instead of JSON.** A Task declares `grammar(input, context)`,
+an EBNF, in place of `output`: the model is asked for text, the grammar travels as
+`providerOptions.kanzo.grammar`, and [`localModel`](/docs/ai/llm#a-model-in-the-page) holds every token
+to it, so the model cannot write a name the grammar does not list. The oracles check the text as they
+check any artefact — for a Fossil mapping, the checker. `propose` takes a schema only.
+
+*Held by* `packages/ai/src/task/task.test.ts`, "asks for text with the grammar beside the prompt, and
+checks it as any artefact".
+
 An oracle answers nothing, a `Diagnostic` (`{ code, message, at? }`, `at` a JSON Pointer into the
 artefact), or a `{ decision }` — a question in the shape of MCP's elicitation, with options and
 never free text.

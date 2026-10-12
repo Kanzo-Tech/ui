@@ -1,5 +1,10 @@
 import { doesBrowserSupportWebLLM, webLLM, type WebLLMProgress } from "@browser-ai/web-llm";
-import { extractReasoningMiddleware, type LanguageModel, wrapLanguageModel } from "ai";
+import { extractReasoningMiddleware, type LanguageModel, type LanguageModelMiddleware, wrapLanguageModel } from "ai";
+
+/** A call's options and a generation's result, as the middleware sees them. */
+type Wrap = NonNullable<LanguageModelMiddleware["wrapGenerate"]>;
+type LanguageModelV4CallOptions = Parameters<Wrap>[0]["params"];
+type LanguageModelV4GenerateResult = Awaited<ReturnType<Wrap>>;
 
 import { AiError } from "./gateway.js";
 
@@ -27,6 +32,66 @@ export interface LocalModelSettings {
   onProgress?: (progress: { progress: number; text: string }) => void;
 }
 
+/**
+ * What a call may ask of a local model beside its prompt: `providerOptions.kanzo.grammar`, an EBNF
+ * the engine holds every token to (WebLLM's xgrammar). A Task whose artefact is text in a language —
+ * a Fossil mapping — passes its grammar here, and the model cannot write outside it. A model that is
+ * not local ignores it; the Task's oracles still judge what it wrote.
+ */
+export interface LocalCallOptions {
+  grammar?: string;
+}
+
+/** The engine under the provider: `@browser-ai/web-llm` keeps it private and passes only JSON Schema. */
+interface Engine {
+  chat: {
+    completions: {
+      create(request: {
+        messages: { role: "system" | "user" | "assistant"; content: string }[];
+        response_format: { type: "grammar"; grammar: string };
+        max_tokens?: number;
+        temperature?: number;
+        stream: false;
+      }): Promise<{ choices: { message: { content: string | null }; finish_reason: string | null }[]; usage?: { prompt_tokens: number; completion_tokens: number } }>;
+    };
+  };
+  interruptGenerate(): Promise<void>;
+}
+
+/** A call held to `grammar`, on the provider's own engine. */
+async function generateHeld(provider: unknown, grammar: string, options: LanguageModelV4CallOptions): Promise<LanguageModelV4GenerateResult> {
+  const engine = await (provider as { getEngine(): Promise<Engine> }).getEngine();
+  const messages = options.prompt.flatMap((m) => {
+    const content = typeof m.content === "string" ? m.content : m.content.map((p) => ("text" in p ? p.text : "")).join("");
+    return m.role === "system" || m.role === "user" || m.role === "assistant" ? [{ role: m.role, content }] : [];
+  });
+  const stop = () => void engine.interruptGenerate();
+  options.abortSignal?.addEventListener("abort", stop);
+  try {
+    const response = await engine.chat.completions.create({
+      messages,
+      response_format: { type: "grammar", grammar },
+      max_tokens: options.maxOutputTokens,
+      temperature: options.temperature,
+      stream: false,
+    });
+    const choice = response.choices[0];
+    const input = response.usage?.prompt_tokens;
+    const output = response.usage?.completion_tokens;
+    return {
+      content: [{ type: "text", text: choice?.message.content ?? "" }],
+      finishReason: { unified: choice?.finish_reason === "length" ? "length" : "stop", raw: choice?.finish_reason ?? undefined },
+      usage: {
+        inputTokens: { total: input, noCache: input, cacheRead: undefined, cacheWrite: undefined },
+        outputTokens: { total: output, text: output, reasoning: undefined },
+      },
+      warnings: [],
+    };
+  } finally {
+    options.abortSignal?.removeEventListener("abort", stop);
+  }
+}
+
 // One engine per model per page: two would be two copies of the weights in the GPU's memory.
 const engines = new Map<string, LanguageModel>();
 
@@ -51,7 +116,11 @@ export function localModel(model: string, settings: LocalModelSettings = {}): La
     middleware: [
       {
         specificationVersion: "v4",
-        wrapGenerate: ({ doGenerate }) => (doesBrowserSupportWebLLM() ? doGenerate() : Promise.reject(unavailable())),
+        wrapGenerate: ({ doGenerate, params }) => {
+          if (!doesBrowserSupportWebLLM()) return Promise.reject(unavailable());
+          const grammar = (params.providerOptions?.kanzo as LocalCallOptions | undefined)?.grammar;
+          return grammar ? generateHeld(provider, grammar, params) : doGenerate();
+        },
         wrapStream: ({ doStream }) => (doesBrowserSupportWebLLM() ? doStream() : Promise.reject(unavailable())),
       },
       // A model that thinks out loud does it between <think> tags, as the gateway's do.

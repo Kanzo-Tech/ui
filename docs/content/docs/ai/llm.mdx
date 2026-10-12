@@ -272,6 +272,16 @@ decoded against its schema; a tool is described in the prompt and parsed out of 
 small model can write a call that does not parse. Why the platform is moving to models in the page,
 and why its Tasks use no tools, is [Tasks](/docs/design/tasks).
 
+**A call can hold the model to a grammar.** `providerOptions: { kanzo: { grammar } }`, an EBNF
+string (`LocalCallOptions`), reaches WebLLM's engine as `response_format: { type: "grammar" }`, and
+every token the model writes is one the grammar allows: what is not in it cannot be decoded. The AI
+SDK's WebLLM provider passes a JSON Schema and nothing else, so `localModel` hands a grammar to the
+engine itself. A Task whose artefact is text in a language declares it ([Tasks](/docs/ai/tasks)); a
+model that is not local ignores the option, and the Task's oracles judge what it wrote the same.
+
+*Held by* `packages/llm/src/local.test.ts`, "holds the model to a grammar a call passes, on the engine
+itself".
+
 ### A mock, for tests and these pages
 
 Every example and showcase on this site runs with no network: the model is the AI SDK's own
