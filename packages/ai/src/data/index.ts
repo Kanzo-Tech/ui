@@ -10,6 +10,8 @@
 
 export { dataAgent, dataInstructions, dataSuggestions } from "./agent.js";
 export type { AnswerOutput, DataAgentOptions, DataSuggestionsOptions, DataTools, QueryRow } from "./agent.js";
+export { ask, askAnswer, askRelation, link } from "./ask.js";
+export type { AskContext, AskInput, AskSpec } from "./ask.js";
 export { answerSchema, checkAnswer } from "./answer.js";
 export type { Answer, AnswerField, AnswerInput, AnswerRelation, Condition, ConditionValue, UnansweredClause } from "./answer.js";
 export { answerRelationsOf, readAnswerRelations } from "./relations.js";

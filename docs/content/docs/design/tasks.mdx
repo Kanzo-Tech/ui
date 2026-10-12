@@ -12,7 +12,10 @@ manifest, no versions and no `ai/loading`. `@kanzo-tech/mosaic`'s
 prompt, output schema, `Oracle`s and the decisions it settles — and `runTask` runs it with
 `RunOptions` (a model, a signal, `onState` for each `TaskState`), answering a `Proposal` whose
 `Verdict` is accepted, a `Diagnostic` list, or a `Decision`; an oracle answers a `Finding`, and a
-proposal lands at its `Target`. No hook, presentation or Ask Task is built on it yet. The rules on
+proposal lands at its `Target`. And `@kanzo-tech/ai/data`'s `ask` is the Ask Task on it: `link` offers
+the types an `AskInput`'s question names, the model fills an `AskSpec` in that `AskContext`,
+`askRelation` resolves its relation and `askAnswer` makes the answer `AnswerCard` draws. No hook or
+presentation is built on it yet, and the Ask panel still runs `dataAgent`. The rules on
 [Asking data](/docs/design/ai) and [Asking within a context](/docs/design/ai-context) describe the
 code as it is, and they stay true until the phase that replaces them lands; that commit rewrites
 their paragraphs, and this callout narrows to what is still to come. The decision record this page
