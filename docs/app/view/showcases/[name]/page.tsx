@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { AppShellShowcase } from "@/showcases/app-shell/default";
+import { AssistantShowcase } from "@/showcases/assistant/default";
 import { DiscoveryShowcase } from "@/showcases/discovery/default";
 import { GraphBenchShowcase } from "@/showcases/graph-bench/default";
 import { JobStudioShowcase } from "@/showcases/job-studio/default";
@@ -49,6 +50,9 @@ const SHOWCASES = {
   // `query` tool behind `Chat`, and the tool's result drawn by the host as a real `DataTableRoot`
   // rather than JSON — the case `Chat`'s `tools` renderers exist for.
   discovery: DiscoveryShowcase,
+  // From a few files to a graph, and the person never reads ShEx or Fossil: three screens, each a
+  // Task's proposals checked against the data. The model is the mock; the oracle is real.
+  assistant: AssistantShowcase,
 } as const;
 
 type ShowcaseName = keyof typeof SHOWCASES;

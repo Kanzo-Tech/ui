@@ -1,0 +1,52 @@
+---
+title: Assistant
+description: From a few files to a graph in three screens — questions, model, result — where a model proposes and the data decides, and nobody reads ShEx or Fossil.
+full: true
+---
+
+<PreviewIframe name="assistant" title="Assistant showcase" className="h-[860px]" />
+
+The screen a person meets with three CSV files and no idea what a shape or a mapping is. It asks
+what they want to know, proposes the graph that answers it, builds it, and asks the questions
+again. ShEx and Fossil are under it, and under it they stay: the last screen shows the mapping
+behind **Advanced**, for whoever wants to read it.
+
+Each screen is a [Task](/docs/ai/tasks): a model proposes, an oracle that knows the data checks, and
+what fails the check is never shown as if it held.
+
+Worth exercising in the frame:
+
+- **The proposals arrive already checked.** The model offers five questions and one of them asks for
+  prize money, which no file holds. The oracle drops it before it reaches the list: `propose` keeps
+  what every oracle accepts. Each question that is shown says what in the data answers it.
+- **Type that question yourself.** *How much prize money did each laureate receive?* goes through
+  the same Task (`runTask`, one attempt), and this time the screen keeps it in view with the reason:
+  no file holds an amount. A question the person wrote is not dropped in silence.
+- **The model is computed, not asked for.** Each card is one file, and each switch a column. The ones
+  a kept question needs are on, with a badge saying how many need it. Turn one off and the Result
+  screen says which question it breaks. A link is a column whose every value is another file's key,
+  found by the profile — the aside says so in a sentence.
+- **The result is asked of the graph.** Every kept question is answered or says what it is missing,
+  and the figures count what was built, not what was asked for.
+
+## What is real here
+
+The Task machinery is the library's: `defineTask`, `useTask`, `propose` and `runTask` from
+[`@kanzo-tech/ai`](/docs/ai/tasks). The schema makes `uses` an enum of what the profile found, so a
+model held to it cannot name a column that does not exist. The oracle checks the same thing for
+anything that is not held — a model running freely, or a question typed by the person.
+
+The model is `ai/test`'s mock (`docs/lib/mock-model.ts`), proposing the same five questions every
+time and grounding a typed one by keyword. The profile is written down in `data.ts` rather than
+read by DuckDB, and the answers are canned. In a product these are `localModel`, `@fossil-lang/profile`
+and the corpus. None of the three changes anything on the screens.
+
+## Source
+
+```text
+docs/showcases/assistant/
+├── default.tsx   — the three screens, the aside and the step strip
+├── tasks.ts      — the requirements Task, its oracle, and the mock model
+├── model.ts      — the model the kept questions need, and its mapping in Fossil
+└── data.ts       — the files as the profile read them, and the links between them
+```
