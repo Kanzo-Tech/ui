@@ -5,7 +5,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { testDatabase, type TestDatabase } from "../testing/duckdb.js";
 import { answering, NOBEL, TYPES } from "../testing/nobel.js";
 import { PEOPLE, PERSON, seedPeople } from "../testing/people.js";
-import { askTransport, type AskChatOptions, type AskMessage } from "./ask-chat.js";
+import { askEdit, askTransport, type AskChatOptions, type AskMessage } from "./ask-chat.js";
 import type { AskSpec } from "./ask.js";
 import { readAnswerRelations } from "./relations.js";
 
@@ -70,5 +70,16 @@ describe("askTransport", () => {
     const second = await turn(options, [user("1", "Prizes by country?"), { id: "2", role: "assistant", parts: kept }, user("3", "2")]);
     expect(second.find((c) => c.type === "tool-input-available")).toMatchObject({ input: { relation: "LaureateAward>university>University>addressCountry>Country" } });
     expect(asked).toHaveLength(1);
+  });
+
+  it("asks an edited spec as it is, with no model in between", async () => {
+    const types = await readAnswerRelations(db.coordinator, PEOPLE, [PERSON]);
+    const men: AskSpec = { of: "Person", where: [{ field: "Person.gender", in: ["male"] }], show: { kind: "stat", measure: { op: "count" } } };
+    const model = answering(men);
+    const chunks = await turn({ model: model as LanguageModel, engine: db.engine, graph: PEOPLE, types }, [
+      { id: "1", role: "user", ...askEdit(men) },
+    ]);
+    expect(model.doGenerateCalls).toHaveLength(0);
+    expect(chunks.find((c) => c.type === "tool-output-available")).toMatchObject({ output: { rows: [{ count: 3 }], spec: men } });
   });
 });

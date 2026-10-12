@@ -115,6 +115,15 @@ function decided<I, A, C>(task: TaskDefinition<I, A, C>, decisions: readonly Dec
 }
 
 /**
+ * The verdict on a value nobody asked a model for — a person's edit of an earlier one: every oracle
+ * run on it, as `runTask` runs them on an answer, with no repair to send it back to.
+ */
+export async function verify<I, A, C>(task: TaskDefinition<I, A, C>, value: A, input: I): Promise<Verdict> {
+  const { diagnostics, decisions } = await check(task, value, input);
+  return diagnostics.length > 0 ? { ok: false, diagnostics } : decided(task, decisions);
+}
+
+/**
  * Runs `task` on `input`: the context computed, the artefact asked for, every oracle run on it, and
  * the diagnostics sent back for another attempt while there are attempts left. A decision the task
  * does not settle ends it as a question; one it settles is recorded as assumed.

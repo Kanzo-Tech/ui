@@ -211,6 +211,35 @@ relation reaches back, and takes the repair". `packages/ai/src/data/page-clauses
 chip on another relation by the key both reach, as the page's tiles are crossed"; "keeps none of a
 relation's rows when it shares no type with the chip's".
 
+## The chips
+
+**`AskChips` draws what an answer was read as, each part editable**: what is counted, what a chart
+is by, and each condition. A chip opens the values it can hold instead, and they are computed, not
+asked of a model — every type, every other field, a condition's other values and *any* — and each is
+offered only when Ask's own oracles accept it: the resolver reaches it by one shortest path, and it
+compiles. Taking one sends the edited spec as the next message, and the transport asks it as it is:
+the oracles run, the answer is read, and no model is called.
+
+```tsx
+answer: (part, { stopped }) => {
+  const spec = part.state === "output-available" ? (part.output as AskOutput).spec : undefined;
+  return (
+    <>
+      <AnswerCard graph={graph} part={part} stopped={stopped} />
+      {spec && <AskChips onChange={(next) => chat.sendMessage(askEdit(next))} over={{ graph, types }} spec={spec} />}
+    </>
+  );
+},
+```
+
+An `answer` part's output carries the spec it was read from (`AskOutput`), so the chips need nothing
+the part does not hold. `askAlternatives(spec, input)` is the list without the drawing, and
+`verify(task, value, input)` from `@kanzo-tech/ai/task` is the check without a model, for any Task.
+
+*Held by* `packages/ai/src/data/ask.test.ts`, "offers each slot's other values, as whole specs";
+"offers only what the oracles accept: no x two relations reach equally".
+`packages/ai/src/data/ask-chat.test.ts`, "asks an edited spec as it is, with no model in between".
+
 ## The questions
 
 **`askOffers(options)` is the same Task with no question asked**: the model writes as many specs as
@@ -359,5 +388,5 @@ pnpm add @kanzo-tech/mosaic
 
 The types are exported as `Answer`, `AnswerInput`, `AnswerField`, `AnswerRelation`, `Condition`,
 `ConditionValue`, `UnansweredClause`, `AnswerOutput`, `QueryRow`, `AskChatOptions`, `AskMessage`,
-`AskTurn`, `AskInput`, `AskSpec`, `AskContext`, `AnswerRelationsOfOptions`, `ReadAnswerRelationsOptions`,
+`AskOutput`, `AskTurn`, `AskChip`, `AskChipsProps`, `AskInput`, `AskSpec`, `AskContext`, `AnswerRelationsOfOptions`, `ReadAnswerRelationsOptions`,
 `AnswerAdded`, `AnswerCardProps` and `AnswerCardTranslations`.

@@ -4,7 +4,7 @@ import { relationKey, relationOf, type Engine, type JoinGraph, type Relation, ty
 import { createUIMessageStream, type ChatTransport, type InferUIMessageChunk, type LanguageModel, type UIMessage } from "ai";
 import * as React from "react";
 import { useTransportChat, type AgentChat, type AgentChatOptions } from "../agent-chat.js";
-import { propose, runTask, type Decision } from "../task/index.js";
+import { propose, runTask, verify, type Decision, type Verdict } from "../task/index.js";
 import { measureName, type AnswerInput, type AnswerRelation } from "./answer.js";
 import { ask, askAnswer, askRelation, answerRelation, type AskInput, type AskSpec } from "./ask.js";
 import { readAnswer, type AnswerOutput } from "./read.js";
@@ -35,8 +35,20 @@ export interface AskTurn {
   readonly choices?: readonly Relation[];
 }
 
-/** Ask's messages: an `answer` tool part `AnswerCard` draws, and the turn as a data part. */
-export type AskMessage = UIMessage<never, { ask: AskTurn }, { answer: { input: AnswerInput; output: AnswerOutput } }>;
+/** What an `answer` part reads back: the read, and the spec it was read from — what its chips edit. */
+export type AskOutput = AnswerOutput & { readonly spec: AskSpec };
+
+/**
+ * Ask's messages: an `answer` tool part `AnswerCard` draws, and the turn as a data part. A person's
+ * message may carry a `data-ask` part too — a spec they edited with `AskChips` — which is asked as it
+ * is, with no model in between.
+ */
+export type AskMessage = UIMessage<never, { ask: AskTurn }, { answer: { input: AnswerInput; output: AskOutput } }>;
+
+/** The message an edited spec is asked as: its words, and the spec itself. `chat.sendMessage(askEdit(spec))`. */
+export function askEdit(spec: AskSpec): Pick<AskMessage, "parts"> {
+  return { parts: [{ type: "text", text: questionOf(spec) }, { type: "data-ask", data: { spec } }] };
+}
 
 /** The root type of each relation the page's chips are on: what an answer must reach. */
 const underOf = (selection?: Selection) =>
@@ -103,11 +115,19 @@ export function askTransport(options: () => AskChatOptions, onError?: (value: un
 
           let spec: AskSpec;
           let relation = chosen(before, question);
+          const edited = turnOf(messages.at(-1))?.spec;
           if (relation && before) spec = before.spec;
           else {
-            const proposal = await runTask(ask, input, { model, signal: abortSignal });
-            spec = proposal.value;
-            const verdict = proposal.verdict;
+            // A spec the person edited is checked as the model's would be, and never sent to it.
+            let verdict: Verdict;
+            if (edited) {
+              spec = edited;
+              verdict = await verify(ask, spec, input);
+            } else {
+              const proposal = await runTask(ask, input, { model, signal: abortSignal });
+              spec = proposal.value;
+              verdict = proposal.verdict;
+            }
             if (!verdict.ok && "decision" in verdict) {
               const resolved = askRelation(spec, input);
               const choices = resolved.kind === "ambiguous" ? resolved.relations : [];
@@ -134,7 +154,7 @@ export function askTransport(options: () => AskChatOptions, onError?: (value: un
           const shown: AnswerInput = { ...answer, relation: relationKey(graph, relation), show: show as AnswerInput["show"] };
           writer.write({ type: "tool-input-available", toolCallId, toolName: "answer", input: shown });
           const output = await readAnswer(answer, answerRelation(relation, input), { engine, graph, selection, signal: abortSignal });
-          writer.write({ type: "tool-output-available", toolCallId, output });
+          writer.write({ type: "tool-output-available", toolCallId, output: { ...output, spec } satisfies AskOutput });
           writer.write({ type: "data-ask", data: { spec } });
           write(writer, summary(output));
           writer.write({ type: "finish" });

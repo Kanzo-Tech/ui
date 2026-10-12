@@ -14,8 +14,9 @@ prompt, output schema, `Oracle`s and the decisions it settles — and `runTask` 
 `Verdict` is accepted, a `Diagnostic` list, or a `Decision`; an oracle answers a `Finding`, and a
 proposal lands at its `Target`; `propose` asks for several at once and keeps those the oracles
 accept. And [Ask](/docs/ai/data#ask) is a Task on it: `@kanzo-tech/ai/data`'s `ask`, run behind the
-chat by `useAskChat`, with `askOffers` for the questions to start from. What is still to come is
-the chips on an answer and their alternatives, the assistant's Tasks, and the model. The decision
+chat by `useAskChat`, with `askOffers` for the questions to start from and `AskChips` for the chips
+on an answer, each opening its checked alternatives (`verify` re-checks an edit with no model). What
+is still to come is the assistant's Tasks and the model. The decision
 record this page was drawn from is the *Kanzo Tasks* design page of 12 October 2026, and where the
 two disagree this page is the one that gets fixed.
 </Callout>

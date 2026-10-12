@@ -174,3 +174,67 @@ export const ask = defineTask<AskInput, AskSpec, AskContext>({
   target: (input) => (input.previous ? { set: "" } : { add: "/answers" }),
   verify: [reachable, compiles],
 });
+
+/** One slot of a spec a person can change, and what it can change to: the chips on an answer. */
+export interface AskChip {
+  /** What the slot is: `of`, `x`, or `where.<n>`. */
+  readonly slot: string;
+  /** How the slot reads: *Counting*, *By*, or the field a where is on. */
+  readonly label: string;
+  /** What it holds now, in words. */
+  readonly value: string;
+  /** Every other value it can hold, each the whole spec with it — only those the oracles accept. */
+  readonly options: readonly { readonly label: string; readonly spec: AskSpec }[];
+}
+
+const named = (field: string) => field.slice(field.indexOf(".") + 1);
+
+/**
+ * The chips of `spec`: what is counted, what a chart is by, and each condition — each with the
+ * values it could hold instead, computed and checked, never asked of a model. An option the
+ * resolver cannot reach, or that two relations answer equally, is not offered: taking a chip
+ * re-reads the answer at once, with no question in between.
+ */
+export function askAlternatives(spec: AskSpec, input: AskInput): AskChip[] {
+  const holds = (next: AskSpec) => askRelation(next, input).kind === "relation" && compiles(next, input) === undefined;
+  const fields = input.types.flatMap((t) => t.fields);
+  const offered = (candidates: readonly (readonly [string, AskSpec])[]) =>
+    candidates.filter(([, next]) => holds(next)).map(([label, next]) => ({ label, spec: next }));
+  const chips: AskChip[] = [
+    {
+      slot: "of",
+      label: "Counting",
+      value: spec.of,
+      options: offered(input.types.filter((t) => t.relation.root !== spec.of).map((t) => [t.relation.root, { ...spec, of: t.relation.root }] as const)),
+    },
+  ];
+  const show = spec.show;
+  if (show.kind === "chart") {
+    chips.push({
+      slot: "x",
+      label: "By",
+      value: named(show.x),
+      options: offered(
+        fields
+          .filter((f) => f.name !== show.x && f.kind !== "numeric")
+          .map((f) => [f.name, { ...spec, show: { ...show, x: f.name } }] as const),
+      ),
+    });
+  }
+  (spec.where ?? []).forEach((condition, n) => {
+    if (!("in" in condition)) return;
+    const field = fields.find((f) => f.name === condition.field);
+    const others = (field?.values ?? []).filter((v) => !condition.in.includes(v));
+    const where = (next: AskSpec["where"]) => ({ ...spec, where: next });
+    chips.push({
+      slot: `where.${n}`,
+      label: named(condition.field),
+      value: condition.in.join(" or "),
+      options: offered([
+        ...others.map((v) => [String(v), where(spec.where!.map((c, i) => (i === n ? { field: c.field, in: [v] } : c)))] as const),
+        ["any", where(spec.where!.filter((_, i) => i !== n))] as const,
+      ]),
+    });
+  });
+  return chips;
+}

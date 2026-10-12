@@ -1,7 +1,7 @@
 import { relationKey } from "@kanzo-tech/mosaic";
 import { describe, expect, it } from "vitest";
 import { runTask } from "../task/index.js";
-import { ask, askAnswer, link, type AskInput, type AskSpec } from "./ask.js";
+import { ask, askAlternatives, askAnswer, link, type AskInput, type AskSpec } from "./ask.js";
 import { NOBEL, TYPES, answering } from "../testing/nobel.js";
 
 const input = (question: string, extra: Partial<AskInput> = {}): AskInput => ({ question, graph: NOBEL, types: TYPES, ...extra });
@@ -71,5 +71,34 @@ describe("the ask Task", () => {
     const proposal = await runTask({ ...ask, attempts: 2 }, input("Women by category?"), { model: answering(lost, { ...byUniversity, of: "LaureateAward" }) });
     expect(proposal.attempts).toBe(2);
     expect(proposal.verdict).toEqual({ ok: true });
+  });
+});
+
+describe("askAlternatives", () => {
+  // Women laureates by the country they were born in: one path, Laureate>birthPlace>Country.
+  const women: AskSpec = {
+    of: "Laureate",
+    show: { kind: "chart", type: "bar", x: "Country.name", y: { op: "count" } },
+    where: [{ field: "Laureate.gender", in: ["female"] }],
+  };
+
+  it("offers each slot's other values, as whole specs", () => {
+    const chips = askAlternatives(women, input(""));
+    expect(chips.map((c) => [c.slot, c.label, c.value])).toEqual([
+      ["of", "Counting", "Laureate"],
+      ["x", "By", "name"],
+      ["where.0", "gender", "female"],
+    ]);
+    const where = chips[2]!.options;
+    expect(where.map((o) => o.label)).toEqual(["male", "any"]);
+    expect(where[0]!.spec.where).toEqual([{ field: "Laureate.gender", in: ["male"] }]);
+    expect(where[1]!.spec.where).toEqual([]);
+  });
+
+  it("offers only what the oracles accept: no x two relations reach equally", () => {
+    const by = askAlternatives(byUniversity, input("")).find((c) => c.slot === "x")!;
+    // A prize reaches a country two equally short ways, so Country.name is not an option.
+    expect(by.options.map((o) => o.label)).not.toContain("Country.name");
+    expect(by.options.map((o) => o.label)).toContain("Category.name");
   });
 });

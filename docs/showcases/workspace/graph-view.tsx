@@ -54,7 +54,7 @@ import {
   toast,
 } from "@kanzo-tech/ui";
 import { Chat, ChatSkeleton, type Proposal } from "@kanzo-tech/ai";
-import { AnswerCard, answerRelationsOf, askOffers, questionOf, readAnswerRelations, useAskChat, type AnswerRelation, type AskSpec } from "@kanzo-tech/ai/data";
+import { AnswerCard, answerRelationsOf, askEdit, AskChips, askOffers, questionOf, readAnswerRelations, useAskChat, type AnswerRelation, type AskOutput, type AskSpec } from "@kanzo-tech/ai/data";
 import { mockModel, promptOf } from "@/lib/mock-model";
 import {
   Coordinator,
@@ -1154,6 +1154,7 @@ function SubsetPill({ archive }: { archive: Archive }) {
 function AskBody({ archive, askable }: { archive: Archive; askable: Askable }) {
   const { selection } = useMosaic();
   const chat = useAskChat({ model: recording, engine: archive.engine, graph: askable.graph, types: askable.types, selection });
+  const over = useMemo(() => ({ graph: askable.graph, types: askable.types }), [askable]);
   const starters = useOffers(askable, selection);
 
   return (
@@ -1165,7 +1166,16 @@ function AskBody({ archive, askable }: { archive: Archive; askable: Askable }) {
         proposals={starters.questions}
         proposing={starters.proposing}
         tools={{
-          answer: (part, { stopped }) => <AnswerCard graph={askable.graph} part={part} stopped={stopped} />,
+          answer: (part, { stopped }) => {
+            // What the answer was read as, each part a chip: taking one asks the edited spec, no model.
+            const spec = part.state === "output-available" ? (part.output as AskOutput).spec : undefined;
+            return (
+              <div className="flex flex-col gap-2">
+                <AnswerCard graph={askable.graph} part={part} stopped={stopped} />
+                {spec && <AskChips onChange={(next) => void chat.sendMessage(askEdit(next))} over={over} spec={spec} />}
+              </div>
+            );
+          },
         }}
         translations={{ placeholder: "Ask about your data…" }}
       />
