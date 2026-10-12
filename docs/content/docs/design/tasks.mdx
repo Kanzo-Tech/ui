@@ -4,27 +4,24 @@ description: Why Ask and Fossil's assistant become one pattern — a small model
 ---
 
 <Callout type="warn">
-**This page is a direction, not a description.** Three parts of it are built.
+**This page is a direction, not a description.** Four parts of it are built.
 [`@kanzo-tech/llm/local`](/docs/ai/llm#a-model-in-the-page) runs a WebLLM model by its id, with no
 manifest, no versions and no `ai/loading`. `@kanzo-tech/mosaic`'s
-[`resolveRelation`](/docs/analytics/dashboard#resolving-a-relation) is the resolver. And
+[`resolveRelation`](/docs/analytics/dashboard#resolving-a-relation) is the resolver.
 `@kanzo-tech/ai/task` holds the loop: `defineTask` declares a `TaskDefinition` — context, instructions,
 prompt, output schema, `Oracle`s and the decisions it settles — and `runTask` runs it with
 `RunOptions` (a model, a signal, `onState` for each `TaskState`), answering a `Proposal` whose
 `Verdict` is accepted, a `Diagnostic` list, or a `Decision`; an oracle answers a `Finding`, and a
-proposal lands at its `Target`. And `@kanzo-tech/ai/data`'s `ask` is the Ask Task on it: `link` offers
-the types an `AskInput`'s question names, the model fills an `AskSpec` in that `AskContext`,
-`askRelation` resolves its relation and `askAnswer` makes the answer `AnswerCard` draws. No hook or
-presentation is built on it yet, and the Ask panel still runs `dataAgent`. The rules on
-[Asking data](/docs/design/ai) and [Asking within a context](/docs/design/ai-context) describe the
-code as it is, and they stay true until the phase that replaces them lands; that commit rewrites
-their paragraphs, and this callout narrows to what is still to come. The decision record this page
-was drawn from is the *Kanzo Tasks* design page of 12 October 2026, and where the two disagree this
-page is the one that gets fixed.
+proposal lands at its `Target`; `propose` asks for several at once and keeps those the oracles
+accept. And [Ask](/docs/ai/data#ask) is a Task on it: `@kanzo-tech/ai/data`'s `ask`, run behind the
+chat by `useAskChat`, with `askOffers` for the questions to start from. What is still to come is
+the chips on an answer and their alternatives, the assistant's Tasks, and the model. The decision
+record this page was drawn from is the *Kanzo Tasks* design page of 12 October 2026, and where the
+two disagree this page is the one that gets fixed.
 </Callout>
 
-Two things in the platform ask a model to decide something today. **Ask** (`@kanzo-tech/ai/data`)
-lets `dataAgent` pick a relation, its fields, an aggregate and a filter in one call, among every
+Two things in the platform asked a model to decide something. **Ask** (`@kanzo-tech/ai/data`)
+let an agent pick a relation, its fields, an aggregate and a filter in one call, among every
 relation `answerRelationsOf` enumerated. **Fossil's assistant** (keasy's new-graph wizard) asks one
 call, `writeProgram`, for a whole program, which the checker reads only afterwards. Both are an
 agent with a free hand and an oracle that runs too late.
@@ -119,10 +116,9 @@ The model touches only the planner, which chooses among the linker's candidates 
 enum. Every chip on the answer opens its computed alternatives, and editing one re-checks without
 the model. The numbers in the reply are written from the rows, not by the model.
 
-This replaces, when phase 1 lands, *Which relations are offered* on [Asking
-data](/docs/design/ai#which-relations-are-offered) and the whole of [Asking within a
-context](/docs/design/ai-context): with a linker the context is small and closed, and there is no
-budget to fit into.
+This replaced the agent's relations on [Asking data](/docs/design/ai#which-relations-are-offered)
+and its token budget on [Asking within a context](/docs/design/ai-context#the-linker-is-the-budget):
+with a linker the context is small and closed, and there is no budget to fit into.
 
 **What would reverse it:** a model that picks relations as well as the resolver across the whole
 evaluation set.
@@ -352,7 +348,7 @@ and as distillation data.
    model, as a reference number, and the WebLLM provider measured on real devices. The set grows with
    the failures readers hit, not ahead of them; the thousands of pairs a distillation needs are
    generated and kept only when they pass the oracles. Then the linker, the resolver in mosaic,
-   the Task layer, Ask as a Task and its chips; `dataAgent` goes. The base model is chosen by
+   the Task layer, Ask as a Task and its chips; the agent goes. The base model is chosen by
    measuring these Tasks, not today's system.
 2. **Profile and the mapping spec** (≈ 28 %). `fossil-profile` sans-IO in the wasm closure with its
    two hosts, replacing introspect; a mapping spec in RML's shape and its emitter; the executor in a

@@ -175,7 +175,7 @@ failure takes the pills' place**, drawn as the host draws any failure (its `Prob
 and the conversation works the same without pills. `notice` is `ProposalStrip`'s, the words `Assist`
 puts in place of its candidates; it is drawn only while the strip has nothing to offer. A host that
 offers no suggestions at all leaves `suggestions` out, and there is no strip. A data space's questions are
-[`dataSuggestions`](/docs/ai/data), which is `suggest()` with a data space's instructions.
+[`askOffers`](/docs/ai/data#the-questions): Ask's own proposals, each checked before it is a pill.
 
 **A pill never outgrows the strip.** A question longer than the panel is as wide as the strip and
 cut with an ellipsis, and the whole question is in its tooltip. The accessible name is the whole

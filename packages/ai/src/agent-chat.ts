@@ -2,6 +2,7 @@
 
 import { type UseChatHelpers, type UseChatOptions, useChat } from "@ai-sdk/react";
 import { type Agent, DirectChatTransport, type InferAgentUIMessage, type ToolSet, type UIMessage } from "@kanzo-tech/llm";
+import type { ChatTransport } from "ai";
 import * as React from "react";
 
 /** `useChat`'s helpers, with `error` the value the agent threw rather than a sentence about it. */
@@ -29,20 +30,26 @@ export function useAgentChat<TOOLS extends ToolSet>(
   agent: Agent<never, TOOLS>,
   options?: AgentChatOptions<InferAgentUIMessage<Agent<never, TOOLS>>>,
 ): AgentChat<InferAgentUIMessage<Agent<never, TOOLS>>> {
-  type M = InferAgentUIMessage<Agent<never, TOOLS>>;
+  return useTransportChat((onError) => new DirectChatTransport({ agent, onError }), options);
+}
+
+/**
+ * `useChat` over the transport `make` builds once, with the chat's `error` the value that was thrown
+ * — not the words the chat rebuilt from it. `onError` is what the transport reports a failure through.
+ */
+export function useTransportChat<M extends UIMessage>(
+  make: (onError: (value: unknown) => string) => ChatTransport<M>,
+  options?: AgentChatOptions<M>,
+): AgentChat<M> {
   // The thrown value beside the words the chat will rebuild from it, so an error the chat holds is
   // matched to the value it came from and never to an earlier one.
   const thrown = React.useRef<{ value: unknown; text: string } | null>(null);
-  const [transport] = React.useState(
-    () =>
-      new DirectChatTransport({
-        agent,
-        onError: (value) => {
-          const text = value instanceof Error ? value.message : String(value);
-          thrown.current = { value, text };
-          return text;
-        },
-      }),
+  const [transport] = React.useState(() =>
+    make((value) => {
+      const text = value instanceof Error ? value.message : String(value);
+      thrown.current = { value, text };
+      return text;
+    }),
   );
   const chat = useChat<M>({ ...options, transport });
   const error =

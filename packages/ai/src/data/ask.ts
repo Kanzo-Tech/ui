@@ -84,7 +84,7 @@ export function askRelation(spec: AskSpec, input: AskInput): Resolved {
 }
 
 /** The relation as an answer reads it: every step's fields, under the names a relation gives them. */
-function offered(relation: Relation, input: AskInput): AnswerRelation {
+export function answerRelation(relation: Relation, input: AskInput): AnswerRelation {
   const steps = relationSteps(input.graph, relation);
   const alone = (type: string) => input.types.find((t) => t.relation.root === type);
   const fields = steps.flatMap((s) => alone(s.type)?.fields ?? []);
@@ -92,13 +92,19 @@ function offered(relation: Relation, input: AskInput): AnswerRelation {
   return { relation, fields, columns };
 }
 
+/** The spec as an answer on `relation`: `of` gives way to it. */
+function onRelation(spec: AskSpec, relation: string): AnswerInput {
+  const answer: Record<string, unknown> = { ...spec, relation };
+  delete answer.of;
+  return answer as AnswerInput;
+}
+
 /** The spec, as the answer `AnswerCard` draws and the page reads: on `relation`, or the one resolved. */
 export function askAnswer(spec: AskSpec, input: AskInput, id: string, relation?: Relation): Answer | undefined {
   const resolved = askRelation(spec, input);
   const on = relation ?? (resolved.kind === "relation" ? resolved.relation : undefined);
   if (!on) return undefined;
-  const { of: _, ...rest } = spec;
-  return placed({ ...rest, relation: relationKey(input.graph, on) }, id, on);
+  return placed(onRelation(spec, relationKey(input.graph, on)), id, on);
 }
 
 /** The oracle the resolver is: no path is a diagnostic at `/of`, two equally short are the reader's. */
@@ -126,9 +132,8 @@ function reachable(spec: AskSpec, input: AskInput): Finding | undefined {
 function compiles(spec: AskSpec, input: AskInput): Finding | undefined {
   const resolved = askRelation(spec, input);
   if (resolved.kind !== "relation") return undefined;
-  const relation = offered(resolved.relation, input);
-  const { of: _, ...rest } = spec;
-  const checked = checkAnswer({ ...rest, relation: relationKey(input.graph, resolved.relation) }, [relation], input.graph);
+  const relation = answerRelation(resolved.relation, input);
+  const checked = checkAnswer(onRelation(spec, relationKey(input.graph, resolved.relation)), [relation], input.graph);
   return checked.success ? undefined : { code: "ask/does-not-compile", message: checked.error.message };
 }
 
@@ -155,7 +160,8 @@ export const ask = defineTask<AskInput, AskSpec, AskContext>({
       .join("\n"),
   output: (_, context) => {
     const schema = answerSchema({ edges: [] }, context.types) as Record<string, unknown> & { properties: Record<string, unknown> };
-    const { relation: _relation, ...properties } = schema.properties;
+    const properties = { ...schema.properties };
+    delete properties.relation;
     return jsonSchema<AskSpec>({
       ...schema,
       properties: {

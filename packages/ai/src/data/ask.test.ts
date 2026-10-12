@@ -1,67 +1,10 @@
-import { asTableRef } from "@uwdata/mosaic-sql";
-import { relationKey, type JoinGraph } from "@kanzo-tech/mosaic";
-import { MockLanguageModelV4 } from "ai/test";
+import { relationKey } from "@kanzo-tech/mosaic";
 import { describe, expect, it } from "vitest";
 import { runTask } from "../task/index.js";
 import { ask, askAnswer, link, type AskInput, type AskSpec } from "./ask.js";
-import type { AnswerField, AnswerRelation } from "./answer.js";
-
-const at = (table: string) => asTableRef(["jobs/7", table])!;
-const edge = (source: string, label: string, destination: string) => ({
-  name: `${source}_${label}_${destination}`,
-  label,
-  source,
-  destination,
-  table: at(`${source}_${label}_${destination}`),
-  src: "src",
-  dst: "dst",
-});
-
-/** The Nobel example's graph, as keasy's Discover reads it from the corpus. */
-const NOBEL: JoinGraph = {
-  types: ["LaureateAward", "Laureate", "Category", "University", "Country"].map((name) => ({ name, table: at(name), key: "id", columns: ["name"] })),
-  edges: [
-    edge("LaureateAward", "laureate", "Laureate"),
-    edge("LaureateAward", "category", "Category"),
-    edge("LaureateAward", "university", "University"),
-    edge("Laureate", "birthPlace", "Country"),
-    edge("University", "addressCountry", "Country"),
-  ],
-};
-
-const field = (name: string, kind: AnswerField["kind"], values?: string[]): AnswerField => ({
-  name,
-  type: kind === "numeric" ? "BIGINT" : "VARCHAR",
-  kind,
-  role: kind === "numeric" ? "measure" : "dimension",
-  distinct: 10,
-  ...(values ? { values } : {}),
-});
-
-const alone = (root: string, fields: AnswerField[]): AnswerRelation => ({ relation: { root, path: [] }, fields, columns: ["id", ...fields.map((f) => f.name)] });
-
-const TYPES: AnswerRelation[] = [
-  alone("LaureateAward", [field("LaureateAward.share", "numeric")]),
-  alone("Laureate", [field("Laureate.name", "categorical"), field("Laureate.gender", "categorical", ["male", "female"])]),
-  alone("Category", [field("Category.name", "categorical", ["Physics", "Chemistry"])]),
-  alone("University", [field("University.name", "categorical")]),
-  alone("Country", [field("Country.name", "categorical", ["USA", "Germany"])]),
-];
+import { NOBEL, TYPES, answering } from "../testing/nobel.js";
 
 const input = (question: string, extra: Partial<AskInput> = {}): AskInput => ({ question, graph: NOBEL, types: TYPES, ...extra });
-
-const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } };
-const answering = (...specs: AskSpec[]) => {
-  let n = 0;
-  return new MockLanguageModelV4({
-    doGenerate: async () => ({
-      content: [{ type: "text", text: JSON.stringify(specs[Math.min(n++, specs.length - 1)]) }],
-      finishReason: { unified: "stop", raw: "stop" },
-      usage,
-      warnings: [],
-    }),
-  });
-};
 
 const byUniversity: AskSpec = { of: "LaureateAward", show: { kind: "chart", type: "bar", x: "University.name", y: { op: "count" } } };
 

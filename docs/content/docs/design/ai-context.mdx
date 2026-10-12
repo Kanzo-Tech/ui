@@ -1,11 +1,12 @@
 ---
 title: Asking within a context
-description: Why @kanzo-tech/ai/data describes each type once and each relation in one line, why the answer's schema names a field list once, and why the budget is the model's declared context — measured on five graphs, and what would reverse each.
+description: Why @kanzo-tech/ai/data describes each type once, why the answer's schema names a field list once, and why the linker, not a token count, keeps a question inside a small model's context — measured on five graphs, and what would reverse each.
 ---
 
-[Asking data](/docs/design/ai) settled what the model is told: every relation offered, with its
-fields. This page is about how much that costs, measured, and how to say the same in a fraction of
-it.
+[Asking data](/docs/design/ai) settled what the model is told: the types it may answer about, with
+their fields. This page is about how much that costs, measured, and how to say the same in a fraction
+of it. The measurements were taken on the agent Ask was before it was a [Task](/docs/design/tasks),
+which offered every relation; they are why it stopped.
 
 ## What was measured
 
@@ -14,7 +15,7 @@ Runner with `max_tokens: 1`. The counts are **exact**: the model's own tokenizer
 answer `usage.prompt_tokens`, or refuse with *request (N tokens) exceeds the available context*. A
 part's cost is the request's tokens less the request's without it.
 
-| Graph | Relations (hops) | `dataSuggestions`, Hermes 3B | `dataAgent`, Hermes 8B | `dataAgent`, Qwen3 |
+| Graph | Relations (hops) | Starters, Hermes 3B | Agent, Hermes 8B | Agent, Qwen3 |
 | --- | --- | --- | --- | --- |
 | e2e corpus | 4 (2) | 743 | 1,033 | 2,485 |
 | OpenFlights | 3 (2) | 1,290 | 1,580 | 3,813 |
@@ -32,7 +33,7 @@ Where the tokens go, SNB:
 | Part | Hermes 3B / 8B | Qwen3 |
 | --- | --- | --- |
 | `QUESTIONS` (starters' instructions) | 170 | — |
-| The relations (as `describeRelations` wrote them) | 10,292 | ≈ 12,900 in `dataInstructions` |
+| The relations, each with its fields | 10,292 | ≈ 12,900 in the agent's instructions |
 | The `answer` tool's schema | 0 — see below | 3,597 |
 | The output schema (`response_format`) | 0 — a grammar, not prompt | — |
 
@@ -83,10 +84,10 @@ Vanna and LlamaIndex's `SQLDatabase` describe a schema the same way. A type's va
 the relation over the type alone, which is what a reader sees of it; the values a hop narrows to
 (*Place2.name* over countries only) are a detail the answer's rows say, not the description.
 
-**The model writes the relation as its key.** `relation` becomes one string enum of keys —
-`"Person>knows>Person"` — and `placed()` turns the key back into the `Relation` it names, through
-the same `relationKey` that wrote it. `Answer`, what `AnswerCard` and a dashboard read, keeps the
-object; only `AnswerInput`, what the model writes, changes.
+**The model writes no relation.** It names the type it counts, `of`, and the relation is the
+resolver's — so the prompt lists no relation at all, which was most of what remained. An answer
+still carries its relation as a key, `"Person>knows>Person"`, through the same `relationKey` that
+reads it back; `Answer`, what `AnswerCard` and a dashboard read, keeps the object.
 
 **The field list is one definition.** The schema names it once under `$defs` and every place a field
 goes is `{ "$ref": "#/$defs/field" }`. JSON Schema's own reuse; OpenAI's and Anthropic's tools
@@ -96,7 +97,7 @@ for names outside it: Qwen3 called the tool with two names from the enum, and He
 under `response_format` wrote only names from it. (Hermes calls no tool there with or without `$ref`
 — the template finding above.)
 
-The same five graphs, sent by `dataSuggestions` and `dataAgent` as implemented — each graph's
+The same five graphs, sent by the starters and the agent with each type said once — each graph's
 relations rebuilt from its captured prompt, the request caught at the HTTP boundary and counted the
 same way:
 
@@ -118,56 +119,28 @@ little once they are said once (SNB's starters 1,290 → 905), so values stay un
 relation's spelled out — one that cannot apply the numbering rule. Then the relation lines carry
 their fields' names, still without the types' values.
 
-## The budget is the model's
+## The linker is the budget
 
-**A call is told the context it has, and fits in it with room to answer; when it cannot, it says
-so before sending.** Normalizing is the fix for every graph measured. The budget is for the graph
-nobody measured — a hundred types, a thousand hops — where "said once" is still too much.
+**A question is asked over the types it names and their neighbours, not over the graph.** Ask's
+linker keeps the types the question names — by the type's name, a field's or a value's — with the
+types one hop away, the type the previous answer counted, and the types the page's chips are on; the
+schema's enums and the prompt are theirs. This is **LlamaIndex's `ObjectIndex` /
+`SQLTableRetriever`**, which retrieves the tables a question needs, without the index: a graph's
+names are few enough to match outright. A question that names nothing is offered every type, and a
+type the linker missed is the reachability oracle's to say, as a diagnostic the model repairs from.
 
-- **The context is declared per alias, where the model is chosen.** The platform's AI services
-  declare it as `AI_CHAT_CONTEXT` / `AI_COMPLETE_CONTEXT` beside `AI_CHAT` / `AI_COMPLETE`: Model
-  Runner starts a local model with it (`context_size`, 8,192 by default; 16,384 for Keasy's demo
-  Qwen3), and an application passes the same variables to its server, which hands them to
-  `dataAgent` / `dataSuggestions` as `context: { tokens, reserve }`. Model Runner's `/models` reports
-  the model's maximum (131,072 for Hermes), not what it was started with, and agentgateway serves no
-  alias metadata, so neither is the source. A gateway that served it, as LiteLLM's `/model/info`
-  does, would let an application stop reading the variable.
-- **Counted, not guessed.** The page has no tokenizer, so the library counts conservatively: 0.4
-  tokens per character. Measured over these five graphs' instructions and tool schemas, Llama 3's
-  tokenizer (Hermes 3) took at most 0.32 and Qwen3's at most 0.38, both on SNB, whose values are IP
-  addresses and URLs; `describe.test.ts` holds the estimate above every one of those counts. The
-  conversation so far is counted too, and `reserve` — a quarter of the window, at most 2,048 — is
-  kept for the answer.
-- **Over budget, the description narrows by a rule, not by a cut.** First the category values go
-  (each field keeps its kind and range). Then, for the agent, the relations the question names — by
-  their types' and fields' names — and their neighbours, as **LlamaIndex's `ObjectIndex` /
-  `SQLTableRetriever`** retrieves the tables a question needs; for the starters, which have no
-  question, the relations that cross a hop, and those the page's filter is on, which is what they
-  favour already. The model is told what it was not shown, by name, so "these are the whole of the
-  data" stays true, and the `answer` tool offers only what was shown. On SNB at a 4,096 context the
-  agent, asked *Which browsers do people who comment use most?*, kept the 16 relations over Person,
-  Comment, Post and Place, named the other 21, and sent 2,380 tokens.
-- **Still over, the call does not go.** It fails as an `AiError` coded `ai/context`, with
-  `data.tokens` (the smallest request's estimate) and `data.budget`, instead of a 400 from upstream
-  that reads as *The model could not answer.* A host words it in its problem table.
+Nothing counts tokens. The agent once fitted each call to the context its alias declared — an
+estimate of 0.4 tokens a character, a reserve for the answer, the category values dropped first, a
+failure coded `ai/context` when nothing fitted. Each of those was there because the prompt held the
+whole graph; a prompt that holds a question's neighbourhood holds SNB's 8 types at most, about 3,500
+characters with their values, inside any context a model of the size this is for is served with.
 
-**What would reverse it:** a provider that counts for us before sending (Anthropic's and OpenAI's
-token-counting endpoints) on every alias a host uses. Then the gateway counts exactly and the ratio
-goes.
+**What would reverse it:** a graph whose one-hop neighbourhood of a question's types is measured
+past a served model's context. Then the linker keeps the named types without their neighbours
+first, and the values after — and the token count comes back as the linker's stopping rule, not as
+a failure.
 
-## What changes for a host
-
-- `dataAgent` and `dataSuggestions` take `context?: { tokens: number; reserve?: number }`. Unset,
-  nothing narrows — today's behaviour, with the smaller prompt.
-- Keasy passes the alias's declared context, `AI_CHAT_CONTEXT` / `AI_COMPLETE_CONTEXT`, the same variables compose gives Model Runner.
-- `AnswerInput.relation` is a key string; `Answer.relation` is unchanged. A host that stored
-  `AnswerInput` — none known — maps it with `relationKey`.
-- A new `AiError` code, `ai/context`, for a host's problem table.
-
-*Held by* `packages/ai/src/data/describe.test.ts`, "names each type once with its own fields, read
-from the type alone, and each relation by its key"; "errs long on every prompt measured with the
-models' own tokenizers"; "drops the values first, keeping every relation"; "then keeps the relations
-the question names, and names the rest as left out"; "fails as ai/context when not one relation fits,
-and sends nothing"; `packages/ai/src/data/agent.test.ts`, "fails as ai/context, sending nothing, when
-the conversation cannot fit"; and `packages/ai/src/data/answer.test.ts`, "the enums are the relations
-offered, by key, and their fields, listed once".
+*Held by* `packages/ai/src/data/ask.test.ts`, "offers the types the question names, and their
+neighbours"; "finds a type by a value it holds, and keeps what the page's chips are on"; "offers every
+type to a question that names none"; and `packages/ai/src/data/answer.test.ts`, "the enums are the
+relations offered, by key, and their fields, listed once".
