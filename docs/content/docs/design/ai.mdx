@@ -42,16 +42,22 @@ relation has, as `clauseColumns` reads them. The page's filter is not something 
 is the predicate the answer is read under, as every tile's is. What the model reads back is what was
 true then; the card is a tile, and follows the page afterwards like any other.
 
-**A clause the relation cannot answer keeps none of its rows, and is said, with what it lacks.** Under
-a chip on a city, a count over a relation with no city is 0, as a dashboard's tile over that relation
-reads it: the answer is read under every clause of the page
-([Crossfilter](/docs/design/crossfilter#formal-semantics), decided 11 October 2026). It replaced
-skipping such a clause and saying so, which read the whole relation as if no filter held: one view
-of the page deciding what is kept on its own. The result carries each unanswered clause and the
-columns it names that the relation lacks, the model reads it beside the clauses that applied, and the
-card prints both under the tile, so an empty answer says why it is empty. What would reverse it is a
-page that maps a clause onto any relation — a semi-join through the join graph for every chip — at
-which point every relation answers every clause and the line goes.
+**A page's clause reaches the answer as it reaches a tile.** A chip published on a relation is read
+by the page's own resolver (`JoinResolver.crossing`): as it is on that relation, and on the answer's
+through a semi-join on the key of a type both reach — a chip on *Physics*, published on
+`LaureateAward>category>Category`, narrows `LaureateAward>university>University` by the prize, so the
+University of California reads 16 and not its 43 in every category. It replaced matching a clause by
+its columns alone, under which that answer kept none of its rows while the dashboard's tiles beside
+it were narrowed: keasy's first evaluation pass showed a model that picked the right relation and an
+answer that read nothing. A clause the answer's relation shares no type with keeps none of its rows,
+as a tile's would (decided 11 October 2026), and is said, with the columns it names; the card prints
+it under the tile, so an empty answer says why it is empty. A clause published on no relation is still
+answered by column. What would reverse it is a resolver that crosses differently for tiles, and then
+the answer follows it — the two never disagree.
+
+*Held by* `packages/ai/src/data/page-clauses.test.ts`, "crosses a chip on another relation by the key
+both reach, as the page's tiles are crossed"; "keeps none of a relation's rows when it shares no type
+with the chip's".
 
 **The read goes through the engine's door, not the coordinator's queue.** The queue batches behind
 `requestAnimationFrame` for the charts, and a hidden tab never fires one: a question asked before

@@ -2,6 +2,7 @@ import { type LanguageModel, jsonSchema, stepCountIs, type Tool, tool, ToolLoopA
 import { clauseColumns, clauseLabel, literal, Query, relationQuery, type Engine, type JoinGraph, type Selection, type SelectionClause } from "@kanzo-tech/mosaic";
 import { plotRelation } from "@kanzo-tech/ui/analytics";
 import type { ModelMessage } from "ai";
+import type { ExprNode } from "@uwdata/mosaic-sql";
 import { OFFER_SCHEMA, suggest } from "../suggest.js";
 import {
   ANSWER_ROWS,
@@ -171,12 +172,12 @@ function answerTools(options: DataAgentOptions, offered: readonly AnswerRelation
         const about = relationByKey(graph, offered, input.relation)!;
         const answer = placed(input, toolCallId, about.relation);
         const plotted = plotRelation(relationQuery(graph, answer.relation), { fields: about.fields, columns: about.columns });
-        const page = pageClauses(selection?.clauses ?? [], about.columns);
-        const clauses = [...conditionClauses(answer.where, about.fields, {}), ...page.answered];
+        const page = pageClauses(selection?.clauses ?? [], about.columns, { relation: answer.relation, resolver: selection?.resolver });
+        const where = conditionClauses(answer.where, about.fields, {}).map((c) => c.predicate as ExprNode);
         // A page clause the relation cannot answer keeps none of its rows: read under `FALSE`, so an
         // aggregate is what it is over no rows — a count of 0 — as a dashboard tile reads it.
         const none = page.unanswered.length > 0 ? [literal(false)] : [];
-        const table = Query.from(plotted.table).select("*").where([...clauses.map((c) => c.predicate!), ...none]);
+        const table = Query.from(plotted.table).select("*").where([...where, ...page.predicates, ...none]);
         // One more row than the cap, so a cut answer is told from one that fits exactly. A stopped
         // chat rejects the wait at once with the signal's reason; the statement, a short one, finishes.
         const sql = String(answerQuery(table, answer, about.fields, ANSWER_ROWS + 1));
