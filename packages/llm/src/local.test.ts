@@ -43,7 +43,7 @@ vi.mock("@browser-ai/web-llm", () => ({
 }));
 
 const { localModel } = await import("./local");
-const { AiError } = await import("./gateway");
+const { AiError } = await import("./error");
 
 beforeEach(() => {
   supported.mockReturnValue(true);

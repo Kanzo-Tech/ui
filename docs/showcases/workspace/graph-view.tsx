@@ -996,7 +996,7 @@ export function GraphSettings() {
  * Everything around the model is the real path, and it is the whole of what a host writes:
  * `readJoinGraph`, `answerRelationsOf` and `readAnswerRelations` for what may be asked, `useAskChat`,
  * `askOffers` for the pills, `ChatSkeleton` while the types load, and `AnswerCard`. Swapping the
- * recording for `createGateway(…)("chat")` changes one line.
+ * recording for `localModel(…)` changes one line.
  */
 interface Intent {
   /** Words that select this intent. */

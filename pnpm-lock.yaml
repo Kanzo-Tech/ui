@@ -377,10 +377,6 @@ importers:
         version: 0.4.0(rollup@4.62.2)
 
   packages/llm:
-    dependencies:
-      '@ai-sdk/openai-compatible':
-        specifier: ^3.0.62
-        version: 3.0.62(zod@4.4.3)
     devDependencies:
       '@browser-ai/web-llm':
         specifier: 3.0.4
@@ -572,12 +568,6 @@ packages:
 
   '@ai-sdk/mcp@2.0.65':
     resolution: {integrity: sha512-KQPNhSkDa7NBn+NRx+ymUXBz4ItMdD4Xr1nIi5KPpdIIptj71Ja38dmWdonZV9JIZQOL9vSF9X4y1SJKV7pbaw==}
-    engines: {node: '>=22'}
-    peerDependencies:
-      zod: ^3.25.76 || ^4.1.8
-
-  '@ai-sdk/openai-compatible@3.0.62':
-    resolution: {integrity: sha512-IAz1xv8zot4KLGa8kN7UfAA6H5+ARzAgAKLsoKxHPBzZuOc2E3ohaELg0x/JR9HVTbMbiftb0dPyCb8cT2KBRg==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -5669,12 +5659,6 @@ snapshots:
       '@ai-sdk/provider-utils': 5.0.53(zod@4.4.3)
       cross-spawn: 7.0.6
       pkce-challenge: 5.0.1
-      zod: 4.4.3
-
-  '@ai-sdk/openai-compatible@3.0.62(zod@4.4.3)':
-    dependencies:
-      '@ai-sdk/provider': 4.0.21
-      '@ai-sdk/provider-utils': 5.0.53(zod@4.4.3)
       zod: 4.4.3
 
   '@ai-sdk/provider-utils@5.0.53(zod@4.4.3)':

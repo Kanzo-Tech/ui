@@ -121,7 +121,7 @@ describe("propose", () => {
   });
 
   it("throws what stopped the model, rather than offering nothing", async () => {
-    const refused = new Error("gateway refused");
+    const refused = new Error("the model refused");
     const model = new MockLanguageModelV4({
       doGenerate: async () => {
         throw refused;

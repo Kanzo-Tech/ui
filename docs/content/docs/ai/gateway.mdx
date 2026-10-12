@@ -53,7 +53,7 @@ browser ──▶ the application's server (BFF) ──Bearer <token for the gat
 
 The browser never holds a credential for the gateway. It calls its own application's route — the
 `baseURL` it hands `createGateway` — and that server exchanges the user's access token for one the
-gateway accepts, and forwards: an entry in [`kanzoAuth`'s `apis`](/docs/ai/llm#why-no-credential-is-in-the-page),
+gateway accepts, and forwards: an entry in [`kanzoAuth`'s `apis`](/docs/auth/next#api),
 the same exchange as for every other API. The gateway then checks three things, all from the token and none
 from a key of its own:
 
@@ -154,7 +154,7 @@ gateway, where it is logged, before the page gives up on it: the caller gets a 5
 which `@kanzo-tech/llm` hands on as `ai/unavailable`.
 
 <Cards>
-  <Card title="@kanzo-tech/llm" href="/docs/ai/llm" description="createGateway, the AI SDK re-exported, and the BFF route the token is exchanged in." />
+  <Card title="@kanzo-tech/llm" href="/docs/ai/llm" description="localModel, stream, and the AI SDK re-exported." />
   <Card title="The identity service" href="/docs/auth/service" description="The other service: Keycloak with the realm as code." />
   <Card title="Both halves" href="/docs/design/services" description="Why the gateway ships beside its package, why it is agentgateway, and why the choice of models is the deployment's." />
 </Cards>

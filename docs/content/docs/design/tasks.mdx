@@ -5,7 +5,7 @@ description: Why Ask and Fossil's assistant become one pattern — a small model
 
 <Callout type="warn">
 **This page is a direction, not a description.** Four parts of it are built.
-[`@kanzo-tech/llm/local`](/docs/ai/llm#a-model-in-the-page) runs a WebLLM model by its id, with no
+[`@kanzo-tech/llm/local`](/docs/ai/llm#localmodel) runs a WebLLM model by its id, with no
 manifest, no versions and no `ai/loading`. `@kanzo-tech/mosaic`'s
 [`resolveRelation`](/docs/analytics/dashboard#resolving-a-relation) is the resolver.
 `@kanzo-tech/ai/task` holds the loop: `defineTask` declares a `TaskDefinition` — context, instructions,
@@ -258,7 +258,7 @@ WebLLM would be two engines and two models in GPU memory.
 
 | Package | Third-party peer | What it will carry — none of these names exists yet |
 | --- | --- | --- |
-| `@kanzo-tech/llm` | `ai`, required | the AI SDK's surface, `defineModels`, `AiError`, `stream`; `createGateway` goes |
+| `@kanzo-tech/llm` | `ai`, required | the AI SDK's surface, `defineModels`, `AiError`, `stream`; `createGateway` is gone |
 | `@kanzo-tech/llm/local` | `@browser-ai/web-llm`, `@mlc-ai/web-llm`, optional | `localModel`: one engine per page in a worker, manifest and versions, progress, `storage.persist()`, `ai/unavailable` without WebGPU and `ai/loading` |
 | `@kanzo-tech/ai/task` | — | the types, `defineTask`, `defineFlow`, `compute`, `propose` |
 | `@kanzo-tech/ai` | — | `TaskProvider`, `useTask`, `useTaskChat`, `useProposal`, `Assist`, `ProposalList`, `Decision`, `Chat` |

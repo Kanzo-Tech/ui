@@ -43,7 +43,7 @@ describe("candidates", () => {
   });
 
   it("throws what stopped the model, rather than ending as if it had nothing to offer", async () => {
-    const refused = new Error("gateway refused");
+    const refused = new Error("the model refused");
     const model = new MockLanguageModelV4({
       doStream: async () => {
         throw refused;

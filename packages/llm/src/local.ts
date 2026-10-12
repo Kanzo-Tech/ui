@@ -6,7 +6,7 @@ type Wrap = NonNullable<LanguageModelMiddleware["wrapGenerate"]>;
 type LanguageModelV4CallOptions = Parameters<Wrap>[0]["params"];
 type LanguageModelV4GenerateResult = Awaited<ReturnType<Wrap>>;
 
-import { AiError } from "./gateway.js";
+import { AiError } from "./error.js";
 
 /**
  * A model in the page: WebLLM on WebGPU, behind the AI SDK's `LanguageModel`, through
@@ -123,7 +123,7 @@ export function localModel(model: string, settings: LocalModelSettings = {}): La
         },
         wrapStream: ({ doStream }) => (doesBrowserSupportWebLLM() ? doStream() : Promise.reject(unavailable())),
       },
-      // A model that thinks out loud does it between <think> tags, as the gateway's do.
+      // A model that thinks out loud (Qwen3, DeepSeek) does it between <think> tags.
       extractReasoningMiddleware({ tagName: "think" }),
     ],
   });

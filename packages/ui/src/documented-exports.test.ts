@@ -93,7 +93,7 @@ function entryPoints(pkgDir: string): Entry[] {
 /**
  * `graph` is here for the reason the comment above predicted: `docs/content/docs/graph/` documents
  * `@kanzo-tech/graph`, and until this line the page could name anything at all. `llm` for the same
- * reason: `docs/content/docs/ai/` imports `createGateway` and the agent from it. `testing` because
+ * reason: `docs/content/docs/ai/` imports `stream` and the agent from it. `testing` because
  * `docs/content/docs/testing/` and `/docs/design/testing` import the harnesses from it.
  */
 const ENTRIES = ["ui", "theme", "graph", "ai", "llm", "auth", "navigation", "testing"].flatMap((name) =>
@@ -435,7 +435,7 @@ describe("the documented surface", () => {
       ["@kanzo-tech/theme", "AXES"],
       ["@kanzo-tech/graph", "GraphCanvas"],
       ["@kanzo-tech/ai", "Assist"],
-      ["@kanzo-tech/llm", "createGateway"],
+      ["@kanzo-tech/llm", "stream"],
       ["@kanzo-tech/navigation/next", "Link"],
     ] as const) {
       expect(bySpec.get(spec)?.has(canary), `${spec} should export ${canary}`).toBe(true);
