@@ -24,7 +24,7 @@ docker compose -f compose.yaml -f compose.dev.yaml down -v        # gone, the da
 `up` brings Keycloak and its Postgres up, applies the realm with Terraform and seeds development
 people into two organizations, `acme` and `globex`. The admin console is `/admin`, `admin` /
 `admin`; `.env.example` lists what can be changed, and `KC_PORT` moves the issuer with it.
-`services/compose.dev.yaml` runs the same beside [the gateway](/docs/ai/gateway).
+`services/compose.dev.yaml` runs the same.
 
 `compose.yaml` is the service as a deployment runs it too: Keycloak in production mode behind the
 deployment's edge, `KC_HOSTNAME` its public origin, the passwords from the environment.
@@ -65,7 +65,7 @@ x-organization: { alias: acme, name: Acme Corporation, domain: acme.com }
 
 An application declares itself **from its own repository**: its client, its own API — a client with
 no flow, and the scope whose audience mapper names it, which it [exchanges its token
-for](/docs/auth/keycloak#the-apis-an-application-calls) — the platform's APIs it also calls, and its
+for](/docs/auth/keycloak#the-apis-an-application-calls) — and its
 roles with their composites. It is a compose `configs` entry, so it is interpolated and its origin
 can differ between environments:
 
@@ -76,7 +76,6 @@ configs:
       x-application:
         client_id: board
         api: board-api
-        apis: [ai-gateway]                  # the platform's AI gateway
         origin: ${BOARD_ORIGIN}             # https://{organization}.board.example.com
         callback: /api/auth/callback        # one redirect URI per organization
         # where Keycloak posts a logout token; see Keycloak → Back-channel logout
@@ -149,8 +148,8 @@ starts.
 ## What is not there
 
 - **No application.** The only client is `kanzo-conformance`, with its API `kanzo-conformance-api`,
-  declared in `dev/`, which only development mounts. The realm's own APIs are `apis`: `ai-gateway`,
-  the [gateway](/docs/ai/gateway) this repository ships.
+  declared in `dev/`, which only development mounts. The realm ships no API of its own: every API is
+  an application's, declared with it.
 - **No membership in Terraform.** Keycloak makes membership runtime — invitations, identity-provider
   brokering, enrolment by email domain — and the provider has no resource for it. Development seeds
   it (`seed/`); production invites.

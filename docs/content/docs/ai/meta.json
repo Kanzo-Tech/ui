@@ -6,7 +6,6 @@
     "chat",
     "data",
     "tasks",
-    "llm",
-    "gateway"
+    "llm"
   ]
 }

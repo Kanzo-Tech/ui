@@ -161,19 +161,19 @@ describe("kanzoAuth().api", () => {
       ...config,
       apis: {
         "/api": { audience: "reports", target: TARGET },
-        "/api/ai": { audience: "ai-gateway", target: "https://gateway.internal/v1" },
+        "/api/search": { audience: "search", target: "https://search.internal/v1" },
       },
     });
 
-    await both.api.POST(new Request(`${ORIGIN}/api/ai/chat/completions`, { method: "POST", headers: { cookie } }));
-    await both.api.GET(new Request(`${ORIGIN}/api/aim/7`, { headers: { cookie } }));
+    await both.api.POST(new Request(`${ORIGIN}/api/search/query`, { method: "POST", headers: { cookie } }));
+    await both.api.GET(new Request(`${ORIGIN}/api/searches/7`, { headers: { cookie } }));
 
-    const [ai, reports] = upstream.mock.calls.map(([url, init]) => ({
+    const [search, reports] = upstream.mock.calls.map(([url, init]) => ({
       url: String(url),
       authorization: new Headers((init as RequestInit).headers).get("authorization"),
     }));
-    expect(ai).toEqual({ url: "https://gateway.internal/v1/chat/completions", authorization: "Bearer at-1>ai-gateway" });
-    expect(reports).toEqual({ url: "https://reports.internal/v1/aim/7", authorization: "Bearer at-1>reports" });
+    expect(search).toEqual({ url: "https://search.internal/v1/query", authorization: "Bearer at-1>search" });
+    expect(reports).toEqual({ url: "https://reports.internal/v1/searches/7", authorization: "Bearer at-1>reports" });
   });
 
   /**

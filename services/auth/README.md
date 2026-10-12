@@ -15,7 +15,7 @@ scripts/verify.sh dan              # no organization; a client role held directl
 docker compose -f compose.yaml -f compose.dev.yaml down -v        # gone, database and Terraform state together
 ```
 
-`../compose.dev.yaml` runs this beside the AI gateway. Admin console: `http://localhost:8080/admin`,
+`../compose.dev.yaml` runs this. Admin console: `http://localhost:8080/admin`,
 `admin` / `admin`. `.env.example` lists what can be changed (port, versions, passwords); `KC_PORT`
 moves the issuer with it.
 
@@ -94,7 +94,6 @@ configs:
       x-application:
         client_id: board
         api: board-api                      # its own API (modules/api)
-        apis: [ai-gateway]                  # the platform's APIs it also calls
         origin: ${BOARD_ORIGIN}             # e.g. https://{organization}.board.example.com
         callback: /api/auth/callback        # one redirect URI per organization
         backchannel_logout: http://web:3000/api/auth/backchannel-logout
@@ -139,8 +138,8 @@ realm's `/groups/{id}/role-mappings` answers 400 for an organization group.
 ## What is not here
 
 - **No application.** The only client is `kanzo-conformance`, with its API, which exist to prove
-  the contract and are declared in `dev/`, so only development has them. The platform's own APIs
-  are the realm's `apis`: `ai-gateway`.
+  the contract and are declared in `dev/`, so only development has them. The realm ships no API of
+  its own: every API is an application's, declared with it.
 - **No membership in Terraform.** Keycloak makes membership runtime — invitations, IdP brokering,
   enrolment by email domain — and the provider has no membership resource. Development seeds it
   (`seed/`); production invites.

@@ -165,10 +165,9 @@ export default function Page() {
 
 ## Running the services
 
-`@kanzo-tech/auth` and `@kanzo-tech/llm` each talk to a server, and both servers ship from this
-repository under the same tag as the packages: [the identity service](/docs/auth/service), Keycloak
-with the platform realm as code, and [the gateway](/docs/ai/gateway), agentgateway with both aliases on
-local models. A product adopting either includes the service's `compose.yaml` — and, in development,
+`@kanzo-tech/auth` talks to a server, and that server ships from this repository under the same tag
+as the packages: [the identity service](/docs/auth/service), Keycloak with the platform realm as
+code. A product adopting it includes the service's `compose.yaml` — and, in development,
 its `compose.dev.yaml` — by URL at the release its packages came from, the same files in development
 and in production, and declares itself — a client and its roles, and its organizations — from its
 own repository.

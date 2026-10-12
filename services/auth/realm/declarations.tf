@@ -7,7 +7,7 @@
 # is an organization. It sits on top of the compose file that runs the organization's own services,
 # so the list of organizations is written once, in the files that also deploy them.
 #
-#   x-application: { client_id: board, api: board-api, apis: [ai-gateway], origin: …, roles: … }
+#   x-application: { client_id: board, api: board-api, origin: …, roles: … }
 #
 # is an application registering itself (modules/app, and modules/api for its own API). A compose
 # project hands it over as a `configs` entry, interpolated, so its origin can differ per environment.

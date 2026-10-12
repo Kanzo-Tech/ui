@@ -145,10 +145,7 @@ case "$USERNAME" in
     check "acme: the exchanged token keeps the group ids held there" \
       "$(groups_are "$(for_api acme)" acme Admins Research)"
     one_org globex
-    # The application lists the AI gateway among its `apis` (dev/kanzo-conformance.yaml), so a
-    # token for it can be had; a scope it does not list cannot.
-    check "acme: an exchange for the AI gateway names it" \
-      "$(jq -r '[.aud] | flatten | index("ai-gateway") != null' <<<"$(API=ai-gateway for_api acme)")"
+    # A scope the application does not list cannot be had.
     check "an API the application does not list is refused (invalid_scope)" \
       "$(jq -r '.error == "invalid_scope" and (has("access_token") | not)' <<<"$(API=kanzo-unlisted exchange acme)")"
     ;;

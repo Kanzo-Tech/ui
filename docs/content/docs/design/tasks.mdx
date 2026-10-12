@@ -42,10 +42,10 @@ does not decide *whether* a small model is good enough, it points at *which Task
 well enough*. Every failure is a lead to move one more fact into a deterministic step.
 
 The model runs in the page through [WebLLM](https://github.com/mlc-ai/web-llm), behind the AI SDK's
-`LanguageModel` by way of `@browser-ai/web-llm`. What goes with it: agentgateway, its Postgres and
-the local-model profile (`services/ai`), `gateway.ts` and the BFF's `/api/ai` forward, and the
-per-alias context variables. The exception to *your data does not leave the browser* — the question
-travels to the gateway today — goes with them.
+`LanguageModel` by way of `@browser-ai/web-llm`. What went with it: agentgateway, its Postgres and
+the local-model profile (`services/ai`), `createGateway`, the realm's `ai-gateway` API and the
+per-alias context variables — and the exception to *your data does not leave the browser*, a
+question that travelled to the gateway. A product's BFF forward to it goes when the product moves.
 
 **What would reverse it:** a Task that, after everything computable has been moved into `compute`
 steps, still fails the evaluation set with a small model. Then that Task, and only that Task, takes
@@ -357,8 +357,8 @@ and as distillation data.
    worker.
 3. **The assistant, and the gateway retired** (≈ 30 %). Three screens over the `requirements`,
    `model` and `mapping` Tasks; competency questions as Ask's questions. The current wizard goes, and
-   with it the gateway's last consumer: `services/ai`, `gateway.ts`, the BFF's `/api/ai` forward and
-   their configuration.
+   with it the gateway's last consumer. `services/ai`, `createGateway` and the realm's `ai-gateway`
+   are already gone from this repository; a product's `/api/ai` forward goes with its wizard.
 4. **A model of our own.** One small multi-task model distilled for every Task, the evaluation set as
    its gate, versioned and served as shards — in `kanzo-models`, outside these repositories.
 
