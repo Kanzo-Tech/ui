@@ -31,9 +31,9 @@ const NOBEL: JoinGraph = {
 
 const field = (name: string, kind: AnswerField["kind"], values?: string[]): AnswerField => ({
   name,
-  type: kind === "quantitative" ? "BIGINT" : "VARCHAR",
+  type: kind === "numeric" ? "BIGINT" : "VARCHAR",
   kind,
-  role: kind === "quantitative" ? "measure" : "dimension",
+  role: kind === "numeric" ? "measure" : "dimension",
   distinct: 10,
   ...(values ? { values } : {}),
 });
@@ -41,11 +41,11 @@ const field = (name: string, kind: AnswerField["kind"], values?: string[]): Answ
 const alone = (root: string, fields: AnswerField[]): AnswerRelation => ({ relation: { root, path: [] }, fields, columns: ["id", ...fields.map((f) => f.name)] });
 
 const TYPES: AnswerRelation[] = [
-  alone("LaureateAward", [field("LaureateAward.share", "quantitative")]),
-  alone("Laureate", [field("Laureate.name", "nominal"), field("Laureate.gender", "nominal", ["male", "female"])]),
-  alone("Category", [field("Category.name", "nominal", ["Physics", "Chemistry"])]),
-  alone("University", [field("University.name", "nominal")]),
-  alone("Country", [field("Country.name", "nominal", ["USA", "Germany"])]),
+  alone("LaureateAward", [field("LaureateAward.share", "numeric")]),
+  alone("Laureate", [field("Laureate.name", "categorical"), field("Laureate.gender", "categorical", ["male", "female"])]),
+  alone("Category", [field("Category.name", "categorical", ["Physics", "Chemistry"])]),
+  alone("University", [field("University.name", "categorical")]),
+  alone("Country", [field("Country.name", "categorical", ["USA", "Germany"])]),
 ];
 
 const input = (question: string, extra: Partial<AskInput> = {}): AskInput => ({ question, graph: NOBEL, types: TYPES, ...extra });

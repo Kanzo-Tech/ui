@@ -95,6 +95,25 @@ export interface RunOptions {
 
 const isDecision = (f: Finding): f is { decision: Decision } => "decision" in f;
 
+/** Every oracle's findings on `value`, split into what is wrong and what is the person's to decide. */
+async function check<I, A, C>(task: TaskDefinition<I, A, C>, value: A, input: I) {
+  const findings = (await Promise.all((task.verify ?? []).map((oracle) => oracle(value, input)))).flatMap((f) =>
+    f === undefined ? [] : Array.isArray(f) ? f : [f as Finding],
+  );
+  return {
+    diagnostics: findings.filter((f): f is Diagnostic => !isDecision(f)),
+    decisions: findings.filter(isDecision).map((f) => f.decision),
+  };
+}
+
+/** The verdict on findings with no diagnostic: the first open decision, or accepted with what was assumed. */
+function decided<I, A, C>(task: TaskDefinition<I, A, C>, decisions: readonly Decision[]): Verdict {
+  const open = decisions.find((d) => task.decide?.[d.id] === undefined);
+  if (open) return { ok: false, decision: open };
+  const assumed = decisions.map((decision) => ({ decision, option: task.decide![decision.id]!.assume }));
+  return assumed.length > 0 ? { ok: true, assumed } : { ok: true };
+}
+
 /**
  * Runs `task` on `input`: the context computed, the artefact asked for, every oracle run on it, and
  * the diagnostics sent back for another attempt while there are attempts left. A decision the task
@@ -125,11 +144,7 @@ export async function runTask<I, A, C>(task: TaskDefinition<I, A, C>, input: I, 
     const value = output as A;
 
     onState?.("verifying");
-    const findings = (await Promise.all((task.verify ?? []).map((oracle) => oracle(value, input)))).flatMap((f) =>
-      f === undefined ? [] : Array.isArray(f) ? f : [f as Finding],
-    );
-    const diagnostics = findings.filter((f): f is Diagnostic => !isDecision(f));
-    const decisions = findings.filter(isDecision).map((f) => f.decision);
+    const { diagnostics, decisions } = await check(task, value, input);
 
     if (diagnostics.length > 0) {
       last = { value, diagnostics };
@@ -138,24 +153,41 @@ export async function runTask<I, A, C>(task: TaskDefinition<I, A, C>, input: I, 
         .join("\n")}\nAnswer again, fixing these.`;
       continue;
     }
-
-    const open = decisions.find((d) => task.decide?.[d.id] === undefined);
-    if (open) {
-      onState?.("needs-input");
-      return { id, task: task.name, value, target, verdict: { ok: false, decision: open }, attempts: attempt };
-    }
-    const assumed = decisions.map((decision) => ({ decision, option: task.decide![decision.id]!.assume }));
-    onState?.("done");
-    return {
-      id,
-      task: task.name,
-      value,
-      target,
-      verdict: assumed.length > 0 ? { ok: true, assumed } : { ok: true },
-      attempts: attempt,
-    };
+    const verdict = decided(task, decisions);
+    onState?.(verdict.ok ? "done" : "needs-input");
+    return { id, task: task.name, value, target, verdict, attempts: attempt };
   }
 
   onState?.("failed");
   return { id, task: task.name, value: last!.value, target, verdict: { ok: false, diagnostics: last!.diagnostics }, attempts };
+}
+
+/**
+ * Several proposals at once, with no one asked for yet — what a list offers before the reader types:
+ * the model writes `count` artefacts in one answer, each is checked on its own, and only those every
+ * oracle accepts are kept. One call, no repair: an offer the oracles refuse is not shown.
+ */
+export async function propose<I, A, C>(
+  task: TaskDefinition<I, A, C>,
+  input: I,
+  options: RunOptions & { readonly count: number },
+): Promise<Proposal<A>[]> {
+  const { model, signal, count } = options;
+  const context = task.context ? await task.context(input, signal) : ("" as C);
+  const { output } = await generateText({
+    model,
+    system: task.instructions,
+    prompt: `${task.prompt(input, context)}\n\nOffer ${count}, different from one another.`,
+    output: Output.array({ element: task.output(input, context) }),
+    abortSignal: signal,
+  });
+  const offered: Proposal<A>[] = [];
+  for (const [n, value] of ((output ?? []) as A[]).entries()) {
+    const { diagnostics, decisions } = await check(task, value, input);
+    if (diagnostics.length > 0) continue;
+    const verdict = decided(task, decisions);
+    if (!verdict.ok) continue;
+    offered.push({ id: `${task.name}-${n}`, task: task.name, value, target: { add: "" }, verdict, attempts: 1 });
+  }
+  return offered.slice(0, count);
 }
