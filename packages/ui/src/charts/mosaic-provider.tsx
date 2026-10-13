@@ -215,7 +215,7 @@ export interface MosaicClientsProps {
  * its clauses but asks nothing; enabled again, it runs the one query it was owed. Mosaic's own reason
  * for the flag is ours: a panel that is off screen — a view swapped out, a collapsed dock — keeps what
  * the reader brushed there without re-querying on every pick made elsewhere. Unmounting it instead
- * would retract its clauses.
+ * keeps its clauses — they are the page's (`ClausePlace`) — but asks every query again on its return.
  */
 export function MosaicClients({ enabled = true, relation, children }: MosaicClientsProps) {
   const enclosing = useContext(Enabled);

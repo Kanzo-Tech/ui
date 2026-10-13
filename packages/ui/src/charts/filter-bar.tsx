@@ -55,7 +55,8 @@ export interface FilterBarProps extends React.ComponentProps<typeof ark.section>
 /**
  * **The page's one row of filters**, under its header — Metabase's filter bar, drawn as Linear's
  * chips. Every clause on the page's selection is a chip, read from `Selection.clauses`, so the row
- * reports filters it did not publish: a brush, a lasso, a pick, a timeline's window. Its × is Mosaic's
+ * reports filters it did not publish: a brush, a lasso, a pick, a timeline's window — and one whose
+ * chart is no longer mounted, which is still the page's filter (`ClausePlace`). Its × is Mosaic's
  * own retraction, `selection.reset([clause])`, which removes the clause and calls its source back, so
  * the brush that published it clears too.
  *

@@ -138,10 +138,12 @@ The graph and the dashboard share the page's crossfilter: a brush on a tile grey
 every vertex but the roots of the rows it keeps, and a lasso on the canvas filters every tile —
 [what the page sees](/docs/analytics/dashboard#what-the-page-sees).
 
-`key` remounts the dashboard on a switch. Every part withdraws its clauses when it unmounts — a
-chart's own selection is reset, an input retracts its clause — so a filter on one relation never
-reaches the next. A clause published by something that stays mounted, like a graph's lasso as a
-semi-join on `dense_id`, carries over, which is the point: a relation keeps its root's key under the
+`key` remounts the dashboard on a switch, and **the reader's filters stay**. A pick on one
+relation's chart is the page's filter, not the chart's: it stays in the `FilterBar` as a chip and
+filters the next relation by its root's key, until the reader removes it — its chip, a re-pick on
+the chart, or *Clear every filter*. Switch back and the chart draws the pick it still holds. A clause
+published by something that stays mounted, like a graph's lasso as a semi-join on `dense_id`,
+carries over the same way: a relation keeps its root's key under the
 key's own name, so the lasso filters a joined relation as it filters the root's table.
 
 `exclude` drops the keys from the fields: they are identity, not data. `Dashboards` is one document,

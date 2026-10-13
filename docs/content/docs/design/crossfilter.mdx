@@ -438,9 +438,57 @@ because `GraphClient` asks only the tables that answer every clause (#174).
 
 ### A relation that changes
 
-A chart's `relation` is reactive. When it changes the chart re-queries and withdraws its **own**
-clause — the rebuilt plot hands nothing over across relations — and no other client needs anything,
-because the resolver reads each client's relation when it asks.
+**A filter is the page's, not the chart's that made it.** A chart's `relation` is reactive, and a
+dashboard switched to another relation — by a `RelationPicker`, or by an answer's *Open on the
+dashboard* — unmounts its tiles. Neither takes a clause off the page. The clause stays on the page's
+one selection, a chip in the `FilterBar` named as `clauseLabel` names it, and the resolver crosses
+it into the new relation by key, as it crosses every other clause — the crossing Ask already reads
+its answers under. No other client needs anything, because the resolver reads each client's relation
+when it asks. A filter goes only when the reader removes it: its chip, the chart's own clear or
+re-pick, *Clear every filter*, or taking the filter off the dashboard that draws it.
+
+**A part publishes under a place, and the place outlives the part** (`clause-place.ts`). A chart's
+place is keyed by its title, its relation, the place in its plot and the interactor's kind and
+fields; a control's by its relation and its clause's type and fields. A chart mounted again takes its
+place back: it is handed the clause the page still holds there, draws the pick from it and
+republishes it for its own marks, so its own bars are exempt again and a new pick replaces the old
+one rather than sitting beside it. A key is held by one part at a time; a twin on screen gets a
+place of its own. Where a chart's grammar changes in place, its old clause stays the page's and the
+new interactor takes the place its own key names.
+
+**It replaced withdrawal on unmount**, which had every chart and control take what it published off
+the page when it unmounted or its relation changed, so that a filter on one relation never reached
+the next. In Keasy, recording a demo: a pick of *Physics* on a dashboard over
+`LaureateAward > category > Category`, Ask answering *under the page's filter: Category.name
+Physics*, then the dashboard switched to `LaureateAward > university > University` — and the pick
+was gone. The chip went with the chart, and the next answer was over every category, with nothing on
+screen to say so. The reference is Kibana: a filter in its filter bar belongs to the app, not to the
+visualization that added it, and stays across visualizations until it is removed. It is also what
+this page already claimed — one selection for the page, [one count](#the-thesis-everything-is-a-filter)
+of what it keeps — and what the canvas already did: a pick belongs to the page, and is retracted
+where it shows, its chip.
+
+**What withdrawal guarded against does not come back.** It kept a chart that unmounted from leaving
+its clause filtering the page with nothing on screen to clear it. The `FilterBar` draws every clause
+on the page as a chip with a ×, whoever published it and whether or not it is mounted, so there is
+something on screen to clear it — on a page with a `FilterBar`, which is the condition: a page that
+filters and draws no bar has nothing but the part's remount and `selection.reset()` to clear a
+clause whose part has gone. And the two windows a rebuild once left on the timeline cannot return
+across a remount, because a remount publishes under the source it published under before.
+
+**What would reverse it:** readers taking a kept filter for a wrong answer — a chip from a view they
+left read as noise rather than as the filter they set. Then a clause carries the view it was made in
+and the bar groups or dims its chip by it, still without withdrawing it. Or a page that filters with
+no `FilterBar` becoming a shape this library supports: then a part on such a page withdraws on
+unmount, and a page with a bar keeps its filters.
+
+*Held by* `packages/graph/src/parts/relation-switch.test.tsx`, "stays on the page as a chip, filters
+the new relation by key, goes with its chip, and is drawn again where it was made";
+`packages/graph/src/parts/timeline.test.tsx`, "keeps its window on the page when it unmounts,
+undelivered or not, and draws it again when it mounts";
+`packages/ui/src/charts/chart-inputs.test.tsx`, "disconnects its client on unmount and leaves its
+clause the page's, taking it back when it mounts again", "leaves its clause the page's on unmount,
+and reads it back into the box when it mounts again".
 
 ### Pre-aggregation stays where the clause is the client's own
 

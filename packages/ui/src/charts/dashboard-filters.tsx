@@ -40,8 +40,10 @@ export interface DashboardFiltersProps {
  * time is a brushable timeline. They publish into the page's selection on the dashboard's relation,
  * and the bar leaves their clauses to these chips.
  *
- * A control stays mounted while its popover is shut: a control that unmounts retracts its clause,
- * and a filter that let go whenever its chip closed would not be a filter.
+ * A control stays mounted while its popover is shut, so it draws its clause and is exempt from it.
+ * Its clause is the page's (`ClausePlace`): a dashboard switched to another relation leaves it on the
+ * page as a chip, and the control takes it back when the dashboard returns. Taking the filter off
+ * the dashboard takes its clause off the page.
  */
 export function DashboardFilters(props: DashboardFiltersProps) {
   const { relation, fields, filters, onChange } = props;
@@ -56,7 +58,13 @@ export function DashboardFilters(props: DashboardFiltersProps) {
     return field && control ? [{ field, control }] : [];
   });
   const addable = fields.filter((f) => filterControl(f) && !filters.some((s) => s.field === f.name));
-  const remove = onChange && ((name: string) => onChange(filters.filter((s) => s.field !== name)));
+  // Taking a filter off the dashboard takes its clause off the page: the reader removed it.
+  const remove =
+    onChange &&
+    ((name: string) => {
+      selection.reset(clauses.filter((c) => clauseField(c) === name));
+      onChange(filters.filter((s) => s.field !== name));
+    });
 
   return (
     <>

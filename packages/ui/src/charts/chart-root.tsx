@@ -4,7 +4,7 @@ import { holdFirstDraw, onRelation, queryFailure, relaySelection, type RelationE
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
-import { Selection, type ClauseSource, type Coordinator, type SelectionClause } from "@uwdata/mosaic-core";
+import { Selection, type Coordinator, type SelectionClause } from "@uwdata/mosaic-core";
 import * as vg from "@uwdata/vgplot";
 import { cn } from "../lib/cn.js";
 import { Show } from "../simples/show.js";
@@ -21,6 +21,7 @@ import {
   type ChartMargin,
   type ChartSpecContext,
 } from "./chart-spec.js";
+import { claimPlace, heldClause, releasePlace, type ClausePlace } from "./clause-place.js";
 import { useClientsEnabled, useMosaic, useRelation } from "./mosaic-provider.js";
 import { resolveTokenColor } from "../lib/token-color.js";
 import { TokenizedPlot } from "./tokenized-plot.js";
@@ -52,73 +53,67 @@ interface Publisher {
   selection?: Selection;
   clause?(...args: unknown[]): SelectionClause;
   reset?(): void;
+  /** The columns it publishes on, under whichever name its kind gives them: part of its place's key. */
+  fields?: unknown[];
+  field?: unknown;
+  xfield?: unknown;
+  yfield?: unknown;
 }
 
-/** One place in the plot's interactors, and the clause source it publishes under for the root's life. */
+/** One place in the plot's interactors, and the page's place for its clause. */
 interface Slot {
-  readonly source: ClauseSource;
+  readonly place: ClausePlace;
   current: Publisher;
-  /**
-   * The last clause built under the source, until it is withdrawn or reset: what the page holds of
-   * the place, or is about to. `Selection.clauses` is what the page last delivered, and an update
-   * waits to be delivered behind the clients' answers to the one before, so it can lag a brush.
-   */
-  last?: SelectionClause;
 }
 
 /**
- * **An interactor's clause has one source for the root's life, whatever plot draws it.** A plot is
- * rebuilt on a resize or a theme change, and vgplot builds new interactors with it, each its own
- * clause source. A selection keeps one clause per source, so the old interactor's clause stayed
- * beside the new one's: two windows, intersected. Handing the clause from one to the next was not
- * enough — a rebuild landing before the last one had drawn handed over from an interactor that had
- * not published yet, and a brush gesture begun on the old plot goes on publishing through it. So the
- * interactor at each place publishes under that place's source, which survives the rebuild: whoever
- * publishes, the selection holds one clause. One the plot no longer draws speaks through its heir.
+ * **An interactor's clause has one source for the root's life, whatever plot draws it — and the
+ * page's past it.** A plot is rebuilt on a resize or a theme change, and vgplot builds new
+ * interactors with it, each its own clause source. A selection keeps one clause per source, so the
+ * old interactor's clause stayed beside the new one's: two windows, intersected. Handing the clause
+ * from one to the next was not enough — a rebuild landing before the last one had drawn handed over
+ * from an interactor that had not published yet, and a brush gesture begun on the old plot goes on
+ * publishing through it. So the interactor at each place publishes under that place's source, which
+ * survives the rebuild: whoever publishes, the selection holds one clause. One the plot no longer
+ * draws speaks through its heir.
  *
  * Where the grammar is the same, the interactor at the same place, of the same kind, on the same
  * selection, keeps the place and is handed the old one's value — its brush is drawn from it — and,
- * once it has drawn, republishes it for its own marks. Where the grammar changed, a value of the old
- * one means nothing to the new one, and the place's clause is withdrawn at once. Both go by the
- * place's last clause, not by the page's: a brush the page has not delivered yet is still held.
+ * once it has drawn, republishes it for its own marks. Where it is not, the old place is let go and
+ * its clause stays the page's (`ClausePlace`); the new interactor takes the page's place for its
+ * key — the chart's title, its relation, the place, the interactor's kind and fields — and is handed
+ * the clause the page still holds there, as a remount is. Both go by the place's last clause, not by
+ * the page's: a brush the page has not delivered yet is still held.
  *
- * Returns what to run once the new plot has drawn, when there is anything.
+ * Returns what to run once the new plot has drawn.
  */
-function handOver(slots: Slot[], after: readonly unknown[], same: boolean, relation: RelationRef | null): (() => void) | null {
-  const moves: (() => void)[] = [];
+function handOver(slots: Slot[], after: readonly unknown[], same: boolean, relation: RelationRef | null, title: unknown): () => void {
   const next = after.map((item, i) => {
     const heir = item as Publisher;
-    const slot = slots[i];
-    const keeps = same && slot !== undefined && slot.current.constructor === heir.constructor && slot.current.selection === heir.selection;
-    if (slot && !keeps) withdraw(slot);
-    if (!keeps) {
-      const fresh: Slot = {
-        source: {
-          reset: () => {
-            fresh.last = undefined;
-            fresh.current.reset?.();
-          },
-        },
-        current: heir,
-      };
-      return adopt(fresh, heir, relation);
-    }
-    heir.value = slot.current.value;
+    const old = slots[i];
+    const keeps = same && old?.current.constructor === heir.constructor && old.current.selection === heir.selection;
+    if (old && !keeps) releasePlace(old.place);
+    const slot: Slot = keeps
+      ? old
+      : { place: claimPlace(heir.selection!, `${title}\0${JSON.stringify(relation)}\0${i}\0${heir.constructor.name}\0${[heir.fields, heir.field, heir.xfield, heir.yfield]}`), current: heir };
+    if (!keeps) slot.place.onReset = () => slot.current.reset?.();
+    heir.value = keeps ? old.current.value : heldClause(slot.place)?.value;
     adopt(slot, heir, relation);
-    moves.push(() => {
-      if (slot.current !== heir) return;
-      if (heir.value === undefined) withdraw(slot);
-      else if (slot.last) heir.selection?.update(heir.clause!(heir.value));
-    });
     return slot;
   });
-  slots.slice(after.length).forEach(withdraw);
+  slots.slice(after.length).forEach((slot) => releasePlace(slot.place));
   slots.splice(0, slots.length, ...next);
-  return moves.length > 0 ? () => moves.forEach((move) => move()) : null;
+  return () =>
+    next.forEach((slot, i) => {
+      const heir = after[i] as Publisher;
+      if (slot.current !== heir) return;
+      if (heir.value === undefined) withdraw(slot);
+      else if (slot.place.last) heir.selection?.update(heir.clause!(heir.value));
+    });
 }
 
-/** `interactor` takes `slot`: it publishes under the slot's source from now on, on the chart's relation. */
-function adopt(slot: Slot, interactor: Publisher, relation: RelationRef | null): Slot {
+/** `interactor` takes `slot`: it publishes under the place's source from now on, on the chart's relation. */
+function adopt(slot: Slot, interactor: Publisher, relation: RelationRef | null): void {
   slot.current = interactor;
   const own = interactor.clause?.bind(interactor);
   if (own) {
@@ -128,17 +123,16 @@ function adopt(slot: Slot, interactor: Publisher, relation: RelationRef | null):
         if ("value" in slot.current) slot.current.value = args[0];
         return slot.current.clause!(...args);
       }
-      return (slot.last = onRelation({ ...own(...args), source: slot.source }, relation));
+      return (slot.place.last = onRelation({ ...own(...args), source: slot.place.source }, relation));
     };
   }
-  return slot;
 }
 
-/** The slot's clause, withdrawn from its selection. */
+/** The slot's clause, withdrawn from its selection: its interactor holds no value any more. */
 function withdraw(slot: Slot): void {
-  const { last } = slot;
+  const { last } = slot.place;
   const selection = slot.current.selection;
-  slot.last = undefined;
+  slot.place.last = undefined;
   if (selection && last) selection.update({ ...last, value: null, predicate: null });
 }
 
@@ -235,7 +229,7 @@ export interface ChartRootProps
    * over the joins (a `Relation`, compiled with `relationQuery`), or SQL as a mosaic-sql node —
    * `verbatim(relation.sql)`, `asTableRef([catalog, name])`. Its clauses are published on it, and a
    * clause on another relation reaches the marks crossed into it. It may change: the plot re-queries
-   * and withdraws the clauses it published on the old one. Omit it when every mark carries its own
+   * and the clauses it published on the old one stay the page's. Omit it when every mark carries its own
    * `data`.
    */
   relation?: RelationExpr;
@@ -325,12 +319,13 @@ export function ChartRoot(props: ChartRootProps) {
   // `ChartHighlight` would read an empty predicate and dim nothing.
   const [highlight] = useState(() => Selection.union());
   useEffect(
-    () => relaySelection(selection, highlight, { keep: (clause) => slots.current.some((slot) => slot.source === clause.source) }),
+    () => relaySelection(selection, highlight, { keep: (clause) => slots.current.some((slot) => slot.place.source === clause.source) }),
     [selection, highlight],
   );
-  // What the chart published leaves the page with it: a chart that unmounts (a tab, a conditional)
-  // would otherwise leave its clauses filtering the page with nothing on screen to clear them.
-  useEffect(() => () => slots.current.forEach(withdraw), [selection]);
+  // What the chart published is the page's, and stays when it unmounts (a tab, a dashboard switched
+  // to another relation): a chip in the `FilterBar` clears it, and the chart takes it back when it
+  // mounts again (`ClausePlace`).
+  useEffect(() => () => slots.current.forEach((slot) => releasePlace(slot.place)), [selection]);
   const host = useRef<HTMLDivElement | null>(null);
   // The marks of the plot on screen, so `MosaicClients` reaches them without rebuilding the plot.
   const marks = useRef<readonly PlotMark[]>([]);
@@ -440,7 +435,7 @@ export function ChartRoot(props: ChartRootProps) {
             const element = vg.plot(...spec.map(toVgDirective).filter((d): d is VgDirective => d !== null));
             const plot = (element as PlotElement).value;
             const from = `${tableKey}\u0000${signature}`;
-            let handed = handOver(slots.current, plot.interactors, drawnFrom.current === from, reading);
+            let handed: (() => void) | null = handOver(slots.current, plot.interactors, drawnFrom.current === from, reading, title ?? null);
             for (const mark of marks.current) mark.destroy();
             marks.current = plot.marks;
             drawn.current = plot;
