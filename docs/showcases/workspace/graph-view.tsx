@@ -324,7 +324,7 @@ export function GraphInfo() {
   return (
     <div className="flex h-full flex-col">
       <div className="shrink-0 border-b border-border p-2">
-        <GraphSearch placeholder="Find anything in the archive…" />
+        <GraphSearch translations={{ placeholder: "Find anything in the archive…" }} />
       </div>
       <ScrollArea className="min-h-0 flex-1 p-3">
         <GraphInspector>{(detail) => <HallName detail={detail} />}</GraphInspector>

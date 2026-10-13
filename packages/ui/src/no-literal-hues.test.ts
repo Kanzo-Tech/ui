@@ -69,7 +69,7 @@ import { CHROMA_FLOOR, label, oklch, sourceFiles, subtrees, unreadable } from ".
  *   one look identical from outside, and only one of them is a finding. A hue added to either file
  *   tomorrow would still pass. `logical-properties.test.ts` declares the same limit, from the same
  *   walk.
- * - **The corpus is `ui` and `ai`, derived** — see `guard-corpus.ts` for how, and for why
+ * - **The corpus is `ui`, `ai` and `graph`, derived** — see `guard-corpus.ts` for how, and for why
  *   `theme` is not in it: the package that declares the colours would read as one long violation
  *   of a rule about hues written *by hand* elsewhere.
  */

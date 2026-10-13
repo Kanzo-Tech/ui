@@ -657,13 +657,19 @@ writes it in.
 `GraphRootProps` is `UseGraphProps` plus `children`. `GraphRootProvider` takes `value`, a `GraphApi`
 from `useGraph`, and `children` (`GraphRootProviderProps`).
 
+Every part renders through `ark` and takes the props of the element it renders, `asChild` among
+them, and every word it writes through `translations` — a partial record, English by default. A
+sentence written from figures — *5K nodes · 8K edges* — is a pattern of the figures, never English
+assembled in the part.
+
 ### GraphCanvas
 
 | Prop | Type | Default |
 | --- | --- | --- |
 | `children` | `ReactNode` — chrome positioned over the surface | — |
+| `translations` | `Partial<GraphCanvasTranslations>` — `loading`, and `holds(count, n)` beside a marquee | English |
 
-Extends `React.ComponentProps<"div">`. The frame is `relative isolate size-full`, so a child's
+Extends `React.ComponentProps<typeof ark.div>`. The frame is `relative isolate size-full`, so a child's
 `z-index` cannot escape into the page; give it a size from outside.
 
 ### GraphToolbar
@@ -671,8 +677,9 @@ Extends `React.ComponentProps<"div">`. The frame is `relative isolate size-full`
 | Prop | Type | Default |
 | --- | --- | --- |
 | `orientation` | `"horizontal" \| "vertical"` | `"horizontal"` |
+| `translations` | `Partial<GraphToolbarTranslations>` — every cluster's and button's name and hint | English |
 
-Extends `React.ComponentProps<"div">`. Anchor it at the canvas's top end (`absolute end-2 top-2`):
+Extends `React.ComponentProps<typeof ark.div>`. Anchor it at the canvas's top end (`absolute end-2 top-2`):
 while something is greyed it draws a count of what is in full colour — first in a row, last in a
 column — so it grows away from the anchor and no button moves. Its one Frame, in the camera's
 cluster, is named for what it frames: "Frame everything", or "Frame what the filters keep". A
@@ -680,26 +687,31 @@ canvas's pick is let go at its chip or with Escape, like every other clause.
 
 ### GraphLegend
 
-Takes `React.ComponentProps<"div">` (`GraphLegendProps`). Renders nothing when there is no category
-to key.
+Takes `Card`'s props (`GraphLegendProps`): the legend is a `Card`, and composes it rather than drawing
+a card's surface by hand. Renders nothing when there is no category to key. `translations`
+(`GraphLegendTranslations`): `other`, `unplaced` and `noEdges`.
 
 ### GraphCounts
 
-Takes `React.ComponentProps<"p">` (`GraphCountsProps`). `aria-busy` is set while the graph loads.
+Takes `React.ComponentProps<typeof ark.p>` (`GraphCountsProps`). `aria-busy` is set while the graph
+loads. `translations` (`GraphCountsTranslations`) are the sentence's patterns over its figures —
+`nodes(count)`, `placedNodes(count, total, placed)`, `hidden(count)`, `edges(count)`,
+`placedEdges(count, total)` — with `placed`, `placedHint(x, y)` and the `separator`.
 
 ### GraphStatus
 
-Takes `React.ComponentProps<"span">` (`GraphStatusProps`), spread onto the `Badge`. `aria-busy` is
-set while the graph loads or a layout runs.
+Takes `Badge`'s props (`GraphStatusProps`). `aria-busy` is set while the graph loads or a layout
+runs. `translations` (`GraphStatusTranslations`): `loading`, `layingOut`, `ready` and `failed`.
 
 ### GraphSearch
 
 | Prop | Type | Default |
 | --- | --- | --- |
 | `limit` | `number` | `50` |
-| `placeholder` | `string` | `"Find a node…"` |
 | `size` | `"sm" \| "md" \| "lg"` — the cue's | `"sm"` |
-| `className` | `string` — on the cue | — |
+| `translations` | `Partial<GraphSearchTranslations>` — the cue's `placeholder`, the palette's words, the footer's patterns | English |
+
+Takes the cue's props, a `Button`'s (`GraphSearchProps`).
 
 ### GraphInspector
 
@@ -707,7 +719,9 @@ set while the graph loads or a layout runs.
 | --- | --- | --- |
 | `children` | `(detail: VertexDetail) => ReactNode` — fields after the corpus's values | — |
 
-Extends `React.ComponentProps<"div">` without its `children`.
+Extends `React.ComponentProps<typeof ark.div>` without its `children`. `translations`
+(`GraphInspectorTranslations`): `empty`, `missing`, `unread`, `locate`, `copy`, `values`, `dates`,
+`more` and `less`.
 
 ### ShapeGlyph
 
@@ -781,7 +795,9 @@ What `useGraphState` selects from.
 
 `GraphCanvasProps`, `GraphLegendProps`, `GraphCountsProps`, `GraphStatusProps`, `GraphToolbarProps`,
 `GraphInspectorProps`, `GraphSearchProps`, `GraphRootProviderProps` and
-`ShapeGlyphProps` are the parts' props; `VertexDetail` — `vertex`, `table` and `fields` — is what the
+`ShapeGlyphProps` are the parts' props, and `GraphCanvasTranslations`, `GraphLegendTranslations`,
+`GraphCountsTranslations`, `GraphStatusTranslations`, `GraphToolbarTranslations`,
+`GraphInspectorTranslations` and `GraphSearchTranslations` their words; `VertexDetail` — `vertex`, `table` and `fields` — is what the
 inspector's render prop receives. `Channels` (`fill`, `symbol`, `stroke`, `x`, `y`, `cluster`), `Placement`, `Look`, `LookPatch`,
 `Shape`, `Sim`, `Motion`, `VertexSelection`, `VertexSelectionSource`, `Tool`, `VertexId`,
 `GraphCommands`, `VertexPick`, `DataStatus` and `Drawn` are the vocabulary, and `GraphError` is the class of the

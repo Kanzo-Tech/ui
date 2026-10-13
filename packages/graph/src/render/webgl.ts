@@ -1,3 +1,5 @@
+"use client";
+
 import type { Graph } from "@cosmos.gl/graph";
 import { GraphError } from "../core/error";
 

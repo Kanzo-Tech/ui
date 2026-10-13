@@ -35,13 +35,13 @@ export { useGraphState } from "./react/use-graph-state";
 export { useGraphPrefs } from "./react/use-graph-prefs";
 export { usePick, type VertexPick } from "./react/use-pick";
 
-export { GraphCanvas, type GraphCanvasProps } from "./parts/graph-canvas";
-export { GraphLegend, type GraphLegendProps } from "./parts/graph-legend";
-export { GraphCounts, type GraphCountsProps } from "./parts/graph-counts";
-export { GraphStatus, type GraphStatusProps } from "./parts/graph-status";
-export { GraphToolbar, type GraphToolbarProps } from "./parts/graph-toolbar";
-export { GraphInspector, type GraphInspectorProps } from "./parts/graph-inspector";
-export { GraphSearch, type GraphSearchProps } from "./parts/graph-search";
+export { GraphCanvas, type GraphCanvasProps, type GraphCanvasTranslations } from "./parts/graph-canvas";
+export { GraphLegend, type GraphLegendProps, type GraphLegendTranslations } from "./parts/graph-legend";
+export { GraphCounts, type GraphCountsProps, type GraphCountsTranslations } from "./parts/graph-counts";
+export { GraphStatus, type GraphStatusProps, type GraphStatusTranslations } from "./parts/graph-status";
+export { GraphToolbar, type GraphToolbarProps, type GraphToolbarTranslations } from "./parts/graph-toolbar";
+export { GraphInspector, type GraphInspectorProps, type GraphInspectorTranslations } from "./parts/graph-inspector";
+export { GraphSearch, type GraphSearchProps, type GraphSearchTranslations } from "./parts/graph-search";
 export { ShapeGlyph, type ShapeGlyphProps } from "./parts/shape-glyph";
 
 // The picture: form, forces, where the points come from, and the scale a legend asks what a

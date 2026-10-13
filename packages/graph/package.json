@@ -32,16 +32,21 @@
     "test": "vitest run",
     "size": "size-limit"
   },
-  "//peers": "All required. cosmos.gl draws and lays out; `lucide-react` is the icon set the parts draw their buttons with, `@kanzo-tech/ui`'s own peer; `@kanzo-tech/mosaic` is the coordinator the graph reads through as a client and the crossfilter it listens to and publishes into. The Mosaic stack itself — mosaic-core, mosaic-sql — is `@kanzo-tech/mosaic`'s peer, declared once there.",
+  "//peers": "All required. cosmos.gl draws and lays out; `@ark-ui/react` is what every part renders through (`ark.*`), a peer for the reason it is `@kanzo-tech/ui`'s — two copies of Ark would be two portals and two focus traps; `lucide-react` is the icon set the parts draw their buttons with, `@kanzo-tech/ui`'s own peer; `@kanzo-tech/mosaic` is the coordinator the graph reads through as a client and the crossfilter it listens to and publishes into. The Mosaic stack itself — mosaic-core, mosaic-sql — is `@kanzo-tech/mosaic`'s peer, declared once there. `tailwind-variants` is a dependency, as it is `ui`'s and `ai`'s: the parts write their appearance as recipes, which is also what puts this package under the guards (`packages/ui/src/guard-corpus.ts`).",
   "//fossil": "The graph reads a corpus fossil's `attach` (`@fossil-lang/corpus`) attached under a name — its tables, `fossil_tables` and `fossil_columns` — with SQL through the coordinator. It imports nothing of fossil's: the contract is the catalog, `/docs/format`, as `@fossil-lang/corpus` 0.3.0-alpha.28 writes it — `fossil_columns.datatype` is what tells a year stored as an `int32` from a number.",
   "peerDependencies": {
+    "@ark-ui/react": "^5.37.2",
     "@cosmos.gl/graph": "^3.4.0",
     "@kanzo-tech/mosaic": "workspace:*",
     "@kanzo-tech/ui": "workspace:*",
     "lucide-react": "^1.0.0",
     "react": "^19.0.0"
   },
+  "dependencies": {
+    "tailwind-variants": "^3.2.2"
+  },
   "devDependencies": {
+    "@ark-ui/react": "^5.37.2",
     "@cosmos.gl/graph": "^3.4.0",
     "@duckdb/duckdb-wasm": "1.33.1-dev57.0",
     "@kanzo-tech/mosaic": "workspace:*",
@@ -74,7 +79,9 @@
         "@cosmos.gl/graph",
         "@kanzo-tech/mosaic",
         "@kanzo-tech/ui",
-        "lucide-react"
+        "lucide-react",
+        "@ark-ui/react",
+        "tailwind-variants"
       ]
     }
   ],
