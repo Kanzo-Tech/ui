@@ -57,8 +57,11 @@ export type Finding = Diagnostic | { readonly decision: Decision };
 /** A fact checked of the artefact: the data's or the program's, never the model's opinion. */
 export type Oracle<I, A> = (value: A, input: I) => Finding | readonly Finding[] | undefined | Promise<Finding | readonly Finding[] | undefined>;
 
-/** The states a Task passes through, as the message's data parts carry them. */
-export type TaskState = "linking" | "drafting" | "verifying" | "repairing" | "needs-input" | "done" | "failed";
+/**
+ * The states a Task passes through, each handed to `onState` as it is entered. Not exported: no
+ * host names it, and `RunOptions["onState"]` spells it where one would.
+ */
+type TaskState = "linking" | "drafting" | "verifying" | "repairing" | "needs-input" | "done" | "failed";
 
 export interface TaskDefinition<I, A, C = string> {
   /** What the model is resolved by and what the evaluation set is keyed by. */

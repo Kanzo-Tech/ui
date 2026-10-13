@@ -4,8 +4,8 @@
  * Same standing as `@kanzo-tech/mosaic`: the third party — here the AI SDK — is a required peer, its
  * surface is re-exported so a host never imports `ai` itself, and what is ours is the door it does
  * not have. A host reaches an answer through `stream`, or whole through `generate`, an agent through
- * `ToolLoopAgent`, and a conversation through `@kanzo-tech/ai`'s `useChat`, so one copy of the SDK is
- * the easy outcome. The model itself is `localModel`, on `/local`: its peers are optional, so it is
+ * `ToolLoopAgent`, and a conversation through `@kanzo-tech/ai`'s `useAgentChat`, so one copy of the
+ * SDK is the easy outcome. The model itself is `localModel`, on `/local`: its peers are optional, so it is
  * not on this barrel.
  */
 

@@ -1,7 +1,9 @@
 import { APICallError, jsonSchema } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, it } from "vitest";
-import { defineTask, propose, runTask, type TaskState } from "./index.js";
+import { defineTask, propose, runTask, type RunOptions } from "./index.js";
+
+type TaskState = Parameters<NonNullable<RunOptions["onState"]>>[0];
 
 const usage = {
   inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },

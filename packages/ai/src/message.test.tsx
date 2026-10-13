@@ -1,9 +1,7 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import {
   Message,
-  MessageActions,
-  MessageAvatar,
   MessageContent,
   MessageList,
 } from "./message.js";
@@ -11,15 +9,10 @@ import {
 const Transcript = () => (
   <MessageList>
     <Message role="user">
-      <MessageAvatar name="Ada Lovelace" />
       <MessageContent>Which reports were filed by a cantor?</MessageContent>
     </Message>
     <Message role="assistant">
-      <MessageAvatar name="Kanzo" />
       <MessageContent>Four of them.</MessageContent>
-      <MessageActions>
-        <button type="button">Copy</button>
-      </MessageActions>
     </Message>
   </MessageList>
 );
@@ -56,33 +49,11 @@ describe("Message", () => {
     expect(screen.getByRole("listitem").getAttribute("data-role")).toBe("assistant");
   });
 
-  it("draws an avatar from the name, and hands it over to children when given", () => {
-    render(<Transcript />);
-
-    const [user] = screen.getAllByRole("listitem");
-    expect(within(user as HTMLElement).getByText("AL").getAttribute("data-slot")).toBe(
-      "avatar-fallback",
-    );
-
-    render(
-      <MessageList>
-        <Message>
-          <MessageAvatar name="Kanzo">
-            <span>✨</span>
-          </MessageAvatar>
-        </Message>
-      </MessageList>,
-    );
-    expect(screen.getByText("✨")).not.toBeNull();
-  });
-
   it("names every part, and a slot may be renamed", () => {
     render(<Transcript />);
 
     expect(document.querySelector("[data-slot=message-list]")).not.toBeNull();
     expect(document.querySelector("[data-slot=message-content]")).not.toBeNull();
-    expect(document.querySelector("[data-slot=message-avatar]")).not.toBeNull();
-    expect(document.querySelector("[data-slot=message-actions]")).not.toBeNull();
 
     render(
       <Message slot="finding">

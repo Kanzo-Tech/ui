@@ -197,8 +197,7 @@ both say.
 
 The options are read anew on every question — the page's filter changes between two. The messages are
 `AskMessage`: each turn keeps its spec as a `data-ask` part, an `AskTurn`, beside the `answer` part.
-`askTransport(() => options)` is the transport alone, for a host with its own `useChat`; `readAnswer`
-is the read alone. `AnswerOutput` is what a read answers: `{ answer, rows, truncated, under,
+`AnswerOutput` is what a read answers: `{ answer, rows, truncated, under,
 unanswered }` — the answer as placed, the rows its tile reads, whether the 1,000-row cap cut them,
 the page's clauses it was read under, and those its relation cannot answer, each an
 `UnansweredClause`, `{ clause, missing }`; a row is a `QueryRow`.
@@ -233,8 +232,8 @@ answer: (part, { stopped }) => {
 ```
 
 An `answer` part's output carries the spec it was read from (`AskOutput`), so the chips need nothing
-the part does not hold. `askAlternatives(spec, input)` is the list without the drawing, and
-`verify(task, value, input)` from `@kanzo-tech/ai/task` is the check without a model, for any Task.
+the part does not hold. `verify(task, value, input)` from `@kanzo-tech/ai/task` is the check
+without a model, for any Task.
 
 *Held by* `packages/ai/src/data/ask.test.ts`, "offers each slot's other values, as whole specs";
 "offers only what the oracles accept: no x two relations reach equally".
@@ -244,7 +243,7 @@ the part does not hold. `askAlternatives(spec, input)` is the list without the d
 
 **`askOffers(options)` is the same Task with no question asked**: the model writes as many specs as
 `count` (four by default) in one answer, each is checked by the oracles that check an answer, and only
-those that reach a relation unasked are offered, as a reader's question — `questionOf(spec)`. A pill
+those that reach a relation unasked are offered, each as a reader's question. A pill
 is therefore always one the chat can answer: taking it asks the question it says. The page's chips
 are in its input, so the offers reach the rows the page is filtered to.
 
