@@ -286,18 +286,57 @@ seven it is.
 `@kanzo-tech/ui`, because a severity, a message and a list of source positions is a SHACL violation and
 an LSP diagnostic, and neither is AI. Their `SchemaDisplay` loses its REST half.
 
-**Refused:** the parts as the surface. AI Elements hands a host a dozen compounds to assemble a
-conversation from; every product here assembled them the same way, so `@kanzo-tech/ai` ships the
-assembly — `Chat` — and keeps the parts internal. And a tool's result rendered *only* as JSON: right
-for a chatbot that cannot know what the tool was, wrong for a host that always does. JSON is the
-default, and `Chat`'s `tools` map lets the host draw a result as what it is.
+**The parts are the surface, beside the door.** `Chat` is the conversation wired, and every part it
+draws with is exported, because a host's guided chat — keasy's assistant, whose turns are the host's —
+draws the same parts in another arrangement. Refusing them once made every such host hand-roll a
+transcript, a decision and a busy line; a part with a second arrangement is a part. A tool's result is
+still JSON only by default, and `Chat`'s `tools` map draws it as what it is.
 
-**Not built:** the Voice family, Artifact, Web Preview and Sandbox — no call site, present or planned —
-and Canvas / Node / Edge, which was wanted for a fossil program summary that turns out to be a list of
-signatures rather than a diagram.
+**What is admitted is what a host draws.** Each of AI Elements' components, and where it stands
+(audited 2026-10-13 against `vercel/ai-elements`' `packages/elements/src`):
+
+| AI Elements | Here | How ours differs |
+| --- | --- | --- |
+| `Conversation` | `Conversation`, `ConversationContent`, `ConversationScrollButton` | The pin is ours, fifty lines rather than `use-stick-to-bottom`; `role="log"`. Their `ConversationEmptyState` is `Chat`'s `empty`, their `ConversationDownload` not admitted |
+| `Message` | `Message`, `MessageList`, `MessageContent`, `MessageAvatar`, `MessageActions` | `role` declared once and read by the parts; a list with list semantics. `MessageResponse` is `Chat`'s markdown, internal; `MessageAction`, `MessageToolbar` and `MessageBranch` not admitted |
+| `PromptInput` | `PromptInput`, `PromptInputTextarea`, `PromptInputToolbar`, `PromptInputSubmit` | On `InputGroup`; the submit is Send, Stop or Retry by `ChatStatus`. Their attachments, model select, action menu and speech not admitted |
+| `Reasoning` | `Reasoning`, `ReasoningTrigger`, `ReasoningContent` | A spinner, not a shimmer; the reader's own toggle ends the automatic opening |
+| `Tool` | `Tool`, `ToolHeader`, `ToolContent`, `ToolInput`, `ToolOutput` | Bound to the part; *Stopped*, a state the SDK lacks |
+| `Suggestion`, `Suggestions` | `@kanzo-tech/ui`'s `Suggestion`, `Suggestions` | Wraps rather than scrolls; a rationale in the tooltip; `pending` pills in skeleton while more arrive. One strip for a model's offers and anyone else's: `Chat` and `Assist` draw theirs with it |
+| `Question` | `Question`, `QuestionPrompt`, `QuestionDescription`, `QuestionOptions`, `QuestionOption` | Their panel and their outline-button options, on Ark's radio group so the arrow keys work. Single choice; `QuestionInput` and `QuestionSubmit` not admitted: a pick is the answer, and free text is the composer's |
+| `Shimmer` | `Working` | A spinner beside the words, as every busy surface here |
+| `Loader` | `@kanzo-tech/ui`'s `Spinner` | AI Elements retired it for shadcn's `Spinner` |
+| `StackTrace` | `@kanzo-tech/ui`'s `Diagnostic` | A SHACL violation and an LSP diagnostic are the same shape, and neither is AI |
+| `SchemaDisplay`, `FileTree` | `@kanzo-tech/ui`'s `TreeView`, `DataList` | [No schema display](/docs/design/admission#the-structure-view-is-treeview-until-the-data-nests) |
+| `CodeBlock`, `Snippet` | `@kanzo-tech/ui`'s `CodeEditor`, `Prose` | |
+| `Context` | `ModelBadge` | Their shape — a small trigger with the detail behind it — for a model in the page as it loads rather than a context window's usage; a popover, not a hover card, because a failure carries a retry |
+
+**Not admitted, and what would admit each:**
+
+- `Task`, `Plan`, `Queue`, `ChainOfThought`, `Agent` — an agent's steps drawn as a list. A host whose
+  agent runs a plan the reader follows step by step. (`Task` would also collide with this library's
+  Tasks, which are an artefact a small model fills, not a step.)
+- `Confirmation` — a tool call that waits for the person's approval. A host whose agent declares a
+  tool with `needsApproval`; `Tool` already reads *Awaiting approval*, and the actions would join it.
+- `Context`'s own content, the context window's usage. A host that shows the reader the budget
+  [Asking within a context](/docs/design/ai-context) spends; `ModelBadge` is where it would go.
+- `Sources`, `InlineCitation` — documents an answer cites. A host whose answers rest on documents
+  rather than on the page's data, whose evidence is the tile.
+- `MessageBranch`, `Checkpoint` — alternative answers, and a point to go back to. A host that
+  regenerates an answer and keeps both, or rewinds a conversation.
+- `Attachments`, `ModelSelector`, `Image` — files sent with a question, a picker of models, an image
+  generated. A host that sends files to a model that reads them, or offers more than one model.
+- `Artifact`, `WebPreview`, `Sandbox`, `JSXPreview`, `Terminal`, `TestResults`, `Commit`,
+  `EnvironmentVariables`, `PackageInfo` — a coding agent's surfaces. A host that is one.
+- `Canvas`, `Node`, `Edge`, `Connection`, `Controls`, `Panel`, `Toolbar` — a workflow diagram. The
+  graph is `@kanzo-tech/graph`'s; a program summary turned out to be a list of signatures.
+- The Voice family — `Persona`, `SpeechInput`, `Transcription`, `MicSelector`, `VoiceSelector`,
+  `AudioPlayer`. A host that talks.
+- `OpenIn` — refused rather than waiting: its items are other companies' products by name.
 
 **What would reverse it:** a shipped npm package we can resolve types from, which is what would make
-parity checkable rather than aspirational.
+parity checkable rather than aspirational. Until then the table above is re-derived by reading their
+`src`, and a row is added when a host draws a part that is not in it.
 
 *Held by* `packages/ui/src/shark-parity.test.ts`, "ships every name Shark ships, or declares why not";
 `packages/ui/src/shark-surface.json`.

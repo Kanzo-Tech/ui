@@ -32,3 +32,4 @@ export {
 /** Ours: the failure a model names, and the one door to an answer. */
 export { AiError } from "./error.js";
 export { stream, type Stream, type StreamOptions } from "./stream.js";
+export type { ModelLoad } from "./load.js";

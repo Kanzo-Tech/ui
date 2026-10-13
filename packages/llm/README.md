@@ -18,7 +18,7 @@ import { stream, ToolLoopAgent, DirectChatTransport, tool, Output } from "@kanzo
 import { localModel, serveLocalModel } from "@kanzo-tech/llm/local";
 ```
 
-- **`localModel(id, { worker, onProgress })`**, from **`@kanzo-tech/llm/local`** — the model, in the
+- **`localModel(id, { worker })`**, from **`@kanzo-tech/llm/local`** — the model, in the
   page, on WebGPU through WebLLM and `@browser-ai/web-llm`: both optional peers that only this subpath
   reaches. One engine per model per page; without WebGPU a call fails as an `AiError` coded
   `ai/unavailable`, `data.reason` `"webgpu"`, before anything is downloaded. A model that reasons
@@ -26,7 +26,8 @@ import { localModel, serveLocalModel } from "@kanzo-tech/llm/local";
   A call may pass `providerOptions.kanzo.grammar`, an EBNF the engine holds every token to — how a
   Task whose artefact is text in a language gets text in that language. `from: { weights, library }`
   serves the model from the host's own origin rather than Hugging Face; `loadLocalModel(id, settings)`
-  downloads and loads it before the first call. `serveLocalModel()` is the worker's whole script.
+  downloads and loads it before the first call, and `localModelLoad(id)` / `watchLocalModel(id, listener)`
+  say where that stands. `serveLocalModel()` is the worker's whole script.
 - **`stream({ model, system, prompt, output })`** — the one door to an answer: `streamText`, never
   retried, read as `text`, `elements` (`Output.array`) or `partial` (`Output.object`), each of which
   **throws what stopped the model** once it ends. The SDK alone reports a failed stream to `onError`

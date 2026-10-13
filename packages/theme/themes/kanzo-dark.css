@@ -1,8 +1,8 @@
 /* @family kanzo
    @label Kanzo Dark
 
-   The brand at night: near-black green, mist ink, and the neon #1AE973 as the brand fill it is on
-   kanzo.tech.
+   The brand at night: near-black green, mist ink, a green fill at the weight the day's deep green
+   carries, and the neon kept for success, as by day.
    The dark default: `:root.dark:not([data-theme])` paints a first visit whose OS is dark before any
    theme is chosen (themes.test.ts, "leaves no dark document painted by a light theme"). */
 :root.dark:not([data-theme]), [data-theme="kanzo-dark"] {
@@ -15,13 +15,13 @@
   --popover: #101712;
   --muted: #121a14;
   --muted-foreground: #a3b2a6;
-  --primary: #1ae973;
+  --primary: #5cb572;
   --primary-foreground: #002b0b;
   --secondary: #18221a;
   --accent: #1d281f;
   --border: #27342a;
   --input: #5f6e63;
-  --ring: #1ae973;
+  --ring: #5cb572;
   --field: #070b08;
   --faint: #8a998d;
 
@@ -50,7 +50,7 @@
 
   /* Categorical set */
   --chart-capacity: 8;
-  --chart-1: #64c600;
+  --chart-1: #52b770;
   --chart-2: #a48afb;
   --chart-3: #fd853a;
   --chart-4: #53b1fd;
@@ -64,7 +64,7 @@
   --syntax-string: #86e3ad;
   --syntax-number: #ffb27a;
   --syntax-function: #6cb6ff;
-  --syntax-variable: #1ae973;
+  --syntax-variable: #5cb572;
   --syntax-property: #67d4e0;
   --syntax-type: #f2d36b;
   --syntax-annotation: #ff7ac6;

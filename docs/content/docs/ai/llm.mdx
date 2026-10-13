@@ -66,7 +66,6 @@ import { localModel } from "@kanzo-tech/llm/local";
 
 const model = localModel("Qwen3-4B-q4f16_1-MLC", {
   worker: new Worker(new URL("./model.worker.ts", import.meta.url), { type: "module" }),
-  onProgress: ({ progress, text }) => console.log(Math.round(progress * 100), text),
 });
 ```
 
@@ -77,8 +76,8 @@ import { serveLocalModel } from "@kanzo-tech/llm/local";
 serveLocalModel();
 ```
 
-`localModel` takes a `LocalModelSettings` — the worker, the progress callback and where the model is
-served from, all optional — and is a `LanguageModel`, so `stream`, `ToolLoopAgent` and `Chat` run over it unchanged. It
+`localModel` takes a `LocalModelSettings` — the worker and where the model is served from, both
+optional — and is a `LanguageModel`, so `stream`, `ToolLoopAgent` and `Chat` run over it unchanged. It
 makes one engine per model per page — two would be two copies of the weights in the GPU's memory — and
 lifts `<think>` into reasoning — Qwen3 and DeepSeek write theirs inline, and [`Chat`](/docs/ai/chat) folds it away. Without WebGPU a call fails as an `AiError`
 coded `ai/unavailable` with `data.reason` `"webgpu"`, before anything is downloaded. The weights are
@@ -111,6 +110,31 @@ rejects as a call would — `ai/unavailable` without WebGPU.
 
 *Held by* `packages/llm/src/local.test.ts`, "loads from where the host serves the model, when it says",
 "loads ahead of the first call, on the one engine, and asks once for the storage to persist".
+
+**Where the load stands is read, not handed to a callback.** `localModelLoad(id)` answers a
+`ModelLoad` — `{ state: "idle" }` until something loads or asks the model, `{ state: "loading",
+progress, text }` with WebLLM's progress from 0 to 1 and its words, then `{ state: "ready" }` or
+`{ state: "failed", error }` — whichever screen started it, and `watchLocalModel(id, listener)` says
+when it changes. The value is the same object until it changes, so it is a snapshot React can hold,
+and [`ModelBadge`](/docs/ai/guided#modelbadge) draws it:
+
+```tsx
+const load = useSyncExternalStore((l) => watchLocalModel(MODEL, l), () => localModelLoad(MODEL));
+<ModelBadge load={load} onRetry={() => void loadLocalModel(MODEL, settings)} />
+```
+
+`ModelLoad` is on `@kanzo-tech/llm` rather than this subpath because it is not WebLLM's shape: a
+host whose model is fetched some other way reports the same four states, and `ModelBadge` imports
+no optional peer to read them. An `onProgress` setting was the way in before, and every host that
+used it kept a store of its own beside it so that a second screen could read what the first had
+started; the store is here now, once.
+
+*What would reverse it:* a host that needs every progress tick as an event — a log, a measurement —
+which a snapshot coalesces. Then a listener is handed the value it changed to.
+
+*Held by* `packages/llm/src/local.test.ts`, "hands WebLLM the worker, and reports the load in
+WebLLM's words to whoever watches it"; "reports a load that cannot happen as failed, with what
+stopped it".
 
 **A call can hold the model to a grammar.** `providerOptions: { kanzo: { grammar } }`, an EBNF
 string (`LocalCallOptions`), reaches WebLLM's engine as `response_format: { type: "grammar" }`, and

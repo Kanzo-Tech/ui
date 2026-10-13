@@ -66,7 +66,7 @@ vi.mock("@mlc-ai/web-llm", () => ({
   },
 }));
 
-const { loadLocalModel, localModel } = await import("./local");
+const { loadLocalModel, localModel, localModelLoad, watchLocalModel } = await import("./local");
 const { AiError } = await import("./error");
 
 beforeEach(() => {
@@ -106,18 +106,39 @@ describe("localModel", () => {
     expect(made.length).toBe(before + 1);
   });
 
-  it("hands WebLLM the worker and reports its progress in its own words", () => {
-    const onProgress = vi.fn();
+  it("hands WebLLM the worker, and reports the load in WebLLM's words to whoever watches it", async () => {
     const worker = {} as Worker;
-    localModel("Hermes-3-Llama-3.2-3B-q4f16_1-MLC", { worker, onProgress });
+    const id = "Hermes-3-Llama-3.2-3B-q4f16_1-MLC";
+    const seen: unknown[] = [];
+    const unwatch = watchLocalModel(id, () => seen.push(localModelLoad(id)));
+    expect(localModelLoad(id)).toEqual({ state: "idle" });
+    localModel(id, { worker });
     const { settings } = made.at(-1)!;
     expect(settings.worker).toBe(worker);
+    const loading = loadLocalModel(id);
     (settings.initProgressCallback as (r: { progress: number; text: string; timeElapsed: number }) => void)({
       progress: 0.5,
       text: "Fetching param cache[3/10]",
       timeElapsed: 1,
     });
-    expect(onProgress).toHaveBeenCalledWith({ progress: 0.5, text: "Fetching param cache[3/10]" });
+    expect(localModelLoad(id)).toEqual({ state: "loading", progress: 0.5, text: "Fetching param cache[3/10]" });
+    // The same value until it changes: a snapshot `useSyncExternalStore` can hold.
+    expect(localModelLoad(id)).toBe(localModelLoad(id));
+    await loading;
+    expect(localModelLoad(id)).toEqual({ state: "ready" });
+    unwatch();
+    expect(seen).toEqual([
+      { state: "loading", progress: 0, text: "" },
+      { state: "loading", progress: 0.5, text: "Fetching param cache[3/10]" },
+      { state: "ready" },
+    ]);
+  });
+
+  it("reports a load that cannot happen as failed, with what stopped it", async () => {
+    supported.mockReturnValue(false);
+    const id = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
+    await expect(loadLocalModel(id)).rejects.toMatchObject({ code: "ai/unavailable" });
+    expect(localModelLoad(id)).toMatchObject({ state: "failed", error: { code: "ai/unavailable" } });
   });
 
   it("fails as ai/unavailable without WebGPU, before anything loads", async () => {
@@ -155,10 +176,11 @@ describe("localModel", () => {
 
   it("loads ahead of the first call, on the one engine, and asks once for the storage to persist", async () => {
     const before = made.length;
+    const already = loaded.length;
     const model = localModel("SmolLM2-1.7B-Instruct-q4f16_1-MLC");
     await loadLocalModel("SmolLM2-1.7B-Instruct-q4f16_1-MLC");
     await loadLocalModel("Phi-3.5-mini-instruct-q4f16_1-MLC");
-    expect(loaded).toEqual(["SmolLM2-1.7B-Instruct-q4f16_1-MLC", "Phi-3.5-mini-instruct-q4f16_1-MLC"]);
+    expect(loaded.slice(already)).toEqual(["SmolLM2-1.7B-Instruct-q4f16_1-MLC", "Phi-3.5-mini-instruct-q4f16_1-MLC"]);
     expect(made.length).toBe(before + 2);
     expect(localModel("SmolLM2-1.7B-Instruct-q4f16_1-MLC")).toBe(model);
     expect(persist).toHaveBeenCalledTimes(1);

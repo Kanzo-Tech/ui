@@ -64,6 +64,23 @@ const Harness = () => (
 const scrollButton = () => screen.queryByRole("button", { name: "Scroll to the latest message" });
 
 describe("Conversation", () => {
+  it("takes the pin back when the log stops overflowing, though nothing scrolled", () => {
+    render(<Harness />);
+    const viewport = screen.getByRole("log");
+
+    box(viewport, { scrollHeight: 1000, clientHeight: 300, scrollTop: 200 });
+    fireEvent.scroll(viewport);
+    expect(scrollButton()).not.toBeNull();
+
+    // The panel grows past its content: no scroll event, only a resize.
+    Object.defineProperty(viewport, "clientHeight", { configurable: true, value: 1000 });
+    Object.defineProperty(viewport, "scrollTop", { configurable: true, value: 0, writable: true });
+    act(() => {
+      for (const callback of callbacks) callback();
+    });
+    expect(scrollButton()).toBeNull();
+  });
+
   it("follows the tail while the reader is at it", () => {
     render(<Harness />);
     const viewport = screen.getByRole("log");

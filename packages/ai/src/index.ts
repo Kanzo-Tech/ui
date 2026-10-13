@@ -29,6 +29,20 @@ export type { ReasoningProps } from "./reasoning.js";
 export { PromptInput, PromptInputSubmit, PromptInputTextarea, PromptInputToolbar } from "./prompt-input.js";
 export type { PromptInputSubmitProps } from "./prompt-input.js";
 
+// The parts a conversation whose turns the host decides is drawn with, beyond the transcript's: a
+// question put to the person, answered by picking; work under way, said; and a model in the page, as
+// it loads. What a model offers is `@kanzo-tech/ui`'s `Suggestions`, which knows no model.
+export {
+  Question,
+  QuestionDescription,
+  QuestionOption,
+  QuestionOptions,
+  QuestionPrompt,
+} from "./question.js";
+export { Working } from "./working.js";
+export { ModelBadge } from "./model-badge.js";
+export type { ModelBadgeProps, ModelBadgeTranslations } from "./model-badge.js";
+
 // What a Task offers a screen, as a list it asks for, edits and dismisses.
 export { useTask } from "./use-task.js";
 export type { TaskList, TaskListState, UseTaskOptions } from "./use-task.js";

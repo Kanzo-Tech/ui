@@ -4,9 +4,9 @@ import { ark } from "@ark-ui/react/factory";
 import * as React from "react";
 import { getToolName, isToolUIPart, type UIMessage } from "@kanzo-tech/llm";
 import type { UseChatHelpers } from "@ai-sdk/react";
-import { cn, DiagnosticList, Problem, type ProblemProps, Skeleton, Spinner } from "@kanzo-tech/ui";
+import { cn, DiagnosticList, Problem, type ProblemProps, Skeleton, Suggestion, Suggestions } from "@kanzo-tech/ui";
 import type { Proposal } from "./engine.js";
-import { PILLS, ProposalStrip } from "./proposal-strip.js";
+import { PILLS } from "./pills.js";
 import { Conversation, ConversationContent, ConversationScrollButton } from "./conversation.js";
 import { MessageMarkdown } from "./markdown.js";
 import { Message, MessageContent, MessageList } from "./message.js";
@@ -17,6 +17,7 @@ import {
   PromptInputToolbar,
 } from "./prompt-input.js";
 import { Reasoning } from "./reasoning.js";
+import { Working } from "./working.js";
 import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput, type ToolPart } from "./tool.js";
 
 /** Every word `Chat` draws. English by default. */
@@ -75,7 +76,7 @@ export interface ChatProps<M extends UIMessage> {
   proposing?: boolean;
   /**
    * Words in place of the pills when there are none — proposing failed, or found nothing — as
-   * `ProposalStrip` takes them. The host's to word: a failure as its `Problem`, with a retry.
+   * `Assist` puts in place of its candidates. The host's to word: a failure as its `Problem`, with a retry.
    */
   notice?: React.ReactNode;
   /**
@@ -138,13 +139,17 @@ export function Chat<M extends UIMessage>(props: ChatProps<M>) {
       strip={
         chat.messages.length === 0 &&
         (proposals !== undefined || proposing) && (
-          <ProposalStrip
-            className="justify-center"
-            notice={notice}
-            onSelect={ask}
+          <Suggestions
+            className="min-h-7 w-full justify-center"
             pending={proposing ? PILLS - (proposals?.length ?? 0) : 0}
-            proposals={proposals ?? []}
-          />
+          >
+            {proposals?.map((p) => (
+              <Suggestion description={p.rationale} key={p.text} onSelect={ask} value={p.text}>
+                {p.text}
+              </Suggestion>
+            ))}
+            {!proposing && !proposals?.length && notice}
+          </Suggestions>
         )
       }
     >
@@ -199,10 +204,7 @@ export function Chat<M extends UIMessage>(props: ChatProps<M>) {
           {chat.status === "submitted" && (
             <Message role="assistant" slot="chat-waiting">
               <MessageContent>
-                <span className="inline-flex items-center gap-1.5 text-muted-foreground text-xs" role="status">
-                  <Spinner aria-hidden className="size-3.5" />
-                  {t.waiting}
-                </span>
+                <Working className="gap-1.5 text-xs [&>svg]:size-3.5">{t.waiting}</Working>
               </MessageContent>
             </Message>
           )}
@@ -290,7 +292,7 @@ export function ChatSkeleton(props: ChatSkeletonProps) {
           </PromptInputToolbar>
         </PromptInput>
       }
-      strip={proposals > 0 && <ProposalStrip className="justify-center" pending={proposals} proposals={[]} />}
+      strip={proposals > 0 && <Suggestions className="min-h-7 w-full justify-center" pending={proposals} />}
       {...rest}
       slot={slot ?? "chat-skeleton"}
     >

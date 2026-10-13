@@ -8,6 +8,7 @@ type LanguageModelV4CallOptions = Parameters<Wrap>[0]["params"];
 type LanguageModelV4GenerateResult = Awaited<ReturnType<Wrap>>;
 
 import { AiError } from "./error.js";
+import type { ModelLoad } from "./load.js";
 
 /**
  * A model in the page: WebLLM on WebGPU, behind the AI SDK's `LanguageModel`, through
@@ -29,8 +30,6 @@ export interface LocalModelSettings {
    * runs on the page's thread, and a long prefill blocks it.
    */
   worker?: Worker;
-  /** The download and load, from 0 to 1, with WebLLM's words for what it is doing. */
-  onProgress?: (progress: { progress: number; text: string }) => void;
   /**
    * Where the model is served from: its weights (an MLC model directory, by URL) and its compiled
    * library (the `.wasm`). A host serves its own so the page reaches no third party; without it the
@@ -117,6 +116,35 @@ const persist = () => {
   void globalThis.navigator?.storage?.persist?.().catch(() => false);
 };
 
+const IDLE: ModelLoad = { state: "idle" };
+const loads = new Map<string, ModelLoad>();
+const watchers = new Map<string, Set<() => void>>();
+
+function publish(model: string, load: ModelLoad) {
+  loads.set(model, load);
+  for (const listener of watchers.get(model) ?? []) listener();
+}
+
+/**
+ * Where `model`'s download and load stand in this page — `idle` until something loads or asks it,
+ * `loading` with WebLLM's progress and words, then `ready` or `failed`. The same value until it
+ * changes, so it is a snapshot `useSyncExternalStore` can hold; {@link watchLocalModel} says when.
+ */
+export function localModelLoad(model: string): ModelLoad {
+  return loads.get(model) ?? IDLE;
+}
+
+/**
+ * Calls `listener` each time {@link localModelLoad} changes for `model`, whichever screen started the
+ * load, and answers the unsubscribe: `useSyncExternalStore((l) => watchLocalModel(id, l), () => localModelLoad(id))`.
+ */
+export function watchLocalModel(model: string, listener: () => void): () => void {
+  let set = watchers.get(model);
+  if (!set) watchers.set(model, (set = new Set()));
+  set.add(listener);
+  return () => void set.delete(listener);
+}
+
 /**
  * `model`, a WebLLM model id (`Qwen3-4B-q4f16_1-MLC`), as a `LanguageModel`. Without WebGPU every call
  * fails as `AiError` coded `ai/unavailable`, before anything is downloaded: the host says the device
@@ -153,17 +181,25 @@ function engine(model: string, settings: LocalModelSettings) {
   if (known) return known;
   const provider = webLLM(model, {
     worker: settings.worker,
-    initProgressCallback: settings.onProgress
-      ? (report: WebLLMProgress) => settings.onProgress?.({ progress: report.progress, text: report.text })
-      : undefined,
+    initProgressCallback: (report: WebLLMProgress) =>
+      publish(model, { state: "loading", progress: report.progress, text: report.text }),
     appConfig: settings.from ? { model_list: [served(model, settings.from)] } : undefined,
   });
   const unavailable = () =>
     new AiError("ai/unavailable", `This browser cannot run ${model}: it has no WebGPU`, { reason: "webgpu" });
   const ready = (): Promise<void> => {
-    if (!doesBrowserSupportWebLLM()) return Promise.reject(unavailable());
+    if (!doesBrowserSupportWebLLM()) {
+      const error = unavailable();
+      publish(model, { state: "failed", error });
+      return Promise.reject(error);
+    }
     persist();
     return Promise.resolve();
+  };
+  // A call answered: whatever loading it waited on is done, though nothing called `load`.
+  const answered = <T>(result: T): T => {
+    if (localModelLoad(model).state !== "ready") publish(model, { state: "ready" });
+    return result;
   };
   const built = wrapLanguageModel({
     model: provider,
@@ -174,14 +210,28 @@ function engine(model: string, settings: LocalModelSettings) {
           ready().then(() => {
             const grammar = (params.providerOptions?.kanzo as LocalCallOptions | undefined)?.grammar;
             return grammar ? generateHeld(provider, grammar, params) : doGenerate();
-          }),
-        wrapStream: ({ doStream }) => ready().then(doStream),
+          }).then(answered),
+        wrapStream: ({ doStream }) => ready().then(doStream).then(answered),
       },
       // A model that thinks out loud (Qwen3, DeepSeek) does it between <think> tags.
       extractReasoningMiddleware({ tagName: "think" }),
     ],
   });
-  const entry = { model: built, load: () => ready().then(() => provider.createSessionWithProgress()).then(() => undefined) };
+  const load = () => {
+    if (localModelLoad(model).state !== "loading" && localModelLoad(model).state !== "ready") {
+      publish(model, { state: "loading", progress: 0, text: "" });
+    }
+    return ready()
+      .then(() => provider.createSessionWithProgress())
+      .then(
+        () => void answered(undefined),
+        (error: unknown) => {
+          publish(model, { state: "failed", error });
+          throw error;
+        },
+      );
+  };
+  const entry = { model: built, load };
   engines.set(model, entry);
   return entry;
 }

@@ -62,8 +62,13 @@ export const Conversation = (props: React.ComponentProps<typeof ark.div>) => {
     // A stream produces *growth*, not scrolling: the content gets taller under a stationary
     // `scrollTop`, and no scroll event is fired for that. Observing the viewport alone never sees
     // it either — its own box did not change — which is why the inner element is observed too.
+    //
+    // Released, it measures instead: a log that stops overflowing — the panel grew, the device
+    // turned, a turn was removed — fires no scroll event either, and without this the reader is left
+    // a scroll button with nothing to scroll to.
     const follow = () => {
       if (pinnedRef.current) viewport.scrollTop = viewport.scrollHeight;
+      else sync();
     };
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(follow);
     observer?.observe(viewport);
