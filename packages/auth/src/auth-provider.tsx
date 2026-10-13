@@ -7,8 +7,8 @@ import type { Auth, Session } from "./types";
 /**
  * Holds the session and keeps it current. One per application, at the root.
  *
- * It does not know which pattern is underneath it — `bffAuth` or `browserAuth` both satisfy `Auth`
- * — which is the whole reason the hooks below it can be written once.
+ * It does not know what is underneath it — `bffAuth`, or a test's or a host's own `Auth` — which is
+ * the whole reason the hooks below it can be written once.
  */
 export function AuthProvider({
   auth,

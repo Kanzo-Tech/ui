@@ -1,10 +1,12 @@
 import { SHAPE_PATH, type Shape } from "../render/graph-looks";
 
 /**
- * The glyph the canvas draws for a category, in the DOM — a legend key, a hover card, a preview.
+ * The glyph the canvas draws for a category, in the DOM — the legend's keys, the inspector's and
+ * search's rows, the preferences card. Off the barrel: no host drew a key of its own, so the parts
+ * that draw one are its callers.
  *
- * **This replaced `SHAPE_PATH` on the barrel, and the difference is what a host is made responsible
- * for.** The path table was exported for one reason: a host drawing a legend wanted the same glyph
+ * **It replaced `SHAPE_PATH`, and the difference is what a caller is made responsible for.** The
+ * path table was exported for one reason: a host drawing a legend wanted the same glyph
  * the point shader fills, because a legend drawn from a second set of shapes is a legend that
  * explains a picture nobody is looking at. What the host got was path *data*, and with it three
  * facts it had to keep in step with `graph-looks.ts` by reading a comment — that the box is twelve
