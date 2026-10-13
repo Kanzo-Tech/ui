@@ -638,7 +638,7 @@ its own storage, or its own section. None of them is required to use a theme.
 `defaultThemePair` — see [the catalogue as data](#the-catalogue-as-data). `themeData` is the generated
 tables as a JS module — read it rather than importing `theme-data.json`, which Node rejects as a bare
 JSON import — and `ThemeData` is its type. The preference types are `Appearance`
-and `KanzoDensity`. A theme name is host-extensible, and `""` means *defer to the tenant's default*
+and `KanzoDensity`; a theme name is a `string`, host-extensible, and `""` means *defer to the tenant's default*
 rather than *no theme*.
 
 **Storage.** `STORAGE_KEY` is where a preference document is kept, and `CORE_NAMESPACE` is the
@@ -650,16 +650,11 @@ package contributes. A `choice` offers `PrefOption`s — `value` is stored, `lab
 `resolvePref` walks one chain, most specific first, and the `PrefOrigin` it returns is what lets a
 panel say where a value came from and a test assert on it.
 
-**Sections.** A `LookDocument` is a stored appearance, and its `sections` are opaque: the core never
-parses a section's payload. `sectionOf` reads one and `withSection` writes one back, preserving every
-other section byte for byte. A section declares `SectionPrefDecl`s for the person on the screen and
-`SectionTokenDecl`s for the document; a tenant answers with a `SectionPolicy` of
-`SectionPrefPolicy`, which is **selection, never authorship**. `resolveSectionToken` resolves a dotted
-token against a document and then the manifest's default, `fallbackChain` is that chain most specific
-first, and a `Problem` is a token the manifest does not declare.
-
-**The density obligations.** `DENSITY_OBLIGATIONS` is what the density axis owes, `checkDensity`
-grades it, and `DensityObligation` and `DensityCheck` are the two shapes involved.
+**Sections.** A stored appearance's `sections` are opaque: the core never parses a section's
+payload. A section declares `SectionPrefDecl`s for the person on the screen and `SectionTokenDecl`s
+for the document; a tenant answers with a `SectionPolicy` of `SectionPrefPolicy`, which is
+**selection, never authorship**. `validateSection` checks a payload against its manifest, and a
+`Problem` is a token the manifest does not declare.
 
 **Authoring colour.** `inkFor` returns the ink that belongs on a fill and `pageInk` the same family
 read on the page, each as a hex ready to be written into a theme. `contrast` is the WCAG ratio, `AA`
