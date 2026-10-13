@@ -84,6 +84,18 @@ Select-all is bound to the Meta key alone, so <kbd>Ctrl</kbd>+<kbd>A</kbd> does 
 Windows or Linux — while the *click* path in the same machine treats Ctrl and Meta alike, so
 pointer and keyboard disagree about the same modifier.
 
+**Focus is painted for the keyboard only.** Ark marks its roving tab stop `data-focus`, and with
+nothing focused that is the first node — so a row painted on it looks chosen the moment the tree
+mounts, before anyone has touched it. The row paints its focus on
+`:focus-visible` instead: arrowing through the tree shows where you are, and a tree nobody has
+touched shows nothing but its selection.
+
+*What would reverse it:* Ark exposing whether its focus is the keyboard's. Then the row reads that
+attribute rather than the pseudo-class, and nothing a reader sees changes.
+
+*Held by* `packages/ui/src/simples/tree-view.test.tsx`, "paints a row's focus for the keyboard
+only, not the tab stop Ark marks at rest".
+
 ## API Reference
 
 ### TreeView
