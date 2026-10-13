@@ -13,7 +13,7 @@ import { DiagnosticList, Problem } from "@kanzo-tech/ui";
 
 ```tsx
 <DiagnosticList>
-  <Problem copy={copyOf} error={error}>
+  <Problem describe={describeCode} error={error}>
     <Button onClick={retry} size="sm" variant="outline">Try again</Button>
   </Problem>
 </DiagnosticList>
@@ -32,7 +32,7 @@ same way. A value that is no object is drawn as its own `String`.
 | `code` | The source, in monospace, and `data-code` on the row — what an end-to-end test asserts on. Only a string in `area/kind` counts. |
 | `title` | The header's title. Without one, the `message` is the title. |
 | `message` | The detail, once the row is open. `detail` is read where there is no `message`. |
-| `data` | Nothing — it is handed to `copy`. |
+| `data` | Nothing — it is handed to `describe`. |
 | `cause` | A row nested below, read the same way, and so on down. A coded cause is open; an uncoded one is folded. |
 | `severity` | `"warning"` or `"info"` pick the variant; anything else is `"error"`, drawn `destructive`. |
 | `help` | A second paragraph under the detail. |
@@ -44,7 +44,7 @@ once rather than forever.
 ## The host's words
 
 A code is written for whoever raised it: `archive/silent` says *the archive did not answer*, and the
-clerk at the desk wants *the archive is closed*. **`copy(code, data)` is the host's registry**,
+clerk at the desk wants *the archive is closed*. **`describe(code, data)` is the host's registry**,
 called for the problem and every coded cause under it. Return `undefined` to keep the error's own
 words, or any of:
 
@@ -56,7 +56,9 @@ words, or any of:
 - `page` — the page that explains the code; the code in the header links to it.
 
 The words `Problem` draws itself — the severity badge and the details trigger's name — are
-`translations`, in English by default.
+`translations`, in English by default. The two are kept apart on purpose: `translations` is the same
+record whatever failed, the one prop every component here takes its words through, and `describe` is
+the host's wording of one failure it recognises, resolved from that failure's `data`.
 
 ## Accessibility
 
@@ -77,11 +79,11 @@ pass through.
 | Prop | Type | Default |
 | --- | --- | --- |
 | `error` | `unknown` — what was thrown | required |
-| `copy` | `(code: string, data: unknown) => ProblemCopy \| undefined` | — |
+| `describe` | `(code: string, data: unknown) => ProblemDescription \| undefined` | — |
 | `children` | `ReactNode` — beside the problem's own link and details trigger | — |
 | `translations` | `Partial<ProblemTranslations>` | English |
 | `defaultOpen` | `boolean` | `true` |
 
-`ProblemCopy` is `{ title?, detail?, link?: { label, href }, page? }`. `ProblemTranslations` is
+`ProblemDescription` is `{ title?, detail?, link?: { label, href }, page? }`. `ProblemTranslations` is
 `{ destructive, warning, info }` — the severity badge's word per variant — and
 `details: (title) => string`.

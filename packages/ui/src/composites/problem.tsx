@@ -20,8 +20,12 @@ import {
   DiagnosticTrigger,
 } from "../simples/diagnostic.js";
 
-/** A host's words for one code, where its reader differs from the one the code's author wrote for. */
-export interface ProblemCopy {
+/**
+ * A host's words for one code, where its reader differs from the one the code's author wrote for:
+ * what `describe` answers. Not a translation — `translations` is `Problem`'s fixed strings — but the
+ * host's wording of a failure it knows, resolved per failure from its `data`.
+ */
+export interface ProblemDescription {
   /** Replaces the error's `title`. */
   title?: string;
   /** Replaces the error's `message`; the error's own row is kept one level down, closed. */
@@ -64,12 +68,12 @@ interface Row {
   detail?: string;
   help?: string;
   severity: Severity;
-  link?: ProblemCopy["link"];
+  link?: ProblemDescription["link"];
   page?: string;
   children: Row[];
 }
 
-type Copy = (code: string, data: unknown) => ProblemCopy | undefined;
+type Describe = (code: string, data: unknown) => ProblemDescription | undefined;
 
 const text = (value: unknown): string | undefined =>
   typeof value === "string" && value !== "" ? value : undefined;
@@ -79,7 +83,7 @@ const text = (value: unknown): string | undefined =>
  * library's coded `Error`, a server's problem body, an event a stream handed over. Anything else is
  * its own `String`.
  */
-function read(value: unknown, copy: Copy | undefined, seen: Set<unknown>, depth: number): Row {
+function read(value: unknown, describe: Describe | undefined, seen: Set<unknown>, depth: number): Row {
   if (typeof value !== "object" || value === null) return { title: String(value), severity: "error", children: [] };
   seen.add(value);
   const shape = value as Record<string, unknown>;
@@ -92,10 +96,10 @@ function read(value: unknown, copy: Copy | undefined, seen: Set<unknown>, depth:
   const children: Row[] = [];
   const cause = shape.cause;
   if (cause !== undefined && cause !== null && !seen.has(cause) && depth < DEPTH) {
-    children.push(read(cause, copy, seen, depth + 1));
+    children.push(read(cause, describe, seen, depth + 1));
   }
   if (Array.isArray(shape.related) && depth < DEPTH) {
-    for (const related of shape.related) children.push(read(related, copy, seen, depth + 1));
+    for (const related of shape.related) children.push(read(related, describe, seen, depth + 1));
   }
 
   const own: Row = {
@@ -106,7 +110,7 @@ function read(value: unknown, copy: Copy | undefined, seen: Set<unknown>, depth:
     severity,
     children,
   };
-  const worded = code === undefined ? undefined : copy?.(code, shape.data);
+  const worded = code === undefined ? undefined : describe?.(code, shape.data);
   if (!worded) return own;
   return {
     ...own,
@@ -193,7 +197,7 @@ export interface ProblemProps extends Omit<DiagnosticProps, "variant" | "childre
    * The host's words for a code, given the error's `data`; `undefined` keeps the error's own. Called
    * for the error and for every coded cause under it.
    */
-  copy?: (code: string, data: unknown) => ProblemCopy | undefined;
+  describe?: (code: string, data: unknown) => ProblemDescription | undefined;
   /** Beside the problem's own link and details trigger: a retry, a "go to". */
   children?: React.ReactNode;
   translations?: Partial<ProblemTranslations>;
@@ -203,7 +207,7 @@ export interface ProblemProps extends Omit<DiagnosticProps, "variant" | "childre
  * **A failure, as one `Diagnostic`** — a library's coded error, a server's refusal, the browser's
  * own `TypeError`, a string somebody threw. It reads the fields every coded error here shares:
  * `code` (`area/kind`, drawn as the source and kept on `data-code`), `title`, `message` (the detail)
- * and `data`, which only `copy` reads; and, when present, `severity`, `help` and `related`. `cause`
+ * and `data`, which only `describe` reads; and, when present, `severity`, `help` and `related`. `cause`
  * is walked as a tree below it, each cause read the same way, and `related` rows sit beside the
  * cause. A value that is not an object is its own `String`.
  *
@@ -211,8 +215,8 @@ export interface ProblemProps extends Omit<DiagnosticProps, "variant" | "childre
  * because a failure on screen is there to be read; `defaultOpen` and `open` pass through.
  */
 export const Problem = (props: ProblemProps) => {
-  const { error, copy, children, translations, ...rest } = props;
+  const { error, describe, children, translations, ...rest } = props;
   const t = { ...ENGLISH, ...translations };
-  const row = read(error, copy, new Set(), 0);
+  const row = read(error, describe, new Set(), 0);
   return <Item actions={children} root={{ defaultOpen: true, ...rest }} row={row} t={t} />;
 };

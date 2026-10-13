@@ -103,7 +103,7 @@ export type {
 // A failure, shown — any thrown value, read for the coded error's shared fields: a host's every
 // error view and the graph's failure overlay in the docs.
 export { Problem } from "./composites/problem.js";
-export type { ProblemCopy, ProblemProps, ProblemTranslations } from "./composites/problem.js";
+export type { ProblemDescription, ProblemProps, ProblemTranslations } from "./composites/problem.js";
 export { MadeWith } from "./composites/MadeWith.js";
 export type { MadeWithProps } from "./composites/MadeWith.js";
 

@@ -286,7 +286,7 @@ The tile goes on under the answer's own id, so **whether it is on the dashboard 
 the reader removes the tile and that is saved, the card offers the add again. When `onAdd` returns a
 promise, the button is pending until it settles — whatever `dashboards` already shows — and a
 rejection is drawn as a [`Problem`](/docs/data-display/problem) under the tile, the thrown value
-whole, with the button back. `copy` is the host's words for a coded one, as `Chat` takes them. *On the dashboard* reads the host's `dashboards` and nothing else, so a host that draws the tile
+whole, with the button back. `describe` is the host's words for a coded one, as `Chat` takes them. *On the dashboard* reads the host's `dashboards` and nothing else, so a host that draws the tile
 before its write settles is saying it is there: it rolls the document back when the write fails, and
 the card follows and offers the add again. The card says it
 where the reader pressed, so a host that also toasts every failed save says it twice.
@@ -339,7 +339,7 @@ is no line when the page had no filter.
 | `dashboards` | `Dashboards` | The host's dashboards, as it draws them: whether the tile is on its relation's. With `onAdd` |
 | `onAdd` | `(next: Dashboards, added: AnswerAdded) => void \| Promise<unknown>` | Makes *Add to the dashboard* an action. With `dashboards` |
 | `onOpen` | `(added: AnswerAdded) => void` | Makes *Open on the dashboard* the action once the tile is there. With `onAdd` |
-| `copy` | `ProblemProps["copy"]` | The host's words for a coded failure |
+| `describe` | `ProblemProps["describe"]` | The host's words for a coded failure |
 | `translations` | `Partial<AnswerCardTranslations>` | Every word it draws |
 
 *Held by* `packages/ai/src/data/answer-card.test.tsx`, "Add to the dashboard hands the host its

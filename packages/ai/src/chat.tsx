@@ -86,7 +86,7 @@ export interface ChatProps<M extends UIMessage> {
    */
   context?: React.ReactNode;
   /** The host's words for a failure's code, as `Problem` takes them. */
-  copy?: ProblemProps["copy"];
+  describe?: ProblemProps["describe"];
   translations?: Partial<ChatTranslations>;
   className?: string;
 }
@@ -100,7 +100,7 @@ export interface ChatProps<M extends UIMessage> {
  * text as markdown, `reasoning` folded away, every tool call in its frame with the SDK's state.
  */
 export function Chat<M extends UIMessage>(props: ChatProps<M>) {
-  const { chat, tools = {}, empty, proposals, proposing = false, notice, context, copy, translations, className } = props;
+  const { chat, tools = {}, empty, proposals, proposing = false, notice, context, describe, translations, className } = props;
   const t = { ...ENGLISH, ...translations };
   const [draft, setDraft] = React.useState("");
   const busy = chat.status === "submitted" || chat.status === "streaming";
@@ -212,11 +212,11 @@ export function Chat<M extends UIMessage>(props: ChatProps<M>) {
       )}
       {chat.error !== undefined && (
         // Through `Problem`, as every failure in the library is drawn: a coded one shows its code and
-        // takes the host's `copy`. The live region says what the list is.
+        // takes the host's `describe`. The live region says what the list is.
         <div data-slot="chat-error" role="alert">
           <span className="sr-only">{t.failed}</span>
           <DiagnosticList>
-            <Problem copy={copy} error={chat.error} />
+            <Problem describe={describe} error={chat.error} />
           </DiagnosticList>
         </div>
       )}

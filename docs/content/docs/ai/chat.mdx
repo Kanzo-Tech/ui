@@ -96,7 +96,7 @@ goes once there is nothing below to scroll to.
 <kbd>Shift</kbd>+<kbd>Enter</kbd> is a newline. While an answer streams the button is *Stop*; after
 an error, with nothing typed, it is *Retry* and asks again. The error itself is drawn under the
 transcript through `@kanzo-tech/ui`'s [`Problem`](/docs/data-display/problem) and announced with
-`role="alert"`: a coded failure shows its code, and `copy` gives it the host's words, as everywhere
+`role="alert"`: a coded failure shows its code, and `describe` gives it the host's words, as everywhere
 else in the library. A `failure` prop fed by the host's own transport was the alternative, and it
 is the plumbing `useAgentChat` exists so that no host writes.
 
@@ -282,7 +282,7 @@ outside the scroll region, so it stays put while the transcript moves:
 | `proposing` | `boolean` | More are on their way: pills in skeleton beside them |
 | `notice` | `ReactNode` | In place of the pills while there are none: why proposing failed, with a retry |
 | `context` | `ReactNode` | What the next question is asked over, read-only in the composer beside Send — a pill such as *Subset · 40 nodes*, as Copilot Chat and Cursor show theirs |
-| `copy` | `ProblemProps["copy"]` | The host's words for a failure's code, as `Problem` takes them |
+| `describe` | `ProblemProps["describe"]` | The host's words for a failure's code, as `Problem` takes them |
 | `translations` | `Partial<ChatTranslations>` | `placeholder` for the composer, and `failed`, read before an error |
 | `className` | `string` | On the root |
 
