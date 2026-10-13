@@ -59,15 +59,15 @@ the doors a later change needs, then the model of joins and answers, then what w
 
 | # | Pull request | Contents | Waits on |
 | --- | --- | --- | --- |
-| 1 | **What the rules already say** | the Tasks' model calls through `llm`'s `generate`, asking once; `TimelineHarness`'s test runs; the comments that contradict their code; the unused names below; the Terraform `moved` blocks, a back-compatibility shim, deleted; the production compose without default passwords | — |
-| 2 | **One door to Mosaic** | `/analytics` passes none of Mosaic through; the charts import through `@kanzo-tech/mosaic`, which gains the aggregates; the six aliases; one facet item, `items` | — |
+| 1 | **What the rules already say** | the Tasks' model calls through `llm`'s `generate`, asking once; `TimelineHarness`'s test runs; the comments that contradict their code; the unused names below; the Terraform `moved` blocks, a back-compatibility shim, deleted; the production compose without default passwords; and #200 — `Eyebrow`, and `Working`'s value — which is not released on its own and ships in this minor | — |
+| 2 | **One door to Mosaic** | `/analytics` passes none of Mosaic through; the charts import through `@kanzo-tech/mosaic`, which gains the aggregates; the six aliases; one facet item, `items`; `valibot` an optional peer of `/analytics` | — |
 | 3 | **Names, words and admission** | `translations` everywhere, and `Problem`'s `copy` renamed `describe`; the four renamed collisions; one `Proposal`, `Assist` on `propose`, and `Chat` sending a proposal's value; `ThemeNotice`, `FloatingPanel` and the `Preferences` all-in-one to examples; `RelationPicker` without plurals; gauges per entry and the ledger moved; graph under the guards | — |
 | 4 | **The model's package, and the tests'** | `llm` without the AI SDK's names; `LlmError`; `@kanzo-tech/llm/testing` and the double on `__KANZO_TESTING__`; the harnesses' CDK names; `Severity` | 1 |
 | 5 | **The read door** | `@tanstack/react-query` as an optional peer of `@kanzo-tech/ai/data` and `@kanzo-tech/ui/analytics`; `useFieldStats` and Ask's reads as queries on the host's client | — |
 | 6 | **Auth** | `@tanstack/react-query` as `@kanzo-tech/auth`'s peer; problem bodies and `statusOf`; `useSession` as a query, renewed and kept across tabs; one bound per wait; a required session's outage redirected; `TenantRequest`; `organizationConsoleUrl`; the barrel trimmed | 5 |
 | 7 | **One question part** | the part in `@kanzo-tech/ui`, `Questionnaire` around it, `ai`'s `Question` deleted | 3 |
 | 8 | **Ask's evaluation set** | moved from keasy to `packages/ai/eval`, run as it is, so the next PR is measured against it | 4 |
-| 9 | **Joins and answers** | `JoinResolver.steps`, `paths`, `relation`, `field`, `crossing` with `at`; `resolve.ts` deleted; columns named by path; `count` distinct; the tile's `where` and `top` and its one compiler; `Answer` as relation and tile, a data part; `AnswerCard` takes it; the answer tool's schema retired; Ask's decision through the question part; the summary template; the cases updated for paths. Supersedes #199 | 7, 8 |
+| 9 | **Joins and answers** | `JoinResolver.steps`, `paths`, `relation`, `field`, `crossing` with `at`; `resolve.ts` deleted; columns named by path; `count` distinct, and a path's count; the tile's `where` and `top` and its one compiler; `Answer` as relation and tile, a data part; `AnswerCard` takes it; the answer tool's schema retired; Ask's decision through the question part; the summary template; the cases updated for paths. Supersedes #199 | 7, 8 |
 | — | **fossil `0.3.0-alpha.32`** | the design of [Kanzo-Tech/fossil-lang#40](https://github.com/Kanzo-Tech/fossil-lang/pull/40): the views carry an edge's label, its endpoints' keys and a column's term type; annotations as a view, a literal's key `datatype`, `sh:name` written as `rdfs:label` and `sh:description` as `rdfs:comment`; the profile in `fossil.json`, ten commonest values of at most 64 bytes; still `fossil/1`, changed in place | — |
 | 10 | **What a field is** | `JoinGraph` with column descriptions, read by graph from the corpus; `fieldStats` without its guesses; property tables as relations; words from labels; `answerRelationsOf` and `readAnswerRelations` gone | 5, 9, fossil |
 | 11 | **A chat kept** | `load`, `save` and `keep` on the chat hooks, validated with the data parts' schemas | 5, 9 |
@@ -100,7 +100,7 @@ Keasy is on 0.45 with PR #154 open. By the release that asks it:
 | # | What keasy changes |
 | --- | --- |
 | 1 | nothing: its Tasks stop retrying a failed model call. It sets the production database and admin passwords, which the compose no longer defaults |
-| 2 | about ten files import from `@kanzo-tech/mosaic` instead of `@kanzo-tech/ui/analytics` — `lib/fossil/corpus.tsx`, `lib/fossil/ask.ts`, `lib/fossil/memory-corpus.ts`, Discover's page, `dashboard-view`, `ask-panel`, `rules-validation`, `use-assistant`, `use-source-descriptors`; the graphs list passes `items` |
+| 2 | about ten files import from `@kanzo-tech/mosaic` instead of `@kanzo-tech/ui/analytics` — `lib/fossil/corpus.tsx`, `lib/fossil/ask.ts`, `lib/fossil/memory-corpus.ts`, Discover's page, `dashboard-view`, `ask-panel`, `rules-validation`, `use-assistant`, `use-source-descriptors`; the graphs list passes `items`; `valibot`, which keasy already installs, stays in its dependencies |
 | 3 | `labels=` is `translations=` on the findings badge; the Ask panel passes its offers whole, not mapped to `{ text }`; `Problem`'s `copy` is `describe`, returning `{ title, detail }`, at its five call sites |
 | 4 | `AiError` and `ai/unavailable` are `LlmError` and `llm/unavailable` in its model module and error registry, and `llm/failed` joins that area; `LanguageModel` from `ai`; in `e2e`, the harness renames and `FindingSeverity`; its injected model, the double branch in its model module with its guard test, and its fixture's scripted model are deleted for `@kanzo-tech/llm/testing` |
 | 5 | its `QueryClientProvider` sits above `AuthProvider` |
@@ -122,17 +122,3 @@ cleanup's part of the distance. It is also the call site that keeps `LanguagePic
 | --- | --- |
 | 3 | `MadeWith`'s `prefix`, `infix` and `loveLabel` become entries of its `translations`, in `src/react/form/MetadataForm.tsx` |
 | 4 | the playground imports `LanguageModel` from `ai`, not `@kanzo-tech/llm`. Nothing else: it draws `Assist` from `@kanzo-tech/ai`'s root, which takes no TanStack peer, and composes the `Preferences` parts, which stay |
-
-## Open, and asked
-
-The owner answered the rest on 13 October 2026, and each answer is on its page. Two are not decided,
-and each says what would decide it.
-
-- **A count of another step** — Malloy's `path.count()`, *how many affiliations per university*
-  asked of awards. Not offered: `count` counts the measured type
-  ([Analytics](/docs/design/analytics#count-counts-the-measured-type)). Decided by a reader's
-  question that needs it, in the evaluation set or in keasy — then it is a measure of its own.
-- **valibot as an optional peer of `@kanzo-tech/ui`.** The review proposed it, since only
-  `/analytics`' dashboard spec imports it and every root consumer installs it. Decided by the
-  admission PR's size figures: if it moves the per-entry root gauge, or a consumer asks not to
-  install it, it moves beside the other analytics-only peers.

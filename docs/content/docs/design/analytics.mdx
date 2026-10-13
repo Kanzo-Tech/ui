@@ -454,9 +454,22 @@ The other measures stay what `measureExpr` makes them, over the relation's rows:
 symmetrically too, and the cost of doing so here — no mosaic-sql node, the fanned rows held in
 DuckDB-WASM's memory — is on [Tasks](/docs/design/tasks#a-filter-off-the-shown-path-is-crossed-in-not-joined).
 
-**What would reverse it:** a reader who means the joined rows — *how many affiliations per
-university* asked of awards. Then it is Malloy's `path.count()`, a count of another step's distinct
-keys, offered as its own measure; `count` alone keeps its meaning.
+**A path has its count too: Malloy's `path.count()`** (decided 13 October 2026, not built). A count
+may name a path — `{ op: "count", path: "affiliation" }` — and then counts the distinct rows at that
+path's end: a `count(DISTINCT …)` of the key of the step the path reaches, which
+`JoinResolver.steps` already names, so the measure goes through the same door as every other path.
+*Affiliations by category*, asked of awards, is a count of `affiliation` grouped by `category.name`.
+The path must lie on the shown relation, as every shown path must; a path off it is a
+`join/branches` miss, said before anything runs. In Malloy the same question is
+`aggregate: affiliation.count()`, which counts the joined source's distinct rows at the end of the
+join path, whatever else the query joined. `count` with no path keeps its meaning, the measured
+type's.
+
+**What would reverse it:** readers reading a bare `count` across a hop as the joined rows, often
+enough in the evaluation set or in keasy that the measured type's count misleads more than it
+helps — then a bare `count` says which type it counts in its title, as Malloy's `count()` does by
+its source. A path's count would be reversed only by a reader who needs the joined rows themselves,
+duplicates and all, which no reference offers as a count.
 
 ## Mosaic is reached through `@kanzo-tech/mosaic`, and a name through one spelling
 
@@ -490,8 +503,17 @@ members. A chart filter's values are the column's, a number as often as a string
 **What would reverse it:** a Mosaic name a host needs that `@kanzo-tech/mosaic` does not export —
 then mosaic exports it, and `/analytics` still does not.
 
+**`valibot` is an optional peer of `@kanzo-tech/ui/analytics`** (decided 13 October 2026, not built).
+It is a direct dependency of `@kanzo-tech/ui` today, and only `/analytics`' dashboard spec imports it,
+so every consumer of `{ Button }` installs a validator it never runs. It joins `/analytics`' other
+optional peers by [the optional-peer door](/docs/philosophy#the-engine-rule), the rule `/editor` and
+`/table` follow. *What would reverse it:* the root barrel reading a spec — then it is a dependency
+again.
+
 **Breaking**, in a consumer's words, for this page:
 
+- Install `valibot` if you use `@kanzo-tech/ui/analytics`; `@kanzo-tech/ui` no longer installs it
+  for you.
 - Import `engine`, `Engine`, `JoinGraph`, `Relation`, `relationKey`, `numbers`, `Query`,
   `TableExpr`, every `clause*`, the aggregates, `sql`, `asc` and `desc` from `@kanzo-tech/mosaic`;
   `@kanzo-tech/ui/analytics` no longer exports them.
