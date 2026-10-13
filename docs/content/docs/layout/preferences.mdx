@@ -38,14 +38,19 @@ emits the CSS. Everything else follows from the declaration:
 ## Usage
 
 ```tsx
-import { Preferences } from "@kanzo-tech/ui";
+import { PreferencesPanel, PreferencesRoot, PreferencesTrigger } from "@kanzo-tech/ui";
 ```
 
 ```tsx
-<Preferences hotkey="t" />
+<PreferencesRoot hotkey="t">
+  <PreferencesTrigger />
+  <PreferencesPanel />
+</PreferencesRoot>
 ```
 
-The all-in-one renders a floating trigger plus the drawer. It writes through `useKanzoTheme`,
+The root holds the drawer's state and the hotkey, the trigger is the floating button in the corner,
+and the panel is the drawer. There is no all-in-one: it was this arrangement under a fourth name, and
+the arrangement is three lines a host writes and rearranges. The panel writes through `useKanzoTheme`,
 which sets attributes on `<html>`. That is why every component re-skins, including Ark's portaled
 overlays, which render into `document.body` and would miss a wrapper element.
 
@@ -147,13 +152,14 @@ exactly what the provider's `themes` lists, so narrowing the offer is a prop on 
 
 When the stored theme is no longer in `themes`, because a tenant dropped a family or the library
 retired the theme, the provider clears the choice and the cards show an *info* alert: "Brand updated —
-“dracula” is no longer offered here. You are seeing the default." It is the same state, and the same
-words, that [`ThemeNotice`](/docs/theming#retired-themes) shows as a toast. Translate both through
-`copy.retired`.
+“dracula” is no longer offered here. You are seeing the default." Translate it through
+`translations.retiredTitle` and `translations.retired(theme)`. A host that also wants it said as a
+toast reads the same state, `useKanzoTheme().retiredTheme` — [Retired themes](/docs/theming#retired-themes)
+has the composition.
 
 ### Accessibility
 
-- The two cards are an Ark radio group named *Appearance* (`copy.appearance`). Each card's radio is
+- The two cards are an Ark radio group named *Appearance* (`translations.appearance`). Each card's radio is
   its header, stretched over the card, so the whole card is the click target while no control is
   nested in another.
 - Each card's swatches are a radio group named by the card's title, with **manual activation**: Tab
@@ -167,8 +173,10 @@ words, that [`ThemeNotice`](/docs/theming#retired-themes) shows as a toast. Tran
 
 ### Translating
 
-Every word the core's sections author is in `copy`. A theme's own label was written by the tenant and
-passes through verbatim.
+Every word the panel and the core's sections author is an entry of `translations`, the one prop every
+component here takes its words through. Give it once, to `PreferencesRoot`, and every part inside
+reads it; a part's own `translations` win for that part. A theme's own label was written by the
+tenant and passes through verbatim.
 
 <ComponentPreview componentName="preferences" fileName="example-copy" />
 
@@ -250,15 +258,6 @@ decorative (`aria-hidden`): whatever offers the theme names it.
 
 ## API Reference
 
-### Preferences
-
-| Prop | Type | Default |
-| --- | --- | --- |
-| `hotkey` | `string` | — |
-| `defaultOpen` | `boolean` | `false` |
-| `triggerClassName` | `string` | — |
-| `copy` | `Partial<PreferencesCopy>` | English, below |
-
 ### PreferencesRoot
 
 | Prop | Type | Default |
@@ -266,35 +265,35 @@ decorative (`aria-hidden`): whatever offers the theme names it.
 | `children` | `ReactNode` | — |
 | `hotkey` | `string` | — |
 | `defaultOpen` | `boolean` | `false` |
+| `translations` | `Partial<PreferencesTranslations>` — read by every part inside | English, below |
 
 ### PreferencesTrigger
 
 | Prop | Type | Default |
 | --- | --- | --- |
 | `className` | `string` | — |
+| `translations` | `Partial<Pick<PreferencesTranslations, "open">>` | the root's |
 
 ### PreferencesPanel
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `children` | `ReactNode` | `<PreferencesSections copy={copy} />` |
-| `title` | `string` | `"Preferences"` |
-| `hint` | `string` | `"Applied live · saved to this browser."` |
-| `copy` | `Partial<PreferencesCopy>` | English, below |
+| `children` | `ReactNode` | `<PreferencesSections />` |
+| `translations` | `Partial<PreferencesTranslations>` | the root's |
 
 ### PreferencesSections
 
 | Prop | Type | Default |
 | --- | --- | --- |
 | `namespace` | `string` | every namespace, the core's (`"theme"`) first |
-| `copy` | `Partial<PreferencesCopy>` | English, below |
+| `translations` | `Partial<PreferencesTranslations>` | the root's |
 
 ### Pref
 
 | Prop | Type | Default |
 | --- | --- | --- |
 | `name` | `PrefName` — `"<namespace>.<key>"`, checked once `Register` is augmented | required |
-| `copy` | `Partial<PreferencesCopy>` — the theme cards' words | English, below |
+| `translations` | `Partial<PreferencesTranslations>` — the theme cards' words | the root's |
 
 ### usePref
 
@@ -320,10 +319,17 @@ What only a section's owner knows, for the subtree beneath it. Merges over the o
 | `sources` | `Record<string, readonly PrefOption[]>` — the lists the section's choices name with `{ from }` | — |
 | `specimens` | `Record<string, PrefSpecimen>` — a picture per option, keyed by preference | — |
 
-### PreferencesCopy
+### PreferencesTranslations
 
 | Key | Default |
 | --- | --- |
+| `title` | `"Preferences"` — the panel's title |
+| `hint` | `"Applied live · saved to this browser."` — the line under it |
+| `open` | `"Theme preferences"` — the trigger's accessible name |
+| `close` | `"Close preferences"` — the close button's accessible name |
+| `reset` | `"Reset"` |
+| `done` | `"Done"` |
+| `none` | `"None"` — a sourced choice with nothing chosen |
 | `theme` | `"Theme"` — the heading over the cards |
 | `appearance` | `"Appearance"` — the accessible name of the two cards' radio group |
 | `day` | `"Light theme"` |
@@ -331,7 +337,8 @@ What only a section's owner knows, for the subtree beneath it. Merges over the o
 | `night` | `"Dark theme"` |
 | `nightDescription` | `"Worn while the appearance is dark."` |
 | `active` | `"Active"` |
-| `retired` | `ThemeRetiredCopy` — `{ title?, formatDescription?({ theme }) }`, shared with `ThemeNotice` |
+| `retiredTitle` | `"Brand updated"` — the retired-theme notice's heading |
+| `retired` | `(theme) => string` — its body, given the retired theme's name |
 
 Density's label and its options come from the declaration. A contributed section's words are its
 manifest's.
@@ -357,6 +364,6 @@ For sections of your own, so a product's controls are indistinguishable from the
 
 There is no `Preferences.X` namespace: statics built with `Object.assign` do not survive the RSC
 boundary, so the flat name is the only name. Every part's props are exported as an interface —
-`PreferencesProps`, `PreferencesRootProps`, `PreferencesPanelProps`, `PreferencesSectionsProps`,
-`PrefProps`, `SectionProviderProps` and `PreferencesCopy` — with `PrefName`, `PrefValue`, `PrefState`,
+`PreferencesRootProps`, `PreferencesTriggerProps`, `PreferencesPanelProps`, `PreferencesSectionsProps`,
+`PrefProps`, `SectionProviderProps` and `PreferencesTranslations` — with `PrefName`, `PrefValue`, `PrefState`,
 `PrefSpecimen` and the `Register` interface an app augments.

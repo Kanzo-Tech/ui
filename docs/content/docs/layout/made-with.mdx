@@ -18,8 +18,9 @@ Kanzo" rather than dropping the word a sighted reader gets from the glyph.
 
 The library's first admission rule is domain-freedom, and a line that hard-codes English words and a
 brand name breaks it. So **the brand is `children` and has no default**: the library names nobody,
-and markup is not a prop. The two English words are `prefix` and `infix`, props with English
-defaults — a convenience a caller replaces to translate, not a domain the component carries. There
+and markup is not a prop. The English words are entries of `translations` — `prefix`, `infix` and
+the heart's name, `loveLabel` — with English defaults: a convenience a caller replaces to translate,
+not a domain the component carries. There
 is no `linkComponent`: a caller with a routed anchor composes the line itself.
 
 It earns a name because every product this library is built for ships this line, and writing four
@@ -32,7 +33,7 @@ pretending to be a component, and four elements are cheap.
 ## Translating
 
 ```tsx
-<MadeWith prefix="Hecho con" infix="en" loveLabel="amor" href="https://kanzo.tech">
+<MadeWith href="https://kanzo.tech" translations={{ prefix: "Hecho con", infix: "en", loveLabel: "amor" }}>
   Kanzo
 </MadeWith>
 ```
@@ -43,7 +44,13 @@ pretending to be a component, and four elements are cheap.
 | --- | --- | --- |
 | `children` | `ReactNode` | — (required; the brand) |
 | `href` | `string` | — |
-| `prefix` | `string` | `"Made with"` |
-| `infix` | `string` | `"at"` |
-| `loveLabel` | `string` | `"love"` |
+| `translations` | `Partial<MadeWithTranslations>` | English, below |
 | `className` | `string` | — |
+
+`MadeWithTranslations`:
+
+| Key | Default |
+| --- | --- |
+| `prefix` | `"Made with"` — before the heart |
+| `infix` | `"at"` — between the heart and the brand |
+| `loveLabel` | `"love"` — the heart's accessible name |

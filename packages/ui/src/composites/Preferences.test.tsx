@@ -2,19 +2,23 @@ import {
   CORE_PREFS,
   prefOptions,
   STORAGE_KEY,
-  type ThemeOption,
   type SectionManifest,
   type ThemePrefs,
 } from "@kanzo-tech/theme";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { type ComponentProps, StrictMode } from "react";
+import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { toast } from "../simples/toast.js";
 import { KanzoThemeProvider } from "../theme/KanzoThemeProvider.js";
-import { ThemeNotice } from "./theme-notice.js";
 import { SectionProvider } from "../theme/section-context.js";
-import { Pref, Preferences, PreferencesSections, usePref } from "./Preferences.js";
+import {
+  Pref,
+  PreferencesPanel,
+  PreferencesRoot,
+  PreferencesSections,
+  PreferencesTrigger,
+  usePref,
+} from "./Preferences.js";
 
 // jsdom ships no `matchMedia`; stub it per-file (do not edit vitest.setup.ts).
 function stubMatchMedia(matches = false) {
@@ -42,19 +46,15 @@ const stored = () => JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as Pa
 const seed = (prefs: Partial<ThemePrefs>) =>
   localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
 
-// A tenant with two brands: the case the Identity section exists for. The swatch arrays are the
-// document's categorical set for each mode, which is why they differ.
-const THEMES: ThemeOption[] = [
-  { value: "retail-blue", label: "Retail", dark: false },
-  { value: "private-gold", label: "Private", dark: false },
-];
-
 type ProviderProps = Partial<ComponentProps<typeof KanzoThemeProvider>>;
 
 function setup(defaults?: Partial<ThemePrefs>, provider: ProviderProps = {}) {
   return render(
     <KanzoThemeProvider defaults={defaults} {...provider}>
-      <Preferences defaultOpen />
+      <PreferencesRoot defaultOpen>
+        <PreferencesTrigger />
+        <PreferencesPanel />
+      </PreferencesRoot>
     </KanzoThemeProvider>,
   );
 }
@@ -210,15 +210,24 @@ describe("Preferences", () => {
     });
   });
 
-  describe("copy", () => {
-    it("translates the core's words through one prop", () => {
+  describe("translations", () => {
+    it("translates every part through the root, and a part's own translations win for that part", () => {
       render(
         <KanzoThemeProvider>
-          <Preferences copy={{ theme: "Tema", appearance: "Apariencia" }} defaultOpen />
+          <PreferencesRoot
+            defaultOpen
+            translations={{ theme: "Tema", appearance: "Apariencia", title: "Preferencias", open: "Preferencias", done: "Hecho" }}
+          >
+            <PreferencesTrigger translations={{ open: "Abrir preferencias" }} />
+            <PreferencesPanel />
+          </PreferencesRoot>
         </KanzoThemeProvider>,
       );
       expect(screen.getByText("Tema")).toBeTruthy();
       expect(screen.getByRole("radiogroup", { name: "Apariencia" })).toBeTruthy();
+      expect(screen.getByRole("heading", { name: "Preferencias" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Hecho" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Abrir preferencias" })).toBeTruthy();
     });
   });
 
@@ -242,65 +251,6 @@ describe("Preferences", () => {
       // axis is appearance-independent, so its `.dark` block is empty by construction — the
       // capability belongs on the onboarding surface, which has a document to emit.
       expect(screen.queryByRole("button", { name: "Copy CSS" })).toBeNull();
-    });
-  });
-
-  describe("ThemeNotice", () => {
-    // `toast` is a module-level instance shared by every test in this worker, so a spy on it has
-    // to be put back.
-    afterEach(() => vi.restoreAllMocks());
-
-    const mount = (node = <ThemeNotice />, strict = false) => {
-      const tree = <KanzoThemeProvider themes={THEMES}>{node}</KanzoThemeProvider>;
-      return render(strict ? <StrictMode>{tree}</StrictMode> : tree);
-    };
-
-    it("toasts once when the tenant retired the stored theme", () => {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ themeByAppearance: { light: "withdrawn", dark: "withdrawn" } }));
-      const create = vi.spyOn(toast, "create").mockReturnValue("id");
-
-      mount(<ThemeNotice />, true);
-
-      expect(create).toHaveBeenCalledTimes(1);
-      expect(create.mock.calls[0]?.[0]).toMatchObject({
-        title: "Brand updated",
-        description: "“withdrawn” is no longer offered here. You are seeing the default.",
-        type: "info",
-      });
-    });
-
-    it("stays quiet when nothing was retired", () => {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ identity: "private-gold" }));
-      const create = vi.spyOn(toast, "create").mockReturnValue("id");
-
-      mount();
-
-      expect(create).not.toHaveBeenCalled();
-    });
-
-    // The message is library-authored English, so it takes the format-prop escape hatch — unlike
-    // an identity's own label, which the client authored and nobody else gets to reword.
-    it("lets a host translate both halves of the message", () => {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ themeByAppearance: { light: "withdrawn", dark: "withdrawn" } }));
-      const create = vi.spyOn(toast, "create").mockReturnValue("id");
-
-      mount(
-        <ThemeNotice
-          formatDescription={({ theme }) => `«${theme}» ya no está disponible.`}
-          title="Marca actualizada"
-        />,
-      );
-
-      expect(create.mock.calls[0]?.[0]).toMatchObject({
-        title: "Marca actualizada",
-        description: "«withdrawn» ya no está disponible.",
-      });
-    });
-
-    it("renders no DOM of its own — the provider still draws nothing", () => {
-      const { container } = mount();
-
-      expect(container.innerHTML).toBe("");
     });
   });
 

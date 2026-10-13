@@ -32,7 +32,7 @@ import {
 } from "../simples/dialog.js";
 import { RadioGroup as ArkRadioGroup } from "@ark-ui/react/radio-group";
 import { RadioGroup, RadioGroupCard } from "../simples/radio-group.js";
-import { ThemePicker, type ThemePickerCopy } from "./ThemePicker.js";
+import { ThemePicker, type ThemePickerTranslations } from "./ThemePicker.js";
 import { Slider, SliderLabel } from "../simples/slider.js";
 import { Switch } from "../simples/switch.js";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../simples/select.js";
@@ -48,7 +48,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
  * it knows — the lists its choices name and the pictures its options wear; {@link Pref} is the part
  * and {@link usePref} its state. {@link PreferencesSections} is a composition of the part:
  *
- *   <Preferences />                          — a floating trigger and the drawer
+ *   <PreferencesRoot>…</PreferencesRoot>     — a trigger and the drawer, composed by the host
  *   <PreferencesSections />                  — every section inline, on a settings page
  *   <PreferencesSections namespace="graph" /> — one section
  *   <Pref name="theme.density" />            — one preference, where a page puts it
@@ -57,6 +57,53 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
  * theme is the one control the generic arms cannot draw — two cards, each a live miniature of a
  * theme — so the side and the theme per side are drawn by {@link ThemePicker}, internal here.
  */
+
+// ── The words ────────────────────────────────────────────────────────────────
+/**
+ * Every word the panel and its core sections author. The theme labels are the tenant's and are never
+ * reworded; a contributed section's words are its manifest's.
+ */
+export interface PreferencesTranslations extends ThemePickerTranslations {
+  /** The panel's title. */
+  title: string;
+  /** The line under the title. */
+  hint: string;
+  /** The floating trigger's accessible name. */
+  open: string;
+  /** The close button's accessible name. */
+  close: string;
+  reset: string;
+  done: string;
+  /** A sourced choice with nothing chosen. */
+  none: string;
+  /** The heading over the theme picker. */
+  theme: string;
+}
+
+/** The panel's own words, whole, and the theme picker's as given: the picker fills in its own English. */
+type Resolved = Omit<PreferencesTranslations, keyof ThemePickerTranslations> & Partial<ThemePickerTranslations>;
+
+const ENGLISH: Resolved = {
+  title: "Preferences",
+  hint: "Applied live · saved to this browser.",
+  open: "Theme preferences",
+  close: "Close preferences",
+  reset: "Reset",
+  done: "Done",
+  none: "None",
+  theme: "Theme",
+};
+
+/**
+ * What the root was handed, for the parts inside it: a host translates the panel once, on the root,
+ * and a part's own `translations` win over it for that part.
+ */
+const Words = React.createContext<Partial<PreferencesTranslations> | undefined>(undefined);
+
+function useWords(own: Partial<PreferencesTranslations> | undefined): Resolved {
+  const inherited = React.useContext(Words);
+  return { ...ENGLISH, ...inherited, ...own };
+}
 
 // ── Root: Ark Dialog (non-modal, live-preview) + hotkey ──────────────────────
 export interface PreferencesRootProps {
@@ -70,9 +117,11 @@ export interface PreferencesRootProps {
    */
   hotkey?: string;
   defaultOpen?: boolean;
+  /** The words of every part inside it; a part's own `translations` win for that part. */
+  translations?: Partial<PreferencesTranslations>;
 }
 
-function PreferencesRoot({ children, hotkey, defaultOpen = false }: PreferencesRootProps) {
+function PreferencesRoot({ children, hotkey, defaultOpen = false, translations }: PreferencesRootProps) {
   const [open, setOpen] = React.useState(defaultOpen);
 
   useHotkey(hotkey, () => setOpen((o) => !o));
@@ -96,20 +145,26 @@ function PreferencesRoot({ children, hotkey, defaultOpen = false }: PreferencesR
       modal={false}
       closeOnInteractOutside={true}
     >
-      {children}
+      <Words.Provider value={translations}>{children}</Words.Provider>
     </Dialog>
   );
 }
 
 // ── Trigger: floating palette FAB ────────────────────────────────────────────
-function PreferencesTrigger({ className }: { className?: string }) {
+export interface PreferencesTriggerProps {
+  className?: string;
+  translations?: Partial<Pick<PreferencesTranslations, "open">>;
+}
+
+function PreferencesTrigger({ className, translations }: PreferencesTriggerProps) {
+  const t = useWords(translations);
   return (
     <DialogTrigger asChild>
       <Button
         type="button"
         size="icon-md"
         variant="outline"
-        aria-label="Theme preferences"
+        aria-label={t.open}
         // `m-0`: a fixed FAB must not inherit a parent's flow spacing (`space-y-*`).
         // `bg-card`: `outline` is transparent by design, which reads as broken once the
         // button floats over arbitrary page content — a FAB needs an opaque surface.
@@ -139,18 +194,12 @@ function PreferencesTrigger({ className }: { className?: string }) {
 export interface PreferencesPanelProps {
   /** Replaces the default body — every offered preference — with your own sections. */
   children?: React.ReactNode;
-  title?: string;
-  hint?: string;
-  /** The words the default body draws. */
-  copy?: Partial<PreferencesCopy>;
+  /** The panel's words, and those of the default body. */
+  translations?: Partial<PreferencesTranslations>;
 }
 
-function PreferencesPanel({
-  children,
-  title = "Preferences",
-  hint = "Applied live · saved to this browser.",
-  copy,
-}: PreferencesPanelProps) {
+function PreferencesPanel({ children, translations }: PreferencesPanelProps) {
+  const t = useWords(translations);
   return (
     <Portal>
       <ArkDialog.Positioner className="pointer-events-none fixed inset-0 z-50 flex items-start justify-end p-4">
@@ -172,9 +221,9 @@ function PreferencesPanel({
           {/* Header. Nothing but the title and the close X: appearance is `ThemePicker`'s
               Light · Dark segment, and a toggle here would be a second control for it. */}
           <div className="px-5 pt-5 pb-3">
-            <DialogTitle className="font-heading text-base font-semibold">{title}</DialogTitle>
+            <DialogTitle className="font-heading text-base font-semibold">{t.title}</DialogTitle>
             <DialogDescription className="mt-0.5 text-[length:var(--kanzo-font-size-small)] text-muted-foreground">
-              {hint}
+              {t.hint}
             </DialogDescription>
           </div>
           <div className="absolute inset-e-3.5 top-3.5 flex items-center gap-0.5">
@@ -183,7 +232,7 @@ function PreferencesPanel({
                 type="button"
                 size="icon-sm"
                 variant="ghost"
-                aria-label="Close preferences"
+                aria-label={t.close}
                 className="opacity-64 hover:opacity-100"
               >
                 <XIcon />
@@ -203,11 +252,11 @@ function PreferencesPanel({
             className="flex flex-1 flex-col gap-6 overflow-y-auto px-5 pb-5 [&>*]:shrink-0"
             onSubmit={(e) => e.preventDefault()}
           >
-            {children ?? <PreferencesSections copy={copy} />}
+            {children ?? <PreferencesSections translations={translations} />}
           </form>
 
           {/* Footer — canonical Shark actions bar: top separator + muted surface. */}
-          <PreferencesFooter />
+          <PreferencesFooter t={t} />
         </ArkDialog.Content>
       </ArkDialog.Positioner>
     </Portal>
@@ -215,7 +264,7 @@ function PreferencesPanel({
 }
 
 /** Actions bar pinned to the bottom of the panel (Reset · Done). */
-function PreferencesFooter() {
+function PreferencesFooter({ t }: { t: Resolved }) {
   // `reset`, not `set({ ...DEFAULT_PREFS })`, which is what this was. Storage holds what a user
   // CHOSE, so spreading the defaults would write each axis explicitly — making Reset the one act
   // that pins somebody against their tenant's document. Unsetting lands wherever the chain says.
@@ -227,11 +276,11 @@ function PreferencesFooter() {
   return (
     <div className="flex items-center gap-2 border-t border-border px-4 py-3">
       <Button type="button" variant="ghost" size="sm" onClick={reset}>
-        Reset
+        {t.reset}
       </Button>
       <DialogClose asChild>
         <Button type="button" size="sm" className="ms-auto">
-          Done
+          {t.done}
         </Button>
       </DialogClose>
     </div>
@@ -301,13 +350,13 @@ function PrefFieldSet({ label, children }: { label: React.ReactNode; children: R
  * THEME — the panel's heading over {@link ThemePicker}, which is the one control for the theme and
  * the appearance alike. It draws nothing where the tenant offers neither.
  */
-function ThemeSection({ copy }: { copy?: Partial<PreferencesCopy> }) {
+function ThemeSection({ t }: { t: Resolved }) {
   const { corePrefs } = useKanzoTheme();
   if (corePrefs.themeByAppearance?.offered === false && corePrefs.appearance?.offered === false) return null;
   return (
     <div className="flex flex-col gap-2">
-      <span className={PREF_HEADING}>{copy?.theme ?? "Theme"}</span>
-      <ThemePicker copy={copy} />
+      <span className={PREF_HEADING}>{t.theme}</span>
+      <ThemePicker translations={t} />
     </div>
   );
 }
@@ -402,7 +451,7 @@ export interface PrefProps {
   /** The qualified name: `theme.density`, `graph.x-by`. */
   name: PrefName;
   /** The words the core's theme picker draws. A contributed section's words are its manifest's. */
-  copy?: Partial<PreferencesCopy>;
+  translations?: Partial<PreferencesTranslations>;
 }
 
 /**
@@ -421,11 +470,12 @@ export interface PrefProps {
  * than no control. The core's `appearance` and `themeByAppearance` are one control, the theme
  * picker, and either name draws it.
  */
-function Pref({ name, copy }: PrefProps) {
+function Pref({ name, translations }: PrefProps) {
+  const t = useWords(translations);
   const pref = usePref(name);
   if (!pref) return null;
   const key = name.slice(name.indexOf(".") + 1);
-  if (name.startsWith(`${CORE_NAMESPACE}.`) && PICKER.has(key)) return <ThemeSection copy={copy} />;
+  if (name.startsWith(`${CORE_NAMESPACE}.`) && PICKER.has(key)) return <ThemeSection t={t} />;
   const { decl, value, setValue, options, specimen } = pref;
   if (!pref.offered || !pref.shown) return null;
   // The declaration's name, and the key when it has none.
@@ -470,7 +520,7 @@ function Pref({ name, copy }: PrefProps) {
   }
 
   if (!options) return null;
-  if (!Array.isArray(decl.options)) return <PrefSelect label={title} onChange={setValue} options={options} value={value} />;
+  if (!Array.isArray(decl.options)) return <PrefSelect label={title} none={t.none} onChange={setValue} options={options} value={value} />;
   if (decl.ordered) {
     // A scale is the range arm over the options' positions: the same Slider, its markers the
     // options' names, and the stored value the option's, never its index.
@@ -517,11 +567,13 @@ function Pref({ name, copy }: PrefProps) {
  */
 function PrefSelect({
   label,
+  none,
   onChange,
   options,
   value,
 }: {
   label: string;
+  none: string;
   onChange: (next: string) => void;
   options: readonly PrefOption[];
   value: string;
@@ -536,7 +588,7 @@ function PrefSelect({
         value={value ? [value] : []}
       >
         <SelectTrigger className="w-full" showClear>
-          <SelectValue placeholder="None" />
+          <SelectValue placeholder={none} />
         </SelectTrigger>
         <SelectContent>
           {collection.items.map((item) => (
@@ -568,19 +620,13 @@ export interface PreferencesSectionsProps {
    */
   namespace?: string;
   /** The words the core's sections draw. A contributed section's words are its manifest's. */
-  copy?: Partial<PreferencesCopy>;
-}
-
-/** Every word the core's sections author. The theme labels are the tenant's and are never reworded. */
-export interface PreferencesCopy extends ThemePickerCopy {
-  /** The heading over the theme picker. */
-  theme: string;
+  translations?: Partial<PreferencesTranslations>;
 }
 
 /** The two declared preferences the theme picker draws as one control. */
 const PICKER = new Set(["appearance", "themeByAppearance"]);
 
-function PreferencesSections({ namespace, copy }: PreferencesSectionsProps = {}) {
+function PreferencesSections({ namespace, translations }: PreferencesSectionsProps = {}) {
   const { corePrefs, sectionPrefs } = useKanzoTheme();
   // The picker answers to two names; drawn once, at whichever the declaration lists first.
   const core = Object.keys(corePrefs).filter((key, i, keys) => !PICKER.has(key) || keys.findIndex((k) => PICKER.has(k)) === i);
@@ -596,37 +642,9 @@ function PreferencesSections({ namespace, copy }: PreferencesSectionsProps = {})
   return (
     <FieldGroup className="*:col-span-full *:has-data-[slot=switch]:col-span-1" columns={2}>
       {names.map((name) => (
-        <Pref copy={copy} key={name} name={name as PrefName} />
+        <Pref key={name} name={name as PrefName} translations={translations} />
       ))}
     </FieldGroup>
-  );
-}
-
-export interface PreferencesProps extends Omit<PreferencesRootProps, "children"> {
-  /** Restyle or reposition the floating trigger (it is `fixed bottom-4 end-4` by default). */
-  triggerClassName?: string;
-  /** The words the panel's sections draw. */
-  copy?: Partial<PreferencesCopy>;
-}
-
-/**
- * All-in-one: a floating trigger + the full drawer.
- *
- * Forwards Root's props and lets the trigger be restyled or repositioned — it used to take
- * none, so a consumer could neither move the FAB nor reach the hotkey.
- *
- * There is no `Preferences.Root` / `.Panel` / `.Density` namespace. It was built with
- * `Object.assign`, and those statics do NOT survive React Server Components: once the module
- * becomes a client reference, `Preferences.Density` reads back as `undefined` and React throws
- * "Element type is invalid". It was a broken API kept beside the working one — and it was the
- * single counter-example to "no component exports dot-notation".
- */
-export function Preferences({ triggerClassName, copy, ...rootProps }: PreferencesProps = {}) {
-  return (
-    <PreferencesRoot {...rootProps}>
-      <PreferencesTrigger className={triggerClassName} />
-      <PreferencesPanel copy={copy} />
-    </PreferencesRoot>
   );
 }
 

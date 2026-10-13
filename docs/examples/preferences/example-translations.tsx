@@ -6,7 +6,7 @@ export default function Example() {
   return (
     <div className="flex w-full max-w-2xl flex-col gap-6">
       <Pref
-        copy={{
+        translations={{
           theme: "Tema",
           appearance: "Apariencia",
           day: "Tema claro",

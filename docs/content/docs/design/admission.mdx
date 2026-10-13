@@ -467,3 +467,37 @@ other side.
 
 *Held by* `docs/showcases/field-notes/rudof.ts`, `Column`; `docs/showcases/discovery/data.ts`,
 `Relation`; `packages/ui/src/simples/tree-view.tsx`, `TreeViewItem`.
+
+## A composite stays where a product calls it
+
+**`LanguagePicker`, `MadeWith`, `FieldArray`, `useAsyncCollection` and the `Preferences` parts stay
+in the root, because a product calls them: Kanzo-Tech/metadata-form, on `@kanzo-tech/ui` 0.27.**
+With each one's docs example, that is the second call site [the rule above](#an-export-needs-a-second-call-site-and-one-example-is-not-it)
+asks for — recorded here because an audit of this repository and keasy alone, on 13 October 2026,
+found none of them used:
+
+| Export | metadata-form's call site |
+| --- | --- |
+| `LanguagePicker` | `src/react/widgets/defaultWidgets.tsx`, the `rdf:langString` language-tag widget |
+| `MadeWith` | `src/react/form/MetadataForm.tsx`, the form's attribution line |
+| `FieldArray` | `src/react/form/FieldRenderer.tsx`, a repeated field |
+| `useAsyncCollection` | `src/react/fieldassist/Comboboxes.tsx`, a reference combobox's candidates |
+| `PreferencesRoot`, `PreferencesTrigger`, `PreferencesPanel`, `PreferencesField`, `PreferencesSections` | `playground/src/App.tsx` and `playground/src/Preferences.tsx` |
+
+**`ThemeNotice`, `FloatingPanel` and the `Preferences` all-in-one left the barrel for docs
+examples.** The all-in-one was a fixed arrangement of `PreferencesRoot`, `PreferencesTrigger` and
+`PreferencesPanel`, which metadata-form composes itself, so its parts stay and the arrangement is
+three lines on [its page](/docs/layout/preferences) — the `TextField` case. The other two had no
+caller in any product. `ThemeNotice` was one effect over the provider's `retiredTheme`, and its own
+comment justified rendering nothing by pointing at a component the barrel no longer meant to keep;
+it is [an example](/docs/hooks/use-kanzo-theme#the-retired-theme-as-a-toast) beside the hook it
+reads. `FloatingPanel` was a resizable `div` under the name of Ark's floating-panel machine, which
+Shark wraps as fifteen parts; it is [an example](/docs/layout/floating-panel), and the name is free
+for the machine. An example is the composition, copied by whoever needs it.
+
+**What would reverse it:** metadata-form dropping one of the five. Then it leaves the barrel for an
+example, unless another product has called it meanwhile. For the three that left, a product calling
+one — with a second call site of its own.
+
+*Held by* `packages/ui/src/index.test.ts`, "keeps the composites a product calls, and no others",
+`!Preferences`, `!ThemeNotice`, `!FloatingPanel`.

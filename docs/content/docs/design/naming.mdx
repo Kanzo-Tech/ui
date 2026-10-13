@@ -178,3 +178,39 @@ the item is the place to look first.
 *Held by* `packages/ai/src/engine.ts`, `Proposal`; `packages/ui/src/index.test.ts`, "drops
 components superseded by composition or a merge", `!useInlineCompletion`;
 `packages/ui/src/documented-exports.test.ts`, "documents no symbol the library does not export".
+
+## One prop translates: `translations`
+
+**Every component that writes words a reader sees takes them through one prop, `translations`, a
+partial record of its strings, in English by default.** There were five spellings, decided 13
+October 2026 to be one: `translations` (`LanguagePicker`, `Problem`, all of `@kanzo-tech/ai`), `copy`
+as a record (`Preferences`' parts and the theme cards), `labels` (`Findings`' parts), flat string
+props (`MadeWith`'s `prefix`, `infix` and `loveLabel`; `PreferencesPanel`'s `title` and `hint`), and
+nothing at all. [Admission](/docs/design/admission#a-failure-is-read-by-shape-and-worded-by-the-host)
+had already named `translations` the one way to pass words; the other four were the same idea under
+other names, and a host translating a page had to learn each.
+
+The name is the reference's. Ark's machines take their own words as `translations` — a popover's
+`closeTriggerLabel`, a pagination's labels — so a part over a machine that draws none of the
+machine's words takes `translations` in its place (`FindingsRoot` over `Popover` does), and a host
+writes one prop name whichever layer a word comes from. A compound takes it once on its root and
+every part inside reads it; a part's own `translations` win for that part (`PreferencesRoot`,
+`FindingsRoot`).
+
+A part that writes a sentence from pieces takes the pieces' pattern as a `translations` entry with
+placeholders — a function of the values — never a sentence assembled in English. A part that
+hard-codes English gains `translations` when it is next touched, in the same change, since a reader
+in another language is already a caller: the analytics parts, the table's pagination and most of
+graph's parts are still the case, about 160 strings, and none was edited for its own sake.
+
+`Problem`'s `describe(code, data)` is not a translation. It is the host's wording of a failure it
+knows, resolved per failure from its `data`, and it sits beside `Problem`'s `translations`, which are
+the same whatever failed.
+
+**What would reverse it:** a host that translates through a provider — an i18n library's context —
+and cannot pass a prop per component. Then a provider is the second way, and it supplies the same
+`translations` records, keyed by the component.
+
+*Held by* `packages/ui/src/composites/Preferences.test.tsx`, "translates every part through the root,
+and a part's own translations win for that part"; `packages/ui/src/composites/findings.test.tsx`,
+"says its severity in the host's words"; `packages/ui/src/composites/problem.tsx`, `describe`.

@@ -48,6 +48,16 @@ set({ appearance: "dark", density: "comfortable" });
 Appearance has its own setter, `setAppearance`, because a host theme manager (next-themes) may own
 that axis. Going through `set({ appearance })` would bypass the host and leave the two disagreeing.
 
+## The retired theme as a toast
+
+When a tenant withdraws the theme a reader had chosen, the provider clears the choice and holds its
+name in `retiredTheme` for the session, and the theme cards say so in an alert. Where the cards are
+not drawn — a tenant that withholds the theme — a host that wants it said reads the same state and
+toasts it once, beside its own `<Toaster />`. The library ships no component for it: what it would
+be is the effect below under a name, and no product had called one.
+
+<ComponentPreview componentName="use-kanzo-theme" fileName="example-theme-notice" />
+
 ## API Reference
 
 ### useKanzoTheme
@@ -93,10 +103,9 @@ The preference fields are exactly `ThemePrefs`, so `set` accepts any subset of t
 `KanzoThemeProviderProps` is exported, so a wrapper can take the same props without restating them.
 
 **The rest of the theme surface, for a host that builds its own controls.** `KanzoTheme` and its
-`KanzoThemeProps` set the axes on a subtree without a provider of their own; `ThemeNotice` and
-`ThemeNoticeProps` are the notice a reader gets when the theme they had chosen is gone, and
-`ThemeRetiredCopy` translates it — pass both `title` and the body composer or it ends up half
-translated. `ThemeStorage` is the two-method adapter the provider reads and writes through: `get`
+`KanzoThemeProps` set the axes on a subtree without a provider of their own; `retiredTheme` is the
+theme a reader had chosen and the tenant withdrew, which the theme cards say in an alert and a host
+may also toast ([below](#the-retired-theme-as-a-toast)). `ThemeStorage` is the two-method adapter the provider reads and writes through: `get`
 returns a **sparse** document, because a key is absent when nobody has chosen it, not when it is at
 its default. `ThemeScriptOptions` is what the blocking script takes, and its `storageKey` must match
 the provider's.
