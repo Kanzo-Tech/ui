@@ -4,6 +4,7 @@ import { ark } from "@ark-ui/react/factory";
 import * as React from "react";
 import { cn } from "../lib/cn";
 import { Button, type ButtonProps } from "./button";
+import { Skeleton } from "./skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip";
 
 /**
@@ -28,16 +29,33 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip";
  * Wraps by default, and a pill never outgrows the row: one longer than the strip is as wide as the
  * strip and cut with an ellipsis — see `Suggestion`. A caller that wants one scrolling line passes
  * `flex-nowrap overflow-x-auto`.
+ *
+ * **`pending` holds room for pills still on their way** — a model's offers arrive one by one — as
+ * pills in skeleton after the ones that have, and the strip is `aria-busy` until they land. So a
+ * pending strip is the strip, not a spinner beside it, and nothing around it moves when they arrive.
  */
-export const Suggestions = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, slot, ...rest } = props;
+export interface SuggestionsProps extends React.ComponentProps<typeof ark.div> {
+  /** Pills in skeleton, for the ones still coming. */
+  pending?: number;
+}
+
+const PENDING_WIDTHS = ["w-44", "w-36", "w-52", "w-40"];
+
+export const Suggestions = (props: SuggestionsProps) => {
+  const { className, children, pending = 0, slot, ...rest } = props;
 
   return (
     <ark.div
+      aria-busy={pending > 0 || undefined}
       className={cn("flex min-w-0 flex-wrap items-center gap-1.5", className)}
       {...rest}
       data-slot={slot ?? "suggestions"}
-    />
+    >
+      {children}
+      {Array.from({ length: Math.max(0, pending) }, (_, i) => (
+        <Skeleton className={cn("h-7 max-w-full rounded-full", PENDING_WIDTHS[i % PENDING_WIDTHS.length])} key={i} />
+      ))}
+    </ark.div>
   );
 };
 

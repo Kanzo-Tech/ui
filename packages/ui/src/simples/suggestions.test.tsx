@@ -73,3 +73,25 @@ describe("a suggestion longer than its strip", () => {
     expect(onSelect).toHaveBeenCalledWith(LONG);
   });
 });
+
+describe("a strip whose pills are still arriving", () => {
+  it("holds room for them as pills in skeleton, busy until they have arrived", () => {
+    const skeletons = () => document.querySelectorAll("[data-slot=suggestions] [data-slot=skeleton]").length;
+    const { rerender } = render(<Suggestions pending={3} />);
+    expect(skeletons()).toBe(3);
+    expect(document.querySelector("[data-slot=suggestions]")?.getAttribute("aria-busy")).toBe("true");
+    rerender(
+      <Suggestions pending={2}>
+        <Suggestion value="Who signed the most?" />
+      </Suggestions>,
+    );
+    expect(skeletons()).toBe(2);
+    rerender(
+      <Suggestions>
+        <Suggestion value="Who signed the most?" />
+      </Suggestions>,
+    );
+    expect(skeletons()).toBe(0);
+    expect(document.querySelector("[data-slot=suggestions]")?.hasAttribute("aria-busy")).toBe(false);
+  });
+});
