@@ -14,15 +14,11 @@
 export type {
   Appearance,
   KanzoDensity,
-  KanzoThemeName,
   // A data shape and not a React one: the pre-hydration script reads the same catalogue, and it
   // never sees this package.
   ThemeOption,
 } from "@kanzo-tech/theme";
 export { KanzoThemeProvider, useKanzoTheme, cookieStorageAdapter } from "./theme/KanzoThemeProvider.js";
-// The same attributes on a `<div>` instead of `<html>` — for previews, and only for previews: Ark's
-// overlays portal to `document.body` and inherit the page's theme, not a wrapper's.
-export { KanzoTheme, type KanzoThemeProps } from "./theme/KanzoTheme.js";
 export type {
   KanzoThemeProviderProps,
   ThemePrefs,
@@ -86,7 +82,6 @@ export {
   FindingsRoot,
   FindingsSource,
   FindingsTally,
-  useFindings,
 } from "./composites/findings.js";
 export type {
   DescribePlace,
