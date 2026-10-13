@@ -18,7 +18,7 @@ const agent = new ToolLoopAgent({ model: localModel("Qwen3-4B-q4f16_1-MLC", { wo
 ```tsx
 function Ask() {
   const chat = useAgentChat(agent);
-  return <Chat chat={chat} proposals={[{ text: "How many contracts are late?" }]} />;
+  return <Chat chat={chat} />;
 }
 ```
 
@@ -153,14 +153,20 @@ the question will be typed. Pressing one asks it. Both go once the conversation 
 **Questions to start from are a Task's proposals.** A model offers them as it offers anything — the
 artefact a [Task](/docs/design/tasks) declares, asked with `propose(task, input, { model, count })`
 from `@kanzo-tech/ai/task`, each checked by the Task's oracles, and only those every oracle accepts
-kept. A pill is `{ text, rationale? }`, the same `Proposal` a field's `Assist` offers. Ask's are
-[`askOffers`](/docs/ai/data#the-questions): the `ask` Task with no question asked, so every pill is
-one the chat answers. There is no template fallback: a list of questions written from column names
+kept. A pill is the Task's `Proposal`, the same one a field's `Assist` offers, and `Chat` takes it
+whole: **pressing a pill sends its value, never its words**, so what the oracles checked is what is
+asked. A string is sent as the message's text; any other value as the message `message` makes of it,
+and the pill reads that message's text. Ask's are [`askOffers`](/docs/ai/data#the-questions): the
+`ask` Task with no question asked, whose value is a spec, sent with `askEdit` — the chat asks the spec
+as it is, so a starter question is not re-read by the model from its words. There is no template fallback: a list of questions written from column names
 beside a list a model wrote is two paths to one strip, and the templates were the worse one.
 
 ```tsx
-const offered = await propose(questions, material, { model, count: 3, signal });
-<Chat chat={chat} proposals={offered.map((p) => p.value)} proposing={false} />
+const offered = await propose(questions, material, { model, count: 3, signal }); // Proposal<string>[]
+<Chat chat={chat} proposals={offered} proposing={false} />
+
+const offers = await askOffers({ model, graph, types, selection, signal }); // Proposal<AskSpec>[]
+<Chat chat={chat} message={askEdit} proposals={offers} />
 ```
 
 While they are on their way, pass `proposing`: the strip draws pills in skeleton, as many as make up
@@ -278,7 +284,8 @@ outside the scroll region, so it stays put while the transcript moves:
 | `chat` | `useAgentChat(...)`'s return, or `useChat(...)`'s | The conversation |
 | `tools` | `ChatToolRenderers` | `Record<string, (part: ToolPart, call: { stopped: boolean }) => ReactNode>` — how the host draws its tools, at every state |
 | `empty` | `ReactNode` | What the panel says before the first question |
-| `proposals` | `readonly Proposal[]` | Questions to start from; given at all, even empty, the strip keeps its row |
+| `proposals` | `readonly Proposal<V>[]` | Questions to start from, a Task's offers taken whole; given at all, even empty, the strip keeps its row |
+| `message` | `(value: V) => ChatMessage` | What pressing a pill sends: its value as a message. Required for a value that is not a string, which is otherwise sent as the message's text |
 | `proposing` | `boolean` | More are on their way: pills in skeleton beside them |
 | `notice` | `ReactNode` | In place of the pills while there are none: why proposing failed, with a retry |
 | `context` | `ReactNode` | What the next question is asked over, read-only in the composer beside Send — a pill such as *Subset · 40 nodes*, as Copilot Chat and Cursor show theirs |
@@ -286,8 +293,9 @@ outside the scroll region, so it stays put while the transcript moves:
 | `translations` | `Partial<ChatTranslations>` | `placeholder` for the composer, and `failed`, read before an error |
 | `className` | `string` | On the root |
 
-The types are exported as `ChatProps`, `ChatSkeletonProps`, `ChatToolRenderers`, `ChatTranslations`,
-`ToolPart`, `AgentChat` and `AgentChatOptions`; a pill is a `Proposal`.
+The types are exported as `ChatProps`, `ChatProposals`, `ChatMessage` (what `sendMessage` takes),
+`ChatSkeletonProps`, `ChatToolRenderers`, `ChatTranslations`, `ToolPart`, `AgentChat` and
+`AgentChatOptions`; a pill is `@kanzo-tech/ai/task`'s `Proposal`.
 
 ## AI Elements is a source, not a reference
 

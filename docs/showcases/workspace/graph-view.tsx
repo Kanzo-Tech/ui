@@ -53,7 +53,8 @@ import {
   TagsInputItemText,
   toast,
 } from "@kanzo-tech/ui";
-import { Chat, ChatSkeleton, type Proposal } from "@kanzo-tech/ai";
+import { Chat, ChatSkeleton } from "@kanzo-tech/ai";
+import type { Proposal } from "@kanzo-tech/ai/task";
 import { AnswerCard, answerRelationsOf, askEdit, AskChips, askOffers, questionOf, readAnswerRelations, useAskChat, type AnswerRelation, type AskOutput, type AskSpec } from "@kanzo-tech/ai/data";
 import { mockModel, promptOf } from "@/lib/mock-model";
 import {
@@ -1122,13 +1123,13 @@ function AskEmpty() {
   );
 }
 
-/** Questions to start from: Ask's own offers, each checked. None on failure, and the chat works without them. */
+/** Questions to start from: Ask's own offers, each checked, whole. None on failure, and the chat works without them. */
 function useOffers({ graph, types }: Askable, selection: MosaicSelection) {
-  const [state, setState] = useState<{ questions: Proposal[]; proposing: boolean }>({ questions: [], proposing: true });
+  const [state, setState] = useState<{ questions: Proposal<AskSpec>[]; proposing: boolean }>({ questions: [], proposing: true });
   useEffect(() => {
     const abort = new AbortController();
     askOffers({ model: recording, graph, types, selection, signal: abort.signal }).then(
-      (offers) => setState({ questions: offers.map(({ text }) => ({ text })), proposing: false }),
+      (offers) => setState({ questions: offers, proposing: false }),
       () => !abort.signal.aborted && setState({ questions: [], proposing: false }),
     );
     return () => abort.abort();
@@ -1163,6 +1164,8 @@ function AskBody({ archive, askable }: { archive: Archive; askable: Askable }) {
         chat={chat}
         context={<SubsetPill archive={archive} />}
         empty={<AskEmpty />}
+        // A pill sends its spec, which the chat asks as it is: the offer the oracles checked.
+        message={askEdit}
         proposals={starters.questions}
         proposing={starters.proposing}
         tools={{

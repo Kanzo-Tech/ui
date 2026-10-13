@@ -17,8 +17,8 @@ const usage = {
 };
 
 /**
- * Answers each call with `reply(call)`, streamed a word at a time. `hold` keeps a call open until
- * `release()`, so a test can look at the busy state.
+ * Answers each call with `reply(call)`, streamed a word at a time — or whole, to a call that
+ * generates. `hold` keeps a call open until `release()`, so a test can look at the busy state.
  */
 /** What one call answers: text, or a call to a tool. */
 type Reply = string | { tool: string; input: unknown };
@@ -27,6 +27,19 @@ export function mockModel(reply: (call: Call, index: number) => Reply) {
   let release: () => void = () => {};
   let held: Promise<void> | null = null;
   const model = new MockLanguageModelV4({
+    // A Task's call — `propose`, `runTask` — generates rather than streams: the same reply, whole.
+    doGenerate: async (call) => {
+      const index = model.doGenerateCalls.length - 1;
+      if (held) await held;
+      const answer = reply(call, index);
+      if (typeof answer !== "string") throw new TypeError("a generated reply is text");
+      return {
+        content: [{ type: "text" as const, text: answer }],
+        finishReason: { unified: "stop" as const, raw: "stop" },
+        usage,
+        warnings: [],
+      };
+    },
     doStream: async (call) => {
       const index = model.doStreamCalls.length - 1;
       if (held) await held;

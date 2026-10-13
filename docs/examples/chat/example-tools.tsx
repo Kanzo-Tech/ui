@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@kanzo-tech/ui";
 import { daysOverdue, overdueQuests } from "@/example/quests";
-import { afterTool, mockModel } from "@/lib/mock-model";
+import { afterTool, mockModel, offered } from "@/lib/mock-model";
 
 interface Late {
   id: string;
@@ -50,7 +50,7 @@ export default function Example() {
     <div className="flex h-120 w-full max-w-xl flex-col">
       <Chat
         chat={chat}
-        proposals={[{ text: "Which contracts are late?" }]}
+        proposals={offered("Which contracts are late?")}
         tools={{
           // Without this the result is drawn as a JSON tree; with it, as what it is. Called at every
           // state: until there is a result, the frame's own input and output say what is running.

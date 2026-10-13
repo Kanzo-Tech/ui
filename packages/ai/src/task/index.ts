@@ -37,7 +37,11 @@ export type Verdict =
   | { readonly ok: false; readonly diagnostics: readonly Diagnostic[] }
   | { readonly ok: false; readonly decision: Decision };
 
-/** What a model offers: a value, where it lands, and what backs it. */
+/**
+ * What a model offers: a value, where it lands, and what backs it — the one proposal in the library.
+ * A field's is a `Proposal<string>`: a continuation inserts at the caret, a candidate replaces the
+ * value, a list's adds an item, as LSP's `InlineCompletionItem` says with a range.
+ */
 export interface Proposal<A> {
   readonly id: string;
   readonly task: string;
@@ -46,6 +50,8 @@ export interface Proposal<A> {
   readonly verdict: Verdict;
   /** How many times the model was asked: 1 when its first answer held. */
   readonly attempts: number;
+  /** Why the model offered it, in its words, where its Task asks for one: an offer's tooltip. */
+  readonly rationale?: string;
 }
 
 /** One oracle's word on an artefact: nothing, what is wrong with it, or a question it raises. */
@@ -193,6 +199,7 @@ export async function propose<I, A, C>(
   options: RunOptions & { readonly count: number },
 ): Promise<Proposal<A>[]> {
   const { model, signal, count } = options;
+  const target = task.target?.(input) ?? { add: "" };
   const context = task.context ? await task.context(input, signal) : ("" as C);
   const { output } = await generateText({
     model,
@@ -207,7 +214,7 @@ export async function propose<I, A, C>(
     if (diagnostics.length > 0) continue;
     const verdict = decided(task, decisions);
     if (!verdict.ok) continue;
-    offered.push({ id: `${task.name}-${n}`, task: task.name, value, target: { add: "" }, verdict, attempts: 1 });
+    offered.push({ id: `${task.name}-${n}`, task: task.name, value, target, verdict, attempts: 1 });
   }
   return offered.slice(0, count);
 }
