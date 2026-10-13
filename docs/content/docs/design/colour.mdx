@@ -76,6 +76,29 @@ generator becomes a warning.
 theme, the default family first"; `packages/ui/src/theme/theme-script.test.ts`, "writes the resolved
 theme: the one chosen for the side, or the default pair's".
 
+## A family's night side carries its brand at the day side's weight
+
+A dark theme's `--primary` and `--chart-1` — the brand fill and the series a family puts its brand on
+— are no more chromatic, in OKLCH, than its light partner's plus **0.05**. A dark ground makes a
+saturated colour louder rather than quieter, so the side that is already louder may not also be the
+more saturated one.
+
+**The measurement** (2026-10-13, `packages/theme/themes/`): `kanzo-dark` carried the neon
+`#1ae973` as its brand fill at chroma 0.218 against `kanzo`'s deep green `#004011` at 0.097, and a
+lime `#64c600` (0.218, at hue 136 rather than the brand's 151) as its first series against `#0b7a3b`
+at 0.133. Every other family's night side sat at or below its day side: `nord-dark` 0.062 against
+0.073, `catppuccin-mocha` 0.119 against 0.250. `kanzo-dark` now takes `#5cb572` (0.130) as its fill
+and ring and `#52b770` (0.140, hue 151) as its first series; the neon stays as `--success`, which is
+where the day side keeps it too. The allowance is there because a fill at the day side's chroma on a
+near-black ground reads greyer than the same fill on white.
+
+**What would reverse it:** a family whose identity *is* a saturated colour at night — a brand that
+is neon on its own dark site and reads as itself only that way. Then that family declares its night
+side louder in its header, and the guard learns the exception by name.
+
+*Held by* `packages/theme/src/themes.test.ts`, "carries a family's brand at night at no more chroma
+than by day, give or take 0.05".
+
 ## The obvious ink is computed in the form, not in the page
 
 `@kanzo-tech/theme` exports `inkFor`, which answers *you picked this fill, what text goes on it?* — the

@@ -2,7 +2,8 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { auditContrast, CONTRAST_PAIRS } from "./contrast";
-import { themeIndex } from "./index";
+import { themeFamilies, themeIndex } from "./index";
+import { oklch } from "./ink";
 
 /**
  * What a theme resolves to, rather than what it writes down.
@@ -160,6 +161,26 @@ describe("a theme resolves through the bridge", () => {
     expect([...families.keys()]).toEqual(["kanzo", "catppuccin", "lofi", "nord"]);
     for (const sides of families.values()) expect(sides).toEqual([false, true]);
     expect(themeIndex.map((t) => t.value).sort()).toEqual(THEMES.map((t) => t.name).sort());
+  });
+
+  it("carries a family's brand at night at no more chroma than by day, give or take 0.05", () => {
+    // The brand fill and the first series, which is where a family puts its brand on a chart. A
+    // dark ground makes a saturated fill louder, not quieter, so the night side may not out-shout
+    // the day side; every family but kanzo already sat below its light partner.
+    const byName = new Map(THEMES.map((t) => [t.name, t]));
+    const louder: string[] = [];
+    for (const family of themeFamilies(themeIndex)) {
+      const day = byName.get(family.light?.value ?? "");
+      const night = byName.get(family.dark?.value ?? "");
+      for (const token of ["--primary", "--chart-1"]) {
+        const d = day?.declared.get(token);
+        const n = night?.declared.get(token);
+        if (!d || !n) continue;
+        const gain = oklch(n).c - oklch(d).c;
+        if (gain > 0.05) louder.push(`${night?.name} ${token} ${n} is ${gain.toFixed(3)} more chromatic than ${d}`);
+      }
+    }
+    expect(louder).toEqual([]);
   });
 
   it("binds the default theme so it cannot outrank a chosen one", () => {
