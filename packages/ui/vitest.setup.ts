@@ -1,3 +1,5 @@
+import { cleanup } from "@testing-library/react";
+
 /**
  * jsdom gaps that Ark/zag depend on. Without these, component tests fail inside the
  * machine rather than in the assertion, which reads as "the component is broken" when it
@@ -53,3 +55,14 @@ if (typeof Range !== "undefined" && typeof Range.prototype.getClientRects !== "f
     Object.assign([], { item: () => null }) as unknown as DOMRectList;
   Range.prototype.getBoundingClientRect = () => new DOMRect();
 }
+
+// A closing overlay's focus trap hands focus back on the next macrotask: zag's focus-trap
+// defers it with `setTimeout(fn, 0)`. A test that ends with a popover open has it unmounted
+// by the cleanup after it, and when that is the file's last test the timer fires after jsdom
+// is torn down, as `document is not defined` — an unhandled error vitest reports against
+// whichever file was running, failing a run whose every test passed. So unmount, then let
+// that macrotask pass while the document still exists.
+afterEach(async () => {
+  cleanup();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+});
