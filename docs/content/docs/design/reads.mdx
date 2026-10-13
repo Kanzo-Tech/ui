@@ -1,0 +1,90 @@
+---
+title: One read per datum
+description: Why every read the library makes for a host — a field's facts, an answer's rows, a session, a stored chat — is a TanStack Query query inside the library's own hook, on the host's QueryClient, with no queryOptions surface; and what would reverse it.
+---
+
+<Callout type="warn">
+**This page is a direction, and none of it is built.** It was decided on 13 October 2026. Where it
+lands first and what it breaks is on [the cleanup's release plan](/docs/design/cleanup#the-release-plan).
+</Callout>
+
+The same datum is read by several parts of one page, each in its own way. A relation's fields are
+read by the dashboard's `useFieldStats`, again by `readAnswerRelations` for Ask's prompt, and a
+third time by `AnswerCard`, so the model and the card can be told different distinct counts. A
+session is read once by `bffAuth` and answered from that read for the life of the tab. Keasy wrote a
+promise memo that forgets failures three times over, and a guard to stop a fourth. Each is a cache,
+and none of them knows about the others.
+
+## The library reads through TanStack Query, on the host's client
+
+**Every read the library makes on a host's behalf is a TanStack Query query, made inside the
+library's own hook, on the `QueryClient` the host's `QueryClientProvider` puts in context.** The
+hook is the surface: `useFieldStats`, Ask's chat, `useSession`, a chat restored by its id. The
+library's surface has no `queryOptions`, no keys and no client of its own. `@tanstack/react-query` is a
+peer of the packages that read: required by `@kanzo-tech/ai` and `@kanzo-tech/auth`, and optional
+for `@kanzo-tech/ui`, reached only from `/analytics`, through
+[the optional-peer door](/docs/philosophy#the-engine-rule).
+
+**The reference is the React integrations of tRPC and of Supabase.** `@trpc/react-query`'s hooks run
+`useQuery` inside the procedure's own hook, on the client the host's `QueryClientProvider` holds;
+Supabase Cache Helpers' `useQuery` does the same over a PostgREST query, deriving the key from the
+query. What both settle is the split this page takes: the library owns what is read and how it is
+keyed; the host owns the client — its defaults, its devtools, its persistence, its garbage
+collection — and has exactly one of it.
+
+What it buys, each a defect today:
+
+- **One read, deduplicated.** The dashboard, Ask, the card and the assistant ask for a relation's
+  fields under one key, and the second asker gets the first's answer, never a second `SUMMARIZE`.
+- **An abort is the query's.** A query function is handed a signal, and the engine's `query` takes
+  it, so *Stop* and a page left mid-read end the wait — what Ask already does by hand.
+- **A failure is kept out of the cache.** A rejected read is an error state with the thrown value
+  whole, and the next ask reads again; the memo keasy wrote three times is the cache's default.
+- **A session is fresh,** refetched as [the auth layer](/docs/design/auth#a-session-is-read-like-any-other-datum)
+  says, rather than read once.
+
+**Discarded: `queryOptions` from each package, read by the host's own `useQuery`.** It was the
+review's first proposal, and it is TanStack's own shape for a library of query definitions. It makes
+two ways to read one datum — the hook a part uses inside, and the options a host wires itself — and
+the host then writes the hook, the error handling and the abort the library already wrote. *Back if*
+a host needs a read outside React or ahead of render — a server component prefetching a session, a
+loader — and then that one read gets its options beside its hook, and no other does.
+
+**Discarded: a private `QueryClient` inside the library.** Two clients on one page, a cache the host
+cannot see in its devtools or clear on sign-out, and defaults it cannot set. *Back if* a host cannot
+render a provider at all — and every reading package is a React package.
+
+**What would reverse it:** a consumer whose application caches with something else — SWR, Apollo —
+and refuses a second cache library. Then the reads become descriptions a small adapter per cache
+library runs, and TanStack's is the first adapter, not the only path.
+
+## A read is made once, and kept as long as the datum holds
+
+**A library query never retries, and is kept for as long as what it read cannot change.** A retry is
+a second wait on one failure, which [the failure rule](/docs/design/failure) forbids; so every query
+the library makes passes `retry: false`, whatever the host's client defaults to.
+
+| Datum | Read by | Kept | Read again |
+| --- | --- | --- | --- |
+| a corpus relation's facts and contents | `useFieldStats`, Ask, `AnswerCard` | for the corpus's life: a corpus does not change under its name | when the host attaches another corpus, which is another key |
+| a host table's `SUMMARIZE` | `useFieldStats` | the page's life | when the host's relation changes |
+| an answer's rows | Ask's read, under the page's clauses | the page's life, by statement and clauses | when a clause or the answer changes |
+| a session | `useSession` | until it is stale | on focus and visibility, after a renewal, and when another tab says so |
+| a stored chat | the chat hooks, by id | until a turn saves it | never: the chat in memory is newer |
+
+**The keys are the library's, and they are not an API.** Each says what was read and from what —
+the corpus's attachment name, the compiled statement, the chat's id — so a new input is a new read,
+and nothing asks the host to invalidate by hand. A host that signs out clears its client, as it
+would for any other data of the person's.
+
+**What would reverse it:** a datum the library caches that changes under the same key — a corpus
+rewritten in place under its name. Then that key gains the corpus's own version, read from its
+manifest, and the rest stay as they are.
+
+**Breaking**, in a consumer's words:
+
+- Install `@tanstack/react-query` 5 and render one `QueryClientProvider` above `AuthProvider`, above
+  any `@kanzo-tech/ai` chat, and above a page that reads fields through `@kanzo-tech/ui/analytics`.
+  Without it, those hooks throw TanStack's own *No QueryClient set*.
+- `queryFieldStats` is gone: `useFieldStats` reads, and caches, for every part of the page.
+- Library reads appear in your client's devtools and are cleared with it; clear it on sign-out.

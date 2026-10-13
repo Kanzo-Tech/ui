@@ -435,7 +435,7 @@ import { Dashboard, MosaicProvider, RelationPicker, relationIdentities, relation
   filters a joined relation exactly as it filters the root's table.
 - **`relationRootKey(graph, relation)`** is that root key by name — the root type's own `key`, the
   one column of a relation that is not prefixed. It is what a clause on the relation crosses to the
-  rest of the page by; [the graph's design](/docs/design/graph#a-relations-names-prefixed-but-the-roots-key)
+  rest of the page by; [the graph's design](/docs/design/graph#a-relations-columns-are-named-by-their-path-and-the-roots-key-is-bare)
   has why it keeps its name.
 - **`relationHops(graph, type)`** lists the hops that leave a type, out-edges then in-edges, each
   with its `fanOut` — the edge's rows per row of the type it leaves — when the graph carries

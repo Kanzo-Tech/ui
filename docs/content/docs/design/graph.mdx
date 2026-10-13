@@ -215,13 +215,21 @@ any shipped package";
 as the root vertices they keep", "filters the dashboard by the graph's pick, crossed into the
 relation by its root's key".
 
-## A relation's names: prefixed, but the root's key
+## A relation's columns are named by their path, and the root's key is bare
 
-**Every column of a relation is named by its step, except the root's key.** `relationQuery` names a
-column `<alias>.<column>` — `Person.country`, and `Person2.country` when the path visits a type
-twice — because a join puts two types' columns side by side and a bare `country` would be
-ambiguous. One naming rule, one exception: the root's key keeps its own name, `dense_id` and not
-`Person.dense_id`. A relation's rows are its root's, keyed the way the root's table is, so the
+<Callout type="warn">
+**Decided 13 October 2026, not built.** The columns were named `<alias>.<column>` —
+`Person.country`, and `Person2.country` when the path visits a type twice. They become the path from
+the root ([Tasks](/docs/design/tasks#a-field-is-a-path-from-what-is-measured)): the root's own
+`country`, `knows.country` one hop away. The exception below stops being one — the root's columns
+have no prefix at all, its key among them — and its argument is why that matters. `relationRootKey` and `relationIdentities` fold into `JoinResolver.steps`.
+</Callout>
+
+**Every column of a relation is named by its path from the root, except the root's key.**
+`relationQuery` names a column by the hops that reach it — `country` on the root, `knows.country`
+one hop away — because a join puts two types' columns side by side and a bare `country` would be
+ambiguous. The root's columns are on the empty path, so its key keeps its own name, `dense_id` and
+not `Person.dense_id` — what used to be the one exception to the naming rule is now the rule. A relation's rows are its root's, keyed the way the root's table is, so the
 semi-join a relation publishes to the page — `dense_id IN (SELECT dense_id FROM <relation> WHERE …)`
 — names a column every vertex table answers, and a lasso's `dense_id IN (3, 4)` filters a joined
 relation exactly as it filters the root's table. Prefixed, the root's key would be a column no other
@@ -676,6 +684,36 @@ arrays. Then the name comes back, and the part that failed it is the first thing
 
 *Held by* `packages/graph/src/index.test.ts`, "is exactly this list, and grows only by somebody writing
 a name into it", "keeps the canvas's own steps internal".
+
+## The parts are under the guards
+
+<Callout type="warn">**A direction, not built.** Decided 13 October 2026; the list above changes with
+it.</Callout>
+
+**`@kanzo-tech/graph` declares `tailwind-variants`, so `guard-corpus.ts` scans it as it scans `ui`
+and `ai`, and every part is typed over `ark.*`.** The corpus admitted graph on a judgement that
+expired by its own words — *one file writing classes by hand, two literal strings; it expires the
+moment that file grows* — and the parts now write their appearance in dozens of `className`s with no
+recipe, no `asChild`, physical `left-0` and arbitrary sizes, none of it seen by the guards that hold
+every other package. Joining the corpus by the corpus's own rule is the fix, not a wider exception.
+Where a part's surface is a ui part's — a card, a button group — it composes that part instead.
+
+**Three names change, because each meant two things.** graph's own `Selection` shadowed Mosaic's
+— graph had to import Mosaic's as `Crossfilter` — and becomes `VertexSelection`, with
+`VertexSelectionSource`; `Pick`, which shadowed TypeScript's `Pick<T, K>` in any file importing it,
+becomes `VertexPick` ([Naming](/docs/design/naming#one-name-one-meaning-in-every-barrel)). And three
+names without a caller leave the barrel: `ShapeGlyph` with its props, `scaleOf`, `placementFrom`.
+
+**What would reverse it:** a part that cannot be written with a recipe — a canvas overlay whose
+geometry is the renderer's every frame. Then that part's style is inline and computed, which the
+guards already allow, and the part stays under them.
+
+**Breaking**, in a consumer's words:
+
+- `Selection` and `SelectionSource` are `VertexSelection` and `VertexSelectionSource`; `Pick` is
+  `VertexPick`.
+- `ShapeGlyph`, `ShapeGlyphProps`, `scaleOf` and `placementFrom` are gone from `@kanzo-tech/graph`.
+- Every part takes `asChild` and the props of the element it renders through `ark`.
 
 ## Where the points sit in cosmos.gl's square
 

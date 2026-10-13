@@ -398,20 +398,104 @@ by direction and sorted by fan-out", "removes any chip, cutting the path there" 
 phrase an edge and name a plural"; `packages/mosaic/src/relation.test.ts`, "gives each hop its fan-out when
 the graph carries counts".
 
-## Two size gauges, measured against what ships
+## A gauge per entry, measured as a consumer pays it
 
-The analytics gauge and the `{ Dashboard }` gauge leave out what `vite.config.ts` externalises:
-the peers, valibot and every `@uwdata/*` package. Those are installed by the consumer, not shipped
-in our bundle, so a gauge that counts them measures somebody else's code. esbuild bundles without
-splitting, so the lazy editor is inside both figures. A consumer's bundler splits it out, so the
-gauges overstate what a read-only page pays for.
+The gauges this subpath had — the whole subpath in isolation, and one `Dashboard` — are replaced by
+the rule on [How a rule lives here](/docs/design#a-gauge-per-entry-and-its-raises-written-here),
+which measures every entry with its package's other entries and its peers left out. What stays from
+this section is the reason the peers are left out: the analytics gauge measured valibot and every
+`@uwdata/*` package until they were externalised, which is somebody else's code.
 
-Measured on the base of this change and after it:
+## A tile carries its own question
 
-| Gauge | Before | After |
-| --- | --- | --- |
-| analytics | 31.22 kB | 32.31 kB |
-| one dashboard | 29.88 kB | 31.09 kB |
+<Callout type="warn">**A direction, not built.** Decided 13 October 2026.</Callout>
 
-**What would reverse it:** a bundler in size-limit that splits a dynamic import. Then the
-`{ Dashboard }` gauge measures the entry chunk alone, and a separate gauge measures the editor.
+**A tile holds its own conditions and its own ranking — `where` and `top` — beside what it shows,
+and is drawn under them and under the page's clauses.** A condition is a path and a predicate — `in`,
+`between`, `contains` — and a path off the tile's relation is crossed in by `JoinResolver.crossing`,
+as [Tasks](/docs/design/tasks#a-filter-off-the-shown-path-is-crossed-in-not-joined) says, so a tile's
+condition and a page's chip are the same predicate. `top` keeps the first bars by the tile's
+measure.
+
+It is what makes an answer a tile without losing anything: *Physics awards by university* was saved
+as *awards by university*, because a tile had no place for *Physics*. Looker's dashboard tile is a
+saved query with its own filters beside the dashboard's, and a Metabase card is a saved question with
+its own; both draw the dashboard's filters on top.
+
+**One compiler turns a tile into its query, and every reader of a tile is fed by it**: the chart's
+marks, a stat, a detail table, Ask's rows, and the clause *Filter the page* publishes. Ask had a
+second, `answerQuery`, which shared `measureExpr` and `bucketExpr` and not the grouping, the order,
+`top` or the cap, so the rows a reply described and the chart beside it could differ.
+
+**What would reverse it:** a tile whose own condition must be edited by the page's filters — a
+dashboard where a reader expects the page's chip on *Category* to replace the tile's *Physics*
+rather than narrow it. Then the tile's condition is a default the page overrides, as Looker's
+*listens to* does, and it is still the tile's.
+
+## `count` counts the measured type
+
+<Callout type="warn">**A direction, not built.** Decided 13 October 2026.</Callout>
+
+**`{ op: "count" }` is a `count(DISTINCT …)` of the relation's root key, on a tile and on an
+answer.** On a type alone it is the row count, as before; across a hop it is how many of the
+measured type the group holds, not how many joined rows. *Awards by university* counts an award once
+per university, however many affiliations lead there. The reference is Malloy's `count()`, which
+counts the source's distinct rows whatever the query joined.
+
+The other measures stay what `measureExpr` makes them, over the relation's rows: a `sum` or an
+`avg` across a hop that fans out sees a measured row once per path. Malloy computes those
+symmetrically too, and the cost of doing so here — no mosaic-sql node, the fanned rows held in
+DuckDB-WASM's memory — is on [Tasks](/docs/design/tasks#a-filter-off-the-shown-path-is-crossed-in-not-joined).
+
+**What would reverse it:** a reader who means the joined rows — *how many affiliations per
+university* asked of awards. Then it is Malloy's `path.count()`, a count of another step's distinct
+keys, offered as its own measure; `count` alone keeps its meaning.
+
+## Mosaic is reached through `@kanzo-tech/mosaic`, and a name through one spelling
+
+<Callout type="warn">**A direction, not built.** Decided 13 October 2026.</Callout>
+
+**`@kanzo-tech/mosaic` is the one door to Mosaic: `/analytics` re-exports none of it, and
+`@kanzo-tech/ui`'s charts import Mosaic through it, not from `@uwdata/mosaic-core` or
+`@uwdata/mosaic-sql`.** Today `/analytics` re-exports about forty-five of its names, keasy imports
+`JoinGraph` from both, and the SQL vocabulary arrives from three modules — the aggregates from
+vgplot, `asc` and `desc` from mosaic, `Query` from mosaic-sql through a chart module. `graph` and `ai`
+already reach Mosaic only through the door; the charts become the third. Every SQL builder a host
+writes — the aggregates, `sql`, `asc`, `desc`, `Query` — is imported from `@kanzo-tech/mosaic`, which
+re-exports the aggregates `/analytics` stops re-exporting. `/analytics` keeps its own parts and the
+vgplot directives its marks take.
+
+It is [Conventions](/docs/conventions)' rule for a re-export most callers bypass — two ways to write
+one import — and the reason `@kanzo-tech/mosaic` exists: one copy of Mosaic, so one coordinator.
+
+**The six interactor aliases go.** `ChartPickX`, `ChartPickY` and `ChartPickColor` were
+`ChartToggleX`, `ChartToggleY` and `ChartToggleColor`, and `ChartBrushX`, `ChartBrushY` and
+`ChartBrushXY` were `ChartIntervalX`, `ChartIntervalY` and `ChartIntervalXY`, kept as names that
+*describe the gesture*. vgplot's names are the reference's, and an alias is the one thing the
+repository forbids by name.
+
+**One facet item, passed as `items`.** `FacetFilter`, `DataTableFacetFilter` and `ChartFilter` each
+take `items` of `FacetFilterItem` — a value, a label, an icon, a count — and `DataTableFacetOption`
+and `ChartFilterOption`, two re-declarations of it, go. `items` is Ark's word for a collection's
+members. A chart filter's values are the column's, a number as often as a string; the item's
+`value` is their text, and `ChartFilter` maps it back to the column's value.
+
+**What would reverse it:** a Mosaic name a host needs that `@kanzo-tech/mosaic` does not export —
+then mosaic exports it, and `/analytics` still does not.
+
+**Breaking**, in a consumer's words, for this page:
+
+- Import `engine`, `Engine`, `JoinGraph`, `Relation`, `relationKey`, `numbers`, `Query`,
+  `TableExpr`, every `clause*`, the aggregates, `sql`, `asc` and `desc` from `@kanzo-tech/mosaic`;
+  `@kanzo-tech/ui/analytics` no longer exports them.
+- `ChartPickX`, `ChartPickY`, `ChartPickColor`, `ChartBrushX`, `ChartBrushY` and `ChartBrushXY` are
+  gone: write `ChartToggleX`, `ChartToggleY`, `ChartToggleColor`, `ChartIntervalX`, `ChartIntervalY`
+  and `ChartIntervalXY`.
+- `DataTableFacetFilter` and `ChartFilter` take `items`, not `options`; `DataTableFacetOption` and
+  `ChartFilterOption` are gone — type your items as `FacetFilterItem`.
+- A tile's fields are paths: `affiliation.university.name`, not `University.name`. A dashboard saved
+  with type-prefixed fields does not draw; delete it, as the spec page says of anything an earlier
+  release saved.
+- A `count` over a relation with hops counts the measured type once per group, so its bars are
+  lower wherever a hop fanned out.
+- A tile may hold `where` and `top`; a host that reads tiles itself reads them too.

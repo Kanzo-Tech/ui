@@ -3,6 +3,7 @@
   "description": "Why the library is like this, what was measured, and what would reverse each of it.",
   "pages": [
     "index",
+    "cleanup",
     "admission",
     "references",
     "naming",
@@ -15,6 +16,8 @@
     "ai",
     "ai-context",
     "tasks",
+    "fields",
+    "reads",
     "services",
     "auth",
     "navigation",

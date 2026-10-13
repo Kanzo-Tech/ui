@@ -178,3 +178,64 @@ the item is the place to look first.
 *Held by* `packages/ai/src/engine.ts`, `Proposal`; `packages/ui/src/index.test.ts`, "drops
 components superseded by composition or a merge", `!useInlineCompletion`;
 `packages/ui/src/documented-exports.test.ts`, "documents no symbol the library does not export".
+
+## One name, one meaning, in every barrel
+
+<Callout type="warn">**A direction, not built.** Decided 13 October 2026.</Callout>
+
+**A name the library exports means one thing across every package and entry, and never shadows a
+name TypeScript or a peer already gives.** The rule above settled one collision; four more remain,
+and each is settled the same way — the reference's name stays, ours moves:
+
+| Name | Two meanings | Becomes |
+| --- | --- | --- |
+| `Table` | `@kanzo-tech/ui`'s component; TanStack's table instance, passed through by `/table` | `/table` stops passing TanStack's through; a host that needs the type imports it from TanStack |
+| `Selection` | Mosaic's class; `@kanzo-tech/graph`'s picked vertices | graph's is `VertexSelection`, with `VertexSelectionSource` |
+| `Problem` | `@kanzo-tech/ui`'s component; `@kanzo-tech/theme`'s section-validation record | theme's is `SectionProblem` |
+| `Pick` | TypeScript's `Pick<T, K>`; graph's pick record | graph's is `VertexPick` |
+| `Proposal` | `@kanzo-tech/ai`'s field proposal; `@kanzo-tech/ai/task`'s proposal | one `Proposal`, the Task's ([Tasks](/docs/design/tasks#suggest-and-complete-stop-being-the-split)) |
+
+The last row also reverses the start of this page's first section: the field's proposal and the
+Task's are one idea — a value, where it lands, and what backs it — and the Task's has the `Target`
+that says *where it lands* as an LSP edit, which is what `range` said for a field.
+
+**What would reverse it:** a reference that ships one of the moved names with our meaning — then
+the name goes back, and the other meaning moves.
+
+## One prop translates: `translations`
+
+<Callout type="warn">**A direction, not built.** Decided 13 October 2026.</Callout>
+
+**Every component that writes words a reader sees takes them through one prop, `translations`, a
+partial record of its strings; `copy`, `labels` and flat string props go.** Five spellings ship
+today: `translations` (`LanguagePicker`, `Problem`, all of `@kanzo-tech/ai`), `copy` as a record
+(`Preferences`' parts, `ThemePicker`), `labels` (`Findings`' parts), flat props (`MadeWith`'s
+`prefix`, `infix` and `loveLabel`; `ThemeNotice`'s `title`; `PreferencesPanel`'s `title` and
+`hint`), and nothing at all — the analytics parts, the table's pagination, every graph part, about
+160 fixed English strings. [Admission](/docs/design/admission#a-failure-is-read-by-shape-and-worded-by-the-host)
+already named `translations` the one way to pass words; this makes it so.
+
+A part that writes a sentence from pieces — `GraphCounts`' *5K nodes · 8K edges*, Ask's summary —
+takes the pieces' pattern as a `translations` entry with placeholders, never a sentence assembled
+in English. A part that hard-codes English today gains `translations` when it is next touched, in
+the same PR, since a reader in another language is already a caller.
+
+`Problem`'s `copy(code, data)` is not a translation: it is the host's wording of a code it knows,
+resolved per failure. It keeps its function shape and leaves the name `copy`; what it is called is
+[open](/docs/design/cleanup#open-and-asked).
+
+**What would reverse it:** a host that translates through a provider — an i18n library's context —
+and cannot pass a prop per component. Then a provider is the second way, and it supplies the same
+`translations` records, keyed by the component.
+
+**Breaking**, in a consumer's words, for this page:
+
+- Pass `translations`, not `copy`, to `PreferencesRoot`, `PreferencesPanel`, `PreferencesTrigger`
+  and `ThemePicker`; not `labels`, to the `Findings` parts.
+- `MadeWith`'s `prefix`, `infix` and `loveLabel`, and `PreferencesPanel`'s `title` and `hint`, are
+  entries of their `translations`.
+- `Table` is not on `@kanzo-tech/ui/table`; theme's `Problem` is `SectionProblem`; graph's
+  `Selection`, `SelectionSource` and `Pick` are `VertexSelection`, `VertexSelectionSource` and
+  `VertexPick`.
+- `@kanzo-tech/ai`'s field `Proposal` is the Task's `Proposal`: `text` is its `value`, and `range`
+  its `target`.

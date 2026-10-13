@@ -100,8 +100,11 @@ is reopened per step, by the evaluation set, not as a whole.
 `resolveRelation` *choose* the relation: the shortest path from the measured type, with a branch to
 each filter's type from the step nearest it, and an answer worded by rules about column names and
 English plurals. The owner rejected both as heuristics on 13 October 2026: *base it on existing
-things, don't invent.* What follows is the replacement; the rows it discards are at the end of the
-section, each with what would bring it back.
+things, don't invent.* What follows is the replacement, with the five points left open that day
+decided the same evening: a relation's columns are named by their paths everywhere, `count` counts
+the measured type's distinct keys, two paths of one length are the model's with the other on the
+chip, titles name no plural, and the sentence after a chart is a minimal template. The rows it
+discards are at the end of the section, each with what would bring it back.
 </Callout>
 
 **The model fills the spec, and the spec says its joins.** It writes every field as a dotted path
@@ -120,7 +123,7 @@ Question ─▶ Linker ─▶ Planner ─▶ JoinResolver ─▶ Compile ─▶ 
 The model touches only the planner, which writes paths from a closed enum. Every chip opens its
 computed alternatives, and editing one re-checks without the model.
 
-This replaced the agent's relations on [Asking data](/docs/design/ai#which-relations-are-offered)
+This replaced the agent's relations on [Asking data](/docs/design/ai#ask-reads-nothing-to-be-offered-its-fields)
 and its token budget on [Asking within a context](/docs/design/ai-context#the-linker-is-the-budget).
 
 ### A field is a path from what is measured
@@ -142,6 +145,16 @@ table's `columns`, each `where[].field` — is a path:
 The empty path is the measured type: `name` on `of: "Laureate"` is the laureate's own name. Paths are
 walked from the root as the resolver walked them, never back along the edge just taken, within three
 hops.
+
+**A relation's column is named by its path, everywhere.** `relationQuery` names a column by the path
+that reaches it from the root — `year`, `affiliation.name`, `affiliation.university.name`, and on a
+self-join `knows.firstName` — so the name Ask's model writes is the name the SQL has, the name a
+dashboard's tile stores, and the name a chip publishes a clause on. The root's key is on the empty
+path, so it keeps its own bare name, which every crossing depends on, for the reason
+[the graph's page](/docs/design/graph#a-relations-columns-are-named-by-their-path-and-the-roots-key-is-bare)
+gives. It replaced `<alias>.<column>` — `University.name`, and `Person2.firstName` for a type met
+twice — which gave a field two spellings, one for the model and one for the data, and gave a self-join
+a name that is not a type. A reader never sees either: a field's words are its labels, below.
 
 **The schema offers only paths the graph has.** The contract already closes every name with an enum
 (`answerSchema`); the field enum becomes the paths from `of`, so the schema is an `anyOf` with one
@@ -192,17 +205,17 @@ run: award -> {
 ```
 
 `JoinResolver.relation("Award", ["affiliation.university.name"])` is the relation the answer shows,
-`Award>affiliation>Affiliation>university>University`, with that path's column `University.name`.
+`Award>affiliation>Affiliation>university>University`, whose column is the path itself.
 `JoinResolver.field(relation, "category.name")` finds that `category` is not a step of it: the path
 leaves it at the root, so it is read through the branch `Award>category>Category`, column
-`Category.name`, crossed at the root's key. The SQL, as `relationQuery` and `crossing` write it:
+`category.name`, crossed at the root's key. The SQL, as `relationQuery` and `crossing` write it:
 
 ```sql
-SELECT "University.name" AS x, count(*) AS y
+SELECT "affiliation.university.name" AS x, count(DISTINCT dense_id) AS y
 FROM (
-  SELECT t0.dense_id AS dense_id, t0.year AS "Award.year",
-         t1.dense_id AS "Affiliation.dense_id", t1.name AS "Affiliation.name",
-         t2.dense_id AS "University.dense_id", t2.name AS "University.name"
+  SELECT t0.dense_id AS dense_id, t0.year AS "year",
+         t1.dense_id AS "affiliation.dense_id", t1.name AS "affiliation.name",
+         t2.dense_id AS "affiliation.university.dense_id", t2.name AS "affiliation.university.name"
   FROM Award t0
   JOIN Award_affiliation_Affiliation e1 ON e1.src = t0.dense_id
   JOIN Affiliation t1 ON t1.dense_id = e1.dst
@@ -211,12 +224,12 @@ FROM (
 )
 WHERE dense_id IN (
   SELECT dense_id FROM (
-    SELECT t0.dense_id AS dense_id, t0.year AS "Award.year",
-           t1.dense_id AS "Category.dense_id", t1.name AS "Category.name"
+    SELECT t0.dense_id AS dense_id, t0.year AS "year",
+           t1.dense_id AS "category.dense_id", t1.name AS "category.name"
     FROM Award t0
     JOIN Award_category_Category e1 ON e1.src = t0.dense_id
     JOIN Category t1 ON t1.dense_id = e1.dst
-  ) WHERE "Category.name" IN ('Physics')
+  ) WHERE "category.name" IN ('Physics')
 )
 GROUP BY x ORDER BY y DESC LIMIT 1000
 ```
@@ -235,7 +248,7 @@ graph with two ways to `Category` is no longer a question the code answers.
 ```
 
 The shown relation is `Laureate` alone; the condition is read through `Laureate<laureate<Award>category>Category`
-and crossed at the laureate's key — `dense_id IN (SELECT dense_id FROM (…) WHERE "Category.name" IN ('Physics'))`.
+and crossed at the laureate's key — `dense_id IN (SELECT dense_id FROM (…) WHERE "^laureate.category.name" IN ('Physics'))`.
 A laureate with two Physics prizes is counted once, because the branch's rows never reach the count.
 
 ### A filter off the shown path is crossed in, not joined
@@ -280,6 +293,11 @@ and a tree is Malloy's: joins, `join_one`/`join_many` declared from the shape's 
 `min`/`max` on the triple constraint, which fossil's manifest does not carry today), and symmetric
 aggregates.
 
+**And `count` counts what is measured.** `{ op: "count" }` is a `count(DISTINCT …)` of the root's key,
+Malloy's `count()`, on an answer and on a dashboard's tile alike — so *awards by university* counts an
+award once per university however many affiliations lead there. The rule, and what it costs the other
+measures, is [Analytics'](/docs/design/analytics#count-counts-the-measured-type).
+
 ### `JoinResolver` is the one door to the joins
 
 **Resolving a path and crossing a clause are one thing: resolving joins over the graph.** So they are
@@ -291,18 +309,17 @@ the barrel, and nothing of the shortest-path search survives — the walk that e
 schema is a walk, it chooses nothing.
 
 ```ts
-/** A step of a relation: where it is on the path, its type, the prefix its columns go by, and its key. */
+/** A step of a relation: where it is on the path — the prefix its columns go by — its type, and its key. */
 export interface JoinStep {
   readonly path: string;   // "" the root, "affiliation", "affiliation.university", "^laureate"
   readonly type: string;
-  readonly alias: string;  // "University"; "Person2" on a repeat — relationQuery's naming, unchanged
-  readonly key: string;    // "dense_id" on the root, "University.dense_id" beyond
+  readonly key: string;    // "dense_id" on the root, "affiliation.university.dense_id" beyond: its path, then the key
 }
 
 /** Where a path's column is read for an answer on `on`: on it, or through a branch leaving it at `at`. */
 export interface JoinField {
   readonly relation: Relation;  // `on` itself, or the branch
-  readonly column: string;      // "Category.name"
+  readonly column: string;      // "category.name": the path, in the branch
   readonly at: string;          // the JoinStep.path of `on` the branch leaves from
 }
 
@@ -325,8 +342,8 @@ export class JoinResolver extends MosaicResolver {
   paths(root: string, hops?: number): readonly string[];
 
   // A path, resolved.
-  /** The one relation the `shown` paths lie on, and each path's column in it. */
-  relation(root: string, shown: readonly string[]): { relation: Relation; columns: ReadonlyMap<string, string> } | JoinMiss;
+  /** The one relation the `shown` paths lie on; each path is its own column there. */
+  relation(root: string, shown: readonly string[]): Relation | JoinMiss;
   field(on: Relation, path: string): JoinField | JoinMiss;
 
   // A clause, crossed.
@@ -338,7 +355,7 @@ export class JoinResolver extends MosaicResolver {
 ```
 
 `crossing` gains one argument, `at`, because a branch says which step it leaves from: on
-`Person>knows>Person` a condition on `knows.firstName` is crossed at `Person2`'s key, where the
+`Person>knows>Person` a condition on `knows.firstName` is crossed at the `knows` step's key, where the
 type-matching rule would have taken the root. The page's crossfilter passes none, and is unchanged.
 
 How the two callers reach it, on the example above:
@@ -347,11 +364,11 @@ How the two callers reach it, on the example above:
 // Ask — the page's resolver, or a new one where there is no page.
 const resolver = selection.resolver as JoinResolver;
 const shown = resolver.relation("Award", ["affiliation.university.name"]);
-// → { relation: Award>affiliation>Affiliation>university>University, columns: { "affiliation.university.name" → "University.name" } }
-const f = resolver.field(shown.relation, "category.name");
-// → { relation: Award>category>Category, column: "Category.name", at: "" }
-const where = resolver.crossing(f.relation, [clausePoints([f.column], [["Physics"]]).predicate], shown.relation, f.at);
-// The page's chips still reach the answer: every clause's relation must have resolver.at(shown.relation, it).
+// → Award>affiliation>Affiliation>university>University; its columns are the paths shown
+const f = resolver.field(shown, "category.name");
+// → { relation: Award>category>Category, column: "category.name", at: "" }
+const where = resolver.crossing(f.relation, [clausePoints([f.column], [["Physics"]]).predicate], shown, f.at);
+// The page's chips still reach the answer: every clause's relation must have resolver.at(shown, it).
 
 // The dashboard — unchanged: a chip on Award>category>Category, read by a tile on Award.
 crossfilterOver(graph); // new Selection(new JoinResolver(graph)); predicate() → crossing(from, preds, to)
@@ -379,10 +396,11 @@ fossil corpus carries each one's IRI already (`fossil.json`: `vertex_tables[].ir
   Nobel shapes name with `foaf:name` and `schema:name`, so the dev corpus is named without a rule
   about column names. A type with none has no naming column, and a row is read by its identity's
   local name — `localName`, what `@kanzo-tech/graph` already falls back to.
-- **A type's, a field's and a relation's words are its `rdfs:label` or `sh:name` annotation** (SHACL
-  §2.3's non-validating `sh:name`), in the page's language: the language of `<html lang>`, matched by
-  RFC 4647 §3.4's lookup — `es-AR`, then `es` — then an untagged literal, as Wikidata's label service
-  falls back through its language list.
+- **A type's, a field's and a relation's words are its `rdfs:label` annotation**, in the page's
+  language: the language of `<html lang>`, matched by RFC 4647 §3.4's lookup — `es-AR`, then `es` —
+  then an untagged literal, as Wikidata's label service falls back through its language list. A
+  SHACL shape's `sh:name` (§2.3's non-validating property) reaches the corpus as `rdfs:label`,
+  because fossil writes it so (decided 13 October 2026), and the library asks one predicate.
 - **The identifier split is the last resort,** for a name nothing annotates: `birthPlace` is
   *birth place*. It never inflects.
 - **Lists and numbers are the platform's,** in the page's locale: `Intl.ListFormat` (`conjunction`),
@@ -398,28 +416,42 @@ them on `VertexTable`, `Column` and `EdgeTable` → `joinGraphOf` (`join-graph.t
 its columns and `JoinEdge` as `{ iri?, annotations? }` → keasy's `readJoinGraph` in
 `web/src/lib/fossil/corpus.tsx`, and `readAnswerRelations` in `web/src/lib/fossil/ask.ts` →
 `AskInput.graph`. Keasy's new-graph assistant builds its graph from the accepted shapes instead
-(`requirements.ts`'s `joinGraphOf`), and reads the same annotations from the ShEx itself.
+(`requirements.ts`'s `joinGraphOf`), and reads the same annotations from the ShEx itself. The
+labels travel with every other fact of a field, and [What a field is](/docs/design/fields) is the
+whole of that path.
 
 On Nobel, with `nobel:LaureateAward` labelled `"award"@en` and `"premio"@es`, and `dbo:University`
 `"university"@en` and `"universidad"@es`: the answer above is titled *Award count by university* —
-the noun adjunct needs no plural — its chips read *Counting: award*, *By: university*,
+the noun adjunct needs no plural, and a title is always built that way, *\{measure\} by \{field\}*,
+so no title in any language asks for one — its chips read *Counting: award*, *By: university*,
 *Category: Physics* (*Categoría* under `lang="es"` with `"categoría"@es`), and its axis *university*.
-Before, `NAME = /^(name|label|title)$/` decided that `University.name` stands for its type, and
+Before, `NAME = /^(name|label|title)$/` decided that a university's `name` stands for its type, and
 `nameWords` added an `s`.
 
 **What would reverse it:** a corpus with no IRIs and no annotations as the common case in the
 evaluation set, which leaves every answer on the identifier split — then a host's own labels, handed
 in beside the graph and read by the same functions, before any rule about column names.
 
-### The sentence after a chart is not decided
+### The sentence after a chart is a minimal template
 
-Nothing references one. Two options are open, and the owner chooses:
+**Decided: a template built only from `Intl` and labels, with its punctuation the host's to
+translate.** The figure for a stat; for a bar, the leading bars and their value, ties named together
+through `Intl.ListFormat`, numbers through `Intl.NumberFormat`: *Univ. of California: 12; Harvard
+University and MIT: 9.* No verb that needs agreement, no plural noun, so nothing in it is English
+but its two separators — the one between a label and its value, the one between groups — and those
+are entries of the reply's `translations`, as every other word the library writes is
+([Naming](/docs/design/naming#one-prop-translates-translations)). It is written once, by Ask's
+transport, from the rows the answer read; it is never stored in the tile, so a tile added to a
+dashboard carries no sentence and a dashboard in another language words its own title.
 
-- **A minimal template, built only from `Intl` and labels.** The figure for a stat; for a bar, the
-  leading bars and their value, ties named together through `Intl.ListFormat`, numbers through
-  `Intl.NumberFormat`: *Univ. of California: 12; Harvard University and MIT: 9.* No verbs that need
-  agreement, no plural noun.
-- **None.** The chart and its title say it; the reply carries the chips and the tile.
+No reference writes one: Looker's Conversational Analytics and Power BI's Q&A word a reply with a
+model, which is the free hand Tasks take away. So the template is the least that says the answer
+without the chart.
+
+**What would reverse it:** readers, in the evaluation set or in keasy, reading the sentence as wrong
+where the chart is right — a tie named as a lead, a figure without its unit. Then the sentence goes,
+and the chart and its title say it alone; a model's wording comes back only as a Task with an oracle
+that checks every figure it writes against the rows.
 
 ### What #199 keeps, and what it changes
 
@@ -435,11 +467,11 @@ gesture hint as a sentence, *Click a bar to filter*; their section on
 | `resolveRelation` with `filters`, `Resolution`, `through`, `ambiguous.options` | deleted; `JoinResolver.relation`, `field`, `paths` |
 | `Answer.through`, `wherePredicates` | a condition's `JoinField`, crossed by `JoinResolver.crossing` with its `at` |
 | fields named `Type.column` in the spec, and `askRelation` searching for them | paths from `of`, an enum per `of` |
-| `AskTurn.choices` and *Which way should this be counted?* | gone with the ties; the other path is the chip's alternative |
+| `AskTurn.choices` and *Which way should this be counted?* | gone with the ties; the model's path is taken and the other is the chip's alternative |
 | `words.ts`'s `NAME`, `nameWords`' `+s`, the `OP` words, `list`, `toLocaleString("en")` | labels by IRI and annotation, `Intl`, the split as the last resort |
-| `answerSummary` | the owner's choice, above |
+| `answerSummary` | the minimal template, above |
 | the `@kanzo-tech/mosaic` and `@kanzo-tech/ai` changesets | rewritten for the paths and the labels |
-| `nameWords` exported from `@kanzo-tech/ui/analytics` | held until the labels land: `RelationPicker`'s `plural` and `+s` are the same rule |
+| `nameWords` on `@kanzo-tech/ui/analytics` | off the barrel: words are labels, and the identifier split is a private last resort |
 
 ### Discarded, and what would bring each back
 
@@ -452,9 +484,17 @@ gesture hint as a sentence, *Click a bar to filter*; their section on
   the one that resolves. *Back with* the row above, and only as much of it as that shape needs.
 - **Joins and symmetric aggregates for a filter off the path** (Malloy's, LookML's). *Back if* a
   condition needs the branch row and the shown row to be one, or an answer shows two branches.
-- **Paths as `relationQuery`'s column names** (`affiliation.university.name` in place of
-  `University.name`). One spelling throughout, but a rename of every saved dashboard's fields for
-  Ask's sake. *Back if* a dashboard reader is misled by `Person2`.
+- **`<alias>.<column>` as `relationQuery`'s column names** (`University.name`, `Person2.firstName`),
+  with Ask translating its paths into them. Two spellings of one field, and a name on a self-join
+  that is no type. It was the cheaper change — no saved dashboard's fields renamed — and the owner
+  took the rename. *Back if* a column name must be a valid identifier somewhere a path cannot go;
+  none has been found, since every reader quotes it.
+- **A choice put to the person between two paths of one length.** It gives back the search, as a
+  question. *Back if* the evaluation set shows readers changing the chip's alternative more often
+  than they keep the model's path — then that shape asks, as a decision with the two paths as its
+  options.
+- **A plural in a title**, from an annotation or a rule. No standard defines a plural label.
+  *Back if* one does.
 - **A column named `name`, `label` or `title` naming its type.** A rule about spellings where the IRI
   says it. *Back if* corpora without IRIs are the common case — and then as a host's labels first.
 - **English pluralisation** (`+s`, `-ies`) of a label. Wrong outside English and for every irregular
@@ -477,8 +517,12 @@ generated.
 | Chip | a replacement of one field of a spec | Ask's rephrasing; each chip opens its alternatives |
 | Choice | a `decision` diagnostic | an ambiguity the oracle found; never free text |
 
+**There is one `Proposal`, the Task's** (decided 13 October 2026). `Assist`'s `{ text, range }` is
+the Task's proposal of a string with its `Target`: a continuation inserts at the cursor, a candidate
+replaces the value — the LSP shapes `Target` already names, and the first reader `Target` has had.
 A list's offers are already a Task's — `propose`, and the pills `Chat`
-draws as `proposals`. `continuation()` and `candidates()`, a field's two, become Tasks next; `Assist`
+draws as `proposals` — and `Chat` takes them whole: pressing one sends its checked value, never its
+text, so a starter question is not re-asked of the model. Ask's offers send their spec. `continuation()` and `candidates()`, a field's two, become Tasks next; `Assist`
 stays as the presentation of a field, and its ghost text logic stays as it is. A Task's model is resolved by the Task's name in
 one place. `AssistEvent` covers every form, with the Task and two more kinds: `edited` (a chip or a
 card corrected, with the final value) and `chosen` (a decision).
@@ -529,7 +573,7 @@ tomorrow, its row changes, not the API.
 
 | Ours | Over | Dependency |
 | --- | --- | --- |
-| `defineTask`, `runTask` | `generateText` with `Output.object`, which WebLLM constrains with XGrammar, inside a loop of our own: generate, verify, retry with the diagnostics until the attempts run out — Instructor's pattern | `ai`, already a peer |
+| `defineTask`, `runTask` | `@kanzo-tech/llm`'s `generate` — `generateText` with `maxRetries: 0` — and `Output.object`, which WebLLM constrains with XGrammar, inside a loop of our own: generate, verify, retry with the diagnostics until the attempts run out — Instructor's pattern | `ai`, already a peer |
 | a Task's `grammar` | the same call with `providerOptions.kanzo.grammar`, which `localModel` hands WebLLM's engine as `response_format: { type: "grammar" }` | — |
 | `propose` | `Output.array` of the same schema, each element checked on its own | — |
 | `useTask` | React state over `propose` and `verify`; never asks on mount | — |
@@ -547,21 +591,28 @@ with the names closed — so it cannot be malformed either.
 **Not built, because nothing has needed them.** The direction named four more: `defineFlow`, to
 chain the assistant's steps; `defineModels`, to resolve a model per Task; `useTaskChat`, a chat
 over any Task; and `evaluate`, an evaluation harness in `@kanzo-tech/testing`. A screen chains its
-Tasks as an async function does, the page has one model, Ask is the one Task in a chat, and keasy's
-evaluation set runs in its own e2e. *What would reverse it:* a second caller for any one of them —
+Tasks as an async function does, the page has one model, Ask is the one Task in a chat, and Ask's
+evaluation set is a suite beside Ask, not an API ([Testing](/docs/design/testing#asks-evaluation-set-lives-beside-ask)).
+*What would reverse it:* a second caller for any one of them —
 two flows written the same way, two Tasks that want different models, a second Task in a chat, a
 second product's evaluation set.
 
 ### Where each dependency lives
 
-The pattern of `@kanzo-tech/mosaic` and `@kanzo-tech/llm`: the third party is a peer, its surface is
-re-exported so a host never imports it directly, and ours is only the door it lacks. Two copies of
-WebLLM would be two engines and two models in GPU memory.
+The third party is a peer, and ours is only the door it lacks. Mosaic's surface is re-exported by
+`@kanzo-tech/mosaic`, because one copy of Mosaic on a page is what makes one coordinator, and no host
+imports `@uwdata/*` for anything else. The AI SDK's is **not** re-exported by `@kanzo-tech/llm`
+(decided 13 October 2026): `ai` is a required peer every host and every package already imports by
+name, so a re-export was a second way to write one import, and nobody used it. What `llm` carries is
+the two doors through which every model call the library makes passes, `stream` and `generate`,
+each asking once ([the failure rule](/docs/design/failure#a-models-failure-is-shown-once-on-the-first-attempt)).
+Two copies of WebLLM would be two engines and two models in GPU memory.
 
 | Package | Third-party peer | What it carries |
 | --- | --- | --- |
-| `@kanzo-tech/llm` | `ai`, required | the AI SDK's surface, `AiError`, `stream` |
-| `@kanzo-tech/llm/local` | `@browser-ai/web-llm`, `@mlc-ai/web-llm`, optional | `localModel` (served `from` the host, a grammar per call), `loadLocalModel`, `serveLocalModel` for its worker; `ai/unavailable` without WebGPU |
+| `@kanzo-tech/llm` | `ai`, required | `stream`, `generate`, `LlmError`, `ModelLoad` |
+| `@kanzo-tech/llm/testing` | `ai`'s own `ai/test` | the one scripted model double ([Testing](/docs/design/testing#one-model-double)) |
+| `@kanzo-tech/llm/local` | `@browser-ai/web-llm`, `@mlc-ai/web-llm`, optional | `localModel` (served `from` the host, a grammar per call), `loadLocalModel`, `serveLocalModel` for its worker; `llm/unavailable` without WebGPU; a double in place of the model when a test installed one |
 | `@kanzo-tech/ai/task` | — | the types, `defineTask`, `runTask`, `propose`, `verify` |
 | `@kanzo-tech/ai` | — | `useTask`, `Assist`, `Chat` |
 | `@kanzo-tech/ai/data` | `@kanzo-tech/mosaic`, optional | `ask`, `useAskChat`, `askOffers`, `AskChips`, `AnswerCard` |

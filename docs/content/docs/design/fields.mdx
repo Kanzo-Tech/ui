@@ -1,0 +1,150 @@
+---
+title: What a field is
+description: Why a field's facts come from the corpus — what it is from fossil's manifest, what it holds from fossil's profile stored beside it — and reach every reader through JoinGraph, so nothing in the library guesses them from a column's name or a threshold; and what would reverse each part.
+---
+
+<Callout type="warn">
+**This page is a direction, and none of it is built.** It was decided on 13 October 2026, and it
+waits on fossil: the annotations of fossil's `/docs/design/labels`, the catalog views that carry
+what the manifest already says, and the profile written into the corpus. The order is on
+[the cleanup's release plan](/docs/design/cleanup#the-release-plan). Until it lands, `fieldStats`
+still reads one `SUMMARIZE` per relation and guesses as below.
+</Callout>
+
+A dashboard, Ask, an answer's card and keasy's assistant each need to know two things about a
+column: **what it is** — a number, a date, a year stored as an integer, an IRI, a key, a word in a
+language, called *birth date* in English and *fecha de nacimiento* in Spanish — and **what it
+holds** — how many rows, how many distinct values, how many missing, its range, its commonest
+values. Today the corpus states the first exactly and the library throws it away on the way in, then
+re-derives a cruder version of it from the column's name; and the second is read twice, by two
+`SUMMARIZE`s that need not agree.
+
+| Fact | `fossil.json` | The catalog views today | `@kanzo-tech/graph` | `JoinGraph` | What the library does instead |
+| --- | --- | --- | --- | --- | --- |
+| a type's, an edge's, a column's IRI | `iri` | `fossil_tables.iri`, `fossil_columns.iri` | not read | absent | nothing; words are split out of identifiers |
+| an edge's label | `label` | absent | re-parsed from the table's name | `label` | a parse of `<Source>_<label>_<Destination>` |
+| an edge's endpoint keys | `source.key`, `destination.key` | absent | not read | `src`, `dst` written as `"src"` and `"dst"` | a hard-coded pair |
+| a literal's datatype | `datatype` | `datatype` | read | dropped | an `xsd:gYear` stored as an integer is a measure to average |
+| a term's type | `term_type` | absent | not read | absent | an IRI column is guessed an identifier by its name or its cardinality |
+| a column's role | `role` | `role` | read, to filter columns out | implicit | `ID_NAME` re-guesses identity by name |
+| nullability | `nullable` | `is_nullable` | not read | absent | nothing |
+| a multi-valued property | `property_tables` | `kind = 'property'` | skipped | absent | Ask cannot ask about one |
+| what a column holds | absent | absent | absent | absent | a `SUMMARIZE` in `fieldStats`, another in `AnswerCard` |
+
+## What a field is comes from the manifest
+
+**Every fact the manifest states about a type, an edge or a column reaches `JoinGraph` unchanged,
+and nothing downstream re-derives one.** The path is the one the data already travels: `fossil.json`
+→ `@fossil-lang/corpus`'s catalog views → `@kanzo-tech/graph`'s structure reader → `JoinGraph` →
+`@kanzo-tech/mosaic`, `@kanzo-tech/ui/analytics` and `@kanzo-tech/ai`. Two gaps are fossil's to
+close, in the views: an edge's `label` and its endpoints' `key` columns, and a column's
+`term_type` — the manifest has all three, the views drop them. A third is fossil's to add: the
+annotations of `/docs/design/labels`, as their own view, a row per annotation. Then graph deletes its
+two guesses — the label parsed out of a table's name, and `src`/`dst` written as constants.
+
+**`JoinGraph` carries a column as a description, not a name.** A type's columns are each a column's
+name, its DuckDB type, its `role`, its `datatype`, its `termType`, its `iri`, whether it is
+`nullable`, its annotations, and what it holds (below); a type and an edge carry their own `iri` and
+annotations. The key columns stay where they are, named by `key`, `src` and `dst`, now read and not
+assumed. **One constructor builds a `JoinGraph` from a corpus, graph's**; keasy's second one, which
+builds a graph from an accepted model with `id`, `src`, `dst` and its own table naming written in,
+reads the corpus the model's dry run writes instead.
+
+**The words are its labels.** A type's, an edge's and a column's words are its `rdfs:label`
+annotation in the page's language, as [Tasks](/docs/design/tasks#words-come-from-the-datas-own-metadata)
+says; fossil writes a SHACL shape's `sh:name` as `rdfs:label`, so a reader asks one predicate and
+holds no preference list of its own.
+
+The reference is the manifest itself — `/docs/format` on fossil's site, the contract a corpus
+fulfils — and, for the vocabulary of a term, R2RML's: `rr:termType` (`rr:IRI`, `rr:BlankNode`,
+`rr:Literal`) and the XSD datatypes, which is what fossil writes. A semantic layer reads the same
+way: Looker's dimension `type` and Malloy's schema-read types come from the warehouse's declaration,
+never from a column's spelling.
+
+**What would reverse it:** a reader that needs a fact the manifest does not hold. Then it is added to
+the manifest, by fossil, and travels the same path — never derived on the reader's side.
+
+## What a field holds comes from fossil's profile, stored in the corpus
+
+**fossil writes, beside every table of a corpus, what `fossil-profile` reads of it: the row count,
+and per column the distinct count, the null count, the extent and the commonest values; the library
+reads that and runs no `SUMMARIZE` over a corpus.** The profile already exists — it is how keasy's
+assistant reads a source, `fossil-profile`'s plan run on the host's DuckDB — and running it over
+what the executor wrote, at the end of a run, gives every reader the same figures the assistant was
+given. Where it is written and in what shape is fossil's `/docs/format` to say; what the library
+needs from it is this list, and that it is the profile's own vocabulary, so that one change on
+fossil's side is one change here.
+
+A relation that is not a corpus's — a host's own table under `MosaicProvider` — has no profile, and
+is read with one `SUMMARIZE` through [the read door](/docs/design/reads), once and cached. That is
+the only `SUMMARIZE` left, and it is never a second one: `AnswerCard` reads the facts the answer was
+asked over, and the model and the card are told the same distinct count.
+
+**Discarded: Parquet's own statistics.** Each row group's footer carries a minimum, a maximum and a
+null count, read for free. It carries no distinct count and no commonest values, which are the two
+figures a field's kind and Ask's prompt need, and a corpus of many row groups would still have to be
+merged into one figure by somebody. *Back if* fossil's profile costs a run more than readers gain,
+measured — then the extent and nulls come from the footers and the profile keeps only what they lack.
+
+**What would reverse it:** a corpus written by something other than fossil, as the common case.
+Then the profile is a reader's step, run once per corpus through the read door, and still not one per
+component.
+
+## A field's kind and role are read, not guessed
+
+**A field's kind is Mosaic's `jsType` of its DuckDB type, unless its datatype says otherwise; its
+role is a fact of the corpus, and where the corpus has none it is the kind's.** No `ID_NAME`, no
+`DIMENSION_LIMIT`.
+
+| Field | Decided by | Reads as |
+| --- | --- | --- |
+| a column whose `role` is an identity, an address or an endpoint | the manifest | identifier |
+| a column whose `termType` is an IRI or a blank node | the manifest | identifier |
+| a column the profile finds a key — as many distinct values as rows, none missing | the profile | identifier |
+| a literal whose datatype is a date or time — `xsd:date`, `xsd:dateTime`, `xsd:gYear`, `xsd:gYearMonth` | the manifest | temporal, a dimension |
+| any other number | its DuckDB type | numeric, a measure |
+| anything else | its DuckDB type | categorical, a dimension |
+
+A relation with no corpus behind it has no role and no datatype, so the last two rows decide it: a
+number is a measure, the rest a dimension, and nothing is an identifier because nothing said so. A
+column of a joined relation is described by its step's type; its distinct count is the type's, which
+is what a default needs, not the joined relation's.
+
+**What it costs:** a string that is nearly but not quite unique per row, and that the shape does not
+declare, reads as a dimension. A chart over it offers thousands of bars; the bar chart's own band
+still cuts its labels, and the profile's distinct count is beside the field for a recommender to
+read. Today the 50-value cut-off hides that case and misfiles every category of 51 values with it.
+
+**What would reverse it:** dashboards defaulting, in readers' hands, to charts over columns the data
+never declared and that are identifiers to anybody who reads them — then the remedy is in the shape
+(a key, an IRI), and if no shape can say it, a rule with its evidence beside it, never a spelling.
+
+## A multi-valued property is a relation
+
+**A property table becomes a step of the join graph: a hop from its type, named by the property,
+whose far side is the property table joined on the source's key.** A path that ends in it —
+`name` on a laureate whose `name` is `Seq<LangString>` — reads its value column, and its language
+column where it has one. It fans out like any hop, and `count` still counts the measured type
+([Analytics](/docs/design/analytics#count-counts-the-measured-type)), so *laureates by name* counts a
+laureate once per name and never twice per row.
+
+The reference is Malloy's `join_many` and fossil's own first normal form: fossil keeps a
+multi-valued property in a table of its own precisely so that a reader joins it, and today the
+library's structure reader skips those tables, so no dashboard, picker or question can reach them.
+
+**What would reverse it:** a property table that is not a function of its source — a value with no
+source key — which fossil's format does not allow today.
+
+**Breaking**, in a consumer's words:
+
+- A `JoinGraph` type's `columns` are column descriptions, not names. If you build a `JoinGraph` by
+  hand, build it from the corpus with `@kanzo-tech/graph` instead.
+- A column named `id`, `uri` or `iri` is no longer an identifier because of its name. If a field
+  your dashboard grouped by is now a measure or a dimension, declare it in the shape.
+- `fieldStats` no longer reads `SUMMARIZE` rows over a corpus, and `queryFieldStats` is gone;
+  `useFieldStats` reads the corpus's facts, or one `SUMMARIZE` through the read door for a table
+  that is not a corpus's.
+- `answerRelationsOf` and `readAnswerRelations` are gone: Ask is offered the graph's facts.
+- A multi-valued property appears as a hop in `RelationPicker` and as a path in Ask.
+- A corpus written before fossil writes its profile is rebuilt; the library does not read one
+  without it.

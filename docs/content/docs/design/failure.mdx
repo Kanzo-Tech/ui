@@ -25,7 +25,10 @@ typed string" and "bites on a class extending MosaicClient with no queryError".
 ## The codes this library names
 
 Each is an `Error` with `code` and `data`, in the `area/kind` grammar fossil's and a host's codes use,
-so one host registry keys all three. One class per package, named for it.
+so one host registry keys all three. One class per package, named for it — which `@kanzo-tech/llm`
+broke with an `AiError` coding `ai/unavailable`, while keasy coded its own model failures
+`llm/failed`, so one area had two names. The class is `LlmError` and its area `llm` (decided 13
+October 2026, not built).
 
 | Code | Class | When | `data` |
 | --- | --- | --- | --- |
@@ -34,7 +37,7 @@ so one host registry keys all three. One class per package, named for it.
 | `graph/context-lost` | `GraphError` | the browser took the WebGL context back | — |
 | `graph/no-positions` | `GraphError` | a device that came up holds no positions for the points it was given: a frame's read-back failed | — |
 | `graph/nothing-to-draw` | `GraphError` | an attached corpus with no vertex | — |
-| `ai/unavailable` | `AiError`, from `@kanzo-tech/llm` | the page cannot run the model: no WebGPU for `localModel` | `reason` |
+| `llm/unavailable` | `LlmError`, from `@kanzo-tech/llm` | the page cannot run the model: no WebGPU for `localModel` | `reason` |
 | `session/*`, `idp/*`, `callback/*`, `token/*`, `organization/*`, `claims/*` | `AuthError` | see [the auth layer](/docs/design/auth) | `after`, `status` where named |
 
 **What would reverse it:** a code a host never branches on. Then it folds into its neighbour; the
@@ -60,8 +63,11 @@ and no limit to be told about: what can fail is the device. `localModel` checks 
 downloads anything and fails as `ai/unavailable` with `reason` `"webgpu"`, so a host says the device
 cannot run it rather than waiting on a load that will not finish.
 
-**The library's own asks are made once.** `stream` passes `maxRetries: 0`, so the first attempt's
-error is the one shown. The SDK's default is two retries with backoff, and a generation that failed
+**The library's own asks are made once, through `@kanzo-tech/llm`.** `stream` passes
+`maxRetries: 0`, so the first attempt's error is the one shown. The Task layer did not: `runTask`,
+its repairs and `propose` called the AI SDK's `generateText` straight, with the SDK's default, so
+every draft retried twice. Every model call the library makes goes through one of `llm`'s two doors,
+`stream` and `generate` — `generateText` with `maxRetries: 0` (decided 13 October 2026, not built). The SDK's default is two retries with backoff, and a generation that failed
 on this device fails the same way asked again — three waits where the person sits through one.
 
 **What would reverse it:** a model the page reaches over the network again. Then the request has a
@@ -71,3 +77,24 @@ silence to bound and a limit to name, and both belong to the one door that makes
 *Held by* `packages/llm/src/local.test.ts`, "fails as ai/unavailable without WebGPU, before anything
 loads"; `packages/ai/src/assist.test.tsx`, "asks once: an error the SDK would retry is the failure,
 not a retry after it"; `packages/llm/src/stream.test.ts`, "never retries a refused call".
+
+## One deadline per wait
+
+<Callout type="warn">**A direction, not built.** Decided 13 October 2026.</Callout>
+
+**A wait is bounded by the party that makes the request, once; whoever passes a transport or calls
+a door does not add a second bound around it.** Two bounds on one wait race to name one failure,
+and whichever wins, the other's code is what a host's registry was told to expect. keasy's session
+read is the case: `bffAuth` bounds `/session` and `/refresh` at 30 s as `session/silent`, keasy
+handed it a `fetch` that bounds every request at 30 s as `server/silent`, and `bffAuth` rewrapped
+the loser as `session/unavailable`. So `bffAuth`'s `fetch` is a transport, documented as one and not
+as a test seam, and a host bounds its own API calls in the requests it makes
+([the auth layer](/docs/design/auth#one-party-bounds-each-wait)).
+
+**What would reverse it:** a wait two parties must each bound for a reason of their own — a host
+that must give up sooner than the library on one screen. Then the host passes a signal, which the
+library's bound composes with, and the code is still the library's.
+
+**Breaking**, in a consumer's words, for this page: `AiError` is `LlmError`, and `ai/unavailable`
+is `llm/unavailable` — rename them in your error registry. The Tasks stop retrying a failed model
+call; nothing to change.

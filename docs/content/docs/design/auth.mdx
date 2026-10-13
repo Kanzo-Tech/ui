@@ -520,3 +520,116 @@ session endpoint as a failure, not as nobody being signed in" and "gives up on a
 that never answers, after 30 s and not before"; `packages/auth/src/next-routes.test.ts`, "sends a
 callback with no transaction to the problem page, with its code"; `packages/auth/src/next-auth.test.ts`,
 "sends a navigation to the problem page when the store does not answer"; `packages/ui/src/failures-reach-the-host.test.ts`.
+
+## A session is read like any other datum
+
+<Callout type="warn">**A direction, not built.** Decided 13 October 2026.</Callout>
+
+**`bffAuth` renews the session it reads and keeps every tab on the same one, as Auth.js's
+`SessionProvider` does: `useSession` is a query through [the read door](/docs/design/reads),
+refetched when the tab regains focus or becomes visible, after a successful renewal, and when
+another tab announces a sign-in, a sign-out or a renewal on a `BroadcastChannel`.** The `Auth`
+interface already promised it — `getSession` *renews when near expiry*, `subscribe` fires when the
+session *changed in another tab* — and the transport under it read `/session` once and answered from
+that read for the life of the tab, so a renewed session kept its old roles and its old `expiresAt`.
+The promise was the removed browser client's, and the interface outlived it.
+
+The reference is Auth.js's `SessionProvider`: `refetchOnWindowFocus`, a refetch after `update()`,
+and the `BroadcastChannel` every tab listens on, so a sign-out in one tab signs out the others. The
+query's cache is the session's one copy; the provider reads it, and nothing else holds a session.
+
+**What would reverse it:** a BFF where a refetch on every focus is measured as load that matters —
+then focus refetching goes, and the session is read on visibility and on a renewal alone.
+
+## Every refusal is a problem body
+
+<Callout type="warn">**A direction, not built.** Decided 13 October 2026.</Callout>
+
+**Every JSON answer the auth layer sends — a route's refusal, the forwarder's — is an RFC 9457
+problem: `application/problem+json` with `status`, `title` and `detail`, and the library's `code` and
+`data` as its extension members; one `statusOf(code)` gives the status.** Today there are four
+shapes on the wire: the routes answer `{ error, message }`, which is neither OAuth's nor the
+problem shape the rest of the system reads; the forwarder computes a code and sends a bodiless
+status, so keasy coins `bff/failed` for an `organization/denied` the library knew; a problem page's
+redirect carries `?code=`; and an `Ended` result carries `code`. Two status tables disagreed, one
+sending `organization/denied` to 400 and the other to 403. One table, and a body that names the code,
+is what `Problem` and a host's registry already read.
+
+A redirect stays a redirect: the routes a person reaches through the address bar — sign-in, the
+callback, sign-out — still send the person to the product's `problemPage` with the code in the URL,
+because a JSON body there is what a person reads.
+
+The reference is RFC 9457, *Problem Details for HTTP APIs*, the body keasy's API, fossil's
+`problem` and `Problem` already share.
+
+**What would reverse it:** a client of these routes that reads OAuth's error response — `error`,
+`error_description` — and cannot read a problem. None does: `bffAuth` reads the status, and a host
+reads the code.
+
+## An outage at a required session is the problem page
+
+<Callout type="warn">**A direction, not built.** Decided 13 October 2026.</Callout>
+
+**`kanzoAuth().session({ required: true })` answers a store or IdP outage as `proxy` does: a redirect
+to `problemPage` with the code.** It threw the `AuthError` raw, so keasy wraps every layout's read
+in a `try` that redirects to the same page with the same code — the library's own decision, written
+again by the product. `TenantRequest`, the type `KanzoAuthConfig.organization` takes, goes on the barrel
+with it, because a public option's argument with no name is one a host cannot write a function for.
+
+The reference is AuthKit's `withAuth({ ensureSignedIn: true })`, which settles the outcome rather
+than handing the host an exception to settle.
+
+**What would reverse it:** a layout that must render through an outage — a public page under a
+required session. Then it does not ask for `required`, and reads the `failed` status.
+
+## One party bounds each wait
+
+<Callout type="warn">**A direction, not built.** Decided 13 October 2026.</Callout>
+
+**`bffAuth` bounds the two requests it makes for itself, `/session` and `/refresh`, and nothing
+else; its `fetch` option is the transport, and a host bounds its own API calls in the requests it
+makes.** The rule is [the failure page's](/docs/design/failure#one-deadline-per-wait); here it means
+`fetch` is documented as the production transport it is, not as *injectable for tests*, and keasy
+stops wrapping it in a 30 s deadline of its own that raced `bffAuth`'s.
+
+**What would reverse it:** a host that cannot bound its own requests — one whose API client takes no
+signal. Then `bffAuth` bounds every request through `Auth.fetch`, coded by who did not answer, and
+the host bounds none.
+
+## The organization's console is a link the library computes
+
+<Callout type="warn">**A direction, not built.** Asked for on 13 October 2026.</Callout>
+
+**`organizationConsoleUrl(issuer, organization)` is the URL of Keycloak's admin console page for an
+organization — the realm's console, at the organization's settings — computed from the issuer and
+the organization the session already names, beside `accountUrl`.** Keycloak 26 manages an
+organization's members, domains and identity providers in the realm's admin console:
+`{origin}/admin/{realm}/console/#/{realm}/organizations/{id}/settings`, where the public issuer is
+`{origin}/realms/{realm}` and the id is the organization's, which `organizationOf(session, alias)`
+returns. So a product's *Members* page links there with nothing configured — keasy's
+`KEASY_ORG_ADMIN_URL`, set in no deployment, goes, and with it the page that always said *ask your
+platform administrator*.
+
+It is `accountUrl`'s shape and reasoning: a pure function of the public issuer, on the root barrel,
+because a link is drawn wherever the session is. The reference is Keycloak's own consoles —
+account-ui at `{issuer}/account`, the admin console at `/admin/{realm}/console/` — whose routes are
+Keycloak's to declare. Whether a person may open it is not the link's to decide: the console
+authorises its own users, and a product shows the link to those its `can` says manage the
+organization.
+
+**What would reverse it:** an organization managed somewhere other than the realm's admin console —
+Keycloak shipping a console of its own for organization administrators, or an IdP that is not
+Keycloak. Then the function returns that console's route, or a host passes its own URL; nothing else
+about the link changes.
+
+**Breaking**, in a consumer's words, for this page:
+
+- The auth routes and the forwarder answer `application/problem+json` with `code`; a host that read
+  `{ error, message }` reads `code` and `detail`.
+- `session({ required: true })` redirects to `problemPage` on an outage; delete the `try` around it.
+- `bffAuth`'s `fetch` must not bound requests; bound your API calls where you make them.
+- `useSession` needs a `QueryClientProvider` above `AuthProvider`.
+- `singleFlight` and `readSession` are gone from `@kanzo-tech/auth`; `claims` and `ClaimsConfig`
+  move to `@kanzo-tech/auth/server`; `sealedCookie`, `cookieValue`, `SealedCookie`,
+  `SealedCookieConfig`, `rewriteOrigin`, `organizationGroups`, `OrganizationGroups` and
+  `OrganizationGroupsConfig` are gone from `@kanzo-tech/auth/server`.

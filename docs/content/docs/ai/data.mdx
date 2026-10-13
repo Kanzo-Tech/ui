@@ -95,7 +95,7 @@ count per category, once per data space, and a list of fields in every prompt. O
 like LDBC's social network at scale factor 1 — 8 types, 23 edges, 3.2 million vertices and 17
 million edges — the types alone read in 1.2 s into a 3,600-character prompt, and with every hop in
 41 s into a 39,000-character one. On a graph that size, offer the hops `from` the types the reader
-is looking at, or `hops: 0`. [Asking data](/docs/design/ai#which-relations-are-offered) has the
+is looking at, or `hops: 0`. [Asking data](/docs/design/ai#ask-reads-nothing-to-be-offered-its-fields) has the
 measurement. The graph comes from whatever catalog the host has — [`readJoinGraph`](/docs/graph#readjoingraph)
 for a fossil corpus.
 

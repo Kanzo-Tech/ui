@@ -210,6 +210,35 @@ class lists from something Tailwind could scan, which would make the strings com
 *Held by* `packages/ui/package.json`, `size-limit`; `packages/ui/src/simples/image-cropper.tsx`,
 `ImageCropperHandle`.
 
+## A gauge per entry, and its raises written here
+
+<Callout type="warn">**A direction, not built.** Decided 13 October 2026; it lands with the
+cleanup's admission PR ([the release plan](/docs/design/cleanup#the-release-plan)).</Callout>
+
+**Every published entry of every package has one gauge, and it measures what that entry adds: the
+entry bundled with its peers and its own package's other entries left out.** A root gauge measures
+the root; a subpath gauge measures the subpath *over* the root, which is what an application that
+imports both pays for it. Beside them stays the gauge of one tree-shaken import per package —
+`{ Button }`, `{ Dashboard }` — which is the cost a consumer actually meets.
+
+The gauges they replace measured something else. The root barrel's measured the whole library
+without tree-shaking, which its own note called *a change detector for the library's total size*,
+not a cost; the analytics subpath's counted, in isolation, every root `simples/` module its inputs
+render — about 53 of its 139 kB minified — which dedupe in any application that imports the root.
+Both sat at their limits, so each adoption raised a figure that did not say what anybody pays.
+
+**The reason for each raise is written on this page, not in `package.json`.** The `//size-limit`
+note in `@kanzo-tech/ui`'s manifest grew into a dated ledger of more than twenty raises — the
+record of every decision about the budget, in the one place a reader of the decisions never looks,
+and a changelog in all but name, which this repository does not keep. The admission PR moves its
+entries into a section here, one row per raise — the date, the gauge, before and after, and the
+adoption that crossed it — and leaves `package.json` the limits and one sentence pointing here. The
+rule above, *the size limit moves when an adoption crosses it*, is unchanged; only where its record
+lives moves.
+
+**What would reverse it:** a consumer whose bundler does not tree-shake, for whom the whole barrel
+is the cost — then the whole-barrel gauge comes back for that entry, named as that consumer's.
+
 ## The components index is generated, and keeps no second list
 
 The docs' component grid is derived from the page tree, in `docs/components/components-list.tsx`.

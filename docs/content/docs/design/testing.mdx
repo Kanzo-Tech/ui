@@ -142,5 +142,94 @@ words of the card's Problem" and "rejects an answer that failed with the words o
 `AnswerCard`; and `packages/testing/e2e/workspace.e2e.test.ts`, "asks a question the
 recording knows, reads the answer's chart, and filters the page to it".
 
-*Not yet held*: `TimelineHarness`, whose test is skipped until `ChartTimeline` is built from
-[the timeline's design](/docs/design/timeline).
+*Not yet held*: `TimelineHarness`. `ChartTimeline` ships, and its test is still skipped as *not yet
+built*; the cleanup's first PR runs it ([the release plan](/docs/design/cleanup#the-release-plan)).
+
+## The names are CDK's
+
+<Callout type="warn">**A direction, not built.** Decided 13 October 2026.</Callout>
+
+**Where Angular CDK's harness API has an operation, ours has its name; where it has none, or its
+namesake does something else, ours keeps its own and says why here.** The page names CDK as the
+reference and then used other words for the same things, with no reason written down — which is a
+divergence nobody decided.
+
+| Ours | CDK's | |
+| --- | --- | --- |
+| `env.harness(query)` | `getHarness` | renamed |
+| `env.harnesses(query)` | `getAllHarnesses` | renamed |
+| `env.root` | `rootElement` | renamed |
+| `locate(query)` and `one(by, what)` | `locatorFor(query)`, with `locatorForOptional` and `locatorForAll` | renamed, and one: CDK's locator takes a harness query or an element's query alike and returns the function that finds it |
+| `HarnessType` | `ComponentHarnessConstructor` | renamed |
+| `Handle` | `TestElement` | renamed |
+| `attribute(name)` | `getAttribute` | renamed |
+| `rect()`, a `Rect` | `getDimensions()`, an `ElementDimensions` of `top`, `left`, `width`, `height` | renamed, and CDK's shape |
+| `press(key)` | `sendKeys` | renamed |
+| `text`, `click` | `text`, `click` | already CDK's |
+| `static by` | `hostSelector` | kept: a `By` is Testing Library's query — role, name, text — not a selector |
+| `HarnessQuery` | `HarnessQuery` | kept; CDK's is a constructor or a predicate, ours a constructor and its `By` |
+| `fill(value)` | — | kept: CDK's `setInputValue` sets the property and dispatches nothing; ours types as a person does, as Playwright's `fill` |
+| `until`, `reveal`, `drag`, `evaluate`, `ariaBusy`, `find` | — | kept: CDK waits on Angular's zone, and has no drag or scroll; ours waits on a state |
+
+And one duplicate goes: testing's `Severity` is ui's `FindingSeverity` under another name.
+
+**What would reverse it:** a CDK name that misleads a reader of our harnesses into expecting CDK's
+behaviour — then that row is kept as ours, with the reason, as `fill` is.
+
+**Breaking**, in a consumer's words: in your page objects, `harness(` is `getHarness(`,
+`harnesses(` is `getAllHarnesses(`, `Handle` is `TestElement`, `.attribute(` is `.getAttribute(`,
+`.rect()` is `.getDimensions()` with `top` and `left` in place of `y` and `x`, `.press(` is
+`.sendKeys(`, and `locate` and `one` are `locatorFor`. `Severity` is `FindingSeverity`, from
+`@kanzo-tech/ui`.
+
+## One model double
+
+<Callout type="warn">**A direction, not built.** Decided 13 October 2026.</Callout>
+
+**`@kanzo-tech/llm/testing` ships one scripted model — the AI SDK's `MockLanguageModelV4` answering
+from a script of turns — and `localModel` answers with it in place of the real model when a test
+has registered one on `__KANZO_TESTING__`.** A unit test passes the double where a model goes; an
+end-to-end test registers a script for a model id through `playwright(page, { models })`, before the
+page loads, as a canvas registers its coordinates ([above](#a-canvass-coordinates-come-through-a-hook-only-a-test-installs)),
+and the product's code never knows. The script is data — the turns' texts and objects — because a
+function does not cross into the page.
+
+There were five: `@kanzo-tech/ai`'s test double, the docs' mock model *with the same shape as*
+it, keasy's hand-written model injected on `window.__keasyModelDouble` — the hook this page already
+installs, reinvented — keasy's branch in its model module that serves it with a guard test that it
+never ships, and keasy's fixture over `MockLanguageModelV4`. A model the page cannot serve is
+`llm/unavailable`, `localModel`'s own answer, and no double is needed to say it.
+
+**What would reverse it:** a test that needs a model whose behaviour a script cannot state — a
+latency, a stream cut half-way. Then the script grows that, and it is still the one double.
+
+**Breaking**, in a consumer's words: register your model double with `playwright(page, { models })`
+and delete the one you inject; import the unit-test double from `@kanzo-tech/llm/testing`.
+
+## Ask's evaluation set lives beside Ask
+
+<Callout type="warn">**A direction, not built.** Decided 13 October 2026.</Callout>
+
+**The evaluation set that scores Ask moves from keasy's `e2e/eval` to `packages/ai/eval`, beside the
+Task it measures, outside the package's published `files`.** It measures `@kanzo-tech/ai/data`'s
+`ask` and nothing of keasy's: a case is a page's relation and filter, the questions asked in turn,
+and the rows the last answer must and must not have been read from — execution accuracy, as
+[Tasks](/docs/design/tasks#phases) defines the set. In keasy it ran through keasy's pages, polled on a
+two-second loop and reached the card by `data-slot`; here it drives Ask through the harnesses a host
+uses and waits on states.
+
+| | |
+| --- | --- |
+| **Cases** | `packages/ai/eval/cases.ts`, data: Nobel for nearly every shape, LDBC SNB for self-joins and a large graph. Each case says the failure it tests. A tie no longer asks: with paths, a case that tested *which way should this be counted?* expects the model's path, and its chip's alternative |
+| **Corpora** | written by fossil's executor in Node through `docs/scripts/write-corpus.mjs`, as the docs' archive is, from each example's program, shapes and fetched data; `.gitignore`d as compiler output |
+| **Page** | a docs showcase that attaches a corpus by name and mounts a dashboard and Ask on it, with the docs' local model |
+| **Runner** | a Vitest project beside `@kanzo-tech/testing`'s end-to-end one: Playwright's Chromium, `getHarness` on `AnswerHarness`, `DashboardHarness` and `FilterBarHarness`, `expect.poll` and no fixed wait |
+| **Model** | the real one, on the machine's GPU through WebGPU — live, never replayed, never the double: what is measured is the model |
+| **Results** | one line per case in `packages/ai/eval/results/<model>/ask.jsonl`, `.gitignore`d; a case that fails is a result, and the run fails only when it cannot ask |
+| **When** | by hand, `pnpm --filter @kanzo-tech/ai eval`, before a change to Ask or to the model; never in `pnpm verify` and never on CI, which has no GPU |
+
+The set is data apart from its runner, so the second runner [Tasks](/docs/design/tasks#everything-in-the-browser-the-model-too)
+names — the same weights on native llama.cpp in CI — reads the same cases when it is built.
+
+**What would reverse it:** a second product's evaluation set over Ask with cases of its own — then
+the runner is the shared part, and each product keeps its cases.

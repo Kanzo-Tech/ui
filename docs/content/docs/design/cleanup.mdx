@@ -1,0 +1,146 @@
+---
+title: The cross-cutting cleanup
+description: The decisions of 13 October 2026 across every package — one door per idea, facts from the data, a standard where there is one — where each is argued, the order the pull requests land in, and what keasy and metadata-form change.
+---
+
+<Callout type="warn">
+**This page is a plan, and none of it is built.** It indexes decisions the owner took on 13 October
+2026 after a review of the whole public surface — every export of the nine packages, the seam with
+fossil's corpus, and keasy's use of both. Each decision is argued on the page it belongs to, with
+its reference and what would reverse it; this page holds only the order and the consumers. When a
+pull request below lands, its row goes, and when the last does, so does this page.
+</Callout>
+
+The library was right where it adopted directly — the parts that follow shadcn and Ark, the chat
+parts that follow AI Elements, Mosaic's crossfilter, the navigation guard. What the review found was
+in three places: **the seams**, where one idea arrived in two or three shapes and each package
+translated it its own way; **the guesses**, where Ask and a field's statistics derived from a
+column's name or a threshold what the corpus states exactly; and **the remains** of earlier designs —
+an answer tool's schema, a tool call made up to draw a card, aliases and re-exports that give one
+thing two doors. Most of the work is applying two rules the repository already has: one way per
+idea, and the reference wins.
+
+## The principles every item comes from
+
+1. **One door per idea.** One concept, one type, one name, one place to import it from.
+2. **A field's facts come from the data, not its name.** What it is, from the manifest; what it
+   holds, from fossil's profile.
+3. **A standard where there is one.** Labels are `rdfs:label`; a language is BCP 47; lists and
+   numbers are `Intl`'s; a path is Malloy's; a filter on another relation is a semi-join; an error
+   on the wire is RFC 9457. Where there is none, the page says so and takes the least.
+4. **One read per datum.** The dashboard, Ask, the card and the assistant read through one door and
+   share its cache.
+5. **Every word translatable, the same way everywhere:** `translations`.
+6. **A product's call site admits a name to the barrel.** What has none leaves for a docs example.
+
+## Where each decision is
+
+| Decision | Page |
+| --- | --- |
+| `JoinResolver` is the only door to the joins; a field is a path; a column is named by its path, on a dashboard too; titles name no plural; two equal paths are the model's, with the other on the chip; the sentence after a chart is a minimal template | [Tasks](/docs/design/tasks#ask-from-agent-to-form) |
+| `count` counts the measured type; a tile carries its own `where` and `top`, compiled once; Mosaic only through `@kanzo-tech/mosaic`; the six interactor aliases go; one facet item | [Analytics](/docs/design/analytics#a-tile-carries-its-own-question) |
+| `Answer` is a relation and a tile; a data part, not a tool call; `AnswerCard` takes the answer; the answer tool's schema retires; Ask asks with the question part; a chat is kept in the AI SDK's shape | [Asking data](/docs/design/ai) |
+| What a field is and holds comes from the corpus; `JoinGraph` carries it; no guessing, no second `SUMMARIZE`; a property table is a relation | [What a field is](/docs/design/fields) |
+| Reads are TanStack Query, inside the library's hooks, on the host's client | [One read per datum](/docs/design/reads) |
+| One question part, in `@kanzo-tech/ui`; the composites metadata-form calls stay, two leave | [Admission](/docs/design/admission#a-question-is-one-part-in-kanzo-techui) |
+| `translations` is the one translation prop; no name means two things; one `Proposal` | [Naming](/docs/design/naming#one-name-one-meaning-in-every-barrel) |
+| Problem bodies and one `statusOf`; a session kept fresh as Auth.js keeps it; a required session's outage is the problem page; the organization's console link | [The auth layer](/docs/design/auth#a-session-is-read-like-any-other-datum) |
+| Every model call through `llm`, once; `LlmError`; one deadline per wait | [Failure](/docs/design/failure) |
+| The harnesses take CDK's names; one model double; the evaluation set beside Ask | [Testing](/docs/design/testing#the-names-are-cdks) |
+| graph under the guards | [The graph](/docs/design/graph#the-parts-are-under-the-guards) |
+| A size gauge per entry; the raises recorded on the design pages | [How a rule lives here](/docs/design#a-gauge-per-entry-and-its-raises-written-here) |
+
+## The release plan
+
+Each pull request is one release, says what it breaks in a changeset in the consumer's words, and
+updates the usage pages it changes; the *Breaking* lists on the pages above are those changesets'
+contents. None keeps a compatibility path. The order puts what is written down and cheap first, then
+the doors a later change needs, then the model of joins and answers, then what waits on fossil.
+
+| # | Pull request | Contents | Waits on |
+| --- | --- | --- | --- |
+| 1 | **What the rules already say** | the Tasks' model calls through `llm`'s `generate`, asking once; `TimelineHarness`'s test runs; the comments that contradict their code; the unused names below; the Terraform `moved` blocks, a back-compatibility shim, deleted; the production compose without default passwords | — |
+| 2 | **One door to Mosaic** | `/analytics` passes none of Mosaic through; the charts import through `@kanzo-tech/mosaic`, which gains the aggregates; the six aliases; one facet item, `items` | — |
+| 3 | **Names, words and admission** | `translations` everywhere; the four renamed collisions; one `Proposal`, and `Chat` sending a proposal's value; `ThemeNotice` and `FloatingPanel` to examples; gauges per entry and the ledger moved; graph under the guards | — |
+| 4 | **The model's package, and the tests'** | `llm` without the AI SDK's names; `LlmError`; `@kanzo-tech/llm/testing` and the double on `__KANZO_TESTING__`; the harnesses' CDK names; `Severity` | 1 |
+| 5 | **The read door** | `@tanstack/react-query` as a peer; `useFieldStats` and Ask's reads as queries on the host's client | — |
+| 6 | **Auth** | problem bodies and `statusOf`; `useSession` as a query, renewed and kept across tabs; one bound per wait; a required session's outage redirected; `TenantRequest`; `organizationConsoleUrl`; the barrel trimmed | 5 |
+| 7 | **One question part** | the part in `@kanzo-tech/ui`, `Questionnaire` around it, `ai`'s `Question` deleted | 3 |
+| 8 | **Ask's evaluation set** | moved from keasy to `packages/ai/eval`, run as it is, so the next PR is measured against it | 4 |
+| 9 | **Joins and answers** | `JoinResolver.steps`, `paths`, `relation`, `field`, `crossing` with `at`; `resolve.ts` deleted; columns named by path; `count` distinct; the tile's `where` and `top` and its one compiler; `Answer` as relation and tile, a data part; `AnswerCard` takes it; the answer tool's schema retired; Ask's decision through the question part; the summary template; the cases updated for paths. Supersedes #199 | 7, 8 |
+| — | **fossil, one alpha** | the views carry an edge's label, its endpoints' keys and a column's term type; annotations, with `sh:name` written as `rdfs:label`, as a view; the profile written into the corpus | — |
+| 10 | **What a field is** | `JoinGraph` with column descriptions, read by graph from the corpus; `fieldStats` without its guesses; property tables as relations; words from labels; `answerRelationsOf` and `readAnswerRelations` gone | 5, 9, fossil |
+| 11 | **A chat kept** | `load`, `save` and `keep` on the chat hooks, validated with the data parts' schemas | 5, 9 |
+
+**The unused exports of PR 1**, each with no caller outside its package's tests and docs:
+
+- `@kanzo-tech/mosaic`: `ClauseParts`, `AntiJoinMetadata`, `RelationMetadata`, `RelayOptions`,
+  `preaggregateOwnRelation`, `readOf`.
+- `@kanzo-tech/ai`: `useChat`, a re-export of the AI SDK's; `MessageActions`, `MessageAvatar`,
+  `MessageAvatarProps`, `MessageRole`; from `/task`, `TaskState`, which nothing emits; from `/data`,
+  `askTransport`, `link`, `askAlternatives`, `readAnswer`, `questionOf`.
+- `@kanzo-tech/auth`: the list on [its page](/docs/design/auth#the-organizations-console-is-a-link-the-library-computes).
+- `@kanzo-tech/theme`: `LookDocument`, `sectionOf`, `withSection`, `fallbackChain`,
+  `resolveSectionToken`, `checkDensity`, `DENSITY_OBLIGATIONS`, `DensityCheck`, `DensityObligation`,
+  and `KanzoThemeName`, an alias of `string`.
+- `@kanzo-tech/graph`: `ShapeGlyph`, `ShapeGlyphProps`, `scaleOf`, `placementFrom`.
+- `@kanzo-tech/ui`: `KanzoTheme` and `KanzoThemeProps` (`ThemePreview` renders it, nothing else);
+  `safeParseColor`; `useFindings`; from `/analytics`, `parseDashboard` beside `parseDashboards`, and
+  `recommend`, which `autoDashboard` calls.
+- `@kanzo-tech/llm`: `stepCountIs` and `Tool`, which go with every other re-export in PR 4.
+
+**What would reverse the order:** a consumer blocked on a later row — keasy's assistant needing the
+kept chat before the joins land, say. Then that row moves up with what it waits on, and nothing
+else moves.
+
+## What keasy changes
+
+Keasy is on 0.45 with PR #154 open. By the release that asks it:
+
+| # | What keasy changes |
+| --- | --- |
+| 1 | nothing: its Tasks stop retrying a failed model call. It sets the production database and admin passwords, which the compose no longer defaults |
+| 2 | about ten files import from `@kanzo-tech/mosaic` instead of `@kanzo-tech/ui/analytics` — `lib/fossil/corpus.tsx`, `lib/fossil/ask.ts`, `lib/fossil/memory-corpus.ts`, Discover's page, `dashboard-view`, `ask-panel`, `rules-validation`, `use-assistant`, `use-source-descriptors`; the graphs list passes `items` |
+| 3 | `labels=` is `translations=` on the findings badge; the Ask panel passes its offers whole, not mapped to `{ text }`; `Problem`'s `copy` takes its new name at its five call sites |
+| 4 | `AiError` and `ai/unavailable` are `LlmError` and `llm/unavailable` in its model module and error registry, and `llm/failed` joins that area; `LanguageModel` from `ai`; in `e2e`, the harness renames and `FindingSeverity`; its injected model, the double branch in its model module with its guard test, and its fixture's scripted model are deleted for `@kanzo-tech/llm/testing` |
+| 5 | its `QueryClientProvider` sits above `AuthProvider` |
+| 6 | the `try` around the layout's session read, and the deadline wrapped around `bffAuth`'s `fetch`, are deleted, and its API client bounds its own calls; `bff/failed` gives way to the codes the forwarder sends; `KEASY_ORG_ADMIN_URL` goes, and the Members page links `organizationConsoleUrl` |
+| 7 | its assistant's turns draw decisions with `@kanzo-tech/ui`'s question part |
+| 8 | `e2e/eval` and the `eval` Playwright project are deleted |
+| 9 | the Ask panel and the preview turn draw answers from `Chat`'s `data` renderers and pass `answer`; `requirements.ts` stops calling `resolveRelation` and slicing `Type.col`; `dashboard-view` reads `JoinResolver.steps`; dashboards saved with type-prefixed fields are deleted |
+| 10 | its own `JoinGraph` constructor goes for graph's, over the dry run's corpus; `tasks/words.ts` and the profile reading it duplicates go |
+| 11 | its conversation store, save queue and restore give way to the chat hooks' `load`, `save` and `keep` |
+
+## What metadata-form changes
+
+Kanzo-Tech/metadata-form is on 0.27 and is not touched now; when it upgrades, these are the
+cleanup's part of the distance. It is also the call site that keeps `LanguagePicker`, `MadeWith`,
+`FieldArray`, `useAsyncCollection` and the `Preferences` parts in the root
+([Admission](/docs/design/admission#a-composite-stays-where-a-product-calls-it)).
+
+| # | What metadata-form changes |
+| --- | --- |
+| 3 | `MadeWith`'s `prefix`, `infix` and `loveLabel` become entries of its `translations`, in `src/react/form/MetadataForm.tsx` |
+| 4 | the playground imports `LanguageModel` from `ai`, not `@kanzo-tech/llm` |
+| 5 | it installs `@tanstack/react-query`, a peer of `@kanzo-tech/ai`; `Assist` reads nothing, so it renders no provider for it |
+
+## Open, and asked
+
+Each of these is the owner's to settle before its pull request; nothing above depends on the answer
+but that PR.
+
+- **`Problem`'s per-code wording function** leaves the name `copy` (PR 3). What it is called.
+- **The question part's names** (PR 7): `Question` with `QuestionPrompt`, `QuestionDescription`,
+  `QuestionChoices`, `QuestionChoice`, `QuestionInput`, `QuestionTextarea`, `QuestionError` is the
+  proposal.
+- **The `Preferences` all-in-one** (PR 3). metadata-form calls the parts, not the component that
+  arranges three of them; the parts stay, and whether the arrangement does is not decided.
+- **`@tanstack/react-query` as a required peer of all of `@kanzo-tech/ai`** (PR 5), which a host that
+  only draws `Assist`, like metadata-form, must then install — or the chat's reads behind a subpath.
+- **Where the evaluation set's two examples live** (PR 8). Their programs, shapes and fetch scripts
+  are keasy's dev seed data today; the set needs them to write its corpora. A copy in each
+  repository, or one owner.
+- **fossil's labels design disagrees with two decisions.** `/docs/design/labels` on fossil's
+  `claude/annotations-design` keeps `sh:name` as `sh:name` and writes `fossil/2` for a corpus with a
+  `LangString`; the owner decided `sh:name` is written as `rdfs:label` and that the format stays
+  `fossil/1`, changed in place. That page is fossil's to correct before its alpha.

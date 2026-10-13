@@ -412,7 +412,7 @@ two call sites that each wrote the reading by hand — a host's error view, over
 and the graph docs' failure overlay, a `code` lookup over an `Alert` — and it reads **a shape, not a
 class**: `code` in `area/kind`, `title`, `message`, `data`, `cause`, and `severity`, `help` and
 `related` where they are present. Every library here already throws that shape (`AuthError`,
-`GraphError`, `EngineError`, `AiError`, fossil's `FossilError`, a host's `ApiError`), so importing
+`GraphError`, `EngineError`, `LlmError`, fossil's `FossilError`, a host's `ApiError`), so importing
 none of them is what lets one component show all of them, and one more nobody has written yet.
 
 **The words are the host's, through one function.** `copy(code, data)` returns a title, a detail, a
@@ -462,3 +462,66 @@ other side.
 
 *Held by* `docs/showcases/field-notes/rudof.ts`, `Column`; `docs/showcases/discovery/data.ts`,
 `Relation`; `packages/ui/src/simples/tree-view.tsx`, `TreeViewItem`.
+
+## A question is one part, in `@kanzo-tech/ui`
+
+<Callout type="warn">**A direction, not built.** Decided 13 October 2026.</Callout>
+
+**A question put to a person is one compound in `@kanzo-tech/ui` — the question `Questionnaire`
+already draws: a `FieldSet`, its prompt, its description, its choices or its input, and its error —
+usable on its own; `Questionnaire` is the sequence and the navigation around it, and
+`@kanzo-tech/ai`'s `Question` is deleted.** There were two: `Questionnaire`'s item, which could not
+render outside a questionnaire, and `ai`'s `Question`, a radio group keasy's assistant draws a
+decision with — while Ask wrote its decisions as numbered text. A guided chat asks one question per
+turn, and a questionnaire asks several in a row; the question is the same part.
+
+It belongs in `ui` because it does not know a model exists, which is
+[the line](#the-ai-surfaces-are-their-own-package) between the two packages: a decision's options
+are data, and drawing them is a form. The parts are `Question`, `QuestionPrompt`,
+`QuestionDescription`, `QuestionChoices` and `QuestionChoice`, `QuestionInput`, `QuestionTextarea`
+and `QuestionError` — the free names once `ai`'s go, and the names
+[open](/docs/design/cleanup#open-and-asked) until the PR — and `Questionnaire` keeps its root,
+progress and actions.
+
+Its call sites are the guided chat in `@kanzo-tech/ai`, where keasy's assistant and Ask draw a
+decision ([Asking data](/docs/design/ai#a-question-to-the-person-is-the-question-part)), and
+`Questionnaire`. That is what admits `Questionnaire`, which had no product call site.
+
+**What would reverse it:** a question in the chat that a form cannot draw — a choice among charts
+drawn as charts. Then the choice's content is the host's, passed as children, and the part is the
+same.
+
+**Breaking**, in a consumer's words: `Question`, `QuestionPrompt`, `QuestionDescription`,
+`QuestionOptions` and `QuestionOption` are gone from `@kanzo-tech/ai`; import the question part
+from `@kanzo-tech/ui`. `QuestionnaireItem`, `QuestionnaireTitle`, `QuestionnaireDescription`,
+`QuestionnaireChoices`, `QuestionnaireChoice`, `QuestionnaireInput`, `QuestionnaireTextarea` and
+`QuestionnaireError` are the question part's names inside a `Questionnaire` too.
+
+## A composite stays where a product calls it
+
+<Callout type="warn">**Decided 13 October 2026.** The removals land with the cleanup's admission PR.</Callout>
+
+**`LanguagePicker`, `MadeWith`, `FieldArray`, `useAsyncCollection` and the `Preferences` parts stay
+in the root, because a product calls them: Kanzo-Tech/metadata-form, on `@kanzo-tech/ui` 0.27.**
+With each one's docs example, that is the second call site [the rule above](#an-export-needs-a-second-call-site-and-one-example-is-not-it)
+asks for — recorded here because an audit of this repository and keasy alone found none of them
+used:
+
+| Export | metadata-form's call site |
+| --- | --- |
+| `LanguagePicker` | `src/react/widgets/defaultWidgets.tsx`, the `rdf:langString` language-tag widget |
+| `MadeWith` | `src/react/form/MetadataForm.tsx`, the form's attribution line |
+| `FieldArray` | `src/react/form/FieldRenderer.tsx`, a repeated field |
+| `useAsyncCollection` | `src/react/fieldassist/Comboboxes.tsx`, a reference combobox's candidates |
+| `PreferencesRoot`, `PreferencesTrigger`, `PreferencesPanel`, `PreferencesField`, `PreferencesSections` | `playground/src/App.tsx` and `playground/src/Preferences.tsx` |
+
+**`ThemeNotice` and `FloatingPanel` leave the barrel for docs examples.** Neither has a caller in any
+product; `ThemeNotice`'s own comment contradicted the test that keeps `KanzoTheme`, and
+`FloatingPanel` is a resizable `div` under the name of Ark's floating-panel machine. An example is
+the composition, copied by whoever needs it.
+
+**What would reverse it:** metadata-form dropping one of them. Then it leaves the barrel for an
+example, unless another product has called it meanwhile.
+
+**Breaking**, in a consumer's words: `ThemeNotice`, `ThemeNoticeProps`, `ThemeRetiredCopy`,
+`FloatingPanel` and its parts are gone from `@kanzo-tech/ui`; copy the docs' example.
