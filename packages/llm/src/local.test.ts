@@ -48,6 +48,24 @@ vi.mock("@browser-ai/web-llm", () => ({
   },
 }));
 
+// WebLLM's own list, in the shape it ships: Hugging Face URLs, and what it knows of each model.
+vi.mock("@mlc-ai/web-llm", () => ({
+  prebuiltAppConfig: {
+    model_list: [
+      {
+        model: "https://huggingface.co/mlc-ai/Qwen3-8B-q4f16_1-MLC",
+        model_id: "Qwen3-8B-q4f16_1-MLC",
+        model_lib: "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/Qwen3-8B-q4f16_1-ctx4k_cs1k-webgpu.wasm",
+        overrides: { context_window_size: 4096 },
+        vram_required_MB: 3431.59,
+        low_resource_required: true,
+        required_features: ["shader-f16"],
+        integrity: { config: "sha256-prebuilt" },
+      },
+    ],
+  },
+}));
+
 const { loadLocalModel, localModel } = await import("./local");
 const { AiError } = await import("./error");
 
@@ -114,6 +132,23 @@ describe("localModel", () => {
     expect(made.at(-1)!.settings.appConfig).toEqual({
       model_list: [
         { model: "https://models.example/kanzo-tasks-q4/", model_id: "kanzo-tasks-q4", model_lib: "https://models.example/kanzo-tasks-q4.wasm" },
+      ],
+    });
+  });
+
+  it("keeps what WebLLM's prebuilt list says of a model the host serves itself, but not where it was", () => {
+    localModel("Qwen3-8B-q4f16_1-MLC", { from: { weights: "/models/qwen3-8b/", library: "/models/qwen3-8b.wasm" } });
+    expect(made.at(-1)!.settings.appConfig).toEqual({
+      model_list: [
+        {
+          model: "/models/qwen3-8b/",
+          model_id: "Qwen3-8B-q4f16_1-MLC",
+          model_lib: "/models/qwen3-8b.wasm",
+          overrides: { context_window_size: 4096 },
+          vram_required_MB: 3431.59,
+          low_resource_required: true,
+          required_features: ["shader-f16"],
+        },
       ],
     });
   });
