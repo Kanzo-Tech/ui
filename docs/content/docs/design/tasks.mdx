@@ -8,8 +8,9 @@ description: Why Ask and Fossil's assistant become one pattern — a small model
 (`defineTask`, `runTask`, `propose`, `verify`), a screen's list is `useTask`, the model is
 [`localModel`](/docs/ai/llm#localmodel) — in the page, served from the host's origin, held to a
 schema or a grammar — and [Ask](/docs/ai/data#ask) is a Task behind the chat, with its offers and
-its chips. `@kanzo-tech/mosaic`'s [`resolveRelation`](/docs/analytics/dashboard#resolving-a-relation)
-is the resolver. What is still to come is keasy's assistant on these parts, and a model of our own.
+its chips. Its relation is about to stop being chosen: the model writes paths, and `@kanzo-tech/mosaic`'s
+`JoinResolver` resolves them — [below](#ask-from-agent-to-form), a direction not yet built, which
+retires `resolveRelation`. What is still to come is keasy's assistant on these parts, and a model of our own.
 The decision record this page was drawn from is the *Kanzo Tasks* design page of 12 October 2026, and
 where the two disagree this page is the one that gets fixed.
 </Callout>
@@ -94,28 +95,372 @@ is reopened per step, by the evaluation set, not as a whole.
 
 ## Ask: from agent to form
 
-**The model fills the spec; the relation is computed.** The resolver (`@kanzo-tech/mosaic`) takes
-the shortest path in the join graph that covers the spec's fields and the page's filter. A question
-whose filter cannot reach its relation — *universities* under a chip on *Physics* — is caught before
-anything runs: no path re-plans, a tie is a `decision`. A follow-up such as *and in Germany?* is a
-patch to the previous spec, one more `where`, not a new spec.
+<Callout type="warn">
+**This section is a direction, and none of it is built.** It replaces the premise of PR #199, which had
+`resolveRelation` *choose* the relation: the shortest path from the measured type, with a branch to
+each filter's type from the step nearest it, and an answer worded by rules about column names and
+English plurals. The owner rejected both as heuristics on 13 October 2026: *base it on existing
+things, don't invent.* What follows is the replacement; the rows it discards are at the end of the
+section, each with what would bring it back.
+</Callout>
+
+**The model fills the spec, and the spec says its joins.** It writes every field as a dotted path
+from the type it measures, as Malloy writes one from its source — `affiliation.university.name`,
+`category.name` — and `JoinResolver` turns the paths into the relation the answer reads and the
+semi-joins it is narrowed by. Nothing is chosen: a path either names steps the join graph has, or it
+is a diagnostic at its pointer before anything runs. A follow-up such as *and in Germany?* is still a
+patch to the previous spec, one more `where`.
 
 ```
-Question ─▶ Linker ─▶ Planner ─▶ Resolver ─▶ Compile ─▶ Check ─▶ Chips
-            words→     fills     shortest     the tile's  empty,   editable
-            types      the spec  path         SQL         reach
+Question ─▶ Linker ─▶ Planner ─▶ JoinResolver ─▶ Compile ─▶ Check ─▶ Chips
+            words→     fills     paths → relation  the tile's  empty,   editable
+            types      paths     filters → crossing  SQL       reach
 ```
 
-The model touches only the planner, which chooses among the linker's candidates through a closed
-enum. Every chip on the answer opens its computed alternatives, and editing one re-checks without
-the model. The numbers in the reply are written from the rows, not by the model.
+The model touches only the planner, which writes paths from a closed enum. Every chip opens its
+computed alternatives, and editing one re-checks without the model.
 
 This replaced the agent's relations on [Asking data](/docs/design/ai#which-relations-are-offered)
-and its token budget on [Asking within a context](/docs/design/ai-context#the-linker-is-the-budget):
-with a linker the context is small and closed, and there is no budget to fit into.
+and its token budget on [Asking within a context](/docs/design/ai-context#the-linker-is-the-budget).
 
-**What would reverse it:** a model that picks relations as well as the resolver across the whole
-evaluation set.
+### A field is a path from what is measured
+
+**The reference is Malloy.** A Malloy source declares its joins, and a query names a joined field by
+its dotted path from the source — `group_by: carriers.nickname`, `aircraft.aircraft_models.manufacturer`
+— in `group_by`, `aggregate` and `where` alike; a join that no field names is not in the SQL. Here the
+join graph is the source's declarations, already: `JoinGraph`'s edges are the joins, and the measured
+type is the source. So a spec's every field — `show.x`, `show.y.field`, `color`, `facet`, `trend`, a
+table's `columns`, each `where[].field` — is a path:
+
+| Segment | Means | Reference |
+| --- | --- | --- |
+| `category` | the out-edge labelled `category` that leaves the type reached so far | Malloy's join name |
+| `^laureate` | the in-edge labelled `laureate`, walked backwards: the awards *of* a laureate | SPARQL 1.1's inverse path `^iri` (§9.1); ShExJ's `inverse: true`, `^` in ShExC |
+| `Award_category_Category` | the edge by its table name, where two edges of one label leave the same type | Malloy's join names are unique in a source; fossil's edge `name` is unique because the label repeats |
+| `name` (last) | the column of the type reached | Malloy's field |
+
+The empty path is the measured type: `name` on `of: "Laureate"` is the laureate's own name. Paths are
+walked from the root as the resolver walked them, never back along the edge just taken, within three
+hops.
+
+**The schema offers only paths the graph has.** The contract already closes every name with an enum
+(`answerSchema`); the field enum becomes the paths from `of`, so the schema is an `anyOf` with one
+branch per type the linker offers, each `of: { const }` beside its own `field` enum — the same
+discriminated `anyOf` the schema already writes for `show`'s three kinds. A path that does not exist
+cannot be decoded; a provider that does not constrain is checked by `JoinResolver.relation` and
+`field`, whose misses are `fixable` diagnostics at the field's pointer.
+
+**What the path removes.** Two questions the resolver answered for the model are now written by it,
+and so stop being anybody's guess:
+
+- **Which way.** *Prizes by category, in Germany* on the dev corpus has two countries two hops from
+  a prize. The model writes `laureate.birthPlace.name` or `university.addressCountry.name`; the chip
+  on that condition offers the other, because both are in the enum and both are checked. Under #199
+  this was a tie the reader was asked about before anything ran.
+- **Which step, when a type repeats.** On `Person>knows>Person`, a condition on the type `Person`
+  could not say whether it meant the person or the one they know: the linker offered `Person.firstName`
+  alone, so *people who know an Ann* was not expressible. As paths, `firstName` and `knows.firstName`
+  are two strings.
+
+**What would reverse it:** an evaluation set on which the small model, writing paths under the enum,
+answers a shape of question worse than the resolver's choice did — then that shape, and only it, gets
+a `compute` step back, written as a rule with an evidence line, not as a search. Or an enum too large
+to compile at the linker's widest context: then the field becomes a grammar —
+`segment ("." segment)* "." column`, its segments closed — which a Task may already declare instead of
+a schema.
+
+### Physics awards by university, as the model writes it
+
+The keasy assistant's Nobel graph: `Award→Laureate`, `Award→Category`, `Award→Affiliation→University`.
+
+```json
+{
+  "of": "Award",
+  "where": [{ "field": "category.name", "in": ["Physics"] }],
+  "show": { "kind": "chart", "type": "bar", "x": "affiliation.university.name", "y": { "op": "count" } }
+}
+```
+
+In Malloy, the same question:
+
+```text
+run: award -> {
+  where: category.name = 'Physics'
+  group_by: affiliation.university.name
+  aggregate: award_count is count()
+}
+```
+
+`JoinResolver.relation("Award", ["affiliation.university.name"])` is the relation the answer shows,
+`Award>affiliation>Affiliation>university>University`, with that path's column `University.name`.
+`JoinResolver.field(relation, "category.name")` finds that `category` is not a step of it: the path
+leaves it at the root, so it is read through the branch `Award>category>Category`, column
+`Category.name`, crossed at the root's key. The SQL, as `relationQuery` and `crossing` write it:
+
+```sql
+SELECT "University.name" AS x, count(*) AS y
+FROM (
+  SELECT t0.dense_id AS dense_id, t0.year AS "Award.year",
+         t1.dense_id AS "Affiliation.dense_id", t1.name AS "Affiliation.name",
+         t2.dense_id AS "University.dense_id", t2.name AS "University.name"
+  FROM Award t0
+  JOIN Award_affiliation_Affiliation e1 ON e1.src = t0.dense_id
+  JOIN Affiliation t1 ON t1.dense_id = e1.dst
+  JOIN Affiliation_university_University e2 ON e2.src = t1.dense_id
+  JOIN University t2 ON t2.dense_id = e2.dst
+)
+WHERE dense_id IN (
+  SELECT dense_id FROM (
+    SELECT t0.dense_id AS dense_id, t0.year AS "Award.year",
+           t1.dense_id AS "Category.dense_id", t1.name AS "Category.name"
+    FROM Award t0
+    JOIN Award_category_Category e1 ON e1.src = t0.dense_id
+    JOIN Category t1 ON t1.dense_id = e1.dst
+  ) WHERE "Category.name" IN ('Physics')
+)
+GROUP BY x ORDER BY y DESC LIMIT 1000
+```
+
+Before, the model wrote `"field": "Category.name"` and `"x": "University.name"` — types, not paths —
+and `resolveRelation` searched for the shortest path covering `University` and the shortest branch
+reaching `Category`. The SQL was the same here; what changes is who said which joins, and that a
+graph with two ways to `Category` is no longer a question the code answers.
+
+**The inverse, and a filter on a many branch.** *Laureates with a Physics prize, by gender*:
+
+```json
+{ "of": "Laureate",
+  "where": [{ "field": "^laureate.category.name", "in": ["Physics"] }],
+  "show": { "kind": "chart", "type": "bar", "x": "gender", "y": { "op": "count" } } }
+```
+
+The shown relation is `Laureate` alone; the condition is read through `Laureate<laureate<Award>category>Category`
+and crossed at the laureate's key — `dense_id IN (SELECT dense_id FROM (…) WHERE "Category.name" IN ('Physics'))`.
+A laureate with two Physics prizes is counted once, because the branch's rows never reach the count.
+
+### A filter off the shown path is crossed in, not joined
+
+**Decided: the semi-join the page already uses, `JoinResolver.crossing`.** A condition whose path
+leaves the shown relation is read through the branch from the step it leaves at, and narrows the
+answer as a chip on another relation narrows a tile: `step key IN (SELECT branch root key FROM branch
+WHERE …)`. A condition on the shown relation is its clause, as it is.
+
+**Malloy's way, and what it costs here.** Malloy joins every path a query names into one query —
+left outer joins, `join_many` declared on the join — and keeps every aggregate right over the fan-out
+by computing it *symmetrically*: `count()` counts the source's rows, and `sum` and `avg` over a joined
+row are deduplicated by key. Its DuckDB dialect writes a symmetric sum as
+`(SELECT sum(a.val) FROM (SELECT UNNEST(list(distinct {key: k, val: v})) a))` per group (verified in
+`packages/malloy/src/dialect/duckdb/duckdb.ts`, 13 October 2026). For *Awards by category at Harvard*
+— `"x": "category.name"`, `"where": [{ "field": "affiliation.university.name", "in": ["Harvard University"] }]` —
+Malloy left-joins affiliation and university, multiplies each award by its affiliations, filters, and
+counts `DISTINCT` award keys; an `avg` of the award's `share` would take the `list(distinct …)` form.
+
+| | Semi-join (`crossing`) | Joins and symmetric aggregates |
+| --- | --- | --- |
+| Rows the measure sees | the shown relation's, never multiplied by a filter | multiplied by every many-branch, then deduplicated |
+| Measures | `measureExpr` as it is, all eight | a symmetric variant of each; Malloy lists only `count`, `sum` and `avg` as having one — `median` and `share` have none |
+| mosaic-sql | `InOpNode` over a `ScalarSubqueryNode`, what `crossing` builds today | no node for `list(distinct {…})`: raw `sql` in every measure |
+| DuckDB-WASM | a hash semi-join on keys, one per branch | the fanned rows held per group in lists, single-threaded, inside the page's memory |
+| The page | one way to narrow by another relation: a chip and a condition are the same predicate | a second way beside the crossfilter's |
+
+Where the two agree is every question a filter asks — *awards with a Physics category* is the same set
+of awards either way, and a count of them is the same number. Where they differ is a measure *on* the
+branch (`affiliation.count()` while grouping by category), which is no longer a filter: it is a second
+shown path.
+
+**Two shown paths must be one path.** The relation an answer shows is still one path — what a tile
+is keyed by, what a clause is published on, what `relationQuery` compiles. Paths that diverge
+(`x: category.name`, `color: affiliation.university.name`) are a `join/branches` miss, said before
+anything runs.
+
+**What would reverse it:** a condition whose meaning needs the branch row and the shown row to be one
+row — *awards by university where that university's laureate is a woman* — which a semi-join on the
+branch's root cannot say; or a question that shows two branches. Either makes the relation a tree,
+and a tree is Malloy's: joins, `join_one`/`join_many` declared from the shape's cardinality (ShExJ's
+`min`/`max` on the triple constraint, which fossil's manifest does not carry today), and symmetric
+aggregates.
+
+### `JoinResolver` is the one door to the joins
+
+**Resolving a path and crossing a clause are one thing: resolving joins over the graph.** So they are
+one class, Mosaic's own resolver extended (`crossfilter.ts`), sharing the graph and one notion of a step
+and its key. The dashboard reaches it through the page's selection (`crossfilterOver`); Ask reaches the
+same instance through the same selection, or `new JoinResolver(graph)` where there is no page.
+`resolve.ts` is deleted: `resolveRelation`, `RelationNeeds`, `Resolved` and #199's `Resolution` leave
+the barrel, and nothing of the shortest-path search survives — the walk that enumerates paths for the
+schema is a walk, it chooses nothing.
+
+```ts
+/** A step of a relation: where it is on the path, its type, the prefix its columns go by, and its key. */
+export interface JoinStep {
+  readonly path: string;   // "" the root, "affiliation", "affiliation.university", "^laureate"
+  readonly type: string;
+  readonly alias: string;  // "University"; "Person2" on a repeat — relationQuery's naming, unchanged
+  readonly key: string;    // "dense_id" on the root, "University.dense_id" beyond
+}
+
+/** Where a path's column is read for an answer on `on`: on it, or through a branch leaving it at `at`. */
+export interface JoinField {
+  readonly relation: Relation;  // `on` itself, or the branch
+  readonly column: string;      // "Category.name"
+  readonly at: string;          // the JoinStep.path of `on` the branch leaves from
+}
+
+export type JoinMiss =
+  | { readonly code: "join/no-step"; readonly path: string; readonly segment: string; readonly at: string }
+  | { readonly code: "join/no-field"; readonly path: string; readonly type: string; readonly column: string }
+  | { readonly code: "join/branches"; readonly paths: readonly [string, string] };
+
+export class JoinResolver extends MosaicResolver {
+  constructor(joins: JoinGraph | null);
+  readonly joins: JoinGraph | null;
+
+  // Mosaic's, unchanged: the page's crossfilter.
+  predicate(clauses: SelectionClause[], active: SelectionClause | null, client: MosaicClient | null | undefined): FilterExpr | undefined;
+  crosses(client: MosaicClient | null | undefined, clause: SelectionClause): boolean;
+
+  // One notion of a step: relationSteps and relationIdentities, folded.
+  steps(relation: Relation): readonly JoinStep[];
+  /** Every field path from `root` within `hops`: Ask's enum. */
+  paths(root: string, hops?: number): readonly string[];
+
+  // A path, resolved.
+  /** The one relation the `shown` paths lie on, and each path's column in it. */
+  relation(root: string, shown: readonly string[]): { relation: Relation; columns: ReadonlyMap<string, string> } | JoinMiss;
+  field(on: Relation, path: string): JoinField | JoinMiss;
+
+  // A clause, crossed.
+  /** The step of `to` a clause on `from` crosses in at: the first whose type meets `from`'s root. */
+  at(to: RelationRef, from: RelationRef): JoinStep | undefined;
+  /** `predicates` on `from`, as a filter of `to` at step `at` (default: `this.at(to, from)`), or FALSE. */
+  crossing(from: RelationRef, predicates: readonly ExprNode[], to: RelationRef, at?: string): ExprNode;
+}
+```
+
+`crossing` gains one argument, `at`, because a branch says which step it leaves from: on
+`Person>knows>Person` a condition on `knows.firstName` is crossed at `Person2`'s key, where the
+type-matching rule would have taken the root. The page's crossfilter passes none, and is unchanged.
+
+How the two callers reach it, on the example above:
+
+```ts
+// Ask — the page's resolver, or a new one where there is no page.
+const resolver = selection.resolver as JoinResolver;
+const shown = resolver.relation("Award", ["affiliation.university.name"]);
+// → { relation: Award>affiliation>Affiliation>university>University, columns: { "affiliation.university.name" → "University.name" } }
+const f = resolver.field(shown.relation, "category.name");
+// → { relation: Award>category>Category, column: "Category.name", at: "" }
+const where = resolver.crossing(f.relation, [clausePoints([f.column], [["Physics"]]).predicate], shown.relation, f.at);
+// The page's chips still reach the answer: every clause's relation must have resolver.at(shown.relation, it).
+
+// The dashboard — unchanged: a chip on Award>category>Category, read by a tile on Award.
+crossfilterOver(graph); // new Selection(new JoinResolver(graph)); predicate() → crossing(from, preds, to)
+```
+
+**What would reverse it:** a caller of the joins that is neither a page nor an answer — a second
+resolver with no selection — which splits the path half into a module of its own beside the crossing
+half, not a second concept.
+
+### Words come from the data's own metadata
+
+**An answer's words are its data's labels; the code supplies none.** The title, the chips and the
+axis read each type, field and relation by the label its shape gave it, in the page's language. A
+fossil corpus carries each one's IRI already (`fossil.json`: `vertex_tables[].iri`, `properties[].iri`,
+`edge_tables[].iri`), and fossil is adding their annotations in ShExJ's shape —
+`annotations: [{ predicate, object: { value, language? } }]`, ShEx 2.1 §5.9, which annotates a
+`Shape` and a `TripleConstraint`, the type and the property or edge.
+
+- **A type's naming column is the property whose IRI is a labelling property** — never a column
+  called `name`. The labelling properties are `rdfs:label` and the ones their own vocabulary declares
+  a sub-property of it: `skos:prefLabel` (SKOS), `schema:name` (schema.org, `rdfs:subPropertyOf
+  rdfs:label` in `schema.ttl`; both `http:` and `https:`), `foaf:name` (FOAF's RDF). Preferred in
+  rdflib's order — `preferredLabel`'s `labelProperties=(SKOS.prefLabel, RDFS.label)`, *prefLabels over
+  labels* (rdflib 5.0.0 `Graph.preferredLabel`) — then the sub-properties in the table's order. The
+  Nobel shapes name with `foaf:name` and `schema:name`, so the dev corpus is named without a rule
+  about column names. A type with none has no naming column, and a row is read by its identity's
+  local name — `localName`, what `@kanzo-tech/graph` already falls back to.
+- **A type's, a field's and a relation's words are its `rdfs:label` or `sh:name` annotation** (SHACL
+  §2.3's non-validating `sh:name`), in the page's language: the language of `<html lang>`, matched by
+  RFC 4647 §3.4's lookup — `es-AR`, then `es` — then an untagged literal, as Wikidata's label service
+  falls back through its language list.
+- **The identifier split is the last resort,** for a name nothing annotates: `birthPlace` is
+  *birth place*. It never inflects.
+- **Lists and numbers are the platform's,** in the page's locale: `Intl.ListFormat` (`conjunction`),
+  `Intl.NumberFormat`, and `Intl.PluralRules` to choose between the forms a message has — never to
+  inflect a label, which no labelling vocabulary gives a plural of.
+
+**Where the labels come from, end to end.** `fossil.json` → `@fossil-lang/corpus`'s `open`, which
+attaches the manifest as `fossil_tables` (with `iri`) and `fossil_columns` (with `iri`) — the
+annotations as a third relation, a row per annotation (`table_name`, `column_name`, `predicate`,
+`value`, `language`), first normal form for the reason property tables are — → `@kanzo-tech/graph`'s
+`readStructure` (`packages/graph/src/core/source.ts`), which today reads neither `iri`, and carries
+them on `VertexTable`, `Column` and `EdgeTable` → `joinGraphOf` (`join-graph.ts`) onto `JoinType`,
+its columns and `JoinEdge` as `{ iri?, annotations? }` → keasy's `readJoinGraph` in
+`web/src/lib/fossil/corpus.tsx`, and `readAnswerRelations` in `web/src/lib/fossil/ask.ts` →
+`AskInput.graph`. Keasy's new-graph assistant builds its graph from the accepted shapes instead
+(`requirements.ts`'s `joinGraphOf`), and reads the same annotations from the ShEx itself.
+
+On Nobel, with `nobel:LaureateAward` labelled `"award"@en` and `"premio"@es`, and `dbo:University`
+`"university"@en` and `"universidad"@es`: the answer above is titled *Award count by university* —
+the noun adjunct needs no plural — its chips read *Counting: award*, *By: university*,
+*Category: Physics* (*Categoría* under `lang="es"` with `"categoría"@es`), and its axis *university*.
+Before, `NAME = /^(name|label|title)$/` decided that `University.name` stands for its type, and
+`nameWords` added an `s`.
+
+**What would reverse it:** a corpus with no IRIs and no annotations as the common case in the
+evaluation set, which leaves every answer on the identifier split — then a host's own labels, handed
+in beside the graph and read by the same functions, before any rule about column names.
+
+### The sentence after a chart is not decided
+
+Nothing references one. Two options are open, and the owner chooses:
+
+- **A minimal template, built only from `Intl` and labels.** The figure for a stat; for a bar, the
+  leading bars and their value, ties named together through `Intl.ListFormat`, numbers through
+  `Intl.NumberFormat`: *Univ. of California: 12; Harvard University and MIT: 9.* No verbs that need
+  agreement, no plural noun.
+- **None.** The chart and its title say it; the reply carries the chips and the tile.
+
+### What #199 keeps, and what it changes
+
+**Keeps, uncontroversial:** `ChartCard` ticking a count and a distinct count at whole numbers from
+zero; the bar label band widening to its labels, up to 28 characters, before it cuts one; the
+gesture hint as a sentence, *Click a bar to filter*; their section on
+[Analytics](/docs/design/analytics) and the `@kanzo-tech/ui` patch changeset, less `nameWords`.
+
+**Changes:**
+
+| #199 | Becomes |
+| --- | --- |
+| `resolveRelation` with `filters`, `Resolution`, `through`, `ambiguous.options` | deleted; `JoinResolver.relation`, `field`, `paths` |
+| `Answer.through`, `wherePredicates` | a condition's `JoinField`, crossed by `JoinResolver.crossing` with its `at` |
+| fields named `Type.column` in the spec, and `askRelation` searching for them | paths from `of`, an enum per `of` |
+| `AskTurn.choices` and *Which way should this be counted?* | gone with the ties; the other path is the chip's alternative |
+| `words.ts`'s `NAME`, `nameWords`' `+s`, the `OP` words, `list`, `toLocaleString("en")` | labels by IRI and annotation, `Intl`, the split as the last resort |
+| `answerSummary` | the owner's choice, above |
+| the `@kanzo-tech/mosaic` and `@kanzo-tech/ai` changesets | rewritten for the paths and the labels |
+| `nameWords` exported from `@kanzo-tech/ui/analytics` | held until the labels land: `RelationPicker`'s `plural` and `+s` are the same rule |
+
+### Discarded, and what would bring each back
+
+- **`resolveRelation`'s choice of the shortest path** covering the spec's types and the page's
+  clauses (on `main`), and **#199's branches from the nearest step.** A search that guessed what a
+  question meant wherever two ways existed, and could not name a step of a repeated type. *Back if*
+  the evaluation set shows the model writing paths worse than the search chose them, for a shape of
+  question — then that shape gets a `compute` step, inside `JoinResolver`, not a module beside it.
+- **`resolveRelation` kept as a private helper of `JoinResolver`.** A second concept, a search, inside
+  the one that resolves. *Back with* the row above, and only as much of it as that shape needs.
+- **Joins and symmetric aggregates for a filter off the path** (Malloy's, LookML's). *Back if* a
+  condition needs the branch row and the shown row to be one, or an answer shows two branches.
+- **Paths as `relationQuery`'s column names** (`affiliation.university.name` in place of
+  `University.name`). One spelling throughout, but a rename of every saved dashboard's fields for
+  Ask's sake. *Back if* a dashboard reader is misled by `Person2`.
+- **A column named `name`, `label` or `title` naming its type.** A rule about spellings where the IRI
+  says it. *Back if* corpora without IRIs are the common case — and then as a host's labels first.
+- **English pluralisation** (`+s`, `-ies`) of a label. Wrong outside English and for every irregular
+  noun; no labelling vocabulary carries a plural. *Back if* one does — then it is read, not derived.
+- **`toLocaleString("en")` and a list joined by hand.** The platform has both, in every locale.
+  Nothing found that would bring them back.
 
 ## Suggest and complete stop being the split
 
@@ -257,7 +602,10 @@ isolation, which keasy can afford — below.
 | No separate phase of measuring today's system | It is known to fail and is being replaced; the evaluation set is needed anyway, as tests, gate and distillation data | That the set cannot be built without measuring today's system first; then one more pass, not a phase |
 | Every piece on a standard or a reference library | Less code of our own, known behaviour, someone else's documentation | A reference that requires a server runtime or persistent state not needed here; then we take its shape, not its package |
 | Generate, verify, repair instead of a free agent | The model decides little and every decision has an oracle | A free agent with the same small model matching execution accuracy across the set |
-| The relation is computed | The *University* × *Physics* failure is caught before running | A model that picks relations as well as the resolver across the set |
+| The relation is written as paths and validated, not computed | A path says which way and which step, so nothing is chosen; a path the graph lacks is caught before running | The model writing paths worse than the shortest-path search chose them, on a shape of question in the set |
+| One door to the joins, `JoinResolver` | Resolving a path and crossing a clause are one concept over one graph and one notion of a step | A caller of the joins with no selection and no answer |
+| A filter off the shown path is a semi-join, `crossing` | The page's own way to narrow by another relation; every measure as it is; no fanned rows in DuckDB-WASM | A condition needing the branch row and the shown row to be one, or an answer showing two branches |
+| Words are the data's labels, by IRI and annotation | The corpus says what names a type and what it is called, in which language | Corpora without IRIs or annotations as the common case |
 | The mapping is Fossil, written under a grammar with the names closed | The language is statically typed: the grammar stops a name that does not exist and the checker judges the rest, so a format of our own in between would only be a second language to keep — it was built, and reverted | A small model under the grammar failing the competency questions where a spec it filled and an emitter wrote passes them |
 | Profile replaces introspect | One way to read sources, for the compiler, the assistant and the linker | A host that cannot afford the statistics; the answer is a mode of Profile, not a second package |
 | Profile is sans-IO, inside the wasm closure | One implementation for browser and LSP, watched by the wasm gate | A query only one host can run; that query is marked per host, the module is not duplicated |
