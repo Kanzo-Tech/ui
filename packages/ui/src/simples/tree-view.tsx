@@ -150,9 +150,13 @@ const treeViewControlVariants = tv({
     "rounded-md border-none",
     "cursor-pointer",
     "hover:bg-muted hover:text-foreground",
+    // Focus is painted for the keyboard only. Ark's `data-focus` is its roving tab stop, and with
+    // nothing focused it marks the first node — at rest, before anyone has touched the tree — so a
+    // row styled on it reads as chosen on mount. `:focus-visible` is the browser's answer to "is the
+    // reader steering by keyboard".
     "outline-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2",
+    "focus-visible:bg-muted focus-visible:text-foreground",
     "data-selected:bg-accent data-selected:text-accent-foreground",
-    "data-focus:bg-muted data-focus:text-foreground",
     "data-disabled:opacity-64 data-disabled:grayscale",
     "[&_svg]:size-4 [&_svg]:shrink-0",
   ],

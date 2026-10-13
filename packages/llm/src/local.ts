@@ -1,4 +1,5 @@
 import { doesBrowserSupportWebLLM, webLLM, type WebLLMProgress } from "@browser-ai/web-llm";
+import { type ModelRecord, prebuiltAppConfig } from "@mlc-ai/web-llm";
 import { extractReasoningMiddleware, type LanguageModel, type LanguageModelMiddleware, wrapLanguageModel } from "ai";
 
 /** A call's options and a generation's result, as the middleware sees them. */
@@ -33,7 +34,10 @@ export interface LocalModelSettings {
   /**
    * Where the model is served from: its weights (an MLC model directory, by URL) and its compiled
    * library (the `.wasm`). A host serves its own so the page reaches no third party; without it the
-   * id is looked up in WebLLM's prebuilt list, which downloads from Hugging Face.
+   * id is looked up in WebLLM's prebuilt list, which downloads from Hugging Face. An id that is in
+   * that list keeps what the list says of the model — its `overrides` (the context window among
+   * them), its VRAM and the GPU features it needs — so serving it from elsewhere changes where it
+   * comes from and nothing else.
    */
   from?: { weights: string; library: string };
 }
@@ -131,6 +135,19 @@ export function loadLocalModel(model: string, settings: LocalModelSettings = {})
   return engine(model, settings).load();
 }
 
+/**
+ * The record for `model` served from `from`: WebLLM's prebuilt entry for the same id, when there is
+ * one, with only where it is fetched from replaced. Its `integrity` and `model_manifest` describe the
+ * files at the prebuilt location, so they stay there.
+ */
+function served(model: string, from: { weights: string; library: string }): ModelRecord {
+  const prebuilt = prebuiltAppConfig.model_list.find((record) => record.model_id === model);
+  const record: ModelRecord = { ...prebuilt, model: from.weights, model_id: model, model_lib: from.library };
+  delete record.integrity;
+  delete record.model_manifest;
+  return record;
+}
+
 function engine(model: string, settings: LocalModelSettings) {
   const known = engines.get(model);
   if (known) return known;
@@ -139,9 +156,7 @@ function engine(model: string, settings: LocalModelSettings) {
     initProgressCallback: settings.onProgress
       ? (report: WebLLMProgress) => settings.onProgress?.({ progress: report.progress, text: report.text })
       : undefined,
-    appConfig: settings.from
-      ? { model_list: [{ model: settings.from.weights, model_id: model, model_lib: settings.from.library }] }
-      : undefined,
+    appConfig: settings.from ? { model_list: [served(model, settings.from)] } : undefined,
   });
   const unavailable = () =>
     new AiError("ai/unavailable", `This browser cannot run ${model}: it has no WebGPU`, { reason: "webgpu" });

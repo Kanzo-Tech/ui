@@ -16,14 +16,18 @@ export type { AssistEvent, Proposal } from "./engine.js";
 export { Chat, ChatSkeleton } from "./chat.js";
 export type { ChatProps, ChatSkeletonProps, ChatToolRenderers, ChatTranslations } from "./chat.js";
 
-// The parts `Chat` draws with, for a transcript of the host's own: a turn, a tool call bound to its
-// AI SDK part, and a model's reasoning folded away.
+// The parts `Chat` draws with, for a transcript of the host's own: the scroll region that follows
+// the tail only while the reader is there, a turn, a tool call bound to its AI SDK part, a model's
+// reasoning folded away, and the composer.
+export { Conversation, ConversationContent, ConversationScrollButton } from "./conversation.js";
 export { Message, MessageActions, MessageAvatar, MessageContent, MessageList } from "./message.js";
 export type { MessageAvatarProps, MessageProps, MessageRole } from "./message.js";
 export { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from "./tool.js";
 export type { ToolPart } from "./tool.js";
 export { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning.js";
 export type { ReasoningProps } from "./reasoning.js";
+export { PromptInput, PromptInputSubmit, PromptInputTextarea, PromptInputToolbar } from "./prompt-input.js";
+export type { PromptInputSubmitProps } from "./prompt-input.js";
 
 // What a Task offers a screen, as a list it asks for, edits and dismisses.
 export { useTask } from "./use-task.js";

@@ -13,12 +13,14 @@ description: What knows a model is on the other end — Tasks, where a small mod
 | `useAskChat` + `AnswerCard` | A conversation with data: Ask, which answers with a dashboard tile over a relation of the page's DuckDB, and the card each answer is drawn in — `@kanzo-tech/ai/data` | [Ask your data](/docs/ai/data) |
 
 `Chat` is the door, and it is the whole conversation wired: five compounds a host used to assemble
-by hand became one. The parts it draws with — the message, the tool frame, the reasoning fold — are
-exported beside it, for a transcript that is not `Chat`'s: an agent's log, a review pane. They were
-internal until a host needed them one at a time, which is the evidence that reverses *wire them for
-everyone*: a part with a second arrangement is a part. The composer and the ✨ stay internal, since
-nothing draws them but `Chat` and `Assist`, and would come out the same way. [The parts](/docs/ai/chat#the-parts)
-lists them.
+by hand became one. The parts it draws with — the scrolling transcript, the message, the tool frame,
+the reasoning fold, the composer — are exported beside it, for a transcript that is not `Chat`'s: an
+agent's log, a review pane, a guided conversation whose turns are the host's. They were internal
+until a host needed them one at a time, which is the evidence that reverses *wire them for
+everyone*: a part with a second arrangement is a part. The transcript and the composer came out
+last, when keasy's guided chat drew both by hand — the scroll as an effect that follows every turn,
+the composer from `InputGroup` with Enter wired again. The ✨ stays internal, since nothing draws it
+but `Assist`, and would come out the same way. [The parts](/docs/ai/chat#the-parts) lists them.
 
 The model behind all of them is the [AI SDK](https://ai-sdk.dev)'s, and a host reaches it through
 [`@kanzo-tech/llm`](/docs/ai/llm), never through `ai` directly — [in the page](/docs/ai/llm#localmodel),

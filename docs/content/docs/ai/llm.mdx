@@ -90,7 +90,10 @@ and why its Tasks use no tools, is [Tasks](/docs/design/tasks).
 
 **Serve the model yourself, and load it before it is asked.** Without `from`, the id is looked up in
 WebLLM's prebuilt list and the weights come from Hugging Face; with it, from your own origin, so the
-page reaches no third party:
+page reaches no third party. An id that is in the prebuilt list keeps what the list says of the model —
+its `overrides` (the context window WebLLM runs it at, 4096 tokens for Qwen3-4B, rather than the larger
+one in `mlc-chat-config.json`), its VRAM and the GPU features it needs — so `from` changes where the
+model comes from and nothing else:
 
 ```ts
 const settings = {
