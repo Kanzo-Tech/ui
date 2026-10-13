@@ -23,9 +23,10 @@ import { Coordinator, decodeIPC, DuckDBWASMConnector } from "@uwdata/mosaic-core
  * `query` — `CREATE OR REPLACE SECRET … (TYPE s3, …, SCOPE 's3://bucket/prefix/')` — and names the
  * objects by their own URLs. There is no method for it: the secret is SQL, and `query` is the door.
  *
- * **It reads Parquet from boot.** `parquet` is loaded before `httpfs`, since every corpus is Parquet
- * and the boot sets its footer cache. DuckDB-WASM builds in neither: its one statically linked extension is
- * `core_functions`.
+ * **It reads Parquet and JSON from boot.** `parquet` is loaded before `httpfs`, since every corpus is
+ * Parquet and the boot sets its footer cache; `json` after them, for `read_json_auto` — a JSON source a
+ * profile or a query names, and `loadJSON`. DuckDB-WASM builds in none of the three: its one statically
+ * linked extension is `core_functions`.
  *
  * **Nothing is fetched from a CDN.** DuckDB-WASM's worker and module and its extensions are named
  * with `new URL(…, import.meta.url)`, so the host's bundler emits them as assets and the page
@@ -112,7 +113,7 @@ const served = (asset: URL) => new URL(asset.href, location.href).href;
  * as DuckDB-WASM documents for webpack: the bundler resolves it to that dependency. The extensions are
  * not on npm, so `scripts/extensions.mjs` fetches the pinned builds into `extensions/` and the tarball
  * carries them. Each is `LOAD`ed by URL, which DuckDB accepts under a hashed file name as long as the
- * name still starts with the extension's — `parquet.`, `httpfs.` — the entrypoint is looked up by that
+ * name still starts with the extension's — `parquet.`, `httpfs.`, `json.` — the entrypoint is looked up by that
  * prefix.
  */
 function builds() {
@@ -123,6 +124,7 @@ function builds() {
       extensions: [
         served(new URL("../extensions/wasm_mvp/parquet.duckdb_extension.wasm", import.meta.url)),
         served(new URL("../extensions/wasm_mvp/httpfs.duckdb_extension.wasm", import.meta.url)),
+        served(new URL("../extensions/wasm_mvp/json.duckdb_extension.wasm", import.meta.url)),
       ],
     },
     eh: {
@@ -131,6 +133,7 @@ function builds() {
       extensions: [
         served(new URL("../extensions/wasm_eh/parquet.duckdb_extension.wasm", import.meta.url)),
         served(new URL("../extensions/wasm_eh/httpfs.duckdb_extension.wasm", import.meta.url)),
+        served(new URL("../extensions/wasm_eh/json.duckdb_extension.wasm", import.meta.url)),
       ],
     },
   };
