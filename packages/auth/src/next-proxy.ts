@@ -100,8 +100,8 @@ const HOP_BY_HOP = [
  * - `origin` and the Fetch Metadata headers — what a browser says about the page that caused *its*
  *   request (RFC 6454 §7, W3C Fetch Metadata), which `isSameSite` has already read. The request to
  *   the upstream is this server's, caused by no page, and an upstream that checks `Origin` — Docker
- *   Model Runner behind the AI gateway refuses any it does not list with a 403 — would otherwise
- *   judge a browser that never addressed it.
+ *   Model Runner refuses any it does not list with a 403 — would otherwise judge a browser that
+ *   never addressed it.
  */
 const NOT_FORWARDED = [
   ...HOP_BY_HOP,
