@@ -164,8 +164,8 @@ While they are on their way, pass `proposing`: the strip draws pills in skeleton
 the strip, so it keeps its height when they land. **A failure throws** — `propose` rejects with what
 stopped the model — and on a failure the host passes `proposals={[]}` and says why in `notice`:
 **the failure takes the pills' place**, drawn as the host draws any failure (its `Problem`, with a
-retry), and the conversation works the same without pills. `notice` is `ProposalStrip`'s, the words
-`Assist` puts in place of its candidates; it is drawn only while the strip has nothing to offer. A
+retry), and the conversation works the same without pills. `notice` is what
+`Assist` puts in place of its candidates too; it is drawn only while the strip has nothing to offer. A
 host that offers none at all leaves `proposals` out, and there is no strip.
 
 **A pill never outgrows the strip.** A question longer than the panel is as wide as the strip and
@@ -183,9 +183,9 @@ surfaces.
 *What would reverse the missing mark:* a strip drawn where nothing around it says a model wrote it.
 Then the mark comes back, on that host's side.
 
-*Held by* `packages/ai/src/proposal-strip.test.tsx`, "describes each pill by its
-rationale", "is the strip in skeleton while proposals
-arrive, busy until they have".
+*Held by* `packages/ui/src/simples/suggestions.test.tsx`, "shows its description in the tooltip,
+under the whole label, and is described by it", "holds room for them as pills in skeleton, busy until
+they have arrived".
 
 An empty strip was the failure's look before: a reader shown no pills could not tell a model with
 nothing to offer from a call that was refused, and a host had no place to say which. The strip sits
@@ -247,7 +247,8 @@ turns the host decides:
 | `PromptInput`, `PromptInputTextarea`, `PromptInputToolbar`, `PromptInputSubmit` | The composer: a form, so <kbd>Enter</kbd> and the button are one path; the field named by its placeholder; the strip of controls under it; the button that is *Send*, *Stop* or *Retry* by the chat's `status` |
 
 Their props are `MessageProps`, `MessageAvatarProps`, `MessageRole`, `ReasoningProps` and
-`PromptInputSubmitProps`. A transcript of the host's own is the three in order — the composer
+`PromptInputSubmitProps`. What a guided chat draws beyond these — a question answered by picking,
+work under way, a model's offers, a model as it loads — is [A guided chat](/docs/ai/guided). A transcript of the host's own is the three in order — the composer
 outside the scroll region, so it stays put while the transcript moves:
 
 ```tsx
@@ -288,7 +289,7 @@ The types are exported as `ChatProps`, `ChatSkeletonProps`, `ChatToolRenderers`,
 ## AI Elements is a source, not a reference
 
 The behaviours above — the pin, the fold that opens while it streams, the tool frame that opens when
-it settles — come from Vercel's AI Elements; the names, and the decision to ship one door rather than
-the parts, are this house's. AI Elements is not installable here, so nothing goes red when this
+it settles — come from Vercel's AI Elements; the names, and the decision to ship a door beside the
+parts, are this house's. AI Elements is not installable here, so nothing goes red when this
 drifts from it. [The references](/docs/design/references#ai-elements-is-a-source-not-a-reference) has
 what was taken, what was re-pointed and what was refused.

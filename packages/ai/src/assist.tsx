@@ -1,10 +1,10 @@
 "use client";
 
 import { ark } from "@ark-ui/react/factory";
-import { Undo2Icon } from "lucide-react";
+import { Undo2Icon, XIcon } from "lucide-react";
 import * as React from "react";
 import type { LanguageModel } from "@kanzo-tech/llm";
-import { cn, Kbd } from "@kanzo-tech/ui";
+import { Button, ButtonGroup, cn, Kbd, Suggestion, Suggestions } from "@kanzo-tech/ui";
 import { AiMark } from "./ai-mark.js";
 import {
   type AssistEvent,
@@ -14,7 +14,7 @@ import {
   useContinuation,
 } from "./engine.js";
 import { type FieldBrief, candidates, continuation } from "./proposals.js";
-import { PILLS, ProposalStrip } from "./proposal-strip.js";
+import { PILLS } from "./pills.js";
 
 // ── The words ────────────────────────────────────────────────────────────────
 
@@ -601,23 +601,41 @@ function Candidates(props: {
   const { list, onPick, t } = props;
   if (list.status === "idle" && list.items.length === 0) return null;
   return (
-    <ProposalStrip
-      dismiss={{ label: t.dismiss, onDismiss: list.dismiss }}
-      notice={
-        list.status === "error" ? (
-          <Failure error={list.error} status={list.status} t={t} />
-        ) : list.status === "ready" ? (
-          <span className="text-muted-foreground text-sm" data-slot="assist-empty">
-            {t.empty}
-          </span>
-        ) : null
-      }
-      onSelect={onPick}
+    <Suggestions
+      className="min-h-7 w-full"
       pending={list.status === "loading" ? PILLS - list.items.length : 0}
-      // A failure is the answer, even after some arrived: the reader is told, not left with a part.
-      proposals={list.status === "error" ? [] : list.items}
       slot="assist-candidates"
-    />
+    >
+      {/* A failure is the answer, even after some arrived: the reader is told, not left with a part. */}
+      {list.status !== "error" &&
+        list.items.map((p) => (
+          // Two buttons in a group: a `<button>` cannot hold a button. The ✕ is always drawn — a
+          // hover-only control is unreachable by keyboard and absent on touch.
+          <ButtonGroup aria-label={p.text} key={p.text} slot="proposal">
+            <Suggestion description={p.rationale} onSelect={onPick} value={p.text}>
+              {p.text}
+            </Suggestion>
+            <Button
+              aria-label={t.dismiss(p.text)}
+              className="h-auto min-h-7 self-stretch px-2 py-1"
+              onClick={() => list.dismiss(p.text)}
+              pill
+              size="sm"
+              slot="proposal-dismiss"
+              variant="outline"
+            >
+              <XIcon />
+            </Button>
+          </ButtonGroup>
+        ))}
+      {list.status === "error" ? (
+        <Failure error={list.error} status={list.status} t={t} />
+      ) : list.status === "ready" && list.items.length === 0 ? (
+        <span className="text-muted-foreground text-sm" data-slot="assist-empty">
+          {t.empty}
+        </span>
+      ) : null}
+    </Suggestions>
   );
 }
 

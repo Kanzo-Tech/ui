@@ -1,0 +1,110 @@
+---
+title: A guided chat
+description: The parts a conversation whose turns the host decides is built from, beside the transcript and the composer — a question answered by picking, work under way, and a model in the page as it loads.
+---
+
+<ComponentPreview componentName="guided" />
+
+[`Chat`](/docs/ai/chat) is a conversation whose turns are the model's. A **guided** chat is one whose
+turns are the host's — keasy's assistant asks which files to read, reads them, says what it found,
+puts the decisions it cannot take to the person and offers questions to ask — and it is drawn from
+[Chat's parts](/docs/ai/chat#the-parts) and these three, so no turn is hand-rolled:
+
+| Part | For | AI Elements |
+| --- | --- | --- |
+| `Question` and its parts | A question put to the person, answered by picking one option | `Question` |
+| `Working` | Work under way, said: a spinner and its words | `Shimmer`, `Loader` |
+| `ModelBadge` | A model in the page, as it downloads and loads | `Context` |
+
+What a model offers is `@kanzo-tech/ui`'s `Suggestions`, which knows no model: each `Suggestion`'s
+`description` is its rationale, in the tooltip, and `pending` (`SuggestionsProps`) holds room for
+the pills still arriving, in skeleton, the strip `aria-busy` until they land. `Chat` and `Assist` draw their offers with it. Everything
+else a turn carries is `@kanzo-tech/ui` too: a figure is a [`Stat`](/docs/data-display/stat), a
+callout an `Alert`, a bar a `Progress`, a file tree a [`TreeView`](/docs/data-display/tree-view)
+with its checkboxes, a failure a [`Problem`](/docs/data-display/problem).
+
+## `Question`
+
+AI Elements' `Question` in its composition and its look: a panel holding the prompt, a description,
+and the options as outline buttons that wrap, the chosen one filled. A Task's `Decision` is this
+shape — its `question` the prompt, each option one of its options.
+
+```tsx
+import { Question, QuestionDescription, QuestionOption, QuestionOptions, QuestionPrompt } from "@kanzo-tech/ai";
+
+<Question value={chosen} onValueChange={(d) => d.value && choose(decision.id, d.value)}>
+  <QuestionPrompt>{decision.question}</QuestionPrompt>
+  <QuestionDescription>It has no safe answer, so it is yours to decide.</QuestionDescription>
+  <QuestionOptions>
+    {decision.options.map((option) => (
+      <QuestionOption key={option.id} value={option.id}>
+        {option.label}
+      </QuestionOption>
+    ))}
+  </QuestionOptions>
+</Question>
+```
+
+| Part | |
+| --- | --- |
+| `Question` | The panel, and `@kanzo-tech/ui`'s `RadioGroup` — `value`, `defaultValue`, `onValueChange`, `disabled` are its own |
+| `QuestionPrompt` | The question, and the group's accessible name |
+| `QuestionDescription` | Words under the prompt |
+| `QuestionOptions` | The row of options, wrapping |
+| `QuestionOption` | One option: `value`, and its label as children |
+
+**A pick is the answer, in one press.** AI Elements' composition ends in `QuestionInput` and
+`QuestionSubmit`; each option already reports itself through `onValueChange` as it is picked, so a
+question composed without those two is answered by the pick, and a host here takes free text in the
+composer, where the person already types. Single choice: a question with several answers is the
+evidence that would bring `selectionMode="multiple"`, and a host that wants a confirming press would
+bring `QuestionSubmit`.
+
+**A radio group, not buttons with a radio's role.** AI Elements gives each option `role="radio"` and
+none of the keys a radio group owes. Here it is Ark's: arrow keys move between the options and choose
+as they move, Tab enters and leaves the group, and each option is a `<label>` around its radio,
+painted with `Button`'s recipe.
+
+## `Working`
+
+```tsx
+<Working>Reading your files… {done} of {total}</Working>
+<Progress value={(done / total) * 100} />
+```
+
+A `role="status"` with a spinner and the words for what is under way, so the words are announced as
+they change. `Chat` draws one where the answer will be. A bar, when there is a measure, is
+`Progress` beside it, not a part of it: a status without one is the common case.
+
+## `ModelBadge`
+
+A model the page fetches before it answers, as a badge: *Preparing the model · 42%* while it
+downloads and loads, *Model ready*, *Model failed*. Pressed, it opens the detail — the bar and the
+engine's own words, or the failure as a `Problem` with a retry. AI Elements' `Context` is the shape:
+a small trigger, the detail behind it. It reads a `ModelLoad` —
+[`localModelLoad`](/docs/ai/llm#localmodel)'s, or the host's own for a model fetched some other way.
+
+```tsx
+const load = useSyncExternalStore((l) => watchLocalModel(MODEL, l), () => localModelLoad(MODEL));
+<ModelBadge load={load} onRetry={() => void loadLocalModel(MODEL, settings)} />
+```
+
+A popover rather than `Context`'s hover card, because a failure carries a retry and what a hover card
+holds cannot be reached by the keyboard or on touch. `onRetry` is offered for a failure the device
+can recover from, and not for `ai/unavailable` — no WebGPU, or no model served — which a second try
+ends the same way.
+
+| `ModelBadgeProps` | Type | |
+| --- | --- | --- |
+| `load` | `ModelLoad` | Where the load stands |
+| `onRetry` | `() => void` | Starts a failed load again |
+| `copy` | `ProblemProps["copy"]` | The host's words for a failure's code |
+| `translations` | `Partial<ModelBadgeTranslations>` | The badge's four words, the two details and `retry` |
+
+*Held by* `packages/ai/src/question.test.tsx`, "is a radio group named by its prompt, an option per
+radio", "answers with the option picked, in one press, and draws the answer it is given", "moves
+between the options with the arrow keys, choosing as it moves"; `packages/ai/src/working.test.tsx`,
+"is one status saying what is under way, its spinner hidden so it is not announced twice";
+`packages/ai/src/model-badge.test.tsx`, "opens a failure as a Problem, with a retry only where the
+device can recover". Why these three and not the rest of AI Elements is
+[The references](/docs/design/references#ai-elements-is-a-source-not-a-reference).

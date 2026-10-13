@@ -1,0 +1,5 @@
+---
+"@kanzo-tech/ai": minor
+---
+
+The parts a guided chat is built from, beside the transcript and the composer. `Question`, `QuestionPrompt`, `QuestionDescription`, `QuestionOptions` and `QuestionOption`: a question put to the person in a panel, its options as outline buttons, the chosen one filled — a radio group, so the arrow keys move between them — and `onValueChange` is the answer, in one press; a Task's `Decision` is this shape. `Working`: work under way, said as a spinner and its words in a `role="status"`, with `@kanzo-tech/ui`'s `Progress` beside it when there is a measure. `ModelBadge` (`ModelBadgeProps`, `ModelBadgeTranslations`): a model in the page as a badge — *Preparing the model · 42%*, *Model ready*, *Model failed* — that opens the bar and the engine's words, or the failure as a `Problem` with a retry (none for `ai/unavailable`); give it `localModelLoad`'s value. A decision drawn with `RadioGroup`, a spinner beside a sentence, or a model-loading bar of your own can be replaced with them.

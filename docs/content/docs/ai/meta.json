@@ -4,6 +4,7 @@
     "index",
     "assist",
     "chat",
+    "guided",
     "data",
     "tasks",
     "llm"
