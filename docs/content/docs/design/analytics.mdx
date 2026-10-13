@@ -398,6 +398,26 @@ by direction and sorted by fan-out", "removes any chip, cutting the path there" 
 phrase an edge and name a plural"; `packages/mosaic/src/relation.test.ts`, "gives each hop its fan-out when
 the graph carries counts".
 
+## A count's axis is whole, and a bar's label fits before it is cut
+
+**A count or a distinct count is ticked at whole numbers, from zero.** Plot's ticks for a domain of
+`[0, 2]` are *0.0, 0.5 … 2.0*, which says a laureate can win half a prize. `ChartCard` hands Plot a
+tick interval of its own for those two measures — about five ticks, stepping 1, 2 or 5 by a power of
+ten as d3's `tickIncrement` does, never below 1 — and formats them as integers. Every other measure
+keeps Plot's ticks: a mean is fractional.
+
+**A bar's label band is as wide as its longest label, up to 28 characters, before any label is cut.**
+It was 18 characters inside a 140px band, so *Univ. of California* was cut with half the card empty.
+The width is estimated from the characters, about 6.5px each at the axis's size, because the band is
+a margin set before Plot draws, and Plot's own measuring is after.
+
+**What would reverse it:** a card so narrow that a 194px band leaves the bars no room — a phone
+beside a sidebar — which sizes the band from the card's measured width instead; or Plot's automatic
+margins, which would measure the labels and retire the estimate.
+
+*Held by* `packages/ui/src/charts/chart-card.test.ts`, "ticks whole numbers only, from 0: no 0.5 on a
+count of 2"; "fits a label before it cuts one".
+
 ## Two size gauges, measured against what ships
 
 The analytics gauge and the `{ Dashboard }` gauge leave out what `vite.config.ts` externalises:

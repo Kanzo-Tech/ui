@@ -10,6 +10,7 @@ import { cn } from "../lib/cn.js";
 import { Button } from "../simples/button.js";
 import { Menu, MenuContent, MenuGroup, MenuItem, MenuTrigger } from "../simples/menu.js";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../simples/select.js";
+import { nameWords } from "./name-words.js";
 
 export interface RelationPickerProps extends Omit<React.ComponentProps<typeof ark.div>, "onChange" | "defaultValue"> {
   /** The types and the edges between them. A type's and an edge's `rows` are what the fan-outs read. */
@@ -25,14 +26,7 @@ export interface RelationPickerProps extends Omit<React.ComponentProps<typeof ar
 /** Above this many rows per row of the type a hop leaves, its fan-out warns. */
 const WARN = 10;
 
-/** `isLocatedIn` → `is located in`, `TagClass` → `tag class`; an acronym keeps its case. */
-const words = (name: string) =>
-  name
-    .split(/(?<=[a-z0-9])(?=[A-Z])|[_\s]+/)
-    .filter(Boolean)
-    .map((w) => (w.length > 1 && w === w.toUpperCase() ? w : w.toLowerCase()));
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-const pluralWord = (w: string) => (/(s|x|z|ch|sh)$/.test(w) ? `${w}es` : /[^aeiou]y$/.test(w) ? `${w.slice(0, -1)}ies` : `${w}s`);
 
 interface Wording {
   noun: (type: string) => string;
@@ -46,29 +40,25 @@ interface Wording {
  * verb loses its *s*.
  */
 function wording(phrase: RelationPickerProps["phrase"], plural: RelationPickerProps["plural"]): Wording {
-  const noun = (type: string) => words(type).join(" ");
-  const nouns = (type: string) => {
-    const host = plural?.(type);
-    if (host) return host.toLowerCase();
-    const w = words(type);
-    return [...w.slice(0, -1), pluralWord(w.at(-1) ?? type)].join(" ");
-  };
+  const noun = (type: string) => nameWords(type);
+  const nouns = (type: string) => plural?.(type)?.toLowerCase() || nameWords(type, 2);
   const sentence = (edge: JoinEdge, direction: Hop["direction"]) => {
     const host = phrase?.(edge, direction);
     if (host) return host;
-    const [verb = "", ...rest] = words(edge.label);
+    const label = nameWords(edge.label);
+    const [verb = "", ...rest] = label.split(" ");
     const tail = rest.join(" ");
     const verbal = verb === "is" || (verb.endsWith("s") && !verb.endsWith("ss"));
     if (direction === "out") {
       const to = noun(edge.destination);
       if (verb === "has") return `The ${to} that is its ${tail}`;
-      return `The ${to} it ${verbal ? "" : "is "}${words(edge.label).join(" ")}`;
+      return `The ${to} it ${verbal ? "" : "is "}${label}`;
     }
     const [to, from] = [capital(nouns(edge.source)), noun(edge.destination)];
     if (verb === "has") return `${to} whose ${tail} is this ${from}`;
     if (verb === "is") return `${to} ${tail} this ${from}`;
     if (verbal) return `${to} that ${[verb.slice(0, -1), tail].filter(Boolean).join(" ")} this ${from}`;
-    return `${to} that are ${words(edge.label).join(" ")} this ${from}`;
+    return `${to} that are ${label} this ${from}`;
   };
   return { noun, nouns, sentence };
 }

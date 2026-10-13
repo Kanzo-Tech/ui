@@ -50,12 +50,12 @@ export interface ChartCardProps extends Omit<React.ComponentProps<typeof Card>, 
 
 /** Each chart type's name, icon and gesture — what a card says under its title and the editor lists. */
 export const CHART_TYPE: Record<DashboardChartType, { label: string; icon: typeof ChartLineIcon; hint: string }> = {
-  bar: { label: "Bar", icon: ChartBarBigIcon, hint: "click a bar to filter" },
-  line: { label: "Line", icon: ChartLineIcon, hint: "drag to filter a range" },
-  area: { label: "Area", icon: ChartAreaIcon, hint: "drag to filter a range" },
-  histogram: { label: "Histogram", icon: ChartColumnIcon, hint: "drag to filter a range" },
-  dot: { label: "Scatter", icon: ChartScatterIcon, hint: "drag a box to filter" },
-  regression: { label: "Fit", icon: ChartSplineIcon, hint: "drag a box to filter · the fit and its band are SQL aggregates" },
+  bar: { label: "Bar", icon: ChartBarBigIcon, hint: "Click a bar to filter" },
+  line: { label: "Line", icon: ChartLineIcon, hint: "Drag to filter a range" },
+  area: { label: "Area", icon: ChartAreaIcon, hint: "Drag to filter a range" },
+  histogram: { label: "Histogram", icon: ChartColumnIcon, hint: "Drag to filter a range" },
+  dot: { label: "Scatter", icon: ChartScatterIcon, hint: "Drag a box to filter" },
+  regression: { label: "Fit", icon: ChartSplineIcon, hint: "Drag a box to filter · the fit and its band are SQL aggregates" },
 };
 
 /**
@@ -131,9 +131,33 @@ function useTopValues(table: TableExpr, field: string | undefined, by: ExprValue
   return rows === null ? null : rows.map((row) => String(row.value));
 }
 
-const truncate = (text: unknown) => {
+/** The most characters a bar's label shows: its band grows to fit them before one is cut. */
+const LABEL_CHARS = 28;
+
+/** A bar's label, cut at `LABEL_CHARS`. Exported for its test, not on the barrel. */
+export const barLabel = (text: unknown) => {
   const s = String(text);
-  return s.length > 18 ? `${s.slice(0, 17)}…` : s;
+  return s.length > LABEL_CHARS ? `${s.slice(0, LABEL_CHARS - 1)}…` : s;
+};
+
+/** The label band's width: the longest label as drawn, at about 6.5px a character at the axis's size. */
+export const labelBand = (labels: readonly unknown[]) => Math.max(40, 12 + 6.5 * Math.max(0, ...labels.map((v) => barLabel(v).length)));
+
+/**
+ * Ticks at whole numbers only, at most seven: the axis of a count, which has no half a row. An
+ * interval as Plot takes one for `ticks` — `range(lo, hi)` is half-open — stepping 1, 2, 5, 10, 20…
+ * Exported for its test, not on the barrel.
+ */
+export const WHOLE = {
+  floor: Math.floor,
+  offset: (x: number, k = 1) => x + k,
+  range(lo: number, hi: number) {
+    let step = 1;
+    while ((hi - lo) / step > 7) step *= String(step)[0] === "2" ? 2.5 : 2;
+    const out: number[] = [];
+    for (let v = Math.ceil(lo / step) * step; v < hi; v += step) out.push(v);
+    return out;
+  },
 };
 
 function CardChart({
@@ -174,19 +198,20 @@ function CardChart({
     ...faceted,
   };
   const legend = card.color ? <ChartLegend /> : null;
+  // A count is whole: its axis has no 0.5.
+  const whole = card.y.op === "count" || card.y.op === "distinct" ? { ticks: WHOLE, tickFormat: ",d" } : {};
   const facetAxis = fx ? <ChartFacetX domain={panels} label={null} /> : null;
 
   switch (card.type) {
     case "bar": {
-      const left = Math.min(140, Math.max(40, 12 + 6.5 * Math.max(0, ...bars.map((v) => truncate(v).length))));
       return (
-        <ChartRoot {...frame} margin={{ top: 4, right: 12, bottom: 24, left: left }}>
+        <ChartRoot {...frame} margin={{ top: 4, right: 12, bottom: 24, left: labelBand(bars) }}>
           {behind ? <ChartBarX fill={MUTED} filterBy={null} opacity={0.22} x={y} y={card.x} /> : null}
           <ChartBarX fill={fill} insetBottom={1} order={card.color ? order : undefined} x={y} y={card.x} />
           <ChartPickY />
           <ChartHighlight />
-          <ChartAxisX grid label={null} ticks={5} />
-          <ChartAxisY domain={bars} label={null} tickFormat={truncate} />
+          <ChartAxisX grid label={null} ticks={5} {...whole} />
+          <ChartAxisY domain={bars} label={null} tickFormat={barLabel} />
           {legend}
         </ChartRoot>
       );
@@ -213,7 +238,7 @@ function CardChart({
           ) : null}
           <ChartBrushX />
           <ChartAxisX label={null} ticks={fx ? 3 : 8} />
-          <ChartAxisY grid label={null} />
+          <ChartAxisY grid label={null} {...whole} />
           {facetAxis}
           {legend}
         </ChartRoot>
@@ -225,7 +250,7 @@ function CardChart({
           <ChartRectY fill={fill} fx={fx} inset={0.5} order={card.color ? order : undefined} x={bin(card.x)} y={y} />
           <ChartBrushX />
           <ChartAxisX label={null} ticks={fx ? 3 : 8} />
-          <ChartAxisY grid label={null} />
+          <ChartAxisY grid label={null} {...whole} />
           {facetAxis}
           {legend}
         </ChartRoot>
