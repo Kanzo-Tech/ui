@@ -105,8 +105,10 @@ describe("labels read what is kept", () => {
     await act(() => settle(corpus));
     await waitFor(() => expect(vi.mocked(readTitles).mock.calls.length).toBeGreaterThan(0), { timeout: 5000 });
     // A lasso over Person 3 and 4: what is kept is {3, 4}, so no other vertex may be asked a title.
-    await act(async () => store!.select([3, 4], "lasso", "Lasso"));
+    // Cleared before the pick and not after: the pick narrows what is kept synchronously, so the read
+    // it causes lands inside this act, and a later read comes only if the filter's answer changes.
     vi.mocked(readTitles).mockClear();
+    await act(async () => store!.select([3, 4], "lasso", "Lasso"));
     await act(() => settle(corpus));
     await waitFor(() => expect(vi.mocked(readTitles).mock.calls.length).toBeGreaterThan(0), { timeout: 5000 });
     const kept = new Set(store!.visible());

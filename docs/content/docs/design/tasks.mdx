@@ -22,8 +22,8 @@ agent with a free hand and an oracle that runs too late.
 
 They become one pattern, a **Task**: the model fills a small artefact whose shape is a JSON Schema,
 an oracle that is a fact of the data or of the program checks it, and a bounded loop sends the typed
-failures back or turns them into a question for the person. Keasy's side — the assistant's screens
-and *time to smile* — and fossil's side — `fossil-profile` and the mapping grammar — are on their own
+failures back or turns them into a question for the person. Keasy's side — the assistant, a guided
+chat, and *time to smile* — and fossil's side — `fossil-profile` and the mapping grammar — are on their own
 sites and link here.
 
 ## The premise: a small model, in the browser
@@ -312,8 +312,10 @@ and as distillation data.
    two hosts, replacing introspect; the mapping written in Fossil under a grammar whose names are the
    sources' and the shapes' (a spec of our own was built and reverted — fossil's `design/discarded`
    says why); the executor in a worker.
-3. **The assistant, and the gateway retired** (≈ 30 %). Three screens over the `requirements`,
-   `model` and `mapping` Tasks; competency questions as Ask's questions. The current wizard goes, and
+3. **The assistant, and the gateway retired** (≈ 30 %). A guided chat over the `requirements`,
+   `model` and `mapping` Tasks: the assistant speaks in turns — cards, choices, chips — the person
+   answers by picking or typing, and the conversation carries on into Ask, whose questions are the
+   competency questions. The current wizard goes, and
    with it the gateway's last consumer. `services/ai`, `createGateway` and the realm's `ai-gateway`
    are already gone from this repository; a product's `/api/ai` forward goes with its wizard.
 4. **A model of our own.** One small multi-task model distilled for every Task, the evaluation set as

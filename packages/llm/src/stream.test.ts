@@ -51,7 +51,7 @@ describe("stream", () => {
   });
 
   it("throws what stopped the model once the stream ends, rather than ending as if it had finished", async () => {
-    const refused = new Error("gateway refused");
+    const refused = new Error("model refused");
     await expect(drain(stream({ model: refusing(refused), prompt: "" }).text)).rejects.toBe(refused);
     await expect(
       drain(stream({ model: refusing(refused), prompt: "", output: Output.array({ element: jsonSchema<string>({ type: "string" }) }) }).elements),
