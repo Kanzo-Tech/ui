@@ -88,7 +88,9 @@ settle; a settled one keeps its state".
 the bottom on every message follows *unconditionally*, so a reader who scrolled up to re-read
 something is dragged back down by every token. Here, scrolling up releases the pin and a button
 takes it back. It needs two observers: a stream produces growth, not scrolling, and the browser
-fires no scroll event for content getting taller under a still `scrollTop`.
+fires no scroll event for content getting taller under a still `scrollTop`. The same is true of a log that
+stops overflowing — the panel grew, the device turned — so a resize measures again, and the button
+goes once there is nothing below to scroll to.
 
 **The composer is one button that says what pressing it does.** <kbd>Enter</kbd> sends and
 <kbd>Shift</kbd>+<kbd>Enter</kbd> is a newline. While an answer streams the button is *Stop*; after
@@ -100,7 +102,8 @@ is the plumbing `useAgentChat` exists so that no host writes.
 
 *Held by* `packages/ai/src/chat.test.tsx`, "asks, shows the tool call the model made, and streams the
 answer as markdown"; `packages/ai/src/conversation.test.tsx`, "releases the pin the moment the reader
-scrolls up, and stays released while it grows"; `packages/ai/src/reasoning.test.tsx`, "stops opening
+scrolls up, and stays released while it grows", "takes the pin back when the log stops overflowing,
+though nothing scrolled"; `packages/ai/src/reasoning.test.tsx`, "stops opening
 itself once the reader has said otherwise".
 
 ## Drawing a tool's result
