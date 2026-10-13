@@ -48,7 +48,8 @@ export { sortableHeader } from "./table/sortableHeader.js";
 
 // Re-exported so a consumer types its columns without a direct TanStack import. `HeaderContext`
 // is here because wrapping `sortableHeader` needs it, and needing a direct @tanstack import to
-// type your own header defeats the point of the other four.
-export type {
-  CellContext, ColumnDef, HeaderContext, Row, Table,
-} from "@tanstack/react-table";
+// type your own header defeats the point of the other three. TanStack's `Table` is NOT: it is the
+// instance's type, and `Table` is the root barrel's component, so one name meant two things across
+// two entries (`/docs/design/naming`, *One name, one meaning*). A host that names the instance's
+// type imports it from TanStack, which it has installed to use this subpath at all.
+export type { CellContext, ColumnDef, HeaderContext, Row } from "@tanstack/react-table";

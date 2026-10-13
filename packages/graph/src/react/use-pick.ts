@@ -9,7 +9,7 @@ import { useGraphContext } from "./graph-root";
 import { internalsOf } from "./use-graph";
 
 /** A place that picks vertices beside the canvas, and what it has picked. */
-export interface Pick {
+export interface VertexPick {
   /** The label of the clause this place published, while the crossfilter holds it; `null` otherwise. */
   picked: string | null;
   /**
@@ -37,7 +37,7 @@ export interface Pick {
  * and picking replaces it rather than adding a second. The clause outlives the component on
  * purpose: a pick belongs to the page, and is retracted where it shows — its chip.
  */
-export function usePick(id: string): Pick {
+export function usePick(id: string): VertexPick {
   const api = useGraphContext();
   const { store } = internalsOf(api);
   const source = store.source(id);

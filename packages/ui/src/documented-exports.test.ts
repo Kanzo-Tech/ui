@@ -100,6 +100,13 @@ const ENTRIES = ["ui", "theme", "graph", "ai", "llm", "auth", "navigation", "tes
   entryPoints(join(REPO, "packages", name)),
 );
 
+/**
+ * `@kanzo-tech/mosaic`, for the one assertion about meaning: its names are what `/analytics` and the
+ * graph speak in — `Selection` is Mosaic's class — so a name of ours that means something else
+ * collides with it even though no page imports from it here.
+ */
+const MEANINGS = [...ENTRIES, ...entryPoints(join(REPO, "packages", "mosaic"))];
+
 const UNBUILT = ENTRIES.filter((e) => !existsSync(e.types)).map((e) => e.spec);
 const BUILD_FIRST =
   "run `pnpm build` first: this guard reads dist/, the way docs/ does, and there is no dist/ here";
@@ -130,6 +137,10 @@ type Surface = {
   peers: Set<string>;
   /** The peer specifiers that resolved to types, so a silent drop is visible to the assertions. */
   resolved: string[];
+  /** Each name any entry of ours exports (Mosaic's included), and every declaration it resolves to, by entry. */
+  meanings: Map<string, Map<string, string>>;
+  /** Every type and value TypeScript's own `lib` declares globally — `Pick`, `Partial`, `Record`. */
+  language: Set<string>;
 };
 
 let cached: Surface | null = null;
@@ -144,7 +155,7 @@ function surface(): Surface {
     if (file?.endsWith(".d.ts")) peerTypes.push({ spec, file });
   }
 
-  const files = [...ENTRIES.map((e) => e.types), ...peerTypes.map((p) => p.file)];
+  const files = [...MEANINGS.map((e) => e.types), ...peerTypes.map((p) => p.file)];
   const program = ts.createProgram(files, COMPILER);
   const checker = program.getTypeChecker();
 
@@ -157,8 +168,42 @@ function surface(): Surface {
     return new Set(checker.getExportsOfModule(symbol).map((s) => s.getName()));
   };
 
+  // Where a name comes from, as the file and offset of its first declaration once every re-export is
+  // followed: two entries that pass one symbol through agree, two that declare their own do not.
+  const meanings = new Map<string, Map<string, string>>();
+  for (const entry of MEANINGS) {
+    const source = program.getSourceFile(entry.types);
+    const symbol = source && checker.getSymbolAtLocation(source);
+    if (!symbol) continue;
+    for (const exported of checker.getExportsOfModule(symbol)) {
+      const target = exported.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exported) : exported;
+      const declaration = target.declarations?.[0];
+      if (!declaration) continue;
+      const where = `${relative(REPO, declaration.getSourceFile().fileName)}:${declaration.pos}`;
+      const byEntry = meanings.get(exported.getName()) ?? new Map<string, string>();
+      byEntry.set(entry.spec, where);
+      meanings.set(exported.getName(), byEntry);
+    }
+  }
+  // The language's own names, from the default `lib` files and not the DOM's: `Selection` and
+  // `Range` are the DOM's and Mosaic's both, which is the reference's business, not ours.
+  const anyFile = program.getSourceFile(ENTRIES[0]!.types)!;
+  const language = new Set(
+    checker
+      .getSymbolsInScope(anyFile, ts.SymbolFlags.Type | ts.SymbolFlags.Value)
+      .filter((symbol) =>
+        symbol.declarations?.some((d) => {
+          const file = d.getSourceFile();
+          return program.isSourceFileDefaultLibrary(file) && !/dom/i.test(file.fileName);
+        }),
+      )
+      .map((symbol) => symbol.getName()),
+  );
+
   const bySpec = new Map(ENTRIES.map((e) => [e.spec, namesIn(e.types)]));
   cached = {
+    meanings,
+    language,
     bySpec,
     ours: new Set([...bySpec.values()].flatMap((set) => [...set])),
     peers: new Set(peerTypes.flatMap((p) => [...namesIn(p.file)])),
@@ -448,6 +493,48 @@ describe("the documented surface", () => {
     // Ark is the peer this guard cannot do without: the pages point at its context hooks by name.
     expect(resolved).toContain("@ark-ui/react");
     expect(peers.has("useStepsContext"), "Ark's own exports must resolve").toBe(true);
+  });
+
+  /**
+   * Collisions this guard found the day it was written, 13 October 2026, beyond the four the review
+   * had found and settled. Each is put to the owner rather than renamed in the commit that built the
+   * instrument, for `KNOWN_DEFECTS`' reason: which side moves is a decision. The list may only shrink.
+   */
+  const UNSETTLED: Record<string, string> = {
+    Finding: "`@kanzo-tech/ui`'s finding of a check, and `/task`'s oracle finding — a diagnostic or a decision",
+    Diagnostic: "`@kanzo-tech/ui`'s component, and `/task`'s oracle diagnostic, LSP's shape",
+    Link: "`@kanzo-tech/ui`'s styled anchor, and `@kanzo-tech/navigation/next`'s guarded `next/link`",
+    Tool: "`@kanzo-tech/graph`'s canvas tool, `@kanzo-tech/ai`'s tool-call part, and the AI SDK's `Tool` that `@kanzo-tech/llm` re-exports",
+  };
+
+  /**
+   * **A name means one thing across every entry, and shadows none of the language's.** `Table` was
+   * the root's component and, through `/table`, TanStack's instance type; `Problem` was a component
+   * and the theme's section-validation record; `Selection` was Mosaic's class and the graph's picked
+   * vertices; `Pick` shadowed TypeScript's `Pick<T, K>` in any file that imported it. Each import of
+   * both had to rename one — the collision announcing itself — and `/docs/design/naming` settles
+   * them the one way: the reference's name stays, ours moves.
+   *
+   * What it cannot see: a name of ours that collides with a peer's we do not re-export (Ark's
+   * `Dialog` is Ark's, and ours is its wrapper on purpose), and two names that mean one thing — that
+   * is a duplicate, which no reading of declarations tells from a coincidence.
+   */
+  it("gives each name one meaning across every entry, and shadows none of the language's", () => {
+    expect(UNBUILT, BUILD_FIRST).toEqual([]);
+    const { meanings, language } = surface();
+    const twice = [...meanings]
+      .filter(([, byEntry]) => new Set(byEntry.values()).size > 1)
+      .map(([name, byEntry]) => ({ name, entries: [...byEntry.keys()].sort() }));
+    const unsettled = twice.filter(({ name }) => !(name in UNSETTLED));
+    expect(
+      unsettled.map(({ name, entries }) => `${name}: ${entries.join(", ")}`),
+      "one name, two meanings — rename ours, the way /docs/design/naming settles each",
+    ).toEqual([]);
+    // A pinned collision that has been settled must leave the list with the rename.
+    expect(Object.keys(UNSETTLED).filter((name) => !twice.some((t) => t.name === name))).toEqual([]);
+    expect(language.has("Pick") && language.has("Partial"), "the language's names must resolve").toBe(true);
+    const shadowing = [...meanings.keys()].filter((name) => language.has(name));
+    expect(shadowing, "a name the language already gives").toEqual([]);
   });
 
   it("sees every page, whole", () => {

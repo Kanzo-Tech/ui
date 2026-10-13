@@ -1,4 +1,4 @@
-import { MosaicClient, Selection as Crossfilter, firstDrawsPending, onFirstDraws, type Coordinator } from "@kanzo-tech/mosaic";
+import { MosaicClient, Selection, firstDrawsPending, onFirstDraws, type Coordinator } from "@kanzo-tech/mosaic";
 import { domainOf } from "./categories";
 import { bindingOf } from "./channels";
 import { GraphClient, publish } from "./client";
@@ -36,10 +36,10 @@ export function createGraph(initial: GraphOptions): GraphStore {
   let client: GraphClient | null = null;
   let connected: Coordinator | null = null;
   /** Where the client's pick is published, so a reconnect withdraws it from there. */
-  let published: Crossfilter | null = null;
+  let published: Selection | null = null;
   let active = false;
   /** The root's own crossfilter, for a graph no page hands one to. */
-  const own = Crossfilter.crossfilter();
+  const own = Selection.crossfilter();
   const scope = () => options.filterBy ?? own;
   /** Every place a `usePick` picks from, by name: an unconnected client its clause names in `clients`, so the place reads the subset without its own pick. */
   const sources = new Map<string, PickSource>();

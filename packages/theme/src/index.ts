@@ -347,12 +347,12 @@ export {
   type PrefSource,
   type PrefSources,
   type PrefWhen,
-  type Problem,
   type ResolvedPref,
   type SectionManifest,
   type SectionPolicy,
   type SectionPrefDecl,
   type SectionPrefPolicy,
+  type SectionProblem,
   type SectionTokenDecl,
 } from "./sections.js";
 

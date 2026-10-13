@@ -33,7 +33,7 @@ export {
 export { useGraph, type GraphApi, type UseGraphProps } from "./react/use-graph";
 export { useGraphState } from "./react/use-graph-state";
 export { useGraphPrefs } from "./react/use-graph-prefs";
-export { usePick, type Pick } from "./react/use-pick";
+export { usePick, type VertexPick } from "./react/use-pick";
 
 export { GraphCanvas, type GraphCanvasProps } from "./parts/graph-canvas";
 export { GraphLegend, type GraphLegendProps } from "./parts/graph-legend";
@@ -52,7 +52,7 @@ export { simFrom, type Sim } from "./render/graph-sim";
 export { scaleOf } from "./render/graph-model";
 export { placementFrom, type Channels, type Placement } from "./core/channels";
 
-export type { GraphCommands, Motion, Selection, SelectionSource, Tool, VertexId } from "./core/types";
+export type { GraphCommands, Motion, Tool, VertexId, VertexSelection, VertexSelectionSource } from "./core/types";
 export type { DataStatus, Drawn, GraphState } from "./core/state";
 export type { VertexDetail } from "./core/source";
 // The corpus as the join graph `@kanzo-tech/mosaic`'s relations are built over.
