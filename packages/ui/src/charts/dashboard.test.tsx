@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
@@ -7,6 +8,9 @@ import { FilterBar } from "./filter-bar.js";
 import type { DashboardSpec } from "./dashboard-spec.js";
 import { MosaicClients, MosaicProvider, TileEditorAside, useTileEditorOpen } from "./mosaic-provider.js";
 import { ShellAside } from "../layouts/shell.js";
+
+/** The host's one client: every read the parts make is a query on it. */
+const queries = new QueryClient();
 
 /** Counts the times the editor's module is fetched: a read-only dashboard must never fetch it. */
 const editorLoads = vi.hoisted(() => ({ count: 0 }));
@@ -60,10 +64,10 @@ function Aside() {
 
 function draw(props: { value?: DashboardSpec; onChange?: (spec: DashboardSpec | undefined) => void }) {
   return render(
-    <MosaicProvider coordinator={stubCoordinator()}>
+    <QueryClientProvider client={queries}><MosaicProvider coordinator={stubCoordinator()}>
       <Dashboard relation="sightings" {...props} />
       <Aside />
-    </MosaicProvider>,
+    </MosaicProvider></QueryClientProvider>,
   );
 }
 
@@ -190,9 +194,9 @@ describe("the tile editor in the page's aside", () => {
 
   it("offers no editing on a page without a TileEditorAside", async () => {
     render(
-      <MosaicProvider coordinator={stubCoordinator()}>
+      <QueryClientProvider client={queries}><MosaicProvider coordinator={stubCoordinator()}>
         <Dashboard onChange={vi.fn()} relation="sightings" value={SPEC} />
-      </MosaicProvider>,
+      </MosaicProvider></QueryClientProvider>,
     );
     expect(await screen.findByText("Sightings")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Edit|Add tile|Dashboard options/ })).toBeNull();
@@ -209,10 +213,10 @@ describe("Reset to automatic", () => {
     expect(onChange).toHaveBeenCalledWith(undefined);
 
     rerender(
-      <MosaicProvider coordinator={stubCoordinator()}>
+      <QueryClientProvider client={queries}><MosaicProvider coordinator={stubCoordinator()}>
         <Dashboard onChange={onChange} relation="sightings" />
         <Aside />
-      </MosaicProvider>,
+      </MosaicProvider></QueryClientProvider>,
     );
     await user.click(await screen.findByRole("button", { name: "Dashboard options" }));
     expect((await screen.findByRole("menuitem", { name: "Reset to automatic" })).getAttribute("data-disabled")).not.toBeNull();
@@ -223,11 +227,11 @@ describe("Dashboard's filters", () => {
   it("are drawn in the page's FilterBar", async () => {
     const user = userEvent.setup();
     render(
-      <MosaicProvider coordinator={stubCoordinator()}>
+      <QueryClientProvider client={queries}><MosaicProvider coordinator={stubCoordinator()}>
         <FilterBar />
         <Dashboard onChange={() => {}} relation="sightings" value={{ ...SPEC, filters: [{ field: "region" }] }} />
         <Aside />
-      </MosaicProvider>,
+      </MosaicProvider></QueryClientProvider>,
     );
     const bar = await screen.findByRole("region", { name: "Filters" });
     await waitFor(() => expect(within(bar).getByText("region:")).toBeTruthy());
@@ -239,13 +243,13 @@ describe("Dashboard's filters", () => {
   it("are drawn from a dashboard under MosaicClients that is off as when it is shown: control, remove, Add a filter", async () => {
     const user = userEvent.setup();
     render(
-      <MosaicProvider coordinator={stubCoordinator()}>
+      <QueryClientProvider client={queries}><MosaicProvider coordinator={stubCoordinator()}>
         <FilterBar />
         <MosaicClients enabled={false}>
           <Dashboard onChange={() => {}} relation="sightings" value={{ ...SPEC, filters: [{ field: "region" }] }} />
         </MosaicClients>
         <Aside />
-      </MosaicProvider>,
+      </MosaicProvider></QueryClientProvider>,
     );
     const bar = await screen.findByRole("region", { name: "Filters" });
     await waitFor(() => expect(within(bar).getByRole("button", { name: "Remove the region filter" })).toBeTruthy());

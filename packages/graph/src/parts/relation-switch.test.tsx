@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { KanzoThemeProvider } from "@kanzo-tech/ui";
 import { Dashboard, FilterBar, MosaicProvider, useMosaic, type DashboardSpec } from "@kanzo-tech/ui/analytics";
@@ -7,6 +8,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { attach, settle } from "../../test/corpus";
 import { readJoinGraph } from "../core/join-graph";
 import { GRAPH_SECTION } from "../section";
+
+/** The host's one client: every read the parts make is a query on it. */
+const queries = new QueryClient();
 
 /**
  * **A filter is the page's, not the chart's that made it.** A dashboard over one relation, a pick on
@@ -109,9 +113,9 @@ describe("a pick when the dashboard switches relation", { timeout: 60_000 }, () 
     } as Record<"A" | "B", Relation>;
     const { container } = render(
       <Theme>
-        <MosaicProvider coordinator={corpus.coordinator} joins={joins}>
+        <QueryClientProvider client={queries}><MosaicProvider coordinator={corpus.coordinator} joins={joins}>
           <Page relations={relations} />
-        </MosaicProvider>
+        </MosaicProvider></QueryClientProvider>
       </Theme>,
     );
     const chips = () => within(screen.getByRole("region", { name: "Filters" })).queryAllByRole("button", { name: /^Remove / });
