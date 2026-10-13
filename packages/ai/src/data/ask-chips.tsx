@@ -36,14 +36,14 @@ export function AskChips(props: AskChipsProps) {
               size="sm"
               variant="outline"
             >
-              <span className="text-muted-foreground">{chip.label}</span>
+              <span className="text-muted-foreground">{chip.slot.startsWith("where") ? `${chip.label}:` : chip.label}</span>
               {chip.value}
               <ChevronDownIcon />
             </Button>
           </MenuTrigger>
           <MenuContent>
             {chip.options.map((option, n) => (
-              <MenuItem key={option.label} value={String(n)}>
+              <MenuItem key={n} value={String(n)}>
                 {option.label}
               </MenuItem>
             ))}

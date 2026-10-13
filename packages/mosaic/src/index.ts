@@ -144,7 +144,7 @@ export {
 
 /**
  * Ours: the relation a question needs, computed — the shortest path from the type it counts that
- * covers the types its fields are on and reaches the page's clauses, or the tie, or what is out of
- * reach. `resolve.ts`.
+ * covers the types it shows and reaches the page's clauses, with a branch to each type a filter is
+ * on that the path is not — or the tie, or what is out of reach. `resolve.ts`.
  */
-export { resolveRelation, type RelationNeeds, type Resolved } from "./resolve.js";
+export { resolveRelation, type RelationNeeds, type Resolution, type Resolved } from "./resolve.js";

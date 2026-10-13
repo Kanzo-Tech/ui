@@ -8,6 +8,7 @@ import {
   Query,
   relationKey,
   relationOf,
+  relationSteps,
   sameRelation,
   type ClauseSource,
   type ExprValue,
@@ -51,6 +52,12 @@ export interface Answer {
   readonly relation: Relation;
   /** What it is narrowed to. */
   readonly where?: readonly Condition[];
+  /**
+   * The relations a condition on a type off `relation` is read through, each rooted at a type of it
+   * — `resolveRelation`'s branches. Such a condition narrows the answer as a page's clause on another
+   * relation narrows a tile: by the key of the step the branch hangs off (`wherePredicates`).
+   */
+  readonly through?: readonly Relation[];
   /** How it is shown: a figure, a chart or a table. */
   readonly show: Tile;
   /** Rank `show`'s x by its measure and keep these many. */
@@ -64,7 +71,7 @@ type Shown<T> = T extends Tile ? Omit<T, "id" | "span" | "origin"> : never;
  * What the model writes: an `Answer` whose relation is its key — `Person>knows>Person`, as
  * `relationKey` writes it — and whose tile has no id and no width yet. `placed` makes it an `Answer`.
  */
-export type AnswerInput = Omit<Answer, "relation" | "show"> & { readonly relation: string; readonly show: Shown<Tile> };
+export type AnswerInput = Omit<Answer, "relation" | "show" | "through"> & { readonly relation: string; readonly show: Shown<Tile> };
 
 /** A field of a relation, with its most common values when it is a category. */
 export interface AnswerField extends FieldStat {
@@ -270,15 +277,21 @@ export function checkAnswer(
   return { success: true, value: value as unknown as AnswerInput };
 }
 
-/** The answer the model wrote, about `relation` — the one its key names — with its tile placed: its id and its width. */
-export const placed = (input: AnswerInput, id: string, relation: Relation): Answer => ({ ...input, relation, show: place(input.show, id) });
+/** The answer the model wrote, about `relation` — the one its key names — read `through` its branches, with its tile placed: its id and its width. */
+export const placed = (input: AnswerInput, id: string, relation: Relation, through?: readonly Relation[]): Answer => ({
+  ...input,
+  relation,
+  ...(through?.length ? { through } : {}),
+  show: place(input.show, id),
+});
 
 // ── Compiling an answer ──────────────────────────────────────────────────────
 
 /**
  * Each condition as the clause the dashboard's control of its kind publishes — `ChartFilter`'s
  * points, `ChartSlider`'s interval, `ChartSearch`'s match — so an answer narrows a relation exactly
- * as a reader with the dashboard's filters would. A range over a time is a range of `Date`s.
+ * as a reader with the dashboard's filters would. A range over a time is a range of `Date`s — a
+ * field `fields` has no stat of is a time when its bounds are written as dates.
  */
 export function conditionClauses(
   where: readonly Condition[] | undefined,
@@ -288,10 +301,32 @@ export function conditionClauses(
   return (where ?? []).map((condition) => {
     if ("in" in condition) return clausePoints([condition.field], condition.in.map((v) => [v]), { source });
     if ("contains" in condition) return clauseMatch(condition.field, condition.contains, { source, method: "contains" });
-    const temporal = fields.find((f) => f.name === condition.field)?.kind === "temporal";
+    const kind = fields.find((f) => f.name === condition.field)?.kind;
+    const temporal = kind === "temporal" || (kind === undefined && typeof condition.between[0] === "string");
     const [lo, hi] = condition.between.map((v) => (temporal ? new Date(v) : Number(v)));
     return clauseInterval(condition.field, [lo, hi] as [number, number], { source });
   });
+}
+
+/**
+ * **The answer's conditions, as predicates on its relation.** A condition on a type of the relation
+ * is its clause as it is. The conditions on one branch in `through` cross together, as one semi-join
+ * on the key of the step the branch hangs off — `JoinResolver.crossing`, the page's own — so *Physics
+ * awards by university* keeps the awards whose category is Physics, and counts each once.
+ */
+export function wherePredicates(answer: Pick<Answer, "relation" | "where" | "through">, fields: readonly FieldStat[], graph: JoinGraph): ExprNode[] {
+  const own = new Set(relationSteps(graph, answer.relation).map((s) => s.alias));
+  const branches = (answer.through ?? []).map((relation) => ({ relation, aliases: relationSteps(graph, relation).map((s) => s.alias), predicates: [] as ExprNode[] }));
+  const out: ExprNode[] = [];
+  const clauses = conditionClauses(answer.where, fields, {});
+  (answer.where ?? []).forEach((condition, i) => {
+    const alias = condition.field.slice(0, condition.field.indexOf("."));
+    const branch = own.has(alias) ? undefined : branches.find((b) => b.aliases.includes(alias));
+    (branch ? branch.predicates : out).push(clauses[i]!.predicate as ExprNode);
+  });
+  const resolver = new JoinResolver(graph);
+  for (const b of branches) if (b.predicates.length) out.push(resolver.crossing(b.relation, b.predicates, answer.relation));
+  return out;
 }
 
 /** One of the page's clauses an answer's relation cannot answer: as a chip reads it, and the columns it names that the relation lacks. */

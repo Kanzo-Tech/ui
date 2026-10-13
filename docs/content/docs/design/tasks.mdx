@@ -117,6 +117,58 @@ with a linker the context is small and closed, and there is no budget to fit int
 **What would reverse it:** a model that picks relations as well as the resolver across the whole
 evaluation set.
 
+### A filter off the path is a branch, crossed in by its key
+
+**What an answer shows is one path; what it is narrowed by is a star around it.** The relation an
+answer is read from is still one path from the measured type — it is what a dashboard is keyed by,
+what a clause is published on and what `relationQuery` compiles — and it covers the types the answer
+*shows*. A condition on a type off that path is read through a relation of its own, rooted at a type
+of the path and as short as the graph allows from any of them, and it reaches the answer as a page's
+chip does: `JoinResolver.crossing`, a semi-join on the key of the step it branches from. *Physics
+awards by university* — `Award→Category` and `Award→Affiliation→University`, two branches from the
+award — reads `Award>affiliation>Affiliation>university>University` through `Award>category>Category`:
+the awards whose category is Physics, counted by university. Before, the resolver asked one path to
+cover the condition's type too, and a path cannot branch: the question was refused as *No relation
+from Award reaches University*.
+
+This is how semantic layers resolve a measure: dbt MetricFlow, Cube and LookML join each dimension
+and each filter from the measure's entity, and a filter's join does not decide what is grouped. A
+semi-join rather than a join because a filter keeps rows and never multiplies them — an award with
+two laureates in Physics is still one award — where a join would need LookML's symmetric aggregates
+to count it once. A branch hangs off the step nearest to it, so *the universities' prizes in Germany*
+narrows the university by its own country, not the prize by either of its countries; two branches
+equally near are the reader's, as two paths are. `resolveRelation` answers the path and its branches
+together, as `{ relation, through }`, and a tie offers each whole resolution.
+
+**What would reverse it:** a filter whose meaning needs the branch row and the shown row to be the
+same row — *awards by university where that university's laureate is a woman* — which a semi-join on
+the branch's root cannot say. Then that condition joins on the path, and the path grows to a tree.
+
+*Held by* `packages/mosaic/src/resolve.test.ts`, "reads a filter off the path through a branch: Physics
+awards by university"; `packages/ai/src/data/ask.test.ts`, "answers a filter on one branch and a group
+on another".
+
+### An answer reads in the person's words
+
+**The title, the chips and the sentence are written from the spec and the rows, in the type's
+words, never in column names.** A tile's own title, `Count by Laureate.name`, is the dashboard's,
+which names what the query reads. An answer's is *Awards per laureate*: the measured type, plural,
+per the type grouped by. A field is the type's own name when its column is `name`, `label` or
+`title` — schema.org's `name`, RDFS's `label`, Dublin Core's `title` — and then the type stands for
+it; any other field is said after its type, *Awards by laureate gender*, or alone on the measured
+type. The chips read the same words — *Counting awards*, *By laureate*, *Category: Physics* — and the
+sentence after the tile names the leaders and says what the count is *of*: *4 laureates, with 2
+awards each: …*, *Univ. of California leads with 12 awards, then Harvard University and MIT with 9
+each — the top 6 universities.* Ties are named together, never ranked by the order the rows came in.
+
+**What would reverse it:** a catalog that says which column names a type — a `rdfs:label` the corpus
+records — read in place of the three names; a field whose words a reader would say differently from
+its column's, which is a label the host gives, and the same functions read it.
+
+*Held by* `packages/ai/src/data/words.test.ts`, "names the measured type per the grouped type, not
+Type.field"; "names a tie together, and says what the count is of: every bar tied"; "leads with the
+highest, whatever order the rows came in, and names the runners-up together".
+
 ## Suggest and complete stop being the split
 
 Today `chat` and `complete` mix three things: a verb, a model size and a context window. **The unit

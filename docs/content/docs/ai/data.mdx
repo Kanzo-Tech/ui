@@ -8,7 +8,7 @@ description: Ask — questions about data answered with a dashboard tile over a 
 a figure, a chart or a table — and the conditions a dashboard's filters publish. It names no relation
 and writes no SQL: every name it writes is an enum the page generated from the data it shows, and the
 relation is the page's to find — the shortest path from what is counted through every type the spec
-names. That is Ask as a [Task](/docs/design/tasks); [Asking data](/docs/design/ai) is why. The live
+shows, with a branch to each type a condition is on that the path is not. That is Ask as a [Task](/docs/design/tasks); [Asking data](/docs/design/ai) is why. The live
 version is the **Ask** panel of the [workspace showcase](/docs/showcases/workspace): a recorded model,
 but every tile is read for real, under the filter you set on the page.
 
@@ -168,15 +168,21 @@ the model: the spec is the model's, everything after it is the page's.
    `Output.object`: a provider that decodes against the schema cannot write a name that does not
    exist. A follow-up — *and in Germany?* — is told the previous spec and changes only what it asks.
 3. **The resolver finds the relation**: `resolveRelation` from `@kanzo-tech/mosaic`, the shortest
-   path from `of` that has a step of every type the spec's fields are on and meets the type each of
-   the page's chips is on. None is a diagnostic sent back to the model, which repairs the spec, three
+   path from `of` that has a step of every type the spec shows and meets the type each of the page's
+   chips is on, and a branch from it to each type a condition is on that the path is not — *Physics
+   awards by university* reads `Award>affiliation>Affiliation>university>University` through
+   `Award>category>Category`, its condition crossed in by the award's key. The answer carries the
+   branches as `through`. None is a diagnostic sent back to the model, which repairs the spec, three
    attempts in all. **Two equally short paths are the reader's**: the reply asks *Which way should
-   this be counted?* with each relation by its key, numbered, and the reader's next message — its
+   this be counted?* with each relation by its key — and its branches', after a `+` — numbered, and the reader's next message — its
    number or its key — picks one, with the same spec.
 4. **The answer compiles**: `checkAnswer` on the relation found, as a tile would be checked.
 5. **It is read** with the page's engine under the page's chips, and the sentence after the tile is
-   written from the rows — the figure, or the first two bars and how many there are — never by the
-   model.
+   written from the rows, never by the model: the figure, *12 awards.*; or who leads and who follows,
+   ties named together, and what the count is of — *Univ. of California leads with 12 awards, then
+   Harvard University and MIT with 9 awards each — 6 universities in all.* The tile is titled in the
+   same words, *Awards per university*, where the model wrote no title of its own
+   ([why](/docs/design/tasks#an-answer-reads-in-the-persons-words)).
 
 **It reads through `engine.query`, not the coordinator's queue.** The queue batches behind
 `requestAnimationFrame`, which a hidden tab never fires. `query` goes to the same connection directly
@@ -206,15 +212,17 @@ the page's clauses it was read under, and those its relation cannot answer, each
 *Held by* `packages/ai/src/data/ask-chat.test.ts`, "answers with the tile the Task's spec is, read on
 the page's engine, and words written from its rows"; "asks which way when two relations answer
 equally, and reads the one the reader picks". `packages/ai/src/data/ask.test.ts`, "leaves the
-relation to the resolver: prizes by university, under a chip on the prizes"; "sends a spec no
+relation to the resolver: prizes by university, under a chip on the prizes"; "answers a filter on one
+branch and a group on another"; "sends a spec no
 relation reaches back, and takes the repair". `packages/ai/src/data/page-clauses.test.ts`, "crosses a
 chip on another relation by the key both reach, as the page's tiles are crossed"; "keeps none of a
 relation's rows when it shares no type with the chip's".
 
 ## The chips
 
-**`AskChips` draws what an answer was read as, each part editable**: what is counted, what a chart
-is by, and each condition. A chip opens the values it can hold instead, and they are computed, not
+**`AskChips` draws what an answer was read as, each part editable**, in the reader's words: what is
+counted (*Counting awards*), what a chart is by (*By university*), and each condition (*Category:
+Physics*). A chip opens the values it can hold instead, and they are computed, not
 asked of a model — every type, every other field, a condition's other values and *any* — and each is
 offered only when Ask's own oracles accept it: the resolver reaches it by one shortest path, and it
 compiles. Taking one sends the edited spec as the next message, and the transport asks it as it is:

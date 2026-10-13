@@ -2,6 +2,7 @@ import { relationKey } from "@kanzo-tech/mosaic";
 import { describe, expect, it } from "vitest";
 import { runTask } from "../task/index.js";
 import { ask, askAlternatives, askAnswer, link, type AskInput, type AskSpec } from "./ask.js";
+import { wherePredicates } from "./answer.js";
 import { NOBEL, TYPES, answering } from "../testing/nobel.js";
 
 const input = (question: string, extra: Partial<AskInput> = {}): AskInput => ({ question, graph: NOBEL, types: TYPES, ...extra });
@@ -32,7 +33,7 @@ describe("the ask Task", () => {
     expect(proposal.verdict).toEqual({ ok: true });
     const answer = askAnswer(proposal.value, asked, "a1")!;
     expect(relationKey(NOBEL, answer.relation)).toBe("LaureateAward>university>University");
-    expect(answer.show).toMatchObject({ id: "a1", kind: "chart", x: "University.name" });
+    expect(answer.show).toMatchObject({ id: "a1", kind: "chart", x: "University.name", title: "Laureate awards per university" });
   });
 
   it("asks which way when two are equally short: a prize's country", async () => {
@@ -49,28 +50,44 @@ describe("the ask Task", () => {
       },
     });
     const chosen = askAnswer(proposal.value, input("Prizes by country?"), "a2", {
-      root: "LaureateAward",
-      path: [
-        { edge: "LaureateAward_university_University", direction: "out" },
-        { edge: "University_addressCountry_Country", direction: "out" },
-      ],
+      relation: {
+        root: "LaureateAward",
+        path: [
+          { edge: "LaureateAward_university_University", direction: "out" },
+          { edge: "University_addressCountry_Country", direction: "out" },
+        ],
+      },
+      through: [],
     })!;
     expect(relationKey(NOBEL, chosen.relation)).toBe("LaureateAward>university>University>addressCountry>Country");
   });
 
   it("sends a spec no relation reaches back, and takes the repair", async () => {
-    // From a country, covering a laureate, a university and a category is five hops: out of reach.
+    // From a country, showing a category, a university and a laureate is four hops: out of reach.
     const lost: AskSpec = {
       of: "Country",
-      show: { kind: "chart", type: "bar", x: "Category.name", y: { op: "count" } },
-      where: [
-        { field: "Laureate.gender", in: ["female"] },
-        { field: "University.name", in: ["MIT"] },
-      ],
+      show: { kind: "chart", type: "bar", x: "Category.name", y: { op: "count" }, color: "University.name", facet: "Laureate.gender" },
     };
     const proposal = await runTask({ ...ask, attempts: 2 }, input("Women by category?"), { model: answering(lost, { ...byUniversity, of: "LaureateAward" }) });
     expect(proposal.attempts).toBe(2);
     expect(proposal.verdict).toEqual({ ok: true });
+  });
+});
+
+describe("a filter on one branch, a group on another", () => {
+  it("answers a filter on one branch and a group on another", async () => {
+    // Physics prizes by university: LaureateAward→Category and LaureateAward→University are two
+    // branches from the prize, which one path could not hold.
+    const physics: AskSpec = { ...byUniversity, where: [{ field: "Category.name", in: ["Physics"] }] };
+    const asked = input("Which universities have the most Physics prizes?");
+    const proposal = await runTask(ask, asked, { model: answering(physics) });
+    expect(proposal.verdict).toEqual({ ok: true });
+    const answer = askAnswer(proposal.value, asked, "a3")!;
+    expect(relationKey(NOBEL, answer.relation)).toBe("LaureateAward>university>University");
+    expect(answer.through!.map((r) => relationKey(NOBEL, r))).toEqual(["LaureateAward>category>Category"]);
+    // The condition crosses in by the prize's key, through its own branch.
+    const [predicate] = wherePredicates(answer, [], NOBEL);
+    expect(String(predicate)).toMatch(/^\("id" IN \(SELECT "id" FROM .*"LaureateAward_category_Category".* WHERE \("Category\.name" IN \('Physics'\)\)\)\)$/);
   });
 });
 
@@ -85,9 +102,9 @@ describe("askAlternatives", () => {
   it("offers each slot's other values, as whole specs", () => {
     const chips = askAlternatives(women, input(""));
     expect(chips.map((c) => [c.slot, c.label, c.value])).toEqual([
-      ["of", "Counting", "Laureate"],
-      ["x", "By", "name"],
-      ["where.0", "gender", "female"],
+      ["of", "Counting", "laureates"],
+      ["x", "By", "country"],
+      ["where.0", "Gender", "female"],
     ]);
     const where = chips[2]!.options;
     expect(where.map((o) => o.label)).toEqual(["male", "any"]);
@@ -98,7 +115,7 @@ describe("askAlternatives", () => {
   it("offers only what the oracles accept: no x two relations reach equally", () => {
     const by = askAlternatives(byUniversity, input("")).find((c) => c.slot === "x")!;
     // A prize reaches a country two equally short ways, so Country.name is not an option.
-    expect(by.options.map((o) => o.label)).not.toContain("Country.name");
-    expect(by.options.map((o) => o.label)).toContain("Category.name");
+    expect(by.options.map((o) => o.label)).not.toContain("country");
+    expect(by.options.map((o) => o.label)).toContain("category");
   });
 });

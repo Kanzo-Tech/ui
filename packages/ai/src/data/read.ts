@@ -1,7 +1,6 @@
 import { clauseLabel, literal, Query, relationQuery, type Engine, type JoinGraph, type Selection, type SelectionClause } from "@kanzo-tech/mosaic";
 import { plotRelation } from "@kanzo-tech/ui/analytics";
-import type { ExprNode } from "@uwdata/mosaic-sql";
-import { ANSWER_ROWS, answerQuery, conditionClauses, pageClauses, type Answer, type AnswerRelation, type UnansweredClause } from "./answer.js";
+import { ANSWER_ROWS, answerQuery, pageClauses, wherePredicates, type Answer, type AnswerRelation, type UnansweredClause } from "./answer.js";
 
 /** One row of an answer, plain enough to keep in a message. */
 export type QueryRow = Record<string, unknown>;
@@ -40,7 +39,7 @@ export async function readAnswer(
   const { engine, graph, selection, signal } = page;
   const plotted = plotRelation(relationQuery(graph, answer.relation), { fields: about.fields, columns: about.columns });
   const clauses = pageClauses(selection?.clauses ?? [], about.columns, { relation: answer.relation, resolver: selection?.resolver });
-  const where = conditionClauses(answer.where, about.fields, {}).map((c) => c.predicate as ExprNode);
+  const where = wherePredicates(answer, about.fields, graph);
   const none = clauses.unanswered.length > 0 ? [literal(false)] : [];
   const table = Query.from(plotted.table).select("*").where([...where, ...clauses.predicates, ...none]);
   // One more row than the cap, so a cut answer is told from one that fits exactly.

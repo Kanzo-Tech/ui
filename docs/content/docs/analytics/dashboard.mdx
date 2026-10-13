@@ -460,20 +460,32 @@ import { Dashboard, MosaicProvider, RelationPicker, relationIdentities, relation
 />
 ```
 
+The words are **`nameWords(name, count)`**'s: a catalog's name as a reader says it — `TagClass` →
+*tag class*, `isLocatedIn` → *is located in*, an acronym kept — and its last word plural when `count`
+is not 1, *universities*. An Ask answer is titled and summed up in the same
+words ([Ask](/docs/ai/data#ask)).
+
 ### Resolving a relation
 
 `resolveRelation(graph, needs)` is the relation a question needs, computed rather than picked: the
 shortest path from `needs.root` — the type the answer counts — whose steps cover `needs.types`, the
-types its fields are on, and meet `needs.under`, the root type of each relation the page's clauses
-were published on, which is how a clause reaches a relation (below). Breadth first, in the graph's
-order, up to `maxHops` (3). It answers a `Resolved`: the one `relation`; the `relations` that are
-`ambiguous` — equally short, so which one is the person's to say, as a prize's country is its
-laureate's birthplace or its university's; or `unreachable`, with what the closest relation still
-`missing`. It never walks back along the edge it just took.
+types it shows, and meet `needs.under`, the root type of each relation the page's clauses were
+published on, which is how a clause reaches a relation (below). A type in `needs.filters` — what a
+condition is on — that the path has no step of is reached by a **branch**: the shortest relation to it
+from any step of the path, which narrows the path as a page's clause on another relation does, by a
+semi-join on the key of the step it hangs off. What it shows is one path; what it is filtered by is a
+star around it, as a semantic layer joins a measure's filters from its entity
+([Tasks](/docs/design/tasks#a-filter-off-the-path-is-a-branch-crossed-in-by-its-key)). Breadth first,
+in the graph's order, up to `maxHops` (3) for the path and for each branch. It answers a `Resolved`:
+the one `relation` and the branches it is read `through`; the `options` that are `ambiguous` — equally
+short, so which one is the person's to say, as a prize's country is its laureate's birthplace or its
+university's; or `unreachable`, with what the closest relation still `missing`. It never walks back
+along the edge it just took.
 
 ```ts
-resolveRelation(graph, { root: "LaureateAward", types: ["University"], under: ["LaureateAward"] });
-// { kind: "relation", relation: LaureateAward>university>University }
+resolveRelation(graph, { root: "Award", types: ["University"], filters: ["Category"] });
+// { kind: "relation", relation: Award>affiliation>Affiliation>university>University,
+//   through: [Award>category>Category] }
 ```
 
 ### What the page sees
@@ -617,7 +629,7 @@ Takes no props of its own; every prop goes to its `div` (`data-slot="tile-editor
 | `value` | `Relation` | — |
 | `onValueChange` | `(relation: Relation) => void` | — |
 | `phrase` | `(edge: JoinEdge, direction: "out" \| "in") => string \| undefined` | the templates: *The \{to\} it \{label\}*, *\{To\}s \{label\} this \{from\}* |
-| `plural` | `(type: string) => string \| undefined` | the type's words, plus *s* |
+| `plural` | `(type: string) => string \| undefined` | `nameWords(type, 2)` |
 
 ```ts
 function relationQuery(graph: JoinGraph, relation: Relation): Query;
@@ -626,14 +638,16 @@ function relationIdentities(graph: JoinGraph, relation: Relation): { column: str
 function relationRootKey(graph: Pick<JoinGraph, "types">, relation: Relation): string;
 function relationHops(graph: JoinGraph, type: string): RelationHop[];
 function resolveRelation(graph: JoinGraph, needs: RelationNeeds): Resolved;
+function nameWords(name: string, count?: number): string; // `TagClass` → "tag class", 2 → "tag classes"
 
 interface Relation { root: string; path: readonly Hop[] }
 interface Hop { edge: string; direction: "out" | "in" }
 interface RelationHop { hop: Hop; label: string; to: string; fanOut?: number }
-interface RelationNeeds { root: string; types?: readonly string[]; under?: readonly string[]; maxHops?: number }
+interface RelationNeeds { root: string; types?: readonly string[]; filters?: readonly string[]; under?: readonly string[]; maxHops?: number }
+interface Resolution { relation: Relation; through: readonly Relation[] }
 type Resolved =
-  | { kind: "relation"; relation: Relation }
-  | { kind: "ambiguous"; relations: readonly Relation[] }
+  | ({ kind: "relation" } & Resolution)
+  | { kind: "ambiguous"; options: readonly Resolution[] }
   | { kind: "unreachable"; missing: readonly string[] };
 interface JoinGraph { types: readonly JoinType[]; edges: readonly JoinEdge[] }
 interface JoinType { name: string; table: TableExpr; key: string; columns: readonly string[]; rows?: number; of?: readonly string[] }

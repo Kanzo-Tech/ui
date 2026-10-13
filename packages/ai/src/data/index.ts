@@ -8,7 +8,8 @@
 // TanStack Table to import `Chat`. Nothing here knows what the data is — the join graph and the
 // relations offered over it are the host's.
 
-export { askEdit, askOffers, askTransport, questionOf, useAskChat } from "./ask-chat.js";
+export { askEdit, askOffers, askTransport, useAskChat } from "./ask-chat.js";
+export { questionOf } from "./words.js";
 export type { AskChatOptions, AskMessage, AskOutput, AskTurn } from "./ask-chat.js";
 export { AskChips } from "./ask-chips.js";
 export type { AskChipsProps } from "./ask-chips.js";

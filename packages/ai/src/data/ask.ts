@@ -1,14 +1,16 @@
-import { relationKey, relationSteps, resolveRelation, type JoinGraph, type Relation, type Resolved } from "@kanzo-tech/mosaic";
+import { relationKey, relationSteps, resolveRelation, type JoinGraph, type Relation, type Resolution, type Resolved } from "@kanzo-tech/mosaic";
 import { jsonSchema } from "ai";
 import { defineTask, type Finding } from "../task/index.js";
 import { answerSchema, checkAnswer, placed, type Answer, type AnswerField, type AnswerInput, type AnswerRelation } from "./answer.js";
+import { answerTitle, capital, fieldWords, typeWords } from "./words.js";
 
 /**
  * **Ask as a Task** — `/docs/design/tasks#ask-from-agent-to-form`. The model fills a spec — what is
  * counted, the fields it is shown by, what it is narrowed to — and never a relation: the relation is
  * the resolver's (`resolveRelation`), the shortest path from what is counted that covers the fields
- * and reaches the page's chips. A question the graph cannot answer that way is said before anything
- * runs; two equally short ways are a question for the reader.
+ * it shows and reaches the page's chips, with a branch to each type a condition is on that the path
+ * is not. A question the graph cannot answer that way is said before anything runs; two equally
+ * short ways are a question for the reader.
  */
 
 /** What Ask is asked: the question, the graph, each type with its fields, and the page it is on. */
@@ -65,32 +67,41 @@ export function link(input: AskInput): AskContext {
   return { types: input.types.filter((t) => near.has(t.relation.root)) };
 }
 
-/** The fields an answer names, in a spec or an answer alike. */
-function fieldsOf(spec: Pick<AskSpec, "show" | "where">): string[] {
+/** The fields an answer shows, in a spec or an answer alike. */
+function shown(spec: Pick<AskSpec, "show">): string[] {
   const show = spec.show;
-  const shown =
+  const fields =
     show.kind === "stat"
       ? [show.measure.field, show.trend]
       : show.kind === "chart"
         ? [show.x, show.y.field, show.color, show.facet]
         : show.columns;
-  return [...shown, ...(spec.where ?? []).map((c) => c.field)].filter((f): f is string => typeof f === "string");
+  return fields.filter((f): f is string => typeof f === "string");
 }
 
-/** The relation a spec needs, as the resolver finds it. */
+const typesOf = (fields: readonly string[]) => [...new Set(fields.map(typeOf))];
+
+/** The relation a spec needs, as the resolver finds it: a path to what it shows, a branch to what it is narrowed by. */
 export function askRelation(spec: AskSpec, input: AskInput): Resolved {
-  const types = [...new Set(fieldsOf(spec).map(typeOf))];
-  return resolveRelation(input.graph, { root: spec.of, types, under: input.under });
+  const filters = typesOf((spec.where ?? []).map((c) => c.field));
+  return resolveRelation(input.graph, { root: spec.of, types: typesOf(shown(spec)), filters, under: input.under });
 }
 
-/** The relation as an answer reads it: every step's fields, under the names a relation gives them. */
-export function answerRelation(relation: Relation, input: AskInput): AnswerRelation {
-  const steps = relationSteps(input.graph, relation);
+/**
+ * The relation as an answer reads it: every step's fields, under the names a relation gives them, and
+ * its branches' — which its conditions may name — beside them. The columns are the relation's alone.
+ */
+export function answerRelation(resolution: Resolution, input: AskInput): AnswerRelation {
   const alone = (type: string) => input.types.find((t) => t.relation.root === type);
-  const fields = steps.flatMap((s) => alone(s.type)?.fields ?? []);
-  const columns = steps.flatMap((s) => alone(s.type)?.columns ?? []);
-  return { relation, fields, columns };
+  const stepsOf = (relation: Relation) => relationSteps(input.graph, relation).map((s) => alone(s.type));
+  const fields = [resolution.relation, ...resolution.through].flatMap(stepsOf).flatMap((t) => t?.fields ?? []);
+  const columns = stepsOf(resolution.relation).flatMap((t) => t?.columns ?? []);
+  return { relation: resolution.relation, fields: [...new Map(fields.map((f) => [f.name, f])).values()], columns };
 }
+
+/** A resolution as the reader is asked to choose it: its relation's key, and each branch's. */
+export const resolutionKey = (graph: JoinGraph, r: Resolution) =>
+  [relationKey(graph, r.relation), ...r.through.map((b) => relationKey(graph, b))].join(" + ");
 
 /** The spec as an answer on `relation`: `of` gives way to it. */
 function onRelation(spec: AskSpec, relation: string): AnswerInput {
@@ -99,12 +110,16 @@ function onRelation(spec: AskSpec, relation: string): AnswerInput {
   return answer as AnswerInput;
 }
 
-/** The spec, as the answer `AnswerCard` draws and the page reads: on `relation`, or the one resolved. */
-export function askAnswer(spec: AskSpec, input: AskInput, id: string, relation?: Relation): Answer | undefined {
+/**
+ * The spec, as the answer `AnswerCard` draws and the page reads: on the resolution chosen, or the one
+ * resolved, under the title the spec reads as when the model wrote none.
+ */
+export function askAnswer(spec: AskSpec, input: AskInput, id: string, chosen?: Resolution): Answer | undefined {
   const resolved = askRelation(spec, input);
-  const on = relation ?? (resolved.kind === "relation" ? resolved.relation : undefined);
+  const on = chosen ?? (resolved.kind === "relation" ? resolved : undefined);
   if (!on) return undefined;
-  return placed(onRelation(spec, relationKey(input.graph, on)), id, on);
+  const titled = { ...spec, show: { ...spec.show, title: spec.show.title ?? answerTitle(spec) } } as AskSpec;
+  return placed(onRelation(titled, relationKey(input.graph, on.relation)), id, on.relation, on.through);
 }
 
 /** The oracle the resolver is: no path is a diagnostic at `/of`, two equally short are the reader's. */
@@ -118,8 +133,8 @@ function reachable(spec: AskSpec, input: AskInput): Finding | undefined {
       decision: {
         id: "relation",
         question: "Which way should this be counted?",
-        options: resolved.relations.map((r) => {
-          const key = relationKey(input.graph, r);
+        options: resolved.options.map((r) => {
+          const key = resolutionKey(input.graph, r);
           return { id: key, label: key };
         }),
       },
@@ -132,7 +147,7 @@ function reachable(spec: AskSpec, input: AskInput): Finding | undefined {
 function compiles(spec: AskSpec, input: AskInput): Finding | undefined {
   const resolved = askRelation(spec, input);
   if (resolved.kind !== "relation") return undefined;
-  const relation = answerRelation(resolved.relation, input);
+  const relation = answerRelation(resolved, input);
   const checked = checkAnswer(onRelation(spec, relationKey(input.graph, resolved.relation)), [relation], input.graph);
   return checked.success ? undefined : { code: "ask/does-not-compile", message: checked.error.message };
 }
@@ -179,15 +194,13 @@ export const ask = defineTask<AskInput, AskSpec, AskContext>({
 export interface AskChip {
   /** What the slot is: `of`, `x`, or `where.<n>`. */
   readonly slot: string;
-  /** How the slot reads: *Counting*, *By*, or the field a where is on. */
+  /** How the slot reads: *Counting*, *By*, or the field a where is on, in words: *Category*. */
   readonly label: string;
-  /** What it holds now, in words. */
+  /** What it holds now, in words: *awards*, *laureate*, *Physics*. */
   readonly value: string;
   /** Every other value it can hold, each the whole spec with it — only those the oracles accept. */
   readonly options: readonly { readonly label: string; readonly spec: AskSpec }[];
 }
-
-const named = (field: string) => field.slice(field.indexOf(".") + 1);
 
 /**
  * The chips of `spec`: what is counted, what a chart is by, and each condition — each with the
@@ -204,8 +217,8 @@ export function askAlternatives(spec: AskSpec, input: AskInput): AskChip[] {
     {
       slot: "of",
       label: "Counting",
-      value: spec.of,
-      options: offered(input.types.filter((t) => t.relation.root !== spec.of).map((t) => [t.relation.root, { ...spec, of: t.relation.root }] as const)),
+      value: typeWords(spec.of, 2),
+      options: offered(input.types.filter((t) => t.relation.root !== spec.of).map((t) => [typeWords(t.relation.root, 2), { ...spec, of: t.relation.root }] as const)),
     },
   ];
   const show = spec.show;
@@ -213,11 +226,11 @@ export function askAlternatives(spec: AskSpec, input: AskInput): AskChip[] {
     chips.push({
       slot: "x",
       label: "By",
-      value: named(show.x),
+      value: fieldWords(show.x, spec.of),
       options: offered(
         fields
           .filter((f) => f.name !== show.x && f.kind !== "numeric")
-          .map((f) => [f.name, { ...spec, show: { ...show, x: f.name } }] as const),
+          .map((f) => [fieldWords(f.name, spec.of), { ...spec, show: { ...show, x: f.name } }] as const),
       ),
     });
   }
@@ -228,7 +241,7 @@ export function askAlternatives(spec: AskSpec, input: AskInput): AskChip[] {
     const where = (next: AskSpec["where"]) => ({ ...spec, where: next });
     chips.push({
       slot: `where.${n}`,
-      label: named(condition.field),
+      label: capital(fieldWords(condition.field, spec.of)),
       value: condition.in.join(" or "),
       options: offered([
         ...others.map((v) => [String(v), where(spec.where!.map((c, i) => (i === n ? { field: c.field, in: [v] } : c)))] as const),

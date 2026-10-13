@@ -48,7 +48,7 @@ import {
 } from "@kanzo-tech/ui/analytics";
 import type { ToolPart } from "../tool.js";
 import type { AnswerOutput } from "./read.js";
-import { conditionClauses, unansweredText } from "./answer.js";
+import { conditionClauses, unansweredText, wherePredicates } from "./answer.js";
 
 /** Every word `AnswerCard` draws. English by default. */
 export interface AnswerCardTranslations {
@@ -237,6 +237,7 @@ interface Adding {
 }
 
 function Drawn(props: {
+  graph: JoinGraph;
   table: TableExpr;
   /** The relation's key: what a host keeps its dashboards by. Not `key`, which React keeps for itself. */
   dashboardKey: string;
@@ -248,7 +249,7 @@ function Drawn(props: {
   onDrawing: OnDrawing;
   t: AnswerCardTranslations;
 }) {
-  const { table, identities, output, adding, onDrawing, t } = props;
+  const { graph, table, identities, output, adding, onDrawing, t } = props;
   // The fields a dashboard over the relation reads, so the tile it is added to is drawn the same.
   const stats = useFieldStats(table, { exclude: identities.map((i) => i.column) });
   const readable = React.useMemo(
@@ -257,10 +258,10 @@ function Drawn(props: {
   );
   const narrowed = React.useMemo(() => {
     if (!readable) return null;
-    const clauses = conditionClauses(output.answer.where, readable.fields, {});
     const ranked = output.answer.top === undefined ? null : domainClause(output, readable.fields, {});
-    return { clauses, table: Query.from(readable.table).select("*").where([...clauses, ...(ranked ? [ranked] : [])].map((c) => c.predicate!)) };
-  }, [readable, output]);
+    const where = [...wherePredicates(output.answer, readable.fields, graph), ...(ranked ? [ranked.predicate!] : [])];
+    return { table: Query.from(readable.table).select("*").where(where) };
+  }, [readable, output, graph]);
   const write = useAdd(adding, props.dashboardKey, output);
 
   const drawing = stats.error === null && (!readable || !narrowed);
@@ -272,7 +273,7 @@ function Drawn(props: {
   // The tile's own header holds them, beside its title, as a dashboard tile's pencil is held.
   const actions = (
     <>
-      <FilterToRows identity={props.rootKey} output={output} fields={readable.fields} t={t} table={table} />
+      <FilterToRows graph={graph} identity={props.rootKey} output={output} fields={readable.fields} t={t} table={table} />
       {write && <AddToDashboard fields={readable.fields} t={t} write={write} />}
     </>
   );
@@ -431,13 +432,14 @@ function keepsEverything(output: AnswerOutput, fields: readonly FieldStat[]): bo
  * would keep everything in view.
  */
 function FilterToRows(props: {
+  graph: JoinGraph;
   table: TableExpr;
   identity: string;
   output: AnswerOutput;
   fields: readonly FieldStat[];
   t: AnswerCardTranslations;
 }) {
-  const { table, identity, output, fields, t } = props;
+  const { graph, table, identity, output, fields, t } = props;
   const { selection } = useMosaic();
   // Its own source, so its chip retracts it and nothing else.
   const [source] = React.useState(() => ({ reset() {} }));
@@ -457,7 +459,7 @@ function FilterToRows(props: {
         selection.update(
           held
             ? clauseSemiJoin(identity, null, { source })
-            : clauseSemiJoin(identity, Query.select(identity).from(table).where(clauses.flatMap((c) => (c.predicate ? [c.predicate] : []))), { source, label }),
+            : clauseSemiJoin(identity, Query.select(identity).from(table).where([...wherePredicates(output.answer, fields, graph), ...(domain ? [domain.predicate!] : [])]), { source, label }),
         )
       }
     >
