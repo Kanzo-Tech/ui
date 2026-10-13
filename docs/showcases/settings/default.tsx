@@ -15,6 +15,7 @@ import {
   Avatar,
   AvatarFallback,
   Button,
+  Eyebrow,
   Item,
   ItemContent,
   ItemGroup,
@@ -179,14 +180,9 @@ export function SettingsShowcase() {
               <nav aria-label="Settings" className="flex flex-col gap-6">
                 {SETTINGS.map((group) => (
                   <ItemGroup className="gap-0.5" key={group.label}>
-                    {/* The same heading the sections opposite wear — small, muted, upper — because
-                        both columns are headings of one page. The panel's own spelling is a private
-                        constant, so this is written out rather than imported; a host building its
-                        own sections gets it for free from `PreferencesField` / `PreferencesFieldSet`
-                        instead. */}
-                    <span className="mb-1 px-2 font-medium text-[length:var(--kanzo-font-size-small)] text-muted-foreground uppercase tracking-wide">
-                      {group.label}
-                    </span>
+                    {/* The same heading the sections opposite wear — an `Eyebrow` at the panel's
+                        11px — because both columns are headings of one page. */}
+                    <Eyebrow className="mb-1 px-2 text-[length:var(--kanzo-font-size-small)]">{group.label}</Eyebrow>
                     {group.items.map((entry) => {
                       const active = "active" in entry && entry.active;
                       return (

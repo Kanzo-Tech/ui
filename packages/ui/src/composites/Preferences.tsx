@@ -22,6 +22,7 @@ import { useSectionContribution, type PrefSpecimen } from "../theme/section-cont
 import { cn } from "../lib/cn.js";
 import { useHotkey } from "../lib/use-hotkey.js";
 import { Button } from "../simples/button.js";
+import { Eyebrow } from "../simples/eyebrow.js";
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "../simples/field.js";
 import {
   Dialog,
@@ -251,30 +252,29 @@ function PreferencesFooter() {
 function PrefField({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
     <Field>
-      <FieldLabel className={PREF_HEADING}>{label}</FieldLabel>
+      <Eyebrow asChild>
+        <FieldLabel className={PREF_HEADING}>{label}</FieldLabel>
+      </Eyebrow>
       {children}
     </Field>
   );
 }
 
 /**
- * ONE spelling for every heading this panel draws, and the reason it is a class rather than a
- * component: each machine dictates the ELEMENT its name lives on — a `<legend>` for a group, a
- * `<label>` for a single control, the slider's own label part, a plain `<span>` where a legend
- * would capture two radio groups at once. A `PreferencesHeading` component could only render one
- * of those, so what the four have in common is exactly this string and nothing else.
+ * Every heading this panel draws is an `Eyebrow`, taken `asChild` because each machine dictates the
+ * ELEMENT its name lives on — a `<legend>` for a group, a `<label>` for a single control, the
+ * slider's own label part, a plain `<span>` where a legend would capture two radio groups at once.
+ * What this panel adds to the eyebrow is this string and nothing else.
  *
- * Two details are load-bearing rather than taste. The size is `!` because `FieldLegend` sets its
- * own through a `data-[variant=…]:` selector, which outranks a plain class whatever the source
- * order — a non-important override there silently does nothing. And `block` is what makes `mb-2`
- * mean anything on `SliderLabel`, which is inline by default: the slider's heading sat one gap
- * tighter than the others for exactly that reason, and three headings at three spacings read as
- * three ranks once they share a grid.
+ * Three details are load-bearing rather than taste. The size is the IDE tier's 11px, one step under
+ * `Eyebrow`'s `text-xs`, because this panel is set at that tier throughout. It is `!` because
+ * `FieldLegend` sets its own through a `data-[variant=…]:` selector, which outranks a plain class
+ * whatever the source order — a non-important override there silently does nothing. And `block` is
+ * what makes `mb-2` mean anything on `SliderLabel`, which is inline by default: the slider's heading
+ * sat one gap tighter than the others for exactly that reason, and three headings at three spacings
+ * read as three ranks once they share a grid.
  */
-const PREF_HEADING = cn(
-  "mb-2 block font-medium uppercase tracking-wide text-muted-foreground",
-  "text-[length:var(--kanzo-font-size-small)]!",
-);
+const PREF_HEADING = "mb-2 block text-[length:var(--kanzo-font-size-small)]!";
 
 /**
  * A titled GROUP of options — the container `PrefField` cannot be.
@@ -290,7 +290,9 @@ const PREF_HEADING = cn(
 function PrefFieldSet({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
     <FieldSet className="gap-2">
-      <FieldLegend className={PREF_HEADING}>{label}</FieldLegend>
+      <Eyebrow asChild>
+        <FieldLegend className={PREF_HEADING}>{label}</FieldLegend>
+      </Eyebrow>
       {children}
     </FieldSet>
   );
@@ -306,7 +308,7 @@ function ThemeSection({ copy }: { copy?: Partial<PreferencesCopy> }) {
   if (corePrefs.themeByAppearance?.offered === false && corePrefs.appearance?.offered === false) return null;
   return (
     <div className="flex flex-col gap-2">
-      <span className={PREF_HEADING}>{copy?.theme ?? "Theme"}</span>
+      <Eyebrow className={PREF_HEADING}>{copy?.theme ?? "Theme"}</Eyebrow>
       <ThemePicker copy={copy} />
     </div>
   );
@@ -464,7 +466,9 @@ function Pref({ name, copy }: PrefProps) {
         step={decl.step}
         value={[prefNumber(value, decl)]}
       >
-        <SliderLabel className={PREF_HEADING}>{title}</SliderLabel>
+        <Eyebrow asChild>
+          <SliderLabel className={PREF_HEADING}>{title}</SliderLabel>
+        </Eyebrow>
       </Slider>
     );
   }
@@ -487,7 +491,9 @@ function Pref({ name, copy }: PrefProps) {
         step={1}
         value={[Math.max(0, options.findIndex((o) => o.value === value))]}
       >
-        <SliderLabel className={PREF_HEADING}>{title}</SliderLabel>
+        <Eyebrow asChild>
+          <SliderLabel className={PREF_HEADING}>{title}</SliderLabel>
+        </Eyebrow>
       </Slider>
     );
   }

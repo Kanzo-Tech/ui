@@ -97,7 +97,7 @@ const keys = () => [...(shown()?.querySelectorAll("[data-slot=kbd]") ?? [])].map
 
 const button = (name: string) => screen.getByRole("button", { name });
 const progressbar = () => screen.getByRole("progressbar");
-/** The question's position, 1-based — the same number the eye reads off the eyebrow. */
+/** The question's position, 1-based — the same number the eye reads off the progress line. */
 const progress = () => progressbar().getAttribute("aria-valuenow");
 const card = (value: string) => choice(value)?.closest("[data-slot=questionnaire-choice]") ?? null;
 
@@ -297,7 +297,7 @@ describe("Questionnaire", () => {
     const user = userEvent.setup();
     render(<Survey />);
 
-    // The eyebrow and the ARIA say the same thing: a progressbar counting questions, not percent.
+    // The progress line and the ARIA say the same thing: a progressbar counting questions, not percent.
     expect(progressbar().textContent).toBe("Question 1 of 4");
     expect(progressbar().getAttribute("aria-valuetext")).toBe("Question 1 of 4");
     expect(progressbar().getAttribute("aria-valuemin")).toBe("1");

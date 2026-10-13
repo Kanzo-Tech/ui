@@ -304,7 +304,7 @@ still JSON only by default, and `Chat`'s `tools` map draws it as what it is.
 | `Tool` | `Tool`, `ToolHeader`, `ToolContent`, `ToolInput`, `ToolOutput` | Bound to the part; *Stopped*, a state the SDK lacks |
 | `Suggestion`, `Suggestions` | `@kanzo-tech/ui`'s `Suggestion`, `Suggestions` | Wraps rather than scrolls; a rationale in the tooltip; `pending` pills in skeleton while more arrive. One strip for a model's offers and anyone else's: `Chat` and `Assist` draw theirs with it |
 | `Question` | `Question`, `QuestionPrompt`, `QuestionDescription`, `QuestionOptions`, `QuestionOption` | Their panel and their outline-button options, on Ark's radio group so the arrow keys work. Single choice; `QuestionInput` and `QuestionSubmit` not admitted: a pick is the answer, and free text is the composer's |
-| `Shimmer` | `Working` | A spinner beside the words, as every busy surface here |
+| `Shimmer` | `Working` | A spinner beside the words, as every busy surface here, and a `Progress` under them given a `value` |
 | `Loader` | `@kanzo-tech/ui`'s `Spinner` | AI Elements retired it for shadcn's `Spinner` |
 | `StackTrace` | `@kanzo-tech/ui`'s `Diagnostic` | A SHACL violation and an LSP diagnostic are the same shape, and neither is AI |
 | `SchemaDisplay`, `FileTree` | `@kanzo-tech/ui`'s `TreeView`, `DataList` | [No schema display](/docs/design/admission#the-structure-view-is-treeview-until-the-data-nests) |

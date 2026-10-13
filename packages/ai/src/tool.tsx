@@ -12,6 +12,7 @@ import {
   CollapsibleContent,
   CollapsibleIndicator,
   CollapsibleTrigger,
+  Eyebrow,
   JsonTreeView,
   Spinner,
 } from "@kanzo-tech/ui";
@@ -57,7 +58,6 @@ const mark = (look: Look) =>
     <Spinner className="text-info-foreground" />
   );
 
-const LABEL = "mb-1.5 block font-medium text-muted-foreground text-xs uppercase tracking-wide";
 const PANEL = "min-w-0 overflow-x-auto rounded-lg bg-muted px-3 py-2 text-xs [&_code]:font-mono";
 
 const Ctx = React.createContext<{ part: ToolPart; look: Look } | null>(null);
@@ -165,9 +165,9 @@ export function ToolContent(props: React.ComponentProps<typeof CollapsibleConten
 function Io(props: { label: string; failed?: boolean; slot: string; children: React.ReactNode }) {
   return (
     <ark.div className={cn("min-w-0", props.failed && "text-destructive-foreground")} data-slot={props.slot}>
-      <ark.span className={LABEL} data-slot="tool-label">
+      <Eyebrow className="mb-1.5" slot="tool-label">
         {props.label}
-      </ark.span>
+      </Eyebrow>
       <ark.div className={cn(PANEL, props.failed && "bg-destructive/7")} data-slot="tool-panel">
         {props.children}
       </ark.div>
