@@ -221,7 +221,7 @@ uses and waits on states.
 | | |
 | --- | --- |
 | **Cases** | `packages/ai/eval/cases.ts`, data: Nobel for nearly every shape, LDBC SNB for self-joins and a large graph. Each case says the failure it tests. A tie no longer asks: with paths, a case that tested *which way should this be counted?* expects the model's path, and its chip's alternative |
-| **Corpora** | written by fossil's executor in Node through `docs/scripts/write-corpus.mjs`, as the docs' archive is, from each example's program, shapes and fetched data; `.gitignore`d as compiler output |
+| **Corpora** | written by fossil's executor in Node through `docs/scripts/write-corpus.mjs`, as the docs' archive is, from each example's program, shapes and fetched data; `.gitignore`d as compiler output. The set carries its own copy of the Nobel and SNB programs, shapes and fetch scripts, beside its cases; keasy keeps its own as seed data (decided 13 October 2026) — each repository owns what it runs |
 | **Page** | a docs showcase that attaches a corpus by name and mounts a dashboard and Ask on it, with the docs' local model |
 | **Runner** | a Vitest project beside `@kanzo-tech/testing`'s end-to-end one: Playwright's Chromium, `getHarness` on `AnswerHarness`, `DashboardHarness` and `FilterBarHarness`, `expect.poll` and no fixed wait |
 | **Model** | the real one, on the machine's GPU through WebGPU — live, never replayed, never the double: what is measured is the model |

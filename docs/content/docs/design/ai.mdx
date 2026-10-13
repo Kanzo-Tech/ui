@@ -259,8 +259,9 @@ does, and the reply carries the value; it is still not parsed out of text.
 
 **`@kanzo-tech/ai` keeps a chat as the AI SDK keeps one — the `UIMessage[]` of a chat id — and the
 host gives two functions, `load(id)` and `save(id, messages)`, and may give a third, `keep`, which
-decides what of a message is stored.** A chat hook given an `id` reads its messages through
-[the read door](/docs/design/reads) before the first turn, validates them with the AI SDK's
+decides what of a message is stored.** A chat hook given an `id` calls `load` once before the first
+turn — a plain call, not a query: the chat hooks are `@kanzo-tech/ai`'s root, which takes no
+TanStack peer ([One read per datum](/docs/design/reads)) — validates them with the AI SDK's
 `validateUIMessages` against the package's data-part schemas — `answer`, `ask` — and hands them to
 `useChat({ id, messages })`; at the end of every turn it saves, one save at a time per id. `keep`
 filters the parts — a host drops reasoning, or keeps the answer's spec and not its rows — and what

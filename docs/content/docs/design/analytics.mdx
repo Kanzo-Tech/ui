@@ -359,6 +359,13 @@ is *is part of*, `isLocatedIn` *located in* once its subject is plural, `hasCrea
 is*. A host's `phrase(edge, direction)` overrides any sentence (a self-edge's *parent* and
 *children* wording), and `plural(type)` any plural the `+s` rule gets wrong (*People*).
 
+**Decided 13 October 2026, not built: no plural anywhere.** The rule that titles name no plural
+([Tasks](/docs/design/tasks#words-come-from-the-datas-own-metadata)) holds here too. The picker's
+words become the types' and edges' labels, its sentences are written so no noun inflects — an
+in-edge reads as the type's label and the edge's, *Comment · located in this place* — and the `+s`
+rule and `plural(type)` go. *What would reverse it:* a labelling vocabulary that carries a plural,
+as on Tasks.
+
 The menu has two groups, *Follow from each \{Root\}* for out-edges and *Bring in what points at it*
 for in-edges, each sorted by fan-out ascending. Each item says its fan-out — *1 per Place*,
 *~103 per Place*, *≤1 per Place* — and warns above ten, because one choice keeps the row count and

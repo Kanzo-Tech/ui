@@ -221,8 +221,8 @@ in English. A part that hard-codes English today gains `translations` when it is
 the same PR, since a reader in another language is already a caller.
 
 `Problem`'s `copy(code, data)` is not a translation: it is the host's wording of a code it knows,
-resolved per failure. It keeps its function shape and leaves the name `copy`; what it is called is
-[open](/docs/design/cleanup#open-and-asked).
+resolved per failure. It becomes `describe(code, data)`, returning `{ title, detail }` (decided 13
+October 2026), and `Problem`'s `translations` keeps its fixed strings.
 
 **What would reverse it:** a host that translates through a provider — an i18n library's context —
 and cannot pass a prop per component. Then a provider is the second way, and it supplies the same
@@ -230,6 +230,7 @@ and cannot pass a prop per component. Then a provider is the second way, and it 
 
 **Breaking**, in a consumer's words, for this page:
 
+- `Problem`'s `copy` is `describe`, returning `{ title, detail }`.
 - Pass `translations`, not `copy`, to `PreferencesRoot`, `PreferencesPanel`, `PreferencesTrigger`
   and `ThemePicker`; not `labels`, to the `Findings` parts.
 - `MadeWith`'s `prefix`, `infix` and `loveLabel`, and `PreferencesPanel`'s `title` and `hint`, are

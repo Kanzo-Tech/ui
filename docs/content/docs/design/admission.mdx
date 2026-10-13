@@ -415,8 +415,10 @@ class**: `code` in `area/kind`, `title`, `message`, `data`, `cause`, and `severi
 `GraphError`, `EngineError`, `LlmError`, fossil's `FossilError`, a host's `ApiError`), so importing
 none of them is what lets one component show all of them, and one more nobody has written yet.
 
-**The words are the host's, through one function.** `copy(code, data)` returns a title, a detail, a
-link and the page that explains the code, or nothing. A registry of codes inside the library would
+**The words are the host's, through one function.** `describe(code, data)` returns a title and a
+detail for the code, or nothing (it was `copy`, renamed with
+[the one translation prop](/docs/design/naming#one-prop-translates-translations); `translations`
+stays for `Problem`'s fixed strings). A registry of codes inside the library would
 name products — the codes worth rewording are the host's and fossil's — and a provider would be a
 second way to pass what [`LanguagePicker`](/docs/forms/language-picker)'s `translations` already
 passes as a prop. A rewritten detail keeps the author's row one level down: the host may say it
@@ -479,9 +481,8 @@ It belongs in `ui` because it does not know a model exists, which is
 [the line](#the-ai-surfaces-are-their-own-package) between the two packages: a decision's options
 are data, and drawing them is a form. The parts are `Question`, `QuestionPrompt`,
 `QuestionDescription`, `QuestionChoices` and `QuestionChoice`, `QuestionInput`, `QuestionTextarea`
-and `QuestionError` — the free names once `ai`'s go, and the names
-[open](/docs/design/cleanup#open-and-asked) until the PR — and `Questionnaire` keeps its root,
-progress and actions.
+and `QuestionError` — the free names once `ai`'s go, confirmed by the owner — and `Questionnaire`
+is the sequence around them: its root, progress and actions.
 
 Its call sites are the guided chat in `@kanzo-tech/ai`, where keasy's assistant and Ask draw a
 decision ([Asking data](/docs/design/ai#a-question-to-the-person-is-the-question-part)), and
@@ -515,8 +516,10 @@ used:
 | `useAsyncCollection` | `src/react/fieldassist/Comboboxes.tsx`, a reference combobox's candidates |
 | `PreferencesRoot`, `PreferencesTrigger`, `PreferencesPanel`, `PreferencesField`, `PreferencesSections` | `playground/src/App.tsx` and `playground/src/Preferences.tsx` |
 
-**`ThemeNotice` and `FloatingPanel` leave the barrel for docs examples.** Neither has a caller in any
-product; `ThemeNotice`'s own comment contradicted the test that keeps `KanzoTheme`, and
+**`ThemeNotice`, `FloatingPanel` and the `Preferences` all-in-one leave the barrel for docs
+examples.** The all-in-one is a fixed arrangement of `PreferencesRoot`, `PreferencesTrigger` and
+`PreferencesPanel`, which metadata-form composes itself, so its parts stay and the arrangement is
+an example — the `TextField` case. The other two have no caller in any product; `ThemeNotice`'s own comment contradicted the test that keeps `KanzoTheme`, and
 `FloatingPanel` is a resizable `div` under the name of Ark's floating-panel machine. An example is
 the composition, copied by whoever needs it.
 
@@ -524,4 +527,5 @@ the composition, copied by whoever needs it.
 example, unless another product has called it meanwhile.
 
 **Breaking**, in a consumer's words: `ThemeNotice`, `ThemeNoticeProps`, `ThemeRetiredCopy`,
-`FloatingPanel` and its parts are gone from `@kanzo-tech/ui`; copy the docs' example.
+`FloatingPanel` and its parts, and `Preferences`, are gone from `@kanzo-tech/ui`; copy the docs'
+example, or compose `PreferencesRoot`, `PreferencesTrigger` and `PreferencesPanel`.

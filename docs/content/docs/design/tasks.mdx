@@ -383,8 +383,9 @@ half, not a second concept.
 **An answer's words are its data's labels; the code supplies none.** The title, the chips and the
 axis read each type, field and relation by the label its shape gave it, in the page's language. A
 fossil corpus carries each one's IRI already (`fossil.json`: `vertex_tables[].iri`, `properties[].iri`,
-`edge_tables[].iri`), and fossil is adding their annotations in ShExJ's shape —
-`annotations: [{ predicate, object: { value, language? } }]`, ShEx 2.1 §5.9, which annotates a
+`edge_tables[].iri`), and fossil is adding their annotations
+([Kanzo-Tech/fossil-lang#40](https://github.com/Kanzo-Tech/fossil-lang/pull/40), `/docs/design/labels`) in ShExJ's
+shape, with `datatype` as the literal's key — `annotations: [{ predicate, object: { value, language?, datatype? } }]`, ShEx 2.1 §5.9, which annotates a
 `Shape` and a `TripleConstraint`, the type and the property or edge.
 
 - **A type's naming column is the property whose IRI is a labelling property** — never a column
@@ -400,7 +401,8 @@ fossil corpus carries each one's IRI already (`fossil.json`: `vertex_tables[].ir
   language: the language of `<html lang>`, matched by RFC 4647 §3.4's lookup — `es-AR`, then `es` —
   then an untagged literal, as Wikidata's label service falls back through its language list. A
   SHACL shape's `sh:name` (§2.3's non-validating property) reaches the corpus as `rdfs:label`,
-  because fossil writes it so (decided 13 October 2026), and the library asks one predicate.
+  because fossil writes it so (decided 13 October 2026), as it writes `sh:description` as
+`rdfs:comment`, and the library asks one predicate.
 - **The identifier split is the last resort,** for a name nothing annotates: `birthPlace` is
   *birth place*. It never inflects.
 - **Lists and numbers are the platform's,** in the page's locale: `Intl.ListFormat` (`conjunction`),
@@ -471,7 +473,7 @@ gesture hint as a sentence, *Click a bar to filter*; their section on
 | `words.ts`'s `NAME`, `nameWords`' `+s`, the `OP` words, `list`, `toLocaleString("en")` | labels by IRI and annotation, `Intl`, the split as the last resort |
 | `answerSummary` | the minimal template, above |
 | the `@kanzo-tech/mosaic` and `@kanzo-tech/ai` changesets | rewritten for the paths and the labels |
-| `nameWords` on `@kanzo-tech/ui/analytics` | off the barrel: words are labels, and the identifier split is a private last resort |
+| `nameWords` on `@kanzo-tech/ui/analytics` | off the barrel: words are labels, and the identifier split is a private last resort; `RelationPicker`'s `plural` and `+s` go too ([Analytics](/docs/design/analytics#a-hop-reads-as-a-sentence-and-says-what-it-costs)) |
 
 ### Discarded, and what would bring each back
 
@@ -520,6 +522,8 @@ generated.
 **There is one `Proposal`, the Task's** (decided 13 October 2026). `Assist`'s `{ text, range }` is
 the Task's proposal of a string with its `Target`: a continuation inserts at the cursor, a candidate
 replaces the value — the LSP shapes `Target` already names, and the first reader `Target` has had.
+`Assist` stops having an engine of its own: it asks through `propose`, and a candidate is a
+`Proposal<string>` whose `target` is `{ replace }`, a continuation one that inserts at the cursor.
 A list's offers are already a Task's — `propose`, and the pills `Chat`
 draws as `proposals` — and `Chat` takes them whole: pressing one sends its checked value, never its
 text, so a starter question is not re-asked of the model. Ask's offers send their spec. `continuation()` and `candidates()`, a field's two, become Tasks next; `Assist`

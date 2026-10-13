@@ -5,8 +5,10 @@ description: Why a field's facts come from the corpus — what it is from fossil
 
 <Callout type="warn">
 **This page is a direction, and none of it is built.** It was decided on 13 October 2026, and it
-waits on fossil: the annotations of fossil's `/docs/design/labels`, the catalog views that carry
-what the manifest already says, and the profile written into the corpus. The order is on
+waits on fossil's design in [Kanzo-Tech/fossil-lang#40](https://github.com/Kanzo-Tech/fossil-lang/pull/40),
+shipping together as `0.3.0-alpha.32`: the annotations of its `/docs/design/labels`, the catalog
+views that carry what the manifest already says, and the profile of its `/docs/design/facts`,
+written into `fossil.json`. The order is on
 [the cleanup's release plan](/docs/design/cleanup#the-release-plan). Until it lands, `fieldStats`
 still reads one `SUMMARIZE` per relation and guesses as below.
 </Callout>
@@ -39,7 +41,7 @@ and nothing downstream re-derives one.** The path is the one the data already tr
 `@kanzo-tech/mosaic`, `@kanzo-tech/ui/analytics` and `@kanzo-tech/ai`. Two gaps are fossil's to
 close, in the views: an edge's `label` and its endpoints' `key` columns, and a column's
 `term_type` — the manifest has all three, the views drop them. A third is fossil's to add: the
-annotations of `/docs/design/labels`, as their own view, a row per annotation. Then graph deletes its
+annotations of fossil's `/docs/design/labels`, as their own view, a row per annotation. Then graph deletes its
 two guesses — the label parsed out of a table's name, and `src`/`dst` written as constants.
 
 **`JoinGraph` carries a column as a description, not a name.** A type's columns are each a column's
@@ -52,8 +54,8 @@ reads the corpus the model's dry run writes instead.
 
 **The words are its labels.** A type's, an edge's and a column's words are its `rdfs:label`
 annotation in the page's language, as [Tasks](/docs/design/tasks#words-come-from-the-datas-own-metadata)
-says; fossil writes a SHACL shape's `sh:name` as `rdfs:label`, so a reader asks one predicate and
-holds no preference list of its own.
+says; fossil writes a SHACL shape's `sh:name` as `rdfs:label` and its `sh:description` as
+`rdfs:comment`, so a reader asks one predicate and holds no preference list of its own.
 
 The reference is the manifest itself — `/docs/format` on fossil's site, the contract a corpus
 fulfils — and, for the vocabulary of a term, R2RML's: `rr:termType` (`rr:IRI`, `rr:BlankNode`,
@@ -66,13 +68,14 @@ the manifest, by fossil, and travels the same path — never derived on the read
 
 ## What a field holds comes from fossil's profile, stored in the corpus
 
-**fossil writes, beside every table of a corpus, what `fossil-profile` reads of it: the row count,
-and per column the distinct count, the null count, the extent and the commonest values; the library
-reads that and runs no `SUMMARIZE` over a corpus.** The profile already exists — it is how keasy's
+**fossil writes into `fossil.json`, for every table of a corpus, what `fossil-profile` reads of it:
+the row count, and per column the distinct count, the null count, the extent and its ten commonest
+values of at most 64 bytes — a longer value left out, never cut; the library reads that and runs no
+`SUMMARIZE` over a corpus.** The profile already exists — it is how keasy's
 assistant reads a source, `fossil-profile`'s plan run on the host's DuckDB — and running it over
 what the executor wrote, at the end of a run, gives every reader the same figures the assistant was
-given. Where it is written and in what shape is fossil's `/docs/format` to say; what the library
-needs from it is this list, and that it is the profile's own vocabulary, so that one change on
+given. Its shape is fossil's `/docs/design/facts` and `/docs/format` to say; what the library needs from
+it is this list, and that it is the profile's own vocabulary, so that one change on
 fossil's side is one change here.
 
 A relation that is not a corpus's — a host's own table under `MosaicProvider` — has no profile, and

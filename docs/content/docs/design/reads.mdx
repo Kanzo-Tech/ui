@@ -1,6 +1,6 @@
 ---
 title: One read per datum
-description: Why every read the library makes for a host — a field's facts, an answer's rows, a session, a stored chat — is a TanStack Query query inside the library's own hook, on the host's QueryClient, with no queryOptions surface; and what would reverse it.
+description: Why every read the library makes for a host — a field's facts, an answer's rows, a session — is a TanStack Query query inside the library's own hook, on the host's QueryClient, with no queryOptions surface; and what would reverse it.
 ---
 
 <Callout type="warn">
@@ -19,11 +19,13 @@ and none of them knows about the others.
 
 **Every read the library makes on a host's behalf is a TanStack Query query, made inside the
 library's own hook, on the `QueryClient` the host's `QueryClientProvider` puts in context.** The
-hook is the surface: `useFieldStats`, Ask's chat, `useSession`, a chat restored by its id. The
+hook is the surface: `useFieldStats`, Ask's chat, `useSession`. The
 library's surface has no `queryOptions`, no keys and no client of its own. `@tanstack/react-query` is a
-peer of the packages that read: required by `@kanzo-tech/ai` and `@kanzo-tech/auth`, and optional
-for `@kanzo-tech/ui`, reached only from `/analytics`, through
-[the optional-peer door](/docs/philosophy#the-engine-rule).
+peer of the entries that read, and only of them (decided 13 October 2026): `@kanzo-tech/ai/data`
+and `@kanzo-tech/ui/analytics`, each an optional peer reached only from that subpath through
+[the optional-peer door](/docs/philosophy#the-engine-rule), and `@kanzo-tech/auth`, whose `useSession`
+is a query. `@kanzo-tech/ai`'s root — `Chat`, `Assist`, the chat hooks — reads nothing through it, so
+a host that only draws a field the model helps fill, as metadata-form does, installs nothing new.
 
 **The reference is the React integrations of tRPC and of Supabase.** `@trpc/react-query`'s hooks run
 `useQuery` inside the procedure's own hook, on the client the host's `QueryClientProvider` holds;
@@ -70,7 +72,6 @@ the library makes passes `retry: false`, whatever the host's client defaults to.
 | a host table's `SUMMARIZE` | `useFieldStats` | the page's life | when the host's relation changes |
 | an answer's rows | Ask's read, under the page's clauses | the page's life, by statement and clauses | when a clause or the answer changes |
 | a session | `useSession` | until it is stale | on focus and visibility, after a renewal, and when another tab says so |
-| a stored chat | the chat hooks, by id | until a turn saves it | never: the chat in memory is newer |
 
 **The keys are the library's, and they are not an API.** Each says what was read and from what —
 the corpus's attachment name, the compiled statement, the chat's id — so a new input is a new read,
@@ -84,7 +85,8 @@ manifest, and the rest stay as they are.
 **Breaking**, in a consumer's words:
 
 - Install `@tanstack/react-query` 5 and render one `QueryClientProvider` above `AuthProvider`, above
-  any `@kanzo-tech/ai` chat, and above a page that reads fields through `@kanzo-tech/ui/analytics`.
+  Ask (`@kanzo-tech/ai/data`), and above a page that reads fields through `@kanzo-tech/ui/analytics`.
+  `Chat` and `Assist` from `@kanzo-tech/ai`'s root need neither.
   Without it, those hooks throw TanStack's own *No QueryClient set*.
 - `queryFieldStats` is gone: `useFieldStats` reads, and caches, for every part of the page.
 - Library reads appear in your client's devtools and are cleared with it; clear it on sign-out.
