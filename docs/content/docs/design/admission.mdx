@@ -235,6 +235,25 @@ or a colour is the `Text` atom coming back, and is refused on the same grounds i
 and a part keeps its own slot"; `packages/ui/src/composites/Preferences.tsx`, `PREF_HEADING`;
 `packages/ai/src/tool.tsx`, `Eyebrow`.
 
+## A status with a measure carries its bar: `Working`'s `value`
+
+`@kanzo-tech/ai`'s `Working` draws `@kanzo-tech/ui`'s `Progress` under its words when it is given a
+`value`, and none when it is not. It was the other way: the bar was `Progress` placed beside it, on
+the grounds that a status without one is the common case. Both of keasy's measured steps — reading
+the files and building the graph — then wrote the same wrapper around the pair, and the guided
+example wrote it a third time; that is a composition, not a coincidence.
+
+The prop is Ark's progress machine's own: `number | null`, `null` indeterminate. `Progress` spells the
+same thing as `value` and `indeterminate`, which leaves no room for the third state this needs — *no
+bar* — and the machine's spelling does: `undefined`. A compound `WorkingProgress` part was the other
+shape, and it would place a bar nobody can place anywhere but under the words.
+
+**What would reverse it:** a host placing the bar somewhere other than under the words — beside them,
+or across a panel — which would make the bar a part again.
+
+*Held by* `packages/ai/src/working.test.tsx`, "draws a bar under the words given a value,
+indeterminate given null".
+
 ## A gate is a compound, because the composition was wrong about what it hid
 
 [`Gated`](/docs/layout/gated) ships as three parts: `GatedRoot`, `GatedContent`, `GatedBadge`.

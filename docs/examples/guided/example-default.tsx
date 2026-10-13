@@ -14,7 +14,7 @@ import {
   QuestionPrompt,
   Working,
 } from "@kanzo-tech/ai";
-import { Progress, Show, Suggestion, Suggestions } from "@kanzo-tech/ui";
+import { Show, Suggestion, Suggestions } from "@kanzo-tech/ui";
 import { useEffect, useState } from "react";
 
 // A Task's `Decision`, as `verify` raises it.
@@ -50,9 +50,8 @@ export default function Example() {
           <MessageList className="gap-5">
             <ModelBadge className="self-start" load={{ state: "loading", progress: read / 6, text: "Fetching param cache" }} />
             <Message role="assistant">
-              <MessageContent className="gap-3">
-                <Working>Reading your files… {read} of 6</Working>
-                <Progress className="max-w-xs" value={(read / 6) * 100} />
+              <MessageContent>
+                <Working value={(read / 6) * 100}>Reading your files… {read} of 6</Working>
               </MessageContent>
             </Message>
             <Message role="assistant">
