@@ -1,5 +1,6 @@
 # The platform's services as development runs them: each service with its development overlay —
-# Keycloak on :8080 with the dev/ declarations and seeded people.
+# Keycloak on :8080 with the dev/ declarations and seeded people, and the development passwords of
+# auth/dev/dev.env, which a value in the environment or the application's .env overrides.
 #
 #   docker compose -f compose.dev.yaml up -d --wait
 #
@@ -9,3 +10,4 @@ name: kanzo
 
 include:
   - path: [auth/compose.yaml, auth/compose.dev.yaml]
+    env_file: auth/dev/dev.env

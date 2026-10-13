@@ -14,20 +14,23 @@ the service is a token nobody reads. [Each capability ships both halves](/docs/d
 From `services/auth/`:
 
 ```sh
-docker compose -f compose.yaml -f compose.dev.yaml up -d --wait   # Keycloak on :8080, the realm applied, the seed in
+docker compose --env-file dev/dev.env -f compose.yaml -f compose.dev.yaml up -d --wait # Keycloak on :8080, the realm applied, the seed in
 scripts/verify.sh             # ana: a real PKCE login, and her access token checked
 scripts/verify.sh fede        # a member of acme with no role there
 scripts/verify.sh dan         # no organization; a client role held directly
-docker compose -f compose.yaml -f compose.dev.yaml down -v        # gone, the database and the Terraform state together
+docker compose --env-file dev/dev.env -f compose.yaml -f compose.dev.yaml down -v # gone, the database and the Terraform state together
 ```
 
 `up` brings Keycloak and its Postgres up, applies the realm with Terraform and seeds development
 people into two organizations, `acme` and `globex`. The admin console is `/admin`, `admin` /
-`admin`; `.env.example` lists what can be changed, and `KC_PORT` moves the issuer with it.
-`services/compose.dev.yaml` runs the same.
+`admin` — development's passwords, from `dev/dev.env`; `.env.example` lists what can be changed, and
+`KC_PORT` moves the issuer with it. `services/compose.dev.yaml` runs the same, and reads `dev/dev.env`
+itself.
 
 `compose.yaml` is the service as a deployment runs it too: Keycloak in production mode behind the
-deployment's edge, `KC_HOSTNAME` its public origin, the passwords from the environment.
+deployment's edge, `KC_HOSTNAME` its public origin, the passwords from the environment. They have no
+default: `KC_DB_PASSWORD` and `KC_ADMIN_PASSWORD` unset, Compose refuses to start and names the one
+missing ([why](/docs/design/services#production-configuration-belongs-to-the-deployment)).
 `compose.dev.yaml` is what development adds: dev mode on `:8080`, the declarations in `dev/`, and the
 seed.
 

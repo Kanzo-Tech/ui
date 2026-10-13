@@ -121,9 +121,17 @@ A shipped production value would be one deployment's choice presented as the pla
 other deployment would start by undoing it. What the service does own is what does not vary between
 them: the claim mappers, the image pins, the rule that an exchanged token names one organization.
 
+A password is the sharpest case, because the deployment that forgets to undo it runs: `compose.yaml`
+defaulted the database's to `keycloak` and the admin's to `admin`, so a deployment that set neither
+came up with the passwords printed in this repository. So `compose.yaml` names the two and gives
+them no value — `${KC_DB_PASSWORD:?…}`, Compose's required variable — and refuses to start without
+them. Development's are a file, `auth/dev/dev.env`, which `compose.dev.yaml` hands Compose as its
+`include`'s `env_file`, and which the environment or an application's own `.env` overrides.
+
 **What would reverse it:** two deployments that want the same production values verbatim, written
 twice. Then the duplication is real and the choice has earned a place — as a named example
 deployments copy, not as a default `compose.yaml` falls back to.
 
 Held by nothing: a default added to `compose.yaml` would pass every gate here, and review is what
-stands in front of it.
+stands in front of it. The `services` job in CI runs `compose.dev.yaml`, so it proves development's
+values reach the service, not that production's are absent.

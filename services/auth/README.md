@@ -7,21 +7,21 @@ an organization inside it. `@kanzo-tech/auth` is the library that reads what thi
 ## Run it
 
 ```sh
-docker compose -f compose.yaml -f compose.dev.yaml up -d --wait   # Keycloak 26.8 on http://localhost:8080, realm applied, seeded
+docker compose --env-file dev/dev.env -f compose.yaml -f compose.dev.yaml up -d --wait # Keycloak 26.8 on http://localhost:8080, realm applied, seeded
 scripts/verify.sh                  # ana: a real PKCE login, and the claims checked
 scripts/verify.sh fede             # a member of acme with no role there
 scripts/verify.sh gil              # past the conformance client's overage threshold: no ids
 scripts/verify.sh dan              # no organization; a client role held directly
-docker compose -f compose.yaml -f compose.dev.yaml down -v        # gone, database and Terraform state together
+docker compose --env-file dev/dev.env -f compose.yaml -f compose.dev.yaml down -v # gone, database and Terraform state together
 ```
 
 `../compose.dev.yaml` runs this. Admin console: `http://localhost:8080/admin`,
-`admin` / `admin`. `.env.example` lists what can be changed (port, versions, passwords); `KC_PORT`
-moves the issuer with it.
+`admin` / `admin`, development's, from [`dev/dev.env`](dev/dev.env). `.env.example` lists what can be
+changed (port, versions, passwords); `KC_PORT` moves the issuer with it.
 
 [`compose.yaml`](compose.yaml) is the service as a deployment runs it too — Keycloak in production
 mode behind the deployment's edge, `KC_HOSTNAME` its public origin, the passwords from the
-environment — and [`compose.dev.yaml`](compose.dev.yaml) is what development adds: dev mode on
+environment, with no default: Compose refuses to start without `KC_DB_PASSWORD` and `KC_ADMIN_PASSWORD` — and [`compose.dev.yaml`](compose.dev.yaml) is what development adds: dev mode on
 `:8080`, the declarations in [`dev/`](dev), and the seeded members.
 
 ## The contract
