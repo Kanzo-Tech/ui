@@ -123,6 +123,7 @@
       "path": "dist/task/index.js",
       "limit": "1.2 kB",
       "ignore": [
+        "@kanzo-tech/llm",
         "ai"
       ]
     }

@@ -164,8 +164,8 @@ the model: the spec is the model's, everything after it is the page's.
 1. **The linker** keeps the types the question names — by the type, a field or a value it holds —
    with their neighbours one hop away, the type the previous answer was about, and the types the
    page's chips are on. The schema's enums are theirs, so a small model reads a small vocabulary.
-2. **The model fills the spec**, `{ of, show, where?, top? }`, with `generateText` and
-   `Output.object`: a provider that decodes against the schema cannot write a name that does not
+2. **The model fills the spec**, `{ of, show, where?, top? }`, with `@kanzo-tech/llm`'s `generate`,
+   asked once, and `Output.object`: a provider that decodes against the schema cannot write a name that does not
    exist. A follow-up — *and in Germany?* — is told the previous spec and changes only what it asks.
 3. **The resolver finds the relation**: `resolveRelation` from `@kanzo-tech/mosaic`, the shortest
    path from `of` that has a step of every type the spec's fields are on and meets the type each of
