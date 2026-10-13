@@ -37,6 +37,7 @@ import { Input } from "../simples/input.js";
 import { Skeleton } from "../simples/skeleton.js";
 import { Slider, SliderLabel, SliderValue } from "../simples/slider.js";
 import { chartTableKey } from "./chart-spec.js";
+import { claimPlace, heldClause, releasePlace, type ClausePlace } from "./clause-place.js";
 import { useMosaic, useRelation } from "./mosaic-provider.js";
 import { useQueryClient, type ChartQueryRow as QueryRow } from "./use-chart-query.js";
 
@@ -104,34 +105,41 @@ export function useMosaicInput<T>(
   const latest = useRef(options);
   latest.current = options;
   const { client, rows, error } = useQueryClient(filterBy, (filter) => latest.current.build(filter), deps, relation);
-  /** The widget's clause, on the relation it reads. */
+  /** The page's place for the widget's clause, while it has a client: see `ClausePlace`. */
+  const place = useRef<ClausePlace | null>(null);
+  /** The widget's clause, on the relation it reads, under its place's source; the client is exempt from it. */
   const clauseOf = useCallback(
-    (source: MosaicClient, value: T | undefined) => onRelation(latest.current.clause(source, value), latest.current.relation),
+    (source: MosaicClient, value: T | undefined) =>
+      onRelation({ ...latest.current.clause(source, value), source: place.current?.source ?? source }, latest.current.relation),
     [],
   );
   const [selected, setSelected] = useState<T | undefined>(undefined);
+  const decoded = (raw: unknown) => (raw === undefined ? undefined : (latest.current.decode?.(raw) ?? (raw as T)));
 
   useEffect(() => {
     if (!as || !client) return;
-    const sync = () => {
-      const raw = as.valueFor(client);
-      const { decode } = latest.current;
-      setSelected(raw === undefined ? undefined : decode ? decode(raw) : (raw as T));
-    };
+    const { meta, fields } = clauseOf(client, undefined);
+    const at = (place.current = claimPlace(as, `${JSON.stringify(latest.current.relation)}\0${meta?.type}\0${fields}`));
+    const sync = () => setSelected(decoded(as.valueFor(at.source)));
+    // A clause the page still holds here is this widget's again, republished so its client is exempt.
+    const held = heldClause(at);
+    if (held) as.update((at.last = clauseOf(client, decoded(held.value))));
     sync();
     as.addEventListener("value", sync);
     return () => {
       as.removeEventListener("value", sync);
-      // `Selection.remove` returns a *clone*; the live way to retract a clause is to publish an
-      // empty one, which the resolver drops because its predicate is null.
-      if (as.valueFor(client) !== undefined) as.update(clauseOf(client, undefined));
+      // The clause is the page's and stays; a remount takes it back.
+      releasePlace(at);
+      place.current = null;
     };
+    // `decoded` reads `latest`, as `clauseOf` does.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [as, client, clauseOf]);
 
   const publish = useCallback(
     (value: T | undefined) => {
       setSelected(value);
-      if (as && client) as.update(clauseOf(client, value));
+      if (as && client && place.current) as.update((place.current.last = clauseOf(client, value)));
     },
     [as, client, clauseOf],
   );

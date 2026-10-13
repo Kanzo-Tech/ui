@@ -230,6 +230,8 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
   let rerender: (height: number) => void = () => {};
   /** Unmount the timeline, leaving the page. */
   let hide: () => void = () => {};
+  /** Mount it again. */
+  let show: () => void = () => {};
   /** The page's selection, as the last `Page` rendered it. */
   let page: Selection | null = null;
 
@@ -242,6 +244,7 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
       setTick((t) => t + 1);
     };
     hide = () => setHidden(true);
+    show = () => setHidden(false);
     const { selection } = useMosaic();
     page = selection;
     return (
@@ -674,7 +677,7 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
     expect(last()[0]).toBe(1900);
     fireEvent.click(screen.getByRole("button", { name: "Pause time" }));
   });
-  it("lets its window go when it unmounts, though the page has not delivered the window yet", async () => {
+  it("keeps its window on the page when it unmounts, undelivered or not, and draws it again when it mounts", async () => {
     const corpus = await attach();
     const { brush, chips, ready } = await drawn(corpus);
     await ready();
@@ -690,11 +693,20 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
     act(() => hide());
     await act(async () => release());
     act(() => page!.update(onRelation(clauseInterval("born", null, { source: other }), "vertices")));
-    // Nothing on screen publishes a window, so the page holds none.
-    await vi.waitFor(() => expect(page!.clauses).toHaveLength(0), WAIT);
+    // The window is the page's, not the timeline's: it stays, as a chip that removes it.
+    await vi.waitFor(() => expect(chips().map((chip) => chip.getAttribute("aria-label"))).toEqual(["Remove born 1902 – 1905"]), WAIT);
+    const [kept] = page!.clauses;
+    // Mounted again, the timeline takes its window back — drawn, and still the one clause.
+    act(() => show());
+    const plot = await ready();
+    await act(() => settle(corpus));
+    expect(plot.interactors[0]!.value).toEqual([1902, 1905]);
+    await vi.waitFor(() => expect(page!.clauses.map((clause) => clause.source)).toEqual([kept!.source]), WAIT);
+    // Its chip lets it go, and the brush with it.
+    fireEvent.click(chips()[0]!);
     await act(() => settle(corpus));
     expect(page!.clauses).toHaveLength(0);
-    expect(chips()).toHaveLength(0);
+    expect(plot.interactors[0]!.value).toBeUndefined();
   });
   it("pauses when the pointer comes down on the bars, holds the frame, and plays on from it", async () => {
     const corpus = await attach();

@@ -317,28 +317,35 @@ describe("ChartFilter", () => {
     expect(items.map((item) => item.textContent)).toEqual(["Alpha", "beta"]);
   });
 
-  it("disconnects its client and retracts its clause on unmount", async () => {
+  it("disconnects its client on unmount and leaves its clause the page's, taking it back when it mounts again", async () => {
     let crossfilter!: Selection;
     const { coordinator, connected } = stubCoordinator(() => HOST_COUNTS);
     const user = userEvent.setup();
-
-    const { unmount } = render(
+    const page = (shown: boolean) => (
       <MosaicProvider coordinator={coordinator}>
         <Page into={(s) => (crossfilter = s)} />
-        <ChartFilter column="host" label="Host" relation="telemetry" />
-      </MosaicProvider>,
+        {shown ? <ChartFilter column="host" label="Host" relation="telemetry" /> : null}
+      </MosaicProvider>
     );
 
+    const { rerender } = render(page(true));
     await open(user);
     await tick(user, /alpha/);
     await waitFor(() => expect(crossfilter.clauses).toHaveLength(1));
-    expect(connected.size).toBe(1);
+    const [picked] = crossfilter.clauses;
 
-    unmount();
-
+    rerender(page(false));
     expect(connected.size).toBe(0);
-    expect(crossfilter.clauses).toHaveLength(0);
+    expect([...crossfilter.clauses]).toEqual([picked]);
+
+    rerender(page(true));
+    // The same place, so still one clause — republished for the new client, which it exempts.
+    await waitFor(() => expect([...crossfilter.clauses[0]!.clients!]).toEqual([...connected]));
+    expect(crossfilter.clauses).toHaveLength(1);
+    expect(crossfilter.clauses[0]!.source).toBe(picked!.source);
+    expect(crossfilter.clauses[0]!.value).toEqual(picked!.value);
   });
+
 });
 
 describe("ChartSearch", () => {
@@ -412,27 +419,33 @@ describe("ChartSearch", () => {
     await waitFor(() => expect(box.value).toBe(""));
   });
 
-  it("disconnects its client and retracts its clause on unmount", async () => {
+  it("leaves its clause the page's on unmount, and reads it back into the box when it mounts again", async () => {
     let crossfilter!: Selection;
     const { coordinator, connected } = stubCoordinator(() => HOSTS);
     const user = userEvent.setup();
-
-    const { unmount } = render(
+    const page = (shown: boolean) => (
       <MosaicProvider coordinator={coordinator}>
         <Page into={(s) => (crossfilter = s)} />
-        <ChartSearch column="host" debounce={0} relation="telemetry" />
-      </MosaicProvider>,
+        {shown ? <ChartSearch column="host" debounce={0} relation="telemetry" /> : null}
+      </MosaicProvider>
     );
 
+    const { rerender } = render(page(true));
     await user.type(screen.getByPlaceholderText("Search…"), "a");
     await waitFor(() => expect(crossfilter.clauses).toHaveLength(1));
-    expect(connected.size).toBe(1);
 
-    unmount();
-
+    rerender(page(false));
     expect(connected.size).toBe(0);
-    expect(crossfilter.clauses).toHaveLength(0);
+    expect(crossfilter.clauses).toHaveLength(1);
+
+    rerender(page(true));
+    await waitFor(() => expect((screen.getByPlaceholderText("Search…") as HTMLInputElement).value).toBe("a"));
+    expect(crossfilter.clauses).toHaveLength(1);
+    // The page's "clear" reaches it where it now is.
+    act(() => { crossfilter.reset(); });
+    await waitFor(() => expect((screen.getByPlaceholderText("Search…") as HTMLInputElement).value).toBe(""));
   });
+
 });
 
 describe("ChartSlider", () => {
