@@ -137,7 +137,7 @@ export type { Dashboards } from "./charts/dashboard-spec.js";
 // catalog (`@kanzo-tech/graph`'s `readJoinGraph`, for a fossil corpus), handed to `MosaicProvider` as
 // its `joins`. What every part's `relation` takes is `RelationExpr`: a table by name, a path, or SQL.
 export { RelationPicker } from "./charts/relation-picker.js";
-export type { RelationPickerProps } from "./charts/relation-picker.js";
+export type { RelationPickerProps, RelationPickerTranslations } from "./charts/relation-picker.js";
 export { relationQuery, relationKey, relationIdentities, relationRootKey, relationHops } from "@kanzo-tech/mosaic";
 export type { Relation, RelationExpr, RelationRef, Hop, JoinGraph, JoinType, JoinEdge, RelationHop } from "@kanzo-tech/mosaic";
 export { recommend } from "./charts/recommend.js";

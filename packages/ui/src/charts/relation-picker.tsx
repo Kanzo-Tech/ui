@@ -11,6 +11,55 @@ import { Button } from "../simples/button.js";
 import { Menu, MenuContent, MenuGroup, MenuItem, MenuTrigger } from "../simples/menu.js";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../simples/select.js";
 
+/**
+ * Every word the picker draws. A sentence is written from pieces — the types and the edge's label in
+ * words — and its pattern is an entry, so no sentence is English assembled in place. No noun is
+ * inflected: a type is read as its label, singular, in every sentence, because no labelling
+ * vocabulary carries a plural.
+ */
+export interface RelationPickerTranslations {
+  /** The group's accessible name. */
+  relation: string;
+  /** The root type's select. */
+  root: string;
+  /** The menu's trigger. */
+  add: string;
+  /** The heading over the out-edges, given the type they leave. */
+  follow: (from: string) => string;
+  /** The heading over the in-edges. */
+  bringIn: string;
+  /** A chip's remove button, given its sentence. */
+  remove: (sentence: string) => string;
+  /** A hop's fan-out, given the count — `1`, `≤1`, `~103` — and the type it leaves. */
+  perRow: (count: string, from: string) => string;
+  /** An out-edge, given the type it reaches and its label in words: *The place it is part of*. */
+  out: (to: string, label: string) => string;
+  /** An in-edge, given the type it brings in, its label in words, and the type it reaches: *Comment · located in this place*. */
+  in: (source: string, label: string, destination: string) => string;
+}
+
+/** `has` reads *whose …*, a lone `is` drops out, and any other label reads as written, singular. */
+const ENGLISH: RelationPickerTranslations = {
+  relation: "Relation",
+  root: "Root type",
+  add: "Add related…",
+  follow: (from) => `Follow from each ${from}`,
+  bringIn: "Bring in what points at it",
+  remove: (sentence) => `Remove ${sentence}`,
+  perRow: (count, from) => `${count} per ${from}`,
+  out: (to, label) => {
+    const [verb = "", ...rest] = label.split(" ");
+    if (verb === "has") return `The ${to} that is its ${rest.join(" ")}`;
+    const verbal = verb === "is" || (verb.endsWith("s") && !verb.endsWith("ss"));
+    return `The ${to} it ${verbal ? "" : "is "}${label}`;
+  },
+  in: (source, label, destination) => {
+    const [verb = "", ...rest] = label.split(" ");
+    const said = verb === "has" ? `whose ${rest.join(" ")} is` : verb === "is" ? rest.join(" ") : label;
+    return `${capital(source)} · ${said} this ${destination}`;
+  },
+};
+
 export interface RelationPickerProps extends Omit<React.ComponentProps<typeof ark.div>, "onChange" | "defaultValue"> {
   /** The types and the edges between them. A type's and an edge's `rows` are what the fan-outs read. */
   graph: JoinGraph;
@@ -18,64 +67,40 @@ export interface RelationPickerProps extends Omit<React.ComponentProps<typeof ar
   onValueChange: (relation: Relation) => void;
   /** The sentence for a hop along `edge`, where the default reads wrong — a self-edge's *parent* and *children*. */
   phrase?: (edge: JoinEdge, direction: Hop["direction"]) => string | undefined;
-  /** A type's plural, where adding *s* reads wrong: `Person` → *People*. */
-  plural?: (type: string) => string | undefined;
+  translations?: Partial<RelationPickerTranslations>;
 }
 
 /** Above this many rows per row of the type a hop leaves, its fan-out warns. */
 const WARN = 10;
 
-/** `isLocatedIn` → `is located in`, `TagClass` → `tag class`; an acronym keeps its case. */
+/**
+ * A name in words, where nothing labels it — the last resort, and it never inflects:
+ * `isLocatedIn` → `is located in`, `TagClass` → `tag class`; an acronym keeps its case.
+ */
 const words = (name: string) =>
   name
     .split(/(?<=[a-z0-9])(?=[A-Z])|[_\s]+/)
     .filter(Boolean)
-    .map((w) => (w.length > 1 && w === w.toUpperCase() ? w : w.toLowerCase()));
-const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-const pluralWord = (w: string) => (/(s|x|z|ch|sh)$/.test(w) ? `${w}es` : /[^aeiou]y$/.test(w) ? `${w.slice(0, -1)}ies` : `${w}s`);
-
-interface Wording {
-  noun: (type: string) => string;
-  nouns: (type: string) => string;
-  sentence: (edge: JoinEdge, direction: Hop["direction"]) => string;
+    .map((w) => (w.length > 1 && w === w.toUpperCase() ? w : w.toLowerCase()))
+    .join(" ");
+function capital(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/**
- * The templates: an out-edge reads *The {to} it {label}*, an in-edge *{To}s {label} this {from}*,
- * the label's verb bent to its subject — `has` becomes *whose …*, `is` drops out of the plural, a
- * verb loses its *s*.
- */
-function wording(phrase: RelationPickerProps["phrase"], plural: RelationPickerProps["plural"]): Wording {
-  const noun = (type: string) => words(type).join(" ");
-  const nouns = (type: string) => {
-    const host = plural?.(type);
-    if (host) return host.toLowerCase();
-    const w = words(type);
-    return [...w.slice(0, -1), pluralWord(w.at(-1) ?? type)].join(" ");
-  };
-  const sentence = (edge: JoinEdge, direction: Hop["direction"]) => {
-    const host = phrase?.(edge, direction);
-    if (host) return host;
-    const [verb = "", ...rest] = words(edge.label);
-    const tail = rest.join(" ");
-    const verbal = verb === "is" || (verb.endsWith("s") && !verb.endsWith("ss"));
-    if (direction === "out") {
-      const to = noun(edge.destination);
-      if (verb === "has") return `The ${to} that is its ${tail}`;
-      return `The ${to} it ${verbal ? "" : "is "}${words(edge.label).join(" ")}`;
-    }
-    const [to, from] = [capital(nouns(edge.source)), noun(edge.destination)];
-    if (verb === "has") return `${to} whose ${tail} is this ${from}`;
-    if (verb === "is") return `${to} ${tail} this ${from}`;
-    if (verbal) return `${to} that ${[verb.slice(0, -1), tail].filter(Boolean).join(" ")} this ${from}`;
-    return `${to} that are ${words(edge.label).join(" ")} this ${from}`;
-  };
-  return { noun, nouns, sentence };
-}
+/** The sentence a hop reads as: the host's, else the pattern over the types' and the label's words. */
+const sentenceOf = (
+  t: RelationPickerTranslations,
+  phrase: RelationPickerProps["phrase"],
+  edge: JoinEdge,
+  direction: Hop["direction"],
+) =>
+  phrase?.(edge, direction) ??
+  (direction === "out"
+    ? t.out(words(edge.destination), words(edge.label))
+    : t.in(words(edge.source), words(edge.label), words(edge.destination)));
 
-/** *1 per Place*, *≤1 per Place*, *~103 per Place*. */
-const perRow = (fanOut: number, from: string) =>
-  `${fanOut === 1 ? "1" : fanOut < 1 ? "≤1" : `~${Math.round(fanOut)}`} per ${from}`;
+/** *1*, *≤1*, *~103* — a fan-out as its item says it. */
+const countOf = (fanOut: number) => (fanOut === 1 ? "1" : fanOut < 1 ? "≤1" : `~${Math.round(fanOut)}`);
 
 /** The canonical spelling of one step, as `relationKey` writes it: `>knows>Person`, `<hasCreator<Post`. */
 const stepOf = ({ hop, label, to }: Pick<RelationHop, "hop" | "label" | "to">) =>
@@ -89,34 +114,35 @@ const stepOf = ({ hop, label, to }: Pick<RelationHop, "hop" | "label" | "to">) =
  *
  * ARIA: a `group` named "Relation". The root is a `Select`; "Add related…" a `Menu` of two labelled
  * groups, each item named by its sentence and described by its fan-out, and carrying its step as
- * `data-hop`; each chip's remove button is "Remove {sentence}".
+ * `data-hop`; each chip's remove button is "Remove {sentence}". Every one of those words is an entry
+ * of `translations`.
  */
 export function RelationPicker(props: RelationPickerProps) {
-  const { graph, value, onValueChange, phrase, plural, className, slot, ...rest } = props;
+  const { graph, value, onValueChange, phrase, translations, className, slot, ...rest } = props;
+  const t = { ...ENGLISH, ...translations };
   const id = useId();
   const roots = useMemo(
     () => createListCollection({ items: graph.types.map((t) => t.name), itemToValue: (n) => n, itemToString: (n) => n }),
     [graph],
   );
-  const say = wording(phrase, plural);
 
   // Each hop with the sentence it reads as.
   const walked = value.path.map((hop, i) => {
     const edge = graph.edges.find((e) => e.name === hop.edge);
     const to = (hop.direction === "out" ? edge?.destination : edge?.source) ?? "";
-    return { i, to, sentence: edge ? say.sentence(edge, hop.direction) : hop.edge };
+    return { i, to, sentence: edge ? sentenceOf(t, phrase, edge, hop.direction) : hop.edge };
   });
   const last = walked.at(-1)?.to ?? value.root;
   const byFanOut = (a: RelationHop, b: RelationHop) => (a.fanOut ?? Infinity) - (b.fanOut ?? Infinity);
   const next = relationHops(graph, last).sort(byFanOut);
   const groups = [
-    { heading: `Follow from each ${last}`, hops: next.filter((h) => h.hop.direction === "out") },
-    { heading: "Bring in what points at it", hops: next.filter((h) => h.hop.direction === "in") },
+    { heading: t.follow(last), hops: next.filter((h) => h.hop.direction === "out") },
+    { heading: t.bringIn, hops: next.filter((h) => h.hop.direction === "in") },
   ].filter((g) => g.hops.length > 0);
 
   return (
     <ark.div
-      aria-label="Relation"
+      aria-label={t.relation}
       className={cn("flex min-w-0 flex-col gap-1", className)}
       role="group"
       {...rest}
@@ -128,7 +154,7 @@ export function RelationPicker(props: RelationPickerProps) {
           onValueChange={(d) => d.value[0] && onValueChange({ root: d.value[0], path: [] })}
           value={[value.root]}
         >
-          <SelectTrigger aria-label="Root type" className="w-auto min-w-28" size="sm">
+          <SelectTrigger aria-label={t.root} className="w-auto min-w-28" size="sm">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -145,7 +171,7 @@ export function RelationPicker(props: RelationPickerProps) {
             <span className="inline-flex items-center rounded-md bg-muted ps-2">
               {sentence}
               <Button
-                aria-label={`Remove ${sentence}`}
+                aria-label={t.remove(sentence)}
                 className="text-muted-foreground hover:text-foreground focus-visible:text-foreground"
                 onClick={() => onValueChange({ root: value.root, path: value.path.slice(0, i) })}
                 size="icon-sm"
@@ -161,7 +187,7 @@ export function RelationPicker(props: RelationPickerProps) {
             <MenuTrigger asChild>
               <Button size="sm" variant="ghost">
                 <PlusIcon />
-                Add related…
+                {t.add}
               </Button>
             </MenuTrigger>
             <MenuContent>
@@ -169,7 +195,7 @@ export function RelationPicker(props: RelationPickerProps) {
                 <MenuGroup heading={group.heading} key={group.heading}>
                   {group.hops.map((h) => {
                     const edge = graph.edges.find((e) => e.name === h.hop.edge)!;
-                    const sentence = say.sentence(edge, h.hop.direction);
+                    const sentence = sentenceOf(t, phrase, edge, h.hop.direction);
                     const step = stepOf(h);
                     const hint = `${id}-${h.hop.direction}-${h.hop.edge}`;
                     return (
@@ -192,7 +218,7 @@ export function RelationPicker(props: RelationPickerProps) {
                             data-warn={h.fanOut > WARN || undefined}
                             id={hint}
                           >
-                            {perRow(h.fanOut, last)}
+                            {t.perRow(countOf(h.fanOut), last)}
                           </span>
                         )}
                       </MenuItem>

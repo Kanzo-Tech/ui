@@ -353,11 +353,21 @@ while nothing is stored".
 ## A hop reads as a sentence, and says what it costs
 
 `RelationPicker` offers the hops that leave the last type as sentences, not as schema. An out-edge
-reads *The \{to\} it \{label\}* — *The place it is part of* — and an in-edge *\{To\}s \{label\} this
-\{from\}* — *Comments located in this place*. The predicate is the edge's label in words: `isPartOf`
-is *is part of*, `isLocatedIn` *located in* once its subject is plural, `hasCreator` *whose creator
-is*. A host's `phrase(edge, direction)` overrides any sentence (a self-edge's *parent* and
-*children* wording), and `plural(type)` any plural the `+s` rule gets wrong (*People*).
+reads *The \{to\} it \{label\}* — *The place it is part of* — and an in-edge reads as the type it
+brings in and the edge, *\{Source\} · \{label\} this \{destination\}* — *Comment · located in this
+place*. The predicate is the edge's label in words: `isPartOf` is *is part of*, `isLocatedIn`
+*located in* where a lone `is` drops out, `hasCreator` *whose creator is*. A host's
+`phrase(edge, direction)` overrides any sentence (a self-edge's *parent* and *children* wording), and
+both patterns, like every other word the picker draws, are entries of its `translations`.
+
+**No noun inflects** (decided 13 October 2026). The in-edge read *Comments located in this place*,
+and the plural was the library's guess: an `+s` rule, and `plural(type)` for every noun it got wrong
+(*People*). The rule that titles name no plural ([Tasks](/docs/design/tasks#words-come-from-the-datas-own-metadata))
+holds here too, for its reason: no labelling vocabulary carries a plural, so a plural is always
+derived, and derived English is wrong outside English and for every irregular noun. The sentence is
+written so it needs none — the type as its label, singular, beside the edge's words — and the `+s`
+rule and `plural` are gone. *What would reverse it:* a labelling vocabulary that carries a plural;
+then it is read, not derived, as on Tasks.
 
 The menu has two groups, *Follow from each \{Root\}* for out-edges and *Bring in what points at it*
 for in-edges, each sorted by fan-out ascending. Each item says its fan-out — *1 per Place*,
@@ -366,7 +376,7 @@ the next multiplies it by a hundred. The fan-out is the edge's rows over the row
 leaves: `JoinType.rows` and `JoinEdge.rows`, which `joinGraphOf` carries from the `record_count`
 `readStructure` already read. No query is added, and the counts are as fresh as the last load.
 
-The path is chips — *Place › Comments located in this place* — and any chip can be removed, which
+The path is chips — *Place › Comment · located in this place* — and any chip can be removed, which
 cuts the path there. Nothing is written under them: the fan-out on each item already says what a
 hop does to the rows before it is taken, which is where every reference below says it, and a line
 restating the grain sat on every dashboard as chrome nobody read (the owner, 2026-10-11). The joins
@@ -395,7 +405,7 @@ takes it says so, beside its fan-out.
 
 *Held by* `packages/ui/src/charts/relation-picker.test.tsx`, "reads each hop as a sentence, grouped
 by direction and sorted by fan-out", "removes any chip, cutting the path there" and "lets a host
-phrase an edge and name a plural"; `packages/mosaic/src/relation.test.ts`, "gives each hop its fan-out when
+phrase an edge, and words every sentence through its translations"; `packages/mosaic/src/relation.test.ts`, "gives each hop its fan-out when
 the graph carries counts".
 
 ## Two size gauges, measured against what ships
