@@ -247,11 +247,11 @@ turns the host decides:
 | `MessageList`, `Message`, `MessageContent`, `MessageAvatar`, `MessageActions` | A turn: `role` declared once, a bubble for the person and the page for the model |
 | `Tool`, `ToolHeader`, `ToolContent`, `ToolInput`, `ToolOutput` | One call, bound to its AI SDK part: its name, its state, its input and output |
 | `Reasoning`, `ReasoningTrigger`, `ReasoningContent` | A model's thinking, folded away once it ends |
-| `PromptInput`, `PromptInputTextarea`, `PromptInputToolbar`, `PromptInputSubmit` | The composer: a form, so <kbd>Enter</kbd> and the button are one path; the field named by its placeholder; the strip of controls under it; the button that is *Send*, *Stop* or *Retry* by the chat's `status` |
+| `PromptInput`, `PromptInputHeader`, `PromptInputTextarea`, `PromptInputToolbar`, `PromptInputSubmit` | The composer: a form, so <kbd>Enter</kbd> and the button are one path; the row above the field for the sources a message carries ([A guided chat](/docs/ai/guided#promptinputheader)); the field named by its placeholder; the strip of controls under it; the button that is *Send*, *Stop* or *Retry* by the chat's `status` |
 
 Their props are `MessageProps`, `MessageAvatarProps`, `MessageRole`, `ReasoningProps` and
 `PromptInputSubmitProps`. What a guided chat draws beyond these — a question answered by picking,
-work under way, a model's offers, a model as it loads — is [A guided chat](/docs/ai/guided). A transcript of the host's own is the three in order — the composer
+work under way, a model's offers, a model as it loads, a point to go back to — is [A guided chat](/docs/ai/guided). A transcript of the host's own is the three in order — the composer
 outside the scroll region, so it stays put while the transcript moves:
 
 ```tsx

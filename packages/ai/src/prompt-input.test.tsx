@@ -2,8 +2,10 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type React from "react";
 import { describe, expect, it, vi } from "vitest";
+import { InputGroupButton, Menu, MenuCheckboxItem, MenuContent, MenuTrigger } from "@kanzo-tech/ui";
 import {
   PromptInput,
+  PromptInputHeader,
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputToolbar,
@@ -97,5 +99,58 @@ describe("PromptInput", () => {
     const toolbar = document.querySelector("[data-slot=prompt-input-toolbar]");
     expect(toolbar?.parentElement).toBe(form);
     expect(toolbar?.getAttribute("data-align")).toBe("block-end");
+  });
+
+  // Keasy's composer: a pill per connection above the field, each opening a checkable list of the
+  // connection's files. The pill is the host's and the menu is ui's; what the header owes is the
+  // place — a direct child of the group, so `has-[>[data-align=block-start]]` lays the box out as a
+  // column — and a press that stays the pill's.
+  it("carries the host's pills above the field, each opening what it holds", async () => {
+    const user = userEvent.setup();
+    const onCheckedChange = vi.fn();
+    render(
+      <PromptInput onSubmit={submitHandler()}>
+        <PromptInputTextarea placeholder="Ask about your data…" />
+        <PromptInputHeader>
+          <Menu>
+            <MenuTrigger asChild>
+              <InputGroupButton pill variant="outline">
+                Warehouse · 2 files
+              </InputGroupButton>
+            </MenuTrigger>
+            <MenuContent>
+              <MenuCheckboxItem checked onCheckedChange={onCheckedChange} value="orders.parquet">
+                orders.parquet
+              </MenuCheckboxItem>
+            </MenuContent>
+          </Menu>
+        </PromptInputHeader>
+      </PromptInput>,
+    );
+
+    const field = screen.getByPlaceholderText("Ask about your data…");
+    const header = document.querySelector("[data-slot=prompt-input-header]") as HTMLElement;
+    expect(header.parentElement).toBe(field.parentElement);
+    expect(header.getAttribute("data-align")).toBe("block-start");
+
+    await user.click(screen.getByRole("button", { name: "Warehouse · 2 files" }));
+    expect(document.activeElement).not.toBe(field);
+    const file = await screen.findByRole("menuitemcheckbox", { name: "orders.parquet" });
+    expect(file.getAttribute("aria-checked")).toBe("true");
+    await user.click(file);
+    expect(onCheckedChange).toHaveBeenCalledWith(false);
+  });
+
+  it("puts the caret in the field on a press of the header's band, outside any pill", async () => {
+    const user = userEvent.setup();
+    render(
+      <PromptInput>
+        <PromptInputHeader>Sources</PromptInputHeader>
+        <PromptInputTextarea placeholder="Ask about your data…" />
+      </PromptInput>,
+    );
+
+    await user.click(document.querySelector("[data-slot=prompt-input-header]") as HTMLElement);
+    expect(document.activeElement).toBe(screen.getByPlaceholderText("Ask about your data…"));
   });
 });

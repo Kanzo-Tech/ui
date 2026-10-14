@@ -299,7 +299,7 @@ still JSON only by default, and `Chat`'s `tools` map draws it as what it is.
 | --- | --- | --- |
 | `Conversation` | `Conversation`, `ConversationContent`, `ConversationScrollButton` | The pin is ours, fifty lines rather than `use-stick-to-bottom`; `role="log"`. Their `ConversationEmptyState` is `Chat`'s `empty`, their `ConversationDownload` not admitted |
 | `Message` | `Message`, `MessageList`, `MessageContent`, `MessageAvatar`, `MessageActions` | `role` declared once and read by the parts; a list with list semantics. `MessageResponse` is `Chat`'s markdown, internal; `MessageAction`, `MessageToolbar` and `MessageBranch` not admitted |
-| `PromptInput` | `PromptInput`, `PromptInputTextarea`, `PromptInputToolbar`, `PromptInputSubmit` | On `InputGroup`; the submit is Send, Stop or Retry by `ChatStatus`. Their attachments, model select, action menu and speech not admitted |
+| `PromptInput` | `PromptInput`, `PromptInputHeader`, `PromptInputTextarea`, `PromptInputToolbar`, `PromptInputSubmit` | On `InputGroup`; the submit is Send, Stop or Retry by `ChatStatus`. The header is their row above the field, holding the host's pills rather than attachment cards. Their attachments, model select, action menu and speech not admitted |
 | `Reasoning` | `Reasoning`, `ReasoningTrigger`, `ReasoningContent` | A spinner, not a shimmer; the reader's own toggle ends the automatic opening |
 | `Tool` | `Tool`, `ToolHeader`, `ToolContent`, `ToolInput`, `ToolOutput` | Bound to the part; *Stopped*, a state the SDK lacks |
 | `Suggestion`, `Suggestions` | `@kanzo-tech/ui`'s `Suggestion`, `Suggestions` | Wraps rather than scrolls; a rationale in the tooltip; `pending` pills in skeleton while more arrive. One strip for a model's offers and anyone else's: `Chat` and `Assist` draw theirs with it |
@@ -309,6 +309,7 @@ still JSON only by default, and `Chat`'s `tools` map draws it as what it is.
 | `StackTrace` | `@kanzo-tech/ui`'s `Diagnostic` | A SHACL violation and an LSP diagnostic are the same shape, and neither is AI |
 | `SchemaDisplay`, `FileTree` | `@kanzo-tech/ui`'s `TreeView`, `DataList` | [No schema display](/docs/design/admission#the-structure-view-is-treeview-until-the-data-nests) |
 | `CodeBlock`, `Snippet` | `@kanzo-tech/ui`'s `CodeEditor`, `Prose` | |
+| `Checkpoint` | `Checkpoint`, `CheckpointIcon`, `CheckpointTrigger` | An `<li>` of the transcript, its rule hidden as paint; no tooltip on the trigger. What restoring does is the host's `onClick` |
 | `Context` | `ModelBadge` | Their shape — a small trigger with the detail behind it — for a model in the page as it loads rather than a context window's usage; a popover, not a hover card, because a failure carries a retry |
 
 **Not admitted, and what would admit each:**
@@ -322,10 +323,12 @@ still JSON only by default, and `Chat`'s `tools` map draws it as what it is.
   [Asking within a context](/docs/design/ai-context) spends; `ModelBadge` is where it would go.
 - `Sources`, `InlineCitation` — documents an answer cites. A host whose answers rest on documents
   rather than on the page's data, whose evidence is the tile.
-- `MessageBranch`, `Checkpoint` — alternative answers, and a point to go back to. A host that
-  regenerates an answer and keeps both, or rewinds a conversation.
+- `MessageBranch` — alternative answers. A host that regenerates an answer and keeps both, or keeps
+  the turns a restore cut as a branch.
 - `Attachments`, `ModelSelector`, `Image` — files sent with a question, a picker of models, an image
   generated. A host that sends files to a model that reads them, or offers more than one model.
+  `PromptInputHeader` is where their cards would go, and the owner refused them for keasy's sources:
+  a source is a connection the question reads, drawn as the host's pill, not a file uploaded.
 - `Artifact`, `WebPreview`, `Sandbox`, `JSXPreview`, `Terminal`, `TestResults`, `Commit`,
   `EnvironmentVariables`, `PackageInfo` — a coding agent's surfaces. A host that is one.
 - `Canvas`, `Node`, `Edge`, `Connection`, `Controls`, `Panel`, `Toolbar` — a workflow diagram. The
@@ -333,6 +336,28 @@ still JSON only by default, and `Chat`'s `tools` map draws it as what it is.
 - The Voice family — `Persona`, `SpeechInput`, `Transcription`, `MicSelector`, `VoiceSelector`,
   `AudioPlayer`. A host that talks.
 - `OpenIn` — refused rather than waiting: its items are other companies' products by name.
+
+**A point to go back to and the sources a message carries were admitted together, for keasy.** Its
+guided assistant draws a preview per answer and lets the reader go back to one, and asks each
+question over sources the reader picks in the composer. `Checkpoint` is AI Elements' three parts
+and their look; it restores nothing, because what going back means — keasy's cuts the thread, as AI
+Elements' example does; another host may branch — is a decision about the host's data, not about the
+row. `PromptInputHeader` is their header region, the composer's `block-start` band beside the
+toolbar's `block-end`, and holds whatever the host puts there; the checkable list a pill opens is
+`@kanzo-tech/ui`'s `MenuCheckboxItem`, which Ark's `Menu.CheckboxItem` already gave, so nothing new
+was needed in `ui`. `Chat`'s `context` — one read-only pill, *what the next question is asked over*
+— stays beside *Send*: in the toolbar it shares the controls' row, and above the field it would cost
+a side panel a line for one pill.
+
+*What would reverse them:* a host whose restore needs more than a press — a confirmation, a diff of
+what goes — drawn the same way twice, which would make that part of `Checkpoint`; and a second host
+drawing `Chat`'s `context` as a row of pills, or the reader acting on it, which moves it into the
+header and leaves the toolbar to the controls.
+
+*Held by* `packages/ai/src/checkpoint.test.tsx`, "restores nothing itself: the trigger is a button
+that hands the press to the host"; `packages/ai/src/prompt-input.test.tsx`, "carries the host's pills
+above the field, each opening what it holds"; `packages/ai/src/chat.test.tsx`, "shows what the next
+question is asked over in the composer, beside Send".
 
 **What would reverse it:** a shipped npm package we can resolve types from, which is what would make
 parity checkable rather than aspirational. Until then the table above is re-derived by reading their
