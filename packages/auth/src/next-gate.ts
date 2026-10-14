@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { addressedUrl, URL_HEADER, under, type Bound } from "./next-bound";
-import { outage } from "./next-routes";
+import { ended, problem } from "./problem";
 import type { Ended, Renewed } from "./server";
 import { AuthError } from "./types";
 
@@ -18,11 +18,12 @@ import { AuthError } from "./types";
  *   request's `cookies()`, so the page renders with the session the browser will hold.
  * - **No live session** — none, forgotten by the store, or refused by the IdP, which is a realm
  *   whose SSO session went idle — **clears the cookie and asks for a sign-in.** A navigation is
- *   sent to `signin?returnTo=<path+search>`; anything else answers a bare 401, because a prefetch,
+ *   sent to `signin?returnTo=<path+search>`; anything else answers a 401 problem, because a prefetch,
  *   a server action or an RSC fetch cannot follow a sign-in and must not start one. The Next
  *   router answers a 401 to its own fetch with a hard navigation, which comes back through here as
  *   a navigation.
- * - **A store that does not answer** sends a navigation to the problem page with its code; **an
+ * - **A store that does not answer** sends a navigation to the problem page with its code, and
+ *   answers anything else with the problem body itself; **an
  *   IdP that does not answer** is passed through untouched, because the session it could not renew
  *   is still the person's, and a page that renders is better than a sign-in that cannot finish.
  *
@@ -116,14 +117,12 @@ export async function gate(
     if (!(error instanceof AuthError)) throw error;
     if (error.code === "idp/unreachable" || error.code === "idp/silent") return through();
     if (!navigation) {
-      return new NextResponse(null, {
-        status: outage(error.code) ?? 500,
-        headers: { "cache-control": "no-store" },
-      });
+      const body = problem(error);
+      return new NextResponse(body.body, { status: body.status, headers: body.headers });
     }
-    const problem = new URL(bound.problemPage, addressed);
-    problem.searchParams.set("code", error.code);
-    return NextResponse.redirect(problem, 307);
+    const page = new URL(bound.problemPage, addressed);
+    page.searchParams.set("code", error.code);
+    return NextResponse.redirect(page, 307);
   }
 
   if (held.ended) {
@@ -135,7 +134,8 @@ export async function gate(
       signIn.searchParams.set("returnTo", `${pathname}${search}`);
       answer = NextResponse.redirect(signIn, 307);
     } else {
-      answer = new NextResponse(null, { status: 401, headers: { "cache-control": "no-store" } });
+      const body = ended(held.code);
+      answer = new NextResponse(body.body, { status: body.status, headers: body.headers });
     }
     for (const cookie of held.cookies) answer.headers.append("set-cookie", cookie);
     return answer;

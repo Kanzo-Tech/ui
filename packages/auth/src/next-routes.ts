@@ -1,6 +1,7 @@
 import { addressedUrl, tenantRequest, withTenant, type Bound } from "./next-bound";
+import { ended, problem, statusOf } from "./problem";
 import { isSameSite } from "./same-site";
-import { AuthError, type AuthErrorCode, type Session } from "./types";
+import { AuthError, type Session } from "./types";
 
 /**
  * The six routes a Backend For Frontend needs, as one App Router catch-all: `kanzoAuth().routes`.
@@ -34,8 +35,9 @@ import { AuthError, type AuthErrorCode, type Session } from "./types";
  *
  * `signin`, `callback` and `signout` are reached by the browser's address bar, so an `AuthError`
  * there answers with a redirect to the product's `problemPage`, the code in `?code=`, where the
- * product renders it in its own words. `session` and `refresh` are reached by `fetch`, and answer
- * with a status and `{ error, message }`.
+ * product renders it in its own words. `session`, `refresh` and `backchannel-logout` are reached by
+ * `fetch`, and answer a refusal as an RFC 9457 problem, `application/problem+json`, whose `code` is
+ * the `AuthErrorCode` — `problem.ts` has the shape and the one status table.
  *
  * ## Back-channel logout
  *
@@ -59,6 +61,13 @@ import { AuthError, type AuthErrorCode, type Session } from "./types";
 
 /** The session endpoint answers about a person; no cache may ever hold that answer. */
 const PRIVATE = { "content-type": "application/json", "cache-control": "no-store" } as const;
+
+/** A session as the session and refresh routes answer it, with the cookies a renewal set. */
+function answer(session: Session, cookies: readonly string[] = []): Response {
+  const headers = new Headers(PRIVATE);
+  for (const cookie of cookies) headers.append("set-cookie", cookie);
+  return new Response(JSON.stringify(session), { status: 200, headers });
+}
 
 export interface RouteHandlers {
   GET(request: Request): Promise<Response>;
@@ -110,32 +119,17 @@ function bare(status: number, headers: Record<string, string> = {}): Response {
   return new Response(null, { status, headers: { "cache-control": "no-store", ...headers } });
 }
 
-/** The status for a party that did not answer, or `undefined` for a refusal. */
-export function outage(code: AuthErrorCode): number | undefined {
-  if (code === "idp/silent" || code === "session/silent") return 504;
-  if (code === "idp/unreachable") return 502;
-  if (code === "session/unavailable") return 503;
-  return undefined;
-}
-
 /**
- * An `AuthError` as a status and a code a product can route on.
+ * An `AuthError` as a problem a product can route on.
  *
  * Anything else is rethrown: a failure this module has no reading of is Next's to report, and
  * flattening it into a 400 here would hide a misconfiguration behind a message about credentials.
  */
 function failure(error: unknown): Response {
   if (!(error instanceof AuthError)) throw error;
-  return coded(error.code, error.message, outage(error.code) ?? 400);
+  return problem(error);
 }
 
-function coded(code: AuthErrorCode, message: string, status: number, cookies: readonly string[] = []): Response {
-  const headers = new Headers(PRIVATE);
-  for (const cookie of cookies) headers.append("set-cookie", cookie);
-  return new Response(JSON.stringify({ error: code, message }), { status, headers });
-}
-
-/** A request's cookies as a tenant resolver reads them, from the `Cookie` header a route is handed. */
 export function routes(instance: () => Promise<Bound>): RouteHandlers {
   const handle = async (request: Request): Promise<Response> => {
     const bound = await instance();
@@ -146,7 +140,7 @@ export function routes(instance: () => Promise<Bound>): RouteHandlers {
     const redirectUri = bound.redirectUri ?? `${url.origin}${base}/callback`;
 
     /** An `AuthError` on a navigation, as the product's page; anything else rethrown, as in `failure`. */
-    const problem = (error: unknown): Response => {
+    const toPage = (error: unknown): Response => {
       if (!(error instanceof AuthError)) throw error;
       const page = new URL(bound.problemPage, url.origin);
       page.searchParams.set("code", error.code);
@@ -169,7 +163,7 @@ export function routes(instance: () => Promise<Bound>): RouteHandlers {
           // `organization` arrives from a query parameter and `begin` refuses one that is not an
           // alias, because a space in it injects scopes; and the IdP may be down. Without this
           // `catch` either is a 500 on a link.
-          return problem(error);
+          return toPage(error);
         }
       }
 
@@ -178,7 +172,7 @@ export function routes(instance: () => Promise<Bound>): RouteHandlers {
           const done = await auth.complete({ url, cookie, redirectUri });
           return redirect(done.returnTo, done.cookies);
         } catch (error) {
-          return problem(error);
+          return toPage(error);
         }
       }
 
@@ -188,7 +182,7 @@ export function routes(instance: () => Promise<Bound>): RouteHandlers {
           const ended = await auth.end(cookie, { returnTo });
           return redirect(ended.url, ended.cookies);
         } catch (error) {
-          return problem(error);
+          return toPage(error);
         }
       }
 
@@ -205,11 +199,10 @@ export function routes(instance: () => Promise<Bound>): RouteHandlers {
         } catch (error) {
           return failure(error);
         }
-        // 401 and no body at all. `bffAuth` reads this status as "nobody is signed in" and stops;
-        // a body would be parsed by something eventually, and an error shape arriving where a
-        // `Session` is expected is the failure `readSession` exists to refuse.
-        if (session === null) return bare(401);
-        return new Response(JSON.stringify(session), { status: 200, headers: PRIVATE });
+        // `bffAuth` reads the 401 as "nobody is signed in" by its status and never reads the body;
+        // the body is a problem for everything else that asks, like every other refusal here.
+        if (session === null) return ended("session/absent");
+        return answer(session);
       }
 
       case "refresh": {
@@ -222,12 +215,11 @@ export function routes(instance: () => Promise<Bound>): RouteHandlers {
           // An ended session is a 401 and the cookie cleared in the same answer, so the browser
           // stops presenting a ticket whose row is gone. An outage is a 5xx, which `bffAuth` does
           // not read as an ended session.
-          if (renewed.ended) {
-            return coded(renewed.code, "there is no session left to renew", 401, renewed.cookies);
-          }
-          const headers = new Headers(PRIVATE);
-          for (const value of renewed.cookies) headers.append("set-cookie", value);
-          return new Response(JSON.stringify(renewed.session), { status: 200, headers });
+          if (renewed.ended) return ended(renewed.code, renewed.cookies);
+          // The session `/session` would answer, current tenant included: `bffAuth` reads this body
+          // as the renewed session rather than asking a second time.
+          const tenant = await bound.tenant(tenantRequest(request));
+          return answer(withTenant(renewed.session, tenant), renewed.cookies);
         } catch (error) {
           return failure(error);
         }
@@ -237,15 +229,17 @@ export function routes(instance: () => Promise<Bound>): RouteHandlers {
         if (request.method !== "POST") return bare(405, { allow: "POST" });
         // §2.5: `application/x-www-form-urlencoded`, one parameter.
         const token = new URLSearchParams(await request.text()).get("logout_token");
-        if (token === null || token === "") return coded("token/refused", "no `logout_token`", 400);
+        // §2.8 fixes the answers: 400 for a logout that failed, 501 for one this store cannot do.
+        // A refusal is therefore 400 whatever its code's own status; an outage keeps its 5xx.
+        if (token === null || token === "") {
+          return problem({ code: "token/refused", message: "no `logout_token`" }, { status: 400 });
+        }
         try {
           await auth.logout(token);
           return bare(200);
         } catch (error) {
-          if (error instanceof AuthError && error.code === "session/irrevocable") {
-            return coded(error.code, error.message, 501);
-          }
-          return failure(error);
+          if (!(error instanceof AuthError)) throw error;
+          return problem(error, statusOf(error.code) >= 500 ? {} : { status: 400 });
         }
       }
 

@@ -45,10 +45,11 @@ prising open a token.
 ## Install
 
 ```sh
-pnpm add @kanzo-tech/auth
+pnpm add @kanzo-tech/auth @tanstack/react-query
 ```
 
-The root barrel carries no engine. The server doors name theirs — `openid-client` and `jose` for
+The session is a query on your TanStack Query client, so `AuthProvider` goes below your
+`QueryClientProvider`. The root barrel carries no engine. The server doors name theirs — `openid-client` and `jose` for
 `./server`, and `next` 16 or later as well for `./next` — and a consumer installs only what it
 opens.
 
@@ -85,7 +86,7 @@ organization says nothing about the next.
 application that grants to a group; the platform's Keycloak mapper writes them (`services/auth/mappers`),
 and a path — what Keycloak writes there without it — is never read. Past the mapper's threshold the
 entry says `groupsOverage: true` and carries none, Entra ID's overage rule: that empty list means
-*ask the realm*, and `organizationGroups` on `./server` is a sketch of asking.
+*ask the realm*, with a service account of the application's own.
 
 Every sign-in asks Keycloak for `organization:*`, which returns every organization the person
 belongs to. Plain `organization` returns the only one when there is one and prompts for a choice

@@ -199,7 +199,9 @@ The placement rule is the library's own: *a part belongs on a subpath only if it
 subpath's engine.* Here that produces one door per engine — `openid-client` and `jose` behind
 `./server`, `next` behind `./next` — and, more importantly, a **root barrel with no engine at all**.
 That is why the transport for the BFF pattern lives on the root rather than behind a door: with the token on the server there is no protocol left in the browser, only a `fetch` to a
-session endpoint. Each of them is declared in the `exports` map on the day its file exists and never
+session endpoint. Its one peer beyond React is `@tanstack/react-query`, which is not an engine but
+the host's cache: the session is [read like any other datum](#a-session-is-read-like-any-other-datum),
+on the host's client, and the provider that reads it is on the root. Each of them is declared in the `exports` map on the day its file exists and never
 before, so no commit ships a door pointing at a path Rollup did not write.
 
 The precedent is not hypothetical. `@kanzo-tech/graph/duckdb` reached its coordinator through
@@ -390,7 +392,7 @@ themselves, so it is never behind them.
 **Ancestors count, by default.** A member of *Research/ML* carries ML's id and Research's, so a
 grant to Research reaches the people in its subgroups — what a person reading the group tree
 expects, and what Entra's transitive membership does. `inheritedGroups: false` on the mapper turns
-it off, and `organizationGroups` on `./server` takes the same switch; the two must agree.
+it off, and an application's own lookup of an overage must walk the same way; the two must agree.
 
 **The threshold is 100, and the arithmetic is the argument.** An id is 36 characters: 39 bytes of
 JSON, 52 once a token is base64url-encoded. The token that travels is the exchanged one, which names
@@ -404,11 +406,12 @@ every organization, so a person near the threshold in several weighs on `statele
 
 **An overage is a question, never an answer.** An empty `groups` beside `groupsOverage` means
 *look it up*, and reading it as *in no group* is Entra's documented trap. The lookup is the
-application's: `organizationGroups` on `./server` is the sketch — the member's groups from the admin
-API, ancestors walked, cached for the token's own five minutes — and it needs a service account with
-`view-organizations` and `view-users`, which the package does not hold and the realm does not
-provision. It is a sketch rather than a door because the credential and the cache size are the
-application's to own.
+application's: the member's groups from the admin API, ancestors walked, cached for the token's own
+five minutes — and it needs a service account with `view-organizations` and `view-users`, which the
+package does not hold and the realm does not provision. `./server` shipped it once as
+`organizationGroups`, a sketch, and no product called it; it went with the cleanup of 14 October
+2026, because the credential and the cache are the application's to own and a sketch with no caller
+is code nobody reads. *Back if* a second product writes the same lookup.
 
 **What would reverse it:** Keycloak giving its organization group mapper an option for ids — then
 the jar goes and the claim stays where it is. Keycloak removing or reshaping the internal SPI past
@@ -420,9 +423,7 @@ product that must never take the admin-API round trip raises it, and pays in hea
 person, and the mapper's own tests in `services/auth/mappers`;
 `packages/auth/src/claims.test.ts`, "reads the ids of the person's groups in each organization",
 "never reads a group's path as its id", "reads an overage as no ids, and says so" and "carries the
-ids of the groups held in each organization, two Researches apart";
-`packages/auth/src/organization-groups.test.ts`, "reads a member's groups with their ancestors,
-stopping at the organization's own group".
+ids of the groups held in each organization, two Researches apart".
 
 ## The signature check follows the channel, not a default
 
@@ -520,3 +521,171 @@ session endpoint as a failure, not as nobody being signed in" and "gives up on a
 that never answers, after 30 s and not before"; `packages/auth/src/next-routes.test.ts`, "sends a
 callback with no transaction to the problem page, with its code"; `packages/auth/src/next-auth.test.ts`,
 "sends a navigation to the problem page when the store does not answer"; `packages/ui/src/failures-reach-the-host.test.ts`.
+
+## A session is read like any other datum
+
+**`useSession` reads a session that is kept fresh and the same in every tab, as Auth.js's
+`SessionProvider` keeps it: `AuthProvider`'s read is a query through [the read door](/docs/design/reads),
+on the host's `QueryClient`, read again when the tab becomes visible, after a renewal, and when
+another tab announces a load, a renewal or a sign-out on a `BroadcastChannel`; and `bffAuth` renews a
+session it reads within a minute of its expiry.** The `Auth` interface had promised it —
+`getSession` *renews when near expiry*, `subscribe` fires when the session *changed in another
+tab* — and the transport under it read `/session` once and answered from that read for the life of
+the tab, so a renewed session kept its old roles and its old `expiresAt`. The promise was the
+removed browser client's, and the interface outlived it.
+
+The query's cache is the session's one copy; `bffAuth` keeps none, and the provider reads the
+query. A tab announces only what it caused — its first read, which is a page that loaded and so how
+a sign-in or a sign-out comes back; a renewal; a sign-out, said before it leaves — and a tab that
+hears reads again without announcing, so two tabs never echo each other. The message is only that
+something changed: each tab reads its own answer from its own cookie. The refresh route answers the
+renewed session with its current tenant, as `/session` would, so a renewal costs no second read.
+
+The reference is Auth.js's `SessionProvider`: `refetchOnWindowFocus`, a refetch after `update()`,
+and the `BroadcastChannel` every tab listens on, so a sign-out in one tab signs out the others.
+`@tanstack/react-query` is therefore a *required* peer of `@kanzo-tech/auth`, where it is an
+optional one of `@kanzo-tech/ui/analytics` and `@kanzo-tech/ai/data`: the provider is on the root.
+
+**What would reverse it:** a BFF where a read on every focus is measured as load that matters —
+then focus refetching goes, and the session is read on a renewal and an announcement alone. A host
+that cannot render a `QueryClientProvider` reverses the peer, as [the read door](/docs/design/reads)
+says.
+
+*Held by* `packages/auth/src/auth-provider.test.tsx`, "reads on the host's client, and throws
+without one" and "reads the session again when the tab becomes visible";
+`packages/auth/src/bff-auth.test.ts`, "renews a session read within a minute of its expiry, and
+answers the renewed one", "tells the other tabs when it loads, renews and signs out, and hears
+theirs" and "reads the session each time it is asked, because the provider's query is the one
+copy"; `packages/auth/src/next-routes.test.ts`, "answers the renewed session as the session route
+would, current tenant and all".
+
+## Every refusal is a problem body
+
+**Every refusal with a code that the auth layer sends — a route's, the forwarder's, the proxy's to a
+request that is not a navigation — is an RFC 9457 problem: `application/problem+json` with
+`status`, `title` and `detail`, and the library's `code` and `data` as its extension members; one
+table gives each code its status.** There were four shapes on the wire: the routes answered
+`{ error, message }`, which is neither OAuth's nor the problem shape the rest of the system reads;
+the forwarder computed a code and sent a bodiless status, so keasy coined `bff/failed` for an
+`organization/denied` the library knew; a problem page's redirect carries `?code=`; and an `Ended`
+result carries `code`. Two status tables disagreed, one sending `organization/denied` to 400 and the
+other to 403. One table, and a body that names the code, is what a host's registry already reads.
+
+There is no `type`, so it is the RFC's `about:blank`, whose `title` §4.2.1 has be the status's own
+phrase: the code is what a host routes on and the detail what a person might read, so the library
+writes no third wording. Two things keep their shape. A redirect stays a redirect: the routes a
+person reaches through the address bar — sign-in, the callback, sign-out — still send the person to
+the product's `problemPage` with the code in the URL, because a JSON body there is what a person
+reads. And back-channel logout answers a refusal with 400 whatever its code, because OpenID Connect
+Back-Channel Logout §2.8 fixes it. An answer about the request rather than a credential — a
+cross-site request's 403, a 405, a path under no mount — has no code to name, and no body.
+
+The table stays inside `./next`, unexported: the body carries its own `status`, so a host that reads
+a problem has no use for it, and no product calls it.
+
+The reference is RFC 9457, *Problem Details for HTTP APIs*, the body keasy's API, fossil's `problem`
+and `Problem` already share.
+
+**What would reverse it:** a client of these routes that reads OAuth's error response — `error`,
+`error_description` — and cannot read a problem. None does: `bffAuth` reads the status, and a host
+reads the code.
+
+*Held by* `packages/auth/src/next-routes.test.ts`, "answers 401, as a problem whose code is
+session/absent, when there is no session" and "answers 503 with a code, not a bare 500, when the
+session store does not answer"; `packages/auth/src/next-proxy.test.ts`, "answers 403, as a problem
+naming organization/denied, and reaches nothing, for an organization the person is not a member of";
+`packages/auth/src/next-auth.test.ts`, "answers anything that is not a navigation with a 401
+problem, and no sign-in".
+
+## An outage at a required session is the problem page
+
+**`kanzoAuth().session({ required: true })` answers a store or IdP outage as `proxy` does: a redirect
+to `problemPage` with the code.** It threw the `AuthError` raw, so keasy wrapped every layout's read
+in a `try` that redirected to the same page with the same code — the library's own decision, written
+again by the product. Without `required` the outage is still thrown, for a page that renders through
+one. `TenantRequest`, the type `KanzoAuthConfig.organization` takes, is on `./next` with it, because
+a public option's argument with no name is one a host cannot write a function for.
+
+The reference is AuthKit's `withAuth({ ensureSignedIn: true })`, which settles the outcome rather
+than handing the host an exception to settle.
+
+**What would reverse it:** a layout that must render through an outage — a public page under a
+required session. Then it does not ask for `required`, and catches the `AuthError` itself.
+
+*Held by* `packages/auth/src/next-auth.test.ts`, "sends a required session's outage to the problem
+page, with its code" and "throws the outage to a page that did not require a session, which reads
+it itself".
+
+## One party bounds each wait
+
+**`bffAuth` bounds the two requests it makes for itself, `/session` and `/refresh`, and nothing
+else; its `fetch` option is the transport, and a host bounds its own API calls in the requests it
+makes.** The rule is [the failure page's](/docs/design/failure#one-deadline-per-wait); here it means
+`fetch` is documented as the production transport it is, not as *injectable for tests*, and keasy
+stops wrapping it in a 30 s deadline of its own that raced `bffAuth`'s.
+
+**What would reverse it:** a host that cannot bound its own requests — one whose API client takes no
+signal. Then `bffAuth` bounds every request through `Auth.fetch`, coded by who did not answer, and
+the host bounds none.
+
+*Held by* `packages/auth/src/bff-auth.test.ts`, "gives up on a session endpoint that never answers,
+after 30 s and not before".
+
+## The organization's console is a link the library computes
+
+**`organizationConsoleUrl(issuer, organization)` is the URL of Keycloak's admin console page for an
+organization — the realm's console, at the organization's settings — computed from the issuer and
+the organization the session already names, beside `accountUrl`.** Keycloak 26 manages an
+organization's members, domains and identity providers in the realm's admin console:
+`{origin}/admin/{realm}/console/#/{realm}/organizations/{id}/settings`, where the public issuer is
+`{origin}/realms/{realm}` and the id is the organization's, which `organizationOf(session, alias)`
+returns. So a product's *Members* page links there with nothing configured — keasy's
+`KEASY_ORG_ADMIN_URL`, set in no deployment, goes, and with it the page that always said *ask your
+platform administrator*. An organization the realm sent without its `id` has no link: the console
+finds an organization by id, not by alias.
+
+It is `accountUrl`'s shape and reasoning: a pure function of the public issuer, on the root barrel,
+because a link is drawn wherever the session is. The reference is Keycloak's own consoles —
+account-ui at `{issuer}/account`, the admin console at `/admin/{realm}/console/` — whose routes are
+Keycloak's to declare. Whether a person may open it is not the link's to decide: the console
+authorises its own users, and a product shows the link to those its `can` says manage the
+organization.
+
+**What would reverse it:** an organization managed somewhere other than the realm's admin console —
+Keycloak shipping a console of its own for organization administrators, or an IdP that is not
+Keycloak. Then the function returns that console's route, or a host passes its own URL; nothing else
+about the link changes.
+
+*Held by* `packages/auth/src/account.test.ts`, "is the realm's admin console at the organization's
+settings, by its id" and "has no link for an organization the realm sent without its id".
+
+## A name on a door has a product's call site
+
+The doors carried names no product called, each one more thing to keep: `singleFlight` and
+`readSession` on the root, pieces `bffAuth` is built from; `claims` on the root, where the browser
+has no claim set to read — the BFF reads it, so it is on `./server`; and on `./server`,
+`sealedCookie`, `cookieValue`, `rewriteOrigin` — pieces of `relyingParty` — and `organizationGroups`,
+a sketch with no caller. They went with the cleanup of 14 October 2026, by the rule
+[an export needs a call site](/docs/design/admission#an-export-needs-a-second-call-site-and-one-example-is-not-it):
+a product's call site admits a name, and a name with none is kept for nobody.
+
+**What would reverse it:** a product that calls one of them — a second framework's routes built on
+`sealedCookie`, a host reading claims in the browser. Then that name comes back to the door the call
+site is on, and no other.
+
+*Held by* `packages/auth/src/index.test.ts`, "are the session, the role question and the two console
+links on the root" and "are the relying party, its claim reader, its issuer and its stores on the
+server door".
+
+**Breaking**, in a consumer's words, for this page:
+
+- The auth routes, the forwarder and the proxy answer a refusal as `application/problem+json` with
+  `code`; a host that read `{ error, message }` reads `code` and `detail`, and a host that read a bare
+  status from the forwarder reads its `code`.
+- `session({ required: true })` redirects to `problemPage` on an outage; delete the `try` around it.
+- `bffAuth`'s `fetch` must not bound requests; bound your API calls where you make them.
+- `useSession` needs a `QueryClientProvider` above `AuthProvider`.
+- `singleFlight` and `readSession` are gone from `@kanzo-tech/auth`; `claims` and `ClaimsConfig`
+  move to `@kanzo-tech/auth/server`; `sealedCookie`, `cookieValue`, `SealedCookie`,
+  `SealedCookieConfig`, `rewriteOrigin`, `organizationGroups`, `OrganizationGroups` and
+  `OrganizationGroupsConfig` are gone from `@kanzo-tech/auth/server`.

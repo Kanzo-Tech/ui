@@ -316,7 +316,7 @@ interface Adopted {
 }
 
 export interface RelyingPartyConfig extends IssuerConfig {
-  /** Seals the cookies. Any length; generate it. See `sealedCookie`. */
+  /** Seals the cookies, as JWE under a `__Host-` name. Any length; generate it, do not choose it. */
   readonly secret: string | Uint8Array;
   /**
    * Default `openid profile email organization:*`. Whatever is given, its organization scope is
@@ -842,13 +842,8 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
   };
 }
 
-export { issuer, rewriteOrigin, type Issuer, type IssuerConfig } from "./issuer";
-export {
-  organizationGroups,
-  type OrganizationGroups,
-  type OrganizationGroupsConfig,
-} from "./organization-groups";
-export { sealedCookie, cookieValue, type SealedCookie, type SealedCookieConfig } from "./cookie-session";
+export { claims, type ClaimsConfig } from "./claims";
+export { issuer, type Issuer, type IssuerConfig } from "./issuer";
 export {
   statelessStore,
   ticketStore,

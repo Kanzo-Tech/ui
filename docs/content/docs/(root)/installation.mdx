@@ -88,9 +88,11 @@ first admission rule excludes auth by name, for the reason the log-out affordanc
 know what a session is.
 
 ```bash
-pnpm add @kanzo-tech/auth
+pnpm add @kanzo-tech/auth @tanstack/react-query
 ```
 
+The session is a query on your own TanStack Query client, so render one `QueryClientProvider` above
+`AuthProvider` ([the session page](/docs/auth/session#the-session-is-a-query-on-your-queryclient)).
 The root barrel carries no engine, which is what makes it the door every consumer's browser half
 opens. The other two each name theirs, and you install only the one you open.
 

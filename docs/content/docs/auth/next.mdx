@@ -79,8 +79,8 @@ renewal and enforcement where the URL is known.
 | --- | --- | --- |
 | live, access token valid | passes through | passes through |
 | live, access token within `renewWithin` (60 s) of expiry | renewed, then passes | renewed, then passes |
-| absent, forgotten by the store, or the IdP **refused** to renew | cookie cleared, **307** to `signin?returnTo=<path+search>` | cookie cleared, **401**, `no-store` |
-| the store does not answer | **307** to `problemPage?code=session/unavailable` | 503 or 504 |
+| absent, forgotten by the store, or the IdP **refused** to renew | cookie cleared, **307** to `signin?returnTo=<path+search>` | cookie cleared, **401** problem, `no-store` |
+| the store does not answer | **307** to `problemPage?code=session/unavailable` | 503 or 504 problem |
 | the IdP does not answer | passes through untouched | passes through untouched |
 
 The last row is deliberate: an IdP outage has refused nothing, so the session is still the
@@ -95,7 +95,7 @@ strips its own RSC headers before the proxy sees them, so this is the one signal
 
 A request that is not a navigation **cannot follow a sign-in and must not start one**: a hovered
 link that prefetched its way into `/api/auth/signin` would be a sign-in nobody asked for. It gets a
-bare 401; the Next router answers a 401 to its own fetch with a hard navigation, which arrives back
+401 [problem](#what-a-refusal-answers); the Next router answers a 401 to its own fetch with a hard navigation, which arrives back
 here as `navigate` and is sent to sign in carrying its URL. An absent header is a client that is not
 a browser, or one too old to send it, and is treated as a navigation — a redirect it can follow is
 the more useful answer.
@@ -138,7 +138,7 @@ matcher a product writes — a matcher that missed static files once served an a
 
 ```ts
 const session = await auth.session();                    // Session | null
-const session = await auth.session({ required: true });  // Session, or a redirect to sign in
+const session = await auth.session({ required: true });  // Session, or a redirect
 ```
 
 It reads the cookie through `next/headers` and is memoised per request through React's `cache`, so
@@ -146,7 +146,10 @@ a layout, a breadcrumb and a menu asking in one render unseal the cookie and rea
 It never renews — **a server component cannot write cookies** — and it does not need to: the proxy
 already renewed or ended the session before the page began. `{ required: true }` is AuthKit's
 `ensureSignedIn`: on a page the proxy does not run on, or a session that ended mid-render, it
-redirects to sign in carrying the path and query the proxy forwarded.
+redirects to sign in carrying the path and query the proxy forwarded. And when the store or the IdP
+does not answer, it redirects to `problemPage` with the code — the proxy's answer to the same
+outage — so a layout writes no `try` around it. Without `required`, an outage is thrown as the
+`AuthError`, for a page that renders through one and reads it itself.
 
 ## Tenancy
 
@@ -157,7 +160,8 @@ a cookie, or one fixed alias for a deployment per tenant.
 organization: ({ url, headers, cookies }) => url.hostname.split(".")[0]
 ```
 
-It is handed `{ url, headers, cookies }`, built the same way wherever it runs: the routes from their
+It is handed a `TenantRequest` — `{ url, headers, cookies }`, exported from `@kanzo-tech/auth/next`
+for a resolver written as a function of its own — built the same way wherever it runs: the routes from their
 request, a server component from `host` and the `x-kanzo-url` the proxy forwarded. Its answer is
 `Session.organization`, on `session()` and on the `/session` route, and it is the organization
 [`can`](/docs/auth/roles) asks inside by default. The tenant is resolved per request and never
@@ -190,7 +194,7 @@ With one transaction cookie, a second tab that started signing in overwrote the 
 and the first tab's callback failed; with one per `state`, both finish, and each callback clears
 the one it spent.
 
-### A failure is a page, not a body
+### A failure on a navigation is a page
 
 `/signin`, `/callback` and `/signout` are reached through the address bar, so an `AuthError` there
 is a 302 to the product's `problemPage` — default `/auth/problem` — with the code in `?code=`:
@@ -208,9 +212,37 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ c
 The proxy keeps `problemPage` public, because whoever lands there has no session; sending them to
 sign in instead would loop when signing in is what failed.
 
-`/session` and `/refresh` are reached by `fetch` and answer `{ error, message }` with a status: 401
-for `session/absent` and `token/refused`, 503 for `session/unavailable`, 502 for `idp/unreachable`,
-504 for `idp/silent`, and 400 for a refusal. `bffAuth` reads only the 401 as *nobody is signed in*.
+`/session`, `/refresh` and `/backchannel-logout` are reached by `fetch`, and answer a refusal as a
+problem.
+
+### What a refusal answers
+
+Every refusal with a code — from the routes, from [`api`](#api) and from the proxy to a request
+that is not a navigation — is an RFC 9457 problem, `application/problem+json`, never cached:
+
+```json
+{ "status": 403, "title": "Forbidden", "detail": "the realm did not grant `organization:acme`: the person is not a member", "code": "organization/denied" }
+```
+
+`code` is the [`AuthErrorCode`](/docs/auth/session#when-a-credential-is-refused-or-nobody-answers),
+and `data` rides beside it when the error carries one (`after`, `status`). There is no `type`, so
+`title` is the status's own phrase: route on `code`, and word it yourself. One table gives the
+status, everywhere:
+
+| Code | Status |
+| --- | --- |
+| `session/absent`, `token/refused` | 401 |
+| `organization/denied` | 403 |
+| `organization/invalid`, `callback/state-mismatch`, `callback/nonce-mismatch` | 400 |
+| `session/irrevocable` | 501 |
+| `idp/unreachable`, `token/exchange-failed`, `claims/no-subject` | 502 |
+| `session/unavailable` | 503 |
+| `idp/silent`, `session/silent` | 504 |
+
+`/backchannel-logout` is the one exception, because its specification fixes its answers: a refusal
+there is 400, whatever its code. `bffAuth` reads only a 401 from `/session` as *nobody is signed
+in*, by its status. An answer about the request rather than a credential — a cross-site request's
+403, a 405, a path under no mount — has no code and no body.
 
 `/refresh` constrains its verb because it *spends* a refresh token, and a `GET` that spends
 something is one prefetch, one link preview or one crawler away from spending it unasked. A `GET`
@@ -311,11 +343,12 @@ all, while each tenant's data stays behind its own resource server — and the t
 is sent names `acme` alone, so it is no good at `globex`'s. A request that addresses no
 organization — a bare host — gets `undefined` from the function, and `api` answers it 404.
 
-It answers **401** with the cookie cleared when there is no session or the renewal was refused,
-**403** when the request is not same-site or the person is not a member of the organization it
-addresses (`organization/denied`), **400** for a path under no mount, **404** when `kanzoAuth` was
-given no `apis`, and **502** when the realm will not exchange the token for that audience at all —
-the application does not list the API, which is the deployment's to fix. The proxy leaves every
+It answers a [problem](#what-a-refusal-answers): **401** with the cookie cleared when there is no
+session or the renewal was refused, **403** when the person is not a member of the organization the
+request addresses (`organization/denied`), and **502** when the realm will not exchange the token
+for that audience at all (`token/exchange-failed`) — the application does not list the API, which
+is the deployment's to fix. Without a body, **403** when the request is not same-site, **400** for a
+path under no mount, and **404** when `kanzoAuth` was given no `apis`. The proxy leaves every
 mount alone.
 
 <Callout type="info">
@@ -340,6 +373,7 @@ Nothing here is invented; each piece is a reference system's answer or a standar
 | Redirect or 401 by `Sec-Fetch-Mode` | W3C Fetch Metadata |
 | `Origin` and `Sec-Fetch-*` end at the BFF | RFC 6454 §7; W3C Fetch Metadata |
 | Logout token verification, 200 / 400 / 501 | OpenID Connect Back-Channel Logout 1.0 §2.6, §2.8 |
+| A refusal's body | RFC 9457, Problem Details for HTTP APIs |
 | Back-channel logout through the session store | Auth0 Next.js SDK v4 |
 
 ## API Reference
@@ -352,7 +386,7 @@ Nothing here is invented; each piece is a reference system's answer or a standar
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `organization` | `({ url, headers, cookies }) => string \| undefined \| Promise<…>` | no current tenant |
+| `organization` | `(request: TenantRequest) => string \| undefined \| Promise<…>` | no current tenant |
 | `basePath` | `string` | `/api/auth` |
 | `problemPage` | `string` | `/auth/problem` |
 | `public` | `readonly string[]` | nothing |

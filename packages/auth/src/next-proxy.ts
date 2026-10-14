@@ -1,8 +1,8 @@
 import { tenantRequest, under, type Bound } from "./next-bound";
-import { outage } from "./next-routes";
+import { ended, problem } from "./problem";
 import { isSameSite } from "./same-site";
 import type { Ended, Token } from "./server";
-import { AuthError, type AuthErrorCode } from "./types";
+import { AuthError } from "./types";
 
 /**
  * The BFF half of the *token-mediating backend*: the browser's request goes out again carrying a
@@ -28,18 +28,25 @@ import { AuthError, type AuthErrorCode } from "./types";
  *
  * ## What it answers without asking upstream
  *
- * - **401** when there is no session, or when the renewal was refused — with the cookie cleared in
- *   the same answer. There is nothing to forward: a request with no credential is not the resource
- *   server's to refuse. `bffAuth` answers that 401 by asking `refresh`, and signs in when that is
- *   refused too.
- * - **403** when the request is not same-site — `same-site.ts` carries why the package owes this —
- *   and when the realm will not issue a token for the organization the request addresses, because
- *   the person is not a member of it.
- * - **404** when `kanzoAuth` was given no `apis`, or the mount's `target` names no server for the
- *   organization.
- * - **400** for a path under no mount, and for an organization that is not an alias.
- * - **502** when the realm would not exchange the token at all: the application is not allowed to
- *   ask for that audience, which is the deployment's to fix and not the person's.
+ * A refusal with a code is an RFC 9457 problem whose `code` is the `AuthErrorCode`, at the status
+ * `problem.ts`'s one table gives it — the same body the auth routes send, so a host's registry reads
+ * `organization/denied` here rather than coining a code for a bare 403:
+ *
+ * - **401** when there is no session, or when the renewal was refused (`session/absent`,
+ *   `token/refused`) — with the cookie cleared in the same answer. There is nothing to forward: a
+ *   request with no credential is not the resource server's to refuse. `bffAuth` answers that 401
+ *   by asking `refresh`, and signs in when that is refused too.
+ * - **403** when the realm will not issue a token for the organization the request addresses,
+ *   because the person is not a member of it (`organization/denied`); **400** for one that is not an
+ *   alias (`organization/invalid`).
+ * - **502** when the realm would not exchange the token at all (`token/exchange-failed`): the
+ *   application is not allowed to ask for that audience, which is the deployment's to fix. An IdP
+ *   or a store that did not answer is its 5xx.
+ *
+ * Three answers carry no code, and so no body, because they are about the request and not about a
+ * credential: **403** when it is not same-site — `same-site.ts` carries why the package owes this —
+ * **404** when `kanzoAuth` was given no `apis` or the mount's `target` names no server for the
+ * organization, and **400** for a path under no mount.
  *
  * ## Renewal happens here too
  *
@@ -127,14 +134,6 @@ const NOT_FORWARDED = [
  */
 const NOT_RETURNED = [...HOP_BY_HOP, "set-cookie", "content-encoding", "content-length"];
 
-/** What an `AuthError` from getting the token answers, when it is not the IdP's or the store's outage. */
-function refusal(code: AuthErrorCode): number {
-  if (code === "organization/denied") return 403;
-  if (code === "organization/invalid") return 400;
-  if (code === "token/exchange-failed") return 502;
-  return 401;
-}
-
 function copyHeaders(from: Headers, without: readonly string[]): Headers {
   const headers = new Headers(from);
   for (const name of without) headers.delete(name);
@@ -144,11 +143,8 @@ function copyHeaders(from: Headers, without: readonly string[]): Headers {
 export function forward(instance: () => Promise<Bound>): ApiHandlers {
   const send = (...args: Parameters<typeof globalThis.fetch>) => globalThis.fetch(...args);
 
-  const refuse = (status: number, cookies: readonly string[] = []) => {
-    const headers = new Headers({ "cache-control": "no-store" });
-    for (const cookie of cookies) headers.append("set-cookie", cookie);
-    return new Response(null, { status, headers });
-  };
+  /** A refusal about the request rather than a credential: a status, and nothing to route on. */
+  const refuse = (status: number) => new Response(null, { status, headers: { "cache-control": "no-store" } });
 
   const handle = async (request: Request): Promise<Response> => {
     const bound = await instance();
@@ -190,9 +186,9 @@ export function forward(instance: () => Promise<Bound>): ApiHandlers {
       // of: hiding either behind a 401 would send a person to sign in again over something that
       // will still be there when they get back.
       if (!(error instanceof AuthError)) throw error;
-      return refuse(outage(error.code) ?? refusal(error.code));
+      return problem(error);
     }
-    if (held.ended) return refuse(401, held.cookies);
+    if (held.ended) return ended(held.code, held.cookies);
 
     const headers = copyHeaders(request.headers, NOT_FORWARDED);
     headers.set("authorization", `Bearer ${held.accessToken}`);

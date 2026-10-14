@@ -1,6 +1,6 @@
 ---
 title: Session
-description: One session shape in the browser, bffAuth behind it, how a session is kept alive and how it ends, and why the current organization is resolved per request rather than stored.
+description: One session shape in the browser, read as a query on your QueryClient with bffAuth behind it, how a session is kept alive, kept fresh across tabs and ended, and why the current organization is resolved per request rather than stored.
 ---
 
 ```tsx
@@ -87,6 +87,33 @@ interface Auth {
 
 `useSession` and `Gate` are written against it, so a test double is five members and no network.
 
+### The session is a query on your `QueryClient`
+
+`AuthProvider` reads the session with TanStack Query, on the `QueryClient` your
+`QueryClientProvider` puts in context — [the read door](/docs/design/reads) every reading part of
+the library goes through. So `@tanstack/react-query` 5 is a peer of `@kanzo-tech/auth`, and the
+provider goes below yours:
+
+```tsx
+<QueryClientProvider client={queryClient}>
+  <AuthProvider auth={auth}>{children}</AuthProvider>
+</QueryClientProvider>
+```
+
+Without it `AuthProvider` throws TanStack's own *No QueryClient set*. The query's cache is the
+session's one copy — `bffAuth` keeps none — so it is in your devtools and goes when you clear the
+client, which you do on sign-out as for any other data of the person's. It is read again:
+
+- **when the tab becomes visible**, so a tab left in the background comes back to the session the
+  others renewed or ended;
+- **after a renewal**, so a renewed session's roles and `expiresAt` are the ones drawn;
+- **when another tab says so**, on a `BroadcastChannel`: a tab announces when it loads — which is
+  how a sign-in and a sign-out come back — when it renews, and when it signs out. The message says
+  only that something changed; every tab reads its own answer.
+
+It never retries: a failed read is `"failed"`, at once. This is Auth.js's `SessionProvider` —
+`refetchOnWindowFocus`, a refetch after `update()`, and the channel every tab listens on.
+
 ### `bffAuth`
 
 ```ts
@@ -101,11 +128,16 @@ the root barrel beside the hooks. What it needs from the server is four routes u
 them in Next; [`@kanzo-tech/auth/server`](/docs/auth/server) is the relying party underneath, for a
 product that wires the routes into another router.
 
-The answer from `/session` is **checked rather than cast**, by `readSession`. It is your own server
+The answer from `/session` is **checked rather than cast**. It is your own server
 on the other end and it is still data off the wire: a cast would let a deploy skew or a proxy's
 error page arrive as a `Session` whose `user` is undefined, and the failure would surface three
-components away as a property read on nothing. Anything unrecognisable reads as *not signed in*,
-which is the safe direction.
+components away as a property read on nothing. Anything unrecognisable is a failure,
+`session/unavailable`, and never a session.
+
+A session read within a minute of its expiry is **renewed before it is answered**: `bffAuth` `POST`s
+`/refresh` and answers the renewed session, or `null` when the renewal was refused. That is for the
+tab that stays on one page — the proxy renews before every page, and a tab that loads none would
+otherwise draw an `expiresAt` already gone.
 
 ## Keeping requests authenticated
 
@@ -134,10 +166,11 @@ server, in three places, and the browser's 401 is the last of them:
    every page and renews an access token with less than a minute left, in place under the same
    ticket. When the IdP refuses — the realm's session went idle, or was ended — the proxy drops the
    ticket, clears the cookie, and sends a navigation to sign in carrying its URL, so the person
-   comes back to the deep link they asked for. A prefetch or an RSC fetch gets a bare 401 instead.
+   comes back to the deep link they asked for. A prefetch or an RSC fetch gets a 401 problem instead.
 2. **[The forwarder](/docs/auth/next#api)** renews the same way before each request it forwards to
    a resource server, for a page that stays open longer than an access token lives.
-3. **`bffAuth`** answers the 401 that reaches the browser anyway, as above.
+3. **`bffAuth`** renews a session it reads near its expiry, and answers the 401 that reaches the
+   browser anyway, as above.
 
 A session ended at Keycloak — an administrator's sign-out, another application's — reaches the
 server through [back-channel logout](/docs/auth/next#back-channel-logout), and the next navigation
@@ -156,9 +189,6 @@ ten renewals, nine of them replaying a token the first already spent — and an 
 is entitled to read that as theft and revoke the whole chain. The session does not degrade under
 load; it dies under load, which is the worst way to find out.
 </Callout>
-
-`singleFlight` is on the barrel for a product's own call that must not run twice at once — the same
-primitive the renewal uses.
 
 <Callout type="info">
 **`EventSource` is fine here.** It cannot carry an `Authorization` header, which is a problem for a
@@ -199,6 +229,15 @@ and `/refresh`, every call `ticketStore` makes on its adapter, and every request
 `jose` make behind `./server`, through each library's own timeout. What it threw is kept as the
 `cause`.
 
+**It bounds those and nothing else.** A request your API client makes through `auth.fetch` is yours
+to bound, with a signal on that request — `AbortSignal.timeout(30_000)`, or the one your client
+already passes. Do not wrap the `fetch` you hand `bffAuth` in a deadline of your own: one wait gets
+one bound, and two racing on the session read would each name the failure differently
+([failure](/docs/design/failure#one-deadline-per-wait)).
+
+The server answers a refusal as an RFC 9457 problem, `application/problem+json`, whose `code` is
+the `AuthErrorCode` — [the Next.js page](/docs/auth/next#what-a-refusal-answers) has the statuses.
+
 ## API Reference
 
 ### `useSession`
@@ -210,7 +249,7 @@ component that draws a sign-out button or an editor's control needs one hook rat
 | --- | --- | --- |
 | `session` | `Session \| null` | Who is signed in |
 | `status` | `AuthStatus` | `"loading" \| "authenticated" \| "anonymous" \| "failed"` — **branch on this** |
-| `error` | `unknown` | What `getSession` rejected with, exactly as thrown, while `status` is `"failed"` |
+| `error` | `unknown` | What the session read rejected with, exactly as thrown, while `status` is `"failed"` |
 | `auth` | `Auth` | The instance the provider was given |
 | `signIn` | `(options?: SignInOptions) => Promise<void>` | Send the person to the IdP |
 | `signOut` | `(options?: { returnTo?: string }) => Promise<void>` | End the session |
@@ -225,7 +264,7 @@ It throws when called outside `AuthProvider`, naming `bffAuth` in the message.
 | `auth` | `Auth` | — |
 | `children` | `React.ReactNode` | — |
 
-One per application, at the root. A session that cannot be read settles on `"failed"`, with what
+One per application, at the root, below your `QueryClientProvider`. A session that cannot be read settles on `"failed"`, with what
 was thrown on `error` — neither `"anonymous"`, which sends the person to sign in over an outage, nor
 `loading`, which is a spinner nobody can escape. `Gate` draws neither side while it is `"failed"`.
 
@@ -236,7 +275,7 @@ was thrown on `error` — neither `"anonymous"`, which sends the person to sign 
 | Prop | Type | Default |
 | --- | --- | --- |
 | `basePath` | `string` | `/api/auth` |
-| `fetch` | `typeof fetch` | the global |
+| `fetch` | `typeof fetch` | the global. The transport every request goes through; it must not bound requests — see above |
 | `navigate` | `(url: string) => void` | assigns `window.location` |
 
 ### `SignInOptions`

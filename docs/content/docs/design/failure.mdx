@@ -53,6 +53,24 @@ fossil's to bound.
 *Held by* `packages/mosaic/src/engine-boot.test.ts`, "rejects with data.after when the worker never
 answers within the 60 s deadline".
 
+## One deadline per wait
+
+**A wait is bounded by the party that makes the request, once; whoever passes a transport or calls
+a door does not add a second bound around it.** Two bounds on one wait race to name one failure, and
+whichever wins, the other's code is what a host's registry was told to expect. keasy's session read
+was the case: `bffAuth` bounds `/session` and `/refresh` at 30 s as `session/silent`, keasy handed it
+a `fetch` that bounded every request at 30 s as `server/silent`, and `bffAuth` rewrapped the loser as
+`session/unavailable`. So `bffAuth`'s `fetch` is a transport, documented as one and not as a test
+seam, and a host bounds its own API calls in the requests it makes
+([the auth layer](/docs/design/auth#one-party-bounds-each-wait)).
+
+**What would reverse it:** a wait two parties must each bound for a reason of their own — a host
+that must give up sooner than the library on one screen. Then the host passes a signal, which the
+library's bound composes with, and the code is still the library's.
+
+*Held by* `packages/auth/src/bff-auth.test.ts`, "gives up on a session endpoint that never answers,
+after 30 s and not before".
+
 ## A model's failure is shown once, on the first attempt
 
 The model runs in the page ([Tasks](/docs/design/tasks)), so there is no request to a server to bound
