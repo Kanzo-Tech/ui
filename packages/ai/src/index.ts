@@ -64,3 +64,8 @@ export type { TaskList, TaskListState, UseTaskOptions } from "./use-task.js";
 // and not passed through here: a name on this barrel is ours or it is not on it.
 export { useAgentChat } from "./agent-chat.js";
 export type { AgentChat, AgentChatOptions } from "./agent-chat.js";
+// A chat is kept as the AI SDK keeps one — the `UIMessage[]` of an id — through the host's `load`
+// and `save`, which the chat hooks take. `useKeptChat` is the same for a transcript the host draws
+// from messages of its own, not `useChat`'s.
+export { useKeptChat } from "./kept-chat.js";
+export type { KeepPart, KeptChat, KeptChatOptions, KeptChatSchemas, KeptState } from "./kept-chat.js";

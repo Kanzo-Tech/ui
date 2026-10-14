@@ -279,3 +279,62 @@ follows the page afterwards and may no longer show them, which the caption's wor
 The same table is what a test proves an answer by: `AnswerHarness.rows()` reads it by its caption,
 cell by cell. A figure asserted there is the engine's; asserted in the chart it is only drawn, and in
 the reply it is only the model's quotation of it — on a replayed take, a recording's.
+
+## A chat is kept in the AI SDK's shape
+
+**`@kanzo-tech/ai` keeps a chat as the AI SDK keeps one — the `UIMessage[]` of a chat id — and the
+host gives two functions, `load(id)` and `save(id, messages)`, and may give a third, `keep`, which
+decides what of each part is stored.** A chat hook given them (`useAgentChat`, `useAskChat`) calls
+`load` once before the first turn, validates what it answers with the AI SDK's `validateUIMessages`
+against the chat's own `dataPartSchemas` and `messageMetadataSchema` — the ones `useChat` already
+takes — and, for an agent, its tools, and makes the `useChat` of that `id` from them; at the end of
+every turn it saves every message, one save at a time. `keep` filters or rewrites the parts — a host
+drops reasoning, or keeps an answer's spec with its rows emptied — and what it keeps is validated before
+`save` is called, so a `keep` that writes what cannot be read back is refused when it writes, not
+when the person comes back.
+
+The load is a plain call, not a query: the chat hooks are `@kanzo-tech/ai`'s root, which takes no
+TanStack peer ([One read per datum](/docs/design/reads)), and a kept chat is read once, into
+`useChat`, which holds it from then on — there is nothing for a cache to share.
+
+The reference is the AI SDK's *Chatbot Message Persistence*: a chat is its id and its `UIMessage[]`,
+loaded into `useChat({ id, messages })` and saved when a response finishes, validated on the way back
+in because what was stored is untrusted input. Two things are its rules rather than ours: a list with
+no message, or a message with no part, does not validate — so `[]` from `load` is a chat never saved,
+and a message `keep` leaves no part of is not stored.
+
+**Ask's parts have schemas of their own**, which `useAskChat` passes as its `dataPartSchemas`: an
+`answer` and an `ask` part are each rebuilt from the fields they may hold, their relation read as
+`{ root, path }` and their tile through `parseTile`, the dashboard's own reading of a stored tile —
+so what a transcript carried back is names over the host's graph and never reaches the engine as a
+statement. They are written by hand as Standard Schema, which the AI SDK takes, because
+`@kanzo-tech/ai` has no schema library of its own and `parseTile` already is the tile's.
+*What would reverse it:* a schema library entering `@kanzo-tech/ai` for another reason; then the
+parts are written in it.
+
+*Held by* `packages/ai/src/data/ask-parts.test.ts`, "reads back an answer and its turn as Ask wrote
+them, and nothing they do not hold"; "refuses an answer whose tile a dashboard would not read, or
+whose relation is not one".
+
+**`useKeptChat` is the same thing for a transcript whose messages are not `useChat`'s.** Keasy's
+assistant, which wrote the store, queue and restore this replaces, is a guided conversation whose
+turns the product decides and whose messages it writes itself; the chat hooks are this one with
+`useChat` around it, so there is one mechanism and two ways in only where there are two kinds of
+transcript. *What would reverse it:* the guided conversation moving onto `useChat`; then
+`useKeptChat` has no caller and leaves the barrel.
+
+**A stored chat that does not validate is a failure, handed to the host whole**, as every other
+([failure](/docs/design/failure)): `chat.kept` is `failed` with what was thrown, `Chat` says so with
+its composer inert, and nothing is saved over it. The library never drops the messages it cannot
+read and opens an empty chat in their place, which would lose a person's conversation without saying
+so. A save refused is `unsaved`, said under the transcript, and the next turn's save is tried all
+the same. While the chat is read, `Chat` is its own skeleton: a question sent then would be lost
+under the messages that arrive.
+
+**What would reverse it:** a host that stores something other than the messages — an event log, a
+server-side thread — and rebuilds messages from it. Then `load` and `save` still have this shape, and
+the conversion is the host's.
+
+*Held by* `packages/ai/src/kept-chat.test.tsx`, "opens where it stood: the chat of its id is read
+once, validated, and drawn"; "never opens empty in place of a chat it cannot read, and never saves
+over it"; "saves one at a time, in order, and refuses what keep left unreadable".
