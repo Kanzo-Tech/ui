@@ -12,8 +12,6 @@ import { PromptInput, PromptInputTextarea } from "../prompt-input.js";
 import type { AnswerOutput } from "./read.js";
 import { readFor } from "../testing/answer.js";
 import { AnswerCard, type AnswerCardProps } from "./answer-card.js";
-import type { AnswerRelation } from "./answer.js";
-import { readAnswerRelations } from "./relations.js";
 
 /** The host's one client: every read the parts make is a query on it. */
 const queries = new QueryClient();
@@ -30,8 +28,7 @@ let output: AnswerOutput;
 beforeAll(async () => {
   db = await testDatabase();
   seedPeople(db);
-  const [person] = (await readAnswerRelations(db.coordinator, PEOPLE, [PERSON])) as [AnswerRelation];
-  output = await readFor(db.engine, PEOPLE, [person], {
+  output = await readFor(db.engine, PEOPLE, {
     of: "Person",
     where: [{ field: "gender", in: ["female"] }],
     show: { kind: "stat", title: "Mean age", measure: { op: "avg", field: "age" } },

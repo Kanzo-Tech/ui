@@ -44,7 +44,7 @@ export function DashboardStat(props: DashboardStatProps) {
 
   return (
     <StatRoot {...rest}>
-      <StatLabel className={header ? "col-end-3" : undefined}>{tileTitle(stat)}</StatLabel>
+      <StatLabel className={header ? "col-end-3" : undefined}>{tileTitle(stat, fields)}</StatLabel>
       {header ? (
         <div className="col-start-3 -my-1 flex items-center justify-end gap-1">
           {actions}

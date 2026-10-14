@@ -1,15 +1,18 @@
-import { JoinResolver, type JoinGraph, type JoinMiss, type Relation } from "@kanzo-tech/mosaic";
+import { JoinResolver, labelOf, relationColumns, relationQuery, type JoinGraph, type JoinMiss, type Relation } from "@kanzo-tech/mosaic";
 import {
   DASHBOARD_AGGREGATES,
   DASHBOARD_CHART_TYPES,
+  fieldStats,
   parseTile,
+  plotRelation,
   TILE_ROWS,
   type Condition,
+  type FieldStat,
   type Tile,
 } from "@kanzo-tech/ui/analytics";
 import { jsonSchema, type JSONSchema7 } from "ai";
 import { defineTask, type Diagnostic, type Finding } from "../task/index.js";
-import type { Answer, AnswerField, AnswerRelation } from "./answer.js";
+import type { Answer, AnswerRelation } from "./answer.js";
 
 /**
  * **Ask as a Task** — `/docs/design/tasks#ask-from-agent-to-form`. The model fills a spec — what is
@@ -20,12 +23,13 @@ import type { Answer, AnswerField, AnswerRelation } from "./answer.js";
  * at its pointer before anything runs.
  */
 
-/** What Ask is asked: the question, the graph, each type with its fields, and the page it is on. */
+/**
+ * What Ask is asked: the question, the graph and the page it is on. What each type and field is and
+ * holds is the graph's — its columns' descriptions and the writer's counts — and nothing is read.
+ */
 export interface AskInput {
   readonly question: string;
   readonly graph: JoinGraph;
-  /** Each type alone, with its fields — `readAnswerRelations(graph, …, { hops: 0 })`. */
-  readonly types: readonly AnswerRelation[];
   /** The root type of each relation the page's chips were published on: what the answer must reach. */
   readonly under?: readonly string[];
   /** The spec this question follows up: *and in Germany?* is that spec with one more where. */
@@ -65,6 +69,30 @@ export function resolverOf(graph: JoinGraph): JoinResolver {
   return resolver;
 }
 
+/**
+ * **A relation, with its fields as the corpus describes them** — what Ask is offered and what its
+ * answer's card draws by, so the model and the card are told the same: `fieldStats` over the graph's
+ * descriptions of its columns (`relationColumns`), its steps' keys left out, and the fields the
+ * plots can read (`plotRelation`). Nothing is read from the engine.
+ */
+export function answerRelation(relation: Relation, graph: JoinGraph): AnswerRelation {
+  const keys = resolverOf(graph).steps(relation).map((s) => s.key);
+  const stats = fieldStats(relationColumns(graph, relation), { exclude: keys });
+  return { relation, columns: stats.columns, fields: plotRelation(relationQuery(graph, relation), stats).fields };
+}
+
+const described = new WeakMap<JoinGraph, readonly AnswerRelation[]>();
+
+/** Each type of `graph` alone, with its fields: what a path's field is looked up in. Once per graph. */
+export function typesOf(graph: JoinGraph): readonly AnswerRelation[] {
+  let types = described.get(graph);
+  if (!types) described.set(graph, (types = graph.types.map((t) => answerRelation({ root: t.name, path: [] }, graph))));
+  return types;
+}
+
+/** The types Ask may measure: every one but a multi-valued property's, which is reached by a path, never counted on its own. */
+const measurable = (graph: JoinGraph) => typesOf(graph).filter((t) => graph.types.find((g) => g.name === t.relation.root)?.value === undefined);
+
 const words = (text: string) =>
   text
     .replace(/([a-z])([A-Z])/g, "$1 $2")
@@ -82,19 +110,20 @@ const words = (text: string) =>
 export function link(input: AskInput): AskContext {
   const asked = new Set(words(input.question));
   const hits = (text: string) => words(text).some((w) => asked.has(w));
+  const types = measurable(input.graph);
   const named = new Set(
-    input.types
-      .filter((t) => hits(t.relation.root) || t.fields.some((f: AnswerField) => hits(f.name) || f.values?.some(hits)))
+    types
+      .filter((t) => hits(t.relation.root) || t.fields.some((f) => hits(f.name) || f.values?.some(hits)))
       .map((t) => t.relation.root),
   );
   for (const type of [input.previous?.of, ...(input.under ?? [])]) if (type) named.add(type);
-  if (named.size === 0) return { types: input.types };
+  if (named.size === 0) return { types };
   const near = new Set(named);
   for (const e of input.graph.edges) {
     if (named.has(e.source)) near.add(e.destination);
     if (named.has(e.destination)) near.add(e.source);
   }
-  return { types: input.types.filter((t) => near.has(t.relation.root)) };
+  return { types: types.filter((t) => near.has(t.relation.root)) };
 }
 
 /** The fields a spec shows, each with its pointer: what the shown relation must lie under. */
@@ -115,27 +144,13 @@ export function askRelation(spec: AskSpec, input: Pick<AskInput, "graph">): Rela
 }
 
 /** The facts of the field `path` reaches from `of`: the column's, on the type it is on. */
-export function factOf(path: string, of: string, input: Pick<AskInput, "graph" | "types">): AnswerField | undefined {
+export function factOf(path: string, of: string, input: Pick<AskInput, "graph">): FieldStat | undefined {
   const resolver = resolverOf(input.graph);
   const relation = resolver.relation(of, [path]);
   if ("code" in relation) return undefined;
   const type = resolver.steps(relation).at(-1)?.type;
   const column = path.slice(path.lastIndexOf(".") + 1);
-  return input.types.find((t) => t.relation.root === type)?.fields.find((f) => f.name === column);
-}
-
-/** `name` on the step `path` reaches: a relation's column, named by its path. */
-const onStep = (path: string, name: string) => (path === "" ? name : `${path}.${name}`);
-
-/** The relation as an answer reads it: every step's fields and columns, under the paths a relation names them by. */
-export function answerRelation(relation: Relation, input: Pick<AskInput, "graph" | "types">): AnswerRelation {
-  const steps = resolverOf(input.graph).steps(relation);
-  const alone = (type: string) => input.types.find((t) => t.relation.root === type);
-  return {
-    relation,
-    fields: steps.flatMap((s) => (alone(s.type)?.fields ?? []).map((f) => ({ ...f, name: onStep(s.path, f.name) }))),
-    columns: steps.flatMap((s) => (alone(s.type)?.columns ?? []).map((c) => onStep(s.path, c))),
-  };
+  return typesOf(input.graph).find((t) => t.relation.root === type)?.fields.find((f) => f.name === column);
 }
 
 /** The spec's tile: placed under `id`, its width the one a dashboard gives its kind, its conditions and ranking its own. */
@@ -322,7 +337,7 @@ export const ask = defineTask<AskInput, AskSpec, AskContext>({
       `Question: ${input.question}`,
       input.previous ? `It follows the previous answer: ${JSON.stringify(input.previous)}. Answer with that spec, changed only as the question asks.` : "",
       "Types and their fields:",
-      ...input.types
+      ...typesOf(input.graph)
         .filter((t) => reached.has(t.relation.root))
         .map(
           (t) =>
@@ -382,8 +397,12 @@ export function askAlternatives(spec: AskSpec, input: AskInput): AskChip[] {
   const offered = (candidates: readonly (readonly [string, AskSpec])[]) =>
     candidates.filter(([, next]) => holds(next)).map(([label, next]) => ({ label, spec: next }));
   const paths = resolverOf(input.graph).paths(spec.of, HOPS);
+  // Every slot reads in the data's words: a type's label, a field's — the label of the type a naming
+  // column names — and a path or a name only where nothing labels it.
+  const words = (path: string) => factOf(path, spec.of, input)?.label ?? path;
+  const typeWords = (name: string) => labelOf(input.graph.types.find((t) => t.name === name)?.annotations) ?? name;
   /** Paths but `path` that hold a field of `kinds`, its twins first, then the nearest. */
-  const instead = (path: string, keep: (f: AnswerField) => boolean) =>
+  const instead = (path: string, keep: (f: FieldStat) => boolean) =>
     paths
       .filter((p) => p !== path && (() => {
         const fact = factOf(p, spec.of, input);
@@ -395,8 +414,8 @@ export function askAlternatives(spec: AskSpec, input: AskInput): AskChip[] {
     {
       slot: "of",
       label: "Counting",
-      value: spec.of,
-      options: offered(input.types.filter((t) => t.relation.root !== spec.of).map((t) => [t.relation.root, { ...spec, of: t.relation.root }] as const)),
+      value: typeWords(spec.of),
+      options: offered(measurable(input.graph).filter((t) => t.relation.root !== spec.of).map((t) => [typeWords(t.relation.root), { ...spec, of: t.relation.root }] as const)),
     },
   ];
   const show = spec.show;
@@ -404,8 +423,8 @@ export function askAlternatives(spec: AskSpec, input: AskInput): AskChip[] {
     chips.push({
       slot: "x",
       label: "By",
-      value: show.x,
-      options: offered(instead(show.x, (f) => f.kind !== "numeric").map((p) => [p, { ...spec, show: { ...show, x: p } }] as const)),
+      value: words(show.x),
+      options: offered(instead(show.x, (f) => f.kind !== "numeric").map((p) => [words(p), { ...spec, show: { ...show, x: p } }] as const)),
     });
   }
   (spec.where ?? []).forEach((condition, n) => {
@@ -415,9 +434,10 @@ export function askAlternatives(spec: AskSpec, input: AskInput): AskChip[] {
     const swap = (c: Condition) => where(spec.where!.map((each, i) => (i === n ? c : each)));
     chips.push({
       slot: `where.${n}`,
-      label: condition.field,
+      label: words(condition.field),
       value: condition.in.join(" or "),
       options: offered([
+        // A twin reaches the same field, so it reads as the same words: it is offered by its path.
         ...paths.filter((p) => twins(p, condition.field, spec.of, input)).map((p) => [p, swap({ field: p, in: condition.in })] as const),
         ...others.map((v) => [String(v), swap({ field: condition.field, in: [v] })] as const),
         ["any", where(spec.where!.filter((_, i) => i !== n))] as const,

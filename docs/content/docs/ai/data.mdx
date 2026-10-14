@@ -14,8 +14,6 @@ but every tile is read for real, under the filter you set on the page.
 
 | | For |
 | --- | --- |
-| `answerRelationsOf` | Which relations of a join graph may be read: each type alone (`hops: 0`), or through each of its hops too |
-| `readAnswerRelations` | Their fields, as a dashboard over each reads them, and each category's most common values |
 | `useAskChat` | The chat: one run of the `ask` Task per question, its answer read on the page's engine — `Chat` draws it |
 | `askOffers` | Questions to start from: the Task's own proposals, each checked by its oracles |
 | `ask` | The Task — linker, schema, oracles — for a host that runs it with `runTask` outside a chat |
@@ -25,7 +23,7 @@ but every tile is read for real, under the filter you set on the page.
 
 ```tsx
 import { Chat, ChatSkeleton } from "@kanzo-tech/ai";
-import { AnswerCard, askEdit, askOffers, useAskChat, type AnswerCardProps, type AnswerRelation, type AskOutput } from "@kanzo-tech/ai/data";
+import { AnswerCard, askEdit, askOffers, useAskChat, type AnswerCardProps, type AskOutput } from "@kanzo-tech/ai/data";
 import { localModel } from "@kanzo-tech/llm/local";
 import { DiagnosticList, Problem } from "@kanzo-tech/ui";
 import type { Engine, JoinGraph } from "@kanzo-tech/mosaic";
@@ -35,13 +33,13 @@ const model = localModel("Qwen3-4B-q4f16_1-MLC");
 ```
 
 ```tsx
-function Ask({ engine, graph, types, dashboards, onAdd }: { engine: Engine; graph: JoinGraph; types: AnswerRelation[]; dashboards: Dashboards; onAdd: AnswerCardProps["onAdd"] }) {
+function Ask({ engine, graph, dashboards, onAdd }: { engine: Engine; graph: JoinGraph; dashboards: Dashboards; onAdd: AnswerCardProps["onAdd"] }) {
   const { selection } = useMosaic();
-  const chat = useAskChat({ model, engine, graph, types, selection });
+  const chat = useAskChat({ model, engine, graph, selection });
   // Cached per data space and per filter.
   const offers = useQuery({
-    queryKey: ["offers", types, String(selection.predicate(null))],
-    queryFn: ({ signal }) => askOffers({ model, graph, types, selection, signal }),
+    queryKey: ["offers", jobId, String(selection.predicate(null))],
+    queryFn: ({ signal }) => askOffers({ model, graph, selection, signal }),
   });
   return (
     <Chat
@@ -66,46 +64,32 @@ function Ask({ engine, graph, types, dashboards, onAdd }: { engine: Engine; grap
 }
 ```
 
-`types` is `await readAnswerRelations(coordinator, graph, answerRelationsOf(graph, { hops: 0 }), { signal })`,
-read once per data space: each type alone, with its fields. Until it is, draw `<ChatSkeleton />` in
-the chat's place: it is the same layout, so nothing jumps when the chat replaces it. The cache is the
-host's: `askOffers` is a promise, so TanStack Query (or an effect) holds it, keyed per data space and
-filter. While it runs the strip shows pills in skeleton; if it fails the failure is drawn in the
-pills' place (`notice`), and the chat works the same — see [Before the first question](/docs/ai/chat#before-the-first-question).
+`graph` is [`readJoinGraph`](/docs/graph#readjoingraph) for a fossil corpus, read once per data
+space, and it is all Ask is given: what each type and field is and holds — its kind, its role, its
+commonest values — is on the graph, and nothing more is read before the first question. Until the
+graph is read, draw `<ChatSkeleton />` in the chat's place: it is the same layout, so nothing jumps
+when the chat replaces it. The cache is the host's: `askOffers` is a promise, so TanStack Query (or
+an effect) holds it, keyed per data space and filter. While it runs the strip shows pills in
+skeleton; if it fails the failure is drawn in the pills' place (`notice`), and the chat works the
+same — see [Before the first question](/docs/ai/chat#before-the-first-question).
 
-## The relations
+## What the model is told
 
-`readAnswerRelations(coordinator, graph, relations, { values, signal })` answers an `AnswerRelation` per
-relation, `{ relation, columns, fields }`, read from the engine the way a [dashboard](/docs/analytics/dashboard)
-over the same relation reads them: `SUMMARIZE` and `fieldStats` over `relationQuery`, without its
-steps' keys (`JoinResolver.steps`), then `plotRelation`. A type alone's fields go by their own names —
-`gender`, `age` — which are the paths from it. Each category that is a dimension carries its most
-common `values` — six by default, the most common first — counted over the relation.
-
-`signal` ends the read: it rejects with the signal's reason and cancels the queries still queued on
-the coordinator, so a page left mid-read stops taking the engine from the next one. Each query is
-handed the signal too, for a connector that stops one in flight; DuckDB-WASM's finishes the statement
-it is running and drops it. TanStack Query's `queryFn` hands one over.
+Ask is offered each type of the graph alone, with its fields as a [dashboard](/docs/analytics/dashboard)
+over it reads them: `fieldStats` over the graph's descriptions of its columns (`relationColumns`),
+without its key, then `plotRelation`. A type alone's fields go by their own names — `gender`,
+`age` — which are the paths from it, and each carries what the corpus's writer counted: its kind and
+role, and its commonest `values`, the first six of which the model is told. Nothing is read from the
+engine for it — no `SUMMARIZE` and no count — so the model, the dashboard and the answer's card are
+told the same figures, the corpus's.
 
 So the model and the dashboard read **one list of fields**: a tile the model fills names the fields
-`Dashboard` draws, and *Add to the dashboard* adds a tile the dashboard can draw.
+`Dashboard` draws, and *Add to the dashboard* adds a tile the dashboard can draw. A graph whose
+corpus was written before fossil counted its columns offers the same fields without `values`.
 
-Which relations are offered is the host's to say, and **`answerRelationsOf(graph, { from, hops })`**
-says the usual answer: each type alone and through each of its hops (`hops: 1`, the default), in the
-graph's order, from every type or from the types `from` names. A question that crosses a hop is what
-a reader cannot see in any one table, and it is also the cost: each relation is a `SUMMARIZE` and a
-count per category, once per data space, and a list of fields in every prompt. Over a graph shaped
-like LDBC's social network at scale factor 1 — 8 types, 23 edges, 3.2 million vertices and 17
-million edges — the types alone read in 1.2 s into a 3,600-character prompt, and with every hop in
-41 s into a 39,000-character one. On a graph that size, offer the hops `from` the types the reader
-is looking at, or `hops: 0`. [Asking data](/docs/design/ai#which-relations-are-offered) has the
-measurement. The graph comes from whatever catalog the host has — [`readJoinGraph`](/docs/graph#readjoingraph)
-for a fossil corpus.
-
-*Held by* `packages/ai/src/data/answer.test.ts`, "reads each relation's fields as a dashboard over it
-does, without its keys, and each category's most common values"; "hands each query the signal, and
-ends on an abort with its reason, cancelling what is still queued"; "offers each type alone and
-through each of its hops, in the graph's order".
+*Held by* `packages/ai/src/data/answer.test.ts`, "describes a relation's fields from the graph, without
+its steps' keys, each with the commonest values its writer counted"; "reads nothing from the engine:
+what a field is and holds is the graph's".
 
 ## The answer
 
@@ -199,7 +183,6 @@ both say.
 | `model` | `LanguageModel` | The host's — `localModel(…)`. Nothing here names a model |
 | `engine` | `Pick<Engine, "query">` | The page's — `engine()` — so an answer is read on its one connection, outside the queue |
 | `graph` | `JoinGraph` | The graph the relations are found in |
-| `types` | `readonly AnswerRelation[]` | Each type alone, with its fields — `readAnswerRelations` at `hops: 0` |
 | `selection` | `Selection` | The page's crossfilter: an answer must reach its chips, and is read under them |
 | `translations` | `Partial<AskChatTranslations>` | Every word the replies write: `value` (*: *) and `groups` (*; *), the sentence's separators; `empty`, `hidden` and `failed` |
 
@@ -261,7 +244,7 @@ answer: (part, { stopped }) => {
   return (
     <>
       <AnswerCard answer={answer} graph={graph} stopped={stopped} />
-      {answer.rows && <AskChips onChange={(next) => chat.sendMessage(askEdit(next))} over={{ graph, types }} spec={answer.spec} />}
+      {answer.rows && <AskChips onChange={(next) => chat.sendMessage(askEdit(next))} over={{ graph }} spec={answer.spec} />}
     </>
   );
 },
@@ -358,8 +341,9 @@ const { draft, change, commit } = useDebouncedCommit(saved, (next: Dashboards) =
 Before there is an answer, and when there will be none:
 
 - **While the engine reads the answer** — the part written once, without its rows — the card is
-  `aria-busy`, over a skeleton the chart's height, so nothing jumps when the tile lands. It stays busy
-  until the tile, or its failure, is drawn in the skeleton's place.
+  `aria-busy`, over a skeleton the chart's height, so nothing jumps when the tile lands. Once the rows
+  land the tile is drawn at once: its fields are the ones the model was told, the graph's, and nothing
+  more is read for them.
 - **A read that stopped** (`stopped`, from `Chat`'s `data` renderer: the message will be written no
   more) draws nothing that waits; the chat's own error says why.
 - **A kept answer the host's graph can no longer draw is a [`Problem`](/docs/data-display/problem)**
@@ -386,7 +370,7 @@ dashboards with the tile in the relation's spec, and where it landed"; "is on th
 host's spec holds the tile, after a remount, and offered again once it is removed"; "is pending while
 the host's write is, never on the dashboard before it settles, and draws a rejection as a Problem";
 "follows a host that drew the tile before its write and rolled it back when the write failed";
-"stays busy over the skeleton until the answer's tile is drawn"; "filters the page to the answer as one semi-join on the root key, and takes it
+"draws an answered tile at once, never busy: its fields are the graph's, and nothing is read for them"; "filters the page to the answer as one semi-join on the root key, and takes it
 back"; "is busy until read, over a skeleton the chart's height, and not once stopped"; "draws a kept answer whose relation the graph no longer
 has as a Problem"; "says which of the page's clauses the answer was read under, and which its
 relation could not answer"; "says nothing of the page's filter when the page had none"; "draws the
@@ -399,8 +383,8 @@ says how".
 ## Testing
 
 `AnswerHarness` from [`@kanzo-tech/testing`](/docs/testing) asks through the composer and reads the
-newest `AnswerCard`. It waits for the card to stop being `aria-busy`, which it is until its tile or
-its `Problem` is drawn, and a failed answer rejects with the `Problem`'s words. `addToDashboard()`
+newest `AnswerCard`. It waits for the card to stop being `aria-busy`, which it is until its rows land
+and its tile or its `Problem` is drawn, and a failed answer rejects with the `Problem`'s words. `addToDashboard()`
 waits out the host's pending write for *Open on the dashboard*, and rejects with the card's `Problem`
 when the host refused it; `openOnDashboard()` presses it. `filterTo()` rejects when the answer keeps
 everything in view.
@@ -438,7 +422,7 @@ neither the package nor the provider.
 </QueryClientProvider>
 ```
 
-The types are exported as `Answer`, `AnswerField`, `AnswerRelation`, `UnansweredClause`,
+The types are exported as `Answer`, `AnswerRelation`, `UnansweredClause`,
 `AnswerOutput`, `QueryRow`, `AskChatOptions`, `AskChatTranslations`, `AskMessage`,
 `AskOutput`, `AskTurn`, `AskChip`, `AskChipsProps`, `AskInput`, `AskSpec`, `AskContext`, `AnswerRelationsOfOptions`, `ReadAnswerRelationsOptions`,
 `AnswerAdded`, `AnswerCardProps` and `AnswerCardTranslations`.

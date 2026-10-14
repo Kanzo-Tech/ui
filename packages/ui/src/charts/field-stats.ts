@@ -60,6 +60,8 @@ export interface FieldStat {
   values?: readonly string[];
   /** What the corpus annotates the column with — its `rdfs:label` among them — where it says. */
   annotations?: readonly JoinAnnotation[];
+  /** What the field is called, where the data labels it (`relationColumns`): what a title and a chip read it as. */
+  label?: string;
 }
 
 export interface FieldStatsOptions {
@@ -67,8 +69,8 @@ export interface FieldStatsOptions {
   exclude?: readonly string[];
 }
 
-/** A column as `fieldStats` reads it: as described, and whether its type's writer found it a key. */
-export type FieldColumn = JoinColumn & { readonly candidateKey?: boolean };
+/** A column as `fieldStats` reads it: as described, whether its type's writer found it a key, and what the data calls it. */
+export type FieldColumn = JoinColumn & { readonly candidateKey?: boolean; readonly label?: string };
 
 const XSD = "http://www.w3.org/2001/XMLSchema#";
 /** The literal datatypes that are a time, whatever the column stores them as: a year is an integer. */
@@ -126,6 +128,7 @@ export function fieldStats(columns: readonly FieldColumn[], options: FieldStatsO
     if (min !== undefined && max !== undefined) Object.assign(field, { min, max });
     if (stats && stats.mostCommonVals.length > 0) field.values = stats.mostCommonVals;
     if (column.annotations?.length) field.annotations = column.annotations;
+    if (column.label !== undefined) field.label = column.label;
     return [field];
   });
   return { fields, columns: columns.map((column) => column.name) };

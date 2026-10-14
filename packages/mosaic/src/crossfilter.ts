@@ -1,6 +1,6 @@
 import { Selection, type ClauseMetadata, type Coordinator, type MosaicClient, type SelectionClause } from "@uwdata/mosaic-core";
 import { InOpNode, Query, ScalarSubqueryNode, column, literal, type ExprNode, type FilterExpr } from "@uwdata/mosaic-sql";
-import { joinPath, meets, relationHops, relationQuery, segmentOf, stepsOf, typeOf, type Hop, type JoinGraph, type Relation } from "./relation.js";
+import { columnPath, joinPath, meets, relationHops, relationQuery, segmentOf, stepsOf, typeOf, type Hop, type JoinGraph, type Relation } from "./relation.js";
 import type { TableExpr } from "./table.js";
 
 /**
@@ -195,8 +195,8 @@ export class JoinResolver extends MosaicResolver {
     let level: { path: string; type: string; last?: Hop }[] = [{ path: "", type: root }];
     for (let n = 0; level.length > 0; n++) {
       for (const { path, type } of level) {
-        const { key, columns } = typeOf(joins, type);
-        out.push(...columns.filter((c) => c.name !== key).map((c) => joinPath(path, c.name)));
+        const reached = typeOf(joins, type);
+        out.push(...reached.columns.filter((c) => c.name !== reached.key).map((c) => columnPath(path, reached, c.name)));
       }
       if (n === hops) break;
       level = level.flatMap(({ path, type, last }) =>
@@ -283,8 +283,10 @@ export class JoinResolver extends MosaicResolver {
     const paths = [""];
     let type = root;
     for (const [i, segment] of segments.entries()) {
-      const { key, columns } = typeOf(joins, type);
-      if (i === segments.length - 1 && segment !== key && columns.some((c) => c.name === segment)) return { hops, paths, type, column: segment };
+      const { key, value, columns } = typeOf(joins, type);
+      // A property's value is read at the property's own path, never under its column's name.
+      const own = segment !== key && (i === 0 || segment !== value);
+      if (i === segments.length - 1 && own && columns.some((c) => c.name === segment)) return { hops, paths, type, column: segment };
       const inward = segment.startsWith("^");
       const name = inward ? segment.slice(1) : segment;
       const leaving = joins.edges.filter((e) => (inward ? e.destination : e.source) === type);
@@ -301,7 +303,9 @@ export class JoinResolver extends MosaicResolver {
       paths.push(joinPath(paths.at(-1)!, segmentOf(joins, edge, hop.direction)));
       type = inward ? edge.source : edge.destination;
     }
-    return { hops, paths, type };
+    // A path that ends on a multi-valued property reads its value.
+    const value = hops.length > 0 ? typeOf(joins, type).value : undefined;
+    return { hops, paths, type, ...(value === undefined ? {} : { column: value }) };
   }
 }
 

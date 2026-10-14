@@ -79,7 +79,7 @@ export function ChartCard(props: ChartCardProps) {
       slot={slot ?? "chart-card"}
     >
       <CardHeader className="gap-0.5">
-        <CardTitle className="truncate font-medium text-sm">{tileTitle(card)}</CardTitle>
+        <CardTitle className="truncate font-medium text-sm">{tileTitle(card, fields)}</CardTitle>
         <CardDescription className="text-xs">
           {rationale ? `${rationale} · ${CHART_TYPE[card.type].hint}` : CHART_TYPE[card.type].hint}
         </CardDescription>
@@ -192,7 +192,7 @@ function CardChart({
   const fill = card.color ?? ACCENT;
   const faceted = fx ? { facetMargin: { left: 8, right: 8 }, margin: { top: 26, right: 8, bottom: 24, left: 44 } } : {};
   const frame = {
-    "aria-label": tileTitle(card),
+    "aria-label": tileTitle(card, fields),
     config: card.color ? seriesConfig : undefined,
     height: HEIGHT,
     margin: { top: 8, right: 12, bottom: 24, left: 44 },

@@ -25,6 +25,10 @@ function described(name: string, c: Column, counted = true): JoinColumn {
  * edge table joins through the endpoint columns the catalog names, and each carries the record count
  * the catalog holds.
  *
+ * A multi-valued property's table is a type of its own, a row per value, reached from its source by a
+ * hop named by the property through the table itself — the key is held in the row — so a path that
+ * ends on it, `nickname`, reads its value (`JoinType.value`).
+ *
  * And one more type, `vertices`: every vertex table as one relation (`verticesOf`), of every type,
  * so a clause on any type crosses into it by key and one on it into each type. It is what the
  * canvas reads, and what a timeline over the whole graph counts. Its columns are described as their
@@ -56,20 +60,48 @@ export function joinGraphOf(structure: Structure): JoinGraph {
         ...(v.iri === null ? {} : { iri: v.iri }),
         ...(v.annotations.length === 0 ? {} : { annotations: v.annotations }),
       })),
+      // A multi-valued property: a type of a row per value, keyed by the column holding its source's key.
+      ...structure.properties.map((p) => ({
+        name: p.name,
+        table: relation(structure.from, p.name),
+        key: p.sourceKey,
+        value: p.label,
+        columns: [...p.columns].map(([name, c]) => described(name, c)),
+        rows: p.rows,
+        ...(p.candidateKeys.length === 0 ? {} : { candidateKeys: p.candidateKeys }),
+      })),
       all,
     ],
-    edges: structure.edges.map((e) => ({
-      name: e.name,
-      label: e.label,
-      source: e.source,
-      destination: e.destination,
-      table: relation(structure.from, e.name),
-      src: e.sourceKey,
-      dst: e.destinationKey,
-      rows: e.rows,
-      ...(e.iri === null ? {} : { iri: e.iri }),
-      ...(e.annotations.length === 0 ? {} : { annotations: e.annotations }),
-    })),
+    edges: [
+      ...structure.edges.map((e) => ({
+        name: e.name,
+        label: e.label,
+        source: e.source,
+        destination: e.destination,
+        table: relation(structure.from, e.name),
+        src: e.sourceKey,
+        dst: e.destinationKey,
+        rows: e.rows,
+        ...(e.iri === null ? {} : { iri: e.iri }),
+        ...(e.annotations.length === 0 ? {} : { annotations: e.annotations }),
+      })),
+      // And the hop to it, named by the property, through its own table: the key is held in the row.
+      ...structure.properties.map((p) => {
+        const value = p.columns.get(p.label);
+        return {
+          name: p.name,
+          label: p.label,
+          source: p.source,
+          destination: p.name,
+          table: relation(structure.from, p.name),
+          src: p.sourceKey,
+          dst: p.sourceKey,
+          rows: p.rows,
+          ...(value?.iri ? { iri: value.iri } : {}),
+          ...(value?.annotations.length ? { annotations: value.annotations } : {}),
+        };
+      }),
+    ],
   };
 }
 

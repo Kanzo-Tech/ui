@@ -1,6 +1,7 @@
-import { relationQuery } from "@kanzo-tech/mosaic";
+import { Query, count, isNotNull, relationQuery } from "@kanzo-tech/mosaic";
+import { attach } from "../../test/corpus";
 import { describe, expect, it } from "vitest";
-import { joinGraphOf } from "./join-graph";
+import { joinGraphOf, readJoinGraph } from "./join-graph";
 import type { Column, EdgeTable, Structure } from "./structure";
 
 const column = (role: string | null, more: Partial<Column> = {}): Column => ({
@@ -102,5 +103,16 @@ describe("joinGraphOf", () => {
     const named = edge("Person_knows_Person", "knows", "Person", "Person", { sourceKey: "from_id", destinationKey: "to_id" });
     const graph = joinGraphOf({ ...STRUCTURE, edges: [named] });
     expect(graph.edges[0]).toMatchObject({ src: "from_id", dst: "to_id" });
+  });
+
+  it("reads a multi-valued property as a type of its own, reached by a hop named by the property through its own table", async () => {
+    const corpus = await attach();
+    const graph = await readJoinGraph(corpus.coordinator, corpus.from);
+    expect(graph.types.find((t) => t.name === "Person_nickname")).toMatchObject({ key: "src", value: "nickname" });
+    expect(graph.edges.find((e) => e.name === "Person_nickname")).toMatchObject({ label: "nickname", source: "Person", destination: "Person_nickname" });
+    const relation = { root: "Person", path: [{ edge: "Person_nickname", direction: "out" as const }] };
+    const rows = (await corpus.coordinator.query(Query.select({ n: count() }).from(relationQuery(graph, relation)).where(isNotNull("nickname")))) as Iterable<{ n: unknown }>;
+    // A row per person and nickname: ten people, one each.
+    expect(Number(Array.from(rows)[0]!.n)).toBe(10);
   });
 });

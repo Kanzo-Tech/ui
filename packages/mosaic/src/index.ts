@@ -162,3 +162,9 @@ export {
   type RelationColumn,
   type RelationHop,
 } from "./relation.js";
+
+/**
+ * Ours: a thing's words are its labels — its `rdfs:label` in the page's language, a type named by its
+ * naming column, and the identifier split as the last resort, never inflected. `words.ts`.
+ */
+export { labelOf, namingColumn, splitWords } from "./words.js";

@@ -3,7 +3,7 @@ import { asTableRef, sql } from "@uwdata/mosaic-sql";
 import { describe, expect, it, vi } from "vitest";
 import { clauseSemiJoin } from "./clause.js";
 import { JoinResolver, crossfilterOver, onRelation, preaggregateOwnRelation, readOf, relationOf, sameRelation, type JoinField, type RelationRef } from "./crossfilter.js";
-import { relationQuery, type JoinGraph, type Relation } from "./relation.js";
+import { relationColumns, relationQuery, type JoinGraph, type Relation } from "./relation.js";
 
 const at = (table: string) => asTableRef(["c", table])!;
 
@@ -245,5 +245,51 @@ describe("JoinResolver, the one door to the joins", () => {
     const where = resolver.crossing((branch as JoinField).relation, [sql`"knows.country" = 'ES'`], knows, (branch as JoinField).at);
     expect(String(where)).toMatch(/^\("knows\.dense_id" IN \(SELECT "dense_id" FROM/);
     expect(resolver.at(knows, "Person")).toEqual({ path: "", type: "Person", key: "dense_id" });
+  });
+});
+
+describe("a multi-valued property, a step like any other", () => {
+  // A laureate's nicknames, a row per value — fossil's property table — reached from the laureate by the
+  // key the table holds itself.
+  const NICKNAMES: JoinGraph = {
+    types: [
+      ...NOBEL.types,
+      {
+        name: "Laureate_nickname",
+        table: at("Laureate_nickname"),
+        key: "src",
+        value: "nickname",
+        columns: [{ name: "src", type: "UBIGINT", role: "endpoint" }, { name: "nickname", type: "VARCHAR" }, { name: "lang", type: "VARCHAR", role: "language" }],
+      },
+    ],
+    edges: [...NOBEL.edges, { name: "Laureate_nickname", label: "nickname", source: "Laureate", destination: "Laureate_nickname", table: at("Laureate_nickname"), src: "src", dst: "src" }],
+  };
+  const nicknames = new JoinResolver(NICKNAMES);
+  const NICKNAMED: Relation = { root: "Award", path: [{ edge: "Award_laureate_Laureate", direction: "out" }, { edge: "Laureate_nickname", direction: "out" }] };
+
+  it("is offered as a path that names its value, and its language beside it", () => {
+    const paths = nicknames.paths("Award", 2);
+    expect(paths).toEqual(expect.arrayContaining(["laureate.nickname", "laureate.nickname.lang"]));
+    expect(paths).not.toContain("laureate.nickname.name");
+  });
+
+  it("resolves a path that ends on it to the step, and reads its value there", () => {
+    expect(nicknames.relation("Award", ["laureate.nickname"])).toEqual(NICKNAMED);
+    expect(nicknames.field(NICKNAMED, "laureate.nickname")).toEqual({ relation: NICKNAMED, column: "laureate.nickname", at: "laureate.nickname" });
+    expect(nicknames.relation("Award", ["laureate.nickname.name"])).toMatchObject({ code: "join/no-field" });
+  });
+
+  it("joins its table once, on the key it holds, so a laureate's row is one per nickname and never one per pair", () => {
+    const sql = String(relationQuery(NICKNAMES, NICKNAMED));
+    expect(sql).toContain('JOIN "c"."Laureate_nickname" AS "t2" ON ("t2"."src" = "t1"."dense_id")');
+    expect(sql.match(/Laureate_nickname/g)).toHaveLength(1);
+    expect(sql).toContain('"t2"."nickname" AS "laureate.nickname"');
+    expect(sql).toContain('"t2"."lang" AS "laureate.nickname.lang"');
+    expect(relationColumns(NICKNAMES, NICKNAMED).map((c) => c.name)).toEqual(expect.arrayContaining(["laureate.nickname", "laureate.nickname.lang", "laureate.nickname.src"]));
+  });
+
+  it("walks back from the property to what holds it on the same one join", () => {
+    const back: Relation = { root: "Laureate_nickname", path: [{ edge: "Laureate_nickname", direction: "in" }] };
+    expect(String(relationQuery(NICKNAMES, back))).toContain('JOIN "c"."Laureate" AS "t1" ON ("t1"."dense_id" = "t0"."src")');
   });
 });

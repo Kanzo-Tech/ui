@@ -11,8 +11,7 @@ import type { AnswerOutput } from "./read.js";
 import { readFor } from "../testing/answer.js";
 import { AnswerCard, type AnswerAdded } from "./answer-card.js";
 import type { AnswerRelation } from "./answer.js";
-import type { AskSpec } from "./ask.js";
-import { readAnswerRelations } from "./relations.js";
+import { answerRelation, type AskSpec } from "./ask.js";
 
 /** The host's one client: every read the parts make is a query on it. */
 const queries = new QueryClient();
@@ -27,7 +26,7 @@ let knowing: AnswerOutput;
 beforeAll(async () => {
   db = await testDatabase();
   seedPeople(db);
-  [person] = (await readAnswerRelations(db.coordinator, PEOPLE, [PERSON])) as [AnswerRelation];
+  [person] = [answerRelation(PERSON, PEOPLE)];
   output = await ask({ of: "Person", where: [{ field: "gender", in: ["female"] }], show: { kind: "stat", measure: { op: "avg", field: "age" } } });
   // keasy's snb-ask: a bar of every category, and nothing to narrow it — every person is in one.
   everyone = await ask({ of: "Person", show: { kind: "chart", type: "bar", x: "gender", y: { op: "count" } } });
@@ -37,7 +36,7 @@ beforeAll(async () => {
   knowing = await ask({ of: "Person", show: { kind: "chart", type: "bar", x: "gender", y: { op: "count", path: "knows" } } });
 
   async function ask(spec: AskSpec) {
-    return readFor(db.engine, PEOPLE, [person], spec);
+    return readFor(db.engine, PEOPLE, spec);
   }
 });
 
@@ -222,16 +221,11 @@ describe("AnswerCard", () => {
     expect(screen.queryByRole("button", { name: "On the dashboard" })).toBeNull();
   });
 
-  it("stays busy over the skeleton until the answer's tile is drawn", async () => {
-    // The relation's fields are the client's after the first card that read them: a new page has none.
+  it("draws an answered tile at once, never busy: its fields are the graph's, and nothing is read for them", () => {
     queries.clear();
     render(<AnswerCard graph={PEOPLE} answer={output} />, { wrapper: page() });
-    const card = document.querySelector("[data-slot=answer-card]")!;
-    // Answered, but its fields not read yet: the skeleton is still the tile's place.
-    expect(document.querySelector("[data-slot=answer-card-pending]")).not.toBeNull();
-    expect(card.getAttribute("aria-busy")).toBe("true");
-    await waitFor(() => expect(document.querySelector("[data-slot=answer-card-pending]")).toBeNull());
-    expect(card.hasAttribute("aria-busy")).toBe(false);
+    expect(document.querySelector("[data-slot=answer-card-pending]")).toBeNull();
+    expect(document.querySelector("[data-slot=answer-card]")!.hasAttribute("aria-busy")).toBe(false);
   });
 
   it("is not busy over a kept answer it cannot draw", () => {

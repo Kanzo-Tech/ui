@@ -6,7 +6,7 @@ import { Show, Skeleton } from "@kanzo-tech/ui";
 import { engine, relationHops, type Coordinator, type Engine, type JoinGraph, type Relation } from "@kanzo-tech/mosaic";
 import { Dashboard, FilterBar, MosaicProvider, useMosaic, type DashboardSpec } from "@kanzo-tech/ui/analytics";
 import { Chat, ModelBadge } from "@kanzo-tech/ai";
-import { AnswerCard, answerRelationsOf, readAnswerRelations, useAskChat, type AnswerRelation, type AskOutput } from "@kanzo-tech/ai/data";
+import { AnswerCard, useAskChat, type AskOutput } from "@kanzo-tech/ai/data";
 import { loadLocalModel, localModel, localModelLoad, localProvider, setLocalProvider, watchLocalModel } from "@kanzo-tech/llm/local";
 import { readJoinGraph } from "@kanzo-tech/graph";
 
@@ -42,12 +42,11 @@ interface Setup {
   model: string;
 }
 
-/** What the page has once its corpus is attached and read: the graph, its types, and the relation on screen. */
+/** What the page has once its corpus is attached and read: the graph — every type's facts with it — and the relation on screen. */
 interface Attached {
   engine: Engine;
   coordinator: Coordinator;
   graph: JoinGraph;
-  types: AnswerRelation[];
   relation: Relation;
 }
 
@@ -77,8 +76,8 @@ async function open(setup: Setup, signal: AbortSignal): Promise<Attached> {
   // Origin-qualified: DuckDB-WASM resolves a root-relative path in its own filesystem.
   await attach(setup.corpus, { engine: page, url: `${window.location.origin}${BASE}/corpus/${setup.corpus}` });
   const graph = await readJoinGraph(page.coordinator, setup.corpus);
-  const types = await readAnswerRelations(page.coordinator, graph, answerRelationsOf(graph, { hops: 0 }), { signal });
-  return { engine: page, coordinator: page.coordinator, graph, types, relation: relationFrom(graph, setup.relation) };
+  signal.throwIfAborted();
+  return { engine: page, coordinator: page.coordinator, graph, relation: relationFrom(graph, setup.relation) };
 }
 
 export function AskEval() {
@@ -161,7 +160,7 @@ function Ask({ attached, model }: { attached: Attached; model: string }) {
   }, [model]);
   // Under the page's one selection: an answer is read under its filter, and must reach its relation.
   const { selection } = useMosaic();
-  const chat = useAskChat({ model: asked, engine: attached.engine, graph: attached.graph, types: attached.types, selection });
+  const chat = useAskChat({ model: asked, engine: attached.engine, graph: attached.graph, selection });
 
   return (
     <aside aria-label="Ask" className="flex min-h-0 flex-col border-s p-2">
