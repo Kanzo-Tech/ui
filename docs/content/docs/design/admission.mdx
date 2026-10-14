@@ -520,6 +520,49 @@ other side.
 *Held by* `docs/showcases/field-notes/rudof.ts`, `Column`; `docs/showcases/discovery/data.ts`,
 `Relation`; `packages/ui/src/simples/tree-view.tsx`, `TreeViewItem`.
 
+## A question is one part, in `@kanzo-tech/ui`
+
+**A question put to a person is one compound in `@kanzo-tech/ui` — `Question`: a `FieldSet`, its
+prompt, its description, its choices or its input, and its error — usable on its own;
+`Questionnaire` is the sequence and the navigation around several, and `@kanzo-tech/ai` has no
+question of its own.** Decided 13 October 2026. There were two: `Questionnaire`'s item, which could
+not render outside a questionnaire, and `ai`'s `Question`, a radio group of outline buttons that
+keasy's assistant draws a decision with. A guided chat asks one question per turn and a
+questionnaire asks several in a row; the question is the same part, and two of it was one idea in
+two shapes.
+
+It belongs in `ui` because it does not know a model exists, which is
+[the line](#the-ai-surfaces-are-their-own-package) between the two packages: a decision's options
+are data, and drawing them is a form. Its parts are `Question`, `QuestionPrompt`,
+`QuestionDescription`, `QuestionChoices` and `QuestionChoice`, `QuestionInput`, `QuestionTextarea`
+and `QuestionError` — the names `ai`'s parts held, freed when they went and confirmed by the owner —
+and `Questionnaire` keeps its root, `QuestionnaireProgress` and the actions. The look is the one
+`Questionnaire` already drew, a card per choice, not `ai`'s outline buttons: there is one look for a
+choice among sentences, and the card is the one whose whole surface is the target.
+
+Alone, the answer is the question's — `value`, `defaultValue`, `onValueChange`, as Ark's controls
+hold theirs — and a pick is the answer in one press. Inside a `Questionnaire` it is the
+questionnaire's, filed under the question's `name`, so a resumed session is still `defaultAnswers`
+and `defaultStep`. The words came under [one prop](/docs/design/naming#one-prop-translates-translations)
+in the same change: `Question`'s `unanswered`, the error's sentence, and the questionnaire's progress sentence, the actions'
+name and the four buttons, on `Questionnaire`'s `translations`, which reach its questions.
+
+Its call sites are the guided chat — keasy's assistant draws a decision with it, and Ask's
+[decision](/docs/design/ai) is the next — and `Questionnaire`. That is what admits `Questionnaire`,
+which had no product call site of its own.
+
+**What would reverse it:** a question in the chat that a form cannot draw — a choice among charts
+drawn as charts. Then the choice's content is the host's, passed as children, and the part is the
+same.
+
+*Held by* `packages/ui/src/index.test.ts`, "exposes one question part, and a Questionnaire that is
+only the sequence around it", `!QuestionnaireItem`, `!QuestionnaireChoice`;
+`packages/ui/src/composites/question.test.tsx`, "is a radio group named by its prompt, a choice per
+radio, outside any questionnaire"; `packages/ui/src/composites/Questionnaire.test.tsx`, "says every
+word in the root's translations, and a question's own win for that question";
+`packages/ui/src/documented-exports.test.ts`, "gives each name one meaning across every entry, and
+shadows none of the language's".
+
 ## A composite stays where a product calls it
 
 **`LanguagePicker`, `MadeWith`, `FieldArray`, `useAsyncCollection` and the preferences panel's parts

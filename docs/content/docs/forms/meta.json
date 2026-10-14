@@ -39,7 +39,8 @@
     "pin-input",
     "---Repeating---",
     "field-array",
-    "---Sequences---",
+    "---Questions---",
+    "question",
     "questionnaire"
   ]
 }

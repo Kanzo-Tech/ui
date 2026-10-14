@@ -1,6 +1,6 @@
 ---
 title: A guided chat
-description: The parts a conversation whose turns the host decides is built from, beside the transcript and the composer — a question answered by picking, work under way, a model in the page as it loads, a point to go back to, and the sources a message carries.
+description: The parts a conversation whose turns the host decides is built from, beside the transcript and the composer — work under way, a model in the page as it loads, a point to go back to, and the sources a message carries — and the question it puts to the person, which is @kanzo-tech/ui's.
 ---
 
 <ComponentPreview componentName="guided" />
@@ -12,13 +12,14 @@ puts the decisions it cannot take to the person and offers questions to ask — 
 
 | Part | For | AI Elements |
 | --- | --- | --- |
-| `Question` and its parts | A question put to the person, answered by picking one option | `Question` |
 | `Working` | Work under way, said: a spinner and its words | `Shimmer`, `Loader` |
 | `ModelBadge` | A model in the page, as it downloads and loads | `Context` |
 | `Checkpoint` and its parts | A point in the transcript the host can go back to | `Checkpoint` |
 | `PromptInputHeader` | The row above the composer's field, for the sources a message carries | `PromptInputHeader` |
 
-What a model offers is `@kanzo-tech/ui`'s `Suggestions`, which knows no model: each `Suggestion`'s
+A question put to the person is `@kanzo-tech/ui`'s [`Question`](/docs/forms/question), which knows
+no model either: a decision's options are data, and drawing them is a form. What a model offers is
+`@kanzo-tech/ui`'s `Suggestions`, which knows no model: each `Suggestion`'s
 `description` is its rationale, in the tooltip, and `pending` (`SuggestionsProps`) holds room for
 the pills still arriving, in skeleton, the strip `aria-busy` until they land. `Chat` and `Assist` draw their offers with it. Everything
 else a turn carries is `@kanzo-tech/ui` too: a figure is a [`Stat`](/docs/data-display/stat), a
@@ -26,47 +27,33 @@ callout an `Alert`, a bar a `Progress` (under `Working`'s words, its `value`), a
 an [`Eyebrow`](/docs/data-display/eyebrow), a file tree a [`TreeView`](/docs/data-display/tree-view)
 with its checkboxes, a failure a [`Problem`](/docs/data-display/problem).
 
-## `Question`
+## A decision is the question part
 
-AI Elements' `Question` in its composition and its look: a panel holding the prompt, a description,
-and the options as outline buttons that wrap, the chosen one filled. A Task's `Decision` is this
-shape — its `question` the prompt, each option one of its options.
+A Task's `Decision` is [`Question`](/docs/forms/question)'s shape — its `question` the prompt, each
+option one of its choices — and the guided chat draws it in a turn with `@kanzo-tech/ui`'s part, the
+same part a [`Questionnaire`](/docs/forms/questionnaire) asks several of in a row.
 
 ```tsx
-import { Question, QuestionDescription, QuestionOption, QuestionOptions, QuestionPrompt } from "@kanzo-tech/ai";
+import { Question, QuestionChoice, QuestionChoices, QuestionDescription, QuestionPrompt } from "@kanzo-tech/ui";
 
-<Question value={chosen} onValueChange={(d) => d.value && choose(decision.id, d.value)}>
+<Question name={decision.id} value={chosen} onValueChange={(d) => choose(decision.id, d.value)}>
   <QuestionPrompt>{decision.question}</QuestionPrompt>
   <QuestionDescription>It has no safe answer, so it is yours to decide.</QuestionDescription>
-  <QuestionOptions>
+  <QuestionChoices>
     {decision.options.map((option) => (
-      <QuestionOption key={option.id} value={option.id}>
+      <QuestionChoice key={option.id} value={option.id}>
         {option.label}
-      </QuestionOption>
+      </QuestionChoice>
     ))}
-  </QuestionOptions>
+  </QuestionChoices>
 </Question>
 ```
 
-| Part | |
-| --- | --- |
-| `Question` | The panel, and `@kanzo-tech/ui`'s `RadioGroup` — `value`, `defaultValue`, `onValueChange`, `disabled` are its own |
-| `QuestionPrompt` | The question, and the group's accessible name |
-| `QuestionDescription` | Words under the prompt |
-| `QuestionOptions` | The row of options, wrapping |
-| `QuestionOption` | One option: `value`, and its label as children |
-
-**A pick is the answer, in one press.** AI Elements' composition ends in `QuestionInput` and
-`QuestionSubmit`; each option already reports itself through `onValueChange` as it is picked, so a
-question composed without those two is answered by the pick, and a host here takes free text in the
-composer, where the person already types. Single choice: a question with several answers is the
-evidence that would bring `selectionMode="multiple"`, and a host that wants a confirming press would
-bring `QuestionSubmit`.
-
-**A radio group, not buttons with a radio's role.** AI Elements gives each option `role="radio"` and
-none of the keys a radio group owes. Here it is Ark's: arrow keys move between the options and choose
-as they move, Tab enters and leaves the group, and each option is a `<label>` around its radio,
-painted with `Button`'s recipe.
+**A pick is the answer, in one press.** Each choice reports itself through `onValueChange` as it is
+picked, so there is no Submit after it, and the arrow keys move between the choices and choose as
+they move — Ark's radio group, a `<label>` card around each radio. A decision whose answer is typed —
+a threshold — takes `QuestionInput` in place of the choices, and the answer is still a value, never
+parsed out of the composer's text.
 
 ## `Working`
 
@@ -205,9 +192,10 @@ source here is a connection the question reads rather than a file uploaded with 
 cost the side panel a line ([The references](/docs/design/references#ai-elements-is-a-source-not-a-reference)
 has what would move it).
 
-*Held by* `packages/ai/src/question.test.tsx`, "is a radio group named by its prompt, an option per
-radio", "answers with the option picked, in one press, and draws the answer it is given", "moves
-between the options with the arrow keys, choosing as it moves"; `packages/ai/src/working.test.tsx`,
+*Held by* `packages/ui/src/composites/question.test.tsx`, "is a radio group named by its prompt, a
+choice per radio, outside any questionnaire", "answers with the choice picked, in one press, and draws
+the answer it is given", "moves between the choices with the arrow keys, choosing as it moves";
+`packages/ai/src/working.test.tsx`,
 "is one status saying what is under way, its spinner hidden so it is not announced twice" and "draws
 a bar under the words given a value, indeterminate given null";
 `packages/ai/src/model-badge.test.tsx`, "opens a failure as a Problem, with a retry only where the

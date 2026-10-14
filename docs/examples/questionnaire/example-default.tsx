@@ -3,20 +3,20 @@
 import {
   Card,
   CardContent,
+  Question,
+  QuestionChoice,
+  QuestionChoices,
+  QuestionDescription,
+  QuestionError,
+  QuestionPrompt,
+  QuestionTextarea,
   Questionnaire,
   QuestionnaireActions,
-  QuestionnaireChoice,
-  QuestionnaireChoices,
-  QuestionnaireDescription,
-  QuestionnaireError,
-  QuestionnaireItem,
   QuestionnaireNext,
   QuestionnairePrevious,
   QuestionnaireProgress,
   QuestionnaireSkip,
   QuestionnaireSubmit,
-  QuestionnaireTextarea,
-  QuestionnaireTitle,
   Show,
   type QuestionnaireAnswers,
 } from "@kanzo-tech/ui";
@@ -45,66 +45,66 @@ export default function Example() {
             <Questionnaire onSubmit={setFiled} shortcuts>
               <QuestionnaireProgress />
 
-              <QuestionnaireItem name="outcome" required>
-                <QuestionnaireTitle>How did it end?</QuestionnaireTitle>
-                <QuestionnaireDescription>
+              <Question name="outcome" required>
+                <QuestionPrompt>How did it end?</QuestionPrompt>
+                <QuestionDescription>
                   {FEATURED.failed.id} · {FEATURED.failed.title}
-                </QuestionnaireDescription>
-                <QuestionnaireChoices>
+                </QuestionDescription>
+                <QuestionChoices>
                   {OUTCOMES.map((status) => (
-                    <QuestionnaireChoice
+                    <QuestionChoice
                       description={status.description}
                       key={status.id}
                       value={status.id}
                     >
                       {status.label}
-                    </QuestionnaireChoice>
+                    </QuestionChoice>
                   ))}
-                </QuestionnaireChoices>
-                <QuestionnaireError />
-              </QuestionnaireItem>
+                </QuestionChoices>
+                <QuestionError />
+              </Question>
 
-              <QuestionnaireItem multiple name="short" required>
-                <QuestionnaireTitle>What was the party short of?</QuestionnaireTitle>
-                <QuestionnaireDescription>Pick every duty nobody covered.</QuestionnaireDescription>
-                <QuestionnaireChoices>
+              <Question multiple name="short" required>
+                <QuestionPrompt>What was the party short of?</QuestionPrompt>
+                <QuestionDescription>Pick every duty nobody covered.</QuestionDescription>
+                <QuestionChoices>
                   {ROLES.map((role) => (
-                    <QuestionnaireChoice description={role.duty} key={role.id} value={role.id}>
+                    <QuestionChoice description={role.duty} key={role.id} value={role.id}>
                       {role.label}
-                    </QuestionnaireChoice>
+                    </QuestionChoice>
                   ))}
-                </QuestionnaireChoices>
-                <QuestionnaireError>
+                </QuestionChoices>
+                <QuestionError>
                   Name at least one — “nothing” is an answer the board cannot act on.
-                </QuestionnaireError>
-              </QuestionnaireItem>
+                </QuestionError>
+              </Question>
 
-              <QuestionnaireItem name="grade" required>
-                <QuestionnaireTitle>Grade it again</QuestionnaireTitle>
-                <QuestionnaireDescription>
+              <Question name="grade" required>
+                <QuestionPrompt>Grade it again</QuestionPrompt>
+                <QuestionDescription>
                   It was posted as a {grade(FEATURED.failed.grade).label}.
-                </QuestionnaireDescription>
-                <QuestionnaireChoices>
+                </QuestionDescription>
+                <QuestionChoices>
                   {GRADES.map((step) => (
-                    <QuestionnaireChoice
+                    <QuestionChoice
                       description={step.note}
                       key={step.value}
                       value={String(step.value)}
                     >
                       {step.label}
-                    </QuestionnaireChoice>
+                    </QuestionChoice>
                   ))}
-                </QuestionnaireChoices>
-                <QuestionnaireError />
-              </QuestionnaireItem>
+                </QuestionChoices>
+                <QuestionError />
+              </Question>
 
-              <QuestionnaireItem name="notes" skippable>
-                <QuestionnaireTitle>Anything for the next party?</QuestionnaireTitle>
-                <QuestionnaireTextarea
+              <Question name="notes" skippable>
+                <QuestionPrompt>Anything for the next party?</QuestionPrompt>
+                <QuestionTextarea
                   placeholder="The ford is not where the map says it is…"
                   rows={3}
                 />
-              </QuestionnaireItem>
+              </Question>
 
               <QuestionnaireActions>
                 <QuestionnairePrevious />

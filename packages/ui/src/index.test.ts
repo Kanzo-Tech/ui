@@ -360,6 +360,29 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(surface.FloatingPanelResizeHandle).toBeUndefined();
   });
 
+  it("exposes one question part, and a Questionnaire that is only the sequence around it", () => {
+    const surface = UI as Record<string, unknown>;
+    // A question put to the person is one part, asked alone in a guided chat's turn or in a row by
+    // `Questionnaire` (`/docs/design/admission`, *A question is one part, in `@kanzo-tech/ui`*).
+    // `@kanzo-tech/ai`'s `Question` is gone; `documented-exports.test.ts`'s one-meaning guard is
+    // what fails if a second package exports the name again.
+    for (const name of [
+      "Question", "QuestionPrompt", "QuestionDescription", "QuestionChoices", "QuestionChoice",
+      "QuestionInput", "QuestionTextarea", "QuestionError", "useQuestion",
+    ]) {
+      expect(surface[name], name).toBeTypeOf("function");
+    }
+    // The questionnaire's own copies of the question, which could not render outside it.
+    for (const name of [
+      "QuestionnaireItem", "QuestionnaireTitle", "QuestionnaireDescription", "QuestionnaireChoices",
+      "QuestionnaireChoice", "QuestionnaireInput", "QuestionnaireTextarea", "QuestionnaireError",
+      "useQuestionnaireItem",
+    ]) {
+      expect(surface[name], name).toBeUndefined();
+    }
+    expect(UI.Questionnaire).toBeTypeOf("function");
+  });
+
   it("tracks Shark's context aliases and parts, in both directions", () => {
     // The rule this guards: a name Shark UI ships is ours, and a name it does not is not. These
     // were deleted once on the argument that renaming somebody else's export is not an API, and
