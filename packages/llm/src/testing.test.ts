@@ -1,6 +1,7 @@
 import { Output, generateText, jsonSchema, streamText } from "ai";
 import { describe, expect, it } from "vitest";
-import { promptOf, scriptedModel } from "./testing";
+import { promptOf } from "@kanzo-tech/testing";
+import { scriptedModel } from "./testing";
 
 describe("the scripted model", () => {
   it("answers each call with the first turn whose words its prompt holds, and a once turn only once", async () => {

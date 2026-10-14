@@ -55,7 +55,8 @@ import {
 import { Chat, ChatSkeleton } from "@kanzo-tech/ai";
 import type { Proposal } from "@kanzo-tech/ai/task";
 import { AnswerCard, answerRelationsOf, askEdit, AskChips, askOffers, readAnswerRelations, useAskChat, type AnswerRelation, type AskOutput, type AskSpec } from "@kanzo-tech/ai/data";
-import { promptOf, scriptedModel } from "@kanzo-tech/llm/testing";
+import { scriptedModel } from "@kanzo-tech/llm/testing";
+import { promptOf } from "@kanzo-tech/testing";
 import {
   Coordinator,
   Query,

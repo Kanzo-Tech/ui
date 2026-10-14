@@ -16,7 +16,7 @@ message types from `ai` by name, as every package here does.
 
 ```ts
 import { generate, stream, LlmError } from "@kanzo-tech/llm";
-import { localModel, serveLocalModel } from "@kanzo-tech/llm/local";
+import { localModel, localProvider, setLocalProvider, serveLocalModel } from "@kanzo-tech/llm/local";
 import { scriptedModel } from "@kanzo-tech/llm/testing";
 ```
 
@@ -26,18 +26,22 @@ import { scriptedModel } from "@kanzo-tech/llm/testing";
   and ends it as if it had finished.
 - **`generate({ …, providerOptions })`** — the same, read whole: `generateText`, asked once.
   Every model call the library makes goes through one of the two.
-- **`LlmError`** — `llm/unavailable`, `data.reason` `"webgpu"`: the page cannot run the model.
-- **`localModel(id, { worker, from })`**, from **`@kanzo-tech/llm/local`** — the model, in the
-  page, on WebGPU through WebLLM and `@browser-ai/web-llm`: both optional peers that only this subpath
-  reaches. One engine per model per page; without WebGPU a call fails as `LlmError`, before anything
-  is downloaded. A call may pass `providerOptions.kanzo.grammar`, an EBNF the engine holds every
-  token to. `loadLocalModel(id, settings)` downloads and loads it before the first call, and
-  `localModelLoad(id)` / `watchLocalModel(id, listener)` say where that stands. `serveLocalModel()`
-  is the worker's whole script.
+- **`LlmError`** — `llm/unavailable`, `data.reason` `"webgpu"` (the page cannot run a model) or
+  `"unserved"` (nothing serves it).
+- **`localModel(id?)`**, from **`@kanzo-tech/llm/local`** — the model, in the page, resolved by id
+  through one provider registry: a host sets its provider once,
+  `setLocalProvider(localProvider({ baseURL: "/models", worker }))`, and every model listed in
+  `/models/app-config.json` (WebLLM's `AppConfig`) is served; without an id, the first. WebLLM on
+  WebGPU through `@browser-ai/web-llm`: both optional peers that only this subpath reaches. One
+  engine per model per page; without WebGPU a call fails as `LlmError`, before anything is
+  downloaded. A call may pass `providerOptions.kanzo.grammar`, an EBNF the engine holds every token
+  to. `loadLocalModel(id?)` downloads and loads it before the first call, and `localModelLoad(id?)` /
+  `watchLocalModel(id, listener)` say where that stands. `serveLocalModel()` is the worker's whole
+  script.
 - **`scriptedModel(script)`**, from **`@kanzo-tech/llm/testing`** — the one model double: the AI
   SDK's `MockLanguageModelV4` answering from a script of turns. A unit test passes it where a model
   goes; an end-to-end test registers the script with `@kanzo-tech/testing`'s
-  `playwright(page, { models })`, and `localModel` answers from it in place of the model.
+  `playwright(page, { models })`, which registers it as that id's provider in the same registry.
 
 ## Why it is not part of `@kanzo-tech/ai`
 

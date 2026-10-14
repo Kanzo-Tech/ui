@@ -1,19 +1,21 @@
 import { doesBrowserSupportWebLLM, webLLM, type WebLLMProgress } from "@browser-ai/web-llm";
-import { type ModelRecord, prebuiltAppConfig } from "@mlc-ai/web-llm";
+import { type AppConfig, prebuiltAppConfig } from "@mlc-ai/web-llm";
 import { extractReasoningMiddleware, type LanguageModel, type LanguageModelMiddleware, wrapLanguageModel } from "ai";
+
+import { LlmError } from "./error.js";
+import type { ModelLoad } from "./load.js";
 
 /** A call's options and a generation's result, as the middleware sees them. */
 type Wrap = NonNullable<LanguageModelMiddleware["wrapGenerate"]>;
 type LanguageModelV4CallOptions = Parameters<Wrap>[0]["params"];
 type LanguageModelV4GenerateResult = Awaited<ReturnType<Wrap>>;
-
-import type { KanzoTestingHook, ModelProbe } from "@kanzo-tech/testing";
-import { LlmError } from "./error.js";
-import type { ModelLoad } from "./load.js";
+/** The AI SDK's model of the spec this package answers in: an object, never a gateway's string id. */
+type LanguageModelV4 = Extract<LanguageModel, { specificationVersion: "v4" }>;
 
 /**
- * A model in the page: WebLLM on WebGPU, behind the AI SDK's `LanguageModel`, through
- * `@browser-ai/web-llm` — the provider this subpath re-exports nothing of, so a host never imports it.
+ * A model in the page, resolved by id through **one provider registry**: WebLLM on WebGPU, behind the
+ * AI SDK's `LanguageModel`, through `@browser-ai/web-llm` — the provider this subpath re-exports
+ * nothing of, so a host never imports it.
  *
  * A subpath and not the barrel for the reason `/editor` and `/table` are subpaths of
  * `@kanzo-tech/ui`: the provider and WebLLM are optional peers, and a static import of either from
@@ -25,21 +27,39 @@ import type { ModelLoad } from "./load.js";
  * Tasks use none.
  */
 
-export interface LocalModelSettings {
+/**
+ * What answers for the model ids in this page: the AI SDK's `ProviderV4` narrowed to what a model in
+ * the page needs — the ids it serves, and each one's engine. {@link localProvider} is WebLLM's; a host
+ * sets one with {@link setLocalProvider}.
+ */
+export interface LocalProvider {
+  /** The ids it serves, in its order: the first is the one `localModel()` asks. Rejects as `llm/unavailable` when it can serve none here. */
+  models(): Promise<readonly string[]>;
+  /** `id`'s engine, one of {@link models}; `report` hears how its load stands while it loads. */
+  languageModel(id: string, report: (load: ModelLoad) => void): Promise<LocalEngine>;
+}
+
+/** One model's engine: the model, and the load that makes it ready to answer. */
+export interface LocalEngine {
+  readonly model: LanguageModelV4;
+  /** Downloads and loads the model; resolves when it can answer, rejects with what stopped it. */
+  load(): Promise<void>;
+}
+
+export interface LocalProviderSettings {
+  /**
+   * Where the models are served from: a directory, on this origin or absolute, holding WebLLM's
+   * `AppConfig` as `app-config.json` — `{ model_list: [{ model, model_id, model_lib, … }] }`, as
+   * `@mlc-ai/web-llm` declares it — beside what it lists. A `model` or `model_lib` written relative is
+   * resolved against that directory. Every model it lists is served, in its order; nothing else is.
+   * Without it, WebLLM's own prebuilt list, which downloads from Hugging Face.
+   */
+  baseURL?: string;
   /**
    * The worker the engine runs in, whose script calls {@link serveLocalModel}. Without one the engine
    * runs on the page's thread, and a long prefill blocks it.
    */
   worker?: Worker;
-  /**
-   * Where the model is served from: its weights (an MLC model directory, by URL) and its compiled
-   * library (the `.wasm`). A host serves its own so the page reaches no third party; without it the
-   * id is looked up in WebLLM's prebuilt list, which downloads from Hugging Face. An id that is in
-   * that list keeps what the list says of the model — its `overrides` (the context window among
-   * them), its VRAM and the GPU features it needs — so serving it from elsewhere changes where it
-   * comes from and nothing else.
-   */
-  from?: { weights: string; library: string };
 }
 
 /**
@@ -50,6 +70,95 @@ export interface LocalModelSettings {
  */
 export interface LocalCallOptions {
   grammar?: string;
+}
+
+/**
+ * **The registry**, one per page, on `globalThis` under `Symbol.for("@kanzo-tech/llm/local")` — the
+ * key OpenTelemetry's global provider API keeps its own under, and the shape of the AI SDK's
+ * `customProvider`: models registered by id first, then the fallback provider, WebLLM's own prebuilt
+ * list until a host sets one. A global and not a module's variable, so whatever runs before the
+ * app's own scripts registers in the same one, as every copy of this module reads it
+ * (`/docs/design/testing#a-model-is-resolved-through-one-registry`).
+ */
+interface LocalModelRegistry {
+  languageModels: Map<string, LocalEngine>;
+  fallbackProvider?: LocalProvider;
+}
+
+function registry(): LocalModelRegistry {
+  const scope = globalThis as { [key: symbol]: LocalModelRegistry | undefined };
+  return (scope[Symbol.for("@kanzo-tech/llm/local")] ??= { languageModels: new Map() });
+}
+
+let prebuilt: LocalProvider | undefined;
+const provider = () => registry().fallbackProvider ?? (prebuilt ??= localProvider());
+
+/**
+ * Sets the provider every `localModel` in this page resolves through, behind any model registered by
+ * id: what a host does once, at its composition root, before anything asks a model —
+ * `setLocalProvider(localProvider({ baseURL: "/models", worker }))`. OpenTelemetry's
+ * `trace.setGlobalTracerProvider` is the shape.
+ */
+export function setLocalProvider(provider: LocalProvider): void {
+  registry().fallbackProvider = provider;
+}
+
+const unavailable = (message: string, reason: "webgpu" | "unserved") => new LlmError("llm/unavailable", message, { reason });
+
+/**
+ * **WebLLM's provider, configured with where its models are served from** — the AI SDK's
+ * `createOpenAI({ baseURL })` in shape. It serves exactly what `baseURL`'s `app-config.json` lists,
+ * handed to WebLLM as it is written but for relative URLs, resolved against `baseURL`: a host names no
+ * model and no library version, and a new model is a new line in that file.
+ *
+ * Without WebGPU it serves nothing, as `llm/unavailable` with `reason` `"webgpu"`, before anything is
+ * fetched; a listing that is missing or lists nothing is `llm/unavailable` with `reason`
+ * `"unserved"`, and so is an id it does not list.
+ */
+export function localProvider(settings: LocalProviderSettings = {}): LocalProvider {
+  let listing: Promise<AppConfig> | undefined;
+  const config = () => {
+    if (!doesBrowserSupportWebLLM()) return Promise.reject(unavailable("This browser cannot run a model in the page: it has no WebGPU", "webgpu"));
+    // Kept while it holds or is pending, never once it rejects: a network that failed may answer
+    // next time, and a missing listing may be written.
+    if (!listing) {
+      listing = read(settings.baseURL);
+      listing.catch(() => (listing = undefined));
+    }
+    return listing;
+  };
+  return {
+    async models() {
+      return (await config()).model_list.map((record) => record.model_id);
+    },
+    async languageModel(id, report) {
+      const appConfig = await config();
+      if (!appConfig.model_list.some((record) => record.model_id === id)) {
+        throw unavailable(`This page serves no model ${id}`, "unserved");
+      }
+      return webLLMEngine(id, appConfig, settings.worker, report);
+    },
+  };
+}
+
+/** The `AppConfig` served at `baseURL`, its URLs absolute — or WebLLM's prebuilt one, without a base. */
+async function read(baseURL: string | undefined): Promise<AppConfig> {
+  if (baseURL === undefined) return prebuiltAppConfig;
+  const base = new URL(baseURL.endsWith("/") ? baseURL : `${baseURL}/`, globalThis.location?.href);
+  const at = new URL("app-config.json", base);
+  const response = await fetch(at);
+  if (!response.ok) throw unavailable(`This page serves no models: ${at.href} answered ${response.status}`, "unserved");
+  const config = (await response.json()) as AppConfig;
+  if (!config.model_list?.length) throw unavailable(`This page serves no models: ${at.href} lists none`, "unserved");
+  // WebLLM reads both as absolute URLs, and from its worker, where a relative one means another place.
+  return {
+    ...config,
+    model_list: config.model_list.map((record) => ({
+      ...record,
+      model: new URL(record.model, base).href,
+      model_lib: new URL(record.model_lib, base).href,
+    })),
+  };
 }
 
 /** The engine under the provider: `@browser-ai/web-llm` keeps it private and passes only JSON Schema. */
@@ -102,9 +211,6 @@ async function generateHeld(provider: unknown, grammar: string, options: Languag
   }
 }
 
-// One engine per model per page: two would be two copies of the weights in the GPU's memory.
-const engines = new Map<string, { model: LanguageModel; load: () => Promise<void> }>();
-
 /**
  * Asks the browser to keep what is stored for this page — the weights among it — rather than evict
  * it under pressure. Asked once, when a model first loads: a refusal changes nothing but the odds.
@@ -117,165 +223,190 @@ const persist = () => {
   void globalThis.navigator?.storage?.persist?.().catch(() => false);
 };
 
+/** `id` on WebLLM, from `appConfig`: a grammar handed to the engine, and `<think>` lifted into reasoning. */
+function webLLMEngine(id: string, appConfig: AppConfig, worker: Worker | undefined, report: (load: ModelLoad) => void): LocalEngine {
+  const provider = webLLM(id, {
+    worker,
+    appConfig,
+    initProgressCallback: (progress: WebLLMProgress) => report({ state: "loading", progress: progress.progress, text: progress.text }),
+  });
+  const model = wrapLanguageModel({
+    model: provider,
+    middleware: [
+      {
+        specificationVersion: "v4",
+        wrapGenerate: ({ doGenerate, params }) => {
+          persist();
+          const grammar = (params.providerOptions?.kanzo as LocalCallOptions | undefined)?.grammar;
+          return grammar ? generateHeld(provider, grammar, params) : doGenerate();
+        },
+        wrapStream: ({ doStream }) => (persist(), doStream()),
+      },
+      // A model that thinks out loud (Qwen3, DeepSeek) does it between <think> tags.
+      extractReasoningMiddleware({ tagName: "think" }),
+    ],
+  }) as LanguageModelV4;
+  return { model, load: () => (persist(), provider.createSessionWithProgress().then(() => undefined)) };
+}
+
+/*
+ * What this page knows, by the key a caller asked with — a model id, or `""` for the first one
+ * listed — and by the id it resolved to. One engine per model per page: two would be two copies of
+ * the weights in the GPU's memory, so `localModel()` and `localModel(first)` share it.
+ */
 const IDLE: ModelLoad = { state: "idle" };
 const loads = new Map<string, ModelLoad>();
 const watchers = new Map<string, Set<() => void>>();
+const fronts = new Map<string, LanguageModelV4>();
+const resolving = new Map<string, Promise<Resolved>>();
+const engines = new Map<string, Promise<Resolved>>();
 
-function publish(model: string, load: ModelLoad) {
-  loads.set(model, load);
-  for (const listener of watchers.get(model) ?? []) listener();
+interface Resolved {
+  readonly id: string;
+  readonly engine: LocalEngine;
+  /** Every key asked for this engine, each told how its load stands. */
+  readonly keys: Set<string>;
+}
+
+function publish(keys: Iterable<string>, load: ModelLoad) {
+  for (const key of keys) {
+    loads.set(key, load);
+    for (const listener of watchers.get(key) ?? []) listener();
+  }
+}
+
+/** The id `key` names: itself, or the first one registered, else the first the provider lists. */
+async function idOf(key: string): Promise<string> {
+  if (key) return key;
+  const [registered] = registry().languageModels.keys();
+  if (registered !== undefined) return registered;
+  const [first] = await provider().models();
+  if (first === undefined) throw unavailable("This page serves no models", "unserved");
+  return first;
+}
+
+/** `id`'s engine, made once: the model registered for it, else the provider's. */
+function engineOf(id: string): Promise<Resolved> {
+  let known = engines.get(id);
+  if (!known) {
+    const keys = new Set([id]);
+    const registered = registry().languageModels.get(id);
+    known = (registered ? Promise.resolve(registered) : provider().languageModel(id, (load) => publish(keys, load))).then((engine) => ({ id, engine, keys }));
+    engines.set(id, known);
+    known.catch(() => engines.delete(id)); // Unserved or no WebGPU: asked again, it is asked afresh.
+  }
+  return known;
+}
+
+function resolve(key: string): Promise<Resolved> {
+  let known = resolving.get(key);
+  if (!known) {
+    known = idOf(key)
+      .then(engineOf)
+      .then((resolved) => {
+        if (!resolved.keys.has(key)) {
+          resolved.keys.add(key);
+          // The key now reads its model's load, unless that has not begun and the key's own has.
+          if (localModelLoad(resolved.id) !== IDLE) publish([key], localModelLoad(resolved.id));
+        }
+        return resolved;
+      });
+    resolving.set(key, known);
+    known.catch((error: unknown) => {
+      resolving.delete(key);
+      publish([key], { state: "failed", error });
+    });
+  }
+  return known;
 }
 
 /**
- * Where `model`'s download and load stand in this page — `idle` until something loads or asks it,
- * `loading` with WebLLM's progress and words, then `ready` or `failed`. The same value until it
+ * Where the model's download and load stand in this page — `idle` until something loads or asks it,
+ * `loading` with the engine's progress and words, then `ready` or `failed`. The same value until it
  * changes, so it is a snapshot `useSyncExternalStore` can hold; {@link watchLocalModel} says when.
+ * Without an id, the model `localModel()` asks.
  */
-export function localModelLoad(model: string): ModelLoad {
-  return loads.get(model) ?? IDLE;
+export function localModelLoad(model?: string): ModelLoad {
+  return loads.get(model ?? "") ?? IDLE;
 }
 
 /**
  * Calls `listener` each time {@link localModelLoad} changes for `model`, whichever screen started the
  * load, and answers the unsubscribe: `useSyncExternalStore((l) => watchLocalModel(id, l), () => localModelLoad(id))`.
  */
-export function watchLocalModel(model: string, listener: () => void): () => void {
-  let set = watchers.get(model);
-  if (!set) watchers.set(model, (set = new Set()));
+export function watchLocalModel(model: string | undefined, listener: () => void): () => void {
+  const key = model ?? "";
+  let set = watchers.get(key);
+  if (!set) watchers.set(key, (set = new Set()));
   set.add(listener);
   return () => void set.delete(listener);
 }
 
 /**
- * `model`, a WebLLM model id (`Qwen3-4B-q4f16_1-MLC`), as a `LanguageModel`. Without WebGPU every call
- * fails as `LlmError` coded `llm/unavailable`, before anything is downloaded: the host says the device
- * cannot run it rather than waiting on a load that will not finish.
- *
- * When a test registered a script for `model` on `@kanzo-tech/testing`'s hook — `playwright(page,
- * { models })`, before the page loaded — it answers from the script instead, with
- * `@kanzo-tech/llm/testing`'s double, and records each prompt on the hook. Production never has the
- * hook, and the double is imported only when a script is there.
+ * `model` as a `LanguageModel`, resolved through the registry when it is first asked or loaded: the
+ * model registered for that id, else the host's provider's ({@link setLocalProvider}), else WebLLM's
+ * prebuilt list. **Without an id, the first model served** — registered, else listed — as the AI
+ * SDK's `registry.languageModel(id)` names one only when it has to. A page that cannot run it fails
+ * every call as `LlmError` coded `llm/unavailable` — `reason` `"webgpu"` without WebGPU, before
+ * anything is downloaded; `"unserved"` when nothing serves it — and the host says so rather than
+ * waiting on a load that will not finish.
  */
-export function localModel(model: string, settings: LocalModelSettings = {}): LanguageModel {
-  return engine(model, settings).model;
+export function localModel(model?: string): LanguageModel {
+  const key = model ?? "";
+  let front = fronts.get(key);
+  if (!front) {
+    let resolvedId: string | undefined;
+    const engine = () => resolve(key).then((resolved) => ((resolvedId = resolved.id), resolved));
+    // A call answered: whatever loading it waited on is done, though nothing called `load`.
+    const answered = <T>(resolved: Resolved, result: T): T => {
+      if (localModelLoad(resolved.id).state !== "ready") publish(resolved.keys, { state: "ready" });
+      return result;
+    };
+    front = {
+      specificationVersion: "v4",
+      provider: "kanzo-local",
+      get modelId() {
+        return resolvedId ?? key;
+      },
+      supportedUrls: {},
+      doGenerate: async (options) => {
+        const resolved = await engine();
+        return answered(resolved, await resolved.engine.model.doGenerate(options));
+      },
+      doStream: async (options) => {
+        const resolved = await engine();
+        return answered(resolved, await resolved.engine.model.doStream(options));
+      },
+    };
+    fronts.set(key, front);
+  }
+  return front;
 }
 
 /**
  * Downloads and loads `model` now, before anything asks it: what a screen calls when it opens, so the
  * first question does not wait on the weights. Resolves when the engine is ready; rejects as
- * `localModel`'s calls do. The same engine `localModel(model, settings)` answers with.
+ * `localModel`'s calls do. The same engine `localModel(model)` answers with.
  */
-export function loadLocalModel(model: string, settings: LocalModelSettings = {}): Promise<void> {
-  return engine(model, settings).load();
-}
-
-/**
- * The record for `model` served from `from`: WebLLM's prebuilt entry for the same id, when there is
- * one, with only where it is fetched from replaced. Its `integrity` and `model_manifest` describe the
- * files at the prebuilt location, so they stay there.
- */
-function served(model: string, from: { weights: string; library: string }): ModelRecord {
-  const prebuilt = prebuiltAppConfig.model_list.find((record) => record.model_id === model);
-  const record: ModelRecord = { ...prebuilt, model: from.weights, model_id: model, model_lib: from.library };
-  delete record.integrity;
-  delete record.model_manifest;
-  return record;
-}
-
-function engine(model: string, settings: LocalModelSettings) {
-  const known = engines.get(model);
-  if (known) return known;
-  const probe = (globalThis as { __KANZO_TESTING__?: KanzoTestingHook }).__KANZO_TESTING__?.models?.get(model);
-  if (probe) {
-    const entry = scripted(model, probe);
-    engines.set(model, entry);
-    return entry;
-  }
-  const provider = webLLM(model, {
-    worker: settings.worker,
-    initProgressCallback: (report: WebLLMProgress) =>
-      publish(model, { state: "loading", progress: report.progress, text: report.text }),
-    appConfig: settings.from ? { model_list: [served(model, settings.from)] } : undefined,
-  });
-  const unavailable = () =>
-    new LlmError("llm/unavailable", `This browser cannot run ${model}: it has no WebGPU`, { reason: "webgpu" });
-  const ready = (): Promise<void> => {
-    if (!doesBrowserSupportWebLLM()) {
-      const error = unavailable();
-      publish(model, { state: "failed", error });
-      return Promise.reject(error);
-    }
-    persist();
-    return Promise.resolve();
-  };
-  // A call answered: whatever loading it waited on is done, though nothing called `load`.
-  const answered = <T>(result: T): T => {
-    if (localModelLoad(model).state !== "ready") publish(model, { state: "ready" });
-    return result;
-  };
-  const built = wrapLanguageModel({
-    model: provider,
-    middleware: [
-      {
-        specificationVersion: "v4",
-        wrapGenerate: ({ doGenerate, params }) =>
-          ready().then(() => {
-            const grammar = (params.providerOptions?.kanzo as LocalCallOptions | undefined)?.grammar;
-            return grammar ? generateHeld(provider, grammar, params) : doGenerate();
-          }).then(answered),
-        wrapStream: ({ doStream }) => ready().then(doStream).then(answered),
+export function loadLocalModel(model?: string): Promise<void> {
+  const key = model ?? "";
+  const state = localModelLoad(model).state;
+  if (state !== "loading" && state !== "ready") publish([key], { state: "loading", progress: 0, text: "" });
+  return resolve(key).then(({ id, engine, keys }) => {
+    const now = localModelLoad(id).state;
+    if (now !== "loading" && now !== "ready") publish(keys, { state: "loading", progress: 0, text: "" });
+    return engine.load().then(
+      () => publish(keys, { state: "ready" }),
+      (error: unknown) => {
+        publish(keys, { state: "failed", error });
+        throw error;
       },
-      // A model that thinks out loud (Qwen3, DeepSeek) does it between <think> tags.
-      extractReasoningMiddleware({ tagName: "think" }),
-    ],
+    );
   });
-  const load = () => {
-    if (localModelLoad(model).state !== "loading" && localModelLoad(model).state !== "ready") {
-      publish(model, { state: "loading", progress: 0, text: "" });
-    }
-    return ready()
-      .then(() => provider.createSessionWithProgress())
-      .then(
-        () => void answered(undefined),
-        (error: unknown) => {
-          publish(model, { state: "failed", error });
-          throw error;
-        },
-      );
-  };
-  const entry = { model: built, load };
-  engines.set(model, entry);
-  return entry;
 }
 
 /**
- * The double a test registered for `model`, standing where the engine would: the script's load, ready
- * at once or failed with its words, and each call answered by `scriptedModel` once its module loads.
- */
-function scripted(model: string, probe: ModelProbe) {
-  const double = import("./testing.js").then(({ scriptedModel }) => scriptedModel(probe.script));
-  const recorded = <T extends { prompt: unknown }>(params: T) =>
-    import("./testing.js").then(({ promptOf }) => void probe.prompts.push(promptOf(params as never)));
-  const built: LanguageModel = {
-    specificationVersion: "v4",
-    provider: "kanzo-testing",
-    modelId: model,
-    supportedUrls: {},
-    doGenerate: async (params) => (await recorded(params), (await double).doGenerate(params)),
-    doStream: async (params) => (await recorded(params), (await double).doStream(params)),
-  };
-  const load = async () => {
-    const fail = probe.script.load?.fail;
-    if (fail === undefined) return void publish(model, { state: "ready" });
-    const error = new Error(fail);
-    publish(model, { state: "failed", error });
-    throw error;
-  };
-  return { model: built, load };
-}
-
-/**
- * The engine's side of {@link LocalModelSettings.worker}, and the worker's whole script: `import { serveLocalModel } from "@kanzo-tech/llm/local"; serveLocalModel();`.
+ * The engine's side of {@link LocalProviderSettings.worker}, and the worker's whole script: `import { serveLocalModel } from "@kanzo-tech/llm/local"; serveLocalModel();`.
  */
 export async function serveLocalModel(): Promise<void> {
   const { WebWorkerMLCEngineHandler } = await import("@browser-ai/web-llm");

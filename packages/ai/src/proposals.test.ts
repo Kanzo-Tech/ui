@@ -2,7 +2,8 @@ import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, it } from "vitest";
 import { candidates } from "./proposals.js";
 import type { Proposal } from "./task/index.js";
-import { promptOf, scriptedModel } from "@kanzo-tech/llm/testing";
+import { scriptedModel } from "@kanzo-tech/llm/testing";
+import { promptOf } from "@kanzo-tech/testing";
 
 const field = { name: "Region" };
 const asked = (count: number, value = "") => ({ value, existing: [], signal: new AbortController().signal, count, list: value === "" });

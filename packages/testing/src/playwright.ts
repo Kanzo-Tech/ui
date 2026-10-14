@@ -1,13 +1,15 @@
 import type { Locator, Page } from "playwright-core";
 import { HarnessEnvironment, type By, type Driver, type Modifier, type Point, type TestElement } from "./environment";
-import { install, type ModelScript } from "./hook";
+import { initScript, type ModelScript } from "./hook";
 
 export interface EnvironmentOptions {
   /** How long a harness waits for a state before it fails, in milliseconds. Default 10 000. */
   timeout?: number;
   /**
-   * A model double per model id: `localModel(id)` answers from the script in place of the model,
-   * on every page this one loads from now on, and the product's code never knows.
+   * A model double per model id, registered as that id's provider in `@kanzo-tech/llm/local`'s
+   * registry: `localModel(id)` — and `localModel()`, which asks the first id registered — answers from
+   * the script in place of the model, on every page this one loads from now on, and the product's
+   * code never knows.
    */
   models?: Readonly<Record<string, ModelScript>>;
 }
@@ -18,11 +20,11 @@ const POLL = 50;
 /**
  * **The environment for a Playwright page.** It installs the test hook with `addInitScript`, so it
  * is called *before* the page navigates: the canvases register while they mount, and a page already
- * loaded has mounted without it — and the model scripts with it, which `localModel` reads when it is
- * first asked. It imports nothing of Playwright's at run time, only its types.
+ * loaded has mounted without it — and a provider per scripted model, which `localModel` resolves when
+ * it is first asked. It imports nothing of Playwright's at run time, only its types.
  */
 export async function playwright(page: Page, options: EnvironmentOptions = {}): Promise<HarnessEnvironment> {
-  await page.addInitScript(install, options.models ?? {});
+  await page.addInitScript({ content: initScript(options.models ?? {}) });
   const timeout = options.timeout ?? 10_000;
   const driver: Driver = {
     root: handle(page, page.locator(":root")),

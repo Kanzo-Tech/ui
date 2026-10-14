@@ -12,7 +12,8 @@
 // READ OUT OF IT rather than copied, so the panel on the left and the errors on the form cannot
 // drift apart.
 
-import { promptOf, scriptedModel } from "@kanzo-tech/llm/testing";
+import { scriptedModel } from "@kanzo-tech/llm/testing";
+import { promptOf } from "@kanzo-tech/testing";
 import { PACE } from "@/lib/model-call";
 import { MEMBERS, member, membersOf } from "@/example/people";
 import { FEATURED, type Quest, dueOn, postedOn, questLabel } from "@/example/quests";

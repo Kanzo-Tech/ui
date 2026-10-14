@@ -383,7 +383,7 @@ for proposals and presents them. Nobody writes a loop or deduplicates text.
 ```ts
 import { defineTask, runTask, propose, verify } from "@kanzo-tech/ai/task";
 import { useTask } from "@kanzo-tech/ai";
-import { localModel, loadLocalModel } from "@kanzo-tech/llm/local";
+import { localModel, loadLocalModel, localProvider, setLocalProvider } from "@kanzo-tech/llm/local";
 
 // A Task: what the model knows, what it may answer, and which facts check it.
 export const requirements = defineTask({
@@ -398,9 +398,12 @@ export const requirements = defineTask({
 // An artefact that is text in a language declares its grammar instead of a schema.
 export const mapping = defineTask({ name: "mapping", grammar: (input) => mappingGrammar(input).grammar, verify: [compiles] /* … */ });
 
-// The model, once per page, served from the host's origin and loaded when the screen opens.
-const model = localModel(MODEL, { worker, from });
-void loadLocalModel(MODEL, { worker, from });
+// Once, at the composition root: the models the host's origin serves under /models.
+setLocalProvider(localProvider({ baseURL: "/models", worker }));
+
+// The model — the first one served — loaded when the screen opens.
+const model = localModel();
+void loadLocalModel();
 
 // A screen: a list of checked proposals, and the person's edits checked with no model.
 const { proposals, state, propose: ask, edit, dismiss } = useTask(requirements, input, { model });
@@ -426,7 +429,7 @@ tomorrow, its row changes, not the API.
 | `useTask` | React state over `propose` and `verify`; never asks on mount | — |
 | `useAskChat` | the AI SDK's `useChat` with a `ChatTransport` that writes through `createUIMessageStream`, the states as its data parts | — |
 | `Verdict` | the LSP's `Diagnostic`; `Decision` in the shape of MCP's elicitation | types only |
-| `localModel` | `@browser-ai/web-llm` over WebLLM, one engine per model per page | optional peer of `@kanzo-tech/llm/local` |
+| `localModel` | `@browser-ai/web-llm` over WebLLM, one engine per model per page, resolved by id through one registry in the AI SDK's `customProvider` shape; what is served is WebLLM's own `AppConfig` | optional peer of `@kanzo-tech/llm/local` |
 
 **Why no `submit` tool.** `@browser-ai/web-llm` 3.0.4 constrains JSON and not tools: structured
 output sends `response_format: json_object` with the schema and WebLLM decodes against it, while
@@ -465,8 +468,8 @@ SDK's names".
 | Package | Third-party peer | What it carries |
 | --- | --- | --- |
 | `@kanzo-tech/llm` | `ai`, required | `stream`, `generate`, `LlmError`, `ModelLoad` |
-| `@kanzo-tech/llm/testing` | `ai`'s own `ai/test`; `@kanzo-tech/testing`, optional, for the script's types | the one scripted model double ([Testing](/docs/design/testing#one-model-double)) |
-| `@kanzo-tech/llm/local` | `@browser-ai/web-llm`, `@mlc-ai/web-llm`, optional | `localModel` (served `from` the host, a grammar per call), `loadLocalModel`, `serveLocalModel` for its worker; `llm/unavailable` without WebGPU; the double in place of the model when a test registered one |
+| `@kanzo-tech/llm/testing` | `ai`'s own `ai/test`; `@kanzo-tech/testing`, optional, for the script and its answering | the one scripted model double ([Testing](/docs/design/testing#one-model-double)) |
+| `@kanzo-tech/llm/local` | `@browser-ai/web-llm`, `@mlc-ai/web-llm`, optional | `localModel` (resolved through one registry, a grammar per call), `loadLocalModel`, `localProvider` and `setLocalProvider` — every model the host's `app-config.json` lists — `serveLocalModel` for its worker; `llm/unavailable` without WebGPU or with nothing served. It names no test: a test registers its provider in the registry ([Testing](/docs/design/testing#a-model-is-resolved-through-one-registry)) |
 | `@kanzo-tech/ai/task` | — | the types, `defineTask`, `runTask`, `propose`, `verify` |
 | `@kanzo-tech/ai` | — | `useTask`, `Assist`, `Chat` |
 | `@kanzo-tech/ai/data` | `@kanzo-tech/mosaic`, optional | `ask`, `useAskChat`, `askOffers`, `AskChips`, `AnswerCard` |

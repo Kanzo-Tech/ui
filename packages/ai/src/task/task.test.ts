@@ -1,5 +1,6 @@
 import { APICallError, jsonSchema } from "ai";
-import { promptOf, scriptedModel } from "@kanzo-tech/llm/testing";
+import { scriptedModel } from "@kanzo-tech/llm/testing";
+import { promptOf } from "@kanzo-tech/testing";
 import { answering } from "../testing/nobel.js";
 import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, it } from "vitest";
