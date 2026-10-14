@@ -163,7 +163,7 @@ describe("kanzoAuth", () => {
      * for. The Next router answers its own fetch's 401 with a hard navigation, which then arrives
      * here as `navigate`.
      */
-    it("answers anything that is not a navigation with a bare 401", async () => {
+    it("answers anything that is not a navigation with a 401 problem, and no sign-in", async () => {
       for (const mode of ["cors", "no-cors", "same-origin"]) {
         const response = await auth.proxy(
           new NextRequest(`${ORIGIN}/graphs`, { headers: { "sec-fetch-mode": mode } }),
@@ -172,7 +172,7 @@ describe("kanzoAuth", () => {
         expect(response.status).toBe(401);
         expect(response.headers.get("cache-control")).toBe("no-store");
         expect(response.headers.get("location")).toBeNull();
-        expect(await response.text()).toBe("");
+        expect(await response.json()).toMatchObject({ status: 401, code: "session/absent" });
       }
     });
 
@@ -317,6 +317,29 @@ describe("kanzoAuth", () => {
 
       await expect(auth.session({ required: true })).rejects.toThrow("NEXT_REDIRECT");
       expect(redirect).toHaveBeenCalledWith("/api/auth/signin?returnTo=%2F");
+    });
+
+    it("sends a required session's outage to the problem page, with its code", async () => {
+      // The proxy's answer to the same outage, so a layout writes no `try` of its own around it.
+      const cookie = await signIn();
+      backing.adapter.read = async () => {
+        throw new Error("ECONNREFUSED");
+      };
+      rendering(cookie, { host: "app.example.test", "x-kanzo-url": `${ORIGIN}/graphs` });
+
+      await expect(auth.session({ required: true })).rejects.toThrow("NEXT_REDIRECT");
+      expect(redirect).toHaveBeenCalledWith("/auth/problem?code=session%2Funavailable");
+    });
+
+    it("throws the outage to a page that did not require a session, which reads it itself", async () => {
+      const cookie = await signIn();
+      backing.adapter.read = async () => {
+        throw new Error("ECONNREFUSED");
+      };
+      rendering(cookie, { host: "app.example.test", "x-kanzo-url": `${ORIGIN}/graphs` });
+
+      await expect(auth.session()).rejects.toMatchObject({ code: "session/unavailable" });
+      expect(redirect).not.toHaveBeenCalled();
     });
   });
 

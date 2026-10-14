@@ -1,6 +1,7 @@
 "use client";
 
-import { claims, organizationOf } from "@kanzo-tech/auth";
+import { organizationOf } from "@kanzo-tech/auth";
+import { claims } from "@kanzo-tech/auth/server";
 import {
   Badge,
   Button,

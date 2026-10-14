@@ -7,9 +7,9 @@ import { gate } from "./next-gate";
 import { forward, type ApiHandlers } from "./next-proxy";
 import { routes, type RouteHandlers } from "./next-routes";
 import { singleFlight } from "./single-flight";
-import type { Session } from "./types";
+import { AuthError, type Session } from "./types";
 
-export type { KanzoAuthConfig } from "./next-bound";
+export type { KanzoAuthConfig, TenantRequest } from "./next-bound";
 
 /**
  * `kanzoAuth` — the whole Backend For Frontend as one object: a proxy that is the session
@@ -63,7 +63,11 @@ export interface KanzoAuth {
   readonly api: ApiHandlers;
   /** The session this request carries, read once per request, or `null`. */
   session(): Promise<Session | null>;
-  /** The session, or a redirect to sign in that comes back to this page. */
+  /**
+   * The session, or a redirect: to sign in, coming back to this page, when there is none; to
+   * `problemPage` with the code when the store or the IdP did not answer — the proxy's answer to
+   * the same outage, so a layout writes no `try` around it.
+   */
   session(options: { readonly required: true }): Promise<Session>;
 }
 
@@ -113,8 +117,21 @@ export function kanzoAuth(
   async function session(): Promise<Session | null>;
   async function session(options: { readonly required: true }): Promise<Session>;
   async function session(options?: { readonly required: true }): Promise<Session | null> {
-    const { session: found, url } = await current();
-    if (found !== null || options?.required !== true) return found;
+    if (options?.required !== true) return (await current()).session;
+    let read: Awaited<ReturnType<typeof current>>;
+    try {
+      read = await current();
+    } catch (error) {
+      if (!(error instanceof AuthError)) throw error;
+      // AuthKit's `withAuth({ ensureSignedIn: true })` settles the outcome rather than handing the
+      // page an exception; the code travels in the URL because a server error reaches the browser
+      // stripped to a digest.
+      const { problemPage } = await instance();
+      const join = problemPage.includes("?") ? "&" : "?";
+      redirect(`${problemPage}${join}code=${encodeURIComponent(error.code)}`);
+    }
+    const { session: found, url } = read;
+    if (found !== null) return found;
     // AuthKit's `ensureSignedIn`: the proxy normally sends this browser to sign in before the page
     // renders, so this is the page the proxy does not run on, or a session that ended mid-render.
     const signIn = `${(await instance()).basePath}/signin`;
