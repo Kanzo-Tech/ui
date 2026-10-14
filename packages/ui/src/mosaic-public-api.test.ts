@@ -71,10 +71,11 @@ function internals(paths: readonly string[], virtual: Record<string, string> = {
 }
 
 describe("the public surface of Mosaic", () => {
+  // One program type-checks every shipped package: ~15 s alone, the default limit, more on a loaded runner.
   it("reaches no underscore member of a Mosaic object in any shipped package", () => {
     for (const needed of ["ui/charts/", "graph/", "mosaic/"]) expect(files.some((f) => label(f).startsWith(needed))).toBe(true);
     expect(internals(files)).toEqual([]);
-  });
+  }, 60_000);
 
   it("is not blind: it sees a relay reached, a resolved list read, a filter group destructured and a query's grouping read", () => {
     const probe = join(SHIPPED.find((root) => root.name === "ui")!.src, "probe.ts");

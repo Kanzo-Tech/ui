@@ -39,7 +39,7 @@ export {
   QuestionOptions,
   QuestionPrompt,
 } from "./question.js";
-export { Working } from "./working.js";
+export { Working, type WorkingProps } from "./working.js";
 export { ModelBadge } from "./model-badge.js";
 export type { ModelBadgeProps, ModelBadgeTranslations } from "./model-badge.js";
 

@@ -2,12 +2,13 @@
 
 import { relationKey, relationOf, type Engine, type JoinGraph, type Relation, type Selection } from "@kanzo-tech/mosaic";
 import { createUIMessageStream, type ChatTransport, type InferUIMessageChunk, type LanguageModel, type UIMessage } from "ai";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import { useTransportChat, type AgentChat, type AgentChatOptions } from "../agent-chat.js";
 import { propose, runTask, verify, type Decision, type Verdict } from "../task/index.js";
 import { measureName, type AnswerInput, type AnswerRelation } from "./answer.js";
 import { ask, askAnswer, askRelation, answerRelation, type AskInput, type AskSpec } from "./ask.js";
-import { readAnswer, type AnswerOutput } from "./read.js";
+import { readAnswerQuery, type AnswerOutput } from "./read.js";
 
 /**
  * **Ask, in a chat** — the Ask Task behind `useChat`. Each question is one run of the Task: the model
@@ -99,8 +100,15 @@ function write(writer: { write: (chunk: InferUIMessageChunk<AskMessage>) => void
   writer.write({ type: "text-end", id });
 }
 
-/** The transport: one Ask turn per message, its options read anew each time — the page changes. */
-export function askTransport(options: () => AskChatOptions, onError?: (value: unknown) => string): ChatTransport<AskMessage> {
+/**
+ * The transport: one Ask turn per message, its options read anew each time — the page changes. Each
+ * answer is read as a query on `client`, the host's (`/docs/design/reads`).
+ */
+export function askTransport(
+  options: () => AskChatOptions,
+  client: QueryClient,
+  onError?: (value: unknown) => string,
+): ChatTransport<AskMessage> {
   return {
     reconnectToStream: async () => null,
     sendMessages: async ({ messages, abortSignal }) =>
@@ -153,7 +161,7 @@ export function askTransport(options: () => AskChatOptions, onError?: (value: un
           delete show.span;
           const shown: AnswerInput = { ...answer, relation: relationKey(graph, relation), show: show as AnswerInput["show"] };
           writer.write({ type: "tool-input-available", toolCallId, toolName: "answer", input: shown });
-          const output = await readAnswer(answer, answerRelation(relation, input), { engine, graph, selection, signal: abortSignal });
+          const output = await readAnswerQuery(client, answer, answerRelation(relation, input), { engine, graph, selection, signal: abortSignal });
           writer.write({ type: "tool-output-available", toolCallId, output: { ...output, spec } satisfies AskOutput });
           writer.write({ type: "data-ask", data: { spec } });
           write(writer, summary(output));
@@ -163,11 +171,15 @@ export function askTransport(options: () => AskChatOptions, onError?: (value: un
   };
 }
 
-/** A chat with Ask over the page: `Chat` draws it, and each `answer` part is an `AnswerCard`. */
+/**
+ * A chat with Ask over the page: `Chat` draws it, and each `answer` part is an `AnswerCard`. Its reads
+ * are queries on the host's `QueryClient`, so it needs a `QueryClientProvider` above it.
+ */
 export function useAskChat(options: AskChatOptions, chat?: AgentChatOptions<AskMessage>): AgentChat<AskMessage> {
+  const client = useQueryClient();
   const latest = React.useRef(options);
   latest.current = options;
-  return useTransportChat((onError) => askTransport(() => latest.current, onError), chat);
+  return useTransportChat((onError) => askTransport(() => latest.current, client, onError), chat);
 }
 
 /** Questions to start from: Ask's own proposals with no question asked, each checked, in a reader's words. */
