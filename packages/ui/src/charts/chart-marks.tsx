@@ -1,5 +1,4 @@
-import type { Selection } from "@uwdata/mosaic-core";
-import type { TableExpr } from "@kanzo-tech/mosaic";
+import type { TableExpr, Selection } from "@kanzo-tech/mosaic";
 import { isColorToken, isColorValue } from "./chart-config.js";
 import {
   chartDescriptor,

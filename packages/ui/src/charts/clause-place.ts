@@ -1,4 +1,4 @@
-import type { ClauseSource, Selection, SelectionClause } from "@uwdata/mosaic-core";
+import type { ClauseSource, Selection, SelectionClause } from "@kanzo-tech/mosaic";
 
 /**
  * **A clause is the page's, and outlives the part that published it.** A chart's pick or a control's

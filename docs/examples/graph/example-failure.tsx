@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { GraphCanvas, GraphRoot } from "@kanzo-tech/graph";
 import { DiagnosticList, Problem, Show, type ProblemDescription } from "@kanzo-tech/ui";
-import { engine } from "@kanzo-tech/ui/analytics";
+import { engine } from "@kanzo-tech/mosaic";
 import { attach } from "@fossil-lang/corpus";
 
 /** What a host says for a failure, keyed on its `code` — fossil's and the graph's alike. */

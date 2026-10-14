@@ -1,15 +1,21 @@
 "use client";
 
-import { crossfilterOver, preaggregateOwnRelation, readOf, type JoinGraph, type RelationExpr, type RelationRef, type TableExpr } from "@kanzo-tech/mosaic";
+import {
+  crossfilterOver,
+  preaggregateOwnRelation,
+  readOf,
+  type JoinGraph,
+  type RelationExpr,
+  type RelationRef,
+  type TableExpr,
+  type Coordinator,
+  type Selection,
+} from "@kanzo-tech/mosaic";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ark } from "@ark-ui/react/factory";
 import { cn } from "../lib/cn.js";
-import {
-  coordinator as setActiveCoordinator,
-  type Coordinator,
-  type Selection,
-} from "@uwdata/mosaic-core";
+import { coordinator as setActiveCoordinator } from "@uwdata/vgplot";
 
 /**
  * MosaicProvider — the page's coordinator, its joins, and the one selection every part on this

@@ -10,13 +10,13 @@ import {
   relationOf,
   sameRelation,
   type ClauseSource,
+  type ExprNode,
   type ExprValue,
   type JoinGraph,
   type Relation,
   type SelectionClause,
   type TableExpr,
 } from "@kanzo-tech/mosaic";
-import type { ExprNode } from "@uwdata/mosaic-sql";
 import {
   bucketExpr,
   DASHBOARD_AGGREGATES,

@@ -47,9 +47,13 @@ import { engine } from "@kanzo-tech/mosaic";
   `script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' <your storage>`. No
   `blob:`: the worker is started from its own URL.
 
-- **Re-exports** of the coordinator, the clients, the five clause builders and the loaders — so a
-  consumer never needs a direct `@uwdata` import. The DuckDB-WASM connector is not among them:
-  `engine()` is the only boot.
+- **Re-exports** of the coordinator, the clients, the five clause builders, the loaders, `Query`
+  with `asc` and `desc`, the aggregates (`count`, `sum`, `avg`, `min`, `max`, `median`, `quantile`,
+  `stddev`, `mode`), `sql`, `verbatim` and the expression builders the charts, the graph and Ask
+  write with — so a consumer never needs a direct `@uwdata` import. **This is the one door to
+  Mosaic**: `@kanzo-tech/ui`'s charts, `@kanzo-tech/graph` and `@kanzo-tech/ai` import mosaic-core
+  and mosaic-sql through it and nothing else, and `@kanzo-tech/ui/analytics` re-exports none of it.
+  The DuckDB-WASM connector is not among them: `engine()` is the only boot.
 - **`clauseSemiJoin` / `clauseColumns`** — the clause rule. A clause is column predicates on one
   relation, or a semi-join on identity: `clauseSemiJoin("dense_id", ids | query, { source, label })`
   is `dense_id IN (…)`, with the keys or with a statement that selects them, and it filters every
@@ -90,5 +94,5 @@ consumers that need them are not all charts. `@kanzo-tech/graph` depends on this
 `@kanzo-tech/ui/analytics`, whose barrel imports `@uwdata/vgplot` statically: a host that draws a
 graph and no chart installs no vgplot.
 
-`@kanzo-tech/ui/analytics` keeps the charts and re-exports these names, so a chart consumer imports
-from one place.
+`@kanzo-tech/ui/analytics` keeps the charts and re-exports none of these names: a chart consumer
+imports the charts from there and Mosaic from here, each name one way.

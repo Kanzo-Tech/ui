@@ -36,6 +36,7 @@
     "@kanzo-tech/auth": "workspace:*",
     "@kanzo-tech/graph": "workspace:*",
     "@kanzo-tech/llm": "workspace:*",
+    "@kanzo-tech/mosaic": "workspace:*",
     "@kanzo-tech/navigation": "workspace:*",
     "@kanzo-tech/rudof-wasm": "^0.3.4",
     "@kanzo-tech/theme": "workspace:*",
@@ -61,7 +62,7 @@
     "shiki": "^4.2.0",
     "zod": "^4.4.3"
   },
-  "//deps": "@kanzo-tech/{ui,theme,graph,ai,llm,auth,navigation} are workspace deps. `ai` and `@ai-sdk/react` are @kanzo-tech/ai's required peers, installed once here as a host would; the examples and showcases build their models with `ai/test`'s mock, so nothing on the site calls a provider. There is no colour-derivation package any more: a theme is a flat CSS file that ships with @kanzo-tech/theme.",
+  "//deps": "@kanzo-tech/{ui,theme,mosaic,graph,ai,llm,auth,navigation} are workspace deps; the pages and examples import Mosaic through `@kanzo-tech/mosaic`, as a host does. `ai` and `@ai-sdk/react` are @kanzo-tech/ai's required peers, installed once here as a host would; the examples and showcases build their models with `ai/test`'s mock, so nothing on the site calls a provider. There is no colour-derivation package any more: a theme is a flat CSS file that ships with @kanzo-tech/theme.",
   "devDependencies": {
     "@codemirror/legacy-modes": "^6.5.3",
     "@fossil-lang/executor": "^0.3.0-alpha.28",

@@ -1,7 +1,5 @@
 import { Fragment, isValidElement, type ReactNode } from "react";
-import type { Selection } from "@uwdata/mosaic-core";
-import type { TableExpr } from "@kanzo-tech/mosaic";
-import { asTableRef, isAggregateExpression } from "@uwdata/mosaic-sql";
+import { type TableExpr, type Selection, asTableRef, isAggregateExpression } from "@kanzo-tech/mosaic";
 import { chartColorScale, isColorToken, type ChartConfig } from "./chart-config.js";
 
 /**
