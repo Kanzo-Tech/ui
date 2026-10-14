@@ -75,7 +75,7 @@ A **`ChartRoot`** is one plot. Its children are **descriptors** — inert elemen
 
 - **marks** (`ChartBarY`, `ChartLineY`, `ChartRectY`, `ChartDot`, …) say what to draw, with
   channels that are column names or SQL aggregates (`x="hour" y={count()}`);
-- **interactors** (`ChartPickY`, `ChartBrushX`, `ChartHighlight`, …) say what a gesture publishes,
+- **interactors** (`ChartToggleY`, `ChartIntervalX`, `ChartHighlight`, …) say what a gesture publishes,
   or what a selection dims;
 - **axes and facets** (`ChartAxisX`, `ChartFacetX`) are plot attributes.
 
@@ -130,7 +130,7 @@ The peers are **optional in the manifest and required in practice** — optional
 install them for you", not "the code works without them".
 
 ```bash
-pnpm add @kanzo-tech/ui @uwdata/vgplot @uwdata/mosaic-plot @uwdata/mosaic-core @uwdata/mosaic-sql @tanstack/react-query
+pnpm add @kanzo-tech/ui @kanzo-tech/mosaic @uwdata/mosaic-core @uwdata/mosaic-sql @uwdata/vgplot @uwdata/mosaic-plot valibot @tanstack/react-query
 ```
 
 A page that reads a relation's fields — `Dashboard`, `useFieldStats`, and the parts an Ask answer
@@ -149,6 +149,10 @@ const queries = new QueryClient();
   </MosaicProvider>
 </QueryClientProvider>
 ```
+
+`@kanzo-tech/mosaic` is the one door to Mosaic: the coordinator, the selections, the clauses,
+`Query` and the aggregates are imported from it, and `/analytics` holds the charts and re-exports
+none of it. mosaic-core and mosaic-sql are its peers. `valibot` checks a dashboard spec.
 
 DuckDB-WASM is not among them. The database in the tab is
 [`engine()`](/docs/analytics/charts#the-pages-one-engine), and `@kanzo-tech/mosaic` depends on the

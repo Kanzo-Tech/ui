@@ -1,10 +1,20 @@
 "use client";
 
-import { holdFirstDraw, onRelation, queryFailure, relaySelection, type RelationExpr, type RelationRef, type TableExpr } from "@kanzo-tech/mosaic";
+import {
+  holdFirstDraw,
+  onRelation,
+  queryFailure,
+  relaySelection,
+  type RelationExpr,
+  type RelationRef,
+  type TableExpr,
+  Selection,
+  type Coordinator,
+  type SelectionClause,
+} from "@kanzo-tech/mosaic";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
-import { Selection, type Coordinator, type SelectionClause } from "@uwdata/mosaic-core";
 import * as vg from "@uwdata/vgplot";
 import { cn } from "../lib/cn.js";
 import { Show } from "../simples/show.js";

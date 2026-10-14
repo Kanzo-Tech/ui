@@ -1,6 +1,6 @@
 "use client";
 
-import { engine, type Engine } from "@kanzo-tech/ui/analytics";
+import { engine, type Engine } from "@kanzo-tech/mosaic";
 
 /**
  * A place for each workspace view to register the relations it needs, once, in the page's one

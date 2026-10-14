@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
@@ -70,10 +71,11 @@ function internals(paths: readonly string[], virtual: Record<string, string> = {
 }
 
 describe("the public surface of Mosaic", () => {
+  // One program type-checks every shipped package: ~15 s alone, the default limit, more on a loaded runner.
   it("reaches no underscore member of a Mosaic object in any shipped package", () => {
     for (const needed of ["ui/charts/", "graph/", "mosaic/"]) expect(files.some((f) => label(f).startsWith(needed))).toBe(true);
     expect(internals(files)).toEqual([]);
-  });
+  }, 60_000);
 
   it("is not blind: it sees a relay reached, a resolved list read, a filter group destructured and a query's grouping read", () => {
     const probe = join(SHIPPED.find((root) => root.name === "ui")!.src, "probe.ts");
@@ -93,6 +95,72 @@ describe("the public surface of Mosaic", () => {
       "ui/probe.ts:5 _resolved",
       "ui/probe.ts:6 _filterBy",
       "ui/probe.ts:7 _groupby",
+    ]);
+  });
+});
+
+/**
+ * **One door to Mosaic.** mosaic-core and mosaic-sql are reached through `@kanzo-tech/mosaic` from
+ * every shipped package but that one, which is what it is for (`/docs/design/analytics`). The charts
+ * imported them directly, beside the door, so a name came three ways — the aggregates from vgplot,
+ * `asc` from the door, `Query` from mosaic-sql through a chart module — and `/analytics` re-exported
+ * the lot, so a host had two doors to one name. vgplot and mosaic-plot are the plotting half, the
+ * charts' own, and stay where they are.
+ *
+ * It reads each shipped file's import and export specifiers, type-only ones included, with the
+ * TypeScript scanner rather than a regex, so a string in a comment is not an import. What it cannot
+ * see: a dynamic `import()` with a computed specifier, a test file or `src/testing` helper (both
+ * declare Mosaic as a dev dependency and build their fixtures from it), and `docs/`, which teaches the
+ * door rather than ships it — `documented-exports.test.ts` is what fails on a page that imports a
+ * name from `/analytics` it no longer has.
+ */
+const CORE = /^@uwdata\/mosaic-(core|sql)(\/|$)/;
+
+function besideTheDoor(paths: readonly string[], read: (path: string) => string = (path) => readFileSync(path, "utf8")): string[] {
+  return paths.flatMap((path) => {
+    if (label(path).startsWith("mosaic/")) return [];
+    return ts.preProcessFile(read(path), true, true).importedFiles
+      .filter((file) => CORE.test(file.fileName))
+      .map((file) => `${label(path)} ${file.fileName}`);
+  });
+}
+
+describe("one door to Mosaic", () => {
+  it("imports mosaic-core and mosaic-sql through @kanzo-tech/mosaic in every shipped package but that one", () => {
+    const shipped = files.filter((file) => !/\/testing\//.test(file));
+    for (const needed of ["ui/charts/", "graph/", "ai/data/"]) expect(shipped.some((f) => label(f).startsWith(needed))).toBe(true);
+    expect(besideTheDoor(shipped)).toEqual([]);
+  });
+
+  it("passes none of Mosaic through /analytics, value or type", async () => {
+    // The door's names, and vgplot's aggregates, which are the same functions: none is on the subpath.
+    const analytics = (await import("./analytics.js")) as Record<string, unknown>;
+    const mosaic = (await import("@kanzo-tech/mosaic")) as Record<string, unknown>;
+    expect(Object.keys(analytics).filter((name) => name in mosaic)).toEqual([]);
+    for (const name of ["Query", "count", "sql", "asc", "engine", "Selection", "relationKey"]) expect(analytics[name]).toBeUndefined();
+    // A type leaves no runtime key, so the barrel's own specifiers are read: it names no Mosaic module.
+    const barrel = join(SHIPPED.find((root) => root.name === "ui")!.src, "analytics.ts");
+    const named = ts.preProcessFile(readFileSync(barrel, "utf8"), true, true).importedFiles.map((file) => file.fileName);
+    expect(named.filter((name) => name === "@kanzo-tech/mosaic" || CORE.test(name))).toEqual([]);
+  });
+
+  it("is not blind: it sees a type-only import, a re-export and a subpath, and leaves the door and vgplot alone", () => {
+    const ui = join(SHIPPED.find((root) => root.name === "ui")!.src, "probe.ts");
+    const door = join(SHIPPED.find((root) => root.name === "mosaic")!.src, "probe.ts");
+    const sources: Record<string, string> = {
+      [ui]: [
+        `import type { Selection } from "@uwdata/mosaic-core";`,
+        `export { count } from "@uwdata/mosaic-sql";`,
+        `import "@uwdata/mosaic-sql/src/ast/node.js";`,
+        `import { coordinator } from "@uwdata/vgplot";`,
+        `// import { Query } from "@uwdata/mosaic-sql";`,
+      ].join("\n"),
+      [door]: `export { Query } from "@uwdata/mosaic-sql";`,
+    };
+    expect(besideTheDoor([ui, door], (path) => sources[path]!)).toEqual([
+      "ui/probe.ts @uwdata/mosaic-core",
+      "ui/probe.ts @uwdata/mosaic-sql",
+      "ui/probe.ts @uwdata/mosaic-sql/src/ast/node.js",
     ]);
   });
 });

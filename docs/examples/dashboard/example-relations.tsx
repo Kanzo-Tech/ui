@@ -3,16 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { readJoinGraph } from "@kanzo-tech/graph";
 import { Skeleton } from "@kanzo-tech/ui";
+import { relationIdentities, relationKey, type JoinGraph, type Relation } from "@kanzo-tech/mosaic";
 import {
   Dashboard,
   FilterBar,
   MosaicProvider,
   RelationPicker,
-  relationIdentities,
-  relationKey,
   type DashboardSpec,
-  type JoinGraph,
-  type Relation,
 } from "@kanzo-tech/ui/analytics";
 import { FROM, said, useArchive } from "../graph/archive";
 import { EditingPage } from "./editing-page";

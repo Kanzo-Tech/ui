@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { xScale } from "@uwdata/vgplot";
+import { type Coordinator, engine } from "@kanzo-tech/mosaic";
 import {
   ChartAxisX,
   ChartAxisY,
@@ -10,9 +11,7 @@ import {
   ChartLine,
   ChartRoot,
   type ChartConfig,
-  type Coordinator,
   MosaicProvider,
-  engine,
 } from "@kanzo-tech/ui/analytics";
 import type { ViewerSample } from "./measure-viewer";
 import type { Sample } from "./measure";

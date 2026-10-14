@@ -25,7 +25,6 @@ export {
 } from "./table/data-table-toolbar.js";
 export type {
   DataTableSearchProps,
-  DataTableFacetOption,
   DataTableFacetFilterProps,
   DataTableViewOptionsProps,
 } from "./table/data-table-toolbar.js";

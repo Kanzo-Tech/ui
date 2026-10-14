@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { loadCSV } from "@uwdata/mosaic-sql";
 import { ScrollArea, Show, Skeleton } from "@kanzo-tech/ui";
+import { Coordinator, loadCSV } from "@kanzo-tech/mosaic";
 import {
-  Coordinator,
   Dashboard,
   FilterBar,
   MosaicProvider,

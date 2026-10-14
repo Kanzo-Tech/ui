@@ -1,16 +1,14 @@
 "use client";
 
-import type { RelationExpr } from "@kanzo-tech/mosaic";
-import type { SelectionClause } from "@uwdata/mosaic-core";
+import { type RelationExpr, type SelectionClause, Query, count, isNotNull } from "@kanzo-tech/mosaic";
 import { Interval1D } from "@uwdata/mosaic-plot";
-import { Query, count, isNotNull } from "@uwdata/mosaic-sql";
 import { bin } from "./chart-bin.js";
 import { PauseIcon, PlayIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "../lib/cn.js";
 import * as vg from "@uwdata/vgplot";
 import { ChartAxisY } from "./chart-axes.js";
-import { ChartBrushX } from "./chart-interactors.js";
+import { ChartIntervalX } from "./chart-interactors.js";
 import { ChartRectY } from "./chart-marks.js";
 import { ChartRoot, useChartContext, type ChartPlot } from "./chart-root.js";
 import { chartTableKey } from "./chart-spec.js";
@@ -137,7 +135,7 @@ export function ChartTimeline({
           redrawn under the pointer. The layers above are clipped instead: the range dimmed, and in
           front, in colour, what the clause holds — the range, or as far as play has reached into it.
           Its own fill would grey the range over, so the brush is drawn as an outline. */}
-      <ChartBrushX brush={BRUSH} />
+      <ChartIntervalX brush={BRUSH} />
       <ChartRectY fill={fill} inset={0.5} opacity={0.35} x={bars} y={count()} />
       <ChartRectY fill={fill} inset={0.5} x={bars} y={count()} />
       <ChartAxisY anchor={null} label={null} />

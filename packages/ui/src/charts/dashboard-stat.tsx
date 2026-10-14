@@ -1,8 +1,7 @@
 "use client";
 
-import type { RelationExpr } from "@kanzo-tech/mosaic";
+import { type RelationExpr, Query } from "@kanzo-tech/mosaic";
 import type React from "react";
-import { Query } from "@uwdata/mosaic-sql";
 import { StatDelta, StatLabel, StatRoot, StatTrend } from "../simples/stat.js";
 import { ChartStat } from "./chart-stat.js";
 import { chartTableKey } from "./chart-spec.js";

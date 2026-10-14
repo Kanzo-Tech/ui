@@ -22,7 +22,7 @@ import { hall, questStatus, QUEST_STATUSES } from "@/example/world";
 
 const data: Quest[] = [...QUESTS];
 
-const stateOptions = QUEST_STATUSES.map((state) => ({ label: state.label, value: state.id }));
+const stateItems = QUEST_STATUSES.map((state) => ({ label: state.label, value: state.id }));
 
 // The two sortable columns opt out of hiding: `sortableHeader` is a render function, so the
 // View menu would have nothing but the column id to label them with.
@@ -55,7 +55,7 @@ export default function Example() {
       <DataTableRoot table={table}>
         <DataTableToolbar>
           <DataTableSearch className="max-w-44" column="title" placeholder="Filter contracts…" />
-          <DataTableFacetFilter column="status" label="State" options={stateOptions} />
+          <DataTableFacetFilter column="status" label="State" items={stateItems} />
           <DataTableFacetFilter column="region" label="Region" />
 
           <div className="ms-auto flex items-center gap-2">

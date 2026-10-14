@@ -2,7 +2,8 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { Skeleton } from "@kanzo-tech/ui";
-import { loadObjects, useMosaic, type Coordinator } from "@kanzo-tech/ui/analytics";
+import { loadObjects, type Coordinator } from "@kanzo-tech/mosaic";
+import { useMosaic } from "@kanzo-tech/ui/analytics";
 import { ARCHIVE } from "@/example/archive";
 import { GRADES } from "@/example/world";
 import { rng } from "@/lib/rng";

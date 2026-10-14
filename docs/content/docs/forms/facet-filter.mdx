@@ -151,7 +151,10 @@ says which:
 | `contentClassName` | `string` | — |
 
 Everything else passes through to the trigger `Button` — `size`, `variant`, `disabled`,
-`className`. `FacetFilterItem` is `{ value, label?, icon?, count? }`.
+`className`. `FacetFilterItem` is `{ value, label?, icon?, count? }`, and it is the library's one
+facet item: [`DataTableFacetFilter`](/docs/data-display/data-table#faceted-filters) and
+[`ChartFilter`](/docs/analytics/charts#dashboards) take `items` of it too. `items` is Ark's word for a
+collection's members.
 
 It is controlled by design: the value belongs to the thing being filtered — a table's column state,
 a crossfilter's clause — not to the control. `multiple={false}` keeps at most one value ticked.
