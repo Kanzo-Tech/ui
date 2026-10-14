@@ -12,7 +12,7 @@ import { Chat, useAgentChat } from "@kanzo-tech/ai";
 import { localModel } from "@kanzo-tech/llm/local";
 import { ToolLoopAgent } from "ai";
 
-const agent = new ToolLoopAgent({ model: localModel("Qwen3-4B-q4f16_1-MLC", { worker }), tools: { query } });
+const agent = new ToolLoopAgent({ model: localModel("Qwen3-4B-q4f16_1-MLC"), tools: { query } });
 ```
 
 ```tsx

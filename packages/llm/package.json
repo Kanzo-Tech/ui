@@ -1,7 +1,7 @@
 {
   "name": "@kanzo-tech/llm",
   "version": "0.1.0",
-  "description": "The two doors to a model's answer, without React — `stream` and `generate`, each asking once, over the AI SDK, which it does not re-export — `localModel` on `/local`, a model in the page, and on `/testing` the one model double.",
+  "description": "The two doors to a model's answer, without React — `stream` and `generate`, each asking once, over the AI SDK, which it does not re-export — `localModel` on `/local`, a model in the page resolved through one provider registry, and on `/testing` the one model double.",
   "type": "module",
   "license": "MIT",
   "sideEffects": false,
@@ -32,7 +32,7 @@
     "test": "vitest run",
     "size": "size-limit"
   },
-  "//peers": "`ai` is REQUIRED, not optional, and that is the point of this package: there is nothing here without it, and a host installs it once so @kanzo-tech/ai's components and the host's own agent see the same UIMessage, the same agent and the same transport. Two copies would be two type universes that do not assign to each other. None of it is re-exported: a host imports `ai` by name. `@browser-ai/web-llm` and `@mlc-ai/web-llm` are optional, and only `/local` reaches them: a host that runs no model in the page installs neither. `@kanzo-tech/testing` is optional and for its types alone, reached only from `/testing`: the double's script is the test hook's data, declared once where the hook is installed. `/local` reads the same hook as a type, and imports `/testing` lazily, only when a test registered a script.",
+  "//peers": "`ai` is REQUIRED, not optional, and that is the point of this package: there is nothing here without it, and a host installs it once so @kanzo-tech/ai's components and the host's own agent see the same UIMessage, the same agent and the same transport. Two copies would be two type universes that do not assign to each other. None of it is re-exported: a host imports `ai` by name. `@browser-ai/web-llm` and `@mlc-ai/web-llm` are optional, and only `/local` reaches them: a host that runs no model in the page installs neither. `@kanzo-tech/testing` is optional and reached only from `/testing`: the double's script and its answering (`scripted`) are that package's, declared once where the environment that registers them in a page is, and `scriptedModel` is the AI SDK's mock over them. `/local` imports nothing of it: a model is resolved through the registry on `globalThis` under `Symbol.for(\"@kanzo-tech/llm/local\")`, and a test registers its scripted provider there as a host registers WebLLM's.",
   "peerDependencies": {
     "@browser-ai/web-llm": "^3.0.4",
     "@kanzo-tech/testing": "workspace:*",
@@ -54,6 +54,7 @@
     "@browser-ai/web-llm": "3.0.4",
     "@kanzo-tech/testing": "workspace:*",
     "@mlc-ai/web-llm": "0.2.86",
+    "@testing-library/dom": "^10.4.1",
     "ai": "^7.0.126"
   },
   "repository": {

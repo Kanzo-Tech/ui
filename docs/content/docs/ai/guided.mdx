@@ -82,7 +82,7 @@ a small trigger, the detail behind it. It reads a `ModelLoad` —
 
 ```tsx
 const load = useSyncExternalStore((l) => watchLocalModel(MODEL, l), () => localModelLoad(MODEL));
-<ModelBadge load={load} onRetry={() => void loadLocalModel(MODEL, settings)} />
+<ModelBadge load={load} onRetry={() => void loadLocalModel(MODEL)} />
 ```
 
 A popover rather than `Context`'s hover card, because a failure carries a retry and what a hover card

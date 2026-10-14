@@ -1,7 +1,7 @@
 {
   "name": "@kanzo-tech/testing",
   "version": "0.1.0",
-  "description": "Kanzo component harnesses — a class per component that finds it and drives it by its ARIA, in Angular CDK's shape and with its names, run by Playwright in a host's end-to-end suite or by Testing Library in a unit test. What a canvas knows reaches a harness through a hook only a test installs, and a model double's script reaches the model through the same hook.",
+  "description": "Kanzo component harnesses — a class per component that finds it and drives it by its ARIA, in Angular CDK's shape and with its names, run by Playwright in a host's end-to-end suite or by Testing Library in a unit test. What a canvas knows reaches a harness through a hook only a test installs, and a model double is registered by id in @kanzo-tech/llm/local's provider registry before the page loads.",
   "type": "module",
   "license": "MIT",
   "sideEffects": false,

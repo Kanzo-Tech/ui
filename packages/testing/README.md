@@ -19,9 +19,10 @@ await expect.poll(async () => (await env.getHarness(FilterBarHarness)).readout()
 
 `dom(container)` from `@kanzo-tech/testing/dom` is the same environment over Testing Library, for
 jsdom. It imports none of the components: what a canvas knows reaches a harness through
-`window.__KANZO_TESTING__`, which only a test defines. The same hook carries a model double's script —
-`playwright(page, { models })` — which `@kanzo-tech/llm/local`'s `localModel` answers from in place
-of the model.
+`window.__KANZO_TESTING__`, which only a test defines. `playwright(page, { models })` registers a
+scripted provider per model id in `@kanzo-tech/llm/local`'s provider registry before the page loads,
+so `localModel(id)` resolves the script in place of the model as it resolves any provider, and each
+prompt it is asked is recorded on the hook.
 
 The reference is <https://kanzo-tech.github.io/ui/docs/testing>, and why it is shaped this way is
 <https://kanzo-tech.github.io/ui/docs/design/testing>.

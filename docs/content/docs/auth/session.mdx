@@ -223,6 +223,7 @@ import { AuthError, type AuthErrorCode } from "@kanzo-tech/auth";
 | `session/silent` | `/session` or `/refresh` did not answer within 30 s — or, on the server, a `ticketStore` adapter did not, reported as the cause of a `session/unavailable`. `data.after` is `30000` |
 | `idp/unreachable` | The IdP could not be reached, or answered with something that is not OAuth — a 5xx, a proxy's page |
 | `idp/silent` | The IdP did not answer within 30 s. `data.after` is `30000` |
+| `api/unreachable` | A resource server behind [`api`](/docs/auth/next#api) did not answer — the connection was refused, its name did not resolve, it reset. `api` answers 502; an API that answers with an error status is passed through |
 
 Every wait this package makes on another party ends in 30 s: `bffAuth`'s requests to `/session`
 and `/refresh`, every call `ticketStore` makes on its adapter, and every request `openid-client` and

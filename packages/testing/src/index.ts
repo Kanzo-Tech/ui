@@ -10,7 +10,18 @@ export {
   type Point,
   type TestElement,
 } from "./environment";
-export type { ChartProbe, GraphProbe, KanzoTestingHook, ModelProbe, ModelReply, ModelScript, ModelTurn } from "./hook";
+export {
+  promptOf,
+  scripted,
+  type ChartProbe,
+  type GraphProbe,
+  type KanzoTestingHook,
+  type ModelProbe,
+  type ModelReply,
+  type ModelScript,
+  type ModelTurn,
+  type PromptedCall,
+} from "./hook";
 export { playwright, type EnvironmentOptions } from "./playwright";
 export { AnswerHarness } from "./harnesses/answer";
 export { ChartHarness, type Extent } from "./harnesses/chart";

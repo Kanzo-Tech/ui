@@ -578,7 +578,17 @@ person reaches through the address bar — sign-in, the callback, sign-out — s
 the product's `problemPage` with the code in the URL, because a JSON body there is what a person
 reads. And back-channel logout answers a refusal with 400 whatever its code, because OpenID Connect
 Back-Channel Logout §2.8 fixes it. An answer about the request rather than a credential — a
-cross-site request's 403, a 405, a path under no mount — has no code to name, and no body.
+cross-site request's 403, a 405, a path under no mount, no API configured — has no code to name, and
+no body.
+
+The forwarder names one party besides the IdP: an API that does not answer is `api/unreachable`,
+502, by the same rule that makes an IdP that does not answer `idp/unreachable`. It answered with
+nothing — Next turned the rejected `fetch` into a bare 500 — so keasy, migrating, could not drop its
+own `bff/failed`. *Did not answer* means `fetch` rejected with a network error: a refused
+connection, a name that did not resolve, a reset before a status line. An API that answers 500 has
+answered, and its answer passes through as it came; a client that went away is not the API's
+failure, and its abort is thrown as it was. The problem carries no `data`: the mount is in `detail`,
+and the upstream's URL is the deployment's and not the browser's to read.
 
 The table stays inside `./next`, unexported: the body carries its own `status`, so a host that reads
 a problem has no use for it, and no product calls it.
@@ -593,7 +603,9 @@ reads the code.
 *Held by* `packages/auth/src/next-routes.test.ts`, "answers 401, as a problem whose code is
 session/absent, when there is no session" and "answers 503 with a code, not a bare 500, when the
 session store does not answer"; `packages/auth/src/next-proxy.test.ts`, "answers 403, as a problem
-naming organization/denied, and reaches nothing, for an organization the person is not a member of";
+naming organization/denied, and reaches nothing, for an organization the person is not a member of",
+"answers 502, as a problem naming api/unreachable, when the API refuses the connection" and "passes
+an API's own 500 through, because an answer with an error status is still its answer";
 `packages/auth/src/next-auth.test.ts`, "answers anything that is not a navigation with a 401
 problem, and no sign-in".
 

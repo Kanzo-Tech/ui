@@ -1,6 +1,6 @@
 ---
 title: Testing a page built with Kanzo UI
-description: Why @kanzo-tech/testing ships a harness per component in Angular CDK's shape and with its names, reads ARIA before anything else, reaches a canvas's coordinates only through a hook a test installs, and scripts the one model double through the same hook — and what would reverse each rule.
+description: Why @kanzo-tech/testing ships a harness per component in Angular CDK's shape and with its names, reads ARIA before anything else, reaches a canvas's coordinates only through a hook a test installs, and registers the one model double as a provider in the registry every model is resolved through; and why Ask's evaluation set lives beside Ask — and what would reverse each rule.
 ---
 
 `@kanzo-tech/testing` is how a host tests a page built with the library, in Playwright, and how the
@@ -108,7 +108,7 @@ and does nothing otherwise:
 interface KanzoTestingHook {
   graphs: Map<string, { screenOf(vertex: number): [number, number]; screenAt(point: { x: number; y: number }): [number, number] }>;
   charts: Map<string, { scale(channel: "x" | "y" | "color"): { apply(value: unknown): number; invert?(pixel: number): unknown } }>;
-  models: Map<string, { script: ModelScript; prompts: string[] }>; // below: one model double
+  models: Map<string, { script: ModelScript; prompts: string[] }>; // what a scripted model was asked, below
 }
 ```
 
@@ -120,11 +120,11 @@ registers with. A chart's scale is Observable Plot's own `figure.scale(channel)`
 rendered with an accessible table of its vertices beside the canvas. Then a harness reads that, and
 the graph's half of the hook goes.
 
-The type is declared once, in `@kanzo-tech/testing`, because that package installs the hook. `ui`,
-`graph` and `llm` import it as a type from a devDependency, so it never reaches what they publish —
-but for the model script, which `@kanzo-tech/llm/testing`'s double takes, through an optional peer
-for its types alone — and the testing package imports nothing of theirs: no cycle, and a harness runs against whatever version of
-the components a page loaded. A chart registers under its `aria-label`; a chart with no title is not
+The type is declared once, in `@kanzo-tech/testing`, because that package installs the hook. `ui`
+and `graph` import it as a type from a devDependency, so it never reaches what they publish, and the
+testing package imports nothing of theirs: no cycle, and a harness runs against whatever version of
+the components a page loaded. `llm` reads nothing of the hook: a model is not registered here
+([below](#a-model-is-resolved-through-one-registry)). A chart registers under its `aria-label`; a chart with no title is not
 one a harness can name, and is not registered.
 
 *Held by* `packages/graph/src/parts/graph-canvas-harness.test.tsx`, "registers with the test hook
@@ -187,11 +187,10 @@ the host, and says what it waited for when neither comes"; `packages/ui/src/harn
 ## One model double
 
 **`@kanzo-tech/llm/testing` ships one scripted model — the AI SDK's `MockLanguageModelV4` answering
-from a script of turns — and `localModel` answers with it in place of the real model when a test has
-registered one on `__KANZO_TESTING__`.** A unit test passes the double where a model goes; an
-end-to-end test registers a script for a model id through `playwright(page, { models })`, before the
-page loads, as a canvas registers its coordinates ([above](#a-canvass-coordinates-come-through-a-hook-only-a-test-installs)),
-and the product's code never knows. Decided 13 October 2026.
+from a script of turns — and an end-to-end test registers the same script as a model id's provider.**
+A unit test passes `scriptedModel(script)` where a model goes; an end-to-end test registers a script
+for a model id through `playwright(page, { models })`, before the page loads, and the product's code
+never knows ([below](#a-model-is-resolved-through-one-registry)). Decided 13 October 2026.
 
 There were five: `@kanzo-tech/ai`'s test double, the docs' mock model *with the same shape as* it,
 keasy's hand-written model injected on `window.__keasyModelDouble` — the hook this page already
@@ -199,22 +198,139 @@ installs, reinvented — keasy's branch in its model module that serves it with 
 never ships, and keasy's fixture over `MockLanguageModelV4`. A model the page cannot serve is
 `llm/unavailable`, `localModel`'s own answer, and no double is needed to say it.
 
-**The script is data** — `ModelScript`, declared with the hook in `@kanzo-tech/testing` — because a
-function does not cross into the page. Its shape is keasy's double's, the one with the most
-scenarios behind it: each call answered by the first turn whose `when` its prompt contains, `once` to
-answer one call and give way, and a reply that is text with its thinking, an object, a tool call, a
-failure — a stream's after its first words — or a call that hangs until it is stopped; a `pace` for a
-recording, and a load that fails. In a unit test the turns may be a function of the call instead,
-for an answer that is computed, as the docs' recordings recognise a question they were not given word
-for word; that never crosses into a page. `/local` imports the double lazily, only when a script is
-registered for its model, so a production page's bundle carries its door and not the mock.
+**The script is data** — `ModelScript`, declared in `@kanzo-tech/testing` — because a function does
+not cross into the page. Its shape is keasy's double's, the one with the most scenarios behind it:
+each call answered by the first turn whose `when` its prompt contains, `once` to answer one call and
+give way, and a reply that is text with its thinking, an object, a tool call, a failure — a stream's
+after its first words — or a call that hangs until it is stopped; a `pace` for a recording, and a
+load that fails. In a unit test the turns may be a function of the call instead, for an answer that
+is computed, as the docs' recordings recognise a question they were not given word for word; that
+never crosses into a page.
+
+**The answering is one function, `scripted(script)`, in `@kanzo-tech/testing`, and it closes over
+nothing but `promptOf`.** A page cannot import the mock: the page's bundle is the one that ships, and
+`ai/test` is not in it. What crosses into a page is source text — Playwright's `addInitScript` — so
+the answering is written to be sent as text: `promptOf`, `scripted` and the registration, declared,
+then called with the scripts as JSON. In this process `scriptedModel` is the SDK's mock over the same
+`scripted`, for the calls the SDK records on it. It lives beside the script rather than in `llm`
+because `testing` imports nothing of `llm`'s and `llm/testing` already depends on `testing`.
 
 **What would reverse it:** a test that needs a model whose behaviour a script cannot state — a tool
 call's input streamed as it is written, say. Then the script grows that, and it is still the one
-double.
+double. And `scripted` written in a module the page's bundle can import without shipping it — a
+bundler's test build that is the build that ships — would let the page take the mock itself.
 
 *Held by* `packages/llm/src/testing.test.ts`, "answers each call with the first turn whose words its
-prompt holds, and a once turn only once"; `packages/llm/src/local.test.ts`, "answers from the script
-registered for its id on the test hook, records the prompt, and never reaches WebLLM" and "answers
-with WebLLM when no test installed the hook"; `packages/testing/src/environment.test.ts`, "registers
-each model script it is given on the hook, under its model id, with no prompt yet".
+prompt holds, and a once turn only once"; `packages/testing/src/environment.test.ts`, "registers
+each model script it is given on the hook, under its model id, with no prompt yet" and "registers a
+provider per scripted id in the model registry, from a script that closes over nothing".
+
+## A model is resolved through one registry
+
+**`localModel(id)` has one path: it asks one provider registry for `id`, and production code names
+no test.** The registry is on `globalThis` under `Symbol.for("@kanzo-tech/llm/local")`:
+
+```ts
+interface LocalModelRegistry {
+  languageModels: Map<string, LocalEngine>; // by id: { model, load }, registered first
+  fallbackProvider?: LocalProvider;         // the host's: setLocalProvider(localProvider({ baseURL, worker }))
+}
+```
+
+A model registered for `id` answers first; else the host's provider; else WebLLM's own prebuilt
+list. Without an id, `localModel()` asks the first registered, else the first the provider lists. A
+host sets its provider once, at its composition root, with where its models are served from:
+`localProvider({ baseURL: "/models" })` serves exactly what `/models/app-config.json` lists, and that
+file is **WebLLM's own `AppConfig`**, untranslated — the consumer is WebLLM, so its config is the
+format. The host's code names no model and no library version; whatever downloads the models writes
+the file beside them. A test's environment registers a provider per scripted id in `languageModels`,
+before the page's own scripts run, through the `addInitScript` path that installs the hook, and
+records each prompt on the hook.
+
+It replaced two branches and a second mechanism. `/local` read `__KANZO_TESTING__` itself and, when a
+script was there for its id, imported the double lazily — a test branch in the code that ships, and
+a chunk of `ai/test` in every production bundle that reached `/local`. And where a model's files
+came from was a setting of its own, `from: { weights, library }`, passed beside the engine choice on
+every call, so keasy kept a `ModelProvider` of its own to carry a URL and a second double-detecting
+branch around it. A provider configured with where it loads from is both at once.
+
+The references:
+
+- **The AI SDK's provider registry** — `createProviderRegistry` and `customProvider({ languageModels,
+  fallbackProvider })`, a model resolved by id from registered providers, and `createOpenAI({ baseURL
+  })`, a provider configured with where it is served. `languageModels` and `fallbackProvider` are its
+  names. `registry.languageModel(id)` names one model when it must; `localModel()` asks the first
+  served for the same reason.
+- **OpenTelemetry's global provider API** — `trace.setGlobalTracerProvider(provider)`: the library
+  reads one global, a default until something registers, under a `Symbol.for` key so that every
+  copy of the code finds the same one. `setLocalProvider` is its shape.
+- **WebLLM's `AppConfig`** — `{ model_list: [{ model, model_id, model_lib, … }] }`, the type
+  `@mlc-ai/web-llm` declares and its prebuilt list is; served as a file it is what `localProvider`
+  reads. **Transformers.js's `env.localModelPath`** is the same move in the other in-browser runtime:
+  one base on the host's origin that every model is read under.
+
+Not the AI SDK's own global, `globalThis.AI_SDK_DEFAULT_PROVIDER`: it resolves every *string* model
+id a host passes anywhere, a gateway's among them, and a page that ran a model in it and called a
+server with another would have one global answering for both.
+
+**The threat, stated plainly.** A script that runs before the app can register a provider, and the
+app will answer with it. It could equally replace `Worker`, `WebAssembly`, `fetch` or `navigator.gpu`
+before the app reads them, and WebLLM would run on whatever it found. No design can exclude a script
+that runs first and still let a test drive the build that ships — that is what testing the build that
+ships means — so the registry adds no capability such a script lacked. What it removes is the test
+branch: the code that ships no longer looks for a test, so it cannot be fooled into thinking it is
+in one. A page's Content Security Policy is what decides which scripts run first, as it always was.
+
+**What would reverse it:** a second engine in the page whose models are not WebLLM's — a
+Transformers.js model beside a WebLLM one. Then `app-config.json` is no longer the one listing, and
+the provider takes a listing per engine, or the registry a provider per engine, as the AI SDK's takes
+a provider per prefix. And a page that must refuse any provider it did not set itself — a host that
+cannot trust its first scripts — would need the registry closed after boot, which also closes it to
+its tests; nothing here has asked.
+
+*Held by* `packages/llm/src/local.test.ts`, "answers from the script registered for its id, records
+the prompt, and never reaches WebLLM", "asks the first scripted id when no id is asked, before the
+host's provider lists anything", "answers with WebLLM when nothing registered the id", "serves every
+model its app-config.json lists, in order, the first when no id is asked, with WebLLM's config handed
+on as written" and "is unserved when the listing is missing, lists nothing, or does not list the id
+asked".
+
+## Ask's evaluation set lives beside Ask
+
+**The evaluation set that scores Ask is `packages/ai/eval`, beside the Task it measures and outside
+the package's published `files`.** It measures `@kanzo-tech/ai/data`'s Ask and nothing of a
+product's: a case is a page's relation and filter, the questions asked in turn, and the rows the
+last answer must and must not have been read from — execution accuracy, as
+[Tasks](/docs/design/tasks#phases) defines the set. It came from keasy's `e2e/eval` on 14 October
+2026 and runs as it ran there; what changed is what it is driven through. In keasy it ran through
+keasy's pages, polled on a two-second loop and reached the card by `data-slot`; here it drives the
+library's own Ask through the harnesses a host uses, and waits on states. Decided 13 October 2026.
+
+| | |
+| --- | --- |
+| **Cases** | `packages/ai/eval/cases.ts`, data: 25 on Nobel for nearly every shape of question, 11 on LDBC SNB for self-joins and a large graph. Each says the failure it tests. Two ties must still be asked back, with the relations as numbered options — paths change that, and the cases with them |
+| **Corpora** | written by fossil's executor in Node through `docs/scripts/write-corpus.mjs`, as the docs' archive is: `pnpm --filter @kanzo-tech/ai eval:corpus` runs each `corpora/<name>/fetch.sh` (the data, pinned by digest) and then its `program.fossil` into `docs/public/corpus/<name>`. Data and corpus are `.gitignore`d. The set carries its own copy of the two programs, shapes and fetch scripts, read from the files beside them rather than through keasy's connections; keasy keeps its own as seed data — each repository owns what it runs |
+| **Page** | `/fixtures/ask-eval`, a page nobody reads, as `/fixtures/chat-frame` is: the corpus attached by name, a `Dashboard` and its `FilterBar` over the case's relation, and `Chat` over `useAskChat` with `AnswerCard`, under the page's one selection. The model is `localModel` in a worker, Qwen3 4B unless `EVAL_MODEL` names another; no offers and no chips, which a case does not score and a model would be slower for |
+| **Runner** | `ask.eval.ts`, a Vitest project (`vitest.eval.config.ts`) beside `@kanzo-tech/testing`'s end-to-end one: `playwright-core`'s Chromium with WebGPU, `DashboardHarness`, `FilterBarHarness`, `ChartHarness.pick` for the filter, `AnswerHarness` for the card and its rows, and one harness of its own for a turn that ends in words, which draws no card to wait on. `expect.poll` and `until`, no fixed wait |
+| **Model** | the real one, on the machine's GPU through WebGPU — live, never replayed, never the double: what is measured is the model. The browser profile is kept in `eval/.cache/`, so the weights are downloaded once |
+| **Results** | one line per case in `packages/ai/eval/results/<model>/ask.jsonl`, `.gitignore`d; a case that fails is a result, and the run fails only when it cannot ask |
+| **When** | by hand, `pnpm --filter @kanzo-tech/ai eval` with the docs running, before a change to Ask or to the model; never in `pnpm verify` and never on CI, which has no GPU. `EVAL_DOUBLE=1` is the smoke run: five cases on the one model double, answering with the specs a right answer is, to show the runner, the page and the scoring work on a machine with no GPU. It scores nothing |
+
+The set is data apart from its runner, so the second runner [Tasks](/docs/design/tasks#everything-in-the-browser-the-model-too)
+names — the same weights on native llama.cpp in CI — reads the same cases when it is built.
+
+**What was not moved.** keasy's `cases.ts` also held four cases for its assistant — the files a person
+picks and what the data is about, per dev example. They are the assistant's, not Ask's, and no runner
+read them; they stay keasy's, with its assistant.
+
+**No baseline yet.** The machine that moved the set has no GPU: WebLLM downloads the weights and then
+fails to start its engine, and every case is recorded as *the model cannot run in this browser*. The
+only number there is predates Ask as a Task — keasy's reference pass of 12 October 2026, 2 of 10 on
+Qwen3 4B — so the first run on a GPU is the baseline the join and answer model is measured against.
+
+**The docs' fossil is `0.3.0-alpha.31`, the version keasy's examples were last run on.** The SNB
+program names a column the datagen wrote twice, `KnowsRow."Person.id_1"`, and `alpha.28` does not
+parse a quoted name.
+
+**What would reverse it:** a second product's evaluation set over Ask with cases of its own — then
+the runner is the shared part, and each product keeps its cases.

@@ -65,6 +65,9 @@ The repository rules are in `../CLAUDE.md`. What follows is true only here.
   `node showcases/graph-bench/corpus/build-corpus.mjs [--sizes …]`, never built on CI; the million
   fails inside the executor (a DataFusion memory-pool panic in the WASM), so 200,000 is the largest
   there is until fossil fixes it.
+  Ask's evaluation set has two more, `public/corpus/nobel` and `public/corpus/snb`, which
+  `pnpm --filter @kanzo-tech/ai eval:corpus` writes from `packages/ai/eval/corpora` for
+  `/fixtures/ask-eval`; never built on CI, and nothing but that fixture reads them.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
