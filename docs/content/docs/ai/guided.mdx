@@ -98,7 +98,7 @@ const load = useSyncExternalStore((l) => watchLocalModel(MODEL, l), () => localM
 
 A popover rather than `Context`'s hover card, because a failure carries a retry and what a hover card
 holds cannot be reached by the keyboard or on touch. `onRetry` is offered for a failure the device
-can recover from, and not for `ai/unavailable` — no WebGPU, or no model served — which a second try
+can recover from, and not for `llm/unavailable` — no WebGPU, or no model served — which a second try
 ends the same way.
 
 | `ModelBadgeProps` | Type | |

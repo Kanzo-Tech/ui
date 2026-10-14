@@ -618,7 +618,7 @@ It waits for the canvas's first drawn frame (`aria-busy` until then) and, after 
 ```ts
 import { GraphCanvasHarness } from "@kanzo-tech/testing";
 
-const graph = await env.harness(GraphCanvasHarness);
+const graph = await env.getHarness(GraphCanvasHarness);
 await graph.ready();
 await graph.lasso([[-10, 40], [5, 40], [5, 55]], { in: "data", with: "Meta" });
 await graph.frame();

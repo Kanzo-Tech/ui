@@ -1,20 +1,11 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { jsonSchema } from "ai";
-import { MockLanguageModelV4 } from "ai/test";
+import { scriptedModel } from "@kanzo-tech/llm/testing";
 import { describe, expect, it } from "vitest";
 import { defineTask } from "./task/index.js";
 import { useTask, type TaskList } from "./use-task.js";
 
-const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } };
-const offering = (values: unknown[]) =>
-  new MockLanguageModelV4({
-    doGenerate: async () => ({
-      content: [{ type: "text", text: JSON.stringify({ elements: values }) }],
-      finishReason: { unified: "stop", raw: "stop" },
-      usage,
-      warnings: [],
-    }),
-  });
+const offering = (values: unknown[]) => scriptedModel({ turns: [{ reply: { object: { elements: values } } }] });
 
 /** A competency question, which must end in a question mark. */
 const questions = defineTask<string, { text: string }>({
@@ -26,7 +17,7 @@ const questions = defineTask<string, { text: string }>({
 });
 
 let list: TaskList<{ text: string }>;
-function Screen({ model }: { model: MockLanguageModelV4 }) {
+function Screen({ model }: { model: ReturnType<typeof scriptedModel> }) {
   list = useTask(questions, "prizes", { model, count: 3 });
   return <p>{list.state}</p>;
 }

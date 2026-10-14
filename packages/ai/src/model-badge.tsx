@@ -70,7 +70,7 @@ export interface ModelBadgeProps extends Omit<React.ComponentProps<typeof Badge>
  *
  * **A popover, not `Context`'s hover card.** A failure carries a retry, and what a hover card holds
  * cannot be reached by the keyboard or on touch; `FindingsBadge` is the same badge-and-popover for the
- * same reason. **No retry for `ai/unavailable`**: that code is the device — no WebGPU, no model served
+ * same reason. **No retry for `llm/unavailable`**: that code is the device — no WebGPU, no model served
  * — and a second try ends the same way.
  *
  * ARIA: the badge is a button named by its words, percentage included; Ark's popover gives it
@@ -81,7 +81,7 @@ export function ModelBadge(props: ModelBadgeProps) {
   const t = { ...ENGLISH, ...translations };
   const { variant, icon } = LOOK[load.state];
   const percent = load.state === "loading" ? Math.round(load.progress * 100) : null;
-  const recoverable = load.state === "failed" && (load.error as { code?: unknown } | null)?.code !== "ai/unavailable";
+  const recoverable = load.state === "failed" && (load.error as { code?: unknown } | null)?.code !== "llm/unavailable";
 
   return (
     <Popover>

@@ -464,7 +464,7 @@ two call sites that each wrote the reading by hand — a host's error view, over
 and the graph docs' failure overlay, a `code` lookup over an `Alert` — and it reads **a shape, not a
 class**: `code` in `area/kind`, `title`, `message`, `data`, `cause`, and `severity`, `help` and
 `related` where they are present. Every library here already throws that shape (`AuthError`,
-`GraphError`, `EngineError`, `AiError`, fossil's `FossilError`, a host's `ApiError`), so importing
+`GraphError`, `EngineError`, `LlmError`, fossil's `FossilError`, a host's `ApiError`), so importing
 none of them is what lets one component show all of them, and one more nobody has written yet.
 
 **The words are the host's, through one function.** `copy(code, data)` returns a title, a detail, a

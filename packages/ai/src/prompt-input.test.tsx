@@ -8,7 +8,7 @@ import {
   PromptInputTextarea,
   PromptInputToolbar,
 } from "./prompt-input.js";
-import type { ChatStatus } from "@kanzo-tech/llm";
+import type { ChatStatus } from "ai";
 
 const Composer = (props: { onSubmit: (e: React.FormEvent) => void; status?: ChatStatus }) => (
   <PromptInput onSubmit={props.onSubmit}>

@@ -12,7 +12,8 @@
 // READ OUT OF IT rather than copied, so the panel on the left and the errors on the form cannot
 // drift apart.
 
-import { elements, mockModel, promptOf } from "@/lib/mock-model";
+import { promptOf, scriptedModel } from "@kanzo-tech/llm/testing";
+import { PACE } from "@/lib/model-call";
 import { MEMBERS, member, membersOf } from "@/example/people";
 import { FEATURED, type Quest, dueOn, postedOn, questLabel } from "@/example/quests";
 import { ROSTER, availableNow } from "@/example/roster";
@@ -619,11 +620,14 @@ const NOTICE =
  * structured output when it wants candidates, so a JSON response format is the tell between the
  * one-line fields and the notice's continuation.
  */
-export const MODEL = mockModel((call) => {
-  if (call.responseFormat?.type !== "json") return NOTICE;
-  const field = /^Field: (.*)$/m.exec(promptOf(call))?.[1];
-  if (field?.startsWith("Tags")) {
-    return elements(Object.entries(TAG_NOTES).map(([value, rationale]) => ({ text: value, rationale })));
-  }
-  return elements(TITLES);
+export const MODEL = scriptedModel({
+  turns: (call) => {
+    if (call.responseFormat?.type !== "json") return { text: NOTICE };
+    const field = /^Field: (.*)$/m.exec(promptOf(call))?.[1];
+    if (field?.startsWith("Tags")) {
+      return { object: { elements: Object.entries(TAG_NOTES).map(([value, rationale]) => ({ text: value, rationale })) } };
+    }
+    return { object: { elements: TITLES } };
+  },
+  pace: PACE,
 });

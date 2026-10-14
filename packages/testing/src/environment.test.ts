@@ -12,8 +12,15 @@ class DisclosureHarness extends ComponentHarness {
   }
 
   async expanded(): Promise<boolean> {
-    return (await this.host.attribute("aria-expanded")) === "true";
+    return (await this.host.getAttribute("aria-expanded")) === "true";
   }
+}
+
+/** A harness over a region holding a disclosure, which it finds with `locatorFor` both ways. */
+class PanelHarness extends ComponentHarness {
+  static readonly by: By = { role: "region" };
+  readonly disclosure = this.locatorFor(DisclosureHarness);
+  readonly heading = this.locatorFor({ role: "heading" }, "the panel has no heading");
 }
 
 const hook = () => (globalThis as { __KANZO_TESTING__?: KanzoTestingHook }).__KANZO_TESTING__;
@@ -31,14 +38,31 @@ describe("the dom environment", () => {
     expect(hook()?.charts).toBeInstanceOf(Map);
   });
 
+  it("registers each model script it is given on the hook, under its model id, with no prompt yet", () => {
+    const script = { turns: [{ reply: { text: "Four." } }] };
+    dom(document.body, { models: { "Qwen3-4B-q4f16_1-MLC": script } });
+    expect(hook()?.models.get("Qwen3-4B-q4f16_1-MLC")).toEqual({ script, prompts: [] });
+  });
+
+  it("locates a part's harness or an element inside the host, and says what it waited for when neither comes", async () => {
+    document.body.innerHTML = `<section aria-label="Quest"><h2>Basilisk</h2><button aria-expanded="true">More</button></section>`;
+    const env = dom(document.body, { timeout: 50 });
+    const panel = await env.getHarness(PanelHarness);
+    expect(await (await panel.disclosure()).expanded()).toBe(true);
+    expect(await (await panel.heading()).text()).toBe("Basilisk");
+    document.body.innerHTML = `<section aria-label="Quest"></section>`;
+    const empty = await env.getHarness(PanelHarness);
+    await expect(empty.heading()).rejects.toThrow(/Timed out after 50 ms: the panel has no heading/);
+  });
+
   it("finds a harness's host by its role and accessible name, and waits for one that is not there yet", async () => {
     const env = dom();
     setTimeout(() => {
       document.body.innerHTML = `<button aria-expanded="false">Details</button><button aria-expanded="true">Filters</button>`;
     }, 20);
-    const filters = await env.harness(DisclosureHarness.with({ name: "Filters" }));
+    const filters = await env.getHarness(DisclosureHarness.with({ name: "Filters" }));
     expect(await filters.expanded()).toBe(true);
-    expect(await (await env.harnesses(DisclosureHarness)).length).toBe(2);
+    expect(await (await env.getAllHarnesses(DisclosureHarness)).length).toBe(2);
   });
 
   it("keeps the elements that contain a match of `has`, and only those", async () => {
@@ -46,15 +70,15 @@ describe("the dom environment", () => {
       <article><h3>Sightings</h3><p>42</p></article>
       <article><h3>Bounty</h3><p>7</p></article>`;
     const env = dom();
-    const [tile] = await env.root.find({ role: "article", has: { role: "heading", name: "Bounty" } });
+    const [tile] = await env.rootElement.find({ role: "article", has: { role: "heading", name: "Bounty" } });
     const [figure] = (await tile?.find({ text: "7" })) ?? [];
     expect(await figure?.text()).toBe("7");
-    expect(await env.root.find({ role: "article", has: { role: "heading", name: "Nothing" } })).toEqual([]);
+    expect(await env.rootElement.find({ role: "article", has: { role: "heading", name: "Nothing" } })).toEqual([]);
   });
 
   it("fails a wait with what it waited for, never after a fixed time with nothing to say", async () => {
     const env = dom(document.body, { timeout: 50 });
-    await expect(env.harness(DisclosureHarness.with({ name: "Nowhere" }))).rejects.toThrow(
+    await expect(env.getHarness(DisclosureHarness.with({ name: "Nowhere" }))).rejects.toThrow(
       /Timed out after 50 ms: no button "Nowhere" in the document/,
     );
   });
@@ -71,7 +95,7 @@ describe("the dom environment", () => {
         seen.push(`${type} ${pointer.clientX},${pointer.clientY} alt=${pointer.altKey}`);
       });
     }
-    const [handle] = await env.root.find({ role: "application", name: "Surface" });
+    const [handle] = await env.rootElement.find({ role: "application", name: "Surface" });
     await handle?.click({ with: ["Meta"] });
     await handle?.drag([[0, 0], [10, 0], [10, 10]], { with: ["Alt"] });
     expect(seen).toEqual([

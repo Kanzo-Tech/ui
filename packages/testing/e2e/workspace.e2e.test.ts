@@ -48,7 +48,7 @@ afterEach(async () => {
 
 describe("the workspace's graph", () => {
   it("draws the archive, and a lasso around a vertex gives the canvas a clause", async () => {
-    const graph = await env.harness(GraphCanvasHarness);
+    const graph = await env.getHarness(GraphCanvasHarness);
     await graph.ready();
     expect(await graph.counts()).toMatch(/1\.5K nodes/);
     await graph.pause();
@@ -68,7 +68,7 @@ describe("the workspace's graph", () => {
   });
 
   it("runs and pauses the layout through its transport", async () => {
-    const graph = await env.harness(GraphCanvasHarness);
+    const graph = await env.getHarness(GraphCanvasHarness);
     await graph.ready();
     await graph.run();
     await graph.pause();
@@ -78,7 +78,7 @@ describe("the workspace's graph", () => {
 
 describe("the workspace's dock", () => {
   it("opens a panel by its label, and collapses the dock when it is pressed again", async () => {
-    const dock = await env.harness(DockHarness.with({ name: "Inspectors" }));
+    const dock = await env.getHarness(DockHarness.with({ name: "Inspectors" }));
     expect(await dock.current()).toBe("Info");
     await dock.open("Settings");
     expect(await dock.current()).toBe("Settings");
@@ -89,10 +89,10 @@ describe("the workspace's dock", () => {
 
 describe("the workspace's Ask panel", () => {
   it("asks a question the recording knows, reads the answer's chart, and filters the page to it", async () => {
-    const graph = await env.harness(GraphCanvasHarness);
+    const graph = await env.getHarness(GraphCanvasHarness);
     await graph.ready();
-    await (await env.harness(DockHarness.with({ name: "Inspectors" }))).open("Ask");
-    const answers = await env.harness(AnswerHarness);
+    await (await env.getHarness(DockHarness.with({ name: "Inspectors" }))).open("Ask");
+    const answers = await env.getHarness(AnswerHarness);
     await answers.ask("What does the Amber Hall hold, by kind?");
     const tile = await answers.answer();
     await (await tile.chart()).settled();
@@ -100,7 +100,7 @@ describe("the workspace's Ask panel", () => {
     // The answer's clause reaches the graph: it greys out what the Amber Hall does not hold, and the
     // one Frame is named for what is left in full colour. The page has no filter bar to count it.
     await expect
-      .poll(async () => (await env.root.find({ role: "button", name: "Frame what the filters keep" })).length, { timeout: 30_000 })
+      .poll(async () => (await env.rootElement.find({ role: "button", name: "Frame what the filters keep" })).length, { timeout: 30_000 })
       .toBe(1);
   });
 });
@@ -110,14 +110,14 @@ describe("the workspace's dashboard", () => {
   // once the graph has drawn: the showcase remounts its shell when the archive attaches, which would
   // put the view back on Graph.
   beforeEach(async () => {
-    await (await env.harness(GraphCanvasHarness)).ready();
-    await (await env.harness(DockHarness.with({ name: "View" }))).open("Sightings");
+    await (await env.getHarness(GraphCanvasHarness)).ready();
+    await (await env.getHarness(DockHarness.with({ name: "View" }))).open("Sightings");
   });
 
   it("picks a bar by its value, and removing the beast filter from the bar retracts it", async () => {
-    const dashboard = await env.harness(DashboardHarness);
+    const dashboard = await env.getHarness(DashboardHarness);
     await dashboard.settled();
-    const bar = await env.harness(FilterBarHarness);
+    const bar = await env.getHarness(FilterBarHarness);
     const all = await bar.readout();
     expect(all).toMatch(/^[\d,]+ sightings$/);
 
@@ -133,8 +133,8 @@ describe("the workspace's dashboard", () => {
   });
 
   it("brushes a range in data, through the chart's own scale", async () => {
-    const hours = await env.harness(ChartHarness.with({ title: "Sightings by hour" }));
-    const bar = await env.harness(FilterBarHarness);
+    const hours = await env.getHarness(ChartHarness.with({ title: "Sightings by hour" }));
+    const bar = await env.getHarness(FilterBarHarness);
     const all = await bar.readout();
     await hours.brush({ x: [6, 12] });
     await expect.poll(() => bar.readout(), { timeout: 30_000 }).not.toBe(all);

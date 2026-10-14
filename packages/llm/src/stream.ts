@@ -29,7 +29,7 @@ export interface Stream<OUTPUT extends OutputInterface> {
  * - **A failure throws, once the stream ends.** The SDK reports a failed stream to `onError` and then
  *   ends it as if it had finished, so a refused call would read as a model with nothing to say. Each
  *   reading below rethrows what was reported, whole: a page that cannot run the model as its
- *   `AiError` coded `ai/unavailable`, anything else as the model threw it.
+ *   `LlmError` coded `llm/unavailable`, anything else as the model threw it.
  * - **Never retried.** A model that failed on this device fails the same way asked again, and each
  *   attempt is a whole generation the person waits through.
  *

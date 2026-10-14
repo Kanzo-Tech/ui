@@ -1,5 +1,5 @@
 import { fireEvent, queryAllByRole, queryAllByText, waitFor } from "@testing-library/dom";
-import { HarnessEnvironment, modifierFlags, type By, type Driver, type Handle } from "./environment";
+import { HarnessEnvironment, modifierFlags, type By, type Driver, type TestElement } from "./environment";
 import { install } from "./hook";
 import type { EnvironmentOptions } from "./playwright";
 
@@ -8,14 +8,14 @@ import type { EnvironmentOptions } from "./playwright";
  * queries, so a unit test drives a component through the harness a host's end-to-end suite uses.
  * It installs the test hook at once, so call it *before* rendering: a component registers while it
  * mounts. `container` is where every search starts; `document.body` holds what Testing Library's
- * `render` appends.
+ * `render` appends. `models` registers a model double's script per model id, as `playwright` does.
  *
  * jsdom has no layout and no WebGL: a box is all zeros, a chart never measures a width to draw at,
  * and a graph canvas has no renderer. What a harness reads there is the ARIA, which is what this
  * environment is for.
  */
 export function dom(container: HTMLElement = document.body, options: EnvironmentOptions = {}): HarnessEnvironment {
-  install();
+  install(options.models);
   const timeout = options.timeout ?? 5_000;
   const driver: Driver = {
     root: handle(container),
@@ -57,16 +57,16 @@ async function press(element: Element, init: MouseEventInit) {
   fireEvent.click(element, { button: 0, ...init });
 }
 
-function handle(element: HTMLElement): Handle {
+function handle(element: HTMLElement): TestElement {
   return {
     find: async (by) => query(element, by).map(handle),
     text: async () => (element.textContent ?? "").replace(/\s+/g, " ").trim(),
-    attribute: async (name) => element.getAttribute(name),
+    getAttribute: async (name) => element.getAttribute(name),
     // jsdom lays nothing out and has no `scrollIntoView`; there is nothing to scroll.
     reveal: async () => element.scrollIntoView?.({ block: "center" }),
-    async rect() {
-      const { x, y, width, height } = element.getBoundingClientRect();
-      return { x, y, width, height };
+    async getDimensions() {
+      const { top, left, width, height } = element.getBoundingClientRect();
+      return { top, left, width, height };
     },
     async click({ at, with: keys } = {}) {
       await press(element, { ...modifierFlags(keys), ...(at ? { clientX: at[0], clientY: at[1] } : {}) });
@@ -83,7 +83,7 @@ function handle(element: HTMLElement): Handle {
       fireEvent.input(element, { target: { value } });
       fireEvent.change(element, { target: { value } });
     },
-    async press(key) {
+    async sendKeys(key) {
       fireEvent.keyDown(element, { key });
       fireEvent.keyUp(element, { key });
     },

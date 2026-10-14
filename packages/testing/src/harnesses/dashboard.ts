@@ -1,9 +1,9 @@
-import { ComponentHarness, type By, type Handle, type HarnessQuery } from "../environment";
+import { ComponentHarness, type By, type TestElement, type HarnessQuery } from "../environment";
 import { ChartHarness } from "./chart";
 
 /** Nothing under `element` is `aria-busy`: no chart querying, no figure loading. */
-async function quiet(element: Handle): Promise<boolean> {
-  return (await element.attribute("aria-busy")) !== "true" && (await element.find({ css: '[aria-busy="true"]' })).length === 0;
+async function quiet(element: TestElement): Promise<boolean> {
+  return (await element.getAttribute("aria-busy")) !== "true" && (await element.find({ css: '[aria-busy="true"]' })).length === 0;
 }
 
 /**
@@ -25,7 +25,7 @@ export class TileHarness extends ComponentHarness {
 
   /** The chart the tile draws. */
   chart(): Promise<ChartHarness> {
-    return this.locate(ChartHarness);
+    return this.locatorFor(ChartHarness)();
   }
 
   async settled(): Promise<void> {
@@ -43,7 +43,7 @@ export class DashboardHarness extends ComponentHarness {
 
   /** The tile titled `title`, waited for. */
   tile(title: string | RegExp): Promise<TileHarness> {
-    return this.locate(TileHarness.with({ title }));
+    return this.locatorFor(TileHarness.with({ title }))();
   }
 
   /** Resolves once the fields are read and nothing in any tile is loading. */

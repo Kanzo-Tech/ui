@@ -2,7 +2,7 @@
 
 import { ark } from "@ark-ui/react/factory";
 import * as React from "react";
-import { getToolName, isToolUIPart, type UIMessage } from "@kanzo-tech/llm";
+import { getToolName, isToolUIPart, type UIMessage } from "ai";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { cn, DiagnosticList, Problem, type ProblemProps, Skeleton, Suggestion, Suggestions } from "@kanzo-tech/ui";
 import type { Proposal } from "./engine.js";

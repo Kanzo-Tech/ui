@@ -1,11 +1,12 @@
 /**
- * The failure this package names: the model cannot answer here (`ai/unavailable`) — today, a page
- * whose browser has no WebGPU for `localModel`. `data.reason` says which way it cannot.
+ * The failure this package names: the model cannot answer here (`llm/unavailable`) — today, a page
+ * whose browser has no WebGPU for `localModel`. `data.reason` says which way it cannot. One class per
+ * package, named for it, in the `area/kind` grammar every code here uses (`/docs/design/failure`).
  */
-export class AiError extends Error {
-  override readonly name = "AiError";
+export class LlmError extends Error {
+  override readonly name = "LlmError";
   constructor(
-    readonly code: "ai/unavailable",
+    readonly code: "llm/unavailable",
     message: string,
     readonly data: { readonly reason?: string } = {},
     options?: ErrorOptions,

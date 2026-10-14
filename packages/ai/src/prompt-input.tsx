@@ -12,7 +12,7 @@ import {
   InputGroupTextarea,
   Spinner,
 } from "@kanzo-tech/ui";
-import type { ChatStatus } from "@kanzo-tech/llm";
+import type { ChatStatus } from "ai";
 
 /**
  * The composer: the library's `InputGroup` as a form, so Enter and the button are one path.

@@ -27,14 +27,17 @@ export class RulesPanelHarness extends ComponentHarness {
 }
 ```
 
-`this.host` is a `Handle`, the element the environment found. `env.harness(RulesPanelHarness)`
+`this.host` is a `TestElement`, the element the environment found. `env.getHarness(RulesPanelHarness)`
 waits for the host to be in the document and builds the harness over it, in Playwright and in jsdom
 alike.
 
 ## Finding what is inside the host
 
-`this.host.find(by)` answers the descendants that match now, and `this.one(by, what)` waits for the
-first one and fails with `what` when it never comes. A `By` is the same in both places:
+`this.host.find(by)` answers the descendants that match now. `this.locatorFor(by, what)` is CDK's
+locator: it returns **the function that finds** the first one, waiting for it and failing with `what`
+when it never comes, so a harness declares its parts once, as fields, and calls them where it needs
+them. The function takes another element to search instead of the host. A `By` is the same in both
+places:
 
 - `{ role, name }` — a role and its accessible name, which is what a screen reader announces;
 - `{ role, has }` — an element of that role holding a match of its own, *an article holding its title*;
@@ -56,7 +59,7 @@ export class PanelHarness extends ComponentHarness {
   }
 }
 
-const orders = await env.harness(PanelHarness.with({ name: "Orders panel" }));
+const orders = await env.getHarness(PanelHarness.with({ name: "Orders panel" }));
 ```
 
 ## Waiting on a state
@@ -67,10 +70,12 @@ rejects with `what`. It is the only way a harness waits. A fixed time is either 
 runner or wasted on a fast one, and it says nothing when it fails.
 
 ```ts
+private readonly nameField = this.locatorFor({ role: "textbox", name: "Rule name" }, "the panel has no rule name field");
+private readonly addButton = this.locatorFor({ role: "button", name: "Add rule" }, "the panel has no Add rule");
+
 async addRule(name: string): Promise<void> {
-  const field = await this.one({ role: "textbox", name: "Rule name" }, "the panel has no rule name field");
-  await field.fill(name);
-  await (await this.one({ role: "button", name: "Add rule" }, "the panel has no Add rule")).click();
+  await (await this.nameField()).fill(name);
+  await (await this.addButton()).click();
   await this.env.until(
     async () => (await this.host.find({ role: "listitem", has: { text: name } })).length > 0,
     `the rule ${name} was not added`,
@@ -85,7 +90,8 @@ is what the library's own parts use.
 ## Composing the library's harnesses
 
 A harness for a host's panel returns the library's harnesses for the library's parts in it, rather
-than reaching into their markup. `this.locate(query)` finds one inside the host:
+than reaching into their markup. `this.locatorFor` takes a harness query as well as a `By`, and
+its function then resolves with that harness, inside the host:
 
 ```ts
 import { ComponentHarness, FindingsBadgeHarness, type By } from "@kanzo-tech/testing";
@@ -94,13 +100,11 @@ export class RulesPanelHarness extends ComponentHarness {
   static readonly by: By = { role: "complementary", name: "Rules panel" };
 
   /** What the rules found, as the library's own harness drives it. */
-  findings(): Promise<FindingsBadgeHarness> {
-    return this.locate(FindingsBadgeHarness);
-  }
+  readonly findings = this.locatorFor(FindingsBadgeHarness);
 }
 
-const panel = await env.harness(RulesPanelHarness);
-const finding = await (await panel.findings()).row("No date on the writ");
+const panel = await env.getHarness(RulesPanelHarness);
+const finding = await (await panel.findings()).item("No date on the writ");
 expect(await finding.severity()).toBe("violation");
 ```
 

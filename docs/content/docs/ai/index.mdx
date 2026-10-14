@@ -23,9 +23,9 @@ last, when keasy's guided chat drew both by hand — the scroll as an effect tha
 the composer from `InputGroup` with Enter wired again. The ✨ stays internal, since nothing draws it
 but `Assist`, and would come out the same way. [The parts](/docs/ai/chat#the-parts) lists them.
 
-The model behind all of them is the [AI SDK](https://ai-sdk.dev)'s, and a host reaches it through
-[`@kanzo-tech/llm`](/docs/ai/llm), never through `ai` directly — [in the page](/docs/ai/llm#localmodel),
-on WebGPU.
+The model behind all of them is the [AI SDK](https://ai-sdk.dev)'s, asked through
+[`@kanzo-tech/llm`](/docs/ai/llm)'s two doors — [in the page](/docs/ai/llm#localmodel), on WebGPU.
+The SDK's own names a host imports from `ai`.
 
 ## Why it is not in the library
 
@@ -66,28 +66,28 @@ carries sources only: the tokens and variants are `ui`'s.
 
 ## The middleware pattern
 
-`@kanzo-tech/llm` stands to the AI SDK as `@kanzo-tech/mosaic` stands to Mosaic: the third party is
-a required peer, its surface is re-exported, and what is ours is the door it does not have —
-`stream`, and `localModel`, a model in the page. Three layers:
+`@kanzo-tech/llm` holds what the AI SDK lacks and none of what it has: the third party is a
+required peer, imported by name, and what is ours is the door it does not have — `stream` and
+`generate`, each asking once, and `localModel`, a model in the page. Three layers:
 
 ```text
-@kanzo-tech/ai      Assist, Chat, useAgentChat   React; draws
-@kanzo-tech/llm     localModel, stream + the SDK no React; models, agents, tools
-ai, @ai-sdk/react   the AI SDK                   installed once, imported by neither
+@kanzo-tech/ai      Assist, Chat, useAgentChat       React; draws
+@kanzo-tech/llm     stream, generate, localModel     no React; every model call, once
+ai, @ai-sdk/react   the AI SDK: agents, tools, types installed once, imported by name
 ```
 
-So a host's AI imports are a few lines, and none names `ai`:
+So a host's AI imports are a few lines:
 
 ```tsx
 import { localModel } from "@kanzo-tech/llm/local";
-import { ToolLoopAgent, tool } from "@kanzo-tech/llm";
+import { ToolLoopAgent, tool } from "ai";
 import { Assist, AssistProvider, Chat, useAgentChat } from "@kanzo-tech/ai";
 ```
 
 ## What it does not do
 
 - **It does not choose a model.** A model is a `LanguageModel` the host passes in — `localModel`,
-  in the page, or a mock in a test. `Assist` asks whatever `AssistProvider` is given; `Chat` draws
+  in the page, or [the double](/docs/ai/llm#a-model-double) in a test. `Assist` asks whatever `AssistProvider` is given; `Chat` draws
   whatever its agent streams.
 - **It does not persist anything.** The conversation is the AI SDK's chat state, and a field's
   value is the host's own state.
@@ -96,5 +96,5 @@ import { Assist, AssistProvider, Chat, useAgentChat } from "@kanzo-tech/ai";
   <Card title="Assist" href="/docs/ai/assist" description="One proposal for a field, drawn as ghost text or as chips." />
   <Card title="Chat" href="/docs/ai/chat" description="A conversation with a model, whole, with the host's tools drawn inside it." />
   <Card title="Ask your data" href="/docs/ai/data" description="An agent that answers with a dashboard tile over the page's data, and the card each answer is drawn in." />
-  <Card title="@kanzo-tech/llm" href="/docs/ai/llm" description="localModel, stream, and the AI SDK re-exported." />
+  <Card title="@kanzo-tech/llm" href="/docs/ai/llm" description="stream and generate, each asking once; localModel; and the model double." />
 </Cards>

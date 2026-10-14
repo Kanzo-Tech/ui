@@ -14,7 +14,7 @@ import { act, render } from "@testing-library/react";
 import { clausePoint, Selection, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
 import { InfoIcon, MessageCircleIcon } from "lucide-react";
 import { useState } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, expectTypeOf, it } from "vitest";
 import { ChartBarY } from "./charts/chart-marks.js";
 import { ChartRoot } from "./charts/chart-root.js";
 import { Dashboard } from "./charts/dashboard.js";
@@ -31,7 +31,7 @@ import {
   FindingsList,
   FindingsRoot,
 } from "./composites/findings.js";
-import { type Finding, groupFindings, tallyFindings } from "./lib/findings.js";
+import { type Finding, type FindingSeverity, groupFindings, tallyFindings } from "./lib/findings.js";
 import { ShellDockItem, ShellDockSwitcher } from "./layouts/shell-dock.js";
 import { DiagnosticList } from "./simples/diagnostic.js";
 
@@ -102,7 +102,7 @@ describe("FilterBarHarness", () => {
         <FilterBar rowNoun="sightings" relation="sightings" />
       </MosaicProvider></QueryClientProvider>,
     );
-    const bar = await env.harness(FilterBarHarness);
+    const bar = await env.getHarness(FilterBarHarness);
     expect(await bar.readout()).toBe("10 sightings");
     // The page's one count, first in the row: dc.js's dataCount, before the chips it counts for.
     expect(document.querySelector("[data-slot=filter-bar]")?.firstElementChild?.getAttribute("data-slot")).toBe("filter-bar-readout");
@@ -125,7 +125,7 @@ describe("FilterBarHarness", () => {
         <Dashboard relation="sightings" value={spec} />
       </MosaicProvider></QueryClientProvider>,
     );
-    const bar = await env.harness(FilterBarHarness);
+    const bar = await env.getHarness(FilterBarHarness);
     await expect.poll(() => bar.chips()).toEqual(["bounty: Any"]);
     await bar.open("bounty");
   });
@@ -146,7 +146,7 @@ describe("DashboardHarness", () => {
         <Dashboard relation="sightings" value={spec} />
       </MosaicProvider></QueryClientProvider>,
     );
-    const dashboard = await env.harness(DashboardHarness);
+    const dashboard = await env.getHarness(DashboardHarness);
     await dashboard.settled();
     expect(await (await dashboard.tile("Bounty paid")).text()).toMatch(/^Bounty paid/);
     await expect(dashboard.tile("Sightings by hour")).rejects.toThrow(/no article holding text "Sightings by hour"/);
@@ -163,7 +163,7 @@ describe("ChartHarness", () => {
         </ChartRoot>
       </MosaicProvider></QueryClientProvider>,
     );
-    const chart = await env.harness(ChartHarness.with({ title: "Count by region" }));
+    const chart = await env.getHarness(ChartHarness.with({ title: "Count by region" }));
     expect(await chart.title()).toBe("Count by region");
     // jsdom lays nothing out, so the chart never measures a width to draw at: busy is the truth.
     expect(await chart.busy()).toBe(true);
@@ -230,7 +230,7 @@ describe("FindingsBadgeHarness", () => {
         </FindingsContent>
       </FindingsRoot>,
     );
-    const badge = await env.harness(FindingsBadgeHarness);
+    const badge = await env.getHarness(FindingsBadgeHarness);
     expect(await badge.tally()).toBe("2 findings");
     expect(await badge.groups()).toEqual(["LedgerShape"]);
     const item = await badge.item("No date on the writ");
@@ -254,7 +254,7 @@ describe("FindingsItemHarness", () => {
         </FindingsItem>
       </DiagnosticList>,
     );
-    const [one, many] = await env.harnesses(FindingsItemHarness);
+    const [one, many] = await env.getAllHarnesses(FindingsItemHarness);
     expect(await one!.severity()).toBe("info");
     expect(await one!.message()).toBe("The seal is faded");
     expect(await one!.count()).toBe(1);
@@ -262,6 +262,12 @@ describe("FindingsItemHarness", () => {
     expect(await many!.count()).toBe(5);
     expect(await many!.where()).toBe("date");
     expect(await many!.sample()).toEqual(["Ledger/0", "Ledger/1"]);
+  });
+
+  it("reads a severity as FindingSeverity, the one name it has", () => {
+    // `@kanzo-tech/testing` imports nothing of the components', so it states the union and names it
+    // no second time; this is what fails when the two drift apart.
+    expectTypeOf<Awaited<ReturnType<FindingsItemHarness["severity"]>>>().toEqualTypeOf<FindingSeverity>();
   });
 });
 
@@ -278,7 +284,7 @@ describe("DockHarness", () => {
       );
     }
     render(<Dock />);
-    const dock = await env.harness(DockHarness.with({ name: "Side panels" }));
+    const dock = await env.getHarness(DockHarness.with({ name: "Side panels" }));
     expect(await dock.current()).toBe("Info");
     await dock.open("Ask");
     expect(await dock.current()).toBe("Ask");
@@ -305,7 +311,7 @@ describe("RelationPickerHarness", () => {
   it("picks a root and hops by sentence, by step or by label, and removes any", async () => {
     const env = dom();
     render(<Picked />);
-    const picker = await env.harness(RelationPickerHarness);
+    const picker = await env.getHarness(RelationPickerHarness);
     await picker.pick("Place");
     expect(await picker.root()).toBe("Place");
     await picker.add("<isLocatedIn<Comment");

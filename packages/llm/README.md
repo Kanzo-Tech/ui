@@ -1,6 +1,6 @@
 # @kanzo-tech/llm
 
-The model conversation, without React.
+The two doors to a model's answer, without React.
 
 ```bash
 npm install @kanzo-tech/llm ai
@@ -8,33 +8,36 @@ npm install @browser-ai/web-llm @mlc-ai/web-llm   # for localModel, a model in t
 ```
 
 `ai` is a **required** peer, not an optional one: there is nothing here without it, and a host
-installs it once so that its own agent and `@kanzo-tech/ai`'s components share one `UIMessage`, one
-`ToolLoopAgent` and one transport. Same standing `@uwdata/mosaic-*` have in `@kanzo-tech/mosaic`.
+installs it once so that its own agent and `@kanzo-tech/ai`'s components share one `UIMessage` and
+one transport. **None of it is re-exported**: import `ToolLoopAgent`, `tool`, `Output` and the
+message types from `ai` by name, as every package here does.
 
 ## What it holds
 
 ```ts
-import { stream, ToolLoopAgent, DirectChatTransport, tool, Output } from "@kanzo-tech/llm";
+import { generate, stream, LlmError } from "@kanzo-tech/llm";
 import { localModel, serveLocalModel } from "@kanzo-tech/llm/local";
+import { scriptedModel } from "@kanzo-tech/llm/testing";
 ```
 
-- **`localModel(id, { worker })`**, from **`@kanzo-tech/llm/local`** — the model, in the
-  page, on WebGPU through WebLLM and `@browser-ai/web-llm`: both optional peers that only this subpath
-  reaches. One engine per model per page; without WebGPU a call fails as an `AiError` coded
-  `ai/unavailable`, `data.reason` `"webgpu"`, before anything is downloaded. A model that reasons
-  inline in `<think>…</think>` (Qwen3, DeepSeek) gets that lifted into the SDK's `reasoning` part.
-  A call may pass `providerOptions.kanzo.grammar`, an EBNF the engine holds every token to — how a
-  Task whose artefact is text in a language gets text in that language. `from: { weights, library }`
-  serves the model from the host's own origin rather than Hugging Face; `loadLocalModel(id, settings)`
-  downloads and loads it before the first call, and `localModelLoad(id)` / `watchLocalModel(id, listener)`
-  say where that stands. `serveLocalModel()` is the worker's whole script.
-- **`stream({ model, system, prompt, output })`** — the one door to an answer: `streamText`, never
+- **`stream({ model, system, prompt, output })`** — an answer as it is written: `streamText`, never
   retried, read as `text`, `elements` (`Output.array`) or `partial` (`Output.object`), each of which
   **throws what stopped the model** once it ends. The SDK alone reports a failed stream to `onError`
-  and ends it as if it had finished, so `streamText` is not re-exported: the raw call is the one that
-  passes a refusal off as a short answer.
-- **Re-exports** of the AI SDK surface a host needs — the agent, the transport, `tool`, `Output`,
-  and the message and part types — so a host never imports `ai` itself.
+  and ends it as if it had finished.
+- **`generate({ …, providerOptions })`** — the same, read whole: `generateText`, asked once.
+  Every model call the library makes goes through one of the two.
+- **`LlmError`** — `llm/unavailable`, `data.reason` `"webgpu"`: the page cannot run the model.
+- **`localModel(id, { worker, from })`**, from **`@kanzo-tech/llm/local`** — the model, in the
+  page, on WebGPU through WebLLM and `@browser-ai/web-llm`: both optional peers that only this subpath
+  reaches. One engine per model per page; without WebGPU a call fails as `LlmError`, before anything
+  is downloaded. A call may pass `providerOptions.kanzo.grammar`, an EBNF the engine holds every
+  token to. `loadLocalModel(id, settings)` downloads and loads it before the first call, and
+  `localModelLoad(id)` / `watchLocalModel(id, listener)` say where that stands. `serveLocalModel()`
+  is the worker's whole script.
+- **`scriptedModel(script)`**, from **`@kanzo-tech/llm/testing`** — the one model double: the AI
+  SDK's `MockLanguageModelV4` answering from a script of turns. A unit test passes it where a model
+  goes; an end-to-end test registers the script with `@kanzo-tech/testing`'s
+  `playwright(page, { models })`, and `localModel` answers from it in place of the model.
 
 ## Why it is not part of `@kanzo-tech/ai`
 

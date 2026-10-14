@@ -1,7 +1,7 @@
 "use client";
 
 import { Chat, ToolInput, ToolOutput, useAgentChat } from "@kanzo-tech/ai";
-import { jsonSchema, tool, ToolLoopAgent } from "@kanzo-tech/llm";
+import { jsonSchema, tool, ToolLoopAgent } from "ai";
 import {
   Badge,
   Table,
@@ -12,7 +12,8 @@ import {
   TableRow,
 } from "@kanzo-tech/ui";
 import { daysOverdue, overdueQuests } from "@/example/quests";
-import { afterTool, mockModel } from "@/lib/mock-model";
+import { scriptedModel } from "@kanzo-tech/llm/testing";
+import { afterTool, PACE } from "@/lib/model-call";
 
 interface Late {
   id: string;
@@ -35,11 +36,13 @@ const late = tool({
       .map((quest) => ({ id: quest.id, title: quest.title, days: daysOverdue(quest) })),
 });
 
-const model = mockModel((call) =>
-  afterTool(call)
-    ? `Those are the ${Math.min(3, overdueQuests().length)} longest overdue. Start with the first: it is the oldest.`
-    : { reasoning: "The board knows what is late; ask it rather than guess.", tool: "late", input: { limit: 3 } },
-);
+const model = scriptedModel({
+  turns: (call) =>
+    afterTool(call)
+      ? { text: `Those are the ${Math.min(3, overdueQuests().length)} longest overdue. Start with the first: it is the oldest.` }
+      : { reasoning: "The board knows what is late; ask it rather than guess.", tool: "late", input: { limit: 3 } },
+  pace: PACE,
+});
 
 const agent = new ToolLoopAgent({ model, tools: { late } });
 

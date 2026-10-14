@@ -1,4 +1,4 @@
-import { ComponentHarness, type By, type Handle, type Modifier, type Point } from "../environment";
+import { ComponentHarness, type By, type TestElement, type Modifier, type Point } from "../environment";
 import type { KanzoTestingHook } from "../hook";
 
 const UNREGISTERED =
@@ -32,13 +32,13 @@ export class GraphCanvasHarness extends ComponentHarness {
 
   /** Frames drawn so far. */
   async frames(): Promise<number> {
-    return Number((await this.host.attribute("data-frame")) ?? 0);
+    return Number((await this.host.getAttribute("data-frame")) ?? 0);
   }
 
   /** Starts the layout from where the points are — Resume or Run, whichever the transport offers. */
   async run(): Promise<void> {
     const button = await this.transport();
-    const label = (await button.attribute("aria-label")) ?? "";
+    const label = (await button.getAttribute("aria-label")) ?? "";
     if (label.startsWith("Pause")) return;
     const before = await this.frames();
     await button.click();
@@ -48,9 +48,9 @@ export class GraphCanvasHarness extends ComponentHarness {
   /** Pauses a running layout; a settled one has nothing to pause. */
   async pause(): Promise<void> {
     const button = await this.transport();
-    if (!((await button.attribute("aria-label")) ?? "").startsWith("Pause")) return;
+    if (!((await button.getAttribute("aria-label")) ?? "").startsWith("Pause")) return;
     await button.click();
-    await this.env.until(async () => (await (await this.transport()).attribute("aria-pressed")) === "true", "the layout did not pause");
+    await this.env.until(async () => (await (await this.transport()).getAttribute("aria-pressed")) === "true", "the layout did not pause");
   }
 
   /** Draws a lasso through `points` with the toolbar's Lasso, and waits for the canvas to redraw. */
@@ -66,7 +66,7 @@ export class GraphCanvasHarness extends ComponentHarness {
   /** Presses the toolbar's Frame and waits for the camera to have moved: a frame drawn after it. */
   async frame(): Promise<void> {
     const before = await this.frames();
-    const button = await this.one({ role: "button", name: /^Frame/ }, "the canvas holds no Frame");
+    const button = await this.locatorFor({ role: "button", name: /^Frame/ }, "the canvas holds no Frame")();
     await button.click();
     await this.drawnSince(before);
   }
@@ -88,13 +88,13 @@ export class GraphCanvasHarness extends ComponentHarness {
    * canvas's: the part can sit anywhere, so it is found by its words.
    */
   async counts(): Promise<string> {
-    const counts = await this.one({ text: /\bnodes\b.*\bedges$/ }, "no GraphCounts on the page", this.env.root);
+    const counts = await this.locatorFor({ text: /\bnodes\b.*\bedges$/ }, "no GraphCounts on the page")(this.env.rootElement);
     await this.env.until(async () => !(await this.ariaBusy(counts)), "GraphCounts is still loading");
     return counts.text();
   }
 
-  private transport(): Promise<Handle> {
-    return this.one({ role: "button", name: /^(Pause|Resume|Run) the layout$/ }, "the canvas holds no layout transport");
+  private transport(): Promise<TestElement> {
+    return this.locatorFor({ role: "button", name: /^(Pause|Resume|Run) the layout$/ }, "the canvas holds no layout transport")();
   }
 
   private async drawnSince(before: number): Promise<void> {
@@ -104,8 +104,8 @@ export class GraphCanvasHarness extends ComponentHarness {
   private async gesture(tool: "Lasso" | "Marquee", points: readonly Point[], options: GestureOptions): Promise<void> {
     const { in: space = "data", with: held = [] } = options;
     const keys = typeof held === "string" ? [held] : held;
-    const button = await this.one({ role: "button", name: tool }, `the canvas holds no ${tool}`);
-    const pressed = (await button.attribute("aria-pressed")) === "true";
+    const button = await this.locatorFor({ role: "button", name: tool }, `the canvas holds no ${tool}`)();
+    const pressed = (await button.getAttribute("aria-pressed")) === "true";
     if (!pressed) await button.click();
     const path = await Promise.all(points.map((point) => this.toScreen(point, space)));
     const before = await this.frames();
@@ -116,13 +116,13 @@ export class GraphCanvasHarness extends ComponentHarness {
   }
 
   private async toScreen([x, y]: Point, space: "data" | "screen"): Promise<Point> {
-    const offset = await this.host.rect();
-    if (space === "screen") return [offset.x + x, offset.y + y];
+    const offset = await this.host.getDimensions();
+    if (space === "screen") return [offset.left + x, offset.top + y];
     const at = await this.host.evaluate((canvas, point) => {
       const hook = (globalThis as { __KANZO_TESTING__?: KanzoTestingHook }).__KANZO_TESTING__;
       return hook?.graphs.get(canvas.id)?.screenAt(point) ?? null;
     }, { x, y });
     if (!at || at.some(Number.isNaN)) throw new Error(UNREGISTERED);
-    return [offset.x + at[0], offset.y + at[1]];
+    return [offset.left + at[0], offset.top + at[1]];
   }
 }

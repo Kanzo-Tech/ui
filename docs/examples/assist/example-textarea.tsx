@@ -3,7 +3,8 @@
 import { Field, FieldHelper, FieldLabel, Textarea } from "@kanzo-tech/ui";
 import { Assist, AssistProvider } from "@kanzo-tech/ai";
 import { useState } from "react";
-import { mockModel, promptOf } from "@/lib/mock-model";
+import { promptOf, scriptedModel } from "@kanzo-tech/llm/testing";
+import { PACE } from "@/lib/model-call";
 
 // Stands in for `localModel(…)`. Each earlier offer the reader skipped with Alt+] comes
 // back in the prompt as a "- " line, so the count of them picks the next continuation.
@@ -12,9 +13,12 @@ const CONTINUATIONS = [
   ", and the herder walks back with the party.",
   ". Nothing above a Nuisance is expected before dusk.",
 ];
-const model = mockModel((call) => {
-  const skipped = promptOf(call).match(/^- /gm)?.length ?? 0;
-  return CONTINUATIONS[skipped % CONTINUATIONS.length] ?? "";
+const model = scriptedModel({
+  turns: (call) => {
+    const skipped = promptOf(call).match(/^- /gm)?.length ?? 0;
+    return { text: CONTINUATIONS[skipped % CONTINUATIONS.length] ?? "" };
+  },
+  pace: PACE,
 });
 
 export default function Example() {

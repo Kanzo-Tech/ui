@@ -211,8 +211,8 @@ A refused call, a broken stream or a model that goes silent does not read as "No
 The field says it failed under itself — the error's own message, or the `failed` translation when it
 has none — and `onFailure` on the provider receives what was thrown, whole. Each ask is made once:
 a failure is not retried, so what arrives is the first attempt's own error. A page that cannot run
-the model arrives as `@kanzo-tech/llm`'s `AiError`, `code` `"ai/unavailable"` — see
-[`@kanzo-tech/llm`](/docs/ai/llm#aierror); anything else as the model threw it, so a host branches on
+the model arrives as `@kanzo-tech/llm`'s `LlmError`, `code` `"llm/unavailable"` — see
+[`@kanzo-tech/llm`](/docs/ai/llm#llmerror); anything else as the model threw it, so a host branches on
 `error.code`.
 
 *Held by* `packages/ai/src/assist.test.tsx`, "says so under the field and hands the provider's

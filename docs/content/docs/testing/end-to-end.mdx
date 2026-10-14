@@ -30,9 +30,9 @@ export class ArchivePage {
 
   async sightings(): Promise<DashboardHarness> {
     // The shell remounts once the archive attaches: switch after the graph has drawn.
-    await (await this.env.harness(GraphCanvasHarness)).ready();
-    await (await this.env.harness(DockHarness.with({ name: "View" }))).open("Sightings");
-    const dashboard = await this.env.harness(DashboardHarness);
+    await (await this.env.getHarness(GraphCanvasHarness)).ready();
+    await (await this.env.getHarness(DockHarness.with({ name: "View" }))).open("Sightings");
+    const dashboard = await this.env.getHarness(DashboardHarness);
     await dashboard.settled();
     return dashboard;
   }
@@ -44,7 +44,7 @@ import { FilterBarHarness } from "@kanzo-tech/testing";
 
 const archive = new ArchivePage(env);
 const dashboard = await archive.sightings();
-const bar = await env.harness(FilterBarHarness);
+const bar = await env.getHarness(FilterBarHarness);
 await (await (await dashboard.tile("Sightings by beast")).chart()).pick({ y: "boghound" });
 await expect.poll(() => bar.readout()).toMatch(/ of [\d,]+ sightings$/);
 ```
@@ -78,10 +78,10 @@ A brush is a range of values and a lasso is a set of points in the data, not sha
 ```ts
 import { ChartHarness, GraphCanvasHarness } from "@kanzo-tech/testing";
 
-const hours = await env.harness(ChartHarness.with({ title: "Sightings by hour" }));
+const hours = await env.getHarness(ChartHarness.with({ title: "Sightings by hour" }));
 await hours.brush({ x: [6, 12] });
 
-const graph = await env.harness(GraphCanvasHarness);
+const graph = await env.getHarness(GraphCanvasHarness);
 await graph.lasso([[-10, 40], [5, 40], [5, 55], [-10, 55]], { in: "data" });
 ```
 

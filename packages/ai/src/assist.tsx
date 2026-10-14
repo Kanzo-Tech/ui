@@ -3,7 +3,7 @@
 import { ark } from "@ark-ui/react/factory";
 import { Undo2Icon, XIcon } from "lucide-react";
 import * as React from "react";
-import type { LanguageModel } from "@kanzo-tech/llm";
+import type { LanguageModel } from "ai";
 import { Button, ButtonGroup, cn, Kbd, Suggestion, Suggestions } from "@kanzo-tech/ui";
 import { AiMark } from "./ai-mark.js";
 import {
@@ -82,8 +82,8 @@ export interface AssistProviderProps {
   onEvent?: (event: AssistEvent) => void;
   /**
    * Called with what the model's stream threw, whole, when a field's ask fails — on the first
-   * attempt, never retried. A page that cannot run `localModel` arrives as its `AiError` coded
-   * `ai/unavailable`. The field also says so under itself.
+   * attempt, never retried. A page that cannot run `localModel` arrives as its `LlmError` coded
+   * `llm/unavailable`. The field also says so under itself.
    */
   onFailure?: (error: unknown) => void;
   translations?: Partial<AssistTranslations>;

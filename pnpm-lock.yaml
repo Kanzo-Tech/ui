@@ -390,6 +390,9 @@ importers:
       '@browser-ai/web-llm':
         specifier: 3.0.4
         version: 3.0.4(@mlc-ai/web-llm@0.2.86)(ai@7.0.126(zod@4.4.3))
+      '@kanzo-tech/testing':
+        specifier: workspace:*
+        version: link:../testing
       '@mlc-ai/web-llm':
         specifier: 0.2.86
         version: 0.2.86

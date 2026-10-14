@@ -61,7 +61,7 @@ export class ChartHarness extends ComponentHarness {
   }
 
   async title(): Promise<string> {
-    return (await this.host.attribute("aria-label")) ?? "";
+    return (await this.host.getAttribute("aria-label")) ?? "";
   }
 
   /** Whether its query is running now. */

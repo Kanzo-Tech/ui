@@ -25,21 +25,22 @@ import { ChartHarness, FilterBarHarness, GraphCanvasHarness, playwright } from "
 const env = await playwright(page); // before the page loads: it installs the test hook
 await page.goto("/archive");
 
-const graph = await env.harness(GraphCanvasHarness);
+const graph = await env.getHarness(GraphCanvasHarness);
 await graph.ready();
 
-const lon = await env.harness(ChartHarness.with({ title: "Count by Airport.lon" }));
+const lon = await env.getHarness(ChartHarness.with({ title: "Count by Airport.lon" }));
 await lon.brush({ x: [-125, -100] }); // in data, not in pixels
 
-const bar = await env.harness(FilterBarHarness);
+const bar = await env.getHarness(FilterBarHarness);
 await expect.poll(() => bar.readout()).toBe("611 of 3,218 airports");
 ```
 
 **`playwright(page, options?)`** resolves with a `HarnessEnvironment` once it has installed the test
 hook with `addInitScript`, so make it **before** the page navigates: a chart or a graph registers with
-the hook while it mounts. `options` is an `EnvironmentOptions`, `{ timeout }`, how long a harness waits
-for a state before it fails — 10 000 ms by default. It imports nothing of Playwright's at run time;
-`playwright-core` is an optional peer for its types, and a suite on `@playwright/test` has it already.
+the hook while it mounts. `options` is an `EnvironmentOptions`: `timeout`, how long a harness waits
+for a state before it fails — 10 000 ms by default — and `models`, a [model double](#a-model-double)
+per model id. It imports nothing of Playwright's at run time; `playwright-core` is an optional peer
+for its types, and a suite on `@playwright/test` has it already.
 
 ## In a unit test
 
@@ -49,7 +50,7 @@ import { dom } from "@kanzo-tech/testing/dom";
 
 const env = dom(); // before render: the hook is installed at once
 render(<Page />);
-const bar = await env.harness(FilterBarHarness);
+const bar = await env.getHarness(FilterBarHarness);
 expect(await bar.readout()).toBe("10 sightings");
 ```
 
@@ -61,22 +62,30 @@ browser.
 
 ## The environment
 
-`env.harness(query)` resolves with the first component that matches, **waiting for it** to be in the
-document; `env.harnesses(query)` returns every one there now. A query is a harness class, or a class
+`env.getHarness(query)` resolves with the first component that matches, **waiting for it** to be in the
+document; `env.getAllHarnesses(query)` returns every one there now. A query is a harness class, or a class
 narrowed with its `with`: `ChartHarness.with({ title })`.
 
-- **`HarnessEnvironment`** — `harness`, `harnesses`, `root` (the `Handle` searches start at) and
-  `until(probe, what)`, which resolves with the first truthy answer of `probe` and fails with `what`.
-  A harness never waits for a fixed time, only for a state.
+- **`HarnessEnvironment`** — `getHarness`, `getAllHarnesses`, `rootElement` (the `TestElement`
+  searches start at) and `until(probe, what)`, which resolves with the first truthy answer of `probe`
+  and fails with `what`. A harness never waits for a fixed time, only for a state.
 - **`ComponentHarness`** — the class every harness extends. A harness of your own declares a static
-  `by` and reaches its host as `this.host`.
+  `by`, reaches its host as `this.host`, and finds what is inside it with `this.locatorFor(query)`.
 - **`By`** — how a host is found, in Testing Library's order: `{ role, name?, has? }`, then
   `{ text }`, and `{ css }` only where nothing accessible says it.
-- **`Handle`** — one element as the environment reaches it: `find`, `text`, `attribute`, `rect` (a
-  `Rect`), `reveal`, `click({ at, with })`, `drag(points, { with })`, `fill`, `press` and `evaluate`.
-  `at` and the points are a `Point`, `[clientX, clientY]`; `with` lists `Modifier` keys.
-- **`Driver`** — what an environment is built from: a root `Handle` and `until`. `HarnessType` and
-  `HarnessQuery` are the class and the narrowed class `env.harness` takes.
+- **`TestElement`** — one element as the environment reaches it: `find`, `text`, `getAttribute`,
+  `getDimensions` (an `ElementDimensions`, `{ top, left, width, height }`), `reveal`,
+  `click({ at, with })`, `drag(points, { with })`, `fill`, `sendKeys` and `evaluate`. `at` and the
+  points are a `Point`, `[clientX, clientY]`; `with` lists `Modifier` keys.
+- **`Driver`** — what an environment is built from: a root `TestElement` and `until`.
+  `ComponentHarnessConstructor` and `HarnessQuery` are the class and the narrowed class
+  `env.getHarness` takes.
+
+The names are [Angular CDK's](https://material.angular.dev/cdk/test-harnesses/overview) wherever CDK
+has the operation: `getHarness`, `getAllHarnesses`, `rootElement`, `locatorFor`, `TestElement`,
+`getAttribute`, `getDimensions`, `sendKeys`. `by`, `fill`, `until`, `reveal`, `drag` and `evaluate`
+keep their own, because CDK has none or its namesake does something else
+([why](/docs/design/testing#the-names-are-cdks)).
 
 ## The harnesses
 
@@ -91,7 +100,7 @@ narrowed with its `with`: `ChartHarness.with({ title })`.
 | `RelationPickerHarness` | the group *Relation* | `root()`, `pick(type)`, `add(hop)`, `path()`, `remove(sentence)`, `grain()` — a hop by its sentence (*Comments located in this place*), its step as `relationKey` writes it (`<isLocatedIn<Comment`), or its edge label where one item has it |
 | `AnswerHarness` | the composer, a textbox named *Ask…*; the answer cards by their `data-slot` | `ask(question)`, `answer()`, `rows()`, `addToDashboard()`, `openOnDashboard()`, `filterTo()` |
 | `FindingsBadgeHarness` | its `data-slot`: the badge is named by the host's tally | `tally()`, `open()`, `groups()`, `item(message)` |
-| `FindingsItemHarness` | its `data-slot`, a `listitem` | `severity()`, `count()`, `message()`, `where()`, `act(label)`, `open()`, `sample()`, a `Severity` |
+| `FindingsItemHarness` | its `data-slot`, a `listitem` | `severity()` — `@kanzo-tech/ui`'s `FindingSeverity` — `count()`, `message()`, `where()`, `act(label)`, `open()`, `sample()` |
 | `DockHarness` | a `radiogroup`, named by the page | `open(panel)`, `close()`, `current()` |
 
 - **`GraphCanvasHarness`** — `ready()` waits for the canvas's first drawn frame and fails on a canvas
@@ -139,6 +148,7 @@ narrowed with its `with`: `ChartHarness.with({ title })`.
 interface KanzoTestingHook {
   graphs: Map<string, GraphProbe>;  // by the canvas's id: screenOf(vertex), screenAt({ x, y })
   charts: Map<string, ChartProbe>;  // by the chart's title: scale(channel) → { apply, invert? }
+  models: Map<string, ModelProbe>;  // by model id: { script, prompts }
 }
 ```
 
@@ -147,3 +157,48 @@ interface KanzoTestingHook {
 with cosmos.gl's own `spaceToScreenPosition`; a `ChartProbe` is Observable Plot's own
 `figure.scale(channel)`. A chart is registered under its `aria-label`, which a dashboard tile sets to
 its title; a chart with no title is not registered.
+
+## A model double
+
+```ts
+import { playwright } from "@kanzo-tech/testing";
+
+const env = await playwright(page, {
+  models: {
+    "Qwen3-4B-q4f16_1-MLC": {
+      turns: [
+        { when: "How many laureates", reply: { object: { of: "Laureate" } } },
+        { when: "Offer", reply: { object: { elements: [] } } },
+      ],
+    },
+  },
+});
+await page.goto("/ask");
+```
+
+**`localModel(id)` answers from the script registered for `id`** in place of the model — on every
+page this one loads, with no WebGPU and nothing downloaded — and the page's own code never knows
+([`@kanzo-tech/llm/testing`](/docs/ai/llm#a-model-double)). A `ModelScript` is data, because it
+crosses into the page:
+
+- **`turns`** — each call is answered by the first `ModelTurn` whose `when` its prompt (every
+  message, flattened) contains; one with no `when` answers any call, and one that is `once` answers
+  one and gives way. A call no turn answers fails, naming its prompt.
+- **`reply`**, a `ModelReply` — `{ text, reasoning? }`; `{ object }`, a structured answer as its
+  JSON; `{ tool, input }`, a call for an agent; `{ fail, after? }`, a failure, a stream's after
+  writing `after`; `{ hang: true }`, no answer until the call is stopped.
+- **`pace`** — `{ wait, perWord }` in milliseconds, for a recording; at once without it.
+- **`load`** — `{ fail }`: the model's load fails with these words, as WebLLM's does when a shard
+  cannot be fetched.
+
+What the double was asked is on the hook, in order:
+
+```ts
+const prompts = await page.evaluate(
+  (id) => (window as { __KANZO_TESTING__?: KanzoTestingHook }).__KANZO_TESTING__?.models.get(id)?.prompts ?? [],
+  "Qwen3-4B-q4f16_1-MLC",
+);
+```
+
+A page that cannot run the model at all needs no double: take `navigator.gpu` away before it loads,
+and `localModel` fails as `llm/unavailable`, its own answer.
