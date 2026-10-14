@@ -6,7 +6,7 @@ import { ToolLoopAgent } from "ai";
 import { useState } from "react";
 import { daysOverdue, FEATURED, overdueQuests, partyOf, questLabel } from "@/example/quests";
 import { role } from "@/example/world";
-import { askOf } from "@/lib/model-call";
+import { askOf, offered } from "@/lib/model-call";
 import { useAutoplay } from "@/lib/preview-autoplay";
 
 const late = FEATURED.overdue;
@@ -29,7 +29,7 @@ const ANSWERS: Record<string, { reasoning: string; text: string }> = {
 };
 
 export default function Example() {
-  // In a product the model is `localModel(…)`; here it is the double, so the page needs no
+  // In a product the model is `localModel(…)`; here it is a mock, so the page needs no
   // network. Everything after it — the agent, useAgentChat, Chat — is what a product runs.
   const [pace] = useState(() => ({ perWord: 40 }));
   const [agent] = useState(
@@ -50,7 +50,7 @@ export default function Example() {
       <Chat
         chat={chat}
         empty={<p className="text-muted-foreground text-sm">Ask the quartermaster about the board.</p>}
-        proposals={QUESTIONS.map((text) => ({ text }))}
+        proposals={offered(...QUESTIONS)}
       />
     </div>
   );

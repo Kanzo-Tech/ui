@@ -18,7 +18,7 @@ import { Chat, ToolInput, ToolOutput, useAgentChat } from "@kanzo-tech/ai";
 import { scriptedModel } from "@kanzo-tech/llm/testing";
 import { ToolLoopAgent, jsonSchema, tool } from "ai";
 import { SparklesIcon } from "lucide-react";
-import { afterTool, askOf, PACE } from "@/lib/model-call";
+import { afterTool, askOf, offered, PACE } from "@/lib/model-call";
 import { NOTHING, RECIPES, RELATIONS, type ResultSet, recipeFor, runStatement } from "./data";
 import { ResultTable } from "./result-table";
 
@@ -135,7 +135,7 @@ export function DiscoveryShowcase() {
                 </EmptyHeader>
               </EmptyRoot>
             }
-            proposals={RECIPES.map((recipe) => ({ text: recipe.question }))}
+            proposals={offered(...RECIPES.map((recipe) => recipe.question))}
             tools={{
               // The columns are not known until the statement is written, so the result is drawn
               // from its own shape — the case a host's renderer exists for.

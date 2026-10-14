@@ -3,8 +3,9 @@
 // what a person filling it in reads too.
 
 import { stream } from "@kanzo-tech/llm";
-import { type LanguageModel, Output, jsonSchema } from "ai";
-import type { ContinuationRequest, Proposal } from "./engine.js";
+import { type LanguageModel, jsonSchema } from "ai";
+import type { ContinuationRequest } from "./engine.js";
+import { defineTask, propose, type Proposal } from "./task/index.js";
 
 /** What the model is told about the field it is filling. */
 export interface FieldBrief {
@@ -65,14 +66,39 @@ const OFFER = jsonSchema<{ text: string; rationale: string }>({
   additionalProperties: false,
 });
 
+interface CandidateInput {
+  field: FieldBrief;
+  value: string;
+  existing: string[];
+  /** The field holds a list (tags): a candidate is one more item, not a replacement. */
+  list: boolean;
+}
+
 /**
- * Whole values for the field, each a `Proposal` with its rationale, arriving as soon as it is whole
- * (`Output.array`'s elements), so the first is on screen while the model writes the rest.
+ * The field's whole values, as a Task: the model writes them, and a candidate lands on the field as
+ * its `target` says — the whole value replaced, or one more item of a list.
+ */
+const candidate = defineTask<CandidateInput, { text: string; rationale: string }>({
+  name: "candidates",
+  instructions: CANDIDATES,
+  prompt: ({ field, value, existing, list }) =>
+    `${brief(field)}\n${
+      list
+        ? `Current items: ${existing.length ? existing.join(", ") : "(none)"}\nSuggest NEW items, not already present.`
+        : `Current value: ${value || "(empty)"}\nSuggest alternatives to replace it${value ? ", different from it" : ""}.`
+    }`,
+  output: () => OFFER,
+  target: ({ value, list }) => (list ? { add: "" } : { replace: [0, value.length] }),
+});
+
+/**
+ * Whole values for the field, each the Task's `Proposal<string>` with its rationale, asked through
+ * `propose` — one answer, each value checked on its own.
  *
- * **A failure throws, once the stream ends** — `stream`'s contract — so a field that shows "nothing
- * to offer" and one that shows "it failed" are never the same field by accident. A value repeating an
- * earlier one (ignoring case and spacing) is dropped and does not count; past `count`, the rest are
- * dropped, since nothing in `Output.array` holds the model to a length.
+ * **A failure throws** — `propose`'s contract — so a field that shows "nothing to offer" and one that
+ * shows "it failed" are never the same field by accident. `propose` keeps at most `count`, since
+ * nothing in `Output.array` holds the model to a length, and a value repeating an earlier one among
+ * them (ignoring case and spacing) is dropped.
  */
 export async function* candidates(
   model: LanguageModel,
@@ -85,24 +111,14 @@ export async function* candidates(
     /** The field holds a list (tags): a candidate is one more item, not a replacement. */
     list: boolean;
   },
-): AsyncIterable<Proposal> {
+): AsyncIterable<Proposal<string>> {
   if (count <= 0) return;
-  const holds = list
-    ? `Current items: ${existing.length ? existing.join(", ") : "(none)"}\nSuggest NEW items, not already present.`
-    : `Current value: ${value || "(empty)"}\nSuggest alternatives to replace it${value ? ", different from it" : ""}.`;
-  const answer = stream({
-    model,
-    system: CANDIDATES,
-    prompt: `${brief(field)}\n${holds}\nGive ${count}.`,
-    output: Output.array({ element: OFFER }),
-    abortSignal: signal,
-  });
+  const offered = await propose(candidate, { field, value, existing, list }, { model, signal, count });
   const seen = new Set<string>();
-  for await (const { text, rationale } of answer.elements) {
-    const key = text.trim().replace(/\s+/g, " ").toLowerCase();
+  for (const { value: offer, ...proposal } of offered) {
+    const key = offer.text.trim().replace(/\s+/g, " ").toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    yield list ? { text, rationale } : { text, rationale, range: [0, value.length] };
-    if (seen.size >= count) return;
+    yield { ...proposal, value: offer.text, rationale: offer.rationale };
   }
 }

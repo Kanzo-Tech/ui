@@ -29,7 +29,8 @@
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "size": "size-limit"
   },
   "//peers": "`ai` is REQUIRED, not optional, and that is the point of this package: there is nothing here without it, and a host installs it once so @kanzo-tech/ai's components and the host's own agent see the same UIMessage, the same agent and the same transport. Two copies would be two type universes that do not assign to each other. None of it is re-exported: a host imports `ai` by name. `@browser-ai/web-llm` and `@mlc-ai/web-llm` are optional, and only `/local` reaches them: a host that runs no model in the page installs neither. `@kanzo-tech/testing` is optional and for its types alone, reached only from `/testing`: the double's script is the test hook's data, declared once where the hook is installed. `/local` reads the same hook as a type, and imports `/testing` lazily, only when a test registered a script.",
   "peerDependencies": {
@@ -63,5 +64,11 @@
   "homepage": "https://kanzo-tech.github.io/ui",
   "bugs": {
     "url": "https://github.com/Kanzo-Tech/ui/issues"
+  },
+  "//gauges": "One gauge per published entry, and one per tree-shaken import a consumer meets; `scripts/gauges.mjs` (through `.size-limit.mjs`) is what each measures, and every limit's reason — each raise, dated, with its before and after — is a row on /docs/design, *A gauge per entry, and its raises written here*.",
+  "gauges": {
+    ".": "450 B",
+    "./local": "2.7 kB",
+    "./testing": "1.2 kB"
   }
 }

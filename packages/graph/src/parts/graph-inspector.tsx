@@ -1,5 +1,6 @@
 "use client";
 
+import { ark } from "@ark-ui/react/factory";
 import {
   Button,
   Clipboard,
@@ -17,6 +18,7 @@ import {
 } from "@kanzo-tech/ui";
 import { LocateFixedIcon } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { tv } from "tailwind-variants";
 import { nameOf } from "../core/categories";
 import { bindingOf } from "../core/channels";
 import { readVertex, type VertexDetail } from "../core/source";
@@ -27,14 +29,61 @@ import { useGraphState } from "../react/use-graph-state";
 import { scaleOf } from "../render/graph-model";
 import { ShapeGlyph } from "./shape-glyph";
 
-export interface GraphInspectorProps extends Omit<React.ComponentProps<"div">, "children"> {
+/** The words the inspector writes itself; a field's name is the corpus's and is never reworded. */
+export interface GraphInspectorTranslations {
+  /** With nothing focused. */
+  empty: string;
+  /** A focused vertex the corpus does not hold. */
+  missing: string;
+  /** A focused vertex whose read did not answer. */
+  unread: string;
+  locate: string;
+  /** The IRI's copy button. */
+  copy: string;
+  /** The two groups of fields. */
+  values: string;
+  dates: string;
+  /** A long value's toggle. */
+  more: string;
+  less: string;
+}
+
+const ENGLISH: GraphInspectorTranslations = {
+  empty: "Click a vertex on the canvas to inspect it.",
+  missing: "This vertex is not in the corpus.",
+  unread: "This vertex could not be read.",
+  locate: "Locate",
+  copy: "Copy the IRI",
+  values: "Values",
+  dates: "Dates",
+  more: "more",
+  less: "less",
+};
+
+export interface GraphInspectorProps extends Omit<React.ComponentProps<typeof ark.div>, "children"> {
   /**
    * More fields for the focused vertex, drawn after the corpus's values — a `DataListItem` each. A
    * render prop rather than a table of formatters: what a product adds is markup, and the part never
    * learns what any of it means.
    */
   children?: (detail: VertexDetail) => ReactNode;
+  translations?: Partial<GraphInspectorTranslations>;
 }
+
+const graphInspector = tv({
+  slots: {
+    root: "space-y-3 text-sm",
+    hint: "text-muted-foreground text-xs",
+    header: "space-y-1",
+    top: "flex items-start justify-between gap-2",
+    name: "min-w-0",
+    type: "flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs",
+    glyph: "size-2.5 shrink-0",
+    title: "truncate font-semibold text-base",
+    iri: "flex min-w-0 items-center gap-1 text-xs",
+    group: "mb-1 font-medium text-muted-foreground text-xs",
+  },
+});
 
 /** A cell, as text — a `DATE` arrives as a `Date`, a `TIMESTAMP` as epoch milliseconds, and a 64-bit column as a `bigint`. */
 const text = (value: unknown, date: boolean): string => {
@@ -60,7 +109,7 @@ const rows = cn(
 );
 
 /** One value: an IRI as a link out, long text clamped, the rest as it reads. */
-function Value({ value, date }: { value: unknown; date: boolean }) {
+function Value({ value, date, t }: { value: unknown; date: boolean; t: GraphInspectorTranslations }) {
   const [open, setOpen] = useState(false);
   const shown = text(value, date);
   if (typeof value === "string" && IRI.test(value)) {
@@ -75,7 +124,7 @@ function Value({ value, date }: { value: unknown; date: boolean }) {
     <>
       <span className={cn("break-words", !open && "line-clamp-3")}>{shown}</span>
       <Button className="h-auto p-0 text-xs" onClick={() => setOpen(!open)} size="sm" variant="link">
-        {open ? "less" : "more"}
+        {open ? t.less : t.more}
       </Button>
     </>
   );
@@ -121,7 +170,9 @@ function useRead<T>(vertex: VertexId | null, read: ((vertex: VertexId) => Promis
  * the render prop adds lines up with them. Sections
  * and rules, no card: inside a dock a card is a second border.
  */
-export function GraphInspector({ children, className, slot, ...rest }: GraphInspectorProps) {
+export function GraphInspector({ children, className, slot, translations, ...rest }: GraphInspectorProps) {
+  const t = { ...ENGLISH, ...translations };
+  const styles = graphInspector();
   const api = useGraphContext();
   const focus = useGraphState((s) => s.focus);
   const structure = useGraphState((s) => s.structure);
@@ -149,76 +200,74 @@ export function GraphInspector({ children, className, slot, ...rest }: GraphInsp
   const dated = (name: string) => /date|time/i.test(table?.columns.get(name)?.type ?? "");
   const groups = current
     ? [
-        { title: "Values", fields: current.fields.filter((f) => f.name !== table?.identity && !dated(f.name)) },
-        { title: "Dates", fields: current.fields.filter((f) => f.name !== table?.identity && dated(f.name)) },
+        { key: "values", title: t.values, fields: current.fields.filter((f) => f.name !== table?.identity && !dated(f.name)) },
+        { key: "dates", title: t.dates, fields: current.fields.filter((f) => f.name !== table?.identity && dated(f.name)) },
       ]
     : [];
 
   return (
-    <div {...rest} className={cn("space-y-3 text-sm", className)} data-slot={slot ?? "graph-inspector"}>
+    <ark.div {...rest} className={cn(styles.root(), className)} data-slot={slot ?? "graph-inspector"}>
       <Show when={focus === null}>
-        <p className="text-muted-foreground text-xs">Click a vertex on the canvas to inspect it.</p>
+        <p className={styles.hint()}>{t.empty}</p>
       </Show>
       <Show when={focus !== null && answered === undefined}>
         <Skeleton className="h-24 w-full" />
       </Show>
       <Show when={focus !== null && answered !== undefined && !current}>
-        <p className="text-muted-foreground text-xs">
-          {answered === null ? "This vertex is not in the corpus." : "This vertex could not be read."}
-        </p>
+        <p className={styles.hint()}>{answered === null ? t.missing : t.unread}</p>
       </Show>
       {current && (
         <>
-          <header className="space-y-1">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs" data-slot="graph-inspector-type">
+          <header className={styles.header()}>
+            <div className={styles.top()}>
+              <div className={styles.name()}>
+                <p className={styles.type()} data-slot="graph-inspector-type">
                   <Show when={byType}>
-                    <ShapeGlyph aria-hidden className="size-2.5 shrink-0" color={scale.color(rank)} shape={scale.shape(rank)} />
+                    <ShapeGlyph aria-hidden className={styles.glyph()} color={scale.color(rank)} shape={scale.shape(rank)} />
                   </Show>
                   <span className="truncate">{nameOf(current.table, categories)}</span>
                 </p>
-                <h3 className="truncate font-semibold text-base" data-slot="graph-inspector-title" title={heading}>
+                <h3 className={styles.title()} data-slot="graph-inspector-title" title={heading}>
                   {heading}
                 </h3>
               </div>
               <Button className="shrink-0" onClick={() => api.reveal(current.vertex)} size="sm" variant="outline">
                 <LocateFixedIcon aria-hidden />
-                Locate
+                {t.locate}
               </Button>
             </div>
             <Show when={typeof iri === "string" && iri !== ""}>
-              <div className="flex min-w-0 items-center gap-1 text-xs" data-slot="graph-inspector-iri">
+              <div className={styles.iri()} data-slot="graph-inspector-iri">
                 <Link className="min-w-0 truncate text-muted-foreground" href={String(iri)} rel="noreferrer" target="_blank" title={String(iri)}>
                   {String(iri)}
                 </Link>
                 <Clipboard className="-my-1 shrink-0" value={String(iri)}>
-                  <ClipboardTrigger aria-label="Copy the IRI" />
+                  <ClipboardTrigger aria-label={t.copy} />
                 </Clipboard>
               </div>
             </Show>
           </header>
           {groups.map((group) => (
-            <Show key={group.title} when={group.fields.length > 0 || (group.title === "Values" && !!children)}>
+            <Show key={group.key} when={group.fields.length > 0 || (group.key === "values" && !!children)}>
               <Separator />
               <section aria-label={group.title}>
-                <p className="mb-1 font-medium text-muted-foreground text-xs">{group.title}</p>
+                <p className={styles.group()}>{group.title}</p>
                 <DataList className={rows} orientation="horizontal">
                   {group.fields.map((f) => (
                     <DataListItem key={f.name}>
                       <DataListItemLabel title={f.name}>{f.name}</DataListItemLabel>
                       <DataListItemValue>
-                        <Value date={dated(f.name)} value={f.value} />
+                        <Value date={dated(f.name)} t={t} value={f.value} />
                       </DataListItemValue>
                     </DataListItem>
                   ))}
-                  {group.title === "Values" && children?.(current)}
+                  {group.key === "values" && children?.(current)}
                 </DataList>
               </section>
             </Show>
           ))}
         </>
       )}
-    </div>
+    </ark.div>
   );
 }

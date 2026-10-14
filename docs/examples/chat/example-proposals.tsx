@@ -1,7 +1,7 @@
 "use client";
 
-import { Chat, ChatSkeleton, type Proposal, useAgentChat } from "@kanzo-tech/ai";
-import { defineTask, propose } from "@kanzo-tech/ai/task";
+import { Chat, ChatSkeleton, useAgentChat } from "@kanzo-tech/ai";
+import { defineTask, propose, type Proposal } from "@kanzo-tech/ai/task";
 import { jsonSchema, ToolLoopAgent } from "ai";
 import { Button } from "@kanzo-tech/ui";
 import { useEffect, useState } from "react";
@@ -40,7 +40,7 @@ export default function Example() {
   const chat = useAgentChat(agent);
   const [ready, setReady] = useState(false);
   const [round, setRound] = useState(0);
-  const [offered, setOffered] = useState<Proposal[]>([]);
+  const [offered, setOffered] = useState<Proposal<string>[]>([]);
   const [proposing, setProposing] = useState(true);
 
   // A first beat as a skeleton — the host still loading what the chat needs — then the chat.
@@ -55,7 +55,9 @@ export default function Example() {
     setProposing(true);
     propose(questions, "contracts, their party, region, due and closed days", { model, signal: abort.signal, count: 3 }).then(
       (proposals) => {
-        setOffered(proposals.map((p) => p.value));
+        // Each proposal whole — its id, its verdict — with the question as its value and the
+        // model's reason as its rationale, the pill's tooltip.
+        setOffered(proposals.map((p) => ({ ...p, value: p.value.text, rationale: p.value.rationale })));
         setProposing(false);
       },
       // Proposing failed: no pills, and the chat still works.

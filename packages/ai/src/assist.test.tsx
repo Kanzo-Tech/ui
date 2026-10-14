@@ -229,7 +229,7 @@ describe("Assist on an Input — whole values, as chips", () => {
     await user.click(screen.getByRole("textbox"));
     await user.click(mark());
     await screen.findByRole("button", { name: "Herd dog taken at the ford" });
-    expect(model.doStreamCalls[0]?.responseFormat?.type).toBe("json");
+    expect(model.doGenerateCalls[0]?.responseFormat?.type).toBe("json");
   });
 });
 

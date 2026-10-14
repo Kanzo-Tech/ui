@@ -79,10 +79,10 @@ describe("a thrown value, read for the shared shape", () => {
 });
 
 describe("the host's words", () => {
-  it("takes the title, detail and link from copy, given the code and its data, and keeps the author's row below", () => {
+  it("takes the title, detail and link from describe, given the code and its data, and keeps the author's row below", () => {
     show({
       error: new Coded("run/over-budget", "Over budget", "needed 3 GiB", { budget: 2 }),
-      copy: (code, data) =>
+      describe: (code, data) =>
         code === "run/over-budget"
           ? {
               title: "Too large for the browser",

@@ -1,9 +1,63 @@
 "use client";
 
+import { ark } from "@ark-ui/react/factory";
 import { cn, FormatNumber } from "@kanzo-tech/ui";
+import type { ReactNode } from "react";
+import { tv } from "tailwind-variants";
 import { useGraphSnapshot, useGraphState } from "../react/use-graph-state";
 
-export type GraphCountsProps = React.ComponentProps<"p">;
+/**
+ * The sentence's pieces, each a pattern over figures already formatted: a figure is a node — a
+ * `FormatNumber`, or "—" while it is not known — so a pattern places it and never spells it.
+ */
+export interface GraphCountsTranslations {
+  /** *5K nodes*. */
+  nodes: (count: ReactNode) => ReactNode;
+  /** *33.4K of 206.6K nodes placed*, `placed` being the verb with its explanation. */
+  placedNodes: (count: ReactNode, total: ReactNode, placed: ReactNode) => ReactNode;
+  /** The verb under bound positions. */
+  placed: string;
+  /** Its explanation, given the two columns that place a vertex. */
+  placedHint: (x: string, y: string) => string;
+  /** *2 hidden by other filters*. */
+  hidden: (count: ReactNode) => ReactNode;
+  /** *8K edges*. */
+  edges: (count: ReactNode) => ReactNode;
+  /** *0 of 316.8K edges*, under bound positions. */
+  placedEdges: (count: ReactNode, total: ReactNode) => ReactNode;
+  /** Between two pieces. */
+  separator: string;
+}
+
+const ENGLISH: GraphCountsTranslations = {
+  nodes: (count) => <>{count} nodes</>,
+  placedNodes: (count, total, placed) => (
+    <>
+      {count} of {total} nodes {placed}
+    </>
+  ),
+  placed: "placed",
+  placedHint: (x, y) => `On the map: vertices with a value in ${x} and ${y}. The rest have no position.`,
+  hidden: (count) => <>{count} hidden by other filters</>,
+  edges: (count) => <>{count} edges</>,
+  placedEdges: (count, total) => (
+    <>
+      {count} of {total} edges
+    </>
+  ),
+  separator: " · ",
+};
+
+export interface GraphCountsProps extends React.ComponentProps<typeof ark.p> {
+  translations?: Partial<GraphCountsTranslations>;
+}
+
+const graphCounts = tv({
+  slots: {
+    root: "text-muted-foreground text-xs tabular-nums",
+    verb: "underline decoration-dotted underline-offset-2",
+  },
+});
 
 const COMPACT = { notation: "compact", maximumFractionDigits: 1 } as const;
 
@@ -24,10 +78,13 @@ function Count({ value }: { value: number | null | undefined }) {
  * drawn of total, so a map that leaves most of the corpus out says so instead of reading as missing
  * data.
  *
+ * The sentence is its `translations`' patterns over the figures, never English assembled here.
  * `aria-busy` follows `status`, because only a load changes these figures; whether a layout runs is
  * `GraphStatus`'s word.
  */
-export function GraphCounts({ className, slot, ...rest }: GraphCountsProps) {
+export function GraphCounts({ className, slot, translations, ...rest }: GraphCountsProps) {
+  const t = { ...ENGLISH, ...translations };
+  const styles = graphCounts();
   const total = useGraphState((s) => s.total);
   // What the canvas holds that another filter hides: the one figure only this sentence says.
   const hidden = useGraphState((s) => (s.selection !== null && s.matching !== null ? s.selection.vertices.length - s.matching : 0));
@@ -39,35 +96,22 @@ export function GraphCounts({ className, slot, ...rest }: GraphCountsProps) {
   const x = useGraphState((s) => s.options.x);
   const y = useGraphState((s) => s.options.y);
   const verb = (
-    <span className="underline decoration-dotted underline-offset-2" title={`On the map: vertices with a value in ${x} and ${y}. The rest have no position.`}>
-      placed
-    </span>
+    <ark.span className={styles.verb()} title={t.placedHint(String(x), String(y))}>
+      {t.placed}
+    </ark.span>
   );
 
   return (
-    <p
-      aria-busy={busy || undefined}
-      {...rest}
-      className={cn("text-muted-foreground text-xs tabular-nums", className)}
-      data-slot={slot ?? "graph-counts"}
-    >
-      {bound ? (
-        <>
-          <Count value={placed} /> of <Count value={total} /> nodes {verb}
-        </>
-      ) : (
-        <>
-          <Count value={total} /> nodes
-        </>
-      )}{" "}
+    <ark.p aria-busy={busy || undefined} {...rest} className={cn(styles.root(), className)} data-slot={slot ?? "graph-counts"}>
+      {bound ? t.placedNodes(<Count value={placed} />, <Count value={total} />, verb) : t.nodes(<Count value={total} />)}
       {hidden > 0 && (
         <>
-          · <Count value={hidden} /> hidden by other filters{" "}
+          {t.separator}
+          {t.hidden(<Count value={hidden} />)}
         </>
       )}
-      · <Count value={edges} />
-      {bound ? " of " : null}
-      {bound ? <Count value={links} /> : null} edges
-    </p>
+      {t.separator}
+      {bound ? t.placedEdges(<Count value={edges} />, <Count value={links} />) : t.edges(<Count value={edges} />)}
+    </ark.p>
   );
 }

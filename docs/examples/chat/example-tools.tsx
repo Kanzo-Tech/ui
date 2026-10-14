@@ -13,7 +13,7 @@ import {
 } from "@kanzo-tech/ui";
 import { daysOverdue, overdueQuests } from "@/example/quests";
 import { scriptedModel } from "@kanzo-tech/llm/testing";
-import { afterTool, PACE } from "@/lib/model-call";
+import { afterTool, offered, PACE } from "@/lib/model-call";
 
 interface Late {
   id: string;
@@ -53,7 +53,7 @@ export default function Example() {
     <div className="flex h-120 w-full max-w-xl flex-col">
       <Chat
         chat={chat}
-        proposals={[{ text: "Which contracts are late?" }]}
+        proposals={offered("Which contracts are late?")}
         tools={{
           // Without this the result is drawn as a JSON tree; with it, as what it is. Called at every
           // state: until there is a result, the frame's own input and output say what is running.

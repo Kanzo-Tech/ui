@@ -21,21 +21,20 @@ import { fileURLToPath } from "node:url";
  *
  * **A package is scanned when it declares `tailwind-variants` as a dependency.** That is the tell
  * that it writes appearance in this house's idiom — a `tv()` recipe over token-backed utilities —
- * and it is the exact population every one of these rules is about. Measured 2026-09-17 over the six
- * workspace packages it selects `ui` and `ai` and rejects four, each for a reason that is the right
- * reason and not an accident of the filter:
+ * and it is the exact population every one of these rules is about. It selects `ui`, `ai` and
+ * `graph`, and rejects the rest, each for a reason that is the right reason and not an accident of
+ * the filter:
  *
  * · `@kanzo-tech/theme` ships `tokens.css`, the theme catalogue and an axis table. No JSX, no
  *   classes, and what colour it holds is either hand-written source (`themes/*.css`) or generated —
  *   `pnpm check:generated` and `themes.test.ts` are what hold it, not a scan of `.ts` under `src/`.
  * · `@kanzo-tech/mosaic` is the Mosaic conversation without React: five modules, no JSX, and
  *   `className` appears nowhere in it.
- * · `@kanzo-tech/graph` renders, and its picture is WebGL; its parts write classes by hand — eight
- *   files under `parts/` by the count of 13 October 2026 — and no `tv()` anywhere. That is past what
- *   this paragraph once excused (one file, two strings), and bringing them under the guards is its
- *   own change: when graph grows a recipe it declares `tailwind-variants` and joins this corpus with
- *   nobody remembering to add it — the whole argument for deriving the list. Until then a scan of
- *   it would assert an absence over a corpus that never had the shape.
+ * · `@kanzo-tech/graph` was rejected here when it drew with WebGL and wrote classes in one file, on a
+ *   judgement this docblock said would expire the moment that file grew. It grew — the parts wrote
+ *   their appearance in dozens of `className`s, with no recipe, physical `left-0` and arbitrary
+ *   sizes, seen by no guard — and on 13 October 2026 it declared `tailwind-variants` and joined by
+ *   the rule, not by an exception (`/docs/design/graph`, *The parts are under the guards*).
  * · `@kanzo-tech/auth` draws nothing at all. Its one component, `Gate`, renders `children` or does
  *   not; there is no element in the package that could carry a class. `tailwind-variants` is
  *   deliberately absent from its manifest and its `//peers` note says so, so the day somebody gives
@@ -61,8 +60,8 @@ import { fileURLToPath } from "node:url";
  * ## What this module cannot prove
  *
  * - **It reads manifests, not imports.** A package that writes Tailwind classes by hand without
- *   `tailwind-variants` is outside every scan and nothing says so. That is `graph` today, measured
- *   above; it is a judgement about one file, and it expires the moment that file grows.
+ *   `tailwind-variants` is outside every scan and nothing says so. That was `graph`, until the
+ *   judgement about its one file expired as it said it would.
  * - **It reads `src/`, and only `.ts`/`.tsx` under it.** A `tailwind.css` in either package is passed
  *   over by a filter rather than by a decision — see the note each guard carries about its own.
  * - **It cannot see a package that is not in `packages/`.** The workspace globs are `packages/*` and
@@ -169,22 +168,24 @@ export const SHIPPED: readonly Root[] = PUBLISHED.map(({ name, src }) => ({ name
  * so an empty or halved corpus passes all of them — the throw is at import time so that the failure
  * arrives as six broken suites rather than six quiet passes.
  *
- * The floor is two rather than one: `ui` alone is the state this module exists to end, and a
- * manifest edit that drops `tailwind-variants` from `ai` would otherwise put the tree back there
- * without a word. Raise it when a third package joins.
+ * The floor is three, the packages that write recipes: a manifest edit that drops
+ * `tailwind-variants` from `ai` or `graph` would otherwise take that package out of every scan
+ * without a word. Raise it when a fourth joins.
  *
  * `documented-exports.test.ts` takes the same precaution from the other end, with `UNBUILT` and
  * `BUILD_FIRST`: a guard that reads an artefact says so when the artefact is not there.
  */
-if (ROOTS.length < 2) {
+if (ROOTS.length < 3) {
   throw new Error(
     `The guard corpus resolved to ${ROOTS.length} package(s) — ${ROOTS.map((r) => r.name).join(", ") || "none"}.\n` +
       `Every rule built on it asserts an absence, so a shrunken corpus passes silently.\n` +
       `Rejected:\n  ${rejected.join("\n  ")}`,
   );
 }
-if (!ROOTS.some((root) => root.name === "ui")) {
-  throw new Error("packages/ui is not in the guard corpus — the derivation is broken, not the tree");
+for (const needed of ["ui", "ai", "graph"]) {
+  if (!ROOTS.some((root) => root.name === needed)) {
+    throw new Error(`packages/${needed} is not in the guard corpus — the derivation is broken, not the tree`);
+  }
 }
 for (const needed of ["ui", "graph", "mosaic", "auth"]) {
   if (!SHIPPED.some((root) => root.name === needed)) {

@@ -1,10 +1,22 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DirectChatTransport, ToolLoopAgent, jsonSchema, tool } from "ai";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Chat, ChatSkeleton } from "./chat.js";
+import type { Proposal } from "./task/index.js";
 import { useChat } from "@ai-sdk/react";
 import { scriptedModel } from "@kanzo-tech/llm/testing";
+
+/** A Task's offer of `value`, accepted, as `propose` hands one over. */
+const offer = <V,>(value: V, rationale?: string): Proposal<V> => ({
+  id: `offer-${JSON.stringify(value)}`,
+  task: "questions",
+  value,
+  target: { add: "" },
+  verdict: { ok: true },
+  attempts: 1,
+  rationale,
+});
 
 /** An agent with one tool, `query`, that the mock model calls once before it answers. */
 function agent() {
@@ -36,7 +48,7 @@ function Harness(props: { draw?: boolean }) {
     <Chat
       chat={chat}
       empty={<p>Ask about your graph.</p>}
-      proposals={[{ text: "How many nodes are there?", rationale: "nodes" }]}
+      proposals={[offer("How many nodes are there?", "nodes")]}
       tools={
         props.draw
           ? { query: (part) => (part.state === "output-available" ? <p>Rows: {JSON.stringify(part.output)}</p> : <p>Counting…</p>) }
@@ -103,16 +115,16 @@ describe("Chat", () => {
   });
 
   it("holds room for proposals still arriving, beside the ones that have", () => {
-    const { rerender } = render(<Chat chat={idle as never} proposing proposals={[{ text: "First?", rationale: "first" }]} />);
+    const { rerender } = render(<Chat chat={idle as never} proposing proposals={[offer("First?", "first")]} />);
     expect(screen.getByRole("button", { name: "First?" })).not.toBeNull();
     expect(document.querySelectorAll("[data-slot=suggestions] [data-slot=skeleton]").length).toBe(2);
     // As many skeletons as make up the strip, never an extra row once it is full.
-    rerender(<Chat chat={idle as never} proposing proposals={["A?", "B?", "C?"].map((text) => ({ text }))} />);
+    rerender(<Chat chat={idle as never} proposing proposals={["A?", "B?", "C?"].map((text) => offer(text))} />);
     expect(document.querySelectorAll("[data-slot=suggestions] [data-slot=skeleton]").length).toBe(0);
   });
 
   it("draws the strip just above the composer, outside the transcript", () => {
-    render(<Chat chat={idle as never} empty={<p>Ask about your graph.</p>} proposals={[{ text: "First?" }]} />);
+    render(<Chat chat={idle as never} empty={<p>Ask about your graph.</p>} proposals={[offer("First?")]} />);
     const strip = document.querySelector("[data-slot=suggestions]");
     expect(strip?.closest("[data-slot=conversation-content]")).toBeNull();
     expect(strip?.nextElementSibling?.contains(screen.getByPlaceholderText("Ask anything…"))).toBe(true);
@@ -131,6 +143,20 @@ describe("Chat", () => {
     const toolbar = document.querySelector('[data-slot="prompt-input-toolbar"]');
     expect(toolbar?.textContent).toContain("Subset · 40 nodes");
     expect(toolbar?.querySelector("button")).toBeTruthy();
+  });
+
+  it("sends a proposal's value, never its words: one that is not a string as the message the host makes of it", async () => {
+    const sendMessage = vi.fn(async () => {});
+    const spec = { of: "Award", by: "category" };
+    const asked = (value: typeof spec) => ({
+      parts: [
+        { type: "text" as const, text: `Awards by ${value.by}` },
+        { type: "data-ask" as const, data: { spec: value } },
+      ],
+    });
+    render(<Chat chat={{ ...idle, sendMessage } as never} message={asked} proposals={[offer(spec)]} />);
+    await userEvent.setup().click(screen.getByRole("button", { name: "Awards by category" }));
+    expect(sendMessage).toHaveBeenCalledWith(asked(spec));
   });
 
   it("draws no strip for a host that offers no proposals", () => {

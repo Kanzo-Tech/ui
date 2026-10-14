@@ -10,11 +10,14 @@ import { Badge } from "../simples/badge.js";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../simples/tooltip.js";
 import { KanzoTheme } from "../theme/KanzoTheme.js";
 import { useKanzoTheme } from "../theme/theme-context.js";
-import { themeRetiredCopy, type ThemeRetiredCopy } from "./theme-notice.js";
 import { ThemePreview } from "./ThemePreview.js";
 
-/** Every string the picker authors. The theme labels are the tenant's and are never reworded. */
-export interface ThemePickerCopy {
+/**
+ * Every word the picker authors. The theme labels are the tenant's and are never reworded: the
+ * library wrote "Light theme", so a host that translates the page translates it, and the client wrote
+ * its theme's label, at runtime, so nothing here rewords it.
+ */
+export interface ThemePickerTranslations {
   /** The accessible name of the two cards, which together are the Light · Dark choice. */
   appearance: string;
   /** The title of the light side's card. */
@@ -24,22 +27,28 @@ export interface ThemePickerCopy {
   night: string;
   nightDescription: string;
   active: string;
-  /** The notice shown when the tenant withdrew the theme this user had chosen. */
-  retired: ThemeRetiredCopy;
+  /** The heading of the notice shown when the tenant withdrew the theme this user had chosen. */
+  retiredTitle: string;
+  /**
+   * The notice's body, given the retired theme's **name** — not a label: what the tenant withdrew
+   * is gone from `identities`, and its label went with it.
+   */
+  retired: (theme: string) => string;
 }
 
-const DEFAULT_COPY: ThemePickerCopy = {
+const ENGLISH: ThemePickerTranslations = {
   appearance: "Appearance",
   day: "Light theme",
   dayDescription: "Worn while the appearance is light.",
   night: "Dark theme",
   nightDescription: "Worn while the appearance is dark.",
   active: "Active",
-  retired: {},
+  retiredTitle: "Brand updated",
+  retired: (theme) => `“${theme}” is no longer offered here. You are seeing the default.`,
 };
 
 export interface ThemePickerProps extends Omit<React.ComponentPropsWithoutRef<"div">, "children"> {
-  copy?: Partial<ThemePickerCopy>;
+  translations?: Partial<ThemePickerTranslations>;
 }
 
 const SIDES: readonly Appearance[] = ["light", "dark"];
@@ -57,8 +66,8 @@ const SIDES: readonly Appearance[] = ["light", "dark"];
  * appearance draws only the worn side's card, a withheld or pinned theme draws the cards without
  * swatches. With neither offered it renders nothing.
  */
-export function ThemePicker({ copy, className, slot, ...rest }: ThemePickerProps) {
-  const c = { ...DEFAULT_COPY, ...copy };
+export function ThemePicker({ translations, className, slot, ...rest }: ThemePickerProps) {
+  const t = { ...ENGLISH, ...translations };
   const { appearance, corePrefs, defaultThemeFor, resolvedTheme, retiredTheme, setAppearance, setTheme, themeByAppearance, themes } =
     useKanzoTheme();
   const id = React.useId();
@@ -70,19 +79,19 @@ export function ThemePicker({ copy, className, slot, ...rest }: ThemePickerProps
   const selectedFor = (side: Appearance) =>
     (side === appearance ? resolvedTheme : themeByAppearance[side]) || defaultThemeFor(side);
   const onSide = (side: Appearance) => {
-    const own = themes.filter((t) => (t.dark ? "dark" : "light") === side);
+    const own = themes.filter((theme) => (theme.dark ? "dark" : "light") === side);
     return own.length > 0 ? own : themes;
   };
   const commit = (side: Appearance, theme: string) => {
     setTheme(theme, { appearance: side });
     if (side !== appearance) setAppearance(side);
   };
-  const retired = retiredTheme ? themeRetiredCopy(c.retired, retiredTheme) : null;
+  
 
   const cards = (appearanceOffered ? SIDES : [appearance]).map((side) => (
     <ThemeCard
       active={side === appearance}
-      copy={c}
+      t={t}
       key={side}
       onCommit={(theme) => commit(side, theme)}
       selectable={appearanceOffered}
@@ -101,18 +110,18 @@ export function ThemePicker({ copy, className, slot, ...rest }: ThemePickerProps
           onValueChange={(d) => d.value && setAppearance(d.value as Appearance)}
           value={appearance}
         >
-          <ArkRadioGroup.Label className="sr-only">{c.appearance}</ArkRadioGroup.Label>
+          <ArkRadioGroup.Label className="sr-only">{t.appearance}</ArkRadioGroup.Label>
           {cards}
         </ArkRadioGroup.Root>
       ) : (
         <div className="grid">{cards}</div>
       )}
 
-      {retired ? (
+      {retiredTheme ? (
         <Alert variant="info">
           <InfoIcon />
-          <AlertTitle>{retired.title}</AlertTitle>
-          <AlertDescription>{retired.description}</AlertDescription>
+          <AlertTitle>{t.retiredTitle}</AlertTitle>
+          <AlertDescription>{t.retired(retiredTheme)}</AlertDescription>
         </Alert>
       ) : null}
     </div>
@@ -129,7 +138,7 @@ interface ThemeCardProps {
   /** Whether the card is a radio of the *Appearance* group — false where the tenant pins the side. */
   selectable: boolean;
   titleId: string;
-  copy: ThemePickerCopy;
+  t: ThemePickerTranslations;
   onCommit: (theme: string) => void;
 }
 
@@ -138,11 +147,11 @@ interface ThemeCardProps {
  * anywhere wears the side; the swatch row sits above that layer, so a swatch is never also a click on
  * the card, and no control is nested inside another.
  */
-function ThemeCard({ side, value, themes, active, selectable, titleId, copy, onCommit }: ThemeCardProps) {
+function ThemeCard({ side, value, themes, active, selectable, titleId, t, onCommit }: ThemeCardProps) {
   const [preview, setPreview] = React.useState<string | null>(null);
   const shown = preview ?? value;
-  const label = themes?.find((t) => t.value === shown)?.label ?? shown;
-  const title = side === "light" ? copy.day : copy.night;
+  const label = themes?.find((theme) => theme.value === shown)?.label ?? shown;
+  const title = side === "light" ? t.day : t.night;
   const icon = side === "light" ? <SunIcon /> : <MoonIcon />;
 
   return (
@@ -182,12 +191,12 @@ function ThemeCard({ side, value, themes, active, selectable, titleId, copy, onC
         )}
         {active ? (
           <Badge aria-hidden={selectable || undefined} size="sm" variant="info">
-            {copy.active}
+            {t.active}
           </Badge>
         ) : null}
       </div>
       <div className="flex flex-col gap-3 p-4">
-        <p className="text-muted-foreground text-sm">{side === "light" ? copy.dayDescription : copy.nightDescription}</p>
+        <p className="text-muted-foreground text-sm">{side === "light" ? t.dayDescription : t.nightDescription}</p>
         <ThemePreview appearance={side} theme={shown} />
         <p className="min-w-0 text-pretty break-words font-medium text-sm" data-slot="theme-picker-name">
           {label}
@@ -228,7 +237,7 @@ const STEP: Partial<Record<string, number>> = { ArrowRight: 1, ArrowDown: 1, Arr
 function ThemeSwatches({ side, themes, value, labelledBy, onCommit, onPreview }: ThemeSwatchesProps) {
   const refs = React.useRef<(HTMLButtonElement | null)[]>([]);
   const [focused, setFocused] = React.useState<number | null>(null);
-  const tabbable = focused ?? Math.max(0, themes.findIndex((t) => t.value === value));
+  const tabbable = focused ?? Math.max(0, themes.findIndex((theme) => theme.value === value));
 
   // Escape is caught on `window`, ahead of the tooltip: an open tooltip closes on a capturing
   // `document` listener that stops the key there, so a handler on the row would never hear it.

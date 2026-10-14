@@ -103,9 +103,10 @@ every other TanStack option are accepted and passed through.
 
 ### Returns
 
-A TanStack `Table<TData>`. `ColumnDef`, `Row`, `CellContext`, `HeaderContext` and `Table` are
-re-exported from `@kanzo-tech/ui/table`, so a consumer types its columns without a direct TanStack
-import.
+A TanStack `Table<TData>`. `ColumnDef`, `Row`, `CellContext` and `HeaderContext` are re-exported
+from `@kanzo-tech/ui/table`, so a consumer types its columns without a direct TanStack import. The
+instance's type is TanStack's to import, `import type { Table } from "@tanstack/react-table"`:
+`Table` from `@kanzo-tech/ui` is the markup component.
 
 ### Related
 

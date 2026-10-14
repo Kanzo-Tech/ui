@@ -341,8 +341,8 @@ export function validatePrefs(
   stored: Readonly<Record<string, string>>,
   /** As {@link resolvePref}'s. A choice whose source is unanswered is not judged, and not reported. */
   sources?: PrefSources,
-): Problem[] {
-  const problems: Problem[] = [];
+): SectionProblem[] {
+  const problems: SectionProblem[] = [];
   const prefs = manifest.prefs ?? {};
   for (const [key, value] of Object.entries(stored)) {
     const decl = prefs[key];
@@ -441,7 +441,7 @@ export function resolveSectionToken(
   return decl ? { value: decl.default, via: `${manifest.namespace}:default` } : null;
 }
 
-export interface Problem {
+export interface SectionProblem {
   token: string;
   /** `unknown` — not declared by the manifest. `shadowed` — would silently fall back to a parent. */
   kind: "unknown" | "shadowed";
@@ -459,8 +459,8 @@ export interface Problem {
 export function validateSection(
   manifest: SectionManifest,
   stored: Readonly<Record<string, string>>,
-): Problem[] {
-  const problems: Problem[] = [];
+): SectionProblem[] {
+  const problems: SectionProblem[] = [];
   for (const token of Object.keys(stored)) {
     const prefix = `--${manifest.namespace}-`;
     if (!token.startsWith(prefix)) {

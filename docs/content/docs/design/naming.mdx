@@ -148,20 +148,22 @@ turned out to be one concept — below.
 divergence from the reference rather than a way of keeping it — or the component leaving `ui`, at
 which point the collision is gone and the shorter name is free again.
 
-*Held by* `packages/ai/src/engine.ts`, `Proposal`; `packages/ai/src/chat.tsx`, the import of
+*Held by* `packages/ai/src/task/index.ts`, `Proposal`; `packages/ai/src/chat.tsx`, the import of
 `Suggestions` that no longer aliases.
 
 ## A name takes the request it models
 
 The thing a field is offered is a `Proposal`, and it is LSP 3.18's `InlineCompletionItem` as a field
-needs it: `text`, and the `range` taking it replaces. We had once taken the **semantics** of
+needs it: its `value`, and the `target` it lands at — an insert at the caret, or the range it
+replaces. It is the Task's `Proposal` since [one name, one meaning](#one-name-one-meaning-in-every-barrel):
+the field's had been `{ text, range }`. We had once taken the **semantics** of
 `textDocument/inlineCompletion` and the **identifier** of `textDocument/completion`, and the rename
 that fixed it — `useCompletion` to `useInlineCompletion` — is what led here.
 
 LSP ships the two as separate requests: the first returns a list the editor presents and the user
 picks from, the second returns text drawn at the caret and accepted whole. Reading the second one
 properly is what collapsed our two components. An `InlineCompletionItem` carries a **range**, and a
-range is enough to say both things we had built twice: an empty range at the caret is a continuation,
+range is enough to say both things we had built twice: an insert at the caret is a continuation,
 drawn as ghost text; a range over the whole value is a replacement, drawn as a chip. So `Complete` and
 `Suggest` were one item under two presentations, and the presentation is the control's to choose — a
 `Textarea` can draw ghost text, an `Input` cannot. One name for the item, one component for the field,
@@ -175,6 +177,76 @@ because it names the wrong thing, not because somebody else took it.
 carry — a command to run on accept, a snippet with tab stops — at which point LSP's own extension of
 the item is the place to look first.
 
-*Held by* `packages/ai/src/engine.ts`, `Proposal`; `packages/ui/src/index.test.ts`, "drops
+*Held by* `packages/ai/src/task/index.ts`, `Proposal`; `packages/ui/src/index.test.ts`, "drops
 components superseded by composition or a merge", `!useInlineCompletion`;
 `packages/ui/src/documented-exports.test.ts`, "documents no symbol the library does not export".
+
+## One name, one meaning, in every barrel
+
+**A name the library exports means one thing across every package and entry, and never shadows a
+name TypeScript already gives.** The rule above settled one collision; four more were found by a
+review of every export on 13 October 2026, and each was settled the same way — the reference's name
+stays, ours moves:
+
+| Name | Two meanings | Became |
+| --- | --- | --- |
+| `Table` | `@kanzo-tech/ui`'s component; TanStack's table instance, passed through by `/table` | `/table` stopped passing TanStack's through; a host that names the instance imports the type from TanStack, which it installed to use `/table` at all |
+| `Selection` | Mosaic's class; `@kanzo-tech/graph`'s picked vertices | graph's is `VertexSelection`, with `VertexSelectionSource` |
+| `Problem` | `@kanzo-tech/ui`'s component; `@kanzo-tech/theme`'s section-validation record | theme's is `SectionProblem` |
+| `Pick` | TypeScript's `Pick<T, K>`; graph's pick record | graph's is `VertexPick` |
+| `Proposal` | `@kanzo-tech/ai`'s field proposal; `@kanzo-tech/ai/task`'s proposal | one `Proposal`, the Task's ([Tasks](/docs/design/tasks#suggest-and-complete-stop-being-the-split)) |
+
+Each had already announced itself the way `Suggestion` had: graph imported Mosaic's class as
+`Selection as Crossfilter` to get past its own, and any file of a host that imported graph's `Pick`
+lost TypeScript's. Those aliases are gone with the collisions. The last row also reverses the start
+of the first section of this page: the field's proposal and the Task's are one idea — a value, where
+it lands, and what backs it — and the Task's `Target` says *where it lands* as an LSP edit, which is
+what `range` said for a field.
+
+The guard written for this rule found four more the review had not: `Finding` and `Diagnostic` are
+each a `@kanzo-tech/ui` part's name and a Task oracle's type on `/task`, `Link` is the root's styled
+anchor and `@kanzo-tech/navigation/next`'s guarded `next/link`, and `Tool` is the graph's canvas tool,
+`@kanzo-tech/ai`'s tool-call part and the AI SDK's type `@kanzo-tech/llm` re-exports. Which side of
+each moves is a decision, so the guard pins the four as unsettled, and the list may only shrink.
+
+**What would reverse it:** a reference that ships one of the moved names with our meaning — then the
+name goes back, and the other meaning moves.
+
+*Held by* `packages/ui/src/documented-exports.test.ts`, "gives each name one meaning across every
+entry, and shadows none of the language's".
+
+## One prop translates: `translations`
+
+**Every component that writes words a reader sees takes them through one prop, `translations`, a
+partial record of its strings, in English by default.** There were five spellings, decided 13
+October 2026 to be one: `translations` (`LanguagePicker`, `Problem`, all of `@kanzo-tech/ai`), `copy`
+as a record (`Preferences`' parts and the theme cards), `labels` (`Findings`' parts), flat string
+props (`MadeWith`'s `prefix`, `infix` and `loveLabel`; `PreferencesPanel`'s `title` and `hint`), and
+nothing at all. [Admission](/docs/design/admission#a-failure-is-read-by-shape-and-worded-by-the-host)
+had already named `translations` the one way to pass words; the other four were the same idea under
+other names, and a host translating a page had to learn each.
+
+The name is the reference's. Ark's machines take their own words as `translations` — a popover's
+`closeTriggerLabel`, a pagination's labels — so a part over a machine that draws none of the
+machine's words takes `translations` in its place (`FindingsRoot` over `Popover` does), and a host
+writes one prop name whichever layer a word comes from. A compound takes it once on its root and
+every part inside reads it; a part's own `translations` win for that part (`PreferencesRoot`,
+`FindingsRoot`).
+
+A part that writes a sentence from pieces takes the pieces' pattern as a `translations` entry with
+placeholders — a function of the values — never a sentence assembled in English. A part that
+hard-codes English gains `translations` when it is next touched, in the same change, since a reader
+in another language is already a caller: the analytics parts, the table's pagination and most of
+graph's parts are still the case, about 160 strings, and none was edited for its own sake.
+
+`Problem`'s `describe(code, data)` is not a translation. It is the host's wording of a failure it
+knows, resolved per failure from its `data`, and it sits beside `Problem`'s `translations`, which are
+the same whatever failed.
+
+**What would reverse it:** a host that translates through a provider — an i18n library's context —
+and cannot pass a prop per component. Then a provider is the second way, and it supplies the same
+`translations` records, keyed by the component.
+
+*Held by* `packages/ui/src/composites/Preferences.test.tsx`, "translates every part through the root,
+and a part's own translations win for that part"; `packages/ui/src/composites/findings.test.tsx`,
+"says its severity in the host's words"; `packages/ui/src/composites/problem.tsx`, `describe`.

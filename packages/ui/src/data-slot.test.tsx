@@ -63,8 +63,8 @@ import { ToggleGroup, ToggleGroupItem } from "./simples/toggle-group";
  *   static can see that — it is a fact about a dependency's render — so the check lives where the
  *   dependency does, in `packages/ai/src/markdown.test.tsx`. A wrapper this package owns is the
  *   fix, and any part built on a foreign renderer owes the same test.
- * - **The parse reads two packages; the render tests read one.** `guard-corpus.ts` widened the scan
- *   to `ui` and `ai` on 2026-08-20, and the three rules above are enforced over both — they read
+ * - **The parse reads three packages; the render tests read one.** `guard-corpus.ts` widened the scan
+ *   to `ui` and `ai` on 2026-08-20, and to `graph` on 2026-10-13, and the three rules above are enforced over all three — they read
  *   `.tsx` off disk and need no import. The `describe("the slot prop")` block at the bottom cannot
  *   follow, and this is a fact about the workspace rather than a choice: `@kanzo-tech/ai`
  *   peer-depends on `@kanzo-tech/ui`, so `ui` cannot depend back on it without a cycle, and
@@ -165,6 +165,9 @@ const FILES = sourceFiles(/\.tsx$/);
 const LAYERS = [
   "ai/",
   "ai/data/",
+  "graph/",
+  "graph/parts/",
+  "graph/react/",
   "ui/",
   "ui/charts/",
   "ui/composites/",

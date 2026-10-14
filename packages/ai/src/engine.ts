@@ -3,21 +3,22 @@
 // The machinery behind `Assist`, and none of it is public. A field offers a **proposal** — text the
 // reader may take — and this file is everything about getting proposals out of a stream and keeping
 // them honest while the reader types: one engine, the inline continuation, and the candidate list.
+//
+// A field's proposal is the Task's `Proposal` of a string: a continuation's `target` inserts at the
+// caret, a candidate's replaces the value, and a list's adds an item. There is no second type.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Proposal } from "./task/index.js";
 
-/** A value the model offers a field. LSP 3.18's `InlineCompletionItem`, as a field needs it. */
-export interface Proposal {
-  text: string;
-  /**
-   * What taking it replaces, as `[from, to)` in the field's value: an empty range at the caret is a
-   * continuation, the whole value is a replacement. Absent for a new item in a list field (tags),
-   * where taking it adds rather than edits.
-   */
-  range?: [from: number, to: number];
-  /** Why the model offered it. Shown as the candidate's tooltip. */
-  rationale?: string;
-}
+/** A continuation offered at `at`, as the Task's proposal of the text it inserts there. */
+export const continuationAt = (value: string, at: number): Proposal<string> => ({
+  id: `continuation-${at}`,
+  task: "continuation",
+  value,
+  target: { insert: at },
+  verdict: { ok: true },
+  attempts: 1,
+});
 
 /**
  * What happened to a proposal, for a host that learns from it (HAX G13). The lifecycle VS Code's
@@ -27,7 +28,7 @@ export interface Proposal {
  */
 export interface AssistEvent {
   kind: "shown" | "accepted" | "partial" | "rejected" | "ignored";
-  proposal: Proposal;
+  proposal: Proposal<string>;
   /** The field's accessible name — which field it was. */
   field: string;
 }
@@ -179,7 +180,7 @@ interface Offer {
  */
 export function useContinuation(options: {
   source: (request: ContinuationRequest) => AsyncIterable<string>;
-  onEvent: (kind: AssistEvent["kind"], proposal: Proposal) => void;
+  onEvent: (kind: AssistEvent["kind"], proposal: Proposal<string>) => void;
   debounceMs?: number;
 }) {
   const { run, cancel, status, error } = useStream<string>();
@@ -214,7 +215,7 @@ export function useContinuation(options: {
     return o.text.startsWith(typed) || (!o.done && typed.startsWith(o.text));
   }, []);
 
-  const proposal = (o: Offer): Proposal => ({ text: o.text, range: [o.from, o.from] });
+  const proposal = (o: Offer) => continuationAt(o.text, o.from);
 
   const painter = useRef<ReturnType<typeof coalesce>>(undefined);
   painter.current ??= coalesce(() => {
@@ -327,7 +328,7 @@ export function useContinuation(options: {
   const settle = useCallback(
     (kind: "accepted" | "partial", text: string) => {
       const o = current();
-      if (o) opts.current.onEvent(kind, { text, range: [field.current.position, field.current.position] });
+      if (o) opts.current.onEvent(kind, continuationAt(text, field.current.position));
       if (kind === "accepted") {
         offers.current = [];
         index.current = 0;
@@ -361,18 +362,18 @@ const norm = (v: string) => v.trim().toLowerCase();
  * than a window: nothing refills when one is taken or dismissed.
  */
 export function useCandidates(options: {
-  source: (request: { existing: string[]; signal: AbortSignal }) => AsyncIterable<Proposal>;
+  source: (request: { existing: string[]; signal: AbortSignal }) => AsyncIterable<Proposal<string>>;
   existing: string[];
-  onEvent: (kind: AssistEvent["kind"], proposal: Proposal) => void;
+  onEvent: (kind: AssistEvent["kind"], proposal: Proposal<string>) => void;
   limit?: number;
 }) {
-  const { run, cancel: abort, reset, status, error } = useStream<Proposal>();
-  const [items, setItems] = useState<Proposal[]>([]);
-  const shown = useRef<Proposal[]>([]);
+  const { run, cancel: abort, reset, status, error } = useStream<Proposal<string>>();
+  const [items, setItems] = useState<Proposal<string>[]>([]);
+  const shown = useRef<Proposal<string>[]>([]);
   const opts = useRef(options);
   opts.current = options;
 
-  const put = useCallback((next: Proposal[]) => {
+  const put = useCallback((next: Proposal<string>[]) => {
     shown.current = next;
     setItems(next);
   }, []);
@@ -380,12 +381,12 @@ export function useCandidates(options: {
   const refresh = useCallback(() => {
     const { existing, limit = 6, source } = opts.current;
     const seen = new Set(existing.map(norm).filter(Boolean));
-    const taken: Proposal[] = [];
+    const taken: Proposal<string>[] = [];
     put([]);
     void run(
       (signal) => source({ existing, signal }),
       (item) => {
-        const key = norm(item.text);
+        const key = norm(item.value);
         if (!key || seen.has(key)) return true;
         seen.add(key);
         taken.push(item);
@@ -405,9 +406,9 @@ export function useCandidates(options: {
   const remove = useCallback(
     (text: string, kind: "accepted" | "rejected") => {
       const key = norm(text);
-      const item = shown.current.find((p) => norm(p.text) === key);
+      const item = shown.current.find((p) => norm(p.value) === key);
       if (item) opts.current.onEvent(kind, item);
-      const next = shown.current.filter((p) => norm(p.text) !== key);
+      const next = shown.current.filter((p) => norm(p.value) !== key);
       put(next);
       // Nothing left of an answer is not an answer with nothing in it.
       if (next.length === 0) reset();

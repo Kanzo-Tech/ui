@@ -32,16 +32,21 @@
     "test": "vitest run",
     "size": "size-limit"
   },
-  "//peers": "All required. cosmos.gl draws and lays out; `lucide-react` is the icon set the parts draw their buttons with, `@kanzo-tech/ui`'s own peer; `@kanzo-tech/mosaic` is the coordinator the graph reads through as a client and the crossfilter it listens to and publishes into. The Mosaic stack itself — mosaic-core, mosaic-sql — is `@kanzo-tech/mosaic`'s peer, declared once there.",
+  "//peers": "All required. cosmos.gl draws and lays out; `@ark-ui/react` is what every part renders through (`ark.*`), a peer for the reason it is `@kanzo-tech/ui`'s — two copies of Ark would be two portals and two focus traps; `lucide-react` is the icon set the parts draw their buttons with, `@kanzo-tech/ui`'s own peer; `@kanzo-tech/mosaic` is the coordinator the graph reads through as a client and the crossfilter it listens to and publishes into. The Mosaic stack itself — mosaic-core, mosaic-sql — is `@kanzo-tech/mosaic`'s peer, declared once there. `tailwind-variants` is a dependency, as it is `ui`'s and `ai`'s: the parts write their appearance as recipes, which is also what puts this package under the guards (`packages/ui/src/guard-corpus.ts`).",
   "//fossil": "The graph reads a corpus fossil's `attach` (`@fossil-lang/corpus`) attached under a name — its tables, `fossil_tables` and `fossil_columns` — with SQL through the coordinator. It imports nothing of fossil's: the contract is the catalog, `/docs/format`, as `@fossil-lang/corpus` 0.3.0-alpha.28 writes it — `fossil_columns.datatype` is what tells a year stored as an `int32` from a number.",
   "peerDependencies": {
+    "@ark-ui/react": "^5.37.2",
     "@cosmos.gl/graph": "^3.4.0",
     "@kanzo-tech/mosaic": "workspace:*",
     "@kanzo-tech/ui": "workspace:*",
     "lucide-react": "^1.0.0",
     "react": "^19.0.0"
   },
+  "dependencies": {
+    "tailwind-variants": "^3.2.2"
+  },
   "devDependencies": {
+    "@ark-ui/react": "^5.37.2",
     "@cosmos.gl/graph": "^3.4.0",
     "@duckdb/duckdb-wasm": "1.33.1-dev57.0",
     "@kanzo-tech/mosaic": "workspace:*",
@@ -62,23 +67,6 @@
     "react-dom": "^19.0.0",
     "rollup-plugin-preserve-directives": "^0.4.0"
   },
-  "//size-limit": "Budgets our code only: `ignore` mirrors the peers the build externalises in vite.config.ts, cosmos.gl included (about 190 kB gzipped on its own, and the consumer pays it once whatever this package does). First measured 2026-09-30 at 19.07 kB, before the lag work of `perf/phase1-lag`; 19.13 kB before the whole-corpus store deleted the tileset, 15.29 kB after it, and the budget follows it down so real growth trips the gate. Raised to 18 kB on 2026-10-01 as a decision: 17.71 kB after GraphCounts, GraphSearch and GraphLooks moved in from the workspace showcase (their code left the host, it did not appear from nowhere) and the drag-to-fix release. Raised to 18.5 kB on 2026-10-02 as a decision (Ángel): 18.01 kB once the layout's square placement and the camera that follows a running layout landed. Raised to 19 kB on 2026-10-03 as a decision (Ángel): 18.58 kB once GraphSelect moved in from the hosts (which drop their copies) and the camera stopped reading positions cosmos.gl had not uploaded. Raised to 22.5 kB on 2026-10-03 as a decision (Ángel), once for the whole Discover integration rather than per change: 18.8 → 22.04 kB with GraphPlacement moved in from the hosts and the named label levels (+1.1), the store keeping the arrangement across canvases (+0.2), GraphSearch as a palette and GraphInspector with its card and neighbourhood (+2.1), less the pins that left (−0.4) — features, not drift. Followed down to 22.3 kB on 2026-10-05: 22.29 kB once the named looks left GraphLooks and the panel became the axes alone (#79). Followed down to 22.2 kB on 2026-10-07: 22.07 kB once GraphSelect left for usePick and the key was read from the manifest, then 22.12 kB with the legend's 'x of N' per category. Raised to 22.5 kB on 2026-10-07 as a decision (Ángel): 22.49 kB once the search read the subset and counted what lies outside it. Raised to 22.75 kB on 2026-10-09 as a decision (Ángel): 22.71 kB once the canvas's tools worked on what is in full colour (#112) — the toolbar's group for any greyed-out subset, its count of what other filters hide, and `visible()` on the store. Raised to 23 kB on 2026-10-09 as a decision (Ángel): 22.71 → 22.95 kB, all of it the test hook's support — `parts/testing-probe.ts` (cosmos.gl's `getPointPositions` and `spaceToScreenPosition`, the placement rebuilt from `spaceSize`) and GraphCanvas's `id`, `aria-busy`, `data-frame` counter and registration — code every page ships for a hook only a test installs. Raised to 23.5 kB on 2026-10-09 as a decision (Ángel; #143): 22.95 -> 23.3 kB once `GraphTimeline` landed -- the timeline under the canvas over the column the `time-by` setting chooses, the root answering that setting's temporal columns by type and datatype, and `datatype` read from `fossil_columns`. Raised to 24 kB on 2026-10-10, proposed for Ángel's decision in the PR that made it: 23.41 -> 23.84 kB once the map said what it places -- `GraphCounts`' placed sentence and its tooltip, `GraphLegend`'s No position group and its note, and `Drawn`'s `totals`, `links` and `placedLinks`. Raised 24 kB -> 24.1 kB on 2026-10-10 as a decision (Ángel): 24.07 kB once #154 (the timeline folded into the graph's loading) met #156 (Map A) on main.",
-  "size-limit": [
-    {
-      "name": "root barrel (JS)",
-      "path": "dist/index.js",
-      "limit": "24.5 kB",
-      "ignore": [
-        "react",
-        "react-dom",
-        "react/jsx-runtime",
-        "@cosmos.gl/graph",
-        "@kanzo-tech/mosaic",
-        "@kanzo-tech/ui",
-        "lucide-react"
-      ]
-    }
-  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Kanzo-Tech/ui.git",
@@ -87,5 +75,10 @@
   "homepage": "https://kanzo-tech.github.io/ui",
   "bugs": {
     "url": "https://github.com/Kanzo-Tech/ui/issues"
+  },
+  "//gauges": "One gauge per published entry, and one per tree-shaken import a consumer meets; `scripts/gauges.mjs` (through `.size-limit.mjs`) is what each measures, and every limit's reason — each raise, dated, with its before and after — is a row on /docs/design, *A gauge per entry, and its raises written here*.",
+  "gauges": {
+    ".": "25.25 kB",
+    "./section": "1.6 kB"
   }
 }

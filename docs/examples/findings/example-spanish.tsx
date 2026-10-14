@@ -49,7 +49,7 @@ const tally = tallyFindings(ISSUES);
 
 export default function Example() {
   return (
-    <FindingsRoot labels={LABELS} tally={tally}>
+    <FindingsRoot translations={LABELS} tally={tally}>
       <FindingsBadge pill>{(t) => (t?.total ? incidencias(t.total) : "Válido")}</FindingsBadge>
       <FindingsContent>
         <FindingsHeader>

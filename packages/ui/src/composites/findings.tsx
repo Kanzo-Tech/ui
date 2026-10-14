@@ -72,7 +72,7 @@ export interface FindingPlace {
 export type DescribePlace<Place> = (place: Place) => FindingPlace;
 
 /** The words the parts draw that are not the host's data. English until a host says otherwise. */
-export interface FindingLabels {
+export interface FindingsTranslations {
   /** The header's title. */
   title: string;
   severity: Record<FindingSeverity, string>;
@@ -80,7 +80,7 @@ export interface FindingLabels {
   details: string;
 }
 
-const LABELS: FindingLabels = {
+const ENGLISH: FindingsTranslations = {
   title: "Findings",
   severity: { violation: "Violation", warning: "Warning", info: "Info" },
   details: "Details",
@@ -90,7 +90,7 @@ interface FindingsContextValue {
   /** `undefined` until something was checked. */
   tally: FindingTally | undefined;
   worst: FindingSeverity | undefined;
-  labels: FindingLabels;
+  translations: FindingsTranslations;
 }
 
 const FindingsContext = React.createContext<FindingsContextValue | null>(null);
@@ -105,8 +105,8 @@ export const useFindings = () => {
   return context;
 };
 
-const useLabels = (own: Partial<FindingLabels> | undefined): FindingLabels => {
-  const inherited = React.useContext(FindingsContext)?.labels ?? LABELS;
+const useTranslations = (own: Partial<FindingsTranslations> | undefined): FindingsTranslations => {
+  const inherited = React.useContext(FindingsContext)?.translations ?? ENGLISH;
   return own ? { ...inherited, ...own } : inherited;
 };
 
@@ -115,8 +115,8 @@ const useCount = () => {
   return React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
 };
 
-const nameOf = (labels: FindingLabels, where: React.ReactNode) =>
-  typeof where === "string" ? `${labels.details}: ${where}` : labels.details;
+const nameOf = (translations: FindingsTranslations, where: React.ReactNode) =>
+  typeof where === "string" ? `${translations.details}: ${where}` : translations.details;
 
 /** A label a reader may have to type back into a tool — a path, a file — that wraps anywhere. */
 const MONO = "min-w-0 flex-1 font-mono text-muted-foreground text-xs wrap-anywhere";
@@ -205,7 +205,7 @@ export interface FindingsItemProps<Place>
   describe: DescribePlace<Place>;
   /** The item's one action — *Go to field*, *Show 362*. A group's places are read, not acted on. */
   action?: FindingAction;
-  labels?: Partial<FindingLabels>;
+  translations?: Partial<FindingsTranslations>;
   /**
    * Line 1's place, when it is not what `describe` reads — what a group shares, *totalCost*. Without
    * it, one result's place as `describe` reads it, and a group's rule label.
@@ -224,8 +224,8 @@ const isGroup = <Place,>(finding: Finding<Place> | FindingGroup<Place>): finding
  * one that survives a narrow column. A group of 17,000 is one item, not 17,000.
  */
 export function FindingsItem<Place>(props: FindingsItemProps<Place>) {
-  const { finding, describe, action, labels: own, children, slot, ...rest } = props;
-  const labels = useLabels(own);
+  const { finding, describe, action, translations: own, children, slot, ...rest } = props;
+  const translations = useTranslations(own);
   const count = useCount();
   const group = isGroup(finding) ? finding : undefined;
   const one = group ? undefined : describe((finding as Finding<Place>).place);
@@ -242,7 +242,7 @@ export function FindingsItem<Place>(props: FindingsItemProps<Place>) {
     >
       <DiagnosticHeader>
         <DiagnosticSeverity>
-          {labels.severity[finding.severity]}
+          {translations.severity[finding.severity]}
           {group ? (
             <ark.span className="tabular-nums" data-slot="findings-count">
               {count.format(group.count)}
@@ -252,7 +252,7 @@ export function FindingsItem<Place>(props: FindingsItemProps<Place>) {
         <Where>{where}</Where>
         <DiagnosticActions className="ms-auto">
           {action ? <Action action={action} /> : null}
-          <DiagnosticTrigger aria-label={nameOf(labels, where)} />
+          <DiagnosticTrigger aria-label={nameOf(translations, where)} />
         </DiagnosticActions>
         <Message>{finding.message}</Message>
       </DiagnosticHeader>
@@ -285,7 +285,7 @@ export function FindingsItem<Place>(props: FindingsItemProps<Place>) {
 
 export interface FindingsTallyProps extends React.ComponentProps<typeof ark.span> {
   tally: FindingTally;
-  labels?: Partial<FindingLabels>;
+  translations?: Partial<FindingsTranslations>;
 }
 
 /**
@@ -294,8 +294,8 @@ export interface FindingsTallyProps extends React.ComponentProps<typeof ark.span
  * paths it holds.
  */
 export const FindingsTally = (props: FindingsTallyProps) => {
-  const { tally, labels: own, className, slot, ...rest } = props;
-  const labels = useLabels(own);
+  const { tally, translations: own, className, slot, ...rest } = props;
+  const translations = useTranslations(own);
   const count = useCount();
 
   return (
@@ -314,7 +314,7 @@ export const FindingsTally = (props: FindingsTallyProps) => {
             size="xs"
             variant={VARIANT[severity]}
           >
-            <ark.span className="sr-only">{labels.severity[severity]} </ark.span>
+            <ark.span className="sr-only">{translations.severity[severity]} </ark.span>
             {count.format(tally[severity])}
           </Badge>
         ))}
@@ -329,7 +329,7 @@ export interface FindingsGroupProps
   tally: FindingTally;
   /** One action over every item — *Show 44* — at the end of the heading, as an item's is at the end of its line. */
   action?: FindingAction;
-  labels?: Partial<FindingLabels>;
+  translations?: Partial<FindingsTranslations>;
 }
 
 /**
@@ -339,7 +339,7 @@ export interface FindingsGroupProps
  * `Diagnostic`.
  */
 export const FindingsGroup = (props: FindingsGroupProps) => {
-  const { title, tally, action, labels, children, className, slot, ...rest } = props;
+  const { title, tally, action, translations, children, className, slot, ...rest } = props;
   const heading = React.useId();
 
   return (
@@ -356,7 +356,7 @@ export const FindingsGroup = (props: FindingsGroupProps) => {
         >
           {title}
         </ark.h3>
-        <FindingsTally labels={labels} tally={tally} />
+        <FindingsTally translations={translations} tally={tally} />
         {action ? (
           <FindingsActions>
             <Action action={action} />
@@ -370,10 +370,11 @@ export const FindingsGroup = (props: FindingsGroupProps) => {
 
 // ── The badge and its popover ───────────────────────────────────────────────────────────────────
 
-export interface FindingsRootProps extends React.ComponentProps<typeof Popover> {
+export interface FindingsRootProps extends Omit<React.ComponentProps<typeof Popover>, "translations"> {
   /** What was found. `undefined` is *nothing checked yet* — no rules, or no run — and is not *clean*. */
   tally: FindingTally | undefined;
-  labels?: Partial<FindingLabels>;
+  /** The parts' words, for every part inside — in place of the popover machine's own `closeTriggerLabel`, for a close trigger these parts never draw. */
+  translations?: Partial<FindingsTranslations>;
 }
 
 /**
@@ -383,15 +384,15 @@ export interface FindingsRootProps extends React.ComponentProps<typeof Popover> 
  * and offers the way on.
  */
 export function FindingsRoot(props: FindingsRootProps) {
-  const { tally, labels, positioning, ...rest } = props;
+  const { tally, translations, positioning, ...rest } = props;
 
   const value = React.useMemo<FindingsContextValue>(
     () => ({
       tally,
       worst: tally ? worstOf(tally) : undefined,
-      labels: labels ? { ...LABELS, ...labels } : LABELS,
+      translations: translations ? { ...ENGLISH, ...translations } : ENGLISH,
     }),
-    [tally, labels],
+    [tally, translations],
   );
 
   return (
@@ -470,13 +471,13 @@ export const FindingsContent = (props: React.ComponentProps<typeof PopoverConten
  * </FindingsHeader>
  * ```
  *
- * `PopoverHeader`, laid out as a row that wraps. The title is the labels' — *Findings* — and is
+ * `PopoverHeader`, laid out as a row that wraps. The title is the translations' — *Findings* — and is
  * Ark's `Popover.Title`, so it names the dialog; the scope is `PopoverDescription`, Ark's too, and
  * describes it. Above the list and not scrolling with it.
  */
 export const FindingsHeader = (props: React.ComponentProps<typeof PopoverHeader>) => {
   const { children, className, slot, ...rest } = props;
-  const { title } = useLabels(undefined);
+  const { title } = useTranslations(undefined);
 
   return (
     <PopoverHeader
