@@ -34,9 +34,16 @@ export function accountUrl(issuer: string, page: AccountPage = ""): string {
  * which is a deployment's fault and not a condition to handle.
  */
 export function organizationConsoleUrl(issuer: string, organization: Organization): string | undefined {
-  const realm = /^(.*)\/realms\/([^/]+)$/.exec(issuer.replace(/\/+$/, ""));
-  if (realm === null) throw new Error(`${issuer} is not a Keycloak realm's issuer, \`{origin}/realms/{realm}\``);
+  // Split by string, not by a backtracking pattern: the issuer is configuration, and a regular
+  // expression over it is one more thing a long run of slashes can slow down.
+  let trimmed = issuer;
+  while (trimmed.endsWith("/")) trimmed = trimmed.slice(0, -1);
+  const at = trimmed.lastIndexOf("/realms/");
+  const name = at === -1 ? "" : trimmed.slice(at + "/realms/".length);
+  if (name === "" || name.includes("/")) {
+    throw new Error(`${issuer} is not a Keycloak realm's issuer, \`{origin}/realms/{realm}\``);
+  }
   if (organization.id === undefined) return undefined;
-  const [, origin, name] = realm;
+  const origin = trimmed.slice(0, at);
   return `${origin}/admin/${name}/console/#/${name}/organizations/${encodeURIComponent(organization.id)}/settings`;
 }
