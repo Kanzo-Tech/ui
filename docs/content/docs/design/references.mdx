@@ -311,24 +311,33 @@ still JSON only by default, and `Chat`'s `tools` map draws it as what it is.
 | `CodeBlock`, `Snippet` | `@kanzo-tech/ui`'s `CodeEditor`, `Prose` | |
 | `Checkpoint` | `Checkpoint`, `CheckpointIcon`, `CheckpointTrigger` | An `<li>` of the transcript, its rule hidden as paint; no tooltip on the trigger. What restoring does is the host's `onClick` |
 | `Context` | `ModelBadge` | Their shape — a small trigger with the detail behind it — for a model in the page as it loads rather than a context window's usage; a popover, not a hover card, because a failure carries a retry |
+| `ChainOfThought`, `ChainOfThoughtStep` | `ChainOfThought`, `ChainOfThoughtStep` | An `<ol>` of the host's steps rather than the model's reasoning; their `icon`, `label`, `description`, `status` and body kept, `waiting` added to their three statuses, `action` trailing the row. The status is also said in words. Their `ChainOfThoughtHeader`, `Content`, `SearchResults`, `SearchResult` and `Image` not admitted |
+| `Sources`, `SourcesTrigger`, `SourcesContent`, `Source` | `Sources`, `SourcesTrigger`, `SourcesContent`, `Source` | Above the thread rather than under an answer; the trigger's count is a pill and *Sources* a translation; a `Source` is a pill whose words are its children, not a link with a title |
 
 **Not admitted, and what would admit each:**
 
-- `Task`, `Plan`, `Queue`, `ChainOfThought`, `Agent` — an agent's steps drawn as a list. A host whose
-  agent runs a plan the reader follows step by step. (`Task` would also collide with this library's
-  Tasks, which are an artefact a small model fills, not a step.)
+- `Plan`, `Task`, `Queue`, `Agent` — read 2026-10-14, and each left for what it is. `Plan` is a card
+  (title, description, a collapsible body) around content of the host's own: it has no step, so it
+  would wrap `ChainOfThought`, not replace it. `Task` is a collapsible group of one search's lines and
+  file chips, with no status, and would collide with this library's Tasks, which are an artefact a
+  small model fills. `Queue` is a todo list of two states, `pending` and `completed`, with a hover-only
+  row action; no state for *under way* or *waiting*, and a list that hides what the reader must see.
+  `Agent` is an agent's configuration — name, model, instructions, tools, output schema. A host that
+  wants a collapsible card around its steps (`Plan`), or a todo list whose rows are two-state
+  (`Queue`), or shows the reader what an agent is configured with (`Agent`).
 - `Confirmation` — a tool call that waits for the person's approval. A host whose agent declares a
   tool with `needsApproval`; `Tool` already reads *Awaiting approval*, and the actions would join it.
 - `Context`'s own content, the context window's usage. A host that shows the reader the budget
   [Asking within a context](/docs/design/ai-context) spends; `ModelBadge` is where it would go.
-- `Sources`, `InlineCitation` — documents an answer cites. A host whose answers rest on documents
+- `InlineCitation` — a citation marked in an answer's text. A host whose answers rest on documents
   rather than on the page's data, whose evidence is the tile.
 - `MessageBranch` — alternative answers. A host that regenerates an answer and keeps both, or keeps
   the turns a restore cut as a branch.
 - `Attachments`, `ModelSelector`, `Image` — files sent with a question, a picker of models, an image
   generated. A host that sends files to a model that reads them, or offers more than one model.
-  `PromptInputHeader` is where their cards would go, and the owner refused them for keasy's sources:
-  a source is a connection the question reads, drawn as the host's pill, not a file uploaded.
+  `PromptInputHeader` is where their cards would go. `Attachments` was read again for the thread's
+  details and left: its three variants draw a file with a media preview and a remove, and a source
+  here is a connection the host names and the reader neither previews nor removes from the block.
 - `Artifact`, `WebPreview`, `Sandbox`, `JSXPreview`, `Terminal`, `TestResults`, `Commit`,
   `EnvironmentVariables`, `PackageInfo` — a coding agent's surfaces. A host that is one.
 - `Canvas`, `Node`, `Edge`, `Connection`, `Controls`, `Panel`, `Toolbar` — a workflow diagram. The
@@ -358,6 +367,39 @@ header and leaves the toolbar to the controls.
 that hands the press to the host"; `packages/ai/src/prompt-input.test.tsx`, "carries the host's pills
 above the field, each opening what it holds"; `packages/ai/src/chat.test.tsx`, "shows what the next
 question is asked over in the composer, beside Send".
+
+**The steps of the work and what the thread rests on were admitted for keasy's assistant thread.**
+The thread shows *what I am doing* — rows done, under way, waiting on the reader and still to come,
+future ones visible, each a plain line with a mark, a detail and sometimes one action — and, pinned
+above the transcript, what the reader said the data is about with the sources they picked. Neither
+needed a vocabulary of our own, and neither `Tool` nor `Working` could carry them: `Tool` is a card
+bound to one AI SDK part with a collapsed body, and `Working` is one busy line.
+
+*Steps are `ChainOfThoughtStep`.* Of AI Elements' candidates it is the only row with a status, an
+icon, a label, a detail and a body at once; `Queue` has two statuses, `Plan` no rows and `Task` a
+group of lines. It departs in four places, each for a reason: the status `waiting`, because a step
+that stops for the person is neither `active` (nothing is running) nor `pending` (it has begun);
+`action`, a prop, because the step's verb trails the row where their `children` fall under it;
+the status said in words and `aria-current`, because a glyph and a colour tell a screen reader
+nothing; and the ink of `pending`, the same as a done step's, because their `muted-foreground/50`
+fails the contrast a label owes and the hollow mark already says it. It is the host's steps and not
+the model's reasoning, which is `Reasoning`. *What would reverse it:* a host whose steps nest or fold
+(their `ChainOfThoughtHeader` and `Content` return with it), or a second status a step passes
+through that is neither of the four, which belongs in the type rather than in a host's `icon`.
+
+*The details are `Sources`.* Of the three the owner named, `Context` is a context window's usage and
+is already `ModelBadge`'s shape, `Attachments` is a file's card, and `Sources` is a collapsible with a
+count over the things the conversation reads — the block. It departs in the pill (a source is a
+connection the host names, not a link with a title; `asChild` makes one a link) and in the place
+(above the thread, not under an answer); the reader's words are the host's child of `SourcesContent`,
+since a paragraph needs no part. *What would reverse it:* a second host whose details are more than
+words and pills, which would make the words a part; or sources that are always links, which would
+give `Source` an `href`.
+
+*Held by* `packages/ai/src/chain-of-thought.test.tsx`, "is an ordered list with every step visible,
+the future ones too" and "says each status in words, since its mark is paint, and marks the present
+step"; `packages/ai/src/sources.test.tsx`, "is a trigger naming the block and counting its sources,
+closed until pressed".
 
 **What would reverse it:** a shipped npm package we can resolve types from, which is what would make
 parity checkable rather than aspirational. Until then the table above is re-derived by reading their
