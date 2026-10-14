@@ -1,7 +1,7 @@
 import { ark } from "@ark-ui/react/factory";
 import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
-import { Avatar, AvatarFallback, AvatarImage, cn } from "@kanzo-tech/ui";
+import { cn } from "@kanzo-tech/ui";
 
 export type MessageRole = "user" | "assistant" | "system";
 
@@ -13,8 +13,8 @@ const messageVariants = tv({
   ],
   variants: {
     role: {
-      // Reversed rather than `justify-end`: the row packs against the reading end and the avatar
-      // goes with it, and `row-reverse` is direction-aware where a physical side is not.
+      // Reversed rather than `justify-end`: the row packs against the reading end, and `row-reverse`
+      // is direction-aware where a physical side is not.
       user: "flex-row-reverse",
       assistant: "",
       // **No surface of its own, and that is the correction.** A system note used to be a centred
@@ -80,44 +80,6 @@ export const MessageList = (props: React.ComponentProps<typeof ark.ul>) => {
   );
 };
 
-const initials = (name?: string) =>
-  (name ?? "")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word[0]?.toUpperCase() ?? "")
-    .join("");
-
-export interface MessageAvatarProps extends React.ComponentProps<typeof Avatar> {
-  src?: string;
-  /** Names the image and, when there is no image, supplies the fallback's initials. */
-  name?: string;
-}
-
-export const MessageAvatar = (props: MessageAvatarProps) => {
-  const { src, name, className, children, size = "sm", slot, ...rest } = props;
-
-  return (
-    <Avatar
-      className={cn(
-        "shrink-0",
-        "group-data-[role=system]/message:hidden",
-        className
-      )}
-      size={size}
-      {...rest}
-      slot={slot ?? "message-avatar"}
-    >
-      {children ?? (
-        <>
-          {src ? <AvatarImage alt={name ?? ""} src={src} /> : null}
-          <AvatarFallback>{initials(name)}</AvatarFallback>
-        </>
-      )}
-    </Avatar>
-  );
-};
-
 /**
  * The turn's words. The two speakers are told apart by surface before they are read: the user gets
  * a bubble and the assistant the page itself. A system note takes neither — it is not a speaker.
@@ -126,8 +88,7 @@ export const MessageAvatar = (props: MessageAvatarProps) => {
  * the border because `--muted` is one step off `--background` (#efefef on #fafafa) — a fill nobody
  * could see, rescued by an outline. `--secondary` is the step that shows on its own, which is the
  * fill the source uses for exactly this, and it takes the outline back out. The tucked corner went
- * with it: a radius the rest of the library does not use, pointing at an avatar that is already
- * beside it.
+ * with it: a radius the rest of the library does not use.
  *
  * **Two treatments, not three.** The system pill that used to be here is gone; see `Message`.
  */
@@ -146,33 +107,6 @@ export const MessageContent = (props: React.ComponentProps<typeof ark.div>) => {
       )}
       {...rest}
       data-slot={slot ?? "message-content"}
-    />
-  );
-};
-
-/**
- * A row of affordances for the turn above it — copy, retry, a source. `basis-full` breaks it onto
- * its own line, which is what the root's `flex-wrap` is there for.
- *
- * Hidden until the turn is pointed at, so a transcript is words rather than a column of buttons;
- * revealed by focus as well as hover, and always present on a coarse pointer, where there is no
- * hover to reveal it with.
- */
-export const MessageActions = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, slot, ...rest } = props;
-
-  return (
-    <ark.div
-      className={cn(
-        "flex basis-full items-center gap-1",
-        "opacity-0 transition-opacity motion-reduce:transition-none!",
-        "group-hover/message:opacity-100 group-focus-within/message:opacity-100",
-        "pointer-coarse:opacity-100",
-        "group-data-[role=user]/message:justify-end",
-        className
-      )}
-      {...rest}
-      data-slot={slot ?? "message-actions"}
     />
   );
 };

@@ -22,7 +22,8 @@ What a model offers is `@kanzo-tech/ui`'s `Suggestions`, which knows no model: e
 `description` is its rationale, in the tooltip, and `pending` (`SuggestionsProps`) holds room for
 the pills still arriving, in skeleton, the strip `aria-busy` until they land. `Chat` and `Assist` draw their offers with it. Everything
 else a turn carries is `@kanzo-tech/ui` too: a figure is a [`Stat`](/docs/data-display/stat), a
-callout an `Alert`, a bar a `Progress`, a file tree a [`TreeView`](/docs/data-display/tree-view)
+callout an `Alert`, a bar a `Progress` (under `Working`'s words, its `value`), a heading inside a block
+an [`Eyebrow`](/docs/data-display/eyebrow), a file tree a [`TreeView`](/docs/data-display/tree-view)
 with its checkboxes, a failure a [`Problem`](/docs/data-display/problem).
 
 ## `Question`
@@ -70,13 +71,19 @@ painted with `Button`'s recipe.
 ## `Working`
 
 ```tsx
-<Working>Reading your files… {done} of {total}</Working>
-<Progress value={(done / total) * 100} />
+<Working>Thinking…</Working>
+<Working value={(done / total) * 100}>Reading your files… {done} of {total}</Working>
+<Working value={null}>Making your graph…</Working>
 ```
 
 A `role="status"` with a spinner and the words for what is under way, so the words are announced as
-they change. `Chat` draws one where the answer will be. A bar, when there is a measure, is
-`Progress` beside it, not a part of it: a status without one is the common case.
+they change. `Chat` draws one where the answer will be. Given a `value`, `@kanzo-tech/ui`'s
+`Progress` sits under the words — Ark's progressbar, named by its value — and without one there is no
+bar, which is the common case.
+
+| `WorkingProps` | Type | |
+| --- | --- | --- |
+| `value` | `number \| null` | 0–100 draws the bar at that value; `null` draws it indeterminate; left out, no bar |
 
 ## `ModelBadge`
 
@@ -201,7 +208,8 @@ has what would move it).
 *Held by* `packages/ai/src/question.test.tsx`, "is a radio group named by its prompt, an option per
 radio", "answers with the option picked, in one press, and draws the answer it is given", "moves
 between the options with the arrow keys, choosing as it moves"; `packages/ai/src/working.test.tsx`,
-"is one status saying what is under way, its spinner hidden so it is not announced twice";
+"is one status saying what is under way, its spinner hidden so it is not announced twice" and "draws
+a bar under the words given a value, indeterminate given null";
 `packages/ai/src/model-badge.test.tsx`, "opens a failure as a Problem, with a retry only where the
 device can recover"; `packages/ai/src/checkpoint.test.tsx`, "is an item of the transcript between two
 turns, its rule hidden as paint", "restores nothing itself: the trigger is a button that hands the

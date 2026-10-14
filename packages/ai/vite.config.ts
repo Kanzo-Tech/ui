@@ -43,6 +43,7 @@ export default defineConfig({
         // `@kanzo-tech/theme/tokens.css` once already.
         /^@kanzo-tech\//.test(id) ||
         /^@ark-ui\//.test(id) ||
+        /^@tanstack\//.test(id) ||
         id === "lucide-react" ||
         id === "tailwind-variants" ||
         id === "streamdown" ||

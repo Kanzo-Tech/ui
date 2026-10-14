@@ -298,13 +298,13 @@ still JSON only by default, and `Chat`'s `tools` map draws it as what it is.
 | AI Elements | Here | How ours differs |
 | --- | --- | --- |
 | `Conversation` | `Conversation`, `ConversationContent`, `ConversationScrollButton` | The pin is ours, fifty lines rather than `use-stick-to-bottom`; `role="log"`. Their `ConversationEmptyState` is `Chat`'s `empty`, their `ConversationDownload` not admitted |
-| `Message` | `Message`, `MessageList`, `MessageContent`, `MessageAvatar`, `MessageActions` | `role` declared once and read by the parts; a list with list semantics. `MessageResponse` is `Chat`'s markdown, internal; `MessageAction`, `MessageToolbar` and `MessageBranch` not admitted |
+| `Message` | `Message`, `MessageList`, `MessageContent` | `role` declared once and read by the parts; a list with list semantics. `MessageResponse` is `Chat`'s markdown, internal; `MessageAction`, `MessageActions`, `MessageAvatar`, `MessageToolbar` and `MessageBranch` not admitted — the avatar and the actions row shipped and left with no product drawing them |
 | `PromptInput` | `PromptInput`, `PromptInputHeader`, `PromptInputTextarea`, `PromptInputToolbar`, `PromptInputSubmit` | On `InputGroup`; the submit is Send, Stop or Retry by `ChatStatus`. The header is their row above the field, holding the host's pills rather than attachment cards. Their attachments, model select, action menu and speech not admitted |
 | `Reasoning` | `Reasoning`, `ReasoningTrigger`, `ReasoningContent` | A spinner, not a shimmer; the reader's own toggle ends the automatic opening |
 | `Tool` | `Tool`, `ToolHeader`, `ToolContent`, `ToolInput`, `ToolOutput` | Bound to the part; *Stopped*, a state the SDK lacks |
 | `Suggestion`, `Suggestions` | `@kanzo-tech/ui`'s `Suggestion`, `Suggestions` | Wraps rather than scrolls; a rationale in the tooltip; `pending` pills in skeleton while more arrive. One strip for a model's offers and anyone else's: `Chat` and `Assist` draw theirs with it |
 | `Question` | `Question`, `QuestionPrompt`, `QuestionDescription`, `QuestionOptions`, `QuestionOption` | Their panel and their outline-button options, on Ark's radio group so the arrow keys work. Single choice; `QuestionInput` and `QuestionSubmit` not admitted: a pick is the answer, and free text is the composer's |
-| `Shimmer` | `Working` | A spinner beside the words, as every busy surface here |
+| `Shimmer` | `Working` | A spinner beside the words, as every busy surface here, and a `Progress` under them given a `value` |
 | `Loader` | `@kanzo-tech/ui`'s `Spinner` | AI Elements retired it for shadcn's `Spinner` |
 | `StackTrace` | `@kanzo-tech/ui`'s `Diagnostic` | A SHACL violation and an LSP diagnostic are the same shape, and neither is AI |
 | `SchemaDisplay`, `FileTree` | `@kanzo-tech/ui`'s `TreeView`, `DataList` | [No schema display](/docs/design/admission#the-structure-view-is-treeview-until-the-data-nests) |

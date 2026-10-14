@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   ChartHarness,
   DashboardHarness,
@@ -6,7 +7,6 @@ import {
   FindingsBadgeHarness,
   FindingsItemHarness,
   RelationPickerHarness,
-  TimelineHarness,
   type KanzoTestingHook,
 } from "@kanzo-tech/testing";
 import { dom } from "@kanzo-tech/testing/dom";
@@ -34,6 +34,9 @@ import {
 import { type Finding, groupFindings, tallyFindings } from "./lib/findings.js";
 import { ShellDockItem, ShellDockSwitcher } from "./layouts/shell-dock.js";
 import { DiagnosticList } from "./simples/diagnostic.js";
+
+/** The host's one client: every read the parts make is a query on it. */
+const queries = new QueryClient();
 
 /** The page's selection, which the provider owns: handed out from inside it. */
 function Page({ into }: { into: (selection: Selection) => void }) {
@@ -94,10 +97,10 @@ describe("FilterBarHarness", () => {
     const env = dom();
     let crossfilter!: Selection;
     render(
-      <MosaicProvider coordinator={stubCoordinator()}>
+      <QueryClientProvider client={queries}><MosaicProvider coordinator={stubCoordinator()}>
         <Page into={(s) => (crossfilter = s)} />
         <FilterBar rowNoun="sightings" relation="sightings" />
-      </MosaicProvider>,
+      </MosaicProvider></QueryClientProvider>,
     );
     const bar = await env.harness(FilterBarHarness);
     expect(await bar.readout()).toBe("10 sightings");
@@ -117,10 +120,10 @@ describe("FilterBarHarness", () => {
     const env = dom();
     const spec: DashboardSpec = { filters: [{ field: "bounty" }], tiles: [] };
     render(
-      <MosaicProvider coordinator={stubCoordinator()}>
+      <QueryClientProvider client={queries}><MosaicProvider coordinator={stubCoordinator()}>
         <FilterBar />
         <Dashboard relation="sightings" value={spec} />
-      </MosaicProvider>,
+      </MosaicProvider></QueryClientProvider>,
     );
     const bar = await env.harness(FilterBarHarness);
     await expect.poll(() => bar.chips()).toEqual(["bounty: Any"]);
@@ -139,9 +142,9 @@ describe("DashboardHarness", () => {
       ],
     };
     render(
-      <MosaicProvider coordinator={stubCoordinator()}>
+      <QueryClientProvider client={queries}><MosaicProvider coordinator={stubCoordinator()}>
         <Dashboard relation="sightings" value={spec} />
-      </MosaicProvider>,
+      </MosaicProvider></QueryClientProvider>,
     );
     const dashboard = await env.harness(DashboardHarness);
     await dashboard.settled();
@@ -154,11 +157,11 @@ describe("ChartHarness", () => {
   it("finds a chart as a figure by its title, registered under it, and busy until it has drawn", async () => {
     const env = dom();
     const { unmount } = render(
-      <MosaicProvider coordinator={stubCoordinator()}>
+      <QueryClientProvider client={queries}><MosaicProvider coordinator={stubCoordinator()}>
         <ChartRoot aria-label="Count by region" relation="sightings">
           <ChartBarY x="region" y="n" />
         </ChartRoot>
-      </MosaicProvider>,
+      </MosaicProvider></QueryClientProvider>,
     );
     const chart = await env.harness(ChartHarness.with({ title: "Count by region" }));
     expect(await chart.title()).toBe("Count by region");
@@ -171,20 +174,20 @@ describe("ChartHarness", () => {
 
   it("registers nothing when no test installed the hook, nor a chart with no title", () => {
     render(
-      <MosaicProvider coordinator={stubCoordinator()}>
+      <QueryClientProvider client={queries}><MosaicProvider coordinator={stubCoordinator()}>
         <ChartRoot aria-label="Count by region" relation="sightings">
           <ChartBarY x="region" y="n" />
         </ChartRoot>
-      </MosaicProvider>,
+      </MosaicProvider></QueryClientProvider>,
     );
     expect(hook()).toBeUndefined();
     dom();
     render(
-      <MosaicProvider coordinator={stubCoordinator()}>
+      <QueryClientProvider client={queries}><MosaicProvider coordinator={stubCoordinator()}>
         <ChartRoot relation="sightings">
           <ChartBarY x="region" y="n" />
         </ChartRoot>
-      </MosaicProvider>,
+      </MosaicProvider></QueryClientProvider>,
     );
     expect(hook()?.charts.size).toBe(0);
   });
@@ -281,12 +284,6 @@ describe("DockHarness", () => {
     expect(await dock.current()).toBe("Ask");
     await dock.close();
     expect(await dock.current()).toBeNull();
-  });
-});
-
-describe("harnesses waiting on a component another change delivers", () => {
-  it.skip("TimelineHarness brushes a range in data and plays it — needs ChartTimeline, designed in Kanzo-Tech/ui#132 and not yet built", async () => {
-    await dom().harness(TimelineHarness);
   });
 });
 

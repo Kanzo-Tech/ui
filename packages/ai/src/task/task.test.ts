@@ -1,7 +1,9 @@
-import { jsonSchema } from "ai";
+import { APICallError, jsonSchema } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, it } from "vitest";
-import { defineTask, propose, runTask, type TaskState } from "./index.js";
+import { defineTask, propose, runTask, type RunOptions } from "./index.js";
+
+type TaskState = Parameters<NonNullable<RunOptions["onState"]>>[0];
 
 const usage = {
   inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
@@ -128,6 +130,22 @@ describe("propose", () => {
       },
     });
     await expect(propose(count, { question: "" }, { model, count: 2 })).rejects.toBe(refused);
+  });
+});
+
+describe("a Task's model call", () => {
+  it("asks once: an error the SDK would retry is the failure, not a retry after it", async () => {
+    // A retryable `APICallError` is what the AI SDK's own retry reads; with its default, this was asked three times.
+    const refused = new APICallError({ message: "overloaded", url: "local://model", requestBodyValues: {}, statusCode: 503, isRetryable: true });
+    const model = new MockLanguageModelV4({
+      doGenerate: async () => {
+        throw refused;
+      },
+    });
+    await expect(runTask(count, { question: "?" }, { model })).rejects.toThrow("overloaded");
+    expect(model.doGenerateCalls).toHaveLength(1);
+    await expect(propose(count, { question: "" }, { model, count: 2 })).rejects.toThrow("overloaded");
+    expect(model.doGenerateCalls).toHaveLength(2);
   });
 });
 

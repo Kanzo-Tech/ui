@@ -9,7 +9,7 @@ export type AccountPage = "" | "account-security/signing-in" | "account-security
  * Keycloak's account console for a realm — where a person changes their password, their sign-in
  * methods and their sessions, none of which a product should rebuild: `{issuer}/account`, and one of
  * its pages under it. `issuer` is the **public** issuer, the one the browser is sent to, as
- * `relyingParty` and `browserAuth` take it.
+ * `relyingParty` takes it.
  *
  * Pure, and on the root barrel, because a link is drawn wherever the session is — a server
  * component, a SPA's menu — and needs no protocol to compute.

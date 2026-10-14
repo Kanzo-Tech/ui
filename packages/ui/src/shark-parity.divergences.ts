@@ -93,6 +93,7 @@ export const OURS_ALONE: Readonly<Record<string, string>> = {
   FacetFilter: "Ours. The one facet-filter surface, built on `Listbox` because a filter is a value. On the root barrel because its two consumers sit on subpaths that must not import each other.",
   FieldArray: "Ours. Repeatable field rows. No Ark machine and no Shark file; `index.test.ts` pins it.",
   diagnostic: "Ours. A severity, a message and a list of source positions, over Ark's collapsible — the shape a validation violation, a compiler diagnostic and a stack trace all share. Shark has no file for it; `docs/content/docs/data-display/diagnostic.mdx` is the page, and the frames are the part nothing else here does.",
+  eyebrow: "Ours. The small uppercase line that names a block, one fixed role with no knobs, written out by hand four times before it had a name — `/docs/design/admission`, *A role written out four times is a part*. Shark has no file for it; `docs/content/docs/data-display/eyebrow.mdx` is the page.",
   Link: "Ours. The styled anchor, and the routing seam every composite reaches through `asChild` — `index.test.ts`, `drops the components that took a layout tree as an array prop`.",
   "floating-panel": "Ours, and it collides with a Shark name. See the UNADOPTED entry, which is the other half of this one.",
   "pin-input": "Ours over Ark's pin-input machine. Shark's answer to the same problem is `input-otp`, under names that do not correspond.",
@@ -243,8 +244,6 @@ export const WITHHELD: Readonly<Record<string, string>> = {
 export const ADDED: Readonly<Record<string, string>> = {
   "clipboard:ClipboardControl": THIN_ROOT("Clipboard"),
   "clipboard:ClipboardLabel": THIN_ROOT("Clipboard"),
-  "color-picker:safeParseColor":
-    "Ours. A colour parse that returns `undefined` instead of throwing on the half-typed input a text field produces. `simples/color-picker.tsx` is also the one file `no-literal-hues.test.ts` allows literals in, because colour is its subject matter.",
   "field:FieldSetError":
     "The fieldset-*scoped* message parts, which are a different Ark machine from `FieldError` / `FieldHelper` and were the only thing `field.tsx` lacked when `Fieldset` and `FieldSet` were merged — `index.test.ts`, `drops components superseded by composition or a merge`.",
   "field:FieldSetHelper":

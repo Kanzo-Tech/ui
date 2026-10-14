@@ -18,9 +18,10 @@ export const parseColor = parseColorArk;
 export const useColorPicker = useColorPickerContext;
 
 /**
- * `parseColor` that returns `undefined` instead of throwing on a blank or unparseable string.
+ * `parseColor` that returns `undefined` instead of throwing on a blank or unparseable string — the
+ * half-typed value a text field hands the picker.
  */
-export const safeParseColor = (value?: string): Color | undefined => {
+const safeParseColor = (value?: string): Color | undefined => {
   if (!value?.trim()) {
     return undefined;
   }

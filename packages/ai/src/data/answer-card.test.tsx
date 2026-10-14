@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { clauseLabel, type Selection } from "@kanzo-tech/mosaic";
@@ -12,6 +13,9 @@ import { readFor } from "../testing/answer.js";
 import { AnswerCard, type AnswerAdded } from "./answer-card.js";
 import type { AnswerRelation } from "./answer.js";
 import { readAnswerRelations } from "./relations.js";
+
+/** The host's one client: every read the parts make is a query on it. */
+const queries = new QueryClient();
 
 let db: TestDatabase;
 let person: AnswerRelation;
@@ -63,10 +67,10 @@ const description = (element: Element) =>
 
 function page(into: (selection: Selection) => void = () => {}) {
   return ({ children }: { children: React.ReactNode }) => (
-    <MosaicProvider coordinator={db.coordinator}>
+    <QueryClientProvider client={queries}><MosaicProvider coordinator={db.coordinator}>
       <Page into={into} />
       {children}
-    </MosaicProvider>
+    </MosaicProvider></QueryClientProvider>
   );
 }
 
@@ -228,6 +232,8 @@ describe("AnswerCard", () => {
   });
 
   it("stays busy over the skeleton until the answer's tile is drawn", async () => {
+    // The relation's fields are the client's after the first card that read them: a new page has none.
+    queries.clear();
     render(<AnswerCard graph={PEOPLE} part={answered(output)} />, { wrapper: page() });
     const card = document.querySelector("[data-slot=answer-card]")!;
     // Answered, but its fields not read yet: the skeleton is still the tile's place.

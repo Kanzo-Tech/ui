@@ -108,23 +108,14 @@ so a theme's custom properties land wherever the attribute is and inherit into e
 Each card above is exactly that.
 
 ```tsx
-<div data-theme="nord-dark" style={{ colorScheme: "dark" }}>
+<div className="dark" data-theme="nord-dark" style={{ colorScheme: "dark" }}>
   <YourScreen />
 </div>
 ```
 
-In React, prefer [`KanzoTheme`](/docs/theming#two-themers-and-only-one-of-them-owns-the-root): it
-writes the attribute *and* the side's class, and re-points the theme context so a chart inside
-resolves its colours against the region rather than the page.
-
-```tsx
-<KanzoTheme theme="nord-dark">
-  <YourScreen />
-</KanzoTheme>
-```
-
 A region cannot theme Ark's overlays — Dialog, Popover, Menu and the rest portal to `document.body` —
-so it is for previews and branded panels, never for an app's chrome.
+so it is for previews and branded panels, never for an app's chrome. The side's class beside the attribute —
+`dark` here — is what keeps the region from wearing the light block on a dark page.
 
 <Callout title="The default theme binds as :root:not([data-theme])">
   Not a bare `:root`, which has the same specificity as `[data-theme="x"]`: the tie would break on

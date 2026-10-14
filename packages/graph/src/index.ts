@@ -42,15 +42,12 @@ export { GraphStatus, type GraphStatusProps } from "./parts/graph-status";
 export { GraphToolbar, type GraphToolbarProps } from "./parts/graph-toolbar";
 export { GraphInspector, type GraphInspectorProps } from "./parts/graph-inspector";
 export { GraphSearch, type GraphSearchProps } from "./parts/graph-search";
-export { ShapeGlyph, type ShapeGlyphProps } from "./parts/shape-glyph";
 
-// The picture: form, forces, where the points come from, and the scale a legend asks what a
-// category wears. `lookFrom`, `simFrom` and `placementFrom` parse what `@kanzo-tech/graph/section`
-// declares and a preferences panel writes.
+// The picture: form and forces. `lookFrom` and `simFrom` parse what `@kanzo-tech/graph/section`
+// declares and a preferences panel writes; where the points come from is `useGraphPrefs()`'s.
 export { lookFrom, type LabelLevel, type Look, type LookPatch, type Shape } from "./render/graph-looks";
 export { simFrom, type Sim } from "./render/graph-sim";
-export { scaleOf } from "./render/graph-model";
-export { placementFrom, type Channels, type Placement } from "./core/channels";
+export type { Channels, Placement } from "./core/channels";
 
 export type { GraphCommands, Motion, Selection, SelectionSource, Tool, VertexId } from "./core/types";
 export type { DataStatus, Drawn, GraphState } from "./core/state";

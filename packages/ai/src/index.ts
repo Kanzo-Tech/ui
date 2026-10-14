@@ -20,8 +20,8 @@ export type { ChatProps, ChatSkeletonProps, ChatToolRenderers, ChatTranslations 
 // the tail only while the reader is there, a turn, a tool call bound to its AI SDK part, a model's
 // reasoning folded away, and the composer.
 export { Conversation, ConversationContent, ConversationScrollButton } from "./conversation.js";
-export { Message, MessageActions, MessageAvatar, MessageContent, MessageList } from "./message.js";
-export type { MessageAvatarProps, MessageProps, MessageRole } from "./message.js";
+export { Message, MessageContent, MessageList } from "./message.js";
+export type { MessageProps } from "./message.js";
 export { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from "./tool.js";
 export type { ToolPart } from "./tool.js";
 export { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning.js";
@@ -45,7 +45,7 @@ export {
   QuestionOptions,
   QuestionPrompt,
 } from "./question.js";
-export { Working } from "./working.js";
+export { Working, type WorkingProps } from "./working.js";
 export { ModelBadge } from "./model-badge.js";
 export type { ModelBadgeProps, ModelBadgeTranslations } from "./model-badge.js";
 export { Checkpoint, CheckpointIcon, CheckpointTrigger } from "./checkpoint.js";
@@ -55,8 +55,8 @@ export type { CheckpointTranslations, CheckpointTriggerProps } from "./checkpoin
 export { useTask } from "./use-task.js";
 export type { TaskList, TaskListState, UseTaskOptions } from "./use-task.js";
 
-// An agent in the page is `useAgentChat`, which keeps what it threw; an agent behind the host's own
-// HTTP route is `useChat`, the AI SDK's, which is a different transport rather than a second door.
+// An agent in the page is `useAgentChat`, which keeps what it threw. An agent behind the host's own
+// HTTP route is `useChat`, imported from `@ai-sdk/react` — a required peer, so already installed —
+// and not passed through here: a name on this barrel is ours or it is not on it.
 export { useAgentChat } from "./agent-chat.js";
 export type { AgentChat, AgentChatOptions } from "./agent-chat.js";
-export { useChat } from "@ai-sdk/react";

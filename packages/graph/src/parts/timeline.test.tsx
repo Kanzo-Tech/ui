@@ -1,3 +1,5 @@
+import { TimelineHarness } from "@kanzo-tech/testing";
+import { dom } from "@kanzo-tech/testing/dom";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { KanzoThemeProvider } from "@kanzo-tech/ui";
 import { ChartTimeline, FilterBar, MosaicProvider, useMosaic } from "@kanzo-tech/ui/analytics";
@@ -421,6 +423,26 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
 
   /** A window of years as the readout and the chip read it. */
   const readWindow = ([from, to]: [number, number]) => `${Math.round(from)} – ${Math.round(to)}`;
+
+  it("is driven by TimelineHarness: the window the group reads, and play and pause through the one button", async () => {
+    // Before anything renders: the environment installs the hook a chart registers with as it mounts.
+    const env = dom(document.body, WAIT);
+    const corpus = await attach();
+    const { brush, ready } = await drawn(corpus);
+    await ready();
+    const timeline = await env.harness(TimelineHarness.with({ title: "Timeline: born" }));
+    expect(await timeline.range()).toBeNull();
+    // jsdom has no layout for a pointer to drag across, so the brush is moved as a drag would move it;
+    // in Chromium the harness's own brush is `ChartHarness`'s, held in the end-to-end suite.
+    await brush(1900, 1904);
+    await env.until(async () => (await timeline.range()) !== null, "no window was brushed");
+    expect(await timeline.range()).toMatch(/^19\d\d – 19\d\d$/);
+    await timeline.play();
+    expect(screen.getByRole("button", { name: "Pause time" }).getAttribute("aria-pressed")).toBe("true");
+    await timeline.pause();
+    expect(screen.getByRole("button", { name: "Play time" }).getAttribute("aria-pressed")).toBe("false");
+    await act(() => settle(corpus));
+  });
 
   it("is a figure named by its title, with Play time disabled until a window is brushed", async () => {
     const corpus = await attach();

@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { Selection, type Engine } from "@kanzo-tech/mosaic";
+import { QueryClient } from "@tanstack/react-query";
 import type { InferUIMessageChunk, LanguageModel } from "ai";
 import { beforeAll, describe, expect, it } from "vitest";
 import { testDatabase, type TestDatabase } from "../testing/duckdb.js";
@@ -20,13 +21,17 @@ beforeAll(async () => {
 const user = (id: string, text: string): AskMessage => ({ id, role: "user", parts: [{ type: "text", text }] });
 
 /** One turn through the transport: every chunk it wrote. */
-async function turn(options: AskChatOptions, messages: AskMessage[]): Promise<Chunk[]> {
-  const stream = await askTransport(() => options).sendMessages({
+async function turn(
+  options: AskChatOptions,
+  messages: AskMessage[],
+  page: { client?: QueryClient; signal?: AbortSignal } = {},
+): Promise<Chunk[]> {
+  const stream = await askTransport(() => options, page.client ?? new QueryClient()).sendMessages({
     trigger: "submit-message",
     chatId: "c",
     messageId: undefined,
     messages,
-    abortSignal: new AbortController().signal,
+    abortSignal: page.signal ?? new AbortController().signal,
   });
   const chunks: Chunk[] = [];
   const reader = stream.getReader();
@@ -81,5 +86,51 @@ describe("askTransport", () => {
     ]);
     expect(model.doGenerateCalls).toHaveLength(0);
     expect(chunks.find((c) => c.type === "tool-output-available")).toMatchObject({ output: { rows: [{ count: 3 }], spec: men } });
+  });
+
+  it("reads an answer asked again under the same chips once, on the host's client", async () => {
+    const types = await readAnswerRelations(db.coordinator, PEOPLE, [PERSON]);
+    const men: AskSpec = { of: "Person", where: [{ field: "Person.gender", in: ["male"] }], show: { kind: "stat", measure: { op: "count" } } };
+    const asked: string[] = [];
+    const engine: Pick<Engine, "query"> = { query: (sql, options) => (asked.push(sql), db.engine.query(sql, options)) };
+    const client = new QueryClient();
+    const options: AskChatOptions = { model: answering(men) as LanguageModel, engine, graph: PEOPLE, types };
+    const edited = { id: "1", role: "user" as const, ...askEdit(men) };
+    const first = await turn(options, [edited], { client });
+    const second = await turn(options, [edited], { client });
+    expect(asked).toHaveLength(1);
+    for (const chunks of [first, second]) {
+      expect(chunks.find((c) => c.type === "tool-output-available")).toMatchObject({ output: { rows: [{ count: 3 }] } });
+    }
+  });
+
+  it("ends the read with the chat's signal, keeps nothing of it, and reads again when asked again", async () => {
+    const types = await readAnswerRelations(db.coordinator, PEOPLE, [PERSON]);
+    const men: AskSpec = { of: "Person", where: [{ field: "Person.gender", in: ["male"] }], show: { kind: "stat", measure: { op: "count" } } };
+    const signals: AbortSignal[] = [];
+    let hold = true;
+    const engine: Pick<Engine, "query"> = {
+      query: (sql, options) => {
+        signals.push(options.signal);
+        if (!hold) return db.engine.query(sql, options);
+        // A read that lands only when it is stopped: what a slow statement is to the chat.
+        return new Promise((_, reject) => options.signal.addEventListener("abort", () => reject(options.signal.reason)));
+      },
+    };
+    const client = new QueryClient();
+    const options: AskChatOptions = { model: answering(men) as LanguageModel, engine, graph: PEOPLE, types };
+    const edited = { id: "1", role: "user" as const, ...askEdit(men) };
+    const stop = new AbortController();
+    const stopped = turn(options, [edited], { client, signal: stop.signal });
+    await expect.poll(() => signals.length).toBe(1);
+    stop.abort();
+    const chunks = await stopped.catch(() => []);
+    expect(signals[0]!.aborted).toBe(true);
+    expect(chunks.some((c) => c.type === "tool-output-available")).toBe(false);
+
+    hold = false;
+    const again = await turn(options, [edited], { client });
+    expect(signals).toHaveLength(2);
+    expect(again.find((c) => c.type === "tool-output-available")).toMatchObject({ output: { rows: [{ count: 3 }] } });
   });
 });

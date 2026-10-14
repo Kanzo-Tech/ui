@@ -85,7 +85,8 @@ way.
 
 ## How a relation is read
 
-`useFieldStats(table)` runs one `SUMMARIZE` — over `SELECT * FROM` the relation, built with
+`useFieldStats(table)` runs one `SUMMARIZE` — a query on the host's `QueryClient`, so the
+`QueryClientProvider` [the analytics page asks for](/docs/analytics#what-to-install) is above it — over `SELECT * FROM` the relation, built with
 mosaic-sql, so a join is summarized like a table — and classifies every column twice — by **kind**, from
 its DuckDB type through Mosaic's own `jsType` (so a column is numeric here exactly when it is numeric
 to every mark), and by **role**, from its name and its approximate distinct count.
@@ -140,7 +141,7 @@ stats alone and nothing else:
   measures.
 - **Figures** (the band): a row count and the mean of up to two measures, each trending along the
   first time when there is one.
-- **Charts** (at most six): the first six that [`recommend`](#recommend) proposes for an overview.
+- **Charts** (at most six): the first six [the rules](#how-the-charts-are-chosen) propose for an overview.
 - **A table**, full width: the first eight fields — categories, then times, measures and keys.
 
 The last tile of a row is widened so no row ends in a hole.
@@ -148,10 +149,10 @@ The last tile of a row is widened so no row ends in a hole.
 It is exported for a host that wants the automatic spec without the component — to seed a saved
 dashboard, or to diff against one.
 
-### recommend
+### How the charts are chosen
 
-`recommend(fields, intent?)` is every chart a table of rules proposes for those fields, heaviest
-first. It is CompassQL's and Draco's pipeline — **enumerate** what every rule matches, **rank** it,
+`autoDashboard`'s charts, and *Add tile*'s first chart, are what a table of rules proposes for the
+fields, heaviest first. It is CompassQL's and Draco's pipeline — **enumerate** what every rule matches, **rank** it,
 **explain** each — with the weights set by hand and no solver, since a rule reads at most two
 fields. Each answer is `{ spec, rationale, rule }`: a card valid for the fields, one sentence saying
 why, and the rule that proposed it. Its ids are derived from the rule and the fields, so the same
@@ -170,7 +171,7 @@ does not belong in the table. The weights are the one part with no published val
 | `measure` | Histogram | a measure | `histogram` | 60 | 30 | 2 | *bounty is a measure, so a histogram of how its values spread* |
 | `measure-pair` | Scatter plot, with a trend line | two measures | `regression` of one on the other, two thirds wide | 40 | 70 | 1 | *bounty and leagues are both measures, so a fit of one against the other* |
 
-- **`intent`** is `"overview"` (the default) for a dashboard over raw rows — what each field does on
+- **The intent** is `overview` for a dashboard over raw rows — what each field does on
   its own — or `"answer"` for one chart of a result set, whose rows are usually aggregated already,
   so a measure beside what it was grouped by comes first. A rule with no weight under an intent is
   not proposed for it.
@@ -269,7 +270,7 @@ repaints a survivor.
 
 Without a series, the whole relation stays drawn behind the selection in grey: the context a
 filtered chart otherwise loses. A card with an `origin` shows
-[why](#recommend), under an *Automatic* badge. A card that names a field the relation no longer has draws *The
+[why](#how-the-charts-are-chosen), under an *Automatic* badge. A card that names a field the relation no longer has draws *The
 relation has no `hall` any more.* in place of the chart.
 
 With `onEdit`, the header carries a pencil, and so do a figure's and a table's: what it opens is the
@@ -339,19 +340,23 @@ aside instead: a dashboard offers editing only while a `TileEditorAside` is on t
 without one has read-only dashboards. The editor is drawn once the aside is shown, so it opens in
 view and takes focus.
 
-### useFieldStats, queryFieldStats and fieldStats
+### useFieldStats and fieldStats
 
 `useFieldStats(table, { exclude })` returns `{ fields, columns, error }`: `fields` are the
 classified `FieldStat`s, `columns` every column of the relation in its own order, fields or not.
-Both are `null` until the summary lands, and it re-asks when the relation or `exclude` changes —
-compared by value, so an inline array is fine. `error` is the thrown value, whole and typed
-`unknown`, and it is also handed to the provider's `onFailure`; narrow it before reading `.message`.
+Both are `null` until the summary lands. `error` is the thrown value, whole and typed `unknown`, and
+it is also handed to the provider's `onFailure`; narrow it before reading `.message`.
 
-`queryFieldStats(coordinator, table, options)` is the same read as a promise resolving to
-`{ fields, columns }`, for a host outside React or one that needs the fields before it renders.
+The summary is a TanStack Query query on the host's `QueryClient`, so it needs a
+`QueryClientProvider` above it. Every part of the page that asks for the same relation on the same
+provider shares one read — the dashboard, a part you placed yourself, an Ask answer's card — and
+`exclude` is applied to that read, so two parts that hide different columns still read once. It
+never retries and is kept for the page's life; a new relation is a new read, and a failed read is
+not kept, so the next part to ask reads again. The reads appear in your client's devtools and go
+when you clear it — clear it on sign-out, as you would any other data of the person's.
 
 `fieldStats(rows, options)` is the classification on its own: `SUMMARIZE` rows in, the same
-`{ fields, columns }` out, nothing queried. `queryFieldStats` is `SUMMARIZE` on the coordinator and
+`{ fields, columns }` out, nothing queried. `useFieldStats` is `SUMMARIZE` on the coordinator and
 then this. Reach for it when the host runs the summary itself — on its own connection, or with an
 `AbortSignal` the coordinator does not take. A fossil corpus answers with its rows as arrays, so
 they are zipped with the column names first:
@@ -656,13 +661,8 @@ Every other prop goes to the root `section` (`data-slot="filter-bar"`).
 
 ```ts
 function useFieldStats(table: TableExpr, options?: FieldStatsOptions): FieldStatsState;
-function queryFieldStats(coordinator: Coordinator, table: TableExpr, options?: FieldStatsOptions): Promise<FieldStats>;
 function fieldStats(rows: readonly SummarizeRow[], options?: FieldStatsOptions): FieldStats;
 function autoDashboard(fields: readonly FieldStat[]): DashboardSpec;
-function recommend(fields: readonly FieldStat[], intent?: RecommendIntent): Recommendation[];
-
-type RecommendIntent = "overview" | "answer"; // default "overview"
-interface Recommendation { spec: ChartTile; rationale: string; rule: string }
 
 interface FieldStat {
   name: string;
@@ -684,7 +684,7 @@ interface SummarizeRow {
 
 The spec's types — `DashboardSpec`, `Tile`, `TileKind`, `TileSpan`, `StatTile`, `ChartTile`,
 `TableTile`, `DashboardFilterSpec`, `DashboardMeasure`, `DashboardChartType` and `DashboardAggregate` —
-and `Dashboards` with `parseDashboard` and `parseDashboards` are exported and documented field by field on
+and `Dashboards` with `parseDashboards` are exported and documented field by field on
 [Dashboard spec](/docs/analytics/dashboard-spec). The props types are exported as `DashboardProps`,
 `DashboardStatProps`, `ChartCardProps`, `DetailTableProps`, `TileEditorProps`,
 `RelationPickerProps` and `FilterBarProps`.
