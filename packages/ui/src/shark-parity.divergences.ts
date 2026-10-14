@@ -69,7 +69,7 @@ export const UNADOPTED: Readonly<Record<string, string>> = {
   "date-input": "Not built. `DatePicker` over Ark's date-picker machine is the date surface here, and `parseDate` is re-exported from the barrel so its value can be built.",
   drawer: "Not built. `Sheet` is the side-anchored dialog in this library; Shark ships both over the same Ark dialog machine.",
   "floating-panel":
-    "Name collision, not adoption. Shark's wraps Ark's floating-panel machine (fifteen parts, drag, stage, minimise/maximise). Ours is a plain resizable surface over a `<div>` with two exports, for floating over a canvas or a graph. Same name, different component — the entry in OURS_ALONE is the other half of this one.",
+    "Not built. Shark's wraps Ark's floating-panel machine (fifteen parts, drag, stage, minimise/maximise) and nothing here has needed one. The plain resizable surface that shipped under this name had no caller in any product, so it is a docs example now (`/docs/layout/floating-panel`), not a component.",
   frame: "Not built. `SectionRoot` and its parts are the framed-region composite in this library.",
   hint: "Not built. `Tooltip` is the hover surface here.",
   "input-otp":
@@ -95,7 +95,6 @@ export const OURS_ALONE: Readonly<Record<string, string>> = {
   diagnostic: "Ours. A severity, a message and a list of source positions, over Ark's collapsible — the shape a validation violation, a compiler diagnostic and a stack trace all share. Shark has no file for it; `docs/content/docs/data-display/diagnostic.mdx` is the page, and the frames are the part nothing else here does.",
   eyebrow: "Ours. The small uppercase line that names a block, one fixed role with no knobs, written out by hand four times before it had a name — `/docs/design/admission`, *A role written out four times is a part*. Shark has no file for it; `docs/content/docs/data-display/eyebrow.mdx` is the page.",
   Link: "Ours. The styled anchor, and the routing seam every composite reaches through `asChild` — `index.test.ts`, `drops the components that took a layout tree as an array prop`.",
-  "floating-panel": "Ours, and it collides with a Shark name. See the UNADOPTED entry, which is the other half of this one.",
   "pin-input": "Ours over Ark's pin-input machine. Shark's answer to the same problem is `input-otp`, under names that do not correspond.",
   suggestions: "Ours. A row of values on offer, each committing a string and leaving no selection — which by the menu/listbox rule makes it a command surface and not a value one. It is in `ui` and not `@kanzo-tech/ai` because it does not know a model exists, which is the line `/docs/design/admission` draws; the ✨ beside it does, and stays there. Shark has no file for it. **Admission rule 2 is not met yet**: `@kanzo-tech/ai`'s `SuggestList` is the one real consumer, and the second is expected to be a non-model one (recent values, saved filters).",
   stat: "Ours. One dashboard number as a compound over `Card` — `/docs/design/admission`, *One dashboard number, one compound*. Shark has no file for it.",
@@ -244,8 +243,6 @@ export const WITHHELD: Readonly<Record<string, string>> = {
 export const ADDED: Readonly<Record<string, string>> = {
   "clipboard:ClipboardControl": THIN_ROOT("Clipboard"),
   "clipboard:ClipboardLabel": THIN_ROOT("Clipboard"),
-  "color-picker:safeParseColor":
-    "Ours. A colour parse that returns `undefined` instead of throwing on the half-typed input a text field produces. `simples/color-picker.tsx` is also the one file `no-literal-hues.test.ts` allows literals in, because colour is its subject matter.",
   "field:FieldSetError":
     "The fieldset-*scoped* message parts, which are a different Ark machine from `FieldError` / `FieldHelper` and were the only thing `field.tsx` lacked when `Fieldset` and `FieldSet` were merged — `index.test.ts`, `drops components superseded by composition or a merge`.",
   "field:FieldSetHelper":

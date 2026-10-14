@@ -142,5 +142,8 @@ words of the card's Problem" and "rejects an answer that failed with the words o
 `AnswerCard`; and `packages/testing/e2e/workspace.e2e.test.ts`, "asks a question the
 recording knows, reads the answer's chart, and filters the page to it".
 
-*Not yet held*: `TimelineHarness`, whose test is skipped until `ChartTimeline` is built from
-[the timeline's design](/docs/design/timeline).
+*Held by*, for `TimelineHarness` over `ChartTimeline`, `packages/graph/src/parts/timeline.test.tsx`,
+"is driven by TimelineHarness: the window the group reads, and play and pause through the one
+button" — in jsdom, with the brush moved as a drag would move it, because jsdom has no layout for a
+pointer to cross. Its `brush` is `ChartHarness`'s, which the end-to-end suite holds in Chromium;
+a timeline on the workspace showcase is what would hold the timeline's own there.

@@ -11,27 +11,42 @@
 
 export { AssistProvider, Assist } from "./assist.js";
 export type { AssistProviderProps, AssistProps, AssistTranslations } from "./assist.js";
-export type { AssistEvent, Proposal } from "./engine.js";
+// What a field is offered is the Task's `Proposal<string>`, imported from `@kanzo-tech/ai/task` with
+// the rest of a Task's types — one name, one door.
+export type { AssistEvent } from "./engine.js";
 
 export { Chat, ChatSkeleton } from "./chat.js";
-export type { ChatProps, ChatSkeletonProps, ChatToolRenderers, ChatTranslations } from "./chat.js";
+export type {
+  ChatMessage,
+  ChatProposals,
+  ChatProps,
+  ChatSkeletonProps,
+  ChatToolRenderers,
+  ChatTranslations,
+} from "./chat.js";
 
 // The parts `Chat` draws with, for a transcript of the host's own: the scroll region that follows
 // the tail only while the reader is there, a turn, a tool call bound to its AI SDK part, a model's
 // reasoning folded away, and the composer.
 export { Conversation, ConversationContent, ConversationScrollButton } from "./conversation.js";
-export { Message, MessageActions, MessageAvatar, MessageContent, MessageList } from "./message.js";
-export type { MessageAvatarProps, MessageProps, MessageRole } from "./message.js";
+export { Message, MessageContent, MessageList } from "./message.js";
+export type { MessageProps } from "./message.js";
 export { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from "./tool.js";
 export type { ToolPart } from "./tool.js";
 export { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning.js";
 export type { ReasoningProps } from "./reasoning.js";
-export { PromptInput, PromptInputSubmit, PromptInputTextarea, PromptInputToolbar } from "./prompt-input.js";
+export {
+  PromptInput,
+  PromptInputHeader,
+  PromptInputSubmit,
+  PromptInputTextarea,
+  PromptInputToolbar,
+} from "./prompt-input.js";
 export type { PromptInputSubmitProps } from "./prompt-input.js";
 
 // The parts a conversation whose turns the host decides is drawn with, beyond the transcript's: a
-// question put to the person, answered by picking; work under way, said; and a model in the page, as
-// it loads. What a model offers is `@kanzo-tech/ui`'s `Suggestions`, which knows no model.
+// question put to the person, answered by picking; work under way, said; a model in the page, as it
+// loads; and a point in the transcript the host can go back to. What a model offers is `@kanzo-tech/ui`'s `Suggestions`, which knows no model.
 export {
   Question,
   QuestionDescription,
@@ -42,13 +57,15 @@ export {
 export { Working, type WorkingProps } from "./working.js";
 export { ModelBadge } from "./model-badge.js";
 export type { ModelBadgeProps, ModelBadgeTranslations } from "./model-badge.js";
+export { Checkpoint, CheckpointIcon, CheckpointTrigger } from "./checkpoint.js";
+export type { CheckpointTranslations, CheckpointTriggerProps } from "./checkpoint.js";
 
 // What a Task offers a screen, as a list it asks for, edits and dismisses.
 export { useTask } from "./use-task.js";
 export type { TaskList, TaskListState, UseTaskOptions } from "./use-task.js";
 
-// An agent in the page is `useAgentChat`, which keeps what it threw; an agent behind the host's own
-// HTTP route is `useChat`, the AI SDK's, which is a different transport rather than a second door.
+// An agent in the page is `useAgentChat`, which keeps what it threw. An agent behind the host's own
+// HTTP route is `useChat`, imported from `@ai-sdk/react` — a required peer, so already installed —
+// and not passed through here: a name on this barrel is ours or it is not on it.
 export { useAgentChat } from "./agent-chat.js";
 export type { AgentChat, AgentChatOptions } from "./agent-chat.js";
-export { useChat } from "@ai-sdk/react";

@@ -33,7 +33,7 @@ nothing of `ui`'s is imported, the day auth belongs somewhere else it can go the
 
 *Held by* `packages/ui/src/index.test.ts`, `!SidebarUser` and `!InstanceSwitcher` — the composite
 that shipped the flow, asserted absent under both of the names it had;
-`packages/auth/package.json`, `size-limit`.
+`packages/auth/package.json`, `gauges`.
 
 ## The client draws; the resource server decides
 
@@ -489,7 +489,7 @@ it, pulling this package into the appearance corpus in a commit somebody has to 
 tells rather than gates.
 </Callout>
 
-*Held by* `packages/auth/package.json`, `//peers` and `size-limit`;
+*Held by* `packages/auth/package.json`, `//peers` and `gauges`;
 `packages/ui/src/guard-corpus.ts`, `IDIOM`.
 
 ## A failure is not a signed-out person

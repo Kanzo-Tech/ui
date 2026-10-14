@@ -142,9 +142,9 @@ row alone".
 ## The spec is read whole or refused
 
 A `DashboardSpec` is a valibot schema, and the type is inferred from that schema, so the two cannot
-drift. `parseDashboard` and `parseDashboards` read untrusted JSON, and either return a value of the
-type or throw `not a dashboard spec at <path>`, naming the field. They do not coerce, they do not
-fill in defaults, and they do not drop an unknown key. A measure that could never be drawn against
+drift. `parseDashboards` reads untrusted JSON, and either returns a value of the
+type or throws `not a dashboards document at <path>`, naming the field. It does not coerce, it does
+not fill in defaults, and it does not drop an unknown key. A measure that could never be drawn against
 any relation, such as a sum of nothing or a share of no value, is refused when the spec is read,
 not when it is drawn.
 
@@ -165,7 +165,7 @@ that cannot be drawn whatever the relation: a sum of nothing, a share of no valu
 
 ## The recommender is Show Me's cases, in CompassQL's pipeline
 
-`recommend(fields, intent)` runs three steps. `enumerate` asks every rule for its candidates.
+The recommender behind `autoDashboard`, `recommend(fields, intent)`, runs three steps. `enumerate` asks every rule for its candidates.
 `rank` orders them by the intent's weights. `explain` turns a candidate into a tile, a sentence of
 rationale and the id of the rule that chose it. That is CompassQL's split, and Draco's after it:
 the set of what could be drawn, the preference among those, and the reason. The rules are not
@@ -217,7 +217,7 @@ Each table is mapped over `TileKind`, so adding a kind is a type error until all
 Making a tile is pure: the id is passed in, and it is minted once, in `Dashboard`'s `add`.
 
 Hosts cannot extend the set. A host-defined kind would be a spec this library cannot read back,
-which is exactly what `parseDashboard` refuses to do.
+which is exactly what `parseDashboards` refuses to do.
 
 **What would reverse it:** a second consumer that needs a kind which reads a relation in a way
 none of the three does. Then the kind joins the set, here, with its three rows.
@@ -353,11 +353,21 @@ while nothing is stored".
 ## A hop reads as a sentence, and says what it costs
 
 `RelationPicker` offers the hops that leave the last type as sentences, not as schema. An out-edge
-reads *The \{to\} it \{label\}* — *The place it is part of* — and an in-edge *\{To\}s \{label\} this
-\{from\}* — *Comments located in this place*. The predicate is the edge's label in words: `isPartOf`
-is *is part of*, `isLocatedIn` *located in* once its subject is plural, `hasCreator` *whose creator
-is*. A host's `phrase(edge, direction)` overrides any sentence (a self-edge's *parent* and
-*children* wording), and `plural(type)` any plural the `+s` rule gets wrong (*People*).
+reads *The \{to\} it \{label\}* — *The place it is part of* — and an in-edge reads as the type it
+brings in and the edge, *\{Source\} · \{label\} this \{destination\}* — *Comment · located in this
+place*. The predicate is the edge's label in words: `isPartOf` is *is part of*, `isLocatedIn`
+*located in* where a lone `is` drops out, `hasCreator` *whose creator is*. A host's
+`phrase(edge, direction)` overrides any sentence (a self-edge's *parent* and *children* wording), and
+both patterns, like every other word the picker draws, are entries of its `translations`.
+
+**No noun inflects** (decided 13 October 2026). The in-edge read *Comments located in this place*,
+and the plural was the library's guess: an `+s` rule, and `plural(type)` for every noun it got wrong
+(*People*). The rule that titles name no plural ([Tasks](/docs/design/tasks#words-come-from-the-datas-own-metadata))
+holds here too, for its reason: no labelling vocabulary carries a plural, so a plural is always
+derived, and derived English is wrong outside English and for every irregular noun. The sentence is
+written so it needs none — the type as its label, singular, beside the edge's words — and the `+s`
+rule and `plural` are gone. *What would reverse it:* a labelling vocabulary that carries a plural;
+then it is read, not derived, as on Tasks.
 
 The menu has two groups, *Follow from each \{Root\}* for out-edges and *Bring in what points at it*
 for in-edges, each sorted by fan-out ascending. Each item says its fan-out — *1 per Place*,
@@ -366,7 +376,7 @@ the next multiplies it by a hundred. The fan-out is the edge's rows over the row
 leaves: `JoinType.rows` and `JoinEdge.rows`, which `joinGraphOf` carries from the `record_count`
 `readStructure` already read. No query is added, and the counts are as fresh as the last load.
 
-The path is chips — *Place › Comments located in this place* — and any chip can be removed, which
+The path is chips — *Place › Comment · located in this place* — and any chip can be removed, which
 cuts the path there. Nothing is written under them: the fan-out on each item already says what a
 hop does to the rows before it is taken, which is where every reference below says it, and a line
 restating the grain sat on every dashboard as chrome nobody read (the owner, 2026-10-11). The joins
@@ -395,23 +405,18 @@ takes it says so, beside its fan-out.
 
 *Held by* `packages/ui/src/charts/relation-picker.test.tsx`, "reads each hop as a sentence, grouped
 by direction and sorted by fan-out", "removes any chip, cutting the path there" and "lets a host
-phrase an edge and name a plural"; `packages/mosaic/src/relation.test.ts`, "gives each hop its fan-out when
+phrase an edge, and words every sentence through its translations"; `packages/mosaic/src/relation.test.ts`, "gives each hop its fan-out when
 the graph carries counts".
 
-## Two size gauges, measured against what ships
+## A gauge per entry, measured as a consumer pays it
 
-The analytics gauge and the `{ Dashboard }` gauge leave out what `vite.config.ts` externalises:
-the peers, valibot and every `@uwdata/*` package. Those are installed by the consumer, not shipped
-in our bundle, so a gauge that counts them measures somebody else's code. esbuild bundles without
-splitting, so the lazy editor is inside both figures. A consumer's bundler splits it out, so the
-gauges overstate what a read-only page pays for.
-
-Measured on the base of this change and after it:
-
-| Gauge | Before | After |
-| --- | --- | --- |
-| analytics | 31.22 kB | 32.31 kB |
-| one dashboard | 29.88 kB | 31.09 kB |
+The gauges this subpath had — the whole subpath in isolation, and one `Dashboard` — were replaced on
+13 October 2026 by the rule on [How a rule lives here](/docs/design#a-gauge-per-entry-and-its-raises-written-here):
+the subpath is measured over the root, and `{ Dashboard }` stays as the tree-shaken cost of one
+dashboard. What stays from this section is the reason every package is left out: the analytics gauge
+measured valibot and every `@uwdata/*` package until they were externalised, and that is somebody
+else's code. And one thing neither figure can say: esbuild bundles without splitting, so the lazy
+editor is inside both, while a consumer's bundler splits it out.
 
 **What would reverse it:** a bundler in size-limit that splits a dynamic import. Then the
 `{ Dashboard }` gauge measures the entry chunk alone, and a separate gauge measures the editor.

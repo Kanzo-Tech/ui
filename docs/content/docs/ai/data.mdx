@@ -27,7 +27,7 @@ but every tile is read for real, under the filter you set on the page.
 
 ```tsx
 import { Chat, ChatSkeleton } from "@kanzo-tech/ai";
-import { AnswerCard, askOffers, useAskChat, type AnswerCardProps, type AnswerRelation } from "@kanzo-tech/ai/data";
+import { AnswerCard, askEdit, askOffers, useAskChat, type AnswerCardProps, type AnswerRelation } from "@kanzo-tech/ai/data";
 import { localModel } from "@kanzo-tech/llm/local";
 import { DiagnosticList, Problem } from "@kanzo-tech/ui";
 import { useMosaic, type Dashboards, type Engine, type JoinGraph } from "@kanzo-tech/ui/analytics";
@@ -54,6 +54,7 @@ function Ask({ engine, graph, types, dashboards, onAdd }: { engine: Engine; grap
           </DiagnosticList>
         )
       }
+      message={askEdit}
       proposals={offers.data ?? []}
       proposing={offers.isFetching}
       tools={{
@@ -164,8 +165,8 @@ the model: the spec is the model's, everything after it is the page's.
 1. **The linker** keeps the types the question names — by the type, a field or a value it holds —
    with their neighbours one hop away, the type the previous answer was about, and the types the
    page's chips are on. The schema's enums are theirs, so a small model reads a small vocabulary.
-2. **The model fills the spec**, `{ of, show, where?, top? }`, with `generateText` and
-   `Output.object`: a provider that decodes against the schema cannot write a name that does not
+2. **The model fills the spec**, `{ of, show, where?, top? }`, with `@kanzo-tech/llm`'s `generate`,
+   asked once, and `Output.object`: a provider that decodes against the schema cannot write a name that does not
    exist. A follow-up — *and in Germany?* — is told the previous spec and changes only what it asks.
 3. **The resolver finds the relation**: `resolveRelation` from `@kanzo-tech/mosaic`, the shortest
    path from `of` that has a step of every type the spec's fields are on and meets the type each of
@@ -200,8 +201,7 @@ The options are read anew on every question — the page's filter changes betwee
 An answer is read as a TanStack Query query on the host's `QueryClient`, keyed by the engine and its
 statement — which holds the page's chips — so the same answer under the same chips is read once. It
 never retries, a failed read is not kept, and *Stop* cancels the query and ends the read at once.
-`askTransport(() => options, client)` is the transport alone, for a host with its own `useChat`,
-given that client (`useQueryClient()`); `readAnswer` is the read alone, outside any cache. `AnswerOutput` is what a read answers: `{ answer, rows, truncated, under,
+`AnswerOutput` is what a read answers: `{ answer, rows, truncated, under,
 unanswered }` — the answer as placed, the rows its tile reads, whether the 1,000-row cap cut them,
 the page's clauses it was read under, and those its relation cannot answer, each an
 `UnansweredClause`, `{ clause, missing }`; a row is a `QueryRow`.
@@ -238,8 +238,8 @@ answer: (part, { stopped }) => {
 ```
 
 An `answer` part's output carries the spec it was read from (`AskOutput`), so the chips need nothing
-the part does not hold. `askAlternatives(spec, input)` is the list without the drawing, and
-`verify(task, value, input)` from `@kanzo-tech/ai/task` is the check without a model, for any Task.
+the part does not hold. `verify(task, value, input)` from `@kanzo-tech/ai/task` is the check
+without a model, for any Task.
 
 *Held by* `packages/ai/src/data/ask.test.ts`, "offers each slot's other values, as whole specs";
 "offers only what the oracles accept: no x two relations reach equally".
@@ -249,8 +249,10 @@ the part does not hold. `askAlternatives(spec, input)` is the list without the d
 
 **`askOffers(options)` is the same Task with no question asked**: the model writes as many specs as
 `count` (four by default) in one answer, each is checked by the oracles that check an answer, and only
-those that reach a relation unasked are offered, as a reader's question — `questionOf(spec)`. A pill
-is therefore always one the chat can answer: taking it asks the question it says. The page's chips
+those that reach a relation unasked are offered, whole — each the Task's `Proposal` of a spec. `Chat`
+draws it as a reader's question, `questionOf(spec)`, through `askEdit`, and pressing it sends the spec
+itself, which the chat asks as it is: a pill is always one the chat can answer, and taking it asks the
+spec the oracles checked, not its words read again by the model. The page's chips
 are in its input, so the offers reach the rows the page is filtered to.
 
 ## The answer card
@@ -291,7 +293,7 @@ The tile goes on under the answer's own id, so **whether it is on the dashboard 
 the reader removes the tile and that is saved, the card offers the add again. When `onAdd` returns a
 promise, the button is pending until it settles — whatever `dashboards` already shows — and a
 rejection is drawn as a [`Problem`](/docs/data-display/problem) under the tile, the thrown value
-whole, with the button back. `copy` is the host's words for a coded one, as `Chat` takes them. *On the dashboard* reads the host's `dashboards` and nothing else, so a host that draws the tile
+whole, with the button back. `describe` is the host's words for a coded one, as `Chat` takes them. *On the dashboard* reads the host's `dashboards` and nothing else, so a host that draws the tile
 before its write settles is saying it is there: it rolls the document back when the write fails, and
 the card follows and offers the add again. The card says it
 where the reader pressed, so a host that also toasts every failed save says it twice.
@@ -344,7 +346,7 @@ is no line when the page had no filter.
 | `dashboards` | `Dashboards` | The host's dashboards, as it draws them: whether the tile is on its relation's. With `onAdd` |
 | `onAdd` | `(next: Dashboards, added: AnswerAdded) => void \| Promise<unknown>` | Makes *Add to the dashboard* an action. With `dashboards` |
 | `onOpen` | `(added: AnswerAdded) => void` | Makes *Open on the dashboard* the action once the tile is there. With `onAdd` |
-| `copy` | `ProblemProps["copy"]` | The host's words for a coded failure |
+| `describe` | `ProblemProps["describe"]` | The host's words for a coded failure |
 | `translations` | `Partial<AnswerCardTranslations>` | Every word it draws |
 
 *Held by* `packages/ai/src/data/answer-card.test.tsx`, "Add to the dashboard hands the host its

@@ -78,9 +78,13 @@ and no limit to be told about: what can fail is the device. `localModel` checks 
 downloads anything and fails as `ai/unavailable` with `reason` `"webgpu"`, so a host says the device
 cannot run it rather than waiting on a load that will not finish.
 
-**The library's own asks are made once.** `stream` passes `maxRetries: 0`, so the first attempt's
-error is the one shown. The SDK's default is two retries with backoff, and a generation that failed
-on this device fails the same way asked again — three waits where the person sits through one.
+**The library's own asks are made once, through `@kanzo-tech/llm`.** Every model call the library
+makes goes through one of `llm`'s two doors, `stream` and `generate` — `streamText` and
+`generateText` with `maxRetries: 0` — so the first attempt's error is the one shown. The Task layer
+did not: `runTask`, its repairs and `propose` called the AI SDK's `generateText` straight, with the
+SDK's default, so every draft retried twice. The SDK's default is two retries with backoff, and a
+generation that failed on this device fails the same way asked again — three waits where the person
+sits through one.
 
 **What would reverse it:** a model the page reaches over the network again. Then the request has a
 silence to bound and a limit to name, and both belong to the one door that makes the request, not to
@@ -88,4 +92,6 @@ silence to bound and a limit to name, and both belong to the one door that makes
 
 *Held by* `packages/llm/src/local.test.ts`, "fails as ai/unavailable without WebGPU, before anything
 loads"; `packages/ai/src/assist.test.tsx`, "asks once: an error the SDK would retry is the failure,
-not a retry after it"; `packages/llm/src/stream.test.ts`, "never retries a refused call".
+not a retry after it"; `packages/llm/src/stream.test.ts`, "never retries a refused call";
+`packages/llm/src/generate.test.ts`, "never retries a refused call"; `packages/ai/src/task/task.test.ts`,
+"asks once: an error the SDK would retry is the failure, not a retry after it".

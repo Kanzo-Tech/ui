@@ -1,12 +1,13 @@
 /**
  * A model for the examples and showcases: the AI SDK's own mock, so `Assist` and `Chat` run the
- * real conversation — `stream`, `ToolLoopAgent`, `useChat`, a Task's `generateText` — with nothing on
+ * real conversation — `stream`, `ToolLoopAgent`, `useChat`, a Task's `generate` — with nothing on
  * the other end of a network. The same shape as `packages/ai/src/testing/model.ts`, plus a pause between words: a test
  * wants the answer at once, and a reader has to see it arrive to see that it streams.
  *
  * Swap it for `localModel(…)` and nothing else on the page changes; that is
  * the claim the examples make, so they must not be built on anything a real model would not do.
  */
+import type { Proposal } from "@kanzo-tech/ai/task";
 import { MockLanguageModelV4 } from "ai/test";
 
 type Call = Parameters<MockLanguageModelV4["doStream"]>[0];
@@ -58,7 +59,7 @@ export function mockModel(
 ) {
   const pace = options.delay ?? 40;
   const model: MockLanguageModelV4 = new MockLanguageModelV4({
-    // A Task asks for its artefact whole (`generateText`): the reply's text, at once.
+    // A Task asks for its artefact whole (`generate`): the reply's text, at once.
     doGenerate: async (call) => {
       const answer = reply(call, model.doGenerateCalls.length - 1);
       if (typeof answer !== "string" && "tool" in answer) throw new Error("A Task calls no tools.");
@@ -119,3 +120,17 @@ export function mockModel(
   });
   return model;
 }
+
+/**
+ * Questions to start from, as `propose` would hand them over — accepted, each landing as a new item
+ * — for an example that shows a fixed list rather than a model offering one.
+ */
+export const offered = (...questions: string[]): Proposal<string>[] =>
+  questions.map((value, n) => ({
+    id: `offered-${n}`,
+    task: "questions",
+    value,
+    target: { add: "" },
+    verdict: { ok: true },
+    attempts: 1,
+  }));

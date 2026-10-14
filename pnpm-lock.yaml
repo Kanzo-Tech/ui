@@ -335,7 +335,13 @@ importers:
       '@kanzo-tech/ui':
         specifier: workspace:*
         version: link:../ui
+      tailwind-variants:
+        specifier: ^3.2.2
+        version: 3.2.2(tailwind-merge@3.6.0)(tailwindcss@4.3.3)
     devDependencies:
+      '@ark-ui/react':
+        specifier: ^5.37.2
+        version: 5.37.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@cosmos.gl/graph':
         specifier: ^3.4.0
         version: 3.4.0

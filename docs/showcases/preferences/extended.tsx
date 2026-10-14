@@ -29,7 +29,7 @@ export function PreferencesExtendedShowcase() {
       panel={
         <PreferencesRoot defaultOpen hotkey="p">
           <PreferencesTrigger />
-          <PreferencesPanel title="Preferences">
+          <PreferencesPanel>
             <PreferencesField label="Sidebar side">
               <SegmentGroup
                 aria-label="Sidebar side"

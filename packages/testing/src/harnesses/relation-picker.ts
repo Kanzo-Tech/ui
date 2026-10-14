@@ -29,7 +29,7 @@ export class RelationPickerHarness extends ComponentHarness {
 
   /**
    * Takes the hop `hop` from the last type, and waits for its chip. `hop` is the item's sentence
-   * (*Comments located in this place*), its step (`<isLocatedIn<Comment`), or the edge's bare label
+   * (*Comment · located in this place*), its step (`<isLocatedIn<Comment`), or the edge's bare label
    * (`isLocatedIn`) where only one item has it — a self-edge has two, so it takes the step.
    */
   async add(hop: string | RegExp): Promise<void> {

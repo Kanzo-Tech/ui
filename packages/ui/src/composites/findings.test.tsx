@@ -89,7 +89,7 @@ describe("one finding", () => {
         <FindingsItem
           describe={describeNode}
           finding={finding("Project/1", "title", "warning")}
-          labels={{ severity: { violation: "Infracción", warning: "Aviso", info: "Nota" } }}
+          translations={{ severity: { violation: "Infracción", warning: "Aviso", info: "Nota" } }}
         />
       </DiagnosticList>,
     );

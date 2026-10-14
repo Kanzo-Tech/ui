@@ -7,7 +7,6 @@ import {
   FindingsBadgeHarness,
   FindingsItemHarness,
   RelationPickerHarness,
-  TimelineHarness,
   type KanzoTestingHook,
 } from "@kanzo-tech/testing";
 import { dom } from "@kanzo-tech/testing/dom";
@@ -288,12 +287,6 @@ describe("DockHarness", () => {
   });
 });
 
-describe("harnesses waiting on a component another change delivers", () => {
-  it.skip("TimelineHarness brushes a range in data and plays it — needs ChartTimeline, designed in Kanzo-Tech/ui#132 and not yet built", async () => {
-    await dom().harness(TimelineHarness);
-  });
-});
-
 describe("RelationPickerHarness", () => {
   // Ark's select scrolls its content to the top on open, and jsdom has no `scrollTo`.
   if (typeof Element.prototype.scrollTo !== "function") Element.prototype.scrollTo = () => {};
@@ -316,13 +309,13 @@ describe("RelationPickerHarness", () => {
     await picker.pick("Place");
     expect(await picker.root()).toBe("Place");
     await picker.add("<isLocatedIn<Comment");
-    expect(await picker.path()).toEqual(["Comments located in this place"]);
-    await picker.remove("Comments located in this place");
+    expect(await picker.path()).toEqual(["Comment · located in this place"]);
+    await picker.remove("Comment · located in this place");
     // A self-edge's label names two hops, so it takes the step; a unique label is enough.
     await expect(picker.add("isPartOf")).rejects.toThrow(/names 2 hops/);
     await picker.add(">isPartOf>Place");
-    await picker.add("Persons located in this place");
-    expect(await picker.path()).toEqual(["The place it is part of", "Persons located in this place"]);
+    await picker.add("Person · located in this place");
+    expect(await picker.path()).toEqual(["The place it is part of", "Person · located in this place"]);
     await picker.remove("The place it is part of");
     expect(await picker.path()).toEqual([]);
   });

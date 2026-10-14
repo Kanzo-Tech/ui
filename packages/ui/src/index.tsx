@@ -14,15 +14,11 @@
 export type {
   Appearance,
   KanzoDensity,
-  KanzoThemeName,
   // A data shape and not a React one: the pre-hydration script reads the same catalogue, and it
   // never sees this package.
   ThemeOption,
 } from "@kanzo-tech/theme";
 export { KanzoThemeProvider, useKanzoTheme, cookieStorageAdapter } from "./theme/KanzoThemeProvider.js";
-// The same attributes on a `<div>` instead of `<html>` — for previews, and only for previews: Ark's
-// overlays portal to `document.body` and inherit the page's theme, not a wrapper's.
-export { KanzoTheme, type KanzoThemeProps } from "./theme/KanzoTheme.js";
 export type {
   KanzoThemeProviderProps,
   ThemePrefs,
@@ -32,8 +28,8 @@ export type {
 export { themeScript } from "./theme/theme-script.js";
 export type { ThemeScriptOptions } from "./theme/theme-script.js";
 export {
-  Preferences,
-  // Flat parts — these survive the RSC client boundary; the `Preferences.X` statics do not.
+  // Flat parts — these survive the RSC client boundary; a namespace's statics do not. There is no
+  // all-in-one: the trigger and the panel under the root are the host's to arrange.
   PreferencesRoot,
   PreferencesTrigger,
   PreferencesPanel,
@@ -51,11 +47,11 @@ export type {
   PrefProps,
   PrefState,
   PrefValue,
-  PreferencesCopy,
   PreferencesPanelProps,
-  PreferencesProps,
   PreferencesRootProps,
   PreferencesSectionsProps,
+  PreferencesTranslations,
+  PreferencesTriggerProps,
   Register,
 } from "./composites/Preferences.js";
 // What only a section's owner knows — its lists and its pictures — for the subtree beneath it.
@@ -63,8 +59,6 @@ export { SectionProvider } from "./theme/section-context.js";
 export type { PrefSpecimen, SectionProviderProps } from "./theme/section-context.js";
 export { ThemePreview } from "./composites/ThemePreview.js";
 export type { ThemePreviewProps } from "./composites/ThemePreview.js";
-export { ThemeNotice } from "./composites/theme-notice.js";
-export type { ThemeNoticeProps, ThemeRetiredCopy } from "./composites/theme-notice.js";
 // What a check found: one result or a group sharing a rule, an item for each, and a badge that tallies
 // them — a SHACL report in Discover and a compiler's diagnostics in a recipe editor alike.
 export { groupFindings, tallyFindings } from "./lib/findings.js";
@@ -86,12 +80,11 @@ export {
   FindingsRoot,
   FindingsSource,
   FindingsTally,
-  useFindings,
 } from "./composites/findings.js";
 export type {
   DescribePlace,
   FindingAction,
-  FindingLabels,
+  FindingsTranslations,
   FindingPlace,
   FindingsBadgeProps,
   FindingsGroupProps,
@@ -103,9 +96,9 @@ export type {
 // A failure, shown — any thrown value, read for the coded error's shared fields: a host's every
 // error view and the graph's failure overlay in the docs.
 export { Problem } from "./composites/problem.js";
-export type { ProblemCopy, ProblemProps, ProblemTranslations } from "./composites/problem.js";
+export type { ProblemDescription, ProblemProps, ProblemTranslations } from "./composites/problem.js";
 export { MadeWith } from "./composites/MadeWith.js";
-export type { MadeWithProps } from "./composites/MadeWith.js";
+export type { MadeWithProps, MadeWithTranslations } from "./composites/MadeWith.js";
 
 // One question at a time, over a `FieldSet` per question and Ark's Steps machine for the
 // navigation. Flat parts for the same RSC reason `Preferences` is flat.
@@ -220,7 +213,6 @@ export * from "./simples/eyebrow.js";
 export * from "./simples/field.js";
 export * from "./simples/file-upload.js";
 export * from "./simples/float.js";
-export * from "./simples/floating-panel.js";
 export * from "./simples/format.js";
 export * from "./simples/highlight.js";
 export * from "./simples/hover-card.js";
@@ -353,16 +345,15 @@ export type { SidebarIdentityProps } from "./composites/SidebarIdentity.js";
 // The one piece of a navigation column that is logic rather than markup. The column itself is
 // composed from `SidebarMenu*` — see the note on the deleted composites below.
 export { isActivePath } from "./lib/is-active-path.js";
-// No `SidebarNav`, `SidebarUser`, `InstanceSwitcher`, `Breadcrumbs` or `MadeWith`.
+// No `SidebarNav`, `SidebarUser`, `InstanceSwitcher` or `Breadcrumbs`.
 //
 // Each took its layout tree as an array or record of `ReactNode`s — a shape you cannot reorder,
 // wrap, spread a prop onto, or `asChild`. `SidebarIdentity`'s own doc comment above argues the case
-// in full, and two of the five handed their record straight back into `SidebarIdentity`.
+// in full, and two of the four handed their record straight back into `SidebarIdentity`.
 // `SidebarUser` and `InstanceSwitcher` were additionally the same component under two names, down
 // to a byte-identical chevron and copy-pasted justification comments; `Breadcrumbs` had to invent
 // `BreadcrumbEntry` because `BreadcrumbItem` was taken, which is a component arguing against
-// itself; and `MadeWith` hard-coded English *and* the brand name "Kanzo" in a library whose first
-// admission rule is domain-freedom.
+// itself.
 //
 // What each one did survives: the parts are all exported, `Breadcrumb` now carries the `min-w-0`
 // that only the composite had, and the prefix-match above is the trap nobody should re-derive.

@@ -56,7 +56,7 @@ import * as UI from "./index";
 describe("@kanzo-tech/ui public surface", () => {
   it("exposes the core surface", () => {
     expect(UI.Button).toBeTypeOf("function");
-    expect(UI.Preferences).toBeTypeOf("function");
+    expect(UI.PreferencesRoot).toBeTypeOf("function");
     expect(UI.KanzoThemeProvider).toBeTypeOf("function");
     expect(UI.useKanzoTheme).toBeTypeOf("function");
     expect(UI.themeScript).toBeTypeOf("function");
@@ -150,23 +150,15 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.ListboxShortcut).toBeTypeOf("function");
   });
 
-  it("exposes two themers, and they are not interchangeable", () => {
-    // `KanzoTheme` was deleted once, and the reason it went is worth keeping because it is still
-    // half true: it sets the attributes on a wrapper `<div>`, so it cannot theme Ark's portalled
-    // overlays, and beside the real provider it gave callers no way to tell which was which — a
-    // repo-wide grep found zero JSX usages and one working provider.
-    //
-    // What changed is the half that was not about portals. A scope could not paint a different
-    // palette at all while a document was a whole stylesheet the server picked: there was no block
-    // for an attribute to select, so the component's only real power was over the non-colour axes.
-    // `compile(doc, { scope })` emits one document per attribute now, and the five ship together, so
-    // a palette gallery — five documents on one page — is a thing that can exist.
-    //
-    // The ambiguity is answered by documentation and by a test rather than by deletion:
-    // `KanzoTheme.test.tsx` asserts the portal limit directly, so "not the chrome of an app" is a
-    // measured property and not a warning someone has to remember to read.
+  it("exposes one themer, the root's, and no scoped one", () => {
+    // `KanzoTheme` — the attributes on a wrapper `<div>` — went twice. The first time because a
+    // wrapper cannot theme Ark's portalled overlays and beside the real provider gave callers no way
+    // to tell which was which. It came back for previews, and went again with no product calling it:
+    // a name on the barrel is admitted by a product's call site (`/docs/design/admission`), and its
+    // one caller is `ThemePreview`, which imports it from its module. A region a host themes is a
+    // `data-theme` attribute and the side's class (`/docs/themes#theming-a-region`).
     const surface = UI as Record<string, unknown>;
-    expect(surface.KanzoTheme).toBeTypeOf("function");
+    expect(surface.KanzoTheme).toBeUndefined();
     expect(surface.KanzoThemeProvider).toBeTypeOf("function");
   });
 
@@ -344,6 +336,30 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.Calendar).toBeTypeOf("function");
   });
 
+  it("keeps the composites a product calls, and no others", () => {
+    const surface = UI as Record<string, unknown>;
+    // A product's call site is what admits a composite: Kanzo-Tech/metadata-form calls each of these
+    // (`/docs/design/admission`, *A composite stays where a product calls it*), and its docs example
+    // is the second call site the rule asks for.
+    expect(UI.LanguagePicker).toBeTypeOf("function");
+    expect(UI.MadeWith).toBeTypeOf("function");
+    expect(UI.FieldArray).toBeTypeOf("function");
+    expect(UI.useAsyncCollection).toBeTypeOf("function");
+    expect(UI.PreferencesRoot).toBeTypeOf("function");
+    expect(UI.PreferencesTrigger).toBeTypeOf("function");
+    expect(UI.PreferencesPanel).toBeTypeOf("function");
+    expect(UI.PreferencesField).toBeTypeOf("function");
+    expect(UI.PreferencesSections).toBeTypeOf("function");
+    // None of these had a caller in any product. `Preferences` was a fixed arrangement of the three
+    // parts above, which metadata-form composes itself; `ThemeNotice` was one effect over
+    // `retiredTheme`; `FloatingPanel` was a resizable `div` under the name of Ark's floating-panel
+    // machine. Each is a docs example now, the composition copied by whoever needs it.
+    expect(surface.Preferences).toBeUndefined();
+    expect(surface.ThemeNotice).toBeUndefined();
+    expect(surface.FloatingPanel).toBeUndefined();
+    expect(surface.FloatingPanelResizeHandle).toBeUndefined();
+  });
+
   it("tracks Shark's context aliases and parts, in both directions", () => {
     // The rule this guards: a name Shark UI ships is ours, and a name it does not is not. These
     // were deleted once on the argument that renaming somebody else's export is not an API, and
@@ -492,11 +508,8 @@ describe("@kanzo-tech/ui public surface", () => {
     // `Preferences` was the one counter-example, via `Object.assign`. Those statics do NOT survive
     // React Server Components: once the module is a client reference `Preferences.Density` reads
     // back as `undefined` and React throws "Element type is invalid". A broken API beside the
-    // working one — the flat exports were always the real surface.
-    const preferences = UI.Preferences as unknown as Record<string, unknown>;
-    expect(preferences.Root).toBeUndefined();
-    expect(preferences.Panel).toBeUndefined();
-    expect(preferences.Density).toBeUndefined();
+    // working one — the flat exports were always the real surface, and the all-in-one itself has
+    // since left too (`keeps the composites a product calls, and no others`).
     expect(UI.PreferencesRoot).toBeTypeOf("function");
     expect(UI.PreferencesPanel).toBeTypeOf("function");
     // The one section that is not one section: it draws whatever the packages a host installed

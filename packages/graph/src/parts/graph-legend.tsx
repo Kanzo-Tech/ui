@@ -1,14 +1,49 @@
 "use client";
 
-import { cn, Show, useChartCapacity } from "@kanzo-tech/ui";
+import { ark } from "@ark-ui/react/factory";
+import { Card, cn, Show, useChartCapacity } from "@kanzo-tech/ui";
 import { useId, useMemo } from "react";
+import { tv } from "tailwind-variants";
 import { nameOf } from "../core/categories";
 import { bindingOf } from "../core/channels";
 import { useGraphSnapshot, useGraphState } from "../react/use-graph-state";
 import { scaleOf } from "../render/graph-model";
 import { ShapeGlyph } from "./shape-glyph";
 
-export type GraphLegendProps = React.ComponentProps<"div">;
+/** The words the legend writes itself; a category's name is the root's `categories`, never this. */
+export interface GraphLegendTranslations {
+  /** The row for every category past the palette's capacity. */
+  other: string;
+  /** The heading of the categories a map cannot place. */
+  unplaced: string;
+  /** Under the rows, when no relation has both ends placed. */
+  noEdges: string;
+}
+
+const ENGLISH: GraphLegendTranslations = {
+  other: "Other",
+  unplaced: "No position",
+  noEdges: "No edges have both ends on the map.",
+};
+
+/** `Card`'s props: the legend is a card, and takes everything one does, `asChild` included. */
+export interface GraphLegendProps extends React.ComponentProps<typeof Card> {
+  translations?: Partial<GraphLegendTranslations>;
+}
+
+const graphLegend = tv({
+  slots: {
+    root: "[--space:--spacing(2)] gap-0 px-2.5 text-xs shadow-none",
+    items: "space-y-1.5",
+    item: "flex items-center gap-2",
+    other: "border-t pt-1.5",
+    glyph: "size-2.5 shrink-0",
+    name: "truncate",
+    unplaced: "mt-1.5 border-t pt-1.5 text-muted-foreground",
+    heading: "mb-1.5",
+    note: "mt-1.5 border-t pt-1.5 text-muted-foreground",
+  },
+});
 
 const shallow = (a: readonly unknown[], b: readonly unknown[]) => a.length === b.length && a.every((v, i) => v === b[i]);
 
@@ -30,7 +65,9 @@ const shallow = (a: readonly unknown[], b: readonly unknown[]) => a.length === b
  * Names are the root's `categories`, never this part's: a legend that renamed a category would be
  * encoding one product's policy, which is the parts rule's reversal.
  */
-export function GraphLegend({ className, slot, ...rest }: GraphLegendProps) {
+export function GraphLegend({ className, slot, translations, ...rest }: GraphLegendProps) {
+  const t = { ...ENGLISH, ...translations };
+  const styles = graphLegend();
   const options = useGraphState((s) => s.options);
   const domain = useGraphState((s) => s.drawn?.domain ?? s.domain, shallow);
   const drawn = useGraphState((s) => s.drawn);
@@ -47,44 +84,40 @@ export function GraphLegend({ className, slot, ...rest }: GraphLegendProps) {
   const at = (ns: readonly number[] = [], rank: number) =>
     rank < capacity ? (ns[rank] ?? 0) : ns.slice(capacity).reduce((total, n) => total + n, 0);
   const rows = shown.map((value, rank) => [nameOf(value, options.categories), rank] as const);
-  if (domain.length > capacity) rows.push(["Other", capacity]);
+  if (domain.length > capacity) rows.push([t.other, capacity]);
   const unplaced = ([, rank]: (typeof rows)[number]) => placing && at(drawn?.placed, rank) === 0 && at(drawn?.totals, rank) > 0;
   const item = ([name, rank]: (typeof rows)[number], hollow?: boolean) => (
-    <li className={cn("flex items-center gap-2", rank === capacity && !hollow && "border-t pt-1.5")} data-slot="graph-legend-item" key={rank}>
+    <ark.li className={cn(styles.item(), rank === capacity && !hollow && styles.other())} data-slot="graph-legend-item" key={rank}>
       {hollow ? (
-        <ShapeGlyph className="size-2.5 shrink-0 overflow-visible" color="none" shape={scale.shape(rank)} stroke="currentColor" strokeWidth={1.5} />
+        <ShapeGlyph className={cn(styles.glyph(), "overflow-visible")} color="none" shape={scale.shape(rank)} stroke="currentColor" strokeWidth={1.5} />
       ) : (
-        <ShapeGlyph className="size-2.5 shrink-0" color={scale.color(rank)} shape={scale.shape(rank)} />
+        <ShapeGlyph className={styles.glyph()} color={scale.color(rank)} shape={scale.shape(rank)} />
       )}
-      <span className="truncate">{name}</span>
-    </li>
+      <ark.span className={styles.name()}>{name}</ark.span>
+    </ark.li>
   );
   const nowhere = rows.filter(unplaced);
 
   return (
-    <div
-      {...rest}
-      className={cn("rounded-lg border bg-card px-2.5 py-2 text-xs", className)}
-      data-slot={slot ?? "graph-legend"}
-    >
-      <ul className="space-y-1.5" data-slot="graph-legend-items">
+    <Card {...rest} className={cn(styles.root(), className)} slot={slot ?? "graph-legend"}>
+      <ark.ul className={styles.items()} data-slot="graph-legend-items">
         {rows.filter((row) => !unplaced(row)).map((row) => item(row))}
-      </ul>
+      </ark.ul>
       <Show when={nowhere.length > 0}>
-        <div className="mt-1.5 border-t pt-1.5 text-muted-foreground" data-slot="graph-legend-unplaced">
-          <p className="mb-1.5" id={heading}>
-            No position
-          </p>
-          <ul aria-labelledby={heading} className="space-y-1.5">
+        <ark.div className={styles.unplaced()} data-slot="graph-legend-unplaced">
+          <ark.p className={styles.heading()} id={heading}>
+            {t.unplaced}
+          </ark.p>
+          <ark.ul aria-labelledby={heading} className={styles.items()}>
             {nowhere.map((row) => item(row, true))}
-          </ul>
-        </div>
+          </ark.ul>
+        </ark.div>
       </Show>
       <Show when={placing && drawn !== null && drawn.links > 0 && drawn.placedLinks === 0}>
-        <p className="mt-1.5 border-t pt-1.5 text-muted-foreground" data-slot="graph-legend-note">
-          No edges have both ends on the map.
-        </p>
+        <ark.p className={styles.note()} data-slot="graph-legend-note">
+          {t.noEdges}
+        </ark.p>
       </Show>
-    </div>
+    </Card>
   );
 }

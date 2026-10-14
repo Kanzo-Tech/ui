@@ -2,10 +2,13 @@
  * **A Task** — `/docs/design/tasks`: a small model fills a small artefact whose shape is a schema, the
  * oracles check it, and a bounded loop sends what they found back or turns it into a question for the
  * person. No React and no tools: the model answers with `Output.object`, which a constraining provider
- * decodes against the schema, and the loop is this module's — Instructor's pattern on the AI SDK.
+ * decodes against the schema, and the loop is this module's — Instructor's pattern on the AI SDK. Every
+ * call goes through `@kanzo-tech/llm`'s `generate`, asked once: the only retries are the loop's own,
+ * each carrying what the oracles found.
  */
 
-import { generateText, Output, type FlexibleSchema, type LanguageModel } from "ai";
+import { generate } from "@kanzo-tech/llm";
+import { Output, type FlexibleSchema, type LanguageModel } from "ai";
 
 /** Where a proposal lands when accepted: an LSP `TextEdit`, or a JSON Patch operation's path. */
 export type Target =
@@ -37,7 +40,11 @@ export type Verdict =
   | { readonly ok: false; readonly diagnostics: readonly Diagnostic[] }
   | { readonly ok: false; readonly decision: Decision };
 
-/** What a model offers: a value, where it lands, and what backs it. */
+/**
+ * What a model offers: a value, where it lands, and what backs it — the one proposal in the library.
+ * A field's is a `Proposal<string>`: a continuation inserts at the caret, a candidate replaces the
+ * value, a list's adds an item, as LSP's `InlineCompletionItem` says with a range.
+ */
 export interface Proposal<A> {
   readonly id: string;
   readonly task: string;
@@ -46,6 +53,8 @@ export interface Proposal<A> {
   readonly verdict: Verdict;
   /** How many times the model was asked: 1 when its first answer held. */
   readonly attempts: number;
+  /** Why the model offered it, in its words, where its Task asks for one: an offer's tooltip. */
+  readonly rationale?: string;
 }
 
 /** One oracle's word on an artefact: nothing, what is wrong with it, or a question it raises. */
@@ -54,8 +63,11 @@ export type Finding = Diagnostic | { readonly decision: Decision };
 /** A fact checked of the artefact: the data's or the program's, never the model's opinion. */
 export type Oracle<I, A> = (value: A, input: I) => Finding | readonly Finding[] | undefined | Promise<Finding | readonly Finding[] | undefined>;
 
-/** The states a Task passes through, as the message's data parts carry them. */
-export type TaskState = "linking" | "drafting" | "verifying" | "repairing" | "needs-input" | "done" | "failed";
+/**
+ * The states a Task passes through, each handed to `onState` as it is entered. Not exported: no
+ * host names it, and `RunOptions["onState"]` spells it where one would.
+ */
+type TaskState = "linking" | "drafting" | "verifying" | "repairing" | "needs-input" | "done" | "failed";
 
 export interface TaskDefinition<I, A, C = string> {
   /** What the model is resolved by and what the evaluation set is keyed by. */
@@ -159,8 +171,8 @@ export async function runTask<I, A, C>(task: TaskDefinition<I, A, C>, input: I, 
     const prompt = feedback ? `${asked}\n\n${feedback}` : asked;
     const value = (
       schema === undefined
-        ? (await generateText({ model, system: task.instructions, prompt, providerOptions: { kanzo: { grammar: grammar! } }, abortSignal: signal })).text
-        : (await generateText({ model, system: task.instructions, prompt, output: Output.object({ schema }), abortSignal: signal })).output
+        ? (await generate({ model, system: task.instructions, prompt, providerOptions: { kanzo: { grammar: grammar! } }, abortSignal: signal })).text
+        : (await generate({ model, system: task.instructions, prompt, output: Output.object({ schema }), abortSignal: signal })).output
     ) as A;
 
     onState?.("verifying");
@@ -193,8 +205,9 @@ export async function propose<I, A, C>(
   options: RunOptions & { readonly count: number },
 ): Promise<Proposal<A>[]> {
   const { model, signal, count } = options;
+  const target = task.target?.(input) ?? { add: "" };
   const context = task.context ? await task.context(input, signal) : ("" as C);
-  const { output } = await generateText({
+  const { output } = await generate({
     model,
     system: task.instructions,
     prompt: `${task.prompt(input, context)}\n\nOffer ${count}, different from one another.`,
@@ -207,7 +220,7 @@ export async function propose<I, A, C>(
     if (diagnostics.length > 0) continue;
     const verdict = decided(task, decisions);
     if (!verdict.ok) continue;
-    offered.push({ id: `${task.name}-${n}`, task: task.name, value, target: { add: "" }, verdict, attempts: 1 });
+    offered.push({ id: `${task.name}-${n}`, task: task.name, value, target, verdict, attempts: 1 });
   }
   return offered.slice(0, count);
 }

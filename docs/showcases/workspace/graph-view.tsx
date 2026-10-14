@@ -53,8 +53,9 @@ import {
   TagsInputItemText,
   toast,
 } from "@kanzo-tech/ui";
-import { Chat, ChatSkeleton, type Proposal } from "@kanzo-tech/ai";
-import { AnswerCard, answerRelationsOf, askEdit, AskChips, askOffers, questionOf, readAnswerRelations, useAskChat, type AnswerRelation, type AskOutput, type AskSpec } from "@kanzo-tech/ai/data";
+import { Chat, ChatSkeleton } from "@kanzo-tech/ai";
+import type { Proposal } from "@kanzo-tech/ai/task";
+import { AnswerCard, answerRelationsOf, askEdit, AskChips, askOffers, readAnswerRelations, useAskChat, type AnswerRelation, type AskOutput, type AskSpec } from "@kanzo-tech/ai/data";
 import { mockModel, promptOf } from "@/lib/mock-model";
 import {
   Coordinator,
@@ -323,7 +324,7 @@ export function GraphInfo() {
   return (
     <div className="flex h-full flex-col">
       <div className="shrink-0 border-b border-border p-2">
-        <GraphSearch placeholder="Find anything in the archive…" />
+        <GraphSearch translations={{ placeholder: "Find anything in the archive…" }} />
       </div>
       <ScrollArea className="min-h-0 flex-1 p-3">
         <GraphInspector>{(detail) => <HallName detail={detail} />}</GraphInspector>
@@ -1055,6 +1056,9 @@ const INTENTS: Intent[] = [
   },
 ];
 
+/** The words of each pill `askOffers` answered with, by the intent whose spec it offered. */
+const OFFERED = new Map<string, Intent>();
+
 /**
  * An intent's own question, or the words a pill it offered says, win before any keyword does — a
  * question must always resolve to the intent that produced it, whatever words it happens to hold
@@ -1062,7 +1066,7 @@ const INTENTS: Intent[] = [
  */
 function match(question: string): Intent | null {
   const asked = question.trim().toLowerCase();
-  const own = INTENTS.find((intent) => [intent.question, questionOf(intent.spec)].some((q) => q.toLowerCase() === asked));
+  const own = OFFERED.get(asked) ?? INTENTS.find((intent) => intent.question.toLowerCase() === asked);
   if (own) return own;
   return INTENTS.find((intent) => intent.match.some((word) => asked.includes(word))) ?? null;
 }
@@ -1122,13 +1126,20 @@ function AskEmpty() {
   );
 }
 
-/** Questions to start from: Ask's own offers, each checked. None on failure, and the chat works without them. */
+/** Questions to start from: Ask's own offers, each checked, whole. None on failure, and the chat works without them. */
 function useOffers({ graph, types }: Askable, selection: MosaicSelection) {
-  const [state, setState] = useState<{ questions: Proposal[]; proposing: boolean }>({ questions: [], proposing: true });
+  const [state, setState] = useState<{ questions: Proposal<AskSpec>[]; proposing: boolean }>({ questions: [], proposing: true });
   useEffect(() => {
     const abort = new AbortController();
     askOffers({ model: recording, graph, types, selection, signal: abort.signal }).then(
-      (offers) => setState({ questions: offers.map(({ text }) => ({ text })), proposing: false }),
+      (offers) => {
+        for (const { value } of offers) {
+          const intent = INTENTS.find((i) => JSON.stringify(i.spec) === JSON.stringify(value));
+          const [words] = askEdit(value).parts;
+          if (intent && words?.type === "text") OFFERED.set(words.text.toLowerCase(), intent);
+        }
+        setState({ questions: offers, proposing: false });
+      },
       () => !abort.signal.aborted && setState({ questions: [], proposing: false }),
     );
     return () => abort.abort();
@@ -1163,6 +1174,8 @@ function AskBody({ archive, askable }: { archive: Archive; askable: Askable }) {
         chat={chat}
         context={<SubsetPill archive={archive} />}
         empty={<AskEmpty />}
+        // A pill sends its spec, which the chat asks as it is: the offer the oracles checked.
+        message={askEdit}
         proposals={starters.questions}
         proposing={starters.proposing}
         tools={{

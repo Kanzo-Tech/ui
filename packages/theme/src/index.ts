@@ -127,21 +127,6 @@ export type Appearance = "light" | "dark";
 export type KanzoDensity = "default" | "compact" | "comfortable";
 
 /**
- * Theme key — host-extensible; `""` means "defer to the tenant's default".
- *
- * A value is a *host's* string, unknown when this package is built — a tenant authors their own
- * themes, so a literal union would be a list that is wrong for every client.
- *
- * **It replaces `KanzoPalette`, `KanzoIdentity` and `KanzoIdentityMemory`, and the collapse is the
- * point.** Those were three types because a palette CONTAINED identities: a document was a two-mode
- * stylesheet, a brand was a partial block layered onto it, and a memory recorded which brand you
- * last wore inside each document so switching away and back returned you to it. A theme is one flat
- * block, so a brand is not inside anything — `bank` and `bank-private` are two themes — and there is
- * no containment left for a memory to remember.
- */
-export type KanzoThemeName = string;
-
-/**
  * One published theme, as the runtime sees it — the contract between the catalogue and the panel.
  *
  * It carries no colours. A control depicts a theme by setting `data-theme` on an element and letting
@@ -197,7 +182,7 @@ export interface ThemePrefs {
    * The ordering that makes it possible: the pre-hydration script resolves appearance before it
    * writes anything, so it can index this map. That is the thing to check first when touching it.
    */
-  themeByAppearance: Partial<Record<Appearance, KanzoThemeName>>;
+  themeByAppearance: Partial<Record<Appearance, string>>;
   /**
    * What the packages a host installed contribute, keyed by namespace then by preference.
    *
@@ -206,7 +191,7 @@ export interface ThemePrefs {
    * colour axes it was built for and exactly wrong for a contributed choice: a host that drops an
    * optional peer for one release would lose the user's stored value on the next write. Riding on a
    * single known key, an unrecognised namespace survives every read and save without the core
-   * knowing it exists — the same opacity {@link LookDocument}'s `sections` already has, which is the
+   * knowing it exists — the same opacity a stored document's sections already have, which is the
    * point: both halves of a section are stored the same way.
    */
   sections: Record<string, Record<string, string>>;
@@ -329,40 +314,28 @@ export const AXES: {
 // and knows no section: a package contributes by USING a namespace, never by registering here.
 // That is what keeps `@kanzo-tech/theme` free of any reference to `@kanzo-tech/graph`.
 export {
-  fallbackChain,
   resolvePref,
   prefBoolean,
   prefNumber,
   prefOptions,
   prefShown,
-  resolveSectionToken,
-  sectionOf,
   validatePrefs,
   validateSection,
-  withSection,
-  type LookDocument,
   type PrefOption,
   type PrefOptions,
   type PrefOrigin,
   type PrefSource,
   type PrefSources,
   type PrefWhen,
-  type Problem,
   type ResolvedPref,
   type SectionManifest,
   type SectionPolicy,
   type SectionPrefDecl,
   type SectionPrefPolicy,
+  type SectionProblem,
   type SectionTokenDecl,
 } from "./sections.js";
 
-// The density axis's own obligations — what admits it as a section rather than a preference.
-export {
-  check as checkDensity,
-  OBLIGATIONS as DENSITY_OBLIGATIONS,
-  type Check as DensityCheck,
-  type Obligation as DensityObligation,
-} from "./obligations.js";
 
 // Authoring-time colour, and the only derivation in the package. It runs in a form while somebody
 // picks a fill, never in a page painting one: what ships is still a flat block of hex, and this is

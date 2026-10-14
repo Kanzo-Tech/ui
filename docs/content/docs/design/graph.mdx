@@ -604,7 +604,7 @@ would make it the host's state again — in the URL, per corpus.
 unbound, so a column chosen on another corpus places nothing"; `packages/graph/src/parts/graph-section.test.tsx`,
 "offers the corpus's numeric fields to the map, from the root that attached it".
 
-**A selection names its gesture, never its host's panel.** `SelectionSource` is the canvas's own
+**A selection names its gesture, never its host's panel.** `VertexSelectionSource` is the canvas's own
 gestures — `marquee`, `lasso`, `node` — and nothing else: a host's pick is not the canvas's selection
 but a clause of its own, named by the `id` it passes `usePick`. It was `order` and `ask` besides, and
 then `external`, which were a host's panels spelled into the renderer's type. What would reverse it:
@@ -656,14 +656,17 @@ if WebGL exists but no device ever comes up".
 ```text
 the adapter        GraphRoot · GraphRootProvider · useGraph · useGraphContext · useGraphState
 the parts          GraphCanvas · GraphLegend · GraphStatus · GraphCounts · GraphToolbar · GraphInspector
-                   GraphSearch · ShapeGlyph
+                   GraphSearch
 picking            usePick
-the picture        lookFrom · simFrom · placementFrom · useGraphPrefs · scaleOf
+the picture        lookFrom · simFrom · useGraphPrefs
 types              GraphRootProps · GraphRootProviderProps · UseGraphProps · GraphApi · GraphCanvasProps
                    GraphLegendProps · GraphStatusProps · GraphCountsProps · GraphToolbarProps · GraphInspectorProps
-                   GraphSearchProps · ShapeGlyphProps · Pick
+                   GraphSearchProps · VertexPick
+                   GraphCanvasTranslations · GraphLegendTranslations · GraphCountsTranslations
+                   GraphStatusTranslations · GraphToolbarTranslations · GraphInspectorTranslations
+                   GraphSearchTranslations
                    GraphState · DataStatus · Drawn · VertexDetail
-                   Channels · Placement · Look · LookPatch · Shape · Sim · Motion · Selection · SelectionSource
+                   Channels · Placement · Look · LookPatch · Shape · Sim · Motion · VertexSelection · VertexSelectionSource
                    Tool · GraphCommands · VertexId
 ./section          GRAPH_SECTION
 ```
@@ -676,6 +679,38 @@ arrays. Then the name comes back, and the part that failed it is the first thing
 
 *Held by* `packages/graph/src/index.test.ts`, "is exactly this list, and grows only by somebody writing
 a name into it", "keeps the canvas's own steps internal".
+
+## The parts are under the guards
+
+**`@kanzo-tech/graph` declares `tailwind-variants`, so `guard-corpus.ts` scans it as it scans `ui`
+and `ai`, and every part renders through `ark.*`.** The corpus had admitted graph on a judgement that
+expired by its own words — *one file writing classes by hand, two literal strings; it expires the
+moment that file grows* — and by 13 October 2026 the parts wrote their appearance in dozens of
+`className`s with no recipe, no `asChild`, a physical `left-0` and a `data-slot` written before the
+spread, none of it seen by the guards that hold every other package. Joining the corpus by the
+corpus's own rule was the fix, not a wider exception, and it found what was there: a physical
+offset, a slot a caller's spread could erase, and a module registering a listener without
+`"use client"`.
+
+So each part writes its appearance as a `tv()` recipe, renders through `ark` with the props of its
+element and `asChild`, and takes every word it writes as `translations`
+([one prop translates](/docs/design/naming#one-prop-translates-translations)) — the canvas's
+*Loading the graph…*, the toolbar's names, *5K nodes · 8K edges* as patterns over its figures.
+**Where a part's surface is a ui part's, it composes that part**: the legend is a `Card`, the status
+a `Badge`, the toolbar's clusters `ButtonGroup`s, the search's cue a `Button` whose props it takes.
+
+**One case does not fit the recipe, and is the case the rule already allows.** The labels and the
+hover card are placed by `overlays.ts` every frame, at cosmos.gl's screen coordinates — a corner, not
+a reading direction — so their origin is inline, beside the `transform` the renderer writes, and
+does not mirror under `dir="rtl"`.
+
+**What would reverse it:** a part that cannot be written with a recipe at all — a canvas overlay
+whose whole appearance is the renderer's every frame. Then that part's style is inline and computed,
+which the guards already allow, and the part stays under them.
+
+*Held by* `packages/ui/src/guard-corpus.ts`, `ROOTS`; `packages/ui/src/logical-properties.test.ts`,
+"uses no physical direction utility outside the reviewed allowlist"; `packages/ui/src/data-slot.test.tsx`,
+"writes data-slot after the spread, so a caller's cannot erase it".
 
 ## Where the points sit in cosmos.gl's square
 

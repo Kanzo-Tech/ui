@@ -11,7 +11,9 @@ import {
   Field,
   FieldLabel,
   Input,
-  Preferences,
+  PreferencesPanel,
+  PreferencesRoot,
+  PreferencesTrigger,
   SectionDescription,
   SectionHeader,
   SectionRoot,
@@ -96,7 +98,10 @@ export function PreferencesShowcase() {
       </SectionRoot>
 
       {/* The component itself, whole: floating trigger + non-modal drawer. */}
-      <Preferences defaultOpen />
+      <PreferencesRoot defaultOpen>
+        <PreferencesTrigger />
+        <PreferencesPanel />
+      </PreferencesRoot>
     </div>
   );
 }

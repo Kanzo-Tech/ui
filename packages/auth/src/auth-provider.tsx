@@ -28,7 +28,7 @@ const authKey = (auth: Auth) => {
  * with the thrown value, not a signed-out person. Without a `QueryClientProvider` above it, it
  * throws TanStack's own *No QueryClient set*.
  *
- * It does not know what is underneath — `bffAuth` or a test double both satisfy `Auth` — which is
+ * It does not know what is underneath it — `bffAuth`, or a test's or a host's own `Auth` — which is
  * the whole reason the hooks below it can be written once.
  */
 export function AuthProvider({

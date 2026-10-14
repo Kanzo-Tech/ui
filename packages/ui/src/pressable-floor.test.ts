@@ -44,7 +44,7 @@ import { label, sourceFiles } from "./guard-corpus";
  * - **It trusts the `pointer-coarse` area not to count.** `InputGroupButton` carries a 44px
  *   `::after` for coarse pointers; it is not in the hit path for a mouse, so it does not lift the
  *   figure. If that reading is wrong, this test is too strict rather than too loose.
- * - **The corpus is `ui` and `ai`, derived by `guard-corpus.ts`**, and it was `packages/ui/src`
+ * - **The corpus is `ui`, `ai` and `graph`, derived by `guard-corpus.ts`**, and it was `packages/ui/src`
  *   alone until 2026-08-20. Widening it added `@kanzo-tech/ai`, which contributed **no recipe at
  *   all** to `recipesRead`: measured over its twelve modules, the files that render a button
  *   (`ai-mark.tsx`, `complete.tsx`, `prompt-input.tsx`, `suggest.tsx`) each pass a `size` to one of

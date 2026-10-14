@@ -51,7 +51,9 @@ import {
   MenuRadioItem,
   MenuSeparator,
   MenuTrigger,
-  Preferences,
+  PreferencesPanel,
+  PreferencesRoot,
+  PreferencesTrigger,
   RadioGroup,
   RadioGroupCard,
   RadioGroupIndicator,
@@ -791,7 +793,10 @@ export function JobStudioShowcase() {
           are a thing you reach for occasionally; they should not read as one of the screen's
           main verbs. Appearance is a side card inside that panel's Colour section, so there is no
           second control for it anywhere. */}
-      <Preferences hotkey="p" />
+      <PreferencesRoot hotkey="p">
+        <PreferencesTrigger />
+        <PreferencesPanel />
+      </PreferencesRoot>
       <Toaster />
     </SidebarProvider>
   );

@@ -47,24 +47,6 @@
     "jsdom": "^29.1.1",
     "playwright-core": "^1.62.1"
   },
-  "size-limit": [
-    {
-      "name": "root barrel (JS)",
-      "path": "dist/index.js",
-      "limit": "10 kB",
-      "ignore": [
-        "playwright-core"
-      ]
-    },
-    {
-      "name": "dom subpath (JS)",
-      "path": "dist/dom.js",
-      "limit": "10 kB",
-      "ignore": [
-        "@testing-library/dom"
-      ]
-    }
-  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Kanzo-Tech/ui.git",
@@ -73,5 +55,10 @@
   "homepage": "https://kanzo-tech.github.io/ui",
   "bugs": {
     "url": "https://github.com/Kanzo-Tech/ui/issues"
+  },
+  "//gauges": "One gauge per published entry, and one per tree-shaken import a consumer meets; `scripts/gauges.mjs` (through `.size-limit.mjs`) is what each measures, and every limit's reason — each raise, dated, with its before and after — is a row on /docs/design, *A gauge per entry, and its raises written here*.",
+  "gauges": {
+    ".": "10 kB",
+    "./dom": "10 kB"
   }
 }

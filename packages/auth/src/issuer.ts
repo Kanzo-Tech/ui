@@ -162,8 +162,8 @@ export function issuer(config: IssuerConfig): Issuer {
   if (execute.length > 0) options.execute = execute;
 
   // `private_key_jwt` over a shared secret wherever the deployment can hold a key. `None()` is
-  // absent on purpose: this door is the confidential client, and a public one belongs behind
-  // `./browser` where PKCE alone is the protection.
+  // absent on purpose: this door is the confidential client. A public client, with PKCE alone as
+  // its protection, is a browser-side pattern this package does not ship.
   const clientAuth =
     config.privateKey !== undefined
       ? PrivateKeyJwt(config.privateKey)

@@ -25,10 +25,12 @@ import {
   TagsInputItemText,
   TagsInputRootProvider,
   useChartCapacity,
+  useLocale,
   useTagsInput,
 } from "@kanzo-tech/ui";
 import { SearchIcon } from "lucide-react";
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { tv } from "tailwind-variants";
 import { nameOf } from "../core/categories";
 import { bindingOf } from "../core/channels";
 import { matchingIds, parseQuery, searchVertices, type Found, type VertexQuery } from "../core/source";
@@ -40,16 +42,77 @@ import { useGraphSnapshot, useGraphState } from "../react/use-graph-state";
 import { scaleOf } from "../render/graph-model";
 import { ShapeGlyph } from "./shape-glyph";
 
-export interface GraphSearchProps {
-  /** On the cue in the page: what it says, and what the palette's empty input says. */
-  placeholder?: string;
-  /** The cue's size. */
-  size?: "sm" | "md" | "lg";
-  /** On the cue. */
-  className?: string;
+/**
+ * Every word the search writes. A figure arrives formatted in the page's locale, and where a message
+ * has two forms the pattern is handed the number too, to choose with `Intl.PluralRules` or as English
+ * does — never to inflect a label.
+ */
+export interface GraphSearchTranslations {
+  /** On the cue in the page, and in the palette's empty input. */
+  placeholder: string;
+  /** The palette's accessible name and description. */
+  title: string;
+  description: string;
+  /** In the input, when the read failed. */
+  unread: string;
+  /** The empty palette's two groups, and a typed search that found nothing. */
+  recent: string;
+  narrow: string;
+  empty: string;
+  /** The footer: more matched than the list shows; how many matched; how many the subset leaves out; none in it. */
+  first: (shown: string, total: string) => string;
+  matches: (count: string, n: number) => string;
+  outside: (count: string) => string;
+  noneInside: (count: string) => string;
+  /** Beside the Enter key, and the button that picks every match. */
+  goTo: string;
+  addAll: (count: string) => string;
+  /** The footer of an empty palette, given the two prefixes as keys. */
+  prefixes: (type: ReactNode, column: ReactNode) => ReactNode;
+  separator: string;
+}
+
+const ENGLISH: GraphSearchTranslations = {
+  placeholder: "Find a node…",
+  title: "Find a node",
+  description: "Find a vertex by its name, its type or a column.",
+  unread: "The names could not be read.",
+  recent: "Recent",
+  narrow: "Narrow to a type",
+  empty: "Nothing by that name.",
+  first: (shown, total) => `First ${shown} of ${total} — keep typing to narrow it`,
+  matches: (count, n) => `${count} ${n === 1 ? "match" : "matches"}`,
+  outside: (count) => `${count} more outside the subset`,
+  noneInside: (count) => `None in the subset · ${count} outside it`,
+  goTo: "Go to",
+  addAll: (count) => `Add ${count} to the subset`,
+  prefixes: (type, column) => <>Narrow with {type} or {column}, then Space.</>,
+  separator: " · ",
+};
+
+/** The cue's props: it is a `Button`, and takes everything one does — `size`, `className`, `asChild`. */
+export interface GraphSearchProps extends Omit<React.ComponentProps<typeof Button>, "children"> {
   /** How many matches the list shows; past it, the list says to keep typing. */
   limit?: number;
+  translations?: Partial<GraphSearchTranslations>;
 }
+
+const graphSearch = tv({
+  slots: {
+    cue: "w-full justify-start font-normal text-muted-foreground",
+    keys: "ms-auto",
+    palette: "h-[min(40rem,calc(100dvh-4rem))]",
+    field: "min-h-0 flex-1",
+    glyph: "size-2.5 shrink-0",
+    heading: "flex w-full items-center justify-between gap-2",
+    count: "font-normal tabular-nums",
+    label: "min-w-0 truncate",
+    detail: "ms-auto shrink-0 ps-2 text-muted-foreground text-xs tabular-nums",
+    footer: "min-w-0 truncate tabular-nums",
+    actions: "flex shrink-0 items-center gap-1",
+    go: "flex items-center gap-1 px-2",
+  },
+});
 
 interface Entry {
   value: string;
@@ -101,7 +164,12 @@ const TYPES = "\0types";
  * ARIA: a `button` declaring `aria-keyshortcuts`, opening a `dialog` that holds Ark's combobox — a
  * `combobox` input over a `listbox` of `option`s in labelled groups.
  */
-export function GraphSearch({ className, limit = 50, placeholder = "Find a node…", size = "sm" }: GraphSearchProps) {
+export function GraphSearch({ className, limit = 50, size = "sm", translations, ...rest }: GraphSearchProps) {
+  const t = { ...ENGLISH, ...translations };
+  const styles = graphSearch();
+  const { locale } = useLocale();
+  const figure = useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const n = (value: number) => figure.format(value);
   const api = useGraphContext();
   const search = usePick("search");
   const { predicate } = search;
@@ -170,33 +238,33 @@ export function GraphSearch({ className, limit = 50, placeholder = "Find a node�
     const typeOf = (vertex: number) => (structure ? nameOf(tableOf(structure, vertex)?.name, categories) : "");
     return [
       ...recent.map((r) => ({ value: String(r.vertex), vertex: r.vertex, label: r.text, detail: typeOf(r.vertex), group: RECENT })),
-      ...(structure?.vertices ?? []).map((t) => ({
-        value: `type:${t.name}`,
+      ...(structure?.vertices ?? []).map((table) => ({
+        value: `type:${table.name}`,
         vertex: null,
-        label: nameOf(t.name, categories),
-        detail: t.rows.toLocaleString(),
+        label: nameOf(table.name, categories),
+        detail: figure.format(table.rows),
         group: TYPES,
       })),
     ];
-  }, [typed, found, recent, structure, categories]);
+  }, [typed, found, recent, structure, categories, figure]);
   const collection = useMemo(() => createListCollection({ items, groupBy: (item) => item.group }), [items]);
-  const terms = result ? [result.query.text, ...result.query.fields.map((f) => f.value)].filter((t) => t !== "") : [];
+  const terms = result ? [result.query.text, ...result.query.fields.map((f) => f.value)].filter((term) => term !== "") : [];
 
   const glyph = (item: Entry) => {
     // A type wears the glyph its vertices do only when the type is what the canvas colours by.
     const typeRank = binding.byTable ? domain.findIndex((value) => `type:${String(value)}` === item.value) : -1;
     const rank = item.vertex === null ? (typeRank < 0 ? undefined : typeRank) : encoding?.ranks[item.vertex];
     if (!bound || rank === undefined) return null;
-    return <ShapeGlyph aria-hidden className="size-2.5 shrink-0" color={scale.color(rank)} shape={scale.shape(rank)} />;
+    return <ShapeGlyph aria-hidden className={styles.glyph()} color={scale.color(rank)} shape={scale.shape(rank)} />;
   };
   const heading = (group: string) => {
-    if (group === RECENT) return "Recent";
-    if (group === TYPES) return "Narrow to a type";
-    const n = found ? found.byType.get(group) : undefined;
+    if (group === RECENT) return t.recent;
+    if (group === TYPES) return t.narrow;
+    const count = found ? found.byType.get(group) : undefined;
     return (
-      <span className="flex w-full items-center justify-between gap-2">
+      <span className={styles.heading()}>
         <span className="truncate">{nameOf(group, categories)}</span>
-        <span className="font-normal tabular-nums">{n?.toLocaleString()}</span>
+        <span className={styles.count()}>{count === undefined ? null : n(count)}</span>
       </span>
     );
   };
@@ -219,21 +287,22 @@ export function GraphSearch({ className, limit = 50, placeholder = "Find a node�
       <DialogTrigger asChild>
         <Button
           aria-keyshortcuts="Meta+K Control+K"
-          className={cn("w-full justify-start font-normal text-muted-foreground", className)}
           disabled={structure === null}
           size={size}
           variant="outline"
+          {...rest}
+          className={cn(styles.cue(), className)}
         >
           <SearchIcon aria-hidden />
-          <span className="min-w-0 truncate">{placeholder}</span>
-          <KbdGroup className="ms-auto">
+          <span className={styles.label()}>{t.placeholder}</span>
+          <KbdGroup className={styles.keys()}>
             <Kbd>⌘</Kbd>
             <Kbd>K</Kbd>
           </KbdGroup>
         </Button>
       </DialogTrigger>
-      <CommandDialogContent className="h-[min(40rem,calc(100dvh-4rem))]" description="Find a vertex by its name, its type or a column." title="Find a node">
-        <TagsInputRootProvider className="min-h-0 flex-1" value={chips}>
+      <CommandDialogContent className={styles.palette()} description={t.description} title={t.title}>
+        <TagsInputRootProvider className={styles.field()} value={chips}>
           <Command
             collection={collection}
             ids={{ input: id }}
@@ -262,7 +331,7 @@ export function GraphSearch({ className, limit = 50, placeholder = "Find a node�
                 }
                 tagKeys.onKeyDown?.(event);
               }}
-              placeholder={found === false ? "The names could not be read." : placeholder}
+              placeholder={found === false ? t.unread : t.placeholder}
             >
               {chips.value.map((value, index) => (
                 <TagsInputItem index={index} key={value} value={value}>
@@ -275,7 +344,7 @@ export function GraphSearch({ className, limit = 50, placeholder = "Find a node�
             </CommandInput>
             <CommandContent>
               <Show when={found !== null}>
-                <CommandEmpty>Nothing by that name.</CommandEmpty>
+                <CommandEmpty>{t.empty}</CommandEmpty>
               </Show>
               <CommandList>
                 {collection.group().map(([group, entries]) => (
@@ -283,11 +352,11 @@ export function GraphSearch({ className, limit = 50, placeholder = "Find a node�
                     {entries.map((item) => (
                       <CommandItem item={item} key={item.value}>
                         {glyph(item)}
-                        <span className="min-w-0 truncate">
+                        <span className={styles.label()}>
                           <Highlight ignoreCase matchAll query={terms} text={item.label} />
                         </span>
                         <Show when={item.detail !== ""}>
-                          <span className="ms-auto shrink-0 ps-2 text-muted-foreground text-xs tabular-nums">{item.detail}</span>
+                          <span className={styles.detail()}>{item.detail}</span>
                         </Show>
                       </CommandItem>
                     ))}
@@ -298,18 +367,16 @@ export function GraphSearch({ className, limit = 50, placeholder = "Find a node�
             <CommandFooter>
               {found && found.total > 0 ? (
                 <>
-                  <span className="min-w-0 truncate tabular-nums">
-                    {found.total > limit
-                      ? `First ${limit} of ${found.total.toLocaleString()} — keep typing to narrow it`
-                      : `${found.total.toLocaleString()} ${found.total === 1 ? "match" : "matches"}`}
-                    {found.outside > 0 ? ` · ${found.outside.toLocaleString()} more outside the subset` : ""}
+                  <span className={styles.footer()}>
+                    {found.total > limit ? t.first(n(limit), n(found.total)) : t.matches(n(found.total), found.total)}
+                    {found.outside > 0 ? `${t.separator}${t.outside(n(found.outside))}` : ""}
                   </span>
-                  <span className="flex shrink-0 items-center gap-1">
-                    <span className="flex items-center gap-1 px-2">
-                      Go to <Kbd>↵</Kbd>
+                  <span className={styles.actions()}>
+                    <span className={styles.go()}>
+                      {t.goTo} <Kbd>↵</Kbd>
                     </span>
                     <Button onClick={() => void addAll()} size="sm" variant="ghost">
-                      Add {found.total.toLocaleString()} to the subset
+                      {t.addAll(n(found.total))}
                       <KbdGroup>
                         <Kbd>⌘</Kbd>
                         <Kbd>↵</Kbd>
@@ -318,13 +385,9 @@ export function GraphSearch({ className, limit = 50, placeholder = "Find a node�
                   </span>
                 </>
               ) : found && found.outside > 0 ? (
-                <span className="min-w-0 truncate tabular-nums">
-                  None in the subset · {found.outside.toLocaleString()} outside it
-                </span>
+                <span className={styles.footer()}>{t.noneInside(n(found.outside))}</span>
               ) : (
-                <span className="min-w-0 truncate">
-                  Narrow with <Kbd>type:Name</Kbd> or <Kbd>column:value</Kbd>, then Space.
-                </span>
+                <span className={styles.label()}>{t.prefixes(<Kbd>type:Name</Kbd>, <Kbd>column:value</Kbd>)}</span>
               )}
             </CommandFooter>
           </Command>

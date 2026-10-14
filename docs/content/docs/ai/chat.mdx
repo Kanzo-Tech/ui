@@ -18,7 +18,7 @@ const agent = new ToolLoopAgent({ model: localModel("Qwen3-4B-q4f16_1-MLC", { wo
 ```tsx
 function Ask() {
   const chat = useAgentChat(agent);
-  return <Chat chat={chat} proposals={[{ text: "How many contracts are late?" }]} />;
+  return <Chat chat={chat} />;
 }
 ```
 
@@ -34,8 +34,8 @@ and `data` are gone before a host could branch on them. `useAgentChat`'s `error`
 agent threw, whole — the same value every other surface in the library hands over
 ([failure](/docs/design/failure)).
 
-`useChat` is `@ai-sdk/react`'s, re-exported, for an agent that runs on a server behind the host's
-own HTTP route: that is a different transport, not a second door to this one, and a failure there
+For an agent that runs on a server behind the host's own HTTP route, import `useChat` from
+`@ai-sdk/react`, a required peer: that is a different transport, not a second door to this one, and a failure there
 reaches the page as the route's words. `Chat` draws either the same, because both stream the AI
 SDK's `UIMessage`, and reads only the helpers — `messages`, `status`, `error`, `sendMessage`,
 `stop`, `regenerate` — so any chat state of that shape drives it.
@@ -96,7 +96,7 @@ goes once there is nothing below to scroll to.
 <kbd>Shift</kbd>+<kbd>Enter</kbd> is a newline. While an answer streams the button is *Stop*; after
 an error, with nothing typed, it is *Retry* and asks again. The error itself is drawn under the
 transcript through `@kanzo-tech/ui`'s [`Problem`](/docs/data-display/problem) and announced with
-`role="alert"`: a coded failure shows its code, and `copy` gives it the host's words, as everywhere
+`role="alert"`: a coded failure shows its code, and `describe` gives it the host's words, as everywhere
 else in the library. A `failure` prop fed by the host's own transport was the alternative, and it
 is the plumbing `useAgentChat` exists so that no host writes.
 
@@ -153,14 +153,20 @@ the question will be typed. Pressing one asks it. Both go once the conversation 
 **Questions to start from are a Task's proposals.** A model offers them as it offers anything — the
 artefact a [Task](/docs/design/tasks) declares, asked with `propose(task, input, { model, count })`
 from `@kanzo-tech/ai/task`, each checked by the Task's oracles, and only those every oracle accepts
-kept. A pill is `{ text, rationale? }`, the same `Proposal` a field's `Assist` offers. Ask's are
-[`askOffers`](/docs/ai/data#the-questions): the `ask` Task with no question asked, so every pill is
-one the chat answers. There is no template fallback: a list of questions written from column names
+kept. A pill is the Task's `Proposal`, the same one a field's `Assist` offers, and `Chat` takes it
+whole: **pressing a pill sends its value, never its words**, so what the oracles checked is what is
+asked. A string is sent as the message's text; any other value as the message `message` makes of it,
+and the pill reads that message's text. Ask's are [`askOffers`](/docs/ai/data#the-questions): the
+`ask` Task with no question asked, whose value is a spec, sent with `askEdit` — the chat asks the spec
+as it is, so a starter question is not re-read by the model from its words. There is no template fallback: a list of questions written from column names
 beside a list a model wrote is two paths to one strip, and the templates were the worse one.
 
 ```tsx
-const offered = await propose(questions, material, { model, count: 3, signal });
-<Chat chat={chat} proposals={offered.map((p) => p.value)} proposing={false} />
+const offered = await propose(questions, material, { model, count: 3, signal }); // Proposal<string>[]
+<Chat chat={chat} proposals={offered} proposing={false} />
+
+const offers = await askOffers({ model, graph, types, selection, signal }); // Proposal<AskSpec>[]
+<Chat chat={chat} message={askEdit} proposals={offers} />
 ```
 
 While they are on their way, pass `proposing`: the strip draws pills in skeleton, as many as make up
@@ -244,14 +250,14 @@ turns the host decides:
 | Part | |
 | --- | --- |
 | `Conversation`, `ConversationContent`, `ConversationScrollButton` | The transcript's scroll region, `role="log"`, following the tail only while the reader is at it; the button takes the pin back |
-| `MessageList`, `Message`, `MessageContent`, `MessageAvatar`, `MessageActions` | A turn: `role` declared once, a bubble for the person and the page for the model |
+| `MessageList`, `Message`, `MessageContent` | A turn: `role` declared once, a bubble for the person and the page for the model |
 | `Tool`, `ToolHeader`, `ToolContent`, `ToolInput`, `ToolOutput` | One call, bound to its AI SDK part: its name, its state, its input and output |
 | `Reasoning`, `ReasoningTrigger`, `ReasoningContent` | A model's thinking, folded away once it ends |
-| `PromptInput`, `PromptInputTextarea`, `PromptInputToolbar`, `PromptInputSubmit` | The composer: a form, so <kbd>Enter</kbd> and the button are one path; the field named by its placeholder; the strip of controls under it; the button that is *Send*, *Stop* or *Retry* by the chat's `status` |
+| `PromptInput`, `PromptInputHeader`, `PromptInputTextarea`, `PromptInputToolbar`, `PromptInputSubmit` | The composer: a form, so <kbd>Enter</kbd> and the button are one path; the row above the field for the sources a message carries ([A guided chat](/docs/ai/guided#promptinputheader)); the field named by its placeholder; the strip of controls under it; the button that is *Send*, *Stop* or *Retry* by the chat's `status` |
 
-Their props are `MessageProps`, `MessageAvatarProps`, `MessageRole`, `ReasoningProps` and
+Their props are `MessageProps`, `ReasoningProps` and
 `PromptInputSubmitProps`. What a guided chat draws beyond these — a question answered by picking,
-work under way, a model's offers, a model as it loads — is [A guided chat](/docs/ai/guided). A transcript of the host's own is the three in order — the composer
+work under way, a model's offers, a model as it loads, a point to go back to — is [A guided chat](/docs/ai/guided). A transcript of the host's own is the three in order — the composer
 outside the scroll region, so it stays put while the transcript moves:
 
 ```tsx
@@ -278,16 +284,18 @@ outside the scroll region, so it stays put while the transcript moves:
 | `chat` | `useAgentChat(...)`'s return, or `useChat(...)`'s | The conversation |
 | `tools` | `ChatToolRenderers` | `Record<string, (part: ToolPart, call: { stopped: boolean }) => ReactNode>` — how the host draws its tools, at every state |
 | `empty` | `ReactNode` | What the panel says before the first question |
-| `proposals` | `readonly Proposal[]` | Questions to start from; given at all, even empty, the strip keeps its row |
+| `proposals` | `readonly Proposal<V>[]` | Questions to start from, a Task's offers taken whole; given at all, even empty, the strip keeps its row |
+| `message` | `(value: V) => ChatMessage` | What pressing a pill sends: its value as a message. Required for a value that is not a string, which is otherwise sent as the message's text |
 | `proposing` | `boolean` | More are on their way: pills in skeleton beside them |
 | `notice` | `ReactNode` | In place of the pills while there are none: why proposing failed, with a retry |
 | `context` | `ReactNode` | What the next question is asked over, read-only in the composer beside Send — a pill such as *Subset · 40 nodes*, as Copilot Chat and Cursor show theirs |
-| `copy` | `ProblemProps["copy"]` | The host's words for a failure's code, as `Problem` takes them |
+| `describe` | `ProblemProps["describe"]` | The host's words for a failure's code, as `Problem` takes them |
 | `translations` | `Partial<ChatTranslations>` | `placeholder` for the composer, and `failed`, read before an error |
 | `className` | `string` | On the root |
 
-The types are exported as `ChatProps`, `ChatSkeletonProps`, `ChatToolRenderers`, `ChatTranslations`,
-`ToolPart`, `AgentChat` and `AgentChatOptions`; a pill is a `Proposal`.
+The types are exported as `ChatProps`, `ChatProposals`, `ChatMessage` (what `sendMessage` takes),
+`ChatSkeletonProps`, `ChatToolRenderers`, `ChatTranslations`, `ToolPart`, `AgentChat` and
+`AgentChatOptions`; a pill is `@kanzo-tech/ai/task`'s `Proposal`.
 
 ## AI Elements is a source, not a reference
 
