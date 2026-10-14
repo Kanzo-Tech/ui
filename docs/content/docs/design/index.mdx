@@ -334,7 +334,7 @@ rows are not comparable with the gauges above them.
 
 The first rows of the gauges as they are now, measured on `main` at `f1c00cb` and then on the
 names-and-admission change (`claude/cleanup-3-names`) once it merged `main` with the read door
-(#204) and cleanup PR 1's unused names (#205), whose raises are the rows above; over the root, the
+(#204), cleanup PR 1's unused names (#205) and `Checkpoint` (#208), whose raises are the rows above; over the root, the
 ui root's raise to 51.1 kB was not needed:
 
 | Gauge | Limit | `main` | After |
@@ -345,7 +345,7 @@ ui root's raise to 51.1 kB was not needed:
 | ui `./analytics`, over the root | 38.3 → 27.6 kB, approved by the owner (standing approval, 2026-10-14) | 27.42 kB | 27.51 kB — the read door's `useFieldStats` |
 | ui `./analytics { Dashboard }` | 35 kB, the read door's raise | 34.86 kB | 34.99 kB |
 | ui `{ Button }` | 2 kB | 1.29 kB | 1.29 kB |
-| ai root | 20 kB | 12.67 kB | 12.66 kB — one `Proposal`, and `Chat` sending a proposal's value, less the names #205 took off |
+| ai root | 20 kB | 12.67 kB | 12.84 kB — one `Proposal`, and `Chat` sending a proposal's value, less the names #205 took off, with #208's `Checkpoint` and `PromptInputHeader` |
 | ai `./data`, over the root | 9.9 → 9.1 kB, approved by the owner (standing approval, 2026-10-14) | 8.77 kB | 8.75 kB, then 8.97 kB with the read door's query on the host's `QueryClient` |
 | ai `./task`, over the root | 1.2 kB | 1.1 kB | 1.11 kB |
 | graph root | 24.5 → 25.25 kB, approved by the owner on 2026-10-14 | 24.1 kB | 25.15 kB — the parts under the guards: a recipe each, `ark`, and every word as `translations` |
