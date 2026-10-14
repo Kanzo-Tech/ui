@@ -153,8 +153,10 @@ and its tokens' entries carry `groups: ["<group id>", …]` in place of the path
 
 - **`inherited`**, default on: a member of *Research/ML* carries Research's id too.
 - **`overage`**, default 100: past it, the entry carries `groups_overage: true` and no ids, and the
-  application reads the membership from the admin API — Microsoft Entra ID's overage rule.
-  `organizationGroups` on `./server` is a sketch of that lookup.
+  application reads the membership from the admin API — Microsoft Entra ID's overage rule. That
+  lookup is the application's to write, with a service account of its own:
+  [the auth layer's page](/docs/design/auth#a-group-is-granted-to-by-id-with-entras-overage-rule)
+  says what it asks.
 
 The reader ignores any value under `groups` that begins with `/`, so a client without the mapper
 reads as no groups rather than as names. [Why it is shaped this
@@ -197,10 +199,11 @@ alias that appears in a hostname.
 ### Reading it yourself
 
 The reader is public and pure — a decoded claim set and a `ClaimsConfig` in, a `Session` out, with
-no network, no storage and no React anywhere near it:
+no network, no storage and no React anywhere near it. It is on the server door, because the server
+is the only side that holds a claim set: the browser is handed the `Session` it made.
 
 ```ts
-import { claims, type ClaimsConfig } from "@kanzo-tech/auth";
+import { claims, type ClaimsConfig } from "@kanzo-tech/auth/server";
 
 const session = claims(decoded, { clientId: "board" });
 ```
@@ -352,7 +355,25 @@ accountUrl(issuer, "account-security/device-activity"); // sessions on each devi
 `AccountPage` is the routes the console (account-ui, Keycloak 26) declares that a product has a
 reason to link: `""` (personal info), `"account-security/signing-in"` and
 `"account-security/device-activity"`. It is pure and on the root barrel, so a server component and
-a SPA's menu draw the same link.
+a client menu draw the same link.
+
+### The organization's console
+
+An organization's members, domains and identity providers are managed in the realm's admin console,
+and `organizationConsoleUrl` links a product's *Members* page to the organization's settings there,
+from the same issuer and the organization the session names:
+
+```ts
+import { organizationConsoleUrl, organizationOf } from "@kanzo-tech/auth";
+
+const organization = organizationOf(session, session.organization ?? "");
+const url = organization && organizationConsoleUrl(issuer, organization);
+// https://id.example/admin/kanzo/console/#/kanzo/organizations/<id>/settings
+```
+
+It is `undefined` for an organization the realm sent without its `id`, because the console finds an
+organization by id and not by alias. Whether the person may open it is the console's to decide — it
+authorises its own users — so show the link to those your `can` says manage the organization.
 
 ## Onboarding a customer
 

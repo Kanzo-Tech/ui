@@ -44,16 +44,10 @@ export {
 } from "./prompt-input.js";
 export type { PromptInputSubmitProps } from "./prompt-input.js";
 
-// The parts a conversation whose turns the host decides is drawn with, beyond the transcript's: a
-// question put to the person, answered by picking; work under way, said; a model in the page, as it
-// loads; and a point in the transcript the host can go back to. What a model offers is `@kanzo-tech/ui`'s `Suggestions`, which knows no model.
-export {
-  Question,
-  QuestionDescription,
-  QuestionOption,
-  QuestionOptions,
-  QuestionPrompt,
-} from "./question.js";
+// The parts a conversation whose turns the host decides is drawn with, beyond the transcript's: work
+// under way, said; a model in the page, as it loads; and a point in the transcript the host can go
+// back to. A question put to the person is `@kanzo-tech/ui`'s `Question`, and what a model offers its
+// `Suggestions`: neither knows a model exists.
 export { Working, type WorkingProps } from "./working.js";
 export { ModelBadge } from "./model-badge.js";
 export type { ModelBadgeProps, ModelBadgeTranslations } from "./model-badge.js";

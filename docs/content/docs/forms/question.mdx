@@ -1,0 +1,139 @@
+---
+title: Question
+description: A question put to the person, answered by picking — on its own, as a guided chat asks one per turn, or inside a Questionnaire.
+links:
+  doc: https://ark-ui.com/docs/components/fieldset
+---
+
+<ComponentPreview componentName="question" fileName="example-default" />
+
+## Usage
+
+```tsx
+import { Question, QuestionChoice, QuestionChoices, QuestionDescription, QuestionPrompt } from "@kanzo-tech/ui";
+```
+
+```tsx
+<Question name={decision.id} value={chosen} onValueChange={(d) => choose(decision.id, d.value)}>
+  <QuestionPrompt>{decision.question}</QuestionPrompt>
+  <QuestionDescription>It has no safe answer, so it is yours to decide.</QuestionDescription>
+  <QuestionChoices>
+    {decision.options.map((option) => (
+      <QuestionChoice key={option.id} value={option.id}>
+        {option.label}
+      </QuestionChoice>
+    ))}
+  </QuestionChoices>
+</Question>
+```
+
+## Anatomy
+
+```text
+Question
+├── QuestionPrompt
+├── QuestionDescription
+├── QuestionChoices
+│   └── QuestionChoice
+├── QuestionInput
+├── QuestionTextarea
+└── QuestionError
+```
+
+## One part, wherever a question is asked
+
+A question is the same thing whether it is asked alone or in a row: a prompt, perhaps a line under
+it, choices or an input, and what is wrong with the answer. **On its own** it is the decision a
+[guided chat](/docs/ai/guided) puts to the person in a turn — a Task's `Decision`, its `question`
+the prompt and each option a choice. **Inside a [`Questionnaire`](/docs/forms/questionnaire)** it is
+one of several, and the questionnaire is the order, the progress and the navigation around them.
+
+It knows no model. A model's decision is data, and drawing it is a form, which is why it is
+`@kanzo-tech/ui`'s and not `@kanzo-tech/ai`'s.
+
+## The answer
+
+On its own, the answer is the question's, the way every Ark control holds its value: `value` and
+`onValueChange` to control it — `null` is controlled and unanswered — or `defaultValue` to leave it
+alone. **A pick is the answer, in one press**: a radio reports itself as it is chosen, so there is no
+Submit to press after it.
+
+Inside a `Questionnaire` the answer is the questionnaire's, filed under `name` in its answers, which
+is where a resumed session hands it back (`defaultAnswers`); `value` and `defaultValue` are not read
+there, and `onValueChange` still is.
+
+The answer is a `QuestionAnswer`: a `string` for a single choice or a typed answer, a `string[]` for
+`multiple`.
+
+## The kinds of question
+
+- **Single choice** is the default: `QuestionChoices` is a radio group, and arrow keys move between
+  the choices and choose as they move.
+- **Multiple choice** is `multiple`: the same children become a checkbox group and the answer is a
+  list that accumulates.
+- **Typed** is `QuestionInput` for a line or `QuestionTextarea` for a paragraph — a threshold, a
+  name — instead of choices, or after them as the last row of the list.
+
+`name` is the form field's name too, so a question inside a plain `<form>` submits its answer.
+
+## What a choice looks like
+
+A choice is a **card**: the label and an optional second line, the shortcut key as a chip where a
+questionnaire turns shortcuts on, and the control at the margin. The card is the control's own
+`<label>`, so the whole of it is the target — 44 CSS pixels tall at every density, written in pixels
+because WCAG 2.5.8 states its bar in pixels and the density axis moves the root every `rem` resolves
+against.
+
+`description` is a `string` rather than a child, following `CardHeader`'s `title` and `description`:
+the label is already the children, and the control has to *name* itself off an element this part
+renders. Both arms name themselves from the label alone, so a description never lands in the
+accessible name.
+
+## Accessibility
+
+A question is a `FieldSet`, and that is where its accessibility comes from: the group is named by its
+own `<legend>` — `QuestionPrompt` — and described by `QuestionDescription` and `QuestionError`, the
+error announced politely when it appears. A typed answer's control is pointed at the legend
+explicitly, because a legend names the group and not a control inside it.
+
+`QuestionError` renders only while the question is invalid: on its own, while its `invalid` is set;
+inside a `Questionnaire`, once a Next was refused on it. Its sentence is `translations.unanswered` unless it
+is given children.
+
+## API Reference
+
+### Question
+
+Extends `FieldSet` (`disabled`, `invalid`, and every fieldset attribute).
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `name` | `string` | — (required) |
+| `value` | `QuestionAnswer \| null` | — |
+| `defaultValue` | `QuestionAnswer` | — |
+| `onValueChange` | `(details: { value: QuestionAnswer }) => void` | — |
+| `multiple` | `boolean` | `false` |
+| `required` | `boolean` | `false` — inside a `Questionnaire`, refuses Next until answered |
+| `skippable` | `boolean` | `false` — inside a `Questionnaire`, offers Skip and lets Next through |
+| `translations` | `Partial<QuestionTranslations>` | English — `unanswered` |
+
+### QuestionChoice
+
+Extends the control's own `<label>` element.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `value` | `string` | — (required) |
+| `description` | `string` | — |
+
+### The rest
+
+`QuestionPrompt` extends `FieldLegend`, `QuestionDescription` and `QuestionError` extend the
+fieldset's own message parts, `QuestionChoices` is a `RadioGroup` or a `CheckboxGroup` (`QuestionChoicesProps`), `QuestionInput` extends `Input` and
+`QuestionTextarea` extends `Textarea`.
+
+`useQuestion` reads the question's context, for a part of your own inside one: its `answer` and
+`setAnswer`, whether it is the `current` one on screen, its `question` — `name`, `multiple`,
+`required`, `skippable`, the `QuestionnaireQuestion` a questionnaire reads off it — and its
+`translations`. Every part's props are exported as an interface — `QuestionProps`,
+`QuestionChoicesProps`, `QuestionChoiceProps`.

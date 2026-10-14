@@ -27,4 +27,4 @@
  * reason `server.ts`'s own header gives. `next.test.ts` walks the relative imports from here.
  */
 
-export { kanzoAuth, type KanzoAuth, type KanzoAuthConfig } from "./next-auth";
+export { kanzoAuth, type KanzoAuth, type KanzoAuthConfig, type TenantRequest } from "./next-auth";

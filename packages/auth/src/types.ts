@@ -28,8 +28,8 @@ export interface AuthUser {
  *
  * `groupsOverage` is Microsoft Entra ID's overage rule: the person is in more groups there than the
  * token carries, so `groups` is empty **and means nothing**. Read the membership from the realm
- * instead — `organizationGroups` on `./server` is the sketch of that — and never read the empty
- * list as "in no group".
+ * instead — the realm's admin API, as `/docs/design/auth` sketches — and never read the empty list as
+ * "in no group".
  */
 export interface Organization {
   readonly alias: string;
@@ -91,16 +91,22 @@ export interface SignInOptions {
  * a session *does*, not against the transport underneath.
  */
 export interface Auth {
-  /** The session now, or `null`. Answers from cache and renews when near expiry. */
+  /**
+   * The session now, or `null`: read each time it is asked, and renewed first when it is near
+   * expiry. It keeps no copy — `AuthProvider`'s query on the host's `QueryClient` is the one cache.
+   */
   getSession(): Promise<Session | null>;
   /**
-   * Call `onChange` when the session does — signed in, signed out, renewed, or changed in another
-   * tab. Returns the unsubscribe.
+   * Call `onChange` when the session may have changed — renewed here, or loaded, renewed or signed
+   * out in another tab — so the provider reads it again. Returns the unsubscribe.
    */
   subscribe(onChange: () => void): () => void;
   signIn(options?: SignInOptions): Promise<void>;
   signOut(options?: { readonly returnTo?: string }): Promise<void>;
-  /** A `fetch` that stays authenticated: the cookie rides along, and one retry after a renewal. */
+  /**
+   * A `fetch` that stays authenticated: the cookie rides along, and one retry after a renewal. It
+   * bounds nothing: a request made through it carries its caller's own signal.
+   */
   readonly fetch: typeof globalThis.fetch;
 }
 

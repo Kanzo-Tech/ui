@@ -11,15 +11,16 @@ import { withoutTrailingSlashes } from "./issuer";
  */
 
 /**
- * What a tenant resolver is handed. The proxy, the routes and a server component each build it
+ * What a tenant resolver — `KanzoAuthConfig.organization` — is handed: the URL the browser
+ * addressed, its headers and its cookies. The proxy, the routes and a server component each build it
  * from the request in front of them — a server component from the `x-kanzo-url` the proxy
  * forwarded — so the same function answers the same way in all three.
  */
-type TenantRequest = {
+export interface TenantRequest {
   readonly url: URL;
   readonly headers: Headers;
   readonly cookies: { get(name: string): { readonly value: string } | undefined };
-};
+}
 
 export interface KanzoAuthConfig extends RelyingPartyConfig {
   /**

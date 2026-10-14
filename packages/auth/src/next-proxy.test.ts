@@ -134,7 +134,9 @@ describe("kanzoAuth().api", () => {
     expect(sent().headers.get("authorization")).toBe("Bearer at-1>reports@acme");
   });
 
-  it("answers 403, and reaches nothing, for an organization the person is not a member of", async () => {
+  it("answers 403, as a problem naming organization/denied, and reaches nothing, for an organization the person is not a member of", async () => {
+    // The code the library knew, on the wire: a host's registry reads it rather than coining its own
+    // for a bare 403.
     realm.state.memberships = ["globex"];
     const cookie = await signIn();
     const tenanted = kanzoAuth({ ...config, organization: (request) => request.url.hostname.split(".")[0] });
@@ -142,6 +144,8 @@ describe("kanzoAuth().api", () => {
     const response = await tenanted.api.GET(new Request("https://acme.app.test/api/data/reports", { headers: { cookie } }));
 
     expect(response.status).toBe(403);
+    expect(response.headers.get("content-type")).toBe("application/problem+json");
+    expect(await response.json()).toMatchObject({ status: 403, title: "Forbidden", code: "organization/denied" });
     expect(upstream).not.toHaveBeenCalled();
   });
 
@@ -152,6 +156,7 @@ describe("kanzoAuth().api", () => {
     const response = await proxy.GET(new Request(`${ORIGIN}/api/data/reports`, { headers: { cookie } }));
 
     expect(response.status).toBe(502);
+    expect(await response.json()).toMatchObject({ code: "token/exchange-failed" });
     expect(upstream).not.toHaveBeenCalled();
   });
 
@@ -330,6 +335,7 @@ describe("kanzoAuth().api", () => {
     const response = await proxy.GET(new Request(`${ORIGIN}/api/data/reports`));
 
     expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({ code: "session/absent" });
     expect(upstream).not.toHaveBeenCalled();
   });
 

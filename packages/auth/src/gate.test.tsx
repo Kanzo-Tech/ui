@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { AuthProvider } from "./auth-provider";
 import { Gate } from "./gate";
+import { Queries } from "./test/queries";
 import type { Auth, Session } from "./types";
 
 const session: Session = {
@@ -26,7 +27,7 @@ function authOf(overrides: Partial<Auth> = {}): Auth {
 }
 
 function gate(children: React.ReactNode, auth: Auth = authOf()) {
-  return render(<AuthProvider auth={auth}>{children}</AuthProvider>);
+  return render(<AuthProvider auth={auth}>{children}</AuthProvider>, { wrapper: Queries });
 }
 
 describe("Gate draws one side or the other, and neither before it knows", () => {

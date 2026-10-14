@@ -1,20 +1,15 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { Question, QuestionChoice, QuestionChoices, QuestionError, QuestionPrompt, QuestionTextarea } from "./question.js";
 import {
   Questionnaire,
   QuestionnaireActions,
-  QuestionnaireChoice,
-  QuestionnaireChoices,
-  QuestionnaireError,
-  QuestionnaireItem,
   QuestionnaireNext,
   QuestionnairePrevious,
   QuestionnaireProgress,
   QuestionnaireSkip,
   QuestionnaireSubmit,
-  QuestionnaireTextarea,
-  QuestionnaireTitle,
   type QuestionnaireAnswers,
   type QuestionnaireProps,
 } from "./Questionnaire.js";
@@ -32,41 +27,41 @@ function Survey(props: QuestionnaireProps = {}) {
     <Questionnaire {...props}>
       <QuestionnaireProgress />
 
-      <QuestionnaireItem name="beast" required>
-        <QuestionnaireTitle>What did you meet</QuestionnaireTitle>
-        <QuestionnaireChoices>
-          <QuestionnaireChoice description="Long, and it was already awake." value="wyrm">
+      <Question name="beast" required>
+        <QuestionPrompt>What did you meet</QuestionPrompt>
+        <QuestionChoices>
+          <QuestionChoice description="Long, and it was already awake." value="wyrm">
             Wyrm
-          </QuestionnaireChoice>
-          <QuestionnaireChoice value="mimic">Mimic</QuestionnaireChoice>
-        </QuestionnaireChoices>
-        <QuestionnaireError />
-      </QuestionnaireItem>
+          </QuestionChoice>
+          <QuestionChoice value="mimic">Mimic</QuestionChoice>
+        </QuestionChoices>
+        <QuestionError />
+      </Question>
 
-      <QuestionnaireItem multiple name="kit" required>
-        <QuestionnaireTitle>What did you carry</QuestionnaireTitle>
-        <QuestionnaireChoices>
-          <QuestionnaireChoice description="Forty feet, and it held." value="rope">
+      <Question multiple name="kit" required>
+        <QuestionPrompt>What did you carry</QuestionPrompt>
+        <QuestionChoices>
+          <QuestionChoice description="Forty feet, and it held." value="rope">
             Rope
-          </QuestionnaireChoice>
-          <QuestionnaireChoice value="wards">Wards</QuestionnaireChoice>
-          <QuestionnaireChoice value="oil">Oil</QuestionnaireChoice>
-        </QuestionnaireChoices>
-        <QuestionnaireError />
-      </QuestionnaireItem>
+          </QuestionChoice>
+          <QuestionChoice value="wards">Wards</QuestionChoice>
+          <QuestionChoice value="oil">Oil</QuestionChoice>
+        </QuestionChoices>
+        <QuestionError />
+      </Question>
 
-      <QuestionnaireItem name="notes" skippable>
-        <QuestionnaireTitle>Anything for the next party</QuestionnaireTitle>
-        <QuestionnaireTextarea />
-      </QuestionnaireItem>
+      <Question name="notes" skippable>
+        <QuestionPrompt>Anything for the next party</QuestionPrompt>
+        <QuestionTextarea />
+      </Question>
 
-      <QuestionnaireItem name="again">
-        <QuestionnaireTitle>Would you take it again</QuestionnaireTitle>
-        <QuestionnaireChoices>
-          <QuestionnaireChoice value="yes">Yes</QuestionnaireChoice>
-          <QuestionnaireChoice value="no">No</QuestionnaireChoice>
-        </QuestionnaireChoices>
-      </QuestionnaireItem>
+      <Question name="again">
+        <QuestionPrompt>Would you take it again</QuestionPrompt>
+        <QuestionChoices>
+          <QuestionChoice value="yes">Yes</QuestionChoice>
+          <QuestionChoice value="no">No</QuestionChoice>
+        </QuestionChoices>
+      </Question>
 
       <QuestionnaireActions>
         <QuestionnairePrevious />
@@ -88,7 +83,7 @@ function Survey(props: QuestionnaireProps = {}) {
  * input is the one carrying `checked`, so it is the one worth naming.
  */
 const shown = () =>
-  document.querySelector<HTMLElement>("[data-slot=questionnaire-item]:not([hidden])");
+  document.querySelector<HTMLElement>("[data-slot=question]:not([hidden])");
 const asked = () => shown()?.querySelector("legend")?.textContent ?? null;
 const choice = (value: string) =>
   shown()?.querySelector<HTMLInputElement>(`input[value="${value}"]`) ?? null;
@@ -99,13 +94,13 @@ const button = (name: string) => screen.getByRole("button", { name });
 const progressbar = () => screen.getByRole("progressbar");
 /** The question's position, 1-based — the same number the eye reads off the progress line. */
 const progress = () => progressbar().getAttribute("aria-valuenow");
-const card = (value: string) => choice(value)?.closest("[data-slot=questionnaire-choice]") ?? null;
+const card = (value: string) => choice(value)?.closest("[data-slot=question-choice]") ?? null;
 
 describe("Questionnaire", () => {
   it("asks one question at a time", () => {
     render(<Survey />);
 
-    expect(document.querySelectorAll("[data-slot=questionnaire-item]:not([hidden])")).toHaveLength(
+    expect(document.querySelectorAll("[data-slot=question]:not([hidden])")).toHaveLength(
       1,
     );
     expect(asked()).toBe("What did you meet");
@@ -133,16 +128,16 @@ describe("Questionnaire", () => {
       expect(wyrm.tagName).toBe("LABEL");
       expect(wyrm.querySelector("[data-slot=radio-group-indicator]")).not.toBeNull();
       expect(
-        wyrm.querySelector("[data-slot=questionnaire-choice-title]")?.textContent,
+        wyrm.querySelector("[data-slot=question-choice-title]")?.textContent,
       ).toBe("Wyrm");
       expect(
-        wyrm.querySelector("[data-slot=questionnaire-choice-description]")?.textContent,
+        wyrm.querySelector("[data-slot=question-choice-description]")?.textContent,
       ).toBe("Long, and it was already awake.");
 
       // A choice given no description grows no empty second line.
       expect(
         (card("mimic") as HTMLElement).querySelector(
-          "[data-slot=questionnaire-choice-description]",
+          "[data-slot=question-choice-description]",
         ),
       ).toBeNull();
     });
@@ -167,7 +162,7 @@ describe("Questionnaire", () => {
       expect(rope.querySelector("[data-slot=checkbox-control]")).not.toBeNull();
       expect(screen.getByRole("checkbox", { name: "Rope" })).toBeTruthy();
       expect(
-        rope.querySelector("[data-slot=questionnaire-choice-description]")?.textContent,
+        rope.querySelector("[data-slot=question-choice-description]")?.textContent,
       ).toBe("Forty feet, and it held.");
     });
 
@@ -372,6 +367,53 @@ describe("Questionnaire", () => {
     await user.click(choice("wyrm") as HTMLInputElement);
 
     expect(onAnswersChange.mock.calls.at(-1)?.[0]).toEqual({ beast: "wyrm" });
+  });
+
+  it("says every word in the root's translations, and a question's own win for that question", async () => {
+    const user = userEvent.setup();
+    render(
+      <Questionnaire
+        translations={{
+          progress: (position, count) => `Pregunta ${position} de ${count}`,
+          navigation: "Navegación",
+          next: "Siguiente",
+          unanswered: "Responde para seguir.",
+        }}
+      >
+        <QuestionnaireProgress />
+        <Question name="beast" required>
+          <QuestionPrompt>Qué encontraste</QuestionPrompt>
+          <QuestionChoices>
+            <QuestionChoice value="wyrm">Sierpe</QuestionChoice>
+          </QuestionChoices>
+          <QuestionError />
+        </Question>
+        <Question name="kit" required translations={{ unanswered: "Nombra al menos uno." }}>
+          <QuestionPrompt>Qué llevabas</QuestionPrompt>
+          <QuestionChoices>
+            <QuestionChoice value="rope">Cuerda</QuestionChoice>
+          </QuestionChoices>
+          <QuestionError />
+        </Question>
+        <QuestionnaireActions>
+          <QuestionnaireNext />
+          <QuestionnaireSubmit />
+        </QuestionnaireActions>
+      </Questionnaire>,
+    );
+
+    expect(progressbar().textContent).toBe("Pregunta 1 de 2");
+    expect(progressbar().getAttribute("aria-valuetext")).toBe("Pregunta 1 de 2");
+    expect(screen.getByRole("group", { name: "Navegación" })).toBeTruthy();
+
+    await user.click(button("Siguiente"));
+    expect(screen.queryByText("Responde para seguir.")).not.toBeNull();
+
+    await user.click(choice("wyrm") as HTMLInputElement);
+    await user.click(button("Siguiente"));
+    // The root's words reach the question; the question's own replace them for it alone.
+    await user.click(button("Submit"));
+    expect(screen.queryByText("Nombra al menos uno.")).not.toBeNull();
   });
 
   describe("shortcuts", () => {

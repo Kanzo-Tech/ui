@@ -7,14 +7,19 @@ import {
   MessageContent,
   MessageList,
   ModelBadge,
-  Question,
-  QuestionDescription,
-  QuestionOption,
-  QuestionOptions,
-  QuestionPrompt,
   Working,
 } from "@kanzo-tech/ai";
-import { Show, Suggestion, Suggestions } from "@kanzo-tech/ui";
+import {
+  Question,
+  QuestionChoice,
+  QuestionChoices,
+  QuestionDescription,
+  QuestionPrompt,
+  Show,
+  Suggestion,
+  Suggestions,
+  type QuestionAnswer,
+} from "@kanzo-tech/ui";
 import { useEffect, useState } from "react";
 
 // A Task's `Decision`, as `verify` raises it.
@@ -34,7 +39,7 @@ const OFFERED = [
 
 export default function Example() {
   const [read, setRead] = useState(0);
-  const [chosen, setChosen] = useState<string | null>(null);
+  const [chosen, setChosen] = useState<QuestionAnswer | null>(null);
   const [asked, setAsked] = useState<string | null>(null);
 
   // Six files read, one every half second, then again.
@@ -56,16 +61,16 @@ export default function Example() {
             </Message>
             <Message role="assistant">
               <MessageContent>
-                <Question onValueChange={(d) => setChosen(d.value)} value={chosen}>
+                <Question name={decision.id} onValueChange={(d) => setChosen(d.value)} value={chosen}>
                   <QuestionPrompt>{decision.question}</QuestionPrompt>
                   <QuestionDescription>It has no safe answer, so it is yours to decide.</QuestionDescription>
-                  <QuestionOptions>
+                  <QuestionChoices>
                     {decision.options.map((option) => (
-                      <QuestionOption key={option.id} value={option.id}>
+                      <QuestionChoice key={option.id} value={option.id}>
                         {option.label}
-                      </QuestionOption>
+                      </QuestionChoice>
                     ))}
-                  </QuestionOptions>
+                  </QuestionChoices>
                 </Question>
               </MessageContent>
             </Message>
