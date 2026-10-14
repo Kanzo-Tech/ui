@@ -380,6 +380,51 @@ describe("kanzoAuth().api", () => {
     expect(upstream).not.toHaveBeenCalled();
   });
 
+  /**
+   * `fetch` rejects with a `TypeError` when the far end never answers; Node's carries the socket's
+   * own error as its `cause`, as here. Next answered that rejection with a bare 500, so a host could
+   * not tell its API being down from any other fault without coining a code of its own.
+   */
+  it("answers 502, as a problem naming api/unreachable, when the API refuses the connection", async () => {
+    const cookie = await signIn();
+    upstream.mockRejectedValue(
+      new TypeError("fetch failed", { cause: Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }) }),
+    );
+
+    const response = await proxy.GET(new Request(`${ORIGIN}/api/data/reports?q=secret`, { headers: { cookie } }));
+
+    expect(response.status).toBe(502);
+    expect(response.headers.get("content-type")).toBe("application/problem+json");
+    const body = await response.json();
+    expect(body).toMatchObject({ status: 502, code: "api/unreachable" });
+    expect(JSON.stringify(body)).not.toContain("reports.internal");
+  });
+
+  it("passes an API's own 500 through, because an answer with an error status is still its answer", async () => {
+    const cookie = await signIn();
+    upstream.mockResolvedValue(new Response("upstream broke", { status: 500, headers: { "x-from": "upstream" } }));
+
+    const response = await proxy.GET(new Request(`${ORIGIN}/api/data/reports`, { headers: { cookie } }));
+
+    expect(response.status).toBe(500);
+    expect(await response.text()).toBe("upstream broke");
+    expect(response.headers.get("x-from")).toBe("upstream");
+  });
+
+  it("throws a client's own abort as it came, because a client that went away is not the API's failure", async () => {
+    const cookie = await signIn();
+    const client = new AbortController();
+    const aborted = new TypeError("fetch failed");
+    upstream.mockImplementation(async () => {
+      client.abort();
+      throw aborted;
+    });
+
+    await expect(
+      proxy.GET(new Request(`${ORIGIN}/api/data/reports`, { headers: { cookie }, signal: client.signal })),
+    ).rejects.toBe(aborted);
+  });
+
   it("answers 404 when kanzoAuth was given no apis", async () => {
     const response = await kanzoAuth({ ...config, apis: undefined }).api.GET(new Request(`${ORIGIN}/api/data/reports`));
 
