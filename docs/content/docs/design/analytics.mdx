@@ -408,20 +408,15 @@ by direction and sorted by fan-out", "removes any chip, cutting the path there" 
 phrase an edge, and words every sentence through its translations"; `packages/mosaic/src/relation.test.ts`, "gives each hop its fan-out when
 the graph carries counts".
 
-## Two size gauges, measured against what ships
+## A gauge per entry, measured as a consumer pays it
 
-The analytics gauge and the `{ Dashboard }` gauge leave out what `vite.config.ts` externalises:
-the peers, valibot and every `@uwdata/*` package. Those are installed by the consumer, not shipped
-in our bundle, so a gauge that counts them measures somebody else's code. esbuild bundles without
-splitting, so the lazy editor is inside both figures. A consumer's bundler splits it out, so the
-gauges overstate what a read-only page pays for.
-
-Measured on the base of this change and after it:
-
-| Gauge | Before | After |
-| --- | --- | --- |
-| analytics | 31.22 kB | 32.31 kB |
-| one dashboard | 29.88 kB | 31.09 kB |
+The gauges this subpath had — the whole subpath in isolation, and one `Dashboard` — were replaced on
+13 October 2026 by the rule on [How a rule lives here](/docs/design#a-gauge-per-entry-and-its-raises-written-here):
+the subpath is measured over the root, and `{ Dashboard }` stays as the tree-shaken cost of one
+dashboard. What stays from this section is the reason every package is left out: the analytics gauge
+measured valibot and every `@uwdata/*` package until they were externalised, and that is somebody
+else's code. And one thing neither figure can say: esbuild bundles without splitting, so the lazy
+editor is inside both, while a consumer's bundler splits it out.
 
 **What would reverse it:** a bundler in size-limit that splits a dynamic import. Then the
 `{ Dashboard }` gauge measures the entry chunk alone, and a separate gauge measures the editor.
