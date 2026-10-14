@@ -24,9 +24,9 @@ class Fit extends MosaicClient {
   }
   override query(filter?: FilterExpr | null): Query {
     return Query.select({
-      slope: regrSlope("Person.score", "Person.lon"),
-      n: regrCount("Person.score", "Person.lon"),
-      variance: variance("Person.score"),
+      slope: regrSlope("score", "lon"),
+      n: regrCount("score", "lon"),
+      variance: variance("score"),
     })
       .from(this.#table)
       .where(filter ?? []);
@@ -41,7 +41,7 @@ class Fit extends MosaicClient {
 /** A brush over `lon × score` that keeps People 0–4: `lon = i`, `score = i + 1`. */
 const brush = () =>
   clauseIntervals(
-    ["Person.lon", "Person.score"],
+    ["lon", "score"],
     [
       [0, 4],
       [1, 5],

@@ -416,7 +416,7 @@ with no hops, so there is no second path for it.
 <ComponentPreview componentName="dashboard" fileName="example-relations" hasMaxHeight={false} />
 
 ```tsx
-import { relationIdentities, relationKey } from "@kanzo-tech/mosaic";
+import { JoinResolver, relationKey } from "@kanzo-tech/mosaic";
 import { Dashboard, MosaicProvider, RelationPicker } from "@kanzo-tech/ui/analytics";
 
 <MosaicProvider coordinator={coordinator} joins={graph}>
@@ -424,25 +424,18 @@ import { Dashboard, MosaicProvider, RelationPicker } from "@kanzo-tech/ui/analyt
 <Dashboard
   key={relationKey(graph, relation)}
   relation={relation}
-  exclude={relationIdentities(graph, relation).map((i) => i.column)}
+  exclude={new JoinResolver(graph).steps(relation).map((s) => s.key)}
   value={byRelation[relationKey(graph, relation)]}
 />
 </MosaicProvider>
 ```
 
 - **`relationQuery(graph, relation)`** is what a `relation` with a path reads — one mosaic-sql `Query`: every type along the path joined
-  through its edge tables, every column named by its step — `Person.country`, and `Person2.country`
-  when the path visits a type twice. The root's key keeps its own name.
+  through its edge tables, every column named by its path from the root — `country`, `knows.country`,
+  `^hasCreator.length` — Malloy's dotted path. The root's columns, its key among them, keep their own
+  names.
 - **`relationKey(graph, relation)`** is the canonical identity a saved dashboard is keyed by:
   `Person`, `Person>knows>Person`, `Person<hasCreator<Post`.
-- **`relationIdentities(graph, relation)`** is each step's key column and the type it identifies:
-  what a clause on the relation crosses to anything else keyed the same way with, as a semi-join on
-  identity. The root's key is the relation's own, so a `clauseSemiJoin` on it — a lasso on a graph —
-  filters a joined relation exactly as it filters the root's table.
-- **`relationRootKey(graph, relation)`** is that root key by name — the root type's own `key`, the
-  one column of a relation that is not prefixed. It is what a clause on the relation crosses to the
-  rest of the page by; [the graph's design](/docs/design/graph#a-relations-names-prefixed-but-the-roots-key)
-  has why it keeps its name.
 - **`relationHops(graph, type)`** lists the hops that leave a type, out-edges then in-edges, each
   with its `fanOut` — the edge's rows per row of the type it leaves — when the graph carries
   `rows` on its types and edges (`joinGraphOf` does, from the catalog's record counts).
@@ -468,25 +461,39 @@ import { Dashboard, MosaicProvider, RelationPicker } from "@kanzo-tech/ui/analyt
 />
 ```
 
-### Resolving a relation
+### The joins' one door
 
-`resolveRelation(graph, needs)` is the relation a question needs, computed rather than picked: the
-shortest path from `needs.root` — the type the answer counts — whose steps cover `needs.types`, the
-types its fields are on, and meet `needs.under`, the root type of each relation the page's clauses
-were published on, which is how a clause reaches a relation (below). Breadth first, in the graph's
-order, up to `maxHops` (3). It answers a `Resolved`: the one `relation`; the `relations` that are
-`ambiguous` — equally short, so which one is the person's to say, as a prize's country is its
-laureate's birthplace or its university's; or `unreachable`, with what the closest relation still
-`missing`. It never walks back along the edge it just took.
+`JoinResolver` — the page's resolver, `selection.resolver` under a `MosaicProvider` with `joins`, or
+`new JoinResolver(graph)` — is the one door to the joins: what the page crosses a clause with, and
+what a path is resolved by.
+
+- **`steps(relation)`** is each step of a relation, the root first: its `path` (`""` the root,
+  `knows`, `knows.^hasCreator`), its `type`, and its `key` as the relation names it — the root's
+  bare, `dense_id`, every other step's after its path, `knows.dense_id`. A clause on the relation
+  crosses to the rest of the page by the root's key, so a `clauseSemiJoin` on it — a lasso on a graph
+  — filters a joined relation exactly as it filters the root's table; the keys are identity, not
+  data, so a dashboard leaves them out of its fields.
+- **`paths(root, hops = 3)`** is every field path from a type within `hops`, in the graph's order,
+  never back along the edge just taken: what [Ask](/docs/ai/data)'s model may write.
+- **`relation(root, shown)`** is the one relation the `shown` paths lie on, each its own column there
+  (a path that ends on a step names that step), or a miss: `join/no-step`, `join/no-field`, or
+  `join/branches` for two paths that leave each other.
+- **`field(on, path)`** is where `path`, written from `on`'s root, is read: on `on`, or through the
+  branch that leaves it at `at`, with the column as the branch names it.
+- **`at(to, from)`** and **`crossing(from, predicates, to, at?)`**: the step a clause on `from` crosses
+  into `to` at — the first whose type meets `from`'s root, or the step `at` names — and the clause
+  crossed, `key IN (SELECT key FROM from WHERE …)`, or `FALSE` where there is none.
 
 ```ts
-resolveRelation(graph, { root: "LaureateAward", types: ["University"], under: ["LaureateAward"] });
-// { kind: "relation", relation: LaureateAward>university>University }
+const joins = new JoinResolver(graph);
+const shown = joins.relation("LaureateAward", ["university.name"]); // LaureateAward>university>University
+const f = joins.field(shown as Relation, "category.name");
+// { relation: LaureateAward>category>Category, column: "category.name", at: "" }
 ```
 
 ### What the page sees
 
-A tile's clause on a relation names the relation's columns — `"Person.country" IN ('ES')` — and
+A tile's clause on a relation names the relation's columns — `"knows.country" IN ('ES')` — and
 nothing else on the page has them. So the clause says which relation it was published on, and the
 page's selection crosses it for every reader that is on another one
 ([across relations](/docs/analytics/charts#across-relations)):
@@ -500,7 +507,7 @@ page's selection crosses it for every reader that is on another one
 
 The clauses on one relation cross together, not one by one — on a joined relation, *a person with a
 row where a and b* is not *a person with a row where a, and one where b*. `FilterBar` shows each as
-its own chip — *Person.country Spain* — and removing one retracts that clause alone, on the one
+its own chip — *knows.country Spain* — and removing one retracts that clause alone, on the one
 selection, calling back the tile that published it. A lasso on the graph reaches every tile crossed
 the other way, and the graph stays exempt from its own pick.
 
@@ -638,19 +645,28 @@ label `has…` reads *whose …*, and a lone `is` drops out of an in-edge.
 ```ts
 function relationQuery(graph: JoinGraph, relation: Relation): Query;
 function relationKey(graph: Pick<JoinGraph, "edges">, relation: Relation): string;
-function relationIdentities(graph: JoinGraph, relation: Relation): { column: string; type: string }[];
-function relationRootKey(graph: Pick<JoinGraph, "types">, relation: Relation): string;
 function relationHops(graph: JoinGraph, type: string): RelationHop[];
-function resolveRelation(graph: JoinGraph, needs: RelationNeeds): Resolved;
+
+class JoinResolver {
+  constructor(joins: JoinGraph | null);
+  readonly joins: JoinGraph | null;
+  steps(relation: RelationRef): readonly JoinStep[];
+  paths(root: string, hops?: number): readonly string[];
+  relation(root: string, shown: readonly string[]): Relation | JoinMiss;
+  field(on: Relation, path: string): JoinField | JoinMiss;
+  at(to: RelationRef, from: RelationRef): JoinStep | undefined;
+  crossing(from: RelationRef, predicates: readonly ExprNode[], to: RelationRef, at?: string): ExprNode;
+}
 
 interface Relation { root: string; path: readonly Hop[] }
 interface Hop { edge: string; direction: "out" | "in" }
 interface RelationHop { hop: Hop; label: string; to: string; fanOut?: number }
-interface RelationNeeds { root: string; types?: readonly string[]; under?: readonly string[]; maxHops?: number }
-type Resolved =
-  | { kind: "relation"; relation: Relation }
-  | { kind: "ambiguous"; relations: readonly Relation[] }
-  | { kind: "unreachable"; missing: readonly string[] };
+interface JoinStep { path: string; type: string; key: string }
+interface JoinField { relation: Relation; column: string; at: string }
+type JoinMiss =
+  | { code: "join/no-step"; path: string; segment: string; at: string }
+  | { code: "join/no-field"; path: string; type: string; column: string }
+  | { code: "join/branches"; paths: readonly [string, string] };
 interface JoinGraph { types: readonly JoinType[]; edges: readonly JoinEdge[] }
 interface JoinType { name: string; table: TableExpr; key: string; columns: readonly string[]; rows?: number; of?: readonly string[] }
 interface JoinEdge { name: string; label: string; source: string; destination: string; table: TableExpr; src: string; dst: string; rows?: number }

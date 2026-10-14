@@ -1,16 +1,17 @@
 "use client";
 
-import { type RelationExpr, Query } from "@kanzo-tech/mosaic";
+import { type ExprValue, type RelationExpr, type RelationRef, type TableExpr, Query } from "@kanzo-tech/mosaic";
 import type React from "react";
 import { StatDelta, StatLabel, StatRoot, StatTrend } from "../simples/stat.js";
 import { ChartStat } from "./chart-stat.js";
 import { chartTableKey } from "./chart-spec.js";
 import { EditTileButton } from "./edit-tile-button.js";
-import { bucketExpr, measureExpr, type StatTile } from "./dashboard-spec.js";
+import { bucketExpr, type StatTile } from "./dashboard-spec.js";
 import { tileTitle } from "./tile-kinds.js";
 import type { FieldStat } from "./field-stats.js";
-import { useRelation } from "./mosaic-provider.js";
+import { MosaicClients } from "./mosaic-provider.js";
 import { useChartQuery } from "./use-chart-query.js";
+import { useTile } from "./use-tile.js";
 
 export interface DashboardStatProps extends Omit<React.ComponentProps<typeof StatRoot>, "onChange"> {
   /** The relation the measure is read from, as `ChartRoot` takes it. */
@@ -39,6 +40,7 @@ export function DashboardStat(props: DashboardStatProps) {
       ? undefined
       : (v: number) => v.toLocaleString(undefined, { maximumFractionDigits: 1, notation: Math.abs(v) >= 10_000 ? "compact" : "standard" });
   const trend = fields.find((f) => f.name === stat.trend);
+  const tile = useTile(relation, stat, fields);
 
   return (
     <StatRoot {...rest}>
@@ -49,38 +51,52 @@ export function DashboardStat(props: DashboardStatProps) {
           {onEdit ? <EditTileButton label="Edit figure" onClick={onEdit} /> : null}
         </div>
       ) : null}
-      <ChartStat format={format} relation={relation} value={measureExpr(stat.measure)} />
-      {trend ? (
-        <Trend field={trend} goodWhenUp={stat.goodWhenUp} relation={relation} stat={stat} unit={share ? "pp" : undefined} />
-      ) : null}
+      {"missing" in tile.query ? (
+        <p className="col-span-full text-muted-foreground text-sm">{`The relation has no ${tile.query.missing.join(", ")} any more.`}</p>
+      ) : (
+        // The figure reads the tile's own question, and is a client of the relation it narrows.
+        <MosaicClients relation={tile.relation ?? undefined}>
+          <ChartStat format={format} relation={tile.query.table} value={tile.query.measure!} />
+          {trend ? (
+            <Trend
+              field={trend}
+              goodWhenUp={stat.goodWhenUp}
+              measure={tile.query.measure!}
+              reading={tile.relation}
+              table={tile.query.table}
+              unit={share ? "pp" : undefined}
+            />
+          ) : null}
+        </MosaicClients>
+      )}
     </StatRoot>
   );
 }
 
 function Trend({
-  relation,
+  table,
+  reading,
   field,
-  stat,
+  measure,
   unit,
   goodWhenUp,
 }: {
-  relation: RelationExpr;
+  table: TableExpr;
+  reading: RelationRef | null;
   field: FieldStat;
-  stat: StatTile;
+  measure: ExprValue;
   unit?: string;
   goodWhenUp?: boolean;
 }) {
   const bucket = bucketExpr(field);
-  const read = useRelation(relation);
-  const table = read.table!;
   const { rows } = useChartQuery({
-    relation: read.relation,
-    deps: [chartTableKey(table), String(bucket), JSON.stringify(stat.measure)],
+    relation: reading,
+    deps: [chartTableKey(table), String(bucket), String(measure)],
     query: (filter) =>
       bucket === null
         ? null
         : Query.from(table)
-            .select({ step: bucket, value: measureExpr(stat.measure) })
+            .select({ step: bucket, value: measure })
             .where(filter)
             // Grouped by the expression, since a relation may have a column called `step`; ordered by
             // the alias, which ORDER BY prefers and Mosaic's pre-aggregation keeps resolvable.

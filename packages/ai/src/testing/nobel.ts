@@ -18,7 +18,9 @@ const edge = (source: string, label: string, destination: string) => ({
 });
 
 export const NOBEL: JoinGraph = {
-  types: ["LaureateAward", "Laureate", "Category", "University", "Country"].map((name) => ({ name, table: at(name), key: "id", columns: ["name"] })),
+  types: Object.entries({ LaureateAward: ["share"], Laureate: ["name", "gender"], Category: ["name"], University: ["name"], Country: ["name"] }).map(
+    ([name, columns]) => ({ name, table: at(name), key: "id", columns }),
+  ),
   edges: [
     edge("LaureateAward", "laureate", "Laureate"),
     edge("LaureateAward", "category", "Category"),
@@ -40,11 +42,11 @@ const field = (name: string, kind: AnswerField["kind"], values?: string[]): Answ
 const alone = (root: string, fields: AnswerField[]): AnswerRelation => ({ relation: { root, path: [] }, fields, columns: ["id", ...fields.map((f) => f.name)] });
 
 export const TYPES: AnswerRelation[] = [
-  alone("LaureateAward", [field("LaureateAward.share", "numeric")]),
-  alone("Laureate", [field("Laureate.name", "categorical"), field("Laureate.gender", "categorical", ["male", "female"])]),
-  alone("Category", [field("Category.name", "categorical", ["Physics", "Chemistry"])]),
-  alone("University", [field("University.name", "categorical")]),
-  alone("Country", [field("Country.name", "categorical", ["USA", "Germany"])]),
+  alone("LaureateAward", [field("share", "numeric")]),
+  alone("Laureate", [field("name", "categorical"), field("gender", "categorical", ["male", "female"])]),
+  alone("Category", [field("name", "categorical", ["Physics", "Chemistry"])]),
+  alone("University", [field("name", "categorical")]),
+  alone("Country", [field("name", "categorical", ["USA", "Germany"])]),
 ];
 
 /** The one model double, answering each call with the next of `values` and the last one after that. */

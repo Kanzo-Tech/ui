@@ -127,7 +127,7 @@ describe("ChartRoot on the page's selection", () => {
       </MosaicProvider>,
     );
     expect(typed[0]).toMatchObject({ relation: "Person", table: "people" });
-    expect(String(typed[1]?.table)).toBe('SELECT "dense_id", "age" AS "Person.age" FROM "people"');
+    expect(String(typed[1]?.table)).toBe('SELECT "dense_id", "age" FROM "people"');
   });
 
   it("holds the page's first draw while it asks and has not drawn, and lets go when it stops asking or unmounts", () => {

@@ -362,7 +362,7 @@ both patterns, like every other word the picker draws, are entries of its `trans
 
 **No noun inflects** (decided 13 October 2026). The in-edge read *Comments located in this place*,
 and the plural was the library's guess: an `+s` rule, and `plural(type)` for every noun it got wrong
-(*People*). The rule that titles name no plural ([Tasks](/docs/design/tasks#words-come-from-the-datas-own-metadata))
+(*People*). The rule that titles name no plural ([Tasks](/docs/design/tasks#titles-name-no-plural))
 holds here too, for its reason: no labelling vocabulary carries a plural, so a plural is always
 derived, and derived English is wrong outside English and for every irregular noun. The sentence is
 written so it needs none — the type as its label, singular, beside the edge's words — and the `+s`
@@ -407,6 +407,90 @@ takes it says so, beside its fan-out.
 by direction and sorted by fan-out", "removes any chip, cutting the path there" and "lets a host
 phrase an edge, and words every sentence through its translations"; `packages/mosaic/src/relation.test.ts`, "gives each hop its fan-out when
 the graph carries counts".
+
+## A tile carries its own question
+
+**A tile holds its own conditions and its own ranking — `where` and `top` — beside what it shows,
+and is drawn under them and under the page's clauses.** A condition is a path and a predicate — `in`,
+`between`, `contains` — and a path off the tile's relation is crossed in by `JoinResolver.crossing`,
+as [Tasks](/docs/design/tasks#a-filter-off-the-shown-path-is-crossed-in-not-joined) says, so a tile's
+condition and a page's chip are the same predicate. `top` keeps a bar chart's first bars by its
+measure, ties broken by the bar, or a table's first rows; on any other chart it is refused when the
+spec is read, because a line's or a histogram's steps are not a ranking.
+
+It is what makes an answer a tile without losing anything: *Physics prizes by university* was saved
+as *prizes by university*, because a tile had no place for *Physics*. Looker's dashboard tile is a
+saved query with its own filters beside the dashboard's, and a Metabase card is a saved question with
+its own; both draw the dashboard's filters on top.
+
+**One compiler turns a tile into its query, and every reader of a tile is fed by it**: `tileQuery`
+gives the relation narrowed by the tile's own question — what a chart's marks, a figure, a detail
+table and *Filter the page* read — the measure on it, and the tile's rows, which Ask reads. Ask had a
+second, `answerQuery`, which shared `measureExpr` and `bucketExpr` and not the grouping, the order,
+`top` or the cap, so the rows a reply described and the chart beside it could differ. A tile naming a
+field or a path its relation cannot read is drawn as what it lacks, as a chart's missing field was.
+
+**What would reverse it:** a tile whose own condition must be edited by the page's filters — a
+dashboard where a reader expects the page's chip on *Category* to replace the tile's *Physics*
+rather than narrow it. Then the tile's condition is a default the page overrides, as Looker's
+*listens to* does, and it is still the tile's.
+
+*Held by* `packages/ui/src/charts/dashboard-spec.test.ts`, "narrows by a condition on the relation as
+its clause, and crosses one off it in at the step it leaves"; "keeps a bar chart's top bars by its
+measure, ties by the bar, and refuses a top on any other chart"; "says what the relation cannot read:
+a field it lacks, a path the joins do not have, a step it does not reach".
+
+## `count` counts the measured type
+
+**`{ op: "count" }` is a `count(DISTINCT …)` of the relation's root key, on a tile and on an
+answer.** On a type alone it is the row count, as before — its keys are its rows, so it is written
+`count(*)`, which Mosaic can pre-aggregate; across a hop it is how many of the measured type the
+group holds, not how many joined rows. *Prizes by university* counts a prize once per university,
+however many paths lead there. The reference is Malloy's `count()`, which counts the source's distinct
+rows whatever the query joined.
+
+The other measures stay what `measureExpr` makes them, over the relation's rows: a `sum` or an
+`avg` across a hop that fans out sees a measured row once per path. Malloy computes those
+symmetrically too, and the cost of doing so here — no mosaic-sql node, the fanned rows held in
+DuckDB-WASM's memory — is on [Tasks](/docs/design/tasks#a-filter-off-the-shown-path-is-crossed-in-not-joined).
+
+**A path has its count too: Malloy's `path.count()`.** A count may name a path —
+`{ op: "count", path: "affiliation" }` — and then counts the distinct rows at that path's end: a
+`count(DISTINCT …)` of the key of the step the path reaches, which `JoinResolver.steps` names, so the
+measure goes through the same door as every other path. The path must lie on the shown relation, as
+every shown path must; a path off it is a `join/branches` miss, said before anything runs. `count`
+with no path keeps its meaning, the measured type's.
+
+**What would reverse it:** readers reading a bare `count` across a hop as the joined rows, often
+enough in the evaluation set or in keasy that the measured type's count misleads more than it
+helps — then a bare `count` says which type it counts in its title, as Malloy's `count()` does by
+its source. A path's count would be reversed only by a reader who needs the joined rows themselves,
+duplicates and all, which no reference offers as a count.
+
+*Held by* `packages/ui/src/charts/dashboard-spec.test.ts`, "counts what is measured once per group
+across a hop, a path's step when it names one, and rows on a type alone"; `packages/ai/src/data/answer.test.ts`,
+"counts a path's step when the count names one: the people the women know".
+
+## A count's axis is whole, and a bar's label fits before it is cut
+
+**A count or a distinct count is ticked at whole numbers, from zero.** Plot's ticks for a domain of
+`[0, 2]` are *0.0, 0.5 … 2.0*, which says a laureate can win half a prize. `ChartCard` hands Plot a
+tick interval of its own for those two measures — at most seven ticks, stepping 1, 2, 5 by a power of
+ten, never below 1 — and formats them as integers. Every other measure keeps Plot's ticks: a mean is
+fractional.
+
+**A bar's label band is as wide as its longest label, up to 28 characters, before any label is cut.**
+It was 18 characters inside a 140px band, so *Univ. of California* was cut with half the card empty.
+The width is estimated from the characters, about 6.5px each at the axis's size, because the band is
+a margin set before Plot draws, and Plot's own measuring is after. The gesture under a chart's title
+is a sentence: *Click a bar to filter*.
+
+**What would reverse it:** a card so narrow that a 194px band leaves the bars no room — a phone
+beside a sidebar — which sizes the band from the card's measured width instead; or Plot's automatic
+margins, which would measure the labels and retire the estimate.
+
+*Held by* `packages/ui/src/charts/chart-card.test.ts`, "ticks whole numbers only, from 0: no 0.5 on a
+count of 2"; "fits a label before it cuts one".
 
 ## Mosaic is reached through `@kanzo-tech/mosaic`, and a name through one spelling
 

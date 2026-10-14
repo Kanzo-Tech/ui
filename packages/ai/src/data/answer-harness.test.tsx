@@ -9,7 +9,6 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { testDatabase, type TestDatabase } from "../testing/duckdb.js";
 import { PEOPLE, PERSON, seedPeople } from "../testing/people.js";
 import { PromptInput, PromptInputTextarea } from "../prompt-input.js";
-import type { ToolPart } from "../tool.js";
 import type { AnswerOutput } from "./read.js";
 import { readFor } from "../testing/answer.js";
 import { AnswerCard, type AnswerCardProps } from "./answer-card.js";
@@ -32,19 +31,17 @@ beforeAll(async () => {
   db = await testDatabase();
   seedPeople(db);
   const [person] = (await readAnswerRelations(db.coordinator, PEOPLE, [PERSON])) as [AnswerRelation];
-  const input = {
-    relation: "Person",
-    where: [{ field: "Person.gender", in: ["female"] }],
-    show: { kind: "stat", title: "Mean age", measure: { op: "avg", field: "Person.age" } },
-  };
-  output = await readFor(db.engine, PEOPLE, [person], input);
+  output = await readFor(db.engine, PEOPLE, [person], {
+    of: "Person",
+    where: [{ field: "gender", in: ["female"] }],
+    show: { kind: "stat", title: "Mean age", measure: { op: "avg", field: "age" } },
+  });
 });
 
 afterEach(() => {
   delete (globalThis as { __KANZO_TESTING__?: KanzoTestingHook }).__KANZO_TESTING__;
 });
 
-const part = (state: ToolPart["state"], extra: object = {}) => ({ type: "tool-answer", toolCallId: "c", state, input: {}, ...extra }) as ToolPart;
 
 type Adding = Pick<AnswerCardProps, "dashboards" | "onAdd" | "onOpen">;
 
@@ -55,25 +52,25 @@ function Page({ into }: { into: (selection: Selection) => void }) {
   return null;
 }
 
-function page(answer: ToolPart, adding: Adding = {}, into: (selection: Selection) => void = () => {}) {
+function page(answer: AnswerOutput, adding: Adding = {}, into: (selection: Selection) => void = () => {}) {
   return (
     <QueryClientProvider client={queries}><MosaicProvider coordinator={db.coordinator}>
       <Page into={into} />
       <PromptInput>
         <PromptInputTextarea placeholder="Ask about your data…" />
       </PromptInput>
-      <AnswerCard graph={PEOPLE} part={answer} {...(adding as object)} />
+      <AnswerCard answer={answer} graph={PEOPLE} {...(adding as object)} />
     </MosaicProvider></QueryClientProvider>
   );
 }
 
-const draw = (answer: ToolPart, adding: Adding = {}, into: (selection: Selection) => void = () => {}) => render(page(answer, adding, into));
+const draw = (answer: AnswerOutput, adding: Adding = {}, into: (selection: Selection) => void = () => {}) => render(page(answer, adding, into));
 
 describe("AnswerHarness", () => {
   it("waits for the card to answer, reads its tile, and filters the page to it", async () => {
     const env = dom();
     let crossfilter!: Selection;
-    const { rerender } = draw(part("input-streaming"), {}, (s) => (crossfilter = s));
+    const { rerender } = draw({ answer: output.answer }, {}, (s) => (crossfilter = s));
     const answers = await env.getHarness(AnswerHarness);
     rerender(
       <QueryClientProvider client={queries}><MosaicProvider coordinator={db.coordinator}>
@@ -81,7 +78,7 @@ describe("AnswerHarness", () => {
         <PromptInput>
           <PromptInputTextarea placeholder="Ask about your data…" />
         </PromptInput>
-        <AnswerCard graph={PEOPLE} part={part("output-available", { output })} />
+        <AnswerCard answer={output} graph={PEOPLE} />
       </MosaicProvider></QueryClientProvider>,
     );
     const tile = await answers.answer();
@@ -92,10 +89,10 @@ describe("AnswerHarness", () => {
 
   it("reads the rows the answer was read from — the engine's result, not the tile's drawing", async () => {
     const env = dom();
-    draw(part("output-available", { output }));
+    draw(output);
     const rows = await (await env.getHarness(AnswerHarness)).rows();
     // What the engine returned, cell for cell: the mean age of the three women, (31 + 44 + 27) / 3.
-    expect(rows).toEqual(output.rows.map((row) => Object.fromEntries(Object.entries(row).map(([k, v]) => [k, String(v)]))));
+    expect(rows).toEqual(output.rows!.map((row) => Object.fromEntries(Object.entries(row).map(([k, v]) => [k, String(v)]))));
     expect(rows).toHaveLength(1);
     expect(Object.values(rows[0]!)).toContain("34");
   });
@@ -114,7 +111,7 @@ describe("AnswerHarness", () => {
           return onAdd();
         },
       };
-      return page(part("output-available", { output }), adding);
+      return page(output, adding);
     }
     render(<Host />);
     const added = (await env.getHarness(AnswerHarness)).addToDashboard();
@@ -128,22 +125,23 @@ describe("AnswerHarness", () => {
   it("opens the answer on the dashboard once it is there, through the host's onOpen", async () => {
     const env = dom();
     const onOpen = vi.fn();
-    const holding: Dashboards = { byRelation: { Person: { filters: [], tiles: [output.answer.show] } } };
-    draw(part("output-available", { output }), { dashboards: holding, onAdd: vi.fn(), onOpen });
+    const holding: Dashboards = { byRelation: { Person: { filters: [], tiles: [output.answer.tile] } } };
+    draw(output, { dashboards: holding, onAdd: vi.fn(), onOpen });
     await (await env.getHarness(AnswerHarness)).openOnDashboard();
-    expect(onOpen).toHaveBeenCalledWith({ relation: PERSON, key: "Person", id: output.answer.show.id });
+    expect(onOpen).toHaveBeenCalledWith({ relation: PERSON, key: "Person", id: output.answer.tile.id });
   });
 
   it("rejects an add the host refused with the words of the card's Problem", async () => {
     const env = dom();
     const onAdd = () => Promise.reject(new Error("The dashboard could not be saved."));
-    draw(part("output-available", { output }), { dashboards: { byRelation: {} }, onAdd });
+    draw(output, { dashboards: { byRelation: {} }, onAdd });
     await expect((await env.getHarness(AnswerHarness)).addToDashboard()).rejects.toThrow(/not added to the dashboard.*could not be saved/);
   });
 
   it("rejects an answer that failed with the words of its Problem", async () => {
     const env = dom();
-    draw(part("output-error", { errorText: "show.x: secret is not a field of Person." }));
-    await expect((await env.getHarness(AnswerHarness)).answer()).rejects.toThrow(/The answer failed.*secret is not a field of Person/);
+    // A kept answer over a relation the host's graph no longer has.
+    draw({ ...output, answer: { ...output.answer, relation: { root: "Post", path: [] } } });
+    await expect((await env.getHarness(AnswerHarness)).answer()).rejects.toThrow(/The answer failed.*the join graph has no type Post/);
   });
 });

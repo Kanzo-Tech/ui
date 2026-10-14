@@ -1,0 +1,7 @@
+---
+"@kanzo-tech/ai": minor
+---
+
+Ask's model writes every field as a path from the type it counts — `university.name`, `laureate.birthPlace.name`, `^laureate.category.name` — out of an enum per type, and `JoinResolver` resolves the paths: the relation is the one they lie on, and a condition off it is crossed in. A path the graph does not have is sent back to the model at its pointer. Two paths of one length to one field are the model's to choose, and the chip offers the other first: Ask no longer asks *Which way should this be counted?*. When a Task's oracle does ask, the decision is a `data-ask` part, drawn with `@kanzo-tech/ui`'s `Question`, and the pick is sent as `askEdit(turn.spec, { [decision.id]: option })`. The sentence after an answer is a template of `Intl` — the figure, or the leading two groups of bars, ties named together: *Physics: 230; Chemistry: 200.* — whose separators and other words are `useAskChat`'s `translations` (`AskChatTranslations`).
+
+**Breaking:** a spec's fields are paths from `of`, not `Type.column`: write `{ of: "LaureateAward", show: { …, x: "university.name" } }`, not `x: "University.name"`; a type alone's fields go by their own names (`gender`, not `Person.gender`), as `readAnswerRelations` now reads them. Delete code that numbered a reply's options or matched the reader's *1* or *2*: a decision is answered with `askEdit(spec, decided)`, and `AskTurn`'s `choices` is gone.
