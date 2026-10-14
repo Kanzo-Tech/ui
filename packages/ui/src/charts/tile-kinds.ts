@@ -1,6 +1,7 @@
 import {
   cardFor,
   detailColumns,
+  fieldWords,
   isMeasure,
   measureLabel,
   normalizeCard,
@@ -25,8 +26,8 @@ import type { FieldStat } from "./field-stats.js";
 export interface KindSpec<T extends Tile> {
   /** A new tile, chosen from the fields the way the automatic dashboard would choose it. `null` when the relation cannot make one. */
   create(fields: readonly FieldStat[], tiles: readonly Tile[], id: string): T | null;
-  /** The title a tile of this kind is drawn under when it has none of its own. */
-  title(tile: T): string;
+  /** The title a tile of this kind is drawn under when it has none of its own, each path in `words`. */
+  title(tile: T, words: (path: string) => string): string;
   /** `to`, carrying over what it can from `from`, a tile of another kind. */
   convertFrom(from: Tile, to: T, fields: readonly FieldStat[]): T;
 }
@@ -40,7 +41,7 @@ export const KINDS: Kinds = {
       const measure = fields.find((f) => isMeasure(f) && !tiles.some((t) => t.kind === "stat" && t.measure.field === f.name));
       return { id, kind: "stat", measure: measure ? { op: "avg", field: measure.name } : { op: "count" } };
     },
-    title: (tile) => measureLabel(tile.measure),
+    title: (tile, words) => measureLabel(tile.measure, words),
     // A chart's aggregate becomes the figure.
     convertFrom: (from, to) => (from.kind === "chart" && from.y.op !== "value" ? { ...to, measure: from.y } : to),
   },
@@ -54,10 +55,10 @@ export const KINDS: Kinds = {
         .find((c) => c !== null);
       return card ? { ...card, id } : null;
     },
-    title: (tile) =>
+    title: (tile, words) =>
       tile.type === "dot" || tile.type === "regression"
-        ? `${tile.x} × ${tile.y.field}`
-        : `${measureLabel(tile.y)} by ${tile.x}${tile.color ? ` and ${tile.color}` : ""}`,
+        ? `${words(tile.x)} × ${words(tile.y.field ?? "")}`
+        : `${measureLabel(tile.y, words)} by ${words(tile.x)}${tile.color ? ` and ${words(tile.color)}` : ""}`,
     // A figure's measure becomes the chart's, when the chart can draw it.
     convertFrom: (from, to, fields) =>
       from.kind === "stat" && from.measure.op !== "share" ? (normalizeCard({ ...to, y: from.measure }, fields) ?? to) : to,
@@ -80,9 +81,12 @@ export function newTile(k: TileKind, fields: readonly FieldStat[], tiles: readon
   return kind(k).create(fields, tiles, id);
 }
 
-/** The title a tile is drawn under: its own, or one derived from what it reads. */
-export function tileTitle(tile: Tile): string {
-  return tile.title ?? kind(tile.kind).title(tile);
+/**
+ * The title a tile is drawn under: its own, or one derived from what it reads — each field by its
+ * label in `fields` where the data gives one, by its path otherwise.
+ */
+export function tileTitle(tile: Tile, fields?: readonly FieldStat[]): string {
+  return tile.title ?? kind(tile.kind).title(tile, fieldWords(fields));
 }
 
 /**

@@ -23,7 +23,8 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { attach, settle, type Attached } from "../../test/corpus";
 import { readJoinGraph } from "../core/join-graph";
-import { readStructure, relation, verticesOf } from "../core/source";
+import { readCatalog } from "../core/catalog";
+import { relation, verticesOf } from "../core/source";
 import { createGraph } from "../core/store";
 import { GraphRoot, useGraphContext } from "../react/graph-root";
 import { internalsOf } from "../react/use-graph";
@@ -124,7 +125,7 @@ const ids = (mask: Uint8Array | null | undefined) => [...(mask ?? [])].flatMap((
 describe("the vertices relation", () => {
   it("reads every vertex table under the key, NULL where a table has no such column", async () => {
     const corpus = await attach();
-    const structure = await readStructure(corpus.coordinator, corpus.from);
+    const structure = await readCatalog(corpus.coordinator, corpus.from);
     const { table, columns } = verticesOf(structure);
     for (const type of ["Person", "Place", "Tag"]) expect(String(table)).toContain(`"${corpus.from}"."${type}"`);
     expect(columns).toEqual(expect.arrayContaining(["born", "name", "lon", "subject"]));

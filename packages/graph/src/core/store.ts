@@ -4,7 +4,8 @@ import { bindingOf } from "./channels";
 import { GraphClient, publish } from "./client";
 import { GraphError } from "./error";
 import { loadEncoding, loadGeometry, type Encoding, type Geometry } from "./load";
-import { VERTICES, readStructure } from "./source";
+import { readCatalog } from "./catalog";
+import { VERTICES } from "./source";
 import { type Structure } from "./structure";
 import type { VertexId } from "./types";
 import { drawnOf, idsOf, keptOf, maskOf } from "./kept";
@@ -183,7 +184,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
   function loadStructure(): void {
     const { coordinator, from } = options;
     if (coordinator === null || from === null) return;
-    read("structure", () => readStructure(coordinator, from), (next) => {
+    read("structure", () => readCatalog(coordinator, from), (next) => {
       if (next.size === 0) {
         failed = true;
         fail(new GraphError("graph/nothing-to-draw", `the corpus attached as ${from} has no vertex`));

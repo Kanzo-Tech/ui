@@ -7,8 +7,7 @@ import { KNOWS, PEOPLE, PERSON, seedPeople } from "../testing/people.js";
 import type { AnswerOutput } from "./read.js";
 import { readFor } from "../testing/answer.js";
 import type { AnswerRelation } from "./answer.js";
-import { askTile, type AskSpec } from "./ask.js";
-import { answerRelationsOf, readAnswerRelations } from "./relations.js";
+import { answerRelation, askTile, type AskSpec } from "./ask.js";
 
 let db: TestDatabase;
 let person: AnswerRelation;
@@ -17,65 +16,30 @@ let knows: AnswerRelation;
 beforeAll(async () => {
   db = await testDatabase();
   seedPeople(db);
-  [person, knows] = (await readAnswerRelations(db.coordinator, PEOPLE, [PERSON, KNOWS])) as [AnswerRelation, AnswerRelation];
+  [person, knows] = [answerRelation(PERSON, PEOPLE), answerRelation(KNOWS, PEOPLE)];
 });
 
 const rowsOf = async (query: Query | string) =>
   Array.from((await db.coordinator.query(query, { cache: false })) as Iterable<Record<string, unknown>>, (row) => ({ ...row }));
 
 async function answer(spec: AskSpec, selection?: Selection): Promise<AnswerOutput> {
-  return readFor(db.engine, PEOPLE, [person], spec, selection);
+  return readFor(db.engine, PEOPLE, spec, selection);
 }
 
-describe("readAnswerRelations", () => {
-  it("reads each relation's fields as a dashboard over it does, without its keys, and each category's most common values", () => {
+describe("answerRelation", () => {
+  it("describes a relation's fields from the graph, without its steps' keys, each with the commonest values its writer counted", () => {
     expect(person.fields.map((f) => f.name)).toEqual(["gender", "age", "born"]);
-    expect([...(person.fields[0]!.values ?? [])].sort()).toEqual(["female", "male"]);
+    expect(person.fields[0]!.values).toEqual(["female", "male"]);
     // A column is named by its path: the person's own, then the one they know.
     expect(knows.fields.map((f) => f.name)).toEqual(["gender", "age", "born", "knows.gender", "knows.age", "knows.born"]);
     expect(knows.columns).toContain("knows.dense_id");
   });
 
-  it("hands each query the signal, and ends on an abort with its reason, cancelling what is still queued", async () => {
+  it("reads nothing from the engine: what a field is and holds is the graph's", () => {
     const query = vi.spyOn(db.coordinator, "query");
-    const cancel = vi.spyOn(db.coordinator, "cancel");
-    const controller = new AbortController();
-    const reason = new Error("left the page");
-    const read = readAnswerRelations(db.coordinator, PEOPLE, [PERSON, KNOWS], { signal: controller.signal });
-    controller.abort(reason);
-    await expect(read).rejects.toBe(reason);
-    expect(query.mock.calls.length).toBeGreaterThan(0);
-    for (const [, options] of query.mock.calls) expect(options).toEqual({ signal: controller.signal });
-    expect(cancel).toHaveBeenCalledWith(query.mock.results.map((r) => r.value));
+    answerRelation(KNOWS, PEOPLE);
+    expect(query).not.toHaveBeenCalled();
     query.mockRestore();
-    cancel.mockRestore();
-
-    await expect(readAnswerRelations(db.coordinator, PEOPLE, [PERSON], { signal: AbortSignal.abort(reason) })).rejects.toBe(reason);
-  });
-});
-
-describe("answerRelationsOf", () => {
-  const graph = {
-    types: [...PEOPLE.types, { name: "Post", table: "post", key: "dense_id", columns: ["title"] }],
-    edges: [...PEOPLE.edges, { name: "wrote", label: "wrote", source: "Person", destination: "Post", table: "wrote", src: "src", dst: "dst" }],
-  };
-  const out = (edge: string) => ({ edge, direction: "out" as const });
-  const into = (edge: string) => ({ edge, direction: "in" as const });
-
-  it("offers each type alone and through each of its hops, in the graph's order", () => {
-    expect(answerRelationsOf(graph)).toEqual([
-      { root: "Person", path: [] },
-      { root: "Person", path: [out("knows")] },
-      { root: "Person", path: [out("wrote")] },
-      { root: "Person", path: [into("knows")] },
-      { root: "Post", path: [] },
-      { root: "Post", path: [into("wrote")] },
-    ]);
-  });
-
-  it("offers the types alone at hops 0, and only the types named in from", () => {
-    expect(answerRelationsOf(graph, { hops: 0 })).toEqual([{ root: "Person", path: [] }, { root: "Post", path: [] }]);
-    expect(answerRelationsOf(graph, { from: ["Post"] })).toEqual([{ root: "Post", path: [] }, { root: "Post", path: [into("wrote")] }]);
   });
 });
 

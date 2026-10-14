@@ -23,19 +23,16 @@ export interface Answer {
   readonly tile: Tile;
 }
 
-/** A field of a type, with its most common values when it is a category. */
-export interface AnswerField extends FieldStat {
-  /** Its most common values, the most common first: what the model is told the field holds. */
-  readonly values?: readonly string[];
-}
-
-/** A relation an answer may be about, and what it holds. `readAnswerRelations` reads them. */
+/**
+ * A relation an answer may be about, and what it holds — as the corpus describes it, never read from
+ * the engine: `answerRelation` makes one from the join graph.
+ */
 export interface AnswerRelation {
   readonly relation: Relation;
   /** Every column, fields or not: what decides which of the page's clauses the relation answers. */
   readonly columns: readonly string[];
-  /** What an answer may name: the fields a dashboard over the relation offers. */
-  readonly fields: readonly AnswerField[];
+  /** What an answer may name: the fields a dashboard over the relation offers, each with its commonest values where the writer counted them. */
+  readonly fields: readonly FieldStat[];
 }
 
 /** One of the page's clauses an answer's relation cannot answer: as a chip reads it, and the columns it names that the relation lacks. */

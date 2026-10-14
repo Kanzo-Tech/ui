@@ -4,7 +4,8 @@ description: A dashboard over any relation for finding what it holds — a filte
 ---
 
 `Dashboard` is the charts grammar composed for a relation you have not seen. It reads the
-relation's fields from one DuckDB `SUMMARIZE`, draws a dashboard from them — or from a spec you
+relation's fields from what its data says of them — a corpus's description and counts, or one DuckDB
+`SUMMARIZE` — draws a dashboard from them — or from a spec you
 saved — and lets the reader edit every tile of it. The host brings four things: a
 `MosaicProvider`, the relation, somewhere to keep the spec, and an aside for the editor. The relation can be a table or a
 [join over a graph of types](#relations), and the dashboard cannot tell the two apart.
@@ -85,16 +86,21 @@ way.
 
 ## How a relation is read
 
-`useFieldStats(table)` runs one `SUMMARIZE` — a query on the host's `QueryClient`, so the
-`QueryClientProvider` [the analytics page asks for](/docs/analytics#what-to-install) is above it — over `SELECT * FROM` the relation, built with
-mosaic-sql, so a join is summarized like a table — and classifies every column twice — by **kind**, from
+`useFieldStats(relation)` reads what the data says of each column, and guesses nothing from a
+column's name or a count. Over the page's `joins` — a fossil corpus's, from
+[`readJoinGraph`](/docs/graph#readjoingraph) — each column is described by the corpus, what it is
+and what its writer counted in it, and nothing is queried. Anywhere else, and for a relation whose
+columns the writer did not count, it runs one `SUMMARIZE` — a query on the host's `QueryClient`, so
+the `QueryClientProvider` [the analytics page asks for](/docs/analytics#what-to-install) is above
+it — over `SELECT * FROM` the relation, built with mosaic-sql, so a join is summarized like a table,
+and keeps whatever the joins say each column is. Every column is classified twice — by **kind**, from
 its DuckDB type through Mosaic's own `jsType` (so a column is numeric here exactly when it is numeric
-to every mark), and by **role**, from its name and its approximate distinct count.
+to every mark), or from its datatype where it has one, and by **role**, from what the data declares.
 
 | Kind | DuckDB types |
 | --- | --- |
 | `numeric` | every integer width up to `HUGEINT`, signed or not; `DOUBLE`, `FLOAT`, `REAL`, `DECIMAL` |
-| `temporal` | `DATE`, `TIME`, `TIMESTAMP`, `TIMESTAMP_MS`, `TIMESTAMP_NS`, `TIMESTAMP WITH TIME ZONE` |
+| `temporal` | `DATE`, `TIME`, `TIMESTAMP`, `TIMESTAMP_MS`, `TIMESTAMP_NS`, `TIMESTAMP WITH TIME ZONE`; and a number or a time whose datatype is `xsd:date`, `xsd:dateTime`, `xsd:gYear` or `xsd:gYearMonth` — a year stored as its integer |
 | `categorical` | `VARCHAR`, `ENUM`, `UUID`, `JSON`, `BOOLEAN` |
 | — not a field | lists, arrays, structs, maps, blobs, `GEOMETRY`, and types Mosaic does not know (`INTERVAL`, `BIT`, `UHUGEINT`, `TIMESTAMP_S`, `TIME WITH TIME ZONE`) |
 
@@ -104,9 +110,14 @@ relation you hand over — `ts::TIMESTAMP` — and it is a field like any other.
 
 | Role | When | Used as |
 | --- | --- | --- |
-| `identifier` | named `id`, `*_id`, `*Id`, `uri` or `iri`; or text with more than 50 values *and* at least half as many values as rows | searched, never grouped |
+| `identifier` | the writer's `address`, `identity` or `endpoint` column; a column whose `termType` is an IRI or a blank node; a column of the type's `candidateKeys` — never null, never repeated | searched, never grouped |
 | `measure` | every other number | aggregated, binned, either side of a scatter |
-| `dimension` | every time; text with ≤ 50 values, or fewer values than half the rows | grouped, filtered, a series, a panel |
+| `dimension` | every time; all other text | grouped, filtered, a series, a panel |
+
+A relation with no joins behind it declares nothing, so nothing in it is an identifier: a column
+named `id` is a number or a text like any other. Say what it is in the joins you hand the
+`MosaicProvider` — a type over your table, with the column among its `candidateKeys` — as the
+example below does, or exclude it.
 
 The filter control and the charts a field can be follow from those two words alone:
 
@@ -122,7 +133,7 @@ Past eight series a chart wants to be a table, not more hues; past six panels sm
 being comparable. Those are the dataviz limits, and the editors enforce them.
 
 A relation with a time, and one control of every kind — the timeline over `closed`, facet filters,
-a search over `id` and a slider over `reward`:
+a search over `id`, which the page declares the contracts' key, and a slider over `reward`:
 
 <ComponentPreview componentName="dashboard" fileName="example-temporal" hasMaxHeight={false} />
 
@@ -342,12 +353,17 @@ view and takes focus.
 
 ### useFieldStats and fieldStats
 
-`useFieldStats(table, { exclude })` returns `{ fields, columns, error }`: `fields` are the
+`useFieldStats(relation, { exclude })` returns `{ fields, columns, error }`: `fields` are the
 classified `FieldStat`s, `columns` every column of the relation in its own order, fields or not.
-Both are `null` until the summary lands. `error` is the thrown value, whole and typed `unknown`, and
-it is also handed to the provider's `onFailure`; narrow it before reading `.message`.
+`relation` is what `ChartRoot` takes — a table by name, a path over the provider's joins, or SQL.
+Both are `null` until the fields are known. `error` is the thrown value, whole and typed `unknown`,
+and it is also handed to the provider's `onFailure`; narrow it before reading `.message`.
 
-The summary is a TanStack Query query on the host's `QueryClient`, so it needs a
+A field carries what the corpus says beside its kind and role: `distinct`, the writer's exact count
+(or `SUMMARIZE`'s estimate where there is none), its extent, its commonest `values` and its
+`annotations` — its `rdfs:label` among them.
+
+Where a summary is read, it is a TanStack Query query on the host's `QueryClient`, so it needs a
 `QueryClientProvider` above it. Every part of the page that asks for the same relation on the same
 provider shares one read — the dashboard, a part you placed yourself, an Ask answer's card — and
 `exclude` is applied to that read, so two parts that hide different columns still read once. It
@@ -355,21 +371,16 @@ never retries and is kept for the page's life; a new relation is a new read, and
 not kept, so the next part to ask reads again. The reads appear in your client's devtools and go
 when you clear it — clear it on sign-out, as you would any other data of the person's.
 
-`fieldStats(rows, options)` is the classification on its own: `SUMMARIZE` rows in, the same
-`{ fields, columns }` out, nothing queried. `useFieldStats` is `SUMMARIZE` on the coordinator and
-then this. Reach for it when the host runs the summary itself — on its own connection, or with an
-`AbortSignal` the coordinator does not take. A fossil corpus answers with its rows as arrays, so
-they are zipped with the column names first:
+`fieldStats(columns, options)` is the classification on its own: column descriptions in — a
+`FieldColumn` is a `JoinColumn` and whether its type's writer found it a key — the same
+`{ fields, columns }` out, nothing queried. Reach for it with a join graph of your own and no page:
+`relationColumns(graph, relation)`, from `@kanzo-tech/mosaic`, describes a relation's columns under
+the names it reads them by.
 
 ```ts
-const summary = await corpus.sql(`SUMMARIZE ${relation}`, { signal });
-const rows = summary.rows.map((row) => Object.fromEntries(summary.columns.map((name, i) => [name, row[i]])));
-const { fields, columns } = fieldStats(rows as SummarizeRow[], { exclude: ["dense_id"] });
+const graph = await readJoinGraph(coordinator, jobId);
+const { fields, columns } = fieldStats(relationColumns(graph, { root: "Person", path: [] }), { exclude: ["dense_id"] });
 ```
-
-A row is a plain object under DuckDB's column names — `column_name`, `column_type`,
-`approx_unique`, `min`, `max`, `count` — with values as strings, numbers or bigints, the way any
-DuckDB client returns them.
 
 ### plotRelation
 
@@ -513,8 +524,26 @@ the other way, and the graph stays exempt from its own pick.
 
 The `JoinGraph` is plain data a reader builds from its own catalog — `JoinType` (`name`, `table`,
 `key`, `columns`, and `of` for a type that is the union of others) and `JoinEdge` (`name`, `label`, `source`, `destination`, `table`, and the `src`
-and `dst` columns holding each end's key). For a fossil corpus, `@kanzo-tech/graph`'s
-[`readJoinGraph`](/docs/graph#readjoingraph) builds it from the catalog the graph already reads.
+and `dst` columns holding each end's key). A type's `columns` are descriptions, `JoinColumn`: a
+column's name and DuckDB type, and whatever its catalog states of it — its `role`, `datatype`,
+`termType`, `iri`, whether it is `nullable`, its `annotations` (`JoinAnnotation`) and what its writer
+counted in it (`stats`, a `JoinColumnStats`). For a fossil corpus, `@kanzo-tech/graph`'s
+[`readJoinGraph`](/docs/graph#readjoingraph) builds it from the catalog the graph already reads; a
+graph of your own describes what it knows, and only `name` and `type` are required.
+
+A multi-valued property — fossil keeps one in a table of its own, a row per value — is a type with a
+`value`, the column a path that ends on it reads, reached from its source by an edge whose `table` is
+its own: the key is held in the row, so the hop is one join, and the path to it names its value,
+`nickname`, not `nickname.nickname`. `RelationPicker` offers it as a hop like any other.
+
+**A thing's words are its labels.** `labelOf(annotations, language?)` is what a type, an edge or a
+column is called: its `rdfs:label` in the page's language (`<html lang>`, RFC 4647's lookup —
+`es-AR`, then `es` — then an untagged one), or `undefined`. `namingColumn(type)` is the column whose
+property IRI is a labelling property — `skos:prefLabel`, `rdfs:label`, then schema.org's and FOAF's
+`name` — never a column because it is called `name`. `relationColumns` gives each column the `label`
+the data gives it — its own, or its type's for the naming column — and `fieldStats` carries it as
+`FieldStat.label`, which tile titles and `RelationPicker`'s sentences read; where nothing labels a
+name, a title reads its path and the picker `splitWords(name)` — *birth place*, never inflected.
 
 ## Series vocabulary
 
@@ -646,6 +675,10 @@ label `has…` reads *whose …*, and a lone `is` drops out of an in-edge.
 function relationQuery(graph: JoinGraph, relation: Relation): Query;
 function relationKey(graph: Pick<JoinGraph, "edges">, relation: Relation): string;
 function relationHops(graph: JoinGraph, type: string): RelationHop[];
+function relationColumns(graph: JoinGraph, relation: string | Relation, language?: string): RelationColumn[];
+function labelOf(annotations: readonly JoinAnnotation[] | undefined, language?: string): string | undefined;
+function namingColumn(type: Pick<JoinType, "columns">): string | undefined;
+function splitWords(name: string): string;
 
 class JoinResolver {
   constructor(joins: JoinGraph | null);
@@ -668,8 +701,25 @@ type JoinMiss =
   | { code: "join/no-field"; path: string; type: string; column: string }
   | { code: "join/branches"; paths: readonly [string, string] };
 interface JoinGraph { types: readonly JoinType[]; edges: readonly JoinEdge[] }
-interface JoinType { name: string; table: TableExpr; key: string; columns: readonly string[]; rows?: number; of?: readonly string[] }
-interface JoinEdge { name: string; label: string; source: string; destination: string; table: TableExpr; src: string; dst: string; rows?: number }
+interface JoinType {
+  name: string; table: TableExpr; key: string; columns: readonly JoinColumn[]; rows?: number; of?: readonly string[];
+  candidateKeys?: readonly string[]; iri?: string; annotations?: readonly JoinAnnotation[];
+  value?: string; // a multi-valued property's: the column a path that ends on it reads
+}
+interface JoinEdge {
+  name: string; label: string; source: string; destination: string; table: TableExpr; src: string; dst: string; rows?: number;
+  iri?: string; annotations?: readonly JoinAnnotation[];
+}
+interface JoinColumn {
+  name: string; type: string; role?: string; datatype?: string; termType?: string; iri?: string; nullable?: boolean;
+  annotations?: readonly JoinAnnotation[]; stats?: JoinColumnStats;
+}
+interface JoinColumnStats {
+  nullCount: number; distinctCount: number; minValue?: string; maxValue?: string;
+  mostCommonVals: readonly string[]; mostCommonFreqs: readonly number[];
+}
+interface JoinAnnotation { predicate: string; object: string | { value: string; language?: string; datatype?: string } }
+interface RelationColumn extends JoinColumn { of: string; candidateKey: boolean; label?: string } // `of` the type it is counted over
 ```
 
 ### FilterBar
@@ -687,26 +737,26 @@ Every other prop goes to the root `section` (`data-slot="filter-bar"`).
 ### Field stats
 
 ```ts
-function useFieldStats(table: TableExpr, options?: FieldStatsOptions): FieldStatsState;
-function fieldStats(rows: readonly SummarizeRow[], options?: FieldStatsOptions): FieldStats;
+function useFieldStats(relation: RelationExpr, options?: FieldStatsOptions): FieldStatsState;
+function fieldStats(columns: readonly FieldColumn[], options?: FieldStatsOptions): FieldStats;
 function autoDashboard(fields: readonly FieldStat[]): DashboardSpec;
 
 interface FieldStat {
   name: string;
-  type: string;        // DuckDB's type, as SUMMARIZE reports it
+  type: string;        // DuckDB's type
   kind: FieldKind;     // "numeric" | "temporal" | "categorical"
   role: FieldRole;     // "dimension" | "measure" | "identifier"
-  distinct: number;    // approx_unique: an estimate
+  distinct: number;    // the writer's count, or SUMMARIZE's approx_unique where there is none
   min?: number;        // the extent of a numeric or temporal field —
   max?: number;        //   a temporal one in epoch milliseconds
+  values?: readonly string[];               // the commonest values, where the writer counted them
+  annotations?: readonly JoinAnnotation[];  // what the corpus annotates the column with
+  label?: string;                           // what the data calls it: what a title reads
 }
+type FieldColumn = JoinColumn & { candidateKey?: boolean; label?: string };
 interface FieldStatsOptions { exclude?: readonly string[] }
 interface FieldStats { fields: FieldStat[]; columns: string[] }
 interface FieldStatsState { fields: FieldStat[] | null; columns: string[] | null; error: unknown }
-interface SummarizeRow {
-  column_name: unknown; column_type: unknown; approx_unique: unknown;
-  min: unknown; max: unknown; count: unknown;
-}
 ```
 
 The spec's types — `DashboardSpec`, `Tile`, `TileKind`, `TileSpan`, `StatTile`, `ChartTile`,

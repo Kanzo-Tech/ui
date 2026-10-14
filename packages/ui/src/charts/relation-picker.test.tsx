@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { RelationPicker, type RelationPickerProps } from "./relation-picker.js";
 
 // LDBC SNB's places, with the record counts its seed loads.
-const type = (name: string, rows: number) => ({ name, table: name, key: "dense_id", columns: ["name"], rows });
+const type = (name: string, rows: number) => ({ name, table: name, key: "dense_id", columns: [{ name: "name", type: "VARCHAR" }], rows });
 const edge = (source: string, label: string, destination: string, rows: number) => ({
   name: `${source}_${label}_${destination}`,
   label,

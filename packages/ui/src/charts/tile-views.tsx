@@ -44,7 +44,7 @@ function TableCard({ relation, fields, tile, onEdit, actions, className }: TileV
   return (
     <Card className={cn("[--space:--spacing(4)] min-w-0 gap-3", className)}>
       <CardHeader>
-        <CardTitle className="truncate font-medium text-sm">{tileTitle(tile)}</CardTitle>
+        <CardTitle className="truncate font-medium text-sm">{tileTitle(tile, fields)}</CardTitle>
         {onEdit || actions ? (
           <CardAction className="-my-1 flex items-center gap-1">
             {actions}

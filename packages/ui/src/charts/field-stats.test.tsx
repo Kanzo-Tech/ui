@@ -4,8 +4,12 @@ import type { Coordinator } from "@uwdata/mosaic-core";
 import { Query, asTableRef } from "@uwdata/mosaic-sql";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { fieldStats, useFieldStats, type SummarizeRow } from "./field-stats.js";
+import type { JoinColumnStats, JoinGraph } from "@kanzo-tech/mosaic";
+import { fieldStats, useFieldStats, type FieldColumn } from "./field-stats.js";
 import { MosaicProvider } from "./mosaic-provider.js";
+
+/** One `SUMMARIZE` row, under the column names DuckDB gives it. */
+type SummarizeRow = Record<"column_name" | "column_type" | "approx_unique" | "min" | "max" | "count", unknown>;
 
 const row = (column_name: string, column_type: string, approx_unique: number, min?: string, max?: string): SummarizeRow => ({
   column_name,
@@ -16,23 +20,38 @@ const row = (column_name: string, column_type: string, approx_unique: number, mi
   count: BigInt(1000),
 });
 
+const XSD = "http://www.w3.org/2001/XMLSchema#";
+const counted = (distinctCount: number, more: Partial<JoinColumnStats> = {}): JoinColumnStats => ({
+  nullCount: 0,
+  distinctCount,
+  mostCommonVals: [],
+  mostCommonFreqs: [],
+  ...more,
+});
+const column = (name: string, type: string, more: Partial<FieldColumn> = {}): FieldColumn => ({ name, type, ...more });
+
 describe("fieldStats", () => {
-  it("reads a kind from Mosaic's type words and a role from the name and the distinct count", () => {
+  it("reads a kind from Mosaic's type words, and a role from what the data says and nothing else", () => {
     const { fields } = fieldStats([
-      row("country", "VARCHAR", 12),
-      row("email", "VARCHAR", 998),
-      row("user_id", "BIGINT", 1000, "1", "1000"),
-      row("age", "INTEGER", 80, "18", "97"),
-      row("price", "DECIMAL(10,2)", 400, "0.5", "99.9"),
-      row("seen", "TIMESTAMP", 900, "2024-01-01 00:00:00", "2024-12-31 00:00:00"),
-      row("active", "BOOLEAN", 2),
+      column("dense_id", "UBIGINT", { role: "address" }),
+      column("subject", "VARCHAR", { role: "identity", termType: "rr:IRI" }),
+      column("homepage", "VARCHAR", { termType: "rr:IRI" }),
+      column("email", "VARCHAR", { candidateKey: true }),
+      column("country", "VARCHAR", { stats: counted(951) }),
+      column("user_id", "BIGINT", { stats: counted(1000, { minValue: "1", maxValue: "1000" }) }),
+      column("age", "INTEGER", { stats: counted(80, { minValue: "18", maxValue: "97" }) }),
+      column("seen", "TIMESTAMP", { stats: counted(900, { minValue: "2024-01-01 00:00:00", maxValue: "2024-12-31 00:00:00" }) }),
+      column("active", "BOOLEAN"),
     ]);
     expect(fields.map((f) => [f.name, f.kind, f.role])).toEqual([
-      ["country", "categorical", "dimension"],
+      ["dense_id", "numeric", "identifier"],
+      ["subject", "categorical", "identifier"],
+      ["homepage", "categorical", "identifier"],
       ["email", "categorical", "identifier"],
-      ["user_id", "numeric", "identifier"],
+      // Neither a name nor a count makes an identifier: 951 countries are a dimension, an id a measure.
+      ["country", "categorical", "dimension"],
+      ["user_id", "numeric", "measure"],
       ["age", "numeric", "measure"],
-      ["price", "numeric", "measure"],
       ["seen", "temporal", "dimension"],
       ["active", "categorical", "dimension"],
     ]);
@@ -40,9 +59,33 @@ describe("fieldStats", () => {
     expect(fields.find((f) => f.name === "seen")?.min).toBe(Date.parse("2024-01-01T00:00:00"));
   });
 
+  it("reads a time by its datatype, a year stored as its integer among them, and its extent as the years' first days", () => {
+    const { fields } = fieldStats([
+      column("born", "INTEGER", { datatype: `${XSD}gYear`, stats: counted(10, { minValue: "1900", maxValue: "1909" }) }),
+      column("code", "VARCHAR", { datatype: `${XSD}gYearMonth` }),
+      column("score", "INTEGER", { datatype: `${XSD}integer` }),
+    ]);
+    expect(fields.map((f) => [f.name, f.kind, f.role])).toEqual([
+      ["born", "temporal", "dimension"],
+      ["code", "categorical", "dimension"],
+      ["score", "numeric", "measure"],
+    ]);
+    expect(fields[0]).toMatchObject({ min: Date.UTC(1900, 0, 1), max: Date.UTC(1909, 0, 1) });
+  });
+
+  it("carries what the writer counted and the annotations, as the corpus says them", () => {
+    const label = { predicate: "http://www.w3.org/2000/01/rdf-schema#label", object: { value: "country", language: "en" } };
+    const { fields } = fieldStats([
+      column("country", "VARCHAR", { annotations: [label], stats: counted(3, { mostCommonVals: ["ES", "FR", "DE"], mostCommonFreqs: [0.5, 0.3, 0.2] }) }),
+    ]);
+    expect(fields).toEqual([
+      { name: "country", type: "VARCHAR", kind: "categorical", role: "dimension", distinct: 3, values: ["ES", "FR", "DE"], annotations: [label] },
+    ]);
+  });
+
   it("drops what no chart can draw and what the host excludes, and lists every column", () => {
     const { fields, columns } = fieldStats(
-      [row("tags", "VARCHAR[]", 10), row("blob", "BLOB", 1), row("span", "INTERVAL", 3), row("x", "FLOAT", 990), row("name", "VARCHAR", 10)],
+      [column("tags", "VARCHAR[]"), column("blob", "BLOB"), column("span", "INTERVAL"), column("x", "FLOAT"), column("name", "VARCHAR")],
       { exclude: ["x"] },
     );
     expect(fields.map((f) => f.name)).toEqual(["name"]);
@@ -50,15 +93,16 @@ describe("fieldStats", () => {
   });
 
   it("classifies every precision DuckDB reports, reads a zoned extent, and drops the three types a mark throws on", () => {
+    const at = (min: string, max: string) => ({ stats: counted(366, { minValue: min, maxValue: max }) });
     const { fields } = fieldStats([
-      row("day", "DATE", 366, "2024-01-01", "2024-12-31"),
-      row("ms", "TIMESTAMP_MS", 900, "2024-01-01 00:00:00.001", "2024-12-31 00:00:00.001"),
-      row("ns", "TIMESTAMP_NS", 900),
-      row("tz", "TIMESTAMP WITH TIME ZONE", 900, "2024-01-01 02:00:00.5+02", "2024-12-31 00:00:00+00"),
-      row("big", "HUGEINT", 900, "1", "9"),
-      row("s", "TIMESTAMP_S", 900),
-      row("ttz", "TIME WITH TIME ZONE", 900),
-      row("ubig", "UHUGEINT", 900),
+      column("day", "DATE", at("2024-01-01", "2024-12-31")),
+      column("ms", "TIMESTAMP_MS"),
+      column("ns", "TIMESTAMP_NS"),
+      column("tz", "TIMESTAMP WITH TIME ZONE", at("2024-01-01 02:00:00.5+02", "2024-12-31 00:00:00+00")),
+      column("big", "HUGEINT"),
+      column("s", "TIMESTAMP_S"),
+      column("ttz", "TIME WITH TIME ZONE"),
+      column("ubig", "UHUGEINT"),
     ]);
     expect(fields.map((f) => [f.name, f.kind])).toEqual([
       ["day", "temporal"],
@@ -72,13 +116,6 @@ describe("fieldStats", () => {
       min: Date.parse("2024-01-01T00:00:00.5Z"),
       max: Date.parse("2024-12-31T00:00:00Z"),
     });
-  });
-
-  it("takes plain rows, as a host's own query returns them", () => {
-    const { fields } = fieldStats([
-      { column_name: "n", column_type: "DOUBLE", approx_unique: 5, min: "1.5", max: "4", count: 10 },
-    ]);
-    expect(fields).toEqual([{ name: "n", type: "DOUBLE", kind: "numeric", role: "measure", distinct: 5, min: 1.5, max: 4 }]);
   });
 });
 
@@ -96,10 +133,10 @@ function summarizing(rows: SummarizeRow[], asked: unknown[] = []) {
   return { coordinator, state };
 }
 
-function host(coordinator: Coordinator, client = new QueryClient(), onFailure?: (error: unknown) => void) {
+function host(coordinator: Coordinator, client = new QueryClient(), onFailure?: (error: unknown) => void, joins?: JoinGraph) {
   return ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>
-      <MosaicProvider coordinator={coordinator} onFailure={onFailure}>
+      <MosaicProvider coordinator={coordinator} joins={joins} onFailure={onFailure}>
         {children}
       </MosaicProvider>
     </QueryClientProvider>
@@ -167,5 +204,46 @@ describe("useFieldStats", () => {
     const bare = ({ children }: { children: ReactNode }) => <MosaicProvider coordinator={coordinator}>{children}</MosaicProvider>;
     vi.spyOn(console, "error").mockImplementation(() => {});
     expect(() => renderHook(() => useFieldStats("t"), { wrapper: bare })).toThrow(/No QueryClient set/);
+  });
+
+  it("reads nothing for a relation over the page's joins whose every column the corpus counted", async () => {
+    const asked: unknown[] = [];
+    const { coordinator } = summarizing([], asked);
+    const joins: JoinGraph = {
+      types: [
+        {
+          name: "Person",
+          table: "people",
+          key: "dense_id",
+          candidateKeys: ["dense_id"],
+          columns: [column("dense_id", "UBIGINT", { role: "address", stats: counted(10) }), column("team", "INTEGER", { stats: counted(4) })],
+        },
+      ],
+      edges: [{ name: "Person_knows_Person", label: "knows", source: "Person", destination: "Person", table: "knows", src: "src", dst: "dst" }],
+    };
+    const { result } = renderHook(
+      () => [useFieldStats("Person"), useFieldStats({ root: "Person", path: [{ edge: "Person_knows_Person", direction: "out" }] })],
+      { wrapper: host(coordinator, undefined, undefined, joins) },
+    );
+    await waitFor(() => expect(result.current.every((stats) => stats.fields !== null)).toBe(true));
+    expect(asked).toEqual([]);
+    expect(result.current[0]!.fields!.map((f) => [f.name, f.role])).toEqual([["dense_id", "identifier"], ["team", "measure"]]);
+    expect(result.current[1]!.columns).toEqual(["dense_id", "team", "knows.dense_id", "knows.team"]);
+  });
+
+  it("summarizes a relation over the joins the corpus did not count, keeping what the graph says each column is", async () => {
+    const asked: unknown[] = [];
+    const { coordinator } = summarizing([row("dense_id", "UBIGINT", 10), row("born", "INTEGER", 10, "1900", "1909")], asked);
+    const joins: JoinGraph = {
+      types: [{ name: "vertices", table: "everything", key: "dense_id", columns: [column("dense_id", "UBIGINT", { role: "address" }), column("born", "INTEGER", { datatype: `${XSD}gYear` })] }],
+      edges: [],
+    };
+    const { result } = renderHook(() => useFieldStats("vertices"), { wrapper: host(coordinator, undefined, undefined, joins) });
+    await waitFor(() => expect(result.current.fields).not.toBeNull());
+    expect(asked).toEqual(['SUMMARIZE SELECT * FROM "everything"']);
+    expect(result.current.fields!.map((f) => [f.name, f.kind, f.role, f.distinct])).toEqual([
+      ["dense_id", "numeric", "identifier", 10],
+      ["born", "temporal", "dimension", 10],
+    ]);
   });
 });

@@ -9,6 +9,7 @@ import {
   type JoinNode,
 } from "@uwdata/mosaic-sql";
 import type { TableExpr } from "./table.js";
+import { labelOf, namingColumn } from "./words.js";
 
 /**
  * **A relation over a join graph** — Looker's explore and Malloy's source: a root and the joins
@@ -19,14 +20,70 @@ import type { TableExpr } from "./table.js";
  * where it came from.
  */
 
+/**
+ * An annotation of a type, an edge or a column — ShEx 2.1's `Annotation` (§5.9), as the corpus
+ * states it: a predicate IRI, and an object that is an IRI or a literal. It is about the schema, never
+ * about the data: a `rdfs:label` in a language is what a reader calls the thing.
+ */
+export interface JoinAnnotation {
+  readonly predicate: string;
+  readonly object: string | { readonly value: string; readonly language?: string; readonly datatype?: string };
+}
+
+/**
+ * **What a column holds**, as the corpus's writer counted it over every row: the reference's own
+ * names — Parquet's `Statistics` for the counts and the bounds, PostgreSQL's `pg_stats` for the
+ * commonest values and their share of the rows. A bound or a value is its lexical text.
+ */
+export interface JoinColumnStats {
+  readonly nullCount: number;
+  readonly distinctCount: number;
+  readonly minValue?: string;
+  readonly maxValue?: string;
+  readonly mostCommonVals: readonly string[];
+  readonly mostCommonFreqs: readonly number[];
+}
+
+/**
+ * **A column, as the corpus describes it** — what it is, and what it holds. Only `name` and `type`
+ * are always there; every other fact is the catalog's to state, and absent where it states none.
+ */
+export interface JoinColumn {
+  readonly name: string;
+  /** Its DuckDB type, as the engine reads it. */
+  readonly type: string;
+  /** What the writer made it — `address`, `identity`, `endpoint`, `language` — absent on the data's own. */
+  readonly role?: string;
+  /** The literal datatype IRI its shape declared: `xsd:gYear` over an integer. */
+  readonly datatype?: string;
+  /** R2RML's term type its shape declared: `rr:IRI`, `rr:BlankNode` or `rr:Literal`. */
+  readonly termType?: string;
+  /** The property IRI it was mapped from. */
+  readonly iri?: string;
+  readonly nullable?: boolean;
+  readonly annotations?: readonly JoinAnnotation[];
+  readonly stats?: JoinColumnStats;
+}
+
 /** One kind of row: a table, the column edges reference, and the columns a relation projects. */
 export interface JoinType {
   readonly name: string;
   readonly table: TableExpr;
   /** The column every edge end references, which identifies a row across the whole graph. */
   readonly key: string;
-  /** What a relation projects from this type, the key aside. */
-  readonly columns: readonly string[];
+  /** Every column of the type, its key's among them, each as the corpus describes it. */
+  readonly columns: readonly JoinColumn[];
+  /** The columns never null and never repeated, as the writer counted them. */
+  readonly candidateKeys?: readonly string[];
+  /** The class IRI its shape gave it. */
+  readonly iri?: string;
+  readonly annotations?: readonly JoinAnnotation[];
+  /**
+   * A multi-valued property's: the column a path that ends on the type reads — `nickname` on
+   * `Person_nickname`, a row per value. Such a type is a step like any other, reached by an edge whose
+   * table is its own, and the path to it names its value: `nickname`, not `nickname.nickname`.
+   */
+  readonly value?: string;
   /** How many rows the table holds, where the catalog says: what a hop's fan-out is read from. */
   readonly rows?: number;
   /**
@@ -50,6 +107,9 @@ export interface JoinEdge {
   readonly dst: string;
   /** How many links the table holds, where the catalog says. */
   readonly rows?: number;
+  /** The property IRI its shape gave it. */
+  readonly iri?: string;
+  readonly annotations?: readonly JoinAnnotation[];
 }
 
 export interface JoinGraph {
@@ -125,6 +185,20 @@ export function segmentOf(graph: Pick<JoinGraph, "edges">, edge: JoinEdge, direc
  */
 export const joinPath = (path: string, segment: string) => (path === "" ? segment : `${path}.${segment}`);
 
+/**
+ * The name a relation gives `column` of `type` on the step `path` reaches: its path, then its name —
+ * or, for a multi-valued property's value off the root, the path alone, which is the property.
+ */
+export const columnPath = (path: string, type: Pick<JoinType, "value">, column: string) =>
+  path !== "" && column === type.value ? path : joinPath(path, column);
+
+/**
+ * Whether an edge's table is the table of the type it reaches from `previous`: a key held in the row
+ * itself — a multi-valued property's table points at its source by a column of its own — so the hop is
+ * one join, not two.
+ */
+const heldIn = (edge: JoinEdge, type: JoinType) => String(edge.table) === String(type.table);
+
 /** Every step of `relation`, the root first, each with the path that reaches it. */
 export function stepsOf(graph: Pick<JoinGraph, "edges">, relation: Relation): Step[] {
   const out: Step[] = [{ type: relation.root, path: "" }];
@@ -167,6 +241,46 @@ export function typeOf(graph: Pick<JoinGraph, "types">, name: string): JoinType 
 const source = (table: TableExpr, alias?: string) =>
   new FromClauseNode(typeof table === "string" ? asTableRef(table)! : (table as ExprNode), alias);
 
+/** A column of a relation: its description, under the name the relation gives it. */
+export interface RelationColumn extends JoinColumn {
+  /** The type whose column it is: what its counts are counted over. */
+  readonly of: string;
+  /**
+   * What it is called, where the data says: its own `rdfs:label` in the language asked, or — for its
+   * type's naming column — its type's (`labelOf`, `namingColumn`). Absent where nothing labels it.
+   */
+  readonly label?: string;
+  /** Whether the writer found it a key of that type — never null, never repeated. */
+  readonly candidateKey: boolean;
+}
+
+/**
+ * **Every column a relation reads, described**, in its order and under its names: a type by name is
+ * its table as it is read, and a `Relation` is `relationQuery`'s — each step's key, then its columns,
+ * each named by its path. A column of a joined relation is described by its step's type, so its
+ * counts are the type's — what a default needs — and not the join's. Nothing is read: the
+ * descriptions are the graph's, and a key the graph does not describe is a column of no type known.
+ */
+export function relationColumns(graph: JoinGraph, relation: string | Relation, language?: string): RelationColumn[] {
+  const steps = typeof relation === "string" ? [{ type: relation, path: "" }] : stepsOf(graph, relation);
+  return steps.flatMap((step) => {
+    const type = typeOf(graph, step.type);
+    const naming = namingColumn(type);
+    const of = (c: JoinColumn): RelationColumn => {
+      const label = labelOf(c.annotations, language) ?? (c.name === naming ? labelOf(type.annotations, language) : undefined);
+      return {
+        ...c,
+        name: c.name === type.key ? joinPath(step.path, c.name) : columnPath(step.path, type, c.name),
+        of: type.name,
+        candidateKey: type.candidateKeys?.includes(c.name) ?? false,
+        ...(label === undefined ? {} : { label }),
+      };
+    };
+    const key = type.columns.find((c) => c.name === type.key) ?? { name: type.key, type: "" };
+    return [of(key), ...type.columns.filter((c) => c.name !== type.key).map(of)];
+  });
+}
+
 /**
  * The relation as one query: every type along the path joined through its edge tables, every
  * column named by its path from the root — `country`, `knows.country`, `^hasCreator.length` — and
@@ -188,7 +302,7 @@ export function relationQuery(graph: JoinGraph, relation: Relation): Query {
     const type = typeOf(graph, step.type);
     const t = path.length === 1 ? undefined : `t${i}`;
     select[joinPath(step.path, type.key)] = column(type.key, t);
-    for (const name of type.columns.filter((c) => c !== type.key)) select[joinPath(step.path, name)] = column(name, t);
+    for (const { name } of type.columns.filter((c) => c.name !== type.key)) select[columnPath(step.path, type, name)] = column(name, t);
     if (!step.edge) {
       from = source(type.table, t);
       return;
@@ -196,6 +310,15 @@ export function relationQuery(graph: JoinGraph, relation: Relation): Query {
     const e = `e${i}`;
     const [near, far] = step.direction === "out" ? [step.edge.src, step.edge.dst] : [step.edge.dst, step.edge.src];
     const previous = typeOf(graph, path[i - 1]!.type);
+    // A key held in the row reached, or in the row left: one join, on that row's own column.
+    if (heldIn(step.edge, type)) {
+      from = join(from!, source(type.table, t), { on: eq(column(near, t), column(previous.key, `t${i - 1}`)) });
+      return;
+    }
+    if (heldIn(step.edge, previous)) {
+      from = join(from!, source(type.table, t), { on: eq(column(type.key, t), column(far, `t${i - 1}`)) });
+      return;
+    }
     from = join(join(from!, source(step.edge.table, e), { on: eq(column(near, e), column(previous.key, `t${i - 1}`)) }), source(type.table, t), {
       on: eq(column(type.key, t), column(far, e)),
     });

@@ -100,7 +100,7 @@ export type { ChartQueryOptions, ChartQueryResult, ChartQueryRow } from "./chart
 export { FilterBar, useClauses } from "./charts/filter-bar.js";
 export type { FilterBarProps } from "./charts/filter-bar.js";
 
-// The mini BI kit: a relation's fields from one `SUMMARIZE`, and a dashboard as serializable data —
+// The mini BI kit: a relation's fields from what its data says of them, and a dashboard as serializable data —
 // filters drawn in the page's `FilterBar` and tiles (figures, charts, tables), each chosen and edited from those fields.
 // `Dashboard` is the whole thing; the parts are what it is made of, for a host arranging its own,
 // and `TileEditor` is the one panel a tile is added and edited in, drawn in the page's `TileEditorAside`,
@@ -141,7 +141,7 @@ export { RelationPicker } from "./charts/relation-picker.js";
 export type { RelationPickerProps, RelationPickerTranslations } from "./charts/relation-picker.js";
 export { useFieldStats, fieldStats } from "./charts/field-stats.js";
 export type {
-  FieldStat, FieldStats, FieldKind, FieldRole, FieldStatsOptions, FieldStatsState, SummarizeRow,
+  FieldColumn, FieldStat, FieldStats, FieldKind, FieldRole, FieldStatsOptions, FieldStatsState,
 } from "./charts/field-stats.js";
 
 // For a descriptor of your own: `chartDescriptor` mints one, and the types below are the contract

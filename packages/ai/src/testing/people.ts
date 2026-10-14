@@ -1,11 +1,33 @@
 // A small graph for the answer tests: people who know each other, as a join graph over two tables
 // of the test database. Not part of the published build (`vite.config.ts` excludes `src/testing`).
 
-import type { JoinGraph, Relation } from "@kanzo-tech/mosaic";
+import type { JoinColumnStats, JoinGraph, Relation } from "@kanzo-tech/mosaic";
 import type { TestDatabase } from "./duckdb.js";
 
+const counted = (distinctCount: number, more: Partial<JoinColumnStats> = {}): JoinColumnStats => ({
+  nullCount: 0,
+  distinctCount,
+  mostCommonVals: [],
+  mostCommonFreqs: [],
+  ...more,
+});
+
+/** The graph a corpus of these people would be read as: every column described, and counted by its writer. */
 export const PEOPLE: JoinGraph = {
-  types: [{ name: "Person", table: "person", key: "dense_id", columns: ["gender", "age", "born"] }],
+  types: [
+    {
+      name: "Person",
+      table: "person",
+      key: "dense_id",
+      candidateKeys: ["dense_id"],
+      columns: [
+        { name: "dense_id", type: "INTEGER", role: "address", stats: counted(6, { minValue: "1", maxValue: "6" }) },
+        { name: "gender", type: "VARCHAR", stats: counted(2, { minValue: "female", maxValue: "male", mostCommonVals: ["female", "male"], mostCommonFreqs: [0.5, 0.5] }) },
+        { name: "age", type: "INTEGER", stats: counted(6, { minValue: "27", maxValue: "61" }) },
+        { name: "born", type: "DATE", stats: counted(6, { minValue: "1965-09-15", maxValue: "1999-01-20" }) },
+      ],
+    },
+  ],
   edges: [{ name: "knows", label: "knows", source: "Person", destination: "Person", table: "knows", src: "src", dst: "dst" }],
 };
 

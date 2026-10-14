@@ -1,10 +1,10 @@
-import { relationKey } from "@kanzo-tech/mosaic";
+import { relationKey, type JoinGraph } from "@kanzo-tech/mosaic";
 import { describe, expect, it } from "vitest";
 import { runTask } from "../task/index.js";
 import { ask, askAlternatives, askAnswer, askSchema, link, type AskInput, type AskSpec } from "./ask.js";
-import { NOBEL, TYPES, answering } from "../testing/nobel.js";
+import { NOBEL, answering } from "../testing/nobel.js";
 
-const input = (question: string, extra: Partial<AskInput> = {}): AskInput => ({ question, graph: NOBEL, types: TYPES, ...extra });
+const input = (question: string, extra: Partial<AskInput> = {}): AskInput => ({ question, graph: NOBEL, ...extra });
 
 const byUniversity: AskSpec = { of: "LaureateAward", show: { kind: "chart", type: "bar", x: "university.name", y: { op: "count" } } };
 
@@ -21,7 +21,7 @@ describe("link", () => {
   });
 
   it("offers every type to a question that names none", () => {
-    expect(link(input("What is going on?")).types).toHaveLength(TYPES.length);
+    expect(link(input("What is going on?")).types).toHaveLength(NOBEL.types.length);
   });
 });
 
@@ -105,5 +105,35 @@ describe("askAlternatives", () => {
     expect(chip.options[0]).toEqual({ label: "university.addressCountry.name", spec: { ...germany, where: [{ field: "university.addressCountry.name", in: ["Germany"] }] } });
     const by = askAlternatives({ ...byUniversity, show: { ...byUniversity.show, x: "laureate.birthPlace.name" } as AskSpec["show"] }, input("")).find((c) => c.slot === "x")!;
     expect(by.options[0]!.label).toBe("university.addressCountry.name");
+  });
+});
+
+describe("a multi-valued property", () => {
+  // A laureate's nicknames, a row per value in a table of their own, as `readJoinGraph` reads fossil's.
+  const NICKNAMES: JoinGraph = {
+    types: [
+      ...NOBEL.types,
+      {
+        name: "Laureate_nickname",
+        table: "Laureate_nickname",
+        key: "src",
+        value: "nickname",
+        columns: [
+          { name: "src", type: "UBIGINT", role: "endpoint" },
+          { name: "nickname", type: "VARCHAR", stats: { nullCount: 0, distinctCount: 3, mostCommonVals: ["Marie"], mostCommonFreqs: [0.5] } },
+        ],
+      },
+    ],
+    edges: [...NOBEL.edges, { name: "Laureate_nickname", label: "nickname", source: "Laureate", destination: "Laureate_nickname", table: "Laureate_nickname", src: "src", dst: "src" }],
+  };
+
+  it("is a path Ask may write and read its value by, and never a type it measures", () => {
+    const context = link({ question: "What were laureates called?", graph: NICKNAMES });
+    expect(context.types.map((t) => t.relation.root)).not.toContain("Laureate_nickname");
+    const schema = askSchema(context, NICKNAMES) as { $defs: Record<string, { enum: string[] }> };
+    expect(Object.values(schema.$defs).flatMap((d) => d.enum)).toContain("laureate.nickname");
+    const spec: AskSpec = { of: "LaureateAward", show: { kind: "chart", type: "bar", x: "laureate.nickname", y: { op: "count" } } };
+    const answer = askAnswer(spec, { graph: NICKNAMES }, "a");
+    expect(answer?.relation.path.map((h) => h.edge)).toEqual(["LaureateAward_laureate_Laureate", "Laureate_nickname"]);
   });
 });

@@ -8,8 +8,8 @@ import { askAlternatives, type AskInput, type AskSpec } from "./ask.js";
 export interface AskChipsProps {
   /** The spec the answer was read from — an `answer` part's `output.spec`. */
   spec: AskSpec;
-  /** What Ask was asked over: the graph, each type alone, and the page's chips' types. */
-  over: Pick<AskInput, "graph" | "types" | "under">;
+  /** What Ask was asked over: the graph, and the page's chips' types. */
+  over: Pick<AskInput, "graph" | "under">;
   /** The spec with one chip changed. A chat asks it as it is: `chat.sendMessage(askEdit(spec))`. */
   onChange: (spec: AskSpec) => void;
   className?: string;

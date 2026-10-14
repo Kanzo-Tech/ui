@@ -1,6 +1,6 @@
 "use client";
 
-import { relationHops, type Hop, type JoinEdge, type JoinGraph, type Relation, type RelationHop } from "@kanzo-tech/mosaic";
+import { labelOf, relationHops, type Hop, type JoinEdge, type JoinGraph, type Relation, type RelationHop } from "@kanzo-tech/mosaic";
 import { useId, useMemo } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
@@ -77,18 +77,24 @@ const WARN = 10;
  * A name in words, where nothing labels it — the last resort, and it never inflects:
  * `isLocatedIn` → `is located in`, `TagClass` → `tag class`; an acronym keeps its case.
  */
-const words = (name: string) =>
+const split = (name: string) =>
   name
     .split(/(?<=[a-z0-9])(?=[A-Z])|[_\s]+/)
     .filter(Boolean)
     .map((w) => (w.length > 1 && w === w.toUpperCase() ? w : w.toLowerCase()))
     .join(" ");
+
+/** What a type is called: its `rdfs:label` in the page's language, else its name in words. */
+const typeWords = (graph: JoinGraph, name: string) => labelOf(graph.types.find((t) => t.name === name)?.annotations) ?? split(name);
+/** What an edge is called: its `rdfs:label`, else its label in words. */
+const edgeWords = (edge: JoinEdge) => labelOf(edge.annotations) ?? split(edge.label);
 function capital(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 /** The sentence a hop reads as: the host's, else the pattern over the types' and the label's words. */
 const sentenceOf = (
+  graph: JoinGraph,
   t: RelationPickerTranslations,
   phrase: RelationPickerProps["phrase"],
   edge: JoinEdge,
@@ -96,8 +102,8 @@ const sentenceOf = (
 ) =>
   phrase?.(edge, direction) ??
   (direction === "out"
-    ? t.out(words(edge.destination), words(edge.label))
-    : t.in(words(edge.source), words(edge.label), words(edge.destination)));
+    ? t.out(typeWords(graph, edge.destination), edgeWords(edge))
+    : t.in(typeWords(graph, edge.source), edgeWords(edge), typeWords(graph, edge.destination)));
 
 /** *1*, *≤1*, *~103* — a fan-out as its item says it. */
 const countOf = (fanOut: number) => (fanOut === 1 ? "1" : fanOut < 1 ? "≤1" : `~${Math.round(fanOut)}`);
@@ -130,7 +136,7 @@ export function RelationPicker(props: RelationPickerProps) {
   const walked = value.path.map((hop, i) => {
     const edge = graph.edges.find((e) => e.name === hop.edge);
     const to = (hop.direction === "out" ? edge?.destination : edge?.source) ?? "";
-    return { i, to, sentence: edge ? sentenceOf(t, phrase, edge, hop.direction) : hop.edge };
+    return { i, to, sentence: edge ? sentenceOf(graph, t, phrase, edge, hop.direction) : hop.edge };
   });
   const last = walked.at(-1)?.to ?? value.root;
   const byFanOut = (a: RelationHop, b: RelationHop) => (a.fanOut ?? Infinity) - (b.fanOut ?? Infinity);
@@ -195,7 +201,7 @@ export function RelationPicker(props: RelationPickerProps) {
                 <MenuGroup heading={group.heading} key={group.heading}>
                   {group.hops.map((h) => {
                     const edge = graph.edges.find((e) => e.name === h.hop.edge)!;
-                    const sentence = sentenceOf(t, phrase, edge, h.hop.direction);
+                    const sentence = sentenceOf(graph, t, phrase, edge, h.hop.direction);
                     const step = stepOf(h);
                     const hint = `${id}-${h.hop.direction}-${h.hop.edge}`;
                     return (

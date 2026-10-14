@@ -14,6 +14,7 @@ import {
   count,
   div,
   eq,
+  jsType,
   literal,
   max,
   median,
@@ -314,12 +315,21 @@ const OP_LABEL: Record<DashboardMeasure["op"], string> = {
   value: "",
 };
 
-export function measureLabel(measure: DashboardMeasure): string {
-  if (measure.op === "count") return measure.path ? `Count of ${measure.path}` : "Count";
-  if (measure.op === "value") return measure.field ?? "";
-  if (measure.op === "share") return `% ${measure.field} = ${String(measure.equals)}`;
-  return `${OP_LABEL[measure.op]} ${measure.field}`;
+/**
+ * What a measure is called: its aggregate, and its field in `words` — a field's label where the data
+ * gives one (`FieldStat.label`), its path otherwise. Without `words` it is the name a tile's rows
+ * carry the measure under.
+ */
+export function measureLabel(measure: DashboardMeasure, words: (path: string) => string = (path) => path): string {
+  if (measure.op === "count") return measure.path ? `Count of ${words(measure.path)}` : "Count";
+  if (measure.op === "value") return measure.field ? words(measure.field) : "";
+  if (measure.op === "share") return `% ${words(measure.field ?? "")} = ${String(measure.equals)}`;
+  return `${OP_LABEL[measure.op]} ${words(measure.field ?? "")}`;
 }
+
+/** A path in `fields`' words: the field's label where the data gives one, else the path itself. */
+export const fieldWords = (fields: readonly FieldStat[] | undefined) => (path: string) =>
+  fields?.find((f) => f.name === path)?.label ?? path;
 
 /** A field a trend can run along: a time, or a number with an extent to bin. */
 export function trendFields(fields: readonly FieldStat[]): FieldStat[] {
@@ -335,6 +345,11 @@ const TREND_STEPS = 24;
  */
 export function bucketExpr(field: FieldStat): string | ExprNode | null {
   if (field.min === undefined || field.max === undefined) return field.kind === "numeric" ? field.name : null;
+  if (field.kind === "temporal" && jsType(field.type) === "number") {
+    // A year stored as its integer, a time by its datatype: binned as the number it is.
+    const [from, to] = [new Date(field.min).getUTCFullYear(), new Date(field.max).getUTCFullYear()];
+    return field.distinct <= 60 ? field.name : binHistogram(field.name, [from, to], { steps: TREND_STEPS });
+  }
   if (field.kind === "temporal") {
     return binDate(field.name, [new Date(field.min), new Date(field.max)], { steps: TREND_STEPS });
   }

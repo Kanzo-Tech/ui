@@ -6,7 +6,6 @@ import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import { useTransportChat, type AgentChat, type AgentChatOptions } from "../agent-chat.js";
 import { propose, runTask, verify, type Decision, type Proposal, type Verdict } from "../task/index.js";
-import type { AnswerRelation } from "./answer.js";
 import { ask, askAnswer, answerRelation, type AskInput, type AskSpec } from "./ask.js";
 import { readAnswerQuery, type AnswerOutput, type QueryRow } from "./read.js";
 import { ASK_PARTS } from "./ask-parts.js";
@@ -47,9 +46,8 @@ const ENGLISH: AskChatTranslations = {
 export interface AskChatOptions {
   readonly model: LanguageModel;
   readonly engine: Pick<Engine, "query">;
+  /** The data: what its types and fields are and hold is the graph's — `readJoinGraph` for a fossil corpus. */
   readonly graph: JoinGraph;
-  /** Each type alone, with its fields — `readAnswerRelations(…, { hops: 0 })`. */
-  readonly types: readonly AnswerRelation[];
   /** The page's crossfilter: an answer is read under it, and must reach the relations its chips are on. */
   readonly selection?: Selection;
   /** The words of its replies. */
@@ -164,11 +162,11 @@ export function askTransport(
       createUIMessageStream<AskMessage>({
         onError,
         execute: async ({ writer }) => {
-          const { model, engine, graph, types, selection, translations } = options();
+          const { model, engine, graph, selection, translations } = options();
           const t = { ...ENGLISH, ...translations };
           const question = textOf(messages.at(-1));
           const before = turnOf([...messages].reverse().find((m) => m.role === "assistant"));
-          const input: AskInput = { question, graph, types, under: underOf(selection), previous: before?.spec };
+          const input: AskInput = { question, graph, under: underOf(selection), previous: before?.spec };
           writer.write({ type: "start" });
 
           // A spec the person edited, or a decision they answered, is checked as the model's would be
@@ -200,7 +198,7 @@ export function askTransport(
           const id = `ask-${Math.random().toString(36).slice(2, 10)}`;
           const answer = askAnswer(spec, input, id)!;
           writer.write({ type: "data-answer", id, data: { answer, spec } });
-          const output = await readAnswerQuery(client, answer, answerRelation(answer.relation, input), { engine, graph, selection, signal: abortSignal });
+          const output = await readAnswerQuery(client, answer, answerRelation(answer.relation, graph), { engine, graph, selection, signal: abortSignal });
           writer.write({ type: "data-answer", id, data: { ...output, spec } });
           writer.write({ type: "data-ask", data: { spec } });
           write(writer, answerSentence(output, t));
@@ -232,7 +230,7 @@ export function useAskChat(options: AskChatOptions, chat?: AgentChatOptions<AskM
 export async function askOffers(
   options: Omit<AskChatOptions, "engine" | "translations"> & { readonly count?: number; readonly signal?: AbortSignal },
 ): Promise<Proposal<AskSpec>[]> {
-  const { model, graph, types, selection, count = 4, signal } = options;
-  const input: AskInput = { question: "", graph, types, under: underOf(selection) };
+  const { model, graph, selection, count = 4, signal } = options;
+  const input: AskInput = { question: "", graph, under: underOf(selection) };
   return propose(ask, input, { model, signal, count });
 }

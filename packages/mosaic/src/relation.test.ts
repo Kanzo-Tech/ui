@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { Query, asTableRef } from "@uwdata/mosaic-sql";
 import { clauseColumns, clauseSemiJoin } from "./clause.js";
-import { relationHops, relationKey, relationQuery, type JoinGraph } from "./relation.js";
+import { relationColumns, relationHops, relationKey, relationQuery, type JoinGraph } from "./relation.js";
 
 const at = (table: string) => asTableRef(["jobs/7", table])!;
 
 const GRAPH: JoinGraph = {
   types: [
-    { name: "Person", table: at("Person"), key: "dense_id", columns: ["country", "age"] },
-    { name: "Post", table: at("Post"), key: "dense_id", columns: ["length"] },
+    { name: "Person", table: at("Person"), key: "dense_id", columns: [{ name: "country", type: "VARCHAR" }, { name: "age", type: "VARCHAR" }] },
+    { name: "Post", table: at("Post"), key: "dense_id", columns: [{ name: "length", type: "VARCHAR" }] },
   ],
   edges: [
     { name: "Person_knows_Person", label: "knows", source: "Person", destination: "Person", table: at("Person_knows_Person"), src: "src", dst: "dst" },
@@ -99,5 +99,41 @@ describe("a semi-join on identity", () => {
     const ids = clauseSemiJoin("dense_id", [1, 2], { source: {} }).predicate!;
     expect(clauseColumns(ids)).toEqual(["dense_id"]);
     expect(String(Query.from(relation).select("knows.country").where(ids))).toContain('WHERE ("dense_id" IN (1, 2))');
+  });
+});
+
+describe("relationColumns", () => {
+  const described: JoinGraph = {
+    ...GRAPH,
+    types: [
+      {
+        ...GRAPH.types[0]!,
+        candidateKeys: ["dense_id", "email"],
+        columns: [
+          { name: "dense_id", type: "UBIGINT", role: "address" },
+          { name: "email", type: "VARCHAR" },
+          { name: "age", type: "INTEGER", stats: { nullCount: 0, distinctCount: 60, mostCommonVals: [], mostCommonFreqs: [] } },
+        ],
+      },
+      GRAPH.types[1]!,
+    ],
+  };
+
+  it("describes a type by name under its table's own names, with what its writer found a key", () => {
+    expect(relationColumns(described, "Person").map((c) => [c.name, c.type, c.of, c.candidateKey])).toEqual([
+      ["dense_id", "UBIGINT", "Person", true],
+      ["email", "VARCHAR", "Person", true],
+      ["age", "INTEGER", "Person", false],
+    ]);
+  });
+
+  it("describes a relation's columns under relationQuery's names, its paths, each by its step's type and with its counts", () => {
+    const relation = { root: "Person", path: [{ edge: "Person_knows_Person", direction: "out" as const }] };
+    const columns = relationColumns(described, relation);
+    expect(columns.map((c) => c.name)).toEqual(["dense_id", "email", "age", "knows.dense_id", "knows.email", "knows.age"]);
+    expect(columns.find((c) => c.name === "knows.age")?.stats?.distinctCount).toBe(60);
+    // Every name it gives is one the query projects.
+    const sql = String(relationQuery(described, relation));
+    for (const { name } of columns) expect(sql).toContain(`AS "${name}"`);
   });
 });

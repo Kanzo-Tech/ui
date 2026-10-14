@@ -90,7 +90,7 @@ describe("measureExpr", () => {
 });
 
 const NOBEL: JoinGraph = {
-  types: ["Award", "Category", "Affiliation", "University"].map((name) => ({ name, table: name, key: "dense_id", columns: name === "Award" ? ["year"] : ["name"] })),
+  types: ["Award", "Category", "Affiliation", "University"].map((name) => ({ name, table: name, key: "dense_id", columns: [{ name: name === "Award" ? "year" : "name", type: "VARCHAR" }] })),
   edges: [
     { name: "Award_category_Category", label: "category", source: "Award", destination: "Category", table: "Award_category_Category", src: "src", dst: "dst" },
     { name: "Award_affiliation_Affiliation", label: "affiliation", source: "Award", destination: "Affiliation", table: "Award_affiliation_Affiliation", src: "src", dst: "dst" },

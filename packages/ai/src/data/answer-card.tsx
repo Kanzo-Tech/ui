@@ -34,7 +34,6 @@ import {
   TileView,
   tileQuery,
   useClauses,
-  useFieldStats,
   useMosaic,
   type Condition,
   type Dashboards,
@@ -42,7 +41,7 @@ import {
 } from "@kanzo-tech/ui/analytics";
 import type { AnswerOutput } from "./read.js";
 import { unansweredText } from "./answer.js";
-import { resolverOf } from "./ask.js";
+import { answerRelation, resolverOf } from "./ask.js";
 
 /** Every word `AnswerCard` draws. English by default. */
 export interface AnswerCardTranslations {
@@ -158,14 +157,13 @@ export function AnswerCard(props: AnswerCardProps) {
   const { answer, stopped = false, graph, dashboards, onAdd, onOpen, describe, translations, className, slot, ...rest } = props;
   const t = { ...ENGLISH, ...translations };
   const output = answer.rows === undefined ? null : answer;
+  // Busy until the rows land: the tile draws from them and the graph's facts at once, with nothing
+  // more to read.
   const running = !stopped && output === null;
-  // Busy from the first render an answer is there, so it is never idle over the skeleton between the
-  // answer landing and its fields being read; what draws the tile or its failure says when it is done.
-  const [drawing, setDrawing] = React.useState(true);
 
   return (
     <ark.div
-      aria-busy={running || (output !== null && drawing) || undefined}
+      aria-busy={running || undefined}
       className={cn("flex min-w-0 flex-col gap-2", className)}
       {...rest}
       data-slot={slot ?? "answer-card"}
@@ -174,7 +172,6 @@ export function AnswerCard(props: AnswerCardProps) {
         <Answered
           adding={onAdd && dashboards && { dashboards, onAdd, onOpen, describe }}
           graph={graph}
-          onDrawing={setDrawing}
           output={output as Required<AnswerOutput>}
           t={t}
         />
@@ -194,12 +191,9 @@ function Failure(props: { error: unknown; t: AnswerCardTranslations }) {
   );
 }
 
-/** Whether the card still draws the skeleton in its tile's place: `aria-busy` is the card's root's. */
-type OnDrawing = (drawing: boolean) => void;
-
 /** The answer's relation, compiled over the host's graph — which may no longer have it. */
-function Answered(props: { graph: JoinGraph; output: Required<AnswerOutput>; adding?: Adding; onDrawing: OnDrawing; t: AnswerCardTranslations }) {
-  const { graph, output, onDrawing, t } = props;
+function Answered(props: { graph: JoinGraph; output: Required<AnswerOutput>; adding?: Adding; t: AnswerCardTranslations }) {
+  const { graph, output, t } = props;
   const relation = output.answer.relation;
   // The page's resolver, as every tile reads through it; the graph's own where there is no page over it.
   const { selection } = useMosaic();
@@ -211,10 +205,6 @@ function Answered(props: { graph: JoinGraph; output: Required<AnswerOutput>; add
       return { error };
     }
   }, [graph, relation, resolver]);
-  const failed = "error" in compiled;
-  React.useLayoutEffect(() => {
-    if (failed) onDrawing(false);
-  }, [failed, onDrawing]);
   if ("error" in compiled) return <Failure error={compiled.error} t={t} />;
   return <Drawn {...props} {...compiled} />;
 }
@@ -229,6 +219,7 @@ interface Adding {
 
 function Drawn(props: {
   table: TableExpr;
+  graph: JoinGraph;
   /** The relation's key: what a host keeps its dashboards by. Not `key`, which React keeps for itself. */
   dashboardKey: string;
   /** The relation's steps' keys, the root's first: what a dashboard over it leaves out of its fields, and what *Filter the page to these rows* selects. */
@@ -236,23 +227,18 @@ function Drawn(props: {
   resolver: JoinResolver;
   output: Required<AnswerOutput>;
   adding?: Adding;
-  onDrawing: OnDrawing;
   t: AnswerCardTranslations;
 }) {
-  const { table, keys, resolver, output, adding, onDrawing, t } = props;
-  // The fields a dashboard over the relation reads, so the tile it is added to is drawn the same.
-  const stats = useFieldStats(table, { exclude: keys });
-  const readable = React.useMemo(
-    () => (stats.fields && stats.columns ? plotRelation(table, { fields: stats.fields, columns: stats.columns }) : null),
-    [table, stats.fields, stats.columns],
-  );
+  const { table, graph, keys, resolver, output, adding, t } = props;
+  // The fields the answer was asked over, as the graph describes them — what the model was told, and
+  // what a dashboard over the relation reads, so the tile it is added to is drawn the same. Nothing
+  // is read for them.
+  const readable = React.useMemo(() => {
+    const about = answerRelation(output.answer.relation, graph);
+    return plotRelation(table, { fields: about.fields, columns: about.columns });
+  }, [table, graph, output.answer.relation]);
   const write = useAdd(adding, props.dashboardKey, output);
 
-  const drawing = stats.error === null && !readable;
-  React.useLayoutEffect(() => onDrawing(drawing), [drawing, onDrawing]);
-
-  if (stats.error !== null) return <Failure error={stats.error} t={t} />;
-  if (!readable) return <Skeleton className="h-[220px] w-full" slot="answer-card-pending" />;
   const tile = output.answer.tile;
   // The tile's own header holds them, beside its title, as a dashboard tile's pencil is held.
   const actions = (

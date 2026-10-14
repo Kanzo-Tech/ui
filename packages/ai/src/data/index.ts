@@ -5,8 +5,8 @@
 //
 // A subpath and not the root barrel because it draws with `@kanzo-tech/ui`'s analytics and table
 // layers, whose engines are optional peers: a host that only chats must not install DuckDB and
-// TanStack Table to import `Chat`. Nothing here knows what the data is — the join graph and the
-// relations offered over it are the host's.
+// TanStack Table to import `Chat`. Nothing here knows what the data is — the join graph is the
+// host's, and what each type and field is and holds is read off it, never off the engine.
 
 export { askEdit, askOffers, useAskChat } from "./ask-chat.js";
 export type { AskChatOptions, AskChatTranslations, AskMessage, AskOutput, AskTurn } from "./ask-chat.js";
@@ -15,8 +15,6 @@ export type { AskChipsProps } from "./ask-chips.js";
 export type { AnswerOutput, QueryRow } from "./read.js";
 export { ask } from "./ask.js";
 export type { AskChip, AskContext, AskInput, AskSpec } from "./ask.js";
-export type { Answer, AnswerField, AnswerRelation, UnansweredClause } from "./answer.js";
-export { answerRelationsOf, readAnswerRelations } from "./relations.js";
-export type { AnswerRelationsOfOptions, ReadAnswerRelationsOptions } from "./relations.js";
+export type { Answer, AnswerRelation, UnansweredClause } from "./answer.js";
 export { AnswerCard } from "./answer-card.js";
 export type { AnswerAdded, AnswerCardProps, AnswerCardTranslations } from "./answer-card.js";

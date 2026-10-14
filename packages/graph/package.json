@@ -33,7 +33,7 @@
     "size": "size-limit"
   },
   "//peers": "All required. cosmos.gl draws and lays out; `@ark-ui/react` is what every part renders through (`ark.*`), a peer for the reason it is `@kanzo-tech/ui`'s — two copies of Ark would be two portals and two focus traps; `lucide-react` is the icon set the parts draw their buttons with, `@kanzo-tech/ui`'s own peer; `@kanzo-tech/mosaic` is the coordinator the graph reads through as a client and the crossfilter it listens to and publishes into. The Mosaic stack itself — mosaic-core, mosaic-sql — is `@kanzo-tech/mosaic`'s peer, declared once there. `tailwind-variants` is a dependency, as it is `ui`'s and `ai`'s: the parts write their appearance as recipes, which is also what puts this package under the guards (`packages/ui/src/guard-corpus.ts`).",
-  "//fossil": "The graph reads a corpus fossil's `attach` (`@fossil-lang/corpus`) attached under a name — its tables, `fossil_tables` and `fossil_columns` — with SQL through the coordinator. It imports nothing of fossil's: the contract is the catalog, `/docs/format`, as `@fossil-lang/corpus` 0.3.0-alpha.28 writes it — `fossil_columns.datatype` is what tells a year stored as an `int32` from a number.",
+  "//fossil": "The graph reads a corpus fossil's `attach` (`@fossil-lang/corpus`) attached under a name — its tables, and the manifest as `fossil_tables`, `fossil_columns`, `fossil_annotations` and `fossil_stats` — with SQL through the coordinator, in one function, `readCatalog` (`src/core/catalog.ts`). It imports nothing of fossil's: the contract is the catalog, `/docs/format`, as `@fossil-lang/corpus` 0.3.0-alpha.32 writes it — edge labels and endpoint keys, term types, annotations and the writer's counts.",
   "peerDependencies": {
     "@ark-ui/react": "^5.37.2",
     "@cosmos.gl/graph": "^3.4.0",
@@ -78,7 +78,7 @@
   },
   "//gauges": "One gauge per published entry, and one per tree-shaken import a consumer meets; `scripts/gauges.mjs` (through `.size-limit.mjs`) is what each measures, and every limit's reason — each raise, dated, with its before and after — is a row on /docs/design, *A gauge per entry, and its raises written here*.",
   "gauges": {
-    ".": "25.25 kB",
+    ".": "26 kB",
     "./section": "1.6 kB"
   }
 }

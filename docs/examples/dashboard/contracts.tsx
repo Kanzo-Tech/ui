@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { Skeleton } from "@kanzo-tech/ui";
-import { loadObjects, type Coordinator } from "@kanzo-tech/mosaic";
+import { loadObjects, type Coordinator, type JoinGraph } from "@kanzo-tech/mosaic";
 import { useMosaic } from "@kanzo-tech/ui/analytics";
 import { ARCHIVE } from "@/example/archive";
 import { GRADES } from "@/example/world";
@@ -10,7 +10,8 @@ import { rng } from "@/lib/rng";
 import { MosaicDemo } from "../charts/mosaic-demo";
 
 // The archive's 536 closed contracts as a relation, for the two dashboard examples `sightings`
-// cannot serve: it has a real time (`closed`), and an `id` nearly every row has its own of.
+// cannot serve: it has a real time (`closed`), and an `id` that is the contracts' key — which the
+// page says, in `CONTRACTS_JOINS`, because nothing reads a key off a column's name or its count.
 //
 // `contracts_layout` is the same rows shaped like a fossil corpus's vertex table — a `dense_id` and
 // a layout's `x` and `y` beside the data — which is the relation the channel-named-columns pitfall
@@ -19,6 +20,16 @@ import { MosaicDemo } from "../charts/mosaic-demo";
 
 export const CONTRACTS = "contracts";
 export const CONTRACTS_LAYOUT = "contracts_layout";
+
+/**
+ * What the page says of `contracts`: one type, keyed by `id`, which is a key — never null, never
+ * repeated. The dashboard reads it as an identifier, searched and never grouped, and every other
+ * column from its type alone; a fossil corpus says the same of its own tables, from its catalog.
+ */
+export const CONTRACTS_JOINS: JoinGraph = {
+  types: [{ name: CONTRACTS, table: CONTRACTS, key: "id", candidateKeys: ["id"], columns: [{ name: "id", type: "VARCHAR" }] }],
+  edges: [],
+};
 
 const DAY = 86_400_000;
 // The archive counts days back from the world's own `TODAY`, in 1312. Dates that old render with the
@@ -85,7 +96,7 @@ function Loaded({ table, children }: { table: string; children: ReactNode }) {
 /** `MosaicDemo`, with one of the two contracts relations loaded before the children mount. */
 export function ContractsDemo({ table, children }: { table: string; children: ReactNode }) {
   return (
-    <MosaicDemo>
+    <MosaicDemo joins={table === CONTRACTS ? CONTRACTS_JOINS : undefined}>
       <Loaded table={table}>{children}</Loaded>
     </MosaicDemo>
   );

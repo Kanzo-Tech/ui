@@ -54,7 +54,7 @@ import {
 } from "@kanzo-tech/ui";
 import { Chat, ChatSkeleton } from "@kanzo-tech/ai";
 import type { Proposal } from "@kanzo-tech/ai/task";
-import { AnswerCard, answerRelationsOf, askEdit, AskChips, askOffers, readAnswerRelations, useAskChat, type AnswerRelation, type AskOutput, type AskSpec } from "@kanzo-tech/ai/data";
+import { AnswerCard, askEdit, AskChips, askOffers, useAskChat, type AskOutput, type AskSpec } from "@kanzo-tech/ai/data";
 import { scriptedModel } from "@kanzo-tech/llm/testing";
 import { promptOf } from "@kanzo-tech/testing";
 import {
@@ -996,8 +996,8 @@ export function GraphSettings() {
  * pretends to have understood anything it did not.
  *
  * Everything around the model is the real path, and it is the whole of what a host writes:
- * `readJoinGraph`, `answerRelationsOf` and `readAnswerRelations` for what may be asked, `useAskChat`,
- * `askOffers` for the pills, `ChatSkeleton` while the types load, and `AnswerCard`. Swapping the
+ * `readJoinGraph` for what may be asked — every type's facts are the graph's — `useAskChat`,
+ * `askOffers` for the pills, `ChatSkeleton` while the graph loads, and `AnswerCard`. Swapping the
  * recording for `localModel(…)` changes one line.
  */
 interface Intent {
@@ -1086,10 +1086,9 @@ const recording = scriptedModel({
   },
 });
 
-/** What may be asked: the archive's graph, and each of its types alone. */
+/** What may be asked: the archive's graph, which carries what each type and field is and holds. */
 interface Askable {
   graph: JoinGraph;
-  types: AnswerRelation[];
 }
 
 export function GraphAsk() {
@@ -1097,14 +1096,11 @@ export function GraphAsk() {
   const [askable, setAskable] = useState<Askable | null>(null);
   useEffect(() => {
     if (!archive) return;
-    // Leaving the page ends the read: what is still queued is cancelled, and the abort is not a failure.
+    // The graph is the one read — every type's facts are on it — and a page left mid-read keeps none of it.
     const controller = new AbortController();
     const { signal } = controller;
-    (async () => {
-      const graph = await readJoinGraph(archive.coordinator, FROM);
-      return { graph, types: await readAnswerRelations(archive.coordinator, graph, answerRelationsOf(graph, { hops: 0 }), { signal }) };
-    })().then(
-      (read) => !signal.aborted && setAskable(read),
+    readJoinGraph(archive.coordinator, FROM).then(
+      (graph) => !signal.aborted && setAskable({ graph }),
       (error: unknown) => !signal.aborted && announce(error),
     );
     return () => controller.abort();
@@ -1130,11 +1126,11 @@ function AskEmpty() {
 }
 
 /** Questions to start from: Ask's own offers, each checked, whole. None on failure, and the chat works without them. */
-function useOffers({ graph, types }: Askable, selection: MosaicSelection) {
+function useOffers({ graph }: Askable, selection: MosaicSelection) {
   const [state, setState] = useState<{ questions: Proposal<AskSpec>[]; proposing: boolean }>({ questions: [], proposing: true });
   useEffect(() => {
     const abort = new AbortController();
-    askOffers({ model: recording, graph, types, selection, signal: abort.signal }).then(
+    askOffers({ model: recording, graph, selection, signal: abort.signal }).then(
       (offers) => {
         for (const { value } of offers) {
           const intent = INTENTS.find((i) => JSON.stringify(i.spec) === JSON.stringify(value));
@@ -1146,7 +1142,7 @@ function useOffers({ graph, types }: Askable, selection: MosaicSelection) {
       () => !abort.signal.aborted && setState({ questions: [], proposing: false }),
     );
     return () => abort.abort();
-  }, [graph, types, selection]);
+  }, [graph, selection]);
   return state;
 }
 
@@ -1167,8 +1163,8 @@ function SubsetPill({ archive }: { archive: Archive }) {
 
 function AskBody({ archive, askable }: { archive: Archive; askable: Askable }) {
   const { selection } = useMosaic();
-  const chat = useAskChat({ model: recording, engine: archive.engine, graph: askable.graph, types: askable.types, selection });
-  const over = useMemo(() => ({ graph: askable.graph, types: askable.types }), [askable]);
+  const chat = useAskChat({ model: recording, engine: archive.engine, graph: askable.graph, selection });
+  const over = useMemo(() => ({ graph: askable.graph }), [askable]);
   const starters = useOffers(askable, selection);
 
   return (
