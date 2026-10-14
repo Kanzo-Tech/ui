@@ -1,6 +1,6 @@
 ---
 title: A guided chat
-description: The parts a conversation whose turns the host decides is built from, beside the transcript and the composer — work under way, a model in the page as it loads, a point to go back to, and the sources a message carries — and the question it puts to the person, which is @kanzo-tech/ui's.
+description: The parts a conversation whose turns the host decides is built from, beside the transcript and the composer — work under way, a model in the page as it loads, a point to go back to, the steps of the work, the sources a thread rests on and the ones a message carries — and the question it puts to the person, which is @kanzo-tech/ui's.
 ---
 
 <ComponentPreview componentName="guided" />
@@ -15,6 +15,8 @@ puts the decisions it cannot take to the person and offers questions to ask — 
 | `Working` | Work under way, said: a spinner and its words | `Shimmer`, `Loader` |
 | `ModelBadge` | A model in the page, as it downloads and loads | `Context` |
 | `Checkpoint` and its parts | A point in the transcript the host can go back to | `Checkpoint` |
+| `ChainOfThought`, `ChainOfThoughtStep` | The steps of the work — done, under way, waiting on the reader, still to come — as a list | `ChainOfThought` |
+| `Sources` and its parts | What the thread rests on, folded above the transcript: the reader's words about the data and the sources picked | `Sources` |
 | `PromptInputHeader` | The row above the composer's field, for the sources a message carries | `PromptInputHeader` |
 
 A question put to the person is `@kanzo-tech/ui`'s [`Question`](/docs/forms/question), which knows
@@ -147,6 +149,79 @@ nowhere to go back to. A host that keeps the cut turns as a branch draws them it
 **No tooltip on the trigger.** AI Elements' takes one, saying what restoring does; a host that wants
 the sentence gives the trigger it as its words, which a reader on touch can also read.
 
+## `ChainOfThought`
+
+<ComponentPreview componentName="guided" fileName="example-steps" />
+
+The steps of the work, all visible: *Read your files* done, *Match the columns* under way, *Choose what
+identifies a prize* waiting on the reader, *Write the program* and the rest still to come. Each row is
+a line with a mark, an optional detail under it and an optional action at its end. AI Elements'
+`ChainOfThought` and `ChainOfThoughtStep` in their names and props — `label`, `description`,
+`status`, `icon` — for the host's steps rather than the model's reasoning, which is `Reasoning`.
+
+```tsx
+import { ChainOfThought, ChainOfThoughtStep } from "@kanzo-tech/ai";
+import { Button, Eyebrow } from "@kanzo-tech/ui";
+
+<Eyebrow>What I am doing</Eyebrow>
+<ChainOfThought>
+  <ChainOfThoughtStep label="Read your files" description="6 files" />
+  <ChainOfThoughtStep label="Match the columns to the questions" status="active" />
+  <ChainOfThoughtStep label="Choose what identifies a prize" status="waiting" />
+  <ChainOfThoughtStep
+    action={<Button size="sm" variant="link">Open in the editor</Button>}
+    label="Write the program"
+    status="pending"
+  />
+</ChainOfThought>
+```
+
+| `ChainOfThoughtStepProps` | Type | |
+| --- | --- | --- |
+| `label` | `ReactNode` | The step's line |
+| `description` | `ReactNode` | Under the label, quieter |
+| `status` | `ChainOfThoughtStatus`: `"complete" \| "active" \| "waiting" \| "pending"` | Defaults to `complete`. `waiting` is the step that is the reader's to take; the other three are AI Elements' |
+| `icon` | `ComponentType<{ className?: string }>` | A glyph in place of the status's own |
+| `action` | `ReactNode` | Trailing the row: the step's one verb |
+| `translations` | `Partial<ChainOfThoughtTranslations>` | The four statuses, said to assistive tech |
+
+`children` are drawn under the detail, for a body of the host's own. A row's mark is paint, so the
+status is also said in words, ahead of the label, and the step that is the work's present — `active`
+or `waiting` — is `aria-current="step"`. It is an `<ol>`: the order is the meaning.
+
+## `Sources`
+
+<ComponentPreview componentName="guided" fileName="example-details" />
+
+What the thread rests on, folded above the transcript: *Sources*, a pill with how many, and — open —
+the reader's own words about the data and a pill per source. AI Elements' `Sources`,
+`SourcesTrigger` and `SourcesContent`, which sit under an answer, drawn once above the whole thread.
+
+```tsx
+import { Source, Sources, SourcesContent, SourcesTrigger } from "@kanzo-tech/ai";
+
+<Sources defaultOpen>
+  <SourcesTrigger count={sources.length} />
+  <SourcesContent>
+    <p className="basis-full">{about}</p>
+    {sources.map((source) => (
+      <Source key={source.id}>{source.name} · {source.files}</Source>
+    ))}
+  </SourcesContent>
+</Sources>
+```
+
+| Part | |
+| --- | --- |
+| `Sources` | `@kanzo-tech/ui`'s `Collapsible`, closed unless `defaultOpen` |
+| `SourcesTrigger` | The row that folds it: *Sources* (or its `children`), the `count` as a pill, the chevron. `SourcesTriggerProps` adds `count` and `translations` (`SourcesTranslations`: `sources`) |
+| `SourcesContent` | What is inside, wrapping: a child that should have a line of its own takes `basis-full` |
+| `Source` | One pill; its words are its children. A source that opens somewhere is `asChild` over the host's link |
+
+**Two places for sources, two jobs.** The pills in `PromptInputHeader` are what the *next* message is
+asked over, and they change; `Sources` is what the thread has been about, read-only, with the reader's
+words beside it.
+
 ## `PromptInputHeader`
 
 <ComponentPreview componentName="guided" fileName="example-sources" />
@@ -202,5 +277,8 @@ a bar under the words given a value, indeterminate given null";
 device can recover"; `packages/ai/src/checkpoint.test.tsx`, "is an item of the transcript between two
 turns, its rule hidden as paint", "restores nothing itself: the trigger is a button that hands the
 press to the host"; `packages/ai/src/prompt-input.test.tsx`, "carries the host's pills above the
-field, each opening what it holds". Why these and not the rest of AI Elements is
+field, each opening what it holds"; `packages/ai/src/chain-of-thought.test.tsx`, "is an ordered list with
+every step visible, the future ones too" and "says each status in words, since its mark is paint, and
+marks the present step"; `packages/ai/src/sources.test.tsx`, "is a trigger naming the block and counting
+its sources, closed until pressed". Why these and not the rest of AI Elements is
 [The references](/docs/design/references#ai-elements-is-a-source-not-a-reference).
