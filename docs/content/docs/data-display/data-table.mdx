@@ -174,8 +174,9 @@ be hidden is a table of anonymous rows. Initial state comes from
 ## Faceted filters
 
 `DataTableFacetFilter` is a multi-select over a column's faceted values, with live counts. Leave
-`options` out and it offers every distinct value it finds; pass them to narrow the list, relabel a
-raw value or give it an icon. It is a `FacetFilter` — a popover over a listbox, because a filter is
+`items` out and it offers every distinct value it finds; pass them to narrow the list, relabel a
+raw value or give it an icon. They are [`FacetFilter`](/docs/forms/facet-filter)'s items, the one
+facet item of the library, and `ChartFilter` takes the same. It is a `FacetFilter` — a popover over a listbox, because a filter is
 a value and not a command — so the rows are ordered by label whichever way they arrive.
 
 `searchable` adds a filter field above the values, for a column with more of them than anyone reads.
@@ -305,10 +306,11 @@ Extends `ark.div`. `useDataTableContext<TData>()` reads the instance back out.
 | --- | --- | --- |
 | `column` | `string` | — |
 | `label` | `ReactNode` | the column id |
-| `options` | `DataTableFacetOption[]` | every faceted value |
+| `items` | `readonly FacetFilterItem[]` | every faceted value |
 | `searchable` | `boolean` | `false` |
 
-`DataTableFacetOption` is `{ value: string; label?: ReactNode; icon?: ComponentType }`.
+`FacetFilterItem` is `{ value: string; label?: ReactNode; icon?: ComponentType; count?: number }`,
+from `@kanzo-tech/ui`. An item without a `count` is given the column's.
 
 ### DataTableViewOptions
 

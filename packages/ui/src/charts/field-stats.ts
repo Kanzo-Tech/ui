@@ -1,8 +1,6 @@
 "use client";
 
-import type { TableExpr } from "@kanzo-tech/mosaic";
-import { jsType, type Coordinator } from "@uwdata/mosaic-core";
-import { Query, sql } from "@uwdata/mosaic-sql";
+import { type TableExpr, jsType, type Coordinator, Query, sql } from "@kanzo-tech/mosaic";
 import { useEffect, useState } from "react";
 import { chartTableKey } from "./chart-spec.js";
 import { useMosaic } from "./mosaic-provider.js";

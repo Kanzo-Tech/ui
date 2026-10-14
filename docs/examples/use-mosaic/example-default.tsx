@@ -1,6 +1,7 @@
 "use client";
 
 import { Button, ButtonGroup, ButtonGroupText } from "@kanzo-tech/ui";
+import { count } from "@kanzo-tech/mosaic";
 import {
   ChartAxisX,
   ChartAxisY,
@@ -11,7 +12,6 @@ import {
   ChartRoot,
   ChartToggleX,
   bin,
-  count,
   useClauses,
   useMosaic,
 } from "@kanzo-tech/ui/analytics";

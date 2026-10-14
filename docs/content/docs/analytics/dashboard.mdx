@@ -411,7 +411,8 @@ with no hops, so there is no second path for it.
 <ComponentPreview componentName="dashboard" fileName="example-relations" hasMaxHeight={false} />
 
 ```tsx
-import { Dashboard, MosaicProvider, RelationPicker, relationIdentities, relationKey } from "@kanzo-tech/ui/analytics";
+import { relationIdentities, relationKey } from "@kanzo-tech/mosaic";
+import { Dashboard, MosaicProvider, RelationPicker } from "@kanzo-tech/ui/analytics";
 
 <MosaicProvider coordinator={coordinator} joins={graph}>
 <RelationPicker graph={graph} value={relation} onValueChange={setRelation} />

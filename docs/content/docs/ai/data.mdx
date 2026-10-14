@@ -30,7 +30,8 @@ import { Chat, ChatSkeleton } from "@kanzo-tech/ai";
 import { AnswerCard, askOffers, useAskChat, type AnswerCardProps, type AnswerRelation } from "@kanzo-tech/ai/data";
 import { localModel } from "@kanzo-tech/llm/local";
 import { DiagnosticList, Problem } from "@kanzo-tech/ui";
-import { useMosaic, type Dashboards, type Engine, type JoinGraph } from "@kanzo-tech/ui/analytics";
+import type { Engine, JoinGraph } from "@kanzo-tech/mosaic";
+import { useMosaic, type Dashboards } from "@kanzo-tech/ui/analytics";
 
 const model = localModel("Qwen3-4B-q4f16_1-MLC", { worker });
 ```

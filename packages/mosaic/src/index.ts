@@ -3,11 +3,15 @@
  *
  * Reading a column out of an Arrow answer and publishing a clause are not user-interface concerns,
  * so they live here and both `@kanzo-tech/graph` and `@kanzo-tech/ui/analytics` depend on this
- * rather than on each other; the graph never pulls in vgplot. `@kanzo-tech/ui/analytics` re-exports
- * these names.
+ * rather than on each other; the graph never pulls in vgplot.
  *
- * The re-exports are deliberate: one import site for `Coordinator` and `Selection` makes one copy
- * of Mosaic the easy outcome, and two copies would be two crossfilters that never hear each other.
+ * **This is the one door to Mosaic.** `@kanzo-tech/ui`'s charts, `@kanzo-tech/graph` and
+ * `@kanzo-tech/ai` import mosaic-core and mosaic-sql through it and nothing else, and
+ * `@kanzo-tech/ui/analytics` re-exports none of it, so a host writes each name one way
+ * (`/docs/design/analytics`). The re-exports are deliberate: one import site for `Coordinator` and
+ * `Selection` makes one copy of Mosaic the easy outcome, and two copies would be two crossfilters
+ * that never hear each other. What would reverse it: a Mosaic name a host or a chart needs that is
+ * not here — then it is added here, and nowhere else.
  */
 
 export {
@@ -15,6 +19,7 @@ export {
   MosaicClient,
   Selection,
   makeClient,
+  jsType,
   clausePoint,
   clausePoints,
   clauseInterval,
@@ -39,26 +44,39 @@ export {
 } from "@uwdata/mosaic-sql";
 
 /**
- * The expression builders the graph writes its statements with — the ones it uses, and no more. A
- * statement built from nodes quotes its own identifiers and literals, which a search a reader types
- * must never leave to a template string. mosaic-sql's `column` is not among them: a bare string is
- * already a column wherever these take one.
+ * The expression builders the graph, the charts and Ask write their statements with — the ones they
+ * use, and no more. A statement built from nodes quotes its own identifiers and literals, which a
+ * search a reader types must never leave to a template string. mosaic-sql's `column` is not among
+ * them: a bare string is already a column wherever these take one.
  */
 export {
   and,
   asTableRef,
+  binDate,
+  binHistogram,
   cast,
-  count,
+  cte,
+  div,
   eq,
   float64,
+  isAggregateExpression,
   isIn,
+  isNotNull,
   length,
   literal,
+  mul,
   not,
   sql,
-  sum,
+  verbatim,
   type ExprNode,
 } from "@uwdata/mosaic-sql";
+
+/**
+ * The aggregates, complete on purpose: what a chart's `x` / `y` / `r` and a `Query`'s `select` take.
+ * A vocabulary with holes sends its author to `@uwdata` for the one left out, which is the import
+ * this package exists to remove. They are mosaic-sql's, the same functions vgplot re-exports.
+ */
+export { avg, count, max, median, min, mode, quantile, stddev, sum } from "@uwdata/mosaic-sql";
 
 /**
  * Ours: the clause rule — column predicates on one relation, or a semi-join on identity — with the

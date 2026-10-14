@@ -1,6 +1,6 @@
 "use client";
 
-import { engine, type Coordinator } from "@kanzo-tech/ui/analytics";
+import { engine, type Coordinator } from "@kanzo-tech/mosaic";
 import { useEffect, useState } from "react";
 import { attach } from "@fossil-lang/corpus";
 

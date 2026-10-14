@@ -1,8 +1,8 @@
 import {
+  type TableExpr,
   avg,
   binDate,
   binHistogram,
-  column,
   count,
   div,
   eq,
@@ -15,8 +15,7 @@ import {
   sum,
   type ExprNode,
   type ExprValue,
-} from "@uwdata/mosaic-sql";
-import type { TableExpr } from "@kanzo-tech/mosaic";
+} from "@kanzo-tech/mosaic";
 import * as v from "valibot";
 import type { FieldStat } from "./field-stats.js";
 import { recommend } from "./recommend.js";
@@ -246,7 +245,7 @@ export function measureExpr(measure: DashboardMeasure): ExprValue {
     case "median":
       return median(field);
     case "share":
-      return mul(100, div(count().where(eq(column(field), literal(measure.equals))), count()));
+      return mul(100, div(count().where(eq(field, literal(measure.equals))), count()));
     case "value":
       return field;
   }

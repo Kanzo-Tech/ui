@@ -55,7 +55,7 @@ export default function Example() {
           <DataTableFacetFilter
             column="status"
             label="State"
-            options={[
+            items={[
               { icon: CircleDashedIcon, label: "Open", value: "open" },
               { icon: HandshakeIcon, label: "Claimed", value: "claimed" },
               { icon: FootprintsIcon, label: "Afield", value: "afield" },

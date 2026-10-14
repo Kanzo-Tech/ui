@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Selection, count } from "@kanzo-tech/mosaic";
 import {
   ChartAxisX,
   ChartAxisY,
@@ -10,9 +11,7 @@ import {
   ChartRectY,
   ChartRoot,
   ChartToggleX,
-  Selection,
   bin,
-  count,
 } from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 

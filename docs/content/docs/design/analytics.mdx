@@ -398,6 +398,55 @@ by direction and sorted by fan-out", "removes any chip, cutting the path there" 
 phrase an edge and name a plural"; `packages/mosaic/src/relation.test.ts`, "gives each hop its fan-out when
 the graph carries counts".
 
+## Mosaic is reached through `@kanzo-tech/mosaic`, and a name through one spelling
+
+**`@kanzo-tech/mosaic` is the one door to Mosaic: `/analytics` re-exports none of it, and
+`@kanzo-tech/ui`'s charts import Mosaic through it, not from `@uwdata/mosaic-core` or
+`@uwdata/mosaic-sql`.** `/analytics` re-exported about forty-five of its names, keasy imported
+`JoinGraph` from both, and the SQL vocabulary arrived from three modules — the aggregates from vgplot,
+`asc` and `desc` from mosaic, `Query` from mosaic-sql through a chart module. `graph` reached
+Mosaic only through the door, and `ai` but for one type it now takes from it; the charts are the third. Every SQL builder a host writes — the
+aggregates, `sql`, `verbatim`, `asc`, `desc`, `Query` — is imported from `@kanzo-tech/mosaic`, which
+holds the aggregates `/analytics` stopped re-exporting. `/analytics` keeps its own parts and the
+plotting half — `bin` and the six axis marks its descriptors withhold — and vgplot's `coordinator`
+setter, which only `MosaicProvider` calls, is on neither. mosaic-core and mosaic-sql are
+`@kanzo-tech/mosaic`'s peers, declared once there; `@kanzo-tech/ui` no longer names them, as
+`@kanzo-tech/graph` and `@kanzo-tech/ai` never did.
+
+It is [Conventions](/docs/conventions)' rule for a re-export most callers bypass — two ways to write
+one import — and the reason `@kanzo-tech/mosaic` exists: one copy of Mosaic, so one coordinator.
+
+**The six interactor aliases are gone.** `ChartPickX`, `ChartPickY` and `ChartPickColor` were
+`ChartToggleX`, `ChartToggleY` and `ChartToggleColor`, and `ChartBrushX`, `ChartBrushY` and
+`ChartBrushXY` were `ChartIntervalX`, `ChartIntervalY` and `ChartIntervalXY`, kept as names that
+*describe the gesture*. vgplot's names are the reference's, and an alias is the one thing the
+repository forbids by name.
+
+**One facet item, passed as `items`.** `FacetFilter`, `DataTableFacetFilter` and `ChartFilter` each
+take `items` of `FacetFilterItem` — a value, a label, an icon, a count — and `DataTableFacetOption`
+and `ChartFilterOption`, two re-declarations of it, are gone. `items` is Ark's word for a
+collection's members. A chart filter's values are the column's, a number as often as a string; the
+item's `value` is their text, and `ChartFilter` maps it back to the column's value where it has read
+it, and otherwise publishes the text, which DuckDB casts to the column's type as it casts any string
+literal it compares with one.
+
+**What would reverse it:** a Mosaic name a host needs that `@kanzo-tech/mosaic` does not export —
+then mosaic exports it, and `/analytics` still does not. A host that writes an open expression
+builder the door does not hold (`gt`, `regexp_matches`) imports it from mosaic-sql, as the docs'
+standing-orders showcase does; the second host to need one is the case for the door.
+
+**`valibot` is an optional peer of `@kanzo-tech/ui/analytics`.** It was a direct dependency of
+`@kanzo-tech/ui`, and only `/analytics`' dashboard spec imports it, so every consumer of `{ Button }`
+installed a validator it never ran. It joins `/analytics`' other optional peers by
+[the engine rule](/docs/philosophy#the-engine-rule), the rule `/editor` and `/table` follow.
+*What would reverse it:* the root barrel reading a spec — then it is a dependency again.
+
+*Held by* `packages/ui/src/mosaic-public-api.test.ts`, "imports mosaic-core and mosaic-sql through
+@kanzo-tech/mosaic in every shipped package but that one", "passes none of Mosaic through /analytics,
+value or type"; `packages/ui/src/charts/chart-inputs.test.tsx`, "takes its items with their labels
+and skips the lookup", "publishes a ticked item's text, which it read no column value for"; `packages/ui/src/table/data-table-toolbar.test.tsx`, "honours its items and
+their labels".
+
 ## Two size gauges, measured against what ships
 
 The analytics gauge and the `{ Dashboard }` gauge leave out what `vite.config.ts` externalises:

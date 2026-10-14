@@ -1,5 +1,6 @@
 "use client";
 
+import { avg, count, sql, sum } from "@kanzo-tech/mosaic";
 import {
   ChartAxisX,
   ChartAxisY,
@@ -11,10 +12,6 @@ import {
   ChartRoot,
   ChartToggleX,
   type ChartConfig,
-  avg,
-  count,
-  sql,
-  sum,
 } from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 

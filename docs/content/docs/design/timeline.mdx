@@ -27,7 +27,7 @@ because d3's grey fill over the window read as the part left out. *What would re
 that redraws one mark in place; then the bars in front can be the window's own query again, and
 show its counts rather than its extent. Cosmograph's `Timeline` draws the same two
 layers (`highlightSelectedData`) and publishes `isBetween(column, range)` from a client of its own.
-Ours is a `ChartRoot` of `ChartRectY` marks and a `ChartBrushX`. The bins are SQL, through vgplot's
+Ours is a `ChartRoot` of `ChartRectY` marks and a `ChartIntervalX`. The bins are SQL, through vgplot's
 `bin()`, which bins a temporal channel by date.
 
 **One clause means one source, for as long as the window lasts.** An interval is its clause's source,

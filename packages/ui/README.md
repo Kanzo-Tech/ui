@@ -40,15 +40,18 @@ entry:
 | `@kanzo-tech/ui` | none beyond React and `lucide-react` |
 | `@kanzo-tech/ui/editor` | `@codemirror/*` |
 | `@kanzo-tech/ui/table` | `@tanstack/react-table` |
-| `@kanzo-tech/ui/analytics` | `@uwdata/vgplot`, `@uwdata/mosaic-*` |
+| `@kanzo-tech/ui/analytics` | `@kanzo-tech/mosaic` (with its peers `@uwdata/mosaic-core`, `@uwdata/mosaic-sql`), `@uwdata/vgplot`, `@uwdata/mosaic-plot`, `valibot` |
 
 `/analytics` holds two layers over one Mosaic coordinator and one crossfilter: the charts grammar
 (`MosaicProvider`, `ChartRoot`, marks, interactors, inputs, `ChartStat`) and the mini BI kit built
 from it — `Dashboard` with `DashboardStat`, `ChartCard`, `DetailTable` and `FilterBar`, drawn
-from a relation's `useFieldStats` and a JSON `DashboardSpec` the host saves.
+from a relation's `useFieldStats` and a JSON `DashboardSpec` the host saves. Mosaic itself — the
+engine, the coordinator, `Query`, the aggregates, the clauses — is imported from
+`@kanzo-tech/mosaic`, the one door to it; `/analytics` re-exports none of it.
 
 ```tsx
-import { Dashboard, FilterBar, MosaicProvider, engine } from "@kanzo-tech/ui/analytics";
+import { engine } from "@kanzo-tech/mosaic";
+import { Dashboard, FilterBar, MosaicProvider } from "@kanzo-tech/ui/analytics";
 
 const { coordinator } = await engine();
 <MosaicProvider coordinator={coordinator}>

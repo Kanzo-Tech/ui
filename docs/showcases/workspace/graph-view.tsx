@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { parseDate, type DateValue } from "@internationalized/date";
-import { sql, verbatim, type VerbatimNode } from "@uwdata/mosaic-sql";
 import {
   Badge,
   Button,
@@ -58,16 +57,17 @@ import { AnswerCard, answerRelationsOf, askEdit, AskChips, askOffers, questionOf
 import { mockModel, promptOf } from "@/lib/mock-model";
 import {
   Coordinator,
-  MosaicProvider,
   Query,
   Selection as MosaicSelection,
   count,
   numbers,
-  useChartQuery,
-  useMosaic,
+  sql,
+  verbatim,
   type Engine,
+  type ExprNode,
   type JoinGraph,
-} from "@kanzo-tech/ui/analytics";
+} from "@kanzo-tech/mosaic";
+import { MosaicProvider, useChartQuery, useMosaic } from "@kanzo-tech/ui/analytics";
 import {
   SparklesIcon,
   PlusIcon,
@@ -147,7 +147,7 @@ export interface Archive {
   /** The page's engine: the Ask panel's agent reads through its `query`, outside the coordinator's queue. */
   engine: Engine;
   coordinator: Coordinator;
-  nodes: VerbatimNode;
+  nodes: ExprNode;
 }
 
 function openArchive(): Promise<Archive> {

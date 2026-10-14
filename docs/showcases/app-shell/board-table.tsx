@@ -168,7 +168,7 @@ const COLUMNS: ColumnDef<Quest>[] = [
   }),
 ];
 
-const STATUS_OPTIONS = QUEST_STATUSES.map((state) => ({
+const STATUS_ITEMS = QUEST_STATUSES.map((state) => ({
   value: state.id,
   label: state.label,
   icon: STATUS_ICON[state.id],
@@ -189,7 +189,7 @@ export function BoardTable() {
     <DataTableRoot table={table}>
       <DataTableToolbar id="tour-board-toolbar">
         <DataTableSearch column="title" placeholder="Search contracts…" />
-        <DataTableFacetFilter column="status" label="State" options={STATUS_OPTIONS} />
+        <DataTableFacetFilter column="status" label="State" items={STATUS_ITEMS} />
         <DataTableFacetFilter column="region" label="Region" />
         <DataTableViewOptions className="ms-auto" />
       </DataTableToolbar>

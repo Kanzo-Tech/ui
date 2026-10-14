@@ -1,6 +1,5 @@
-import { clauseLabel, literal, Query, relationQuery, type Engine, type JoinGraph, type Selection, type SelectionClause } from "@kanzo-tech/mosaic";
+import { clauseLabel, literal, Query, relationQuery, type Engine, type ExprNode, type JoinGraph, type Selection, type SelectionClause } from "@kanzo-tech/mosaic";
 import { plotRelation } from "@kanzo-tech/ui/analytics";
-import type { ExprNode } from "@uwdata/mosaic-sql";
 import { ANSWER_ROWS, answerQuery, conditionClauses, pageClauses, type Answer, type AnswerRelation, type UnansweredClause } from "./answer.js";
 
 /** One row of an answer, plain enough to keep in a message. */
