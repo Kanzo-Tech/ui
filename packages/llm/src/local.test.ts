@@ -1,4 +1,4 @@
-import { generateText } from "ai";
+import { Output, generateText, jsonSchema, streamText } from "ai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const supported = vi.fn(() => true);
@@ -9,6 +9,14 @@ const loaded: string[] = [];
 const gates = new Map<string, Promise<void>>();
 const persist = vi.fn(async () => true);
 vi.stubGlobal("navigator", { storage: { persist } });
+/** What the fake engine does with a request, when a test takes it over; and how often it was interrupted. */
+type Created = { choices: { message: { content: string | null }; finish_reason: string | null }[]; usage?: { prompt_tokens: number; completion_tokens: number } };
+let creating: ((request: Record<string, unknown>) => Promise<Created>) | undefined;
+let interrupt = () => {};
+const interrupts: number[] = [];
+/** What the wrapped provider's own doGenerate and doStream answer, when a test takes them over. */
+let generating: (() => Record<string, unknown>) | undefined;
+let streaming: (() => ReadableStream) | undefined;
 
 vi.mock("@browser-ai/web-llm", () => ({
   doesBrowserSupportWebLLM: () => supported(),
@@ -19,7 +27,7 @@ vi.mock("@browser-ai/web-llm", () => ({
       provider: "web-llm",
       modelId: id,
       supportedUrls: {},
-      doGenerate: async () => ({
+      doGenerate: async () => generating?.() ?? ({
         content: [{ type: "text", text: "<think>counting</think>42" }],
         finishReason: { unified: "stop", raw: "stop" },
         usage: {
@@ -29,7 +37,8 @@ vi.mock("@browser-ai/web-llm", () => ({
         warnings: [],
       }),
       doStream: async () => {
-        throw new Error("not streamed here");
+        if (!streaming) throw new Error("not streamed here");
+        return { stream: streaming() };
       },
       createSessionWithProgress: async () => {
         await gates.get(id);
@@ -41,11 +50,12 @@ vi.mock("@browser-ai/web-llm", () => ({
           completions: {
             create: async (request: Record<string, unknown>) => {
               requests.push(request);
+              if (creating) return creating(request);
               return { choices: [{ message: { content: "People : Person from User" }, finish_reason: "stop" }], usage: { prompt_tokens: 3, completion_tokens: 5 } };
             },
           },
         },
-        interruptGenerate: async () => {},
+        interruptGenerate: async () => (interrupts.push(requests.length), interrupt()),
       }),
     };
   },
@@ -86,6 +96,9 @@ const scope = globalThis as { [key: symbol]: unknown };
 
 beforeEach(() => {
   supported.mockReturnValue(true);
+  creating = generating = streaming = undefined;
+  interrupt = () => {};
+  interrupts.length = 0;
   delete scope[REGISTRY];
 });
 
@@ -188,6 +201,108 @@ describe("localModel", () => {
   it("refuses to load without WebGPU, as a call does", async () => {
     supported.mockReturnValue(false);
     await expect(loadLocalModel("gemma-2-2b-it-q4f16_1-MLC")).rejects.toMatchObject({ code: "llm/unavailable" });
+  });
+});
+
+describe("localModel, honest about how a generation ended", () => {
+  const usage = {
+    inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+    outputTokens: { total: 1, text: 1, reasoning: 0 },
+  };
+  const finished = (text: string, raw: string, unified = "stop") => () => ({ content: [{ type: "text", text }], finishReason: { unified, raw }, usage, warnings: [] });
+  const model = () => localModel("Qwen3-4B-q4f16_1-MLC");
+
+  it("rejects as llm/truncated a structured answer the context cut off, not as JSON that does not parse", async () => {
+    generating = finished('{"x": 1, "y": ', "length");
+    const call = generateText({ model: model(), prompt: "?", output: Output.object({ schema: jsonSchema<{ x: number; y: number }>({ type: "object", properties: { x: { type: "number" }, y: { type: "number" } }, required: ["x", "y"] }) }), maxRetries: 0 });
+    await expect(call).rejects.toBeInstanceOf(LlmError);
+    await expect(call).rejects.toMatchObject({ code: "llm/truncated" });
+  });
+
+  it("rejects as llm/truncated a grammar-held answer the context cut off", async () => {
+    creating = async () => ({ choices: [{ message: { content: "People : Pers" }, finish_reason: "length" }] });
+    await expect(generateText({ model: model(), prompt: "?", providerOptions: { kanzo: { grammar: "root ::= x" } } })).rejects.toMatchObject({ code: "llm/truncated" });
+  });
+
+  it("returns text the context cut off with the finish length, not stop", async () => {
+    generating = finished("Once upon a", "length");
+    const { text, finishReason } = await generateText({ model: model(), prompt: "?" });
+    expect(text).toBe("Once upon a");
+    expect(finishReason).toBe("length");
+  });
+
+  it("rejects an interrupted generation as an AbortError, with the text it had written never returned", async () => {
+    generating = finished('{"x": 1', "abort", "other");
+    await expect(generateText({ model: model(), prompt: "?", maxRetries: 0 })).rejects.toMatchObject({ name: "AbortError" });
+    creating = async () => ({ choices: [{ message: { content: "People" }, finish_reason: "abort" }] });
+    await expect(generateText({ model: model(), prompt: "?", maxRetries: 0, providerOptions: { kanzo: { grammar: "root ::= x" } } })).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("ends an interrupted stream as an AbortError", async () => {
+    streaming = () =>
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue({ type: "stream-start", warnings: [] });
+          controller.enqueue({ type: "text-start", id: "t" });
+          controller.enqueue({ type: "text-delta", id: "t", delta: "{" });
+          controller.enqueue({ type: "text-end", id: "t" });
+          controller.enqueue({ type: "finish", finishReason: { unified: "other", raw: "abort" }, usage });
+          controller.close();
+        },
+      });
+    const result = streamText({ model: model(), prompt: "?", maxRetries: 0 });
+    await expect(
+      (async () => {
+        for await (const _ of result.textStream) void _;
+      })(),
+    ).rejects.toMatchObject({ name: "AbortError" });
+  });
+});
+
+describe("localModel, one call at a time and each call's interrupt its own", () => {
+  const grammar = { kanzo: { grammar: "root ::= x" } };
+  /** A fake engine whose requests wait for the test; an interrupt finishes the running one as `abort`. */
+  function slow() {
+    const running: { request: Record<string, unknown>; finish: (reason: string) => void }[] = [];
+    creating = (request) =>
+      new Promise((resolve) => {
+        running.push({ request, finish: (reason) => resolve({ choices: [{ message: { content: reason === "abort" ? "{" : "done" }, finish_reason: reason }] }) });
+      });
+    interrupt = () => running.at(-1)?.finish("abort");
+    return running;
+  }
+  const model = () => localModel("Qwen3-4B-q4f16_1-MLC");
+
+  it("drops a call aborted while it waits, without the engine hearing of it, and the running call finishes", async () => {
+    const running = slow();
+    const first = generateText({ model: model(), prompt: "first", providerOptions: grammar, maxRetries: 0 });
+    await vi.waitFor(() => expect(running).toHaveLength(1));
+    const stop = new AbortController();
+    const second = generateText({ model: model(), prompt: "second", providerOptions: grammar, abortSignal: stop.signal, maxRetries: 0 });
+    const third = generateText({ model: model(), prompt: "third", providerOptions: grammar, maxRetries: 0 });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(running).toHaveLength(1);
+    stop.abort();
+    await expect(second).rejects.toMatchObject({ name: "AbortError" });
+    expect(interrupts).toEqual([]);
+    running[0]!.finish("stop");
+    expect((await first).text).toBe("done");
+    // The one dropped never reached the engine; the one behind it did, in its turn.
+    await vi.waitFor(() => expect(running).toHaveLength(2));
+    expect(JSON.stringify(running[1]!.request)).toContain("third");
+    running[1]!.finish("stop");
+    expect((await third).text).toBe("done");
+    expect(interrupts).toEqual([]);
+  });
+
+  it("interrupts the running call when its own signal aborts, and the caller sees an abort, not text", async () => {
+    const running = slow();
+    const stop = new AbortController();
+    const first = generateText({ model: model(), prompt: "first", providerOptions: grammar, abortSignal: stop.signal, maxRetries: 0 });
+    await vi.waitFor(() => expect(running).toHaveLength(1));
+    stop.abort();
+    await expect(first).rejects.toMatchObject({ name: "AbortError" });
+    expect(interrupts).toHaveLength(1);
   });
 });
 

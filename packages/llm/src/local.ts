@@ -167,7 +167,7 @@ interface Engine {
     completions: {
       create(request: {
         messages: { role: "system" | "user" | "assistant"; content: string }[];
-        response_format: { type: "grammar"; grammar: string };
+        response_format: { type: "grammar"; grammar: string } | { type: "json_object"; schema: string };
         max_tokens?: number;
         temperature?: number;
         stream: false;
@@ -199,7 +199,7 @@ async function generateHeld(provider: unknown, grammar: string, options: Languag
     const output = response.usage?.completion_tokens;
     return {
       content: [{ type: "text", text: choice?.message.content ?? "" }],
-      finishReason: { unified: choice?.finish_reason === "length" ? "length" : "stop", raw: choice?.finish_reason ?? undefined },
+      finishReason: { unified: choice?.finish_reason === "length" ? "length" : choice?.finish_reason === "abort" ? "other" : "stop", raw: choice?.finish_reason ?? undefined },
       usage: {
         inputTokens: { total: input, noCache: input, cacheRead: undefined, cacheWrite: undefined },
         outputTokens: { total: output, text: output, reasoning: undefined },
@@ -209,6 +209,88 @@ async function generateHeld(provider: unknown, grammar: string, options: Languag
   } finally {
     options.abortSignal?.removeEventListener("abort", stop);
   }
+}
+
+/** A generation stopped from outside, as an aborted `fetch` rejects: nothing the model wrote is an answer. */
+const interrupted = () => new DOMException("The generation was interrupted", "AbortError");
+
+/**
+ * **One call at a time on an engine, and a call's interrupt only its own.** WebLLM's
+ * `interruptGenerate()` is the engine's, not a request's: it stops whichever generation is running.
+ * `@browser-ai/web-llm` registers it on a call's signal when the call is *made*, before it waits for
+ * the engine's lock, so aborting a call that was only waiting stopped the one running — mid-JSON, and
+ * the cut-off text was parsed. A call here waits for its turn first and is handed the engine only
+ * then; one aborted while it waits is dropped without the engine hearing of it. The turn is given
+ * back by the `release` it resolves with, once.
+ */
+function turns() {
+  let tail: Promise<void> = Promise.resolve();
+  return async (signal?: AbortSignal): Promise<() => void> => {
+    const before = tail;
+    let release!: () => void;
+    tail = new Promise<void>((resolve) => (release = resolve));
+    let stop!: () => void;
+    const dropped = new Promise<"dropped">((resolve) => (stop = () => resolve("dropped")));
+    if (signal?.aborted) stop();
+    else signal?.addEventListener("abort", stop, { once: true });
+    const first = await Promise.race([before.then(() => "turn" as const), dropped]);
+    signal?.removeEventListener("abort", stop);
+    if (first === "dropped") {
+      // The slot stays taken until the call ahead is done, so the calls behind keep their order.
+      void before.then(release);
+      throw interrupted();
+    }
+    let given = false;
+    return () => {
+      if (given) return;
+      given = true;
+      release();
+    };
+  };
+}
+
+/**
+ * **The one choke point of a finish.** `@browser-ai/web-llm` reports a generation cut off by the
+ * context as a finished one (`length` becomes `stop`) and one interrupted as `other`; here neither
+ * passes as an answer. An interrupted generation rejects as an `AbortError`. One cut off by the
+ * context, where a structured answer was asked for — a JSON Schema or a grammar — rejects as
+ * `llm/truncated`, since half a document is not a document; asked for text, it is returned with the
+ * finish `length`, which a reader of text can see.
+ */
+function honest(result: LanguageModelV4GenerateResult, options: LanguageModelV4CallOptions): LanguageModelV4GenerateResult {
+  const raw = result.finishReason.raw;
+  if (raw === "abort") throw interrupted();
+  if (raw !== "length") return result;
+  if (options.responseFormat?.type === "json" || (options.providerOptions?.kanzo as LocalCallOptions | undefined)?.grammar) {
+    throw new LlmError("llm/truncated", "The answer did not fit the model's context", { reason: "context" });
+  }
+  return { ...result, finishReason: { unified: "length", raw } };
+}
+
+/** A stream held to its turn: the turn is given back when it ends, fails or is cancelled, and a generation interrupted ends it as an `AbortError`. */
+function turnStream<T extends { type: string }>(source: ReadableStream<T>, release: () => void): ReadableStream<T> {
+  const reader = source.getReader();
+  return new ReadableStream<T>({
+    async pull(controller) {
+      try {
+        const { done, value } = await reader.read();
+        if (done) {
+          release();
+          controller.close();
+        } else if (value.type === "finish" && (value as { finishReason?: { raw?: string } }).finishReason?.raw === "abort") {
+          release();
+          controller.error(interrupted());
+        } else controller.enqueue(value);
+      } catch (error) {
+        release();
+        controller.error(error);
+      }
+    },
+    cancel(reason) {
+      release();
+      return reader.cancel(reason);
+    },
+  });
 }
 
 /**
@@ -230,17 +312,33 @@ function webLLMEngine(id: string, appConfig: AppConfig, worker: Worker | undefin
     appConfig,
     initProgressCallback: (progress: WebLLMProgress) => report({ state: "loading", progress: progress.progress, text: progress.text }),
   });
+  const turn = turns();
   const model = wrapLanguageModel({
     model: provider,
     middleware: [
       {
         specificationVersion: "v4",
-        wrapGenerate: ({ doGenerate, params }) => {
+        wrapGenerate: async ({ doGenerate, params }) => {
           persist();
-          const grammar = (params.providerOptions?.kanzo as LocalCallOptions | undefined)?.grammar;
-          return grammar ? generateHeld(provider, grammar, params) : doGenerate();
+          const release = await turn(params.abortSignal);
+          try {
+            const grammar = (params.providerOptions?.kanzo as LocalCallOptions | undefined)?.grammar;
+            return honest(grammar ? await generateHeld(provider, grammar, params) : await doGenerate(), params);
+          } finally {
+            release();
+          }
         },
-        wrapStream: ({ doStream }) => (persist(), doStream()),
+        wrapStream: async ({ doStream, params }) => {
+          persist();
+          const release = await turn(params.abortSignal);
+          try {
+            const result = await doStream();
+            return { ...result, stream: turnStream(result.stream, release) };
+          } catch (error) {
+            release();
+            throw error;
+          }
+        },
       },
       // A model that thinks out loud (Qwen3, DeepSeek) does it between <think> tags.
       extractReasoningMiddleware({ tagName: "think" }),

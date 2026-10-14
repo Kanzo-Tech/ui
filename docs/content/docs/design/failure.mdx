@@ -37,6 +37,7 @@ model failures `llm/failed`, so one area had two names; the class is `LlmError` 
 | `graph/no-positions` | `GraphError` | a device that came up holds no positions for the points it was given: a frame's read-back failed | — |
 | `graph/nothing-to-draw` | `GraphError` | an attached corpus with no vertex | — |
 | `llm/unavailable` | `LlmError`, from `@kanzo-tech/llm` | the page cannot run the model: no WebGPU for `localModel` | `reason` |
+| `llm/truncated` | `LlmError`, from `@kanzo-tech/llm` | a structured answer the model's context cut off | `reason` `"context"` |
 | `session/*`, `idp/*`, `api/*`, `callback/*`, `token/*`, `organization/*`, `claims/*` | `AuthError` | see [the auth layer](/docs/design/auth) | `after`, `status` where named |
 
 **What would reverse it:** a code a host never branches on. Then it folds into its neighbour; the
@@ -98,3 +99,43 @@ loads or is fetched"; `packages/ai/src/assist.test.tsx`, "asks once: an error th
 not a retry after it"; `packages/llm/src/stream.test.ts`, "never retries a refused call";
 `packages/llm/src/generate.test.ts`, "never retries a refused call"; `packages/ai/src/task/task.test.ts`,
 "asks once: an error the SDK would retry is the failure, not a retry after it".
+
+## A generation that did not finish is not an answer
+
+WebLLM ends a generation three ways, and `@browser-ai/web-llm` kept two apart on one path and none
+on the other: its `doGenerate` maps `length` to `stop` and `abort` to `other`, and its `doStream`
+reports `stop` whatever happened except an abort. A generation stopped at `"y": ` was therefore a
+finished one, handed to `Output.object`, and the person read "No object generated: could not parse
+the response" for what was an interrupt. `localModel` is the one choke point: an interrupted
+generation (raw finish `abort`) rejects as an `AbortError`, on the generate and the stream paths
+alike, and never returns the text it had written; a structured answer (a JSON Schema or a grammar)
+that the context cut off (raw `length`) rejects as `llm/truncated`; text cut off by the context is
+returned with the finish `length`, which a reader of text can see. `generateHeld` reports the same
+three finishes. A stream cannot report `length`: the provider says `stop` for it, and the model's
+context is not ours to measure.
+
+**What would reverse it:** `@browser-ai/web-llm` reporting the finish of a generation honestly on
+both paths. Then the middleware's check is the provider's, and the code goes.
+
+*Held by* `packages/llm/src/local.test.ts`, "rejects as llm/truncated a structured answer the context
+cut off, not as JSON that does not parse"; "returns text the context cut off with the finish length,
+not stop"; "rejects an interrupted generation as an AbortError, with the text it had written never
+returned"; "ends an interrupted stream as an AbortError".
+
+## An interrupt is a call's own
+
+WebLLM's `interruptGenerate()` is the engine's: it sets one flag, and whichever generation is
+running stops. `@browser-ai/web-llm` registers it on a call's `abortSignal` when the call is made,
+before the call has the engine's lock, so aborting a call that was only waiting — a starters query
+React Query cancelled, a second Enter — stopped the first question mid-JSON. `localModel` takes the
+turns itself, one call at a time per engine, and hands a call to the provider only when its turn
+begins, so the provider's listener is registered for the one request the engine is running. A call
+aborted in the queue is dropped, and the engine never hears of it. The queue costs nothing WebLLM
+did not already charge: its own lock serialised non-streaming requests.
+
+**What would reverse it:** WebLLM interrupting a request by id. Then the queue is the engine's and
+the one here goes.
+
+*Held by* `packages/llm/src/local.test.ts`, "drops a call aborted while it waits, without the engine
+hearing of it, and the running call finishes"; "interrupts the running call when its own signal
+aborts, and the caller sees an abort, not text".
