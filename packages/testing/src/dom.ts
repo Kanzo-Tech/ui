@@ -8,7 +8,7 @@ import type { EnvironmentOptions } from "./playwright";
  * queries, so a unit test drives a component through the harness a host's end-to-end suite uses.
  * It installs the test hook at once, so call it *before* rendering: a component registers while it
  * mounts. `container` is where every search starts; `document.body` holds what Testing Library's
- * `render` appends. `models` registers a model double's script per model id, as `playwright` does.
+ * `render` appends. `models` registers a scripted provider per model id, as `playwright` does.
  *
  * jsdom has no layout and no WebGL: a box is all zeros, a chart never measures a width to draw at,
  * and a graph canvas has no renderer. What a harness reads there is the ARIA, which is what this

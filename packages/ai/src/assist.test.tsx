@@ -18,7 +18,8 @@ import {
 } from "@kanzo-tech/ui";
 import { Assist, AssistProvider } from "./assist.js";
 import type { AssistEvent } from "./engine.js";
-import { promptOf, scriptedModel } from "@kanzo-tech/llm/testing";
+import { scriptedModel } from "@kanzo-tech/llm/testing";
+import { promptOf } from "@kanzo-tech/testing";
 import { APICallError } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 

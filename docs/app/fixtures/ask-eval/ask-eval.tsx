@@ -7,7 +7,7 @@ import { engine, relationHops, type Coordinator, type Engine, type JoinGraph, ty
 import { Dashboard, FilterBar, MosaicProvider, useMosaic, type DashboardSpec } from "@kanzo-tech/ui/analytics";
 import { Chat, ModelBadge } from "@kanzo-tech/ai";
 import { AnswerCard, answerRelationsOf, readAnswerRelations, useAskChat, type AnswerRelation } from "@kanzo-tech/ai/data";
-import { loadLocalModel, localModel, localModelLoad, watchLocalModel } from "@kanzo-tech/llm/local";
+import { loadLocalModel, localModel, localModelLoad, localProvider, setLocalProvider, watchLocalModel } from "@kanzo-tech/llm/local";
 import { readJoinGraph } from "@kanzo-tech/graph";
 
 /**
@@ -19,8 +19,9 @@ import { readJoinGraph } from "@kanzo-tech/graph";
  * - `relation` — the dashboard's relation, by its key: `LaureateAward>category>Category`.
  * - `filter` — a field of it, or nothing: one bar tile counting it, which the runner picks a bar on,
  *   so the question is asked under the page's filter as a reader's would be.
- * - `model` — the model in the page, a WebLLM id; Qwen3 4B by default, keasy's. A test that
- *   registered a script for that id gets `@kanzo-tech/llm/testing`'s double instead.
+ * - `model` — the model in the page, a WebLLM id from its prebuilt list; Qwen3 4B by default,
+ *   keasy's. A test that registered a script for that id has registered its provider, which
+ *   `localModel` resolves as it resolves WebLLM's.
  *
  * Nothing else: no offers, no chips, no dashboard to add to. They are not what a case scores, and a
  * model asked for offers beside the question is a model slower to answer it.
@@ -145,10 +146,10 @@ function Board({ attached, filter }: { attached: Attached; filter: string | null
 
 /** Ask on the page's selection, with the model in the page and its load said by its badge. */
 function Ask({ attached, model }: { attached: Attached; model: string }) {
-  // The worker the engine runs in, made once: a long prefill on the page's thread would hold the
-  // harnesses' every read until it ends.
-  const worker = useMemo(() => new Worker(new URL("./model.worker.ts", import.meta.url), { type: "module" }), []);
-  const asked = useMemo(() => localModel(model, { worker }), [model, worker]);
+  // The provider, set once before anything asks: WebLLM's prebuilt list, in a worker of its own —
+  // a long prefill on the page's thread would hold the harnesses' every read until it ends.
+  useState(() => setLocalProvider(localProvider({ worker: new Worker(new URL("./model.worker.ts", import.meta.url), { type: "module" }) })));
+  const asked = useMemo(() => localModel(model), [model]);
   const load = useSyncExternalStore(
     (listener) => watchLocalModel(model, listener),
     () => localModelLoad(model),
@@ -156,8 +157,8 @@ function Ask({ attached, model }: { attached: Attached; model: string }) {
   );
   // Loaded as the page opens, so the first question measures the model and not its download.
   useEffect(() => {
-    loadLocalModel(model, { worker }).catch(() => {}); // Not lost: the badge says it failed, and why.
-  }, [model, worker]);
+    loadLocalModel(model).catch(() => {}); // Not lost: the badge says it failed, and why.
+  }, [model]);
   // Under the page's one selection: an answer is read under its filter, and must reach its relation.
   const { selection } = useMosaic();
   const chat = useAskChat({ model: asked, engine: attached.engine, graph: attached.graph, types: attached.types, selection });

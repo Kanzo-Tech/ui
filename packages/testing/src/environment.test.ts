@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { dom } from "./dom";
 import { ComponentHarness, type By, type HarnessQuery } from "./environment";
-import type { KanzoTestingHook } from "./hook";
+import { createContext, runInContext } from "node:vm";
+import { initScript, type KanzoTestingHook } from "./hook";
 
 /** A harness over a plain disclosure: a button named by its label, `aria-expanded` while open. */
 class DisclosureHarness extends ComponentHarness {
@@ -28,6 +29,7 @@ const hook = () => (globalThis as { __KANZO_TESTING__?: KanzoTestingHook }).__KA
 afterEach(() => {
   document.body.innerHTML = "";
   delete (globalThis as { __KANZO_TESTING__?: KanzoTestingHook }).__KANZO_TESTING__;
+  delete (globalThis as { [key: symbol]: unknown })[Symbol.for("@kanzo-tech/llm/local")];
 });
 
 describe("the dom environment", () => {
@@ -42,6 +44,21 @@ describe("the dom environment", () => {
     const script = { turns: [{ reply: { text: "Four." } }] };
     dom(document.body, { models: { "Qwen3-4B-q4f16_1-MLC": script } });
     expect(hook()?.models.get("Qwen3-4B-q4f16_1-MLC")).toEqual({ script, prompts: [] });
+  });
+
+  it("registers a provider per scripted id in the model registry, from a script that closes over nothing", async () => {
+    // What Playwright runs before the page's own scripts: source text, in a realm of its own.
+    const page = createContext({}) as { __KANZO_TESTING__?: KanzoTestingHook };
+    runInContext(initScript({ "Qwen3-4B-q4f16_1-MLC": { turns: [{ when: "How many", reply: { text: "Four." } }] } }), page);
+    const registry = runInContext('globalThis[Symbol.for("@kanzo-tech/llm/local")]', page) as {
+      languageModels: Map<string, { model: { modelId: string; doGenerate(call: object): Promise<{ content: object[] }> }; load(): Promise<void> }>;
+    };
+    const engine = registry.languageModels.get("Qwen3-4B-q4f16_1-MLC")!;
+    expect(engine.model.modelId).toBe("Qwen3-4B-q4f16_1-MLC");
+    await engine.load();
+    const answer = await engine.model.doGenerate({ prompt: [{ role: "user", content: [{ type: "text", text: "How many laureates?" }] }] });
+    expect(answer.content).toEqual([{ type: "text", text: "Four." }]);
+    expect(page.__KANZO_TESTING__?.models.get("Qwen3-4B-q4f16_1-MLC")?.prompts).toEqual(["How many laureates?"]);
   });
 
   it("locates a part's harness or an element inside the host, and says what it waited for when neither comes", async () => {
