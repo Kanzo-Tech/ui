@@ -142,7 +142,7 @@ export { relationQuery, relationKey, relationIdentities, relationRootKey, relati
 export type { Relation, RelationExpr, RelationRef, Hop, JoinGraph, JoinType, JoinEdge, RelationHop } from "@kanzo-tech/mosaic";
 export { recommend } from "./charts/recommend.js";
 export type { Recommendation, RecommendIntent } from "./charts/recommend.js";
-export { useFieldStats, queryFieldStats, fieldStats } from "./charts/field-stats.js";
+export { useFieldStats, fieldStats } from "./charts/field-stats.js";
 export type {
   FieldStat, FieldStats, FieldKind, FieldRole, FieldStatsOptions, FieldStatsState, SummarizeRow,
 } from "./charts/field-stats.js";

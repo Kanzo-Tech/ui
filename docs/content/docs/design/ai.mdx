@@ -67,6 +67,11 @@ chat's signal, so an abort ends the wait at once. An answer is one statement, wh
 nothing to consolidate with. What would reverse it is a coordinator whose queue takes a signal and
 does not wait for a frame: then Ask goes back to reading where the charts read.
 
+Under [the read door](/docs/design/reads) it stays the engine's: the read is a query on the host's
+`QueryClient` whose function is handed the query's signal and hands it to `Engine.query`, and the
+chat's signal cancels the query. The cache keys the read by the engine and the statement, which
+holds the page's clauses, so an answer asked again under the same chips reads nothing again.
+
 **The card is a dashboard tile.** `QueryResult` gives way to the dashboard's `ChartCard` over the
 answer, with two verbs that fall out of the shape: **Filter the page to these rows** publishes the answer's
 conditions and, for a bar chart, the categories it answered, mapped to the page as one semi-join on

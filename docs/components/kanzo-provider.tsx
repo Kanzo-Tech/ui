@@ -1,6 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useState, type ReactNode } from "react";
 import { useServerInsertedHTML } from "next/navigation";
 import { KanzoThemeProvider, cookieStorageAdapter, themeScript } from "@kanzo-tech/ui";
 import { GRAPH_SECTION } from "@kanzo-tech/graph/section";
@@ -52,9 +53,15 @@ export const KanzoProvider = ({ children }: { children: ReactNode }) => {
     <script dangerouslySetInnerHTML={{ __html: themeScript() }} key="kanzo-theme-script" />
   ));
 
+  // The site's one QueryClient, as a host has one: every read a dashboard or Ask makes is a query on
+  // it (`/docs/design/reads`). One per browser tab, made once.
+  const [queries] = useState(() => new QueryClient());
+
   return (
-    <KanzoThemeProvider sections={SECTIONS} storage={cookieStorageAdapter()}>
-      {children}
-    </KanzoThemeProvider>
+    <QueryClientProvider client={queries}>
+      <KanzoThemeProvider sections={SECTIONS} storage={cookieStorageAdapter()}>
+        {children}
+      </KanzoThemeProvider>
+    </QueryClientProvider>
   );
 };
