@@ -34,8 +34,8 @@ and `data` are gone before a host could branch on them. `useAgentChat`'s `error`
 agent threw, whole — the same value every other surface in the library hands over
 ([failure](/docs/design/failure)).
 
-`useChat` is `@ai-sdk/react`'s, re-exported, for an agent that runs on a server behind the host's
-own HTTP route: that is a different transport, not a second door to this one, and a failure there
+For an agent that runs on a server behind the host's own HTTP route, import `useChat` from
+`@ai-sdk/react`, a required peer: that is a different transport, not a second door to this one, and a failure there
 reaches the page as the route's words. `Chat` draws either the same, because both stream the AI
 SDK's `UIMessage`, and reads only the helpers — `messages`, `status`, `error`, `sendMessage`,
 `stop`, `regenerate` — so any chat state of that shape drives it.
@@ -244,12 +244,12 @@ turns the host decides:
 | Part | |
 | --- | --- |
 | `Conversation`, `ConversationContent`, `ConversationScrollButton` | The transcript's scroll region, `role="log"`, following the tail only while the reader is at it; the button takes the pin back |
-| `MessageList`, `Message`, `MessageContent`, `MessageAvatar`, `MessageActions` | A turn: `role` declared once, a bubble for the person and the page for the model |
+| `MessageList`, `Message`, `MessageContent` | A turn: `role` declared once, a bubble for the person and the page for the model |
 | `Tool`, `ToolHeader`, `ToolContent`, `ToolInput`, `ToolOutput` | One call, bound to its AI SDK part: its name, its state, its input and output |
 | `Reasoning`, `ReasoningTrigger`, `ReasoningContent` | A model's thinking, folded away once it ends |
 | `PromptInput`, `PromptInputTextarea`, `PromptInputToolbar`, `PromptInputSubmit` | The composer: a form, so <kbd>Enter</kbd> and the button are one path; the field named by its placeholder; the strip of controls under it; the button that is *Send*, *Stop* or *Retry* by the chat's `status` |
 
-Their props are `MessageProps`, `MessageAvatarProps`, `MessageRole`, `ReasoningProps` and
+Their props are `MessageProps`, `ReasoningProps` and
 `PromptInputSubmitProps`. What a guided chat draws beyond these — a question answered by picking,
 work under way, a model's offers, a model as it loads — is [A guided chat](/docs/ai/guided). A transcript of the host's own is the three in order — the composer
 outside the scroll region, so it stays put while the transcript moves:

@@ -14,15 +14,11 @@
 export type {
   Appearance,
   KanzoDensity,
-  KanzoThemeName,
   // A data shape and not a React one: the pre-hydration script reads the same catalogue, and it
   // never sees this package.
   ThemeOption,
 } from "@kanzo-tech/theme";
 export { KanzoThemeProvider, useKanzoTheme, cookieStorageAdapter } from "./theme/KanzoThemeProvider.js";
-// The same attributes on a `<div>` instead of `<html>` — for previews, and only for previews: Ark's
-// overlays portal to `document.body` and inherit the page's theme, not a wrapper's.
-export { KanzoTheme, type KanzoThemeProps } from "./theme/KanzoTheme.js";
 export type {
   KanzoThemeProviderProps,
   ThemePrefs,
@@ -86,7 +82,6 @@ export {
   FindingsRoot,
   FindingsSource,
   FindingsTally,
-  useFindings,
 } from "./composites/findings.js";
 export type {
   DescribePlace,
@@ -353,16 +348,15 @@ export type { SidebarIdentityProps } from "./composites/SidebarIdentity.js";
 // The one piece of a navigation column that is logic rather than markup. The column itself is
 // composed from `SidebarMenu*` — see the note on the deleted composites below.
 export { isActivePath } from "./lib/is-active-path.js";
-// No `SidebarNav`, `SidebarUser`, `InstanceSwitcher`, `Breadcrumbs` or `MadeWith`.
+// No `SidebarNav`, `SidebarUser`, `InstanceSwitcher` or `Breadcrumbs`.
 //
 // Each took its layout tree as an array or record of `ReactNode`s — a shape you cannot reorder,
 // wrap, spread a prop onto, or `asChild`. `SidebarIdentity`'s own doc comment above argues the case
-// in full, and two of the five handed their record straight back into `SidebarIdentity`.
+// in full, and two of the four handed their record straight back into `SidebarIdentity`.
 // `SidebarUser` and `InstanceSwitcher` were additionally the same component under two names, down
 // to a byte-identical chevron and copy-pasted justification comments; `Breadcrumbs` had to invent
 // `BreadcrumbEntry` because `BreadcrumbItem` was taken, which is a component arguing against
-// itself; and `MadeWith` hard-coded English *and* the brand name "Kanzo" in a library whose first
-// admission rule is domain-freedom.
+// itself.
 //
 // What each one did survives: the parts are all exported, `Breadcrumb` now carries the `min-w-0`
 // that only the composite had, and the prefix-match above is the trap nobody should re-derive.

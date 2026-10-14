@@ -3,7 +3,7 @@ import { AuthError, type AuthErrorCode } from "./types";
 /**
  * Thirty seconds: the figure fossil's `/docs/design/failure` sets for a request to an API from the
  * browser and for a request to an identity provider. Where a library makes the wait —
- * `openid-client`, `oidc-client-ts` — it is handed this figure; where this package makes it,
+ * `openid-client` — it is handed this figure; where this package makes it,
  * {@link deadline} does.
  */
 export const DEADLINE = 30_000;

@@ -90,9 +90,7 @@ export {
   clauseSemiJoin,
   clauseParts,
   clauseLabel,
-  type ClauseParts,
   type SemiJoinMembers,
-  type AntiJoinMetadata,
   type SemiJoinMetadata,
   type SemiJoinOptions,
 } from "./clause.js";
@@ -113,7 +111,6 @@ export {
   sameRelation,
   type RelationClient,
   type RelationExpr,
-  type RelationMetadata,
   type RelationRef,
 } from "./crossfilter.js";
 /** Ours: what a page has yet to draw for the first time, counted on its selection — `drawing.ts`. */
@@ -122,7 +119,7 @@ export { firstDrawsPending, holdFirstDraw, onFirstDraws } from "./drawing.js";
  * Ours: one selection's clauses relayed into another built earlier, as the clause objects
  * themselves — what Mosaic's `include` does at construction, after it: `relay.ts`.
  */
-export { relaySelection, type RelayOptions } from "./relay.js";
+export { relaySelection } from "./relay.js";
 
 /** Ours: turning an Arrow answer into values, which the client protocol does not do for you. */
 export { numbers } from "./arrow.js";

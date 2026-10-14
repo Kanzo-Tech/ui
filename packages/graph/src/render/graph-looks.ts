@@ -276,7 +276,8 @@ export function resolveLook(patch?: LookPatch): Look {
  * `<path>` in a legend key and a hover card. What that host actually wanted was *the glyph*, and
  * handing it the path data made it responsible for the viewBox, the fill and the fact that the box
  * is twelve units — three facts it had to keep in step with this file by reading the comment above.
- * A component carries all three and cannot fall out of step with itself.
+ * A component carries all three and cannot fall out of step with itself. It left the barrel in turn
+ * when no host called it: the glyph reaches a page through the parts that draw it.
  */
 export const SHAPE_PATH: Record<Shape, string> = {
   circle: "M6 1.6a4.4 4.4 0 1 0 0 8.8 4.4 4.4 0 0 0 0-8.8Z",

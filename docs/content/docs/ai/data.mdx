@@ -165,8 +165,8 @@ the model: the spec is the model's, everything after it is the page's.
 1. **The linker** keeps the types the question names — by the type, a field or a value it holds —
    with their neighbours one hop away, the type the previous answer was about, and the types the
    page's chips are on. The schema's enums are theirs, so a small model reads a small vocabulary.
-2. **The model fills the spec**, `{ of, show, where?, top? }`, with `generateText` and
-   `Output.object`: a provider that decodes against the schema cannot write a name that does not
+2. **The model fills the spec**, `{ of, show, where?, top? }`, with `@kanzo-tech/llm`'s `generate`,
+   asked once, and `Output.object`: a provider that decodes against the schema cannot write a name that does not
    exist. A follow-up — *and in Germany?* — is told the previous spec and changes only what it asks.
 3. **The resolver finds the relation**: `resolveRelation` from `@kanzo-tech/mosaic`, the shortest
    path from `of` that has a step of every type the spec's fields are on and meets the type each of
@@ -201,8 +201,7 @@ The options are read anew on every question — the page's filter changes betwee
 An answer is read as a TanStack Query query on the host's `QueryClient`, keyed by the engine and its
 statement — which holds the page's chips — so the same answer under the same chips is read once. It
 never retries, a failed read is not kept, and *Stop* cancels the query and ends the read at once.
-`askTransport(() => options, client)` is the transport alone, for a host with its own `useChat`,
-given that client (`useQueryClient()`); `readAnswer` is the read alone, outside any cache. `AnswerOutput` is what a read answers: `{ answer, rows, truncated, under,
+`AnswerOutput` is what a read answers: `{ answer, rows, truncated, under,
 unanswered }` — the answer as placed, the rows its tile reads, whether the 1,000-row cap cut them,
 the page's clauses it was read under, and those its relation cannot answer, each an
 `UnansweredClause`, `{ clause, missing }`; a row is a `QueryRow`.
@@ -239,8 +238,8 @@ answer: (part, { stopped }) => {
 ```
 
 An `answer` part's output carries the spec it was read from (`AskOutput`), so the chips need nothing
-the part does not hold. `askAlternatives(spec, input)` is the list without the drawing, and
-`verify(task, value, input)` from `@kanzo-tech/ai/task` is the check without a model, for any Task.
+the part does not hold. `verify(task, value, input)` from `@kanzo-tech/ai/task` is the check
+without a model, for any Task.
 
 *Held by* `packages/ai/src/data/ask.test.ts`, "offers each slot's other values, as whole specs";
 "offers only what the oracles accept: no x two relations reach equally".
@@ -250,7 +249,7 @@ the part does not hold. `askAlternatives(spec, input)` is the list without the d
 
 **`askOffers(options)` is the same Task with no question asked**: the model writes as many specs as
 `count` (four by default) in one answer, each is checked by the oracles that check an answer, and only
-those that reach a relation unasked are offered, as a reader's question — `questionOf(spec)`. A pill
+those that reach a relation unasked are offered, each as a reader's question. A pill
 is therefore always one the chat can answer: taking it asks the question it says. The page's chips
 are in its input, so the offers reach the rows the page is filtered to.
 
