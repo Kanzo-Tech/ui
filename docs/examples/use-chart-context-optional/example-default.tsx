@@ -1,12 +1,12 @@
 "use client";
 
 import { Badge, categoricalColor, Show, Swatch } from "@kanzo-tech/ui";
+import { count } from "@kanzo-tech/mosaic";
 import {
   ChartAxisX,
   ChartAxisY,
   ChartBarY,
   ChartRoot,
-  count,
   useChartContextOptional,
   type ChartConfig,
 } from "@kanzo-tech/ui/analytics";

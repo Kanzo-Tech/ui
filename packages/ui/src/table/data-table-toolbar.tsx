@@ -64,12 +64,6 @@ export const DataTableSearch = (props: DataTableSearchProps) => {
   );
 };
 
-export interface DataTableFacetOption {
-  icon?: React.ComponentType<{ className?: string }>;
-  label?: React.ReactNode;
-  value: string;
-}
-
 export interface DataTableFacetFilterProps
   extends Omit<React.ComponentProps<typeof Button>, "children"> {
   /** Column id. Its `filterFn` must be `facetFilterFn`. */
@@ -77,10 +71,11 @@ export interface DataTableFacetFilterProps
   /** Trigger label. Defaults to the column id. */
   label?: React.ReactNode;
   /**
-   * Values to offer. Defaults to every faceted value of the column. Ordering is not yours either
-   * way — `FacetFilter` draws the rows by label.
+   * The values on offer, as `FacetFilter` takes them. Defaults to every faceted value of the column;
+   * an item without a `count` is given the column's. Ordering is not yours either way —
+   * `FacetFilter` draws the rows by label.
    */
-  options?: DataTableFacetOption[];
+  items?: readonly FacetFilterItem[];
   /**
    * Draw a filter field above the values. Honest here: TanStack facets the rows the table already
    * holds, so the field searches every value the column has, not a fetched page of them.
@@ -92,7 +87,7 @@ export interface DataTableFacetFilterProps
 
 /** A `FacetFilter` over one column's faceted values: TanStack on one side, the listbox on the other. */
 export const DataTableFacetFilter = (props: DataTableFacetFilterProps) => {
-  const { column, label, options, searchable, slot, ...rest } = props;
+  const { column, label, items: given, searchable, slot, ...rest } = props;
   const table = useDataTableContext();
   const target = table.getColumn(column);
 
@@ -102,10 +97,10 @@ export const DataTableFacetFilter = (props: DataTableFacetFilterProps) => {
     counts.set(String(value), count);
   }
 
-  const offered = options ?? [...counts.keys()].map((value) => ({ value }));
-  const items: FacetFilterItem[] = offered.map((option) => ({
-    ...option,
-    count: counts.get(option.value),
+  const offered: readonly FacetFilterItem[] = given ?? [...counts.keys()].map((value) => ({ value }));
+  const items: FacetFilterItem[] = offered.map((item) => ({
+    ...item,
+    count: item.count ?? counts.get(item.value),
   }));
 
   return (

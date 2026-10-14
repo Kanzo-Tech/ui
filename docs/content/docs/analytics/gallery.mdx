@@ -14,11 +14,12 @@ axis (`hour`) and a series (`verdict`).
 </Callout>
 
 <Callout type="warn">
-Everything here imports from `@kanzo-tech/ui/analytics`, not the root barrel, and that subpath
-needs four **optional peers** installed alongside the library:
+Everything here imports its parts from `@kanzo-tech/ui/analytics`, not the root barrel, and Mosaic
+— `count`, `Query`, `engine()` — from `@kanzo-tech/mosaic`. The subpath's **optional peers** are
+installed alongside the library:
 
 ```bash
-pnpm add @uwdata/vgplot @uwdata/mosaic-plot @uwdata/mosaic-core @uwdata/mosaic-sql
+pnpm add @kanzo-tech/mosaic @uwdata/mosaic-core @uwdata/mosaic-sql @uwdata/vgplot @uwdata/mosaic-plot valibot @tanstack/react-query
 ```
 
 You also bring the coordinator, usually `engine()`'s — see [Charts](/docs/analytics/charts#the-pages-one-engine).

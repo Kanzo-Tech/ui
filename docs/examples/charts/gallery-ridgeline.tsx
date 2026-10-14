@@ -1,6 +1,7 @@
 "use client";
 
 import { yRange } from "@uwdata/vgplot";
+import { count } from "@kanzo-tech/mosaic";
 import {
   ChartAreaY,
   ChartAxisX,
@@ -9,7 +10,6 @@ import {
   ChartLineY,
   ChartRoot,
   bin,
-  count,
 } from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 

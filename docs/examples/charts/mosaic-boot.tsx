@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { MosaicProvider, engine, loadObjects, type Coordinator } from "@kanzo-tech/ui/analytics";
+import { engine, loadObjects, type Coordinator } from "@kanzo-tech/mosaic";
+import { MosaicProvider } from "@kanzo-tech/ui/analytics";
 import { Skeleton } from "@kanzo-tech/ui";
 import { SIGHTINGS_TABLE, sightingRows } from "@/example/sightings";
 

@@ -302,19 +302,39 @@ describe("ChartFilter", () => {
     expect(crossfilter.clauses[0]?.value).toBe("alpha");
   });
 
-  it("takes an explicit option list with its labels and skips the lookup", async () => {
+  it("takes its items with their labels and skips the lookup", async () => {
     const { coordinator, queries } = stubCoordinator(() => HOSTS);
     const user = userEvent.setup();
 
     render(
       <MosaicProvider coordinator={coordinator}>
-        <ChartFilter column="host" label="Host" options={[{ label: "Alpha", value: "alpha" }, "beta"]} />
+        <ChartFilter column="host" label="Host" items={[{ label: "Alpha", value: "alpha" }, { value: "beta" }]} />
       </MosaicProvider>,
     );
 
     const items = await open(user);
     expect(queries).toHaveLength(0);
     expect(items.map((item) => item.textContent)).toEqual(["Alpha", "beta"]);
+  });
+
+  it("publishes a ticked item's text, which it read no column value for", async () => {
+    let crossfilter!: Selection;
+    const { coordinator, queries } = stubCoordinator(() => HOSTS);
+    const user = userEvent.setup();
+
+    render(
+      <MosaicProvider coordinator={coordinator}>
+        <Page into={(s) => (crossfilter = s)} />
+        <ChartFilter column="year" label="Year" items={[{ label: "Nineteen-ten", value: "1910" }]} />
+      </MosaicProvider>,
+    );
+
+    await open(user, /Year/);
+    await tick(user, /Nineteen-ten/);
+
+    await waitFor(() => expect(crossfilter.clauses).toHaveLength(1));
+    expect(queries).toHaveLength(0);
+    expect(crossfilter.clauses[0]?.value).toEqual([["1910"]]);
   });
 
   it("disconnects its client on unmount and leaves its clause the page's, taking it back when it mounts again", async () => {

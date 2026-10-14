@@ -129,14 +129,14 @@ describe("DataTableFacetFilter", () => {
     expect(screen.queryByRole("button", { name: /Status.*2/ })).toBeNull();
   });
 
-  it("honours an explicit option list and its labels", async () => {
+  it("honours its items and their labels", async () => {
     const user = userEvent.setup();
     render(
       <Harness>
         <DataTableFacetFilter
           column="status"
           label="Status"
-          options={[{ label: "Live", value: "active" }]}
+          items={[{ label: "Live", value: "active" }]}
         />
       </Harness>,
     );

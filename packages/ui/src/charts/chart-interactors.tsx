@@ -1,4 +1,4 @@
-import type { Selection } from "@uwdata/mosaic-core";
+import type { Selection } from "@kanzo-tech/mosaic";
 import { chartDescriptor, type ChartDescriptor, type ChartInteractorDirective } from "./chart-spec.js";
 
 /**
@@ -56,27 +56,6 @@ export const ChartHighlight = chartDescriptor<ChartHighlightProps>("ChartHighlig
   const { by, ...channels } = props;
   return { kind: "interactor", interactor: "highlight", options: { ...channels, by: by === undefined ? (ctx.highlight ?? ctx.as) : by } };
 });
-
-/**
- * Clearer aliases for the two ways of selecting, because vgplot's own pair mixes criteria:
- * `toggle` names the gesture, `interval` names the result. Both spellings work, and the vgplot names
- * stay so anyone reading Mosaic's documentation lands on the same component.
- *
- * This block used to claim "the docs teach these". They did not — a measurement found zero mentions
- * of any `Pick`/`Brush` name across every `.mdx`, while both spellings ran side by side in examples
- * and one showcase, sometimes in the same file. The pairing is now a table under
- * "Interactors" in `charts.mdx`. If you add an alias here, teach it there in the same commit.
- *
- * **Pick** is discrete: click a bar, get `region IN (…)`. Needs a categorical/band scale.
- * **Brush** is continuous: drag the axis, get `latency BETWEEN lo AND hi`. Needs a scale with a
- * "between" — brushing a band scale throws inside Mosaic, which `ChartRoot` warns about.
- */
-export const ChartPickX = ChartToggleX;
-export const ChartPickY = ChartToggleY;
-export const ChartPickColor = ChartToggleColor;
-export const ChartBrushX = ChartIntervalX;
-export const ChartBrushY = ChartIntervalY;
-export const ChartBrushXY = ChartIntervalXY;
 
 export interface ChartPanZoomProps {
   /** Restrict panning/zooming to an axis, or bind the resulting domain to a `Selection`/`Param`. */

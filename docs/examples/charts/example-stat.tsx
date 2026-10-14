@@ -1,16 +1,15 @@
 "use client";
 
 import { StatDelta, StatLabel, StatRoot, StatValue } from "@kanzo-tech/ui";
+import { avg, count } from "@kanzo-tech/mosaic";
 import {
   ChartAxisX,
   ChartAxisY,
   ChartBarX,
   ChartHighlight,
-  ChartPickY,
+  ChartToggleY,
   ChartRoot,
   ChartStat,
-  avg,
-  count,
 } from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
@@ -57,7 +56,7 @@ export default function Example() {
 
         <ChartRoot height={140} margin={{ bottom: 28, left: 76, right: 12, top: 4 }} relation="sightings">
           <ChartBarX fill="var(--primary)" sort={{ y: "-x" }} tip x={count()} y="region" />
-          <ChartPickY />
+          <ChartToggleY />
           <ChartHighlight />
           <ChartAxisX grid label="sightings" />
           <ChartAxisY label={null} />

@@ -2,6 +2,7 @@
 
 import { Suspense } from "react";
 import { Badge, Skeleton } from "@kanzo-tech/ui";
+import { count } from "@kanzo-tech/mosaic";
 import {
   ChartAxisX,
   ChartAxisY,
@@ -9,7 +10,6 @@ import {
   ChartRectY,
   ChartRoot,
   bin,
-  count,
   useQueryRows,
 } from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "../charts/mosaic-demo";
