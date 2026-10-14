@@ -67,8 +67,10 @@ is [an example, not a component](/docs/philosophy#the-governing-constraint), and
 site that wants a seventh thing drops to the parts anyway. `example-complete` below is that
 arrangement, in a file you can copy.
 
-`ColumnDef`, `Row`, `CellContext` and `Table` are re-exported from the same subpath, so a consumer
-types its columns without a direct TanStack import.
+`ColumnDef`, `Row`, `CellContext` and `HeaderContext` are re-exported from the same subpath, so a
+consumer types its columns without a direct TanStack import. The instance's own type is not: `Table`
+is the root barrel's component, so a host that names the instance imports
+`type Table` from `@tanstack/react-table`.
 
 ## Sorting
 

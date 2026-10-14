@@ -54,17 +54,17 @@ describe("RelationPicker", () => {
     expect(items("Follow from each Place").map((i) => i.getAttribute("aria-label"))).toEqual(["The place it is part of"]);
     const into = items("Bring in what points at it");
     expect(into.map((i) => i.getAttribute("aria-label"))).toEqual([
-      "Places part of this place",
-      "Persons located in this place",
-      "Posts located in this place",
-      "Comments located in this place",
+      "Place · part of this place",
+      "Person · located in this place",
+      "Post · located in this place",
+      "Comment · located in this place",
     ]);
     // The fan-out is each item's description; past ten per row it warns.
     expect(into.map((i) => i.textContent)).toEqual([
-      "Places part of this place≤1 per Place",
-      "Persons located in this place~1 per Place",
-      "Posts located in this place~93 per Place",
-      "Comments located in this place~103 per Place",
+      "Place · part of this place≤1 per Place",
+      "Person · located in this place~1 per Place",
+      "Post · located in this place~93 per Place",
+      "Comment · located in this place~103 per Place",
     ]);
     expect(into.map((i) => i.querySelector("[data-warn]") !== null)).toEqual([false, false, true, true]);
     expect(into[3]!.getAttribute("data-hop")).toBe("<isLocatedIn<Comment");
@@ -74,27 +74,33 @@ describe("RelationPicker", () => {
     const seen: Relation[] = [];
     render(<Picked seen={seen} />);
     await open();
-    await userEvent.click(await screen.findByRole("menuitem", { name: "Persons located in this place" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Person · located in this place" }));
     expect(seen.at(-1)).toEqual({ root: "Place", path: [{ edge: "Person_isLocatedIn_Place", direction: "in" }] });
     await open();
-    await userEvent.click(await screen.findByRole("menuitem", { name: "Posts whose creator is this person" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Post · whose creator is this person" }));
     expect(seen.at(-1)!.path).toHaveLength(2);
     // The first chip goes, and the one after it with it.
-    await userEvent.click(screen.getByRole("button", { name: "Remove Persons located in this place" }));
+    await userEvent.click(screen.getByRole("button", { name: "Remove Person · located in this place" }));
     expect(seen.at(-1)).toEqual({ root: "Place", path: [] });
   });
 
-  it("lets a host phrase an edge and name a plural", async () => {
+  it("lets a host phrase an edge, and words every sentence through its translations", async () => {
     render(
       <Picked
         phrase={(e, direction) => (e.source === e.destination ? (direction === "out" ? "The parent place" : "Its child places") : undefined)}
-        plural={(name) => (name === "Person" ? "People" : undefined)}
         seen={[]}
+        translations={{
+          add: "Añadir relacionado…",
+          bringIn: "Traer lo que apunta aquí",
+          in: (source, label, destination) => `${source} · ${label} → ${destination}`,
+          perRow: (count, from) => `${count} por ${from}`,
+        }}
       />,
     );
-    await open();
+    await userEvent.click(screen.getByRole("button", { name: "Añadir relacionado…" }));
     expect(await screen.findByRole("menuitem", { name: "The parent place" })).toBeTruthy();
     expect(screen.getByRole("menuitem", { name: "Its child places" })).toBeTruthy();
-    expect(screen.getByRole("menuitem", { name: "People located in this place" })).toBeTruthy();
+    const into = items("Traer lo que apunta aquí");
+    expect(into[1]?.textContent).toBe("person · is located in → place~1 por Place");
   });
 });

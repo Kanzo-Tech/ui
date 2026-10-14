@@ -58,7 +58,7 @@ export interface ModelBadgeProps extends Omit<React.ComponentProps<typeof Badge>
   /** Starts the load again — `loadLocalModel`. Offered on a failure the device can recover from. */
   onRetry?: () => void;
   /** The host's words for a failure's code, as `Problem` takes them. */
-  copy?: ProblemProps["copy"];
+  describe?: ProblemProps["describe"];
   translations?: Partial<ModelBadgeTranslations>;
 }
 
@@ -77,7 +77,7 @@ export interface ModelBadgeProps extends Omit<React.ComponentProps<typeof Badge>
  * `aria-expanded` and `aria-controls`, and moves focus into the content and back.
  */
 export function ModelBadge(props: ModelBadgeProps) {
-  const { load, onRetry, copy, translations, className, slot, ...rest } = props;
+  const { load, onRetry, describe, translations, className, slot, ...rest } = props;
   const t = { ...ENGLISH, ...translations };
   const { variant, icon } = LOOK[load.state];
   const percent = load.state === "loading" ? Math.round(load.progress * 100) : null;
@@ -105,7 +105,7 @@ export function ModelBadge(props: ModelBadgeProps) {
         {load.state === "ready" && <p className="text-muted-foreground">{t.readyDetail}</p>}
         {load.state === "failed" && (
           <DiagnosticList>
-            <Problem copy={copy} error={load.error}>
+            <Problem describe={describe} error={load.error}>
               {onRetry && recoverable && (
                 <Button onClick={onRetry} size="sm" variant="outline">
                   {t.retry}

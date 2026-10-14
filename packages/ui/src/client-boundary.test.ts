@@ -41,30 +41,24 @@ import { label, resolvePath, sourceFiles, subtrees, unreadable } from "./guard-c
  *   hook-bearing module without a directive impossible.
  * - **It says nothing about `/editor`, `/table` and `/analytics` isolation**, which is
  *   `index.test.ts`'s claim, nor about whether a client module is *worth* being one.
- * - **The corpus is `ui` and `ai`, derived by `guard-corpus.ts`.** It was `packages/ui/src` alone
- *   until 2026-08-20, and `@kanzo-tech/ai` — a package whose every module is a React component
+ * - **The corpus is `ui`, `ai` and `graph`, derived by `guard-corpus.ts`.** It was `packages/ui/src`
+ *   alone until 2026-08-20, and `@kanzo-tech/ai` — a package whose every module is a React component
  *   drawn with `ui`'s parts, and therefore exactly the population this rule is about — had never
- *   been read. Widening it found one surplus directive, on `ai/ai-mark.tsx`.
- * - **`@kanzo-tech/graph`, `@kanzo-tech/auth` and `@kanzo-tech/navigation` are unchecked, and that is
- *   this guard's one open gap.** All three declare `react` as a peer and none declares
- *   `tailwind-variants`, so the corpus that selects on appearance rejects them — correctly for every
- *   rule about colour and classes, and wrongly for this one, which is about React and not about
- *   drawing. `graph`'s `react/` and `parts/`, `auth`'s `use-session` and
- *   `navigation`'s hook and `Link` are hooks and components, so the shape most likely to be wrong in
- *   any of them is a *missing* directive: the expensive half. `navigation`'s modules are exercised by
- *   the docs build all the same — `/fixtures/navigation-guard` is a server page rendering them.
- *
- *   **A corpus of its own — every package declaring `react` as a peer — was measured on 2026-09-17
- *   and not adopted.** That selects `ui`, `ai`, `graph` and `auth`, and run over all four it reported
- *   three findings, all in `graph`: two modules carrying a directive and using no client feature —
- *   both deleted on 2026-09-29, when the graph became a tileset — and `graph/index.ts` reading as
- *   *missing* one because its docblock quoted `useGraph(props)`, which is the "comments are NOT
- *   stripped" blind spot above firing for real. `auth` was clean on its own — 22 files, nothing
- *   missing, nothing surplus.
- *
- *   *What would reverse it:* a run of the widened corpus over the rebuilt `graph` coming back green,
- *   at which point the corpus swap is three lines and the honest reason to leave the hole is gone.
- *   Nobody has run it since the rebuild.
+ *   been read. Widening it found one surplus directive, on `ai/ai-mark.tsx`. `graph` joined on
+ *   2026-10-13, when its parts took recipes, and it brought one missing directive with it:
+ *   `graph/render/webgl.ts`, which registers a listener on the canvas it is handed.
+ * - **`@kanzo-tech/auth` and `@kanzo-tech/navigation` are unchecked, and that is this guard's one
+ *   open gap.** Both declare `react` as a peer and neither declares `tailwind-variants`, so the
+ *   corpus that selects on appearance rejects them — correctly for every rule about colour and
+ *   classes, and wrongly for this one, which is about React and not about drawing. `auth`'s
+ *   `use-session` and `navigation`'s hook and `Link` are hooks and components, so the shape most
+ *   likely to be wrong in either is a *missing* directive: the expensive half. `navigation`'s modules
+ *   are exercised by the docs build all the same — `/fixtures/navigation-guard` is a server page
+ *   rendering them. A corpus of its own — every package declaring `react` as a peer — was measured
+ *   on 2026-09-17 and not adopted; `auth` was clean on its own then, 22 files, nothing missing,
+ *   nothing surplus.
+ *   *What would reverse it:* a third package that draws nothing and holds hooks, at which point the
+ *   corpus swap is three lines and the honest reason to leave the hole is gone.
  */
 
 /**

@@ -5,7 +5,7 @@ import { ToolLoopAgent } from "@kanzo-tech/llm";
 import { useRef, useState } from "react";
 import { daysOverdue, FEATURED, overdueQuests, partyOf, questLabel } from "@/example/quests";
 import { role } from "@/example/world";
-import { askOf, mockModel } from "@/lib/mock-model";
+import { askOf, mockModel, offered } from "@/lib/mock-model";
 import { useAutoplay } from "@/lib/preview-autoplay";
 
 const late = FEATURED.overdue;
@@ -51,7 +51,7 @@ export default function Example() {
       <Chat
         chat={chat}
         empty={<p className="text-muted-foreground text-sm">Ask the quartermaster about the board.</p>}
-        proposals={QUESTIONS.map((text) => ({ text }))}
+        proposals={offered(...QUESTIONS)}
       />
     </div>
   );

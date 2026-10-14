@@ -136,7 +136,7 @@ export type { Dashboards } from "./charts/dashboard-spec.js";
 // corpus), handed to `MosaicProvider` as its `joins`. What every part's `relation` takes is
 // `@kanzo-tech/mosaic`'s `RelationExpr`: a table by name, a path, or SQL.
 export { RelationPicker } from "./charts/relation-picker.js";
-export type { RelationPickerProps } from "./charts/relation-picker.js";
+export type { RelationPickerProps, RelationPickerTranslations } from "./charts/relation-picker.js";
 export { useFieldStats, fieldStats } from "./charts/field-stats.js";
 export type {
   FieldStat, FieldStats, FieldKind, FieldRole, FieldStatsOptions, FieldStatsState, SummarizeRow,

@@ -3,7 +3,7 @@
  * selected and what the layout is doing.
  *
  * These lived beside a React context in the workspace showcase, which made them look like that
- * app's state. They are not: `Selection` is the shape every panel hands the canvas, and the rest is
+ * app's state. They are not: `VertexSelection` is the shape every panel hands the canvas, and the rest is
  * what a canvas is doing. The provider that holds them is an arrangement and stays where
  * arrangements live; the shapes themselves belong to the renderer.
  *
@@ -37,7 +37,7 @@ export type Motion = "running" | "settled" | "paused";
  * rule, an answer — is not a selection of the canvas: it is a clause of its own on the crossfilter
  * (`usePick`), which greys out the rest of the graph.
  */
-export type SelectionSource = "marquee" | "lasso" | "node";
+export type VertexSelectionSource = "marquee" | "lasso" | "node";
 
 /**
  * **The canvas's pick** — what the reader drew or clicked on it, published as one clause from the
@@ -45,9 +45,9 @@ export type SelectionSource = "marquee" | "lasso" | "node";
  * clause of its own and intersects with this one: every place that picks is one chip, and they add
  * up rather than replace each other.
  */
-export interface Selection {
+export interface VertexSelection {
   vertices: VertexId[];
-  source: SelectionSource;
+  source: VertexSelectionSource;
   /** What the corner calls it. */
   label: string;
   /**

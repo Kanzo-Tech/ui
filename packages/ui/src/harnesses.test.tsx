@@ -309,13 +309,13 @@ describe("RelationPickerHarness", () => {
     await picker.pick("Place");
     expect(await picker.root()).toBe("Place");
     await picker.add("<isLocatedIn<Comment");
-    expect(await picker.path()).toEqual(["Comments located in this place"]);
-    await picker.remove("Comments located in this place");
+    expect(await picker.path()).toEqual(["Comment · located in this place"]);
+    await picker.remove("Comment · located in this place");
     // A self-edge's label names two hops, so it takes the step; a unique label is enough.
     await expect(picker.add("isPartOf")).rejects.toThrow(/names 2 hops/);
     await picker.add(">isPartOf>Place");
-    await picker.add("Persons located in this place");
-    expect(await picker.path()).toEqual(["The place it is part of", "Persons located in this place"]);
+    await picker.add("Person · located in this place");
+    expect(await picker.path()).toEqual(["The place it is part of", "Person · located in this place"]);
     await picker.remove("The place it is part of");
     expect(await picker.path()).toEqual([]);
   });

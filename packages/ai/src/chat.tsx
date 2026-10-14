@@ -5,7 +5,6 @@ import * as React from "react";
 import { getToolName, isToolUIPart, type UIMessage } from "@kanzo-tech/llm";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { cn, DiagnosticList, Problem, type ProblemProps, Skeleton, Suggestion, Suggestions } from "@kanzo-tech/ui";
-import type { Proposal } from "./engine.js";
 import { PILLS } from "./pills.js";
 import { Conversation, ConversationContent, ConversationScrollButton } from "./conversation.js";
 import { MessageMarkdown } from "./markdown.js";
@@ -17,6 +16,7 @@ import {
   PromptInputToolbar,
 } from "./prompt-input.js";
 import { Reasoning } from "./reasoning.js";
+import type { Proposal } from "./task/index.js";
 import { Working } from "./working.js";
 import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput, type ToolPart } from "./tool.js";
 
@@ -57,18 +57,27 @@ type ChatState<M extends UIMessage> = Pick<UseChatHelpers<M>, "messages" | "stat
   error: unknown;
 };
 
-export interface ChatProps<M extends UIMessage> {
+/** A message `Chat` sends: what `sendMessage` takes — `{ text }`, or the message's `parts`. */
+export type ChatMessage<M extends UIMessage> = NonNullable<Parameters<UseChatHelpers<M>["sendMessage"]>[0]>;
+
+/**
+ * Questions to start from, while the conversation is empty — a Task's offers (`propose`, or
+ * `askOffers`), in a strip just above the composer, taken whole. **Pressing one sends its value, never
+ * its words**, so what the Task checked is what is asked: a string as the message's text, anything
+ * else as the message `message` makes of it — Ask's spec as `askEdit(spec)`, which the chat asks as
+ * it is, with no model in between. The pill reads the message's text. Passing `proposals` at all,
+ * even empty, holds the strip's row.
+ */
+export type ChatProposals<M extends UIMessage, V> =
+  | { proposals?: readonly Proposal<string>[]; message?: (value: string) => ChatMessage<M> }
+  | { proposals: readonly Proposal<V>[]; message: (value: V) => ChatMessage<M> };
+
+interface ChatOwnProps<M extends UIMessage> {
   /** `useChat(...)`'s return. */
   chat: ChatState<M>;
   tools?: ChatToolRenderers;
   /** What the panel says before the first question. */
   empty?: React.ReactNode;
-  /**
-   * Questions to start from, while the conversation is empty — a Task's offers (`askOffers`, or
-   * `propose`), in a strip just above the composer. Pressing one asks it. Passing it at all, even
-   * empty, holds the strip's row.
-   */
-  proposals?: readonly Proposal[];
   /**
    * More questions are on their way. Drawn as pills in skeleton beside the ones that arrived, as
    * many as make up the strip.
@@ -86,10 +95,20 @@ export interface ChatProps<M extends UIMessage> {
    */
   context?: React.ReactNode;
   /** The host's words for a failure's code, as `Problem` takes them. */
-  copy?: ProblemProps["copy"];
+  describe?: ProblemProps["describe"];
   translations?: Partial<ChatTranslations>;
   className?: string;
 }
+
+export type ChatProps<M extends UIMessage, V = string> = ChatOwnProps<M> & ChatProposals<M, V>;
+
+/** The words a message says — its text, or its text parts — which is what its pill reads. */
+const wordsOf = <M extends UIMessage>(message: ChatMessage<M>): string =>
+  "text" in message && typeof message.text === "string"
+    ? message.text
+    : ((message as { parts?: readonly { type: string; text?: string }[] }).parts ?? [])
+        .flatMap((part) => (part.type === "text" && part.text ? [part.text] : []))
+        .join(" ");
 
 /**
  * A conversation with a model, whole: the transcript, the model's reasoning and calls as they
@@ -99,8 +118,11 @@ export interface ChatProps<M extends UIMessage> {
  * Each part is drawn from the AI SDK's own message parts, so nothing is translated on the way in:
  * text as markdown, `reasoning` folded away, every tool call in its frame with the SDK's state.
  */
-export function Chat<M extends UIMessage>(props: ChatProps<M>) {
-  const { chat, tools = {}, empty, proposals, proposing = false, notice, context, copy, translations, className } = props;
+export function Chat<M extends UIMessage, V = string>(props: ChatProps<M, V>) {
+  const { chat, tools = {}, empty, proposing = false, notice, context, describe, translations, className } = props;
+  // One shape for both arms: a string's message is its text, unless the host says otherwise.
+  const proposals = props.proposals as readonly Proposal<unknown>[] | undefined;
+  const message = (props.message ?? ((value: string) => ({ text: value }))) as (value: unknown) => ChatMessage<M>;
   const t = { ...ENGLISH, ...translations };
   const [draft, setDraft] = React.useState("");
   const busy = chat.status === "submitted" || chat.status === "streaming";
@@ -143,11 +165,23 @@ export function Chat<M extends UIMessage>(props: ChatProps<M>) {
             className="min-h-7 w-full justify-center"
             pending={proposing ? PILLS - (proposals?.length ?? 0) : 0}
           >
-            {proposals?.map((p) => (
-              <Suggestion description={p.rationale} key={p.text} onSelect={ask} value={p.text}>
-                {p.text}
-              </Suggestion>
-            ))}
+            {proposals?.map((p) => {
+              const sent = message(p.value);
+              const words = wordsOf(sent);
+              return (
+                <Suggestion
+                  description={p.rationale}
+                  key={p.id}
+                  onSelect={() => {
+                    void chat.sendMessage(sent);
+                    setDraft("");
+                  }}
+                  value={words}
+                >
+                  {words}
+                </Suggestion>
+              );
+            })}
             {!proposing && !proposals?.length && notice}
           </Suggestions>
         )
@@ -212,11 +246,11 @@ export function Chat<M extends UIMessage>(props: ChatProps<M>) {
       )}
       {chat.error !== undefined && (
         // Through `Problem`, as every failure in the library is drawn: a coded one shows its code and
-        // takes the host's `copy`. The live region says what the list is.
+        // takes the host's `describe`. The live region says what the list is.
         <div data-slot="chat-error" role="alert">
           <span className="sr-only">{t.failed}</span>
           <DiagnosticList>
-            <Problem copy={copy} error={chat.error} />
+            <Problem describe={describe} error={chat.error} />
           </DiagnosticList>
         </div>
       )}

@@ -448,11 +448,13 @@ import { Dashboard, MosaicProvider, RelationPicker } from "@kanzo-tech/ui/analyt
   `rows` on its types and edges (`joinGraphOf` does, from the catalog's record counts).
   `RelationPicker` is built on it: the root as a select, then **+ Add related…**, a menu of
   sentences in two groups — *Follow from each Place* (*The place it is part of*) and *Bring in
-  what points at it* (*Comments located in this place*) — each sorted by fan-out and saying it,
+  what points at it* (*Comment · located in this place*) — each sorted by fan-out and saying it,
   *~103 per Place*, in warning colour above ten. The path is chips, any of which can be removed,
   cutting the path there, and under them the grain: *One row per Comment · 151,043 rows · Places
   without comments are left out*. The hops are inner joins, so that last clause is literal.
-  `phrase(edge, direction)` rewords a hop the templates read wrong, and `plural(type)` a plural:
+  No noun is inflected: an in-edge reads as the type and the edge, never a plural the library would
+  have to guess. `phrase(edge, direction)` rewords a hop the templates read wrong, and every word —
+  the two sentence patterns among them — is an entry of `translations`:
 
 ```tsx
 <RelationPicker
@@ -462,7 +464,7 @@ import { Dashboard, MosaicProvider, RelationPicker } from "@kanzo-tech/ui/analyt
   phrase={(e, direction) =>
     e.source === e.destination ? (direction === "out" ? "Its parent place" : "Its child places") : undefined
   }
-  plural={(type) => (type === "Person" ? "People" : undefined)}
+  translations={{ in: (source, label, destination) => `${source} · ${label} → ${destination}` }}
 />
 ```
 
@@ -622,8 +624,16 @@ Takes no props of its own; every prop goes to its `div` (`data-slot="tile-editor
 | `graph` | `JoinGraph` | — |
 | `value` | `Relation` | — |
 | `onValueChange` | `(relation: Relation) => void` | — |
-| `phrase` | `(edge: JoinEdge, direction: "out" \| "in") => string \| undefined` | the templates: *The \{to\} it \{label\}*, *\{To\}s \{label\} this \{from\}* |
-| `plural` | `(type: string) => string \| undefined` | the type's words, plus *s* |
+| `phrase` | `(edge: JoinEdge, direction: "out" \| "in") => string \| undefined` | the patterns in `translations` |
+| `translations` | `Partial<RelationPickerTranslations>` | English, below |
+
+`RelationPickerTranslations`: `relation` (*Relation*, the group's name), `root` (*Root type*), `add`
+(*Add related…*), `follow(from)` (*Follow from each \{from\}*), `bringIn` (*Bring in what points at
+it*), `remove(sentence)` (*Remove \{sentence\}*), `perRow(count, from)` (*\{count\} per \{from\}*),
+and the two sentences, given each type and the edge's label in words: `out(to, label)` — *The
+\{to\} it \{label\}*, *The place it is part of* — and `in(source, label, destination)` —
+*\{Source\} · \{label\} this \{destination\}*, *Comment · located in this place*. In English a
+label `has…` reads *whose …*, and a lone `is` drops out of an in-edge.
 
 ```ts
 function relationQuery(graph: JoinGraph, relation: Relation): Query;

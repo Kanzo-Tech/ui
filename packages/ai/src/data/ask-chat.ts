@@ -5,7 +5,7 @@ import { createUIMessageStream, type ChatTransport, type InferUIMessageChunk, ty
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import { useTransportChat, type AgentChat, type AgentChatOptions } from "../agent-chat.js";
-import { propose, runTask, verify, type Decision, type Verdict } from "../task/index.js";
+import { propose, runTask, verify, type Decision, type Proposal, type Verdict } from "../task/index.js";
 import { measureName, type AnswerInput, type AnswerRelation } from "./answer.js";
 import { ask, askAnswer, askRelation, answerRelation, type AskInput, type AskSpec } from "./ask.js";
 import { readAnswerQuery, type AnswerOutput } from "./read.js";
@@ -182,12 +182,15 @@ export function useAskChat(options: AskChatOptions, chat?: AgentChatOptions<AskM
   return useTransportChat((onError) => askTransport(() => latest.current, client, onError), chat);
 }
 
-/** Questions to start from: Ask's own proposals with no question asked, each checked, in a reader's words. */
+/**
+ * Questions to start from: Ask's own proposals with no question asked, each checked by its oracles,
+ * whole. `Chat` takes them as they are and sends each one's spec with `askEdit`, so a pill is asked as
+ * the spec that was checked, never re-read by the model from its words.
+ */
 export async function askOffers(
   options: Omit<AskChatOptions, "engine"> & { readonly count?: number; readonly signal?: AbortSignal },
-): Promise<{ text: string; spec: AskSpec }[]> {
+): Promise<Proposal<AskSpec>[]> {
   const { model, graph, types, selection, count = 4, signal } = options;
   const input: AskInput = { question: "", graph, types, under: underOf(selection) };
-  const offered = await propose(ask, input, { model, signal, count });
-  return offered.map((p) => ({ text: questionOf(p.value), spec: p.value }));
+  return propose(ask, input, { model, signal, count });
 }

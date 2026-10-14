@@ -7,6 +7,7 @@
  * Swap it for `localModel(…)` and nothing else on the page changes; that is
  * the claim the examples make, so they must not be built on anything a real model would not do.
  */
+import type { Proposal } from "@kanzo-tech/ai/task";
 import { MockLanguageModelV4 } from "ai/test";
 
 type Call = Parameters<MockLanguageModelV4["doStream"]>[0];
@@ -119,3 +120,17 @@ export function mockModel(
   });
   return model;
 }
+
+/**
+ * Questions to start from, as `propose` would hand them over — accepted, each landing as a new item
+ * — for an example that shows a fixed list rather than a model offering one.
+ */
+export const offered = (...questions: string[]): Proposal<string>[] =>
+  questions.map((value, n) => ({
+    id: `offered-${n}`,
+    task: "questions",
+    value,
+    target: { add: "" },
+    verdict: { ok: true },
+    attempts: 1,
+  }));

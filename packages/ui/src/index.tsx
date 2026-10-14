@@ -28,8 +28,8 @@ export type {
 export { themeScript } from "./theme/theme-script.js";
 export type { ThemeScriptOptions } from "./theme/theme-script.js";
 export {
-  Preferences,
-  // Flat parts — these survive the RSC client boundary; the `Preferences.X` statics do not.
+  // Flat parts — these survive the RSC client boundary; a namespace's statics do not. There is no
+  // all-in-one: the trigger and the panel under the root are the host's to arrange.
   PreferencesRoot,
   PreferencesTrigger,
   PreferencesPanel,
@@ -47,11 +47,11 @@ export type {
   PrefProps,
   PrefState,
   PrefValue,
-  PreferencesCopy,
   PreferencesPanelProps,
-  PreferencesProps,
   PreferencesRootProps,
   PreferencesSectionsProps,
+  PreferencesTranslations,
+  PreferencesTriggerProps,
   Register,
 } from "./composites/Preferences.js";
 // What only a section's owner knows — its lists and its pictures — for the subtree beneath it.
@@ -59,8 +59,6 @@ export { SectionProvider } from "./theme/section-context.js";
 export type { PrefSpecimen, SectionProviderProps } from "./theme/section-context.js";
 export { ThemePreview } from "./composites/ThemePreview.js";
 export type { ThemePreviewProps } from "./composites/ThemePreview.js";
-export { ThemeNotice } from "./composites/theme-notice.js";
-export type { ThemeNoticeProps, ThemeRetiredCopy } from "./composites/theme-notice.js";
 // What a check found: one result or a group sharing a rule, an item for each, and a badge that tallies
 // them — a SHACL report in Discover and a compiler's diagnostics in a recipe editor alike.
 export { groupFindings, tallyFindings } from "./lib/findings.js";
@@ -86,7 +84,7 @@ export {
 export type {
   DescribePlace,
   FindingAction,
-  FindingLabels,
+  FindingsTranslations,
   FindingPlace,
   FindingsBadgeProps,
   FindingsGroupProps,
@@ -98,9 +96,9 @@ export type {
 // A failure, shown — any thrown value, read for the coded error's shared fields: a host's every
 // error view and the graph's failure overlay in the docs.
 export { Problem } from "./composites/problem.js";
-export type { ProblemCopy, ProblemProps, ProblemTranslations } from "./composites/problem.js";
+export type { ProblemDescription, ProblemProps, ProblemTranslations } from "./composites/problem.js";
 export { MadeWith } from "./composites/MadeWith.js";
-export type { MadeWithProps } from "./composites/MadeWith.js";
+export type { MadeWithProps, MadeWithTranslations } from "./composites/MadeWith.js";
 
 // One question at a time, over a `FieldSet` per question and Ark's Steps machine for the
 // navigation. Flat parts for the same RSC reason `Preferences` is flat.
@@ -215,7 +213,6 @@ export * from "./simples/eyebrow.js";
 export * from "./simples/field.js";
 export * from "./simples/file-upload.js";
 export * from "./simples/float.js";
-export * from "./simples/floating-panel.js";
 export * from "./simples/format.js";
 export * from "./simples/highlight.js";
 export * from "./simples/hover-card.js";

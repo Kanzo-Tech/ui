@@ -47,7 +47,9 @@ import {
   MenuItem,
   MenuSeparator,
   MenuTrigger,
-  Preferences,
+  PreferencesPanel,
+  PreferencesRoot,
+  PreferencesTrigger,
   SectionActions,
   SectionBody,
   SectionDescription,
@@ -242,7 +244,10 @@ export function AppShellShowcase() {
       </TourContent>
 
       {/* The library's own live-theming drawer, raised clear of the footer. */}
-      <Preferences hotkey="p" triggerClassName="bottom-12" />
+      <PreferencesRoot hotkey="p">
+        <PreferencesTrigger className="bottom-12" />
+        <PreferencesPanel />
+      </PreferencesRoot>
     </Tour>
   );
 }

@@ -52,7 +52,8 @@ import {
   TagsInputItemText,
   toast,
 } from "@kanzo-tech/ui";
-import { Chat, ChatSkeleton, type Proposal } from "@kanzo-tech/ai";
+import { Chat, ChatSkeleton } from "@kanzo-tech/ai";
+import type { Proposal } from "@kanzo-tech/ai/task";
 import { AnswerCard, answerRelationsOf, askEdit, AskChips, askOffers, readAnswerRelations, useAskChat, type AnswerRelation, type AskOutput, type AskSpec } from "@kanzo-tech/ai/data";
 import { mockModel, promptOf } from "@/lib/mock-model";
 import {
@@ -323,7 +324,7 @@ export function GraphInfo() {
   return (
     <div className="flex h-full flex-col">
       <div className="shrink-0 border-b border-border p-2">
-        <GraphSearch placeholder="Find anything in the archive…" />
+        <GraphSearch translations={{ placeholder: "Find anything in the archive…" }} />
       </div>
       <ScrollArea className="min-h-0 flex-1 p-3">
         <GraphInspector>{(detail) => <HallName detail={detail} />}</GraphInspector>
@@ -1125,18 +1126,19 @@ function AskEmpty() {
   );
 }
 
-/** Questions to start from: Ask's own offers, each checked. None on failure, and the chat works without them. */
+/** Questions to start from: Ask's own offers, each checked, whole. None on failure, and the chat works without them. */
 function useOffers({ graph, types }: Askable, selection: MosaicSelection) {
-  const [state, setState] = useState<{ questions: Proposal[]; proposing: boolean }>({ questions: [], proposing: true });
+  const [state, setState] = useState<{ questions: Proposal<AskSpec>[]; proposing: boolean }>({ questions: [], proposing: true });
   useEffect(() => {
     const abort = new AbortController();
     askOffers({ model: recording, graph, types, selection, signal: abort.signal }).then(
       (offers) => {
-        for (const { text, spec } of offers) {
-          const intent = INTENTS.find((i) => JSON.stringify(i.spec) === JSON.stringify(spec));
-          if (intent) OFFERED.set(text.toLowerCase(), intent);
+        for (const { value } of offers) {
+          const intent = INTENTS.find((i) => JSON.stringify(i.spec) === JSON.stringify(value));
+          const [words] = askEdit(value).parts;
+          if (intent && words?.type === "text") OFFERED.set(words.text.toLowerCase(), intent);
         }
-        setState({ questions: offers.map(({ text }) => ({ text })), proposing: false });
+        setState({ questions: offers, proposing: false });
       },
       () => !abort.signal.aborted && setState({ questions: [], proposing: false }),
     );
@@ -1172,6 +1174,8 @@ function AskBody({ archive, askable }: { archive: Archive; askable: Askable }) {
         chat={chat}
         context={<SubsetPill archive={archive} />}
         empty={<AskEmpty />}
+        // A pill sends its spec, which the chat asks as it is: the offer the oracles checked.
+        message={askEdit}
         proposals={starters.questions}
         proposing={starters.proposing}
         tools={{

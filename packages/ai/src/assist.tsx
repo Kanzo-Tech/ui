@@ -6,15 +6,10 @@ import * as React from "react";
 import type { LanguageModel } from "@kanzo-tech/llm";
 import { Button, ButtonGroup, cn, Kbd, Suggestion, Suggestions } from "@kanzo-tech/ui";
 import { AiMark } from "./ai-mark.js";
-import {
-  type AssistEvent,
-  MIN_CONTINUE_LENGTH,
-  type Proposal,
-  useCandidates,
-  useContinuation,
-} from "./engine.js";
+import { type AssistEvent, MIN_CONTINUE_LENGTH, useCandidates, useContinuation } from "./engine.js";
 import { type FieldBrief, candidates, continuation } from "./proposals.js";
 import { PILLS } from "./pills.js";
+import type { Proposal } from "./task/index.js";
 
 // ── The words ────────────────────────────────────────────────────────────────
 
@@ -257,7 +252,7 @@ const controlIn = (root: HTMLElement | null) =>
 
 function useEvents(settings: AssistSettings, control: () => Control | null) {
   return React.useCallback(
-    (kind: AssistEvent["kind"], proposal: Proposal) =>
+    (kind: AssistEvent["kind"], proposal: Proposal<string>) =>
       settings.onEvent?.({ kind, proposal, field: describe(control(), {}).name }),
     [control, settings],
   );
@@ -611,14 +606,14 @@ function Candidates(props: {
         list.items.map((p) => (
           // Two buttons in a group: a `<button>` cannot hold a button. The ✕ is always drawn — a
           // hover-only control is unreachable by keyboard and absent on touch.
-          <ButtonGroup aria-label={p.text} key={p.text} slot="proposal">
-            <Suggestion description={p.rationale} onSelect={onPick} value={p.text}>
-              {p.text}
+          <ButtonGroup aria-label={p.value} key={p.value} slot="proposal">
+            <Suggestion description={p.rationale} onSelect={onPick} value={p.value}>
+              {p.value}
             </Suggestion>
             <Button
-              aria-label={t.dismiss(p.text)}
+              aria-label={t.dismiss(p.value)}
               className="h-auto min-h-7 self-stretch px-2 py-1"
-              onClick={() => list.dismiss(p.text)}
+              onClick={() => list.dismiss(p.value)}
               pill
               size="sm"
               slot="proposal-dismiss"

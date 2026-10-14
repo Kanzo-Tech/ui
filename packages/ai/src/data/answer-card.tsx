@@ -103,7 +103,7 @@ export type AnswerCardProps = Omit<React.ComponentProps<typeof ark.div>, "childr
   /** The join graph the agent was given: the answer's relation is compiled over it. */
   graph: JoinGraph;
   /** The host's words for a coded failure, as `Problem` takes them. */
-  copy?: ProblemProps["copy"];
+  describe?: ProblemProps["describe"];
   translations?: Partial<AnswerCardTranslations>;
 } & AnswerCardAdding;
 
@@ -166,7 +166,7 @@ const RUNNING = new Set<ToolPart["state"]>(["input-streaming", "input-available"
  * the chart's height. A refusal — input the schema refused, or the engine's failure — is a `Problem`.
  */
 export function AnswerCard(props: AnswerCardProps) {
-  const { part, stopped = false, graph, dashboards, onAdd, onOpen, copy, translations, className, slot, ...rest } = props;
+  const { part, stopped = false, graph, dashboards, onAdd, onOpen, describe, translations, className, slot, ...rest } = props;
   const t = { ...ENGLISH, ...translations };
   const output = part.state === "output-available" ? (part.output as AnswerOutput) : null;
   const running = !stopped && RUNNING.has(part.state);
@@ -183,7 +183,7 @@ export function AnswerCard(props: AnswerCardProps) {
     >
       {output && (
         <Answered
-          adding={onAdd && dashboards && { dashboards, onAdd, onOpen, copy }}
+          adding={onAdd && dashboards && { dashboards, onAdd, onOpen, describe }}
           graph={graph}
           onDrawing={setDrawing}
           output={output}
@@ -233,7 +233,7 @@ interface Adding {
   dashboards: Dashboards;
   onAdd: (next: Dashboards, added: AnswerAdded) => void | Promise<unknown>;
   onOpen?: (added: AnswerAdded) => void;
-  copy?: ProblemProps["copy"];
+  describe?: ProblemProps["describe"];
 }
 
 function Drawn(props: {
@@ -298,7 +298,7 @@ function Drawn(props: {
       </MosaicClients>
       {write?.status.state === "failed" && (
         <DiagnosticList>
-          <Problem copy={adding?.copy} error={write.status.error} />
+          <Problem describe={adding?.describe} error={write.status.error} />
         </DiagnosticList>
       )}
       <AnswerData output={output} t={t} />

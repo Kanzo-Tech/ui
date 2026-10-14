@@ -33,23 +33,23 @@ export {
 export { useGraph, type GraphApi, type UseGraphProps } from "./react/use-graph";
 export { useGraphState } from "./react/use-graph-state";
 export { useGraphPrefs } from "./react/use-graph-prefs";
-export { usePick, type Pick } from "./react/use-pick";
+export { usePick, type VertexPick } from "./react/use-pick";
 
-export { GraphCanvas, type GraphCanvasProps } from "./parts/graph-canvas";
-export { GraphLegend, type GraphLegendProps } from "./parts/graph-legend";
-export { GraphCounts, type GraphCountsProps } from "./parts/graph-counts";
-export { GraphStatus, type GraphStatusProps } from "./parts/graph-status";
-export { GraphToolbar, type GraphToolbarProps } from "./parts/graph-toolbar";
-export { GraphInspector, type GraphInspectorProps } from "./parts/graph-inspector";
-export { GraphSearch, type GraphSearchProps } from "./parts/graph-search";
+export { GraphCanvas, type GraphCanvasProps, type GraphCanvasTranslations } from "./parts/graph-canvas";
+export { GraphLegend, type GraphLegendProps, type GraphLegendTranslations } from "./parts/graph-legend";
+export { GraphCounts, type GraphCountsProps, type GraphCountsTranslations } from "./parts/graph-counts";
+export { GraphStatus, type GraphStatusProps, type GraphStatusTranslations } from "./parts/graph-status";
+export { GraphToolbar, type GraphToolbarProps, type GraphToolbarTranslations } from "./parts/graph-toolbar";
+export { GraphInspector, type GraphInspectorProps, type GraphInspectorTranslations } from "./parts/graph-inspector";
+export { GraphSearch, type GraphSearchProps, type GraphSearchTranslations } from "./parts/graph-search";
 
 // The picture: form and forces. `lookFrom` and `simFrom` parse what `@kanzo-tech/graph/section`
-// declares and a preferences panel writes; where the points come from is `useGraphPrefs()`'s.
+// declares and a preferences panel writes; where the points come from is what `useGraphPrefs` reads.
 export { lookFrom, type LabelLevel, type Look, type LookPatch, type Shape } from "./render/graph-looks";
 export { simFrom, type Sim } from "./render/graph-sim";
 export type { Channels, Placement } from "./core/channels";
 
-export type { GraphCommands, Motion, Selection, SelectionSource, Tool, VertexId } from "./core/types";
+export type { GraphCommands, Motion, Tool, VertexId, VertexSelection, VertexSelectionSource } from "./core/types";
 export type { DataStatus, Drawn, GraphState } from "./core/state";
 export type { VertexDetail } from "./core/source";
 // The corpus as the join graph `@kanzo-tech/mosaic`'s relations are built over.

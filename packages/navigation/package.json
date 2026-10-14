@@ -49,32 +49,6 @@
     "react-dom": "^19.0.0",
     "rollup-plugin-preserve-directives": "^0.4.0"
   },
-  "//size-limit": "Set just above the first measurement, for the reason auth's note gives: a budget with 70% headroom detects nothing. The root barrel measured 1.06 kB — the hook, the registry and the two listeners — and `./next` 1.04 kB — the two adapters and the registry they share with the root; both budgets are 1.2 kB. `next` is ignored on the second because the consumer installs it and what is measured is our adapter over it. What these numbers watch for is a door reaching through another: the root learning a router, or `./next` pulling the hook and the listeners in behind `Link`. Either is a jump of the size of the other door, and a raise is a decision written here, never a quiet edit.",
-  "size-limit": [
-    {
-      "name": "root barrel (JS)",
-      "path": "dist/index.js",
-      "limit": "1.2 kB",
-      "ignore": [
-        "react",
-        "react-dom",
-        "react/jsx-runtime"
-      ]
-    },
-    {
-      "name": "next subpath (JS)",
-      "path": "dist/next.js",
-      "limit": "1.2 kB",
-      "ignore": [
-        "react",
-        "react-dom",
-        "react/jsx-runtime",
-        "next",
-        "next/link",
-        "next/navigation"
-      ]
-    }
-  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Kanzo-Tech/ui.git",
@@ -83,5 +57,10 @@
   "homepage": "https://kanzo-tech.github.io/ui",
   "bugs": {
     "url": "https://github.com/Kanzo-Tech/ui/issues"
+  },
+  "//gauges": "One gauge per published entry, and one per tree-shaken import a consumer meets; `scripts/gauges.mjs` (through `.size-limit.mjs`) is what each measures, and every limit's reason — each raise, dated, with its before and after — is a row on /docs/design, *A gauge per entry, and its raises written here*.",
+  "gauges": {
+    ".": "1.2 kB",
+    "./next": "1.2 kB"
   }
 }

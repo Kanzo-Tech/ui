@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, DiagnosticList, Problem, type ProblemCopy } from "@kanzo-tech/ui";
+import { Button, DiagnosticList, Problem, type ProblemDescription } from "@kanzo-tech/ui";
 import { useState } from "react";
 
 /** A library's coded error, in the shape every one of them shares. */
@@ -31,7 +31,7 @@ const FAILURE = new HallError(
 );
 
 /** The host's words: the clerk reads "the archive is closed", not the library's own phrasing. */
-const copy = (code: string, data: unknown): ProblemCopy | undefined => {
+const describe = (code: string, data: unknown): ProblemDescription | undefined => {
   if (code === "archive/silent") {
     const after = (data as { after?: number } | undefined)?.after;
     return {
@@ -47,7 +47,7 @@ export default function Example() {
   const [tries, setTries] = useState(1);
   return (
     <DiagnosticList className="max-w-xl">
-      <Problem copy={copy} error={FAILURE}>
+      <Problem describe={describe} error={FAILURE}>
         <Button onClick={() => setTries((n) => n + 1)} size="sm" variant="outline">
           Try again{tries > 1 ? ` (${tries})` : ""}
         </Button>
