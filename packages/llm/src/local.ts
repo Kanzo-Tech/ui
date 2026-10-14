@@ -296,7 +296,10 @@ function turnStream<T extends { type: string }>(source: ReadableStream<T>, relea
           release();
           controller.error(interrupted());
         } else {
-          if (value.type === "text-delta") (first?.(), (first = undefined));
+          if (value.type === "text-delta" && first) {
+            first();
+            first = undefined;
+          }
           controller.enqueue(value);
         }
       } catch (error) {
