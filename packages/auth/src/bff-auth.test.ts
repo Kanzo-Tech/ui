@@ -14,7 +14,7 @@ const body = {
     { alias: "globex", roles: [], groups: [], groupsOverage: true },
   ],
   organization: "acme",
-  expiresAt: 1_700_000_000_000,
+  expiresAt: Date.UTC(2099, 0, 1),
 };
 
 function responds(make: () => Response): typeof globalThis.fetch {
@@ -43,7 +43,7 @@ describe("readSession checks the wire instead of casting it", () => {
       { alias: "globex", id: undefined, roles: [], groups: [], groupsOverage: true },
     ]);
     expect(session?.organization).toBe("acme");
-    expect(session?.expiresAt).toBe(1_700_000_000_000);
+    expect(session?.expiresAt).toBe(Date.UTC(2099, 0, 1));
   });
 
   it("refuses anything that is not a session", () => {
@@ -102,14 +102,70 @@ describe("bffAuth", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/auth/session");
   });
 
-  it("answers from cache after the first read", async () => {
+  it("reads the session each time it is asked, because the provider's query is the one copy", async () => {
     const fetchMock = vi.fn<typeof globalThis.fetch>(async () => jsonOnce(body));
     const auth = bffAuth({ fetch: fetchMock });
 
     await auth.getSession();
     await auth.getSession();
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("renews a session read within a minute of its expiry, and answers the renewed one", async () => {
+    // The tab that stays on one page past its access token: the proxy renews before a page, and
+    // nothing renewed for a tab that loaded none, so it drew an `expiresAt` already gone.
+    const renewed = { ...body, expiresAt: Date.now() + 3_600_000, roles: ["auditor", "editor"] };
+    const fetchMock = vi.fn<typeof globalThis.fetch>(async (input) =>
+      String(input).endsWith("/refresh") ? jsonOnce(renewed) : jsonOnce({ ...body, expiresAt: Date.now() + 30_000 }),
+    );
+    const auth = bffAuth({ fetch: fetchMock });
+
+    const session = await auth.getSession();
+
+    expect(session?.roles).toEqual(["auditor", "editor"]);
+    expect(fetchMock.mock.calls.map(([input, init]) => `${init?.method ?? "GET"} ${String(input)}`)).toEqual([
+      "GET /api/auth/session",
+      "POST /api/auth/refresh",
+    ]);
+  });
+
+  it("answers nobody when the renewal of an expiring session is refused", async () => {
+    const fetchMock = vi.fn<typeof globalThis.fetch>(async (input) =>
+      String(input).endsWith("/refresh")
+        ? new Response("", { status: 401 })
+        : jsonOnce({ ...body, expiresAt: Date.now() - 1 }),
+    );
+    await expect(bffAuth({ fetch: fetchMock }).getSession()).resolves.toBeNull();
+  });
+
+  it("tells the other tabs when it loads, renews and signs out, and hears theirs", async () => {
+    // Auth.js's `BroadcastChannel`: a sign-out in one tab signs out the others, and a sign-in that
+    // came back to a fresh page is read by the tabs already open. The message is only that something
+    // changed; each tab reads its own answer.
+    const basePath = "/tabs/api/auth";
+    const fetchMock = vi.fn<typeof globalThis.fetch>(async (input) =>
+      String(input).endsWith("/session") ? jsonOnce(body) : new Response("", { status: 401 }),
+    );
+    const here = bffAuth({ basePath, fetch: fetchMock, navigate: () => {} });
+    const there = bffAuth({ basePath, fetch: fetchMock, navigate: () => {} });
+    const heard = vi.fn();
+    const heardHere = vi.fn();
+    const stop = there.subscribe(heard);
+    const stopHere = here.subscribe(heardHere);
+
+    try {
+      await here.getSession();
+      await vi.waitFor(() => expect(heard).toHaveBeenCalledTimes(1));
+      await here.getSession();
+      await here.signOut();
+      await vi.waitFor(() => expect(heard).toHaveBeenCalledTimes(2));
+      // A tab does not hear itself, so its own read is never a reason to read again.
+      expect(heardHere).not.toHaveBeenCalled();
+    } finally {
+      stop();
+      stopHere();
+    }
   });
 
   it("reads a 401 from the session endpoint as nobody being signed in", async () => {
@@ -194,7 +250,7 @@ describe("bffAuth", () => {
    * `/session` answers 200 and the whole application draws while every request for data is a 401 —
    * and before this, nothing in the package turned that into a renewal.
    */
-  it("renews and retries once when a request comes back 401", async () => {
+  it("renews and retries once when a request comes back 401, and has the provider read again", async () => {
     const fetchMock = vi
       .fn<typeof globalThis.fetch>()
       .mockImplementationOnce(async () => jsonOnce(body))
@@ -215,8 +271,8 @@ describe("bffAuth", () => {
     expect(fetchMock.mock.calls[2]?.[0]).toBe("/api/auth/refresh");
     expect(fetchMock.mock.calls[2]?.[1]?.method).toBe("POST");
     expect(fetchMock.mock.calls[3]?.[0]).toBe("/v1/jobs");
-    // Nothing about the person changed, so the tree is not re-rendered for a renewal.
-    expect(changed).not.toHaveBeenCalled();
+    // The provider reads the renewed session: its roles and its expiry may both have moved.
+    expect(changed).toHaveBeenCalledTimes(1);
   });
 
   it("spends one renewal for a burst of 401s", async () => {

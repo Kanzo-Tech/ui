@@ -306,24 +306,27 @@ describe("authRoutes", () => {
     });
 
     /**
-     * 401 **and no body**. `bffAuth` reads the status as "nobody is signed in" and returns `null`;
-     * a body here would be a second, contradictory way to say the same thing, and the first thing
-     * to parse it as a `Session` would find a user that is not there.
+     * `bffAuth` reads the status as "nobody is signed in" and returns `null` without reading the
+     * body; the body is the problem every other refusal here sends, for whatever else asks.
      */
-    it("answers 401 with no body when there is no session", async () => {
+    it("answers 401, as a problem whose code is session/absent, when there is no session", async () => {
       const response = await get(routes, "/api/auth/session");
 
       expect(response.status).toBe(401);
-      expect(await response.text()).toBe("");
-      expect(response.body).toBeNull();
-      expect(response.headers.get("content-type")).toBeNull();
+      expect(response.headers.get("content-type")).toBe("application/problem+json");
+      expect(await response.json()).toEqual({
+        status: 401,
+        title: "Unauthorized",
+        detail: "nobody is signed in",
+        code: "session/absent",
+      });
     });
 
     it("answers 401 for a cookie it cannot open", async () => {
       const response = await get(routes, "/api/auth/session", "__Host-kanzo-session=forged");
 
       expect(response.status).toBe(401);
-      expect(await response.text()).toBe("");
+      expect(await response.json()).toMatchObject({ code: "session/absent" });
     });
 
     it("answers 503 with a code, not a bare 500, when the session store does not answer", async () => {
@@ -348,7 +351,13 @@ describe("authRoutes", () => {
       const response = await get(flaky, "/api/auth/session", cookie);
 
       expect(response.status).toBe(503);
-      expect(await response.json()).toMatchObject({ error: "session/unavailable" });
+      expect(response.headers.get("content-type")).toBe("application/problem+json");
+      expect(await response.json()).toMatchObject({
+        status: 503,
+        title: "Service Unavailable",
+        code: "session/unavailable",
+        detail: "the session store did not answer",
+      });
     });
 
     it("is never cached, signed in or not", async () => {
@@ -447,11 +456,29 @@ describe("authRoutes", () => {
       expect(response.headers.get("cache-control")).toBe("no-store");
     });
 
+    it("answers the renewed session as the session route would, current tenant and all", async () => {
+      // `bffAuth` reads this body as the renewed session rather than asking `/session` again.
+      routes = authRoutes({ ...config, organization: ({ url }) => url.hostname.split(".")[0] });
+      const { cookie } = await signIn("/", {
+        sub: "u-1",
+        organization: { acme: { resource_access: { board: { roles: ["editor"] } } } },
+      });
+
+      const response = await routes.POST(
+        new Request("http://localhost:3000/api/auth/refresh", {
+          method: "POST",
+          headers: { cookie, host: "acme.localhost:3000" },
+        }),
+      );
+
+      expect(await response.json()).toMatchObject({ user: { id: "u-1" }, organization: "acme" });
+    });
+
     it("answers 401 when there is nothing to renew", async () => {
       const response = await send(routes, "POST", "/api/auth/refresh");
 
       expect(response.status).toBe(401);
-      expect(await response.json()).toMatchObject({ error: "session/absent" });
+      expect(await response.json()).toMatchObject({ status: 401, code: "session/absent" });
     });
 
     it("answers 401 and clears the cookie when the IdP refuses to renew", async () => {
@@ -463,7 +490,7 @@ describe("authRoutes", () => {
       );
 
       expect(response.status).toBe(401);
-      expect(await response.json()).toMatchObject({ error: "token/refused" });
+      expect(await response.json()).toMatchObject({ status: 401, code: "token/refused" });
       expect(response.headers.getSetCookie()[0]).toContain("Max-Age=0");
     });
 
@@ -572,7 +599,7 @@ describe("authRoutes", () => {
       );
 
       expect(response.status).toBe(501);
-      expect(await response.json()).toMatchObject({ error: "session/irrevocable" });
+      expect(await response.json()).toMatchObject({ status: 501, code: "session/irrevocable" });
     });
 
     /**

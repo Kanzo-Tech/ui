@@ -32,27 +32,25 @@
  *
  * - **`<where>Auth`** is a whole side of the BFF in one object — `bffAuth` in the browser, an
  *   {@link Auth}; `kanzoAuth` on `./next`, the server half for an App Router product.
- * - **Everything else is named for what it is**: `relyingParty`, `issuer`, `sealedCookie`, `claims`,
- *   `can`. The first of those used to be `serverAuth`, which wore the suffix without being a side
+ * - **Everything else is named for what it is**: `relyingParty`, `issuer`, `claims`, `can`. The first of those used to be `serverAuth`, which wore the suffix without being a side
  *   of anything — its job is `begin`/`complete`/`read`/`refresh`/`end`, the protocol's verbs. A
  *   name that promises an interface it does not return is worse than a long one, and *relying
  *   party* is the term the specification already uses for it.
  *
  * ## This door carries no engine
  *
- * Everything here runs on `react` alone, which is why a SPA installs the package and nothing else.
+ * Everything here runs on `react` and the host's `@tanstack/react-query` — the session is a query on
+ * the host's client — and on no protocol, which is why a browser installs nothing else.
  * `bffAuth` lives here rather than behind a subpath for the same reason: with the token on the
  * server there is no protocol left in the browser, only a `fetch` to a session endpoint.
  */
 
-export { accountUrl, type AccountPage } from "./account";
+export { accountUrl, organizationConsoleUrl, type AccountPage } from "./account";
 export type { AuthContextValue, AuthStatus } from "./auth-context";
 export { AuthProvider } from "./auth-provider";
-export { bffAuth, readSession, type BffAuthConfig } from "./bff-auth";
+export { bffAuth, type BffAuthConfig } from "./bff-auth";
 export { can, organizationOf } from "./can";
-export { claims, type ClaimsConfig } from "./claims";
 export { Gate } from "./gate";
-export { singleFlight } from "./single-flight";
 export {
   AuthError,
   type Auth,
