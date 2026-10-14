@@ -229,6 +229,19 @@ back, at its pointer, and takes the repair". `packages/ai/src/data/page-clauses.
 chip on another relation by the key both reach, as the page's tiles are crossed"; "keeps none of a
 relation's rows when it shares no type with the chip's".
 
+**A chat with Ask is kept as every chat is**: `useAskChat(options, { id, load, save, keep })` takes
+the chat hooks' `load`, `save` and `keep` ([A chat kept](/docs/ai/chat#a-chat-kept)). Its two data
+parts, `answer` and `ask`, are read through Ask's own schemas — as they stream and as a kept chat is
+loaded — each rebuilt from the fields it holds, its tile read by `parseTile` as a dashboard reads a
+stored tile; you do not pass `dataPartSchemas`. To keep no figure of the data, have `keep` write an
+answer's `rows` as `[]` and drop the assistant's text: the card draws the tile again over your graph
+when the chat is opened, with no rows under it. An answer with no `rows` at all is one still being
+read, which a restored chat draws as nothing.
+
+*Held by* `packages/ai/src/data/ask-parts.test.ts`, "reads back an answer and its turn as Ask wrote
+them, and nothing they do not hold"; "refuses an answer whose tile a dashboard would not read, or
+whose relation is not one".
+
 ## The chips
 
 **`AskChips` draws what an answer was read as, each part editable**: what is counted, what a chart

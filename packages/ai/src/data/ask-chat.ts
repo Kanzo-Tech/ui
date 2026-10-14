@@ -8,6 +8,7 @@ import { useTransportChat, type AgentChat, type AgentChatOptions } from "../agen
 import { propose, runTask, verify, type Decision, type Proposal, type Verdict } from "../task/index.js";
 import { ask, askAnswer, answerRelation, type AskInput, type AskSpec } from "./ask.js";
 import { readAnswerQuery, type AnswerOutput, type QueryRow } from "./read.js";
+import { ASK_PARTS } from "./ask-parts.js";
 
 /**
  * **Ask, in a chat** — the Ask Task behind `useChat`. Each question is one run of the Task: the model
@@ -209,13 +210,16 @@ export function askTransport(
 
 /**
  * A chat with Ask over the page: `Chat` draws it, and each `answer` part is an `AnswerCard`. Its reads
- * are queries on the host's `QueryClient`, so it needs a `QueryClientProvider` above it.
+ * are queries on the host's `QueryClient`, so it needs a `QueryClientProvider` above it. Given `id`,
+ * `load` and `save`, it is kept, its parts validated with Ask's own schemas.
  */
 export function useAskChat(options: AskChatOptions, chat?: AgentChatOptions<AskMessage>): AgentChat<AskMessage> {
   const client = useQueryClient();
   const latest = React.useRef(options);
   latest.current = options;
-  return useTransportChat((onError) => askTransport(() => latest.current, client, onError), chat);
+  // Ask's parts are read through their own schemas — as they stream, and as a kept chat is loaded.
+  const kept = { ...chat, dataPartSchemas: ASK_PARTS } as AgentChatOptions<AskMessage>;
+  return useTransportChat((onError) => askTransport(() => latest.current, client, onError), kept);
 }
 
 /**
