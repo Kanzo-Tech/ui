@@ -5,21 +5,22 @@ import { decodeIPC } from "@uwdata/mosaic-core";
 import { Coordinator } from "@kanzo-tech/mosaic";
 
 /**
- * **A corpus attached the way fossil's `open` attaches one**, in a real DuckDB-WASM in this process,
- * read through a real Mosaic `Coordinator` — so what the graph's SQL means is what DuckDB answers,
- * not what a fake believes. Small enough to count by hand:
+ * **A graph attached the way `@kanzo-tech/graphar-duckdb`'s `attachGraph` attaches one**, in a real
+ * DuckDB-WASM in this process, read through a real Mosaic `Coordinator` — so what the graph's SQL
+ * means is what DuckDB answers, not what a fake believes. A relation per type with GraphAr's own
+ * columns, and the information files as `graphar_vertex_types`, `graphar_edge_types`,
+ * `graphar_properties` and `graphar_extra_info`, typed as `attachGraph` types them. Small enough to
+ * count by hand, in global ids:
  *
- * - `Person`: ids `0 … 9`, `name` `Person i`, `team = i % 4`, `score = i + 1`, `lon = i`, `lat = 0`.
- * - `Place`: ids `10 … 15`, `name` `Place i`, `lon = i`, `lat = 1`.
+ * - `Person`: ids `0 … 9`, `subject` its primary key, `name` `Person i`, `team = i % 4`,
+ *   `score = i + 1`, `lon = i`, `lat = 0`, `born = 1900 + i`.
+ * - `Person_nickname`: second in the graph document, and a vertex type with no primary key — a
+ *   multi-valued property, `src → nick i` for every person — so it takes no ids and nothing draws it.
+ * - `Place`: ids `10 … 15`, `name` `Place i`, `lon = i`, `lat = 1`, `opened` the first of January of
+ *   `2000 + i`, a GraphAr `date`.
  * - `Tag`: ids `16 … 19`, its `subject` and nothing else.
  * - `Person_knows_Person` links `i → i + 1` (9); `Person_livesIn_Place` links `i → 10 + i % 6` (10);
- *   `Person_tagged_Tag` links `0 → 16` (1).
- * - `Person_nickname`: a multi-valued property in its own table, `src → nick i` for every person —
- *   a table that is neither a type nor a relation, so nothing draws it.
- *
- * And the catalog as fossil's `attach` (0.3.0-alpha.32) writes it: `fossil_tables` with each table's
- * label, endpoint keys and candidate keys, `fossil_columns` with `term_type`, `fossil_annotations` —
- * `Person` labelled *person* and *persona*, `born` *year of birth* — and `fossil_stats`, counted.
+ *   `Person_tagged_Tag` links `0 → 16` (1). Each holds GraphAr's per-type indices.
  */
 
 const require = createRequire(import.meta.url);
@@ -49,7 +50,7 @@ const { conn } = await (async () => {
 export interface Attached {
   /** The page's coordinator, over this process's DuckDB. */
   readonly coordinator: Coordinator;
-  /** The catalog the corpus is attached under — what `from` names. */
+  /** The catalog the graph is attached under — what `from` names. */
   readonly from: string;
   /** Every statement the coordinator sent, in order. */
   readonly sent: string[];
@@ -63,85 +64,50 @@ export interface Attached {
 
 let catalogs = 0;
 
-const XSD = "http://www.w3.org/2001/XMLSchema#";
-const RDFS = "http://www.w3.org/2000/01/rdf-schema#";
-
-/** Every table but the catalog, and its columns: what the writer counts, and what `fossil_columns` lists. */
-const TABLES: Record<string, string[]> = {
-  Person: ["dense_id", "subject", "name", "team", "score", "lon", "lat", "born"],
-  Place: ["dense_id", "subject", "name", "lon", "lat"],
-  Tag: ["dense_id", "subject"],
-  Person_knows_Person: ["src", "dst"],
-  Person_livesIn_Place: ["src", "dst"],
-  Person_tagged_Tag: ["src", "dst"],
-  Person_nickname: ["src", "nickname"],
+/** Each type's properties as `graphar_properties` lists them: name, GraphAr type, primary. */
+const PROPERTIES: Record<string, [string, string, boolean][]> = {
+  Person: [["subject", "string", true], ["name", "string", false], ["team", "int32", false], ["score", "int32", false],
+    ["lon", "double", false], ["lat", "double", false], ["born", "int32", false]],
+  Person_nickname: [["src", "int64", false], ["nickname", "string", false]],
+  Place: [["subject", "string", true], ["name", "string", false], ["lon", "double", false], ["lat", "double", false], ["opened", "date", false]],
+  Tag: [["subject", "string", true]],
 };
-
-/**
- * `fossil_stats` as the writer counts it: per column, its nulls, its distinct values, its extent and
- * its ten commonest values with their share of the rows — over every row, here by DuckDB.
- */
-const STATS = (c: string) =>
-  Object.entries(TABLES)
-    .flatMap(([table, columns]) =>
-      columns.map(
-        (column) => `SELECT '${table}' AS table_name, '${column}' AS column_name,
-  count(*) FILTER (WHERE "${column}" IS NULL)::UBIGINT AS null_count, count(DISTINCT "${column}")::UBIGINT AS distinct_count,
-  min("${column}")::VARCHAR AS min_value, max("${column}")::VARCHAR AS max_value,
-  (SELECT list(v ORDER BY n DESC, v) FROM (SELECT "${column}"::VARCHAR AS v, count(*) AS n FROM ${c}."${table}" GROUP BY 1 ORDER BY n DESC, v LIMIT 10)) AS most_common_vals,
-  (SELECT list(n / (SELECT count(*) FROM ${c}."${table}") ORDER BY n DESC, v) FROM (SELECT "${column}"::VARCHAR AS v, count(*)::DOUBLE AS n FROM ${c}."${table}" GROUP BY 1 ORDER BY n DESC, v LIMIT 10)) AS most_common_freqs
-FROM ${c}."${table}"`,
-      ),
-    )
-    .join("\nUNION ALL ");
 
 const FIXTURE = (c: string, n: number) => `
 ATTACH ':memory:' AS ${c};
-CREATE TABLE ${c}."Person" AS SELECT i::UBIGINT AS dense_id, 'https://example.org/person/' || i AS subject,
+CREATE TABLE ${c}."Person" AS SELECT i::BIGINT AS _graphArVertexIndex, 'https://example.org/person/' || i AS subject,
   'Person ' || i AS name, (i % 4)::INTEGER AS team, (i + 1)::INTEGER AS score, i::DOUBLE AS lon, 0::DOUBLE AS lat,
   (1900 + i)::INTEGER AS born
   FROM range(${n}) t(i);
-CREATE TABLE ${c}."Place" AS SELECT (${n} + i)::UBIGINT AS dense_id, 'https://example.org/place/' || i AS subject,
-  'Place ' || i AS name, i::DOUBLE AS lon, 1::DOUBLE AS lat FROM range(6) t(i);
-CREATE TABLE ${c}."Tag" AS SELECT (${n + 6} + i)::UBIGINT AS dense_id, 'https://example.org/tag/' || i AS subject FROM range(4) t(i);
-CREATE TABLE ${c}."Person_knows_Person" AS SELECT i::UBIGINT AS src, (i + 1)::UBIGINT AS dst FROM range(9) t(i);
-CREATE TABLE ${c}."Person_livesIn_Place" AS SELECT i::UBIGINT AS src, (${n} + i % 6)::UBIGINT AS dst FROM range(10) t(i);
-CREATE TABLE ${c}."Person_tagged_Tag" AS SELECT 0::UBIGINT AS src, ${n + 6}::UBIGINT AS dst;
-CREATE TABLE ${c}."Person_nickname" AS SELECT i::UBIGINT AS src, 'nick ' || i AS nickname FROM range(${n}) t(i);
-CREATE VIEW ${c}.fossil_tables AS SELECT * FROM (VALUES
-  ('Person', 'vertex', 'Person', 'https://example.org/Person', ${n}::UBIGINT, 0::UBIGINT, NULL, NULL, NULL, NULL, ['dense_id', 'subject', 'name', 'score', 'born']),
-  ('Place', 'vertex', 'Place', 'https://example.org/Place', 6::UBIGINT, ${n}::UBIGINT, NULL, NULL, NULL, NULL, ['dense_id', 'subject', 'name']),
-  ('Tag', 'vertex', 'Tag', 'https://example.org/Tag', 4::UBIGINT, ${n + 6}::UBIGINT, NULL, NULL, NULL, NULL, ['dense_id', 'subject']),
-  ('Person_knows_Person', 'edge', 'knows', 'https://example.org/knows', 9::UBIGINT, NULL, 'Person', 'src', 'Person', 'dst', []::VARCHAR[]),
-  ('Person_livesIn_Place', 'edge', 'livesIn', 'https://example.org/livesIn', 10::UBIGINT, NULL, 'Person', 'src', 'Place', 'dst', []::VARCHAR[]),
-  ('Person_tagged_Tag', 'edge', 'tagged', 'https://example.org/tagged', 1::UBIGINT, NULL, 'Person', 'src', 'Tag', 'dst', []::VARCHAR[]),
-  ('Person_nickname', 'property', 'nickname', NULL, ${n}::UBIGINT, NULL, 'Person', 'src', NULL, NULL, ['nickname'])
-) t(table_name, kind, label, iri, record_count, first_id, source, source_key, destination, destination_key, candidate_keys);
-CREATE VIEW ${c}.fossil_columns AS
-  SELECT table_name, column_name, column_index AS ordinal_position,
-    CASE data_type WHEN 'DOUBLE' THEN 'double' WHEN 'INTEGER' THEN 'int32' WHEN 'UBIGINT' THEN 'uint64'
-                   WHEN 'VARCHAR' THEN 'string' END AS data_type,
-    CASE WHEN column_name = 'dense_id' THEN 'address' WHEN column_name = 'subject' THEN 'identity'
-         WHEN column_name IN ('src', 'dst') THEN 'endpoint' END AS role,
-    NULL AS iri,
-    CASE WHEN column_name = 'subject' THEN 'rr:IRI' END AS term_type,
-    CASE WHEN column_name = 'born' THEN '${XSD}gYear' END AS datatype, is_nullable
-  FROM duckdb_columns() WHERE database_name = '${c}' AND table_name IN (${Object.keys(TABLES).map((t) => `'${t}'`).join(", ")});
-CREATE VIEW ${c}.fossil_annotations AS SELECT * FROM (VALUES
-  ('Person', NULL, '${RDFS}label', 'L', 'person', '', 'en'),
-  ('Person', NULL, '${RDFS}label', 'L', 'persona', '', 'es'),
-  ('Person', 'born', '${RDFS}label', 'L', 'year of birth', '', 'en'),
-  ('Person_knows_Person', NULL, '${RDFS}comment', 'L', 'whom a person knows', '${XSD}string', '')
-) t(table_name, column_name, predicate, o_type, o_value, o_datatype, o_lang);
-CREATE VIEW ${c}.fossil_stats AS ${STATS(c)};
+CREATE TABLE ${c}."Person_nickname" AS SELECT i::BIGINT AS _graphArVertexIndex, i::BIGINT AS src, 'nick ' || i AS nickname FROM range(${n}) t(i);
+CREATE TABLE ${c}."Place" AS SELECT i::BIGINT AS _graphArVertexIndex, 'https://example.org/place/' || i AS subject,
+  'Place ' || i AS name, i::DOUBLE AS lon, 1::DOUBLE AS lat, make_date(2000 + i::INTEGER, 1, 1) AS opened FROM range(6) t(i);
+CREATE TABLE ${c}."Tag" AS SELECT i::BIGINT AS _graphArVertexIndex, 'https://example.org/tag/' || i AS subject FROM range(4) t(i);
+CREATE TABLE ${c}."Person_knows_Person" AS SELECT i::BIGINT AS _graphArSrcIndex, (i + 1)::BIGINT AS _graphArDstIndex FROM range(9) t(i);
+CREATE TABLE ${c}."Person_livesIn_Place" AS SELECT i::BIGINT AS _graphArSrcIndex, (i % 6)::BIGINT AS _graphArDstIndex FROM range(10) t(i);
+CREATE TABLE ${c}."Person_tagged_Tag" AS SELECT 0::BIGINT AS _graphArSrcIndex, 0::BIGINT AS _graphArDstIndex;
+CREATE VIEW ${c}.graphar_vertex_types AS SELECT * FROM (VALUES
+  ('Person', ${n}::UBIGINT, 1), ('Person_nickname', ${n}::UBIGINT, 2), ('Place', 6::UBIGINT, 3), ('Tag', 4::UBIGINT, 4)
+) t(type, count, ordinal);
+CREATE VIEW ${c}.graphar_edge_types AS SELECT * FROM (VALUES
+  ('Person_knows_Person', 'Person', 'knows', 'Person', 9::UBIGINT, true, 1),
+  ('Person_livesIn_Place', 'Person', 'livesIn', 'Place', 10::UBIGINT, true, 2),
+  ('Person_tagged_Tag', 'Person', 'tagged', 'Tag', 1::UBIGINT, true, 3)
+) t(name, src_type, edge_type, dst_type, count, directed, ordinal);
+CREATE VIEW ${c}.graphar_properties AS SELECT * FROM (VALUES
+  ${Object.entries(PROPERTIES)
+    .flatMap(([type, properties]) => properties.map(([name, dataType, primary], i) => `('${type}', '${name}', '${dataType}', ${primary}, ${!primary}, ${i + 1})`))
+    .join(",\n  ")}
+) t(type, property, data_type, is_primary, is_nullable, ordinal);
+CREATE VIEW ${c}.graphar_extra_info AS SELECT * FROM (VALUES ('http://w3id.org/rml/', 'mapping.ttl')) t(key, value);
 `;
 
 /**
- * A fresh catalog holding the corpus above, and a coordinator of its own over the shared database.
- * `people` grows `Person` for a test about scale; the other tables follow it, ids shifted.
+ * A fresh catalog holding the graph above, and a coordinator of its own over the shared database.
+ * `people` grows `Person` for a test about scale; the other types follow it, global ids shifted.
  */
 export async function attach(people = 10): Promise<Attached> {
-  const from = `corpus${++catalogs}`;
+  const from = `graph${++catalogs}`;
   conn.query(FIXTURE(from, people));
   const sent: string[] = [];
   const answered = { count: 0 };
@@ -186,7 +152,7 @@ export async function attach(people = 10): Promise<Attached> {
   return { coordinator, from, sent, answered, asked, refuse: (pattern, error) => refusals.push({ pattern, error }) };
 }
 
-/** What fossil's storage rejects with: an `Error` carrying a code. */
+/** What a host's storage rejects with: an `Error` carrying a code. */
 export const refusal = () => Object.assign(new Error("the bucket did not answer"), { code: "storage/unreachable" });
 
 /**

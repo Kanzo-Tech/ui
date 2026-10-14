@@ -1,11 +1,11 @@
 /**
- * The graph view over a fossil corpus. fossil reads and this package draws, and nothing crosses
- * between them but the corpus contract: the host opens the corpus with fossil's `open` on the page's
- * `engine()`, and `GraphRoot` draws the whole of it.
+ * The graph view over an Apache GraphAr graph. `@kanzo-tech/graphar-duckdb` reads and this package
+ * draws, and nothing crosses between them but GraphAr's catalog: the host attaches the graph with
+ * `attachGraph` on the page's `engine()`, and `GraphRoot` draws the whole of it.
  *
  * Four layers, each the shape of a named reference — `/docs/design/graph`:
  *
- * - `core/` — the loader, one `scan` per table read whole into arrays indexed by the corpus's key, and a
+ * - `core/` — the loader, one `scan` per table read whole into arrays indexed by the global id, and a
  *   store in TanStack Query's observer shape. No React, no cosmos.gl, no SQL.
  * - `render/` — those arrays to cosmos.gl: uploaded once per corpus, repainted by kind, rendered once
  *   a frame.

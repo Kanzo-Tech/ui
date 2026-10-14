@@ -194,11 +194,17 @@ a value, as `Slider` does. Then play writes the `Param`, and `ChartTimeline` sto
 
 ## Time is read from the schema, never guessed
 
-**A column is temporal when the corpus says it is: a `date` or `timestamp` column, or one whose
-`datatype` is `xsd:date`, `xsd:dateTime` or `xsd:gYear`.** `fossil_columns.datatype` carries the IRI
-the shape declared, so an `xsd:gYear` stored as an `int32` is drawn as years. Cosmograph instead
-samples 100 values and calls a column of year-like integers a year. A count of rows, a price or an
-id in that range would be read as a date, and the schema already says which column is a year.
+**A column is temporal when the graph says it is: a GraphAr `date` or `timestamp` column.**
+Cosmograph instead samples 100 values and calls a column of year-like integers a year. A count of
+rows, a price or an id in that range would be read as a date, and the schema already says which
+column is a time. **A year stored as an `int32` is a number**: GraphAr has no year type, and the
+`xsd:gYear` its shape declared lives only in the graph's RML mapping, which the graph does not read
+([The graph](/docs/design/graph#what-graphar-does-not-carry)). It replaced the year read from
+`fossil_columns.datatype`, which fossil's manifest carried and GraphAr's catalog does not.
+
+**What would reverse it:** the host passing the datatypes from rudof's `Mapping.model()` after the
+first paint, as fossil's D4 decided — then a year is a time on the timeline again, and still not
+before the first paint.
 
 **The column is a setting of the graph, not a selector of the part's.** `time-by` sits beside
 *X axis* and *Group by* in `GRAPH_SECTION`, and the root answers its options from the corpus's
@@ -307,5 +313,5 @@ dragged"; "holds one window, which each brush replaces — through a re-render a
 plot"; "draws the window's bars in colour by clipping the bars in front to it, with no query"; "draws
 the axis at the top, each label right of its rule, whole, the first at the axis's start"), `packages/mosaic/src/crossfilter.test.ts`
 ("crosses into and out of a union by the key its types share") and
-`packages/graph/src/parts/graph-section.test.tsx` (the setting offers the `xsd:gYear` column by its
-datatype, and no integer of the same range).
+`packages/graph/src/parts/graph-section.test.tsx` ("offers the timeline the graph's temporal fields,
+by the type the engine reads": a GraphAr `date`, and no `int32` year).

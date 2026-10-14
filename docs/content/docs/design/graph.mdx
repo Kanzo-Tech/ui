@@ -1,25 +1,28 @@
 ---
 title: The graph view
-description: How @kanzo-tech/graph is built — one Mosaic client on the page's coordinator over a corpus fossil attached, uploaded to cosmos.gl once and greyed out by the crossfilter, an Ark-shaped root over flat parts — and what would reverse each rule.
+description: How @kanzo-tech/graph is built — one Mosaic client on the page's coordinator over an Apache GraphAr graph @kanzo-tech/graphar-duckdb attached, uploaded to cosmos.gl once and greyed out by the crossfilter, an Ark-shaped root over flat parts — and what would reverse each rule.
 ---
 
 [The graph page](/docs/graph) is what `@kanzo-tech/graph` ships. This page is how it is built and
 why.
 
 <Callout type="info">
-The contract is a catalog. fossil's `attach(name, { engine, host | url })` (`@fossil-lang/corpus`)
-attaches a `fossil/1` corpus to the page's DuckDB as the catalog `name`: a view per table,
-`"<name>".fossil_tables(table_name, kind, label, iri, record_count, first_id, source, source_key, destination, destination_key, candidate_keys, …)`,
-`"<name>".fossil_columns(table_name, column_name, ordinal_position, data_type, role, iri, term_type, datatype, is_nullable)`,
-`"<name>".fossil_annotations` and `"<name>".fossil_stats` (0.3.0-alpha.32). A vertex table holds
-`dense_id` — global, contiguous per table from `first_id` — its identity column and the program's
-columns; an edge table holds the two `dense_id`s its `source_key` and `destination_key` name; a
-property table, a row per value, holds its source's. The corpus carries no position.
+The contract is a catalog. `@kanzo-tech/graphar-duckdb`'s `attachGraph(engine, name, resolve, { entry })`
+attaches an [Apache GraphAr](https://graphar.apache.org/) graph to the page's DuckDB as the catalog
+`name`: a view per vertex type, `"<name>"."<type>"`, holding `_graphArVertexIndex` — GraphAr's
+index within the type, `0 … count − 1` — and its properties; a view per edge type,
+`"<name>"."<src_type>_<edge_type>_<dst_type>"`, holding `_graphArSrcIndex` and `_graphArDstIndex`
+into its two types; and the information files as relations,
+`graphar_vertex_types(type, count, ordinal)`,
+`graphar_edge_types(name, src_type, edge_type, dst_type, count, directed, ordinal)`,
+`graphar_properties(type, property, data_type, is_primary, is_nullable, ordinal)` and
+`graphar_extra_info(key, value)` (0.1.0-alpha.0, Kanzo-Tech/graphar `9cae19a`). The graph reads the
+first three. The graph carries no position.
 </Callout>
 
 **The reference is Cosmograph v2**, read from its shipped 2.5.1 bundle — its code is CC-BY-NC, so
 only the architecture is borrowed: DuckDB-WASM, a Mosaic coordinator and cosmos.gl; points indexed
-`0 … N − 1` and links as index pairs, which is exactly fossil's `dense_id`, `src` and `dst`; position
+`0 … N − 1` and links as index pairs, which is exactly [the global id](#the-global-id-is-the-graphs-arithmetic), `src` and `dst`; position
 as a view choice, with a GPU simulation from a seeded start when nothing places the points; a
 cluster column fed to `setPointClusters`; filtering as a query for the surviving indices, drawn as a
 GPU greyout; widgets and search as clients of the same coordinator. It has no map mode, and neither
@@ -27,30 +30,37 @@ does this: `lon`/`lat` as `x`/`y` is what there is.
 
 ## The graph reads SQL, through the page's coordinator
 
-The host attaches the corpus and names the catalog; `GraphRoot` reads it with SQL — the catalog for
+The host attaches the graph and names the catalog; `GraphRoot` reads it with SQL — the catalog for
 the structure, once, through `readCatalog` (below), the views for rows and links, one `SELECT` for a focused row,
 a `LIMIT`ed `ILIKE` for a search — every statement built
 from mosaic-sql's nodes and run through `coordinator.query(query, { type: "arrow" })`. A search is text
 a reader typed, so no statement is a template string: the nodes quote their own identifiers and
-literals. It imports nothing of fossil's.
+literals. It imports nothing of graphar's or fossil's.
 
 ```text
 host                                                    @kanzo-tech/graph
 engine() → DuckDB-WASM + coordinator                    parts     GraphCanvas · GraphLegend · GraphStatus · GraphCounts · GraphToolbar · GraphInspector · GraphSearch
-attach(name, { engine, url }) → "<name>".<Table>          adapter   useGraph · GraphRoot · GraphRootProvider · useGraphContext · useGraphState
-           "<name>".fossil_tables · fossil_columns      render    typed arrays → cosmos.gl, uploaded once per corpus
+attachGraph(engine, name, resolve) → "<name>".<type>    adapter   useGraph · GraphRoot · GraphRootProvider · useGraphContext · useGraphState
+  "<name>".graphar_vertex_types · _edge_types · _properties  render  typed arrays → cosmos.gl, uploaded once per graph
 <GraphRoot from={name} coordinator filterBy>            core      source: SQL through the coordinator · client · load · store
 ```
 
 **Every read of the catalog is one function, `readCatalog`** (`core/catalog.ts`): the canvas's
 structure and `readJoinGraph` are both built from what it answers, through the coordinator's cache,
 so a page that draws the graph and a dashboard over it reads the catalog once, and nothing else in the
-library names a catalog relation. An edge's label and its endpoint columns are the catalog's, never
-parsed out of a table's name or written as `src` and `dst`. fossil's corpus format may move to
-[Apache GraphAr](https://graphar.apache.org/) (a design under review in fossil-lang's draft #42); if
-it does, `readCatalog` is the one place that reads it differently, and the `Structure` it answers is
-what every layer keeps reading. *What would reverse it:* a reader that needs a fact of the corpus at
-a moment `readCatalog` is not run — then the fact is added to what it answers, not read a second way.
+library names a catalog relation. An edge's label is GraphAr's `edge_type` and its ends its
+`src_type` and `dst_type`, never parsed out of a view's name. *What would reverse it:* a reader that
+needs a fact of the graph at a moment `readCatalog` is not run — then the fact is added to what it
+answers, not read a second way.
+
+**It replaced fossil's manifest relations**, `fossil_tables`, `fossil_columns`, `fossil_annotations`
+and `fossil_stats`, which `@fossil-lang/corpus`'s `attach` made of a `fossil/1` corpus. fossil's
+run moves to writing a GraphAr graph, and `@fossil-lang/corpus` goes with the format (fossil's
+`/docs/design/graphar`, its step F1), so the one reader of a graph's metadata is `graphar-duckdb`, in
+GraphAr's words, and this function reads those words. The `Structure` it answers kept its shape where GraphAr
+states the same fact, and lost every field GraphAr does not state ([below](#what-graphar-does-not-carry)).
+*What would reverse it:* a graph format other than GraphAr — then `readCatalog` reads that
+catalog, and nothing past it moves.
 
 **It replaced "no SQL in `@kanzo-tech/graph`"**, under which every read went through fossil's
 `scan` on a connection of its own: rows decoded on the main thread, a cache nobody else shared, and a
@@ -63,10 +73,104 @@ no DuckDB views — or a second host that has to draw without Mosaic. Then a rea
 the loader, and the parts do not move.
 
 *Held by* `packages/graph/src/layers.test.ts`, "builds statements only where it reads, writes none in
-a string, and imports nothing of fossil's"; `packages/graph/src/index.test.ts`, "keeps the second reader deleted: no opener, no
-source, no slice"; `packages/graph/src/core/store.test.ts`, "reads the structure from fossil_tables
-and fossil_columns, and every vertex by its dense_id"; `packages/graph/src/core/catalog.test.ts`, "takes
-an edge's label and its endpoint keys from fossil_tables, never from the table's name".
+a string, and imports nothing of graphar's or fossil's"; `packages/graph/src/index.test.ts`, "keeps the second reader deleted: no opener, no
+source, no slice"; `packages/graph/src/core/store.test.ts`, "reads the structure from GraphAr's
+relations, and every vertex by its global id"; `packages/graph/src/core/catalog.test.ts`, "takes
+an edge's label and its ends from graphar_edge_types, never from the view's name".
+
+## The global id is the graph's arithmetic
+
+GraphAr numbers vertices **within a type**, and the graph needs one number per vertex across every
+type: it is the index into cosmos.gl's buffers, and mosaic's cross-type semi-join
+(`dense_id IN (…)`) needs one id space. **Nothing writes it, and the graph computes it**:
+
+```text
+first(t)  = Σ count of the node types before t, in graphar_vertex_types.ordinal (the graph document's order)
+dense_id  = CAST(first(t) + _graphArVertexIndex AS UINTEGER)
+src, dst  = CAST(first(src_type) + _graphArSrcIndex AS UINTEGER), and the same for dst_type
+```
+
+Each type's `table` in the `Structure` and in the join graph is that projection over the type's
+view, and every reader reads the type through it — the rows, the links, the crossfilter's client,
+`vertices` and every relation a dashboard builds — so a clause published on `dense_id` means the
+same vertex everywhere. A lookup by id (the focused row, a label's text) reads the view by GraphAr's
+own index, `id − first(t)`, which a chunk's statistics can skip on. The cast keeps the Arrow at four
+bytes an id, where GraphAr's `int64` is eight; fossil's writer refuses more than 2³² vertices, so it
+fits. **The sum runs over the node types only**, so a property table between two of them leaves no
+hole and the ids stay `0 … V − 1`. The key is the graph's own constant, `KEY` in `core/structure.ts`:
+GraphAr states no global id to read it from.
+
+**It replaced the corpus's `dense_id` and "the key is read, not written down"**, when fossil wrote a
+global id into every vertex table and gave its column the `address` role, which the graph read. The
+arithmetic was measured by fossil before the format moved (`/docs/design/graphar` there, 2026-10-14:
+2,000,000 edges read through it in DuckDB-WASM within the run-to-run spread of the stored id —
+183 and 201 ms medians against 205 and 172 — and the Arrow at 16.0 MB, where GraphAr's `int64`
+read uncast is 32.0 MB).
+
+**What would reverse it:** a reader that needs the global id **in the files**, with no query between
+it and them — then a writer stores it beside GraphAr's index and the graph reads that column; or the
+arithmetic measured above a fifth of a read on a quiet host.
+
+*Held by* `packages/graph/src/core/catalog.test.ts`, "numbers the node types in the graph document's
+order, each from the counts before it, and skips a type with no primary key", "gives each edge its
+ends as global ids, from GraphAr's per-type indices"; `packages/graph/src/core/crossfilter.property.test.ts`,
+whose oracle computes the id by hand from `_graphArVertexIndex`.
+
+## A type with a primary key is a node type
+
+A GraphAr vertex type with an `is_primary` property is drawn, and that property is its **identity** —
+what a label falls back to, what the inspector shows as its IRI, and the type's `identity` role in
+the join graph. **A vertex type with no primary key is a property table** — fossil writes a
+multi-valued or language-tagged property that way, a row per value with an index into its owner — and
+it is neither drawn nor in the join graph: GraphAr has no foreign key, and only the graph's RML
+mapping says whose rows it holds, which the graph does not read. An edge type into one is left out
+for the same reason.
+
+**It replaced the multi-valued property as a type of the join graph**, reached by a hop named by the
+property through its own table, which fossil's `fossil_tables` made possible by naming the table's
+source and the column holding its key. A dashboard over the join graph no longer reaches a
+`nickname`.
+
+**What would reverse it:** GraphAr gaining a property table or a foreign key; or a host passing the
+link from the mapping (rudof's `Mapping.model()`), as it will pass datatypes
+([below](#what-graphar-does-not-carry)) — then a property table is a type again, keyed by
+`first(owner) + src`.
+
+*Held by* `packages/graph/src/core/catalog.test.ts`, "numbers the node types in the graph document's
+order, each from the counts before it, and skips a type with no primary key";
+`packages/graph/src/core/store.test.ts`, "refuses a graph whose every vertex type lacks a primary key
+as graph/nothing-to-draw".
+
+## What GraphAr does not carry
+
+GraphAr states a type, its count, its properties' types, which one is the primary key and which may
+be null, and an edge type's ends — and **the `Structure` holds exactly those**. What fossil's
+manifest added is gone from it, and from the join graph's types and columns, each falling back to
+what a reader did without it:
+
+| fact | where it is now | what the graph does without it |
+| --- | --- | --- |
+| a column's role (`address`, `identity`, `endpoint`) | the global id is the graph's `address`; `is_primary` is the `identity` | states both in the join graph itself |
+| class and predicate IRIs, term types | the RML mapping (`mapping.ttl`, named in `graphar_extra_info`) | reads none; an identity is an identifier by its role |
+| annotations — a label in a language | nowhere: fossil emits none until a reader asks (its D1) | a type, an edge and a field are called by their names (`labelOf` falls back) |
+| a datatype beyond GraphAr's — `xsd:gYear` over an `int32` | the mapping (fossil's D4) | a year is a number; a time is GraphAr's `date` or `timestamp` |
+| a column's counts — distinct values, commonest values | each chunk's Parquet footer, under `fossil:stats` (fossil's D2) | `useFieldStats` reads the relation with one `SUMMARIZE` |
+| candidate keys | derived | the global id and the primary key |
+
+**The counts are the one fact a reader of this package had**, and they are not read, because the
+contract does not reach them: `parquet_kv_metadata` takes a file, and the relations `attachGraph`
+makes name no chunk — only its `graph` object and the host's `resolve` know the paths. Reading them
+would mean the host handing the graph file names, or this package knowing GraphAr's path layout,
+and either is a second contract beside the catalog. `SUMMARIZE` answers the same questions on the
+engine, a statement per relation where the counts were none.
+
+**What would reverse it:** for the counts, a relation of chunk paths in `attachGraph`'s catalog —
+then `readCatalog` reads the footers through it, in the same breath. For datatypes, the host passing
+them from rudof's `Mapping.model()` after the first paint (fossil's D4) — then a year is a time
+again. For annotations, the first reader that needs a label the names do not give, and fossil
+emitting them.
+
+
 
 ## The graph is a client of the page's coordinator
 
@@ -119,11 +223,6 @@ rather than hiding them, so a name that exists is never reported missing. *What 
 reader who expects a search to look past the page's filters — then it reads `predicate(null)` and the
 footer counts what is inside instead.
 
-**The key is read, not written down.** Every clause the graph publishes, and every read of a vertex,
-names the column the manifest gives the `address` role — fossil's `dense_id` — and a corpus that
-gives no vertex column that role is `graph/nothing-to-draw`. The graph wrote `dense_id` as a constant,
-which a host repeated to publish a pick the graph would honour.
-
 **It replaced "the graph listens to the selection; it is not a client"**, under which the graph
 translated mosaic-sql's nodes into scan's typed filter, refused every node it could not translate,
 ran the filter as a second scan, and hid the losers by uploading every position again with `NaN` —
@@ -142,8 +241,7 @@ the graph.
 buffer it has", "runs the predicate as Mosaic wrote it on every table that has its columns, and keeps none of one that
 has not", "keeps nothing under a clause no vertex type can answer, and fails nothing",
 "publishes the reader's pick as a semi-join on dense_id, and is exempt from its own clause",
-"withdraws its pick from the crossfilter it leaves, and publishes it on the one it joins", "reads the
-vertex key from the address role, and refuses a corpus that gives none as graph/nothing-to-draw";
+"withdraws its pick from the crossfilter it leaves, and publishes it on the one it joins";
 `packages/graph/src/core/crossfilter.property.test.ts`, "keeps none of it, whatever else the page holds
 (ans(c, v) = false)";
 `packages/graph/src/parts/parts.test.tsx`, "publishes a place's pick as a clause of its own, which
@@ -354,11 +452,12 @@ reader takes the camera, and starts again with Frame"; `packages/graph/src/core/
 fossil cites this decision by its number, so the label stays.
 
 **The canvas holds the whole graph.** The links — one statement per relation — and the bound
-columns of every vertex table are read into arrays sized from `fossil_tables`' `record_count` and uploaded to
+columns of every vertex type are read into arrays sized from `graphar_vertex_types`' `count` and uploaded to
 cosmos.gl once. **Detail is fetched, not carried**: a focused row, a label's text, a hover card and a
 search are statements of their own, read when needed. **Identity is an id, and the id is the
-index**: a vertex table is the contiguous range `first_id … first_id + rows − 1`, so its answer in
-`dense_id` order is written into its own slice of every buffer and nothing is resolved row by row.
+index**: a vertex type is the contiguous range `first … first + rows − 1` of [the global
+id](#the-global-id-is-the-graphs-arithmetic), so its answer in `dense_id` order is written into its
+own slice of every buffer and nothing is resolved row by row.
 
 It rests on one premise: **the graph is not edited.** It is fossil's compiled output, so what was
 loaded stays true until the host attaches another corpus.
@@ -368,8 +467,8 @@ owner, or one past cosmos.gl's link addressing (see [*A dense id is a buffer
 index*](#a-dense-id-is-a-buffer-index)). Then a partial read comes in **behind the loader** — a
 `WHERE` on the statements it already runs — never a prop, and never a camera in the store.
 
-*Held by* `packages/graph/src/core/store.test.ts`, "reads the structure from fossil_tables and
-fossil_columns, and every vertex by its dense_id"; `packages/graph/src/index.test.ts`, "ships a canvas
+*Held by* `packages/graph/src/core/store.test.ts`, "reads the structure from GraphAr's relations,
+and every vertex by its global id"; `packages/graph/src/index.test.ts`, "ships a canvas
 that owns the renderer, and neither load nor Loaded".
 
 ## Position is a channel
@@ -576,7 +675,7 @@ under it read the root.
 - **`GraphInspector`** — the focused vertex, Linkurious's inspector: headed by its title or its IRI's
   local name under its type, **Locate** beside it (`reveal`: frame it with its neighbours, and keep the
   camera there), the IRI under it with its copy button, then its row in two columns, in
-  `fossil_columns`' order, grouped as values and dates, and a render prop for fields a product adds.
+  `graphar_properties`' order, grouped as values and dates, and a render prop for fields a product adds.
   Sections and rules, not a card: in a dock a card is a second border. **It does nothing with the
   neighbourhood**: a count per relation repeated what the canvas draws one click away, a "select
   neighbours" repeated what a click and Locate already select, and three icon buttons (zoom, focus,
@@ -647,15 +746,15 @@ graph loads".
 
 ## Attaching is the host's
 
-**Where the corpus is and what signs it are the host's**, and so are attaching and detaching: `attach`
-answers the attachment whose `detach()` gives the catalog back. The graph is handed a name and the page's one
+**Where the graph is and what signs it are the host's**, and so are attaching and detaching:
+`attachGraph` answers the attachment whose `detach()` gives the catalog back. The graph is handed a name and the page's one
 coordinator — one per page, because `MosaicProvider` makes its coordinator vgplot's active one and
 that setter is process-wide. [Discovery workspace](/docs/graph/workspace) is the wiring, and
 [the workspace showcase](/docs/showcases/workspace) the reference composition: what it writes is the
 product's — the pairings of look and channels, the hall's name in the inspector, the panels — and
 nothing in it reads a renderer or a buffer.
 
-**The graph bounds the one wait it owns.** The waits inside `attach` are fossil's, and the host awaits
+**The graph bounds the one wait it owns.** The waits inside `attachGraph` are the host's, and the host awaits
 them before it names the catalog; the reads after that have no deadline. cosmos.gl's `ready` never
 settles when no device can be made, so after 10 s the root fails with `graph/no-webgl` and
 `data.after`.
@@ -664,7 +763,7 @@ settles when no device can be made, so after 10 s the root fails with `graph/no-
 caches — which is the cost this design removed; or the composition needing a prop only one host
 passes, which is the parts rule above firing.
 
-*Held by* `packages/graph/package.json`, `//peers`, `//fossil`;
+*Held by* `packages/graph/package.json`, `//peers`, `//graphar`;
 `packages/graph/src/render/renderer.test.ts`, "fails with graph/no-webgl and when the deadline fired,
 if WebGL exists but no device ever comes up".
 
@@ -753,8 +852,8 @@ once".
 
 ## A dense id is a buffer index
 
-`VertexId` is a `number`: fossil's `dense_id`, numbering every vertex of the corpus `0 … V − 1`, each
-table one contiguous range. It is the index into every buffer, the value a selection publishes, and
+`VertexId` is a `number`: [the global id](#the-global-id-is-the-graphs-arithmetic), numbering every
+vertex of the graph `0 … V − 1`, each node type one contiguous range. It is the index into every buffer, the value a selection publishes, and
 the key the inspector reads by.
 
 **The limit is cosmos.gl's.** It addresses a link's ends with a `Float32Array`, exact up to 2²⁴ —
@@ -765,7 +864,7 @@ it is the day ADR 0001's partial read arrives, not a day to widen a type.
 range — which brings back a map built once at load; or a corpus past 2²⁴ vertices.
 
 *Held by* `packages/graph/src/core/source.ts`, `Float32Array`; `packages/graph/src/core/store.test.ts`,
-"reads the structure from fossil_tables and fossil_columns, and every vertex by its dense_id".
+"reads the structure from GraphAr's relations, and every vertex by its global id".
 
 ## A look is form, and a channel is a binding
 
@@ -845,7 +944,7 @@ or readers asking for a named starting point the axes' defaults do not give them
 ## What is still open
 
 - **Names for a channel's values.** The catalog names no categories, so the host passes
-  `categories`. If `fossil_columns` ever carries them, the catalog's win.
+  `categories`. If GraphAr's catalog ever carries them, the catalog's win.
 - **A column two types share.** A column clause carries no table, so a filter on `name` filters
   every vertex type that has one — a `WHERE` over a union. A host reading it wrongly would reopen it;
   a clause that means one type is a semi-join, whose subquery names it.

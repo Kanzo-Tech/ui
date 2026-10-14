@@ -3,7 +3,7 @@
 import { cn, SectionProvider, useKanzoTheme, type PrefSpecimen } from "@kanzo-tech/ui";
 import { type ReactNode, useId, useMemo } from "react";
 import type { Channels } from "../core/channels";
-import type { Structure } from "../core/structure";
+import { KEY, type Structure } from "../core/structure";
 import { lookFrom, type Look } from "../render/graph-looks";
 import { scaleOf } from "../render/graph-model";
 import { useGraphState } from "../react/use-graph-state";
@@ -31,13 +31,14 @@ export function GraphSection({ children }: { children?: ReactNode }) {
   );
 }
 
-/** The manifest's numeric spellings — `fossil-sinks`' `data_type_name`. */
-const NUMERIC = /^(u?int(8|16|32|64)|float|double|decimal)$/;
+/** GraphAr's numeric types — `int32`, `int64`, `float`, `double` — as DuckDB reads a view of them. */
+const NUMERIC = new Set(["INTEGER", "BIGINT", "FLOAT", "DOUBLE"]);
 
-const XSD = "http://www.w3.org/2001/XMLSchema#";
-/** A time by its type — the manifest's `date` and `timestamp` — or by its datatype: a year is an `int32`. */
-const TEMPORAL_TYPES = new Set(["date", "timestamp"]);
-const TEMPORAL_DATATYPES = new Set([`${XSD}date`, `${XSD}dateTime`, `${XSD}gYear`]);
+/**
+ * A time by its type: GraphAr's `date` and `timestamp`. A datatype GraphAr does not have — a year,
+ * `xsd:gYear` over an `int32` — is only in the graph's mapping, and a year reads as a number.
+ */
+const TEMPORAL_TYPES = new Set(["DATE", "TIMESTAMP"]);
 
 /** Every vertex table's fields, once each by name, sorted: all of them, the numeric and the temporal ones. */
 function fieldsOf(structure: Structure | null): Record<"columns" | "numeric-columns" | "temporal-columns", PrefOption[]> {
@@ -46,12 +47,11 @@ function fieldsOf(structure: Structure | null): Record<"columns" | "numeric-colu
   const temporal = new Set<string>();
   for (const table of structure?.vertices ?? []) {
     for (const [name, column] of table.columns) {
-      if (column.role !== null) continue;
+      // The keys are the graph's and the type's, never a field to bind.
+      if (name === KEY || column.primary) continue;
       any.add(name);
-      if (NUMERIC.test(column.type)) numeric.add(name);
-      if (TEMPORAL_TYPES.has(column.type) || (column.datatype !== null && TEMPORAL_DATATYPES.has(column.datatype))) {
-        temporal.add(name);
-      }
+      if (NUMERIC.has(column.type)) numeric.add(name);
+      if (TEMPORAL_TYPES.has(column.type)) temporal.add(name);
     }
   }
   const options = (names: Set<string>) => [...names].sort().map((name) => ({ value: name, label: name }));

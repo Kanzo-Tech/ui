@@ -17,20 +17,21 @@ import {
   type ExprNode,
   type FilterExpr,
 } from "@kanzo-tech/mosaic";
-import { tableOf, type Structure, type VertexTable } from "./structure";
+import { DST, KEY, SRC, VERTEX_INDEX, tableOf, type Structure, type VertexTable } from "./structure";
 
 /**
- * **What the graph reads, through the page's coordinator.** A corpus fossil's `open` attached under
- * a name is a catalog: a view per table, and the manifest as relations beside them. The graph reads
- * the structure from those once (`readCatalog`, `catalog.ts`) and the rows from the views here, with the
- * same coordinator — and the same cache — every chart on the page uses. Nothing here parses a
- * manifest and nothing here owns a connection.
+ * **What the graph reads, through the page's coordinator.** A GraphAr graph `attachGraph` attached
+ * under a name is a catalog: a view per vertex and edge type, and the information files as relations
+ * beside them. The graph reads the structure from those once (`readCatalog`, `catalog.ts`) and the
+ * rows here, through each type's `table` — its view under the global id — with the same coordinator,
+ * and the same cache, every chart on the page uses. Nothing here parses a YAML file and nothing here
+ * owns a connection.
  *
  * Every statement is built from mosaic-sql's nodes, which quote their own identifiers and literals:
  * a search is text a reader typed, and no string here is spliced into SQL.
  */
 
-/** A table of the attached corpus: `"<from>"."<table>"`. `asTableRef` answers `undefined` only for no input. */
+/** A relation of the attached graph: `"<from>"."<table>"`. `asTableRef` answers `undefined` only for no input. */
 export const relation = (from: string, table: string): ExprNode => asTableRef([from, table])!;
 
 /** One column of an answer, by name, as its own array. */
@@ -57,7 +58,7 @@ export async function readColumns(
   return Promise.all(
     structure.vertices.map(async (table) => {
       const projection = Object.fromEntries(select.map((c) => [c, table.columns.has(c) ? c : literal(null)]));
-      const answer = await ask(coordinator, Query.select(projection).from(relation(structure.from, table.name)).orderby(structure.key));
+      const answer = await ask(coordinator, Query.select(projection).from(table.table).orderby(KEY));
       return { table, answer };
     }),
   );
@@ -69,7 +70,7 @@ export async function readLinks(coordinator: Coordinator, structure: Structure):
     structure.edges.map((edge) =>
       ask(
         coordinator,
-        Query.select({ src: float64(edge.sourceKey), dst: float64(edge.destinationKey) }).from(relation(structure.from, edge.name)),
+        Query.select({ src: float64(SRC), dst: float64(DST) }).from(edge.table),
       ),
     ),
   );
@@ -97,14 +98,17 @@ export interface VertexDetail {
   readonly fields: readonly { readonly name: string; readonly value: unknown }[];
 }
 
-/** One vertex's row: every column but the address. */
+/**
+ * One vertex's row: every column but the global id. A lookup by id reads the type's view by
+ * GraphAr's own index, `id − first`, which the chunk's statistics can skip on, and not by the sum.
+ */
 export async function readVertex(coordinator: Coordinator, structure: Structure, vertex: number): Promise<VertexDetail | null> {
   const table = tableOf(structure, vertex);
   if (!table) return null;
-  const names = [...table.columns.keys()].filter((name) => name !== structure.key);
+  const names = [...table.columns.keys()].filter((name) => name !== KEY);
   const answer = await ask(
     coordinator,
-    Query.select(names).from(relation(structure.from, table.name)).where(eq(structure.key, literal(vertex))),
+    Query.select(names).from(relation(structure.from, table.name)).where(eq(VERTEX_INDEX, literal(vertex - table.first))),
   );
   if (answer.numRows === 0) return null;
   return { vertex, table: table.name, fields: names.map((name) => ({ name, value: answer.getChild(name)?.get(0) ?? null })) };
@@ -127,12 +131,12 @@ export async function readTitles(
     [...byTable].map(async ([table, ids]) => {
       const answer = await ask(
         coordinator,
-        Query.select({ id: float64(structure.key), text: cast(titleColumn(table, title), "VARCHAR") })
+        Query.select({ id: float64(VERTEX_INDEX), text: cast(titleColumn(table, title), "VARCHAR") })
           .from(relation(structure.from, table.name))
-          .where(isIn(structure.key, ids.map((id) => literal(id)))),
+          .where(isIn(VERTEX_INDEX, ids.map((id) => literal(id - table.first)))),
       );
       const [id, texts] = [values(answer, "id"), values(answer, "text")];
-      for (let i = 0; i < answer.numRows; i++) found.set(id[i] as number, String(texts[i] ?? ""));
+      for (let i = 0; i < answer.numRows; i++) found.set(table.first + (id[i] as number), String(texts[i] ?? ""));
     }),
   );
   return found;
@@ -210,8 +214,8 @@ function matching(structure: Structure, query: VertexQuery, title: string | unde
     // A clause the table cannot answer keeps none of it (`/docs/design/crossfilter#formal-semantics`).
     const inside = subset.length === 0 ? literal(true) : subset.every((clause) => answers(table, clause)) ? and(...subset) : literal(false);
     return [
-      Query.select({ id: float64(structure.key), text, key: cast(table.identity, "VARCHAR"), type: literal(table.name), inside })
-        .from(relation(structure.from, table.name))
+      Query.select({ id: float64(KEY), text, key: cast(table.identity, "VARCHAR"), type: literal(table.name), inside })
+        .from(table.table)
         .where(where),
     ];
   });
@@ -289,7 +293,7 @@ export const VERTICES = "vertices";
 const unions = new WeakMap<Structure, { table: Query; columns: string[] }>();
 
 /**
- * **Every vertex as one relation** — each vertex table's rows under the corpus's key, with every
+ * **Every vertex as one relation** — each vertex type's rows under the global id, with every
  * column some table has: `NULL` in a table without it, so a clause on a column keeps none of a type
  * that has no such column (`/docs/design/crossfilter`). A column two tables declare with different
  * types is not one column, and is left out. What the canvas reads, what a timeline over the graph
@@ -302,18 +306,15 @@ export function verticesOf(structure: Structure): { table: Query; columns: strin
   const types = new Map<string, string | null>();
   for (const table of structure.vertices) {
     for (const [name, column] of table.columns) {
-      if (name === structure.key) continue;
+      if (name === KEY) continue;
       const seen = types.get(name);
       types.set(name, seen === undefined || seen === column.type ? column.type : null);
     }
   }
   const columns = [...types].flatMap(([name, type]) => (type === null ? [] : [name]));
-  const key = structure.key;
   const table = Query.unionAll(
     structure.vertices.map((t) =>
-      Query.select({ [key]: key, ...Object.fromEntries(columns.map((c) => [c, t.columns.has(c) ? c : literal(null)])) }).from(
-        relation(structure.from, t.name),
-      ),
+      Query.select({ [KEY]: KEY, ...Object.fromEntries(columns.map((c) => [c, t.columns.has(c) ? c : literal(null)])) }).from(t.table),
     ),
   );
   const union = { table, columns };

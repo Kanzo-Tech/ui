@@ -13,8 +13,8 @@ import {
   type RelationClient,
   type Selection,
 } from "@kanzo-tech/mosaic";
-import { VERTICES, answers, clausesOf, relation, type Answer } from "./source";
-import { type Structure } from "./structure";
+import { VERTICES, answers, clausesOf, type Answer } from "./source";
+import { KEY, type Structure } from "./structure";
 
 /**
  * **The graph as a client of the page's coordinator** — one Mosaic client, like every chart beside
@@ -85,8 +85,8 @@ export class GraphClient extends MosaicClient implements RelationClient {
     if (asked.length === 0) return NOTHING;
     return Query.unionAll(
       asked.map((t) =>
-        Query.select({ id: float64(structure.key) })
-          .from(relation(structure.from, t.name))
+        Query.select({ id: float64(KEY) })
+          .from(t.table)
           .where(clauses),
       ),
     );

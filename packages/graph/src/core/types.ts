@@ -16,8 +16,9 @@
  */
 
 /**
- * A vertex: its `dense_id`, which fossil numbers `0 … V − 1` across every vertex table of the corpus.
- * The drawn types take the first ids, so a drawn vertex's id is also its index in cosmos.gl's buffers.
+ * A vertex: its `dense_id`, which `@kanzo-tech/graph` numbers `0 … V − 1` from GraphAr's per-type
+ * indices, in the graph document's order of the node types — so a vertex's id is also its index in
+ * cosmos.gl's buffers.
  */
 export type VertexId = number;
 

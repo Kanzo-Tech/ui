@@ -46,9 +46,6 @@ export default defineConfig({
         // written as one. Subpaths included: matching the bare id alone silently inlined
         // `@kanzo-tech/theme/tokens.css` once already.
         /^@kanzo-tech\//.test(id) ||
-        // fossil's reader, the same rule: the host loads it once, and a second copy would be a second
-        // reader.
-        /^@fossil-lang\//.test(id) ||
         /^@uwdata\//.test(id) ||
         /^@duckdb\//.test(id),
       // Rollup drops `"use client"` when it merges modules, which in `@kanzo-tech/ui` silently

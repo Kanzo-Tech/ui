@@ -6,7 +6,7 @@ import { GraphError } from "./error";
 import { loadEncoding, loadGeometry, type Encoding, type Geometry } from "./load";
 import { readCatalog } from "./catalog";
 import { VERTICES } from "./source";
-import { type Structure } from "./structure";
+import { KEY, type Structure } from "./structure";
 import type { VertexId } from "./types";
 import { drawnOf, idsOf, keptOf, maskOf } from "./kept";
 import type { Arrangement, Drawn, GraphOptions, GraphSnapshot, DataStatus, GraphStore, PickSource } from "./state";
@@ -187,7 +187,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     read("structure", () => readCatalog(coordinator, from), (next) => {
       if (next.size === 0) {
         failed = true;
-        fail(new GraphError("graph/nothing-to-draw", `the corpus attached as ${from} has no vertex`));
+        fail(new GraphError("graph/nothing-to-draw", `the graph attached as ${from} has no node type with a vertex`));
         return;
       }
       structure = next;
@@ -226,7 +226,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     failed = false;
     shownOnce = false;
     // A new corpus: the old one's pick goes from the page with its vertices.
-    if (client && published && structure) publish(published, client, structure.key, null, "");
+    if (client && published && structure) publish(published, client, KEY, null, "");
     published = null;
     structure = geometry = encoding = null;
     kept = mask = null;
@@ -266,14 +266,14 @@ export function createGraph(initial: GraphOptions): GraphStore {
     const { selection } = snapshot;
     if (selection && structure) {
       published = scope();
-      publish(published, client, structure.key, selection.vertices, selection.label, selection.excludes);
+      publish(published, client, KEY, selection.vertices, selection.label, selection.excludes);
     }
   }
 
   function disconnect(): void {
     unwatch?.();
     unwatch = null;
-    if (client && published && structure) publish(published, client, structure.key, null, "");
+    if (client && published && structure) publish(published, client, KEY, null, "");
     published = null;
     if (client && connected) connected.disconnect(client);
     client = null;
@@ -338,7 +338,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
       options.onSelect?.(selection);
       if (!client || !structure) return;
       published = scope();
-      publish(published, client, structure.key, selection ? selection.vertices : null, label, excludes);
+      publish(published, client, KEY, selection ? selection.vertices : null, label, excludes);
     },
     scope,
     source(id) {

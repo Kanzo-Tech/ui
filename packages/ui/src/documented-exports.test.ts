@@ -277,6 +277,15 @@ const EXPORT_SHAPED = (name: string) =>
 /** `[^{}]` spans newlines but not a brace, so a multi-line block matches and two adjacent ones do not merge. */
 const NAMED_IMPORT =
   /import\s+(?:type\s+)?\{([^{}]*)\}\s*from\s*["'](@kanzo-tech\/[^"']+)["']/g;
+
+/**
+ * `@kanzo-tech/` packages published from another repository: `graphar-duckdb` (Kanzo-Tech/graphar),
+ * which the graph pages import `attachGraph` from to show the host's half of the wiring. Their
+ * surface is checked where it is built, not here — this guard reads this workspace's `dist/`, and an
+ * import from one of them is not a claim it can resolve. What it cannot prove: that such a page names
+ * a real export; a typo in one of these imports passes.
+ */
+const FOREIGN = new Set(["@kanzo-tech/graphar-duckdb"]);
 const CLAIMS_EXPORT = /\b(?:re-)?export(?:s|ed)?\b/i;
 const BACKTICKED = /`([^`\n]+)`/g;
 
@@ -309,7 +318,7 @@ function claims(page: string): Claim[] {
         for (const specifier of specifiers.split(",")) {
           const [alias = ""] = specifier.trim().replace(/^type\s+/, "").split(/\s+as\s+/);
           const name = alias.trim();
-          if (name) found.push({ name, line: at, site: `import from ${spec}`, spec });
+          if (name && !FOREIGN.has(spec)) found.push({ name, line: at, site: `import from ${spec}`, spec });
         }
       }
       if (inAnatomy && fence === "text") {
