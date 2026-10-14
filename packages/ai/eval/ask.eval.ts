@@ -49,7 +49,7 @@ const COMPOSER = "Ask about your data…";
 
 /**
  * **The fixture's Ask panel** — `Chat` over `useAskChat`, with the model's badge. Its answer cards
- * are `AnswerHarness`'s; what this adds is a turn that ends in words — a question back, or no answer
+ * are `AnswerHarness`'s; what this adds is a turn that ends in words — no answer
  * — which draws no card for that harness to wait on.
  */
 class AskPanel extends ComponentHarness {
@@ -86,7 +86,7 @@ class AskPanel extends ComponentHarness {
    * Waits for the turn `send` began to end — the question and a reply in the transcript, and the
    * composer's Stop gone — and says how: a card, words, or the panel's Problem, which rejects.
    */
-  async turn(before: number): Promise<{ card: boolean; words: string; options: number }> {
+  async turn(before: number): Promise<{ card: boolean; words: string }> {
     await this.env.until(async () => {
       if ((await this.host.find({ role: "alert" })).length > 0) return true;
       return (await this.messages()) >= before + 2 && (await this.host.find({ role: "button", name: "Stop" })).length === 0;
@@ -98,9 +98,7 @@ class AskPanel extends ComponentHarness {
     }
     const reply = (await this.host.find({ css: '[data-slot="message"][data-role="assistant"]' })).at(-1)!;
     const card = (await reply.find({ css: '[data-slot="answer-card"]' })).length > 0;
-    const [list] = await reply.find({ role: "list" });
-    const options = list ? (await list.find({ role: "listitem" })).length : 0;
-    return { card, words: (await reply.text()).trim().slice(0, 1500), options };
+    return { card, words: (await reply.text()).trim().slice(0, 1500) };
   }
 }
 
@@ -181,9 +179,8 @@ async function asked(page: Page, c: AskCase): Promise<void> {
   let failure: string | undefined;
   let answered: string | undefined;
   let replied: string | undefined;
-  let options = 0;
-  // A case that must end in words — a question back, or no answer — is scored on the reply.
-  const words = c.expects === "question" || c.expects === "refusal";
+  // A case that must end in words — no answer — is scored on the reply.
+  const words = c.expects === "refusal";
   try {
     for (const [n, question] of c.ask.entries()) {
       const asked = Date.now();
@@ -197,15 +194,12 @@ async function asked(page: Page, c: AskCase): Promise<void> {
         answered = await (await answers.answer()).text();
       } else if (words && last) {
         replied = turn.words;
-        options = turn.options;
       } else {
         throw new Error(`it answered in words, with no card: ${turn.words.split("\n")[0]}`);
       }
     }
     if (words) {
-      if (replied === undefined) throw new Error(`answered where it should have ${c.expects === "question" ? "asked which" : "said it cannot"}`);
-      // A question back offers the relations as numbered options, two at least.
-      if (c.expects === "question" && options < 2) throw new Error("it did not ask which, with the relations as options");
+      if (replied === undefined) throw new Error("answered where it should have said it cannot");
     } else {
       // The rows as the card's data table holds them. An answer that read no rows draws none, so it is
       // given 20 s, not a question's wait.

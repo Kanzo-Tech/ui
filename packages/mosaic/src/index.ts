@@ -99,7 +99,8 @@ export {
  * Ours: the page's one crossfilter across relations — Mosaic's crossfilter with a resolver that
  * crosses a clause published on one relation into a client of another, by key along the joins, or
  * keeps none of it where there is no way across; and the pre-aggregator kept to a client's own
- * relation. `crossfilter.ts`.
+ * relation. The resolver is also the one door to the joins: a relation's steps, the paths from a
+ * type, the relation a set of paths lies on, and where a path off it is crossed in. `crossfilter.ts`.
  */
 export {
   JoinResolver,
@@ -109,6 +110,9 @@ export {
   readOf,
   relationOf,
   sameRelation,
+  type JoinField,
+  type JoinMiss,
+  type JoinStep,
   type RelationClient,
   type RelationExpr,
   type RelationRef,
@@ -144,11 +148,8 @@ export { queryFailure } from "./failure.js";
  */
 export {
   relationHops,
-  relationIdentities,
   relationKey,
   relationQuery,
-  relationRootKey,
-  relationSteps,
   type Hop,
   type JoinEdge,
   type JoinGraph,
@@ -156,10 +157,3 @@ export {
   type Relation,
   type RelationHop,
 } from "./relation.js";
-
-/**
- * Ours: the relation a question needs, computed — the shortest path from the type it counts that
- * covers the types its fields are on and reaches the page's clauses, or the tie, or what is out of
- * reach. `resolve.ts`.
- */
-export { resolveRelation, type RelationNeeds, type Resolved } from "./resolve.js";

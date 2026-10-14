@@ -1,6 +1,14 @@
 import {
+  type JoinResolver,
+  type JoinStep,
+  type RelationRef,
   type TableExpr,
   avg,
+  clauseInterval,
+  clauseMatch,
+  clausePoints,
+  clauseSemiJoin,
+  desc,
   binDate,
   binHistogram,
   count,
@@ -15,6 +23,7 @@ import {
   sum,
   type ExprNode,
   type ExprValue,
+  type FilterExpr,
 } from "@kanzo-tech/mosaic";
 import * as v from "valibot";
 import type { FieldStat } from "./field-stats.js";
@@ -47,16 +56,20 @@ export type DashboardAggregate = (typeof DASHBOARD_AGGREGATES)[number];
 /**
  * A number per group. `field` is what the aggregate reads (none for `count`); `share` is the
  * percentage of rows whose `field` equals `equals`; `value` is the raw column, for the two charts
- * that plot rows rather than groups.
+ * that plot rows rather than groups. A `count` counts what the relation measures — its root, once
+ * per group however many joined rows lead there — or, given a `path`, the step that path reaches:
+ * Malloy's `count()` and `path.count()`.
  */
 const MeasureSchema = v.pipe(
   v.strictObject({
     op: v.picklist([...DASHBOARD_AGGREGATES, "value"]),
     field: v.optional(v.string()),
     equals: v.optional(v.union([v.string(), v.number(), v.boolean()])),
+    path: v.optional(v.string()),
   }),
   v.check((m) => m.op === "count" || m.field !== undefined, "every measure but count names a field"),
   v.check((m) => m.op !== "share" || m.equals !== undefined, "a share names the value it measures"),
+  v.check((m) => m.op === "count" || m.path === undefined, "only a count names a path"),
 );
 
 export type DashboardMeasure = v.InferOutput<typeof MeasureSchema>;
@@ -66,11 +79,37 @@ const SpanSchema = v.picklist([1, 2, 3]);
 
 export type TileSpan = v.InferOutput<typeof SpanSchema>;
 
+/** The most rows a tile reads back as rows, and the most `top` keeps. */
+export const TILE_ROWS = 1000;
+
+const ScalarSchema = v.union([v.string(), v.pipe(v.number(), v.finite()), v.boolean()]);
+
+/**
+ * What a tile is narrowed to, as a dashboard's filters narrow a relation: a pick of values, a range —
+ * inclusive, a time as an ISO date — or a search. `field` is a path from the relation's root, and a
+ * path off the relation is crossed in (`JoinResolver.crossing`), as a chip on another relation is.
+ */
+const ConditionSchema = v.union([
+  v.strictObject({ field: v.string(), in: v.pipe(v.array(ScalarSchema), v.minLength(1)) }),
+  v.strictObject({ field: v.string(), between: v.tuple([v.union([v.number(), v.string()]), v.union([v.number(), v.string()])]) }),
+  v.strictObject({ field: v.string(), contains: v.string() }),
+]);
+
+export type Condition = v.InferOutput<typeof ConditionSchema>;
+
+/** A value a condition compares a field to. */
+export type ConditionValue = v.InferOutput<typeof ScalarSchema>;
+
+/** How many a tile keeps: of a bar chart, the bars its measure ranks first; of a table, the first rows. */
+const TopSchema = v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(TILE_ROWS));
+
 const tileBase = {
   /** Stable identity, used as the React key. */
   id: v.string(),
   /** Overrides the title derived from what the tile reads. */
   title: v.optional(v.string()),
+  /** The tile's own conditions, under the page's filter: *Physics* in *Physics awards by university*. */
+  where: v.optional(v.array(ConditionSchema)),
 };
 
 /**
@@ -91,7 +130,7 @@ const StatTileSchema = v.strictObject({
 });
 
 /** One chart: a mark type and the fields its channels read. */
-const ChartTileSchema = v.strictObject({
+const ChartTileSchema = v.pipe(v.strictObject({
   ...gridBase,
   kind: v.literal("chart"),
   type: v.picklist(DASHBOARD_CHART_TYPES),
@@ -106,13 +145,17 @@ const ChartTileSchema = v.strictObject({
    * *Automatic* badge and its rationale are read from. Set by `autoDashboard`, cleared by an edit.
    */
   origin: v.optional(v.strictObject({ rule: v.string() })),
-});
+  /** Keeps the bars the measure ranks first: a bar chart's alone. */
+  top: v.optional(TopSchema),
+}), v.check((c) => c.top === undefined || c.type === "bar", "only a bar chart keeps a top"));
 
 /** The rows under the selection, as these columns. */
 const TableTileSchema = v.strictObject({
   ...gridBase,
   kind: v.literal("table"),
   columns: v.array(v.string()),
+  /** Keeps the first rows. */
+  top: v.optional(TopSchema),
 });
 
 const TileSchema = v.variant("kind", [StatTileSchema, ChartTileSchema, TableTileSchema]);
@@ -226,12 +269,20 @@ export function plotRelation(
 
 // ── Measures ─────────────────────────────────────────────────────────────────
 
-/** The SQL a measure compiles to — what a mark's channel or a `ChartStat`'s `value` takes. */
-export function measureExpr(measure: DashboardMeasure): ExprValue {
+/**
+ * The SQL a measure compiles to, on a relation whose steps are `steps` (`JoinResolver.steps`). A
+ * `count` is a distinct count of the key of the step it counts — the root's, or its `path`'s — once
+ * the relation has a hop; on a type alone, whose keys are its rows, it is the row count, which
+ * Mosaic can pre-aggregate.
+ */
+export function measureExpr(measure: DashboardMeasure, steps: readonly JoinStep[]): ExprValue {
   const field = measure.field ?? "";
   switch (measure.op) {
-    case "count":
-      return count();
+    case "count": {
+      const step = steps.find((s) => s.path === (measure.path ?? ""));
+      if (measure.path && !step) throw new Error(`the relation has no step ${measure.path} to count`);
+      return step && steps.length > 1 ? count(step.key).distinct() : count();
+    }
     case "distinct":
       return count(field).distinct();
     case "sum":
@@ -264,7 +315,7 @@ const OP_LABEL: Record<DashboardMeasure["op"], string> = {
 };
 
 export function measureLabel(measure: DashboardMeasure): string {
-  if (measure.op === "count") return "Count";
+  if (measure.op === "count") return measure.path ? `Count of ${measure.path}` : "Count";
   if (measure.op === "value") return measure.field ?? "";
   if (measure.op === "share") return `% ${measure.field} = ${String(measure.equals)}`;
   return `${OP_LABEL[measure.op]} ${measure.field}`;
@@ -289,6 +340,123 @@ export function bucketExpr(field: FieldStat): string | ExprNode | null {
   }
   if (field.kind !== "numeric") return null;
   return field.distinct <= 60 ? field.name : binHistogram(field.name, [field.min, field.max], { steps: TREND_STEPS });
+}
+
+// ── A tile, compiled ─────────────────────────────────────────────────────────
+
+/** What a tile is read against: the relation's fields, and — for a relation over joins — the page's resolver and the relation as it knows it. */
+export interface TileContext {
+  readonly fields: readonly FieldStat[];
+  /** The relation the tile reads, as the page knows it: what a count's key and a condition off it are read through. */
+  readonly relation?: RelationRef | null;
+  /** The page's resolver, `selection.resolver`: the one door to the joins. */
+  readonly resolver?: JoinResolver;
+  /** The page's filter, as a client of the relation is handed it: what `rows` is read under. */
+  readonly filter?: FilterExpr;
+  /** The most rows `rows` reads. Default `TILE_ROWS`. */
+  readonly limit?: number;
+}
+
+/** A tile as queries: what every reader of it — a chart's marks, a figure, a table, Ask's rows — reads. */
+export type TileQuery =
+  | {
+      /** The relation narrowed by the tile's own `where` and `top`: what its marks and its rows read. */
+      readonly table: TableExpr;
+      /** What the tile measures, on that relation: a chart's `y`, a figure's value; none for a table. */
+      readonly measure?: ExprValue;
+      /** The tile's rows, under `filter`: one per bar or step, the figure, or the table's columns. */
+      readonly rows: Query;
+    }
+  /** What the tile names that the relation cannot read: a field it lacks, or a path the joins do not have. */
+  | { readonly missing: readonly string[] };
+
+/** A condition as a predicate on `column`: the clause the dashboard's control of its kind publishes. */
+function predicateOf(condition: Condition, column: string): ExprNode {
+  const source = {};
+  const clause =
+    "in" in condition
+      ? clausePoints([column], condition.in.map((value) => [value]), { source })
+      : "contains" in condition
+        ? clauseMatch(column, condition.contains, { source, method: "contains" })
+        : clauseInterval(column, condition.between.map((value) => (typeof value === "string" ? new Date(value) : value)) as [number, number], { source });
+  return clause.predicate as ExprNode;
+}
+
+/** The fields a tile reads, each with where in the tile: what must be the relation's for it to draw. */
+function fieldsOf(tile: Tile): string[] {
+  const read =
+    tile.kind === "stat"
+      ? [tile.measure.field, tile.trend]
+      : tile.kind === "chart"
+        ? [tile.x, tile.y.field, tile.color, tile.facet]
+        : tile.columns;
+  return read.filter((name): name is string => name !== undefined);
+}
+
+/** A tile's measure, and the count's step it names — `undefined` for a table. */
+const measureOf = (tile: Tile): DashboardMeasure | undefined =>
+  tile.kind === "stat" ? tile.measure : tile.kind === "chart" ? tile.y : undefined;
+
+/**
+ * **The one compiler of a tile**: the relation narrowed by the tile's own conditions and its `top`,
+ * the measure on it, and the rows a reader of the tile reads — a figure, a row per bar or step (the
+ * step a trend groups by, `bucketExpr`, for a line or an area), or the table's columns. A condition
+ * on the relation is its clause; one whose path leaves it is read through the branch and crossed in
+ * at the step it leaves (`JoinResolver.field`, `crossing`), as a chip on another relation is. `top`
+ * ranks a bar chart's bars by its measure, ties by the bar, under the tile's own conditions; the
+ * page's filter then narrows what it kept, as it narrows every tile. Every reader is fed from here, so
+ * the chart, its figures and the rows Ask describes are one query.
+ */
+export function tileQuery(table: TableExpr, tile: Tile, context: TileContext): TileQuery {
+  const { fields, relation, resolver, filter = [], limit = TILE_ROWS } = context;
+  const steps = relation != null && resolver ? resolver.steps(relation) : [];
+  const has = new Set(fields.map((f) => f.name));
+  const missing = fieldsOf(tile).filter((name) => !has.has(name));
+  const measure = measureOf(tile);
+  if (measure?.op === "count" && measure.path && !steps.some((s) => s.path === measure.path)) missing.push(measure.path);
+
+  const where: ExprNode[] = [];
+  for (const condition of tile.where ?? []) {
+    if (has.has(condition.field) || !resolver || relation == null || typeof relation === "string") {
+      if (!has.has(condition.field)) missing.push(condition.field);
+      else where.push(predicateOf(condition, condition.field));
+      continue;
+    }
+    const at = resolver.field(relation, condition.field);
+    if ("code" in at) missing.push(condition.field);
+    else if (at.relation === relation) where.push(predicateOf(condition, condition.field));
+    else where.push(resolver.crossing(at.relation, [predicateOf(condition, at.column)], relation, at.at));
+  }
+  if (missing.length > 0) return { missing: [...new Set(missing)] };
+
+  const value = measure && measureExpr(measure, steps);
+  let narrowed: TableExpr = where.length > 0 ? Query.from(table).select("*").where(where) : table;
+  if (tile.kind === "chart" && tile.top !== undefined && value !== undefined) {
+    const ranked = Query.from(narrowed).select(tile.x).groupby(tile.x).orderby(desc(value), tile.x).limit(tile.top);
+    narrowed = Query.from(narrowed).select("*").where(clauseSemiJoin(tile.x, ranked, { source: {} }).predicate!);
+  }
+  if (tile.kind === "table" && tile.top !== undefined) narrowed = Query.from(narrowed).select("*").limit(tile.top);
+
+  const name = measure && measureLabel(measure);
+  switch (tile.kind) {
+    case "stat":
+      return { table: narrowed, measure: value, rows: Query.from(narrowed).select({ [name!]: value! }).where(filter) };
+    case "table":
+      return { table: narrowed, rows: Query.from(narrowed).select(...tile.columns).where(filter).limit(limit) };
+    case "chart": {
+      if (tile.type === "dot" || tile.type === "regression") {
+        return { table: narrowed, measure: value, rows: Query.from(narrowed).select(tile.x, tile.y.field!).where(filter).limit(limit) };
+      }
+      const field = fields.find((f) => f.name === tile.x);
+      const step: ExprValue = (tile.type === "bar" ? null : field && bucketExpr(field)) ?? tile.x;
+      const series = tile.color === undefined ? [] : [tile.color];
+      const rows = Query.from(narrowed)
+        .select({ [tile.x]: step, ...Object.fromEntries(series.map((c) => [c, c])), [name!]: value! })
+        .where(filter)
+        .groupby(step, ...series);
+      return { table: narrowed, measure: value, rows: (tile.top === undefined ? rows.orderby(tile.x) : rows.orderby(desc(name!), tile.x)).limit(limit) };
+    }
+  }
 }
 
 // ── What each slot accepts ───────────────────────────────────────────────────

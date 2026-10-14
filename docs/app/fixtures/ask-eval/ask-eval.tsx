@@ -6,7 +6,7 @@ import { Show, Skeleton } from "@kanzo-tech/ui";
 import { engine, relationHops, type Coordinator, type Engine, type JoinGraph, type Relation } from "@kanzo-tech/mosaic";
 import { Dashboard, FilterBar, MosaicProvider, useMosaic, type DashboardSpec } from "@kanzo-tech/ui/analytics";
 import { Chat, ModelBadge } from "@kanzo-tech/ai";
-import { AnswerCard, answerRelationsOf, readAnswerRelations, useAskChat, type AnswerRelation } from "@kanzo-tech/ai/data";
+import { AnswerCard, answerRelationsOf, readAnswerRelations, useAskChat, type AnswerRelation, type AskOutput } from "@kanzo-tech/ai/data";
 import { loadLocalModel, localModel, localModelLoad, localProvider, setLocalProvider, watchLocalModel } from "@kanzo-tech/llm/local";
 import { readJoinGraph } from "@kanzo-tech/graph";
 
@@ -168,7 +168,7 @@ function Ask({ attached, model }: { attached: Attached; model: string }) {
       <Chat
         chat={chat}
         context={<ModelBadge load={load} />}
-        tools={{ answer: (part, { stopped }) => <AnswerCard graph={attached.graph} part={part} stopped={stopped} /> }}
+        data={{ answer: (part, { stopped }) => <AnswerCard answer={part.data as AskOutput} graph={attached.graph} stopped={stopped} /> }}
         translations={{ placeholder: PLACEHOLDER }}
       />
     </aside>

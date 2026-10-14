@@ -12,20 +12,20 @@ const answers: Record<string, AskSpec> = {
   "How many Nobel prizes have been awarded?": { of: "LaureateAward", show: { kind: "stat", measure: { op: "count" } } },
   "Which universities won the most prizes?": {
     of: "LaureateAward",
-    show: { kind: "chart", type: "bar", x: "University.name", y: { op: "count" } },
+    show: { kind: "chart", type: "bar", x: "university.name", y: { op: "count" } },
   },
   "Which ones were won in Germany?": {
     of: "LaureateAward",
-    where: [{ field: "Country.name", in: ["Germany"] }],
-    show: { kind: "chart", type: "bar", x: "University.name", y: { op: "count" } },
+    where: [{ field: "university.addressCountry.name", in: ["Germany"] }],
+    show: { kind: "chart", type: "bar", x: "university.name", y: { op: "count" } },
   },
   "Which countries have won the most prizes?": {
     of: "LaureateAward",
-    show: { kind: "chart", type: "bar", x: "Country.name", y: { op: "count" } },
+    show: { kind: "chart", type: "bar", x: "laureate.birthPlace.name", y: { op: "count" } },
   },
   "How many people are women, and how many are men?": {
     of: "Person",
-    show: { kind: "chart", type: "bar", x: "Person.gender", y: { op: "count" } },
+    show: { kind: "chart", type: "bar", x: "gender", y: { op: "count" } },
   },
 };
 

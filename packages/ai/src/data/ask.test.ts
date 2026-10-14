@@ -1,12 +1,12 @@
 import { relationKey } from "@kanzo-tech/mosaic";
 import { describe, expect, it } from "vitest";
 import { runTask } from "../task/index.js";
-import { ask, askAlternatives, askAnswer, link, type AskInput, type AskSpec } from "./ask.js";
+import { ask, askAlternatives, askAnswer, askSchema, link, type AskInput, type AskSpec } from "./ask.js";
 import { NOBEL, TYPES, answering } from "../testing/nobel.js";
 
 const input = (question: string, extra: Partial<AskInput> = {}): AskInput => ({ question, graph: NOBEL, types: TYPES, ...extra });
 
-const byUniversity: AskSpec = { of: "LaureateAward", show: { kind: "chart", type: "bar", x: "University.name", y: { op: "count" } } };
+const byUniversity: AskSpec = { of: "LaureateAward", show: { kind: "chart", type: "bar", x: "university.name", y: { op: "count" } } };
 
 describe("link", () => {
   it("offers the types the question names, and their neighbours", () => {
@@ -25,80 +25,85 @@ describe("link", () => {
   });
 });
 
+describe("the ask schema", () => {
+  it("is one branch per type offered, each its own enum of paths from it", () => {
+    const schema = askSchema(link(input("Which universities won the most prizes?")), NOBEL) as {
+      anyOf: { properties: { of: { const: string } } }[];
+      $defs: Record<string, { enum: string[] }>;
+    };
+    expect(schema.anyOf.map((b) => b.properties.of.const)).toEqual(["LaureateAward", "University", "Country"]);
+    expect(schema.$defs.f0!.enum).toEqual(expect.arrayContaining(["share", "university.name", "laureate.birthPlace.name", "university.addressCountry.name"]));
+    // Back along the edge that leads from a university to its prizes, and on from them.
+    expect(schema.$defs.f1!.enum).toEqual(expect.arrayContaining(["name", "^university.share", "^university.category.name"]));
+    // No key, and no type's name where a path goes.
+    expect(JSON.stringify(schema.$defs)).not.toMatch(/"id"|\.id"|University\.name/);
+  });
+});
+
 describe("the ask Task", () => {
-  it("leaves the relation to the resolver: prizes by university, under a chip on the prizes", async () => {
+  it("takes the relation from the paths the model wrote: prizes by university, under a chip on the prizes", async () => {
     const asked = input("Which universities won the most prizes?", { under: ["LaureateAward"] });
     const proposal = await runTask(ask, asked, { model: answering(byUniversity), id: "a1" });
     expect(proposal.verdict).toEqual({ ok: true });
     const answer = askAnswer(proposal.value, asked, "a1")!;
     expect(relationKey(NOBEL, answer.relation)).toBe("LaureateAward>university>University");
-    expect(answer.show).toMatchObject({ id: "a1", kind: "chart", x: "University.name" });
+    expect(answer.tile).toMatchObject({ id: "a1", kind: "chart", x: "university.name" });
   });
 
-  it("asks which way when two are equally short: a prize's country", async () => {
-    const byCountry: AskSpec = { of: "LaureateAward", show: { kind: "chart", type: "bar", x: "Country.name", y: { op: "count" } } };
+  it("asks nothing when two paths reach one field: the model's path is the answer's", async () => {
+    const byCountry: AskSpec = { of: "LaureateAward", show: { kind: "chart", type: "bar", x: "university.addressCountry.name", y: { op: "count" } } };
     const proposal = await runTask(ask, input("Prizes by country?"), { model: answering(byCountry) });
-    expect(proposal.verdict).toMatchObject({
-      ok: false,
-      decision: {
-        id: "relation",
-        options: [
-          { id: "LaureateAward>laureate>Laureate>birthPlace>Country" },
-          { id: "LaureateAward>university>University>addressCountry>Country" },
-        ],
-      },
-    });
-    const chosen = askAnswer(proposal.value, input("Prizes by country?"), "a2", {
-      root: "LaureateAward",
-      path: [
-        { edge: "LaureateAward_university_University", direction: "out" },
-        { edge: "University_addressCountry_Country", direction: "out" },
-      ],
-    })!;
-    expect(relationKey(NOBEL, chosen.relation)).toBe("LaureateAward>university>University>addressCountry>Country");
+    expect(proposal.verdict).toEqual({ ok: true });
+    expect(relationKey(NOBEL, askAnswer(proposal.value, input(""), "a2")!.relation)).toBe("LaureateAward>university>University>addressCountry>Country");
   });
 
-  it("sends a spec no relation reaches back, and takes the repair", async () => {
-    // From a country, covering a laureate, a university and a category is five hops: out of reach.
-    const lost: AskSpec = {
-      of: "Country",
-      show: { kind: "chart", type: "bar", x: "Category.name", y: { op: "count" } },
-      where: [
-        { field: "Laureate.gender", in: ["female"] },
-        { field: "University.name", in: ["MIT"] },
-      ],
-    };
-    const proposal = await runTask({ ...ask, attempts: 2 }, input("Women by category?"), { model: answering(lost, { ...byUniversity, of: "LaureateAward" }) });
+  it("sends a path the graph does not have back, at its pointer, and takes the repair", async () => {
+    const lost: AskSpec = { of: "LaureateAward", show: { kind: "chart", type: "bar", x: "University.name", y: { op: "count" } } };
+    const proposal = await runTask({ ...ask, attempts: 2 }, input("Prizes by university?"), { model: answering(lost, byUniversity) });
     expect(proposal.attempts).toBe(2);
     expect(proposal.verdict).toEqual({ ok: true });
+  });
+
+  it("says what the joins refuse: no such step, no such field, two branches, a chip out of reach", async () => {
+    const refusal = async (spec: AskSpec, extra: Partial<AskInput> = {}) => {
+      const proposal = await runTask({ ...ask, attempts: 1 }, input("", extra), { model: answering(spec) });
+      return proposal.verdict.ok ? [] : "diagnostics" in proposal.verdict ? proposal.verdict.diagnostics.map((d) => [d.code, d.at]) : [];
+    };
+    const chart = (x: string, color?: string): AskSpec => ({ of: "LaureateAward", show: { kind: "chart", type: "bar", x, y: { op: "count" }, ...(color ? { color } : {}) } });
+    expect(await refusal(chart("university.label"))).toEqual([["join/no-field", "/show/x"]]);
+    expect(await refusal(chart("university.city.name"))).toEqual([["join/no-step", "/show/x"]]);
+    expect(await refusal(chart("category.name", "university.name"))).toEqual([["join/branches", "/show/color"]]);
+    expect(await refusal({ ...chart("category.name"), where: [{ field: "laureate.age", in: [3] }] })).toEqual([["join/no-field", "/where/0/field"]]);
+    expect(await refusal({ of: "Category", show: { kind: "stat", measure: { op: "count" } } }, { under: ["Country"] })).toEqual([["ask/out-of-reach", "/of"]]);
   });
 });
 
 describe("askAlternatives", () => {
-  // Women laureates by the country they were born in: one path, Laureate>birthPlace>Country.
+  // Women laureates by the country they were born in.
   const women: AskSpec = {
     of: "Laureate",
-    show: { kind: "chart", type: "bar", x: "Country.name", y: { op: "count" } },
-    where: [{ field: "Laureate.gender", in: ["female"] }],
+    show: { kind: "chart", type: "bar", x: "birthPlace.name", y: { op: "count" } },
+    where: [{ field: "gender", in: ["female"] }],
   };
 
   it("offers each slot's other values, as whole specs", () => {
     const chips = askAlternatives(women, input(""));
     expect(chips.map((c) => [c.slot, c.label, c.value])).toEqual([
       ["of", "Counting", "Laureate"],
-      ["x", "By", "name"],
+      ["x", "By", "birthPlace.name"],
       ["where.0", "gender", "female"],
     ]);
     const where = chips[2]!.options;
     expect(where.map((o) => o.label)).toEqual(["male", "any"]);
-    expect(where[0]!.spec.where).toEqual([{ field: "Laureate.gender", in: ["male"] }]);
+    expect(where[0]!.spec.where).toEqual([{ field: "gender", in: ["male"] }]);
     expect(where[1]!.spec.where).toEqual([]);
   });
 
-  it("offers only what the oracles accept: no x two relations reach equally", () => {
-    const by = askAlternatives(byUniversity, input("")).find((c) => c.slot === "x")!;
-    // A prize reaches a country two equally short ways, so Country.name is not an option.
-    expect(by.options.map((o) => o.label)).not.toContain("Country.name");
-    expect(by.options.map((o) => o.label)).toContain("Category.name");
+  it("offers the other of two paths of one length to the same field first", () => {
+    const germany: AskSpec = { ...byUniversity, show: { ...byUniversity.show, x: "category.name" } as AskSpec["show"], where: [{ field: "laureate.birthPlace.name", in: ["Germany"] }] };
+    const chip = askAlternatives(germany, input("")).find((c) => c.slot === "where.0")!;
+    expect(chip.options[0]).toEqual({ label: "university.addressCountry.name", spec: { ...germany, where: [{ field: "university.addressCountry.name", in: ["Germany"] }] } });
+    const by = askAlternatives({ ...byUniversity, show: { ...byUniversity.show, x: "laureate.birthPlace.name" } as AskSpec["show"] }, input("")).find((c) => c.slot === "x")!;
+    expect(by.options[0]!.label).toBe("university.addressCountry.name");
   });
 });
