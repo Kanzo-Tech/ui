@@ -281,7 +281,7 @@ return <Chat chat={chat} />;
   `useAgentChat`, the agent's tools. Given `dataPartSchemas`, every data part needs one. `[]` is a
   chat never saved.
 - **`keep`** decides what of each part is stored: return the part, a part rewritten (an answer's
-  spec without its rows), or `undefined` to drop it. A message left with no part is not stored. What
+  rows emptied), or `undefined` to drop it. A message left with no part is not stored. What
   it keeps is validated before `save` is called, so a `keep` that writes what cannot be read back is
   refused then, not on the next load.
 - **Saves go one at a time**, in order, each with every message, so a turn's save never lands after

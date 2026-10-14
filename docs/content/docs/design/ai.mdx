@@ -289,7 +289,7 @@ decides what of each part is stored.** A chat hook given them (`useAgentChat`, `
 against the chat's own `dataPartSchemas` and `messageMetadataSchema` — the ones `useChat` already
 takes — and, for an agent, its tools, and makes the `useChat` of that `id` from them; at the end of
 every turn it saves every message, one save at a time. `keep` filters or rewrites the parts — a host
-drops reasoning, or keeps an answer's spec and not its rows — and what it keeps is validated before
+drops reasoning, or keeps an answer's spec with its rows emptied — and what it keeps is validated before
 `save` is called, so a `keep` that writes what cannot be read back is refused when it writes, not
 when the person comes back.
 
@@ -302,6 +302,19 @@ loaded into `useChat({ id, messages })` and saved when a response finishes, vali
 in because what was stored is untrusted input. Two things are its rules rather than ours: a list with
 no message, or a message with no part, does not validate — so `[]` from `load` is a chat never saved,
 and a message `keep` leaves no part of is not stored.
+
+**Ask's parts have schemas of their own**, which `useAskChat` passes as its `dataPartSchemas`: an
+`answer` and an `ask` part are each rebuilt from the fields they may hold, their relation read as
+`{ root, path }` and their tile through `parseTile`, the dashboard's own reading of a stored tile —
+so what a transcript carried back is names over the host's graph and never reaches the engine as a
+statement. They are written by hand as Standard Schema, which the AI SDK takes, because
+`@kanzo-tech/ai` has no schema library of its own and `parseTile` already is the tile's.
+*What would reverse it:* a schema library entering `@kanzo-tech/ai` for another reason; then the
+parts are written in it.
+
+*Held by* `packages/ai/src/data/ask-parts.test.ts`, "reads back an answer and its turn as Ask wrote
+them, and nothing they do not hold"; "refuses an answer whose tile a dashboard would not read, or
+whose relation is not one".
 
 **`useKeptChat` is the same thing for a transcript whose messages are not `useChat`'s.** Keasy's
 assistant, which wrote the store, queue and restore this replaces, is a guided conversation whose

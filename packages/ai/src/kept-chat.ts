@@ -20,7 +20,7 @@ export interface KeptChatOptions<M extends UIMessage> {
   load: (id: string, options: { signal: AbortSignal }) => Promise<unknown>;
   /** Writes the chat's messages, all of them, as `keep` left them. One save at a time per `id`. */
   save: (id: string, messages: M[]) => Promise<unknown> | void;
-  /** What of each part is stored: drop reasoning, keep an answer's spec and not its rows. Every part, by default. */
+  /** What of each part is stored: drop reasoning, empty an answer's rows. Every part, by default. */
   keep?: KeepPart<M>;
 }
 
