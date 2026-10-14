@@ -103,7 +103,7 @@ export function useKept<M extends UIMessage>(options: (KeptChatOptions<M> & Kept
         // What `keep` left must still read back: refused here, not on the next load.
         await current.save(id, await validated<M>(kept, current));
       });
-      queue.current.tail = write.catch(() => undefined);
+      queue.current.tail = write.catch(() => undefined); // The caller hears this failure; the next save still goes.
       write.then(
         () => id !== undefined && setSaved({ id }),
         (error: unknown) => id !== undefined && setSaved({ id, error }),

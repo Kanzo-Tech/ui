@@ -86,8 +86,7 @@ export function useTransportChat<M extends UIMessage>(
     transport,
     onFinish: (event) => {
       rest.onFinish?.(event);
-      // Its failure is the chat's `kept` state; the next turn's save is tried all the same.
-      if (kept) kept.save(event.messages).catch(() => undefined);
+      if (kept) kept.save(event.messages).catch(() => undefined); // Its failure is `kept`'s state, `unsaved`.
     },
   });
   const error =
