@@ -94,9 +94,11 @@ function entryPoints(pkgDir: string): Entry[] {
  * `graph` is here for the reason the comment above predicted: `docs/content/docs/graph/` documents
  * `@kanzo-tech/graph`, and until this line the page could name anything at all. `llm` for the same
  * reason: `docs/content/docs/ai/` imports `stream` and the agent from it. `testing` because
- * `docs/content/docs/testing/` and `/docs/design/testing` import the harnesses from it.
+ * `docs/content/docs/testing/` and `/docs/design/testing` import the harnesses from it. `mosaic`
+ * because it is the one door to Mosaic: every page imports `engine`, `Query` and the aggregates from
+ * it, and `/analytics` exports none of them, so a page naming one from `/analytics` fails here.
  */
-const ENTRIES = ["ui", "theme", "graph", "ai", "llm", "auth", "navigation", "testing"].flatMap((name) =>
+const ENTRIES = ["ui", "theme", "mosaic", "graph", "ai", "llm", "auth", "navigation", "testing"].flatMap((name) =>
   entryPoints(join(REPO, "packages", name)),
 );
 

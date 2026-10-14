@@ -1,15 +1,14 @@
 "use client";
 
 import { Show, Swatch } from "@kanzo-tech/ui";
+import { Query, count } from "@kanzo-tech/mosaic";
 import {
   ChartAxisX,
   ChartAxisY,
   ChartBarY,
   ChartHighlight,
-  ChartPickX,
+  ChartToggleX,
   ChartRoot,
-  Query,
-  count,
   useChartContext,
   useChartQuery,
   type ChartConfig,
@@ -64,7 +63,7 @@ export default function Example() {
           relation="telemetry"
         >
           <ChartBarY fill="status" x="status" y={count()} />
-          <ChartPickX />
+          <ChartToggleX />
           <ChartHighlight />
           <ChartAxisX label={null} />
           <ChartAxisY grid label="requests" />

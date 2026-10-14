@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { SegmentGroup } from "@kanzo-tech/ui";
+import { count } from "@kanzo-tech/mosaic";
 import {
   ChartAreaY,
   ChartAxisX,
@@ -12,7 +13,6 @@ import {
   ChartLineY,
   ChartRoot,
   ChartToggleX,
-  count,
   useMosaic,
 } from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";

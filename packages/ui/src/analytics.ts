@@ -5,10 +5,11 @@
 // read the same relation. The components stay `Chart*`: those are charts.
 //
 // Kept off the root barrel so the base bundle never carries the DuckDB/Mosaic analytics stack.
-// `@uwdata/vgplot`, `@uwdata/mosaic-plot`, `@uwdata/mosaic-core` and `@uwdata/mosaic-sql` are **optional peer
-// dependencies**; DuckDB-WASM arrives with `@kanzo-tech/mosaic`, whose `engine()` is re-exported here.
-// No chart instantiates a Coordinator: the consumer takes one (in a `"use client"` island) and passes
-// it to `MosaicProvider`, which is what keeps DuckDB-WASM out of every Server Component.
+// `@kanzo-tech/mosaic`, `@uwdata/vgplot`, `@uwdata/mosaic-plot` and `valibot` are **optional peer
+// dependencies**; mosaic-core, mosaic-sql and DuckDB-WASM arrive with `@kanzo-tech/mosaic`, which is
+// the one door to them (below). No chart instantiates a Coordinator: the consumer takes one (in a
+// `"use client"` island) and passes it to `MosaicProvider`, which is what keeps DuckDB-WASM out of
+// every Server Component.
 //
 // The layer is a grammar, not a set of chart types: `ChartRoot` compiles its inert descriptor
 // children (marks, interactors, axes) into one `vg.plot(...)`, so a bar and a line share a plot and
@@ -48,14 +49,11 @@ export {
 export type { ChartMarkProps, ChartRawProps } from "./charts/chart-marks.js";
 
 // Interactors — the crossfilter, as JSX. `ChartHighlight` reads a selection (`by`); the rest
-// publish into one (`as`, defaulting to the root's).
+// publish into one (`as`, defaulting to the root's). Each is vgplot's name, and only that: the
+// gesture names `ChartPick*` and `ChartBrush*` were aliases, and went (`/docs/design/analytics`).
 export {
   ChartIntervalX, ChartIntervalY, ChartIntervalXY,
   ChartToggleX, ChartToggleY, ChartToggleColor,
-  // The same six under names that describe the gesture in both cases: pick = click a category,
-  // brush = drag a range. vgplot's spellings stay for anyone arriving from Mosaic's docs.
-  ChartPickX, ChartPickY, ChartPickColor,
-  ChartBrushX, ChartBrushY, ChartBrushXY,
   ChartNearestX, ChartNearestY,
   ChartRegion, ChartHighlight, ChartPanZoom,
 } from "./charts/chart-interactors.js";
@@ -74,7 +72,7 @@ export type {
 // its own with raw HTML; these are the same clauses wearing our FacetFilter / Input / Slider.
 export { ChartFilter, ChartSearch, ChartSlider } from "./charts/chart-inputs.js";
 export type {
-  ChartFilterProps, ChartFilterOption, ChartSearchProps, ChartSliderProps,
+  ChartFilterProps, ChartSearchProps, ChartSliderProps,
 } from "./charts/chart-inputs.js";
 // The engine under those three, on its own. A control is a Mosaic input because it declares a query
 // and publishes a clause carrying its own `source` — not because it looks like one of ours, so a
@@ -93,7 +91,7 @@ export { ChartStat } from "./charts/chart-stat.js";
 export type { ChartStatProps } from "./charts/chart-stat.js";
 
 // For anything that is not a plot but must still follow the brush — a KPI, a readout, a table.
-export { useChartQuery, Query } from "./charts/use-chart-query.js";
+export { useChartQuery } from "./charts/use-chart-query.js";
 // A statement read once and suspended on — a catalog, a schema — outside the crossfilter.
 export { useQueryRows } from "./charts/use-query-rows.js";
 export type { ChartQueryOptions, ChartQueryResult, ChartQueryRow } from "./charts/use-chart-query.js";
@@ -132,14 +130,13 @@ export type {
 export { parseDashboards, parseTile } from "./charts/dashboard-spec.js";
 export type { Dashboards } from "./charts/dashboard-spec.js";
 
-// A relation over a join graph — a root and the hops from it, as one `Query` — and the picker that
-// walks one. The algebra is `@kanzo-tech/mosaic`'s; the graph is whatever a reader built from its
-// catalog (`@kanzo-tech/graph`'s `readJoinGraph`, for a fossil corpus), handed to `MosaicProvider` as
-// its `joins`. What every part's `relation` takes is `RelationExpr`: a table by name, a path, or SQL.
+// The picker that walks a relation over a join graph. The relation and its algebra — `Relation`,
+// `JoinGraph`, `relationKey` and the rest — are `@kanzo-tech/mosaic`'s, imported from there; the graph
+// is whatever a reader built from its catalog (`@kanzo-tech/graph`'s `readJoinGraph`, for a fossil
+// corpus), handed to `MosaicProvider` as its `joins`. What every part's `relation` takes is
+// `@kanzo-tech/mosaic`'s `RelationExpr`: a table by name, a path, or SQL.
 export { RelationPicker } from "./charts/relation-picker.js";
 export type { RelationPickerProps, RelationPickerTranslations } from "./charts/relation-picker.js";
-export { relationQuery, relationKey, relationIdentities, relationRootKey, relationHops } from "@kanzo-tech/mosaic";
-export type { Relation, RelationExpr, RelationRef, Hop, JoinGraph, JoinType, JoinEdge, RelationHop } from "@kanzo-tech/mosaic";
 export { useFieldStats, fieldStats } from "./charts/field-stats.js";
 export type {
   FieldStat, FieldStats, FieldKind, FieldRole, FieldStatsOptions, FieldStatsState, SummarizeRow,
@@ -162,55 +159,18 @@ export type {
 // a WebGL canvas painting from `--chart-*` was installing DuckDB and Mosaic to reach twelve lines
 // of token arithmetic. They live in `lib/token-color.ts` and `lib/theme-tick.ts`.
 
-// Re-exported so a consumer writes a whole chart — and boots the coordinator under it — without a
-// direct @uwdata import, the way `/table` re-exports its TanStack types.
+// **Mosaic itself is not here.** The coordinator, the selections, the clients and clauses, the
+// engine, the loaders, the relation algebra, `Query`, the aggregates, `sql`, `asc` and `desc` are
+// `@kanzo-tech/mosaic`'s, and a host imports them from there: one door per idea, and the reason that
+// package exists — one copy of Mosaic, so one coordinator. This barrel re-exported about forty-five
+// of them, so the same name had two doors and keasy imported `JoinGraph` from both
+// (`/docs/design/analytics`). What would reverse it: nothing on this side — a Mosaic name a host
+// needs and cannot reach is added to `@kanzo-tech/mosaic`, and still not here.
 //
-// The data half comes from `@kanzo-tech/mosaic`, which owns it; the plotting half is what this
-// subpath is.
-//
-// The list below is drawn on one rule: a set is
-// re-exported when it is **closed and named**, and stays a direct import when it is open. vgplot's
-// ~250 plot attributes and mosaic-sql's expression builders are open — `ChartRoot`'s `attributes`
-// takes them raw, and taking them raw is what an escape hatch *is*, so `yRange([72, -18])` on a
-// ridgeline still says `@uwdata/vgplot` and should.
-// vgplot's `coordinator` setter is not re-exported: `MosaicProvider` is the only thing that should
-// call it.
-
-// Boot: the page's one engine, and the loaders that put a relation in front of it. `Coordinator`
-// stays for a host that brings a connector of its own; the DuckDB-WASM one is `engine()`, because a
-// second boot on the page is a second database the last-mounted chart wins.
-export { Coordinator, Selection, engine, type Engine } from "@kanzo-tech/mosaic";
-export {
-  loadCSV, loadJSON, loadObjects, loadParquet, loadSpatial, loadExtension,
-} from "@kanzo-tech/mosaic";
-
-// Channels: what `x` / `y` / `r` take. The aggregate vocabulary is complete on purpose. `min`,
-// `max`, `mode` and `stddev` are one line each and today nothing imports them — but a vocabulary
-// with holes sends the author to `@uwdata` for the one aggregate we left out, which is precisely the
-// import the rest of this barrel exists to remove, and there is no reading of "a chart author will
-// never want a standard deviation" that survives contact with a chart author. Same argument that
-// keeps the marks in `chart-marks.tsx` that no example draws.
-export { count, sum, avg, min, max, median, quantile, stddev, mode, sql } from "@uwdata/vgplot";
-// `bin` is vgplot's, made once per field and options so a re-render is not a new plot.
+// What stays is the plotting half, which is this subpath's: `bin`, made once per field and options
+// so a re-render is not a new plot, and the six axis marks below. vgplot's `coordinator` setter is
+// not here either: `MosaicProvider` is the only thing that should call it.
 export { bin } from "./charts/chart-bin.js";
-export type { ExprValue } from "@kanzo-tech/mosaic";
-// What every `table` prop takes: a string is one identifier, a mosaic-sql node is a relation named
-// in SQL — a catalog-qualified one, as a fossil corpus hands it over.
-export type { TableExpr } from "@kanzo-tech/mosaic";
-
-// Ordering, for the builder that is already on this barrel. `Query…orderby(col)` takes a bare
-// column and sorts ascending; there is no second argument, so any other direction is `desc(col)`
-// and nothing else. A host that took `Query` from here was still opening `@uwdata/mosaic-sql` for
-// that one function — the same vocabulary with a hole in it the aggregates above are complete to
-// avoid, and a plainer one, because the method that accepts them was exported and the argument it
-// accepts was not. Two names is a closed set: it is the whole of ordering.
-//
-// No type comes with them. `ExprValue` is what they take and it is on the line above; what they
-// return goes straight into `.orderby()`, so nothing makes a consumer spell its name — `FilterExpr`
-// is here because `useChartQuery`'s `query` signature does. What would reverse that: a consumer
-// who has to name it, a helper handing a sort spec back to its caller, at which point `OrderByNode`
-// follows the same rule in the other direction.
-export { asc, desc } from "@kanzo-tech/mosaic";
 
 // The six marks the layer withholds on purpose, because axes here compile to plot *attributes* — an
 // axis mark would steal the binding from the interactor after it. They are a closed set the docs
@@ -218,32 +178,6 @@ export { asc, desc } from "@kanzo-tech/mosaic";
 // of a long bar list is `axisX({ anchor: "top" })` and nothing else. Reach for `ChartAxisX` first;
 // these six are for the second axis it cannot give you.
 export { axisX, axisY, axisFx, axisFy, gridFx, gridFy } from "@uwdata/vgplot";
-
-// Joining the crossfilter without being one of ours. Subclass `MosaicClient` (or wrap `makeClient`),
-// declare a query, publish one of the six clauses — that is the entire protocol, and it is how a
-// WebGL canvas or an imperative widget becomes a peer of the plots rather than a readout drifting
-// beside them. Our own three DOM controls in `chart-inputs.tsx` are built from nothing else.
-//
-// The sixth clause is ours: `clauseSemiJoin` is `key IN (ids | subquery)`, the semi-join on identity,
-// and `clauseColumns` is what a client reads to know which columns a clause names. `onRelation` says
-// which relation a clause is published on, so the page's selection crosses it into every other —
-// the one thing a client of your own adds to the protocol, beside a `relation` it reads.
-export {
-  MosaicClient, makeClient,
-  clausePoint, clausePoints, clauseInterval, clauseIntervals, clauseMatch,
-  clauseSemiJoin, clauseColumns, onRelation,
-} from "@kanzo-tech/mosaic";
-export type {
-  SelectionClause, FilterExpr, SemiJoinMembers, SemiJoinMetadata, SemiJoinOptions, RelationClient,
-} from "@kanzo-tech/mosaic";
-
-// The other half of that protocol: turning the ANSWER into values. Reading it is mosaic-core's
-// `toDataColumns`; `numbers` adds the coercion, since Arrow hands back `BigInt` for some integer
-// widths and an id or a position wants a `number`.
-export { numbers } from "@kanzo-tech/mosaic";
-// And what a failed query threw: a client's `queryError` is handed mosaic-core's `QueryError`, the
-// original one level down, and a host keying on its `code` needs that original back.
-export { queryFailure } from "@kanzo-tech/mosaic";
 
 // The five preset charts (Histogram, BarChart, LineChart, ScatterPlot, BarSeriesChart) are gone —
 // they were five parallel hardcoded `vg.plot(...)` calls that could not be composed. Each one is

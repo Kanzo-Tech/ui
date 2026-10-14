@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
-import type { Selection } from "@uwdata/mosaic-core";
+import type { Selection } from "@kanzo-tech/mosaic";
 import { cn } from "../lib/cn.js";
 import { Swatch } from "../simples/swatch.js";
 import { chartSeriesEntries, type ChartConfig } from "./chart-config.js";

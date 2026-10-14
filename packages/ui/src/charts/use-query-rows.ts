@@ -1,7 +1,6 @@
 "use client";
 
-import type { Coordinator } from "@uwdata/mosaic-core";
-import type { Query } from "@uwdata/mosaic-sql";
+import type { Coordinator, Query } from "@kanzo-tech/mosaic";
 import { use } from "react";
 import { useMosaic } from "./mosaic-provider.js";
 

@@ -3,19 +3,8 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { attach } from "@fossil-lang/corpus";
 import { Show, Skeleton } from "@kanzo-tech/ui";
-import {
-  Dashboard,
-  engine,
-  FilterBar,
-  MosaicProvider,
-  relationHops,
-  useMosaic,
-  type Coordinator,
-  type DashboardSpec,
-  type Engine,
-  type JoinGraph,
-  type Relation,
-} from "@kanzo-tech/ui/analytics";
+import { engine, relationHops, type Coordinator, type Engine, type JoinGraph, type Relation } from "@kanzo-tech/mosaic";
+import { Dashboard, FilterBar, MosaicProvider, useMosaic, type DashboardSpec } from "@kanzo-tech/ui/analytics";
 import { Chat, ModelBadge } from "@kanzo-tech/ai";
 import { AnswerCard, answerRelationsOf, readAnswerRelations, useAskChat, type AnswerRelation } from "@kanzo-tech/ai/data";
 import { loadLocalModel, localModel, localModelLoad, watchLocalModel } from "@kanzo-tech/llm/local";

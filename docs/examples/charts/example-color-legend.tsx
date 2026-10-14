@@ -1,6 +1,7 @@
 "use client";
 
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@kanzo-tech/ui";
+import { count } from "@kanzo-tech/mosaic";
 import {
   ChartAxisX,
   ChartAxisY,
@@ -9,7 +10,6 @@ import {
   ChartLegend,
   ChartRoot,
   type ChartConfig,
-  count,
   useMosaic,
 } from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";

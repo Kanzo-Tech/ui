@@ -1,5 +1,5 @@
 import { ConnectedMark, Mark } from "@uwdata/mosaic-plot";
-import { cte, isAggregateExpression, literal, Query, sum, type FilterExpr } from "@uwdata/mosaic-sql";
+import { cte, isAggregateExpression, literal, Query, sum, type FilterExpr } from "@kanzo-tech/mosaic";
 
 /**
  * A stacked area needs every series at every step. Observable Plot stacks what it is given, and an

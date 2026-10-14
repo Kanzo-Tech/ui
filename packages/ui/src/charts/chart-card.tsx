@@ -1,8 +1,7 @@
 "use client";
 
-import type { RelationExpr, TableExpr } from "@kanzo-tech/mosaic";
+import { type RelationExpr, type TableExpr, desc, Query, type ExprValue } from "@kanzo-tech/mosaic";
 import type React from "react";
-import { desc, Query, type ExprValue } from "@uwdata/mosaic-sql";
 import { bin } from "./chart-bin.js";
 import {
   ChartAreaIcon,
@@ -18,7 +17,7 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { Skeleton } from "../simples/skeleton.js";
 import { ChartAxisX, ChartAxisY, ChartFacetX } from "./chart-axes.js";
 import type { ChartConfig } from "./chart-config.js";
-import { ChartBrushX, ChartBrushXY, ChartHighlight, ChartPickY } from "./chart-interactors.js";
+import { ChartIntervalX, ChartIntervalXY, ChartHighlight, ChartToggleY } from "./chart-interactors.js";
 import { ChartLegend } from "./chart-legend.js";
 import { ChartAreaY, ChartBarX, ChartDot, ChartLineY, ChartRectY, ChartRegressionY } from "./chart-marks.js";
 import { ChartRoot } from "./chart-root.js";
@@ -183,7 +182,7 @@ function CardChart({
         <ChartRoot {...frame} margin={{ top: 4, right: 12, bottom: 24, left: left }}>
           {behind ? <ChartBarX fill={MUTED} filterBy={null} opacity={0.22} x={y} y={card.x} /> : null}
           <ChartBarX fill={fill} insetBottom={1} order={card.color ? order : undefined} x={y} y={card.x} />
-          <ChartPickY />
+          <ChartToggleY />
           <ChartHighlight />
           <ChartAxisX grid label={null} ticks={5} />
           <ChartAxisY domain={bars} label={null} tickFormat={truncate} />
@@ -211,7 +210,7 @@ function CardChart({
           {card.type === "line" || behind ? (
             <ChartLineY fx={fx} stroke={card.color ?? ACCENT} strokeWidth={1.5} tip x={x} y={y} />
           ) : null}
-          <ChartBrushX />
+          <ChartIntervalX />
           <ChartAxisX label={null} ticks={fx ? 3 : 8} />
           <ChartAxisY grid label={null} />
           {facetAxis}
@@ -223,7 +222,7 @@ function CardChart({
         <ChartRoot {...frame}>
           {behind ? <ChartRectY fill={MUTED} filterBy={null} fx={fx} inset={0.5} opacity={0.22} x={bin(card.x)} y={y} /> : null}
           <ChartRectY fill={fill} fx={fx} inset={0.5} order={card.color ? order : undefined} x={bin(card.x)} y={y} />
-          <ChartBrushX />
+          <ChartIntervalX />
           <ChartAxisX label={null} ticks={fx ? 3 : 8} />
           <ChartAxisY grid label={null} />
           {facetAxis}
@@ -238,7 +237,7 @@ function CardChart({
           {card.type === "regression" ? (
             <ChartRegressionY ci={0.95} fill={ACCENT} fx={fx} stroke={ACCENT} x={card.x} y={card.y.field} />
           ) : null}
-          <ChartBrushXY />
+          <ChartIntervalXY />
           <ChartAxisX label={card.x} ticks={fx ? 3 : 8} />
           <ChartAxisY grid label={card.y.field ?? null} />
           {facetAxis}

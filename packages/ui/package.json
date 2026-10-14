@@ -41,6 +41,7 @@
     "size": "size-limit"
   },
   "//deps": "`tailwind.css` is compiled by the consumer, but its `@plugin` and `@import` resolve from THIS package's directory — under pnpm a consumer's own install is not visible from here. So what the entry names is a dependency, and `tailwindcss` is a required peer: the typography plugin requires `tailwindcss/plugin`, and it must be the consumer's copy, the one compiling the page.",
+  "//peers": "Every subpath's engine is an optional peer, so `import { Button }` installs none of them. `/analytics` takes `@kanzo-tech/mosaic` -- the one door to Mosaic: its charts import mosaic-core and mosaic-sql through it and through nothing else, so those two are `@kanzo-tech/mosaic`'s peers, declared once there, as `@kanzo-tech/graph` and `@kanzo-tech/ai` declare them -- with vgplot and mosaic-plot, the plotting half, which are its own. `valibot` is `/analytics`' too: only the dashboard spec's schema imports it, so a consumer of the root barrel never installs a validator it does not run (/docs/design/analytics). `@tanstack/react-query` is `/analytics`' as well: `useFieldStats` and the dashboard read on the host's `QueryClient` (/docs/design/reads).",
   "peerDependencies": {
     "@codemirror/autocomplete": "^6.0.0",
     "@codemirror/commands": "^6.0.0",
@@ -52,26 +53,19 @@
     "@lezer/highlight": "^1.0.0",
     "@tanstack/react-query": "^5.0.0",
     "@tanstack/react-table": "^8.0.0",
-    "@uwdata/mosaic-core": "^0.32.0",
     "@uwdata/mosaic-plot": "^0.32.0",
-    "@uwdata/mosaic-sql": "^0.32.0",
     "@uwdata/vgplot": "^0.32.0",
     "lucide-react": "^1.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "tailwindcss": "^4"
+    "tailwindcss": "^4",
+    "valibot": "^1.5.0"
   },
   "peerDependenciesMeta": {
     "@tanstack/react-table": {
       "optional": true
     },
     "@uwdata/vgplot": {
-      "optional": true
-    },
-    "@uwdata/mosaic-core": {
-      "optional": true
-    },
-    "@uwdata/mosaic-sql": {
       "optional": true
     },
     "@uwdata/mosaic-plot": {
@@ -101,6 +95,9 @@
     "@kanzo-tech/mosaic": {
       "optional": true
     },
+    "valibot": {
+      "optional": true
+    },
     "@tanstack/react-query": {
       "optional": true
     }
@@ -113,8 +110,7 @@
     "clsx": "^2.1.1",
     "tailwind-merge": "^3.6.0",
     "tailwind-variants": "^3.2.2",
-    "tw-animate-css": "^1.4.0",
-    "valibot": "^1.5.0"
+    "tw-animate-css": "^1.4.0"
   },
   "devDependencies": {
     "@codemirror/autocomplete": "^6.18.6",
@@ -142,7 +138,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "rollup-plugin-preserve-directives": "^0.4.0",
-    "tailwindcss": "4"
+    "tailwindcss": "4",
+    "valibot": "^1.5.0"
   },
   "repository": {
     "type": "git",

@@ -1,8 +1,15 @@
 "use client";
 
-import { queryFailure, type RelationClient, type RelationRef } from "@kanzo-tech/mosaic";
-import { makeClient, type MosaicClient, type Selection } from "@uwdata/mosaic-core";
-import { Query, type FilterExpr } from "@uwdata/mosaic-sql";
+import {
+  queryFailure,
+  type RelationClient,
+  type RelationRef,
+  makeClient,
+  type MosaicClient,
+  type Selection,
+  Query,
+  type FilterExpr,
+} from "@kanzo-tech/mosaic";
 import { useEffect, useRef, useState } from "react";
 import { useClientsEnabled, useMosaic, useReading } from "./mosaic-provider.js";
 
@@ -114,5 +121,3 @@ export function useQueryClient(
   return { client, rows, error };
 }
 
-/** Re-exported so a caller builds a query without a direct `@uwdata/mosaic-sql` import. */
-export { Query };

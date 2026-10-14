@@ -1,5 +1,6 @@
 "use client";
 
+import { median, quantile } from "@kanzo-tech/mosaic";
 import {
   ChartAxisX,
   ChartAxisY,
@@ -9,8 +10,6 @@ import {
   ChartRuleX,
   ChartTickY,
   ChartToggleX,
-  median,
-  quantile,
 } from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 

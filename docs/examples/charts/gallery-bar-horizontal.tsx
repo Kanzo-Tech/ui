@@ -1,5 +1,6 @@
 "use client";
 
+import { count } from "@kanzo-tech/mosaic";
 import {
   ChartAxisX,
   ChartAxisY,
@@ -7,7 +8,6 @@ import {
   ChartHighlight,
   ChartRoot,
   ChartToggleY,
-  count,
 } from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
