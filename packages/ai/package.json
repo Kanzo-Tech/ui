@@ -36,12 +36,13 @@
     "test": "vitest run",
     "size": "size-limit"
   },
-  "//peers": "@kanzo-tech/ui and Ark are required peers rather than dependencies \u2014 two copies of Ark would mean two portals and two focus traps. `ai` and `@ai-sdk/react` are REQUIRED peers for the reason @kanzo-tech/llm gives: the host's agent and these components must share one UIMessage, one transport and one useChat. streamdown is a dependency now: Chat renders markdown, and a conversation that draws plain text is not one this package offers. `@kanzo-tech/mosaic` is OPTIONAL: only `./data` imports it, beside `@kanzo-tech/ui`'s `/analytics` and `/table`, whose own optional peers a host of `./data` installs too.",
+  "//peers": "@kanzo-tech/ui and Ark are required peers rather than dependencies \u2014 two copies of Ark would mean two portals and two focus traps. `ai` and `@ai-sdk/react` are REQUIRED peers for the reason @kanzo-tech/llm gives: the host's agent and these components must share one UIMessage, one transport and one useChat. streamdown is a dependency now: Chat renders markdown, and a conversation that draws plain text is not one this package offers. `@kanzo-tech/mosaic` is OPTIONAL: only `./data` imports it, beside `@kanzo-tech/ui`'s `/analytics` and `/table`, whose own optional peers a host of `./data` installs too. `@tanstack/react-query` is OPTIONAL for the same reason: `./data`'s reads are queries on the host's client (`/docs/design/reads`), and the root -- `Chat`, `Assist` -- reads nothing through it.",
   "peerDependencies": {
     "@ai-sdk/react": "^4.0.0",
     "@ark-ui/react": "^5.37.2",
     "@kanzo-tech/mosaic": "workspace:*",
     "@kanzo-tech/ui": "workspace:*",
+    "@tanstack/react-query": "^5.0.0",
     "ai": "^7.0.0",
     "lucide-react": "^1.0.0",
     "react": "^19.0.0",
@@ -49,6 +50,9 @@
   },
   "peerDependenciesMeta": {
     "@kanzo-tech/mosaic": {
+      "optional": true
+    },
+    "@tanstack/react-query": {
       "optional": true
     }
   },
@@ -65,6 +69,7 @@
     "@kanzo-tech/testing": "workspace:*",
     "@kanzo-tech/theme": "workspace:*",
     "@kanzo-tech/ui": "workspace:*",
+    "@tanstack/react-query": "^5.104.0",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -91,7 +96,7 @@
   "//gauges": "One gauge per published entry, and one per tree-shaken import a consumer meets; `scripts/gauges.mjs` (through `.size-limit.mjs`) is what each measures, and every limit's reason \u2014 each raise, dated, with its before and after \u2014 is a row on /docs/design, *A gauge per entry, and its raises written here*.",
   "gauges": {
     ".": "20 kB",
-    "./data": "8.85 kB",
+    "./data": "9.1 kB",
     "./task": "1.2 kB"
   }
 }

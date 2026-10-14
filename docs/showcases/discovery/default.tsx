@@ -6,6 +6,7 @@ import {
   EmptyHeader,
   EmptyIndicator,
   EmptyRoot,
+  Eyebrow,
   Separator,
   ShellAside,
   ShellBody,
@@ -70,9 +71,7 @@ function Schema() {
       side="start"
       width={288}
     >
-      <p className="mb-3 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-        The archive
-      </p>
+      <Eyebrow className="mb-3">The archive</Eyebrow>
       <div className="flex flex-col gap-4">
         {RELATIONS.map((relation) => (
           <section key={relation.name}>

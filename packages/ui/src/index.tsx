@@ -214,6 +214,7 @@ export * from "./simples/date-picker.js";
 export * from "./simples/dialog.js";
 export * from "./simples/diagnostic.js";
 export * from "./simples/editable.js";
+export * from "./simples/eyebrow.js";
 export * from "./simples/field.js";
 export * from "./simples/file-upload.js";
 export * from "./simples/float.js";

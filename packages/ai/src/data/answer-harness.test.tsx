@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AnswerHarness, type KanzoTestingHook } from "@kanzo-tech/testing";
 import { dom } from "@kanzo-tech/testing/dom";
 import type { Selection } from "@kanzo-tech/mosaic";
@@ -14,6 +15,9 @@ import { readFor } from "../testing/answer.js";
 import { AnswerCard, type AnswerCardProps } from "./answer-card.js";
 import type { AnswerRelation } from "./answer.js";
 import { readAnswerRelations } from "./relations.js";
+
+/** The host's one client: every read the parts make is a query on it. */
+const queries = new QueryClient();
 
 /**
  * `AnswerHarness` over `AnswerCard` in jsdom: the card's states and its two actions, read the way a
@@ -53,13 +57,13 @@ function Page({ into }: { into: (selection: Selection) => void }) {
 
 function page(answer: ToolPart, adding: Adding = {}, into: (selection: Selection) => void = () => {}) {
   return (
-    <MosaicProvider coordinator={db.coordinator}>
+    <QueryClientProvider client={queries}><MosaicProvider coordinator={db.coordinator}>
       <Page into={into} />
       <PromptInput>
         <PromptInputTextarea placeholder="Ask about your data…" />
       </PromptInput>
       <AnswerCard graph={PEOPLE} part={answer} {...(adding as object)} />
-    </MosaicProvider>
+    </MosaicProvider></QueryClientProvider>
   );
 }
 
@@ -72,13 +76,13 @@ describe("AnswerHarness", () => {
     const { rerender } = draw(part("input-streaming"), {}, (s) => (crossfilter = s));
     const answers = await env.harness(AnswerHarness);
     rerender(
-      <MosaicProvider coordinator={db.coordinator}>
+      <QueryClientProvider client={queries}><MosaicProvider coordinator={db.coordinator}>
         <Page into={(s) => (crossfilter = s)} />
         <PromptInput>
           <PromptInputTextarea placeholder="Ask about your data…" />
         </PromptInput>
         <AnswerCard graph={PEOPLE} part={part("output-available", { output })} />
-      </MosaicProvider>,
+      </MosaicProvider></QueryClientProvider>,
     );
     const tile = await answers.answer();
     await expect.poll(() => tile.text()).toMatch(/^Mean age.*34/);
