@@ -18,6 +18,7 @@ import {
 import { Reasoning } from "./reasoning.js";
 import type { Proposal } from "./task/index.js";
 import { Working } from "./working.js";
+import type { KeptChat } from "./kept-chat.js";
 import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput, type ToolPart } from "./tool.js";
 
 /** Every word `Chat` draws. English by default. */
@@ -28,12 +29,18 @@ export interface ChatTranslations {
   failed: string;
   /** Where the answer will be, from the question sent until the model's first word. */
   waiting: string;
+  /** Announced with the failure of a kept chat that could not be read. */
+  unread: string;
+  /** Announced with the failure of a kept chat's last save. */
+  unsaved: string;
 }
 
 const ENGLISH: ChatTranslations = {
   placeholder: "Ask anything…",
   failed: "The answer stopped:",
   waiting: "Thinking…",
+  unread: "The conversation could not be opened:",
+  unsaved: "The conversation was not saved:",
 };
 
 /**
@@ -51,10 +58,12 @@ export type ChatToolRenderers = Record<string, (part: ToolPart, call: { stopped:
 /**
  * What `Chat` reads from `useAgentChat` or `useChat` — the helpers, not the hook, so any chat state
  * can drive it. `error` is whatever stopped the answer: `useAgentChat`'s thrown value, or
- * `useChat`'s `Error`.
+ * `useChat`'s `Error`. `kept` is a kept chat's state: while it is read `Chat` is its skeleton, and one
+ * that could not be read is said, with nothing to send it.
  */
 type ChatState<M extends UIMessage> = Pick<UseChatHelpers<M>, "messages" | "status" | "sendMessage" | "stop" | "regenerate"> & {
   error: unknown;
+  kept?: Pick<KeptChat<M>, "state" | "error">;
 };
 
 /** A message `Chat` sends: what `sendMessage` takes — `{ text }`, or the message's `parts`. */
@@ -127,6 +136,18 @@ export function Chat<M extends UIMessage, V = string>(props: ChatProps<M, V>) {
   const [draft, setDraft] = React.useState("");
   const busy = chat.status === "submitted" || chat.status === "streaming";
   const last = chat.messages.at(-1);
+  const kept = chat.kept;
+  if (kept?.state === "loading") {
+    return (
+      <ChatSkeleton
+        className={className}
+        empty={empty}
+        proposals={proposals !== undefined || proposing ? PILLS : 0}
+        translations={translations}
+      />
+    );
+  }
+  const unread = kept?.state === "failed";
 
   const ask = (text: string) => {
     if (!text.trim()) return;
@@ -139,6 +160,7 @@ export function Chat<M extends UIMessage, V = string>(props: ChatProps<M, V>) {
       className={className}
       composer={
         <PromptInput
+          inert={unread}
           onSubmit={(event) => {
             event.preventDefault();
             if (busy) void chat.stop();
@@ -251,6 +273,14 @@ export function Chat<M extends UIMessage, V = string>(props: ChatProps<M, V>) {
           <span className="sr-only">{t.failed}</span>
           <DiagnosticList>
             <Problem describe={describe} error={chat.error} />
+          </DiagnosticList>
+        </div>
+      )}
+      {(kept?.state === "failed" || kept?.state === "unsaved") && (
+        <div data-slot="chat-kept-error" role="alert">
+          <span className="sr-only">{unread ? t.unread : t.unsaved}</span>
+          <DiagnosticList>
+            <Problem describe={describe} error={kept.error} />
           </DiagnosticList>
         </div>
       )}

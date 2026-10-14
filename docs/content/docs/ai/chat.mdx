@@ -224,7 +224,9 @@ when the chat replaces it. The composer is the real one, disabled, rather than a
 *What would reverse it:* a skeleton that has to look different from the chat, which would make it a
 second component and not this one. `Chat` taking a `pending` flag instead was discarded: the
 skeleton exists for the moment before the conversation can be built, so `chat` would turn optional and
-`Chat` would hold two components behind one flag.
+`Chat` would hold two components behind one flag. A [kept chat](#a-chat-kept) being read is the one
+case `Chat` draws the skeleton itself: the conversation is built and says so in `chat.kept`, and a
+question sent before its messages arrive would be lost under them.
 
 ```tsx
 {schema ? <Chat chat={chat} empty={empty} /> : <ChatSkeleton empty={empty} />}
@@ -240,6 +242,49 @@ skeleton exists for the moment before the conversation can be built, so `chat` w
 state, pills in skeleton, an inert composer", "is Chat's own frame, so nothing moves when the chat
 replaces it". jsdom has no layout, so the heights are measured in Chromium by
 `docs/scripts/chat-frame.e2e.mjs` over `/fixtures/chat-frame`, in a flex column and in a block.
+
+## A chat kept
+
+A chat is kept as the AI SDK keeps one — the `UIMessage[]` of a chat id — and the store is yours:
+give the chat hook an `id` and two functions, `load(id)` and `save(id, messages)`, and it reads the
+chat once before the first turn and saves it, whole, at the end of every turn.
+
+```tsx
+const chat = useAgentChat(agent, {
+  id: chatId,
+  load: async (id, { signal }) => (await fetch(`/api/chats/${id}`, { signal })).json(), // [] for a new chat
+  save: (id, messages) => fetch(`/api/chats/${id}`, { method: "PUT", body: JSON.stringify(messages) }),
+  keep: (part) => (part.type === "reasoning" ? undefined : part),
+  dataPartSchemas: { note: noteSchema },
+});
+return <Chat chat={chat} />;
+```
+
+- **What `load` answers is validated** with the AI SDK's `validateUIMessages`, against the chat's
+  own `dataPartSchemas` and `messageMetadataSchema` — the ones `useChat` takes — and, for
+  `useAgentChat`, the agent's tools. Given `dataPartSchemas`, every data part needs one. `[]` is a
+  chat never saved.
+- **`keep`** decides what of each part is stored: return the part, a part rewritten (an answer's
+  spec without its rows), or `undefined` to drop it. A message left with no part is not stored. What
+  it keeps is validated before `save` is called, so a `keep` that writes what cannot be read back is
+  refused then, not on the next load.
+- **Saves go one at a time**, in order, each with every message, so a turn's save never lands after
+  the next one's.
+- **A chat that could not be read is never opened empty, nor saved over.** `chat.kept` says where
+  the chat stands — `loading`, `ready`, `failed` (what `load` threw, or what did not validate, is
+  `chat.kept.error`, whole), or `unsaved` (the last save was refused; the next turn's is tried all
+  the same). `Chat` is its own skeleton while the chat is read, and says a failure under the
+  transcript through `Problem`, with an inert composer when the chat could not be opened.
+
+`useKeptChat({ id, load, save, keep, dataPartSchemas })` is the same for a transcript drawn from
+messages that are not `useChat`'s — a guided conversation whose turns the host decides: its
+`messages` are what was read, `undefined` until then, and its `save(messages)` is queued as the
+hook's are, settling when that save is written.
+
+*Held by* `packages/ai/src/kept-chat.test.tsx`, "opens where it stood: the chat of its id is read
+once, validated, and drawn", "is saved at the end of every turn, whole, through keep", "never opens
+empty in place of a chat it cannot read, and never saves over it", "saves one at a time, in order,
+and refuses what keep left unreadable". Why it is shaped this way is [Asking data](/docs/design/ai#a-chat-is-kept-in-the-ai-sdks-shape).
 
 ## The parts
 
@@ -290,12 +335,13 @@ outside the scroll region, so it stays put while the transcript moves:
 | `notice` | `ReactNode` | In place of the pills while there are none: why proposing failed, with a retry |
 | `context` | `ReactNode` | What the next question is asked over, read-only in the composer beside Send — a pill such as *Subset · 40 nodes*, as Copilot Chat and Cursor show theirs |
 | `describe` | `ProblemProps["describe"]` | The host's words for a failure's code, as `Problem` takes them |
-| `translations` | `Partial<ChatTranslations>` | `placeholder` for the composer, and `failed`, read before an error |
+| `translations` | `Partial<ChatTranslations>` | `placeholder` for the composer, and `failed`, `unread` and `unsaved`, read before an answer's failure, a kept chat's read and its save |
 | `className` | `string` | On the root |
 
 The types are exported as `ChatProps`, `ChatProposals`, `ChatMessage` (what `sendMessage` takes),
 `ChatSkeletonProps`, `ChatToolRenderers`, `ChatTranslations`, `ToolPart`, `AgentChat` and
-`AgentChatOptions`; a pill is `@kanzo-tech/ai/task`'s `Proposal`.
+`AgentChatOptions`, and a kept chat's as `KeptChat`, `KeptChatOptions`, `KeptChatSchemas`, `KeptState`
+and `KeepPart`; a pill is `@kanzo-tech/ai/task`'s `Proposal`.
 
 ## AI Elements is a source, not a reference
 

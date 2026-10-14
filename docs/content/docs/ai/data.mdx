@@ -217,6 +217,10 @@ relation reaches back, and takes the repair". `packages/ai/src/data/page-clauses
 chip on another relation by the key both reach, as the page's tiles are crossed"; "keeps none of a
 relation's rows when it shares no type with the chip's".
 
+**A chat with Ask is kept as every chat is**: `useAskChat(options, { id, load, save, keep })` takes
+the chat hooks' `load`, `save` and `keep` ([A chat kept](/docs/ai/chat#a-chat-kept)), and reads a
+kept chat back validated against Ask's own parts.
+
 ## The chips
 
 **`AskChips` draws what an answer was read as, each part editable**: what is counted, what a chart
