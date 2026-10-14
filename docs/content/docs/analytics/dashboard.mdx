@@ -531,6 +531,20 @@ counted in it (`stats`, a `JoinColumnStats`). For a fossil corpus, `@kanzo-tech/
 [`readJoinGraph`](/docs/graph#readjoingraph) builds it from the catalog the graph already reads; a
 graph of your own describes what it knows, and only `name` and `type` are required.
 
+A multi-valued property — fossil keeps one in a table of its own, a row per value — is a type with a
+`value`, the column a path that ends on it reads, reached from its source by an edge whose `table` is
+its own: the key is held in the row, so the hop is one join, and the path to it names its value,
+`nickname`, not `nickname.nickname`. `RelationPicker` offers it as a hop like any other.
+
+**A thing's words are its labels.** `labelOf(annotations, language?)` is what a type, an edge or a
+column is called: its `rdfs:label` in the page's language (`<html lang>`, RFC 4647's lookup —
+`es-AR`, then `es` — then an untagged one), or `undefined`. `namingColumn(type)` is the column whose
+property IRI is a labelling property — `skos:prefLabel`, `rdfs:label`, then schema.org's and FOAF's
+`name` — never a column because it is called `name`. `relationColumns` gives each column the `label`
+the data gives it — its own, or its type's for the naming column — and `fieldStats` carries it as
+`FieldStat.label`, which tile titles and `RelationPicker`'s sentences read; where nothing labels a
+name, a title reads its path and the picker `splitWords(name)` — *birth place*, never inflected.
+
 ## Series vocabulary
 
 `config` maps a field to a `ChartConfig`, for a field drawn as `color` that has meanings of its own —
@@ -661,7 +675,10 @@ label `has…` reads *whose …*, and a lone `is` drops out of an in-edge.
 function relationQuery(graph: JoinGraph, relation: Relation): Query;
 function relationKey(graph: Pick<JoinGraph, "edges">, relation: Relation): string;
 function relationHops(graph: JoinGraph, type: string): RelationHop[];
-function relationColumns(graph: JoinGraph, relation: string | Relation): RelationColumn[];
+function relationColumns(graph: JoinGraph, relation: string | Relation, language?: string): RelationColumn[];
+function labelOf(annotations: readonly JoinAnnotation[] | undefined, language?: string): string | undefined;
+function namingColumn(type: Pick<JoinType, "columns">): string | undefined;
+function splitWords(name: string): string;
 
 class JoinResolver {
   constructor(joins: JoinGraph | null);
@@ -687,6 +704,7 @@ interface JoinGraph { types: readonly JoinType[]; edges: readonly JoinEdge[] }
 interface JoinType {
   name: string; table: TableExpr; key: string; columns: readonly JoinColumn[]; rows?: number; of?: readonly string[];
   candidateKeys?: readonly string[]; iri?: string; annotations?: readonly JoinAnnotation[];
+  value?: string; // a multi-valued property's: the column a path that ends on it reads
 }
 interface JoinEdge {
   name: string; label: string; source: string; destination: string; table: TableExpr; src: string; dst: string; rows?: number;
@@ -701,7 +719,7 @@ interface JoinColumnStats {
   mostCommonVals: readonly string[]; mostCommonFreqs: readonly number[];
 }
 interface JoinAnnotation { predicate: string; object: string | { value: string; language?: string; datatype?: string } }
-interface RelationColumn extends JoinColumn { of: string; candidateKey: boolean } // `of` the type it is counted over
+interface RelationColumn extends JoinColumn { of: string; candidateKey: boolean; label?: string } // `of` the type it is counted over
 ```
 
 ### FilterBar
@@ -733,8 +751,9 @@ interface FieldStat {
   max?: number;        //   a temporal one in epoch milliseconds
   values?: readonly string[];               // the commonest values, where the writer counted them
   annotations?: readonly JoinAnnotation[];  // what the corpus annotates the column with
+  label?: string;                           // what the data calls it: what a title reads
 }
-type FieldColumn = JoinColumn & { candidateKey?: boolean };
+type FieldColumn = JoinColumn & { candidateKey?: boolean; label?: string };
 interface FieldStatsOptions { exclude?: readonly string[] }
 interface FieldStats { fields: FieldStat[]; columns: string[] }
 interface FieldStatsState { fields: FieldStat[] | null; columns: string[] | null; error: unknown }

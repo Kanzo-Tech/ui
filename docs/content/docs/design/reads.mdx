@@ -6,7 +6,9 @@ description: Why every read the library makes for a host — a relation's fields
 The same datum was read by several parts of one page, each in its own way. A relation's fields
 were read by the dashboard's `useFieldStats`, again by `AnswerCard` over the same relation, and a
 third time by `readAnswerRelations` for Ask's prompt, so a page drew one relation's summary two or
-three times and the model and the card could be told different distinct counts. A host that read
+three times and the model and the card could be told different distinct counts. Over a corpus none
+of those reads is left: what a field holds is the corpus's profile, on the join graph
+([What a field is](/docs/design/fields)). A host that read
 anything else of its own wrote a promise memo that forgot failures — keasy wrote three, and a guard
 to stop a fourth. Each was a cache, and none of them knew about the others.
 
@@ -77,7 +79,7 @@ A session changes under its key — renewed, ended, signed out in another tab �
 
 | Datum | Read by | Kept | Read again |
 | --- | --- | --- | --- |
-| a relation's `SUMMARIZE` | `useFieldStats`, and through it `Dashboard` and `AnswerCard` | the page's life | when the relation or the provider's coordinator changes, which is another key |
+| a relation's `SUMMARIZE`, for one whose columns no corpus counted ([What a field is](/docs/design/fields)) | `useFieldStats`, and through it `Dashboard` | the page's life | when the relation or the provider's coordinator changes, which is another key |
 | an answer's rows | `useAskChat`, under the page's chips | the page's life, by engine and statement | when a chip or the answer changes, which changes the statement |
 | a session | `AuthProvider`, and through it `useSession` and `Gate` | until it is stale, which is at once | when the tab becomes visible, after a renewal, and when another tab says so |
 

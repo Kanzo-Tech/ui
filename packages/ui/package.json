@@ -155,8 +155,8 @@
     ".": "51 kB",
     "./editor": "4.7 kB",
     "./table": "3.3 kB",
-    "./analytics": "28.6 kB",
-    "./analytics { Dashboard }": "36.1 kB",
+    "./analytics": "29.2 kB",
+    "./analytics { Dashboard }": "36.75 kB",
     ". { Button }": "2 kB"
   }
 }

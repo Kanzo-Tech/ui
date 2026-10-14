@@ -29,7 +29,8 @@ its width — with `of`, the type it measures, and every field a path from it
 ([Tasks](/docs/design/tasks#a-field-is-a-path-from-what-is-measured)); `JoinResolver` makes the
 relation of the paths, and the oracles are its misses and `parseTile`. The prompt lists each type's
 fields once, with their kind and most common values, *gender: category (female, male)*, read from
-`FieldStat` and one count per category by `readAnswerRelations`, and the edges a path steps across,
+the graph — `fieldStats` over its descriptions of the columns, the commonest values the corpus's
+writer counted ([What a field is](/docs/design/fields)) — and the edges a path steps across,
 rather than DDL; [Asking within a context](/docs/design/ai-context) is why once.
 
 It replaced `answerSchema`, `checkAnswer` and `AnswerInput` — the old answer tool's schema, its
@@ -213,8 +214,9 @@ the timeline's Play is: the reader learns why the verb is not there. Its chip na
 each part read by `clauseLabel` as the filter bar reads a clause — *Ask: browserUsed · 3 selected*,
 *Ask: Person.gender female* — where *Ask* alone said who had filtered and not to what.
 
-**What it costs:** `distinct` is DuckDB's `approx_unique`, exact at the few dozen values a bar chart
-answers, and it counts the whole relation. An answer read under a page that already narrowed its
+**What it costs:** `distinct` is the corpus writer's exact count of the type's column (DuckDB's
+`approx_unique` for a relation nothing counted, exact at the few dozen values a bar chart answers),
+and it counts the whole type. An answer read under a page that already narrowed its
 column answers fewer categories than the field has, so its Filter stays enabled even when it would
 keep exactly what the page keeps.
 
@@ -230,41 +232,34 @@ each clause".
 
 ## Which relations are offered
 
-**Ask is offered the types alone — `answerRelationsOf(graph, { hops: 0 })` — and the relation is
-the paths the model writes from them.** An answer across a hop is still answered: a path steps across
-it, and a step's fields are the type's, read once. What a relation of its own costs is nearly all
-of the cost, measured 2026-10 with `readAnswerRelations` in DuckDB-WASM's Node build, over a graph
-shaped like LDBC's social network benchmark — its 8 types, its 23 edges, its columns and its row
-counts, the values synthesised:
+**Ask is offered the types alone, as the graph describes them, and the relation is the paths the
+model writes from them.** An answer across a hop is still answered: a path steps across it, and a
+step's fields are the type's. A multi-valued property is reached the same way — a path that ends on
+it reads its value — and is never a type Ask measures on its own. Nothing is read from the engine to
+offer them: each type's fields, their kinds and their commonest values are on the join graph,
+counted by the corpus's writer, so offering them costs no query at all
+([What a field is](/docs/design/fields#what-a-field-holds-comes-from-the-writers-counts-stored-in-the-corpus)).
 
-| Scale | Offered | Relations | Queries | Read | Fields | Prompt |
-| --- | --- | --- | --- | --- | --- | --- |
-| 0.1 (0.3 M vertices, 1.7 M edges) | the types alone | 8 | 16 | 0.4 s | 31 | 3,520 characters |
-| 0.1 | and every hop | 54 | 290 | 9.4 s | 455 | 36,749 characters |
-| 1 (3.2 M vertices, 17 M edges) | the types alone | 8 | 18 | 1.2 s | 31 | 3,581 characters |
-| 1 | and every hop | 54 | 308 | 41.5 s | 455 | 39,018 characters |
-
-The prompt was the agent's instructions, every relation with its fields; the tool's schema was 8,724
-characters beside it for the types alone and 13,485 with the hops. The read is queued on the page's
-one connection, ahead of the dashboard's own charts. One hop relation read alone took 0.8 s at the
-median and 3.0 s at the slowest, at scale 1.
-
-It replaced offering every type through each of its hops, with `from` and `hops: 0` for a host on a
-large graph to narrow by: that left the cost to the host and the choice of a relation to the model,
-and keasy's first evaluation pass found the model choosing it wrongly. A type's own values are what a
-step of it reads; the values a hop narrows to (*Place2.name* over countries only) are the answer's
-rows, not the prompt. `answerRelationsOf` keeps `hops` for a dashboard over relations of its own.
-
-`readAnswerRelations` takes a `signal`: a page left mid-read cancels what is still queued on the
-coordinator, so a 40-second read does not hold the engine from the next page.
+It replaced `readAnswerRelations` — a `SUMMARIZE` per relation and a count per category, queued on
+the page's one connection ahead of its charts — and `answerRelationsOf`, which enumerated the
+relations to read. Measured 2026-10 in DuckDB-WASM's Node build over a graph shaped like LDBC's
+social network benchmark at scale 1 (3.2 M vertices, 17 M edges, 8 types, 23 edges), that read took
+1.2 s for the types alone and 41.5 s with every hop; the model's prompt was 3,581 characters for the
+types alone and 39,018 with every hop. Offering every hop had already gone before the read did: it
+left the cost to the host and the choice of a relation to the model, and keasy's first evaluation
+pass found the model choosing it wrongly. A type's own values are what a step of it reads; the values
+a hop narrows to are the answer's rows, not the prompt.
 
 **What would reverse it:** a spec whose fields the type alone cannot give — a field a hop alone
-reads, such as an edge's own property. Then that relation is read beside the types, and its fields
-join the spec's enum under its key.
+reads, such as an edge's own property. Then that edge's columns are described on the graph beside
+the types', and its fields join the spec's enum under its path. And a graph whose corpus counted
+nothing offers its fields without values; if that became the common case, the counts would be read
+once per corpus through the read door, never once per prompt.
 
-*Held by* `packages/ai/src/data/answer.test.ts`, "offers each type alone and through each of its
-hops, in the graph's order"; "offers the types alone at hops 0, and only the types named in from";
-"hands each query the signal, and ends on an abort with its reason, cancelling what is still queued".
+*Held by* `packages/ai/src/data/answer.test.ts`, "describes a relation's fields from the graph,
+without its steps' keys, each with the commonest values its writer counted"; "reads nothing from the
+engine: what a field is and holds is the graph's"; `packages/ai/src/data/ask.test.ts`, "is a path Ask
+may write and read its value by, and never a type it measures".
 
 ## An answer's rows are on the page, as a table
 

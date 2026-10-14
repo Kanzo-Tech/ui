@@ -9,10 +9,12 @@ why.
 <Callout type="info">
 The contract is a catalog. fossil's `attach(name, { engine, host | url })` (`@fossil-lang/corpus`)
 attaches a `fossil/1` corpus to the page's DuckDB as the catalog `name`: a view per table,
-`"<name>".fossil_tables(table_name, kind, record_count, first_id, source, destination, …)` and
-`"<name>".fossil_columns(table_name, column_name, ordinal_position, data_type, role, …)`. A vertex table holds
+`"<name>".fossil_tables(table_name, kind, label, iri, record_count, first_id, source, source_key, destination, destination_key, candidate_keys, …)`,
+`"<name>".fossil_columns(table_name, column_name, ordinal_position, data_type, role, iri, term_type, datatype, is_nullable)`,
+`"<name>".fossil_annotations` and `"<name>".fossil_stats` (0.3.0-alpha.32). A vertex table holds
 `dense_id` — global, contiguous per table from `first_id` — its identity column and the program's
-columns; an edge table holds `src` and `dst`, both `dense_id`s. The corpus carries no position.
+columns; an edge table holds the two `dense_id`s its `source_key` and `destination_key` name; a
+property table, a row per value, holds its source's. The corpus carries no position.
 </Callout>
 
 **The reference is Cosmograph v2**, read from its shipped 2.5.1 bundle — its code is CC-BY-NC, so
@@ -25,8 +27,8 @@ does this: `lon`/`lat` as `x`/`y` is what there is.
 
 ## The graph reads SQL, through the page's coordinator
 
-The host attaches the corpus and names the catalog; `GraphRoot` reads it with SQL — `fossil_tables`
-and `fossil_columns` for the structure, the views for rows and links, one `SELECT` for a focused row,
+The host attaches the corpus and names the catalog; `GraphRoot` reads it with SQL — the catalog for
+the structure, once, through `readCatalog` (below), the views for rows and links, one `SELECT` for a focused row,
 a `LIMIT`ed `ILIKE` for a search — every statement built
 from mosaic-sql's nodes and run through `coordinator.query(query, { type: "arrow" })`. A search is text
 a reader typed, so no statement is a template string: the nodes quote their own identifiers and
@@ -39,6 +41,16 @@ attach(name, { engine, url }) → "<name>".<Table>          adapter   useGraph �
            "<name>".fossil_tables · fossil_columns      render    typed arrays → cosmos.gl, uploaded once per corpus
 <GraphRoot from={name} coordinator filterBy>            core      source: SQL through the coordinator · client · load · store
 ```
+
+**Every read of the catalog is one function, `readCatalog`** (`core/catalog.ts`): the canvas's
+structure and `readJoinGraph` are both built from what it answers, through the coordinator's cache,
+so a page that draws the graph and a dashboard over it reads the catalog once, and nothing else in the
+library names a catalog relation. An edge's label and its endpoint columns are the catalog's, never
+parsed out of a table's name or written as `src` and `dst`. fossil's corpus format may move to
+[Apache GraphAr](https://graphar.apache.org/) (a design under review in fossil-lang's draft #42); if
+it does, `readCatalog` is the one place that reads it differently, and the `Structure` it answers is
+what every layer keeps reading. *What would reverse it:* a reader that needs a fact of the corpus at
+a moment `readCatalog` is not run — then the fact is added to what it answers, not read a second way.
 
 **It replaced "no SQL in `@kanzo-tech/graph`"**, under which every read went through fossil's
 `scan` on a connection of its own: rows decoded on the main thread, a cache nobody else shared, and a
@@ -53,7 +65,8 @@ the loader, and the parts do not move.
 *Held by* `packages/graph/src/layers.test.ts`, "builds statements only where it reads, writes none in
 a string, and imports nothing of fossil's"; `packages/graph/src/index.test.ts`, "keeps the second reader deleted: no opener, no
 source, no slice"; `packages/graph/src/core/store.test.ts`, "reads the structure from fossil_tables
-and fossil_columns, and every vertex by its dense_id".
+and fossil_columns, and every vertex by its dense_id"; `packages/graph/src/core/catalog.test.ts`, "takes
+an edge's label and its endpoint keys from fossil_tables, never from the table's name".
 
 ## The graph is a client of the page's coordinator
 
