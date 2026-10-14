@@ -18,7 +18,9 @@ carries no `Auth` suffix — [the suffix is a promise](/docs/auth#what-a-name-me
 
 **Nothing here implements OAuth.** `openid-client` runs the flow, verifies the ID token and builds
 the end-session URL; `jose` seals the cookie. What is written here is the short sequence a route
-handler needs, the cookie discipline around it, and Keycloak's claims read into one `Session`.
+handler needs, the cookie discipline around it, and Keycloak's claims read into one `Session` —
+by [`claims`](/docs/auth/keycloak#reading-it-yourself), which is on this door because the server is
+the only side that holds a claim set.
 
 ## Strings in, strings out
 
@@ -152,9 +154,9 @@ The transaction cookie is one **per attempt**, named by its `state` — `__Host-
 Auth0's `__txn_{state}` — so two tabs signing in at once both finish, and each callback clears the
 one it spent.
 
-`sealedCookie` is that mechanism, `SealedCookieConfig` configures it, `SealedCookie<T>` is what it
-returns, and `cookieValue` is the one-line reader for pulling a named cookie out of a `Cookie`
-header. Four attributes, each for a reason:
+Both are sealed the same way, set from `secret` and `maxAge` on `RelyingPartyConfig`, and read as
+absent whether a cookie is missing, tampered with or expired — three ways of not having a session
+are one answer. Four attributes, each for a reason:
 
 | | |
 | --- | --- |
@@ -283,7 +285,7 @@ refused too: tickets are found by subject first, and Keycloak always sends `sub`
 ## Discovery, and reaching Keycloak from inside a cluster
 
 ```ts
-import { issuer, rewriteOrigin, type Issuer, type IssuerConfig } from "@kanzo-tech/auth/server";
+import { issuer, type Issuer, type IssuerConfig } from "@kanzo-tech/auth/server";
 ```
 
 `relyingParty` takes everything `IssuerConfig` does, so most products never call `issuer` directly.
@@ -292,9 +294,9 @@ Two behaviours are worth knowing whichever way you reach them.
 **The origin the server uses can differ from the one the browser is sent to.** In a cluster the
 browser goes to the public issuer and the server reaches `http://keycloak:8080`. `internalOrigin`
 rewrites the *transport* rather than the issuer, so discovery still validates the `issuer` in the
-document against the public URL — which is what Keycloak puts there. `rewriteOrigin` is that
-rewrite on its own, and when the two origins are equal it is a pass-through, which is why there is
-no second code path for the ordinary case.
+document against the public URL — which is what Keycloak puts there. When the two origins are
+equal the rewrite is a pass-through, which is why there is no second code path for the ordinary
+case.
 
 **Discovery is allowed to fail.** Keycloak is frequently not up when the application is, and a
 library hiding a retry loop inside itself takes that decision away from the caller. A failed
@@ -309,32 +311,14 @@ the secret never travels. `allowInsecureHttp` is what lets a compose file on a l
 
 ## A group overage, and asking the realm
 
-```ts
-import { organizationGroups } from "@kanzo-tech/auth/server";
-```
-
 A token that would carry more group ids than its threshold carries none, and the organization says
 `groupsOverage: true` — [Microsoft Entra ID's rule](/docs/design/auth#a-group-is-granted-to-by-id-with-entras-overage-rule).
 An empty `groups` then means *ask*, never *in no group*, and asking is the application's job, because
 it needs a credential this package never holds: a service account of the application's, with
 `realm-management`'s `view-organizations` and `view-users` (the member's groups endpoint refuses
-either alone). `organizationGroups` is a sketch of the asking, small enough to copy rather than
-depend on:
-
-```ts
-const groupsOf = organizationGroups({
-  adminUrl: "http://keycloak:8080/admin/realms/kanzo",
-  token: serviceAccountToken, // your client_credentials grant, cached
-});
-
-const org = session.organizations.find((o) => o.alias === alias);
-const groups = org?.groupsOverage ? await groupsOf(org.id!, session.user.id) : (org?.groups ?? []);
-```
-
-It reads `GET /organizations/{org}/members/{user}/groups`, walks each group's ancestors as the
-realm's mapper does (`inherited`, default true — the two must agree), and keeps an answer for the
-token's own five minutes, one request per person at a time. A refusal rejects with
-`idp/unreachable` and its status, and is not cached.
+either alone). It reads `GET {adminUrl}/organizations/{org}/members/{user}/groups`, walks each
+group's ancestors as the realm's mapper does — `inherited` on the mapper, and the two must agree —
+and keeps an answer for the token's own five minutes.
 
 ## API Reference
 
@@ -439,31 +423,3 @@ channel to the token endpoint vouches for it — and an `internalOrigin` of `htt
 withdraws exactly that premise. [The signature check follows the
 channel](/docs/design/auth#the-signature-check-follows-the-channel-not-a-default) is the argument
 in full, with the clause it rests on and what would reverse it.
-
-### `organizationGroups`
-
-`organizationGroups(config: OrganizationGroupsConfig): OrganizationGroups`, where
-`OrganizationGroups` is `(organizationId: string, userId: string) => Promise<readonly string[]>`.
-
-`OrganizationGroupsConfig`:
-
-| Prop | Type | Default |
-| --- | --- | --- |
-| `adminUrl` | `string` | — the realm's admin API, as this process reaches it |
-| `token` | `() => Promise<string>` | — a bearer for the service account |
-| `inherited` | `boolean` | `true`, as the realm's mapper |
-| `ttl` | `number` | five minutes, in milliseconds |
-| `fetch` | `typeof fetch` | the global |
-
-### `sealedCookie`
-
-`SealedCookieConfig`:
-
-| Prop | Type | Description |
-| --- | --- | --- |
-| `name` | `string` | The name **after** the `__Host-` prefix, which is added here |
-| `secret` | `string \| Uint8Array` | Any length — generate it, do not choose it |
-| `maxAge` | `number` | Seconds. Both the cookie's `Max-Age` and the JWE's `exp` |
-
-`SealedCookie<T>` carries `name`, `seal(value)`, `read(header)` and `clear()`. `read` answers
-`null` for absent, tampered and expired alike — three ways of not having a session are one answer.
