@@ -6,7 +6,8 @@
 // asking client and all. A hand-written `Session` would agree with the pages by construction and could
 // never disagree with the package.
 
-import { type Auth, type Session, claims } from "@kanzo-tech/auth";
+import { type Auth, type Session } from "@kanzo-tech/auth";
+import { claims } from "@kanzo-tech/auth/server";
 import { VIEWER } from "@/example/people";
 import { HALLS, type HallId, ROLES } from "@/example/world";
 

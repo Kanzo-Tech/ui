@@ -37,6 +37,8 @@ export default defineConfig({
         id === "react" ||
         id === "react-dom" ||
         id === "react/jsx-runtime" ||
+        // The host's, because the session is a query on the host's client and one cache is the point.
+        id === "@tanstack/react-query" ||
         // The engines. Each is an optional peer behind its own door, and bundling one would put it
         // on every consumer's bill — including the SPA that opens neither.
         id === "openid-client" ||

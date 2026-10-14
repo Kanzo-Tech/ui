@@ -1,6 +1,7 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "./auth-provider";
+import { Queries } from "./test/queries";
 import type { Auth, Session } from "./types";
 import { useSession } from "./use-session";
 
@@ -33,7 +34,11 @@ describe("useSession", () => {
   it("hands back the session, the status and the two verbs", async () => {
     const auth = authOf();
     const { result } = renderHook(() => useSession(), {
-      wrapper: ({ children }) => <AuthProvider auth={auth}>{children}</AuthProvider>,
+      wrapper: ({ children }) => (
+        <Queries>
+          <AuthProvider auth={auth}>{children}</AuthProvider>
+        </Queries>
+      ),
     });
 
     await waitFor(() => expect(result.current.status).toBe("authenticated"));
@@ -46,9 +51,11 @@ describe("useSession", () => {
     // application with a session ships at least once.
     const { result } = renderHook(() => useSession(), {
       wrapper: ({ children }) => (
-        <AuthProvider auth={authOf({ getSession: () => new Promise(() => {}) })}>
+        <Queries>
+<AuthProvider auth={authOf({ getSession: () => new Promise(() => {}) })}>
           {children}
         </AuthProvider>
+</Queries>
       ),
     });
 
@@ -67,7 +74,9 @@ describe("useSession", () => {
     };
     const { result } = renderHook(() => useSession(), {
       wrapper: ({ children }) => (
-        <AuthProvider auth={authOf({ getSession: async () => atAcme })}>{children}</AuthProvider>
+        <Queries>
+          <AuthProvider auth={authOf({ getSession: async () => atAcme })}>{children}</AuthProvider>
+        </Queries>
       ),
     });
 
@@ -83,7 +92,9 @@ describe("useSession", () => {
     const signOut = vi.fn(async () => {});
     const { result } = renderHook(() => useSession(), {
       wrapper: ({ children }) => (
-        <AuthProvider auth={authOf({ signIn, signOut })}>{children}</AuthProvider>
+        <Queries>
+          <AuthProvider auth={authOf({ signIn, signOut })}>{children}</AuthProvider>
+        </Queries>
       ),
     });
 

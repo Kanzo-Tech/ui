@@ -74,16 +74,20 @@ export const proxy = (request: NextRequest) => auth.proxy(request);
 export const { GET, POST } = auth.routes;
 ```
 
-The browser half is one line and a provider:
+The browser half is one line and a provider, below your TanStack Query client — the session is a
+[query on it](/docs/auth/session#the-session-is-a-query-on-your-queryclient):
 
 ```tsx title="providers.tsx"
 import { AuthProvider, bffAuth } from "@kanzo-tech/auth";
+import { QueryClientProvider } from "@tanstack/react-query";
 
 const auth = bffAuth();
 
-<AuthProvider auth={auth}>
-  <App />
-</AuthProvider>;
+<QueryClientProvider client={queryClient}>
+  <AuthProvider auth={auth}>
+    <App />
+  </AuthProvider>
+</QueryClientProvider>;
 ```
 
 ```ts title="api/client.ts"
@@ -114,7 +118,7 @@ The shape of a name says what it gives you, and there are two families:
 | Shape | What it answers | Names |
 | --- | --- | --- |
 | `<where>Auth` | a whole side of the BFF in one object | `bffAuth`, the browser's `Auth`; `kanzoAuth`, the server's |
-| anything else | itself | `relyingParty`, `issuer`, `sealedCookie`, `claims`, `can` |
+| anything else | itself | `relyingParty`, `issuer`, `claims`, `can`, `accountUrl` |
 
 The suffix is a promise, so the second family is not a leftover: the relying party answers the
 protocol's verbs — `begin`, `complete`, `read`, `refresh`, `end` — and a name ending in `Auth`

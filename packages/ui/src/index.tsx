@@ -100,36 +100,43 @@ export type { ProblemDescription, ProblemProps, ProblemTranslations } from "./co
 export { MadeWith } from "./composites/MadeWith.js";
 export type { MadeWithProps, MadeWithTranslations } from "./composites/MadeWith.js";
 
-// One question at a time, over a `FieldSet` per question and Ark's Steps machine for the
-// navigation. Flat parts for the same RSC reason `Preferences` is flat.
+// A question put to the person, answered by picking — a `FieldSet` — on its own, as a guided chat
+// asks one per turn, or in a `Questionnaire`, the sequence over Ark's Steps machine that asks
+// several. Flat parts for the same RSC reason `Preferences` is flat.
+export {
+  Question,
+  QuestionPrompt,
+  QuestionDescription,
+  QuestionError,
+  QuestionChoices,
+  QuestionChoice,
+  QuestionInput,
+  QuestionTextarea,
+  useQuestion,
+} from "./composites/question.js";
+export type {
+  QuestionAnswer,
+  QuestionProps,
+  QuestionChoicesProps,
+  QuestionChoiceProps,
+  QuestionTranslations,
+  QuestionnaireQuestion,
+} from "./composites/question.js";
 export {
   Questionnaire,
   QuestionnaireProgress,
-  QuestionnaireItem,
-  QuestionnaireTitle,
-  QuestionnaireDescription,
-  QuestionnaireError,
-  QuestionnaireChoices,
-  QuestionnaireChoice,
-  QuestionnaireInput,
-  QuestionnaireTextarea,
   QuestionnaireActions,
   QuestionnairePrevious,
   QuestionnaireSkip,
   QuestionnaireNext,
   QuestionnaireSubmit,
   useQuestionnaire,
-  useQuestionnaireItem,
 } from "./composites/Questionnaire.js";
 export type {
-  QuestionnaireAnswer,
   QuestionnaireAnswers,
-  QuestionnaireQuestion,
   QuestionnaireProps,
-  QuestionnaireItemProps,
-  QuestionnaireChoicesProps,
-  QuestionnaireChoiceProps,
   QuestionnaireActionsProps,
+  QuestionnaireTranslations,
 } from "./composites/Questionnaire.js";
 
 // A `Combobox` that knows what a language tag is: names in their own language, and what counts as
