@@ -30,11 +30,12 @@ import { fileURLToPath } from "node:url";
  *   `pnpm check:generated` and `themes.test.ts` are what hold it, not a scan of `.ts` under `src/`.
  * · `@kanzo-tech/mosaic` is the Mosaic conversation without React: five modules, no JSX, and
  *   `className` appears nowhere in it.
- * · `@kanzo-tech/graph` renders, but it draws with WebGL: one file writing classes by hand
- *   (`graph-canvas.tsx`, two literal strings in it) and no `tv()` anywhere. When it grows a recipe it
- *   will declare `tailwind-variants` and join this corpus with nobody remembering to add it — which
- *   is the whole argument for deriving the list. Until then a scan of it would assert an absence over
- *   a corpus that never had the shape.
+ * · `@kanzo-tech/graph` renders, and its picture is WebGL; its parts write classes by hand — eight
+ *   files under `parts/` by the count of 13 October 2026 — and no `tv()` anywhere. That is past what
+ *   this paragraph once excused (one file, two strings), and bringing them under the guards is its
+ *   own change: when graph grows a recipe it declares `tailwind-variants` and joins this corpus with
+ *   nobody remembering to add it — the whole argument for deriving the list. Until then a scan of
+ *   it would assert an absence over a corpus that never had the shape.
  * · `@kanzo-tech/auth` draws nothing at all. Its one component, `Gate`, renders `children` or does
  *   not; there is no element in the package that could carry a class. `tailwind-variants` is
  *   deliberately absent from its manifest and its `//peers` note says so, so the day somebody gives

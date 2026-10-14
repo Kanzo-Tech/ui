@@ -181,8 +181,8 @@ Pair it with `cookieStorageAdapter()` on the provider so the user's writes land 
 
 [`PreferencesSections`](/docs/layout/preferences#the-theme-cards) draws the one control for both
 preferences: a light card and a dark card, which are the appearance choice themselves, each a large
-preview over a row of theme swatches. `ThemePreview` is the miniature screen on each card, a scoped
-`KanzoTheme` painted by the real tokens. The cards offer what `themes` lists and obey `policy`; the
+preview over a row of theme swatches. `ThemePreview` is the miniature screen on each card, a region wearing the
+theme and painted by its real tokens. The cards offer what `themes` lists and obey `policy`; the
 preferences page has the full behaviour table.
 
 ### Retired themes
@@ -202,40 +202,31 @@ The theme cards then show an *info* alert, and [`ThemeNotice`](/docs/hooks/use-k
 — mounted beside your `<Toaster />` — toasts the same words once. Both take `ThemeRetiredCopy`
 (`title`, `formatDescription`) for translation.
 
-### Two themers, and only one of them owns the root
+### One themer, and it owns the root
 
-`KanzoThemeProvider` writes the axes to `document.documentElement` and is **the app's themer**.
-`KanzoTheme` writes the theme and the side to a `<div>` and is **for previews** — a gallery of themes on
-one page, a branded panel, `ThemePreview` itself.
-
-```tsx
-<KanzoTheme theme="catppuccin-mocha">
-  <PaletteCard />
-</KanzoTheme>
-```
-
-| Prop | Type | Default |
-| --- | --- | --- |
-| `theme` | `string` | inherits |
-| `appearance` | `"light" \| "dark"` | the page's resolved side |
-
-It always writes the side as a class, so a scope never wears the light block on a dark page by
-accident; and it re-points the theme context, so a chart inside resolves its colours against the
-scope rather than the page. `set` is not re-pointed: a control inside a scope still edits the real
-preferences.
+`KanzoThemeProvider` writes the axes to `document.documentElement` and is **the themer**. There is
+no scoped one on the barrel: a region that wears another theme — a preview, a branded panel — is the
+attribute and the side's class on an element, [as the themes page shows](/docs/themes#theming-a-region),
+and `ThemePreview` is the drawn preview the theme cards use.
 
 <Callout type="warn">
-**Never reach for `KanzoTheme` as the app's provider.** Ark's overlays — Dialog, Popover, Menu,
-Select, Tooltip, Toast, HoverCard, Command — portal into `document.body`, outside any wrapper, so a
-wrapper cannot theme them; and density sets the root font-size that the whole `rem` scale resolves
-against, so a scope does not take it at all.
+**A region is never an app's chrome.** Ark's overlays — Dialog, Popover, Menu, Select, Tooltip,
+Toast, HoverCard, Command — portal into `document.body`, outside any wrapper, so a wrapper cannot
+theme them; and density sets the root font-size that the whole `rem` scale resolves against, so a
+region does not take it at all.
 </Callout>
 
-**What would reverse it:** a scope that could theme Ark's portalled overlays. It cannot, and that is a
-fact about the portal target rather than a preference — which is why the root provider stays the app's.
+The scoped themer, `KanzoTheme`, was on the barrel for previews and no product called it, so it
+left: a name is admitted by a product's call site ([Admission](/docs/design/admission)), and its one
+caller is `ThemePreview`, inside the package.
 
-*Held by* `packages/ui/src/index.test.ts`, "exposes two themers, and they are not interchangeable";
-`packages/ui/src/theme/KanzoTheme.tsx`.
+**What would reverse it:** a product that themes regions of its own pages — two of them, each wanting
+the context re-pointed as well as the attribute — which is the call site that would admit a scoped
+themer again. A region that could theme Ark's portalled overlays would not: it cannot, and that is a
+fact about the portal target rather than a preference.
+
+*Held by* `packages/ui/src/index.test.ts`, "exposes one themer, the root's, and no scoped one", and
+`!KanzoTheme`.
 
 ## White-label
 
@@ -646,8 +637,8 @@ its own storage, or its own section. None of them is required to use a theme.
 **The catalogue.** `themeIndex`, `ThemeOption`, `themeFamilies`, `ThemeFamily` and
 `defaultThemePair` — see [the catalogue as data](#the-catalogue-as-data). `themeData` is the generated
 tables as a JS module — read it rather than importing `theme-data.json`, which Node rejects as a bare
-JSON import — and `ThemeData` is its type. The preference types are `Appearance`, `KanzoThemeName`
-and `KanzoDensity`. A theme name is host-extensible, and `""` means *defer to the tenant's default*
+JSON import — and `ThemeData` is its type. The preference types are `Appearance`
+and `KanzoDensity`; a theme name is a `string`, host-extensible, and `""` means *defer to the tenant's default*
 rather than *no theme*.
 
 **Storage.** `STORAGE_KEY` is where a preference document is kept, and `CORE_NAMESPACE` is the
@@ -659,16 +650,11 @@ package contributes. A `choice` offers `PrefOption`s — `value` is stored, `lab
 `resolvePref` walks one chain, most specific first, and the `PrefOrigin` it returns is what lets a
 panel say where a value came from and a test assert on it.
 
-**Sections.** A `LookDocument` is a stored appearance, and its `sections` are opaque: the core never
-parses a section's payload. `sectionOf` reads one and `withSection` writes one back, preserving every
-other section byte for byte. A section declares `SectionPrefDecl`s for the person on the screen and
-`SectionTokenDecl`s for the document; a tenant answers with a `SectionPolicy` of
-`SectionPrefPolicy`, which is **selection, never authorship**. `resolveSectionToken` resolves a dotted
-token against a document and then the manifest's default, `fallbackChain` is that chain most specific
-first, and a `Problem` is a token the manifest does not declare.
-
-**The density obligations.** `DENSITY_OBLIGATIONS` is what the density axis owes, `checkDensity`
-grades it, and `DensityObligation` and `DensityCheck` are the two shapes involved.
+**Sections.** A stored appearance's `sections` are opaque: the core never parses a section's
+payload. A section declares `SectionPrefDecl`s for the person on the screen and `SectionTokenDecl`s
+for the document; a tenant answers with a `SectionPolicy` of `SectionPrefPolicy`, which is
+**selection, never authorship**. `validateSection` checks a payload against its manifest, and a
+`Problem` is a token the manifest does not declare.
 
 **Authoring colour.** `inkFor` returns the ink that belongs on a fill and `pageInk` the same family
 read on the page, each as a hex ready to be written into a theme. `contrast` is the WCAG ratio, `AA`

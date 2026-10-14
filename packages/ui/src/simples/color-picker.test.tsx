@@ -6,7 +6,6 @@ import {
   ColorPickerSwatch,
   ColorPickerSwatchGroup,
   ColorPickerSwatchTrigger,
-  safeParseColor,
 } from "./color-picker.js";
 import { Field } from "./field.js";
 
@@ -19,19 +18,6 @@ const swatch = (value: string) => (
     </ColorPickerSwatchTrigger>
   </ColorPickerSwatchGroup>
 );
-
-describe("safeParseColor", () => {
-  it("returns undefined instead of throwing on blank or unparseable input", () => {
-    expect(safeParseColor("")).toBeUndefined();
-    expect(safeParseColor("   ")).toBeUndefined();
-    expect(safeParseColor(undefined)).toBeUndefined();
-    expect(safeParseColor("#eb5e4")).toBeUndefined();
-  });
-
-  it("parses a valid colour", () => {
-    expect(safeParseColor("#eb5e41")?.toString("hex")).toBe("#EB5E41");
-  });
-});
 
 describe("ColorPicker empty and invalid values", () => {
   it("renders an empty controlled value", () => {

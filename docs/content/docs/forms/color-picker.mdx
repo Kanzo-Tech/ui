@@ -43,9 +43,10 @@ import {
 ```
 
 `value` and `defaultValue` are plain strings here — Ark wants a parsed `Color` object, and
-this wrapper runs `parseColor` for you. `parseColor` is re-exported if you need one directly. `safeParseColor` is exported beside it and is the one to reach for on a string you did not
-write: `parseColor` throws on anything it cannot read, and this returns `undefined` instead — an
-empty field and a typo are the ordinary states of a colour input, not exceptions.
+this wrapper runs `parseColor` for you. A blank or half-typed string draws the picker with no value
+rather than throwing — an empty field and a typo are the ordinary states of a colour input, not
+exceptions. `parseColor` is re-exported if you need one directly, and it throws on anything it
+cannot read.
 A hidden input is rendered inside the root, so the picker submits with a surrounding form.
 
 ## Anatomy

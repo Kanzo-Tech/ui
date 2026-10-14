@@ -1,20 +1,19 @@
 // @kanzo-tech/ai/data — asking questions of data. Ask is a Task (`ask`): the model fills a spec, the
 // resolver finds its relation, the oracles check it; `useAskChat` runs it behind a chat, `askOffers`
 // gives the questions to start from as its own checked proposals, and each answer is the dashboard tile
-// `AnswerCard` draws, read by `readAnswer` under the page's chips.
+// `AnswerCard` draws, read under the page's chips.
 //
 // A subpath and not the root barrel because it draws with `@kanzo-tech/ui`'s analytics and table
 // layers, whose engines are optional peers: a host that only chats must not install DuckDB and
 // TanStack Table to import `Chat`. Nothing here knows what the data is — the join graph and the
 // relations offered over it are the host's.
 
-export { askEdit, askOffers, askTransport, questionOf, useAskChat } from "./ask-chat.js";
+export { askEdit, askOffers, useAskChat } from "./ask-chat.js";
 export type { AskChatOptions, AskMessage, AskOutput, AskTurn } from "./ask-chat.js";
 export { AskChips } from "./ask-chips.js";
 export type { AskChipsProps } from "./ask-chips.js";
-export { readAnswer } from "./read.js";
 export type { AnswerOutput, QueryRow } from "./read.js";
-export { ask, askAlternatives, link } from "./ask.js";
+export { ask } from "./ask.js";
 export type { AskChip, AskContext, AskInput, AskSpec } from "./ask.js";
 export { answerSchema, checkAnswer } from "./answer.js";
 export type { Answer, AnswerField, AnswerInput, AnswerRelation, Condition, ConditionValue, UnansweredClause } from "./answer.js";

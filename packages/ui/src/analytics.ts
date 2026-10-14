@@ -129,7 +129,7 @@ export type {
 } from "./charts/dashboard-spec.js";
 // What a host keeps: every dashboard by the relation it is drawn over, and the one way back in for
 // what it stored — checked against the spec's schema, refused whole when it is not current.
-export { parseDashboard, parseDashboards, parseTile } from "./charts/dashboard-spec.js";
+export { parseDashboards, parseTile } from "./charts/dashboard-spec.js";
 export type { Dashboards } from "./charts/dashboard-spec.js";
 
 // A relation over a join graph — a root and the hops from it, as one `Query` — and the picker that
@@ -140,8 +140,6 @@ export { RelationPicker } from "./charts/relation-picker.js";
 export type { RelationPickerProps } from "./charts/relation-picker.js";
 export { relationQuery, relationKey, relationIdentities, relationRootKey, relationHops } from "@kanzo-tech/mosaic";
 export type { Relation, RelationExpr, RelationRef, Hop, JoinGraph, JoinType, JoinEdge, RelationHop } from "@kanzo-tech/mosaic";
-export { recommend } from "./charts/recommend.js";
-export type { Recommendation, RecommendIntent } from "./charts/recommend.js";
 export { useFieldStats, fieldStats } from "./charts/field-stats.js";
 export type {
   FieldStat, FieldStats, FieldKind, FieldRole, FieldStatsOptions, FieldStatsState, SummarizeRow,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MockLanguageModelV4, simulateReadableStream } from "ai/test";
-import { Output, jsonSchema } from "ai";
+import { APICallError, Output, jsonSchema } from "ai";
 import { stream } from "./stream.js";
 
 /** A model that streams `text` in one delta, then finishes. */
@@ -59,7 +59,7 @@ describe("stream", () => {
   });
 
   it("never retries a refused call", async () => {
-    const model = refusing(Object.assign(new Error("overloaded"), { isRetryable: true }));
+    const model = refusing(new APICallError({ message: "overloaded", url: "local://model", requestBodyValues: {}, statusCode: 503, isRetryable: true }));
     await expect(drain(stream({ model, prompt: "" }).text)).rejects.toThrow("overloaded");
     expect(model.doStreamCalls).toHaveLength(1);
   });

@@ -1,17 +1,21 @@
 # The platform's identity service: Keycloak, its Postgres, and the realm as code. This file is the
 # service as it runs anywhere; compose.dev.yaml adds what development wants on top.
 #
-#   docker compose -f compose.yaml -f compose.dev.yaml up -d --wait
+#   docker compose --env-file dev/dev.env -f compose.yaml -f compose.dev.yaml up -d --wait
 #
 # brings up Keycloak on http://localhost:8080 with the platform's mappers (mappers/), the `kanzo`
 # realm applied, the organizations and the conformance client declared in dev/, and seeded users
-# and groups. An application includes this
+# and groups, with the development passwords of dev/dev.env. An application includes this
 # file from its own compose (`include:`), mounts its declarations into `auth-realm` (an
 # `x-application`, and an `x-organization` per organization: realm/declarations.tf), and puts
 # Keycloak behind its own edge. Nothing here names an application.
 #
 # Service and volume names carry an `auth` prefix (or are `keycloak`) because an `include:` merges
 # them into the including project, where a bare `postgres` would collide.
+#
+# The two passwords have no default: a deployment sets KC_DB_PASSWORD and KC_ADMIN_PASSWORD, and
+# Compose refuses to start without them. A default here would be one deployment's password shipped
+# as every deployment's (/docs/design/services).
 
 name: kanzo-auth
 
@@ -21,7 +25,7 @@ services:
     environment:
       POSTGRES_DB: keycloak
       POSTGRES_USER: keycloak
-      POSTGRES_PASSWORD: ${KC_DB_PASSWORD:-keycloak}
+      POSTGRES_PASSWORD: ${KC_DB_PASSWORD:?set KC_DB_PASSWORD, the identity database's password}
     volumes:
       - kanzo-auth-db:/var/lib/postgresql/data
     healthcheck:
@@ -44,7 +48,7 @@ services:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://auth-postgres:5432/keycloak
       KC_DB_USERNAME: keycloak
-      KC_DB_PASSWORD: ${KC_DB_PASSWORD:-keycloak}
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD:?set KC_DB_PASSWORD, the identity database's password}
       # The issuer every token names: the origin a browser reaches Keycloak at, behind an edge that
       # terminates TLS and says so in X-Forwarded-*. Callers inside the network (the realm, the
       # seed, a resource server fetching keys) reach http://keycloak:8080.
@@ -54,7 +58,7 @@ services:
       KC_HEALTH_ENABLED: "true"
       # Keycloak reads these from the environment only; it has no *_FILE form for them.
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_ADMIN_USERNAME:-admin}
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD:?set KC_ADMIN_PASSWORD, Keycloak's admin password}
     depends_on:
       auth-postgres:
         condition: service_healthy
@@ -114,7 +118,7 @@ services:
       - |
         terraform init -input=false -backend-config=path=/state/terraform.tfstate
         # Only a realm that is not there yet needs creating alone: one already in the state goes
-        # straight to the full apply, where `moved` blocks may also need what -target would exclude.
+        # straight to the full apply.
         terraform state list keycloak_realm.kanzo | grep -q . ||
           terraform apply -input=false -auto-approve -target=keycloak_realm.kanzo
         terraform apply -input=false -auto-approve
@@ -127,7 +131,7 @@ services:
       TF_DATA_DIR: /state/.terraform
       TF_VAR_kc_url: http://keycloak:8080
       TF_VAR_kc_admin_username: ${KC_ADMIN_USERNAME:-admin}
-      TF_VAR_kc_admin_password: ${KC_ADMIN_PASSWORD:-admin}
+      TF_VAR_kc_admin_password: ${KC_ADMIN_PASSWORD:?set KC_ADMIN_PASSWORD, Keycloak's admin password}
       TF_VAR_realm: ${KC_REALM:-kanzo}
       TF_VAR_issuer_base_url: ${KC_HOSTNAME:-http://localhost:8080}
     depends_on:
