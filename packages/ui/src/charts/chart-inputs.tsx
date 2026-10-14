@@ -1,10 +1,10 @@
 "use client";
 
-import { onRelation, type RelationExpr, type RelationRef, type TableExpr } from "@kanzo-tech/mosaic";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type React from "react";
-import { ark } from "@ark-ui/react/factory";
 import {
+  onRelation,
+  type RelationExpr,
+  type RelationRef,
+  type TableExpr,
   clauseInterval,
   clauseMatch,
   clausePoint,
@@ -12,15 +12,16 @@ import {
   MosaicClient,
   type Selection,
   type SelectionClause,
-} from "@uwdata/mosaic-core";
-import {
   count as sqlCount,
   desc as sqlDesc,
   max as sqlMax,
   min as sqlMin,
   Query,
   type FilterExpr,
-} from "@uwdata/mosaic-sql";
+} from "@kanzo-tech/mosaic";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import type React from "react";
+import { ark } from "@ark-ui/react/factory";
 import { useListCollection } from "@ark-ui/react/collection";
 import { useFilter } from "@ark-ui/react/locale";
 import { cn } from "../lib/cn.js";
@@ -179,13 +180,6 @@ type ControlSize = "sm" | "md" | "lg";
 
 // ── ChartFilter ──────────────────────────────────────────────────────────────
 
-/** An explicit entry. Bare values work too — they are labelled by `format`. */
-export interface ChartFilterOption {
-  value: unknown;
-  label?: string;
-  icon?: React.ComponentType<{ className?: string }>;
-}
-
 export interface ChartFilterProps
   extends Omit<React.ComponentProps<typeof ark.div>, "defaultValue">,
     SelectionProps {
@@ -195,9 +189,15 @@ export interface ChartFilterProps
   column?: string;
   /** The column named in the published clause. Defaults to `column`. */
   field?: string;
-  /** Explicit options — a literal value or a `{ value, label, icon }` object. Skips the lookup. */
-  options?: readonly unknown[];
-  /** Labels an option value that carries no explicit label. */
+  /**
+   * The values on offer, as `FacetFilter` takes them — `{ value, label?, icon?, count? }`. Skips the
+   * lookup. A column's values are a number as often as a string, and an item's `value` is the
+   * value's text: a ticked item publishes the column's value where the control has read it (the
+   * clause it holds), and the text otherwise, which DuckDB casts to the column's type as it casts
+   * any string literal compared with it.
+   */
+  items?: readonly FacetFilterItem[];
+  /** Labels a looked-up value. */
   format?: (value: unknown) => string;
   /** Trigger label. Defaults to `column`. */
   label?: ReactNode;
@@ -232,18 +232,6 @@ export interface ChartFilterProps
  */
 const FILTER_LIMIT = 50;
 
-interface FilterEntry {
-  key: string;
-  label: string;
-  raw: unknown;
-  count?: number;
-  icon?: React.ComponentType<{ className?: string }>;
-}
-
-function isOptionObject(value: unknown): value is ChartFilterOption {
-  return typeof value === "object" && value !== null && !Array.isArray(value) && "value" in value;
-}
-
 function defaultFormat(value: unknown): string {
   return String(value ?? "");
 }
@@ -262,28 +250,19 @@ function truncationNote(truncated: boolean, limit: number, searchable: boolean) 
     : `Top ${limit} values — filter further to see the rest.`;
 }
 
-function filterEntries(
-  options: readonly unknown[] | undefined,
+/** The looked-up values as items, and the column's value behind each item's text. */
+function lookedUp(
   rows: readonly QueryRow[] | null,
   format: (value: unknown) => string,
-): FilterEntry[] {
-  if (options) {
-    return options.map((entry) => {
-      const option = isOptionObject(entry) ? entry : { value: entry };
-      return {
-        key: String(option.value),
-        label: option.label ?? format(option.value),
-        raw: option.value,
-        icon: option.icon,
-      };
-    });
+): { items: FacetFilterItem[]; raw: Map<string, unknown> } {
+  const items: FacetFilterItem[] = [];
+  const raw = new Map<string, unknown>();
+  for (const row of rows ?? []) {
+    const value = String(row.value);
+    items.push({ value, label: format(row.value), count: toCount(row.count) });
+    raw.set(value, row.value);
   }
-  return (rows ?? []).map((row) => ({
-    key: String(row.value),
-    label: format(row.value),
-    raw: row.value,
-    count: toCount(row.count),
-  }));
+  return { items, raw };
 }
 
 /**
@@ -303,7 +282,7 @@ export function ChartFilter(props: ChartFilterProps) {
     field = column,
     as,
     filterBy,
-    options,
+    items: given,
     format = defaultFormat,
     label = column,
     multiple = true,
@@ -322,7 +301,7 @@ export function ChartFilter(props: ChartFilterProps) {
   const { table, relation: reading } = useRelation(relation);
   const target = as === undefined ? selection : as;
   const source = filterBy === undefined ? selection : filterBy;
-  const lookup = options === undefined && Boolean(table && column);
+  const lookup = given === undefined && Boolean(table && column);
 
   const { rows, error, selected, publish, activate } = useMosaicInput<readonly unknown[]>({
     as: target,
@@ -360,21 +339,15 @@ export function ChartFilter(props: ChartFilterProps) {
 
   const values = selected ?? [];
 
-  const fetched = filterEntries(options, rows, format);
-  const truncated = fetched.length > limit;
-  const entries = truncated ? fetched.slice(0, limit) : fetched;
-  const items: FacetFilterItem[] = entries.map((entry) => ({
-    count: entry.count,
-    icon: entry.icon,
-    label: entry.label,
-    value: entry.key,
-  }));
+  const fetched = given === undefined ? lookedUp(rows, format) : { items: [...given], raw: new Map<string, unknown>() };
+  const truncated = fetched.items.length > limit;
+  const items = truncated ? fetched.items.slice(0, limit) : fetched.items;
 
   // `FacetFilter` speaks strings; a clause carries the raw value the query answered with, so the
   // way back from a ticked row to `alpha` / `3` / `true` is this map. The selected values are in it
   // too: one of them may be a value the crossfilter has since faceted away, which `FacetFilter`
   // keeps listed so it can still be unticked.
-  const raw = new Map<string, unknown>(entries.map((entry) => [entry.key, entry.raw]));
+  const raw = fetched.raw;
   for (const value of values) raw.set(String(value), value);
 
   return (

@@ -9,7 +9,8 @@ This is a **grammar**, not a set of chart types. `ChartRoot` compiles its childr
 chart you need is the one you write — there is no `BarChart` to fork.
 
 ```tsx
-import { ChartRoot, ChartBarY, ChartToggleX, count } from "@kanzo-tech/ui/analytics";
+import { count } from "@kanzo-tech/mosaic";
+import { ChartRoot, ChartBarY, ChartToggleX } from "@kanzo-tech/ui/analytics";
 ```
 
 Like [CodeEditor](/docs/forms/code-editor) with CodeMirror, the library wraps the engine and
@@ -17,8 +18,12 @@ never owns the runtime: it is **bring-your-own-coordinator**. No chart builds a 
 take the page's one from `engine()` (or build your own) in a `"use client"` island and pass it in,
 which is what keeps the analytics stack out of the base bundle and out of every React Server
 Component.
-`@uwdata/vgplot`, `@uwdata/mosaic-core` and `@uwdata/mosaic-sql` are all
-**optional peers**, so `import { Button }` keeps working for everyone who has not installed them.
+`@kanzo-tech/mosaic`, `@uwdata/vgplot`, `@uwdata/mosaic-plot` and `valibot` are all **optional
+peers**, so `import { Button }` keeps working for everyone who has not installed them.
+
+**Mosaic itself comes through `@kanzo-tech/mosaic`, the one door to it** — `count` above, the
+coordinator, the selections, the clauses, `Query`, `engine()`. This subpath holds the charts and
+their parts and re-exports none of Mosaic ([why](/docs/design/analytics#mosaic-is-reached-through-kanzo-techmosaic-and-a-name-through-one-spelling)).
 </Callout>
 
 <ComponentPreview componentName="charts" />
@@ -97,10 +102,12 @@ what makes them vanish cleanly.
 ## Installation
 
 The charts live on the `@kanzo-tech/ui/analytics` subpath, never the root barrel, because the
-Mosaic/DuckDB stack is heavy and optional. Install the peers alongside the library:
+Mosaic/DuckDB stack is heavy and optional. Install the peers alongside the library —
+`@kanzo-tech/mosaic` with its own two, mosaic-core and mosaic-sql; vgplot and mosaic-plot, which
+plot; and `valibot`, which checks a dashboard spec:
 
 ```bash
-pnpm add @uwdata/vgplot @uwdata/mosaic-plot @uwdata/mosaic-core @uwdata/mosaic-sql
+pnpm add @kanzo-tech/mosaic @uwdata/mosaic-core @uwdata/mosaic-sql @uwdata/vgplot @uwdata/mosaic-plot valibot
 ```
 
 ## The page's one engine
@@ -118,7 +125,8 @@ chart hydrate:
 "use client";
 
 import { useEffect, useState } from "react";
-import { MosaicProvider, engine, loadObjects, type Coordinator } from "@kanzo-tech/ui/analytics";
+import { engine, loadObjects, type Coordinator } from "@kanzo-tech/mosaic";
+import { MosaicProvider } from "@kanzo-tech/ui/analytics";
 
 export default function Analytics({ children }: { children: React.ReactNode }) {
   const [coordinator, setCoordinator] = useState<Coordinator | null>(null);
@@ -165,11 +173,11 @@ Serve `.wasm` as `application/wasm`, and the page's policy needs no host but you
 storage's: `script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' <storage>`.
 
 A backend that is not DuckDB-WASM — a socket or REST connector — is still a `Coordinator` you build
-yourself and hand to `MosaicProvider`; `Coordinator` and `Selection` are re-exported for it.
-`engine`, the loaders (`loadObjects`, `loadCSV`, `loadJSON`, `loadParquet`, `loadSpatial`,
-`loadExtension`) and those two are on the subpath, so you wire the backend without a direct
-`@uwdata` import. vgplot's own `coordinator()` setter is **not** re-exported: `MosaicProvider` is
-the only thing that should ever call it.
+yourself and hand to `MosaicProvider`. `engine`, the loaders (`loadObjects`, `loadCSV`, `loadJSON`,
+`loadParquet`, `loadSpatial`, `loadExtension`), `Coordinator` and `Selection` are
+`@kanzo-tech/mosaic`'s, so you wire the backend without a direct `@uwdata` import. vgplot's own
+`coordinator()` setter is exported by neither: `MosaicProvider` is the only thing that should ever
+call it.
 
 <Callout type="warn">
 **One coordinator per page.** `MosaicProvider` registers its coordinator as vgplot's active one,
@@ -198,8 +206,8 @@ the default catalog:
 ```tsx
 "use client";
 
-import { verbatim } from "@uwdata/mosaic-sql";
-import { ChartAxisX, ChartBarY, ChartRoot, ChartToggleX, count } from "@kanzo-tech/ui/analytics";
+import { count, verbatim } from "@kanzo-tech/mosaic";
+import { ChartAxisX, ChartBarY, ChartRoot, ChartToggleX } from "@kanzo-tech/ui/analytics";
 
 function SightingsByRegion({ relation }: { relation: string }) {
   return (
@@ -520,7 +528,7 @@ Three, because wrapping vgplot must stay a convenience:
   with the same interactor-binding semantics as a wrapped mark. What it is mostly reached for is
   one of the six axis marks the axis descriptors compile away from: `axisX({ anchor: "top" })` to
   repeat the measure scale at the top of a long bar list, `axisFy` to label a facet. Those six are
-  re-exported from the subpath. No token resolution happens inside a raw spec, so pass a Plot-safe
+  on the subpath: they are vgplot's, the plotting half. No token resolution happens inside a raw spec, so pass a Plot-safe
   colour — `resolveTokenColor(host, "--chart-1")` is exported for exactly this, and reads the
   live cascade rather than a frozen copy of it.
 - **`attributes` on `ChartRoot`** — raw directives applied *last*, so they win over anything the
@@ -533,8 +541,8 @@ Three, because wrapping vgplot must stay a convenience:
   relations. `clauseColumns` is the other half: the columns a clause names on the relation it
   filters, for a client deciding whether its relation answers it. That is the whole of it, and it is
   what makes such a view a **peer** of the plots rather than a readout drifting beside them. All nine
-  are re-exported from the subpath, with `SemiJoinMembers`, `SemiJoinMetadata` and
-  `SemiJoinOptions`, so this costs no direct `@uwdata` import.
+  are `@kanzo-tech/mosaic`'s, with `SemiJoinMembers`, `SemiJoinMetadata` and `SemiJoinOptions`, so
+  this costs no direct `@uwdata` import.
 
   Turning the answer back into values is mosaic-core's `toDataColumns`. `numbers(answer, field)`
   is the one case worth a name: an id or a position read as a `number`, since Arrow hands back
@@ -546,8 +554,10 @@ Three, because wrapping vgplot must stay a convenience:
   client in this library hands `onFailure`.
 
 Neither hatch needs a source builder: `ChartRoot` already owns the `plot(…)` call, and a mark's
-`data` / `filterBy` props already name its relation. Anything past that — an expression builder, a
-plot attribute — still comes from `@uwdata/vgplot` directly, which is what a hatch is.
+`data` / `filterBy` props already name its relation. A plot attribute still comes from
+`@uwdata/vgplot` directly, which is what a hatch is. An expression builder is `@kanzo-tech/mosaic`'s
+— the aggregates, `sql`, `verbatim`, `and`, `eq`, `isIn` and the rest it holds; one it does not hold
+is mosaic-sql's own, and a host that keeps needing it is the case for adding it to the door.
 
 Both are keyed by identity: a vgplot directive is a function, so building one inline rebuilds the
 plot on every render. Hoist it to module scope or `useMemo` it, and keep the `attributes` array
@@ -636,12 +646,13 @@ and `ChartMargin` is the four numbers around it.
 The mark's own shapes are `ChartMarkProps` and `ChartMarkSource` — data comes from the table, from a
 literal array, or from a query — and `ChartInteractorProps` is the interactor equivalent. A series
 is configured with `ChartSeriesConfig` and read back as a `ChartSeriesEntry`, a facet with
-`ChartFacetOptions`, and a filter offers `ChartFilterOption`s.
+`ChartFacetOptions`, and a filter offers [`FacetFilterItem`](/docs/forms/facet-filter#api-reference)s,
+the one facet item `FacetFilter` and `DataTableFacetFilter` take too.
 
 Two of these are not about charts at all and are exported because the inputs are. `MosaicInputOptions<T>`
 and `MosaicInputState<T>` are what a control needs to be a Mosaic client — the shape behind every
 filter input on this page. `ExprValue` is anything Mosaic will accept where an expression is
-expected.
+expected; it is `@kanzo-tech/mosaic`'s, with the rest of Mosaic.
 
 ## Testing
 
@@ -768,21 +779,10 @@ Six of vgplot's marks are deliberately absent — `axisX`, `axisY`, `axisFx`, `a
 `ChartIntervalX` `ChartIntervalY` `ChartIntervalXY` `ChartToggleX` `ChartToggleY`
 `ChartToggleColor` `ChartNearestX` `ChartNearestY` `ChartRegion` `ChartPanZoom`
 
-<Callout type="info">
-**Six of these answer to two names, and both are real.** `pick` and `brush` say what the gesture
-*is* — click a category, drag a range — where vgplot's `toggle` and `interval` say how the machine
-models it. The pairs are the same object, not wrappers:
-
-| Gesture | vgplot's spelling |
-| --- | --- |
-| `ChartPickX` `ChartPickY` `ChartPickColor` | `ChartToggleX` `ChartToggleY` `ChartToggleColor` |
-| `ChartBrushX` `ChartBrushY` `ChartBrushXY` | `ChartIntervalX` `ChartIntervalY` `ChartIntervalXY` |
-
-Reach for the gesture name when you are writing a chart; the vgplot name is there so anyone
-arriving from Mosaic's own documentation lands on the same component. This table exists because the
-alias block claimed the docs taught these and they did not — both spellings were live in code, one
-of them undocumented, which is how a reader ends up believing they are two different interactors.
-</Callout>
+Each is vgplot's name, and only that: `ChartToggle*` is a pick — click a category, get
+`region IN (…)`, on a band scale — and `ChartInterval*` a brush — drag a range, get
+`latency BETWEEN lo AND hi`, on a scale with a *between*. The gesture names `ChartPick*` and
+`ChartBrush*` were aliases of these and are gone: one component, one name, the reference's.
 
 `ChartHighlight` is the odd one out: it *reads* a selection (`by`) and dims the mark before it
 rather than publishing. It cannot read a crossfilter's own clause, which is why `by` defaults to
@@ -821,16 +821,41 @@ still hides the axis while keeping the panels.
 
 ### Helpers
 
-Re-exported so a whole chart is written without a direct `@uwdata` import: the aggregates
-`count` `sum` `avg` `min` `max` `median` `quantile` `stddev` `mode` `bin` `sql`; the six axis
-marks the descriptors withhold on purpose, `axisX` `axisY` `axisFx` `axisFy` `gridFx` `gridFy`,
-which are what [`ChartRaw`](#escape-hatches) is for; the boot vocabulary `engine` `Coordinator`
-`Selection` and the `load*` loaders; and `asc` `desc`, the two directions
-[`Query`](/docs/hooks/use-chart-query)'s own `.orderby()` takes.
+On the subpath: `bin`, made once per field and options so a re-render is not a new plot, and the six
+axis marks the descriptors withhold on purpose, `axisX` `axisY` `axisFx` `axisFy` `gridFx` `gridFy`,
+which are what [`ChartRaw`](#escape-hatches) is for. vgplot's ~250 plot attributes stay a direct
+import — taking them raw is what an escape hatch *is*.
 
-A set is re-exported when it is **closed and named**. vgplot's ~250 plot attributes and
-mosaic-sql's expression builders are open, so they stay a direct import — taking them raw is what
-an escape hatch *is*. Ordering is not one of those: `asc` and `desc` are the whole of it.
+From `@kanzo-tech/mosaic`, and from nowhere else: the aggregates `count` `sum` `avg` `min` `max`
+`median` `quantile` `stddev` `mode`, and `sql`; the boot vocabulary `engine` `Coordinator` `Selection`
+and the `load*` loaders; [`Query`](/docs/hooks/use-chart-query) and `asc` `desc`, the two
+directions its `.orderby()` takes; the relation algebra (`Relation`, `JoinGraph`, `relationKey`, …)
+and `RelationExpr`, what every part's `relation` takes; `TableExpr`, `numbers` and `queryFailure`.
+
+```tsx
+import { count, engine, Query } from "@kanzo-tech/mosaic";
+import { ChartBarY, ChartRoot, MosaicProvider } from "@kanzo-tech/ui/analytics";
+```
+
+### `@kanzo-tech/mosaic`
+
+The one door to Mosaic, and everything it holds. Its own page is its
+[README](https://github.com/Kanzo-Tech/ui/tree/main/packages/mosaic#readme); what a chart author
+reaches for is here.
+
+| Group | Names |
+| --- | --- |
+| The conversation, mosaic-core's | `Coordinator` `Selection` `MosaicClient` `makeClient` `jsType` `ClauseSource` `SelectionClause` |
+| Mosaic's clauses | `clausePoint` `clausePoints` `clauseInterval` `clauseIntervals` `clauseMatch` |
+| Statements, mosaic-sql's | `Query` `asc` `desc` `sql` `verbatim` `cte` `asTableRef` `ExprNode` `ExprValue` `FilterExpr` |
+| Expressions | `and` `not` `eq` `isIn` `isNotNull` `isAggregateExpression` `cast` `float64` `length` `literal` `div` `mul` `binDate` `binHistogram` |
+| Aggregates | `count` `sum` `avg` `min` `max` `median` `quantile` `stddev` `mode` |
+| Loaders | `loadObjects` `loadCSV` `loadJSON` `loadParquet` `loadSpatial` `loadExtension` |
+| The engine | `engine` `Engine` `EngineError` `queryFailure` `numbers` `TableExpr` |
+| The clause rule, ours | `clauseSemiJoin` `clauseAntiJoin` `clauseColumns` `clauseParts` `clauseLabel` `ClauseParts` `SemiJoinMembers` `SemiJoinMetadata` `SemiJoinOptions` `AntiJoinMetadata` |
+| The page's crossfilter | `crossfilterOver` `JoinResolver` `onRelation` `relationOf` `sameRelation` `readOf` `preaggregateOwnRelation` `relaySelection` `RelayOptions` `RelationClient` `RelationExpr` `RelationRef` `RelationMetadata` |
+| First draws | `holdFirstDraw` `firstDrawsPending` `onFirstDraws` |
+| Relations over a join graph | `Relation` `JoinGraph` `JoinEdge` `JoinType` `Hop` `RelationHop` `relationQuery` `relationKey` `relationRootKey` `relationIdentities` `relationHops` `relationSteps` `resolveRelation` `RelationNeeds` `Resolved` |
 
 For a descriptor of your own, `chartDescriptor(displayName, compile)` mints one; `compile` returns
 plain data (`{ kind: "mark", mark: "barY", source, options }`), never a `vg.*` call.

@@ -44,7 +44,7 @@ answer `palette` and `theme` already got.
 
 ```tsx
 import { attach } from "@fossil-lang/corpus";
-import { engine } from "@kanzo-tech/ui/analytics";
+import { engine } from "@kanzo-tech/mosaic";
 import { GraphCanvas, GraphLegend, GraphRoot, GraphToolbar } from "@kanzo-tech/graph";
 ```
 
@@ -495,7 +495,7 @@ vertex table whatever its subquery reads: the vertices a rule found, the endpoin
 an answer's rows.
 
 ```tsx
-import { Query, clauseSemiJoin } from "@kanzo-tech/ui/analytics";
+import { Query, clauseSemiJoin } from "@kanzo-tech/mosaic";
 
 // Everyone who lives in Saltmere, published by a panel: the graph greys out the rest.
 selection.update(

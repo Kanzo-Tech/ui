@@ -1,16 +1,14 @@
 "use client";
 
 import { Show } from "@kanzo-tech/ui";
+import { Query, avg, count } from "@kanzo-tech/mosaic";
 import {
   ChartAxisX,
   ChartAxisY,
   ChartBarX,
   ChartHighlight,
-  ChartPickY,
+  ChartToggleY,
   ChartRoot,
-  Query,
-  avg,
-  count,
   useChartQuery,
 } from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "../charts/mosaic-demo";
@@ -55,7 +53,7 @@ export default function Example() {
           relation="telemetry"
         >
           <ChartBarX fill="var(--primary)" sort={{ y: "-x" }} tip x={count()} y="region" />
-          <ChartPickY />
+          <ChartToggleY />
           <ChartHighlight />
           <ChartAxisX grid label="requests" />
           <ChartAxisY label={null} />

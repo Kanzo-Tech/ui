@@ -1,12 +1,7 @@
 "use client";
 
-import {
-  ChartAxisX,
-  ChartAxisY,
-  ChartCell,
-  ChartRoot,
-  count,
-} from "@kanzo-tech/ui/analytics";
+import { count } from "@kanzo-tech/mosaic";
+import { ChartAxisX, ChartAxisY, ChartCell, ChartRoot } from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
 // Two categorical axes and a measure in the cell. The magnitude rides on `fillOpacity` rather than

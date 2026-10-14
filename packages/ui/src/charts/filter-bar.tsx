@@ -3,9 +3,18 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
-import { clauseLabel, relationOf, sameRelation, type RelationExpr, type RelationRef, type TableExpr } from "@kanzo-tech/mosaic";
-import { count, Query } from "@uwdata/mosaic-sql";
-import type { Selection, SelectionClause } from "@uwdata/mosaic-core";
+import {
+  clauseLabel,
+  relationOf,
+  sameRelation,
+  type RelationExpr,
+  type RelationRef,
+  type TableExpr,
+  count,
+  Query,
+  type Selection,
+  type SelectionClause,
+} from "@kanzo-tech/mosaic";
 import { FunnelXIcon, XIcon } from "lucide-react";
 import { cn } from "../lib/cn.js";
 import { Badge } from "../simples/badge.js";

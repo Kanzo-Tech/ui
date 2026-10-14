@@ -74,7 +74,7 @@ const readable = useMemo(
 
 ## A tip on picking bars swallows the pick
 
-**Symptom.** Bars with `ChartPickY` (or `ChartToggleY`) and `tip` show the tooltip on hover, but a
+**Symptom.** Bars with `ChartToggleY` and `tip` show the tooltip on hover, but a
 click publishes nothing: no chip, no filter, no highlight. Remove `tip` and the same click works.
 
 **Why.** `tip` adds Observable Plot's pointer-driven tooltip to the mark, and with it in place the

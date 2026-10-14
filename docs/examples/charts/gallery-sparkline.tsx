@@ -1,13 +1,12 @@
 "use client";
 
+import { avg, count } from "@kanzo-tech/mosaic";
 import {
   ChartAreaY,
   ChartAxisX,
   ChartAxisY,
   ChartLineY,
   ChartRoot,
-  avg,
-  count,
 } from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 

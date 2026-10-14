@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { count } from "@kanzo-tech/mosaic";
 import {
   ChartAxisX,
   ChartAxisY,
@@ -14,7 +15,6 @@ import {
   ChartRoot,
   ChartToggleX,
   bin,
-  count,
 } from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
