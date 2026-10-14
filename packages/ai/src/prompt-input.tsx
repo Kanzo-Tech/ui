@@ -64,6 +64,41 @@ export const PromptInputTextarea = (props: React.ComponentProps<typeof InputGrou
 };
 
 /**
+ * A press on the band around the controls, not on one of them, puts the caret in the field.
+ *
+ * `InputGroupAddon`'s own handler focuses an `input`, and a composer has a `textarea` — so the two
+ * bands carried `cursor-text` and gave no caret. Same guard: a press on a control is that control's.
+ */
+const focusTheField = (event: React.MouseEvent<HTMLDivElement>) => {
+  if ((event.target as HTMLElement).closest("button, a, input, textarea")) return;
+  event.currentTarget.parentElement?.querySelector("textarea")?.focus();
+};
+
+/**
+ * The row above the field, for what the message will carry — the sources a question is asked over,
+ * as pills the host draws, each opening what it holds. AI Elements' `PromptInputHeader`, where their
+ * attachments go; the pills are the host's, and there are no attachment cards.
+ *
+ * It wraps, as the toolbar does: a row of sources in a narrow panel takes a second line rather than
+ * running past the composer's edge. A menu a pill opens anchors to that pill, and what it picks is
+ * the pill's rather than text in the field — so the toolbar's reason for living under the field does
+ * not reach it.
+ */
+export const PromptInputHeader = (props: React.ComponentProps<typeof InputGroupAddon>) => {
+  const { className, slot, ...rest } = props;
+
+  return (
+    <InputGroupAddon
+      align="block-start"
+      className={cn("min-w-0 flex-wrap gap-1", className)}
+      onClick={focusTheField}
+      {...rest}
+      slot={slot ?? "prompt-input-header"}
+    />
+  );
+};
+
+/**
  * The strip of controls under the field — a model picker, an attachment, the ✨, the submit.
  *
  * `align="block-end"` is not decoration: a popover trigger living here anchors to the composer, so
@@ -81,12 +116,7 @@ export const PromptInputToolbar = (props: React.ComponentProps<typeof InputGroup
     <InputGroupAddon
       align="block-end"
       className={cn("min-w-0 flex-wrap gap-1", className)}
-      // The addon's own handler focuses an `input`, and a composer has a `textarea` — so the strip
-      // carried `cursor-text` and gave no caret. Same guard: a press on a control is that control's.
-      onClick={(event) => {
-        if ((event.target as HTMLElement).closest("button, a, input, textarea")) return;
-        event.currentTarget.parentElement?.querySelector("textarea")?.focus();
-      }}
+      onClick={focusTheField}
       {...rest}
       slot={slot ?? "prompt-input-toolbar"}
     />

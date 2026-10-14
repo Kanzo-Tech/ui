@@ -26,12 +26,18 @@ export { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from "./tool.js"
 export type { ToolPart } from "./tool.js";
 export { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning.js";
 export type { ReasoningProps } from "./reasoning.js";
-export { PromptInput, PromptInputSubmit, PromptInputTextarea, PromptInputToolbar } from "./prompt-input.js";
+export {
+  PromptInput,
+  PromptInputHeader,
+  PromptInputSubmit,
+  PromptInputTextarea,
+  PromptInputToolbar,
+} from "./prompt-input.js";
 export type { PromptInputSubmitProps } from "./prompt-input.js";
 
 // The parts a conversation whose turns the host decides is drawn with, beyond the transcript's: a
-// question put to the person, answered by picking; work under way, said; and a model in the page, as
-// it loads. What a model offers is `@kanzo-tech/ui`'s `Suggestions`, which knows no model.
+// question put to the person, answered by picking; work under way, said; a model in the page, as it
+// loads; and a point in the transcript the host can go back to. What a model offers is `@kanzo-tech/ui`'s `Suggestions`, which knows no model.
 export {
   Question,
   QuestionDescription,
@@ -42,6 +48,8 @@ export {
 export { Working, type WorkingProps } from "./working.js";
 export { ModelBadge } from "./model-badge.js";
 export type { ModelBadgeProps, ModelBadgeTranslations } from "./model-badge.js";
+export { Checkpoint, CheckpointIcon, CheckpointTrigger } from "./checkpoint.js";
+export type { CheckpointTranslations, CheckpointTriggerProps } from "./checkpoint.js";
 
 // What a Task offers a screen, as a list it asks for, edits and dismisses.
 export { useTask } from "./use-task.js";

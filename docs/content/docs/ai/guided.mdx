@@ -1,6 +1,6 @@
 ---
 title: A guided chat
-description: The parts a conversation whose turns the host decides is built from, beside the transcript and the composer — a question answered by picking, work under way, and a model in the page as it loads.
+description: The parts a conversation whose turns the host decides is built from, beside the transcript and the composer — a question answered by picking, work under way, a model in the page as it loads, a point to go back to, and the sources a message carries.
 ---
 
 <ComponentPreview componentName="guided" />
@@ -8,13 +8,15 @@ description: The parts a conversation whose turns the host decides is built from
 [`Chat`](/docs/ai/chat) is a conversation whose turns are the model's. A **guided** chat is one whose
 turns are the host's — keasy's assistant asks which files to read, reads them, says what it found,
 puts the decisions it cannot take to the person and offers questions to ask — and it is drawn from
-[Chat's parts](/docs/ai/chat#the-parts) and these three, so no turn is hand-rolled:
+[Chat's parts](/docs/ai/chat#the-parts) and these, so no turn is hand-rolled:
 
 | Part | For | AI Elements |
 | --- | --- | --- |
 | `Question` and its parts | A question put to the person, answered by picking one option | `Question` |
 | `Working` | Work under way, said: a spinner and its words | `Shimmer`, `Loader` |
 | `ModelBadge` | A model in the page, as it downloads and loads | `Context` |
+| `Checkpoint` and its parts | A point in the transcript the host can go back to | `Checkpoint` |
+| `PromptInputHeader` | The row above the composer's field, for the sources a message carries | `PromptInputHeader` |
 
 What a model offers is `@kanzo-tech/ui`'s `Suggestions`, which knows no model: each `Suggestion`'s
 `description` is its rationale, in the tooltip, and `pending` (`SuggestionsProps`) holds room for
@@ -108,11 +110,109 @@ ends the same way.
 | `copy` | `ProblemProps["copy"]` | The host's words for a failure's code |
 | `translations` | `Partial<ModelBadgeTranslations>` | The badge's four words, the two details and `retry` |
 
+## `Checkpoint`
+
+<ComponentPreview componentName="guided" fileName="example-checkpoint" />
+
+A point in the conversation the host can go back to — each preview keasy's assistant draws — as a
+thin rule across the transcript: a mark, the label, *Restore*, and the rule to the end of the row.
+AI Elements' `Checkpoint` in its composition and its look, and v0's and Lovable's version restore in
+what it is for.
+
+```tsx
+import { Checkpoint, CheckpointIcon, CheckpointTrigger } from "@kanzo-tech/ai";
+
+<MessageList>
+  {turns.map((turn) => (
+    <Fragment key={turn.id}>
+      <Message role={turn.role}>…</Message>
+      {turn.preview && (
+        <Checkpoint>
+          <CheckpointIcon />
+          <span>{turn.preview}</span>
+          <CheckpointTrigger onClick={() => restore(turn.id)} />
+        </Checkpoint>
+      )}
+    </Fragment>
+  ))}
+</MessageList>
+```
+
+| Part | |
+| --- | --- |
+| `Checkpoint` | The row: its children, then the rule. An `<li>`, an item of the `MessageList` beside the turns; `asChild` for a transcript that is not one |
+| `CheckpointIcon` | The mark, a bookmark unless given another glyph as its child; hidden from assistive tech |
+| `CheckpointTrigger` | The way back: a quiet `Button`, *Restore* unless given words of its own. `onClick` is the restore |
+
+| `CheckpointTriggerProps` | Type | |
+| --- | --- | --- |
+| `translations` | `Partial<CheckpointTranslations>` | `restore`, the trigger's word |
+
+The rest are `Button`'s.
+
+**It restores nothing.** What going back means is the host's, and so is the thread afterwards. Keasy's
+— and AI Elements' own example — **cuts the thread**: the turns after the checkpoint go, the
+preview it marks is current again, and the latest checkpoint carries no trigger because there is
+nowhere to go back to. A host that keeps the cut turns as a branch draws them itself; that is
+`MessageBranch`, which is not admitted
+([The references](/docs/design/references#ai-elements-is-a-source-not-a-reference)).
+
+**No tooltip on the trigger.** AI Elements' takes one, saying what restoring does; a host that wants
+the sentence gives the trigger it as its words, which a reader on touch can also read.
+
+## `PromptInputHeader`
+
+<ComponentPreview componentName="guided" fileName="example-sources" />
+
+The row above the composer's field, for what the message will carry. Keasy puts a pill there per
+connection the question is asked over; pressed, a pill opens `@kanzo-tech/ui`'s `Menu` with a
+`MenuCheckboxItem` per file, so the reader picks what the question reads without leaving the
+composer. The pills and the menu are the host's: the header is the place, and it wraps, so a row of
+sources in a narrow panel takes a second line.
+
+```tsx
+import { PromptInput, PromptInputHeader, PromptInputSubmit, PromptInputTextarea, PromptInputToolbar } from "@kanzo-tech/ai";
+import { InputGroupButton, Menu, MenuCheckboxItem, MenuContent, MenuTrigger } from "@kanzo-tech/ui";
+
+<PromptInput onSubmit={send}>
+  <PromptInputHeader>
+    {connections.map((connection) => (
+      <Menu closeOnSelect={false} key={connection.id}>
+        <MenuTrigger asChild>
+          <InputGroupButton pill variant="outline">{connection.name} · {chosen(connection).length}</InputGroupButton>
+        </MenuTrigger>
+        <MenuContent>
+          {connection.files.map((file) => (
+            <MenuCheckboxItem checked={isChosen(file)} key={file} onCheckedChange={(on) => choose(file, on)} value={file}>
+              {file}
+            </MenuCheckboxItem>
+          ))}
+        </MenuContent>
+      </Menu>
+    ))}
+  </PromptInputHeader>
+  <PromptInputTextarea placeholder="Ask about these files…" />
+  <PromptInputToolbar>
+    <PromptInputSubmit />
+  </PromptInputToolbar>
+</PromptInput>
+```
+
+A press on the row outside a pill puts the caret in the field, as the toolbar's does. **No
+attachment cards**: AI Elements fills this row with `Attachments`, a card per file sent, and a
+source here is a connection the question reads rather than a file uploaded with it. `Chat`'s
+`context` stays beside *Send*, in the toolbar: it is one read-only pill, and a row of its own would
+cost the side panel a line ([The references](/docs/design/references#ai-elements-is-a-source-not-a-reference)
+has what would move it).
+
 *Held by* `packages/ai/src/question.test.tsx`, "is a radio group named by its prompt, an option per
 radio", "answers with the option picked, in one press, and draws the answer it is given", "moves
 between the options with the arrow keys, choosing as it moves"; `packages/ai/src/working.test.tsx`,
 "is one status saying what is under way, its spinner hidden so it is not announced twice" and "draws
 a bar under the words given a value, indeterminate given null";
 `packages/ai/src/model-badge.test.tsx`, "opens a failure as a Problem, with a retry only where the
-device can recover". Why these three and not the rest of AI Elements is
+device can recover"; `packages/ai/src/checkpoint.test.tsx`, "is an item of the transcript between two
+turns, its rule hidden as paint", "restores nothing itself: the trigger is a button that hands the
+press to the host"; `packages/ai/src/prompt-input.test.tsx`, "carries the host's pills above the
+field, each opening what it holds". Why these and not the rest of AI Elements is
 [The references](/docs/design/references#ai-elements-is-a-source-not-a-reference).
