@@ -128,9 +128,9 @@ IRI breaks rather than widening the list.
 
 Nothing tallies in English. The badge's words are its children, a function of the tally, because
 *362 violations* and *Valid* are a product's vocabulary and a plural rule is a locale's. The words
-the parts draw — the header's title, the severity and the disclosure's name — are `FindingLabels`,
+the parts draw — the header's title, the severity and the disclosure's name — are `FindingsTranslations`,
 English by default (*Findings*, *Violation*, *Details*), given once on `FindingsRoot` or per item as
-`labels`. Counts are formatted in the [LocaleProvider](/docs/i18n)'s locale.
+`translations`, the one prop every component here takes its words through. Counts are formatted in the [LocaleProvider](/docs/i18n)'s locale.
 
 <ComponentPreview componentName="findings" fileName="example-spanish" />
 
@@ -143,7 +143,7 @@ English by default (*Findings*, *Violation*, *Details*), given once on `Findings
   children. It wears the worst severity found, `success` when the check found nothing and `outline`
   when nothing was checked. `size` and `pill` are `Badge`'s.
 - **`FindingsContent`** is the popover, at a fixed width: a `FindingsHeader`, then a `FindingsList`.
-- **`FindingsHeader`** is above the list and does not scroll with it. Its title is the labels'
+- **`FindingsHeader`** is above the list and does not scroll with it. Its title is the translations'
   *Findings*, Ark's popover title; then your parts, in order: **`FindingsSource`**, what was checked —
   `flights-shapes.ttl · 4 rules`, `graph.fossil`, a form's name — muted and monospace;
   **`FindingsActions`**, at the end of the line, for icon buttons (*Check again*, *Stop*, a menu) and

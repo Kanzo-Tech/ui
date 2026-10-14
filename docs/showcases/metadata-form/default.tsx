@@ -385,7 +385,7 @@ function NestedCard({
  *  the group is clean. Shown on tab triggers, step indicators and card headers. */
 function GroupTally({ tally }: { tally: FindingTally }) {
   if (tally.total === 0) return <CheckIcon aria-label="No issues" className="size-3.5 text-success" />;
-  return <FindingsTally labels={FINDING_LABELS} tally={tally} />;
+  return <FindingsTally translations={FINDING_LABELS} tally={tally} />;
 }
 
 /** The chrome shared by both docked asides — a titled header with a close control, over a
@@ -1383,7 +1383,7 @@ export function MetadataFormShowcase() {
             </Button>
             {/* The tally: opening it lists every finding and marks them on the form. */}
             <FindingsRoot
-              labels={FINDING_LABELS}
+              translations={FINDING_LABELS}
               onOpenChange={({ open }) => {
                 setTallyOpen(open);
                 if (open) setGate((g) => ({ ...g, revealAll: true }));

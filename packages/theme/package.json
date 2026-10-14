@@ -33,7 +33,8 @@
     "//gen": "Three steps, in this order: the derivation made runnable from plain Node (its own tables, then its build), the four non-colour axes, and the default tenant's document compiled into tokens.css.",
     "gen": "node scripts/gen-theme.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "size": "size-limit"
   },
   "//deps": "No React peer and no derivation dependency: this package ships CSS, the axis table and types. The provider that consumes them lives in @kanzo-tech/ui. A theme is source, not output — there is nothing to derive it from.",
   "devDependencies": {
@@ -48,5 +49,9 @@
     "type": "git",
     "url": "git+https://github.com/Kanzo-Tech/ui.git",
     "directory": "packages/theme"
+  },
+  "//gauges": "One gauge per published entry, and one per tree-shaken import a consumer meets; `scripts/gauges.mjs` (through `.size-limit.mjs`) is what each measures, and every limit's reason — each raise, dated, with its before and after — is a row on /docs/design, *A gauge per entry, and its raises written here*.",
+  "gauges": {
+    ".": "3 kB"
   }
 }

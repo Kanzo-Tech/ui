@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
 import type { Graph } from "@cosmos.gl/graph";
-import type { Selection, SelectionSource, Tool, VertexId } from "../core/types";
+import type { VertexSelection, VertexSelectionSource, Tool, VertexId } from "../core/types";
 
 /**
  * Drawing a selection on the canvas: the marquee, the lasso, and the keys that modify them.
@@ -55,13 +55,13 @@ export interface GraphSelectionGesture {
 export interface GraphSelectionOptions {
   getGraph: () => Graph | null;
   /** The canvas's own clause, for the modifiers to add to or take from. */
-  getSelection: () => Selection | null;
-  commit: (vertices: Set<VertexId> | null, source: SelectionSource, label: string, excludes: boolean) => void;
+  getSelection: () => VertexSelection | null;
+  commit: (vertices: Set<VertexId> | null, source: VertexSelectionSource, label: string, excludes: boolean) => void;
   tool: Tool;
   setTool: (tool: Tool) => void;
 }
 
-const NAME: Record<"rect" | "lasso", { source: SelectionSource; label: string }> = {
+const NAME: Record<"rect" | "lasso", { source: VertexSelectionSource; label: string }> = {
   rect: { source: "marquee", label: "Marquee" },
   lasso: { source: "lasso", label: "Lasso" },
 };
@@ -213,7 +213,7 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
  * | Alt + drag | leaves out *X* | keeps *I ∖ X* | leaves out *E ∪ X* |
  */
 export function modified(
-  held: Selection | null,
+  held: VertexSelection | null,
   caught: ReadonlySet<VertexId>,
   verb: "replace" | "add" | "take",
 ): { vertices: Set<VertexId>; excludes: boolean } | null {

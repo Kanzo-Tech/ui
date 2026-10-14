@@ -307,7 +307,9 @@ import { GRAPH_SECTION } from "@kanzo-tech/graph/section";
 to a parent name and paint something plausible. `validatePrefs` reports the same for a preference,
 **and** a stored value outside the declared options: a token's value is a colour and anything is a
 colour, but a preference has a closed set, so the stored-but-illegal case is expressible and worth
-saying out loud.
+saying out loud. Each returns a list of `SectionProblem` — `{ token, kind, detail }`, `kind` being
+`"unknown"` or `"shadowed"` — named for the section it judges, because `Problem` is the component
+that draws a failure.
 
 Validation is authoring-time. At paint time the cascade is the authority, so a token that validation
 would reject can still resolve if something upstream declared it.

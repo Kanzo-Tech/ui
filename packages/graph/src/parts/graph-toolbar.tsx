@@ -1,5 +1,6 @@
 "use client";
 
+import { ark } from "@ark-ui/react/factory";
 import { Button, ButtonGroup, ButtonGroupSeparator, cn } from "@kanzo-tech/ui";
 import {
   LassoIcon,
@@ -14,11 +15,53 @@ import {
 import { greyedOf } from "../core/kept";
 import type { Motion } from "../core/types";
 import { useGraphContext } from "../react/graph-root";
+import { tv } from "tailwind-variants";
 import { useGraphState } from "../react/use-graph-state";
 
-export interface GraphToolbarProps extends React.ComponentProps<"div"> {
+/** Every name and hint the toolbar's buttons and clusters carry. */
+export interface GraphToolbarTranslations {
+  tools: string;
+  marquee: string;
+  marqueeHint: string;
+  lasso: string;
+  lassoHint: string;
+  camera: string;
+  zoomIn: string;
+  zoomOut: string;
+  /** Frame with nothing greyed. */
+  frameAll: string;
+  /** Frame while the filters grey something out. */
+  frameKept: string;
+  layout: string;
+  /** One action per state of the layout, named for what it does: a settled layout is not paused, so it is woken. */
+  pause: string;
+  resume: string;
+  run: string;
+  restart: string;
+}
+
+const ENGLISH: GraphToolbarTranslations = {
+  tools: "Selection tool",
+  marquee: "Marquee",
+  marqueeHint: "Drag a box — or just hold Shift",
+  lasso: "Lasso",
+  lassoHint: "Draw a loop around a cluster",
+  camera: "Camera",
+  zoomIn: "Zoom in",
+  zoomOut: "Zoom out",
+  frameAll: "Frame everything",
+  frameKept: "Frame what the filters keep",
+  layout: "Layout",
+  pause: "Pause the layout",
+  resume: "Resume the layout",
+  run: "Run the layout",
+  restart: "Re-run the layout",
+};
+
+export interface GraphToolbarProps extends React.ComponentProps<typeof ark.div> {
   /** How the clusters stack. Each cluster is a `ButtonGroup` in the same orientation. */
   orientation?: "horizontal" | "vertical";
+  translations?: Partial<GraphToolbarTranslations>;
 }
 
 /**
@@ -27,15 +70,23 @@ export interface GraphToolbarProps extends React.ComponentProps<"div"> {
  * the ramp's own `interchangeable` bound of 4. The buttons are `ghost` because the group carries the
  * surface, so the divisions come back as explicit separators.
  */
-const CLUSTER = "rounded-lg border bg-card shadow-sm";
+const graphToolbar = tv({
+  slots: {
+    root: "flex items-start gap-1.5",
+    cluster: "rounded-lg border bg-card shadow-sm",
+  },
+  variants: {
+    orientation: { horizontal: {}, vertical: { root: "flex-col items-end" } },
+  },
+});
 
 const ZOOM = 1.4;
 
-/** One action per state, named for what it does: a settled layout is not paused, so it is woken. */
-const TRANSPORT: Record<Motion, { pause: boolean; label: string }> = {
-  running: { pause: true, label: "Pause the layout" },
-  paused: { pause: false, label: "Resume the layout" },
-  settled: { pause: false, label: "Run the layout" },
+/** One action per state, named for what it does. */
+const TRANSPORT: Record<Motion, { pause: boolean; label: "pause" | "resume" | "run" }> = {
+  running: { pause: true, label: "pause" },
+  paused: { pause: false, label: "resume" },
+  settled: { pause: false, label: "run" },
 };
 
 /**
@@ -54,7 +105,9 @@ const TRANSPORT: Record<Motion, { pause: boolean; label: string }> = {
  * The tools are not a `SegmentGroup`: that always has one member selected, and no tool — drag pans —
  * is the posture a reader spends most of their time in.
  */
-export function GraphToolbar({ className, orientation = "horizontal", slot, ...rest }: GraphToolbarProps) {
+export function GraphToolbar({ className, orientation = "horizontal", slot, translations, ...rest }: GraphToolbarProps) {
+  const t = { ...ENGLISH, ...translations };
+  const styles = graphToolbar({ orientation });
   const api = useGraphContext();
   const ready = useGraphState((s) => s.structure !== null);
   const tool = useGraphState((s) => s.tool);
@@ -62,49 +115,45 @@ export function GraphToolbar({ className, orientation = "horizontal", slot, ...r
   const total = useGraphState((s) => s.total);
   const matching = useGraphState((s) => s.matching);
   const greyed = greyedOf({ selection, matching, total });
-  const frame = greyed ? "Frame what the filters keep" : "Frame everything";
+  const frame = greyed ? t.frameKept : t.frameAll;
   const motion = useGraphState((s) => s.motion);
   const transport = TRANSPORT[motion];
-  const vertical = orientation === "vertical";
+  const cluster = styles.cluster();
 
   return (
-    <div
-      {...rest}
-      className={cn("flex items-start gap-1.5", vertical && "flex-col items-end", className)}
-      data-slot={slot ?? "graph-toolbar"}
-    >
-      <ButtonGroup aria-label="Selection tool" className={CLUSTER} orientation={orientation}>
+    <ark.div {...rest} className={cn(styles.root(), className)} data-slot={slot ?? "graph-toolbar"}>
+      <ButtonGroup aria-label={t.tools} className={cluster} orientation={orientation}>
         <Button
-          aria-label="Marquee"
+          aria-label={t.marquee}
           aria-pressed={tool === "rect"}
           disabled={!ready}
           onClick={() => api.setTool(tool === "rect" ? null : "rect")}
           size="icon-sm"
-          title="Drag a box — or just hold Shift"
+          title={t.marqueeHint}
           variant={tool === "rect" ? "default" : "ghost"}
         >
           <SquareDashedIcon />
         </Button>
         <ButtonGroupSeparator />
         <Button
-          aria-label="Lasso"
+          aria-label={t.lasso}
           aria-pressed={tool === "lasso"}
           disabled={!ready}
           onClick={() => api.setTool(tool === "lasso" ? null : "lasso")}
           size="icon-sm"
-          title="Draw a loop around a cluster"
+          title={t.lassoHint}
           variant={tool === "lasso" ? "default" : "ghost"}
         >
           <LassoIcon />
         </Button>
       </ButtonGroup>
 
-      <ButtonGroup aria-label="Camera" className={CLUSTER} orientation={orientation}>
-        <Button aria-label="Zoom in" disabled={!ready} onClick={() => api.zoomBy(ZOOM)} size="icon-sm" variant="ghost">
+      <ButtonGroup aria-label={t.camera} className={cluster} orientation={orientation}>
+        <Button aria-label={t.zoomIn} disabled={!ready} onClick={() => api.zoomBy(ZOOM)} size="icon-sm" variant="ghost">
           <PlusIcon />
         </Button>
         <ButtonGroupSeparator />
-        <Button aria-label="Zoom out" disabled={!ready} onClick={() => api.zoomBy(1 / ZOOM)} size="icon-sm" variant="ghost">
+        <Button aria-label={t.zoomOut} disabled={!ready} onClick={() => api.zoomBy(1 / ZOOM)} size="icon-sm" variant="ghost">
           <MinusIcon />
         </Button>
         <ButtonGroupSeparator />
@@ -113,23 +162,23 @@ export function GraphToolbar({ className, orientation = "horizontal", slot, ...r
         </Button>
       </ButtonGroup>
 
-      <ButtonGroup aria-label="Layout" className={CLUSTER} orientation={orientation}>
+      <ButtonGroup aria-label={t.layout} className={cluster} orientation={orientation}>
         <Button
-          aria-label={transport.label}
+          aria-label={t[transport.label]}
           aria-pressed={motion === "paused"}
           disabled={!ready}
           onClick={() => (transport.pause ? api.pause() : api.resume())}
           size="icon-sm"
-          title={transport.label}
+          title={t[transport.label]}
           variant={motion === "paused" ? "default" : "ghost"}
         >
           {motion === "running" ? <PauseIcon /> : <PlayIcon />}
         </Button>
         <ButtonGroupSeparator />
-        <Button aria-label="Re-run the layout" disabled={!ready} onClick={() => api.restart()} size="icon-sm" title="Re-run the layout" variant="ghost">
+        <Button aria-label={t.restart} disabled={!ready} onClick={() => api.restart()} size="icon-sm" title={t.restart} variant="ghost">
           <RotateCcwIcon />
         </Button>
       </ButtonGroup>
-    </div>
+    </ark.div>
   );
 }

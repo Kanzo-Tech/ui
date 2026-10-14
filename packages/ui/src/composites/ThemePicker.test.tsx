@@ -204,10 +204,21 @@ describe("ThemePicker", () => {
     expect(screen.getByText(/“withdrawn” is no longer offered/)).toBeTruthy();
   });
 
-  it("takes its strings from `copy`, never the theme labels", () => {
+  it("words the withdrawal through its translations, given the theme's name", () => {
+    seed({ themeByAppearance: { light: "withdrawn" } });
     render(
       <KanzoThemeProvider themes={THEMES}>
-        <ThemePicker copy={{ appearance: "Apariencia", day: "Tema claro", dayDescription: "Con apariencia clara." }} />
+        <ThemePicker translations={{ retiredTitle: "Marca actualizada", retired: (theme) => `«${theme}» ya no está disponible.` }} />
+      </KanzoThemeProvider>,
+    );
+    expect(screen.getByText("Marca actualizada")).toBeTruthy();
+    expect(screen.getByText("«withdrawn» ya no está disponible.")).toBeTruthy();
+  });
+
+  it("takes its strings from `translations`, never the theme labels", () => {
+    render(
+      <KanzoThemeProvider themes={THEMES}>
+        <ThemePicker translations={{ appearance: "Apariencia", day: "Tema claro", dayDescription: "Con apariencia clara." }} />
       </KanzoThemeProvider>,
     );
     expect(radio("Apariencia", "Tema claro")).toBeTruthy();

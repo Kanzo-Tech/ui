@@ -448,14 +448,14 @@ export function SummaryPage({
 
       {/* The editor's findings, as the editor's own badge lists them: one item each, the line to go to. */}
       <Show when={findings.length > 0}>
-        <FindingsGroup labels={LABELS} tally={tallyFindings(findings.map(foundOf))} title="Findings">
+        <FindingsGroup translations={LABELS} tally={tallyFindings(findings.map(foundOf))} title="Findings">
           {findings.map((f, i) => (
             <FindingsItem
               action={{ label: "Go to line", run: () => onJump(i) }}
               describe={(place) => ({ where: `Line ${place.line}` })}
               finding={foundOf(f)}
               key={i}
-              labels={LABELS}
+              translations={LABELS}
             />
           ))}
         </FindingsGroup>

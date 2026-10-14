@@ -11,10 +11,19 @@
 
 export { AssistProvider, Assist } from "./assist.js";
 export type { AssistProviderProps, AssistProps, AssistTranslations } from "./assist.js";
-export type { AssistEvent, Proposal } from "./engine.js";
+// What a field is offered is the Task's `Proposal<string>`, imported from `@kanzo-tech/ai/task` with
+// the rest of a Task's types — one name, one door.
+export type { AssistEvent } from "./engine.js";
 
 export { Chat, ChatSkeleton } from "./chat.js";
-export type { ChatProps, ChatSkeletonProps, ChatToolRenderers, ChatTranslations } from "./chat.js";
+export type {
+  ChatMessage,
+  ChatProposals,
+  ChatProps,
+  ChatSkeletonProps,
+  ChatToolRenderers,
+  ChatTranslations,
+} from "./chat.js";
 
 // The parts `Chat` draws with, for a transcript of the host's own: the scroll region that follows
 // the tail only while the reader is there, a turn, a tool call bound to its AI SDK part, a model's

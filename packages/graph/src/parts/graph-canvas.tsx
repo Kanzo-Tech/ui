@@ -1,7 +1,9 @@
 "use client";
 
+import { ark } from "@ark-ui/react/factory";
 import { categoricalCapacity, cn, Show, useThemeTick } from "@kanzo-tech/ui";
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
+import { tv } from "tailwind-variants";
 import { nameOf } from "../core/categories";
 import type { Encoding } from "../core/load";
 import type { GraphOptions } from "../core/state";
@@ -17,16 +19,54 @@ import { useOverlays } from "./overlays";
 import { ShapeGlyph } from "./shape-glyph";
 import { registerForTesting } from "./testing-probe";
 
-export interface GraphCanvasProps extends React.ComponentProps<"div"> {
+/** The words the canvas writes over itself. */
+export interface GraphCanvasTranslations {
+  /** Over the empty canvas while the graph loads. */
+  loading: string;
+  /** Beside the pointer while a marquee or a lasso is drawn, given how many it holds, formatted, and the number. */
+  holds: (count: string, n: number) => string;
+}
+
+const ENGLISH: GraphCanvasTranslations = {
+  loading: "Loading the graph…",
+  holds: (count, n) => `${count} node${n === 1 ? "" : "s"}`,
+};
+
+export interface GraphCanvasProps extends React.ComponentProps<typeof ark.div> {
   /** The chrome — a toolbar, a legend, an inspector — positioned over the surface. */
   children?: ReactNode;
+  translations?: Partial<GraphCanvasTranslations>;
 }
 
 const WASH = "color-mix(in oklab, var(--primary) 17%, transparent)";
 
-const WAITING: Partial<Record<string, string>> = {
-  loading: "Loading the graph…",
-};
+/**
+ * Where an overlay the renderer places every frame starts: the canvas's top-left corner, written as
+ * a style beside the `transform` `overlays.ts` writes, because both are cosmos.gl's screen
+ * coordinates — a corner, not a reading direction, so they do not mirror under `dir="rtl"`.
+ */
+const ORIGIN: React.CSSProperties = { left: 0, top: 0 };
+
+const graphCanvas = tv({
+  slots: {
+    root: "relative isolate size-full overflow-hidden bg-background",
+    layer: "pointer-events-none absolute inset-0",
+    surface: "relative size-full",
+    labels: "pointer-events-none absolute inset-0 overflow-hidden",
+    label: [
+      "absolute whitespace-nowrap font-medium text-[10px] text-foreground leading-none opacity-0 transition-opacity",
+      "[text-shadow:0_0_3px_var(--background),0_0_6px_var(--background)]",
+    ],
+    gesture: "absolute inset-0 cursor-crosshair",
+    drawing: "pointer-events-none size-full",
+    chip: "pointer-events-none absolute rounded-sm bg-primary px-1.5 py-0.5 font-medium text-[10px] text-primary-foreground tabular-nums",
+    waiting: "pointer-events-none absolute inset-0 grid place-items-center text-muted-foreground text-xs",
+    card: "absolute flex w-max max-w-60 items-center gap-2 rounded-lg border bg-popover px-2.5 py-2 opacity-0 shadow-lg",
+    cardGlyph: "size-2.5 shrink-0",
+    cardTitle: "truncate font-medium text-popover-foreground text-sm leading-none",
+    cardDetail: "text-muted-foreground text-xs",
+  },
+});
 
 /**
  * **The element, and what the look declares over it** — the grid, the vignette, the labels and the
@@ -45,7 +85,9 @@ const WAITING: Partial<Record<string, string>> = {
  * frame, and `data-frame` counts the frames drawn — the one attribute with no accessible equivalent,
  * and the only way to see that a WebGL canvas moved. Its `id` is its key in the test hook.
  */
-export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasProps) {
+export function GraphCanvas({ children, className, slot, translations, ...rest }: GraphCanvasProps) {
+  const t = { ...ENGLISH, ...translations };
+  const styles = graphCanvas();
   const api = useGraphContext();
   const generated = useId();
   const id = rest.id ?? generated;
@@ -54,7 +96,7 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
   const tool = useGraphState((s) => s.tool);
   const options = useGraphState((s) => s.options);
   const domain = useGraphState((s) => s.drawn?.domain ?? s.domain);
-  const waiting = useGraphState((s) => (s.drawn === null ? WAITING[s.status] : undefined));
+  const waiting = useGraphState((s) => s.drawn === null && s.status === "loading");
   const busy = useGraphState((s) => s.drawn === null && s.status !== "failed");
   const look = useMemo(() => resolveLook(options.look), [options.look]);
   const getGraph = useCallback(() => renderer()?.graph ?? null, [renderer]);
@@ -122,10 +164,10 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
   const scale = useMemo(() => scaleOf(options, capacity), [options, capacity]);
 
   return (
-    <div
+    <ark.div
       {...rest}
       aria-busy={busy || undefined}
-      className={cn("relative isolate size-full overflow-hidden bg-background", className)}
+      className={cn(styles.root(), className)}
       data-frame={0}
       data-slot={slot ?? "graph-canvas"}
       id={id}
@@ -133,26 +175,27 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
     >
       <Show when={look.grid}>
         <div
-          className="pointer-events-none absolute inset-0"
+          className={styles.layer()}
           ref={gridRef}
           // `--input`, not `--border`: a one-pixel dot in a border's colour is gone on a light page.
           style={{ backgroundImage: "radial-gradient(var(--input) 1px, transparent 1px)" }}
         />
       </Show>
-      <div className="relative size-full" data-slot="graph-canvas-surface" ref={surfaceRef} />
+      <div className={styles.surface()} data-slot="graph-canvas-surface" ref={surfaceRef} />
       <Show when={look.vignette}>
         <div
-          className="pointer-events-none absolute inset-0"
+          className={styles.layer()}
           style={{ background: "radial-gradient(ellipse 75% 65% at 50% 45%, transparent 30%, var(--background) 100%)" }}
         />
       </Show>
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div className={styles.labels()}>
         {labels.map((label) => (
           <span
-            className="absolute top-0 left-0 whitespace-nowrap font-medium text-[10px] text-foreground leading-none opacity-0 transition-opacity [text-shadow:0_0_3px_var(--background),0_0_6px_var(--background)]"
+            className={styles.label()}
             data-slot="graph-canvas-label"
             key={String(label.vertex)}
             ref={labelRef(label.vertex)}
+            style={ORIGIN}
           >
             {label.text}
           </span>
@@ -160,6 +203,7 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
         <Show when={look.labels !== "none"}>
           <HoverCard
             cardRef={cardRef}
+            styles={styles}
             domain={domain}
             encoding={encoding}
             options={options}
@@ -170,9 +214,9 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
         </Show>
       </div>
       <Show when={active !== null}>
-        <div className="absolute inset-0 cursor-crosshair" data-slot="graph-canvas-gesture" {...gesture.handlers}>
+        <div {...gesture.handlers} className={styles.gesture()} data-slot="graph-canvas-gesture">
           {drag && (
-            <svg className="pointer-events-none size-full">
+            <svg className={styles.drawing()}>
               {drag.tool === "rect" ? (
                 <rect
                   className="stroke-primary"
@@ -197,30 +241,25 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
             </svg>
           )}
           <Show when={preview !== null}>
-            <span
-              className="pointer-events-none absolute rounded-sm bg-primary px-1.5 py-0.5 font-medium text-[10px] text-primary-foreground tabular-nums"
-              style={cursorChip(drag)}
-            >
-              {preview} node{preview === 1 ? "" : "s"}
+            <span className={styles.chip()} style={cursorChip(drag)}>
+              {t.holds(String(preview), preview ?? 0)}
             </span>
           </Show>
         </div>
       </Show>
-      <Show when={waiting !== undefined}>
-        <p
-          className="pointer-events-none absolute inset-0 grid place-items-center text-muted-foreground text-xs"
-          data-slot="graph-canvas-waiting"
-        >
-          {waiting}
+      <Show when={waiting}>
+        <p className={styles.waiting()} data-slot="graph-canvas-waiting">
+          {t.loading}
         </p>
       </Show>
       {children}
-    </div>
+    </ark.div>
   );
 }
 
 interface HoverCardProps {
   cardRef: React.RefObject<HTMLDivElement | null>;
+  styles: ReturnType<typeof graphCanvas>;
   domain: readonly unknown[];
   encoding: Encoding | null;
   options: GraphOptions;
@@ -230,7 +269,7 @@ interface HoverCardProps {
 }
 
 /** The only part that re-renders on a hover: the canvas and its labels do not. */
-function HoverCard({ cardRef, domain, encoding, options, scale, schedule, setHovered }: HoverCardProps) {
+function HoverCard({ cardRef, styles, domain, encoding, options, scale, schedule, setHovered }: HoverCardProps) {
   const hovered = useGraphState((s) => s.hovered);
   const titles = useTitles(useMemo(() => (hovered === null ? [] : [hovered]), [hovered]));
   useEffect(() => {
@@ -242,17 +281,11 @@ function HoverCard({ cardRef, domain, encoding, options, scale, schedule, setHov
   const rank = encoding.ranks[hovered] ?? 0;
   const category = rank < domain.length ? nameOf(domain[rank], options.categories) : null;
   return (
-    <div
-      className="absolute top-0 left-0 flex w-max max-w-60 items-center gap-2 rounded-lg border bg-popover px-2.5 py-2 opacity-0 shadow-lg"
-      data-slot="graph-canvas-card"
-      ref={cardRef}
-    >
-      <ShapeGlyph className="size-2.5 shrink-0" color={scale.color(rank)} shape={scale.shape(rank)} />
-      <span className="truncate font-medium text-popover-foreground text-sm leading-none">
-        {titles.get(hovered) || `#${hovered}`}
-      </span>
+    <div className={styles.card()} data-slot="graph-canvas-card" ref={cardRef} style={ORIGIN}>
+      <ShapeGlyph className={styles.cardGlyph()} color={scale.color(rank)} shape={scale.shape(rank)} />
+      <span className={styles.cardTitle()}>{titles.get(hovered) || `#${hovered}`}</span>
       <Show when={category !== null}>
-        <span className="text-muted-foreground text-xs">{category}</span>
+        <span className={styles.cardDetail()}>{category}</span>
       </Show>
     </div>
   );

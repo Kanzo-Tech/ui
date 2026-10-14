@@ -37,7 +37,7 @@ import { label, resolvePath, sourceFiles, subtrees, unreadable } from "./guard-c
  * The subtrees that are scanned, spelled as the path prefixes this guard reports — `<package>` then
  * the directory under its `src/`, and a bare package name where the package has no layers.
  */
-const LAYERS = ["ai/", "ai/data/", "ui/composites/", "ui/layouts/", "ui/simples/"];
+const LAYERS = ["ai/", "ai/data/", "graph/parts/", "graph/react/", "ui/composites/", "ui/layouts/", "ui/simples/"];
 
 /**
  * The rest of the corpus, with the reason each is out. Declared rather than merely absent, so that a
@@ -47,6 +47,9 @@ const LAYERS = ["ai/", "ai/data/", "ui/composites/", "ui/layouts/", "ui/simples/
 const EXCLUDED: Record<string, string> = {
   "ai/task/": "the Task loop — a model asked, oracles run — with no JSX",
   "ai/testing/": "a mock model for the package's tests — no JSX, and not in the published build",
+  "graph/": "the barrels and the section manifest — an entry point re-exports, it does not draw",
+  "graph/core/": "the store and the corpus's reading — no JSX",
+  "graph/render/": "the WebGL renderer — a point's x is a coordinate in cosmos.gl's square, not a reading direction",
   "ui/": "the barrels and the guards — an entry point re-exports, it does not draw",
   "ui/charts/": "SVG plot geometry — a mark's x is a coordinate, not a reading direction",
   "ui/lib/": "no JSX, and therefore no utility classes",

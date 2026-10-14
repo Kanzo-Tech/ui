@@ -1,10 +1,10 @@
-import type { ClauseSource, Coordinator, MosaicClient, Selection as Crossfilter } from "@kanzo-tech/mosaic";
+import type { ClauseSource, Coordinator, MosaicClient, Selection } from "@kanzo-tech/mosaic";
 import type { LookPatch } from "../render/graph-looks";
 import type { Sim } from "../render/graph-sim";
 import type { Binding, Channels } from "./channels";
 import type { Encoding, Geometry } from "./load";
 import type { Structure } from "./structure";
-import type { Motion, Selection, SelectionSource, Tool, VertexId } from "./types";
+import type { Motion, VertexSelection, VertexSelectionSource, Tool, VertexId } from "./types";
 
 export interface GraphOptions extends Channels {
   /**
@@ -28,7 +28,7 @@ export interface GraphOptions extends Channels {
    * `usePick`'s — is published into it. Absent, the root keeps a crossfilter of its own, so a graph
    * alone on a page still filters by what is picked beside it.
    */
-  filterBy?: Crossfilter;
+  filterBy?: Selection;
   /** Form: a patch over this package's own look. Memoise it — its identity is what repaints. */
   look?: LookPatch;
   /** The force coefficients, as a patch over this package's own. */
@@ -44,7 +44,7 @@ export interface GraphOptions extends Channels {
    * graph's are `GraphError`s. Required: unhandled, a browser with no WebGL context shows an empty box.
    */
   onFailure: (error: unknown) => void;
-  onSelect?: (selection: Selection | null) => void;
+  onSelect?: (selection: VertexSelection | null) => void;
   onFocus?: (vertex: VertexId | null) => void;
 }
 
@@ -101,7 +101,7 @@ export interface GraphState {
   readonly drawn: Drawn | null;
   /** The categorical domain before anything is loaded: the drawn tables, or the host's names. */
   readonly domain: readonly unknown[];
-  readonly selection: Selection | null;
+  readonly selection: VertexSelection | null;
   readonly focus: VertexId | null;
   readonly hovered: VertexId | null;
   readonly tool: Tool;
@@ -166,9 +166,9 @@ export interface GraphStore {
    */
   visible(): readonly VertexId[] | null;
   /** The canvas's own clause, from one of its gestures: the vertices it keeps, or — `excludes` — those it leaves out. */
-  select(vertices: readonly VertexId[] | null, source?: SelectionSource, label?: string, excludes?: boolean): void;
+  select(vertices: readonly VertexId[] | null, source?: VertexSelectionSource, label?: string, excludes?: boolean): void;
   /** The crossfilter the graph filters by: `filterBy`, or the root's own. */
-  scope(): Crossfilter;
+  scope(): Selection;
   /**
    * The source named `id` picks from — one per name for the store's life, so a holder that
    * unmounts and mounts again is still the source of the clause it published.
