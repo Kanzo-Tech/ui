@@ -139,3 +139,26 @@ the one here goes.
 *Held by* `packages/llm/src/local.test.ts`, "drops a call aborted while it waits, without the engine
 hearing of it, and the running call finishes"; "interrupts the running call when its own signal
 aborts, and the caller sees an abort, not text".
+
+## A load ends warm
+
+`loadLocalModel` resolves, and `ready` is published, after one generation of two tokens under a
+trivial JSON schema, run through the engine's turn. **This is justified by analogy and by reading
+the code, not by a measurement.** Model servers warm up before they serve (llama.cpp does by
+default, `--no-warmup` turns it off), and in WebLLM the XGrammar token table is built on the first
+structured request and the GPU's pipelines run for the first time on the first generation, while
+"Model ready" only says the engine exists. Nothing in WebLLM documents the practice or confirms that
+this is where the first call's time goes, and no GPU was available when it was written. The warm-up
+pays nothing a real schema needs compiled — each schema still compiles on its first use. A warm-up
+that fails does not fail the load; the next call pays what it would have. `ready` stays "the engine
+can generate", and is published once it has, so a screen that waits for it does not start its
+questions behind a warm-up. The load, the warm-up and the first call (to its first token, or to its
+result when asked whole) are `performance.measure` spans named `kanzo:llm:load`, `kanzo:llm:warm-up`
+and `kanzo:llm:first-call`, readable under Timings in Chrome's Performance panel.
+
+**What would reverse it:** the first call costing no less after the warm-up than before, in those
+spans, on a device that runs the model. Then it is removed, with its changeset.
+
+*Held by* `packages/llm/src/local.test.ts`, "is ready only after one tiny structured generation,
+through the engine's turn"; "loads all the same when the warm-up fails"; "marks the load, the warm-up
+and the first call in the performance timeline, once each".

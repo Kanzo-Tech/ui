@@ -164,6 +164,7 @@ describe("localModel", () => {
     expect(seen).toEqual([
       { state: "loading", progress: 0, text: "" },
       { state: "loading", progress: 0.5, text: "Fetching param cache[3/10]" },
+      { state: "loading", progress: 1, text: "Warming up" },
       { state: "ready" },
     ]);
   });
@@ -303,6 +304,49 @@ describe("localModel, one call at a time and each call's interrupt its own", () 
     stop.abort();
     await expect(first).rejects.toMatchObject({ name: "AbortError" });
     expect(interrupts).toHaveLength(1);
+  });
+});
+
+describe("loadLocalModel, warmed up", () => {
+  const id = "Qwen3-1.7B-q4f16_1-MLC";
+
+  it("is ready only after one tiny structured generation, through the engine's turn", async () => {
+    let finish = () => {};
+    creating = (request) =>
+      request.max_tokens === undefined
+        ? Promise.resolve({ choices: [{ message: { content: "x" }, finish_reason: "stop" }] })
+        : new Promise((resolve) => (finish = () => resolve({ choices: [{ message: { content: "{}" }, finish_reason: "length" }] })));
+    const before = requests.length;
+    const loading = loadLocalModel(id);
+    await vi.waitFor(() => expect(requests.at(-1)).toMatchObject({ response_format: { type: "json_object" }, max_tokens: 2 }));
+    expect(localModelLoad(id)).toMatchObject({ state: "loading", progress: 1, text: "Warming up" });
+    // A call made now waits behind the warm-up.
+    const asked = generateText({ model: localModel(id), prompt: "?", providerOptions: { kanzo: { grammar: "root ::= x" } } });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(requests.length).toBe(before + 1);
+    finish();
+    await loading;
+    expect(localModelLoad(id)).toEqual({ state: "ready" });
+    expect((await asked).text).toBe("x");
+  });
+
+  it("marks the load, the warm-up and the first call in the performance timeline, once each", async () => {
+    const measure = vi.spyOn(performance, "measure");
+    const other = "Hermes-3-Llama-3.2-3B-q4f16_1-MLC";
+    await loadLocalModel(other);
+    await generateText({ model: localModel(other), prompt: "?" });
+    await generateText({ model: localModel(other), prompt: "?" });
+    expect(measure.mock.calls.map(([name]) => name)).toEqual(["kanzo:llm:load", "kanzo:llm:warm-up", "kanzo:llm:first-call"]);
+    measure.mockRestore();
+  });
+
+  it("loads all the same when the warm-up fails", async () => {
+    const other = "Llama-3.2-3B-Instruct-q4f16_1-MLC";
+    creating = async () => {
+      throw new Error("warm-up failed");
+    };
+    await loadLocalModel(other);
+    expect(localModelLoad(other)).toEqual({ state: "ready" });
   });
 });
 
