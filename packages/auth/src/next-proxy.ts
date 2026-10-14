@@ -42,6 +42,9 @@ import { AuthError } from "./types";
  * - **502** when the realm would not exchange the token at all (`token/exchange-failed`): the
  *   application is not allowed to ask for that audience, which is the deployment's to fix. An IdP
  *   or a store that did not answer is its 5xx.
+ * - **502** when the API itself did not answer — the connection was refused, its name did not
+ *   resolve, it reset before a status line (`api/unreachable`). An API that answers, with any
+ *   status, has answered, and that answer is passed through as it came.
  *
  * Three answers carry no code, and so no body, because they are about the request and not about a
  * credential: **403** when it is not same-site — `same-site.ts` carries why the package owes this —
@@ -194,18 +197,32 @@ export function forward(instance: () => Promise<Bound>): ApiHandlers {
     headers.set("authorization", `Bearer ${held.accessToken}`);
 
     const body = request.method === "GET" || request.method === "HEAD" ? null : request.body;
-    const answer = await send(upstream, {
-      method: request.method,
-      headers,
-      body,
-      // The body is a stream and is forwarded as one: an upload is not read into this server's
-      // memory on its way past, and a server-sent event stream is not buffered until it ends —
-      // which for an SSE endpoint means never. `duplex` is what Node requires to allow it.
-      ...(body === null ? {} : { duplex: "half" }),
-      // A 302 from the upstream is the upstream's answer and belongs to the caller. Following it
-      // here would send the bearer token to whatever host the `Location` names.
-      redirect: "manual",
-    } as RequestInit);
+    let answer: Response;
+    try {
+      answer = await send(upstream, {
+        method: request.method,
+        headers,
+        body,
+        // The body is a stream and is forwarded as one: an upload is not read into this server's
+        // memory on its way past, and a server-sent event stream is not buffered until it ends —
+        // which for an SSE endpoint means never. `duplex` is what Node requires to allow it.
+        ...(body === null ? {} : { duplex: "half" }),
+        // A 302 from the upstream is the upstream's answer and belongs to the caller. Following it
+        // here would send the bearer token to whatever host the `Location` names.
+        redirect: "manual",
+      } as RequestInit);
+    } catch (error) {
+      // `fetch` rejects with a `TypeError` for a network error and for nothing else it can meet
+      // here: a refused connection, a name that did not resolve, a reset before the status line.
+      // That API did not answer, and it is the forwarder's to name, not a bare 500's. An upstream
+      // that answers 500 has answered, and its answer passes through below. A client that went
+      // away is not the upstream's failure, so its abort is thrown as it was.
+      if (!(error instanceof TypeError) || request.signal.aborted) throw error;
+      return problem(
+        { code: "api/unreachable", message: `the API mounted at ${api.mount} did not answer` },
+        { cookies: held.cookies },
+      );
+    }
 
     const out = copyHeaders(answer.headers, NOT_RETURNED);
     // Ours last, so a renewal is never lost to an upstream that had opinions about cookies.

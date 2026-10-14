@@ -16,10 +16,11 @@ import type { AuthError, AuthErrorCode } from "./types";
  * The status for each code, and the only table: the routes, the forwarder and the proxy all read
  * it. Two tables once disagreed — one sent `organization/denied` to 400, the other to 403.
  *
- * A party that did not answer is a 5xx named for who: the IdP is upstream (502, 504), the store is
- * this server's own (503, 504). A refusal is a 4xx: no credential is 401, a credential that does
- * not admit this organization is 403, and a request that cannot be read is 400. A token response
- * that names nobody is the realm's fault and not the person's, so it is 502 too.
+ * A party that did not answer is a 5xx named for who: the IdP is upstream (502, 504) and so is a
+ * forwarded API (502), the store is this server's own (503, 504). A refusal is a 4xx: no credential
+ * is 401, a credential that does not admit this organization is 403, and a request that cannot be
+ * read is 400. A token response that names nobody is the realm's fault and not the person's, so it
+ * is 502 too.
  */
 const STATUS: Record<AuthErrorCode, number> = {
   "claims/no-subject": 502,
@@ -35,6 +36,7 @@ const STATUS: Record<AuthErrorCode, number> = {
   "session/irrevocable": 501,
   "idp/unreachable": 502,
   "idp/silent": 504,
+  "api/unreachable": 502,
 };
 
 /** The HTTP status an `AuthErrorCode` is answered with. */

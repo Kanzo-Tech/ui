@@ -180,7 +180,13 @@ export type AuthErrorCode =
   /** The IdP could not be reached, or answered with something that is not OAuth — a 5xx, a proxy page. */
   | "idp/unreachable"
   /** The IdP did not answer within `data.after` milliseconds. */
-  | "idp/silent";
+  | "idp/silent"
+  /**
+   * A forwarded API did not answer: `api` could not reach the mount's `target` — the connection was
+   * refused, its name did not resolve, it reset before a status line. An API that answers with an
+   * error status has answered, and `api` passes that answer through.
+   */
+  | "api/unreachable";
 
 export class AuthError extends Error {
   override readonly name = "AuthError";

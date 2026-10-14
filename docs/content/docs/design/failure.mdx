@@ -37,7 +37,7 @@ model failures `llm/failed`, so one area had two names; the class is `LlmError` 
 | `graph/no-positions` | `GraphError` | a device that came up holds no positions for the points it was given: a frame's read-back failed | — |
 | `graph/nothing-to-draw` | `GraphError` | an attached corpus with no vertex | — |
 | `llm/unavailable` | `LlmError`, from `@kanzo-tech/llm` | the page cannot run the model: no WebGPU for `localModel` | `reason` |
-| `session/*`, `idp/*`, `callback/*`, `token/*`, `organization/*`, `claims/*` | `AuthError` | see [the auth layer](/docs/design/auth) | `after`, `status` where named |
+| `session/*`, `idp/*`, `api/*`, `callback/*`, `token/*`, `organization/*`, `claims/*` | `AuthError` | see [the auth layer](/docs/design/auth) | `after`, `status` where named |
 
 **What would reverse it:** a code a host never branches on. Then it folds into its neighbour; the
 list is short because every row is a different thing to show.
