@@ -1,8 +1,10 @@
 import { relationKey, type JoinGraph } from "@kanzo-tech/mosaic";
 import { describe, expect, it } from "vitest";
+import type { LanguageModel } from "ai";
 import { runTask } from "../task/index.js";
+import { askOffers } from "./ask-chat.js";
 import { ask, askAlternatives, askAnswer, askSchema, link, type AskInput, type AskSpec } from "./ask.js";
-import { NOBEL, asking } from "../testing/nobel.js";
+import { NOBEL, answering, asking } from "../testing/nobel.js";
 
 const input = (question: string, extra: Partial<AskInput> = {}): AskInput => ({ question, graph: NOBEL, ...extra });
 
@@ -62,6 +64,11 @@ describe("the ask Task", () => {
     const answer = askAnswer(proposal.value, asked, "a1")!;
     expect(relationKey(NOBEL, answer.relation)).toBe("LaureateAward>university>University");
     expect(answer.tile).toMatchObject({ id: "a1", kind: "chart", x: "university.name" });
+  });
+
+  it("offers questions as the specs of the elements it is answered with", async () => {
+    const offers = await askOffers({ model: answering({ elements: [{ spec: byUniversity }] }) as LanguageModel, graph: NOBEL, count: 1 });
+    expect(offers.map((o) => o.value)).toEqual([byUniversity]);
   });
 
   it("asks nothing when two paths reach one field: the model's path is the answer's", async () => {

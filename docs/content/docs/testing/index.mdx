@@ -167,7 +167,7 @@ const env = await playwright(page, {
   models: {
     "Qwen3-4B-q4f16_1-MLC": {
       turns: [
-        { when: "How many laureates", reply: { object: { of: "Laureate" } } },
+        { when: "How many laureates", reply: { object: { spec: { of: "Laureate", show: { kind: "stat", measure: { op: "count" } } } } } },
         { when: "Offer", reply: { object: { elements: [] } } },
       ],
     },
