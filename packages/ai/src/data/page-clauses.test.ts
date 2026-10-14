@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { pageClauses } from "./answer.js";
 
 const at = (table: string) => asTableRef(["jobs/7", table])!;
-const type = (name: string) => ({ name, table: at(name), key: "id", columns: ["name"] });
+const type = (name: string) => ({ name, table: at(name), key: "id", columns: [{ name: "name", type: "VARCHAR" }] });
 const edge = (source: string, label: string, destination: string) => ({
   name: `${source}_${label}_${destination}`,
   label,

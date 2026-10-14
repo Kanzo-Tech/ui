@@ -73,7 +73,7 @@ describe("ChartRoot", () => {
  */
 describe("ChartRoot on the page's selection", () => {
   const JOINS: JoinGraph = {
-    types: [{ name: "Person", table: "people", key: "dense_id", columns: ["age"] }],
+    types: [{ name: "Person", table: "people", key: "dense_id", columns: [{ name: "age", type: "INTEGER" }] }],
     edges: [],
   };
 

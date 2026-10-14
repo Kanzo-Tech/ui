@@ -1,7 +1,6 @@
 import {
   Query,
   and,
-  asc,
   asTableRef,
   cast,
   count,
@@ -18,13 +17,12 @@ import {
   type ExprNode,
   type FilterExpr,
 } from "@kanzo-tech/mosaic";
-import { GraphError } from "./error";
-import { tableOf, type Column, type EdgeTable, type Structure, type VertexTable } from "./structure";
+import { tableOf, type Structure, type VertexTable } from "./structure";
 
 /**
  * **What the graph reads, through the page's coordinator.** A corpus fossil's `open` attached under
- * a name is a catalog: a view per table, and the manifest as two relations — `fossil_tables` and
- * `fossil_columns`. The graph reads the structure from those and the rows from the views, with the
+ * a name is a catalog: a view per table, and the manifest as relations beside them. The graph reads
+ * the structure from those once (`readCatalog`, `catalog.ts`) and the rows from the views here, with the
  * same coordinator — and the same cache — every chart on the page uses. Nothing here parses a
  * manifest and nothing here owns a connection.
  *
@@ -46,76 +44,6 @@ export const ask = (coordinator: Coordinator, query: Query): Promise<Answer> =>
   coordinator.query(query, { type: "arrow" }) as Promise<Answer>;
 
 const values = (answer: Answer, name: string): ArrayLike<unknown> => answer.getChild(name)?.toArray() ?? [];
-
-const labelOf = (name: string, source: string, destination: string): string =>
-  name.length > source.length + destination.length + 2 && name.startsWith(`${source}_`) && name.endsWith(`_${destination}`)
-    ? name.slice(source.length + 1, name.length - destination.length - 1)
-    : name;
-
-/** `fossil_tables` and `fossil_columns`, read once per corpus. */
-export async function readStructure(coordinator: Coordinator, from: string): Promise<Structure> {
-  const [tables, columns] = await Promise.all([
-    ask(
-      coordinator,
-      Query.select("table_name", "kind", "source", "destination", {
-        record_count: float64("record_count"),
-        first_id: float64("first_id"),
-      })
-        .from(relation(from, "fossil_tables"))
-        .orderby(asc("first_id", false), "table_name"),
-    ),
-    ask(
-      coordinator,
-      Query.select("table_name", "column_name", "role", "datatype", { data_type: cast("data_type", "VARCHAR") })
-        .from(relation(from, "fossil_columns"))
-        .orderby("table_name", "ordinal_position"),
-    ),
-  ]);
-  const byTable = new Map<string, { names: Map<string, Column>; identity: string }>();
-  const [tn, cn] = [values(columns, "table_name"), values(columns, "column_name")];
-  const [role, type, datatype] = [values(columns, "role"), values(columns, "data_type"), values(columns, "datatype")];
-  let key: string | undefined;
-  for (let i = 0; i < columns.numRows; i++) {
-    const entry = byTable.get(String(tn[i])) ?? { names: new Map<string, Column>(), identity: "subject" };
-    entry.names.set(String(cn[i]), {
-      type: String(type[i] ?? ""),
-      role: role[i] === null ? null : String(role[i]),
-      datatype: datatype[i] === null || datatype[i] === undefined ? null : String(datatype[i]),
-    });
-    if (role[i] === "identity") entry.identity = String(cn[i]);
-    if (role[i] === "address") key ??= String(cn[i]);
-    byTable.set(String(tn[i]), entry);
-  }
-  const name = values(tables, "table_name");
-  const kind = values(tables, "kind");
-  const rows = values(tables, "record_count");
-  const first = values(tables, "first_id");
-  const [source, destination] = [values(tables, "source"), values(tables, "destination")];
-  const vertices: VertexTable[] = [];
-  const edges: EdgeTable[] = [];
-  // Each kind by name: a `property` table — a multi-valued property, one row per value — is
-  // neither a type nor a relation, and a kind this reader does not know is not one either.
-  for (let i = 0; i < tables.numRows; i++) {
-    const table = String(name[i]);
-    if (kind[i] === "vertex") {
-      const described = byTable.get(table);
-      vertices.push({
-        name: table,
-        first: Number(first[i]),
-        rows: Number(rows[i]),
-        columns: described?.names ?? new Map(),
-        identity: described?.identity ?? "subject",
-      });
-    } else if (kind[i] === "edge") {
-      const [src, dst] = [String(source[i]), String(destination[i])];
-      edges.push({ name: table, label: labelOf(table, src, dst), source: src, destination: dst, rows: Number(rows[i]) });
-    }
-  }
-  if (key === undefined && vertices.length > 0) {
-    throw new GraphError("graph/nothing-to-draw", `the corpus attached as ${from} gives no column the address role`);
-  }
-  return { from, key: key ?? "", vertices, edges, size: vertices.reduce((sum, v) => sum + v.rows, 0) };
-}
 
 /**
  * Each table's rows of `select`, in the key's order — the table's slice of every buffer. A table
@@ -139,7 +67,10 @@ export async function readColumns(
 export async function readLinks(coordinator: Coordinator, structure: Structure): Promise<Float32Array> {
   const answers = await Promise.all(
     structure.edges.map((edge) =>
-      ask(coordinator, Query.select({ src: float64("src"), dst: float64("dst") }).from(relation(structure.from, edge.name))),
+      ask(
+        coordinator,
+        Query.select({ src: float64(edge.sourceKey), dst: float64(edge.destinationKey) }).from(relation(structure.from, edge.name)),
+      ),
     ),
   );
   const links = new Float32Array(2 * answers.reduce((sum, a) => sum + a.numRows, 0));

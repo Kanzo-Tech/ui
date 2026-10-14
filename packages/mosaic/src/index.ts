@@ -143,6 +143,7 @@ export { queryFailure } from "./failure.js";
  * from its own catalog; `@kanzo-tech/graph`'s `readJoinGraph` builds one from a fossil corpus.
  */
 export {
+  relationColumns,
   relationHops,
   relationIdentities,
   relationKey,
@@ -150,10 +151,14 @@ export {
   relationRootKey,
   relationSteps,
   type Hop,
+  type JoinAnnotation,
+  type JoinColumn,
+  type JoinColumnStats,
   type JoinEdge,
   type JoinGraph,
   type JoinType,
   type Relation,
+  type RelationColumn,
   type RelationHop,
 } from "./relation.js";
 

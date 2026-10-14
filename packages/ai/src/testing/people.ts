@@ -5,7 +5,7 @@ import type { JoinGraph, Relation } from "@kanzo-tech/mosaic";
 import type { TestDatabase } from "./duckdb.js";
 
 export const PEOPLE: JoinGraph = {
-  types: [{ name: "Person", table: "person", key: "dense_id", columns: ["gender", "age", "born"] }],
+  types: [{ name: "Person", table: "person", key: "dense_id", columns: [{ name: "gender", type: "VARCHAR" }, { name: "age", type: "VARCHAR" }, { name: "born", type: "VARCHAR" }] }],
   edges: [{ name: "knows", label: "knows", source: "Person", destination: "Person", table: "knows", src: "src", dst: "dst" }],
 };
 

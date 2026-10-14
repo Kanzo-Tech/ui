@@ -6,6 +6,7 @@ import {
   count,
   div,
   eq,
+  jsType,
   literal,
   max,
   median,
@@ -284,6 +285,11 @@ const TREND_STEPS = 24;
  */
 export function bucketExpr(field: FieldStat): string | ExprNode | null {
   if (field.min === undefined || field.max === undefined) return field.kind === "numeric" ? field.name : null;
+  if (field.kind === "temporal" && jsType(field.type) === "number") {
+    // A year stored as its integer, a time by its datatype: binned as the number it is.
+    const [from, to] = [new Date(field.min).getUTCFullYear(), new Date(field.max).getUTCFullYear()];
+    return field.distinct <= 60 ? field.name : binHistogram(field.name, [from, to], { steps: TREND_STEPS });
+  }
   if (field.kind === "temporal") {
     return binDate(field.name, [new Date(field.min), new Date(field.max)], { steps: TREND_STEPS });
   }

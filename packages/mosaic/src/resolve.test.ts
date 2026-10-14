@@ -4,7 +4,7 @@ import { relationKey, type JoinGraph, type Relation } from "./relation.js";
 import { resolveRelation } from "./resolve.js";
 
 const at = (table: string) => asTableRef(["jobs/7", table])!;
-const type = (name: string, columns: string[]) => ({ name, table: at(name), key: "id", columns });
+const type = (name: string, columns: string[]) => ({ name, table: at(name), key: "id", columns: columns.map((c) => ({ name: c, type: "VARCHAR" })) });
 const edge = (source: string, label: string, destination: string) => ({
   name: `${source}_${label}_${destination}`,
   label,

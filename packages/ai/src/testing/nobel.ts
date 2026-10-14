@@ -18,7 +18,7 @@ const edge = (source: string, label: string, destination: string) => ({
 });
 
 export const NOBEL: JoinGraph = {
-  types: ["LaureateAward", "Laureate", "Category", "University", "Country"].map((name) => ({ name, table: at(name), key: "id", columns: ["name"] })),
+  types: ["LaureateAward", "Laureate", "Category", "University", "Country"].map((name) => ({ name, table: at(name), key: "id", columns: [{ name: "name", type: "VARCHAR" }] })),
   edges: [
     edge("LaureateAward", "laureate", "Laureate"),
     edge("LaureateAward", "category", "Category"),

@@ -522,13 +522,22 @@ as `graph/nothing-to-draw`.
 ### readJoinGraph
 
 `readJoinGraph(coordinator, from)` is the same corpus as a `JoinGraph` — what
-`@kanzo-tech/ui/analytics`' [relations](/docs/analytics/dashboard#relations) are built over. Each
-vertex table is a type keyed by `dense_id` that projects the columns the writer gave no role, and
-each edge table joins through its `src`, which holds its source vertex table's `dense_id`, and its
-`dst`, which holds its destination's. One more type, `vertices`, is every vertex table as one
-relation (`of` every type), with `NULL` where a table has no such column — what the canvas and a
-timeline over the graph read. The views a corpus is attached as declare no keys, so this is
-what says an edge table joins anything. The charts never learn fossil; they take the graph as data.
+`@kanzo-tech/ui/analytics`' [relations](/docs/analytics/dashboard#relations) are built over, and the
+one constructor of one from a corpus. Each vertex table is a type keyed by `dense_id`, every column
+of it described as the catalog describes it: its DuckDB type, its `role`, its `datatype` and
+`termType`, its `iri`, whether it is `nullable`, its annotations — its `rdfs:label` among them — and
+what fossil's writer counted in it (`stats`: its nulls, its distinct values, its extent and its
+commonest values), with the type's `candidateKeys`, `iri` and annotations beside them. Each edge
+table joins through the columns `fossil_tables` names for its ends, `source_key` and
+`destination_key`, under the label it states. One more type, `vertices`, is every vertex table as
+one relation (`of` every type), with `NULL` where a table has no such column — what the canvas and a
+timeline over the graph read; its columns carry no counts, because the writer counted each table and
+not their union. The views a corpus is attached as declare no keys, so this is what says an edge
+table joins anything. The charts never learn fossil; they take the graph as data.
+
+The catalog is read in one place, `readCatalog`, and the canvas's structure and this graph are both
+what it answered: through the page's coordinator and its cache, so a page that draws the graph and a
+dashboard beside it reads the catalog once.
 
 ```tsx
 const graph = await readJoinGraph(coordinator, jobId);
@@ -542,8 +551,9 @@ const graph = await readJoinGraph(coordinator, jobId);
 `Person.country`, which `vertices` has not, and the page crosses them into the graph as one semi-join
 on `dense_id` — [what the page sees](/docs/analytics/dashboard#what-the-page-sees).
 
-*Held by* `packages/graph/src/core/join-graph.test.ts`, "keys a type by its address, projects the
-columns the writer gave no role, and joins edges on src and dst".
+*Held by* `packages/graph/src/core/join-graph.test.ts`, "keys a type by its address, describes every
+column as the catalog does, and joins an edge on the keys it names"; `packages/graph/src/core/catalog.test.ts`,
+"takes an edge's label and its endpoint keys from fossil_tables, never from the table's name".
 
 ## Failures
 

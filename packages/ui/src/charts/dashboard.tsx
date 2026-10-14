@@ -56,7 +56,7 @@ export function Dashboard(props: DashboardProps) {
   const { relation, value, onChange, exclude, config, className, slot, ...rest } = props;
   const read = useRelation(relation);
   const table = read.table as TableExpr;
-  const { fields, columns, error } = useFieldStats(table, { exclude });
+  const { fields, columns, error } = useFieldStats(relation, { exclude });
   // Everything below reads the relation the plots can: see `plotRelation`.
   const readable = useMemo(
     () =>

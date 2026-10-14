@@ -55,7 +55,7 @@ describe("readAnswerRelations", () => {
 
 describe("answerRelationsOf", () => {
   const graph = {
-    types: [...PEOPLE.types, { name: "Post", table: "post", key: "dense_id", columns: ["title"] }],
+    types: [...PEOPLE.types, { name: "Post", table: "post", key: "dense_id", columns: [{ name: "title", type: "VARCHAR" }] }],
     edges: [...PEOPLE.edges, { name: "wrote", label: "wrote", source: "Person", destination: "Post", table: "wrote", src: "src", dst: "dst" }],
   };
   const out = (edge: string) => ({ edge, direction: "out" as const });

@@ -1,5 +1,5 @@
-import { count, desc, Query, relationHops, relationIdentities, relationQuery, type Coordinator, type JoinGraph, type Relation } from "@kanzo-tech/mosaic";
-import { fieldStats, plotRelation, type SummarizeRow } from "@kanzo-tech/ui/analytics";
+import { count, desc, Query, relationColumns, relationHops, relationIdentities, relationQuery, type Coordinator, type JoinGraph, type Relation } from "@kanzo-tech/mosaic";
+import { fieldStats, plotRelation, type FieldColumn } from "@kanzo-tech/ui/analytics";
 import type { AnswerField, AnswerRelation } from "./answer.js";
 
 export interface AnswerRelationsOfOptions {
@@ -74,7 +74,14 @@ export async function readAnswerRelations(
       // `queryFieldStats`' read, written out because it takes no signal: the summary is a statement
       // mosaic-sql has no node for, around a query over the relation.
       const summary = await ask(`SUMMARIZE ${Query.select("*").from(table)}`);
-      const stats = fieldStats(Array.from(summary) as unknown as SummarizeRow[], { exclude });
+      const described = new Map(relationColumns(graph, relation).map((c) => [c.name, c]));
+      const columns = Array.from(summary).map((row): FieldColumn => {
+        const name = String(row.column_name);
+        const counted = { nullCount: 0, distinctCount: Number(row.approx_unique ?? 0), mostCommonVals: [], mostCommonFreqs: [] };
+        const bounds = { ...(row.min == null ? {} : { minValue: String(row.min) }), ...(row.max == null ? {} : { maxValue: String(row.max) }) };
+        return { ...described.get(name), name, type: String(row.column_type), stats: { ...counted, ...bounds } };
+      });
+      const stats = fieldStats(columns, { exclude });
       const plotted = plotRelation(table, stats);
       const fields = await Promise.all(
         plotted.fields.map(async (field): Promise<AnswerField> => {

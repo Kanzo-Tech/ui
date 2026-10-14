@@ -9,10 +9,10 @@ const at = (table: string) => asTableRef(["c", table])!;
 
 const JOINS: JoinGraph = {
   types: [
-    { name: "Person", table: at("Person"), key: "dense_id", columns: ["country", "age"] },
-    { name: "Post", table: at("Post"), key: "dense_id", columns: ["length"] },
+    { name: "Person", table: at("Person"), key: "dense_id", columns: [{ name: "country", type: "VARCHAR" }, { name: "age", type: "VARCHAR" }] },
+    { name: "Post", table: at("Post"), key: "dense_id", columns: [{ name: "length", type: "VARCHAR" }] },
     { name: "Tag", table: at("Tag"), key: "dense_id", columns: [] },
-    { name: "vertices", table: at("vertices"), key: "dense_id", columns: ["country", "age", "length"], of: ["Person", "Post", "Tag"] },
+    { name: "vertices", table: at("vertices"), key: "dense_id", columns: [{ name: "country", type: "VARCHAR" }, { name: "age", type: "VARCHAR" }, { name: "length", type: "VARCHAR" }], of: ["Person", "Post", "Tag"] },
   ],
   edges: [
     { name: "Person_knows_Person", label: "knows", source: "Person", destination: "Person", table: at("Person_knows_Person"), src: "src", dst: "dst" },

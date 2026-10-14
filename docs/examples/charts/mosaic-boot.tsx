@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { engine, loadObjects, type Coordinator } from "@kanzo-tech/mosaic";
+import { engine, loadObjects, type Coordinator, type JoinGraph } from "@kanzo-tech/mosaic";
 import { MosaicProvider } from "@kanzo-tech/ui/analytics";
 import { Skeleton } from "@kanzo-tech/ui";
 import { SIGHTINGS_TABLE, sightingRows } from "@/example/sightings";
@@ -21,7 +21,7 @@ function boot(): Promise<Coordinator> {
   return loading;
 }
 
-export default function MosaicBoot({ children }: { children: ReactNode }) {
+export default function MosaicBoot({ children, joins }: { children: ReactNode; joins?: JoinGraph }) {
   const [coordinator, setCoordinator] = useState<Coordinator | null>(null);
 
   useEffect(() => {
@@ -36,5 +36,9 @@ export default function MosaicBoot({ children }: { children: ReactNode }) {
 
   if (!coordinator) return <Skeleton className="h-40 w-full max-w-2xl" />;
 
-  return <MosaicProvider coordinator={coordinator}>{children}</MosaicProvider>;
+  return (
+    <MosaicProvider coordinator={coordinator} joins={joins}>
+      {children}
+    </MosaicProvider>
+  );
 }
