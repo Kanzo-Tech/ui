@@ -21,6 +21,7 @@ export type {
   ChatProposals,
   ChatProps,
   ChatSkeletonProps,
+  ChatDataRenderers,
   ChatToolRenderers,
   ChatTranslations,
 } from "./chat.js";

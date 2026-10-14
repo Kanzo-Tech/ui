@@ -1019,8 +1019,8 @@ const INTENTS: Intent[] = [
     spec: {
       of: TYPE,
       where: [
-        { field: "Node.kind", in: ["contract"] },
-        { field: "Node.closed", between: ["1000-01-01", FIVE_YEARS_BACK] },
+        { field: "kind", in: ["contract"] },
+        { field: "closed", between: ["1000-01-01", FIVE_YEARS_BACK] },
       ],
       show: { kind: "stat", measure: { op: "count" }, title: `Contracts closed before ${FIVE_YEARS_BACK}` },
     },
@@ -1030,8 +1030,8 @@ const INTENTS: Intent[] = [
     question: "What does the Amber Hall hold, by kind?",
     spec: {
       of: TYPE,
-      where: [{ field: "Node.hall", in: ["amber"] }],
-      show: { kind: "chart", type: "bar", x: "Node.kind", y: { op: "count" } },
+      where: [{ field: "hall", in: ["amber"] }],
+      show: { kind: "chart", type: "bar", x: "kind", y: { op: "count" } },
       top: 20,
     },
   },
@@ -1040,8 +1040,8 @@ const INTENTS: Intent[] = [
     question: "What holds the archive together?",
     spec: {
       of: TYPE,
-      where: [{ field: "Node.degree", between: [60, 1_000_000] }],
-      show: { kind: "chart", type: "bar", x: "Node.label", y: { op: "max", field: "Node.degree" }, title: "The busiest nodes" },
+      where: [{ field: "degree", between: [60, 1_000_000] }],
+      show: { kind: "chart", type: "bar", x: "label", y: { op: "max", field: "degree" }, title: "The busiest nodes" },
       top: 10,
     },
   },
@@ -1050,8 +1050,8 @@ const INTENTS: Intent[] = [
     question: "How do contracts spread across the halls?",
     spec: {
       of: TYPE,
-      where: [{ field: "Node.kind", in: ["contract"] }],
-      show: { kind: "chart", type: "bar", x: "Node.hall", y: { op: "count" }, title: "Contracts by hall" },
+      where: [{ field: "kind", in: ["contract"] }],
+      show: { kind: "chart", type: "bar", x: "hall", y: { op: "count" }, title: "Contracts by hall" },
       top: 10,
     },
   },
@@ -1181,14 +1181,14 @@ function AskBody({ archive, askable }: { archive: Archive; askable: Askable }) {
         message={askEdit}
         proposals={starters.questions}
         proposing={starters.proposing}
-        tools={{
+        data={{
           answer: (part, { stopped }) => {
             // What the answer was read as, each part a chip: taking one asks the edited spec, no model.
-            const spec = part.state === "output-available" ? (part.output as AskOutput).spec : undefined;
+            const answer = part.data as AskOutput;
             return (
               <div className="flex flex-col gap-2">
-                <AnswerCard graph={askable.graph} part={part} stopped={stopped} />
-                {spec && <AskChips onChange={(next) => void chat.sendMessage(askEdit(next))} over={over} spec={spec} />}
+                <AnswerCard answer={answer} graph={askable.graph} stopped={stopped} />
+                {answer.rows && <AskChips onChange={(next) => void chat.sendMessage(askEdit(next))} over={over} spec={answer.spec} />}
               </div>
             );
           },

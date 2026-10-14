@@ -85,7 +85,7 @@ describe("a relation dashboard beside the graph, on one selection", () => {
   it("filters the graph by what the tiles' brushes keep, as the root vertices they keep", async () => {
     const { corpus, graph, onFailure, page, tiles } = await discover();
     // score = i + 1, so a brush over 2–5 keeps People 1–4.
-    page.update(on(tiles[0], (t) => clauseInterval("Person.score", [2, 5], { source: t, clients: new Set([t]) })));
+    page.update(on(tiles[0], (t) => clauseInterval("score", [2, 5], { source: t, clients: new Set([t]) })));
     await settle(corpus);
     expect(onFailure).not.toHaveBeenCalled();
     expect(ids(graph.getSnapshot().kept)).toEqual([1, 2, 3, 4]);
@@ -95,7 +95,7 @@ describe("a relation dashboard beside the graph, on one selection", () => {
 
     // A second tile's pick on the far end of the join: People 3 and 9 live in Place 3. On a joined
     // relation the two clauses cross together: the people with a row where both hold.
-    page.update(on(tiles[1], (t) => clausePoint("Place.name", "Place 3", { source: t, clients: new Set([t]) })));
+    page.update(on(tiles[1], (t) => clausePoint("livesIn.name", "Place 3", { source: t, clients: new Set([t]) })));
     await settle(corpus);
     expect(ids(graph.getSnapshot().kept)).toEqual([3]);
 
@@ -123,7 +123,7 @@ describe("a relation dashboard beside the graph, on one selection", () => {
   it("keeps none of a relation with no step of the clause's type", async () => {
     const { corpus, page, places, tiles } = await discover();
     // People 1–4 live in Places 11–14; a relation of places reaches people by no step of its own.
-    page.update(on(tiles[0], (t) => clauseInterval("Person.score", [2, 5], { source: t, clients: new Set([t]) })));
+    page.update(on(tiles[0], (t) => clauseInterval("score", [2, 5], { source: t, clients: new Set([t]) })));
     await settle(corpus);
     expect(places.rows).toEqual([]);
     // A clause on places keeps the people whose place it keeps: the dashboard has a Place step.

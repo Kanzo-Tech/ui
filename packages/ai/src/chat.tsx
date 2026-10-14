@@ -56,6 +56,14 @@ const ENGLISH: ChatTranslations = {
 export type ChatToolRenderers = Record<string, (part: ToolPart, call: { stopped: boolean }) => React.ReactNode>;
 
 /**
+ * How a host draws its data parts, by name — the AI SDK's *Streaming Custom Data*: `answer` draws
+ * each `data-answer` part. Each gets the part — written again under its `id` as the stream goes, so
+ * it is drawn at every state it is written in — and whether its message is still being written:
+ * a part that will be written no more is `stopped`. A part with no renderer is not drawn.
+ */
+export type ChatDataRenderers = Record<string, (part: { type: `data-${string}`; id?: string; data: unknown }, message: { stopped: boolean }) => React.ReactNode>;
+
+/**
  * What `Chat` reads from `useAgentChat` or `useChat` — the helpers, not the hook, so any chat state
  * can drive it. `error` is whatever stopped the answer: `useAgentChat`'s thrown value, or
  * `useChat`'s `Error`. `kept` is a kept chat's state: while it is read `Chat` is its skeleton, and one
@@ -85,6 +93,7 @@ interface ChatOwnProps<M extends UIMessage> {
   /** `useChat(...)`'s return. */
   chat: ChatState<M>;
   tools?: ChatToolRenderers;
+  data?: ChatDataRenderers;
   /** What the panel says before the first question. */
   empty?: React.ReactNode;
   /**
@@ -122,13 +131,13 @@ const wordsOf = <M extends UIMessage>(message: ChatMessage<M>): string =>
 /**
  * A conversation with a model, whole: the transcript, the model's reasoning and calls as they
  * happen, markdown that streams, and a composer that sends, stops and retries. A host brings the
- * chat (`useChat`) and draws its own tools' results; everything else is here.
+ * chat (`useChat`) and draws its own tools' results and data parts; everything else is here.
  *
  * Each part is drawn from the AI SDK's own message parts, so nothing is translated on the way in:
  * text as markdown, `reasoning` folded away, every tool call in its frame with the SDK's state.
  */
 export function Chat<M extends UIMessage, V = string>(props: ChatProps<M, V>) {
-  const { chat, tools = {}, empty, proposing = false, notice, context, describe, translations, className } = props;
+  const { chat, tools = {}, data = {}, empty, proposing = false, notice, context, describe, translations, className } = props;
   // One shape for both arms: a string's message is its text, unless the host says otherwise.
   const proposals = props.proposals as readonly Proposal<unknown>[] | undefined;
   const message = (props.message ?? ((value: string) => ({ text: value }))) as (value: unknown) => ChatMessage<M>;
@@ -231,6 +240,10 @@ export function Chat<M extends UIMessage, V = string>(props: ChatProps<M, V>) {
                     );
                   }
                   if (part.type === "reasoning") return <Reasoning key={key} part={part} />;
+                  if (part.type.startsWith("data-")) {
+                    const draw = data[part.type.slice("data-".length)];
+                    return draw ? <React.Fragment key={key}>{draw(part as Parameters<typeof draw>[0], { stopped: !streaming })}</React.Fragment> : null;
+                  }
                   if (isToolUIPart(part)) {
                     const draw = tools[getToolName(part)];
                     const stopped = !streaming && RUNNING.has(part.state);

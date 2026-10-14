@@ -117,7 +117,7 @@ through the root's key, with nothing to wire:
 ```tsx
 const key = relationKey(graph, relation);
 const saved = parseDashboards(stored); // throws on anything that is not a current document
-const identities = relationIdentities(graph, relation);
+const keys = new JoinResolver(graph).steps(relation).map((s) => s.key);
 
 // under <MosaicProvider coordinator={coordinator} joins={graph}>
 <RelationPicker graph={graph} value={relation} onValueChange={setRelation} />
@@ -125,7 +125,7 @@ const identities = relationIdentities(graph, relation);
 <Dashboard
   key={key}
   relation={relation}
-  exclude={identities.map((i) => i.column)}
+  exclude={keys}
   value={saved.byRelation[key]}
   onChange={(spec) => {
     const { [key]: _, ...rest } = saved.byRelation; // `undefined` is a reset: forget the relation

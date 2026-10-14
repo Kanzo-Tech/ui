@@ -133,7 +133,23 @@ SDK's `ToolUIPart` or `DynamicToolUIPart`, whole — so the renderer has the cal
 too. Its `output` is `unknown` there: the map is keyed by a string, so the host, which wrote the
 tool, says what it returns.
 
-For data, [`AnswerCard`](/docs/ai/data#the-answer-card) is that drawing, whole, at every state.
+## Drawing a data part
+
+A stream may write application data beside the text — the AI SDK's *Streaming Custom Data*,
+`{ type: "data-<name>", id, data }` — and `data` maps a name to a function of the part, as `tools`
+maps a tool's. A part written again under its `id` is drawn again as it changes; a part with no
+renderer is not drawn. The second argument is `{ stopped }`, true once the message is written no
+more — a part still waiting then will wait forever.
+
+```tsx
+<Chat chat={chat} data={{ answer: (part, { stopped }) => <AnswerCard answer={part.data as AskOutput} graph={graph} stopped={stopped} /> }} />
+```
+
+For data, [`AnswerCard`](/docs/ai/data#the-answer-card) is that drawing, whole, read or still being
+read: Ask writes each answer as a `data-answer` part, not a tool call no model made.
+
+*Held by* `packages/ai/src/chat.test.tsx`, "draws a data part through the host's renderer by its
+name, and says when its message is written no more".
 
 Called only once the call had a result, with a default drawn before, was how this started, and a
 host could not show a pending state in its own card. Returning `null` to ask for the default was the
@@ -328,6 +344,7 @@ outside the scroll region, so it stays put while the transcript moves:
 | --- | --- | --- |
 | `chat` | `useAgentChat(...)`'s return, or `useChat(...)`'s | The conversation |
 | `tools` | `ChatToolRenderers` | `Record<string, (part: ToolPart, call: { stopped: boolean }) => ReactNode>` — how the host draws its tools, at every state |
+| `data` | `ChatDataRenderers` | `Record<string, (part, message: { stopped: boolean }) => ReactNode>` — how the host draws its data parts, by name |
 | `empty` | `ReactNode` | What the panel says before the first question |
 | `proposals` | `readonly Proposal<V>[]` | Questions to start from, a Task's offers taken whole; given at all, even empty, the strip keeps its row |
 | `message` | `(value: V) => ChatMessage` | What pressing a pill sends: its value as a message. Required for a value that is not a string, which is otherwise sent as the message's text |
@@ -339,9 +356,9 @@ outside the scroll region, so it stays put while the transcript moves:
 | `className` | `string` | On the root |
 
 The types are exported as `ChatProps`, `ChatProposals`, `ChatMessage` (what `sendMessage` takes),
-`ChatSkeletonProps`, `ChatToolRenderers`, `ChatTranslations`, `ToolPart`, `AgentChat` and
-`AgentChatOptions`, and a kept chat's as `KeptChat`, `KeptChatOptions`, `KeptChatSchemas`, `KeptState`
-and `KeepPart`; a pill is `@kanzo-tech/ai/task`'s `Proposal`.
+`ChatSkeletonProps`, `ChatToolRenderers`, `ChatDataRenderers`, `ChatTranslations`, `ToolPart`, `AgentChat`
+and `AgentChatOptions`, and a kept chat's as `KeptChat`, `KeptChatOptions`, `KeptChatSchemas`,
+`KeptState` and `KeepPart`; a pill is `@kanzo-tech/ai/task`'s `Proposal`.
 
 ## AI Elements is a source, not a reference
 

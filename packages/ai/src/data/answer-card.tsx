@@ -5,11 +5,10 @@ import {
   clauseLabel,
   clausePoints,
   clauseSemiJoin,
+  JoinResolver,
   Query,
-  relationIdentities,
   relationKey,
   relationQuery,
-  relationRootKey,
   type JoinGraph,
   type Relation,
   type SelectionClause,
@@ -19,11 +18,6 @@ import { CheckIcon, LayoutDashboardIcon, ListFilterIcon, SquareArrowOutUpRightIc
 import * as React from "react";
 import {
   Button,
-  Card,
-  CardAction,
-  CardContent,
-  CardHeader,
-  CardTitle,
   cn,
   DiagnosticList,
   Problem,
@@ -35,20 +29,20 @@ import {
 } from "@kanzo-tech/ui";
 import {
   autoDashboard,
-  ChartCard,
-  DashboardStat,
-  DetailTable,
   MosaicClients,
   plotRelation,
+  TileView,
+  tileQuery,
   useClauses,
   useFieldStats,
   useMosaic,
+  type Condition,
   type Dashboards,
   type FieldStat,
 } from "@kanzo-tech/ui/analytics";
-import type { ToolPart } from "../tool.js";
 import type { AnswerOutput } from "./read.js";
-import { conditionClauses, unansweredText } from "./answer.js";
+import { unansweredText } from "./answer.js";
+import { resolverOf } from "./ask.js";
 
 /** Every word `AnswerCard` draws. English by default. */
 export interface AnswerCardTranslations {
@@ -67,8 +61,6 @@ export interface AnswerCardTranslations {
   open: string;
   /** The failure's title, over its words. */
   failed: string;
-  /** A table's title. */
-  rows: string;
   /** Before the page's clauses the answer was read under. */
   under: string;
   /** Before the page's clauses its relation cannot answer, which keep none of its rows, each with the fields it lacks. */
@@ -88,17 +80,16 @@ const ENGLISH: AnswerCardTranslations = {
   added: "On the dashboard",
   open: "Open on the dashboard",
   failed: "The answer failed",
-  rows: "Rows",
   under: "Read under the page's filter:",
   unanswered: "Keeps none of this relation's rows, which lack the fields they filter:",
   data: "The rows the answer was read from",
   truncated: "the first, cut short by the cap",
 };
 
-export type AnswerCardProps = Omit<React.ComponentProps<typeof ark.div>, "children" | "part"> & {
-  /** The `answer` call, as `Chat`'s `tools` hands it over, at whatever state it is in. */
-  part: ToolPart;
-  /** The call will never settle — `Chat`'s `stopped`. */
+export type AnswerCardProps = Omit<React.ComponentProps<typeof ark.div>, "children"> & {
+  /** The answer, as a `data-answer` part holds it — `Chat`'s `data` renderers hand it over — read or still being read. */
+  answer: AnswerOutput;
+  /** The read will never land: the reader pressed Stop, or a kept transcript was cut mid-read. */
   stopped?: boolean;
   /** The join graph the agent was given: the answer's relation is compiled over it. */
   graph: JoinGraph;
@@ -142,12 +133,9 @@ export interface AnswerAdded {
   relation: Relation;
   /** `relationKey(graph, relation)`: what a host keeps its dashboards by. */
   key: string;
-  /** The tile's id in that relation's spec — the answer's call's: what a host brings into view. */
+  /** The tile's id in that relation's spec — the answer's: what a host brings into view. */
   id: string;
 }
-
-/** The states of a call still at work: the model writing the answer, or the engine reading it. */
-const RUNNING = new Set<ToolPart["state"]>(["input-streaming", "input-available", "approval-responded"]);
 
 /**
  * **An Ask answer, drawn as the dashboard tile it is**: `ChartCard`, `DashboardStat` or a
@@ -162,14 +150,15 @@ const RUNNING = new Set<ToolPart["state"]>(["input-streaming", "input-available"
  * hands the host its dashboards with the tile in the relation's spec, reads whether it is there off
  * what the host hands back, and once it is, opens it there when the host says how.
  *
- * The card is `aria-busy` while the model writes the answer and the engine reads it, over a skeleton
- * the chart's height. A refusal — input the schema refused, or the engine's failure — is a `Problem`.
+ * The card is `aria-busy` while the engine reads the answer, over a skeleton the chart's height, and
+ * draws nothing of the tile when the read stopped before it landed. A failure to draw it — a relation
+ * the host's graph no longer has — is a `Problem`.
  */
 export function AnswerCard(props: AnswerCardProps) {
-  const { part, stopped = false, graph, dashboards, onAdd, onOpen, describe, translations, className, slot, ...rest } = props;
+  const { answer, stopped = false, graph, dashboards, onAdd, onOpen, describe, translations, className, slot, ...rest } = props;
   const t = { ...ENGLISH, ...translations };
-  const output = part.state === "output-available" ? (part.output as AnswerOutput) : null;
-  const running = !stopped && RUNNING.has(part.state);
+  const output = answer.rows === undefined ? null : answer;
+  const running = !stopped && output === null;
   // Busy from the first render an answer is there, so it is never idle over the skeleton between the
   // answer landing and its fields being read; what draws the tile or its failure says when it is done.
   const [drawing, setDrawing] = React.useState(true);
@@ -186,11 +175,10 @@ export function AnswerCard(props: AnswerCardProps) {
           adding={onAdd && dashboards && { dashboards, onAdd, onOpen, describe }}
           graph={graph}
           onDrawing={setDrawing}
-          output={output}
+          output={output as Required<AnswerOutput>}
           t={t}
         />
       )}
-      {part.state === "output-error" && <Failure error={{ message: part.errorText }} t={t} />}
       {running && <Skeleton className="h-[220px] w-full" slot="answer-card-pending" />}
     </ark.div>
   );
@@ -210,16 +198,19 @@ function Failure(props: { error: unknown; t: AnswerCardTranslations }) {
 type OnDrawing = (drawing: boolean) => void;
 
 /** The answer's relation, compiled over the host's graph — which may no longer have it. */
-function Answered(props: { graph: JoinGraph; output: AnswerOutput; adding?: Adding; onDrawing: OnDrawing; t: AnswerCardTranslations }) {
+function Answered(props: { graph: JoinGraph; output: Required<AnswerOutput>; adding?: Adding; onDrawing: OnDrawing; t: AnswerCardTranslations }) {
   const { graph, output, onDrawing, t } = props;
   const relation = output.answer.relation;
+  // The page's resolver, as every tile reads through it; the graph's own where there is no page over it.
+  const { selection } = useMosaic();
+  const resolver = selection.resolver instanceof JoinResolver && selection.resolver.joins === graph ? selection.resolver : resolverOf(graph);
   const compiled = React.useMemo(() => {
     try {
-      return { table: relationQuery(graph, relation), dashboardKey: relationKey(graph, relation), identities: relationIdentities(graph, relation), rootKey: relationRootKey(graph, relation) };
+      return { table: relationQuery(graph, relation), dashboardKey: relationKey(graph, relation), resolver, keys: resolver.steps(relation).map((s) => s.key) };
     } catch (error) {
       return { error };
     }
-  }, [graph, relation]);
+  }, [graph, relation, resolver]);
   const failed = "error" in compiled;
   React.useLayoutEffect(() => {
     if (failed) onDrawing(false);
@@ -240,61 +231,41 @@ function Drawn(props: {
   table: TableExpr;
   /** The relation's key: what a host keeps its dashboards by. Not `key`, which React keeps for itself. */
   dashboardKey: string;
-  identities: { column: string }[];
-  /** The relation's root key, by name: what *Filter the page to these rows* selects. */
-  rootKey: string;
-  output: AnswerOutput;
+  /** The relation's steps' keys, the root's first: what a dashboard over it leaves out of its fields, and what *Filter the page to these rows* selects. */
+  keys: string[];
+  resolver: JoinResolver;
+  output: Required<AnswerOutput>;
   adding?: Adding;
   onDrawing: OnDrawing;
   t: AnswerCardTranslations;
 }) {
-  const { table, identities, output, adding, onDrawing, t } = props;
+  const { table, keys, resolver, output, adding, onDrawing, t } = props;
   // The fields a dashboard over the relation reads, so the tile it is added to is drawn the same.
-  const stats = useFieldStats(table, { exclude: identities.map((i) => i.column) });
+  const stats = useFieldStats(table, { exclude: keys });
   const readable = React.useMemo(
     () => (stats.fields && stats.columns ? plotRelation(table, { fields: stats.fields, columns: stats.columns }) : null),
     [table, stats.fields, stats.columns],
   );
-  const narrowed = React.useMemo(() => {
-    if (!readable) return null;
-    const clauses = conditionClauses(output.answer.where, readable.fields, {});
-    const ranked = output.answer.top === undefined ? null : domainClause(output, readable.fields, {});
-    return { clauses, table: Query.from(readable.table).select("*").where([...clauses, ...(ranked ? [ranked] : [])].map((c) => c.predicate!)) };
-  }, [readable, output]);
   const write = useAdd(adding, props.dashboardKey, output);
 
-  const drawing = stats.error === null && (!readable || !narrowed);
+  const drawing = stats.error === null && !readable;
   React.useLayoutEffect(() => onDrawing(drawing), [drawing, onDrawing]);
 
   if (stats.error !== null) return <Failure error={stats.error} t={t} />;
-  if (!readable || !narrowed) return <Skeleton className="h-[220px] w-full" slot="answer-card-pending" />;
-  const tile = output.answer.show;
+  if (!readable) return <Skeleton className="h-[220px] w-full" slot="answer-card-pending" />;
+  const tile = output.answer.tile;
   // The tile's own header holds them, beside its title, as a dashboard tile's pencil is held.
   const actions = (
     <>
-      <FilterToRows identity={props.rootKey} output={output} fields={readable.fields} t={t} table={table} />
+      <FilterToRows fields={readable.fields} identity={keys[0]!} output={output} resolver={resolver} t={t} table={readable.table} />
       {write && <AddToDashboard fields={readable.fields} t={t} write={write} />}
     </>
   );
   return (
     <>
-      {/* The tiles read the answer's rows, and are clients of its relation: what the page crosses into. */}
+      {/* The tile reads the answer's relation, narrowed by its own question, and is a client of it: what the page crosses into. */}
       <MosaicClients relation={output.answer.relation}>
-      {tile.kind === "chart" ? (
-        <ChartCard actions={actions} card={tile} fields={readable.fields} relation={narrowed.table} />
-      ) : tile.kind === "stat" ? (
-        <DashboardStat actions={actions} fields={readable.fields} relation={narrowed.table} stat={tile} />
-      ) : (
-        <Card className="[--space:--spacing(4)] min-w-0 gap-3">
-          <CardHeader>
-            <CardTitle className="truncate font-medium text-sm">{tile.title ?? t.rows}</CardTitle>
-            <CardAction className="-my-1 flex items-center gap-1">{actions}</CardAction>
-          </CardHeader>
-          <CardContent>
-            <DetailTable columns={tile.columns} fields={readable.fields} relation={narrowed.table} />
-          </CardContent>
-        </Card>
-      )}
+        <TileView actions={actions} fields={readable.fields} relation={readable.table} tile={tile} />
       </MosaicClients>
       {write?.status.state === "failed" && (
         <DiagnosticList>
@@ -349,7 +320,7 @@ function TileAction(props: React.ComponentProps<typeof Button> & { label: string
  * engine answered under the page's filter when the call ran, which the tile above, following the page
  * afterwards, may no longer show. Nothing when the read returned no rows.
  */
-function AnswerData({ output, t }: { output: AnswerOutput; t: AnswerCardTranslations }) {
+function AnswerData({ output, t }: { output: Required<AnswerOutput>; t: AnswerCardTranslations }) {
   const columns = Object.keys(output.rows[0] ?? {});
   if (columns.length === 0) return null;
   return (
@@ -382,7 +353,7 @@ function AnswerData({ output, t }: { output: AnswerOutput; t: AnswerCardTranslat
  * the model was told. It is the read's, when it ran: the tile above follows the page afterwards.
  * Nothing when the page had no filter.
  */
-function PageFilter({ output, t }: { output: AnswerOutput; t: AnswerCardTranslations }) {
+function PageFilter({ output, t }: { output: Required<AnswerOutput>; t: AnswerCardTranslations }) {
   const { under, unanswered } = output;
   if (under.length === 0 && unanswered.length === 0) return null;
   const said = [under.length > 0 && `${t.under} ${under.join("; ")}.`, unanswered.length > 0 && `${t.unanswered} ${unansweredText(unanswered)}.`];
@@ -397,8 +368,8 @@ function PageFilter({ output, t }: { output: AnswerOutput; t: AnswerCardTranslat
  * The categories a bar chart answered, as the clause a pick on its bars publishes — `null` for any
  * other tile, and for an answer the cap cut short, whose categories are not all there.
  */
-function domainClause(output: AnswerOutput, fields: readonly FieldStat[], source: object): SelectionClause | null {
-  const { show } = output.answer;
+function domainClause(output: Required<AnswerOutput>, fields: readonly FieldStat[], source: object): SelectionClause | null {
+  const show = output.answer.tile;
   if (show.kind !== "chart" || show.type !== "bar" || output.truncated) return null;
   if (fields.find((f) => f.name === show.x)?.kind !== "categorical") return null;
   const values = [...new Set(output.rows.map((row) => row[show.x]))];
@@ -414,9 +385,9 @@ function domainClause(output: AnswerOutput, fields: readonly FieldStat[], source
  * exact at the few dozen values a bar chart answers; and it counts the whole relation, so an answer
  * read under a page that already narrowed the column is not caught, and stays enabled.
  */
-function keepsEverything(output: AnswerOutput, fields: readonly FieldStat[]): boolean {
-  const { show, where, relation } = output.answer;
-  if ((where ?? []).length > 0 || relation.path.length > 0) return false;
+function keepsEverything(output: Required<AnswerOutput>, fields: readonly FieldStat[]): boolean {
+  const { tile: show, relation } = output.answer;
+  if ((show.where ?? []).length > 0 || ("top" in show && show.top !== undefined) || relation.path.length > 0) return false;
   if (show.kind !== "chart" || !domainClause(output, fields, {})) return false;
   const values = new Set(output.rows.map((row) => row[show.x]));
   const field = fields.find((f) => f.name === show.x)!;
@@ -426,45 +397,54 @@ function keepsEverything(output: AnswerOutput, fields: readonly FieldStat[]): bo
 /**
  * The answer's conditions and its bars' categories, published to the page as one semi-join on the
  * relation's root key: a column clause would filter only what has the relation's columns, and the
- * key is what the page shares. Its chip names what it filters — *Ask: Person.gender female* — each
+ * key is what the page shares. Its chip names what it filters — *Ask: gender female* — each
  * clause read as the filter bar reads one. Pressed again, it takes the clause back. Disabled when it
  * would keep everything in view.
  */
 function FilterToRows(props: {
   table: TableExpr;
   identity: string;
-  output: AnswerOutput;
+  resolver: JoinResolver;
+  output: Required<AnswerOutput>;
   fields: readonly FieldStat[];
   t: AnswerCardTranslations;
 }) {
-  const { table, identity, output, fields, t } = props;
+  const { table, identity, resolver, output, fields, t } = props;
   const { selection } = useMosaic();
   // Its own source, so its chip retracts it and nothing else.
   const [source] = React.useState(() => ({ reset() {} }));
   const held = useClauses(selection).some((clause) => clause.source === source);
+  const { tile, relation } = output.answer;
   const domain = domainClause(output, fields, source);
-  const clauses = [...conditionClauses(output.answer.where, fields, source), ...(domain ? [domain] : [])];
-  if (clauses.length === 0) return null;
-  const label = `${t.label}: ${clauses.map(clauseLabel).join("; ")}`;
+  const where = tile.where ?? [];
+  const ranked = "top" in tile && tile.top !== undefined;
+  if (where.length === 0 && !domain && !ranked) return null;
+  const said = [...where.map(conditionWords), ...(domain ? [clauseLabel(domain)] : [])];
+  const label = `${t.label}: ${said.join("; ")}`;
   const idle = !held && keepsEverything(output, fields);
+  const publish = () => {
+    // The rows the tile reads — its own question, compiled once, as the chart and the rows are.
+    const compiled = tileQuery(table, tile, { fields, relation, resolver });
+    if ("missing" in compiled) return;
+    const members = Query.select(identity).from(compiled.table).where(domain ? [domain.predicate!] : []);
+    selection.update(clauseSemiJoin(identity, members, { source, label }));
+  };
   return (
     <TileAction
       aria-pressed={held}
       disabled={idle}
       hint={idle ? t.keeps : undefined}
       label={t.filter}
-      onClick={() =>
-        selection.update(
-          held
-            ? clauseSemiJoin(identity, null, { source })
-            : clauseSemiJoin(identity, Query.select(identity).from(table).where(clauses.flatMap((c) => (c.predicate ? [c.predicate] : []))), { source, label }),
-        )
-      }
+      onClick={() => (held ? selection.update(clauseSemiJoin(identity, null, { source })) : publish())}
     >
       <ListFilterIcon />
     </TileAction>
   );
 }
+
+/** A tile's condition, as a chip reads one: its path, then what it keeps. */
+const conditionWords = (c: Condition) =>
+  "in" in c ? `${c.field} ${c.in.join(", ")}` : "between" in c ? `${c.field} ${c.between.join("–")}` : `${c.field} ~ ${c.contains}`;
 
 type WriteStatus = { state: "idle" } | { state: "pending" } | { state: "failed"; error: unknown };
 
@@ -475,11 +455,11 @@ type WriteStatus = { state: "idle" } | { state: "pending" } | { state: "failed";
  * spec already shows, and a rejection is drawn under the tile with the button back. Here rather than
  * in the button, since the button is in the tile's header and the failure is not.
  */
-function useAdd(adding: Adding | undefined, key: string, output: AnswerOutput) {
+function useAdd(adding: Adding | undefined, key: string, output: Required<AnswerOutput>) {
   const [status, setStatus] = React.useState<WriteStatus>({ state: "idle" });
   if (!adding) return null;
   const { dashboards, onAdd, onOpen } = adding;
-  const tile = output.answer.show;
+  const tile = output.answer.tile;
   const where: AnswerAdded = { relation: output.answer.relation, key, id: tile.id };
   const added = dashboards.byRelation[key]?.tiles.some((each) => each.id === tile.id) ?? false;
   const add = (fields: readonly FieldStat[]) => {

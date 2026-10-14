@@ -27,7 +27,7 @@ const WAIT = { timeout: 10_000 };
 const SPEC: DashboardSpec = {
   filters: [],
   tiles: [
-    { id: "place", kind: "chart", span: 1, type: "bar", title: "Count by Place.name", x: "Place.name", y: { op: "count" } },
+    { id: "place", kind: "chart", span: 1, type: "bar", title: "Count by knows.livesIn.name", x: "knows.livesIn.name", y: { op: "count" } },
   ],
 } as unknown as DashboardSpec;
 
@@ -155,7 +155,7 @@ describe("a pick on a hidden dashboard, under the timeline", { timeout: 60_000 }
     // The dashboard drawn, then the Graph view and a window on the timeline.
     await vi.waitFor(async () => {
       await act(() => settle(corpus));
-      expect(figure("Count by Place.name").querySelector("svg g[aria-label=bar] rect")).toBeTruthy();
+      expect(figure("Count by knows.livesIn.name").querySelector("svg g[aria-label=bar] rect")).toBeTruthy();
     }, WAIT);
     act(() => show("graph"));
     await brush(1900, 1909);
@@ -164,14 +164,14 @@ describe("a pick on a hidden dashboard, under the timeline", { timeout: 60_000 }
     // On the dashboard, a click on the bar of Place 1 — the Toggle's own pointerdown.
     act(() => show("dashboard"));
     await act(() => settle(corpus));
-    const svg = figure("Count by Place.name").querySelector("svg")!;
-    const toggle = plotOf("Count by Place.name")!.interactors[0] as { mark: { index: number; data: { columns: Record<string, ArrayLike<unknown>> } }; as: string[] };
+    const svg = figure("Count by knows.livesIn.name").querySelector("svg")!;
+    const toggle = plotOf("Count by knows.livesIn.name")!.interactors[0] as { mark: { index: number; data: { columns: Record<string, ArrayLike<unknown>> } }; as: string[] };
     const at = Array.from(toggle.mark.data.columns[toggle.as[0]!]!).indexOf("Place 1");
     const bar = [...svg.querySelectorAll(`g[data-index='${toggle.mark.index}'] rect`)].find((r) => (r as unknown as { __data__: number }).__data__ === at)!;
     fireEvent.pointerEnter(svg);
     fireEvent.pointerDown(bar);
     act(() => show("graph"));
-    await vi.waitFor(() => expect(labels()).toEqual(["Remove born 1900 – 1909", "Remove Place.name Place 1"]), WAIT);
+    await vi.waitFor(() => expect(labels()).toEqual(["Remove born 1900 – 1909", "Remove knows.livesIn.name Place 1"]), WAIT);
     // Person2 in Place 1 is Person 1 or 7, so the roots are 0 and 6.
     await vi.waitFor(() => expect(snapshot().matching).toBe(2), WAIT);
 
@@ -181,7 +181,7 @@ describe("a pick on a hidden dashboard, under the timeline", { timeout: 60_000 }
     if (born()) fireEvent.click(born()!);
     await act(() => settle(corpus));
     await vi.waitFor(() => expect(born()).toBeUndefined(), WAIT);
-    expect(labels()).toEqual(["Remove Place.name Place 1"]);
+    expect(labels()).toEqual(["Remove knows.livesIn.name Place 1"]);
     await vi.waitFor(() => expect(snapshot().matching).toBe(2), WAIT);
   });
 });

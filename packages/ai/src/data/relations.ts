@@ -1,6 +1,7 @@
-import { count, desc, Query, relationHops, relationIdentities, relationQuery, type Coordinator, type JoinGraph, type Relation } from "@kanzo-tech/mosaic";
+import { count, desc, Query, relationHops, relationQuery, type Coordinator, type JoinGraph, type Relation } from "@kanzo-tech/mosaic";
 import { fieldStats, plotRelation, type SummarizeRow } from "@kanzo-tech/ui/analytics";
 import type { AnswerField, AnswerRelation } from "./answer.js";
+import { resolverOf } from "./ask.js";
 
 export interface AnswerRelationsOfOptions {
   /**
@@ -41,7 +42,7 @@ export interface ReadAnswerRelationsOptions {
 
 /**
  * **The relations an answer may be about, read from the engine**: each one's fields as a dashboard
- * over it reads them — `fieldStats` over its `SUMMARIZE`, without the keys `relationIdentities` names,
+ * over it reads them — `fieldStats` over its `SUMMARIZE`, without its steps' keys (`JoinResolver.steps`),
  * then `plotRelation` — and each category's most common values, which are what the model is told a
  * field holds in place of DDL. One `SUMMARIZE` per relation and one count per category.
  */
@@ -70,7 +71,7 @@ export async function readAnswerRelations(
   return Promise.all(
     relations.map(async (relation) => {
       const table = relationQuery(graph, relation);
-      const exclude = relationIdentities(graph, relation).map((i) => i.column);
+      const exclude = resolverOf(graph).steps(relation).map((s) => s.key);
       // `queryFieldStats`' read, written out because it takes no signal: the summary is a statement
       // mosaic-sql has no node for, around a query over the relation.
       const summary = await ask(`SUMMARIZE ${Query.select("*").from(table)}`);

@@ -59,6 +59,11 @@ A filter on a field that has no control, or that the relation no longer has, is 
 | `id` | `string` | Stable identity, used as the React key. Unique within `tiles`. |
 | `kind` | `"stat" \| "chart" \| "table"` | What the tile is. |
 | `title` | `string?` | Overrides the title derived from what the tile reads — *Mean bounty*, *Count by hall and verdict*, *leagues × bounty*, *Rows*. |
+| `where` | `Condition[]?` | The tile's own conditions, under the page's filter: `{ field, in: [values] }`, `{ field, between: [low, high] }` (inclusive; a time as an ISO date) or `{ field, contains: text }`. A field is a path from the relation's root; one off the relation is [crossed in](/docs/analytics/dashboard#the-joins-one-door) at the step it leaves. |
+
+Every field a tile names — `x`, a measure's `field`, `color`, `facet`, `trend`, a table's `columns`,
+a condition's `field` — is the relation's column, named by its path from the root: `gender` on the
+root, `knows.gender` one hop away.
 
 A chart and a table also have:
 
@@ -86,6 +91,7 @@ tall as the chart beside it.
 | `y` | `DashboardMeasure` | What is measured per group — or, for `dot` and `regression`, `{ "op": "value", "field": … }`: the raw column, one point per row. |
 | `color` | `string?` | A category of 2–8 values drawn as series. Not on `regression`. |
 | `facet` | `string?` | A category of 2–6 values drawn as small multiples sharing one pair of scales. Not on `bar`. |
+| `top` | `number?` | Keeps the bars the measure ranks first, ties by the bar — `bar` only, 1 to 1000. |
 | `origin` | `{ rule: string }?` | The [rule](/docs/analytics/dashboard#how-the-charts-are-chosen) that proposed the chart, set by `autoDashboard` and dropped by any edit but its width. What its *Automatic* badge and rationale are read from. |
 
 ### TableTile
@@ -93,6 +99,7 @@ tall as the chart beside it.
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `columns` | `string[]` | The rows under the selection, as these columns, in order. |
+| `top` | `number?` | Keeps the first rows, 1 to 1000. |
 
 ## DashboardMeasure
 
@@ -103,10 +110,11 @@ A number per group, or the raw column for the two charts that plot rows.
 | `op` | `DashboardAggregate \| "value"` | The aggregate — see below. |
 | `field` | `string?` | What the aggregate reads. None for `count`. |
 | `equals` | `string \| number \| boolean` | For `share` only: the value whose share is measured. |
+| `path` | `string?` | For `count` only: a step of the relation — `affiliation` — whose rows are counted in place of the root's. |
 
 | `op` | SQL | `field` | Notes |
 | --- | --- | --- | --- |
-| `count` | `count(*)` | — | |
+| `count` | `count(DISTINCT key)` of the relation's root — or of `path`'s step | — | what is measured, once per group however many joined rows lead there; on a type alone, `count(*)` |
 | `distinct` | `count(DISTINCT field)` | any field | |
 | `sum` · `avg` · `min` · `max` · `median` | the aggregate of `field` | a number | `avg` is labelled *Mean*, `sum` *Total* |
 | `share` | `100 * count(*) FILTER (WHERE field = equals) / count(*)` | a category | a percentage; a tile's delta is in `pp`. Written in the spec, not offered by the editor, because it needs a value |
@@ -192,8 +200,8 @@ host deletes what it stored when it upgrades. The shape check is the compatibili
 and a migration chain come back together the day a release has to carry stored dashboards across a
 change of shape, never one without the other.
 
-Two checks hold whatever the relation: every measure but `count` names a `field`, and a `share`
-names the value it measures (`equals`). Whether the fields exist is the relation's to say, and is
+Four checks hold whatever the relation: every measure but `count` names a `field`, a `share` names
+the value it measures (`equals`), only a `count` names a `path`, and only a bar chart keeps a `top`. Whether the fields exist is the relation's to say, and is
 [treated when it draws](#how-an-invalid-spec-is-treated).
 
 ## Types
@@ -216,6 +224,7 @@ interface StatTile {
   id: string;
   kind: "stat";
   title?: string;
+  where?: Condition[];
   measure: DashboardMeasure;
   trend?: string;
   goodWhenUp?: boolean;
@@ -226,11 +235,13 @@ interface ChartTile {
   kind: "chart";
   span: TileSpan;
   title?: string;
+  where?: Condition[];
   type: DashboardChartType;
   x: string;
   y: DashboardMeasure;
   color?: string;
   facet?: string;
+  top?: number;
   origin?: { rule: string };
 }
 
@@ -239,13 +250,22 @@ interface TableTile {
   kind: "table";
   span: TileSpan;
   title?: string;
+  where?: Condition[];
   columns: string[];
+  top?: number;
 }
+
+type ConditionValue = string | number | boolean;
+type Condition =
+  | { field: string; in: ConditionValue[] }
+  | { field: string; between: [number | string, number | string] }
+  | { field: string; contains: string };
 
 interface DashboardMeasure {
   op: DashboardAggregate | "value";
   field?: string;
   equals?: string | number | boolean;
+  path?: string;
 }
 
 type DashboardChartType = "bar" | "line" | "area" | "histogram" | "dot" | "regression";
@@ -261,5 +281,25 @@ function parseTile(tile: unknown): Tile;
 
 What a tile compiles with is exported for a reader of a tile that is not a dashboard's — the
 [answers](/docs/ai/data) `@kanzo-tech/ai/data` reads: `DASHBOARD_CHART_TYPES` and
-`DASHBOARD_AGGREGATES`, the closed sets the schema picks from; `measureExpr(measure)`, the SQL a
-measure is; and `bucketExpr(field)`, the step a trend groups an ordered field by.
+`DASHBOARD_AGGREGATES`, the closed sets the schema picks from, and **`tileQuery(table, tile,
+context)`**, the one compiler of a tile — the same every tile view reads through:
+
+```ts
+function tileQuery(table: TableExpr, tile: Tile, context: TileContext): TileQuery;
+
+interface TileContext {
+  fields: readonly FieldStat[];
+  relation?: RelationRef | null; // the relation as the page knows it: a count's key, a condition off it
+  resolver?: JoinResolver;       // the page's, selection.resolver
+  filter?: FilterExpr;           // the page's filter, which `rows` is read under
+  limit?: number;                // TILE_ROWS, 1000
+}
+
+type TileQuery =
+  | { table: TableExpr; measure?: ExprValue; rows: Query } // narrowed by where and top; the tile's rows
+  | { missing: readonly string[] };                         // what the relation cannot read
+```
+
+`TileView` (its props `TileViewProps`) draws a tile of any kind by its kind — `ChartCard`, `DashboardStat`, or the rows in a
+titled card — with `actions` in its header beside the pencil: what `Dashboard` draws each tile with,
+and what [`AnswerCard`](/docs/ai/data#the-answer-card) draws an answer with.

@@ -6,42 +6,44 @@ description: Why an answer in @kanzo-tech/ai/data is a tile over a relation the 
 [Ask your data](/docs/ai/data) is what `@kanzo-tech/ai/data` ships. This page is why an answer is
 shaped the way it is.
 
-## An answer is a tile over a relation, and the model fills it from typed names
+## An answer is a relation and a tile, and the tile is the whole question
 
-**The model does not write SQL. It fills an answer whose every name is an enum the page generated
-from the data it shows.** An answer is the dashboard's own vocabulary:
+**The model does not write SQL. It fills a spec whose every name is an enum the page generated from
+the data it shows, and the answer that spec becomes is the dashboard's own vocabulary: a relation,
+and a tile on it.**
 
 ```ts
 interface Answer {
-  /** What is asked about: a type, and the hops from it. The `JoinGraph`'s, as `relationQuery` reads it. */
+  /** What is asked about: the type measured, and the hops the tile's paths take from it. */
   relation: Relation;
-  /** What it is narrowed to, with the clauses the dashboard's filters publish. */
-  where?: readonly Condition[]; // { field, in } | { field, between } | { field, contains }
-  /** How it is shown: a figure, a chart or a table — the dashboard's `Tile`. */
-  show: Tile;
-  /** Rank `show`'s x by its measure and keep these many. */
-  top?: number;
+  /** How it is shown, and what it is narrowed to (`where`) and ranked by (`top`): the dashboard's `Tile`. */
+  tile: Tile;
 }
 ```
 
-`answerSchema(graph, relations)` is the JSON Schema an answer is written in. The relations offered,
-by key, their fields — one list under `$defs` — the aggregates and the chart kinds are enums, so a
-provider that decodes against the schema cannot write a field that does not exist. The schema is one
-object, not one branch per relation, because Anthropic and OpenAI both refuse an `anyOf` at the top;
-so its field enum is every offered relation's, and `checkAnswer` holds each field to the relation the
-answer names. Ask's spec is the same schema with the type it counts, `of`, where the relation was —
-the relation is the resolver's ([Tasks](/docs/design/tasks#ask-from-agent-to-form)) — and
-`checkAnswer` is one of its oracles, so a spec that does not pass is sent back with why. The prompt
-lists each linked type's fields once, with their kind and most common values, *gender: category
-(female, male)*, read from `FieldStat` and one count per category by `readAnswerRelations`, rather
-than DDL; [Asking within a context](/docs/design/ai-context) is why once.
+The tile carries the whole question because [a dashboard's tile carries its own](/docs/design/analytics#a-tile-carries-its-own-question).
+So *Physics prizes by university*, added to the dashboard, is still Physics prizes by university,
+where before a tile could hold neither condition nor ranking and the dashboard stored *prizes by
+university*. The spec the model writes is the tile without what only the page gives it — its id and
+its width — with `of`, the type it measures, and every field a path from it
+([Tasks](/docs/design/tasks#a-field-is-a-path-from-what-is-measured)); `JoinResolver` makes the
+relation of the paths, and the oracles are its misses and `parseTile`. The prompt lists each type's
+fields once, with their kind and most common values, *gender: category (female, male)*, read from
+`FieldStat` and one count per category by `readAnswerRelations`, and the edges a path steps across,
+rather than DDL; [Asking within a context](/docs/design/ai-context) is why once.
 
-**It compiles with what the dashboard already compiles with.** `relationQuery` makes the relation;
-each condition is the clause a dashboard filter would publish; `plotRelation` and `measureExpr` make
-the tile's query. All of it runs under the page's crossfilter at the moment of asking — the clauses whose columns the
-relation has, as `clauseColumns` reads them. The page's filter is not something the model names: it
-is the predicate the answer is read under, as every tile's is. What the answer read is what was
-true then; the card is a tile, and follows the page afterwards like any other.
+It replaced `answerSchema`, `checkAnswer` and `AnswerInput` — the old answer tool's schema, its
+validator, and an answer whose relation was a key — and `answerQuery`, a second compiler of a tile to
+SQL beside the dashboard's.
+
+**It compiles with what the dashboard compiles with, and only that.** `relationQuery` makes the
+relation, `JoinResolver.crossing` brings in a condition off its path, and `tileQuery` — the
+dashboard's one compiler of a tile — makes the query: grouping, measure, order, `top`. The rows Ask
+reads and the marks the card draws come from one function, so the sentence and the chart cannot
+describe two different queries. All of it runs under the page's crossfilter at the moment of asking.
+The page's filter is not something the model names: it is the predicate the answer is read under, as
+every tile's is. What the answer read is what was true then; the card is a tile, and follows the page
+afterwards like any other.
 
 **A page's clause reaches the answer as it reaches a tile.** A chip published on a relation is read
 by the page's own resolver (`JoinResolver.crossing`): as it is on that relation, and on the answer's
@@ -72,13 +74,15 @@ Under [the read door](/docs/design/reads) it stays the engine's: the read is a q
 chat's signal cancels the query. The cache keys the read by the engine and the statement, which
 holds the page's clauses, so an answer asked again under the same chips reads nothing again.
 
-**The card is a dashboard tile.** `QueryResult` gives way to the dashboard's `ChartCard` over the
-answer, with two verbs that fall out of the shape: **Filter the page to these rows** publishes the answer's
-conditions and, for a bar chart, the categories it answered, mapped to the page as one semi-join on
-the relation's root key (a `clauseSemiJoin` over the answer's rows), and **Add to the
-dashboard** puts the tile in the relation's spec, because it already is one. A kept answer is names,
-not SQL, so a restored transcript draws it again over the host's graph, and nothing a transcript
-carried reaches the engine as a statement.
+**The card is a dashboard tile, and it takes the answer.** `AnswerCard` takes `answer` — what the
+`data-answer` part holds — not an AI SDK tool part, so an answer can be drawn outside a transcript. It
+draws the dashboard's own `TileView` over the tile, with two verbs that fall out of the shape:
+**Filter the page to these rows** publishes one semi-join on the relation's root key over the rows
+the tile reads — `tileQuery`'s narrowed relation, its conditions and its ranking in it, and for a bar
+chart the categories it answered — and **Add to the dashboard** puts the tile, its conditions and its
+ranking with it, in the relation's spec. A kept answer is names, not SQL, so a restored transcript
+draws it again over the host's graph, and nothing a transcript carried reaches the engine as a
+statement.
 
 **The references are the semantic layer's**: Looker's Conversational Analytics and ThoughtSpot Sage,
 where a question is answered by picking fields of an explore or a worksheet, and Cube, LookML and
@@ -107,10 +111,57 @@ growing the spec costs more than a second door. Then a SQL tool returns beside t
 `gateStatement` as it was — with `@kanzo-tech/mosaic`'s engine loading DuckDB's `json` again, whose
 `json_serialize_sql` was the gate's parser — and the card says which one answered.
 
-*Held by* `packages/ai/src/data/answer.test.ts`, "the enums are the relations offered, by key, and their fields, listed once"; "an
-answer compiles to the same query the dashboard tile reads"; "input outside the schema is refused
-before it runs"; and `packages/ai/src/data/answer-card.test.tsx`, "Add to the dashboard hands the
+*Held by* `packages/ai/src/data/answer.test.ts`, "reads its tile's rows with the one compiler the
+dashboard's tile reads"; `packages/ai/src/data/answer-card.test.tsx`, "Add to the dashboard hands the
 host its dashboards with the tile in the relation's spec, and where it landed".
+
+## An answer is a data part, not a tool call
+
+**Ask's transport writes the answer as a `data-answer` part of the assistant's message, and a
+decision it needs from the person as a `data-ask` part; it writes no tool call.** No model called a
+tool: the Task's spec was generated with `Output.object` and checked by oracles, and the transport
+then wrote a `tool-input-available` *as the model would have written it*, so that `Chat`'s `tools`
+renderer and an `AnswerCard` taking a tool part could draw it. A data part is the AI SDK's form for
+exactly this — application data a stream writes beside the text, typed per name, reconciled by `id`
+when it is written twice — and `Chat` draws it through a `data` renderer map beside `tools`. An answer
+is one part written twice under one `id`: the answer as asked, then the answer read.
+
+The reference is the AI SDK's *Streaming Custom Data*: `createUIMessageStream`'s writer writes
+`{ type: "data-answer", id, data }`, and a `UIMessage` typed with its data parts carries them to
+`useChat`.
+
+**What would reverse it:** a model that answers by calling a tool — a remote model with native tool
+calling, given Ask as a tool. Then the call is real, and a tool part is what it is.
+
+*Held by* `packages/ai/src/data/ask-chat.test.ts`, "answers with the tile the Task's spec is, read on
+the page's engine, and words written from its rows"; `packages/ai/src/chat.test.tsx`, "draws a data
+part through the host's renderer by its name, and says when its message is written no more".
+
+## A question to the person is the question part
+
+**When Ask must ask — an oracle's `Decision`, options and never free text — it writes the decision
+as a `data-ask` part, the host draws it with `@kanzo-tech/ui`'s question part, and the person's pick
+comes back as the option's id in the reply's own `data-ask` part, `askEdit(spec, { [decision]:
+option })`, which settles the decision as the Task's `decide` does.** It was written as numbered text
+and the reply matched back against *1*, the option's id or its label — a second way to ask the
+reader beside the question component keasy's assistant already draws its decisions with. There is one
+question part, in `@kanzo-tech/ui`, and
+[Admission](/docs/design/admission#a-question-is-one-part-in-kanzo-techui) is why it lives there.
+
+Since Ask's fields became paths, none of its own oracles raises a decision: the tie between two paths
+of one length that was its one question is the model's to write
+([Tasks](/docs/design/tasks#two-paths-of-one-length-are-the-models-with-the-other-on-the-chip)). The
+door stays because a Task's oracle may ask, and the shape of the asking is the Task's, not Ask's.
+
+The reference is MCP's elicitation, which `Decision` already follows: a request with a schema of
+options, answered by a structured reply, never parsed out of prose.
+
+**What would reverse it:** a decision whose answer cannot be a choice — a value the person types,
+such as a threshold. Then the question part takes an input, as Questionnaire's question already
+does, and the reply carries the value; it is still not parsed out of text.
+
+*Held by* `packages/ai/src/data/ask-chat.test.ts`, "asks a decision as a data part, and settles it by
+the option the reply picks, not by its words".
 
 ## Whether a tile is on the dashboard is the host's spec, read
 
@@ -180,8 +231,8 @@ each clause".
 ## Which relations are offered
 
 **Ask is offered the types alone — `answerRelationsOf(graph, { hops: 0 })` — and the relation is
-grown from them by the resolver.** An answer across a hop is still answered: the resolver finds the
-path, and a step's fields are the type's, read once. What a relation of its own costs is nearly all
+the paths the model writes from them.** An answer across a hop is still answered: a path steps across
+it, and a step's fields are the type's, read once. What a relation of its own costs is nearly all
 of the cost, measured 2026-10 with `readAnswerRelations` in DuckDB-WASM's Node build, over a graph
 shaped like LDBC's social network benchmark — its 8 types, its 23 edges, its columns and its row
 counts, the values synthesised:

@@ -1,6 +1,6 @@
 "use client";
 
-import { type RelationExpr, type TableExpr, desc, Query, type ExprValue } from "@kanzo-tech/mosaic";
+import { type RelationExpr, type TableExpr, count, desc, Query, type ExprValue } from "@kanzo-tech/mosaic";
 import type React from "react";
 import { bin } from "./chart-bin.js";
 import {
@@ -21,14 +21,15 @@ import { ChartIntervalX, ChartIntervalXY, ChartHighlight, ChartToggleY } from ".
 import { ChartLegend } from "./chart-legend.js";
 import { ChartAreaY, ChartBarX, ChartDot, ChartLineY, ChartRectY, ChartRegressionY } from "./chart-marks.js";
 import { ChartRoot } from "./chart-root.js";
-import { useRelation } from "./mosaic-provider.js";
+import { MosaicClients } from "./mosaic-provider.js";
 import { chartTableKey } from "./chart-spec.js";
 import { EditTileButton } from "./edit-tile-button.js";
-import { measureExpr, type ChartTile, type DashboardChartType } from "./dashboard-spec.js";
+import type { ChartTile, DashboardChartType } from "./dashboard-spec.js";
 import type { FieldStat } from "./field-stats.js";
 import { rationale as rationaleOf } from "./recommend.js";
 import { tileTitle } from "./tile-kinds.js";
 import { useChartQuery } from "./use-chart-query.js";
+import { useTile } from "./use-tile.js";
 
 export interface ChartCardProps extends Omit<React.ComponentProps<typeof Card>, "onChange"> {
   /** The relation the chart reads, as `ChartRoot` takes it. */
@@ -49,12 +50,12 @@ export interface ChartCardProps extends Omit<React.ComponentProps<typeof Card>, 
 
 /** Each chart type's name, icon and gesture — what a card says under its title and the editor lists. */
 export const CHART_TYPE: Record<DashboardChartType, { label: string; icon: typeof ChartLineIcon; hint: string }> = {
-  bar: { label: "Bar", icon: ChartBarBigIcon, hint: "click a bar to filter" },
-  line: { label: "Line", icon: ChartLineIcon, hint: "drag to filter a range" },
-  area: { label: "Area", icon: ChartAreaIcon, hint: "drag to filter a range" },
-  histogram: { label: "Histogram", icon: ChartColumnIcon, hint: "drag to filter a range" },
-  dot: { label: "Scatter", icon: ChartScatterIcon, hint: "drag a box to filter" },
-  regression: { label: "Fit", icon: ChartSplineIcon, hint: "drag a box to filter · the fit and its band are SQL aggregates" },
+  bar: { label: "Bar", icon: ChartBarBigIcon, hint: "Click a bar to filter" },
+  line: { label: "Line", icon: ChartLineIcon, hint: "Drag to filter a range" },
+  area: { label: "Area", icon: ChartAreaIcon, hint: "Drag to filter a range" },
+  histogram: { label: "Histogram", icon: ChartColumnIcon, hint: "Drag to filter a range" },
+  dot: { label: "Scatter", icon: ChartScatterIcon, hint: "Drag a box to filter" },
+  regression: { label: "Fit", icon: ChartSplineIcon, hint: "Drag a box to filter · the fit and its band are SQL aggregates" },
 };
 
 /**
@@ -67,9 +68,7 @@ export const CHART_TYPE: Record<DashboardChartType, { label: string; icon: typeo
  */
 export function ChartCard(props: ChartCardProps) {
   const { relation, fields, card, config, onEdit, actions, className, slot, ...rest } = props;
-  const missing = [card.x, card.y.field, card.color, card.facet].filter(
-    (name): name is string => name !== undefined && !fields.some((f) => f.name === name),
-  );
+  const tile = useTile(relation, card, fields);
   // The card's `origin` says which rule proposed it; an edit clears it (`edited`).
   const rationale = rationaleOf(card, fields);
 
@@ -97,12 +96,15 @@ export function ChartCard(props: ChartCardProps) {
         ) : null}
       </CardHeader>
       <CardContent>
-        {missing.length > 0 ? (
+        {"missing" in tile.query ? (
           <p className="flex h-[220px] items-center justify-center text-center text-muted-foreground text-sm">
-            {`The relation has no ${missing.join(", ")} any more.`}
+            {`The relation has no ${tile.query.missing.join(", ")} any more.`}
           </p>
         ) : (
-          <CardChart card={card} config={config} fields={fields} relation={relation} />
+          // The marks read the tile's own question, and are clients of the relation it narrows.
+          <MosaicClients relation={tile.relation ?? undefined}>
+            <CardChart card={card} config={config} fields={fields} measure={tile.query.measure!} table={tile.query.table} />
+          </MosaicClients>
         )}
       </CardContent>
     </Card>
@@ -130,28 +132,53 @@ function useTopValues(table: TableExpr, field: string | undefined, by: ExprValue
   return rows === null ? null : rows.map((row) => String(row.value));
 }
 
-const truncate = (text: unknown) => {
+/** The most characters a bar's label shows: its band grows to fit them before one is cut. */
+const LABEL_CHARS = 28;
+
+/** A bar's label, cut at `LABEL_CHARS`. Exported for its test, not on the barrel. */
+export const barLabel = (text: unknown) => {
   const s = String(text);
-  return s.length > 18 ? `${s.slice(0, 17)}…` : s;
+  return s.length > LABEL_CHARS ? `${s.slice(0, LABEL_CHARS - 1)}…` : s;
+};
+
+/** The label band's width: the longest label as drawn, at about 6.5px a character at the axis's size. */
+export const labelBand = (labels: readonly unknown[]) => Math.max(40, 12 + 6.5 * Math.max(0, ...labels.map((v) => barLabel(v).length)));
+
+/**
+ * Ticks at whole numbers only, at most seven: the axis of a count, which has no half a row. An
+ * interval as Plot takes one for `ticks` — `range(lo, hi)` is half-open — stepping 1, 2, 5, 10, 20…
+ * Exported for its test, not on the barrel.
+ */
+export const WHOLE = {
+  floor: Math.floor,
+  offset: (x: number, k = 1) => x + k,
+  range(lo: number, hi: number) {
+    let step = 1;
+    while ((hi - lo) / step > 7) step *= String(step)[0] === "2" ? 2.5 : 2;
+    const out: number[] = [];
+    for (let v = Math.ceil(lo / step) * step; v < hi; v += step) out.push(v);
+    return out;
+  },
 };
 
 function CardChart({
-  relation,
+  table,
+  measure: y,
   fields,
   card,
   config,
 }: {
-  relation: RelationExpr;
+  table: TableExpr;
+  measure: ExprValue;
   fields: readonly FieldStat[];
   card: ChartTile;
   config?: Readonly<Record<string, ChartConfig>>;
 }) {
-  const table = useRelation(relation).table!;
-  const y = measureExpr(card.y);
+  const relation = table;
   const given = card.color ? config?.[card.color] : undefined;
   const bars = useTopValues(table, card.type === "bar" ? card.x : undefined, y, BAR_LIMIT);
-  const series = useTopValues(table, card.color, measureExpr({ op: "count" }), SERIES_LIMIT, given !== undefined);
-  const panels = useTopValues(table, card.facet, measureExpr({ op: "count" }), FACET_LIMIT);
+  const series = useTopValues(table, card.color, count(), SERIES_LIMIT, given !== undefined);
+  const panels = useTopValues(table, card.facet, count(), FACET_LIMIT);
   if (bars === null || series === null || panels === null) return <Skeleton aria-busy className="h-[220px] w-full" />;
 
   const seriesConfig: ChartConfig =
@@ -173,19 +200,20 @@ function CardChart({
     ...faceted,
   };
   const legend = card.color ? <ChartLegend /> : null;
+  // A count is whole: its axis has no 0.5.
+  const whole = card.y.op === "count" || card.y.op === "distinct" ? { ticks: WHOLE, tickFormat: ",d" } : {};
   const facetAxis = fx ? <ChartFacetX domain={panels} label={null} /> : null;
 
   switch (card.type) {
     case "bar": {
-      const left = Math.min(140, Math.max(40, 12 + 6.5 * Math.max(0, ...bars.map((v) => truncate(v).length))));
       return (
-        <ChartRoot {...frame} margin={{ top: 4, right: 12, bottom: 24, left: left }}>
+        <ChartRoot {...frame} margin={{ top: 4, right: 12, bottom: 24, left: labelBand(bars) }}>
           {behind ? <ChartBarX fill={MUTED} filterBy={null} opacity={0.22} x={y} y={card.x} /> : null}
           <ChartBarX fill={fill} insetBottom={1} order={card.color ? order : undefined} x={y} y={card.x} />
           <ChartToggleY />
           <ChartHighlight />
-          <ChartAxisX grid label={null} ticks={5} />
-          <ChartAxisY domain={bars} label={null} tickFormat={truncate} />
+          <ChartAxisX grid label={null} ticks={5} {...whole} />
+          <ChartAxisY domain={bars} label={null} tickFormat={barLabel} />
           {legend}
         </ChartRoot>
       );
@@ -212,7 +240,7 @@ function CardChart({
           ) : null}
           <ChartIntervalX />
           <ChartAxisX label={null} ticks={fx ? 3 : 8} />
-          <ChartAxisY grid label={null} />
+          <ChartAxisY grid label={null} {...whole} />
           {facetAxis}
           {legend}
         </ChartRoot>
@@ -224,7 +252,7 @@ function CardChart({
           <ChartRectY fill={fill} fx={fx} inset={0.5} order={card.color ? order : undefined} x={bin(card.x)} y={y} />
           <ChartIntervalX />
           <ChartAxisX label={null} ticks={fx ? 3 : 8} />
-          <ChartAxisY grid label={null} />
+          <ChartAxisY grid label={null} {...whole} />
           {facetAxis}
           {legend}
         </ChartRoot>

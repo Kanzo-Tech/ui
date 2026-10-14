@@ -12,16 +12,17 @@
  *
  * A case is scored by **execution accuracy**: the rows the answer was read from (its card's data
  * table, the engine's) hold every `holds` pair and no `lacks` pair. A pair is a label and a count; a
- * label of `null` is a figure, any cell. Two shapes have no rows to score: a question two relations
- * answer equally, which must be asked back with the relations as numbered options
- * (`expects: "question"`), and one the data cannot answer, which must draw no card
- * (`expects: "refusal"`).
+ * label of `null` is a figure, any cell. One shape has no rows to score: a question the data cannot
+ * answer, which must draw no card (`expects: "refusal"`). A question two paths of one length answer
+ * — a prize's country, by its laureate's birth or its university's address — is answered by the path
+ * the model wrote, with the other on the chip (`/docs/design/tasks`), so it is scored as an answer
+ * whichever it wrote: its `holds` is empty.
  */
 
 /** A row the answer must, or must not, have been read from: a label and its count. */
 export type Pair = readonly [label: string | null, n: number];
 
-/** The page the question is asked on: a dashboard's relation, and a bar picked on its one tile. */
+/** The page the question is asked on: a dashboard's relation, and a bar picked on its one tile — its `x` a path from the relation's root. */
 export interface Page {
   /** The relation's root type and the hops from it, as `relationKey` spells them: `>category>Category`. */
   readonly root: string;
@@ -37,8 +38,8 @@ export interface AskCase {
   readonly page: Page;
   /** The questions, asked in turn in one conversation; the last one is scored. */
   readonly ask: readonly string[];
-  /** What the last question must end in: rows (the default), a question back, or no answer. */
-  readonly expects?: "rows" | "question" | "refusal";
+  /** What the last question must end in: rows (the default), or no answer. */
+  readonly expects?: "rows" | "refusal";
   readonly holds: readonly Pair[];
   readonly lacks?: readonly Pair[];
   /** Why the case is in the set: the failure it is the test for. */
@@ -46,7 +47,7 @@ export interface AskCase {
 }
 
 const PRIZES_BY_CATEGORY: Page = { root: "LaureateAward", hops: [">category>Category"] };
-const PHYSICS: Page = { ...PRIZES_BY_CATEGORY, filter: { x: "Category.name", pick: "Physics" } };
+const PHYSICS: Page = { ...PRIZES_BY_CATEGORY, filter: { x: "category.name", pick: "Physics" } };
 
 export const ASK: readonly AskCase[] = [
   // The two questions keasy's Nobel demo asks.
@@ -247,15 +248,14 @@ export const ASK: readonly AskCase[] = [
     tests: "a synonym: «female winners» for laureates whose gender is female",
   },
   {
-    id: "nobel-countries-tie",
+    id: "nobel-countries-two-paths",
     corpus: "nobel",
     page: PRIZES_BY_CATEGORY,
     ask: ["Which countries have won the most prizes?"],
-    expects: "question",
     // A prize reaches a country two equally short ways: its laureate's birth (USA 299) and its
-    // university's country (USA 411). Answering either without asking is guessing.
+    // university's country (USA 411). The model's path is the answer, and the chip offers the other.
     holds: [],
-    tests: "a tie the reader must decide, asked back with both relations",
+    tests: "two paths of one length: answered by the one the model wrote, asking nothing",
   },
   {
     id: "nobel-no-prize-money",
@@ -363,13 +363,13 @@ export const ASK: readonly AskCase[] = [
     tests: "two category conditions at once",
   },
   {
-    id: "snb-most-friends-tie",
+    id: "snb-most-friends-two-paths",
     corpus: "snb",
     page: { root: "Person" },
     ask: ["Who has the most friends?"],
-    expects: "question",
-    // A knowing reaches a person as its knower and as its known: two equally short ways.
+    // A knowing reaches a person as its knower and as its known — `knows` and `^knows` — two paths
+    // of one length; the model's is the answer.
     holds: [],
-    tests: "a tie on a relation that points at one type twice",
+    tests: "two paths of one length on a relation that points at one type twice, asking nothing",
   },
 ];
