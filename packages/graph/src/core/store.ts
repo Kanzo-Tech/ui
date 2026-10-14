@@ -187,7 +187,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     read("structure", () => readCatalog(coordinator, from), (next) => {
       if (next.size === 0) {
         failed = true;
-        fail(new GraphError("graph/nothing-to-draw", `the graph attached as ${from} has no node type with a vertex`));
+        fail(new GraphError("graph/nothing-to-draw", `the graph attached as ${from} has no vertex`));
         return;
       }
       structure = next;

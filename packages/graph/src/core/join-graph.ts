@@ -4,12 +4,13 @@ import { VERTICES, verticesOf } from "./source";
 import { DST, KEY, SRC, type Column, type Structure } from "./structure";
 
 /**
- * A column as `JoinGraph` describes it: its type and nullability, and the part it plays where it is
- * a key — the global id is the graph's `address`, the primary key the type's `identity`.
+ * A column as `JoinGraph` describes it: its type and nullability, the part it plays where it is a key
+ * — the global id is the graph's `address`, the primary key the type's `identity` — and what its
+ * writer counted in it. The `vertices` union is described without counts: they were taken per type.
  */
-function described(name: string, c: Column): JoinColumn {
+function described(name: string, c: Column, counted = true): JoinColumn {
   const role = name === KEY ? "address" : c.primary ? "identity" : null;
-  return { name, type: c.type, ...(role === null ? {} : { role }), nullable: c.nullable };
+  return { name, type: c.type, ...(role === null ? {} : { role }), nullable: c.nullable, ...(c.stats === null || !counted ? {} : { stats: c.stats }) };
 }
 
 /**
@@ -33,7 +34,7 @@ export function joinGraphOf(structure: Structure): JoinGraph {
     key: KEY,
     columns: [KEY, ...every.columns].flatMap((c) => {
       const column = first(c);
-      return column ? [described(c, column)] : [];
+      return column ? [described(c, column, false)] : [];
     }),
     rows: structure.size,
     of: structure.vertices.map((v) => v.name),
@@ -47,7 +48,7 @@ export function joinGraphOf(structure: Structure): JoinGraph {
         columns: [...v.columns].map(([name, c]) => described(name, c)),
         rows: v.rows,
         // The global id and the primary key: each never null and never repeated.
-        candidateKeys: [KEY, v.identity],
+        candidateKeys: [...new Set([KEY, v.identity])],
       })),
       all,
     ],

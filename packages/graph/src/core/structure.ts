@@ -1,4 +1,4 @@
-import { type Query } from "@kanzo-tech/mosaic";
+import { type JoinColumnStats, type Query } from "@kanzo-tech/mosaic";
 
 /**
  * **The graph as its catalog describes it.** `readCatalog` (`catalog.ts`) reads GraphAr's relations
@@ -35,20 +35,25 @@ export interface VertexTable {
   readonly table: Query;
   /** `KEY`, then every property, by name, in the type's order. */
   readonly columns: ReadonlyMap<string, Column>;
-  /** The primary key — GraphAr's `is_primary` property, what a label falls back to. */
+  /** The primary key — GraphAr's `is_primary` property, or `KEY` where the type has none; what a label falls back to. */
   readonly identity: string;
 }
 
 /**
  * One column: its DuckDB type, as the engine reads the type's view — what Mosaic's `jsType` is asked
- * — and what GraphAr declares of it.
+ * — what GraphAr declares of it, and what its writer counted in it.
  */
 export interface Column {
   readonly type: string;
   /** GraphAr's `is_primary`: the type's key. */
   readonly primary: boolean;
   readonly nullable: boolean;
+  /** The writer's counts, from the chunk's footer, or `null` where it states none — and for a list. */
+  readonly stats: JoinColumnStats | null;
 }
+
+/** A GraphAr `list` or `set` property, which DuckDB reads as `T[]`: a value of the type, not a key to group, place or time by. */
+export const isList = (column: Column): boolean => column.type.endsWith("[]");
 
 /** One edge type: its label, the vertex types its ends point into, and its rows under global ids. */
 export interface EdgeTable {
@@ -67,7 +72,7 @@ export interface EdgeTable {
 export interface Structure {
   /** The catalog `attachGraph` attached the graph under. */
   readonly from: string;
-  /** Every node type: a vertex type with a primary key, in the graph document's order. */
+  /** Every vertex type, in the graph document's order. */
   readonly vertices: readonly VertexTable[];
   readonly edges: readonly EdgeTable[];
   /** Every vertex, every type: global ids run `0 … size − 1`. */

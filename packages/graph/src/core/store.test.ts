@@ -43,11 +43,11 @@ describe("the graph store", () => {
     expect(geometry?.links.length).toBe(2 * 20);
   });
 
-  it("refuses a graph whose every vertex type lacks a primary key as graph/nothing-to-draw", async () => {
+  it("refuses a graph with no vertex as graph/nothing-to-draw", async () => {
     const corpus = await attach();
     await corpus.coordinator.exec(
-      `ALTER VIEW ${corpus.from}.graphar_properties RENAME TO written;
-       CREATE VIEW ${corpus.from}.graphar_properties AS SELECT * REPLACE (false AS is_primary) FROM ${corpus.from}.written;`,
+      `ALTER VIEW ${corpus.from}.graphar_vertex_types RENAME TO written;
+       CREATE VIEW ${corpus.from}.graphar_vertex_types AS SELECT * FROM ${corpus.from}.written WHERE false;`,
     );
     const { onFailure, store } = await graph({}, corpus);
     await settle(corpus);

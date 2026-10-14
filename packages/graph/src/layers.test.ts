@@ -24,8 +24,12 @@ const modules = (readdirSync(SRC, { recursive: true }) as string[])
 const parse = (name: string, text: string) =>
   ts.createSourceFile(name, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 
-/** Upper-case, as every query this package ever wrote spelled them — prose says "where" too. */
-const SQL = /\b(SELECT|FROM|WHERE|JOIN|CREATE (OR REPLACE )?(VIEW|TABLE))\s|read_parquet|parquet_metadata/;
+/**
+ * Upper-case, as every query this package ever wrote spelled them — prose says "where" too. And the
+ * table function that opens a file: the graph reads a footer through `parquet_metadata` and
+ * `parquet_kv_metadata`, in a template inside a node, and never a chunk itself.
+ */
+const SQL = /\b(SELECT|FROM|WHERE|JOIN|CREATE (OR REPLACE )?(VIEW|TABLE))\s|read_parquet/;
 
 /** The three modules that read: the catalog, once (`readCatalog`); the rows; and the crossfilter's client. */
 const READERS = new Set(["core/catalog.ts", "core/source.ts", "core/client.ts"]);

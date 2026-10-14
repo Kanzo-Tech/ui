@@ -6,7 +6,8 @@ The graph view over an [Apache GraphAr](https://graphar.apache.org/) graph — w
 [`@kanzo-tech/graphar-duckdb`](https://github.com/Kanzo-Tech/graphar)'s `attachGraph`, and
 `GraphRoot` draws the whole of it, reading it with SQL through the page's coordinator. Nothing of
 graphar's or fossil's is imported: the contract is the catalog, `graphar_vertex_types`,
-`graphar_edge_types`, `graphar_properties` and a view per type.
+`graphar_edge_types`, `graphar_properties`, `graphar_chunks` — the chunks' Parquet footers hold what the
+writer counted — and a view per type.
 
 ## Install
 
@@ -47,14 +48,15 @@ const { selection } = useMosaic();
 gives the catalog back, and `GraphRoot` takes the name it was attached under as `from`.
 `from={null}` is no graph yet; the canvas is mounted either way and waits over an empty surface.
 
-**The whole graph is drawn**: every node type — a GraphAr vertex type with a primary key — and
-every edge type between two of them, read once, one statement per type, and uploaded once. A
-vertex's `dense_id` is its index in the buffers: the graph's own global id, each node type's
-`_graphArVertexIndex` plus the counts of the node types before it. The camera reads nothing.
+**The whole graph is drawn**: every vertex type and every edge type between two of them, read once, one statement per type, and uploaded once. A
+vertex's `dense_id` is its index in the buffers: the graph's own global id, each vertex type's
+`_graphArVertexIndex` plus the counts of the vertex types before it. The camera reads nothing.
 
 **The channels are Plot's**: `fill`, `symbol`, `r`, `stroke` and `title`, where a CSS colour is a
 constant and anything else is a column. Unbound, colour is the vertex type and a label is the type's
-primary key. Changing a column binding re-reads that column and nothing else.
+primary key, or its id where it has none. Changing a column binding re-reads that column and nothing else.
+A multi-valued property is a `list` property of its type: the inspector shows its values and a search
+finds them, but it is never offered as an axis, a group or a field.
 
 **`filterBy` is the page's selection** — `useMosaic().selection` under a `MosaicProvider` given the
 corpus's joins. The graph is one more client of it, reading `vertices`: every vertex as one relation,
@@ -112,9 +114,9 @@ own `GraphError` (`graph/no-webgl`, `graph/context-lost`, `graph/no-positions`,
 ### The readers
 
 - `readJoinGraph(coordinator, from)` — the graph attached as `from` as a `JoinGraph`, read from
-  GraphAr's relations: each node type a type keyed by `dense_id` over its view, each edge type joined
-  through `src` and `dst` as global ids, and one more type, `vertices`, every node type as one
-  relation. It is what `@kanzo-tech/mosaic`'s relations —
+  GraphAr's relations: each vertex type a type keyed by `dense_id` over its view, with the writer's counts read from the
+  chunks' footers, each edge type joined through `src` and `dst` as global ids, and one more type,
+  `vertices`, every vertex type as one relation. It is what `@kanzo-tech/mosaic`'s relations —
   and `@kanzo-tech/ui/analytics`' relation dashboards — are built over: `MosaicProvider`'s `joins`.
 
 The full guide — the parts, layout and camera, and the workspace recipe — is at

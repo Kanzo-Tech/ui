@@ -3,7 +3,7 @@
 import { cn, SectionProvider, useKanzoTheme, type PrefSpecimen } from "@kanzo-tech/ui";
 import { type ReactNode, useId, useMemo } from "react";
 import type { Channels } from "../core/channels";
-import { KEY, type Structure } from "../core/structure";
+import { KEY, isList, type Structure } from "../core/structure";
 import { lookFrom, type Look } from "../render/graph-looks";
 import { scaleOf } from "../render/graph-model";
 import { useGraphState } from "../react/use-graph-state";
@@ -47,8 +47,8 @@ function fieldsOf(structure: Structure | null): Record<"columns" | "numeric-colu
   const temporal = new Set<string>();
   for (const table of structure?.vertices ?? []) {
     for (const [name, column] of table.columns) {
-      // The keys are the graph's and the type's, never a field to bind.
-      if (name === KEY || column.primary) continue;
+      // The keys are the graph's and the type's, and a list is a value, not an axis or a group.
+      if (name === KEY || column.primary || isList(column)) continue;
       any.add(name);
       if (NUMERIC.has(column.type)) numeric.add(name);
       if (TEMPORAL_TYPES.has(column.type)) temporal.add(name);

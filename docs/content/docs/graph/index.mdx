@@ -417,7 +417,7 @@ its `<Pref>`s, and each draws itself only when its declaration says so. **Force*
 layout with cosmos.gl's cluster force over one column. The columns are Cosmograph's `pointXBy`,
 `pointYBy` and `pointClusterBy`, and their options are the graph's own fields from
 `graphar_properties`, answered by the root — numeric ones for Map, any for Clustered; the global
-`dense_id` and a type's primary key are not fields. A column is a `Select`, because the data answers its list;
+`dense_id`, a type's primary key and a `list` property are not fields. A column is a `Select`, because the data answers its list;
 clearing it unbinds it.
 
 ```tsx
@@ -517,29 +517,33 @@ it — so a vertex's id is also its index in cosmos.gl's buffers. Nothing writes
 the column each type's table in the graph and in `readJoinGraph` projects, so an id from SQL over
 those — `SELECT dense_id FROM …` — is a vertex as it stands, for `reveal` or a pick.
 
-**A type with a primary key is a node type.** A GraphAr vertex type whose properties include an
-`is_primary` one is drawn, and that property is its identity. A vertex type with none is a property
-table — fossil writes a multi-valued property that way — and is neither drawn nor joined: only the
-graph's mapping says whose rows it holds. A graph with no node type is refused as
-`graph/nothing-to-draw`. Every clause the graph publishes is a semi-join on `dense_id`.
+**Every GraphAr vertex type is a node type.** Its identity is its `is_primary` property, and the id
+itself where it has none. A multi-valued property is a `list` property of the type that owns it
+(`nickname` is a `VARCHAR[]` column of `person`): the inspector shows its values, a search can name it,
+and it is not offered as a position, a group or a timeline column, nor as a field of a dashboard. A
+graph with no vertex is refused as `graph/nothing-to-draw`. Every clause the graph publishes is a
+semi-join on `dense_id`.
 
 ### readJoinGraph
 
 `readJoinGraph(coordinator, from)` is the same graph as a `JoinGraph` — what
 `@kanzo-tech/ui/analytics`' [relations](/docs/analytics/dashboard#relations) are built over, and the
-one constructor of one from a graph. Each node type is a type keyed by `dense_id`, its `table` the
+one constructor of one from a graph. Each vertex type is a type keyed by `dense_id`, its `table` the
 type's view under the global id, every column described as GraphAr's catalog describes it: its
-DuckDB type, whether it is `nullable`, and a `role` for the two keys — `address` for `dense_id`,
-`identity` for the primary key, which are the type's `candidateKeys`. Each edge type joins through
-`src` and `dst`, its ends as global ids, under GraphAr's `edge_type` as its label. One more type,
-`vertices`, is every node type as one relation (`of` every type), with `NULL` where a type has no
-such column — what the canvas and a timeline over the graph read. The views a graph is attached as
-declare no keys, so this is what says an edge type joins anything. The charts never learn GraphAr;
-they take the graph as data.
+DuckDB type, whether it is `nullable`, a `role` for the two keys — `address` for `dense_id`,
+`identity` for the primary key, which are the type's `candidateKeys` — and what fossil's writer
+counted in it (`stats`: its nulls, its distinct values, its extent and its commonest values), read
+from the chunks' Parquet footers. Each edge type joins through `src` and `dst`, its ends as global
+ids, under GraphAr's `edge_type` as its label. One more type, `vertices`, is every vertex type as one
+relation (`of` every type), with `NULL` where a type has no such column — what the canvas and a
+timeline over the graph read; its columns carry no counts, because they were counted per type. The
+views a graph is attached as declare no keys, so this is what says an edge type joins anything. The
+charts never learn GraphAr; they take the graph as data.
 
-GraphAr's catalog carries no IRIs, term types, datatypes, annotations or counts, so neither does the
-join graph: a field is called by its name, a year is a number, and `useFieldStats` reads a relation
-with one `SUMMARIZE` ([what GraphAr does not carry](/docs/design/graph#what-graphar-does-not-carry)).
+GraphAr's catalog carries no IRIs, term types, datatypes or annotations, so neither does the join
+graph: a field is called by its name, and a year is a number ([what GraphAr does not
+carry](/docs/design/graph#what-graphar-does-not-carry)). A graph whose chunks state no counts has none,
+and `useFieldStats` reads its relation with one `SUMMARIZE`.
 
 The catalog is read in one place, `readCatalog`, and the canvas's structure and this graph are both
 what it answered: through the page's coordinator and its cache, so a page that draws the graph and a
@@ -577,7 +581,7 @@ was thrown and takes the host's words for it.
 | `graph/no-webgl` | No WebGL context, or no GPU device came up. `data.after` is set when the 10 s device deadline fired. |
 | `graph/context-lost` | The browser took the WebGL context back. |
 | `graph/no-positions` | The device came up but holds no positions for the points it was given, found when the camera read them back. `cause` is what the read threw. |
-| `graph/nothing-to-draw` | The attached graph has no node type with a vertex. |
+| `graph/nothing-to-draw` | The attached graph has no vertex. |
 
 A part that reads on its own — the search's names, the inspector's row, a label's text — hands its
 failure to the same `onFailure` and shows it in place. A host keys its message on `code` and falls

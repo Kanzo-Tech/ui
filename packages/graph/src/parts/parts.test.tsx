@@ -342,7 +342,9 @@ describe("GraphInspector", () => {
     act(() => held.api?.setFocus(6));
     await waitFor(() => expect(screen.getByTestId("extra").textContent).toBe("score plus one: 8"));
     const labels = (name: string) => [...section(name).querySelectorAll("dt")].map((dt) => dt.textContent);
-    expect(labels("Values")).toEqual(["name", "team", "score", "lon", "lat", "born"]);
+    expect(labels("Values")).toEqual(["name", "team", "score", "lon", "lat", "born", "nickname"]);
+    // A `list` property reads as its values, not as an object.
+    expect([...section("Values").querySelectorAll("dd")].map((dd) => dd.textContent)).toContain("nick 6");
     expect(screen.queryByRole("region", { name: "Dates" })).toBeNull();
     expect(corpus.sent.filter((sql) => /"Person" WHERE \("_graphArVertexIndex" = 6\)$/.test(sql))).toHaveLength(1);
     expect(screen.queryByRole("region", { name: "Identity" })).toBeNull();

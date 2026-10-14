@@ -208,7 +208,8 @@ export function useFieldStats(relation: RelationExpr, options?: FieldStatsOption
   const hidden = useMemo(() => (exclude ? exclude.split("\u0000") : []), [exclude]);
   const key = chartTableKey(table!);
   const described = useMemo(() => describe(joins, relation), [joins, key]); // eslint-disable-line react-hooks/exhaustive-deps
-  const counted = described !== null && described.length > 0 && described.every((c) => c.stats !== undefined);
+  // Counted: every column that can be a field states its counts. A list or a blob is no field, and says nothing.
+  const counted = described !== null && described.length > 0 && described.every((c) => c.stats !== undefined || kindOf(c) === null);
   const select = useCallback(
     (rows: readonly SummarizeRow[]) => {
       // The summary's columns, each as the graph describes it where it does, counted where it is not.

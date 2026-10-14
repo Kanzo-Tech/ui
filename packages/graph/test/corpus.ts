@@ -9,13 +9,13 @@ import { Coordinator } from "@kanzo-tech/mosaic";
  * DuckDB-WASM in this process, read through a real Mosaic `Coordinator` — so what the graph's SQL
  * means is what DuckDB answers, not what a fake believes. A relation per type with GraphAr's own
  * columns, and the information files as `graphar_vertex_types`, `graphar_edge_types`,
- * `graphar_properties` and `graphar_extra_info`, typed as `attachGraph` types them. Small enough to
+ * `graphar_properties`, `graphar_extra_info` and `graphar_chunks`, typed as `attachGraph` types them,
+ * with a footer for every chunk (see the macros below). Small enough to
  * count by hand, in global ids:
  *
  * - `Person`: ids `0 … 9`, `subject` its primary key, `name` `Person i`, `team = i % 4`,
- *   `score = i + 1`, `lon = i`, `lat = 0`, `born = 1900 + i`.
- * - `Person_nickname`: second in the graph document, and a vertex type with no primary key — a
- *   multi-valued property, `src → nick i` for every person — so it takes no ids and nothing draws it.
+ *   `score = i + 1`, `lon = i`, `lat = 0`, `born = 1900 + i`, and `nickname`, a `list<string>`
+ *   property holding `nick i` — a multi-valued property is a list of the type that owns it.
  * - `Place`: ids `10 … 15`, `name` `Place i`, `lon = i`, `lat = 1`, `opened` the first of January of
  *   `2000 + i`, a GraphAr `date`.
  * - `Tag`: ids `16 … 19`, its `subject` and nothing else.
@@ -47,6 +47,24 @@ const { conn } = await (async () => {
   return { conn: db.connect() };
 })();
 
+/**
+ * **Footers, because this build of DuckDB-WASM cannot open a Parquet file in Node** (`read_parquet`
+ * traps in the blocking bindings), so the two table functions that read a footer are shadowed here by
+ * temporary macros of the same names and columns over tables each `attach` fills — in the shapes the
+ * real functions answer, which `parquet_kv_metadata` and `parquet_metadata` give for a file DuckDB
+ * writes (checked on native DuckDB 1.5.5 when this was written). The key under which a writer states
+ * its counts is a Parquet `key_value_metadata` key; a chunk's row group states each column's nulls,
+ * bounds and whether they are exact.
+ */
+const STATS_KEY = "fossil:stats";
+conn.query(`
+CREATE TABLE footer_kv (file_name VARCHAR, key BLOB, value BLOB);
+CREATE TABLE footer_meta (file_name VARCHAR, path_in_schema VARCHAR, stats_null_count UBIGINT, stats_min_value VARCHAR,
+  stats_max_value VARCHAR, min_is_exact BOOLEAN, max_is_exact BOOLEAN);
+CREATE OR REPLACE TEMP MACRO parquet_kv_metadata(f) AS TABLE SELECT file_name, 0 AS row_group_id, key, value FROM footer_kv WHERE file_name = f;
+CREATE OR REPLACE TEMP MACRO parquet_metadata(f) AS TABLE SELECT * FROM footer_meta WHERE file_name = f;
+`);
+
 export interface Attached {
   /** The page's coordinator, over this process's DuckDB. */
   readonly coordinator: Coordinator;
@@ -67,19 +85,35 @@ let catalogs = 0;
 /** Each type's properties as `graphar_properties` lists them: name, GraphAr type, primary. */
 const PROPERTIES: Record<string, [string, string, boolean][]> = {
   Person: [["subject", "string", true], ["name", "string", false], ["team", "int32", false], ["score", "int32", false],
-    ["lon", "double", false], ["lat", "double", false], ["born", "int32", false]],
-  Person_nickname: [["src", "int64", false], ["nickname", "string", false]],
+    ["lon", "double", false], ["lat", "double", false], ["born", "int32", false], ["nickname", "list<string>", false]],
   Place: [["subject", "string", true], ["name", "string", false], ["lon", "double", false], ["lat", "double", false], ["opened", "date", false]],
   Tag: [["subject", "string", true]],
 };
+
+/**
+ * What the writer counts in a chunk's footer, per column — nulls, distinct values, extent and the ten
+ * commonest values with their share of the rows — over every row, here by DuckDB.
+ */
+const STATS = (c: string) =>
+  Object.entries(PROPERTIES)
+    .flatMap(([table, columns]) =>
+      columns.map(
+        ([column]) => `SELECT '${table}' AS table_name, '${column}' AS column_name,
+  count(*) FILTER (WHERE "${column}" IS NULL)::UBIGINT AS null_count, count(DISTINCT "${column}")::UBIGINT AS distinct_count,
+  min("${column}")::VARCHAR AS min_value, max("${column}")::VARCHAR AS max_value,
+  (SELECT list(v ORDER BY n DESC, v) FROM (SELECT "${column}"::VARCHAR AS v, count(*) AS n FROM ${c}."${table}" GROUP BY 1 ORDER BY n DESC, v LIMIT 10)) AS most_common_vals,
+  (SELECT list(n / (SELECT count(*) FROM ${c}."${table}") ORDER BY n DESC, v) FROM (SELECT "${column}"::VARCHAR AS v, count(*)::DOUBLE AS n FROM ${c}."${table}" GROUP BY 1 ORDER BY n DESC, v LIMIT 10)) AS most_common_freqs
+FROM ${c}."${table}"`,
+      ),
+    )
+    .join("\nUNION ALL ");
 
 const FIXTURE = (c: string, n: number) => `
 ATTACH ':memory:' AS ${c};
 CREATE TABLE ${c}."Person" AS SELECT i::BIGINT AS _graphArVertexIndex, 'https://example.org/person/' || i AS subject,
   'Person ' || i AS name, (i % 4)::INTEGER AS team, (i + 1)::INTEGER AS score, i::DOUBLE AS lon, 0::DOUBLE AS lat,
-  (1900 + i)::INTEGER AS born
+  (1900 + i)::INTEGER AS born, ['nick ' || i] AS nickname
   FROM range(${n}) t(i);
-CREATE TABLE ${c}."Person_nickname" AS SELECT i::BIGINT AS _graphArVertexIndex, i::BIGINT AS src, 'nick ' || i AS nickname FROM range(${n}) t(i);
 CREATE TABLE ${c}."Place" AS SELECT i::BIGINT AS _graphArVertexIndex, 'https://example.org/place/' || i AS subject,
   'Place ' || i AS name, i::DOUBLE AS lon, 1::DOUBLE AS lat, make_date(2000 + i::INTEGER, 1, 1) AS opened FROM range(6) t(i);
 CREATE TABLE ${c}."Tag" AS SELECT i::BIGINT AS _graphArVertexIndex, 'https://example.org/tag/' || i AS subject FROM range(4) t(i);
@@ -87,7 +121,7 @@ CREATE TABLE ${c}."Person_knows_Person" AS SELECT i::BIGINT AS _graphArSrcIndex,
 CREATE TABLE ${c}."Person_livesIn_Place" AS SELECT i::BIGINT AS _graphArSrcIndex, (i % 6)::BIGINT AS _graphArDstIndex FROM range(10) t(i);
 CREATE TABLE ${c}."Person_tagged_Tag" AS SELECT 0::BIGINT AS _graphArSrcIndex, 0::BIGINT AS _graphArDstIndex;
 CREATE VIEW ${c}.graphar_vertex_types AS SELECT * FROM (VALUES
-  ('Person', ${n}::UBIGINT, 1), ('Person_nickname', ${n}::UBIGINT, 2), ('Place', 6::UBIGINT, 3), ('Tag', 4::UBIGINT, 4)
+  ('Person', ${n}::UBIGINT, 1), ('Place', 6::UBIGINT, 2), ('Tag', 4::UBIGINT, 3)
 ) t(type, count, ordinal);
 CREATE VIEW ${c}.graphar_edge_types AS SELECT * FROM (VALUES
   ('Person_knows_Person', 'Person', 'knows', 'Person', 9::UBIGINT, true, 1),
@@ -100,6 +134,17 @@ CREATE VIEW ${c}.graphar_properties AS SELECT * FROM (VALUES
     .join(",\n  ")}
 ) t(type, property, data_type, is_primary, is_nullable, ordinal);
 CREATE VIEW ${c}.graphar_extra_info AS SELECT * FROM (VALUES ('http://w3id.org/rml/', 'mapping.ttl')) t(key, value);
+CREATE VIEW ${c}.graphar_chunks AS SELECT * FROM (VALUES
+  ${Object.keys(PROPERTIES).map((type) => `('${type}', 'vertex', '${c}/vertex/${type}/chunk0')`).join(",\n  ")}
+) t(type, kind, path);
+CREATE VIEW ${c}.footer_stats AS ${STATS(c)};
+INSERT INTO footer_kv SELECT '${c}/vertex/' || table_name || '/chunk0', encode('${STATS_KEY}'),
+  encode('{' || string_agg('"' || column_name || '":{"distinct_count":' || distinct_count || ',"most_common_vals":['
+    || array_to_string(list_transform(most_common_vals, x -> '"' || replace(x, '"', '\\"') || '"'), ',')
+    || '],"most_common_freqs":[' || array_to_string(most_common_freqs, ',') || ']}', ',') || '}')
+  FROM ${c}.footer_stats GROUP BY table_name;
+INSERT INTO footer_meta SELECT '${c}/vertex/' || table_name || '/chunk0', column_name, null_count, min_value, max_value, true, true
+  FROM ${c}.footer_stats;
 `;
 
 /**

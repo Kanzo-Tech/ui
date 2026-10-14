@@ -5,7 +5,7 @@ import { joinGraphOf, readJoinGraph } from "./join-graph";
 import { relation } from "./source";
 import type { Column, EdgeTable, Structure, VertexTable } from "./structure";
 
-const column = (type: string, more: Partial<Column> = {}): Column => ({ type, primary: false, nullable: false, ...more });
+const column = (type: string, more: Partial<Column> = {}): Column => ({ type, primary: false, nullable: false, stats: null, ...more });
 const ID = column("UINTEGER");
 const of = (name: string) => Query.select("*").from(relation("jobs/7", name));
 const vertex = (name: string, first: number, rows: number, entries: [string, Column][]): VertexTable => ({

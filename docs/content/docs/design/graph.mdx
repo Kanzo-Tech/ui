@@ -41,14 +41,14 @@ literals. It imports nothing of graphar's or fossil's.
 host                                                    @kanzo-tech/graph
 engine() → DuckDB-WASM + coordinator                    parts     GraphCanvas · GraphLegend · GraphStatus · GraphCounts · GraphToolbar · GraphInspector · GraphSearch
 attachGraph(engine, name, resolve) → "<name>".<type>    adapter   useGraph · GraphRoot · GraphRootProvider · useGraphContext · useGraphState
-  "<name>".graphar_vertex_types · _edge_types · _properties  render  typed arrays → cosmos.gl, uploaded once per graph
+  "<name>".graphar_vertex_types · _edge_types · _properties · _chunks  render  typed arrays → cosmos.gl, uploaded once per graph
 <GraphRoot from={name} coordinator filterBy>            core      source: SQL through the coordinator · client · load · store
 ```
 
 **Every read of the catalog is one function, `readCatalog`** (`core/catalog.ts`): the canvas's
 structure and `readJoinGraph` are both built from what it answers, through the coordinator's cache,
 so a page that draws the graph and a dashboard over it reads the catalog once, and nothing else in the
-library names a catalog relation. An edge's label is GraphAr's `edge_type` and its ends its
+library names a catalog relation or reads a footer. An edge's label is GraphAr's `edge_type` and its ends its
 `src_type` and `dst_type`, never parsed out of a view's name. *What would reverse it:* a reader that
 needs a fact of the graph at a moment `readCatalog` is not run — then the fact is added to what it
 answers, not read a second way.
@@ -85,7 +85,7 @@ type: it is the index into cosmos.gl's buffers, and mosaic's cross-type semi-joi
 (`dense_id IN (…)`) needs one id space. **Nothing writes it, and the graph computes it**:
 
 ```text
-first(t)  = Σ count of the node types before t, in graphar_vertex_types.ordinal (the graph document's order)
+first(t)  = Σ count of the vertex types before t, in graphar_vertex_types.ordinal (the graph document's order)
 dense_id  = CAST(first(t) + _graphArVertexIndex AS UINTEGER)
 src, dst  = CAST(first(src_type) + _graphArSrcIndex AS UINTEGER), and the same for dst_type
 ```
@@ -96,8 +96,7 @@ view, and every reader reads the type through it — the rows, the links, the cr
 same vertex everywhere. A lookup by id (the focused row, a label's text) reads the view by GraphAr's
 own index, `id − first(t)`, which a chunk's statistics can skip on. The cast keeps the Arrow at four
 bytes an id, where GraphAr's `int64` is eight; fossil's writer refuses more than 2³² vertices, so it
-fits. **The sum runs over the node types only**, so a property table between two of them leaves no
-hole and the ids stay `0 … V − 1`. The key is the graph's own constant, `KEY` in `core/structure.ts`:
+fits. **The sum runs over every vertex type**, so the ids are `0 … V − 1` with no hole. The key is the graph's own constant, `KEY` in `core/structure.ts`:
 GraphAr states no global id to read it from.
 
 **It replaced the corpus's `dense_id` and "the key is read, not written down"**, when fossil wrote a
@@ -111,66 +110,101 @@ read uncast is 32.0 MB).
 it and them — then a writer stores it beside GraphAr's index and the graph reads that column; or the
 arithmetic measured above a fifth of a read on a quiet host.
 
-*Held by* `packages/graph/src/core/catalog.test.ts`, "numbers the node types in the graph document's
-order, each from the counts before it, and skips a type with no primary key", "gives each edge its
+*Held by* `packages/graph/src/core/catalog.test.ts`, "numbers the types in the graph document's
+order, each from the counts before it", "gives each edge its
 ends as global ids, from GraphAr's per-type indices"; `packages/graph/src/core/crossfilter.property.test.ts`,
 whose oracle computes the id by hand from `_graphArVertexIndex`.
 
-## A type with a primary key is a node type
+## A vertex type is a node type, a list property is a value
 
-A GraphAr vertex type with an `is_primary` property is drawn, and that property is its **identity** —
-what a label falls back to, what the inspector shows as its IRI, and the type's `identity` role in
-the join graph. **A vertex type with no primary key is a property table** — fossil writes a
-multi-valued or language-tagged property that way, a row per value with an index into its owner — and
-it is neither drawn nor in the join graph: GraphAr has no foreign key, and only the graph's RML
-mapping says whose rows it holds, which the graph does not read. An edge type into one is left out
-for the same reason.
+**Every GraphAr vertex type is drawn.** Its **identity** — what a label falls back to, what the
+inspector shows as its IRI, and the type's `identity` role in the join graph — is its `is_primary`
+property, and the global id itself where the type has none.
+
+**A multi-valued property is a `list` property of the type that owns it** (`cardinality: list`;
+fossil's decision, 2026-10-14): `nickname` is a `VARCHAR[]` column of `Person`, a row has all its
+nicknames, and no type of rows-per-value exists to join. What the graph does with a list column:
+
+- It is a column of its type, in the join graph and in `vertices`, and a search can name it
+  (`nickname:ana`); the inspector shows its values, comma-separated.
+- It is **not a field**. It is not offered as a position, a group or a timeline column in the
+  graph's settings, and `fieldStats` leaves it out (Mosaic's `jsType` has no word for a list), so
+  no dashboard facet, axis or question is made of it. Its counts are never read, because a
+  distinct count of lists would not be a count of the values a person sees.
 
 **It replaced the multi-valued property as a type of the join graph**, reached by a hop named by the
 property through its own table, which fossil's `fossil_tables` made possible by naming the table's
-source and the column holding its key. A dashboard over the join graph no longer reaches a
-`nickname`.
+source and the column holding its key. A dashboard over the join graph no longer reaches
+`laureate.nickname` as a step; it is a list column of `laureate`.
 
-**What would reverse it:** GraphAr gaining a property table or a foreign key; or a host passing the
-link from the mapping (rudof's `Mapping.model()`), as it will pass datatypes
-([below](#what-graphar-does-not-carry)) — then a property table is a type again, keyed by
-`first(owner) + src`.
+**What would reverse it:** a reader who groups or filters by a value of a list — a facet of nicknames.
+Then the join graph states a list column as a type of its elements, `UNNEST`ed and keyed by its
+owner's id, which is the table the old format wrote, made by the engine and not by the writer.
 
-*Held by* `packages/graph/src/core/catalog.test.ts`, "numbers the node types in the graph document's
-order, each from the counts before it, and skips a type with no primary key";
-`packages/graph/src/core/store.test.ts`, "refuses a graph whose every vertex type lacks a primary key
-as graph/nothing-to-draw".
+*Held by* `packages/graph/src/core/catalog.test.ts`, "reads a multi-valued property as a list column of
+the type that owns it, and counts none of a list", "makes a vertex type with no primary key a type of
+its own, labelled by its id"; `packages/graph/src/parts/graph-section.test.tsx`, "offers the corpus's
+numeric fields to the map, from the root that attached it"; `packages/graph/src/parts/parts.test.tsx`,
+"reads the focused vertex's row with one statement, grouped, and draws a host's extra fields after its
+values"; `packages/graph/src/core/store.test.ts`, "refuses a graph with no vertex as
+graph/nothing-to-draw".
 
 ## What GraphAr does not carry
 
 GraphAr states a type, its count, its properties' types, which one is the primary key and which may
-be null, and an edge type's ends — and **the `Structure` holds exactly those**. What fossil's
-manifest added is gone from it, and from the join graph's types and columns, each falling back to
-what a reader did without it:
+be null, and an edge type's ends; its chunks' footers add what fossil's writer counted. **The
+`Structure` holds exactly those.** What fossil's manifest added beyond them is gone from it, and from
+the join graph's types and columns, each falling back to what a reader did without it:
 
 | fact | where it is now | what the graph does without it |
 | --- | --- | --- |
 | a column's role (`address`, `identity`, `endpoint`) | the global id is the graph's `address`; `is_primary` is the `identity` | states both in the join graph itself |
 | class and predicate IRIs, term types | the RML mapping (`mapping.ttl`, named in `graphar_extra_info`) | reads none; an identity is an identifier by its role |
-| annotations — a label in a language | nowhere: fossil emits none until a reader asks (its D1) | a type, an edge and a field are called by their names (`labelOf` falls back) |
+| annotations — a label in a language | the mapping, when fossil emits it with a reader for it (R-b) | a type, an edge and a field are called by their names (`labelOf` falls back) |
 | a datatype beyond GraphAr's — `xsd:gYear` over an `int32` | the mapping (fossil's D4) | a year is a number; a time is GraphAr's `date` or `timestamp` |
-| a column's counts — distinct values, commonest values | each chunk's Parquet footer, under `fossil:stats` (fossil's D2) | `useFieldStats` reads the relation with one `SUMMARIZE` |
+| a column's counts — nulls, distinct values, extent, commonest values | each chunk's Parquet footer ([below](#what-a-column-holds-is-read-from-the-footers)) | `useFieldStats` reads the relation with one `SUMMARIZE` |
 | candidate keys | derived | the global id and the primary key |
 
-**The counts are the one fact a reader of this package had**, and they are not read, because the
-contract does not reach them: `parquet_kv_metadata` takes a file, and the relations `attachGraph`
-makes name no chunk — only its `graph` object and the host's `resolve` know the paths. Reading them
-would mean the host handing the graph file names, or this package knowing GraphAr's path layout,
-and either is a second contract beside the catalog. `SUMMARIZE` answers the same questions on the
-engine, a statement per relation where the counts were none.
+**What would reverse it:** for datatypes, the host passing them from rudof's `Mapping.model()` after
+the first paint (fossil's D4) — then a year is a time again. For annotations, the mapping read the
+same way, after the first paint, by whoever reads RDF: the graph never parses it.
 
-**What would reverse it:** for the counts, a relation of chunk paths in `attachGraph`'s catalog —
-then `readCatalog` reads the footers through it, in the same breath. For datatypes, the host passing
-them from rudof's `Mapping.model()` after the first paint (fossil's D4) — then a year is a time
-again. For annotations, the first reader that needs a label the names do not give, and fossil
-emitting them.
+## What a column holds is read from the footers
 
+fossil's writer counts each column once, at write, into the Parquet footer of the chunk that holds
+it: nulls and the extent in the row groups' own `Statistics`, the distinct count and the commonest
+values with their share of the rows in the file's `key_value_metadata` under `fossil:stats` (JSON,
+keyed by column). `attachGraph` lists every vertex chunk in `graphar_chunks` by the name the engine
+reads it with, so `readCatalog` reads them with DuckDB's own `parquet_kv_metadata(path)` and
+`parquet_metadata(path)` — two statements, through the coordinator, after the catalog's — and no
+code that knows fossil's file layout.
 
+- **A column is counted when exactly one chunk of its type states it.** A distinct count does not
+  combine across chunks, and fossil's writer makes one chunk of a table, so a column stated in two
+  chunks (a table cut into several) is uncounted rather than summed wrongly.
+- **A bound is kept for a number or a time, and only when every row group states it exact.** A
+  text's bound is truncated by the writer and never read; nulls a row group does not state leave
+  the column uncounted. A list column is never counted.
+- **A graph whose chunks state nothing is a graph with no counts**, and one that a foreign writer
+  made is exactly that: `useFieldStats` reads such a relation with one `SUMMARIZE`, as it reads any
+  relation nothing counted. There is one path: the counts or the `SUMMARIZE`, never both for a
+  column.
+- **The `vertices` union carries none**, because they were counted per type and do not combine.
+
+**It replaced `fossil_stats`**, the manifest relation `@fossil-lang/corpus` made of the same counts.
+They moved from a relation fossil's reader built to the footers, so a Parquet reader that never
+heard of fossil can read them too; the graph reads them through the coordinator it already has.
+
+**What would reverse it:** a Parquet release with table-level distinct counts or frequent values in
+its footer — then each fact is read from its field and `fossil:stats` goes; or the footer reads
+measured as a cost on the first paint, which moves them after it (a column is `SUMMARIZE`d until
+they arrive).
+
+*Held by* `packages/graph/src/core/catalog.test.ts`, "reads what the writer counted from the
+chunks' footers: its distinct and commonest values, and the footer's nulls and extent", "counts
+nothing for a graph whose chunks state none", "counts nothing of a column that two chunks of its type
+state, because counts do not combine"; `packages/graph/src/layers.test.ts`, "builds statements only
+where it reads, writes none in a string, and imports nothing of graphar's or fossil's".
 
 ## The graph is a client of the page's coordinator
 
@@ -853,7 +887,7 @@ once".
 ## A dense id is a buffer index
 
 `VertexId` is a `number`: [the global id](#the-global-id-is-the-graphs-arithmetic), numbering every
-vertex of the graph `0 … V − 1`, each node type one contiguous range. It is the index into every buffer, the value a selection publishes, and
+vertex of the graph `0 … V − 1`, each vertex type one contiguous range. It is the index into every buffer, the value a selection publishes, and
 the key the inspector reads by.
 
 **The limit is cosmos.gl's.** It addresses a link's ends with a `Float32Array`, exact up to 2²⁴ —
