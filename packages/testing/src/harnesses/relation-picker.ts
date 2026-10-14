@@ -1,4 +1,4 @@
-import { ComponentHarness, type By, type Handle } from "../environment";
+import { ComponentHarness, type By, type TestElement } from "../environment";
 
 const REMOVE = /^Remove (.+)$/;
 
@@ -35,16 +35,16 @@ export class RelationPickerHarness extends ComponentHarness {
   async add(hop: string | RegExp): Promise<void> {
     const before = (await this.path()).length;
     const items = await this.opened("Add related…", "[data-hop]");
-    const named = async (item: Handle) => {
-      const sentence = (await item.attribute("aria-label")) ?? "";
-      const step = (await item.attribute("data-hop")) ?? "";
+    const named = async (item: TestElement) => {
+      const sentence = (await item.getAttribute("aria-label")) ?? "";
+      const step = (await item.getAttribute("data-hop")) ?? "";
       if (typeof hop !== "string") return hop.test(sentence);
       return sentence === hop || step === hop;
     };
     let item = await find(items, named);
     if (!item && typeof hop === "string") {
-      const byLabel: Handle[] = [];
-      for (const i of items) if (((await i.attribute("data-hop")) ?? "").split(/[<>]/)[1] === hop) byLabel.push(i);
+      const byLabel: TestElement[] = [];
+      for (const i of items) if (((await i.getAttribute("data-hop")) ?? "").split(/[<>]/)[1] === hop) byLabel.push(i);
       if (byLabel.length > 1) throw new Error(`${hop} names ${byLabel.length} hops in the relation picker: name its step, >${hop}>… or <${hop}<…`);
       item = byLabel[0];
     }
@@ -57,7 +57,7 @@ export class RelationPickerHarness extends ComponentHarness {
   async path(): Promise<string[]> {
     const path: string[] = [];
     for (const button of await this.host.find({ role: "button" })) {
-      const name = REMOVE.exec((await button.attribute("aria-label")) ?? "");
+      const name = REMOVE.exec((await button.getAttribute("aria-label")) ?? "");
       if (name) path.push(name[1] as string);
     }
     return path;
@@ -65,29 +65,29 @@ export class RelationPickerHarness extends ComponentHarness {
 
   /** Removes the chip reading `sentence`, which cuts the path there. */
   async remove(sentence: string): Promise<void> {
-    const button = await this.one({ role: "button", name: `Remove ${sentence}` }, `no chip ${sentence} in the relation picker`);
+    const button = await this.locatorFor({ role: "button", name: `Remove ${sentence}` }, `no chip ${sentence} in the relation picker`)();
     await button.click();
     await this.env.until(async () => !(await this.path()).includes(sentence), `the chip ${sentence} is still in the relation picker`);
   }
 
-  private trigger(name: string): Promise<Handle> {
-    return this.one({ role: name === "Root type" ? "combobox" : "button", name }, `the relation picker has no ${name}`);
+  private trigger(name: string): Promise<TestElement> {
+    return this.locatorFor({ role: name === "Root type" ? "combobox" : "button", name }, `the relation picker has no ${name}`)();
   }
 
   /** Opens the trigger's popup and answers what `css` finds in it. */
-  private async opened(name: string, css: string): Promise<Handle[]> {
+  private async opened(name: string, css: string): Promise<TestElement[]> {
     const trigger = await this.trigger(name);
-    if ((await trigger.attribute("aria-expanded")) !== "true") await trigger.click();
+    if ((await trigger.getAttribute("aria-expanded")) !== "true") await trigger.click();
     return this.env.until(async () => {
-      const id = await trigger.attribute("aria-controls");
-      if (!id || (await trigger.attribute("aria-expanded")) !== "true") return null;
-      const found = await this.env.root.find({ css: `[id="${id}"] ${css}` });
+      const id = await trigger.getAttribute("aria-controls");
+      if (!id || (await trigger.getAttribute("aria-expanded")) !== "true") return null;
+      const found = await this.env.rootElement.find({ css: `[id="${id}"] ${css}` });
       return found.length > 0 && found;
     }, `${name} did not open`);
   }
 }
 
-async function find(handles: readonly Handle[], test: (h: Handle) => Promise<boolean>): Promise<Handle | undefined> {
+async function find(handles: readonly TestElement[], test: (h: TestElement) => Promise<boolean>): Promise<TestElement | undefined> {
   for (const h of handles) if (await test(h)) return h;
   return undefined;
 }

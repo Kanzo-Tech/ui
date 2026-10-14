@@ -1,4 +1,4 @@
-import { ComponentHarness, type By, type Handle } from "../environment";
+import { ComponentHarness, type By, type TestElement } from "../environment";
 
 /** `Remove the region filter` takes a dashboard's control off the bar; `Remove region Saltmere` retracts a clause. */
 const CONTROL_REMOVE = /^Remove the (.+) filter$/;
@@ -23,7 +23,7 @@ export class FilterBarHarness extends ComponentHarness {
       const clause = CLAUSE_REMOVE.exec(name);
       if (clause) chips.push(clause[1] as string);
       const control = CONTROL.exec(name);
-      if (!clause && control && (await button.attribute("aria-haspopup")) !== null) chips.push(`${control[1]}: ${control[2]}`);
+      if (!clause && control && (await button.getAttribute("aria-haspopup")) !== null) chips.push(`${control[1]}: ${control[2]}`);
     }
     return chips;
   }
@@ -52,35 +52,35 @@ export class FilterBarHarness extends ComponentHarness {
 
   /** Opens the control of a dashboard's filter on `field`, and waits for it to be expanded. */
   async open(field: string): Promise<void> {
-    let trigger: Handle | null = null;
+    let trigger: TestElement | null = null;
     for (const button of await this.buttons()) {
       if (CONTROL.exec(await this.nameOf(button))?.[1] === field) trigger = button;
     }
     if (!trigger) throw new Error(`no filter control for ${field} in the filter bar`);
-    if ((await trigger.attribute("aria-expanded")) === "true") return;
+    if ((await trigger.getAttribute("aria-expanded")) === "true") return;
     const opened = trigger;
     await opened.click();
-    await this.env.until(async () => (await opened.attribute("aria-expanded")) === "true", `the ${field} filter did not open`);
+    await this.env.until(async () => (await opened.getAttribute("aria-expanded")) === "true", `the ${field} filter did not open`);
   }
 
   /** What the filters keep — *611 of 3,218 airports* — once it has counted. */
   async readout(): Promise<string> {
-    const status = await this.one({ role: "status" }, "the filter bar has no readout: give it a table");
+    const status = await this.locatorFor({ role: "status" }, "the filter bar has no readout: give it a table")();
     await this.env.until(async () => !(await this.ariaBusy(status)), "the filter bar is still counting");
     return status.text();
   }
 
-  private buttons(): Promise<Handle[]> {
+  private buttons(): Promise<TestElement[]> {
     return this.host.find({ role: "button" });
   }
 
   /** A button's accessible name: its label where it has one, else its text. */
-  private async nameOf(button: Handle): Promise<string> {
-    return (await button.attribute("aria-label")) ?? (await button.text());
+  private async nameOf(button: TestElement): Promise<string> {
+    return (await button.getAttribute("aria-label")) ?? (await button.text());
   }
 
   /** The buttons named exactly `name`: found by it at every step, never by where one was. */
-  private named(name: string): Promise<Handle[]> {
+  private named(name: string): Promise<TestElement[]> {
     return this.host.find({ role: "button", name });
   }
 

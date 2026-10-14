@@ -664,9 +664,9 @@ the chart to have drawn — `ChartRoot` is `aria-busy` until then and while a qu
 ```ts
 import { ChartHarness } from "@kanzo-tech/testing";
 
-const lon = await env.harness(ChartHarness.with({ title: "Count by Airport.lon" }));
+const lon = await env.getHarness(ChartHarness.with({ title: "Count by Airport.lon" }));
 await lon.brush({ x: [-125, -100] });
-await (await env.harness(ChartHarness.with({ title: "Sightings by beast" }))).pick({ y: "boghound" });
+await (await env.getHarness(ChartHarness.with({ title: "Sightings by beast" }))).pick({ y: "boghound" });
 ```
 
 ## API Reference

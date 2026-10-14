@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -18,14 +18,14 @@ import {
 } from "@kanzo-tech/ui";
 import { Assist, AssistProvider } from "./assist.js";
 import type { AssistEvent } from "./engine.js";
-import { elements, mockModel, promptOf } from "./testing/model.js";
+import { promptOf, scriptedModel } from "@kanzo-tech/llm/testing";
 import { APICallError } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 
 const ghostText = () => document.querySelector("[data-slot=assist-ghost] .text-faint")?.textContent ?? "";
 const mark = () => screen.getByRole("button", { name: /AI assist|Accept suggestion|Suggest different values|Undo AI suggestion/ });
 
-function Notice(props: { model: ReturnType<typeof mockModel>["model"]; onEvent?: (e: AssistEvent) => void; initial?: string }) {
+function Notice(props: { model: ReturnType<typeof scriptedModel>; onEvent?: (e: AssistEvent) => void; initial?: string }) {
   const [value, setValue] = useState(props.initial ?? "");
   return (
     <AssistProvider context="A notice board for a village hall." model={props.model} onEvent={props.onEvent}>
@@ -45,7 +45,7 @@ const value = () => screen.getByTestId("value").textContent;
 
 describe("Assist on a Textarea — a continuation at the caret", () => {
   it("offers ghost text after a pause, and Tab takes it", async () => {
-    const { model } = mockModel(() => " at the ford.");
+    const model = scriptedModel({ turns: [{ reply: { text: " at the ford." } }] });
     const onEvent = vi.fn();
     render(<Notice model={model} onEvent={onEvent} />);
     const field = screen.getByRole("textbox", { name: "Notice" });
@@ -60,7 +60,7 @@ describe("Assist on a Textarea — a continuation at the caret", () => {
   });
 
   it("tells the model what the field is: its label, its description and the form", async () => {
-    const { model } = mockModel(() => " more");
+    const model = scriptedModel({ turns: [{ reply: { text: " more" } }] });
     render(<Notice model={model} />);
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "Three hounds", selectionStart: 12 } });
     await waitFor(() => expect(model.doStreamCalls).toHaveLength(1), { timeout: 2000 });
@@ -72,7 +72,7 @@ describe("Assist on a Textarea — a continuation at the caret", () => {
   });
 
   it("tells the model the field's own context, read when the field asks", async () => {
-    const { model } = mockModel(() => " at the ford.");
+    const model = scriptedModel({ turns: [{ reply: { text: " at the ford." } }] });
     let holds = "Accepts: hounds, wolves.";
     function Sighting() {
       const [value, setValue] = useState("");
@@ -97,7 +97,7 @@ describe("Assist on a Textarea — a continuation at the caret", () => {
   });
 
   it("keeps the offer while the reader types what it says, and asks nothing new", async () => {
-    const { model } = mockModel(() => " at the ford.");
+    const model = scriptedModel({ turns: [{ reply: { text: " at the ford." } }] });
     render(<Notice model={model} />);
     const field = screen.getByRole("textbox");
     fireEvent.change(field, { target: { value: "Three hounds seen", selectionStart: 17 } });
@@ -110,7 +110,7 @@ describe("Assist on a Textarea — a continuation at the caret", () => {
   });
 
   it("takes one word with Ctrl+→, and lets the rest go with Esc", async () => {
-    const { model } = mockModel(() => " at the ford.");
+    const model = scriptedModel({ turns: [{ reply: { text: " at the ford." } }] });
     const onEvent = vi.fn();
     render(<Notice model={model} onEvent={onEvent} />);
     const field = screen.getByRole("textbox");
@@ -127,7 +127,7 @@ describe("Assist on a Textarea — a continuation at the caret", () => {
   });
 
   it("asks for an alternative with Alt+], and goes back with Alt+[", async () => {
-    const { model } = mockModel((_, i) => (i === 0 ? " at the ford." : " by the mill."));
+    const model = scriptedModel({ turns: [{ once: true, reply: { text: " at the ford." } }, { reply: { text: " by the mill." } }] });
     render(<Notice model={model} />);
     const field = screen.getByRole("textbox");
     fireEvent.change(field, { target: { value: "Three hounds seen", selectionStart: 17 } });
@@ -142,7 +142,7 @@ describe("Assist on a Textarea — a continuation at the caret", () => {
   });
 
   it("puts the old value back from the ✨ right after a suggestion was taken", async () => {
-    const { model } = mockModel(() => " at the ford.");
+    const model = scriptedModel({ turns: [{ reply: { text: " at the ford." } }] });
     render(<Notice model={model} />);
     const field = screen.getByRole("textbox");
     fireEvent.change(field, { target: { value: "Three hounds seen", selectionStart: 17 } });
@@ -154,21 +154,20 @@ describe("Assist on a Textarea — a continuation at the caret", () => {
   });
 
   it("marks the field at rest, busy while asking, and lit while offering", async () => {
-    const m = mockModel(() => " at the ford.");
-    render(<Notice initial="Three hounds seen" model={m.model} />);
+    // A pause before the first word, so the busy state is there to be seen.
+    const model = scriptedModel({ turns: [{ reply: { text: " at the ford." } }], pace: { wait: 300 } });
+    render(<Notice initial="Three hounds seen" model={model} />);
     expect(mark().getAttribute("aria-busy")).toBe("false");
     expect(mark().getAttribute("data-offering")).toBeNull();
 
-    m.hold();
     await userEvent.click(mark());
     await waitFor(() => expect(mark().getAttribute("aria-busy")).toBe("true"));
-    act(() => m.release());
     await waitFor(() => expect(mark().getAttribute("data-offering")).toBe("true"));
     expect(mark().getAttribute("aria-busy")).toBe("false");
   });
 });
 
-function Title(props: { model: ReturnType<typeof mockModel>["model"]; onEvent?: (e: AssistEvent) => void }) {
+function Title(props: { model: ReturnType<typeof scriptedModel>; onEvent?: (e: AssistEvent) => void }) {
   const [value, setValue] = useState("Bog-hounds took the herd dog");
   return (
     <AssistProvider model={props.model} onEvent={props.onEvent}>
@@ -183,14 +182,18 @@ function Title(props: { model: ReturnType<typeof mockModel>["model"]; onEvent?: 
   );
 }
 
-const CANDIDATES = elements([
-  { text: "Bog-hounds on the causeway", rationale: "Names the place." },
-  { text: "Herd dog taken at the ford", rationale: "Leads with the loss." },
-]);
+const CANDIDATES = {
+  object: {
+    elements: [
+      { text: "Bog-hounds on the causeway", rationale: "Names the place." },
+      { text: "Herd dog taken at the ford", rationale: "Leads with the loss." },
+    ],
+  },
+};
 
 describe("Assist on an Input — whole values, as chips", () => {
   it("offers candidates under the field from the ✨, and a chip replaces the value", async () => {
-    const { model } = mockModel(() => CANDIDATES);
+    const model = scriptedModel({ turns: [{ reply: CANDIDATES }] });
     const onEvent = vi.fn();
     render(<Title model={model} onEvent={onEvent} />);
     const user = userEvent.setup();
@@ -208,7 +211,7 @@ describe("Assist on an Input — whole values, as chips", () => {
   });
 
   it("drops a chip with its ✕, as a rejection", async () => {
-    const { model } = mockModel(() => CANDIDATES);
+    const model = scriptedModel({ turns: [{ reply: CANDIDATES }] });
     const onEvent = vi.fn();
     render(<Title model={model} onEvent={onEvent} />);
     const user = userEvent.setup();
@@ -220,7 +223,7 @@ describe("Assist on an Input — whole values, as chips", () => {
   });
 
   it("asks for structured output, never prose to parse", async () => {
-    const { model } = mockModel(() => CANDIDATES);
+    const model = scriptedModel({ turns: [{ reply: CANDIDATES }] });
     render(<Title model={model} />);
     const user = userEvent.setup();
     await user.click(screen.getByRole("textbox"));
@@ -230,7 +233,7 @@ describe("Assist on an Input — whole values, as chips", () => {
   });
 });
 
-function Tags(props: { model: ReturnType<typeof mockModel>["model"] }) {
+function Tags(props: { model: ReturnType<typeof scriptedModel> }) {
   const [tags, setTags] = useState(["livestock"]);
   return (
     <AssistProvider model={props.model}>
@@ -259,12 +262,20 @@ function Tags(props: { model: ReturnType<typeof mockModel>["model"] }) {
 
 describe("Assist on a TagsInput — values to add", () => {
   it("adds a chip's value to the list, and never offers one already there", async () => {
-    const { model } = mockModel(() =>
-      elements([
-        { text: "Livestock", rationale: "dup" },
-        { text: "night-work", rationale: "Both sightings were at dusk." },
-      ]),
-    );
+    const model = scriptedModel({
+      turns: [
+        {
+          reply: {
+            object: {
+              elements: [
+                { text: "Livestock", rationale: "dup" },
+                { text: "night-work", rationale: "Both sightings were at dusk." },
+              ],
+            },
+          },
+        },
+      ],
+    });
     render(<Tags model={model} />);
     const user = userEvent.setup();
     await user.click(screen.getByRole("textbox", { name: "Tags" }));

@@ -2,7 +2,8 @@
 // instructions; the field describes itself through its accessible name and description, which is
 // what a person filling it in reads too.
 
-import { type LanguageModel, jsonSchema, stream } from "@kanzo-tech/llm";
+import { stream } from "@kanzo-tech/llm";
+import { type LanguageModel, jsonSchema } from "ai";
 import type { ContinuationRequest } from "./engine.js";
 import { defineTask, propose, type Proposal } from "./task/index.js";
 

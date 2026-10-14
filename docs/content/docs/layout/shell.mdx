@@ -171,7 +171,7 @@ checked, and `close()` presses the open one again and waits for none to be.
 ```ts
 import { DockHarness } from "@kanzo-tech/testing";
 
-const dock = await env.harness(DockHarness.with({ name: "Side panels" }));
+const dock = await env.getHarness(DockHarness.with({ name: "Side panels" }));
 await dock.open("Ask");
 await dock.close();
 ```

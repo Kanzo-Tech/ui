@@ -547,10 +547,10 @@ that is `aria-busy` while it counts, which `readout()` waits out.
 ```ts
 import { DashboardHarness, FilterBarHarness } from "@kanzo-tech/testing";
 
-const dashboard = await env.harness(DashboardHarness);
+const dashboard = await env.getHarness(DashboardHarness);
 await dashboard.settled();
 await (await (await dashboard.tile("Sightings by beast")).chart()).pick({ y: "boghound" });
-await expect.poll(async () => (await env.harness(FilterBarHarness)).readout()).toMatch(/ of /);
+await expect.poll(async () => (await env.getHarness(FilterBarHarness)).readout()).toMatch(/ of /);
 ```
 
 ## API Reference

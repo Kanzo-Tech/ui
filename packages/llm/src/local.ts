@@ -7,7 +7,8 @@ type Wrap = NonNullable<LanguageModelMiddleware["wrapGenerate"]>;
 type LanguageModelV4CallOptions = Parameters<Wrap>[0]["params"];
 type LanguageModelV4GenerateResult = Awaited<ReturnType<Wrap>>;
 
-import { AiError } from "./error.js";
+import type { KanzoTestingHook, ModelProbe } from "@kanzo-tech/testing";
+import { LlmError } from "./error.js";
 import type { ModelLoad } from "./load.js";
 
 /**
@@ -147,8 +148,13 @@ export function watchLocalModel(model: string, listener: () => void): () => void
 
 /**
  * `model`, a WebLLM model id (`Qwen3-4B-q4f16_1-MLC`), as a `LanguageModel`. Without WebGPU every call
- * fails as `AiError` coded `ai/unavailable`, before anything is downloaded: the host says the device
+ * fails as `LlmError` coded `llm/unavailable`, before anything is downloaded: the host says the device
  * cannot run it rather than waiting on a load that will not finish.
+ *
+ * When a test registered a script for `model` on `@kanzo-tech/testing`'s hook — `playwright(page,
+ * { models })`, before the page loaded — it answers from the script instead, with
+ * `@kanzo-tech/llm/testing`'s double, and records each prompt on the hook. Production never has the
+ * hook, and the double is imported only when a script is there.
  */
 export function localModel(model: string, settings: LocalModelSettings = {}): LanguageModel {
   return engine(model, settings).model;
@@ -179,6 +185,12 @@ function served(model: string, from: { weights: string; library: string }): Mode
 function engine(model: string, settings: LocalModelSettings) {
   const known = engines.get(model);
   if (known) return known;
+  const probe = (globalThis as { __KANZO_TESTING__?: KanzoTestingHook }).__KANZO_TESTING__?.models?.get(model);
+  if (probe) {
+    const entry = scripted(model, probe);
+    engines.set(model, entry);
+    return entry;
+  }
   const provider = webLLM(model, {
     worker: settings.worker,
     initProgressCallback: (report: WebLLMProgress) =>
@@ -186,7 +198,7 @@ function engine(model: string, settings: LocalModelSettings) {
     appConfig: settings.from ? { model_list: [served(model, settings.from)] } : undefined,
   });
   const unavailable = () =>
-    new AiError("ai/unavailable", `This browser cannot run ${model}: it has no WebGPU`, { reason: "webgpu" });
+    new LlmError("llm/unavailable", `This browser cannot run ${model}: it has no WebGPU`, { reason: "webgpu" });
   const ready = (): Promise<void> => {
     if (!doesBrowserSupportWebLLM()) {
       const error = unavailable();
@@ -234,6 +246,32 @@ function engine(model: string, settings: LocalModelSettings) {
   const entry = { model: built, load };
   engines.set(model, entry);
   return entry;
+}
+
+/**
+ * The double a test registered for `model`, standing where the engine would: the script's load, ready
+ * at once or failed with its words, and each call answered by `scriptedModel` once its module loads.
+ */
+function scripted(model: string, probe: ModelProbe) {
+  const double = import("./testing.js").then(({ scriptedModel }) => scriptedModel(probe.script));
+  const recorded = <T extends { prompt: unknown }>(params: T) =>
+    import("./testing.js").then(({ promptOf }) => void probe.prompts.push(promptOf(params as never)));
+  const built: LanguageModel = {
+    specificationVersion: "v4",
+    provider: "kanzo-testing",
+    modelId: model,
+    supportedUrls: {},
+    doGenerate: async (params) => (await recorded(params), (await double).doGenerate(params)),
+    doStream: async (params) => (await recorded(params), (await double).doStream(params)),
+  };
+  const load = async () => {
+    const fail = probe.script.load?.fail;
+    if (fail === undefined) return void publish(model, { state: "ready" });
+    const error = new Error(fail);
+    publish(model, { state: "failed", error });
+    throw error;
+  };
+  return { model: built, load };
 }
 
 /**

@@ -1,6 +1,6 @@
 import { fireEvent, queryAllByRole } from "@testing-library/dom";
 import { afterEach, describe, expect, it } from "vitest";
-import { HarnessEnvironment, type By, type Handle } from "../environment";
+import { HarnessEnvironment, type By, type TestElement } from "../environment";
 import { FilterBarHarness } from "./filter-bar";
 
 /**
@@ -14,22 +14,22 @@ function positional(between: () => void): HarnessEnvironment {
     between();
     return value;
   };
-  const handle = (resolve: () => Element): Handle => ({
+  const handle = (resolve: () => Element): TestElement => ({
     async find(by: By) {
       if (!("role" in by)) throw new Error("only roles, here");
       const found = () => queryAllByRole(resolve() as HTMLElement, by.role, by.name === undefined ? {} : { name: by.name });
       return step(found().map((_, i) => handle(() => found()[i] ?? missing(by, i))));
     },
     text: async () => step((resolve().textContent ?? "").replace(/\s+/g, " ").trim()),
-    attribute: async (name) => step(resolve().getAttribute(name)),
+    getAttribute: async (name) => step(resolve().getAttribute(name)),
     async click() {
       fireEvent.click(resolve());
     },
-    rect: async () => ({ x: 0, y: 0, width: 0, height: 0 }),
+    getDimensions: async () => ({ top: 0, left: 0, width: 0, height: 0 }),
     reveal: async () => {},
     drag: async () => {},
     fill: async () => {},
-    press: async () => {},
+    sendKeys: async () => {},
     evaluate: async (fn, arg) => fn(resolve(), arg),
   });
   return new HarnessEnvironment({
@@ -82,7 +82,7 @@ describe("FilterBarHarness over handles that are places", () => {
         document.querySelector("#date")?.remove();
       }
     });
-    const bar = await env.harness(FilterBarHarness);
+    const bar = await env.getHarness(FilterBarHarness);
     await bar.remove("date");
     expect(pressed).not.toContain("gender");
     expect(document.querySelector("#gender")).not.toBeNull();
@@ -99,7 +99,7 @@ describe("FilterBarHarness over handles that are places", () => {
       chip.addEventListener("click", () => chip.remove());
       document.querySelector("section")!.prepend(chip);
     });
-    const bar = await env.harness(FilterBarHarness);
+    const bar = await env.getHarness(FilterBarHarness);
     await bar.remove("Airport Airport.altitude");
     expect(document.querySelector("[aria-label^='Remove Airport']")).toBeNull();
   });

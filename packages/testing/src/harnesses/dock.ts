@@ -1,4 +1,4 @@
-import { ComponentHarness, type By, type Handle, type HarnessQuery } from "../environment";
+import { ComponentHarness, type By, type TestElement, type HarnessQuery } from "../environment";
 
 /**
  * **A `ShellDockSwitcher`** — `/docs/design/shell`: a single-select `ToggleGroup`, so Ark makes it a
@@ -18,7 +18,7 @@ export class DockHarness extends ComponentHarness {
   /** The panel open now, by its label, or `null` with the dock collapsed. */
   async current(): Promise<string | null> {
     for (const item of await this.host.find({ role: "radio" })) {
-      if (await checked(item)) return (await item.attribute("aria-label")) ?? item.text();
+      if (await checked(item)) return (await item.getAttribute("aria-label")) ?? item.text();
     }
     return null;
   }
@@ -39,9 +39,9 @@ export class DockHarness extends ComponentHarness {
     await this.env.until(async () => (await this.current()) === null, `${open} did not close`);
   }
 
-  private item(panel: string): Promise<Handle> {
-    return this.one({ role: "radio", name: panel }, `the dock has no ${panel}`);
+  private item(panel: string): Promise<TestElement> {
+    return this.locatorFor({ role: "radio", name: panel }, `the dock has no ${panel}`)();
   }
 }
 
-const checked = async (item: Handle) => (await item.attribute("aria-checked")) === "true";
+const checked = async (item: TestElement) => (await item.getAttribute("aria-checked")) === "true";

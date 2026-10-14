@@ -1,11 +1,12 @@
 "use client";
 
 import { Chat, useAgentChat } from "@kanzo-tech/ai";
-import { ToolLoopAgent } from "@kanzo-tech/llm";
-import { useRef, useState } from "react";
+import { scriptedModel } from "@kanzo-tech/llm/testing";
+import { ToolLoopAgent } from "ai";
+import { useState } from "react";
 import { daysOverdue, FEATURED, overdueQuests, partyOf, questLabel } from "@/example/quests";
 import { role } from "@/example/world";
-import { askOf, mockModel, offered } from "@/lib/mock-model";
+import { askOf, offered } from "@/lib/model-call";
 import { useAutoplay } from "@/lib/preview-autoplay";
 
 const late = FEATURED.overdue;
@@ -30,19 +31,17 @@ const ANSWERS: Record<string, { reasoning: string; text: string }> = {
 export default function Example() {
   // In a product the model is `localModel(…)`; here it is a mock, so the page needs no
   // network. Everything after it — the agent, useAgentChat, Chat — is what a product runs.
-  const pace = useRef(40);
+  const [pace] = useState(() => ({ perWord: 40 }));
   const [agent] = useState(
     () =>
       new ToolLoopAgent({
-        model: mockModel((call) => ANSWERS[askOf(call)] ?? "I can only read the board.", {
-          delay: () => pace.current,
-        }),
+        model: scriptedModel({ turns: (call) => ANSWERS[askOf(call)] ?? { text: "I can only read the board." }, pace }),
       }),
   );
   const chat = useAgentChat(agent);
 
   useAutoplay((mode) => {
-    pace.current = mode === "play" ? 40 : 0;
+    pace.perWord = mode === "play" ? 40 : 0;
     void chat.sendMessage({ text: QUESTIONS[0]! });
   });
 

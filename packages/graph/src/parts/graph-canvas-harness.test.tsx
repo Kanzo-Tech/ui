@@ -66,7 +66,7 @@ describe("GraphCanvas, as a test reads it", () => {
         <GraphCanvas />
       </GraphRoot>,
     );
-    const graph = await env.harness(GraphCanvasHarness);
+    const graph = await env.getHarness(GraphCanvasHarness);
     await act(() => settle(corpus));
     await expect(graph.ready()).rejects.toThrow(/without drawing a frame/);
     expect(await graph.frames()).toBe(0);
@@ -82,7 +82,7 @@ describe("GraphCanvas, as a test reads it", () => {
         </GraphCanvas>
       </GraphRoot>,
     );
-    const graph = await env.harness(GraphCanvasHarness);
+    const graph = await env.getHarness(GraphCanvasHarness);
     await act(() => settle(corpus));
     expect(await graph.counts()).toMatch(/^16 of 20 nodes placed · \S+ of 20 edges$/);
   });

@@ -1,4 +1,4 @@
-import { ComponentHarness, type By, type HarnessEnvironment, type Handle, type HarnessQuery } from "../environment";
+import { ComponentHarness, type By, type HarnessEnvironment, type TestElement, type HarnessQuery } from "../environment";
 import { ChartHarness } from "./chart";
 
 /**
@@ -16,7 +16,7 @@ export class TimelineHarness extends ComponentHarness {
 
   private readonly chart: ChartHarness;
 
-  constructor(env: HarnessEnvironment, host: Handle) {
+  constructor(env: HarnessEnvironment, host: TestElement) {
     super(env, host);
     this.chart = new ChartHarness(env, host);
   }
@@ -31,7 +31,7 @@ export class TimelineHarness extends ComponentHarness {
   /** The brushed range as the group reads it — *1950 – 1960* — or `null` with no window. */
   async range(): Promise<string | null> {
     const [group] = await this.host.find({ role: "group" });
-    return group ? group.attribute("aria-valuetext") : null;
+    return group ? group.getAttribute("aria-valuetext") : null;
   }
 
   /** Starts playback and waits for the button to say so. */
@@ -44,8 +44,8 @@ export class TimelineHarness extends ComponentHarness {
   }
 
   private async transport(playing: boolean): Promise<void> {
-    const button = await this.one({ role: "button", name: /^(play|pause)/i }, "the timeline has no play button");
-    const pressed = async () => (await button.attribute("aria-pressed")) === "true";
+    const button = await this.locatorFor({ role: "button", name: /^(play|pause)/i }, "the timeline has no play button")();
+    const pressed = async () => (await button.getAttribute("aria-pressed")) === "true";
     if ((await pressed()) === playing) return;
     await button.click();
     await this.env.until(async () => (await pressed()) === playing, playing ? "the timeline did not start" : "the timeline did not stop");

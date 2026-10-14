@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { AiError } from "@kanzo-tech/llm";
+import { LlmError } from "@kanzo-tech/llm";
 import { ModelBadge } from "./model-badge.js";
 
 describe("ModelBadge", () => {
@@ -31,7 +31,7 @@ describe("ModelBadge", () => {
     await user.click(screen.getByRole("button", { name: "Try again" }));
     expect(onRetry).toHaveBeenCalledOnce();
     unmount();
-    const unavailable = new AiError("ai/unavailable", "This browser cannot run it: it has no WebGPU", { reason: "webgpu" });
+    const unavailable = new LlmError("llm/unavailable", "This browser cannot run it: it has no WebGPU", { reason: "webgpu" });
     render(<ModelBadge load={{ state: "failed", error: unavailable }} onRetry={onRetry} />);
     await user.click(screen.getByRole("button", { name: "Model failed" }));
     expect(await screen.findByText(/no WebGPU/)).not.toBeNull();

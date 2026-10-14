@@ -2,10 +2,11 @@
 
 import { Chat, ChatSkeleton, useAgentChat } from "@kanzo-tech/ai";
 import { defineTask, propose, type Proposal } from "@kanzo-tech/ai/task";
-import { jsonSchema, ToolLoopAgent } from "@kanzo-tech/llm";
+import { jsonSchema, ToolLoopAgent } from "ai";
 import { Button } from "@kanzo-tech/ui";
 import { useEffect, useState } from "react";
-import { mockModel } from "@/lib/mock-model";
+import { scriptedModel } from "@kanzo-tech/llm/testing";
+import { PACE } from "@/lib/model-call";
 
 // The questions a model would offer for the board. The last is long on purpose: in a panel this
 // narrow it is cut with an ellipsis, and the whole question is in its tooltip.
@@ -32,8 +33,8 @@ const questions = defineTask<string, { text: string; rationale: string }>({
 });
 
 // In a product the model is the host's; here it is a mock.
-const model = mockModel(() => JSON.stringify({ elements: OFFERED }));
-const agent = new ToolLoopAgent({ model: mockModel(() => "Ask the board.") });
+const model = scriptedModel({ turns: [{ reply: { object: { elements: OFFERED } } }], pace: PACE });
+const agent = new ToolLoopAgent({ model: scriptedModel({ turns: [{ reply: { text: "Ask the board." } }], pace: PACE }) });
 
 export default function Example() {
   const chat = useAgentChat(agent);

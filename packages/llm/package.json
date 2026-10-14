@@ -1,7 +1,7 @@
 {
   "name": "@kanzo-tech/llm",
   "version": "0.1.0",
-  "description": "The model conversation, without React — the AI SDK re-exported as one surface, `stream`, and `localModel` on `/local`: a model in the page.",
+  "description": "The two doors to a model's answer, without React — `stream` and `generate`, each asking once, over the AI SDK, which it does not re-export — `localModel` on `/local`, a model in the page, and on `/testing` the one model double.",
   "type": "module",
   "license": "MIT",
   "sideEffects": false,
@@ -20,6 +20,10 @@
       "types": "./dist/local.d.ts",
       "import": "./dist/local.js"
     },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "import": "./dist/testing.js"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
@@ -28,14 +32,18 @@
     "test": "vitest run",
     "size": "size-limit"
   },
-  "//peers": "`ai` is REQUIRED, not optional, and that is the point of this package: there is nothing here without it, and a host installs it once so @kanzo-tech/ai's components and the host's own agent see the same UIMessage, the same ToolLoopAgent and the same transport. Two copies would be two type universes that do not assign to each other. `@browser-ai/web-llm` and `@mlc-ai/web-llm` are optional, and only `/local` reaches them: a host that runs no model in the page installs neither.",
+  "//peers": "`ai` is REQUIRED, not optional, and that is the point of this package: there is nothing here without it, and a host installs it once so @kanzo-tech/ai's components and the host's own agent see the same UIMessage, the same agent and the same transport. Two copies would be two type universes that do not assign to each other. None of it is re-exported: a host imports `ai` by name. `@browser-ai/web-llm` and `@mlc-ai/web-llm` are optional, and only `/local` reaches them: a host that runs no model in the page installs neither. `@kanzo-tech/testing` is optional and for its types alone, reached only from `/testing`: the double's script is the test hook's data, declared once where the hook is installed. `/local` reads the same hook as a type, and imports `/testing` lazily, only when a test registered a script.",
   "peerDependencies": {
     "@browser-ai/web-llm": "^3.0.4",
+    "@kanzo-tech/testing": "workspace:*",
     "@mlc-ai/web-llm": "^0.2.79",
     "ai": "^7.0.0"
   },
   "peerDependenciesMeta": {
     "@browser-ai/web-llm": {
+      "optional": true
+    },
+    "@kanzo-tech/testing": {
       "optional": true
     },
     "@mlc-ai/web-llm": {
@@ -44,6 +52,7 @@
   },
   "devDependencies": {
     "@browser-ai/web-llm": "3.0.4",
+    "@kanzo-tech/testing": "workspace:*",
     "@mlc-ai/web-llm": "0.2.86",
     "ai": "^7.0.126"
   },
@@ -59,6 +68,7 @@
   "//gauges": "One gauge per published entry, and one per tree-shaken import a consumer meets; `scripts/gauges.mjs` (through `.size-limit.mjs`) is what each measures, and every limit's reason — each raise, dated, with its before and after — is a row on /docs/design, *A gauge per entry, and its raises written here*.",
   "gauges": {
     ".": "450 B",
-    "./local": "1.6 kB"
+    "./local": "2.7 kB",
+    "./testing": "1.2 kB"
   }
 }

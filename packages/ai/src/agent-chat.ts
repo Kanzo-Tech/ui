@@ -1,13 +1,13 @@
 "use client";
 
 import { type UseChatHelpers, type UseChatOptions, useChat } from "@ai-sdk/react";
-import { type Agent, DirectChatTransport, type InferAgentUIMessage, type ToolSet, type UIMessage } from "@kanzo-tech/llm";
+import { type Agent, DirectChatTransport, type InferAgentUIMessage, type ToolSet, type UIMessage } from "ai";
 import type { ChatTransport } from "ai";
 import * as React from "react";
 
 /** `useChat`'s helpers, with `error` the value the agent threw rather than a sentence about it. */
 export type AgentChat<M extends UIMessage> = Omit<UseChatHelpers<M>, "error"> & {
-  /** What stopped the last answer, whole: an `AiError` with its `code` and `data`, a refusal, anything. */
+  /** What stopped the last answer, whole: an `LlmError` with its `code` and `data`, a refusal, anything. */
   error: unknown;
 };
 
@@ -19,7 +19,7 @@ export type AgentChatOptions<M extends UIMessage> = Omit<Extract<UseChatOptions<
  * `DirectChatTransport` — that keeps what the agent threw.
  *
  * `useChat` hands back a sentence: the transport writes the failure into the stream as text and the
- * chat rebuilds an `Error` from it, so an `AiError`'s `code` and `data` are gone by the time a host
+ * chat rebuilds an `Error` from it, so an `LlmError`'s `code` and `data` are gone by the time a host
  * could branch on them. This keeps the value the transport was given and answers it as `error`, the
  * same value every other surface in the library hands over (`/docs/design/failure`).
  *

@@ -1,4 +1,4 @@
-import { ComponentHarness, type By, type Handle, type HarnessQuery } from "../environment";
+import { ComponentHarness, type By, type TestElement, type HarnessQuery } from "../environment";
 import { TileHarness } from "./dashboard";
 
 const FILTER = "Filter the page to these rows";
@@ -32,7 +32,7 @@ export class AnswerHarness extends ComponentHarness {
   async ask(question: string): Promise<void> {
     const before = (await this.cards()).length;
     await this.host.fill(question);
-    await this.host.press("Enter");
+    await this.host.sendKeys("Enter");
     await this.env.until(async () => (await this.cards()).length > before, `no answer to "${question}" began`);
   }
 
@@ -52,7 +52,7 @@ export class AnswerHarness extends ComponentHarness {
    */
   async rows(): Promise<Record<string, string>[]> {
     const card = await this.settled();
-    const table = await this.one({ role: "table", name: DATA }, "the answer has no data table: it read no rows", card);
+    const table = await this.locatorFor({ role: "table", name: DATA }, "the answer has no data table: it read no rows")(card);
     const [head, ...body] = await table.find({ role: "row" });
     if (!head) return [];
     const columns = await Promise.all((await head.find({ role: "columnheader" })).map((cell) => cell.text()));
@@ -70,11 +70,11 @@ export class AnswerHarness extends ComponentHarness {
    */
   async filterTo(): Promise<void> {
     const card = await this.settled();
-    const button = await this.one({ role: "button", name: FILTER }, "the answer offers no Filter the page to these rows", card);
-    if ((await button.attribute("aria-pressed")) === "true") return;
-    if ((await button.attribute("disabled")) !== null) throw new Error("the answer cannot filter the page: it keeps everything in view");
+    const button = await this.locatorFor({ role: "button", name: FILTER }, "the answer offers no Filter the page to these rows")(card);
+    if ((await button.getAttribute("aria-pressed")) === "true") return;
+    if ((await button.getAttribute("disabled")) !== null) throw new Error("the answer cannot filter the page: it keeps everything in view");
     await button.click();
-    await this.env.until(async () => (await button.attribute("aria-pressed")) === "true", "the page was not filtered to the answer");
+    await this.env.until(async () => (await button.getAttribute("aria-pressed")) === "true", "the page was not filtered to the answer");
   }
 
   /**
@@ -85,7 +85,7 @@ export class AnswerHarness extends ComponentHarness {
    */
   async addToDashboard(): Promise<void> {
     const card = await this.settled();
-    const button = await this.one({ role: "button", name: ADD }, "the answer offers no Add to the dashboard: the host gave it no dashboards and onAdd", card);
+    const button = await this.locatorFor({ role: "button", name: ADD }, "the answer offers no Add to the dashboard: the host gave it no dashboards and onAdd")(card);
     await button.click();
     // By its name, not by the button: the name is what changes, and Playwright resolves a button by it.
     const outcome = await this.env.until(async () => {
@@ -104,19 +104,19 @@ export class AnswerHarness extends ComponentHarness {
    */
   async openOnDashboard(): Promise<void> {
     const card = await this.settled();
-    const button = await this.one({ role: "button", name: OPEN }, "the answer offers no Open on the dashboard: it is not on the dashboard, or the host gave no onOpen", card);
+    const button = await this.locatorFor({ role: "button", name: OPEN }, "the answer offers no Open on the dashboard: it is not on the dashboard, or the host gave no onOpen")(card);
     await button.click();
   }
 
   /** The newest answer card, once it holds its tile or its `Problem`: the card is `aria-busy` until then. */
-  private settled(): Promise<Handle> {
+  private settled(): Promise<TestElement> {
     return this.env.until(async () => {
       const last = (await this.cards()).at(-1);
-      return last && (await last.attribute("aria-busy")) !== "true" ? last : null;
+      return last && (await last.getAttribute("aria-busy")) !== "true" ? last : null;
     }, "no answer has finished");
   }
 
-  private cards(): Promise<Handle[]> {
-    return this.env.root.find({ css: '[data-slot="answer-card"]' });
+  private cards(): Promise<TestElement[]> {
+    return this.env.rootElement.find({ css: '[data-slot="answer-card"]' });
   }
 }

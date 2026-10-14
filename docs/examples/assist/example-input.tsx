@@ -3,7 +3,8 @@
 import { Field, FieldHelper, FieldLabel, Input } from "@kanzo-tech/ui";
 import { Assist, AssistProvider } from "@kanzo-tech/ai";
 import { useState } from "react";
-import { elements, mockModel } from "@/lib/mock-model";
+import { scriptedModel } from "@kanzo-tech/llm/testing";
+import { PACE } from "@/lib/model-call";
 
 const TITLES = [
   [
@@ -19,7 +20,7 @@ const TITLES = [
 ];
 
 // Stands in for `localModel(…)`; each press of the ✨ asks for a different set.
-const model = mockModel((_, i) => elements(TITLES[i % TITLES.length] ?? []));
+const model = scriptedModel({ turns: (_, i) => ({ object: { elements: TITLES[i % TITLES.length] ?? [] } }), pace: PACE });
 
 export default function Example() {
   const [title, setTitle] = useState("Bog-hounds took the herd dog");

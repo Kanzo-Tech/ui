@@ -25,7 +25,9 @@ typed string" and "bites on a class extending MosaicClient with no queryError".
 ## The codes this library names
 
 Each is an `Error` with `code` and `data`, in the `area/kind` grammar fossil's and a host's codes use,
-so one host registry keys all three. One class per package, named for it.
+so one host registry keys all three. One class per package, named for it, and its area the package's
+name. `@kanzo-tech/llm` broke that with an `AiError` coding `ai/unavailable`, while keasy coded its own
+model failures `llm/failed`, so one area had two names; the class is `LlmError` and its area `llm`.
 
 | Code | Class | When | `data` |
 | --- | --- | --- | --- |
@@ -34,7 +36,7 @@ so one host registry keys all three. One class per package, named for it.
 | `graph/context-lost` | `GraphError` | the browser took the WebGL context back | — |
 | `graph/no-positions` | `GraphError` | a device that came up holds no positions for the points it was given: a frame's read-back failed | — |
 | `graph/nothing-to-draw` | `GraphError` | an attached corpus with no vertex | — |
-| `ai/unavailable` | `AiError`, from `@kanzo-tech/llm` | the page cannot run the model: no WebGPU for `localModel` | `reason` |
+| `llm/unavailable` | `LlmError`, from `@kanzo-tech/llm` | the page cannot run the model: no WebGPU for `localModel` | `reason` |
 | `session/*`, `idp/*`, `callback/*`, `token/*`, `organization/*`, `claims/*` | `AuthError` | see [the auth layer](/docs/design/auth) | `after`, `status` where named |
 
 **What would reverse it:** a code a host never branches on. Then it folds into its neighbour; the
@@ -75,7 +77,7 @@ after 30 s and not before".
 
 The model runs in the page ([Tasks](/docs/design/tasks)), so there is no request to a server to bound
 and no limit to be told about: what can fail is the device. `localModel` checks for WebGPU before it
-downloads anything and fails as `ai/unavailable` with `reason` `"webgpu"`, so a host says the device
+downloads anything and fails as `llm/unavailable` with `reason` `"webgpu"`, so a host says the device
 cannot run it rather than waiting on a load that will not finish.
 
 **The library's own asks are made once, through `@kanzo-tech/llm`.** Every model call the library
@@ -90,7 +92,7 @@ sits through one.
 silence to bound and a limit to name, and both belong to the one door that makes the request, not to
 `Assist` or `Chat` above it — two bounds on one wait are two parties racing to name one failure.
 
-*Held by* `packages/llm/src/local.test.ts`, "fails as ai/unavailable without WebGPU, before anything
+*Held by* `packages/llm/src/local.test.ts`, "fails as llm/unavailable without WebGPU, before anything
 loads"; `packages/ai/src/assist.test.tsx`, "asks once: an error the SDK would retry is the failure,
 not a retry after it"; `packages/llm/src/stream.test.ts`, "never retries a refused call";
 `packages/llm/src/generate.test.ts`, "never retries a refused call"; `packages/ai/src/task/task.test.ts`,

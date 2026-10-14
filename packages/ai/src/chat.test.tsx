@@ -1,11 +1,11 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { DirectChatTransport, ToolLoopAgent, jsonSchema, tool } from "@kanzo-tech/llm";
+import { DirectChatTransport, ToolLoopAgent, jsonSchema, tool } from "ai";
 import { describe, expect, it, vi } from "vitest";
 import { Chat, ChatSkeleton } from "./chat.js";
 import type { Proposal } from "./task/index.js";
 import { useChat } from "@ai-sdk/react";
-import { mockModel } from "./testing/model.js";
+import { scriptedModel } from "@kanzo-tech/llm/testing";
 
 /** A Task's offer of `value`, accepted, as `propose` hands one over. */
 const offer = <V,>(value: V, rationale?: string): Proposal<V> => ({
@@ -20,9 +20,12 @@ const offer = <V,>(value: V, rationale?: string): Proposal<V> => ({
 
 /** An agent with one tool, `query`, that the mock model calls once before it answers. */
 function agent() {
-  const { model } = mockModel((_, i) =>
-    i === 0 ? { tool: "query", input: { sql: "select count(*) from node" } } : "There are **4** nodes.",
-  );
+  const model = scriptedModel({
+    turns: [
+      { once: true, reply: { tool: "query", input: { sql: "select count(*) from node" } } },
+      { reply: { text: "There are **4** nodes." } },
+    ],
+  });
   return new ToolLoopAgent({
     model,
     tools: {

@@ -3,7 +3,7 @@
 import { ark } from "@ark-ui/react/factory";
 import { CircleCheckIcon, CircleDashedIcon, CircleStopIcon, CircleXIcon, WrenchIcon } from "lucide-react";
 import * as React from "react";
-import { type DynamicToolUIPart, getToolName, type ToolUIPart } from "@kanzo-tech/llm";
+import { type DynamicToolUIPart, getToolName, type ToolUIPart } from "ai";
 import {
   Badge,
   type BadgeVariant,

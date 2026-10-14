@@ -67,7 +67,7 @@ vi.mock("@mlc-ai/web-llm", () => ({
 }));
 
 const { loadLocalModel, localModel, localModelLoad, watchLocalModel } = await import("./local");
-const { AiError } = await import("./error");
+const { LlmError } = await import("./error");
 
 beforeEach(() => {
   supported.mockReturnValue(true);
@@ -137,15 +137,15 @@ describe("localModel", () => {
   it("reports a load that cannot happen as failed, with what stopped it", async () => {
     supported.mockReturnValue(false);
     const id = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
-    await expect(loadLocalModel(id)).rejects.toMatchObject({ code: "ai/unavailable" });
-    expect(localModelLoad(id)).toMatchObject({ state: "failed", error: { code: "ai/unavailable" } });
+    await expect(loadLocalModel(id)).rejects.toMatchObject({ code: "llm/unavailable" });
+    expect(localModelLoad(id)).toMatchObject({ state: "failed", error: { code: "llm/unavailable" } });
   });
 
-  it("fails as ai/unavailable without WebGPU, before anything loads", async () => {
+  it("fails as llm/unavailable without WebGPU, before anything loads", async () => {
     supported.mockReturnValue(false);
     const call = generateText({ model: localModel("Qwen3-1.7B-q4f16_1-MLC"), prompt: "?" });
-    await expect(call).rejects.toBeInstanceOf(AiError);
-    await expect(call).rejects.toMatchObject({ code: "ai/unavailable", data: { reason: "webgpu" } });
+    await expect(call).rejects.toBeInstanceOf(LlmError);
+    await expect(call).rejects.toMatchObject({ code: "llm/unavailable", data: { reason: "webgpu" } });
   });
 
   it("loads from where the host serves the model, when it says", () => {
@@ -188,6 +188,47 @@ describe("localModel", () => {
 
   it("refuses to load without WebGPU, as a call does", async () => {
     supported.mockReturnValue(false);
-    await expect(loadLocalModel("gemma-2-2b-it-q4f16_1-MLC")).rejects.toMatchObject({ code: "ai/unavailable" });
+    await expect(loadLocalModel("gemma-2-2b-it-q4f16_1-MLC")).rejects.toMatchObject({ code: "llm/unavailable" });
+  });
+});
+
+describe("localModel, when a test scripted the model", () => {
+  type Hook = { __KANZO_TESTING__?: { graphs: Map<string, unknown>; charts: Map<string, unknown>; models: Map<string, unknown> } };
+  const scope = globalThis as Hook;
+  const register = (id: string, script: unknown) => {
+    scope.__KANZO_TESTING__ = { graphs: new Map(), charts: new Map(), models: new Map([[id, { script, prompts: [] }]]) };
+    return scope.__KANZO_TESTING__.models.get(id) as { prompts: string[] };
+  };
+
+  it("answers from the script registered for its id on the test hook, records the prompt, and never reaches WebLLM", async () => {
+    supported.mockReturnValue(false);
+    const before = made.length;
+    const probe = register("Qwen3-0.6B-q4f16_1-MLC", { turns: [{ when: "How many", reply: { text: "Four." } }] });
+    try {
+      await loadLocalModel("Qwen3-0.6B-q4f16_1-MLC");
+      expect(localModelLoad("Qwen3-0.6B-q4f16_1-MLC")).toEqual({ state: "ready" });
+      const { text } = await generateText({ model: localModel("Qwen3-0.6B-q4f16_1-MLC"), prompt: "How many laureates?" });
+      expect(text).toBe("Four.");
+      expect(probe.prompts).toEqual(["How many laureates?"]);
+      expect(made.length).toBe(before);
+    } finally {
+      delete scope.__KANZO_TESTING__;
+    }
+  });
+
+  it("fails the load with the script's words, as WebLLM's does when a shard cannot be fetched", async () => {
+    register("Qwen3-1.7B-scripted", { turns: [], load: { fail: "Cannot fetch params_shard_0.bin" } });
+    try {
+      await expect(loadLocalModel("Qwen3-1.7B-scripted")).rejects.toThrow("Cannot fetch params_shard_0.bin");
+      expect(localModelLoad("Qwen3-1.7B-scripted")).toMatchObject({ state: "failed" });
+    } finally {
+      delete scope.__KANZO_TESTING__;
+    }
+  });
+
+  it("answers with WebLLM when no test installed the hook", () => {
+    const before = made.length;
+    localModel("TinyLlama-1.1B-Chat-v1.0-q4f16_1-MLC");
+    expect(made.length).toBe(before + 1);
   });
 });

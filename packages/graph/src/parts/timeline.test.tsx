@@ -430,7 +430,7 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
     const corpus = await attach();
     const { brush, ready } = await drawn(corpus);
     await ready();
-    const timeline = await env.harness(TimelineHarness.with({ title: "Timeline: born" }));
+    const timeline = await env.getHarness(TimelineHarness.with({ title: "Timeline: born" }));
     expect(await timeline.range()).toBeNull();
     // jsdom has no layout for a pointer to drag across, so the brush is moved as a drag would move it;
     // in Chromium the harness's own brush is `ChartHarness`'s, held in the end-to-end suite.

@@ -15,9 +15,10 @@ import {
   ShellRoot,
 } from "@kanzo-tech/ui";
 import { Chat, ToolInput, ToolOutput, useAgentChat } from "@kanzo-tech/ai";
-import { ToolLoopAgent, jsonSchema, tool } from "@kanzo-tech/llm";
+import { scriptedModel } from "@kanzo-tech/llm/testing";
+import { ToolLoopAgent, jsonSchema, tool } from "ai";
 import { SparklesIcon } from "lucide-react";
-import { afterTool, askOf, mockModel, offered } from "@/lib/mock-model";
+import { afterTool, askOf, offered, PACE } from "@/lib/model-call";
 import { NOTHING, RECIPES, RELATIONS, type ResultSet, recipeFor, runStatement } from "./data";
 import { ResultTable } from "./result-table";
 
@@ -42,13 +43,16 @@ const QUERY = jsonSchema<{ sql: string }>({
 });
 
 /** Reasons, calls `query` with the recipe's statement, then explains the rows it got back. */
-const model = mockModel((call) => {
-  const recipe = recipeFor(askOf(call));
-  if (!recipe) return NOTHING;
-  if (!afterTool(call)) return { reasoning: recipe.reasoning, tool: "query", input: { sql: recipe.sql } };
-  return recipe.failure
-    ? `No statement over this archive can answer that. ${recipe.failure}`
-    : recipe.explain(recipe.run());
+const model = scriptedModel({
+  turns: (call) => {
+    const recipe = recipeFor(askOf(call));
+    if (!recipe) return { text: NOTHING };
+    if (!afterTool(call)) return { reasoning: recipe.reasoning, tool: "query", input: { sql: recipe.sql } };
+    return {
+      text: recipe.failure ? `No statement over this archive can answer that. ${recipe.failure}` : recipe.explain(recipe.run()),
+    };
+  },
+  pace: PACE,
 });
 
 const agent = new ToolLoopAgent({

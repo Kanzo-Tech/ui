@@ -72,8 +72,9 @@ pnpm add @kanzo-tech/ai @kanzo-tech/llm ai @ai-sdk/react
 ```
 
 The model is reached through [`@kanzo-tech/llm`](/docs/ai/llm), which has no React: `localModel`, on
-`@kanzo-tech/llm/local`, runs a model in the page, and the AI SDK is re-exported from it so a host never imports `ai`
-itself. `ai` and `@ai-sdk/react` are **required** peers, installed once, because the host's agent and
+`@kanzo-tech/llm/local`, runs a model in the page, and every model call goes through its `stream` or
+`generate`, asked once. The AI SDK's own names — the agent, `tool`, the message types — are imported
+from `ai`. `ai` and `@ai-sdk/react` are **required** peers, installed once, because the host's agent and
 these components must share one copy of the SDK's types. `/local`'s WebLLM peers are optional, and
 only that subpath reaches them. Everything `ai` draws with is `@kanzo-tech/ui` and Ark, both required peers, and its
 appearance is one more line in the stylesheet below — its own `@source`s, streamdown's included, and

@@ -220,14 +220,28 @@ second product's evaluation set.
 
 ### Where each dependency lives
 
-The pattern of `@kanzo-tech/mosaic` and `@kanzo-tech/llm`: the third party is a peer, its surface is
-re-exported so a host never imports it directly, and ours is only the door it lacks. Two copies of
-WebLLM would be two engines and two models in GPU memory.
+The third party is a peer, and ours is only the door it lacks. Mosaic's surface is re-exported by
+`@kanzo-tech/mosaic`, because one copy of Mosaic on a page is what makes one coordinator, and no host
+imports `@uwdata/*` for anything else. The AI SDK's is **not** re-exported by `@kanzo-tech/llm`: `ai`
+is a required peer every host and every package already imports by name, so a re-export was a second
+way to write one import, and nobody used it — what the house's own code reached for through it, a
+host reached for from `ai`. What `llm` carries is the two doors through which every model call the
+library makes passes, `stream` and `generate`, each asking once
+([the failure rule](/docs/design/failure#a-models-failure-is-shown-once-on-the-first-attempt)). Two
+copies of WebLLM would be two engines and two models in GPU memory.
+
+*What would reverse it:* a name of the SDK's that a host must not import from `ai` — one whose version
+must be the library's, as Mosaic's coordinator is. Then that name is passed through, with the reason
+beside it, and the rest still is not.
+
+*Held by* `packages/llm/src/index.test.ts`, "carries the two doors and the failure, and none of the AI
+SDK's names".
 
 | Package | Third-party peer | What it carries |
 | --- | --- | --- |
-| `@kanzo-tech/llm` | `ai`, required | the AI SDK's surface, `AiError`, `stream`, `generate` |
-| `@kanzo-tech/llm/local` | `@browser-ai/web-llm`, `@mlc-ai/web-llm`, optional | `localModel` (served `from` the host, a grammar per call), `loadLocalModel`, `serveLocalModel` for its worker; `ai/unavailable` without WebGPU |
+| `@kanzo-tech/llm` | `ai`, required | `stream`, `generate`, `LlmError`, `ModelLoad` |
+| `@kanzo-tech/llm/testing` | `ai`'s own `ai/test`; `@kanzo-tech/testing`, optional, for the script's types | the one scripted model double ([Testing](/docs/design/testing#one-model-double)) |
+| `@kanzo-tech/llm/local` | `@browser-ai/web-llm`, `@mlc-ai/web-llm`, optional | `localModel` (served `from` the host, a grammar per call), `loadLocalModel`, `serveLocalModel` for its worker; `llm/unavailable` without WebGPU; the double in place of the model when a test registered one |
 | `@kanzo-tech/ai/task` | — | the types, `defineTask`, `runTask`, `propose`, `verify` |
 | `@kanzo-tech/ai` | — | `useTask`, `Assist`, `Chat` |
 | `@kanzo-tech/ai/data` | `@kanzo-tech/mosaic`, optional | `ask`, `useAskChat`, `askOffers`, `AskChips`, `AnswerCard` |

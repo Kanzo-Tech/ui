@@ -15,18 +15,28 @@ import {
 } from "@kanzo-tech/ui";
 import { Assist, AssistProvider } from "@kanzo-tech/ai";
 import { useState } from "react";
-import { elements, mockModel } from "@/lib/mock-model";
+import { scriptedModel } from "@kanzo-tech/llm/testing";
+import { PACE } from "@/lib/model-call";
 
 // Stands in for `localModel(…)`. It offers `livestock` too, and Assist drops it: a
 // value the field already holds is never offered.
-const model = mockModel(() =>
-  elements([
-    { text: "livestock", rationale: "A herd dog was taken." },
-    { text: "standing-water", rationale: "Bog-hounds hold wet ground, and the ford is out." },
-    { text: "night-work", rationale: "Both sightings were at dusk." },
-    { text: "escort", rationale: "The herder walks back with the party." },
-  ]),
-);
+const model = scriptedModel({
+  turns: [
+    {
+      reply: {
+        object: {
+          elements: [
+            { text: "livestock", rationale: "A herd dog was taken." },
+            { text: "standing-water", rationale: "Bog-hounds hold wet ground, and the ford is out." },
+            { text: "night-work", rationale: "Both sightings were at dusk." },
+            { text: "escort", rationale: "The herder walks back with the party." },
+          ],
+        },
+      },
+    },
+  ],
+  pace: PACE,
+});
 
 export default function Example() {
   const [tags, setTags] = useState<string[]>(["livestock"]);

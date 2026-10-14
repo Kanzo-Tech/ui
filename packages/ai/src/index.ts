@@ -2,7 +2,7 @@
 // each: a field the model helps fill (`AssistProvider` + `Assist`) and a conversation with one
 // (`Chat`, over `useAgentChat`). The parts a conversation is drawn with are exported beside it, for a host
 // that draws a transcript `Chat` does not. The model behind them is the AI SDK, reached through
-// `@kanzo-tech/llm`. Asking questions of data — an agent that answers with a dashboard tile, and
+// `@kanzo-tech/llm`'s two doors and imported from `ai` by name. Asking questions of data — an agent that answers with a dashboard tile, and
 // the card it is drawn in — is `@kanzo-tech/ai/data`, because it needs `@kanzo-tech/ui/analytics`
 // and its peers, which this barrel must not.
 //

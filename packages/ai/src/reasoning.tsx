@@ -11,7 +11,7 @@ import {
   CollapsibleTrigger,
   Spinner,
 } from "@kanzo-tech/ui";
-import type { ReasoningUIPart } from "@kanzo-tech/llm";
+import type { ReasoningUIPart } from "ai";
 
 const Ctx = React.createContext<{ streaming: boolean; seconds: number | null; text: string }>({
   seconds: null,

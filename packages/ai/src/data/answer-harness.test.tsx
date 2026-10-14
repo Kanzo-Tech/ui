@@ -74,7 +74,7 @@ describe("AnswerHarness", () => {
     const env = dom();
     let crossfilter!: Selection;
     const { rerender } = draw(part("input-streaming"), {}, (s) => (crossfilter = s));
-    const answers = await env.harness(AnswerHarness);
+    const answers = await env.getHarness(AnswerHarness);
     rerender(
       <QueryClientProvider client={queries}><MosaicProvider coordinator={db.coordinator}>
         <Page into={(s) => (crossfilter = s)} />
@@ -93,7 +93,7 @@ describe("AnswerHarness", () => {
   it("reads the rows the answer was read from — the engine's result, not the tile's drawing", async () => {
     const env = dom();
     draw(part("output-available", { output }));
-    const rows = await (await env.harness(AnswerHarness)).rows();
+    const rows = await (await env.getHarness(AnswerHarness)).rows();
     // What the engine returned, cell for cell: the mean age of the three women, (31 + 44 + 27) / 3.
     expect(rows).toEqual(output.rows.map((row) => Object.fromEntries(Object.entries(row).map(([k, v]) => [k, String(v)]))));
     expect(rows).toHaveLength(1);
@@ -117,7 +117,7 @@ describe("AnswerHarness", () => {
       return page(part("output-available", { output }), adding);
     }
     render(<Host />);
-    const added = (await env.harness(AnswerHarness)).addToDashboard();
+    const added = (await env.getHarness(AnswerHarness)).addToDashboard();
     await vi.waitFor(() => expect(onAdd).toHaveBeenCalled(), { timeout: 10_000 });
     await screen.findByRole("button", { name: "Adding to the dashboard…" });
     settle();
@@ -130,7 +130,7 @@ describe("AnswerHarness", () => {
     const onOpen = vi.fn();
     const holding: Dashboards = { byRelation: { Person: { filters: [], tiles: [output.answer.show] } } };
     draw(part("output-available", { output }), { dashboards: holding, onAdd: vi.fn(), onOpen });
-    await (await env.harness(AnswerHarness)).openOnDashboard();
+    await (await env.getHarness(AnswerHarness)).openOnDashboard();
     expect(onOpen).toHaveBeenCalledWith({ relation: PERSON, key: "Person", id: output.answer.show.id });
   });
 
@@ -138,12 +138,12 @@ describe("AnswerHarness", () => {
     const env = dom();
     const onAdd = () => Promise.reject(new Error("The dashboard could not be saved."));
     draw(part("output-available", { output }), { dashboards: { byRelation: {} }, onAdd });
-    await expect((await env.harness(AnswerHarness)).addToDashboard()).rejects.toThrow(/not added to the dashboard.*could not be saved/);
+    await expect((await env.getHarness(AnswerHarness)).addToDashboard()).rejects.toThrow(/not added to the dashboard.*could not be saved/);
   });
 
   it("rejects an answer that failed with the words of its Problem", async () => {
     const env = dom();
     draw(part("output-error", { errorText: "show.x: secret is not a field of Person." }));
-    await expect((await env.harness(AnswerHarness)).answer()).rejects.toThrow(/The answer failed.*secret is not a field of Person/);
+    await expect((await env.getHarness(AnswerHarness)).answer()).rejects.toThrow(/The answer failed.*secret is not a field of Person/);
   });
 });

@@ -1,9 +1,9 @@
-// The Nobel example's graph for the Ask tests, as keasy's Discover reads it from a corpus, and a model
-// that answers with specs. Not part of the published build (`vite.config.ts` excludes `src/testing`).
+// The Nobel example's graph for the Ask tests, as keasy's Discover reads it from a corpus, and the
+// model double answering with specs. Not part of the published build (`vite.config.ts` excludes `src/testing`).
 
 import type { JoinGraph } from "@kanzo-tech/mosaic";
 import { asTableRef } from "@uwdata/mosaic-sql";
-import { MockLanguageModelV4 } from "ai/test";
+import { scriptedModel } from "@kanzo-tech/llm/testing";
 import type { AnswerField, AnswerRelation } from "../data/answer.js";
 
 const at = (table: string) => asTableRef(["jobs/7", table])!;
@@ -47,17 +47,6 @@ export const TYPES: AnswerRelation[] = [
   alone("Country", [field("Country.name", "categorical", ["USA", "Germany"])]),
 ];
 
-const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } };
-
-/** A model that answers each call with the next of `values`, as JSON, and the last one after that. */
-export const answering = (...values: unknown[]) => {
-  let n = 0;
-  return new MockLanguageModelV4({
-    doGenerate: async () => ({
-      content: [{ type: "text", text: JSON.stringify(values[Math.min(n++, values.length - 1)]) }],
-      finishReason: { unified: "stop", raw: "stop" },
-      usage,
-      warnings: [],
-    }),
-  });
-};
+/** The one model double, answering each call with the next of `values` and the last one after that. */
+export const answering = (...values: unknown[]) =>
+  scriptedModel({ turns: values.map((object, i) => ({ once: i < values.length - 1, reply: { object } })) });

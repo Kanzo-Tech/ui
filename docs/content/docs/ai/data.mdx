@@ -378,7 +378,7 @@ everything in view.
 ```ts
 import { AnswerHarness } from "@kanzo-tech/testing";
 
-const answers = await env.harness(AnswerHarness);
+const answers = await env.getHarness(AnswerHarness);
 await answers.ask("What does the Amber Hall hold, by kind?");
 await (await (await answers.answer()).chart()).settled();
 await answers.filterTo();

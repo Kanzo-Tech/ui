@@ -9,8 +9,8 @@ description: A conversation with a model, whole — the transcript, markdown tha
 
 ```tsx
 import { Chat, useAgentChat } from "@kanzo-tech/ai";
-import { ToolLoopAgent } from "@kanzo-tech/llm";
 import { localModel } from "@kanzo-tech/llm/local";
+import { ToolLoopAgent } from "ai";
 
 const agent = new ToolLoopAgent({ model: localModel("Qwen3-4B-q4f16_1-MLC", { worker }), tools: { query } });
 ```
@@ -29,7 +29,7 @@ keeps the agent of its first render, as `useChat` keeps its first transport: a h
 waits on something draws [`ChatSkeleton`](#before-it-can-be-drawn) until it can build it.
 
 **It keeps what the agent threw.** `useChat` hands back a sentence: the transport writes a failure
-into the stream as text and the chat rebuilds an `Error` from the words, so an `AiError`'s `code`
+into the stream as text and the chat rebuilds an `Error` from the words, so an `LlmError`'s `code`
 and `data` are gone before a host could branch on them. `useAgentChat`'s `error` is the value the
 agent threw, whole — the same value every other surface in the library hands over
 ([failure](/docs/design/failure)).

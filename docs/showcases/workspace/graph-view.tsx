@@ -55,7 +55,7 @@ import {
 import { Chat, ChatSkeleton } from "@kanzo-tech/ai";
 import type { Proposal } from "@kanzo-tech/ai/task";
 import { AnswerCard, answerRelationsOf, askEdit, AskChips, askOffers, readAnswerRelations, useAskChat, type AnswerRelation, type AskOutput, type AskSpec } from "@kanzo-tech/ai/data";
-import { mockModel, promptOf } from "@/lib/mock-model";
+import { promptOf, scriptedModel } from "@kanzo-tech/llm/testing";
 import {
   Coordinator,
   Query,
@@ -1075,12 +1075,14 @@ function match(question: string): Intent | null {
  * The recording. Asked for offers — `askOffers` — it offers every intent's spec; asked a question it
  * recognises, it writes that intent's spec. Anything else is said to be outside what it knows.
  */
-const recording = mockModel((call) => {
-  const prompt = promptOf(call);
-  if (/^Offer \d+/m.test(prompt)) return JSON.stringify({ elements: INTENTS.map((intent) => intent.spec) });
-  const intent = match(/^Question: (.*)$/m.exec(prompt)?.[1] ?? "");
-  if (!intent) throw new Error("That one is outside what this recording knows. Try one of the questions it starts with.");
-  return JSON.stringify(intent.spec);
+const recording = scriptedModel({
+  turns: (call) => {
+    const prompt = promptOf(call);
+    if (/^Offer \d+/m.test(prompt)) return { object: { elements: INTENTS.map((intent) => intent.spec) } };
+    const intent = match(/^Question: (.*)$/m.exec(prompt)?.[1] ?? "");
+    if (!intent) return { fail: "That one is outside what this recording knows. Try one of the questions it starts with." };
+    return { object: intent.spec };
+  },
 });
 
 /** What may be asked: the archive's graph, and each of its types alone. */

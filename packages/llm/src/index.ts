@@ -1,37 +1,15 @@
 /**
- * The model conversation, as one import.
+ * The two doors through which every model call the library makes passes — `stream`, and `generate`
+ * for an answer read whole — each asking once, and the failure a model names.
  *
- * Same standing as `@kanzo-tech/mosaic`: the third party — here the AI SDK — is a required peer, its
- * surface is re-exported so a host never imports `ai` itself, and what is ours is the door it does
- * not have. A host reaches an answer through `stream`, or whole through `generate`, an agent through
- * `ToolLoopAgent`, and a conversation through `@kanzo-tech/ai`'s `useAgentChat`, so one copy of the
- * SDK is the easy outcome. The model itself is `localModel`, on `/local`: its peers are optional, so it is
- * not on this barrel.
+ * The AI SDK is a required peer and **none of it is re-exported**: `ai` is a package every host and
+ * every package here already imports by name, so a re-export was a second way to write one import
+ * (`/docs/design/tasks#where-each-dependency-lives`). What is ours is only the door the SDK lacks. The
+ * model itself is `localModel`, on `/local`, and the test double on `/testing`: their peers are
+ * optional, so neither is on this barrel.
  */
 
-export {
-  DirectChatTransport,
-  Output,
-  ToolLoopAgent,
-  getToolName,
-  isToolUIPart,
-  jsonSchema,
-  stepCountIs,
-  tool,
-  type Agent,
-  type ChatStatus,
-  type DynamicToolUIPart,
-  type InferAgentUIMessage,
-  type LanguageModel,
-  type ReasoningUIPart,
-  type Tool,
-  type ToolSet,
-  type ToolUIPart,
-  type UIMessage,
-} from "ai";
-
-/** Ours: the failure a model names, and the two doors to an answer — streamed, or whole. */
-export { AiError } from "./error.js";
+export { LlmError } from "./error.js";
 export { generate, type Generated, type GenerateOptions } from "./generate.js";
 export { stream, type Stream, type StreamOptions } from "./stream.js";
 export type { ModelLoad } from "./load.js";

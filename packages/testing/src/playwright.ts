@@ -1,10 +1,15 @@
 import type { Locator, Page } from "playwright-core";
-import { HarnessEnvironment, type By, type Driver, type Handle, type Modifier, type Point } from "./environment";
-import { install } from "./hook";
+import { HarnessEnvironment, type By, type Driver, type Modifier, type Point, type TestElement } from "./environment";
+import { install, type ModelScript } from "./hook";
 
 export interface EnvironmentOptions {
   /** How long a harness waits for a state before it fails, in milliseconds. Default 10 000. */
   timeout?: number;
+  /**
+   * A model double per model id: `localModel(id)` answers from the script in place of the model,
+   * on every page this one loads from now on, and the product's code never knows.
+   */
+  models?: Readonly<Record<string, ModelScript>>;
 }
 
 /** Between two reads of a state. Not a wait for a result: `until` returns on the first read that has it. */
@@ -13,10 +18,11 @@ const POLL = 50;
 /**
  * **The environment for a Playwright page.** It installs the test hook with `addInitScript`, so it
  * is called *before* the page navigates: the canvases register while they mount, and a page already
- * loaded has mounted without it. It imports nothing of Playwright's at run time, only its types.
+ * loaded has mounted without it — and the model scripts with it, which `localModel` reads when it is
+ * first asked. It imports nothing of Playwright's at run time, only its types.
  */
 export async function playwright(page: Page, options: EnvironmentOptions = {}): Promise<HarnessEnvironment> {
-  await page.addInitScript(install);
+  await page.addInitScript(install, options.models ?? {});
   const timeout = options.timeout ?? 10_000;
   const driver: Driver = {
     root: handle(page, page.locator(":root")),
@@ -53,7 +59,7 @@ async function holding(page: Page, keys: readonly Modifier[], act: () => Promise
   }
 }
 
-function handle(page: Page, locator: Locator): Handle {
+function handle(page: Page, locator: Locator): TestElement {
   return {
     async find(by) {
       return (await locate(page, locator, by).all()).map((found) => handle(page, found));
@@ -61,12 +67,12 @@ function handle(page: Page, locator: Locator): Handle {
     async text() {
       return ((await locator.textContent()) ?? "").replace(/\s+/g, " ").trim();
     },
-    attribute: (name) => locator.getAttribute(name),
+    getAttribute: (name) => locator.getAttribute(name),
     reveal: () => locator.scrollIntoViewIfNeeded(),
-    async rect() {
+    async getDimensions() {
       const box = await locator.boundingBox();
       if (!box) throw new Error("the element is not visible, so it has no box");
-      return box;
+      return { top: box.y, left: box.x, width: box.width, height: box.height };
     },
     async click({ at, with: keys = [] } = {}) {
       if (!at) return locator.click({ modifiers: [...keys] });
@@ -82,7 +88,7 @@ function handle(page: Page, locator: Locator): Handle {
       await holding(page, keys, () => page.mouse.up());
     },
     fill: (value) => locator.fill(value),
-    press: (key) => locator.press(key),
+    sendKeys: (key) => locator.press(key),
     evaluate: (fn, arg) => locator.evaluate(fn as (element: Element, arg: unknown) => never, arg),
   };
 }
