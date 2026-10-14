@@ -195,7 +195,7 @@ tomorrow, its row changes, not the API.
 
 | Ours | Over | Dependency |
 | --- | --- | --- |
-| `defineTask`, `runTask` | `generateText` with `Output.object`, which WebLLM constrains with XGrammar, inside a loop of our own: generate, verify, retry with the diagnostics until the attempts run out — Instructor's pattern | `ai`, already a peer |
+| `defineTask`, `runTask` | `@kanzo-tech/llm`'s `generate` — `generateText` with `maxRetries: 0` — and `Output.object`, which WebLLM constrains with XGrammar, inside a loop of our own: generate, verify, retry with the diagnostics until the attempts run out — Instructor's pattern | `ai`, already a peer |
 | a Task's `grammar` | the same call with `providerOptions.kanzo.grammar`, which `localModel` hands WebLLM's engine as `response_format: { type: "grammar" }` | — |
 | `propose` | `Output.array` of the same schema, each element checked on its own | — |
 | `useTask` | React state over `propose` and `verify`; never asks on mount | — |
@@ -226,7 +226,7 @@ WebLLM would be two engines and two models in GPU memory.
 
 | Package | Third-party peer | What it carries |
 | --- | --- | --- |
-| `@kanzo-tech/llm` | `ai`, required | the AI SDK's surface, `AiError`, `stream` |
+| `@kanzo-tech/llm` | `ai`, required | the AI SDK's surface, `AiError`, `stream`, `generate` |
 | `@kanzo-tech/llm/local` | `@browser-ai/web-llm`, `@mlc-ai/web-llm`, optional | `localModel` (served `from` the host, a grammar per call), `loadLocalModel`, `serveLocalModel` for its worker; `ai/unavailable` without WebGPU |
 | `@kanzo-tech/ai/task` | — | the types, `defineTask`, `runTask`, `propose`, `verify` |
 | `@kanzo-tech/ai` | — | `useTask`, `Assist`, `Chat` |

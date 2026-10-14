@@ -439,9 +439,9 @@ north up**: cosmos.gl's space is y-up, and the placement into its square only sc
 
 <ComponentPreview componentName="graph" fileName="example-axes" hasMaxHeight />
 
-`lookFrom`, `simFrom` and `placementFrom` read the same `Record<string, string>` a preferences
-section produces — `GRAPH_SECTION` on `@kanzo-tech/graph/section` is the declaration, and these three
-are its only readers. A host under a preferences panel never calls them itself: `useGraphPrefs()` does. A host
+`lookFrom` and `simFrom` read the same `Record<string, string>` a preferences section produces —
+`GRAPH_SECTION` on `@kanzo-tech/graph/section` is the declaration — and `useGraphPrefs()` reads the
+placement beside them. A host under a preferences panel never calls the two itself: `useGraphPrefs()` does. A host
 that knows its corpus is large starts its users at other forces through the tenant policy, over the
 same declared axes.
 
@@ -723,19 +723,6 @@ Extends `React.ComponentProps<typeof ark.div>` without its `children`. `translat
 (`GraphInspectorTranslations`): `empty`, `missing`, `unread`, `locate`, `copy`, `values`, `dates`,
 `more` and `less`.
 
-### ShapeGlyph
-
-The glyph the canvas draws for a category, in the DOM — for a legend key, a card or a preview. No
-`"use client"`: it renders on a server.
-
-| Prop | Type | Default |
-| --- | --- | --- |
-| `shape` | `Shape` — `"circle" \| "square" \| "triangle" \| "diamond" \| "cross"` | required |
-| `color` | `string` | `"currentColor"` |
-
-Extends `React.SVGProps<SVGSVGElement>` (`ShapeGlyphProps`); the 12×12 `viewBox` is fixed, so size
-it from outside.
-
 ### Hooks
 
 | Name | Signature | What it is |
@@ -752,8 +739,6 @@ it from outside.
 | --- | --- |
 | `lookFrom` | `(values?) => Look` — the section's axes, as form. |
 | `simFrom` | `(values?) => Sim` — the same axes, as forces. |
-| `placementFrom` | `(values?) => Placement` — where the points come from: `{}`, `{ x, y }` or `{ cluster }`. |
-| `scaleOf` | `(channels, capacity?)` → `{ color(rank), shape(rank) }` — what a category rank wears, the canvas's own answer. |
 | `GRAPH_SECTION` | On `@kanzo-tech/graph/section`: the graph's tokens and its preferences — the look's axes, the placement and the forces. |
 
 ### GraphApi
@@ -794,8 +779,8 @@ What `useGraphState` selects from.
 ### Types
 
 `GraphCanvasProps`, `GraphLegendProps`, `GraphCountsProps`, `GraphStatusProps`, `GraphToolbarProps`,
-`GraphInspectorProps`, `GraphSearchProps`, `GraphRootProviderProps` and
-`ShapeGlyphProps` are the parts' props, and `GraphCanvasTranslations`, `GraphLegendTranslations`,
+`GraphInspectorProps`, `GraphSearchProps` and `GraphRootProviderProps`
+are the parts' props, and `GraphCanvasTranslations`, `GraphLegendTranslations`,
 `GraphCountsTranslations`, `GraphStatusTranslations`, `GraphToolbarTranslations`,
 `GraphInspectorTranslations` and `GraphSearchTranslations` their words; `VertexDetail` — `vertex`, `table` and `fields` — is what the
 inspector's render prop receives. `Channels` (`fill`, `symbol`, `stroke`, `x`, `y`, `cluster`), `Placement`, `Look`, `LookPatch`,

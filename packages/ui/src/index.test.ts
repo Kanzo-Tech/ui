@@ -150,23 +150,15 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.ListboxShortcut).toBeTypeOf("function");
   });
 
-  it("exposes two themers, and they are not interchangeable", () => {
-    // `KanzoTheme` was deleted once, and the reason it went is worth keeping because it is still
-    // half true: it sets the attributes on a wrapper `<div>`, so it cannot theme Ark's portalled
-    // overlays, and beside the real provider it gave callers no way to tell which was which — a
-    // repo-wide grep found zero JSX usages and one working provider.
-    //
-    // What changed is the half that was not about portals. A scope could not paint a different
-    // palette at all while a document was a whole stylesheet the server picked: there was no block
-    // for an attribute to select, so the component's only real power was over the non-colour axes.
-    // `compile(doc, { scope })` emits one document per attribute now, and the five ship together, so
-    // a palette gallery — five documents on one page — is a thing that can exist.
-    //
-    // The ambiguity is answered by documentation and by a test rather than by deletion:
-    // `KanzoTheme.test.tsx` asserts the portal limit directly, so "not the chrome of an app" is a
-    // measured property and not a warning someone has to remember to read.
+  it("exposes one themer, the root's, and no scoped one", () => {
+    // `KanzoTheme` — the attributes on a wrapper `<div>` — went twice. The first time because a
+    // wrapper cannot theme Ark's portalled overlays and beside the real provider gave callers no way
+    // to tell which was which. It came back for previews, and went again with no product calling it:
+    // a name on the barrel is admitted by a product's call site (`/docs/design/admission`), and its
+    // one caller is `ThemePreview`, which imports it from its module. A region a host themes is a
+    // `data-theme` attribute and the side's class (`/docs/themes#theming-a-region`).
     const surface = UI as Record<string, unknown>;
-    expect(surface.KanzoTheme).toBeTypeOf("function");
+    expect(surface.KanzoTheme).toBeUndefined();
     expect(surface.KanzoThemeProvider).toBeTypeOf("function");
   });
 

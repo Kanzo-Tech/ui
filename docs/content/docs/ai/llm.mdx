@@ -1,6 +1,6 @@
 ---
 title: "@kanzo-tech/llm"
-description: The model conversation, without React — the AI SDK re-exported as one surface, stream, and localModel, a model that runs in the page.
+description: The model conversation, without React — the AI SDK re-exported as one surface, stream and generate, and localModel, a model that runs in the page.
 ---
 
 `@kanzo-tech/llm` is what `@kanzo-tech/ai` talks to a model through, and what a host builds its
@@ -41,9 +41,9 @@ what is ours is the door it does not have.
 | `Agent`, `ToolSet` | The types of an agent and of its tools, for code that takes one |
 | `tool`, `jsonSchema` | A tool the model may call, and its input's schema |
 | `DirectChatTransport` | Run an agent in the page — what `@kanzo-tech/ai`'s `useAgentChat` runs it over |
-| `Output` | Structured output for [`stream`](#stream): `Output.object` / `Output.array` |
+| `Output` | Structured output for [`stream`](#stream) and [`generate`](#generate): `Output.object` / `Output.array` |
 | `getToolName`, `isToolUIPart` | Reading a message's tool parts |
-| `UIMessage`, `InferAgentUIMessage` | A message as `useChat` holds it, and its type for a given agent |
+| `UIMessage`, `InferAgentUIMessage` | A message as a chat holds it — `useAgentChat`, or `@ai-sdk/react`'s own hook — and its type for a given agent |
 | `ToolUIPart`, `DynamicToolUIPart`, `ReasoningUIPart` | Its parts |
 | `LanguageModel`, `ChatStatus` | A model, and where a chat has got to |
 
@@ -191,6 +191,33 @@ thrown itself.
 *What would reverse it:* a caller that needs something of `streamText` that `stream` cannot pass —
 tools in a single request, or a reading other than these three. Then the option goes on
 `StreamOptions`; the raw call still does not come back.
+
+## `generate`
+
+```ts
+generate(options: GenerateOptions): Promise<{ text: string; output: O }>
+
+interface GenerateOptions extends StreamOptions {
+  providerOptions?: ProviderOptions; // { kanzo: { grammar } } holds localModel to a grammar
+}
+```
+
+**The same door, for an answer read whole** — what a [Task](/docs/ai/tasks) asks for, since its
+oracles judge the artefact entire. It is `generateText` asked once, as `stream` is: a refusal rejects
+with what the model threw, whole, and is never retried. A Task's own repair loop is the only second
+attempt, and it carries what the oracles found; a retry of the same prompt on the same device carries
+nothing.
+
+Every model call the library makes goes through one of the two doors. `generateText` is not
+re-exported, for the reason `streamText` is not.
+
+*What would reverse it:* a model the page reaches over the network again — then a silence has a
+bound and a limit a name, and both go on this one door, never on `Assist`, `Chat` or a Task above
+it.
+
+*Held by* `packages/llm/src/generate.test.ts`, "never retries a refused call";
+`packages/ai/src/task/task.test.ts`, "asks once: an error the SDK would retry is the failure, not a
+retry after it".
 
 ## `AiError`
 

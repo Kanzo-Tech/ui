@@ -243,8 +243,6 @@ export const WITHHELD: Readonly<Record<string, string>> = {
 export const ADDED: Readonly<Record<string, string>> = {
   "clipboard:ClipboardControl": THIN_ROOT("Clipboard"),
   "clipboard:ClipboardLabel": THIN_ROOT("Clipboard"),
-  "color-picker:safeParseColor":
-    "Ours. A colour parse that returns `undefined` instead of throwing on the half-typed input a text field produces. `simples/color-picker.tsx` is also the one file `no-literal-hues.test.ts` allows literals in, because colour is its subject matter.",
   "field:FieldSetError":
     "The fieldset-*scoped* message parts, which are a different Ark machine from `FieldError` / `FieldHelper` and were the only thing `field.tsx` lacked when `Fieldset` and `FieldSet` were merged — `index.test.ts`, `drops components superseded by composition or a merge`.",
   "field:FieldSetHelper":

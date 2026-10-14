@@ -142,9 +142,9 @@ row alone".
 ## The spec is read whole or refused
 
 A `DashboardSpec` is a valibot schema, and the type is inferred from that schema, so the two cannot
-drift. `parseDashboard` and `parseDashboards` read untrusted JSON, and either return a value of the
-type or throw `not a dashboard spec at <path>`, naming the field. They do not coerce, they do not
-fill in defaults, and they do not drop an unknown key. A measure that could never be drawn against
+drift. `parseDashboards` reads untrusted JSON, and either returns a value of the
+type or throws `not a dashboards document at <path>`, naming the field. It does not coerce, it does
+not fill in defaults, and it does not drop an unknown key. A measure that could never be drawn against
 any relation, such as a sum of nothing or a share of no value, is refused when the spec is read,
 not when it is drawn.
 
@@ -165,7 +165,7 @@ that cannot be drawn whatever the relation: a sum of nothing, a share of no valu
 
 ## The recommender is Show Me's cases, in CompassQL's pipeline
 
-`recommend(fields, intent)` runs three steps. `enumerate` asks every rule for its candidates.
+The recommender behind `autoDashboard`, `recommend(fields, intent)`, runs three steps. `enumerate` asks every rule for its candidates.
 `rank` orders them by the intent's weights. `explain` turns a candidate into a tile, a sentence of
 rationale and the id of the rule that chose it. That is CompassQL's split, and Draco's after it:
 the set of what could be drawn, the preference among those, and the reason. The rules are not
@@ -217,7 +217,7 @@ Each table is mapped over `TileKind`, so adding a kind is a type error until all
 Making a tile is pure: the id is passed in, and it is minted once, in `Dashboard`'s `add`.
 
 Hosts cannot extend the set. A host-defined kind would be a spec this library cannot read back,
-which is exactly what `parseDashboard` refuses to do.
+which is exactly what `parseDashboards` refuses to do.
 
 **What would reverse it:** a second consumer that needs a kind which reads a relation in a way
 none of the three does. Then the kind joins the set, here, with its three rows.

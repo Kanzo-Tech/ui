@@ -28,7 +28,7 @@ import { recommend } from "./recommend.js";
  * each one a kind plus the fields it reads and a width, and a filter row scoping every tile — without
  * their query layer: every tile reads the one relation the `Dashboard` is given, under one
  * crossfilter. Nothing in it is a function or a component, so it survives `JSON.stringify` and a
- * database, and `parseDashboard` is the one way back in.
+ * database, and `parseDashboards` is the one way back in.
  */
 
 export const DASHBOARD_CHART_TYPES = ["bar", "line", "area", "histogram", "dot", "regression"] as const;

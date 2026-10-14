@@ -55,7 +55,7 @@ import {
 } from "@kanzo-tech/ui";
 import { Chat, ChatSkeleton } from "@kanzo-tech/ai";
 import type { Proposal } from "@kanzo-tech/ai/task";
-import { AnswerCard, answerRelationsOf, askEdit, AskChips, askOffers, questionOf, readAnswerRelations, useAskChat, type AnswerRelation, type AskOutput, type AskSpec } from "@kanzo-tech/ai/data";
+import { AnswerCard, answerRelationsOf, askEdit, AskChips, askOffers, readAnswerRelations, useAskChat, type AnswerRelation, type AskOutput, type AskSpec } from "@kanzo-tech/ai/data";
 import { mockModel, promptOf } from "@/lib/mock-model";
 import {
   Coordinator,
@@ -1056,6 +1056,9 @@ const INTENTS: Intent[] = [
   },
 ];
 
+/** The words of each pill `askOffers` answered with, by the intent whose spec it offered. */
+const OFFERED = new Map<string, Intent>();
+
 /**
  * An intent's own question, or the words a pill it offered says, win before any keyword does — a
  * question must always resolve to the intent that produced it, whatever words it happens to hold
@@ -1063,7 +1066,7 @@ const INTENTS: Intent[] = [
  */
 function match(question: string): Intent | null {
   const asked = question.trim().toLowerCase();
-  const own = INTENTS.find((intent) => [intent.question, questionOf(intent.spec)].some((q) => q.toLowerCase() === asked));
+  const own = OFFERED.get(asked) ?? INTENTS.find((intent) => intent.question.toLowerCase() === asked);
   if (own) return own;
   return INTENTS.find((intent) => intent.match.some((word) => asked.includes(word))) ?? null;
 }
@@ -1129,7 +1132,14 @@ function useOffers({ graph, types }: Askable, selection: MosaicSelection) {
   useEffect(() => {
     const abort = new AbortController();
     askOffers({ model: recording, graph, types, selection, signal: abort.signal }).then(
-      (offers) => setState({ questions: offers, proposing: false }),
+      (offers) => {
+        for (const { value } of offers) {
+          const intent = INTENTS.find((i) => JSON.stringify(i.spec) === JSON.stringify(value));
+          const [words] = askEdit(value).parts;
+          if (intent && words?.type === "text") OFFERED.set(words.text.toLowerCase(), intent);
+        }
+        setState({ questions: offers, proposing: false });
+      },
       () => !abort.signal.aborted && setState({ questions: [], proposing: false }),
     );
     return () => abort.abort();

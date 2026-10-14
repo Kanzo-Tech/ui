@@ -298,7 +298,7 @@ still JSON only by default, and `Chat`'s `tools` map draws it as what it is.
 | AI Elements | Here | How ours differs |
 | --- | --- | --- |
 | `Conversation` | `Conversation`, `ConversationContent`, `ConversationScrollButton` | The pin is ours, fifty lines rather than `use-stick-to-bottom`; `role="log"`. Their `ConversationEmptyState` is `Chat`'s `empty`, their `ConversationDownload` not admitted |
-| `Message` | `Message`, `MessageList`, `MessageContent`, `MessageAvatar`, `MessageActions` | `role` declared once and read by the parts; a list with list semantics. `MessageResponse` is `Chat`'s markdown, internal; `MessageAction`, `MessageToolbar` and `MessageBranch` not admitted |
+| `Message` | `Message`, `MessageList`, `MessageContent` | `role` declared once and read by the parts; a list with list semantics. `MessageResponse` is `Chat`'s markdown, internal; `MessageAction`, `MessageActions`, `MessageAvatar`, `MessageToolbar` and `MessageBranch` not admitted — the avatar and the actions row shipped and left with no product drawing them |
 | `PromptInput` | `PromptInput`, `PromptInputTextarea`, `PromptInputToolbar`, `PromptInputSubmit` | On `InputGroup`; the submit is Send, Stop or Retry by `ChatStatus`. Their attachments, model select, action menu and speech not admitted |
 | `Reasoning` | `Reasoning`, `ReasoningTrigger`, `ReasoningContent` | A spinner, not a shimmer; the reader's own toggle ends the automatic opening |
 | `Tool` | `Tool`, `ToolHeader`, `ToolContent`, `ToolInput`, `ToolOutput` | Bound to the part; *Stopped*, a state the SDK lacks |

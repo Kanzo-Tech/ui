@@ -7,7 +7,6 @@ import {
   FindingsBadgeHarness,
   FindingsItemHarness,
   RelationPickerHarness,
-  TimelineHarness,
   type KanzoTestingHook,
 } from "@kanzo-tech/testing";
 import { dom } from "@kanzo-tech/testing/dom";
@@ -285,12 +284,6 @@ describe("DockHarness", () => {
     expect(await dock.current()).toBe("Ask");
     await dock.close();
     expect(await dock.current()).toBeNull();
-  });
-});
-
-describe("harnesses waiting on a component another change delivers", () => {
-  it.skip("TimelineHarness brushes a range in data and plays it — needs ChartTimeline, designed in Kanzo-Tech/ui#132 and not yet built", async () => {
-    await dom().harness(TimelineHarness);
   });
 });
 

@@ -102,8 +102,7 @@ The preference fields are exactly `ThemePrefs`, so `set` accepts any subset of t
 
 `KanzoThemeProviderProps` is exported, so a wrapper can take the same props without restating them.
 
-**The rest of the theme surface, for a host that builds its own controls.** `KanzoTheme` and its
-`KanzoThemeProps` set the axes on a subtree without a provider of their own; `retiredTheme` is the
+**The rest of the theme surface, for a host that builds its own controls.** `retiredTheme` is the
 theme a reader had chosen and the tenant withdrew, which the theme cards say in an alert and a host
 may also toast ([below](#the-retired-theme-as-a-toast)). `ThemeStorage` is the two-method adapter the provider reads and writes through: `get`
 returns a **sparse** document, because a key is absent when nobody has chosen it, not when it is at

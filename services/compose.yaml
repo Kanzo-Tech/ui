@@ -4,7 +4,8 @@
 #   include:
 #     - https://github.com/Kanzo-Tech/ui.git#v0.35.0:services/compose.yaml
 #
-# and supplies the values (KC_HOSTNAME, passwords) as environment.
+# and supplies the values as environment: KC_HOSTNAME, and KC_DB_PASSWORD and KC_ADMIN_PASSWORD,
+# which have no default and without which Compose refuses to start.
 name: kanzo
 
 include:

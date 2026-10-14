@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import * as GRAPH from "./index";
+import { scaleOf } from "./render/graph-model";
 
 /**
  * What `import { … } from "@kanzo-tech/graph"` is allowed to find, and what it must not.
@@ -25,11 +26,8 @@ const VALUES = [
   "GraphSearch",
   "GraphStatus",
   "GraphToolbar",
-  "ShapeGlyph",
   "lookFrom",
-  "placementFrom",
   "readJoinGraph",
-  "scaleOf",
   "simFrom",
   "useGraph",
   "useGraphContext",
@@ -95,8 +93,12 @@ describe("@kanzo-tech/graph public surface", () => {
   it("names its glyphs instead of publishing cosmos.gl's enum", () => {
     expect(surface.SHAPE).toBeUndefined();
     expect(surface.SHAPE_PATH).toBeUndefined();
-    expect(GRAPH.scaleOf({ symbol: "kind" }).shape(0)).toBe("circle");
-    expect(GRAPH.scaleOf({ symbol: "kind" }).shape(4)).toBe("cross");
+    // And the parts draw them: `ShapeGlyph` and `scaleOf` left with no host calling either, so a
+    // category's glyph reaches a page through `GraphLegend` and the inspector, never by hand.
+    expect(surface.ShapeGlyph).toBeUndefined();
+    expect(surface.scaleOf).toBeUndefined();
+    expect(scaleOf({ symbol: "kind" }).shape(0)).toBe("circle");
+    expect(scaleOf({ symbol: "kind" }).shape(4)).toBe("cross");
   });
 
   it("merges its own defaults instead of publishing them to be spread", () => {
@@ -198,7 +200,6 @@ describe("the parts' props", () => {
       "GraphSearchProps",
       "GraphStatusProps",
       "GraphToolbarProps",
-      "ShapeGlyphProps",
     ]);
     const offenders: string[] = [];
     for (const symbol of props) {

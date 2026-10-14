@@ -294,7 +294,7 @@ an app augments one interface with its sections, and `<Pref name>` completes, a 
 
 ### A scope names a theme and a side, nothing else
 
-`KanzoTheme` takes `theme` and `appearance`. A region that wants a different shape wears a different
+`KanzoTheme`, the scope `ThemePreview` draws inside, takes `theme` and `appearance`. A region that wants a different shape wears a different
 theme. Its `density` prop is gone because it never worked. Density sets a font-size, and a wrapper's
 font-size does not move a `rem`, which resolves against `<html>`. So a scoped density scaled the text
 that had no size of its own, and nothing else.
