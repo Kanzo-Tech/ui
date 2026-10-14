@@ -213,8 +213,8 @@ with the names closed — so it cannot be malformed either.
 **Not built, because nothing has needed them.** The direction named four more: `defineFlow`, to
 chain the assistant's steps; `defineModels`, to resolve a model per Task; `useTaskChat`, a chat
 over any Task; and `evaluate`, an evaluation harness in `@kanzo-tech/testing`. A screen chains its
-Tasks as an async function does, the page has one model, Ask is the one Task in a chat, and keasy's
-evaluation set runs in its own e2e. *What would reverse it:* a second caller for any one of them —
+Tasks as an async function does, the page has one model, Ask is the one Task in a chat, and Ask's
+evaluation set runs in its own runner, `packages/ai/eval` ([Testing](/docs/design/testing#asks-evaluation-set-lives-beside-ask)). *What would reverse it:* a second caller for any one of them —
 two flows written the same way, two Tasks that want different models, a second Task in a chat, a
 second product's evaluation set.
 
