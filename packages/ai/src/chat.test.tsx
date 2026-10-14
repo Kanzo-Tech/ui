@@ -114,6 +114,30 @@ describe("Chat", () => {
     expect(document.querySelector("[data-slot=tool]")?.getAttribute("data-stopped")).toBe("true");
   });
 
+  it("draws a data part through the host's renderer by its name, and says when its message is written no more", () => {
+    const calls: { data: unknown; stopped: boolean }[] = [];
+    const answered = (status: string) => ({
+      ...idle,
+      status,
+      messages: [
+        {
+          id: "a",
+          role: "assistant",
+          parts: [
+            { type: "data-answer", id: "x", data: { n: 1 } },
+            { type: "data-other", data: {} },
+          ],
+        },
+      ],
+    });
+    const data = { answer: (part: { data: unknown }, message: { stopped: boolean }) => (calls.push({ data: part.data, ...message }), <p>an answer</p>) };
+    const { rerender } = render(<Chat chat={answered("streaming") as never} data={data} />);
+    rerender(<Chat chat={answered("ready") as never} data={data} />);
+    expect(screen.getAllByText("an answer")).toHaveLength(1);
+    expect(calls.at(0)).toEqual({ data: { n: 1 }, stopped: false });
+    expect(calls.at(-1)).toEqual({ data: { n: 1 }, stopped: true });
+  });
+
   it("holds room for proposals still arriving, beside the ones that have", () => {
     const { rerender } = render(<Chat chat={idle as never} proposing proposals={[offer("First?", "first")]} />);
     expect(screen.getByRole("button", { name: "First?" })).not.toBeNull();

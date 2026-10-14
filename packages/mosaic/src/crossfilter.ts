@@ -1,6 +1,6 @@
 import { Selection, type ClauseMetadata, type Coordinator, type MosaicClient, type SelectionClause } from "@uwdata/mosaic-core";
 import { InOpNode, Query, ScalarSubqueryNode, column, literal, type ExprNode, type FilterExpr } from "@uwdata/mosaic-sql";
-import { meets, relationIdentities, relationQuery, type JoinGraph, type Relation } from "./relation.js";
+import { joinPath, meets, relationHops, relationQuery, segmentOf, stepsOf, typeOf, type Hop, type JoinGraph, type Relation } from "./relation.js";
 import type { TableExpr } from "./table.js";
 
 /**
@@ -78,10 +78,52 @@ function isRelation(expr: RelationExpr): expr is Relation {
   return typeof expr === "object" && expr !== null && "root" in expr && "path" in expr && Array.isArray((expr as Relation).path);
 }
 
-/** A relation as a crossing reads it: its rows, and the key of each type along it. */
+/**
+ * **A step of a relation**: where it is on the path — the prefix its columns go by — its type, and
+ * its key, as the relation names it. The root is the empty path, and its key its own name.
+ */
+export interface JoinStep {
+  /** `""` the root, `affiliation`, `affiliation.university`, `^laureate`. */
+  readonly path: string;
+  readonly type: string;
+  /** `dense_id` on the root, `affiliation.university.dense_id` beyond: its path, then the type's key. */
+  readonly key: string;
+}
+
+/** Where a path's column is read for a relation `on`: on it, or through a branch leaving it at `at`. */
+export interface JoinField {
+  /** `on` itself, or the branch: a relation rooted at the step the path leaves `on` from. */
+  readonly relation: Relation;
+  /** The column, as `relation` names it: the path itself on `on`, the rest of it in a branch. */
+  readonly column: string;
+  /** The `JoinStep.path` of `on` the column is on, or the branch leaves from. */
+  readonly at: string;
+}
+
+/** Why a path is not one the joins have — said at the field, before anything runs. */
+export type JoinMiss =
+  /** `segment`, after `at`, is no edge that leaves the type reached there. */
+  | { readonly code: "join/no-step"; readonly path: string; readonly segment: string; readonly at: string }
+  /** The path reaches `type`, which has no `column`. */
+  | { readonly code: "join/no-field"; readonly path: string; readonly type: string; readonly column: string }
+  /** Two paths a relation must show both of leave each other: a relation is one path. */
+  | { readonly code: "join/branches"; readonly paths: readonly [string, string] };
+
+/** Whether `value` is a miss rather than what was asked. */
+const isJoinMiss = (value: object): value is JoinMiss => "code" in value;
+
+/** A relation as a crossing reads it: its rows, and each step's key. */
 interface Read {
   readonly table: TableExpr;
-  readonly identities: readonly { readonly column: string; readonly type: string }[];
+  readonly steps: readonly JoinStep[];
+}
+
+/** A path, walked from a type: the hops it takes, each step's path, and the column it ends on — none for a path that ends on a step. */
+interface Walk {
+  readonly hops: readonly Hop[];
+  readonly paths: readonly string[];
+  readonly type: string;
+  readonly column?: string;
 }
 
 /**
@@ -132,28 +174,147 @@ export class JoinResolver extends MosaicResolver {
     return out;
   }
 
-  /** `predicates` on `from`, as a filter of `to`: a semi-join on the key of a type both have, or `FALSE`. */
-  crossing(from: RelationRef, predicates: readonly ExprNode[], to: RelationRef): ExprNode {
+  /**
+   * Every step of `relation`, the root first: its path, its type and its key as the relation names
+   * it. A type by name is a relation of one step; a table the joins do not have has none.
+   */
+  steps(relation: RelationRef): readonly JoinStep[] {
+    return read(this.joins, relation).steps;
+  }
+
+  /**
+   * **Every field path from `root` within `hops`** — each column of each type a walk reaches, after
+   * the segments that reach it, the root's bare: what Ask's model may write. A walk never goes back
+   * along the edge it just took, which is the row it came from. A walk, in the graph's order: it
+   * chooses nothing.
+   */
+  paths(root: string, hops = 3): readonly string[] {
+    const joins = this.joins;
+    if (!joins?.types.some((t) => t.name === root)) return [];
+    const out: string[] = [];
+    let level: { path: string; type: string; last?: Hop }[] = [{ path: "", type: root }];
+    for (let n = 0; level.length > 0; n++) {
+      for (const { path, type } of level) {
+        const { key, columns } = typeOf(joins, type);
+        out.push(...columns.filter((c) => c.name !== key).map((c) => joinPath(path, c.name)));
+      }
+      if (n === hops) break;
+      level = level.flatMap(({ path, type, last }) =>
+        relationHops(joins, type)
+          .filter(({ hop }) => last?.edge !== hop.edge || last.direction === hop.direction)
+          .map(({ hop, to }) => ({ path: joinPath(path, segmentOf(joins, joins.edges.find((e) => e.name === hop.edge)!, hop.direction)), type: to, last: hop })),
+      );
+    }
+    return out;
+  }
+
+  /**
+   * **The one relation the `shown` paths lie on**, rooted at `root`, each of them its own column
+   * there — or a step, for a path that ends on one (a path's count). Paths that leave each other are
+   * `join/branches`: a relation is one path, so what it shows is too.
+   */
+  relation(root: string, shown: readonly string[]): Relation | JoinMiss {
+    const walks: [string, Walk][] = [];
+    for (const path of shown) {
+      const walk = this.walk(root, path);
+      if (isJoinMiss(walk)) return walk;
+      walks.push([path, walk]);
+    }
+    const [longest] = [...walks].sort(([, a], [, b]) => b.hops.length - a.hops.length);
+    if (!longest) return { root, path: [] };
+    const on = (walk: Walk) => walk.hops.every((h, i) => h.edge === longest[1].hops[i]!.edge && h.direction === longest[1].hops[i]!.direction);
+    const off = walks.find(([, walk]) => !on(walk));
+    if (off) return { code: "join/branches", paths: [longest[0], off[0]] };
+    return { root, path: [...longest[1].hops] };
+  }
+
+  /**
+   * **Where `path`, written from `on`'s root, is read for an answer on `on`**: on it, when every step
+   * it takes is one of `on`'s; else through the branch that leaves `on` at the last step they share,
+   * which `crossing` brings in at that step's key.
+   */
+  field(on: Relation, path: string): JoinField | JoinMiss {
+    const walk = this.walk(on.root, path);
+    if (isJoinMiss(walk)) return walk;
+    let shared = 0;
+    while (
+      shared < walk.hops.length &&
+      shared < on.path.length &&
+      walk.hops[shared]!.edge === on.path[shared]!.edge &&
+      walk.hops[shared]!.direction === on.path[shared]!.direction
+    ) {
+      shared++;
+    }
+    const at = walk.paths[shared]!;
+    if (shared === walk.hops.length) return { relation: on, column: path, at };
+    const branch = { root: stepsOf(this.joins!, on)[shared]!.type, path: walk.hops.slice(shared) };
+    return { relation: branch, column: at === "" ? path : path.slice(at.length + 1), at };
+  }
+
+  /** The step of `to` a clause on `from` crosses in at: the first whose type meets `from`'s root. */
+  at(to: RelationRef, from: RelationRef): JoinStep | undefined {
+    const root = this.steps(from)[0];
+    return root && this.steps(to).find((s) => meets(this.joins, s.type, root.type));
+  }
+
+  /**
+   * `predicates` on `from`, as a filter of `to`: a semi-join on the key of `to`'s step `at` — by
+   * default the step {@link at} finds — or `FALSE` where there is none.
+   */
+  crossing(from: RelationRef, predicates: readonly ExprNode[], to: RelationRef, at?: string): ExprNode {
     try {
       const source = read(this.joins, from);
-      const target = read(this.joins, to);
-      const root = source.identities[0];
-      const step = root && target.identities.find((i) => meets(this.joins, i.type, root.type));
+      const root = source.steps[0];
+      const step = at === undefined ? this.at(to, from) : this.steps(to).find((s) => s.path === at);
       if (!root || !step) return literal(false);
-      return new InOpNode(column(step.column), new ScalarSubqueryNode(Query.select(root.column).from(source.table).where([...predicates])));
+      return new InOpNode(column(step.key), new ScalarSubqueryNode(Query.select(root.key).from(source.table).where([...predicates])));
     } catch {
       // A relation the joins no longer have: nothing of it can be read across.
       return literal(false);
     }
+  }
+
+  /** `path`'s segments walked from `root`: each an edge that leaves the type reached, the last a column of it or an edge. */
+  private walk(root: string, path: string): Walk | JoinMiss {
+    const joins = this.joins;
+    if (!joins?.types.some((t) => t.name === root)) return { code: "join/no-step", path, segment: root, at: "" };
+    const segments = path === "" ? [] : path.split(".");
+    const hops: Hop[] = [];
+    const paths = [""];
+    let type = root;
+    for (const [i, segment] of segments.entries()) {
+      const { key, columns } = typeOf(joins, type);
+      if (i === segments.length - 1 && segment !== key && columns.some((c) => c.name === segment)) return { hops, paths, type, column: segment };
+      const inward = segment.startsWith("^");
+      const name = inward ? segment.slice(1) : segment;
+      const leaving = joins.edges.filter((e) => (inward ? e.destination : e.source) === type);
+      const named = leaving.filter((e) => e.name === name);
+      const labelled = leaving.filter((e) => e.label === name);
+      const edge = named.length === 1 ? named[0] : labelled.length === 1 ? labelled[0] : undefined;
+      if (!edge) {
+        return i === segments.length - 1
+          ? { code: "join/no-field", path, type, column: segment }
+          : { code: "join/no-step", path, segment, at: paths.at(-1)! };
+      }
+      const hop: Hop = { edge: edge.name, direction: inward ? "in" : "out" };
+      hops.push(hop);
+      paths.push(joinPath(paths.at(-1)!, segmentOf(joins, edge, hop.direction)));
+      type = inward ? edge.source : edge.destination;
+    }
+    return { hops, paths, type };
   }
 }
 
 function read(joins: JoinGraph | null, relation: RelationRef): Read {
   if (typeof relation === "string") {
     const type = joins?.types.find((t) => t.name === relation);
-    return { table: type?.table ?? relation, identities: type ? [{ column: type.key, type: type.name }] : [] };
+    return { table: type?.table ?? relation, steps: type ? [{ path: "", type: type.name, key: type.key }] : [] };
   }
-  return joins ? { table: relationQuery(joins, relation), identities: relationIdentities(joins, relation) } : { table: relation.root, identities: [] };
+  if (!joins) return { table: relation.root, steps: [] };
+  return {
+    table: relationQuery(joins, relation),
+    steps: stepsOf(joins, relation).map((s) => ({ path: s.path, type: s.type, key: joinPath(s.path, typeOf(joins, s.type).key) })),
+  };
 }
 
 /**

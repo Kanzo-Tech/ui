@@ -12,6 +12,8 @@ import { DetailTable } from "./detail-table.js";
 import { EditTileButton } from "./edit-tile-button.js";
 import type { FieldStat } from "./field-stats.js";
 import { tileTitle } from "./tile-kinds.js";
+import { MosaicClients } from "./mosaic-provider.js";
+import { useTile } from "./use-tile.js";
 
 /**
  * **How each kind of tile is drawn** — one row per kind, mapped over `TileKind` like `KINDS` and
@@ -20,31 +22,44 @@ import { tileTitle } from "./tile-kinds.js";
  */
 
 /** What a tile is drawn with: the relation, its fields, and an edit button when there is an editor. */
-export interface TileViewProps<T extends Tile> {
+export interface TileViewProps<T extends Tile = Tile> {
+  /** The relation the tile reads, as `ChartRoot` takes it; the tile narrows it by its own `where` and `top`. */
   relation: RelationExpr;
   fields: readonly FieldStat[];
   tile: T;
+  /** Series vocabulary per field, for a chart's `color`. See `ChartCard`. */
   config?: Readonly<Record<string, ChartConfig>>;
+  /** Puts an edit button in the header; the host opens the editor. */
   onEdit?: () => void;
+  /** The host's own controls in the header, before the pencil — icon buttons, as the pencil is. */
+  actions?: React.ReactNode;
   className?: string;
 }
 
 type Views = { [K in TileKind]: { View: (props: TileViewProps<Extract<Tile, { kind: K }>>) => React.ReactNode } };
 
-/** A `TableTile`: the rows under the selection in a titled card. */
-function TableCard({ relation, fields, tile, onEdit, className }: TileViewProps<TableTile>) {
+/** A `TableTile`: the rows under the selection, narrowed by the tile's own question, in a titled card. */
+function TableCard({ relation, fields, tile, onEdit, actions, className }: TileViewProps<TableTile>) {
+  const read = useTile(relation, tile, fields);
   return (
     <Card className={cn("[--space:--spacing(4)] min-w-0 gap-3", className)}>
       <CardHeader>
         <CardTitle className="truncate font-medium text-sm">{tileTitle(tile)}</CardTitle>
-        {onEdit ? (
-          <CardAction className="-my-1">
-            <EditTileButton label="Edit table" onClick={onEdit} />
+        {onEdit || actions ? (
+          <CardAction className="-my-1 flex items-center gap-1">
+            {actions}
+            {onEdit ? <EditTileButton label="Edit table" onClick={onEdit} /> : null}
           </CardAction>
         ) : null}
       </CardHeader>
       <CardContent>
-        <DetailTable columns={tile.columns} fields={fields} relation={relation} />
+        {"missing" in read.query ? (
+          <p className="text-muted-foreground text-sm">{`The relation has no ${read.query.missing.join(", ")} any more.`}</p>
+        ) : (
+          <MosaicClients relation={read.relation ?? undefined}>
+            <DetailTable columns={tile.columns} fields={fields} relation={read.query.table} />
+          </MosaicClients>
+        )}
       </CardContent>
     </Card>
   );
@@ -53,8 +68,8 @@ function TableCard({ relation, fields, tile, onEdit, className }: TileViewProps<
 export const TILE_VIEWS: Views = {
   // A figure has no series, so `config` is not passed on.
   stat: {
-    View: ({ tile, relation, fields, onEdit, className }) => (
-      <DashboardStat className={className} fields={fields} onEdit={onEdit} relation={relation} stat={tile} />
+    View: ({ tile, relation, fields, onEdit, actions, className }) => (
+      <DashboardStat actions={actions} className={className} fields={fields} onEdit={onEdit} relation={relation} stat={tile} />
     ),
   },
   chart: { View: ({ tile, ...rest }) => <ChartCard {...rest} card={tile} /> },
@@ -73,7 +88,11 @@ const SPAN: Record<TileSpan, string> = {
 /** The columns of the dashboard's grid a tile of `span` takes — on its view, and on its editor. */
 export const tileSpan = (span: TileSpan): string => SPAN[span];
 
-/** A tile of any kind, drawn by its kind. */
+/**
+ * **A tile of any kind, drawn by its kind** — `ChartCard`, `DashboardStat`, or the rows in a titled
+ * card — over its relation narrowed by the tile's own question. What a dashboard draws each tile with,
+ * and what draws a tile made outside one: an answer to a question.
+ */
 export function TileView(props: TileViewProps<Tile>) {
   const { View } = TILE_VIEWS[props.tile.kind] as { View: (props: TileViewProps<Tile>) => React.ReactNode };
   return <View {...props} />;

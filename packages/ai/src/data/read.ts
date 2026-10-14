@@ -1,26 +1,29 @@
 "use client";
 
-import { clauseLabel, literal, Query, relationQuery, type Engine, type ExprNode, type JoinGraph, type Selection, type SelectionClause } from "@kanzo-tech/mosaic";
-import { plotRelation } from "@kanzo-tech/ui/analytics";
+import { clauseLabel, JoinResolver, literal, relationQuery, type Engine, type JoinGraph, type Selection, type SelectionClause } from "@kanzo-tech/mosaic";
+import { plotRelation, TILE_ROWS, tileQuery } from "@kanzo-tech/ui/analytics";
 import type { QueryClient } from "@tanstack/react-query";
-import { ANSWER_ROWS, answerQuery, conditionClauses, pageClauses, type Answer, type AnswerRelation, type UnansweredClause } from "./answer.js";
+import { pageClauses, type Answer, type AnswerRelation, type UnansweredClause } from "./answer.js";
+import { resolverOf } from "./ask.js";
 
 /** One row of an answer, plain enough to keep in a message. */
 export type QueryRow = Record<string, unknown>;
 
 /**
- * An answer's read: the answer as it was placed, the rows its tile reads — every one of them — and
- * the page's clauses it was read under and those it was not.
+ * **What a `data-answer` part holds**: the answer, and — once it is read — the rows its tile reads,
+ * every one of them, with the page's clauses it was read under and those it was not. Written twice
+ * under one id: the answer, then the answer read.
  */
 export interface AnswerOutput {
   readonly answer: Answer;
-  readonly rows: readonly QueryRow[];
+  /** The rows the tile reads; absent while they are read. */
+  readonly rows?: readonly QueryRow[];
   /** The cap cut the rows short: these are the first. */
-  readonly truncated: boolean;
+  readonly truncated?: boolean;
   /** The page's clauses the answer was read under, as a chip reads each. */
-  readonly under: readonly string[];
-  /** The page's clauses the relation could not answer, left out of the read. */
-  readonly unanswered: readonly UnansweredClause[];
+  readonly under?: readonly string[];
+  /** The page's clauses the relation could not answer, which keep none of its rows. */
+  readonly unanswered?: readonly UnansweredClause[];
 }
 
 /** A 64-bit integer comes back as a `bigint` and a timestamp as a `Date`; a message carries neither. */
@@ -37,16 +40,26 @@ interface AnswerPage {
   readonly signal?: AbortSignal;
 }
 
-/** The statement `answer` reads, under the page's chips as its tiles read them. */
+/**
+ * The statement `answer` reads: its tile's rows (`tileQuery`, the dashboard's one compiler), under
+ * the page's chips as its tiles read them.
+ */
 function statementOf(answer: Answer, about: AnswerRelation, page: AnswerPage) {
   const { graph, selection } = page;
+  const resolver = selection?.resolver instanceof JoinResolver ? selection.resolver : resolverOf(graph);
   const plotted = plotRelation(relationQuery(graph, answer.relation), { fields: about.fields, columns: about.columns });
-  const clauses = pageClauses(selection?.clauses ?? [], about.columns, { relation: answer.relation, resolver: selection?.resolver });
-  const where = conditionClauses(answer.where, about.fields, {}).map((c) => c.predicate as ExprNode);
+  const clauses = pageClauses(selection?.clauses ?? [], about.columns, { relation: answer.relation, resolver });
   const none = clauses.unanswered.length > 0 ? [literal(false)] : [];
-  const table = Query.from(plotted.table).select("*").where([...where, ...clauses.predicates, ...none]);
   // One more row than the cap, so a cut answer is told from one that fits exactly.
-  return { sql: String(answerQuery(table, answer, about.fields, ANSWER_ROWS + 1)), clauses };
+  const compiled = tileQuery(plotted.table, answer.tile, {
+    fields: plotted.fields,
+    relation: answer.relation,
+    resolver,
+    filter: [...clauses.predicates, ...none],
+    limit: TILE_ROWS + 1,
+  });
+  if ("missing" in compiled) throw new Error(`The answer's relation has no ${compiled.missing.join(", ")}.`);
+  return { sql: String(compiled.rows), clauses };
 }
 
 /** The rows of a statement, read on the engine's own door, as plain values. */
@@ -60,8 +73,8 @@ async function rowsOf(engine: Pick<Engine, "query">, sql: string, signal: AbortS
 function outputOf(answer: Answer, rows: readonly QueryRow[], clauses: ReturnType<typeof statementOf>["clauses"]): AnswerOutput {
   return {
     answer,
-    rows: rows.slice(0, ANSWER_ROWS),
-    truncated: rows.length > ANSWER_ROWS,
+    rows: rows.slice(0, TILE_ROWS),
+    truncated: rows.length > TILE_ROWS,
     under: clauses.answered.map(wordsOf),
     unanswered: clauses.unanswered.map(({ clause, missing }) => ({ clause: wordsOf(clause), missing })),
   };

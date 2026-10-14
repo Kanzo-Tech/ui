@@ -1,17 +1,16 @@
 import type { Engine, JoinGraph, Selection } from "@kanzo-tech/mosaic";
-import { checkAnswer, placed, relationByKey, type AnswerRelation } from "../data/answer.js";
+import { answerRelation, askAnswer, type AskInput, type AskSpec } from "../data/ask.js";
 import { readAnswer, type AnswerOutput } from "../data/read.js";
 
-/** What an answer the page wrote reads: checked against `relations`, placed, and read on `engine`. */
+/** What a spec the page asked reads: its paths resolved over `graph`, and read on `engine`. */
 export async function readFor(
   engine: Pick<Engine, "query">,
   graph: JoinGraph,
-  relations: readonly AnswerRelation[],
-  input: unknown,
+  types: AskInput["types"],
+  spec: AskSpec,
   selection?: Selection,
 ): Promise<AnswerOutput> {
-  const checked = checkAnswer(input, relations, graph);
-  if (!checked.success) throw checked.error;
-  const about = relationByKey(graph, relations, checked.value.relation)!;
-  return readAnswer(placed(checked.value, "c", about.relation), about, { engine, graph, selection });
+  const answer = askAnswer(spec, { graph }, "c");
+  if (!answer) throw new Error(`the spec's paths are not the graph's: ${JSON.stringify(spec)}`);
+  return readAnswer(answer, answerRelation(answer.relation, { graph, types }), { engine, graph, selection });
 }

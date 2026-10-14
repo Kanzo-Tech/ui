@@ -24,28 +24,28 @@ const byCategory: Relation = { root: "LaureateAward", path: [{ edge: "LaureateAw
 const byUniversity: Relation = { root: "LaureateAward", path: [{ edge: "LaureateAward_university_University", direction: "out" }] };
 
 /** The dashboard's chip on Physics, published on the category relation as its tile publishes it. */
-const physics = onRelation(clausePoints(["Category.name"], [["Physics"]], { source: {} }), byCategory);
+const physics = onRelation(clausePoints(["category.name"], [["Physics"]], { source: {} }), byCategory);
 
 describe("pageClauses", () => {
   it("crosses a chip on another relation by the key both reach, as the page's tiles are crossed", () => {
     const selection = crossfilterOver(NOBEL);
-    const page = pageClauses([physics], ["University.name"], { relation: byUniversity, resolver: selection.resolver });
+    const page = pageClauses([physics], ["university.name"], { relation: byUniversity, resolver: selection.resolver });
     expect(page.unanswered).toEqual([]);
     expect(page.answered).toEqual([physics]);
-    expect(String(page.predicates[0])).toMatch(/"id" IN \(SELECT "id" FROM .*"Category\.name"/s);
+    expect(String(page.predicates[0])).toMatch(/"id" IN \(SELECT "id" FROM .*"category\.name"/s);
   });
 
   it("keeps none of a relation's rows when it shares no type with the chip's", () => {
     const selection = crossfilterOver(NOBEL);
     const country: Relation = { root: "Country", path: [] };
-    const page = pageClauses([physics], ["Country.name"], { relation: country, resolver: selection.resolver });
+    const page = pageClauses([physics], ["name"], { relation: country, resolver: selection.resolver });
     expect(page.predicates).toEqual([]);
-    expect(page.unanswered).toEqual([{ clause: physics, missing: ["Category.name"] }]);
+    expect(page.unanswered).toEqual([{ clause: physics, missing: ["category.name"] }]);
   });
 
   it("reads a chip published on the answer's own relation as it is", () => {
     const selection = crossfilterOver(NOBEL);
-    const page = pageClauses([physics], ["Category.name"], { relation: byCategory, resolver: selection.resolver });
+    const page = pageClauses([physics], ["category.name"], { relation: byCategory, resolver: selection.resolver });
     expect(page.predicates).toEqual([physics.predicate]);
   });
 });

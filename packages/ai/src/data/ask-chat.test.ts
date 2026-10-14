@@ -4,10 +4,11 @@ import { QueryClient } from "@tanstack/react-query";
 import type { InferUIMessageChunk, LanguageModel } from "ai";
 import { beforeAll, describe, expect, it } from "vitest";
 import { testDatabase, type TestDatabase } from "../testing/duckdb.js";
-import { answering, NOBEL, TYPES } from "../testing/nobel.js";
+import { answering } from "../testing/nobel.js";
 import { PEOPLE, PERSON, seedPeople } from "../testing/people.js";
 import { askEdit, askTransport, type AskChatOptions, type AskMessage } from "./ask-chat.js";
-import type { AskSpec } from "./ask.js";
+import { ask, type AskSpec } from "./ask.js";
+import type { Oracle } from "../task/index.js";
 import { readAnswerRelations } from "./relations.js";
 
 type Chunk = InferUIMessageChunk<AskMessage>;
@@ -41,56 +42,67 @@ async function turn(
 
 const textOf = (chunks: Chunk[]) => chunks.flatMap((c) => (c.type === "text-delta" ? [c.delta] : [])).join("");
 
-/** An engine with no data: the SQL it was asked, and no rows. */
-function empty() {
-  const asked: string[] = [];
-  const engine = {
-    query: async (sql: string) => {
-      asked.push(sql);
-      return { schema: { fields: [] }, numRows: 0, getChild: () => undefined };
-    },
-  } as unknown as Pick<Engine, "query">;
-  return { engine, asked };
-}
-
 describe("askTransport", () => {
   it("answers with the tile the Task's spec is, read on the page's engine, and words written from its rows", async () => {
     const types = await readAnswerRelations(db.coordinator, PEOPLE, [PERSON]);
-    const women: AskSpec = { of: "Person", where: [{ field: "Person.gender", in: ["female"] }], show: { kind: "stat", measure: { op: "count" } } };
+    const women: AskSpec = { of: "Person", where: [{ field: "gender", in: ["female"] }], show: { kind: "stat", measure: { op: "count" } } };
     const chunks = await turn({ model: answering(women) as LanguageModel, engine: db.engine, graph: PEOPLE, types, selection: Selection.crossfilter() }, [user("1", "How many women?")]);
-    expect(chunks.find((c) => c.type === "tool-input-available")).toMatchObject({ toolName: "answer", input: { relation: "Person", where: women.where } });
-    expect(chunks.find((c) => c.type === "tool-output-available")).toMatchObject({ output: { rows: [{ count: 3 }], unanswered: [] } });
-    expect(textOf(chunks)).toBe("3");
+    // One data part, written twice under one id: the answer as asked, then as read.
+    const answers = chunks.filter((c) => c.type === "data-answer");
+    expect(answers).toHaveLength(2);
+    expect(answers[0]!.id).toBe(answers[1]!.id);
+    expect(answers[0]).toMatchObject({ data: { answer: { relation: PERSON, tile: { kind: "stat", where: women.where } }, spec: women } });
+    expect("rows" in answers[0]!.data).toBe(false);
+    expect(answers[1]).toMatchObject({ data: { rows: [{ Count: 3 }], unanswered: [] } });
+    expect(chunks.some((c) => c.type.startsWith("tool-"))).toBe(false);
+    expect(textOf(chunks)).toBe("3.");
   });
 
-  it("asks which way when two relations answer equally, and reads the one the reader picks", async () => {
-    const byCountry: AskSpec = { of: "LaureateAward", show: { kind: "chart", type: "bar", x: "Country.name", y: { op: "count" } } };
-    const { engine, asked } = empty();
-    const options: AskChatOptions = { model: answering(byCountry) as LanguageModel, engine, graph: NOBEL, types: TYPES };
-    const first = await turn(options, [user("1", "Prizes by country?")]);
-    expect(textOf(first)).toContain("2. LaureateAward>university>University>addressCountry>Country");
-    expect(first.some((c) => c.type === "tool-input-available")).toBe(false);
+  it("words a bar chart's leading groups with Intl, ties named together, through its translations", async () => {
+    const types = await readAnswerRelations(db.coordinator, PEOPLE, [PERSON]);
+    const byGender: AskSpec = { of: "Person", show: { kind: "chart", type: "bar", x: "gender", y: { op: "count" } } };
+    const options: AskChatOptions = { model: answering(byGender) as LanguageModel, engine: db.engine, graph: PEOPLE, types, translations: { value: " = ", groups: " | " } };
+    expect(textOf(await turn(options, [user("1", "People by gender?")]))).toBe("female and male = 3.");
+    const byAge: AskSpec = { of: "Person", show: { kind: "chart", type: "bar", x: "age", y: { op: "count" } }, where: [{ field: "age", between: [40, 60] }] };
+    expect(textOf(await turn({ ...options, model: answering(byAge) as LanguageModel }, [user("1", "?")]))).toBe("44 and 52 = 1.");
+  });
 
-    const kept = first.flatMap((c) => (c.type === "data-ask" ? [{ type: c.type, data: c.data }] : []));
-    const second = await turn(options, [user("1", "Prizes by country?"), { id: "2", role: "assistant", parts: kept }, user("3", "2")]);
-    expect(second.find((c) => c.type === "tool-input-available")).toMatchObject({ input: { relation: "LaureateAward>university>University>addressCountry>Country" } });
-    expect(asked).toHaveLength(1);
+  it("asks a decision as a data part, and settles it by the option the reply picks, not by its words", async () => {
+    // Ask's own oracles raise none since its fields became paths; a Task's oracle may, and this one does.
+    const types = await readAnswerRelations(db.coordinator, PEOPLE, [PERSON]);
+    const men: AskSpec = { of: "Person", where: [{ field: "gender", in: ["male"] }], show: { kind: "stat", measure: { op: "count" } } };
+    const decision = { id: "scope", question: "Count whom?", options: [{ id: "all", label: "Everyone" }, { id: "adults", label: "Adults" }] };
+    const oracles = ask.verify as Oracle<unknown, unknown>[];
+    oracles.push(() => ({ decision }));
+    try {
+      const options: AskChatOptions = { model: answering(men) as LanguageModel, engine: db.engine, graph: PEOPLE, types };
+      const first = await turn(options, [user("1", "How many men?")]);
+      expect(first.find((c) => c.type === "data-ask")).toMatchObject({ data: { spec: men, decision } });
+      expect(textOf(first)).toBe("");
+      expect(first.some((c) => c.type === "data-answer")).toBe(false);
+
+      const reply = { id: "3", role: "user" as const, ...askEdit(men, { scope: "adults" }) };
+      const second = await turn(options, [user("1", "How many men?"), reply]);
+      expect([...second].reverse().find((c) => c.type === "data-answer")).toMatchObject({ data: { rows: [{ Count: 3 }] } });
+    } finally {
+      oracles.pop();
+    }
   });
 
   it("asks an edited spec as it is, with no model in between", async () => {
     const types = await readAnswerRelations(db.coordinator, PEOPLE, [PERSON]);
-    const men: AskSpec = { of: "Person", where: [{ field: "Person.gender", in: ["male"] }], show: { kind: "stat", measure: { op: "count" } } };
+    const men: AskSpec = { of: "Person", where: [{ field: "gender", in: ["male"] }], show: { kind: "stat", measure: { op: "count" } } };
     const model = answering(men);
     const chunks = await turn({ model: model as LanguageModel, engine: db.engine, graph: PEOPLE, types }, [
       { id: "1", role: "user", ...askEdit(men) },
     ]);
     expect(model.doGenerateCalls).toHaveLength(0);
-    expect(chunks.find((c) => c.type === "tool-output-available")).toMatchObject({ output: { rows: [{ count: 3 }], spec: men } });
+    expect(chunks.find((c) => c.type === "data-answer" && "rows" in c.data)).toMatchObject({ data: { rows: [{ Count: 3 }], spec: men } });
   });
 
   it("reads an answer asked again under the same chips once, on the host's client", async () => {
     const types = await readAnswerRelations(db.coordinator, PEOPLE, [PERSON]);
-    const men: AskSpec = { of: "Person", where: [{ field: "Person.gender", in: ["male"] }], show: { kind: "stat", measure: { op: "count" } } };
+    const men: AskSpec = { of: "Person", where: [{ field: "gender", in: ["male"] }], show: { kind: "stat", measure: { op: "count" } } };
     const asked: string[] = [];
     const engine: Pick<Engine, "query"> = { query: (sql, options) => (asked.push(sql), db.engine.query(sql, options)) };
     const client = new QueryClient();
@@ -100,13 +112,13 @@ describe("askTransport", () => {
     const second = await turn(options, [edited], { client });
     expect(asked).toHaveLength(1);
     for (const chunks of [first, second]) {
-      expect(chunks.find((c) => c.type === "tool-output-available")).toMatchObject({ output: { rows: [{ count: 3 }] } });
+      expect(chunks.find((c) => c.type === "data-answer" && "rows" in c.data)).toMatchObject({ data: { rows: [{ Count: 3 }] } });
     }
   });
 
   it("ends the read with the chat's signal, keeps nothing of it, and reads again when asked again", async () => {
     const types = await readAnswerRelations(db.coordinator, PEOPLE, [PERSON]);
-    const men: AskSpec = { of: "Person", where: [{ field: "Person.gender", in: ["male"] }], show: { kind: "stat", measure: { op: "count" } } };
+    const men: AskSpec = { of: "Person", where: [{ field: "gender", in: ["male"] }], show: { kind: "stat", measure: { op: "count" } } };
     const signals: AbortSignal[] = [];
     let hold = true;
     const engine: Pick<Engine, "query"> = {
@@ -126,11 +138,11 @@ describe("askTransport", () => {
     stop.abort();
     const chunks = await stopped.catch(() => []);
     expect(signals[0]!.aborted).toBe(true);
-    expect(chunks.some((c) => c.type === "tool-output-available")).toBe(false);
+    expect(chunks.some((c) => c.type === "data-answer" && "rows" in c.data)).toBe(false);
 
     hold = false;
     const again = await turn(options, [edited], { client });
     expect(signals).toHaveLength(2);
-    expect(again.find((c) => c.type === "tool-output-available")).toMatchObject({ output: { rows: [{ count: 3 }] } });
+    expect(again.find((c) => c.type === "data-answer" && "rows" in c.data)).toMatchObject({ data: { rows: [{ Count: 3 }] } });
   });
 });

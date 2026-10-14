@@ -4,7 +4,7 @@ import {
   onRelation,
   readOf,
   relationHops,
-  relationIdentities,
+  JoinResolver,
   type Hop,
   type JoinGraph,
   type Relation,
@@ -62,7 +62,8 @@ function identities(joins: JoinGraph, relation: RelationRef) {
     const type = joins.types.find((t) => t.name === relation)!;
     return [{ column: type.key, type: type.name }];
   }
-  return relationIdentities(joins, relation);
+  // The relation's own names for its keys — its paths — which only the joins' door spells.
+  return new JoinResolver(joins).steps(relation).map((s) => ({ column: s.key, type: s.type }));
 }
 
 /** Whether rows of `a` and rows of `b` share keys: one type, or a union and a type of it. */

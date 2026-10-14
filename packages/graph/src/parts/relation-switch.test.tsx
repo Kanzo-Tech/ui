@@ -24,12 +24,12 @@ const WAIT = { timeout: 10_000 };
 
 const ON_PLACE: DashboardSpec = {
   filters: [],
-  tiles: [{ id: "place", kind: "chart", span: 1, type: "bar", title: "Count by Place.name", x: "Place.name", y: { op: "count" } }],
+  tiles: [{ id: "place", kind: "chart", span: 1, type: "bar", title: "Count by livesIn.name", x: "livesIn.name", y: { op: "count" } }],
 } as unknown as DashboardSpec;
 
 const ON_TEAM: DashboardSpec = {
   filters: [],
-  tiles: [{ id: "team", kind: "chart", span: 1, type: "bar", title: "Count by Person.team", x: "Person.team", y: { op: "count" } }],
+  tiles: [{ id: "team", kind: "chart", span: 1, type: "bar", title: "Count by team", x: "team", y: { op: "count" } }],
 } as unknown as DashboardSpec;
 
 let switchTo: (relation: "A" | "B") => void = () => {};
@@ -134,44 +134,44 @@ describe("a pick when the dashboard switches relation", { timeout: 60_000 }, () 
       }, WAIT);
 
     // On relation A, a click on the bar of Place 1 — the Toggle's own pointerdown.
-    await drawn("Count by Place.name");
-    const svg = figure("Count by Place.name")!.querySelector("svg")!;
-    const toggle = toggleOf("Count by Place.name")!;
+    await drawn("Count by livesIn.name");
+    const svg = figure("Count by livesIn.name")!.querySelector("svg")!;
+    const toggle = toggleOf("Count by livesIn.name")!;
     const at = Array.from(toggle.mark.data.columns[toggle.as[0]!]!).indexOf("Place 1");
     const bar = [...svg.querySelectorAll(`g[data-index='${toggle.mark.index}'] rect`)].find((r) => (r as unknown as { __data__: number }).__data__ === at)!;
     fireEvent.pointerEnter(svg);
     fireEvent.pointerDown(bar);
-    await vi.waitFor(() => expect(labels()).toEqual(["Remove Place.name Place 1"]), WAIT);
+    await vi.waitFor(() => expect(labels()).toEqual(["Remove livesIn.name Place 1"]), WAIT);
     // Person 1 and Person 7 live in Place 1.
     await vi.waitFor(() => expect(readout()).toBe("2 of 10 rows"), WAIT);
     const [picked] = page!.clauses;
 
     // Switched to relation B: the chart that made the pick is gone, and the pick is not.
     act(() => switchTo("B"));
-    await drawn("Count by Person.team");
-    expect(figure("Count by Place.name")).toBeNull();
-    expect(labels()).toEqual(["Remove Place.name Place 1"]);
+    await drawn("Count by team");
+    expect(figure("Count by livesIn.name")).toBeNull();
+    expect(labels()).toEqual(["Remove livesIn.name Place 1"]);
     await vi.waitFor(() => expect(readout()).toBe("2 of 10 rows"), WAIT);
 
     // Back on A, the chart draws the pick it still holds: the one clause, under the same source.
     act(() => switchTo("A"));
-    await drawn("Count by Place.name");
-    await vi.waitFor(() => expect(toggleOf("Count by Place.name")?.value).toEqual([["Place 1"]]), WAIT);
+    await drawn("Count by livesIn.name");
+    await vi.waitFor(() => expect(toggleOf("Count by livesIn.name")?.value).toEqual([["Place 1"]]), WAIT);
     await act(() => settle(corpus));
     expect(page!.clauses.map((c) => c.source)).toEqual([picked!.source]);
-    expect(labels()).toEqual(["Remove Place.name Place 1"]);
+    expect(labels()).toEqual(["Remove livesIn.name Place 1"]);
 
     // On B again, its chip removes it — and A, mounted once more, holds nothing.
     act(() => switchTo("B"));
-    await drawn("Count by Person.team");
+    await drawn("Count by team");
     fireEvent.click(chips()[0]!);
     await act(() => settle(corpus));
     await vi.waitFor(() => expect(readout()).toBe("10 rows"), WAIT);
     expect(page!.clauses).toHaveLength(0);
     act(() => switchTo("A"));
-    await drawn("Count by Place.name");
+    await drawn("Count by livesIn.name");
     await act(() => settle(corpus));
-    expect(toggleOf("Count by Place.name")?.value ?? null).toBeNull();
+    expect(toggleOf("Count by livesIn.name")?.value ?? null).toBeNull();
     expect(labels()).toEqual([]);
   });
 });

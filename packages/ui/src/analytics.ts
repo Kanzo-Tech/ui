@@ -117,13 +117,15 @@ export type { DetailTableProps } from "./charts/detail-table.js";
 export { TileEditor } from "./charts/tile-editor.js";
 export { TileEditorAside, useTileEditorOpen } from "./charts/mosaic-provider.js";
 export type { TileEditorProps } from "./charts/tile-editor.js";
+export { TileView } from "./charts/tile-views.js";
+export type { TileViewProps } from "./charts/tile-views.js";
 export { autoDashboard, plotRelation } from "./charts/dashboard-spec.js";
 // What a tile compiles with, for a reader of a tile that is not a dashboard's — `@kanzo-tech/ai/data`'s
-// answers: the closed sets the spec's schema picks from, a measure's SQL and a trend's step.
-export { DASHBOARD_AGGREGATES, DASHBOARD_CHART_TYPES, bucketExpr, measureExpr } from "./charts/dashboard-spec.js";
+// answers: the closed sets the spec's schema picks from, and the one compiler of a tile to its queries.
+export { DASHBOARD_AGGREGATES, DASHBOARD_CHART_TYPES, TILE_ROWS, tileQuery } from "./charts/dashboard-spec.js";
 export type {
   DashboardSpec, Tile, TileKind, TileSpan, StatTile, ChartTile, TableTile, DashboardFilterSpec,
-  DashboardMeasure, DashboardChartType, DashboardAggregate,
+  DashboardMeasure, DashboardChartType, DashboardAggregate, Condition, ConditionValue, TileContext, TileQuery,
 } from "./charts/dashboard-spec.js";
 // What a host keeps: every dashboard by the relation it is drawn over, and the one way back in for
 // what it stored — checked against the spec's schema, refused whole when it is not current.

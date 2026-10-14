@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Query, asTableRef } from "@uwdata/mosaic-sql";
 import { clauseColumns, clauseSemiJoin } from "./clause.js";
-import { relationColumns, relationHops, relationIdentities, relationKey, relationQuery, relationRootKey, relationSteps, type JoinGraph } from "./relation.js";
+import { relationColumns, relationHops, relationKey, relationQuery, type JoinGraph } from "./relation.js";
 
 const at = (table: string) => asTableRef(["jobs/7", table])!;
 
@@ -17,18 +17,17 @@ const GRAPH: JoinGraph = {
 };
 
 describe("relationQuery", () => {
-  it("reads a type on its own under its table's name, every column prefixed by the type and its key under its own name", () => {
+  it("reads a type on its own under its table's name, every column under its own name", () => {
     // No alias: mosaic-core's pre-aggregator evaluates these expressions against the bare table.
-    expect(String(relationQuery(GRAPH, { root: "Post", path: [] }))).toBe(
-      'SELECT "dense_id", "length" AS "Post.length" FROM "jobs/7"."Post"',
-    );
+    expect(String(relationQuery(GRAPH, { root: "Post", path: [] }))).toBe('SELECT "dense_id", "length" FROM "jobs/7"."Post"');
   });
 
-  it("joins an out-hop through its edge table, and numbers a type the path visits twice", () => {
+  it("joins an out-hop through its edge table, and names each column by its path from the root", () => {
     const sql = String(relationQuery(GRAPH, { root: "Person", path: [{ edge: "Person_knows_Person", direction: "out" }] }));
-    expect(sql).toContain('"t1"."country" AS "Person2.country"');
-    expect(sql).toContain('"t0"."dense_id" AS "dense_id", "t0"."country" AS "Person.country"');
-    expect(sql).toContain('"t1"."dense_id" AS "Person2.dense_id"');
+    // A type met twice is two paths, not a numbered alias: the person, and the one they know.
+    expect(sql).toContain('"t1"."country" AS "knows.country"');
+    expect(sql).toContain('"t0"."dense_id" AS "dense_id", "t0"."country" AS "country"');
+    expect(sql).toContain('"t1"."dense_id" AS "knows.dense_id"');
     expect(sql).toContain(
       'FROM "jobs/7"."Person" AS "t0" JOIN "jobs/7"."Person_knows_Person" AS "e1" ON ("e1"."src" = "t0"."dense_id") ' +
         'JOIN "jobs/7"."Person" AS "t1" ON ("t1"."dense_id" = "e1"."dst")',
@@ -39,7 +38,7 @@ describe("relationQuery", () => {
     const sql = String(relationQuery(GRAPH, { root: "Person", path: [{ edge: "Post_hasCreator_Person", direction: "in" }] }));
     expect(sql).toContain('ON ("e1"."dst" = "t0"."dense_id")');
     expect(sql).toContain('ON ("t1"."dense_id" = "e1"."src")');
-    expect(sql).toContain('"t1"."length" AS "Post.length"');
+    expect(sql).toContain('"t1"."length" AS "^hasCreator.length"');
   });
 
   it("composes like any table: a query over it reads it as a subquery", () => {
@@ -66,50 +65,6 @@ describe("relationKey", () => {
         ],
       }),
     ).toBe("Person>knows>Person<hasCreator<Post");
-  });
-});
-
-describe("relationSteps", () => {
-  it("names each type the relation reaches by its columns' prefix, numbering a repeat", () => {
-    expect(relationSteps(GRAPH, { root: "Person", path: [] })).toEqual([{ type: "Person", alias: "Person" }]);
-    expect(
-      relationSteps(GRAPH, {
-        root: "Person",
-        path: [
-          { edge: "Person_knows_Person", direction: "out" },
-          { edge: "Post_hasCreator_Person", direction: "in" },
-        ],
-      }),
-    ).toEqual([
-      { type: "Person", alias: "Person" },
-      { type: "Person", alias: "Person2" },
-      { type: "Post", alias: "Post" },
-    ]);
-  });
-});
-
-describe("relationIdentities", () => {
-  it("exposes every step's key with the type it identifies, the root's under its own name", () => {
-    expect(relationIdentities(GRAPH, { root: "Person", path: [{ edge: "Person_knows_Person", direction: "out" }] })).toEqual([
-      { column: "dense_id", type: "Person" },
-      { column: "Person2.dense_id", type: "Person" },
-    ]);
-  });
-});
-
-describe("relationRootKey", () => {
-  it("names the root's key by the root's own name, the one column of a relation that is not prefixed", () => {
-    const graph: JoinGraph = { ...GRAPH, types: [GRAPH.types[0]!, { ...GRAPH.types[1]!, key: "post_id" }] };
-    const relation = { root: "Post", path: [{ edge: "Post_hasCreator_Person", direction: "out" as const }] };
-    expect(relationRootKey(graph, relation)).toBe("post_id");
-    expect(relationRootKey(graph, { root: "Person", path: [] })).toBe("dense_id");
-    // The column the query selects under that name, and the root's identity.
-    expect(String(relationQuery(graph, relation))).toContain('"t0"."post_id" AS "post_id"');
-    expect(relationIdentities(graph, relation)[0]).toEqual({ column: "post_id", type: "Post" });
-  });
-
-  it("throws on a root the graph has no type for", () => {
-    expect(() => relationRootKey(GRAPH, { root: "Forum", path: [] })).toThrow(/the join graph has no type Forum/);
   });
 });
 
@@ -143,7 +98,7 @@ describe("a semi-join on identity", () => {
     const relation = relationQuery(GRAPH, { root: "Person", path: [{ edge: "Person_knows_Person", direction: "out" }] });
     const ids = clauseSemiJoin("dense_id", [1, 2], { source: {} }).predicate!;
     expect(clauseColumns(ids)).toEqual(["dense_id"]);
-    expect(String(Query.from(relation).select("Person2.country").where(ids))).toContain('WHERE ("dense_id" IN (1, 2))');
+    expect(String(Query.from(relation).select("knows.country").where(ids))).toContain('WHERE ("dense_id" IN (1, 2))');
   });
 });
 
@@ -172,11 +127,11 @@ describe("relationColumns", () => {
     ]);
   });
 
-  it("describes a relation's columns under relationQuery's names, each by its step's type and with its counts", () => {
+  it("describes a relation's columns under relationQuery's names, its paths, each by its step's type and with its counts", () => {
     const relation = { root: "Person", path: [{ edge: "Person_knows_Person", direction: "out" as const }] };
     const columns = relationColumns(described, relation);
-    expect(columns.map((c) => c.name)).toEqual(["dense_id", "Person.email", "Person.age", "Person2.dense_id", "Person2.email", "Person2.age"]);
-    expect(columns.find((c) => c.name === "Person2.age")?.stats?.distinctCount).toBe(60);
+    expect(columns.map((c) => c.name)).toEqual(["dense_id", "email", "age", "knows.dense_id", "knows.email", "knows.age"]);
+    expect(columns.find((c) => c.name === "knows.age")?.stats?.distinctCount).toBe(60);
     // Every name it gives is one the query projects.
     const sql = String(relationQuery(described, relation));
     for (const { name } of columns) expect(sql).toContain(`AS "${name}"`);

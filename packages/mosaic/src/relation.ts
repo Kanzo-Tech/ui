@@ -147,38 +147,49 @@ export function relationHops(graph: JoinGraph, type: string): RelationHop[] {
   return [...out, ...into];
 }
 
-interface Step {
+export interface Step {
   readonly type: string;
-  /** What the step's columns are prefixed with: the type's name, numbered on a repeat. */
-  readonly alias: string;
+  /** Where the step is: the segments that reach it from the root, joined by `.` — `""` on the root. */
+  readonly path: string;
   readonly edge?: JoinEdge;
   readonly direction?: Hop["direction"];
 }
 
-function steps(graph: Pick<JoinGraph, "edges">, relation: Relation): Step[] {
-  const used = new Set([relation.root]);
-  const out: Step[] = [{ type: relation.root, alias: relation.root }];
-  for (const hop of relation.path) {
-    const at = out[out.length - 1]!.type;
-    const edge = graph.edges.find((e) => e.name === hop.edge);
-    const from = hop.direction === "out" ? edge?.source : edge?.destination;
-    if (!edge || from !== at) throw new Error(`no edge ${hop.edge} leaves ${at} ${hop.direction === "out" ? "outward" : "inward"}`);
-    const type = hop.direction === "out" ? edge.destination : edge.source;
-    let alias = type;
-    for (let n = 2; used.has(alias); n++) alias = `${type}${n}`;
-    used.add(alias);
-    out.push({ type, alias, edge, direction: hop.direction });
-  }
-  return out;
+/**
+ * The segment a hop is written as in a path: the edge's label out of its source, `^label` back from
+ * its destination — SPARQL's inverse path — and the edge's own `name` in the label's place where two
+ * edges of one label leave the same type the same way, since a label alone would not say which.
+ */
+export function segmentOf(graph: Pick<JoinGraph, "edges">, edge: JoinEdge, direction: Hop["direction"]): string {
+  const end = (e: JoinEdge) => (direction === "out" ? e.source : e.destination);
+  const twice = graph.edges.some((e) => e !== edge && e.label === edge.label && end(e) === end(edge));
+  const name = twice ? edge.name : edge.label;
+  return direction === "out" ? name : `^${name}`;
 }
 
 /**
- * The types a relation reaches, in order, each with the name its columns are prefixed by: the type's
- * own, numbered on a repeat — `Person`, `Person2` on a self-join. What a description of a relation's
- * fields reads to say which type a column belongs to.
+ * **`segment` after `path`** — the path one hop further, or a column's name on the step `path` reaches.
+ * A relation's columns are named so: `country` on the root, `knows.country` one hop away,
+ * `affiliation.university.name` two — Malloy's dotted path from the source. The root is the empty
+ * path, so its columns, its key among them, keep their own names: a relation's rows are its root's,
+ * keyed the way the root's table is, so a semi-join on identity — `dense_id IN (…)`, published by
+ * anything keyed the same way — filters a relation exactly as it filters the root's table. Why, and
+ * what would reverse it, is on `/docs/design/graph`.
  */
-export function relationSteps(graph: Pick<JoinGraph, "edges">, relation: Relation): { type: string; alias: string }[] {
-  return steps(graph, relation).map(({ type, alias }) => ({ type, alias }));
+export const joinPath = (path: string, segment: string) => (path === "" ? segment : `${path}.${segment}`);
+
+/** Every step of `relation`, the root first, each with the path that reaches it. */
+export function stepsOf(graph: Pick<JoinGraph, "edges">, relation: Relation): Step[] {
+  const out: Step[] = [{ type: relation.root, path: "" }];
+  for (const hop of relation.path) {
+    const at = out[out.length - 1]!;
+    const edge = graph.edges.find((e) => e.name === hop.edge);
+    const from = hop.direction === "out" ? edge?.source : edge?.destination;
+    if (!edge || from !== at.type) throw new Error(`no edge ${hop.edge} leaves ${at.type} ${hop.direction === "out" ? "outward" : "inward"}`);
+    const type = hop.direction === "out" ? edge.destination : edge.source;
+    out.push({ type, path: joinPath(at.path, segmentOf(graph, edge, hop.direction)), edge, direction: hop.direction });
+  }
+  return out;
 }
 
 /**
@@ -186,52 +197,21 @@ export function relationSteps(graph: Pick<JoinGraph, "edges">, relation: Relatio
  * What a saved dashboard is keyed by, so two spellings of one relation are one key.
  */
 export function relationKey(graph: Pick<JoinGraph, "edges">, relation: Relation): string {
-  return steps(graph, relation)
+  return stepsOf(graph, relation)
     .map((s) => (s.edge ? (s.direction === "out" ? `>${s.edge.label}>${s.type}` : `<${s.edge.label}<${s.type}`) : s.type))
     .join("");
 }
 
-/** The column the relation names a step's column by. */
-const prefixed = (alias: string, name: string) => `${alias}.${name}`;
-
-/**
- * The name a step's key goes by. The root's keeps its own: a relation's rows are its root's, keyed
- * the way the root's table is, so a semi-join on identity — `dense_id IN (…)`, published by anything
- * keyed the same way — filters a relation exactly as it filters the root's table. Every other step's
- * key is prefixed like its columns. The exception, and what would reverse it, is on
- * `/docs/design/graph`; `relationRootKey` is how a host reads the name.
- */
-const keyName = (step: Step, index: number, key: string) => (index === 0 ? key : prefixed(step.alias, key));
-
-/**
- * Each step's key, as the relation exposes it, and the type it identifies: what a clause on the
- * relation crosses to anything else keyed the same way with, as a semi-join on identity.
- */
-export function relationIdentities(graph: JoinGraph, relation: Relation): { column: string; type: string }[] {
-  return steps(graph, relation).map((s, i) => ({ column: keyName(s, i, typeOf(graph, s.type).key), type: s.type }));
-}
-
-/**
- * The root's key, by name: the column a clause on the relation crosses to the rest of the page by —
- * `key IN (SELECT key FROM relationQuery(graph, relation) WHERE …)`, which the page's resolver writes
- * (`crossfilter.ts`). It is the one column of a relation that is not prefixed — see `keyName` — so
- * it is the root type's own `key`.
- */
-export function relationRootKey(graph: Pick<JoinGraph, "types">, relation: Relation): string {
-  return typeOf(graph, relation.root).key;
-}
-
 /**
  * Two types share rows when they are one, or when one is a union the other is part of: what a clause
- * crosses between relations by (`crossfilter.ts`), and what the resolver keeps a page's clause in
- * reach with (`resolve.ts`). Not on the barrel.
+ * crosses between relations by (`crossfilter.ts`). Not on the barrel.
  */
 export function meets(joins: Pick<JoinGraph, "types"> | null, a: string, b: string): boolean {
   const of = (name: string) => joins?.types.find((t) => t.name === name)?.of ?? [];
   return a === b || of(a).includes(b) || of(b).includes(a);
 }
 
-function typeOf(graph: Pick<JoinGraph, "types">, name: string): JoinType {
+export function typeOf(graph: Pick<JoinGraph, "types">, name: string): JoinType {
   const type = graph.types.find((t) => t.name === name);
   if (!type) throw new Error(`the join graph has no type ${name}`);
   return type;
@@ -249,37 +229,31 @@ export interface RelationColumn extends JoinColumn {
 }
 
 /**
- * **Every column a relation reads, described**, in its order and under its names. A type by name is
- * its table as it is read, its columns under their own names; a `Relation` is `relationQuery`'s —
- * each step's key, then its columns. A column of a joined relation is described by its step's type,
- * so its counts are the type's — what a default needs — and not the join's. Nothing is read: the
+ * **Every column a relation reads, described**, in its order and under its names: a type by name is
+ * its table as it is read, and a `Relation` is `relationQuery`'s — each step's key, then its columns,
+ * each named by its path. A column of a joined relation is described by its step's type, so its
+ * counts are the type's — what a default needs — and not the join's. Nothing is read: the
  * descriptions are the graph's, and a key the graph does not describe is a column of no type known.
  */
 export function relationColumns(graph: JoinGraph, relation: string | Relation): RelationColumn[] {
-  const of = (type: JoinType) => (c: JoinColumn, name = c.name): RelationColumn => ({
-    ...c,
-    name,
-    of: type.name,
-    candidateKey: type.candidateKeys?.includes(c.name) ?? false,
-  });
-  if (typeof relation === "string") {
-    const type = typeOf(graph, relation);
-    return type.columns.map((c) => of(type)(c));
-  }
-  return steps(graph, relation).flatMap((step, i) => {
+  const steps = typeof relation === "string" ? [{ type: relation, path: "" }] : stepsOf(graph, relation);
+  return steps.flatMap((step) => {
     const type = typeOf(graph, step.type);
+    const of = (c: JoinColumn): RelationColumn => ({
+      ...c,
+      name: joinPath(step.path, c.name),
+      of: type.name,
+      candidateKey: type.candidateKeys?.includes(c.name) ?? false,
+    });
     const key = type.columns.find((c) => c.name === type.key) ?? { name: type.key, type: "" };
-    return [
-      of(type)(key, keyName(step, i, type.key)),
-      ...type.columns.filter((c) => c.name !== type.key).map((c) => of(type)(c, prefixed(step.alias, c.name))),
-    ];
+    return [of(key), ...type.columns.filter((c) => c.name !== type.key).map(of)];
   });
 }
 
 /**
  * The relation as one query: every type along the path joined through its edge tables, every
- * column named `<alias>.<column>` — `Person.country`, `Person2.country` on a self-join — and every
- * key beside them, the root's under its own name. A type alone is the same query with nothing
+ * column named by its path from the root — `country`, `knows.country`, `^hasCreator.length` — and
+ * every key beside them, the root's under its own name. A type alone is the same query with nothing
  * joined.
  *
  * Only a join aliases its tables. A type alone reads its table under the table's own name, its
@@ -290,14 +264,14 @@ export function relationColumns(graph: JoinGraph, relation: string | Relation): 
  * pre-aggregated (it has no single base table), so its aliases are never lifted.
  */
 export function relationQuery(graph: JoinGraph, relation: Relation): Query {
-  const path = steps(graph, relation);
+  const path = stepsOf(graph, relation);
   const select: Record<string, ExprNode> = {};
   let from: FromClauseNode | JoinNode | undefined;
   path.forEach((step, i) => {
     const type = typeOf(graph, step.type);
     const t = path.length === 1 ? undefined : `t${i}`;
-    select[keyName(step, i, type.key)] = column(type.key, t);
-    for (const { name } of type.columns.filter((c) => c.name !== type.key)) select[prefixed(step.alias, name)] = column(name, t);
+    select[joinPath(step.path, type.key)] = column(type.key, t);
+    for (const { name } of type.columns.filter((c) => c.name !== type.key)) select[joinPath(step.path, name)] = column(name, t);
     if (!step.edge) {
       from = source(type.table, t);
       return;

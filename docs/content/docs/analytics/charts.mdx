@@ -853,9 +853,9 @@ reaches for is here.
 | Loaders | `loadObjects` `loadCSV` `loadJSON` `loadParquet` `loadSpatial` `loadExtension` |
 | The engine | `engine` `Engine` `EngineError` `queryFailure` `numbers` `TableExpr` |
 | The clause rule, ours | `clauseSemiJoin` `clauseAntiJoin` `clauseColumns` `clauseParts` `clauseLabel` `ClauseParts` `SemiJoinMembers` `SemiJoinMetadata` `SemiJoinOptions` `AntiJoinMetadata` |
-| The page's crossfilter | `crossfilterOver` `JoinResolver` `onRelation` `relationOf` `sameRelation` `readOf` `preaggregateOwnRelation` `relaySelection` `RelayOptions` `RelationClient` `RelationExpr` `RelationRef` `RelationMetadata` |
+| The page's crossfilter | `crossfilterOver` `JoinResolver` `JoinStep` `JoinField` `JoinMiss` `onRelation` `relationOf` `sameRelation` `readOf` `preaggregateOwnRelation` `relaySelection` `RelayOptions` `RelationClient` `RelationExpr` `RelationRef` `RelationMetadata` |
 | First draws | `holdFirstDraw` `firstDrawsPending` `onFirstDraws` |
-| Relations over a join graph | `Relation` `JoinGraph` `JoinEdge` `JoinType` `Hop` `RelationHop` `relationQuery` `relationKey` `relationRootKey` `relationIdentities` `relationHops` `relationSteps` `resolveRelation` `RelationNeeds` `Resolved` |
+| Relations over a join graph | `Relation` `JoinGraph` `JoinEdge` `JoinType` `Hop` `RelationHop` `relationQuery` `relationKey` `relationHops` |
 
 For a descriptor of your own, `chartDescriptor(displayName, compile)` mints one; `compile` returns
 plain data (`{ kind: "mark", mark: "barY", source, options }`), never a `vg.*` call.

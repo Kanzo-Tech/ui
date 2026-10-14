@@ -228,7 +228,7 @@ describe("useFieldStats", () => {
     await waitFor(() => expect(result.current.every((stats) => stats.fields !== null)).toBe(true));
     expect(asked).toEqual([]);
     expect(result.current[0]!.fields!.map((f) => [f.name, f.role])).toEqual([["dense_id", "identifier"], ["team", "measure"]]);
-    expect(result.current[1]!.columns).toEqual(["dense_id", "Person.team", "Person2.dense_id", "Person2.team"]);
+    expect(result.current[1]!.columns).toEqual(["dense_id", "team", "knows.dense_id", "knows.team"]);
   });
 
   it("summarizes a relation over the joins the corpus did not count, keeping what the graph says each column is", async () => {
