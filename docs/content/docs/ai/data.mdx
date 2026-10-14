@@ -75,7 +75,7 @@ pills' place (`notice`), and the chat works the same — see [Before the first q
 
 `readAnswerRelations(coordinator, graph, relations, { values, signal })` answers an `AnswerRelation` per
 relation, `{ relation, columns, fields }`, read from the engine the way a [dashboard](/docs/analytics/dashboard)
-over the same relation reads them: `queryFieldStats` over `relationQuery`, without the keys
+over the same relation reads them: `SUMMARIZE` and `fieldStats` over `relationQuery`, without the keys
 `relationIdentities` names, then `plotRelation`. Each category that is a dimension carries its most
 common `values` — six by default, the most common first — counted over the relation.
 
@@ -197,6 +197,9 @@ both say.
 
 The options are read anew on every question — the page's filter changes between two. The messages are
 `AskMessage`: each turn keeps its spec as a `data-ask` part, an `AskTurn`, beside the `answer` part.
+An answer is read as a TanStack Query query on the host's `QueryClient`, keyed by the engine and its
+statement — which holds the page's chips — so the same answer under the same chips is read once. It
+never retries, a failed read is not kept, and *Stop* cancels the query and ends the read at once.
 `AnswerOutput` is what a read answers: `{ answer, rows, truncated, under,
 unanswered }` — the answer as placed, the rows its tile reads, whether the 1,000-row cap cut them,
 the page's clauses it was read under, and those its relation cannot answer, each an
@@ -204,7 +207,9 @@ the page's clauses it was read under, and those its relation cannot answer, each
 
 *Held by* `packages/ai/src/data/ask-chat.test.ts`, "answers with the tile the Task's spec is, read on
 the page's engine, and words written from its rows"; "asks which way when two relations answer
-equally, and reads the one the reader picks". `packages/ai/src/data/ask.test.ts`, "leaves the
+equally, and reads the one the reader picks"; "reads an answer asked again under the same chips
+once, on the host's client"; "ends the read with the chat's signal, keeps nothing of it, and reads
+again when asked again". `packages/ai/src/data/ask.test.ts`, "leaves the
 relation to the resolver: prizes by university, under a chip on the prizes"; "sends a spec no
 relation reaches back, and takes the repair". `packages/ai/src/data/page-clauses.test.ts`, "crosses a
 chip on another relation by the key both reach, as the page's tiles are crossed"; "keeps none of a
@@ -379,10 +384,24 @@ await answers.filterTo();
 
 A subpath, because it draws with `@kanzo-tech/ui`'s [analytics](/docs/analytics/charts) and table
 layers, whose engines are optional peers: a host that only chats does not install DuckDB to import
-`Chat`. A host of `/data` installs those layers' peers, plus one of its own:
+`Chat`. A host of `/data` installs those layers' peers, plus its own:
 
 ```bash
-pnpm add @kanzo-tech/mosaic
+pnpm add @kanzo-tech/mosaic @tanstack/react-query
+```
+
+Ask's reads — an answer's rows in `useAskChat`, a relation's fields in `AnswerCard` — are queries on
+your `QueryClient`, so one `QueryClientProvider` sits above the page, as it does for a
+[dashboard](/docs/analytics#what-to-install). Without it those hooks throw TanStack's own *No
+QueryClient set*. `Chat` and `Assist` from `@kanzo-tech/ai`'s root read nothing through it and need
+neither the package nor the provider.
+
+```tsx
+<QueryClientProvider client={queries}>
+  <MosaicProvider coordinator={coordinator} joins={graph}>
+    <AskPanel />
+  </MosaicProvider>
+</QueryClientProvider>
 ```
 
 The types are exported as `Answer`, `AnswerInput`, `AnswerField`, `AnswerRelation`, `Condition`,

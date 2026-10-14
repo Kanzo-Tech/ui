@@ -3,7 +3,8 @@
 import type { TableExpr } from "@kanzo-tech/mosaic";
 import { jsType, type Coordinator } from "@uwdata/mosaic-core";
 import { Query, sql } from "@uwdata/mosaic-sql";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useCallback, useEffect } from "react";
 import { chartTableKey } from "./chart-spec.js";
 import { useMosaic } from "./mosaic-provider.js";
 
@@ -91,8 +92,8 @@ function extent(kind: FieldKind, value: unknown): number | undefined {
 }
 
 /**
- * A relation's fields and columns from `SUMMARIZE` rows a host fetched itself — with its own
- * connection, or a signal the coordinator does not take.
+ * A relation's fields and columns from `SUMMARIZE` rows — what `useFieldStats` reads, or rows a host
+ * fetched itself with its own connection.
  */
 export function fieldStats(rows: readonly SummarizeRow[], options: FieldStatsOptions = {}): FieldStats {
   const hidden = new Set(options.exclude);
@@ -115,19 +116,16 @@ export function fieldStats(rows: readonly SummarizeRow[], options: FieldStatsOpt
 const summarizeQuery = (table: TableExpr) => sql`SUMMARIZE ${Query.select("*").from(table)}`;
 
 /**
- * `fieldStats` over the coordinator's own `SUMMARIZE`. mosaic-sql has no node for the statement, so
- * it is a fragment around a `Query` over the relation: the relation is a node, never text.
+ * Which coordinator a read was made on, as a key can say it. A key is hashed as JSON, and a
+ * coordinator is neither serialisable nor the same across two providers on one client.
  */
-export async function queryFieldStats(
-  coordinator: Coordinator,
-  table: TableExpr,
-  options?: FieldStatsOptions,
-): Promise<FieldStats> {
-  // The coordinator takes a statement as a string or a `Query`; a fragment is neither, and renders
-  // to the same text either way.
-  const rows = await coordinator.query(String(summarizeQuery(table)));
-  return fieldStats(Array.from(rows as Iterable<SummarizeRow>), options);
-}
+const coordinators = new WeakMap<Coordinator, number>();
+let coordinatorCount = 0;
+const coordinatorKey = (coordinator: Coordinator) => {
+  let id = coordinators.get(coordinator);
+  if (id === undefined) coordinators.set(coordinator, (id = ++coordinatorCount));
+  return id;
+};
 
 export interface FieldStats {
   fields: FieldStat[];
@@ -144,30 +142,45 @@ export interface FieldStatsState {
   error: unknown;
 }
 
-/** `queryFieldStats` on the provider's coordinator, re-asked when the relation changes. */
+/**
+ * A relation's fields, read with one `SUMMARIZE` on the provider's coordinator — a TanStack Query
+ * query on the host's `QueryClient`, so every part of the page that asks for the same relation
+ * shares one read (`/docs/design/reads`). The read is the relation's, and `exclude` is applied to
+ * it afterwards, so two parts that hide different columns still read once.
+ *
+ * It never retries, and it is kept for the page's life: a new relation is a new key, and a failure
+ * is not kept, so the next part to ask reads again. Without a `QueryClientProvider` above it, it
+ * throws TanStack's own *No QueryClient set*.
+ */
 export function useFieldStats(table: TableExpr, options?: FieldStatsOptions): FieldStatsState {
   const { coordinator, onFailure } = useMosaic();
-  const [state, setState] = useState<FieldStatsState>({ fields: null, columns: null, error: null });
-  const key = chartTableKey(table);
   const exclude = (options?.exclude ?? []).join("\u0000");
+  const select = useCallback(
+    (rows: readonly SummarizeRow[]) => fieldStats(rows, { exclude: exclude ? exclude.split("\u0000") : [] }),
+    [exclude],
+  );
+  const read = useQuery({
+    // The keys are the library's, not an API: what was read, and on which coordinator.
+    queryKey: ["@kanzo-tech/ui", "summarize", coordinatorKey(coordinator), chartTableKey(table)],
+    queryFn: async ({ signal }) => {
+      // The coordinator takes a statement as a string or a `Query`; a fragment is neither, and
+      // renders to the same text either way.
+      const result = coordinator.query(String(summarizeQuery(table)));
+      // Every part that asked has gone: a read still queued is taken off the coordinator's queue.
+      signal.addEventListener("abort", () => coordinator.cancel([result]), { once: true });
+      return Array.from((await result) as Iterable<SummarizeRow>);
+    },
+    select,
+    retry: false,
+    staleTime: Infinity,
+    gcTime: Infinity,
+  });
 
+  const error: unknown = read.error;
   useEffect(() => {
-    let live = true;
-    setState({ fields: null, columns: null, error: null });
-    queryFieldStats(coordinator, table, { exclude: exclude ? exclude.split("\u0000") : [] }).then(
-      (stats) => live && setState({ ...stats, error: null }),
-      (error: unknown) => {
-        if (!live) return;
-        setState({ fields: null, columns: null, error });
-        onFailure(error);
-      },
-    );
-    return () => {
-      live = false;
-    };
-    // `key` and `exclude` stand in for the identities of `table` and `options`.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coordinator, key, exclude, onFailure]);
+    if (error) onFailure(error);
+  }, [error, onFailure]);
 
-  return state;
+  if (read.data) return { ...read.data, error: null };
+  return { fields: null, columns: null, error: error ?? null };
 }

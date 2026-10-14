@@ -85,7 +85,8 @@ way.
 
 ## How a relation is read
 
-`useFieldStats(table)` runs one `SUMMARIZE` — over `SELECT * FROM` the relation, built with
+`useFieldStats(table)` runs one `SUMMARIZE` — a query on the host's `QueryClient`, so the
+`QueryClientProvider` [the analytics page asks for](/docs/analytics#what-to-install) is above it — over `SELECT * FROM` the relation, built with
 mosaic-sql, so a join is summarized like a table — and classifies every column twice — by **kind**, from
 its DuckDB type through Mosaic's own `jsType` (so a column is numeric here exactly when it is numeric
 to every mark), and by **role**, from its name and its approximate distinct count.
@@ -339,19 +340,23 @@ aside instead: a dashboard offers editing only while a `TileEditorAside` is on t
 without one has read-only dashboards. The editor is drawn once the aside is shown, so it opens in
 view and takes focus.
 
-### useFieldStats, queryFieldStats and fieldStats
+### useFieldStats and fieldStats
 
 `useFieldStats(table, { exclude })` returns `{ fields, columns, error }`: `fields` are the
 classified `FieldStat`s, `columns` every column of the relation in its own order, fields or not.
-Both are `null` until the summary lands, and it re-asks when the relation or `exclude` changes —
-compared by value, so an inline array is fine. `error` is the thrown value, whole and typed
-`unknown`, and it is also handed to the provider's `onFailure`; narrow it before reading `.message`.
+Both are `null` until the summary lands. `error` is the thrown value, whole and typed `unknown`, and
+it is also handed to the provider's `onFailure`; narrow it before reading `.message`.
 
-`queryFieldStats(coordinator, table, options)` is the same read as a promise resolving to
-`{ fields, columns }`, for a host outside React or one that needs the fields before it renders.
+The summary is a TanStack Query query on the host's `QueryClient`, so it needs a
+`QueryClientProvider` above it. Every part of the page that asks for the same relation on the same
+provider shares one read — the dashboard, a part you placed yourself, an Ask answer's card — and
+`exclude` is applied to that read, so two parts that hide different columns still read once. It
+never retries and is kept for the page's life; a new relation is a new read, and a failed read is
+not kept, so the next part to ask reads again. The reads appear in your client's devtools and go
+when you clear it — clear it on sign-out, as you would any other data of the person's.
 
 `fieldStats(rows, options)` is the classification on its own: `SUMMARIZE` rows in, the same
-`{ fields, columns }` out, nothing queried. `queryFieldStats` is `SUMMARIZE` on the coordinator and
+`{ fields, columns }` out, nothing queried. `useFieldStats` is `SUMMARIZE` on the coordinator and
 then this. Reach for it when the host runs the summary itself — on its own connection, or with an
 `AbortSignal` the coordinator does not take. A fossil corpus answers with its rows as arrays, so
 they are zipped with the column names first:
@@ -656,7 +661,6 @@ Every other prop goes to the root `section` (`data-slot="filter-bar"`).
 
 ```ts
 function useFieldStats(table: TableExpr, options?: FieldStatsOptions): FieldStatsState;
-function queryFieldStats(coordinator: Coordinator, table: TableExpr, options?: FieldStatsOptions): Promise<FieldStats>;
 function fieldStats(rows: readonly SummarizeRow[], options?: FieldStatsOptions): FieldStats;
 function autoDashboard(fields: readonly FieldStat[]): DashboardSpec;
 

@@ -130,7 +130,24 @@ The peers are **optional in the manifest and required in practice** — optional
 install them for you", not "the code works without them".
 
 ```bash
-pnpm add @kanzo-tech/ui @uwdata/vgplot @uwdata/mosaic-plot @uwdata/mosaic-core @uwdata/mosaic-sql
+pnpm add @kanzo-tech/ui @uwdata/vgplot @uwdata/mosaic-plot @uwdata/mosaic-core @uwdata/mosaic-sql @tanstack/react-query
+```
+
+A page that reads a relation's fields — `Dashboard`, `useFieldStats`, and the parts an Ask answer
+draws — reads them as a [TanStack Query](https://tanstack.com/query) query on **your**
+`QueryClient`, so one `QueryClientProvider` sits above it. It is the one you already render if your
+app uses TanStack Query; the library brings no client of its own
+([why](/docs/design/reads)). Without it those hooks throw TanStack's own *No QueryClient set*. The
+charts on their own read through Mosaic and need none of it.
+
+```tsx
+const queries = new QueryClient();
+
+<QueryClientProvider client={queries}>
+  <MosaicProvider coordinator={coordinator}>
+    <Dashboard relation="sightings" />
+  </MosaicProvider>
+</QueryClientProvider>
 ```
 
 DuckDB-WASM is not among them. The database in the tab is
@@ -147,7 +164,7 @@ renders empty and says nothing — is what `onFailure` and the in-frame failure 
 the supported way to read a relation without drawing it. A widget that runs a plain
 `coordinator.query()` in an effect reports unfiltered totals next to filtered charts, which reads as
 a bug in the crossfilter. `useFieldStats` is the other read the kit is built on: a relation's
-columns, classified. And what a page reads once and draws as it is — a schema, a catalog — is
+columns, classified, read once per relation for the whole page on your `QueryClient`. And what a page reads once and draws as it is — a schema, a catalog — is
 [`useQueryRows`](/docs/hooks/use-query-rows), which suspends on the statement.
 
 <Cards>

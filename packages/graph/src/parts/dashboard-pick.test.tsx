@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { KanzoThemeProvider } from "@kanzo-tech/ui";
 import { ChartTimeline, Dashboard, FilterBar, MosaicClients, MosaicProvider, useMosaic, type DashboardSpec } from "@kanzo-tech/ui/analytics";
@@ -9,6 +10,9 @@ import { readJoinGraph } from "../core/join-graph";
 import { GraphRoot, useGraphContext } from "../react/graph-root";
 import { internalsOf } from "../react/use-graph";
 import { GRAPH_SECTION } from "../section";
+
+/** The host's one client: every read the parts make is a query on it. */
+const queries = new QueryClient();
 
 /**
  * A workspace page, cut down: the graph, the page's `FilterBar`, a dashboard kept mounted and hidden
@@ -123,9 +127,9 @@ describe("a pick on a hidden dashboard, under the timeline", { timeout: 60_000 }
     const relation: Relation = { root: "Person", path: [{ edge: knows.name, direction: "out" }, { edge: lives.name, direction: "out" }] };
     const { container } = render(
       <Theme>
-        <MosaicProvider coordinator={corpus.coordinator} joins={joins}>
+        <QueryClientProvider client={queries}><MosaicProvider coordinator={corpus.coordinator} joins={joins}>
           <Page corpus={corpus} relation={relation} />
-        </MosaicProvider>
+        </MosaicProvider></QueryClientProvider>
       </Theme>,
     );
     const chips = () => within(screen.getByRole("region", { name: "Filters" })).queryAllByRole("button", { name: /^Remove / });
