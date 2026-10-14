@@ -202,6 +202,58 @@ the pin, the stream, the turns — that a node handed in from outside cannot be 
 *Held by* `packages/ai/src/conversation.test.tsx`, "names its parts, and the zero state is ui's
 EmptyRoot rather than a part of its own".
 
+## A role written out four times is a part: `Eyebrow`
+
+[`Eyebrow`](/docs/data-display/eyebrow) is the small, muted, uppercase line that names a block from
+above it, and it is the one piece of type in the library besides `Prose`. `Prose` says the position
+it is an exception to: components style their own text, and the `Heading` and `Text` atoms went
+because they were a scale of knobs with no consumer.
+
+This is neither. It was the same five utilities typed out by hand four times — `LABEL` in
+`@kanzo-tech/ai`'s `Tool`, `PREF_HEADING` in `Preferences`, the archive's heading in the `discovery`
+showcase and the settings column in `settings` — with a fifth in keasy's guided chat, which is what
+asked. One role, no knobs, five call sites: that passes the second admission rule without the
+example directory counting.
+
+**A part, not a recipe.** Every call site needed the look on an element its own machine dictates — a
+`<legend>`, a `<label>`, `SliderLabel`, a heading — which is why `Preferences` had kept it as a
+string. `asChild` answers that the way [`Link`](/docs/navigation/link) does, and an exported class string
+is the thing *a class list is not API* refuses: the reference ships no such recipe, so the house rule
+decides.
+
+**Named by the typographer's term.** Shark and Ark have no name for it, and the two candidates in
+print are *eyebrow* and Material's *overline*. The second is also Tailwind's `overline`, a text
+decoration, which a class list beside it would read as. **One size, `text-xs`.** `Preferences` is set
+at the IDE tier's 11px throughout, so it passes that size through `className` rather than the part
+growing a `size` for one panel.
+
+**What would reverse it:** a second fixed size with two call sites of its own, which is a `size`
+variant; or the call sites dwindling to one, which is the inline string again. A request for a weight
+or a colour is the `Text` atom coming back, and is refused on the same grounds it went.
+
+*Held by* `packages/ui/src/simples/eyebrow.test.tsx`, "lands on the element it heads under asChild,
+and a part keeps its own slot"; `packages/ui/src/composites/Preferences.tsx`, `PREF_HEADING`;
+`packages/ai/src/tool.tsx`, `Eyebrow`.
+
+## A status with a measure carries its bar: `Working`'s `value`
+
+`@kanzo-tech/ai`'s `Working` draws `@kanzo-tech/ui`'s `Progress` under its words when it is given a
+`value`, and none when it is not. It was the other way: the bar was `Progress` placed beside it, on
+the grounds that a status without one is the common case. Both of keasy's measured steps — reading
+the files and building the graph — then wrote the same wrapper around the pair, and the guided
+example wrote it a third time; that is a composition, not a coincidence.
+
+The prop is Ark's progress machine's own: `number | null`, `null` indeterminate. `Progress` spells the
+same thing as `value` and `indeterminate`, which leaves no room for the third state this needs — *no
+bar* — and the machine's spelling does: `undefined`. A compound `WorkingProgress` part was the other
+shape, and it would place a bar nobody can place anywhere but under the words.
+
+**What would reverse it:** a host placing the bar somewhere other than under the words — beside them,
+or across a panel — which would make the bar a part again.
+
+*Held by* `packages/ai/src/working.test.tsx`, "draws a bar under the words given a value,
+indeterminate given null".
+
 ## A gate is a compound, because the composition was wrong about what it hid
 
 [`Gated`](/docs/layout/gated) ships as three parts: `GatedRoot`, `GatedContent`, `GatedBadge`.

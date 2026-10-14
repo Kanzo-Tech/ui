@@ -8,5 +8,18 @@ describe("Working", () => {
     const statuses = screen.getAllByRole("status");
     expect(statuses).toHaveLength(1);
     expect(statuses[0]?.textContent).toBe("Reading your files… 4 of 6");
+    expect(screen.queryByRole("progressbar")).toBeNull();
+  });
+
+  it("draws a bar under the words given a value, indeterminate given null", () => {
+    const { rerender } = render(<Working value={40}>Building your graph… 40%</Working>);
+    expect(screen.getAllByRole("status")).toHaveLength(1);
+    expect(screen.getByRole("status").textContent).toBe("Building your graph… 40%");
+    expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("40");
+
+    rerender(<Working value={null}>Making your graph…</Working>);
+    const bar = screen.getByRole("progressbar");
+    expect(bar.hasAttribute("aria-valuenow")).toBe(false);
+    expect(bar.getAttribute("data-state")).toBe("indeterminate");
   });
 });

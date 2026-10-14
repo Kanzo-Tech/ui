@@ -1,0 +1,50 @@
+---
+title: Eyebrow
+description: The small uppercase line that names a block from above it.
+links:
+  doc: https://ark-ui.com/docs/guides/composition
+---
+
+<ComponentPreview componentName="eyebrow" />
+
+## Usage
+
+```tsx
+import { Eyebrow } from "@kanzo-tech/ui";
+```
+
+```tsx
+<Eyebrow>Parameters</Eyebrow>
+```
+
+Small, muted, uppercase and tracked: *Parameters* over a tool's input, *Theme* over a picker, *How it
+fits together* over a list. It is a look and nothing else — no size, no weight, no variant — so it
+carries no margin either: the space under it is the placement's.
+
+## Whose element it is
+
+`Eyebrow` renders a `<div>`. What the line *is* depends on what it heads, so `asChild` puts the look
+on that element instead: an `<h3>` where it is a heading, a `FieldLegend` over a group, a `FieldLabel`
+over one control, a `SliderLabel` over a slider. A library part keeps its own `data-slot` through the
+merge.
+
+```tsx
+<Eyebrow asChild>
+  <h3>How it fits together</h3>
+</Eyebrow>
+
+<FieldSet>
+  <Eyebrow asChild>
+    <FieldLegend>Density</FieldLegend>
+  </Eyebrow>
+  …
+</FieldSet>
+```
+
+[`Preferences`](/docs/layout/preferences) draws every heading this way, at the panel's 11px through
+`className`.
+
+## API Reference
+
+Extends `React.ComponentProps<typeof ark.div>`. Why a fixed role became a part, against a library that
+otherwise lets chrome style its own text, is on [What earns a name](/docs/design/admission#a-role-written-out-four-times-is-a-part-eyebrow).
