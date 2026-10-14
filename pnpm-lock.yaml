@@ -117,6 +117,9 @@ importers:
       '@kanzo-tech/rudof-wasm':
         specifier: ^0.3.4
         version: 0.3.4
+      '@kanzo-tech/testing':
+        specifier: workspace:*
+        version: link:../packages/testing
       '@kanzo-tech/theme':
         specifier: workspace:*
         version: link:../packages/theme
@@ -423,6 +426,9 @@ importers:
       '@mlc-ai/web-llm':
         specifier: 0.2.86
         version: 0.2.86
+      '@testing-library/dom':
+        specifier: ^10.4.1
+        version: 10.4.1
       ai:
         specifier: ^7.0.126
         version: 7.0.126(zod@4.4.3)

@@ -176,10 +176,13 @@ const env = await playwright(page, {
 await page.goto("/ask");
 ```
 
-**`localModel(id)` answers from the script registered for `id`** in place of the model — on every
-page this one loads, with no WebGPU and nothing downloaded — and the page's own code never knows
-([`@kanzo-tech/llm/testing`](/docs/ai/llm#a-model-double)). A `ModelScript` is data, because it
-crosses into the page:
+**Each id gets a provider that answers from its script**, registered in `@kanzo-tech/llm/local`'s
+provider registry before the page's own scripts run. `localModel(id)` resolves it as it resolves any
+provider — and `localModel()`, which asks the first model served, resolves the first id scripted — on
+every page this one loads, with no WebGPU and nothing downloaded or listed; the page's own code has no
+branch for it ([why](/docs/design/testing#a-model-is-resolved-through-one-registry)). It answers with
+`scripted(script)`, the same answering [`@kanzo-tech/llm/testing`](/docs/ai/llm#a-model-double)'s
+`scriptedModel` wraps for a unit test. A `ModelScript` is data, because it crosses into the page:
 
 - **`turns`** — each call is answered by the first `ModelTurn` whose `when` its prompt (every
   message, flattened) contains; one with no `when` answers any call, and one that is `once` answers
@@ -199,6 +202,8 @@ const prompts = await page.evaluate(
   "Qwen3-4B-q4f16_1-MLC",
 );
 ```
+
+`promptOf(call)` is the same flattening for a unit test's call: a `PromptedCall`, any call whose `prompt` is the AI SDK's messages.
 
 A page that cannot run the model at all needs no double: take `navigator.gpu` away before it loads,
 and `localModel` fails as `llm/unavailable`, its own answer.

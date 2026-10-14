@@ -40,6 +40,7 @@
     "@kanzo-tech/mosaic": "workspace:*",
     "@kanzo-tech/navigation": "workspace:*",
     "@kanzo-tech/rudof-wasm": "^0.3.4",
+    "@kanzo-tech/testing": "workspace:*",
     "@kanzo-tech/theme": "workspace:*",
     "@kanzo-tech/ui": "workspace:*",
     "@lezer/highlight": "^1.2.3",
@@ -66,7 +67,7 @@
     "shiki": "^4.2.0",
     "zod": "^4.4.3"
   },
-  "//deps": "@kanzo-tech/{ui,theme,mosaic,graph,ai,llm,auth,navigation} are workspace deps; the pages and examples import Mosaic through `@kanzo-tech/mosaic`, as a host does. `ai` and `@ai-sdk/react` are @kanzo-tech/ai's required peers, installed once here as a host would; the examples and showcases build their models with `@kanzo-tech/llm/testing`'s double, over `ai/test`'s mock, so nothing on the site calls a provider. The one exception is `/fixtures/ask-eval`, the page Ask's evaluation set (`packages/ai/eval`) asks on, which runs `@kanzo-tech/llm/local`'s model in the page: `@browser-ai/web-llm` and `@mlc-ai/web-llm` are that subpath's optional peers, installed here for it, pinned as `@kanzo-tech/llm` pins them. There is no colour-derivation package any more: a theme is a flat CSS file that ships with @kanzo-tech/theme.",
+  "//deps": "@kanzo-tech/{ui,theme,mosaic,graph,ai,llm,auth,navigation,testing} are workspace deps; the pages and examples import Mosaic through `@kanzo-tech/mosaic`, as a host does. `ai` and `@ai-sdk/react` are @kanzo-tech/ai's required peers, installed once here as a host would; the examples and showcases build their models with `@kanzo-tech/llm/testing`'s double, over `ai/test`'s mock and `@kanzo-tech/testing`'s script — which is why that package is a dependency here — so nothing on the site calls a provider. The one exception is `/fixtures/ask-eval`, the page Ask's evaluation set (`packages/ai/eval`) asks on, which runs `@kanzo-tech/llm/local`'s model in the page: `@browser-ai/web-llm` and `@mlc-ai/web-llm` are that subpath's optional peers, installed here for it, pinned as `@kanzo-tech/llm` pins them. There is no colour-derivation package any more: a theme is a flat CSS file that ships with @kanzo-tech/theme.",
   "devDependencies": {
     "@codemirror/legacy-modes": "^6.5.3",
     "@fossil-lang/executor": "^0.3.0-alpha.31",

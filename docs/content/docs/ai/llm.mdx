@@ -14,7 +14,7 @@ pnpm add @kanzo-tech/llm ai
 import { localModel } from "@kanzo-tech/llm/local";
 
 // The model runs in the page, on WebGPU: no key, no server, nothing leaves the browser.
-const model = localModel("Qwen3-4B-q4f16_1-MLC", { worker });
+const model = localModel("Qwen3-4B-q4f16_1-MLC");
 ```
 
 **The model is in the page.** The platform's [Tasks](/docs/ai/tasks) are built for one: a small
@@ -51,11 +51,17 @@ pnpm add @browser-ai/web-llm @mlc-ai/web-llm
 ```
 
 ```ts
-import { localModel } from "@kanzo-tech/llm/local";
+import { localModel, localProvider, setLocalProvider } from "@kanzo-tech/llm/local";
 
-const model = localModel("Qwen3-4B-q4f16_1-MLC", {
-  worker: new Worker(new URL("./model.worker.ts", import.meta.url), { type: "module" }),
-});
+// Once, at the composition root, before anything asks a model.
+setLocalProvider(
+  localProvider({
+    baseURL: "/models",
+    worker: new Worker(new URL("./model.worker.ts", import.meta.url), { type: "module" }),
+  }),
+);
+
+const model = localModel(); // the first model /models serves; localModel(id) for another
 ```
 
 ```ts
@@ -65,40 +71,61 @@ import { serveLocalModel } from "@kanzo-tech/llm/local";
 serveLocalModel();
 ```
 
-`localModel` takes a `LocalModelSettings` — the worker and where the model is served from, both
-optional — and is a `LanguageModel`, so `stream`, `ToolLoopAgent` and `Chat` run over it unchanged. It
-makes one engine per model per page — two would be two copies of the weights in the GPU's memory — and
+**A model is resolved by id through one provider registry.** `localModel(id?)` asks it: the model a
+test registered for that id, else the provider the host set with `setLocalProvider`, else WebLLM's
+own prebuilt list — the AI SDK's `customProvider` with its `fallbackProvider`, kept on the page as
+OpenTelemetry keeps its global provider ([why](/docs/design/testing#a-model-is-resolved-through-one-registry)).
+`localProvider({ baseURL, worker })` is WebLLM's provider, configured with where its models are
+served from and the worker its engine runs in — a `LocalProviderSettings`, both optional. Without an id, `localModel()` asks the
+first model served. It is a `LanguageModel`, so `stream`, `ToolLoopAgent` and `Chat` run over it
+unchanged. It makes one engine per model per page — two would be two copies of the weights in the GPU's memory — and
 lifts `<think>` into reasoning — Qwen3 and DeepSeek write theirs inline, and [`Chat`](/docs/ai/chat) folds it away. Without WebGPU a call fails as an `LlmError`
-coded `llm/unavailable` with `data.reason` `"webgpu"`, before anything is downloaded. The weights are
+coded `llm/unavailable` with `data.reason` `"webgpu"`, before anything is downloaded or fetched. The weights are
 downloaded on the first call and cached by the browser, which is asked once to persist what it stores
 for the page (`navigator.storage.persist()`), so a model is not evicted under pressure. A structured answer (`Output.object`) is
 decoded against its schema; a tool is described in the prompt and parsed out of the model's text, so a
 small model can write a call that does not parse. Why the platform is moving to models in the page,
 and why its Tasks use no tools, is [Tasks](/docs/design/tasks).
 
-**Serve the model yourself, and load it before it is asked.** Without `from`, the id is looked up in
-WebLLM's prebuilt list and the weights come from Hugging Face; with it, from your own origin, so the
-page reaches no third party. An id that is in the prebuilt list keeps what the list says of the model —
-its `overrides` (the context window WebLLM runs it at, 4096 tokens for Qwen3-4B, rather than the larger
-one in `mlc-chat-config.json`), its VRAM and the GPU features it needs — so `from` changes where the
-model comes from and nothing else:
+**Serve the models yourself, and load one before it is asked.** Without `baseURL` the provider is
+WebLLM's prebuilt list and the weights come from Hugging Face. With it, the page serves exactly what
+`<baseURL>/app-config.json` lists, from your own origin, so it reaches no third party. That file is
+**WebLLM's own `AppConfig`**, as `@mlc-ai/web-llm` declares it, handed to WebLLM untranslated — a
+`model` or `model_lib` written relative is resolved against `baseURL`, because WebLLM reads both from
+its worker, where a relative URL means another place:
 
-```ts
-const settings = {
-  worker,
-  from: { weights: `${MODEL_URL}/Qwen3-4B-q4f16_1-MLC/`, library: `${MODEL_URL}/Qwen3-4B-q4f16_1-MLC.wasm` },
-};
-const model = localModel("Qwen3-4B-q4f16_1-MLC", settings);
-
-// When the screen that will ask opens: the download starts now, not on the first question.
-void loadLocalModel("Qwen3-4B-q4f16_1-MLC", settings);
+```json
+{
+  "model_list": [
+    {
+      "model": "Qwen3-4B-q4f16_1-MLC/resolve/a5c9fab855e3ccbdfed2e7e69683d75f30332161/",
+      "model_id": "Qwen3-4B-q4f16_1-MLC",
+      "model_lib": "lib/v0_2_86/Qwen3-4B-q4f16_1_cs1k-webgpu.wasm",
+      "overrides": { "context_window_size": 4096 }
+    }
+  ]
+}
 ```
 
-`loadLocalModel` resolves when the engine is ready, on the same engine `localModel` answers with, and
-rejects as a call would — `llm/unavailable` without WebGPU.
+It is a static file beside the shards, written by whatever downloads them, so a plain file server
+serves it. WebLLM reads the weights under `model` as Hugging Face lays a revision out: a `model` that
+names no `resolve/<revision>/` is read under `resolve/main/`. The host's code names no model and no library version: a new model is a line here.
+Everything WebLLM's prebuilt record says of a model — its `overrides`, its VRAM, the GPU features it
+needs — is the listing's to say. A listing that is missing or lists nothing, and an id it does not
+list, are `llm/unavailable` with `data.reason` `"unserved"`.
 
-*Held by* `packages/llm/src/local.test.ts`, "loads from where the host serves the model, when it says",
-"loads ahead of the first call, on the one engine, and asks once for the storage to persist".
+```ts
+// When the screen that will ask opens: the download starts now, not on the first question.
+void loadLocalModel();
+```
+
+`loadLocalModel(id?)` resolves when the engine is ready, on the same engine `localModel` answers
+with, and rejects as a call would.
+
+*Held by* `packages/llm/src/local.test.ts`, "serves every model its app-config.json lists, in order,
+the first when no id is asked, with WebLLM's config handed on as written", "is unserved when the
+listing is missing, lists nothing, or does not list the id asked", "loads ahead of the first call, on
+the one engine, and asks once for the storage to persist".
 
 **Where the load stands is read, not handed to a callback.** `localModelLoad(id)` answers a
 `ModelLoad` — `{ state: "idle" }` until something loads or asks the model, `{ state: "loading",
@@ -108,8 +135,8 @@ when it changes. The value is the same object until it changes, so it is a snaps
 and [`ModelBadge`](/docs/ai/guided#modelbadge) draws it:
 
 ```tsx
-const load = useSyncExternalStore((l) => watchLocalModel(MODEL, l), () => localModelLoad(MODEL));
-<ModelBadge load={load} onRetry={() => void loadLocalModel(MODEL, settings)} />
+const load = useSyncExternalStore((l) => watchLocalModel(undefined, l), () => localModelLoad());
+<ModelBadge load={load} onRetry={() => void loadLocalModel()} />
 ```
 
 `ModelLoad` is on `@kanzo-tech/llm` rather than this subpath because it is not WebLLM's shape: a
@@ -212,7 +239,7 @@ retry after it".
 ```ts
 class LlmError extends Error {
   code: "llm/unavailable";
-  data: { reason?: string };   // "webgpu": the browser has none
+  data: { reason?: string };   // "webgpu": the browser has none; "unserved": the page serves no such model
 }
 ```
 
@@ -223,7 +250,8 @@ caller as it was thrown.
 ## A model double
 
 ```ts
-import { promptOf, scriptedModel } from "@kanzo-tech/llm/testing";
+import { scriptedModel } from "@kanzo-tech/llm/testing";
+import { promptOf } from "@kanzo-tech/testing";
 
 const model = scriptedModel({
   turns: [
@@ -236,21 +264,22 @@ const model = scriptedModel({
 **`@kanzo-tech/llm/testing` is the one model double**: `scriptedModel(script)` is the AI SDK's
 `MockLanguageModelV4`, from `ai/test`, answering from a script of turns, so `Assist`, a
 `ToolLoopAgent`, `Chat` and a Task run unchanged over it, and every call is recorded on it as the SDK
-records one (`doStreamCalls`, `doGenerateCalls`; `promptOf(call)` flattens what a call was told). The
+records one (`doStreamCalls`, `doGenerateCalls`; `promptOf(call)`, from `@kanzo-tech/testing`, flattens what a call was told). The
 script is a `ModelScript`, [`@kanzo-tech/testing`'s](/docs/testing#a-model-double) — each call answered
 by the first turn whose `when` its prompt contains, a reply as text, an object, a tool call, a failure
 or a call that hangs, a `pace` for a recording — because an end-to-end test registers the same script
-with `playwright(page, { models })`, and **`localModel` answers from it** in place of the model it
-names, before anything is downloaded. Production never has the hook, and `/local` imports the double
-only when a test registered one.
+with `playwright(page, { models })`, which registers **a provider for that id** in `/local`'s registry,
+answering from the script with the same answering `scriptedModel` wraps (`scripted`, from
+`@kanzo-tech/testing`). `localModel` resolves it as it resolves any provider; `/local` names no test
+and imports nothing of the double.
 
 In a unit test, `turns` may be a function of the call instead — an `AnsweredScript`, whose `turns` are `(call, index) => reply`, `call` a `ModelCall`, the AI SDK's call options — where the
 answer is computed — as a recording does that recognises a question it was not given word for word.
 Every example and showcase on this site runs with no network over this double, with a `pace`, so a
 reader sees an answer arrive.
 
-`@kanzo-tech/testing` is an optional peer, for the script's types; `ai/test` is part of `ai`.
+`@kanzo-tech/testing` is an optional peer, for the script and its answering; `ai/test` is part of `ai`.
 
 *Held by* `packages/llm/src/testing.test.ts`, "answers each call with the first turn whose words its
 prompt holds, and a once turn only once"; `packages/llm/src/local.test.ts`, "answers from the script
-registered for its id on the test hook, records the prompt, and never reaches WebLLM".
+registered for its id, records the prompt, and never reaches WebLLM".

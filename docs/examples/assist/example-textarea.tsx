@@ -3,7 +3,8 @@
 import { Field, FieldHelper, FieldLabel, Textarea } from "@kanzo-tech/ui";
 import { Assist, AssistProvider } from "@kanzo-tech/ai";
 import { useState } from "react";
-import { promptOf, scriptedModel } from "@kanzo-tech/llm/testing";
+import { scriptedModel } from "@kanzo-tech/llm/testing";
+import { promptOf } from "@kanzo-tech/testing";
 import { PACE } from "@/lib/model-call";
 
 // Stands in for `localModel(…)`. Each earlier offer the reader skipped with Alt+] comes
