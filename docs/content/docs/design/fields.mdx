@@ -187,6 +187,38 @@ lookup, then an untagged one"; "is the column whose property labels, preferred a
 never one because it is called name"; "are its own label, or its type's for the type's naming column,
 and absent where nothing labels it".
 
+**A mapping states what GraphAr cannot, and the words come from it onto the same graph.** A GraphAr
+graph states tables, column types and edges, and no word, class or predicate; the RML-Core mapping
+written beside it states them. `withMapping(graph, model)` puts the mapping's class, predicate, term
+type, datatype and `rdfs:label`s on the `JoinGraph`'s own `iri`, `annotations`, `termType` and
+`datatype`, which `labelOf`, `relationColumns`, `fieldStats`, `RelationPicker` and Ask already read —
+so there is no second lookup keyed by IRI for a part to consult, and a host passes the mapping once,
+where it passes the graph. The language is not chosen there; every label is kept and the reader's
+`labelOf` chooses. `model` is a structural type cut to what is read (`MappingModel`), the shape of
+rudof's `Mapping.model()`, so the library imports no RDF code, and it is kept to the tables the graph
+has: a table is a type by its source's name, a column by the column its term reads, a relation by its
+parent's table, and among several edges between the same two types by the predicate's local name.
+A source that is a query, a column read from a template, and a relation no edge matches are left out.
+
+The same change made the words one function. `RelationPicker` and Ask each wrote *the label, else the
+name* — the picker split the name into words and Ask showed it as written, so *laureate award* and
+*LaureateAward* named one type — and `splitWords` was the picker's by its docs and not by its code.
+`typeWords`, `edgeWords` and `splitWords` are `@kanzo-tech/mosaic`'s, and both read them; Ask's chips
+now say *laureate* where nothing labels `Laureate`. `termType` is RML-Core's spelling (`IRI`) from a
+mapping and R2RML's (`rr:IRI`) from a fossil corpus, and a field reads both until the corpus's reader
+goes. The canvas's legend and inspector are not changed: the legend takes names from the host
+(`categories`), which a host builds with `typeWords`, and the inspector still prints a property by its
+name.
+
+**What would reverse it:** a GraphAr graph whose info carries the IRIs itself — a vertex type's class
+and a property's predicate — then the catalog states them and `withMapping` is left with the labels;
+or a mapping whose tables are not named as the graph's types are, then the match is by the class IRI
+and a host says which type is which. Or a second consumer that needs a label for a thing the graph
+has no type, edge or column for — a value, say — then the lookup by IRI this avoided is the minimal
+way to state it.
+
+*Held by* `packages/mosaic/src/mapping.test.ts`, "keeps every language, and the reader chooses one: the same graph reads in either"; "falls back to the name in words where the mapping labels nothing, and a blank node labels nothing"; `packages/ai/src/data/ask.test.ts`, "words a type by the label a mapping states, in the page's language, and by its name in words where it states none".
+
 ## What it changed for a consumer
 
 - A `JoinGraph` type's `columns` are `JoinColumn` descriptions, not names. Build one from a corpus

@@ -77,8 +77,8 @@ const XSD = "http://www.w3.org/2001/XMLSchema#";
 const TEMPORAL_DATATYPES: ReadonlySet<string> = new Set(["date", "dateTime", "gYear", "gYearMonth"].map((t) => `${XSD}${t}`));
 /** The writer's roles that name a row rather than say anything of it. */
 const IDENTIFYING_ROLES: ReadonlySet<string> = new Set(["address", "identity", "endpoint"]);
-/** R2RML's term types whose values are names, not values. */
-const NAMING_TERMS: ReadonlySet<string> = new Set(["rr:IRI", "rr:BlankNode", "http://www.w3.org/ns/r2rml#IRI", "http://www.w3.org/ns/r2rml#BlankNode"]);
+/** The term types whose values are names, not values: RML-Core's, which a mapping states, and R2RML's, which a corpus did. */
+const NAMING_TERMS: ReadonlySet<string> = new Set(["IRI", "UnsafeIRI", "BlankNode", "rr:IRI", "rr:BlankNode", "http://www.w3.org/ns/r2rml#IRI", "http://www.w3.org/ns/r2rml#BlankNode"]);
 
 function kindOf(column: FieldColumn): FieldKind | null {
   let js: string;
