@@ -5,10 +5,12 @@ import { createUIMessageStream, type ChatTransport, type InferUIMessageChunk, ty
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import { useTransportChat, type AgentChat, type AgentChatOptions } from "../agent-chat.js";
+import type { KeepPart } from "../kept-chat.js";
 import { propose, runTask, verify, type Decision, type Proposal, type Verdict } from "../task/index.js";
 import { ask, askAnswer, answerRelation, type AskInput, type AskSpec } from "./ask.js";
 import { readAnswerQuery, type AnswerOutput, type QueryRow } from "./read.js";
 import { ASK_PARTS } from "./ask-parts.js";
+import type { Answer } from "./answer.js";
 
 /**
  * **Ask, in a chat** — the Ask Task behind `useChat`. Each question is one run of the Task: the model
@@ -209,16 +211,60 @@ export function askTransport(
 }
 
 /**
+ * **What a kept Ask chat stores: the questions, not the data.** An answer's `rows` (and the cap's
+ * `truncated`) are cut from its part — the spec, the answer's tile and the clauses it was read under
+ * stay — so a stored transcript holds what was asked and never what the data answered. It is
+ * `useAskChat`'s default `keep`; the rows come back when the chat is loaded ({@link readKept}).
+ */
+export const askKeep: KeepPart<AskMessage> = (part) => {
+  if (part.type !== "data-answer") return part;
+  const { rows: _rows, truncated: _truncated, ...rest } = part.data;
+  return { ...part, data: rest };
+};
+
+const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
+
+/**
+ * **A stored Ask chat, with its answers read again.** Each `data-answer` part without `rows` — as
+ * {@link askKeep} stores it — is read on the page's engine, under the page's chips as it is now
+ * (`readAnswerQuery`). What `stored` is, is untrusted: a part that does not validate is left as it is,
+ * for the chat's own validation to refuse. A read that fails fails the load, with what it threw.
+ */
+export async function readKept(stored: unknown, options: AskChatOptions, client: QueryClient, signal: AbortSignal): Promise<unknown> {
+  if (!Array.isArray(stored)) return stored;
+  const { engine, graph, selection } = options;
+  const again = async (part: unknown) => {
+    if (!isObject(part) || part.type !== "data-answer") return part;
+    const checked = await ASK_PARTS.answer["~standard"].validate(part.data);
+    if (checked.issues || checked.value.rows !== undefined) return part;
+    const { answer, spec } = checked.value;
+    const output = await readAnswerQuery(client, answer as Answer, answerRelation(answer.relation, graph), { engine, graph, selection, signal });
+    return { ...part, data: { ...output, spec } };
+  };
+  return Promise.all(
+    stored.map(async (message) => (isObject(message) && Array.isArray(message.parts) ? { ...message, parts: await Promise.all(message.parts.map(again)) } : message)),
+  );
+}
+
+/**
  * A chat with Ask over the page: `Chat` draws it, and each `answer` part is an `AnswerCard`. Its reads
  * are queries on the host's `QueryClient`, so it needs a `QueryClientProvider` above it. Given `id`,
- * `load` and `save`, it is kept, its parts validated with Ask's own schemas.
+ * `load` and `save`, it is kept, its parts validated with Ask's own schemas — and what is kept is
+ * structure only: `keep` defaults to {@link askKeep}, and a loaded chat's answers are read again.
  */
 export function useAskChat(options: AskChatOptions, chat?: AgentChatOptions<AskMessage>): AgentChat<AskMessage> {
   const client = useQueryClient();
   const latest = React.useRef(options);
   latest.current = options;
   // Ask's parts are read through their own schemas — as they stream, and as a kept chat is loaded.
-  const kept = { ...chat, dataPartSchemas: ASK_PARTS } as AgentChatOptions<AskMessage>;
+  const kept = {
+    ...chat,
+    dataPartSchemas: ASK_PARTS,
+    ...(chat?.load && {
+      keep: chat.keep ?? askKeep,
+      load: async (id: string, read: { signal: AbortSignal }) => readKept(await chat.load!(id, read), latest.current, client, read.signal),
+    }),
+  } as AgentChatOptions<AskMessage>;
   return useTransportChat((onError) => askTransport(() => latest.current, client, onError), kept);
 }
 

@@ -6,7 +6,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { testDatabase, type TestDatabase } from "../testing/duckdb.js";
 import { asking } from "../testing/nobel.js";
 import { PEOPLE, PERSON, seedPeople } from "../testing/people.js";
-import { askEdit, askTransport, type AskChatOptions, type AskMessage } from "./ask-chat.js";
+import { askEdit, askKeep, askTransport, readKept, type AskChatOptions, type AskMessage, type AskOutput } from "./ask-chat.js";
 import { ask, type AskSpec } from "./ask.js";
 import type { Oracle } from "../task/index.js";
 
@@ -137,5 +137,26 @@ describe("askTransport", () => {
     const again = await turn(options, [edited], { client });
     expect(signals).toHaveLength(2);
     expect(again.find((c) => c.type === "data-answer" && "rows" in c.data)).toMatchObject({ data: { rows: [{ Count: 3 }] } });
+  });
+
+  it("keeps the structure of an answer and none of its rows, and reads them again when the chat is loaded", async () => {
+    const women: AskSpec = { of: "Person", where: [{ field: "gender", in: ["female"] }], show: { kind: "stat", measure: { op: "count" } } };
+    const options: AskChatOptions = { model: asking(women) as LanguageModel, engine: db.engine, graph: PEOPLE };
+    const client = new QueryClient();
+    const chunks = await turn(options, [user("1", "How many women?")], { client });
+    const read = chunks.filter((c) => c.type === "data-answer").at(-1)!;
+    expect(read).toMatchObject({ data: { rows: [{ Count: 3 }] } });
+
+    // Saved: the rows are gone, and what was asked is not.
+    const message: AskMessage = { id: "a", role: "assistant", parts: [{ type: "data-answer", id: "x", data: (read as unknown as { data: AskOutput }).data }] };
+    const stored = message.parts.map((p) => askKeep(p, message)!);
+    const data = (stored[0] as unknown as { data: Record<string, unknown> }).data;
+    expect("rows" in data).toBe(false);
+    expect("truncated" in data).toBe(false);
+    expect(data).toMatchObject({ spec: women, answer: { relation: PERSON } });
+
+    // Loaded: the rows come back from the engine, under the page as it is now.
+    const loaded = (await readKept(JSON.parse(JSON.stringify([{ ...message, parts: stored }])), options, client, new AbortController().signal)) as AskMessage[];
+    expect(loaded[0]!.parts[0]).toMatchObject({ type: "data-answer", data: { rows: [{ Count: 3 }], spec: women } });
   });
 });
