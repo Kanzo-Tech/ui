@@ -4,7 +4,7 @@ import { QueryClient } from "@tanstack/react-query";
 import type { InferUIMessageChunk, LanguageModel } from "ai";
 import { beforeAll, describe, expect, it } from "vitest";
 import { testDatabase, type TestDatabase } from "../testing/duckdb.js";
-import { answering } from "../testing/nobel.js";
+import { asking } from "../testing/nobel.js";
 import { PEOPLE, PERSON, seedPeople } from "../testing/people.js";
 import { askEdit, askTransport, type AskChatOptions, type AskMessage } from "./ask-chat.js";
 import { ask, type AskSpec } from "./ask.js";
@@ -44,7 +44,7 @@ const textOf = (chunks: Chunk[]) => chunks.flatMap((c) => (c.type === "text-delt
 describe("askTransport", () => {
   it("answers with the tile the Task's spec is, read on the page's engine, and words written from its rows", async () => {
     const women: AskSpec = { of: "Person", where: [{ field: "gender", in: ["female"] }], show: { kind: "stat", measure: { op: "count" } } };
-    const chunks = await turn({ model: answering(women) as LanguageModel, engine: db.engine, graph: PEOPLE, selection: Selection.crossfilter() }, [user("1", "How many women?")]);
+    const chunks = await turn({ model: asking(women) as LanguageModel, engine: db.engine, graph: PEOPLE, selection: Selection.crossfilter() }, [user("1", "How many women?")]);
     // One data part, written twice under one id: the answer as asked, then as read.
     const answers = chunks.filter((c) => c.type === "data-answer");
     expect(answers).toHaveLength(2);
@@ -58,10 +58,10 @@ describe("askTransport", () => {
 
   it("words a bar chart's leading groups with Intl, ties named together, through its translations", async () => {
     const byGender: AskSpec = { of: "Person", show: { kind: "chart", type: "bar", x: "gender", y: { op: "count" } } };
-    const options: AskChatOptions = { model: answering(byGender) as LanguageModel, engine: db.engine, graph: PEOPLE, translations: { value: " = ", groups: " | " } };
+    const options: AskChatOptions = { model: asking(byGender) as LanguageModel, engine: db.engine, graph: PEOPLE, translations: { value: " = ", groups: " | " } };
     expect(textOf(await turn(options, [user("1", "People by gender?")]))).toBe("female and male = 3.");
     const byAge: AskSpec = { of: "Person", show: { kind: "chart", type: "bar", x: "age", y: { op: "count" } }, where: [{ field: "age", between: [40, 60] }] };
-    expect(textOf(await turn({ ...options, model: answering(byAge) as LanguageModel }, [user("1", "?")]))).toBe("44 and 52 = 1.");
+    expect(textOf(await turn({ ...options, model: asking(byAge) as LanguageModel }, [user("1", "?")]))).toBe("44 and 52 = 1.");
   });
 
   it("asks a decision as a data part, and settles it by the option the reply picks, not by its words", async () => {
@@ -71,7 +71,7 @@ describe("askTransport", () => {
     const oracles = ask.verify as Oracle<unknown, unknown>[];
     oracles.push(() => ({ decision }));
     try {
-      const options: AskChatOptions = { model: answering(men) as LanguageModel, engine: db.engine, graph: PEOPLE };
+      const options: AskChatOptions = { model: asking(men) as LanguageModel, engine: db.engine, graph: PEOPLE };
       const first = await turn(options, [user("1", "How many men?")]);
       expect(first.find((c) => c.type === "data-ask")).toMatchObject({ data: { spec: men, decision } });
       expect(textOf(first)).toBe("");
@@ -87,7 +87,7 @@ describe("askTransport", () => {
 
   it("asks an edited spec as it is, with no model in between", async () => {
     const men: AskSpec = { of: "Person", where: [{ field: "gender", in: ["male"] }], show: { kind: "stat", measure: { op: "count" } } };
-    const model = answering(men);
+    const model = asking(men);
     const chunks = await turn({ model: model as LanguageModel, engine: db.engine, graph: PEOPLE }, [
       { id: "1", role: "user", ...askEdit(men) },
     ]);
@@ -100,7 +100,7 @@ describe("askTransport", () => {
     const asked: string[] = [];
     const engine: Pick<Engine, "query"> = { query: (sql, options) => (asked.push(sql), db.engine.query(sql, options)) };
     const client = new QueryClient();
-    const options: AskChatOptions = { model: answering(men) as LanguageModel, engine, graph: PEOPLE };
+    const options: AskChatOptions = { model: asking(men) as LanguageModel, engine, graph: PEOPLE };
     const edited = { id: "1", role: "user" as const, ...askEdit(men) };
     const first = await turn(options, [edited], { client });
     const second = await turn(options, [edited], { client });
@@ -123,7 +123,7 @@ describe("askTransport", () => {
       },
     };
     const client = new QueryClient();
-    const options: AskChatOptions = { model: answering(men) as LanguageModel, engine, graph: PEOPLE };
+    const options: AskChatOptions = { model: asking(men) as LanguageModel, engine, graph: PEOPLE };
     const edited = { id: "1", role: "user" as const, ...askEdit(men) };
     const stop = new AbortController();
     const stopped = turn(options, [edited], { client, signal: stop.signal });

@@ -33,5 +33,5 @@ const answers: Record<string, AskSpec> = {
 export const ANSWERED = new Set(Object.keys(answers));
 
 export const DOUBLE: ModelScript = {
-  turns: Object.entries(answers).map(([question, spec]) => ({ when: `Question: ${question}`, reply: { object: spec } })),
+  turns: Object.entries(answers).map(([question, spec]) => ({ when: `Question: ${question}`, reply: { object: { spec } } })),
 };

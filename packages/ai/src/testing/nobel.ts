@@ -50,3 +50,6 @@ export const NOBEL: JoinGraph = {
 /** The one model double, answering each call with the next of `values` and the last one after that. */
 export const answering = (...values: unknown[]) =>
   scriptedModel({ turns: values.map((object, i) => ({ once: i < values.length - 1, reply: { object } })) });
+
+/** `answering` as Ask is answered: each spec is the `spec` of the object its schema's root is. */
+export const asking = (...specs: unknown[]) => answering(...specs.map((spec) => ({ spec })));
