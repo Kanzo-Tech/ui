@@ -213,7 +213,7 @@ page's selection is `crossfilterOver(joins)` (in `@kanzo-tech/relations`) — Mo
 Mosaic's own extension point, `new Selection(resolver)` — which at predicate time hands a client of
 the same relation the clause as published and a client of another `k IN (SELECT key FROM <relation>
 WHERE <every clause on it>)`, into the client's step of the clause's root type, or `FALSE` where it
-has none ([Step 3](/docs/design/crossfilter#step-3-one-selection-across-relations)). So the graph
+has none ([one selection across relations](/docs/design/crossfilter#one-selection-across-relations)). So the graph
 answers a dashboard by the rule it already had, and nothing in `GraphClient` names a dashboard. A
 timeline over the graph is `ChartTimeline relation="vertices"`: its window is `date BETWEEN …` on
 `vertices`, the graph's own relation, so the graph reads it as published, and a type without a date
@@ -509,20 +509,55 @@ Chrome's sixteen per process, the budget `releaseContext` exists to protect, and
 the compositor all the same — or replacing a private method of a pinned dependency. The canvas is one
 more layer, drawing what an in-scene pass would have.
 
-**Why the light theme lost the dots is not the dots, and this does not fix it.** The grid canvas is
-painted in both modes and at both ratios (the end-to-end test reads its pixels), and in a light
-theme a software-composited Chromium still shows none of it. cosmos.gl's frame clears to
-`store.backgroundColor`, and `appearance` sets that to `[r, g, b, 0]` for the greyout's sake. On a
-`premultipliedAlpha: true` canvas that is not a transparent pixel but an invalid one — red above its
-alpha — and the compositor adds it: the page behind the canvas in the workspace showcase measured
-`rgb(255, 255, 255)` where the theme's `--background` is `rgb(251, 252, 251)`, and with the cosmos
-canvas hidden the grid appears. A dark theme's RGB is near zero, so it adds nothing, which is the
-whole of "visible in dark". It also means a translucent link carries the background twice. The cure is
-a clear of `[0, 0, 0, 0]`, and what that costs is the greyout: cosmos.gl reads the same colour to
-decide whether a greyed point darkens or lightens (in the greyout step of 3.4.0's `dist/index.js`) and to mix toward, so `greyout.ts`'s
-model and every light theme's greyed points move with it. That is a decision about the crossfilter's
-look and not one to take inside a grid; it is the first thing to do next, and until it is done a light
-theme shows the vignette and no grid in a screenshot made this way.
+**Why the light theme lost the dots, and the one place it is cured.** The grid canvas is painted in
+both modes and at both ratios, and in a light theme a software-composited Chromium showed none of it.
+cosmos.gl's frame clears to `store.backgroundColor`, and `appearance` sets that to `[r, g, b, 0]` for
+the greyout's sake. On a `premultipliedAlpha: true` canvas that is not a transparent pixel but an
+invalid one — red above its alpha — and the compositor adds it: the page behind the canvas in the
+workspace showcase measured `rgb(255, 255, 255)` where the theme's `--background` is `rgb(251, 252,
+251)`. A dark theme's RGB is small, so it added little: the dark page measured `rgb(14, 22, 16)` where
+`--background` is `rgb(7, 11, 8)`, twice it, which nobody sees, and that was the whole of "visible in
+dark". A translucent link carried the background twice for the same reason.
+
+**The colour cannot change in cosmos.gl, so the clear is premultiplied where it is applied.**
+`premultiplyClear` in `render/webgl.ts` wraps the canvas context's `clearColor` and multiplies the
+RGB by the alpha when the bound framebuffer is the canvas's own — `[r, g, b, 0]` reaches the GPU as
+`[0, 0, 0, 0]`. The config keeps `[r, g, b, 0]`, so the greyout reads what it always read. Three ways
+were measured first, on cosmos.gl 3.4.0 in Chromium with SwiftShader, a page of `rgb(251, 252, 251)`
+(light) and `rgb(20, 22, 21)` (dark), a point greyed at opacity 0.4, and the pixel read from a
+screenshot at 1× and 2×:
+
+| a pixel of the screenshot, light | page behind | greyed green point | translucent kept link |
+|---|---|---|---|
+| as it was | 255, 255, 255 | 255, 255, 255 | 255, 255, 255 |
+| `premultipliedAlpha: false` | 251, 252, 251 | 238, 247, 241 | 245, 246, 246 |
+| config clear `[0, 0, 0, 0]` | 251, 252, 251 | 168, 187, 175 | 221, 222, 224 |
+| **premultiplied clear** | **251, 252, 251** | **220, 240, 227** | **221, 222, 224** |
+| the model, `α·g + (1 − α)·page` | 251, 252, 251 | 219, 240, 227 | |
+
+- **`premultipliedAlpha: false` is refused.** The cleared pixel is then transparent, but the blend
+  that writes a point's alpha is the premultiplied one, so a point at opacity `α` is composited by
+  `α` twice: the greyed point above is 238 where the greyout's own model says 219, a quarter as far
+  from the page as it was derived to be, and the contrast `greyout.ts` guarantees is gone. It also
+  needs a device of the package's own, which is two dependencies on cosmos.gl's internals.
+- **A config clear of `[0, 0, 0, 0]` is refused.** cosmos.gl reads the same colour to decide whether a
+  greyed point darkens or lightens (`index.js:141`), and a black one darkens: the light theme's greyed
+  point is 168 where the model has 219, darker than the page, and the clear it asks for is the only
+  channel — there is no separate colour for the greyout, and `pointGreyoutColor` is one flat colour for
+  every point, which loses the hue.
+- **Premultiplying in the config is the same refusal**: `rgb × 0` is `[0, 0, 0, 0]`.
+
+**Seen through the real canvas**, in the workspace showcase at 1× and 2× (the end-to-end test, with
+the clear put back as it was for the "before"): the page behind the canvas went from
+`rgb(255, 255, 255)` to `rgb(251, 252, 251)` in light and from `rgb(14, 22, 16)` to `rgb(7, 11, 8)` in
+dark, each now `--background`; the dots in `--input` seen in the screenshot went from 0–1 pixels to 932
+(1×) and 10,510 (2×) in light. A greyed point in dark, read as the opacity its pixel implies, has the
+same median before and after (1.09 at 1×, 1.18 at 2×, over 51–69 points; the model's dark constants
+are a little short, and that does not move). In light the dense middle of the archive is links
+summing to `rgb(255, 255, 255)`, a few levels above the page, as they did over the white one it was
+drawn on before; a greyed point there is read over that, so a real-canvas reading of its colour is
+not cleaner than the single point in the table, and is not asserted. The offscreen passes are left alone — cosmos.gl clears its simulation textures to sentinels such as
+`[-1, 1, 0, 0]`, and a multiply would corrupt them, which is why the framebuffer is checked.
 
 **The vignette stays a CSS gradient.** It is static: nothing writes its style, so it costs a layer
 that never repaints, and an in-shader one would not have been simpler without the shader.
@@ -530,15 +565,19 @@ that never repaints, and an in-shader one would not have been simpler without th
 **What would reverse it:** the bench on a real GPU showing a p95 interval difference between the grid
 on and off above its own run-to-run spread, which turns the default off and says so here; cosmos.gl
 exposing a hook before its points, which moves the grid into the scene and deletes the canvas; or a
-theme that needs the grid to read over the marks. The clear above is reversed by a transparent clear
-that keeps the greyout's direction.
+theme that needs the grid to read over the marks. The premultiplied clear is reversed by cosmos.gl
+taking the greyout's colour from a config of its own, or premultiplying its clear itself, which deletes `premultiplyClear` and leaves the config as it is; or
+by a cosmos.gl whose render passes stop going through `gl.clearColor`, which the composite test
+below turns red.
 
 *Held by* `packages/graph/src/render/grid.test.ts`, "keeps the on-screen step inside [min, 2.5·min) at
 every zoom", "only ever subdivides when zooming in, and only ever by a rung of the ladder", "is a
 lattice anchored on world (0, 0), so the grid moves with the graph", "makes a dot a whole number of
 device pixels wide, scaled with the ratio, centred on its lattice point"; `packages/graph/src/parts/parts.test.tsx`,
 "draws the grid under the surface, so no dot lands on a point", "mounts no grid layer at all when
-look.grid is off"; `packages/testing/e2e/grid.e2e.test.ts`, "the reference grid".
+look.grid is off"; `packages/graph/src/render/webgl.test.ts`, "premultiplies a translucent clear by
+its alpha", "leaves an offscreen pass alone: cosmos.gl clears its textures to sentinels";
+`packages/testing/e2e/grid.e2e.test.ts`, "the reference grid", "the reference grid seen through the canvas".
 
 ## The layers, and the reference each one copies
 
@@ -661,12 +700,14 @@ under it read the root.
   arrangement: it keeps "the WebGL canvas transparent; the wrapper div carries the configured
   background". Nothing between the element and the points can show otherwise, and a grid over the
   canvas laid a lattice across a dense graph, one dot over every point beneath it. The RGB stays in
-  the config at zero alpha, because cosmos.gl's greyout reads it to dim darker or lighter. Point
+  the config at zero alpha, because cosmos.gl's greyout reads it to dim darker or lighter, and the clear
+  is premultiplied where it is applied, so the canvas is transparent ([the reference grid](#the-reference-grid-is-one-canvas-drawn-when-the-camera-moved)). Point
   blending writes alpha with `one, one-minus-src-alpha`, so a transparent clear composites
   correctly, and occlusion culling depends only on `pointOpacity` and highlighting. *Held by*
   `packages/graph/src/parts/parts.test.tsx`, "draws the grid under the surface, so no dot lands on a
   point"; `packages/graph/src/render/graph-model.test.ts`, "clears cosmos.gl transparent and keeps
-  the background's RGB for the greyout". What would reverse it: a theme that needs the grid to read
+  the background's RGB for the greyout"; `packages/graph/src/render/webgl.test.ts`, "clears the
+  canvas to a colour the compositor can add: rgb at alpha 0 is transparent". What would reverse it: a theme that needs the grid to read
   over the marks.
 - **`GraphLegend`** — the categorical scale, or the vertex types when nothing is bound, with how many
   of each are drawn. Its domain is fixed before the graph loads, so a row never moves. Under bound

@@ -238,7 +238,7 @@ export interface KanzoThemeProviderProps {
    * **The host registers, and that is what keeps the one-way door shut.** Nothing in
    * `@kanzo-tech/theme` or in this file names an optional package, so the arrow points host → core:
    * a host that never installed the graph literally cannot pass its manifest, and
-   * `packages/theme/src/boundary.test.ts` keeps passing because there is nothing to import.
+   * there is nothing for the core to import.
    * Registration by import into the core would be the same mechanism with the dependency inverted.
    */
   sections?: readonly SectionManifest[];

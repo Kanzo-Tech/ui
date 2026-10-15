@@ -103,6 +103,7 @@ export {
  * type, the relation a set of paths lies on, and where a path off it is crossed in. `crossfilter.ts`.
  */
 export {
+  JoinError,
   JoinResolver,
   crossfilterOver,
   onRelation,
@@ -167,4 +168,5 @@ export {
  * Ours: a thing's words are its labels — its `rdfs:label` in the page's language, a type named by its
  * naming column, and the identifier split as the last resort, never inflected. `words.ts`.
  */
-export { labelOf, namingColumn, splitWords } from "./words.js";
+export { edgeWords, labelOf, namingColumn, splitWords, typeWords } from "./words.js";
+export { withMapping, type MappingModel } from "./mapping.js";

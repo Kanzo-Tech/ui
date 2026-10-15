@@ -357,33 +357,9 @@ rows are not comparable with the gauges above them.
 | 2026-10-14 | ui analytics, `{ Dashboard }` | 27.6 → 28.6 kB, 35 → 36.1 kB, approved by the owner (standing approval, 2026-10-14) | 27.3 → 28.51 kB, 34.81 → 36.02 kB | joins and answers (cleanup PR 9): a tile's `where` and `top` and `tileQuery`, the one compiler every tile view reads through; a count of the measured type's keys; #199's whole-number count axis and wider bar labels. ai `./data` went 8.97 → 8.61 kB, the answer schema and its second compiler gone |
 | 2026-10-14 | mosaic root, ui analytics, `{ Dashboard }`, graph root | 4.6 → 5.2 kB, 28.6 → 29.2 kB, 36.1 → 36.75 kB, 25.25 → 26 kB, approved by the owner (standing approval, 2026-10-14) | 4.53 → 5.14 kB, 28.5 → 29.11 kB, 36.02 → 36.68 kB, 25.15 → 25.97 kB | what a field is (cleanup PR 10, `/docs/design/fields`): `JoinColumn` descriptions and `relationColumns`, a multi-valued property as a step joined once, `labelOf` and `namingColumn`; `fieldStats` over descriptions, `useFieldStats` reading a counted graph with no query and keeping the joins' facts over a summary, titles from labels; `readCatalog`, the one read of fossil's four catalog relations and the engine's column types. ai `./data` went 8.61 → 8.2 kB, `readAnswerRelations` and the card's own read gone — 9.39 → 8.97 kB once merged with PR 11's kept chat, under its 9.5 kB, not raised; ui root (50.73 kB), `./editor`, `./table` and `{ Button }` did not move. auth `./next` measures 7.81 kB against its 7.8 kB on this machine on `main` too, untouched here |
 | 2026-10-14 | ai `./data` | 9.1 → 9.5 kB, approved by the owner (standing approval, 2026-10-14) | 8.61 → 9.39 kB | a chat kept (cleanup PR 11): Ask's `answer` and `ask` parts read back through schemas of their own, each rebuilt from its fields with its tile through `parseTile`. The root went 12.53 → 13.29 kB with `load`, `save`, `keep` and `useKeptChat`, under its 20 kB |
-| 2026-10-15 | graph root | 26 → 26.5 kB, approved by the owner (standing approval, 2026-10-14) | 25.97 → 26.29 kB | the reference grid drawn on a canvas (`/docs/design/graph`): the 1-2-5 ladder, the lattice and its draw, the ink and the canvas's size, against the CSS layer and its per-frame style writes gone. auth `./next` measures 7802 B against its 7.8 kB on `main` here too, untouched |
 | 2026-10-14 | llm `./local` | 2.7 → 3.1 kB, approved by the owner (standing approval, 2026-10-14) | 2.14 → 2.83 kB | an honest finish, a turn per call and a warm load: the finish check, the queue, the stream wrapper, the warm-up and its `performance` spans. The warm-up and its spans are the separable part (its own commit) |
-
-The first rows of the gauges as they are now, measured on `main` at `f1c00cb` and then on the
-names-and-admission change (`claude/cleanup-3-names`) once it merged `main` with the read door
-(#204), cleanup PR 1's unused names (#205) and `Checkpoint` (#208), whose raises are the rows above; over the root, the
-ui root's raise to 51.1 kB was not needed:
-
-| Gauge | Limit | `main` | After |
-| --- | --- | --- | --- |
-| ui root | 51 kB | 50.99 kB | 50.56 kB — `Preferences`, `ThemeNotice` and `FloatingPanel` left for examples |
-| ui `./editor`, over the root | 4.7 kB (new) | 4.63 kB | 4.65 kB |
-| ui `./table`, over the root | 3.3 kB (new) | 3.22 kB | 3.23 kB |
-| ui `./analytics`, over the root | 38.3 → 27.6 kB, approved by the owner (standing approval, 2026-10-14) | 27.42 kB | 27.51 kB — the read door's `useFieldStats` |
-| ui `./analytics { Dashboard }` | 35 kB, the read door's raise | 34.86 kB | 34.99 kB |
-| ui `{ Button }` | 2 kB | 1.29 kB | 1.29 kB |
-| ai root | 20 kB | 12.67 kB | 12.84 kB — one `Proposal`, and `Chat` sending a proposal's value, less the names #205 took off, with #208's `Checkpoint` and `PromptInputHeader` |
-| ai `./data`, over the root | 9.9 → 9.1 kB, approved by the owner (standing approval, 2026-10-14) | 8.77 kB | 8.75 kB, then 8.97 kB with the read door's query on the host's `QueryClient` |
-| ai `./task`, over the root | 1.2 kB | 1.1 kB | 1.11 kB |
-| graph root | 24.5 → 25.25 kB, approved by the owner on 2026-10-14 | 24.1 kB | 25.15 kB — the parts under the guards: a recipe each, `ark`, and every word as `translations` |
-| graph `./section`, over the root | 1.6 kB (new) | 1.54 kB | 1.54 kB |
-| auth root, `./server`, `./next` | 2.5, 5.75 → 5.25, 7.5 → 7.1 kB | 2.46, 5.13, 7 kB | 2.46, 5.14, 7.03 kB |
-| navigation root, `./next` | 1.2, 1.2 kB | 1.12 kB, 995 B | 1.12 kB, 997 B |
-| mosaic root | 4.15 kB | 4.11 kB | 4.11 kB |
-| llm root, `./local` | 400 → 450 B, approved by the owner (standing approval, 2026-10-14); 1.6 kB (new) | 374 B, 1.54 kB | 415 B — `generate`, the second door, from `main`; 1.55 kB |
-| theme root | 3 kB (new) | 3.71 kB | 2.93 kB — the unused names left (#205) |
-| testing root, `./dom` | 10, 10 kB | 5.14 kB, 898 B | 5.14 kB, 914 B |
+| 2026-10-14 | mosaic root | 5.2 → 6 kB, approved by the owner (2026-10-15) | 5.14 → 5.90 kB | a graph described by its mapping (`/docs/design/fields`): `withMapping` (with the maps fossil writes over a query), `typeWords` and `edgeWords`, and `splitWords` as the one split the picker and Ask both read. ui analytics (29.17 → 28.99 kB) and `{ Dashboard }` (36.68 → 36.65 kB) went down with the picker's own split and Ask's own label gone; ai `./data` 8.97 → 8.94 kB; ui root and graph did not move |
+| 2026-10-15 | graph root | 26 → 26.5 kB, approved by the owner (standing approval, 2026-10-14) | 25.97 → 26.29 kB | the reference grid drawn on a canvas (`/docs/design/graph`): the 1-2-5 ladder, the lattice and its draw, the ink and the canvas's size, against the CSS layer and its per-frame style writes gone. auth `./next` measures 7802 B against its 7.8 kB on `main` here too, untouched |
 
 A difference of a few bytes on a package the change did not touch is the measurement, not the code.
 
@@ -399,22 +375,13 @@ has been asked for.
 
 *Held by* `docs/components/components-list.tsx`.
 
-## One changeset until the first publish
+## One changeset per change a consumer can see
 
-`.changeset/` holds a **single** changeset describing what the packages are, until something is
-actually published. The accumulated ones were deleted, not archived: they were a work journal
-wearing release-note clothes, describing an intermediate history no consumer ever saw, announcing
-renames to names that were then deleted, and documenting an API the colour work removed. A changeset
-says what a *consumer* must do differently; the reason a decision was taken belongs on these pages.
+A changeset says what a *consumer* must do differently, in the consumer's words; it is release
+notes waiting for a release and nothing else. The git tag decides the version, so a changeset
+carries no bump level. The reason a decision was taken belongs on these pages, not in a changeset.
 
-**What would reverse it: the first publish.** After it there is a released version to describe
-changes against, and the normal one-changeset-per-change rule resumes — that is when a bump level
-starts meaning something, and when a `!` in a commit subject must be a `major`.
+**What would reverse it.** A release process in which the changeset, not the tag, decides the
+version.
 
 *Held by* `.changeset/README.md`, which states it beside the changesets themselves.
-
-<Callout type="warn">
-On any merge from a parallel session, this needs doing again. Fold what a consumer must know into
-the single changeset and delete the rest — but read them first where two of them litigate the same
-axis against each other, because the collapse would otherwise silently pick a winner.
-</Callout>

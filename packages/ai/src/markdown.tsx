@@ -2,7 +2,7 @@
 // one: this module holds no state, no effect and no handler of its own. `streamdown/dist/index.js`
 // opens with the directive itself, so importing it establishes the boundary — a second one here
 // would opt the wrapper out of server rendering for nothing.
-import { Streamdown, type StreamdownProps } from "streamdown";
+import { Streamdown, defaultRehypePlugins, type StreamdownProps } from "streamdown";
 import { cn } from "@kanzo-tech/ui";
 
 /**
@@ -15,18 +15,13 @@ import { cn } from "@kanzo-tech/ui";
  * literal asterisks and emphasis as it completes. Streamdown exists to close those, and closing
  * them well is a parser's worth of work rather than a component's.
  *
- * ## Why a subpath, and it is a one-way door
+ * ## Safe by default
  *
- * **Measured before it was decided:** `streamdown` bundles to **495 kB minified, 128 kB brotli**
- * on its own — `parse5` 123 kB for `rehype-raw`'s HTML, `entities` 51 kB, `marked` 40 kB, the
- * unified stack behind them. `@kanzo-tech/ai`'s whole root barrel is budgeted at 20 kB and measures
- * 8.34. A static import from `index.ts` would take every host that renders plain prose from 8 kB to
- * roughly 136, for a parser it never calls.
- *
- * So it lives here, behind `@kanzo-tech/ai/markdown`, with `streamdown` as an **optional peer** —
- * the same door `@kanzo-tech/ui/editor` stands behind for CodeMirror and `@kanzo-tech/ui/analytics`
- * for vgplot. Nothing installs the tarball without the peers any more, so the door is held only by
- * `index.ts` never naming `./markdown` — the `size` budget is what would notice it opening.
+ * A model's markdown is untrusted text. An image in it is a request the reader's browser makes to
+ * whoever the model named — a tracking pixel, or the channel a prompt injection reads a secret out
+ * through — so **no image loads**, remote or `data:`; a `javascript:` link is dropped and any other
+ * asks the reader before it opens (Streamdown's link check). A host that renders its own
+ * authored markdown reopens this with Streamdown's own props: `rehypePlugins` and `linkSafety`.
  *
  * ## The animation is Streamdown's now, not ours
  *
@@ -54,6 +49,17 @@ export interface MessageMarkdownProps
   slot?: string;
 }
 
+/**
+ * Streamdown's own pipeline — raw HTML, sanitised, then hardened — with the hardening shut: no image
+ * prefix is allowed and no `data:` image, so `![x](https://…)` draws nothing; links keep Streamdown's own
+ * protocols and ask the reader first.
+ */
+const SAFE: NonNullable<StreamdownProps["rehypePlugins"]> = [
+  defaultRehypePlugins.raw!,
+  defaultRehypePlugins.sanitize!,
+  [(defaultRehypePlugins.harden as [never])[0], { allowedImagePrefixes: [], allowedLinkPrefixes: ["*"], allowDataImages: false }],
+];
+
 /** `MessageText`'s cascade, so the two components keep the same rhythm. See its docblock. */
 const STAGGER = 18;
 
@@ -80,6 +86,8 @@ export const MessageMarkdown = (props: MessageMarkdownProps) => {
         mode={streaming ? "streaming" : "static"}
         // The whole point. `false` renders `**bo` as two asterisks and a `bo`.
         parseIncompleteMarkdown={streaming}
+        linkSafety={{ enabled: true }}
+        rehypePlugins={SAFE}
         {...rest}
       >
         {children}

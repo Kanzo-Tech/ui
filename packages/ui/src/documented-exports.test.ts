@@ -51,8 +51,8 @@ import { beforeAll, describe, expect, it } from "vitest";
  *   `@tanstack/react-table`'s, so deleting ours would not fail here. The guard for a silent
  *   deletion is `shark-parity.test.ts` — `ships every name Shark ships, or declares why not` and
  *   `puts every adopted module's exports on the public barrel` both go red when a name Shark ships
- *   stops leaving our barrel. `index.test.ts` is an *enumeration*, not a pin: 141 names asserted
- *   present and 63 asserted absent, typed out by hand (counted 2026-07-30), with no `Object.keys`
+ *   stops leaving our barrel. `index.test.ts` is an *enumeration*, not a pin: the names it
+ *   asserts present or absent are typed out by hand, with no `Object.keys`
  *   comparison and no snapshot behind them. It never mentions `Table` in either direction, so
  *   deleting `Table` would leave it green. This one is for drift.
  */

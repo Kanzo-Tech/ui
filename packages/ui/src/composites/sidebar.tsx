@@ -126,7 +126,6 @@ export const SidebarProvider = (props: SidebarProviderProps) => {
         _setOpen(openState);
       }
 
-      // biome-ignore lint/suspicious/noDocumentCookie: Persist the sidebar state across reloads.
       document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
     },
     [setOpenProp, open, intent]
