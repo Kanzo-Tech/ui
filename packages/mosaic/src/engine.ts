@@ -153,13 +153,17 @@ const HELD = Symbol("held");
  */
 const BOOT_DEADLINE = 60_000;
 
-/** The one failure the engine names: it would not boot. `data.after` is set when the deadline fired. */
+/**
+ * What the engine names. `engine/unavailable`: it would not boot, `data.after` set when the deadline
+ * fired. `engine/lost`: the worker died after boot, `data.reason` `"worker"` or `"memory"`; the engine
+ * forgets itself, and the next `engine()` boots another one with nothing attached.
+ */
 export class EngineError extends Error {
   override readonly name = "EngineError";
   constructor(
-    readonly code: "engine/unavailable",
+    readonly code: "engine/unavailable" | "engine/lost",
     message: string,
-    readonly data: { readonly after?: number } = {},
+    readonly data: { readonly after?: number; readonly reason?: "worker" | "memory" } = {},
     options?: ErrorOptions,
   ) {
     super(message, options);
@@ -168,19 +172,35 @@ export class EngineError extends Error {
 
 /**
  * DuckDB-WASM 1.33's `onError` logs a worker's `error` event and clears its pending requests without
- * settling them, so a worker that fails to load leaves `instantiate` waiting forever. This rejects
- * them first. The constructor binds `this.onError`, which is why an override reaches the listener.
+ * settling them, so a worker that fails to load leaves `instantiate` waiting forever, and one that dies
+ * later leaves every request it held waiting forever. This rejects them first: as `engine/unavailable`
+ * until `lost` is set, which is when the boot is over, and as `engine/lost` from then on, for the
+ * worker's whole life. The constructor binds `this.onError`, which is why an override reaches the
+ * listener; `messageerror` is routed to it as well, since a reply that cannot be read is a worker
+ * that cannot be heard.
  */
 class Duck extends AsyncDuckDB {
+  /** Set when the boot is over: called once, with the failure every pending request was rejected with. */
+  lost?: (failure: EngineError) => void;
+
+  protected override attach(worker: Worker): void {
+    super.attach(worker);
+    worker.addEventListener("messageerror", this._onErrorHandler as EventListener);
+  }
+
   protected override onError(event: ErrorEvent): void {
-    const failure = new EngineError(
-      "engine/unavailable",
-      `the DuckDB worker failed: ${event.message || "it did not load"}`,
-      {},
-      { cause: event.error },
-    );
+    const message = event.message || (this.lost ? "it stopped answering" : "it did not load");
+    const failure = this.lost
+      ? new EngineError(
+          "engine/lost",
+          `the DuckDB worker died: ${message}`,
+          { reason: /memory|oom/i.test(message) ? "memory" : "worker" },
+          { cause: event.error },
+        )
+      : new EngineError("engine/unavailable", `the DuckDB worker failed: ${message}`, {}, { cause: event.error });
     for (const task of this._pendingRequests.values()) task.promiseRejecter(failure);
     super.onError(event);
+    this.lost?.(failure);
   }
 }
 
@@ -194,13 +214,13 @@ function abandon<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
   });
 }
 
-async function boot(): Promise<Engine> {
+async function boot(forget: () => void): Promise<Engine> {
   const deadline = new AbortController();
   const timer = setTimeout(() => deadline.abort(), BOOT_DEADLINE);
-  let duckdb: AsyncDuckDB | undefined;
+  let duckdb: Duck | undefined;
   try {
     return await abandon(
-      start((made) => (duckdb = made)),
+      start(forget, (made) => (duckdb = made)),
       deadline.signal,
     );
   } catch (error) {
@@ -216,7 +236,7 @@ async function boot(): Promise<Engine> {
   }
 }
 
-async function start(made: (duckdb: AsyncDuckDB) => void): Promise<Engine> {
+async function start(forget: () => void, made: (duckdb: Duck) => void): Promise<Engine> {
   const all = builds();
   const { mainModule } = await selectBundle(all);
   const build = mainModule === all.eh.mainModule ? all.eh : all.mvp;
@@ -231,12 +251,21 @@ async function start(made: (duckdb: AsyncDuckDB) => void): Promise<Engine> {
   const connection = await duckdb.connect();
   const id = connection.useUnsafe((_, conn) => conn);
 
-  let tail: Promise<unknown> = Promise.resolve();
-  const lane = <T>(step: () => Promise<T>): Promise<T> => {
-    const run = tail.then(step);
-    tail = run.catch(() => {}); // the caller holds `run`; the chain only orders the next step
-    return run;
+  // Set when the worker died; every step that has not started then refuses with it instead of waiting
+  // on a worker that will not answer, and the request that was in flight was rejected with it already.
+  let lost: EngineError | undefined;
+  const inOrder = () => {
+    let tail: Promise<unknown> = Promise.resolve();
+    return <T>(step: () => Promise<T>): Promise<T> => {
+      const run = tail.then(() => {
+        if (lost) throw lost;
+        return step();
+      });
+      tail = run.catch(() => {}); // the caller holds `run`; the chain only orders the next step
+      return run;
+    };
   };
+  const lane = inOrder();
 
   // The coordinator's statements are not signalled, so `runQuery` runs each in one message; on the
   // 200,000-row graph-sized result it cost the same as the pending-query path `query` takes (see there).
@@ -255,17 +284,13 @@ async function start(made: (duckdb: AsyncDuckDB) => void): Promise<Engine> {
   // corpus — 2.2× on a window's reads, measured in fossil on 2026-09-30.
   await coordinator.exec("SET enable_http_metadata_cache = true");
   await coordinator.exec("SET parquet_metadata_cache = true");
+  await coordinator.exec(`SET memory_limit = '${memoryLimit()}MiB'`);
 
   const behind = new Map<string, string | typeof HELD>();
 
   // Registry changes run one at a time: two `registerFiles` calls on one name racing each other would each see the
   // old entry, and the second register would be refused.
-  let registryTail: Promise<unknown> = Promise.resolve();
-  const serial = (step: () => Promise<void>): Promise<void> => {
-    const run = registryTail.then(step);
-    registryTail = run.catch(() => {}); // the caller holds `run`; the chain only orders the next step
-    return run;
-  };
+  const serial = inOrder();
 
   const release = async (name: string) => {
     if (!behind.has(name)) return;
@@ -329,6 +354,12 @@ async function start(made: (duckdb: AsyncDuckDB) => void): Promise<Engine> {
     });
   };
 
+  duckdb.lost = (failure) => {
+    lost = failure;
+    forget();
+    void duckdb.terminate();
+  };
+
   return {
     coordinator,
     query,
@@ -356,6 +387,20 @@ async function start(made: (duckdb: AsyncDuckDB) => void): Promise<Engine> {
 }
 
 /**
+ * DuckDB's memory limit, in MiB, set below WebAssembly's 4 GiB per-tab ceiling so that DuckDB spills
+ * or refuses with its own out-of-memory error while the worker is still alive, instead of the tab
+ * taking the worker. **Neither figure is measured.** The ceiling is DuckDB-WASM's documented one; the
+ * 3 GiB cap and the half of the device's memory under it are a margin chosen by argument. The figure
+ * `/docs/design/engine` wants is the peak heap of the graph benchmark at 200,000 vertices, which has
+ * not been run. `navigator.deviceMemory` is Chromium's, rounded to a power of two and capped at 8
+ * (GiB); where it is absent the cap alone stands.
+ */
+function memoryLimit(): number {
+  const gib = (globalThis.navigator as { deviceMemory?: number } | undefined)?.deviceMemory;
+  return Math.max(512, Math.min(3072, typeof gib === "number" && gib > 0 ? (gib * 1024) / 2 : 3072));
+}
+
+/**
  * Keyed on the document's global rather than on this module, so two copies of the package in one
  * bundle still share one database — which is the invariant, not the module identity.
  */
@@ -363,18 +408,23 @@ const KEY = Symbol.for("@kanzo-tech/mosaic/engine");
 
 /**
  * The page's one engine, booted on first ask. A boot that fails is forgotten, so the next ask boots
- * again rather than inheriting the failure for the life of the page. A `signal` ends this caller's
+ * again rather than inheriting the failure for the life of the page; so is an engine whose worker
+ * died, which rejected what it held with `engine/lost`. The next ask is then a new object with an
+ * empty database: whatever a host attached, registered or mounted lived in the dead worker. A
+ * refcount keyed on the engine object — a `WeakMap` — starts again at zero for it, which is what makes
+ * "ask again, attach again" correct without anything resurrecting state. A `signal` ends this caller's
  * wait, not the boot, which other callers may be waiting on.
  */
 export function engine(options: { readonly signal?: AbortSignal } = {}): Promise<Engine> {
   const scope = globalThis as { [KEY]?: Promise<Engine> };
   let booting = scope[KEY];
   if (!booting) {
-    const started = boot();
-    scope[KEY] = booting = started;
-    started.catch(() => {
+    const forget = () => {
       if (scope[KEY] === started) delete scope[KEY];
-    }); // the callers hold `started`; this only forgets it
+    };
+    const started = boot(forget);
+    scope[KEY] = booting = started;
+    started.catch(forget); // the callers hold `started`; this only forgets it
   }
   return options.signal ? abandon(booting, options.signal) : booting;
 }

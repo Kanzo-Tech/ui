@@ -321,4 +321,28 @@ describe("engine", () => {
     await e.registerFiles({ "jobs/d/a.parquet": "https://x/a" });
     expect(calls.at(-1)).toBe("register jobs/d/a.parquet");
   });
+
+  // DuckDB then spills or refuses with its own error while the worker lives, instead of the tab taking it.
+  it("sets DuckDB's memory limit below WebAssembly's ceiling, from the device's memory where it says", async () => {
+    const scope = globalThis as Record<symbol, unknown>;
+    const key = Symbol.for("@kanzo-tech/mosaic/engine");
+    const held = scope[key];
+    const device = globalThis.navigator;
+    const limit = async (memory: number | undefined) => {
+      delete scope[key];
+      vi.stubGlobal("navigator", memory === undefined ? {} : { deviceMemory: memory });
+      const from = sql.length;
+      await engine();
+      return sql.slice(from).filter((statement) => statement.includes("memory_limit"));
+    };
+    try {
+      expect(await limit(undefined)).toEqual(["SET memory_limit = '3072MiB'"]);
+      expect(await limit(8)).toEqual(["SET memory_limit = '3072MiB'"]);
+      expect(await limit(4)).toEqual(["SET memory_limit = '2048MiB'"]);
+      expect(await limit(0.25)).toEqual(["SET memory_limit = '512MiB'"]);
+    } finally {
+      vi.stubGlobal("navigator", device);
+      scope[key] = held;
+    }
+  });
 });

@@ -32,6 +32,7 @@ model failures `llm/failed`, so one area had two names; the class is `LlmError` 
 | Code | Class | When | `data` |
 | --- | --- | --- | --- |
 | `engine/unavailable` | `EngineError` | DuckDB-WASM would not boot | `after` when the 60 s deadline fired |
+| `engine/lost` | `EngineError` | the DuckDB worker died after boot; every request it held is rejected with it, and the next `engine()` boots another | `reason` `"worker"` or `"memory"` |
 | `graph/no-webgl` | `GraphError` | no WebGL, a renderer that would not start, or no device within 10 s | `after` when the deadline fired |
 | `graph/context-lost` | `GraphError` | the browser took the WebGL context back | — |
 | `graph/no-positions` | `GraphError` | a device that came up holds no positions for the points it was given: a frame's read-back failed | — |

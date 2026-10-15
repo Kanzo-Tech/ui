@@ -82,6 +82,11 @@ class DuckWorker {
   terminate() {
     return this.thread.terminate();
   }
+
+  /** What a browser delivers when the worker dies under a page: an `error` event on the worker. */
+  crash(message: string) {
+    this.thread.emit("error", new Error(message));
+  }
 }
 
 vi.stubGlobal("Worker", DuckWorker);
@@ -148,4 +153,25 @@ describe("the engine on DuckDB-WASM", () => {
     await e.coordinator.exec("CREATE OR REPLACE TEMP TABLE shared AS SELECT 5 AS five");
     expect((await e.query("SELECT five FROM shared", { signal: signal() })).getChild("five")?.get(0)).toBe(5);
   }, 30_000);
+
+  // Below WebAssembly's ceiling, so DuckDB spills or refuses while the worker lives.
+  it("runs under a memory limit of its own", async () => {
+    const e = await engine();
+    const table = await e.query("SELECT current_setting('memory_limit') AS memory", { signal: signal() });
+    expect(String(table.getChild("memory")?.get(0))).toMatch(/GiB$/);
+  }, 30_000);
+
+  it("rejects a statement the worker died under with engine/lost, and boots another engine on the next ask", async () => {
+    const e = await engine();
+    const worker = started.at(-1)!;
+    const long = e.query(LONG, { signal: signal() }).catch((error: unknown) => error);
+    await new Promise((next) => setTimeout(next, 100));
+    worker.crash("the worker crashed");
+    expect(await long).toMatchObject({ code: "engine/lost", data: { reason: "worker" } });
+    await expect(e.query("SELECT 1", { signal: signal() })).rejects.toMatchObject({ code: "engine/lost" });
+
+    const again = await engine();
+    expect(again).not.toBe(e);
+    expect((await again.query("SELECT 2 AS two", { signal: signal() })).getChild("two")?.get(0)).toBe(2);
+  }, 60_000);
 });
