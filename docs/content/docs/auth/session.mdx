@@ -85,7 +85,11 @@ interface Auth {
 }
 ```
 
-`useSession` and `Gate` are written against it, so a test double is five members and no network.
+`useSession` and `Gate` are written against it, so a test double is five members and no network —
+and `@kanzo-tech/auth/testing` exports it: `fakeAuth(session, { fetch? })` answers the session it was
+given, `signIn` signs in as it, `signOut` signs out, and `set(session)` replaces it and tells every
+subscriber, as a renewal or another tab would. Make the session with `claims()` from
+`@kanzo-tech/auth/server`, so what a test draws is what a token produces.
 
 ### The session is a query on your `QueryClient`
 

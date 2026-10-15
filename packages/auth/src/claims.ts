@@ -1,3 +1,4 @@
+import { readSession } from "./session";
 import { AuthError, type Organization, type Session } from "./types";
 
 /**
@@ -124,7 +125,8 @@ export function claims(raw: unknown, config: ClaimsConfig): Session {
   const exp = source["exp"];
   const expiresAt = typeof exp === "number" && Number.isFinite(exp) ? exp * 1000 : 0;
 
-  return {
+  // The candidate goes through the one reader, so the server and the browser answer to one shape.
+  const session = readSession({
     user: {
       id,
       email: asString(source["email"]),
@@ -134,5 +136,7 @@ export function claims(raw: unknown, config: ClaimsConfig): Session {
     roles: [...new Set([...realmRoles, ...clientRoles])],
     organizations: readOrganizations(source["organization"], config.clientId),
     expiresAt,
-  };
+  });
+  // `id` was checked above, which is the one thing the reader refuses.
+  return session as Session;
 }
