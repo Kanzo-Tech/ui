@@ -1,0 +1,339 @@
+---
+title: The kernel
+description: The one dependency-free package every other package may import, and what it holds, what it refuses to hold, and what each of its five pieces replaced; with the rule that holds the direction.
+---
+
+*Status: to be built.* `@kanzo-tech/kernel` does not exist at the tree this page describes; the
+duplicates in [What it replaces](#what-it-replaces) do, and the migration is the *Breaking* list at
+the end.
+
+Five ideas were written more than once across the packages, each time by the package that happened to
+need it first: what a failure is, how a wait ends, what an engine is to a reader, how a handle is given
+back, and how a span is marked. None of them is a package's own business, and none can live in a
+package that has a dependency of its own, because every other package would then depend on that
+dependency. So they live in a package that depends on nobody.
+
+## The rule
+
+**`@kanzo-tech/kernel` is layer 0: it imports nothing, declares no dependency and no peer, touches
+no DOM and no `window`, and does nothing at import. Every other package may import it; it imports
+none of them.** It holds five things and no others:
+
+| Piece | What it is | Hand-written budget |
+| --- | --- | --- |
+| `Problem` | the one failure class, in RFC 9457's shape, with `isCode` and `isProblem` | 150 lines |
+| `within`, `until` | the one bounded wait, and the abandon it is built on | 60 lines |
+| `Queryable`, `Table`, `Vector` | the read side of an engine, as types | 40 lines |
+| `dispose`, `asyncDispose` | the symbols a handle that must be given back is disposed through | 30 lines |
+| `mark` | one span in the Performance timeline, prefixed `kanzo:` | 40 lines |
+
+The package is about 300 lines in all, and 350 is its ceiling. The registry of codes
+([How a failure leaves the library](/docs/design/failure#the-registry-is-generated)) is generated and
+not counted: it is a table, one row a code, and a table does not add a way of doing anything. The
+ceiling is held by the `size` gate with the figure measured at the first build; raising it is a
+decision with its changeset, never a quiet edit (the repository's standing rule on `size`).
+
+**Layers, downward only.** The kernel is the only package every layer imports, which is what makes
+it L0 and not a convenience: a package at L1 that cannot import it would have to define its own, and
+that is the state this page ends. [The architecture page](/docs/design/architecture#five-layers-imports-point-down)
+owns the layer table and the guard that holds it.
+
+**Why a package, and not a subpath of `theme` or a type in `mosaic`.** `theme` is CSS and token
+tables, and a failure class does not belong in it. `mosaic` is the heaviest package at the bottom of
+the graph, and the engine rule keeps its optional peers out of every root barrel, so a package that
+wants only `Problem` would import a DuckDB-WASM dependency to get it. The reference is OpenTelemetry,
+which separates the API a library codes against, a few types and no-op functions with no
+dependencies, from the SDK a host installs; a library never depends on the implementation, and a
+host never installs the API on purpose (READ: the OpenTelemetry overview). The kernel is the
+family's API in that sense, and `mosaic/engine` is one SDK of its `Queryable`.
+
+**What it does not hold, on purpose.** A result type: throwing the failure whole is the rule and it
+holds ([the thrown value](/docs/design/failure#the-thrown-value-whole-by-one-path)). A dependency
+container, an event bus, a store, a plugin system. A telemetry sink or a tracer: `mark` writes to the
+browser's own timeline and nothing else. Translations: each component declares its own, and the
+[naming rule](/docs/design/naming) keeps it so. A helper two packages happen to share but that no
+rule needs does not enter, whatever its size: the admission test for the kernel is the one in
+[admission](/docs/design/admission), with the extra condition that it is *already written twice*.
+
+**What would reverse it:** the owner moving the shared layer into `@fossil-lang/types`, which already
+owns `Host`, `FossilError` and `within`. That reverses the direction "kanzo imports nothing of
+fossil's" that `packages/graph/src/layers.test.ts` holds, and it makes fossil's release cadence the
+UI's; it is the alternative the architecture review weighed and this page declines. Or the kernel
+passing 350 lines for a sixth piece: then the piece is argued for here before it is written, and the
+first thing the argument must show is two existing copies.
+
+## Problem
+
+**One class, `Problem`, in the shape of RFC 9457 *Problem Details for HTTP APIs*. A failure that
+leaves any package is a `Problem` or it is an `AbortError`, and nothing else.**
+
+```ts
+class Problem<C extends string = string> extends Error {
+  readonly name: "Problem";
+  readonly code: C;        // `area/kind`, the discriminator a host branches on
+  readonly title: string;  // from the registry; the HTTP phrase on the wire
+  readonly status?: number;
+  readonly data: ProblemData<C>; // plain JSON, per code
+  readonly help?: string;
+  readonly related?: readonly Problem[];
+  readonly severity: "error" | "warning" | "info";
+  // `message` is the RFC's `detail`; `cause` is whole, in process
+  toJSON(): ProblemBody;           // application/problem+json
+  static from(body: ProblemBody): Problem;
+}
+function isCode(value: unknown): value is string;     // the `area/kind` grammar
+function isProblem(value: unknown, code?: string): value is Problem;
+```
+
+**The reference is RFC 9457, and the mapping is exact.** `status` and `detail` are its members;
+`code` is an extension member (§3.2 allows them), and it is the discriminator, because a client
+branches on one short string and not on a URI it must parse. `type` is left out, so it is
+`about:blank` by the RFC's own default, and §4.2.1 then asks that `title` be the status phrase, which
+`toJSON` does: this is what `@kanzo-tech/auth`'s `problem()` already writes (`packages/auth/src/problem.ts`),
+and the clause it follows is the one a bespoke body breaks. A problem with no `status` is a
+client-side one and never crosses a wire; its `title` is the registry's.
+
+**The failure that motivated it.** Four classes with the identical constructor `(code, message, data,
+options)` were written by copy: `EngineError` (`packages/mosaic/src/engine.ts`), `GraphError`
+(`packages/graph/src/core/error.ts`), `LlmError` (`packages/llm/src/error.ts`) and `AuthError`
+(`packages/auth/src/types.ts`). Beside them fossil has `FossilError`, graphar has `GraphArError`,
+and one UI function, the `Problem` composite, read them all by their shape with a regex of its own
+(`packages/ui/src/composites/problem.tsx`). keasy's server answered `application/json` with a
+bespoke `{code, title, detail, data}` and no `status`, 9457-shaped but not 9457, while the BFF
+answered `application/problem+json`, so every client branched on the content type. And the same
+event had two codes: the BFF's `session/absent` and the server's `auth/session-required`, both a 401
+for "nobody is signed in". A host registry keyed on both, and a third on fossil's.
+
+**Rules.**
+
+1. **A test is structural, never `instanceof`.** `isProblem(e, code?)` is true of anything with a
+   string `message` and a `code` in the grammar, so a `FossilError`, a Problem rebuilt from a worker's
+   `postMessage` and a second copy of the kernel in one bundle all pass. Two copies of a class are two
+   classes; fossil's `isFossilError` makes the same call for the same reason
+   (`packages/types/src/error.ts`, its doc comment). The `Problem` composite's regex becomes `isCode`.
+2. **The thrown value is whole in process, and thin on the wire.** In process `cause` is whatever was
+   caught, kept as it came. `toJSON` emits `cause` only when it is itself a `Problem`, and never a
+   stack or a foreign error's message: a foreign `cause` is what carries a statement's text, a URL with
+   a credential, a file path. This is why `detail` never names a statement or a token either, and why
+   the wire reads as a statement of *what* failed and not *with what*.
+3. **`data` is plain JSON and typed per code.** A registered code narrows `data` (`after` for a
+   deadline, `status` for an upstream's answer, `count` and `limit` for a graph too large to draw); a
+   code a host owns is a free string and `data` is `Record<string, unknown>`. The host's registry
+   (keasy's `rbac/*`) is generated by the same generator from its own source, so two registries share
+   a grammar and not a list.
+4. **A programming or deployment fault is not a `Problem`.** `useSession` outside its provider throws a
+   plain `Error` on purpose ([the auth layer](/docs/design/auth)): a code invites a `catch` that routes
+   it to a sign-in page, which is the wrong answer to "you wired this up wrong". The guard
+   ([specified on the architecture page](/docs/design/architecture#the-guards)) ratchets the count of plain `new Error(` sites per file,
+   so a new one is a visible decision.
+5. **An interruption is not a failure.** A call stopped from outside rejects with the signal's reason,
+   an `AbortError`, as an aborted `fetch` does; `isProblem` is false of it, and a host tells "my
+   Stop" from a failure by `signal.aborted`. Today `useStream`, `use-task`, `ask-chat`/`read.ts` and
+   keasy's `use-assistant` each re-implement "was this my cancel"; the rule is stated once, here, and
+   the code follows.
+
+**The production axes.** *Failure and recovery:* one shape means one registry row per code says what a
+host does next, and `Problem.from` rebuilds the error across a worker or a response, so recovery code
+is written once. *Security and privacy:* rule 2. *Performance and size:* the class and its predicates
+are the 150 lines, with no dependency. *Stable API:* a code is stable once released, never reworded and
+never reused; a rename is a breaking change a changeset states, as everywhere here. *Tests:* the
+class has a table-driven test over the registry (every row builds, serialises and rebuilds) and a test
+that `isProblem` accepts a `FossilError`.
+
+**What would reverse it:** a host that wants failures in a vocabulary that is not `area/kind` and will
+not adopt it, or fossil's `FossilError` adopted as the base so the kernel's `Problem` becomes a
+re-export. Either is one file to change, because the only thing outside the kernel that names the
+class is a type annotation.
+
+*Held by* `packages/ui/src/failures-reach-the-host.test.ts`, "bites on onFailure, onError or error
+typed string" (that a surface hands the host the thrown value, which the kernel does not change).
+The guards that hold the single class are not yet written.
+
+## within
+
+**One helper bounds a wait on something outside the process, and it is the only place a deadline's
+clock lives.**
+
+```ts
+within<T>(ms, wait: (signal) => Promise<T>, { signal, silent: (after) => Problem }): Promise<T>
+until<T>(answer: Promise<T>, signal?: AbortSignal): Promise<T>
+```
+
+`within` hands `wait` a signal that aborts when the deadline passes or the caller's signal does
+(`AbortSignal.any`, Baseline since 2024; READ: MDN), races the wait against it, and rejects with
+`silent(ms)` when the deadline wins: a `Problem` coded by who did not answer, carrying `after`. The
+caller's abort rejects with the caller's reason. `until` is the abandon underneath: the promise, or the
+signal's reason the moment it aborts, with the work behind it left to finish unread. The clock is
+`setTimeout`, not `AbortSignal.timeout`, so a test's fake timers drive it. This is fossil's helper,
+`packages/types/src/deadline.ts`, taken with its signature, so the two repositories keep one idea
+and a host reads one doc.
+
+**The failure that motivated it.** The wait was bounded four times, differently each time. DuckDB's
+boot: `abandon` plus a `setTimeout` (`packages/mosaic/src/engine.ts`). Auth: `deadline()`,
+which aborts a controller with the error and rejects with it (`packages/auth/src/deadline.ts`).
+The graph's device: a bare `setTimeout` that calls `fail` (`packages/graph/src/render/webgl.ts`).
+And fossil's `within`. They differ in whether the work is aborted or abandoned, in whether the caller's
+signal composes, and in what the rejection is, and where two of them bound one wait, the one that fires first names the failure
+([one deadline per wait](/docs/design/failure#one-deadline-per-wait)).
+
+**Rules.**
+
+1. **Every wait on the outside goes through `within`, and nothing else calls `setTimeout` to reject or
+   abort.** Debounces, linger timers and animation settle times are not waits on anything and stay
+   where they are (`ai/src/reasoning.tsx`, `ui/src/lib/use-debounced-commit.ts`); the guard
+   reads the callback, not the call.
+2. **A wait that can be cancelled is, and one that cannot is abandoned.** `wait` is given the composed
+   signal; an API that takes none (a call into wasm) is wrapped in `until` and its late answer
+   ignored. This is the DuckDB boot, and it is the only place an abandoned answer is acceptable: a
+   *query* is not abandoned, it is interrupted ([the engine](/docs/design/engine#aborting-interrupts-the-statement)).
+3. **Work inside the process has a signal and no deadline.** A query, a layout, a plan can
+   legitimately take minutes; the only thing that waits forever is the person's patience, and they
+   have Stop. The line is fossil's (*Every wait ends*, G1) and it is drawn the same way here.
+4. **`silent` is mandatory.** There is no default, so no bare `TimeoutError` can leave the library;
+   the caller says who did not answer.
+
+**The production axes.** *Failure:* a deadline that fires names its party, and the composition makes
+an outer Stop reach every inner wait, which is what the forwarder lacked
+([the auth layer](/docs/design/auth)). *Size:* 60 lines replace four. *Tests:* one test file in the
+kernel runs `within` under fake timers for the four outcomes (answers, deadline, caller abort,
+already-aborted) and every package's own test asserts only its figure and its code.
+
+**What would reverse it:** the three waits turning out to need different semantics, abort for one and
+abandon for another, in a way a flag on the one helper does not express; then `until` and a deadline
+helper are separate again and the guard moves with them.
+
+*Held by* `packages/mosaic/src/engine-boot.test.ts`, "rejects with data.after when the worker never
+answers within the 60 s deadline", which keeps its title when the boot moves onto `within`.
+
+## Queryable
+
+**The read side of an engine is one interface, in the kernel, as types.** The kernel holds the
+shape; the contract that goes with it, that aborting a query interrupts the statement, and the
+conformance kit that asserts it, are [the engine's](/docs/design/engine#one-read-only-port-queryable).
+
+```ts
+interface Queryable { query(sql: string, options: { readonly signal: AbortSignal }): Promise<Table> }
+interface Table { readonly numRows: number;
+                  readonly schema: { readonly fields: readonly { readonly name: string }[] };
+                  getChild(name: string): Vector | null }
+interface Vector { readonly length: number; get(index: number): unknown; toArray(): ArrayLike<unknown> }
+```
+
+`Table` and `Vector` are the part of apache-arrow's a reader reads, so an Arrow table is one without a
+conversion and the kernel does not depend on Arrow. The file registry (`registerFiles`,
+`registerFileBuffer`, `dropFiles`) is DuckDB-WASM-specific and stays with the engine that has it. A
+reader that only reads (`ai/data`, the graph's catalog, the relations) takes a `Queryable`.
+
+**The failure that motivated it.** Four hand-written copies of the type had drifted: ui's `Table` and
+`Vector` (`packages/mosaic/src/engine.ts`), the graph's `Answer` (`packages/graph/src/core/source.ts`),
+graphar's one-member `Engine` (`packages/graphar-duckdb/src/attach.ts`) and fossil's
+(`packages/types/src/engine.ts`), plus `Pick<Engine, "query">` in `ai` at three sites
+(`ai/src/data/read.ts`, `ask-chat.ts`). They agreed on `query` and disagreed on whether its signal
+reaches the statement.
+
+**Rules.**
+
+1. **The signal is required and always passed.** TypeScript accepts an implementation that declares
+   fewer parameters, so honouring it is the engine's contract and not the compiler's, which is why the
+   contract has a test, in [the engine](/docs/design/engine#one-conformance-kit-one-duckdb-double).
+2. **graphar and fossil keep their own structural types and say so.** graphar-duckdb links no kanzo
+   package because its code is meant to go upstream; its one-member `Engine` is a deliberate subset of
+   `Queryable`, and a comment says so. Nothing in the kernel is imported by either.
+
+**What would reverse it:** a consumer needing what `query` cannot do (streaming Arrow batches, an
+ingest). Then a second port is added beside this one, and this one is not widened.
+
+## Disposable
+
+**A handle that must be given back is disposed through `Symbol.asyncDispose` (`Symbol.dispose` where
+the release is synchronous), and the kernel exports the two symbols.**
+
+The reference is the TC39 explicit resource management proposal, `using` and `await using`, which
+graphar's `GraphAttachment` and fossil's `mount` already follow. The kernel's part is three lines:
+`dispose` is `Symbol.dispose` where it exists and `Symbol.for("Symbol.dispose")` where it does not, and
+the same for `asyncDispose`, so a handle written today is disposed by `await using` the day the runtime
+has it. Whether the minimum browser set has the symbols is UNVERIFIED; the fallback is why that does
+not decide anything.
+
+**The failure that motivated it.** Three conventions for "give back what I attached" and none shared:
+the Mosaic engine's `serial` and `release` over a name (`packages/mosaic/src/engine.ts`), graphar's
+`[Symbol.asyncDispose]` on an attachment, keasy's `releaseCorpora`. The engine had no disposal at all,
+so a page could not release a 36 MB module and its worker, and a worker that died left the singleton
+resolved to a dead engine.
+
+**Rules.**
+
+1. **The handles are the engine, an attachment, a loaded model and the graph's store.** Each
+   implements `[asyncDispose]`, and a host that holds one holds it with `await using` or disposes it in
+   an effect cleanup.
+2. **A closure remains the right shape for a subscription.** `Auth.subscribe` returns its unsubscribe
+   (`packages/auth/src/types.ts`) because React's effect cleanup is a closure; making it a
+   `Disposable` would put a wrapper between two shapes that already fit.
+3. **A refcount a caller must observe keeps its own API.** `@fossil-lang/storage`'s `mount` refcounts
+   credentials, a different resource, and stays.
+
+**The production axes.** *Failure and recovery:* a disposed engine settles pending reads with
+`engine/lost` and the next `engine()` boots again; hosts re-attach. *Size:* 30 lines. *Tests:* each
+handle's test disposes it twice and asserts it is idempotent.
+
+**What would reverse it:** a target that cannot carry the symbols and rejects the `Symbol.for`
+fallback; or a handle whose release must be observable and returns a count, which is `mount`'s case
+and keeps its own API.
+
+## mark
+
+**One function writes a span to the Performance timeline, named `kanzo:<area>:<name>`, and a failure
+to write it never reaches the caller.**
+
+`mark(name, start, detail?)` calls `performance.measure` with the `kanzo:` prefix and swallows what the
+browser throws: a measurement is never worth a failed call. It is what `packages/llm/src/local.ts`
+already does for `kanzo:llm:load`, `kanzo:llm:warm-up` and `kanzo:llm:first-call`, generalised by its
+argument. The reference is the browser's User Timing API, which that code already uses; the shape,
+a name, a start, a detail, is the OpenTelemetry span's without a tracer, and the kernel does not
+build one.
+
+**The failure that motivated it.** There was one instrumentation (`kanzo:llm:*`) and no way for the
+other waits to be seen: how long DuckDB took to boot, how long the device took to come up, how long
+a renewal took. A deadline's figure is the slowest honest answer, and that is read off spans.
+
+**Rules.**
+
+1. **A wait that has a deadline also has a span.** `within` does not mark; the caller marks, because
+   only the caller knows the name.
+2. **No sink.** There is no `onEvent` registry in the kernel. Assist's `AssistEvent` is a separate
+   product channel and stays.
+3. **A page without the API loses the span and nothing else.**
+
+**What would reverse it:** a host that wants real OpenTelemetry. Then `mark` gains an adapter, and the
+tracer is still not built here.
+
+## What it replaces
+
+| Piece | Written before at | Deleted |
+| --- | --- | --- |
+| `Problem` | `EngineError` `packages/mosaic/src/engine.ts`; `GraphError` `packages/graph/src/core/error.ts`; `LlmError` `packages/llm/src/error.ts`; `AuthError` `packages/auth/src/types.ts`; the `area/kind` regex `packages/ui/src/composites/problem.tsx`; keasy's server `ErrorBody` | all four classes; the regex; `ErrorBody` |
+| `within`, `until` | `abandon` and the boot timer `packages/mosaic/src/engine.ts`; `deadline()` `packages/auth/src/deadline.ts`; the device timer `packages/graph/src/render/webgl.ts` | `abandon` on the query path; `deadline.ts`; the graph timer |
+| `Queryable`, `Table`, `Vector` | `Table`, `Vector` `packages/mosaic/src/engine.ts`; `Answer` `packages/graph/src/core/source.ts`; `Pick<Engine, "query">` `packages/ai/src/data/read.ts`, `ask-chat.ts` | the three copies |
+| `dispose`, `asyncDispose` | `serial`/`release` `packages/mosaic/src/engine.ts`; keasy `releaseCorpora` | the ad hoc release |
+| `mark` | the private `span` `packages/llm/src/local.ts` | the private copy |
+
+## The guards
+
+The guards that hold the kernel's pieces (the single class, the single deadline, no stray global, no
+stale citation, the layer direction) are specified once, on
+[the architecture page](/docs/design/architecture#the-guards). None exists yet, so none is cited as
+*Held by* here.
+
+## Breaking
+
+In the consumer's words, one changeset for each of the packages named.
+
+- `EngineError`, `GraphError`, `LlmError` and `AuthError` are gone; catch a `Problem` with
+  `isProblem(error, "engine/unavailable")` instead of `error instanceof EngineError`. The codes are
+  the same unless the failure page lists a rename.
+- `Table` and `Vector` are no longer exported by `@kanzo-tech/mosaic`; import them from
+  `@kanzo-tech/kernel`.
+- `Engine.query` stops the running statement when its signal aborts ([the engine](/docs/design/engine#aborting-interrupts-the-statement)).
+
+**What would reverse the whole page:** nothing short of the owner choosing a single shared package
+across all three repositories; each piece above has its own reversal, and none depends on the others.

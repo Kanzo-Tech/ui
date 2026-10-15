@@ -39,9 +39,11 @@ What it bought, each a defect before:
   one key, and the second asker gets the first's answer, never a second `SUMMARIZE`. The key is the
   relation's: what a part hides (`exclude`) is applied to the read afterwards, so two parts that
   hide different columns still read once.
-- **An abort is the query's.** A query function is handed a signal. An answer's read hands it to
-  `Engine.query`, and *Stop* cancels the query, so the wait ends at once; a `SUMMARIZE` still queued
-  on the coordinator when every part that asked has gone is taken off its queue.
+- **An abort is the query's.** A query function is handed a signal. A read hands it to
+  `Engine.query`, and *Stop* interrupts the statement in the engine, not only the wait
+  ([the engine](/docs/design/engine#aborting-interrupts-the-statement)); the connection answers the
+  next read at once. A read the library makes for a Mosaic client carries the signal of the part that
+  asked, so a `SUMMARIZE` for a part that has gone stops too.
 - **A failure is kept out of the cache.** A rejected read is an error state with the thrown value
   whole, and the next asker reads again; the memo keasy wrote three times is the cache's default.
 
@@ -79,12 +81,12 @@ A session changes under its key — renewed, ended, signed out in another tab �
 
 | Datum | Read by | Kept | Read again |
 | --- | --- | --- | --- |
-| a relation's `SUMMARIZE`, for one whose columns no corpus counted ([What a field is](/docs/design/fields)) | `useFieldStats`, and through it `Dashboard` | the page's life | when the relation or the provider's coordinator changes, which is another key |
+| a relation's `SUMMARIZE`, for one whose columns no corpus counted ([What a field is](/docs/design/fields)) | `useFieldStats`, and through it `Dashboard` | the page's life | when the relation or the provider's engine changes, which is another key |
 | an answer's rows | `useAskChat`, under the page's chips | the page's life, by engine and statement | when a chip or the answer changes, which changes the statement |
 | a session | `AuthProvider`, and through it `useSession` and `Gate` | until it is stale, which is at once | when the tab becomes visible, after a renewal, and when another tab says so |
 
 **The keys are the library's, and they are not an API.** Each says what was read and from what — the
-coordinator or engine it was read on, and the relation or the compiled statement, which holds the
+engine it was read on, and the relation or the compiled statement, which holds the
 page's clauses — so a new input is a new read, and nothing asks the host to invalidate by hand. A host
 that signs out clears its client, as it would for any other data of the person's.
 

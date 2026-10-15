@@ -1,0 +1,253 @@
+---
+title: Hardening the graph view
+description: What @kanzo-tech/graph does so that a graph too large to draw exactly, a failed read, a lost WebGL context, a large pick or a person without a pointer or sight does not become a wrong picture, a dead canvas or an inaccessible one.
+---
+
+[The graph view](/docs/design/graph) is why the package is shaped as it is. This page is what it does
+to stay exact at scale, to recover, and to be operable by everyone, and what it says it does not.
+
+*Status: to be built.* Every rule below is decided and none is in the tree; each section says what it
+replaces, and the *Breaking* list on the graph page is what a consumer edits. A test named *to be added*
+is not a *Held by* line, and `documented-evidence.test.ts` accepts only a citation that is a real
+assertion.
+
+## The scale limit is guarded, and raised only by measurement
+
+**The graph states the scale it has proven, guards the one limit it can compute, and promises nothing
+between them.** A vertex id is written into a `Float32Array` of link ends and into cosmos.gl as a
+float, which is exact up to 2²⁴ = 16,777,216 and rounds past it: a link's end silently attaches to a
+neighbouring vertex and the picture is wrong without an error. The page used to say so in a sentence;
+the tree had no comparison, no code and no test, so a corpus past the limit drew a wrong graph.
+
+| Tier | What | Where it is stated |
+| --- | --- | --- |
+| **Guarded** | more than 2²⁴ vertices is refused as `graph/too-large`, with `data.count` and `data.limit`, after the structure is read and before one link is | here, and [failure](/docs/design/failure#the-codes-this-library-names) |
+| **Measured** | the viewer's p95 frame interval at 200,000 vertices against cosmos.gl alone; load and settle at 500,000 vertices and 2,000,000 links, one run a row on an Apple M4 Pro; a live layout with links drawn practical to about 50,000 vertices | [The viewer costs what cosmos.gl costs](/docs/design/graph#the-viewer-costs-what-cosmosgl-costs) and [Layout and camera](/docs/graph/layout#how-the-layout-scales) |
+| **Unmeasured** | 1,000,000 and 5,000,000 vertices; the greyout, the lasso and the load's heap at any size above 500,000; a hidden tab | the plan below; nothing is promised |
+
+The guard is one comparison on the `JoinGraph`'s counts, in the store's load, because the limit is
+the canvas's and not the catalog reader's ([relations](/docs/design/relations)). It runs before any
+buffer is allocated, so a refused corpus costs a catalog read and nothing else. The package's
+description and its page say the measured row and not "cosmos.gl on the GPU", which reads as a
+promise of millions.
+
+**Raising it is two things, and neither is a type widened.** Links addressed by integers, not floats,
+which cosmos.gl 3.4's `Float32Array` links do not accept (whether a later release does is not checked
+here); or the partial read that ADR 0001 names as its reversal, a `WHERE` behind the loader on the
+statements it already runs, with an index design that says why a vertex's id and its buffer slot
+still agree under it. Either is argued here before it is built. The limit moves only when the plan
+below has been run at the size it claims.
+
+**The plan, to run in a real browser with a GPU, not SwiftShader** (the grid's measurement says why: a
+software rasteriser never reached a first frame at 200,000). The corpus is generated in DuckDB itself
+with the catalog relations the reader expects, because fossil's executor panics in DataFusion's
+memory pool at a million ([benchmarks](/docs/graph/benchmarks#build-the-corpora-first)); the figures
+are written beside the claim, one run is a rumour, and the criteria are fixed before the runs.
+
+| Measure | At | Criterion, set before the run |
+| --- | --- | --- |
+| Load to first frame, and peak JS heap | 1,000,000 vertices with 5,000,000 links, then 5,000,000 with 20,000,000 | heap under the engine's `memory_limit`; the longest main-thread task of the load recorded, because `setPointPositions` and `setLinks` are synchronous |
+| Viewer p95 frame interval | the same two sizes | within 15% of cosmos.gl alone, the existing gate |
+| The greyout: surviving-id query, the mask, the two index lists | a filter keeping 1%, 50% and 99% | an update inside a frame budget a brush can sustain; the figure written when measured |
+| A pick of 10,000, 100,000 and 500,000 ids | by literal list, and by [the table](#a-pick-does-not-ship-its-ids) | the point at which the literal list costs, which sets `K` |
+| A tab hidden during the load | 200,000 | the load finishes without the tab being shown |
+
+`measureLoad` and `measureGreyout` join `measureViewer` in `graph-bench`, and the unit tests keep a
+corpus above 20 vertices: one of 100,000 through the real reader and a node DuckDB, so the `float64`
+to `Float32` conversion and the `ORDER BY key` plan are exercised, and the guard is tested with a
+catalog whose counts say 2²⁴ + 1 without building the rows. *Not yet held:* all of it.
+
+**cosmos.gl was chosen on Cosmograph's architecture, and no comparison with Sigma.js and graphology
+(WebGL, with a layout in a worker) or d3-force is recorded.** This page does not pretend one: the
+alternatives were not read for it. *What would reverse the choice:* the plan above showing a limit
+cosmos.gl cannot move, at a size a product needs; then a comparison at that size is written here
+first, with graphology's layout run in a worker against the GPU layout, and not before.
+
+**The size gauge reports what the graph's code costs and not what a graph page costs.** cosmos.gl is
+a required peer and outside the 26 kB gauge; its own ESM is 86 kB gzipped on disk before luma.gl and
+the d3 packages it imports. The page reports the peer's cost beside the gauge, as the engine's 36 MB
+module is reported beside its wrapper, and a host loads the canvas behind a dynamic import. `./section`
+stays its own entry so a settings page loads none of it.
+
+**What would reverse it:** a measured run above the guard that is right at the size claimed, with the
+index design written. Then the limit becomes the measured one, the code `graph/too-large` stays for
+what is above it, and the table moves a row.
+
+## A failed read is retried; a lost context is restored
+
+**`failed` is not terminal for a read, and a lost WebGL context is restored.** Both held everything
+needed to recover and gave up: any rejection set `failed` and the only exits were a new `from` or a
+new coordinator; `webglcontextlost` was prevented and then failed as *reload to get one*, though the
+store holds the geometry, the encoding and the last arrangement.
+
+- **Every read takes the load's `AbortSignal`.** The store owns one `AbortController` per load,
+  aborted when `from` or `engine` changes, when the root unmounts and when a new load starts. The
+  engine interrupts the statement ([the engine](/docs/design/engine#aborting-interrupts-the-statement)),
+  so a 1,000,000-row read for a corpus the reader has left does not hold the one connection against
+  the next one. An engine that cannot interrupt refuses the signal at the call (`engine/cannot-cancel`),
+  and the graph does not catch it.
+- **`retry()` is a command of the api**, beside `reveal` and `frame`. It re-runs the load from the stage
+  that failed, with a new controller; it is a no-op unless `status` is `failed`. A signed URL that
+  expired mid-read, or a worker that died (`engine/lost`, after which the host re-attaches), is a
+  transient failure a person can retry; a `graph/too-large` is not, and `retry()` fails it again with
+  the same code.
+- **A failed filter is a failure, not a stale picture.** When the survivors query rejects, the client
+  reports `queryFailure(error)` and the root goes to `failed`; the canvas keeps its last picture but
+  no longer claims it is current, and `retry()` asks the client again. It used to leave the mask as it
+  was while the chip said the clause was active: one state shown as another, the first thing
+  [failure](/docs/design/failure) forbids.
+- **A lost context is restored.** On `webglcontextlost` the renderer still calls `preventDefault()`,
+  which is what asks the browser to restore it, and starts one bounded wait, by the kernel's
+  `within`, for `webglcontextrestored`. On restore it builds a new cosmos.gl over the geometry and
+  encoding the store holds, the path an unmounted canvas already takes when it comes back. Not restored
+  inside the bound, the root fails `graph/context-lost`.
+  **The positions are not recoverable from a lost context**: the GPU's copy is gone, and `store.keep`
+  reads it back on a *destroy*, not after a loss. A restored canvas starts from the last arrangement
+  the store kept, or from the seeded start, and a layout that was running runs again, so `motion` goes
+  back to `running` and the readout says *Laying out* again. That is the whole of what a host sees; the
+  graph adds no callback for it. Bound positions come back where they were.
+
+**The bound is a decision, not a measurement**: 5 s for the browser to return a context, written in
+[the failure table](/docs/design/failure#the-waits-it-bounds) with the others when it is built. The
+Khronos wiki page on handling a lost context did not load for this page; the sequence above (prevent
+the default, rebuild on `webglcontextrestored`) is the WebGL specification's, cited from memory and
+not re-read, and MDN's page for the event, which was read, describes only the event and
+`WEBGL_lose_context.restoreContext()`.
+
+**What would reverse it:** a restore that draws a corrupted frame on the cosmos.gl in use. The test
+that finds it is an end-to-end case that loses a context with `WEBGL_lose_context.loseContext()` and
+restores it with `restoreContext()`; if it fails, the code stays `graph/context-lost`, terminal, and the
+page says cosmos.gl cannot be rebuilt in place. And `retry()` goes if every read failure is
+deterministic, which no host has reported; keasy's `ProblemView` is where the evidence would appear.
+
+*Not yet held:* `store.test.ts` cases that abort every read of a load, that `retry()` re-runs the failed
+stage only, and that a failed filter leaves `status` `failed`; a `renderer.test.ts` case for lost,
+restored and not-restored; the end-to-end case above.
+
+## A pick does not ship its ids
+
+**A pick whose members the engine can name is published as a query, and one it cannot is published as
+a table the engine holds, not as a list of numbers in SQL text.** A lasso of *N* vertices built *N*
+literals into a tuple in `key IN (…)`, which the coordinator printed for every client on every change
+and used as text in its cache key; a click on a hub did the same for the vertex and its neighbours.
+At 500,000 ids that is a multi-megabyte statement per client per update, parsed each time, and it
+travels inside a failed query's message to the host's `onFailure`. Nothing capped it, and nothing
+measured it.
+
+- **A vertex and its neighbours is a query.** The neighbourhood is in the edge tables, so a click
+  publishes `clauseSemiJoin(key, query)` with `SELECT` over the type's edge tables, `UNION ALL` of both
+  ends; the form `clauseSemiJoin` already takes for a rule's findings. No id crosses the boundary, and the
+  chip reads the same.
+- **A set only the canvas knows — a marquee or a lasso, which are screen geometry over positions the
+  corpus does not carry — is a literal list up to `K` ids and a table above it.** Above `K` the ids are
+  written once into a relation the engine holds, named by the clause's source, and the clause is
+  `key IN (SELECT id FROM <that relation>)`. The relation is disposed when the clause is retracted,
+  replaced or its holder unmounts (the kernel's dispose convention), so a pick never outlives the
+  clause it exempts. `K` comes from the measurement in [the plan](#the-scale-limit-is-guarded-and-raised-only-by-measurement),
+  not a guess: below the point where a literal list costs, the simple form stays. The engine gains the
+  one member this needs, to write a column of ids into a named relation; it is specified on
+  [the engine page](/docs/design/engine#the-engines-own-surface-files-and-boot), and whether DuckDB-WASM
+  takes a typed array without a file format is checked in a browser before it is built. If it does not,
+  the fallback is the same ids as runs of contiguous ids (`key BETWEEN a AND b`), which the premise
+  of ADR 0001 makes cheap exactly when a pick is a neighbourhood and dear when it is a scatter.
+
+**Ids are exact.** `numbers()` coerces a `BIGINT` to `Number`, exact to 2⁵³; the graph's own limit is
+2²⁴, far inside it, so no id the graph publishes collides.
+
+**What would reverse it:** the measurement showing no cost at 500,000 literals. Then `K` has no
+finite value, the table is not built, and the neighbourhood query stays only if it reads better than
+the list.
+
+*Not yet held:* a `client.test.ts` case that a click publishes a query with no literal id in its
+text, and one that a pick above `K` publishes a table clause and drops the table on retraction.
+
+## The canvas is operable without a pointer and readable without sight
+
+**WCAG 2.2 level AA is a commitment for the canvas, and it is claimed only after it has been audited.**
+Until the audit's results are written below, the page says *committed, not audited*, and a host that
+needs to claim conformance runs its own. The canvas was a `div` with `aria-busy` and `data-frame`: no
+role, no name, no focus, no key handler, no `prefers-reduced-motion`. What worked for a keyboard was
+`GraphSearch` (⌘K, Enter is `reveal`), the toolbar's buttons and `GraphInspector`, which together read
+a vertex but cannot walk a neighbourhood, pan, zoom or select from the canvas.
+
+**It is one focusable composite widget with the vertex focus as its cursor.** The surface is
+`role="application"` with `aria-roledescription` from `translations`, a name from `translations`
+(*Graph*, replaced by the host with the corpus's name), and `aria-describedby` on a visually hidden
+summary: how many vertices and edges are drawn, how many the filters keep, which tool is active and
+which vertex is focused. `role="application"` switches a screen reader to pass keys through, which is
+right only because the widget handles its own; `graphics-document`, from WAI-ARIA Graphics, is the
+better-fitting role and its support in assistive technology is not established for this page, so it
+is the reversal and not the choice. The widget's **cursor is the store's `focus`**, the vertex
+`onFocus` already reports and the inspector already shows; there is no second notion of "the
+keyboard's vertex".
+
+| Key | What it does |
+| --- | --- |
+| Tab / Shift+Tab | enters and leaves the canvas; one tab stop |
+| Arrow keys | focus moves to the nearest *kept, placed* vertex in that direction on screen; the camera follows when it leaves the view |
+| `]` and `[` | next and previous neighbour of the focused vertex, in id order; the structure of a neighbourhood read without sight |
+| Enter or Space | selects the focused vertex, as a click does; with ⌘/Ctrl or Alt, as those do on the canvas ([the tools](/docs/design/graph#the-canvass-tools-edit-the-canvass-own-clause)) |
+| Shift + arrow keys, `+`, `-` | pan and zoom |
+| `F` | Frame, the toolbar's command |
+| `P` | pause and resume the layout |
+| `/` or ⌘K | the search palette |
+| Esc | the existing chain: a drag, the tool, the canvas's clause; and first, the hover card |
+
+The focused vertex is announced through one polite `role="status"` region: its title or its IRI's
+local name, its type, how many neighbours it has, and whether the filters keep it, said in words so
+that greyed out is not a colour alone (SC 1.4.1). A neighbour reached by `]` is announced with its
+position among the neighbours, *Bob, Person, neighbour 2 of 5*. The layout's steps are never
+announced, as the timeline's steps are not.
+
+- **Focus is visible and unobscured.** The focused vertex is drawn with a ring that holds 3 : 1
+  against the background in every theme, checked by the contrast guard that already checks the
+  greyout (SC 2.4.7, 1.4.11), and the camera that follows it frames it clear of the canvas's own
+  overlays, the toolbar, the counts and the legend (SC 2.4.11, new in 2.2).
+- **The hover card is also the focus card**, shown for the focused vertex, dismissible with Esc and
+  kept until focus moves (SC 1.4.13).
+- **The text alternative is the traversal, the search and the inspector, not a table of vertices.**
+  A graph's content is its structure, and a table of vertices hides exactly that; `]` and `[` read a
+  neighbourhood, `GraphSearch` finds a vertex by name or type, and `GraphInspector` reads its row.
+  The canvas's description names the three. That inspector still lists no neighbours (above), and
+  this is the evidence that would change it: an audit in which walking a hub's neighbours one key at
+  a time is not usable, which adds an accessible neighbour list to the inspector, for that reason and
+  no other.
+- **The pointer gestures have equivalents.** A lasso and a marquee are path-based and a node drag is a
+  drag (SC 2.5.1, 2.5.7). The outcome of a lasso — a set — is reached by the search's *Select all*,
+  by Enter on a vertex and by a host's own picks through `usePick`; the equivalent for a drag is none, because a drag
+  moves a node and holds nothing ([the renderer](/docs/design/graph#the-renderer-uploads-once-and-renders-once-a-frame)),
+  so it grants nothing a key must also grant. An audit that finds otherwise adds Alt + arrow keys to
+  nudge the focused node.
+- **Targets.** Points are far under 24 px (SC 2.5.8), and meet it by the exception that the same
+  function is available through another control on the page, the keys above. The toolbar's and the
+  palette's controls are ui parts and meet it as buttons.
+- **Motion.** Under `prefers-reduced-motion: reduce` the camera does not glide (its duration is 0)
+  and the layout is not shown running: an unbound layout settles with the canvas held back behind
+  the *Laying out* status and appears settled, so no point moves on screen. Whether cosmos.gl
+  advances its simulation while its canvas is hidden is a spike before this is built; if it does not,
+  the layout does not run until the reader presses *Run the layout*, and the canvas shows the seeded
+  start meanwhile, which is a worse picture and an honest one. Whatever the setting, an automatic
+  motion that lasts past five seconds can be paused from the canvas itself (`P`) and not only from a
+  toolbar a host may omit (SC 2.2.2; a layout takes 10 – 43 s to settle in the measured table).
+
+**What this replaces.** The canvas's content was in no accessibility tree, and
+[the testing page](/docs/design/testing) already names that as the reversal of reading the canvas
+through coordinates: *a canvas whose content is in the accessibility tree*. The graph's tests read it
+through that tree — focus, the status region, the description — which is what a person reads, and
+`window.__KANZO_TESTING__` is not how they read the graph.
+
+**How it is checked, before the claim.** axe-core over the harness for role, name and a description
+that resolves; a Playwright keyboard path (Tab, arrows, `]`, Enter, `P`, Esc) asserting focus and
+the status text; and screen-reader sessions, NVDA with Firefox and VoiceOver with Safari, whose result
+is written on this page with the date. *Cannot prove:* anything about a device or an assistive
+technology not in the sessions. WCAG 2.2's SC 2.2.2 and the WAI-ARIA Graphics roles were read for this
+page; the other criteria are cited from the standard and were not re-read, and no audit has run.
+
+**What would reverse it:** a screen-reader session in which `role="application"` is worse than a
+`graphics-document` or a plain group, which swaps the role and keeps the keys; or a host product that
+needs a table of vertices for a compliance document, which is a host's view built from the same
+`GraphRoot`, not the canvas's alternative.
+
+*Not yet held:* all of it. The tests are those named above, plus a `parts.test.tsx` case that the
+surface has a role, a name and a description, and one that `prefers-reduced-motion` gives a camera of
+duration 0.

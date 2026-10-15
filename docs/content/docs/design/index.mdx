@@ -15,7 +15,23 @@ ends the same way: *what would reverse it*. Sometimes that is a measurement with
 sometimes a second consumer, sometimes a change upstream. Where the honest answer is **nothing**,
 it says nothing and says why the constraint is physical rather than chosen.
 
-Beside it, where one exists, is the guard that fails when the code stops matching, written as a
+**Read [the layers and the seams](/docs/design/architecture) first.** It is the map the other pages
+hang from: which package may import which, and the one rule that governs each place two packages
+meet. Three pages own the transversal rules it names: [the kernel](/docs/design/kernel) (the one
+failure class, the one wait, the read port, disposal, the timeline mark), [the engine](/docs/design/engine)
+(one read-only door onto DuckDB, abort that interrupts, a worker that may die) and
+[relations](/docs/design/relations) (`JoinGraph` as the one read-model of a catalog). Then the
+arguments, in the order the sidebar lists them: [admission](/docs/design/admission),
+[the references](/docs/design/references) and [names and slots](/docs/design/naming); the surfaces
+(colour, preferences, the graph and [its hardening](/docs/design/graph-hardening), analytics and its
+timeline and crossfilter, reads and fields); the model (the AI surfaces and tasks); the layers beside
+the library (services, auth and [its hardening](/docs/design/auth-hardening), navigation, the shell);
+and last how a failure leaves the library, the findings and the tests.
+
+A page whose opening line says **to be built** states a design that is decided and not yet in the
+tree. Where such a page and the tree disagree the tree wins, and the disagreement is the work.
+
+Beside a rule, where one exists, is the guard that fails when the code stops matching, written as a
 *Held by* line. A rule with a test behind it is a rule you do not have to remember; a rule without
 one is a rule under review.
 

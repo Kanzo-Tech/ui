@@ -1,0 +1,293 @@
+---
+title: The engine
+description: Why every package reaches DuckDB through one read-only port and one door, why aborting a query interrupts the statement, why a dying engine is a supported state, and why the library redacts what it throws; and what would reverse each rule.
+---
+
+> **Status: to be built.** This page is the design as decided. Today `@kanzo-tech/mosaic` holds the
+> engine, the Mosaic door and the join graph in one package; `Engine.query` stops waiting without
+> stopping the statement; `graph` and `analytics` take a `coordinator`; and there are six DuckDB test
+> doubles. The *Breaking* list at the end is what a consumer edits.
+
+Four repositories wrote the same idea four times. `@kanzo-tech/mosaic` has an `Engine` with
+`query(sql, { signal })` and a column `Table`; `@fossil-lang/types` declares its own and says
+mosaic's "is the reference and satisfies this structurally"; `@kanzo-tech/graphar-duckdb` has a
+one-member `Engine` and a narrower `Table`; rudof's `Mapping.triples` sniffs `query`, `numRows` and
+`getChild` at run time. The copies agree on the signature of `query` and disagree on everything
+around it: whether the signal reaches the statement, what a refusal is called, whether the engine can
+die. Beside them sat a second door, the Mosaic `Coordinator`, which `graph` and `analytics` read
+through, with a cache and a queue and no signal.
+
+## One read-only port: `Queryable`
+
+**Every package that reads through DuckDB asks for a `Queryable` from `@kanzo-tech/kernel` and
+nothing more.** The port is one method and two shapes.
+
+```ts
+interface Queryable {
+  query(sql: string, options: { signal: AbortSignal }): Promise<Table>;
+}
+// Table and Vector are the Arrow subset every reader uses:
+// numRows, schema.fields, getChild(name), and Vector.get(i) / toArray().
+```
+
+**The reference is ADBC.** `adbc.h` separates the database, the connection and the statement, reads a
+result as a record-batch stream, and makes `AdbcStatementCancel` thread-safe and obliged to interrupt
+execution. The port keeps what every reader here needs of that — a statement in, Arrow columns out,
+a cancel that is real — and leaves out the rest. It does **not** follow ADBC where ADBC streams: the
+port returns one materialised `Table`, because every reader in the family reads the whole answer
+(`ai`'s rows, `graph`'s typed arrays). Streaming is the thing that would reverse that, below.
+
+The port is **read-only by type**: it has no `registerFiles`, no `dropFiles`, no DDL surface. A
+package that only reads — `ai/data`'s `readAnswer`, graphar's reader, rudof's `Mapping.triples`, a
+`CatalogReader` ([relations](/docs/design/relations)) — takes a `Queryable`, so it can be handed any
+engine, a test double, or a server-side one. Writing files into the engine is the engine's own
+surface, below.
+
+**Why Arrow-like and not Arrow.** `Table` and `Vector` are structural, a subset a reader can satisfy
+with Arrow JS, flechette or a fake. Two behaviours are contract and not type, and the conformance
+kit asserts both: `get(i)` is `null` for SQL `NULL` (while `toArray()` returns `0` for a fixed-width
+column), and a `BIGINT` comes back as `bigint` and is converted by the reader, never silently by the
+port.
+
+**Deleted:** mosaic's `Table`/`Vector`, fossil's, graphar's narrower one, `Pick<Engine, "query">` at
+three sites in `ai`. graphar and rudof stay free of every kanzo package (graphar is upstream-bound);
+they keep a one-member structural `Query` and say in a comment that it is a deliberate subset of
+`Queryable`, so the subset relation is stated and the shapes cannot drift unseen.
+
+**What would reverse it:** a reader that must stream — a result too large to materialise, which the
+heap measurement below names — or a second engine that cannot return columns. Then the port grows an
+async iterator of record batches *beside* `query`, and readers that can use it move to it one at a
+time.
+
+## One door, and the coordinator is its cache
+
+**There is one way to run a statement: `Engine.query`. The Mosaic `Coordinator` is inside the engine,
+as its cache and consolidator, and no host holds one.** Before, `ai` held an `Engine` and `graph` and
+`analytics` held a `Coordinator`, and a host had to build both and keep them paired
+(keasy's `Corpus = { name, attachment, engine }` carried the pair). The two doors had two caches, two
+result decoders and two cancellation semantics, and the same SQL could be cached twice or read twice.
+
+The engine now holds the coordinator privately and `GraphRoot`, `MosaicProvider` and `useGraph` take
+`engine`:
+
+- A statement a Mosaic client issues (a chart, a brush) goes through the coordinator, so consolidation
+  and the cache of mosaic-core still apply to it. The coordinator's connector is the engine's own, so
+  both doors reach one connection.
+- A statement the library issues itself (a catalog read, `SUMMARIZE`, an answer) goes straight to the
+  connection with its signal. The coordinator's queue batches behind `requestAnimationFrame`, which a
+  hidden tab never fires; that is why `Engine.query` never queued, and still does not.
+- **The signal reaches everything.** A client's query carries the `AbortSignal` of the thing that
+  asked, through the coordinator to the connection, so a chart that unmounts or a brush that moved on
+  stops its stale statement ([real cancellation](#aborting-interrupts-the-statement)).
+
+A host that draws on a coordinator it did not build over DuckDB-WASM — a socket or REST connector —
+is not served. That case was "two coordinators, two caches" before; it is now not supported, and the
+door says so by not accepting a coordinator.
+
+**What would reverse it:** a host with a non-DuckDB Mosaic connector that must draw the same
+charts. Then `MosaicProvider` takes a `Queryable` plus a `Coordinator` built over it, and the
+coordinator is a second optional argument, not a second door.
+
+## Aborting interrupts the statement
+
+**A signal aborted while a statement runs interrupts the statement in the engine, and the connection
+answers the next statement as if the aborted one had never been sent.** The mechanism is DuckDB-WASM's
+`AsyncDuckDBConnection.send()` for the statement and `cancelSent()` on abort — the documented pair,
+the ADBC `Statement.Cancel` analogue — and the rejection is `signal.reason`, so the caller sees the
+abort it asked for.
+
+The failure scenario is this repository's own contradiction. `reads.mdx` promised "*Stop* cancels the
+query, so the wait ends at once"; `engine.ts` documented that the statement "a short one, finishes";
+fossil's `Engine` required the opposite and named mosaic's as its reference. There is one serial
+connection ("a second connection beside it made every read pay twice and serialised against itself",
+measured), so an abandoned `SUMMARIZE` over a large relation blocks every later read: Stop says
+stopped and the page stays stuck for the seconds the statement has left, and a brush that issues one
+aggregate per mouse-move pays the sum of the ones it abandoned.
+
+**An adapter that cannot interrupt says so and fails loudly.** An engine declares `cancels: boolean`;
+one whose value is `false` rejects a `query` handed a signal with `engine/cannot-cancel` at the call,
+instead of accepting the signal and ignoring it. A test double that only checks
+`signal.throwIfAborted()` is therefore not an engine; it is a `Queryable` that must be used without
+a signal, which the type forbids.
+
+**Unmeasured, and a gate.** That `cancelSent` interrupts a statement sent by `send`, and returns a
+clean connection, is the documented behaviour of the pair; that it does so on the path mosaic-core's
+connector takes (`bindings.runQuery`) is not established. And that `send` plus a decode costs no more
+than `runQuery` for the library's reads is not measured. Both are measured in a real browser before
+the change lands, and a number is written here beside the claim: *a 5 s `SELECT sum(i) FROM range(…)`
+aborted at 100 ms, then the time of the next trivial statement; and the library's graph load, with
+`send` against `runQuery`*. The conformance kit's rule is the first: **an aborted long statement
+leaves the connection answering a trivial one within 200 ms.**
+
+**What would reverse it:** `send` slower than `runQuery` on the graph load by more than the threshold
+written beside the measurement. Then `runQuery` stays for the coordinator's batched path and `send`
+carries only signalled statements; or DuckDB-WASM cannot cancel a statement at all, and fossil's
+contract is amended to say so and `cancels` is `false` for the browser engine, which then refuses a
+signal — the honest state, as against today's accepted and ignored one.
+
+## A dying engine is a supported state
+
+**The worker dying after boot is detected, in-flight requests settle with `engine/lost`, the engine
+forgets itself, and the next `engine()` boots another.** The singleton cached its resolved promise
+forever; only a failed boot was forgotten, and `Duck.onError` rejected only the requests pending at
+that moment. A worker that dies later — the tab's 4 GB WebAssembly ceiling is DuckDB's own documented
+limit, and "browsers may impose even stricter limits" — left every later `query` hanging or throwing
+an unclassified error, and `engine()` kept handing out the corpse until reload.
+
+- **Detection** covers the worker's life, not a request's: its `error` and `messageerror` events and
+  a failed `postMessage` mark the engine lost.
+- **`engine/lost`** is a `Problem` ([failure](/docs/design/failure)) with `data.reason` `"worker"` or
+  `"memory"`. Every pending request rejects with it; the engine is removed from the `globalThis` slot.
+- **Hosts re-attach.** Whatever a host put in the engine — an attached catalog, registered files, a
+  `mount`'s secrets — lives in the dead worker. Catalog refcounts are `WeakMap`s keyed on the engine
+  object, so a new engine starts at zero; the host sees `engine/lost`, asks `engine()` again and
+  attaches again. Nothing resurrects state, so nothing can resurrect it wrongly.
+- **`memory_limit` is set at boot**, below the WebAssembly ceiling, as a constant; DuckDB then spills
+  or refuses with its own out-of-memory error, which the engine classifies as `engine/lost` with
+  `reason: "memory"` when the worker goes with it and as `engine/failed` when it does not. The figure
+  is chosen from the peak heap measured on the graph benchmark at the largest corpus there is
+  (200,000 vertices), which has not been run.
+- **Disposal.** The engine is `AsyncDisposable`: `await using` or `[Symbol.asyncDispose]` terminates
+  the worker and clears the slot. A page that needs 36 MB of module and a worker back can have them.
+
+**What would reverse it:** workers observed never to die in production. There is no telemetry yet,
+and the engine's own `observe` (below) is what would provide it; until it shows nothing for a
+release cycle, the path stays.
+
+## Redaction: a failure never carries a literal or a secret
+
+**A statement that fails is thrown with its text stripped of literals; the original text and
+DuckDB's message are never on `message`, `data`, `cause` or the logger.** mosaic-core's `QueryError`
+embeds "SQL Query: …" in its message, so a brush's literal ids, a search box's text and a
+`CREATE SECRET (KEY_ID, SECRET, SESSION_TOKEN …)` reach `onFailure` and from there a host's telemetry.
+[The failure page](/docs/design/failure) says the thrown value arrives *whole*; whole means the
+`Problem`, not the statement's text inside it.
+
+- `engine/failed`'s `data` holds `statement`: the SQL with every string, number and tuple literal
+  replaced by `?`, and DuckDB's error with the same replacement. The literal-free text is what a
+  maintainer needs to read a failure, and it is enough to find the clause that produced it.
+- A `CREATE SECRET` statement is never echoed at all.
+- The replacement is done by one function at the point where the engine wraps the refusal, over
+  mosaic-sql's printing, not by regex over a message at the host.
+
+Whether DuckDB itself redacts a secret's value in the error it raises for a failing `CREATE SECRET`
+is not verified; the rule does not depend on it, because the engine redacts regardless. A test
+that forces a failing `CREATE SECRET` and greps the thrown value for the secret is a guard to be
+added with the change.
+
+The door itself is not locked: any caller of `engine.query` can `INSTALL`, `ATTACH` or `COPY`. Today
+the model never writes SQL (Ask compiles a typed spec), so there is no one to lock it against, and
+whether `lock_configuration` or `allowed_directories` apply in WASM is not verified. A policy
+belongs here the day a model or a rule author can write SQL.
+
+**What would reverse it:** a host that needs the literal text to debug a failure. Then it asks the
+engine for it through `observe` (below), in development, where the host's own console is the sink —
+never on the thrown value.
+
+## Observation
+
+**An engine reports what it does to one observer, and the library keeps nothing for itself.**
+`engine.observe(listener)` is called with `{ sql (redacted), ms, rows, outcome }` per statement and
+with `queued` (depth) per change, and returns an unsubscribe. It is the single place head-of-line
+blocking on the serial connection, a boot's cost and a lost worker become measurable, and the
+`performance.measure` spans the family already uses (`kanzo:llm:load`) get a sibling
+`kanzo:engine:boot`. It carries no payload beyond that.
+
+**What would reverse it:** nothing reading it after a release cycle. Then it is deleted; an
+interface nobody calls is an alias for a log line.
+
+## The engine's own surface: files and boot
+
+The engine is a `Queryable` plus what only it can do:
+
+| Member | Why only the engine |
+| --- | --- |
+| `registerFiles(name → url)`, `registerFileBuffer(name, bytes)`, `dropFiles(names)` | They write the worker's virtual file system; serialised by a promise chain. |
+| `cancels`, `observe`, `[Symbol.asyncDispose]` | Lifecycle of the worker. |
+| (private) the `Coordinator` | The cache the Mosaic door reads through. |
+
+`registerFiles` keeps signed URLs in a map for the page's life, so a name is held until dropped; the
+files a `mount` lends are dropped when it closes, and a host that crashes past `close` leaves them in
+a dead engine that `engine/lost` replaces. Boot loads `parquet`, `httpfs` and `json` from hash-pinned
+binaries shipped in the tarball with `autoload_known_extensions` off, so nothing is fetched from
+`extensions.duckdb.org` and a strict CSP holds (`script-src 'self' 'wasm-unsafe-eval'`). `engine()`
+is the only constructor: mosaic-core's `DuckDBWASMConnector` loads from jsDelivr and a Blob worker if
+it is built without a `duckdb`, so a guard that no shipped source constructs it elsewhere is to be
+added beside the others.
+
+Boot is bounded at 60 s as `engine/unavailable`, with `data.after`.
+
+*Held by* `packages/mosaic/src/engine-boot.test.ts`, "rejects with data.after when the worker never
+answers within the 60 s deadline".
+
+## Three packages, one direction
+
+mosaic is split because it held three things with three costs, and the heaviest dictated the layer
+the lightest could sit in ([architecture](/docs/design/architecture)):
+
+| Package | Holds | Layer | Depends on |
+| --- | --- | --- | --- |
+| `@kanzo-tech/mosaic` | The `@uwdata` door: the names of mosaic-core, mosaic-sql and the clause rule (`clauseSemiJoin`, `relaySelection`, `numbers`) | L1 | `kernel`; peers mosaic-core, mosaic-sql |
+| `@kanzo-tech/mosaic/engine` (a subpath of the engine package, below) | `engine()`, DuckDB-WASM, the registry, the coordinator | L2 | `kernel`, the door; `@duckdb/duckdb-wasm` |
+| `@kanzo-tech/relations` | `JoinGraph`, `JoinResolver`, paths, `CatalogReader`, `words` ([relations](/docs/design/relations)) | L2 | `kernel`, the door |
+
+The engine sits behind its own subpath so that a page that only draws from a host-supplied
+`Queryable` — a test, a server-rendered chart spec — imports no DuckDB. `@duckdb/duckdb-wasm` stays an
+exact-pinned dependency of that subpath alone (a *dev* build, `1.33.1-dev57.0`, today). The gauge
+for each entry is measured separately; the engine's 36 MB module is outside any gauge and is
+reported beside the wrapper's size, since the wrapper's 5.2 kB tells a reader nothing about what a
+page downloads.
+
+**What would reverse it:** nothing in the split is load-bearing for a consumer who imports from the
+root of `ui`; if nobody ever installs the door without the engine, the subpath is a boundary kept for
+a reader who does not exist. It costs one `exports` entry; it goes when a release cycle shows no such
+consumer.
+
+## One conformance kit, one DuckDB double
+
+**`engineConformance(make)` is a runnable kit exported from `@kanzo-tech/testing`, and every engine
+and every double passes it.** The kit asserts, in this order: a statement returns columns the
+subset shapes read; `NULL` reads as `null`; a refusal rejects `engine/failed` and the literals are
+gone from it; a signal aborted before the call rejects without sending; a signal aborted during a
+long statement rejects with `signal.reason` and leaves the connection answering a trivial one within
+200 ms; and a `cancels: false` engine refuses a signal.
+
+The repository had six hand-built doubles: graph's (with a hand-written copy of fossil's catalog
+tables), ai's, mosaic's mocks, graphar's on native `@duckdb/node-api`, keasy's `DESCRIBING` cast
+through `unknown`, and rudof's JS script. Only fossil's interrupts. graph's catalog fixture passed
+while production changed, because fossil had deleted the format it copied.
+
+**One double replaces the ui ones: a blocking Node DuckDB-WASM with the interrupt loop fossil's
+double has, exported by `@kanzo-tech/testing`.** graph, ai and the engine's own tests use it, and
+graph's catalog comes from the real attacher over a vendored GraphAr fixture, so the catalog a test
+reads is the one a host's attach produces. graphar keeps its native double (it must not depend on
+kanzo) and runs the same kit against it, which is what makes the two doubles one contract. The
+DuckDB version the double runs is stated once, beside the engine's pin: `1.33.1-dev57.0` is v1.5.4
+and graphar's dev dependency is `1.5.5-r.5`, two versions on one contract today.
+
+**What would reverse it:** a conformance step that cannot be asserted against a double without a
+real browser (the interrupt). Then that step runs against the browser engine alone, in an end-to-end
+test, and the double's interrupt is a documented model of it.
+
+## Production-grade axes
+
+| Axis | What this page commits to |
+| --- | --- |
+| Failure and recovery | Real cancellation, `engine/lost` with reboot, `memory_limit`, `cancels` refusing a signal it cannot honour |
+| Security and privacy | Literals and secrets redacted from every thrown value; no CDN fetch; the unlocked door named, not hidden |
+| Performance and size | One serial connection kept (measured); `send` against `runQuery` gated on a measurement; entries gauged separately; the module reported beside the wrapper |
+| Stable API, accessibility, tests | One read-only port, one conformance kit, one double; no accessibility surface here beyond consumers announcing a loading or lost engine |
+
+## Breaking, in the consumer's words
+
+- `GraphRoot`, `MosaicProvider` and `useGraph` take `engine`, not `coordinator`; build one with
+  `engine()` and pass it to all of them and to `ai`. `Corpus` no longer needs the pair.
+- `import { engine } from "@kanzo-tech/mosaic/engine"`; the root of `@kanzo-tech/mosaic` is the
+  `@uwdata` door and no longer exports `engine`.
+- `Table` and `Vector` come from `@kanzo-tech/kernel`.
+- Stop on a long statement now stops it; a page that relied on the statement finishing in the
+  background no longer gets it.
+- After `engine/lost`, call `engine()` again and attach again.
+- A failure's `message` and `data` carry the statement with literals as `?`; code reading the SQL out
+  of it reads it from `observe` in development.
+- Test doubles: replace `ai`'s and `graph`'s copies with `@kanzo-tech/testing`'s.

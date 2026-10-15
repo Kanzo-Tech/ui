@@ -23,40 +23,22 @@ part's cost is the request's tokens less the request's without it.
 | CORDIS | 12 (8) | 3,569 | 3,859 | 7,397 |
 | **LDBC SNB** | 37 (28) | **10,466** | **10,756** | **16,565** |
 
-The dev stack serves `complete` and `chat` with an 8,192-token context, and `make demo`'s Qwen3 with
-16,384. **SNB's starters and SNB's first question both overflow before the model writes a word**:
-the 10,466 in the logs at 09:46, 12:39 and 13:48 is SNB's starters each time, and `snb-ask` on Qwen3
-is refused at 16,565 of 16,384 with no history yet.
+The dev stack serves its models with an 8,192-token context, and `make demo`'s Qwen3 with 16,384.
+**SNB's starters and SNB's first question both overflowed before the model wrote a word**: Qwen3's
+`snb-ask` was refused at 16,565 of 16,384 with no history yet.
 
-Where the tokens go, SNB:
-
-| Part | Hermes 3B / 8B | Qwen3 |
-| --- | --- | --- |
-| `QUESTIONS` (starters' instructions) | 170 | — |
-| The relations, each with its fields | 10,292 | ≈ 12,900 in the agent's instructions |
-| The `answer` tool's schema | 0 — see below | 3,597 |
-| The output schema (`response_format`) | 0 — a grammar, not prompt | — |
-
-**The relations are nearly all of it, and most of them are repeats.** 37 relations list 300 field
-lines, of only 44 distinct fields: each type's fields are written again in every relation that
-reaches it, values and all — *Person.firstName: category (John, Carlos, A., Rahul, Shweta, Jun)*
-seven times. Category values are 72% of the characters. Each relation also carries its literal,
-`{"root":"Place","path":[{"edge":"Place_isPartOf_Place","direction":"out"}]}`, which its heading,
-`Place>isPartOf>Place`, already says.
-
-**The tool's schema repeats too.** The field enum — every field name of every relation — is
-written ten times, once for each place a field goes (a measure's `field` twice, each condition's,
-`trend`, `x`, `color`, `facet`, `columns`), and the relation's description lists every relation key
-once more.
-
-*Hermes in Model Runner counts the tool at 0*: its template there does not put tools into the
-prompt, so the 8B is never told the `answer` tool exists. That is the behaviour
-`e2e/demos/models.yml` records — Hermes writes a query of its own instead of calling the tool — and
-it is the template, not the model. A separate finding; the services' compose is where it is fixed.
+**The relations were nearly all of it, and most of them were repeats.** In SNB the relations listed
+10,292 of the 10,466 tokens: 37 relations listed 300 field lines, of only 44 distinct fields, each
+type's fields written again in every relation that reaches it, values and all (*Person.firstName:
+category (John, Carlos, A., Rahul, Shweta, Jun)* seven times). Category values were 72% of the
+characters, and each relation carried a literal, `{"root":"Place","path":[…]}`, that its heading,
+`Place>isPartOf>Place`, already said. The old agent's tool schema cost 3,597 tokens more on Qwen3,
+because its field enum was written once for each place a field went (ten times).
 
 ## Say each thing once
 
-**Types are described once, with their fields; a relation is one line, its key.**
+**Types are described once, with their fields; a relation is a type and the paths the model writes
+from it.**
 
 ```
 ### Types
@@ -66,40 +48,29 @@ it is the template, not the model. A separate finding; the services' compose is 
 - gender: category (female, male)
 - birthday: time (1980-02-06 – 1990-01-28)
 …
-
-### Relations
-
-A relation is a type and the hops taken from it. Its fields are those of every type it reaches,
-named Type.field; a type met twice is numbered, Person2.
-
-- Person
-- Person>knows>Person
-- Person<hasCreator<Comment
-…
 ```
 
 This is **LangChain's `SQLDatabase.get_table_info`**: each table's columns once, with a few sample
-rows (`sample_rows_in_table_info`), and the joins as foreign keys rather than as a table per join.
-Vanna and LlamaIndex's `SQLDatabase` describe a schema the same way. A type's values are read from
-the relation over the type alone, which is what a reader sees of it; the values a hop narrows to
-(*Place2.name* over countries only) are a detail the answer's rows say, not the description.
+rows (`sample_rows_in_table_info`), and the joins as foreign keys rather than a table per join. Vanna
+and LlamaIndex's `SQLDatabase` describe a schema the same way. A type's values are read from the
+relation over the type alone, which is what a reader sees of it; the values a hop narrows to are a
+detail the answer's rows say, not the description.
 
-**The model writes no relation.** It names the type it counts, `of`, and the relation is the
-resolver's — so the prompt lists no relation at all, which was most of what remained. An answer
-still carries its relation as a key, `"Person>knows>Person"`, through the same `relationKey` that
-reads it back; `Answer`, what `AnswerCard` and a dashboard read, keeps the object.
+**The model writes no relation.** It names the type it counts, `of`, and writes every field as a path
+from it, so the prompt lists no relation at all, which was most of what remained. An answer carries
+its relation as a key, `"Person>knows>Person"`, through the same `relationKey` that reads it back;
+`Answer`, what `AnswerCard` and a dashboard read, keeps the object.
 
-**The field list is one definition.** The schema names it once under `$defs` and every place a field
-goes is `{ "$ref": "#/$defs/field" }`. JSON Schema's own reuse; OpenAI's and Anthropic's tools
-resolve local `$ref`s, and so does llama.cpp's JSON-schema grammar — checked in Docker Model Runner,
-2026-10-10, with a schema whose two fields both refer to one enum of three names and a prompt asking
-for names outside it: Qwen3 called the tool with two names from the enum, and Hermes 3 8B and 3B
-under `response_format` wrote only names from it. (Hermes calls no tool there with or without `$ref`
-— the template finding above.)
+**The path list is one definition per type.** The schema writes one branch per type offered, and each
+branch names its enum of paths once under `$defs`, every place a field goes a `{ "$ref" }` to it
+([Tasks](/docs/design/tasks#a-field-is-a-path-from-what-is-measured)). JSON Schema's own reuse;
+OpenAI's and Anthropic's tools resolve local `$ref`s, and so does llama.cpp's JSON-schema grammar —
+checked in Docker Model Runner, 2026-10-10, with a schema whose two fields both refer to one enum of
+three names and a prompt asking for names outside it: Qwen3 called the tool with two names from the
+enum, and Hermes 3 8B and 3B under `response_format` wrote only names from it.
 
-The same five graphs, sent by the starters and the agent with each type said once — each graph's
-relations rebuilt from its captured prompt, the request caught at the HTTP boundary and counted the
-same way:
+The same five graphs, sent by the starters and the agent with each type said once, the request caught
+at the HTTP boundary and counted the same way:
 
 | Graph | Starters, Hermes 3B | Agent, Hermes 8B | Agent, Qwen3 |
 | --- | --- | --- | --- |
@@ -111,13 +82,14 @@ same way:
 
 SNB's starters fit the 3B's 8K six times over. `snb-ask` — the page filtered to women, *Which
 browsers do they use most?* on Qwen3's 16,384 — takes 3,211 on its first question and, with three
-turns of history before it (each a question, the `answer` call, its result of up to 30 rows and a
-reply), 5,164: room for the answer and many more turns. Dropping the category values as well saves
-little once they are said once (SNB's starters 1,290 → 905), so values stay unless the budget asks.
+turns of history before it, 5,164. Dropping the category values as well saves little once they are
+said once (SNB's starters 1,290 → 905), so values stay unless the budget asks. **Not measured since:**
+these figures predate paths. The schema now lists every path to three hops for each type offered, a
+term nobody has counted on SNB; the prompt's share is measured, the schema's is not.
 
-**What would reverse it:** a model that answers measurably worse from a type's fields than from a
-relation's spelled out — one that cannot apply the numbering rule. Then the relation lines carry
-their fields' names, still without the types' values.
+**What would reverse it:** the evaluation set showing the model writes paths measurably worse when it is
+shown each type's fields once than when the fields a path reaches are spelled out beside it. Then the
+enum's paths carry their column's description, still without the types' values.
 
 ## The linker is the budget
 
@@ -129,16 +101,26 @@ schema's enums and the prompt are theirs. This is **LlamaIndex's `ObjectIndex` /
 names are few enough to match outright. A question that names nothing is offered every type, and a
 type the linker missed is the reachability oracle's to say, as a diagnostic the model repairs from.
 
-Nothing counts tokens. The agent once fitted each call to the context its alias declared — an
-estimate of 0.4 tokens a character, a reserve for the answer, the category values dropped first, a
-failure coded `ai/context` when nothing fitted. Each of those was there because the prompt held the
-whole graph; a prompt that holds a question's neighbourhood holds SNB's 8 types at most, about 3,500
-characters with their values, inside any context a model of the size this is for is served with.
+**Nothing counts tokens, and a context that fills is a truncation.** The prompt holds a question's
+neighbourhood, SNB's 8 types at most, about 3,500 characters with their values, inside any context a
+model of the size this is for is served with. If it does not fit anyway, the model's answer is cut
+off, the door says `llm/truncated` with `reason` `"context"`, and the Task repairs it once with a
+shorter prompt ([Tasks](/docs/design/tasks#repair-is-bounded-and-reads-how-a-generation-ended)). The
+truncation is the signal; no estimate of a context is kept, and none is declared per model alias.
 
-**What would reverse it:** a graph whose one-hop neighbourhood of a question's types is measured
-past a served model's context. Then the linker keeps the named types without their neighbours
-first, and the values after — and the token count comes back as the linker's stopping rule, not as
-a failure.
+**The linker matches in English.** `words()` lowercases and strips a plural (`-ies`, `-s`) and matches
+by the type's name, a field's or a value's. A question in another language against English field
+names matches nothing, so it is offered every type, which on SNB is the case that cost 10,466 tokens before
+the types were said once. The graph's labels in the page's language are the way out
+([What a field is](/docs/design/fields)), and a language-aware segmentation (`Intl.Segmenter`
+exists; none was evaluated) is the other. Neither is built, because no evaluation case asks in
+another language yet.
+
+**What would reverse it:** a graph whose one-hop neighbourhood of a question's types is measured past a
+served model's context. Then the linker keeps the named types without their neighbours first, and the
+values after, and the token count comes back as the linker's stopping rule, not as a failure. And
+the first non-English case in the evaluation set that offers every type: then linking reads labels or
+segments words by language, with that case as its test.
 
 *Held by* `packages/ai/src/data/ask.test.ts`, "offers the types the question names, and their
 neighbours"; "finds a type by a value it holds, and keeps what the page's chips are on"; "offers every

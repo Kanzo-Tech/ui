@@ -1,20 +1,27 @@
 ---
 title: The graph view
-description: How @kanzo-tech/graph is built — one Mosaic client on the page's coordinator over a corpus fossil attached, uploaded to cosmos.gl once and greyed out by the crossfilter, an Ark-shaped root over flat parts — and what would reverse each rule.
+description: How @kanzo-tech/graph is built — one Mosaic client on the page's engine over an attached corpus, uploaded to cosmos.gl once and greyed out by the crossfilter, a scale limit that is guarded and raised only by measurement, a canvas a keyboard and a screen reader can use, an Ark-shaped root over flat parts — and what would reverse each rule.
 ---
 
 [The graph page](/docs/graph) is what `@kanzo-tech/graph` ships. This page is how it is built and
 why.
 
+*Status: partly to be built.* The tree reads the catalog with its own `readCatalog` into its own
+`Structure`, takes a `coordinator`, treats a lost WebGL context and a failed read as terminal, does
+not abort a read, ships a pick's ids as SQL text, has no guard at 2²⁴ vertices and exposes the canvas
+to assistive technology as an unnamed `div`. [The scale limit](/docs/design/graph-hardening#the-scale-limit-is-guarded-and-raised-only-by-measurement),
+[the catalog type](#one-catalog-type-and-the-graph-keeps-none), [recovery](/docs/design/graph-hardening#a-failed-read-is-retried-a-lost-context-is-restored),
+[a large pick](/docs/design/graph-hardening#a-pick-does-not-ship-its-ids) and [the canvas for assistive technology](/docs/design/graph-hardening#the-canvas-is-operable-without-a-pointer-and-readable-without-sight)
+are decided and not built; the *Breaking* list at the end is what a consumer edits. Everything else
+on the page is the tree.
+
 <Callout type="info">
-The contract is a catalog. fossil's `attach(name, { engine, host | url })` (`@fossil-lang/corpus`)
-attaches a `fossil/1` corpus to the page's DuckDB as the catalog `name`: a view per table,
-`"<name>".fossil_tables(table_name, kind, label, iri, record_count, first_id, source, source_key, destination, destination_key, candidate_keys, …)`,
-`"<name>".fossil_columns(table_name, column_name, ordinal_position, data_type, role, iri, term_type, datatype, is_nullable)`,
-`"<name>".fossil_annotations` and `"<name>".fossil_stats` (0.3.0-alpha.32). A vertex table holds
-`dense_id` — global, contiguous per table from `first_id` — its identity column and the program's
-columns; an edge table holds the two `dense_id`s its `source_key` and `destination_key` name; a
-property table, a row per value, holds its source's. The corpus carries no position.
+The contract is an attached catalog read into a `JoinGraph`. The host attaches a corpus to the page's
+DuckDB under a name; for each type the catalog gives a table whose key column (`JoinType.key`, the
+column with the `address` role) numbers the type's vertices contiguously from `first`, and for each
+edge the two keys it joins. A property table, a row per value, holds its source's key. The corpus
+carries no position. How the catalog is read is [a `CatalogReader`'s](/docs/design/relations), not
+the graph's.
 </Callout>
 
 **The reference is Cosmograph v2**, read from its shipped 2.5.1 bundle — its code is CC-BY-NC, so
@@ -27,36 +34,33 @@ does this: `lon`/`lat` as `x`/`y` is what there is.
 
 ## The graph reads SQL, through the page's coordinator
 
-The host attaches the corpus and names the catalog; `GraphRoot` reads it with SQL — the catalog for
-the structure, once, through `readCatalog` (below), the views for rows and links, one `SELECT` for a focused row,
-a `LIMIT`ed `ILIKE` for a search — every statement built
-from mosaic-sql's nodes and run through `coordinator.query(query, { type: "arrow" })`. A search is text
-a reader typed, so no statement is a template string: the nodes quote their own identifiers and
-literals. It imports nothing of fossil's.
+The host attaches the corpus and names the catalog; `GraphRoot` reads it with SQL — the structure,
+once, through a `CatalogReader` ([below](#one-catalog-type-and-the-graph-keeps-none)), the views for
+rows and links, one `SELECT` for a focused row, a `LIMIT`ed `ILIKE` for a search — every statement
+built from mosaic-sql's nodes. A search is text a reader typed, so no statement is a template string:
+the nodes quote their own identifiers and literals. It imports nothing of fossil's.
+
+**Two kinds of statement, one engine.** What the graph asks for itself — the structure, the links,
+the columns, a row, a search — goes straight to the page's `engine` with the load's `AbortSignal`;
+the survivors of the page's filter are a Mosaic client's request, which goes through the coordinator
+the engine holds privately, so mosaic-core's consolidation and cache still serve them
+([the engine](/docs/design/engine#one-door-and-the-coordinator-is-its-cache) has why there is one
+door). A host holds an engine and no coordinator. The first kind never waits for an animation frame,
+which is what the coordinator's queue does and a hidden tab never grants; so a graph mounted in a
+background tab loads, and only its filter waits to be seen.
 
 ```text
 host                                                    @kanzo-tech/graph
-engine() → DuckDB-WASM + coordinator                    parts     GraphCanvas · GraphLegend · GraphStatus · GraphCounts · GraphToolbar · GraphInspector · GraphSearch
-attach(name, { engine, url }) → "<name>".<Table>          adapter   useGraph · GraphRoot · GraphRootProvider · useGraphContext · useGraphState
-           "<name>".fossil_tables · fossil_columns      render    typed arrays → cosmos.gl, uploaded once per corpus
-<GraphRoot from={name} coordinator filterBy>            core      source: SQL through the coordinator · client · load · store
+engine() → DuckDB-WASM, its coordinator inside          parts     GraphCanvas · GraphLegend · GraphStatus · GraphCounts · GraphToolbar · GraphInspector · GraphSearch
+attach(name, …) → "<name>".<Table>                      adapter   useGraph · GraphRoot · GraphRootProvider · useGraphContext · useGraphState
+reader(engine, name, { signal }) → JoinGraph            render    typed arrays → cosmos.gl, uploaded once per corpus
+<GraphRoot from={name} engine filterBy>                 core      source: SQL through the engine · client · load · store
 ```
-
-**Every read of the catalog is one function, `readCatalog`** (`core/catalog.ts`): the canvas's
-structure and `readJoinGraph` are both built from what it answers, through the coordinator's cache,
-so a page that draws the graph and a dashboard over it reads the catalog once, and nothing else in the
-library names a catalog relation. An edge's label and its endpoint columns are the catalog's, never
-parsed out of a table's name or written as `src` and `dst`. fossil's corpus format may move to
-[Apache GraphAr](https://graphar.apache.org/) (a design under review in fossil-lang's draft #42); if
-it does, `readCatalog` is the one place that reads it differently, and the `Structure` it answers is
-what every layer keeps reading. *What would reverse it:* a reader that needs a fact of the corpus at
-a moment `readCatalog` is not run — then the fact is added to what it answers, not read a second way.
 
 **It replaced "no SQL in `@kanzo-tech/graph`"**, under which every read went through fossil's
 `scan` on a connection of its own: rows decoded on the main thread, a cache nobody else shared, and a
-second reader of the same bytes beside the coordinator every chart used. Through the coordinator
-there is one connection and one cache, and a chart and the graph asking the same question get one
-answer.
+second reader of the same bytes beside the coordinator every chart used. Through the engine there is
+one connection and one cache, and a chart and the graph asking the same question get one answer.
 
 **What would reverse it:** a corpus the page cannot reach as SQL — served only through an API with
 no DuckDB views — or a second host that has to draw without Mosaic. Then a reader comes back behind
@@ -68,10 +72,38 @@ source, no slice"; `packages/graph/src/core/store.test.ts`, "reads the structure
 and fossil_columns, and every vertex by its dense_id"; `packages/graph/src/core/catalog.test.ts`, "takes
 an edge's label and its endpoint keys from fossil_tables, never from the table's name".
 
+## One catalog type, and the graph keeps none
+
+**The canvas reads a `JoinGraph`, and nothing in this package describes the corpus a second time.**
+`Structure` — the canvas's vertex, edge and property tables — and the 110-line bridge that renamed it
+into mosaic's `JoinGraph` (`sourceKey` to `src`, `sqlType` to `type`, `first` dropped, a `vertices`
+union invented on the way) were two descriptions of one catalog with a renamer between them.
+[Relations](/docs/design/relations#joingraph-is-the-read-model) holds the model and the reader
+contract; this package asks for the two facts only a drawing needs, `first` and `identity`, which are
+fields of `JoinType`, so the canvas reads `type.first` and keeps no table of its own. The snapshot's
+`structure` is that `JoinGraph`, and a part that selects from it selects the fields every other reader
+names. `readCatalog`, `joinGraphOf` and `readJoinGraph` leave the package: a host that wants the model
+and no canvas builds it without installing `@cosmos.gl/graph`.
+
+**The failure scenario is the migration, not the duplicate.** GraphAr numbers vertices per type from
+zero ("corresponding to the row number", the specification's wording as graphar's attach reads it)
+and the library numbers them corpus-wide. With two descriptions, the same edge column meant "an index
+into the source type" to the resolver's `src` and "a corpus id after adding `first`" to the canvas;
+one reader reconciles them in one place, `first`, and refuses a type whose ids have a gap.
+
+**What would reverse it:** a fact the drawing needs and no second reader would ask for. Then it stays
+local to the canvas, as a field of the snapshot and not of the catalog; the test is whether a second
+reader would ask for it. A fact `JoinGraph` cannot carry is [relations'](/docs/design/relations)
+reversal, and it grows the field, not a sibling type.
+
+*Not yet held:* a `layers.test.ts` case that the package defines no catalog type and no second reader
+of the catalog, and a canvas test that loads from a `JoinGraph` made by the real reader over a vendored
+GraphAr fixture.
+
 ## The graph is a client of the page's coordinator
 
-`GraphClient` is a `MosaicClient` connected to the page's coordinator, like every chart beside it,
-and it reads `vertices`: every vertex table, as one relation. The coordinator hands it the page's
+`GraphClient` is a `MosaicClient` connected, through the engine, to the page's coordinator, like every
+chart beside it, and it reads `vertices`: every vertex table, as one relation. The coordinator hands it the page's
 predicate minus the graph's own clause, every clause published on another relation already crossed
 into `vertices` by the page's resolver
 ([across relations](#the-clause-rule-column-predicates-or-a-semi-join-on-identity)), and it answers
@@ -95,7 +127,8 @@ not grey a link by itself. No buffer is uploaded, so a running layout is never r
 `clauseSemiJoin` on the vertex key, labelled with the selection's own label, whose source is the
 graph, so the crossfilter applies it to every client whose rows carry the key and skips it for the
 graph — a canvas that greyed all but a lasso of thirteen would hide the neighbourhood the reader was
-looking at. Retracting it where it was published — a chip's remove, the page's reset — calls the
+looking at. How the clause names its members, by the ids themselves or by a query, is
+[a pick's](/docs/design/graph-hardening#a-pick-does-not-ship-its-ids). Retracting it where it was published — a chip's remove, the page's reset — calls the
 graph back, and the pick leaves the canvas too. A reconnect withdraws it from the selection it left
 and publishes it on the one it joins, so a clause never outlives the client it exempts.
 
@@ -176,7 +209,7 @@ keeps none of that table.
 page.** A dashboard over a relation filters its tiles by `"Person.country"`, which `vertices` has
 not. The tiles publish into the page's one selection, each clause saying the relation it was
 published on (`onRelation`), and the graph says the one it reads (`relation = "vertices"`); the
-page's selection is `crossfilterOver(joins)` — Mosaic's crossfilter, with a resolver of ours through
+page's selection is `crossfilterOver(joins)` (in `@kanzo-tech/relations`) — Mosaic's crossfilter, with a resolver of ours through
 Mosaic's own extension point, `new Selection(resolver)` — which at predicate time hands a client of
 the same relation the clause as published and a client of another `k IN (SELECT key FROM <relation>
 WHERE <every clause on it>)`, into the client's step of the clause's root type, or `FALSE` where it
@@ -486,7 +519,7 @@ alpha — and the compositor adds it: the page behind the canvas in the workspac
 canvas hidden the grid appears. A dark theme's RGB is near zero, so it adds nothing, which is the
 whole of "visible in dark". It also means a translucent link carries the background twice. The cure is
 a clear of `[0, 0, 0, 0]`, and what that costs is the greyout: cosmos.gl reads the same colour to
-decide whether a greyed point darkens or lightens (`index.js:141`) and to mix toward, so `greyout.ts`'s
+decide whether a greyed point darkens or lightens (in the greyout step of 3.4.0's `dist/index.js`) and to mix toward, so `greyout.ts`'s
 model and every light theme's greyed points move with it. That is a decision about the crossfilter's
 look and not one to take inside a grid; it is the first thing to do next, and until it is done a light
 theme shows the vignette and no grid in a screenshot made this way.
@@ -591,7 +624,7 @@ The graph's state changes outside React and at frame rate, so the core owns it a
 TanStack Query's observer shape, and React subscribes:
 
 - **The core** is `createGraph(options)`: `subscribe`, `getSnapshot`, `setOptions` and `destroy`. It
-  knows nothing about React. The first subscriber connects its client to the coordinator and the last
+  knows nothing about React. The first subscriber connects its client through the engine and the last
   one lets it go.
 - **The adapter** is `useGraph(props)`: `useBaseQuery`'s three moves — create the store once in
   `useState`, subscribe with `useSyncExternalStore`, hand it the latest props with `setOptions` in an
@@ -618,7 +651,7 @@ GraphRootProvider takes, useGraphContext reads".
 
 ## The parts own the vocabulary; the host owns the policy
 
-`GraphRoot` is a facade: the host names a catalog and a coordinator and a few props, and the parts
+`GraphRoot` is a facade: the host names a catalog and an engine and a few props, and the parts
 under it read the root.
 
 - **`GraphCanvas`** — the element, and what the look declares around it: the grid under the points, a
@@ -720,9 +753,12 @@ a part of this package that must tell two of the canvas's own gestures apart by 
 
 **Policy stays out, through the root's callbacks** — `onSelect`, `onFocus` and `onFailure`. No part
 takes a callback of its own. `onFailure` is the one required prop: unhandled, a browser with no WebGL
-context shows an empty box. It receives what was thrown, whole — a read's own error with its `code`,
-or a `GraphError`: `graph/no-webgl`, `graph/context-lost`, `graph/no-positions` or `graph/nothing-to-draw` — so a host
-chooses what to show by code.
+context shows an empty box. It receives what was thrown, whole — a `Problem`, whether a read's own
+(`engine/failed`, `engine/lost`) or the graph's: `graph/no-webgl`, `graph/context-lost`,
+`graph/no-positions`, `graph/nothing-to-draw` or `graph/too-large` — so a host chooses what to show by
+code. **A failure is fatal exactly when `status` is `failed`.** One that leaves another status is a
+degradation the picture survived — a label read that failed leaves the vertex's local name — and a
+host that blanks the canvas on every call blanks it for a label.
 
 **What would reverse it:** a part a second host cannot use without a prop that encodes that host's
 policy. That part goes back to the call site and is deleted from the package.
@@ -736,21 +772,22 @@ graph loads".
 ## Attaching is the host's
 
 **Where the corpus is and what signs it are the host's**, and so are attaching and detaching: `attach`
-answers the attachment whose `detach()` gives the catalog back. The graph is handed a name and the page's one
-coordinator — one per page, because `MosaicProvider` makes its coordinator vgplot's active one and
-that setter is process-wide. [Discovery workspace](/docs/graph/workspace) is the wiring, and
+answers the attachment whose `detach()` gives the catalog back. The graph is handed a name and the
+page's one `engine` — one per page, because `MosaicProvider` makes the engine's coordinator vgplot's
+active one and that setter is process-wide. [Discovery workspace](/docs/graph/workspace) is the wiring, and
 [the workspace showcase](/docs/showcases/workspace) the reference composition: what it writes is the
 product's — the pairings of look and channels, the hall's name in the inspector, the panels — and
 nothing in it reads a renderer or a buffer.
 
 **The graph bounds the one wait it owns.** The waits inside `attach` are fossil's, and the host awaits
-them before it names the catalog; the reads after that have no deadline. cosmos.gl's `ready` never
-settles when no device can be made, so after 10 s the root fails with `graph/no-webgl` and
-`data.after`.
+them before it names the catalog; the reads after that have a signal and no deadline
+([failure](/docs/design/failure#the-waits-it-bounds)). cosmos.gl's `ready` never settles when no
+device can be made, so after 10 s, by the kernel's `within` and not a timer of the graph's own, the
+root fails with `graph/no-webgl` and `data.after`.
 
-**What would reverse it:** a host that draws a corpus on a second engine — two coordinators, two
-caches — which is the cost this design removed; or the composition needing a prop only one host
-passes, which is the parts rule above firing.
+**What would reverse it:** a host that draws a corpus on a second engine — two engines, two caches —
+which is the cost this design removed; or the composition needing a prop only one host passes, which
+is the parts rule above firing.
 
 *Held by* `packages/graph/package.json`, `//peers`, `//fossil`;
 `packages/graph/src/render/renderer.test.ts`, "fails with graph/no-webgl and when the deadline fired,
@@ -776,7 +813,7 @@ types              GraphRootProps · GraphRootProviderProps · UseGraphProps · 
 ./section          GRAPH_SECTION
 ```
 
-`GraphRoot` takes `from`, `coordinator`, `filterBy`, `fill`, `symbol`, `stroke`, `r`, `title`, `x`,
+`GraphRoot` takes `from`, `engine`, `filterBy`, `fill`, `symbol`, `stroke`, `r`, `title`, `x`,
 `y`, `cluster`, `categories`, `look`, `sim`, `simulate`, `onFailure`, `onSelect` and `onFocus`.
 
 **What would reverse it:** a host that has to reach past the parts to the renderer or the loaded
@@ -845,15 +882,19 @@ once".
 table one contiguous range. It is the index into every buffer, the value a selection publishes, and
 the key the inspector reads by.
 
-**The limit is cosmos.gl's.** It addresses a link's ends with a `Float32Array`, exact up to 2²⁴ —
-about 16.7 million ids. Past it, a link's end silently rounds to a neighbouring id, so a corpus near
-it is the day ADR 0001's partial read arrives, not a day to widen a type.
+**The limit is cosmos.gl's, and it is guarded.** It addresses a link's ends with a `Float32Array`,
+exact up to 2²⁴ — about 16.7 million ids. Past it a link's end rounds to a neighbouring id, so the
+graph refuses the corpus as `graph/too-large` and does not draw a wrong one
+([the scale limit](/docs/design/graph-hardening#the-scale-limit-is-guarded-and-raised-only-by-measurement)). A corpus near it is the
+day ADR 0001's partial read arrives, not a day to widen a type.
 
 **What would reverse it:** a corpus that breaks density — ids with holes, or a table that is not one
-range — which brings back a map built once at load; or a corpus past 2²⁴ vertices.
+range — which brings back a map built once at load; or a corpus past 2²⁴ vertices that a measured
+plan shows the canvas can address.
 
 *Held by* `packages/graph/src/core/source.ts`, `Float32Array`; `packages/graph/src/core/store.test.ts`,
-"reads the structure from fossil_tables and fossil_columns, and every vertex by its dense_id".
+"reads the structure from fossil_tables and fossil_columns, and every vertex by its dense_id". *Not yet
+held:* the guard's own test, in the scale section.
 
 ## A look is form, and a channel is a binding
 
@@ -913,7 +954,7 @@ composite, not the path they take, and Nebula is additive *and* straight.
 | **label budget** | **14** | **26** | **40** | ×1.9 |
 | **vignette** | **yes** | no | no | on → off |
 
-Six of the ten fields separate Nebula from Atlas by 7–17%, below a luminance JND of 6.5–11.3 ΔL\*.
+Six of the ten fields separate Nebula from Atlas by 7–17%, below a luminance JND of 6.5–11.3 ΔL\* (a range this repository quotes without naming its source: to be cited or dropped, and the conclusion rests on neither until then).
 **Ink is a real form.** An empty look is Atlas.
 
 **The three names are gone; the axes are the whole model.** They lived on for a while as presets
@@ -933,9 +974,51 @@ or readers asking for a named starting point the axes' defaults do not give them
 ## What is still open
 
 - **Names for a channel's values.** The catalog names no categories, so the host passes
-  `categories`. If `fossil_columns` ever carries them, the catalog's win.
+  `categories`. If the catalog ever carries them, the catalog's win.
 - **A column two types share.** A column clause carries no table, so a filter on `name` filters
   every vertex type that has one — a `WHERE` over a union. A host reading it wrongly would reopen it;
-  a clause that means one type is a semi-join, whose subquery names it.
-- **The greyout at scale.** The surviving-id query and the two index lists have not been timed at
-  500,000 vertices.
+  a clause that means one type is a semi-join, whose subquery names it. And a column whose type differs
+  across tables is absent from the `vertices` union, so the timeline's list of dates does not offer it
+  and nothing says why; whether the reader reports it is [relations'](/docs/design/relations) to decide.
+
+## Production-grade axes
+
+| Axis | What this page commits to |
+| --- | --- |
+| Failure and recovery | Every read has the load's signal and the engine interrupts it; `retry()`; a lost context restored inside a bound; a failed filter is a failure; one code per cause, and `graph/too-large` before any wrong picture |
+| Security and privacy | Statements are built from nodes and carry no literal in a failure ([the engine](/docs/design/engine#redaction-a-failure-never-carries-a-literal-or-a-secret)); a pick's ids stay out of SQL text above `K`; the graph does no network I/O of its own; the stored placement is a column name read only against the attached corpus, and a host that syncs preferences to a server syncs those names too |
+| Performance and size | The proven limit stated, the guard at 2²⁴, the 1M / 5M plan with criteria set before the runs; the peer's cost reported beside the gauge; nothing promised between the tiers |
+| Stable API, accessibility, tests | One catalog type; a role, a name, a keyboard model and a reduced-motion rule for the canvas, committed and not yet audited; a test corpus above 20 vertices and a conformance double |
+
+## References, and how far each was read
+
+| Source | Status | Used for |
+| --- | --- | --- |
+| cosmos.gl 3.4.0 `package.json`, `dist/config.d.ts`, `dist/index.js` | read | the buffer API, the `Float32Array` links, no `webglcontext*` handler |
+| WAI-ARIA Graphics Module 1.0 | read | `graphics-document` as the role this widget's reversal names |
+| WCAG 2.2, SC 2.2.2 Pause, Stop, Hide | read | the pause mechanism that cannot be a toolbar a host omits |
+| WCAG 2.2, SC 1.1.1, 1.4.1, 1.4.13, 2.1.1, 2.4.7, 2.4.11, 2.5.1, 2.5.7, 2.5.8 | **unverified** | cited from the standard, not re-read for this page |
+| MDN, `webglcontextlost` | read | the event; it does not say what restores a context |
+| WebGL specification, context loss and restoration; Khronos wiki on handling it | **unverified** | the prevent-default and rebuild sequence; the wiki returned a redirect |
+| Heer and Moritz, *Mosaic* (TVCG 2024) | cited by [crossfilter](/docs/design/crossfilter#references) | the client and coordinator model |
+| Sigma.js, graphology, d3-force; Jacomy et al. on ForceAtlas2 | **not read** | named only to say no comparison is recorded |
+
+## Breaking, in the consumer's words
+
+- `GraphRoot` and `useGraph` take `engine`, not `coordinator`; one `engine()` serves the graph, the
+  charts and Ask.
+- `GraphError` is gone; `onFailure` receives a `Problem`, and a host narrows with `isProblem` and reads
+  `code`. `graph/nothing-to-draw` carries `data.reason`, `"no-vertex"` or `"no-address"`, and
+  `graph/too-large` is new.
+- A corpus of more than 16,777,216 vertices is refused, where it used to draw links attached to the wrong
+  vertices.
+- `readJoinGraph` and the `Structure` selectors move to `@kanzo-tech/relations`; the snapshot's
+  `structure` is a `JoinGraph`.
+- `retry()` is on the api. A failure whose `status` is not `failed` is a degradation: do not blank the
+  canvas on it.
+- The canvas is a focusable `role="application"` with the keys above; a host that bound `F`, `P`, `[`
+  or `]` on an ancestor loses them while the canvas has focus.
+- A host that kept the graph's `window.__KANZO_TESTING__` hook for its end-to-end tests reads the
+  accessibility tree instead.
+- keasy's own run codes leave the `graph/` area, which the package owns.
+

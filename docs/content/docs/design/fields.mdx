@@ -1,41 +1,50 @@
 ---
 title: What a field is
-description: Why a field's facts come from the corpus — what it is from fossil's manifest, what it holds from the counts fossil's writer stores beside it — and reach every reader through JoinGraph, so nothing in the library guesses them from a column's name or a threshold; and what would reverse each part.
+description: Why a field's facts come from the corpus — what it is from the attached catalog and the mapping, what it holds from counts the corpus states — and reach every reader through one JoinGraph, so nothing in the library guesses them from a column's name or a threshold; and what would reverse each part.
 ---
+
+*Status: partly to be built.* The tree takes these facts from fossil's four manifest relations
+(`fossil_tables`, `fossil_columns`, `fossil_annotations`, `fossil_stats`), through graph's
+`readCatalog` and a `joinGraphOf` that renames its `Structure` into a `JoinGraph`. Decided: a
+`CatalogReader` over an attached GraphAr graph makes the `JoinGraph`, `withMapping` fills the labels
+and datatypes the catalog does not say, and the shape before a run is the compiler's
+([relations](/docs/design/relations)). Where a source for a fact is not yet stated, the table says so
+and the fact is absent until one does; nothing derives it. The *Breaking* list at the end is what a
+consumer edits.
 
 A dashboard, Ask, an answer's card and keasy's assistant each need to know two things about a
 column: **what it is** — a number, a date, a year stored as an integer, an IRI, a key, called *birth
 date* in English and *fecha de nacimiento* in Spanish — and **what it holds** — how many distinct
-values, how many missing, its range, its commonest values. The corpus states both, since fossil
-`0.3.0-alpha.32`: the manifest says what each column is, and the writer counts what it holds as it
-writes. The library used to throw the first away on the way in and re-derive a cruder version of it
+values, how many missing, its range, its commonest values. The corpus states both: what each column is
+is the catalog's and the mapping's, and what it holds is counted when the corpus is written. The library used to throw the first away on the way in and re-derive a cruder version of it
 from the column's name, and to read the second twice, by two `SUMMARIZE`s that need not agree, and a
 count per category on top for Ask.
 
-| Fact | `fossil.json` | The catalog `attach` makes of it | `JoinGraph` | Before |
-| --- | --- | --- | --- | --- |
-| a type's, an edge's, a column's IRI | `iri` | `fossil_tables.iri`, `fossil_columns.iri` | `iri` | not read |
-| an edge's label | `label` | `fossil_tables.label` | `JoinEdge.label` | parsed out of `<Source>_<label>_<Destination>` |
-| an edge's endpoint keys | `source.key`, `destination.key` | `source_key`, `destination_key` | `src`, `dst` | written as `"src"` and `"dst"` |
-| a literal's datatype | `datatype` | `datatype` | `JoinColumn.datatype` | dropped: an `xsd:gYear` stored as an integer was a measure to average |
-| a term's type | `term_type` | `term_type` | `JoinColumn.termType` | an IRI column guessed an identifier by its name or its cardinality |
-| a column's role | `role` | `role` | `JoinColumn.role` | `ID_NAME` re-guessed identity by name |
-| nullability | `nullable` | `is_nullable` | `JoinColumn.nullable` | not read |
-| a label in a language | `annotations` | `fossil_annotations` | `annotations` | words split out of identifiers |
-| what a column holds | `stats` | `fossil_stats` | `JoinColumn.stats` | a `SUMMARIZE` in `fieldStats`, another in `AnswerCard`, a count per category for Ask |
-| the keys the writer found | `candidate_keys` | `candidate_keys` | `JoinType.candidateKeys` | a 50-value cut-off |
-| a multi-valued property | `property_tables` | `kind = 'property'` | a type with a `value`, and the hop to it | skipped |
+| Fact | Where the corpus states it | `JoinGraph` | Before |
+| --- | --- | --- | --- |
+| a type's, an edge's, a column's IRI | undecided: the mapping or GraphAr's extra information | `iri` | not read |
+| an edge's label | `graphar_edge_types.edge_type` | `JoinEdge.label` | parsed out of `<Source>_<label>_<Destination>` |
+| an edge's endpoint keys | the endpoint indices, reconciled with each type's `first` by the reader | `src`, `dst` | written as `"src"` and `"dst"` |
+| a literal's datatype | the mapping, through `withMapping` | `JoinColumn.datatype` | dropped: an `xsd:gYear` stored as an integer was a measure to average |
+| a term's type | undecided: the mapping or GraphAr's extra information | `JoinColumn.termType` | an IRI column guessed an identifier by its name or its cardinality |
+| a column's role | `address` is the reader's, from the vertex index; the rest undecided | `JoinColumn.role` | `ID_NAME` re-guessed identity by name |
+| nullability | `graphar_properties.is_nullable` | `JoinColumn.nullable` | not read |
+| a label in a language | the mapping, through `withMapping` | `annotations` | words split out of identifiers |
+| what a column holds | extent and nulls: the chunks' Parquet footers; distinct count and commonest values: undecided | `JoinColumn.stats` | a `SUMMARIZE` in `fieldStats`, another in `AnswerCard`, a count per category for Ask |
+| the keys the writer found | `graphar_properties.is_primary` is a declared key; a discovered candidate has no place | `JoinType.candidateKeys` | a 50-value cut-off |
+| a multi-valued property | GraphAr's `cardinality`, read by the reader as a type of its own | a type with a `value`, and the hop to it | skipped |
 
 ## What a field is comes from the manifest, through one read
 
-**Every fact the manifest states about a type, an edge or a column reaches `JoinGraph` unchanged, and
-nothing downstream re-derives one.** The path is the one the data already travels: `fossil.json` →
-`@fossil-lang/corpus`'s `attach`, which makes the manifest relations beside the tables →
-`@kanzo-tech/graph`'s `readCatalog`, the one function that reads them → `joinGraphOf`, the one
-constructor of a `JoinGraph` from a corpus → `@kanzo-tech/mosaic`, `@kanzo-tech/ui/analytics` and
-`@kanzo-tech/ai/data`. A column's DuckDB type is read in the same breath from the engine's own
-`duckdb_columns()`: what the engine will read the view as, never a mapping of fossil's spelling kept
-here.
+**Every fact the catalog or the mapping states about a type, an edge or a column reaches `JoinGraph`
+unchanged, and nothing downstream re-derives one.** The path is one: the attached GraphAr graph →
+`@kanzo-tech/relations`'s `CatalogReader`, the only way a `JoinGraph` is made from an engine →
+`withMapping`, which fills labels and datatypes from the program's mapping and adds no type and no
+column → `@kanzo-tech/ui/analytics`, `@kanzo-tech/ai/data` and `@kanzo-tech/graph`. A host with no
+corpus yet gets the same model from the compiler's `describe` over the declared types
+([relations](/docs/design/relations#the-pre-run-shape-comes-from-the-compiler)). A column's DuckDB
+type is read in the same breath from the engine's own `duckdb_columns()`: what the engine will read
+the view as, never a mapping of fossil's spelling kept here.
 
 **`JoinGraph` carries a column as a description, not a name** — `JoinColumn`: its name, its DuckDB
 type, and whatever the catalog states of it, `role`, `datatype`, `termType`, `iri`, `nullable`,
@@ -46,31 +55,37 @@ the dashboard example on `/docs/analytics/dashboard` declares its table's key th
 a column of a joined relation is described by its step's type, so its counts are the type's, which
 is what a default needs, and not the join's.
 
-**Every catalog read is behind `readCatalog`**, so a change in how a corpus states itself is a change
-in one function. fossil's corpus may move to Apache GraphAr (fossil-lang's draft #42, under review);
-if it does, `readCatalog` reads GraphAr's metadata and answers the same `Structure`, and nothing past
-it moves ([The graph](/docs/design/graph#the-graph-reads-sql-through-the-pages-coordinator)).
+**Every catalog read is behind a `CatalogReader`**, so a change in how a corpus states itself is a
+change in one function, and the model it answers does not move
+([The graph](/docs/design/graph#one-catalog-type-and-the-graph-keeps-none)). fossil's corpus moves to
+Apache GraphAr, and fossil deletes `attach` and the `fossil_*` relations with it; the reader of a
+relation nothing makes is not kept.
 
-The reference is the manifest itself — `/docs/format` on fossil's site, the contract a corpus
-fulfils — and, for the vocabulary of a term, R2RML's: `rr:termType` and the XSD datatypes, which is
-what fossil writes. A semantic layer reads the same way: Looker's dimension `type` and Malloy's
+The reference is the catalog's own specification — Apache GraphAr's format, which numbers vertices per
+type and is the reader's to reconcile — and, for the vocabulary of a term, R2RML's: `rr:termType` and
+the XSD datatypes, which is what a mapping states. A semantic layer reads the same way: Looker's dimension `type` and Malloy's
 schema-read types come from the warehouse's declaration, never from a column's spelling.
 
-**What would reverse it:** a reader that needs a fact the manifest does not hold. Then it is added to
-the manifest, by fossil, and travels the same path — never derived on the reader's side.
+**Three facts have no source yet, and the page says so rather than choose one:** a term's type, an IRI
+and a column's role beyond the key. GraphAr's standard states neither, the mapping may, and GraphAr's
+extra information may; which is fossil's migration to settle. Until a source states them, they are
+absent from the `JoinGraph`, a column with no role reads by its DuckDB type, and an IRI column is an
+identifier only if something said so. This is the rule working, not a gap in it.
 
-*Held by* `packages/graph/src/core/catalog.test.ts`, "takes an edge's label and its endpoint keys
-from fossil_tables, never from the table's name"; "describes each column — the engine's type, its
-term type and datatype, its annotations and the writer's counts"; `packages/graph/src/core/join-graph.test.ts`,
-"keys a type by its address, describes every column as the catalog does, and joins an edge on the
-keys it names"; `packages/graph/src/layers.test.ts`, "builds statements only where it reads, writes
-none in a string, and imports nothing of fossil's".
+**What would reverse it:** a reader that needs a fact neither the catalog nor the mapping holds. Then
+it is added to one of them, by fossil, and travels the same path — never derived on the reader's side.
 
-## What a field holds comes from the writer's counts, stored in the corpus
+*Not yet held:* a test that reads a vendored GraphAr fixture through the real attacher and the real
+reader and asserts every row of the table above, and a `layers.test.ts` case that no shipped source
+names a catalog relation of the old format. The fossil-relation tests this replaces are deleted with
+the reader.
 
-**fossil's writer counts, for every column of every table, its nulls, its distinct values, its extent
-and its commonest values with their share of the rows — under Parquet's `Statistics` names and
-`pg_stats`' — and the library reads those, and runs no `SUMMARIZE` over a counted corpus.**
+## What a field holds comes from counts stated in the corpus
+
+**A corpus states, for every column of every table, the counts a field needs — its nulls, its distinct
+values, its extent and its commonest values with their share of the rows — under Parquet's
+`Statistics` names and `pg_stats`', and the library reads those and runs no `SUMMARIZE` over a
+counted corpus.**
 `useFieldStats` over a relation of the page's joins whose columns are all counted queries nothing;
 Ask is offered each type's fields off the graph, its commonest values the writer's; `AnswerCard`
 draws by the facts the answer was asked over, so the model and the card are told the same figures.
@@ -87,13 +102,16 @@ writer counted. It reads one — its catalog answers a row of nulls per column �
 relation nothing counted: one `SUMMARIZE` for a dashboard, and Ask offered its fields without values.
 Refusing it would have been a failure for a reader to see where a slower read does.
 
-**Discarded: Parquet's own statistics.** Each row group's footer carries a minimum, a maximum and a
-null count, read for free. It carries no distinct count and no commonest values, which are the two
-figures a field's role and Ask's prompt need, and a corpus of many row groups would still have to be
-merged into one figure by somebody. *Back if* the writer's counts cost a run more than readers gain,
-measured — then the extent and nulls come from the footers and the writer keeps only what they lack.
+**Parquet's own statistics are what a GraphAr corpus gives for free, and no more.** Each row group's
+footer carries a minimum, a maximum and a null count, read without scanning the data, and the reader
+merges the row groups into one figure per column. It carries no commonest values and, in practice, no
+distinct count, which are the two figures a field's role and Ask's prompt need. So the extent and the
+nulls come from the footers, and where the distinct count and the commonest values are to be stated —
+by the writer in the corpus's extra information, or read once per relation — is undecided and fossil's
+to settle with its migration. Until it is, a relation whose columns lack them is the relation nothing
+counted, which the paragraph above already designs: one `SUMMARIZE`, once, cached.
 
-**What would reverse it:** a corpus written by something other than fossil, as the common case. Then
+**What would reverse it:** a corpus whose writer states no counts, as the common case. Then
 the counts are a reader's step, run once per corpus through the read door, and still not one per
 component.
 
@@ -190,7 +208,10 @@ and absent where nothing labels it".
 ## What it changed for a consumer
 
 - A `JoinGraph` type's `columns` are `JoinColumn` descriptions, not names. Build one from a corpus
-  with `readJoinGraph`; a graph of your own describes at least each column's `name` and `type`.
+  with `@kanzo-tech/relations`' reader, and fill its labels and datatypes with `withMapping`; a graph
+  of your own describes at least each column's `name` and `type`.
+- A term's type, an IRI and a column's role beyond the key are absent until the catalog or the
+  mapping states them; nothing in the library guesses them.
 - A column named `id`, `uri` or `iri` is no longer an identifier because of its name, and a text of
   more than 50 values is no longer one because of its count. Declare a key in the shape, or in the
   joins you hand the provider.
