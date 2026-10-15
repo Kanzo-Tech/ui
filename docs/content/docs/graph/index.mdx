@@ -1,12 +1,13 @@
 ---
 title: Graph
-description: The graph view over a fossil corpus — attached to the page's DuckDB, read as one Mosaic client on the page's coordinator, laid out and drawn with cosmos.gl on the GPU.
+description: The graph view over an Apache GraphAr graph — attached to the page's DuckDB, read as one Mosaic client on the page's coordinator, laid out and drawn with cosmos.gl on the GPU.
 ---
 
-`@kanzo-tech/graph` draws a corpus fossil compiled. The host attaches it to the page's DuckDB with
-fossil's `attach`, under a catalog name; `GraphRoot` reads that catalog through the page's Mosaic
+`@kanzo-tech/graph` draws an [Apache GraphAr](https://graphar.apache.org/) graph — what fossil
+compiles a program to. The host attaches it to the page's DuckDB with `@kanzo-tech/graphar-duckdb`'s
+`attachGraph`, under a catalog name; `GraphRoot` reads that catalog through the page's Mosaic
 coordinator, like every chart beside it, and draws the whole graph with cosmos.gl. It imports
-nothing of fossil's: the contract is the catalog.
+nothing of graphar's or fossil's: the contract is the catalog.
 
 <ComponentPreview componentName="graph" fileName="example-workspace" hasMaxHeight />
 
@@ -32,8 +33,8 @@ when something scans it:
 
 Every peer is required: cosmos.gl draws and lays out, `@kanzo-tech/mosaic` is the page's coordinator
 and crossfilter, and the parts are built from `@kanzo-tech/ui` and its icons. The host attaches the
-corpus with `@fossil-lang/corpus`'s `attach`, which attaches a catalog and answers the attachment
-that detaches it; the graph never imports it.
+graph with `@kanzo-tech/graphar-duckdb`'s `attachGraph`, which attaches a catalog and answers the
+attachment that detaches it; the graph never imports it.
 
 It is a **sibling** of `@kanzo-tech/ui`, not part of it. [The first admission
 rule](/docs/philosophy#admission) is *domain-free — nothing about RDF / SHACL / **graphs** / auth*,
@@ -43,14 +44,15 @@ answer `palette` and `theme` already got.
 ## Usage
 
 ```tsx
-import { attach } from "@fossil-lang/corpus";
+import { attachGraph } from "@kanzo-tech/graphar-duckdb";
 import { engine } from "@kanzo-tech/mosaic";
 import { GraphCanvas, GraphLegend, GraphRoot, GraphToolbar } from "@kanzo-tech/graph";
 ```
 
 ```tsx
 const e = await engine();
-await attach("archive", { engine: e, url }); // views "archive"."<Table>", fossil_tables, fossil_columns
+// views "archive"."<type>", graphar_vertex_types, graphar_edge_types, graphar_properties
+await attachGraph(e, "archive", (paths) => paths.map((p) => `${url}/${p}`), { entry: "fossil.graph.yml" });
 
 <GraphRoot from="archive" coordinator={e.coordinator} r="degree" title="label" onFailure={setFailure}>
   <GraphCanvas>
@@ -62,8 +64,8 @@ await attach("archive", { engine: e, url }); // views "archive"."<Table>", fossi
 
 <ComponentPreview componentName="graph" hasMaxHeight />
 
-**Attaching is the host's**, and so is detaching: `attach` answers the attachment whose `detach()` gives the catalog
-back. `from={null}` is no corpus yet. The canvas is mounted either way and waits over an empty
+**Attaching is the host's**, and so is detaching: `attachGraph` answers the attachment whose `detach()` gives the catalog
+back. `from={null}` is no graph yet. The canvas is mounted either way and waits over an empty
 surface, because a canvas gated on its first answer has no camera to ask with.
 [Discovery workspace](/docs/graph/workspace) is the whole wiring — the engine, one coordinator, one
 crossfilter, the graph and the charts.
@@ -154,7 +156,7 @@ The categorical scale the canvas draws, **as rows and nothing else**: the glyph,
 many vertices of that category are drawn. With nothing bound to `fill` the categories are the vertex
 types; with colour a constant and nothing on `symbol` there is no category to key, and the legend
 renders nothing. **A row never moves.** The domain is fixed before the graph loads — the vertex types
-in `fossil_tables`' order, or the keys of the root's `categories` — so a colour never changes hands. A
+in `graphar_vertex_types`' order, or the keys of the root's `categories` — so a colour never changes hands. A
 category past the palette's capacity is Other, on the legend as on the canvas.
 
 **On a map a row is what the map places**: bound positions hide a vertex with no value, so a row
@@ -298,7 +300,7 @@ read when a reader focuses it: one `SELECT` of its table at its `dense_id`.
   reader carries elsewhere, so it is never a row to hunt for.
 - **Nothing selects the neighbours here.** A click on the canvas already selects a vertex with its
   neighbours, and so does Locate; the connections are the canvas's to show.
-- **The fields** are the table's, two columns, in `fossil_columns`' order, grouped as **Values** and
+- **The fields** are the type's, two columns, in `graphar_properties`' order, grouped as **Values** and
   **Dates** — a date is a column whose declared type is a date or a time. An IRI is a link out, and a
   long text is clamped with "more". A `DataListItem` the render prop draws lines up with them without
   a class of its own.
@@ -331,10 +333,9 @@ named apart from the toolbar's layout transport, which is a play button too.
 
 - **The column is a setting.** `time-by` — *Timeline* in the graph's settings — offers the corpus's
   temporal columns, the way *X axis* offers its numeric ones, and `useGraphPrefs().timeline` is the
-  one chosen, `""` for none. A column is temporal by what `fossil_columns` declares: a `date` or a
-  `timestamp`, or a column whose `datatype` is `xsd:date`, `xsd:dateTime` or `xsd:gYear` — a year is
-  stored as an `int32`, and the datatype is what says it is a year. That needs a corpus attached by
-  `@fossil-lang/corpus` 0.3.0-alpha.28 or later.
+  one chosen, `""` for none. A column is temporal by its GraphAr type: a `date` or a `timestamp`. A
+  year stored as an `int32` is a number — GraphAr has no year type, and the `xsd:gYear` lives in the
+  graph's mapping ([why](/docs/design/timeline)).
 - **Only what is in the window stays in colour.** The window is a clause on `vertices`, the
   relation the canvas reads too, so the canvas reads it as published; the page crosses it into any
   other relation by `dense_id`, as it crosses a dashboard's. A vertex stays in colour when it has the column and its value is in the window;
@@ -414,9 +415,9 @@ Where the points come from, composed here from the part — a page that wants pl
 its `<Pref>`s, and each draws itself only when its declaration says so. **Force** is the GPU layout;
 **Map** binds two numeric columns as `x` and `y`, and nothing simulates; **Clustered** runs the
 layout with cosmos.gl's cluster force over one column. The columns are Cosmograph's `pointXBy`,
-`pointYBy` and `pointClusterBy`, and their options are the corpus's own fields from
-`fossil_columns`, answered by the root — numeric ones for Map, any for Clustered; fossil's
-`dense_id` and identity are not fields. A column is a `Select`, because the data answers its list;
+`pointYBy` and `pointClusterBy`, and their options are the graph's own fields from
+`graphar_properties`, answered by the root — numeric ones for Map, any for Clustered; the global
+`dense_id`, a type's primary key and a `list` property are not fields. A column is a `Select`, because the data answers its list;
 clearing it unbinds it.
 
 ```tsx
@@ -509,31 +510,40 @@ has how the graph answers.
 
 ## Identity
 
-A `VertexId` is the corpus's `dense_id`, a `number`: fossil numbers every vertex of the corpus
-`0 … V − 1` across all its tables, each table one contiguous range, so a vertex's id is also its
-index in cosmos.gl's buffers. An id from SQL — `SELECT dense_id FROM …` — is a vertex as it stands, for
-`reveal` or a pick.
+A `VertexId` is the graph's global id, `dense_id`, a `number`: GraphAr numbers vertices within a
+type (`_graphArVertexIndex`), and the graph numbers every vertex `0 … V − 1` from those — each node
+type, in the graph document's order, one contiguous range starting at the sum of the counts before
+it — so a vertex's id is also its index in cosmos.gl's buffers. Nothing writes it to the files: it is
+the column each type's table in the graph and in `readJoinGraph` projects, so an id from SQL over
+those — `SELECT dense_id FROM …` — is a vertex as it stands, for `reveal` or a pick.
 
-**The graph reads the key's name from the manifest, not from a constant**: it is the column
-`fossil_columns` gives the `address` role, which fossil's writer names `dense_id`. Every clause the
-graph publishes is a semi-join on it, and a corpus whose vertex tables have no such column is refused
-as `graph/nothing-to-draw`.
+**Every GraphAr vertex type is a node type.** Its identity is its `is_primary` property, and the id
+itself where it has none. A multi-valued property is a `list` property of the type that owns it
+(`nickname` is a `VARCHAR[]` column of `person`): the inspector shows its values, a search can name it,
+and it is not offered as a position, a group or a timeline column, nor as a field of a dashboard. A
+graph with no vertex is refused as `graph/nothing-to-draw`. Every clause the graph publishes is a
+semi-join on `dense_id`.
 
 ### readJoinGraph
 
-`readJoinGraph(coordinator, from)` is the same corpus as a `JoinGraph` — what
+`readJoinGraph(coordinator, from)` is the same graph as a `JoinGraph` — what
 `@kanzo-tech/ui/analytics`' [relations](/docs/analytics/dashboard#relations) are built over, and the
-one constructor of one from a corpus. Each vertex table is a type keyed by `dense_id`, every column
-of it described as the catalog describes it: its DuckDB type, its `role`, its `datatype` and
-`termType`, its `iri`, whether it is `nullable`, its annotations — its `rdfs:label` among them — and
-what fossil's writer counted in it (`stats`: its nulls, its distinct values, its extent and its
-commonest values), with the type's `candidateKeys`, `iri` and annotations beside them. Each edge
-table joins through the columns `fossil_tables` names for its ends, `source_key` and
-`destination_key`, under the label it states. One more type, `vertices`, is every vertex table as
-one relation (`of` every type), with `NULL` where a table has no such column — what the canvas and a
-timeline over the graph read; its columns carry no counts, because the writer counted each table and
-not their union. The views a corpus is attached as declare no keys, so this is what says an edge
-table joins anything. The charts never learn fossil; they take the graph as data.
+one constructor of one from a graph. Each vertex type is a type keyed by `dense_id`, its `table` the
+type's view under the global id, every column described as GraphAr's catalog describes it: its
+DuckDB type, whether it is `nullable`, a `role` for the two keys — `address` for `dense_id`,
+`identity` for the primary key, which are the type's `candidateKeys` — and what fossil's writer
+counted in it (`stats`: its nulls, its distinct values, its extent and its commonest values), read
+from the chunks' Parquet footers. Each edge type joins through `src` and `dst`, its ends as global
+ids, under GraphAr's `edge_type` as its label. One more type, `vertices`, is every vertex type as one
+relation (`of` every type), with `NULL` where a type has no such column — what the canvas and a
+timeline over the graph read; its columns carry no counts, because they were counted per type. The
+views a graph is attached as declare no keys, so this is what says an edge type joins anything. The
+charts never learn GraphAr; they take the graph as data.
+
+GraphAr's catalog carries no IRIs, term types, datatypes or annotations, so neither does the join
+graph: a field is called by its name, and a year is a number ([what GraphAr does not
+carry](/docs/design/graph#what-graphar-does-not-carry)). A graph whose chunks state no counts has none,
+and `useFieldStats` reads its relation with one `SUMMARIZE`.
 
 The catalog is read in one place, `readCatalog`, and the canvas's structure and this graph are both
 what it answered: through the page's coordinator and its cache, so a page that draws the graph and a
@@ -551,9 +561,9 @@ const graph = await readJoinGraph(coordinator, jobId);
 `Person.country`, which `vertices` has not, and the page crosses them into the graph as one semi-join
 on `dense_id` — [what the page sees](/docs/analytics/dashboard#what-the-page-sees).
 
-*Held by* `packages/graph/src/core/join-graph.test.ts`, "keys a type by its address, describes every
-column as the catalog does, and joins an edge on the keys it names"; `packages/graph/src/core/catalog.test.ts`,
-"takes an edge's label and its endpoint keys from fossil_tables, never from the table's name".
+*Held by* `packages/graph/src/core/join-graph.test.ts`, "keys a type by the global id, names its keys,
+and joins an edge on its global ends"; `packages/graph/src/core/catalog.test.ts`,
+"takes an edge's label and its ends from graphar_edge_types, never from the view's name".
 
 ### withMapping
 
@@ -595,7 +605,7 @@ several".
 **`onFailure` is required**, because unhandled, a browser with no WebGL context shows an empty box.
 It receives every failure **as it was thrown**, and the graph's own are a kernel `Problem`. The root
 reports `status: "failed"` beside it, so a part can render the failed state without holding the
-error. A failed `attach` is the host's own — above, fossil's coded `corpus/unreadable`, routed to the
+error. A failed `attachGraph` is the host's own — above, a coded refusal, routed to the
 same handler and drawn by [`Problem`](/docs/data-display/problem), which reads the code off whatever
 was thrown and takes the host's words for it.
 
@@ -604,8 +614,8 @@ was thrown and takes the host's words for it.
 | `graph/no-webgl` | No WebGL context, or no GPU device came up. `data.after` is set when the 10 s device deadline fired. |
 | `graph/context-lost` | The browser took the WebGL context back and did not return it within 5 s. A context that returns is restored: the canvas is built again over what the store holds, and a layout that was running runs again. |
 | `graph/no-positions` | The device came up but holds no positions for the points it was given, found when the camera read them back. `cause` is what the read threw. |
-| `graph/nothing-to-draw` | The attached corpus has no vertex. |
-| `graph/too-large` | The corpus has more than 2²⁴ = 16,777,216 vertices, past which an id no longer fits a `Float32` link exactly. `data.count` and `data.limit`. Refused from the catalog's counts, before one link is read. |
+| `graph/nothing-to-draw` | The attached graph has no vertex. |
+| `graph/too-large` | The graph has more than 2²⁴ = 16,777,216 vertices, past which an id no longer fits a `Float32` link exactly. `data.count` and `data.limit`. Refused from the catalog's counts (`graphar_vertex_types.count`), before one link is read. |
 
 A part that reads on its own — the search's names, the inspector's row, a label's text — hands its
 failure to the same `onFailure` and shows it in place. A host keys its message on `code` and falls
@@ -679,7 +689,7 @@ writes it in.
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `from` | `string \| null` — the catalog fossil's `attach` attached | required |
+| `from` | `string \| null` — the catalog `attachGraph` attached | required |
 | `coordinator` | `Coordinator \| null` — the page's Mosaic coordinator | required |
 | `onFailure` | `(error: unknown) => void` | required |
 | `fill` | `string` — a column, or a CSS colour every point wears | the vertex type |
@@ -811,7 +821,7 @@ What `useGraphState` selects from.
 | `status` | `DataStatus` — `"none" \| "loading" \| "idle" \| "failed"` | The data's life. |
 | `motion` | `Motion` — `"running" \| "paused" \| "settled"` | The layout's life. |
 | `progress` | `number` | How far a running layout has settled, `0`–`1`. |
-| `total` | `number \| undefined` | Every vertex of the corpus, from `fossil_tables`. |
+| `total` | `number \| undefined` | Every vertex of the graph, from `graphar_vertex_types`. |
 | `matching` | `number \| null` | The vertices of the corpus the page's filter keeps; `null` when nothing is filtered. |
 | `drawn` | `Drawn \| null` | `vertices`, `edges`, `domain` and `tally` under the filter; `placed` per rank with a position, `totals` per rank in the corpus, `links` loaded and `placedLinks` with both ends placed. |
 | `domain` | `readonly unknown[]` | The category domain before anything loads. |

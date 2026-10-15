@@ -6,7 +6,7 @@ import { Problem } from "@kanzo-tech/kernel";
 import { loadEncoding, loadGeometry, type Encoding, type Geometry } from "./load";
 import { readCatalog } from "./catalog";
 import { VERTICES } from "./source";
-import { type Structure } from "./structure";
+import { KEY, type Structure } from "./structure";
 import { drawnOf, idsOf, keptOf, maskOf } from "./kept";
 import { memo } from "./memo";
 import { createReads, type Kind } from "./reads";
@@ -157,12 +157,12 @@ export function createGraph(initial: GraphOptions): GraphStore {
     read("structure", (signal) => readCatalog(coordinator, from, signal), (next) => {
       if (next.size === 0) {
         failed = true;
-        fail(new Problem("graph/nothing-to-draw", `the corpus attached as ${from} has no vertex`));
+        fail(new Problem("graph/nothing-to-draw", `the graph attached as ${from} has no vertex`));
         return;
       }
       if (next.size > LIMIT) {
         failed = true;
-        fail(new Problem("graph/too-large", `the corpus attached as ${from} has ${next.size} vertices; the graph draws at most ${LIMIT}`, { count: next.size, limit: LIMIT }));
+        fail(new Problem("graph/too-large", `the graph attached as ${from} has ${next.size} vertices; the graph draws at most ${LIMIT}`, { count: next.size, limit: LIMIT }));
         return;
       }
       structure = next;
@@ -198,7 +198,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     failed = false;
     shownOnce = false;
     // A new corpus: the old one's pick goes from the page with its vertices.
-    if (client && published && structure) publish(published, client, structure.key, null, "");
+    if (client && published && structure) publish(published, client, KEY, null, "");
     published = null;
     structure = geometry = encoding = null;
     kept = mask = null;
@@ -243,14 +243,14 @@ export function createGraph(initial: GraphOptions): GraphStore {
     const { selection } = snapshot;
     if (selection && structure) {
       published = scope();
-      publish(published, client, structure.key, selection.vertices, selection.label, selection.excludes);
+      publish(published, client, KEY, selection.vertices, selection.label, selection.excludes);
     }
   }
 
   function disconnect(): void {
     unwatch?.();
     unwatch = null;
-    if (client && published && structure) publish(published, client, structure.key, null, "");
+    if (client && published && structure) publish(published, client, KEY, null, "");
     published = null;
     if (client && connected) connected.disconnect(client);
     client = null;
@@ -329,7 +329,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
       options.onSelect?.(selection);
       if (!client || !structure) return;
       published = scope();
-      publish(published, client, structure.key, selection ? selection.vertices : null, label, excludes);
+      publish(published, client, KEY, selection ? selection.vertices : null, label, excludes);
     },
     scope,
     source(id) {

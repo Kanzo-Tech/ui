@@ -1,7 +1,7 @@
 // The benchmark's corpus, compiled rather than generated in the browser.
 //
-// Two CSVs in, a `fossil/1` corpus out: `@fossil-lang/executor` (run by `build-corpus.mjs`) writes one
-// Parquet for the vertex type and one for the relation, and `fossil.json` last. No positions: the
+// Two CSVs in, a GraphAr graph out: `@fossil-lang/executor` (run by `build-corpus.mjs`) writes
+// Parquet chunks for the vertex type and the edge type, and `fossil.graph.yml` last. No positions: the
 // viewer lays the graph out on the GPU.
 //
 // **Two mappings, and their projections must match column for column.** Only a subject map mints a

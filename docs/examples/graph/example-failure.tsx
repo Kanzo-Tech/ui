@@ -4,19 +4,19 @@ import { useEffect, useState } from "react";
 import { GraphCanvas, GraphRoot } from "@kanzo-tech/graph";
 import { DiagnosticList, Problem, Show, type ProblemDescription } from "@kanzo-tech/ui";
 import { engine } from "@kanzo-tech/mosaic";
-import { attach } from "@fossil-lang/corpus";
+import { attachWritten } from "@/lib/attach-graph";
 
-/** What a host says for a failure, keyed on its `code` — fossil's and the graph's alike. */
+/** What a host says for a failure, keyed on its `code` — graphar's and the graph's alike. */
 function describe(code: string): ProblemDescription | undefined {
   if (code === "graph/no-webgl") return { title: "This browser cannot draw the graph." };
-  if (code === "corpus/unreadable") return { title: "The corpus is not where it was said to be." };
+  if (code === "unreadable") return { title: "The graph is not where it was said to be." };
   return undefined;
 }
 
 /**
- * A corpus that is not there. fossil's `attach` refuses it with its coded `corpus/unreadable`, the host
+ * A graph that is not there. `attachGraph` refuses it with its coded `unreadable` (a `GraphArError`), the host
  * routes that to the same handler it gives the root's `onFailure`, and `Problem` draws it: the
- * host's title where `describe` has one for the code, fossil's own message as the detail. The root is
+ * host's title where `describe` has one for the code, the attach's own message as the detail. The root is
  * never handed a catalog, so it stays `none` over an empty canvas.
  */
 export default function Example() {
@@ -24,7 +24,7 @@ export default function Example() {
   useEffect(() => {
     const missing = `${window.location.origin}${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/corpus/nowhere`;
     engine()
-      .then((e) => attach("nowhere", { engine: e, url: missing }))
+      .then((e) => attachWritten(e, "nowhere", missing))
       .catch(setFailure);
   }, []);
   return (

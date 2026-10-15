@@ -57,8 +57,9 @@ pnpm add @kanzo-tech/graph @cosmos.gl/graph @kanzo-tech/mosaic @kanzo-tech/ui lu
 ```
 
 Every peer is required: `@kanzo-tech/mosaic` is the coordinator the graph reads through and the
-crossfilter it shares with the charts. The graph imports nothing of fossil's — the host attaches a
-graph with `attachGraph`, its own dependency, and names the catalog to the root.
+crossfilter it shares with the charts. The graph imports nothing of graphar's or fossil's — the host
+attaches a GraphAr graph with `@kanzo-tech/graphar-duckdb`'s `attachGraph`, its own dependency, and
+names the catalog to the root.
 
 ### The AI surfaces are a package too
 

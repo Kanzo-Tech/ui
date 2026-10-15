@@ -1,30 +1,34 @@
 # @kanzo-tech/graph
 
-The graph view over a [fossil](https://github.com/Kanzo-Tech/fossil-lang) corpus, drawn with
-[cosmos.gl](https://cosmosgl.github.io/graph). fossil is the backend and this package is the view:
-the host attaches the corpus, and `GraphRoot` draws the whole of it, reading it with SQL through the
-page's coordinator. Nothing of fossil's is imported: the contract is the catalog, `fossil_tables` and
-`fossil_columns`.
+The graph view over an [Apache GraphAr](https://graphar.apache.org/) graph — what
+[fossil](https://github.com/Kanzo-Tech/fossil-lang) compiles a program to — drawn with
+[cosmos.gl](https://cosmosgl.github.io/graph). The host attaches the graph with
+[`@kanzo-tech/graphar-duckdb`](https://github.com/Kanzo-Tech/graphar)'s `attachGraph`, and
+`GraphRoot` draws the whole of it, reading it with SQL through the page's coordinator. Nothing of
+graphar's or fossil's is imported: the contract is the catalog, `graphar_vertex_types`,
+`graphar_edge_types`, `graphar_properties`, `graphar_chunks` — the chunks' Parquet footers hold what the
+writer counted — and a view per type.
 
 ## Install
 
 ```sh
-pnpm add @kanzo-tech/graph @cosmos.gl/graph @fossil-lang/corpus @kanzo-tech/mosaic @kanzo-tech/ui lucide-react @uwdata/mosaic-core @uwdata/mosaic-sql
+pnpm add @kanzo-tech/graph @cosmos.gl/graph @kanzo-tech/graphar-duckdb @kanzo-tech/mosaic @kanzo-tech/ui lucide-react @uwdata/mosaic-core @uwdata/mosaic-sql
 ```
 
 Every peer is required. `@kanzo-tech/mosaic` is the page's one DuckDB-WASM engine and its
 crossfilter, cosmos.gl draws, and the parts are built from `@kanzo-tech/ui` and its icons.
-`@fossil-lang/corpus` is the host's, to attach the corpus with; the graph never imports it.
+`@kanzo-tech/graphar-duckdb` is the host's, to attach the graph with; the graph never imports it.
 
 ## The one path
 
 ```tsx
-import { attach } from "@fossil-lang/corpus";
+import { attachGraph } from "@kanzo-tech/graphar-duckdb";
 import { engine } from "@kanzo-tech/mosaic";
 import { GraphCanvas, GraphCounts, GraphInspector, GraphLegend, GraphRoot, GraphStatus, GraphToolbar } from "@kanzo-tech/graph";
 
 const e = await engine();
-await attach("archive", { engine: e, url }); // views "archive"."<Table>", fossil_tables, fossil_columns
+// views "archive"."<type>", graphar_vertex_types, graphar_edge_types, graphar_properties
+await attachGraph(e, "archive", (paths) => paths.map((p) => `${url}/${p}`), { entry: "fossil.graph.yml" });
 
 // Under `<MosaicProvider coordinator={e.coordinator} joins={await readJoinGraph(e.coordinator, "archive")}>`:
 const { selection } = useMosaic();
@@ -40,17 +44,19 @@ const { selection } = useMosaic();
 </GraphRoot>;
 ```
 
-**Attaching is the host's**, and so is detaching: `attach` answers the attachment whose `detach()`
+**Attaching is the host's**, and so is detaching: `attachGraph` answers the attachment whose `detach()`
 gives the catalog back, and `GraphRoot` takes the name it was attached under as `from`.
-`from={null}` is no corpus yet; the canvas is mounted either way and waits over an empty surface.
+`from={null}` is no graph yet; the canvas is mounted either way and waits over an empty surface.
 
-**The whole corpus is drawn**: every vertex table with a position — fossil's layout or the
-program's own columns — and every relation whose two ends are drawn, read once, one scan per table,
-and uploaded once. A vertex's `dense_id` is its index in the buffers. The camera reads nothing.
+**The whole graph is drawn**: every vertex type and every edge type between two of them, read once, one statement per type, and uploaded once. A
+vertex's `dense_id` is its index in the buffers: the graph's own global id, each vertex type's
+`_graphArVertexIndex` plus the counts of the vertex types before it. The camera reads nothing.
 
 **The channels are Plot's**: `fill`, `symbol`, `r`, `stroke` and `title`, where a CSS colour is a
-constant and anything else is a column. Unbound, colour is the vertex type and a label is the table's
-`identity`. Changing a column binding re-reads that column and nothing else.
+constant and anything else is a column. Unbound, colour is the vertex type and a label is the type's
+primary key, or its id where it has none. Changing a column binding re-reads that column and nothing else.
+A multi-valued property is a `list` property of its type: the inspector shows its values and a search
+finds them, but it is never offered as an axis, a group or a field.
 
 **`filterBy` is the page's selection** — `useMosaic().selection` under a `MosaicProvider` given the
 corpus's joins. The graph is one more client of it, reading `vertices`: every vertex as one relation,
@@ -94,7 +100,7 @@ graph, a second main view and a dock of panels.
 No part takes a callback of its own: what a click means is `onSelect`, `onFocus` and `onFailure` on
 the root. The graph's settings are no part: they are `GRAPH_SECTION` on `@kanzo-tech/graph/section`,
 drawn by `@kanzo-tech/ui`'s `PreferencesSections`.
-`onFailure` is required and receives every failure as thrown — fossil's coded errors, and the graph's
+`onFailure` is required and receives every failure as thrown — the engine's and the host's coded errors, and the graph's
 own `Problem`s (`graph/no-webgl`, `graph/context-lost`, `graph/no-positions`,
 `graph/nothing-to-draw`, `graph/too-large`).
 
@@ -103,14 +109,14 @@ own `Problem`s (`graph/no-webgl`, `graph/context-lost`, `graph/no-positions`,
 - `lookFrom`, `simFrom`, `placementFrom`, `useGraphPrefs` — the form, the forces and where the
   points come from, read from `GRAPH_SECTION`'s answers; `scaleOf` — what colour and shape a
   category wears.
-- `VertexId` — a vertex is its `dense_id`, a `number`.
+- `VertexId` — a vertex is its global `dense_id`, a `number`.
 
 ### The readers
 
-- `readJoinGraph(coordinator, from)` — the corpus attached as `from` as a `JoinGraph`, read from
-  `fossil_tables` and `fossil_columns`: each vertex table a type keyed by `dense_id` that projects
-  the columns the writer gave no role, each edge table joined through `src` and `dst`, and one more
-  type, `vertices`, every vertex table as one relation. It is what `@kanzo-tech/mosaic`'s relations —
+- `readJoinGraph(coordinator, from)` — the graph attached as `from` as a `JoinGraph`, read from
+  GraphAr's relations: each vertex type a type keyed by `dense_id` over its view, with the writer's counts read from the
+  chunks' footers, each edge type joined through `src` and `dst` as global ids, and one more type,
+  `vertices`, every vertex type as one relation. It is what `@kanzo-tech/mosaic`'s relations —
   and `@kanzo-tech/ui/analytics`' relation dashboards — are built over: `MosaicProvider`'s `joins`.
 
 The full guide — the parts, layout and camera, and the workspace recipe — is at

@@ -8,7 +8,7 @@
  *
  * A corpus is a compiler's output: write once with the real writer, read many with the real reader.
  * **`@fossil-lang/executor` is the writer, and the only one.** It runs `bench.fossil` in Node and
- * writes `fossil/1` — one Parquet per vertex type and per relation, `fossil.json` last. It carries
+ * writes a GraphAr graph — Parquet chunks per vertex and edge type, `fossil.graph.yml` last. It carries
  * the graph and no picture: where a point goes is the viewer's layout, on the GPU.
  *
  * Usage:  node build-corpus.mjs [--sizes 2000,10000]

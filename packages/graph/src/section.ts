@@ -189,10 +189,9 @@ export const GRAPH_SECTION = {
 
     /**
      * **The column the timeline under the graph reads** — Cosmograph's `CosmographTimeline`
-     * `accessor`, chosen where the placement's columns are, from the corpus's temporal columns: a
-     * date, a timestamp, or a year its shape types `xsd:gYear`. The root answers the list
-     * (`GraphSection`), by the type and the datatype `fossil_columns` declares and never by the
-     * values. None draws no timeline.
+     * `accessor`, chosen where the placement's columns are, from the graph's temporal columns: a
+     * GraphAr `date` or `timestamp`. The root answers the list (`GraphSection`), by the type the
+     * engine reads and never by the values. None draws no timeline.
      */
     "time-by": {
       kind: "choice",

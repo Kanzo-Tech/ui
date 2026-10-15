@@ -90,6 +90,8 @@ const text = (value: unknown, date: boolean): string => {
   if (value instanceof Date) return value.toISOString().slice(0, 10);
   if (date && typeof value === "number") return new Date(value).toISOString().replace("T", " ").slice(0, 19);
   if (value === null || value === undefined || value === "") return "—";
+  // A `list` property arrives as an Arrow vector: its values, as the row reads them.
+  if (typeof value === "object" && Symbol.iterator in value) return Array.from(value as Iterable<unknown>).map(String).join(", ");
   return String(value);
 };
 

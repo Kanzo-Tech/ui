@@ -6,8 +6,8 @@ import { describe, expect, it } from "vitest";
 
 /**
  * The layers of `/docs/design/graph`, held where they can be read off the source: the graph reads a
- * corpus fossil attached as a catalog, with SQL through the page's coordinator, and imports nothing of
- * fossil's; every statement is built from mosaic-sql's nodes, in the three modules that read, and none
+ * GraphAr graph `attachGraph` attached as a catalog, with SQL through the page's coordinator, and
+ * imports nothing of graphar's or fossil's; every statement is built from mosaic-sql's nodes, in the three modules that read, and none
  * is written in a string; no module past the size a named reference is the shape of; and a core that
  * knows nothing of React or cosmos.gl.
  *
@@ -24,8 +24,12 @@ const modules = (readdirSync(SRC, { recursive: true }) as string[])
 const parse = (name: string, text: string) =>
   ts.createSourceFile(name, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 
-/** Upper-case, as every query this package ever wrote spelled them — prose says "where" too. */
-const SQL = /\b(SELECT|FROM|WHERE|JOIN|CREATE (OR REPLACE )?(VIEW|TABLE))\s|read_parquet|parquet_metadata/;
+/**
+ * Upper-case, as every query this package ever wrote spelled them — prose says "where" too. And the
+ * table function that opens a file: the graph reads a footer through `parquet_metadata` and
+ * `parquet_kv_metadata`, in a template inside a node, and never a chunk itself.
+ */
+const SQL = /\b(SELECT|FROM|WHERE|JOIN|CREATE (OR REPLACE )?(VIEW|TABLE))\s|read_parquet/;
 
 /** The three modules that read: the catalog, once (`readCatalog`); the rows; and the crossfilter's client. */
 const READERS = new Set(["core/catalog.ts", "core/source.ts", "core/client.ts"]);
@@ -36,7 +40,7 @@ describe("the graph's layers", () => {
     for (const { name, text } of modules) expect(text.includes("\0"), `${name} contains a NUL byte`).toBe(false);
   });
 
-  it("builds statements only where it reads, writes none in a string, and imports nothing of fossil's", () => {
+  it("builds statements only where it reads, writes none in a string, and imports nothing of graphar's or fossil's", () => {
     const offenders: string[] = [];
     const builders = new Set<string>();
     for (const { name, text } of modules) {
@@ -46,7 +50,9 @@ describe("the graph's layers", () => {
         if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
           const from = node.moduleSpecifier.text;
           if (from.startsWith("@uwdata/")) offenders.push(`${name}: imports ${from}, which @kanzo-tech/mosaic re-exports`);
-          if (from.startsWith("@fossil-lang/")) offenders.push(`${name}: imports ${from}; the contract is the attached catalog`);
+          if (from.startsWith("@fossil-lang/") || from.startsWith("@kanzo-tech/graphar")) {
+            offenders.push(`${name}: imports ${from}; the contract is the attached catalog`);
+          }
           const bindings = node.importClause?.namedBindings;
           if (from === "@kanzo-tech/mosaic" && bindings && ts.isNamedImports(bindings)) {
             if (bindings.elements.some((e) => e.name.text === "Query" && !e.isTypeOnly)) builders.add(name);

@@ -2,17 +2,17 @@
 
 import { engine, type Coordinator } from "@kanzo-tech/mosaic";
 import { useEffect, useState } from "react";
-import { attach } from "@fossil-lang/corpus";
+import { attachWritten } from "@/lib/attach-graph";
 
 export { ARCHIVE_KINDS } from "@/example/archive";
 
 /**
- * The archive the workspace showcase draws, as `fossil/1` — written by fossil's executor through
+ * The archive the workspace showcase draws, as a GraphAr graph — written by fossil's executor through
  * `showcases/workspace/corpus/build-corpus.mjs`. Prefixed, because a path handed to DuckDB is not.
  */
 export const ARCHIVE = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/corpus/archive`;
 
-/** The catalog the archive is attached under: its tables are `"archive"."Node"`, `"archive".fossil_tables`, … */
+/** The catalog the archive is attached under: its tables are `"archive"."Node"`, `"archive".graphar_vertex_types`, … */
 export const FROM = "archive";
 
 let attaching: Promise<Coordinator> | null = null;
@@ -31,7 +31,7 @@ export function useArchive(onFailure: (error: unknown) => void): { from: string 
     if (!attaching) {
       const started = engine().then(async (e) => {
         // Origin-qualified: DuckDB-WASM resolves a root-relative path in its own filesystem.
-        await attach(FROM, { engine: e, url: `${window.location.origin}${ARCHIVE}` });
+        await attachWritten(e, FROM, `${window.location.origin}${ARCHIVE}`);
         return e.coordinator;
       });
       attaching = started;

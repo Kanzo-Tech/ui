@@ -8,8 +8,9 @@ import type { Motion, VertexSelection, VertexSelectionSource, Tool, VertexId } f
 
 export interface GraphOptions extends Channels {
   /**
-   * The catalog fossil's `open` attached the corpus under — its tables, `fossil_tables` and
-   * `fossil_columns` — or `null` for none yet. The graph reads it through `coordinator`.
+   * The catalog `attachGraph` attached the graph under — a view per type, and `graphar_vertex_types`,
+   * `graphar_edge_types` and `graphar_properties` — or `null` for none yet. The graph reads it
+   * through `coordinator`.
    */
   from: string | null;
   /** The page's Mosaic coordinator: the one connection every chart and the graph read through. */

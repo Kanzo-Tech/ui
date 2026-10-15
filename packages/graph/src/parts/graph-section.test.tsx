@@ -102,14 +102,14 @@ describe("the graph's settings, as its section", () => {
     expect(document.querySelectorAll("[data-slot=select-trigger]")).toHaveLength(3);
   });
 
-  it("offers the timeline the corpus's temporal fields, by the datatype its shape declared", async () => {
-    // `born` is an `int32` the fixture's shape types `xsd:gYear`: a year by its datatype, never by
-    // its values — `score` is an integer in the same range and is not offered.
+  it("offers the timeline the graph's temporal fields, by the type the engine reads", async () => {
+    // `born` is an `int32` year, which GraphAr has no type for: a number, and not offered —
+    // `opened` is a GraphAr `date`.
     const corpus = await attach();
     const into: { options?: unknown } = {};
     mount(corpus, into, "graph.time-by");
     await act(() => settle(corpus));
-    expect(into.options).toEqual([{ value: "born", label: "born" }]);
+    expect(into.options).toEqual([{ value: "opened", label: "opened" }]);
   });
 
   it("pulls clusters only under Clustered, and offers Additive links only while edges are drawn", async () => {

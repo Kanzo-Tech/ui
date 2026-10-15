@@ -5,13 +5,14 @@ import { createRoot } from "react-dom/client";
 import { Graph } from "@cosmos.gl/graph";
 import { GraphCanvas, GraphRoot, useGraphContext, type GraphApi } from "@kanzo-tech/graph";
 import { engine, type Coordinator } from "@kanzo-tech/mosaic";
-import { attach, type Attachment } from "@fossil-lang/corpus";
+import type { GraphAttachment } from "@kanzo-tech/graphar-duckdb";
+import { attachWritten } from "@/lib/attach-graph";
 import { host, nextFrame, visible } from "./measure";
 
 /**
  * Our viewer against cosmos.gl alone, on the same positions and the same camera path.
  *
- * The corpus is attached once with fossil's `attach`. The raw half reads its links with one statement
+ * The graph is attached once with `attachGraph`. The raw half reads its links with one statement
  * per relation through the page's coordinator, seeds the start the graph seeds, and draws it with
  * nothing of ours in the way. The viewer half mounts `<GraphRoot><GraphCanvas/>` over the same
  * catalog with `simulate={false}`, so both draw the same still picture. Both then follow one trajectory — the same wheel events on each canvas, a camera change
@@ -169,25 +170,32 @@ function seeded(size: number): { positions: Float32Array; extent: Box; space: nu
 /** Every vertex and every link of the attached catalog, as SQL answers them. */
 async function payloadOf(coordinator: Coordinator, from: string): Promise<Payload> {
   const ask = (sql: string) => coordinator.query(sql, { type: "arrow" }) as Promise<Answer>;
-  const tables = await ask(`SELECT table_name, kind, record_count::DOUBLE AS record_count FROM ${ident(from)}.fossil_tables`);
-  const [name, kind, rows] = ["table_name", "kind", "record_count"].map((c) => tables.getChild(c)?.toArray() ?? []);
+  // A vertex's global id is the sum of the counts of the types before it plus its index in its own.
+  const types = await ask(`SELECT "type", count::DOUBLE AS count FROM ${ident(from)}.graphar_vertex_types ORDER BY ordinal`);
+  const [typeName, typeCount] = ["type", "count"].map((c) => types.getChild(c)?.toArray() ?? []);
+  const first = new Map<string, number>();
   let total = 0;
-  const relations: string[] = [];
-  for (let i = 0; i < tables.numRows; i++) {
-    if (kind[i] === "vertex") total += Number(rows[i]);
-    else relations.push(String(name[i]));
+  for (let i = 0; i < types.numRows; i++) {
+    first.set(String(typeName[i]), total);
+    total += Number(typeCount[i]);
   }
-  if (total === 0) throw new Error("the corpus has no vertex to draw");
+  if (total === 0) throw new Error("the graph has no vertex to draw");
+  const edgeTypes = await ask(`SELECT name, src_type, dst_type FROM ${ident(from)}.graphar_edge_types ORDER BY ordinal`);
+  const [name, srcType, dstType] = ["name", "src_type", "dst_type"].map((c) => edgeTypes.getChild(c)?.toArray() ?? []);
   const answers = await Promise.all(
-    relations.map((table) => ask(`SELECT src::DOUBLE AS src, dst::DOUBLE AS dst FROM ${ident(from)}.${ident(table)}`)),
+    Array.from({ length: edgeTypes.numRows }, (_, i) =>
+      ask(`SELECT _graphArSrcIndex::DOUBLE AS src, _graphArDstIndex::DOUBLE AS dst FROM ${ident(from)}.${ident(String(name[i]))}`).then(
+        (answer) => ({ answer, src: first.get(String(srcType[i])) ?? 0, dst: first.get(String(dstType[i])) ?? 0 }),
+      ),
+    ),
   );
-  const links = new Float32Array(2 * answers.reduce((sum, answer) => sum + answer.numRows, 0));
+  const links = new Float32Array(2 * answers.reduce((sum, { answer }) => sum + answer.numRows, 0));
   let at = 0;
-  for (const answer of answers) {
+  for (const { answer, src: srcFirst, dst: dstFirst } of answers) {
     const [src, dst] = [answer.getChild("src")?.toArray() ?? [], answer.getChild("dst")?.toArray() ?? []];
     for (let e = 0; e < answer.numRows; e++) {
-      links[at++] = src[e] as number;
-      links[at++] = dst[e] as number;
+      links[at++] = srcFirst + (src[e] as number);
+      links[at++] = dstFirst + (dst[e] as number);
     }
   }
   return { ...seeded(total), links, total };
@@ -271,10 +279,10 @@ export async function measureViewer(pointCount: number, { repeats = 3 } = {}): P
   const sample: ViewerSample = { path, pointCount, linkCount: 0, raw: [], viewer: [], rawP95: 0, viewerP95: 0, ratio: 0 };
   if (!visible()) return { ...sample, failure: "the tab is hidden, and a hidden tab draws no frames" };
   const from = `bench_${pointCount}`;
-  let corpus: Attachment | null = null;
+  let corpus: GraphAttachment | null = null;
   try {
     const e = await engine();
-    corpus = await attach(from, { engine: e, url: `${window.location.origin}${path}` });
+    corpus = await attachWritten(e, from, `${window.location.origin}${path}`);
     const payload = await payloadOf(e.coordinator, from);
     sample.pointCount = payload.total;
     sample.linkCount = payload.links.length / 2;
@@ -314,10 +322,10 @@ export async function measureGrid(pointCount: number, { repeats = 5 } = {}): Pro
   const sample: GridSample = { path, pointCount, without: [], with: [] };
   if (!visible()) return { ...sample, failure: "the tab is hidden, and a hidden tab draws no frames" };
   const from = `bench_${pointCount}`;
-  let corpus: Attachment | null = null;
+  let corpus: GraphAttachment | null = null;
   try {
     const e = await engine();
-    corpus = await attach(from, { engine: e, url: `${window.location.origin}${path}` });
+    corpus = await attachWritten(e, from, `${window.location.origin}${path}`);
     for (let i = 0; i < repeats; i++) {
       for (const grid of i % 2 === 0 ? [false, true] : [true, false]) {
         (grid ? sample.with : sample.without).push(await viewerRun(e.coordinator, from, grid));

@@ -1,52 +1,46 @@
-import { Query, and, asc, cast, eq, float64, literal, sql, type Coordinator, type JoinAnnotation, type JoinColumnStats } from "@kanzo-tech/mosaic";
-import { Problem } from "@kanzo-tech/kernel";
+import { Query, and, asc, cast, eq, float64, literal, sql, type Coordinator, type JoinColumnStats } from "@kanzo-tech/mosaic";
 import { ask, relation, type Answer } from "./source";
-import type { Column, EdgeTable, PropertyTable, Structure, VertexTable } from "./structure";
+import { DST, DST_INDEX, KEY, SRC, SRC_INDEX, VERTEX_INDEX, type Column, type EdgeTable, type Structure, type VertexTable } from "./structure";
+
+/** The key of a chunk's Parquet footer that holds what its writer counted: `{ "<column>": { … } }`. */
+const STATS_KEY = "fossil:stats";
 
 /**
- * **The one read of a corpus's catalog.** fossil's `attach` puts the manifest beside the tables as
- * relations — `fossil_tables`, `fossil_columns`, `fossil_annotations` and `fossil_stats`
- * (`/docs/format` on fossil's site) — and this is the only function in the library that reads them:
- * the canvas's structure and `JoinGraph` are both built from what it answers, so a change in how a
- * corpus states itself is a change here and nowhere else. The DuckDB type of each column is the
- * engine's own catalog's, `duckdb_columns()`, read in the same breath: what the engine will read the
- * view as, never a mapping of fossil's spelling kept here.
+ * **The one read of a graph's catalog.** `@kanzo-tech/graphar-duckdb`'s `attachGraph` puts a view per
+ * vertex and edge type in the catalog and the graph's information files beside them as relations —
+ * `graphar_vertex_types`, `graphar_edge_types`, `graphar_properties` and `graphar_chunks`, in GraphAr's
+ * words — and this is the only function in the library that reads them: the canvas's structure and
+ * `JoinGraph` are both built from what it answers, so a change in how a graph states itself is a
+ * change here and nowhere else. The DuckDB type of each column is the engine's own catalog's,
+ * `duckdb_columns()`, read in the same breath: what the engine will read the view as, never a mapping
+ * of GraphAr's words kept here.
  *
- * Five statements, each through the page's coordinator and its cache, so the canvas and a join graph
- * built on one page read the catalog once.
+ * Every vertex type is a node type, and its primary key is its identity (the id itself where it has
+ * none). The global id is this function's arithmetic: a type's `first` is the sum of the counts of the
+ * types before it, in the graph document's order (`ordinal`).
+ *
+ * **What a column holds is read from the chunks' footers**, through the same coordinator: `graphar_chunks`
+ * names each vertex chunk as the engine reads it, `parquet_kv_metadata` gives the writer's distinct
+ * count and commonest values under `fossil:stats`, and `parquet_metadata` the nulls and the extent.
+ * A column is counted when one chunk of its type states it — counts of a column cut across chunks do
+ * not combine — and a list column is never counted.
+ *
+ * Four statements at once, then the footers in two more, each through the page's coordinator and its
+ * cache, so the canvas and a join graph built on one page read the catalog once.
  */
 export async function readCatalog(coordinator: Coordinator, from: string, signal?: AbortSignal): Promise<Structure> {
-  const [tables, columns, stats, annotations, engine] = await Promise.all([
+  const [types, edgeTypes, properties, engine, chunks] = await Promise.all([
+    ask(coordinator, Query.select("type", { count: cast("count", "DOUBLE") }).from(relation(from, "graphar_vertex_types")).orderby(asc("ordinal")), signal),
     ask(
       coordinator,
-      Query.select("table_name", "kind", "label", "iri", "source", "source_key", "destination", "destination_key", "candidate_keys", {
-        record_count: float64("record_count"),
-        first_id: float64("first_id"),
-      })
-        .from(relation(from, "fossil_tables"))
-        .orderby(asc("first_id", false), "table_name"),
+      Query.select("name", "src_type", "edge_type", "dst_type", { count: cast("count", "DOUBLE") })
+        .from(relation(from, "graphar_edge_types"))
+        .orderby(asc("ordinal")),
       signal,
     ),
     ask(
       coordinator,
-      Query.select("table_name", "column_name", "role", "iri", "term_type", "datatype", "is_nullable", {
-        data_type: cast("data_type", "VARCHAR"),
-      })
-        .from(relation(from, "fossil_columns"))
-        .orderby("table_name", "ordinal_position"),
-      signal,
-    ),
-    ask(
-      coordinator,
-      Query.select("table_name", "column_name", "min_value", "max_value", "most_common_vals", "most_common_freqs", {
-        null_count: float64("null_count"),
-        distinct_count: float64("distinct_count"),
-      }).from(relation(from, "fossil_stats")),
-      signal,
-    ),
-    ask(
-      coordinator,
-      Query.select("table_name", "column_name", "predicate", "o_type", "o_value", "o_datatype", "o_lang").from(relation(from, "fossil_annotations")),
+      Query.select("type", "property", "is_primary", "is_nullable").from(relation(from, "graphar_properties")).orderby("type", "ordinal"),
       signal,
     ),
     ask(
@@ -56,108 +50,199 @@ export async function readCatalog(coordinator: Coordinator, from: string, signal
         .where(and(eq("database_name", literal(from)), eq("schema_name", literal("main")))),
       signal,
     ),
+    ask(coordinator, Query.select("type", "path").from(relation(from, "graphar_chunks")).where(eq("kind", literal("vertex"))), signal),
   ]);
 
-  const at = (table: unknown, column: unknown) => `${String(table)}\u0000${column === null || column === undefined ? "" : String(column)}`;
-
-  const notes = new Map<string, JoinAnnotation[]>();
-  each(annotations, (row) => {
-    const value = String(row("o_value"));
-    const [datatype, language] = [text(row("o_datatype")), text(row("o_lang"))];
-    const object: JoinAnnotation["object"] =
-      row("o_type") === "I" ? value : { value, ...(language ? { language } : datatype ? { datatype } : {}) };
-    const key = at(row("table_name"), row("column_name"));
-    notes.set(key, [...(notes.get(key) ?? []), { predicate: String(row("predicate")), object }]);
-  });
-
-  const counted = new Map<string, JoinColumnStats>();
-  each(stats, (row) => {
-    // A corpus written before the writer counted has a row of nulls per column: no counts.
-    if (row("distinct_count") === null || row("distinct_count") === undefined) return;
-    counted.set(at(row("table_name"), row("column_name")), {
-      nullCount: Number(row("null_count")),
-      distinctCount: Number(row("distinct_count")),
-      ...optional("minValue", text(row("min_value"))),
-      ...optional("maxValue", text(row("max_value"))),
-      mostCommonVals: list(row("most_common_vals")).map(String),
-      mostCommonFreqs: list(row("most_common_freqs")).map(Number),
-    });
-  });
-
+  const at = (table: unknown, name: unknown) => `${String(table)}\u0000${String(name)}`;
   const engineTypes = new Map<string, string>();
   each(engine, (row) => engineTypes.set(at(row("table_name"), row("column_name")), String(row("data_type"))));
+  const counted = await readCounts(coordinator, chunks, engineTypes, signal);
 
-  const byTable = new Map<string, Map<string, Column>>();
-  let key: string | undefined;
-  each(columns, (row) => {
-    const [table, name] = [String(row("table_name")), String(row("column_name"))];
-    const role = text(row("role"));
-    const described = byTable.get(table) ?? new Map<string, Column>();
-    described.set(name, {
-      type: String(row("data_type") ?? ""),
-      sqlType: engineTypes.get(at(table, name)) ?? "",
-      role,
-      datatype: text(row("datatype")),
-      termType: text(row("term_type")),
-      iri: text(row("iri")),
+  const byType = new Map<string, Map<string, Column>>();
+  each(properties, (row) => {
+    const [type, name] = [String(row("type")), String(row("property"))];
+    const columns = byType.get(type) ?? new Map<string, Column>();
+    const sqlType = engineTypes.get(at(type, name)) ?? "";
+    columns.set(name, {
+      type: sqlType,
+      primary: row("is_primary") === true,
       nullable: row("is_nullable") === true,
-      annotations: notes.get(at(table, name)) ?? [],
-      stats: counted.get(at(table, name)) ?? null,
+      stats: sqlType.endsWith("[]") ? null : (counted.get(at(type, name)) ?? null),
     });
-    if (role === "address") key ??= name;
-    byTable.set(table, described);
+    byType.set(type, columns);
   });
 
   const vertices: VertexTable[] = [];
+  let size = 0;
+  each(types, (row) => {
+    const name = String(row("type"));
+    const first = size;
+    const rows = Number(row("count"));
+    size += rows;
+    const own = byType.get(name) ?? new Map<string, Column>();
+    // The id's counts are the arithmetic's own: never null, never repeated, `first … first + rows − 1`.
+    const id: Column = {
+      type: "UINTEGER",
+      primary: false,
+      nullable: false,
+      stats:
+        rows === 0
+          ? null
+          : { nullCount: 0, distinctCount: rows, minValue: String(first), maxValue: String(first + rows - 1), mostCommonVals: [], mostCommonFreqs: [] },
+    };
+    const columns = new Map<string, Column>([[KEY, id], ...own]);
+    const identity = [...own].find(([, c]) => c.primary)?.[0] ?? KEY;
+    const properties = [...columns.keys()].filter((c) => c !== KEY);
+    const table = Query.select({ [KEY]: global(first, VERTEX_INDEX) }, properties).from(relation(from, name));
+    vertices.push({ name, first, rows, table, columns, identity });
+  });
+
+  const firstOf = new Map(vertices.map((v) => [v.name, v.first]));
   const edges: EdgeTable[] = [];
-  const properties: PropertyTable[] = [];
-  // Each kind by name; a kind this reader does not know is none of the three.
-  each(tables, (row) => {
-    const name = String(row("table_name"));
-    const described = byTable.get(name) ?? new Map<string, Column>();
-    const shared = { rows: Number(row("record_count")), annotations: notes.get(at(name, null)) ?? [] };
-    const candidateKeys = list(row("candidate_keys")).map(String);
-    if (row("kind") === "vertex") {
-      const identity = [...described].find(([, c]) => c.role === "identity")?.[0] ?? "subject";
-      vertices.push({ name, first: Number(row("first_id")), columns: described, identity, candidateKeys, iri: text(row("iri")), ...shared });
-    } else if (row("kind") === "edge") {
-      edges.push({
-        name,
-        label: String(row("label")),
-        source: String(row("source")),
-        destination: String(row("destination")),
-        sourceKey: String(row("source_key")),
-        destinationKey: String(row("destination_key")),
-        iri: text(row("iri")),
-        ...shared,
-      });
-    } else if (row("kind") === "property") {
-      const { rows } = shared;
-      properties.push({ name, label: String(row("label")), source: String(row("source")), sourceKey: String(row("source_key")), rows, columns: described, candidateKeys });
+  each(edgeTypes, (row) => {
+    const [name, source, destination] = [String(row("name")), String(row("src_type")), String(row("dst_type"))];
+    const [src, dst] = [firstOf.get(source), firstOf.get(destination)];
+    // An edge between types the graph does not declare draws nothing.
+    if (src === undefined || dst === undefined) return;
+    const table = Query.select({ [SRC]: global(src, SRC_INDEX), [DST]: global(dst, DST_INDEX) }).from(relation(from, name));
+    edges.push({ name, label: String(row("edge_type")), source, destination, rows: Number(row("count")), table });
+  });
+  return { from, vertices, edges, size };
+}
+
+/**
+ * A per-type index as a global id: `first + index`, as a `UINTEGER` — the writer refuses more than
+ * 2³² vertices, so it fits, and it keeps the Arrow at four bytes an id where GraphAr's `int64` is eight.
+ */
+const global = (first: number, index: typeof VERTEX_INDEX | typeof SRC_INDEX | typeof DST_INDEX) =>
+  // `index` is one of GraphAr's three reserved names, never text from a graph: quoted here as written.
+  cast(sql`${first} + "${index}"`, "UINTEGER");
+
+/** One footer fact per chunk and column, folded as the chunk's row groups state it. */
+interface Footer {
+  nulls: number;
+  min: string | null;
+  max: string | null;
+}
+
+/**
+ * The writer's counts, by `<type>\0<column>`: what `fossil:stats` says of a column that one chunk of
+ * its type states, and the nulls and extent of the chunk's row groups. A type or a column with no
+ * such statement is absent — a graph a foreign writer made states none.
+ */
+async function readCounts(
+  coordinator: Coordinator,
+  chunks: Answer,
+  engineTypes: ReadonlyMap<string, string>,
+  signal?: AbortSignal,
+): Promise<Map<string, JoinColumnStats>> {
+  const paths: { type: string; path: string }[] = [];
+  each(chunks, (row) => paths.push({ type: String(row("type")), path: String(row("path")) }));
+  const counted = new Map<string, JoinColumnStats>();
+  if (paths.length === 0) return counted;
+  const [stated, metadata] = await Promise.all([
+    ask(
+      coordinator,
+      Query.unionAll(
+        paths.map(({ path }) =>
+          Query.select({ path: literal(path), stats: sql`decode(value)` })
+            .from(sql`parquet_kv_metadata(${literal(path)})`)
+            .where(eq(sql`decode(key)`, literal(STATS_KEY))),
+        ),
+      ),
+      signal,
+    ),
+    ask(
+      coordinator,
+      Query.unionAll(
+        paths.map(({ path }) =>
+          Query.select({
+            path: literal(path),
+            column: "path_in_schema",
+            nulls: float64("stats_null_count"),
+            min: "stats_min_value",
+            max: "stats_max_value",
+            exact: sql`min_is_exact AND max_is_exact`,
+          }).from(sql`parquet_metadata(${literal(path)})`),
+        ),
+      ),
+      signal,
+    ),
+  ]);
+
+  // The footers' nulls and extent, per chunk and column. A bound a row group does not state, or states
+  // cut short, is none; nulls a row group does not state leave the column uncounted.
+  const footers = new Map<string, Footer | null>();
+  each(metadata, (row) => {
+    const key = `${String(row("path"))}\u0000${String(row("column"))}`;
+    const [nulls, min, max] = [row("nulls"), row("min"), row("max")];
+    const seen = footers.get(key);
+    if (seen === null) return;
+    if (nulls === null || nulls === undefined) return void footers.set(key, null);
+    const exact = row("exact") === true && min !== null && min !== undefined && max !== null && max !== undefined;
+    footers.set(key, {
+      nulls: (seen?.nulls ?? 0) + Number(nulls),
+      min: !exact || (seen && seen.min === null) ? null : pick(seen?.min ?? null, String(min), -1),
+      max: !exact || (seen && seen.max === null) ? null : pick(seen?.max ?? null, String(max), 1),
+    });
+  });
+
+  // A column stated by exactly one chunk of its type is the column's: the counts do not combine.
+  const owners = new Map<string, { path: string; stats: Record<string, unknown> }[]>();
+  const typeOf = new Map(paths.map(({ path, type }) => [path, type]));
+  each(stated, (row) => {
+    const [path, type] = [String(row("path")), typeOf.get(String(row("path")))];
+    if (type === undefined) return;
+    let document: unknown;
+    try {
+      document = JSON.parse(String(row("stats")));
+    } catch {
+      // A footer that does not read states nothing.
+      return;
+    }
+    if (typeof document !== "object" || document === null) return;
+    for (const [column, stats] of Object.entries(document)) {
+      const key = `${type}\u0000${column}`;
+      owners.set(key, [...(owners.get(key) ?? []), { path, stats: stats as Record<string, unknown> }]);
     }
   });
-  if (key === undefined && vertices.length > 0) {
-    throw new Problem("graph/nothing-to-draw", `the corpus attached as ${from} gives no column the address role`);
+  for (const [key, [only, ...more]] of owners) {
+    if (!only || more.length > 0) continue;
+    const footer = footers.get(`${only.path}\u0000${key.split("\u0000")[1]}`);
+    const { distinct_count: distinct, most_common_vals: vals, most_common_freqs: freqs } = only.stats;
+    if (!footer || typeof distinct !== "number" || !Array.isArray(vals) || !Array.isArray(freqs)) continue;
+    // A bound is kept for a number or a time; a text's is never read.
+    const type = engineTypes.get(key) ?? "";
+    const extent = (numeric(type) || temporal(type)) && footer.min !== null && footer.max !== null;
+    counted.set(key, {
+      nullCount: footer.nulls,
+      distinctCount: distinct,
+      ...(extent ? { minValue: footer.min as string, maxValue: footer.max as string } : {}),
+      mostCommonVals: vals.map(String),
+      mostCommonFreqs: freqs.map(Number),
+    });
   }
-  return { from, key: key ?? "", vertices, edges, properties, size: vertices.reduce((sum, v) => sum + v.rows, 0) };
+  return counted;
+}
+
+const numeric = (type: string) => /^(U?(TINY|SMALL|BIG|HUGE)?INT(EGER)?|FLOAT|DOUBLE|DECIMAL.*)$/.test(type);
+const temporal = (type: string) => /^(DATE|TIMESTAMP.*)$/.test(type);
+
+/** The smaller (`-1`) or larger (`1`) of two bounds read as text: by value when both are numbers, else by text — ISO dates sort as written. */
+function pick(a: string | null, b: string, side: -1 | 1): string {
+  if (a === null) return b;
+  const [x, y] = [Number(a), Number(b)];
+  const order = Number.isNaN(x) || Number.isNaN(y) ? (a < b ? -1 : a > b ? 1 : 0) : Math.sign(x - y);
+  return order === side ? a : order === 0 ? a : b;
 }
 
 /** Each row of an answer, read by column name. */
 function each(answer: Answer, visit: (row: (name: string) => unknown) => void): void {
   const cache = new Map<string, ArrayLike<unknown>>();
-  const column = (name: string) => {
-    let values = cache.get(name);
-    if (!values) cache.set(name, (values = answer.getChild(name)?.toArray() ?? []));
-    return values;
+  const values = (name: string) => {
+    let found = cache.get(name);
+    if (!found) cache.set(name, (found = answer.getChild(name)?.toArray() ?? []));
+    return found;
   };
-  for (let i = 0; i < answer.numRows; i++) visit((name) => column(name)[i]);
+  for (let i = 0; i < answer.numRows; i++) visit((name) => values(name)[i]);
 }
-
-/** A text cell, or `null` for none — an empty string is none too, as `fossil_annotations` spells a missing tag. */
-const text = (value: unknown): string | null => (value === null || value === undefined || value === "" ? null : String(value));
-
-/** A list cell as an array: Arrow hands one back as a vector, which iterates. */
-const list = (value: unknown): unknown[] =>
-  value === null || value === undefined ? [] : Array.from(value as Iterable<unknown>);
-
-const optional = <K extends string>(name: K, value: string | null) => (value === null ? {} : ({ [name]: value } as Record<K, string>));

@@ -9,7 +9,7 @@ import { createGraph } from "./store";
 /**
  * **The invariants of `/docs/design/crossfilter#invariants`, as properties.** Each run publishes a
  * random set of clauses, from random sources, in a random order, and checks what the store says is
- * kept against an oracle that is not the store: DuckDB, asked directly over the corpus's tables. The
+ * kept against an oracle that is not the store: DuckDB, asked directly over the graph's views. The
  * clauses are identity clauses (`dense_id IN …`), which every type answers, so the properties here
  * hold whatever a type that cannot answer a clause does; that rule has its own tests.
  *
@@ -32,10 +32,11 @@ async function oracle(corpus: Attached, sets: readonly (readonly number[])[], pl
     ...sets.map((ids) => (ids.length === 0 ? "FALSE" : `dense_id IN (${ids.join(", ")})`)),
     ...(placed ? ["lon IS NOT NULL", "lat IS NOT NULL"] : []),
   ];
+  // The global id by hand, from GraphAr's per-type index: Person from 0, Place from 10, Tag from 16.
   const union = [
-    `SELECT dense_id, lon, lat FROM ${corpus.from}."Person"`,
-    `SELECT dense_id, lon, lat FROM ${corpus.from}."Place"`,
-    `SELECT dense_id, NULL AS lon, NULL AS lat FROM ${corpus.from}."Tag"`,
+    `SELECT _graphArVertexIndex AS dense_id, lon, lat FROM ${corpus.from}."Person"`,
+    `SELECT 10 + _graphArVertexIndex AS dense_id, lon, lat FROM ${corpus.from}."Place"`,
+    `SELECT 16 + _graphArVertexIndex AS dense_id, NULL AS lon, NULL AS lat FROM ${corpus.from}."Tag"`,
   ].join(" UNION ALL ");
   const sql = `SELECT dense_id FROM (${union}) ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY dense_id`;
   const table = (await corpus.coordinator.query(sql)) as { getChild(name: string): { toArray(): ArrayLike<number> } | null };
@@ -221,6 +222,8 @@ describe("the page's crossfilter, as properties of kept", () => {
  */
 describe("a clause a type cannot answer", () => {
   const COLUMNS: Record<string, readonly string[]> = { Person: ["name", "score"], Place: ["name"], Tag: [] };
+  /** Each type's first global id, by hand. */
+  const FIRST: Record<string, number> = { Person: 0, Place: 10, Tag: 16 };
   type Column = { kind: "score"; range: [number, number] } | { kind: "name"; value: string };
   const column: fc.Arbitrary<Column> = fc.oneof(
     fc.tuple(fc.integer({ min: 0, max: 11 }), fc.integer({ min: 0, max: 11 })).map(([a, b]) => ({ kind: "score" as const, range: [Math.min(a, b), Math.max(a, b)] as [number, number] })),
@@ -234,7 +237,8 @@ describe("a clause a type cannot answer", () => {
         ...columns.map((c) => (has.includes(c.kind) ? sqlOf(c) : "FALSE")),
         ...sets.map((ids) => (ids.length === 0 ? "FALSE" : `dense_id IN (${ids.join(", ")})`)),
       ];
-      return `SELECT dense_id FROM ${corpus.from}."${table}"${where.length ? ` WHERE ${where.join(" AND ")}` : ""}`;
+      const global = `SELECT ${FIRST[table]} + _graphArVertexIndex AS dense_id, * FROM ${corpus.from}."${table}"`;
+      return `SELECT dense_id FROM (${global})${where.length ? ` WHERE ${where.join(" AND ")}` : ""}`;
     });
     const table = (await corpus.coordinator.query(`SELECT dense_id FROM (${branches.join(" UNION ALL ")}) ORDER BY dense_id`)) as { getChild(name: string): { toArray(): ArrayLike<number> } | null };
     return Array.from(table.getChild("dense_id")?.toArray() ?? [], Number);

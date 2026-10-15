@@ -56,21 +56,23 @@ export function Providers({ children }: { children: React.ReactNode }) {
 </Step>
 <Step>
 
-### Attach the corpus, once, to the page's coordinator
+### Attach the graph, once, to the page's coordinator
 
-`engine()` is the page's DuckDB-WASM and its coordinator, memoised per document. fossil's `attach`
-attaches the corpus to it under a name: a view per table — `"archive"."Sighting"` — and the
-manifest as `"archive".fossil_tables` and `"archive".fossil_columns`. Attach once and keep the
-attachment it answers, whose `detach()` lets the corpus go.
+`engine()` is the page's DuckDB-WASM and its coordinator, memoised per document.
+`@kanzo-tech/graphar-duckdb`'s `attachGraph` attaches a GraphAr graph to it under a name: a view per
+type — `"archive"."Sighting"` — and the information files as `"archive".graphar_vertex_types`,
+`"archive".graphar_edge_types` and `"archive".graphar_properties`. Every file is read through the
+engine, by the name `resolve` gives its path. Attach once and keep the attachment it answers, whose
+`detach()` lets the graph go.
 
 ```tsx
-import { attach } from "@fossil-lang/corpus";
+import { attachGraph } from "@kanzo-tech/graphar-duckdb";
 import { readJoinGraph } from "@kanzo-tech/graph";
 import { engine } from "@kanzo-tech/mosaic";
 import { MosaicProvider } from "@kanzo-tech/ui/analytics";
 
 const e = await engine();
-const archive = await attach("archive", { engine: e, url }); // a job: attach(id, { engine: e, host })
+const archive = await attachGraph(e, "archive", (paths) => paths.map((p) => `${url}/${p}`), { entry: "fossil.graph.yml" });
 const joins = await readJoinGraph(e.coordinator, "archive");
 
 <MosaicProvider coordinator={e.coordinator} joins={joins}>

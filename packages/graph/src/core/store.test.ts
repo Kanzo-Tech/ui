@@ -1,4 +1,4 @@
-import { Query, Selection, asTableRef, clauseInterval, clauseMatch, clausePoint, clauseSemiJoin, holdFirstDraw, isIn, literal } from "@kanzo-tech/mosaic";
+import { Query, Selection, clauseInterval, clauseMatch, clausePoint, clauseSemiJoin, holdFirstDraw, isIn, literal } from "@kanzo-tech/mosaic";
 import { describe, expect, it, vi } from "vitest";
 import { attach, refusal, settle, type Attached } from "../../test/corpus";
 import { createGraph } from "./store";
@@ -24,7 +24,7 @@ async function graph(over: Partial<GraphOptions> = {}, attached?: Attached) {
 }
 
 describe("the graph store", () => {
-  it("reads the structure from fossil_tables and fossil_columns, and every vertex by its dense_id", async () => {
+  it("reads the structure from GraphAr's relations, and every vertex by its global id", async () => {
     const { corpus, store } = await graph();
     await settle(corpus);
     const { geometry, structure } = store.getSnapshot();
@@ -38,17 +38,16 @@ describe("the graph store", () => {
       ["Person_livesIn_Place", "livesIn", "Person", "Place"],
       ["Person_tagged_Tag", "tagged", "Person", "Tag"],
     ]);
-    expect(structure?.key).toBe("dense_id");
     expect(store.getSnapshot().total).toBe(20);
     expect(geometry?.size).toBe(20);
     expect(geometry?.links.length).toBe(2 * 20);
   });
 
-  it("reads the vertex key from the address role, and refuses a corpus that gives none as graph/nothing-to-draw", async () => {
+  it("refuses a graph with no vertex as graph/nothing-to-draw", async () => {
     const corpus = await attach();
     await corpus.coordinator.exec(
-      `ALTER VIEW ${corpus.from}.fossil_columns RENAME TO written;
-       CREATE VIEW ${corpus.from}.fossil_columns AS SELECT * REPLACE (NULLIF(role, 'address') AS role) FROM ${corpus.from}.written;`,
+      `ALTER VIEW ${corpus.from}.graphar_vertex_types RENAME TO written;
+       CREATE VIEW ${corpus.from}.graphar_vertex_types AS SELECT * FROM ${corpus.from}.written WHERE false;`,
     );
     const { onFailure, store } = await graph({}, corpus);
     await settle(corpus);
@@ -56,11 +55,11 @@ describe("the graph store", () => {
     expect(store.getSnapshot().structure).toBeNull();
   });
 
-  it("refuses more than 2^24 vertices as graph/too-large, from the catalog's counts and before one link is read", async () => {
+  it("refuses more than 2^24 vertices as graph/too-large, from the GraphAr catalog's counts and before one link is read", async () => {
     const corpus = await attach();
     await corpus.coordinator.exec(
-      `ALTER VIEW ${corpus.from}.fossil_tables RENAME TO written;
-       CREATE VIEW ${corpus.from}.fossil_tables AS SELECT * REPLACE (CASE WHEN table_name = 'Person' THEN 16777207::UBIGINT ELSE record_count END AS record_count) FROM ${corpus.from}.written;`,
+      `ALTER VIEW ${corpus.from}.graphar_vertex_types RENAME TO written;
+       CREATE VIEW ${corpus.from}.graphar_vertex_types AS SELECT * REPLACE (CASE WHEN type = 'Person' THEN 16777207::UBIGINT ELSE count END AS count) FROM ${corpus.from}.written;`,
     );
     const { onFailure, store } = await graph({}, corpus);
     await settle(corpus);
@@ -111,7 +110,7 @@ describe("the graph store", () => {
     store.setOptions({ ...store.getOptions(), x: undefined, y: undefined });
     await settle(corpus);
     expect(store.getSnapshot().geometry?.bound).toBe(false);
-    expect(corpus.sent.slice(before).some((sql) => sql.includes("fossil_tables"))).toBe(false);
+    expect(corpus.sent.slice(before).some((sql) => sql.includes("graphar_vertex_types"))).toBe(false);
   });
 
   it("sizes by degree when r is unbound, and by the column when it is bound", async () => {
@@ -200,7 +199,7 @@ describe("the graph store", () => {
   it("fails with the thrown value itself, code and all, when a read rejects", async () => {
     const corpus = await attach();
     const refused = refusal();
-    corpus.refuse(/fossil_tables/, refused);
+    corpus.refuse(/graphar_vertex_types/, refused);
     const { onFailure, store } = await graph({}, corpus);
     await settle(corpus);
     expect(store.getSnapshot().status).toBe("failed");
@@ -280,8 +279,8 @@ describe("the graph store", () => {
   it("fails a graph too large again with the same code on retry", async () => {
     const corpus = await attach();
     await corpus.coordinator.exec(
-      `ALTER VIEW ${corpus.from}.fossil_tables RENAME TO written;
-       CREATE VIEW ${corpus.from}.fossil_tables AS SELECT * REPLACE (CASE WHEN table_name = 'Person' THEN 16777207::UBIGINT ELSE record_count END AS record_count) FROM ${corpus.from}.written;`,
+      `ALTER VIEW ${corpus.from}.graphar_vertex_types RENAME TO written;
+       CREATE VIEW ${corpus.from}.graphar_vertex_types AS SELECT * REPLACE (CASE WHEN type = 'Person' THEN 16777207::UBIGINT ELSE count END AS count) FROM ${corpus.from}.written;`,
     );
     const { onFailure, store } = await graph({}, corpus);
     await settle(corpus);
@@ -373,8 +372,9 @@ describe("the page's crossfilter", () => {
 
   it("answers a semi-join on dense_id on every table, whatever relation its subquery reads", async () => {
     const { corpus, crossfilter, onFailure, store } = await filtered();
-    // Who lives in a place: rows of an edge table, whose `src` and `dst` no vertex table has.
-    const residents = Query.select("src").from(asTableRef([corpus.from, "Person_livesIn_Place"])!).where(isIn("src", [literal(1), literal(2)]));
+    // Who lives in a place: rows of an edge type, whose `src` and `dst` no vertex type has.
+    const lives = store.getSnapshot().structure!.edges.find((e) => e.name === "Person_livesIn_Place")!;
+    const residents = Query.select("src").from(lives.table).where(isIn("src", [literal(1), literal(2)]));
     crossfilter.update(clauseSemiJoin("dense_id", residents, { source: chart, label: "Residents" }));
     await settle(corpus);
     expect(onFailure).not.toHaveBeenCalled();

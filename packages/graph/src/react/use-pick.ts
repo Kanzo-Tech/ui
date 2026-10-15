@@ -4,6 +4,7 @@ import { useCallback, useSyncExternalStore } from "react";
 import type { ExprNode } from "@kanzo-tech/mosaic";
 import { publish } from "../core/client";
 import { clausesOf } from "../core/source";
+import { KEY } from "../core/structure";
 import type { VertexId } from "../core/types";
 import { useGraphContext } from "./graph-root";
 import { internalsOf } from "./use-graph";
@@ -73,7 +74,7 @@ export function usePick(id: string): VertexPick {
   const pick = useCallback(
     (ids: readonly VertexId[] | null, label: string) => {
       const { structure } = store.getSnapshot();
-      if (structure) publish(store.scope(), source, structure.key, ids, label);
+      if (structure) publish(store.scope(), source, KEY, ids, label);
     },
     [store, source],
   );

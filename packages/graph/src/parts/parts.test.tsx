@@ -342,9 +342,11 @@ describe("GraphInspector", () => {
     act(() => held.api?.setFocus(6));
     await waitFor(() => expect(screen.getByTestId("extra").textContent).toBe("score plus one: 8"));
     const labels = (name: string) => [...section(name).querySelectorAll("dt")].map((dt) => dt.textContent);
-    expect(labels("Values")).toEqual(["name", "team", "score", "lon", "lat", "born"]);
+    expect(labels("Values")).toEqual(["name", "team", "score", "lon", "lat", "born", "nickname"]);
+    // A `list` property reads as its values, not as an object.
+    expect([...section("Values").querySelectorAll("dd")].map((dd) => dd.textContent)).toContain("nick 6");
     expect(screen.queryByRole("region", { name: "Dates" })).toBeNull();
-    expect(corpus.sent.filter((sql) => /"Person" WHERE \("dense_id" = 6\)$/.test(sql))).toHaveLength(1);
+    expect(corpus.sent.filter((sql) => /"Person" WHERE \("_graphArVertexIndex" = 6\)$/.test(sql))).toHaveLength(1);
     expect(screen.queryByRole("region", { name: "Identity" })).toBeNull();
     expect(document.querySelector('[data-slot="graph-inspector-iri"] a')?.getAttribute("href")).toBe("https://example.org/person/6");
     expect(document.querySelector('[data-slot="graph-inspector-title"]')?.textContent).toBe("Person 6");
@@ -389,7 +391,7 @@ describe("GraphInspector", () => {
   it("says a vertex could not be read, and hands onFailure the thrown value", async () => {
     const { corpus, held, onFailure } = await inspecting();
     const refused = refusal();
-    corpus.refuse(/WHERE \("dense_id" = 6\)$/, refused);
+    corpus.refuse(/WHERE \("_graphArVertexIndex" = 6\)$/, refused);
     act(() => held.api?.setFocus(6));
     await waitFor(() => expect(screen.getByText("This vertex could not be read.")).toBeTruthy());
     expect(screen.queryByText("This vertex is not in the corpus.")).toBeNull();
@@ -564,7 +566,7 @@ describe("GraphCanvas", () => {
   it("hands onFailure the thrown value when a label's read rejects", async () => {
     const corpus = await attach();
     const refused = refusal();
-    corpus.refuse(/"dense_id" IN/, refused);
+    corpus.refuse(/"_graphArVertexIndex" IN/, refused);
     const onFailure = vi.fn();
     render(
       <GraphRoot {...over(corpus)} onFailure={onFailure}>

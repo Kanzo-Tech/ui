@@ -234,6 +234,26 @@ describe("useFieldStats", () => {
     expect(result.current[1]!.columns).toEqual(["dense_id", "team", "knows.dense_id", "knows.team"]);
   });
 
+  it("counts a relation whose only uncounted column is no field at all, such as a list", async () => {
+    const asked: unknown[] = [];
+    const { coordinator } = summarizing([], asked);
+    const joins: JoinGraph = {
+      types: [
+        {
+          name: "Person",
+          table: "people",
+          key: "dense_id",
+          columns: [column("dense_id", "UINTEGER", { role: "address", stats: counted(10) }), column("nickname", "VARCHAR[]"), column("team", "INTEGER", { stats: counted(4) })],
+        },
+      ],
+      edges: [],
+    };
+    const { result } = renderHook(() => useFieldStats("Person"), { wrapper: host(coordinator, undefined, undefined, joins) });
+    await waitFor(() => expect(result.current.fields).not.toBeNull());
+    expect(asked).toEqual([]);
+    expect(result.current.fields!.map((f) => f.name)).toEqual(["dense_id", "team"]);
+  });
+
   it("summarizes a relation over the joins the corpus did not count, keeping what the graph says each column is", async () => {
     const asked: unknown[] = [];
     const { coordinator } = summarizing([row("dense_id", "UBIGINT", 10), row("born", "INTEGER", 10, "1900", "1909")], asked);
