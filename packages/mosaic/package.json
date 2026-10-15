@@ -58,6 +58,6 @@
   "//gauges": "One gauge per published entry, and one per tree-shaken import a consumer meets; `scripts/gauges.mjs` (through `.size-limit.mjs`) is what each measures, and every limit's reason — each raise, dated, with its before and after — is a row on /docs/design, *A gauge per entry, and its raises written here*.",
   "gauges": {
     ".": "3.3 kB",
-    "./engine": "2.25 kB"
+    "./engine": "2.3 kB"
   }
 }
