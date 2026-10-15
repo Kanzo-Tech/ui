@@ -36,6 +36,7 @@
     "@uwdata/mosaic-sql": "^0.32.0"
   },
   "devDependencies": {
+    "@kanzo-tech/testing": "workspace:*",
     "@uwdata/flechette": "^2.5.0",
     "@uwdata/mosaic-core": "^0.32.0",
     "@uwdata/mosaic-sql": "^0.32.0"

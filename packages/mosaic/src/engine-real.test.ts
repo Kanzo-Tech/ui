@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { realpathSync } from "node:fs";
 import { Worker as NodeWorker } from "node:worker_threads";
+import { queryableConformance } from "@kanzo-tech/testing";
 import { afterAll, describe, expect, it, vi } from "vitest";
 
 /**
@@ -195,4 +196,15 @@ describe("the engine on DuckDB-WASM", () => {
     expect(again).not.toBe(e);
     expect((await again.query("SELECT 2 AS two", { signal: signal() })).getChild("two")?.get(0)).toBe(2);
   }, 60_000);
+});
+
+// The same cases every engine and every double of one is held to; the death case kills the worker the
+// way a browser would report it, and the next case asks `engine()` again for the one that replaced it.
+describe("the engine, held to the Queryable conformance kit", () => {
+  const make = async () => {
+    const e = await engine();
+    const worker = started.at(-1)!;
+    return { queryable: e, kill: () => worker.crash("the worker crashed") };
+  };
+  for (const { name, run } of queryableConformance(make)) it(name, run, 60_000);
 });

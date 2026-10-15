@@ -167,7 +167,7 @@ const BOOT_DEADLINE = 60_000;
 export class EngineError extends Error {
   override readonly name = "EngineError";
   constructor(
-    readonly code: "engine/unavailable" | "engine/lost" | "engine/failed",
+    readonly code: "engine/unavailable" | "engine/lost" | "engine/failed" | "engine/cannot-cancel",
     message: string,
     readonly data: {
       readonly after?: number;
