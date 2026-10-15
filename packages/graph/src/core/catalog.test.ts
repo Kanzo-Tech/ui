@@ -116,7 +116,7 @@ describe("readCatalog", () => {
     const [{ stats }] = (await corpus.coordinator.query(
       `SELECT decode(value) AS stats FROM parquet_kv_metadata('${chunkOf(corpus.from, "Person")}') WHERE decode(key) = 'fossil:stats'`,
       { type: "json" },
-    )) as unknown as { stats: string }[];
+    )) as unknown as [{ stats: string }];
     writeChunk(chunkOf(corpus.from, "Person", 1), corpus.from, "Person", stats);
     await corpus.coordinator.exec(
       `CREATE OR REPLACE VIEW ${corpus.from}.graphar_chunks AS
