@@ -7,6 +7,18 @@ import { tableFromArrays, tableToIPC } from "@uwdata/flechette";
  */
 const registry = new Map<string, string>();
 const calls: string[] = [];
+const sql: string[] = [];
+// Arrow as DuckDB-WASM answers it, IPC bytes, which mosaic-core decodes itself (from 0.30).
+const answer = tableToIPC(tableFromArrays({ one: Int32Array.of(1) }), {});
+/**
+ * The pending-query protocol as the worker speaks it: `start` answers `null` while the statement runs,
+ * `poll` answers the header when it is done or throws the worker's own error once it was cancelled,
+ * `fetch` answers the rest of the stream and an empty chunk at its end. A statement naming `slow`
+ * runs until released or cancelled. `inFlight` counts statements the connection holds at once.
+ */
+const running = { held: false, cancelled: false, released: false, release: () => {}, done: Promise.resolve() };
+const live = { inFlight: 0, max: 0 };
+const enter = () => (live.max = Math.max(live.max, ++live.inFlight));
 const db = {
   instantiate: vi.fn<(module: string) => Promise<void>>(async () => {}),
   registerFileURL: vi.fn(async (name: string, url: string) => {
@@ -25,20 +37,45 @@ const db = {
     calls.push(`drop ${name}`);
     registry.delete(name);
   }),
-};
-const sql: string[] = [];
-/** Answers an arrow request with one column, and holds a statement naming `slow` until released. */
-const running = { release: () => {} };
-// Arrow as a connector answers it, IPC bytes, which mosaic-core decodes itself (from 0.30).
-const answer = tableToIPC(tableFromArrays({ one: Int32Array.of(1) }), {});
-const connector = {
-  query: vi.fn(async (request: { type: string; sql: string }) => {
-    sql.push(request.sql);
-    if (request.sql.includes("slow")) await new Promise<void>((resolve) => (running.release = resolve));
-    return request.type === "json" ? [{ one: 1 }] : answer;
+  open: vi.fn(async () => {}),
+  connect: vi.fn(async () => ({ useUnsafe: <R>(use: (bindings: unknown, conn: number) => R) => use(db, 7) })),
+  startPendingQuery: vi.fn(async (_conn: number, text: string) => {
+    sql.push(text);
+    enter();
+    if (!text.includes("slow")) return null;
+    running.held = true;
+    running.cancelled = false;
+    running.released = false;
+    running.done = new Promise<void>(
+      (resolve) =>
+        (running.release = () => {
+          running.released = true;
+          resolve();
+        }),
+    );
+    return null;
+  }),
+  pollPendingQuery: vi.fn(async () => {
+    if (running.held) {
+      await Promise.race([running.done, new Promise((next) => setTimeout(next, 5))]);
+      if (running.cancelled) {
+        running.held = false;
+        live.inFlight--;
+        throw new Error("query was canceled");
+      }
+      if (!running.released) return null;
+    }
+    running.held = false;
+    live.inFlight--;
+    return answer;
+  }),
+  fetchQueryResults: vi.fn(async () => new Uint8Array()),
+  cancelPendingQuery: vi.fn(async () => {
+    const was = running.held && !running.cancelled;
+    running.cancelled = was;
+    return was;
   }),
 };
-const booted = vi.fn<(options?: unknown) => typeof connector>(() => connector);
 const workers: string[] = [];
 
 vi.stubGlobal("location", new URL("https://page.test/docs/"));
@@ -63,17 +100,13 @@ vi.mock("@duckdb/duckdb-wasm", async (original) => ({
   },
 }));
 
-vi.mock("@uwdata/mosaic-core", async (original) => ({
-  ...(await original<typeof import("@uwdata/mosaic-core")>()),
-  DuckDBWASMConnector: function (options?: unknown) {
-    return booted(options);
-  },
-}));
-
-const { engine } = await import("./engine.js");
+const { engine, EngineError } = await import("./engine.js");
 
 beforeEach(() => {
   calls.length = 0;
+  running.held = false;
+  running.cancelled = false;
+  db.cancelPendingQuery.mockClear();
 });
 
 describe("engine", () => {
@@ -81,15 +114,12 @@ describe("engine", () => {
     const [a, b] = await Promise.all([engine(), engine()]);
     expect(a).toBe(b);
     expect(await engine()).toBe(a);
-    expect(booted).toHaveBeenCalledTimes(1);
+    expect(db.open).toHaveBeenCalledTimes(1);
   });
 
   it("opens the database refusing whole-file reads, so a lent file is read by range", async () => {
     await engine();
-    expect(booted).toHaveBeenCalledWith({
-      duckdb: db,
-      config: { filesystem: { forceFullHTTPReads: false } },
-    });
+    expect(db.open).toHaveBeenCalledWith({ filesystem: { forceFullHTTPReads: false } });
   });
 
   // The CSP a host can hold is `'self'` because of this: no CDN, no `blob:` worker. Unbundled, the
@@ -139,7 +169,7 @@ describe("engine", () => {
     await e.query("SELECT 1 AS one", { signal: new AbortController().signal });
     expect(first.numRows).toBe(1);
     expect(first.getChild("one")?.toArray()).toEqual(Int32Array.of(1));
-    // Twice through the connector: a statement with effects is never answered from the cache.
+    // Twice through the connection: a statement with effects is never answered from the cache.
     expect(sql.slice(before)).toEqual(["SELECT 1 AS one", "SELECT 1 AS one"]);
   });
 
@@ -168,21 +198,61 @@ describe("engine", () => {
     }
   });
 
-  it("hands a refused statement's own error back, not a wrapper", async () => {
-    const e = await engine();
-    const refused = new Error("Catalog Error: Table with name nowhere does not exist");
-    connector.query.mockRejectedValueOnce(refused);
-    await expect(e.query("SELECT * FROM nowhere", { signal: new AbortController().signal })).rejects.toBe(refused);
+  // `onFailure` hands the thrown value to a host's telemetry: the statement's literals are a user's
+  // values, and DuckDB's message repeats the statement it refused.
+  describe("a refused statement", () => {
+    const refusal = new Error(
+      "Catalog Error: Table with name nowhere does not exist!\nLINE 1: SELECT * FROM nowhere WHERE name = 'Ada Lovelace' AND id IN (7, 8)",
+    );
+    const asked = "SELECT * FROM nowhere WHERE name = 'Ada Lovelace' AND id IN (7, 8)";
+    const everything = (error: unknown) => JSON.stringify(error, Object.getOwnPropertyNames(error as object));
+
+    it("is engine/failed, with DuckDB's words and the statement's shape, and no literal", async () => {
+      const e = await engine();
+      db.startPendingQuery.mockRejectedValueOnce(refusal);
+      const failure = await e.query(asked, { signal: new AbortController().signal }).catch((error: unknown) => error);
+      expect(failure).toBeInstanceOf(EngineError);
+      expect(failure).toMatchObject({
+        code: "engine/failed",
+        data: { statement: "SELECT * FROM nowhere WHERE name = ? AND id IN (?)" },
+      });
+      expect((failure as Error).message).toContain("Table with name nowhere does not exist!");
+      expect(everything(failure)).not.toMatch(/Ada|Lovelace|\b7\b/);
+    });
+
+    it("is the same through the coordinator, which is where a chart's failure comes from", async () => {
+      const e = await engine();
+      db.startPendingQuery.mockRejectedValueOnce(refusal);
+      const failure = await e.coordinator.exec(asked).catch((error: unknown) => error);
+      expect(failure).toMatchObject({ code: "engine/failed", data: { statement: expect.stringContaining("= ?") } });
+      expect(everything(failure)).not.toMatch(/Ada|Lovelace/);
+    });
+
+    it("does not echo a CREATE SECRET, nor what DuckDB says of it", async () => {
+      const e = await engine();
+      const secret = "CREATE OR REPLACE SECRET s (TYPE s3, KEY_ID 'AKIAEXAMPLE', SECRET 'hunter2', SCOPE 's3://b/')";
+      db.startPendingQuery.mockRejectedValueOnce(new Error(`IO Error: bad key 'AKIAEXAMPLE'\nLINE 1: ${secret}`));
+      const failure = await e.query(secret, { signal: new AbortController().signal }).catch((error: unknown) => error);
+      expect(failure).toMatchObject({ code: "engine/failed", data: {} });
+      expect(everything(failure)).not.toMatch(/AKIAEXAMPLE|hunter2|s3:\/\/b|KEY_ID/);
+    });
+
+    it("is not logged with its statement: the coordinator has no console logger", async () => {
+      const e = await engine();
+      expect(e.coordinator.logger()).not.toBe(console);
+    });
   });
 
-  it("rejects an aborted wait with the signal's reason, and the queue goes on", async () => {
+  // The defect: the wait ended and the statement ran on, so the page stayed stuck behind it.
+  it("interrupts a running statement on abort, rejects with the signal's reason, and answers the next", async () => {
     const e = await engine();
     const controller = new AbortController();
     const slow = e.query("SELECT slow", { signal: controller.signal });
     await vi.waitFor(() => expect(sql.at(-1)).toBe("SELECT slow"));
-    controller.abort();
+    expect(db.cancelPendingQuery).not.toHaveBeenCalled();
+    controller.abort(new Error("stop"));
     await expect(slow).rejects.toBe(controller.signal.reason);
-    running.release();
+    expect(db.cancelPendingQuery).toHaveBeenCalledWith(7);
     expect((await e.query("SELECT 1 AS one", { signal: new AbortController().signal })).numRows).toBe(1);
   });
 
@@ -192,6 +262,45 @@ describe("engine", () => {
     controller.abort();
     await expect(e.query("SELECT never", { signal: controller.signal })).rejects.toBe(controller.signal.reason);
     expect(sql).not.toContain("SELECT never");
+  });
+
+  it("never sends a statement aborted while it waited for the one before it", async () => {
+    const e = await engine();
+    const first = e.query("SELECT slow", { signal: new AbortController().signal });
+    await vi.waitFor(() => expect(sql.at(-1)).toBe("SELECT slow"));
+    const controller = new AbortController();
+    const waiting = e.query("SELECT waiting", { signal: controller.signal });
+    controller.abort();
+    await expect(waiting).rejects.toBe(controller.signal.reason);
+    running.release();
+    await first;
+    await e.query("SELECT 1 AS one", { signal: new AbortController().signal });
+    expect(sql).not.toContain("SELECT waiting");
+    expect(db.cancelPendingQuery).not.toHaveBeenCalled();
+  });
+
+  // ADBC's `AdbcStatementCancel` on a statement with nothing running: there is nothing to interrupt.
+  it("ignores an abort that arrives after the statement finished", async () => {
+    const e = await engine();
+    const controller = new AbortController();
+    const done = await e.query("SELECT 1 AS one", { signal: controller.signal });
+    controller.abort();
+    expect(done.numRows).toBe(1);
+    expect(db.cancelPendingQuery).not.toHaveBeenCalled();
+  });
+
+  // A pending query is several messages; a coordinator statement between them would end it.
+  it("takes turns with the coordinator on the one connection, in the order they asked", async () => {
+    const e = await engine();
+    live.max = 0;
+    const order: string[] = [];
+    await Promise.all([
+      e.query("SELECT 1 AS one", { signal: new AbortController().signal }).then(() => order.push("engine 1")),
+      e.coordinator.exec("SELECT 2").then(() => order.push("coordinator")),
+      e.query("SELECT 3 AS one", { signal: new AbortController().signal }).then(() => order.push("engine 2")),
+    ]);
+    expect(live.max).toBe(1);
+    expect(order).toEqual(["engine 1", "coordinator", "engine 2"]);
   });
 
   it("registers a name once for the same URL", async () => {
@@ -242,5 +351,29 @@ describe("engine", () => {
     // Dropped means forgotten: the same URL registers again rather than being taken as a no-op.
     await e.registerFiles({ "jobs/d/a.parquet": "https://x/a" });
     expect(calls.at(-1)).toBe("register jobs/d/a.parquet");
+  });
+
+  // DuckDB then spills or refuses with its own error while the worker lives, instead of the tab taking it.
+  it("sets DuckDB's memory limit below WebAssembly's ceiling, from the device's memory where it says", async () => {
+    const scope = globalThis as Record<symbol, unknown>;
+    const key = Symbol.for("@kanzo-tech/mosaic/engine");
+    const held = scope[key];
+    const device = globalThis.navigator;
+    const limit = async (memory: number | undefined) => {
+      delete scope[key];
+      vi.stubGlobal("navigator", memory === undefined ? {} : { deviceMemory: memory });
+      const from = sql.length;
+      await engine();
+      return sql.slice(from).filter((statement) => statement.includes("memory_limit"));
+    };
+    try {
+      expect(await limit(undefined)).toEqual(["SET memory_limit = '3072MiB'"]);
+      expect(await limit(8)).toEqual(["SET memory_limit = '3072MiB'"]);
+      expect(await limit(4)).toEqual(["SET memory_limit = '2048MiB'"]);
+      expect(await limit(0.25)).toEqual(["SET memory_limit = '512MiB'"]);
+    } finally {
+      vi.stubGlobal("navigator", device);
+      scope[key] = held;
+    }
   });
 });
