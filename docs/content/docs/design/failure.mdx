@@ -37,9 +37,12 @@ keasy coded its own model failures `llm/failed`, so one area had two names. A `P
 its **area** is the first half of its code, and the code is what a host branches on.
 
 **The reference is RFC 9457.** Its members are the class's: `status`, `detail` (the error's `message`),
-`title`, and extension members, of which `code` and `data` are the two that matter. `type` is absent,
-so it is `about:blank`, and §4.2.1 then asks that `title` be the status phrase, which is what
-`packages/auth/src/problem.ts` writes today and the clause keasy's server broke. A host tests with
+`type`, `title`, and extension members, of which `code` and `data` are the two that matter. `type` is
+the problem type's primary identifier (§3.1.1), and it is written: a tag URI, `tag:kanzo.tech,2026:problem/`
+followed by the code, derived from it and never independent. `about:blank` is the wrong type for a coded
+problem, because it means no semantics beyond the status (§4.2.1), and `title` is the registry's
+short summary of the type (§3.1.3), not the status phrase. `packages/auth/src/problem.ts` still writes
+the `about:blank` form today and moves with the migration. A host tests with
 `isProblem(error, code?)`, structurally and never by `instanceof`
 ([the kernel](/docs/design/kernel#problem) argues why).
 
@@ -48,7 +51,9 @@ already answered that way; keasy's Rust server answered `application/json` with 
 `{code, title, detail, data}` and no `status`, and every web client branched on the content type to
 read the two. After this, `ErrorBody` is gone from the server and the client's content-type branch with
 it: one parser, `Problem.from(body)`, reads both. A body carries `status`, `title`, `detail`, `code`,
-`data` and `help`; its `cause` is present only when the cause is itself a `Problem`. **A stack, a
+`data` and `help`, with a `type` that follows from `code`; its `cause` is present only when the cause is
+itself a `Problem` (at most 8 deep, a cycle cut), and a foreign cause's `data` keeps only the fields
+the registry declares for its code. **A stack, a
 foreign error's message, a statement's text, a URL with a credential never reach the wire**: they are
 what a cause carries, and the cause stays in process, whole, where `onFailure` can read it.
 
@@ -74,7 +79,9 @@ added.
 from it: the TypeScript table by a script in this repository, the Rust table by the server's own
 `xtask` from the file the kernel publishes.** It is fossil's pattern: its `problem.gen.ts` is generated,
 never edited, and a code in it is "stable once released, never reworded, never reused". A row is the
-code, its HTTP status where it crosses a wire, its title, and the fields of its `data`. `check:generated`
+code, its HTTP status where it crosses a wire, its title (the type's, one per code), and the fields of
+its `data`, and the file's one `base` is the prefix every `type` is made from. The file's grammar is in
+its own header. `check:generated`
 regenerates and fails on a difference, as it does for `themes.css`.
 
 Why a source and not a shared package: the server is Rust, and a TS package it cannot import is a list

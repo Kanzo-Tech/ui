@@ -27,7 +27,9 @@ none of them.** It holds five things and no others:
 | `dispose`, `asyncDispose` | the symbols a handle that must be given back is disposed through | 30 lines |
 | `mark` | one span in the Performance timeline, prefixed `kanzo:` | 40 lines |
 
-The package is about 300 lines in all, and 350 is its ceiling. The registry of codes
+The package is 230 hand-written lines as built (`claude/kernel`), and 350 is its ceiling; the
+reference-correct version of `Problem` (the derived `type`, the typed `data`, the cycle guard, the
+foreign-`data` filter, the ignore-a-wrong-member rebuild) fits in it, at 142 of its 150. The registry of codes
 ([How a failure leaves the library](/docs/design/failure#the-registry-is-generated)) is generated and
 not counted: it is a table, one row a code, and a table does not add a way of doing anything. The
 ceiling is held by the `size` gate with the figure measured at the first build; raising it is a
@@ -70,10 +72,11 @@ leaves any package is a `Problem` or it is an `AbortError`, and nothing else.**
 ```ts
 class Problem<C extends string = string> extends Error {
   readonly name: "Problem";
-  readonly code: C;        // `area/kind`, the discriminator a host branches on
-  readonly title: string;  // from the registry; the HTTP phrase on the wire
+  readonly type: string;   // RFC 9457's identifier: the registry's base + `code`, derived, never set
+  readonly code: C;        // `area/kind`, the extension member a host branches on
+  readonly title: string;  // the registry's, one per type; never the HTTP phrase
   readonly status?: number;
-  readonly data: ProblemData<C>; // plain JSON, per code
+  readonly data: ProblemData<C>; // plain JSON; the registry's fields for a registered code
   readonly help?: string;
   readonly related?: readonly Problem[];
   readonly severity: "error" | "warning" | "info";
@@ -85,13 +88,48 @@ function isCode(value: unknown): value is string;     // the `area/kind` grammar
 function isProblem(value: unknown, code?: string): value is Problem;
 ```
 
-**The reference is RFC 9457, and the mapping is exact.** `status` and `detail` are its members;
-`code` is an extension member (§3.2 allows them), and it is the discriminator, because a client
-branches on one short string and not on a URI it must parse. `type` is left out, so it is
-`about:blank` by the RFC's own default, and §4.2.1 then asks that `title` be the status phrase, which
-`toJSON` does: this is what `@kanzo-tech/auth`'s `problem()` already writes (`packages/auth/src/problem.ts`),
-and the clause it follows is the one a bespoke body breaks. A problem with no `status` is a
-client-side one and never crosses a wire; its `title` is the registry's.
+**The reference is RFC 9457, and each member is read from the clause that defines it.**
+
+| Member | Clause | What the kernel does |
+| --- | --- | --- |
+| `type` | §3.1.1: a URI reference identifying the problem *type*, the consumer's "primary identifier"; "about:blank" means no semantics beyond the status (§4.2.1) | `tag:kanzo.tech,2026:problem/` followed by the code, derived from `code` and never independent. A coded problem has semantics beyond its status, so `about:blank` would be the wrong type |
+| `title` | §3.1.3: a short summary of the *type*, which "SHOULD NOT change from occurrence to occurrence" | the registry's title for the code, so never the status phrase (that is `about:blank`'s title) and never the occurrence's text |
+| `status` | §3.1.2: advisory; the response must carry the same status | the registry's status where the code crosses a wire; the server must also set it on the response |
+| `detail` | §3.1.4: specific to this occurrence; consumers "SHOULD NOT parse" it | the error's `message` |
+| `code`, `data`, `help`, `severity`, `related`, `cause` | §3.2: extension members, which a client "MUST ignore" if unrecognised; §4 asks for names of three or more characters from letters, digits and `_` | all six meet that. `code` is what a host branches on; `data` is typed per code |
+
+**Where the sources disagreed with what this page first said.** The page named `code` the
+discriminator and left `type` out. §3.1.1 makes `type` the primary identifier a consumer must use, so
+`type` is now written. It is derived one-to-one from `code`, so the two cannot disagree and a client
+that follows the RFC to the letter and branches on `type` gets the same answer as one that branches on
+`code`; `code` stays because a short string is what a `switch` reads. The page also said §4.2.1 asked
+for the status phrase as `title`: it does, but only *under* `about:blank`, which a coded problem does
+not use. `packages/auth/src/problem.ts` still writes the `about:blank` form; it moves with the
+migration, and fossil's `FossilError` has no `type` on purpose (its site prefix is a deployment's to
+choose; `/docs/design/errors` in that repository), which is why the kernel mints a tag URI and not a
+URL.
+
+**Why a tag URI.** §3.1.1 allows a non-resolvable type and names the tag scheme (RFC 4151) as its own
+example, so `tag:kanzo.tech,2026:problem/engine/lost` needs no site at a stable address and no prefix a
+deployment chooses. It cannot be dereferenced, and the RFC asks consumers not to. The RFC says
+resolvable URIs are "encouraged", and that adopting one later is "a new identity for the problem type":
+a breaking change for every code at once, which is the cost of this choice, taken knowing it. The
+`kanzo.tech` authority and the year `2026` are the owner's to confirm (RFC 4151 asks that the authority
+held the name on the date given; UNVERIFIED here). An unregistered `urn:` namespace was the other
+candidate; RFC 8141 asks that a namespace identifier be registered, which has not been done
+(UNVERIFIED: the RFC was not read for this page). The base lives in `problems.bnf`, so the Rust
+projection derives the same `type`.
+
+**`cause` and `related` on the wire.** RFC 9457 is silent on both, and JavaScript's `Error.cause`
+(any value, cycles possible) is the only reference. `toJSON` follows `cause` and `related` only when
+the member is a Problem, at most 8 deep, and cuts a member that is already on the path from the root,
+so a cycle or a very long chain serialises and never throws or loops. A **foreign** Problem-shaped
+cause (a `FossilError`, a second copy of this package, anything that is not this copy's `instanceof
+Problem`) keeps only the `data` fields the registry declares for its code, of the declared type, and
+none for a code the registry lacks: it is the author of those members, not us, and unknown members are
+where a token or a path would be. Its `detail` is kept, because a Problem's `message` is the
+contract `isProblem` tests. The safer choice is taken and its cost is that a host's own cause loses
+its `data` on the wire; the host's own Problem at the root keeps it.
 
 **The failure that motivated it.** Four classes with the identical constructor `(code, message, data,
 options)` were written by copy: `EngineError` (`packages/mosaic/src/engine.ts`), `GraphError`
@@ -116,9 +154,13 @@ for "nobody is signed in". A host registry keyed on both, and a third on fossil'
    stack or a foreign error's message: a foreign `cause` is what carries a statement's text, a URL with
    a credential, a file path. This is why `detail` never names a statement or a token either, and why
    the wire reads as a statement of *what* failed and not *with what*.
-3. **`data` is plain JSON and typed per code.** A registered code narrows `data` (`after` for a
-   deadline, `status` for an upstream's answer, `count` and `limit` for a graph too large to draw); a
-   code a host owns is a free string and `data` is `Record<string, unknown>`. The host's registry
+3. **`data` is plain JSON and typed per code, from the generated registry.** `ProblemDataMap` is
+   generated from `problems.bnf`, and the constructor's rest parameters are a conditional type over it:
+   `data` is a required argument exactly when the registry declares a required field, its fields are
+   the declared ones, and a mismatch is a compile error (`new Problem("graph/too-large", "x", { count: 2 })`
+   fails; the test holds it with `@ts-expect-error`). This is the typed-error pattern of a mapped
+   type from a code table, not an overload per code. A code a host owns is a free string and `data`
+   is `Record<string, unknown>`. The host's registry
    (keasy's `rbac/*`) is generated by the same generator from its own source, so two registries share
    a grammar and not a list.
 4. **A programming or deployment fault is not a `Problem`.** `useSession` outside its provider throws a
@@ -132,18 +174,32 @@ for "nobody is signed in". A host registry keyed on both, and a third on fossil'
    keasy's `use-assistant` each re-implement "was this my cancel"; the rule is stated once, here, and
    the code follows.
 
-### One name, two things
+### Two names that collide
 
-`@kanzo-tech/ui` exports a `Problem` composite, the component that draws a
-failure ([admission](/docs/design/admission#a-failure-is-read-by-shape-and-worded-by-the-host)), and
-the kernel exports a `Problem` class. Both keep the name a reader looks for: the component is the
-public face of a documented page, the class the name of RFC 9457's object. The rule, stated here
-and nowhere else: **a file that imports both aliases the class, `import { Problem as ProblemError }
-from "@kanzo-tech/kernel"`, and never the component.** It is a spelling at one import site, not an
-export, so it adds nothing to a barrel and no second name for a consumer to learn. A file that
-needs only one imports it plain. *What would reverse it:* more than a handful of files needing both,
-in which case the component is renamed (`ProblemView`, the name keasy already uses for it) and the
-alias rule goes with the clash.
+`@kanzo-tech/ui` has a `Problem` composite (the component that draws a failure,
+[admission](/docs/design/admission#a-failure-is-read-by-shape-and-worded-by-the-host)) and a `Table`
+component; the kernel has a `Problem` class and a `Table` type. **The rule, stated here and nowhere
+else: the kernel's name is the reference's word and stays plain; a file that needs both imports the
+component under `<Name>View`.**
+
+`Problem` is RFC 9457's own word for its object, and `Table` is Apache Arrow's for the thing the
+`Queryable` returns (`Table` and `Vector` are the part of apache-arrow's a reader reads), so the
+kernel's names are the reference's, and `/docs/design/naming` settles a collision the one way: the
+reference's name stays and ours moves. The component is the one that is renamed at an import:
+`import { Problem as ProblemView, Table as TableView } from "@kanzo-tech/ui"`; the docs still call it
+`Problem` and `Table`, which is the name a reader looks for. keasy already uses `ProblemView`. It is
+a spelling at one import site, not a second name in a barrel. A file that needs only one imports it
+plain.
+
+*Where the sources disagreed with what this page first said:* it aliased the class (`ProblemError`)
+and kept the component plain. That was one rule for `Problem` alone, and `Table` would have needed
+the opposite to keep Arrow's word; one rule for both is this one.
+
+*What would reverse it:* more than a handful of files needing both, in which case the component is
+renamed outright and the alias rule goes with the clash. Until then the
+guard `documented-exports.test.ts` ("gives each name one meaning across every entry") is the reason
+the kernel is not among its entries: two meanings for `Problem` and `Table` would grow its
+`UNSETTLED` list, which may only shrink, so the entry waits for the rename.
 
 **The production axes.** *Failure and recovery:* one shape means one registry row per code says what a
 host does next, and `Problem.from` rebuilds the error across a worker or a response, so recovery code
@@ -154,8 +210,8 @@ class has a table-driven test over the registry (every row builds, serialises an
 that `isProblem` accepts a `FossilError`.
 
 **What would reverse it:** a host that wants failures in a vocabulary that is not `area/kind` and will
-not adopt it, or fossil's `FossilError` adopted as the base so the kernel's `Problem` becomes a
-re-export. Either is one file to change, because the only thing outside the kernel that names the
+not adopt it, or fossil's error class adopted as the base so the kernel's `Problem` becomes a
+re-use of it. Either is one file to change, because the only thing outside the kernel that names the
 class is a type annotation.
 
 *Held by* `packages/ui/src/failures-reach-the-host.test.ts`, "bites on onFailure, onError or error
@@ -173,13 +229,21 @@ until<T>(answer: Promise<T>, signal?: AbortSignal): Promise<T>
 ```
 
 `within` hands `wait` a signal that aborts when the deadline passes or the caller's signal does
-(`AbortSignal.any`, Baseline since 2024; READ: MDN), races the wait against it, and rejects with
-`silent(ms)` when the deadline wins: a `Problem` coded by who did not answer, carrying `after`. The
-caller's abort rejects with the caller's reason. `until` is the abandon underneath: the promise, or the
-signal's reason the moment it aborts, with the work behind it left to finish unread. The clock is
-`setTimeout`, not `AbortSignal.timeout`, so a test's fake timers drive it. This is fossil's helper,
-`packages/types/src/deadline.ts`, taken with its signature, so the two repositories keep one idea
-and a host reads one doc.
+(`AbortSignal.any`: "the reason will be set to the reason of the first signal that is aborted", MDN),
+and waits through `until` on that one signal, so the deadline's reason is `silent(ms)`, a `Problem`
+coded by who did not answer and carrying `after`, and the caller's abort rejects with the caller's
+reason. `until` is the abandon underneath: the promise, or the signal's reason the moment it aborts,
+with the work behind it left to finish unread. This is fossil's helper,
+`packages/types/src/deadline.ts`, with one mechanism and not two: the first version of the kernel's
+also raced a second rejection against the signal, which fossil does not, and the duplicate is gone.
+Two differences from fossil's remain on purpose: `silent` returns a `Problem` and not any `Error`
+(no bare `TimeoutError` can leave), and `until`'s signal is optional.
+
+**Why not `AbortSignal.timeout`.** MDN: it aborts with a `TimeoutError` `DOMException`, which cannot
+carry who did not answer or `after`, and its clock is active time, paused while a worker is suspended
+or the page is in the back-forward cache, where a test's fake timers cannot drive it at all. The
+clock is `setTimeout`. `AbortSignal.any` is Chrome 116, Firefox 124, Safari 17.4, Node 20.3 and Deno
+1.39 (MDN browser-compat-data, read 2026-10-15).
 
 **The failure that motivated it.** The wait was bounded four times, differently each time. DuckDB's
 boot: `abandon` plus a `setTimeout` (`packages/mosaic/src/engine.ts`). Auth: `deadline()`,
@@ -259,14 +323,28 @@ ingest). Then a second port is added beside this one, and this one is not widene
 ## Disposable
 
 **A handle that must be given back is disposed through `Symbol.asyncDispose` (`Symbol.dispose` where
-the release is synchronous), and the kernel exports the two symbols.**
+the release is synchronous), and the kernel provides the two symbols.**
 
 The reference is the TC39 explicit resource management proposal, `using` and `await using`, which
 graphar's `GraphAttachment` and fossil's `mount` already follow. The kernel's part is three lines:
 `dispose` is `Symbol.dispose` where it exists and `Symbol.for("Symbol.dispose")` where it does not, and
-the same for `asyncDispose`, so a handle written today is disposed by `await using` the day the runtime
-has it. Whether the minimum browser set has the symbols is UNVERIFIED; the fallback is why that does
-not decide anything.
+the same for `asyncDispose`; nothing is written to `Symbol`.
+
+**Where the sources disagreed with the brief.** The fallback was to be what TypeScript does. It is
+not: TypeScript's emitted helper `__addDisposableResource` has no fallback and throws
+`TypeError("Symbol.dispose is not defined.")`, and its documented polyfill (the 5.2 release notes) is
+`Symbol.dispose ??= Symbol("Symbol.dispose")`, a private symbol. The proposal's README is silent on a
+fallback. `Symbol.for` is therefore this package's choice, and it is the safer one: a private symbol
+made by one copy of a package is not the one another copy made, and TypeScript's recipe, run *after*
+this module loads, would leave the kernel holding a different symbol from the host's. So the
+requirement is written down: a host that downlevels `using` runs `Symbol.dispose ??=
+Symbol.for("Symbol.dispose")` (and the same for `asyncDispose`), in any order relative to the kernel.
+
+**What a consumer needs.** TypeScript 5.2 or later and `"lib": ["esnext.disposable"]` (or
+`"esnext"`), because the declarations say `typeof Symbol.dispose`; a `target` of ES2022 or below if it
+lets TypeScript downlevel `using`. Native symbols (MDN browser-compat-data, read 2026-10-15):
+`Symbol.dispose` in Chrome 125, Firefox 141, Node 24, Deno 1.37; `Symbol.asyncDispose` in Chrome 127,
+the others the same; Safari has not shipped them, which is the case the fallback is for.
 
 **The failure that motivated it.** Three conventions for "give back what I attached" and none shared:
 the Mosaic engine's `serial` and `release` over a name (`packages/mosaic/src/engine.ts`), graphar's
@@ -298,12 +376,21 @@ and keeps its own API.
 **One function writes a span to the Performance timeline, named `kanzo:<area>:<name>`, and a failure
 to write it never reaches the caller.**
 
-`mark(name, start, detail?)` calls `performance.measure` with the `kanzo:` prefix and swallows what the
-browser throws: a measurement is never worth a failed call. It is what `packages/llm/src/local.ts`
-already does for `kanzo:llm:load`, `kanzo:llm:warm-up` and `kanzo:llm:first-call`, generalised by its
-argument. The reference is the browser's User Timing API, which that code already uses; the shape,
-a name, a start, a detail, is the OpenTelemetry span's without a tracer, and the kernel does not
-build one.
+`mark("area:name", start, detail?)` calls `performance.measure(name, { start, detail })` with the
+`kanzo:` prefix, and swallows what the browser throws: a measurement is never worth a failed call. The
+name is typed `area:name`, so the kernel's span is `kanzo:<area>:<name>`. It is what
+`packages/llm/src/local.ts` already does for `kanzo:llm:load`, `kanzo:llm:warm-up` and
+`kanzo:llm:first-call`, generalised by its argument.
+
+The reference is W3C User Timing Level 3, §3.1.3 `measure()`, read in full. Two things differ from the
+first version of this page. `end` is optional: "otherwise, let end time be the value that would be
+returned by the Performance object's now() method", so `mark` leaves it out and the call is the
+API's own. And `detail` is passed through StructuredSerialize, so a detail that cannot be cloned (a
+function, a Problem with a stack) makes `measure` throw and the span is lost; the caller passes plain
+data. The spec names no prefix convention (its recommended names are `mark_*`); `kanzo:` is the
+family's own. **There is no `now()` helper**: `performance.now()` is the reference clock, `start` is a
+reading of it, and a second clock would be a second way to say the same thing. The shape, a name, a
+start, a detail, is the OpenTelemetry span's without a tracer, and the kernel does not build one.
 
 **The failure that motivated it.** There was one instrumentation (`kanzo:llm:*`) and no way for the
 other waits to be seen: how long DuckDB took to boot, how long the device took to come up, how long
@@ -344,7 +431,7 @@ In the consumer's words, one changeset for each of the packages named.
 - `EngineError`, `GraphError`, `LlmError` and `AuthError` are gone; catch a `Problem` with
   `isProblem(error, "engine/unavailable")` instead of `error instanceof EngineError`. The codes are
   the same unless the failure page lists a rename.
-- `Table` and `Vector` are no longer exported by `@kanzo-tech/mosaic`; import them from
+- `Table` and `Vector` are no longer part of `@kanzo-tech/mosaic`; import them from
   `@kanzo-tech/kernel`.
 - `Engine.query` stops the running statement when its signal aborts ([the engine](/docs/design/engine#aborting-interrupts-the-statement)).
 
