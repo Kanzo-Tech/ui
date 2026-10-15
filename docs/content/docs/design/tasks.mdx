@@ -147,10 +147,13 @@ gives. It replaced `<alias>.<column>` — `University.name`, and `Person2.firstN
 twice — which gave a field two spellings, one for the model and one for the data, and gave a self-join
 a name that is not a type.
 
-**The schema offers only paths the graph has.** The spec's schema is an `anyOf` with one branch per
-type the linker offers, each `of: { const }` beside its own enum of paths under `$defs` — the same
-discriminated `anyOf` the schema already writes for `show`'s three kinds — so a provider that decodes
-against it cannot write a path from one type on an answer about another. A provider that does not
+**The schema offers only paths the graph has.** The spec is the one property, `spec`, of an object,
+and its schema is an `anyOf` with one branch per type the linker offers, each `of: { const }` beside
+its own enum of paths under `$defs` — the same discriminated `anyOf` the schema already writes for
+`show`'s three kinds — so a provider that decodes against it cannot write a path from one type on an
+answer about another. The object is there because a tool's input schema must be one: Anthropic's and
+OpenAI's APIs refuse a root `anyOf`, and the branches were once the root. The model writes
+`{ spec }`; the schema's `validate` hands the Task the spec, so nothing downstream sees the wrapper. A provider that does not
 constrain is checked by `JoinResolver.relation` and `field`, whose misses — `join/no-step`,
 `join/no-field`, `join/branches` — are diagnostics at the field's pointer, sent back for a repair.
 A count may name a path too, `{ op: "count", path: "affiliation" }`, from the steps the enum's paths
@@ -173,12 +176,12 @@ answers a shape of question worse than the resolver's choice did — then that s
 a `compute` step back, written as a rule with an evidence line, not as a search. Or an enum too large
 to compile at the linker's widest context: then the field becomes a grammar —
 `segment ("." segment)* "." column`, its segments closed — which a Task may already declare instead of
-a schema. Or a provider Ask must run on that refuses an `anyOf` at a schema's root, as Anthropic's and
-OpenAI's tool inputs do: then the branches fold into one object with every type's paths, and the
-oracles hold each path to its `of`, as the retired answer schema did.
+a schema. Or a provider Ask must run on that refuses an `anyOf` anywhere in a schema, not only at its root:
+then the branches fold into one object with every type's paths, and the oracles hold each path to
+its `of`, as the retired answer schema did.
 
 *Held by* `packages/ai/src/data/ask.test.ts`, "is one branch per type offered, each its own enum of
-paths from it"; "says what the joins refuse: no such step, no such field, two branches, a chip out of
+paths from it"; "hands the model an object at the schema's root, and reads the spec out of it"; "says what the joins refuse: no such step, no such field, two branches, a chip out of
 reach"; "asks nothing when two paths reach one field: the model's path is the answer's".
 
 ### Physics awards by university, as the model writes it

@@ -55,6 +55,13 @@ export type { ModelBadgeProps, ModelBadgeTranslations } from "./model-badge.js";
 export { Checkpoint, CheckpointIcon, CheckpointTrigger } from "./checkpoint.js";
 export type { CheckpointTranslations, CheckpointTriggerProps } from "./checkpoint.js";
 
+// The steps of the work, and what the thread rests on: a list of what is done, under way, waiting on
+// the reader and still to come; and the sources the conversation reads, folded above it.
+export { ChainOfThought, ChainOfThoughtStep } from "./chain-of-thought.js";
+export type { ChainOfThoughtStatus, ChainOfThoughtStepProps, ChainOfThoughtTranslations } from "./chain-of-thought.js";
+export { Source, Sources, SourcesContent, SourcesTrigger } from "./sources.js";
+export type { SourcesTranslations, SourcesTriggerProps } from "./sources.js";
+
 // What a Task offers a screen, as a list it asks for, edits and dismisses.
 export { useTask } from "./use-task.js";
 export type { TaskList, TaskListState, UseTaskOptions } from "./use-task.js";
