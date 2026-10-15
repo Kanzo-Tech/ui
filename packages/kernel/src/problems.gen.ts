@@ -20,17 +20,10 @@ export interface ProblemDataMap {
   "relations/unmatched": { readonly term?: string };
   "relations/no-step": { readonly step?: string };
   "session/absent": Record<string, never>;
-  "session/unavailable": { readonly status?: number };
-  "session/silent": { readonly after: number };
-  "session/irrevocable": Record<string, never>;
   "idp/unreachable": { readonly status?: number };
   "idp/silent": { readonly after: number };
-  "token/exchange-failed": { readonly status?: number };
   "token/refused": { readonly status?: number };
-  "organization/invalid": Record<string, never>;
   "organization/denied": Record<string, never>;
-  "callback/state-mismatch": Record<string, never>;
-  "callback/nonce-mismatch": Record<string, never>;
   "claims/no-subject": Record<string, never>;
   "api/unreachable": { readonly status?: number };
   "api/silent": { readonly after: number };
@@ -54,17 +47,10 @@ export const PROBLEMS: Readonly<Record<keyof ProblemDataMap, { readonly status?:
   "relations/unmatched": { title: "A term names nothing in the catalog", data: { term: "string" } },
   "relations/no-step": { title: "A path step resolves to nothing", data: { step: "string" } },
   "session/absent": { status: 401, title: "Nobody is signed in", data: {  } },
-  "session/unavailable": { status: 503, title: "The session could not be read", data: { status: "number" } },
-  "session/silent": { status: 504, title: "The session did not answer", data: { after: "number" } },
-  "session/irrevocable": { status: 501, title: "The session cannot be revoked", data: {  } },
   "idp/unreachable": { status: 502, title: "The identity provider is unreachable", data: { status: "number" } },
   "idp/silent": { status: 504, title: "The identity provider did not answer", data: { after: "number" } },
-  "token/exchange-failed": { status: 502, title: "The token exchange failed", data: { status: "number" } },
   "token/refused": { status: 401, title: "The token was refused", data: { status: "number" } },
-  "organization/invalid": { status: 400, title: "The organization is not valid", data: {  } },
   "organization/denied": { status: 403, title: "The organization is not permitted", data: {  } },
-  "callback/state-mismatch": { status: 400, title: "The callback does not match", data: {  } },
-  "callback/nonce-mismatch": { status: 400, title: "The callback does not match", data: {  } },
   "claims/no-subject": { status: 502, title: "The claims name nobody", data: {  } },
   "api/unreachable": { status: 502, title: "The API is unreachable", data: { status: "number" } },
   "api/silent": { status: 504, title: "The API did not answer", data: { after: "number" } },

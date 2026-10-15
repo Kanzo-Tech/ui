@@ -12,7 +12,7 @@ class FossilError extends Error {
 
 describe("isCode", () => {
   it("accepts area/kind and nothing else", () => {
-    for (const ok of ["engine/lost", "callback/state-mismatch", "a1/b2"]) expect(isCode(ok)).toBe(true);
+    for (const ok of ["engine/lost", "organization/denied", "a1/b2"]) expect(isCode(ok)).toBe(true);
     for (const bad of ["engine", "Engine/lost", "engine/", "/lost", "engine/lost/x", "engine/Lost", "", 3, null, undefined]) {
       expect(isCode(bad)).toBe(false);
     }
@@ -52,17 +52,17 @@ describe("Problem", () => {
   });
 
   it("serialises to RFC 9457: a type derived from the code, the registry's title, the status, the occurrence's detail", () => {
-    const p = new Problem("session/silent", "no answer within 30000 ms", { after: 30_000 });
+    const p = new Problem("api/silent", "no answer within 30000 ms", { after: 30_000 });
     expect(JSON.parse(JSON.stringify(p))).toEqual({
-      type: `${TYPE_BASE}session/silent`,
+      type: `${TYPE_BASE}api/silent`,
       status: 504,
-      title: PROBLEMS["session/silent"].title,
+      title: PROBLEMS["api/silent"].title,
       detail: "no answer within 30000 ms",
-      code: "session/silent",
+      code: "api/silent",
       data: { after: 30_000 },
       severity: "error",
     });
-    expect(p.type).toBe("tag:kanzo.tech,2026:problem/session/silent");
+    expect(p.type).toBe("tag:kanzo.tech,2026:problem/api/silent");
   });
 
   it("never writes about:blank or the status phrase: a coded problem has semantics beyond its status", () => {
@@ -97,7 +97,7 @@ describe("Problem", () => {
 
   it("serialises a Problem cause, and never a foreign one, its message or a stack", () => {
     const inner = new Problem("idp/unreachable", "no route");
-    expect(new Problem("session/unavailable", "x", {}, { cause: inner }).toJSON().cause?.code).toBe("idp/unreachable");
+    expect(new Problem("token/refused", "x", {}, { cause: inner }).toJSON().cause?.code).toBe("idp/unreachable");
 
     const foreign = new Error("select * from t where token = 'abc'");
     const wire = JSON.stringify(new Problem("engine/failed", "refused", {}, { cause: foreign }));
@@ -117,14 +117,14 @@ describe("Problem", () => {
 
   it("keeps a foreign cause's registry-declared data and drops the rest, all of it for a code the registry lacks", () => {
     const known = Object.assign(new FossilError("idp/silent", "slow"), { data: { after: 5, token: "abc", nested: { a: 1 } } });
-    expect(new Problem("session/silent", "x", { after: 1 }, { cause: known }).toJSON().cause?.data).toEqual({ after: 5 });
+    expect(new Problem("api/silent", "x", { after: 1 }, { cause: known }).toJSON().cause?.data).toEqual({ after: 5 });
     const wrong = Object.assign(new FossilError("idp/silent", "slow"), { data: { after: "5" } });
-    expect(new Problem("session/silent", "x", { after: 1 }, { cause: wrong }).toJSON().cause?.data).toEqual({});
+    expect(new Problem("api/silent", "x", { after: 1 }, { cause: wrong }).toJSON().cause?.data).toEqual({});
     const hosts = Object.assign(new FossilError("rbac/forbidden", "no"), { data: { secret: "s" } });
-    expect(new Problem("session/silent", "x", { after: 1 }, { cause: hosts }).toJSON().cause?.data).toEqual({});
+    expect(new Problem("api/silent", "x", { after: 1 }, { cause: hosts }).toJSON().cause?.data).toEqual({});
     // our own Problem's data is what its author wrote
     const own = new Problem("rbac/forbidden", "no", { role: "admin" });
-    expect(new Problem("session/silent", "x", { after: 1 }, { cause: own }).toJSON().cause?.data).toEqual({ role: "admin" });
+    expect(new Problem("api/silent", "x", { after: 1 }, { cause: own }).toJSON().cause?.data).toEqual({ role: "admin" });
   });
 
   it("survives a cause cycle and a self-cause, and caps the chain at 8 deep", () => {

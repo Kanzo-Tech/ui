@@ -27,11 +27,11 @@ const row = (code: string) => document.querySelector(`[data-code="${code}"]`);
 
 describe("a thrown value, read for the shared shape", () => {
   it("draws a coded error's title and code, with its message as the detail", () => {
-    show({ error: new Coded("session/silent", "The session did not answer", "after 5000 ms") });
-    expect(screen.getByText("The session did not answer")).toBeTruthy();
-    expect(screen.getByText("session/silent")).toBeTruthy();
+    show({ error: new Coded("api/silent", "The API did not answer", "after 5000 ms") });
+    expect(screen.getByText("The API did not answer")).toBeTruthy();
+    expect(screen.getByText("api/silent")).toBeTruthy();
     expect(screen.getByText("after 5000 ms")).toBeTruthy();
-    expect(row("session/silent")?.getAttribute("data-variant")).toBe("destructive");
+    expect(row("api/silent")?.getAttribute("data-variant")).toBe("destructive");
   });
 
   it("draws an uncoded error as its message, and a value that is no object as its own String", () => {
