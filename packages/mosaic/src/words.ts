@@ -1,4 +1,4 @@
-import type { JoinAnnotation, JoinType } from "./relation.js";
+import type { JoinAnnotation, JoinEdge, JoinGraph, JoinType } from "./relation.js";
 
 /**
  * **A thing's words are its labels** (`/docs/design/fields`, *The words are its labels*). A type, an
@@ -52,10 +52,21 @@ export function namingColumn(type: Pick<JoinType, "columns">): string | undefine
   return type.columns.find((c) => c.iri !== undefined && SUB_PROPERTIES.has(c.iri))?.name;
 }
 
-/** A name as words, where nothing labels it — the last resort, and it never inflects: `birthPlace` is *birth place*. */
+/**
+ * A name as words, where nothing labels it — the last resort, and it never inflects:
+ * `isLocatedIn` → `is located in`, `TagClass` → `tag class`; an acronym keeps its case.
+ */
 export const splitWords = (name: string): string =>
   name
-    .replace(/([a-z\d])([A-Z])/g, "$1 $2")
-    .replace(/[_\s]+/g, " ")
-    .trim()
-    .toLowerCase();
+    .split(/(?<=[a-z0-9])(?=[A-Z])|[_\s]+/)
+    .filter(Boolean)
+    .map((w) => (w.length > 1 && w === w.toUpperCase() ? w : w.toLowerCase()))
+    .join(" ");
+
+/** What a type is called, in `language`: its label, else its name in words. */
+export const typeWords = (graph: Pick<JoinGraph, "types">, name: string, language?: string): string =>
+  labelOf(graph.types.find((t) => t.name === name)?.annotations, language) ?? splitWords(name);
+
+/** What an edge is called, in `language`: its label, else its `label` in words. */
+export const edgeWords = (edge: Pick<JoinEdge, "label" | "annotations">, language?: string): string =>
+  labelOf(edge.annotations, language) ?? splitWords(edge.label);

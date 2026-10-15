@@ -19,8 +19,7 @@ export default defineConfig({
       formats: ["es"],
     },
     rollupOptions: {
-      // Nothing to externalise: the entry has no runtime dependencies. (The previous config
-      // externalised @radix-ui/*, which this project has never used.)
+      // Nothing to externalise: the entry has no runtime dependencies.
       external: () => false,
       output: {
         preserveModules: false,

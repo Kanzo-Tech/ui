@@ -180,7 +180,7 @@ page's selection is `crossfilterOver(joins)` — Mosaic's crossfilter, with a re
 Mosaic's own extension point, `new Selection(resolver)` — which at predicate time hands a client of
 the same relation the clause as published and a client of another `k IN (SELECT key FROM <relation>
 WHERE <every clause on it>)`, into the client's step of the clause's root type, or `FALSE` where it
-has none ([Step 3](/docs/design/crossfilter#step-3-one-selection-across-relations)). So the graph
+has none ([one selection across relations](/docs/design/crossfilter#one-selection-across-relations)). So the graph
 answers a dashboard by the rule it already had, and nothing in `GraphClient` names a dashboard. A
 timeline over the graph is `ChartTimeline relation="vertices"`: its window is `date BETWEEN …` on
 `vertices`, the graph's own relation, so the graph reads it as published, and a type without a date
