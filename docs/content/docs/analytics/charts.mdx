@@ -149,6 +149,15 @@ export default function Analytics({ children }: { children: React.ReactNode }) {
 the failure is not kept: the next `engine()` boots again. `engine({ signal })` ends your own wait
 without stopping the boot other islands share.
 
+A worker that dies after the boot (the tab ran out of memory, the browser took it) is a state the
+engine handles: every request it held rejects with a `Problem` whose `code` is `"engine/lost"`
+and `data.reason` is `"worker"` or `"memory"`, every later statement rejects with the same, and the
+engine forgets itself. Call `engine()` again for a new one and attach again — a catalog, registered
+files and a `mount`'s secrets lived in the dead worker, and nothing carries them over. A count a host
+keeps per engine object (a `WeakMap`) starts at zero for the new one. DuckDB's memory limit is set
+at boot, below WebAssembly's ceiling, so a statement that needs more is refused by DuckDB while the
+worker lives.
+
 The engine also owns what DuckDB reads by name. `registerFiles({ name: url })` registers a URL under a
 name — the same URL again is a no-op, a different one replaces the lease, so a re-signed URL never
 meets DuckDB's `File already registered` — `registerFileBuffer(name, bytes)` registers a copy of a buffer, and

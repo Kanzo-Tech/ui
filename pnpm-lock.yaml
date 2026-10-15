@@ -458,6 +458,9 @@ importers:
         specifier: workspace:^
         version: link:../kernel
     devDependencies:
+      '@kanzo-tech/testing':
+        specifier: workspace:*
+        version: link:../testing
       '@uwdata/flechette':
         specifier: ^2.5.0
         version: 2.5.0

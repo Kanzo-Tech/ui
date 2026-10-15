@@ -111,8 +111,7 @@ describe("the public surface of Mosaic", () => {
  * TypeScript scanner rather than a regex, so a string in a comment is not an import. What it cannot
  * see: a dynamic `import()` with a computed specifier, a test file or `src/testing` helper (both
  * declare Mosaic as a dev dependency and build their fixtures from it), and `docs/`, which teaches the
- * door rather than ships it — `documented-exports.test.ts` is what fails on a page that imports a
- * name from `/analytics` it no longer has.
+ * door rather than ships it.
  */
 const CORE = /^@uwdata\/mosaic-(core|sql)(\/|$)/;
 

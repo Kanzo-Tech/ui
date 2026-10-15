@@ -47,7 +47,7 @@ definitions. They are Mosaic's model, written out
 [Selection](https://idl.uw.edu/mosaic/api/core/selection.html)), with the two rules this page adds:
 what a clause means for a type that cannot answer it, and position.
 
-**Vertices and types.** The corpus is a finite set of vertices *V*, partitioned into types; every
+**Vertices and types.** The graph is a finite set of vertices *V*, partitioned into types; every
 vertex *v* belongs to exactly one type *T(v)*, a table with a set of columns *cols(T)*. Each vertex has
 a key *k(v)*, unique in *V*.
 
@@ -305,7 +305,7 @@ no bridge between selections and no second way to retract a clause.
 </MosaicProvider>
 ```
 
-No selection, no bridge, no key. `joins` is the corpus's join graph (`readJoinGraph`), which holds
+No selection, no bridge, no key. `joins` is the graph's join graph (`readJoinGraph`), which holds
 one more type, `vertices`: every vertex table as one relation, `NULL` where a table has no such
 column.
 
@@ -414,7 +414,7 @@ is drawn, fails, or stops asking under a `MosaicClients` that is off.
 
 ### What would reverse it
 
-- **A relation whose keys do not share a space** — two corpora on one page, whose `dense_id`s
+- **A relation whose keys do not share a space** — two graphs on one page, whose `dense_id`s
   collide: then a key is a pair and the crossing a tuple semi-join.
 - **A path ambiguous enough to need choosing** — a relation with two steps of the clause's root type
   where the first is the wrong one often enough to matter: then a clause names the step it crosses
@@ -422,7 +422,7 @@ is drawn, fails, or stops asking under a `MosaicClients` that is off.
 - **Mosaic exposing a per-client pre-aggregation veto, or a resolver hook it calls before
   pre-aggregating**: then `preaggregateOwnRelation`, which wraps the pre-aggregator's public
   `request`, goes for it.
-- **A measured cost of the crossing subquery** at the largest corpus — it reads the relation the
+- **A measured cost of the crossing subquery** at the largest graph — it reads the relation the
   clause was published on once per crossed client per update: then the keys are materialised once
   per clause. At 200,000 people in DuckDB-WASM under Node the canvas's query over the `vertices`
 union measured the same as over the per-table union it keeps for the clause rule (median of 15:
@@ -463,6 +463,64 @@ relation, keeping none of a type without the column".
 5. **The greyout is derived per theme** from its own tokens — the largest opacity that keeps every
    kept colour at 3 : 1 from itself greyed — replacing *cosmos.gl's defaults*, which measured 2.03 –
    2.65 : 1 ([The greyout](#the-greyout)). Links keep cosmos.gl's default, 0.1.
+
+## The crossing rests on three hooks Mosaic does not publish, and fails out loud
+
+**Three things the cross-relation crossfilter reaches are not in mosaic-core's documented surface, and
+nothing today notices when one moves.** The Selection page of Mosaic's documentation lists four
+resolution strategies, `cross` and `empty`; it lists no custom resolver and no clause `meta`.
+
+| Hook | What the crossing does with it | Why it is not public |
+| --- | --- | --- |
+| The resolver class | `JoinResolver` subclasses it, reached as `Selection.crossfilter().resolver.constructor`, and `new Selection(resolver)` is the extension point | mosaic-core 0.32.0 declares `SelectionResolver` as a type only |
+| `meta.relation` on a clause, `relation` on a client | read by the subclass in `predicate(clauses, active, client)` | undocumented upstream |
+| `preaggregator.request` | `preaggregateOwnRelation` wraps it to veto a pre-aggregate for a client the clause crosses into | no per-client veto exists |
+
+The guard that sees Mosaic's private members, `mosaic-public-api.test.ts`, forbids names that begin
+with `_`; none of the three is one, so a mosaic-core release that changes the resolver's constructor,
+the `predicate` signature or `request` does not fail a build. It fails a page, silently: the
+predicate is `FALSE` or `undefined`, not a throw. The peer range `^0.32.0` on a `0.x` package is a
+pin, so every Mosaic release is a coordinated one; that is the right range and it is also the only
+protection.
+
+**The plan is both of the two ways out, started together, and neither waits for the other.**
+
+- **A behavioural guard, in the package that holds the crossfilter**, which runs the three against
+  the installed mosaic-core on every build: a resolver subclass receives the client and the clauses
+  and a clause crosses; `meta.relation` is the value the subclass reads; the `request` wrapper is the
+  one the pre-aggregator calls. An upgrade fails in the pull request that makes it. *To be added*;
+  it cannot prove the next release's behaviour, only that this one's still holds.
+- **Upstream**: a request to `uwdata/mosaic` to make `SelectionResolver` a value and to document
+  `predicate(clauses, active, client)` and a per-client pre-aggregation veto. If the first lands, the
+  constructor trick is deleted; if the veto does, `preaggregateOwnRelation` is.
+- **The mosaic README states the three**, in place of "all of it is on Mosaic's public API", which
+  they contradict.
+
+The formal model of selections is also the subject of Heer, Moritz and Pechuk, *Mosaic Selections*
+(arXiv:2507.19690, July 2025), which this page does not cite above and which was read here as an
+abstract only. [Formal semantics](#formal-semantics) is a parallel formalisation; reconciling the two,
+and replacing what merely restates the paper by a pointer and the delta (answerability, *placed*, the
+*keeps none* rule), is owed, and nothing here claims they agree.
+
+**A crossing that cannot be resolved is a failure, not a chart with no rows.** `FALSE` is the answer
+for exactly one case, the decided one: the relation has no step whose type meets the clause's root,
+so nothing of it can be read across and it keeps none. The resolver also swallowed *every* error into
+`FALSE` — an unknown relation name, a step lookup that threw — so a typo rendered as "no rows" and no
+`onFailure` was called, which is one state shown as another. A name that resolves to nothing throws a
+`Problem` (`relations/no-step`, [relations](/docs/design/relations#a-path-reads-as-malloys-dots-and-sparqls-inverse)),
+and the `catch` is deleted. A throw from `predicate` happens while Mosaic builds the client's query, so
+it should reach that client's `queryError`, which the provider already routes to `onFailure`; that is
+read from mosaic-core's request path and not run, and a test through the real coordinator is owed
+before the rule is relied on.
+
+**What would reverse it:** upstream accepting the three, which deletes the hooks and keeps the guard
+for the public ones; or rejecting them, which leaves them a documented fork point with the guard as its
+permanent test. The failure rule reverses only for a host that legitimately switches relations
+faster than its joins refresh: then the gap is a transient state the provider names, never a
+catch-all.
+
+*Not yet held:* the behavioural guard; a `crossfilter.test.ts` case that an unknown relation rejects
+with `relations/no-step` and keeps no `FALSE` behind it.
 
 ## References
 

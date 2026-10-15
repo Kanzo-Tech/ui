@@ -15,7 +15,23 @@ ends the same way: *what would reverse it*. Sometimes that is a measurement with
 sometimes a second consumer, sometimes a change upstream. Where the honest answer is **nothing**,
 it says nothing and says why the constraint is physical rather than chosen.
 
-Beside it, where one exists, is the guard that fails when the code stops matching, written as a
+**Read [the layers and the seams](/docs/design/architecture) first.** It is the map the other pages
+hang from: which package may import which, and the one rule that governs each place two packages
+meet. Three pages own the transversal rules it names: [the kernel](/docs/design/kernel) (the one
+failure class, the one wait, the read port, disposal, the timeline mark), [the engine](/docs/design/engine)
+(one read-only door onto DuckDB, abort that interrupts, a worker that may die) and
+[relations](/docs/design/relations) (`JoinGraph` as the one read-model of a catalog). Then the
+arguments, in the order the sidebar lists them: [admission](/docs/design/admission),
+[the references](/docs/design/references) and [names and slots](/docs/design/naming); the surfaces
+(colour, preferences, the graph and [its hardening](/docs/design/graph-hardening), analytics and its
+timeline and crossfilter, reads and fields); the model (the AI surfaces and tasks); the layers beside
+the library (services, auth, [how it fails](/docs/design/auth-failure) and [its hardening](/docs/design/auth-hardening), navigation, the shell);
+and last how a failure leaves the library, the findings and the tests.
+
+A page whose opening line says **to be built** states a design that is decided and not yet in the
+tree. Where such a page and the tree disagree the tree wins, and the disagreement is the work.
+
+Beside a rule, where one exists, is the guard that fails when the code stops matching, written as a
 *Held by* line. A rule with a test behind it is a rule you do not have to remember; a rule without
 one is a rule under review.
 
@@ -279,9 +295,10 @@ rows are not comparable with the gauges above them.
 | 2026-09-30 | ui root | 43.5 → 44 kB | 43.57 kB | `FieldRequiredIndicator`'s `fallback`, the `Empty*`, `Stat*` and `Gated*` parts — four issues from one consumer |
 | 2026-09-30 | ui root | 44 → 45.5 kB | 45.09 kB | `LanguagePicker`, `useAsyncCollection`, `useDebouncedCommit`, the `Field` bridge on `DatePicker` and `SegmentGroup`, `FieldHelper`'s `tone`, `FieldGroup`'s `columns`, `LocaleProvider` |
 | 2026-09-30 | ui root | 45.5 → 46.5 kB | 45.98 → 46.41 kB | the shared control height, `DatePicker`'s `granularity` and segmented `DateInput`, `DatePickerTimer` |
-| 2026-09-30 | graph root | — | 19.07 kB; 19.13 → 15.29 kB | first measurement; the whole-corpus store deleted the tileset, and the budget followed it down |
+| 2026-09-30 | graph root | — | 19.07 kB; 19.13 → 15.29 kB | first measurement; the whole-graph store deleted the tileset, and the budget followed it down |
 | 2026-10-01 | ui analytics | 68 → 89 kB | 66.96 → 88.37 kB | the BI kit: `Dashboard`, `DashboardFilters`, `DashboardStat`, `ChartCard`, `DetailTable`, `FilterChips`, `useFieldStats` |
 | 2026-10-01 | ui root | 46.5 → 47 kB | 46.83 kB | `ThemePicker` and `ThemePreview` |
+| 2026-10-15 | kernel root | 1.5 → 1.7 kB | 1.58 kB | `Problem` read clause by clause from RFC 9457: the derived `type`, the cycle guard and depth cap, the foreign-`data` filter, a rebuild that ignores a wrong-typed member |
 | 2026-10-01 | graph root | → 18 kB | 17.71 kB | `GraphCounts`, `GraphSearch`, `GraphLooks` moved in from the workspace showcase; drag-to-fix |
 | 2026-10-01 | auth root, `./browser`, `./server`, `./next` | 2.75, 2.25, 3.9, 5.25 kB | 2.22 → 2.6, 1.77 → 2.1, 3.4 → 3.73, 4.59 → 5.03 kB | the failure guarantees: a `failed` status, a 30 s deadline on every wait, coded IdP and session failures, the problem-page redirect |
 | 2026-10-02 | ui analytics | 89 → 89.5 kB | 89.19 kB | v0.19.0's failure model met the BI kit |
@@ -338,10 +355,11 @@ rows are not comparable with the gauges above them.
 | 2026-10-14 | llm `./local` and `./testing`, testing root and `./dom` | 2.7 kB, 1.2 kB, 10 kB and 10 kB, not raised | 2.66 → 2.14 kB, 1.15 kB → 237 B, 5.27 → 6.37 kB, 925 → 924 B | a model resolved through one provider registry: `/local` lost its lazy import of the double and its branch for a test, and gained the registry and `localProvider`'s `app-config.json`; the double's answering moved from `llm/testing` into testing's root as `scripted`, sent into a page as source text, so `./testing` is now the SDK's mock over it. The limits stay where they were, with headroom no change here asked for |
 | 2026-10-14 | mosaic root | 4.15 → 4.6 kB, approved by the owner (standing approval, 2026-10-14) | 4.11 → 4.53 kB | joins and answers (cleanup PR 9): `JoinResolver` became the one door to the joins — `steps`, `paths`, `relation`, `field`, `at` and `crossing`'s `at` — and `resolve.ts` went |
 | 2026-10-14 | ui analytics, `{ Dashboard }` | 27.6 → 28.6 kB, 35 → 36.1 kB, approved by the owner (standing approval, 2026-10-14) | 27.3 → 28.51 kB, 34.81 → 36.02 kB | joins and answers (cleanup PR 9): a tile's `where` and `top` and `tileQuery`, the one compiler every tile view reads through; a count of the measured type's keys; #199's whole-number count axis and wider bar labels. ai `./data` went 8.97 → 8.61 kB, the answer schema and its second compiler gone |
-| 2026-10-14 | mosaic root, ui analytics, `{ Dashboard }`, graph root | 4.6 → 5.2 kB, 28.6 → 29.2 kB, 36.1 → 36.75 kB, 25.25 → 26 kB, approved by the owner (standing approval, 2026-10-14) | 4.53 → 5.14 kB, 28.5 → 29.11 kB, 36.02 → 36.68 kB, 25.15 → 25.97 kB | what a field is (cleanup PR 10, `/docs/design/fields`): `JoinColumn` descriptions and `relationColumns`, a multi-valued property as a step joined once, `labelOf` and `namingColumn`; `fieldStats` over descriptions, `useFieldStats` reading a counted corpus with no query and keeping the joins' facts over a summary, titles from labels; `readCatalog`, the one read of fossil's four catalog relations and the engine's column types. ai `./data` went 8.61 → 8.2 kB, `readAnswerRelations` and the card's own read gone — 9.39 → 8.97 kB once merged with PR 11's kept chat, under its 9.5 kB, not raised; ui root (50.73 kB), `./editor`, `./table` and `{ Button }` did not move. auth `./next` measures 7.81 kB against its 7.8 kB on this machine on `main` too, untouched here |
+| 2026-10-14 | mosaic root, ui analytics, `{ Dashboard }`, graph root | 4.6 → 5.2 kB, 28.6 → 29.2 kB, 36.1 → 36.75 kB, 25.25 → 26 kB, approved by the owner (standing approval, 2026-10-14) | 4.53 → 5.14 kB, 28.5 → 29.11 kB, 36.02 → 36.68 kB, 25.15 → 25.97 kB | what a field is (cleanup PR 10, `/docs/design/fields`): `JoinColumn` descriptions and `relationColumns`, a multi-valued property as a step joined once, `labelOf` and `namingColumn`; `fieldStats` over descriptions, `useFieldStats` reading a counted graph with no query and keeping the joins' facts over a summary, titles from labels; `readCatalog`, the one read of fossil's four catalog relations and the engine's column types. ai `./data` went 8.61 → 8.2 kB, `readAnswerRelations` and the card's own read gone — 9.39 → 8.97 kB once merged with PR 11's kept chat, under its 9.5 kB, not raised; ui root (50.73 kB), `./editor`, `./table` and `{ Button }` did not move. auth `./next` measures 7.81 kB against its 7.8 kB on this machine on `main` too, untouched here |
 | 2026-10-14 | ai `./data` | 9.1 → 9.5 kB, approved by the owner (standing approval, 2026-10-14) | 8.61 → 9.39 kB | a chat kept (cleanup PR 11): Ask's `answer` and `ask` parts read back through schemas of their own, each rebuilt from its fields with its tile through `parseTile`. The root went 12.53 → 13.29 kB with `load`, `save`, `keep` and `useKeptChat`, under its 20 kB |
 | 2026-10-14 | llm `./local` | 2.7 → 3.1 kB, approved by the owner (standing approval, 2026-10-14) | 2.14 → 2.83 kB | an honest finish, a turn per call and a warm load: the finish check, the queue, the stream wrapper, the warm-up and its `performance` spans. The warm-up and its spans are the separable part (its own commit) |
 | 2026-10-14 | mosaic root | 5.2 → 6 kB, approved by the owner (2026-10-15) | 5.14 → 5.90 kB | a graph described by its mapping (`/docs/design/fields`): `withMapping` (with the maps fossil writes over a query), `typeWords` and `edgeWords`, and `splitWords` as the one split the picker and Ask both read. ui analytics (29.17 → 28.99 kB) and `{ Dashboard }` (36.68 → 36.65 kB) went down with the picker's own split and Ask's own label gone; ai `./data` 8.97 → 8.94 kB; ui root and graph did not move |
+| 2026-10-15 | mosaic root | 6 → 7 kB, approved by the owner (2026-10-15) | 5.97 → 6.82 kB | the engine's lifecycle (`/docs/design/engine`): the statement is interrupted when its signal aborts, `engine/lost` and `memory_limit`, and one scanner that redacts every literal from a refused statement before it reaches `onFailure` |
 | 2026-10-15 | graph root | 26 → 26.5 kB, approved by the owner (standing approval, 2026-10-14) | 25.97 → 26.29 kB | the reference grid drawn on a canvas (`/docs/design/graph`): the 1-2-5 ladder, the lattice and its draw, the ink and the canvas's size, against the CSS layer and its per-frame style writes gone. auth `./next` measures 7802 B against its 7.8 kB on `main` here too, untouched |
 
 A difference of a few bytes on a package the change did not touch is the measurement, not the code.

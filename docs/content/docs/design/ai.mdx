@@ -1,10 +1,19 @@
 ---
 title: Asking data
-description: Why an answer in @kanzo-tech/ai/data is a tile over a relation the model fills from typed names, not SQL it writes — and what would reverse it.
+description: Why an answer in @kanzo-tech/ai/data is a tile over a relation the model fills from typed names, not SQL it writes; why the model is open and remote models are a non-goal; what no default sends out of the page; how a call is set, bounded and scored; and what would reverse each.
 ---
 
 [Ask your data](/docs/ai/data) is what `@kanzo-tech/ai/data` ships. This page is why an answer is
-shaped the way it is.
+shaped the way it is, and what the AI part of the library promises about the model, the data in its
+prompts and the way it is measured.
+
+*Status: partly built.* The sections down to [A chat is kept](#a-chat-is-kept-in-the-ai-sdks-shape)
+describe the tree. [The model is open](#the-model-is-open-and-where-it-runs-is-not-the-librarys-to-enforce),
+[What leaves the page](#what-a-person-typed-and-a-store-held-leave-by-no-default-path),
+[A call has settings](#a-call-has-settings-and-a-wait-has-a-bound),
+[Ask is scored](#ask-is-evaluated-as-a-dataset-a-solver-and-a-scorer) and
+[the accessibility checks](#chat-ask-and-assist-are-checked-by-rule-and-by-keyboard) are decided and
+to be built; the *Breaking* list at the end is what a consumer edits.
 
 ## An answer is a relation and a tile, and the tile is the whole question
 
@@ -29,51 +38,35 @@ its width — with `of`, the type it measures, and every field a path from it
 ([Tasks](/docs/design/tasks#a-field-is-a-path-from-what-is-measured)); `JoinResolver` makes the
 relation of the paths, and the oracles are its misses and `parseTile`. The prompt lists each type's
 fields once, with their kind and most common values, *gender: category (female, male)*, read from
-the graph — `fieldStats` over its descriptions of the columns, the commonest values the corpus's
+the graph — `fieldStats` over its descriptions of the columns, the commonest values the graph's
 writer counted ([What a field is](/docs/design/fields)) — and the edges a path steps across,
 rather than DDL; [Asking within a context](/docs/design/ai-context) is why once.
 
-It replaced `answerSchema`, `checkAnswer` and `AnswerInput` — the old answer tool's schema, its
-validator, and an answer whose relation was a key — and `answerQuery`, a second compiler of a tile to
-SQL beside the dashboard's.
+It replaced `answerSchema`, `checkAnswer` and `AnswerInput` (the old answer tool's schema, validator
+and an answer whose relation was a key) and `answerQuery`, a second compiler of a tile to SQL beside
+the dashboard's.
 
 **It compiles with what the dashboard compiles with, and only that.** `relationQuery` makes the
-relation, `JoinResolver.crossing` brings in a condition off its path, and `tileQuery` — the
-dashboard's one compiler of a tile — makes the query: grouping, measure, order, `top`. The rows Ask
-reads and the marks the card draws come from one function, so the sentence and the chart cannot
-describe two different queries. All of it runs under the page's crossfilter at the moment of asking.
-The page's filter is not something the model names: it is the predicate the answer is read under, as
-every tile's is. What the answer read is what was true then; the card is a tile, and follows the page
-afterwards like any other.
+relation, `JoinResolver.crossing` brings in a condition off its path, and `tileQuery` makes the query:
+grouping, measure, order, `top`. The rows Ask reads and the marks the card draws come from one
+function, so the sentence and the chart cannot describe two queries. All of it runs under the page's
+crossfilter at the moment of asking, which is a predicate the answer is read under and never
+something the model names. The card is a tile afterwards, and follows the page like any other.
 
-**A page's clause reaches the answer as it reaches a tile.** A chip published on a relation is read
-by the page's own resolver (`JoinResolver.crossing`): as it is on that relation, and on the answer's
-through a semi-join on the key of a type both reach — a chip on *Physics*, published on
+**A page's clause reaches the answer as it reaches a tile.** A chip published on a relation is read by
+the page's own resolver (`JoinResolver.crossing`): as it is on that relation, and on the answer's
+through a semi-join on the key of a type both reach. A chip on *Physics*, published on
 `LaureateAward>category>Category`, narrows `LaureateAward>university>University` by the prize, so the
 University of California reads 16 and not its 43 in every category. It replaced matching a clause by
-its columns alone, under which that answer kept none of its rows while the dashboard's tiles beside
-it were narrowed: keasy's first evaluation pass showed a model that picked the right relation and an
-answer that read nothing. A clause the answer's relation shares no type with keeps none of its rows,
-as a tile's would (decided 11 October 2026), and is said, with the columns it names; the card prints
-it under the tile, so an empty answer says why it is empty. A clause published on no relation is still
-answered by column. What would reverse it is a resolver that crosses differently for tiles, and then
-the answer follows it — the two never disagree.
+its columns alone, under which that answer kept none of its rows while the tiles beside it were
+narrowed. A clause the answer's relation shares no type with keeps none of its rows, as a tile's
+would (decided 11 October 2026), and is said, with the columns it names, under the tile. A clause
+published on no relation is still answered by column. What would reverse it is a resolver that
+crosses differently for tiles, and then the answer follows it.
 
 *Held by* `packages/ai/src/data/page-clauses.test.ts`, "crosses a chip on another relation by the key
 both reach, as the page's tiles are crossed"; "keeps none of a relation's rows when it shares no type
 with the chip's".
-
-**The read goes through the engine's door, not the coordinator's queue.** The queue batches behind
-`requestAnimationFrame` for the charts, and a hidden tab never fires one: a question asked before
-switching tabs waited forever, and *Stop* only dropped the late answer. `Engine.query` takes the
-chat's signal, so an abort ends the wait at once. An answer is one statement, which the queue had
-nothing to consolidate with. What would reverse it is a coordinator whose queue takes a signal and
-does not wait for a frame: then Ask goes back to reading where the charts read.
-
-Under [the read door](/docs/design/reads) it stays the engine's: the read is a query on the host's
-`QueryClient` whose function is handed the query's signal and hands it to `Engine.query`, and the
-chat's signal cancels the query. The cache keys the read by the engine and the statement, which
-holds the page's clauses, so an answer asked again under the same chips reads nothing again.
 
 **The card is a dashboard tile, and it takes the answer.** `AnswerCard` takes `answer` — what the
 `data-answer` part holds — not an AI SDK tool part, so an answer can be drawn outside a transcript. It
@@ -87,30 +80,27 @@ statement.
 
 **The references are the semantic layer's**: Looker's Conversational Analytics and ThoughtSpot Sage,
 where a question is answered by picking fields of an explore or a worksheet, and Cube, LookML and
-Malloy, where SQL is compiled from a model of the data rather than written against tables.
-`relationQuery`'s own page names Looker's explore and Malloy's source as its reference, so the
-answer and the dashboard share a model.
+Malloy, where SQL is compiled from a model of the data. `relationQuery`'s own page names Looker's
+explore and Malloy's source, so the answer and the dashboard share a model.
 
 **It replaced Databricks Genie's and Hex Magic's loop**: one SQL query per answer, written by the
-model against DDL, and `gateStatement` between that text and the page's engine. The gate kept the
-engine safe, but it could not make the model right. A local model shown
-`"cac8fcfb-…"."Person"` wrote `"Person"` in one take and `"cac8fcfb-…"."scope"` in the next, and
-both were refused. Making the gate tolerant guessed what the model meant, and showing plain names
-moved the same mistake one step along. Every mistake of that kind is a name, and an enum removes
-names from what the model writes. Genie and Hex run frontier models against warehouses whose
-names are the reader's own. A page that runs whatever model its host points it at, over names a
-corpus generated, cannot count on either.
+model against DDL, behind `gateStatement`. The gate kept the engine safe and could not make the model
+right: a local model shown `"cac8fcfb-…"."Person"` wrote `"Person"` in one take and
+`"cac8fcfb-…"."scope"` in the next, and both were refused. A tolerant gate guessed what the model
+meant, and plain names moved the mistake one step along. Every mistake of that kind is a name, and an
+enum removes names from what the model writes. Genie and Hex run frontier models against names the
+reader owns; a page that runs whatever model its host points it at, over names a graph generated,
+cannot count on either.
 
 **What it costs:** a question the spec cannot say, such as a window function, a ratio of two
-aggregates or a join the `JoinGraph` does not have, gets no answer: the oracles refuse every spec
-the model tries for it, and the reader is told so. There is
-no SQL tool kept beside it as a fallback: two doors means two things to secure and two answers that
-look different, and the spec is where the missing words get added.
+aggregates or a join the `JoinGraph` does not have, gets no answer: the oracles refuse every spec the
+model tries, and the reader is told. No SQL tool is kept beside it: two doors are two things to
+secure, and the spec is where missing words get added.
 
 **What would reverse it:** questions readers ask and the spec cannot say, recorded often enough that
 growing the spec costs more than a second door. Then a SQL tool returns beside the spec, behind
-`gateStatement` as it was — with `@kanzo-tech/mosaic`'s engine loading DuckDB's `json` again, whose
-`json_serialize_sql` was the gate's parser — and the card says which one answered.
+`gateStatement` as it was, with the engine loading DuckDB's `json` again (`json_serialize_sql` was the
+gate's parser), and the card says which one answered.
 
 *Held by* `packages/ai/src/data/answer.test.ts`, "reads its tile's rows with the one compiler the
 dashboard's tile reads"; `packages/ai/src/data/answer-card.test.tsx`, "Add to the dashboard hands the
@@ -140,26 +130,21 @@ part through the host's renderer by its name, and says when its message is writt
 
 ## A question to the person is the question part
 
-**When Ask must ask — an oracle's `Decision`, options and never free text — it writes the decision
-as a `data-ask` part, the host draws it with `@kanzo-tech/ui`'s question part, and the person's pick
-comes back as the option's id in the reply's own `data-ask` part, `askEdit(spec, { [decision]:
-option })`, which settles the decision as the Task's `decide` does.** It was written as numbered text
-and the reply matched back against *1*, the option's id or its label — a second way to ask the
-reader beside the question component keasy's assistant already draws its decisions with. There is one
-question part, in `@kanzo-tech/ui`, and
-[Admission](/docs/design/admission#a-question-is-one-part-in-kanzo-techui) is why it lives there.
-
-Since Ask's fields became paths, none of its own oracles raises a decision: the tie between two paths
-of one length that was its one question is the model's to write
+**When Ask must ask — an oracle's `Decision`, options and never free text — it writes the decision as
+a `data-ask` part, the host draws it with `@kanzo-tech/ui`'s question part, and the person's pick comes
+back as the option's id in the reply's own `data-ask` part, `askEdit(spec, { [decision]: option })`.**
+It was numbered text matched back against *1*, the option's id or its label, a second way to ask
+beside the question component keasy's assistant draws with. There is one question part, in
+`@kanzo-tech/ui`, and [Admission](/docs/design/admission#a-question-is-one-part-in-kanzo-techui) is why.
+Since Ask's fields became paths none of its own oracles raises a decision: the tie between two paths
+of one length is the model's to write
 ([Tasks](/docs/design/tasks#two-paths-of-one-length-are-the-models-with-the-other-on-the-chip)). The
-door stays because a Task's oracle may ask, and the shape of the asking is the Task's, not Ask's.
+door stays because a Task's oracle may ask. The reference is MCP's elicitation, which `Decision`
+follows: a schema of options, answered by a structured reply, never parsed out of prose.
 
-The reference is MCP's elicitation, which `Decision` already follows: a request with a schema of
-options, answered by a structured reply, never parsed out of prose.
-
-**What would reverse it:** a decision whose answer cannot be a choice — a value the person types,
-such as a threshold. Then the question part takes an input, as Questionnaire's question already
-does, and the reply carries the value; it is still not parsed out of text.
+**What would reverse it:** a decision whose answer cannot be a choice, such as a threshold the person
+types. Then the question part takes an input, as Questionnaire's question does, and the reply carries
+the value; it is still not parsed out of text.
 
 *Held by* `packages/ai/src/data/ask-chat.test.ts`, "asks a decision as a data part, and settles it by
 the option the reply picks, not by its words".
@@ -167,19 +152,15 @@ the option the reply picks, not by its words".
 ## Whether a tile is on the dashboard is the host's spec, read
 
 **`AnswerCard` takes the host's `Dashboards` and hands `onAdd` the whole next document, and *On the
-dashboard* is the tile's id found in its relation's spec.** It is `Dashboard`'s own contract — a
-value and the whole next value — and the controlled answer to a flag a card kept: that flag said
-*added* the moment `onAdd` returned, before the host's save had succeeded, and a remount forgot it.
-The tile goes on under the answer's id, the call's, which is what lets the spec be asked. A write the
-host answers with a promise is waited on: pending until it settles, whatever the spec shows, and a
-rejection drawn as a `Problem` under the tile, the thrown value whole.
+dashboard* is the tile's id found in its relation's spec.** It is `Dashboard`'s own contract, a value
+and the whole next value, and the controlled answer to a flag a card kept: that flag said *added* the
+moment `onAdd` returned, before the host's save succeeded, and a remount forgot it. The tile goes on
+under the answer's id, which lets the spec be asked. A write the host answers with a promise is
+waited on, pending until it settles, and a rejection is drawn as a `Problem` under the tile, whole.
+`onAdd` is told the relation as well as its key, because a dashboard view is driven by a `Relation`.
 
-`onAdd` is told the relation as well as its key, because a host's dashboard view is driven by a
-`Relation` and a key cannot be read back into one.
-
-**What would reverse it:** a host that keeps its dashboards in some shape other than `Dashboards`,
-asking for the card. Then the card takes a predicate and a callback that build the next spec, and the
-document is the host's again.
+**What would reverse it:** a host that keeps its dashboards in a shape other than `Dashboards`. Then
+the card takes a predicate and a callback that build the next spec, and the document is the host's.
 
 *Held by* `packages/ai/src/data/answer-card.test.tsx`, "is on the dashboard while the host's spec
 holds the tile, after a remount, and offered again once it is removed"; "is pending while the host's
@@ -189,40 +170,29 @@ write is, never on the dashboard before it settles, and draws a rejection as a P
 
 ***Filter the page to these rows* and *Add to the dashboard* are icon buttons in the tile's own
 header, beside its title, each named by `aria-label` and a tooltip; once the tile is on the
-dashboard the second becomes *Open on the dashboard*, the host's `onOpen`.** Grafana's Explore adds
-a query to a dashboard from the panel it is about, and its dialog ends in *Open dashboard*; Metabase
-adds a question to a dashboard and then opens it there. The verbs used to be two text buttons above
-the card, belonging to nothing on screen. A tile already has a place for its controls — the pencil
-in `ChartCard`'s and `DashboardStat`'s header, in `CardAction` — so the verbs go there, through
-`actions`, a node the host puts in the header before the pencil. Opening is the host's because the
-view is: the card cannot switch it, so `onOpen` is told `{ relation, key, id }`, the add's own
-answer and the tile's id. A host without it gets *On the dashboard*, disabled, rather than a verb
-that does nothing.
-
-`actions` sits beside `onEdit` rather than replacing it: the pencil's icon, label per kind and place
-are the library's, and `Dashboard` is its only caller. *What would reverse it:* a host that wants a
-pencil of its own; then `onEdit` goes and `Dashboard` passes its pencil through `actions`.
+dashboard the second becomes *Open on the dashboard*, the host's `onOpen`.** Grafana's Explore adds a
+query to a dashboard from the panel it is about and ends in *Open dashboard*; Metabase adds a
+question and then opens it there. The verbs were two text buttons above the card, belonging to
+nothing on screen. They go in the header's `actions` node, before the pencil. Opening is the host's
+because the view is: `onOpen` is told `{ relation, key, id }`, and a host without it gets *On the
+dashboard*, disabled, rather than a verb that does nothing. `actions` sits beside `onEdit`, whose
+icon, label and place are the library's. *What would reverse it:* a host that wants a pencil of its
+own; then `onEdit` goes and `Dashboard` passes its pencil through `actions`.
 
 **Filter is disabled, and says *This answer keeps everything in view*, when its clause would keep
-every row the page keeps.** In keasy's Ask over LDBC's social network, the model answered *browsers
-used, as bars, over Person* with no conditions: the bars covered every browser, the clause kept every
-person, and pressing Filter changed nothing a reader could see. The rule reads only what the card
-already holds, so it costs no query: no conditions, a relation that is a type alone (a hop keeps only
-the roots that have one), and bars over every category of their column — as many as the field's
-`distinct`, none of them null, which the clause would drop. Disabled with its reason, not hidden, as
-the timeline's Play is: the reader learns why the verb is not there. Its chip names what it filters,
-each part read by `clauseLabel` as the filter bar reads a clause — *Ask: browserUsed · 3 selected*,
-*Ask: Person.gender female* — where *Ask* alone said who had filtered and not to what.
+every row the page keeps.** In keasy's Ask over LDBC's social network the model answered *browsers
+used, as bars, over Person* with no conditions, and pressing Filter changed nothing a reader could
+see. The rule reads only what the card holds, so it costs no query: no conditions, a relation that is
+a type alone, and bars over every category of their column (as many as the field's `distinct`, none
+null). Disabled with its reason, not hidden, as the timeline's Play is. Its chip names what it
+filters, each part read by `clauseLabel` as the filter bar reads a clause — *Ask: browserUsed · 3
+selected*.
 
-**What it costs:** `distinct` is the corpus writer's exact count of the type's column (DuckDB's
-`approx_unique` for a relation nothing counted, exact at the few dozen values a bar chart answers),
-and it counts the whole type. An answer read under a page that already narrowed its
-column answers fewer categories than the field has, so its Filter stays enabled even when it would
-keep exactly what the page keeps.
-
-**What would reverse it:** readers pressing an enabled Filter that changes nothing, under a page that
-had narrowed the column. Then the card counts the page's rows with and without the clause — one
-query per answer — and disables on equal counts.
+**What it costs:** `distinct` counts the whole type, so an answer read under a page that already
+narrowed its column answers fewer categories than the field has, and its Filter stays enabled even
+when it would keep what the page keeps. **What would reverse it:** readers pressing an enabled Filter
+that changes nothing. Then the card counts the page's rows with and without the clause, one query per
+answer, and disables on equal counts.
 
 *Held by* `packages/ai/src/data/answer-card.test.tsx`, "draws its verbs in the tile's header, beside
 its title"; "opens the tile on the dashboard once it is there, when the host says how"; "is disabled,
@@ -234,27 +204,23 @@ each clause".
 
 **Ask is offered the types alone, as the graph describes them, and the relation is the paths the
 model writes from them.** An answer across a hop is still answered: a path steps across it, and a
-step's fields are the type's. A multi-valued property is reached the same way — a path that ends on
-it reads its value — and is never a type Ask measures on its own. Nothing is read from the engine to
-offer them: each type's fields, their kinds and their commonest values are on the join graph,
-counted by the corpus's writer, so offering them costs no query at all
-([What a field is](/docs/design/fields#what-a-field-holds-comes-from-the-writers-counts-stored-in-the-corpus)).
+step's fields are the type's. A multi-valued property is reached the same way and is never a type Ask
+measures on its own. Nothing is read from the engine to offer them: each type's fields, kinds and
+commonest values are on the join graph, counted by the graph's writer
+([What a field is](/docs/design/fields#what-a-field-holds-comes-from-counts-stated-in-the-graph)).
 
-It replaced `readAnswerRelations` — a `SUMMARIZE` per relation and a count per category, queued on
-the page's one connection ahead of its charts — and `answerRelationsOf`, which enumerated the
-relations to read. Measured 2026-10 in DuckDB-WASM's Node build over a graph shaped like LDBC's
-social network benchmark at scale 1 (3.2 M vertices, 17 M edges, 8 types, 23 edges), that read took
-1.2 s for the types alone and 41.5 s with every hop; the model's prompt was 3,581 characters for the
-types alone and 39,018 with every hop. Offering every hop had already gone before the read did: it
-left the cost to the host and the choice of a relation to the model, and keasy's first evaluation
-pass found the model choosing it wrongly. A type's own values are what a step of it reads; the values
-a hop narrows to are the answer's rows, not the prompt.
+It replaced `readAnswerRelations`, a `SUMMARIZE` per relation and a count per category queued on the
+page's one connection ahead of its charts. Measured 2026-10 in DuckDB-WASM's Node build over a graph
+shaped like LDBC's social network at scale 1 (3.2 M vertices, 17 M edges, 8 types, 23 edges), that
+read took 1.2 s for the types alone and 41.5 s with every hop, and the prompt was 3,581 characters
+for the types and 39,018 with every hop. Offering every hop had already gone before the read did:
+keasy's first evaluation pass found the model choosing a relation wrongly.
 
-**What would reverse it:** a spec whose fields the type alone cannot give — a field a hop alone
-reads, such as an edge's own property. Then that edge's columns are described on the graph beside
-the types', and its fields join the spec's enum under its path. And a graph whose corpus counted
-nothing offers its fields without values; if that became the common case, the counts would be read
-once per corpus through the read door, never once per prompt.
+**What would reverse it:** a spec whose fields the type alone cannot give, such as an edge's own
+property. Then that edge's columns are described on the graph beside the types', and its fields
+join the spec's enum under its path. And a graph whose writer counted nothing offers fields without
+values; if that became the common case, the counts would be read once per graph through the read
+door, never once per prompt.
 
 *Held by* `packages/ai/src/data/answer.test.ts`, "describes a relation's fields from the graph,
 without its steps' keys, each with the commonest values its writer counted"; "reads nothing from the
@@ -283,20 +249,16 @@ decides what of each part is stored.** A chat hook given them (`useAgentChat`, `
 `load` once before the first turn, validates what it answers with the AI SDK's `validateUIMessages`
 against the chat's own `dataPartSchemas` and `messageMetadataSchema` — the ones `useChat` already
 takes — and, for an agent, its tools, and makes the `useChat` of that `id` from them; at the end of
-every turn it saves every message, one save at a time. `keep` filters or rewrites the parts — a host
-drops reasoning, or keeps an answer's spec with its rows emptied — and what it keeps is validated before
-`save` is called, so a `keep` that writes what cannot be read back is refused when it writes, not
-when the person comes back.
+every turn it saves every message, one save at a time. `keep` filters or rewrites the parts (a host drops
+reasoning, say), and what it keeps is validated before `save` is called, so a `keep` that writes what
+cannot be read back is refused when it writes, not when the person comes back.
 
-The load is a plain call, not a query: the chat hooks are `@kanzo-tech/ai`'s root, which takes no
-TanStack peer ([One read per datum](/docs/design/reads)), and a kept chat is read once, into
-`useChat`, which holds it from then on — there is nothing for a cache to share.
-
-The reference is the AI SDK's *Chatbot Message Persistence*: a chat is its id and its `UIMessage[]`,
-loaded into `useChat({ id, messages })` and saved when a response finishes, validated on the way back
-in because what was stored is untrusted input. Two things are its rules rather than ours: a list with
-no message, or a message with no part, does not validate — so `[]` from `load` is a chat never saved,
-and a message `keep` leaves no part of is not stored.
+The load is a plain call, not a query: the chat hooks are the root, which takes no TanStack peer
+([One read per datum](/docs/design/reads)), and a kept chat is read once, into `useChat`, which holds
+it. The reference is the AI SDK's *Chatbot Message Persistence*: a chat is its id and its
+`UIMessage[]`, saved when a response finishes and validated on the way back in because what was
+stored is untrusted input. Two things are its rules: a list with no message, or a message with no
+part, does not validate, so `[]` from `load` is a chat never saved.
 
 **Ask's parts have schemas of their own**, which `useAskChat` passes as its `dataPartSchemas`: an
 `answer` and an `ask` part are each rebuilt from the fields they may hold, their relation read as
@@ -311,12 +273,31 @@ parts are written in it.
 them, and nothing they do not hold"; "refuses an answer whose tile a dashboard would not read, or
 whose relation is not one".
 
+**A stored Ask chat holds structure, and the person's data is not in it.** `useAskChat`'s default
+`keep` empties an answer's rows and keeps its spec and its tile: the question, the relation as
+`{ root, path }`, the tile through `parseTile`. The rows are re-derivable, since the card reads them
+again through `readAnswerQuery` over the host's graph, so a stored chat that held them was a second
+copy of the data in a store the library does not know, under an authorisation story the host wrote
+for conversations and not for rows. A host that wants offline transcripts with data passes a `keep`
+that keeps them; the default is the one that cannot leak. The reference is the AI SDK's persistence
+guide, which stores whole `UIMessage`s: the rule follows it for every part but this one.
+
+**What would reverse it:** a host whose transcript must read without the graph attached. Then it
+passes the `keep` that keeps rows, and the default stays.
+
+*To be added:* a test that a message saved by the default `keep` has no row in any part.
+
 **`useKeptChat` is the same thing for a transcript whose messages are not `useChat`'s.** Keasy's
 assistant, which wrote the store, queue and restore this replaces, is a guided conversation whose
 turns the product decides and whose messages it writes itself; the chat hooks are this one with
 `useChat` around it, so there is one mechanism and two ways in only where there are two kinds of
 transcript. *What would reverse it:* the guided conversation moving onto `useChat`; then
 `useKeptChat` has no caller and leaves the barrel.
+
+**A conversation that built a graph is closed.** A built graph is write once and read many
+([relations](/docs/design/relations#the-pre-run-shape-comes-from-the-compiler)): the kept chat of a
+build opens read-only, a save into it is refused, and *start a new one from here* is the only way on.
+The in-thread *I assumed … Change* door stays, because it is before the build, on the preview.
 
 **A stored chat that does not validate is a failure, handed to the host whole**, as every other
 ([failure](/docs/design/failure)): `chat.kept` is `failed` with what was thrown, `Chat` says so with
@@ -333,3 +314,197 @@ the conversion is the host's.
 *Held by* `packages/ai/src/kept-chat.test.tsx`, "opens where it stood: the chat of its id is read
 once, validated, and drawn"; "never opens empty in place of a chat it cannot read, and never saves
 over it"; "saves one at a time, in order, and refuses what keep left unreadable".
+
+## The model is open, and where it runs is not the library's to enforce
+
+**`Assist`, `Chat`, `runTask` and `useAskChat` take the AI SDK's `LanguageModel` as it is. The library
+has no notion of a local model, no `requireLocal` and no locality badge, and remote models are a
+non-goal: nothing here is designed for one.** The shipped path is `localModel`, in the page, served
+from the host's origin ([Tasks](/docs/design/tasks#the-premise-a-small-model-in-the-browser)). A host
+that passes a gateway model gets it to run and gets neither help nor a promise. *Nothing about a
+question leaves the browser* is a property of a host's composition (keasy serves the weights itself
+and its `connect-src` allows nothing else), not of this library, and no page says it of the library.
+
+**Why not enforce it.** The only locality a page can hold is the browser's: a CSP whose `connect-src`
+names the origin. A flag in JavaScript is a convention: `localModel().provider` is `"kanzo-local"`,
+and any wrapper can claim it or hide it. A `requireLocal` defaulting to true is one prop from
+disabled, to a state indistinguishable from never having had it, and makes `ai` decide for every
+host what a model is.
+
+**The failure it would defend against.** Ask's prompt lists up to six distinct values for each field of
+each type it offers, and the previous spec (`packages/ai/src/data/ask.ts`); `Assist` sends the field's
+value, its description and the host's whole-form `context` (`packages/ai/src/proposals.ts`). With a
+remote model all of it leaves the page. The fixes that do not depend on where the model runs are in
+the next section and hold for any model.
+
+**What a remote model would also need.** Ask's schema carries `minimum` and `maximum` (`top`),
+`minItems: 2, maxItems: 2` (`between`) and keys that are not `required`. OpenAI's structured outputs
+require every key in `required` and an object at the root; Anthropic's reject numerical constraints
+and array constraints beyond `minItems` of 0 or 1 with a 400 (both pages read, 2026-10). The schema
+is written for XGrammar, which accepts all of it, and is projected for no other decoder.
+
+**What would reverse it** is the first remote model a host asks to be supported, and then a work
+list, in order, none of it started: a schema profile per decoder, written once and projected by one
+function, with `validate` keeping the constraints a decoder drops; the request's deadline and limits
+in `llm`'s one door and not above ([failure](/docs/design/failure#a-models-failure-is-shown-once-on-the-first-attempt));
+the credential's route from `auth`'s `fetch`, for which no seam exists and none should be drawn
+before; and a marker for locality, decided then with the evidence of what a host used it for.
+
+## What a person typed and a store held leave by no default path
+
+Four defaults, each independent of the model. OWASP's list for LLM applications names the classes
+they answer: Sensitive Information Disclosure (LLM02), Improper Output Handling (LLM05) and Excessive
+Agency (LLM06). Only the titles of its 2025 edition were read, not its mitigations.
+
+**`Assist` ignores a sensitive control.** A wrapped `type="password"` input, or one whose
+`autocomplete` is `current-password`, `new-password`, `one-time-code` or a `cc-*` token (the HTML
+Standard's autofill names, not re-read here), gets no ghost text, no candidates, no listener and no
+request: `Assist` renders its child as it was. It took the first non-hidden `input` under it, so a
+password field's value was interpolated into the continuation prompt. The library reads one control,
+the one it wraps; the whole-form `context` is what the host passes, and its documentation says so.
+
+**An `AssistEvent` carries no value.** Its `kind`, the field's accessible name, the Task and the
+attempt count are what a host that learns from the lifecycle needs, with the proposal's length. The
+text was never needed: an accepted one is in the field the host already owns. A host that forwarded
+events to a server was forwarding every shown suggestion.
+
+**A model's markdown loads nothing and links only where it may.** `MessageMarkdown` sets Streamdown's
+hardening to no remote image (`allowedImagePrefixes` empty, `allowDataImages` false) and links and
+protocols to `https:` and `mailto:`; a host reopens them through the props it already passes on.
+Streamdown 2.5.0's defaults, read in its built output, are `"*"` for image prefixes, link prefixes and
+protocols, with data images allowed. The route this closes is text writing `![x](https://host.example/?d=…)`:
+the browser fetches the URL with the conversation in it. Ask's replies are a template over rows and
+cannot do it; `Chat` over `useAgentChat` can. No source on the technique was fetched; the reason is
+the mechanism. The docblock in `markdown.tsx` that describes an optional `@kanzo-tech/ai/markdown`
+entry the package no longer has is wrong and goes with it.
+
+**Approval is the host's.** `useAgentChat` carries any tool set, and `approval-requested` is drawn as
+*Awaiting approval* with no component that answers it. Tasks use no tools. A component to approve is
+admitted with its second call site, as `Confirmation` was refused
+([Admission](/docs/design/admission)).
+
+**What would reverse it:** a host that needs a remote image in an answer (a map tile), which passes
+the prefix; a field where a model's help on a credential is wanted, which would be an opt-in prop on
+`Assist`, never a deny-list that forgot a token.
+
+*To be added, and not cited as held until they exist:* `assist.test.tsx`, "does nothing on a password
+field and sends no prompt" and "reports an event with no value in it"; `markdown.test.tsx`, "renders
+no image for a remote URL and no link outside https and mailto".
+
+## A call has settings, and a wait has a bound
+
+**`stream` and `generate` take the AI SDK's call settings under its names (`temperature`, `seed`,
+`maxOutputTokens`, `stopSequences`), a Task takes the same in `runTask`'s options, and `Generated`
+carries the `finishReason` the SDK reports.** The doors took `model`, `system`, `prompt`, `output` and
+a signal, so a measurement of the model measured the provider's defaults, and a Task could not say
+how much it would let a model write. The defaults stay the provider's; the library chooses no
+temperature for a host. What it does is record: an evaluation pins the settings and logs them.
+
+**A seed is passed and not promised.** That WebLLM honours `seed` on WebGPU is not established here,
+so no claim of reproducibility rests on it, and the evaluation measures the spread across epochs
+instead of assuming it is zero. Only the model double is deterministic by construction.
+
+**The model's load and a generation are bounded on silence, by the one `within`.** The waits and why
+they are bounds on silence are on [the failure page](/docs/design/failure#the-waits-it-bounds); this
+page's part is the queue. `localModel` serialises calls on one engine, so a dead generation held the
+turn for Ask, `Assist` and the starters together with *Stop* as the only exit. A silent turn is freed
+as `llm/silent`, the next call runs, and a Task does not repair it
+([Tasks](/docs/design/tasks#repair-is-bounded-and-reads-how-a-generation-ended)): a model that made no
+progress will not on a second asking. The progress the bound reads is the engine's own report of a
+token and of a shard, which `loadLocalModel` already publishes as `ModelLoad`; a bound on silence is
+that one `within` armed again on each report, so there is still one clock.
+
+**What would reverse it:** a seed WebLLM does not honour with a spread too wide to compare runs; the
+settings stay and the evaluation's claim narrows to the double. A device that legitimately stays
+silent past the bound, measured: the figure moves, not the rule.
+
+*To be added:* `stream.test.ts` and `generate.test.ts`, "hand the call settings to the model";
+`local.test.ts`, "frees the turn of a generation that made no progress, as llm/silent".
+
+## Ask is evaluated as a dataset, a solver and a scorer
+
+**`packages/ai/eval` is three parts that change independently and a log that records enough to repeat
+a run.** The vocabulary is Inspect's, from the UK AI Security Institute: an evaluation brings
+together a dataset of inputs and targets, a solver and a scorer (the page was read; what it says of
+repetitions and of its log was not). Nothing named Inspect is imported, since it is Python, and its
+*Task* is not ours. Today `ask.eval.ts` is runner, cases, scorer and results in one, run by hand in a
+Chromium with WebGPU ([Testing](/docs/design/testing#asks-evaluation-set-lives-beside-ask)),
+recording none of the settings, with no baseline. So *the linker is the budget* and *the model writes
+paths well* are unfalsified claims: there is no number.
+
+| Part | Is | Changes when |
+| --- | --- | --- |
+| Dataset | `cases.ts`: a page's relation and filter, the questions in turn, the rows the last answer must and must not have been read from | a failure a reader hits becomes a case |
+| Solver | `solve(case, model)`: Ask's Task and the answer read, over the page's engine, returning rows | the model, prompt or oracles change |
+| Scorer | `score(case, rows)`: execution accuracy, a pure function | the metric changes |
+| Log | a line per case per epoch: model id, digest of the served `app-config.json`, settings, epoch, the Task's attempts and finish reasons, `kanzo:llm:*` marks, verdict and why | never in place; lines are appended |
+
+**Two solvers, one dataset.** The browser's exists: `localModel` in a worker, kept for what only
+WebGPU shows. The second is Node: the same Task over an AI SDK model talking to a native llama.cpp
+server, on the DuckDB double of `@kanzo-tech/testing`; llama.cpp's JSON-schema decoder with `$defs`
+and `$ref` was checked on 2026-10-10 ([Asking within a context](/docs/design/ai-context)). It is the
+CI evaluation [Tasks](/docs/design/tasks#everything-in-the-browser-the-model-too) planned, **and a
+proxy**: the browser serves MLC-compiled weights and the server GGUF ones, the same family and
+nominally the same quantisation and not the same bytes. It catches a regression in the prompt,
+schema or oracles; the number for a model on a device is the browser run, by hand, before a change
+to Ask or to the model. The Node solver is also the first reader of `@kanzo-tech/ai/data` without a
+DOM: if its closure does not load there, [the packaging rule's](/docs/design/architecture#packaging-follows-the-entry)
+reversal applies and the headless core is a package.
+
+**A baseline is a file, and a threshold comes after it.** The first complete run on a machine with a
+GPU is committed as data: per case, the fraction of epochs that passed, with model, digest and
+settings. Later runs are compared to it. No threshold is written before the spread across epochs
+exists; the gate is then *below the baseline by more than the spread*, never an accuracy chosen in
+advance. What accuracy makes Ask shippable, and on which model, is the owner's and stays open until
+there is a number to put it against.
+
+**What would reverse it:** the Node run disagreeing with the browser's on the same cases by more than
+the spread, which makes CI advisory and not a gate; a second product's cases, which make the runner
+the shared part and each product's cases its own.
+
+*To be added:* a test that the scorer reads a recorded set of rows to today's verdicts, and that a
+log line holds every field above.
+
+## Chat, Ask and Assist are checked by rule and by keyboard
+
+**WCAG 2.2 AA is what the drawn parts — the transcript, the composer, the answer card, `Assist`'s ghost
+text and candidates — are held to, and an answer's chart has a text alternative that is its rows.**
+The roles are there: `role="log"` on the conversation, `Working` as a `role="status"`, an `aria-live`
+status in `Assist`, the hidden table in `AnswerCard`
+([above](#an-answers-rows-are-on-the-page-as-a-table)). No rule-based run is: no package declares
+`axe-core` or a wrapper (a search of the manifests found none), so an attribute wrong in a way
+nobody thought to assert passes.
+
+To be added: an axe-core run over `Chat` empty, streaming, failed and with a kept chat that failed;
+`AnswerCard` with Filter enabled and disabled; `Assist` with ghost text and with candidates; a
+keyboard test for each key the page names (Tab, Esc, Alt+]); and `prefers-reduced-motion` held as
+the appearance guards hold the rest, a guard that fails an animation class in `ai/src` without its
+`motion-reduce` counterpart.
+
+**What no rule here proves.** Contrast needs layout and is not judged in a DOM emulation; it is read
+in the browser run. A rule finds the failures it has a rule for. Whether a screen reader announces a
+streaming answer usefully, rather than every token, is tested by nothing and not known here;
+`role="log"` is the pattern the reference prescribes, and the claim stops there.
+
+**What would reverse it:** a rule that fails a pattern the reference itself prescribes. It is
+suppressed with the clause beside it, not removed.
+
+## Production-grade axes
+
+| Axis | What this page commits to |
+| --- | --- |
+| Failure and recovery | A silent load or generation frees the turn; a truncation is repaired once; a stored chat that cannot be read is a failure shown, never an empty chat |
+| Security and privacy | No password or one-time-code control is read; no value in an event; no remote image by default; no rows in a stored Ask chat; locality is the host's CSP, stated and not simulated |
+| Performance and size | Streamdown (128 kB brotli by the source's own comment) is a dependency of the root and is not in the root's gauge; whether an `Assist`-only host drops it is not measured |
+| Stable API, accessibility, tests | One door for call settings; WCAG 2.2 AA for what is drawn, with the checks above to be added; an evaluation with a log and a baseline |
+
+## Breaking, in the consumer's words
+
+- `Assist` does nothing on a password, one-time-code or `cc-*` field; wrap another control.
+- `AssistEvent` has no `proposal`; it carries the proposal's length. Read the text from the field.
+- `MessageMarkdown` loads no remote image and links only to `https:` and `mailto:`; pass the
+  hardening props to reopen either.
+- `useAskChat` stores an answer without its rows; pass a `keep` that keeps them to store them.
+- `stream` and `generate` take `temperature`, `seed`, `maxOutputTokens` and `stopSequences`;
+  `generate` returns `finishReason`.
+- A model that makes no progress rejects as `llm/silent`, and its turn is free.

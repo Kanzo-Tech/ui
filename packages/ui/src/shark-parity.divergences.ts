@@ -172,8 +172,7 @@ const DECLINED_SKELETON =
   "no part to adopt, and `/docs/design/references` decides it on that. " +
   "`simples/skeleton.tsx` carries the older half of the argument: a circle is `size-10 shrink-0 " +
   "rounded-full` on the one export, and `SkeletonText` forced every line to a height its only " +
-  "caller did not want. `packages/ui/src/documented-exports.test.ts` holds " +
-  "`docs/content/docs/overlays/loading.mdx` to saying so, in its DELIBERATE list.";
+  "caller did not want.";
 
 const DECLINED_TOUR_BODY = ARK_SHIPS_NO_SUCH_PART(
   "the tour anatomy is title, description, actions, control, progress text, spotlight, backdrop " +
