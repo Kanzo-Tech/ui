@@ -125,7 +125,7 @@ import {
  *
  * Both regions are live and both read the same DuckDB: **Graph** is `@kanzo-tech/graph` drawing the
  * archive's 1,543 contracts, reports, members, beasts, tags and regions as a GPU force layout, one
- * Mosaic client on the page's coordinator that greys out what the crossfilter drops and publishes the
+ * Mosaic client on the page's engine that greys out what the crossfilter drops and publishes the
  * reader's pick into it, and **Sightings** is
  * a full crossfilter dashboard built from the `@kanzo-tech/ui/analytics` subpath. The dashboard loads
  * client-only, because evaluating vgplot during the RSC prerender is a TDZ.

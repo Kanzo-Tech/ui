@@ -57,7 +57,7 @@ const description = (element: Element) =>
 
 function page(into: (selection: Selection) => void = () => {}) {
   return ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={queries}><MosaicProvider coordinator={db.coordinator}>
+    <QueryClientProvider client={queries}><MosaicProvider engine={db.engine}>
       <Page into={into} />
       {children}
     </MosaicProvider></QueryClientProvider>

@@ -1,14 +1,8 @@
 "use client";
 
-import { type Coordinator, type TableExpr, Query, jsType, sql } from "@kanzo-tech/mosaic";
-import {
-  type JoinAnnotation,
-  type JoinColumn,
-  type JoinGraph,
-  type Relation,
-  type RelationExpr,
-  relationColumns,
-} from "@kanzo-tech/relations";
+import { type TableExpr, Query, jsType, sql } from "@kanzo-tech/mosaic";
+import { type Engine, internalCoordinatorOf } from "@kanzo-tech/mosaic/engine";
+import { type JoinAnnotation, type JoinColumn, type JoinGraph, type Relation, type RelationExpr, relationColumns } from "@kanzo-tech/relations";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo } from "react";
 import { chartTableKey } from "./chart-spec.js";
@@ -159,14 +153,14 @@ const summarized = (row: SummarizeRow): FieldColumn => ({
 const summarizeQuery = (table: TableExpr) => sql`SUMMARIZE ${Query.select("*").from(table)}`;
 
 /**
- * Which coordinator a read was made on, as a key can say it. A key is hashed as JSON, and a
- * coordinator is neither serialisable nor the same across two providers on one client.
+ * Which engine a read was made on, as a key can say it. A key is hashed as JSON, and an engine is
+ * neither serialisable nor the same across two providers on one client.
  */
-const coordinators = new WeakMap<Coordinator, number>();
-let coordinatorCount = 0;
-const coordinatorKey = (coordinator: Coordinator) => {
-  let id = coordinators.get(coordinator);
-  if (id === undefined) coordinators.set(coordinator, (id = ++coordinatorCount));
+const engines = new WeakMap<Engine, number>();
+let engineCount = 0;
+const engineKey = (engine: Engine) => {
+  let id = engines.get(engine);
+  if (id === undefined) engines.set(engine, (id = ++engineCount));
   return id;
 };
 
@@ -198,7 +192,7 @@ export interface FieldStatsState {
  * throws TanStack's own *No QueryClient set*.
  */
 export function useFieldStats(relation: RelationExpr, options?: FieldStatsOptions): FieldStatsState {
-  const { coordinator, joins, onFailure } = useMosaic();
+  const { engine, joins, onFailure } = useMosaic();
   const { table } = useRelation(relation);
   const exclude = (options?.exclude ?? []).join("\u0000");
   const hidden = useMemo(() => (exclude ? exclude.split("\u0000") : []), [exclude]);
@@ -220,9 +214,10 @@ export function useFieldStats(relation: RelationExpr, options?: FieldStatsOption
     [described, hidden],
   );
   const read = useQuery({
-    // The keys are the library's, not an API: what was read, and on which coordinator.
-    queryKey: ["@kanzo-tech/ui", "summarize", coordinatorKey(coordinator), key],
+    // The keys are the library's, not an API: what was read, and on which engine.
+    queryKey: ["@kanzo-tech/ui", "summarize", engineKey(engine), key],
     queryFn: async ({ signal }) => {
+      const coordinator = internalCoordinatorOf(engine);
       // The coordinator takes a statement as a string or a `Query`; a fragment is neither, and
       // renders to the same text either way.
       const result = coordinator.query(String(summarizeQuery(table!)));

@@ -2,7 +2,8 @@ import { MosaicClient, Query, Selection, clauseIntervals, type FilterExpr, type 
 import { relationQuery } from "@kanzo-tech/relations";
 import { regrCount, regrSlope, variance } from "@uwdata/mosaic-sql";
 import { describe, expect, it, vi } from "vitest";
-import { attach, settle, readJoins } from "../../test/corpus";
+import { attach, settle } from "../../test/corpus";
+import { readJoinGraph } from "@kanzo-tech/relations";
 import type { Relation } from "@kanzo-tech/relations";
 
 /**
@@ -61,7 +62,7 @@ async function fit(relation: Relation) {
   const { coordinator } = corpus;
   const error = vi.fn();
   coordinator.logger({ error, warn: () => {}, info: () => {}, debug: () => {}, log: () => {} } as never);
-  const table = relationQuery(await readJoins(coordinator, corpus.from), relation);
+  const table = relationQuery(await readJoinGraph(corpus.engine, corpus.from, { signal: new AbortController().signal }), relation);
   const own = Selection.crossfilter();
   const tile = new Fit(own, table);
   coordinator.connect(tile);

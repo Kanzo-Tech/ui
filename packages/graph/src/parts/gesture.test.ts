@@ -22,7 +22,7 @@ const sorted = (ids: readonly VertexId[] | undefined) => [...(ids ?? [])].sort((
 async function searched() {
   const corpus = await attach();
   const crossfilter = Selection.crossfilter();
-  const store = createGraph({ from: corpus.from, coordinator: corpus.coordinator, filterBy: crossfilter, onFailure: () => {} });
+  const store = createGraph({ from: corpus.from, engine: corpus.engine, filterBy: crossfilter, onFailure: () => {} });
   store.subscribe(() => {});
   await settle(corpus);
   const search = { reset() {} };

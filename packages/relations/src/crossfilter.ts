@@ -1,19 +1,5 @@
 import { Problem } from "@kanzo-tech/kernel";
-import {
-  InOpNode,
-  Query,
-  ScalarSubqueryNode,
-  Selection,
-  column,
-  literal,
-  type ClauseMetadata,
-  type Coordinator,
-  type ExprNode,
-  type FilterExpr,
-  type MosaicClient,
-  type SelectionClause,
-  type TableExpr,
-} from "@kanzo-tech/mosaic";
+import { InOpNode, Query, ScalarSubqueryNode, Selection, column, literal, type ClauseMetadata, type Coordinator, type ExprNode, type FilterExpr, type MosaicClient, type SelectionClause, type TableExpr } from "@kanzo-tech/mosaic";
 import { columnPath, joinPath, meets, relationHops, relationQuery, segmentOf, stepsOf, typeOf, type Hop, type JoinGraph, type Relation } from "./relation.js";
 
 /**

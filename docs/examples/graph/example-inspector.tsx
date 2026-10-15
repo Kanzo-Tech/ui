@@ -1,12 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  GraphCanvas,
-  GraphInspector,
-  GraphRoot,
-  type VertexDetail,
-} from "@kanzo-tech/graph";
+import { GraphCanvas, GraphInspector, GraphRoot, type VertexDetail } from "@kanzo-tech/graph";
 import { DataListItem, DataListItemLabel, DataListItemValue, Show } from "@kanzo-tech/ui";
 import { HALLS } from "@/example/world";
 import { ARCHIVE_KINDS, said, useArchive } from "./archive";

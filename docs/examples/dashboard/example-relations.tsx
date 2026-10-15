@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { engine } from "@kanzo-tech/mosaic/engine";
-import { readJoinGraph, JoinResolver, relationKey, type JoinGraph, type Relation } from "@kanzo-tech/relations";
+import { readJoinGraph } from "@kanzo-tech/relations";
 import { Skeleton } from "@kanzo-tech/ui";
+import { JoinResolver, relationKey, type JoinGraph, type Relation } from "@kanzo-tech/relations";
 import {
   Dashboard,
   FilterBar,
@@ -22,20 +22,18 @@ import { EditingPage } from "./editing-page";
 
 export default function Example() {
   const [failure, setFailure] = useState<unknown>(null);
-  const { coordinator } = useArchive(setFailure);
+  const { engine } = useArchive(setFailure);
   const [graph, setGraph] = useState<JoinGraph | null>(null);
   const [relation, setRelation] = useState<Relation>({ root: "Node", path: [] });
   const [specs, setSpecs] = useState<Record<string, DashboardSpec>>({});
 
   useEffect(() => {
-    if (!coordinator) return;
-    // The archive is attached to the page's one engine; its catalog is read through it.
+    if (!engine) return;
+    // Leaving the page stops the catalog read: the signal reaches the statement.
     const controller = new AbortController();
-    engine()
-      .then((e) => readJoinGraph(e, FROM, { signal: controller.signal }))
-      .then(setGraph, (error: unknown) => !controller.signal.aborted && setFailure(error));
+    readJoinGraph(engine, FROM, { signal: controller.signal }).then(setGraph, (error: unknown) => !controller.signal.aborted && setFailure(error));
     return () => controller.abort();
-  }, [coordinator]);
+  }, [engine]);
   const drawn = useMemo(
     () => {
       if (!graph) return null;
@@ -50,9 +48,9 @@ export default function Example() {
   );
 
   if (failure !== null) return <p className="text-muted-foreground text-sm">{said(failure)}</p>;
-  if (!coordinator || !graph || !drawn) return <Skeleton className="h-96 w-full" />;
+  if (!engine || !graph || !drawn) return <Skeleton className="h-96 w-full" />;
   return (
-    <MosaicProvider coordinator={coordinator} joins={graph}>
+    <MosaicProvider engine={engine} joins={graph}>
       <EditingPage>
         <RelationPicker graph={graph} onValueChange={setRelation} value={relation} />
         <FilterBar rowNoun={relation.path.length ? "paths" : "nodes"} relation={relation} />

@@ -24,9 +24,9 @@ every tile reads the one relation the `Dashboard` is given, under one crossfilte
 import { ShellAside, ShellBody, ShellMain } from "@kanzo-tech/ui";
 import { Dashboard, FilterBar, MosaicProvider, TileEditorAside, useTileEditorOpen } from "@kanzo-tech/ui/analytics";
 
-function Sightings({ coordinator, saved, save }: Props) {
+function Sightings({ e, saved, save }: Props) {
   return (
-    <MosaicProvider coordinator={coordinator}>
+    <MosaicProvider engine={e}>
       <ShellBody>
         <ShellMain>
           <FilterBar relation="sightings" rowNoun="sightings" />
@@ -378,7 +378,7 @@ when you clear it — clear it on sign-out, as you would any other data of the p
 the names it reads them by.
 
 ```ts
-const graph = await readJoinGraph(engine, jobId, { signal });
+const graph = await readJoinGraph(e, jobId, { signal });
 const { fields, columns } = fieldStats(relationColumns(graph, { root: "Person", path: [] }), { exclude: ["dense_id"] });
 ```
 
@@ -430,7 +430,7 @@ with no hops, so there is no second path for it.
 import { JoinResolver, relationKey } from "@kanzo-tech/relations";
 import { Dashboard, MosaicProvider, RelationPicker } from "@kanzo-tech/ui/analytics";
 
-<MosaicProvider coordinator={coordinator} joins={graph}>
+<MosaicProvider engine={e} joins={graph}>
 <RelationPicker graph={graph} value={relation} onValueChange={setRelation} />
 <Dashboard
   key={relationKey(graph, relation)}

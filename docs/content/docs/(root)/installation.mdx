@@ -56,7 +56,7 @@ admission rule](/docs/philosophy#admission) excludes graphs by name.
 pnpm add @kanzo-tech/graph @cosmos.gl/graph @kanzo-tech/mosaic @kanzo-tech/ui lucide-react react
 ```
 
-Every peer is required: `@kanzo-tech/mosaic` is the coordinator the graph reads through and the
+Every peer is required: `@kanzo-tech/mosaic` is the engine the graph reads through and the
 crossfilter it shares with the charts. The graph imports nothing of graphar's or fossil's — the host
 attaches a GraphAr graph with `@kanzo-tech/graphar-duckdb`'s `attachGraph`, its own dependency, and
 names the catalog to the root.

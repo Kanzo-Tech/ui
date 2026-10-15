@@ -1,24 +1,18 @@
 import { readJoinGraph, type JoinGraph } from "@kanzo-tech/relations";
-import type { Coordinator } from "@kanzo-tech/mosaic";
-import type { Queryable, Table } from "@kanzo-tech/kernel";
-import { ask } from "./source";
+import type { Queryable } from "@kanzo-tech/kernel";
 import { KEY, type Column, type EdgeTable, type Structure, type VertexTable } from "./structure";
 
 /**
  * **The canvas's reading of a graph's catalog**: `@kanzo-tech/relations`'s `readJoinGraph`, the one
- * reader of an attached GraphAr graph, through the page's coordinator and its cache, with the two facts
+ * reader of an attached GraphAr graph, on the page's engine with the load's signal, with the two facts
  * only a drawing needs and no join does added to each vertex type: `first`, its first global id (the
  * sum of the counts of the types before it, in the graph's order), and `identity`, the column a label
  * falls back to. The `vertices` union is the join graph's and not drawn: a type with `of` is left out.
  */
-export async function readCatalog(coordinator: Coordinator, from: string, signal: AbortSignal = new AbortController().signal): Promise<Structure> {
-  return structureOf(from, await readJoinGraph(queryableOf(coordinator), from, { signal }));
+export async function readCatalog(engine: Queryable, from: string, signal: AbortSignal = new AbortController().signal): Promise<Structure> {
+  return structureOf(from, await readJoinGraph(engine, from, { signal }));
 }
 
-/** The coordinator as a `Queryable`: a statement through its queue and cache, in Arrow. */
-export const queryableOf = (coordinator: Coordinator): Queryable => ({
-  query: (sql, { signal }) => ask(coordinator, sql, signal) as Promise<Table>,
-});
 
 function structureOf(from: string, graph: JoinGraph): Structure {
   const vertices: VertexTable[] = [];

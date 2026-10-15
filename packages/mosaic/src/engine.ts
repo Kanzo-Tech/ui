@@ -4,8 +4,8 @@ import { Coordinator, decodeIPC, type Connector } from "@uwdata/mosaic-core";
 import { isSecret, redact } from "./redact.js";
 
 /**
- * The page's one database: a DuckDB-WASM instance, the Mosaic `Coordinator` over it, and the file
- * registry, owned in one place.
+ * The page's one database: a DuckDB-WASM instance, the Mosaic `Coordinator` over it — private, see
+ * {@link internalCoordinatorOf} — and the file registry, owned in one place.
  *
  * **One per document, because vgplot has one.** `MosaicProvider` registers its coordinator as
  * vgplot's process-wide active one, so a second coordinator on the page is a second database the
@@ -45,7 +45,6 @@ import { isSecret, redact } from "./redact.js";
  * `Queryable` imports no DuckDB (`/docs/design/engine`, *Three packages, one direction*).
  */
 export interface Engine {
-  readonly coordinator: Coordinator;
   /**
    * One statement, answered in columns as DuckDB-WASM produced them — nothing turns them into
    * objects.
@@ -347,8 +346,7 @@ async function start(forget: () => void, made: (duckdb: Duck) => void): Promise<
     void duckdb.terminate();
   };
 
-  return {
-    coordinator,
+  const door: Engine = {
     query,
     registerFiles: (files) =>
       serial(async () => {
@@ -371,6 +369,32 @@ async function start(forget: () => void, made: (duckdb: Duck) => void): Promise<
         for (const name of names) await release(name);
       }),
   };
+  return internalEngineOver(door, coordinator);
+}
+
+/**
+ * **The coordinator is the engine's, and no host holds one** (`/docs/design/engine`, *One door*). It
+ * is on the engine under a registered symbol rather than in a `WeakMap` for the reason `engine()`'s
+ * slot is on `globalThis`: two copies of this package in one bundle must still agree on it, and a
+ * `WeakMap` is one copy's. The symbol is on no type, so a host reading `engine.coordinator` finds
+ * nothing; these two functions are the library's way in — `MosaicProvider` and the graph's client
+ * reach the coordinator through the first, `engine()` and a test double attach it with the second.
+ * They are exported because the library's other packages need them, and named `internal` because
+ * nothing else should.
+ */
+const COORDINATOR = Symbol.for("@kanzo-tech/mosaic/coordinator");
+
+/** Not API: the Mosaic coordinator inside `engine`, for the library's own Mosaic clients. */
+export function internalCoordinatorOf(engine: Engine): Coordinator {
+  const coordinator = (engine as { [COORDINATOR]?: Coordinator })[COORDINATOR];
+  if (!coordinator) throw new TypeError("not an engine: it holds no coordinator — build one with engine()");
+  return coordinator;
+}
+
+/** Not API: `engine` holding `coordinator`, whose connector must be the engine's own connection. */
+export function internalEngineOver<E extends Engine>(engine: E, coordinator: Coordinator): E {
+  Object.defineProperty(engine, COORDINATOR, { value: coordinator });
+  return engine;
 }
 
 /**

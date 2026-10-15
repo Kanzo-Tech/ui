@@ -1,3 +1,4 @@
+import { engineOver } from "../../test/engine";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import type { Coordinator } from "@uwdata/mosaic-core";
@@ -139,7 +140,7 @@ function summarizing(rows: SummarizeRow[], asked: unknown[] = []) {
 function host(coordinator: Coordinator, client = new QueryClient(), onFailure?: (error: unknown) => void, joins?: JoinGraph) {
   return ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>
-      <MosaicProvider coordinator={coordinator} joins={joins} onFailure={onFailure}>
+      <MosaicProvider engine={engineOver(coordinator)} joins={joins} onFailure={onFailure}>
         {children}
       </MosaicProvider>
     </QueryClientProvider>
@@ -204,7 +205,7 @@ describe("useFieldStats", () => {
 
   it("reads on the host's client, and throws without one", () => {
     const { coordinator } = summarizing([]);
-    const bare = ({ children }: { children: ReactNode }) => <MosaicProvider coordinator={coordinator}>{children}</MosaicProvider>;
+    const bare = ({ children }: { children: ReactNode }) => <MosaicProvider engine={engineOver(coordinator)}>{children}</MosaicProvider>;
     vi.spyOn(console, "error").mockImplementation(() => {});
     expect(() => renderHook(() => useFieldStats("t"), { wrapper: bare })).toThrow(/No QueryClient set/);
   });

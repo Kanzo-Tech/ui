@@ -6,7 +6,7 @@ import { Show } from "@kanzo-tech/ui";
 import { said, useArchive } from "./archive";
 
 /**
- * The whole of it: the catalog fossil attached, named to `GraphRoot` with the page's coordinator and
+ * The whole of it: the catalog fossil attached, named to `GraphRoot` with the page's engine and
  * drawn by `GraphCanvas`. Nothing binds `x` and `y`, so the layout runs from a seeded start.
  */
 export default function Example() {

@@ -56,7 +56,7 @@ Takes no arguments. Returns `null` outside a `ChartRoot`; otherwise the same obj
 | `table` | `TableExpr \| undefined` |
 | `relation` | `RelationRef \| null` |
 | `selection` | `Selection` |
-| `coordinator` | `Coordinator` |
+| `engine` | `Engine` |
 
 Descriptors (marks, interactors, axes) are no better served by this one than by `useChartContext`:
 `ChartRoot` reads their props off the element and compiles the plot *before* React renders them, so

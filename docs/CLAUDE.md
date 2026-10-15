@@ -8,10 +8,10 @@ The repository rules are in `../CLAUDE.md`. What follows is true only here.
   sheet loads *after* the library's, so without it the docs sheet has `.hidden` but not the
   `md:*` utilities that undo it, and the desktop sidebar computes `display: none` at every width.
   The comment above the line has the full cascade argument. Do not remove it.
-- **One Mosaic coordinator per page.** `MosaicProvider` registers its coordinator as vgplot's active
+- **One engine per page.** `MosaicProvider` registers the engine's coordinator as vgplot's active
   one and that setter is process-wide, so a second coordinator on a page leaves the first set of
-  charts empty. Memoise one at module scope and share it —
-  `examples/charts/mosaic-boot.tsx` is the pattern. Each provider still gets its own selections, so
+  charts empty. `engine()` is already one per document: ask it, never build a `Coordinator`, and
+  memoise what you load into it at module scope — `examples/charts/mosaic-boot.tsx` is the pattern. Each provider still gets its own selections, so
   one example's brush never reaches the next.
 - **`Show`, not `&&` or a ternary**, for conditional rendering. One caveat, and it is the reason
   this is written down: `Show`'s children are an ordinary eager prop, so a guard that dereferences

@@ -1,21 +1,6 @@
 "use client";
 
-import {
-  type TableExpr,
-  clauseInterval,
-  clauseMatch,
-  clausePoint,
-  clausePoints,
-  MosaicClient,
-  type Selection,
-  type SelectionClause,
-  count as sqlCount,
-  desc as sqlDesc,
-  max as sqlMax,
-  min as sqlMin,
-  Query,
-  type FilterExpr,
-} from "@kanzo-tech/mosaic";
+import { type TableExpr, clauseInterval, clauseMatch, clausePoint, clausePoints, MosaicClient, type Selection, type SelectionClause, count as sqlCount, desc as sqlDesc, max as sqlMax, min as sqlMin, Query, type FilterExpr } from "@kanzo-tech/mosaic";
 import { onRelation, type RelationExpr, type RelationRef } from "@kanzo-tech/relations";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type React from "react";

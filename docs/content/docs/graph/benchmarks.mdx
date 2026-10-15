@@ -5,7 +5,7 @@ description: Our viewer against cosmos.gl alone on the same positions, how far c
 
 The harness is a showcase you can run. It has two layers, and they are not variants of each other:
 **GraphRoot** is the path a product uses — a graph attached with `attachGraph` and drawn whole by
-`<GraphRoot from coordinator><GraphCanvas/></GraphRoot>` — and **cosmos.gl alone** is the control, the same renderer
+`<GraphRoot from engine><GraphCanvas/></GraphRoot>` — and **cosmos.gl alone** is the control, the same renderer
 fed typed arrays with nothing of ours in the way.
 
 <Cards>
@@ -28,7 +28,7 @@ fixes it.
 ## Our viewer against cosmos.gl alone
 
 `measureViewer(pointCount)`, registered on `window` by the showcase, attaches a built graph, reads
-its links through the page's coordinator and draws it twice — with cosmos.gl alone and with
+its links on the page's engine and draws it twice — with cosmos.gl alone and with
 `<GraphRoot simulate={false}><GraphCanvas/></GraphRoot>` — over the same seeded start, alternating
 the two three times. Each run follows one
 camera path: the same wheel events on each canvas, a change every frame, zooming into a quarter of

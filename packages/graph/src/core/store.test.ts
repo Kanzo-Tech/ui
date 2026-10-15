@@ -17,7 +17,7 @@ const ids = (mask: Uint8Array | null | undefined) => [...(mask ?? [])].flatMap((
 async function graph(over: Partial<GraphOptions> = {}, attached?: Attached) {
   const corpus = attached ?? (await attach());
   const onFailure = vi.fn();
-  const store = createGraph({ from: corpus.from, coordinator: corpus.coordinator, onFailure, ...over });
+  const store = createGraph({ from: corpus.from, engine: corpus.engine, onFailure, ...over });
   const heard = vi.fn();
   const unsubscribe = store.subscribe(heard);
   return { corpus, heard, onFailure, store, unsubscribe };
@@ -149,7 +149,7 @@ describe("the graph store", () => {
 
   it("fixes the categorical domain before the graph loads", async () => {
     const corpus = await attach();
-    const store = createGraph({ from: corpus.from, coordinator: corpus.coordinator, fill: "kind", categories: { beast: "Beast" }, onFailure: () => {} });
+    const store = createGraph({ from: corpus.from, engine: corpus.engine, fill: "kind", categories: { beast: "Beast" }, onFailure: () => {} });
     expect(store.getSnapshot().domain).toEqual(["beast"]);
   });
 
@@ -219,24 +219,29 @@ describe("the graph store", () => {
     const first = await attach();
     const second = await attach();
     const { onFailure, store } = await graph({}, first);
-    store.setOptions({ ...store.getOptions(), from: second.from, coordinator: second.coordinator });
+    store.setOptions({ ...store.getOptions(), from: second.from, engine: second.engine });
     await settle(first);
     await settle(second);
     expect(store.getSnapshot().structure?.from).toBe(second.from);
     expect(onFailure).not.toHaveBeenCalled();
   });
 
-  it("takes every read of a load off the coordinator when the corpus changes, and the root goes, and says nothing", async () => {
+  it("stops every read of a load on the engine when the corpus changes, and the root goes, and says nothing", async () => {
     const first = await attach();
     const second = await attach();
-    const cancel = vi.spyOn(first.coordinator, "cancel");
+    const query = vi.spyOn(first.engine, "query");
+    const signals = () => query.mock.calls.map(([, options]) => options.signal);
     const { onFailure, store, unsubscribe } = await graph({}, first);
-    store.setOptions({ ...store.getOptions(), from: second.from, coordinator: second.coordinator });
-    // The catalog's five statements, each taken off the queue.
-    expect(cancel).toHaveBeenCalledTimes(5);
-    cancel.mockClear();
-    store.setOptions({ ...store.getOptions(), from: first.from, coordinator: first.coordinator });
+    // The catalog's five statements, each asked with the load's signal, which the engine interrupts on.
+    expect(signals()).toHaveLength(5);
+    expect(signals().some((signal) => signal.aborted)).toBe(false);
+    store.setOptions({ ...store.getOptions(), from: second.from, engine: second.engine });
+    expect(signals().every((signal) => signal.aborted)).toBe(true);
+    query.mockClear();
+    store.setOptions({ ...store.getOptions(), from: first.from, engine: first.engine });
     unsubscribe();
+    expect(signals().length).toBeGreaterThan(0);
+    expect(signals().every((signal) => signal.aborted)).toBe(true);
     await settle(first);
     await settle(second);
     expect(onFailure).not.toHaveBeenCalled();
@@ -297,7 +302,7 @@ describe("the graph store", () => {
     for (const vertex of [1, 2, 3, 4, 5, 6, 2]) store.remember(vertex, `#${vertex}`);
     expect(store.getSnapshot().recent.map((r) => r.vertex)).toEqual([2, 6, 5, 4, 3]);
     const next = await attach();
-    store.setOptions({ ...store.getOptions(), from: next.from, coordinator: next.coordinator });
+    store.setOptions({ ...store.getOptions(), from: next.from, engine: next.engine });
     expect(store.getSnapshot().recent).toEqual([]);
   });
 

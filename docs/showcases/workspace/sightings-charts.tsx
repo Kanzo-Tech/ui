@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { ScrollArea, Show, Skeleton } from "@kanzo-tech/ui";
-import { Coordinator, loadCSV } from "@kanzo-tech/mosaic";
+import { loadCSV } from "@kanzo-tech/mosaic";
+import { type Engine } from "@kanzo-tech/mosaic/engine";
 import {
   Dashboard,
   FilterBar,
@@ -87,24 +88,24 @@ function sightingsCsv(): string {
   return out.join("\n");
 }
 
-/** The sightings relation, on the coordinator the graph view also uses. See `./duck`. */
-function boot(): Promise<Coordinator> {
-  return ensure(T, async ({ coordinator, registerFileBuffer }) => {
-    await registerFileBuffer(FILE, new TextEncoder().encode(sightingsCsv()));
-    await coordinator.exec(loadCSV(T, FILE));
-    return coordinator;
+/** The sightings relation, on the engine the graph view also uses. See `./duck`. */
+function boot(): Promise<Engine> {
+  return ensure(T, async (e) => {
+    await e.registerFileBuffer(FILE, new TextEncoder().encode(sightingsCsv()));
+    await e.query(String(loadCSV(T, FILE)), { signal: new AbortController().signal });
+    return e;
   });
 }
 
 export default function SightingsDashboard() {
-  const [coordinator, setCoordinator] = useState<Coordinator | null>(null);
+  const [booted, setBooted] = useState<Engine | null>(null);
   // `undefined` is Reset: the automatic dashboard, which this showcase keeps nothing for.
   const [spec, setSpec] = useState<DashboardSpec | undefined>(SPEC);
 
   useEffect(() => {
     let live = true;
     boot().then((instance) => {
-      if (live) setCoordinator(instance);
+      if (live) setBooted(instance);
     });
     return () => {
       live = false;
@@ -114,11 +115,11 @@ export default function SightingsDashboard() {
   return (
     <ScrollArea className="h-full">
       <div className="mx-auto max-w-[1600px] p-4">
-        <Show when={!coordinator}>
+        <Show when={!booted}>
           <Skeleton className="h-96 w-full rounded-lg" />
         </Show>
-        {coordinator && (
-          <MosaicProvider coordinator={coordinator}>
+        {booted && (
+          <MosaicProvider engine={booted}>
             <div className="flex flex-col gap-4">
               <FilterBar rowNoun="sightings" relation={T} />
               <Dashboard config={CONFIG} onChange={setSpec} relation={T} value={spec} />

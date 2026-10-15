@@ -101,7 +101,7 @@ vi.mock("@duckdb/duckdb-wasm", async (original) => ({
   },
 }));
 
-const { engine } = await import("./engine.js");
+const { engine, internalCoordinatorOf } = await import("./engine.js");
 
 beforeEach(() => {
   calls.length = 0;
@@ -187,7 +187,7 @@ describe("engine", () => {
       expect(answered.getChild("one")?.toArray()).toEqual(Int32Array.of(1));
 
       const settled = vi.fn();
-      const chart = e.coordinator.query("SELECT 2 AS one").then(settled);
+      const chart = internalCoordinatorOf(e).query("SELECT 2 AS one").then(settled);
       await new Promise((next) => setTimeout(next, 10));
       expect(settled).not.toHaveBeenCalled();
       expect(frames.length).toBeGreaterThan(0);
@@ -224,7 +224,7 @@ describe("engine", () => {
     it("is the same through the coordinator, which is where a chart's failure comes from", async () => {
       const e = await engine();
       db.startPendingQuery.mockRejectedValueOnce(refusal);
-      const failure = await e.coordinator.exec(asked).catch((error: unknown) => error);
+      const failure = await internalCoordinatorOf(e).exec(asked).catch((error: unknown) => error);
       expect(failure).toMatchObject({ code: "engine/failed", data: { statement: expect.stringContaining("= ?") } });
       expect(everything(failure)).not.toMatch(/Ada|Lovelace/);
     });
@@ -240,7 +240,7 @@ describe("engine", () => {
 
     it("is not logged with its statement: the coordinator has no console logger", async () => {
       const e = await engine();
-      expect(e.coordinator.logger()).not.toBe(console);
+      expect(internalCoordinatorOf(e).logger()).not.toBe(console);
     });
   });
 
@@ -297,7 +297,7 @@ describe("engine", () => {
     const order: string[] = [];
     await Promise.all([
       e.query("SELECT 1 AS one", { signal: new AbortController().signal }).then(() => order.push("engine 1")),
-      e.coordinator.exec("SELECT 2").then(() => order.push("coordinator")),
+      internalCoordinatorOf(e).exec("SELECT 2").then(() => order.push("coordinator")),
       e.query("SELECT 3 AS one", { signal: new AbortController().signal }).then(() => order.push("engine 2")),
     ]);
     expect(live.max).toBe(1);

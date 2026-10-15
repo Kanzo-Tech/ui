@@ -17,7 +17,7 @@ import {
 } from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "../charts/mosaic-demo";
 
-// One call for the whole context: the coordinator, the page's one selection and its joins. Every
+// One call for the whole context: the engine, the page's one selection and its joins. Every
 // chart publishes into that selection, so "Clear filters" is Mosaic's own `selection.reset()`: it
 // takes every clause out and calls each one's source back, so the brush and the pick clear with it.
 

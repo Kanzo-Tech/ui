@@ -7,8 +7,10 @@ import { useEffect, useState, type ReactNode } from "react";
 import { MosaicClient, Query, clauseInterval, count, float64, type FilterExpr, type Selection, type TableExpr } from "@kanzo-tech/mosaic";
 import { crossfilterOver, onRelation, readOf, type JoinGraph, type RelationClient, type RelationRef } from "@kanzo-tech/relations";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { attach, settle, type Attached, readJoins } from "../../test/corpus";
-import { relation } from "../core/source";
+import { attach, settle, type Attached } from "../../test/corpus";
+import { readJoinGraph } from "@kanzo-tech/relations";
+import { readCatalog } from "../core/catalog";
+import { relation, verticesOf } from "../core/source";
 import { createGraph } from "../core/store";
 import { GraphRoot, useGraphContext } from "../react/graph-root";
 import { internalsOf } from "../react/use-graph";
@@ -46,13 +48,13 @@ function Timeline({ height = 44 }: { height?: number }) {
 function OnPage({ corpus, children }: { corpus: Attached; children: ReactNode }) {
   const { selection } = useMosaic();
   return (
-    <GraphRoot coordinator={corpus.coordinator} filterBy={selection} from={corpus.from} onFailure={() => {}}>
+    <GraphRoot engine={corpus.engine} filterBy={selection} from={corpus.from} onFailure={() => {}}>
       {children}
     </GraphRoot>
   );
 }
 
-const joinsOf = (corpus: Attached): Promise<JoinGraph> => readJoins(corpus.coordinator, corpus.from);
+const joinsOf = (corpus: Attached): Promise<JoinGraph> => readJoinGraph(corpus.engine, corpus.from, { signal: new AbortController().signal });
 
 async function mount(corpus: Attached, timeline: string) {
   const joins = await joinsOf(corpus);
@@ -62,7 +64,7 @@ async function mount(corpus: Attached, timeline: string) {
       sections={[GRAPH_SECTION]}
       storage={null}
     >
-      <MosaicProvider coordinator={corpus.coordinator} joins={joins}>
+      <MosaicProvider engine={corpus.engine} joins={joins}>
         <OnPage corpus={corpus}>
           <Timeline />
         </OnPage>
@@ -109,8 +111,8 @@ const ids = (mask: Uint8Array | null | undefined) => [...(mask ?? [])].flatMap((
 describe("the vertices relation", () => {
   it("reads every vertex table under the key, NULL where a table has no such column", async () => {
     const corpus = await attach();
-    const vertices = (await joinsOf(corpus)).types.find((t) => t.of)!;
-    const [table, columns] = [vertices.table, vertices.columns.map((c) => c.name)];
+    const structure = await readCatalog(corpus.engine, corpus.from);
+    const { table, columns } = verticesOf(structure);
     for (const type of ["Person", "Place", "Tag"]) expect(String(table)).toContain(`"${corpus.from}"."${type}"`);
     expect(columns).toEqual(expect.arrayContaining(["born", "name", "lon", "subject"]));
     const answer = await corpus.coordinator.query(Query.select({ all: count(), born: count("born") }).from(table), { type: "json" });
@@ -123,7 +125,7 @@ describe("the vertices relation", () => {
     const joins = await joinsOf(corpus);
     const page = crossfilterOver(joins);
     const onFailure = vi.fn();
-    const graph = createGraph({ from, coordinator, onFailure, filterBy: page });
+    const graph = createGraph({ from, engine: corpus.engine, onFailure, filterBy: page });
     graph.subscribe(() => {});
     // A dashboard's relation over a table with no `born`.
     const places = new Rows(page, readOf(joins, "Place").table, "Place");
@@ -235,7 +237,7 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
     const { selection } = useMosaic();
     page = selection;
     return (
-      <GraphRoot coordinator={corpus.coordinator} filterBy={selection} from={corpus.from} onFailure={() => {}}>
+      <GraphRoot engine={corpus.engine} filterBy={selection} from={corpus.from} onFailure={() => {}}>
         <FilterBar />
         {hidden ? null : children(height)}
       </GraphRoot>
@@ -246,7 +248,7 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
     const joins = await joinsOf(corpus);
     const { container } = render(
       <KanzoThemeProvider policy={{ graph: { "time-by": { pinned: "born" } } }} sections={[GRAPH_SECTION]} storage={null}>
-        <MosaicProvider coordinator={corpus.coordinator} joins={joins}>
+        <MosaicProvider engine={corpus.engine} joins={joins}>
           <Page corpus={corpus}>{(height) => <Timeline height={height} />}</Page>
         </MosaicProvider>
       </KanzoThemeProvider>,
@@ -497,7 +499,7 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
     }
     const { container } = render(
       <KanzoThemeProvider policy={{ graph: { "time-by": { pinned: "born" } } }} sections={[GRAPH_SECTION]} storage={null}>
-        <MosaicProvider coordinator={corpus.coordinator} joins={joins}>
+        <MosaicProvider engine={corpus.engine} joins={joins}>
           <OnPage corpus={corpus}>
             <Status />
             <Drawn />
@@ -534,7 +536,7 @@ describe("a timeline over the graph's vertices, drawn", { timeout: 30_000 }, () 
     }
     const view = (column: string) => (
       <KanzoThemeProvider policy={{ graph: { "time-by": { pinned: column } } }} sections={[GRAPH_SECTION]} storage={null}>
-        <MosaicProvider coordinator={corpus.coordinator} joins={joins}>
+        <MosaicProvider engine={corpus.engine} joins={joins}>
           <OnPage corpus={corpus}>
             <Status />
             <Drawn />

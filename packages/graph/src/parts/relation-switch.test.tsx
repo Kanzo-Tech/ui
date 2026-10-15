@@ -5,7 +5,8 @@ import { Dashboard, FilterBar, MosaicProvider, useMosaic, type DashboardSpec } f
 import { useState, type ReactNode } from "react";
 import type { JoinGraph, Relation } from "@kanzo-tech/relations";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { attach, settle, readJoins } from "../../test/corpus";
+import { attach, settle } from "../../test/corpus";
+import { readJoinGraph } from "@kanzo-tech/relations";
 import { GRAPH_SECTION } from "../section";
 
 /** The host's one client: every read the parts make is a query on it. */
@@ -104,7 +105,7 @@ describe("a pick when the dashboard switches relation", { timeout: 60_000 }, () 
 
   it("stays on the page as a chip, filters the new relation by key, goes with its chip, and is drawn again where it was made", async () => {
     const corpus = await attach();
-    const joins: JoinGraph = await readJoins(corpus.coordinator, corpus.from);
+    const joins: JoinGraph = await readJoinGraph(corpus.engine, corpus.from, { signal: new AbortController().signal });
     const lives = joins.edges.find((e) => e.source === "Person" && e.destination === "Place")!;
     const relations = {
       A: { root: "Person", path: [{ edge: lives.name, direction: "out" }] },
@@ -112,7 +113,7 @@ describe("a pick when the dashboard switches relation", { timeout: 60_000 }, () 
     } as Record<"A" | "B", Relation>;
     const { container } = render(
       <Theme>
-        <QueryClientProvider client={queries}><MosaicProvider coordinator={corpus.coordinator} joins={joins}>
+        <QueryClientProvider client={queries}><MosaicProvider engine={corpus.engine} joins={joins}>
           <Page relations={relations} />
         </MosaicProvider></QueryClientProvider>
       </Theme>,

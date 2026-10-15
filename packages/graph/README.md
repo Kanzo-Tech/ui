@@ -4,7 +4,7 @@ The graph view over an [Apache GraphAr](https://graphar.apache.org/) graph — w
 [fossil](https://github.com/Kanzo-Tech/fossil-lang) compiles a program to — drawn with
 [cosmos.gl](https://cosmosgl.github.io/graph). The host attaches the graph with
 [`@kanzo-tech/graphar-duckdb`](https://github.com/Kanzo-Tech/graphar)'s `attachGraph`, and
-`GraphRoot` draws the whole of it, reading it with SQL through the page's coordinator. Nothing of
+`GraphRoot` draws the whole of it, reading it with SQL on the page's engine. Nothing of
 graphar's or fossil's is imported: the contract is the catalog, `graphar_vertex_types`,
 `graphar_edge_types`, `graphar_properties`, `graphar_chunks` — the chunks' Parquet footers hold what the
 writer counted — and a view per type.
@@ -30,11 +30,11 @@ const e = await engine();
 // views "archive"."<type>", graphar_vertex_types, graphar_edge_types, graphar_properties
 await attachGraph(e, "archive", (paths) => paths.map((p) => `${url}/${p}`), { entry: "fossil.graph.yml" });
 
-// Under `<MosaicProvider coordinator={e.coordinator} joins={await readJoinGraph(e, "archive", { signal })}>`
+// Under `<MosaicProvider engine={e} joins={await readJoinGraph(e, "archive", { signal })}>`
 // (`readJoinGraph` is `@kanzo-tech/relations`'s):
 const { selection } = useMosaic();
 
-<GraphRoot from="archive" coordinator={e.coordinator} r="degree" filterBy={selection} onFailure={setFailure}>
+<GraphRoot from="archive" engine={e} r="degree" filterBy={selection} onFailure={setFailure}>
   <GraphCanvas>
     <GraphToolbar />
     <GraphLegend />
@@ -90,7 +90,7 @@ graph, a second main view and a dock of panels.
 - `GraphStatus` — where the graph is, in one word: Loading, Laying out 42%, Ready or Failed.
 - `GraphCounts` — the corpus and what the filter keeps of it: "5K nodes · 8K edges", or
   "1.2K of 5K nodes match · 3K edges".
-- `GraphSearch` — a ⌘K palette that asks the corpus, through the coordinator, once per pause in
+- `GraphSearch` — a ⌘K palette that asks the corpus, on the engine, once per pause in
   typing (150 ms): the first `limit` matches and how many there are of each type, under every other
   clause on the crossfilter (`usePick("search").predicate()`), with how many more lie outside it.
   Nothing is read before the reader types and no text is held in the page. `type:Person` and
@@ -115,7 +115,7 @@ own `Problem`s (`graph/no-webgl`, `graph/context-lost`, `graph/no-positions`,
 ### The catalog
 
 The graph reads the attached graph's catalog with `@kanzo-tech/relations`'s `readJoinGraph`, the one
-reader of it, through the page's coordinator; the same function is what a host calls for
+reader of it, on the page's engine with the load's signal; the same function is what a host calls for
 `MosaicProvider`'s `joins`.
 
 The full guide — the parts, layout and camera, and the workspace recipe — is at

@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { loadObjects, type Coordinator } from "@kanzo-tech/mosaic";
-import { engine } from "@kanzo-tech/mosaic/engine";
-import type { JoinGraph } from "@kanzo-tech/relations";
+import { loadObjects } from "@kanzo-tech/mosaic";
+import { engine, type Engine } from "@kanzo-tech/mosaic/engine";
+import { type JoinGraph } from "@kanzo-tech/relations";
 import { MosaicProvider } from "@kanzo-tech/ui/analytics";
 import { Skeleton } from "@kanzo-tech/ui";
 import { SIGHTINGS_TABLE, sightingRows } from "@/example/sightings";
@@ -12,34 +12,34 @@ import { SIGHTINGS_TABLE, sightingRows } from "@/example/sightings";
 // memoised per document, which is what lets every example below share one database; each
 // `MosaicProvider` still gets its own pair of `Selection`s, so one example's brush never reaches
 // into the next.
-let loading: Promise<Coordinator> | null = null;
+let loading: Promise<Engine> | null = null;
 
-function boot(): Promise<Coordinator> {
+function boot(): Promise<Engine> {
   loading ??= (async () => {
-    const { coordinator } = await engine();
-    await coordinator.exec(loadObjects(SIGHTINGS_TABLE, sightingRows()));
-    return coordinator;
+    const e = await engine();
+    await e.query(String(loadObjects(SIGHTINGS_TABLE, sightingRows())), { signal: new AbortController().signal });
+    return e;
   })();
   return loading;
 }
 
 export default function MosaicBoot({ children, joins }: { children: ReactNode; joins?: JoinGraph }) {
-  const [coordinator, setCoordinator] = useState<Coordinator | null>(null);
+  const [booted, setBooted] = useState<Engine | null>(null);
 
   useEffect(() => {
     let live = true;
     boot().then((instance) => {
-      if (live) setCoordinator(instance);
+      if (live) setBooted(instance);
     });
     return () => {
       live = false;
     };
   }, []);
 
-  if (!coordinator) return <Skeleton className="h-40 w-full max-w-2xl" />;
+  if (!booted) return <Skeleton className="h-40 w-full max-w-2xl" />;
 
   return (
-    <MosaicProvider coordinator={coordinator} joins={joins}>
+    <MosaicProvider engine={booted} joins={joins}>
       {children}
     </MosaicProvider>
   );
