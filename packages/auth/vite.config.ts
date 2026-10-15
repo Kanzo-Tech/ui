@@ -5,14 +5,14 @@ import dts from "vite-plugin-dts";
 import preserveDirectives from "rollup-plugin-preserve-directives";
 
 // Pure ESM library build, mirroring its siblings. One entry per door, and a door is added here on
-// the day its module exists — and removed on the day it does not, as `./browser` was.
+// the day its module exists — and removed on the day it does not, as `./browser` and `./testing` were.
 export default defineConfig({
   plugins: [
     react(),
     dts({
       entryRoot: "src",
       include: ["src"],
-      // `src/test` is the fake realm the tests share; it is never published and no door reaches it.
+      // `src/test` is the local realm the tests share; it is never published and no door reaches it.
       exclude: ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test"],
       tsconfigPath: "./tsconfig.json",
     }),
@@ -21,17 +21,14 @@ export default defineConfig({
     lib: {
       entry: {
         index: resolve(__dirname, "src/index.ts"),
-        // A second, and the one that must never reach React: `openid-client` and `jose` run in a
+        // A second, and the one that must never reach React: `jose` verifies the forwarded token in a
         // Node process. Reaching them through the root barrel would drag a provider and three hooks
         // into a server — the exact shape of the defect that forced `@kanzo-tech/mosaic` out of
         // `@kanzo-tech/ui`.
         server: resolve(__dirname, "src/server.ts"),
-        // A third, thin over the second: `./server` speaks strings, so this is only the mapping to
-        // `Request`/`Response`, `next/headers`, `next/navigation` and `next/server`.
+        // A third, thin over the second: `./server` speaks `Headers`, so this is only the mapping to
+        // `next/headers`, `next/navigation` and `next/server`, and the forwarder.
         next: resolve(__dirname, "src/next.ts"),
-        // A fourth, for tests and documentation pages: an `Auth` with no protocol behind it, which
-        // reaches nothing but the types.
-        testing: resolve(__dirname, "src/testing.ts"),
       },
       formats: ["es"],
     },
@@ -40,11 +37,8 @@ export default defineConfig({
         id === "react" ||
         id === "react-dom" ||
         id === "react/jsx-runtime" ||
-        // The host's, because the session is a query on the host's client and one cache is the point.
-        id === "@tanstack/react-query" ||
         // The engines. Each is an optional peer behind its own door, and bundling one would put it
         // on every consumer's bill — including the SPA that opens neither.
-        id === "openid-client" ||
         id === "jose" ||
         id === "next" ||
         id.startsWith("next/") ||

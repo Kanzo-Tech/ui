@@ -5,7 +5,7 @@ import { isSameSite } from "./same-site";
 const ORIGIN = "https://app.example.test";
 
 function asking(headers: Record<string, string>): Request {
-  return new Request(`${ORIGIN}/api/auth/signout`, { headers });
+  return new Request(`${ORIGIN}/api/data/reports`, { headers });
 }
 
 describe("isSameSite", () => {
@@ -15,8 +15,7 @@ describe("isSameSite", () => {
 
   /**
    * A bookmark, a typed URL, a link opened from a mail client. It is the person acting, which is
-   * the thing being protected rather than the thing being refused — and a sign-out route that
-   * refused it would refuse the most ordinary way anyone reaches one.
+   * the thing being protected rather than the thing being refused.
    */
   it("trusts a request that came from no page at all", () => {
     expect(isSameSite(asking({ "sec-fetch-site": "none" }))).toBe(true);
@@ -29,8 +28,8 @@ describe("isSameSite", () => {
   /**
    * `same-site` is a sibling subdomain, and it is refused on purpose. The cookie is `__Host-` and
    * therefore host-only, but host-only says where the cookie *lives*, not who may cause a request
-   * to it — so anything that can serve `docs.example.test` could otherwise sign every reader of it
-   * out of `app.example.test`.
+   * to it — so anything that can serve `docs.example.test` could otherwise call `app.example.test`'s
+   * API as every reader of it.
    */
   it("refuses a sibling subdomain, which the cookie prefix does not cover", () => {
     expect(isSameSite(asking({ "sec-fetch-site": "same-site" }))).toBe(false);
@@ -49,8 +48,8 @@ describe("isSameSite", () => {
 
   /**
    * The end of the ladder is a refusal. A request carrying no evidence of where it came from is a
-   * `curl`, a probe, a stripped proxy or an attacker's control, and `refresh` and `signout` are
-   * what this exists to protect. Only the browser calls this server, and there is no option.
+   * `curl`, a probe, a stripped proxy or an attacker's control. Only the browser calls `/api/*`
+   * through the application, and there is no option.
    */
   it("refuses a request with neither Sec-Fetch-Site nor Origin", () => {
     expect(isSameSite(asking({}))).toBe(false);

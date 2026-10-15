@@ -1,3 +1,4 @@
+import { withoutTrailingSlashes } from "./edge-url";
 import type { Organization } from "./types";
 
 /**
@@ -10,14 +11,14 @@ export type AccountPage = "" | "account-security/signing-in" | "account-security
 /**
  * Keycloak's account console for a realm — where a person changes their password, their sign-in
  * methods and their sessions, none of which a product should rebuild: `{issuer}/account`, and one of
- * its pages under it. `issuer` is the **public** issuer, the one the browser is sent to, as
- * `relyingParty` takes it.
+ * its pages under it. `issuer` is the **public** issuer, the one the browser is sent to and every
+ * token names.
  *
  * Pure, and on the root barrel, because a link is drawn wherever the session is — a server
  * component, a client menu — and needs no protocol to compute.
  */
 export function accountUrl(issuer: string, page: AccountPage = ""): string {
-  const root = `${issuer.replace(/\/+$/, "")}/account`;
+  const root = `${withoutTrailingSlashes(issuer)}/account`;
   return page ? `${root}/${page}` : root;
 }
 
@@ -36,8 +37,7 @@ export function accountUrl(issuer: string, page: AccountPage = ""): string {
 export function organizationConsoleUrl(issuer: string, organization: Organization): string | undefined {
   // Split by string, not by a backtracking pattern: the issuer is configuration, and a regular
   // expression over it is one more thing a long run of slashes can slow down.
-  let trimmed = issuer;
-  while (trimmed.endsWith("/")) trimmed = trimmed.slice(0, -1);
+  const trimmed = withoutTrailingSlashes(issuer);
   const at = trimmed.lastIndexOf("/realms/");
   const name = at === -1 ? "" : trimmed.slice(at + "/realms/".length);
   if (name === "" || name.includes("/")) {

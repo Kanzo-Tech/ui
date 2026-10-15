@@ -17,22 +17,19 @@ import {
   ItemDescription,
   ItemTitle,
   Show,
-  Spinner,
 } from "@kanzo-tech/ui";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { HALLS, HOME_HALL, type HallId, hall } from "@/example/world";
-import { guildAuth, roleLabel } from "@/lib/guild-auth";
+import { GUILD_SESSION, roleLabel } from "@/lib/guild-auth";
 
 function Board() {
-  const { session, status } = useSession();
+  const { session } = useSession();
   const [alias, setAlias] = useState<HallId>(HOME_HALL);
 
   // The decision, spelled out beside the thing it decides: the membership the token carries for
   // this hall, and the predicate read over it.
   const here = organizationOf(session, alias);
   const warden = can(session, "warden", alias);
-
-  if (status === "loading") return <Spinner />;
 
   return (
     <div className="flex w-full max-w-xl flex-col gap-4">
@@ -131,10 +128,8 @@ function Shut({ alias, roles }: { alias: HallId; roles?: readonly string[] }) {
 }
 
 export default function Example() {
-  const auth = useMemo(() => guildAuth(), []);
-
   return (
-    <AuthProvider auth={auth}>
+    <AuthProvider session={GUILD_SESSION}>
       <Board />
     </AuthProvider>
   );

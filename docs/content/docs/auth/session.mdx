@@ -1,6 +1,6 @@
 ---
 title: Session
-description: One session shape in the browser, read as a query on your QueryClient with bffAuth behind it, how a session is kept alive, kept fresh across tabs and ended, and why the current organization is resolved per request rather than stored.
+description: One session shape, read on the server from the token the edge forwards and handed to the browser as a prop; signing in and out at the edge; and why the current organization is resolved per request rather than stored.
 ---
 
 ```tsx
@@ -29,6 +29,8 @@ interface Organization {
   alias: string;
   id?: string;
   roles: readonly string[];
+  groups: readonly string[];
+  groupsOverage: boolean;
 }
 ```
 
@@ -36,9 +38,9 @@ interface Organization {
 and a subject cannot. Every other field is optional because a realm decides which scopes it grants,
 and a token that merely omits one must not take the application down.
 
-`expiresAt` is epoch **milliseconds**, and it is when the **access token** expires — the moment the
-next renewal is due, from the token response's `expires_in`. The client never uses it to decide
-access.
+`expiresAt` is epoch **milliseconds**, and it is when the **access token** the session was read from
+expires, from its `exp`. The edge renews the token, not this package, and the client never uses it to
+decide access.
 
 ## The current organization is resolved per request
 
@@ -48,8 +50,8 @@ looking at.** Those are two different questions, and only the first is stored.
 Membership comes from the token and is stable. The organization you are *in* is a property of the
 request — its host, its path, a cookie — so the server resolves it on every request with
 [`kanzoAuth`'s `organization`](/docs/auth/next#tenancy) and hands it over as
-`session.organization`, on a server component's `session()` and on the `/session` route. It is never
-written into the session record, which is what lets two tabs sit in two organizations at once.
+`session.organization`, on a server component's `session()`. It is never written into the edge's
+session, which is what lets two tabs sit in two organizations at once.
 Store it instead and those two tabs share one value: the last one to navigate wins in both, and the
 reader of the other is looking at a hall they did not open.
 
@@ -64,226 +66,97 @@ The other half of the same separation is on the shape above: `roles` are the rea
 global to the person, and the roles held *inside* an organization live on that `Organization`. They
 are never merged — [being an owner of one says nothing about another](/docs/auth/roles#asking-the-question).
 
-## The Backend For Frontend
+## The session is a prop
 
-RFC 10017 — the current best practice for OAuth in browser-based applications — names three
-architectures, and recommends one for business applications: the **Backend For Frontend**, where
-the tokens stay on a server of your own and the browser holds a cookie it cannot read. That is the
-one this package implements. [Why only that one](/docs/design/auth#one-pattern-the-backend-for-frontend) is on
-the auth layer's page.
+The relying party is the platform's edge: oauth2-proxy in front of the application signs the person
+in, keeps the session in Valkey behind an opaque cookie, renews it and signs out at Keycloak, and
+forwards the access token on every request it lets through. The application's server verifies that
+token and reads it into a `Session` ([Server](/docs/auth/server)), once per request, and the server
+layout hands it to the browser:
 
-The browser half satisfies one interface, which is the seam between the hooks and the session
-behind them:
+```tsx title="app/layout.tsx"
+import { AuthProvider } from "@kanzo-tech/auth";
+import { auth } from "@/lib/auth";
 
-```ts
-interface Auth {
-  getSession(): Promise<Session | null>;
-  subscribe(onChange: () => void): () => void;
-  signIn(options?: SignInOptions): Promise<void>;
-  signOut(options?: { returnTo?: string }): Promise<void>;
-  readonly fetch: typeof globalThis.fetch;
+export default async function Layout({ children }: { children: React.ReactNode }) {
+  return <AuthProvider session={await auth.session()}>{children}</AuthProvider>;
 }
 ```
 
-`useSession` and `Gate` are written against it, so a test double is five members and no network —
-and `@kanzo-tech/auth/testing` exports it: `fakeAuth(session, { fetch? })` answers the session it was
-given, `signIn` signs in as it, `signOut` signs out, and `set(session)` replaces it and tells every
-subscriber, as a renewal or another tab would. Make the session with `claims()` from
-`@kanzo-tech/auth/server`, so what a test draws is what a token produces.
+**The browser reads nothing.** There is no session endpoint, no cache to keep fresh and no renewal
+for tabs to coordinate: the edge renews, and the next page the server renders reads the renewed
+token. A copy as old as the page is enough for what the browser does with it, which is draw
+([why](/docs/design/auth-failure#the-session-arrives-with-the-page)). A test or a documentation page
+passes a `Session` made with `claims()` from `@kanzo-tech/auth/server`, so what it draws is what a
+token produces.
 
-### The session is a query on your `QueryClient`
+## Signing in and out, at the edge
 
-`AuthProvider` reads the session with TanStack Query, on the `QueryClient` your
-`QueryClientProvider` puts in context — [the read door](/docs/design/reads) every reading part of
-the library goes through. So `@tanstack/react-query` 5 is a peer of `@kanzo-tech/auth`, and the
-provider goes below yours:
+The edge serves its own pages under the prefix the application gave it,
+`OAUTH2_PROXY_PROXY_PREFIX` — `/api/auth` unless `AuthProvider` and `kanzoAuth` are told otherwise:
+`sign_in`, which goes straight to Keycloak, and `sign_out`, which ends the session in the edge's store
+and at Keycloak. `useSession` hands out links to both, each coming back to a path on this origin:
 
 ```tsx
-<QueryClientProvider client={queryClient}>
-  <AuthProvider auth={auth}>{children}</AuthProvider>
-</QueryClientProvider>
+const { signInUrl, signOutUrl } = useSession();
+
+<a href={signInUrl(pathname)}>Sign in</a>;
+<a href={signOutUrl("/")}>Sign out</a>;
 ```
 
-Without it `AuthProvider` throws TanStack's own *No QueryClient set*. The query's cache is the
-session's one copy — `bffAuth` keeps none — so it is in your devtools and goes when you clear the
-client, which you do on sign-out as for any other data of the person's. It is read again:
+They are links rather than functions that navigate, so a sign-out works before the page hydrates and
+from a server component's markup alike. A page behind the edge normally never needs `signInUrl`: the
+edge signs a person in before the page renders. It is for a path the edge lets through without a
+session.
 
-- **when the tab becomes visible**, so a tab left in the background comes back to the session the
-  others renewed or ended;
-- **after a renewal**, so a renewed session's roles and `expiresAt` are the ones drawn;
-- **when another tab says so**, on a `BroadcastChannel`: a tab announces when it loads — which is
-  how a sign-in and a sign-out come back — when it renews, and when it signs out. The message says
-  only that something changed; every tab reads its own answer.
+### How a session ends
 
-It never retries: a failed read is `"failed"`, at once. This is Auth.js's `SessionProvider` —
-`refetchOnWindowFocus`, a refetch after `update()`, and the channel every tab listens on.
-
-### `bffAuth`
-
-```ts
-import { bffAuth } from "@kanzo-tech/auth";
-
-export const auth = bffAuth({ basePath: "/api/auth" });
-```
-
-No engine, no protocol, no storage, and no token in the browser at all — which is why it sits on
-the root barrel beside the hooks. What it needs from the server is four routes under `basePath`:
-`GET /session`, `/signin`, `/signout` and `POST /refresh`. [`kanzoAuth`](/docs/auth/next) serves
-them in Next; [`@kanzo-tech/auth/server`](/docs/auth/server) is the relying party underneath, for a
-product that wires the routes into another router.
-
-The answer from `/session` is **checked rather than cast**. It is your own server
-on the other end and it is still data off the wire: a cast would let a deploy skew or a proxy's
-error page arrive as a `Session` whose `user` is undefined, and the failure would surface three
-components away as a property read on nothing. Anything unrecognisable is a failure,
-`session/unavailable`, and never a session.
-
-A session read within a minute of its expiry is **renewed before it is answered**: `bffAuth` `POST`s
-`/refresh` and answers the renewed session, or `null` when the renewal was refused. That is for the
-tab that stays on one page — the proxy renews before every page, and a tab that loads none would
-otherwise draw an `expiresAt` already gone.
-
-## Keeping requests authenticated
-
-**The seam is the `fetch`, and a product already has exactly one.** Handing your API client
-`auth.fetch` changes one line and no call site:
-
-```ts
-createClient<paths>({ baseUrl: "/", fetch: auth.fetch });
-```
-
-It attaches nothing — the cookie rides along on a same-origin request by itself — and acts on one
-answer only: a **401**. A 401 is ambiguous here: the cookie *was* sent and *was* accepted, so what
-expired may be the access token behind it, which the browser half cannot see. So a 401 means
-"renew and try again" first: `bffAuth` `POST`s `/refresh` and retries the request once if that
-worked. Only when the renewal is **refused** is the session over, and then it **signs in, once,
-coming back to the page** — one layer, so a product's data client needs no `401 → signIn()` branch
-of its own, and six queries failing together navigate once.
-
-### How a session is kept alive, and how it ends
-
-A cookie good for eight hours sits in front of an access token good for five minutes, and a realm
-that ends an SSO session after thirty minutes idle. What keeps those three clocks honest is the
-server, in three places, and the browser's 401 is the last of them:
-
-1. **[The proxy](/docs/auth/next#the-proxy-is-the-session-authority)** reads the session before
-   every page and renews an access token with less than a minute left, in place under the same
-   ticket. When the IdP refuses — the realm's session went idle, or was ended — the proxy drops the
-   ticket, clears the cookie, and sends a navigation to sign in carrying its URL, so the person
-   comes back to the deep link they asked for. A prefetch or an RSC fetch gets a 401 problem instead.
-2. **[The forwarder](/docs/auth/next#api)** renews the same way before each request it forwards to
-   a resource server, for a page that stays open longer than an access token lives.
-3. **`bffAuth`** renews a session it reads near its expiry, and answers the 401 that reaches the
-   browser anyway, as above.
-
-A session ended at Keycloak — an administrator's sign-out, another application's — reaches the
-server through [back-channel logout](/docs/auth/next#back-channel-logout), and the next navigation
-finds no session. There is no window in which the application draws for a session the IdP has
-closed: the record is gone, and every one of the three places reads the record.
-
-The retry is once, and never on a 403: that is an answer, not a stale credential. A request whose
-body is a stream is not retried at all, because a body can be read once and a second send would
-deliver an empty one — silently, with a misleading error at the far end.
-
-<Callout type="warn">
-**The renewal path is single-flight, and that is a rule rather than an optimisation.** The
-specification requires a browser client's refresh token to rotate on every use, so a renewal spends
-the token it was called with. Ten requests noticing an expiring token in the same tick would fire
-ten renewals, nine of them replaying a token the first already spent — and an authorization server
-is entitled to read that as theft and revoke the whole chain. The session does not degrade under
-load; it dies under load, which is the worst way to find out.
-</Callout>
-
-<Callout type="info">
-**`EventSource` is fine here.** It cannot carry an `Authorization` header, which is a problem for a
-browser holding a bearer token and none for one holding a cookie: a same-origin event stream through
-the forwarder carries the session like any other request.
-</Callout>
+- **Signing out at the application** goes through `sign_out`: the edge drops its session and ends the
+  one at Keycloak.
+- **A session ended at Keycloak** — idle past `sso_session_idle_timeout`, past
+  `sso_session_max_lifespan`, or signed out from another application — reaches the edge when the access
+  token next needs renewing: within the realm's `access_token_lifespan`, five minutes here.
+- **A token already forwarded** to an API is a bearer token until it expires
+  ([the limit](/docs/design/auth-hardening#limits-the-layer-states-instead-of-fixing)).
 
 ## When a credential is refused, or nobody answers
 
-A boolean cannot be acted on. *Not signed in* sends the person to the IdP; *signed in but not a
-member* sends them to a page that says so; *the IdP did not answer* sends them nowhere, because it
-is an outage to name. Telling those apart is the difference between an explanation and a redirect
-loop. So a failure carries a code, in the `area/kind` grammar one host registry keys, and `data`
-with what was measured (`isProblem` from `@kanzo-tech/kernel` reads one):
+A server read has three answers, and a product draws each differently:
 
-| Code | What happened |
-| --- | --- |
-| `claims/no-subject` | The claim set carries no `sub`. Not a session at all — a realm fault, never a person's |
-| `session/absent` | There is no session: not signed in, or it expired |
-| `session/irrevocable` | The store cannot end a session from the server — a stateless store, or a ticket adapter without `keys`. Back-channel logout answers 501 |
-| `organization/invalid` | The organization asked for is not an alias — a space in it would inject a second scope |
-| `organization/denied` | The realm would not issue a token for that organization: the person is not a member. `api` answers 403 |
-| `callback/state-mismatch` | The callback's `state` is absent, different, or matches no transaction |
-| `callback/nonce-mismatch` | The ID token's `nonce` is not the one that was sent — a replay |
-| `token/exchange-failed` | The token endpoint refused the code or the token exchange, or answered something unusable — no ID token, a client it does not know, an API the application does not list |
-| `token/refused` | A token was refused and the session is over: the IdP answered `invalid_grant` to the refresh token, or a back-channel logout token did not verify |
-| `session/unavailable` | The session could not be read: the store failed, or `/session` answered neither a session nor a 401. `data.status` is that answer |
-| `session/silent` | `/session` or `/refresh` did not answer within 30 s — or, on the server, a `ticketStore` adapter did not within 5 s, reported as the cause of a `session/unavailable`. `data.after` is the bound in milliseconds |
-| `idp/unreachable` | The IdP could not be reached, or answered with something that is not OAuth — a 5xx, a proxy's page |
-| `idp/silent` | The IdP did not answer within 10 s. `data.after` is `10000` |
-| `api/silent` | A resource server behind [`api`](/docs/auth/next#api) connected and sent no response headers within 25 s. `api` answers 504; a stream that is alive after its headers is not ended |
-| `api/unreachable` | A resource server behind [`api`](/docs/auth/next#api) did not answer — the connection was refused, its name did not resolve, it reset. `api` answers 502; an API that answers with an error status is passed through |
+| What happened | `session()` | `session({ required: true })` |
+| --- | --- | --- |
+| the edge forwarded no token | `null` | a redirect to the edge's `sign_in`, back to the page |
+| the token did not verify | throws `token/refused` | a redirect to `problemPage?code=token/refused` |
+| the realm's keys could not be fetched | throws `idp/unreachable` or `idp/silent` | a redirect to `problemPage` with that code |
 
-Every wait this package makes on another party has a bound, and an inner one expires before the one
-around it: `bffAuth`'s requests to `/session` and `/refresh` 30 s, the forwarder until the API's headers
-25 s, every request `openid-client` and `jose` make behind `./server` 10 s through each library's own
-timeout, and every command `ticketStore` makes on its adapter 5 s. What it threw is kept as the
-`cause`.
-
-**It bounds those and nothing else.** A request your API client makes through `auth.fetch` is yours
-to bound, with a signal on that request — `AbortSignal.timeout(30_000)`, or the one your client
-already passes. Do not wrap the `fetch` you hand `bffAuth` in a deadline of your own: one wait gets
-one bound, and two racing on the session read would each name the failure differently
-([failure](/docs/design/failure#one-deadline-per-wait)).
-
-The server answers a refusal as an RFC 9457 problem, `application/problem+json`, whose `code` is
-the registry's code (`problems.bnf`) — [the Next.js page](/docs/auth/next#what-a-refusal-answers) has the statuses.
+The codes are the kernel's `Problem`s; test one with `isProblem(error, "token/refused")` from
+`@kanzo-tech/kernel`. A refused token goes to the problem page and never to sign-in: the edge holds a
+session and would forward the same token, which is a loop. [How the layer
+fails](/docs/design/auth-failure) is why each answer is what it is.
 
 ## API Reference
 
 ### `useSession`
 
-Returns the context — `AuthContextValue` — plus the two actions and the role question, so a
-component that draws a sign-out button or an editor's control needs one hook rather than two.
+```ts
+function useSession(): {
+  session: Session | null;
+  can(role: string, organization?: string): boolean;
+  signInUrl(returnTo?: string): string;
+  signOutUrl(returnTo?: string): string;
+};
+```
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `session` | `Session \| null` | Who is signed in |
-| `status` | `AuthStatus` | `"loading" \| "authenticated" \| "anonymous" \| "failed"` — **branch on this** |
-| `error` | `unknown` | What the session read rejected with, exactly as thrown, while `status` is `"failed"` |
-| `auth` | `Auth` | The instance the provider was given |
-| `signIn` | `(options?: SignInOptions) => Promise<void>` | Send the person to the IdP |
-| `signOut` | `(options?: { returnTo?: string }) => Promise<void>` | End the session |
-| `can` | `(role: string, organization?: string) => boolean` | [`can`](/docs/auth/roles#asking-the-question) bound to this session: inside `session.organization` unless told which |
-
-It throws when called outside `AuthProvider`, naming `bffAuth` in the message.
+Throws outside an `AuthProvider`. `can` is [`can`](/docs/auth/roles#asking-the-question) bound to this
+session, asking inside `session.organization` unless told which.
 
 ### `AuthProvider`
 
-| Prop | Type | Default |
-| --- | --- | --- |
-| `auth` | `Auth` | — |
-| `children` | `React.ReactNode` | — |
-
-One per application, at the root, below your `QueryClientProvider`. A session that cannot be read settles on `"failed"`, with what
-was thrown on `error` — neither `"anonymous"`, which sends the person to sign in over an outage, nor
-`loading`, which is a spinner nobody can escape. `Gate` draws neither side while it is `"failed"`.
-
-### `bffAuth`
-
-`BffAuthConfig`:
+```tsx
+<AuthProvider session={Session | null} prefix?: string>{children}</AuthProvider>
+```
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `basePath` | `string` | `/api/auth` |
-| `fetch` | `typeof fetch` | the global. The transport every request goes through; it must not bound requests — see above |
-| `navigate` | `(url: string) => void` | assigns `window.location` |
-
-### `SignInOptions`
-
-| Prop | Type | Description |
-| --- | --- | --- |
-| `returnTo` | `string` | Where to come back to. Defaults to the current URL |
-| `organization` | `string` | Ask for one organization's scope instead of every one — see [Keycloak](/docs/auth/keycloak#the-scope-with-the-star) |
+| `session` | `Session \| null` | — the server's reading, from `auth.session()` |
+| `prefix` | `string` | `"/api/auth"`, where the edge's `sign_in` and `sign_out` live |

@@ -13,19 +13,13 @@ import {
   DataListItemLabel,
   DataListItemValue,
   Show,
-  Spinner,
 } from "@kanzo-tech/ui";
 import { useMemo, useState } from "react";
 import { HALLS, type HallId } from "@/example/world";
-import { GUILD_SESSION, guildAuth } from "@/lib/guild-auth";
+import { GUILD_SESSION } from "@/lib/guild-auth";
 
 function Hall() {
-  const { can, session, status } = useSession();
-
-  // Nobody is *not* a member until the session has been read. `Gate` makes the same choice, and
-  // for the same reason: a "no charter here" drawn at somebody who has one is worse than a beat of
-  // nothing.
-  if (status === "loading") return <Spinner />;
+  const { can, session } = useSession();
 
   // The hall this request is in, as the server's resolver named it — an address, which membership
   // either backs or does not.
@@ -85,7 +79,7 @@ export default function Example() {
   // stands in for it. Never stored on the session record, which is what lets two tabs sit in two
   // halls at once: there is no shared value to fight over.
   const [alias, setAlias] = useState<HallId>("amber");
-  const auth = useMemo(() => guildAuth({ ...GUILD_SESSION, organization: alias }), [alias]);
+  const session = useMemo(() => ({ ...GUILD_SESSION, organization: alias }), [alias]);
 
   return (
     <div className="flex w-full max-w-lg flex-col gap-4">
@@ -100,7 +94,7 @@ export default function Example() {
           </Button>
         ))}
       </ButtonGroup>
-      <AuthProvider auth={auth}>
+      <AuthProvider session={session}>
         <Hall />
       </AuthProvider>
     </div>

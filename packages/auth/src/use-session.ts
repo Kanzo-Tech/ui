@@ -1,38 +1,41 @@
 "use client";
 
 import { useContext } from "react";
-import { AuthContext, type AuthContextValue } from "./auth-context";
+import { AuthContext } from "./auth-context";
 import { can } from "./can";
+import { edgeUrl } from "./edge-url";
+import type { Session } from "./types";
 
 /**
- * Who is signed in, the two things you can do about it, and the role question asked here.
+ * Who is signed in, where to send them to sign in or out, and the role question asked here.
  *
- * `status` is the field to branch on, not `session === null`: those are the same answer for
- * "anonymous" and "we have not looked yet", and drawing a sign-in prompt during the second is the
- * flicker every application with a session has shipped at least once. `"failed"` is the session
- * that could not be read, with what was thrown on `error`.
+ * `signInUrl` and `signOutUrl` are links to the edge's pages, for an `<a href>`: the edge signs in
+ * and out, and the application only sends the person there. Each comes back to `returnTo` — a path
+ * on this origin — or to the edge's default, `/`.
  *
  * `can(role, organization?)` is {@link can} bound to this session, so it asks inside the current
  * tenant unless told which — Clerk's `useAuth().has()`. It decides what to draw, never what to
  * allow.
  */
-export function useSession(): AuthContextValue & {
-  readonly signIn: AuthContextValue["auth"]["signIn"];
-  readonly signOut: AuthContextValue["auth"]["signOut"];
+export function useSession(): {
+  readonly session: Session | null;
+  readonly signInUrl: (returnTo?: string) => string;
+  readonly signOutUrl: (returnTo?: string) => string;
   readonly can: (role: string, organization?: string) => boolean;
 } {
   const context = useContext(AuthContext);
   if (context === null) {
     throw new Error(
       "useSession() was called outside <AuthProvider>. Wrap the application in one, passing the " +
-        "auth it should use — bffAuth() for a product whose server runs kanzoAuth.",
+        "session the server read: <AuthProvider session={await auth.session()}>.",
     );
   }
+  const { session, prefix } = context;
 
   return {
-    ...context,
-    signIn: context.auth.signIn,
-    signOut: context.auth.signOut,
-    can: (role, organization) => can(context.session, role, organization),
+    session,
+    signInUrl: (returnTo) => edgeUrl(prefix, "sign_in", returnTo),
+    signOutUrl: (returnTo) => edgeUrl(prefix, "sign_out", returnTo),
+    can: (role, organization) => can(session, role, organization),
   };
 }

@@ -1,27 +1,27 @@
 ---
 title: Next.js
-description: The Backend For Frontend for an App Router product as one object — kanzoAuth, whose proxy renews and ends sessions before a page renders, whose routes sign in, out and back-channel, and whose session() a server component reads.
+description: An App Router product behind the platform's edge as one object — kanzoAuth, whose session() a server component reads from the forwarded token, whose proxy forwards the URL and the CSP nonce, and whose api forwards to the application's resource servers.
 ---
 
 ```ts
 import { kanzoAuth } from "@kanzo-tech/auth/next";
 ```
 
-One name over [the confidential client](/docs/auth/server), and four files an App Router product
-already has:
+One name over [the server reader](/docs/auth/server), and the files an App Router product already has.
+The application sits behind the edge — oauth2-proxy, [extended by the
+application](/docs/auth/service#the-sessions-edge) — which signs the person in, keeps the session and
+forwards the access token; nothing here signs anyone in.
 
 ```ts title="lib/auth.ts"
 import { kanzoAuth } from "@kanzo-tech/auth/next";
-import { ticketStore } from "@kanzo-tech/auth/server";
 
 export const auth = kanzoAuth(async () => ({
-  issuer, clientId, clientSecret, secret,
-  store: ticketStore(redisAdapter),
+  issuer: "https://id.example/realms/kanzo",
+  clientId: "board",
+  jwks: "http://keycloak:8080/realms/kanzo/protocol/openid-connect/certs",
   organization: ({ url }) => url.hostname.split(".")[0],
-  public: ["/health"],
   apis: {
-    "/api": { audience: "board-api", target: process.env.API_URL },
-    "/api/search": { audience: "search-api", target: process.env.SEARCH_URL },
+    "/api": { target: (organization) => `http://${organization}-api:8080` },
   },
 }));
 ```
@@ -31,12 +31,12 @@ export const proxy = (request: NextRequest) => auth.proxy(request);
 export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"] };
 ```
 
-```ts title="app/api/auth/[...auth]/route.ts"
-export const { GET, POST } = auth.routes;
-```
-
 ```ts title="app/api/[...path]/route.ts"
 export const { GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS } = auth.api;
+```
+
+```tsx title="app/layout.tsx"
+<AuthProvider session={await auth.session()}>{children}</AuthProvider>
 ```
 
 And in any server component:
@@ -46,10 +46,8 @@ const session = await auth.session({ required: true });
 if (!can(session, "reader")) forbidden();
 ```
 
-`kanzoAuth` returns a `KanzoAuth`: `proxy`, `routes`, `api` and `session`. They are four pieces of
-**one relying party** — one issuer, one discovery cache, one store, and one renewal per session
-that the proxy, the forwarder and the refresh route all join. `can` comes from the root barrel,
-exactly as `Gate` asks in the browser.
+`kanzoAuth` returns a `KanzoAuth`: `session`, `proxy` and `api`, over one config and one session
+reader. `can` comes from the root barrel, exactly as `Gate` asks in the browser.
 
 <Callout type="info">
 **There is no `requireRole`.** It would have added no new evaluation of a role — only a *throw* —
@@ -60,66 +58,43 @@ sentence.
 
 ## Bound on the first request
 
-The config is a function, and it may be async. `next build` imports every route module with no
-secrets in the environment, so nothing is read at import: the function runs on the first request
-that needs it — a secret from a file, a vault, a database — and the instance it builds is kept.
-**A failure is not kept**: a deployment that started before its identity provider or its secret
-was ready recovers on the next request rather than remembering the outage for the life of the
-process. `routes` and `api` are plain handler objects that exist at import time, which is what
-`export const { GET, POST } = auth.routes` needs.
+The config is a function, and it may be async. `next build` imports every module with no
+configuration in the environment, so nothing is read at import: the function runs on the first
+request that needs it, and the instance it builds is kept. **A failure is not kept**: a deployment
+that started before its configuration was ready recovers on the next request rather than remembering
+the fault for the life of the process. `api` is a plain handler object that exists at import time,
+which is what `export const { GET, … } = auth.api` needs.
 
-## The proxy is the session authority
+## `session()` in a server component
 
-Next 16 runs `proxy.ts` on Node, always — it is not configurable — so the edge's reason for
-checking only that a cookie *exists* is gone. `auth.proxy` reads the session record, one store
-read per request, and acts on it before any page renders. This is WorkOS AuthKit's `authkitProxy`:
-renewal and enforcement where the URL is known.
+```ts
+const session = await auth.session();                    // Session | null
+const session = await auth.session({ required: true });  // Session, or a redirect
+```
 
-| The record | A navigation | Anything else |
-| --- | --- | --- |
-| live, access token valid | passes through | passes through |
-| live, access token within `renewWithin` (60 s) of expiry | renewed, then passes | renewed, then passes |
-| absent, forgotten by the store, or the IdP **refused** to renew | cookie cleared, **307** to `signin?returnTo=<path+search>` | cookie cleared, **401** problem, `no-store` |
-| the store does not answer | **307** to `problemPage?code=session/unavailable` | 503 or 504 problem |
-| the IdP does not answer | passes through untouched | passes through untouched |
+It reads the forwarded token through `next/headers`, verifies it against the realm's keys
+([Server](/docs/auth/server)), and is memoised per request through React's `cache`, so a layout, a
+breadcrumb and a menu asking in one render verify it once. `null` means the edge forwarded no token.
 
-The last row is deliberate: an IdP outage has refused nothing, so the session is still the
-person's, and a page that renders is more use than a sign-in that cannot finish.
+`{ required: true }` is AuthKit's `ensureSignedIn`. With no token it redirects to the edge's
+`sign_in`, carrying the path and query the proxy forwarded; the edge signs a person in before the page
+renders, so this is a path the edge lets through, or an application reached without its edge. A token
+that does not verify, or keys that could not be fetched, redirect to `problemPage` with the code,
+never to sign-in: the edge holds a session and would forward the same token. Without `required`, a
+failure is thrown as the `Problem`, for a page that renders through one and reads it itself.
 
-### Navigation or not: Fetch Metadata
+## `proxy`
 
-What decides between a redirect and a 401 is `Sec-Fetch-Mode` — W3C Fetch Metadata, set by the
-browser and not settable by script. `navigate` is a document load; `cors`, `no-cors` and
-`same-origin` are a prefetch, a server action, an RSC fetch, a `fetch` of the product's own. Next
-strips its own RSC headers before the proxy sees them, so this is the one signal that survives.
-
-A request that is not a navigation **cannot follow a sign-in and must not start one**: a hovered
-link that prefetched its way into `/api/auth/signin` would be a sign-in nobody asked for. It gets a
-401 [problem](#what-a-refusal-answers); the Next router answers a 401 to its own fetch with a hard navigation, which arrives back
-here as `navigate` and is sent to sign in carrying its URL. An absent header is a client that is not
-a browser, or one too old to send it, and is treated as a navigation — a redirect it can follow is
-the more useful answer.
-
-### Renewal in place, with a stable ticket
-
-The ticket in the session cookie is issued once, at sign-in, and names the session for its whole
-life — Duende BFF's server-side session. A renewal spends the refresh token and writes the new
-tokens **under the same ticket**, so with a `ticketStore` the cookie does not change and the proxy
-has nothing to hand the browser or the page. The renewal is single-flight per ticket in the
-process; [the server page](/docs/auth/server#renewal) says what happens when two processes race.
-
-With the stateless store the ticket *is* the record, so a renewal re-seals it, and the proxy sets
-the new cookie with `response.cookies.set`. That call is what makes Next merge the cookie into the
-same request's `cookies()`, so the page rendering behind the proxy reads the session the browser
-will hold. A raw `Set-Cookie` header would reach the browser and not the page.
+The edge in front of the application decided who may reach it; `proxy` behind it decides nothing
+about the session and lets every request through. It does two things.
 
 ### The URL, forwarded
 
-Every request leaves the proxy with `x-kanzo-url` set to the URL it arrived at — AuthKit's `x-url`
-— after every incoming `x-kanzo-*` header is deleted, so a browser cannot choose what a server
-component reads there. `session({ required: true })` signs in back to it, and the tenant resolver
-reads it. Extra request headers a product needs on the page go in the second argument,
-`auth.proxy(request, { headers })`.
+Every request leaves the proxy with `x-kanzo-url` set to the URL the browser addressed — AuthKit's
+`x-url`, read from `X-Forwarded-Host` and `X-Forwarded-Proto` before the address Next listens on —
+after every incoming `x-kanzo-*` header is deleted, so a browser cannot choose what a server component
+reads there. `session({ required: true })` signs in back to it, and the tenant resolver reads it. Extra
+request headers a product needs on the page go in the second argument, `auth.proxy(request, { headers })`.
 
 ### The CSP nonce
 
@@ -143,38 +118,6 @@ sees, which is the header Next reads to put the nonce on its own scripts, and on
 server component that needs the nonce reads `x-nonce` from `headers()`. A page that carries a nonce
 renders per request, and a browser without CSP Level 3 does not run its scripts.
 
-### The matcher
-
-Static files, `basePath`, every mount of `apis`, `problemPage` and every `public` prefix pass without a
-session. `public` is matched on **segment boundaries**: `/health` opens `/health/live` and not
-`/healthcare`.
-
-A static file is a path whose last segment ends in an extension on `staticExtensions`, whose default
-is what a browser fetches to draw a page: `js`, `mjs`, `css`, `map`, `wasm`, `png`, `jpg`, `jpeg`,
-`gif`, `webp`, `avif`, `svg`, `ico`, `woff`, `woff2`, `txt`, `xml`, `webmanifest`. A data format
-(`csv`, `json`, `parquet`) is deliberately not on it, and a dotted page such as `/graphs/foo.bar` is
-a page: the proxy gates it. Giving `staticExtensions` replaces the list. A path that must open
-without a session and is not a static file is a `public` prefix. Do not exclude `.*\..*` in your own
-`matcher`: that is the hole this list closes, and the list is applied inside the matcher so one that
-is wrong in the open direction is still caught.
-
-## `session()` in a server component
-
-```ts
-const session = await auth.session();                    // Session | null
-const session = await auth.session({ required: true });  // Session, or a redirect
-```
-
-It reads the cookie through `next/headers` and is memoised per request through React's `cache`, so
-a layout, a breadcrumb and a menu asking in one render unseal the cookie and read the store once.
-It never renews — **a server component cannot write cookies** — and it does not need to: the proxy
-already renewed or ended the session before the page began. `{ required: true }` is AuthKit's
-`ensureSignedIn`: on a page the proxy does not run on, or a session that ended mid-render, it
-redirects to sign in carrying the path and query the proxy forwarded. And when the store or the IdP
-does not answer, it redirects to `problemPage` with the code — the proxy's answer to the same
-outage — so a layout writes no `try` around it. Without `required`, an outage is thrown as the
-`Problem`, for a page that renders through one and reads it itself.
-
 ## Tenancy
 
 `organization` resolves the tenant a request addresses: a hostname's first label, a path segment,
@@ -185,204 +128,61 @@ organization: ({ url, headers, cookies }) => url.hostname.split(".")[0]
 ```
 
 It is handed a `TenantRequest` — `{ url, headers, cookies }`, exported from `@kanzo-tech/auth/next`
-for a resolver written as a function of its own — built the same way wherever it runs: the routes from their
-request, a server component from `host` and the `x-kanzo-url` the proxy forwarded. Its answer is
-`Session.organization`, on `session()` and on the `/session` route, and it is the organization
-[`can`](/docs/auth/roles) asks inside by default. The tenant is resolved per request and never
-stored, which is what lets two tabs sit in two organizations at once. Every sign-in asks Keycloak
-for `organization:*`, so membership of every organization arrives in one token.
-
-## `routes`
-
-| Path | Verb | Answers |
-| --- | --- | --- |
-| `/signin` | `GET`, `POST` | 302 to the authorization endpoint, with this attempt's transaction cookie |
-| `/callback` | `GET`, `POST` | 302 to where the person was going, with the session cookie |
-| `/session` | `GET`, `POST` | the `Session` as JSON, current tenant included, or **401 and no body** |
-| `/refresh` | `POST` | the renewed `Session`, or 401 with the cookie cleared |
-| `/signout` | `GET`, `POST` | 302 to the end-session endpoint, clearing the cookie |
-| `/backchannel-logout` | `POST` | 200, 400, or 501 — [below](#back-channel-logout) |
-
-The callback URL is `redirectUri`, or derived from the request — the origin it arrived at, the path
-the routes sit on, and `/callback`. That origin is not `request.url`'s, which Next builds from the
-address it listens on: the host is `X-Forwarded-Host`, else `Host`, and the scheme
-`X-Forwarded-Proto`, else the request's — the headers Auth.js reads. Trusting them is a **bounded
-trust**: a forged host produces a `redirect_uri` Keycloak has not registered, and Keycloak refuses
-it. A deployment whose proxy sets none of them says the URL out loud.
-
-### One transaction per `state`
-
-Each sign-in attempt seals its `state`, `nonce` and PKCE verifier into a cookie of its own,
-`__Host-kanzo-auth.<state>`, for ten minutes — Auth0's v4 SDK does the same with `__txn_{state}`.
-With one transaction cookie, a second tab that started signing in overwrote the first tab's attempt
-and the first tab's callback failed; with one per `state`, both finish, and each callback clears
-the one it spent.
-
-### A failure on a navigation is a page
-
-`/signin`, `/callback` and `/signout` are reached through the address bar, so a `Problem` there
-is a 302 to the product's `problemPage` — default `/auth/problem` — with the code in `?code=`:
-`/auth/problem?code=callback%2Fstate-mismatch`. The page is the product's, and renders the code in
-its own words:
-
-```tsx
-// app/auth/problem/page.tsx
-export default async function Page({ searchParams }: { searchParams: Promise<{ code?: string }> }) {
-  const { code } = await searchParams;
-  return <Problem code={code} />; // the product's own view of a code
-}
-```
-
-The proxy keeps `problemPage` public, because whoever lands there has no session; sending them to
-sign in instead would loop when signing in is what failed.
-
-`/session`, `/refresh` and `/backchannel-logout` are reached by `fetch`, and answer a refusal as a
-problem.
-
-### What a refusal answers
-
-Every refusal with a code — from the routes, from [`api`](#api) and from the proxy to a request
-that is not a navigation — is an RFC 9457 problem, `application/problem+json`, never cached:
-
-```json
-{ "type": "tag:kanzo.tech,2026:problem/organization/denied", "status": 403, "title": "The organization is not permitted", "detail": "the realm did not grant `organization:acme`: the person is not a member", "code": "organization/denied", "data": {}, "severity": "error" }
-```
-
-`code` is one of [the codes](/docs/auth/session#when-a-credential-is-refused-or-nobody-answers),
-`type` and `title` are the registry's for it, and `data` rides beside it when the error carries one
-(`after`, `status`): route on `code`, and word it yourself. `problems.bnf` gives the status,
-everywhere:
-
-| Code | Status |
-| --- | --- |
-| `session/absent`, `token/refused` | 401 |
-| `organization/denied` | 403 |
-| `organization/invalid`, `callback/state-mismatch`, `callback/nonce-mismatch` | 400 |
-| `session/irrevocable` | 501 |
-| `idp/unreachable`, `api/unreachable`, `token/exchange-failed`, `claims/no-subject` | 502 |
-| `session/unavailable` | 503 |
-| `idp/silent`, `session/silent`, `api/silent` | 504 |
-
-`/backchannel-logout` is the one exception, because its specification fixes its answers: a refusal
-there is 400, whatever its code. `bffAuth` reads only a 401 from `/session` as *nobody is signed
-in*, by its status. An answer about the request rather than a credential — a cross-site request's
-403, a 405, a path under no mount — has no code and no body.
-
-`/refresh` constrains its verb because it *spends* a refresh token, and a `GET` that spends
-something is one prefetch, one link preview or one crawler away from spending it unasked. A `GET`
-gets a 405 rather than a 404, because the route is plainly there.
-
-### Which routes a cross-site request may reach
-
-The session cookie is `SameSite=Lax`, and that is not a preference — `Strict` withholds it on the
-navigation *back* from the identity provider, so every sign-in would fail. What `Lax` costs is
-exactly one thing: a cross-site **top-level navigation** still sends the cookie. So
-`<img src="…/api/auth/signout">` on any page anywhere is a logout anyone can cause.
-
-**The package that chose `Lax` is the one that owes the compensation**, so the check is here rather
-than in every product:
-
-| Route | From a cross-site page |
-| --- | --- |
-| `/callback` | allowed — it *is* a cross-site navigation, from the IdP |
-| `/signin` | allowed — starting a flow grants nothing, and "sign in to X" is a link people write |
-| `/backchannel-logout` | allowed — a server's POST, authenticated by the signature on its token |
-| `/session`, `/refresh`, `/signout` | **403** |
-
-`Sec-Fetch-Site` is read first, because a browser sets it and script cannot. `same-origin` and
-`none` pass — `none` is a bookmark or a typed URL, which is the person acting. `same-site` is
-refused along with `cross-site`: the cookie is `__Host-` and therefore host-only, but host-only
-says where the cookie *lives*, not who may cause a request to it. Without the header, `Origin` is
-compared; without either, the request is refused, because an absence is unknown and a sensitive
-endpoint blocks the unknown. Only the browser calls these routes and `/api/*`, and there is no option:
-a script, a probe or a test runner calls the API at its own origin with its own credential.
-
-### `organization` is validated before it becomes a scope
-
-`scope` is a space-delimited list, so `?organization=acme%20offline_access` reaching `begin`
-unchecked is not a strange alias — it is a **second scope**, asking for a refresh token that
-outlives the browser session, chosen by whoever composed the link. `begin` refuses anything that is
-not an alias or `*`, and this route sends the browser to the problem page with
-`organization/invalid` rather than a 500 on a mistyped link.
-
-### Back-channel logout
-
-When a session ends at Keycloak — an administrator signs the person out, the SSO session expires,
-they sign out of another application — Keycloak posts a logout token to the client's
-`backchannel_logout_url`, per **OpenID Connect Back-Channel Logout 1.0**. The route verifies it as
-§2.6 requires — signature against the realm's keys, `iss`, `aud`, `iat`, `exp`, `jti` not seen before, the
-back-channel event, no `nonce`, and a `typ` of exactly `logout+jwt` (Keycloak 25.0.0 or later) — and drops every session it names through the store, the way Auth0's SDK does. The next
-navigation finds no record and signs in.
-
-| Answer | When |
-| --- | --- |
-| 200 | the sessions the token names are dropped |
-| 400 | the token does not verify, or there is none (`token/refused`); a body over 8 KB; a content type other than `application/x-www-form-urlencoded` |
-| 501 | the store cannot end a session from the server (`session/irrevocable`): the stateless store, or a `ticketStore` whose adapter has no `keys` |
-
-Point the client at it with [`backchannel_logout_url`](/docs/auth/keycloak#back-channel-logout).
+for a resolver written as a function of its own — built the same way wherever it runs: the forwarder
+from its request, a server component from `host` and the `x-kanzo-url` the proxy forwarded. Its answer
+is `Session.organization`, and it is the organization [`can`](/docs/auth/roles) asks inside by default.
+The tenant is resolved per request and never stored, which is what lets two tabs sit in two
+organizations at once.
 
 ## `api`
 
-The token-mediating backend. `apis` names each resource server the application calls by the path
-it is mounted on, and a request under a mount is forwarded to its `target` with a bearer token
-**for that resource server and for the organization the request addresses, alone**. A request is
-forwarded by the longest mount it is under, so `/api/search` is the search API and
+`apis` names each resource server the application calls by the path it is mounted on, and a request
+under a mount is forwarded to its `target` with **the token the edge forwarded as its bearer**. A
+request is forwarded by the longest mount it is under, so `/api/search` is the search API and
 `/api/anything-else` is the board's.
 
-The token is not the session's. The session's token names every organization the person belongs to
-and no API, so it never leaves the server: [`token`](/docs/auth/server#the-token-mediating-backend) exchanges it — OAuth
-2.0 Token Exchange, RFC 8693, as Keycloak's standard token exchange implements it — for one whose
-`aud` is the mount's `audience` and whose organization is the request's, keeps it until it is
-within a minute of expiry, and renews the session first when that is the one expiring. `audience`
-is the API's client in the realm, and the application lists it in its
-[`apis`](/docs/auth/keycloak#the-apis-an-application-calls).
+There is no exchange. The edge asks for the API's scope at sign-in, so the token already names the
+API in `aud` ([Keycloak](/docs/auth/keycloak#the-apis-an-application-calls)). The token is verified
+before it is forwarded — a header that did not come through the edge is refused here and never
+reaches an API — and the API verifies it again itself.
 
 Ninety lines every product writes the same way, and one of them is load-bearing in a way that does
 not look it: **the `cookie` header is not forwarded**. Leave it on and the resource server receives
-a second credential beside the bearer token it asked for, which is the confusion the BFF pattern
-exists to remove.
+the edge's session beside the bearer token, a second credential. The edge's `X-Forwarded-*` headers
+are not forwarded either: the token travels once, as the bearer.
 
 What else it does, none of which is a product's idea of its own domain: strips the hop-by-hop
 headers, strips `Origin` and the `Sec-Fetch-*` headers — what the browser says about the page behind
-*its* request, which the same-site check has read; the upstream's request is the server's, and an
-upstream that checks `Origin` would otherwise judge a page that never addressed it — forwards the body as a stream with `duplex: "half"` so an upload is never read into memory
-and an SSE stream is never buffered until it ends, sets `redirect: "manual"` so a `Location` from
-the upstream cannot send the bearer token to whatever host it names, drops `set-cookie` from the
-answer, and drops `content-encoding` and `content-length` with it.
+*its* request, which the same-site check has read — forwards the body as a stream with
+`duplex: "half"` so an upload is never read into memory and an SSE stream is never buffered until it
+ends, sets `redirect: "manual"` so a `Location` from the upstream cannot send the bearer token to
+whatever host it names, drops `set-cookie` from the answer, and drops `content-encoding` and
+`content-length` with it.
 
 `target` may be a function of the organization the request addresses — the same answer
-`organization` gives — for one BFF in front of a resource server per tenant:
+`organization` gives — for one application in front of a resource server per tenant. That is
+Keycloak's Organizations model: **one client shared by every organization**, with the tenant in the
+token. The token names every organization the person belongs to, so the forwarder refuses a request
+for one it does not name before the API is asked, and each API authorises inside its own
+organization's entry ([why](/docs/design/auth#one-token-naming-the-applications-api)). A request
+that addresses no organization — a bare host — gets `undefined` from the function, and `api`
+answers it 404.
 
-```ts
-kanzoAuth(() => ({
-  …,
-  organization: (request) => request.url.hostname.split(".")[0],
-  apis: { "/api": { audience: "board-api", target: (organization) => `http://${organization}-api:8080` } },
-}));
-```
-
-That is Keycloak's Organizations model: **one client shared by every organization**, with the
-tenant in the token, so one sign-in, one session store and one back-channel logout URL serve them
-all, while each tenant's data stays behind its own resource server — and the token `acme`'s server
-is sent names `acme` alone, so it is no good at `globex`'s. A request that addresses no
-organization — a bare host — gets `undefined` from the function, and `api` answers it 404.
-
-It answers a [problem](#what-a-refusal-answers): **401** with the cookie cleared when there is no
-session or the renewal was refused, **403** when the person is not a member of the organization the
-request addresses (`organization/denied`), and **502** when the realm will not exchange the token
-for that audience at all (`token/exchange-failed`) — the application does not list the API, which
-is the deployment's to fix — or when the API itself does not answer (`api/unreachable`): the
-connection is refused, its name does not resolve, it resets before a status line — or **504** when it connected and sent no headers within 25 s (`api/silent`). An API that
-answers, whatever the status, has answered, and its answer is passed through as it came. Without a body, **403** when the request is not same-site, **400** for a
-path under no mount, and **404** when `kanzoAuth` was given no `apis`. The proxy leaves every
-mount alone.
+It answers a problem — RFC 9457, with the registry's code — for a credential: **401** when the edge
+forwarded no token (`session/absent`) or one that does not verify (`token/refused`), **403** when the
+person is not a member of the organization the request addresses (`organization/denied`), **502** or
+**504** when the realm's keys could not be fetched (`idp/unreachable`, `idp/silent`), **502** when the
+API itself does not answer (`api/unreachable`): the connection is refused, its name does not resolve,
+it resets before a status line — and **504** when it connected and sent no headers within 25 s
+(`api/silent`). An API that answers, whatever the status, has answered, and its answer is passed
+through as it came. Without a body: **403** when the request is not same-site — a request with
+neither `Sec-Fetch-Site` nor `Origin` included — **400** for a path under no mount, and **404** when
+`kanzoAuth` was given no `apis`.
 
 <Callout type="info">
-**The upstream is reached with the global `fetch`, not with the config's `fetch`.** That field
-exists to reach the *identity provider* — it is the seam `internalOrigin` uses to come at Keycloak
-from inside a cluster — and a deployment that set it and found its resource-server traffic going
-the same way would have every right to be surprised.
+**List the API's mount as an API route at the edge** (`OAUTH2_PROXY_API_ROUTES`), so a `fetch` from a
+page whose session ended is answered 401 by the edge rather than redirected to Keycloak, which a
+`fetch` cannot follow.
 </Callout>
 
 ## Where each mechanism comes from
@@ -391,17 +191,11 @@ Nothing here is invented; each piece is a reference system's answer or a standar
 
 | Mechanism | Reference |
 | --- | --- |
-| Tokens on the server, a cookie in the browser | RFC 10017, Backend For Frontend |
-| One client object for proxy, routes and session | Auth0 Next.js SDK v4, `Auth0Client` |
-| Renewal and enforcement in the proxy; the URL forwarded to the page; `required` | WorkOS AuthKit, `authkitProxy`, `x-url`, `ensureSignedIn` |
-| A stable ticket, tokens updated in place | Duende BFF, server-side sessions |
-| One token per resource server and organization, exchanged | RFC 8693; RFC 9700 §2.3; Keycloak standard token exchange; Auth0 `audience` + `org_id` |
-| A transaction cookie per `state` | Auth0 Next.js SDK v4, `__txn_{state}` |
-| Redirect or 401 by `Sec-Fetch-Mode` | W3C Fetch Metadata |
-| `Origin` and `Sec-Fetch-*` end at the BFF | RFC 6454 §7; W3C Fetch Metadata |
-| Logout token verification, 200 / 400 / 501 | OpenID Connect Back-Channel Logout 1.0 §2.6, §2.8 |
+| Tokens on a server, a cookie in the browser | RFC 10017, Backend For Frontend, run by oauth2-proxy |
+| The access token verified by whoever receives it | RFC 9068 |
+| The URL forwarded to the page; `required` | WorkOS AuthKit, `x-url`, `ensureSignedIn` |
+| `Origin` and `Sec-Fetch-*` end at the application | RFC 6454 §7; W3C Fetch Metadata |
 | A refusal's body | RFC 9457, Problem Details for HTTP APIs |
-| Back-channel logout through the session store | Auth0 Next.js SDK v4 |
 
 ## API Reference
 
@@ -409,25 +203,21 @@ Nothing here is invented; each piece is a reference system's answer or a standar
 
 `kanzoAuth(config: KanzoAuthConfig | (() => KanzoAuthConfig | Promise<KanzoAuthConfig>)): KanzoAuth`.
 
-`KanzoAuthConfig` is [`RelyingPartyConfig`](/docs/auth/server#relyingparty) plus:
+`KanzoAuthConfig` is [`SessionReaderConfig`](/docs/auth/server#sessionreader) — `issuer`, `clientId`,
+`jwks` — plus:
 
 | Prop | Type | Default |
 | --- | --- | --- |
 | `organization` | `(request: TenantRequest) => string \| undefined \| Promise<…>` | no current tenant |
-| `basePath` | `string` | `/api/auth` |
+| `prefix` | `string`, where the edge's `sign_in` and `sign_out` live (`OAUTH2_PROXY_PROXY_PREFIX`) | `/api/auth` |
 | `problemPage` | `string` | `/auth/problem` |
-| `public` | `readonly string[]` | nothing |
-| `redirectUri` | `string` | derived from the request |
-| `renewWithin` | `number` | `60`, in seconds |
-| `staticExtensions` | `readonly string[]` | `js`, `mjs`, `css`, `map`, `wasm`, `png`, `jpg`, `jpeg`, `gif`, `webp`, `avif`, `svg`, `ico`, `woff`, `woff2`, `txt`, `xml`, `webmanifest` |
 | `csp` | `Record<string, readonly string[]>`, directive to sources; `proxy` adds the nonce and `'strict-dynamic'` to `script-src` | none; no policy is sent |
-| `apis` | `Record<string, { audience: string; target: string \| ((organization: string \| undefined) => string \| undefined) }>`, by mount. **Requires `store`**: `kanzoAuth` throws when it is built with `apis` and no `store` | none; `api` answers 404 |
+| `apis` | `Record<string, { target: string \| ((organization: string \| undefined) => string \| undefined) }>`, by mount | none; `api` answers 404 |
 
 ### `KanzoAuth`
 
 | Member | Type |
 | --- | --- |
-| `proxy` | `(request: NextRequest, options?: { headers?: HeadersInit }) => Promise<NextResponse>` |
-| `routes` | `{ GET, POST }`, each a web `Request` in and a web `Response` out |
-| `api` | `{ GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS }`, likewise |
 | `session` | `() => Promise<Session \| null>`, and `({ required: true }) => Promise<Session>` |
+| `proxy` | `(request: NextRequest, options?: { headers?: HeadersInit }) => Promise<NextResponse>` |
+| `api` | `{ GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS }`, each a web `Request` in and a web `Response` out |

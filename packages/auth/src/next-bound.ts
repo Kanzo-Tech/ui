@@ -1,21 +1,18 @@
-import { DEFAULT_RENEW_WITHIN } from "./renew-within";
-import { relyingParty, type RelyingParty, type RelyingPartyConfig } from "./server";
-import type { SessionStore } from "./store";
+import { DEFAULT_PREFIX, withoutTrailingSlashes } from "./edge-url";
+import { forwarded, type Forwarded, type SessionReaderConfig } from "./forwarded";
 import type { Session } from "./types";
-import { cookieValue } from "./cookie-session";
-import { withoutTrailingSlashes } from "./issuer";
 
 /**
- * A `kanzoAuth` config once read: one relying party, and the settings the proxy, the routes and
- * the forwarder share. In a module of its own so those three can take it without importing the
- * door that builds them.
+ * A `kanzoAuth` config once read: one session reader, and the settings the proxy, a server
+ * component and the forwarder share. In a module of its own so those can take it without importing
+ * the door that builds them.
  */
 
 /**
  * What a tenant resolver — `KanzoAuthConfig.organization` — is handed: the URL the browser
- * addressed, its headers and its cookies. The proxy, the routes and a server component each build it
- * from the request in front of them — a server component from the `x-kanzo-url` the proxy
- * forwarded — so the same function answers the same way in all three.
+ * addressed, its headers and its cookies. A server component builds it from the `x-kanzo-url` the
+ * proxy forwarded and the forwarder from the request in front of it, so the same function answers
+ * the same way in both.
  */
 export interface TenantRequest {
   readonly url: URL;
@@ -23,36 +20,26 @@ export interface TenantRequest {
   readonly cookies: { get(name: string): { readonly value: string } | undefined };
 }
 
-interface KanzoAuthSettings extends RelyingPartyConfig {
+type Apis = Readonly<
+  Record<string, { readonly target: string | ((organization: string | undefined) => string | undefined) }>
+>;
+
+/** What `kanzoAuth` is given: the session reader's config, and what the application adds to it. */
+export interface KanzoAuthConfig extends SessionReaderConfig {
   /**
    * The organization a request addresses: a hostname's first label, a path segment, a cookie, or
    * one fixed alias for a deployment per tenant. Its answer is `Session.organization`, and the
    * organization `can` asks inside by default. Absent, sessions carry no current tenant.
    */
   readonly organization?: (request: TenantRequest) => string | undefined | Promise<string | undefined>;
-  /** Where `routes` is mounted. Default `/api/auth`. */
-  readonly basePath?: string;
+  /** Where the edge's `sign_in` and `sign_out` live: oauth2-proxy's `OAUTH2_PROXY_PROXY_PREFIX`. Default `/api/auth`. */
+  readonly prefix?: string;
   /**
-   * The product's page for a failed sign-in, callback or sign-out, and for a session store that
-   * does not answer, reached as `?code=<code>`. Default `/auth/problem`. Always public:
-   * whoever is sent there has no session, and sending them to sign in instead is a loop when
-   * signing in is what failed.
+   * The product's page for a forwarded token that did not verify, or keys that could not be fetched,
+   * reached as `?code=<code>`. Default `/auth/problem`. Sending such a person to sign in instead is
+   * a loop: the edge holds a session, and would forward the same token.
    */
   readonly problemPage?: string;
-  /**
-   * Path prefixes the proxy lets through without a session — a health probe, a legal notice.
-   * Matched on segment boundaries: `/health` opens `/health/live` and not `/healthcare`.
-   */
-  readonly public?: readonly string[];
-  /**
-   * The extensions of the files the proxy lets through without a session: a path whose last segment
-   * ends in `.<one of these>` is a static file, and every other path is a page, dotted or not.
-   * Replaces the default, which is what a browser fetches to draw a page: `js`, `mjs`, `css`, `map`,
-   * `wasm`, `png`, `jpg`, `jpeg`, `gif`, `webp`, `avif`, `svg`, `ico`, `woff`, `woff2`, `txt`, `xml`,
-   * `webmanifest`. A data format (`csv`, `json`, `parquet`) is deliberately not on it; a path that
-   * must open without a session and is not a static file is a `public` prefix.
-   */
-  readonly staticExtensions?: readonly string[];
   /**
    * The Content-Security-Policy `proxy` sends, as directives to their sources. `proxy` draws a nonce
    * per request and adds `'nonce-…' 'strict-dynamic'` to `script-src` (the sources given here follow
@@ -63,72 +50,32 @@ interface KanzoAuthSettings extends RelyingPartyConfig {
    */
   readonly csp?: Readonly<Record<string, readonly string[]>>;
   /**
-   * Override the callback URL. Absent, it is derived from the request: its `addressedUrl` origin,
-   * the path the routes sit on, and `/callback`. Deriving it trusts `Host` and the proxy's
-   * `X-Forwarded-*`, which is bounded — Keycloak refuses a `redirect_uri` it has not registered —
-   * but a deployment whose proxy sets none of them says the URL out loud here.
-   */
-  readonly redirectUri?: string;
-  /** Seconds of access-token lifetime below which a request renews it. Default 60. */
-  readonly renewWithin?: number;
-  /**
    * The resource servers this application calls, by the path each is mounted on: a request under
-   * the mount is forwarded to `target` with a bearer token for `audience` and the organization the
-   * request addresses — the token-mediating backend. The proxy leaves every mount alone; `api`
-   * answers them, the longest mount first.
+   * the mount is forwarded to `target` with the forwarded access token as its bearer. The token
+   * names the API in `aud` because the edge asked for the API's scope at sign-in.
    *
-   * `audience` is the API's client id in the realm (`services/auth/modules/api`), listed in the
-   * application's `apis` there. `target` may depend on the organization: one BFF in front of a
-   * resource server per tenant, which is Keycloak's Organizations model — one client shared by
-   * every organization — with the data still kept apart. `undefined` answers 404.
+   * `target` may depend on the organization: one application in front of a resource server per
+   * tenant, which is Keycloak's Organizations model — one client shared by every organization —
+   * with the data still kept apart. `undefined` answers 404.
    */
   readonly apis?: Apis;
 }
 
-type Apis = Readonly<
-  Record<
-    string,
-    {
-      readonly audience: string;
-      readonly target: string | ((organization: string | undefined) => string | undefined);
-    }
-  >
->;
-
-/**
- * What `kanzoAuth` is given. **`store` is required whenever `apis` is**: an application with an API
- * carries an access token the stateless cookie cannot hold (6407 bytes against the 4096 a browser
- * keeps, failing at the callback for a person in many organizations) and has a reason to revoke,
- * which the cookie cannot do. An application with no `apis` keeps the stateless default.
- */
-export type KanzoAuthConfig = Omit<KanzoAuthSettings, "apis" | "store"> &
-  (
-    | { readonly apis?: undefined; readonly store?: SessionStore }
-    | { readonly apis: Apis; readonly store: SessionStore }
-  );
-
-/** What a `kanzoAuth` instance is once its config has been read: one relying party and its settings. */
+/** What a `kanzoAuth` instance is once its config has been read. */
 export interface Bound {
-  readonly party: RelyingParty;
-  readonly basePath: string;
+  read(headers: Headers): Promise<Forwarded | null>;
+  readonly prefix: string;
   readonly problemPage: string;
-  readonly redirectUri?: string;
-  readonly renewWithin: number;
   /** The policy for one request's nonce, when `csp` was configured. */
   readonly csp?: (nonce: string) => string;
   /** Every mount, the longest first, so a request is forwarded by the most specific one. */
   readonly apis: readonly Api[];
-  /** The lower-case extensions, with their dot, of a static file. */
-  readonly staticExtensions: readonly string[];
-  /** Prefixes the proxy lets through: the routes, the forwarder, the problem page, and `public`. */
-  readonly open: readonly string[];
   tenant(request: TenantRequest): Promise<string | undefined>;
 }
 
 /** One mounted resource server, once read. */
 export interface Api {
   readonly mount: string;
-  readonly audience: string;
   target(organization: string | undefined): URL | undefined;
 }
 
@@ -136,11 +83,9 @@ export interface Api {
  * The URL the client addressed. Next builds `request.url` from the address the server listens on
  * rather than the one the client asked for — under `next dev` 16 a request for
  * `acme.localhost:3000` reads `http://localhost:3000` — so a deployment that answers on several
- * hosts would resolve every tenant, callback and redirect to the same one, and one behind a proxy
- * that terminates TLS would hand Keycloak an `http` callback. The authority is the proxy's
+ * hosts would resolve every tenant to the same one. The authority is the edge's
  * `X-Forwarded-Host`, else `Host` (RFC 9110 §7.2); the scheme is `X-Forwarded-Proto`, else the
- * request's. Auth.js reads the same headers. Trusting them is bounded the way `redirectUri` says:
- * Keycloak refuses a callback it has not registered.
+ * request's. Auth.js reads the same headers.
  */
 export function addressedUrl(request: Request): URL {
   const url = new URL(request.url);
@@ -154,6 +99,15 @@ export function addressedUrl(request: Request): URL {
   } catch {
     return url;
   }
+}
+
+/** One cookie value out of a request's `Cookie` header, or `undefined`. */
+function cookieValue(header: string | null, name: string): string | undefined {
+  for (const part of (header ?? "").split(";")) {
+    const eq = part.indexOf("=");
+    if (eq !== -1 && part.slice(0, eq).trim() === name) return part.slice(eq + 1).trim();
+  }
+  return undefined;
 }
 
 /** What a tenant resolver reads, from a request a route handler was given. */
@@ -171,7 +125,7 @@ export function tenantRequest(request: Request): TenantRequest {
   };
 }
 
-/** On a segment boundary, so `/health` opens `/health/live` and not `/healthcare`. */
+/** On a segment boundary, so `/api/data` holds `/api/data/x` and not `/api/database`. */
 export function under(pathname: string, prefixes: readonly string[]): boolean {
   return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
@@ -199,25 +153,10 @@ function policy(directives: Readonly<Record<string, readonly string[]>>): (nonce
       .join("; ");
 }
 
-/** What a browser fetches to draw a page; a data format is a page's business, not a file's. */
-const STATIC_EXTENSIONS = [
-  "js", "mjs", "css", "map", "wasm", "png", "jpg", "jpeg", "gif", "webp", "avif", "svg", "ico",
-  "woff", "woff2", "txt", "xml", "webmanifest",
-];
-
 export function bind(config: KanzoAuthConfig): Bound {
-  // The types say it and a config built from untyped data does not hear them.
-  if (Object.keys(config.apis ?? {}).length > 0 && config.store === undefined) {
-    throw new Error(
-      "kanzoAuth: `store` is required when `apis` is configured: the stateless cookie cannot hold an access token or end a session. Give it a ticketStore.",
-    );
-  }
-  const basePath = withoutTrailingSlashes(config.basePath ?? "/api/auth");
-  const problemPage = config.problemPage ?? "/auth/problem";
   const apis: Api[] = Object.entries(config.apis ?? {})
     .map(([mount, api]) => ({
       mount: withoutTrailingSlashes(mount),
-      audience: api.audience,
       target: (organization: string | undefined) => {
         const target = typeof api.target === "string" ? api.target : api.target(organization);
         return target === undefined ? undefined : new URL(target);
@@ -226,19 +165,11 @@ export function bind(config: KanzoAuthConfig): Bound {
     .sort((a, b) => b.mount.length - a.mount.length);
   const resolve = config.organization;
   return {
-    party: relyingParty(config),
-    basePath,
-    problemPage,
-    redirectUri: config.redirectUri,
-    renewWithin: config.renewWithin ?? DEFAULT_RENEW_WITHIN,
-    staticExtensions: (config.staticExtensions ?? STATIC_EXTENSIONS).map((extension) =>
-      `.${extension.replace(/^\./, "").toLowerCase()}`,
-    ),
+    read: forwarded(config),
+    prefix: config.prefix ?? DEFAULT_PREFIX,
+    problemPage: config.problemPage ?? "/auth/problem",
     csp: config.csp === undefined ? undefined : policy(config.csp),
     apis,
-    open: [basePath, problemPage, ...apis.map((api) => api.mount), ...(config.public ?? [])].map(
-      withoutTrailingSlashes,
-    ),
     tenant: async (request) => (resolve === undefined ? undefined : resolve(request)),
   };
 }
@@ -247,4 +178,3 @@ export function bind(config: KanzoAuthConfig): Bound {
 export function withTenant(session: Session, organization: string | undefined): Session {
   return organization === undefined ? session : { ...session, organization };
 }
-

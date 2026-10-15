@@ -1,108 +1,61 @@
-import { renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { render, renderHook } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import { AuthProvider } from "./auth-provider";
-import { Queries } from "./test/queries";
-import type { Auth, Session } from "./types";
+import type { Session } from "./types";
 import { useSession } from "./use-session";
 
 const session: Session = {
-  user: { id: "u-7", name: "Ada" },
+  user: { id: "u-7" },
   roles: ["auditor"],
   organizations: [{ alias: "acme", roles: ["owner"], groups: [], groupsOverage: false }],
+  organization: "acme",
   expiresAt: 0,
 };
 
-function authOf(overrides: Partial<Auth> = {}): Auth {
-  return {
-    getSession: async () => session,
-    subscribe: () => () => {},
-    signIn: async () => {},
-    signOut: async () => {},
-    fetch: globalThis.fetch,
-    ...overrides,
-  };
+function hook(as: Session | null, prefix?: string) {
+  return renderHook(() => useSession(), {
+    wrapper: ({ children }) => (
+      <AuthProvider prefix={prefix} session={as}>
+        {children}
+      </AuthProvider>
+    ),
+  }).result.current;
 }
 
 describe("useSession", () => {
-  it("says which provider is missing, and what to pass it", async () => {
-    // The error a consumer meets first. "Cannot read properties of null" would send them reading
-    // this package's source; this sends them to the one line they forgot to write.
-    expect(() => renderHook(() => useSession())).toThrow(/outside <AuthProvider>/);
-    expect(() => renderHook(() => useSession())).toThrow(/bffAuth/);
+  it("hands every component the session the server read, and the role question asked here", () => {
+    const value = hook(session);
+
+    expect(value.session).toBe(session);
+    expect(value.can("owner")).toBe(true);
+    expect(value.can("owner", "globex")).toBe(false);
+    expect(hook(null).can("auditor")).toBe(false);
   });
 
-  it("hands back the session, the status and the two verbs", async () => {
-    const auth = authOf();
-    const { result } = renderHook(() => useSession(), {
-      wrapper: ({ children }) => (
-        <Queries>
-          <AuthProvider auth={auth}>{children}</AuthProvider>
-        </Queries>
-      ),
-    });
+  /**
+   * oauth2-proxy's own pages, under the prefix it was given: `sign_in` goes straight to Keycloak
+   * and `sign_out` ends the session there too. `rd` is where each comes back to.
+   */
+  it("links to the edge's sign-in and sign-out under its prefix, coming back where asked", () => {
+    const value = hook(null);
 
-    await waitFor(() => expect(result.current.status).toBe("authenticated"));
-    expect(result.current.session?.user.name).toBe("Ada");
-    expect(result.current.auth).toBe(auth);
+    expect(value.signInUrl()).toBe("/api/auth/sign_in");
+    expect(value.signInUrl("/reports?q=a b")).toBe("/api/auth/sign_in?rd=%2Freports%3Fq%3Da%20b");
+    expect(value.signOutUrl("/")).toBe("/api/auth/sign_out?rd=%2F");
+    expect(hook(null, "/oauth2/").signOutUrl()).toBe("/oauth2/sign_out");
   });
 
-  it("distinguishes not-yet-looked from anonymous", async () => {
-    // Both have a null session, and drawing a sign-in prompt during the first is the flicker every
-    // application with a session ships at least once.
-    const { result } = renderHook(() => useSession(), {
-      wrapper: ({ children }) => (
-        <Queries>
-<AuthProvider auth={authOf({ getSession: () => new Promise(() => {}) })}>
-          {children}
-        </AuthProvider>
-</Queries>
-      ),
-    });
-
-    expect(result.current.status).toBe("loading");
-    expect(result.current.session).toBeNull();
-  });
-
-  it("asks a role inside the current tenant unless told which", async () => {
-    const atAcme: Session = {
-      ...session,
-      organizations: [
-        { alias: "acme", roles: ["owner"], groups: [], groupsOverage: false },
-        { alias: "globex", roles: ["reader"], groups: [], groupsOverage: false },
-      ],
-      organization: "acme",
-    };
-    const { result } = renderHook(() => useSession(), {
-      wrapper: ({ children }) => (
-        <Queries>
-          <AuthProvider auth={authOf({ getSession: async () => atAcme })}>{children}</AuthProvider>
-        </Queries>
-      ),
-    });
-
-    await waitFor(() => expect(result.current.status).toBe("authenticated"));
-    expect(result.current.can("owner")).toBe(true);
-    expect(result.current.can("auditor")).toBe(false);
-    expect(result.current.can("reader", "globex")).toBe(true);
-    expect(result.current.can("owner", "globex")).toBe(false);
-  });
-
-  it("calls through to the auth's own sign-in and sign-out", async () => {
-    const signIn = vi.fn(async () => {});
-    const signOut = vi.fn(async () => {});
-    const { result } = renderHook(() => useSession(), {
-      wrapper: ({ children }) => (
-        <Queries>
-          <AuthProvider auth={authOf({ signIn, signOut })}>{children}</AuthProvider>
-        </Queries>
-      ),
-    });
-
-    await waitFor(() => expect(result.current.status).toBe("authenticated"));
-    await result.current.signIn({ organization: "acme" });
-    await result.current.signOut();
-
-    expect(signIn).toHaveBeenCalledWith({ organization: "acme" });
-    expect(signOut).toHaveBeenCalledTimes(1);
+  it("throws outside an AuthProvider, naming the fix", () => {
+    function Bare() {
+      useSession();
+      return null;
+    }
+    const quiet = console.error;
+    console.error = () => {};
+    try {
+      expect(() => render(<Bare />)).toThrow(/outside <AuthProvider>/);
+    } finally {
+      console.error = quiet;
+    }
   });
 });

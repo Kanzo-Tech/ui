@@ -75,21 +75,13 @@ row relations/unmatched     = -   ; "A term names nothing in the catalog"    ; t
 row relations/no-step       = -   ; "A path step resolves to nothing"        ; step?: string .
 
 row session/absent          = 401 ; "Nobody is signed in"                    ; - .
-row session/unavailable     = 503 ; "The session could not be read"          ; status?: number .
-row session/silent          = 504 ; "The session did not answer"             ; after: number .
-row session/irrevocable     = 501 ; "The session cannot be revoked"          ; - .
 
 row idp/unreachable         = 502 ; "The identity provider is unreachable"   ; status?: number .
 row idp/silent              = 504 ; "The identity provider did not answer"   ; after: number .
 
-row token/exchange-failed   = 502 ; "The token exchange failed"              ; status?: number .
 row token/refused           = 401 ; "The token was refused"                  ; status?: number .
 
-row organization/invalid    = 400 ; "The organization is not valid"          ; - .
 row organization/denied     = 403 ; "The organization is not permitted"      ; - .
-
-row callback/state-mismatch = 400 ; "The callback does not match"            ; - .
-row callback/nonce-mismatch = 400 ; "The callback does not match"            ; - .
 
 row claims/no-subject       = 502 ; "The claims name nobody"                 ; - .
 

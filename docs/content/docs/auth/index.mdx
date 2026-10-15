@@ -1,11 +1,13 @@
 ---
 title: Auth
-description: Keycloak's claims read into one Session, a role predicate that knows about organizations, and a Backend For Frontend for Next in one object. A sibling of @kanzo-tech/ui, never part of it.
+description: The person behind the platform's edge, read on the server from the access token oauth2-proxy forwards; Keycloak's claims as one Session; a role predicate that knows about organizations. A sibling of @kanzo-tech/ui, never part of it.
 ---
 
-`@kanzo-tech/auth` is what a product needs once there is somebody signed in: the claim vocabulary
-read into one session, the role evaluation that knows about organizations, and the Backend For
-Frontend that signs people in, keeps their session alive and ends it — `kanzoAuth` for Next.
+`@kanzo-tech/auth` is what a product needs once there is somebody signed in: the person read on the
+server from the access token the platform's edge forwards, Keycloak's claim vocabulary read into one
+session, and the role evaluation that knows about organizations. Signing in, keeping the session
+alive and ending it are not here: they are the edge's, oauth2-proxy in front of the application
+([the identity service](/docs/auth/service#the-sessions-edge)).
 
 It is a **sibling** of `@kanzo-tech/ui`, not part of it. It does not depend on the library, and
 nothing in the library may depend on it.
@@ -19,11 +21,9 @@ the browser. `Gate` hides a control and `can` answers a question about what to d
 server, validating the access token it was sent, is what refuses the request behind the button. **A
 product gated only here is ungated.**
 
-The same rule one level down: **never open the access token in the client.** It is opaque to a
-client by definition, its format is not guaranteed to stay stable, and it may be encrypted for the
-resource — which is why depending on its contents is, in Microsoft's words for exactly this
-mistake, *"one of the most common sources of errors and client logic breakage."* Roles for drawing
-come from the session; the session comes from the ID token or from your own server.
+The same rule one level down: **the browser never holds the access token.** The application's server
+verifies the token the edge forwards and reads it into a `Session`, and the `Session` handed to the
+browser holds no token at all.
 
 <Callout type="warn">
 This is physical rather than a preference, so there is no configuration that changes it and no
@@ -47,99 +47,56 @@ logo, a legal line, a privacy notice and a button, and every product answers tho
 `@kanzo-tech/ui` has the parts to draw all three, and [the auth
 layer](/docs/design/auth#no-sign-in-screen-ships) is why none of them is shipped from here.
 
-**There is no protocol in it either.** The confidential client belongs to `openid-client`, behind
-`./server`, and the browser holds a cookie and no token — RFC 10017's Backend For Frontend, the
-architecture it recommends for business applications. Writing OAuth by hand is where a mistake
-stops being a bug and becomes a vulnerability.
+**There is no relying party in it either.** oauth2-proxy signs the person in with PKCE, keeps the
+session in Valkey behind an opaque cookie, renews it and signs out at Keycloak; the application holds
+no client secret, no session and no refresh token ([why](/docs/design/auth#the-session-is-the-platforms-edge)).
 
-What is left after those two subtractions is the whole of the package: **Keycloak's claims as one
-`Session`, a role predicate that understands organizations, and the session lifecycle around them —
-renewed and ended on the server, signed back in once in the browser.**
+What is left after those two subtractions is the whole of the package: **the forwarded token verified
+and read into one `Session`, handed to the browser, and a role predicate that understands
+organizations — with a forwarder to the application's API and a CSP nonce beside them.**
 
 ## Adding auth to a product
 
-The server half is one object and four files — [Next.js](/docs/auth/next) has them in full:
+The edge is a service the application extends ([the identity service](/docs/auth/service#the-sessions-edge)).
+The application's half is one object and three files — [Next.js](/docs/auth/next) has them in full:
 
 ```ts title="lib/auth.ts"
 import { kanzoAuth } from "@kanzo-tech/auth/next";
 
-export const auth = kanzoAuth(async () => ({ clientId, clientSecret, issuer, secret, store }));
+export const auth = kanzoAuth(async () => ({ issuer, clientId, jwks }));
 ```
 
 ```ts title="proxy.ts"
 export const proxy = (request: NextRequest) => auth.proxy(request);
 ```
 
-```ts title="app/api/auth/[...auth]/route.ts"
-export const { GET, POST } = auth.routes;
-```
+```tsx title="app/layout.tsx"
+import { AuthProvider } from "@kanzo-tech/auth";
 
-The browser half is one line and a provider, below your TanStack Query client — the session is a
-[query on it](/docs/auth/session#the-session-is-a-query-on-your-queryclient):
-
-```tsx title="providers.tsx"
-import { AuthProvider, bffAuth } from "@kanzo-tech/auth";
-import { QueryClientProvider } from "@tanstack/react-query";
-
-const auth = bffAuth();
-
-<QueryClientProvider client={queryClient}>
-  <AuthProvider auth={auth}>
-    <App />
-  </AuthProvider>
-</QueryClientProvider>;
-```
-
-```ts title="api/client.ts"
-// Every request from here on carries the session, renews it once, and signs in when it is over.
-createClient<paths>({ baseUrl: "/", fetch: auth.fetch });
+<AuthProvider session={await auth.session()}>{children}</AuthProvider>;
 ```
 
 ```tsx title="anywhere"
 import { Gate, useSession } from "@kanzo-tech/auth";
 
-const { session, can } = useSession();
+const { session, signOutUrl } = useSession();
 
 <Gate role="warden">
   <Button>Post a contract</Button>
 </Gate>;
+<a href={signOutUrl()}>Sign out</a>;
 ```
-
-<Callout type="info">
-`bffAuth` is built **outside React**, on purpose. A product's API client is a module rather than a
-component, and a `fetch` reachable only from a hook would drag every call site into the tree to get
-at it.
-</Callout>
-
-## What a name means here
-
-The shape of a name says what it gives you, and there are two families:
-
-| Shape | What it answers | Names |
-| --- | --- | --- |
-| `<where>Auth` | a whole side of the BFF in one object | `bffAuth`, the browser's `Auth`; `kanzoAuth`, the server's |
-| anything else | itself | `relyingParty`, `issuer`, `claims`, `can`, `accountUrl` |
-
-The suffix is a promise, so the second family is not a leftover: the relying party answers the
-protocol's verbs — `begin`, `complete`, `read`, `refresh`, `end` — and a name ending in `Auth`
-would promise a side of the pattern it is only a part of. *Relying party* is the term the
-specification already uses for it.
 
 ## Who is signed in
 
 <ComponentPreview componentName="auth" />
 
-`useSession` is the hook, and `status` is the field to branch on — not `session === null`, which is
-the same answer for *anonymous* and *we have not looked yet*. Drawing a sign-in prompt during the
-second is the flicker every application with a session has shipped at least once. A session that
-could not be read is a fourth answer, `"failed"`, with what was thrown on `error` — never
-*anonymous*, which would send the person to sign in over an outage.
+`useSession` is the hook: the session, or `null` for nobody, from the first render, because the
+server read it before the page was drawn. `signInUrl` and `signOutUrl` are links to the edge's pages.
 
 Every example on these pages runs against a fabricated session rather than a realm, from one file —
 `docs/lib/guild-auth.ts`, which builds a **claim set** and runs the package's own reader over it, so
-what they draw is what a token would produce rather than a `Session` somebody typed. `Auth` is five
-members — `getSession`, `subscribe`, `signIn`, `signOut` and a `fetch` — which is what makes faking
-it possible at all.
+what they draw is what a token would produce rather than a `Session` somebody typed.
 
 [What the token actually carries](/docs/auth/keycloak#reading-it-yourself) puts that claim set and
 the `Session` it becomes side by side, with the reading client id as a control: the machinery is on
@@ -156,34 +113,34 @@ of every product imports it.
 
 | Door | What it is | Peer to install |
 | --- | --- | --- |
-| `@kanzo-tech/auth` | Types, the claim reader, `can`, the provider, the hooks, `Gate` and `bffAuth` | none |
-| `@kanzo-tech/auth/server` | `relyingParty` — the confidential client: exchange, sealed cookie, renewal, end-session, back-channel logout — and the session stores | `openid-client`, `jose` |
-| `@kanzo-tech/auth/next` | `kanzoAuth` — the proxy, the routes, the forwarder and the server component's session | `openid-client`, `jose`, `next` 16 |
+| `@kanzo-tech/auth` | Types, `can`, `organizationOf`, the provider, `useSession`, `Gate` and the console links | none |
+| `@kanzo-tech/auth/server` | `sessionReader` — the forwarded token verified and read into a `Session` — and `claims` | `jose` |
+| `@kanzo-tech/auth/next` | `kanzoAuth` — the server component's session, the proxy and the forwarder | `jose`, `next` 16 |
 
 A door exists here only because it imports an engine, which is [the engine
 rule](/docs/philosophy#the-engine-rule) the library's own subpaths follow. A consumer installs the
 peer for the door they open and no other.
 
 ```bash
-pnpm add @kanzo-tech/auth openid-client jose
+pnpm add @kanzo-tech/auth jose
 ```
 
 The two Node doors never reach React: they import the modules under the root barrel directly, so a
-server process does not pull a component library in behind an import of an OAuth client.
+server process does not pull a component library in behind an import of a JWT verifier.
 
 ## The realm it expects
 
-[The identity service](/docs/auth/service) is the server half — Keycloak with its realm as code —
-and it ships from this repository under the same tag as the package. What this package needs from
-it is small and none of it is invented: role claims on **both** tokens, each API a client its tokens are exchanged for, and the
-`organization:*` scope. [Keycloak](/docs/auth/keycloak) is that page, and it is the one to hand to
-whoever runs the realm.
+[The identity service](/docs/auth/service) is the server half — Keycloak with its realm as code, and
+the edge in front of each application — and it ships from this repository under the same tag as the
+package. What this package needs from it is small and none of it is invented: role claims on the
+access token, the application's API asked for by its scope, and organizations in the token.
+[Keycloak](/docs/auth/keycloak) is that page, and it is the one to hand to whoever runs the realm.
 
 <Cards>
-  <Card title="Session" href="/docs/auth/session" description="The shape, bffAuth, how a session is kept alive and ends, and the current organization." />
+  <Card title="Session" href="/docs/auth/session" description="The shape, the provider, the edge's sign-in and sign-out, and the current organization." />
   <Card title="Roles" href="/docs/auth/roles" description="can, Gate, useSession().can, and where the roles inside an organization are read from." />
-  <Card title="Keycloak" href="/docs/auth/keycloak" description="The realm a consumer needs: two token toggles, each API a client, and the scope with the star." />
-  <Card title="The identity service" href="/docs/auth/service" description="Keycloak with the realm as code: run it, register an application, check the contract." />
-  <Card title="Server" href="/docs/auth/server" description="The confidential client: strings in and strings out, a stable ticket renewed in place, back-channel logout." />
-  <Card title="Next.js" href="/docs/auth/next" description="kanzoAuth: the BFF as one object, in the four files an App Router product already has." />
+  <Card title="Keycloak" href="/docs/auth/keycloak" description="The realm a consumer needs: role claims on the access token, each API a scope, and organizations in the token." />
+  <Card title="The identity service" href="/docs/auth/service" description="Keycloak with the realm as code, and the edge in front of an application: run it, register an application, check the contract." />
+  <Card title="Server" href="/docs/auth/server" description="sessionReader: the forwarded token verified against the realm's keys and read into a Session." />
+  <Card title="Next.js" href="/docs/auth/next" description="kanzoAuth: the session, the proxy and the forwarder, in the files an App Router product already has." />
 </Cards>

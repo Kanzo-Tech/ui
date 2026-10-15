@@ -22,9 +22,9 @@ that read, and only of them: `@kanzo-tech/ui/analytics` and `@kanzo-tech/ai/data
 peer reached only from that subpath through [the engine rule](/docs/philosophy#the-engine-rule)
 (decided 13 October 2026). `@kanzo-tech/ai`'s root — `Chat`, `Assist`, the chat hooks — reads
 nothing through it, so a host that only draws a field the model helps fill, as metadata-form does,
-installs nothing new. `@kanzo-tech/auth` is the third reader: `AuthProvider` reads the session
-`useSession` hands out as a query, and since the provider is on its root, there the peer is required
-([the auth layer](/docs/design/auth-failure#a-session-is-read-like-any-other-datum)).
+installs nothing new. `@kanzo-tech/auth` was a third reader until the session became a prop the
+server hands `AuthProvider`, and reads nothing through it now
+([the auth layer](/docs/design/auth-failure#the-session-arrives-with-the-page)).
 
 **The reference is the React integrations of tRPC and of Supabase.** `@trpc/react-query`'s hooks run
 `useQuery` inside the procedure's own hook, on the client the host's `QueryClientProvider` holds;

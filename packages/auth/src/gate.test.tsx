@@ -1,9 +1,8 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { AuthProvider } from "./auth-provider";
 import { Gate } from "./gate";
-import { Queries } from "./test/queries";
-import type { Auth, Session } from "./types";
+import type { Session } from "./types";
 
 const session: Session = {
   user: { id: "u-7" },
@@ -15,126 +14,55 @@ const session: Session = {
   expiresAt: 0,
 };
 
-function authOf(overrides: Partial<Auth> = {}): Auth {
-  return {
-    getSession: async () => session,
-    subscribe: () => () => {},
-    signIn: async () => {},
-    signOut: async () => {},
-    fetch: globalThis.fetch,
-    ...overrides,
-  };
+function gate(children: React.ReactNode, as: Session | null = session) {
+  return render(<AuthProvider session={as}>{children}</AuthProvider>);
 }
 
-function gate(children: React.ReactNode, auth: Auth = authOf()) {
-  return render(<AuthProvider auth={auth}>{children}</AuthProvider>, { wrapper: Queries });
-}
+const control = <button type="button">Delete everything</button>;
 
-describe("Gate draws one side or the other, and neither before it knows", () => {
-  it("shows the children to someone who holds the role", async () => {
-    gate(
-      <Gate role="auditor" fallback={<span>no</span>}>
-        <button type="button">Delete everything</button>
-      </Gate>,
-    );
-    await waitFor(() => expect(screen.getByRole("button")).toBeDefined());
+/**
+ * The session is the server's reading, handed down as a prop, so there is no moment when it is
+ * not yet known and no read that can fail in the browser: `Gate` draws one side or the other on
+ * the first render.
+ */
+describe("Gate draws one side or the other", () => {
+  it("shows the children to someone who holds the role", () => {
+    gate(<Gate role="auditor" fallback={<span>no</span>}>{control}</Gate>);
+    expect(screen.getByRole("button")).toBeDefined();
     expect(screen.queryByText("no")).toBeNull();
   });
 
-  it("shows the fallback to someone who does not", async () => {
-    gate(
-      <Gate role="owner" fallback={<span>no</span>}>
-        <button type="button">Delete everything</button>
-      </Gate>,
-    );
-    await waitFor(() => expect(screen.getByText("no")).toBeDefined());
+  it("shows the fallback to someone who does not", () => {
+    gate(<Gate role="owner" fallback={<span>no</span>}>{control}</Gate>);
+    expect(screen.getByText("no")).toBeDefined();
     expect(screen.queryByRole("button")).toBeNull();
   });
 
-  it("renders nothing at all until the session has been read", async () => {
-    // Both answers are unknown while the read is in flight, so neither is drawn. The fallback is
-    // usually "you cannot do this", and showing that to someone who can — for as long as the
-    // session endpoint takes — is a statement the application has no grounds for yet. Showing the
-    // children instead is worse: a privileged control, flashed and then retracted.
-    const { container } = gate(
-      <Gate role="owner" fallback={<span>no</span>}>
-        <button type="button">Delete everything</button>
-      </Gate>,
-      authOf({ getSession: () => new Promise(() => {}) }),
-    );
-
-    expect(container.textContent).toBe("");
-    expect(screen.queryByText("no")).toBeNull();
-    expect(screen.queryByRole("button")).toBeNull();
-  });
-
-  it("draws nothing when there is no fallback and no role", async () => {
-    const { container } = gate(
-      <Gate role="owner">
-        <button type="button">Delete everything</button>
-      </Gate>,
-    );
-    await waitFor(() => expect(screen.queryByRole("button")).toBeNull());
+  it("draws nothing when there is no fallback and no role", () => {
+    const { container } = gate(<Gate role="owner">{control}</Gate>);
     expect(container.textContent).toBe("");
   });
 
-  it("asks inside the organization when one is named", async () => {
-    gate(
-      <Gate role="owner" organization="acme">
-        <button type="button">Delete everything</button>
-      </Gate>,
-    );
-    await waitFor(() => expect(screen.getByRole("button")).toBeDefined());
+  it("asks inside the organization when one is named", () => {
+    gate(<Gate role="owner" organization="acme">{control}</Gate>);
+    expect(screen.getByRole("button")).toBeDefined();
   });
 
-  it("asks inside the current tenant when none is named", async () => {
-    gate(
-      <Gate role="owner" fallback={<span>no</span>}>
-        <button type="button">Delete everything</button>
-      </Gate>,
-      authOf({ getSession: async () => ({ ...session, organization: "acme" }) }),
-    );
-    await waitFor(() => expect(screen.getByRole("button")).toBeDefined());
+  it("asks inside the current tenant when none is named", () => {
+    gate(<Gate role="owner" fallback={<span>no</span>}>{control}</Gate>, { ...session, organization: "acme" });
+    expect(screen.getByRole("button")).toBeDefined();
   });
 
-  it("does not carry a role from one organization into another", async () => {
+  it("does not carry a role from one organization into another", () => {
     // Owner of acme; the question is about globex, and the sets are never unioned. This is the
     // component-level face of the rule `can` enforces.
-    gate(
-      <Gate role="owner" organization="globex" fallback={<span>no</span>}>
-        <button type="button">Delete everything</button>
-      </Gate>,
-    );
-    await waitFor(() => expect(screen.getByText("no")).toBeDefined());
+    gate(<Gate role="owner" organization="globex" fallback={<span>no</span>}>{control}</Gate>);
+    expect(screen.getByText("no")).toBeDefined();
     expect(screen.queryByRole("button")).toBeNull();
   });
 
-  it("shows the fallback to an anonymous visitor, not the children", async () => {
-    gate(
-      <Gate role="auditor" fallback={<span>no</span>}>
-        <button type="button">Delete everything</button>
-      </Gate>,
-      authOf({ getSession: async () => null }),
-    );
-    await waitFor(() => expect(screen.getByText("no")).toBeDefined());
-  });
-
-  it("draws neither side when the session could not be read", async () => {
-    let failed = false;
-    gate(
-      <Gate role="auditor" fallback={<span>no</span>}>
-        <button type="button">Delete everything</button>
-      </Gate>,
-      authOf({
-        getSession: async () => {
-          failed = true;
-          throw new Error("offline");
-        },
-      }),
-    );
-    await waitFor(() => expect(failed).toBe(true));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(screen.queryByText("no")).toBeNull();
-    expect(screen.queryByRole("button")).toBeNull();
+  it("shows the fallback to an anonymous visitor, not the children", () => {
+    gate(<Gate role="auditor" fallback={<span>no</span>}>{control}</Gate>, null);
+    expect(screen.getByText("no")).toBeDefined();
   });
 });
