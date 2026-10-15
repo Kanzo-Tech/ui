@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { addressedUrl, newNonce, NONCE_HEADER, URL_HEADER, under, type Bound } from "./next-bound";
 import { ended, problem } from "./problem";
 import type { Ended, Renewed } from "./server";
-import { AuthError } from "./types";
+import { isProblem } from "@kanzo-tech/kernel";
 
 /**
  * The proxy as the session authority: WorkOS AuthKit's `authkitProxy`, which renews and enforces
@@ -130,7 +130,7 @@ export async function gate(
   try {
     held = await bound.party.refresh(request.headers.get("cookie"), { renewWithin: bound.renewWithin });
   } catch (error) {
-    if (!(error instanceof AuthError)) throw error;
+    if (!isProblem(error)) throw error;
     if (error.code === "idp/unreachable" || error.code === "idp/silent") return through();
     if (!navigation) {
       const body = problem(error);

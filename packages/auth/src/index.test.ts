@@ -12,7 +12,7 @@ import * as server from "./server";
 describe("the doors' names", () => {
   it("are the session, the role question and the two console links on the root", () => {
     expect(Object.keys(root).sort()).toEqual(
-      ["AuthError", "AuthProvider", "Gate", "accountUrl", "bffAuth", "can", "organizationConsoleUrl", "organizationOf", "useSession"].sort(),
+      ["AuthProvider", "Gate", "accountUrl", "bffAuth", "can", "organizationConsoleUrl", "organizationOf", "useSession"].sort(),
     );
   });
 

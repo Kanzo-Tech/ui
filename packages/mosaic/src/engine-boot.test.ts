@@ -1,3 +1,4 @@
+import { Problem } from "@kanzo-tech/kernel";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -61,7 +62,7 @@ vi.mock("@duckdb/duckdb-wasm", async (original) => ({
   }),
 }));
 
-const { engine, EngineError } = await import("./engine.js");
+const { engine } = await import("./engine.js");
 
 afterEach(() => {
   vi.useRealTimers();
@@ -71,7 +72,7 @@ describe("a boot that fails", () => {
   it("rejects as engine/unavailable when the worker fails to load, instead of waiting forever", async () => {
     mode = "error";
     const failure = await engine().catch((error: unknown) => error);
-    expect(failure).toBeInstanceOf(EngineError);
+    expect(failure).toBeInstanceOf(Problem);
     expect(failure).toMatchObject({ code: "engine/unavailable", data: {} });
     expect(workers.at(-1)!.terminated).toBe(true);
   });
@@ -131,7 +132,7 @@ describe("a worker that dies after the boot", () => {
     await vi.waitFor(() => expect(worker.sent).toContain("START_PENDING_QUERY"));
     worker.listeners.get("error")?.({ message: "the worker crashed" });
     const failure = await held;
-    expect(failure).toBeInstanceOf(EngineError);
+    expect(failure).toBeInstanceOf(Problem);
     expect(failure).toMatchObject({ code: "engine/lost", data: { reason: "worker" } });
     expect(worker.terminated).toBe(true);
   });

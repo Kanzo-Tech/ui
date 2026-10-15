@@ -1,4 +1,4 @@
-import { AuthError, type AuthErrorCode } from "./types";
+import { Problem, type ProblemCode } from "@kanzo-tech/kernel";
 
 /**
  * Every wait this package makes, in milliseconds, and the table `/docs/design/failure` draws it
@@ -26,14 +26,14 @@ export const BOUNDS = {
  * does — whether or not `work` honours the signal.
  */
 export function deadline<T>(
-  code: AuthErrorCode,
+  code: Extract<ProblemCode, `${string}/silent`>,
   ms: number,
   work: (signal: AbortSignal) => Promise<T>,
 ): Promise<T> {
   const controller = new AbortController();
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
-      const error = new AuthError(code, `no answer within ${ms} ms`, { after: ms });
+      const error = new Problem(code, `no answer within ${ms} ms`, { after: ms });
       controller.abort(error);
       reject(error);
     }, ms);

@@ -173,7 +173,7 @@ export function askAnswer(spec: AskSpec, input: Pick<AskInput, "graph">, id: str
 /** A miss, as the model reads it at `at`: what it wrote, and what it may write there. */
 function missed(miss: JoinMiss, at: string, spec: AskSpec): Diagnostic {
   switch (miss.code) {
-    case "join/no-step":
+    case "relations/no-step":
       return {
         code: miss.code,
         at,
@@ -182,9 +182,9 @@ function missed(miss: JoinMiss, at: string, spec: AskSpec): Diagnostic {
             ? `${spec.of} is not a type of the data.`
             : `${miss.path}: no edge ${miss.segment} leaves ${miss.at === "" ? spec.of : miss.at}. Write a path from ${spec.of} as listed.`,
       };
-    case "join/no-field":
+    case "relations/unmatched":
       return { code: miss.code, at, message: `${miss.path}: ${miss.type} has no field ${miss.column}.` };
-    case "join/branches":
+    case "relations/invalid":
       return {
         code: miss.code,
         at,
@@ -199,7 +199,7 @@ function joins(spec: AskSpec, input: AskInput): Finding[] {
   const shown = shownOf(spec);
   const relation = resolver.relation(spec.of, shown.map(([, path]) => path));
   if ("code" in relation) {
-    const path = relation.code === "join/branches" ? relation.paths[1] : relation.path;
+    const path = relation.code === "relations/invalid" ? relation.paths[1] : relation.path;
     return [missed(relation, shown.find(([, p]) => p === path)?.[0] ?? "/of", spec)];
   }
   const findings: Finding[] = [];

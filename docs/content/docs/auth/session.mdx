@@ -206,11 +206,7 @@ A boolean cannot be acted on. *Not signed in* sends the person to the IdP; *sign
 member* sends them to a page that says so; *the IdP did not answer* sends them nowhere, because it
 is an outage to name. Telling those apart is the difference between an explanation and a redirect
 loop. So a failure carries a code, in the `area/kind` grammar one host registry keys, and `data`
-with what was measured:
-
-```ts
-import { AuthError, type AuthErrorCode } from "@kanzo-tech/auth";
-```
+with what was measured (`isProblem` from `@kanzo-tech/kernel` reads one):
 
 | Code | What happened |
 | --- | --- |
@@ -243,7 +239,7 @@ one bound, and two racing on the session read would each name the failure differ
 ([failure](/docs/design/failure#one-deadline-per-wait)).
 
 The server answers a refusal as an RFC 9457 problem, `application/problem+json`, whose `code` is
-the `AuthErrorCode` — [the Next.js page](/docs/auth/next#what-a-refusal-answers) has the statuses.
+the registry's code (`problems.bnf`) — [the Next.js page](/docs/auth/next#what-a-refusal-answers) has the statuses.
 
 ## API Reference
 

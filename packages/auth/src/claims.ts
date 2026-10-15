@@ -1,5 +1,6 @@
+import { Problem } from "@kanzo-tech/kernel";
 import { readSession } from "./session";
-import { AuthError, type Organization, type Session } from "./types";
+import type { Organization, Session } from "./types";
 
 /**
  * Keycloak's claim vocabulary, read into a {@link Session}. The only file in this package that
@@ -111,7 +112,7 @@ export function claims(raw: unknown, config: ClaimsConfig): Session {
 
   const id = asString(source["sub"]);
   if (id === undefined) {
-    throw new AuthError("claims/no-subject", "the claim set carries no `sub`, so it names nobody");
+    throw new Problem("claims/no-subject", "the claim set carries no `sub`, so it names nobody");
   }
 
   const realmRoles = asStrings(asRecord(source["realm_access"])?.["roles"]);

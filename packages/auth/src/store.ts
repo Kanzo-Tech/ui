@@ -1,5 +1,6 @@
+import { Problem } from "@kanzo-tech/kernel";
 import { BOUNDS, deadline } from "./deadline";
-import { AuthError, type Session } from "./types";
+import type { Session } from "./types";
 
 /**
  * Where the server keeps what it knows about a signed-in person.
@@ -110,7 +111,7 @@ export interface SessionStore {
   /**
    * Forget every session of `sub`, or only the one Keycloak calls `sid` — a back-channel logout.
    *
-   * A store that cannot find a person's sessions rejects with `AuthError` `session/irrevocable`
+   * A store that cannot find a person's sessions rejects with `Problem` `session/irrevocable`
    * rather than answering as though it had: a logout that ends nothing must not report success to
    * the identity provider.
    */
@@ -128,8 +129,8 @@ export interface SessionStore {
 const NO_KEYS = "the ticket adapter has no `keys`, so a person's sessions cannot be found to end them";
 
 /** The refusal of a store that keeps no list of a person's sessions: a logout must not report success. */
-function irrevocable(reason: string): AuthError {
-  return new AuthError("session/irrevocable", reason);
+function irrevocable(reason: string): Problem {
+  return new Problem("session/irrevocable", reason);
 }
 
 /**
@@ -300,7 +301,7 @@ function opaqueTicket(): string {
  *
  * Each command, which is each `read`, `write`, `replace`, `delete` and step of a `keys` scan, is
  * raced against five seconds (`BOUNDS.store`, inside the browser's 30 s, which
- * `deadline.test.ts` holds), and one that has not answered by then rejects as `AuthError` `session/silent` with `{ after }` — which the server
+ * `deadline.test.ts` holds), and one that has not answered by then rejects as `Problem` `session/silent` with `{ after }` — which the server
  * reports as `session/unavailable`, with that as its cause, like any other failure of the store.
  * The library makes the wait, so the library bounds it: a deployment that forgot to race its
  * Redis client would otherwise hang a page on a store that stopped answering.

@@ -3,7 +3,7 @@ import { BOUNDS, deadline } from "./deadline";
 import { ended, problem } from "./problem";
 import { isSameSite } from "./same-site";
 import type { Ended, Token } from "./server";
-import { AuthError } from "./types";
+import { Problem, isProblem } from "@kanzo-tech/kernel";
 
 /**
  * The BFF half of the *token-mediating backend*: the browser's request goes out again carrying a
@@ -29,8 +29,8 @@ import { AuthError } from "./types";
  *
  * ## What it answers without asking upstream
  *
- * A refusal with a code is an RFC 9457 problem whose `code` is the `AuthErrorCode`, at the status
- * `problem.ts`'s one table gives it — the same body the auth routes send, so a host's registry reads
+ * A refusal with a code is an RFC 9457 problem whose `code` is the registry's code, at the status
+ * `problems.bnf` gives it — the same body the auth routes send, so a host's registry reads
  * `organization/denied` here rather than coining a code for a bare 403:
  *
  * - **401** when there is no session, or when the renewal was refused (`session/absent`,
@@ -191,7 +191,7 @@ export function forward(instance: () => Promise<Bound>): ApiHandlers {
       // that did not answer is an outage, and anything else is a fault this module has no reading
       // of: hiding either behind a 401 would send a person to sign in again over something that
       // will still be there when they get back.
-      if (!(error instanceof AuthError)) throw error;
+      if (!isProblem(error)) throw error;
       return problem(error);
     }
     if (held.ended) return ended(held.code, held.cookies);
@@ -221,7 +221,7 @@ export function forward(instance: () => Promise<Bound>): ApiHandlers {
         } as RequestInit),
       );
     } catch (error) {
-      if (error instanceof AuthError && !request.signal.aborted) {
+      if (isProblem(error) && !request.signal.aborted) {
         return problem(error, { cookies: held.cookies });
       }
       // `fetch` rejects with a `TypeError` for a network error and for nothing else it can meet
@@ -231,7 +231,7 @@ export function forward(instance: () => Promise<Bound>): ApiHandlers {
       // away is not the upstream's failure, so its abort is thrown as it was.
       if (!(error instanceof TypeError) || request.signal.aborted) throw error;
       return problem(
-        { code: "api/unreachable", message: `the API mounted at ${api.mount} did not answer` },
+        new Problem("api/unreachable", `the API mounted at ${api.mount} did not answer`),
         { cookies: held.cookies },
       );
     }

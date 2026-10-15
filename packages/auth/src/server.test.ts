@@ -17,7 +17,7 @@ import {
   inMemoryAdapter,
   type Realm,
 } from "./test/fake-keycloak";
-import { AuthError } from "./types";
+import { Problem } from "@kanzo-tech/kernel";
 
 const INTERNAL = "http://keycloak:8080";
 const REDIRECT_URI = "https://app.example.test/api/auth/callback";
@@ -308,7 +308,7 @@ describe("relyingParty", () => {
         redirectUri: REDIRECT_URI,
       });
 
-      await expect(refused).rejects.toThrow(AuthError);
+      await expect(refused).rejects.toThrow(Problem);
       await expect(refused).rejects.toMatchObject({ code: "callback/state-mismatch" });
       // And nothing was spent: the code never reached the token endpoint.
       expect(realm.state.posted).toHaveLength(0);
@@ -1279,9 +1279,9 @@ describe("relyingParty names who did not answer", () => {
 
     const failed = await auth.begin({ redirectUri: REDIRECT_URI }).catch((error: unknown) => error);
 
-    expect(failed).toBeInstanceOf(AuthError);
+    expect(failed).toBeInstanceOf(Problem);
     expect(failed).toMatchObject({ code: "idp/unreachable" });
-    expect((failed as AuthError).cause).toBe(offline);
+    expect((failed as Problem).cause).toBe(offline);
   });
 
   it("fails a renewal the IdP did not answer in time as idp/silent, not as a refused token", async () => {
@@ -1349,6 +1349,6 @@ describe("relyingParty names who did not answer", () => {
     const failed = await auth.read(asRequestHeader(done.cookies)).catch((error: unknown) => error);
 
     expect(failed).toMatchObject({ code: "session/unavailable" });
-    expect((failed as AuthError).cause).toBe(down);
+    expect((failed as Problem).cause).toBe(down);
   });
 });

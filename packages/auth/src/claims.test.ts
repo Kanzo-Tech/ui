@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { claims } from "./claims";
-import { AuthError } from "./types";
+import { Problem } from "@kanzo-tech/kernel";
 
 /**
  * The claim vocabulary, as a specification.
@@ -24,11 +24,11 @@ describe("who the session names", () => {
 
     // Loud, unlike everything else here: no `sub` is not a session with less in it, it is a
     // configuration fault wearing a session's shape.
-    expect(() => claims({ email: "a@b.example" }, BOARD)).toThrowError(AuthError);
+    expect(() => claims({ email: "a@b.example" }, BOARD)).toThrowError(Problem);
     try {
       claims({}, BOARD);
     } catch (error) {
-      expect((error as AuthError).code).toBe("claims/no-subject");
+      expect((error as Problem).code).toBe("claims/no-subject");
     }
   });
 

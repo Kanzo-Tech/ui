@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { Problem } from "@kanzo-tech/kernel";
 import { bffAuth } from "./bff-auth";
-import { AuthError } from "./types";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -120,7 +120,7 @@ describe("bffAuth", () => {
 
     const failed = await auth.getSession().catch((error: unknown) => error);
 
-    expect(failed).toBeInstanceOf(AuthError);
+    expect(failed).toBeInstanceOf(Problem);
     expect(failed).toMatchObject({ code: "session/unavailable", data: { status: 502 } });
   });
 
@@ -143,7 +143,7 @@ describe("bffAuth", () => {
     const failed = await auth.getSession().catch((error: unknown) => error);
 
     expect(failed).toMatchObject({ code: "session/unavailable" });
-    expect((failed as AuthError).cause).toBe(offline);
+    expect((failed as Problem).cause).toBe(offline);
   });
 
   it("asks again after a failed read, rather than keeping the failure", async () => {
@@ -179,7 +179,7 @@ describe("bffAuth", () => {
 
     await vi.advanceTimersByTimeAsync(1);
     const failed = await read;
-    expect(failed).toBeInstanceOf(AuthError);
+    expect(failed).toBeInstanceOf(Problem);
     expect(failed).toMatchObject({ code: "session/silent", data: { after: 30_000 } });
     expect(signal?.aborted).toBe(true);
   });

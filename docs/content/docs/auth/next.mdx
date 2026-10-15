@@ -173,7 +173,7 @@ already renewed or ended the session before the page began. `{ required: true }`
 redirects to sign in carrying the path and query the proxy forwarded. And when the store or the IdP
 does not answer, it redirects to `problemPage` with the code — the proxy's answer to the same
 outage — so a layout writes no `try` around it. Without `required`, an outage is thrown as the
-`AuthError`, for a page that renders through one and reads it itself.
+`Problem`, for a page that renders through one and reads it itself.
 
 ## Tenancy
 
@@ -220,7 +220,7 @@ the one it spent.
 
 ### A failure on a navigation is a page
 
-`/signin`, `/callback` and `/signout` are reached through the address bar, so an `AuthError` there
+`/signin`, `/callback` and `/signout` are reached through the address bar, so a `Problem` there
 is a 302 to the product's `problemPage` — default `/auth/problem` — with the code in `?code=`:
 `/auth/problem?code=callback%2Fstate-mismatch`. The page is the product's, and renders the code in
 its own words:
@@ -245,13 +245,13 @@ Every refusal with a code — from the routes, from [`api`](#api) and from the p
 that is not a navigation — is an RFC 9457 problem, `application/problem+json`, never cached:
 
 ```json
-{ "status": 403, "title": "Forbidden", "detail": "the realm did not grant `organization:acme`: the person is not a member", "code": "organization/denied" }
+{ "type": "tag:kanzo.tech,2026:problem/organization/denied", "status": 403, "title": "The organization is not permitted", "detail": "the realm did not grant `organization:acme`: the person is not a member", "code": "organization/denied", "data": {}, "severity": "error" }
 ```
 
-`code` is the [`AuthErrorCode`](/docs/auth/session#when-a-credential-is-refused-or-nobody-answers),
-and `data` rides beside it when the error carries one (`after`, `status`). There is no `type`, so
-`title` is the status's own phrase: route on `code`, and word it yourself. One table gives the
-status, everywhere:
+`code` is one of [the codes](/docs/auth/session#when-a-credential-is-refused-or-nobody-answers),
+`type` and `title` are the registry's for it, and `data` rides beside it when the error carries one
+(`after`, `status`): route on `code`, and word it yourself. `problems.bnf` gives the status,
+everywhere:
 
 | Code | Status |
 | --- | --- |

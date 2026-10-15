@@ -1,7 +1,7 @@
 import { act, render, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { attach, settle } from "../../test/corpus";
-import { GraphError } from "../core/error";
+import { isProblem } from "@kanzo-tech/kernel";
 import { GraphCanvas } from "../parts/graph-canvas";
 import { GraphRoot, useGraphContext } from "./graph-root";
 import { internalsOf, useGraph } from "./use-graph";
@@ -38,8 +38,7 @@ describe("GraphRoot and GraphCanvas", () => {
     );
     expect(statuses.at(-1)).toBe("failed");
     expect(onFailure).toHaveBeenCalledTimes(1);
-    expect(onFailure.mock.calls[0]?.[0]).toBeInstanceOf(GraphError);
-    expect(onFailure.mock.calls[0]?.[0]).toMatchObject({ code: "graph/no-webgl" });
+    expect(isProblem(onFailure.mock.calls[0]?.[0], "graph/no-webgl")).toBe(true);
   });
 
   it("does not rebuild the renderer because a callback changed identity", () => {

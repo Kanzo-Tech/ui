@@ -2,7 +2,7 @@ import { MosaicClient, clauseInterval, clausePoint, type SelectionClause } from 
 import { asTableRef, sql } from "@uwdata/mosaic-sql";
 import { describe, expect, it, vi } from "vitest";
 import { clauseSemiJoin } from "./clause.js";
-import { JoinError, JoinResolver, crossfilterOver, onRelation, preaggregateOwnRelation, readOf, relationOf, sameRelation, type JoinField, type RelationRef } from "./crossfilter.js";
+import { JoinResolver, crossfilterOver, onRelation, preaggregateOwnRelation, readOf, relationOf, sameRelation, type JoinField, type RelationRef } from "./crossfilter.js";
 import { relationColumns, relationQuery, type JoinGraph, type Relation } from "./relation.js";
 
 const at = (table: string) => asTableRef(["c", table])!;
@@ -56,8 +56,7 @@ describe("the page's crossfilter across relations", () => {
     const clause = onRelation(clauseInterval("age", [20, 30], { source: {} }), PERSON);
     const broken: Relation = { root: "Post", path: [{ edge: "Person_knows_Person", direction: "out" }] };
     const cross = () => resolver.predicate([clause], clause, on(broken));
-    expect(cross).toThrow(JoinError);
-    expect(cross).toThrow(expect.objectContaining({ code: "join/no-step" }));
+    expect(cross).toThrow(expect.objectContaining({ name: "Problem", code: "relations/no-step" }));
     // The decided semantic stays: a relation with no way across keeps none.
     expect(where(resolver.predicate([clause], clause, on("Tag")))).toBe("FALSE");
   });
@@ -227,9 +226,9 @@ describe("JoinResolver, the one door to the joins", () => {
   });
 
   it("says why a path is not the graph's, at the segment that is not", () => {
-    expect(nobel.relation("Award", ["affiliation.city.name"])).toEqual({ code: "join/no-step", path: "affiliation.city.name", segment: "city", at: "affiliation" });
-    expect(nobel.relation("Award", ["category.label"])).toEqual({ code: "join/no-field", path: "category.label", type: "Category", column: "label" });
-    expect(nobel.relation("Award", ["category.name", "affiliation.name"])).toEqual({ code: "join/branches", paths: ["category.name", "affiliation.name"] });
+    expect(nobel.relation("Award", ["affiliation.city.name"])).toEqual({ code: "relations/no-step", path: "affiliation.city.name", segment: "city", at: "affiliation" });
+    expect(nobel.relation("Award", ["category.label"])).toEqual({ code: "relations/unmatched", path: "category.label", type: "Category", column: "label" });
+    expect(nobel.relation("Award", ["category.name", "affiliation.name"])).toEqual({ code: "relations/invalid", paths: ["category.name", "affiliation.name"] });
   });
 
   it("reads a field on the relation where it is, and one off it through the branch from the step it leaves", () => {
@@ -287,7 +286,7 @@ describe("a multi-valued property, a step like any other", () => {
   it("resolves a path that ends on it to the step, and reads its value there", () => {
     expect(nicknames.relation("Award", ["laureate.nickname"])).toEqual(NICKNAMED);
     expect(nicknames.field(NICKNAMED, "laureate.nickname")).toEqual({ relation: NICKNAMED, column: "laureate.nickname", at: "laureate.nickname" });
-    expect(nicknames.relation("Award", ["laureate.nickname.name"])).toMatchObject({ code: "join/no-field" });
+    expect(nicknames.relation("Award", ["laureate.nickname.name"])).toMatchObject({ code: "relations/unmatched" });
   });
 
   it("joins its table once, on the key it holds, so a laureate's row is one per nickname and never one per pair", () => {

@@ -34,7 +34,7 @@ interface KanzoAuthSettings extends RelyingPartyConfig {
   readonly basePath?: string;
   /**
    * The product's page for a failed sign-in, callback or sign-out, and for a session store that
-   * does not answer, reached as `?code=<AuthErrorCode>`. Default `/auth/problem`. Always public:
+   * does not answer, reached as `?code=<code>`. Default `/auth/problem`. Always public:
    * whoever is sent there has no session, and sending them to sign in instead is a loop when
    * signing in is what failed.
    */
