@@ -9,6 +9,7 @@ import {
   ORIGIN,
   SECRET,
   asRequestHeader,
+  fromPage,
   fakeKeycloak,
   inMemoryAdapter,
   type Realm,
@@ -28,7 +29,7 @@ function get(
   cookie?: string,
 ): Promise<Response> {
   return routes.GET(
-    new Request(`${ORIGIN}${path}`, cookie === undefined ? {} : { headers: { cookie } }),
+    fromPage(`${ORIGIN}${path}`, cookie === undefined ? {} : { headers: { cookie } }),
   );
 }
 
@@ -39,7 +40,7 @@ function send(
   path: string,
   headers: Record<string, string> = {},
 ): Promise<Response> {
-  return routes[method](new Request(`${ORIGIN}${path}`, { method, headers }));
+  return routes[method](fromPage(`${ORIGIN}${path}`, { method, headers }));
 }
 
 describe("authRoutes", () => {
@@ -102,7 +103,7 @@ describe("authRoutes", () => {
      */
     it("derives it from the host the browser addressed, not the one the server listens on", async () => {
       const response = await routes.GET(
-        new Request("http://localhost:3000/api/auth/signin", { headers: { host: "acme.localhost:3000" } }),
+        fromPage("http://localhost:3000/api/auth/signin", { headers: { host: "acme.localhost:3000" } }),
       );
       const away = new URL(response.headers.get("location") ?? "");
 
@@ -111,7 +112,7 @@ describe("authRoutes", () => {
 
     it("derives it from the proxy's forwarded host and scheme when one terminates TLS", async () => {
       const response = await routes.GET(
-        new Request("http://localhost:3000/api/auth/signin", {
+        fromPage("http://localhost:3000/api/auth/signin", {
           headers: {
             host: "keasy-web:3000",
             "x-forwarded-host": "acme.example.test",
@@ -281,7 +282,7 @@ describe("authRoutes", () => {
       });
 
       const response = await routes.GET(
-        new Request(`${ORIGIN}/api/auth/session`, {
+        fromPage(`${ORIGIN}/api/auth/session`, {
           headers: { cookie: `${cookie}; pick=acme`, "x-region": "eu" },
         }),
       );
@@ -297,7 +298,7 @@ describe("authRoutes", () => {
       });
 
       const response = await routes.GET(
-        new Request("http://localhost:3000/api/auth/session", {
+        fromPage("http://localhost:3000/api/auth/session", {
           headers: { cookie, host: "acme.localhost:3000" },
         }),
       );
@@ -424,7 +425,7 @@ describe("authRoutes", () => {
     it("refuses a cross-site logout", async () => {
       const { cookie } = await signIn();
       const response = await routes.GET(
-        new Request(`${ORIGIN}/api/auth/signout`, {
+        fromPage(`${ORIGIN}/api/auth/signout`, {
           headers: { cookie, "sec-fetch-site": "cross-site" },
         }),
       );
@@ -432,6 +433,18 @@ describe("authRoutes", () => {
       expect(response.status).toBe(403);
       expect(response.headers.getSetCookie()).toEqual([]);
     });
+  });
+
+  /** The routes that are not cross-site by design refuse a request that says nothing of where it came from. */
+  it("refuses signout, refresh and session when the request carries neither Sec-Fetch-Site nor Origin", async () => {
+    const { cookie } = await signIn();
+    for (const [method, action] of [["GET", "signout"], ["POST", "refresh"], ["GET", "session"]] as const) {
+      const response = await routes[method](
+        new Request(`${ORIGIN}/api/auth/${action}`, { method, headers: { cookie } }),
+      );
+      expect(response.status, action).toBe(403);
+      expect(response.headers.getSetCookie(), action).toEqual([]);
+    }
   });
 
   describe("refresh", () => {
@@ -445,7 +458,7 @@ describe("authRoutes", () => {
       const { cookie } = await signIn();
 
       const response = await routes.POST(
-        new Request(`${ORIGIN}/api/auth/refresh`, { method: "POST", headers: { cookie } }),
+        fromPage(`${ORIGIN}/api/auth/refresh`, { method: "POST", headers: { cookie } }),
       );
 
       expect(response.status).toBe(200);
@@ -465,7 +478,7 @@ describe("authRoutes", () => {
       });
 
       const response = await routes.POST(
-        new Request("http://localhost:3000/api/auth/refresh", {
+        fromPage("http://localhost:3000/api/auth/refresh", {
           method: "POST",
           headers: { cookie, host: "acme.localhost:3000" },
         }),
@@ -486,7 +499,7 @@ describe("authRoutes", () => {
       realm.state.refusingRefresh = true;
 
       const response = await routes.POST(
-        new Request(`${ORIGIN}/api/auth/refresh`, { method: "POST", headers: { cookie } }),
+        fromPage(`${ORIGIN}/api/auth/refresh`, { method: "POST", headers: { cookie } }),
       );
 
       expect(response.status).toBe(401);
@@ -510,7 +523,7 @@ describe("authRoutes", () => {
     it("refuses a cross-site renewal", async () => {
       const { cookie } = await signIn();
       const response = await routes.POST(
-        new Request(`${ORIGIN}/api/auth/refresh`, {
+        fromPage(`${ORIGIN}/api/auth/refresh`, {
           method: "POST",
           headers: { cookie, "sec-fetch-site": "cross-site" },
         }),
@@ -523,7 +536,7 @@ describe("authRoutes", () => {
   it("refuses a cross-site read of who is signed in", async () => {
     const { cookie } = await signIn();
     const response = await routes.GET(
-      new Request(`${ORIGIN}/api/auth/session`, {
+      fromPage(`${ORIGIN}/api/auth/session`, {
         headers: { cookie, "sec-fetch-site": "cross-site" },
       }),
     );
@@ -543,7 +556,7 @@ describe("authRoutes", () => {
     realm.state.idTokenClaims = { nonce: away.searchParams.get("nonce"), sub: "u-1" };
 
     const done = await routes.GET(
-      new Request(`${ORIGIN}/api/auth/callback?code=c&state=${away.searchParams.get("state")}`, {
+      fromPage(`${ORIGIN}/api/auth/callback?code=c&state=${away.searchParams.get("state")}`, {
         headers: {
           cookie: asRequestHeader(started.headers.getSetCookie()),
           "sec-fetch-site": "cross-site",
@@ -559,7 +572,7 @@ describe("authRoutes", () => {
   describe("backchannel-logout", () => {
     function logout(token: string | null, headers: Record<string, string> = {}): Promise<Response> {
       return routes.POST(
-        new Request(`${ORIGIN}/api/auth/backchannel-logout`, {
+        fromPage(`${ORIGIN}/api/auth/backchannel-logout`, {
           method: "POST",
           headers: { "content-type": "application/x-www-form-urlencoded", ...headers },
           body: token === null ? "" : new URLSearchParams({ logout_token: token }).toString(),
@@ -592,7 +605,7 @@ describe("authRoutes", () => {
       const stateless = authRoutes(config);
 
       const response = await stateless.POST(
-        new Request(`${ORIGIN}/api/auth/backchannel-logout`, {
+        fromPage(`${ORIGIN}/api/auth/backchannel-logout`, {
           method: "POST",
           body: new URLSearchParams({ logout_token: await realm.logoutToken() }),
         }),
@@ -625,7 +638,7 @@ describe("authRoutes", () => {
   });
 
   it("serves POST through the same table as GET", async () => {
-    const response = await routes.POST(new Request(`${ORIGIN}/api/auth/session`));
+    const response = await routes.POST(fromPage(`${ORIGIN}/api/auth/session`));
 
     expect(response.status).toBe(401);
   });
@@ -638,7 +651,7 @@ describe("authRoutes", () => {
   describe("against bffAuth, the other end of the contract", () => {
     const through = (routes: Routes, cookie: string) =>
       ((input: RequestInfo | URL, init?: RequestInit) => {
-        const request = new Request(new URL(String(input), ORIGIN), { ...init, headers: { cookie } });
+        const request = fromPage(new URL(String(input), ORIGIN), { ...init, headers: { cookie } });
         return request.method === "POST" ? routes.POST(request) : routes.GET(request);
       }) as unknown as typeof globalThis.fetch;
 
@@ -707,7 +720,7 @@ describe("authRoutes", () => {
         const url = String(input);
         asked.push(url);
         if (url.startsWith("/api/auth")) {
-          const request = new Request(new URL(url, ORIGIN), { ...init, headers: { cookie } });
+          const request = fromPage(new URL(url, ORIGIN), { ...init, headers: { cookie } });
           return request.method === "POST" ? routes.POST(request) : routes.GET(request);
         }
         // The resource server: a 401 first, and an answer once the token behind the cookie is new.

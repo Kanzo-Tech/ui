@@ -182,6 +182,17 @@ export type Realm = ReturnType<typeof fakeKeycloak>;
  * A cleared cookie is dropped rather than sent back empty, because that is what a browser does —
  * and a test that sent it back would be asserting against a request no browser makes.
  */
+/**
+ * A request as the browser makes one to its own origin: with `Sec-Fetch-Site: same-origin`, which
+ * `isSameSite` requires since a request that says nothing about where it came from is refused.
+ * A test that means another case passes its own `Sec-Fetch-Site` or `Origin`.
+ */
+export function fromPage(input: string | URL, init: RequestInit = {}): Request {
+  const headers = new Headers(init.headers);
+  if (!headers.has("sec-fetch-site") && !headers.has("origin")) headers.set("sec-fetch-site", "same-origin");
+  return new Request(input, { ...init, headers });
+}
+
 export function asRequestHeader(cookies: readonly string[]): string {
   return cookies
     .filter((c) => !c.includes("Max-Age=0"))
