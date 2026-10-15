@@ -14,19 +14,21 @@ import { addressedUrl } from "./next-bound";
  * So the compensation belongs here rather than in every product: the package that chose `Lax` is
  * the one that owes the check for what `Lax` lets through.
  *
- * ## Fetch Metadata first, `Origin` second, and then allow
- *
- * `Sec-Fetch-Site` is set by the browser and cannot be set by script, which makes it the one
- * header here that is worth trusting. Every browser that has shipped since 2023 sends it. When it
- * is absent the request came from something that is not a browser — curl, a server, a crawler — or
- * from a browser old enough not to have it, and the fallback is `Origin`, which browsers attach to
- * every unsafe request and which the same script cannot forge either.
- *
- * With neither, this answers `true`. That is the honest end of the ladder rather than a hole: a
- * request carrying no evidence of where it came from also carries no evidence that it came from a
- * *page*, and the attack being stopped is a page. Refusing there would refuse every server-to-server
- * call and every health probe, which is a real outage traded for no real attacker.
- */
+ * ## Fetch Metadata first, `Origin` second, and then refuse
+
+`Sec-Fetch-Site` is set by the browser and cannot be set by script, which makes it the one
+header here that is worth trusting. Every browser that has shipped since 2023 sends it. When it
+is absent the request came from something that is not a browser — curl, a server, a crawler — or
+from a browser old enough not to have it, and the fallback is `Origin`, which browsers attach to
+every unsafe request and which the same script cannot forge either.
+
+With neither, this answers `false`. The OWASP CSRF Prevention Cheat Sheet says to treat the absence
+as unknown and block it, and RFC 10017 §6.1.3.3 requires a BFF to defend itself: `refresh` spends a
+refresh token and `signout` ends a session, which are the endpoints this check exists for. Only the
+browser calls this server's routes and `/api/*`, so there is no option to let anything else in: a
+script, a probe or a test runner calls the API at its own origin with its own credential
+(`/docs/design/auth-hardening`).
+*/
 
 /**
  * `same-origin` and `none` pass; `same-site` and `cross-site` do not.
@@ -46,5 +48,5 @@ export function isSameSite(request: Request): boolean {
   const origin = request.headers.get("origin");
   if (origin !== null) return origin === addressedUrl(request).origin;
 
-  return true;
+  return false;
 }

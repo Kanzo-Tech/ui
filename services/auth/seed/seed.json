@@ -17,7 +17,7 @@
     "`fede` belongs to acme with no group, so holding no role there is a state to test.",
     "`dan` belongs to none and holds a client role directly: the single-tenant shape."
   ],
-  "password": "password",
+  "password": "kanzo-dev-password",
   "organizations": {
     "acme": {
       "groups": {

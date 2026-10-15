@@ -13,7 +13,7 @@ import {
 import { jwtVerify, type JWTPayload } from "jose";
 import { claims } from "./claims";
 import { sealedCookie, type SealedCookie } from "./cookie-session";
-import { DEADLINE } from "./deadline";
+import { BOUNDS } from "./deadline";
 import { DEFAULT_RENEW_WITHIN } from "./renew-within";
 import { issuer, type IssuerConfig } from "./issuer";
 import { keyedSingleFlight } from "./single-flight";
@@ -229,6 +229,7 @@ function reachable(store: SessionStore): SessionStore {
     get: guard((ticket) => store.get(ticket)),
     drop: guard((ticket) => store.drop(ticket)),
     dropAll: guard((subject) => store.dropAll(subject)),
+    seen: guard((jti, ttl) => store.seen(jti, ttl)),
   };
 }
 
@@ -413,7 +414,7 @@ interface Transaction {
 export function relyingParty(config: RelyingPartyConfig): RelyingParty {
   const provider = issuer(config);
   const store = reachable(config.store ?? statelessStore());
-  const after = DEADLINE;
+  const after = BOUNDS.idp;
 
   /** A failure to reach the IdP, coded by who did not answer; anything else as `fallback`. */
   const fromIdp = (error: unknown, fallback: ProblemCode, message: string): Problem => {
@@ -799,17 +800,26 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
 
     async logout(logoutToken) {
       let payload: JWTPayload;
+      let header: { readonly typ?: string };
       try {
         // `jose` checks the signature against the realm's published keys, `iss`, `aud` and the
         // presence of `iat`, and `exp` when the token carries one. An unknown `kid` re-fetches the
         // key set once per cooldown, which is how a rotation is survived here.
-        ({ payload } = await jwtVerify(logoutToken, await provider.keys(), {
+        ({ payload, protectedHeader: header } = await jwtVerify(logoutToken, await provider.keys(), {
           issuer: config.issuer,
           audience: config.clientId,
-          requiredClaims: ["iat"],
+          requiredClaims: ["iat", "jti", "exp"],
         }));
       } catch (error) {
         throw fromLogout(error);
+      }
+
+      // RFC 8725 explicit typing, §2.4: the header `typ` is exactly `logout+jwt`; `JWT`, any other
+      // and an absent one are refused. Keycloak sends it from 25.0.0 (keycloak/keycloak#28939), and
+      // the supported realm is 26.8. What would reverse it: another IdP admitted, which is a
+      // non-goal (`/docs/design/auth`).
+      if (header.typ !== "logout+jwt") {
+        refuse("token/refused", "the logout token's `typ` header is not `logout+jwt`");
       }
 
       // §2.6 steps 4–6: the event is present, there is no `nonce` — which is what keeps an ID token
@@ -836,6 +846,15 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
             ? "the logout token names neither a subject nor a session"
             : "the logout token names a session but no subject, and sessions are found by subject",
         );
+      }
+
+      // §2.6 step 8, optional: a token already seen is refused, for it would end the sessions the
+      // person has opened since. Remembered until the token expires on its own.
+      // `exp` is required (Keycloak sends it from 24.0.0), so the `jti` is remembered exactly as long
+      // as the token could still be presented.
+      const ttl = Math.max(1, Math.ceil((payload.exp ?? 0) - Date.now() / 1000));
+      if (await store.seen(payload.jti ?? "", ttl)) {
+        refuse("token/refused", "the logout token has already been used");
       }
 
       await store.dropAll({ sub, sid });

@@ -29,6 +29,9 @@ export default defineConfig({
         // A third, thin over the second: `./server` speaks strings, so this is only the mapping to
         // `Request`/`Response`, `next/headers`, `next/navigation` and `next/server`.
         next: resolve(__dirname, "src/next.ts"),
+        // A fourth, for tests and documentation pages: an `Auth` with no protocol behind it, which
+        // reaches nothing but the types.
+        testing: resolve(__dirname, "src/testing.ts"),
       },
       formats: ["es"],
     },

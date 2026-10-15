@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { addressedUrl, URL_HEADER, under, type Bound } from "./next-bound";
+import { addressedUrl, newNonce, NONCE_HEADER, URL_HEADER, under, type Bound } from "./next-bound";
 import { ended, problem } from "./problem";
 import type { Ended, Renewed } from "./server";
 import { isProblem } from "@kanzo-tech/kernel";
@@ -43,9 +43,13 @@ import { isProblem } from "@kanzo-tech/kernel";
  * resolver reads the same URL the routes do.
  */
 
-/** A path whose last segment carries a dot: a static file, not a page. */
-function isFile(pathname: string): boolean {
-  return pathname.slice(pathname.lastIndexOf("/") + 1).includes(".");
+/**
+ * A static file: the last segment ends in one of `staticExtensions`. Not "has a dot" — a dotted
+ * page (`/graphs/foo.bar`, a dataset slug `x.csv`) is a page, and the proxy is its session authority.
+ */
+function isFile(pathname: string, extensions: readonly string[]): boolean {
+  const segment = pathname.slice(pathname.lastIndexOf("/") + 1).toLowerCase();
+  return extensions.some((extension) => segment.endsWith(extension) && segment.length > extension.length);
 }
 
 /**
@@ -102,10 +106,22 @@ export async function gate(
     if (name.startsWith("x-kanzo-")) forwarded.delete(name);
   }
   forwarded.set(URL_HEADER, addressed.href);
+  // Never the browser's: whatever arrived as a nonce is deleted, and the one below is this request's.
+  forwarded.delete(NONCE_HEADER);
+  const nonce = bound.csp === undefined ? undefined : newNonce();
+  const policy = nonce === undefined ? undefined : bound.csp?.(nonce);
+  if (nonce !== undefined && policy !== undefined) {
+    forwarded.set(NONCE_HEADER, nonce);
+    forwarded.set("content-security-policy", policy);
+  }
   new Headers(extra).forEach((value, name) => forwarded.set(name, value));
-  const through = () => NextResponse.next({ request: { headers: forwarded } });
+  const through = () => {
+    const response = NextResponse.next({ request: { headers: forwarded } });
+    if (policy !== undefined) response.headers.set("content-security-policy", policy);
+    return response;
+  };
 
-  if (isFile(pathname) || under(pathname, bound.open)) return through();
+  if (isFile(pathname, bound.staticExtensions) || under(pathname, bound.open)) return through();
 
   const mode = request.headers.get("sec-fetch-mode");
   const navigation = mode === null || mode === "navigate";

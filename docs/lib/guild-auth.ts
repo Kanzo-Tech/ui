@@ -8,6 +8,7 @@
 
 import { type Auth, type Session } from "@kanzo-tech/auth";
 import { claims } from "@kanzo-tech/auth/server";
+import { fakeAuth } from "@kanzo-tech/auth/testing";
 import { VIEWER } from "@/example/people";
 import { HALLS, type HallId, ROLES } from "@/example/world";
 
@@ -92,42 +93,11 @@ export const GUILD_CLAIMS = {
 export const GUILD_SESSION: Session = claims(GUILD_CLAIMS, { clientId: BOARD });
 
 /**
- * The five members of `Auth`, with no protocol behind any of them.
- *
- * A product writes `bffAuth(…)` here and never writes this. Five members is what makes faking it
- * possible at all, and it is why `useSession` and `Gate` can be shown working with no server.
+ * The Guild's `Auth`: `@kanzo-tech/auth/testing`'s double, signed in as {@link GUILD_SESSION}, with
+ * no protocol behind any member. A product writes `bffAuth(…)` here and never this.
  */
-export function guildAuth(initial: Session | null = GUILD_SESSION): Auth {
-  let current = initial;
-  const listeners = new Set<() => void>();
-  const announce = () => {
-    for (const listener of listeners) listener();
-  };
-
-  return {
-    fetch: async () => new Response(null, { status: 204 }),
-
-    async getSession() {
-      return current;
-    },
-
-    async signIn() {
-      current = GUILD_SESSION;
-      announce();
-    },
-
-    async signOut() {
-      current = null;
-      announce();
-    },
-
-    subscribe(onChange) {
-      listeners.add(onChange);
-      return () => {
-        listeners.delete(onChange);
-      };
-    },
-  };
+export function guildAuth(session: Session = GUILD_SESSION): Auth {
+  return fakeAuth(session);
 }
 
 /**

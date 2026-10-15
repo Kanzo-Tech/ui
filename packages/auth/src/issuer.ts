@@ -14,7 +14,7 @@ import {
 } from "openid-client";
 import { createRemoteJWKSet, customFetch as jwksFetch, type JWTVerifyGetKey } from "jose";
 import { singleFlight } from "./single-flight";
-import { DEADLINE } from "./deadline";
+import { BOUNDS } from "./deadline";
 
 /**
  * Discovery and client configuration for the confidential client behind `./server`.
@@ -149,7 +149,7 @@ export function issuer(config: IssuerConfig): Issuer {
   const transport = rewriteOrigin(config.issuer, reachedAt, base);
   const options: DiscoveryRequestOptions = {
     [customFetch]: transport,
-    timeout: DEADLINE / 1000,
+    timeout: BOUNDS.idp / 1000,
   };
 
   // The channel is what the specification's exemption rests on, so the default asks whether there
@@ -203,7 +203,7 @@ export function issuer(config: IssuerConfig): Issuer {
           uri,
           set: createRemoteJWKSet(new URL(uri), {
             [jwksFetch]: (url, init) => transport(url, init as never),
-            timeoutDuration: DEADLINE,
+            timeoutDuration: BOUNDS.idp,
           }),
         };
       }

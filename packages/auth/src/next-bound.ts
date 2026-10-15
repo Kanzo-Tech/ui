@@ -1,5 +1,6 @@
 import { DEFAULT_RENEW_WITHIN } from "./renew-within";
 import { relyingParty, type RelyingParty, type RelyingPartyConfig } from "./server";
+import type { SessionStore } from "./store";
 import type { Session } from "./types";
 import { cookieValue } from "./cookie-session";
 import { withoutTrailingSlashes } from "./issuer";
@@ -22,7 +23,7 @@ export interface TenantRequest {
   readonly cookies: { get(name: string): { readonly value: string } | undefined };
 }
 
-export interface KanzoAuthConfig extends RelyingPartyConfig {
+interface KanzoAuthSettings extends RelyingPartyConfig {
   /**
    * The organization a request addresses: a hostname's first label, a path segment, a cookie, or
    * one fixed alias for a deployment per tenant. Its answer is `Session.organization`, and the
@@ -44,6 +45,24 @@ export interface KanzoAuthConfig extends RelyingPartyConfig {
    */
   readonly public?: readonly string[];
   /**
+   * The extensions of the files the proxy lets through without a session: a path whose last segment
+   * ends in `.<one of these>` is a static file, and every other path is a page, dotted or not.
+   * Replaces the default, which is what a browser fetches to draw a page: `js`, `mjs`, `css`, `map`,
+   * `wasm`, `png`, `jpg`, `jpeg`, `gif`, `webp`, `avif`, `svg`, `ico`, `woff`, `woff2`, `txt`, `xml`,
+   * `webmanifest`. A data format (`csv`, `json`, `parquet`) is deliberately not on it; a path that
+   * must open without a session and is not a static file is a `public` prefix.
+   */
+  readonly staticExtensions?: readonly string[];
+  /**
+   * The Content-Security-Policy `proxy` sends, as directives to their sources. `proxy` draws a nonce
+   * per request and adds `'nonce-…' 'strict-dynamic'` to `script-src` (the sources given here follow
+   * them), on the request it forwards (the header Next reads to nonce its own scripts), on the
+   * response, and as `x-nonce` for a server component that needs it. `'unsafe-inline'` in
+   * `script-src` is refused when the config is read: an inline script on this origin is API access
+   * (`/docs/design/auth-hardening`).
+   */
+  readonly csp?: Readonly<Record<string, readonly string[]>>;
+  /**
    * Override the callback URL. Absent, it is derived from the request: its `addressedUrl` origin,
    * the path the routes sit on, and `/callback`. Deriving it trusts `Host` and the proxy's
    * `X-Forwarded-*`, which is bounded — Keycloak refuses a `redirect_uri` it has not registered —
@@ -63,16 +82,30 @@ export interface KanzoAuthConfig extends RelyingPartyConfig {
    * resource server per tenant, which is Keycloak's Organizations model — one client shared by
    * every organization — with the data still kept apart. `undefined` answers 404.
    */
-  readonly apis?: Readonly<
-    Record<
-      string,
-      {
-        readonly audience: string;
-        readonly target: string | ((organization: string | undefined) => string | undefined);
-      }
-    >
-  >;
+  readonly apis?: Apis;
 }
+
+type Apis = Readonly<
+  Record<
+    string,
+    {
+      readonly audience: string;
+      readonly target: string | ((organization: string | undefined) => string | undefined);
+    }
+  >
+>;
+
+/**
+ * What `kanzoAuth` is given. **`store` is required whenever `apis` is**: an application with an API
+ * carries an access token the stateless cookie cannot hold (6407 bytes against the 4096 a browser
+ * keeps, failing at the callback for a person in many organizations) and has a reason to revoke,
+ * which the cookie cannot do. An application with no `apis` keeps the stateless default.
+ */
+export type KanzoAuthConfig = Omit<KanzoAuthSettings, "apis" | "store"> &
+  (
+    | { readonly apis?: undefined; readonly store?: SessionStore }
+    | { readonly apis: Apis; readonly store: SessionStore }
+  );
 
 /** What a `kanzoAuth` instance is once its config has been read: one relying party and its settings. */
 export interface Bound {
@@ -81,8 +114,12 @@ export interface Bound {
   readonly problemPage: string;
   readonly redirectUri?: string;
   readonly renewWithin: number;
+  /** The policy for one request's nonce, when `csp` was configured. */
+  readonly csp?: (nonce: string) => string;
   /** Every mount, the longest first, so a request is forwarded by the most specific one. */
   readonly apis: readonly Api[];
+  /** The lower-case extensions, with their dot, of a static file. */
+  readonly staticExtensions: readonly string[];
   /** Prefixes the proxy lets through: the routes, the forwarder, the problem page, and `public`. */
   readonly open: readonly string[];
   tenant(request: TenantRequest): Promise<string | undefined>;
@@ -142,7 +179,39 @@ export function under(pathname: string, prefixes: readonly string[]): boolean {
 /** The request header the proxy forwards the URL on — AuthKit's `x-url` — for a server component to read. */
 export const URL_HEADER = "x-kanzo-url";
 
+/** The header Next reads a CSP nonce from, and the one a server component reads it from. */
+export const NONCE_HEADER = "x-nonce";
+
+/** 128 random bits, base64: one per request, never reused. */
+export function newNonce(): string {
+  return btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))));
+}
+
+/** `directives` with this request's nonce and `strict-dynamic` ahead of the host's own `script-src` sources. */
+function policy(directives: Readonly<Record<string, readonly string[]>>): (nonce: string) => string {
+  const scripts = directives["script-src"] ?? [];
+  if (scripts.some((source) => source.toLowerCase() === "'unsafe-inline'")) {
+    throw new Error("`csp` must not allow 'unsafe-inline' in script-src: the nonce is what admits a script");
+  }
+  return (nonce) =>
+    Object.entries({ ...directives, "script-src": [`'nonce-${nonce}'`, "'strict-dynamic'", ...scripts] })
+      .map(([name, sources]) => [name, ...sources].join(" "))
+      .join("; ");
+}
+
+/** What a browser fetches to draw a page; a data format is a page's business, not a file's. */
+const STATIC_EXTENSIONS = [
+  "js", "mjs", "css", "map", "wasm", "png", "jpg", "jpeg", "gif", "webp", "avif", "svg", "ico",
+  "woff", "woff2", "txt", "xml", "webmanifest",
+];
+
 export function bind(config: KanzoAuthConfig): Bound {
+  // The types say it and a config built from untyped data does not hear them.
+  if (Object.keys(config.apis ?? {}).length > 0 && config.store === undefined) {
+    throw new Error(
+      "kanzoAuth: `store` is required when `apis` is configured: the stateless cookie cannot hold an access token or end a session. Give it a ticketStore.",
+    );
+  }
   const basePath = withoutTrailingSlashes(config.basePath ?? "/api/auth");
   const problemPage = config.problemPage ?? "/auth/problem";
   const apis: Api[] = Object.entries(config.apis ?? {})
@@ -162,6 +231,10 @@ export function bind(config: KanzoAuthConfig): Bound {
     problemPage,
     redirectUri: config.redirectUri,
     renewWithin: config.renewWithin ?? DEFAULT_RENEW_WITHIN,
+    staticExtensions: (config.staticExtensions ?? STATIC_EXTENSIONS).map((extension) =>
+      `.${extension.replace(/^\./, "").toLowerCase()}`,
+    ),
+    csp: config.csp === undefined ? undefined : policy(config.csp),
     apis,
     open: [basePath, problemPage, ...apis.map((api) => api.mount), ...(config.public ?? [])].map(
       withoutTrailingSlashes,

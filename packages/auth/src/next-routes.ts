@@ -131,6 +131,25 @@ function failure(error: unknown): Response {
   return problem(error);
 }
 
+/** Bytes a back-channel logout body may be: a logout token is under 2 KB, and anyone may post. */
+const LOGOUT_BODY_LIMIT = 8192;
+
+/** The body as text, or `null` once it passes `limit` bytes — counted as it arrives, not as it claims to be. */
+async function capped(request: Request, limit: number): Promise<string | null> {
+  const reader = request.body?.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (let read = await reader?.read(); read !== undefined && !read.done; read = await reader?.read()) {
+    size += read.value.byteLength;
+    if (size > limit) {
+      void reader?.cancel();
+      return null;
+    }
+    chunks.push(read.value);
+  }
+  return new Blob(chunks as BlobPart[]).text();
+}
+
 export function routes(instance: () => Promise<Bound>): RouteHandlers {
   const handle = async (request: Request): Promise<Response> => {
     const bound = await instance();
@@ -228,13 +247,18 @@ export function routes(instance: () => Promise<Bound>): RouteHandlers {
 
       case "backchannel-logout": {
         if (request.method !== "POST") return bare(405, { allow: "POST" });
+        // The route is unauthenticated by design, so what it reads is bounded before it is parsed.
         // §2.5: `application/x-www-form-urlencoded`, one parameter.
-        const token = new URLSearchParams(await request.text()).get("logout_token");
         // §2.8 fixes the answers: 400 for a logout that failed, 501 for one this store cannot do.
         // A refusal is therefore 400 whatever its code's own status; an outage keeps its 5xx.
-        if (token === null || token === "") {
-          return problem(new Problem("token/refused", "no `logout_token`"), { status: 400 });
+        const refused = (message: string) => problem(new Problem("token/refused", message), { status: 400 });
+        if (!/^application\/x-www-form-urlencoded\s*(;|$)/i.test(request.headers.get("content-type") ?? "")) {
+          return refused("a logout request is `application/x-www-form-urlencoded`");
         }
+        const body = await capped(request, LOGOUT_BODY_LIMIT);
+        if (body === null) return refused(`a logout request is at most ${LOGOUT_BODY_LIMIT} bytes`);
+        const token = new URLSearchParams(body).get("logout_token");
+        if (token === null || token === "") return refused("no `logout_token`");
         try {
           await auth.logout(token);
           return bare(200);
