@@ -103,6 +103,7 @@ export {
  * type, the relation a set of paths lies on, and where a path off it is crossed in. `crossfilter.ts`.
  */
 export {
+  JoinError,
   JoinResolver,
   crossfilterOver,
   onRelation,

