@@ -1045,26 +1045,44 @@ describe("relyingParty", () => {
     });
 
     /** §2.4 recommends the header `typ` be `logout+jwt`, so that an ID token cannot pass for a logout token. */
-    it("refuses a logout token whose typ is not logout+jwt", async () => {
+    it("refuses a logout token whose typ is neither logout+jwt nor JWT", async () => {
       const { auth, cookie } = await signedIn();
 
-      await expect(auth.logout(await realm.logoutToken({}, { typ: "JWT" }))).rejects.toMatchObject({
+      await expect(auth.logout(await realm.logoutToken({}, { typ: "at+jwt" }))).rejects.toMatchObject({
         code: "token/refused",
       });
       expect(await auth.read(cookie)).not.toBeNull();
 
-      // The case and the media-type prefix are RFC 7515 §4.1.9's to ignore.
-      await auth.logout(await realm.logoutToken({}, { typ: "application/Logout+JWT" }));
+      await auth.logout(await realm.logoutToken({}, { typ: "logout+jwt" }));
       expect(await auth.read(cookie)).toBeNull();
     });
 
-    /** Keycloak's own `typ` is not measured, so an untyped token is accepted until it is. */
-    it("accepts a logout token that carries no typ", async () => {
+    /** Keycloak 25.0.0 types its logout tokens (#28939) and 24.0.0 gives them an `exp` (#25753). */
+    it("refuses a logout token whose typ is JWT or absent, and one without exp", async () => {
       const { auth, cookie } = await signedIn();
+      const exp = Math.floor(Date.now() / 1000) + 120;
 
-      await auth.logout(await realm.logoutToken({}, { typ: null }));
+      for (const token of [
+        await realm.logoutToken({ exp }, { typ: "JWT" }),
+        await realm.logoutToken({ exp }, { typ: null }),
+        await realm.logoutToken({ exp: undefined }),
+      ]) {
+        await expect(auth.logout(token)).rejects.toMatchObject({ code: "token/refused" });
+      }
+      expect(await auth.read(cookie)).not.toBeNull();
+    });
 
-      expect(await auth.read(cookie)).toBeNull();
+    /** §2.6: what tells a logout token from an ID token is its content, whatever its header says. */
+    it("refuses an ID token presented as a logout token, by every typ", async () => {
+      const { auth, cookie } = await signedIn();
+      const idToken = { events: undefined, nonce: "n-1", sid: "s-1" };
+
+      for (const typ of ["JWT", "logout+jwt", null]) {
+        await expect(auth.logout(await realm.logoutToken(idToken, { typ }))).rejects.toMatchObject({
+          code: "token/refused",
+        });
+      }
+      expect(await auth.read(cookie)).not.toBeNull();
     });
 
     it("refuses a logout token it has already seen, and one that carries no jti", async () => {

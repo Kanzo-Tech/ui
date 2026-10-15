@@ -271,10 +271,11 @@ than at the deadline.
 
 `logout(logoutToken)` is the relying party's half of **OpenID Connect Back-Channel Logout 1.0**.
 It verifies the token as §2.6 lists: the signature against the realm's published keys, `iss`
-against the issuer, `aud` against the client id, `iat` and `jti` present, the
+against the issuer, `aud` against the client id, `iat`, `exp` and `jti` present, the
 `http://schemas.openid.net/event/backchannel-logout` event present, and **no `nonce`** — which is
-what keeps an ID token from being replayed as a logout token. A `typ` header, when the token has
-one, must be `logout+jwt` (§2.4); an absent one is accepted, because Keycloak's is not measured.
+what keeps an ID token from being replayed as a logout token. The `typ` header must be exactly `logout+jwt` (§2.4, RFC 8725): `JWT`, another and none are refused.
+The baseline is **Keycloak 25.0.0 or later** (the supported realm is 26.8), the release that types its
+logout tokens (keycloak/keycloak#28939; `exp` came in 24.0.0, #25753).
 A `jti` the store has already seen is refused (§2.6 step 8), and remembered until the token's `exp`
 through the adapter under `logout-jti.<jti>`; the check reads and then writes, so two replays racing
 each other can both pass, and the gap is accepted. Then it calls `store.dropAll` with

@@ -3,8 +3,8 @@
 ---
 
 The back-channel logout route is stricter about what it accepts. It refuses (400) a body over 8 KB, a
-content type other than `application/x-www-form-urlencoded`, a logout token with no `jti`, a token
-whose `typ` header is present and is not `logout+jwt` (an absent `typ` is accepted), and a token whose
+content type other than `application/x-www-form-urlencoded`, a logout token with no `jti` or `exp`, a token
+whose `typ` header is not exactly `logout+jwt` (`JWT` and none are refused; this needs Keycloak 25.0.0 or later), and a token whose
 `jti` it has already seen; a replay would otherwise end the sessions the person opened since. The `jti`
 is remembered through your `ticketStore` adapter under `logout-jti.<jti>` until the token's `exp`.
 

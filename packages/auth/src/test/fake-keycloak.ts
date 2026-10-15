@@ -157,6 +157,7 @@ export function fakeKeycloak() {
       iss: ISSUER,
       aud: CLIENT_ID,
       iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 120,
       jti: crypto.randomUUID(),
       events: { [BACKCHANNEL_EVENT]: {} },
       sub: "u-1",

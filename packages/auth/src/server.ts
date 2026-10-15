@@ -52,9 +52,6 @@ import { AuthError, type AuthErrorCode, type Session, type SignInOptions } from 
  * `organization` would make Keycloak prompt for a choice at sign-in instead.
  */
 const DEFAULT_SCOPE = "openid profile email organization:*";
-/** Seconds a logout token without an `exp` is remembered for the replay check. */
-const LOGOUT_TOKEN_TTL = 300;
-
 /** Eight hours: a working day, after which the refresh token is the thing keeping you signed in. */
 const DEFAULT_MAX_AGE = 8 * 60 * 60;
 /** Ten minutes is long enough to type a password and short enough that an abandoned leg expires. */
@@ -810,15 +807,17 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
         ({ payload, protectedHeader: header } = await jwtVerify(logoutToken, await provider.keys(), {
           issuer: config.issuer,
           audience: config.clientId,
-          requiredClaims: ["iat", "jti"],
+          requiredClaims: ["iat", "jti", "exp"],
         }));
       } catch (error) {
         throw fromLogout(error);
       }
 
-      // §2.4 recommends the header `typ` be `logout+jwt`, so that an ID token cannot pass for a logout
-      // token. Required only once Keycloak's own is measured: absent is accepted, a different one is not.
-      if (header.typ !== undefined && header.typ.replace(/^application\//i, "").toLowerCase() !== "logout+jwt") {
+      // RFC 8725 explicit typing, §2.4: the header `typ` is exactly `logout+jwt`; `JWT`, any other
+      // and an absent one are refused. Keycloak sends it from 25.0.0 (keycloak/keycloak#28939), and
+      // the supported realm is 26.8. What would reverse it: another IdP admitted, which is a
+      // non-goal (`/docs/design/auth`).
+      if (header.typ !== "logout+jwt") {
         refuse("token/refused", "the logout token's `typ` header is not `logout+jwt`");
       }
 
@@ -850,7 +849,9 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
 
       // §2.6 step 8, optional: a token already seen is refused, for it would end the sessions the
       // person has opened since. Remembered until the token expires on its own.
-      const ttl = typeof payload.exp === "number" ? Math.max(1, Math.ceil(payload.exp - Date.now() / 1000)) : LOGOUT_TOKEN_TTL;
+      // `exp` is required (Keycloak sends it from 24.0.0), so the `jti` is remembered exactly as long
+      // as the token could still be presented.
+      const ttl = Math.max(1, Math.ceil((payload.exp ?? 0) - Date.now() / 1000));
       if (await store.seen(payload.jti ?? "", ttl)) {
         refuse("token/refused", "the logout token has already been used");
       }

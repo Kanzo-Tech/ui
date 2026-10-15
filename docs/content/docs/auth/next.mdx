@@ -310,8 +310,8 @@ not an alias or `*`, and this route sends the browser to the problem page with
 When a session ends at Keycloak — an administrator signs the person out, the SSO session expires,
 they sign out of another application — Keycloak posts a logout token to the client's
 `backchannel_logout_url`, per **OpenID Connect Back-Channel Logout 1.0**. The route verifies it as
-§2.6 requires — signature against the realm's keys, `iss`, `aud`, `iat`, `jti` not seen before, the
-back-channel event, no `nonce`, and a `typ` of `logout+jwt` when it has one — and drops every session it names through the store, the way Auth0's SDK does. The next
+§2.6 requires — signature against the realm's keys, `iss`, `aud`, `iat`, `exp`, `jti` not seen before, the
+back-channel event, no `nonce`, and a `typ` of exactly `logout+jwt` (Keycloak 25.0.0 or later) — and drops every session it names through the store, the way Auth0's SDK does. The next
 navigation finds no record and signs in.
 
 | Answer | When |
