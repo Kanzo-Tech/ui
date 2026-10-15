@@ -21,6 +21,14 @@ services:
     environment:
       TF_VAR_issuer_base_url: http://localhost:${KC_PORT:-8080}
 
+  # Development is plain HTTP on the host, with no edge in front: a cookie that is not Secure, and
+  # no X-Forwarded-* trusted from whoever sends it.
+  auth-proxy:
+    environment:
+      OAUTH2_PROXY_COOKIE_NAME: _session
+      OAUTH2_PROXY_COOKIE_SECURE: "false"
+      OAUTH2_PROXY_REVERSE_PROXY: "false"
+
   # ── Local members ───────────────────────────────────────────────────────────
   # Membership is runtime in Keycloak's model and has no Terraform resource. In
   # development it is a script; in production it is an invitation.

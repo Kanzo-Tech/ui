@@ -4,7 +4,7 @@ The server half of each platform capability, released with its client half under
 
 | Capability | Service (here) | Package |
 |---|---|---|
-| Identity | [`auth/`](auth) — Keycloak with the realm as code | `@kanzo-tech/auth` |
+| Identity | [`auth/`](auth) — Keycloak with the realm as code, and the session's edge (oauth2-proxy) | `@kanzo-tech/auth` |
 
 Each service has the same shape, and Compose is the whole of it — development and deployments
 alike:

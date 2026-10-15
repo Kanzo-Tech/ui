@@ -105,6 +105,37 @@ Authorization header, because the cookie rides along by itself"; `packages/auth/
 "spends one refresh token for a burst of concurrent renewals"; `packages/auth/src/single-flight.test.ts`,
 "runs the work once for every caller that arrives while it is running".
 
+## The session is the platform's edge
+
+**The relying party is a platform service, oauth2-proxy (`services/auth`, `auth-proxy` with
+`auth-valkey`), in front of each application; the application holds no client secret, no session
+and no refresh token, and reads the person from the access token the proxy hands it** (the owner's
+decision, 15 October 2026). It is the same BFF pattern as the section above, run as a maintained
+component instead of written here: the code that keeps a session, renews it and signs out was this
+package's largest part (`server.ts` 875 lines of about 4,000), and the size gauge of `./next` had
+been raised three times in ten days, the reversal the next section names.
+
+Measured on 15 October 2026 against Keycloak 26.8.0 with the `kanzo` realm of v0.47.0 and keasy's
+client as registered, through Chromium: sign-in at `acme.localhost` and single sign-on at
+`globex.localhost` with no form (118 ms), one client serving every organization's host because the
+redirect URI is taken from the request's host; the session cookie is 176 bytes (the sealed record
+was 6,407); signing out at the application ends the session at Keycloak; asking for the API's scope
+at sign-in puts it in `aud` (`["keasy-api", "account"]`, `azp` the application), so the exchange the
+next section describes is not needed for an application's own API. A sign-out made at Keycloak
+itself reaches the proxy when the access token next needs renewing: oauth2-proxy has no
+back-channel logout endpoint, a failed renewal leaves the session until its token expires, and it
+was refused 5 minutes after sign-in, the realm's `access_token_lifespan`. That lifespan is therefore
+the revocation bound. The resource server still verifies the token itself against the realm's keys
+(RFC 9068); it never trusts a header the proxy set.
+
+`--cookie-secret-file` signs nothing in oauth2-proxy 7.12.0 (every session cookie failed
+validation); 7.15.5 reads it, so both secrets are files and neither is in the environment.
+
+**What would reverse it:** a requirement that a sign-out at Keycloak end the application's session
+at once, which brings back a back-channel logout receiver (the proxy has none) or introspection per
+request (RFC 7662); or an application whose API the access token cannot name, which brings back the
+exchange below.
+
 ## One token per API and organization, exchanged
 
 The session's access token never leaves the server. It is asked for with `organization:*`, so it
