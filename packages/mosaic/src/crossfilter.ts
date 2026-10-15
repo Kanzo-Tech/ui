@@ -146,7 +146,8 @@ const MosaicResolver = Selection.crossfilter().resolver.constructor as new (opti
  * resolver's — with `predicate` crossing what the client's relation is not.
  */
 export class JoinResolver extends MosaicResolver {
-  readonly joins: JoinGraph | null;
+  /** The graph a clause is crossed over, read when a client asks: a new graph is a change of this, not of the selection. */
+  joins: JoinGraph | null;
 
   constructor(joins: JoinGraph | null = null) {
     super({ cross: true });
