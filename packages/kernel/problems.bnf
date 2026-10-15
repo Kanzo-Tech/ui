@@ -1,0 +1,54 @@
+# The registry of codes: the one source, and the file the kernel publishes. `pnpm --filter
+# @kanzo-tech/kernel gen` writes src/problems.gen.ts from it; a server in another language reads
+# this file and generates its own table. `/docs/design/failure`, *The registry is generated*.
+#
+#   row    = code "|" status "|" title "|" data
+#   code   = area "/" kind                  lowercase words, hyphen-separated; one row a code
+#   status = digits | "-"                   the HTTP status where the code crosses a wire; "-" if none
+#   title  = text                           what a client-side problem is called; on a wire with a
+#                                           status, `toJSON` writes that status' phrase instead
+#   data   = "-" | field {"," field}        the fields of `data`; "?" marks one that may be absent
+#   field  = name ["?"] ":" ("number" | "string")
+#
+# A code is stable once released: never reworded, never reused. A host's own codes (keasy's `rbac/*`)
+# are another file in this grammar through the same generator, never a row here.
+
+engine/unavailable          | -   | The engine would not start           | after: number
+engine/lost                 | -   | The engine was lost                  | -
+engine/failed               | -   | The engine refused a statement       | -
+engine/cannot-cancel        | -   | The engine cannot stop a statement   | -
+
+graph/no-webgl              | -   | The graph cannot be drawn here       | after?: number
+graph/context-lost          | -   | The drawing surface was taken back   | -
+graph/no-positions          | -   | The graph has no positions           | -
+graph/nothing-to-draw       | -   | The graph is empty                   | -
+graph/too-large             | -   | The graph is too large to draw       | count: number, limit: number
+
+llm/unavailable             | -   | The model cannot run here            | reason: string
+llm/truncated               | -   | The answer was cut off               | reason?: string
+llm/silent                  | -   | The model made no progress           | after: number, stage?: string
+
+relations/invalid           | -   | The relations contradict themselves  | type?: string
+relations/unmatched         | -   | A term names nothing in the catalog  | term?: string
+relations/no-step           | -   | A path step resolves to nothing      | step?: string
+
+session/absent              | 401 | Nobody is signed in                  | -
+session/unavailable         | 503 | The session could not be read        | status?: number
+session/silent              | 504 | The session did not answer           | after: number
+session/irrevocable         | 501 | The session cannot be revoked        | -
+
+idp/unreachable             | 502 | The identity provider is unreachable | status?: number
+idp/silent                  | 504 | The identity provider did not answer | after: number
+
+token/exchange-failed       | 502 | The token exchange failed            | status?: number
+token/refused               | 401 | The token was refused                | status?: number
+
+organization/invalid        | 400 | The organization is not valid        | -
+organization/denied         | 403 | The organization is not permitted    | -
+
+callback/state-mismatch     | 400 | The callback does not match          | -
+callback/nonce-mismatch     | 400 | The callback does not match          | -
+claims/no-subject           | 502 | The claims name nobody               | -
+
+api/unreachable             | 502 | The API is unreachable               | status?: number
+api/silent                  | 504 | The API did not answer               | after: number
