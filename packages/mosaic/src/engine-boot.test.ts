@@ -62,7 +62,7 @@ vi.mock("@duckdb/duckdb-wasm", async (original) => ({
   }),
 }));
 
-const { engine } = await import("./engine.js");
+const { engine, internalCoordinatorOf } = await import("./engine.js");
 
 afterEach(() => {
   vi.useRealTimers();
@@ -160,7 +160,7 @@ describe("a worker that dies after the boot", () => {
     expect(lost).toMatchObject({ code: "engine/lost" });
     await expect(e.query("SELECT 2", { signal: signal() })).rejects.toBe(lost);
     await expect(e.registerFiles({ a: "https://x/a" })).rejects.toBe(lost);
-    await expect(e.coordinator.exec("SELECT 3")).rejects.toBe(lost);
+    await expect(internalCoordinatorOf(e).exec("SELECT 3")).rejects.toBe(lost);
   });
 
   // A host that attached something to the dead engine asks again and attaches again: the new engine

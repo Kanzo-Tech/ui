@@ -36,7 +36,7 @@ describe("the layout's rules", () => {
   });
 
   it("runs when the positions are a start, stands when they are data, and simulate overrides both", () => {
-    const options = { from: "c", coordinator: null, onFailure: () => {} };
+    const options = { from: "c", engine: null, onFailure: () => {} };
     expect(simulating(options, path)).toBe(true);
     expect(simulating(options, { ...path, bound: true })).toBe(false);
     expect(simulating({ ...options, simulate: false }, path)).toBe(false);

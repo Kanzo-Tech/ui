@@ -38,6 +38,7 @@
     "@kanzo-tech/graphar-duckdb": "^0.1.0-alpha.1",
     "@kanzo-tech/llm": "workspace:*",
     "@kanzo-tech/mosaic": "workspace:*",
+    "@kanzo-tech/relations": "workspace:*",
     "@kanzo-tech/navigation": "workspace:*",
     "@kanzo-tech/rudof-wasm": "^0.3.4",
     "@kanzo-tech/testing": "workspace:*",

@@ -1,19 +1,8 @@
 "use client";
 
 import { ark } from "@ark-ui/react/factory";
-import {
-  clauseLabel,
-  clausePoints,
-  clauseSemiJoin,
-  JoinResolver,
-  Query,
-  relationKey,
-  relationQuery,
-  type JoinGraph,
-  type Relation,
-  type SelectionClause,
-  type TableExpr,
-} from "@kanzo-tech/mosaic";
+import { clauseLabel, clausePoints, clauseSemiJoin, Query, type SelectionClause, type TableExpr } from "@kanzo-tech/mosaic";
+import { JoinResolver, relationKey, relationQuery, type JoinGraph, type Relation } from "@kanzo-tech/relations";
 import { CheckIcon, LayoutDashboardIcon, ListFilterIcon, SquareArrowOutUpRightIcon } from "lucide-react";
 import * as React from "react";
 import {

@@ -1,3 +1,4 @@
+import { engineOver } from "../../test/engine";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { Coordinator } from "@uwdata/mosaic-core";
@@ -82,7 +83,7 @@ describe("ChartTimeline", () => {
 
   it("reserves the band's height and draws nothing in it — no Play, no ticks — until the bars are drawn", () => {
     render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <ChartTimeline field="year" relation="awards" title="Awards by year" />
       </MosaicProvider>,
     );
@@ -99,7 +100,7 @@ describe("ChartTimeline", () => {
 
   it("draws no play button when it is not playable", () => {
     render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <ChartTimeline field="year" playable={false} relation="awards" title="Awards by year" />
       </MosaicProvider>,
     );

@@ -114,6 +114,9 @@ importers:
       '@kanzo-tech/navigation':
         specifier: workspace:*
         version: link:../packages/navigation
+      '@kanzo-tech/relations':
+        specifier: workspace:*
+        version: link:../packages/relations
       '@kanzo-tech/rudof-wasm':
         specifier: ^0.3.4
         version: 0.3.4
@@ -251,6 +254,9 @@ importers:
       '@kanzo-tech/mosaic':
         specifier: workspace:*
         version: link:../mosaic
+      '@kanzo-tech/relations':
+        specifier: workspace:*
+        version: link:../relations
       '@kanzo-tech/testing':
         specifier: workspace:*
         version: link:../testing
@@ -367,6 +373,9 @@ importers:
       '@kanzo-tech/mosaic':
         specifier: workspace:*
         version: link:../mosaic
+      '@kanzo-tech/relations':
+        specifier: workspace:*
+        version: link:../relations
       '@kanzo-tech/testing':
         specifier: workspace:*
         version: link:../testing
@@ -492,6 +501,28 @@ importers:
         specifier: ^0.4.0
         version: 0.4.0(rollup@4.62.2)
 
+  packages/relations:
+    dependencies:
+      '@kanzo-tech/kernel':
+        specifier: workspace:^
+        version: link:../kernel
+    devDependencies:
+      '@duckdb/duckdb-wasm':
+        specifier: 1.33.1-dev57.0
+        version: 1.33.1-dev57.0
+      '@kanzo-tech/mosaic':
+        specifier: workspace:*
+        version: link:../mosaic
+      '@kanzo-tech/testing':
+        specifier: workspace:*
+        version: link:../testing
+      '@uwdata/mosaic-core':
+        specifier: ^0.32.0
+        version: 0.32.0
+      '@uwdata/mosaic-sql':
+        specifier: ^0.32.0
+        version: 0.32.0
+
   packages/testing:
     devDependencies:
       '@testing-library/dom':
@@ -558,6 +589,9 @@ importers:
       '@kanzo-tech/mosaic':
         specifier: workspace:*
         version: link:../mosaic
+      '@kanzo-tech/relations':
+        specifier: workspace:*
+        version: link:../relations
       '@kanzo-tech/testing':
         specifier: workspace:*
         version: link:../testing

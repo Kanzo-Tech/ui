@@ -1,3 +1,4 @@
+import { engineOver } from "../../test/engine";
 import { render, screen, waitFor } from "@testing-library/react";
 import { QueryError, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -43,7 +44,7 @@ describe("a chart whose query fails", () => {
   it("draws the failure in its own frame, not a blank plot, and hands the host the thrown value", async () => {
     const onFailure = vi.fn();
     const { container } = render(
-      <MosaicProvider coordinator={coordinator} onFailure={onFailure}>
+      <MosaicProvider engine={engineOver(coordinator)} onFailure={onFailure}>
         <ChartRoot relation="telemetry">
           <ChartBarY x="host" y="n" />
         </ChartRoot>

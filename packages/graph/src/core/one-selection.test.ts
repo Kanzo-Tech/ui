@@ -1,24 +1,8 @@
-import {
-  MosaicClient,
-  Query,
-  clauseInterval,
-  clausePoint,
-  crossfilterOver,
-  float64,
-  onRelation,
-  preaggregateOwnRelation,
-  readOf,
-  type Coordinator,
-  type FilterExpr,
-  type Relation,
-  type RelationClient,
-  type RelationRef,
-  type Selection,
-  type TableExpr,
-} from "@kanzo-tech/mosaic";
+import { MosaicClient, Query, clauseInterval, clausePoint, float64, type Coordinator, type FilterExpr, type Selection, type TableExpr } from "@kanzo-tech/mosaic";
+import { crossfilterOver, onRelation, preaggregateOwnRelation, readOf, type Relation, type RelationClient, type RelationRef } from "@kanzo-tech/relations";
 import { describe, expect, it, vi } from "vitest";
 import { attach, settle } from "../../test/corpus";
-import { readJoinGraph } from "./join-graph";
+import { readJoinGraph } from "@kanzo-tech/relations";
 import { createGraph } from "./store";
 
 /**
@@ -62,11 +46,11 @@ const LIVES: Relation = { root: "Person", path: [{ edge: "Person_livesIn_Place",
 async function discover() {
   const corpus = await attach();
   const coordinator: Coordinator = corpus.coordinator;
-  const joins = await readJoinGraph(coordinator, corpus.from);
+  const joins = await readJoinGraph(corpus.engine, corpus.from, { signal: new AbortController().signal });
   preaggregateOwnRelation(coordinator);
   const page = crossfilterOver(joins);
   const onFailure = vi.fn();
-  const graph = createGraph({ from: corpus.from, coordinator, onFailure, filterBy: page });
+  const graph = createGraph({ from: corpus.from, engine: corpus.engine, onFailure, filterBy: page });
   graph.subscribe(() => {});
   const { table } = readOf(joins, LIVES);
   const tiles = [new Tile(page, LIVES, table), new Tile(page, LIVES, table)] as const;

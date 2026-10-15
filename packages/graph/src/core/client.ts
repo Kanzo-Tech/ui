@@ -1,23 +1,10 @@
-import {
-  MosaicClient,
-  type ClauseSource,
-  Query,
-  cast,
-  clauseAntiJoin,
-  clauseSemiJoin,
-  float64,
-  literal,
-  onRelation,
-  queryFailure,
-  type FilterExpr,
-  type RelationClient,
-  type Selection,
-} from "@kanzo-tech/mosaic";
+import { MosaicClient, type ClauseSource, Query, cast, clauseAntiJoin, clauseSemiJoin, float64, literal, queryFailure, type FilterExpr, type Selection } from "@kanzo-tech/mosaic";
+import { onRelation, type RelationClient } from "@kanzo-tech/relations";
 import { VERTICES, answers, clausesOf, type Answer } from "./source";
 import { KEY, type Structure } from "./structure";
 
 /**
- * **The graph as a client of the page's coordinator** — one Mosaic client, like every chart beside
+ * **The graph as a client of the engine's coordinator** — one Mosaic client, like every chart beside
  * it, reading `vertices`: every vertex as one relation. The coordinator hands it the page's
  * predicate, minus the clause the graph published itself, with every clause published on another
  * relation already crossed into `vertices` by the page's resolver; it answers with the keys that

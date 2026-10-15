@@ -1,4 +1,4 @@
-import type { Relation } from "@kanzo-tech/mosaic";
+import type { Relation } from "@kanzo-tech/relations";
 import { parseTile } from "@kanzo-tech/ui/analytics";
 import type { Decision } from "../task/index.js";
 import type { AnswerOutput, QueryRow } from "./read.js";

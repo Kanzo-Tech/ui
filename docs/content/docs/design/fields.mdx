@@ -43,9 +43,9 @@ them where they are stated.
 **Every fact the catalog states about a type, an edge or a column reaches `JoinGraph` unchanged, and
 nothing downstream re-derives one.** The path is the one the data already travels: the GraphAr
 information files → `@kanzo-tech/graphar-duckdb`'s `attachGraph`, which makes them relations beside
-the views → `@kanzo-tech/graph`'s `readCatalog`, the one function that reads them → `joinGraphOf`,
-the one constructor of a `JoinGraph` from a graph → `@kanzo-tech/mosaic`, `@kanzo-tech/ui/analytics`
-and `@kanzo-tech/ai/data`. A column's DuckDB type is read in the same breath from the engine's own
+the views → `@kanzo-tech/relations`'s `readJoinGraph`, the one function that reads them and the one
+constructor of a `JoinGraph` from a graph → `@kanzo-tech/ui/analytics`, `@kanzo-tech/ai/data` and
+`@kanzo-tech/graph`. A column's DuckDB type is read in the same breath from the engine's own
 `duckdb_columns()`: what the engine will read the view as, never a mapping of GraphAr's words kept
 here.
 
@@ -74,7 +74,7 @@ reader's side.
 
 *Held by* `packages/graph/src/core/catalog.test.ts`, "takes an edge's label and its ends from
 graphar_edge_types, never from the view's name"; "describes each column by the engine's type and
-GraphAr's primary key and nullability, the global id first"; `packages/graph/src/core/join-graph.test.ts`,
+GraphAr's primary key and nullability, the global id first"; `packages/relations/src/graphar.test.ts`,
 "keys a type by the global id, names its keys, and joins an edge on its global ends";
 `packages/graph/src/layers.test.ts`, "builds statements only where it reads, writes none in a string,
 and imports nothing of graphar's or fossil's".
@@ -177,7 +177,7 @@ A host's own graph may still declare a type with a `value`, and everything above
 **What would reverse it:** a property table that is not a function of its source — a value with no
 source key — which fossil's format does not allow.
 
-*Held by* `packages/mosaic/src/crossfilter.test.ts`, "joins its table once, on the key it holds, so a
+*Held by* `packages/relations/src/crossfilter.test.ts`, "joins its table once, on the key it holds, so a
 laureate's row is one per nickname and never one per pair"; "resolves a path that ends on it to the
 step, and reads its value there"; `packages/ai/src/data/ask.test.ts`, "is a path Ask may write and read its value by, and never a type it
 measures".
@@ -205,7 +205,7 @@ the other by its path.
 **What would reverse it:** an evaluation set on which readers misread an answer's labelled words —
 then a host's own labels, handed in, win over the data's, and still no word is the code's.
 
-*Held by* `packages/mosaic/src/words.test.ts`, "reads the label in the page's language by RFC 4647's
+*Held by* `packages/relations/src/words.test.ts`, "reads the label in the page's language by RFC 4647's
 lookup, then an untagged one"; "is the column whose property labels, preferred as rdflib prefers,
 never one because it is called name"; "are its own label, or its type's for the type's naming column,
 and absent where nothing labels it".
@@ -237,7 +237,7 @@ no description of the column, so it is not read; the label's own language is kep
 The same change made the words one function. `RelationPicker` and Ask each wrote *the label, else the
 name* — the picker split the name into words and Ask showed it as written, so *laureate award* and
 *LaureateAward* named one type — and `splitWords` was the picker's by its docs and not by its code.
-`typeWords`, `edgeWords` and `splitWords` are `@kanzo-tech/mosaic`'s, and both read them; Ask's chips
+`typeWords`, `edgeWords` and `splitWords` are `@kanzo-tech/relations`'s, and both read them; Ask's chips
 now say *laureate* where nothing labels `Laureate`. `termType` is RML-Core's spelling (`IRI`) from a
 mapping and R2RML's (`rr:IRI`) from a fossil corpus, and a field reads both until the corpus's reader
 goes. The canvas's legend and inspector are not changed: the legend takes names from the host
@@ -255,7 +255,7 @@ and a host says which type is which. Or a second consumer that needs a label for
 has no type, edge or column for — a value, say — then the lookup by IRI this avoided is the minimal
 way to state it.
 
-*Held by* `packages/mosaic/src/mapping.test.ts`, "keeps every language, and the reader chooses one: the same graph reads in either"; "falls back to the name in words where the mapping labels nothing, and a blank node labels nothing"; "labels the edge a relation's query joins, by the edge table the SQL names"; "describes the list a query unnests onto its type's one column the SQL names"; "describes nothing a query names ambiguously"; `packages/ai/src/data/ask.test.ts`, "words a type by the label a mapping states, in the page's language, and by its name in words where it states none".
+*Held by* `packages/relations/src/mapping.test.ts`, "keeps every language, and the reader chooses one: the same graph reads in either"; "falls back to the name in words where the mapping labels nothing, and a blank node labels nothing"; "labels the edge a relation's query joins, by the edge table the SQL names"; "describes the list a query unnests onto its type's one column the SQL names"; "describes nothing a query names ambiguously"; `packages/ai/src/data/ask.test.ts`, "words a type by the label a mapping states, in the page's language, and by its name in words where it states none".
 
 ## What it changed for a consumer
 

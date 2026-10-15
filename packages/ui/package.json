@@ -41,7 +41,7 @@
     "size": "size-limit"
   },
   "//deps": "`tailwind.css` is compiled by the consumer, but its `@plugin` and `@import` resolve from THIS package's directory — under pnpm a consumer's own install is not visible from here. So what the entry names is a dependency, and `tailwindcss` is a required peer: the typography plugin requires `tailwindcss/plugin`, and it must be the consumer's copy, the one compiling the page.",
-  "//peers": "Every subpath's engine is an optional peer, so `import { Button }` installs none of them. `/analytics` takes `@kanzo-tech/mosaic` -- the one door to Mosaic: its charts import mosaic-core and mosaic-sql through it and through nothing else, so those two are `@kanzo-tech/mosaic`'s peers, declared once there, as `@kanzo-tech/graph` and `@kanzo-tech/ai` declare them -- with vgplot and mosaic-plot, the plotting half, which are its own. `valibot` is `/analytics`' too: only the dashboard spec's schema imports it, so a consumer of the root barrel never installs a validator it does not run (/docs/design/analytics). `@tanstack/react-query` is `/analytics`' as well: `useFieldStats` and the dashboard read on the host's `QueryClient` (/docs/design/reads).",
+  "//peers": "Every subpath's engine is an optional peer, so `import { Button }` installs none of them. `/analytics` takes `@kanzo-tech/relations` -- the join graph, the relations and the crossfilter its parts read -- and `@kanzo-tech/mosaic` -- the one door to Mosaic: its charts import mosaic-core and mosaic-sql through it and through nothing else, so those two are `@kanzo-tech/mosaic`'s peers, declared once there, as `@kanzo-tech/graph` and `@kanzo-tech/ai` declare them -- with vgplot and mosaic-plot, the plotting half, which are its own. `valibot` is `/analytics`' too: only the dashboard spec's schema imports it, so a consumer of the root barrel never installs a validator it does not run (/docs/design/analytics). `@tanstack/react-query` is `/analytics`' as well: `useFieldStats` and the dashboard read on the host's `QueryClient` (/docs/design/reads).",
   "peerDependencies": {
     "@codemirror/autocomplete": "^6.0.0",
     "@codemirror/commands": "^6.0.0",
@@ -50,6 +50,7 @@
     "@codemirror/state": "^6.0.0",
     "@codemirror/view": "^6.0.0",
     "@kanzo-tech/mosaic": "workspace:*",
+    "@kanzo-tech/relations": "workspace:*",
     "@lezer/highlight": "^1.0.0",
     "@tanstack/react-query": "^5.0.0",
     "@tanstack/react-table": "^8.0.0",
@@ -95,6 +96,9 @@
     "@kanzo-tech/mosaic": {
       "optional": true
     },
+    "@kanzo-tech/relations": {
+      "optional": true
+    },
     "valibot": {
       "optional": true
     },
@@ -120,6 +124,7 @@
     "@codemirror/state": "^6.6.0",
     "@codemirror/view": "^6.43.1",
     "@kanzo-tech/mosaic": "workspace:*",
+    "@kanzo-tech/relations": "workspace:*",
     "@kanzo-tech/testing": "workspace:*",
     "@lezer/highlight": "^1.2.3",
     "@tanstack/react-query": "^5.104.0",

@@ -1,11 +1,11 @@
 import { AsyncDuckDB, DuckDBDataProtocol, VoidLogger, selectBundle } from "@duckdb/duckdb-wasm";
-import { Problem, isProblem } from "@kanzo-tech/kernel";
+import { Problem, isProblem, type Table } from "@kanzo-tech/kernel";
 import { Coordinator, decodeIPC, type Connector } from "@uwdata/mosaic-core";
 import { isSecret, redact } from "./redact.js";
 
 /**
- * The page's one database: a DuckDB-WASM instance, the Mosaic `Coordinator` over it, and the file
- * registry, owned in one place.
+ * The page's one database: a DuckDB-WASM instance, the Mosaic `Coordinator` over it — private, see
+ * {@link internalCoordinatorOf} — and the file registry, owned in one place.
  *
  * **One per document, because vgplot has one.** `MosaicProvider` registers its coordinator as
  * vgplot's process-wide active one, so a second coordinator on the page is a second database the
@@ -38,10 +38,13 @@ import { isSecret, redact } from "./redact.js";
  * extensions.duckdb.org, which a page under that policy refuses. Off, the statement fails with
  * DuckDB's own error naming the extension, and the fix is a line in `scripts/extensions.mjs`.
  *
- * It satisfies fossil's `Engine` structurally; this package does not depend on fossil.
+ * It satisfies fossil's `Engine` structurally; this package does not depend on fossil. Its answer is
+ * the kernel's `Table`, the one every reader reads.
+ *
+ * **It is `@kanzo-tech/mosaic/engine`, not the root**, so a page that only draws from a host-supplied
+ * `Queryable` imports no DuckDB (`/docs/design/engine`, *Three packages, one direction*).
  */
 export interface Engine {
-  readonly coordinator: Coordinator;
   /**
    * One statement, answered in columns as DuckDB-WASM produced them — nothing turns them into
    * objects.
@@ -82,20 +85,6 @@ export interface Engine {
   registerFileBuffer(name: string, bytes: Uint8Array): Promise<void>;
   /** Unregisters the names. A name the engine does not hold is not an error. */
   dropFiles(names: readonly string[]): Promise<void>;
-}
-
-/** An answer in columns: the part of apache-arrow's `Table` a reader reads. */
-export interface Table {
-  readonly numRows: number;
-  readonly schema: { readonly fields: readonly { readonly name: string }[] };
-  getChild(name: string): Vector | null;
-}
-
-/** One column of {@link Table}: a typed array for a fixed-width type, where a null reads as zero. */
-export interface Vector {
-  readonly length: number;
-  get(index: number): unknown;
-  toArray(): ArrayLike<unknown>;
 }
 
 /**
@@ -357,8 +346,7 @@ async function start(forget: () => void, made: (duckdb: Duck) => void): Promise<
     void duckdb.terminate();
   };
 
-  return {
-    coordinator,
+  const door: Engine = {
     query,
     registerFiles: (files) =>
       serial(async () => {
@@ -381,6 +369,32 @@ async function start(forget: () => void, made: (duckdb: Duck) => void): Promise<
         for (const name of names) await release(name);
       }),
   };
+  return internalEngineOver(door, coordinator);
+}
+
+/**
+ * **The coordinator is the engine's, and no host holds one** (`/docs/design/engine`, *One door*). It
+ * is on the engine under a registered symbol rather than in a `WeakMap` for the reason `engine()`'s
+ * slot is on `globalThis`: two copies of this package in one bundle must still agree on it, and a
+ * `WeakMap` is one copy's. The symbol is on no type, so a host reading `engine.coordinator` finds
+ * nothing; these two functions are the library's way in — `MosaicProvider` and the graph's client
+ * reach the coordinator through the first, `engine()` and a test double attach it with the second.
+ * They are exported because the library's other packages need them, and named `internal` because
+ * nothing else should.
+ */
+const COORDINATOR = Symbol.for("@kanzo-tech/mosaic/coordinator");
+
+/** Not API: the Mosaic coordinator inside `engine`, for the library's own Mosaic clients. */
+export function internalCoordinatorOf(engine: Engine): Coordinator {
+  const coordinator = (engine as { [COORDINATOR]?: Coordinator })[COORDINATOR];
+  if (!coordinator) throw new TypeError("not an engine: it holds no coordinator — build one with engine()");
+  return coordinator;
+}
+
+/** Not API: `engine` holding `coordinator`, whose connector must be the engine's own connection. */
+export function internalEngineOver<E extends Engine>(engine: E, coordinator: Coordinator): E {
+  Object.defineProperty(engine, COORDINATOR, { value: coordinator });
+  return engine;
 }
 
 /**

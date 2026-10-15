@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { JoinGraph, Relation } from "@kanzo-tech/mosaic";
+import type { JoinGraph, Relation } from "@kanzo-tech/relations";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
 import { RelationPicker, type RelationPickerProps } from "./relation-picker.js";

@@ -1,6 +1,6 @@
 ---
 title: Discovery workspace
-description: A recipe — the engine, one coordinator, a corpus attached by name, and the graph parts and charts on one crossfilter.
+description: A recipe — the engine, a corpus attached by name, and the graph parts and charts on one crossfilter.
 ---
 
 A discovery workspace is the graph and the panels that interrogate it: a canvas with its tools,
@@ -17,8 +17,8 @@ Every piece is a library part; what the host writes is the arrangement and its o
 engine()                                           the page's one DuckDB and its coordinator
 attach("archive", { engine, url })                 the corpus, attached as a catalog
 KanzoThemeProvider sections={[GRAPH_SECTION]}
-└── MosaicProvider coordinator joins               owns the page's one selection
-    └── GraphRoot from coordinator filterBy …      one root, one Mosaic client
+└── MosaicProvider engine joins                    owns the page's one selection
+    └── GraphRoot from engine filterBy …           one root, one Mosaic client
         ├── header        view switch: Graph · Dashboard
         ├── main          GraphCanvas > GraphToolbar + GraphLegend   or the charts
         ├── dock
@@ -27,8 +27,8 @@ KanzoThemeProvider sections={[GRAPH_SECTION]}
         └── footer        GraphStatus + GraphCounts
 ```
 
-**One coordinator under everything.** The graph and every chart are clients of the same
-coordinator — one DuckDB connection, one query cache — and share one crossfilter. **One root around
+**One engine under everything.** The graph and every chart are clients of the coordinator inside
+the same engine — one DuckDB connection, one query cache — and share one crossfilter. **One root around
 everything graph:** the canvas, the dock and the footer all read the same `GraphRoot`, so a search in
 the dock reveals on the canvas and a look chosen in Settings repaints it.
 
@@ -56,7 +56,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 </Step>
 <Step>
 
-### Attach the graph, once, to the page's coordinator
+### Attach the graph, once, to the page's engine
 
 `engine()` is the page's DuckDB-WASM and its coordinator, memoised per document.
 `@kanzo-tech/graphar-duckdb`'s `attachGraph` attaches a GraphAr graph to it under a name: a view per
@@ -67,15 +67,15 @@ engine, by the name `resolve` gives its path. Attach once and keep the attachmen
 
 ```tsx
 import { attachGraph } from "@kanzo-tech/graphar-duckdb";
-import { readJoinGraph } from "@kanzo-tech/graph";
-import { engine } from "@kanzo-tech/mosaic";
+import { readJoinGraph } from "@kanzo-tech/relations";
+import { engine } from "@kanzo-tech/mosaic/engine";
 import { MosaicProvider } from "@kanzo-tech/ui/analytics";
 
 const e = await engine();
 const archive = await attachGraph(e, "archive", (paths) => paths.map((p) => `${url}/${p}`), { entry: "fossil.graph.yml" });
-const joins = await readJoinGraph(e.coordinator, "archive");
+const joins = await readJoinGraph(e, "archive", { signal });
 
-<MosaicProvider coordinator={e.coordinator} joins={joins}>
+<MosaicProvider engine={e} joins={joins}>
   <Workspace />
 </MosaicProvider>;
 ```
@@ -88,13 +88,13 @@ under a `basePath`, prefixed by hand.
 
 ### One selection
 
-The graph names the catalog and reads it through the same coordinator the charts use, on the
-page's one selection:
+The graph names the catalog and reads it through the same engine the charts use, on the page's
+one selection:
 
 ```tsx
-const { coordinator, selection } = useMosaic();
+const { engine, selection } = useMosaic();
 
-<GraphRoot from="archive" coordinator={coordinator} filterBy={selection} onFailure={setFailure}>…</GraphRoot>
+<GraphRoot from="archive" engine={engine} filterBy={selection} onFailure={setFailure}>…</GraphRoot>
 <ChartRoot relation="Sighting">…</ChartRoot>
 ```
 
@@ -121,7 +121,7 @@ const { look, sim, placement } = useGraphPrefs();
 
 <GraphRoot
   from="archive"
-  coordinator={coordinator}
+  engine={e}
   filterBy={selection}
   categories={KINDS}
   fill="kind"

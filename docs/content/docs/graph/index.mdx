@@ -1,12 +1,13 @@
 ---
 title: Graph
-description: The graph view over an Apache GraphAr graph — attached to the page's DuckDB, read as one Mosaic client on the page's coordinator, laid out and drawn with cosmos.gl on the GPU.
+description: The graph view over an Apache GraphAr graph — attached to the page's DuckDB, read on the page's engine and filtered as one Mosaic client beside the charts, laid out and drawn with cosmos.gl on the GPU.
 ---
 
 `@kanzo-tech/graph` draws an [Apache GraphAr](https://graphar.apache.org/) graph — what fossil
 compiles a program to. The host attaches it to the page's DuckDB with `@kanzo-tech/graphar-duckdb`'s
-`attachGraph`, under a catalog name; `GraphRoot` reads that catalog through the page's Mosaic
-coordinator, like every chart beside it, and draws the whole graph with cosmos.gl. It imports
+`attachGraph`, under a catalog name; `GraphRoot` reads that catalog on the page's engine — its own
+reads with their signal, so Stop stops the statement, and its filter as one Mosaic client like every
+chart beside it — and draws the whole graph with cosmos.gl. It imports
 nothing of graphar's or fossil's: the contract is the catalog.
 
 <ComponentPreview componentName="graph" fileName="example-workspace" hasMaxHeight />
@@ -31,7 +32,7 @@ when something scans it:
 @import "@kanzo-tech/graph/tailwind.css";
 ```
 
-Every peer is required: cosmos.gl draws and lays out, `@kanzo-tech/mosaic` is the page's coordinator
+Every peer is required: cosmos.gl draws and lays out, `@kanzo-tech/mosaic` is the page's engine
 and crossfilter, and the parts are built from `@kanzo-tech/ui` and its icons. The host attaches the
 graph with `@kanzo-tech/graphar-duckdb`'s `attachGraph`, which attaches a catalog and answers the
 attachment that detaches it; the graph never imports it.
@@ -45,7 +46,7 @@ answer `palette` and `theme` already got.
 
 ```tsx
 import { attachGraph } from "@kanzo-tech/graphar-duckdb";
-import { engine } from "@kanzo-tech/mosaic";
+import { engine } from "@kanzo-tech/mosaic/engine";
 import { GraphCanvas, GraphLegend, GraphRoot, GraphToolbar } from "@kanzo-tech/graph";
 ```
 
@@ -54,7 +55,7 @@ const e = await engine();
 // views "archive"."<type>", graphar_vertex_types, graphar_edge_types, graphar_properties
 await attachGraph(e, "archive", (paths) => paths.map((p) => `${url}/${p}`), { entry: "fossil.graph.yml" });
 
-<GraphRoot from="archive" coordinator={e.coordinator} r="degree" title="label" onFailure={setFailure}>
+<GraphRoot from="archive" engine={e} r="degree" title="label" onFailure={setFailure}>
   <GraphCanvas>
     <GraphToolbar className="absolute end-2 top-2" />
     <GraphLegend className="absolute start-2 bottom-2" />
@@ -67,7 +68,7 @@ await attachGraph(e, "archive", (paths) => paths.map((p) => `${url}/${p}`), { en
 **Attaching is the host's**, and so is detaching: `attachGraph` answers the attachment whose `detach()` gives the catalog
 back. `from={null}` is no graph yet. The canvas is mounted either way and waits over an empty
 surface, because a canvas gated on its first answer has no camera to ask with.
-[Discovery workspace](/docs/graph/workspace) is the whole wiring — the engine, one coordinator, one
+[Discovery workspace](/docs/graph/workspace) is the whole wiring — the engine, one
 crossfilter, the graph and the charts.
 
 ## Anatomy
@@ -215,8 +216,8 @@ search, built on `Command`. The workspace at the top of this page carries one: p
 **In the page it is a cue**: a button styled as a field that prints ⌘K and holds nothing, Shark's own
 command trigger. It, ⌘K and Ctrl+K open the palette, centred and full-height over the canvas — a
 `CommandDialog` with `hotkey="mod+k"`. One palette per page, so nothing arbitrates the key; the cue
-declares it as `aria-keyshortcuts`. Each pause in typing (150 ms) asks the corpus once, through the
-coordinator, for the first `limit` matches and how many there are of each type; nothing is read
+declares it as `aria-keyshortcuts`. Each pause in typing (150 ms) asks the corpus once, on the
+engine, for the first `limit` matches and how many there are of each type; nothing is read
 before the reader types and no text is held in the page. Matches are grouped by vertex type — named by
 the root's `categories` and counted past the limit — each with the glyph the canvas draws it in, the
 typed text highlighted and, on the right, its identity's local name, as Linear prints an issue's key: a
@@ -368,7 +369,7 @@ const SECTIONS = [GRAPH_SECTION]; // module scope: a new array re-resolves every
 
 // under it
 const { look, sim, placement } = useGraphPrefs(); // placement: {} | { x, y } | { cluster }; timeline: the column, or ""
-<GraphRoot from="archive" coordinator={coordinator} fill="kind" look={look} sim={sim} {...placement} onFailure={setFailure}>
+<GraphRoot from="archive" engine={e} fill="kind" look={look} sim={sim} {...placement} onFailure={setFailure}>
   <GraphCanvas />
   <PreferencesSections namespace="graph" />
 </GraphRoot>
@@ -421,7 +422,7 @@ layout with cosmos.gl's cluster force over one column. The columns are Cosmograp
 clearing it unbinds it.
 
 ```tsx
-<GraphRoot from="archive" coordinator={coordinator} {...placement} onFailure={setFailure}>
+<GraphRoot from="archive" engine={e} {...placement} onFailure={setFailure}>
   <Pref name="graph.placement" />
   <Pref name="graph.x-by" /> {/* only under Map */}
   <Pref name="graph.y-by" />
@@ -452,7 +453,7 @@ What a point wears is **bound on the root**, under the names Plot gives a point 
 `symbol`, `r`, `stroke` and `title`.
 
 ```tsx
-<GraphRoot from="archive" coordinator={coordinator} fill="kind" r="degree" onFailure={setFailure}>
+<GraphRoot from="archive" engine={e} fill="kind" r="degree" onFailure={setFailure}>
 ```
 
 **Unbound, colour is the vertex type**, so a corpus with several types reads as several colours with
@@ -460,7 +461,7 @@ nothing passed. **A CSS colour is a constant; anything else is a column.** That 
 it is what makes the monochrome picture a binding rather than a theme:
 
 ```tsx
-<GraphRoot from="archive" coordinator={coordinator} fill="var(--foreground)" symbol="kind" r="degree" onFailure={setFailure}>
+<GraphRoot from="archive" engine={e} fill="var(--foreground)" symbol="kind" r="degree" onFailure={setFailure}>
 ```
 
 Identity has moved to shape, colour is free to mean the selection, and nothing had to know which of
@@ -526,7 +527,8 @@ semi-join on `dense_id`.
 
 ### readJoinGraph
 
-`readJoinGraph(coordinator, from)` is the same graph as a `JoinGraph` — what
+`readJoinGraph(engine, from, { signal })`, from `@kanzo-tech/relations`, is the same graph as a
+`JoinGraph`, read through any `Queryable` — what
 `@kanzo-tech/ui/analytics`' [relations](/docs/analytics/dashboard#relations) are built over, and the
 one constructor of one from a graph. Each vertex type is a type keyed by `dense_id`, its `table` the
 type's view under the global id, every column described as GraphAr's catalog describes it: its
@@ -545,14 +547,16 @@ graph: a field is called by its name, and a year is a number ([what GraphAr does
 carry](/docs/design/graph#what-graphar-does-not-carry)). A graph whose chunks state no counts has none,
 and `useFieldStats` reads its relation with one `SUMMARIZE`.
 
-The catalog is read in one place, `readCatalog`, and the canvas's structure and this graph are both
-what it answered: through the page's coordinator and its cache, so a page that draws the graph and a
-dashboard beside it reads the catalog once.
+The catalog is read in one place, this function: the canvas reads it too, on the engine's own door
+with its signal, so a stop interrupts the read, and adds to each type the first global id it draws
+from. Nothing caches it: a page that draws the graph and a dashboard beside it reads the catalog twice.
 
 ```tsx
-const graph = await readJoinGraph(coordinator, jobId);
+import { readJoinGraph } from "@kanzo-tech/relations";
 
-<MosaicProvider coordinator={coordinator} joins={graph}>
+const graph = await readJoinGraph(e, jobId, { signal });
+
+<MosaicProvider engine={e} joins={graph}>
   <Dashboard relation={{ root: "Person", path: [] }} />
 </MosaicProvider>
 ```
@@ -561,7 +565,7 @@ const graph = await readJoinGraph(coordinator, jobId);
 `Person.country`, which `vertices` has not, and the page crosses them into the graph as one semi-join
 on `dense_id` — [what the page sees](/docs/analytics/dashboard#what-the-page-sees).
 
-*Held by* `packages/graph/src/core/join-graph.test.ts`, "keys a type by the global id, names its keys,
+*Held by* `packages/relations/src/graphar.test.ts`, "keys a type by the global id, names its keys,
 and joins an edge on its global ends"; `packages/graph/src/core/catalog.test.ts`,
 "takes an edge's label and its ends from graphar_edge_types, never from the view's name".
 
@@ -575,11 +579,11 @@ the edge from that type to its parent's. A map over a query, as fossil writes a 
 `termType` and `datatype` every reader of a `JoinGraph` already reads, and no other part is told:
 
 ```tsx
-import { withMapping, typeWords } from "@kanzo-tech/mosaic";
+import { withMapping, typeWords } from "@kanzo-tech/relations";
 
-const graph = withMapping(await readJoinGraph(coordinator, "archive"), mapping.model());
+const graph = withMapping(await readJoinGraph(e, "archive", { signal }), mapping.model());
 
-<MosaicProvider coordinator={coordinator} joins={graph}>
+<MosaicProvider engine={e} joins={graph}>
   <Dashboard relation={{ root: "Person", path: [] }} />
 </MosaicProvider>
 
@@ -593,7 +597,7 @@ the one place a type's or an edge's words are chosen — the label, else the nam
 (`splitWords`) — and `RelationPicker`, Ask's chips and a column's `label` all read them. A year the
 mapping declares `xsd:gYear` is a time, whatever integer stores it.
 
-*Held by* `packages/mosaic/src/mapping.test.ts`, "puts the class, the predicates, the term types and the
+*Held by* `packages/relations/src/mapping.test.ts`, "puts the class, the predicates, the term types and the
 datatypes on the graph"; "keeps every language, and the reader chooses one: the same graph reads in
 either"; "describes an edge from the source's relation to the parent, the one its label names among
 several".
@@ -690,7 +694,7 @@ writes it in.
 | Prop | Type | Default |
 | --- | --- | --- |
 | `from` | `string \| null` — the catalog `attachGraph` attached | required |
-| `coordinator` | `Coordinator \| null` — the page's Mosaic coordinator | required |
+| `engine` | `Engine \| null` — the page's engine, `engine()`'s | required |
 | `onFailure` | `(error: unknown) => void` | required |
 | `fill` | `string` — a column, or a CSS colour every point wears | the vertex type |
 | `symbol` | `string` — the column a point's shape carries | — |

@@ -1,3 +1,4 @@
+import { engineOver } from "../../test/engine";
 import { render, screen, waitFor } from "@testing-library/react";
 import { clausePoint, QueryError, Selection, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
 import { verbatim } from "@uwdata/mosaic-sql";
@@ -69,7 +70,7 @@ const wrap = (
   onFailure?: (error: unknown) => void,
 ) =>
   render(
-    <MosaicProvider coordinator={coordinator} onFailure={onFailure}>
+    <MosaicProvider engine={engineOver(coordinator)} onFailure={onFailure}>
         <Page into={(s) => (page = s)} />
       {node}
     </MosaicProvider>,

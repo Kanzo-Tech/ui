@@ -1,6 +1,7 @@
 "use client";
 
-import type { Coordinator, Query } from "@kanzo-tech/mosaic";
+import { type Coordinator, type Query } from "@kanzo-tech/mosaic";
+import { internalCoordinatorOf } from "@kanzo-tech/mosaic/engine";
 import { use } from "react";
 import { useMosaic } from "./mosaic-provider.js";
 
@@ -53,6 +54,6 @@ function rowsOf(coordinator: Coordinator, sql: string): Promise<readonly unknown
  * different SQL: name what changed in it.
  */
 export function useQueryRows<Row = Record<string, unknown>>(query: Query | string): readonly Row[] {
-  const { coordinator } = useMosaic();
-  return use(rowsOf(coordinator, String(query))) as readonly Row[];
+  const { engine } = useMosaic();
+  return use(rowsOf(internalCoordinatorOf(engine), String(query))) as readonly Row[];
 }

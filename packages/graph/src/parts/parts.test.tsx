@@ -31,7 +31,7 @@ function Hold({ into }: { into: { api: GraphApi | null } }) {
 }
 
 /** The root's two source props, for an attached corpus. */
-const over = (corpus: Attached) => ({ from: corpus.from, coordinator: corpus.coordinator });
+const over = (corpus: Attached) => ({ from: corpus.from, engine: corpus.engine });
 const ready = (corpus: Attached) => act(() => settle(corpus));
 const noResize = () =>
   vi.stubGlobal(

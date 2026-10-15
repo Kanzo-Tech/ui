@@ -57,18 +57,9 @@ import type { Proposal } from "@kanzo-tech/ai/task";
 import { AnswerCard, askEdit, AskChips, askOffers, useAskChat, type AskOutput, type AskSpec } from "@kanzo-tech/ai/data";
 import { scriptedModel } from "@kanzo-tech/llm/testing";
 import { promptOf } from "@kanzo-tech/testing";
-import {
-  Coordinator,
-  Query,
-  Selection as MosaicSelection,
-  count,
-  numbers,
-  sql,
-  verbatim,
-  type Engine,
-  type ExprNode,
-  type JoinGraph,
-} from "@kanzo-tech/mosaic";
+import { Query, Selection as MosaicSelection, count, numbers, sql, verbatim, type ExprNode } from "@kanzo-tech/mosaic";
+import { type Engine } from "@kanzo-tech/mosaic/engine";
+import { type JoinGraph } from "@kanzo-tech/relations";
 import { MosaicProvider, useChartQuery, useMosaic } from "@kanzo-tech/ui/analytics";
 import {
   SparklesIcon,
@@ -77,17 +68,8 @@ import {
   XIcon,
 } from "lucide-react";
 import { cn } from "@kanzo-tech/ui";
-import {
-  GraphCounts,
-  GraphInspector,
-  GraphRoot,
-  GraphSearch,
-  GraphStatus,
-  readJoinGraph,
-  useGraphPrefs,
-  usePick,
-  type VertexDetail,
-} from "@kanzo-tech/graph";
+import { readJoinGraph } from "@kanzo-tech/relations";
+import { GraphCounts, GraphInspector, GraphRoot, GraphSearch, GraphStatus, useGraphPrefs, usePick, type VertexDetail } from "@kanzo-tech/graph";
 import {
   compileOrders,
   DEFAULT_ORDERS,
@@ -141,14 +123,13 @@ const ID = "dense_id";
 const FROM = "archive";
 
 /**
- * An attached archive: the coordinator every panel and the canvas query through, and
+ * An attached archive: the engine every panel and the canvas query through, and
  * the node relation as the orders and the ask box name it — a node rather than a string, because
  * `Query.from("x")` quotes a string again and `"catalog"."Node"` is no table.
  */
 export interface Archive {
-  /** The page's engine: the Ask panel's agent reads through its `query`, outside the coordinator's queue. */
+  /** The page's engine: the provider, the root and the Ask panel's agent are all handed it. */
   engine: Engine;
-  coordinator: Coordinator;
   nodes: ExprNode;
 }
 
@@ -159,7 +140,6 @@ function openArchive(): Promise<Archive> {
     await attachWritten(engine, FROM, `${window.location.origin}${CORPUS}`);
     return {
       engine,
-      coordinator: engine.coordinator,
       nodes: verbatim(`"${FROM}"."${TYPE}"`),
     };
   });
@@ -193,8 +173,8 @@ function announce(error: unknown): void {
 }
 
 /**
- * **The graph, whole.** The provider arrives with the archive's coordinator and owns the page's one
- * selection; the root names the attached catalog and reads it through that coordinator, one Mosaic
+ * **The graph, whole.** The provider arrives with the archive's engine and owns the page's one
+ * selection; the root names the attached catalog and reads it through that engine, one Mosaic
  * client of that selection beside the charts, and the panels under it query the node relation the
  * orders and the ask box are written against.
  */
@@ -203,7 +183,7 @@ export function ArchiveGraph({ children }: { children: ReactNode }) {
   return (
     <Show fallback={<ArchiveRoot archive={null}>{children}</ArchiveRoot>} when={archive !== null}>
       {archive && (
-        <MosaicProvider coordinator={archive.coordinator}>
+        <MosaicProvider engine={archive.engine}>
           <OnPage archive={archive}>{children}</OnPage>
         </MosaicProvider>
       )}
@@ -226,7 +206,7 @@ function ArchiveRoot({ archive, filterBy, children }: { archive: Archive | null;
   return (
     <GraphRoot
         categories={KINDS}
-        coordinator={archive?.coordinator ?? null}
+        engine={archive?.engine ?? null}
         fill="kind"
         filterBy={filterBy}
         from={archive ? FROM : null}
@@ -624,7 +604,7 @@ export function GraphOrders() {
 
 function OrdersBody({ archive }: { archive: Archive }) {
   const shown = usePick("orders");
-  const { coordinator } = useMosaic();
+  const { engine } = useMosaic();
   const [source, setSource] = useState(DEFAULT_ORDERS);
   const [fileName, setFileName] = useState("amber-hall.orders");
   const [showSource, setShowSource] = useState(false);
@@ -685,14 +665,15 @@ function OrdersBody({ archive }: { archive: Archive }) {
   /**
    * The ids an order fails, so pressing it can pick them — and deliberately **unfiltered**.
    *
-   * `coordinator.query` rather than a client, and `useChartQuery` above rather than this, and the
+   * `engine.query` rather than a client, and `useChartQuery` above rather than this, and the
    * difference is the one `useChartQuery` documents: the counts beside each order are a readout
    * that must move with the page, so they are a client; this is a gesture that *produces* the
    * selection the page then moves by, so following the page would make it a function of itself.
    */
   const failingIds = async (order: Order) => {
-    const data = await coordinator.query(
-      Query.from(archive.nodes).select({ id: ID }).where(order.failing)
+    const data = await engine.query(
+      String(Query.from(archive.nodes).select({ id: ID }).where(order.failing)),
+      { signal: AbortSignal.timeout(10_000) }
     );
     return numbers(data, "id");
   };
@@ -1099,7 +1080,7 @@ export function GraphAsk() {
     // The graph is the one read — every type's facts are on it — and a page left mid-read keeps none of it.
     const controller = new AbortController();
     const { signal } = controller;
-    readJoinGraph(archive.coordinator, FROM).then(
+    readJoinGraph(archive.engine, FROM, { signal }).then(
       (graph) => !signal.aborted && setAskable({ graph }),
       (error: unknown) => !signal.aborted && announce(error),
     );

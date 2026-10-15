@@ -1,6 +1,6 @@
 ---
 title: useMosaic
-description: The Mosaic context in one call — the coordinator, the page's one selection and the joins its relations are read over.
+description: The Mosaic context in one call — the engine, the page's one selection and the joins its relations are read over.
 ---
 
 <ComponentPreview componentName="use-mosaic" />
@@ -19,7 +19,7 @@ import { useMosaic } from "@kanzo-tech/ui/analytics";
 ```
 
 ```tsx
-const { coordinator, selection, joins } = useMosaic();
+const { engine, selection, joins } = useMosaic();
 ```
 
 It reads the context [`MosaicProvider`](/docs/analytics/charts#the-pages-one-engine)
@@ -47,16 +47,16 @@ filters*. There is no second selection upstream for a reset to miss.
 The join graph the provider was handed — `readJoinGraph` for a fossil corpus — or `null`. A part's
 `relation` names a type or a path over it.
 
-## coordinator
+## engine
 
-The coordinator you handed `MosaicProvider`, for the work the client protocol does not cover — a
+The engine you handed `MosaicProvider` — `engine.query(sql, { signal })` — for the work the client protocol does not cover — a
 fixed topology to draw, a schema, a one-off read that no brush should change. It is deliberately
 **outside** the crossfilter. A statement read once and drawn — a schema, a catalog — is
 [`useQueryRows`](/docs/hooks/use-query-rows), which suspends on it rather than wiring an effect.
 
 <Callout type="warn">
 **A number that should follow the brush does not belong here.** A widget that runs
-`coordinator.query()` in an effect looks correct on its first paint and then reports unfiltered
+`engine.query()` in an effect looks correct on its first paint and then reports unfiltered
 totals beside filtered charts — which nobody reads as a stale widget, they read it as a broken
 crossfilter. Use [`useChartQuery`](/docs/hooks/use-chart-query), or `ChartStat` for the tile case.
 </Callout>
@@ -67,7 +67,7 @@ crossfilter. Use [`useChartQuery`](/docs/hooks/use-chart-query), or `ChartStat` 
 
 | Field | Type | What it is |
 | --- | --- | --- |
-| `coordinator` | `Coordinator` | the caller's coordinator, also registered as vgplot's active one |
+| `engine` | `Engine` | the caller's engine; its coordinator is registered as vgplot's active one |
 | `selection` | `Selection` | the page's one selection: what every part filters by and publishes into |
 | `joins` | `JoinGraph \| null` | the graph the page's relations are read over |
 | `onFailure` | `(error: unknown) => void` | hands a failed read to the provider's `onFailure` |

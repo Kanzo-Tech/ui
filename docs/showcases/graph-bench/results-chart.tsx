@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { xScale } from "@uwdata/vgplot";
-import { type Coordinator, engine } from "@kanzo-tech/mosaic";
+import { type Engine, engine } from "@kanzo-tech/mosaic/engine";
 import {
   ChartAxisX,
   ChartAxisY,
@@ -34,25 +34,25 @@ import type { Sample } from "./measure";
  */
 
 /**
- * The provider exists because `ChartRoot` reads a coordinator from context — but nothing here
+ * The provider exists because `ChartRoot` reads an engine from context — but nothing here
  * queries: every mark carries its own `data`, so the rows are the samples this tab already has.
  *
- * It is handed **`engine()`'s coordinator**, the same per-document instance the viewer sweep opens
- * its corpora on. A second coordinator on one page is how vgplot's global gets fought over; there is
- * one here, and this borrows it rather than building another.
+ * It is handed **`engine()`**, the same per-document instance the viewer sweep opens its corpora
+ * on. A second coordinator on one page is how vgplot's global gets fought over; there is one here,
+ * inside that engine, and this borrows it rather than booting another.
  */
-function useBenchCoordinator(): Coordinator | null {
-  const [coordinator, setCoordinator] = useState<Coordinator | null>(null);
+function useBenchEngine(): Engine | null {
+  const [booted, setBooted] = useState<Engine | null>(null);
   useEffect(() => {
     let live = true;
-    void engine().then(({ coordinator: c }) => {
-      if (live) setCoordinator(c);
+    void engine().then((e) => {
+      if (live) setBooted(e);
     });
     return () => {
       live = false;
     };
   }, []);
-  return coordinator;
+  return booted;
 }
 
 /** Long form, so one mark draws every series and the colour scale comes from the config. */
@@ -79,7 +79,7 @@ export function ResultsChart(props: {
   viewer: ViewerSample[];
 }) {
   const { layer, samples, viewer } = props;
-  const coordinator = useBenchCoordinator();
+  const booted = useBenchEngine();
 
   const { config, data } = useMemo(() => {
     if (layer !== "engine") {
@@ -100,10 +100,10 @@ export function ResultsChart(props: {
   // Two points make a line; one makes a dot pretending to be a trend. Below that the stat tiles are
   // the honest form, and they are already on screen.
   const sizes = new Set(data.map((row) => row.nodes));
-  if (!coordinator || sizes.size < 2) return null;
+  if (!booted || sizes.size < 2) return null;
 
   return (
-    <MosaicProvider coordinator={coordinator}>
+    <MosaicProvider engine={booted}>
       <div className="rounded-lg border p-4">
         <p className="font-medium text-sm">
           {layer === "engine" ? "Simulation cost against corpus" : "p95 frame interval against corpus"}

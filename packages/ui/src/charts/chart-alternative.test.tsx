@@ -1,3 +1,4 @@
+import { engineOver } from "../../test/engine";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import type { Coordinator, MosaicClient } from "@uwdata/mosaic-core";
 import { count } from "@kanzo-tech/mosaic";
@@ -96,7 +97,7 @@ describe("a ChartRoot's text alternative", () => {
       disconnect() {},
     } as unknown as Coordinator;
     const { container } = render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <ChartRoot aria-label="Sightings by region" relation="sightings">
           <ChartBarY x="region" y={count()} />
         </ChartRoot>

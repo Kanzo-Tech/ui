@@ -137,7 +137,7 @@ const TYPES = "\0types";
  * **Find a vertex and go to it** — a palette in Raycast's and Linear's shape over Cosmograph's search,
  * with Neo4j Bloom's prefixes: `type:<Type>` keeps a vertex table, `<column>:<value>` a column that
  * contains the value, and the rest is text the vertex's `title` — or its table's `identity` — must
- * contain. Each pause in typing asks the corpus once, through the page's coordinator, for the first
+ * contain. Each pause in typing asks the corpus once, on the page's engine, for the first
  * `limit` matches and how many there are of each type; nothing is read before the reader types, and
  * no vertex's text is held in the page.
  *
@@ -184,7 +184,7 @@ export function GraphSearch({ className, limit = 50, size = "sm", translations, 
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const id = useId();
-  const { title, categories, coordinator } = options;
+  const { title, categories, engine } = options;
   const binding = bindingOf(options);
   const bound = binding.byTable || binding.category !== undefined;
 
@@ -204,24 +204,25 @@ export function GraphSearch({ className, limit = 50, size = "sm", translations, 
   const input = [...chips.value, text].join(" ").trim();
 
   useEffect(() => {
-    if (!structure || !coordinator || input === "") return;
-    let current = true;
+    if (!structure || !engine || input === "") return;
+    // A pause in typing that moved on stops the search it asked, so it does not hold the connection.
+    const stop = new AbortController();
     const query = parseQuery(input, structure);
     const timer = setTimeout(() => {
-      searchVertices(coordinator, structure, { query, title, limit, subset: predicate() }).then(
-        (found) => current && setAnswered({ input, query, found }),
+      searchVertices(engine, structure, { query, title, limit, subset: predicate() }, stop.signal).then(
+        (found) => stop.signal.aborted || setAnswered({ input, query, found }),
         (error: unknown) => {
-          if (!current) return;
+          if (stop.signal.aborted) return;
           setAnswered({ input, query, found: false });
           api.getState().options.onFailure(error);
         },
       );
     }, PAUSE);
     return () => {
-      current = false;
+      stop.abort();
       clearTimeout(timer);
     };
-  }, [api, predicate, structure, coordinator, input, title, limit]);
+  }, [api, predicate, structure, engine, input, title, limit]);
 
   const typed = input !== "";
   const result = answered !== null && answered.input === input ? answered : null;
@@ -269,9 +270,9 @@ export function GraphSearch({ className, limit = 50, size = "sm", translations, 
     );
   };
   const addAll = async () => {
-    if (!structure || !coordinator || !result) return;
+    if (!structure || !engine || !result) return;
     try {
-      search.pick(await matchingIds(coordinator, structure, result.query, { title, subset: predicate() }), `“${result.input}”`);
+      search.pick(await matchingIds(engine, structure, result.query, { title, subset: predicate() }), `“${result.input}”`);
       setOpen(false);
     } catch (error) {
       api.getState().options.onFailure(error);

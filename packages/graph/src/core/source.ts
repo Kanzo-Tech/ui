@@ -1,34 +1,16 @@
-"use client";
-
-import {
-  Query,
-  and,
-  asTableRef,
-  cast,
-  count,
-  eq,
-  float64,
-  isIn,
-  length,
-  literal,
-  not,
-  sql,
-  sum,
-  clauseColumns,
-  type Coordinator,
-  type ExprNode,
-  type FilterExpr,
-} from "@kanzo-tech/mosaic";
-import { until } from "@kanzo-tech/kernel";
+import { Query, and, asTableRef, cast, count, eq, float64, isIn, length, literal, not, sql, sum, clauseColumns, type ExprNode, type FilterExpr } from "@kanzo-tech/mosaic";
+import { type Engine } from "@kanzo-tech/mosaic/engine";
 import { DST, KEY, SRC, VERTEX_INDEX, tableOf, type Structure, type VertexTable } from "./structure";
 
 /**
- * **What the graph reads, through the page's coordinator.** A GraphAr graph `attachGraph` attached
+ * **What the graph reads, through the page's engine.** A GraphAr graph `attachGraph` attached
  * under a name is a catalog: a view per vertex and edge type, and the information files as relations
  * beside them. The graph reads the structure from those once (`readCatalog`, `catalog.ts`) and the
- * rows here, through each type's `table` — its view under the global id — with the same coordinator,
- * and the same cache, every chart on the page uses. Nothing here parses a YAML file and nothing here
- * owns a connection.
+ * rows here, through each type's `table` — its view under the global id — on the engine's own door,
+ * `engine.query`, not the coordinator's queue: a read here is the library's own statement, so it
+ * carries its signal to the connection, and an abort stops it (`/docs/design/engine`, *One door*).
+ * Only the graph's Mosaic client (`client.ts`) reads through the coordinator, as every chart does.
+ * Nothing here parses a YAML file and nothing here owns a connection.
  *
  * Every statement is built from mosaic-sql's nodes, which quote their own identifiers and literals:
  * a search is text a reader typed, and no string here is spliced into SQL.
@@ -43,15 +25,15 @@ export interface Answer {
   getChild(name: string): { toArray(): ArrayLike<unknown>; get(index: number): unknown } | null;
 }
 
+/** What a read handed no signal waits on: one that never aborts. */
+const UNSTOPPED = new AbortController().signal;
+
 /**
- * Run `query` on the coordinator, in Arrow. An abort rejects with the signal's reason and takes the
- * request off the coordinator's queue; a statement already running is not interrupted, since the
- * coordinator has no way to say so.
+ * Run `query` on the engine, in columns. An abort while it waits its turn means it is never sent;
+ * while it runs, the engine interrupts it; either way the call rejects with the signal's reason.
  */
-export function ask(coordinator: Coordinator, query: Query, signal?: AbortSignal): Promise<Answer> {
-  const result = coordinator.query(query, { type: "arrow" });
-  signal?.addEventListener("abort", () => coordinator.cancel([result]), { once: true });
-  return until(result as Promise<Answer>, signal);
+export function ask(engine: Engine, query: Query, signal: AbortSignal = UNSTOPPED): Promise<Answer> {
+  return engine.query(String(query), { signal });
 }
 
 const values = (answer: Answer, name: string): ArrayLike<unknown> => answer.getChild(name)?.toArray() ?? [];
@@ -61,7 +43,7 @@ const values = (answer: Answer, name: string): ArrayLike<unknown> => answer.getC
  * that lacks a selected column answers `null` for it, so one statement shape serves every table.
  */
 export async function readColumns(
-  coordinator: Coordinator,
+  engine: Engine,
   structure: Structure,
   select: readonly string[],
   signal?: AbortSignal,
@@ -69,18 +51,18 @@ export async function readColumns(
   return Promise.all(
     structure.vertices.map(async (table) => {
       const projection = Object.fromEntries(select.map((c) => [c, table.columns.has(c) ? c : literal(null)]));
-      const answer = await ask(coordinator, Query.select(projection).from(table.table).orderby(KEY), signal);
+      const answer = await ask(engine, Query.select(projection).from(table.table).orderby(KEY), signal);
       return { table, answer };
     }),
   );
 }
 
 /** `[src, dst, …]` over every relation, as cosmos.gl takes links. */
-export async function readLinks(coordinator: Coordinator, structure: Structure, signal?: AbortSignal): Promise<Float32Array> {
+export async function readLinks(engine: Engine, structure: Structure, signal?: AbortSignal): Promise<Float32Array> {
   const answers = await Promise.all(
     structure.edges.map((edge) =>
       ask(
-        coordinator,
+        engine,
         Query.select({ src: float64(SRC), dst: float64(DST) }).from(edge.table),
         signal,
       ),
@@ -114,13 +96,14 @@ export interface VertexDetail {
  * One vertex's row: every column but the global id. A lookup by id reads the type's view by
  * GraphAr's own index, `id − first`, which the chunk's statistics can skip on, and not by the sum.
  */
-export async function readVertex(coordinator: Coordinator, structure: Structure, vertex: number): Promise<VertexDetail | null> {
+export async function readVertex(engine: Engine, structure: Structure, vertex: number, signal?: AbortSignal): Promise<VertexDetail | null> {
   const table = tableOf(structure, vertex);
   if (!table) return null;
   const names = [...table.columns.keys()].filter((name) => name !== KEY);
   const answer = await ask(
-    coordinator,
+    engine,
     Query.select(names).from(relation(structure.from, table.name)).where(eq(VERTEX_INDEX, literal(vertex - table.first))),
+    signal,
   );
   if (answer.numRows === 0) return null;
   return { vertex, table: table.name, fields: names.map((name) => ({ name, value: answer.getChild(name)?.get(0) ?? null })) };
@@ -128,10 +111,11 @@ export async function readVertex(coordinator: Coordinator, structure: Structure,
 
 /** The text of a few vertices, by id — a label's, a hover card's. One statement per table they fall in. */
 export async function readTitles(
-  coordinator: Coordinator,
+  engine: Engine,
   structure: Structure,
   vertices: readonly number[],
   title: string | undefined,
+  signal?: AbortSignal,
 ): Promise<Map<number, string>> {
   const byTable = new Map<VertexTable, number[]>();
   for (const vertex of vertices) {
@@ -142,10 +126,11 @@ export async function readTitles(
   await Promise.all(
     [...byTable].map(async ([table, ids]) => {
       const answer = await ask(
-        coordinator,
+        engine,
         Query.select({ id: float64(VERTEX_INDEX), text: cast(titleColumn(table, title), "VARCHAR") })
           .from(relation(structure.from, table.name))
           .where(isIn(VERTEX_INDEX, ids.map((id) => literal(id - table.first)))),
+        signal,
       );
       const [id, texts] = [values(answer, "id"), values(answer, "text")];
       for (let i = 0; i < answer.numRows; i++) found.set(table.first + (id[i] as number), String(texts[i] ?? ""));
@@ -254,16 +239,17 @@ export interface Found {
  * still answers a row to count the outside from. Nothing is read until the reader types.
  */
 export async function searchVertices(
-  coordinator: Coordinator,
+  engine: Engine,
   structure: Structure,
   { query, title, limit, subset }: { query: VertexQuery; title?: string; limit: number; subset: readonly ExprNode[] },
+  signal?: AbortSignal,
 ): Promise<Found> {
   const union = matching(structure, query, title, subset);
   if (union === null) return { matches: [], total: 0, byType: new Map(), outside: 0 };
   // As a number: Arrow hands a boolean column back bit-packed.
   const one = float64(sql`CASE WHEN inside THEN 1 ELSE 0 END`);
   const answer = await ask(
-    coordinator,
+    engine,
     Query.select("id", "text", "key", "type", {
       inside: one,
       per: float64(count().partitionby("type", "inside")),
@@ -273,6 +259,7 @@ export async function searchVertices(
       .from(union)
       .orderby(not("inside"), length("text"), "text", "id")
       .limit(limit),
+    signal,
   );
   const [id, text, key, type, inside] = ["id", "text", "key", "type", "inside"].map((name) => values(answer, name));
   const [per, total, all] = ["per", "total", "all"].map((name) => values(answer, name));
@@ -289,14 +276,15 @@ export async function searchVertices(
 
 /** Every vertex `query` keeps inside `subset`, by id — what a search adds to the subset. */
 export async function matchingIds(
-  coordinator: Coordinator,
+  engine: Engine,
   structure: Structure,
   query: VertexQuery,
   { title, subset }: { title?: string; subset: readonly ExprNode[] },
+  signal?: AbortSignal,
 ): Promise<number[]> {
   const union = matching(structure, query, title, subset);
   if (union === null) return [];
-  return Array.from(values(await ask(coordinator, Query.select("id").from(union).where("inside")), "id") as ArrayLike<number>);
+  return Array.from(values(await ask(engine, Query.select("id").from(union).where("inside"), signal), "id") as ArrayLike<number>);
 }
 
 /** The name every vertex as one relation goes by: in the corpus's join graph, and as what the canvas reads. */

@@ -50,11 +50,11 @@ engine, the coordinator, `Query`, the aggregates, the clauses — is imported fr
 `@kanzo-tech/mosaic`, the one door to it; `/analytics` re-exports none of it.
 
 ```tsx
-import { engine } from "@kanzo-tech/mosaic";
+import { engine } from "@kanzo-tech/mosaic/engine";
 import { Dashboard, FilterBar, MosaicProvider } from "@kanzo-tech/ui/analytics";
 
-const { coordinator } = await engine();
-<MosaicProvider coordinator={coordinator}>
+const e = await engine();
+<MosaicProvider engine={e}>
   <FilterBar table="sightings" />
   <Dashboard table="sightings" value={saved} onChange={save} />
 </MosaicProvider>;

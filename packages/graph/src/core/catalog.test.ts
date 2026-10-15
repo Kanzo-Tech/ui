@@ -1,5 +1,7 @@
-import { Query } from "@kanzo-tech/mosaic";
+import { Query, count, isNotNull } from "@kanzo-tech/mosaic";
+import { relationQuery } from "@kanzo-tech/relations";
 import { describe, expect, it } from "vitest";
+import { readJoinGraph } from "@kanzo-tech/relations";
 import { attach, chunkOf, writeChunk } from "../../test/corpus";
 import { readCatalog } from "./catalog";
 
@@ -16,7 +18,7 @@ describe("readCatalog", () => {
        CREATE VIEW ${corpus.from}.graphar_edge_types AS
          SELECT * REPLACE (CASE name WHEN 'Person_knows_Person' THEN 'acquaintance' ELSE edge_type END AS edge_type) FROM ${corpus.from}.written;`,
     );
-    const { edges } = await readCatalog(corpus.coordinator, corpus.from);
+    const { edges } = await readCatalog(corpus.engine, corpus.from);
     expect(edges.map((e) => [e.name, e.label, e.source, e.destination, e.rows])).toEqual([
       ["Person_knows_Person", "acquaintance", "Person", "Person", 9],
       ["Person_livesIn_Place", "livesIn", "Person", "Place", 10],
@@ -26,7 +28,7 @@ describe("readCatalog", () => {
 
   it("numbers the types in the graph document's order, each from the counts before it", async () => {
     const corpus = await attach();
-    const { vertices, size } = await readCatalog(corpus.coordinator, corpus.from);
+    const { vertices, size } = await readCatalog(corpus.engine, corpus.from);
     expect(vertices.map((v) => [v.name, v.first, v.rows, v.identity])).toEqual([
       ["Person", 0, 10, "subject"],
       ["Place", 10, 6, "subject"],
@@ -41,7 +43,7 @@ describe("readCatalog", () => {
 
   it("gives each edge its ends as global ids, from GraphAr's per-type indices", async () => {
     const corpus = await attach();
-    const { edges } = await readCatalog(corpus.coordinator, corpus.from);
+    const { edges } = await readCatalog(corpus.engine, corpus.from);
     const lives = (await corpus.coordinator.query(Query.select("src", "dst").from(edges[1]!.table).orderby("src"), {
       type: "json",
     })) as Iterable<{ src: number; dst: number }>;
@@ -50,7 +52,7 @@ describe("readCatalog", () => {
 
   it("describes each column by the engine's type and GraphAr's primary key and nullability, the global id first", async () => {
     const corpus = await attach();
-    const { vertices } = await readCatalog(corpus.coordinator, corpus.from);
+    const { vertices } = await readCatalog(corpus.engine, corpus.from);
     const person = vertices.find((v) => v.name === "Person")!;
     expect([...person.columns.keys()]).toEqual(["dense_id", "subject", "name", "team", "score", "lon", "lat", "born", "nickname"]);
     expect(person.columns.get("dense_id")).toMatchObject({ type: "UINTEGER", primary: false, nullable: false });
@@ -60,7 +62,7 @@ describe("readCatalog", () => {
 
   it("reads a multi-valued property as a list column of the type that owns it, and counts none of a list", async () => {
     const corpus = await attach();
-    const { vertices } = await readCatalog(corpus.coordinator, corpus.from);
+    const { vertices } = await readCatalog(corpus.engine, corpus.from);
     const nickname = vertices.find((v) => v.name === "Person")!.columns.get("nickname");
     expect(nickname).toMatchObject({ type: "VARCHAR[]", nullable: true, stats: null });
   });
@@ -71,14 +73,14 @@ describe("readCatalog", () => {
       `ALTER VIEW ${corpus.from}.graphar_properties RENAME TO written;
        CREATE VIEW ${corpus.from}.graphar_properties AS SELECT * REPLACE (false AS is_primary) FROM ${corpus.from}.written;`,
     );
-    const { vertices, size } = await readCatalog(corpus.coordinator, corpus.from);
+    const { vertices, size } = await readCatalog(corpus.engine, corpus.from);
     expect(vertices.map((v) => [v.name, v.identity])).toEqual([["Person", "dense_id"], ["Place", "dense_id"], ["Tag", "dense_id"]]);
     expect(size).toBe(20);
   });
 
   it("reads what the writer counted from the chunks' footers: its distinct and commonest values, and the footer's nulls and extent", async () => {
     const corpus = await attach();
-    const { vertices } = await readCatalog(corpus.coordinator, corpus.from);
+    const { vertices } = await readCatalog(corpus.engine, corpus.from);
     const person = vertices.find((v) => v.name === "Person")!;
     expect(person.columns.get("born")?.stats).toMatchObject({ nullCount: 0, distinctCount: 10, minValue: "1900", maxValue: "1909" });
     expect(person.columns.get("team")?.stats).toMatchObject({
@@ -105,7 +107,7 @@ describe("readCatalog", () => {
       `CREATE OR REPLACE VIEW ${corpus.from}.graphar_chunks AS SELECT * FROM (VALUES
          ${types.map((type) => `('${type}', 'vertex', '${chunkOf(corpus.from, type, 1)}')`).join(", ")}) t(type, kind, path);`,
     );
-    const { vertices } = await readCatalog(corpus.coordinator, corpus.from);
+    const { vertices } = await readCatalog(corpus.engine, corpus.from);
     // The id's own counts are the arithmetic's, not a footer's.
     expect(vertices.every((v) => [...v.columns].every(([name, c]) => name === "dense_id" || c.stats === null))).toBe(true);
   });
@@ -123,9 +125,21 @@ describe("readCatalog", () => {
          SELECT * FROM (VALUES ('Person', 'vertex', '${chunkOf(corpus.from, "Person")}'), ('Person', 'vertex', '${chunkOf(corpus.from, "Person", 1)}'),
            ('Place', 'vertex', '${chunkOf(corpus.from, "Place")}'), ('Tag', 'vertex', '${chunkOf(corpus.from, "Tag")}')) t(type, kind, path);`,
     );
-    const { vertices } = await readCatalog(corpus.coordinator, corpus.from);
+    const { vertices } = await readCatalog(corpus.engine, corpus.from);
     const person = vertices.find((v) => v.name === "Person")!;
     expect([...person.columns].every(([name, c]) => name === "dense_id" || c.stats === null)).toBe(true);
     expect(vertices.find((v) => v.name === "Place")!.columns.get("name")?.stats).not.toBeNull();
+  });
+
+  it("is @kanzo-tech/relations' reader: every type and every relation of an attached graph, in global ids, joined", async () => {
+    const corpus = await attach();
+    const graph = await readJoinGraph(corpus.engine, corpus.from, { signal: new AbortController().signal });
+    expect(graph.types.map((t) => t.name)).toEqual(["Person", "Place", "Tag", "vertices"]);
+    // Ten people, each living in `10 + i % 6`: the join lands on Place's global ids.
+    const relation = { root: "Person", path: [{ edge: "Person_livesIn_Place", direction: "out" as const }] };
+    const rows = (await corpus.coordinator.query(
+      Query.select({ n: count() }).from(relationQuery(graph, relation)).where(isNotNull("livesIn.name")),
+    )) as Iterable<{ n: unknown }>;
+    expect(Number(Array.from(rows)[0]!.n)).toBe(10);
   });
 });

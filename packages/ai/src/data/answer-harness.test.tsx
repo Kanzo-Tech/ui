@@ -51,7 +51,7 @@ function Page({ into }: { into: (selection: Selection) => void }) {
 
 function page(answer: AnswerOutput, adding: Adding = {}, into: (selection: Selection) => void = () => {}) {
   return (
-    <QueryClientProvider client={queries}><MosaicProvider coordinator={db.coordinator}>
+    <QueryClientProvider client={queries}><MosaicProvider engine={db.engine}>
       <Page into={into} />
       <PromptInput>
         <PromptInputTextarea placeholder="Ask about your data…" />
@@ -70,7 +70,7 @@ describe("AnswerHarness", () => {
     const { rerender } = draw({ answer: output.answer }, {}, (s) => (crossfilter = s));
     const answers = await env.getHarness(AnswerHarness);
     rerender(
-      <QueryClientProvider client={queries}><MosaicProvider coordinator={db.coordinator}>
+      <QueryClientProvider client={queries}><MosaicProvider engine={db.engine}>
         <Page into={(s) => (crossfilter = s)} />
         <PromptInput>
           <PromptInputTextarea placeholder="Ask about your data…" />

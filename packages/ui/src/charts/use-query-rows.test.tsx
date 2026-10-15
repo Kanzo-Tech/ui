@@ -1,3 +1,4 @@
+import { engineOver } from "../../test/engine";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import type { Coordinator } from "@uwdata/mosaic-core";
 import { Component, Suspense, type ReactNode } from "react";
@@ -42,7 +43,7 @@ function Names({ sql }: { sql: string }) {
 const mount = (node: ReactNode) => act(async () => void render(node));
 
 const page = (coordinator: Coordinator, children: ReactNode) => (
-  <MosaicProvider coordinator={coordinator}>
+  <MosaicProvider engine={engineOver(coordinator)}>
     <Boundary>
       <Suspense fallback={<p>loading</p>}>{children}</Suspense>
     </Boundary>

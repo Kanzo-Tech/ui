@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { GraphCanvas, GraphRoot } from "@kanzo-tech/graph";
 import { DiagnosticList, Problem, Show, type ProblemDescription } from "@kanzo-tech/ui";
-import { engine } from "@kanzo-tech/mosaic";
+import { engine } from "@kanzo-tech/mosaic/engine";
 import { attachWritten } from "@/lib/attach-graph";
 
 /** What a host says for a failure, keyed on its `code` — graphar's and the graph's alike. */
@@ -29,7 +29,7 @@ export default function Example() {
   }, []);
   return (
     <div className="flex h-72 w-full flex-col gap-2">
-      <GraphRoot coordinator={null} from={null} onFailure={setFailure}>
+      <GraphRoot engine={null} from={null} onFailure={setFailure}>
         <GraphCanvas className="flex-1 rounded-lg border">
           <Show when={failure !== null}>
             <div className="absolute inset-0 grid place-items-center p-6">

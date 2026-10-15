@@ -3,11 +3,14 @@ title: Relations
 description: Why JoinGraph is the one read-model of a catalog, why a typed CatalogReader is the only way one is made, how a mapping fills what a catalog does not say and where that match is fragile, why a path reads as Malloy's dots and SPARQL's inverse, and why the shape before a run comes from the compiler; and what would reverse each rule.
 ---
 
-> **Status: to be built.** Today `JoinGraph` lives in `@kanzo-tech/mosaic` and its only constructor,
-> `readJoinGraph`, in `@kanzo-tech/graph`; graph keeps a second description of the same catalog,
-> `Structure`, and a bridge between the two; `withMapping` exists on a branch and keasy imports it
-> from a locally packed build; keasy builds the pre-run shape itself with `joinGraphOf`. The
-> *Breaking* list at the end is what a consumer edits.
+> **Status: partly built.** `@kanzo-tech/relations` exists and holds `JoinGraph` and its parts,
+> `Relation`, `Hop`, `JoinResolver`, the crossfilter, the relation words, `withMapping` and the
+> `CatalogReader` contract; `readJoinGraph(engine, from, { signal })` is its GraphAr reader, and graph's
+> `joinGraphOf` is deleted. Still to build: graph keeps `Structure`, now derived from the reader's
+> `JoinGraph` with `first` and `identity` added, and the `vertices` union is still made by the reader;
+> the validation that throws `relations/invalid`, the refusal of a type whose ids have a gap, and the
+> tests over a vendored fixture attached by the real attacher; keasy's `joinGraphOf` and `ai`'s second
+> resolver. The *Breaking* list at the end is what a consumer edits.
 
 Four things describe the same tables, columns, keys and labels. graph's `Structure` (a canvas's
 vertex and edge tables); mosaic's `JoinGraph` (types, edges, columns, stats, annotations); rudof's

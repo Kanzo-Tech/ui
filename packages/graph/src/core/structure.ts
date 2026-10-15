@@ -1,4 +1,5 @@
-import { type JoinColumnStats, type Query } from "@kanzo-tech/mosaic";
+import { type Query } from "@kanzo-tech/mosaic";
+import type { JoinColumnStats } from "@kanzo-tech/relations";
 
 /**
  * **The graph as its catalog describes it.** `readCatalog` (`catalog.ts`) reads GraphAr's relations

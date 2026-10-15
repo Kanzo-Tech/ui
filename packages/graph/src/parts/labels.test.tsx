@@ -73,7 +73,7 @@ describe("label levels over a large graph", () => {
   ] as [LabelLevel, number][])("mounts no more labels at %s than the view holds", async (level, bound) => {
     const corpus = await attach(PEOPLE);
     render(
-      <GraphRoot from={corpus.from} coordinator={corpus.coordinator} look={{ labels: level }} onFailure={() => {}} title="name">
+      <GraphRoot from={corpus.from} engine={corpus.engine} look={{ labels: level }} onFailure={() => {}} title="name">
         <GraphCanvas />
       </GraphRoot>,
     );
@@ -97,7 +97,7 @@ describe("labels read what is kept", () => {
       return null;
     }
     render(
-      <GraphRoot from={corpus.from} coordinator={corpus.coordinator} look={{ labels: "all" }} onFailure={() => {}} title="name">
+      <GraphRoot from={corpus.from} engine={corpus.engine} look={{ labels: "all" }} onFailure={() => {}} title="name">
         <GraphCanvas />
         <Store />
       </GraphRoot>,

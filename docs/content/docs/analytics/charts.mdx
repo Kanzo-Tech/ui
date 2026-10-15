@@ -14,8 +14,8 @@ import { ChartRoot, ChartBarY, ChartToggleX } from "@kanzo-tech/ui/analytics";
 ```
 
 Like [CodeEditor](/docs/forms/code-editor) with CodeMirror, the library wraps the engine and
-never owns the runtime: it is **bring-your-own-coordinator**. No chart builds a `Coordinator` — you
-take the page's one from `engine()` (or build your own) in a `"use client"` island and pass it in,
+never owns the runtime: it is **bring-your-own-engine**. No chart boots one — you take the page's
+one from `engine()` in a `"use client"` island and pass it in,
 which is what keeps the analytics stack out of the base bundle and out of every React Server
 Component.
 `@kanzo-tech/mosaic`, `@uwdata/vgplot`, `@uwdata/mosaic-plot` and `valibot` are all **optional
@@ -59,7 +59,7 @@ in source order, and turns the lot into a single `vg.plot(...)` — the mark nev
 **Marks cannot be Ark parts**, and that is not a shortcut. vgplot paints imperatively: it returns
 an SVG node that we mount with `host.replaceChildren(...)`. There is no element for a part to own,
 no ref to forward, no `data-slot` to style. What *is* genuinely Ark here is `ChartRoot` plus
-[`useChartContext()`](#usechart) — a context carrying the config, the selections and the coordinator, so
+[`useChartContext()`](#usechart) — a context carrying the config, the selections and the engine, so
 you can build a legend, a tooltip or a readout of your own without forking anything.
 
 The practical consequence: descriptors cannot read context, because they are compiled before React
@@ -113,8 +113,8 @@ pnpm add @kanzo-tech/mosaic @uwdata/mosaic-core @uwdata/mosaic-sql @uwdata/vgplo
 ## The page's one engine
 
 `engine()` is the page's DuckDB-WASM database: one per document, however many islands ask, with
-the Mosaic `Coordinator` over it and the file registry beside it. Hand its coordinator to
-`MosaicProvider`, which registers it as vgplot's active coordinator and owns the page's one
+the Mosaic `Coordinator` inside it and the file registry beside it. Hand it to `MosaicProvider`,
+which registers its coordinator as vgplot's active one and owns the page's one
 `Selection`: every chart beneath it filters by it and publishes into it, and nobody passes one in.
 Hand it `joins` — a join graph, `readJoinGraph` for a fossil corpus — and a clause published on one
 relation reaches a chart reading another ([across relations](#across-relations)). DuckDB-WASM is browser-only, so ask for it in a
@@ -125,22 +125,23 @@ chart hydrate:
 "use client";
 
 import { useEffect, useState } from "react";
-import { engine, loadObjects, type Coordinator } from "@kanzo-tech/mosaic";
+import { loadObjects } from "@kanzo-tech/mosaic";
+import { engine, type Engine } from "@kanzo-tech/mosaic/engine";
 import { MosaicProvider } from "@kanzo-tech/ui/analytics";
 
 export default function Analytics({ children }: { children: React.ReactNode }) {
-  const [coordinator, setCoordinator] = useState<Coordinator | null>(null);
+  const [e, setEngine] = useState<Engine | null>(null);
 
   useEffect(() => {
-    engine().then(async ({ coordinator }) => {
-      await coordinator.exec(loadObjects("sightings", rows));
-      setCoordinator(coordinator);
+    engine().then(async (booted) => {
+      await booted.query(String(loadObjects("sightings", rows)), { signal: new AbortController().signal });
+      setEngine(booted);
     });
   }, []);
 
-  if (!coordinator) return <Skeleton className="h-40 w-full" />;
+  if (!e) return <Skeleton className="h-40 w-full" />;
 
-  return <MosaicProvider coordinator={coordinator}>{children}</MosaicProvider>;
+  return <MosaicProvider engine={e}>{children}</MosaicProvider>;
 }
 ```
 
@@ -181,20 +182,20 @@ is DuckDB's error naming it, never a fetch from extensions.duckdb.org.
 Serve `.wasm` as `application/wasm`, and the page's policy needs no host but yours and your
 storage's: `script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' <storage>`.
 
-A backend that is not DuckDB-WASM — a socket or REST connector — is still a `Coordinator` you build
-yourself and hand to `MosaicProvider`. `engine`, the loaders (`loadObjects`, `loadCSV`, `loadJSON`,
-`loadParquet`, `loadSpatial`, `loadExtension`), `Coordinator` and `Selection` are
+A backend that is not DuckDB-WASM — a socket or REST connector — is not served: `MosaicProvider`
+takes an engine, not a coordinator ([why](/docs/design/engine#one-door-and-the-coordinator-is-its-cache)).
+`engine`, the loaders (`loadObjects`, `loadCSV`, `loadJSON`,
+`loadParquet`, `loadSpatial`, `loadExtension`) and `Selection` are
 `@kanzo-tech/mosaic`'s, so you wire the backend without a direct `@uwdata` import. vgplot's own
 `coordinator()` setter is exported by neither: `MosaicProvider` is the only thing that should ever
 call it.
 
 <Callout type="warn">
-**One coordinator per page.** `MosaicProvider` registers its coordinator as vgplot's active one,
-and that setter is process-wide: mount two providers with two different coordinators on the same
-page and the last one wins, leaving the other page's charts empty. Share a single instance (every
-example below does — see `docs/examples/charts/mosaic-boot.tsx`), or keep the demos on separate
-routes. Several `MosaicProvider`s over the *same* coordinator are fine; each still owns its own
-`Selection`.
+**One engine per page.** `MosaicProvider` registers the engine's coordinator as vgplot's active
+one, and that setter is process-wide: two coordinators on one page and the last one wins, leaving
+the other's charts empty. `engine()` is one per document, so ask it rather than building a
+coordinator (every example below does — see `docs/examples/charts/mosaic-boot.tsx`). Several
+`MosaicProvider`s over the *same* engine are fine; each still owns its own `Selection`.
 </Callout>
 
 ## A relation in another catalog
@@ -492,7 +493,7 @@ function Total({ rows }: { rows: number }) {
 | `config` | what the root was given |
 | `table`, `relation` | what the marks read — the root's `relation`, compiled over the provider's `joins` — and the relation the page knows the chart by, what its clauses are on |
 | `selection` | the page's one selection: what the marks read and the interactors write |
-| `coordinator` | for a part that queries alongside the plot |
+| `engine` | the page's engine, for a part that queries alongside the plot |
 | `plot()` | the vgplot `Plot` on screen as `ChartPlot` — its `interactors` — or `null` before the first build; a part that moves a brush asks the brush, as `ChartTimeline` does |
 
 It throws outside a `ChartRoot`; `useChartContextOptional()` returns `null` instead, which is how
@@ -684,7 +685,7 @@ await (await env.getHarness(ChartHarness.with({ title: "Sightings by beast" })))
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `coordinator` | `Coordinator` | — |
+| `engine` | `Engine` — `engine()`'s | — |
 | `joins` | `JoinGraph \| null` — the graph a part's `relation` names a type or a path over, and a clause crosses relations through | `null` |
 | `onFailure` | `(error: unknown) => void` | — |
 
@@ -694,7 +695,7 @@ failed in its own frame: a failed chart reads *This chart could not be drawn.*, 
 `useChartQuery` and `useMosaicInput` return the same value as `error`.
 
 The provider owns the page's one selection; nobody passes one. `useMosaic()` returns
-`{ coordinator, selection, joins, onFailure }` — `selection.reset()` clears every clause on the page,
+`{ engine, selection, joins, onFailure }` — `selection.reset()` clears every clause on the page,
 `selection.reset([clause])` that clause, which is what a chip's remove button does, and `onFailure`
 reports a failure of your own part the way the library's do. It throws outside a `MosaicProvider`.
 
@@ -842,7 +843,8 @@ directions its `.orderby()` takes; the relation algebra (`Relation`, `JoinGraph`
 and `RelationExpr`, what every part's `relation` takes; `TableExpr`, `numbers` and `queryFailure`.
 
 ```tsx
-import { count, engine, Query } from "@kanzo-tech/mosaic";
+import { count, Query } from "@kanzo-tech/mosaic";
+import { engine } from "@kanzo-tech/mosaic/engine";
 import { ChartBarY, ChartRoot, MosaicProvider } from "@kanzo-tech/ui/analytics";
 ```
 

@@ -48,7 +48,7 @@ const ids = (mask: Uint8Array | null | undefined) => [...(mask ?? [])].flatMap((
 async function mapped() {
   const corpus = await attach();
   const crossfilter = Selection.crossfilter();
-  const store = createGraph({ from: corpus.from, coordinator: corpus.coordinator, onFailure: vi.fn(), filterBy: crossfilter, x: "lon", y: "lat" });
+  const store = createGraph({ from: corpus.from, engine: corpus.engine, onFailure: vi.fn(), filterBy: crossfilter, x: "lon", y: "lat" });
   // A subscriber connects the graph's client, as a mounted canvas does.
   store.subscribe(() => {});
   await settle(corpus);
@@ -255,7 +255,7 @@ describe("a clause a type cannot answer", () => {
         columns.forEach((c, i) => page.update(c.kind === "score" ? clauseInterval("score", c.range, { source: [source, { reset() {} }][i]! }) : clausePoint("name", c.value, { source: [source, { reset() {} }][i]! })));
         sets.forEach((set) => page.update(clauseSemiJoin("dense_id", set, { source: { reset() {} }, label: "set" })));
         const subset = page.clauses.map((clause) => clause.predicate).filter((p) => p !== null) as never[];
-        const found = await matchingIds(corpus.coordinator, structure, parseQuery("", structure), { subset });
+        const found = await matchingIds(corpus.engine, structure, parseQuery("", structure), { subset });
         const expected = subset.length === 0 ? Array.from({ length: SIZE }, (_, i) => i) : await oracle(corpus, columns, sets);
         expect([...found].sort((a, b) => a - b)).toEqual(expected);
       }),

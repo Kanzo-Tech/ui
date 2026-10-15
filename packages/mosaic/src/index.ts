@@ -25,6 +25,7 @@ export {
   clauseInterval,
   clauseIntervals,
   clauseMatch,
+  type ClauseMetadata,
   type ClauseSource,
   type SelectionClause,
 } from "@uwdata/mosaic-core";
@@ -46,8 +47,10 @@ export {
 /**
  * The expression builders the graph, the charts and Ask write their statements with — the ones they
  * use, and no more. A statement built from nodes quotes its own identifiers and literals, which a
- * search a reader types must never leave to a template string. mosaic-sql's `column` is not among
- * them: a bare string is already a column wherever these take one.
+ * search a reader types must never leave to a template string. The nodes after them — `column` with
+ * its table alias, `join`, a `FROM` clause, `IN` over a scalar subquery — are what
+ * `@kanzo-tech/relations` compiles a relation and crosses a clause with; a chart has no use for them,
+ * since a bare string is already a column wherever the builders take one.
  */
 export {
   and,
@@ -70,6 +73,7 @@ export {
   verbatim,
   type ExprNode,
 } from "@uwdata/mosaic-sql";
+export { FromClauseNode, InOpNode, ScalarSubqueryNode, column, join, type JoinNode } from "@uwdata/mosaic-sql";
 
 /**
  * The aggregates, complete on purpose: what a chart's `x` / `y` / `r` and a `Query`'s `select` take.
@@ -95,28 +99,6 @@ export {
   type SemiJoinOptions,
 } from "./clause.js";
 
-/**
- * Ours: the page's one crossfilter across relations — Mosaic's crossfilter with a resolver that
- * crosses a clause published on one relation into a client of another, by key along the joins, or
- * keeps none of it where there is no way across; and the pre-aggregator kept to a client's own
- * relation. The resolver is also the one door to the joins: a relation's steps, the paths from a
- * type, the relation a set of paths lies on, and where a path off it is crossed in. `crossfilter.ts`.
- */
-export {
-  JoinResolver,
-  crossfilterOver,
-  onRelation,
-  preaggregateOwnRelation,
-  readOf,
-  relationOf,
-  sameRelation,
-  type JoinField,
-  type JoinMiss,
-  type JoinStep,
-  type RelationClient,
-  type RelationExpr,
-  type RelationRef,
-} from "./crossfilter.js";
 /** Ours: what a page has yet to draw for the first time, counted on its selection — `drawing.ts`. */
 export { firstDrawsPending, holdFirstDraw, onFirstDraws } from "./drawing.js";
 /**
@@ -131,41 +113,5 @@ export { numbers } from "./arrow.js";
 /** Ours: what every `table` here and in the charts takes — one identifier, or a relation named in SQL. */
 export { type TableExpr } from "./table.js";
 
-/**
- * Ours: the page's one DuckDB-WASM engine — the coordinator and the file registry beside it. It is
- * the only door to `wasmConnector`, which is why that is no longer re-exported: a second boot is a
- * second database, and every host that wrote its own boot also wrote its own registry policy.
- */
-export { engine, type Engine } from "./engine.js";
-
 /** Ours: what a query threw, from the `QueryError` mosaic-core hands a client's `queryError`. */
 export { queryFailure } from "./failure.js";
-
-/**
- * Ours: a relation over a join graph — a root type and the hops taken from it, compiled to one
- * `Query`, so a joined relation is a `TableExpr` like any table. The graph is data a reader builds
- * from its own catalog; `@kanzo-tech/graph`'s `readJoinGraph` builds one from a fossil corpus.
- */
-export {
-  relationColumns,
-  relationHops,
-  relationKey,
-  relationQuery,
-  type Hop,
-  type JoinAnnotation,
-  type JoinColumn,
-  type JoinColumnStats,
-  type JoinEdge,
-  type JoinGraph,
-  type JoinType,
-  type Relation,
-  type RelationColumn,
-  type RelationHop,
-} from "./relation.js";
-
-/**
- * Ours: a thing's words are its labels — its `rdfs:label` in the page's language, a type named by its
- * naming column, and the identifier split as the last resort, never inflected. `words.ts`.
- */
-export { edgeWords, labelOf, namingColumn, splitWords, typeWords } from "./words.js";
-export { withMapping, type MappingModel } from "./mapping.js";

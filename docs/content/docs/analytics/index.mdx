@@ -23,24 +23,24 @@ It holds two layers, and the second is made of the first:
 Three things exist on a page that uses this subpath, and every part is one of them or reads one of
 them.
 
-### One coordinator, one provider
+### One engine, one provider
 
-A Mosaic **coordinator** owns the connection to DuckDB, the query cache, and the clients (anything
-that asks it for data). You make it — `engine()` boots DuckDB-WASM in the tab and hands it back — and
-pass it to **`MosaicProvider`**. The provider never builds one, which is what keeps DuckDB out of
-every Server Component.
+The **engine** owns the connection to DuckDB and, inside it, the Mosaic coordinator: the query cache
+and the clients (anything that asks it for data). You ask for it — `engine()` boots DuckDB-WASM in the
+tab and hands it back — and pass it to **`MosaicProvider`**. The provider never boots one, which is
+what keeps DuckDB out of every Server Component, and no host holds the coordinator.
 
 ```tsx
-const { coordinator } = await engine();
+const e = await engine();
 
-<MosaicProvider coordinator={coordinator} onFailure={(error) => report(error)}>
+<MosaicProvider engine={e} onFailure={(error) => report(error)}>
   {/* every chart, input, stat and dashboard on the page */}
 </MosaicProvider>
 ```
 
-One coordinator per page. The provider registers it as vgplot's active coordinator, and that setter
+One engine per page. The provider registers its coordinator as vgplot's active one, and that setter
 is process-wide: a second coordinator leaves the first set of charts empty. Several providers may
-share the one coordinator, each with its own selections — that is how the examples on these pages
+share the one engine, each with its own selections — that is how the examples on these pages
 stay independent of each other.
 
 `onFailure` is the single path a failed query takes to the host. Every chart, stat, input and
@@ -144,20 +144,19 @@ charts on their own read through Mosaic and need none of it.
 const queries = new QueryClient();
 
 <QueryClientProvider client={queries}>
-  <MosaicProvider coordinator={coordinator}>
+  <MosaicProvider engine={e}>
     <Dashboard relation="sightings" />
   </MosaicProvider>
 </QueryClientProvider>
 ```
 
-`@kanzo-tech/mosaic` is the one door to Mosaic: the coordinator, the selections, the clauses,
+`@kanzo-tech/mosaic` is the one door to Mosaic: the engine, the selections, the clauses,
 `Query` and the aggregates are imported from it, and `/analytics` holds the charts and re-exports
 none of it. mosaic-core and mosaic-sql are its peers. `valibot` checks a dashboard spec.
 
 DuckDB-WASM is not among them. The database in the tab is
 [`engine()`](/docs/analytics/charts#the-pages-one-engine), and `@kanzo-tech/mosaic` depends on the
-exact `@duckdb/duckdb-wasm` release it boots, so it arrives with the library. A host whose
-coordinator talks to a server-side DuckDB instead never boots it.
+exact `@duckdb/duckdb-wasm` release it boots, so it arrives with the library.
 
 If one is missing you find out at import time, which is the good failure. The bad one — a chart that
 renders empty and says nothing — is what `onFailure` and the in-frame failure exist to rule out.

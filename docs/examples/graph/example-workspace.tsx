@@ -1,17 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import {
-  GraphCanvas,
-  GraphCounts,
-  GraphInspector,
-  GraphLegend,
-  GraphRoot,
-  GraphSearch,
-  GraphStatus,
-  GraphToolbar,
-  useGraphPrefs,
-} from "@kanzo-tech/graph";
+import { GraphCanvas, GraphCounts, GraphInspector, GraphLegend, GraphRoot, GraphSearch, GraphStatus, GraphToolbar, useGraphPrefs } from "@kanzo-tech/graph";
 import { Kbd, KbdGroup, PreferencesSections, ScrollArea, Show, Tabs, TabsContent, TabsList, TabsTrigger } from "@kanzo-tech/ui";
 import { ARCHIVE_KINDS, said, useArchive } from "./archive";
 

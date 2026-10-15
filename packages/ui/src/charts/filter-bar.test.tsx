@@ -1,6 +1,7 @@
+import { engineOver } from "../../test/engine";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { onRelation } from "@kanzo-tech/mosaic";
+import { onRelation } from "@kanzo-tech/relations";
 import { clauseInterval, clausePoint, clausePoints, type Coordinator, type Selection } from "@uwdata/mosaic-core";
 import { describe, expect, it, vi } from "vitest";
 import { FilterBar } from "./filter-bar.js";
@@ -21,7 +22,7 @@ describe("a chip's ×", () => {
     const reset = vi.fn();
     const user = userEvent.setup();
     render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <Page into={(s) => (page = s)} />
         <FilterBar />
       </MosaicProvider>,
@@ -41,7 +42,7 @@ describe("FilterBar", () => {
   it("reads a clause as its field and value, whatever relation it was published on", async () => {
     let page!: Selection;
     render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <Page into={(s) => (page = s)} />
         <FilterBar />
       </MosaicProvider>,
@@ -53,7 +54,7 @@ describe("FilterBar", () => {
   it("draws what a part puts in its slot, and leaves that part's clauses on its relation to it", async () => {
     let page!: Selection;
     render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <Page into={(s) => (page = s)} />
         <FilterBar />
         <InFilterBar held={{ relation: "Person", fields: ["country"] }}>
@@ -83,7 +84,7 @@ describe("FilterBar", () => {
       return <button type="button">{useClientsEnabled() ? "country: Spain" : "asleep"}</button>;
     }
     const view = (enabled: boolean) => (
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <Page into={(s) => (page = s)} />
         <FilterBar />
         <MosaicClients enabled={enabled}>
@@ -110,7 +111,7 @@ describe("FilterBar", () => {
     let page!: Selection;
     const user = userEvent.setup();
     render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <Page into={(s) => (page = s)} />
         <FilterBar />
       </MosaicProvider>,
@@ -128,7 +129,7 @@ describe("FilterBar", () => {
   it("draws what a part puts among its actions after the chips, before Clear every filter", async () => {
     let page!: Selection;
     render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <Page into={(x) => (page = x)} />
         <FilterBar />
         <InFilterBarActions>
@@ -148,7 +149,7 @@ describe("FilterBar", () => {
   it("scrolls its chips in one row rather than wrapping, and says there are none while there are none", async () => {
     let page!: Selection;
     const { container } = render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <Page into={(x) => (page = x)} />
         <FilterBar />
       </MosaicProvider>,
@@ -164,7 +165,7 @@ describe("FilterBar", () => {
   it("scrolls a chip added on its own into view, by the row alone", async () => {
     let page!: Selection;
     const { container } = render(
-      <MosaicProvider coordinator={coordinator}>
+      <MosaicProvider engine={engineOver(coordinator)}>
         <Page into={(x) => (page = x)} />
         <FilterBar />
       </MosaicProvider>,

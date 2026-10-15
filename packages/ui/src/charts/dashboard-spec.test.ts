@@ -12,7 +12,7 @@ import {
   tileQuery,
   type ChartTile,
 } from "./dashboard-spec.js";
-import { JoinResolver, type JoinGraph, type Relation } from "@kanzo-tech/mosaic";
+import { JoinResolver, type JoinGraph, type Relation } from "@kanzo-tech/relations";
 import { Query, count, verbatim } from "@uwdata/mosaic-sql";
 import type { FieldStat } from "./field-stats.js";
 

@@ -37,7 +37,7 @@ describe("GraphCanvas, as a test reads it", () => {
     dom();
     const corpus = await attach();
     const { unmount } = render(
-      <GraphRoot from={corpus.from} coordinator={corpus.coordinator} onFailure={() => {}}>
+      <GraphRoot from={corpus.from} engine={corpus.engine} onFailure={() => {}}>
         <GraphCanvas id="archive" />
       </GraphRoot>,
     );
@@ -50,7 +50,7 @@ describe("GraphCanvas, as a test reads it", () => {
   it("registers nothing when no test installed the hook", async () => {
     const corpus = await attach();
     const { container } = render(
-      <GraphRoot from={corpus.from} coordinator={corpus.coordinator} onFailure={() => {}}>
+      <GraphRoot from={corpus.from} engine={corpus.engine} onFailure={() => {}}>
         <GraphCanvas />
       </GraphRoot>,
     );
@@ -62,7 +62,7 @@ describe("GraphCanvas, as a test reads it", () => {
     const env = dom();
     const corpus = await attach();
     render(
-      <GraphRoot from={corpus.from} coordinator={corpus.coordinator} onFailure={() => {}}>
+      <GraphRoot from={corpus.from} engine={corpus.engine} onFailure={() => {}}>
         <GraphCanvas />
       </GraphRoot>,
     );
@@ -76,7 +76,7 @@ describe("GraphCanvas, as a test reads it", () => {
     const env = dom();
     const corpus = await attach();
     render(
-      <GraphRoot from={corpus.from} coordinator={corpus.coordinator} onFailure={() => {}} x="lon" y="lat">
+      <GraphRoot from={corpus.from} engine={corpus.engine} onFailure={() => {}} x="lon" y="lat">
         <GraphCanvas>
           <GraphCounts />
         </GraphCanvas>

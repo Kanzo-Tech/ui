@@ -296,7 +296,7 @@ no bridge between selections and no second way to retract a clause.
 ### What a host writes
 
 ```tsx
-<MosaicProvider coordinator={coordinator} joins={joins}>
+<MosaicProvider engine={e} joins={joins}>
   <FilterBar />
   <GraphCanvas />                                   {/* the graph is one more client */}
   <ChartTimeline relation="vertices" field="date" />
@@ -429,7 +429,7 @@ union measured the same as over the per-table union it keeps for the clause rule
 19.7 ms against 19.9 ms for a column clause, 25.9 ms against 29.7 ms for 500 ids); the graph
 benchmark in a browser was not run for this step.
 
-*Held by* `packages/mosaic/src/crossfilter.test.ts`, "hands a clause to a client of the relation it
+*Held by* `packages/relations/src/crossfilter.test.ts`, "hands a clause to a client of the relation it
 was published on as it was published", "crosses a clause into another relation by the key of the
 step of its root's type", "keeps none of a relation with no step of the clause's type", "crosses
 every clause on one relation together, and leaves clauses that name no relation as published",

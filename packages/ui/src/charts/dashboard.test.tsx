@@ -1,3 +1,4 @@
+import { engineOver } from "../../test/engine";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -64,7 +65,7 @@ function Aside() {
 
 function draw(props: { value?: DashboardSpec; onChange?: (spec: DashboardSpec | undefined) => void }) {
   return render(
-    <QueryClientProvider client={queries}><MosaicProvider coordinator={stubCoordinator()}>
+    <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
       <Dashboard relation="sightings" {...props} />
       <Aside />
     </MosaicProvider></QueryClientProvider>,
@@ -194,7 +195,7 @@ describe("the tile editor in the page's aside", () => {
 
   it("offers no editing on a page without a TileEditorAside", async () => {
     render(
-      <QueryClientProvider client={queries}><MosaicProvider coordinator={stubCoordinator()}>
+      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
         <Dashboard onChange={vi.fn()} relation="sightings" value={SPEC} />
       </MosaicProvider></QueryClientProvider>,
     );
@@ -213,7 +214,7 @@ describe("Reset to automatic", () => {
     expect(onChange).toHaveBeenCalledWith(undefined);
 
     rerender(
-      <QueryClientProvider client={queries}><MosaicProvider coordinator={stubCoordinator()}>
+      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
         <Dashboard onChange={onChange} relation="sightings" />
         <Aside />
       </MosaicProvider></QueryClientProvider>,
@@ -227,7 +228,7 @@ describe("Dashboard's filters", () => {
   it("are drawn in the page's FilterBar", async () => {
     const user = userEvent.setup();
     render(
-      <QueryClientProvider client={queries}><MosaicProvider coordinator={stubCoordinator()}>
+      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
         <FilterBar />
         <Dashboard onChange={() => {}} relation="sightings" value={{ ...SPEC, filters: [{ field: "region" }] }} />
         <Aside />
@@ -243,7 +244,7 @@ describe("Dashboard's filters", () => {
   it("are drawn from a dashboard under MosaicClients that is off as when it is shown: control, remove, Add a filter", async () => {
     const user = userEvent.setup();
     render(
-      <QueryClientProvider client={queries}><MosaicProvider coordinator={stubCoordinator()}>
+      <QueryClientProvider client={queries}><MosaicProvider engine={engineOver(stubCoordinator())}>
         <FilterBar />
         <MosaicClients enabled={false}>
           <Dashboard onChange={() => {}} relation="sightings" value={{ ...SPEC, filters: [{ field: "region" }] }} />
