@@ -576,7 +576,8 @@ describe("GraphCanvas", () => {
   });
 
   // jsdom paints nothing, so this reads what CSS decides by: two positioned siblings with no
-  // z-index stack in tree order. A z-index set on either would get past it.
+  // z-index stack in tree order. A z-index set on either would get past it. The pixels are
+  // `packages/testing/e2e/grid.e2e.test.ts`'s: jsdom has no canvas to read.
   it("draws the grid under the surface, so no dot lands on a point", async () => {
     const corpus = await attach();
     render(
@@ -588,10 +589,23 @@ describe("GraphCanvas", () => {
     const surface = document.querySelector("[data-slot=graph-canvas-surface]");
     if (!surface?.parentElement) throw new Error("no surface");
     const layers = [...surface.parentElement.children];
-    const grid = layers.findIndex((layer) => layer.getAttribute("style")?.includes("radial-gradient(var(--input)"));
+    const grid = layers.findIndex((layer) => layer.getAttribute("data-slot") === "graph-canvas-grid");
     expect(grid).toBeGreaterThanOrEqual(0);
+    expect(layers[grid]?.tagName).toBe("CANVAS");
     expect(grid).toBeLessThan(layers.indexOf(surface));
     expect(surface.classList.contains("relative")).toBe(true);
+  });
+
+  it("mounts no grid layer at all when look.grid is off", async () => {
+    const corpus = await attach();
+    render(
+      <GraphRoot {...over(corpus)} look={{ grid: false }} onFailure={() => {}}>
+        <GraphCanvas />
+      </GraphRoot>,
+    );
+    await ready(corpus);
+    expect(document.querySelector("[data-slot=graph-canvas-surface]")).not.toBeNull();
+    expect(document.querySelector("[data-slot=graph-canvas-grid]")).toBeNull();
   });
 
   describe("labels", () => {

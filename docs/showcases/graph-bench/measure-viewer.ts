@@ -232,7 +232,7 @@ function Hold({ into }: { into: (api: GraphApi) => void }) {
   return null;
 }
 
-async function viewerRun(coordinator: Coordinator, from: string): Promise<Run> {
+async function viewerRun(coordinator: Coordinator, from: string, grid = true): Promise<Run> {
   const element = host();
   const root = createRoot(element);
   let api: GraphApi | null = null;
@@ -242,7 +242,7 @@ async function viewerRun(coordinator: Coordinator, from: string): Promise<Run> {
     root.render(
       createElement(
         GraphRoot,
-        { from, coordinator, simulate: false, onFailure: (error: unknown) => void (failure ??= { error }) },
+        { from, coordinator, simulate: false, look: { grid }, onFailure: (error: unknown) => void (failure ??= { error }) },
         createElement(GraphCanvas),
         createElement(Hold, { into: (held: GraphApi) => void (api = held) }),
       ),
@@ -294,6 +294,45 @@ export async function measureViewer(pointCount: number, { repeats = 3 } = {}): P
   }
 }
 
+export interface GridSample {
+  path: string;
+  pointCount: number;
+  /** The viewer with `look.grid` off, and with it on, over the same camera path. */
+  without: Run[];
+  with: Run[];
+  failure?: string;
+}
+
+/**
+ * **What the reference grid costs** (`/docs/design/graph`): the viewer over one corpus with
+ * `look.grid` off and on, alternated, so a machine that drifts drifts under both. The gate is that
+ * the two are indistinguishable at the resolution the page has — the same median and p95 interval
+ * in every run — and it is read from the runs, not from one summary of them.
+ */
+export async function measureGrid(pointCount: number, { repeats = 5 } = {}): Promise<GridSample> {
+  const path = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/bench/${pointCount}`;
+  const sample: GridSample = { path, pointCount, without: [], with: [] };
+  if (!visible()) return { ...sample, failure: "the tab is hidden, and a hidden tab draws no frames" };
+  const from = `bench_${pointCount}`;
+  let corpus: Attachment | null = null;
+  try {
+    const e = await engine();
+    corpus = await attach(from, { engine: e, url: `${window.location.origin}${path}` });
+    for (let i = 0; i < repeats; i++) {
+      for (const grid of i % 2 === 0 ? [false, true] : [true, false]) {
+        (grid ? sample.with : sample.without).push(await viewerRun(e.coordinator, from, grid));
+      }
+    }
+    return sample;
+  } catch (error) {
+    return { ...sample, failure: error instanceof Error ? error.message : String(error) };
+  } finally {
+    await corpus?.detach().catch(() => {});
+  }
+}
+
 if (typeof window !== "undefined") {
-  (window as unknown as Record<string, unknown>).measureViewer = measureViewer;
+  const bench = window as unknown as Record<string, unknown>;
+  bench.measureViewer = measureViewer;
+  bench.measureGrid = measureGrid;
 }

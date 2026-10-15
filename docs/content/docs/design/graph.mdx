@@ -420,6 +420,93 @@ no transition", "a camera move notifies nobody", "a selection sets config and ca
 setter"; `packages/graph/src/parts/parts.test.tsx`, "re-renders the card on a hover, and not the
 canvas".
 
+## The reference grid is one canvas, drawn when the camera moved
+
+`look.grid` is a `<canvas>` under the surface, and the vignette is one static CSS layer over it. The
+canvas is drawn by `overlays.ts` in the frame's single paint, **only when the view changed** — where
+world (0, 0) is, how many pixels a unit is, the box and the pixel ratio, and the ink. A settled
+graph, a hover and a label cost it nothing. The dots sit on the graph's own space: `spacing` in
+`packages/graph/src/render/grid.ts` is the smallest 1, 2 or 5 times a power of ten whose step on
+screen is at least 22 px, so the step is always in [22, 55) px and zooming in subdivides, 5 → 2 →
+1 → 0.5, at round numbers. Each dot is a square of whole device pixels, `max(2, round(2 · ratio))`
+across and snapped to the device grid: the same shape everywhere, no antialiasing to cost or to
+fade, and one `fillRect` where a circle was a path. The ink is `--input` resolved against the canvas
+on mount and on a theme tick, never per frame. The CSS layer, its per-frame `backgroundSize` and
+`backgroundPosition` writes and the `GRID` constant are deleted, and there is no switch between the
+two.
+
+**The criterion was written before the numbers.** Over the same camera path and with the grid on,
+every run's p50 and p95 frame interval is the no-grid run's to within 0.5 ms, and the grid is no worse
+than the CSS layer it replaces on p95 interval and on renderer CPU. It is a frame-interval criterion,
+because that is what a reader feels; CPU is reported beside it and not hidden by it.
+
+Measured on 2026-10-14, a camera path of zoom in ×4 and a sweep (the one `measureViewer` drives), at
+1280×720, 200 frames a run, nine runs an arm, the arms rotated so none is always first. Chromium 151
+headless with **SwiftShader**, so no real GPU, on four vCPUs shared with a load average near 14: the
+figures are relative and the frame interval is capped at the 60 Hz vsync, 16.7 ms.
+
+| 1280×720, 9 runs each | no grid | CSS grid (deleted) | canvas grid |
+|---|---|---|---|
+| p50 interval, every run | 16.7 ms | 16.7 ms | 16.7 ms |
+| p95 interval, 1× | 16.7–16.8 ms in all 9 | 16.7–**250** ms, 4 of 9 above 16.8 | 16.7–16.8 ms in all 9 |
+| p95 interval, 2× | 16.7–16.8 ms in all 9 | 16.7–**416.7** ms, 1 of 9 above 16.8 | 16.7–16.8 ms in all 9 |
+| renderer CPU per frame, 1× · 2× (median) | 0.60 · 0.70 ms | 1.95 · 1.90 ms | 1.70 · 1.60 ms |
+| script time per frame, 1× · 2× (median) | 0.01 ms | 0.07 · 0.06 ms | 0.26 · 0.25 ms |
+
+It **meets the criterion and the grid stays on by default** — on the performance question, and not
+on being seen in a light theme, below. The honest remainder: it is not free in
+CPU — about 1 ms of renderer time in a frame that moves the camera, of which 0.2 ms is the draw
+itself — and the GPU process's CPU is the one column this machine could not resolve (30–35 ms a frame
+in every arm, which is a software compositor redrawing the page). Inside the real scene, 2,000 vertices at
+800×450, 1×, nine runs an arm over a 36-frame path, p50 was 16.7 ms in all three arms and the median
+p95 16.8, 16.7 and 16.8 ms (none, CSS, canvas); the first run of two arms had a 33–50 ms p95.
+Its CPU there is not reported: it differed eightfold between arms in a way no arm explains, and a
+previous arm's teardown, 130 s on this machine, runs in the same process. **200,000 vertices could
+not be measured here**: the viewer never reached its first measured frame in eight minutes under
+SwiftShader, and 10,000 did not finish a 60-frame path in ten. 2,000 is the *strictest* scene
+available, since the grid is the largest share of a frame when the graph is the smallest, and a larger
+graph only dilutes it. `measureGrid` in `docs/showcases/graph-bench/measure-viewer.ts` is that
+comparison, grid off against on, to be run where there is a GPU; the isolated one behind the table
+needed the CSS layer for its third arm, so it went with it.
+
+**It is not in the scene, and that was the proposal.** A fragment shader behind the points, in
+cosmos.gl's own pass, has no seam to stand in: 3.4 clears to transparent and draws links, then points,
+in a render pass it does not expose, and the public ways in are a second WebGL context — one of
+Chrome's sixteen per process, the budget `releaseContext` exists to protect, and one more layer for
+the compositor all the same — or replacing a private method of a pinned dependency. The canvas is one
+more layer, drawing what an in-scene pass would have.
+
+**Why the light theme lost the dots is not the dots, and this does not fix it.** The grid canvas is
+painted in both modes and at both ratios (the end-to-end test reads its pixels), and in a light
+theme a software-composited Chromium still shows none of it. cosmos.gl's frame clears to
+`store.backgroundColor`, and `appearance` sets that to `[r, g, b, 0]` for the greyout's sake. On a
+`premultipliedAlpha: true` canvas that is not a transparent pixel but an invalid one — red above its
+alpha — and the compositor adds it: the page behind the canvas in the workspace showcase measured
+`rgb(255, 255, 255)` where the theme's `--background` is `rgb(251, 252, 251)`, and with the cosmos
+canvas hidden the grid appears. A dark theme's RGB is near zero, so it adds nothing, which is the
+whole of "visible in dark". It also means a translucent link carries the background twice. The cure is
+a clear of `[0, 0, 0, 0]`, and what that costs is the greyout: cosmos.gl reads the same colour to
+decide whether a greyed point darkens or lightens (`index.js:141`) and to mix toward, so `greyout.ts`'s
+model and every light theme's greyed points move with it. That is a decision about the crossfilter's
+look and not one to take inside a grid; it is the first thing to do next, and until it is done a light
+theme shows the vignette and no grid in a screenshot made this way.
+
+**The vignette stays a CSS gradient.** It is static: nothing writes its style, so it costs a layer
+that never repaints, and an in-shader one would not have been simpler without the shader.
+
+**What would reverse it:** the bench on a real GPU showing a p95 interval difference between the grid
+on and off above its own run-to-run spread, which turns the default off and says so here; cosmos.gl
+exposing a hook before its points, which moves the grid into the scene and deletes the canvas; or a
+theme that needs the grid to read over the marks. The clear above is reversed by a transparent clear
+that keeps the greyout's direction.
+
+*Held by* `packages/graph/src/render/grid.test.ts`, "keeps the on-screen step inside [min, 2.5·min) at
+every zoom", "only ever subdivides when zooming in, and only ever by a rung of the ladder", "is a
+lattice anchored on world (0, 0), so the grid moves with the graph", "makes a dot a whole number of
+device pixels wide, scaled with the ratio, centred on its lattice point"; `packages/graph/src/parts/parts.test.tsx`,
+"draws the grid under the surface, so no dot lands on a point", "mounts no grid layer at all when
+look.grid is off"; `packages/testing/e2e/grid.e2e.test.ts`, "the reference grid".
+
 ## The layers, and the reference each one copies
 
 Each layer has a named reference whose shape it takes. A layer with no reference is a black box.
@@ -534,7 +621,8 @@ GraphRootProvider takes, useGraphContext reads".
 `GraphRoot` is a facade: the host names a catalog and a coordinator and a few props, and the parts
 under it read the root.
 
-- **`GraphCanvas`** — the element, and what the look declares around it: the grid under the points;
+- **`GraphCanvas`** — the element, and what the look declares around it: the grid under the points, a
+  canvas drawn when the camera moved ([The reference grid](#the-reference-grid-is-one-canvas-drawn-when-the-camera-moved));
   the vignette, labels and hover card over them; and the marquee and lasso gesture. **cosmos.gl
   clears to a transparent background and the element paints the colour**, which is Cosmograph's
   arrangement: it keeps "the WebGL canvas transparent; the wrapper div carries the configured
