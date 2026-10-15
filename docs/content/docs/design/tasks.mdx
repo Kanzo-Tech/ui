@@ -267,7 +267,7 @@ and a tree is Malloy's: joins, `join_one`/`join_many` declared from the shape's 
 symmetric aggregates.
 
 *Held by* `packages/ai/src/data/answer.test.ts`, "crosses a condition off the shown path in at the
-root's key, counting each person once"; `packages/mosaic/src/crossfilter.test.ts`, "crosses a
+root's key, counting each person once"; `packages/relations/src/crossfilter.test.ts`, "crosses a
 condition off the relation in at the step its branch leaves, not the first of its type".
 
 ### `JoinResolver` is the one door to the joins
@@ -286,7 +286,7 @@ step it leaves from: on `Person>knows>Person` a condition on `knows.knows.firstN
 with no selection; which splits the path half into a module beside the crossing half, not a second
 concept.
 
-*Held by* `packages/mosaic/src/crossfilter.test.ts`, "names each step of a relation by its path from
+*Held by* `packages/relations/src/crossfilter.test.ts`, "names each step of a relation by its path from
 the root, with its key: the root's bare"; "finds the one relation the shown paths lie on, each path
 its own column there"; "says why a path is not the graph's, at the segment that is not".
 

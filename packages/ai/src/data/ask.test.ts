@@ -1,4 +1,4 @@
-import { relationKey, withMapping, type JoinGraph } from "@kanzo-tech/mosaic";
+import { relationKey, withMapping, type JoinGraph } from "@kanzo-tech/relations";
 import { describe, expect, it } from "vitest";
 import type { LanguageModel } from "ai";
 import { runTask } from "../task/index.js";

@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { onRelation } from "@kanzo-tech/mosaic";
+import { onRelation } from "@kanzo-tech/relations";
 import { clauseInterval, clausePoint, clausePoints, type Coordinator, type Selection } from "@uwdata/mosaic-core";
 import { describe, expect, it, vi } from "vitest";
 import { FilterBar } from "./filter-bar.js";

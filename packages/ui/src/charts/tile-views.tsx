@@ -1,6 +1,6 @@
 "use client";
 
-import type { RelationExpr } from "@kanzo-tech/mosaic";
+import type { RelationExpr } from "@kanzo-tech/relations";
 import type React from "react";
 import { cn } from "../lib/cn.js";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "../simples/card.js";

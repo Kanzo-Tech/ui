@@ -6,6 +6,8 @@ import { ConsoleLogger, LogLevel, NODE_RUNTIME, createDuckDB } from "@duckdb/duc
 import { afterAll } from "vitest";
 import { decodeIPC } from "@uwdata/mosaic-core";
 import { Coordinator } from "@kanzo-tech/mosaic";
+import { readJoinGraph, type JoinGraph } from "@kanzo-tech/relations";
+import { queryableOf } from "../src/core/catalog";
 
 /**
  * **A graph attached the way `@kanzo-tech/graphar-duckdb`'s `attachGraph` attaches one**, in a real
@@ -241,3 +243,7 @@ export async function settle(attached: Attached): Promise<void> {
     seen = asked.count;
   }
 }
+
+/** The join graph of the graph attached as `from`, read by `@kanzo-tech/relations`'s reader through `coordinator`. */
+export const readJoins = (coordinator: Coordinator, from: string): Promise<JoinGraph> =>
+  readJoinGraph(queryableOf(coordinator), from, { signal: new AbortController().signal });

@@ -67,13 +67,13 @@ engine, by the name `resolve` gives its path. Attach once and keep the attachmen
 
 ```tsx
 import { attachGraph } from "@kanzo-tech/graphar-duckdb";
-import { readJoinGraph } from "@kanzo-tech/graph";
+import { readJoinGraph } from "@kanzo-tech/relations";
 import { engine } from "@kanzo-tech/mosaic";
 import { MosaicProvider } from "@kanzo-tech/ui/analytics";
 
 const e = await engine();
 const archive = await attachGraph(e, "archive", (paths) => paths.map((p) => `${url}/${p}`), { entry: "fossil.graph.yml" });
-const joins = await readJoinGraph(e.coordinator, "archive");
+const joins = await readJoinGraph(e, "archive", { signal });
 
 <MosaicProvider coordinator={e.coordinator} joins={joins}>
   <Workspace />

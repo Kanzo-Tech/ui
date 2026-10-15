@@ -21,7 +21,7 @@ import { Dashboard } from "./charts/dashboard.js";
 import type { DashboardSpec } from "./charts/dashboard-spec.js";
 import { FilterBar } from "./charts/filter-bar.js";
 import { RelationPicker } from "./charts/relation-picker.js";
-import type { JoinGraph, Relation } from "@kanzo-tech/mosaic";
+import type { JoinGraph, Relation } from "@kanzo-tech/relations";
 import { MosaicProvider, useMosaic } from "./charts/mosaic-provider.js";
 import {
   FindingsBadge,

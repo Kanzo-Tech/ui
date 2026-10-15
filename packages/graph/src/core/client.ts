@@ -7,12 +7,11 @@ import {
   clauseSemiJoin,
   float64,
   literal,
-  onRelation,
   queryFailure,
   type FilterExpr,
-  type RelationClient,
   type Selection,
 } from "@kanzo-tech/mosaic";
+import { onRelation, type RelationClient } from "@kanzo-tech/relations";
 import { VERTICES, answers, clausesOf, type Answer } from "./source";
 import { KEY, type Structure } from "./structure";
 

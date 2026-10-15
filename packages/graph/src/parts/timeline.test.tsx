@@ -4,27 +4,11 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { KanzoThemeProvider } from "@kanzo-tech/ui";
 import { ChartTimeline, FilterBar, MosaicProvider, useMosaic } from "@kanzo-tech/ui/analytics";
 import { useEffect, useState, type ReactNode } from "react";
-import {
-  MosaicClient,
-  Query,
-  clauseInterval,
-  count,
-  crossfilterOver,
-  float64,
-  onRelation,
-  readOf,
-  type FilterExpr,
-  type JoinGraph,
-  type RelationClient,
-  type RelationRef,
-  type Selection,
-  type TableExpr,
-} from "@kanzo-tech/mosaic";
+import { MosaicClient, Query, clauseInterval, count, float64, type FilterExpr, type Selection, type TableExpr } from "@kanzo-tech/mosaic";
+import { crossfilterOver, onRelation, readOf, type JoinGraph, type RelationClient, type RelationRef } from "@kanzo-tech/relations";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { attach, settle, type Attached } from "../../test/corpus";
-import { readJoinGraph } from "../core/join-graph";
-import { readCatalog } from "../core/catalog";
-import { relation, verticesOf } from "../core/source";
+import { attach, settle, type Attached, readJoins } from "../../test/corpus";
+import { relation } from "../core/source";
 import { createGraph } from "../core/store";
 import { GraphRoot, useGraphContext } from "../react/graph-root";
 import { internalsOf } from "../react/use-graph";
@@ -68,7 +52,7 @@ function OnPage({ corpus, children }: { corpus: Attached; children: ReactNode })
   );
 }
 
-const joinsOf = (corpus: Attached): Promise<JoinGraph> => readJoinGraph(corpus.coordinator, corpus.from);
+const joinsOf = (corpus: Attached): Promise<JoinGraph> => readJoins(corpus.coordinator, corpus.from);
 
 async function mount(corpus: Attached, timeline: string) {
   const joins = await joinsOf(corpus);
@@ -125,8 +109,8 @@ const ids = (mask: Uint8Array | null | undefined) => [...(mask ?? [])].flatMap((
 describe("the vertices relation", () => {
   it("reads every vertex table under the key, NULL where a table has no such column", async () => {
     const corpus = await attach();
-    const structure = await readCatalog(corpus.coordinator, corpus.from);
-    const { table, columns } = verticesOf(structure);
+    const vertices = (await joinsOf(corpus)).types.find((t) => t.of)!;
+    const [table, columns] = [vertices.table, vertices.columns.map((c) => c.name)];
     for (const type of ["Person", "Place", "Tag"]) expect(String(table)).toContain(`"${corpus.from}"."${type}"`);
     expect(columns).toEqual(expect.arrayContaining(["born", "name", "lon", "subject"]));
     const answer = await corpus.coordinator.query(Query.select({ all: count(), born: count("born") }).from(table), { type: "json" });

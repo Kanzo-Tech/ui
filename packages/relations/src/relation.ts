@@ -7,8 +7,8 @@ import {
   join,
   type ExprNode,
   type JoinNode,
-} from "@uwdata/mosaic-sql";
-import type { TableExpr } from "./table.js";
+  type TableExpr,
+} from "@kanzo-tech/mosaic";
 import { labelOf, namingColumn } from "./words.js";
 
 /**

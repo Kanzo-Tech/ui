@@ -2,7 +2,7 @@
 // column described, and what its writer counted — and the
 // model double answering with specs. Not part of the published build (`vite.config.ts` excludes `src/testing`).
 
-import type { JoinColumn, JoinGraph } from "@kanzo-tech/mosaic";
+import type { JoinColumn, JoinGraph } from "@kanzo-tech/relations";
 import { asTableRef } from "@uwdata/mosaic-sql";
 import { scriptedModel } from "@kanzo-tech/llm/testing";
 

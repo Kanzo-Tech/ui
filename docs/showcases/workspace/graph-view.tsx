@@ -67,8 +67,8 @@ import {
   verbatim,
   type Engine,
   type ExprNode,
-  type JoinGraph,
 } from "@kanzo-tech/mosaic";
+import { type JoinGraph, readJoinGraph } from "@kanzo-tech/relations";
 import { MosaicProvider, useChartQuery, useMosaic } from "@kanzo-tech/ui/analytics";
 import {
   SparklesIcon,
@@ -83,7 +83,6 @@ import {
   GraphRoot,
   GraphSearch,
   GraphStatus,
-  readJoinGraph,
   useGraphPrefs,
   usePick,
   type VertexDetail,
@@ -1099,7 +1098,7 @@ export function GraphAsk() {
     // The graph is the one read — every type's facts are on it — and a page left mid-read keeps none of it.
     const controller = new AbortController();
     const { signal } = controller;
-    readJoinGraph(archive.coordinator, FROM).then(
+    readJoinGraph(archive.engine, FROM, { signal }).then(
       (graph) => !signal.aborted && setAskable({ graph }),
       (error: unknown) => !signal.aborted && announce(error),
     );

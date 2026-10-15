@@ -1,5 +1,5 @@
+import { clausePoints, type SelectionClause, Query } from "@kanzo-tech/mosaic";
 import {
-  clausePoints,
   crossfilterOver,
   onRelation,
   readOf,
@@ -9,13 +9,10 @@ import {
   type JoinGraph,
   type Relation,
   type RelationRef,
-  type SelectionClause,
-  Query,
-} from "@kanzo-tech/mosaic";
+} from "@kanzo-tech/relations";
 import fc from "fast-check";
 import { describe, expect, it, vi } from "vitest";
-import { attach, type Attached } from "../../test/corpus";
-import { readJoinGraph } from "./join-graph";
+import { attach, type Attached, readJoins } from "../../test/corpus";
 
 /**
  * **The page's one selection across relations, as properties** — `/docs/design/crossfilter#one-selection-across-relations`.
@@ -96,7 +93,7 @@ const reader = (relation: RelationRef) => ({ relation }) as never;
 describe("one selection across relations, as properties", () => {
   it("reads a clause on one relation from another exactly as the semi-join on its root's key, and as nothing without a step of its type", BUDGET, async () => {
     const corpus = await attach();
-    const joins = await readJoinGraph(corpus.coordinator, corpus.from);
+    const joins = await readJoins(corpus.coordinator, corpus.from);
     await fc.assert(
       fc.asyncProperty(arbitrary(joins), async ({ a, b, step, members }) => {
         const page = crossfilterOver(joins);
@@ -131,7 +128,7 @@ describe("one selection across relations, as properties", () => {
 
   it("retracts a chip's clause for every reader, whatever relation it was published on", BUDGET, async () => {
     const corpus = await attach();
-    const joins = await readJoinGraph(corpus.coordinator, corpus.from);
+    const joins = await readJoins(corpus.coordinator, corpus.from);
     await fc.assert(
       fc.asyncProperty(fc.array(arbitrary(joins), { minLength: 1, maxLength: 4 }), fc.nat(), async (runs, chip) => {
         const page = crossfilterOver(joins);

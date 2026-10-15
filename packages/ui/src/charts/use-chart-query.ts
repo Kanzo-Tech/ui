@@ -1,15 +1,7 @@
 "use client";
 
-import {
-  queryFailure,
-  type RelationClient,
-  type RelationRef,
-  makeClient,
-  type MosaicClient,
-  type Selection,
-  Query,
-  type FilterExpr,
-} from "@kanzo-tech/mosaic";
+import { queryFailure, makeClient, type MosaicClient, type Selection, Query, type FilterExpr } from "@kanzo-tech/mosaic";
+import type { RelationClient, RelationRef } from "@kanzo-tech/relations";
 import { useEffect, useRef, useState } from "react";
 import { useClientsEnabled, useMosaic, useReading } from "./mosaic-provider.js";
 

@@ -1,7 +1,7 @@
 import { MosaicClient, clauseInterval, clausePoint, type SelectionClause } from "@uwdata/mosaic-core";
 import { asTableRef, sql } from "@uwdata/mosaic-sql";
 import { describe, expect, it, vi } from "vitest";
-import { clauseSemiJoin } from "./clause.js";
+import { clauseSemiJoin } from "@kanzo-tech/mosaic";
 import { JoinResolver, crossfilterOver, onRelation, preaggregateOwnRelation, readOf, relationOf, sameRelation, type JoinField, type RelationRef } from "./crossfilter.js";
 import { relationColumns, relationQuery, type JoinGraph, type Relation } from "./relation.js";
 

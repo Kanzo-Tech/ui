@@ -1,7 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { Coordinator, Selection } from "@uwdata/mosaic-core";
-import { firstDrawsPending, type JoinGraph } from "@kanzo-tech/mosaic";
+import { firstDrawsPending } from "@kanzo-tech/mosaic";
+import type { JoinGraph } from "@kanzo-tech/relations";
 import { ChartAxisX } from "./chart-axes.js";
 import { ChartLegend } from "./chart-legend.js";
 import { ChartToggleX } from "./chart-interactors.js";

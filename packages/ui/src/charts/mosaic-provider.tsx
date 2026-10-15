@@ -1,5 +1,6 @@
 "use client";
 
+import { type TableExpr, type Coordinator, type Selection } from "@kanzo-tech/mosaic";
 import {
   crossfilterOver,
   type JoinResolver,
@@ -8,10 +9,7 @@ import {
   type JoinGraph,
   type RelationExpr,
   type RelationRef,
-  type TableExpr,
-  type Coordinator,
-  type Selection,
-} from "@kanzo-tech/mosaic";
+} from "@kanzo-tech/relations";
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ark } from "@ark-ui/react/factory";
@@ -29,7 +27,7 @@ import { coordinator as setActiveCoordinator } from "@uwdata/vgplot";
  *
  * The provider registers the caller's coordinator as vgplot's active one, so `vg.plot(...)` marks
  * resolve their queries through it, and **owns the page's selection**: one Mosaic crossfilter, built
- * over `joins` (`@kanzo-tech/mosaic`'s `crossfilterOver`), so a clause published on one relation
+ * over `joins` (`@kanzo-tech/relations`'s `crossfilterOver`), so a clause published on one relation
  * reaches a part reading another — crossed by key along the joins, or keeping none of it where there
  * is no way across. Nobody passes a selection; every part publishes into this one, and a clause is
  * retracted where it is held — `selection.reset([clause])`, which calls its source back.
@@ -59,7 +57,7 @@ export interface MosaicProviderProps {
   coordinator: Coordinator;
   /**
    * The types and the edges between them that the page's relations are read over —
-   * `@kanzo-tech/graph`'s `readJoinGraph` for a fossil corpus. A part's `relation` names a type or a
+   * `@kanzo-tech/relations`'s `readJoinGraph` for an attached GraphAr graph. A part's `relation` names a type or a
    * path over them, and a clause on one relation reaches a part on another through them. Without it
    * every relation is a table of its own, and a clause crosses to no other. A new graph is read by the page's
    * selection from then on; the selection itself stays.

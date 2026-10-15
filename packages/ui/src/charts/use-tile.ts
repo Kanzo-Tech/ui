@@ -1,6 +1,7 @@
 "use client";
 
-import { JoinResolver, type RelationExpr, type RelationRef, type TableExpr } from "@kanzo-tech/mosaic";
+import { type TableExpr } from "@kanzo-tech/mosaic";
+import { JoinResolver, type RelationExpr, type RelationRef } from "@kanzo-tech/relations";
 import { useMemo } from "react";
 import { chartTableKey } from "./chart-spec.js";
 import { tileQuery, type Tile, type TileQuery } from "./dashboard-spec.js";

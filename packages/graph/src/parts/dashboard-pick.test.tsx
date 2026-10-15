@@ -3,10 +3,9 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { KanzoThemeProvider } from "@kanzo-tech/ui";
 import { ChartTimeline, Dashboard, FilterBar, MosaicClients, MosaicProvider, useMosaic, type DashboardSpec } from "@kanzo-tech/ui/analytics";
 import { useState, type ReactNode } from "react";
-import type { JoinGraph, Relation } from "@kanzo-tech/mosaic";
+import type { JoinGraph, Relation } from "@kanzo-tech/relations";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { attach, settle, type Attached } from "../../test/corpus";
-import { readJoinGraph } from "../core/join-graph";
+import { attach, settle, type Attached, readJoins } from "../../test/corpus";
 import { GraphRoot, useGraphContext } from "../react/graph-root";
 import { internalsOf } from "../react/use-graph";
 import { GRAPH_SECTION } from "../section";
@@ -120,7 +119,7 @@ describe("a pick on a hidden dashboard, under the timeline", { timeout: 60_000 }
 
   it("keeps a pick made on the dashboard when the timeline's window is taken off the bar", async () => {
     const corpus = await attach();
-    const joins: JoinGraph = await readJoinGraph(corpus.coordinator, corpus.from);
+    const joins: JoinGraph = await readJoins(corpus.coordinator, corpus.from);
     const lives = joins.edges.find((e) => e.source === "Person" && e.destination === "Place")!;
     const knows = joins.edges.find((e) => e.source === "Person" && e.destination === "Person")!;
     // Two hops, the pick on a hop's column, as the demo's Laureate.gender is.
