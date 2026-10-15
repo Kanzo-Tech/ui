@@ -1,6 +1,6 @@
 /**
  * Run a fossil program with fossil's own writer — `@fossil-lang/executor`, in Node — and write the
- * `fossil/1` corpus it produces to `dest`. The one writer there is: no CLI, no second implementation.
+ * GraphAr graph it produces — `fossil.graph.yml`, `mapping.ttl`, the information files and the Parquet chunks — to `dest`, for `attachGraph` to attach. The one writer there is: no CLI, no second implementation.
  *
  * The program runs in memory under a placeholder `https://` origin rather than its `file://` path:
  * a run over `files` reads every document and source from them by the location fossil resolves it
@@ -32,8 +32,8 @@ export async function writeCorpus(program, files, dest) {
   });
 
   rmSync(dest, { force: true, recursive: true });
-  // `fossil.json` last, as the writer orders it: a corpus without it is not one yet.
-  const ordered = [...corpus.filter((f) => f.path !== "fossil.json"), ...corpus.filter((f) => f.path === "fossil.json")];
+  // `fossil.graph.yml` last, as the writer orders it: a graph without its document is not one yet.
+  const ordered = [...corpus.filter((f) => f.path !== "fossil.graph.yml"), ...corpus.filter((f) => f.path === "fossil.graph.yml")];
   for (const { path, bytes } of ordered) {
     mkdirSync(dirname(join(dest, path)), { recursive: true });
     writeFileSync(join(dest, path), bytes);

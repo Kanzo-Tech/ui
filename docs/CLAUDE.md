@@ -55,8 +55,9 @@ The repository rules are in `../CLAUDE.md`. What follows is true only here.
     something else. `generateStaticParams` appends `.mdx` to the last segment and `GET` strips it
     back off; the index page has its own route for the same reason.
 
-- **The corpora are not in the repository; fossil's writer builds them.** Each is `fossil/1` — a
-  `fossil.json` written last, one Parquet per vertex type and per relation — `.gitignore`d as
+- **The corpora are not in the repository; fossil's writer builds them.** Each is a GraphAr
+  graph — `fossil.graph.yml` written last, `mapping.ttl`, and Parquet chunks per vertex and edge type, attached
+  by `@kanzo-tech/graphar-duckdb`'s `attachGraph` — `.gitignore`d as
   compiler output under `public/corpus/` (the workspace archive) and `public/bench/` (the
   benchmark's). `@fossil-lang/executor`, a dev dependency, runs the `.fossil` programs in Node
   through `scripts/write-corpus.mjs`; there is no `fossil` CLI in the loop and no second writer.

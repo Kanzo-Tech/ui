@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { attach } from "@fossil-lang/corpus";
+import { attachWritten } from "@/lib/attach-graph";
 import { Show, Skeleton } from "@kanzo-tech/ui";
 import { engine, relationHops, type Coordinator, type Engine, type JoinGraph, type Relation } from "@kanzo-tech/mosaic";
 import { Dashboard, FilterBar, MosaicProvider, useMosaic, type DashboardSpec } from "@kanzo-tech/ui/analytics";
@@ -74,7 +74,7 @@ function relationFrom(graph: JoinGraph, key: string): Relation {
 async function open(setup: Setup, signal: AbortSignal): Promise<Attached> {
   const page = await engine({ signal });
   // Origin-qualified: DuckDB-WASM resolves a root-relative path in its own filesystem.
-  await attach(setup.corpus, { engine: page, url: `${window.location.origin}${BASE}/corpus/${setup.corpus}` });
+  await attachWritten(page, setup.corpus, `${window.location.origin}${BASE}/corpus/${setup.corpus}`, signal);
   const graph = await readJoinGraph(page.coordinator, setup.corpus);
   signal.throwIfAborted();
   return { engine: page, coordinator: page.coordinator, graph, relation: relationFrom(graph, setup.relation) };

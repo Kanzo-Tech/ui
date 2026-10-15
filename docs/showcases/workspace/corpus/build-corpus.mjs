@@ -1,5 +1,5 @@
 /**
- * Compile the workspace's archive into a corpus with fossil's writer, `@fossil-lang/executor`.
+ * Compile the workspace's archive into a GraphAr graph with fossil's writer, `@fossil-lang/executor`.
  *
  * The showcase used to do this in the tab: build the graph, serialise two CSVs, register them in
  * DuckDB's virtual filesystem, query them as relations. That worked and it taught the wrong thing —
