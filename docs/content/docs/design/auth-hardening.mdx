@@ -254,10 +254,11 @@ measurement, and nothing in this package changes.
   (read) wants the `Http` variant and `Strict`. `Strict` drops the cookie on the navigation back from
   Keycloak, and the status of the `Http` prefix in RFC 6265bis was not checked here. It is the edge's
   cookie now (`OAUTH2_PROXY_COOKIE_NAME`). *Reversed by* either being established.
-- **A token without `typ: at+jwt` is accepted.** Keycloak's ID token carries the same issuer and `azp`
-  as its access token, so the reader would read one forwarded in the access token's place; only the edge
-  forwards the header, and it forwards the access token. *Reversed by* Keycloak's `at+jwt` option
-  confirmed on the realm, which the reader then requires.
+- **An access token is told from an ID token by its payload's `typ`, not by RFC 9068's `at+jwt`.**
+  Keycloak signs both with the same keys for the same `azp`; it types the access token `Bearer` and the
+  ID token `ID` (measured on 26.8.0, 15 October 2026), and the reader refuses anything but `Bearer` as
+  `token/refused`. *Reversed by* Keycloak's `at+jwt` header confirmed on the realm, which the reader
+  then requires instead.
 
 ## Production-grade axes
 

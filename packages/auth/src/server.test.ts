@@ -62,6 +62,13 @@ describe("sessionReader", () => {
     await expect(read(through(token))).rejects.toMatchObject({ code: "token/refused", status: 401 });
   });
 
+  /** Keycloak signs its ID tokens with the same keys and for the same `azp`; only `typ` tells them apart. */
+  it("refuses an ID token, as token/refused", async () => {
+    const token = await realm.sign({ typ: "ID" });
+
+    await expect(read(through(token))).rejects.toMatchObject({ code: "token/refused", status: 401 });
+  });
+
   it("refuses a token another issuer signed for, as token/refused", async () => {
     const token = await realm.sign({ iss: "https://id.example.test/realms/other" });
 

@@ -34,7 +34,7 @@ export async function localRealm(): Promise<Realm> {
   return {
     sign(claims = {}, { by = "realm" } = {}) {
       const now = Math.floor(Date.now() / 1000);
-      return new SignJWT({ iss: ISSUER, azp: CLIENT_ID, sub: "u-1", iat: now, exp: now + 300, ...claims })
+      return new SignJWT({ iss: ISSUER, azp: CLIENT_ID, typ: "Bearer", sub: "u-1", iat: now, exp: now + 300, ...claims })
         .setProtectedHeader({ alg: "RS256", kid: KID, typ: "JWT" })
         .sign(by === "realm" ? realm.privateKey : stranger.privateKey);
     },

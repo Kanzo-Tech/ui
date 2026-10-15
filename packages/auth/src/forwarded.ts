@@ -103,6 +103,11 @@ export function forwarded(config: SessionReaderConfig): (headers: Headers) => Pr
     if (payload["azp"] !== config.clientId) {
       throw new Problem("token/refused", "the forwarded access token was issued to another client");
     }
+    // Keycloak types its access tokens `Bearer` and its ID tokens `ID`, both signed by the same keys
+    // for the same `azp`: an ID token in the header is not a credential this application accepts.
+    if (payload["typ"] !== "Bearer") {
+      throw new Problem("token/refused", "the forwarded token is not an access token");
+    }
     return { token, session: claims(payload, { clientId: config.clientId }) };
   };
 }
