@@ -112,6 +112,15 @@ export type JoinMiss =
 /** Whether `value` is a miss rather than what was asked. */
 const isJoinMiss = (value: object): value is JoinMiss => "code" in value;
 
+/** The one failure a crossing names: a relation the joins cannot walk (`join/no-step`, as {@link JoinMiss} says it at the field). */
+export class JoinError extends Error {
+  override readonly name = "JoinError";
+  readonly code = "join/no-step";
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+  }
+}
+
 /** A relation as a crossing reads it: its rows, and each step's key. */
 interface Read {
   readonly table: TableExpr;
@@ -259,7 +268,8 @@ export class JoinResolver extends MosaicResolver {
 
   /**
    * `predicates` on `from`, as a filter of `to`: a semi-join on the key of `to`'s step `at` — by
-   * default the step {@link at} finds — or `FALSE` where there is none.
+   * default the step {@link at} finds — or `FALSE` where there is none. A relation the joins cannot
+   * walk is not "none": it throws a {@link JoinError}, so a part reads a failure, not an empty chart.
    */
   crossing(from: RelationRef, predicates: readonly ExprNode[], to: RelationRef, at?: string): ExprNode {
     try {
@@ -268,9 +278,8 @@ export class JoinResolver extends MosaicResolver {
       const step = at === undefined ? this.at(to, from) : this.steps(to).find((s) => s.path === at);
       if (!root || !step) return literal(false);
       return new InOpNode(column(step.key), new ScalarSubqueryNode(Query.select(root.key).from(source.table).where([...predicates])));
-    } catch {
-      // A relation the joins no longer have: nothing of it can be read across.
-      return literal(false);
+    } catch (cause) {
+      throw new JoinError(`cannot cross a clause on ${JSON.stringify(from)}: ${cause instanceof Error ? cause.message : String(cause)}`, { cause });
     }
   }
 
