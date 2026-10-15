@@ -59,6 +59,7 @@ interface AssistSettings {
   model: LanguageModel;
   context?: () => string | undefined;
   onEvent?: (event: AssistEvent) => void;
+  includeText: boolean;
   onFailure?: (error: unknown) => void;
   t: AssistTranslations;
 }
@@ -76,6 +77,12 @@ export interface AssistProviderProps {
   /** Each proposal's life — shown, accepted, partly accepted, rejected, ignored. */
   onEvent?: (event: AssistEvent) => void;
   /**
+   * Whether an event carries the `proposal` — text the model wrote from what the reader typed. Off by
+   * default: `onEvent` then hears which field and what happened, and nothing a person wrote. A host
+   * that sends events anywhere turns it on knowing that its telemetry now holds that text.
+   */
+  includeText?: boolean;
+  /**
    * Called with what the model's stream threw, whole, when a field's ask fails — on the first
    * attempt, never retried. A page that cannot run `localModel` arrives as its `LlmError` coded
    * `llm/unavailable`. The field also says so under itself.
@@ -90,16 +97,17 @@ export interface AssistProviderProps {
  * whole is about, where the telemetry goes, and in what words. Renders no element.
  */
 export function AssistProvider(props: AssistProviderProps) {
-  const { model, context, onEvent, onFailure, translations, children } = props;
+  const { model, context, onEvent, includeText = false, onFailure, translations, children } = props;
   const value = React.useMemo<AssistSettings>(
     () => ({
       model,
       context: typeof context === "function" ? context : () => context,
       onEvent,
+      includeText,
       onFailure,
       t: { ...ENGLISH, ...translations },
     }),
-    [context, model, onEvent, onFailure, translations],
+    [context, model, onEvent, includeText, onFailure, translations],
   );
   return <Settings.Provider value={value}>{children}</Settings.Provider>;
 }
@@ -246,6 +254,18 @@ const briefOf = (
   context: settings.context?.(),
 });
 
+/**
+ * Whether the control holds a secret: a password, a card, a one-time code. Its value is never read
+ * for a model, and it is never asked for an offer — whatever `Assist` is wrapped around.
+ */
+const SECRET = /^(cc-|one-time-code$|current-password$|new-password$)/;
+const sensitive = (el: Control | null) =>
+  (el instanceof HTMLInputElement && el.type === "password") ||
+  (el?.getAttribute("autocomplete") ?? "").split(/\s+/).some((token) => SECRET.test(token.toLowerCase()));
+
+/** An ask that offers nothing, and so reads nothing. */
+async function* nothing(): AsyncGenerator<never> {}
+
 /** The control the field reads and writes — the child itself, or the input inside a compound. */
 const controlIn = (root: HTMLElement | null) =>
   root?.querySelector<Control>("textarea, input:not([type=hidden])") ?? null;
@@ -253,7 +273,7 @@ const controlIn = (root: HTMLElement | null) =>
 function useEvents(settings: AssistSettings, control: () => Control | null) {
   return React.useCallback(
     (kind: AssistEvent["kind"], proposal: Proposal<string>) =>
-      settings.onEvent?.({ kind, proposal, field: describe(control(), {}).name }),
+      settings.onEvent?.({ kind, field: describe(control(), {}).name, ...(settings.includeText && { proposal }) }),
     [control, settings],
   );
 }
@@ -280,11 +300,12 @@ function TextAssist(props: Inner<string>) {
   const brief = () => describe(fieldRef.current, briefOf(instructions, context, settings));
 
   const completion = useContinuation({
-    source: (request) => continuation(settings.model, brief(), request),
+    source: (request) => (sensitive(fieldRef.current) ? nothing() : continuation(settings.model, brief(), request)),
     onEvent: report,
   });
   const list = useCandidates({
-    source: ({ signal }) => candidates(settings.model, brief(), { value, existing: [value], signal, count: 6, list: false }),
+    source: ({ signal }) =>
+      sensitive(fieldRef.current) ? nothing() : candidates(settings.model, brief(), { value, existing: [value], signal, count: 6, list: false }),
     existing: [value],
     onEvent: report,
   });
@@ -455,25 +476,27 @@ function TextAssist(props: Inner<string>) {
     >
       {field}
       {multiline && <Ghost caret={caret} field={fieldRef} ghost={ghost} metrics={shape.metrics} value={value} />}
-      <ark.span
-        className={cn("absolute flex items-center", shape.mark.insetInlineEnd === undefined && "invisible")}
-        data-slot="assist-mark"
-        style={shape.mark}
-      >
-        {reverting ? (
-          <AiMark label={t.revert} onClick={revert}>
-            <Undo2Icon />
-          </AiMark>
-        ) : (
-          <AiMark
-            busy={busy}
-            disabled={!offering && !askable}
-            label={offering ? (multiline ? t.accept : t.others) : t.assist}
-            offering={offering}
-            onClick={multiline ? (offering ? accept : request) : list.press}
-          />
-        )}
-      </ark.span>
+      {!sensitive(fieldRef.current) && (
+        <ark.span
+          className={cn("absolute flex items-center", shape.mark.insetInlineEnd === undefined && "invisible")}
+          data-slot="assist-mark"
+          style={shape.mark}
+        >
+          {reverting ? (
+            <AiMark label={t.revert} onClick={revert}>
+              <Undo2Icon />
+            </AiMark>
+          ) : (
+            <AiMark
+              busy={busy}
+              disabled={!offering && !askable}
+              label={offering ? (multiline ? t.accept : t.others) : t.assist}
+              offering={offering}
+              onClick={multiline ? (offering ? accept : request) : list.press}
+            />
+          )}
+        </ark.span>
+      )}
       {multiline ? (
         <>
           {ghost && <Keys t={t} />}
@@ -647,13 +670,15 @@ function ListAssist(props: Inner<string[]>) {
   const report = useEvents(settings, control);
   const list = useCandidates({
     source: ({ signal }) =>
-      candidates(settings.model, describe(control(), briefOf(instructions, context, settings)), {
-        value: "",
-        existing: value,
-        signal,
-        count: 6,
-        list: true,
-      }),
+      sensitive(control())
+        ? nothing()
+        : candidates(settings.model, describe(control(), briefOf(instructions, context, settings)), {
+            value: "",
+            existing: value,
+            signal,
+            count: 6,
+            list: true,
+          }),
     existing: value,
     onEvent: report,
   });
@@ -696,18 +721,20 @@ function ListAssist(props: Inner<string[]>) {
       ref={rootRef}
     >
       {field}
-      <ark.span
-        className={cn("absolute flex items-center", mark.insetInlineEnd === undefined && "invisible")}
-        data-slot="assist-mark"
-        style={mark}
-      >
-        <AiMark
-          busy={list.status === "loading" && !offering}
-          label={offering ? t.others : t.assist}
-          offering={offering}
-          onClick={list.press}
-        />
-      </ark.span>
+      {!sensitive(control()) && (
+        <ark.span
+          className={cn("absolute flex items-center", mark.insetInlineEnd === undefined && "invisible")}
+          data-slot="assist-mark"
+          style={mark}
+        >
+          <AiMark
+            busy={list.status === "loading" && !offering}
+            label={offering ? t.others : t.assist}
+            offering={offering}
+            onClick={list.press}
+          />
+        </ark.span>
+      )}
       {active && (
         <Candidates
           list={list}
