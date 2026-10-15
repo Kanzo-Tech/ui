@@ -203,10 +203,22 @@ report, in one callback, for a host that learns from it:
 ```ts
 interface AssistEvent {
   kind: "shown" | "accepted" | "partial" | "rejected" | "ignored";
-  proposal: Proposal<string>; // the Task's: { value, target, rationale?, … }
   field: string;      // the field's accessible name
+  proposal?: Proposal<string>; // the Task's: { value, target, rationale?, … } — only with `includeText`
 }
 ```
+
+An event carries no text a person wrote or the model wrote from it unless the provider sets
+`includeText`: a host that sends events to analytics turns that on knowing what its telemetry then
+holds. *Held by* `packages/ai/src/assist.test.tsx`, "reports what happened to a field, never the
+text, unless the provider opts in".
+
+## Secrets
+
+A password input, and any control whose `autocomplete` is `cc-*`, `one-time-code`,
+`current-password` or `new-password`, gets no ✨, asks nothing and is never read for the model,
+whatever `Assist` wraps. *Held by* `packages/ai/src/assist.test.tsx`, "offers nothing on %s, and
+reads none of it".
 
 ## When asking fails
 
@@ -230,6 +242,7 @@ onFailure the thrown value", "asks once: an error the SDK would retry is the fai
 | `model` | `LanguageModel` | What every field below asks — `localModel(…)` |
 | `context` | `string \| () => string \| undefined` | What the rest of the form says; a function is read when a field asks |
 | `onEvent` | `(event: AssistEvent) => void` | Each proposal's life |
+| `includeText` | `boolean` | Whether an event carries the `proposal` text. Default `false` |
 | `onFailure` | `(error: unknown) => void` | What a field's ask threw, whole |
 | `translations` | `Partial<AssistTranslations>` | Every word the fields below draw or announce |
 

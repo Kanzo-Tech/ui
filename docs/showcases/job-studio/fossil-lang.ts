@@ -10,19 +10,18 @@ import type { Connection } from "./data";
 /**
  * A fossil language for CodeMirror, written HERE and not imported.
  *
- * fossil retired `@fossil-lang/{ui,editor}` — it ships an LSP and its
- * verbs, nothing visual. So the surface a product needs is exactly what `CodeEditor` already
- * models: a domain-free lifecycle core plus an `extensions` slot the consumer fills. This file
- * is that slot, and the showcase is the proof it is enough.
+ * fossil ships a language layer (`@fossil-lang/codemirror-fossil`), nothing visual. So the surface
+ * a product needs is exactly what `CodeEditor` already models: a domain-free lifecycle core plus
+ * an `extensions` slot the consumer fills. This file is that slot, and the showcase is the proof
+ * it is enough.
  *
  * Everything here is deliberately *shallow* — a `StreamParser`, not a Lezer grammar, and a
- * regex analyser, not the wasm compiler. The real editor gets its diagnostics from the LSP over
- * a worker. What the showcase has to demonstrate is the WIRING (tokens → the Kanzo syntax
- * palette, diagnostics → the lint theme, `@` → connections), and the wiring is identical either
- * way.
+ * regex analyser, not the wasm compiler. What the showcase has to demonstrate is the WIRING
+ * (tokens → the Kanzo syntax palette, diagnostics → the lint theme, `@` → connections), and the
+ * wiring is identical either way.
  */
 
-// The real grammar, from `rmlext/packages/examples/src/*/*.fossil`:
+// A program, in the shape the tokenizer below reads:
 //
 //   prefix ex: <https://example.org/>
 //
@@ -183,7 +182,7 @@ const lineOf = (program: string, offset: number) =>
   program.slice(0, offset).split("\n").length;
 
 /**
- * What the LSP would tell you, approximated. Three checks, each one a mistake this editor
+ * What the compiler would tell you, approximated. Three checks, each one a mistake this editor
  * actually invites: naming a connection that is not wired, using a prefix that was never
  * declared, and writing a mapping with no properties.
  */

@@ -555,6 +555,39 @@ on `dense_id` — [what the page sees](/docs/analytics/dashboard#what-the-page-s
 column as the catalog does, and joins an edge on the keys it names"; `packages/graph/src/core/catalog.test.ts`,
 "takes an edge's label and its endpoint keys from fossil_tables, never from the table's name".
 
+### withMapping
+
+`withMapping(graph, model)` is a `JoinGraph` described by its mapping: the class, predicate, term type,
+datatype and `rdfs:label`s that an RML-Core mapping states and the graph's tables do not. `model` is
+what rudof's `Mapping.model()` answers — `MappingModel`, a structural type, so nothing here imports
+rudof. A table is the type of that name, a column of it the one its term is read from, and a relation
+the edge from that type to its parent's. A map over a query, as fossil writes a relation or a multi-valued property, is read by the table names its SQL quotes: a relation's edge by its edge table, a list by the one column it unnests. What the mapping states lands on the `iri`, `annotations`,
+`termType` and `datatype` every reader of a `JoinGraph` already reads, and no other part is told:
+
+```tsx
+import { withMapping, typeWords } from "@kanzo-tech/mosaic";
+
+const graph = withMapping(await readJoinGraph(coordinator, "archive"), mapping.model());
+
+<MosaicProvider coordinator={coordinator} joins={graph}>
+  <Dashboard relation={{ root: "Person", path: [] }} />
+</MosaicProvider>
+
+// The canvas takes its category names from the host (`categories`), and the host reads them off the graph:
+const categories = Object.fromEntries(graph.types.map((t) => [t.name, typeWords(graph, t.name)]));
+```
+
+Every label is kept, in every language; `labelOf(annotations, language)` picks one when it is read,
+`<html lang>` by default. `typeWords(graph, name, language?)` and `edgeWords(edge, language?)` are
+the one place a type's or an edge's words are chosen — the label, else the name split into words
+(`splitWords`) — and `RelationPicker`, Ask's chips and a column's `label` all read them. A year the
+mapping declares `xsd:gYear` is a time, whatever integer stores it.
+
+*Held by* `packages/mosaic/src/mapping.test.ts`, "puts the class, the predicates, the term types and the
+datatypes on the graph"; "keeps every language, and the reader chooses one: the same graph reads in
+either"; "describes an edge from the source's relation to the parent, the one its label names among
+several".
+
 ## Failures
 
 <ComponentPreview componentName="graph" fileName="example-failure" hasMaxHeight />

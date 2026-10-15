@@ -7,8 +7,7 @@ import preserveDirectives from "rollup-plugin-preserve-directives";
 // Pure ESM library build, mirroring @kanzo-tech/ui and @kanzo-tech/graph.
 //
 // Two entries: the root, and `./data`, which reaches `@kanzo-tech/ui`'s optional-peer subpaths and so
-// may not be reachable from the root. `streamdown` used to sit behind a `./markdown` subpath as an
-// optional peer; `Chat` renders markdown, so it is a dependency now, externalised like every other one.
+// may not be reachable from the root. `streamdown` is a dependency, externalised like every other one.
 export default defineConfig({
   plugins: [
     react(),

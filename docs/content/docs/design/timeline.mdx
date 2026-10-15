@@ -213,7 +213,7 @@ BETWEEN …` on `vertices`, and only the types with a date can answer it. The ca
 too, so it reads the window as published; a dashboard's relation, or a filter over a type with no
 date, reads it as the page's resolver crosses it — `dense_id IN (SELECT dense_id FROM vertices WHERE
 <the window>)` — the way a dashboard's tiles cross ([one selection across
-relations](/docs/design/crossfilter#step-3-one-selection-across-relations)). It names the key alone,
+relations](/docs/design/crossfilter#one-selection-across-relations)). It names the key alone,
 so every client answers it, without a Binder error. The chip reads *date 1910 – 1940*: the clause
 itself, on the page's one selection.
 

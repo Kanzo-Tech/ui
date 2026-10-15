@@ -30,7 +30,6 @@
   },
   "scripts": {
     "build": "vite build",
-    "//gen": "Three steps, in this order: the derivation made runnable from plain Node (its own tables, then its build), the four non-colour axes, and the default tenant's document compiled into tokens.css.",
     "gen": "node scripts/gen-theme.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -40,7 +39,7 @@
   "devDependencies": {
     "tailwindcss": "4"
   },
-  "//gen": "One step now: the non-colour axes and the theme catalogue. There is no colour generation — a theme is themes/<name>.css, hand-written source. scripts/extract-themes.mjs was the one-way migration that produced the first sixteen and does not run again.",
+  "//gen": "The non-colour axes and the theme catalogue. There is no colour generation — a theme is themes/<name>.css, hand-written source.",
   "homepage": "https://kanzo-tech.github.io/ui",
   "bugs": {
     "url": "https://github.com/Kanzo-Tech/ui/issues"

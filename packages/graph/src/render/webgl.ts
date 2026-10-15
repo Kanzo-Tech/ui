@@ -41,6 +41,21 @@ export function releaseContext(canvas: HTMLCanvasElement | null): void {
 }
 
 /**
+ * **Clear the canvas to a colour the compositor can add: `[r, g, b, 0]` becomes `[0, 0, 0, 0]`.**
+ * cosmos.gl clears to `backgroundColor`, and `appearance` sets that to the page's colour at alpha 0
+ * so the grid can lie under the points, on a context whose `premultipliedAlpha` is `true`. A pixel
+ * with `rgb` above `alpha` is not a colour, and the compositor adds it to what lies beneath — a
+ * light page measured white. cosmos.gl reads the same `backgroundColor` to grey a point out (towards
+ * the page, which way by its luminance), so the colour cannot be changed there without changing the
+ * greyed look; the clear is premultiplied where it is applied instead. Only the canvas's own
+ * framebuffer is: cosmos.gl's offscreen passes clear to sentinels such as `[-1, 1, 0, 0]`.
+ */
+export function premultiplyClear(gl: Pick<WebGL2RenderingContext, "clearColor" | "getParameter" | "FRAMEBUFFER_BINDING">): void {
+  const set = gl.clearColor.bind(gl);
+  gl.clearColor = (r, g, b, a) => (gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? set(r * a, g * a, b * a, a) : set(r, g, b, a));
+}
+
+/**
  * **A canvas's device, from the wait for it to giving it back.** `ready` never settles when cosmos.gl
  * cannot make a device, so the deadline is what ends the wait: `graph/no-webgl`, with `data.after`.
  * A lost context is `graph/context-lost`. The answer lets the device go — cosmos.gl's graph, then the
@@ -59,7 +74,10 @@ export function holdDevice(graph: Graph, host: HTMLElement, fail: (error: GraphE
     () => {
       clearTimeout(deadline);
       if (gone) return;
-      host.querySelector("canvas")?.addEventListener("webglcontextlost", onLost);
+      const canvas = host.querySelector("canvas");
+      canvas?.addEventListener("webglcontextlost", onLost);
+      const gl = canvas?.getContext("webgl2");
+      if (gl) premultiplyClear(gl);
       ready();
     },
     (error: unknown) => {

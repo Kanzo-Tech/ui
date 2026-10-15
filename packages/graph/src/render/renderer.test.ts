@@ -127,7 +127,7 @@ beforeEach(() => {
   vi.stubGlobal("requestAnimationFrame", (run: () => void) => setTimeout(run, 0));
   vi.stubGlobal("cancelAnimationFrame", (id: number) => clearTimeout(id));
   // A context already lost, so a destroyed canvas has nothing to give back.
-  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({ isContextLost: () => true } as unknown as RenderingContext);
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({ isContextLost: () => true, clearColor: () => undefined, getParameter: () => null } as unknown as RenderingContext);
 });
 afterEach(() => vi.restoreAllMocks());
 
@@ -255,7 +255,7 @@ describe("where the points start", () => {
 
   it("scales the extent down only past the box the device simulates in", async () => {
     const getContext = HTMLCanvasElement.prototype.getContext as unknown as { mockReturnValue(v: unknown): void };
-    getContext.mockReturnValue({ MAX_TEXTURE_SIZE: 3379, getParameter: () => 6 });
+    getContext.mockReturnValue({ MAX_TEXTURE_SIZE: 3379, getParameter: () => 6, clearColor: () => undefined });
     await drawing();
     expect(uploaded.config.spaceSize).toBe(3);
     expect(uploaded.positions?.[2 * 9]).toBe(3);
@@ -646,7 +646,7 @@ describe("the renderer's failures", () => {
     vi.useFakeTimers();
     try {
       device.ready = () => new Promise(() => {});
-      vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({ isContextLost: () => true } as unknown as RenderingContext);
+      vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({ isContextLost: () => true, clearColor: () => undefined, getParameter: () => null } as unknown as RenderingContext);
       const { onFailure, renderer } = mounted();
       renderer?.destroy();
       await vi.advanceTimersByTimeAsync(60_000);
