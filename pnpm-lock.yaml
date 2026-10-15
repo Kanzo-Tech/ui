@@ -415,6 +415,8 @@ importers:
         specifier: ^0.4.0
         version: 0.4.0(rollup@4.62.2)
 
+  packages/kernel: {}
+
   packages/llm:
     devDependencies:
       '@browser-ai/web-llm':
