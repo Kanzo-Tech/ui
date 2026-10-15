@@ -521,7 +521,7 @@ describe("the renderer's lifetime", () => {
     expect(device).toContain("WEBGL_lose_context");
     expect(device).toContain("releaseContext(canvas)");
     expect(device.indexOf("graph.destroy()")).toBeLessThan(device.indexOf("releaseContext(canvas)"));
-    expect(readFileSync(resolve(process.cwd(), "src/render/renderer.ts"), "utf8")).toContain("holdDevice(graph, host, fail, camera.ready)");
+    expect(readFileSync(resolve(process.cwd(), "src/render/renderer.ts"), "utf8")).toContain("holdDevice(graph, host, {");
   });
 });
 
@@ -605,14 +605,82 @@ describe("the renderer's failures", () => {
     return { host, onFailure, renderer, store };
   }
 
-  it("fails with graph/context-lost, and asks for a restore, when the context is lost", async () => {
-    const { host, onFailure, store } = mounted();
+  it("asks for a restore when the context is lost, and fails nothing while it waits", async () => {
+    const onRestore = vi.fn();
+    const onFailure = vi.fn();
+    const store = createGraph({ from: null, coordinator: null, onFailure });
+    const host = document.createElement("div");
+    createRenderer(host, store, { onRestore });
     await Promise.resolve();
     const lost = new Event("webglcontextlost", { cancelable: true });
-    host.querySelector("canvas")?.dispatchEvent(lost);
+    const canvas = host.querySelector("canvas");
+    canvas?.dispatchEvent(lost);
     expect(lost.defaultPrevented).toBe(true);
-    expect(isProblem(onFailure.mock.calls[0]?.[0], "graph/context-lost")).toBe(true);
-    expect(store.getSnapshot().status).toBe("failed");
+    expect(onFailure).not.toHaveBeenCalled();
+    expect(onRestore).not.toHaveBeenCalled();
+    canvas?.dispatchEvent(new Event("webglcontextrestored"));
+    await frame();
+    expect(onRestore).toHaveBeenCalledOnce();
+    expect(onFailure).not.toHaveBeenCalled();
+    expect(store.getSnapshot().status).not.toBe("failed");
+  });
+
+  it("fails with graph/context-lost when the browser does not return the context within 5 s", async () => {
+    vi.useFakeTimers();
+    try {
+      const { host, onFailure, store } = mounted();
+      await vi.advanceTimersByTimeAsync(0);
+      host.querySelector("canvas")?.dispatchEvent(new Event("webglcontextlost", { cancelable: true }));
+      await vi.advanceTimersByTimeAsync(4_999);
+      expect(onFailure).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(isProblem(onFailure.mock.calls[0]?.[0], "graph/context-lost")).toBe(true);
+      expect(store.getSnapshot().status).toBe("failed");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("stops waiting for a context once destroyed", async () => {
+    vi.useFakeTimers();
+    try {
+      const { host, onFailure, renderer } = mounted();
+      await vi.advanceTimersByTimeAsync(0);
+      host.querySelector("canvas")?.dispatchEvent(new Event("webglcontextlost", { cancelable: true }));
+      renderer?.destroy();
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(onFailure).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("builds a new cosmos.gl over the store's geometry and encoding when the context returns, and runs a layout again", async () => {
+    const corpus = await attach();
+    const onFailure = vi.fn();
+    const { result } = renderHook(() => useGraph({ from: corpus.from, coordinator: corpus.coordinator, fill: "team", onFailure }));
+    const host = document.createElement("div");
+    const detach = internalsOf(result.current).attach(host);
+    await settle(corpus);
+    await frame();
+    const { store } = internalsOf(result.current);
+    expect(constructed).toHaveLength(1);
+    expect(store.getSnapshot().motion).toBe("running");
+    host.querySelector("canvas")?.dispatchEvent(new Event("webglcontextlost", { cancelable: true }));
+    // The lost context's positions are not read back: the GPU's copy is gone.
+    expect(store.getSnapshot().arrangement).toBeNull();
+    calls.length = 0;
+    host.querySelector("canvas")?.dispatchEvent(new Event("webglcontextrestored"));
+    await frame();
+    await frame();
+    expect(constructed).toHaveLength(2);
+    expect(count("positions")).toBe(1);
+    expect(count("colors")).toBe(1);
+    expect(count("start")).toBe(1);
+    expect(store.getSnapshot().motion).toBe("running");
+    expect(store.getSnapshot().status).toBe("idle");
+    expect(onFailure).not.toHaveBeenCalled();
+    detach();
   });
 
   it("fails with graph/no-webgl and when the deadline fired, if WebGL exists but no device ever comes up", async () => {

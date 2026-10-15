@@ -17,6 +17,8 @@ export interface RendererEvents {
   onFrame?: () => void;
   /** Where the hovered point is in space, as cosmos.gl reports it: no GPU readback per hover. */
   onHover?: (position: [number, number] | null) => void;
+  /** The browser returned a lost context: the renderer is over, and the owner builds another over the store. */
+  onRestore?: () => void;
 }
 
 export interface Renderer extends GraphCommands {
@@ -275,7 +277,13 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   // two synchronous hit tests answer `[]` until then; only the canvas element has to wait for `ready`.
   graph.setConfigPartial(appearance(look, host));
   graph.render();
-  const release = holdDevice(graph, host, fail, camera.ready);
+  const release = holdDevice(graph, host, {
+    fail,
+    ready: camera.ready,
+    // The GPU's copy of the positions went with the context, so there is nothing for `keep` to read back.
+    lost: () => (shown = null),
+    restored: () => events.onRestore?.(),
+  });
   if (store.getSnapshot().arrangement === null) store.report("settled");
   schedule();
 

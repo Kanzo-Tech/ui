@@ -103,12 +103,21 @@ function build(store: GraphStore): GraphApi {
     attach(host, events) {
       store.renderable();
       let mounted: Renderer | null = null;
-      try {
-        mounted = createRenderer(host, store, events);
-      } catch (error) {
-        store.unrenderable(error);
-      }
-      renderer = mounted;
+      // A restored context is a new renderer over what the store holds, as a canvas that comes back is.
+      const mount = (): void => {
+        try {
+          mounted = createRenderer(host, store, { ...events, onRestore: remount });
+        } catch (error) {
+          mounted = null;
+          store.unrenderable(error);
+        }
+        renderer = mounted;
+      };
+      const remount = (): void => {
+        mounted?.destroy();
+        mount();
+      };
+      mount();
       return () => {
         mounted?.destroy();
         if (renderer === mounted) renderer = null;

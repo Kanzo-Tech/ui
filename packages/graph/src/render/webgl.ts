@@ -1,13 +1,16 @@
 "use client";
 
 import type { Graph } from "@cosmos.gl/graph";
-import { Problem, type ProblemData } from "@kanzo-tech/kernel";
+import { Problem, within, type ProblemData } from "@kanzo-tech/kernel";
 
 /**
  * The slowest honest answer for a GPU device: one comes up in milliseconds when it can be made at
  * all, so ten seconds is a device that will not come, not one that is slow.
  */
 const READY_DEADLINE = 10_000;
+
+/** How long the browser has to return a lost context: a decision, not a measurement. */
+const RESTORE_DEADLINE = 5_000;
 
 /**
  * **The largest square cosmos.gl will simulate in, or `null` with no WebGL at all.** cosmos.gl draws its
@@ -58,14 +61,29 @@ export function premultiplyClear(gl: Pick<WebGL2RenderingContext, "clearColor" |
 /**
  * **A canvas's device, from the wait for it to giving it back.** `ready` never settles when cosmos.gl
  * cannot make a device, so the deadline is what ends the wait: `graph/no-webgl`, with `data.after`.
- * A lost context is `graph/context-lost`. The answer lets the device go — cosmos.gl's graph, then the
- * context it does not give back itself.
+ * A lost context is asked back with `preventDefault()` and waited for, once, for `RESTORE_DEADLINE`:
+ * `lost` is told when it goes and `restored` when it returns, the GPU's copy of everything gone, and
+ * a context that does not return is `graph/context-lost`. The answer lets the device go — cosmos.gl's
+ * graph, then the context it does not give back itself.
  */
-export function holdDevice(graph: Graph, host: HTMLElement, fail: (error: Problem) => void, ready: () => void): () => void {
+export function holdDevice(
+  graph: Graph,
+  host: HTMLElement,
+  { fail, ready, lost, restored }: { fail: (error: Problem) => void; ready: () => void; lost: () => void; restored: () => void },
+): () => void {
   let gone = false;
+  const waiting = new AbortController();
   const onLost = (event: Event) => {
     event.preventDefault();
-    fail(new Problem("graph/context-lost", "The browser took back the WebGL context; reload to get one."));
+    lost();
+    const canvas = event.target as HTMLElement;
+    within(
+      RESTORE_DEADLINE,
+      (signal) => new Promise<void>((resolve) => canvas.addEventListener("webglcontextrestored", () => resolve(), { once: true, signal })),
+      { signal: waiting.signal, silent: () => new Problem("graph/context-lost", "The browser did not return the WebGL context.") },
+    ).then(restored, (error: unknown) => {
+      if (!waiting.signal.aborted) fail(error as Problem);
+    });
   };
   const noDevice = (data: ProblemData<"graph/no-webgl">, cause?: unknown) =>
     fail(new Problem("graph/no-webgl", "No GPU device came up to draw with.", data, { cause }));
@@ -87,6 +105,7 @@ export function holdDevice(graph: Graph, host: HTMLElement, fail: (error: Proble
   );
   return () => {
     gone = true;
+    waiting.abort();
     clearTimeout(deadline);
     // Read here rather than remembered from construction: the element exists only with the device.
     const canvas = host.querySelector("canvas");
