@@ -1,5 +1,5 @@
 /**
- * **Ask's evaluation set** — phase 1 of Kanzo Tasks (`/docs/design/tasks#phases`). Written by hand
+ * **Ask's evaluation set** — Kanzo Tasks (`/docs/design/tasks#the-evaluation-set`). Written by hand
  * and never trained on: a case is what a reader asks and what the data says the answer is, so the
  * same set scores today's Ask, a Task, and every model either is run with. It came from keasy's
  * `e2e/eval` (`/docs/design/testing`, *Ask's evaluation set lives beside Ask*), and it is data apart

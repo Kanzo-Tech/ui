@@ -50,7 +50,7 @@ const ORIGIN: React.CSSProperties = { left: 0, top: 0 };
 const graphCanvas = tv({
   slots: {
     root: "relative isolate size-full overflow-hidden bg-background",
-    layer: "pointer-events-none absolute inset-0",
+    layer: "pointer-events-none absolute inset-0 size-full",
     surface: "relative size-full",
     labels: "pointer-events-none absolute inset-0 overflow-hidden",
     label: [
@@ -76,7 +76,8 @@ const graphCanvas = tv({
  * `z-index` on a child cannot escape into the page.
  *
  * The grid is the one layer under the surface, which is positioned so tree order decides: cosmos.gl
- * clears to a transparent background (`appearance`) and this element paints the colour.
+ * clears to a transparent background (`appearance`) and this element paints the colour. It is a
+ * `<canvas>` drawn by `overlays.ts` when the camera moved — `/docs/design/graph`, "The reference grid".
  *
  * The surface is never gated on the first answer: rendered behind a placeholder it deadlocks — no
  * element, no renderer, no camera, no question. Waiting is an overlay over an empty canvas.
@@ -100,7 +101,8 @@ export function GraphCanvas({ children, className, slot, translations, ...rest }
   const busy = useGraphState((s) => s.drawn === null && s.status !== "failed");
   const look = useMemo(() => resolveLook(options.look), [options.look]);
   const getGraph = useCallback(() => renderer()?.graph ?? null, [renderer]);
-  const overlays = useOverlays({ getGraph });
+  const themeTick = useThemeTick();
+  const overlays = useOverlays({ getGraph, theme: themeTick });
   const { cardRef, gridRef, hostRef, hoverAt, labelRef, schedule, setHovered, setLabelOrder, track } = overlays;
   const surfaceRef = useRef<HTMLDivElement>(null);
   const geometry = useGraphSnapshot((s) => s.geometry);
@@ -127,7 +129,6 @@ export function GraphCanvas({ children, className, slot, translations, ...rest }
     [api, getGraph, id],
   );
 
-  const themeTick = useThemeTick();
   useEffect(() => {
     renderer()?.repaint();
   }, [renderer, themeTick]);
@@ -174,12 +175,7 @@ export function GraphCanvas({ children, className, slot, translations, ...rest }
       ref={hostRef}
     >
       <Show when={look.grid}>
-        <div
-          className={styles.layer()}
-          ref={gridRef}
-          // `--input`, not `--border`: a one-pixel dot in a border's colour is gone on a light page.
-          style={{ backgroundImage: "radial-gradient(var(--input) 1px, transparent 1px)" }}
-        />
+        <canvas className={styles.layer()} data-slot="graph-canvas-grid" ref={gridRef} />
       </Show>
       <div className={styles.surface()} data-slot="graph-canvas-surface" ref={surfaceRef} />
       <Show when={look.vignette}>

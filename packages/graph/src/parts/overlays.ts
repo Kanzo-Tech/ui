@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import type { Graph } from "@cosmos.gl/graph";
+import { resolveTokenColor } from "@kanzo-tech/ui";
 import type { VertexId } from "../core/types";
+import { drawGrid } from "../render/grid";
 
 /**
  * Everything that floats over the canvas and has to keep up with it: the hub labels, the hover
@@ -22,16 +24,6 @@ import type { VertexId } from "../core/types";
  * 700-line component and would have been obvious here.
  */
 
-/**
- * Dot spacing at zoom 1. The painter keeps the on-screen spacing inside [GRID, 2·GRID).
- *
- * **Not on the barrel any more.** Both call sites that imported it wrote the same line —
- * `backgroundSize: \`${GRID}px ${GRID}px\`` — as the *initial* value of a style `paint` overwrites
- * on its first frame. So the number was public to spell a value this hook was about to replace, and
- * the effect below writes it instead: the element the hook owns is seeded by the hook that owns it.
- */
-const GRID = 22;
-
 /** How far the hover card clears its node, and the margin it keeps from the canvas edge. */
 const CARD_GAP = 14;
 const CARD_EDGE = 8;
@@ -47,7 +39,8 @@ const clamp = (value: number, low: number, high: number) =>
 export interface GraphOverlays {
   /** The box the overlays are positioned within — the canvas' own bounds. */
   hostRef: React.RefObject<HTMLDivElement | null>;
-  gridRef: React.RefObject<HTMLDivElement | null>;
+  /** The canvas the grid is drawn on, while `look.grid` is on. */
+  gridRef: React.RefObject<HTMLCanvasElement | null>;
   cardRef: React.RefObject<HTMLDivElement | null>;
   /** A `ref` callback for a given vertex's label. */
   labelRef: (vertex: VertexId) => (element: HTMLElement | null) => void;
@@ -73,12 +66,16 @@ export interface GraphOverlays {
 /**
  * The labels, the hover card and the grid, positioned from the renderer every frame.
  */
-export function useOverlays(api: { getGraph: () => Graph | null }): GraphOverlays {
+export function useOverlays(api: { getGraph: () => Graph | null; theme: number }): GraphOverlays {
   // Built once by the canvas and stable for its life, which is what makes it safe to name in the
   // dependency arrays below.
-  const { getGraph } = api;
+  const { getGraph, theme } = api;
   const hostRef = useRef<HTMLDivElement>(null);
-  const gridRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLCanvasElement>(null);
+  /** What the grid last drew, so a frame that moved nothing draws nothing. */
+  const drawn = useRef({ canvas: null as HTMLCanvasElement | null, key: "" });
+  /** The dot colour, resolved against the canvas on mount and on a theme change — never per frame. */
+  const ink = useRef("");
   const cardRef = useRef<HTMLDivElement>(null);
   const labelEls = useRef(new Map<VertexId, HTMLElement>());
   /** Label widths, measured once each — reading `offsetWidth` every frame would force layout. */
@@ -170,17 +167,23 @@ export function useOverlays(api: { getGraph: () => Graph | null }): GraphOverlay
       element.style.opacity = "1";
     }
     // The grid belongs to the graph's space, not to the viewport: it slides with a pan and
-    // subdivides on zoom, so the spacing on screen never leaves [GRID, 2·GRID). Without that a
-    // fixed grid reads as wallpaper and the canvas stops feeling like somewhere you can move.
+    // subdivides on zoom, so it reads as a plane the graph sits on. Drawn only when the view moved —
+    // a frame of a settled graph, a hover or a label costs it nothing.
     const grid = gridRef.current;
-    if (grid) {
-      const k = graph.getZoomLevel();
-      if (k > 0) {
-        const step = (GRID * k) / 2 ** Math.floor(Math.log2(k));
-        const [ox, oy] = graph.spaceToScreenPosition([0, 0]);
-        const wrap = (v: number) => ((v % step) + step) % step;
-        grid.style.backgroundSize = `${step}px ${step}px`;
-        grid.style.backgroundPosition = `${wrap(ox)}px ${wrap(oy)}px`;
+    if (grid && bounds && ink.current) {
+      const ratio = window.devicePixelRatio || 1;
+      const [x, y] = graph.spaceToScreenPosition([0, 0]);
+      const [unit] = graph.spaceToScreenPosition([1, 0]);
+      const view = { x, y, scale: unit - x, width: bounds.width, height: bounds.height, ratio };
+      const key = `${x},${y},${view.scale},${view.width},${view.height},${ratio},${ink.current}`;
+      const context = grid === drawn.current.canvas && key === drawn.current.key ? null : grid.getContext("2d");
+      if (context) {
+        drawn.current = { canvas: grid, key };
+        if (grid.width !== Math.round(view.width * ratio) || grid.height !== Math.round(view.height * ratio)) {
+          grid.width = Math.round(view.width * ratio);
+          grid.height = Math.round(view.height * ratio);
+        }
+        drawGrid(context, view, ink.current);
       }
     }
 
@@ -209,6 +212,14 @@ export function useOverlays(api: { getGraph: () => Graph | null }): GraphOverlay
     }
   }, [getGraph]);
 
+  const schedule = useCallback(() => {
+    if (frame.current) return;
+    frame.current = requestAnimationFrame(() => {
+      frame.current = 0;
+      paint();
+    });
+  }, [paint]);
+
   // The canvas' box, measured when it changes rather than when it is read. `getBoundingClientRect()`
   // inside `paint` was one forced layout per animation frame, in a painter that caches `offsetWidth`
   // for exactly that reason.
@@ -218,36 +229,20 @@ export function useOverlays(api: { getGraph: () => Graph | null }): GraphOverlay
     const observer = new ResizeObserver(([entry]) => {
       const size = entry?.contentRect;
       if (size) box.current = { width: size.width, height: size.height };
+      schedule();
     });
     observer.observe(host);
     return () => observer.disconnect();
-  }, []);
+  }, [schedule]);
 
-  /**
-   * The grid's spacing at rest, written before the camera has said anything.
-   *
-   * `paint` sets this every frame from the live zoom, but only once there is a graph and a zoom to
-   * read — and the element is mounted well before that. The two hosts that drew a grid were each
-   * writing this same line inline off an exported `GRID`, which is a constant published so a call
-   * site could spell the value this hook was about to overwrite. Seeding it here is the same picture
-   * with the number staying where the painter that maintains it lives.
-   *
-   * The `backgroundImage` is not seeded: what the dots are made of is the host's decision — the
-   * border colour, a gradient, whatever the surface wants — and only the *spacing* has to agree with
-   * the camera.
-   */
+  // `--input`, not `--border`: a border's colour is gone on a light page. Resolved against the host
+  // so a scoped theme wins, and once per theme change: `getComputedStyle` is not a per-frame call.
   useEffect(() => {
-    const grid = gridRef.current;
-    if (grid) grid.style.backgroundSize = `${GRID}px ${GRID}px`;
-  }, []);
-
-  const schedule = useCallback(() => {
-    if (frame.current) return;
-    frame.current = requestAnimationFrame(() => {
-      frame.current = 0;
-      paint();
-    });
-  }, [paint]);
+    const host = hostRef.current;
+    if (!host) return;
+    ink.current = resolveTokenColor(host, "--input");
+    schedule();
+  }, [theme, schedule]);
 
   useEffect(
     () => () => {
