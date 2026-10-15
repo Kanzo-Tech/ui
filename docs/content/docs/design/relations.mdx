@@ -198,6 +198,6 @@ catalog fixtures; the `catch { return FALSE }` in `crossing()`.
 - Do not build a `JoinGraph` from a program's declarations; use `describe`'s `Mapping.model()`.
 - A host's `Corpus`, `CorpusProvider` and `corpusKey` are `Graph`, `GraphProvider` and `graphKey` (keasy and
   fossil rename everything called corpus, in one change each: `CorpusFile`, `memory://corpus/` and
-  `SinkRef::Corpus` too). Nothing in `@kanzo-tech/*` exports the old word.
+  `SinkRef::Corpus` too). Nothing in `@kanzo-tech/*` carries the old word.
 - A graph record carries no `report`: keasy's `Graph.report` is deleted with its column, its field and its
   API, and no type in this library describes it. Read what a graph holds from its `JoinGraph`.

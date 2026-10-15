@@ -601,7 +601,7 @@ resolution strategies, `cross` and `empty`; it lists no custom resolver and no c
 
 | Hook | What the crossing does with it | Why it is not public |
 | --- | --- | --- |
-| The resolver class | `JoinResolver` subclasses it, reached as `Selection.crossfilter().resolver.constructor`, and `new Selection(resolver)` is the extension point | mosaic-core 0.32.0 exports `SelectionResolver` as a type only |
+| The resolver class | `JoinResolver` subclasses it, reached as `Selection.crossfilter().resolver.constructor`, and `new Selection(resolver)` is the extension point | mosaic-core 0.32.0 declares `SelectionResolver` as a type only |
 | `meta.relation` on a clause, `relation` on a client | read by the subclass in `predicate(clauses, active, client)` | undocumented upstream |
 | `preaggregator.request` | `preaggregateOwnRelation` wraps it to veto a pre-aggregate for a client the clause crosses into | no per-client veto exists |
 
@@ -619,7 +619,7 @@ protection.
   and a clause crosses; `meta.relation` is the value the subclass reads; the `request` wrapper is the
   one the pre-aggregator calls. An upgrade fails in the pull request that makes it. *To be added*;
   it cannot prove the next release's behaviour, only that this one's still holds.
-- **Upstream**: a request to `uwdata/mosaic` to export `SelectionResolver` as a value and to document
+- **Upstream**: a request to `uwdata/mosaic` to make `SelectionResolver` a value and to document
   `predicate(clauses, active, client)` and a per-client pre-aggregation veto. If the first lands, the
   constructor trick is deleted; if the veto does, `preaggregateOwnRelation` is.
 - **The mosaic README states the three**, in place of "all of it is on Mosaic's public API", which

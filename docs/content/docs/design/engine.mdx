@@ -261,7 +261,7 @@ tables), ai's, mosaic's mocks, graphar's on native `@duckdb/node-api`, keasy's `
 through `unknown`, and rudof's JS script. Only fossil's interrupts. graph's catalog fixture passed
 while production changed, because fossil had deleted the format it copied.
 
-**The one engine a test reads from is the real one: DuckDB-WASM, in Node, exported by
+**The one engine a test reads from is the real one: DuckDB-WASM, in Node, provided by
 `@kanzo-tech/testing` with the interrupt loop fossil's double has.** graph, ai and the engine's own
 tests use it. There is no native DuckDB in ui's tests and no macro that imitates `parquet_metadata`:
 DuckDB-WASM opens real Parquet, ZSTD included, in Node, offline, when no `XMLHttpRequest` global
@@ -297,7 +297,7 @@ test, and the double's interrupt is a documented model of it.
 - `GraphRoot`, `MosaicProvider` and `useGraph` take `engine`, not `coordinator`; build one with
   `engine()` and pass it to all of them and to `ai`. `Graph` no longer needs the pair.
 - `import { engine } from "@kanzo-tech/mosaic/engine"`; the root of `@kanzo-tech/mosaic` is the
-  `@uwdata` door and no longer exports `engine`.
+  `@uwdata` door and no longer has `engine`.
 - `Table` and `Vector` come from `@kanzo-tech/kernel`.
 - Stop on a long statement now stops it; a page that relied on the statement finishing in the
   background no longer gets it.

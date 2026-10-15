@@ -309,7 +309,7 @@ that passes a two-process test on one adapter is built, and this paragraph is re
 - `store` is required whenever `apis` is configured: `kanzoAuth` throws when built without one, and the
   stateless default that failed at the callback past 4096 bytes is gone for such an application; give it a
   `ticketStore`. An application with no `apis` keeps the stateless store.
-- A request with neither `Sec-Fetch-Site` nor `Origin` is refused on the routes and the forwarder, and
+- A request with neither `Sec-Fetch-Site` nor an Origin header is refused on the routes and the forwarder, and
   there is no option to allow it: only the browser calls `/api/*`. A `curl`, a probe or a test runner
   calls the API at its own origin with its own credential.
 - The proxy gates a dotted path unless its extension is in `staticExtensions`; narrow your `matcher` so

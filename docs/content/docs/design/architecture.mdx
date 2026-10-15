@@ -69,7 +69,7 @@ with nothing behind it, and the application owner installs an implementation (th
 "Instrumentation authors MUST NOT directly reference any SDK package"). The budget is about three
 hundred lines, held by a gauge of its own.
 
-| Export | Is | Replaces |
+| Piece | Is | Replaces |
 | --- | --- | --- |
 | `Problem`, `isProblem` | the one error class, in the shape of RFC 9457's problem details: `code`, `title`, `detail`, `data`, `cause`, `help`, `related`, `severity`; and the structural predicate that narrows an `unknown` | `EngineError` in `mosaic`, `GraphError` in `graph`, `LlmError` in `llm`, `AuthError` in `auth`, and the regex in `ui`'s `Problem` composite |
 | `within` | the bounded wait: `within(ms, work, { signal })`, rejecting with a `Problem` on `AbortSignal.any` composition | the 60 s timer in the engine boot, the 30 s `deadline.ts` in `auth`, the 10 s timer in `graph`'s renderer |
@@ -180,7 +180,7 @@ citation until it is a real `it()`.
 | --- | --- | --- |
 | `package-layers.test.ts` | the layer table is derived from `kanzo.layers`; every static import in a shipped `src/` is of a lower layer or a named sibling edge; `@kanzo-tech/ui` is imported from no layer below L3 | dynamic `import()` and type-only imports, as `optional-peers.test.ts` skips them; a re-export through a workspace alias |
 | `entry-peers.test.ts` | the static closure of every `exports` entry reaches only the peers `kanzo.entryPeers` lists for it; replaces the root-only walk in `optional-peers.test.ts`, which is deleted when this lands | a peer reached only by a dynamic import |
-| `one-failure-model.test.ts` | every `class ... extends Error` in `SHIPPED` is the kernel's `Problem` or on a short allow-list, and the count of plain `new Error(` per file may not rise | a failure thrown by a dependency; a `Problem` built with a wrong code; that a plain `Error` is a fault and not a condition |
+| `one-failure-model.test.ts` | every class extending the built-in Error in `SHIPPED` is the kernel's `Problem` or on a short allow-list, and the count of plain `new Error(` per file may not rise | a failure thrown by a dependency; a `Problem` built with a wrong code; that a plain error is a fault and not a condition |
 | `one-deadline.test.ts` | no `setTimeout(` whose callback aborts or rejects, outside the kernel | a wait built on `setInterval` or a promise race; fossil holds the same rule with a lint rule in its own repo |
 | `no-ambient.test.ts` | `Symbol.for(`, `globalThis` and `window.__` appear only in the files that own a documented global: the engine, the local-model registry, the testing hook | a global assigned through a computed key |
 | `client-boundary.test.ts` widened | the corpus becomes every package that declares `react` as a peer, not those that declare `tailwind-variants`, closing the hole [the auth page](/docs/design/auth) names | a directive that survives the source but is lost in `dist/`: only the docs build evaluates that |
