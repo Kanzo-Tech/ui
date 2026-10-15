@@ -65,10 +65,10 @@ import {
   numbers,
   sql,
   verbatim,
-  type Engine,
   type ExprNode,
   type JoinGraph,
 } from "@kanzo-tech/mosaic";
+import type { Engine } from "@kanzo-tech/mosaic/engine";
 import { MosaicProvider, useChartQuery, useMosaic } from "@kanzo-tech/ui/analytics";
 import {
   SparklesIcon,

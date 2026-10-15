@@ -1,4 +1,5 @@
-import type { Engine, JoinGraph, Selection } from "@kanzo-tech/mosaic";
+import type { JoinGraph, Selection } from "@kanzo-tech/mosaic";
+import type { Engine } from "@kanzo-tech/mosaic/engine";
 import { answerRelation, askAnswer, type AskSpec } from "../data/ask.js";
 import { readAnswer, type AnswerOutput } from "../data/read.js";
 

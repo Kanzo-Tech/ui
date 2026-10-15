@@ -1,5 +1,6 @@
 // @vitest-environment node
-import { Selection, type Engine } from "@kanzo-tech/mosaic";
+import { Selection } from "@kanzo-tech/mosaic";
+import type { Engine } from "@kanzo-tech/mosaic/engine";
 import { QueryClient } from "@tanstack/react-query";
 import type { InferUIMessageChunk, LanguageModel } from "ai";
 import { beforeAll, describe, expect, it } from "vitest";

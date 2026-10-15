@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { attachWritten } from "@/lib/attach-graph";
 import { Show, Skeleton } from "@kanzo-tech/ui";
-import { engine, relationHops, type Coordinator, type Engine, type JoinGraph, type Relation } from "@kanzo-tech/mosaic";
+import { relationHops, type Coordinator, type JoinGraph, type Relation } from "@kanzo-tech/mosaic";
+import { engine, type Engine } from "@kanzo-tech/mosaic/engine";
 import { Dashboard, FilterBar, MosaicProvider, useMosaic, type DashboardSpec } from "@kanzo-tech/ui/analytics";
 import { Chat, ModelBadge } from "@kanzo-tech/ai";
 import { AnswerCard, useAskChat, type AskOutput } from "@kanzo-tech/ai/data";
