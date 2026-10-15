@@ -286,8 +286,9 @@ than in every product:
 `none` pass — `none` is a bookmark or a typed URL, which is the person acting. `same-site` is
 refused along with `cross-site`: the cookie is `__Host-` and therefore host-only, but host-only
 says where the cookie *lives*, not who may cause a request to it. Without the header, `Origin` is
-compared; without either, the request is allowed, because something carrying no evidence of where
-it came from also carries no evidence that it came from a *page*, and a page is the attack.
+compared; without either, the request is refused, because an absence is unknown and a sensitive
+endpoint blocks the unknown. Only the browser calls these routes and `/api/*`, and there is no option:
+a script, a probe or a test runner calls the API at its own origin with its own credential.
 
 ### `organization` is validated before it becomes a scope
 
