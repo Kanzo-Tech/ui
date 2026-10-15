@@ -15,24 +15,22 @@ import {
   ItemMedia,
   ItemTitle,
   Show,
-  Spinner,
 } from "@kanzo-tech/ui";
-import { useMemo } from "react";
 import { initialsOf } from "@/example/people";
-import { guildAuth } from "@/lib/guild-auth";
+import { GUILD_SESSION } from "@/lib/guild-auth";
 
 function Identity() {
-  const { session, signIn, signOut, status } = useSession();
-
-  // `status`, never `session === null`: one value cannot tell "anonymous" from "not looked yet".
-  if (status === "loading") return <Spinner />;
+  // The session the server read for this page, from the first render; the two URLs are the edge's.
+  const { session, signInUrl, signOutUrl } = useSession();
 
   return (
     <Show
       fallback={
         <ButtonGroup aria-label="Session">
           <ButtonGroupText>Nobody is signed in</ButtonGroupText>
-          <Button onClick={() => void signIn()}>Sign in</Button>
+          <Button asChild>
+            <a href={signInUrl()}>Sign in</a>
+          </Button>
         </ButtonGroup>
       }
       when={session !== null}
@@ -56,8 +54,8 @@ function Identity() {
               {role}
             </Badge>
           ))}
-          <Button onClick={() => void signOut()} size="sm" variant="outline">
-            Sign out
+          <Button asChild size="sm" variant="outline">
+            <a href={signOutUrl("/")}>Sign out</a>
           </Button>
         </ItemActions>
       </Item>
@@ -66,12 +64,9 @@ function Identity() {
 }
 
 export default function Example() {
-  // Memoised because the provider re-reads the session whenever this identity changes, and a new
-  // `Auth` on every render is a new subscription on every render.
-  const auth = useMemo(() => guildAuth(), []);
-
+  // In a product, the server layout: `<AuthProvider session={await auth.session()}>`.
   return (
-    <AuthProvider auth={auth}>
+    <AuthProvider session={GUILD_SESSION}>
       <Identity />
     </AuthProvider>
   );

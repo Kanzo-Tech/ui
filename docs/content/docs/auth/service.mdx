@@ -43,7 +43,7 @@ every seeded person on every pull request, against a Keycloak it has just brough
 ## The contract
 
 An application's roles in an organization are `organization.<alias>.resource_access.<clientId>.roles`,
-on the access token and the ID token both, written by Keycloak from the role mappings of the
+on the access token (and the ID token, which nothing here reads), written by Keycloak from the role mappings of the
 person's groups in that organization with composites expanded. Group names are never read, a role
 held in one organization says nothing about another, and the scope to ask for is `organization:*`.
 An application that grants to groups declares `groups: {}` and reads the ids of the person's groups
@@ -82,7 +82,6 @@ configs:
         origin: ${BOARD_ORIGIN}             # https://{organization}.board.example.com
         callback: /api/auth/callback        # one redirect URI per organization
         # where Keycloak posts a logout token; see Keycloak → Back-channel logout
-        backchannel_logout: http://board:3000/api/auth/backchannel-logout
         client_secret_file: /run/secrets/board-oidc
         roles:
           reader: {}
@@ -147,6 +146,37 @@ names carry a prefix — `auth-postgres`, `auth-realm`, `auth-seed`, `kanzo-auth
 `keycloak`, and a bare `postgres` of the application's own does not collide with them. Waiting on
 `auth-realm` means the realm is applied, the application's client among it, before the application
 starts.
+
+## The session's edge
+
+`auth-proxy` is the relying party in front of an application: oauth2-proxy, signing the person in with
+PKCE, keeping the session in `auth-valkey` behind an opaque host-only cookie, renewing it and signing
+out at Keycloak. On every request it lets through it passes the application the access token
+(`X-Forwarded-Access-Token`) and the person (`X-Forwarded-User`, `X-Forwarded-Email`); the application
+holds no client secret, no session and no refresh token, and reads the person from the token with
+[`@kanzo-tech/auth`](/docs/auth/server). Nothing in the service names an application: one application
+per Compose project extends it, from the same override file that hands `auth-realm` its declarations
+(a service an `include:` brings in cannot be redefined in the including file):
+
+```yaml title="compose.override.yaml"
+services:
+  auth-proxy:
+    environment:
+      OAUTH2_PROXY_CLIENT_ID: board
+      OAUTH2_PROXY_SCOPE: "openid email profile organization:* board-api"  # the API's scope puts it in aud
+      OAUTH2_PROXY_UPSTREAMS: http://board:3000
+      OAUTH2_PROXY_PROXY_PREFIX: /api/auth        # the declaration's callback, minus /callback
+      OAUTH2_PROXY_WHITELIST_DOMAINS: .board.example.com
+      OAUTH2_PROXY_API_ROUTES: ^/api/             # answer 401 to a fetch, not a redirect
+    secrets: [auth-proxy-client, auth-proxy-cookie] # the client secret, and 16, 24 or 32 bytes
+```
+
+The browser reaches the proxy, never the application. The application reaches Keycloak's keys
+inside the network, which is what `kanzoAuth`'s `jwks` names:
+`http://keycloak:8080/realms/kanzo/protocol/openid-connect/certs`. A sign-out at the application goes
+through the proxy's `sign_out`; a session ended at Keycloak reaches the proxy when the access token next
+needs renewing, within the realm's `access_token_lifespan`. [The decision and its
+measurements](/docs/design/auth#the-session-is-the-platforms-edge) are on the auth layer's page.
 
 ## What is not there
 

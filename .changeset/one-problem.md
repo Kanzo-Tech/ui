@@ -13,7 +13,7 @@ Every failure these packages name is now the kernel's `Problem` (RFC 9457), and 
 `JSON.stringify` as `application/problem+json`. `engine/unavailable`'s `data.after` is now optional,
 as it always was in practice: it is set only when the deadline fired.
 
-The auth routes, the forwarder and the proxy answer with that same body: it now carries `type` and
+The auth forwarder answers with that same body: it now carries `type` and
 `severity`, and `title` is the code's own title ("Nobody is signed in") where it was the status's
 phrase ("Unauthorized"). Route on `code`, as before.
 

@@ -90,18 +90,19 @@ first admission rule excludes auth by name, for the reason the log-out affordanc
 know what a session is.
 
 ```bash
-pnpm add @kanzo-tech/auth @tanstack/react-query
+pnpm add @kanzo-tech/auth
 ```
 
-The session is a query on your own TanStack Query client, so render one `QueryClientProvider` above
-`AuthProvider` ([the session page](/docs/auth/session#the-session-is-a-query-on-your-queryclient)).
-The root barrel carries no engine, which is what makes it the door every consumer's browser half
-opens. The other two each name theirs, and you install only the one you open.
+The session is read on your server from the token the platform's edge forwards and handed to
+`AuthProvider` as a prop ([the session page](/docs/auth/session#the-session-is-a-prop)), so the
+browser half needs nothing else. The root barrel carries no engine, which is what makes it the door
+every consumer's browser half opens. The other two each name theirs, and you install only the one you
+open.
 
 | subpath | what it is | install alongside |
 | --- | --- | --- |
-| `@kanzo-tech/auth/server` | the confidential client, framework-agnostic | `openid-client`, `jose` |
-| `@kanzo-tech/auth/next` | `kanzoAuth`: the proxy, the routes, the API forwarder and a session reader | `openid-client`, `jose`, `next` 16+ |
+| `@kanzo-tech/auth/server` | `sessionReader`: the forwarded token verified and read into a `Session`, framework-agnostic | `jose` |
+| `@kanzo-tech/auth/next` | `kanzoAuth`: the server component's session, the proxy and the API forwarder | `jose`, `next` 16+ |
 
 The two server doors are Node's, and nothing on them reaches React —
 `packages/auth/src/server.test.ts` imports them without React to say so, rather than trusting this

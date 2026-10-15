@@ -1,432 +1,98 @@
 ---
 title: Server
-description: The confidential client behind @kanzo-tech/auth/server — seven methods, strings in and strings out, a sealed cookie, a stable ticket renewed in place, and back-channel logout through the store.
+description: sessionReader — the access token the platform's edge forwards, verified against the realm's keys and read into one Session, framework-agnostic; and claims, the reader underneath it.
 ---
 
 ```ts
-import { relyingParty } from "@kanzo-tech/auth/server";
+import { claims, sessionReader } from "@kanzo-tech/auth/server";
 ```
 
-This door is the server half of the [Backend For Frontend](/docs/auth/session#the-backend-for-frontend):
-the tokens live on your server and the browser gets a cookie it cannot read. It needs
-`openid-client` and `jose`, and it reaches no React at all. [`kanzoAuth`](/docs/auth/next) is this
-door already wired into Next; read on for what it is made of, or to put it under another framework.
-
-What it answers is a `RelyingParty` and not an `Auth`: the seven methods below are `begin`,
-`complete`, `read`, `token`, `refresh`, `end` and `logout`, the protocol's verbs, so the name
-carries no `Auth` suffix — [the suffix is a promise](/docs/auth#what-a-name-means-here).
-
-**Nothing here implements OAuth.** `openid-client` runs the flow, verifies the ID token and builds
-the end-session URL; `jose` seals the cookie. What is written here is the short sequence a route
-handler needs, the cookie discipline around it, and Keycloak's claims read into one `Session` —
-by [`claims`](/docs/auth/keycloak#reading-it-yourself), which is on this door because the server is
-the only side that holds a claim set.
-
-## Strings in, strings out
-
-There is no `Request` in any signature, and that is deliberate: a `Request` parameter would make
-one framework's flavour of it the one that fits. A URL and a `Cookie` header go in; a URL and
-`Set-Cookie` values come out, so the same methods sit under an App Router handler, an Express route
-or anything else.
+The relying party is not in this package. oauth2-proxy, in front of the application, signs the person
+in, keeps the session, renews it and signs out, and on every request it lets through it passes the
+Keycloak access token as `X-Forwarded-Access-Token` ([the identity
+service](/docs/auth/service#the-sessions-edge)). What a server does with that header is this door: verify
+the token, and read its claims into a `Session`.
 
 ```ts
-const party = relyingParty({
+const read = sessionReader({
+  issuer: "https://id.example/realms/kanzo",
   clientId: "board",
-  issuer: "https://id.kanzo.tech/realms/kanzo",
-  secret: process.env.AUTH_SECRET!,
-  store: ticketStore(adapter),
+  jwks: "http://keycloak:8080/realms/kanzo/protocol/openid-connect/certs",
 });
+
+const session = await read(request.headers); // Session | null
 ```
 
-| Method | Answers | For |
-| --- | --- | --- |
-| `begin({ redirectUri, returnTo?, organization? })` | `Redirect` — the authorization URL, and the cookie that remembers this attempt | `GET /api/auth/signin` |
-| `complete({ url, cookie, redirectUri })` | `SignedIn` — a session, its cookies, and where the person was going | the callback |
-| `read(cookie)` | `Session \| null` — one store read, nothing renewed | `GET /api/auth/session`, a server component |
-| `token(cookie, { audience, organization? })` | `Token \| Ended` — a token for one resource server and one organization, exchanged for the session's | forwarding to a resource server |
-| `refresh(cookie, options?)` | `Renewed \| Ended` — renewed now, or with `renewWithin` only when near expiry | the proxy, `POST /api/auth/refresh` |
-| `end(cookie, options?)` | `Redirect` — clears the cookie and ends it at the IdP too | `GET /api/auth/signout` |
-| `logout(logoutToken)` | nothing — drops the sessions a back-channel logout token names | `POST /api/auth/backchannel-logout` |
+`Headers` in, a `Session` out, and nothing of any framework in the signature: [`./next`](/docs/auth/next)
+is a thin wrapper over it, and so is anything else. Build the reader once; it keeps the realm's keys
+between requests.
 
-`redirectUri` is per call because it is derived from the request that asked, and one relying party
-serves every origin a deployment answers on; `complete` sends the token endpoint the same URI
-`begin` sent the authorization endpoint, as RFC 6749 §4.1.3 requires, whatever host the callback
-arrived under.
+## The token is verified, every time
 
-`Redirect`, `SignedIn`, `Renewed`, `Token` and `Ended` are the answer shapes, and every one of them
-carries its `cookies` as `Set-Cookie` values for the caller to attach. A handler that forgets to
-attach them is a handler whose sign-in appears to work and whose session is never there.
+The proxy verified the token too, and the reader verifies it again, because a header is anyone's to
+set who reaches the application without the edge, and a token is only the realm's to sign. That is
+what makes a header that did not come through the proxy worth nothing
+([why](/docs/design/auth#the-forwarded-token-is-verified-on-every-read)). With `jose`, against the
+realm's JWK set:
 
-**`Ended` is a result, not an exception.** It says there is no live session — none was presented,
-the store no longer knows it, or the IdP refused to renew it — carries a `code` saying which
-(`session/absent` or `token/refused`), and carries the `Set-Cookie` that clears the browser's
-cookie. It used to be a thrown error that cleared nothing, which is how a refused renewal left a
-zombie: a cookie and a row that outlived the IdP's session by hours, and an application drawn for
-someone Keycloak had already signed out.
+- **the signature**, by a key the realm publishes — an unsigned token, or one signed by any other key,
+  is refused;
+- **`iss`**, exactly the configured issuer — the **public** one, as every token names it;
+- **`exp`**, which must be present and in the future;
+- **`azp`**, which must be this application's `clientId`: a token issued to another application is
+  somebody else's.
 
-## The token-mediating backend
+`aud` is not checked here. It names the APIs the token is for, and is each API's to check.
+`X-Forwarded-User` and `X-Forwarded-Email` are never read: they are the edge's unsigned word for what
+the token says with the realm's signature.
 
-`token` is the credential half of `read`. It answers a bearer token for **one resource server and
-one organization** — the `aud` that server validates, and the organization the call is in — and
-never the session's own access token, which names every organization the person belongs to and no
-API at all. Forwarding that one would hand `acme`'s server a token that is just as good at
-`globex`'s.
-
-So the session's token is exchanged: [OAuth 2.0 Token
-Exchange](https://www.rfc-editor.org/rfc/rfc8693), as Keycloak's [standard token
-exchange](https://www.keycloak.org/securing-apps/token-exchange) implements it. The request is
-`audience=<api>` and `scope=<api> organization:<alias>`; the realm answers with a token whose `aud`
-is the API alone and whose `organization` claim holds that organization alone, with the roles held
-there. A person who is not a member of the organization is not refused by Keycloak — the
-organization is dropped from the token — so the granted `scope` is read, and `token` rejects with
-`organization/denied` rather than hand a resource server a token that names no organization in its
-place. The access token stays opaque here, as it is by contract.
-
-```ts
-const held = await party.token(request.headers.get("cookie"), { audience: "reports", organization: "acme" });
-if (held.ended) return unauthorized(held.cookies); // 401, clearing the cookie
-
-const upstream = await fetch(REPORTS, {
-  headers: { authorization: `Bearer ${held.accessToken}` },
-});
-const answer = new Response(upstream.body, upstream);
-for (const cookie of held.cookies) answer.headers.append("set-cookie", cookie);
-return answer;
-```
-
-The session is renewed first when less than `renewWithin` seconds remain — sixty by default, which
-covers both the flight time of the request about to be sent and the clock skew between this server
-and the one that will validate the token — and the exchanged token is kept until it is inside the
-same window, one per session token, audience and organization. An exchange is single-flight under
-that key, so a page that fires eight requests costs the realm one exchange. The exchanged token
-carries no refresh token: the next one is another exchange.
-
-`cookies` is empty unless the ticket itself changed, which only the stateless store's re-seal does.
-[`kanzoAuth().api`](/docs/auth/next#api) is that whole handler, already written, and
-[the realm](/docs/auth/keycloak#the-apis-an-application-calls) is where an application is allowed to
-ask for an API.
-
-<Callout type="warn">
-**The access token is the credential, and the ID token is not.** A product without a way to ask for
-the first reaches for the second, which works on a realm that happens to put the same audience in
-both and stops working the day the resource server checks `typ == "Bearer"` — which is what it
-should be doing. An ID token says *who signed in*; it was never a key to an API, and it is not what
-`/token/introspect` or `/revoke` take either.
-</Callout>
-
-## Renewal
-
-**The ticket is issued once, at sign-in, and never again.** That is Duende BFF's server-side
-session, and it is also the session-fixation defence: whatever cookie a browser arrived at the
-callback with, it leaves with a ticket nobody has seen. After that a renewal spends the refresh
-token and writes what comes back **in place**, with `store.update(ticket, record)`, so under a
-`ticketStore` the cookie is the same cookie for the whole session. Two tabs, or a proxy renewal and
-a request already in flight, never hold two different cookies for one session.
-
-Renewal is **single-flight per ticket, for the whole process**: a page that fires eight requests at
-an expiring token spends it once, and the proxy, the forwarder and the refresh route all join the
-same slot. The proxy asks `refresh(cookie, { renewWithin })`, which renews only inside the window;
-the refresh route asks `refresh(cookie)`, which renews now.
-
-Two Node processes behind a load balancer can still both spend one refresh token, and the IdP
-answers the second with `invalid_grant`. That is not the end of the session: the first process has
-already written the rotated token under the shared ticket, so on `invalid_grant` the record is
-**read once more**, and a refresh token that changed is taken and used. Only when it has not
-changed is the session over — the ticket is dropped and `Ended` clears the cookie. An IdP that did
-not answer, or a token endpoint that refused for any reason other than the grant, ends nothing: it
-is reported as the outage or the deployment fault it is.
-
-`Session.expiresAt` is the access token's expiry, from the token response's `expires_in`, which is
-when the next renewal is due.
-
-Sign-out goes through `buildEndSessionUrl`, not a URL assembled by hand: it discovers the
-end-session endpoint and sends the `id_token_hint`, and a hand-built URL gets both wrong with
-neither failure visible.
-
-## The cookies
-
-One mechanism, used twice: for the session that outlives a request, and for the short-lived
-transaction that carries `state`, `nonce` and the PKCE verifier between the two legs of the code
-flow. Keeping the transaction in a cookie rather than in server memory is what makes this
-**stateless by default**.
-
-The transaction cookie is one **per attempt**, named by its `state` — `__Host-kanzo-auth.<state>`,
-Auth0's `__txn_{state}` — so two tabs signing in at once both finish, and each callback clears the
-one it spent.
-
-Both are sealed the same way, set from `secret` and `maxAge` on `RelyingPartyConfig`, and read as
-absent whether a cookie is missing, tampered with or expired — three ways of not having a session
-are one answer. Four attributes, each for a reason:
-
-| | |
+| What happened | The reader |
 | --- | --- |
-| `__Host-` prefix | Forces `Secure` and `Path=/` and forbids `Domain`. Without it, anything that can serve a sibling subdomain can set a cookie that arrives looking exactly like ours — and the prefix is not declinable here |
-| `HttpOnly` | In a BFF the browser is not supposed to hold the credential at all; this is that sentence enforced |
-| `SameSite=Lax` | Not `Strict`. `Strict` withholds the cookie on the navigation *back* from the IdP, so the callback arrives without the transaction it needs and every sign-in fails |
-| JWE, not a signature | The payload is a refresh token. Signing would authenticate it and leave it readable to anyone who can see the cookie |
+| no token forwarded | `null` |
+| a token that does not verify, for any reason above | throws `token/refused` (401) |
+| the keys could not be fetched within 10 s | throws `idp/silent` (504) |
+| the keys could not be fetched at all | throws `idp/unreachable` (502) |
 
-<Callout type="warn">
-**A browser is only required to keep 4 KB of cookie, and an oversized one is dropped silently** —
-no error, a sign-in that appears to work, and a session that never appears. Sealing throws with
-that byte count rather than letting it happen, and the way out is `ticketStore`.
-</Callout>
+The last two are an outage, not a refusal: the token may be perfectly good. Each is a `Problem` from
+`@kanzo-tech/kernel`, and `isProblem(error, "idp/unreachable")` tells them apart.
 
-## When a cookie is not enough
+## Reaching the keys from inside a cluster
 
-`statelessStore` is the default for `relyingParty`, and the default for `kanzoAuth` only while it has no `apis`; it holds nothing: the ticket *is* the record, so `update`
-re-seals it and the cookie is reissued. Two things it cannot do, both stated here rather than
-discovered later.
+The browser reaches Keycloak at its public origin, and the application usually cannot: in a Compose
+network it reaches `http://keycloak:8080`. So `issuer` is the public URL every token names, and `jwks`
+is where **this process** reaches the keys. Absent, `jwks` is the issuer's own,
+`{issuer}/protocol/openid-connect/certs`. The keys are fetched on first use and kept; a token signed
+under a key id the reader has not seen fetches them again, at most once per cooldown, which is the
+answer to the realm rotating its keys.
 
-**`drop` does nothing, and `dropAll` refuses** with `session/irrevocable`. Signing out clears the
-cookie, which is enough for the person holding the browser and is not enough for anybody else: a
-copy taken beforehand keeps working until it expires. Under this store a session lifetime is a real
-security parameter, and neither *sign out everywhere* nor a back-channel logout is implementable —
-Auth0's SDK requires a session store for back-channel logout for the same reason.
+## `claims`
 
-**It does not fit a record carrying an access token, and the numbers are the argument.** Sealed
-with the three tokens a token-mediating backend holds, a realistic Keycloak record — two
-organizations and the roles that come with them — measures **6407 bytes** against a limit of 4096.
-Without the access token it measures **4068**, which is 28 bytes of margin and not a design: one more
-organization goes over it. `store.test.ts` holds both figures. So the stateless
-default is for a product that reads identity and calls no resource server; the moment there is an
-API to call, the cookie carries a ticket instead of the tokens. `kanzoAuth` enforces it: it throws
-when it is built with `apis` and no `store`.
-
-`SessionStore` is six methods, and `SessionRecord` is what they carry — the session and the IdP's
-`sid`, plus the access, refresh and ID tokens the browser must never see. The tokens live on the
-record and not on `Session` for exactly that reason: a type carrying both would make the leak one
-typo away.
-
-```ts
-interface SessionStore {
-  put(record: SessionRecord): Promise<string>;                  // at sign-in: a new ticket
-  update(ticket: string, record: SessionRecord): Promise<string>; // on renewal: the ticket to carry
-  get(ticket: string): Promise<SessionRecord | null>;
-  drop(ticket: string): Promise<void>;
-  dropAll(subject: SessionSubject): Promise<void>;              // back-channel logout
-  seen(jti: string, ttl: number): Promise<boolean>;             // a logout token already used? remember it
-}
-```
-
-`SessionSubject` is `{ sub, sid? }`, the two claims a logout token names: every session of a
-person, or the one Keycloak just ended.
-
-A deployment that needs one live session per person enforces it in `put`, by dropping that person's
-previous ticket as it issues the new one.
-
-### `ticketStore`, and the database you already have
-
-No backend ships here — a driver is a dependency and a deployment decision, and neither is this
-package's to make on its way past. What does ship is the shape, because without it every product
-that wants a real sign-out writes its own sealing, and a logout that invalidates nothing is the
-thing they all ship instead.
-
-```ts
-kanzoAuth(() => ({
-  …,
-  store: ticketStore({
-    read: (key) => redis.get(key),
-    write: (key, value, ttl) => redis.set(key, value, { EX: ttl }),
-    replace: async (key, value, ttl) => (await redis.set(key, value, { XX: true, EX: ttl })) === "OK",
-    delete: (key) => redis.del(key),
-    // node-redis 5 yields a batch of keys per SCAN step
-    async *keys(prefix) {
-      for await (const batch of redis.scanIterator({ MATCH: `${prefix}*` })) yield* batch;
-    },
-  }),
-}));
-```
-
-The cookie then carries an opaque ticket of 256 bits from the CSPRNG — under 400 bytes sealed,
-whatever the realm puts in a token — and the record lives in your own database. **`drop` deletes**,
-so every copy of that cookie ends at once, and **`update` writes under the same key**, so a renewal
-leaves the cookie alone. That write is the adapter's `replace` — Redis `SET … XX`, SQL `UPDATE`
-and its row count — which overwrites only a row that still exists. A back-channel logout that
-deletes the row while a renewal is in flight therefore stays a logout: the renewal finds nothing to
-replace and ends the session, instead of writing it back.
-
-A ticket is `<sub>:<sid>:<random>`, each part percent-encoded. The random part is the whole of the
-security; the subject and the IdP session id are neither secret nor trusted on the way back in —
-the record is read from the row, never from the key. What the prefix buys is the query a flat
-random key makes impossible: *every session belonging to this person*, or *the one Keycloak just
-ended*. `dropAll` is that query, through the adapter's optional `keys(prefix)` — Redis `SCAN MATCH`,
-SQL `LIKE`. The prefix never contains a glob metacharacter (a subject spelled `*` is encoded), so
-the Redis pattern is literal as written; a SQL adapter still escapes `%` and `_`. Without `keys`,
-everything works except back-channel logout, which answers `session/irrevocable`.
-
-`ttl` defaults to eight hours and should be set to the `maxAge` you gave `relyingParty`, which is
-the lifetime of the cookie carrying the ticket. **Honouring it is the adapter's job**, because
-every store that could hold this already has an expiry of its own — `EX` on Redis, a column and a
-sweep on SQL — and a timer here would be one that dies with the process.
-
-**Bounding the wait is not the adapter's job.** `ticketStore` races every command it makes on the adapter (each `read`, `write`, `replace`, `delete`
-and step of a `keys` scan) against five seconds, and one that has not answered rejects as
-`session/silent` with `{ after: 5000 }` — which `relyingParty` reports as `session/unavailable`
-with that as its `cause`, like any other failure of the store. So an adapter is the three driver
-calls above and nothing else. What stays the deployment's is the driver's own configuration: a
-connect timeout and no offline queue are what make a store that is down refuse at once, rather
-than at the deadline.
-
-## Back-channel logout
-
-`logout(logoutToken)` is the relying party's half of **OpenID Connect Back-Channel Logout 1.0**.
-It verifies the token as §2.6 lists: the signature against the realm's published keys, `iss`
-against the issuer, `aud` against the client id, `iat`, `exp` and `jti` present, the
-`http://schemas.openid.net/event/backchannel-logout` event present, and **no `nonce`** — which is
-what keeps an ID token from being replayed as a logout token. The `typ` header must be exactly `logout+jwt` (§2.4, RFC 8725): `JWT`, another and none are refused.
-The baseline is **Keycloak 25.0.0 or later** (the supported realm is 26.8), the release that types its
-logout tokens (keycloak/keycloak#28939; `exp` came in 24.0.0, #25753).
-A `jti` the store has already seen is refused (§2.6 step 8), and remembered until the token's `exp`
-through the adapter under `logout-jti.<jti>`; the check reads and then writes, so two replays racing
-each other can both pass, and the gap is accepted. Then it calls `store.dropAll` with
-the token's `sub` and, when present, `sid`.
-
-The keys are `jose`'s remote key set over the discovered `jwks_uri`, fetched through the same
-transport as discovery — an `internalOrigin` applies to it too. A `kid` it has not seen re-fetches
-the set, at most once per cooldown, which is how a key rotation is survived without a timer.
-
-A token that does not verify rejects with `token/refused`; a store that cannot end a session from
-here rejects with `session/irrevocable`. §2.4 allows a token naming only `sid`, and this one is
-refused too: tickets are found by subject first, and Keycloak always sends `sub`.
-
-## Discovery, and reaching Keycloak from inside a cluster
-
-```ts
-import { issuer, type Issuer, type IssuerConfig } from "@kanzo-tech/auth/server";
-```
-
-`relyingParty` takes everything `IssuerConfig` does, so most products never call `issuer` directly.
-Two behaviours are worth knowing whichever way you reach them.
-
-**The origin the server uses can differ from the one the browser is sent to.** In a cluster the
-browser goes to the public issuer and the server reaches `http://keycloak:8080`. `internalOrigin`
-rewrites the *transport* rather than the issuer, so discovery still validates the `issuer` in the
-document against the public URL — which is what Keycloak puts there. When the two origins are
-equal the rewrite is a pass-through, which is why there is no second code path for the ordinary
-case.
-
-**Discovery is allowed to fail.** Keycloak is frequently not up when the application is, and a
-library hiding a retry loop inside itself takes that decision away from the caller. A failed
-discovery is simply not cached, so the next call tries again — the retry is your `await`, on your
-schedule. `Issuer.rediscover()` throws away what was discovered, which is the answer to signing-key
-rotation, and it is deliberately reactive: the trigger is a verification that failed, never a
-timer. A timer refreshes when nothing is wrong and is still stale at the moment something is.
-
-`privateKey` selects `private_key_jwt` over a shared `clientSecret` and wins when both are given:
-the secret never travels. `allowInsecureHttp` is what lets a compose file on a laptop serve
-`http://localhost:8080`.
+`claims(raw, { clientId })` is the reader underneath: a decoded claim set in, a `Session` out, with no
+verification and no network. It is the only place that knows what Keycloak calls things —
+[Roles](/docs/auth/roles#roles-inside-an-organization-are-read-from-its-entry) and
+[Keycloak](/docs/auth/keycloak#what-the-token-actually-carries) have the vocabulary — and it throws
+`claims/no-subject` for a claim set with no `sub`. A test, or a documentation page, makes its
+`Session` with it, so what it draws is what a token would produce.
 
 ## A group overage, and asking the realm
 
-A token that would carry more group ids than its threshold carries none, and the organization says
-`groupsOverage: true` — [Microsoft Entra ID's rule](/docs/design/auth#a-group-is-granted-to-by-id-with-entras-overage-rule).
-An empty `groups` then means *ask*, never *in no group*, and asking is the application's job, because
-it needs a credential this package never holds: a service account of the application's, with
-`realm-management`'s `view-organizations` and `view-users` (the member's groups endpoint refuses
-either alone). It reads `GET {adminUrl}/organizations/{org}/members/{user}/groups`, walks each
-group's ancestors as the realm's mapper does — `inherited` on the mapper, and the two must agree —
-and keeps an answer for the token's own five minutes.
+An organization's entry carries `groupsOverage: true` and no group ids when the person is in more
+groups than the token should carry ([Keycloak](/docs/auth/keycloak#groups-by-id)). The lookup is the
+application's: a service account with `view-organizations` and `view-users` reads the membership from
+the realm's admin API. The package holds no such account and ships no lookup.
 
 ## API Reference
 
-### `relyingParty`
+### `sessionReader`
 
-`RelyingPartyConfig` extends `IssuerConfig` with:
-
-| Prop | Type | Default |
-| --- | --- | --- |
-| `secret` | `string \| Uint8Array` | — |
-| `scope` | `string` | `openid profile email organization:*` — whatever is given, its organization scope is `organization:*`, or the one alias a sign-in names |
-| `store` | `SessionStore` | `statelessStore()` |
-| `maxAge` | `number` | eight hours, in seconds |
-| `postLogoutRedirectUri` | `string` | — |
-
-Returns a `RelyingParty`.
-
-### `Token`
-
-What `token` answers for a live session: a `Renewed` with the credential on it.
-
-| Field | Type | Description |
-| --- | --- | --- |
-| `ended` | `false` | |
-| `accessToken` | `string` | The bearer credential for the one resource server and organization asked for |
-| `session` | `Session` | Who it belongs to |
-| `cookies` | `readonly string[]` | `Set-Cookie` values to attach. Empty unless the stateless store re-sealed — **attaching them is not optional** |
-
-`token` takes an `Audience` — the API and the organization a token is for — and `renewWithin`:
-
-| Option | Type | Description |
-| --- | --- | --- |
-| `audience` | `string` | The API's client id in the realm, which `services/auth/modules/api` registers |
-| `organization` | `string` | The organization the call is in. Absent for an API no organization owns: the token then names none |
-| `renewWithin` | `number` | Seconds, default `60` |
-
-It rejects with `organization/denied` for an organization the person is not a member of,
-`organization/invalid` for one that is not an alias — `*` included — and `token/exchange-failed`
-when the realm will not exchange for that audience at all.
-
-`refresh` takes `{ renewWithin?: number }`: absent, it renews now.
-
-### `Ended`
-
-What `token` and `refresh` answer when there is no live session.
-
-| Field | Type | Description |
-| --- | --- | --- |
-| `ended` | `true` | |
-| `code` | `"session/absent" \| "token/refused"` | No session to renew, or the IdP refused to renew it |
-| `cookies` | `readonly string[]` | The `Set-Cookie` that clears the browser's cookie; empty when it held none |
-
-### `SessionRecord`
-
-| Field | Type | Description |
-| --- | --- | --- |
-| `session` | `Session` | What the browser is allowed to see |
-| `sid` | `string` | The ID token's `sid`, kept across refreshes, for a back-channel logout to name |
-| `accessToken` | `string` | The session's own token: what `token` exchanges, and never forwarded |
-| `accessTokenExpiresAt` | `number` | Epoch ms, from the response's `expires_in` rather than from opening the token |
-| `refreshToken` | `string` | Rotated on every use; the stored one is always the newest issued |
-| `idToken` | `string` | Kept for `id_token_hint` at the end-session endpoint |
-
-### `ticketStore`
-
-`ticketStore(adapter: TicketAdapter, config?: TicketStoreConfig): SessionStore`
-
-`TicketAdapter`:
-
-| Method | Signature |
-| --- | --- |
-| `read` | `(key: string) => Promise<string \| null>` |
-| `write` | `(key: string, value: string, ttl: number) => Promise<void>` |
-| `replace` | `(key: string, value: string, ttl: number) => Promise<boolean>` — overwrite only if the key still exists, in one atomic step |
-| `delete` | `(key: string) => Promise<void>` |
-| `keys` | `(prefix: string) => AsyncIterable<string>` — optional; only `dropAll` needs it |
-
-Each call is bounded by the store at 5 s (`session/silent`), so an adapter races nothing itself.
-
-`TicketStoreConfig`:
+`sessionReader(config: SessionReaderConfig): (headers: Headers) => Promise<Session | null>`.
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `ttl` | `number` | eight hours, in seconds |
+| `issuer` | `string`, the public issuer every token names | required |
+| `clientId` | `string`, this application's client: `azp` must be it, and the roles are read from its `resource_access` entry | required |
+| `jwks` | `string`, where this process reaches the realm's keys | `{issuer}/protocol/openid-connect/certs` |
 
-### `IssuerConfig`
+### `claims`
 
-| Prop | Type | Default |
-| --- | --- | --- |
-| `issuer` | `string` | — |
-| `clientId` | `string` | — |
-| `clientSecret` | `string` | — |
-| `privateKey` | `CryptoKey \| PrivateKey` | — |
-| `internalOrigin` | `string` | the issuer's own origin |
-| `fetch` | `typeof fetch` | the global |
-| `allowInsecureHttp` | `boolean` | `false` |
-| `verifySignatures` | `boolean` | whether the token endpoint is reached over TLS |
-
-`verifySignatures` defaults to a derivation rather than to `false`, and the reason is worth the
-line: the specification lets a code grant skip ID-token signature verification because the TLS
-channel to the token endpoint vouches for it — and an `internalOrigin` of `http://keycloak:8080`
-withdraws exactly that premise. [The signature check follows the
-channel](/docs/design/auth#the-signature-check-follows-the-channel-not-a-default) is the argument
-in full, with the clause it rests on and what would reverse it.
+`claims(raw: unknown, config: { clientId: string }): Session`.

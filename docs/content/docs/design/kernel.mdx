@@ -357,9 +357,9 @@ resolved to a dead engine.
 1. **The handles are the engine, an attachment, a loaded model and the graph's store.** Each
    implements `[asyncDispose]`, and a host that holds one holds it with `await using` or disposes it in
    an effect cleanup.
-2. **A closure remains the right shape for a subscription.** `Auth.subscribe` returns its unsubscribe
-   (`packages/auth/src/types.ts`) because React's effect cleanup is a closure; making it a
-   `Disposable` would put a wrapper between two shapes that already fit.
+2. **A closure remains the right shape for a subscription.** A subscribe returns its unsubscribe
+   because React's effect cleanup is a closure; making it a `Disposable` would put a wrapper between
+   two shapes that already fit.
 3. **A refcount a caller must observe keeps its own API.** `@fossil-lang/storage`'s `mount` refcounts
    credentials, a different resource, and stays.
 

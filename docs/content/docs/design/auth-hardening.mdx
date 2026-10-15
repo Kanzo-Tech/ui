@@ -1,6 +1,6 @@
 ---
 title: Hardening the auth layer
-description: What @kanzo-tech/auth does so that a script on the origin, a hung API, a request with no origin, a short store, a dotted path or a replayed logout does not become a session or an API call; the one session reader and its test double; the realm baseline; and the limits it states instead of fixing, each with what would reverse it.
+description: What @kanzo-tech/auth does so that a script on the origin, a hung API, a request with no origin or a forged header does not become an API call; what moved to the platform's edge; the one session reader; the realm baseline; and the limits it states instead of fixing, each with what would reverse it.
 ---
 
 [The auth layer](/docs/design/auth) is why the package is shaped as it is. This page is what the layer
@@ -9,12 +9,11 @@ the other half. **The identity provider is always Keycloak** ([the decision](/do
 so every rule below leans on Keycloak's own feature where it has one, and none of them is written
 for a provider the package does not support.
 
-*Status: to be built.* Every rule below is decided and none is in the tree at the commit this was
-read at (`origin/main`, 023fe4ee); the tree has an inline-script CSP in keasy, a forwarder with no
-bound, a constant that fails open, a default store that cannot hold a session, and so on. The
-*Breaking* list at the end is what a consumer edits. A guard or a test named *to be added* is not
-cited as held until it exists. `packages/auth/src` and the realm were read in full, the roughly 320
-tests were counted and not audited, and nothing was run; [the last section](#what-was-read-and-how-far)
+*Status: built, but for [the realm baseline](#the-realm-ships-a-baseline).* The other rules below hold in the tree. Five of them were written for a package that was
+its own relying party — a required store, a gated dotted path, a checked logout token, two session
+readers and a test double, a renewal race between web hosts — and each is replaced by the sentence that replaced it when the relying party moved
+to the platform's edge ([the decision](/docs/design/auth#the-session-is-the-platforms-edge)). The
+*Breaking* list at the end is what a consumer edits; [the last section](#what-was-read-and-how-far)
 says how far each reference was read.
 
 ## A script on the origin is API access, so no inline script runs
@@ -37,55 +36,51 @@ export const auth = kanzoAuth(async () => ({
 `proxy` draws 128 random bits per request, writes `Content-Security-Policy` on the request it forwards
 (the header Next reads to put the nonce on its own scripts) and on the response, and forwards the
 nonce as `x-nonce` for a server component that needs it. A browser without CSP Level 3 support is not
-served: the policy fails closed, and the script is blocked.
+served: the policy fails closed, and the script is blocked. The nonce is not auth, and it stays on
+`proxy` because that is where a request's headers are written; after the edge took the session it is
+`proxy`'s one job besides forwarding the URL.
 
-**The failure it answers.** The forwarder attaches an exchanged bearer for the victim's organization to
-every `/api/*` request the page makes (`packages/auth/src/next-proxy.ts`). `HttpOnly` and a BFF keep
-the token from being *exfiltrated*, not from being *used*: a stored cross-site script in anything the
-product renders (a graph's name, a dataset's label, an AI answer) calls the API as the person. keasy's
-`script-src` carried `'unsafe-inline'`, and its own comment says *an XSS on this origin is API access*
-and puts the fix with the package. The package already forwarded request headers for a nonce
-(`proxy(request, { headers })`, held by `next-auth.test.ts`); the missing part was generating one and
-owning the policy around it.
+**The failure it answers.** The edge turns the person's cookie into a token on every request, and the
+forwarder attaches that token as a bearer to every `/api/*` request the page makes
+(`packages/auth/src/next-proxy.ts`). `HttpOnly` and a BFF keep the token from being *exfiltrated*, not
+from being *used*: a stored cross-site script in anything the product renders (a graph's name, a
+dataset's label, an AI answer) calls the API as the person. keasy's `script-src` carried
+`'unsafe-inline'`, and its own comment says *an XSS on this origin is API access* and puts the fix with
+the package.
 
 **The reference** is CSP Level 3's nonce with `strict-dynamic`, which Next's CSP guide builds on. Neither
-was read for this page; the mechanism is stated from the package's own half-built hook, and the first
-build reads both.
+was read for this page; the mechanism is stated from the package's own hook.
 
 **What it costs.** A nonce is per request, so a page that carries one cannot be cached as static HTML
-(Next's own consequence, not re-read here): the product's pages render per request, to be measured on
-keasy before the change lands. `./next` is at its gauge (7.8 kB) and the helper is estimated near
-+0.3 kB, an estimate and not a measurement, raised as a decision on [the gauge
-table](/docs/design) and not quietly. `style-src` is the host's and not the package's: Ark's
-inline styles stay allowed there, and style injection is a lesser, unaddressed risk.
+(Next's own consequence, not re-read here): the product's pages render per request. `style-src` is the
+host's and not the package's: Ark's inline styles stay allowed there, and style injection is a lesser,
+unaddressed risk.
 
 **Unproved, and gating.** That DuckDB-WASM's worker and its `.wasm` compile load under `strict-dynamic`
 with `'wasm-unsafe-eval'` and an explicit `worker-src`, since `strict-dynamic` makes browsers ignore
 host allow-lists for scripts. keasy's end-to-end run over a graph load, an Ask and a chart is that
-measurement, and the change does not land without it.
+measurement.
 
 **What would reverse it:** Next shipping nonces natively, so `proxy` only forwards and the helper goes;
 or a load that cannot run under `strict-dynamic` and has no nonce to be given, which returns the
 product to a policy it owns and writes its risk beside it.
 
-*To be added:* `next-auth.test.ts`, "sends a fresh nonce on every request and names it in script-src
-with strict-dynamic, without unsafe-inline".
+*Held by* `packages/auth/src/next-auth.test.ts`, "sends a fresh nonce on every request and names it in
+script-src with strict-dynamic, without unsafe-inline" and "refuses unsafe-inline in script-src when
+the config is read".
 
 ## The forwarder bounds its hop and ends it when the person leaves
 
-**The forwarder passes the upstream `fetch` `AbortSignal.any([request.signal, within's signal])`, bounded
-until the upstream's headers; a bound that fires is `api/silent`, 504.** It passed no signal at all
-(`send(upstream, { method, headers, body, duplex, redirect })`), so a hung handler held the BFF's
-connection until the HTTP client's own timeouts (not looked up), and a person navigating away cancelled
-nothing upstream: N tabs against one hung API exhaust the web container's sockets. Two rules of
-[the failure page](/docs/design/failure#one-deadline-per-wait) apply to it and it broke both: the party
-that makes the request bounds it, and the caller's signal is passed down.
+**The forwarder waits for the upstream through the kernel's `within`, with the request's own signal:
+bounded until the upstream's headers, and a bound that fires is `api/silent`, 504.** It passed no signal
+at all once, so a hung handler held the application's connection until the HTTP client's own timeouts
+(not looked up), and a person navigating away cancelled nothing upstream: N tabs against one hung API
+exhaust the web container's sockets. Two rules of [the failure page](/docs/design/failure#one-deadline-per-wait)
+apply to it: the party that makes the request bounds it, and the caller's signal is passed down.
 
 The bound is on **headers**, not on the body: a server-sent event stream or an upload is alive after the
-headers and is not the forwarder's to end on a clock. The client's abort still cancels it. The figure is
-the failure page's table, and nests: strictly inside the browser's, and the browser's `/refresh`, which
-renews and then exchanges, is at least their sum. There is no per-mount option: an API that is
-legitimately slower to its headers is the evidence that adds one.
+headers and is not the forwarder's to end on a clock. The client's abort still cancels it. There is no
+per-mount option: an API that is legitimately slower to its headers is the evidence that adds one.
 
 **The reference** is fossil's rule that every async function crossing a boundary takes `{ signal }` and
 that an inner wait expires before the one around it (its `design/failure.mdx`, G1, read).
@@ -93,132 +88,114 @@ that an inner wait expires before the one around it (its `design/failure.mdx`, G
 **What would reverse it:** an upstream proxy that already enforces both for every mount, so the
 forwarder's bound is a second one; or the per-mount option above.
 
-*To be added:* `next-proxy.test.ts`, "answers 504, as a problem naming api/silent, when the API sends no
-headers within the bound" and "aborts the upstream request when the client's signal aborts".
+*Held by* `packages/auth/src/next-proxy.test.ts`, "answers 504, as a problem naming api/silent, when
+the API sends no headers within the bound", "aborts the upstream request when the client's signal
+aborts" and "does not end a response body on the clock once the headers have arrived".
 
 ## A request that says nothing about where it came from is refused
 
-**`isSameSite` fails closed: a request with neither `Sec-Fetch-Site` nor `Origin` is refused on the
-routes and the forwarder it guards. Only the browser calls `/api/*`, and there is no option to say
-otherwise.** The guard is as it is today (everything but `callback`, `signin` and `backchannel-logout`,
-which are cross-site by design), and the end of the function, which returned `true`, returns `false`.
-A browser sends one of the two headers on a same-origin request; the absence is a `curl`, a health
-probe, a stripped proxy, or an attacker's control, and `refresh` (spends a refresh token) and `signout`
-(ends a session) are exactly the endpoints the check exists for. `Origin: null`, which the comparison
-already fails, stays refused. A script, a probe or a test runner that needs the API calls it at its own
-origin with its own credential, and not through the browser's door, whose session it does not have.
+**`isSameSite` fails closed: a request to the forwarder with neither `Sec-Fetch-Site` nor `Origin` is
+refused, and so is one from another site, a sibling subdomain included. Only the browser calls `/api/*`
+through the application, and there is no option to say otherwise.** The edge's cookie is
+`SameSite=Lax` — `Strict` would withhold it on the navigation back from Keycloak — so a cross-site
+top-level navigation still carries it, and the edge turns it into a token. The check is the
+application's and not the edge's: the edge authenticates a request, and whether one of the
+application's own pages caused it is a question about the application's endpoints. A browser sends one
+of the two headers on a same-origin request; the absence is a `curl`, a health probe, a stripped
+proxy, or an attacker's control. `Origin: null`, which the comparison fails, stays refused. A script, a
+probe or a test runner that needs the API calls it at its own origin with its own credential.
 
 **The reference** is the OWASP CSRF Prevention Cheat Sheet (read): Fetch Metadata is a lightweight and
 reliable method, falling back to `Origin` is mandatory, and *for sensitive endpoints treat absence as
 unknown and block*. RFC 10017 §6.1.3.3 (read) requires a BFF to implement a proper CSRF defense and
-says `SameSite` is not sufficient where same-site neighbours exist, which `isSameSite` already
-refuses.
+says `SameSite` is not sufficient where same-site neighbours exist, which `isSameSite` refuses.
 
-**Not taken: a `nonBrowserClients` option.** It would have
-made the unsafe default one flag away and a second mechanism to test; the owner's decision (15 October
-2026) is that nothing but the browser calls the BFF, so the option has no caller. **Not taken either:**
-the RFC's custom request header (`bffAuth.fetch` adding one, forcing a preflight), which answers the
-missing-signal case for browsers and adds a mechanism where the signals already decide.
+**Not taken: a `nonBrowserClients` option.** It would have made the unsafe default one flag away and a
+second mechanism to test; the owner's decision (15 October 2026) is that nothing but the browser calls
+the application's `/api/*`, so the option has no caller. **Not taken either:** the RFC's custom request
+header, forcing a preflight, which answers the missing-signal case for browsers and adds a mechanism
+where the signals already decide.
 
 **What would reverse it:** a real browser population that sends neither header on a same-origin
 `POST`, none known, which would send this to the custom header; or a first non-browser caller of
 `/api/*` that cannot call the API directly, which brings the option back with that caller as its test.
 
-*To be added:* `same-site.test.ts`, "refuses a request with neither Sec-Fetch-Site nor Origin".
+*Held by* `packages/auth/src/same-site.test.ts`, "refuses a request with neither Sec-Fetch-Site nor
+Origin" and "refuses a sibling subdomain, which the cookie prefix does not cover";
+`packages/auth/src/next-proxy.test.ts`, "answers 403 without asking upstream when the request carries
+neither Sec-Fetch-Site nor Origin".
 
-## An application with an API must have a store
+## The session store is the edge's
 
-**`store` is required whenever `apis` is configured (the owner's decision, 15 October 2026): `kanzoAuth` throws when it is built, with a plain `Error` (a deployment fault, not a
-[`Problem`](/docs/design/failure#the-codes-this-library-names)), if `apis` is not empty and `store` is
-absent.** The stateless store stays the default for an application that calls no API and only reads who
-the person is. It cannot revoke (`drop` does nothing and back-channel logout answers 501), and it
-seals the whole record into a cookie: `store.ts` measures **6407 bytes** with the access token against
-the 4096 a browser must keep, and the seal throws at the **callback**, after a successful IdP login,
-for the person in many organizations, so it fails for a subset of people and is hard to reproduce. An
-application with an API is exactly the one with an access token to carry and a reason to revoke.
+**The session lives in the edge's store, `auth-valkey`, behind an opaque host-only cookie, for every
+application; the application holds no session, no store, no client secret and no refresh token.** It
+replaced a rule that required a `ticketStore` whenever `apis` was configured, because the stateless
+default sealed the whole record into a cookie — 6,407 bytes against the 4,096 a browser keeps, failing
+at the callback for the person in many organizations — and could not revoke. The edge's cookie is
+176 bytes, measured.
 
 **Idle timeout and step-up are Keycloak's policy and are not designed here.** The realm's clocks are
 the policy (`sso_session_idle_timeout` 30 min, `sso_session_max_lifespan` 10 h), which is what
-OWASP ASVS 5.0 V7 asks for at 7.3.1 and 7.3.2 by reference to the IdP. Met in the tree: a new session
-token on authentication (7.2.4, the ticket issued at the callback), and a terminated session unusable
-(7.4.1) **only with a `ticketStore`**, which this rule makes the case wherever it matters. Not met:
-re-authentication before a sensitive change (7.5.1), because `Session` carries no `auth_time` or `acr`.
-Keycloak does it with `max_age` and `acr` through an authentication flow, and `Session` may carry the
-two claims as Keycloak writes them, with no mapping layer, the day a product has a step-up.
+OWASP ASVS 5.0 V7 asks for at 7.3.1 and 7.3.2 by reference to the IdP. A terminated session is
+unusable (7.4.1) at the edge the moment the person signs out there, and within the realm's
+`access_token_lifespan` when the session ends at Keycloak itself: the edge learns it at its next
+renewal. Not met: re-authentication before a sensitive change (7.5.1), because `Session` carries no
+`auth_time` or `acr`. Keycloak does it with `max_age` and `acr` through an authentication flow, and
+`Session` may carry the two claims as Keycloak writes them the day a product has a step-up.
 
-**What would reverse it:** a product that reads identity only and passes no `apis`: nothing changes
-for it, and it keeps the stateless store. A product that needs step-up adds `auth_time` and `acr` to
-`Session`, and the store is where they live.
+**What would reverse it:** an application that must hold state about the session the edge cannot —
+which no product has asked for; or a requirement that a sign-out at Keycloak end the session at once,
+which is the edge's to answer (a back-channel logout receiver), not this package's.
 
-*To be added:* `next.test.ts`, "refuses to be built with an API and no store".
+*Held by* `packages/auth/src/index.test.ts`, "are the session reader and its claim reader on the
+server door".
 
-## A dotted path is a page
+## Every path is behind the edge
 
-**The proxy lets through without a session only a path whose last segment ends in an extension on a
-configured list, `staticExtensions`, whose default is what a browser fetches to draw a page: `js`,
-`mjs`, `css`, `map`, `wasm`, `png`, `jpg`, `jpeg`, `gif`, `webp`, `avif`, `svg`, `ico`, `woff`, `woff2`,
-`txt`, `xml`, `webmanifest`.** A data format (`csv`, `json`, `parquet`) is deliberately not on it. The
-function was `isFile`: any dot in the last segment, so `/graphs/foo.bar` or a dataset slug `x.csv` was
-neither renewed nor enforced by the proxy, and protection depended on each page calling
-`session({ required: true })`. keasy's layout does, so keasy was safe; the default was the gap, for a product
-relying on what `next-gate.ts` says, that the proxy is the session authority. A path that must open
-without a session and is not a static file is a `public` prefix, matched on segment boundaries as it is.
-A product's own `matcher` must stop excluding `.*\..*`; the proxy's list is applied inside it, so a
-matcher that is wrong in the open direction is still caught.
+**The edge gates every request it fronts, a page, a static file or a dotted slug alike; the
+application's `proxy` lets every request through and decides nothing about the session.** It replaced a
+proxy that was the session authority itself and let through, unread, a path whose last segment ended
+in a static extension (`staticExtensions`) or sat under a `public` prefix, after a version that let any
+dotted path through ungated. Both options went with it. A path that must open without a session is the
+edge's to list (`OAUTH2_PROXY_SKIP_AUTH_ROUTES`), and a page behind such a path that needs the person
+asks `session({ required: true })`, which sends to the edge's sign-in.
 
-**What would reverse it:** a product serving static assets with an extension the list lacks, which adds
-it to its own list; the default grows only with a second product's need.
+**What would reverse it:** nothing in this package; the list of open paths is the edge's configuration.
 
-*To be added:* `next-gate` test, "gates a dotted path that is not a static extension and lets a static
-file through".
+*Held by* `packages/auth/src/next-auth.test.ts`, "decides nothing about the session: a request with no
+token goes through" and "answers null with no token, and redirects to the edge's sign-in back to the
+page when required".
 
-## A logout token is checked as the specification recommends
+## No logout token reaches the application
 
-**The back-channel logout route refuses a body over 8 KB, requires
-`application/x-www-form-urlencoded`, refuses a token whose `typ` header is not exactly
-`logout+jwt`, requires `exp` and `jti`, and refuses a `jti` it has already seen.** The route is unauthenticated by design, and
-`request.text()` was unbounded. The `jti` is kept through the ticket adapter that already exists:
-`write` under `logout-jti.<jti>` with a TTL up to the token's `exp`, `read` before it. The adapter has no
-set-if-absent, so the check has a gap between its read and its write; a replayed logout only logs
-someone out again, and the gap is accepted. With the stateless store there is nothing to cache and the
-route answers 501 before it matters.
+**The application receives no back-channel logout: oauth2-proxy has no receiver for one, and a
+sign-out at Keycloak itself reaches the edge when the access token next needs renewing, within the
+realm's `access_token_lifespan`.** It replaced a back-channel logout route in the package, which capped
+its body at 8 KB, required `logout+jwt` as `typ`, `exp` and `jti`, and refused a replayed `jti`
+(OpenID Connect Back-Channel Logout 1.0, §2.4 and §2.6). The route went with the session it ended. A
+sign-out at the application goes through the edge's `sign_out`, which ends the session in its store and
+at Keycloak.
 
-**`typ` is required, exactly.** The baseline is Keycloak 25.0.0 or later, and the supported realm is
-26.8: Keycloak types its logout tokens `logout+jwt` since 25.0.0 (keycloak/keycloak#28939, PR 29260) and
-gives them an `exp` since 24.0.0 (#25753). `JWT`, any other `typ` and an absent one are refused (RFC 8725
-explicit typing). What would reverse it: another IdP admitted, which is a non-goal.
+**What would reverse it:** a requirement that a sign-out at Keycloak end the session at once. The
+receiver then belongs at the edge, where the session is, and the checks above are what it owes.
 
-**The reference** is OpenID Connect Back-Channel Logout 1.0 (read): §2.4 recommends that logout tokens be
-explicitly typed `logout+jwt`, and §2.6 step 8 makes the `jti` replay check optional. Steps 1 to 7 are
-what the route does today.
+## One session reader, and the session is a prop
 
-**What would reverse it:** the specification dropping the recommendation; or an IdP other than Keycloak, which is a non-goal.
+**`sessionReader` on `./server` is the one reader of a `Session`: it verifies the forwarded token and
+reads its claims with `claims()`, and `kanzoAuth().session()` and the forwarder are built on it. The
+browser has no reader: the server hands the `Session` to `AuthProvider` as a prop.** It replaced two
+readers kept in step by a round-trip test — `claims()` on the server and `readSession` over the session
+route's JSON in the browser — and an exported test double, `fakeAuth`, standing in for the transport
+the browser read through. With no transport there is nothing to stand in for: a test, and the
+documentation's examples, pass a `Session` made with `claims()` to the provider, so what a test draws is
+what a token produces.
 
-*To be added:* `server.test.ts`, "refuses a logout token whose typ is not logout+jwt" and "refuses a
-logout token it has already seen"; `next-routes.test.ts`, "refuses a logout body over the cap".
+**What would reverse it:** a browser that has to read the session itself — a page served without a
+server render — which brings back a session endpoint, its reader and a double for it.
 
-## One session reader and one test double
-
-**`Session` is read by one module with no React and no engine, which the browser's reader and the
-server's `claims()` both answer to, and `@kanzo-tech/auth/testing` exports `fakeAuth(session)`.** A
-session was validated twice by hand, `claims()` on the server and `readSession`/`readOrganization` in
-the browser, so a field added to one and not the other was a silent default (`expiresAt` is `0`). The
-module holds the browser's reader; a round-trip test builds a session with `claims()`, serialises it as
-the session route does and reads it back with that reader, and a field one side drops fails it.
-`readSession` stays private to the package, as [a name on a door](/docs/design/auth#a-name-on-a-door-has-a-products-call-site)
-needs a call site.
-
-`fakeAuth` has two, and they are why it is admitted: the documentation's `guildAuth`
-(`docs/lib/guild-auth.ts`), which builds its `Session` from a real `claims()` and wraps it by hand, and
-keasy's own test fake. It returns an `Auth` whose `getSession` answers the session it was given,
-whose `subscribe` fires on a `set`, and whose `fetch` is the host's. A `Session` for it is made with
-`claims()`, so what a test draws is what a token produces. There were four ways to make a session in
-test (`fake-keycloak.ts`, `guildAuth`, keasy's e2e logins, `verify.sh`); this one is the consumer's.
-
-**What would reverse it:** nothing for the reader: the drift is permanent without it. The double
-reverses if `Auth` shrinks to a hook a test can override without a fake.
-
-*To be added:* `session.test.ts`, "reads back what claims() built, field for field".
+*Held by* `packages/auth/src/server.test.ts`, "reads the person a verified token names into a Session,
+organizations and roles inside them"; `packages/auth/src/index.test.ts`, "are the session reader and
+its claim reader on the server door".
 
 ## The realm ships a baseline
 
@@ -227,8 +204,7 @@ retention, no `offline_access` among the default optional scopes, and says its s
 the module takes the figures as variables with safe defaults.** Today it sets none of these (a search
 of `realm` and `modules` for brute-force, password policy, events, OTP and email verification found
 nothing), and `offline_access` is an optional scope on every client by default
-(`modules/app/variables.tf`), though the BFF never asks for it and the package defends against
-injecting it. Whether Keycloak's own defaults cover brute force on a new realm is **not confirmed**:
+(`modules/app/variables.tf`), though the edge never asks for it: its scope is configuration, so a sign-in link cannot add one. Whether Keycloak's own defaults cover brute force on a new realm is **not confirmed**:
 the fetch of the admin guide returned only its table of contents. The module sets them explicitly so
 the posture does not depend on a default nobody read. The second-factor stance is that passkeys carry
 `user_verification=required` already and no further factor is required by the platform; a deployment
@@ -247,78 +223,64 @@ provider in place of Keycloak is a non-goal, not a reversal of this rule.
 *To be added:* `verify.sh` reads the realm's brute-force, policy and event settings back through the
 admin API and fails on a difference.
 
-## One web host for now, and the race that limits it
+## Renewal is the edge's, and the application scales freely
 
-**The platform runs one web host. Renewal is single-flight per ticket within a process, and a second
-process is a stated limit, not a designed case.** The sequence, with rotation on
-(`revoke_refresh_token=true`, `refresh_token_max_reuse=0`): replicas A and B both hold the same stale
-record. A's grant succeeds. B's returns `invalid_grant`, and B re-reads the record once before A has
-written (A writes after parsing its answer), finds the spent token, and ends the session with
-`token/refused`; A's conditional `update` then finds the key gone and ends it too. Even the other order
-risks the IdP treating the second use as reuse and revoking the family, which RFC 9700 §4.14.2 (read)
-describes: the server cannot tell which party presented the token and revokes the active one. Nothing
-in `server.test.ts` runs two processes. keasy is one host (`compose.prod.yaml`), so it is latent; the
-first second replica, or a rolling update with two live webs, triggers it. The same limit stands
-under back-channel logout, whose URL is per client while tenancy is per host.
+**The application renews nothing, so any number of its instances can run behind the edge. Renewal and
+its race are oauth2-proxy's.** It replaced a stated limit of one web host: renewal was single-flight per
+ticket within a process, and two processes could both spend one rotated refresh token, which RFC 9700
+§4.14.2 says the server answers by revoking the family. The race has not gone away; it moved to the
+edge, which takes a lock in its store around a refresh (oauth2-proxy's session locking with a Redis
+store, as its documentation describes; not measured here with two edge replicas).
 
-**Not designed, on purpose, and the limit is the owner's decision (15 October 2026): one web host for
-now.** The fixes are known and each costs something: a bounded re-read before `token/refused`; an
-optional adapter method for a renewal lease (`SET NX PX`, which Redis and SQL both have); or
-sender-constrained refresh tokens (RFC 9449) at the IdP, which would make reuse detection unnecessary.
-Choosing among them without a second replica is guessing which one the first replica needs.
+**The cheap mitigation is still Keycloak's, at the realm, and noted and not enabled:**
+`refresh_token_max_reuse=1` lets a refresh token be presented once more after it is spent. It weakens
+theft detection (RFC 9700 §4.14), the reason it is a decision for the first second edge replica.
 
-**The cheap mitigation is Keycloak's, at the realm, and it is noted and not enabled:**
-`refresh_token_max_reuse=1` lets a refresh token be presented once more after it is spent, which
-covers the loser of a two-process race. It weakens theft detection (RFC 9700 §4.14), the reason it is
-a decision for the first second replica and not a default; it is one realm setting and no package
-change.
-
-**What would reverse it:** the first deployment with more than one web instance. Then the cheapest fix
-that passes a two-process test on one adapter is built, and this paragraph is replaced by it.
+**What would reverse it:** a second `auth-proxy` replica measured spending a refresh token twice. Then
+the realm setting above, or sender-constrained refresh tokens (RFC 9449), is chosen against that
+measurement, and nothing in this package changes.
 
 ## Limits the layer states instead of fixing
 
-- **A derived token outlives a logout, up to five minutes.** The `exchanged` cache and the tokens in the
-  API's hands survive `dropAll`: ASVS 7.4.1 asks that a terminated session be unusable, and the
-  *session* is, the bearer tokens derived from it are not. A bearer token is that by definition; the
-  window is the exchanged token's lifetime. *Reversed by* a resource server that checks a revocation
-  list, which turns the window into zero at that API's cost per request.
-- **Transaction cookies accumulate.** `kanzo-auth.<state>` is set per sign-in attempt for ten minutes,
-  and `signin` is cross-site reachable by design, so a page can navigate a victim to it repeatedly until
-  the browser's per-host cookie cap pushes cookies out, the session's among them (the cap is not looked
-  up). *Reversed by* a measurement that it does, which moves the transactions to one bounded cookie.
+- **The access token outlives a sign-out, up to its lifespan.** The edge's session ends at once; a token
+  already forwarded to an API is a bearer token until it expires, five minutes on this realm. *Reversed
+  by* a resource server that introspects (RFC 7662) or checks a revocation list, which turns the window
+  into zero at that API's cost per request.
+- **The forwarded token names every organization.** An exchanged token named one; this one is as good
+  at every organization's API the person belongs to ([why](/docs/design/auth#one-token-naming-the-applications-api)),
+  and the line between customers is the forwarder's `organization/denied` and each API reading only its
+  own organization's entry. *Reversed by* an API that cannot do that, which brings the exchange back.
 - **The cookie is `__Host-`, not `__Host-Http-`, and `SameSite=Lax`, not `Strict`.** RFC 10017 §6.1.3.2
-  (read) wants the `Http` variant and `Strict`. `Strict` drops the cookie on the IdP-to-callback
-  navigation that needs the transaction cookie (`cookie-session.ts` says so), and the status of the
-  `Http` prefix in RFC 6265bis was not checked here. *Reversed by* either being established.
-- **The ticket store holds tokens in plaintext.** The design encrypts the storage, not the row
-  (`store.ts`), so the network and the store's own authentication are the boundary. The compose
-  network is the only one there today.
+  (read) wants the `Http` variant and `Strict`. `Strict` drops the cookie on the navigation back from
+  Keycloak, and the status of the `Http` prefix in RFC 6265bis was not checked here. It is the edge's
+  cookie now (`OAUTH2_PROXY_COOKIE_NAME`). *Reversed by* either being established.
+- **A token without `typ: at+jwt` is accepted.** Keycloak's ID token carries the same issuer and `azp`
+  as its access token, so the reader would read one forwarded in the access token's place; only the edge
+  forwards the header, and it forwards the access token. *Reversed by* Keycloak's `at+jwt` option
+  confirmed on the realm, which the reader then requires.
 
 ## Production-grade axes
 
 | Axis | What this page commits to |
 | --- | --- |
-| Failure and recovery | The forwarder ends a hung hop and the person's leaving; a store is required where an outage or a seal would otherwise surface at the callback; a replica is a stated limit with its trigger |
-| Security and privacy | No inline script on the origin; fail-closed CSRF; a dotted path is gated; a logout token typed, capped and not replayed; a realm baseline set explicitly |
-| Performance and size | `./next` is at its 7.8 kB gauge; the nonce, bound, allow-list and logout checks are each estimated at a few hundred bytes and measured on landing, and the limit is raised as a decision; per-request rendering is the nonce's cost, to be measured |
-| Stable API, accessibility, tests | One reader for `Session`, one exported double; nothing here draws, so no WCAG surface beyond the state a product draws from; every *to be added* test above, and a two-process renewal test the day replicas are admitted |
+| Failure and recovery | The forwarder ends a hung hop and the person's leaving; the realm's keys that cannot be fetched are an outage, not a refusal; renewal and its race are the edge's |
+| Security and privacy | No inline script on the origin; fail-closed CSRF on the forwarder; a forwarded token verified on every read, so a forged header is worth nothing; every path behind the edge; a realm baseline set explicitly |
+| Performance and size | The relying party left the application: the root is under 1 kB and `./next` under 3.5 kB over it; per-request rendering is the nonce's cost |
+| Stable API, accessibility, tests | One reader for `Session`, and the session a prop; nothing here draws, so no WCAG surface beyond the session a product draws from; every test cited above |
 
 ## Breaking, in the consumer's words
 
-- `store` is required whenever `apis` is configured: `kanzoAuth` throws when built without one, and the
-  stateless default that failed at the callback past 4096 bytes is gone for such an application; give it a
-  `ticketStore`. An application with no `apis` keeps the stateless store.
-- A request with neither `Sec-Fetch-Site` nor an Origin header is refused on the routes and the forwarder, and
-  there is no option to allow it: only the browser calls `/api/*`. A `curl`, a probe or a test runner
-  calls the API at its own origin with its own credential.
-- The proxy gates a dotted path unless its extension is in `staticExtensions`; narrow your `matcher` so
-  it does not exclude `.*\..*`, and list a public path under `public`.
-- Your CSP moves from `next.config.ts` to the `csp` option of `kanzoAuth`, applied by `proxy`; remove
-  `'unsafe-inline'` from `script-src`, and give `worker-src` and `connect-src` explicitly.
+- Everything the edge took is gone from the package: the routes, the stores and `store`, `public`,
+  `staticExtensions`, the back-channel logout route and its checks, `fakeAuth` and `./testing`. The
+  list, in a consumer's words, is on [the auth layer](/docs/design/auth#breaking-in-the-consumers-words).
+- A request to the forwarder with neither `Sec-Fetch-Site` nor an Origin header is refused, and there
+  is no option to allow it: only the browser calls `/api/*`. A `curl`, a probe or a test runner calls
+  the API at its own origin with its own credential.
+- Your CSP is the `csp` option of `kanzoAuth`, applied by `proxy`; keep `'unsafe-inline'` out of
+  `script-src`, and give `worker-src` and `connect-src` explicitly.
 - A forwarded API that does not send its headers in time answers a 504 problem, `api/silent`.
-- A back-channel logout body over 8 KB, with another content type or an untyped-wrong `typ`, is refused.
-- `@kanzo-tech/auth/testing` exports `fakeAuth`; delete a hand-written `Auth` double.
+- A path that must open without a session is listed at the edge (`OAUTH2_PROXY_SKIP_AUTH_ROUTES`), not
+  in the application.
 
 ## What was read, and how far
 
@@ -326,9 +288,8 @@ that passes a two-process test on one adapter is built, and this paragraph is re
 | --- | --- | --- |
 | RFC 10017, *OAuth 2.0 for Browser-Based Applications* (BCP 212) | §6.1.2.2, §6.1.3.2, §6.1.3.3, §6.1.4.3; the threat discussion beyond the first 100 kB was not | the BFF pattern, the cookie, CSRF |
 | RFC 9700 | §2.2.2, §2.3, §4.14.2 | refresh-token rotation and reuse, audience |
-| RFC 9110 | §15.5.2 | the `WWW-Authenticate` requirement |
 | RFC 9457 | §4.2.1 | `about:blank` and the title |
 | OWASP CSRF Prevention Cheat Sheet | the Fetch Metadata and missing-header guidance | fail-closed |
 | OWASP ASVS 5.0 | V7 (7.1 to 7.6) | session lifetime and termination |
-| OpenID Connect Back-Channel Logout 1.0 | §2.4, §2.6 | the logout token |
-| CSP Level 3, Next's CSP guide, RFC 9449, RFC 6265bis, Keycloak's admin guide | **not read** | named only as references to read at build time |
+| OpenID Connect Back-Channel Logout 1.0 | §2.4, §2.6 | the logout checks the edge would owe |
+| CSP Level 3, Next's CSP guide, RFC 9449, RFC 6265bis, Keycloak's admin guide, oauth2-proxy's session-locking documentation | **not read** | named only as references to read when the rule they bear on is next changed |

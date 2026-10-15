@@ -96,7 +96,6 @@ configs:
         api: board-api                      # its own API (modules/api)
         origin: ${BOARD_ORIGIN}             # e.g. https://{organization}.board.example.com
         callback: /api/auth/callback        # one redirect URI per organization
-        backchannel_logout: http://web:3000/api/auth/backchannel-logout
         client_secret_file: /run/secrets/board-oidc
         groups: {}                          # optional: group ids in its tokens; { inherited, overage }
         roles:
@@ -114,9 +113,9 @@ services:
 The secret is sent to Keycloak write-only and never kept in Terraform's state. [`dev/`](dev) is the
 development realm's own declarations: two organizations and the conformance client.
 
-The token the application signs in with names no API. Before each call its server exchanges it
-(RFC 8693, Keycloak's standard token exchange) for one naming one API and one organization, and
-`scripts/verify.sh` checks that on a live token. Then map the application's roles onto an
+The application sits behind `auth-proxy`, which asks for its API's scope at sign-in, so the access
+token it forwards names the API in `aud` and the application calls it with that token as it came
+(`/docs/design/auth`). Then map the application's roles onto an
 organization's groups — what an organization admin does in the console — with
 
 ```sh

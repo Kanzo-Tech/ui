@@ -1,14 +1,13 @@
 // The Guild's session, with no identity provider behind it.
 //
 // Every auth example on the site hangs off this file, and what it builds is a **claim set** rather
-// than a hand-written `Session`: `claims()` is the real reader — the one the server runs over an
-// ID token at sign-in — so what these examples draw is what a token would actually produce, the
-// asking client and all. A hand-written `Session` would agree with the pages by construction and could
+// than a hand-written `Session`: `claims()` is the real reader — the one the server runs over every
+// access token the edge forwards — so what these examples draw is what a token would actually
+// produce, the asking client and all. A hand-written `Session` would agree with the pages by construction and could
 // never disagree with the package.
 
-import { type Auth, type Session } from "@kanzo-tech/auth";
+import { type Session } from "@kanzo-tech/auth";
 import { claims } from "@kanzo-tech/auth/server";
-import { fakeAuth } from "@kanzo-tech/auth/testing";
 import { VIEWER } from "@/example/people";
 import { HALLS, type HallId, ROLES } from "@/example/world";
 
@@ -72,7 +71,7 @@ const ORGANIZATION = Object.fromEntries(
   }),
 );
 
-/** The claim set, as it would arrive decoded off an ID token. */
+/** The claim set, as it would arrive decoded off a verified access token. */
 export const GUILD_CLAIMS = {
   email: VIEWER.email,
   // A fixed instant, not `Date.now() + 3600`: the examples that draw this claim set render once on
@@ -89,16 +88,11 @@ export const GUILD_CLAIMS = {
   sub: VIEWER.id,
 };
 
-/** What the package makes of it. The ledger's `reader` is gone by the time this is a `Session`. */
-export const GUILD_SESSION: Session = claims(GUILD_CLAIMS, { clientId: BOARD });
-
 /**
- * The Guild's `Auth`: `@kanzo-tech/auth/testing`'s double, signed in as {@link GUILD_SESSION}, with
- * no protocol behind any member. A product writes `bffAuth(…)` here and never this.
+ * What the package makes of it — what a product's layout hands `AuthProvider`. The ledger's `reader`
+ * is gone by the time this is a `Session`.
  */
-export function guildAuth(session: Session = GUILD_SESSION): Auth {
-  return fakeAuth(session);
-}
+export const GUILD_SESSION: Session = claims(GUILD_CLAIMS, { clientId: BOARD });
 
 /**
  * A role as a reader sees it.

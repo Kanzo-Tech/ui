@@ -155,10 +155,8 @@ what it sits inside, which is the whole content of the next section.
 | --- | --- | --- | --- |
 | DuckDB boot: the module, the worker, `LOAD httpfs` | 60 s | the person's patience | `mosaic` engine, own |
 | cosmos.gl's GPU device | 10 s | the person's patience | `graph`, own; not yet in fossil's table |
-| The browser's `/session` and `/refresh` | 30 s | the person's patience | `auth`, fossil's "API request from the browser" |
-| The BFF forwarder, until the upstream's headers | 25 s | the browser's 30 s | `auth/next`; to be built |
-| An identity-provider request from the BFF | 10 s | the browser's 30 s | `auth`; fossil's figure for an identity or cloud request |
-| A `ticketStore` command | 5 s | the browser's 30 s | `auth`; fossil's figure for Valkey |
+| The forwarder, until the upstream's headers | 25 s | the browser's request, the host's to bound | `auth/next`, through `within` |
+| The realm's keys, fetched to verify a forwarded token | 10 s | the request being served | `auth/server`, handed to `jose`; fossil's figure for an identity or cloud request |
 | The model's load, with no progress | not yet measured | the person's patience | `llm`; a bound on silence, not on total time |
 | A generation, with no token | not yet measured | the person's patience | `llm` |
 
@@ -186,10 +184,10 @@ answers within the 60 s deadline".
 **A wait is bounded by the party that makes the request, once, by `within`; whoever passes a transport
 or calls a door does not add a second bound around it.** Two bounds on one wait race to name one
 failure, and whichever wins, the other's code is what a host's registry was told to expect. keasy's
-session read was the case: `bffAuth` bounds `/session` and `/refresh` at 30 s as `session/silent`,
-keasy handed it a `fetch` that bounded every request at 30 s as `server/silent`, and `bffAuth`
-rewrapped the loser as `session/unavailable`. So `bffAuth`'s `fetch` is a transport, documented as one
-and not as a test seam, and a host bounds its own API calls in the requests it makes
+session read was the case: the browser transport bounded `/session` at 30 s as `session/silent`,
+keasy handed it a `fetch` that bounded every request at 30 s as `server/silent`, and the transport
+rewrapped the loser as `session/unavailable`. The transport went when the session became a prop the
+server hands down, and a host bounds its own API calls in the requests it makes
 ([the auth layer](/docs/design/auth-failure#one-party-bounds-each-wait)).
 
 **`within` is the only helper** ([the kernel](/docs/design/kernel#within) has its rules). It composes the
@@ -205,25 +203,24 @@ is this, and the table above carries each row's *Inside*:
 
 1. **An inner bound is strictly less than the one around it,** by a margin a hop pays in transit.
 2. **An outer bound is at least the sum of the inner waits that run in sequence inside it.**
-   `/refresh` renews and then exchanges, two waits one after the other, inside one browser request.
+   The forwarder verifies the token (the keys, 10 s) and then waits for the API (25 s), two waits one
+   after the other inside one browser request.
 3. **The caller's signal is passed down**, so when the outer ends the inner ones stop.
 
-**Three violations stand in the tree or in the proposed figures.** `/session` is 30 s in the
-browser, 30 s on `ticketStore` and 30 s in `openid-client`: equal, so the outer fires first or at the
-same instant and names itself. `/refresh` can take renew (30 s) plus exchange (30 s) server-side
-inside a 30 s browser deadline (`packages/auth/src/bff-auth.ts`). And the forwarder's proposed
-25 s equals fossil's 25 s for keasy's API handling one request, which is the forwarder's inner wait:
-one of the two figures moves when it is built. This page fixes the order; the figures that satisfy it
-are chosen with the measurement and written in the table, and the nesting test below is what finds the
-next equal pair.
+**One question stands in the proposed figures.** The forwarder's 25 s equals fossil's 25 s for keasy's
+API handling one request, which is the forwarder's inner wait: one of the two figures moves when it is
+measured. The three equal pairs the browser's session read made — `/session` at 30 s over a store and
+an identity provider at 30 s — went with the read. This page fixes the order; the figures that satisfy
+it are chosen with the measurement and written in the table, and the nesting test below is what finds
+the next equal pair.
 
 **What would reverse it:** a wait two parties must each bound for a reason of their own, a host that
 must give up sooner than the library on one screen. Then the host passes a signal, which the library's
 bound composes with, and the code is still the library's. Nothing reverses the nesting itself; an outer
 that is shorter than its inner is a bug in the arithmetic, not a position.
 
-*Held by* `packages/auth/src/bff-auth.test.ts`, "gives up on a session endpoint that never answers,
-after 30 s and not before". To be added: the one-deadline guard (no timer that aborts or
+*Held by* `packages/auth/src/next-proxy.test.ts`, "answers 504, as a problem naming api/silent, when
+the API sends no headers within the bound". To be added: the one-deadline guard (no timer that aborts or
 rejects outside the kernel) and a nesting test in `auth` that reads the package's table of bounds and
 asserts rules 1 and 2 on it. *Cannot prove:* a bound set in another repository (the Rust server's, the
 reverse proxy's), which is why the table names each owner.
@@ -336,8 +333,8 @@ In the consumer's words; one changeset for each package named.
 - keasy's server answers `application/problem+json`. A client that parsed `{code, title, detail, data}`
   from `application/json` reads `Problem.from(body)`; the server's `auth/session-required` is
   `session/absent` and `auth/keys-unavailable` is `idp/unreachable`.
-- `bffAuth`'s timeouts nest: the forwarder answers `api/silent` (504) when an upstream is quiet, and
-  stops the upstream request when the browser's is cancelled. A product that handled the forwarder
+- The forwarder answers `api/silent` (504) when an upstream is quiet, and stops the upstream request
+  when the browser's is cancelled. A product that handled the forwarder
   never timing out registers one more code.
 - A DuckDB worker that dies after boot rejects pending reads with `engine/lost` and the next `engine()`
   boots a new one. A host that held an attachment re-attaches on `engine/lost`.

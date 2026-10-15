@@ -62,10 +62,9 @@ all, which is a different sentence from being a member and not a warden.
 `Gate` asks through `useSession().can`, so it asks inside the current organization unless its
 `organization` prop names another.
 
-**While the session is loading, neither branch is drawn.** Neither answer is known to be true yet,
-and both of the alternatives are worse: rendering the fallback flashes *you cannot do this* at
-somebody who can, for as long as the session endpoint takes, and rendering the children offers a
-control and then retracts it.
+**One branch is drawn from the first render.** The session arrives with the page — the server read
+it before drawing — so there is no moment when the answer is unknown, and no flash of *you cannot do
+this* at somebody who can.
 
 ## No hierarchy, and no way to configure one
 

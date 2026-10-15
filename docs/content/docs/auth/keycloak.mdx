@@ -1,6 +1,6 @@
 ---
 title: Keycloak
-description: The realm this package expects — role claims on both tokens, each API a client its tokens are exchanged for, the organization scope with the star, an application's roles inside each organization, back-channel logout, and passkeys.
+description: The realm this package expects — role claims on the access token, each API a client whose scope puts it in aud, the organization scope with the star, an application's roles inside each organization, a sign-out at Keycloak, and passkeys.
 ---
 
 This is the page to hand to whoever runs the realm. Nothing here is invented: every claim the
@@ -26,21 +26,19 @@ An application registers itself **from its own repository** — its client, the 
 its roles with their composites — and the realm knows no application by name.
 [Register an application](/docs/auth/service#register-an-application) is the module that does it.
 
-## Role claims on both tokens
+## Role claims on the access token
 
-Roles must be on the **access token** so an API can authorize, and on the **ID token** so an
-interface can draw. This is the one setting most likely to be wrong, and both failures are quiet:
-
-- roles on the ID token only — your API cannot authorize anything from the credential it was sent,
-  so authorization moves somewhere it can be forged or somewhere it has to be looked up again;
-- roles on the access token only — the browser has nothing to draw with, and the tempting fix is
-  to open the access token in the client, which [it must never do](/docs/auth#the-one-rule-to-read-before-anything-else).
+Roles must be on the **access token**: an API authorizes on it, and the application's server reads
+the person from the same token the edge forwards, to draw. This is the one setting most likely to be
+wrong, and the failure is quiet — a token with no roles reads as a person holding none, and every
+`Gate` shows its fallback. The ID token stays in the edge's store and nothing here reads it; the
+platform's mappers put roles on both, which costs nothing.
 
 The role mappers are Keycloak's own and need no renaming. The package reads:
 
 | Claim | Emitted by | Becomes |
 | --- | --- | --- |
-| `sub`, `email`, `name` (or `given_name` + `family_name`), `preferred_username` | the `profile` and `email` scopes | `session.user` |
+| `sub`, `email`, `name` (or `given_name` + `family_name`), `preferred_username` | the `basic`, `profile` and `email` scopes | `session.user` |
 | `realm_access.roles` | the realm role mapper | `session.roles` |
 | `resource_access.<clientId>.roles` | the client role mapper | `session.roles`, unioned with the above |
 | `organization` | the `organization` scope's membership mapper, with `addOrganizationId` | `session.organizations` — alias and id |
@@ -57,33 +55,27 @@ this package ships.
 
 ## The APIs an application calls
 
-A resource server validates `aud` before it trusts anything else in a token, so a token must name
-the API it is for — and, by [RFC 9700 §2.3](https://www.rfc-editor.org/rfc/rfc9700#section-2.3),
-name that API and not every API the application happens to call. Keycloak's own advice for an
-exchanged token is the same: *"ideally use a single audience"*.
-
-So **each API is a client of the realm**, and **the token an application signs in with names none
-of them**. Per call, the application's server exchanges that token —
-[standard token exchange](https://www.keycloak.org/securing-apps/token-exchange), RFC 8693 — for
-one that names the API and the one organization the call is in:
+A resource server validates `aud` before it trusts anything else in a token, so a token must name the
+API it is for. **Each API is a client of the realm, and the edge asks for its scope at sign-in**, so
+the access token it forwards names the application's API, and the application calls it with that
+token as it came:
 
 - **The API** is a client with no flow at all, since it never obtains a token, and a client scope
   of the same name holding an *audience* mapper that names it, on the access token only.
   `services/auth/modules/api` is both.
-- **The application** lists that scope as an **optional** client scope, so a sign-in never asks
-  for it, and has *Standard token exchange* on. `services/auth/modules/app` does both from
-  `apis = [...]`. A scope the application does not list is refused with `invalid_scope`, so an
-  application reaches exactly the APIs its registration names.
-- **The exchange** asks for `scope=<api> organization:<alias>`. It names the API through the scope
-  rather than through RFC 8693's `audience` parameter, because Keycloak reads that parameter as a
-  filter that keeps only the requested audience's client roles — the application's own roles, held
-  outside any organization, would not arrive. The token that comes back holds the one organization
-  with the roles held there; an organization the person is not a member of is dropped rather than
-  refused, which [`token`](/docs/auth/server#the-token-mediating-backend) reads off the granted
-  scope.
+- **The application** lists that scope as an optional client scope (`services/auth/modules/app`, from
+  `apis = [...]`), and the edge names it in `OAUTH2_PROXY_SCOPE`. A scope the application does not
+  list is refused with `invalid_scope`, so an application reaches exactly the APIs its registration
+  names.
+- The API is named through its **scope**, not through RFC 8693's `audience` parameter, which Keycloak
+  reads as a filter that keeps only the requested audience's client roles. The token also names
+  `account`, as every token of the realm does from its default roles.
 
-`scripts/verify.sh` in [the identity service](/docs/auth/service) checks every line of that on a
-live realm.
+The token names every organization the person belongs to, not only the one a call is in, so an API
+[authorizes inside its own organization's entry](#what-your-api-must-validate) and never another's.
+An application whose token cannot name an API — a second one, by [RFC 9700
+§2.3](https://www.rfc-editor.org/rfc/rfc9700#section-2.3)'s one audience per token — is the case that
+would bring back a token exchange ([the decision](/docs/design/auth#one-token-naming-the-applications-api)).
 
 ## The scope with the star
 
@@ -101,9 +93,8 @@ organizations: it never disappeared. Keycloak stopped the flow on a *"Select an 
 proceed"* page, issued no code at all, and a product that never shows a chooser saw nothing come
 back.
 
-Every sign-in through `relyingParty` requests `openid profile email organization:*`, whatever else a
-product adds to `scope`. `SignInOptions.organization` narrows it to one, by replacement rather than
-by appending — asking for both the star and a name would defeat the point of naming one.
+The edge asks for the scope it is configured with, `OAUTH2_PROXY_SCOPE`, for every sign-in, so the
+star goes there, beside the API's scope.
 
 ## Roles inside an organization
 
@@ -117,8 +108,8 @@ An application's roles in an organization arrive **inside that organization's en
 - **`addGroupRoleMappings` on**, which needs **Keycloak 26.7 or later**. Without it the entry
   carries the person's group names and no roles, and every organization reads as a membership with
   nothing in it.
-- **On the access token and the ID token both**, for the same reason as [the role
-  claims](#role-claims-on-both-tokens).
+- **On the access token**, for the same reason as [the role
+  claims](#role-claims-on-the-access-token).
 
 With that, each entry carries `resource_access.<clientId>.roles`: the client roles an organization's
 administrator mapped onto the groups the person is in, **composites expanded**. The groups
@@ -221,8 +212,8 @@ the ledger would authorise its holder on the board.
 The table underneath is each hall's entry: the groups the token carries, drawn and never read, and
 the roles read for the asking client. Membership survives the switch; the roles inside it do not.
 
-Both doors run this one function, which is why a claim reaches a browser session and a server
-session as the same thing. It throws only for a claim set with no `sub` — not a session at all, but
+The server reader runs this one function over every verified token, and the browser is handed what it
+returns, which is why a claim reaches a browser session and a server session as the same thing. It throws only for a claim set with no `sub` — not a session at all, but
 a misconfiguration worth being loud about. Everything else degrades quietly to empty: holding no
 roles and belonging to no organization are legitimate states, and a token that merely omits a scope
 must not take the application down.
@@ -237,10 +228,10 @@ them just has an empty list.
 
 ## What your API must validate
 
-The package obtains the credential — exchanged for your API and one organization — attaches it,
-and defines the claim model. **Validating it is
-the resource server's job**, and yours are probably not written in TypeScript — so this is the
-contract in words rather than a module, and this page is the only place it is agreed.
+The edge obtains the credential and the application forwards it to your API as it came, after
+verifying it itself; the package defines the claim model. **Validating it is the resource server's
+job**, and yours are probably not written in TypeScript — so this is the contract in words rather
+than a module, and this page is the only place it is agreed.
 
 Validate, and refuse the request if any of it fails:
 
@@ -262,41 +253,21 @@ Then authorize on:
 And one rule that belongs beside them, because it is the line between a multi-tenant product and a
 leak between customers: **the host is a hint and the token is the authority** — the same rule
 `can` follows for the current organization, [stated in full on
-Roles](/docs/auth/roles#which-organization-a-page-is-in).
+Roles](/docs/auth/roles#which-organization-a-page-is-in). The token names every organization the
+person is in, so an API serving one organization reads that organization's entry and no other.
 Resolve the hint against the `organization` claim, refuse on a miss, and do it **before** anything
 opens a database.
 
-## Back-channel logout
+## A sign-out at Keycloak
 
 A session can end at Keycloak without the browser being anywhere near the application: an
 administrator signs the person out, the SSO session expires, they sign out of another application.
-OpenID Connect Back-Channel Logout 1.0 is how the application hears about it — Keycloak posts a
-signed logout token to the client's **back-channel logout URL**, and `kanzoAuth` serves that at
-[`<basePath>/backchannel-logout`](/docs/auth/next#back-channel-logout), dropping the sessions it
-names so the next navigation signs in.
-
-`services/auth/modules/app` takes it as `backchannel_logout_url`, and leaves
-`backchannel_logout_session_required` on so the token carries `sid` and one browser session can end
-without the person's others:
-
-```hcl
-module "app" {
-  # …
-  backchannel_logout_url = "http://board:3000/api/auth/backchannel-logout"
-}
-```
-
-Two properties of the setting decide how it is used:
-
-- **Keycloak calls it, server to server.** It is a URL *Keycloak* can reach, which inside a cluster
-  or a compose network is an internal hostname, not the public one the browser uses.
-- **It is one URL per client.** A client shared by several deployments — one per tenant behind one
-  `client_id` — can name only one of them, so the others never hear a logout. Back-channel logout
-  wants one client per deployment that holds sessions.
-
-It also needs a session store that can find a person's sessions: a `ticketStore` whose adapter has
-`keys`. With the stateless store, or without `keys`, the route answers **501**, and Keycloak's admin
-console reports the logout as failed rather than believing it happened.
+**The edge hears it when the access token next needs renewing, within the realm's
+`access_token_lifespan`**, and the application hears nothing: it holds no session to end. oauth2-proxy
+has no back-channel logout receiver, so an application behind it registers no
+`backchannel_logout_url`. A token already forwarded to an API is a bearer token until it expires.
+[Hardening](/docs/design/auth-hardening#no-logout-token-reaches-the-application) says what would bring
+a receiver back, and where it would go.
 
 ## Passkeys
 
