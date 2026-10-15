@@ -154,8 +154,8 @@ jobs:
         if: ${{ github.event_name == 'release' || !inputs.dry-run }}
         # One token publish for @kanzo-tech/kernel, which has never shipped (step 1 of
         # AUTH above). Delete this env and the secret once its trusted publisher is set.
-        # env:
-        #  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           pnpm -r --filter "./packages/*" publish \
             --access public --tag "${{ steps.ver.outputs.tag }}" --no-git-checks
