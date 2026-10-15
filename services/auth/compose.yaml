@@ -147,8 +147,11 @@ services:
   # Nothing here names an application. One application per Compose project extends this service
   # (as it extends auth-realm) with:
   #   environment  OAUTH2_PROXY_CLIENT_ID     its client (declarations.tf `client_id`)
-  #                OAUTH2_PROXY_SCOPE         "openid email profile organization <its api>": the
-  #                                           api's scope puts it in `aud`, so no exchange is needed
+  #                OAUTH2_PROXY_SCOPE         "openid email profile organization:* <its api>":
+  #                                           `organization:*` puts every organization the person
+  #                                           belongs to in the token (plain `organization` asks
+  #                                           them to pick one), and the api's scope puts it in
+  #                                           `aud`, so no exchange is needed
   #                OAUTH2_PROXY_UPSTREAMS     the application, as the proxy reaches it
   #                OAUTH2_PROXY_PROXY_PREFIX  where its callback lives (declarations.tf `callback`,
   #                                           minus `/callback`)
