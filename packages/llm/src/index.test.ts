@@ -10,7 +10,7 @@ describe("@kanzo-tech/llm's barrel", () => {
    * Cannot prove: that no type of the SDK's is re-exported — `index.ts` is short enough to read.
    */
   it("carries the two doors and the failure, and none of the AI SDK's names", () => {
-    expect(Object.keys(llm).sort()).toEqual(["LlmError", "generate", "stream"]);
+    expect(Object.keys(llm).sort()).toEqual(["generate", "stream"]);
     for (const name of ["ToolLoopAgent", "tool", "jsonSchema", "Output", "DirectChatTransport", "stepCountIs"]) {
       expect(llm, name).not.toHaveProperty(name);
     }

@@ -7,7 +7,8 @@ import { gate } from "./next-gate";
 import { forward, type ApiHandlers } from "./next-proxy";
 import { routes, type RouteHandlers } from "./next-routes";
 import { singleFlight } from "./single-flight";
-import { AuthError, type Session } from "./types";
+import { isProblem } from "@kanzo-tech/kernel";
+import type { Session } from "./types";
 
 export type { KanzoAuthConfig, TenantRequest } from "./next-bound";
 
@@ -122,7 +123,7 @@ export function kanzoAuth(
     try {
       read = await current();
     } catch (error) {
-      if (!(error instanceof AuthError)) throw error;
+      if (!isProblem(error)) throw error;
       // AuthKit's `withAuth({ ensureSignedIn: true })` settles the outcome rather than handing the
       // page an exception; the code travels in the URL because a server error reaches the browser
       // stripped to a digest.

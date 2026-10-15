@@ -8,7 +8,7 @@ import { useKept, type KeptChat, type KeptChatOptions } from "./kept-chat.js";
 
 /** `useChat`'s helpers, with `error` the value the agent threw rather than a sentence about it. */
 export type AgentChat<M extends UIMessage> = Omit<UseChatHelpers<M>, "error"> & {
-  /** What stopped the last answer, whole: an `LlmError` with its `code` and `data`, a refusal, anything. */
+  /** What stopped the last answer, whole: a `Problem` with its `code` and `data`, a refusal, anything. */
   error: unknown;
   /** The chat as it is kept, when the hook was given `load` and `save`: where it stands, and its own `save`. */
   kept?: KeptChat<M>;
@@ -30,7 +30,7 @@ export type AgentChatOptions<M extends UIMessage> =
  * `DirectChatTransport` — that keeps what the agent threw.
  *
  * `useChat` hands back a sentence: the transport writes the failure into the stream as text and the
- * chat rebuilds an `Error` from it, so an `LlmError`'s `code` and `data` are gone by the time a host
+ * chat rebuilds an `Error` from it, so a `Problem`'s `code` and `data` are gone by the time a host
  * could branch on them. This keeps the value the transport was given and answers it as `error`, the
  * same value every other surface in the library hands over (`/docs/design/failure`).
  *

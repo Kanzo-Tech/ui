@@ -13,7 +13,7 @@ import {
   inMemoryAdapter,
   type Realm,
 } from "./test/fake-keycloak";
-import { AuthError } from "./types";
+import { Problem } from "@kanzo-tech/kernel";
 
 type Routes = KanzoAuth["routes"];
 
@@ -315,10 +315,13 @@ describe("authRoutes", () => {
       expect(response.status).toBe(401);
       expect(response.headers.get("content-type")).toBe("application/problem+json");
       expect(await response.json()).toEqual({
+        type: "tag:kanzo.tech,2026:problem/session/absent",
         status: 401,
-        title: "Unauthorized",
+        title: "Nobody is signed in",
         detail: "nobody is signed in",
         code: "session/absent",
+        data: {},
+        severity: "error",
       });
     });
 
@@ -354,7 +357,7 @@ describe("authRoutes", () => {
       expect(response.headers.get("content-type")).toBe("application/problem+json");
       expect(await response.json()).toMatchObject({
         status: 503,
-        title: "Service Unavailable",
+        title: "The session could not be read",
         code: "session/unavailable",
         detail: "the session store did not answer",
       });
@@ -676,7 +679,7 @@ describe("authRoutes", () => {
 
       const failed = await auth.getSession().catch((error: unknown) => error);
 
-      expect(failed).toBeInstanceOf(AuthError);
+      expect(failed).toBeInstanceOf(Problem);
       expect(failed).toMatchObject({ code: "session/unavailable", data: { status: 503 } });
     });
 

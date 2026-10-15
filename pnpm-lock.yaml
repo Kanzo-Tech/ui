@@ -248,6 +248,9 @@ importers:
       '@duckdb/duckdb-wasm':
         specifier: 1.33.1-dev57.0
         version: 1.33.1-dev57.0
+      '@kanzo-tech/kernel':
+        specifier: workspace:^
+        version: link:../kernel
       '@kanzo-tech/mosaic':
         specifier: workspace:*
         version: link:../mosaic
@@ -307,6 +310,10 @@ importers:
         version: 0.4.0(rollup@4.62.2)
 
   packages/auth:
+    dependencies:
+      '@kanzo-tech/kernel':
+        specifier: workspace:^
+        version: link:../kernel
     devDependencies:
       '@tanstack/react-query':
         specifier: ^5.104.0
@@ -347,6 +354,9 @@ importers:
 
   packages/graph:
     dependencies:
+      '@kanzo-tech/kernel':
+        specifier: workspace:^
+        version: link:../kernel
       '@kanzo-tech/ui':
         specifier: workspace:*
         version: link:../ui
@@ -418,6 +428,10 @@ importers:
   packages/kernel: {}
 
   packages/llm:
+    dependencies:
+      '@kanzo-tech/kernel':
+        specifier: workspace:^
+        version: link:../kernel
     devDependencies:
       '@browser-ai/web-llm':
         specifier: 3.0.4
@@ -440,7 +454,13 @@ importers:
       '@duckdb/duckdb-wasm':
         specifier: 1.33.1-dev57.0
         version: 1.33.1-dev57.0
+      '@kanzo-tech/kernel':
+        specifier: workspace:^
+        version: link:../kernel
     devDependencies:
+      '@kanzo-tech/testing':
+        specifier: workspace:*
+        version: link:../testing
       '@uwdata/flechette':
         specifier: ^2.5.0
         version: 2.5.0

@@ -36,7 +36,7 @@ and the error that reports it names neither copy.
 every package here imports them: a host has `ai` installed anyway, so passing them through was a
 second way to write one import ([why](/docs/design/tasks#where-each-dependency-lives)). What is here is what the
 SDK lacks — the two doors every model call the library makes goes through, [`stream`](#stream) and
-[`generate`](#generate), each asking once; [`LlmError`](#llmerror); `ModelLoad`; and, on subpaths
+[`generate`](#generate), each asking once; [its failures](#failures); `ModelLoad`; and, on subpaths
 whose peers are optional, the model and its double.
 
 ## `localModel`
@@ -79,7 +79,7 @@ OpenTelemetry keeps its global provider ([why](/docs/design/testing#a-model-is-r
 served from and the worker its engine runs in — a `LocalProviderSettings`, both optional. Without an id, `localModel()` asks the
 first model served. It is a `LanguageModel`, so `stream`, `ToolLoopAgent` and `Chat` run over it
 unchanged. It makes one engine per model per page — two would be two copies of the weights in the GPU's memory — and
-lifts `<think>` into reasoning — Qwen3 and DeepSeek write theirs inline, and [`Chat`](/docs/ai/chat) folds it away. Without WebGPU a call fails as an `LlmError`
+lifts `<think>` into reasoning — Qwen3 and DeepSeek write theirs inline, and [`Chat`](/docs/ai/chat) folds it away. Without WebGPU a call fails as a `Problem`
 coded `llm/unavailable` with `data.reason` `"webgpu"`, before anything is downloaded or fetched. The weights are
 downloaded on the first call and cached by the browser, which is asked once to persist what it stores
 for the page (`navigator.storage.persist()`), so a model is not evicted under pressure. A structured answer (`Output.object`) is
@@ -194,8 +194,8 @@ for await (const { text } of stream({ model, prompt, output: Output.array({ elem
 
 - **A failure throws, once the stream ends.** The SDK reports a failed stream to `onError` and then
   ends it as if it had finished, so a refused call reads as a model with nothing to say. Each
-  reading rethrows what was reported, whole: a page that cannot run the model as `LlmError`
-  `llm/unavailable`, anything else as the model threw it.
+  reading rethrows what was reported, whole: a page that cannot run the model as a `Problem`
+  coded `llm/unavailable`, anything else as the model threw it.
 - **Never retried.** A model that failed on this device fails the same way asked again, and each
   attempt is a whole generation the person waits through.
 
@@ -234,16 +234,15 @@ it.
 `packages/ai/src/task/task.test.ts`, "asks once: an error the SDK would retry is the failure, not a
 retry after it".
 
-## `LlmError`
+## Failures
 
 ```ts
-class LlmError extends Error {
-  code: "llm/unavailable" | "llm/truncated";
-  data: { reason?: string };   // "webgpu": the browser has none; "unserved": the page serves no such model; "context": the answer did not fit
-}
+// isProblem, from @kanzo-tech/kernel
+isProblem(error, "llm/unavailable"); // data.reason: "webgpu" (the browser has none) or "unserved" (the page serves no such model)
+isProblem(error, "llm/truncated");   // data.reason: "context" (the answer did not fit)
 ```
 
-The failures this package names: the model cannot answer here (`llm/unavailable`), and a structured
+The failures this package names, as the kernel's `Problem`: the model cannot answer here (`llm/unavailable`), and a structured
 answer — a schema or a grammar — that the model's context cut off (`llm/truncated`, `reason`
 `"context"`), since half a document is not one. A generation stopped from outside, by the caller's
 signal or by `Chat`'s stop, rejects as an `AbortError`, never as text; one asked for as text and cut

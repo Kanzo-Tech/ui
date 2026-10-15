@@ -1,7 +1,8 @@
 import { addressedUrl, tenantRequest, withTenant, type Bound } from "./next-bound";
-import { ended, problem, statusOf } from "./problem";
+import { ended, problem } from "./problem";
 import { isSameSite } from "./same-site";
-import { AuthError, type Session } from "./types";
+import { Problem, isProblem } from "@kanzo-tech/kernel";
+import type { Session } from "./types";
 
 /**
  * The six routes a Backend For Frontend needs, as one App Router catch-all: `kanzoAuth().routes`.
@@ -33,11 +34,11 @@ import { AuthError, type Session } from "./types";
  *
  * ## A failure on a navigation is a page, not a body
  *
- * `signin`, `callback` and `signout` are reached by the browser's address bar, so an `AuthError`
+ * `signin`, `callback` and `signout` are reached by the browser's address bar, so a `Problem`
  * there answers with a redirect to the product's `problemPage`, the code in `?code=`, where the
  * product renders it in its own words. `session`, `refresh` and `backchannel-logout` are reached by
  * `fetch`, and answer a refusal as an RFC 9457 problem, `application/problem+json`, whose `code` is
- * the `AuthErrorCode` — `problem.ts` has the shape and the one status table.
+ * the registry's code — `problem.ts` has the shape and `problems.bnf` the one status table.
  *
  * ## Back-channel logout
  *
@@ -120,13 +121,13 @@ function bare(status: number, headers: Record<string, string> = {}): Response {
 }
 
 /**
- * An `AuthError` as a problem a product can route on.
+ * A `Problem` as a problem a product can route on.
  *
  * Anything else is rethrown: a failure this module has no reading of is Next's to report, and
  * flattening it into a 400 here would hide a misconfiguration behind a message about credentials.
  */
 function failure(error: unknown): Response {
-  if (!(error instanceof AuthError)) throw error;
+  if (!isProblem(error)) throw error;
   return problem(error);
 }
 
@@ -139,9 +140,9 @@ export function routes(instance: () => Promise<Bound>): RouteHandlers {
     const auth = bound.party;
     const redirectUri = bound.redirectUri ?? `${url.origin}${base}/callback`;
 
-    /** An `AuthError` on a navigation, as the product's page; anything else rethrown, as in `failure`. */
+    /** A `Problem` on a navigation, as the product's page; anything else rethrown, as in `failure`. */
     const toPage = (error: unknown): Response => {
-      if (!(error instanceof AuthError)) throw error;
+      if (!isProblem(error)) throw error;
       const page = new URL(bound.problemPage, url.origin);
       page.searchParams.set("code", error.code);
       return redirect(page.href, []);
@@ -232,14 +233,14 @@ export function routes(instance: () => Promise<Bound>): RouteHandlers {
         // §2.8 fixes the answers: 400 for a logout that failed, 501 for one this store cannot do.
         // A refusal is therefore 400 whatever its code's own status; an outage keeps its 5xx.
         if (token === null || token === "") {
-          return problem({ code: "token/refused", message: "no `logout_token`" }, { status: 400 });
+          return problem(new Problem("token/refused", "no `logout_token`"), { status: 400 });
         }
         try {
           await auth.logout(token);
           return bare(200);
         } catch (error) {
-          if (!(error instanceof AuthError)) throw error;
-          return problem(error, statusOf(error.code) >= 500 ? {} : { status: 400 });
+          if (!isProblem(error)) throw error;
+          return problem(error, (error.status ?? 500) >= 500 ? {} : { status: 400 });
         }
       }
 

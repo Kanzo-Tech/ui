@@ -55,9 +55,9 @@
 
 base "tag:kanzo.tech,2026:problem/" .
 
-row engine/unavailable      = -   ; "The engine would not start"             ; after: number .
-row engine/lost             = -   ; "The engine was lost"                    ; - .
-row engine/failed           = -   ; "The engine refused a statement"         ; - .
+row engine/unavailable      = -   ; "The engine would not start"             ; after?: number .
+row engine/lost             = -   ; "The engine was lost"                    ; reason?: string .
+row engine/failed           = -   ; "The engine refused a statement"         ; statement?: string .
 row engine/cannot-cancel    = -   ; "The engine cannot stop a statement"     ; - .
 
 row graph/no-webgl          = -   ; "The graph cannot be drawn here"         ; after?: number .

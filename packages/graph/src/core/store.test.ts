@@ -52,7 +52,7 @@ describe("the graph store", () => {
     );
     const { onFailure, store } = await graph({}, corpus);
     await settle(corpus);
-    expect(onFailure.mock.calls[0]?.[0]).toMatchObject({ name: "GraphError", code: "graph/nothing-to-draw" });
+    expect(onFailure.mock.calls[0]?.[0]).toMatchObject({ name: "Problem", code: "graph/nothing-to-draw" });
     expect(store.getSnapshot().structure).toBeNull();
   });
 

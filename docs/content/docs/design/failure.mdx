@@ -109,8 +109,8 @@ keys all three. `data.after` is milliseconds when a deadline fired.
 | Code | Status | When | `data` | What the host does |
 | --- | --- | --- | --- | --- |
 | `engine/unavailable` | n/a | DuckDB-WASM would not boot | `after` | offers a reload |
-| `engine/lost` | n/a | the worker died after boot; every pending read is rejected with it | none | re-attaches; the next `engine()` boots again |
-| `engine/failed` | n/a | the engine refused a statement | none; DuckDB's error is the `cause` | shows it; the statement is never in `detail` |
+| `engine/lost` | n/a | the worker died after boot; every pending read is rejected with it | `reason` `"worker"` or `"memory"` | re-attaches; the next `engine()` boots again |
+| `engine/failed` | n/a | the engine refused a statement | `statement`, every literal replaced by `?`; none for a `CREATE SECRET` | shows it; the statement is never in `detail` |
 | `engine/cannot-cancel` | n/a | an engine that cannot interrupt a statement was handed a signal | none | does not use that engine for a read that must be stoppable |
 | `graph/no-webgl` | n/a | no WebGL, a renderer that would not start, or no device within 10 s | `after` | says the view cannot be drawn here |
 | `graph/context-lost` | n/a | the browser took the WebGL context back | none | offers a reload |

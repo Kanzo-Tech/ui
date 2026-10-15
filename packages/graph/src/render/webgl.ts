@@ -1,7 +1,7 @@
 "use client";
 
 import type { Graph } from "@cosmos.gl/graph";
-import { GraphError } from "../core/error";
+import { Problem, type ProblemData } from "@kanzo-tech/kernel";
 
 /**
  * The slowest honest answer for a GPU device: one comes up in milliseconds when it can be made at
@@ -61,14 +61,14 @@ export function premultiplyClear(gl: Pick<WebGL2RenderingContext, "clearColor" |
  * A lost context is `graph/context-lost`. The answer lets the device go — cosmos.gl's graph, then the
  * context it does not give back itself.
  */
-export function holdDevice(graph: Graph, host: HTMLElement, fail: (error: GraphError) => void, ready: () => void): () => void {
+export function holdDevice(graph: Graph, host: HTMLElement, fail: (error: Problem) => void, ready: () => void): () => void {
   let gone = false;
   const onLost = (event: Event) => {
     event.preventDefault();
-    fail(new GraphError("graph/context-lost", "The browser took back the WebGL context; reload to get one."));
+    fail(new Problem("graph/context-lost", "The browser took back the WebGL context; reload to get one."));
   };
-  const noDevice = (data: GraphError["data"], cause?: unknown) =>
-    fail(new GraphError("graph/no-webgl", "No GPU device came up to draw with.", data, { cause }));
+  const noDevice = (data: ProblemData<"graph/no-webgl">, cause?: unknown) =>
+    fail(new Problem("graph/no-webgl", "No GPU device came up to draw with.", data, { cause }));
   const deadline = setTimeout(() => noDevice({ after: READY_DEADLINE }), READY_DEADLINE);
   void graph.ready.then(
     () => {

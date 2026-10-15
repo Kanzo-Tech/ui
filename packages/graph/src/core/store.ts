@@ -2,7 +2,7 @@ import { MosaicClient, Selection, firstDrawsPending, onFirstDraws, type Coordina
 import { domainOf } from "./categories";
 import { bindingOf } from "./channels";
 import { GraphClient, publish } from "./client";
-import { GraphError } from "./error";
+import { Problem } from "@kanzo-tech/kernel";
 import { loadEncoding, loadGeometry, type Encoding, type Geometry } from "./load";
 import { readCatalog } from "./catalog";
 import { VERTICES } from "./source";
@@ -187,7 +187,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     read("structure", () => readCatalog(coordinator, from), (next) => {
       if (next.size === 0) {
         failed = true;
-        fail(new GraphError("graph/nothing-to-draw", `the corpus attached as ${from} has no vertex`));
+        fail(new Problem("graph/nothing-to-draw", `the corpus attached as ${from} has no vertex`));
         return;
       }
       structure = next;

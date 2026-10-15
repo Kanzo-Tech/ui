@@ -2,7 +2,7 @@ import { doesBrowserSupportWebLLM, webLLM, type WebLLMProgress } from "@browser-
 import { type AppConfig, prebuiltAppConfig } from "@mlc-ai/web-llm";
 import { extractReasoningMiddleware, type LanguageModel, type LanguageModelMiddleware, wrapLanguageModel } from "ai";
 
-import { LlmError } from "./error.js";
+import { Problem } from "@kanzo-tech/kernel";
 import type { ModelLoad } from "./load.js";
 
 /** A call's options and a generation's result, as the middleware sees them. */
@@ -103,7 +103,7 @@ export function setLocalProvider(provider: LocalProvider): void {
   registry().fallbackProvider = provider;
 }
 
-const unavailable = (message: string, reason: "webgpu" | "unserved") => new LlmError("llm/unavailable", message, { reason });
+const unavailable = (message: string, reason: "webgpu" | "unserved") => new Problem("llm/unavailable", message, { reason });
 
 /**
  * **WebLLM's provider, configured with where its models are served from** — the AI SDK's
@@ -276,7 +276,7 @@ function honest(result: LanguageModelV4GenerateResult, options: LanguageModelV4C
   if (raw === "abort") throw interrupted();
   if (raw !== "length") return result;
   if (options.responseFormat?.type === "json" || (options.providerOptions?.kanzo as LocalCallOptions | undefined)?.grammar) {
-    throw new LlmError("llm/truncated", "The answer did not fit the model's context", { reason: "context" });
+    throw new Problem("llm/truncated", "The answer did not fit the model's context", { reason: "context" });
   }
   return { ...result, finishReason: { unified: "length", raw } };
 }
@@ -515,7 +515,7 @@ export function watchLocalModel(model: string | undefined, listener: () => void)
  * model registered for that id, else the host's provider's ({@link setLocalProvider}), else WebLLM's
  * prebuilt list. **Without an id, the first model served** — registered, else listed — as the AI
  * SDK's `registry.languageModel(id)` names one only when it has to. A page that cannot run it fails
- * every call as `LlmError` coded `llm/unavailable` — `reason` `"webgpu"` without WebGPU, before
+ * every call as `Problem` coded `llm/unavailable` — `reason` `"webgpu"` without WebGPU, before
  * anything is downloaded; `"unserved"` when nothing serves it — and the host says so rather than
  * waiting on a load that will not finish.
  */

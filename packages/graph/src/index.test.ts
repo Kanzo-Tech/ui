@@ -18,7 +18,6 @@ import { scaleOf } from "./render/graph-model";
 const VALUES = [
   "GraphCanvas",
   "GraphCounts",
-  "GraphError",
   "GraphInspector",
   "GraphLegend",
   "GraphRoot",

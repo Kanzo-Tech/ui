@@ -1,5 +1,7 @@
 import { AsyncDuckDB, DuckDBDataProtocol, VoidLogger, selectBundle } from "@duckdb/duckdb-wasm";
-import { Coordinator, decodeIPC, DuckDBWASMConnector } from "@uwdata/mosaic-core";
+import { Problem, isProblem } from "@kanzo-tech/kernel";
+import { Coordinator, decodeIPC, type Connector } from "@uwdata/mosaic-core";
+import { isSecret, redact } from "./redact.js";
 
 /**
  * The page's one database: a DuckDB-WASM instance, the Mosaic `Coordinator` over it, and the file
@@ -46,16 +48,22 @@ export interface Engine {
    *
    * **It is the coordinator's connection**, for the charts, the graph and fossil's own statements —
    * the secret, the attach, the views. A second connection beside it made every read pay twice and
-   * serialise against itself.
+   * serialise against itself. The two doors take turns on it, one statement at a time, in the order
+   * they asked.
    *
-   * **It is not the coordinator's queue.** The statement goes to the connector directly and is
+   * **It is not the coordinator's queue.** The statement goes to the connection directly and is
    * decoded as the coordinator decodes, because the queue batches every Arrow request behind
    * `requestAnimationFrame` — the consolidation the charts want — and a hidden tab never fires one:
    * fossil's attach waited forever there with no error, and a host's DDL sat behind chart batches.
-   * DuckDB-WASM still runs one statement at a time on the connection, and a caller awaits each, so a
-   * host's sequence keeps its order. An abort rejects the caller's wait with `signal.reason` at
-   * once; the statement, a short one, finishes. Nothing is cached: these are statements with
-   * effects. A failure is DuckDB's own error, unwrapped.
+   * Nothing is cached: these are statements with effects. A failure is `Problem` `engine/failed`,
+   * DuckDB's message and the statement with every literal replaced by `?`.
+   *
+   * **An abort stops the statement.** While it runs, the signal interrupts it in DuckDB and the call
+   * rejects with `signal.reason`; the connection answers the next statement as if it had never been
+   * sent. While it waits its turn, it is never sent. Once it has finished, an abort is ignored and the
+   * call resolves — there is nothing left to interrupt, as ADBC's `AdbcStatementCancel` finds nothing
+   * to cancel. So a host that stops a read cannot rely on its side effects having happened or not: a
+   * `DETACH` aborted mid-way may or may not have run.
    *
    * So a statement here does not wait for what the queue still holds. One that takes away what the
    * coordinator's clients read — a `DETACH`, a dropped view — runs only once nothing reads it: a
@@ -148,35 +156,53 @@ const HELD = Symbol("held");
  */
 const BOOT_DEADLINE = 60_000;
 
-/** The one failure the engine names: it would not boot. `data.after` is set when the deadline fired. */
-export class EngineError extends Error {
-  override readonly name = "EngineError";
-  constructor(
-    readonly code: "engine/unavailable",
-    message: string,
-    readonly data: { readonly after?: number } = {},
-    options?: ErrorOptions,
-  ) {
-    super(message, options);
+/**
+ * DuckDB-WASM 1.33's `onError` logs a worker's `error` event and clears its pending requests without
+ * settling them, so a worker that fails to load leaves `instantiate` waiting forever, and one that dies
+ * later leaves every request it held waiting forever. This rejects them first: as `engine/unavailable`
+ * until `lost` is set, which is when the boot is over, and as `engine/lost` from then on, for the
+ * worker's whole life. The constructor binds `this.onError`, which is why an override reaches the
+ * listener; `messageerror` is routed to it as well, since a reply that cannot be read is a worker
+ * that cannot be heard.
+ */
+class Duck extends AsyncDuckDB {
+  /** Set when the boot is over: called once, with the failure every pending request was rejected with. */
+  lost?: (failure: Problem) => void;
+
+  protected override attach(worker: Worker): void {
+    super.attach(worker);
+    worker.addEventListener("messageerror", this._onErrorHandler as EventListener);
+  }
+
+  protected override onError(event: ErrorEvent): void {
+    const message = event.message || (this.lost ? "it stopped answering" : "it did not load");
+    const failure = this.lost
+      ? new Problem(
+          "engine/lost",
+          `the DuckDB worker died: ${message}`,
+          { reason: /memory|oom/i.test(message) ? "memory" : "worker" },
+          { cause: event.error },
+        )
+      : new Problem("engine/unavailable", `the DuckDB worker failed: ${message}`, {}, { cause: event.error });
+    for (const task of this._pendingRequests.values()) task.promiseRejecter(failure);
+    super.onError(event);
+    this.lost?.(failure);
   }
 }
 
 /**
- * DuckDB-WASM 1.33's `onError` logs a worker's `error` event and clears its pending requests without
- * settling them, so a worker that fails to load leaves `instantiate` waiting forever. This rejects
- * them first. The constructor binds `this.onError`, which is why an override reaches the listener.
+ * What DuckDB refusing `sql` is to a caller: `engine/failed`, whose `message` and `data.statement` are
+ * DuckDB's message and the statement with every literal replaced by `?` (see {@link redact}); a
+ * `CREATE SECRET` is not echoed at all. The original text is on no field, not on `cause`, and not on
+ * the coordinator's logger, so what a host's `onFailure` hands to its telemetry carries no user's
+ * value and no credential. A loss passes as it is.
  */
-class Duck extends AsyncDuckDB {
-  protected override onError(event: ErrorEvent): void {
-    const failure = new EngineError(
-      "engine/unavailable",
-      `the DuckDB worker failed: ${event.message || "it did not load"}`,
-      {},
-      { cause: event.error },
-    );
-    for (const task of this._pendingRequests.values()) task.promiseRejecter(failure);
-    super.onError(event);
-  }
+function failed(sql: string, error: unknown): Problem {
+  if (error instanceof Problem) return error;
+  if (isSecret(sql)) return new Problem("engine/failed", "CREATE SECRET failed");
+  return new Problem("engine/failed", redact(error instanceof Error ? error.message : String(error)), {
+    statement: redact(sql),
+  });
 }
 
 /** `promise`, or `signal.reason` the moment the signal aborts — the work behind it is not stopped. */
@@ -189,29 +215,29 @@ function abandon<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
   });
 }
 
-async function boot(): Promise<Engine> {
+async function boot(forget: () => void): Promise<Engine> {
   const deadline = new AbortController();
   const timer = setTimeout(() => deadline.abort(), BOOT_DEADLINE);
-  let duckdb: AsyncDuckDB | undefined;
+  let duckdb: Duck | undefined;
   try {
     return await abandon(
-      start((made) => (duckdb = made)),
+      start(forget, (made) => (duckdb = made)),
       deadline.signal,
     );
   } catch (error) {
     void duckdb?.terminate();
-    if (error instanceof EngineError) throw error;
+    if (isProblem(error) && error.code !== "engine/failed") throw error;
     const after = deadline.signal.aborted ? { after: BOOT_DEADLINE } : {};
     const message = deadline.signal.aborted
       ? `DuckDB did not boot within ${BOOT_DEADLINE / 1000} s`
       : "DuckDB did not boot";
-    throw new EngineError("engine/unavailable", message, after, { cause: error });
+    throw new Problem("engine/unavailable", message, after, { cause: error });
   } finally {
     clearTimeout(timer);
   }
 }
 
-async function start(made: (duckdb: AsyncDuckDB) => void): Promise<Engine> {
+async function start(forget: () => void, made: (duckdb: Duck) => void): Promise<Engine> {
   const all = builds();
   const { mainModule } = await selectBundle(all);
   const build = mainModule === all.eh.mainModule ? all.eh : all.mvp;
@@ -219,8 +245,87 @@ async function start(made: (duckdb: AsyncDuckDB) => void): Promise<Engine> {
   made(duckdb);
   await duckdb.instantiate(build.mainModule);
 
-  const connector = new DuckDBWASMConnector({ duckdb, config: RANGE_READS });
-  const coordinator = new Coordinator(connector);
+  // The connection is ours rather than mosaic-core's connector's: DuckDB-WASM's pending-query protocol is
+  // several messages, so a second statement sent in between would end the one a signal can interrupt.
+  await duckdb.open(RANGE_READS);
+  const connection = await duckdb.connect();
+  const id = connection.useUnsafe((_, conn) => conn);
+
+  // Set when the worker died; every step that has not started then refuses with it instead of waiting
+  // on a worker that will not answer, and the request that was in flight was rejected with it already.
+  let lost: Problem | undefined;
+  const inOrder = () => {
+    let tail: Promise<unknown> = Promise.resolve();
+    return <T>(step: () => Promise<T>): Promise<T> => {
+      const run = tail.then(() => {
+        if (lost) throw lost;
+        return step();
+      });
+      tail = run.catch(() => {}); // the caller holds `run`; the chain only orders the next step
+      return run;
+    };
+  };
+  const lane = inOrder();
+
+  /**
+   * **The one way a statement runs**, for the engine's own door and the coordinator's alike: in turn on
+   * the one connection, interrupted when `signal` aborts, refused as `engine/failed` or `engine/lost`.
+   * It is `startPendingQuery`, `pollPendingQuery` and `fetchQueryResults` on the bindings, which are
+   * what `AsyncDuckDBConnection.send()` is made of, and `cancelPendingQuery`, which is `cancelSent()`;
+   * the bytes are Arrow IPC, which the caller decodes with flechette. `send()` itself is not used: it
+   * reads the result with apache-arrow, a different `Table` class, and measured in Node 22 on
+   * DuckDB-WASM 1.33.1-dev57.0 (medians of 5-300 runs) it cost +1.4 ms on a trivial statement and +25% to
+   * +95% at two million rows, where this path was within -13% to +11% of the one-message `runQuery`
+   * it replaced (200,000 rows ×4 columns: -5% to +15%; a trivial statement +0.2 to +0.4 ms).
+   */
+  const execute = (sql: string, signal: AbortSignal): Promise<Uint8Array> => {
+    if (signal.aborted) return Promise.reject(signal.reason as Error);
+    let running = false;
+    const answered = lane(async () => {
+      if (signal.aborted) throw signal.reason; // aborted while it waited its turn: never sent
+      running = true;
+      const interrupt = () => void duckdb.cancelPendingQuery(id).catch(() => {}); // a cancel that fails is a dead worker, which rejects the statement itself
+      signal.addEventListener("abort", interrupt, { once: true });
+      try {
+        let header = await duckdb.startPendingQuery(id, sql, false);
+        while (header == null) header = await duckdb.pollPendingQuery(id);
+        const parts = [header];
+        for (;;) {
+          let part = await duckdb.fetchQueryResults(id);
+          while (part == null) part = await duckdb.fetchQueryResults(id);
+          if (part.length === 0) break;
+          parts.push(part);
+        }
+        const bytes = new Uint8Array(parts.reduce((total, one) => total + one.length, 0));
+        let at = 0;
+        for (const one of parts) {
+          bytes.set(one, at);
+          at += one.length;
+        }
+        return bytes;
+      } catch (error) {
+        // A statement that failed or was interrupted on the signal's account is the signal's reason.
+        throw signal.aborted ? signal.reason : failed(sql, error);
+      } finally {
+        signal.removeEventListener("abort", interrupt);
+      }
+    });
+    return new Promise<Uint8Array>((resolve, reject) => {
+      // Waiting, an abort ends the wait at once; running, the statement is interrupted and rejects itself.
+      const leave = () => running || reject(signal.reason);
+      signal.addEventListener("abort", leave, { once: true });
+      answered.then(resolve, reject).finally(() => signal.removeEventListener("abort", leave));
+    });
+  };
+
+  // The coordinator's statements carry no signal; it decodes the bytes itself.
+  const unsignalled = new AbortController().signal;
+  const connector = {
+    query: (request: { readonly type: string; readonly sql: string }) =>
+      execute(request.sql, unsignalled).then((bytes) => (request.type === "exec" ? undefined : bytes)),
+  } as Connector;
+  // No logger: its default is `console`, which is handed the failure with the statement in its message.
+  const coordinator = new Coordinator(connector, { logger: null });
   await coordinator.exec("SET autoload_known_extensions = false");
   for (const extension of build.extensions) await coordinator.exec(`LOAD '${extension}'`);
   // Files are read lazily by range; caching their metadata is what keeps a pan from re-probing, and
@@ -228,17 +333,13 @@ async function start(made: (duckdb: AsyncDuckDB) => void): Promise<Engine> {
   // corpus — 2.2× on a window's reads, measured in fossil on 2026-09-30.
   await coordinator.exec("SET enable_http_metadata_cache = true");
   await coordinator.exec("SET parquet_metadata_cache = true");
+  await coordinator.exec(`SET memory_limit = '${memoryLimit()}MiB'`);
 
   const behind = new Map<string, string | typeof HELD>();
 
   // Registry changes run one at a time: two `registerFiles` calls on one name racing each other would each see the
   // old entry, and the second register would be refused.
-  let tail: Promise<unknown> = Promise.resolve();
-  const serial = (step: () => Promise<void>): Promise<void> => {
-    const run = tail.then(step);
-    tail = run.catch(() => {}); // the caller holds `run`; the chain only orders the next step
-    return run;
-  };
+  const serial = inOrder();
 
   const release = async (name: string) => {
     if (!behind.has(name)) return;
@@ -246,13 +347,14 @@ async function start(made: (duckdb: AsyncDuckDB) => void): Promise<Engine> {
     behind.delete(name);
   };
 
-  const query = (sql: string, { signal }: { readonly signal: AbortSignal }) => {
-    if (signal.aborted) return Promise.reject(signal.reason as Error);
-    // `decodeIPC`'s defaults are the coordinator's own: this engine sets no `ipc` options on it.
-    return abandon(
-      connector.query({ type: "arrow", sql }).then((bytes) => decodeIPC(bytes) as unknown as Table),
-      signal,
-    );
+  // `decodeIPC`'s defaults are the coordinator's own: this engine sets no `ipc` options on it.
+  const query = (sql: string, { signal }: { readonly signal: AbortSignal }) =>
+    execute(sql, signal).then((bytes) => decodeIPC(bytes) as unknown as Table);
+
+  duckdb.lost = (failure) => {
+    lost = failure;
+    forget();
+    void duckdb.terminate();
   };
 
   return {
@@ -282,6 +384,20 @@ async function start(made: (duckdb: AsyncDuckDB) => void): Promise<Engine> {
 }
 
 /**
+ * DuckDB's memory limit, in MiB, set below WebAssembly's 4 GiB per-tab ceiling so that DuckDB spills
+ * or refuses with its own out-of-memory error while the worker is still alive, instead of the tab
+ * taking the worker. **Neither figure is measured.** The ceiling is DuckDB-WASM's documented one; the
+ * 3 GiB cap and the half of the device's memory under it are a margin chosen by argument. The figure
+ * `/docs/design/engine` wants is the peak heap of the graph benchmark at 200,000 vertices, which has
+ * not been run. `navigator.deviceMemory` is Chromium's, rounded to a power of two and capped at 8
+ * (GiB); where it is absent the cap alone stands.
+ */
+function memoryLimit(): number {
+  const gib = (globalThis.navigator as { deviceMemory?: number } | undefined)?.deviceMemory;
+  return Math.max(512, Math.min(3072, typeof gib === "number" && gib > 0 ? (gib * 1024) / 2 : 3072));
+}
+
+/**
  * Keyed on the document's global rather than on this module, so two copies of the package in one
  * bundle still share one database — which is the invariant, not the module identity.
  */
@@ -289,18 +405,23 @@ const KEY = Symbol.for("@kanzo-tech/mosaic/engine");
 
 /**
  * The page's one engine, booted on first ask. A boot that fails is forgotten, so the next ask boots
- * again rather than inheriting the failure for the life of the page. A `signal` ends this caller's
+ * again rather than inheriting the failure for the life of the page; so is an engine whose worker
+ * died, which rejected what it held with `engine/lost`. The next ask is then a new object with an
+ * empty database: whatever a host attached, registered or mounted lived in the dead worker. A
+ * refcount keyed on the engine object — a `WeakMap` — starts again at zero for it, which is what makes
+ * "ask again, attach again" correct without anything resurrecting state. A `signal` ends this caller's
  * wait, not the boot, which other callers may be waiting on.
  */
 export function engine(options: { readonly signal?: AbortSignal } = {}): Promise<Engine> {
   const scope = globalThis as { [KEY]?: Promise<Engine> };
   let booting = scope[KEY];
   if (!booting) {
-    const started = boot();
-    scope[KEY] = booting = started;
-    started.catch(() => {
+    const forget = () => {
       if (scope[KEY] === started) delete scope[KEY];
-    }); // the callers hold `started`; this only forgets it
+    };
+    const started = boot(forget);
+    scope[KEY] = booting = started;
+    started.catch(forget); // the callers hold `started`; this only forgets it
   }
   return options.signal ? abandon(booting, options.signal) : booting;
 }

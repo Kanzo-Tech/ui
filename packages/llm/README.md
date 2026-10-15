@@ -15,7 +15,7 @@ message types from `ai` by name, as every package here does.
 ## What it holds
 
 ```ts
-import { generate, stream, LlmError } from "@kanzo-tech/llm";
+import { generate, stream } from "@kanzo-tech/llm";
 import { localModel, localProvider, setLocalProvider, serveLocalModel } from "@kanzo-tech/llm/local";
 import { scriptedModel } from "@kanzo-tech/llm/testing";
 ```
@@ -26,14 +26,14 @@ import { scriptedModel } from "@kanzo-tech/llm/testing";
   and ends it as if it had finished.
 - **`generate({ …, providerOptions })`** — the same, read whole: `generateText`, asked once.
   Every model call the library makes goes through one of the two.
-- **`LlmError`** — `llm/unavailable`, `data.reason` `"webgpu"` (the page cannot run a model) or
+- **Failures** — a kernel `Problem`: `llm/unavailable`, `data.reason` `"webgpu"` (the page cannot run a model) or
   `"unserved"` (nothing serves it).
 - **`localModel(id?)`**, from **`@kanzo-tech/llm/local`** — the model, in the page, resolved by id
   through one provider registry: a host sets its provider once,
   `setLocalProvider(localProvider({ baseURL: "/models", worker }))`, and every model listed in
   `/models/app-config.json` (WebLLM's `AppConfig`) is served; without an id, the first. WebLLM on
   WebGPU through `@browser-ai/web-llm`: both optional peers that only this subpath reaches. One
-  engine per model per page; without WebGPU a call fails as `LlmError`, before anything is
+  engine per model per page; without WebGPU a call fails as a `Problem`, before anything is
   downloaded. A call may pass `providerOptions.kanzo.grammar`, an EBNF the engine holds every token
   to. `loadLocalModel(id?)` downloads and loads it before the first call, and `localModelLoad(id?)` /
   `watchLocalModel(id, listener)` say where that stands. `serveLocalModel()` is the worker's whole

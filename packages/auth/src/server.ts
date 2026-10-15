@@ -18,7 +18,8 @@ import { DEFAULT_RENEW_WITHIN } from "./renew-within";
 import { issuer, type IssuerConfig } from "./issuer";
 import { keyedSingleFlight } from "./single-flight";
 import { statelessStore, type SessionRecord, type SessionStore } from "./store";
-import { AuthError, type AuthErrorCode, type Session, type SignInOptions } from "./types";
+import { Problem, isProblem, type ProblemCode } from "@kanzo-tech/kernel";
+import type { Session, SignInOptions } from "./types";
 
 /**
  * `@kanzo-tech/auth/server` — the confidential OAuth client.
@@ -72,8 +73,8 @@ const ACCESS_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:access_token";
  */
 const AUDIENCE = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,254}$/;
 
-function refuse(code: AuthErrorCode, message: string, cause?: unknown): never {
-  throw new AuthError(code, message, {}, cause === undefined ? undefined : { cause });
+function refuse(code: ProblemCode, message: string, cause?: unknown): never {
+  throw new Problem(code, message, {}, cause === undefined ? undefined : { cause });
 }
 
 function codeOf(error: unknown): string | undefined {
@@ -218,7 +219,7 @@ function reachable(store: SessionStore): SessionStore {
         return await call(...args);
       } catch (error) {
         // A store that cannot revoke answered, and its answer is the point; it is not an outage.
-        if (error instanceof AuthError && error.code === "session/irrevocable") throw error;
+        if (isProblem(error, "session/irrevocable")) throw error;
         return refuse("session/unavailable", "the session store did not answer", error);
       }
     };
@@ -415,9 +416,9 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
   const after = DEADLINE;
 
   /** A failure to reach the IdP, coded by who did not answer; anything else as `fallback`. */
-  const fromIdp = (error: unknown, fallback: AuthErrorCode, message: string): AuthError => {
+  const fromIdp = (error: unknown, fallback: ProblemCode, message: string): Problem => {
     const code = unanswered(error) ?? fallback;
-    return new AuthError(code, message, code === "idp/silent" ? { after } : {}, { cause: error });
+    return new Problem(code, message, code === "idp/silent" ? { after } : {}, { cause: error });
   };
 
   /** Discovery, failing as the IdP's outage rather than as an uncoded error. */
@@ -507,7 +508,7 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
       try {
         tokens = await refreshTokenGrant(await configuration(), spent);
       } catch (error) {
-        if (error instanceof AuthError) throw error;
+        if (isProblem(error)) throw error;
         // An IdP that did not answer has refused nothing, and a token endpoint that refused for any
         // reason but the grant is a deployment fault: neither ends the session.
         if (unanswered(error) !== undefined || !isInvalidGrant(error)) {
@@ -595,7 +596,7 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
         scope: wanted === undefined ? audience : `${audience} ${wanted}`,
       });
     } catch (error) {
-      if (error instanceof AuthError) throw error;
+      if (isProblem(error)) throw error;
       throw fromIdp(error, "token/exchange-failed", `the session's token was not exchanged for \`${audience}\``);
     }
 
@@ -620,8 +621,8 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
   };
 
   /** A logout token's verification failure, as the IdP's outage or as a refused token. */
-  const fromLogout = (error: unknown): AuthError =>
-    error instanceof AuthError
+  const fromLogout = (error: unknown): Problem =>
+    isProblem(error)
       ? error
       : fromIdp(error, "token/refused", "the logout token did not verify");
 
@@ -692,7 +693,7 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
       try {
         tokens = await grant(await configuration());
       } catch (error) {
-        if (error instanceof AuthError) throw error;
+        if (isProblem(error)) throw error;
         if (isNonceMismatch(error)) {
           refuse(
             "callback/nonce-mismatch",

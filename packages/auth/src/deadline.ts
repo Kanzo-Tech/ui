@@ -1,4 +1,4 @@
-import { AuthError, type AuthErrorCode } from "./types";
+import { Problem, type ProblemCode } from "@kanzo-tech/kernel";
 
 /**
  * Thirty seconds: the figure fossil's `/docs/design/failure` sets for a request to an API from the
@@ -14,13 +14,13 @@ export const DEADLINE = 30_000;
  * `{ after }` when it does — whether or not `work` honours the signal.
  */
 export function deadline<T>(
-  code: AuthErrorCode,
+  code: Extract<ProblemCode, `${string}/silent`>,
   work: (signal: AbortSignal) => Promise<T>,
 ): Promise<T> {
   const controller = new AbortController();
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
-      const error = new AuthError(code, `no answer within ${DEADLINE} ms`, { after: DEADLINE });
+      const error = new Problem(code, `no answer within ${DEADLINE} ms`, { after: DEADLINE });
       controller.abort(error);
       reject(error);
     }, DEADLINE);

@@ -3,10 +3,14 @@ title: The engine
 description: Why every package reaches DuckDB through one read-only port and one door, why aborting a query interrupts the statement, why a dying engine is a supported state, and why the library redacts what it throws; and what would reverse each rule.
 ---
 
-> **Status: to be built.** This page is the design as decided. Today `@kanzo-tech/mosaic` holds the
-> engine, the Mosaic door and the join graph in one package; `Engine.query` stops waiting without
-> stopping the statement; `graph` and `analytics` take a `coordinator`; and there are six DuckDB test
-> doubles. The *Breaking* list at the end is what a consumer edits.
+> **Status: partly built.** Built in `@kanzo-tech/mosaic`: aborting interrupts the statement, a dying
+> worker is `engine/lost` and the next `engine()` reboots, `memory_limit` is set at boot, a failure
+> carries the statement's shape and never its literals (`engine/failed`), every statement runs through
+> one pending-query path, and `queryableConformance` is in `@kanzo-tech/testing`. Still to be built: the
+> `Queryable` port in the kernel and the `Problem` class (the engine throws `EngineError` with the same
+> codes today), the `cancels` member, `observe` and disposal, the split into three packages, `graph` and
+> `analytics` taking an `engine` rather than a `coordinator`, and the one test double. The *Breaking*
+> list at the end is what a consumer edits.
 
 Four repositories wrote the same idea four times. `@kanzo-tech/mosaic` has an `Engine` with
 `query(sql, { signal })` and a column `Table`; `@fossil-lang/types` declares its own and says
@@ -92,9 +96,25 @@ coordinator is a second optional argument, not a second door.
 
 **A signal aborted while a statement runs interrupts the statement in the engine, and the connection
 answers the next statement as if the aborted one had never been sent.** The mechanism is DuckDB-WASM's
-`AsyncDuckDBConnection.send()` for the statement and `cancelSent()` on abort — the documented pair,
-the ADBC `Statement.Cancel` analogue — and the rejection is `signal.reason`, so the caller sees the
-abort it asked for.
+pending-query calls on the bindings, `startPendingQuery`, `pollPendingQuery` and `fetchQueryResults` for
+the statement and `cancelPendingQuery` on abort — the calls `AsyncDuckDBConnection.send()` and
+`cancelSent()` are made of, and the ADBC `Statement.Cancel` analogue — and the rejection is
+`signal.reason`, so the caller sees the abort it asked for. A statement still waiting its turn is never
+sent; an abort after the statement finished is ignored, as ADBC's cancel finds nothing to cancel.
+
+**There is one path, not two.** The coordinator's connector and `Engine.query` both run a statement
+through it: one lane on the one connection (a pending query is several messages, and a second
+statement sent in between would end it), one cancellation, one `engine/failed` and `engine/lost` path.
+`runQuery` is used nowhere. `Engine.query` decodes the bytes with flechette, as the coordinator does, so
+the `Table` is the same.
+
+**`send()` itself is not used, and why.** It reads the result with apache-arrow: a different `Table`
+class from the one every reader here is written against, and slower. Measured in Node 22 on DuckDB-WASM
+1.33.1-dev57.0, medians of 5 to 300 runs, against the one-message `runQuery` the coordinator used: a
+trivial statement 1.5 to 2.0 ms with `send()` against 0.5 to 0.9 ms, 200,000 rows by four columns
+100 to 142 ms against 81 to 113 ms, and two million rows by two columns +25% to +95%. The pending-query
+calls with flechette were within +0.2 to +0.4 ms on a trivial statement, -5% to +15% on 200,000 rows and
+-13% to +11% on two million. Not measured in a browser.
 
 The failure scenario is this repository's own contradiction. `reads.mdx` promised "*Stop* cancels the
 query, so the wait ends at once"; `engine.ts` documented that the statement "a short one, finishes";
@@ -110,20 +130,20 @@ instead of accepting the signal and ignoring it. A test double that only checks
 `signal.throwIfAborted()` is therefore not an engine; it is a `Queryable` that must be used without
 a signal, which the type forbids.
 
-**Unmeasured, and a gate.** That `cancelSent` interrupts a statement sent by `send`, and returns a
-clean connection, is the documented behaviour of the pair; that it does so on the path mosaic-core's
-connector takes (`bindings.runQuery`) is not established. And that `send` plus a decode costs no more
-than `runQuery` for the library's reads is not measured. Both are measured in a real browser before
-the change lands, and a number is written here beside the claim: *a 5 s `SELECT sum(i) FROM range(…)`
-aborted at 100 ms, then the time of the next trivial statement; and the library's graph load, with
-`send` against `runQuery`*. The conformance kit's rule is the first: **an aborted long statement
-leaves the connection answering a trivial one within 200 ms.**
+**Measured.** A statement that would run about 27 s (`SELECT sum(i * i) FROM range(1000000000)`),
+aborted at 100 ms, rejected after 50 to 110 ms, and the next trivial statement answered in 47 to 166 ms
+(six runs, Node). Before, it waited for the rest of the 27 s. The conformance kit's rule is that **an
+aborted long statement leaves the connection answering a trivial one within 200 ms.**
 
-**What would reverse it:** `send` slower than `runQuery` on the graph load by more than the threshold
-written beside the measurement. Then `runQuery` stays for the coordinator's batched path and `send`
-carries only signalled statements; or DuckDB-WASM cannot cancel a statement at all, and fossil's
-contract is amended to say so and `cancels` is `false` for the browser engine, which then refuses a
-signal — the honest state, as against today's accepted and ignored one.
+*Held by* `packages/mosaic/src/engine-real.test.ts`, "interrupts a long statement on abort, so the next
+one answers at once".
+
+**What would reverse it:** DuckDB-WASM offering a cancellable result stream that returns the same
+`Table` the readers are written against (an Arrow IPC stream flechette decodes) at the cost of the
+pending-query calls: then `send()` or its successor replaces them and the lane is the only thing left of
+this paragraph. Or DuckDB-WASM cannot cancel a statement at all, and fossil's contract is amended to say
+so and `cancels` is `false` for the browser engine, which then refuses a signal — the honest state, as
+against the old accepted and ignored one.
 
 ## A dying engine is a supported state
 
@@ -134,8 +154,9 @@ that moment. A worker that dies later — the tab's 4 GB WebAssembly ceiling is 
 limit, and "browsers may impose even stricter limits" — left every later `query` hanging or throwing
 an unclassified error, and `engine()` kept handing out the corpse until reload.
 
-- **Detection** covers the worker's life, not a request's: its `error` and `messageerror` events and
-  a failed `postMessage` mark the engine lost.
+- **Detection** covers the worker's life, not a request's: its `error` and `messageerror` events mark
+  the engine lost. A failed `postMessage` does not: a browser does not throw on a worker that is gone,
+  and a `DataCloneError` is the caller's bug, not a death.
 - **`engine/lost`** is a `Problem` ([failure](/docs/design/failure)) with `data.reason` `"worker"` or
   `"memory"`. Every pending request rejects with it; the engine is removed from the `globalThis` slot.
 - **Hosts re-attach.** Whatever a host put in the engine — an attached catalog, registered files, a
@@ -289,7 +310,7 @@ test, and the double's interrupt is a documented model of it.
 | --- | --- |
 | Failure and recovery | Real cancellation, `engine/lost` with reboot, `memory_limit`, `cancels` refusing a signal it cannot honour |
 | Security and privacy | Literals and secrets redacted from every thrown value; no CDN fetch; the unlocked door named, not hidden |
-| Performance and size | One serial connection kept (measured); `send` against `runQuery` gated on a measurement; entries gauged separately; the module reported beside the wrapper |
+| Performance and size | One serial connection kept (measured); the pending-query path against `send()` and `runQuery` measured; entries gauged separately; the module reported beside the wrapper |
 | Stable API, accessibility, tests | One read-only port, one conformance kit, one double; no accessibility surface here beyond consumers announcing a loading or lost engine |
 
 ## Breaking, in the consumer's words
