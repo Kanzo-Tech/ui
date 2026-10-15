@@ -48,7 +48,7 @@ import { tags as t } from "@lezer/highlight";
  *     editors (a JSON field, a code preview).
  *   · **Bring-your-own** (`basics={false} chrome={false}`): a bare surface driven
  *     entirely by the caller's `extensions`, for a mature editor that owns its own
- *     theme/keymap/behaviour (e.g. fossil's LSP editor). `onView` hands back the
+ *     theme/keymap/behaviour (e.g. a language editor). `onView` hands back the
  *     `EditorView` for side-wiring.
  */
 

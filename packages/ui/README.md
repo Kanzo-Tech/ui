@@ -22,7 +22,7 @@ utilities, once.
   navigation, data display) with a flat compound API — `DialogTrigger` and `DialogContent`, not
   `Dialog.Trigger`.
 - **`composites/`** — assemblies of those that stay domain-free: the sidebar, the code editor, the
-  `Preferences` theme panel.
+  preferences kit.
 - **`layouts/`** — the Shell and Section regions. Structure only, no appearance.
 
 Everything is exported flat from the root, so a component moving between layers is never a breaking
@@ -78,11 +78,11 @@ and the faces are the theme's, so there is no control for them. `PreferencesFiel
 `PreferencesFieldSet` title a section of your own the same way. None of them knows what it is mounted
 on — the theme cards lay out on a container query, never a window width.
 
-`Preferences` (and its `PreferencesRoot` / `Trigger` / `Panel` parts) is one **surface** over that
+`PreferencesRoot` (with `PreferencesTrigger` and `PreferencesPanel`) is one **surface** over that
 kit: a non-modal drawer with a hotkey. A product with a real settings area drops the same sections
 into its own page instead, beside its own menu — no drawer, nothing to opt out of, no component to
 import for it. **Both are first-class**, and a section that ever needed to know which one it was on
-would be the design failing. The docs site shows the two side by side: `showcases/metadata-form` for
-the drawer, `showcases/settings` for the page.
+would be the design failing. `/docs/layout/preferences` shows the drawer, and
+`showcases/settings` shows the page.
 
 Admission rule: nothing domain-specific — no RDF, SHACL, fossil, graph or auth knowledge.

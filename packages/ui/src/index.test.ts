@@ -19,8 +19,7 @@ import * as UI from "./index";
  * ## It is an enumeration, not a pin
  *
  * Read the assertions rather than the reputation. There is no `Object.keys(UI)` comparison and no
- * snapshot anywhere below — 141 names asserted present and 63 asserted absent (counted 2026-07-30),
- * every one typed out by hand. So **adding** an export never fails this file, and **removing** one
+ * snapshot anywhere below — every name asserted present or absent is typed out by hand. So **adding** an export never fails this file, and **removing** one
  * fails only if somebody had already written that name down. `Table` is the worked example: ours,
  * and `@tanstack/react-table`'s as well, and it appears in neither list here, so deleting it would
  * leave this green.
