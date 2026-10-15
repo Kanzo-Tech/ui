@@ -13,6 +13,12 @@ import type { Arrangement, Drawn, GraphOptions, GraphSnapshot, DataStatus, Graph
 
 export type { Arrangement, Drawn, GraphOptions, GraphSnapshot, GraphState, DataStatus, GraphStore, View } from "./state";
 
+/**
+ * The most vertices the graph draws: 2²⁴, the last integer a `Float32` link end holds exactly. Past it
+ * an id rounds to its neighbour and a link attaches to the wrong vertex, with no error.
+ */
+const LIMIT = 2 ** 24;
+
 /** How many vertices `recent` keeps: a palette's short list, not a history. */
 const RECENT = 5;
 
@@ -188,6 +194,11 @@ export function createGraph(initial: GraphOptions): GraphStore {
       if (next.size === 0) {
         failed = true;
         fail(new Problem("graph/nothing-to-draw", `the corpus attached as ${from} has no vertex`));
+        return;
+      }
+      if (next.size > LIMIT) {
+        failed = true;
+        fail(new Problem("graph/too-large", `the corpus attached as ${from} has ${next.size} vertices; the graph draws at most ${LIMIT}`, { count: next.size, limit: LIMIT }));
         return;
       }
       structure = next;

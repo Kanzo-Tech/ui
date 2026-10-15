@@ -56,6 +56,21 @@ describe("the graph store", () => {
     expect(store.getSnapshot().structure).toBeNull();
   });
 
+  it("refuses more than 2^24 vertices as graph/too-large, from the catalog's counts and before one link is read", async () => {
+    const corpus = await attach();
+    await corpus.coordinator.exec(
+      `ALTER VIEW ${corpus.from}.fossil_tables RENAME TO written;
+       CREATE VIEW ${corpus.from}.fossil_tables AS SELECT * REPLACE (CASE WHEN table_name = 'Person' THEN 16777207::UBIGINT ELSE record_count END AS record_count) FROM ${corpus.from}.written;`,
+    );
+    const { onFailure, store } = await graph({}, corpus);
+    await settle(corpus);
+    expect(onFailure).toHaveBeenCalledTimes(1);
+    expect(onFailure.mock.calls[0]?.[0]).toMatchObject({ name: "Problem", code: "graph/too-large", data: { count: 2 ** 24 + 1, limit: 2 ** 24 } });
+    expect(store.getSnapshot().status).toBe("failed");
+    expect(store.getSnapshot().geometry).toBeNull();
+    expect(corpus.sent.some((sql) => sql.includes("Person_knows_Person"))).toBe(false);
+  });
+
   it("starts a layout from a seeded square when x and y are unbound, the same start every time", async () => {
     const first = await graph();
     await settle(first.corpus);
