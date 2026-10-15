@@ -37,7 +37,6 @@ describe("the dom environment", () => {
     expect(hook()).toBeUndefined();
     dom();
     expect(hook()?.graphs).toBeInstanceOf(Map);
-    expect(hook()?.charts).toBeInstanceOf(Map);
   });
 
   it("registers each model script it is given on the hook, under its model id, with no prompt yet", () => {

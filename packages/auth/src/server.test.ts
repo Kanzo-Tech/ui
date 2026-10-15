@@ -60,6 +60,9 @@ function recordingStore() {
     async dropAll() {
       throw new Error("not under test");
     },
+    async seen() {
+      throw new Error("not under test");
+    },
   };
   return { store, records, calls };
 }
@@ -1041,6 +1044,66 @@ describe("relyingParty", () => {
       expect(realm.state.calls).toContain("http://keycloak:8080/realms/kanzo/protocol/openid-connect/certs");
     });
 
+    /** §2.4 recommends the header `typ` be `logout+jwt`, so that an ID token cannot pass for a logout token. */
+    it("refuses a logout token whose typ is neither logout+jwt nor JWT", async () => {
+      const { auth, cookie } = await signedIn();
+
+      await expect(auth.logout(await realm.logoutToken({}, { typ: "at+jwt" }))).rejects.toMatchObject({
+        code: "token/refused",
+      });
+      expect(await auth.read(cookie)).not.toBeNull();
+
+      await auth.logout(await realm.logoutToken({}, { typ: "logout+jwt" }));
+      expect(await auth.read(cookie)).toBeNull();
+    });
+
+    /** Keycloak 25.0.0 types its logout tokens (#28939) and 24.0.0 gives them an `exp` (#25753). */
+    it("refuses a logout token whose typ is JWT or absent, and one without exp", async () => {
+      const { auth, cookie } = await signedIn();
+      const exp = Math.floor(Date.now() / 1000) + 120;
+
+      for (const token of [
+        await realm.logoutToken({ exp }, { typ: "JWT" }),
+        await realm.logoutToken({ exp }, { typ: null }),
+        await realm.logoutToken({ exp: undefined }),
+      ]) {
+        await expect(auth.logout(token)).rejects.toMatchObject({ code: "token/refused" });
+      }
+      expect(await auth.read(cookie)).not.toBeNull();
+    });
+
+    /** §2.6: what tells a logout token from an ID token is its content, whatever its header says. */
+    it("refuses an ID token presented as a logout token, by every typ", async () => {
+      const { auth, cookie } = await signedIn();
+      const idToken = { events: undefined, nonce: "n-1", sid: "s-1" };
+
+      for (const typ of ["JWT", "logout+jwt", null]) {
+        await expect(auth.logout(await realm.logoutToken(idToken, { typ }))).rejects.toMatchObject({
+          code: "token/refused",
+        });
+      }
+      expect(await auth.read(cookie)).not.toBeNull();
+    });
+
+    it("refuses a logout token it has already seen, and one that carries no jti", async () => {
+      const { auth, backing } = await signedIn();
+      const token = await realm.logoutToken({ jti: "j-1", exp: Math.floor(Date.now() / 1000) + 120 });
+
+      await auth.logout(token);
+      // A session opened after the first logout is not ended by the replay.
+      const { done } = await signIn(auth, realm);
+      await expect(auth.logout(token)).rejects.toMatchObject({ code: "token/refused" });
+      expect(await auth.read(asRequestHeader(done.cookies))).not.toBeNull();
+
+      await expect(auth.logout(await realm.logoutToken({ jti: undefined }))).rejects.toMatchObject({
+        code: "token/refused",
+      });
+      // Remembered for the token's own remaining life and no longer.
+      const ttl = [...backing.ttls.entries()].find(([key]) => key.startsWith("logout-jti."))?.[1];
+      expect(ttl).toBeGreaterThan(100);
+      expect(ttl).toBeLessThanOrEqual(120);
+    });
+
     it("answers that a stateless store cannot end a session from here", async () => {
       await expect(relyingParty(config).logout(await realm.logoutToken())).rejects.toMatchObject({
         code: "session/irrevocable",
@@ -1230,7 +1293,7 @@ describe("relyingParty names who did not answer", () => {
 
     await expect(auth.refresh(asRequestHeader(done.cookies))).rejects.toMatchObject({
       code: "idp/silent",
-      data: { after: 30_000 },
+      data: { after: 10_000 },
     });
     // And the session survives the outage: nothing was refused.
     expect(await auth.read(asRequestHeader(done.cookies))).not.toBeNull();

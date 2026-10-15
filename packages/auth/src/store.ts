@@ -1,5 +1,5 @@
-import { deadline } from "./deadline";
 import { Problem } from "@kanzo-tech/kernel";
+import { BOUNDS, deadline } from "./deadline";
 import type { Session } from "./types";
 
 /**
@@ -116,6 +116,21 @@ export interface SessionStore {
    * the identity provider.
    */
   dropAll(subject: SessionSubject): Promise<void>;
+  /**
+   * Say whether a logout token's `jti` was already presented, and remember it for `ttl` seconds
+   * (until the token's own `exp`) if it was not. A replayed token would otherwise end the sessions
+   * the person has opened since. The check reads and then writes, so two replays racing each other
+   * can both pass; a replay only logs someone out again, and the gap is accepted
+   * (`/docs/design/auth-hardening`). Rejects as `dropAll` does for a store that cannot end sessions.
+   */
+  seen(jti: string, ttl: number): Promise<boolean>;
+}
+
+const NO_KEYS = "the ticket adapter has no `keys`, so a person's sessions cannot be found to end them";
+
+/** The refusal of a store that keeps no list of a person's sessions: a logout must not report success. */
+function irrevocable(reason: string): Problem {
+  return new Problem("session/irrevocable", reason);
 }
 
 /**
@@ -163,10 +178,10 @@ export function statelessStore(): SessionStore {
       /* Nothing to forget: see above, and mean it. */
     },
     async dropAll() {
-      throw new Problem(
-        "session/irrevocable",
-        "a stateless session lives in the cookie, so no server can end it: give relyingParty a ticketStore",
-      );
+      throw irrevocable("a stateless session lives in the cookie, so no server can end it: give relyingParty a ticketStore");
+    },
+    async seen() {
+      throw irrevocable("a stateless session lives in the cookie, so no server can end it: give relyingParty a ticketStore");
     },
   };
 }
@@ -284,8 +299,9 @@ function opaqueTicket(): string {
  *
  * ## Every wait on the adapter is bounded here
  *
- * Each `read`, `write` and `delete` is raced against `DEADLINE` (30 s), and one that has not
- * answered by then rejects as `Problem` `session/silent` with `{ after }` — which the server
+ * Each command, which is each `read`, `write`, `replace`, `delete` and step of a `keys` scan, is
+ * raced against five seconds (`BOUNDS.store`, inside the browser's 30 s, which
+ * `deadline.test.ts` holds), and one that has not answered by then rejects as `Problem` `session/silent` with `{ after }` — which the server
  * reports as `session/unavailable`, with that as its cause, like any other failure of the store.
  * The library makes the wait, so the library bounds it: a deployment that forgot to race its
  * Redis client would otherwise hang a page on a store that stopped answering.
@@ -309,7 +325,7 @@ function opaqueTicket(): string {
  */
 export function ticketStore(adapter: TicketAdapter, config: TicketStoreConfig = {}): SessionStore {
   const ttl = config.ttl ?? DEFAULT_TTL;
-  const bounded = <T>(call: () => Promise<T>) => deadline("session/silent", call);
+  const bounded = <T>(call: () => Promise<T>) => deadline("session/silent", BOUNDS.store, call);
 
   return {
     async put(record) {
@@ -342,17 +358,27 @@ export function ticketStore(adapter: TicketAdapter, config: TicketStoreConfig = 
       await bounded(() => adapter.delete(ticket));
     },
 
+    async seen(jti, ttl) {
+      // Refused up front for an adapter that could not act on the token anyway, so a logout that
+      // answers 501 does not also spend its `jti`.
+      if (adapter.keys === undefined) throw irrevocable(NO_KEYS);
+      // Percent-encoded, so the key has no colon and cannot be spelled like a ticket (`<sub>:<sid>:…`).
+      const key = `logout-jti.${keySegment(jti)}`;
+      if ((await bounded(() => adapter.read(key))) !== null) return true;
+      await bounded(() => adapter.write(key, "1", ttl));
+      return false;
+    },
+
     async dropAll(subject) {
       const keys = adapter.keys?.bind(adapter);
-      if (keys === undefined) {
-        throw new Problem(
-          "session/irrevocable",
-          "the ticket adapter has no `keys`, so a person's sessions cannot be found to end them",
-        );
+      if (keys === undefined) throw irrevocable(NO_KEYS);
+      // One bound per command and not one around the scan: a person with many sessions is a long
+      // loop of short commands, and the loop is not what is waited on.
+      const scan = keys(prefixOf(subject))[Symbol.asyncIterator]();
+      for (let step = await bounded(() => scan.next()); step.done !== true; step = await bounded(() => scan.next())) {
+        const key = step.value;
+        await bounded(() => adapter.delete(key));
       }
-      await bounded(async () => {
-        for await (const key of keys(prefixOf(subject))) await adapter.delete(key);
-      });
     },
   };
 }

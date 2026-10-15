@@ -1,29 +1,42 @@
 import { Problem, type ProblemCode } from "@kanzo-tech/kernel";
 
 /**
- * Thirty seconds: the figure fossil's `/docs/design/failure` sets for a request to an API from the
- * browser and for a request to an identity provider. One party bounds each wait, the one that makes
- * the request: where a library makes it —
- * `openid-client` — it is handed this figure; where this package makes it,
- * {@link deadline} does.
+ * Every wait this package makes, in milliseconds, and the table `/docs/design/failure` draws it
+ * from. One party bounds each wait, the one that makes the request: where a library makes it
+ * (`openid-client`, `jose`) it is handed the figure; where this package makes it, {@link deadline}
+ * does.
+ *
+ * **Deadlines nest: an inner wait expires before the one around it**, and an outer one is at least
+ * the sum of the inner waits that run one after another inside it. `deadline.test.ts` reads this
+ * table and asserts both, so the next equal pair is found by a test and not by an outage.
  */
-export const DEADLINE = 30_000;
+export const BOUNDS = {
+  /** The browser's `/session` and `/refresh`: the outermost wait here, inside the person's patience. */
+  browser: 30_000,
+  /** The forwarder, until the upstream's headers: inside the browser's, and not an identity request. */
+  forwarder: 25_000,
+  /** One request from the BFF to the identity provider: discovery, keys, a grant. */
+  idp: 10_000,
+  /** One `ticketStore` command. */
+  store: 5_000,
+} as const;
 
 /**
- * Run `work` with a signal that aborts after {@link DEADLINE}, and reject with `code` and
- * `{ after }` when it does — whether or not `work` honours the signal.
+ * Run `work` with a signal that aborts after `ms`, and reject with `code` and `{ after }` when it
+ * does — whether or not `work` honours the signal.
  */
 export function deadline<T>(
   code: Extract<ProblemCode, `${string}/silent`>,
+  ms: number,
   work: (signal: AbortSignal) => Promise<T>,
 ): Promise<T> {
   const controller = new AbortController();
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
-      const error = new Problem(code, `no answer within ${DEADLINE} ms`, { after: DEADLINE });
+      const error = new Problem(code, `no answer within ${ms} ms`, { after: ms });
       controller.abort(error);
       reject(error);
-    }, DEADLINE);
+    }, ms);
     work(controller.signal)
       .then(resolve, reject)
       .finally(() => clearTimeout(timer));

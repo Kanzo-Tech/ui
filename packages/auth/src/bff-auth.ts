@@ -1,8 +1,9 @@
-import { deadline } from "./deadline";
+import { BOUNDS, deadline } from "./deadline";
 import { DEFAULT_RENEW_WITHIN } from "./renew-within";
 import { singleFlight } from "./single-flight";
 import { Problem } from "@kanzo-tech/kernel";
-import type { Auth, Organization, Session, SignInOptions } from "./types";
+import { readSession } from "./session";
+import type { Auth, Session, SignInOptions } from "./types";
 
 /**
  * The Backend-For-Frontend pattern: the token never reaches the browser.
@@ -51,62 +52,6 @@ function isReplayable(input: RequestInfo | URL, init?: RequestInit): boolean {
   const body = init?.body;
   if (body === undefined || body === null) return true;
   return !(typeof ReadableStream !== "undefined" && body instanceof ReadableStream);
-}
-
-function readOrganization(value: unknown): Organization | null {
-  if (typeof value !== "object" || value === null) return null;
-  const org = value as Record<string, unknown>;
-  const alias = org["alias"];
-  if (typeof alias !== "string" || alias.length === 0) return null;
-  const strings = (key: string) =>
-    Array.isArray(org[key]) ? (org[key] as unknown[]).filter((v): v is string => typeof v === "string") : [];
-  return {
-    alias,
-    id: typeof org["id"] === "string" ? org["id"] : undefined,
-    roles: strings("roles"),
-    groups: strings("groups"),
-    groupsOverage: org["groupsOverage"] === true,
-  };
-}
-
-/**
- * The session endpoint's answer, checked rather than cast.
- *
- * It is our own server on the other end, and it is still **data off the wire**: a cast here would
- * make a deploy skew or a proxy's error page arrive as a `Session` whose `user` is undefined, and
- * the failure would surface three components away as a property read on nothing. `null` for
- * anything unrecognisable; `bffAuth` reads a 200 it cannot read as `session/unavailable`, because
- * the endpoint answers "nobody is signed in" with a 401 and never with a body.
- */
-export function readSession(value: unknown): Session | null {
-  if (typeof value !== "object" || value === null) return null;
-  const body = value as Record<string, unknown>;
-
-  const user = body["user"];
-  if (typeof user !== "object" || user === null) return null;
-  const id = (user as Record<string, unknown>)["id"];
-  if (typeof id !== "string" || id.length === 0) return null;
-
-  const person = user as Record<string, unknown>;
-  const str = (key: string) =>
-    typeof person[key] === "string" && person[key] !== "" ? (person[key] as string) : undefined;
-
-  return {
-    user: { id, email: str("email"), name: str("name"), username: str("username") },
-    roles: Array.isArray(body["roles"])
-      ? body["roles"].filter((r): r is string => typeof r === "string")
-      : [],
-    organizations: Array.isArray(body["organizations"])
-      ? body["organizations"]
-          .map(readOrganization)
-          .filter((o): o is Organization => o !== null)
-      : [],
-    organization:
-      typeof body["organization"] === "string" && body["organization"] !== ""
-        ? body["organization"]
-        : undefined,
-    expiresAt: typeof body["expiresAt"] === "number" ? body["expiresAt"] : 0,
-  };
 }
 
 /** What one tab posts to the others: only that the session changed, never the session itself. */
@@ -179,7 +124,7 @@ export function bffAuth(config: BffAuthConfig = {}): Auth {
   // — a 5xx, a proxy's page, no answer at all — is a failure, and reading it as "signed out" would
   // send the person to sign in over an outage that will still be there when they get back.
   const read = singleFlight(() =>
-    deadline("session/silent", async (signal): Promise<Session | null> => {
+    deadline("session/silent", BOUNDS.browser, async (signal): Promise<Session | null> => {
       const response = await send(`${base}/session`, { headers: { Accept: "application/json" }, signal });
       if (response.status === 401) return null;
       if (!response.ok) throw unavailable(`${base}/session`, response.status);
@@ -200,7 +145,7 @@ export function bffAuth(config: BffAuthConfig = {}): Auth {
    * something is one prefetch away from spending it unasked.
    */
   const renew = singleFlight(() =>
-    deadline("session/silent", async (signal): Promise<Session | null> => {
+    deadline("session/silent", BOUNDS.browser, async (signal): Promise<Session | null> => {
       const response = await send(`${base}/refresh`, {
         method: "POST",
         headers: { Accept: "application/json" },

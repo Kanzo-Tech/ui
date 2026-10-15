@@ -333,8 +333,7 @@ The part is accessible first, in [the testing rule's](/docs/design/testing) orde
 one button, *Play time* or *Pause time*, with `aria-pressed`, disabled and described with no range;
 the chart is `aria-busy` while its query runs; the window the clause holds is two sliders whose
 `aria-valuetext` read *1950* and *1960*; and a pause or the end is a status, *Paused at 1950 – 1955*.
-`ChartTimeline` registers its `x` scale under its title in `window.__KANZO_TESTING__.charts` when a
-test has installed the hook. `TimelineHarness` then brushes in data and plays.
+`TimelineHarness` brushes in data through the `x` scale Plot puts on the chart's output, and plays.
 
 *Held by* `packages/ui/src/charts/chart-timeline.test.tsx` ("reads a brushed range as the edges it
 spans, in axis order — the frames play shows"; "has nothing to play without a range, as

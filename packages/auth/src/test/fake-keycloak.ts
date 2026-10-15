@@ -150,13 +150,14 @@ export function fakeKeycloak() {
    */
   const logoutToken = async (
     claims: Record<string, unknown> = {},
-    options: { readonly kid?: string } = {},
+    options: { readonly kid?: string; readonly typ?: string | null } = {},
   ) => {
     const kid = options.kid ?? state.signingKid;
     const payload: Record<string, unknown> = {
       iss: ISSUER,
       aud: CLIENT_ID,
       iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 120,
       jti: crypto.randomUUID(),
       events: { [BACKCHANNEL_EVENT]: {} },
       sub: "u-1",
@@ -167,7 +168,12 @@ export function fakeKeycloak() {
       if (value === undefined) delete payload[name];
     }
     return new SignJWT(payload)
-      .setProtectedHeader({ alg: "RS256", kid, typ: "logout+jwt" })
+      .setProtectedHeader({
+        alg: "RS256",
+        kid,
+        // `null` leaves it off, as an IdP that does not type its logout tokens would.
+        ...(options.typ === null ? {} : { typ: options.typ ?? "logout+jwt" }),
+      })
       .sign(keyFor(kid).privateKey);
   };
 
@@ -175,6 +181,17 @@ export function fakeKeycloak() {
 }
 
 export type Realm = ReturnType<typeof fakeKeycloak>;
+
+/**
+ * A request as the browser makes one to its own origin: with `Sec-Fetch-Site: same-origin`, which
+ * `isSameSite` requires since a request that says nothing about where it came from is refused.
+ * A test that means another case passes its own `Sec-Fetch-Site` or `Origin`.
+ */
+export function fromPage(input: string | URL, init: RequestInit = {}): Request {
+  const headers = new Headers(init.headers);
+  if (!headers.has("sec-fetch-site") && !headers.has("origin")) headers.set("sec-fetch-site", "same-origin");
+  return new Request(input, { ...init, headers });
+}
 
 /**
  * The `Cookie` header a browser would send back from a list of `Set-Cookie` values.

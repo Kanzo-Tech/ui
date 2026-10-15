@@ -129,7 +129,12 @@ variable "default_scopes" {
 }
 
 variable "optional_scopes" {
-  description = "`organization` is optional on purpose: it is a dynamic scope, asked for as `organization:*` per request."
+  description = <<-EOT
+    `organization` is optional on purpose: it is a dynamic scope, asked for as `organization:*` per
+    request. `offline_access` is not among the defaults: the BFF never asks for it, a refresh token
+    that outlives the browser session is the thing the platform's session clocks exist to prevent,
+    and `kanzoAuth` refuses to let a sign-in inject it. An application that needs one lists it here.
+  EOT
   type        = list(string)
-  default     = ["organization", "offline_access"]
+  default     = ["organization"]
 }

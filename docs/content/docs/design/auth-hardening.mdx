@@ -175,24 +175,24 @@ file through".
 ## A logout token is checked as the specification recommends
 
 **The back-channel logout route refuses a body over 8 KB, requires
-`application/x-www-form-urlencoded`, refuses a token whose `typ` header is present and not
-`logout+jwt`, and refuses a `jti` it has already seen.** The route is unauthenticated by design, and
+`application/x-www-form-urlencoded`, refuses a token whose `typ` header is not exactly
+`logout+jwt`, requires `exp` and `jti`, and refuses a `jti` it has already seen.** The route is unauthenticated by design, and
 `request.text()` was unbounded. The `jti` is kept through the ticket adapter that already exists:
 `write` under `logout-jti.<jti>` with a TTL up to the token's `exp`, `read` before it. The adapter has no
 set-if-absent, so the check has a gap between its read and its write; a replayed logout only logs
 someone out again, and the gap is accepted. With the stateless store there is nothing to cache and the
 route answers 501 before it matters.
 
-**`typ` is required only after it is measured.** Keycloak 26.8's `typ` on a logout token is not
-confirmed here; `verify.sh` measures it, and until then an absent `typ` is accepted and a present wrong
-one is not.
+**`typ` is required, exactly.** The baseline is Keycloak 25.0.0 or later, and the supported realm is
+26.8: Keycloak types its logout tokens `logout+jwt` since 25.0.0 (keycloak/keycloak#28939, PR 29260) and
+gives them an `exp` since 24.0.0 (#25753). `JWT`, any other `typ` and an absent one are refused (RFC 8725
+explicit typing). What would reverse it: another IdP admitted, which is a non-goal.
 
 **The reference** is OpenID Connect Back-Channel Logout 1.0 (read): §2.4 recommends that logout tokens be
 explicitly typed `logout+jwt`, and §2.6 step 8 makes the `jti` replay check optional. Steps 1 to 7 are
 what the route does today.
 
-**What would reverse it:** the specification dropping the recommendation; or an IdP that sends untyped
-tokens for good, which leaves the check as *when present*.
+**What would reverse it:** the specification dropping the recommendation; or an IdP other than Keycloak, which is a non-goal.
 
 *To be added:* `server.test.ts`, "refuses a logout token whose typ is not logout+jwt" and "refuses a
 logout token it has already seen"; `next-routes.test.ts`, "refuses a logout body over the cap".

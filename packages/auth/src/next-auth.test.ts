@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { kanzoAuth, type KanzoAuth, type KanzoAuthConfig } from "./next-auth";
-import { ticketStore } from "./store";
+import { ticketStore, type SessionStore } from "./store";
 import {
   CLIENT_ID,
   ISSUER,
@@ -57,7 +57,7 @@ function navigation(path: string, cookie?: string, extra: Record<string, string>
 describe("kanzoAuth", () => {
   let realm: Realm;
   let backing: ReturnType<typeof inMemoryAdapter>;
-  let config: KanzoAuthConfig;
+  let config: KanzoAuthConfig & { readonly store: SessionStore };
   let auth: KanzoAuth;
 
   beforeEach(() => {
@@ -210,7 +210,7 @@ describe("kanzoAuth", () => {
      * `Set-Cookie` header would only reach the browser.
      */
     it("hands a re-sealed stateless cookie to this request's cookies(), not only to the browser", async () => {
-      const stateless = kanzoAuth({ ...config, store: undefined });
+      const stateless = kanzoAuth({ ...config, store: undefined } as KanzoAuthConfig);
       auth = stateless;
       realm.state.expiresIn = 30;
       const cookie = await signIn();
@@ -243,6 +243,45 @@ describe("kanzoAuth", () => {
       expect(forwarded(response, "x-nonce")).toBe("n-1");
     });
 
+    describe("csp", () => {
+      const csp = { "default-src": ["'self'"], "script-src": ["'wasm-unsafe-eval'"], "worker-src": ["'self'"] };
+      const nonceOf = (response: Response) => forwarded(response, "x-nonce") ?? "";
+
+      it("sends a fresh nonce on every request and names it in script-src with strict-dynamic, without unsafe-inline", async () => {
+        const guarded = kanzoAuth({ ...config, csp });
+        const cookie = await signIn();
+        const first = await guarded.proxy(navigation("/graphs", cookie, { "x-nonce": "forged" }));
+        const second = await guarded.proxy(navigation("/graphs", cookie));
+
+        const nonce = nonceOf(first);
+        expect(nonce).toMatch(/^[A-Za-z0-9+/]{22}==$/);
+        expect(nonce).not.toBe(nonceOf(second));
+        for (const response of [first, second]) {
+          const policy = forwarded(response, "content-security-policy") ?? "";
+          expect(policy).toBe(response.headers.get("content-security-policy"));
+          expect(policy).toContain(`script-src 'nonce-${nonceOf(response)}' 'strict-dynamic' 'wasm-unsafe-eval'`);
+          expect(policy).toContain("default-src 'self'; ");
+          expect(policy).toContain("worker-src 'self'");
+          expect(policy).not.toContain("unsafe-inline");
+        }
+      });
+
+      it("gives script-src when the host gave none, and sends no policy when csp is absent", async () => {
+        const cookie = await signIn();
+        const bare = await kanzoAuth({ ...config, csp: { "default-src": ["'self'"] } }).proxy(navigation("/graphs", cookie));
+        expect(bare.headers.get("content-security-policy")).toMatch(/script-src 'nonce-\S+' 'strict-dynamic'/);
+
+        const none = await auth.proxy(navigation("/graphs", cookie, { "x-nonce": "forged" }));
+        expect(none.headers.get("content-security-policy")).toBeNull();
+        expect(forwarded(none, "x-nonce")).toBeNull();
+      });
+
+      it("refuses unsafe-inline in script-src when the config is read", async () => {
+        const unsafe = kanzoAuth({ ...config, csp: { "script-src": ["'unsafe-inline'"] } });
+        await expect(unsafe.proxy(navigation("/graphs"))).rejects.toThrow(/unsafe-inline/);
+      });
+    });
+
     it("lets static files, the auth routes, the problem page, the api mount and public paths through unread", async () => {
       const mounted = kanzoAuth({
         ...config,
@@ -260,6 +299,21 @@ describe("kanzoAuth", () => {
       }
       // A public prefix opens its segment, not every path that starts with its letters.
       expect((await mounted.proxy(navigation("/healthcare"))).status).toBe(307);
+    });
+
+    it("gates a dotted path that is not a static extension and lets a static file through", async () => {
+      for (const path of ["/graphs/foo.bar", "/datasets/x.csv", "/export/report.json", "/v1.2/graphs", "/Logo.PNG.bak"]) {
+        const response = await auth.proxy(navigation(path));
+        expect(response.status, path).toBe(307);
+        expect(new URL(response.headers.get("location") ?? "").pathname, path).toBe("/api/auth/signin");
+      }
+      for (const path of ["/app.js", "/fonts/Inter.WOFF2", "/fossil/fossil_wasm_bg.wasm", "/robots.txt"]) {
+        expect((await auth.proxy(navigation(path))).headers.get("x-middleware-next"), path).toBe("1");
+      }
+      // A product's own list replaces the default.
+      const custom = kanzoAuth({ ...config, staticExtensions: ["pdf"] });
+      expect((await custom.proxy(navigation("/guide.pdf"))).headers.get("x-middleware-next")).toBe("1");
+      expect((await custom.proxy(navigation("/app.js"))).status).toBe(307);
     });
 
     it("sends a navigation to the problem page when the store does not answer", async () => {
