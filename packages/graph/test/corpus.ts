@@ -1,6 +1,9 @@
+import { mkdtempSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { ConsoleLogger, LogLevel, NODE_RUNTIME, createDuckDB } from "@duckdb/duckdb-wasm/blocking";
+import { afterAll } from "vitest";
 import { decodeIPC } from "@uwdata/mosaic-core";
 import { Coordinator } from "@kanzo-tech/mosaic";
 
@@ -10,7 +13,7 @@ import { Coordinator } from "@kanzo-tech/mosaic";
  * means is what DuckDB answers, not what a fake believes. A relation per type with GraphAr's own
  * columns, and the information files as `graphar_vertex_types`, `graphar_edge_types`,
  * `graphar_properties`, `graphar_extra_info` and `graphar_chunks`, typed as `attachGraph` types them,
- * with a footer for every chunk (see the macros below). Small enough to
+ * with a real Parquet chunk, footer and all, per vertex type (see below). Small enough to
  * count by hand, in global ids:
  *
  * - `Person`: ids `0 … 9`, `subject` its primary key, `name` `Person i`, `team = i % 4`,
@@ -48,22 +51,39 @@ const { conn } = await (async () => {
 })();
 
 /**
- * **Footers, because this build of DuckDB-WASM cannot open a Parquet file in Node** (`read_parquet`
- * traps in the blocking bindings), so the two table functions that read a footer are shadowed here by
- * temporary macros of the same names and columns over tables each `attach` fills — in the shapes the
- * real functions answer, which `parquet_kv_metadata` and `parquet_metadata` give for a file DuckDB
- * writes (checked on native DuckDB 1.5.5 when this was written). The key under which a writer states
- * its counts is a Parquet `key_value_metadata` key; a chunk's row group states each column's nulls,
- * bounds and whether they are exact.
+ * **Footers are real.** Every vertex chunk is a Parquet file this module writes with DuckDB-WASM
+ * (`COPY … TO … (FORMAT parquet, COMPRESSION zstd, KV_METADATA {'fossil:stats': …})`), so
+ * `parquet_kv_metadata` and `parquet_metadata` read what a writer's file holds. The key under which a
+ * writer states its counts is a Parquet `key_value_metadata` key; a chunk's row group states each
+ * column's nulls, bounds and whether they are exact.
+ *
+ * **Parquet opens in Node only without an `XMLHttpRequest` global.** DuckDB-WASM loads its `parquet`
+ * extension on first use, and when the global exists it downloads the extension with a synchronous
+ * request; jsdom's `XMLHttpRequest` (this package's test environment) refuses one, and the instance
+ * is broken from then on. With no such global the extension is already part of the build, so nothing
+ * is fetched. It is therefore loaded here once, with the global taken away, before any test runs.
  */
 const STATS_KEY = "fossil:stats";
-conn.query(`
-CREATE TABLE footer_kv (file_name VARCHAR, key BLOB, value BLOB);
-CREATE TABLE footer_meta (file_name VARCHAR, path_in_schema VARCHAR, stats_null_count UBIGINT, stats_min_value VARCHAR,
-  stats_max_value VARCHAR, min_is_exact BOOLEAN, max_is_exact BOOLEAN);
-CREATE OR REPLACE TEMP MACRO parquet_kv_metadata(f) AS TABLE SELECT file_name, 0 AS row_group_id, key, value FROM footer_kv WHERE file_name = f;
-CREATE OR REPLACE TEMP MACRO parquet_metadata(f) AS TABLE SELECT * FROM footer_meta WHERE file_name = f;
-`);
+/** Where the chunks are written: DuckDB-WASM's Node runtime writes through the file system, so not the working directory. */
+const chunks = mkdtempSync(join(tmpdir(), "graph-chunks-"));
+afterAll(() => rmSync(chunks, { force: true, recursive: true }));
+const host = globalThis as { XMLHttpRequest?: unknown };
+const xhr = host.XMLHttpRequest;
+host.XMLHttpRequest = undefined;
+try {
+  conn.query(`COPY (SELECT 1 AS x) TO '${join(chunks, "warm.parquet")}' (FORMAT parquet); SELECT * FROM parquet_metadata('${join(chunks, "warm.parquet")}');`);
+} finally {
+  host.XMLHttpRequest = xhr;
+}
+
+/**
+ * Write `type`'s rows of the catalog `from` as the Parquet chunk `file`, stating `stats` under the
+ * writer's key, or nothing when it is `null`.
+ */
+export function writeChunk(file: string, from: string, type: string, stats: string | null): void {
+  const kv = stats === null ? "" : `, KV_METADATA {'${STATS_KEY}': '${stats.replace(/'/g, "''")}'}`;
+  conn.query(`COPY (SELECT * FROM ${from}."${type}") TO '${file}' (FORMAT parquet, COMPRESSION zstd${kv});`);
+}
 
 export interface Attached {
   /** The page's coordinator, over this process's DuckDB. */
@@ -134,18 +154,11 @@ CREATE VIEW ${c}.graphar_properties AS SELECT * FROM (VALUES
     .join(",\n  ")}
 ) t(type, property, data_type, is_primary, is_nullable, ordinal);
 CREATE VIEW ${c}.graphar_extra_info AS SELECT * FROM (VALUES ('http://w3id.org/rml/', 'mapping.ttl')) t(key, value);
-CREATE VIEW ${c}.graphar_chunks AS SELECT * FROM (VALUES
-  ${Object.keys(PROPERTIES).map((type) => `('${type}', 'vertex', '${c}/vertex/${type}/chunk0')`).join(",\n  ")}
-) t(type, kind, path);
 CREATE VIEW ${c}.footer_stats AS ${STATS(c)};
-INSERT INTO footer_kv SELECT '${c}/vertex/' || table_name || '/chunk0', encode('${STATS_KEY}'),
-  encode('{' || string_agg('"' || column_name || '":{"distinct_count":' || distinct_count || ',"most_common_vals":['
-    || array_to_string(list_transform(most_common_vals, x -> '"' || replace(x, '"', '\\"') || '"'), ',')
-    || '],"most_common_freqs":[' || array_to_string(most_common_freqs, ',') || ']}', ',') || '}')
-  FROM ${c}.footer_stats GROUP BY table_name;
-INSERT INTO footer_meta SELECT '${c}/vertex/' || table_name || '/chunk0', column_name, null_count, min_value, max_value, true, true
-  FROM ${c}.footer_stats;
 `;
+
+/** The chunk of `type` in the catalog `c`: the name `attachGraph`'s `resolve` would have given it. */
+export const chunkOf = (c: string, type: string, k = 0) => join(chunks, `${c}_${type}_chunk${k}.parquet`);
 
 /**
  * A fresh catalog holding the graph above, and a coordinator of its own over the shared database.
@@ -154,6 +167,18 @@ INSERT INTO footer_meta SELECT '${c}/vertex/' || table_name || '/chunk0', column
 export async function attach(people = 10): Promise<Attached> {
   const from = `graph${++catalogs}`;
   conn.query(FIXTURE(from, people));
+  const json = conn
+    .query(
+      `SELECT table_name, '{' || string_agg('"' || column_name || '":{"distinct_count":' || distinct_count || ',"most_common_vals":['
+        || array_to_string(list_transform(most_common_vals, x -> '"' || replace(x, '"', '\\"') || '"'), ',')
+        || '],"most_common_freqs":[' || array_to_string(most_common_freqs, ',') || ']}', ',') || '}' AS stats
+       FROM ${from}.footer_stats GROUP BY table_name`,
+    )
+    .toArray() as { table_name: string; stats: string }[];
+  for (const { table_name, stats } of json) writeChunk(chunkOf(from, table_name), from, table_name, stats);
+  conn.query(`CREATE VIEW ${from}.graphar_chunks AS SELECT * FROM (VALUES
+    ${Object.keys(PROPERTIES).map((type) => `('${type}', 'vertex', '${chunkOf(from, type)}')`).join(",\n    ")}
+  ) t(type, kind, path);`);
   const sent: string[] = [];
   const answered = { count: 0 };
   const refusals: { pattern: RegExp; error: unknown }[] = [];

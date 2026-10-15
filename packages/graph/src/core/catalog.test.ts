@@ -1,6 +1,6 @@
 import { Query } from "@kanzo-tech/mosaic";
 import { describe, expect, it } from "vitest";
-import { attach } from "../../test/corpus";
+import { attach, chunkOf, writeChunk } from "../../test/corpus";
 import { readCatalog } from "./catalog";
 
 /**
@@ -98,7 +98,13 @@ describe("readCatalog", () => {
 
   it("counts nothing for a graph whose chunks state none", async () => {
     const corpus = await attach();
-    await corpus.coordinator.exec(`DELETE FROM footer_kv WHERE file_name LIKE '${corpus.from}/%';`);
+    // Chunks of the same rows that carry no `fossil:stats`, which the graph now lists instead.
+    const types = ["Person", "Place", "Tag"];
+    for (const type of types) writeChunk(chunkOf(corpus.from, type, 1), corpus.from, type, null);
+    await corpus.coordinator.exec(
+      `CREATE OR REPLACE VIEW ${corpus.from}.graphar_chunks AS SELECT * FROM (VALUES
+         ${types.map((type) => `('${type}', 'vertex', '${chunkOf(corpus.from, type, 1)}')`).join(", ")}) t(type, kind, path);`,
+    );
     const { vertices } = await readCatalog(corpus.coordinator, corpus.from);
     // The id's own counts are the arithmetic's, not a footer's.
     expect(vertices.every((v) => [...v.columns].every(([name, c]) => name === "dense_id" || c.stats === null))).toBe(true);
@@ -106,11 +112,16 @@ describe("readCatalog", () => {
 
   it("counts nothing of a column that two chunks of its type state, because counts do not combine", async () => {
     const corpus = await attach();
+    // The second chunk states what the first does, read back from its footer.
+    const [{ stats }] = (await corpus.coordinator.query(
+      `SELECT decode(value) AS stats FROM parquet_kv_metadata('${chunkOf(corpus.from, "Person")}') WHERE decode(key) = 'fossil:stats'`,
+      { type: "json" },
+    )) as unknown as { stats: string }[];
+    writeChunk(chunkOf(corpus.from, "Person", 1), corpus.from, "Person", stats);
     await corpus.coordinator.exec(
       `CREATE OR REPLACE VIEW ${corpus.from}.graphar_chunks AS
-         SELECT * FROM (VALUES ('Person', 'vertex', '${corpus.from}/vertex/Person/chunk0'), ('Person', 'vertex', '${corpus.from}/vertex/Person/chunk1'),
-           ('Place', 'vertex', '${corpus.from}/vertex/Place/chunk0'), ('Tag', 'vertex', '${corpus.from}/vertex/Tag/chunk0')) t(type, kind, path);
-       INSERT INTO footer_kv SELECT '${corpus.from}/vertex/Person/chunk1', key, value FROM footer_kv WHERE file_name = '${corpus.from}/vertex/Person/chunk0';`,
+         SELECT * FROM (VALUES ('Person', 'vertex', '${chunkOf(corpus.from, "Person")}'), ('Person', 'vertex', '${chunkOf(corpus.from, "Person", 1)}'),
+           ('Place', 'vertex', '${chunkOf(corpus.from, "Place")}'), ('Tag', 'vertex', '${chunkOf(corpus.from, "Tag")}')) t(type, kind, path);`,
     );
     const { vertices } = await readCatalog(corpus.coordinator, corpus.from);
     const person = vertices.find((v) => v.name === "Person")!;
