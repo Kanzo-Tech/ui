@@ -85,7 +85,7 @@ describe("Problem", () => {
     new Problem("llm/silent", "x", { after: 1 });
     new Problem("rbac/forbidden", "x", { anything: [1] });
     // @ts-expect-error `after` is required
-    new Problem("engine/unavailable", "x");
+    new Problem("llm/silent", "x");
     // @ts-expect-error `limit` is required
     new Problem("graph/too-large", "x", { count: 2 });
     // @ts-expect-error `after` is a number

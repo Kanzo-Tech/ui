@@ -145,7 +145,7 @@ describe("kanzoAuth().api", () => {
 
     expect(response.status).toBe(403);
     expect(response.headers.get("content-type")).toBe("application/problem+json");
-    expect(await response.json()).toMatchObject({ status: 403, title: "Forbidden", code: "organization/denied" });
+    expect(await response.json()).toMatchObject({ status: 403, title: "The organization is not permitted", code: "organization/denied" });
     expect(upstream).not.toHaveBeenCalled();
   });
 

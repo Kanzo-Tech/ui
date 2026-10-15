@@ -1,7 +1,8 @@
 import { deadline } from "./deadline";
 import { DEFAULT_RENEW_WITHIN } from "./renew-within";
 import { singleFlight } from "./single-flight";
-import { AuthError, type Auth, type Organization, type Session, type SignInOptions } from "./types";
+import { Problem } from "@kanzo-tech/kernel";
+import type { Auth, Organization, Session, SignInOptions } from "./types";
 
 /**
  * The Backend-For-Frontend pattern: the token never reaches the browser.
@@ -141,7 +142,7 @@ export function bffAuth(config: BffAuthConfig = {}): Auth {
   let leaving = false;
 
   const unavailable = (url: string, status: number | undefined, cause?: unknown) =>
-    new AuthError(
+    new Problem(
       "session/unavailable",
       status === undefined ? `${url} could not be reached` : `${url} answered ${status}`,
       status === undefined ? {} : { status },

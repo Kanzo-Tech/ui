@@ -1,5 +1,5 @@
 import { Graph } from "@cosmos.gl/graph";
-import { GraphError } from "../core/error";
+import { Problem } from "@kanzo-tech/kernel";
 import { greyedOf } from "../core/kept";
 import type { Geometry } from "../core/load";
 import type { Arrangement, GraphStore } from "../core/store";
@@ -65,7 +65,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   };
   const box = webglBox();
   if (box === null) {
-    fail(new GraphError("graph/no-webgl", "This browser offers no WebGL context to draw with."));
+    fail(new Problem("graph/no-webgl", "This browser offers no WebGL context to draw with."));
     return null;
   }
 
@@ -141,7 +141,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       onBackgroundClick: () => clear(),
     });
   } catch (error) {
-    fail(new GraphError("graph/no-webgl", "The renderer failed to start.", {}, { cause: error }));
+    fail(new Problem("graph/no-webgl", "The renderer failed to start.", {}, { cause: error }));
     return null;
   }
   const { camera, taken } = createCamera(graph, host, fail);

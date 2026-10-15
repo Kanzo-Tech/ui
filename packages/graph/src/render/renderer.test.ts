@@ -4,7 +4,7 @@ import { renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Selection, clauseInterval } from "@kanzo-tech/mosaic";
 import { attach, settle } from "../../test/corpus";
-import { GraphError } from "../core/error";
+import { isProblem } from "@kanzo-tech/kernel";
 import type { GraphOptions } from "../core/state";
 import { createGraph } from "../core/store";
 import { internalsOf, useGraph } from "../react/use-graph";
@@ -433,7 +433,7 @@ describe("the camera while a layout runs", () => {
     tick();
     (constructed[0]?.onSimulationEnd as () => void)();
     expect(onFailure).toHaveBeenCalledOnce();
-    expect(onFailure.mock.calls[0]?.[0]).toMatchObject({ name: "GraphError", code: "graph/no-positions", cause: expect.any(TypeError) });
+    expect(onFailure.mock.calls[0]?.[0]).toMatchObject({ name: "Problem", code: "graph/no-positions", cause: expect.any(TypeError) });
     expect(store.getSnapshot().status).toBe("failed");
   });
 
@@ -611,8 +611,7 @@ describe("the renderer's failures", () => {
     const lost = new Event("webglcontextlost", { cancelable: true });
     host.querySelector("canvas")?.dispatchEvent(lost);
     expect(lost.defaultPrevented).toBe(true);
-    expect(onFailure.mock.calls[0]?.[0]).toBeInstanceOf(GraphError);
-    expect(onFailure.mock.calls[0]?.[0]).toMatchObject({ code: "graph/context-lost" });
+    expect(isProblem(onFailure.mock.calls[0]?.[0], "graph/context-lost")).toBe(true);
     expect(store.getSnapshot().status).toBe("failed");
   });
 
@@ -625,7 +624,7 @@ describe("the renderer's failures", () => {
       expect(onFailure).not.toHaveBeenCalled();
       await vi.advanceTimersByTimeAsync(1);
       expect(onFailure).toHaveBeenCalledOnce();
-      expect(onFailure.mock.calls[0]?.[0]).toMatchObject({ name: "GraphError", code: "graph/no-webgl", data: { after: 10_000 } });
+      expect(onFailure.mock.calls[0]?.[0]).toMatchObject({ name: "Problem", code: "graph/no-webgl", data: { after: 10_000 } });
       expect(store.getSnapshot().status).toBe("failed");
     } finally {
       vi.useRealTimers();

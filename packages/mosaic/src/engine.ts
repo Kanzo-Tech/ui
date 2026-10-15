@@ -1,4 +1,5 @@
 import { AsyncDuckDB, DuckDBDataProtocol, VoidLogger, selectBundle } from "@duckdb/duckdb-wasm";
+import { Problem, isProblem } from "@kanzo-tech/kernel";
 import { Coordinator, decodeIPC, DuckDBWASMConnector } from "@uwdata/mosaic-core";
 
 /**
@@ -148,19 +149,6 @@ const HELD = Symbol("held");
  */
 const BOOT_DEADLINE = 60_000;
 
-/** The one failure the engine names: it would not boot. `data.after` is set when the deadline fired. */
-export class EngineError extends Error {
-  override readonly name = "EngineError";
-  constructor(
-    readonly code: "engine/unavailable",
-    message: string,
-    readonly data: { readonly after?: number } = {},
-    options?: ErrorOptions,
-  ) {
-    super(message, options);
-  }
-}
-
 /**
  * DuckDB-WASM 1.33's `onError` logs a worker's `error` event and clears its pending requests without
  * settling them, so a worker that fails to load leaves `instantiate` waiting forever. This rejects
@@ -168,7 +156,7 @@ export class EngineError extends Error {
  */
 class Duck extends AsyncDuckDB {
   protected override onError(event: ErrorEvent): void {
-    const failure = new EngineError(
+    const failure = new Problem(
       "engine/unavailable",
       `the DuckDB worker failed: ${event.message || "it did not load"}`,
       {},
@@ -200,12 +188,12 @@ async function boot(): Promise<Engine> {
     );
   } catch (error) {
     void duckdb?.terminate();
-    if (error instanceof EngineError) throw error;
+    if (isProblem(error, "engine/unavailable")) throw error;
     const after = deadline.signal.aborted ? { after: BOOT_DEADLINE } : {};
     const message = deadline.signal.aborted
       ? `DuckDB did not boot within ${BOOT_DEADLINE / 1000} s`
       : "DuckDB did not boot";
-    throw new EngineError("engine/unavailable", message, after, { cause: error });
+    throw new Problem("engine/unavailable", message, after, { cause: error });
   } finally {
     clearTimeout(timer);
   }

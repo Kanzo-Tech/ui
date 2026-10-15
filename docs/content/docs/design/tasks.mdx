@@ -460,7 +460,7 @@ SDK's names".
 
 | Package | Third-party peer | What it carries |
 | --- | --- | --- |
-| `@kanzo-tech/llm` | `ai`, required | `stream`, `generate`, `LlmError`, `ModelLoad` |
+| `@kanzo-tech/llm` | `ai`, required | `stream`, `generate`, `ModelLoad` |
 | `@kanzo-tech/llm/testing` | `ai`'s own `ai/test`; `@kanzo-tech/testing`, optional, for the script and its answering | the one scripted model double ([Testing](/docs/design/testing#one-model-double)) |
 | `@kanzo-tech/llm/local` | `@browser-ai/web-llm`, `@mlc-ai/web-llm`, optional | `localModel` (resolved through one registry, a grammar per call), `loadLocalModel`, `localProvider` and `setLocalProvider` — every model the host's `app-config.json` lists — `serveLocalModel` for its worker; `llm/unavailable` without WebGPU or with nothing served. It names no test: a test registers its provider in the registry ([Testing](/docs/design/testing#a-model-is-resolved-through-one-registry)) |
 | `@kanzo-tech/ai/task` | — | the types, `defineTask`, `runTask`, `propose`, `verify` |

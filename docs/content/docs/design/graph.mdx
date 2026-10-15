@@ -762,7 +762,7 @@ a part of this package that must tell two of the canvas's own gestures apart by 
 **Policy stays out, through the root's callbacks** — `onSelect`, `onFocus` and `onFailure`. No part
 takes a callback of its own. `onFailure` is the one required prop: unhandled, a browser with no WebGL
 context shows an empty box. It receives what was thrown, whole — a read's own error with its `code`,
-or a `GraphError`: `graph/no-webgl`, `graph/context-lost`, `graph/no-positions` or `graph/nothing-to-draw` — so a host
+or a `Problem`: `graph/no-webgl`, `graph/context-lost`, `graph/no-positions` or `graph/nothing-to-draw` — so a host
 chooses what to show by code.
 
 **What would reverse it:** a part a second host cannot use without a prop that encodes that host's

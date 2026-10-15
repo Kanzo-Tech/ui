@@ -462,8 +462,7 @@ outside consumer; if it lands on inventing its own `<pre>` too, that is the seco
 two call sites that each wrote the reading by hand — a host's error view, over `Diagnostic`'s parts,
 and the graph docs' failure overlay, a `code` lookup over an `Alert` — and it reads **a shape, not a
 class**: `code` in `area/kind`, `title`, `message`, `data`, `cause`, and `severity`, `help` and
-`related` where they are present. Every library here already throws that shape (`AuthError`,
-`GraphError`, `EngineError`, `LlmError`, fossil's `FossilError`, a host's `ApiError`), so importing
+`related` where they are present. Every library here already throws that shape (the kernel's `Problem`, fossil's `FossilError`, a host's `ApiError`), so importing
 none of them is what lets one component show all of them, and one more nobody has written yet.
 
 **The words are the host's, through one function.** `describe(code, data)` returns a title, a

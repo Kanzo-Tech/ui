@@ -1,5 +1,5 @@
 import { Query, and, asc, cast, eq, float64, literal, sql, type Coordinator, type JoinAnnotation, type JoinColumnStats } from "@kanzo-tech/mosaic";
-import { GraphError } from "./error";
+import { Problem } from "@kanzo-tech/kernel";
 import { ask, relation, type Answer } from "./source";
 import type { Column, EdgeTable, PropertyTable, Structure, VertexTable } from "./structure";
 
@@ -132,7 +132,7 @@ export async function readCatalog(coordinator: Coordinator, from: string): Promi
     }
   });
   if (key === undefined && vertices.length > 0) {
-    throw new GraphError("graph/nothing-to-draw", `the corpus attached as ${from} gives no column the address role`);
+    throw new Problem("graph/nothing-to-draw", `the corpus attached as ${from} gives no column the address role`);
   }
   return { from, key: key ?? "", vertices, edges, properties, size: vertices.reduce((sum, v) => sum + v.rows, 0) };
 }

@@ -24,21 +24,20 @@ typed string" and "bites on a class extending MosaicClient with no queryError".
 
 ## The codes this library names
 
-Each is an `Error` with `code` and `data`, in the `area/kind` grammar fossil's and a host's codes use,
-so one host registry keys all three. One class per package, named for it, and its area the package's
-name. `@kanzo-tech/llm` broke that with an `AiError` coding `ai/unavailable`, while keasy coded its own
-model failures `llm/failed`, so one area had two names; the class is `LlmError` and its area `llm`.
+Each is a kernel `Problem` with `code` and `data`, in the `area/kind` grammar fossil's and a host's codes use,
+so one host registry keys all three. One area per package, named for it. `@kanzo-tech/llm` broke that with an `AiError` coding `ai/unavailable`, while keasy coded its own
+model failures `llm/failed`, so one area had two names; its area is `llm`. Every one is the kernel's `Problem`.
 
-| Code | Class | When | `data` |
+| Code | Thrown by | When | `data` |
 | --- | --- | --- | --- |
-| `engine/unavailable` | `EngineError` | DuckDB-WASM would not boot | `after` when the 60 s deadline fired |
-| `graph/no-webgl` | `GraphError` | no WebGL, a renderer that would not start, or no device within 10 s | `after` when the deadline fired |
-| `graph/context-lost` | `GraphError` | the browser took the WebGL context back | — |
-| `graph/no-positions` | `GraphError` | a device that came up holds no positions for the points it was given: a frame's read-back failed | — |
-| `graph/nothing-to-draw` | `GraphError` | an attached corpus with no vertex | — |
-| `llm/unavailable` | `LlmError`, from `@kanzo-tech/llm` | the page cannot run the model: no WebGPU for `localModel` | `reason` |
-| `llm/truncated` | `LlmError`, from `@kanzo-tech/llm` | a structured answer the model's context cut off | `reason` `"context"` |
-| `session/*`, `idp/*`, `api/*`, `callback/*`, `token/*`, `organization/*`, `claims/*` | `AuthError` | see [the auth layer](/docs/design/auth) | `after`, `status` where named |
+| `engine/unavailable` | `@kanzo-tech/mosaic` | DuckDB-WASM would not boot | `after` when the 60 s deadline fired |
+| `graph/no-webgl` | `@kanzo-tech/graph` | no WebGL, a renderer that would not start, or no device within 10 s | `after` when the deadline fired |
+| `graph/context-lost` | `@kanzo-tech/graph` | the browser took the WebGL context back | — |
+| `graph/no-positions` | `@kanzo-tech/graph` | a device that came up holds no positions for the points it was given: a frame's read-back failed | — |
+| `graph/nothing-to-draw` | `@kanzo-tech/graph` | an attached corpus with no vertex | — |
+| `llm/unavailable` | `@kanzo-tech/llm` | the page cannot run the model: no WebGPU for `localModel` | `reason` |
+| `llm/truncated` | `@kanzo-tech/llm` | a structured answer the model's context cut off | `reason` `"context"` |
+| `session/*`, `idp/*`, `api/*`, `callback/*`, `token/*`, `organization/*`, `claims/*` | `@kanzo-tech/auth` | see [the auth layer](/docs/design/auth) | `after`, `status` where named |
 
 **What would reverse it:** a code a host never branches on. Then it folds into its neighbour; the
 list is short because every row is a different thing to show.

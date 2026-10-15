@@ -205,7 +205,7 @@ loop. So a failure carries a code, in the `area/kind` grammar one host registry 
 with what was measured:
 
 ```ts
-import { AuthError, type AuthErrorCode } from "@kanzo-tech/auth";
+import { isProblem } from "@kanzo-tech/kernel";
 ```
 
 | Code | What happened |
@@ -237,7 +237,7 @@ one bound, and two racing on the session read would each name the failure differ
 ([failure](/docs/design/failure#one-deadline-per-wait)).
 
 The server answers a refusal as an RFC 9457 problem, `application/problem+json`, whose `code` is
-the `AuthErrorCode` — [the Next.js page](/docs/auth/next#what-a-refusal-answers) has the statuses.
+the registry's code (`problems.bnf`) — [the Next.js page](/docs/auth/next#what-a-refusal-answers) has the statuses.
 
 ## API Reference
 

@@ -84,7 +84,7 @@ export interface AssistProviderProps {
   includeText?: boolean;
   /**
    * Called with what the model's stream threw, whole, when a field's ask fails — on the first
-   * attempt, never retried. A page that cannot run `localModel` arrives as its `LlmError` coded
+   * attempt, never retried. A page that cannot run `localModel` arrives as a `Problem` coded
    * `llm/unavailable`. The field also says so under itself.
    */
   onFailure?: (error: unknown) => void;

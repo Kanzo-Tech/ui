@@ -52,9 +52,7 @@ export { bffAuth, type BffAuthConfig } from "./bff-auth";
 export { can, organizationOf } from "./can";
 export { Gate } from "./gate";
 export {
-  AuthError,
   type Auth,
-  type AuthErrorCode,
   type AuthUser,
   type Organization,
   type Session,

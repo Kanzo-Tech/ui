@@ -612,7 +612,7 @@ problem, and no sign-in".
 ## An outage at a required session is the problem page
 
 **`kanzoAuth().session({ required: true })` answers a store or IdP outage as `proxy` does: a redirect
-to `problemPage` with the code.** It threw the `AuthError` raw, so keasy wrapped every layout's read
+to `problemPage` with the code.** It threw the `Problem` raw, so keasy wrapped every layout's read
 in a `try` that redirected to the same page with the same code — the library's own decision, written
 again by the product. Without `required` the outage is still thrown, for a page that renders through
 one. `TenantRequest`, the type `KanzoAuthConfig.organization` takes, is on `./next` with it, because
@@ -622,7 +622,7 @@ The reference is AuthKit's `withAuth({ ensureSignedIn: true })`, which settles t
 than handing the host an exception to settle.
 
 **What would reverse it:** a layout that must render through an outage — a public page under a
-required session. Then it does not ask for `required`, and catches the `AuthError` itself.
+required session. Then it does not ask for `required`, and catches the `Problem` itself.
 
 *Held by* `packages/auth/src/next-auth.test.ts`, "sends a required session's outage to the problem
 page, with its code" and "throws the outage to a page that did not require a session, which reads

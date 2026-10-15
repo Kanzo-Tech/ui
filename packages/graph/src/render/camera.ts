@@ -1,5 +1,5 @@
 import type { Graph } from "@cosmos.gl/graph";
-import { GraphError } from "../core/error";
+import { Problem } from "@kanzo-tech/kernel";
 import type { View } from "../core/state";
 
 export const FIT_DURATION = 420;
@@ -59,7 +59,7 @@ export interface Camera {
 export function createCamera(
   graph: Graph,
   host: HTMLElement,
-  fail: (error: GraphError) => void,
+  fail: (error: Problem) => void,
 ): { camera: Camera; taken: (userDriven: boolean) => void } {
   let corners: readonly number[] | null = null;
   let framing = false;
@@ -78,7 +78,7 @@ export function createCamera(
     } catch (error) {
       broken = true;
       following = false;
-      fail(new GraphError("graph/no-positions", "cosmos.gl holds no positions on the GPU to draw or frame.", {}, { cause: error }));
+      fail(new Problem("graph/no-positions", "cosmos.gl holds no positions on the GPU to draw or frame.", {}, { cause: error }));
     }
   };
   const fitNow = (duration: number) => {

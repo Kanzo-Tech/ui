@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { isProblem } from "@kanzo-tech/kernel";
 
 /**
  * The boot against DuckDB-WASM's real `AsyncDuckDB` and a worker that misbehaves on cue: that class's
@@ -55,7 +56,7 @@ vi.mock("@uwdata/mosaic-core", async (original) => ({
   },
 }));
 
-const { engine, EngineError } = await import("./engine.js");
+const { engine } = await import("./engine.js");
 
 afterEach(() => {
   vi.useRealTimers();
@@ -65,8 +66,8 @@ describe("a boot that fails", () => {
   it("rejects as engine/unavailable when the worker fails to load, instead of waiting forever", async () => {
     mode = "error";
     const failure = await engine().catch((error: unknown) => error);
-    expect(failure).toBeInstanceOf(EngineError);
-    expect(failure).toMatchObject({ code: "engine/unavailable", data: {} });
+    expect(isProblem(failure, "engine/unavailable")).toBe(true);
+    expect(failure).toMatchObject({ data: {} });
     expect(workers.at(-1)!.terminated).toBe(true);
   });
 

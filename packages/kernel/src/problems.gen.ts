@@ -4,7 +4,7 @@
 export const TYPE_BASE = "tag:kanzo.tech,2026:problem/";
 
 export interface ProblemDataMap {
-  "engine/unavailable": { readonly after: number };
+  "engine/unavailable": { readonly after?: number };
   "engine/lost": Record<string, never>;
   "engine/failed": Record<string, never>;
   "engine/cannot-cancel": Record<string, never>;
