@@ -131,13 +131,6 @@ export { numbers } from "./arrow.js";
 /** Ours: what every `table` here and in the charts takes — one identifier, or a relation named in SQL. */
 export { type TableExpr } from "./table.js";
 
-/**
- * Ours: the page's one DuckDB-WASM engine — the coordinator and the file registry beside it. It is
- * the only door to `wasmConnector`, which is why that is no longer re-exported: a second boot is a
- * second database, and every host that wrote its own boot also wrote its own registry policy.
- */
-export { engine, type Engine } from "./engine.js";
-
 /** Ours: what a query threw, from the `QueryError` mosaic-core hands a client's `queryError`. */
 export { queryFailure } from "./failure.js";
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { clauseLabel, JoinResolver, literal, relationQuery, type Engine, type JoinGraph, type Selection, type SelectionClause } from "@kanzo-tech/mosaic";
+import { clauseLabel, JoinResolver, literal, relationQuery, type JoinGraph, type Selection, type SelectionClause } from "@kanzo-tech/mosaic";
+import type { Engine } from "@kanzo-tech/mosaic/engine";
 import { plotRelation, TILE_ROWS, tileQuery } from "@kanzo-tech/ui/analytics";
 import type { QueryClient } from "@tanstack/react-query";
 import { pageClauses, type Answer, type AnswerRelation, type UnansweredClause } from "./answer.js";

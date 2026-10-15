@@ -6,9 +6,10 @@ description: Why every package reaches DuckDB through one read-only port and one
 > **Status: partly built.** Built in `@kanzo-tech/mosaic`: aborting interrupts the statement, a dying
 > worker is `engine/lost` and the next `engine()` reboots, `memory_limit` is set at boot, a failure
 > carries the statement's shape and never its literals (`engine/failed`), every statement runs through
-> one pending-query path, and `queryableConformance` is in `@kanzo-tech/testing`. Still to be built: the
+> one pending-query path, `queryableConformance` is in `@kanzo-tech/testing`, and the engine is its own
+> subpath, `@kanzo-tech/mosaic/engine`. Still to be built: the
 > `Queryable` port in the kernel and the `Problem` class (the engine throws `EngineError` with the same
-> codes today), the `cancels` member, `observe` and disposal, the split into three packages, `graph` and
+> codes today), the `cancels` member, `observe` and disposal, the rest of the split into three packages, `graph` and
 > `analytics` taking an `engine` rather than a `coordinator`, and the one test double. The *Breaking*
 > list at the end is what a consumer edits.
 

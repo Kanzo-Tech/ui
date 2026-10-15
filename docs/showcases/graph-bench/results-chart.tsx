@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { xScale } from "@uwdata/vgplot";
-import { type Coordinator, engine } from "@kanzo-tech/mosaic";
+import type { Coordinator } from "@kanzo-tech/mosaic";
+import { engine } from "@kanzo-tech/mosaic/engine";
 import {
   ChartAxisX,
   ChartAxisY,
