@@ -1,48 +1,47 @@
+import { Problem, isProblem, within } from "@kanzo-tech/kernel";
+import type { Forwarded } from "./forwarded";
 import { tenantRequest, under, type Bound } from "./next-bound";
-import { BOUNDS, deadline } from "./deadline";
-import { ended, problem } from "./problem";
+import { problem } from "./problem";
 import { isSameSite } from "./same-site";
-import type { Ended, Token } from "./server";
-import { Problem, isProblem } from "@kanzo-tech/kernel";
 
 /**
- * The BFF half of the *token-mediating backend*: the browser's request goes out again carrying a
- * bearer token for that resource server and that organization alone, and the cookie that got it
- * here stops at this line. `kanzoAuth().api`.
+ * The forwarder: the browser's request to `/api/…` goes out again to the resource server, carrying
+ * the access token the edge forwarded as its bearer, and the cookie that got it here stops at this
+ * line. `kanzoAuth().api`.
  *
  * ```ts
- * // lib/auth.ts: kanzoAuth(() => ({ …, apis: { "/api/data": { audience: "reports", target: "https://reports.internal/v1" } } }))
+ * // lib/auth.ts: kanzoAuth(() => ({ …, apis: { "/api/data": { target: (org) => `https://${org}.reports.internal/v1` } } }))
  * // app/api/[...path]/route.ts — one route file can serve every mount under it
  * export const { GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS } = auth.api;
  * ```
+ *
+ * The token is forwarded as it came, with no exchange: the edge asked for the API's scope at
+ * sign-in, so `aud` already names it (`/docs/design/auth`, *The session is the platform's edge*).
+ * It is verified here before it is forwarded — the same check every server read makes — so a header
+ * that did not come through the edge is refused at this line and never reaches an API, which
+ * verifies it again itself.
  *
  * ## Why this is in the package and not in the product
  *
  * Because it is the same ninety lines every time, and one of them is load-bearing in a way that
  * does not look it. **The `cookie` header must not be forwarded.** Leave it on and the resource
- * server receives a second credential — the session cookie — alongside the bearer token it asked
- * for, which is precisely the confusion the BFF pattern exists to remove: from then on a bug at
- * the far end can act as the person rather than as the token, and the token's scope and lifetime
- * stop being the boundary. Every other line here — the hop-by-hop headers, `duplex: "half"`,
- * `redirect: "manual"`, not buffering the body — is the sort of thing that is either right or
- * produces a symptom three layers away, and none of it is a product's idea of its own domain.
+ * server receives a second credential — the edge's session cookie — alongside the bearer token,
+ * and from then on a bug at the far end can act as the person rather than as the token. Every other
+ * line here — the hop-by-hop headers, `duplex: "half"`, `redirect: "manual"`, not buffering the
+ * body — is the sort of thing that is either right or produces a symptom three layers away.
  *
  * ## What it answers without asking upstream
  *
  * A refusal with a code is an RFC 9457 problem whose `code` is the registry's code, at the status
- * `problems.bnf` gives it — the same body the auth routes send, so a host's registry reads
- * `organization/denied` here rather than coining a code for a bare 403:
+ * `problems.bnf` gives it:
  *
- * - **401** when there is no session, or when the renewal was refused (`session/absent`,
- *   `token/refused`) — with the cookie cleared in the same answer. There is nothing to forward: a
- *   request with no credential is not the resource server's to refuse. `bffAuth` answers that 401
- *   by asking `refresh`, and signs in when that is refused too.
- * - **403** when the realm will not issue a token for the organization the request addresses,
- *   because the person is not a member of it (`organization/denied`); **400** for one that is not an
- *   alias (`organization/invalid`).
- * - **502** when the realm would not exchange the token at all (`token/exchange-failed`): the
- *   application is not allowed to ask for that audience, which is the deployment's to fix. An IdP
- *   or a store that did not answer is its 5xx.
+ * - **401** when the edge forwarded no token (`session/absent`), or one that did not verify
+ *   (`token/refused`). There is nothing to forward: a request with no credential is not the
+ *   resource server's to refuse.
+ * - **403** when the request addresses an organization the token does not name
+ *   (`organization/denied`): the person is not a member there, and the API is not asked.
+ * - **502** or **504** when the realm's keys could not be fetched to verify the token
+ *   (`idp/unreachable`, `idp/silent`).
  * - **504** when the API connected and sent no headers within 25 s (`api/silent`); the client leaving
  *   ends the hop too, and then nothing is answered.
  * - **502** when the API itself did not answer — the connection was refused, its name did not
@@ -50,25 +49,13 @@ import { Problem, isProblem } from "@kanzo-tech/kernel";
  *   status, has answered, and that answer is passed through as it came.
  *
  * Three answers carry no code, and so no body, because they are about the request and not about a
- * credential: **403** when it is not same-site — `same-site.ts` carries why the package owes this —
- * **404** when `kanzoAuth` was given no `apis` or the mount's `target` names no server for the
- * organization, and **400** for a path under no mount.
- *
- * ## Renewal happens here too
- *
- * The proxy renews before a page renders, and a client that stays on one page for longer than an
- * access token lives renews here: within a minute of expiry, in place, single-flight per ticket
- * with every other renewal of that session in the process.
+ * credential: **403** when it is not same-site — `same-site.ts` carries why the application owes
+ * this — **404** when `kanzoAuth` was given no `apis` or the mount's `target` names no server for
+ * the organization, and **400** for a path under no mount.
  */
 
-/**
- * The upstream is reached with the global `fetch`, and **not** with the inherited `IssuerConfig`
- * one, which is a distinction worth a sentence because it is one field away from being invisible.
- * That `fetch` exists to reach the *identity provider* — it is the seam `internalOrigin` uses to
- * come at Keycloak from inside a cluster. A deployment that set it and found its resource-server
- * traffic going the same way would have every right to be surprised, so there is one name for one
- * transport and the other one is the platform's.
- */
+/** Until the upstream's headers, in milliseconds (`/docs/design/failure`, *one deadline per wait*). */
+export const FORWARD_WITHIN = 25_000;
 
 export interface ApiHandlers {
   GET(request: Request): Promise<Response>;
@@ -102,6 +89,9 @@ const HOP_BY_HOP = [
  * What is stripped from the browser's request on the way out, beyond the hop-by-hop set.
  *
  * - `cookie` — the whole point, above.
+ * - the edge's `x-forwarded-access-token`, `x-forwarded-user` and `x-forwarded-email` — the token
+ *   travels once, as the bearer, and the other two are the edge's unsigned word for what the token
+ *   says with the realm's signature.
  * - `authorization` — ours is the only one that may be on this request; a caller's own would
  *   otherwise decide which of the two the upstream reads.
  * - `host` — it names this server, not the upstream's, and `fetch` sets the right one.
@@ -119,6 +109,9 @@ const HOP_BY_HOP = [
 const NOT_FORWARDED = [
   ...HOP_BY_HOP,
   "cookie",
+  "x-forwarded-access-token",
+  "x-forwarded-user",
+  "x-forwarded-email",
   "authorization",
   "host",
   "content-length",
@@ -133,9 +126,9 @@ const NOT_FORWARDED = [
 /**
  * What is stripped from the upstream's answer.
  *
- * `set-cookie` is the one worth the sentence: under this pattern the browser's cookie relationship
- * is with the BFF alone, and a resource server that could set a cookie on this origin could set
- * one named like ours. `content-encoding` and `content-length` go because `fetch` already decoded
+ * `set-cookie` is the one worth the sentence: the browser's cookie relationship is with the edge and
+ * this origin alone, and a resource server that could set a cookie on this origin could set one
+ * named like the edge's. `content-encoding` and `content-length` go because `fetch` already decoded
  * the body, so both now describe a representation that no longer exists.
  */
 const NOT_RETURNED = [...HOP_BY_HOP, "set-cookie", "content-encoding", "content-length"];
@@ -179,66 +172,64 @@ export function forward(instance: () => Promise<Bound>): ApiHandlers {
     upstream.pathname = `${prefix}${url.pathname.slice(api.mount.length)}`;
     upstream.search = url.search;
 
-    let held: Token | Ended;
+    let held: Forwarded | null;
     try {
-      held = await bound.party.token(request.headers.get("cookie"), {
-        audience: api.audience,
-        organization,
-        renewWithin: bound.renewWithin,
-      });
+      held = await bound.read(request.headers);
     } catch (error) {
-      // A refused renewal is the end of the session and not an upstream failure. An IdP or a store
-      // that did not answer is an outage, and anything else is a fault this module has no reading
-      // of: hiding either behind a 401 would send a person to sign in again over something that
-      // will still be there when they get back.
+      // A token that did not verify, or keys that could not be fetched, each with its code. Anything
+      // else is a fault this module has no reading of, and is thrown as it came.
       if (!isProblem(error)) throw error;
       return problem(error);
     }
-    if (held.ended) return ended(held.code, held.cookies);
+    if (held === null) return problem(new Problem("session/absent", "the edge forwarded no access token"));
+    // The address is a hint and the token is the authority: a request in an organization the token
+    // does not name is refused here, before the API spends anything on it.
+    if (organization !== undefined && !held.session.organizations.some((org) => org.alias === organization)) {
+      return problem(new Problem("organization/denied", "the person is not a member of the organization this request addresses"));
+    }
 
     const headers = copyHeaders(request.headers, NOT_FORWARDED);
-    headers.set("authorization", `Bearer ${held.accessToken}`);
+    headers.set("authorization", `Bearer ${held.token}`);
 
     const body = request.method === "GET" || request.method === "HEAD" ? null : request.body;
     let answer: Response;
     try {
       // Bounded until the upstream's headers, and no longer: a server-sent event stream or an upload
       // is alive after them and is not ours to end on a clock. The client leaving ends either one.
-      answer = await deadline("api/silent", BOUNDS.forwarder, (signal) =>
-        send(upstream, {
-          method: request.method,
-          headers,
-          body,
-          // The body is a stream and is forwarded as one: an upload is not read into this server's
-          // memory on its way past, and a server-sent event stream is not buffered until it ends —
-          // which for an SSE endpoint means never. `duplex` is what Node requires to allow it.
-          ...(body === null ? {} : { duplex: "half" }),
-          // A 302 from the upstream is the upstream's answer and belongs to the caller. Following it
-          // here would send the bearer token to whatever host the `Location` names.
-          redirect: "manual",
+      answer = await within(
+        FORWARD_WITHIN,
+        (signal) =>
+          send(upstream, {
+            method: request.method,
+            headers,
+            body,
+            // The body is a stream and is forwarded as one: an upload is not read into this server's
+            // memory on its way past, and a server-sent event stream is not buffered until it ends —
+            // which for an SSE endpoint means never. `duplex` is what Node requires to allow it.
+            ...(body === null ? {} : { duplex: "half" }),
+            // A 302 from the upstream is the upstream's answer and belongs to the caller. Following it
+            // here would send the bearer token to whatever host the `Location` names.
+            redirect: "manual",
+            signal,
+          } as RequestInit),
+        {
           // The person navigating away cancels the hop, or N tabs against one hung API hold N sockets.
-          signal: AbortSignal.any([request.signal, signal]),
-        } as RequestInit),
+          signal: request.signal,
+          silent: (after) => new Problem("api/silent", `the API mounted at ${api.mount} sent no headers within ${after} ms`, { after }),
+        },
       );
     } catch (error) {
-      if (isProblem(error) && !request.signal.aborted) {
-        return problem(error, { cookies: held.cookies });
-      }
+      if (request.signal.aborted) throw error;
+      if (isProblem(error)) return problem(error);
       // `fetch` rejects with a `TypeError` for a network error and for nothing else it can meet
       // here: a refused connection, a name that did not resolve, a reset before the status line.
       // That API did not answer, and it is the forwarder's to name, not a bare 500's. An upstream
-      // that answers 500 has answered, and its answer passes through below. A client that went
-      // away is not the upstream's failure, so its abort is thrown as it was.
-      if (!(error instanceof TypeError) || request.signal.aborted) throw error;
-      return problem(
-        new Problem("api/unreachable", `the API mounted at ${api.mount} did not answer`),
-        { cookies: held.cookies },
-      );
+      // that answers 500 has answered, and its answer passes through below.
+      if (!(error instanceof TypeError)) throw error;
+      return problem(new Problem("api/unreachable", `the API mounted at ${api.mount} did not answer`));
     }
 
     const out = copyHeaders(answer.headers, NOT_RETURNED);
-    // Ours last, so a renewal is never lost to an upstream that had opinions about cookies.
-    for (const cookie of held.cookies) out.append("set-cookie", cookie);
 
     return new Response(answer.body, { status: answer.status, statusText: answer.statusText, headers: out });
   };

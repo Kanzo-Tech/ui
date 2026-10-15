@@ -64,48 +64,8 @@ export interface Session {
    */
   readonly organization?: string;
   /**
-   * Epoch milliseconds: when the access token expires, which is when the next renewal is due. The
-   * client never uses it to decide access.
+   * Epoch milliseconds: when the access token this was read from expires. The edge renews the
+   * token, not this package; the client never uses it to decide access.
    */
   readonly expiresAt: number;
-}
-
-/** Where to come back to, and which organization to ask for, when sending someone to the IdP. */
-export interface SignInOptions {
-  /** Defaults to the current URL. */
-  readonly returnTo?: string;
-  /**
-   * Ask Keycloak for one organization's scope in place of `organization:*`, which every sign-in
-   * otherwise requests — plain `organization` would make Keycloak prompt for a choice.
-   */
-  readonly organization?: string;
-}
-
-/**
- * What a product holds in the browser: the seam between the hooks and the session behind them.
- *
- * RFC 10017 names three architectures for browser applications, and this package implements the
- * one it recommends for business applications: a **Backend For Frontend**, where the token never
- * reaches the browser and a cookie carries the session. `bffAuth` is that implementation. The
- * interface stays an interface so `useSession`, `Gate` and a test double are written against what
- * a session *does*, not against the transport underneath.
- */
-export interface Auth {
-  /**
-   * The session now, or `null`: read each time it is asked, and renewed first when it is near
-   * expiry. It keeps no copy — `AuthProvider`'s query on the host's `QueryClient` is the one cache.
-   */
-  getSession(): Promise<Session | null>;
-  /**
-   * Call `onChange` when the session may have changed — renewed here, or loaded, renewed or signed
-   * out in another tab — so the provider reads it again. Returns the unsubscribe.
-   */
-  subscribe(onChange: () => void): () => void;
-  signIn(options?: SignInOptions): Promise<void>;
-  signOut(options?: { readonly returnTo?: string }): Promise<void>;
-  /**
-   * A `fetch` that stays authenticated: the cookie rides along, and one retry after a renewal. It
-   * bounds nothing: a request made through it carries its caller's own signal.
-   */
-  readonly fetch: typeof globalThis.fetch;
 }

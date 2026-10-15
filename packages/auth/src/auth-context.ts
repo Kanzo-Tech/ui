@@ -1,21 +1,17 @@
 "use client";
 
 import { createContext } from "react";
-import type { Auth, Session } from "./types";
+import type { Session } from "./types";
 
 /**
  * The context, in its own module because two files need it and neither should import the other.
  * `createContext` is what makes this file client-only.
  */
-
-export type AuthStatus = "loading" | "authenticated" | "anonymous" | "failed";
-
 export interface AuthContextValue {
-  readonly auth: Auth;
+  /** The person, as the server read them for this render, or `null`. */
   readonly session: Session | null;
-  readonly status: AuthStatus;
-  /** What the session read rejected with, exactly as thrown, while `status` is `"failed"`. */
-  readonly error: unknown;
+  /** Where the edge's `sign_in` and `sign_out` live. */
+  readonly prefix: string;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);

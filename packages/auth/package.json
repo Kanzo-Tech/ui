@@ -1,7 +1,7 @@
 {
   "name": "@kanzo-tech/auth",
   "version": "0.1.0",
-  "description": "Kanzo authentication over Keycloak — a Backend For Frontend for Next (kanzoAuth), the claim vocabulary read into one Session, and the role evaluation that knows about organizations. Sibling of @kanzo-tech/ui, not part of it: the admission rules exclude auth from the generic vocabulary by name.",
+  "description": "Kanzo authentication behind the platform's edge — the person read on the server from the access token oauth2-proxy forwards (kanzoAuth on ./next), the claim vocabulary read into one Session, and the role evaluation that knows about organizations. Sibling of @kanzo-tech/ui, not part of it: the admission rules exclude auth from the generic vocabulary by name.",
   "type": "module",
   "license": "MIT",
   "sideEffects": false,
@@ -24,10 +24,6 @@
       "types": "./dist/next.d.ts",
       "import": "./dist/next.js"
     },
-    "./testing": {
-      "types": "./dist/testing.d.ts",
-      "import": "./dist/testing.js"
-    },
     "./package.json": "./package.json"
   },
   "scripts": {
@@ -36,15 +32,13 @@
     "test": "vitest run",
     "size": "size-limit"
   },
-  "//peers": "react is REQUIRED: the root barrel exports a provider and hooks, and two copies of React are two context trees. `@tanstack/react-query` is REQUIRED too, and here it is not optional as it is on `@kanzo-tech/ui/analytics` and `@kanzo-tech/ai/data`: `AuthProvider` reads the session as a query on the host's QueryClient (`/docs/design/reads`), and the provider is on the root barrel. Everything else is optional and lives behind a subpath: openid-client and jose are the confidential client behind `./server`, and next (16, whose proxy runs on Node and can therefore read and renew a session) is behind `./next`. The browser half, `bffAuth`, needs no engine at all. The public browser client and its oidc-client-ts peer were removed: RFC 10017 recommends the BFF for business applications and nothing consumed the other. Deliberately absent: tailwind-variants, because nothing here draws — which is also what keeps this package out of the appearance guards, whose corpus in packages/ui/src/guard-corpus.ts selects on exactly that dependency. The day this package grows a screen the dependency arrives with it and the guards pick it up unasked; no list anywhere needs editing.",
+  "//peers": "react is REQUIRED: the root barrel exports a provider and hooks, and two copies of React are two context trees. Everything else is optional and lives behind a subpath: jose verifies the forwarded access token behind `./server`, and next (16) is behind `./next`. The browser half needs no engine and no cache: the session arrives as a prop from the server that read it. The relying party and its openid-client peer were removed: oauth2-proxy, a platform service, is the relying party. Deliberately absent: tailwind-variants, because nothing here draws — which is also what keeps this package out of the appearance guards, whose corpus in packages/ui/src/guard-corpus.ts selects on exactly that dependency. The day this package grows a screen the dependency arrives with it and the guards pick it up unasked; no list anywhere needs editing.",
   "dependencies": {
     "@kanzo-tech/kernel": "workspace:^"
   },
   "peerDependencies": {
-    "@tanstack/react-query": "^5.0.0",
     "jose": "^6",
     "next": "^16.0.0",
-    "openid-client": "^6",
     "react": "^19.0.0"
   },
   "peerDependenciesMeta": {
@@ -53,13 +47,9 @@
     },
     "next": {
       "optional": true
-    },
-    "openid-client": {
-      "optional": true
     }
   },
   "devDependencies": {
-    "@tanstack/react-query": "^5.104.0",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.0.0",
@@ -67,7 +57,6 @@
     "jose": "^6.2.12",
     "jsdom": "^29.1.1",
     "next": "^16.3.7",
-    "openid-client": "^6.8.8",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "rollup-plugin-preserve-directives": "^0.4.0"
@@ -83,9 +72,8 @@
   },
   "//gauges": "One gauge per published entry, and one per tree-shaken import a consumer meets; `scripts/gauges.mjs` (through `.size-limit.mjs`) is what each measures, and every limit's reason — each raise, dated, with its before and after — is a row on /docs/design, *A gauge per entry, and its raises written here*.",
   "gauges": {
-    ".": "2.5 kB",
-    "./server": "5.45 kB",
-    "./next": "8.71 kB",
-    "./testing": "0.2 kB"
+    ".": "0.8 kB",
+    "./server": "1.25 kB",
+    "./next": "3.35 kB"
   }
 }

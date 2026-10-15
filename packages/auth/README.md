@@ -1,7 +1,8 @@
 # @kanzo-tech/auth
 
-Authentication over Keycloak: a Backend For Frontend for Next in one object, `kanzoAuth`, the claim
-vocabulary read into one session, and the role evaluation that knows about organizations.
+The person behind the platform's edge, over Keycloak: the access token oauth2-proxy forwards,
+verified and read into one session on the server, handed to the browser, and the role evaluation
+that knows about organizations. `kanzoAuth` is the whole of it for Next.
 
 ## What it is not
 
@@ -10,15 +11,15 @@ screen is a logo, a legal line, a privacy notice and a button, and every product
 differently — `@kanzo-tech/ui` has the parts to draw one. What is genuinely shared sits underneath,
 and that is what is here.
 
-**There is no protocol in it either.** The confidential client is `openid-client`'s, behind
-`./server`, and the browser holds a cookie and no token — RFC 10017's Backend For Frontend, the
-architecture it recommends for business applications. Writing OAuth by hand is where mistakes turn
-into vulnerabilities, and it is not what this package is for.
+**There is no relying party in it either.** oauth2-proxy, a platform service in front of the
+application (`services/auth`, `auth-proxy`), signs the person in with PKCE, keeps the session in
+Valkey behind an opaque cookie, renews it and signs out at Keycloak. The application holds no client
+secret, no session and no refresh token.
 
-What is left after those two subtractions is everything this package is: **Keycloak's claims as one
-`Session`, a role predicate that understands organizations, and the session lifecycle around them —
-a proxy that renews and ends sessions, back-channel logout, and a browser half that signs in once
-when a session is over.**
+What is left after those two subtractions is everything this package is: **the forwarded access
+token verified against the realm's keys and read into one `Session`, handed to the browser as a prop,
+a role predicate that understands organizations, a forwarder to the application's API, and a CSP
+nonce.**
 
 ## Why a package, and not `@kanzo-tech/ui`
 
@@ -36,30 +37,28 @@ reaches the browser. `can` hides a button; the resource server, validating the a
 sent, is what refuses the request behind it. A product that gates only in the browser has not gated
 anything.
 
-The same rule one level down: **never read the access token in the client.** It is opaque to a
-client by definition, its format is not guaranteed, and it may be encrypted for the resource —
-depending on its contents is, in Microsoft's words for the same mistake, *"one of the most common
-sources of errors and client logic breakage."* Roles for drawing come from the session, not from
-prising open a token.
+The same rule one level down: **the browser never holds the access token.** The server verifies the
+token the edge forwards — signature, `iss`, `exp`, and `azp` naming the application — and the
+`Session` it hands the browser holds no token.
 
 ## Install
 
 ```sh
-pnpm add @kanzo-tech/auth @tanstack/react-query
+pnpm add @kanzo-tech/auth jose
 ```
 
-The session is a query on your TanStack Query client, so `AuthProvider` goes below your
-`QueryClientProvider`. The root barrel carries no engine. The server doors name theirs — `openid-client` and `jose` for
-`./server`, and `next` 16 or later as well for `./next` — and a consumer installs only what it
-opens.
+The root barrel carries no engine. The server doors name theirs — `jose` for `./server`, and `next`
+16 or later as well for `./next` — and a consumer installs only what it opens.
 
-```ts
+```tsx
 // lib/auth.ts
-export const auth = kanzoAuth(async () => ({ issuer, clientId, clientSecret, secret, store }));
+export const auth = kanzoAuth(async () => ({ issuer, clientId, jwks }));
 // proxy.ts
 export const proxy = (request: NextRequest) => auth.proxy(request);
-// app/api/auth/[...auth]/route.ts
-export const { GET, POST } = auth.routes;
+// app/layout.tsx
+<AuthProvider session={await auth.session()}>{children}</AuthProvider>
+// anywhere in the browser
+const { session, can, signOutUrl } = useSession();
 ```
 
 ## The claims it reads
@@ -72,8 +71,7 @@ Nothing here is invented. Every claim is one Keycloak emits without being asked:
 | `realm_access.roles` ∪ `resource_access.<clientId>.roles` | `session.roles` |
 | `organization` — `{ "acme": { "id": "…", "resource_access": { "<clientId>": { "roles": ["editor"] } } } }` | `session.organizations` |
 | `organization.<alias>.groups`, `.groups_overage` — from the platform's mapper | that organization's `groups` (ids) and `groupsOverage` |
-| `sid` | the session record, for back-channel logout |
-| — the token response's `expires_in` | `session.expiresAt`, in milliseconds: when the access token expires |
+| `exp` | `session.expiresAt`, in milliseconds: when the access token expires |
 
 Inside each organization, `resource_access.<clientId>.roles` is what the person holds **there**:
 the roles an organization admin mapped onto the groups they are in, composites expanded by
@@ -88,8 +86,8 @@ and a path — what Keycloak writes there without it — is never read. Past the
 entry says `groupsOverage: true` and carries none, Entra ID's overage rule: that empty list means
 *ask the realm*, with a service account of the application's own.
 
-Every sign-in asks Keycloak for `organization:*`, which returns every organization the person
-belongs to. Plain `organization` returns the only one when there is one and prompts for a choice
+The edge asks Keycloak for `organization:*` at sign-in (`OAUTH2_PROXY_SCOPE`), which returns every
+organization the person belongs to. Plain `organization` returns the only one when there is one and prompts for a choice
 when there are several, which is the documented behaviour behind more than one bug report about the
 claim "disappearing".
 

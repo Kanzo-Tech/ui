@@ -1,74 +1,74 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import type { NextRequest, NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { cache } from "react";
-import { bind, URL_HEADER, withTenant, type Bound, type KanzoAuthConfig } from "./next-bound";
-import { gate } from "./next-gate";
-import { forward, type ApiHandlers } from "./next-proxy";
-import { routes, type RouteHandlers } from "./next-routes";
-import { singleFlight } from "./single-flight";
 import { isProblem } from "@kanzo-tech/kernel";
+import { edgeUrl } from "./edge-url";
+import {
+  addressedUrl,
+  bind,
+  newNonce,
+  NONCE_HEADER,
+  URL_HEADER,
+  withTenant,
+  type Bound,
+  type KanzoAuthConfig,
+} from "./next-bound";
+import { forward, type ApiHandlers } from "./next-proxy";
 import type { Session } from "./types";
 
 export type { KanzoAuthConfig, TenantRequest } from "./next-bound";
 
 /**
- * `kanzoAuth` — the whole Backend For Frontend as one object: a proxy that is the session
- * authority, the auth routes, the resource-server forwarder and the session a server component
- * reads.
+ * `kanzoAuth` — an App Router application behind the platform's edge, as one object: the session a
+ * server component reads, the proxy that forwards the URL and the CSP nonce, and the forwarder to
+ * the application's resource servers.
  *
  * ```ts
  * // lib/auth.ts
- * export const auth = kanzoAuth(async () => ({ issuer, clientId, clientSecret, secret, store }));
+ * export const auth = kanzoAuth(async () => ({ issuer, clientId, jwks }));
  *
  * // proxy.ts
  * export const proxy = (request: NextRequest) => auth.proxy(request);
  *
- * // app/api/auth/[...auth]/route.ts
- * export const { GET, POST } = auth.routes;
+ * // app/layout.tsx
+ * <AuthProvider session={await auth.session()}>{children}</AuthProvider>
  *
- * // any server component
- * const session = await auth.session({ required: true });
+ * // app/api/[...path]/route.ts
+ * export const { GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS } = auth.api;
  * ```
  *
- * ## One object, because one relying party
- *
- * Auth0's v4 SDK is one `Auth0Client` for the same reason. Every piece here talks to the same
- * issuer with the same secret and the same store, and a renewal in the proxy must be the renewal
- * the forwarder joins. Five factories each holding their own relying party meant five discovery
- * caches and five configs that had to agree by hand; one instance means they cannot disagree.
+ * The session itself is the edge's: oauth2-proxy signs the person in, keeps and renews the session
+ * and signs out, and forwards the access token, which this verifies on every read
+ * (`./server`'s `sessionReader`). There is no route here, no cookie, no secret and no store.
  *
  * ## Bound on first request, not at import
  *
- * `next build` imports every route module with no secrets in the environment, so the config is a
- * function — possibly async, for a secret read from a file or a vault — called the first time a
- * request needs it. The built instance is remembered; a failure is not, so a deployment that
- * started before its IdP or its secret was ready recovers on the next request instead of
- * remembering the outage. `routes` and `api` are plain handler objects that exist at import, which
- * is what a route file's `export const { GET, POST } = …` needs.
+ * `next build` imports every module with no configuration in the environment, so the config is a
+ * function — possibly async — called the first time a request needs it. The built instance is
+ * remembered; a failure is not, so a deployment that started before its configuration was ready
+ * recovers on the next request instead of remembering the fault.
  */
-
 export interface KanzoAuth {
   /**
-   * Next's `proxy.ts`: the session authority for every page.
-   *
-   * It renews an access token that is about to expire, ends a session the IdP refused to renew,
-   * and sends a browser with no live session to sign in carrying the URL it asked for — or, for a
-   * request that is not a navigation, answers 401. With `csp` configured it also draws a nonce per
-   * request and sends the policy (`KanzoAuthConfig.csp`); a server component reads the nonce as
-   * `x-nonce` from `headers()`. `headers` are added to the request the page sees.
+   * Next's `proxy.ts`. It forwards the URL the browser addressed as `x-kanzo-url`, deleting every
+   * incoming `x-kanzo-*` header first, and with `csp` configured it draws a nonce per request and
+   * sends the policy (`KanzoAuthConfig.csp`); a server component reads the nonce as `x-nonce` from
+   * `headers()`. `headers` are added to the request the page sees. It decides nothing about the
+   * session: the edge in front of it already has.
    */
   proxy(request: NextRequest, options?: { readonly headers?: HeadersInit }): Promise<NextResponse>;
-  /** `signin`, `callback`, `signout`, `session`, `refresh` and `backchannel-logout`, for `[...auth]/route.ts`. */
-  readonly routes: RouteHandlers;
   /** Every verb a route file exports, forwarding each mount of `apis` to its `target`. 404 without `apis`. */
   readonly api: ApiHandlers;
-  /** The session this request carries, read once per request, or `null`. */
+  /**
+   * The person the forwarded token names, read once per request, with the tenant the resolver
+   * names; `null` when the edge forwarded no token. Throws `token/refused` for a token that does not
+   * verify, and `idp/silent` or `idp/unreachable` when the realm's keys could not be had.
+   */
   session(): Promise<Session | null>;
   /**
-   * The session, or a redirect: to sign in, coming back to this page, when there is none; to
-   * `problemPage` with the code when the store or the IdP did not answer — the proxy's answer to
-   * the same outage, so a layout writes no `try` around it.
+   * The session, or a redirect: to the edge's sign-in, coming back to this page, when there is
+   * none; to `problemPage` with the code when the token did not verify or could not be checked.
    */
   session(options: { readonly required: true }): Promise<Session>;
 }
@@ -90,28 +90,53 @@ function renderedUrl(incoming: Headers): URL {
   return new URL(`https://${incoming.get("host") ?? "localhost"}/`);
 }
 
+async function proxy(bound: Bound, request: NextRequest, extra?: HeadersInit): Promise<NextResponse> {
+  const forwarded = new Headers(request.headers);
+  for (const name of [...forwarded.keys()]) {
+    if (name.startsWith("x-kanzo-")) forwarded.delete(name);
+  }
+  forwarded.set(URL_HEADER, addressedUrl(request).href);
+  // Never the browser's: whatever arrived as a nonce is deleted, and the one below is this request's.
+  forwarded.delete(NONCE_HEADER);
+  const nonce = bound.csp === undefined ? undefined : newNonce();
+  const policy = nonce === undefined ? undefined : bound.csp?.(nonce);
+  if (nonce !== undefined && policy !== undefined) {
+    forwarded.set(NONCE_HEADER, nonce);
+    forwarded.set("content-security-policy", policy);
+  }
+  new Headers(extra).forEach((value, name) => forwarded.set(name, value));
+  const response = NextResponse.next({ request: { headers: forwarded } });
+  if (policy !== undefined) response.headers.set("content-security-policy", policy);
+  return response;
+}
+
 export function kanzoAuth(
   config: KanzoAuthConfig | (() => KanzoAuthConfig | Promise<KanzoAuthConfig>),
 ): KanzoAuth {
   // The instance is kept and the attempt is not: concurrent first requests share one build, and a
-  // build that threw leaves nothing behind, so the next request builds again — `issuer`'s shape.
+  // build that threw leaves nothing behind, so the next request builds again.
   let bound: Bound | undefined;
-  const build = singleFlight(async () => {
-    bound = bind(typeof config === "function" ? await config() : config);
-    return bound;
-  });
-  const instance = async (): Promise<Bound> => bound ?? build();
+  let building: Promise<Bound> | undefined;
+  const instance = (): Promise<Bound> => {
+    if (bound !== undefined) return Promise.resolve(bound);
+    if (building === undefined) {
+      building = (async () => bind(typeof config === "function" ? await config() : config))()
+        .then((built) => (bound = built))
+        .finally(() => (building = undefined));
+    }
+    return building;
+  };
 
   // React's `cache` scopes the read to one server request, so a layout, a breadcrumb and a menu
-  // asking in one render unseal the cookie and read the store once.
+  // asking in one render verify the token once.
   const current = cache(async (): Promise<{ readonly session: Session | null; readonly url: URL }> => {
     const bound = await instance();
     const [jar, incoming] = await Promise.all([cookies(), headers()]);
     const url = renderedUrl(incoming);
-    const found = await bound.party.read(jar.toString());
+    const found = await bound.read(incoming);
     if (found === null) return { session: null, url };
     return {
-      session: withTenant(found, await bound.tenant({ url, headers: incoming, cookies: jar })),
+      session: withTenant(found.session, await bound.tenant({ url, headers: incoming, cookies: jar })),
       url,
     };
   });
@@ -134,15 +159,13 @@ export function kanzoAuth(
     }
     const { session: found, url } = read;
     if (found !== null) return found;
-    // AuthKit's `ensureSignedIn`: the proxy normally sends this browser to sign in before the page
-    // renders, so this is the page the proxy does not run on, or a session that ended mid-render.
-    const signIn = `${(await instance()).basePath}/signin`;
-    redirect(`${signIn}?returnTo=${encodeURIComponent(`${url.pathname}${url.search}`)}`);
+    // The edge signs a browser in before the page renders, so this is a path the edge lets through
+    // without a session, or an application reached without its edge.
+    redirect(edgeUrl((await instance()).prefix, "sign_in", `${url.pathname}${url.search}`));
   }
 
   return {
-    proxy: async (request, options) => gate(await instance(), request, options?.headers),
-    routes: routes(instance),
+    proxy: async (request, options) => proxy(await instance(), request, options?.headers),
     api: forward(instance),
     session,
   };

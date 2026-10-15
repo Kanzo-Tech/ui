@@ -46,9 +46,9 @@ function reachable(entry: string): Set<string> {
 
 describe("@kanzo-tech/auth/next", () => {
   /**
-   * One name. The five factories this replaced each built their own relying party, so there were
-   * five discovery caches and five configs to keep in step; the types ride along with the one
-   * value and are not counted here because they are not runtime names.
+   * One name. The session a server component reads, the proxy and the forwarder share one config
+   * and one session reader; the types ride along with the one value and are not counted here
+   * because they are not runtime names.
    */
   it("is kanzoAuth and nothing else", () => {
     expect(Object.keys(door)).toEqual(["kanzoAuth"]);
@@ -76,7 +76,7 @@ describe("@kanzo-tech/auth/next", () => {
   it("reaches no client module", () => {
     const modules = [...reachable("next")];
 
-    expect(modules).toEqual(expect.arrayContaining(["next-auth", "next-gate", "next-routes", "next-proxy"]));
+    expect(modules).toEqual(expect.arrayContaining(["next-auth", "next-bound", "next-proxy", "forwarded"]));
     expect(modules).not.toContain("index");
     for (const module of modules) {
       expect(source(module)).not.toContain('"use client"');
@@ -84,43 +84,18 @@ describe("@kanzo-tech/auth/next", () => {
   });
 
   /**
-   * A route handler is handed a standard `Request`, so the routes, the forwarder and the config
-   * they share need no framework. Stated as an assertion because it is the thing that would
-   * quietly stop being true the first time someone reached for `NextRequest` to read a cookie.
-   * The proxy needs `next/server` for `NextResponse.next`, and the server component's session
-   * needs `next/headers` and `next/navigation`; those two modules are where the framework lives.
+   * A route handler is handed a standard `Request`, so the forwarder and the config it shares need
+   * no framework. Stated as an assertion because it is the thing that would quietly stop being true
+   * the first time someone reached for `NextRequest` to read a header. The proxy needs
+   * `next/server` for `NextResponse.next`, and the server component's session needs `next/headers`
+   * and `next/navigation`; that one module is where the framework lives.
    */
-  it("keeps the framework in the two modules that cannot do without it", () => {
-    for (const module of ["next-routes", "next-proxy", "next-bound"]) {
+  it("keeps the framework in the one module that cannot do without it", () => {
+    for (const module of ["next-proxy", "next-bound", "forwarded"]) {
       expect(source(module)).not.toContain('"next/');
     }
-    expect(source("next-gate")).toContain('from "next/server"');
+    expect(source("next-auth")).toContain('from "next/server"');
     expect(source("next-auth")).toContain('from "next/headers"');
     expect(source("next-auth")).toContain('from "next/navigation"');
-  });
-
-  /**
-   * An application with an API carries an access token the stateless cookie cannot hold (6407 bytes
-   * against 4096, failing at the callback after a successful login) and has a reason to revoke. The
-   * types say so; this is for a config built from data the types never saw. A deployment fault, so a
-   * plain `Error`, thrown when the config is first read.
-   */
-  it("refuses to be built with an API and no store", async () => {
-    const config = {
-      issuer: "https://id.example.test/realms/kanzo",
-      clientId: "board",
-      secret: "a-secret-nobody-chose-by-hand",
-      apis: { "/api/data": { audience: "reports", target: "https://reports.internal" } },
-    };
-
-    await expect(door.kanzoAuth(config as never).api.GET(new Request("https://app.example.test/api/data/x"))).rejects.toThrow(
-      /`store` is required when `apis` is configured/,
-    );
-    // And an application that calls no API keeps the stateless default.
-    await expect(
-      door
-        .kanzoAuth({ ...config, apis: undefined })
-        .routes.GET(new Request("https://app.example.test/api/auth/session", { headers: { "sec-fetch-site": "same-origin" } })),
-    ).resolves.toHaveProperty("status", 401);
   });
 });
