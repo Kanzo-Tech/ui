@@ -1,0 +1,203 @@
+---
+title: Relations
+description: Why JoinGraph is the one read-model of a catalog, why a typed CatalogReader is the only way one is made, how a mapping fills what a catalog does not say and where that match is fragile, why a path reads as Malloy's dots and SPARQL's inverse, and why the shape before a run comes from the compiler; and what would reverse each rule.
+---
+
+> **Status: to be built.** Today `JoinGraph` lives in `@kanzo-tech/mosaic` and its only constructor,
+> `readJoinGraph`, in `@kanzo-tech/graph`; graph keeps a second description of the same catalog,
+> `Structure`, and a bridge between the two; `withMapping` exists on a branch and keasy imports it
+> from a locally packed build; keasy builds the pre-run shape itself with `joinGraphOf`. The
+> *Breaking* list at the end is what a consumer edits.
+
+Four things describe the same tables, columns, keys and labels. graph's `Structure` (a canvas's
+vertex and edge tables); mosaic's `JoinGraph` (types, edges, columns, stats, annotations); rudof's
+`Mapping.model()`; keasy's `joinGraphOf`. graph's `joinGraphOf` existed only to rename fields from
+the first into the second (`sourceKey` to `src`, `sqlType` to `type`, `first` dropped) and invent a
+`vertices` union type on the way; the string `"vertices"` was a constant in graph and a convention in
+the resolver. A fossil `describe` also profiles the same columns. The catalog's type was in the
+lower package and its only constructor in a higher, heavier one that imports cosmos.gl.
+
+## `JoinGraph` is the read-model
+
+**A graph, as the library reads it, is a `JoinGraph`, and there is no other description of it.**
+It is already the superset: types and their keys and `candidateKeys`, edges with `src`/`dst`, a
+column as a description (`name`, `type`, and whatever the catalog states of it: `role`, `datatype`,
+`termType`, `iri`, `nullable`, `annotations`, `stats` — [what a field is](/docs/design/fields)), and
+`rows`. graph's `Structure` is deleted; the canvas reads a `JoinGraph`, extended with the two facts
+only a drawing needs and no join does: `first`, the first dense id of a type (a prefix sum over the
+types in `ordinal` order), and `identity`. A fact a drawing needs and no reader wants stays local to
+the canvas; the test is whether a second reader would ask for it.
+
+This puts the model in a package with no canvas and no engine: **`@kanzo-tech/relations`**, which
+depends on `@kanzo-tech/kernel` and on the mosaic door for the names it prints, and on nothing above
+([the engine](/docs/design/engine) has the split). It holds `JoinGraph` and its parts, `Relation`,
+`Hop`, `JoinResolver`, the crossfilter that rests on it, the relation words (`labelOf`,
+`namingColumn`, `splitWords`) and the reader contract below. `ui/analytics`, `ai/data` and `graph`
+depend on it downward; none constructs a `JoinGraph` of its own.
+
+**A `JoinGraph` is validated where it is made.** The type is a plain object, and a `JoinType.key`
+absent from its `columns` made `relationColumns` invent `{ name, type: "" }`. A constructor that
+returns a graph checks that a key is a column, that an edge's endpoints are types, that two edges of
+one label do not leave one type the same way unnamed; it throws a `Problem` `relations/invalid` naming
+the type or the edge. A host's own graph, which describes only `name` and `type`, passes.
+
+**What would reverse it:** a catalog fact a `JoinGraph` cannot carry — a non-key identity, a
+property on an edge — which GraphAr may need. Then `JoinGraph` grows the field, not a sibling type;
+the reversal is a second description that carries a fact no field of `JoinGraph` can, which would
+have to be shown first.
+
+## A catalog is read by a `CatalogReader`
+
+**The only way to make a `JoinGraph` from an engine is a `CatalogReader`:**
+
+```ts
+type CatalogReader = (
+  engine: Queryable,
+  from: string,           // the attached catalog's name
+  options: { signal: AbortSignal },
+) => Promise<JoinGraph>;
+```
+
+`readJoinGraph` leaves `graph` and becomes the reader of an attached GraphAr graph: it follows what
+graphar's `attachGraph` makes (`graphar_vertex_types`, `graphar_edge_types`, `graphar_properties`,
+`graphar_chunks`), takes `first` as the prefix sum by `ordinal`, takes statistics from the chunks'
+Parquet metadata, and answers the model. graph's `readCatalog`, which read fossil's four manifest
+relations (`fossil_tables`, `fossil_columns`, `fossil_annotations`, `fossil_stats`), is deleted with
+them: fossil deletes `attach` and the `fossil_*` relations in its own plan, so the reader of a
+relation nothing makes anymore is not kept. A catalog of another kind — Iceberg, a REST API — is a
+second `CatalogReader`, and nothing else changes.
+
+The reader takes a `Queryable`: the read-only half of the engine, so it runs against any double and
+needs no `registerFiles`. It carries the signal to the statement ([the engine](/docs/design/engine)).
+The test fixture that was a hand-written copy of fossil's catalog goes: a test attaches a
+vendored GraphAr fixture with the real attacher and reads it with the real reader, so the catalog a
+test sees is the one a host's attach makes. Drift between a fixture and a format was the defect; it
+passed while production changed.
+
+GraphAr numbers vertices per type, from zero, "corresponding to the row number"; the library
+numbers them graph-wide. The reader reconciles them in one place, `first`, and refuses a type whose
+ids have a gap, as graphar's attach does. Where the ids of a drawn graph stop being exact (the canvas
+holds links as `Float32`, exact to 2^24) is the canvas's rule, not this one.
+
+**What would reverse it:** GraphAr stalling as a podling, graphar's own reversal. Then the reader of
+whatever replaced it is written the same way; the contract does not change.
+
+## A mapping fills what a catalog does not say
+
+**`withMapping(graph, mapping)` returns a `JoinGraph` with the mapping's labels and datatypes filled
+into the types, edges and columns the catalog already has; it adds none and never removes one.** A
+GraphAr catalog says what tables and columns exist and their Arrow types; it does not say that a
+column is called *fecha de nacimiento* in Spanish or that an integer is an `xsd:gYear`. The mapping
+does, and rudof's `Mapping.model()` is the reading of it. `withMapping` is a function over two
+values (the pure form), so it is tested without an engine.
+
+**The matching rule.** A mapping term and a catalog entry meet by the table the mapping's logical
+source names:
+
+1. A logical source that names a table is matched to the catalog type whose table has that
+   identifier, compared as DuckDB folds an unquoted identifier and exactly for a quoted one.
+2. A logical source that is a **query** (`SELECT … FROM "t"`) is matched only when the query is a
+   single select over one table named by a quoted identifier, and the term refers to a column of it
+   by a quoted identifier. This is a textual match on identifiers; it is **fragile by construction**,
+   because it reads a SQL string without a parser's authority over it. An alias, a join, a `*` or an
+   unquoted mixed-case name will not match.
+3. A term that matches nothing is not skipped. `withMapping` throws `relations/unmatched` with the
+   mapping term and the catalog types it looked in, because a silently unlabelled column is a wrong
+   result (an `xsd:gYear` averaged as a measure) that nothing marks.
+
+The fragility is documented because it is real: rule 2 holds the mapping to the catalog by text. The
+repair belongs upstream, in a `Mapping.model()` that answers the table and column it resolved
+rather than the source string, and the rule above is what stands until it does.
+
+**What would reverse it:** `Mapping.model()` answering resolved table and column identifiers. Then
+rule 2 is deleted and a match is an equality, not a reading of SQL; and a measured case where throwing
+on an unmatched term stops a legitimate page (a mapping that covers more than the attached subset),
+in which case an unmatched term becomes a reported finding, never a silent skip.
+
+## The pre-run shape comes from the compiler
+
+**The shape a program will produce, before any run, is fossil's `describe` over the declared types;
+the host does not build it.** keasy's `joinGraphOf` built a `JoinGraph` from a program's declarations
+to show a dashboard before data existed. The compiler already knows the types, the keys and the
+labels, and keasy's copy was a third description and a place to drift. `describe` accepts the declared
+types, returns the `Mapping` before a run, and `Mapping.model()` returns the `JoinGraph` — the same
+function `withMapping` consumes, so one mapping reaches the library one way whether the graph is
+attached or not yet written. A host does not rewrite what another package exposes.
+
+What `describe` returns before a run carries no `rows` and no `stats`; those are the graph's, after
+a run. A consumer that needs a count before there is a graph asks for none, and the pages already
+read a counted graph with no query and an uncounted one with a `SUMMARIZE`
+([what a field is](/docs/design/fields)).
+
+**A built graph is write once and read many** (the owner's decision, 15 October 2026). The shape above is
+a draft until the run, and the person may change it, in the assistant's thread and only there; once the
+graph is built it is never edited, and a `JoinGraph` read from it describes it for good. A place that
+lists built graphs (Discover) carries no *Change*, and the conversation that built one is closed; the way
+to change a graph is to start a new one from it. A library never holds a mutable graph, so nothing here
+invalidates a cached catalog read except a rewrite under the same attachment
+([reads](/docs/design/reads)).
+
+**What would reverse it:** a shape a program declares that `describe` cannot state without running it
+— a type that exists only by what a source contains. Then that type is absent before the run and
+present after, and the host says so; the host still does not build the graph itself.
+
+## A path reads as Malloy's dots and SPARQL's inverse
+
+**A relation is a root and a path of hops, written as the segments that reach a step joined by `.`; a
+hop out of an edge's source is the edge's label, and a hop back from its destination is `^` and the
+label.** A column is named by its path and its own name: `country` on the root, `knows.country` one
+hop away, `affiliation.university.name` two. The root's columns keep their own names, its key among
+them, so a semi-join on identity published by anything keyed the same way filters a relation exactly
+as it filters the root's table.
+
+The references are the two this was taken from, and what each settles. **Malloy** names a joined
+field by the join's name and a dot (`join.field`), and counts a source with `source.count()` and a
+join's with `join_name.count()`; the library follows it for `count`, which is a distinct root key.
+**SPARQL 1.1 property paths** write the inverse of a path as `^`, so a hop against an edge's
+direction needs no second spelling. Where two edges of one label leave one type the same way, the
+edge's `name` stands in for the label, since a label alone would not say which. Malloy's
+symmetric-aggregate algorithm is not reproduced: `sum` and `avg` over a hop that fans out double
+count, and the pages say so
+([analytics](/docs/design/analytics)).
+
+`segmentOf`, `joinPath` and `stepsOf` are the one definition of that syntax. `ai`'s `resolverOf(graph)`
+made a second `JoinResolver` per graph beside the page's, and the answer's card had to check that
+`selection.resolver.joins === graph`; with the model one, an Ask asks the page's resolver. A resolver
+that cannot find a step throws a `Problem` `relations/no-step`, and `crossing()` no longer catches
+everything into `FALSE`: that a relation has no way across to a client is a decided state that keeps
+nothing, and a name that resolves to nothing is a failure that reaches `onFailure`.
+
+**What would reverse it:** a host whose model names things by a segment the dots cannot print — a
+label containing a `.`. Then segments are escaped by one function the writer and the reader share, not
+a second syntax.
+
+## What it deletes, and the axes
+
+**Deleted:** graph's `Structure`, `core/structure.ts` and the bridge `joinGraphOf` (about 110 lines);
+`readCatalog`'s fossil reads; keasy's `joinGraphOf`; `ai`'s second `JoinResolver`; the hand-written
+catalog fixtures; the `catch { return FALSE }` in `crossing()`.
+
+| Axis | What this page commits to |
+| --- | --- |
+| Failure and recovery | A `JoinGraph` is validated where it is made; an unmatched mapping term and an unresolved step throw `relations/*`, none becomes `FALSE` or a skip |
+| Security and privacy | The reader writes no statement beyond a read; the catalog name is quoted by one printer |
+| Performance and size | The model leaves the canvas's package; a page that draws a chart no longer weighs cosmos.gl for a catalog type; sizes are gauged per entry after the move |
+| Stable API, accessibility, tests | One model, one reader contract, one path syntax; the catalog under test is the real attacher's; the 11 `relation.test.ts` cases move with the code |
+
+## Breaking, in the consumer's words
+
+- `JoinGraph`, `JoinResolver`, `Relation`, the relation words and the crossfilter come from
+  `@kanzo-tech/relations`, not `@kanzo-tech/mosaic`.
+- `readJoinGraph` is `@kanzo-tech/relations`'s reader of an attached GraphAr graph and takes an
+  engine, a catalog name and a signal. Hosts that attached with fossil's `attach` and the `fossil_*`
+  relations move to graphar's attach with fossil's own migration.
+- `GraphSnapshot.structure` is a `JoinGraph`; selectors that read `Structure` fields read the
+  `JoinGraph` ones.
+- Pass `withMapping(graph, mapping)` the mapping you have; it throws `relations/unmatched` for a term
+  that names nothing in the catalog.
+- Do not build a `JoinGraph` from a program's declarations; use `describe`'s `Mapping.model()`.
+- A host's `Corpus`, `CorpusProvider` and `corpusKey` are `Graph`, `GraphProvider` and `graphKey` (keasy and
+  fossil rename everything called corpus, in one change each: `CorpusFile`, `memory://corpus/` and
+  `SinkRef::Corpus` too). Nothing in `@kanzo-tech/*` carries the old word.
+- A graph record carries no `report`: keasy's `Graph.report` is deleted with its column, its field and its
+  API, and no type in this library describes it. Read what a graph holds from its `JoinGraph`.

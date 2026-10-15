@@ -202,11 +202,7 @@ A boolean cannot be acted on. *Not signed in* sends the person to the IdP; *sign
 member* sends them to a page that says so; *the IdP did not answer* sends them nowhere, because it
 is an outage to name. Telling those apart is the difference between an explanation and a redirect
 loop. So a failure carries a code, in the `area/kind` grammar one host registry keys, and `data`
-with what was measured:
-
-```ts
-import { isProblem } from "@kanzo-tech/kernel";
-```
+with what was measured (`isProblem` from `@kanzo-tech/kernel` reads one):
 
 | Code | What happened |
 | --- | --- |

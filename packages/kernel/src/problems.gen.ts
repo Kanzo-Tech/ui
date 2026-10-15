@@ -5,8 +5,8 @@ export const TYPE_BASE = "tag:kanzo.tech,2026:problem/";
 
 export interface ProblemDataMap {
   "engine/unavailable": { readonly after?: number };
-  "engine/lost": Record<string, never>;
-  "engine/failed": Record<string, never>;
+  "engine/lost": { readonly reason?: string };
+  "engine/failed": { readonly statement?: string };
   "engine/cannot-cancel": Record<string, never>;
   "graph/no-webgl": { readonly after?: number };
   "graph/context-lost": Record<string, never>;
@@ -39,8 +39,8 @@ export interface ProblemDataMap {
 /** Per code: the HTTP status where it crosses a wire, the title of the TYPE, the `data` fields and their types. */
 export const PROBLEMS: Readonly<Record<keyof ProblemDataMap, { readonly status?: number; readonly title: string; readonly data: Readonly<Record<string, "number" | "string">> }>> = {
   "engine/unavailable": { title: "The engine would not start", data: { after: "number" } },
-  "engine/lost": { title: "The engine was lost", data: {  } },
-  "engine/failed": { title: "The engine refused a statement", data: {  } },
+  "engine/lost": { title: "The engine was lost", data: { reason: "string" } },
+  "engine/failed": { title: "The engine refused a statement", data: { statement: "string" } },
   "engine/cannot-cancel": { title: "The engine cannot stop a statement", data: {  } },
   "graph/no-webgl": { title: "The graph cannot be drawn here", data: { after: "number" } },
   "graph/context-lost": { title: "The drawing surface was taken back", data: {  } },

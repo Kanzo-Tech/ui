@@ -91,10 +91,10 @@ describe("the ask Task", () => {
       return proposal.verdict.ok ? [] : "diagnostics" in proposal.verdict ? proposal.verdict.diagnostics.map((d) => [d.code, d.at]) : [];
     };
     const chart = (x: string, color?: string): AskSpec => ({ of: "LaureateAward", show: { kind: "chart", type: "bar", x, y: { op: "count" }, ...(color ? { color } : {}) } });
-    expect(await refusal(chart("university.label"))).toEqual([["join/no-field", "/show/x"]]);
-    expect(await refusal(chart("university.city.name"))).toEqual([["join/no-step", "/show/x"]]);
-    expect(await refusal(chart("category.name", "university.name"))).toEqual([["join/branches", "/show/color"]]);
-    expect(await refusal({ ...chart("category.name"), where: [{ field: "laureate.age", in: [3] }] })).toEqual([["join/no-field", "/where/0/field"]]);
+    expect(await refusal(chart("university.label"))).toEqual([["relations/unmatched", "/show/x"]]);
+    expect(await refusal(chart("university.city.name"))).toEqual([["relations/no-step", "/show/x"]]);
+    expect(await refusal(chart("category.name", "university.name"))).toEqual([["relations/invalid", "/show/color"]]);
+    expect(await refusal({ ...chart("category.name"), where: [{ field: "laureate.age", in: [3] }] })).toEqual([["relations/unmatched", "/where/0/field"]]);
     expect(await refusal({ of: "Category", show: { kind: "stat", measure: { op: "count" } } }, { under: ["Country"] })).toEqual([["ask/out-of-reach", "/of"]]);
   });
 });

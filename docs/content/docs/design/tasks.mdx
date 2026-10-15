@@ -3,36 +3,47 @@ title: Tasks
 description: Why Ask and Fossil's assistant become one pattern — a small model fills a small artefact under contract, a deterministic oracle checks it, and a bounded loop repairs it or asks the person — and what would reverse each part.
 ---
 
-The loop is `@kanzo-tech/ai/task` (`defineTask`, `runTask`, `propose`, `verify`), a screen's list is
-`useTask`, the model is [`localModel`](/docs/ai/llm#localmodel) — in the page, served from the host's
-origin, held to a schema or a grammar — and [Ask](/docs/ai/data#ask) is a Task behind the chat, with
-its offers and its chips. The model writes every field as a path from the type it measures, and
-`@kanzo-tech/mosaic`'s [`JoinResolver`](/docs/analytics/dashboard#the-joins-one-door) resolves the paths.
+<Callout type="warn">
+**This page is a direction, and most of it is built.** The loop is `@kanzo-tech/ai/task`
+(`defineTask`, `runTask`, `propose`, `verify`), a screen's list is `useTask`, the model is
+[`localModel`](/docs/ai/llm#localmodel) — in the page, served from the host's origin, held to a
+schema or a grammar — and [Ask](/docs/ai/data#ask) is a Task behind the chat, with its offers and its
+chips. The model writes every field as a path from the type it measures and
+[`JoinResolver`](/docs/design/relations) resolves the paths. *To be built:* the repair on this page
+([Repair is bounded](#repair-is-bounded-and-reads-how-a-generation-ended)), which needs the call
+settings and finish reasons of [Asking data](/docs/design/ai#a-call-has-settings-and-a-wait-has-a-bound).
+Keasy's assistant is built on these parts and stays keasy's: its three Tasks are product code. A graph it builds is write-once and read-many: once built, a conversation is a closed record, and the in-thread *I assumed … Change* door exists only before the build, on the preview. Where
+this page and the tree disagree, this page is the one that gets fixed.
+</Callout>
 
-Two things in the platform ask a model to decide something. **Ask** (`@kanzo-tech/ai/data`) picks a
-relation, its fields, an aggregate and a filter. **Fossil's assistant** writes a mapping. A free agent
-doing either has a free hand and an oracle that runs too late.
+Two things in the platform asked a model to decide something. **Ask** (`@kanzo-tech/ai/data`) let an
+agent pick a relation, its fields, an aggregate and a filter in one call, among every relation
+`answerRelationsOf` enumerated. **Fossil's assistant** (keasy's new-graph wizard) asked one call,
+`writeProgram`, for a whole program, which the checker read only afterwards. Both were an agent with
+a free hand and an oracle that ran too late.
 
-Both are one pattern, a **Task**: the model fills a small artefact whose shape is a JSON Schema,
-an oracle that is a fact of the data or of the program checks it, and a bounded loop sends the typed
-failures back or turns them into a question for the person. Fossil's side — `fossil-profile` and the mapping grammar — is on
-its own site and links here.
+They became one pattern, a **Task**: the model fills a small artefact whose shape is a JSON Schema, an
+oracle that is a fact of the data or of the program checks it, and a bounded loop sends the typed
+failures back or turns them into a question for the person. Keasy's side (the assistant, a guided
+chat) and fossil's side (`fossil-profile` and the mapping grammar) are on their own sites and link here.
 
 ## The premise: a small model, in the browser
 
-**The system is designed to work with a small local model. A large or remote model is an optional
-improvement, never a requirement.** It is the premise that makes the rest make sense — bounded
-Tasks, `compute` steps, constrained decoding — and it changes what the evaluation set is for: it
-does not decide *whether* a small model is good enough, it points at *which Task is not yet bounded
-well enough*. Every failure is a lead to move one more fact into a deterministic step.
+**The system is designed to work with a small local model.** It is the premise that makes the rest
+make sense — bounded Tasks, `compute` steps, constrained decoding — and it changes what the
+evaluation set is for: it does not decide *whether* a small model is good enough, it points at *which
+Task is not yet bounded well enough*. Every failure is a lead to move one more fact into a
+deterministic step.
 
 The model runs in the page through [WebLLM](https://github.com/mlc-ai/web-llm), behind the AI SDK's
-`LanguageModel` by way of `@browser-ai/web-llm`. No question travels to a gateway: *your data does not
-leave the browser* has no exception.
+`LanguageModel` by way of `@browser-ai/web-llm`. The repository ships no gateway, key or forward.
+**Remote models are not designed.** `LanguageModel` stays open and the library enforces no locality;
+[Asking data](/docs/design/ai#the-model-is-open-and-where-it-runs-is-not-the-librarys-to-enforce)
+has why, and the work list the day one is admitted.
 
 **What would reverse it:** a Task that, after everything computable has been moved into `compute`
-steps, still fails the evaluation set with a small model. Then that Task, and only that Task, takes
-an optional remote model behind an authenticated proxy.
+steps, still fails the evaluation set with a small model. Then that Task, and only that Task, takes a
+remote model, and the work list on that page starts with it.
 
 ## A Task has four ports
 
@@ -61,6 +72,41 @@ React and runs the same on a server or in a browser.
 
 **What would reverse it:** a free agent with the same small model that matches the Task's execution
 accuracy across the whole evaluation set.
+
+## Repair is bounded and reads how a generation ended
+
+**A Task's loop is bounded in attempts (three by default), keeps only its last attempt in the
+feedback, and reads why a generation ended before it reads what it wrote.** The AI SDK reports a
+finish as `stop`, `length`, `content-filter`, `tool-calls`, `error` or `other`, and `output` throws
+unless the final step is `stop`. The loop's rules, one per ending:
+
+| Ending | The loop | Because |
+| --- | --- | --- |
+| `stop` | runs the oracles; a `fixable` diagnostic goes back, a `decision` goes to the person | the loop's job |
+| `llm/truncated`, `reason` `"context"` | retries once with the diagnostics only, the previous answer dropped, and a Task's compact context if it declares one | the context filled, so the retry must be shorter than the attempt that filled it |
+| `llm/truncated`, `reason` `"budget"` | retries once with a larger `maxOutputTokens` | the Task capped the answer and the cap was hit; Anthropic's guidance for the same condition is to retry with a higher `max_tokens` |
+| `content-filter`, `error`, `other` | does not repair; the failure goes to the host whole | the same request meets the same refusal |
+| `llm/silent` | does not repair | a model that made no progress will not on a second asking, and its turn is already free |
+| `AbortError` | ends | it is the person's, never a failure |
+
+**The failure that decided this.** `generate()` threw `llm/truncated` and `runTask` had no catch
+(`packages/ai/src/task/index.ts`), so the first truncation ended the Task instead of becoming a
+repair. The repair prompt embedded the whole previous answer (`JSON.stringify(value)`) with the
+diagnostics, so for a model near its context an oracle failure became a truncation on the retry:
+a failed mapping in Fossil text is as long as the context allows. The feedback replaces the last
+attempt's, never accumulates, and a truncation is the signal to drop it. **Nothing counts tokens**:
+the truncation is the budget, as [Asking within a context](/docs/design/ai-context#the-linker-is-the-budget)
+has it for the linker. `reason: "budget"` is new with `maxOutputTokens`; the retry factor is the
+Task's, and two is the default.
+
+**What would reverse it:** evidence on a device that runs the model that a retry after a truncation
+never succeeds; then the retry goes and the failure is shown at once. A finish the SDK adds that a
+retry can fix joins the table.
+
+*To be added:* `task.test.ts`, "repairs a truncated answer once, without the previous answer in its
+feedback", "does not repair a refusal or a silent model" and "ends on an abort without a failure";
+the scripted model's replies gain a finish (`length`, `content-filter`), since these need a double
+that ends a generation each way.
 
 ## Three kinds of step
 
@@ -101,11 +147,9 @@ The model touches only the planner, which writes paths from a closed enum. Every
 computed alternatives, and editing one re-checks without the model. The sentence in the reply is
 written from the rows, not by the model.
 
-This replaced the agent's relations on [Asking data](/docs/design/ai#which-relations-are-offered)
-and its token budget on [Asking within a context](/docs/design/ai-context#the-linker-is-the-budget):
-with a linker the context is small and closed, and there is no budget to fit into. It replaced,
-too, a resolver that *chose* the relation — `resolveRelation`, the shortest path from the measured
-type covering every type a field named — which the owner rejected on 13 October 2026 as a heuristic:
+This replaced the agent's relations ([Asking data](/docs/design/ai#which-relations-are-offered)), its
+token budget ([Asking within a context](/docs/design/ai-context#the-linker-is-the-budget)) and a
+resolver that *chose* the relation, which the owner rejected on 13 October 2026 as a heuristic:
 *base it on existing things, don't invent.*
 
 ### A field is a path from what is measured
@@ -128,51 +172,43 @@ The empty path is the measured type: `gender` on `of: "Laureate"` is the laureat
 walked from the root, never back along the edge just taken, within three hops.
 
 **A relation's column is named by its path, everywhere.** `relationQuery` names a column by the path
-that reaches it from the root — `year`, `affiliation.name`, `affiliation.university.name`, and on a
-self-join `knows.firstName` — so the name Ask's model writes is the name the SQL has, the name a
-dashboard's tile stores, and the name a chip publishes a clause on. The root's key is on the empty
-path, so it keeps its own bare name, which every crossing depends on, for the reason
+that reaches it from the root — `year`, `affiliation.university.name`, and on a self-join
+`knows.firstName` — so the name Ask's model writes is the name the SQL has, the name a dashboard's
+tile stores and the name a chip publishes a clause on. The root's key is on the empty path, so it
+keeps its bare name, which every crossing depends on, for the reason
 [the graph's page](/docs/design/graph#a-relations-columns-are-named-by-their-path-and-the-roots-key-is-bare)
-gives. It replaced `<alias>.<column>` — `University.name`, and `Person2.firstName` for a type met
-twice — which gave a field two spellings, one for the model and one for the data, and gave a self-join
-a name that is not a type.
+gives. It replaced `<alias>.<column>` (`University.name`, `Person2.firstName`), which gave a field two
+spellings and a self-join a name that is not a type.
 
 **The schema offers only paths the graph has.** The spec is the one property, `spec`, of an object,
 and its schema is an `anyOf` with one branch per type the linker offers, each `of: { const }` beside
-its own enum of paths under `$defs` — the same discriminated `anyOf` the schema already writes for
-`show`'s three kinds — so a provider that decodes against it cannot write a path from one type on an
-answer about another. The object is there because a tool's input schema must be one: Anthropic's and
-OpenAI's APIs refuse a root `anyOf`, and the branches were once the root. The model writes
-`{ spec }`; the schema's `validate` hands the Task the spec, so nothing downstream sees the wrapper. A provider that does not
-constrain is checked by `JoinResolver.relation` and `field`, whose misses — `join/no-step`,
-`join/no-field`, `join/branches` — are diagnostics at the field's pointer, sent back for a repair.
-A count may name a path too, `{ op: "count", path: "affiliation" }`, from the steps the enum's paths
-pass through ([Analytics](/docs/design/analytics#count-counts-the-measured-type)).
+its own enum of paths under `$defs`, so a decoder cannot write a path from one type on an answer about
+another. The object is there because a tool's input schema must be one: Anthropic's and OpenAI's APIs
+refuse a root `anyOf`, and the branches were once the root. The model writes `{ spec }` and the
+schema's `validate` hands the Task the spec. A provider that does not constrain is checked by
+`JoinResolver.relation` and `field`, whose misses — `relations/no-step`, `relations/unmatched`, `relations/invalid` —
+are diagnostics at the field's pointer, sent back for a repair. A count may name a path too,
+`{ op: "count", path: "affiliation" }` ([Analytics](/docs/design/analytics#count-counts-the-measured-type)).
 
-**What the path removes.** Two questions the resolver answered for the model are now written by it,
-and so stop being anybody's guess:
-
-- **Which way.** *Prizes by country* on the Nobel corpus has two countries two hops from a prize. The
-  model writes `laureate.birthPlace.name` or `university.addressCountry.name`, and that is the answer;
-  the chip on that field offers the other first, because both are in the enum and both are checked.
-  Under the resolver this was a tie the reader was asked about before anything ran.
-- **Which step, when a type repeats.** On `Person>knows>Person`, a condition on the type `Person`
-  could not say whether it meant the person or the one they know: the linker offered `Person.firstName`
-  alone, so *people who know an Ann* was not expressible. As paths, `firstName` and `knows.firstName`
-  are two strings.
+**What the path removes.** Two questions the resolver answered for the model are written by it now.
+*Which way:* *prizes by country* on the Nobel graph has two countries two hops from a prize; the model
+writes `laureate.birthPlace.name` or `university.addressCountry.name`, that is the answer, and the
+chip offers the other first. *Which step, when a type repeats:* on `Person>knows>Person` a condition
+on `Person` could not say the person or the one they know, so *people who know an Ann* was not
+expressible; `firstName` and `knows.firstName` are two strings.
 
 **What would reverse it:** an evaluation set on which the small model, writing paths under the enum,
-answers a shape of question worse than the resolver's choice did — then that shape, and only it, gets
-a `compute` step back, written as a rule with an evidence line, not as a search. Or an enum too large
-to compile at the linker's widest context: then the field becomes a grammar —
-`segment ("." segment)* "." column`, its segments closed — which a Task may already declare instead of
-a schema. Or a provider Ask must run on that refuses an `anyOf` anywhere in a schema, not only at its root:
-then the branches fold into one object with every type's paths, and the oracles hold each path to
-its `of`, as the retired answer schema did.
+answers a shape of question worse than the resolver's choice did; then that shape, and only it, gets a
+`compute` step back, as a rule with an evidence line, not a search. Or an enum too large to compile at
+the linker's widest context: then the field becomes a grammar, `segment ("." segment)* "." column`,
+which a Task may already declare. Or a provider that refuses an `anyOf` anywhere: then the branches
+fold into one object and the oracles hold each path to its `of`. *Not measured:* the size of the
+schema, which lists every path to three hops for each type offered, on a graph like SNB's.
 
 *Held by* `packages/ai/src/data/ask.test.ts`, "is one branch per type offered, each its own enum of
-paths from it"; "hands the model an object at the schema's root, and reads the spec out of it"; "says what the joins refuse: no such step, no such field, two branches, a chip out of
-reach"; "asks nothing when two paths reach one field: the model's path is the answer's".
+paths from it"; "hands the model an object at the schema's root, and reads the spec out of it"; "says
+what the joins refuse: no such step, no such field, two branches, a chip out of reach"; "asks nothing
+when two paths reach one field: the model's path is the answer's".
 
 ### Physics awards by university, as the model writes it
 
@@ -184,26 +220,15 @@ reach"; "asks nothing when two paths reach one field: the model's path is the an
 }
 ```
 
-In Malloy, the same question:
-
-```text
-run: laureate_award -> {
-  where: category.name = 'Physics'
-  group_by: university.name
-  aggregate: award_count is count()
-}
-```
-
-`JoinResolver.relation("LaureateAward", ["university.name"])` is the relation the answer shows,
-`LaureateAward>university>University`, whose column is the path itself. `JoinResolver.field(relation,
-"category.name")` finds that `category` is not a step of it: the path leaves it at the root, so it is
-read through the branch `LaureateAward>category>Category`, column `category.name`, crossed at the
-root's key — `dense_id IN (SELECT dense_id FROM (…) WHERE "category.name" IN ('Physics'))` — and the
-bars count `count(DISTINCT dense_id)`, each prize once per university.
-
-**The inverse, and a filter on a many branch.** *Laureates with a Physics prize, by gender*:
-`{ "of": "Laureate", "where": [{ "field": "^laureate.category.name", "in": ["Physics"] }], … }`. The
-shown relation is `Laureate` alone; the condition is read through `Laureate<laureate<LaureateAward>category>Category`
+In Malloy this is `group_by: university.name` with `where: category.name = 'Physics'` over the
+`laureate_award` source. `JoinResolver.relation("LaureateAward", ["university.name"])` is the relation
+the answer shows, `LaureateAward>university>University`, whose column is the path itself.
+`JoinResolver.field(relation, "category.name")` finds that `category` is not a step of it, so it is read
+through the branch `LaureateAward>category>Category` and crossed at the root's key —
+`dense_id IN (SELECT dense_id FROM (…) WHERE "category.name" IN ('Physics'))` — and the bars count
+`count(DISTINCT dense_id)`, each prize once per university. *Laureates with a Physics prize, by
+gender* is `"of": "Laureate"` with `"field": "^laureate.category.name"`: the shown relation is
+`Laureate` alone, the condition is read through `Laureate<laureate<LaureateAward>category>Category`
 and crossed at the laureate's key, so a laureate with two Physics prizes is counted once.
 
 ### A filter off the shown path is crossed in, not joined
@@ -213,12 +238,11 @@ shown relation is read through the branch from the step it leaves at, and narrow
 on another relation narrows a tile: `step key IN (SELECT branch root key FROM branch WHERE …)`. A
 condition on the shown relation is its clause, as it is.
 
-**Malloy's way, and what it costs here.** Malloy joins every path a query names into one query —
-left outer joins, `join_many` declared on the join — and keeps every aggregate right over the fan-out
-by computing it *symmetrically*: `count()` counts the source's rows, and `sum` and `avg` over a joined
-row are deduplicated by key. Its DuckDB dialect writes a symmetric sum as
-`(SELECT sum(a.val) FROM (SELECT UNNEST(list(distinct {key: k, val: v})) a))` per group (verified in
-`packages/malloy/src/dialect/duckdb/duckdb.ts`, 13 October 2026).
+**Malloy's way, and what it costs here.** Malloy joins every path a query names into one query (left
+outer joins, `join_many` declared on the join) and keeps every aggregate right over the fan-out by
+computing it *symmetrically*: `sum` and `avg` over a joined row are deduplicated by key, which its
+DuckDB dialect writes as `(SELECT sum(a.val) FROM (SELECT UNNEST(list(distinct {key: k, val: v})) a))`
+per group (read in `packages/malloy/src/dialect/duckdb/duckdb.ts`, 13 October 2026).
 
 | | Semi-join (`crossing`) | Joins and symmetric aggregates |
 | --- | --- | --- |
@@ -234,7 +258,7 @@ branch, which is no longer a filter: it is a second shown path.
 
 **Two shown paths must be one path.** The relation an answer shows is one path — what a tile is keyed
 by, what a clause is published on, what `relationQuery` compiles. Paths that diverge
-(`x: category.name`, `color: university.name`) are a `join/branches` miss, said before anything runs.
+(`x: category.name`, `color: university.name`) are a `relations/invalid` miss, said before anything runs.
 
 **What would reverse it:** a condition whose meaning needs the branch row and the shown row to be one
 row — *awards by university where that university's laureate is a woman* — which a semi-join on the
@@ -249,21 +273,18 @@ condition off the relation in at the step its branch leaves, not the first of it
 ### `JoinResolver` is the one door to the joins
 
 **Resolving a path and crossing a clause are one thing: resolving joins over the graph.** So they are
-one class, Mosaic's own resolver extended (`crossfilter.ts`), sharing the graph and one notion of a
-step and its key: `steps(relation)` — each step's path, type and key, which folded
-`relationSteps`, `relationIdentities` and `relationRootKey` — `paths(root, hops)`, `relation(root,
+one class, `JoinResolver` in `@kanzo-tech/relations` (Mosaic's own resolver extended), sharing the
+graph and one notion of a step and its key: `steps(relation)`, `paths(root, hops)`, `relation(root,
 shown)`, `field(on, path)`, `at(to, from)` and `crossing(from, predicates, to, at?)`. The dashboard
-reaches it through the page's selection (`crossfilterOver`); Ask reaches the same instance through the
-same selection, or one over its graph where there is no page. `resolve.ts` is deleted, and nothing
-of the shortest-path search survives — the walk that enumerates paths for the schema is a walk; it
-chooses nothing. `crossing` gained `at`, because a branch says which step it leaves from: on
-`Person>knows>Person` a condition on `knows.knows.firstName` is crossed at the `knows` step's key,
-where the type-matching rule would have taken the root. The page's crossfilter passes none, and is
-unchanged.
+reaches it through the page's selection; Ask reaches the same instance through the same selection, or
+one over its graph where there is no page. Nothing of the shortest-path search survives — the walk that
+enumerates paths for the schema chooses nothing. `crossing` takes `at`, because a branch says which
+step it leaves from: on `Person>knows>Person` a condition on `knows.knows.firstName` is crossed at the
+`knows` step's key, where the type-matching rule would have taken the root.
 
-**What would reverse it:** a caller of the joins that is neither a page nor an answer — a second
-resolver with no selection — which splits the path half into a module of its own beside the crossing
-half, not a second concept.
+**What would reverse it:** a caller of the joins that is neither a page nor an answer, a second resolver
+with no selection; which splits the path half into a module beside the crossing half, not a second
+concept.
 
 *Held by* `packages/mosaic/src/crossfilter.test.ts`, "names each step of a relation by its path from
 the root, with its key: the root's bare"; "finds the one relation the shown paths lie on, each path
@@ -296,20 +317,15 @@ come with [What a field is](/docs/design/fields); until then a field is read by 
 translate.** The figure for a stat; for a chart of a measure by x, the leading two groups of bars and
 their value, ties named together through `Intl.ListFormat`, numbers through `Intl.NumberFormat`:
 *Univ. of California: 12; Harvard University and MIT: 9.* No verb that needs agreement, no plural
-noun, so nothing in it is English but its two separators — the one between a label and its value, the
-one between groups — and those are entries of `useAskChat`'s `translations`, as every other word the
-library writes is ([Naming](/docs/design/naming#one-prop-translates-translations)). A table or a plot
-of rows gets none: the card says it. It is written once, by Ask's transport, from the rows the
-answer read; it is never stored in the tile, so a tile added to a dashboard carries no sentence.
+noun, so nothing in it is English but its two separators, which are entries of `useAskChat`'s
+`translations` ([Naming](/docs/design/naming#one-prop-translates-translations)). A table or a plot
+gets none. It is written once, by Ask's transport, from the rows the answer read, and never stored in
+the tile. No reference writes one: Looker's Conversational Analytics and Power BI's Q&A word a reply
+with a model, the free hand Tasks take away.
 
-No reference writes one: Looker's Conversational Analytics and Power BI's Q&A word a reply with a
-model, which is the free hand Tasks take away. So the template is the least that says the answer
-without the chart.
-
-**What would reverse it:** readers, in the evaluation set or in keasy, reading the sentence as wrong
-where the chart is right — a tie named as a lead, a figure without its unit. Then the sentence goes,
-and the chart and its title say it alone; a model's wording comes back only as a Task with an oracle
-that checks every figure it writes against the rows.
+**What would reverse it:** readers reading the sentence as wrong where the chart is right — a tie named
+as a lead, a figure without its unit. Then the sentence goes and the chart and its title say it alone;
+a model's wording comes back only as a Task with an oracle that checks every figure against the rows.
 
 *Held by* `packages/ai/src/data/ask-chat.test.ts`, "words a bar chart's leading groups with Intl, ties
 named together, through its translations".
@@ -317,31 +333,28 @@ named together, through its translations".
 ### Discarded, and what would bring each back
 
 - **`resolveRelation`'s choice of the shortest path** covering the spec's types and the page's
-  clauses, and **#199's branches from the nearest step.** A search that guessed what a question meant
-  wherever two ways existed, and could not name a step of a repeated type. *Back if* the evaluation
-  set shows the model writing paths worse than the search chose them, for a shape of question — then
-  that shape gets a `compute` step, inside `JoinResolver`, not a module beside it.
+  clauses, and **#199's branches from the nearest step**: a search that guessed what a question meant
+  wherever two ways existed and could not name a step of a repeated type. *Back if* the evaluation
+  set shows the model writing paths worse than the search chose them, for a shape of question; then
+  that shape gets a `compute` step inside `JoinResolver`, not a module beside it.
 - **Joins and symmetric aggregates for a filter off the path** (Malloy's, LookML's). *Back if* a
   condition needs the branch row and the shown row to be one, or an answer shows two branches.
-- **`<alias>.<column>` as `relationQuery`'s column names**, with Ask translating its paths into them.
-  Two spellings of one field, and a name on a self-join that is no type. It was the cheaper change —
-  no saved dashboard's fields renamed — and the owner took the rename. *Back if* a column name must be
-  a valid identifier somewhere a path cannot go; none has been found, since every reader quotes it.
-- **A choice put to the person between two paths of one length.** It gives back the search, as a
-  question. *Back* as the section above says.
-- **English pluralisation** (`+s`, `-ies`) of a word, and a column named `name`, `label` or `title`
-  standing for its type. *Back if* a labelling vocabulary carries a plural, or corpora without IRIs
-  are the common case — and then as a host's labels first.
+- **`<alias>.<column>` as `relationQuery`'s column names.** Two spellings of one field, and a name on a
+  self-join that is no type. *Back if* a column name must be a valid identifier somewhere a path
+  cannot go; none has been found, since every reader quotes it.
+- **A choice put to the person between two paths of one length** gives back the search, as a question.
+- **English pluralisation** of a word, and a column named `name`, `label` or `title` standing for its
+  type. *Back if* a labelling vocabulary carries a plural, or graphs without IRIs are the common
+  case, and then as a host's labels first.
 - **`toLocaleString("en")` and a list joined by hand.** The platform has both, in every locale.
-  Nothing found that would bring them back.
+  Nothing found would bring them back.
 
 ## Suggest and complete stop being the split
 
-Today `chat` and `complete` mix three things: a verb, a model size and a context window. **The unit
-is the proposal.** `Proposal` already has the shape of the LSP's `InlineCompletionItem`: with a range
-at the cursor it is a continuation, with the whole value a replacement, with no range a new item.
-What changes between surfaces is how a proposal is shown and which oracle backs it, not what is
-generated.
+`chat` and `complete` mixed three things: a verb, a model size and a context window. **The unit is the
+proposal.** `Proposal` has the shape of the LSP's `InlineCompletionItem`: with a range at the cursor
+it is a continuation, with the whole value a replacement, with no range a new item. What changes
+between surfaces is how a proposal is shown and which oracle backs it, not what is generated.
 
 | Form | Target | Where |
 | --- | --- | --- |
@@ -350,22 +363,15 @@ generated.
 | Chip | a replacement of one field of a spec | Ask's rephrasing; each chip opens its alternatives |
 | Choice | a `decision` diagnostic | an ambiguity the oracle found; never free text |
 
-**There is one `Proposal`, the Task's** (decided 13 October 2026). `Assist`'s `{ text, range }` was
-the Task's proposal of a string with its `Target` under another name: a continuation inserts at the
-cursor, a candidate replaces the value, a list's new item is added — the LSP shapes `Target` already
-names, and the first reader `Target` has had. So `Assist` has no proposal of its own. It asks for its
-candidates through `propose`, the `candidates` Task, and each is a `Proposal<string>` whose `target`
-is `{ replace }` over the value or `{ add }` in a list; its continuation is the same `Proposal`, whose
-`target` is `{ insert }` at the caret, and it still streams, because ghost text is drawn as it
-arrives — `Assist` stays the presentation of a field, and its ghost text logic stays as it is. A
-proposal may carry the model's `rationale`, which is what a chip's or a pill's tooltip reads.
-
-A list's offers were already a Task's — `propose`, and the pills `Chat` draws as `proposals` — and
-`Chat` takes them whole: **pressing one sends its value, never its words**, so a starter question is
-not re-read by the model. A string is the message's text; any other value is sent as the message the
-host's `message` makes of it, and Ask's offers send their spec with `askEdit`, which the chat asks as
-it is. A Task's model is resolved by the Task's name in one place. `AssistEvent` covers every form, with the Task and two more kinds: `edited` (a chip or a
-card corrected, with the final value) and `chosen` (a decision).
+**There is one `Proposal`, the Task's** (decided 13 October 2026). `Assist`'s `{ text, range }` was the
+Task's proposal of a string with its `Target` under another name, so `Assist` has no proposal of its
+own: it asks for candidates through `propose`, each a `Proposal<string>` whose `target` is `{ replace }`
+over the value or `{ add }` in a list, and its continuation is the same `Proposal` with `{ insert }`
+at the caret. It still streams, because ghost text is drawn as it arrives. A proposal may carry the
+model's `rationale`, which a chip's tooltip reads. A list's offers are a Task's `propose`, and `Chat`
+takes them whole: **pressing one sends its value, never its words**, so a starter question is not
+re-read by the model. A Task's model is resolved by the Task's name in one place. `AssistEvent`
+covers every form and carries no value ([Asking data](/docs/design/ai#what-a-person-typed-and-a-store-held-leave-by-no-default-path)).
 
 ## The API
 
@@ -389,7 +395,7 @@ export const requirements = defineTask({
 });
 
 // An artefact that is text in a language declares its grammar instead of a schema.
-export const mapping = defineTask({ name: "mapping", grammar: (input) => mappingGrammar(input).grammar, verify: [compiles] /* … */ });
+export const mapping = defineTask({ name: "mapping", grammar: (input) => input.grammar, verify: [compiles] /* … */ }); // fossil's grammarFor gives it
 
 // Once, at the composition root: the models the host's origin serves under /models.
 setLocalProvider(localProvider({ baseURL: "/models", worker }));
@@ -402,7 +408,7 @@ void loadLocalModel();
 const { proposals, state, propose: ask, edit, dismiss } = useTask(requirements, input, { model });
 
 // One artefact, repaired against the oracles until it holds or the attempts run out.
-const proposal = await runTask(mapping, input, { model, onState });
+const proposal = await runTask(mapping, input, { model, onState, temperature: 0 });
 ```
 
 A `Proposal` carries its `value`, the `Target` it lands at — an LSP `TextEdit` or a JSON Pointer —
@@ -431,101 +437,103 @@ tools are described in the prompt and parsed out of the text. So `defineTask` ge
 that is not JSON is a Fossil mapping, and it is held by a grammar fossil projects from `grammar.bnf`
 with the names closed — so it cannot be malformed either.
 
-**Not built, because nothing has needed them.** Four more were considered: `defineFlow`, to
-chain the assistant's steps; `defineModels`, to resolve a model per Task; `useTaskChat`, a chat
-over any Task; and `evaluate`, an evaluation harness in `@kanzo-tech/testing`. A screen chains its
-Tasks as an async function does, the page has one model, Ask is the one Task in a chat, and Ask's
-evaluation set runs in its own runner, `packages/ai/eval` ([Testing](/docs/design/testing#asks-evaluation-set-lives-beside-ask)). *What would reverse it:* a second caller for any one of them —
-two flows written the same way, two Tasks that want different models, a second Task in a chat, a
-second product's evaluation set.
+**Not built, because nothing has needed them.** The direction named four more: `defineFlow`, to chain
+the assistant's steps; `defineModels`, to resolve a model per Task; `useTaskChat`, a chat over any
+Task; and `evaluate`, a harness in `@kanzo-tech/testing`. A screen chains its Tasks as an async
+function does, the page has one model, Ask is the one Task in a chat, and Ask's evaluation is
+[its own runner](/docs/design/ai#ask-is-evaluated-as-a-dataset-a-solver-and-a-scorer). *What would
+reverse it:* a second caller for any one of them — two flows written the same way, two Tasks that
+want different models, a second Task in a chat, a second product's evaluation set.
 
 ### Where each dependency lives
 
 The third party is a peer, and ours is only the door it lacks. Mosaic's surface is re-exported by
-`@kanzo-tech/mosaic`, because one copy of Mosaic on a page is what makes one coordinator, and no host
-imports `@uwdata/*` for anything else. The AI SDK's is **not** re-exported by `@kanzo-tech/llm`: `ai`
-is a required peer every host and every package already imports by name, so a re-export was a second
-way to write one import, and nobody used it — what the house's own code reached for through it, a
-host reached for from `ai`. What `llm` carries is the two doors through which every model call the
-library makes passes, `stream` and `generate`, each asking once
-([the failure rule](/docs/design/failure#a-models-failure-is-shown-once-on-the-first-attempt)). Two
-copies of WebLLM would be two engines and two models in GPU memory.
+`@kanzo-tech/mosaic`, because one copy on a page is what keeps one coordinator (the engine holds it), and
+no host imports `@uwdata/*` for anything else. The AI SDK's is **not** re-exported by `@kanzo-tech/llm`: `ai` is a
+required peer every host already imports by name, so a re-export was a second way to write one
+import, and nobody used it. What `llm` carries is the two doors every model call passes, `stream`
+and `generate`, each asking once ([failure](/docs/design/failure#a-models-failure-is-shown-once-on-the-first-attempt)).
+Two copies of WebLLM would be two engines and two models in GPU memory.
 
-*What would reverse it:* a name of the SDK's that a host must not import from `ai` — one whose version
-must be the library's, as Mosaic's coordinator is. Then that name is passed through, with the reason
-beside it, and the rest still is not.
+*What would reverse it:* a name of the SDK's that a host must not import from `ai` because its version
+must be the library's. Then that name is passed through with the reason beside it, and the rest still
+is not.
 
 *Held by* `packages/llm/src/index.test.ts`, "carries the two doors and the failure, and none of the AI
 SDK's names".
 
 | Package | Third-party peer | What it carries |
 | --- | --- | --- |
-| `@kanzo-tech/llm` | `ai`, required | `stream`, `generate`, `ModelLoad` |
-| `@kanzo-tech/llm/testing` | `ai`'s own `ai/test`; `@kanzo-tech/testing`, optional, for the script and its answering | the one scripted model double ([Testing](/docs/design/testing#one-model-double)) |
-| `@kanzo-tech/llm/local` | `@browser-ai/web-llm`, `@mlc-ai/web-llm`, optional | `localModel` (resolved through one registry, a grammar per call), `loadLocalModel`, `localProvider` and `setLocalProvider` — every model the host's `app-config.json` lists — `serveLocalModel` for its worker; `llm/unavailable` without WebGPU or with nothing served. It names no test: a test registers its provider in the registry ([Testing](/docs/design/testing#a-model-is-resolved-through-one-registry)) |
-| `@kanzo-tech/ai/task` | — | the types, `defineTask`, `runTask`, `propose`, `verify` |
-| `@kanzo-tech/ai` | — | `useTask`, `Assist`, `Chat` |
-| `@kanzo-tech/ai/data` | `@kanzo-tech/mosaic`, optional | `ask`, `useAskChat`, `askOffers`, `AskChips`, `AnswerCard` |
+| `@kanzo-tech/llm` | `ai`, required | `stream`, `generate`, the call settings and `finishReason`, `ModelLoad` |
+| `@kanzo-tech/llm/testing` | `ai`'s own `ai/test`; `@kanzo-tech/testing`, optional | the one scripted model double ([Testing](/docs/design/testing#one-model-double)) |
+| `@kanzo-tech/llm/local` | `@browser-ai/web-llm`, `@mlc-ai/web-llm`, optional | `localModel` (one registry, a grammar per call), `loadLocalModel`, `localProvider`, `setLocalProvider`, `serveLocalModel`; `llm/unavailable` without WebGPU or with nothing served. It names no test ([Testing](/docs/design/testing#a-model-is-resolved-through-one-registry)) |
+| `@kanzo-tech/ai/task` | none | the types, `defineTask`, `runTask`, `propose`, `verify` |
+| `@kanzo-tech/ai` | none beyond the root's | `useTask`, `Assist`, `Chat` |
+| `@kanzo-tech/ai/data` | `@kanzo-tech/relations` and the engine, per [the entry's peers](/docs/design/architecture#packaging-follows-the-entry) | `ask`, `useAskChat`, `askOffers`, `AskChips`, `AnswerCard` |
 
-`/local` is a subpath for the reason [the optional-peer door](/docs/philosophy#the-engine-rule) exists: a static
-import of WebLLM from a root barrel breaks `import { Assist }` for every host that did not install it.
+`/local` is a subpath for the reason [the optional-peer door](/docs/philosophy#the-engine-rule) exists:
+a static import of WebLLM from a root barrel breaks `import { Assist }` for every host that did not
+install it.
 
 ## Everything in the browser, the model too
 
-The deterministic parts — linker, resolver, Profile, checker, executor, DuckDB — and the
-model run in the client. Outside it stay two things, and the AI depends on neither: file storage, with
-credentials keasy vends as today; and evaluation in CI, with the same weights on native llama.cpp.
+The deterministic parts — linker, resolver, Profile, checker, executor, DuckDB — and the model run in
+the client. Outside it stay two things, and the AI depends on neither: file storage, with credentials
+keasy vends as today; and the evaluation in CI, on a native llama.cpp server as a proxy for the
+browser's weights ([Asking data](/docs/design/ai#ask-is-evaluated-as-a-dataset-a-solver-and-a-scorer)).
 
-| Engine | Today | Target |
-| --- | --- | --- |
-| DuckDB-WASM | its own worker (mosaic), no threads | unchanged |
-| `fossil-wasm`: compiler, checker | the page | unchanged, plus Profile and the mapping grammar in the same module |
-| `fossil-df-wasm`: executor | the page's main thread | a worker of its own |
-| WebLLM | — | its worker (`WebWorkerMLCEngine`), memory on the GPU |
-| A fallback without WebGPU | — | none at first |
+| Engine | Where it runs |
+| --- | --- |
+| DuckDB-WASM | the engine's own worker ([the engine](/docs/design/engine)), no threads |
+| `fossil-wasm`: compiler, checker, Profile, the mapping grammar | the page |
+| `fossil-df-wasm`: executor | the page's main thread (keasy's `startRun` constructs `FossilExecutor` in the calling realm; nothing in its `web/src` creates a `Worker`) |
+| WebLLM | its worker (`WebWorkerMLCEngine`), memory on the GPU |
+| A fallback without WebGPU | none |
 
-**No fallback without WebGPU, at first.** `@browser-ai/transformers-js` 3.0.4 warns that
-`responseFormat` is unsupported, so a CPU fallback through it generates unconstrained JSON that only
-the oracles and retries catch; llama.cpp in WASM (wllama) constrains with grammars but has no AI SDK
-provider. Without WebGPU there is no assistant and no Ask, said plainly; the rest of keasy works the
-same. WebGPU is in Chrome and Edge (Windows, macOS, ChromeOS), Safari 26 and Firefox on Windows and
-ARM Macs; the gaps are mostly Linux and Android outside Chrome on Qualcomm or ARM GPUs.
+**No fallback without WebGPU.** `@browser-ai/transformers-js` 3.0.4 warns that `responseFormat` is
+unsupported, so a CPU fallback through it generates unconstrained JSON that only the oracles and
+retries catch; llama.cpp in WASM (wllama) constrains with grammars but has no AI SDK provider.
+Without WebGPU there is no assistant and no Ask, said plainly; the rest of keasy works the same.
+WebGPU is in Chrome and Edge (Windows, macOS, ChromeOS), Safari 26 and Firefox on Windows and ARM
+Macs; the gaps are mostly Linux and Android outside Chrome on Qualcomm or ARM GPUs.
 
 **What would reverse it:** the evaluation set showing that unconstrained output passes the oracles
 nearly as often, or a CPU provider that constrains. A threaded WASM fallback also needs cross-origin
-isolation (`Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp`).
+isolation, which keasy can afford: with `Cross-Origin-Opener-Policy: same-origin` and
+`Cross-Origin-Embedder-Policy: require-corp`, its e2e passed 14 of 15 against the dev stack (the one
+that did not fails the same with the headers off), `crossOriginIsolated` read true, and a ranged
+`fetch` of a presigned S3 object answered 206 (checked 12 October 2026). **Not proved:** a read from
+Azure, which the dev stack has no emulator for, and that this holds once the host's CSP is nonce-based
+with `'strict-dynamic'`, which ignores host allow-lists for scripts
+([hardening the auth layer](/docs/design/auth-hardening#a-script-on-the-origin-is-api-access-so-no-inline-script-runs)).
 
 ## Decisions, and what would reverse each
 
 | Decision | Why | What would reverse it |
 | --- | --- | --- |
-| Ask's set is small and by shape: Nobel, plus SNB for what Nobel lacks | What it must cover is the shapes of a question, not a count; two corpora from two domains are enough to catch a linker fitted to one vocabulary, and the rest is the readers' failures | A Task that passes the set and fails a third corpus's questions of a shape the set has; then that corpus joins the set |
+| Ask's set is small and by shape: Nobel, plus SNB for what Nobel lacks | What it must cover is the shapes of a question, not a count; two graphs from two domains catch a linker fitted to one vocabulary; OpenFlights is the third canonical dataset ([testing](/docs/design/testing)) and joins the set only with a shape the other two lack | A Task that passes the set and fails a third graph's questions of a shape the set has; then that graph joins the set |
 | Every piece on a standard or a reference library | Less code of our own, known behaviour, someone else's documentation | A reference that requires a server runtime or persistent state not needed here; then we take its shape, not its package |
 | Generate, verify, repair instead of a free agent | The model decides little and every decision has an oracle | A free agent with the same small model matching execution accuracy across the set |
 | The relation is the paths the model wrote, resolved | A path is checked before anything runs, and two ways to one field are the model's to write, not the code's to guess | The set showing the model writing paths worse than a search chose relations, for a shape of question |
-| The mapping is Fossil, written under a grammar with the names closed | The language is statically typed: the grammar stops a name that does not exist and the checker judges the rest, so a format of our own in between would only be a second language to keep — it was built, and reverted | A small model under the grammar failing the competency questions where a spec it filled and an emitter wrote passes them |
-| Profile is the one way to read sources | For the compiler, the assistant and the linker | A host that cannot afford the statistics; the answer is a mode of Profile, not a second package |
-| Profile is sans-IO, inside the wasm closure | One implementation for the browser and for native tests, watched by the wasm gate | A query only one host can run; that query is marked per host, the module is not duplicated |
-| No fallback without WebGPU, at first | The one CPU provider with an AI SDK binding does not constrain JSON | The set showing unconstrained output passes nearly as often, or a CPU provider with constraints |
+| The mapping is Fossil, written under a grammar with the names closed | The language is statically typed: the grammar stops a name that does not exist and the checker judges the rest; a format of our own in between was built, and reverted | A small model under the grammar failing the competency questions where a spec it filled and an emitter wrote passes them |
+| Profile replaces introspect, and is sans-IO inside the wasm closure | One way to read sources for the compiler, the assistant and the linker, watched by the wasm gate | A host that cannot afford the statistics (a mode of Profile, not a second package); a query only one host can run (marked per host) |
+| A truncation is repaired once; a refusal and a silence are not | The context filling is the budget, and the same request meets the same refusal | A device where a retry after truncation never succeeds |
 | Everything in the browser, the model too | The data stays, and the AI depends on no server | An oracle with no wasm32 build at reasonable cost |
-| Designed for a small local model | No API dependency, the data stays, and it forces each Task to be bounded | A Task that, with everything computable moved out, still fails the set with a small model |
-| No remote model in the API | One way to reach a model: no keys in the browser, no forward on the server | A customer who cannot run the local model and accepts that the question leaves the browser; then a `LanguageModel` behind an authenticated proxy |
-| One `Proposal`, the Task's, for a field, a list and a chat | A value, where it lands and what backs it is one idea; `Assist`'s `{ text, range }` was the same thing under a second name, and an offer sent by its words was checked by the oracles and then asked again of the model | A field whose proposals need what a `Target` cannot say — a command to run on accept, a snippet with tab stops; LSP's own extension of the item is the place to look first |
+| Designed for a small local model; remote models not designed | No API dependency, the data stays, and it forces each Task to be bounded; locality is the host's CSP and not a flag | A Task that fails the set with a small model; or a host that must run a remote one ([the work list](/docs/design/ai#the-model-is-open-and-where-it-runs-is-not-the-librarys-to-enforce)) |
+| No fallback without WebGPU | The one CPU provider with an AI SDK binding does not constrain JSON | The set showing unconstrained output passes nearly as often, or a CPU provider with constraints |
+| One `Proposal`, the Task's, for a field, a list and a chat | A value, where it lands and what backs it is one idea; an offer sent by its words was checked by the oracles and then asked again of the model | A field whose proposals need what a `Target` cannot say, such as a command to run on accept; LSP's own extension of the item is the place to look first |
 | One local multi-task model, named per Task in `customProvider` | One download; changing a Task's model is configuration | A Task whose quality needs a model of its own; then that Task gets its entry |
 
-## The evaluation set
+## What a product's Tasks are
 
-The evaluation set is built because the Tasks need it as tests, as the model's release gate and as
-distillation data. For Ask it is one or two cases per shape of question (a figure, a breakdown, a
-ranking, a where, a date range, one and two hops, a page filter on another relation, two paths of one
-length to one field, a question with no path, a follow-up, a synonym), each with its spec and the
-rows that spec reads: about 25 on Nobel, and about 10 on LDBC SNB for what Nobel lacks — self-joins
-and a large graph. The set grows with the failures readers hit, not ahead of them; the thousands of
-pairs a distillation needs are generated and kept only when they pass the oracles. The base model is
-chosen by measuring the Tasks.
-
-**What would reverse it:** the set failing to catch a regression a reader then hits; then the case
-is added, and the shape it belongs to is named here.
+**Keasy's assistant (`requirements`, `model`, `mapping`) is product code, and stays in keasy.** The
+library ships the loop, the proposal, the oracle and decision types and `useKeptChat`; a Task that
+names a product's sources and its wizard's steps is not a part to grow from. A package that exposes
+a capability is not rewritten by the product that uses it: where keasy built the pre-run shape of
+a program itself (`joinGraphOf`), fossil's `describe` returns it from declared types
+([Relations](/docs/design/relations#the-pre-run-shape-comes-from-the-compiler)) and the product's
+copy goes. *What would reverse it:* a second product writing the same three Tasks; then they are
+a part, on the admission rule's second call site.
 
 ## References
 

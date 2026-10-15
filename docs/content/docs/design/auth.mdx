@@ -5,31 +5,33 @@ description: Why authentication is a sibling package rather than a component, wh
 
 [The auth pages](/docs/auth) are what `@kanzo-tech/auth` ships. This page is why it is shaped that
 way — and more of it than usual is decided by somebody else, because the protocol, the claim
-vocabulary and the architecture catalogue are all external and all citable.
+vocabulary and the architecture catalogue are all external and all citable. What the layer does to
+resist attack and failure, and the limits it states instead of fixing, are on
+[Hardening the auth layer](/docs/design/auth-hardening).
+
+*Status: partly built.* The tree has `AuthError`, a status table kept by hand in `problem.ts` and a
+server that answers its own shape; [how the layer fails](/docs/design/auth-failure) says what
+replaces them. The *Breaking* list at the end is what a consumer edits.
 
 ## Auth is a package, and the admission rule excludes it by name
 
-`@kanzo-tech/auth` is a **sibling** of `@kanzo-tech/ui`, not a part of it. The first
-[admission rule](/docs/philosophy#admission) is *domain-free — nothing about RDF, SHACL, fossil,
-graphs or auth*, and auth is on that list by name rather than by inference.
+`@kanzo-tech/auth` is a **sibling** of `@kanzo-tech/ui`, not a part of it. The first [admission
+rule](/docs/philosophy#admission) is *domain-free — nothing about RDF, SHACL, fossil, graphs or auth*,
+and auth is on that list by name. The rule was written after the library shipped one: a sidebar
+composite carried a hard-coded log-out flow, its confirmation dialog and untranslatable English copy
+included. The fix that did not hold made the flow one entry in an array of menu items the caller
+passed, trading a domain leak for a [layout tree written as an
+attribute](/docs/design/admission), so the composite went too. A log-out item is markup a product
+writes out of the menu and sidebar parts.
 
-The rule was written after the library shipped one. A sidebar composite carried a hard-coded log-out
-flow, its confirmation dialog and its untranslatable English copy included — an auth flow inside a
-library whose first rule excludes auth. The instructive part is the fix that did not hold: the flow
-became one entry in an array of menu items the caller passed in, which traded a domain leak for a
-[layout tree written as an attribute](/docs/design/admission), so the composite went too. A log-out
-item is markup a product writes out of the menu and sidebar parts, and the product owns its wording.
+The package **depends on nothing of `@kanzo-tech/ui`'s**; it lives here for the build, the release,
+the guards and the docs pipeline, which is what makes moving it later cost a directory rename and no
+consumer's line. It does depend on [the kernel](/docs/design/kernel) as every package may, for the
+`Problem` it throws and the `within` it bounds waits with. The budget on the root barrel notices the
+day the first part stops being true: a recipe, a component or a second engine does not fit in it.
 
-The package **depends on nothing of `@kanzo-tech/ui`'s**, and that is not incidental. It lives in
-this repository for the build, the release, the guards and the docs pipeline, not because it belongs
-to the component library — which is what would make moving it later cost a directory rename and no
-consumer's line. The budget on the root barrel is what notices the day that stops being true: a
-recipe, a component or a second engine does not fit inside it.
-
-**What would reverse it:** the first admission rule losing that word. There is no measurement here
-and there should not be — this is a statement about what `ui` is for, and the evidence that it was
-right is one composite, not a number. The cheap direction of reversal is the other one: because
-nothing of `ui`'s is imported, the day auth belongs somewhere else it can go there.
+**What would reverse it:** the first admission rule losing that word. There is no measurement and there
+should not be; the evidence that it was right is one composite, not a number.
 
 *Held by* `packages/ui/src/index.test.ts`, `!SidebarUser` and `!InstanceSwitcher` — the composite
 that shipped the flow, asserted absent under both of the names it had;
@@ -37,38 +39,28 @@ that shipped the flow, asserted absent under both of the names it had;
 
 ## The client draws; the resource server decides
 
-[The rule itself](/docs/auth#the-one-rule-to-read-before-anything-else) is on the package's front
-page, where a consumer meets it. What is here is why it is the *first* thing that page says, and
-what follows from it that would otherwise look like four unrelated decisions.
+[The rule itself](/docs/auth#the-one-rule-to-read-before-anything-else) is on the package's front page,
+where a consumer meets it. What is here is why it is the *first* thing that page says, and what follows
+from it that would otherwise look like four unrelated decisions.
 
-Two of them are realm configuration, and [the Keycloak page](/docs/auth/keycloak) is where they are
-set. The role mappers are marked for [**both**
-tokens](/docs/auth/keycloak#role-claims-on-both-tokens) — the access token so an API can authorise,
-the ID token so an interface can draw — and the token an API receives names [that API and no
-other](/docs/auth/keycloak#the-apis-an-application-calls), because a resource server validates
-`aud` before it trusts anything else. Neither is a Keycloak convention we happen to follow; each is
-the rule applied once.
+Two are realm configuration ([the Keycloak page](/docs/auth/keycloak)): the role mappers are marked for
+[**both** tokens](/docs/auth/keycloak#role-claims-on-both-tokens), the access token so an API can
+authorise and the ID token so an interface can draw, and the token an API receives names [that API and
+no other](/docs/auth/keycloak#the-apis-an-application-calls), because a resource server validates `aud`
+before it trusts anything else. The third is a division of labour that is easy to lose: the package
+obtains and attaches the credential and defines the claim model; **validating is the API's**, and ours
+are Rust. That agreement is a contract in words — what is validated (`iss`, `aud`, `exp`, the signature
+via JWKS) and what is authorised on (`resource_access.<clientId>.roles`,
+`organization.<alias>.resource_access.<clientId>.roles`) — and [the Keycloak
+page](/docs/auth/keycloak#what-your-api-must-validate) is its only copy. The fourth is a subtraction:
+nothing in this package decodes an access token, so there is no code to get wrong. Roles for drawing
+come from the ID token's claims, read once on the server by the one claim reader and handed to the
+browser through the session endpoint, and a `Session` handed to a browser holds no token at all.
 
-The third is a division of labour that is easy to lose: the package obtains and attaches the
-credential and defines the claim model; **validating is the API's**, and ours are Rust. That
-agreement is a contract in words — what is validated (`iss`, `aud`, `exp`, the signature via JWKS)
-and what is authorised on (`resource_access.<clientId>.roles`,
-`organization.<alias>.resource_access.<clientId>.roles`) — and [the Keycloak page](/docs/auth/keycloak#what-your-api-must-validate) is its only copy, because a
-second one in each language's source is a second thing to keep true.
-
-The fourth is the rule one level down, and it is a subtraction rather than a warning: nothing in
-this package decodes an access token, so there is no code to get wrong. Roles for drawing come from
-the ID token's claims, read once on the server by the one claim reader and handed to the browser
-through the session endpoint — so *where did this role come from* has one answer. Downward too: a
-`Session` handed to a browser holds no token at all, because there is none in the browser to hold.
-
-**What would reverse it: nothing**, twice over, and for two different reasons. The first is
-physical: the decision has to be made where the attacker is not, and the attacker is on the other
-side of the `fetch`; the only thing that moves is *where* the resource server is, which changes
-nothing about who decides. The second is ownership: an access token's format belongs to the
-authorization server and the resource that consumes it, and neither has promised the client sitting
-between them anything. An authorization server publishing that format *to clients* as a contract
-would reverse it — and publishing it is precisely what an access token is defined not to do.
+**What would reverse it: nothing**, for two reasons. The decision has to be made where the attacker is
+not, and the attacker is on the other side of the `fetch`. And an access token's format belongs to the
+authorization server and the resource that consumes it; publishing it *to clients* as a contract is
+precisely what an access token is defined not to do.
 
 *Held by* `packages/auth/src/can.ts`, `can`; `packages/auth/src/can.test.ts`, "is closed by default";
 `packages/auth/src/gate.tsx`, `Gate`; `packages/auth/src/server.test.ts`, "exchanges the code and
@@ -76,35 +68,37 @@ reads the claims into a Session" and "holds no refresh token on the Session it h
 
 <Callout type="warn">
 No guard can fail on a product that decides in the browser, and none here claims to — the code that
-would be wrong is in the consumer. What the tests above hold is that the predicate answers `false`
-for an absent session and never widens a role, so a product following the rule is not fighting the
-library.
+would be wrong is in the consumer. What the tests hold is that the predicate answers `false` for an
+absent session and never widens a role, so a product following the rule is not fighting the library.
 </Callout>
 
 ## One pattern: the Backend For Frontend
 
-RFC 10017 — a BCP, July 2026 — names **three** architectures for browser applications, and this
-package implements one of them.
+RFC 10017 (BCP 212, *OAuth 2.0 for Browser-Based Applications*) names **three** architectures for
+browser applications, and this package implements one of them.
 
 | pattern | who here | why |
 | --- | --- | --- |
-| **Backend For Frontend** | every host | *"strongly recommended for business applications, sensitive applications, and applications that handle personal data"* |
-| **browser-based OAuth 2.0 client** | nobody, since 2026-10-05 | shipped as `browserAuth` on `./browser` for a SPA with no server; removed with its `oidc-client-ts` peer when nothing consumed it |
+| **Backend For Frontend** | every host | *"strongly recommended for business applications, sensitive applications, and applications that handle personal data"* (§6.1.4.3) |
+| **browser-based OAuth 2.0 client** | nobody | shipped as `browserAuth` for a SPA with no server; removed with its `oidc-client-ts` peer when nothing consumed it |
 | *token-mediating backend* | nobody | the norm itself says to evaluate a full BFF instead |
 
-The second pattern shipped for `agents/viewer`, a Vite single-page application with no server; the
-viewer runs from a vendored tarball that no npm release reaches, and no other consumer ever opened
-the door. A door nobody opens is maintenance with no reader, so it went, and with it the second
+A door nobody opens is maintenance with no reader, so the second pattern went, and with it the second
 implementation of `Auth`. The interface stays — `useSession`, `Gate` and a test double are written
-against it — but there is one transport under it.
+against it — with one transport under it.
 
-The obligation the BFF attaches — refresh tokens rotate on every use — is why
-[the renewal path is single-flight](/docs/auth/session#keeping-requests-authenticated): a rule
-rather than a performance argument.
+**The renewal is single-flight because a rotated token spent twice is a revocation, not because of
+performance.** RFC 10017 does not require rotation. RFC 9700 §2.2.2 requires a *public* client's
+refresh token to be sender-constrained or rotated, and a confidential BFF client is not bound by that
+MUST. Rotation is the realm's choice (`revoke_refresh_token=true`, `refresh_token_max_reuse=0`,
+`services/auth/realm`), and §4.14.2 says what a spent token costs: the server cannot tell which party
+presented it and revokes the active one. [The renewal path](/docs/auth/session#keeping-requests-authenticated)
+is single-flight per ticket for that reason; across processes it is a stated limit
+([Hardening](/docs/design/auth-hardening#one-web-host-for-now-and-the-race-that-limits-it)).
 
-**What would reverse it:** a consumer with no server and personal data to protect — the public
-client is then the only architecture available, and it comes back behind its own door with its own
-engine. Short of that, a revision of RFC 10017 that recommends the token-mediating backend.
+**What would reverse it:** a consumer with no server and personal data to protect — the public client
+is then the only architecture available, and it comes back behind its own door with its own engine.
+Short of that, a revision of RFC 10017 that recommends the token-mediating backend.
 
 *Held by* `packages/auth/src/types.ts`, `Auth`; `packages/auth/src/bff-auth.test.ts`, "attaches no
 Authorization header, because the cookie rides along by itself"; `packages/auth/src/server.test.ts`,
@@ -114,81 +108,96 @@ Authorization header, because the cookie rides along by itself"; `packages/auth/
 ## One token per API and organization, exchanged
 
 The session's access token never leaves the server. It is asked for with `organization:*`, so it
-names every organization the person belongs to, and it names no API. What a resource server
-receives is that token exchanged — [OAuth 2.0 Token Exchange](https://www.rfc-editor.org/rfc/rfc8693),
-as Keycloak 26.8's standard token exchange implements it, supported and on by default — for one
-whose `aud` is that API and whose `organization` claim is the one organization the call is in. One
-credential model for everything behind a BFF: a tenant's API and whatever comes next are each a
-client of the realm, registered with `services/auth/modules/api`, and an application lists the ones
-it calls.
+names every organization the person belongs to and no API. What a resource server receives is that
+token exchanged — [OAuth 2.0 Token Exchange](https://www.rfc-editor.org/rfc/rfc8693), as Keycloak
+26.8's standard token exchange implements it — for one whose `aud` is that API and whose
+`organization` claim is the one organization the call is in. A tenant's API and whatever comes next are
+each a client of the realm, registered with `services/auth/modules/api`, and an application lists the
+ones it calls.
 
-None of it is ours. [RFC 9700 §2.3](https://www.rfc-editor.org/rfc/rfc9700#section-2.3) restricts
-an access token to one resource server, RFC 9068 has the resource server reject any `aud` but its
-own, and Keycloak's exchange guide says *"ideally use a single audience"*. Auth0 issues one token
-per API and organization (`audience`, `org_id`); Entra's on-behalf-of flow is a token exchange with
-one resource per token; Zitadel takes RFC 8693 with the organization and the audience as scopes.
-Storage is the same shape one step further: an Iceberg REST catalog, Lakekeeper or Polaris validates
-the person's token and vends a short credential for a prefix with its **own** cloud identity, which
-is what fossil's `Host.credentials` already expects of a host — a resource server like any other.
+None of it is ours. [RFC 9700 §2.3](https://www.rfc-editor.org/rfc/rfc9700#section-2.3) restricts an
+access token to one resource server, RFC 9068 has the resource server reject any `aud` but its own,
+and Keycloak's guide says *"ideally use a single audience"*. Auth0 issues one token per API and
+organization (`audience`, `org_id`); Entra's on-behalf-of flow is an exchange with one resource per
+token; Zitadel takes RFC 8693 with the organization and audience as scopes. Storage is the same shape
+one step further: an Iceberg REST catalog validates the person's token and vends a short credential
+with its **own** cloud identity, which is what fossil's `Host.credentials` expects of a host.
 
 What it buys is the line between customers. Forwarded as it was, the session's token was as good at
-`globex`'s API as at `acme`'s for anyone in both; exchanged, it is good at one API in one
-organization for five minutes, and a key handed to an application stops existing.
+`globex`'s API as at `acme`'s for anyone in both; exchanged, it is good at one API in one organization
+for five minutes. Three things were measured on Keycloak 26.8 by `scripts/verify.sh`:
 
-Three things here were measured rather than read, on Keycloak 26.8 by `scripts/verify.sh`:
-
-- **The API is asked for by its scope, not by RFC 8693's `audience` parameter.** Keycloak reads that
-  parameter as a filter and keeps only the requested audience's client roles, so the application's
-  own roles held outside any organization did not arrive. The scope's audience mapper names the API
-  and filters nothing. The token also names `account`, Keycloak's account service, as every token of
-  the realm does from its default roles — a small set, which RFC 9700 allows when one is not
-  feasible, and not one of ours.
+- **The API is asked for by its scope, not by RFC 8693's `audience`.** Keycloak reads that parameter as
+  a filter and keeps only the requested audience's client roles, so the application's own roles held
+  outside any organization did not arrive. The token also names `account`, as every token of the
+  realm does from its default roles: a small set RFC 9700 allows when one is not feasible.
 - **A non-member's organization is dropped, not refused.** The granted `scope` says so, and `token`
-  refuses there (`organization/denied`) rather than forward a token with no organization in it. The
-  access token stays unread.
-- **A scope the application does not list is refused** with `invalid_scope`, so an application
-  reaches the APIs its registration names and no others.
+  refuses there (`organization/denied`) rather than forward a token with no organization in it.
+- **A scope the application does not list is refused** with `invalid_scope`.
 
-Two alternatives lost. **One token with every API in `aud`** is the multi-audience token RFC 9700
-and Keycloak both advise against: any of the APIs could replay it at the others. **RFC 8707's
-`resource`** in place of `audience` is the more exact standard, and it is experimental in Keycloak
-26.8, whose exchange does not take it.
+Two alternatives lost. **One token with every API in `aud`** is the multi-audience token RFC 9700 and
+Keycloak advise against. **RFC 8707's `resource`** is the more exact standard, and it is experimental
+in Keycloak 26.8, whose exchange does not take it. Not claimed: that the access token carries
+`typ: at+jwt`, which RFC 9068 §2.1 requires and which Keycloak's option for it was not confirmed here.
+The Rust resource server checks `aud` and `azp`, not `typ`.
 
 **What would reverse it:** Keycloak's resource indicators leaving experimental with exchange support
-moves the request from the scope to `resource`, and changes nothing a consumer writes. An API that
-must act on behalf of another — a delegation chain with `act` — is RFC 8693's delegation, still
-preview in Keycloak, and would extend this rather than replace it. The exchange itself goes only if
-Keycloak stops being the one realm, which is a different platform.
+moves the request from the scope to `resource` and changes nothing a consumer writes. A delegation
+chain with `act` is RFC 8693's delegation, still preview, and would extend this. The exchange goes only
+if Keycloak stops being the one realm, which is a different platform.
 
 *Held by* `packages/auth/src/server.test.ts`, "exchanges the session's token for one naming the
 audience and the organization alone" and "refuses an organization the person is not a member of";
 `packages/auth/src/next-proxy.test.ts`, "attaches a token exchanged for the mount's audience as a
 bearer, never the session's own"; `services/auth/scripts/verify.sh`.
 
+## The identity provider is Keycloak, and the package says so
+
+**`@kanzo-tech/auth` is a Keycloak backend for frontend by design. It supports no other identity
+provider, and a second one is a stated non-goal** (the owner's decision, 15 October 2026). Three
+things follow, and each deletes a layer that would otherwise have to be kept in step with Keycloak.
+
+- **`Session` is Keycloak-shaped.** It carries organizations, `resource_access` roles and group ids
+  as Keycloak writes them, and there is no claim-mapping layer between a token and a session. A
+  mapping layer would be a second description of one token, written twice for every claim added.
+- **Keycloak's own features are used, not rebuilt:** brute-force detection, the password policy,
+  login and admin events, `sso_session_idle_timeout` and `sso_session_max_lifespan`, `acr` and
+  `max_age` step-up through authentication flows, token exchange, back-channel logout and
+  organizations. The realm baseline is owned by the platform realm (`services/auth/realm`), and the
+  idle timeout and step-up are Keycloak's policy; [hardening](/docs/design/auth-hardening#the-realm-ships-a-baseline)
+  says what the package then adds.
+- **The two claim readers answer to one recorded token.** The TypeScript reader (`claims.ts`) and
+  keasy's Rust reader (`token.rs`) are each tested against the same recorded Keycloak token as their
+  fixture, and the Rust reader accepts the `organization` and group shapes the TypeScript one does.
+  They were two readers of one claim with two sets of tests. *To be built:* the shared fixture.
+
+**What would reverse it:** a consumer who must sign in against another provider and cannot be asked
+to run Keycloak in front of it (Keycloak can broker one, which is the answer until then). Then the
+claim reader becomes the one place a second provider's claims are mapped onto `Session`, and
+everything below it stays; the package is not otherwise rewritten. No such consumer exists.
+
 ## The protocol is somebody else's
 
 Admission rule 3 is *wraps, does not reinvent*, so the first question was who had already done this.
-Four candidates, and two of them win half each.
 
 | | what it is | why it does not win the whole |
 | --- | --- | --- |
 | **Auth.js** | route handlers for Next, Qwik, SvelteKit, Express | owns the session model and drags a registry of providers nobody here uses |
-| **better-auth** | an auth framework with SSO and organization plugins | *"Better Auth requires a database to store user data"* — it would own the user store Keycloak already owns, which is not a design but a synchronisation problem |
-| **oidc-client-ts** | the browser protocol | won the browser half while there was one; left with `./browser` |
+| **better-auth** | an auth framework with SSO and organization plugins | *"Better Auth requires a database to store user data"*: it would own the user store Keycloak already owns |
+| **oidc-client-ts** | the browser protocol | won the browser half while there was one |
 | **openid-client** | the server protocol, and what Auth.js is built on | **wins** the server half |
 
 So PKCE, the confidential client, discovery and RP-initiated logout are **not written here**, and
 neither is JWT verification for a back-channel logout token, which is `jose`'s. `./server` is a
-configuration and a set of verbs over `openid-client`, and
-[what is left after that subtraction](/docs/auth#what-it-is-not) is the whole of the package.
+configuration and a set of verbs over `openid-client`, and [what is left after that
+subtraction](/docs/auth#what-it-is-not) is the whole package.
 
-**What would reverse the `./next` choice specifically** — and it is the one place Auth.js genuinely
-competes, because it does that half entire. It loses on owning the session model and on dragging a
-registry of providers nobody here uses, and what we ship instead is one object, `kanzoAuth`, whose
-mechanisms are each borrowed from a named reference — [the table on the Next.js
-page](/docs/auth/next#where-each-mechanism-comes-from). **If our own cookie and session handling grows to rival Auth.js's in size, the answer is to
-adopt it rather than to keep growing.** That is a measurement anyone can take, and the `size-limit`
-entry on `dist/next.js` is where it would first be visible.
+**What would reverse the `./next` choice** — the one place Auth.js genuinely competes, because it does
+that half entire — **is our own cookie and session handling growing to rival Auth.js's in size; then
+the answer is to adopt it rather than keep growing.** The `size-limit` entry on `dist/next.js` is where
+it shows, and it has been raised three times in ten days
+([the gauges](/docs/design)); [Hardening](/docs/design/auth-hardening#production-grade-axes) says
+what the next additions cost.
 
 *Held by* `packages/auth/src/issuer.ts`, `discovery`;
 `packages/auth/src/cookie-session.test.ts`, "refuses a cookie sealed with another secret".
@@ -197,76 +206,61 @@ entry on `dist/next.js` is where it would first be visible.
 
 The placement rule is the library's own: *a part belongs on a subpath only if it imports that
 subpath's engine.* Here that produces one door per engine — `openid-client` and `jose` behind
-`./server`, `next` behind `./next` — and, more importantly, a **root barrel with no engine at all**.
-That is why the transport for the BFF pattern lives on the root rather than behind a door: with the token on the server there is no protocol left in the browser, only a `fetch` to a
-session endpoint. Its one peer beyond React is `@tanstack/react-query`, which is not an engine but
-the host's cache: the session is [read like any other datum](#a-session-is-read-like-any-other-datum),
-on the host's client, and the provider that reads it is on the root. Each of them is declared in the `exports` map on the day its file exists and never
-before, so no commit ships a door pointing at a path Rollup did not write.
+`./server`, `next` behind `./next` — and a **root barrel with no engine at all**. That is why the BFF
+transport lives on the root: with the token on the server there is no protocol left in the browser,
+only a `fetch` to a session endpoint. Its one peer beyond React is `@tanstack/react-query`, the host's
+cache, because the session is [read like any other datum](/docs/design/auth-failure#a-session-is-read-like-any-other-datum).
+Each door is declared in `exports` on the day its file exists and never before.
 
 The precedent is not hypothetical. `@kanzo-tech/graph/duckdb` reached its coordinator through
-`@kanzo-tech/ui/analytics`, whose barrel names `@uwdata/vgplot` on the way past — a static import, so
-a host that installed the two peers the docs named still could not open the subpath, and `graph` had
-ended up declaring vgplot an optional peer to hide a dependency it never mentions. The fix was a
-package, `@kanzo-tech/mosaic`. The same shape in the other direction is what `./server` must not do:
-importing the root barrel to reuse the claim reader would drag a provider and three hooks into a
-Node process, so modules inside this package import each other directly and never through the barrel.
+`@kanzo-tech/ui/analytics`, whose barrel names `@uwdata/vgplot` on the way past, so a host that
+installed the two peers the docs named still could not open the subpath. The same shape in the other
+direction is what `./server` must not do: importing the root barrel to reuse the claim reader would
+drag a provider and three hooks into a Node process, so modules import each other directly.
 
-None of this is visible to a door test, and that is the point of checking it the way it is checked.
-A leaked engine does not make the barrel throw — it keeps working while pulling `openid-client` in
-behind it, and the consumer finds out when a `node:` scheme breaks their web build. So the assertion
-reads the **bytes of the installed tarball**, which is the only check in the repository that sees the
-built artefact rather than the source.
+A leaked engine does not make the barrel throw: it keeps working while pulling `openid-client` in
+behind it, and the consumer finds out when a `node:` scheme breaks their web build. What reads that
+today is the source's imports (`server.test.ts` below). **Nothing reads the built bytes**: the install
+smoke test that compared `src/` and `dist/` was deleted on 2026-09-29, so a lost `"use client"` is
+caught by no gate, and `auth` is outside `client-boundary.test.ts`, whose corpus is the packages
+declaring `tailwind-variants`, which `auth` deliberately does not because nothing here draws. Its
+`use-*.ts` modules are hooks by name, where the likely error is a **missing** directive.
 
-**What would reverse it:** a measurement anyone can take — an engine that every consumer installs
-anyway is not paying for its door.
+**The guard is the corpus rule applied a second time — widen it, never copy it — with its own
+derivation: `client-boundary` runs over every package declaring `react` as a peer, and
+`entry-peers.test.ts` reads each entry's static closure against the peers its entry declares**
+([Architecture](/docs/design/architecture#packaging-follows-the-entry)). Both are to be added.
+*Cannot prove:* what the built bytes hold; only the docs build, which evaluates the boundary, does.
 
-<Callout type="warn">
-**The client boundary in this package is never evaluated.** Nothing checks that a module carrying
-`"use client"` in `src/` still carries it in `dist/` — the install smoke test that compared those
-bytes was deleted on 2026-09-29. The guard that asks whether the directive is in the *right place*,
-`packages/ui/src/client-boundary.test.ts`, runs over the corpus in
-`packages/ui/src/guard-corpus.ts` — every package declaring `tailwind-variants` — and `auth`
-deliberately declares none, because nothing here draws. So `graph` and `auth` share one hole, and
-`auth` is the worse half of it: its `use-*.ts` modules are hooks by name, where the likely error is
-a **missing** directive rather than a surplus one. The fix is the corpus rule applied a second time —
-*widen it, never copy the guard* — with that guard given its own derivation: **every package
-declaring `react` as a peer.** It is named here rather than fixed because it is one edit to a shared
-file that two packages' guards read.
-</Callout>
+**What would reverse it:** an engine that every consumer installs anyway is not paying for its door.
 
-*Held by* `packages/auth/src/server.test.ts`, "imports no
-React, no barrel and no component from the server door".
+*Held by* `packages/auth/src/server.test.ts`, "imports no React, no barrel and no component from the
+server door".
 
 ## Membership is stored; the current organization is resolved per request
 
 [The rule itself](/docs/auth/session#the-current-organization-is-resolved-per-request) is on the
-Session page, with the two tabs that are the whole of the argument. What is here is what sits under
-it.
-
-The product's resolver derives the current organization from each request — its host, its path, a
-cookie — and the answer rides on `Session.organization` without ever being written to the record.
-That makes **the request the truth**, and it has a second face: the address is a [hint and never an
+Session page, with the two tabs that are the whole of the argument. The product's resolver derives the
+current organization from each request — its host, its path, a cookie — and the answer rides on
+`Session.organization` without ever being written to the record. That makes **the request the truth**,
+and it has a second face: the address is a [hint and never an
 authority](/docs/auth/roles#which-organization-a-page-is-in), so `can` resolves it against the signed
-`organization` claim and answers `false` on a miss. Those two are one decision, and together they
-are the line between a multi-tenant product and a leak between customers — the resolver says where
-to look, the claim says whether to believe it.
+`organization` claim and answers `false` on a miss. Those are one decision, and together they are the
+line between a multi-tenant product and a leak between customers: the resolver says where to look, the
+claim says whether to believe it.
 
-Two claims about the realm sit under all of this, and the difference between them is worth writing
-down, because it is the difference between a rule this repository can hold and one it cannot. That
-the `organization` claim reaches the **access** token, carrying each organization's id and the
-application's roles inside it, is held by a *recorded* token in the test corpus rather than a hand-written fixture — the
-only thing here that would notice Keycloak changing its mind. That plain `organization` stops a
-multi-organization sign-in on a chooser page instead of issuing a code is held by nothing, and
-nothing here could hold it: it is a page Keycloak draws. It is why
-[the default scope is `organization:*`](/docs/auth/keycloak#the-scope-with-the-star), where the
-question never arises — and it is the shape of claim this section is most likely to be wrong about
-later.
+Two claims about the realm sit under it, and the difference between them is the difference between a
+rule this repository can hold and one it cannot. That the `organization` claim reaches the **access**
+token, with each organization's id and the application's roles, is held by a *recorded* token in the
+test corpus, the only thing that would notice Keycloak changing its mind. That plain `organization`
+stops a multi-organization sign-in on a chooser page instead of issuing a code is held by nothing, and
+nothing here could hold it: it is a page Keycloak draws. It is why [the default scope is
+`organization:*`](/docs/auth/keycloak#the-scope-with-the-star), and the shape of claim this section is
+most likely to be wrong about later.
 
-**What would reverse it:** a consumer whose organization is genuinely not addressable — no
-per-organization host, no per-organization route, nothing in the URL to derive from. Then the active
-organization has nowhere else to live and the two-tab cost is real rather than hypothetical. Every
-consumer so far addresses by hostname or by deployment.
+**What would reverse it:** a consumer whose organization is not addressable — no per-organization host,
+no route, nothing in the URL to derive from. Then the active organization has nowhere else to live and
+the two-tab cost is real. Every consumer so far addresses by hostname or by deployment.
 
 *Held by* `packages/auth/src/types.ts`, `Session`; `packages/auth/src/can.test.ts`, "asks inside the
 current tenant when none is named" and "is closed for a current tenant the person does not belong
@@ -277,25 +271,20 @@ the resolver names"; `packages/auth/src/claims.test.ts`, "a real token, taken of
 ## A role in one scope does not authorise in another
 
 Roles held **inside** an organization live on that organization and are never merged into the global
-ones — [not once, and not for convenience](/docs/auth/roles#asking-the-question). **Two** separations
-are doing that work rather than one, at two levels, and only the second costs anything: it is why
-the claim reader takes a client id at all.
+ones — [not once, and not for convenience](/docs/auth/roles#asking-the-question). Two separations do
+that work and only the second costs anything: it is why the claim reader takes a client id at all.
+That second one is the application's key inside each organization's entry,
+[`organization.<alias>.resource_access.<clientId>.roles`](/docs/auth/roles#roles-inside-an-organization-are-read-from-its-entry).
+Keycloak keeps the two levels apart itself: the recorded token carries a person's roles in acme and
+globex inside those entries and none of them in the top-level `resource_access`, so the session copying
+them up would undo a separation the identity provider makes. [There is no hierarchy in the
+predicate](/docs/auth/roles#no-hierarchy-and-no-way-to-configure-one) either, the same separation
+refusing a third time.
 
-That second one is the application's key inside each organization's entry —
-[`organization.<alias>.resource_access.<clientId>.roles`](/docs/auth/roles#roles-inside-an-organization-are-read-from-its-entry)
-— and what earns it a place on this page rather than only on that one is the evidence behind it.
-Keycloak itself keeps the two levels apart: the recorded token carries a person's roles in acme and
-globex inside those entries and none of them in the top-level `resource_access`, so the session
-copying them up would be the library undoing a separation the identity provider makes.
-
-[There is no hierarchy in the predicate](/docs/auth/roles#no-hierarchy-and-no-way-to-configure-one)
-either, and that is the same separation refusing a third time.
-
-**What would reverse it: nothing**, and the reason is that the alternative is already expressible.
-A role meant to hold everywhere is a realm role or a client role, and a role meant to hold across a
-whole organization is the application's role mapped onto a group everyone there is in — both exist,
-both are read, and neither needs the sets merged. A deployment asking for the merge is asking for one
-of those two and has picked the wrong one.
+**What would reverse it: nothing**, because the alternative is already expressible. A role meant to hold
+everywhere is a realm or client role, and one meant to hold across an organization is the application's
+role mapped onto a group everyone there is in. A deployment asking for the merge is asking for one of
+those and has picked the wrong one.
 
 *Held by* `packages/auth/src/can.test.ts`, "does not carry a role from one organization into
 another" and "does not mix the global roles into an organization's, or the reverse";
@@ -306,34 +295,25 @@ and "keeps the organization's roles out of the session's own".
 
 An application's roles in an organization are the ones its administrator **mapped onto** the
 organization's groups, and Keycloak writes them into the entry with composites expanded. The group
-names ride along on the same entry and the reader never looks at them. This replaced a convention
-that read them — a group path whose first segment named the application, `/board/editor` — and the
-convention was wrong in the direction that matters: it made an organization's own arrangement of
-its people into the application's authorization model, so a customer renaming a group revoked a
-role, and every customer had to arrange its groups the way every application wanted. A group is
-now whatever the customer calls it, and the only thing the application contributes is its roles.
+names ride along and the reader never looks at them. This replaced a convention that read a group
+path whose first segment named the application, `/board/editor`, which made an organization's own
+arrangement of its people into the application's authorization model: a customer renaming a group
+revoked a role. A hierarchy sits on the same line. A product declares `admin ⊃ editor ⊃ reader` once,
+as composite roles in its client registration, and the token carries the expanded set, so the browser
+and the resource server read one order from the realm. `can` never ranks.
 
-A hierarchy sits on the same line. A product declares `admin ⊃ editor ⊃ reader` once, as composite
-roles in its client registration, and the token carries the expanded set — so the browser and the
-resource server read one order from the realm, rather than an `owner || member` spelled out at every
-call site on both sides and kept in agreement by discipline. `can` never ranks, and the order is
-still the product's; the realm is only where the product writes it.
-
-**What would reverse it:** Keycloak withdrawing `addGroupRoleMappings`, or ceasing to expand
-composites inside the entry — the recorded token is what would notice, since it holds a composite
-and the role it contains arriving together. Or a product whose roles depend on *which* group
-granted them rather than on whether they are held, which no mapping of roles can express and a group
-name could; none has asked.
+**What would reverse it:** Keycloak withdrawing `addGroupRoleMappings`, or ceasing to expand composites
+inside the entry — the recorded token would notice. Or a product whose roles depend on *which* group
+granted them, which no mapping of roles can express and a group name could; none has asked.
 
 *Held by* `packages/auth/src/claims.test.ts`, "never reads a role from a group's name" and "reads
 a composite with the role it contains, as Keycloak expanded it".
 
 ## A group is granted to by id, with Entra's overage rule
 
-Roles cover what an application decides about everyone in a group. Some applications also let a
-person grant to a group — keasy shares a dataset with *Research* — and then the server needs, from
-the token, which of the organization's groups the person is in, as something it can store beside
-the grant. The token carries their **ids**, in the organization's entry, or says it cannot:
+Some applications also let a person grant to a group — keasy shares a dataset with *Research* — and
+then the server needs, from the token, which of the organization's groups the person is in. The token
+carries their **ids**, in the organization's entry, or says it cannot:
 
 ```json
 "organization": {
@@ -342,82 +322,51 @@ the grant. The token carries their **ids**, in the organization's entry, or says
 }
 ```
 
-and `Session.organizations[]` reads them as `groups` and `groupsOverage`.
-
-**The reference is Microsoft Entra ID's groups claim**, which made both decisions first and wrote
-them down. Its `groups` claim is group object ids, not names, and past a limit — 200 groups in a JWT
-— the token carries no groups at all and an *overage* indicator instead (`_claim_names`, or
-`hasgroups` in the implicit flow), and the application asks Microsoft Graph for the membership
-([group claims and app roles](https://learn.microsoft.com/en-us/security/zero-trust/develop/configure-tokens-group-claims-app-roles),
+`Session.organizations[]` reads them as `groups` and `groupsOverage`. **The reference is Microsoft Entra
+ID's groups claim**: group object ids, not names, and past 200 groups in a JWT no groups at all and an
+*overage* indicator, the application asking Microsoft Graph for the membership
+([group claims](https://learn.microsoft.com/en-us/security/zero-trust/develop/configure-tokens-group-claims-app-roles),
 [the overage claim](https://learn.microsoft.com/en-us/troubleshoot/entra/entra-id/app-integration/get-signed-in-users-groups-in-access-token)).
-Both halves are taken, inside each organization: ids, and `groups_overage: true` with no ids past
-a threshold.
+Both halves are taken, inside each organization.
 
-**Ids, never names.** A name is the organization's to change, and a grant keyed by it either moves
-with a rename or reaches the next group to take the name — acme's *Research* and globex's are two
-groups with one name, and two ids in the seed. Auth0 says the same of its own organization claim:
-validate `org_id`, because a token outlives a rename and a name can be reused
-([Auth0, organization names](https://auth0.com/docs/manage-users/organizations/configure-organizations/use-org-name-authentication-api)).
-That is also why the reader drops anything under `groups` that begins with `/`: on a client without
-the mapper, Keycloak's own organization group mapper writes the groups' **paths** under the same
-key, and a realm that forgot the mapper must read as *no groups*, never as names.
+**Ids, never names.** A name is the organization's to change, and a grant keyed by it moves with a
+rename or reaches the next group to take the name; acme's *Research* and globex's are two groups with
+one name and two ids. Auth0 says the same of its organization claim
+([organization names](https://auth0.com/docs/manage-users/organizations/configure-organizations/use-org-name-authentication-api)).
+The reader drops anything under `groups` that begins with `/`: Keycloak's own organization group mapper
+writes **paths** under the same key, and a realm that forgot the mapper must read as *no groups*.
 
 **Keycloak has no mapper for it, so the platform ships one, at the documented extension point.** The
-Organization Group Membership mapper writes paths and mapped roles and has no option for ids — not
-in 26.8.0, and not on `main`, read in the source. A protocol mapper is a provider: a class, a
-`META-INF/services` line, a jar in `/opt/keycloak/providers` (the Server Developer Guide, *Service
-Provider Interfaces*). `services/auth/mappers` is that jar — one mapper, `Organization Group Ids`,
-compiled against the pinned Keycloak — and the identity service builds it with Maven and mounts it,
-so there is no fork and no custom image: `kc.sh start` without `--optimized` registers it itself.
-It runs after Keycloak's two organization mappers and writes only into the entries the membership
-mapper wrote, so which organizations a token names — all of them for `organization:*`, one after an
-exchange — stays Keycloak's decision. It is on the clients that ask for it (`groups` in an
-`x-application`), not the `organization` scope, so an application that grants nothing to groups
-pays nothing in its tokens.
+Organization Group Membership mapper has no option for ids, in 26.8.0 or on `main`. A protocol mapper is
+a provider (a class, a `META-INF/services` line, a jar in `/opt/keycloak/providers`);
+`services/auth/mappers` is that jar, one mapper, `Organization Group Ids`, compiled against the pinned
+Keycloak and mounted by the identity service. It runs after Keycloak's two organization mappers and
+writes only into the entries they wrote, so which organizations a token names stays Keycloak's
+decision, and it is on the clients that ask for it. The cost is named by Keycloak: it classes
+`protocol-mapper` as an internal SPI and logs `KC-SERVICES0047`, *may change without notice*. What
+answers it is the pin (`keycloak.version` in the pom beside `KEYCLOAK_VERSION`), CI building and
+testing it, and `verify.sh` proving it on live tokens, so an upgrade that moves the API fails a build
+rather than a sign-in.
 
-The cost is named by Keycloak itself: it classes `protocol-mapper` as an internal SPI and logs
-`KC-SERVICES0047` when the jar loads — *may change without notice*. What answers it is the pin: the
-mapper compiles against exactly the Keycloak it runs on (`keycloak.version` in the pom, beside
-`KEYCLOAK_VERSION`), CI builds and tests it, and `verify.sh` proves it on live tokens, so an upgrade
-that moves the API fails a build rather than a sign-in.
+**Two alternatives lost.** *A role per group, named by the group's id*, needs a reconciler because
+groups are created at runtime and the role is not, so a new group is absent between its runs; it was
+built first. *A script mapper* is the same provider with JavaScript in it and less checking at build.
 
-**Two alternatives lost.** *A role per group, named by the group's id*, mapped onto it, rides in on
-`addGroupRoleMappings` with no code — and it was built first. It needs a reconciler, because groups
-are created at runtime and the role is not: between its runs a new group is absent from the token,
-an administrator mapping one group's id onto another lets its members claim it, and the realm fills
-with roles that are not roles under a client that is not an application. *A script mapper* is the
-same provider with JavaScript in it and less checking at build. The mapper computes from the groups
-themselves, so it is never behind them.
+**Ancestors count, by default**: a member of *Research/ML* carries ML's id and Research's, as Entra's
+transitive membership does; `inheritedGroups: false` turns it off, and an application's own overage
+lookup must walk the same way. **The threshold is 100**: an id is 52 bytes base64url-encoded, the
+exchanged token names one organization, so a full entry adds about 5.2 KB to an `Authorization` header
+of about 1.5 KB, under nginx's default 8 KB `large_client_header_buffers`, the tightest limit between a
+BFF and an API here; past 100 the header would cross it near 120. Okta's group functions stop at the
+same 100. **An overage is a question, never an answer**: an empty `groups` beside `groupsOverage`
+means *look it up*, and reading it as *in no group* is Entra's documented trap. The lookup is the
+application's (a service account with `view-organizations` and `view-users` the package does not hold);
+`organizationGroups`, a sketch with no caller, went on 14 October 2026. *Back if* a second product
+writes the same lookup.
 
-**Ancestors count, by default.** A member of *Research/ML* carries ML's id and Research's, so a
-grant to Research reaches the people in its subgroups — what a person reading the group tree
-expects, and what Entra's transitive membership does. `inheritedGroups: false` on the mapper turns
-it off, and an application's own lookup of an overage must walk the same way; the two must agree.
-
-**The threshold is 100, and the arithmetic is the argument.** An id is 36 characters: 39 bytes of
-JSON, 52 once a token is base64url-encoded. The token that travels is the exchanged one, which names
-one organization, so a full entry adds at most about 5.2 KB to an `Authorization` header that is
-otherwise about 1.5 KB — under nginx's default 8 KB `large_client_header_buffers`, which is the
-tightest limit between a BFF and an API here, and well under Node's 16 KB. Past 100 the header would
-cross it somewhere around 120. Okta's group functions stop at the same 100. The ID token carries
-every organization, so a person near the threshold in several weighs on `statelessStore`, whose
-4096-byte guard throws with the count; a product that grants to groups calls an API, and has a
-`ticketStore` anyway.
-
-**An overage is a question, never an answer.** An empty `groups` beside `groupsOverage` means
-*look it up*, and reading it as *in no group* is Entra's documented trap. The lookup is the
-application's: the member's groups from the admin API, ancestors walked, cached for the token's own
-five minutes — and it needs a service account with `view-organizations` and `view-users`, which the
-package does not hold and the realm does not provision. `./server` shipped it once as
-`organizationGroups`, a sketch, and no product called it; it went with the cleanup of 14 October
-2026, because the credential and the cache are the application's to own and a sketch with no caller
-is code nobody reads. *Back if* a second product writes the same lookup.
-
-**What would reverse it:** Keycloak giving its organization group mapper an option for ids — then
-the jar goes and the claim stays where it is. Keycloak removing or reshaping the internal SPI past
-what a pinned rebuild can follow — then the role-per-group reconciler above is the fallback, at the
-cost it names. A tighter header limit somewhere between a BFF and an API lowers the threshold; a
-product that must never take the admin-API round trip raises it, and pays in header bytes.
+**What would reverse it:** Keycloak giving its organization group mapper an option for ids — the jar
+goes and the claim stays. Keycloak reshaping the internal SPI past what a pinned rebuild can follow —
+then the role-per-group reconciler is the fallback. A tighter header limit lowers the threshold.
 
 *Held by* `services/auth/scripts/verify.sh`, which proves the mapper on live tokens for every seeded
 person, and the mapper's own tests in `services/auth/mappers`;
@@ -428,27 +377,19 @@ ids of the groups held in each organization, two Researches apart".
 ## The signature check follows the channel, not a default
 
 `openid-client` does not verify the ID token's signature in an authorization code grant, and it is
-right not to: an ID token arriving over a TLS connection to the token endpoint, in the answer to a
-request authenticated as this client, is vouched for **by the channel** — OpenID Connect Core
-§3.1.3.7 step 6 says so, and that is why a sign-in normally fetches no JWKS at all.
-
-This package keeps the exemption and derives it instead of inheriting it. **The exemption is a claim
-about the channel**, and an internal origin of `http://keycloak:8080` — which is what reaching
-Keycloak inside a cluster looks like — withdraws the channel: the hop TLS was supposed to protect is
-plaintext, so nothing is vouching for anything. Taking the reference's default there would be
-inheriting its conclusion without its premise. So the default is read off the protocol of the origin
-this process actually reaches, and it can still be set either way explicitly.
-
-What makes the two origins differ at all is [the origin
-rewrite](/docs/auth/server#discovery-and-reaching-keycloak-from-inside-a-cluster), which is on the
-Server page because a consumer configures it. The part that matters here is only that it rewrites
+right not to: an ID token arriving over TLS from the token endpoint, in the answer to a request
+authenticated as this client, is vouched for **by the channel** (OpenID Connect Core §3.1.3.7 step 6),
+which is why a sign-in normally fetches no JWKS at all. This package keeps the exemption and derives it
+instead of inheriting it. **The exemption is a claim about the channel**, and an internal origin of
+`http://keycloak:8080` withdraws the channel: the hop TLS was to protect is plaintext. So the default
+is read off the protocol of the origin this process actually reaches, and can still be set either way.
+[The origin rewrite](/docs/auth/server#discovery-and-reaching-keycloak-from-inside-a-cluster) rewrites
 the *transport* and not the issuer, which is what leaves a plaintext hop to notice.
 
-**What would reverse it:** a plaintext hop that is authenticated some other way — mutual TLS
-terminated by a sidecar, a service mesh that proves both ends — which restores the premise without
-restoring `https:`, and would make the derivation wrong in the safe direction rather than the
-dangerous one. Upstream reverses it too: `openid-client` changing its default, or the specification
-withdrawing the step-6 exemption, and then the derivation is doing work nobody asked for.
+**What would reverse it:** a plaintext hop authenticated some other way — mutual TLS in a sidecar, a
+mesh that proves both ends — which restores the premise without `https:`; the derivation is then wrong
+in the safe direction. Or `openid-client` changing its default, or the specification withdrawing the
+step-6 exemption.
 
 *Held by* `packages/auth/src/issuer.ts`, `verifySignatures`; `packages/auth/src/server.test.ts`,
 "fetches no keys when the token endpoint is reached over TLS, because the channel vouches" and
@@ -456,217 +397,47 @@ withdrawing the step-6 exemption, and then the derivation is doing work nobody a
 
 ## No sign-in screen ships
 
-[No sign-in screen, no user menu and no organization switcher](/docs/auth#what-it-is-not) — stated
-on the front page rather than discovered, the same way `@kanzo-tech/graph`'s opens with its own
-absence, because a shape stated late reads as a gap.
+[No sign-in screen, no user menu and no organization switcher](/docs/auth#what-it-is-not) — stated on
+the front page rather than discovered, because a shape stated late reads as a gap. The design decision
+is that **nothing in this package draws at all**, which is why it declares no `tailwind-variants`:
+that keeps it out of the appearance guards, correctly, and is the tripwire. What is shared sits
+underneath the screen: the claims, the predicate, the derivation, the `fetch`. The three screens are
+ordinary arrangements of `@kanzo-tech/ui`'s parts, where an arrangement belongs. The documentation
+demonstrates the **model**, [a claim set and the session it becomes](/docs/auth/keycloak#reading-it-yourself)
+and [the decision made from it](/docs/auth/roles#gate), because an arrangement over a fake `Auth` can
+only show a button pressed, and the protocol needs a realm.
 
-The part that is a design decision and not a description: **nothing in this package draws at all**,
-which is why it declares no `tailwind-variants`. That absence is what keeps it out of the six
-appearance guards, correctly — they would be scanning for a shape it never has — and it is the
-tripwire below, rather than a rule anybody has to remember.
+Because nothing draws, the package owes no WCAG of its own; what it owes is state a product can draw
+from: `status`, the thrown value, and `expiresAt`. `Gate` renders nothing while `loading` or `failed`,
+which is a product's to wrap.
 
-What is genuinely shared sits underneath the screen, and it is what is here: the claims, the
-predicate, the derivation, the `fetch`. The three screens it does not ship are ordinary
-arrangements of `@kanzo-tech/ui`'s parts, which is where an arrangement belongs — the sidebar page's
-callout has said so since it said there is no logout affordance in the library.
-
-What the documentation demonstrates instead is the **model**, because that is the half a reader
-cannot infer from a picture of a screen: [a claim set and the session it
-becomes](/docs/auth/keycloak#reading-it-yourself), and [the decision made from
-it](/docs/auth/roles#gate). An arrangement drawn over a fake `Auth` can only show a button being
-pressed; the protocol needs a realm, and that verification lives beside the realm.
-
-**What would reverse it:** two products whose sign-in screens differ only in the logo. That is a
-comparison anyone can make by putting them side by side, and it is the same condition that would
-admit any other composite: a second call site that wants the same arrangement, not a first one that
-wants it once.
+**What would reverse it:** two products whose sign-in screens differ only in the logo, the same
+condition that admits any composite: a second call site that wants the same arrangement.
 
 <Callout type="info">
-Nothing fails when a screen is added, and no guard could — a component that appears is not an
-invariant that breaks. The nearest thing to a tripwire is the budget on the root barrel, which a
-drawn component would blow, and the fact that a screen would have to bring `tailwind-variants` with
-it, pulling this package into the appearance corpus in a commit somebody has to write. Both are
-tells rather than gates.
+Nothing fails when a screen is added, and no guard could. The nearest tripwire is the budget on the
+root barrel, which a drawn component would blow, and `tailwind-variants` pulling this package into the
+appearance corpus in a commit somebody has to write. Both are tells rather than gates.
 </Callout>
 
 *Held by* `packages/auth/package.json`, `//peers` and `gauges`;
 `packages/ui/src/guard-corpus.ts`, `IDIOM`.
 
-## A failure is not a signed-out person
-
-The provider used to settle on `anonymous` when `getSession` rejected, on the argument that signing
-in is recoverable and a spinner is not. Both halves were true and the conclusion was not: an IdP or a
-session store that is down sends the person to sign in, the sign-in fails the same way, and nobody
-on either side learns what broke. fossil's `/docs/design/failure` — *every wait ends, every failure
-is seen* — puts it as one rule across fossil, kanzo-ui and its hosts: a failure reaches the host whole,
-by its code, and within a bound.
-
-So a session that cannot be read is a fourth status, `"failed"`, carrying the thrown value
-untouched; *no session* is said only by whoever can know it — a 401 from `/session`, or the IdP's
-own `invalid_grant` to a refresh token. Every wait on
-another party ends in 30 s and is coded by who did not answer, `idp/silent` or `session/silent`;
-where `openid-client` or `jose` makes the wait, the figure is handed to its own timeout
-rather than wrapped around it. A failed sign-in, callback or sign-out is a redirect to the product's
-`problemPage` with the code in the URL, because those routes are reached through the address bar and
-a JSON body there is what a person reads.
-
-**What would reverse it:** a product that wants an outage to look like a sign-out — a public site
-where an unreadable session should degrade to the anonymous view, and nobody is ever sent to sign
-in. That product branches `"failed"` into its anonymous view itself; the library still does not
-make the choice for it. The 30 s figure moves with the table on the failure page, not here.
-
-*Held by* `packages/auth/src/auth-provider.test.tsx`, "settles on failed when the read fails,
-holding exactly what was thrown"; `packages/auth/src/bff-auth.test.ts`, "reads a 5xx from the
-session endpoint as a failure, not as nobody being signed in" and "gives up on a session endpoint
-that never answers, after 30 s and not before"; `packages/auth/src/next-routes.test.ts`, "sends a
-callback with no transaction to the problem page, with its code"; `packages/auth/src/next-auth.test.ts`,
-"sends a navigation to the problem page when the store does not answer"; `packages/ui/src/failures-reach-the-host.test.ts`.
-
-## A session is read like any other datum
-
-**`useSession` reads a session that is kept fresh and the same in every tab, as Auth.js's
-`SessionProvider` keeps it: `AuthProvider`'s read is a query through [the read door](/docs/design/reads),
-on the host's `QueryClient`, read again when the tab becomes visible, after a renewal, and when
-another tab announces a load, a renewal or a sign-out on a `BroadcastChannel`; and `bffAuth` renews a
-session it reads within a minute of its expiry.** The `Auth` interface had promised it —
-`getSession` *renews when near expiry*, `subscribe` fires when the session *changed in another
-tab* — and the transport under it read `/session` once and answered from that read for the life of
-the tab, so a renewed session kept its old roles and its old `expiresAt`. The promise was the
-removed browser client's, and the interface outlived it.
-
-The query's cache is the session's one copy; `bffAuth` keeps none, and the provider reads the
-query. A tab announces only what it caused — its first read, which is a page that loaded and so how
-a sign-in or a sign-out comes back; a renewal; a sign-out, said before it leaves — and a tab that
-hears reads again without announcing, so two tabs never echo each other. The message is only that
-something changed: each tab reads its own answer from its own cookie. The refresh route answers the
-renewed session with its current tenant, as `/session` would, so a renewal costs no second read.
-
-The reference is Auth.js's `SessionProvider`: `refetchOnWindowFocus`, a refetch after `update()`,
-and the `BroadcastChannel` every tab listens on, so a sign-out in one tab signs out the others.
-`@tanstack/react-query` is therefore a *required* peer of `@kanzo-tech/auth`, where it is an
-optional one of `@kanzo-tech/ui/analytics` and `@kanzo-tech/ai/data`: the provider is on the root.
-
-**What would reverse it:** a BFF where a read on every focus is measured as load that matters —
-then focus refetching goes, and the session is read on a renewal and an announcement alone. A host
-that cannot render a `QueryClientProvider` reverses the peer, as [the read door](/docs/design/reads)
-says.
-
-*Held by* `packages/auth/src/auth-provider.test.tsx`, "reads on the host's client, and throws
-without one" and "reads the session again when the tab becomes visible";
-`packages/auth/src/bff-auth.test.ts`, "renews a session read within a minute of its expiry, and
-answers the renewed one", "tells the other tabs when it loads, renews and signs out, and hears
-theirs" and "reads the session each time it is asked, because the provider's query is the one
-copy"; `packages/auth/src/next-routes.test.ts`, "answers the renewed session as the session route
-would, current tenant and all".
-
-## Every refusal is a problem body
-
-**Every refusal with a code that the auth layer sends — a route's, the forwarder's, the proxy's to a
-request that is not a navigation — is an RFC 9457 problem: `application/problem+json` with
-`status`, `title` and `detail`, and the library's `code` and `data` as its extension members; one
-table gives each code its status.** There were four shapes on the wire: the routes answered
-`{ error, message }`, which is neither OAuth's nor the problem shape the rest of the system reads;
-the forwarder computed a code and sent a bodiless status, so keasy coined `bff/failed` for an
-`organization/denied` the library knew; a problem page's redirect carries `?code=`; and an `Ended`
-result carries `code`. Two status tables disagreed, one sending `organization/denied` to 400 and the
-other to 403. One table, and a body that names the code, is what a host's registry already reads.
-
-There is no `type`, so it is the RFC's `about:blank`, whose `title` §4.2.1 has be the status's own
-phrase: the code is what a host routes on and the detail what a person might read, so the library
-writes no third wording. Two things keep their shape. A redirect stays a redirect: the routes a
-person reaches through the address bar — sign-in, the callback, sign-out — still send the person to
-the product's `problemPage` with the code in the URL, because a JSON body there is what a person
-reads. And back-channel logout answers a refusal with 400 whatever its code, because OpenID Connect
-Back-Channel Logout §2.8 fixes it. An answer about the request rather than a credential — a
-cross-site request's 403, a 405, a path under no mount, no API configured — has no code to name, and
-no body.
-
-The forwarder names one party besides the IdP: an API that does not answer is `api/unreachable`,
-502, by the same rule that makes an IdP that does not answer `idp/unreachable`. It answered with
-nothing — Next turned the rejected `fetch` into a bare 500 — so keasy, migrating, could not drop its
-own `bff/failed`. *Did not answer* means `fetch` rejected with a network error: a refused
-connection, a name that did not resolve, a reset before a status line. An API that answers 500 has
-answered, and its answer passes through as it came; a client that went away is not the API's
-failure, and its abort is thrown as it was. The problem carries no `data`: the mount is in `detail`,
-and the upstream's URL is the deployment's and not the browser's to read.
-
-The table stays inside `./next`, unexported: the body carries its own `status`, so a host that reads
-a problem has no use for it, and no product calls it.
-
-The reference is RFC 9457, *Problem Details for HTTP APIs*, the body keasy's API, fossil's `problem`
-and `Problem` already share.
-
-**What would reverse it:** a client of these routes that reads OAuth's error response — `error`,
-`error_description` — and cannot read a problem. None does: `bffAuth` reads the status, and a host
-reads the code.
-
-*Held by* `packages/auth/src/next-routes.test.ts`, "answers 401, as a problem whose code is
-session/absent, when there is no session" and "answers 503 with a code, not a bare 500, when the
-session store does not answer"; `packages/auth/src/next-proxy.test.ts`, "answers 403, as a problem
-naming organization/denied, and reaches nothing, for an organization the person is not a member of",
-"answers 502, as a problem naming api/unreachable, when the API refuses the connection" and "passes
-an API's own 500 through, because an answer with an error status is still its answer";
-`packages/auth/src/next-auth.test.ts`, "answers anything that is not a navigation with a 401
-problem, and no sign-in".
-
-## An outage at a required session is the problem page
-
-**`kanzoAuth().session({ required: true })` answers a store or IdP outage as `proxy` does: a redirect
-to `problemPage` with the code.** It threw the `Problem` raw, so keasy wrapped every layout's read
-in a `try` that redirected to the same page with the same code — the library's own decision, written
-again by the product. Without `required` the outage is still thrown, for a page that renders through
-one. `TenantRequest`, the type `KanzoAuthConfig.organization` takes, is on `./next` with it, because
-a public option's argument with no name is one a host cannot write a function for.
-
-The reference is AuthKit's `withAuth({ ensureSignedIn: true })`, which settles the outcome rather
-than handing the host an exception to settle.
-
-**What would reverse it:** a layout that must render through an outage — a public page under a
-required session. Then it does not ask for `required`, and catches the `Problem` itself.
-
-*Held by* `packages/auth/src/next-auth.test.ts`, "sends a required session's outage to the problem
-page, with its code" and "throws the outage to a page that did not require a session, which reads
-it itself".
-
-## One party bounds each wait
-
-**`bffAuth` bounds the two requests it makes for itself, `/session` and `/refresh`, and nothing
-else; its `fetch` option is the transport, and a host bounds its own API calls in the requests it
-makes.** The rule is [the failure page's](/docs/design/failure#one-deadline-per-wait); here it means
-`fetch` is documented as the production transport it is, not as *injectable for tests*, and keasy
-stops wrapping it in a 30 s deadline of its own that raced `bffAuth`'s.
-
-**What would reverse it:** a host that cannot bound its own requests — one whose API client takes no
-signal. Then `bffAuth` bounds every request through `Auth.fetch`, coded by who did not answer, and
-the host bounds none.
-
-*Held by* `packages/auth/src/bff-auth.test.ts`, "gives up on a session endpoint that never answers,
-after 30 s and not before".
-
 ## The organization's console is a link the library computes
 
 **`organizationConsoleUrl(issuer, organization)` is the URL of Keycloak's admin console page for an
-organization — the realm's console, at the organization's settings — computed from the issuer and
-the organization the session already names, beside `accountUrl`.** Keycloak 26 manages an
-organization's members, domains and identity providers in the realm's admin console:
-`{origin}/admin/{realm}/console/#/{realm}/organizations/{id}/settings`, where the public issuer is
-`{origin}/realms/{realm}` and the id is the organization's, which `organizationOf(session, alias)`
-returns. So a product's *Members* page links there with nothing configured — keasy's
-`KEASY_ORG_ADMIN_URL`, set in no deployment, goes, and with it the page that always said *ask your
-platform administrator*. An organization the realm sent without its `id` has no link: the console
-finds an organization by id, not by alias.
+organization, computed from the issuer and the organization the session already names, beside
+`accountUrl`.** Keycloak 26 manages an organization's members, domains and identity providers in the
+realm's admin console, at `{origin}/admin/{realm}/console/#/{realm}/organizations/{id}/settings`, where
+the public issuer is `{origin}/realms/{realm}` and the id is the one `organizationOf(session, alias)`
+returns. So a product's *Members* page links there with nothing configured. An organization the realm
+sent without its `id` has no link: the console finds an organization by id. It is `accountUrl`'s shape
+and reasoning: a pure function of the public issuer, on the root barrel, because a link is drawn
+wherever the session is. Whether a person may open it is the console's to decide, and a product shows
+the link to those its `can` says manage the organization.
 
-It is `accountUrl`'s shape and reasoning: a pure function of the public issuer, on the root barrel,
-because a link is drawn wherever the session is. The reference is Keycloak's own consoles —
-account-ui at `{issuer}/account`, the admin console at `/admin/{realm}/console/` — whose routes are
-Keycloak's to declare. Whether a person may open it is not the link's to decide: the console
-authorises its own users, and a product shows the link to those its `can` says manage the
-organization.
-
-**What would reverse it:** an organization managed somewhere other than the realm's admin console —
-Keycloak shipping a console of its own for organization administrators, or an IdP that is not
-Keycloak. Then the function returns that console's route, or a host passes its own URL; nothing else
-about the link changes.
+**What would reverse it:** an organization managed somewhere other than the realm's admin console.
+Then the function returns that console's route, or a host passes its own URL.
 
 *Held by* `packages/auth/src/account.test.ts`, "is the realm's admin console at the organization's
 settings, by its id" and "has no link for an organization the realm sent without its id".
@@ -674,30 +445,26 @@ settings, by its id" and "has no link for an organization the realm sent without
 ## A name on a door has a product's call site
 
 The doors carried names no product called, each one more thing to keep: `singleFlight` and
-`readSession` on the root, pieces `bffAuth` is built from; `claims` on the root, where the browser
-has no claim set to read — the BFF reads it, so it is on `./server`; and on `./server`,
-`sealedCookie`, `cookieValue`, `rewriteOrigin` — pieces of `relyingParty` — and `organizationGroups`,
-a sketch with no caller. They went with the cleanup of 14 October 2026, by the rule
-[an export needs a call site](/docs/design/admission#an-export-needs-a-second-call-site-and-one-example-is-not-it):
-a product's call site admits a name, and a name with none is kept for nobody.
+`readSession` on the root; `claims` on the root, where the browser has no claim set to read; and on
+`./server`, `sealedCookie`, `cookieValue`, `rewriteOrigin` and `organizationGroups`. They went with
+the cleanup of 14 October 2026, by the rule [an export needs a call
+site](/docs/design/admission#an-export-needs-a-second-call-site-and-one-example-is-not-it). A name is
+added the same way: `fakeAuth`, on `./testing`, has two ([Hardening](/docs/design/auth-hardening#one-session-reader-and-one-test-double)).
 
-**What would reverse it:** a product that calls one of them — a second framework's routes built on
-`sealedCookie`, a host reading claims in the browser. Then that name comes back to the door the call
-site is on, and no other.
+**What would reverse it:** a product that calls one of them. Then that name comes back to the door the
+call site is on, and no other.
 
 *Held by* `packages/auth/src/index.test.ts`, "are the session, the role question and the two console
 links on the root" and "are the relying party, its claim reader, its issuer and its stores on the
 server door".
 
-**Breaking**, in a consumer's words, for this page:
+## Breaking, in the consumer's words
 
-- The auth routes, the forwarder and the proxy answer a refusal as `application/problem+json` with
-  `code`; a host that read `{ error, message }` reads `code` and `detail`, and a host that read a bare
-  status from the forwarder reads its `code`.
-- `session({ required: true })` redirects to `problemPage` on an outage; delete the `try` around it.
-- `bffAuth`'s `fetch` must not bound requests; bound your API calls where you make them.
-- `useSession` needs a `QueryClientProvider` above `AuthProvider`.
-- `singleFlight` and `readSession` are gone from `@kanzo-tech/auth`; `claims` and `ClaimsConfig`
-  move to `@kanzo-tech/auth/server`; `sealedCookie`, `cookieValue`, `SealedCookie`,
-  `SealedCookieConfig`, `rewriteOrigin`, `organizationGroups`, `OrganizationGroups` and
-  `OrganizationGroupsConfig` are gone from `@kanzo-tech/auth/server`.
+- `AuthError` is gone; test with `isProblem(error, "session/absent")` from `@kanzo-tech/kernel`. The
+  codes are unchanged, and `AuthError.data` is the problem's `data`.
+- The forwarder, the routes and the proxy answer their status from the generated registry; a host that
+  read a status off a code from a table of its own reads `status` on the body.
+- keasy's API answers `application/problem+json`; delete the content-type branch in the web client and
+  the `auth/session-required` and `auth/keys-unavailable` rows in its registry (`session/absent`,
+  `idp/unreachable`).
+- More, with the additions that cause them, on [Hardening the auth layer](/docs/design/auth-hardening#breaking-in-the-consumers-words).
