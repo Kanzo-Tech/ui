@@ -129,7 +129,7 @@ definitions. They are Mosaic's model, written out
 [Selection](https://idl.uw.edu/mosaic/api/core/selection.html)), with the two rules this page adds:
 what a clause means for a type that cannot answer it, and position.
 
-**Vertices and types.** The corpus is a finite set of vertices *V*, partitioned into types; every
+**Vertices and types.** The graph is a finite set of vertices *V*, partitioned into types; every
 vertex *v* belongs to exactly one type *T(v)*, a table with a set of columns *cols(T)*. Each vertex has
 a key *k(v)*, unique in *V*.
 
@@ -399,7 +399,7 @@ still had a selection per group, a bridge per selection and a retraction path ac
 </MosaicProvider>
 ```
 
-No selection, no bridge, no key. `joins` is the corpus's join graph (`readJoinGraph`), which holds
+No selection, no bridge, no key. `joins` is the graph's join graph (`readJoinGraph`), which holds
 one more type, `vertices`: every vertex table as one relation, `NULL` where a table has no such
 column.
 
@@ -520,7 +520,7 @@ selection; `Dashboard`'s `publish` and the selection per dashboard; `bridgeSelec
 
 ### What would reverse it
 
-- **A relation whose keys do not share a space** — two corpora on one page, whose `dense_id`s
+- **A relation whose keys do not share a space** — two graphs on one page, whose `dense_id`s
   collide: then a key is a pair and the crossing a tuple semi-join.
 - **A path ambiguous enough to need choosing** — a relation with two steps of the clause's root type
   where the first is the wrong one often enough to matter: then a clause names the step it crosses
@@ -528,7 +528,7 @@ selection; `Dashboard`'s `publish` and the selection per dashboard; `bridgeSelec
 - **Mosaic exposing a per-client pre-aggregation veto, or a resolver hook it calls before
   pre-aggregating**: then `preaggregateOwnRelation`, which wraps the pre-aggregator's public
   `request`, goes for it.
-- **A measured cost of the crossing subquery** at the largest corpus — it reads the relation the
+- **A measured cost of the crossing subquery** at the largest graph — it reads the relation the
   clause was published on once per crossed client per update: then the keys are materialised once
   per clause. At 200,000 people in DuckDB-WASM under Node the canvas's query over the `vertices`
 union measured the same as over the per-table union it keeps for the clause rule (median of 15:

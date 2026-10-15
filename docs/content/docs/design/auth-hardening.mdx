@@ -4,7 +4,10 @@ description: What @kanzo-tech/auth does so that a script on the origin, a hung A
 ---
 
 [The auth layer](/docs/design/auth) is why the package is shaped as it is. This page is what the layer
-does to resist attack and failure, and what it says it does not do.
+does to resist attack, and what it says it does not do; [how it fails](/docs/design/auth-failure) is
+the other half. **The identity provider is always Keycloak** ([the decision](/docs/design/auth#the-identity-provider-is-keycloak-and-the-package-says-so)),
+so every rule below leans on Keycloak's own feature where it has one, and none of them is written
+for a provider the package does not support.
 
 *Status: to be built.* Every rule below is decided and none is in the tree at the commit this was
 read at (`origin/main`, 023fe4ee); the tree has an inline-script CSP in keasy, a forwarder with no
@@ -96,13 +99,14 @@ headers within the bound" and "aborts the upstream request when the client's sig
 ## A request that says nothing about where it came from is refused
 
 **`isSameSite` fails closed: a request with neither `Sec-Fetch-Site` nor `Origin` is refused on the
-routes and the forwarder it guards, unless the deployment says it has callers that are not
-browsers.** The guard is as it is today (everything but `callback`, `signin` and `backchannel-logout`,
-which are cross-site by design), and the end of the function, which returned `true`, returns `false`
-unless `kanzoAuth({ nonBrowserClients: true })`. A browser sends one of the two headers on a
-same-origin request; the absence is a `curl`, a health probe, a stripped proxy, or an attacker's
-control, and `refresh` (spends a refresh token) and `signout` (ends a session) are exactly the
-endpoints the check exists for. `Origin: null`, which the comparison already fails, stays refused.
+routes and the forwarder it guards. Only the browser calls `/api/*`, and there is no option to say
+otherwise.** The guard is as it is today (everything but `callback`, `signin` and `backchannel-logout`,
+which are cross-site by design), and the end of the function, which returned `true`, returns `false`.
+A browser sends one of the two headers on a same-origin request; the absence is a `curl`, a health
+probe, a stripped proxy, or an attacker's control, and `refresh` (spends a refresh token) and `signout`
+(ends a session) are exactly the endpoints the check exists for. `Origin: null`, which the comparison
+already fails, stays refused. A script, a probe or a test runner that needs the API calls it at its own
+origin with its own credential, and not through the browser's door, whose session it does not have.
 
 **The reference** is the OWASP CSRF Prevention Cheat Sheet (read): Fetch Metadata is a lightweight and
 reliable method, falling back to `Origin` is mandatory, and *for sensitive endpoints treat absence as
@@ -110,20 +114,21 @@ unknown and block*. RFC 10017 §6.1.3.3 (read) requires a BFF to implement a pro
 says `SameSite` is not sufficient where same-site neighbours exist, which `isSameSite` already
 refuses.
 
-**Not taken: the RFC's custom request header** (`bffAuth.fetch` adding one, forcing a preflight). It
-would answer the missing-signal case deterministically for browsers, and costs every non-browser caller
-a header; with the signals required it adds a second mechanism for the same case.
+**Not taken: a `nonBrowserClients` option.** It would have
+made the unsafe default one flag away and a second mechanism to test; the owner's decision (15 October
+2026) is that nothing but the browser calls the BFF, so the option has no caller. **Not taken either:**
+the RFC's custom request header (`bffAuth.fetch` adding one, forcing a preflight), which answers the
+missing-signal case for browsers and adds a mechanism where the signals already decide.
 
 **What would reverse it:** a real browser population that sends neither header on a same-origin
-`POST`, none known, which would send this to the custom header; or a deployment whose every caller is a
-browser dropping the option, which is the default already.
+`POST`, none known, which would send this to the custom header; or a first non-browser caller of
+`/api/*` that cannot call the API directly, which brings the option back with that caller as its test.
 
-*To be added:* `same-site.test.ts`, "refuses a request with neither Sec-Fetch-Site nor Origin" and
-"lets it through when the deployment says it has non-browser clients".
+*To be added:* `same-site.test.ts`, "refuses a request with neither Sec-Fetch-Site nor Origin".
 
 ## An application with an API must have a store
 
-**`kanzoAuth` throws when it is built, with a plain `Error` (a deployment fault, not a
+**`store` is required whenever `apis` is configured (the owner's decision, 15 October 2026): `kanzoAuth` throws when it is built, with a plain `Error` (a deployment fault, not a
 [`Problem`](/docs/design/failure#the-codes-this-library-names)), if `apis` is not empty and `store` is
 absent.** The stateless store stays the default for an application that calls no API and only reads who
 the person is. It cannot revoke (`drop` does nothing and back-channel logout answers 501), and it
@@ -132,16 +137,18 @@ the 4096 a browser must keep, and the seal throws at the **callback**, after a s
 for the person in many organizations, so it fails for a subset of people and is hard to reproduce. An
 application with an API is exactly the one with an access token to carry and a reason to revoke.
 
-**Idle timeout and step-up are not designed here.** The IdP's clocks are the policy (the realm's
-`sso_session_idle_timeout` 30 min, `sso_session_max_lifespan` 10 h), which is what
+**Idle timeout and step-up are Keycloak's policy and are not designed here.** The realm's clocks are
+the policy (`sso_session_idle_timeout` 30 min, `sso_session_max_lifespan` 10 h), which is what
 OWASP ASVS 5.0 V7 asks for at 7.3.1 and 7.3.2 by reference to the IdP. Met in the tree: a new session
 token on authentication (7.2.4, the ticket issued at the callback), and a terminated session unusable
 (7.4.1) **only with a `ticketStore`**, which this rule makes the case wherever it matters. Not met:
-re-authentication before a sensitive change (7.5.1), because `Session` has no `auth_time` or `acr`.
+re-authentication before a sensitive change (7.5.1), because `Session` carries no `auth_time` or `acr`.
+Keycloak does it with `max_age` and `acr` through an authentication flow, and `Session` may carry the
+two claims as Keycloak writes them, with no mapping layer, the day a product has a step-up.
 
 **What would reverse it:** a product that reads identity only and passes no `apis`: nothing changes
-for it. A product that needs step-up adds `auth_time` and `acr` to `Session`, and the store is where
-they live.
+for it, and it keeps the stateless store. A product that needs step-up adds `auth_time` and `acr` to
+`Session`, and the store is where they live.
 
 *To be added:* `next.test.ts`, "refuses to be built with an API and no store".
 
@@ -227,12 +234,15 @@ the posture does not depend on a default nobody read. The second-factor stance i
 `user_verification=required` already and no further factor is required by the platform; a deployment
 that wants one declares it.
 
-The shape is the module's and the production values are the deployment's, which is the rule
+**The platform realm owns the baseline; the package asks for none of it.** A deployment that is not
+this repository's realm configures the same Keycloak settings itself, and the package assumes them
+only where it says so. The shape is the module's and the production values are the deployment's, which is the rule
 [the services page](/docs/design/services) already has for hostnames and passwords. The development
 seed's passwords must satisfy the policy. This changes the development stack the day it lands.
 
-**What would reverse it:** a deployment that delegates authentication to an upstream IdP, where these
-live and the realm's are unreachable.
+**What would reverse it:** a deployment that brokers authentication to an upstream IdP through
+Keycloak, where some of these live upstream; the realm's settings then stay as the floor. Using another
+provider in place of Keycloak is a non-goal, not a reversal of this rule.
 
 *To be added:* `verify.sh` reads the realm's brute-force, policy and event settings back through the
 admin API and fails on a difference.
@@ -251,11 +261,17 @@ in `server.test.ts` runs two processes. keasy is one host (`compose.prod.yaml`),
 first second replica, or a rolling update with two live webs, triggers it. The same limit stands
 under back-channel logout, whose URL is per client while tenancy is per host.
 
-**Not designed, on purpose.** The fixes are known and each costs something: a bounded re-read before
-`token/refused`; an optional adapter method for a renewal lease (`SET NX PX`, which Redis and SQL both
-have); `refresh_token_max_reuse=1` for BFF clients, which weakens theft detection (§4.14); or
+**Not designed, on purpose, and the limit is the owner's decision (15 October 2026): one web host for
+now.** The fixes are known and each costs something: a bounded re-read before `token/refused`; an
+optional adapter method for a renewal lease (`SET NX PX`, which Redis and SQL both have); or
 sender-constrained refresh tokens (RFC 9449) at the IdP, which would make reuse detection unnecessary.
 Choosing among them without a second replica is guessing which one the first replica needs.
+
+**The cheap mitigation is Keycloak's, at the realm, and it is noted and not enabled:**
+`refresh_token_max_reuse=1` lets a refresh token be presented once more after it is spent, which
+covers the loser of a two-process race. It weakens theft detection (RFC 9700 §4.14), the reason it is
+a decision for the first second replica and not a default; it is one realm setting and no package
+change.
 
 **What would reverse it:** the first deployment with more than one web instance. Then the cheapest fix
 that passes a two-process test on one adapter is built, and this paragraph is replaced by it.
@@ -290,9 +306,12 @@ that passes a two-process test on one adapter is built, and this paragraph is re
 
 ## Breaking, in the consumer's words
 
-- `kanzoAuth` with `apis` and no `store` throws when built; give it a `ticketStore`.
-- A request with neither `Sec-Fetch-Site` nor `Origin` is refused on the routes and the forwarder; pass
-  `nonBrowserClients: true` if `curl`, a probe or a test runner calls them.
+- `store` is required whenever `apis` is configured: `kanzoAuth` throws when built without one, and the
+  stateless default that failed at the callback past 4096 bytes is gone for such an application; give it a
+  `ticketStore`. An application with no `apis` keeps the stateless store.
+- A request with neither `Sec-Fetch-Site` nor `Origin` is refused on the routes and the forwarder, and
+  there is no option to allow it: only the browser calls `/api/*`. A `curl`, a probe or a test runner
+  calls the API at its own origin with its own credential.
 - The proxy gates a dotted path unless its extension is in `staticExtensions`; narrow your `matcher` so
   it does not exclude `.*\..*`, and list a public path under `public`.
 - Your CSP moves from `next.config.ts` to the `csp` option of `kanzoAuth`, applied by `proxy`; remove

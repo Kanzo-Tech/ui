@@ -45,12 +45,14 @@ is "isolated, simple, data structures" (both read). Both reduce here to a direct
 what crosses a seam, and four or five bands carry that. A finer ladder would be a taxonomy nobody
 could test; each band here is tested by one import walk.
 
-**What it deletes.** The sentence in the philosophy page that says `ui` "depends on none of" its
-sibling packages. It is false by the manifest: `ui` declares `@kanzo-tech/mosaic` as an optional
-peer, because `ui/analytics` is a Mosaic client. The rule that holds, and that the guard below
-asserts, is narrower and checkable: **`ui`'s root imports no sibling, and nothing at a lower layer
-imports `ui`.** The philosophy page's sentence is to be replaced with that one when the guard lands, and a
-document that still says "none" is wrong and gets fixed, not annotated.
+**What it deletes.** The sentence in the philosophy page that said `ui` "depends on none of" its
+sibling packages. It was false by the manifest: `ui` depends on `@kanzo-tech/theme` and declares
+`@kanzo-tech/mosaic` as an optional peer, because `ui/analytics` is a Mosaic client. The philosophy
+page now states the narrower rule, and the guard below asserts it: **`ui` imports only a lower layer
+(`theme` everywhere, the `@uwdata` door from `/analytics` alone), never `graph`, `ai` or any package
+beside it, and nothing at a lower layer imports `ui`.** The first draft of this rule said `ui`'s root
+imports no sibling; that was false too, since the root imports `theme`, which is why the sentence was
+written against the manifest and not from memory.
 
 **What would reverse it.** A second package that needs to import upward and cannot be moved: a layer
 whose members all import one another. Then the layers are not layers, and the guard becomes an
@@ -166,7 +168,6 @@ for the root entry. Every other entry is to be added with the entry-peers guard,
   `LocalModelRegistry`, declared twice, once structurally in `testing`.
 - **`Engine.coordinator` as a public field and `registerFileBuffer` in the port** consumers see.
 - **`ai`'s required peers on `ui` and `@ai-sdk/react`** for `./task`.
-- **A sentence in the philosophy page**, and the same claim wherever it recurs.
 
 ## The guards
 

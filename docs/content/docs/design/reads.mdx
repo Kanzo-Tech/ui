@@ -6,8 +6,8 @@ description: Why every read the library makes for a host — a relation's fields
 The same datum was read by several parts of one page, each in its own way. A relation's fields
 were read by the dashboard's `useFieldStats`, again by `AnswerCard` over the same relation, and a
 third time by `readAnswerRelations` for Ask's prompt, so a page drew one relation's summary two or
-three times and the model and the card could be told different distinct counts. Over a corpus none
-of those reads is left: what a field holds is the corpus's profile, on the join graph
+three times and the model and the card could be told different distinct counts. Over a graph none
+of those reads is left: what a field holds is the graph's profile, on the join graph
 ([What a field is](/docs/design/fields)). A host that read
 anything else of its own wrote a promise memo that forgot failures — keasy wrote three, and a guard
 to stop a fourth. Each was a cache, and none of them knew about the others.
@@ -24,7 +24,7 @@ peer reached only from that subpath through [the engine rule](/docs/philosophy#t
 nothing through it, so a host that only draws a field the model helps fill, as metadata-form does,
 installs nothing new. `@kanzo-tech/auth` is the third reader: `AuthProvider` reads the session
 `useSession` hands out as a query, and since the provider is on its root, there the peer is required
-([the auth layer](/docs/design/auth#a-session-is-read-like-any-other-datum)).
+([the auth layer](/docs/design/auth-failure#a-session-is-read-like-any-other-datum)).
 
 **The reference is the React integrations of tRPC and of Supabase.** `@trpc/react-query`'s hooks run
 `useQuery` inside the procedure's own hook, on the client the host's `QueryClientProvider` holds;
@@ -81,7 +81,7 @@ A session changes under its key — renewed, ended, signed out in another tab �
 
 | Datum | Read by | Kept | Read again |
 | --- | --- | --- | --- |
-| a relation's `SUMMARIZE`, for one whose columns no corpus counted ([What a field is](/docs/design/fields)) | `useFieldStats`, and through it `Dashboard` | the page's life | when the relation or the provider's engine changes, which is another key |
+| a relation's `SUMMARIZE`, for one whose columns no graph counted ([What a field is](/docs/design/fields)) | `useFieldStats`, and through it `Dashboard` | the page's life | when the relation or the provider's engine changes, which is another key |
 | an answer's rows | `useAskChat`, under the page's chips | the page's life, by engine and statement | when a chip or the answer changes, which changes the statement |
 | a session | `AuthProvider`, and through it `useSession` and `Gate` | until it is stale, which is at once | when the tab becomes visible, after a renewal, and when another tab says so |
 
@@ -96,8 +96,8 @@ second copy of a conversation the chat itself holds. When the chat hooks take `l
 `load` is a plain call.
 
 **What would reverse it:** a datum the library caches that changes under the same key — a table a
-host rewrites in place under its name, a corpus rewritten under its attachment. Then that key gains
-the datum's own version — a corpus's from its manifest — and the rest stay as they are.
+host rewrites in place under its name, a graph rewritten under its attachment. Then that key gains
+the datum's own version — a graph's from its manifest — and the rest stay as they are.
 
 *Held by* `packages/ui/src/charts/field-stats.test.tsx`, "keeps a failure out of the cache, whole,
 and reads again for the next part that asks". `packages/ai/src/data/ask-chat.test.ts`, "reads an

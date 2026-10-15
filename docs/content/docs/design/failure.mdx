@@ -108,8 +108,8 @@ keys all three. `data.after` is milliseconds when a deadline fired.
 | `graph/no-webgl` | n/a | no WebGL, a renderer that would not start, or no device within 10 s | `after` | says the view cannot be drawn here |
 | `graph/context-lost` | n/a | the browser took the WebGL context back | none | offers a reload |
 | `graph/no-positions` | n/a | a device that came up holds no positions for the points it was given | none | none; it is a fault |
-| `graph/nothing-to-draw` | n/a | an attached corpus with no vertex | none | says the corpus is empty |
-| `graph/too-large` | n/a | a graph with more vertices than the draw can address exactly | `count`, `limit` | narrows the corpus; see [the scale limit](/docs/design/graph-hardening#the-scale-limit-is-guarded-and-raised-only-by-measurement) |
+| `graph/nothing-to-draw` | n/a | an attached graph with no vertex | none | says the graph is empty |
+| `graph/too-large` | n/a | a graph with more vertices than the draw can address exactly | `count`, `limit` | narrows the graph; see [the scale limit](/docs/design/graph-hardening#the-scale-limit-is-guarded-and-raised-only-by-measurement) |
 | `llm/unavailable` | n/a | the page cannot run the model: no WebGPU for `localModel` | `reason` | says the model cannot run here |
 | `llm/truncated` | n/a | a structured answer the model's context cut off | `reason` `"context"` | a Task repairs it once, then shows it |
 | `llm/silent` | n/a | the model's load or a generation made no progress within its bound | `after`, `stage` | frees the turn and offers a retry |
@@ -183,7 +183,7 @@ session read was the case: `bffAuth` bounds `/session` and `/refresh` at 30 s as
 keasy handed it a `fetch` that bounded every request at 30 s as `server/silent`, and `bffAuth`
 rewrapped the loser as `session/unavailable`. So `bffAuth`'s `fetch` is a transport, documented as one
 and not as a test seam, and a host bounds its own API calls in the requests it makes
-([the auth layer](/docs/design/auth#one-party-bounds-each-wait)).
+([the auth layer](/docs/design/auth-failure#one-party-bounds-each-wait)).
 
 **`within` is the only helper** ([the kernel](/docs/design/kernel#within) has its rules). It composes the
 caller's signal with its own, so an outer Stop or an outer deadline reaches every inner wait; this is
@@ -334,5 +334,5 @@ In the consumer's words; one changeset for each package named.
   never timing out registers one more code.
 - A DuckDB worker that dies after boot rejects pending reads with `engine/lost` and the next `engine()`
   boots a new one. A host that held an attachment re-attaches on `engine/lost`.
-- The graph refuses a corpus it cannot draw exactly with `graph/too-large`, and the local model's load
+- The graph canvas refuses a graph it cannot draw exactly with `graph/too-large`, and the local model's load
   and generation fail as `llm/silent` when they stop making progress.

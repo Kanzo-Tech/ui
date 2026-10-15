@@ -19,7 +19,7 @@ lower package and its only constructor in a higher, heavier one that imports cos
 
 ## `JoinGraph` is the read-model
 
-**A corpus, as the library reads it, is a `JoinGraph`, and there is no other description of it.**
+**A graph, as the library reads it, is a `JoinGraph`, and there is no other description of it.**
 It is already the superset: types and their keys and `candidateKeys`, edges with `src`/`dst`, a
 column as a description (`name`, `type`, and whatever the catalog states of it: `role`, `datatype`,
 `termType`, `iri`, `nullable`, `annotations`, `stats` — [what a field is](/docs/design/fields)), and
@@ -75,7 +75,7 @@ test sees is the one a host's attach makes. Drift between a fixture and a format
 passed while production changed.
 
 GraphAr numbers vertices per type, from zero, "corresponding to the row number"; the library
-numbers them corpus-wide. The reader reconciles them in one place, `first`, and refuses a type whose
+numbers them graph-wide. The reader reconciles them in one place, `first`, and refuses a type whose
 ids have a gap, as graphar's attach does. Where the ids of a drawn graph stop being exact (the canvas
 holds links as `Float32`, exact to 2^24) is the canvas's rule, not this one.
 
@@ -124,10 +124,18 @@ types, returns the `Mapping` before a run, and `Mapping.model()` returns the `Jo
 function `withMapping` consumes, so one mapping reaches the library one way whether the graph is
 attached or not yet written. A host does not rewrite what another package exposes.
 
-What `describe` returns before a run carries no `rows` and no `stats`; those are the corpus's, after
-a run. A consumer that needs a count before there is a corpus asks for none, and the pages already
-read a counted corpus with no query and an uncounted one with a `SUMMARIZE`
+What `describe` returns before a run carries no `rows` and no `stats`; those are the graph's, after
+a run. A consumer that needs a count before there is a graph asks for none, and the pages already
+read a counted graph with no query and an uncounted one with a `SUMMARIZE`
 ([what a field is](/docs/design/fields)).
+
+**A built graph is write once and read many** (the owner's decision, 15 October 2026). The shape above is
+a draft until the run, and the person may change it, in the assistant's thread and only there; once the
+graph is built it is never edited, and a `JoinGraph` read from it describes it for good. A place that
+lists built graphs (Discover) carries no *Change*, and the conversation that built one is closed; the way
+to change a graph is to start a new one from it. A library never holds a mutable graph, so nothing here
+invalidates a cached catalog read except a rewrite under the same attachment
+([reads](/docs/design/reads)).
 
 **What would reverse it:** a shape a program declares that `describe` cannot state without running it
 — a type that exists only by what a source contains. Then that type is absent before the run and
@@ -188,3 +196,8 @@ catalog fixtures; the `catch { return FALSE }` in `crossing()`.
 - Pass `withMapping(graph, mapping)` the mapping you have; it throws `relations/unmatched` for a term
   that names nothing in the catalog.
 - Do not build a `JoinGraph` from a program's declarations; use `describe`'s `Mapping.model()`.
+- A host's `Corpus`, `CorpusProvider` and `corpusKey` are `Graph`, `GraphProvider` and `graphKey` (keasy and
+  fossil rename everything called corpus, in one change each: `CorpusFile`, `memory://corpus/` and
+  `SinkRef::Corpus` too). Nothing in `@kanzo-tech/*` exports the old word.
+- A graph record carries no `report`: keasy's `Graph.report` is deleted with its column, its field and its
+  API, and no type in this library describes it. Read what a graph holds from its `JoinGraph`.

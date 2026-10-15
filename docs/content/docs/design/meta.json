@@ -24,6 +24,7 @@
     "tasks",
     "services",
     "auth",
+    "auth-failure",
     "auth-hardening",
     "navigation",
     "shell",

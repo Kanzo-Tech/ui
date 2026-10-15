@@ -132,6 +132,19 @@ for "nobody is signed in". A host registry keyed on both, and a third on fossil'
    keasy's `use-assistant` each re-implement "was this my cancel"; the rule is stated once, here, and
    the code follows.
 
+### One name, two things
+
+`@kanzo-tech/ui` exports a `Problem` composite, the component that draws a
+failure ([admission](/docs/design/admission#a-failure-is-read-by-shape-and-worded-by-the-host)), and
+the kernel exports a `Problem` class. Both keep the name a reader looks for: the component is the
+public face of a documented page, the class the name of RFC 9457's object. The rule, stated here
+and nowhere else: **a file that imports both aliases the class, `import { Problem as ProblemError }
+from "@kanzo-tech/kernel"`, and never the component.** It is a spelling at one import site, not an
+export, so it adds nothing to a barrel and no second name for a consumer to learn. A file that
+needs only one imports it plain. *What would reverse it:* more than a handful of files needing both,
+in which case the component is renamed (`ProblemView`, the name keasy already uses for it) and the
+alias rule goes with the clash.
+
 **The production axes.** *Failure and recovery:* one shape means one registry row per code says what a
 host does next, and `Problem.from` rebuilds the error across a worker or a response, so recovery code
 is written once. *Security and privacy:* rule 2. *Performance and size:* the class and its predicates

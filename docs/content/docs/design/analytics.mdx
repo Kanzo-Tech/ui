@@ -533,7 +533,7 @@ item's `value` is their text, and `ChartFilter` maps it back to the column's val
 it, and otherwise publishes the text, which DuckDB casts to the column's type as it casts any string
 literal it compares with one.
 
-The model of a corpus is not Mosaic's, and has its own door: `JoinGraph`, `JoinResolver` and the
+The model of a graph is not Mosaic's, and has its own door: `JoinGraph`, `JoinResolver` and the
 crossfilter that rests on them come from `@kanzo-tech/relations`
 ([relations](/docs/design/relations)), and a host importing them from `@kanzo-tech/mosaic` is the
 two-spellings case this rule exists to end.
@@ -633,6 +633,10 @@ the rule and the table the exception.
 per chart asserted in `chart-root.test.tsx`; and screen-reader sessions on a dashboard, NVDA with
 Firefox and VoiceOver with Safari, dated on this page when run. WCAG's criteria here are cited from
 the standard and were not re-read for this page. *Not yet held:* all of it.
+
+**WCAG 2.2 AA is a commitment for the charts, as for the graph canvas** (the owner's decision, 15 October
+2026): a failed criterion found by this check blocks the release of the package it is found in, and
+conformance is still claimed only after the check has run.
 
 ## Production-grade axes
 

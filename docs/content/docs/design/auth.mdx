@@ -9,10 +9,9 @@ vocabulary and the architecture catalogue are all external and all citable. What
 resist attack and failure, and the limits it states instead of fixing, are on
 [Hardening the auth layer](/docs/design/auth-hardening).
 
-*Status: partly built.* The tree has `AuthError`, a status table kept by hand in `problem.ts`, and a
-server that answers its own shape; the sections on
-[the problem body](#every-refusal-is-a-problem-body) say what replaces them, and the *Breaking* list
-at the end is what a consumer edits.
+*Status: partly built.* The tree has `AuthError`, a status table kept by hand in `problem.ts` and a
+server that answers its own shape; [how the layer fails](/docs/design/auth-failure) says what
+replaces them. The *Breaking* list at the end is what a consumer edits.
 
 ## Auth is a package, and the admission rule excludes it by name
 
@@ -152,6 +151,31 @@ audience and the organization alone" and "refuses an organization the person is 
 `packages/auth/src/next-proxy.test.ts`, "attaches a token exchanged for the mount's audience as a
 bearer, never the session's own"; `services/auth/scripts/verify.sh`.
 
+## The identity provider is Keycloak, and the package says so
+
+**`@kanzo-tech/auth` is a Keycloak backend for frontend by design. It supports no other identity
+provider, and a second one is a stated non-goal** (the owner's decision, 15 October 2026). Three
+things follow, and each deletes a layer that would otherwise have to be kept in step with Keycloak.
+
+- **`Session` is Keycloak-shaped.** It carries organizations, `resource_access` roles and group ids
+  as Keycloak writes them, and there is no claim-mapping layer between a token and a session. A
+  mapping layer would be a second description of one token, written twice for every claim added.
+- **Keycloak's own features are used, not rebuilt:** brute-force detection, the password policy,
+  login and admin events, `sso_session_idle_timeout` and `sso_session_max_lifespan`, `acr` and
+  `max_age` step-up through authentication flows, token exchange, back-channel logout and
+  organizations. The realm baseline is owned by the platform realm (`services/auth/realm`), and the
+  idle timeout and step-up are Keycloak's policy; [hardening](/docs/design/auth-hardening#the-realm-ships-a-baseline)
+  says what the package then adds.
+- **The two claim readers answer to one recorded token.** The TypeScript reader (`claims.ts`) and
+  keasy's Rust reader (`token.rs`) are each tested against the same recorded Keycloak token as their
+  fixture, and the Rust reader accepts the `organization` and group shapes the TypeScript one does.
+  They were two readers of one claim with two sets of tests. *To be built:* the shared fixture.
+
+**What would reverse it:** a consumer who must sign in against another provider and cannot be asked
+to run Keycloak in front of it (Keycloak can broker one, which is the answer until then). Then the
+claim reader becomes the one place a second provider's claims are mapped onto `Session`, and
+everything below it stays; the package is not otherwise rewritten. No such consumer exists.
+
 ## The protocol is somebody else's
 
 Admission rule 3 is *wraps, does not reinvent*, so the first question was who had already done this.
@@ -185,7 +209,7 @@ subpath's engine.* Here that produces one door per engine — `openid-client` an
 `./server`, `next` behind `./next` — and a **root barrel with no engine at all**. That is why the BFF
 transport lives on the root: with the token on the server there is no protocol left in the browser,
 only a `fetch` to a session endpoint. Its one peer beyond React is `@tanstack/react-query`, the host's
-cache, because the session is [read like any other datum](#a-session-is-read-like-any-other-datum).
+cache, because the session is [read like any other datum](/docs/design/auth-failure#a-session-is-read-like-any-other-datum).
 Each door is declared in `exports` on the day its file exists and never before.
 
 The precedent is not hypothetical. `@kanzo-tech/graph/duckdb` reached its coordinator through
@@ -398,151 +422,6 @@ appearance corpus in a commit somebody has to write. Both are tells rather than 
 
 *Held by* `packages/auth/package.json`, `//peers` and `gauges`;
 `packages/ui/src/guard-corpus.ts`, `IDIOM`.
-
-## A failure is not a signed-out person
-
-The provider used to settle on `anonymous` when `getSession` rejected, on the argument that signing in
-is recoverable and a spinner is not. An IdP or a session store that is down sent the person to sign
-in, the sign-in failed the same way, and nobody learned what broke. fossil's `/docs/design/failure` —
-*every wait ends, every failure is seen* — and [this library's page](/docs/design/failure) put it as
-one rule: a failure reaches the host whole, by its code, and within a bound.
-
-So a session that cannot be read is a fourth status, `"failed"`, carrying the thrown value untouched;
-*no session* is said only by whoever can know it — a 401 from `/session`, or the IdP's own
-`invalid_grant` to a refresh token. Every wait on another party ends within a bound and is coded by
-who did not answer, `idp/silent` or `session/silent` (the figures and their nesting are [on the
-failure page](/docs/design/failure#one-deadline-per-wait)); where `openid-client` or `jose` makes the
-wait, the figure is handed to its own timeout rather than wrapped around it. A failed sign-in,
-callback or sign-out is a redirect to the product's `problemPage` with the code in the URL, because
-those routes are reached through the address bar. A plain `Error`, not a `Problem`, is a programming or
-deployment fault, such as `useSession` outside its provider or a session too large for a cookie; a
-code invites a `catch` that routes it to a sign-in page, the wrong answer to *you wired this up wrong*.
-
-**What would reverse it:** a product that wants an outage to look like a sign-out, such as a public
-site that degrades to the anonymous view. It branches `"failed"` into that view itself; the library
-does not make the choice for it.
-
-*Held by* `packages/auth/src/auth-provider.test.tsx`, "settles on failed when the read fails,
-holding exactly what was thrown"; `packages/auth/src/bff-auth.test.ts`, "reads a 5xx from the
-session endpoint as a failure, not as nobody being signed in" and "gives up on a session endpoint
-that never answers, after 30 s and not before"; `packages/auth/src/next-routes.test.ts`, "sends a
-callback with no transaction to the problem page, with its code"; `packages/auth/src/next-auth.test.ts`,
-"sends a navigation to the problem page when the store does not answer"; `packages/ui/src/failures-reach-the-host.test.ts`.
-
-## A session is read like any other datum
-
-**`useSession` reads a session that is kept fresh and the same in every tab, as Auth.js's
-`SessionProvider` keeps it: `AuthProvider`'s read is a query through [the read door](/docs/design/reads)
-on the host's `QueryClient`, read again when the tab becomes visible, after a renewal, and when another
-tab announces a load, a renewal or a sign-out on a `BroadcastChannel`; and `bffAuth` renews a session
-it reads within a minute of its expiry.** The `Auth` interface had promised it — `getSession` *renews
-when near expiry*, `subscribe` fires when the session *changed in another tab* — and the transport
-read `/session` once and answered from that read for the life of the tab.
-
-The query's cache is the session's one copy; `bffAuth` keeps none. A tab announces only what it
-caused — its first read, a renewal, a sign-out said before it leaves — and a tab that hears reads again
-without announcing, so two tabs never echo. The message is only that something changed (the literal
-`"changed"`): each tab reads its own answer from its own cookie, so no data crosses the channel. The
-refresh route answers the renewed session with its current tenant, so a renewal costs no second read.
-`@tanstack/react-query` is a *required* peer of `@kanzo-tech/auth`, where it is optional for
-`ui/analytics` and `ai/data`: the provider is on the root.
-
-**What would reverse it:** a BFF where a read on every focus is measured as load that matters; then
-focus refetching goes. A host that cannot render a `QueryClientProvider` reverses the peer, as [the
-read door](/docs/design/reads) says.
-
-*Held by* `packages/auth/src/auth-provider.test.tsx`, "reads on the host's client, and throws
-without one" and "reads the session again when the tab becomes visible";
-`packages/auth/src/bff-auth.test.ts`, "renews a session read within a minute of its expiry, and
-answers the renewed one", "tells the other tabs when it loads, renews and signs out, and hears
-theirs" and "reads the session each time it is asked, because the provider's query is the one
-copy"; `packages/auth/src/next-routes.test.ts`, "answers the renewed session as the session route
-would, current tenant and all".
-
-## Every refusal is a problem body
-
-**Every refusal with a code that the auth layer sends — a route's, the forwarder's, the proxy's to a
-request that is not a navigation — is an RFC 9457 problem: `application/problem+json` with `status`,
-`title` and `detail`, and the library's `code` and `data` as extension members; and it is the one
-`Problem` of [the kernel](/docs/design/kernel#problem), with its status read from the generated
-registry, not from a table kept here.** There were four shapes on the wire: the routes answered
-`{ error, message }`; the forwarder computed a code and sent a bodiless status, so keasy coined
-`bff/failed` for an `organization/denied` the library knew; a problem page's redirect carries
-`?code=`; an `Ended` result carries `code`. Two status tables disagreed, one sending
-`organization/denied` to 400 and the other to 403. And a fifth, keasy's Rust server, answered
-`application/json` with `{ code, title, detail, data }`, no `status`, and a fixed title per code.
-
-The shape and why `type` is absent are [the kernel's](/docs/design/kernel#problem). Two things keep their shape here. A redirect
-stays a redirect: sign-in, the callback and sign-out go to the product's `problemPage` with the code
-in the URL, because a JSON body there is what a person reads. And back-channel logout answers a
-refusal with 400 whatever its code (OpenID Connect Back-Channel Logout §2.8). An answer about the
-request rather than a credential — a cross-site request's 403, a 405, a path under no mount — has no
-code to name and no body.
-
-**The server speaks it too, in the same words.** keasy's Rust server answers `application/problem+json`, and
-its 401 is `session/absent`; the two vocabularies became one in [the failure page](/docs/design/failure#one-class).
-
-**A 401 without `WWW-Authenticate` is a stated deviation.** RFC 9110 §15.5.2 says a server generating a
-401 *MUST* send a `WWW-Authenticate` header with at least one challenge, and no 401 this layer sends
-carries one. A cookie session has no HTTP authentication scheme to name, the client that reads these
-(`bffAuth`) acts on the status and the code, and a made-up scheme is a challenge no client can answer.
-
-The forwarder names one party besides the IdP: an API that does not answer is `api/unreachable`, 502,
-and one that does not answer its headers in time is `api/silent`, 504
-([Hardening](/docs/design/auth-hardening#the-forwarder-bounds-its-hop-and-ends-it-when-the-person-leaves)).
-*Did not answer* means `fetch` rejected with a network error, or the bound fired; an API that answers
-500 has answered and its answer passes through as it came, and a client that went away is not the API's
-failure. The problem carries no `data` naming the upstream's URL, which is the deployment's.
-
-The reference is RFC 9457, the body fossil's `problem` and `Problem` already share.
-
-**What would reverse it:** a client of these routes that reads OAuth's error response — `error`,
-`error_description` — and cannot read a problem; none does. And a client that acts on a missing
-`WWW-Authenticate` — an HTTP library or proxy that refuses a 401 without one — which would make the
-challenge worth inventing.
-
-*Held by* `packages/auth/src/next-routes.test.ts`, "answers 401, as a problem whose code is
-session/absent, when there is no session" and "answers 503 with a code, not a bare 500, when the
-session store does not answer"; `packages/auth/src/next-proxy.test.ts`, "answers 403, as a problem
-naming organization/denied, and reaches nothing, for an organization the person is not a member of",
-"answers 502, as a problem naming api/unreachable, when the API refuses the connection" and "passes
-an API's own 500 through, because an answer with an error status is still its answer";
-`packages/auth/src/next-auth.test.ts`, "answers anything that is not a navigation with a 401
-problem, and no sign-in". The server's problem answer is to be held by a test in the
-server's own suite and by the generated table's round trip.
-
-## An outage at a required session is the problem page
-
-**`kanzoAuth().session({ required: true })` answers a store or IdP outage as `proxy` does: a redirect to
-`problemPage` with the code.** It threw the failure raw, so keasy wrapped every layout's read in a
-`try` that redirected to the same page with the same code, the library's own decision written again by
-the product. Without `required` the outage is still thrown, for a page that renders through one.
-`TenantRequest`, the type `KanzoAuthConfig.organization` takes, is on `./next` with it. The reference
-is AuthKit's `withAuth({ ensureSignedIn: true })`, which settles the outcome rather than handing the
-host an exception to settle.
-
-**What would reverse it:** a layout that must render through an outage. Then it does not ask for
-`required`, and catches the `Problem` itself.
-
-*Held by* `packages/auth/src/next-auth.test.ts`, "sends a required session's outage to the problem
-page, with its code" and "throws the outage to a page that did not require a session, which reads
-it itself".
-
-## One party bounds each wait
-
-**`bffAuth` bounds the two requests it makes for itself, `/session` and `/refresh`, and nothing else;
-its `fetch` option is the transport, and a host bounds its own API calls in the requests it makes.**
-The rule is [the failure page's](/docs/design/failure#one-deadline-per-wait): `fetch` is documented as
-the production transport it is, not as *injectable for tests*, and keasy stops wrapping it in a 30 s
-deadline of its own that raced `bffAuth`'s. The same rule is why the forwarder is the party that bounds
-the BFF-to-API hop.
-
-**What would reverse it:** a host that cannot bound its own requests — one whose API client takes no
-signal. Then `bffAuth` bounds every request through `Auth.fetch`, coded by who did not answer, and the
-host bounds none.
-
-*Held by* `packages/auth/src/bff-auth.test.ts`, "gives up on a session endpoint that never answers,
-after 30 s and not before".
 
 ## The organization's console is a link the library computes
 

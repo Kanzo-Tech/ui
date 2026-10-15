@@ -199,14 +199,14 @@ a value, as `Slider` does. Then play writes the `Param`, and `ChartTimeline` sto
 
 ## Time is read from the schema, never guessed
 
-**A column is temporal when the corpus says it is: a `date` or `timestamp` column, or one whose
+**A column is temporal when the graph says it is: a `date` or `timestamp` column, or one whose
 `datatype` is `xsd:date`, `xsd:dateTime` or `xsd:gYear`.** `fossil_columns.datatype` carries the IRI
 the shape declared, so an `xsd:gYear` stored as an `int32` is drawn as years. Cosmograph instead
 samples 100 values and calls a column of year-like integers a year. A count of rows, a price or an
 id in that range would be read as a date, and the schema already says which column is a year.
 
 **The column is a setting of the graph, not a selector of the part's.** `time-by` sits beside
-*X axis* and *Group by* in `GRAPH_SECTION`, and the root answers its options from the corpus's
+*X axis* and *Group by* in `GRAPH_SECTION`, and the root answers its options from the graph's
 temporal columns, as it answers theirs. Cosmograph's own app configures its timeline the same way, in
 its settings panel. A selector inside the part would have been a second door to a choice the graph
 already makes in one place. None, the default, draws no timeline. The histogram is the union of the
@@ -247,7 +247,7 @@ that the chip does not correct them; then the types without the column are drawn
 window's greyed-out vertices — fainter, or listed in the legend as having no time — and are still
 not kept whole.
 
-**What would reverse it:** a corpus whose times arrive as text with no datatype, such as one written
+**What would reverse it:** a graph whose times arrive as text with no datatype, such as one written
 without a shape. Then a column is offered when its values parse, and the parse is the rule. And for
 the setting: a page with two timelines over one graph, each on its own column. Then the column is a
 prop of the part again, and the setting is the default the root hands it.
@@ -271,11 +271,11 @@ other, is a vertex between its two ends: the W3C's n-ary relations, schema.org's
 `Award` with its `year` stands between the laureate and the category, and LDBC's `knows` is a
 `Knowing` with its `creationDate`. The timeline filters those vertices, and the edges into the
 greyed ones grey with them by the rule that a link needs both its ends. Cosmograph's `useLinksData`,
-a filter over the edges themselves, is not built. A fossil corpus has no edge properties, because a
+a filter over the edges themselves, is not built. A fossil graph has no edge properties, because a
 shape cannot declare one before SHACL 1.2 and Turtle 1.2 are Recommendations; fossil plans them in
 its own `design/later/edge-properties`.
 
-**What would reverse it:** a corpus that writes edge properties. Then an edge table lists its columns
+**What would reverse it:** a graph that writes edge properties. Then an edge table lists its columns
 as a vertex table does, a link gets an index as a vertex does, and a clause over an edge column keeps
 the edges it matches and their endpoints — Cosmograph's rule, `endpointPointsOf`.
 

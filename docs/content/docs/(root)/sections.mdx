@@ -149,7 +149,7 @@ A section is drawn the way Ark draws anything: **data, state and context, parts.
 | --- | --- | --- |
 | **What** may be set, and **when** | the manifest — data, with `when` | `GRAPH_SECTION` |
 | **The values** | `KanzoThemeProvider` — the one chain below | registered by the host |
-| **What only the owner knows** — the lists its choices name, the pictures its options wear | a `SectionProvider` over the owner's subtree | `GraphRoot` renders one, with its corpus's columns |
+| **What only the owner knows** — the lists its choices name, the pictures its options wear | a `SectionProvider` over the owner's subtree | `GraphRoot` renders one, with its graph's columns |
 | **How** it is drawn | `<Pref name>`, or `PreferencesSections` for the whole section | the app's settings tab |
 
 ```tsx
@@ -164,7 +164,7 @@ A section is drawn the way Ark draws anything: **data, state and context, parts.
 owner's `sources` (a `PrefSources`, name to options) — and the theme provider is the core's owner, answering `"themes"` from what the tenant
 published. Outside every owner a list is unanswered: the value a person stored stands, and the
 control it fills is not drawn. **The owner judges a stored value against its list**, where the list is
-known: the graph's root reads a column its corpus lacks as unbound.
+known: the graph's root reads a column its graph lacks as unbound.
 
 ### Offered only beside another: `when`
 

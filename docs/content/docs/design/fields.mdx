@@ -1,6 +1,6 @@
 ---
 title: What a field is
-description: Why a field's facts come from the corpus — what it is from the attached catalog and the mapping, what it holds from counts the corpus states — and reach every reader through one JoinGraph, so nothing in the library guesses them from a column's name or a threshold; and what would reverse each part.
+description: Why a field's facts come from the graph — what it is from the attached catalog and the mapping, what it holds from counts the graph states — and reach every reader through one JoinGraph, so nothing in the library guesses them from a column's name or a threshold; and what would reverse each part.
 ---
 
 *Status: partly to be built.* The tree takes these facts from fossil's four manifest relations
@@ -15,12 +15,12 @@ consumer edits.
 A dashboard, Ask, an answer's card and keasy's assistant each need to know two things about a
 column: **what it is** — a number, a date, a year stored as an integer, an IRI, a key, called *birth
 date* in English and *fecha de nacimiento* in Spanish — and **what it holds** — how many distinct
-values, how many missing, its range, its commonest values. The corpus states both: what each column is
-is the catalog's and the mapping's, and what it holds is counted when the corpus is written. The library used to throw the first away on the way in and re-derive a cruder version of it
+values, how many missing, its range, its commonest values. The graph states both: what each column is
+is the catalog's and the mapping's, and what it holds is counted when the graph is written. The library used to throw the first away on the way in and re-derive a cruder version of it
 from the column's name, and to read the second twice, by two `SUMMARIZE`s that need not agree, and a
 count per category on top for Ask.
 
-| Fact | Where the corpus states it | `JoinGraph` | Before |
+| Fact | Where the graph states it | `JoinGraph` | Before |
 | --- | --- | --- | --- |
 | a type's, an edge's, a column's IRI | undecided: the mapping or GraphAr's extra information | `iri` | not read |
 | an edge's label | `graphar_edge_types.edge_type` | `JoinEdge.label` | parsed out of `<Source>_<label>_<Destination>` |
@@ -41,7 +41,7 @@ unchanged, and nothing downstream re-derives one.** The path is one: the attache
 `@kanzo-tech/relations`'s `CatalogReader`, the only way a `JoinGraph` is made from an engine →
 `withMapping`, which fills labels and datatypes from the program's mapping and adds no type and no
 column → `@kanzo-tech/ui/analytics`, `@kanzo-tech/ai/data` and `@kanzo-tech/graph`. A host with no
-corpus yet gets the same model from the compiler's `describe` over the declared types
+graph yet gets the same model from the compiler's `describe` over the declared types
 ([relations](/docs/design/relations#the-pre-run-shape-comes-from-the-compiler)). A column's DuckDB
 type is read in the same breath from the engine's own `duckdb_columns()`: what the engine will read
 the view as, never a mapping of fossil's spelling kept here.
@@ -55,9 +55,9 @@ the dashboard example on `/docs/analytics/dashboard` declares its table's key th
 a column of a joined relation is described by its step's type, so its counts are the type's, which
 is what a default needs, and not the join's.
 
-**Every catalog read is behind a `CatalogReader`**, so a change in how a corpus states itself is a
+**Every catalog read is behind a `CatalogReader`**, so a change in how a graph states itself is a
 change in one function, and the model it answers does not move
-([The graph](/docs/design/graph#one-catalog-type-and-the-graph-keeps-none)). fossil's corpus moves to
+([The graph](/docs/design/graph#one-catalog-type-and-the-graph-keeps-none)). fossil's graph moves to
 Apache GraphAr, and fossil deletes `attach` and the `fossil_*` relations with it; the reader of a
 relation nothing makes is not kept.
 
@@ -80,12 +80,12 @@ reader and asserts every row of the table above, and a `layers.test.ts` case tha
 names a catalog relation of the old format. The fossil-relation tests this replaces are deleted with
 the reader.
 
-## What a field holds comes from counts stated in the corpus
+## What a field holds comes from counts stated in the graph
 
-**A corpus states, for every column of every table, the counts a field needs — its nulls, its distinct
+**A graph states, for every column of every table, the counts a field needs — its nulls, its distinct
 values, its extent and its commonest values with their share of the rows — under Parquet's
 `Statistics` names and `pg_stats`', and the library reads those and runs no `SUMMARIZE` over a
-counted corpus.**
+counted graph.**
 `useFieldStats` over a relation of the page's joins whose columns are all counted queries nothing;
 Ask is offered each type's fields off the graph, its commonest values the writer's; `AnswerCard`
 draws by the facts the answer was asked over, so the model and the card are told the same figures.
@@ -97,22 +97,22 @@ A relation whose columns nothing counted — a host's own table under `MosaicPro
 `SUMMARIZE` through [the read door](/docs/design/reads), once and cached, and what the joins say each
 column *is* is kept over the summary's counts. That is the only `SUMMARIZE` left.
 
-**Decided differently from the plan:** the plan had the library refuse a corpus written before the
-writer counted. It reads one — its catalog answers a row of nulls per column — and such a corpus is a
+**Decided differently from the plan:** the plan had the library refuse a graph written before the
+writer counted. It reads one — its catalog answers a row of nulls per column — and such a graph is a
 relation nothing counted: one `SUMMARIZE` for a dashboard, and Ask offered its fields without values.
 Refusing it would have been a failure for a reader to see where a slower read does.
 
-**Parquet's own statistics are what a GraphAr corpus gives for free, and no more.** Each row group's
+**Parquet's own statistics are what a GraphAr graph gives for free, and no more.** Each row group's
 footer carries a minimum, a maximum and a null count, read without scanning the data, and the reader
 merges the row groups into one figure per column. It carries no commonest values and, in practice, no
 distinct count, which are the two figures a field's role and Ask's prompt need. So the extent and the
 nulls come from the footers, and where the distinct count and the commonest values are to be stated —
-by the writer in the corpus's extra information, or read once per relation — is undecided and fossil's
+by the writer in the graph's extra information, or read once per relation — is undecided and fossil's
 to settle with its migration. Until it is, a relation whose columns lack them is the relation nothing
 counted, which the paragraph above already designs: one `SUMMARIZE`, once, cached.
 
-**What would reverse it:** a corpus whose writer states no counts, as the common case. Then
-the counts are a reader's step, run once per corpus through the read door, and still not one per
+**What would reverse it:** a graph whose writer states no counts, as the common case. Then
+the counts are a reader's step, run once per graph through the read door, and still not one per
 component.
 
 *Held by* `packages/ui/src/charts/field-stats.test.tsx`, "reads nothing for a relation over the page's
@@ -137,7 +137,7 @@ role is what the data declares, and where it declares nothing, the kind's.** No 
 | anything else | its DuckDB type | categorical, a dimension |
 
 A year stored as its integer is a time with its extent as the years' first days, and a trend over it
-bins the number it is. A relation with no corpus behind it has no role and no datatype, so the last
+bins the number it is. A relation with no graph behind it has no role and no datatype, so the last
 two rows decide it, and nothing is an identifier because nothing said so; a host says it in the
 joins it hands the provider.
 
@@ -207,7 +207,7 @@ and absent where nothing labels it".
 
 ## What it changed for a consumer
 
-- A `JoinGraph` type's `columns` are `JoinColumn` descriptions, not names. Build one from a corpus
+- A `JoinGraph` type's `columns` are `JoinColumn` descriptions, not names. Build one from a graph
   with `@kanzo-tech/relations`' reader, and fill its labels and datatypes with `withMapping`; a graph
   of your own describes at least each column's `name` and `type`.
 - A term's type, an IRI and a column's role beyond the key are absent until the catalog or the
@@ -215,7 +215,7 @@ and absent where nothing labels it".
 - A column named `id`, `uri` or `iri` is no longer an identifier because of its name, and a text of
   more than 50 values is no longer one because of its count. Declare a key in the shape, or in the
   joins you hand the provider.
-- `useFieldStats` takes the relation as `ChartRoot` does, reads a counted corpus's facts, and runs one
+- `useFieldStats` takes the relation as `ChartRoot` does, reads a counted graph's facts, and runs one
   `SUMMARIZE` only for a relation nothing counted. `fieldStats` takes column descriptions;
   `SummarizeRow` is gone.
 - `answerRelationsOf`, `readAnswerRelations`, `AnswerField`, `AskInput.types` and

@@ -14,10 +14,12 @@ assertion.
 ## The scale limit is guarded, and raised only by measurement
 
 **The graph states the scale it has proven, guards the one limit it can compute, and promises nothing
-between them.** A vertex id is written into a `Float32Array` of link ends and into cosmos.gl as a
+between them.** The target is as large as possible but correct (the owner's, 15 October 2026), which is
+why the guard is written now at the proven limit, and why the limit is raised only with measurements
+in a real browser (1M and 5M rows) behind a principled id design, never on a promise. A vertex id is written into a `Float32Array` of link ends and into cosmos.gl as a
 float, which is exact up to 2²⁴ = 16,777,216 and rounds past it: a link's end silently attaches to a
 neighbouring vertex and the picture is wrong without an error. The page used to say so in a sentence;
-the tree had no comparison, no code and no test, so a corpus past the limit drew a wrong graph.
+the tree had no comparison, no code and no test, so a graph past the limit drew a wrong graph.
 
 | Tier | What | Where it is stated |
 | --- | --- | --- |
@@ -27,7 +29,7 @@ the tree had no comparison, no code and no test, so a corpus past the limit drew
 
 The guard is one comparison on the `JoinGraph`'s counts, in the store's load, because the limit is
 the canvas's and not the catalog reader's ([relations](/docs/design/relations)). It runs before any
-buffer is allocated, so a refused corpus costs a catalog read and nothing else. The package's
+buffer is allocated, so a refused graph costs a catalog read and nothing else. The package's
 description and its page say the measured row and not "cosmos.gl on the GPU", which reads as a
 promise of millions.
 
@@ -39,7 +41,7 @@ still agree under it. Either is argued here before it is built. The limit moves 
 below has been run at the size it claims.
 
 **The plan, to run in a real browser with a GPU, not SwiftShader** (the grid's measurement says why: a
-software rasteriser never reached a first frame at 200,000). The corpus is generated in DuckDB itself
+software rasteriser never reached a first frame at 200,000). The graph is generated in DuckDB itself
 with the catalog relations the reader expects, because fossil's executor panics in DataFusion's
 memory pool at a million ([benchmarks](/docs/graph/benchmarks#build-the-corpora-first)); the figures
 are written beside the claim, one run is a rumour, and the criteria are fixed before the runs.
@@ -53,7 +55,7 @@ are written beside the claim, one run is a rumour, and the criteria are fixed be
 | A tab hidden during the load | 200,000 | the load finishes without the tab being shown |
 
 `measureLoad` and `measureGreyout` join `measureViewer` in `graph-bench`, and the unit tests keep a
-corpus above 20 vertices: one of 100,000 through the real reader and a node DuckDB, so the `float64`
+graph above 20 vertices: one of 100,000 through the real reader and a node DuckDB, so the `float64`
 to `Float32` conversion and the `ORDER BY key` plan are exercised, and the guard is tested with a
 catalog whose counts say 2²⁴ + 1 without building the rows. *Not yet held:* all of it.
 
@@ -83,7 +85,7 @@ store holds the geometry, the encoding and the last arrangement.
 - **Every read takes the load's `AbortSignal`.** The store owns one `AbortController` per load,
   aborted when `from` or `engine` changes, when the root unmounts and when a new load starts. The
   engine interrupts the statement ([the engine](/docs/design/engine#aborting-interrupts-the-statement)),
-  so a 1,000,000-row read for a corpus the reader has left does not hold the one connection against
+  so a 1,000,000-row read for a graph the reader has left does not hold the one connection against
   the next one. An engine that cannot interrupt refuses the signal at the call (`engine/cannot-cancel`),
   and the graph does not catch it.
 - **`retry()` is a command of the api**, beside `reveal` and `frame`. It re-runs the load from the stage
@@ -139,7 +141,7 @@ measured it.
   ends; the form `clauseSemiJoin` already takes for a rule's findings. No id crosses the boundary, and the
   chip reads the same.
 - **A set only the canvas knows — a marquee or a lasso, which are screen geometry over positions the
-  corpus does not carry — is a literal list up to `K` ids and a table above it.** Above `K` the ids are
+  graph does not carry — is a literal list up to `K` ids and a table above it.** Above `K` the ids are
   written once into a relation the engine holds, named by the clause's source, and the clause is
   `key IN (SELECT id FROM <that relation>)`. The relation is disposed when the clause is retracted,
   replaced or its holder unmounts (the kernel's dispose convention), so a pick never outlives the
@@ -163,7 +165,9 @@ text, and one that a pick above `K` publishes a table clause and drops the table
 
 ## The canvas is operable without a pointer and readable without sight
 
-**WCAG 2.2 level AA is a commitment for the canvas, and it is claimed only after it has been audited.**
+**WCAG 2.2 level AA is a commitment for the canvas, as it is for the charts (the owner's decision, 15
+October 2026), and it is claimed only after it has been audited.** A criterion the audit finds failed
+blocks the release of `@kanzo-tech/graph`.
 Until the audit's results are written below, the page says *committed, not audited*, and a host that
 needs to claim conformance runs its own. The canvas was a `div` with `aria-busy` and `data-frame`: no
 role, no name, no focus, no key handler, no `prefers-reduced-motion`. What worked for a keyboard was
@@ -172,7 +176,7 @@ a vertex but cannot walk a neighbourhood, pan, zoom or select from the canvas.
 
 **It is one focusable composite widget with the vertex focus as its cursor.** The surface is
 `role="application"` with `aria-roledescription` from `translations`, a name from `translations`
-(*Graph*, replaced by the host with the corpus's name), and `aria-describedby` on a visually hidden
+(*Graph*, replaced by the host with the graph's name), and `aria-describedby` on a visually hidden
 summary: how many vertices and edges are drawn, how many the filters keep, which tool is active and
 which vertex is focused. `role="application"` switches a screen reader to pass keys through, which is
 right only because the widget handles its own; `graphics-document`, from WAI-ARIA Graphics, is the

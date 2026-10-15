@@ -64,7 +64,7 @@ time.
 **There is one way to run a statement: `Engine.query`. The Mosaic `Coordinator` is inside the engine,
 as its cache and consolidator, and no host holds one.** Before, `ai` held an `Engine` and `graph` and
 `analytics` held a `Coordinator`, and a host had to build both and keep them paired
-(keasy's `Corpus = { name, attachment, engine }` carried the pair). The two doors had two caches, two
+(keasy's `Graph = { name, attachment, engine }` carried the pair). The two doors had two caches, two
 result decoders and two cancellation semantics, and the same SQL could be cached twice or read twice.
 
 The engine now holds the coordinator privately and `GraphRoot`, `MosaicProvider` and `useGraph` take
@@ -145,7 +145,7 @@ an unclassified error, and `engine()` kept handing out the corpse until reload.
 - **`memory_limit` is set at boot**, below the WebAssembly ceiling, as a constant; DuckDB then spills
   or refuses with its own out-of-memory error, which the engine classifies as `engine/lost` with
   `reason: "memory"` when the worker goes with it and as `engine/failed` when it does not. The figure
-  is chosen from the peak heap measured on the graph benchmark at the largest corpus there is
+  is chosen from the peak heap measured on the graph benchmark at the largest graph there is
   (200,000 vertices), which has not been run.
 - **Disposal.** The engine is `AsyncDisposable`: `await using` or `[Symbol.asyncDispose]` terminates
   the worker and clears the slot. A page that needs 36 MB of module and a worker back can have them.
@@ -252,18 +252,32 @@ gone from it; a signal aborted before the call rejects without sending; a signal
 long statement rejects with `signal.reason` and leaves the connection answering a trivial one within
 200 ms; and a `cancels: false` engine refuses a signal.
 
+The kit asserts what the engine does and nothing about how a result is printed; the same holds for a
+mapping read through it, which a test compares by what it does (its canonical form, or the same triples
+on the same data) and never by bytes ([testing](/docs/design/testing#a-test-reads-from-one-real-engine-and-a-models-test-replays-a-recording)).
+
 The repository had six hand-built doubles: graph's (with a hand-written copy of fossil's catalog
 tables), ai's, mosaic's mocks, graphar's on native `@duckdb/node-api`, keasy's `DESCRIBING` cast
 through `unknown`, and rudof's JS script. Only fossil's interrupts. graph's catalog fixture passed
 while production changed, because fossil had deleted the format it copied.
 
-**One double replaces the ui ones: a blocking Node DuckDB-WASM with the interrupt loop fossil's
-double has, exported by `@kanzo-tech/testing`.** graph, ai and the engine's own tests use it, and
-graph's catalog comes from the real attacher over a vendored GraphAr fixture, so the catalog a test
-reads is the one a host's attach produces. graphar keeps its native double (it must not depend on
-kanzo) and runs the same kit against it, which is what makes the two doubles one contract. The
-DuckDB version the double runs is stated once, beside the engine's pin: `1.33.1-dev57.0` is v1.5.4
-and graphar's dev dependency is `1.5.5-r.5`, two versions on one contract today.
+**The one engine a test reads from is the real one: DuckDB-WASM, in Node, exported by
+`@kanzo-tech/testing` with the interrupt loop fossil's double has.** graph, ai and the engine's own
+tests use it. There is no native DuckDB in ui's tests and no macro that imitates `parquet_metadata`:
+DuckDB-WASM opens real Parquet, ZSTD included, in Node, offline, when no `XMLHttpRequest` global
+exists, and vitest's `jsdom` installs one that breaks the instance, which is the whole of the trap
+and a rule for the test files that open one ([testing](/docs/design/testing#a-test-reads-from-one-real-engine-and-a-models-test-replays-a-recording)).
+The fixtures are the Nobel, OpenFlights and SNB datasets written by fossil, so the catalog a test
+reads is the one a host's attach produces, and nothing hand-writes a copy of a format fossil may
+delete. graphar keeps its native double (it must not depend on kanzo) and runs the same kit against
+it, which is what makes the two doubles one contract. The DuckDB version the double runs is stated
+once, beside the engine's pin: `1.33.1-dev57.0` is v1.5.4 and graphar's dev dependency is
+`1.5.5-r.5`, two versions on one contract today.
+
+The boot above loads `parquet`, `httpfs` and `json` from the tarball, so a browser fetches nothing from
+`extensions.duckdb.org`. A test that installs a synchronous `XMLHttpRequest` (fossil's executor test
+does) makes the engine download both extensions instead, and so needs the network; ui's tests install
+none.
 
 **What would reverse it:** a conformance step that cannot be asserted against a double without a
 real browser (the interrupt). Then that step runs against the browser engine alone, in an end-to-end
@@ -281,7 +295,7 @@ test, and the double's interrupt is a documented model of it.
 ## Breaking, in the consumer's words
 
 - `GraphRoot`, `MosaicProvider` and `useGraph` take `engine`, not `coordinator`; build one with
-  `engine()` and pass it to all of them and to `ai`. `Corpus` no longer needs the pair.
+  `engine()` and pass it to all of them and to `ai`. `Graph` no longer needs the pair.
 - `import { engine } from "@kanzo-tech/mosaic/engine"`; the root of `@kanzo-tech/mosaic` is the
   `@uwdata` door and no longer exports `engine`.
 - `Table` and `Vector` come from `@kanzo-tech/kernel`.

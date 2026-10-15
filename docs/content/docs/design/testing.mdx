@@ -1,6 +1,6 @@
 ---
 title: Testing a page built with Kanzo UI
-description: Why @kanzo-tech/testing ships a harness per component in Angular CDK's shape and with its names, reads ARIA before anything else, reaches a canvas's coordinates only through a hook a test installs, and registers the one model double as a provider in the registry every model is resolved through; and why Ask's evaluation set lives beside Ask — and what would reverse each rule.
+description: Why @kanzo-tech/testing ships a harness per component in Angular CDK's shape and with its names, reads ARIA before anything else, reaches a canvas's coordinates only through a hook a test installs, and registers the one model double as a provider in the registry every model is resolved through; why a test reads from one real engine and a model's test replays a recording; and why Ask's evaluation set lives beside Ask — and what would reverse each rule.
 ---
 
 `@kanzo-tech/testing` is how a host tests a page built with the library, in Playwright, and how the
@@ -295,6 +295,65 @@ model its app-config.json lists, in order, the first when no id is asked, with W
 on as written" and "is unserved when the listing is missing, lists nothing, or does not list the id
 asked".
 
+## A test reads from one real engine, and a model's test replays a recording
+
+*Status: to be built.* The tree has the macros and the doubles this section deletes; ui #220 removes
+the first.
+
+**Every test that needs a database runs on DuckDB-WASM in Node. There is no native DuckDB and no
+double that imitates one.** The belief that "this build of DuckDB-WASM cannot open a Parquet file in
+Node" was wrong, and the macros in `packages/graph`'s test fixture that stood in for
+`parquet_metadata` were written on it. The cause was the test environment: vitest's `jsdom`
+installs its own `XMLHttpRequest` on `globalThis`. DuckDB-WASM loads its `parquet` extension on the
+first statement that reads one, and if an `XMLHttpRequest` exists it tries a synchronous request for
+the extension; jsdom refuses a synchronous request that sets `responseType` with an
+`InvalidAccessError`, the exception escapes through the engine's frames, and the instance is broken
+for the rest of the file. With no `XMLHttpRequest` the extension is already present, nothing is
+fetched, and Parquet with ZSTD opens offline, from a registered buffer or a file path. Measured on
+`1.33.1-dev57.0` (the engine's pin) and on fossil's `1.32.0`, in the `mvp` and `eh` bundles.
+
+The rule: **a file that opens a Parquet file declares `// @vitest-environment node`, or removes the
+`XMLHttpRequest` global before its first Parquet statement.** The tests of `graph` that need
+`jsdom` for a canvas keep it in their own files and do not touch an engine. The page's code stays as
+it is: a browser has no synchronous-XHR trap, and the boot loads its extensions from the tarball
+([the engine](/docs/design/engine#the-engines-own-surface-files-and-boot)).
+
+**Fixtures are the datasets, written by fossil, and nothing is hand-footed.** Three are canonical:
+the Nobel laureates, OpenFlights (the airports) and LDBC SNB. Each is `mapping.fossil`, `shapes.shex`
+and a `fetch.sh` in keasy's `infra/dev/examples/`, written to a graph by fossil's executor; the docs'
+archive and Ask's evaluation set already run on the same programs. Cordis stays a demo and is not a
+fixture. A test that needs a chunk with a property of its own (a footer key, a row-group statistic)
+writes it in-process with `COPY … (FORMAT parquet, COMPRESSION zstd, KV_METADATA {…})` on the same
+engine, and `parquet_kv_metadata` reads the key back, so the footer a reader parses is DuckDB's own.
+
+**The one exception is the integration test of fossil's executor**, which installs a synchronous
+`XMLHttpRequest` and so downloads `httpfs` and `parquet` from `extensions.duckdb.org`: it needs the
+network at test time, and says so. Not run here: ui's `attachGraph` and SQL against these files,
+and `jsdom` 25 (only 29 was tried).
+
+**What would reverse it:** a DuckDB-WASM release that no longer loads an extension through
+`XMLHttpRequest`, which removes the node-environment rule and nothing else; or a fixture too large to
+write in a test run, which becomes a written graph fetched once in CI.
+
+**A model's test replays a recording; the model's quality is measured live, once, by hand.** A
+recording (a cassette) is a `ModelScript` that a recorder wrote instead of a person: one entry per
+call, **keyed by the model's digest, its parameters and the hash of the prompt**. CI replays it
+through the registry the double already uses, so the code under test cannot tell the two apart.
+**A call whose key is not in the cassette fails the test, loudly, naming the prompt hash it saw and
+the nearest it holds**: a changed prompt never reaches a model silently and never gets a stale
+answer. A cassette is re-recorded on a machine with a GPU, with a **seed**, and the seed is stored in
+it. The evaluation set below is not replayed: it measures the model, so it runs live and seeded, and
+its results line carries the seed.
+
+**A mapping is compared by what it does.** A test of a `Mapping` (rudof's, `describe`'s, the
+attacher's) compares canonical forms or asks that the same data yields the same triples, and never
+compares the bytes of a serialisation: two writers print one mapping in many orders. This is the rule
+a mapping's reader gets for its own tests.
+
+**What would reverse the replay:** a model that cannot be seeded, which leaves a recording a
+snapshot of one draw and no more; the cassette then holds the evidence of a run and nothing is
+asserted from its content. Nothing is held by a test yet: none of this exists.
+
 ## Ask's evaluation set lives beside Ask
 
 **The evaluation set that scores Ask is `packages/ai/eval`, beside the Task it measures and outside
@@ -309,10 +368,10 @@ library's own Ask through the harnesses a host uses, and waits on states. Decide
 | | |
 | --- | --- |
 | **Cases** | `packages/ai/eval/cases.ts`, data: 25 on Nobel for nearly every shape of question, 11 on LDBC SNB for self-joins and a large graph. Each says the failure it tests. The two that were ties asked back are answers now, by the path the model writes, the other on the chip ([Tasks](/docs/design/tasks#two-paths-of-one-length-are-the-models-with-the-other-on-the-chip)) |
-| **Corpora** | written by fossil's executor in Node through `docs/scripts/write-corpus.mjs`, as the docs' archive is: `pnpm --filter @kanzo-tech/ai eval:corpus` runs each `corpora/<name>/fetch.sh` (the data, pinned by digest) and then its `program.fossil` into `docs/public/corpus/<name>`. Data and corpus are `.gitignore`d. The set carries its own copy of the two programs, shapes and fetch scripts, read from the files beside them rather than through keasy's connections; keasy keeps its own as seed data — each repository owns what it runs |
-| **Page** | `/fixtures/ask-eval`, a page nobody reads, as `/fixtures/chat-frame` is: the corpus attached by name, a `Dashboard` and its `FilterBar` over the case's relation, and `Chat` over `useAskChat` with `AnswerCard`, under the page's one selection. The model is `localModel` in a worker, Qwen3 4B unless `EVAL_MODEL` names another; no offers and no chips, which a case does not score and a model would be slower for |
+| **Graphs** | written by fossil's executor in Node through `docs/scripts/write-corpus.mjs`, as the docs' archive is: `pnpm --filter @kanzo-tech/ai eval:corpus` runs each `corpora/<name>/fetch.sh` (the data, pinned by digest) and then its `program.fossil` into `docs/public/corpus/<name>`. Data and the written graphs are `.gitignore`d. The set carries its own copy of the two programs, shapes and fetch scripts, read from the files beside them rather than through keasy's connections; keasy keeps its own as seed data — each repository owns what it runs |
+| **Page** | `/fixtures/ask-eval`, a page nobody reads, as `/fixtures/chat-frame` is: the graph attached by name, a `Dashboard` and its `FilterBar` over the case's relation, and `Chat` over `useAskChat` with `AnswerCard`, under the page's one selection. The model is `localModel` in a worker, Qwen3 4B unless `EVAL_MODEL` names another; no offers and no chips, which a case does not score and a model would be slower for |
 | **Runner** | `ask.eval.ts`, a Vitest project (`vitest.eval.config.ts`) beside `@kanzo-tech/testing`'s end-to-end one: `playwright-core`'s Chromium with WebGPU, `DashboardHarness`, `FilterBarHarness`, `ChartHarness.pick` for the filter, `AnswerHarness` for the card and its rows, and one harness of its own for a turn that ends in words, which draws no card to wait on. `expect.poll` and `until`, no fixed wait |
-| **Model** | the real one, on the machine's GPU through WebGPU — live, never replayed, never the double: what is measured is the model. The browser profile is kept in `eval/.cache/`, so the weights are downloaded once |
+| **Model** | the real one, on the machine's GPU through WebGPU — live and seeded, never replayed, never the double: what is measured is the model. The browser profile is kept in `eval/.cache/`, so the weights are downloaded once |
 | **Results** | one line per case in `packages/ai/eval/results/<model>/ask.jsonl`, `.gitignore`d; a case that fails is a result, and the run fails only when it cannot ask |
 | **When** | by hand, `pnpm --filter @kanzo-tech/ai eval` with the docs running, before a change to Ask or to the model; never in `pnpm verify` and never on CI, which has no GPU. `EVAL_DOUBLE=1` is the smoke run: five cases on the one model double, answering with the specs a right answer is, to show the runner, the page and the scoring work on a machine with no GPU. It scores nothing |
 
