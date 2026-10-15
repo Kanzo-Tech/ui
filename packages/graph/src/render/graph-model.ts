@@ -115,7 +115,8 @@ export function forces(sim: Sim): GraphConfig {
 export function appearance(look: Look, host: Element, palette: readonly Rgb[] = []): GraphConfig {
   // Cleared transparent, as Cosmograph keeps cosmos.gl's canvas: the element paints the background, so
   // the grid can lie between it and the points. The RGB stays because the greyout reads it to dim
-  // towards the page, darker on a dark one and lighter on a light one.
+  // towards the page, darker on a dark one and lighter on a light one; `premultiplyClear` is what
+  // keeps the cleared pixel a colour (`webgl.ts`).
   const [r, g, b] = resolveToken(host, "var(--background)");
   return {
     backgroundColor: [r, g, b, 0],
