@@ -237,8 +237,7 @@ retry after it".
 ## Failures
 
 ```ts
-import { isProblem } from "@kanzo-tech/kernel";
-
+// isProblem, from @kanzo-tech/kernel
 isProblem(error, "llm/unavailable"); // data.reason: "webgpu" (the browser has none) or "unserved" (the page serves no such model)
 isProblem(error, "llm/truncated");   // data.reason: "context" (the answer did not fit)
 ```

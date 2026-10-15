@@ -458,7 +458,7 @@ DuckDB-WASM's memory — is on [Tasks](/docs/design/tasks#a-filter-off-the-shown
 `{ op: "count", path: "affiliation" }` — and then counts the distinct rows at that path's end: a
 `count(DISTINCT …)` of the key of the step the path reaches, which `JoinResolver.steps` names, so the
 measure goes through the same door as every other path. The path must lie on the shown relation, as
-every shown path must; a path off it is a `join/branches` miss, said before anything runs. `count`
+every shown path must; a path off it is a `relations/invalid` miss, said before anything runs. `count`
 with no path keeps its meaning, the measured type's.
 
 **What would reverse it:** readers reading a bare `count` across a hop as the joined rows, often

@@ -144,8 +144,8 @@ its own enum of paths under `$defs` — the same discriminated `anyOf` the schem
 answer about another. The object is there because a tool's input schema must be one: Anthropic's and
 OpenAI's APIs refuse a root `anyOf`, and the branches were once the root. The model writes
 `{ spec }`; the schema's `validate` hands the Task the spec, so nothing downstream sees the wrapper. A provider that does not
-constrain is checked by `JoinResolver.relation` and `field`, whose misses — `join/no-step`,
-`join/no-field`, `join/branches` — are diagnostics at the field's pointer, sent back for a repair.
+constrain is checked by `JoinResolver.relation` and `field`, whose misses — `relations/no-step`,
+`relations/unmatched`, `relations/invalid` — are diagnostics at the field's pointer, sent back for a repair.
 A count may name a path too, `{ op: "count", path: "affiliation" }`, from the steps the enum's paths
 pass through ([Analytics](/docs/design/analytics#count-counts-the-measured-type)).
 
@@ -234,7 +234,7 @@ branch, which is no longer a filter: it is a second shown path.
 
 **Two shown paths must be one path.** The relation an answer shows is one path — what a tile is keyed
 by, what a clause is published on, what `relationQuery` compiles. Paths that diverge
-(`x: category.name`, `color: university.name`) are a `join/branches` miss, said before anything runs.
+(`x: category.name`, `color: university.name`) are a `relations/invalid` miss, said before anything runs.
 
 **What would reverse it:** a condition whose meaning needs the branch row and the shown row to be one
 row — *awards by university where that university's laureate is a woman* — which a semi-join on the
