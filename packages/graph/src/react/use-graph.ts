@@ -14,6 +14,8 @@ export type UseGraphProps = GraphOptions;
  * vertex was hovered.
  */
 export interface GraphApi extends GraphCommands {
+  /** Run the failed read again, from the stage that failed. A no-op unless the graph is `failed` because of a read. */
+  retry(): void;
   setFocus(vertex: VertexId | null): void;
   setTool(tool: Tool): void;
   subscribe(listener: () => void): () => void;
@@ -92,6 +94,7 @@ function build(store: GraphStore): GraphApi {
       store.select(null);
       store.focus(null);
     },
+    retry: () => store.retry(),
     setFocus: (vertex) => store.focus(vertex),
     setTool: (tool) => store.setTool(tool),
     subscribe: (listener) => store.subscribe(listener),
@@ -103,12 +106,21 @@ function build(store: GraphStore): GraphApi {
     attach(host, events) {
       store.renderable();
       let mounted: Renderer | null = null;
-      try {
-        mounted = createRenderer(host, store, events);
-      } catch (error) {
-        store.unrenderable(error);
-      }
-      renderer = mounted;
+      // A restored context is a new renderer over what the store holds, as a canvas that comes back is.
+      const mount = (): void => {
+        try {
+          mounted = createRenderer(host, store, { ...events, onRestore: remount });
+        } catch (error) {
+          mounted = null;
+          store.unrenderable(error);
+        }
+        renderer = mounted;
+      };
+      const remount = (): void => {
+        mounted?.destroy();
+        mount();
+      };
+      mount();
       return () => {
         mounted?.destroy();
         if (renderer === mounted) renderer = null;

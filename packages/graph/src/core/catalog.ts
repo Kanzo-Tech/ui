@@ -15,7 +15,7 @@ import type { Column, EdgeTable, PropertyTable, Structure, VertexTable } from ".
  * Five statements, each through the page's coordinator and its cache, so the canvas and a join graph
  * built on one page read the catalog once.
  */
-export async function readCatalog(coordinator: Coordinator, from: string): Promise<Structure> {
+export async function readCatalog(coordinator: Coordinator, from: string, signal?: AbortSignal): Promise<Structure> {
   const [tables, columns, stats, annotations, engine] = await Promise.all([
     ask(
       coordinator,
@@ -25,6 +25,7 @@ export async function readCatalog(coordinator: Coordinator, from: string): Promi
       })
         .from(relation(from, "fossil_tables"))
         .orderby(asc("first_id", false), "table_name"),
+      signal,
     ),
     ask(
       coordinator,
@@ -33,6 +34,7 @@ export async function readCatalog(coordinator: Coordinator, from: string): Promi
       })
         .from(relation(from, "fossil_columns"))
         .orderby("table_name", "ordinal_position"),
+      signal,
     ),
     ask(
       coordinator,
@@ -40,16 +42,19 @@ export async function readCatalog(coordinator: Coordinator, from: string): Promi
         null_count: float64("null_count"),
         distinct_count: float64("distinct_count"),
       }).from(relation(from, "fossil_stats")),
+      signal,
     ),
     ask(
       coordinator,
       Query.select("table_name", "column_name", "predicate", "o_type", "o_value", "o_datatype", "o_lang").from(relation(from, "fossil_annotations")),
+      signal,
     ),
     ask(
       coordinator,
       Query.select("table_name", "column_name", { data_type: cast("data_type", "VARCHAR") })
         .from(sql`duckdb_columns()`)
         .where(and(eq("database_name", literal(from)), eq("schema_name", literal("main")))),
+      signal,
     ),
   ]);
 

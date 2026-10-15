@@ -3,6 +3,10 @@ import { Problem } from "@kanzo-tech/kernel";
 import type { View } from "../core/state";
 
 export const FIT_DURATION = 420;
+
+/** A glide of `ms`, or none under `prefers-reduced-motion: reduce` (SC 2.3.3): the camera jumps. */
+export const glide = (ms: number): number =>
+  typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : ms;
 const FIT_PADDING = 0.18;
 /** How often a running layout re-frames the camera, and how long each re-frame glides. */
 const FOLLOW_EVERY = 900;
@@ -104,7 +108,7 @@ export function createCamera(
     },
     fit() {
       framing = true;
-      fitNow(FIT_DURATION);
+      fitNow(glide(FIT_DURATION));
     },
     restore({ center, zoom }) {
       corners = null;
@@ -133,12 +137,12 @@ export function createCamera(
     tick() {
       const now = performance.now();
       if (!following || now - followed < wait) return;
-      fitPoints(FOLLOW_DURATION);
+      fitPoints(glide(FOLLOW_DURATION));
       followed = performance.now();
       wait = Math.max(FOLLOW_EVERY, (followed - now) * FOLLOW_SHARE);
     },
     settle() {
-      if (following) fitPoints(FIT_DURATION);
+      if (following) fitPoints(glide(FIT_DURATION));
       following = false;
     },
     destroy() {
