@@ -238,12 +238,16 @@ retry after it".
 
 ```ts
 class LlmError extends Error {
-  code: "llm/unavailable";
-  data: { reason?: string };   // "webgpu": the browser has none; "unserved": the page serves no such model
+  code: "llm/unavailable" | "llm/truncated";
+  data: { reason?: string };   // "webgpu": the browser has none; "unserved": the page serves no such model; "context": the answer did not fit
 }
 ```
 
-The one failure this package names: the model cannot answer here. A host branches on `error.code`,
+The failures this package names: the model cannot answer here (`llm/unavailable`), and a structured
+answer — a schema or a grammar — that the model's context cut off (`llm/truncated`, `reason`
+`"context"`), since half a document is not one. A generation stopped from outside, by the caller's
+signal or by `Chat`'s stop, rejects as an `AbortError`, never as text; one asked for as text and cut
+off by the context is returned with the finish `length`. A host branches on `error.code`,
 and [`Chat`](/docs/ai/chat) draws the code with the message. Anything else a model throws reaches the
 caller as it was thrown.
 

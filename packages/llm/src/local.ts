@@ -167,7 +167,7 @@ interface Engine {
     completions: {
       create(request: {
         messages: { role: "system" | "user" | "assistant"; content: string }[];
-        response_format: { type: "grammar"; grammar: string };
+        response_format: { type: "grammar"; grammar: string } | { type: "json_object"; schema: string };
         max_tokens?: number;
         temperature?: number;
         stream: false;
@@ -199,7 +199,7 @@ async function generateHeld(provider: unknown, grammar: string, options: Languag
     const output = response.usage?.completion_tokens;
     return {
       content: [{ type: "text", text: choice?.message.content ?? "" }],
-      finishReason: { unified: choice?.finish_reason === "length" ? "length" : "stop", raw: choice?.finish_reason ?? undefined },
+      finishReason: { unified: choice?.finish_reason === "length" ? "length" : choice?.finish_reason === "abort" ? "other" : "stop", raw: choice?.finish_reason ?? undefined },
       usage: {
         inputTokens: { total: input, noCache: input, cacheRead: undefined, cacheWrite: undefined },
         outputTokens: { total: output, text: output, reasoning: undefined },
@@ -209,6 +209,109 @@ async function generateHeld(provider: unknown, grammar: string, options: Languag
   } finally {
     options.abortSignal?.removeEventListener("abort", stop);
   }
+}
+
+/**
+ * A span in the browser's Performance timeline, `kanzo:llm:<name>` — what the load, the warm-up and
+ * the first call really cost on this device, readable in Chrome's Performance panel (Timings). A
+ * page without the API loses the span and nothing else.
+ */
+function span(name: string, start: number, model: string) {
+  try {
+    globalThis.performance?.measure(`kanzo:llm:${name}`, { start, end: globalThis.performance.now(), detail: { model } });
+  } catch {
+    // A measurement is never worth a failed call.
+  }
+}
+const now = () => globalThis.performance?.now() ?? 0;
+
+/** A generation stopped from outside, as an aborted `fetch` rejects: nothing the model wrote is an answer. */
+const interrupted = () => new DOMException("The generation was interrupted", "AbortError");
+
+/**
+ * **One call at a time on an engine, and a call's interrupt only its own.** WebLLM's
+ * `interruptGenerate()` is the engine's, not a request's: it stops whichever generation is running.
+ * `@browser-ai/web-llm` registers it on a call's signal when the call is *made*, before it waits for
+ * the engine's lock, so aborting a call that was only waiting stopped the one running — mid-JSON, and
+ * the cut-off text was parsed. A call here waits for its turn first and is handed the engine only
+ * then; one aborted while it waits is dropped without the engine hearing of it. The turn is given
+ * back by the `release` it resolves with, once.
+ */
+function turns() {
+  let tail: Promise<void> = Promise.resolve();
+  return async (signal?: AbortSignal): Promise<() => void> => {
+    const before = tail;
+    let release!: () => void;
+    tail = new Promise<void>((resolve) => (release = resolve));
+    let stop!: () => void;
+    const dropped = new Promise<"dropped">((resolve) => (stop = () => resolve("dropped")));
+    if (signal?.aborted) stop();
+    else signal?.addEventListener("abort", stop, { once: true });
+    const first = await Promise.race([before.then(() => "turn" as const), dropped]);
+    signal?.removeEventListener("abort", stop);
+    if (first === "dropped") {
+      // The slot stays taken until the call ahead is done, so the calls behind keep their order.
+      void before.then(release);
+      throw interrupted();
+    }
+    let given = false;
+    return () => {
+      if (given) return;
+      given = true;
+      release();
+    };
+  };
+}
+
+/**
+ * **The one choke point of a finish.** `@browser-ai/web-llm` reports a generation cut off by the
+ * context as a finished one (`length` becomes `stop`) and one interrupted as `other`; here neither
+ * passes as an answer. An interrupted generation rejects as an `AbortError`. One cut off by the
+ * context, where a structured answer was asked for — a JSON Schema or a grammar — rejects as
+ * `llm/truncated`, since half a document is not a document; asked for text, it is returned with the
+ * finish `length`, which a reader of text can see.
+ */
+function honest(result: LanguageModelV4GenerateResult, options: LanguageModelV4CallOptions): LanguageModelV4GenerateResult {
+  const raw = result.finishReason.raw;
+  if (raw === "abort") throw interrupted();
+  if (raw !== "length") return result;
+  if (options.responseFormat?.type === "json" || (options.providerOptions?.kanzo as LocalCallOptions | undefined)?.grammar) {
+    throw new LlmError("llm/truncated", "The answer did not fit the model's context", { reason: "context" });
+  }
+  return { ...result, finishReason: { unified: "length", raw } };
+}
+
+/** A stream held to its turn: the turn is given back when it ends, fails or is cancelled, and a generation interrupted ends it as an `AbortError`. */
+function turnStream<T extends { type: string }>(source: ReadableStream<T>, release: () => void, firstToken?: () => void): ReadableStream<T> {
+  const reader = source.getReader();
+  let first = firstToken;
+  return new ReadableStream<T>({
+    async pull(controller) {
+      try {
+        const { done, value } = await reader.read();
+        if (done) {
+          release();
+          controller.close();
+        } else if (value.type === "finish" && (value as { finishReason?: { raw?: string } }).finishReason?.raw === "abort") {
+          release();
+          controller.error(interrupted());
+        } else {
+          if (value.type === "text-delta" && first) {
+            first();
+            first = undefined;
+          }
+          controller.enqueue(value);
+        }
+      } catch (error) {
+        release();
+        controller.error(error);
+      }
+    },
+    cancel(reason) {
+      release();
+      return reader.cancel(reason);
+    },
+  });
 }
 
 /**
@@ -230,23 +333,88 @@ function webLLMEngine(id: string, appConfig: AppConfig, worker: Worker | undefin
     appConfig,
     initProgressCallback: (progress: WebLLMProgress) => report({ state: "loading", progress: progress.progress, text: progress.text }),
   });
+  const turn = turns();
+  /** The first call after the load is timed, from the asking to its first token (to its result, when asked whole). */
+  let firstCall = true;
+  const timed = (): { done(): void } | undefined => {
+    if (!firstCall) return undefined;
+    firstCall = false;
+    const start = now();
+    return { done: () => span("first-call", start, id) };
+  };
   const model = wrapLanguageModel({
     model: provider,
     middleware: [
       {
         specificationVersion: "v4",
-        wrapGenerate: ({ doGenerate, params }) => {
+        wrapGenerate: async ({ doGenerate, params }) => {
           persist();
-          const grammar = (params.providerOptions?.kanzo as LocalCallOptions | undefined)?.grammar;
-          return grammar ? generateHeld(provider, grammar, params) : doGenerate();
+          const first = timed();
+          const release = await turn(params.abortSignal);
+          try {
+            const grammar = (params.providerOptions?.kanzo as LocalCallOptions | undefined)?.grammar;
+            const result = honest(grammar ? await generateHeld(provider, grammar, params) : await doGenerate(), params);
+            first?.done();
+            return result;
+          } finally {
+            release();
+          }
         },
-        wrapStream: ({ doStream }) => (persist(), doStream()),
+        wrapStream: async ({ doStream, params }) => {
+          persist();
+          const first = timed();
+          const release = await turn(params.abortSignal);
+          try {
+            const result = await doStream();
+            return { ...result, stream: turnStream(result.stream, release, first?.done) };
+          } catch (error) {
+            release();
+            throw error;
+          }
+        },
       },
       // A model that thinks out loud (Qwen3, DeepSeek) does it between <think> tags.
       extractReasoningMiddleware({ tagName: "think" }),
     ],
   }) as LanguageModelV4;
-  return { model, load: () => (persist(), provider.createSessionWithProgress().then(() => undefined)) };
+  /**
+   * A warm-up, by analogy and by reading the code, not by a measurement: model servers run one
+   * before serving (llama.cpp does by default), and in WebLLM XGrammar's token table is built on the
+   * first structured request and the GPU's pipelines run for the first time on the first generation.
+   * So the load ends with one generation of two tokens under a trivial schema, in its turn. A warm-up
+   * that fails changes nothing: the next call pays what it would have. `kanzo:llm:*` spans say
+   * whether it was worth it (`/docs/design/failure#a-load-ends-warm`).
+   */
+  const warm = async () => {
+    const start = now();
+    const release = await turn();
+    try {
+      const engine = await (provider as unknown as { getEngine(): Promise<Engine> }).getEngine();
+      await engine.chat.completions.create({
+        messages: [{ role: "user", content: "{}" }],
+        response_format: { type: "json_object", schema: JSON.stringify({ type: "object", properties: { ok: { type: "boolean" } }, required: ["ok"] }) },
+        max_tokens: 2,
+        temperature: 0,
+        stream: false,
+      });
+    } catch {
+      // Nothing to report: it was only practice.
+    } finally {
+      release();
+      span("warm-up", start, id);
+    }
+  };
+  return {
+    model,
+    load: async () => {
+      const start = now();
+      persist();
+      await provider.createSessionWithProgress();
+      span("load", start, id);
+      report({ state: "loading", progress: 1, text: "Warming up" });
+      await warm();
+    },
+  };
 }
 
 /*

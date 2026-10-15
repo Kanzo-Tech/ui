@@ -245,6 +245,8 @@ const stepsAmong = (paths: readonly string[]) =>
  * **The schema a spec is written in: one branch per type the linker offers**, each `of` a constant
  * beside its own enum of paths — `$defs` per type, which every place a field goes refers to — so a
  * provider that decodes against it cannot write a path from one type on an answer about another.
+ * The branches are the `spec` of an object, not the schema's root: a tool's input schema must be an
+ * object, and Anthropic's and OpenAI's APIs refuse a root `anyOf`. `askOutput` takes the spec back out.
  */
 export function askSchema(context: AskContext, graph: JoinGraph): JSONSchema7 {
   const resolver = resolverOf(graph);
@@ -317,8 +319,17 @@ export function askSchema(context: AskContext, graph: JoinGraph): JSONSchema7 {
       ["of", "show"],
     );
   });
-  return { ...(branches.length === 1 ? branches[0]! : { anyOf: branches }), $defs };
+  return { ...object({ spec: branches.length === 1 ? branches[0]! : { anyOf: branches } }, ["spec"]), $defs };
 }
+
+/** `askSchema` as the Task's output: the model writes `{ spec }`, and the Task reads the spec. */
+const askOutput = (schema: JSONSchema7) =>
+  jsonSchema<AskSpec>(schema, {
+    validate: (value) =>
+      typeof value === "object" && value !== null && "spec" in value
+        ? { success: true, value: value.spec as AskSpec }
+        : { success: false, error: new TypeError("An answer is { spec }: the spec of one dashboard tile.") },
+  });
 
 /** The Ask Task: the question's types linked, the spec asked for, its paths resolved and its tile compiled. */
 export const ask = defineTask<AskInput, AskSpec, AskContext>({
@@ -351,7 +362,7 @@ export const ask = defineTask<AskInput, AskSpec, AskContext>({
       .filter(Boolean)
       .join("\n");
   },
-  output: (input, context) => jsonSchema<AskSpec>(askSchema(context, input.graph)),
+  output: (input, context) => askOutput(askSchema(context, input.graph)),
   target: (input) => (input.previous ? { set: "" } : { add: "/answers" }),
   verify: [joins, compiles],
 });

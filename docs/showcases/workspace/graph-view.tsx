@@ -1079,10 +1079,10 @@ function match(question: string): Intent | null {
 const recording = scriptedModel({
   turns: (call) => {
     const prompt = promptOf(call);
-    if (/^Offer \d+/m.test(prompt)) return { object: { elements: INTENTS.map((intent) => intent.spec) } };
+    if (/^Offer \d+/m.test(prompt)) return { object: { elements: INTENTS.map((intent) => ({ spec: intent.spec })) } };
     const intent = match(/^Question: (.*)$/m.exec(prompt)?.[1] ?? "");
     if (!intent) return { fail: "That one is outside what this recording knows. Try one of the questions it starts with." };
-    return { object: intent.spec };
+    return { object: { spec: intent.spec } };
   },
 });
 

@@ -1,8 +1,10 @@
 import { relationKey, type JoinGraph } from "@kanzo-tech/mosaic";
 import { describe, expect, it } from "vitest";
+import type { LanguageModel } from "ai";
 import { runTask } from "../task/index.js";
+import { askOffers } from "./ask-chat.js";
 import { ask, askAlternatives, askAnswer, askSchema, link, type AskInput, type AskSpec } from "./ask.js";
-import { NOBEL, answering } from "../testing/nobel.js";
+import { NOBEL, answering, asking } from "../testing/nobel.js";
 
 const input = (question: string, extra: Partial<AskInput> = {}): AskInput => ({ question, graph: NOBEL, ...extra });
 
@@ -28,10 +30,10 @@ describe("link", () => {
 describe("the ask schema", () => {
   it("is one branch per type offered, each its own enum of paths from it", () => {
     const schema = askSchema(link(input("Which universities won the most prizes?")), NOBEL) as {
-      anyOf: { properties: { of: { const: string } } }[];
+      properties: { spec: { anyOf: { properties: { of: { const: string } } }[] } };
       $defs: Record<string, { enum: string[] }>;
     };
-    expect(schema.anyOf.map((b) => b.properties.of.const)).toEqual(["LaureateAward", "University", "Country"]);
+    expect(schema.properties.spec.anyOf.map((b) => b.properties.of.const)).toEqual(["LaureateAward", "University", "Country"]);
     expect(schema.$defs.f0!.enum).toEqual(expect.arrayContaining(["share", "university.name", "laureate.birthPlace.name", "university.addressCountry.name"]));
     // Back along the edge that leads from a university to its prizes, and on from them.
     expect(schema.$defs.f1!.enum).toEqual(expect.arrayContaining(["name", "^university.share", "^university.category.name"]));
@@ -41,32 +43,51 @@ describe("the ask schema", () => {
 });
 
 describe("the ask Task", () => {
+  it("hands the model an object at the schema's root, and reads the spec out of it", async () => {
+    // Anthropic's and OpenAI's tool inputs refuse a root `anyOf`: the branches are the `spec` property.
+    const context = link(input("Which universities won the most prizes?"));
+    const schema = askSchema(context, NOBEL);
+    expect(schema).toMatchObject({ type: "object", required: ["spec"], additionalProperties: false });
+    expect(schema).not.toHaveProperty("anyOf");
+    expect(schema).not.toHaveProperty("oneOf");
+    const one = askSchema(link(input("How many?", { graph: { ...NOBEL, types: NOBEL.types.slice(0, 1) } })), NOBEL);
+    expect(one).toMatchObject({ type: "object", required: ["spec"] });
+    const output = ask.output!(input("Which universities won the most prizes?"), context) as { jsonSchema: unknown; validate: (v: unknown) => Promise<unknown> | unknown };
+    expect(await output.validate({ spec: byUniversity })).toEqual({ success: true, value: byUniversity });
+    expect(await output.validate(byUniversity)).toMatchObject({ success: false });
+  });
+
   it("takes the relation from the paths the model wrote: prizes by university, under a chip on the prizes", async () => {
     const asked = input("Which universities won the most prizes?", { under: ["LaureateAward"] });
-    const proposal = await runTask(ask, asked, { model: answering(byUniversity), id: "a1" });
+    const proposal = await runTask(ask, asked, { model: asking(byUniversity), id: "a1" });
     expect(proposal.verdict).toEqual({ ok: true });
     const answer = askAnswer(proposal.value, asked, "a1")!;
     expect(relationKey(NOBEL, answer.relation)).toBe("LaureateAward>university>University");
     expect(answer.tile).toMatchObject({ id: "a1", kind: "chart", x: "university.name" });
   });
 
+  it("offers questions as the specs of the elements it is answered with", async () => {
+    const offers = await askOffers({ model: answering({ elements: [{ spec: byUniversity }] }) as LanguageModel, graph: NOBEL, count: 1 });
+    expect(offers.map((o) => o.value)).toEqual([byUniversity]);
+  });
+
   it("asks nothing when two paths reach one field: the model's path is the answer's", async () => {
     const byCountry: AskSpec = { of: "LaureateAward", show: { kind: "chart", type: "bar", x: "university.addressCountry.name", y: { op: "count" } } };
-    const proposal = await runTask(ask, input("Prizes by country?"), { model: answering(byCountry) });
+    const proposal = await runTask(ask, input("Prizes by country?"), { model: asking(byCountry) });
     expect(proposal.verdict).toEqual({ ok: true });
     expect(relationKey(NOBEL, askAnswer(proposal.value, input(""), "a2")!.relation)).toBe("LaureateAward>university>University>addressCountry>Country");
   });
 
   it("sends a path the graph does not have back, at its pointer, and takes the repair", async () => {
     const lost: AskSpec = { of: "LaureateAward", show: { kind: "chart", type: "bar", x: "University.name", y: { op: "count" } } };
-    const proposal = await runTask({ ...ask, attempts: 2 }, input("Prizes by university?"), { model: answering(lost, byUniversity) });
+    const proposal = await runTask({ ...ask, attempts: 2 }, input("Prizes by university?"), { model: asking(lost, byUniversity) });
     expect(proposal.attempts).toBe(2);
     expect(proposal.verdict).toEqual({ ok: true });
   });
 
   it("says what the joins refuse: no such step, no such field, two branches, a chip out of reach", async () => {
     const refusal = async (spec: AskSpec, extra: Partial<AskInput> = {}) => {
-      const proposal = await runTask({ ...ask, attempts: 1 }, input("", extra), { model: answering(spec) });
+      const proposal = await runTask({ ...ask, attempts: 1 }, input("", extra), { model: asking(spec) });
       return proposal.verdict.ok ? [] : "diagnostics" in proposal.verdict ? proposal.verdict.diagnostics.map((d) => [d.code, d.at]) : [];
     };
     const chart = (x: string, color?: string): AskSpec => ({ of: "LaureateAward", show: { kind: "chart", type: "bar", x, y: { op: "count" }, ...(color ? { color } : {}) } });
