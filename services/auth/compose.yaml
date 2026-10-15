@@ -138,6 +138,77 @@ services:
       keycloak:
         condition: service_healthy
 
+  # ── The session's edge ──────────────────────────────────────────────────────
+  # oauth2-proxy, an OIDC relying party in front of an application: it signs the person in with
+  # PKCE, keeps the session in auth-valkey behind an opaque cookie, renews the tokens, signs out at
+  # Keycloak, and hands the application the person (X-Forwarded-User, X-Forwarded-Email) and the
+  # access token (X-Forwarded-Access-Token). The application keeps no secret and no session.
+  #
+  # Nothing here names an application. One application per Compose project extends this service
+  # (as it extends auth-realm) with:
+  #   environment  OAUTH2_PROXY_CLIENT_ID     its client (declarations.tf `client_id`)
+  #                OAUTH2_PROXY_SCOPE         "openid email profile organization:* <its api>":
+  #                                           `organization:*` puts every organization the person
+  #                                           belongs to in the token (plain `organization` asks
+  #                                           them to pick one), and the api's scope puts it in
+  #                                           `aud`, so no exchange is needed
+  #                OAUTH2_PROXY_UPSTREAMS     the application, as the proxy reaches it
+  #                OAUTH2_PROXY_PROXY_PREFIX  where its callback lives (declarations.tf `callback`,
+  #                                           minus `/callback`)
+  #                OAUTH2_PROXY_WHITELIST_DOMAINS  its origins, for the redirect after sign-in
+  #   secrets      auth-proxy-client (its client secret) and auth-proxy-cookie (16, 24 or 32 bytes),
+  #                read as files: neither is ever in the environment
+  #   ports        where the browser reaches it
+  # The redirect URI is derived from the request's host, so one client serves every organization's
+  # host. A sign-out elsewhere at Keycloak ends the session here when its access token next needs
+  # renewing: within the realm's `access_token_lifespan` (realm.tf). /docs/design/auth.
+  auth-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:${OAUTH2_PROXY_VERSION:-v7.15.5}
+    environment:
+      OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:4180
+      OAUTH2_PROXY_PROVIDER: keycloak-oidc
+      # The issuer every token names is the browser's origin for Keycloak (KC_HOSTNAME); the proxy
+      # redeems, verifies and renews inside the network, so discovery, which would hand it the
+      # browser's URLs, is skipped and the endpoints are named.
+      OAUTH2_PROXY_OIDC_ISSUER_URL: ${KC_HOSTNAME:-http://localhost:8080}/realms/${KC_REALM:-kanzo}
+      OAUTH2_PROXY_SKIP_OIDC_DISCOVERY: "true"
+      OAUTH2_PROXY_LOGIN_URL: ${KC_HOSTNAME:-http://localhost:8080}/realms/${KC_REALM:-kanzo}/protocol/openid-connect/auth
+      OAUTH2_PROXY_REDEEM_URL: http://keycloak:8080/realms/${KC_REALM:-kanzo}/protocol/openid-connect/token
+      OAUTH2_PROXY_OIDC_JWKS_URL: http://keycloak:8080/realms/${KC_REALM:-kanzo}/protocol/openid-connect/certs
+      OAUTH2_PROXY_VALIDATE_URL: http://keycloak:8080/realms/${KC_REALM:-kanzo}/protocol/openid-connect/userinfo
+      OAUTH2_PROXY_BACKEND_LOGOUT_URL: http://keycloak:8080/realms/${KC_REALM:-kanzo}/protocol/openid-connect/logout?id_token_hint={id_token}
+      OAUTH2_PROXY_CODE_CHALLENGE_METHOD: S256
+      OAUTH2_PROXY_CLIENT_SECRET_FILE: /run/secrets/auth-proxy-client
+      OAUTH2_PROXY_COOKIE_SECRET_FILE: /run/secrets/auth-proxy-cookie
+      # A deployment is served over HTTPS behind its edge: the cookie is host-only and Secure.
+      OAUTH2_PROXY_COOKIE_NAME: __Host-session
+      OAUTH2_PROXY_COOKIE_SECURE: "true"
+      OAUTH2_PROXY_COOKIE_SAMESITE: lax
+      OAUTH2_PROXY_COOKIE_REFRESH: 1m
+      OAUTH2_PROXY_SESSION_STORE_TYPE: redis
+      OAUTH2_PROXY_REDIS_CONNECTION_URL: redis://auth-valkey:6379
+      OAUTH2_PROXY_EMAIL_DOMAINS: "*"
+      OAUTH2_PROXY_SKIP_PROVIDER_BUTTON: "true"
+      OAUTH2_PROXY_PASS_ACCESS_TOKEN: "true"
+      # Behind the deployment's edge, which terminates TLS and says so in X-Forwarded-*.
+      OAUTH2_PROXY_REVERSE_PROXY: "true"
+    depends_on:
+      auth-valkey:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # The sessions auth-proxy keeps. In memory: a restart signs everyone in again, which Keycloak's
+  # own session makes a redirect, not a form.
+  auth-valkey:
+    image: valkey/valkey:${VALKEY_VERSION:-8.1-alpine}
+    command: ["valkey-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
 volumes:
   kanzo-auth-db:
   kanzo-auth-tfstate:
