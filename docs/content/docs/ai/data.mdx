@@ -229,14 +229,20 @@ back, at its pointer, and takes the repair". `packages/ai/src/data/page-clauses.
 chip on another relation by the key both reach, as the page's tiles are crossed"; "keeps none of a
 relation's rows when it shares no type with the chip's".
 
-**A chat with Ask is kept as every chat is**: `useAskChat(options, { id, load, save, keep })` takes
-the chat hooks' `load`, `save` and `keep` ([A chat kept](/docs/ai/chat#a-chat-kept)). Its two data
+**A chat with Ask is kept as every chat is, and keeps structure only**: `useAskChat(options, { id, load, save })`
+takes the chat hooks' `load` and `save` ([A chat kept](/docs/ai/chat#a-chat-kept)). Its two data
 parts, `answer` and `ask`, are read through Ask's own schemas — as they stream and as a kept chat is
 loaded — each rebuilt from the fields it holds, its tile read by `parseTile` as a dashboard reads a
-stored tile; you do not pass `dataPartSchemas`. To keep no figure of the data, have `keep` write an
-answer's `rows` as `[]` and drop the assistant's text: the card draws the tile again over your graph
-when the chat is opened, with no rows under it. An answer with no `rows` at all is one still being
-read, which a restored chat draws as nothing.
+stored tile; you do not pass `dataPartSchemas`. `keep` defaults to `askKeep`, which cuts an answer's
+`rows` and `truncated` and leaves its spec, its tile and the clauses it was read under, so a stored
+chat holds what was asked and none of the data. When the chat is loaded each answer is read again on
+the page's engine, under the page's chips as they are then, and the card draws the rows it gets. The
+assistant's reply sentence is a text part and is kept as written: it names figures, so have `keep`
+drop it too where a figure must not be stored. A load whose read fails fails with what the engine threw. An answer with no
+`rows` at all is one still being read, which a stopped message draws as nothing.
+
+*Held by* `packages/ai/src/data/ask-chat.test.ts`, "keeps the structure of an answer and none of its
+rows, and reads them again when the chat is loaded".
 
 *Held by* `packages/ai/src/data/ask-parts.test.ts`, "reads back an answer and its turn as Ask wrote
 them, and nothing they do not hold"; "refuses an answer whose tile a dashboard would not read, or
