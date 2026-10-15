@@ -77,9 +77,7 @@ export function defaultThemePair(themes: readonly ThemeOption[]): Record<Appeara
  * it travels down the cascade as `--chart-capacity`, and past it `compile()` writes
  * `var(--muted-foreground)`.
  *
- * `packages/palette` declares the same number, because it is what emits the properties. Neither
- * copy is trusted: `boundary.test.ts` counts the declarations in the shipped `tokens.css` and
- * holds both against it.
+ * `token-color.test.ts` holds every theme that publishes a chart set to exactly this many.
  */
 export const CHART_SLOTS = 8;
 

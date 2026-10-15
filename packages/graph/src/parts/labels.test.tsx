@@ -89,7 +89,7 @@ describe("label levels over a large graph", () => {
 });
 
 describe("labels read what is kept", () => {
-  it("labels only what every clause keeps, the canvas's own pick included (/docs/design/crossfilter, divergence 8)", async () => {
+  it("labels only what every clause keeps, the canvas's own pick included (/docs/design/crossfilter#invariants)", async () => {
     const corpus = await attach();
     let store: ReturnType<typeof internalsOf>["store"] | null = null;
     function Store() {
